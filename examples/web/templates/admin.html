@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="{{.BasePath}}/assets/styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">go-admin demo</p>
+      <h1>{{.Title}}</h1>
+      <p class="lede">This page consumes the admin JSON APIs (dashboard, navigation, settings) and renders a minimal UI.</p>
+      <div class="cta-row">
+        <a class="button" href="{{.BasePath}}/health" target="_blank" rel="noreferrer">Health</a>
+        <a class="button ghost" href="{{.BasePath}}/api/dashboard" target="_blank" rel="noreferrer">Dashboard API</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <div class="card-header">
+        <h2>Navigation</h2>
+        <p class="muted">Loaded from the admin navigation endpoint.</p>
+      </div>
+      <ul id="nav-items" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Dashboard Widgets</h2>
+        <p class="muted">Resolved via the dashboard provider registry.</p>
+      </div>
+      <div id="widget-grid" class="grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Items Panel (CRUD)</h2>
+        <p class="muted">Backed by the in-memory panel in the example app. Create/delete and trigger the panel action.</p>
+      </div>
+      <form id="item-form" class="form-row">
+        <input id="item-name" type="text" placeholder="Name" required>
+        <button type="submit" class="button">Add</button>
+      </form>
+      <div id="items-list" class="list"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Settings Snapshot</h2>
+        <p class="muted">Values with provenance from the settings slice.</p>
+      </div>
+      <dl id="settings-list" class="settings"></dl>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Notifications</h2>
+        <p class="muted">Inbox from the notifications adapter.</p>
+      </div>
+      <ul id="notifications" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Search (typeahead)</h2>
+        <p class="muted">Queries the global admin search endpoint.</p>
+      </div>
+      <form id="search-form" class="form-row">
+        <input id="search-query" type="text" placeholder="Search content/pages/items..." required>
+        <button type="submit" class="button">Search</button>
+      </form>
+      <ul id="search-results" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Jobs</h2>
+        <p class="muted">Registered jobs with cron metadata; trigger manually.</p>
+      </div>
+      <ul id="jobs" class="list"></ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p class="muted">Data provided by <code>{{.BasePath}}/api</code> endpoints.</p>
+  </footer>
+
+  <script>
+    const basePath = ("{{.BasePath}}").replace(/\/$/, "");
+
+    const navEl = document.getElementById("nav-items");
+    const widgetEl = document.getElementById("widget-grid");
+    const settingsEl = document.getElementById("settings-list");
+    const itemsEl = document.getElementById("items-list");
+    const itemForm = document.getElementById("item-form");
+    const itemName = document.getElementById("item-name");
+    const searchForm = document.getElementById("search-form");
+    const searchQuery = document.getElementById("search-query");
+    const searchResults = document.getElementById("search-results");
+    const notificationsEl = document.getElementById("notifications");
+    const jobsEl = document.getElementById("jobs");
+
+    const fetchJSON = async (url, options = {}) => {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(`Request failed: ${res.status} ${msg}`);
+      }
+      return res.json();
+    };
+
+    const renderNav = (items = []) => {
+      navEl.innerHTML = "";
+      if (!items.length) {
+        navEl.innerHTML = "<li class='muted'>No navigation items returned.</li>";
+        return;
+      }
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${item.label}</strong> <span class="muted">${item.target?.name || item.target?.type || ""}</span>`;
+        navEl.appendChild(li);
+        if (item.children && item.children.length) {
+          const childList = document.createElement("ul");
+          childList.className = "list nested";
+          item.children.forEach((child) => {
+            const ci = document.createElement("li");
+            ci.textContent = child.label;
+            childList.appendChild(ci);
+          });
+          li.appendChild(childList);
+        }
+      });
+    };
+
+    const renderWidgets = (widgets = []) => {
+      widgetEl.innerHTML = "";
+      if (!widgets.length) {
+        widgetEl.innerHTML = "<p class='muted'>No widgets registered.</p>";
+        return;
+      }
+      widgets.forEach((w) => {
+        const card = document.createElement("article");
+        card.className = "mini-card";
+        const title = w.definition || w.definition_code || w.definitionCode || w.area || "widget";
+        const data = w.data || {};
+        const details = Object.entries(data)
+          .map(([k, v]) => `<div class="kv"><span>${k}</span><strong>${typeof v === "object" ? JSON.stringify(v) : v}</strong></div>`)
+          .join("");
+        card.innerHTML = `<header><p class="muted">${w.area || "area"}</p><h3>${title}</h3></header>${details}`;
+        widgetEl.appendChild(card);
+      });
+    };
+
+    const renderItems = (records = []) => {
+      itemsEl.innerHTML = "";
+      if (!records.length) {
+        itemsEl.innerHTML = "<div class='muted'>No items yet.</div>";
+        return;
+      }
+      records.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "list-row";
+        row.innerHTML = `
+          <div>
+            <strong>${item.name || "(no name)"}</strong>
+            <span class="muted">#${item.id}</span>
+          </div>
+          <div class="actions">
+            <button class="ghost" data-id="${item.id}" data-action="refresh">Action</button>
+            <button class="ghost danger" data-id="${item.id}" data-action="delete">Delete</button>
+          </div>
+        `;
+        itemsEl.appendChild(row);
+      });
+
+      itemsEl.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", async (ev) => {
+          ev.preventDefault();
+          const id = btn.dataset.id;
+          const action = btn.dataset.action;
+          try {
+            if (action === "delete") {
+              await fetchJSON(`${basePath}/api/items/${id}`, { method: "DELETE" });
+            } else {
+              await fetchJSON(`${basePath}/api/items/actions/${action}`, { method: "POST" });
+            }
+            await loadItems();
+          } catch (err) {
+            renderError(itemsEl, err);
+          }
+        });
+      });
+    };
+
+    const renderSettings = (values = {}) => {
+      settingsEl.innerHTML = "";
+      const keys = Object.keys(values);
+      if (!keys.length) {
+        settingsEl.innerHTML = "<p class='muted'>No settings resolved.</p>";
+        return;
+      }
+      keys.sort().forEach((key) => {
+        const row = document.createElement("div");
+        row.innerHTML = `<dt>${key}</dt><dd><strong>${values[key].value}</strong><span class="muted">${values[key].provenance}</span></dd>`;
+        settingsEl.appendChild(row);
+      });
+    };
+
+    const renderError = (el, err) => {
+      el.innerHTML = `<p class="error">${err.message}</p>`;
+    };
+
+    const renderSearch = (results = []) => {
+      searchResults.innerHTML = "";
+      if (!results.length) {
+        searchResults.innerHTML = "<li class='muted'>No results</li>";
+        return;
+      }
+      results.forEach((res) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${res.title}</strong> <span class="muted">${res.type || ""}</span>`;
+        searchResults.appendChild(li);
+      });
+    };
+
+    searchForm?.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const q = searchQuery.value.trim();
+      if (!q) return;
+      try {
+        const data = await fetchJSON(`${basePath}/api/search/typeahead?query=${encodeURIComponent(q)}`);
+        renderSearch(data.results || []);
+      } catch (err) {
+        renderError(searchResults, err);
+      }
+    });
+
+    const renderNotifications = (items = []) => {
+      notificationsEl.innerHTML = "";
+      if (!items.length) {
+        notificationsEl.innerHTML = "<li class='muted'>No notifications</li>";
+        return;
+      }
+      items.forEach((n) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<div><strong>${n.title}</strong><p class="muted">${n.message}</p></div>
+          <div class="actions"><button class="ghost" data-id="${n.id}" data-read="${!n.read}">${n.read ? "Mark unread" : "Mark read"}</button></div>`;
+        notificationsEl.appendChild(li);
+      });
+      notificationsEl.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", async (ev) => {
+          ev.preventDefault();
+          const id = btn.dataset.id;
+          const read = btn.dataset.read === "true";
+          try {
+            await fetchJSON(`${basePath}/api/notifications/read`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ids: [id], read }),
+            });
+            await loadNotifications();
+          } catch (err) {
+            renderError(notificationsEl, err);
+          }
+        });
+      });
+    };
+
+    const loadNotifications = async () => {
+      try {
+        const data = await fetchJSON(`${basePath}/api/notifications`);
+        renderNotifications(data.notifications || []);
+      } catch (err) {
+        renderError(notificationsEl, err);
+      }
+    };
+
+    const renderJobs = (jobs = []) => {
+      jobsEl.innerHTML = "";
+      if (!jobs.length) {
+        jobsEl.innerHTML = "<li class='muted'>No jobs registered</li>";
+        return;
+      }
+      jobs.forEach((j) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<div><strong>${j.name}</strong><p class="muted">${j.spec || ""}</p></div>
+          <div class="actions"><button class="ghost" data-name="${j.name}">Trigger</button></div>`;
+        jobsEl.appendChild(li);
+      });
+      jobsEl.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", async (ev) => {
+          ev.preventDefault();
+          const name = btn.dataset.name;
+          try {
+            await fetchJSON(`${basePath}/api/jobs/trigger`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name }),
+            });
+          } catch (err) {
+            renderError(jobsEl, err);
+          }
+        });
+      });
+    };
+
+    const loadJobs = async () => {
+      try {
+        const data = await fetchJSON(`${basePath}/api/jobs`);
+        renderJobs(data.jobs || []);
+      } catch (err) {
+        renderError(jobsEl, err);
+      }
+    };
+
+    const loadItems = async () => {
+      try {
+        const data = await fetchJSON(`${basePath}/api/items`);
+        renderItems(data.records || []);
+      } catch (err) {
+        renderError(itemsEl, err);
+      }
+    };
+
+    itemForm.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const value = itemName.value.trim();
+      if (!value) return;
+      try {
+        await fetchJSON(`${basePath}/api/items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: value }),
+        });
+        itemName.value = "";
+        await loadItems();
+      } catch (err) {
+        renderError(itemsEl, err);
+      }
+    });
+
+    const load = async () => {
+      try {
+        const nav = await fetchJSON(`${basePath}/api/navigation`);
+        renderNav(nav.items || []);
+      } catch (err) {
+        renderError(navEl, err);
+      }
+
+      try {
+        const dashboard = await fetchJSON(`${basePath}/api/dashboard`);
+        renderWidgets(dashboard.widgets || []);
+      } catch (err) {
+        renderError(widgetEl, err);
+      }
+
+      try {
+        const settings = await fetchJSON(`${basePath}/api/settings`);
+        renderSettings(settings.values || {});
+      } catch (err) {
+        renderError(settingsEl, err);
+      }
+
+      await loadItems();
+      await loadNotifications();
+      await loadJobs();
+    };
+
+    load();
+  </script>
+</body>
+</html>

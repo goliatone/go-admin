@@ -1,26 +1,49 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"embed"
+	"html/template"
+	"io/fs"
 	"log"
+	"path"
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
 
+//go:embed assets/* templates/*
+var webFS embed.FS
+
 func main() {
 	cfg := admin.Config{
-		Title:           "go-admin example",
-		BasePath:        "/admin",
-		DefaultLocale:   "en",
-		EnableDashboard: false,
-		EnableCMS:       false,
-		EnableCommands:  true,
+		Title:               "go-admin example",
+		BasePath:            "/admin",
+		DefaultLocale:       "en",
+		EnableDashboard:     true,
+		EnableCMS:           false,
+		EnableCommands:      true,
+		EnableSettings:      true,
+		EnableSearch:        true,
+		EnableNotifications: true,
+		EnableJobs:          true,
 	}
 
 	adm := admin.New(cfg)
 	server := router.NewFiberAdapter()
 	r := server.Router()
+
+	tmpl := template.Must(template.ParseFS(mustSubFS(webFS, "templates"), "admin.html"))
+	assetsFS := mustSubFS(webFS, "assets")
+
+	// Static assets for the demo UI (CSS, logos, etc).
+	if assetsFS != nil {
+		r.Static(path.Join(cfg.BasePath, "assets"), ".", router.Static{
+			FS:   assetsFS,
+			Root: ".",
+		})
+	}
 
 	// Dashboard: register simple providers and default instances.
 	dash := adm.DashboardService()
@@ -59,11 +82,52 @@ func main() {
 		log.Fatalf("failed to register panel: %v", err)
 	}
 
+	settings := adm.SettingsService()
+	settings.RegisterDefinition(admin.SettingDefinition{
+		Key:         "site.tagline",
+		Title:       "Site Tagline",
+		Description: "Shown in headers and emails",
+		Default:     "Composable admin",
+		Type:        "string",
+		Group:       "site",
+	})
+	if err := settings.Apply(context.Background(), admin.SettingsBundle{
+		Scope:  admin.SettingsScopeSite,
+		Values: map[string]any{"site.tagline": "Composable admin example"},
+	}); err != nil {
+		log.Fatalf("failed to seed settings: %v", err)
+	}
+
 	if err := adm.Initialize(r); err != nil {
 		log.Fatalf("failed to initialize admin: %v", err)
 	}
 
-	log.Println("Example admin available at http://localhost:8080/admin/health")
+	// Seed notifications and activity feed for the demo UI.
+	if svc := adm.NotificationService(); svc != nil {
+		_, _ = svc.Add(context.Background(), admin.Notification{Title: "New comment", Message: "A user replied to your post"})
+		_, _ = svc.Add(context.Background(), admin.Notification{Title: "Deployment", Message: "Production deploy succeeded"})
+	}
+	_ = adm.ActivityFeed().Record(context.Background(), admin.ActivityEntry{Actor: "system", Action: "synced", Object: "orders"})
+	_ = adm.ActivityFeed().Record(context.Background(), admin.ActivityEntry{Actor: "admin", Action: "updated", Object: "settings"})
+
+	// Sample job command with cron metadata.
+	job := &backupJob{}
+	adm.Commands().Register(job)
+
+	// Simple HTML entrypoint consuming the JSON APIs.
+	r.Get(cfg.BasePath, func(c router.Context) error {
+		var buf bytes.Buffer
+		if err := tmpl.Execute(&buf, map[string]any{
+			"Title":    cfg.Title,
+			"BasePath": cfg.BasePath,
+		}); err != nil {
+			return err
+		}
+		c.SetHeader("Content-Type", "text/html; charset=utf-8")
+		return c.Send(buf.Bytes())
+	})
+
+	log.Println("Example admin available at http://localhost:8080/admin (health at /admin/health)")
 	if err := server.Serve(":8080"); err != nil {
 		log.Fatalf("server stopped: %v", err)
 	}
@@ -76,4 +140,33 @@ func (refreshCommand) Name() string { return "example.refresh" }
 func (refreshCommand) Execute(_ context.Context) error {
 	log.Println("refresh command executed")
 	return nil
+}
+
+type backupJob struct {
+	runCount int
+}
+
+func (b *backupJob) Name() string { return "jobs.backup" }
+func (b *backupJob) Execute(_ context.Context) error {
+	b.runCount++
+	log.Println("backup job executed")
+	return nil
+}
+
+func (b *backupJob) CronSpec() string {
+	return "@every 1h"
+}
+
+func (b *backupJob) CronHandler() func() error {
+	return func() error { return b.Execute(context.Background()) }
+}
+
+// mustSubFS returns a sub-FS or nil without failing the example.
+func mustSubFS(fsys embed.FS, dir string) fs.FS {
+	sub, err := fs.Sub(fsys, dir)
+	if err != nil {
+		log.Printf("failed to access %s: %v", dir, err)
+		return nil
+	}
+	return sub
 }
