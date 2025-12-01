@@ -62,8 +62,8 @@ func TestBootstrapSeedsWidgetsAndMenu(t *testing.T) {
 	if err != nil {
 		t.Fatalf("menu fetch: %v", err)
 	}
-	if len(menu.Items) != 5 {
-		t.Fatalf("expected 5 base menu items, got %d", len(menu.Items))
+	if len(menu.Items) != 0 {
+		t.Fatalf("expected menu to be empty before module contributions, got %d", len(menu.Items))
 	}
 }
 

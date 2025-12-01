@@ -91,12 +91,84 @@ func TestModuleMenuItemsAppearInNavigation(t *testing.T) {
 	}
 }
 
+func TestModuleDependenciesAndFeatureFlags(t *testing.T) {
+	adm := New(Config{
+		DefaultLocale: "en",
+		FeatureFlags:  map[string]bool{"feature.a": true},
+	})
+	child := &stubModule{id: "child"}
+	parent := &stubModule{id: "parent"}
+	parentManifest := ModuleManifest{ID: "parent", Dependencies: []string{"child"}, FeatureFlags: []string{"feature.a"}}
+	childManifest := ModuleManifest{ID: "child"}
+
+	parent.onRegister = func() {}
+	child.onRegister = func() {}
+	parent.manifestFn = func() ModuleManifest { return parentManifest }
+	child.manifestFn = func() ModuleManifest { return childManifest }
+
+	if err := adm.RegisterModule(child); err != nil {
+		t.Fatalf("register child failed: %v", err)
+	}
+	if err := adm.RegisterModule(parent); err != nil {
+		t.Fatalf("register parent failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err != nil {
+		t.Fatalf("load modules failed: %v", err)
+	}
+}
+
+func TestModuleDependencyMissingFails(t *testing.T) {
+	adm := New(Config{DefaultLocale: "en"})
+	parent := &stubModule{id: "parent"}
+	parentManifest := ModuleManifest{ID: "parent", Dependencies: []string{"missing"}}
+	parent.manifestFn = func() ModuleManifest { return parentManifest }
+	if err := adm.RegisterModule(parent); err != nil {
+		t.Fatalf("register parent failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err == nil {
+		t.Fatalf("expected missing dependency error")
+	}
+}
+
+func TestModuleFeatureFlagMissingFails(t *testing.T) {
+	adm := New(Config{DefaultLocale: "en", FeatureFlags: map[string]bool{}})
+	mod := &stubModule{id: "needs.flag"}
+	mod.manifestFn = func() ModuleManifest { return ModuleManifest{ID: "needs.flag", FeatureFlags: []string{"flag.missing"}} }
+	if err := adm.RegisterModule(mod); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err == nil {
+		t.Fatalf("expected feature flag error")
+	}
+}
+
+func TestModuleTranslatorInjection(t *testing.T) {
+	adm := New(Config{DefaultLocale: "en"})
+	tx := &captureTranslator{}
+	adm.WithTranslator(tx)
+
+	mod := &translatorModule{id: "tx"}
+	if err := adm.RegisterModule(mod); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err != nil {
+		t.Fatalf("load modules failed: %v", err)
+	}
+	if mod.translator == nil {
+		t.Fatalf("translator not injected")
+	}
+}
+
 type stubModule struct {
 	id         string
 	onRegister func()
+	manifestFn func() ModuleManifest
 }
 
 func (m *stubModule) Manifest() ModuleManifest {
+	if m.manifestFn != nil {
+		return m.manifestFn()
+	}
 	return ModuleManifest{ID: m.id}
 }
 
@@ -142,4 +214,24 @@ func (allowAuthorizer) Can(ctx context.Context, action string, resource string) 
 	_ = action
 	_ = resource
 	return true
+}
+
+type captureTranslator struct{}
+
+func (captureTranslator) Translate(key, locale string) string {
+	return key + ":" + locale
+}
+
+type translatorModule struct {
+	id         string
+	translator Translator
+}
+
+func (m *translatorModule) Manifest() ModuleManifest {
+	return ModuleManifest{ID: m.id}
+}
+
+func (m *translatorModule) Register(ctx ModuleContext) error {
+	m.translator = ctx.Translator
+	return nil
 }
