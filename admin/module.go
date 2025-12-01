@@ -13,8 +13,9 @@ type ModuleManifest struct {
 // ModuleContext is passed to modules so they can register panels, routes,
 // commands, and other contributions against the admin orchestrator.
 type ModuleContext struct {
-	Admin  *Admin
-	Locale string
+	Admin      *Admin
+	Locale     string
+	Translator Translator
 }
 
 // Module defines the minimal contract for pluggable slices.
@@ -27,4 +28,9 @@ type Module interface {
 // MenuContributor optionally lets a module contribute navigation items.
 type MenuContributor interface {
 	MenuItems(locale string) []MenuItem
+}
+
+// TranslatorAware is implemented by modules that want a translator injected before registration.
+type TranslatorAware interface {
+	WithTranslator(t Translator)
 }
