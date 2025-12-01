@@ -18,9 +18,15 @@ var webFS embed.FS
 
 func main() {
 	cfg := admin.Config{
-		Title:               "go-admin example",
-		BasePath:            "/admin",
-		DefaultLocale:       "en",
+		Title:         "go-admin example",
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Theme:         "admin",
+		ThemeVariant:  "light",
+		ThemeTokens: map[string]string{
+			"primary": "#2563eb",
+			"accent":  "#f59e0b",
+		},
 		EnableDashboard:     true,
 		EnableCMS:           false,
 		EnableCommands:      true,
@@ -31,6 +37,20 @@ func main() {
 	}
 
 	adm := admin.New(cfg)
+	adm.WithThemeProvider(func(ctx context.Context, selector admin.ThemeSelector) (*admin.ThemeSelection, error) {
+		_ = ctx
+		selection := &admin.ThemeSelection{
+			Name:       selector.Name,
+			Variant:    selector.Variant,
+			Tokens:     map[string]string{"primary": "#2563eb", "accent": "#f59e0b"},
+			Assets:     map[string]string{"logo": path.Join(cfg.BasePath, "assets/logo.svg")},
+			ChartTheme: selector.Variant,
+		}
+		if selection.Name == "" {
+			selection.Name = "admin"
+		}
+		return selection, nil
+	})
 	server := router.NewFiberAdapter()
 	r := server.Router()
 
