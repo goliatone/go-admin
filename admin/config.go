@@ -32,6 +32,8 @@ type Config struct {
 	AuthConfig *AuthConfig
 
 	NavMenuCode string
+
+	FeatureFlags map[string]bool
 }
 
 // AuthConfig captures login/logout endpoints and redirect defaults.
