@@ -18,14 +18,20 @@ type NavigationItem struct {
 
 // Navigation resolves menus from CMS or in-memory sources.
 type Navigation struct {
-	menuSvc    CMSMenuService
-	authorizer Authorizer
-	fallback   []NavigationItem
+	menuSvc         CMSMenuService
+	authorizer      Authorizer
+	fallback        []NavigationItem
+	defaultMenuCode string
 }
 
 // NewNavigation builds a navigation helper.
 func NewNavigation(menuSvc CMSMenuService, authorizer Authorizer) *Navigation {
-	return &Navigation{menuSvc: menuSvc, authorizer: authorizer, fallback: []NavigationItem{}}
+	return &Navigation{
+		menuSvc:         menuSvc,
+		authorizer:      authorizer,
+		fallback:        []NavigationItem{},
+		defaultMenuCode: "admin.main",
+	}
 }
 
 // AddItem appends a navigation item to the in-memory fallback tree.
@@ -40,10 +46,18 @@ func (n *Navigation) AddFallback(items ...NavigationItem) {
 
 // Resolve returns navigation for a locale, applying permission filters.
 func (n *Navigation) Resolve(ctx context.Context, locale string) []NavigationItem {
+	return n.ResolveMenu(ctx, n.defaultMenuCode, locale)
+}
+
+// ResolveMenu returns navigation for a menu code and locale, applying permission filters.
+func (n *Navigation) ResolveMenu(ctx context.Context, menuCode string, locale string) []NavigationItem {
+	if menuCode == "" {
+		menuCode = n.defaultMenuCode
+	}
 	if n.menuSvc == nil {
 		return n.filter(n.localize(n.fallback, locale), ctx)
 	}
-	menu, err := n.menuSvc.Menu(ctx, "admin.main", locale)
+	menu, err := n.menuSvc.Menu(ctx, menuCode, locale)
 	if err != nil {
 		return n.filter(n.localize(n.fallback, locale), ctx)
 	}
