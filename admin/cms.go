@@ -54,6 +54,8 @@ type MenuItem struct {
 	Badge       map[string]any
 	Permissions []string
 	Menu        string
+	Classes     []string
+	Styles      map[string]string
 }
 
 // NoopCMSContainer returns in-memory services that satisfy the CMS contracts.
