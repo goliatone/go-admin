@@ -15,6 +15,7 @@ func TestInitializeRegistersHealth(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := New(cfg)
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 

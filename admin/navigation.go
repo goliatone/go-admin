@@ -7,13 +7,13 @@ import (
 
 // NavigationItem represents a node in the admin navigation tree.
 type NavigationItem struct {
-	Label       string            `json:"label"`
-	Icon        string            `json:"icon,omitempty"`
-	Target      map[string]any    `json:"target,omitempty"`
-	Badge       map[string]any    `json:"badge,omitempty"`
-	Children    []NavigationItem  `json:"children,omitempty"`
-	Permissions []string          `json:"permissions,omitempty"`
-	Locale      string            `json:"locale,omitempty"`
+	Label       string           `json:"label"`
+	Icon        string           `json:"icon,omitempty"`
+	Target      map[string]any   `json:"target,omitempty"`
+	Badge       map[string]any   `json:"badge,omitempty"`
+	Children    []NavigationItem `json:"children,omitempty"`
+	Permissions []string         `json:"permissions,omitempty"`
+	Locale      string           `json:"locale,omitempty"`
 }
 
 // Navigation resolves menus from CMS or in-memory sources.

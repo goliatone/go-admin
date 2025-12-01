@@ -19,6 +19,8 @@ type Admin struct {
 	router          AdminRouter
 	commandRegistry *CommandRegistry
 	dashboard       *Dashboard
+	nav             *Navigation
+	search          *SearchEngine
 	panels          map[string]*Panel
 	authorizer      Authorizer
 }
@@ -35,6 +37,8 @@ func New(cfg Config) *Admin {
 		menuSvc:         container.MenuService(),
 		commandRegistry: cmdReg,
 		dashboard:       NewDashboard(),
+		nav:             NewNavigation(container.MenuService(), nil),
+		search:          NewSearchEngine(nil),
 		panels:          make(map[string]*Panel),
 	}
 }
@@ -51,6 +55,12 @@ func (a *Admin) WithAuth(auth Authenticator, cfg *AuthConfig) *Admin {
 // WithAuthorizer sets an authorizer for panel permissions.
 func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 	a.authorizer = authz
+	if a.nav != nil {
+		a.nav.authorizer = authz
+	}
+	if a.search != nil {
+		a.search.authorizer = authz
+	}
 	return a
 }
 
@@ -127,12 +137,20 @@ func (a *Admin) Initialize(r AdminRouter) error {
 		return errors.New("router cannot be nil")
 	}
 	a.router = r
+	if a.nav == nil {
+		a.nav = NewNavigation(a.menuSvc, a.authorizer)
+	}
+	if a.search == nil {
+		a.search = NewSearchEngine(a.authorizer)
+	}
 	if err := a.Bootstrap(context.Background()); err != nil {
 		return err
 	}
 	a.registerHealthRoute()
 	a.registerPanelRoutes()
 	a.registerDashboardRoute()
+	a.registerNavigationRoute()
+	a.registerSearchRoute()
 	return nil
 }
 
@@ -242,6 +260,46 @@ func (a *Admin) registerDashboardRoute() {
 		return writeJSON(c, map[string]any{
 			"widgets": widgets,
 		})
+	})
+}
+
+func (a *Admin) registerNavigationRoute() {
+	if a.router == nil || a.nav == nil {
+		return
+	}
+	path := joinPath(a.config.BasePath, "api/navigation")
+	a.router.Get(path, func(c router.Context) error {
+		locale := c.Query("locale")
+		if locale == "" {
+			locale = a.config.DefaultLocale
+		}
+		ctx := c.Context()
+		items := a.nav.Resolve(ctx, locale)
+		return writeJSON(c, map[string]any{"items": items})
+	})
+}
+
+func (a *Admin) registerSearchRoute() {
+	if a.router == nil || a.search == nil {
+		return
+	}
+	path := joinPath(a.config.BasePath, "api/search")
+	a.router.Get(path, func(c router.Context) error {
+		query := c.Query("query")
+		if query == "" {
+			return writeError(c, errors.New("query required"))
+		}
+		limit := atoiDefault(c.Query("limit"), 10)
+		locale := c.Query("locale")
+		if locale == "" {
+			locale = a.config.DefaultLocale
+		}
+		ctx := newAdminContextFromRouter(c, locale)
+		results, err := a.search.Query(ctx, query, limit)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, map[string]any{"results": results})
 	})
 }
 
