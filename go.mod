@@ -2,10 +2,7 @@ module github.com/goliatone/go-admin
 
 go 1.23.4
 
-require (
-	github.com/goliatone/go-router v0.0.0-00010101000000-000000000000
-	github.com/julienschmidt/httprouter v1.3.0
-)
+require github.com/goliatone/go-router v0.25.0
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
@@ -27,6 +24,7 @@ require (
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
+	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -45,5 +43,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/goliatone/go-router => ../go-router
