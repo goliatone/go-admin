@@ -1,0 +1,388 @@
+{% extends "layout.html" %}
+{% block title %}Users - {{ title }}{% endblock %}
+{% block head_extra %}
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.5;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      background: #1a1d29;
+      color: #e4e4e7;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem 0;
+      overflow-y: auto;
+    }
+    .sidebar-brand {
+      padding: 0 1.25rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+    .sidebar-brand::before {
+      content: "✦";
+      font-size: 1.25rem;
+    }
+    .sidebar-search {
+      margin: 0 1rem 1rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      color: #a1a1aa;
+      font-size: 0.85rem;
+    }
+    .sidebar-nav {
+      flex: 1;
+      padding: 0 0.5rem;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.25rem;
+      color: #a1a1aa;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: all 0.15s;
+      cursor: pointer;
+      gap: 0.75rem;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.08);
+      color: white;
+    }
+    .nav-item.active {
+      background: rgba(59,130,246,0.15);
+      color: #60a5fa;
+    }
+    .nav-item i {
+      font-size: 1.25rem;
+      opacity: 0.8;
+    }
+    .sidebar-user {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .sidebar-user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .sidebar-user-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: white;
+    }
+
+    /* Main Content */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .main-header {
+      padding: 1.5rem 2rem;
+      background: white;
+      border-bottom: 1px solid #e4e4e7;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .main-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1a1d29;
+    }
+    .main-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .btn {
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: #1a1d29;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #2d3142;
+    }
+    .btn-secondary {
+      background: white;
+      color: #1a1d29;
+      border: 1px solid #e4e4e7;
+    }
+    .btn-secondary:hover {
+      background: #f5f5f7;
+    }
+    .btn-sm {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+    }
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    /* Content */
+    .content {
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+      background: #f5f5f7;
+    }
+
+    /* Search Bar */
+    .search-bar {
+      background: white;
+      padding: 1.25rem;
+      border-radius: 12px;
+      border: 1px solid #e4e4e7;
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .search-input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 1px solid #e4e4e7;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .results-count {
+      font-size: 0.85rem;
+      color: #71717a;
+    }
+
+    /* Table */
+    .table-container {
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .table thead {
+      background: #f5f5f7;
+      border-bottom: 1px solid #e4e4e7;
+    }
+    .table th {
+      padding: 1rem 1.25rem;
+      text-align: left;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .table td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #f5f5f7;
+      font-size: 0.9rem;
+    }
+    .table tbody tr:hover {
+      background: #fafafa;
+    }
+    .table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .user-name {
+      font-weight: 600;
+      color: #1a1d29;
+    }
+    .user-email {
+      color: #71717a;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      gap: 0.35rem;
+    }
+    .status-badge::before {
+      content: "●";
+      font-size: 0.6rem;
+    }
+    .status-active::before {
+      color: #22c55e;
+    }
+    .status-active {
+      background: #f0fdf4;
+      color: #15803d;
+    }
+    .status-inactive::before {
+      color: #71717a;
+    }
+    .status-inactive {
+      background: #f5f5f7;
+      color: #52525b;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+    }
+    .empty-state-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+    .empty-state-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1a1d29;
+      margin-bottom: 0.5rem;
+    }
+    .empty-state-message {
+      color: #71717a;
+      margin-bottom: 1.5rem;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+    <header class="main-header">
+      <h1 class="main-title">Users</h1>
+      <div class="main-actions">
+        <a href="{{ base_path }}/users/new" class="btn btn-primary">+ Create User</a>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- Search Bar -->
+      <div class="search-bar">
+        <input
+          type="text"
+          id="user-search"
+          class="search-input"
+          placeholder="Search by name, email, or role..."
+        >
+        <span class="results-count" id="results-count">{{ total_users|integer }} users</span>
+      </div>
+
+      {% if users %}
+      <!-- User Table -->
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="user-table-body">
+            {% for user in users %}
+            <tr data-user-id="{{ user.id }}" data-user-name="{{ user.username }}" data-user-email="{{ user.email }}" data-user-role="{{ user.role }}">
+              <td class="user-name">{{ user.username }}</td>
+              <td class="user-email">{{ user.email }}</td>
+              <td>{{ user.role }}</td>
+              <td>
+                <span class="status-badge status-{{ user.status }}">{{ user.status }}</span>
+              </td>
+              <td>{{ user.created_at }}</td>
+              <td>
+                <div class="action-buttons">
+                  <a href="{{ base_path }}/users/{{ user.id }}" class="btn btn-sm btn-secondary">View</a>
+                  <a href="{{ base_path }}/users/{{ user.id }}/edit" class="btn btn-sm btn-primary">Edit</a>
+                  <form method="POST" action="{{ base_path }}/users/{{ user.id }}/delete" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete {{ user.username }}?')">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <!-- Empty State -->
+      <div class="empty-state">
+        <div class="empty-state-icon">👥</div>
+        <h3 class="empty-state-title">No users yet</h3>
+        <p class="empty-state-message">Get started by creating your first user</p>
+        <a href="{{ base_path }}/users/new" class="btn btn-primary">Create Your First User</a>
+      </div>
+      {% endif %}
+    </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    // Simple client-side search
+    document.getElementById('user-search')?.addEventListener('input', function(e) {
+      const query = e.target.value.toLowerCase();
+      const rows = document.querySelectorAll('#user-table-body tr');
+      let visible = 0;
+
+      rows.forEach(row => {
+        const name = row.dataset.userName?.toLowerCase() || '';
+        const email = row.dataset.userEmail?.toLowerCase() || '';
+        const role = row.dataset.userRole?.toLowerCase() || '';
+        const matches = name.includes(query) || email.includes(query) || role.includes(query);
+
+        row.style.display = matches ? '' : 'none';
+        if (matches) visible++;
+      });
+
+      document.getElementById('results-count').textContent = `${visible} user${visible !== 1 ? 's' : ''}`;
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.5;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      background: #1a1d29;
+      color: #e4e4e7;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem 0;
+      overflow-y: auto;
+    }
+    .sidebar-brand {
+      padding: 0 1.25rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .sidebar-brand::before {
+      content: "✦";
+      font-size: 1.25rem;
+    }
+    .sidebar-search {
+      margin: 0 1rem 1rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      color: #a1a1aa;
+      font-size: 0.85rem;
+    }
+    .sidebar-nav {
+      flex: 1;
+      padding: 0 0.5rem;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.25rem;
+      color: #a1a1aa;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: all 0.15s;
+      cursor: pointer;
+      gap: 0.75rem;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.08);
+      color: white;
+    }
+    .nav-item.active {
+      background: rgba(59,130,246,0.15);
+      color: #60a5fa;
+    }
+    .nav-item i {
+      font-size: 1.25rem;
+      opacity: 0.8;
+    }
+    .sidebar-user {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .sidebar-user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .sidebar-user-info {
+      flex: 1;
+    }
+    .sidebar-user-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: white;
+    }
+
+    /* Main Content */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .main-header {
+      padding: 1.5rem 2rem;
+      background: white;
+      border-bottom: 1px solid #e4e4e7;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .main-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1a1d29;
+    }
+    .main-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .btn {
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn-primary {
+      background: #1a1d29;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #2d3142;
+    }
+    .btn-secondary {
+      background: white;
+      color: #1a1d29;
+      border: 1px solid #e4e4e7;
+    }
+    .btn-secondary:hover {
+      background: #f5f5f7;
+    }
+
+    /* Content Area */
+    .content {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    .content-main {
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+    .content-sidebar {
+      width: 320px;
+      background: white;
+      border-left: 1px solid #e4e4e7;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: #71717a;
+      margin-bottom: 0.5rem;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1a1d29;
+    }
+    .stat-meta {
+      font-size: 0.85rem;
+      color: #71717a;
+      margin-top: 0.25rem;
+    }
+
+    /* Panels Grid */
+    .panels-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .panel-card {
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0.75rem;
+    }
+    .panel-card:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 4px 16px rgba(59,130,246,0.1);
+      transform: translateY(-2px);
+    }
+    .panel-icon {
+      font-size: 2.5rem;
+    }
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1a1d29;
+    }
+    .panel-desc {
+      font-size: 0.85rem;
+      color: #71717a;
+    }
+
+    /* Widgets */
+    .widget {
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .widget-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .widget-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1a1d29;
+    }
+    .widget-action {
+      font-size: 0.85rem;
+      color: #3b82f6;
+      text-decoration: none;
+    }
+
+    /* Sidebar Widget */
+    .sidebar-widget {
+      margin-bottom: 2rem;
+    }
+    .sidebar-widget-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #71717a;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    .sidebar-stat {
+      margin-bottom: 1.5rem;
+    }
+    .sidebar-stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1a1d29;
+      margin-bottom: 0.25rem;
+    }
+    .sidebar-stat-label {
+      font-size: 0.85rem;
+      color: #71717a;
+    }
+
+    /* Circular Progress */
+    .circular-progress {
+      width: 140px;
+      height: 140px;
+      margin: 1.5rem auto;
+      position: relative;
+    }
+    .circular-progress svg {
+      transform: rotate(-90deg);
+    }
+    .circular-progress-bg {
+      fill: none;
+      stroke: #f5f5f7;
+      stroke-width: 8;
+    }
+    .circular-progress-bar {
+      fill: none;
+      stroke: #3b82f6;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 377;
+      stroke-dashoffset: 94.25;
+      transition: stroke-dashoffset 0.6s ease;
+    }
+    .circular-progress-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .circular-progress-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1a1d29;
+      display: block;
+    }
+    .circular-progress-label {
+      font-size: 0.75rem;
+      color: #71717a;
+    }
+
+    /* List Items */
+    .list {
+      list-style: none;
+    }
+    .list-item {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #f5f5f7;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .list-item:last-child {
+      border-bottom: none;
+    }
+    .list-item-label {
+      font-size: 0.9rem;
+      color: #1a1d29;
+    }
+    .list-item-value {
+      font-weight: 600;
+      color: #1a1d29;
+    }
+
+    /* Status Badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      gap: 0.35rem;
+    }
+    .status-badge::before {
+      content: "●";
+      font-size: 0.6rem;
+    }
+    .status-paid::before {
+      color: #22c55e;
+    }
+    .status-paid {
+      background: #f0fdf4;
+      color: #15803d;
+    }
+    .status-cancelled::before {
+      color: #ef4444;
+    }
+    .status-cancelled {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+    .status-refunded::before {
+      color: #f59e0b;
+    }
+    .status-refunded {
+      background: #fffbeb;
+      color: #b45309;
+    }
+
+    /* Progress Bar */
+    .progress-list {
+      list-style: none;
+    }
+    .progress-item {
+      margin-bottom: 1rem;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .progress-label {
+      color: #1a1d29;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .progress-label::before {
+      content: "■";
+      font-size: 0.7rem;
+    }
+    .progress-label.paid::before { color: #22c55e; }
+    .progress-label.cancelled::before { color: #ef4444; }
+    .progress-label.refunded::before { color: #f59e0b; }
+    .progress-value {
+      font-weight: 600;
+      color: #71717a;
+    }
+    .progress-bar {
+      height: 8px;
+      background: #f5f5f7;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #22c55e;
+      border-radius: 999px;
+      transition: width 0.6s ease;
+    }
+    .progress-fill.paid { background: #22c55e; }
+    .progress-fill.cancelled { background: #ef4444; }
+    .progress-fill.refunded { background: #f59e0b; }
+
+    /* Activity Feed */
+    .activity-list {
+      list-style: none;
+    }
+    .activity-item {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #f5f5f7;
+    }
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+    .activity-actor {
+      font-weight: 600;
+      color: #1a1d29;
+      font-size: 0.9rem;
+    }
+    .activity-action {
+      color: #71717a;
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+    }
+
+    /* Search */
+    .search-form {
+      margin-bottom: 1.5rem;
+    }
+    .search-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid #e4e4e7;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .search-results {
+      list-style: none;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .search-result {
+      padding: 0.75rem;
+      border-bottom: 1px solid #f5f5f7;
+      cursor: pointer;
+    }
+    .search-result:hover {
+      background: #f5f5f7;
+    }
+    .search-result-title {
+      font-weight: 600;
+      color: #1a1d29;
+      font-size: 0.9rem;
+    }
+    .search-result-desc {
+      color: #71717a;
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">{{ title }}</div>
+    <input type="text" class="sidebar-search" placeholder="Search... ⌘F" readonly>
+
+    <nav class="sidebar-nav">
+      <a href="{{ base_path }}" class="nav-item active">
+        <i class="iconoir-dashboard-speed"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="{{ base_path }}/users" class="nav-item">
+        <i class="iconoir-user"></i>
+        <span>Users</span>
+      </a>
+      <a href="{{ base_path }}/pages" class="nav-item">
+        <i class="iconoir-page"></i>
+        <span>Pages</span>
+      </a>
+      <a href="{{ base_path }}/posts" class="nav-item">
+        <i class="iconoir-post"></i>
+        <span>Posts</span>
+      </a>
+      <a href="{{ base_path }}/media" class="nav-item">
+        <i class="iconoir-media-image"></i>
+        <span>Media</span>
+      </a>
+      <a href="{{ base_path }}/settings" class="nav-item">
+        <i class="iconoir-settings"></i>
+        <span>Settings</span>
+      </a>
+      <a href="{{ base_path }}/notifications" class="nav-item">
+        <i class="iconoir-bell"></i>
+        <span>Notifications</span>
+      </a>
+      <a href="{{ base_path }}/jobs" class="nav-item">
+        <i class="iconoir-clock-rotate-right"></i>
+        <span>Jobs</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-user">
+      <div class="sidebar-user-avatar">A</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name">Admin User</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <header class="main-header">
+      <h1 class="main-title">Dashboard</h1>
+      <div class="main-actions">
+        <button class="btn btn-secondary" onclick="window.open('{{ base_path }}/api/dashboard')">↑ Export</button>
+        <button class="btn btn-primary">+ Import</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="content-main">
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Revenue</div>
+            <div class="stat-value" id="total-revenue">$0</div>
+            <div class="stat-meta" id="total-orders">0 orders</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value" id="total-users">0</div>
+            <div class="stat-meta">Active users</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Published Content</div>
+            <div class="stat-value" id="published-content">0</div>
+            <div class="stat-meta">Pages & Posts</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Storage Used</div>
+            <div class="stat-value" id="storage-used">0 GB</div>
+            <div class="stat-meta" id="storage-percent">0% of total</div>
+          </div>
+        </div>
+
+        <!-- Admin Panels -->
+        <div class="widget">
+          <div class="widget-header">
+            <h2 class="widget-title">Admin Panels</h2>
+          </div>
+          <div class="panels-grid">
+            <a href="{{ base_path }}/api/users" class="panel-card" target="_blank">
+              <div class="panel-icon">👥</div>
+              <div class="panel-title">Users</div>
+              <div class="panel-desc">Manage user accounts</div>
+            </a>
+            <a href="{{ base_path }}/api/pages" class="panel-card" target="_blank">
+              <div class="panel-icon">📄</div>
+              <div class="panel-title">Pages</div>
+              <div class="panel-desc">Edit website pages</div>
+            </a>
+            <a href="{{ base_path }}/api/posts" class="panel-card" target="_blank">
+              <div class="panel-icon">📝</div>
+              <div class="panel-title">Posts</div>
+              <div class="panel-desc">Manage blog posts</div>
+            </a>
+            <a href="{{ base_path }}/api/media" class="panel-card" target="_blank">
+              <div class="panel-icon">🖼️</div>
+              <div class="panel-title">Media</div>
+              <div class="panel-desc">Upload files & images</div>
+            </a>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="widget">
+          <div class="widget-header">
+            <h2 class="widget-title">Recent Activity</h2>
+            <a href="{{ base_path }}/api/activity" class="widget-action" target="_blank">View all</a>
+          </div>
+          <ul class="activity-list" id="activity-feed">
+            <li class="activity-item">Loading...</li>
+          </ul>
+        </div>
+
+        <!-- Jobs -->
+        <div class="widget">
+          <div class="widget-header">
+            <h2 class="widget-title">Background Jobs</h2>
+            <a href="{{ base_path }}/api/jobs" class="widget-action" target="_blank">Manage</a>
+          </div>
+          <ul class="list" id="jobs-list">
+            <li class="list-item">Loading...</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Right Sidebar -->
+      <aside class="content-sidebar">
+        <!-- Revenue Chart -->
+        <div class="sidebar-widget">
+          <div class="sidebar-widget-title">Receipt of Goods</div>
+          <div class="circular-progress">
+            <svg width="140" height="140">
+              <circle class="circular-progress-bg" cx="70" cy="70" r="60"></circle>
+              <circle class="circular-progress-bar" cx="70" cy="70" r="60" id="revenue-circle"></circle>
+            </svg>
+            <div class="circular-progress-text">
+              <span class="circular-progress-value" id="revenue-value">$2.2m</span>
+              <span class="circular-progress-label" id="revenue-label">242 orders</span>
+            </div>
+          </div>
+          <ul class="list">
+            <li class="list-item">
+              <span class="list-item-label" id="shipments-label">Shipments</span>
+              <span class="list-item-value" id="shipments-value">$864,600</span>
+            </li>
+            <li class="list-item">
+              <span class="list-item-label" id="pickups-label">Pickups</span>
+              <span class="list-item-value" id="pickups-value">$1.34m</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Orders Status -->
+        <div class="sidebar-widget">
+          <div class="sidebar-widget-title">Orders Status</div>
+          <ul class="progress-list">
+            <li class="progress-item">
+              <div class="progress-header">
+                <span class="progress-label paid">Paid</span>
+                <span class="progress-value" id="status-paid">89%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill paid" style="width: 89%"></div>
+              </div>
+            </li>
+            <li class="progress-item">
+              <div class="progress-header">
+                <span class="progress-label cancelled">Cancelled</span>
+                <span class="progress-value" id="status-cancelled">8%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill cancelled" style="width: 8%"></div>
+              </div>
+            </li>
+            <li class="progress-item">
+              <div class="progress-header">
+                <span class="progress-label refunded">Refunded</span>
+                <span class="progress-value" id="status-refunded">3%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill refunded" style="width: 3%"></div>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Overview Stats -->
+        <div class="sidebar-widget">
+          <div class="sidebar-widget-title">Overview</div>
+          <div class="sidebar-stat">
+            <div class="sidebar-stat-value" id="avg-order">$2,246.75</div>
+            <div class="sidebar-stat-label">Average order</div>
+          </div>
+          <ul class="list">
+            <li class="list-item">
+              <span class="list-item-label">Processing time</span>
+              <span class="list-item-value" id="processing-time">16 min</span>
+            </li>
+            <li class="list-item">
+              <span class="list-item-label">Avg. items/order</span>
+              <span class="list-item-value" id="avg-items">1.7</span>
+            </li>
+            <li class="list-item">
+              <span class="list-item-label">Pending orders</span>
+              <span class="list-item-value" id="pending-orders">0.32%</span>
+            </li>
+            <li class="list-item">
+              <span class="list-item-label">Reject rate</span>
+              <span class="list-item-value" id="reject-rate">0.51%</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Notifications -->
+        <div class="sidebar-widget">
+          <div class="sidebar-widget-title">Notifications</div>
+          <ul class="activity-list" id="notifications-list">
+            <li class="activity-item">Loading...</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const basePath = ("{{ base_path }}").replace(/\/$/, "");
+
+    const fetchJSON = async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      return res.json();
+    };
+
+    // Load Dashboard Data
+    const loadDashboard = async () => {
+      try {
+        const data = await fetchJSON(`${basePath}/api/dashboard`);
+        const widgets = data.widgets || [];
+
+        widgets.forEach(widget => {
+          const widgetData = widget.data || {};
+
+          if (widget.definition === "admin.widget.user_stats") {
+            document.getElementById("total-users").textContent = widgetData.total || 0;
+          }
+
+          if (widget.definition === "admin.widget.content_stats") {
+            const published = (widgetData.published || 0);
+            document.getElementById("published-content").textContent = published;
+          }
+
+          if (widget.definition === "admin.widget.storage_stats") {
+            document.getElementById("storage-used").textContent = widgetData.used || "0 GB";
+            document.getElementById("storage-percent").textContent = `${widgetData.percentage || 0}% of total`;
+          }
+        });
+      } catch (err) {
+        console.error("Failed to load dashboard:", err);
+      }
+    };
+
+    // Load Activity
+    const loadActivity = async () => {
+      try {
+        const data = await fetchJSON(`${basePath}/api/activity`);
+        const container = document.getElementById("activity-feed");
+        container.innerHTML = "";
+
+        (data.entries || []).slice(0, 6).forEach(entry => {
+          const li = document.createElement("li");
+          li.className = "activity-item";
+          li.innerHTML = `
+            <div class="activity-actor">${entry.actor}</div>
+            <div class="activity-action">${entry.action} ${entry.object}</div>
+          `;
+          container.appendChild(li);
+        });
+      } catch (err) {
+        console.error("Failed to load activity:", err);
+      }
+    };
+
+    // Load Jobs
+    const loadJobs = async () => {
+      try {
+        const data = await fetchJSON(`${basePath}/api/jobs`);
+        const container = document.getElementById("jobs-list");
+        container.innerHTML = "";
+
+        (data.jobs || []).forEach(job => {
+          const li = document.createElement("li");
+          li.className = "list-item";
+          li.innerHTML = `
+            <span class="list-item-label">${job.name}</span>
+            <span class="list-item-value">${job.spec || "N/A"}</span>
+          `;
+          container.appendChild(li);
+        });
+      } catch (err) {
+        console.error("Failed to load jobs:", err);
+      }
+    };
+
+    // Load Notifications
+    const loadNotifications = async () => {
+      try {
+        const data = await fetchJSON(`${basePath}/api/notifications`);
+        const container = document.getElementById("notifications-list");
+        container.innerHTML = "";
+
+        (data.notifications || []).slice(0, 4).forEach(notif => {
+          const li = document.createElement("li");
+          li.className = "activity-item";
+          li.innerHTML = `
+            <div class="activity-actor">${notif.title}</div>
+            <div class="activity-action">${notif.message}</div>
+          `;
+          container.appendChild(li);
+        });
+      } catch (err) {
+        console.error("Failed to load notifications:", err);
+      }
+    };
+
+    // Initialize
+    (async () => {
+      await Promise.all([
+        loadDashboard(),
+        loadActivity(),
+        loadJobs(),
+        loadNotifications()
+      ]);
+    })();
+
+  </script>
+</body>
+</html>

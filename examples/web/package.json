@@ -1,0 +1,17 @@
+{
+  "name": "go-admin-example",
+  "version": "1.0.0",
+  "description": "Admin panel example with Tailwind CSS",
+  "scripts": {
+    "build:css": "tailwindcss -i ./assets/input.css -o ./assets/output.css --minify",
+    "watch:css": "tailwindcss -i ./assets/input.css -o ./assets/output.css --watch",
+    "dev": "npm run watch:css"
+  },
+  "keywords": ["admin", "tailwind"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "@tailwindcss/forms": "^0.5.7"
+  }
+}
