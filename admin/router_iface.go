@@ -6,5 +6,6 @@ import router "github.com/goliatone/go-router"
 type AdminRouter interface {
 	Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 	Post(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
+	Put(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 	Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 }

@@ -28,6 +28,11 @@ func NewNavigation(menuSvc CMSMenuService, authorizer Authorizer) *Navigation {
 	return &Navigation{menuSvc: menuSvc, authorizer: authorizer, fallback: []NavigationItem{}}
 }
 
+// AddItem appends a navigation item to the in-memory fallback tree.
+func (n *Navigation) AddItem(item NavigationItem) {
+	n.fallback = append(n.fallback, item)
+}
+
 // AddFallback allows adding items when CMS is disabled.
 func (n *Navigation) AddFallback(items ...NavigationItem) {
 	n.fallback = append(n.fallback, items...)
@@ -36,11 +41,11 @@ func (n *Navigation) AddFallback(items ...NavigationItem) {
 // Resolve returns navigation for a locale, applying permission filters.
 func (n *Navigation) Resolve(ctx context.Context, locale string) []NavigationItem {
 	if n.menuSvc == nil {
-		return n.filter(n.fallback, ctx)
+		return n.filter(n.localize(n.fallback, locale), ctx)
 	}
 	menu, err := n.menuSvc.Menu(ctx, "admin.main", locale)
 	if err != nil {
-		return n.filter(n.fallback, ctx)
+		return n.filter(n.localize(n.fallback, locale), ctx)
 	}
 	items := convertMenuItems(menu.Items)
 	return n.filter(items, ctx)
@@ -74,6 +79,18 @@ func (n *Navigation) filter(items []NavigationItem, ctx context.Context) []Navig
 		if len(item.Children) > 0 {
 			item.Children = n.filter(item.Children, ctx)
 		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func (n *Navigation) localize(items []NavigationItem, locale string) []NavigationItem {
+	out := []NavigationItem{}
+	for _, item := range items {
+		if item.Locale != "" && locale != "" && item.Locale != locale {
+			continue
+		}
+		item.Children = n.localize(item.Children, locale)
 		out = append(out, item)
 	}
 	return out

@@ -132,3 +132,62 @@ func TestPanelActionDispatchesCommand(t *testing.T) {
 		t.Fatalf("command not executed")
 	}
 }
+
+func TestPanelBulkActionDispatchesCommand(t *testing.T) {
+	reg := NewCommandRegistry(true)
+	cmd := &commandCalled{}
+	reg.Register(cmd)
+
+	panel := &Panel{
+		name: "actions",
+		bulkActions: []Action{
+			{Name: "bulk_run", CommandName: "do.something"},
+		},
+		commandBus: reg,
+	}
+	ctx := AdminContext{Context: context.Background()}
+	if err := panel.RunBulkAction(ctx, "bulk_run"); err != nil {
+		t.Fatalf("bulk action dispatch failed: %v", err)
+	}
+	if !cmd.called {
+		t.Fatalf("command not executed for bulk")
+	}
+}
+
+func TestPanelSchemaIncludesFormSchema(t *testing.T) {
+	panel := &Panel{
+		name: "schema",
+		formFields: []Field{
+			{Name: "name", Label: "Name", Type: "text", Required: true, Validation: "min:1"},
+			{Name: "count", Label: "Count", Type: "number"},
+		},
+		filters:     []Filter{{Name: "status", Type: "select"}},
+		actions:     []Action{{Name: "approve", CommandName: "approve"}},
+		bulkActions: []Action{{Name: "bulk_delete", CommandName: "delete"}},
+		useBlocks:   true,
+		useSEO:      true,
+		treeView:    true,
+		permissions: PanelPermissions{
+			View: "view",
+		},
+	}
+
+	schema := panel.Schema()
+	if schema.FormSchema == nil {
+		t.Fatalf("expected form schema")
+	}
+	props := schema.FormSchema["properties"].(map[string]any)
+	if _, ok := props["name"]; !ok {
+		t.Fatalf("expected name property in form schema")
+	}
+	req := schema.FormSchema["required"].([]string)
+	if len(req) != 1 || req[0] != "name" {
+		t.Fatalf("expected name to be required, got %v", req)
+	}
+	if !schema.UseBlocks || !schema.UseSEO || !schema.TreeView {
+		t.Fatalf("expected flags set")
+	}
+	if len(schema.Filters) != 1 || len(schema.Actions) != 1 || len(schema.BulkActions) != 1 {
+		t.Fatalf("expected filters/actions populated")
+	}
+}

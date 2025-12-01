@@ -46,7 +46,7 @@ func (s *SearchEngine) Query(ctx AdminContext, query string, limit int) ([]Searc
 		limit = 10
 	}
 	results := []SearchResult{}
-	for _, adapter := range s.adapters {
+	for key, adapter := range s.adapters {
 		if perm := adapter.Permission(); perm != "" && s.authorizer != nil {
 			if !s.authorizer.Can(ctx.Context, perm, "search") {
 				continue
@@ -56,7 +56,12 @@ func (s *SearchEngine) Query(ctx AdminContext, query string, limit int) ([]Searc
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, hits...)
+		for _, h := range hits {
+			if h.Type == "" {
+				h.Type = key
+			}
+			results = append(results, h)
+		}
 	}
 	return results, nil
 }

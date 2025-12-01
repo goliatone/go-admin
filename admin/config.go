@@ -2,19 +2,23 @@ package admin
 
 // Config holds core admin settings and feature flags.
 type Config struct {
-	Title         string
-	BasePath      string
-	DefaultLocale string
-	Theme         string
-	CMSConfig     any
+	Title            string
+	BasePath         string
+	DefaultLocale    string
+	Theme            string
+	ThemeVariant     string
+	ThemeTokens      map[string]string
+	ThemeAssetPrefix string
+	CMSConfig        any
 
-	EnableDashboard bool
-	EnableSearch    bool
-	EnableExport    bool
-	EnableCMS       bool
-	EnableJobs      bool
-	EnableCommands  bool
-	EnableSettings  bool
+	EnableDashboard     bool
+	EnableSearch        bool
+	EnableExport        bool
+	EnableCMS           bool
+	EnableJobs          bool
+	EnableCommands      bool
+	EnableSettings      bool
+	EnableNotifications bool
 
 	LogoURL    string
 	FaviconURL string

@@ -12,9 +12,9 @@ import (
 type SettingsScope string
 
 const (
-	SettingsScopeSystem SettingsScope = "system"
-	SettingsScopeSite   SettingsScope = "site"
-	SettingsScopeUser   SettingsScope = "user"
+	SettingsScopeSystem  SettingsScope = "system"
+	SettingsScopeSite    SettingsScope = "site"
+	SettingsScopeUser    SettingsScope = "user"
 	SettingsScopeDefault SettingsScope = "default"
 )
 
@@ -31,10 +31,10 @@ type SettingDefinition struct {
 
 // ResolvedSetting contains a resolved value and provenance.
 type ResolvedSetting struct {
-	Key        string         `json:"key"`
-	Value      any            `json:"value"`
-	Scope      SettingsScope  `json:"scope"`
-	Provenance string         `json:"provenance"`
+	Key        string            `json:"key"`
+	Value      any               `json:"value"`
+	Scope      SettingsScope     `json:"scope"`
+	Provenance string            `json:"provenance"`
 	Definition SettingDefinition `json:"definition,omitempty"`
 }
 
@@ -112,6 +112,11 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	scope := bundle.Scope
+	if scope == "" {
+		scope = SettingsScopeSite
+	}
+
 	errs := SettingsValidationErrors{Fields: map[string]string{}}
 	sanitized := map[string]any{}
 
@@ -121,7 +126,7 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 			errs.Fields[key] = "unknown setting"
 			continue
 		}
-		if !s.scopeAllowed(def, bundle.Scope) {
+		if !s.scopeAllowed(def, scope) {
 			errs.Fields[key] = "scope not allowed"
 			continue
 		}
@@ -136,10 +141,6 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 		return errs
 	}
 
-	scope := bundle.Scope
-	if scope == "" {
-		scope = SettingsScopeSite
-	}
 	if scope == SettingsScopeUser && bundle.UserID == "" {
 		return errors.New("user id required for user scope settings")
 	}

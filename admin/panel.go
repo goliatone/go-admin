@@ -119,9 +119,18 @@ type PanelHooks struct {
 
 // Schema renders list/form/detail schema descriptions.
 type Schema struct {
-	ListFields   []Field `json:"list_fields"`
-	FormFields   []Field `json:"form_fields"`
-	DetailFields []Field `json:"detail_fields"`
+	ListFields   []Field                      `json:"list_fields"`
+	FormFields   []Field                      `json:"form_fields"`
+	DetailFields []Field                      `json:"detail_fields"`
+	Filters      []Filter                     `json:"filters,omitempty"`
+	Actions      []Action                     `json:"actions,omitempty"`
+	BulkActions  []Action                     `json:"bulk_actions,omitempty"`
+	FormSchema   map[string]any               `json:"form_schema,omitempty"`
+	UseBlocks    bool                         `json:"use_blocks,omitempty"`
+	UseSEO       bool                         `json:"use_seo,omitempty"`
+	TreeView     bool                         `json:"tree_view,omitempty"`
+	Permissions  PanelPermissions             `json:"permissions,omitempty"`
+	Theme        map[string]map[string]string `json:"theme,omitempty"`
 }
 
 // WithRepository sets the panel repository.
@@ -238,7 +247,71 @@ func (p *Panel) Schema() Schema {
 		ListFields:   p.listFields,
 		FormFields:   p.formFields,
 		DetailFields: p.detailFields,
+		Filters:      p.filters,
+		Actions:      p.actions,
+		BulkActions:  p.bulkActions,
+		FormSchema:   buildFormSchema(p.formFields),
+		UseBlocks:    p.useBlocks,
+		UseSEO:       p.useSEO,
+		TreeView:     p.treeView,
+		Permissions:  p.permissions,
 	}
+}
+
+// SchemaWithTheme attaches the resolved theme payload for UI renderers.
+func (p *Panel) SchemaWithTheme(theme map[string]map[string]string) Schema {
+	schema := p.Schema()
+	if len(theme) > 0 {
+		schema.Theme = theme
+	}
+	return schema
+}
+
+func buildFormSchema(fields []Field) map[string]any {
+	schema := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{},
+	}
+	required := []string{}
+	props := schema["properties"].(map[string]any)
+	for _, f := range fields {
+		props[f.Name] = map[string]any{
+			"type":         mapFieldType(f.Type),
+			"title":        f.Label,
+			"readOnly":     f.ReadOnly,
+			"x-hidden":     f.Hidden,
+			"x-options":    f.Options,
+			"x-validation": f.Validation,
+		}
+		if f.Required {
+			required = append(required, f.Name)
+		}
+	}
+	if len(required) > 0 {
+		schema["required"] = required
+	}
+	return schema
+}
+
+func mapFieldType(t string) string {
+	switch t {
+	case "number", "integer":
+		return "number"
+	case "boolean":
+		return "boolean"
+	default:
+		return "string"
+	}
+}
+
+// Get returns a single record if permitted.
+func (p *Panel) Get(ctx AdminContext, id string) (map[string]any, error) {
+	if p.permissions.View != "" && p.authorizer != nil {
+		if !p.authorizer.Can(ctx.Context, p.permissions.View, p.name) {
+			return nil, ErrForbidden
+		}
+	}
+	return p.repo.Get(ctx.Context, id)
 }
 
 // List retrieves records with permissions enforced.
@@ -326,6 +399,9 @@ func (p *Panel) Delete(ctx AdminContext, id string) error {
 func (p *Panel) RunAction(ctx AdminContext, name string) error {
 	for _, action := range p.actions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
+			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
+				return ErrForbidden
+			}
 			return p.commandBus.Dispatch(ctx.Context, action.CommandName)
 		}
 	}
@@ -336,6 +412,9 @@ func (p *Panel) RunAction(ctx AdminContext, name string) error {
 func (p *Panel) RunBulkAction(ctx AdminContext, name string) error {
 	for _, action := range p.bulkActions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
+			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
+				return ErrForbidden
+			}
 			return p.commandBus.Dispatch(ctx.Context, action.CommandName)
 		}
 	}

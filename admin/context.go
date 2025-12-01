@@ -11,6 +11,7 @@ type AdminContext struct {
 	Context context.Context
 	UserID  string
 	Locale  string
+	Theme   *ThemeSelection
 }
 
 // Authorizer determines whether a subject can perform an action on a resource.
