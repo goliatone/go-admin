@@ -31,6 +31,10 @@ type Admin struct {
 	settingsCommand *SettingsUpdateCommand
 	themeProvider   ThemeProvider
 	defaultTheme    *ThemeSelection
+	modules         []Module
+	moduleIndex     map[string]Module
+	modulesLoaded   bool
+	navMenuCode     string
 }
 
 // New constructs an Admin orchestrator with default in-memory services.
@@ -94,6 +98,10 @@ func New(cfg Config) *Admin {
 	if cfg.FaviconURL != "" {
 		defaultTheme.Assets["favicon"] = cfg.FaviconURL
 	}
+	navMenuCode := cfg.NavMenuCode
+	if navMenuCode == "" {
+		navMenuCode = "admin.main"
+	}
 
 	adm := &Admin{
 		config:          cfg,
@@ -113,8 +121,14 @@ func New(cfg Config) *Admin {
 		settingsForm:    settingsForm,
 		settingsCommand: settingsCmd,
 		defaultTheme:    defaultTheme,
+		modules:         []Module{},
+		moduleIndex:     map[string]Module{},
+		navMenuCode:     navMenuCode,
 	}
 	settingsForm.WithThemeResolver(adm.resolveTheme)
+	if adm.nav != nil {
+		adm.nav.defaultMenuCode = navMenuCode
+	}
 	return adm
 }
 
@@ -143,6 +157,26 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 		a.search.authorizer = authz
 	}
 	return a
+}
+
+// UseCMS overrides the default CMS container (menu/widget services).
+// Call before Initialize to wire a real go-cms container.
+func (a *Admin) UseCMS(container CMSContainer) *Admin {
+	if container == nil {
+		return a
+	}
+	a.cms = container
+	a.widgetSvc = container.WidgetService()
+	a.menuSvc = container.MenuService()
+	if a.nav != nil {
+		a.nav.menuSvc = a.menuSvc
+	}
+	return a
+}
+
+// MenuService exposes the configured CMS menu service for host seeding.
+func (a *Admin) MenuService() CMSMenuService {
+	return a.menuSvc
 }
 
 func (a *Admin) resolveTheme(ctx context.Context) *ThemeSelection {
@@ -189,6 +223,24 @@ func (a *Admin) Menu() *MenuHandle {
 // Commands exposes the go-command registry hook.
 func (a *Admin) Commands() *CommandRegistry {
 	return a.commandRegistry
+}
+
+// RegisterModule registers a pluggable module before initialization.
+// Duplicate IDs are rejected to preserve ordering and idempotency.
+func (a *Admin) RegisterModule(module Module) error {
+	if module == nil {
+		return errors.New("module cannot be nil")
+	}
+	manifest := module.Manifest()
+	if manifest.ID == "" {
+		return errors.New("module ID cannot be empty")
+	}
+	if _, exists := a.moduleIndex[manifest.ID]; exists {
+		return errors.New("module already registered: " + manifest.ID)
+	}
+	a.modules = append(a.modules, module)
+	a.moduleIndex[manifest.ID] = module
+	return nil
 }
 
 // DashboardService exposes the dashboard orchestration.
@@ -285,6 +337,9 @@ func (a *Admin) Initialize(r AdminRouter) error {
 	if err := a.Bootstrap(context.Background()); err != nil {
 		return err
 	}
+	if err := a.loadModules(context.Background()); err != nil {
+		return err
+	}
 	a.registerHealthRoute()
 	a.registerPanelRoutes()
 	a.registerSettingsWidget()
@@ -312,6 +367,60 @@ func (a *Admin) ensureCMS(ctx context.Context) error {
 		a.menuSvc = container.MenuService()
 	}
 	_ = ctx
+	return nil
+}
+
+func (a *Admin) loadModules(ctx context.Context) error {
+	if a.modulesLoaded {
+		return nil
+	}
+	for _, module := range a.modules {
+		if module == nil {
+			continue
+		}
+		if err := module.Register(ModuleContext{Admin: a, Locale: a.config.DefaultLocale}); err != nil {
+			return err
+		}
+		if contributor, ok := module.(MenuContributor); ok {
+			items := contributor.MenuItems(a.config.DefaultLocale)
+			if err := a.addMenuItems(ctx, items); err != nil {
+				return err
+			}
+		}
+	}
+	a.modulesLoaded = true
+	return nil
+}
+
+func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
+	if len(items) == 0 {
+		return nil
+	}
+	if a.menuSvc != nil {
+		menuCodes := map[string]bool{}
+		for _, item := range items {
+			code := item.Menu
+			if code == "" {
+				code = a.navMenuCode
+			}
+			if !menuCodes[code] {
+				if _, err := a.menuSvc.CreateMenu(ctx, code); err != nil {
+					return err
+				}
+				menuCodes[code] = true
+			}
+			if err := a.menuSvc.AddMenuItem(ctx, code, item); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if a.nav != nil {
+		converted := convertMenuItems(items)
+		if len(converted) > 0 {
+			a.nav.AddFallback(converted...)
+		}
+	}
 	return nil
 }
 
@@ -490,12 +599,16 @@ func (a *Admin) registerNavigationRoute() {
 	}
 	path := joinPath(a.config.BasePath, "api/navigation")
 	a.router.Get(path, func(c router.Context) error {
+		menuCode := c.Query("code")
+		if menuCode == "" {
+			menuCode = a.navMenuCode
+		}
 		locale := c.Query("locale")
 		if locale == "" {
 			locale = a.config.DefaultLocale
 		}
 		ctx := c.Context()
-		items := a.nav.Resolve(ctx, locale)
+		items := a.nav.ResolveMenu(ctx, menuCode, locale)
 		return writeJSON(c, map[string]any{
 			"items": items,
 			"theme": a.themePayload(ctx),
