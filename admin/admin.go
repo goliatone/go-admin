@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path"
 
 	router "github.com/goliatone/go-router"
@@ -35,6 +36,7 @@ type Admin struct {
 	moduleIndex     map[string]Module
 	modulesLoaded   bool
 	navMenuCode     string
+	translator      Translator
 }
 
 // New constructs an Admin orchestrator with default in-memory services.
@@ -98,6 +100,23 @@ func New(cfg Config) *Admin {
 	if cfg.FaviconURL != "" {
 		defaultTheme.Assets["favicon"] = cfg.FaviconURL
 	}
+	if cfg.FeatureFlags == nil {
+		cfg.FeatureFlags = map[string]bool{}
+	}
+	setFlag := func(key string, val bool) {
+		if _, exists := cfg.FeatureFlags[key]; !exists {
+			cfg.FeatureFlags[key] = val
+		}
+	}
+	setFlag("dashboard", cfg.EnableDashboard)
+	setFlag("search", cfg.EnableSearch)
+	setFlag("export", cfg.EnableExport)
+	setFlag("cms", cfg.EnableCMS)
+	setFlag("jobs", cfg.EnableJobs)
+	setFlag("commands", cfg.EnableCommands)
+	setFlag("settings", cfg.EnableSettings)
+	setFlag("notifications", cfg.EnableNotifications)
+
 	navMenuCode := cfg.NavMenuCode
 	if navMenuCode == "" {
 		navMenuCode = "admin.main"
@@ -124,6 +143,7 @@ func New(cfg Config) *Admin {
 		modules:         []Module{},
 		moduleIndex:     map[string]Module{},
 		navMenuCode:     navMenuCode,
+		translator:      NoopTranslator{},
 	}
 	settingsForm.WithThemeResolver(adm.resolveTheme)
 	if adm.nav != nil {
@@ -144,6 +164,14 @@ func (a *Admin) WithAuth(auth Authenticator, cfg *AuthConfig) *Admin {
 // WithThemeProvider wires a theme selector/registry to downstream renderers.
 func (a *Admin) WithThemeProvider(provider ThemeProvider) *Admin {
 	a.themeProvider = provider
+	return a
+}
+
+// WithTranslator wires an i18n translator for modules and UI surfaces.
+func (a *Admin) WithTranslator(t Translator) *Admin {
+	if t != nil {
+		a.translator = t
+	}
 	return a
 }
 
@@ -374,11 +402,26 @@ func (a *Admin) loadModules(ctx context.Context) error {
 	if a.modulesLoaded {
 		return nil
 	}
-	for _, module := range a.modules {
+	ordered, err := a.orderModules()
+	if err != nil {
+		return err
+	}
+	for _, module := range ordered {
 		if module == nil {
 			continue
 		}
-		if err := module.Register(ModuleContext{Admin: a, Locale: a.config.DefaultLocale}); err != nil {
+		manifest := module.Manifest()
+		if len(manifest.FeatureFlags) > 0 {
+			for _, flag := range manifest.FeatureFlags {
+				if enabled, ok := a.config.FeatureFlags[flag]; !ok || !enabled {
+					return fmt.Errorf("module %s requires feature flag %s", manifest.ID, flag)
+				}
+			}
+		}
+		if aware, ok := module.(TranslatorAware); ok {
+			aware.WithTranslator(a.translator)
+		}
+		if err := module.Register(ModuleContext{Admin: a, Locale: a.config.DefaultLocale, Translator: a.translator}); err != nil {
 			return err
 		}
 		if contributor, ok := module.(MenuContributor); ok {
@@ -390,6 +433,52 @@ func (a *Admin) loadModules(ctx context.Context) error {
 	}
 	a.modulesLoaded = true
 	return nil
+}
+
+func (a *Admin) orderModules() ([]Module, error) {
+	nodes := map[string]Module{}
+	for _, m := range a.modules {
+		if m == nil {
+			continue
+		}
+		manifest := m.Manifest()
+		nodes[manifest.ID] = m
+	}
+	visited := map[string]bool{}
+	stack := map[string]bool{}
+	result := []Module{}
+	var visit func(id string) error
+	visit = func(id string) error {
+		if visited[id] {
+			return nil
+		}
+		if stack[id] {
+			return fmt.Errorf("module dependency cycle detected at %s", id)
+		}
+		stack[id] = true
+		mod, ok := nodes[id]
+		if !ok {
+			return fmt.Errorf("module %s not registered", id)
+		}
+		for _, dep := range mod.Manifest().Dependencies {
+			if _, ok := nodes[dep]; !ok {
+				return fmt.Errorf("module %s missing dependency %s", id, dep)
+			}
+			if err := visit(dep); err != nil {
+				return err
+			}
+		}
+		stack[id] = false
+		visited[id] = true
+		result = append(result, mod)
+		return nil
+	}
+	for id := range nodes {
+		if err := visit(id); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
@@ -1025,33 +1114,7 @@ func (a *Admin) bootstrapAdminMenu(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(menu.Items) > 0 {
-		return nil
-	}
-	items := []MenuItem{
-		{Label: "Dashboard", Target: map[string]any{"type": "route", "name": "admin.dashboard"}, Icon: "home", Position: 0, Locale: a.config.DefaultLocale},
-		{Label: "Content", Target: map[string]any{"type": "route", "name": "admin.content"}, Icon: "file-text", Position: 1, Locale: a.config.DefaultLocale},
-		{Label: "Pages", Target: map[string]any{"type": "route", "name": "admin.pages"}, Icon: "file", Position: 2, Locale: a.config.DefaultLocale},
-		{Label: "Menus", Target: map[string]any{"type": "route", "name": "admin.menus"}, Icon: "menu", Position: 3, Locale: a.config.DefaultLocale},
-	}
-	if a.config.EnableSettings {
-		permissions := []string{}
-		if a.config.SettingsPermission != "" {
-			permissions = append(permissions, a.config.SettingsPermission)
-		}
-		items = append(items, MenuItem{
-			Label:       "Settings",
-			Target:      map[string]any{"type": "route", "name": "admin.settings"},
-			Icon:        "settings",
-			Position:    4,
-			Locale:      a.config.DefaultLocale,
-			Permissions: permissions,
-		})
-	}
-	for _, item := range items {
-		if err := a.menuSvc.AddMenuItem(ctx, menu.Code, item); err != nil {
-			return err
-		}
-	}
+	_ = menu
+	// Modules are responsible for contributing menu items. We only ensure the menu exists.
 	return nil
 }
