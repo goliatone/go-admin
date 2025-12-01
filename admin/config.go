@@ -30,6 +30,8 @@ type Config struct {
 	SettingsThemeTokens      map[string]string
 
 	AuthConfig *AuthConfig
+
+	NavMenuCode string
 }
 
 // AuthConfig captures login/logout endpoints and redirect defaults.
