@@ -23,12 +23,37 @@ type Admin struct {
 	search          *SearchEngine
 	panels          map[string]*Panel
 	authorizer      Authorizer
+	settings        *SettingsService
+	settingsForm    *SettingsFormAdapter
+	settingsCommand *SettingsUpdateCommand
 }
 
 // New constructs an Admin orchestrator with default in-memory services.
 func New(cfg Config) *Admin {
+	if cfg.SettingsPermission == "" {
+		cfg.SettingsPermission = "admin.settings.view"
+	}
+	if cfg.SettingsUpdatePermission == "" {
+		cfg.SettingsUpdatePermission = "admin.settings.edit"
+	}
+	if cfg.SettingsThemeTokens == nil {
+		cfg.SettingsThemeTokens = map[string]string{}
+	}
+	if cfg.BasePath != "" {
+		cfg.SettingsThemeTokens["base_path"] = cfg.BasePath
+	}
+	if cfg.Theme != "" {
+		cfg.SettingsThemeTokens["theme"] = cfg.Theme
+	}
+
 	container := NewNoopCMSContainer()
-	cmdReg := NewCommandRegistry(cfg.EnableCommands)
+	cmdReg := NewCommandRegistry(cfg.EnableCommands || cfg.EnableSettings)
+	settingsSvc := NewSettingsService()
+	settingsForm := NewSettingsFormAdapter(settingsSvc, cfg.Theme, cfg.SettingsThemeTokens)
+	settingsCmd := &SettingsUpdateCommand{Service: settingsSvc, Permission: cfg.SettingsUpdatePermission}
+	if cfg.EnableSettings {
+		cmdReg.Register(settingsCmd)
+	}
 	return &Admin{
 		config:          cfg,
 		registry:        NewRegistry(),
@@ -40,6 +65,9 @@ func New(cfg Config) *Admin {
 		nav:             NewNavigation(container.MenuService(), nil),
 		search:          NewSearchEngine(nil),
 		panels:          make(map[string]*Panel),
+		settings:        settingsSvc,
+		settingsForm:    settingsForm,
+		settingsCommand: settingsCmd,
 	}
 }
 

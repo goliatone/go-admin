@@ -14,11 +14,16 @@ type Config struct {
 	EnableCMS       bool
 	EnableJobs      bool
 	EnableCommands  bool
+	EnableSettings  bool
 
 	LogoURL    string
 	FaviconURL string
 	CustomCSS  string
 	CustomJS   string
+
+	SettingsPermission       string
+	SettingsUpdatePermission string
+	SettingsThemeTokens      map[string]string
 
 	AuthConfig *AuthConfig
 }
