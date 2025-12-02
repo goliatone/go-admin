@@ -1,9 +1,6 @@
 package admin
 
-import (
-	"context"
-	"errors"
-)
+import "context"
 
 // Command represents a basic go-command style handler.
 type Command interface {
@@ -94,11 +91,11 @@ func (r *CommandRegistry) Cron() []CronHook {
 // Dispatch executes a registered command by name.
 func (r *CommandRegistry) Dispatch(ctx context.Context, name string) error {
 	if r == nil || !r.enabled {
-		return errors.New("commands disabled")
+		return FeatureDisabledError{Feature: string(FeatureCommands)}
 	}
 	cmd, ok := r.commandMap[name]
 	if !ok {
-		return errors.New("command not found")
+		return ErrNotFound
 	}
 	return cmd.Execute(ctx)
 }
