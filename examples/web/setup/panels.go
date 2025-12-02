@@ -145,7 +145,7 @@ func NewPostsPanelBuilder(store *stores.PostStore) *admin.PanelBuilder {
 				{Value: "scheduled", Label: "Scheduled"},
 			}},
 			admin.Field{Name: "published_at", Label: "Publish Date", Type: "datetime"},
-			admin.Field{Name: "featured_image", Label: "Featured Image", Type: "text"},
+			admin.Field{Name: "featured_image", Label: "Featured Image", Type: "media"},
 			admin.Field{Name: "tags", Label: "Tags", Type: "text"},
 		).
 		DetailFields(
@@ -154,6 +154,7 @@ func NewPostsPanelBuilder(store *stores.PostStore) *admin.PanelBuilder {
 			admin.Field{Name: "content", Label: "Content", Type: "textarea"},
 			admin.Field{Name: "author", Label: "Author", Type: "text", ReadOnly: true},
 			admin.Field{Name: "status", Label: "Status", Type: "text"},
+			admin.Field{Name: "featured_image", Label: "Featured Image", Type: "media"},
 			admin.Field{Name: "created_at", Label: "Created", Type: "datetime", ReadOnly: true},
 		).
 		Filters(
