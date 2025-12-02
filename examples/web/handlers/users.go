@@ -1,0 +1,182 @@
+package handlers
+
+import (
+	"fmt"
+	"path"
+
+	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
+	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
+	formgenrender "github.com/goliatone/go-formgen/pkg/render"
+	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-router"
+)
+
+const (
+	userFormSource      = "users.json"
+	createUserOperation = "createUser"
+	updateUserOperation = "updateUser"
+)
+
+// UserHandlers holds dependencies for user-related HTTP handlers
+type UserHandlers struct {
+	Store         *stores.UserStore
+	FormGenerator *formgenorchestrator.Orchestrator
+	Admin         *admin.Admin
+	Config        admin.Config
+	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string) router.ViewContext
+}
+
+// NewUserHandlers creates a new UserHandlers instance
+func NewUserHandlers(
+	store *stores.UserStore,
+	formGen *formgenorchestrator.Orchestrator,
+	adm *admin.Admin,
+	cfg admin.Config,
+	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string) router.ViewContext,
+) *UserHandlers {
+	return &UserHandlers{
+		Store:         store,
+		FormGenerator: formGen,
+		Admin:         adm,
+		Config:        cfg,
+		WithNav:       withNav,
+	}
+}
+
+// List handles GET /users - displays list of all users
+func (h *UserHandlers) List(c router.Context) error {
+	ctx := c.Context()
+	users, total, err := h.Store.List(ctx, admin.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	return c.Render("users-list", h.WithNav(router.ViewContext{
+		"title":       h.Config.Title,
+		"base_path":   h.Config.BasePath,
+		"users":       users,
+		"total_users": total,
+	}, h.Admin, h.Config, "users"))
+}
+
+// New handles GET /users/new - displays user creation form
+func (h *UserHandlers) New(c router.Context) error {
+	return h.renderUserForm(c, createUserOperation, formgenrender.RenderOptions{
+		HiddenFields: map[string]string{"_action": "create"},
+	})
+}
+
+// Create handles POST /users - creates a new user
+func (h *UserHandlers) Create(c router.Context) error {
+	ctx := c.Context()
+
+	record := map[string]any{
+		"username": c.FormValue("username"),
+		"email":    c.FormValue("email"),
+		"role":     c.FormValue("role"),
+		"status":   c.FormValue("status"),
+	}
+
+	if _, err := h.Store.Create(ctx, record); err != nil {
+		return err
+	}
+
+	return c.Redirect(path.Join(h.Config.BasePath, "users"))
+}
+
+// Detail handles GET /users/:id - displays user details
+func (h *UserHandlers) Detail(c router.Context) error {
+	id := c.Param("id")
+	ctx := c.Context()
+
+	user, err := h.Store.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	return c.Render("users-detail", h.WithNav(router.ViewContext{
+		"title":     h.Config.Title,
+		"base_path": h.Config.BasePath,
+		"user":      user,
+	}, h.Admin, h.Config, "users"))
+}
+
+// Edit handles GET /users/:id/edit - displays user edit form
+func (h *UserHandlers) Edit(c router.Context) error {
+	id := c.Param("id")
+	ctx := c.Context()
+
+	user, err := h.Store.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	return h.renderUserForm(c, updateUserOperation, formgenrender.RenderOptions{
+		Values: map[string]any{
+			"username": user["username"],
+			"email":    user["email"],
+			"role":     user["role"],
+			"status":   user["status"],
+		},
+		HiddenFields: map[string]string{
+			"id": id,
+		},
+	})
+}
+
+// Update handles POST /users/:id - updates an existing user
+func (h *UserHandlers) Update(c router.Context) error {
+	id := c.Param("id")
+	ctx := c.Context()
+
+	record := map[string]any{
+		"username": c.FormValue("username"),
+		"email":    c.FormValue("email"),
+		"role":     c.FormValue("role"),
+		"status":   c.FormValue("status"),
+	}
+
+	if _, err := h.Store.Update(ctx, id, record); err != nil {
+		return err
+	}
+
+	return c.Redirect(path.Join(h.Config.BasePath, "users"))
+}
+
+// Delete handles POST /users/:id/delete - deletes a user
+func (h *UserHandlers) Delete(c router.Context) error {
+	id := c.Param("id")
+	ctx := c.Context()
+
+	if err := h.Store.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	return c.Redirect(path.Join(h.Config.BasePath, "users"))
+}
+
+// renderUserForm is a helper function to render user forms (create/edit)
+func (h *UserHandlers) renderUserForm(c router.Context, operationID string, opts formgenrender.RenderOptions) error {
+	if h.FormGenerator == nil {
+		return fmt.Errorf("form generator is not configured")
+	}
+
+	html, err := h.FormGenerator.Generate(c.Context(), formgenorchestrator.Request{
+		Source:        formgenopenapi.SourceFromFS(userFormSource),
+		OperationID:   operationID,
+		RenderOptions: opts,
+	})
+	if err != nil {
+		return err
+	}
+
+	isEdit := operationID == updateUserOperation
+
+	return c.Render("users-form", h.WithNav(router.ViewContext{
+		"title":     h.Config.Title,
+		"base_path": h.Config.BasePath,
+		"is_edit":   isEdit,
+		"form_html": string(html),
+	}, h.Admin, h.Config, "users"))
+}
