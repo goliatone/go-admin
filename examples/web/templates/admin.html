@@ -183,6 +183,17 @@
           </li>
         </ul>
       </div>
+
+      <!-- Notifications Preview -->
+      <div class="bg-white border border-gray-200 rounded-xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-admin-dark">Notifications</h2>
+          <a href="{{ base_path }}/notifications" class="text-sm text-blue-500 hover:text-blue-600 no-underline">Open center</a>
+        </div>
+        <ul class="space-y-3" id="notifications-preview">
+          <li class="text-zinc-500">Loading...</li>
+        </ul>
+      </div>
     </aside>
   </div>
 </div>
@@ -214,28 +225,67 @@
         document.getElementById('revenue-achieved').textContent = `$${data.revenueAchieved?.toLocaleString() || 0}`;
       }
 
-      // Update activity feed
-      if (data.recentActivity && data.recentActivity.length > 0) {
-        const activityFeed = document.getElementById('activity-feed');
-        activityFeed.innerHTML = data.recentActivity.map(activity => `
-          <li class="py-3 border-b border-gray-100 last:border-b-0">
-            <div class="font-semibold text-admin-dark text-sm">${activity.actor}</div>
-            <div class="text-zinc-500 text-sm mt-1">${activity.action}</div>
-          </li>
-        `).join('');
+      // Update activity feed from widgets
+      if (data.widgets) {
+        const activityWidget = data.widgets.find(w => w.definition === 'admin.widget.activity_feed');
+        if (activityWidget && activityWidget.data && activityWidget.data.entries) {
+          const activityFeed = document.getElementById('activity-feed');
+          activityFeed.innerHTML = activityWidget.data.entries.map(entry => `
+            <li class="py-3 border-b border-gray-100 last:border-b-0">
+              <div class="font-semibold text-admin-dark text-sm">${entry.actor}</div>
+              <div class="text-zinc-500 text-sm mt-1">${entry.action} ${entry.object}</div>
+            </li>
+          `).join('');
+        }
+
+        const notificationsWidget = data.widgets.find(w => w.definition === 'admin.widget.notifications');
+        if (notificationsWidget && notificationsWidget.data && notificationsWidget.data.notifications) {
+          const notifications = notificationsWidget.data.notifications;
+          const preview = document.getElementById('notifications-preview');
+          if (!notifications || notifications.length === 0) {
+            preview.innerHTML = '<li class="text-zinc-500">No notifications yet.</li>';
+          } else {
+            preview.innerHTML = notifications.slice(0, 4).map(item => `
+              <li class="py-3 border-b border-gray-100 last:border-b-0">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <div class="font-semibold text-admin-dark text-sm">${item.title || 'Notification'}</div>
+                    <div class="text-zinc-500 text-sm mt-1">${item.message || ''}</div>
+                  </div>
+                  <span class="px-2 py-1 text-xs font-semibold ${item.read ? 'text-zinc-600 bg-gray-100' : 'text-white bg-blue-500'} rounded-full">${item.read ? 'Read' : 'Unread'}</span>
+                </div>
+              </li>
+            `).join('');
+          }
+        }
       }
 
-      // Update jobs list
-      if (data.jobs && data.jobs.length > 0) {
-        const jobsList = document.getElementById('jobs-list');
-        jobsList.innerHTML = data.jobs.map(job => `
-          <li class="py-2 px-3 border border-gray-200 rounded-lg bg-gray-50">
-            <div class="flex items-center justify-between text-sm">
-              <span class="font-medium text-admin-dark">${job.name}</span>
-              <span class="text-xs text-zinc-500">${job.status}</span>
-            </div>
-          </li>
-        `).join('');
+      // Fetch and update jobs list from jobs API
+      try {
+        const jobsResponse = await fetch('{{ base_path }}/api/jobs');
+        const jobsData = await jobsResponse.json();
+        if (jobsData && jobsData.jobs && jobsData.jobs.length > 0) {
+          const jobsList = document.getElementById('jobs-list');
+          jobsList.innerHTML = jobsData.jobs.map(job => {
+            const schedule = job.schedule || 'On demand';
+            const lastRun = job.last_run ? new Date(job.last_run).toLocaleString() : 'Not run yet';
+            const status = job.status || 'pending';
+            return `
+              <li class="py-2 px-3 border border-gray-200 rounded-lg bg-gray-50">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="font-medium text-admin-dark">${job.name || job.command}</span>
+                  <span class="text-xs text-zinc-500">${schedule}</span>
+                </div>
+                <div class="flex items-center justify-between text-xs text-zinc-500 mt-1">
+                  <span class="${status === 'failed' ? 'text-red-600' : 'text-zinc-600'}">Status: ${status}</span>
+                  <span>${lastRun}</span>
+                </div>
+              </li>
+            `;
+          }).join('');
+        }
+      } catch (jobsError) {
+        console.error('Failed to load jobs data:', jobsError);
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);

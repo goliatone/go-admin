@@ -56,7 +56,7 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 	return []admin.MenuItem{
 		{
 			Label: label,
-			Icon:  "users",
+			Icon:  "group",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "users"),
@@ -101,6 +101,9 @@ func (m *pagesModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
+	ctx.Admin.Commands().Register(&pagePublishCommand{store: m.store})
+	ctx.Admin.Commands().Register(&pageBulkPublishCommand{store: m.store})
+	ctx.Admin.Commands().Register(&pageBulkUnpublishCommand{store: m.store})
 	_, err := ctx.Admin.RegisterPanel("pages", newPagesPanelBuilder(m.store))
 	return err
 }
@@ -120,7 +123,7 @@ func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
 	return []admin.MenuItem{
 		{
 			Label: label,
-			Icon:  "file",
+			Icon:  "page",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "pages"),
@@ -165,6 +168,8 @@ func (m *postsModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
+	ctx.Admin.Commands().Register(&postBulkPublishCommand{store: m.store})
+	ctx.Admin.Commands().Register(&postBulkArchiveCommand{store: m.store})
 	_, err := ctx.Admin.RegisterPanel("posts", newPostsPanelBuilder(m.store))
 	return err
 }
@@ -184,7 +189,7 @@ func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
 	return []admin.MenuItem{
 		{
 			Label: label,
-			Icon:  "file-text",
+			Icon:  "post",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "posts"),
@@ -220,6 +225,7 @@ func (m *mediaModule) Manifest() admin.ModuleManifest {
 		ID:             "media",
 		NameKey:        "modules.media.name",
 		DescriptionKey: "modules.media.description",
+		FeatureFlags:   []string{string(admin.FeatureMedia)},
 	}
 }
 
@@ -233,6 +239,7 @@ func (m *mediaModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
+	ctx.Admin.Commands().Register(&mediaBulkDeleteCommand{store: m.store})
 	_, err := ctx.Admin.RegisterPanel("media", newMediaPanelBuilder(m.store))
 	return err
 }
@@ -252,7 +259,7 @@ func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 	return []admin.MenuItem{
 		{
 			Label: label,
-			Icon:  "image",
+			Icon:  "media-image",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "media"),
@@ -270,6 +277,48 @@ func (m *mediaModule) WithTranslator(t admin.Translator) {
 	m.translator = t
 }
 
+// notificationsModule contributes the notifications center menu entry.
+type notificationsModule struct {
+	menuCode   string
+	defaultLoc string
+	basePath   string
+}
+
+func (m *notificationsModule) Manifest() admin.ModuleManifest {
+	return admin.ModuleManifest{
+		ID:           "notifications",
+		FeatureFlags: []string{string(admin.FeatureNotifications)},
+	}
+}
+
+func (m *notificationsModule) Register(ctx admin.ModuleContext) error {
+	return nil
+}
+
+func (m *notificationsModule) MenuItems(locale string) []admin.MenuItem {
+	code := m.menuCode
+	if code == "" {
+		code = "admin.main"
+	}
+	if locale == "" {
+		locale = m.defaultLoc
+	}
+	return []admin.MenuItem{
+		{
+			Label: "Notifications",
+			Icon:  "notifications",
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(m.basePath, "notifications"),
+				"key":  "notifications",
+			},
+			Locale:   locale,
+			Menu:     code,
+			Position: 50,
+		},
+	}
+}
+
 // dashboardModule contributes the dashboard menu item.
 type dashboardModule struct {
 	menuCode   string
@@ -283,6 +332,7 @@ func (m *dashboardModule) Manifest() admin.ModuleManifest {
 		ID:             "dashboard",
 		NameKey:        "modules.dashboard.name",
 		DescriptionKey: "modules.dashboard.description",
+		FeatureFlags:   []string{string(admin.FeatureDashboard)},
 	}
 }
 
@@ -308,7 +358,7 @@ func (m *dashboardModule) MenuItems(locale string) []admin.MenuItem {
 	return []admin.MenuItem{
 		{
 			Label: label,
-			Icon:  "dashboard-speed",
+			Icon:  "home",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join("/", m.basePath),

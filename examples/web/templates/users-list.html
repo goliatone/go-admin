@@ -19,7 +19,7 @@
       class="flex-1 px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
       placeholder="Search by name, email, or role..."
     >
-    <span class="text-zinc-500 text-sm" id="results-count">{{ total_users }} users</span>
+    <span class="text-zinc-500 text-sm" id="results-count">{{ total_users|integer }} users</span>
   </div>
 
   {% if users %}
