@@ -5,11 +5,14 @@ import (
 	"path"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/web/commands"
+	"github.com/goliatone/go-admin/examples/web/setup"
+	"github.com/goliatone/go-admin/examples/web/stores"
 )
 
 // usersModule registers the users panel and menu entry.
 type usersModule struct {
-	store      *UserStore
+	store      *stores.UserStore
 	menuCode   string
 	defaultLoc string
 	basePath   string
@@ -34,9 +37,9 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
-	builder := newUserPanelBuilder(m.store)
-	ctx.Admin.Commands().Register(&userActivateCommand{store: m.store})
-	ctx.Admin.Commands().Register(&userDeactivateCommand{store: m.store})
+	builder := setup.NewUserPanelBuilder(m.store)
+	ctx.Admin.Commands().Register(commands.NewUserActivateCommand(m.store))
+	ctx.Admin.Commands().Register(commands.NewUserDeactivateCommand(m.store))
 	_, err := ctx.Admin.RegisterPanel("users", builder)
 	return err
 }
@@ -76,7 +79,7 @@ func (m *usersModule) WithTranslator(t admin.Translator) {
 
 // pagesModule registers the pages panel and menu entry.
 type pagesModule struct {
-	store      *PageStore
+	store      *stores.PageStore
 	menuCode   string
 	defaultLoc string
 	basePath   string
@@ -101,10 +104,10 @@ func (m *pagesModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
-	ctx.Admin.Commands().Register(&pagePublishCommand{store: m.store})
-	ctx.Admin.Commands().Register(&pageBulkPublishCommand{store: m.store})
-	ctx.Admin.Commands().Register(&pageBulkUnpublishCommand{store: m.store})
-	_, err := ctx.Admin.RegisterPanel("pages", newPagesPanelBuilder(m.store))
+	ctx.Admin.Commands().Register(commands.NewPagePublishCommand(m.store))
+	ctx.Admin.Commands().Register(commands.NewPageBulkPublishCommand(m.store))
+	ctx.Admin.Commands().Register(commands.NewPageBulkUnpublishCommand(m.store))
+	_, err := ctx.Admin.RegisterPanel("pages", setup.NewPagesPanelBuilder(m.store))
 	return err
 }
 
@@ -143,7 +146,7 @@ func (m *pagesModule) WithTranslator(t admin.Translator) {
 
 // postsModule registers the posts panel and menu entry.
 type postsModule struct {
-	store      *PostStore
+	store      *stores.PostStore
 	menuCode   string
 	defaultLoc string
 	basePath   string
@@ -168,9 +171,9 @@ func (m *postsModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
-	ctx.Admin.Commands().Register(&postBulkPublishCommand{store: m.store})
-	ctx.Admin.Commands().Register(&postBulkArchiveCommand{store: m.store})
-	_, err := ctx.Admin.RegisterPanel("posts", newPostsPanelBuilder(m.store))
+	ctx.Admin.Commands().Register(commands.NewPostBulkPublishCommand(m.store))
+	ctx.Admin.Commands().Register(commands.NewPostBulkArchiveCommand(m.store))
+	_, err := ctx.Admin.RegisterPanel("posts", setup.NewPostsPanelBuilder(m.store))
 	return err
 }
 
@@ -213,7 +216,7 @@ func (m *postsModule) WithTranslator(t admin.Translator) {
 
 // mediaModule registers the media panel and menu entry.
 type mediaModule struct {
-	store      *MediaStore
+	store      *stores.MediaStore
 	menuCode   string
 	defaultLoc string
 	basePath   string
@@ -239,8 +242,8 @@ func (m *mediaModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
-	ctx.Admin.Commands().Register(&mediaBulkDeleteCommand{store: m.store})
-	_, err := ctx.Admin.RegisterPanel("media", newMediaPanelBuilder(m.store))
+	ctx.Admin.Commands().Register(commands.NewMediaBulkDeleteCommand(m.store))
+	_, err := ctx.Admin.RegisterPanel("media", setup.NewMediaPanelBuilder(m.store))
 	return err
 }
 
