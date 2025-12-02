@@ -8,8 +8,55 @@ import (
 	"testing"
 	"time"
 
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
+
+func TestGoAuthAuthenticatorWrapsMiddleware(t *testing.T) {
+	called := false
+	authenticator := &GoAuthAuthenticator{
+		middleware: func(next router.HandlerFunc) router.HandlerFunc {
+			return func(c router.Context) error {
+				called = true
+				_ = c.Context()
+				if next != nil {
+					return next(c)
+				}
+				return nil
+			}
+		},
+	}
+
+	mockCtx := router.NewMockContext()
+	mockCtx.On("Context").Return(context.Background())
+
+	if err := authenticator.Wrap(mockCtx); err != nil {
+		t.Fatalf("wrap returned error: %v", err)
+	}
+	if !called {
+		t.Fatalf("expected middleware to be invoked")
+	}
+	mockCtx.AssertExpectations(t)
+}
+
+func TestNewAdminContextPrefersActor(t *testing.T) {
+	actor := &auth.ActorContext{ActorID: "actor-123", Subject: "subject-abc"}
+	ctxWithActor := auth.WithActorContext(context.Background(), actor)
+
+	mockCtx := router.NewMockContext()
+	mockCtx.HeadersM["X-User-ID"] = "header-user"
+	mockCtx.On("Context").Return(ctxWithActor)
+
+	result := newAdminContextFromRouter(mockCtx, "en")
+	if result.UserID != "actor-123" {
+		t.Fatalf("expected actor id to be used, got %s", result.UserID)
+	}
+	resolved, _ := auth.ActorFromContext(result.Context)
+	if resolved == nil || resolved.ActorID != actor.ActorID {
+		t.Fatalf("expected actor on context")
+	}
+	mockCtx.AssertExpectations(t)
+}
 
 func TestInitializeRegistersHealth(t *testing.T) {
 	cfg := Config{
@@ -389,8 +436,8 @@ func TestPanelActivityEmission(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 
-	panel := adm.panels["items"]
-	if panel == nil {
+	panel, ok := adm.Registry().Panel("items")
+	if !ok || panel == nil {
 		t.Fatalf("expected panel registered")
 	}
 	if _, err := panel.Create(AdminContext{Context: context.Background(), UserID: "tester"}, map[string]any{"name": "Alpha"}); err != nil {

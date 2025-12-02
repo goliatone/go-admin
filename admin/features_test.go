@@ -56,8 +56,18 @@ func TestSearchRouteRespectsFeatureGates(t *testing.T) {
 
 	var body map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	msg, _ := body["error"].(string)
-	if msg == "" || !strings.Contains(strings.ToLower(msg), "search") {
-		t.Fatalf("expected search gate error message, got %v", body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured error payload, got %v", body)
+	}
+	if code := int(errPayload["code"].(float64)); code != 404 {
+		t.Fatalf("expected error code 404, got %d", code)
+	}
+	msg := strings.ToLower(toString(errPayload["message"]))
+	if msg == "" || !strings.Contains(msg, "search") {
+		t.Fatalf("expected search gate error message, got %v", errPayload)
+	}
+	if text := toString(errPayload["text_code"]); text != "FEATURE_DISABLED" {
+		t.Fatalf("expected FEATURE_DISABLED text_code, got %v", text)
 	}
 }
