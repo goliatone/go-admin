@@ -68,6 +68,11 @@
         </div>
       </div>
 
+      <!-- Chart Widgets -->
+      <div id="chart-widgets-main" class="space-y-6">
+        <!-- Charts will be dynamically inserted here -->
+      </div>
+
       <!-- Recent Activity -->
       <div class="bg-white border border-gray-200 rounded-xl p-6">
         <div class="flex justify-between items-center mb-6">
@@ -119,6 +124,11 @@
 
     <!-- Right Sidebar -->
     <aside class="space-y-6">
+      <!-- Chart Widgets -->
+      <div id="chart-widgets-sidebar" class="space-y-6">
+        <!-- Charts will be dynamically inserted here -->
+      </div>
+
       <!-- Revenue Chart -->
       <div class="bg-white border border-gray-200 rounded-xl p-6">
         <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Receipt of Goods</div>
@@ -244,13 +254,28 @@
       const response = await fetch('{{ base_path }}/api/dashboard');
       const data = await response.json();
 
-      // Update stats
+      // Extract stats from widgets with type: "stat_card"
+      if (data.widgets) {
+        const statWidgets = data.widgets.filter(w => w.data && w.data.type === 'stat_card');
+
+        statWidgets.forEach(widget => {
+          const statData = widget.data;
+          if (statData.stat_type === 'users') {
+            document.getElementById('total-users').textContent = statData.total || 0;
+          } else if (statData.stat_type === 'content') {
+            document.getElementById('published-content').textContent = statData.published || 0;
+          } else if (statData.stat_type === 'storage') {
+            const usedGB = statData.used || 0;
+            const percentage = statData.percentage || 0;
+            document.getElementById('storage-used').textContent = `${usedGB} GB`;
+            document.getElementById('storage-percent').textContent = `${percentage}% of total`;
+          }
+        });
+      }
+
+      // Keep existing revenue/orders defaults (no widget for these yet)
       document.getElementById('total-revenue').textContent = `$${data.totalRevenue?.toLocaleString() || 0}`;
       document.getElementById('total-orders').textContent = `${data.totalOrders || 0} orders`;
-      document.getElementById('total-users').textContent = data.totalUsers || 0;
-      document.getElementById('published-content').textContent = data.publishedContent || 0;
-      document.getElementById('storage-used').textContent = `${data.storageUsed || 0} GB`;
-      document.getElementById('storage-percent').textContent = `${data.storagePercent || 0}% of total`;
 
       // Update revenue chart
       if (data.revenuePercent !== undefined) {
@@ -293,6 +318,91 @@
                 </div>
               </li>
             `).join('');
+          }
+        }
+
+        // Helper function to render HTML with script execution
+        function renderHTMLWithScripts(container, html) {
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = html;
+
+          // Extract script elements
+          const scripts = Array.from(tempDiv.querySelectorAll('script'));
+          const scriptContents = [];
+
+          scripts.forEach(script => {
+            if (script.src) {
+              // External script - preserve it
+              scriptContents.push({ type: 'external', src: script.src });
+            } else {
+              // Inline script - save content
+              scriptContents.push({ type: 'inline', content: script.textContent });
+            }
+            script.remove(); // Remove from HTML to prevent double execution
+          });
+
+          // Insert HTML first
+          container.innerHTML = tempDiv.innerHTML;
+
+          // Execute scripts in order
+          scriptContents.forEach(scriptInfo => {
+            if (scriptInfo.type === 'external') {
+              const script = document.createElement('script');
+              script.src = scriptInfo.src;
+              document.head.appendChild(script);
+            } else {
+              const script = document.createElement('script');
+              script.textContent = scriptInfo.content;
+              document.body.appendChild(script);
+            }
+          });
+        }
+
+        // Render ECharts chart widgets
+        if (data.widgets) {
+          const chartTypes = ['admin.widget.bar_chart', 'admin.widget.line_chart', 'admin.widget.pie_chart', 'admin.widget.gauge_chart'];
+          const chartWidgets = data.widgets.filter(w => chartTypes.includes(w.definition) && w.data && w.data.chart_html);
+
+          // Separate main and sidebar charts based on actual area field
+          const mainWidgets = chartWidgets.filter(w => w.area === 'admin.dashboard.main');
+          const sidebarWidgets = chartWidgets.filter(w => w.area === 'admin.dashboard.sidebar');
+
+          // Render main area charts
+          if (mainWidgets.length > 0) {
+            const mainContainer = document.getElementById('chart-widgets-main');
+            const mainHTML = mainWidgets.map(widget => {
+              const title = widget.data.title || 'Chart';
+              const subtitle = widget.data.subtitle || '';
+              return `
+                <div class="bg-white border border-gray-200 rounded-xl p-6">
+                  <div class="mb-4">
+                    <h2 class="text-lg font-semibold text-admin-dark">${title}</h2>
+                    ${subtitle ? `<p class="text-sm text-zinc-500 mt-1">${subtitle}</p>` : ''}
+                  </div>
+                  <div class="chart-container">
+                    ${widget.data.chart_html}
+                  </div>
+                </div>
+              `;
+            }).join('');
+            renderHTMLWithScripts(mainContainer, mainHTML);
+          }
+
+          // Render sidebar charts
+          if (sidebarWidgets.length > 0) {
+            const sidebarContainer = document.getElementById('chart-widgets-sidebar');
+            const sidebarHTML = sidebarWidgets.map(widget => {
+              const title = widget.data.title || 'Chart';
+              return `
+                <div class="bg-white border border-gray-200 rounded-xl p-6">
+                  <h3 class="text-sm font-semibold text-admin-dark mb-4 uppercase tracking-wider text-zinc-500">${title}</h3>
+                  <div class="chart-container">
+                    ${widget.data.chart_html}
+                  </div>
+                </div>
+              `;
+            }).join('');
+            renderHTMLWithScripts(sidebarContainer, sidebarHTML);
           }
         }
       }
@@ -347,26 +457,32 @@
         console.error('Failed to load bulk jobs:', bulkErr);
       }
 
-      // Fetch media library preview
+      // Fetch media library preview (only if endpoint exists)
       try {
         const mediaRes = await fetch('{{ base_path }}/api/media/library');
-        const mediaData = await mediaRes.json();
-        const mediaList = document.getElementById('media-preview');
-        if (mediaData && mediaData.items && mediaData.items.length > 0) {
-          mediaList.innerHTML = mediaData.items.slice(0, 4).map(item => `
-            <li class="flex items-center gap-3">
-              <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-sm text-zinc-600">${(item.name || 'M')[0]}</div>
-              <div>
-                <div class="text-sm font-semibold text-admin-dark">${item.name}</div>
-                <div class="text-xs text-zinc-500">${item.url}</div>
-              </div>
-            </li>
-          `).join('');
+        if (mediaRes.ok) {
+          const mediaData = await mediaRes.json();
+          const mediaList = document.getElementById('media-preview');
+          if (mediaData && mediaData.items && mediaData.items.length > 0) {
+            mediaList.innerHTML = mediaData.items.slice(0, 4).map(item => `
+              <li class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-sm text-zinc-600">${(item.name || 'M')[0]}</div>
+                <div>
+                  <div class="text-sm font-semibold text-admin-dark">${item.name}</div>
+                  <div class="text-xs text-zinc-500">${item.url}</div>
+                </div>
+              </li>
+            `).join('');
+          } else {
+            document.getElementById('media-preview').innerHTML = '<li class="text-zinc-500">No media yet.</li>';
+          }
         } else {
-          mediaList.innerHTML = '<li class="text-zinc-500">No media yet.</li>';
+          // Media library not available - hide or show placeholder
+          document.getElementById('media-preview').innerHTML = '<li class="text-zinc-500">Media library not configured.</li>';
         }
       } catch (mediaErr) {
-        console.error('Failed to load media preview:', mediaErr);
+        // Silently handle - media feature may not be enabled
+        document.getElementById('media-preview').innerHTML = '<li class="text-zinc-500">Media library not available.</li>';
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);

@@ -6,9 +6,28 @@
   <title>{% block title %}{{ title|default:"Enterprise Admin" }}{% endblock %}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
   <link rel="stylesheet" href="{{ base_path }}/assets/output.css">
+  <!-- Pre-load ECharts for dashboard charts -->
+  <script src="https://go-echarts.github.io/go-echarts-assets/assets/echarts.min.js"></script>
+  {% if theme %}
+  <style>
+    :root {
+      {% if theme.tokens.primary %}--color-primary: {{ theme.tokens.primary }};{% endif %}
+      {% if theme.tokens.accent %}--color-accent: {{ theme.tokens.accent }};{% endif %}
+      {% if theme.tokens.surface %}--color-surface: {{ theme.tokens.surface }};{% endif %}
+    }
+    .nav-item.active {
+      background: var(--color-primary, #2563eb);
+      color: #fff;
+    }
+    body[data-theme="dark"] {
+      background-color: #0f172a;
+      color: #e5e7eb;
+    }
+  </style>
+  {% endif %}
   {% block head_extra %}{% endblock %}
 </head>
-<body class="font-sans bg-gray-50 text-gray-900 leading-normal flex h-screen overflow-hidden">
+<body class="font-sans bg-gray-50 text-gray-900 leading-normal flex h-screen overflow-hidden" data-theme="{{ theme.selection.variant|default:"default" }}">
   <div class="flex w-full h-screen overflow-hidden">
     {% include "partials/sidebar.html" %}
     <main class="flex-1 flex flex-col overflow-hidden">
