@@ -89,6 +89,32 @@
           <li class="text-zinc-500">Loading...</li>
         </ul>
       </div>
+
+      <!-- Export & Bulk -->
+      <div class="bg-white border border-gray-200 rounded-xl p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-lg font-semibold text-admin-dark">Data Export & Bulk</h2>
+          <a href="{{ base_path }}/api/export?resource=users&format=json" class="text-sm text-blue-500 hover:text-blue-600 no-underline" target="_blank">Export API</a>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-semibold text-admin-dark">Last Export</span>
+              <button class="px-3 py-2 text-sm font-semibold text-zinc-700 bg-gray-100 rounded-lg hover:bg-gray-200" onclick="runExport()">Export Users (JSON)</button>
+            </div>
+            <pre class="mt-2 p-3 bg-gray-50 rounded-lg text-xs text-zinc-600 overflow-x-auto" id="export-preview">Pending...</pre>
+          </div>
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-semibold text-admin-dark">Bulk Jobs</span>
+              <button class="px-3 py-2 text-sm font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600" onclick="runBulkJob()">Start Bulk Cleanup</button>
+            </div>
+            <ul class="mt-2 space-y-2" id="bulk-jobs">
+              <li class="text-zinc-500">Pending...</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Right Sidebar -->
@@ -194,6 +220,17 @@
           <li class="text-zinc-500">Loading...</li>
         </ul>
       </div>
+
+      <!-- Media Library -->
+      <div class="bg-white border border-gray-200 rounded-xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-admin-dark">Media Library</h2>
+          <a href="{{ base_path }}/api/media/library" class="text-sm text-blue-500 hover:text-blue-600 no-underline" target="_blank">View API</a>
+        </div>
+        <ul class="space-y-3" id="media-preview">
+          <li class="text-zinc-500">Loading...</li>
+        </ul>
+      </div>
     </aside>
   </div>
 </div>
@@ -287,8 +324,90 @@
       } catch (jobsError) {
         console.error('Failed to load jobs data:', jobsError);
       }
+
+      // Fetch bulk jobs list
+      try {
+        const bulkRes = await fetch('{{ base_path }}/api/bulk');
+        const bulkData = await bulkRes.json();
+        const bulkList = document.getElementById('bulk-jobs');
+        if (bulkData && bulkData.jobs && bulkData.jobs.length > 0) {
+          bulkList.innerHTML = bulkData.jobs.map(job => `
+            <li class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div class="flex items-center justify-between text-sm">
+                <span class="font-semibold text-admin-dark">${job.name || job.action}</span>
+                <span class="text-xs text-zinc-500">${job.status || 'pending'}</span>
+              </div>
+              <div class="text-xs text-zinc-500 mt-1">${job.processed || 0}/${job.total || 0} processed</div>
+            </li>
+          `).join('');
+        } else {
+          bulkList.innerHTML = '<li class="text-zinc-500">No bulk jobs yet.</li>';
+        }
+      } catch (bulkErr) {
+        console.error('Failed to load bulk jobs:', bulkErr);
+      }
+
+      // Fetch media library preview
+      try {
+        const mediaRes = await fetch('{{ base_path }}/api/media/library');
+        const mediaData = await mediaRes.json();
+        const mediaList = document.getElementById('media-preview');
+        if (mediaData && mediaData.items && mediaData.items.length > 0) {
+          mediaList.innerHTML = mediaData.items.slice(0, 4).map(item => `
+            <li class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-sm text-zinc-600">${(item.name || 'M')[0]}</div>
+              <div>
+                <div class="text-sm font-semibold text-admin-dark">${item.name}</div>
+                <div class="text-xs text-zinc-500">${item.url}</div>
+              </div>
+            </li>
+          `).join('');
+        } else {
+          mediaList.innerHTML = '<li class="text-zinc-500">No media yet.</li>';
+        }
+      } catch (mediaErr) {
+        console.error('Failed to load media preview:', mediaErr);
+      }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
+    }
+  }
+
+  async function runExport() {
+    const preview = document.getElementById('export-preview');
+    try {
+      const res = await fetch('{{ base_path }}/api/export?resource=users&format=json');
+      const data = await res.json();
+      preview.textContent = (data && data.data) ? data.data.substring(0, 180) + '...' : 'No data';
+    } catch (err) {
+      preview.textContent = 'Failed to export data';
+      console.error(err);
+    }
+  }
+
+  async function runBulkJob() {
+    const bulkList = document.getElementById('bulk-jobs');
+    try {
+      const res = await fetch('{{ base_path }}/api/bulk', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: 'users.cleanup', action: 'cleanup', total: 10}),
+      });
+      const data = await res.json();
+      if (data && data.job) {
+        bulkList.innerHTML = `
+          <li class="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div class="flex items-center justify-between text-sm">
+              <span class="font-semibold text-admin-dark">${data.job.name}</span>
+              <span class="text-xs text-green-700">${data.job.status}</span>
+            </div>
+            <div class="text-xs text-zinc-500 mt-1">${data.job.processed}/${data.job.total} processed</div>
+          </li>
+        `;
+      }
+    } catch (err) {
+      console.error('Failed to start bulk job', err);
+      bulkList.innerHTML = '<li class="text-red-600">Bulk job failed</li>';
     }
   }
 
