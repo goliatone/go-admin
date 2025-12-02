@@ -12,10 +12,14 @@ import (
 // Admin orchestrates CMS-backed admin features and adapters.
 type Admin struct {
 	config          Config
+	features        Features
+	featureFlags    map[string]bool
+	gates           FeatureGates
 	registry        *Registry
 	cms             CMSContainer
 	widgetSvc       CMSWidgetService
 	menuSvc         CMSMenuService
+	contentSvc      CMSContentService
 	authenticator   Authenticator
 	router          AdminRouter
 	commandRegistry *CommandRegistry
@@ -30,6 +34,7 @@ type Admin struct {
 	settings        *SettingsService
 	settingsForm    *SettingsFormAdapter
 	settingsCommand *SettingsUpdateCommand
+	panelForm       *PanelFormAdapter
 	themeProvider   ThemeProvider
 	defaultTheme    *ThemeSelection
 	modules         []Module
@@ -41,6 +46,7 @@ type Admin struct {
 
 // New constructs an Admin orchestrator with default in-memory services.
 func New(cfg Config) *Admin {
+	cfg.normalizeFeatures()
 	if cfg.ThemeVariant == "" {
 		cfg.ThemeVariant = "default"
 	}
@@ -73,19 +79,23 @@ func New(cfg Config) *Admin {
 	}
 
 	container := NewNoopCMSContainer()
-	cmdReg := NewCommandRegistry(cfg.EnableCommands || cfg.EnableSettings)
+	enableCommands := cfg.Features.Commands || cfg.Features.Settings || cfg.Features.Jobs || cfg.Features.Export || cfg.Features.Bulk
+	cmdReg := NewCommandRegistry(enableCommands)
 	settingsSvc := NewSettingsService()
 	settingsForm := NewSettingsFormAdapter(settingsSvc, cfg.Theme, cfg.ThemeTokens)
 	settingsCmd := &SettingsUpdateCommand{Service: settingsSvc, Permission: cfg.SettingsUpdatePermission}
-	if cfg.EnableSettings {
+	if cfg.Features.Settings {
 		cmdReg.Register(settingsCmd)
 	}
-	var notifSvc NotificationService
-	if cfg.EnableNotifications {
+	var notifSvc NotificationService = DisabledNotificationService{}
+	if cfg.Features.Notifications {
 		notifSvc = NewInMemoryNotificationService()
 	}
 	activityFeed := NewActivityFeed()
 	jobReg := NewJobRegistry(cmdReg)
+	if !cfg.Features.Jobs {
+		jobReg.Enable(false)
+	}
 	defaultTheme := &ThemeSelection{
 		Name:        cfg.Theme,
 		Variant:     cfg.ThemeVariant,
@@ -100,22 +110,6 @@ func New(cfg Config) *Admin {
 	if cfg.FaviconURL != "" {
 		defaultTheme.Assets["favicon"] = cfg.FaviconURL
 	}
-	if cfg.FeatureFlags == nil {
-		cfg.FeatureFlags = map[string]bool{}
-	}
-	setFlag := func(key string, val bool) {
-		if _, exists := cfg.FeatureFlags[key]; !exists {
-			cfg.FeatureFlags[key] = val
-		}
-	}
-	setFlag("dashboard", cfg.EnableDashboard)
-	setFlag("search", cfg.EnableSearch)
-	setFlag("export", cfg.EnableExport)
-	setFlag("cms", cfg.EnableCMS)
-	setFlag("jobs", cfg.EnableJobs)
-	setFlag("commands", cfg.EnableCommands)
-	setFlag("settings", cfg.EnableSettings)
-	setFlag("notifications", cfg.EnableNotifications)
 
 	navMenuCode := cfg.NavMenuCode
 	if navMenuCode == "" {
@@ -124,10 +118,14 @@ func New(cfg Config) *Admin {
 
 	adm := &Admin{
 		config:          cfg,
+		features:        cfg.Features,
+		featureFlags:    cfg.FeatureFlags,
+		gates:           NewFeatureGates(cfg.FeatureFlags),
 		registry:        NewRegistry(),
 		cms:             container,
 		widgetSvc:       container.WidgetService(),
 		menuSvc:         container.MenuService(),
+		contentSvc:      container.ContentService(),
 		commandRegistry: cmdReg,
 		dashboard:       NewDashboard(),
 		nav:             NewNavigation(container.MenuService(), nil),
@@ -139,6 +137,7 @@ func New(cfg Config) *Admin {
 		settings:        settingsSvc,
 		settingsForm:    settingsForm,
 		settingsCommand: settingsCmd,
+		panelForm:       &PanelFormAdapter{},
 		defaultTheme:    defaultTheme,
 		modules:         []Module{},
 		moduleIndex:     map[string]Module{},
@@ -146,6 +145,7 @@ func New(cfg Config) *Admin {
 		translator:      NoopTranslator{},
 	}
 	settingsForm.WithThemeResolver(adm.resolveTheme)
+	adm.panelForm.ThemeResolver = adm.resolveTheme
 	if adm.nav != nil {
 		adm.nav.defaultMenuCode = navMenuCode
 	}
@@ -196,6 +196,7 @@ func (a *Admin) UseCMS(container CMSContainer) *Admin {
 	a.cms = container
 	a.widgetSvc = container.WidgetService()
 	a.menuSvc = container.MenuService()
+	a.contentSvc = container.ContentService()
 	if a.nav != nil {
 		a.nav.menuSvc = a.menuSvc
 	}
@@ -232,8 +233,8 @@ func (a *Admin) withTheme(ctx AdminContext) AdminContext {
 	return ctx
 }
 
-// Panel returns a placeholder panel builder hook.
-// Detailed behaviors are delivered in later phases.
+// Panel returns a panel builder pre-wired with the command registry.
+// The caller configures fields/actions/hooks and registers the panel via RegisterPanel.
 func (a *Admin) Panel(_ string) *PanelBuilder {
 	return &PanelBuilder{commandBus: a.commandRegistry}
 }
@@ -321,7 +322,7 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 
 // Bootstrap initializes CMS seed data (widget areas, admin menu, default widgets).
 func (a *Admin) Bootstrap(ctx context.Context) error {
-	if a.config.EnableCMS || a.config.EnableDashboard {
+	if a.features.CMS || a.features.Dashboard {
 		if err := a.ensureCMS(ctx); err != nil {
 			return err
 		}
@@ -332,15 +333,18 @@ func (a *Admin) Bootstrap(ctx context.Context) error {
 			return err
 		}
 	}
+
 	if err := a.bootstrapAdminMenu(ctx); err != nil {
 		return err
 	}
-	if a.config.EnableSettings {
+
+	if a.features.Settings {
 		if err := a.bootstrapSettingsDefaults(ctx); err != nil {
 			return err
 		}
 	}
-	if a.config.EnableNotifications && a.notifications != nil {
+
+	if a.gates.Enabled(FeatureNotifications) && a.notifications != nil {
 		_, _ = a.notifications.Add(ctx, Notification{Title: "Welcome to go-admin", Message: "Notifications are wired", Read: false})
 	}
 	return nil
@@ -361,6 +365,9 @@ func (a *Admin) Initialize(r AdminRouter) error {
 	}
 	if a.search == nil {
 		a.search = NewSearchEngine(a.authorizer)
+	}
+	if err := a.validateConfig(); err != nil {
+		return err
 	}
 	if err := a.Bootstrap(context.Background()); err != nil {
 		return err
@@ -383,7 +390,7 @@ func (a *Admin) Initialize(r AdminRouter) error {
 }
 
 func (a *Admin) ensureCMS(ctx context.Context) error {
-	if !a.config.EnableCMS && !a.config.EnableDashboard {
+	if !a.features.CMS && !a.features.Dashboard {
 		// Already using in-memory defaults.
 		return nil
 	}
@@ -396,6 +403,41 @@ func (a *Admin) ensureCMS(ctx context.Context) error {
 	}
 	_ = ctx
 	return nil
+}
+
+func (a *Admin) validateConfig() error {
+	issues := []FeatureDependencyError{}
+	require := func(feature FeatureKey, deps ...FeatureKey) {
+		if !a.gates.Enabled(feature) {
+			return
+		}
+		missing := []string{}
+		for _, dep := range deps {
+			if !a.gates.Enabled(dep) {
+				missing = append(missing, string(dep))
+			}
+		}
+		if len(missing) > 0 {
+			issues = append(issues, FeatureDependencyError{Feature: string(feature), Missing: missing})
+		}
+	}
+
+	require(FeatureJobs, FeatureCommands)
+	require(FeatureExport, FeatureCommands, FeatureJobs)
+	require(FeatureBulk, FeatureCommands, FeatureJobs)
+
+	for _, feature := range []FeatureKey{FeatureMedia, FeatureExport, FeatureBulk} {
+		if a.gates.Enabled(feature) && !a.gates.Enabled(FeatureCMS) {
+			issues = append(issues, FeatureDependencyError{
+				Feature: string(feature),
+				Missing: []string{string(FeatureCMS)},
+			})
+		}
+	}
+	if len(issues) == 0 {
+		return nil
+	}
+	return InvalidFeatureConfigError{Issues: issues}
 }
 
 func (a *Admin) loadModules(ctx context.Context) error {
@@ -413,8 +455,11 @@ func (a *Admin) loadModules(ctx context.Context) error {
 		manifest := module.Manifest()
 		if len(manifest.FeatureFlags) > 0 {
 			for _, flag := range manifest.FeatureFlags {
-				if enabled, ok := a.config.FeatureFlags[flag]; !ok || !enabled {
-					return fmt.Errorf("module %s requires feature flag %s", manifest.ID, flag)
+				if !a.gates.EnabledKey(flag) {
+					return FeatureDisabledError{
+						Feature: flag,
+						Reason:  fmt.Sprintf("required by module %s; set via Config.Features or FeatureFlags", manifest.ID),
+					}
 				}
 			}
 		}
@@ -555,10 +600,15 @@ func (a *Admin) registerPanelRoutes() {
 				return writeError(c, err)
 			}
 			schema := p.SchemaWithTheme(a.themePayload(ctx.Context))
+			var form PanelFormRequest
+			if a.panelForm != nil {
+				form = a.panelForm.Build(p, ctx, nil, nil)
+			}
 			return writeJSON(c, map[string]any{
 				"total":   total,
 				"records": records,
 				"schema":  schema,
+				"form":    form,
 			})
 		})
 
@@ -665,11 +715,14 @@ func (a *Admin) registerPanelRoutes() {
 }
 
 func (a *Admin) registerDashboardRoute() {
-	if a.router == nil || a.dashboard == nil {
+	if a.router == nil || a.dashboard == nil || !a.gates.Enabled(FeatureDashboard) {
 		return
 	}
 	path := joinPath(a.config.BasePath, "api/dashboard")
 	a.router.Get(path, func(c router.Context) error {
+		if err := a.gates.Require(FeatureDashboard); err != nil {
+			return writeError(c, err)
+		}
 		ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
 		widgets, err := a.dashboard.Resolve(ctx)
 		if err != nil {
@@ -709,11 +762,11 @@ func (a *Admin) registerSearchRoute() {
 	if a.router == nil || a.search == nil {
 		return
 	}
-	if !a.config.EnableSearch {
-		return
-	}
 	path := joinPath(a.config.BasePath, "api/search")
 	a.router.Get(path, func(c router.Context) error {
+		if err := a.gates.Require(FeatureSearch); err != nil {
+			return writeError(c, err)
+		}
 		query := c.Query("query")
 		if query == "" {
 			return writeError(c, errors.New("query required"))
@@ -733,6 +786,9 @@ func (a *Admin) registerSearchRoute() {
 
 	typeaheadPath := joinPath(a.config.BasePath, "api/search/typeahead")
 	a.router.Get(typeaheadPath, func(c router.Context) error {
+		if err := a.gates.Require(FeatureSearch); err != nil {
+			return writeError(c, err)
+		}
 		query := c.Query("query")
 		if query == "" {
 			return writeError(c, errors.New("query required"))
@@ -752,7 +808,7 @@ func (a *Admin) registerSearchRoute() {
 }
 
 func (a *Admin) registerSettingsWidget() {
-	if a.dashboard == nil || a.settings == nil || !a.config.EnableSettings {
+	if a.dashboard == nil || a.settings == nil || !a.gates.Enabled(FeatureSettings) {
 		return
 	}
 	a.dashboard.RegisterProvider("admin.widget.settings_overview", func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
@@ -802,11 +858,14 @@ func (a *Admin) registerSettingsWidget() {
 }
 
 func (a *Admin) registerNotificationsRoute() {
-	if a.router == nil || a.notifications == nil || !a.config.EnableNotifications {
+	if a.router == nil || a.notifications == nil {
 		return
 	}
 	base := joinPath(a.config.BasePath, "api/notifications")
 	a.router.Get(base, func(c router.Context) error {
+		if err := a.gates.Require(FeatureNotifications); err != nil {
+			return writeError(c, err)
+		}
 		items, err := a.notifications.List(c.Context())
 		if err != nil {
 			return writeError(c, err)
@@ -814,6 +873,9 @@ func (a *Admin) registerNotificationsRoute() {
 		return writeJSON(c, map[string]any{"notifications": items})
 	})
 	a.router.Post(joinPath(base, "read"), func(c router.Context) error {
+		if err := a.gates.Require(FeatureNotifications); err != nil {
+			return writeError(c, err)
+		}
 		payload, err := parseJSONBody(c)
 		if err != nil {
 			return writeError(c, err)
@@ -840,7 +902,7 @@ func (a *Admin) registerNotificationsRoute() {
 }
 
 func (a *Admin) registerActivityWidget() {
-	if a.dashboard == nil || a.activity == nil {
+	if a.dashboard == nil || a.activity == nil || !a.gates.Enabled(FeatureDashboard) {
 		return
 	}
 	a.dashboard.RegisterProvider("admin.widget.activity_feed", func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
@@ -875,14 +937,20 @@ func (a *Admin) registerActivityRoute() {
 }
 
 func (a *Admin) registerJobsRoute() {
-	if a.router == nil || a.jobs == nil || !a.config.EnableJobs {
+	if a.router == nil || a.jobs == nil {
 		return
 	}
 	path := joinPath(a.config.BasePath, "api/jobs")
 	a.router.Get(path, func(c router.Context) error {
+		if err := a.gates.Require(FeatureJobs); err != nil {
+			return writeError(c, err)
+		}
 		return writeJSON(c, map[string]any{"jobs": a.jobs.List()})
 	})
 	a.router.Post(joinPath(path, "trigger"), func(c router.Context) error {
+		if err := a.gates.Require(FeatureJobs); err != nil {
+			return writeError(c, err)
+		}
 		body, err := parseJSONBody(c)
 		if err != nil {
 			return writeError(c, err)
@@ -899,12 +967,15 @@ func (a *Admin) registerJobsRoute() {
 }
 
 func (a *Admin) registerSettingsRoutes() {
-	if a.router == nil || a.settings == nil || !a.config.EnableSettings {
+	if a.router == nil || a.settings == nil || !a.gates.Enabled(FeatureSettings) {
 		return
 	}
 	base := joinPath(a.config.BasePath, "api/settings")
 
 	a.router.Get(base, func(c router.Context) error {
+		if err := a.gates.Require(FeatureSettings); err != nil {
+			return writeError(c, err)
+		}
 		ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
 		if err := a.requirePermission(ctx, a.config.SettingsPermission, "settings"); err != nil {
 			return writeError(c, err)
@@ -915,6 +986,9 @@ func (a *Admin) registerSettingsRoutes() {
 	})
 
 	a.router.Get(joinPath(a.config.BasePath, "api/settings/form"), func(c router.Context) error {
+		if err := a.gates.Require(FeatureSettings); err != nil {
+			return writeError(c, err)
+		}
 		ctx := newAdminContextFromRouter(c, a.config.DefaultLocale)
 		ctx = a.withTheme(ctx)
 		if err := a.requirePermission(ctx, a.config.SettingsPermission, "settings"); err != nil {
@@ -925,6 +999,9 @@ func (a *Admin) registerSettingsRoutes() {
 	})
 
 	a.router.Post(base, func(c router.Context) error {
+		if err := a.gates.Require(FeatureSettings); err != nil {
+			return writeError(c, err)
+		}
 		ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
 		if err := a.requirePermission(ctx, a.config.SettingsUpdatePermission, "settings"); err != nil {
 			return writeError(c, err)
@@ -1040,7 +1117,7 @@ func (a *Admin) registerDefaultWidgets(ctx context.Context) error {
 			},
 		},
 	}
-	if a.config.EnableSettings {
+	if a.gates.Enabled(FeatureSettings) {
 		definitions = append(definitions, WidgetDefinition{
 			Code: "admin.widget.settings_overview",
 			Name: "Settings Overview",
@@ -1081,8 +1158,8 @@ func (a *Admin) bootstrapSettingsDefaults(ctx context.Context) error {
 		{Key: "admin.title", Title: "Admin Title", Description: "Displayed in headers", Default: a.config.Title, Type: "string", Group: "admin"},
 		{Key: "admin.default_locale", Title: "Default Locale", Description: "Locale fallback for navigation and CMS content", Default: a.config.DefaultLocale, Type: "string", Group: "admin"},
 		{Key: "admin.theme", Title: "Theme", Description: "Theme selection for admin UI", Default: a.config.Theme, Type: "string", Group: "appearance"},
-		{Key: "admin.dashboard_enabled", Title: "Dashboard Enabled", Description: "Toggle dashboard widgets", Default: a.config.EnableDashboard, Type: "boolean", Group: "features"},
-		{Key: "admin.search_enabled", Title: "Search Enabled", Description: "Toggle global search", Default: a.config.EnableSearch, Type: "boolean", Group: "features"},
+		{Key: "admin.dashboard_enabled", Title: "Dashboard Enabled", Description: "Toggle dashboard widgets", Default: a.features.Dashboard, Type: "boolean", Group: "features"},
+		{Key: "admin.search_enabled", Title: "Search Enabled", Description: "Toggle global search", Default: a.features.Search, Type: "boolean", Group: "features"},
 	}
 	for _, def := range definitions {
 		a.settings.RegisterDefinition(def)
@@ -1097,8 +1174,8 @@ func (a *Admin) bootstrapSettingsDefaults(ctx context.Context) error {
 	if a.config.Theme != "" {
 		systemValues["admin.theme"] = a.config.Theme
 	}
-	systemValues["admin.dashboard_enabled"] = a.config.EnableDashboard
-	systemValues["admin.search_enabled"] = a.config.EnableSearch
+	systemValues["admin.dashboard_enabled"] = a.features.Dashboard
+	systemValues["admin.search_enabled"] = a.features.Search
 
 	if len(systemValues) > 0 {
 		_ = a.settings.Apply(ctx, SettingsBundle{Scope: SettingsScopeSystem, Values: systemValues})
