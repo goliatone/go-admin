@@ -52,10 +52,8 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 	if locale == "" {
 		locale = m.defaultLoc
 	}
+	// Use hardcoded label since translations aren't set up yet
 	label := "Users"
-	if m.translator != nil {
-		label = m.translator.Translate("modules.users.label", locale)
-	}
 	return []admin.MenuItem{
 		{
 			Label: label,
@@ -119,10 +117,8 @@ func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
 	if locale == "" {
 		locale = m.defaultLoc
 	}
+	// Use hardcoded label since translations aren't set up yet
 	label := "Pages"
-	if m.translator != nil {
-		label = m.translator.Translate("modules.pages.label", locale)
-	}
 	return []admin.MenuItem{
 		{
 			Label: label,
@@ -185,10 +181,8 @@ func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
 	if locale == "" {
 		locale = m.defaultLoc
 	}
+	// Use hardcoded label since translations aren't set up yet
 	label := "Posts"
-	if m.translator != nil {
-		label = m.translator.Translate("modules.posts.label", locale)
-	}
 	return []admin.MenuItem{
 		{
 			Label: label,
@@ -255,10 +249,8 @@ func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 	if locale == "" {
 		locale = m.defaultLoc
 	}
+	// Use hardcoded label since translations aren't set up yet
 	label := "Media"
-	if m.translator != nil {
-		label = m.translator.Translate("modules.media.label", locale)
-	}
 	return []admin.MenuItem{
 		{
 			Label: label,
@@ -309,7 +301,7 @@ func (m *notificationsModule) MenuItems(locale string) []admin.MenuItem {
 	return []admin.MenuItem{
 		{
 			Label: "Notifications",
-			Icon:  "notifications",
+			Icon:  "bell",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "notifications"),
@@ -354,10 +346,8 @@ func (m *dashboardModule) MenuItems(locale string) []admin.MenuItem {
 	if locale == "" {
 		locale = m.defaultLoc
 	}
+	// Use hardcoded label since translations aren't set up yet
 	label := "Dashboard"
-	if m.translator != nil {
-		label = m.translator.Translate("modules.dashboard.label", locale)
-	}
 	return []admin.MenuItem{
 		{
 			Label: label,

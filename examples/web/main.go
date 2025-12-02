@@ -18,6 +18,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-crud"
 	"github.com/goliatone/go-router"
+	theme "github.com/goliatone/go-theme"
 )
 
 //go:embed assets/* templates/* openapi/*
@@ -85,20 +86,45 @@ func main() {
 	// Setup authentication and authorization
 	setup.SetupAuth(adm, dataStores)
 
-	// Setup theme provider
-	adm.WithThemeProvider(func(ctx context.Context, selector admin.ThemeSelector) (*admin.ThemeSelection, error) {
-		selection := &admin.ThemeSelection{
-			Name:       selector.Name,
-			Variant:    selector.Variant,
-			Tokens:     map[string]string{"primary": "#2563eb", "accent": "#f59e0b"},
-			Assets:     map[string]string{"logo": path.Join(cfg.BasePath, "assets/logo.svg")},
-			ChartTheme: selector.Variant,
-		}
-		if selection.Name == "" {
-			selection.Name = "admin"
-		}
-		return selection, nil
-	})
+	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme
+	themeRegistry := theme.NewRegistry()
+	manifest := &theme.Manifest{
+		Name:        "admin",
+		Version:     "1.0.0",
+		Description: "Example admin theme",
+		Tokens: map[string]string{
+			"primary": "#2563eb",
+			"accent":  "#f59e0b",
+			"surface": "#0f172a",
+		},
+		Assets: theme.Assets{
+			Prefix: path.Join(cfg.BasePath, "assets"),
+			Files: map[string]string{
+				"logo":    "logo.svg",
+				"favicon": "logo.svg",
+			},
+		},
+		Variants: map[string]theme.Variant{
+			"dark": {
+				Tokens: map[string]string{
+					"primary": "#0ea5e9",
+					"accent":  "#fbbf24",
+					"surface": "#0b1221",
+				},
+				Assets: theme.Assets{
+					Prefix: path.Join(cfg.BasePath, "assets"),
+					Files: map[string]string{
+						"logo": "logo.svg",
+					},
+				},
+			},
+		},
+	}
+	if err := themeRegistry.Register(manifest); err != nil {
+		log.Fatalf("failed to register theme: %v", err)
+	}
+	themeSelector := theme.Selector{Registry: themeRegistry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant}
+	adm.WithGoTheme(themeSelector)
 
 	// Initialize form generator
 	openapiFS := helpers.MustSubFS(webFS, "openapi")
@@ -137,12 +163,6 @@ func main() {
 		})
 	}
 
-	// Setup admin features
-	setup.SetupDashboard(adm, dataStores)
-	setup.SetupSettings(adm)
-	setupSearch(adm, dataStores)
-	setupJobs(adm, dataStores)
-
 	// Register modules
 	modules := []admin.Module{
 		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
@@ -163,6 +183,12 @@ func main() {
 		log.Fatalf("failed to initialize admin: %v", err)
 	}
 
+	// Setup admin features AFTER initialization to override default widgets
+	setup.SetupDashboard(adm, dataStores)
+	setup.SetupSettings(adm)
+	setupSearch(adm, dataStores)
+	setupJobs(adm, dataStores)
+
 	// Seed notifications and activity
 	seedNotificationsAndActivity(adm)
 
@@ -176,18 +202,22 @@ func main() {
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
 
 	r.Get(cfg.BasePath, func(c router.Context) error {
-		ctx := router.ViewContext{
+		viewCtx := router.ViewContext{
 			"title":     cfg.Title,
 			"base_path": cfg.BasePath,
 		}
-		return c.Render("admin", helpers.WithNav(ctx, adm, cfg, "dashboard"))
+		viewCtx = helpers.WithNav(viewCtx, adm, cfg, "dashboard")
+		viewCtx = helpers.WithTheme(viewCtx, adm, c)
+		return c.Render("admin", viewCtx)
 	})
 
 	r.Get(path.Join(cfg.BasePath, "notifications"), func(c router.Context) error {
-		return c.Render("notifications", helpers.WithNav(router.ViewContext{
+		viewCtx := helpers.WithNav(router.ViewContext{
 			"title":     cfg.Title,
 			"base_path": cfg.BasePath,
-		}, adm, cfg, "notifications"))
+		}, adm, cfg, "notifications")
+		viewCtx = helpers.WithTheme(viewCtx, adm, c)
+		return c.Render("notifications", viewCtx)
 	})
 
 	// User routes
@@ -227,7 +257,9 @@ func setupSearch(adm *admin.Admin, dataStores *stores.DataStores) {
 	engine.Register("media", search.NewMediaSearchAdapter(dataStores.Media))
 }
 
-// setupJobs registers job commands
+// setupJobs registers job commands. The admin orchestrator wires these CommandWithCron
+// handlers into the go-job registry + go-command dispatcher so /api/jobs shows
+// go-job schedules/status and triggers use the shared dispatcher path.
 func setupJobs(adm *admin.Admin, dataStores *stores.DataStores) {
 	registry := adm.Commands()
 	if registry == nil {
