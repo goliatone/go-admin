@@ -2,11 +2,13 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	opts "github.com/goliatone/go-options"
 	router "github.com/goliatone/go-router"
 )
 
@@ -47,6 +49,9 @@ func TestSettingsValidationErrorsSurfaced(t *testing.T) {
 	if validation.Fields["feature.enabled"] == "" {
 		t.Fatalf("expected field error populated")
 	}
+	if validation.Scope != SettingsScopeSite {
+		t.Fatalf("expected scope to round-trip, got %s", validation.Scope)
+	}
 }
 
 func TestSettingsFormAdapterIncludesTheme(t *testing.T) {
@@ -57,6 +62,12 @@ func TestSettingsFormAdapterIncludesTheme(t *testing.T) {
 	form := adapter.Form("")
 	if form.Theme["selection"]["name"] != "admin" {
 		t.Fatalf("expected theme name carried through")
+	}
+	if form.SchemaFormat != opts.SchemaFormatOpenAPI {
+		t.Fatalf("expected openapi schema format, got %s", form.SchemaFormat)
+	}
+	if len(form.Scopes) == 0 {
+		t.Fatalf("expected scopes from go-options schema")
 	}
 	props := form.Schema["properties"].(map[string]any)
 	if _, ok := props["admin.title"]; !ok {
@@ -92,6 +103,80 @@ func TestSettingsFormAdapterCarriesScopesAndWidgets(t *testing.T) {
 	}
 }
 
+func TestSettingsFormAdapterOptionsAndVisibility(t *testing.T) {
+	svc := NewSettingsService()
+	svc.RegisterDefinition(SettingDefinition{
+		Key:            "site.locale",
+		Type:           "string",
+		VisibilityRule: "feature.enabled == true",
+		OptionsProvider: func(ctx context.Context) ([]SettingOption, error) {
+			return []SettingOption{
+				{Label: "English", Value: "en"},
+				{Label: "Spanish", Value: "es"},
+			}, nil
+		},
+		Enrichers: []SettingFieldEnricher{
+			func(ctx context.Context, field map[string]any) {
+				field["placeholder"] = "select a locale"
+			},
+		},
+	})
+	adapter := NewSettingsFormAdapter(svc, "admin", map[string]string{})
+
+	form := adapter.Form("")
+	props := form.Schema["properties"].(map[string]any)
+	field, ok := props["site.locale"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected schema property for site.locale")
+	}
+	optsRaw, ok := field["x-formgen:options"].([]SettingOption)
+	if !ok || len(optsRaw) != 2 {
+		t.Fatalf("expected options from provider, got %v", field["x-formgen:options"])
+	}
+	xAdmin, ok := field["x-admin"].(map[string]any)
+	if !ok || xAdmin["visibility_rule"] != "feature.enabled == true" {
+		t.Fatalf("expected visibility rule preserved, got %+v", xAdmin)
+	}
+	if placeholder := field["placeholder"]; placeholder != "select a locale" {
+		t.Fatalf("expected enricher to run, got %v", placeholder)
+	}
+}
+
+func TestSettingsValidationWithOptionsAndValidator(t *testing.T) {
+	svc := NewSettingsService()
+	svc.RegisterDefinition(SettingDefinition{
+		Key:  "features.mode",
+		Type: "string",
+		Options: []SettingOption{
+			{Value: "simple"},
+			{Value: "advanced"},
+		},
+		Validator: func(ctx context.Context, value any) error {
+			if v, ok := value.(string); ok && v == "advanced" {
+				return errors.New("advanced mode unavailable")
+			}
+			return nil
+		},
+	})
+
+	err := svc.Apply(context.Background(), SettingsBundle{Scope: SettingsScopeSite, Values: map[string]any{"features.mode": "unknown"}})
+	var validation SettingsValidationErrors
+	if err == nil || !errors.As(err, &validation) {
+		t.Fatalf("expected validation error for unknown option, got %v", err)
+	}
+	if validation.Fields["features.mode"] == "" {
+		t.Fatalf("expected option validation message")
+	}
+
+	err = svc.Apply(context.Background(), SettingsBundle{Scope: SettingsScopeSite, Values: map[string]any{"features.mode": "advanced"}})
+	if err == nil || !errors.As(err, &validation) {
+		t.Fatalf("expected validator failure, got %v", err)
+	}
+	if validation.Fields["features.mode"] != "advanced mode unavailable" {
+		t.Fatalf("expected validator message propagated, got %v", validation.Fields["features.mode"])
+	}
+}
+
 func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
@@ -114,6 +199,12 @@ func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 400 {
 		t.Fatalf("expected 400 for validation, got %d", rr.Code)
+	}
+	var firstResp map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &firstResp)
+	meta, _ := firstResp["error"].(map[string]any)["metadata"].(map[string]any)
+	if meta["scope"] != string(SettingsScopeSite) {
+		t.Fatalf("expected validation metadata to include scope, got %v", meta["scope"])
 	}
 
 	req = httptest.NewRequest("POST", "/admin/api/settings", strings.NewReader(`{"values":{"admin.title":"New Title"},"scope":"site"}`))
