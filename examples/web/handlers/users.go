@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"path"
 
-	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
-	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
-	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
+	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
+	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 	"github.com/goliatone/go-router"
 )
 
@@ -52,12 +53,14 @@ func (h *UserHandlers) List(c router.Context) error {
 		return err
 	}
 
-	return c.Render("users-list", h.WithNav(router.ViewContext{
+	viewCtx := h.WithNav(router.ViewContext{
 		"title":       h.Config.Title,
 		"base_path":   h.Config.BasePath,
 		"users":       users,
 		"total_users": total,
-	}, h.Admin, h.Config, "users"))
+	}, h.Admin, h.Config, "users")
+	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
+	return c.Render("users-list", viewCtx)
 }
 
 // New handles GET /users/new - displays user creation form
@@ -95,11 +98,13 @@ func (h *UserHandlers) Detail(c router.Context) error {
 		return err
 	}
 
-	return c.Render("users-detail", h.WithNav(router.ViewContext{
+	viewCtx := h.WithNav(router.ViewContext{
 		"title":     h.Config.Title,
 		"base_path": h.Config.BasePath,
 		"user":      user,
-	}, h.Admin, h.Config, "users"))
+	}, h.Admin, h.Config, "users")
+	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
+	return c.Render("users-detail", viewCtx)
 }
 
 // Edit handles GET /users/:id/edit - displays user edit form
@@ -173,10 +178,12 @@ func (h *UserHandlers) renderUserForm(c router.Context, operationID string, opts
 
 	isEdit := operationID == updateUserOperation
 
-	return c.Render("users-form", h.WithNav(router.ViewContext{
+	viewCtx := h.WithNav(router.ViewContext{
 		"title":     h.Config.Title,
 		"base_path": h.Config.BasePath,
 		"is_edit":   isEdit,
 		"form_html": string(html),
-	}, h.Admin, h.Config, "users"))
+	}, h.Admin, h.Config, "users")
+	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
+	return c.Render("users-form", viewCtx)
 }
