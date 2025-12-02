@@ -47,6 +47,60 @@ func TestNavigationResolveMenuCode(t *testing.T) {
 	}
 }
 
+func TestNavigationResolvesMenuLocaleFromCMS(t *testing.T) {
+	menuSvc := NewInMemoryMenuService()
+	ctx := context.Background()
+	_, _ = menuSvc.CreateMenu(ctx, "admin.main")
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "Dashboard", Locale: "en"})
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "Inicio", Locale: "es"})
+
+	nav := NewNavigation(menuSvc, allowAllNav{})
+	en := nav.Resolve(ctx, "en")
+	if len(en) != 1 || en[0].Label != "Dashboard" {
+		t.Fatalf("expected english menu item, got %+v", en)
+	}
+	es := nav.Resolve(ctx, "es")
+	if len(es) != 1 || es[0].Label != "Inicio" {
+		t.Fatalf("expected spanish menu item, got %+v", es)
+	}
+}
+
+func TestNavigationFallbackWhenCMSDisabled(t *testing.T) {
+	menuSvc := NewInMemoryMenuService()
+	ctx := context.Background()
+	_, _ = menuSvc.CreateMenu(ctx, "admin.main")
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "CMS Item", Locale: "en"})
+
+	nav := NewNavigation(menuSvc, allowAllNav{})
+	nav.UseCMS(false)
+	nav.AddFallback(NavigationItem{Label: "Fallback Item", Locale: "en"})
+
+	items := nav.Resolve(ctx, "en")
+	if len(items) != 1 || items[0].Label != "Fallback Item" {
+		t.Fatalf("expected fallback navigation, got %+v", items)
+	}
+}
+
+func TestAdminNavigationUsesFallbackWithoutCMSFeature(t *testing.T) {
+	cfg := Config{
+		DefaultLocale: "en",
+	}
+	adm := New(cfg)
+	ctx := context.Background()
+
+	_, _ = adm.menuSvc.CreateMenu(ctx, "admin.main")
+	_ = adm.menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "CMS Item", Locale: "en"})
+
+	if err := adm.addMenuItems(ctx, []MenuItem{{Label: "Fallback Item", Locale: "en"}}); err != nil {
+		t.Fatalf("add menu items failed: %v", err)
+	}
+
+	items := adm.nav.Resolve(ctx, "en")
+	if len(items) != 1 || items[0].Label != "Fallback Item" {
+		t.Fatalf("expected fallback navigation when CMS is disabled, got %+v", items)
+	}
+}
+
 type denySettingsNav struct{}
 
 func (denySettingsNav) Can(ctx context.Context, action string, resource string) bool {

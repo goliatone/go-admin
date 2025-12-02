@@ -2,7 +2,11 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
+	"net/http/httptest"
 	"testing"
+
+	router "github.com/goliatone/go-router"
 )
 
 func TestSearchEngineRespectsPermission(t *testing.T) {
@@ -63,5 +67,82 @@ func TestSearchAggregatesAdapters(t *testing.T) {
 	}
 	if len(results) != 1 || results[0].Type != "orders" || results[0].ID != "2" {
 		t.Fatalf("unexpected results: %+v", results)
+	}
+}
+
+type searchAuthorizer struct {
+	allowed map[string]bool
+}
+
+func (s searchAuthorizer) Can(ctx context.Context, action string, resource string) bool {
+	_ = ctx
+	_ = resource
+	return s.allowed[action]
+}
+
+func TestSearchRouteAggregatesAndFiltersByPermission(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features:      Features{Search: true},
+	}
+	adm := New(cfg)
+	adm.WithAuthorizer(searchAuthorizer{allowed: map[string]bool{"search.users": true}})
+
+	adm.SearchService().Register("users", &stubSearchAdapter{
+		permission: "search.users",
+		results:    []SearchResult{{ID: "1", Title: "Alice"}},
+	})
+	adm.SearchService().Register("orders", &stubSearchAdapter{
+		permission: "search.orders",
+		results:    []SearchResult{{ID: "2", Title: "Order #2"}},
+	})
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	reqDenied := httptest.NewRequest("GET", "/admin/api/search?query=Order%20%232", nil)
+	rrDenied := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rrDenied, reqDenied)
+	if rrDenied.Code != 200 {
+		t.Fatalf("expected 200, got %d", rrDenied.Code)
+	}
+	var deniedBody map[string]any
+	if err := json.Unmarshal(rrDenied.Body.Bytes(), &deniedBody); err != nil {
+		t.Fatalf("unmarshal denied response: %v", err)
+	}
+	deniedResults, ok := deniedBody["results"].([]any)
+	if !ok {
+		t.Fatalf("expected results array, got %v", deniedBody)
+	}
+	if len(deniedResults) != 0 {
+		t.Fatalf("expected denied adapter to be filtered, got %+v", deniedResults)
+	}
+
+	reqAllowed := httptest.NewRequest("GET", "/admin/api/search/typeahead?query=Alice", nil)
+	rrAllowed := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rrAllowed, reqAllowed)
+	if rrAllowed.Code != 200 {
+		t.Fatalf("expected 200, got %d", rrAllowed.Code)
+	}
+	var allowedBody map[string]any
+	if err := json.Unmarshal(rrAllowed.Body.Bytes(), &allowedBody); err != nil {
+		t.Fatalf("unmarshal allowed response: %v", err)
+	}
+	rawResults, ok := allowedBody["results"].([]any)
+	if !ok {
+		t.Fatalf("expected results array, got %v", allowedBody)
+	}
+	if len(rawResults) != 1 {
+		t.Fatalf("expected one result, got %+v", rawResults)
+	}
+	first, ok := rawResults[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map result, got %T", rawResults[0])
+	}
+	if first["id"] != "1" || first["type"] != "users" {
+		t.Fatalf("unexpected result payload: %+v", first)
 	}
 }

@@ -64,6 +64,34 @@ func TestSettingsFormAdapterIncludesTheme(t *testing.T) {
 	}
 }
 
+func TestSettingsFormAdapterCarriesScopesAndWidgets(t *testing.T) {
+	svc := NewSettingsService()
+	svc.RegisterDefinition(SettingDefinition{
+		Key:           "site.description",
+		Type:          "textarea",
+		AllowedScopes: []SettingsScope{SettingsScopeSite},
+	})
+	adapter := NewSettingsFormAdapter(svc, "admin", map[string]string{})
+
+	form := adapter.Form("")
+	props := form.Schema["properties"].(map[string]any)
+	field, ok := props["site.description"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected schema property for site.description")
+	}
+	xAdmin, ok := field["x-admin"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected x-admin metadata on settings field")
+	}
+	scopes, ok := xAdmin["allowed_scopes"].([]string)
+	if !ok || len(scopes) != 1 || scopes[0] != string(SettingsScopeSite) {
+		t.Fatalf("expected allowed scopes to include site, got %+v", scopes)
+	}
+	if widget, ok := field["x-formgen:widget"].(string); !ok || widget != "textarea" {
+		t.Fatalf("expected textarea widget hint, got %v", field["x-formgen:widget"])
+	}
+}
+
 func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
@@ -143,5 +171,44 @@ func TestSettingsWidgetResolvesValues(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("settings widget not found in dashboard output")
+	}
+}
+
+func TestSettingsNavigationRespectsPermission(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Settings: true,
+		},
+	}
+	denyAdmin := New(cfg)
+	denyAdmin.WithAuthorizer(stubAuthorizer{allow: false})
+	server := router.NewHTTPServer()
+	if err := denyAdmin.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if items := denyAdmin.nav.Resolve(context.Background(), "en"); len(items) != 0 {
+		t.Fatalf("expected navigation to be filtered by permission, got %d items", len(items))
+	}
+
+	allowAdmin := New(cfg)
+	allowAdmin.WithAuthorizer(stubAuthorizer{allow: true})
+	server = router.NewHTTPServer()
+	if err := allowAdmin.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	items := allowAdmin.nav.Resolve(context.Background(), "en")
+	if len(items) == 0 {
+		t.Fatalf("expected settings menu item to be present")
+	}
+	found := false
+	for _, item := range items {
+		if key, ok := item.Target["key"].(string); ok && key == "settings" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected navigation to include settings target")
 	}
 }

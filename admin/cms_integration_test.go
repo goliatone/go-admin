@@ -32,6 +32,33 @@ func (s *stubMenuService) AddMenuItem(_ context.Context, menuCode string, item M
 	return nil
 }
 
+func (s *stubMenuService) UpdateMenuItem(_ context.Context, menuCode string, item MenuItem) error {
+	for idx, existing := range s.items {
+		if existing.ID == item.ID && (existing.Menu == menuCode || existing.Menu == "") {
+			item.Menu = menuCode
+			s.items[idx] = item
+			return nil
+		}
+	}
+	return nil
+}
+
+func (s *stubMenuService) DeleteMenuItem(_ context.Context, menuCode, id string) error {
+	filtered := []MenuItem{}
+	for _, item := range s.items {
+		if item.ID == id && (item.Menu == menuCode || item.Menu == "") {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	s.items = filtered
+	return nil
+}
+
+func (s *stubMenuService) ReorderMenu(_ context.Context, _ string, _ []string) error {
+	return nil
+}
+
 func (s *stubMenuService) Menu(_ context.Context, code, locale string) (*Menu, error) {
 	out := []MenuItem{}
 	for _, item := range s.items {
@@ -51,8 +78,18 @@ func (stubWidgetService) RegisterAreaDefinition(ctx context.Context, def WidgetA
 func (stubWidgetService) RegisterDefinition(ctx context.Context, def WidgetDefinition) error {
 	return nil
 }
+func (stubWidgetService) DeleteDefinition(ctx context.Context, code string) error {
+	return nil
+}
 func (stubWidgetService) Areas() []WidgetAreaDefinition   { return nil }
 func (stubWidgetService) Definitions() []WidgetDefinition { return nil }
+func (stubWidgetService) SaveInstance(ctx context.Context, instance WidgetInstance) (*WidgetInstance, error) {
+	return &instance, nil
+}
+func (stubWidgetService) DeleteInstance(ctx context.Context, id string) error { return nil }
+func (stubWidgetService) ListInstances(ctx context.Context, filter WidgetInstanceFilter) ([]WidgetInstance, error) {
+	return []WidgetInstance{}, nil
+}
 
 func TestUseCMSOverridesNavigationSource(t *testing.T) {
 	menuSvc := &stubMenuService{}
