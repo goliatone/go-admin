@@ -16,6 +16,8 @@ func writeError(c router.Context, err error) error {
 	status := 500
 	if errors.Is(err, ErrForbidden) {
 		status = 403
+	} else if errors.Is(err, ErrFeatureDisabled) {
+		status = 404
 	} else if errors.Is(err, ErrNotFound) {
 		status = 404
 	}
