@@ -1,0 +1,25 @@
+{
+  "assets": {
+    "favicon": "https://cdn.example.com/static/favicon.ico",
+    "logo": "https://cdn.example.com/cdn/logo-dark.svg",
+    "prefix": "https://cdn.example.com/cdn"
+  },
+  "chart": {
+    "theme": "dark"
+  },
+  "partials": {
+    "forms.input": "templates/forms/input.html",
+    "layout.header": "templates/dark/header.html"
+  },
+  "selection": {
+    "name": "brand",
+    "variant": "dark"
+  },
+  "tokens": {
+    "accent": "#ffaa00",
+    "base_path": "/admin",
+    "primary": "#0f172a",
+    "surface": "#0b1221",
+    "theme": "brand"
+  }
+}
