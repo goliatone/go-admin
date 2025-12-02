@@ -10,11 +10,13 @@ import (
 
 func TestDashboardRouteReturnsTheme(t *testing.T) {
 	cfg := Config{
-		BasePath:        "/admin",
-		DefaultLocale:   "en",
-		EnableDashboard: true,
-		Theme:           "ocean",
-		ThemeVariant:    "dark",
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Dashboard: true,
+		},
+		Theme:        "ocean",
+		ThemeVariant: "dark",
 		ThemeTokens: map[string]string{
 			"primary": "#111",
 		},

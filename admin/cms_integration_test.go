@@ -14,6 +14,9 @@ type stubCMSContainer struct {
 
 func (s *stubCMSContainer) WidgetService() CMSWidgetService { return s.widgets }
 func (s *stubCMSContainer) MenuService() CMSMenuService     { return s.menu }
+func (s *stubCMSContainer) ContentService() CMSContentService {
+	return nil
+}
 
 type stubMenuService struct {
 	items []MenuItem
@@ -54,7 +57,7 @@ func (stubWidgetService) Definitions() []WidgetDefinition { return nil }
 func TestUseCMSOverridesNavigationSource(t *testing.T) {
 	menuSvc := &stubMenuService{}
 	container := &stubCMSContainer{menu: menuSvc, widgets: stubWidgetService{}}
-	adm := New(Config{DefaultLocale: "en", EnableCMS: true})
+	adm := New(Config{DefaultLocale: "en", Features: Features{CMS: true}})
 	adm.UseCMS(container)
 	menuSvc.AddMenuItem(context.Background(), "admin.main", MenuItem{Label: "CMS Item"})
 	if err := adm.Initialize(nilRouter{}); err != nil {

@@ -20,10 +20,13 @@ func TestPanelFormAdapterBuildsSchemaWithTheme(t *testing.T) {
 		},
 	}
 	req := adapter.Build(panel, AdminContext{Context: context.Background(), Locale: "en"}, nil, nil)
-	if len(req.Schema.Theme) == 0 {
-		t.Fatalf("expected theme payload in schema")
+	if len(req.Schema.Theme) == 0 || len(req.Theme) == 0 {
+		t.Fatalf("expected theme payload in schema and theme field")
 	}
 	if req.Locale != "en" {
 		t.Fatalf("expected locale propagated")
+	}
+	if req.Metadata["use_blocks"] == nil || req.Metadata["use_seo"] == nil || req.Metadata["tree_view"] == nil {
+		t.Fatalf("expected metadata flags populated")
 	}
 }

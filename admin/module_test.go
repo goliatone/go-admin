@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -139,6 +140,8 @@ func TestModuleFeatureFlagMissingFails(t *testing.T) {
 	}
 	if err := adm.loadModules(context.Background()); err == nil {
 		t.Fatalf("expected feature flag error")
+	} else if !errors.Is(err, ErrFeatureDisabled) {
+		t.Fatalf("expected ErrFeatureDisabled, got %v", err)
 	}
 }
 
@@ -156,6 +159,28 @@ func TestModuleTranslatorInjection(t *testing.T) {
 	}
 	if mod.translator == nil {
 		t.Fatalf("translator not injected")
+	}
+}
+
+func TestModuleFeatureFlagsHonorTypedFeatures(t *testing.T) {
+	adm := New(Config{
+		DefaultLocale: "en",
+		Features: Features{
+			Search: true,
+		},
+	})
+	mod := &stubModule{id: "needs.search"}
+	mod.manifestFn = func() ModuleManifest {
+		return ModuleManifest{
+			ID:           "needs.search",
+			FeatureFlags: []string{string(FeatureSearch)},
+		}
+	}
+	if err := adm.RegisterModule(mod); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err != nil {
+		t.Fatalf("expected module to load, got %v", err)
 	}
 }
 

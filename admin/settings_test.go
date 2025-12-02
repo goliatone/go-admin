@@ -66,10 +66,11 @@ func TestSettingsFormAdapterIncludesTheme(t *testing.T) {
 
 func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 	cfg := Config{
-		BasePath:        "/admin",
-		DefaultLocale:   "en",
-		EnableSettings:  true,
-		EnableDashboard: false,
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Settings: true,
+		},
 	}
 	adm := New(cfg)
 	server := router.NewHTTPServer()
@@ -102,11 +103,13 @@ func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 
 func TestSettingsWidgetResolvesValues(t *testing.T) {
 	cfg := Config{
-		BasePath:        "/admin",
-		DefaultLocale:   "en",
-		EnableSettings:  true,
-		EnableDashboard: true,
-		Title:           "test admin",
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Settings:  true,
+			Dashboard: true,
+		},
+		Title: "test admin",
 	}
 	adm := New(cfg)
 	server := router.NewHTTPServer()

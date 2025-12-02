@@ -59,8 +59,10 @@ func (denySettingsNav) Can(ctx context.Context, action string, resource string) 
 
 func TestSettingsNavigationPermissionFilters(t *testing.T) {
 	cfg := Config{
-		DefaultLocale:  "en",
-		EnableSettings: true,
+		DefaultLocale: "en",
+		Features: Features{
+			Settings: true,
+		},
 	}
 	adm := New(cfg)
 	adm.WithAuthorizer(denySettingsNav{})

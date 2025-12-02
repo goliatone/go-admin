@@ -35,12 +35,14 @@ func TestInitializeRegistersHealth(t *testing.T) {
 
 func TestBootstrapSeedsWidgetsAndMenu(t *testing.T) {
 	cfg := Config{
-		Title:           "cms admin",
-		BasePath:        "/admin",
-		DefaultLocale:   "en",
-		EnableCMS:       true,
-		EnableDashboard: true,
-		EnableSettings:  true,
+		Title:         "cms admin",
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			CMS:       true,
+			Dashboard: true,
+			Settings:  true,
+		},
 	}
 	adm := New(cfg)
 
@@ -75,7 +77,7 @@ func (fakeAuth) Wrap(ctx router.Context) error {
 }
 
 func TestCommandRegistryRegistersHandlers(t *testing.T) {
-	cfg := Config{EnableCommands: true}
+	cfg := Config{Features: Features{Commands: true}}
 	adm := New(cfg)
 
 	cmd := &stubCommand{name: "demo"}
@@ -122,10 +124,11 @@ func (c *cronCommand) CronHandler() func() error {
 
 func TestPanelRoutesCRUDAndActions(t *testing.T) {
 	cfg := Config{
-		BasePath:        "/admin",
-		DefaultLocale:   "en",
-		EnableCommands:  true,
-		EnableDashboard: false,
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Commands: true,
+		},
 	}
 	adm := New(cfg)
 	server := router.NewHTTPServer()
@@ -190,6 +193,13 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 	if total := int(list["total"].(float64)); total != 1 {
 		t.Fatalf("expected total 1, got %d", total)
 	}
+	form, ok := list["form"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected form payload in response")
+	}
+	if _, ok := form["theme"]; !ok {
+		t.Fatalf("expected form.theme in response")
+	}
 
 	// Action
 	req = httptest.NewRequest("POST", "/admin/api/items/actions/refresh", nil)
@@ -213,12 +223,11 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 
 func TestNotificationsRoutes(t *testing.T) {
 	cfg := Config{
-		BasePath:            "/admin",
-		DefaultLocale:       "en",
-		EnableNotifications: true,
-		EnableDashboard:     false,
-		EnableSettings:      false,
-		EnableCommands:      false,
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Notifications: true,
+		},
 	}
 	adm := New(cfg)
 	_, _ = adm.NotificationService().Add(context.Background(), Notification{Title: "Hello", Message: "world"})
@@ -247,9 +256,11 @@ func TestNotificationsRoutes(t *testing.T) {
 
 func TestActivityRouteAndWidget(t *testing.T) {
 	cfg := Config{
-		BasePath:        "/admin",
-		DefaultLocale:   "en",
-		EnableDashboard: true,
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Dashboard: true,
+		},
 	}
 	adm := New(cfg)
 	_ = adm.activity.Record(context.Background(), ActivityEntry{Actor: "user", Action: "created", Object: "item"})
@@ -284,10 +295,12 @@ func TestActivityRouteAndWidget(t *testing.T) {
 
 func TestJobsRouteAndTrigger(t *testing.T) {
 	cfg := Config{
-		BasePath:       "/admin",
-		DefaultLocale:  "en",
-		EnableJobs:     true,
-		EnableCommands: true,
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Jobs:     true,
+			Commands: true,
+		},
 	}
 	adm := New(cfg)
 	cmd := &cronCommand{name: "jobs.cleanup"}
@@ -321,7 +334,9 @@ func TestSearchRouteReturnsResults(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		EnableSearch:  true,
+		Features: Features{
+			Search: true,
+		},
 	}
 	adm := New(cfg)
 	adm.search.Register("items", &stubSearchAdapter{
