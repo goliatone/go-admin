@@ -76,3 +76,24 @@ func (s *InMemoryNotificationService) Mark(ctx context.Context, ids []string, re
 	}
 	return nil
 }
+
+// DisabledNotificationService returns explicit errors when notifications are disabled.
+type DisabledNotificationService struct{}
+
+func (DisabledNotificationService) List(ctx context.Context) ([]Notification, error) {
+	_ = ctx
+	return nil, FeatureDisabledError{Feature: string(FeatureNotifications)}
+}
+
+func (DisabledNotificationService) Add(ctx context.Context, n Notification) (Notification, error) {
+	_ = ctx
+	_ = n
+	return Notification{}, FeatureDisabledError{Feature: string(FeatureNotifications)}
+}
+
+func (DisabledNotificationService) Mark(ctx context.Context, ids []string, read bool) error {
+	_ = ctx
+	_ = ids
+	_ = read
+	return FeatureDisabledError{Feature: string(FeatureNotifications)}
+}
