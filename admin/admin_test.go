@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	router "github.com/goliatone/go-router"
 )
@@ -85,6 +86,36 @@ func TestCommandRegistryRegistersHandlers(t *testing.T) {
 
 	if len(adm.Commands().Commands()) != 1 {
 		t.Fatalf("expected 1 command registration")
+	}
+}
+
+func TestExportAndBulkCommandsExposeCLI(t *testing.T) {
+	cfg := Config{
+		Features: Features{
+			Commands: true,
+			Export:   true,
+			Bulk:     true,
+			Jobs:     true,
+			CMS:      true,
+		},
+	}
+	adm := New(cfg)
+	opts := adm.Commands().CLI()
+	if len(opts) == 0 {
+		t.Fatalf("expected cli options")
+	}
+	hasExport, hasBulk := false, false
+	for _, opt := range opts {
+		path := strings.Join(opt.Path, " ")
+		if path == "admin export" {
+			hasExport = true
+		}
+		if path == "admin bulk" {
+			hasBulk = true
+		}
+	}
+	if !hasExport || !hasBulk {
+		t.Fatalf("expected admin export and bulk CLI entries, got %v", opts)
 	}
 }
 
@@ -227,6 +258,7 @@ func TestNotificationsRoutes(t *testing.T) {
 		DefaultLocale: "en",
 		Features: Features{
 			Notifications: true,
+			Dashboard:     true,
 		},
 	}
 	adm := New(cfg)
@@ -244,6 +276,14 @@ func TestNotificationsRoutes(t *testing.T) {
 	if rr.Code != 200 {
 		t.Fatalf("notifications status: %d", rr.Code)
 	}
+	var listBody map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &listBody)
+	if _, ok := listBody["notifications"]; !ok {
+		t.Fatalf("notifications payload missing")
+	}
+	if _, ok := listBody["unread_count"]; !ok {
+		t.Fatalf("unread_count missing from payload")
+	}
 
 	req = httptest.NewRequest("POST", "/admin/api/notifications/read", strings.NewReader(`{"ids":["1"],"read":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -251,6 +291,38 @@ func TestNotificationsRoutes(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
 		t.Fatalf("mark read status: %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	items, _ := adm.NotificationService().List(context.Background())
+	foundMarked := false
+	for _, item := range items {
+		if item.ID == "1" && item.Read {
+			foundMarked = true
+		}
+	}
+	if !foundMarked {
+		t.Fatalf("expected notification marked as read")
+	}
+
+	widgets, err := adm.DashboardService().Resolve(AdminContext{Context: context.Background()})
+	if err != nil {
+		t.Fatalf("resolve dashboard: %v", err)
+	}
+	found := false
+	for _, w := range widgets {
+		if w["definition"] == "admin.widget.notifications" {
+			found = true
+			data, ok := w["data"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected widget data map")
+			}
+			if notifications, ok := data["notifications"].([]Notification); !ok || len(notifications) == 0 {
+				t.Fatalf("expected notifications widget data")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected notifications widget")
 	}
 }
 
@@ -293,6 +365,278 @@ func TestActivityRouteAndWidget(t *testing.T) {
 	}
 }
 
+func TestPanelActivityEmission(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Dashboard: true,
+		},
+	}
+	adm := New(cfg)
+	repo := NewMemoryRepository()
+	builder := (&PanelBuilder{}).
+		WithRepository(repo).
+		ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+		FormFields(Field{Name: "name", Label: "Name", Type: "text", Required: true})
+	if _, err := adm.RegisterPanel("items", builder); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	r := server.Router()
+	if err := adm.Initialize(r); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	panel := adm.panels["items"]
+	if panel == nil {
+		t.Fatalf("expected panel registered")
+	}
+	if _, err := panel.Create(AdminContext{Context: context.Background(), UserID: "tester"}, map[string]any{"name": "Alpha"}); err != nil {
+		t.Fatalf("create record: %v", err)
+	}
+
+	entries, err := adm.ActivityFeed().List(context.Background(), 5)
+	if err != nil {
+		t.Fatalf("list activity: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatalf("expected activity entry from panel create")
+	}
+	if entries[0].Action != "panel.create" || entries[0].Metadata["panel"] != "items" {
+		t.Fatalf("unexpected activity entry: %+v", entries[0])
+	}
+}
+
+func TestExportRoute(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Export:   true,
+			Commands: true,
+			Jobs:     true,
+			CMS:      true,
+		},
+	}
+	adm := New(cfg)
+	if svc := adm.ExportService(); svc != nil {
+		svc.Seed("users", []map[string]any{{"id": "1", "name": "Alice"}})
+	}
+
+	server := router.NewHTTPServer()
+	r := server.Router()
+	if err := adm.Initialize(r); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/admin/api/export?resource=users&format=json", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("export status: %d body=%s", rr.Code, rr.Body.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if body["data"] == "" {
+		t.Fatalf("expected export data")
+	}
+	if ct := body["content_type"]; ct == "" {
+		t.Fatalf("expected content type on export payload")
+	}
+
+	req = httptest.NewRequest("GET", "/admin/api/export?resource=users&format=csv", nil)
+	rr = httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("export csv status: %d body=%s", rr.Code, rr.Body.String())
+	}
+	body = map[string]any{}
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	if ct := body["content_type"]; ct != "text/csv" {
+		t.Fatalf("expected csv content type, got %v", ct)
+	}
+}
+
+func TestBulkRoute(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Bulk:     true,
+			Commands: true,
+			Jobs:     true,
+			CMS:      true,
+		},
+	}
+	adm := New(cfg)
+	server := router.NewHTTPServer()
+	r := server.Router()
+	if err := adm.Initialize(r); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/admin/api/bulk", strings.NewReader(`{"name":"cleanup","total":5}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("bulk start status: %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	time.Sleep(10 * time.Millisecond)
+
+	req = httptest.NewRequest("GET", "/admin/api/bulk", nil)
+	rr = httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("bulk list status: %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	jobs, ok := body["jobs"].([]any)
+	if !ok || len(jobs) == 0 {
+		t.Fatalf("expected bulk jobs")
+	}
+	first, _ := jobs[0].(map[string]any)
+	if progress, _ := first["progress"].(float64); progress <= 0 {
+		t.Fatalf("expected progress value, got %v", progress)
+	}
+	if status, _ := first["status"].(string); status == "" {
+		t.Fatalf("expected status in job payload")
+	}
+	id, _ := first["id"].(string)
+	if id == "" {
+		t.Fatalf("expected job id in payload")
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	req = httptest.NewRequest("POST", "/admin/api/bulk/"+id+"/rollback", nil)
+	rr = httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("bulk rollback status: %d body=%s", rr.Code, rr.Body.String())
+	}
+	var rollbackBody map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &rollbackBody)
+	job, _ := rollbackBody["job"].(map[string]any)
+	if job == nil {
+		t.Fatalf("expected rollback job payload")
+	}
+	if status, _ := job["status"].(string); status != "rolled_back" {
+		t.Fatalf("expected rolled_back status, got %v", status)
+	}
+}
+
+func TestMediaLibraryRoute(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Media: true,
+			CMS:   true,
+		},
+	}
+	adm := New(cfg)
+	server := router.NewHTTPServer()
+	r := server.Router()
+	if err := adm.Initialize(r); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/admin/api/media/library", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("media list status: %d body=%s", rr.Code, rr.Body.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	items, ok := body["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected media items")
+	}
+	first, _ := items[0].(map[string]any)
+	if meta, _ := first["metadata"].(map[string]any); len(meta) == 0 {
+		t.Fatalf("expected metadata on media item")
+	}
+}
+
+func TestPanelSchemaIncludesFeatureMetadata(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Export:   true,
+			Bulk:     true,
+			Media:    true,
+			CMS:      true,
+			Commands: true,
+			Jobs:     true,
+		},
+	}
+	adm := New(cfg)
+	repo := NewMemoryRepository()
+	builder := (&PanelBuilder{}).
+		WithRepository(repo).
+		ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+		FormFields(Field{Name: "asset", Label: "Asset", Type: "media"})
+	if _, err := adm.RegisterPanel("items", builder); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	r := server.Router()
+	if err := adm.Initialize(r); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/admin/api/items", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("list status: %d body=%s", rr.Code, rr.Body.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	schema, ok := body["schema"].(map[string]any)
+	if !ok {
+		t.Fatalf("schema missing from response")
+	}
+	exportConf, _ := schema["export"].(map[string]any)
+	if exportConf == nil || exportConf["resource"] != "items" {
+		t.Fatalf("expected export metadata for items, got %v", exportConf)
+	}
+	if endpoint, _ := exportConf["endpoint"].(string); endpoint == "" {
+		t.Fatalf("expected export endpoint")
+	}
+	bulkConf, _ := schema["bulk"].(map[string]any)
+	if bulkConf == nil {
+		t.Fatalf("expected bulk metadata")
+	}
+	if supports, _ := bulkConf["supports_rollback"].(bool); !supports {
+		t.Fatalf("expected supports_rollback true, got %v", bulkConf)
+	}
+	mediaConf, _ := schema["media"].(map[string]any)
+	if mediaConf == nil {
+		t.Fatalf("expected media metadata")
+	}
+	libraryPath, _ := mediaConf["library_path"].(string)
+	if libraryPath == "" {
+		t.Fatalf("expected media library path")
+	}
+	formSchema, _ := schema["form_schema"].(map[string]any)
+	props, _ := formSchema["properties"].(map[string]any)
+	assetField, _ := props["asset"].(map[string]any)
+	if widget, _ := assetField["x-formgen:widget"].(string); widget != "media-picker" {
+		t.Fatalf("expected media picker widget, got %v", widget)
+	}
+	if adminMeta, _ := assetField["x-admin"].(map[string]any); adminMeta["media_library_path"] == "" {
+		t.Fatalf("expected media library hint on field, got %v", adminMeta)
+	}
+}
+
 func TestJobsRouteAndTrigger(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
@@ -318,6 +662,19 @@ func TestJobsRouteAndTrigger(t *testing.T) {
 	if rr.Code != 200 {
 		t.Fatalf("jobs status: %d", rr.Code)
 	}
+	var jobsBody map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &jobsBody)
+	rawJobs, ok := jobsBody["jobs"].([]any)
+	if !ok || len(rawJobs) == 0 {
+		t.Fatalf("expected jobs payload")
+	}
+	firstJob, ok := rawJobs[0].(map[string]any)
+	if !ok {
+		t.Fatalf("job payload invalid")
+	}
+	if schedule := firstJob["schedule"]; schedule == nil || schedule == "" {
+		t.Fatalf("expected schedule in job payload, got %v", schedule)
+	}
 
 	req = httptest.NewRequest("POST", "/admin/api/jobs/trigger", strings.NewReader(`{"name":"jobs.cleanup"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -328,6 +685,23 @@ func TestJobsRouteAndTrigger(t *testing.T) {
 	}
 	if !cmd.called {
 		t.Fatalf("expected job command executed")
+	}
+
+	req = httptest.NewRequest("GET", "/admin/api/jobs", nil)
+	rr = httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	jobsBody = map[string]any{}
+	_ = json.Unmarshal(rr.Body.Bytes(), &jobsBody)
+	rawJobs, ok = jobsBody["jobs"].([]any)
+	if !ok || len(rawJobs) == 0 {
+		t.Fatalf("expected jobs payload after trigger")
+	}
+	firstJob, ok = rawJobs[0].(map[string]any)
+	if !ok {
+		t.Fatalf("job payload invalid after trigger")
+	}
+	if status, _ := firstJob["status"].(string); status == "pending" || status == "" {
+		t.Fatalf("expected status update after trigger, got %v", status)
 	}
 }
 func TestSearchRouteReturnsResults(t *testing.T) {
