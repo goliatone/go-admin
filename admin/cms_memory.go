@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strconv"
 	"sync"
 )
 
@@ -111,4 +112,107 @@ func (s *InMemoryMenuService) Menu(_ context.Context, code, locale string) (*Men
 		}
 	}
 	return filtered, nil
+}
+
+// InMemoryContentService stores CMS pages in memory for tests/demos.
+type InMemoryContentService struct {
+	mu    sync.Mutex
+	pages map[string]CMSPage
+	next  int
+}
+
+// NewInMemoryContentService constructs a content service.
+func NewInMemoryContentService() *InMemoryContentService {
+	return &InMemoryContentService{
+		pages: make(map[string]CMSPage),
+		next:  1,
+	}
+}
+
+// Pages returns all pages for a locale (or all when locale empty).
+func (s *InMemoryContentService) Pages(_ context.Context, locale string) ([]CMSPage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []CMSPage{}
+	for _, page := range s.pages {
+		if locale != "" && page.Locale != "" && page.Locale != locale {
+			continue
+		}
+		out = append(out, cloneCMSPage(page))
+	}
+	return out, nil
+}
+
+// Page returns a page by id and locale.
+func (s *InMemoryContentService) Page(_ context.Context, id, locale string) (*CMSPage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	page, ok := s.pages[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if locale != "" && page.Locale != "" && page.Locale != locale {
+		return nil, ErrNotFound
+	}
+	cp := cloneCMSPage(page)
+	return &cp, nil
+}
+
+// CreatePage inserts a page.
+func (s *InMemoryContentService) CreatePage(_ context.Context, page CMSPage) (*CMSPage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if page.ID == "" {
+		page.ID = strconv.Itoa(s.next)
+		s.next++
+	}
+	s.pages[page.ID] = cloneCMSPage(page)
+	cp := cloneCMSPage(page)
+	return &cp, nil
+}
+
+// UpdatePage updates an existing page.
+func (s *InMemoryContentService) UpdatePage(_ context.Context, page CMSPage) (*CMSPage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if page.ID == "" {
+		return nil, ErrNotFound
+	}
+	if _, ok := s.pages[page.ID]; !ok {
+		return nil, ErrNotFound
+	}
+	s.pages[page.ID] = cloneCMSPage(page)
+	cp := cloneCMSPage(page)
+	return &cp, nil
+}
+
+// DeletePage removes a page.
+func (s *InMemoryContentService) DeletePage(_ context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.pages[id]; !ok {
+		return ErrNotFound
+	}
+	delete(s.pages, id)
+	return nil
+}
+
+func cloneCMSPage(in CMSPage) CMSPage {
+	out := in
+	if in.Blocks != nil {
+		out.Blocks = append([]string{}, in.Blocks...)
+	}
+	if in.SEO != nil {
+		out.SEO = make(map[string]any, len(in.SEO))
+		for k, v := range in.SEO {
+			out.SEO[k] = v
+		}
+	}
+	if in.Data != nil {
+		out.Data = make(map[string]any, len(in.Data))
+		for k, v := range in.Data {
+			out.Data[k] = v
+		}
+	}
+	return out
 }
