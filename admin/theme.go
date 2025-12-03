@@ -2,6 +2,13 @@ package admin
 
 import "context"
 
+type themeSelectorKey string
+
+const (
+	themeNameKey    themeSelectorKey = "admin.theme_name"
+	themeVariantKey themeSelectorKey = "admin.theme_variant"
+)
+
 // ThemeSelector describes the requested theme/variant.
 type ThemeSelector struct {
 	Name    string
@@ -21,6 +28,35 @@ type ThemeSelection struct {
 
 // ThemeProvider resolves the theme selection, typically backed by go-theme.
 type ThemeProvider func(ctx context.Context, selector ThemeSelector) (*ThemeSelection, error)
+
+// WithThemeSelection stores a theme selector on the context for downstream resolution.
+func WithThemeSelection(ctx context.Context, selector ThemeSelector) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if selector.Name != "" {
+		ctx = context.WithValue(ctx, themeNameKey, selector.Name)
+	}
+	if selector.Variant != "" {
+		ctx = context.WithValue(ctx, themeVariantKey, selector.Variant)
+	}
+	return ctx
+}
+
+// ThemeSelectorFromContext extracts a theme selector override from context, if present.
+func ThemeSelectorFromContext(ctx context.Context) ThemeSelector {
+	if ctx == nil {
+		return ThemeSelector{}
+	}
+	selector := ThemeSelector{}
+	if name, ok := ctx.Value(themeNameKey).(string); ok && name != "" {
+		selector.Name = name
+	}
+	if variant, ok := ctx.Value(themeVariantKey).(string); ok && variant != "" {
+		selector.Variant = variant
+	}
+	return selector
+}
 
 func cloneThemeSelection(sel *ThemeSelection) *ThemeSelection {
 	if sel == nil {
