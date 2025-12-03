@@ -97,9 +97,27 @@ func TestUseCMSOverridesNavigationSource(t *testing.T) {
 	adm := New(Config{DefaultLocale: "en", Features: Features{CMS: true}})
 	adm.UseCMS(container)
 	menuSvc.AddMenuItem(context.Background(), "admin.main", MenuItem{Label: "CMS Item"})
+	if len(menuSvc.items) != 1 {
+		t.Fatalf("expected item stored before init, got %d", len(menuSvc.items))
+	}
 	if err := adm.Initialize(nilRouter{}); err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
+	t.Logf("admin menu svc type=%T", adm.menuSvc)
+	if adm.nav.menuSvc == nil {
+		t.Fatalf("nav menu service not set")
+	}
+	if !adm.nav.useCMS {
+		t.Fatalf("navigation should use CMS")
+	}
+	if adm.nav.defaultMenuCode != "admin.main" {
+		t.Fatalf("unexpected default menu code %s", adm.nav.defaultMenuCode)
+	}
+	menu, err := adm.menuSvc.Menu(context.Background(), "admin.main", "en")
+	if err != nil {
+		t.Fatalf("menu error: %v", err)
+	}
+	t.Logf("menu items via svc: %d", len(menu.Items))
 	items := adm.nav.Resolve(context.Background(), "en")
 	if len(items) != 1 || items[0].Label != "CMS Item" {
 		t.Fatalf("expected CMS-provided menu, got %+v", items)

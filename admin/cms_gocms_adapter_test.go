@@ -18,8 +18,11 @@ func TestGoCMSMenuAdapterAddsAndResolvesNavigation(t *testing.T) {
 	if _, err := adapter.CreateMenu(ctx, "admin.main"); err != nil {
 		t.Fatalf("create menu: %v", err)
 	}
-	if _, ok := extractUUID(mustMenu(t, adapter, ctx, "admin.main"), "ID"); !ok {
+	menuVal := mustMenu(t, adapter, ctx, "admin.main")
+	if id, ok := extractUUID(menuVal, "ID"); !ok {
 		t.Fatalf("menu missing id")
+	} else {
+		t.Logf("menu id=%s", id)
 	}
 	item := MenuItem{
 		Label:       "Home",
