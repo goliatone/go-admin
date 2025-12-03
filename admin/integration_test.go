@@ -67,6 +67,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			Search:    true,
 			Settings:  true,
 			Commands:  true,
+			Jobs:      true,
 		},
 	}
 	adm := New(cfg)
@@ -84,6 +85,8 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 		t.Fatalf("register panel: %v", err)
 	}
 	adm.SearchService().Register("items", &repositorySearchAdapter{repo: repo, perm: "admin.search.items"})
+	jobCmd := &countingCronCommand{name: "jobs.integration"}
+	adm.Commands().Register(jobCmd)
 
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -174,6 +177,95 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 	}
 	if !foundSettingsWidget {
 		t.Fatalf("expected settings overview widget in dashboard payload")
+	}
+
+	navReq := httptest.NewRequest("GET", "/admin/api/navigation", nil)
+	navReq.Header.Set("X-User-ID", "request-user")
+	navRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(navRes, navReq)
+	if navRes.Code != 200 {
+		t.Fatalf("navigation status: %d body=%s", navRes.Code, navRes.Body.String())
+	}
+	var navBody map[string]any
+	_ = json.Unmarshal(navRes.Body.Bytes(), &navBody)
+	navItems, ok := navBody["items"].([]any)
+	if !ok || len(navItems) == 0 {
+		t.Fatalf("expected navigation items, got %v", navBody["items"])
+	}
+	foundSettingsNav := false
+	for _, raw := range navItems {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		target, _ := item["target"].(map[string]any)
+		if toString(target["key"]) == "settings" || toString(target["path"]) == "/admin/settings" {
+			foundSettingsNav = true
+			break
+		}
+	}
+	if !foundSettingsNav {
+		t.Fatalf("expected settings nav entry in navigation payload")
+	}
+
+	jobsReq := httptest.NewRequest("GET", "/admin/api/jobs", nil)
+	jobsReq.Header.Set("X-User-ID", "request-user")
+	jobsRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(jobsRes, jobsReq)
+	if jobsRes.Code != 200 {
+		t.Fatalf("jobs status: %d body=%s", jobsRes.Code, jobsRes.Body.String())
+	}
+	var jobsBody map[string]any
+	_ = json.Unmarshal(jobsRes.Body.Bytes(), &jobsBody)
+	jobs, ok := jobsBody["jobs"].([]any)
+	if !ok || len(jobs) == 0 {
+		t.Fatalf("expected jobs array, got %v", jobsBody["jobs"])
+	}
+	var jobEntry map[string]any
+	for _, raw := range jobs {
+		if j, ok := raw.(map[string]any); ok && toString(j["name"]) == "jobs.integration" {
+			jobEntry = j
+			break
+		}
+	}
+	if jobEntry == nil {
+		t.Fatalf("expected jobs.integration in jobs list, got %+v", jobsBody["jobs"])
+	}
+	if toString(jobEntry["schedule"]) == "" {
+		t.Fatalf("expected schedule on cron-backed job, got %+v", jobEntry)
+	}
+
+	triggerReq := httptest.NewRequest("POST", "/admin/api/jobs/trigger", strings.NewReader(`{"name":"jobs.integration"}`))
+	triggerReq.Header.Set("Content-Type", "application/json")
+	triggerReq.Header.Set("X-User-ID", "request-user")
+	triggerRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(triggerRes, triggerReq)
+	if triggerRes.Code != 200 {
+		t.Fatalf("job trigger status: %d body=%s", triggerRes.Code, triggerRes.Body.String())
+	}
+	if jobCmd.calls == 0 {
+		t.Fatalf("expected cron command to execute on trigger")
+	}
+	jobsRes = httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(jobsRes, jobsReq)
+	var jobsAfter map[string]any
+	_ = json.Unmarshal(jobsRes.Body.Bytes(), &jobsAfter)
+	afterList, _ := jobsAfter["jobs"].([]any)
+	var triggered map[string]any
+	for _, raw := range afterList {
+		if j, ok := raw.(map[string]any); ok && toString(j["name"]) == "jobs.integration" {
+			triggered = j
+			break
+		}
+	}
+	if triggered == nil {
+		t.Fatalf("expected jobs.integration present after trigger")
+	}
+	if status := toString(triggered["status"]); status != "ok" && status != "" {
+		t.Fatalf("expected job status ok after trigger, got %q", status)
+	}
+	if lastRun, _ := triggered["last_run"].(string); lastRun == "" {
+		t.Fatalf("expected last_run timestamp after trigger, got %+v", triggered["last_run"])
 	}
 
 	listReq := httptest.NewRequest("GET", "/admin/api/items", nil)

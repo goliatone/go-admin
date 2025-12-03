@@ -65,3 +65,53 @@ func TestWriteErrorIncludesValidationFields(t *testing.T) {
 		t.Fatalf("expected VALIDATION_ERROR, got %v", errPayload["text_code"])
 	}
 }
+
+func TestWriteErrorMapsFeatureConfigIssues(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Get("/features", func(c router.Context) error {
+		return writeError(c, InvalidFeatureConfigError{
+			Issues: []FeatureDependencyError{
+				{Feature: "export", Missing: []string{"commands", "jobs"}},
+			},
+		})
+	})
+
+	req := httptest.NewRequest("GET", "/features", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != "INVALID_FEATURE_CONFIG" {
+		t.Fatalf("expected INVALID_FEATURE_CONFIG text code, got %v", errPayload["text_code"])
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	issues, _ := meta["issues"].([]any)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue, got %v", issues)
+	}
+	issue, _ := issues[0].(map[string]any)
+	if issue["feature"] != "export" {
+		t.Fatalf("expected feature export, got %v", issue["feature"])
+	}
+	rawMissing, _ := issue["missing"].([]any)
+	missing := map[string]bool{}
+	for _, item := range rawMissing {
+		if s, ok := item.(string); ok {
+			missing[s] = true
+		}
+	}
+	if !missing["commands"] || !missing["jobs"] {
+		t.Fatalf("expected missing commands and jobs, got %v", rawMissing)
+	}
+	if meta["path"] != "/features" {
+		t.Fatalf("expected path metadata, got %v", meta["path"])
+	}
+}

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http/httptest"
 	"testing"
 
@@ -24,6 +25,16 @@ func TestSearchEngineRespectsPermission(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Fatalf("expected zero results due to permission, got %d", len(results))
+	}
+}
+
+func TestSearchEngineDisabledByFeatureGate(t *testing.T) {
+	engine := NewSearchEngine(allowAll{})
+	engine.Enable(false)
+
+	_, err := engine.Query(AdminContext{Context: context.Background()}, "anything", 5)
+	if !errors.Is(err, ErrFeatureDisabled) {
+		t.Fatalf("expected feature disabled error, got %v", err)
 	}
 }
 
@@ -144,5 +155,30 @@ func TestSearchRouteAggregatesAndFiltersByPermission(t *testing.T) {
 	}
 	if first["id"] != "1" || first["type"] != "users" {
 		t.Fatalf("unexpected result payload: %+v", first)
+	}
+}
+
+func TestSearchRouteFeatureGateDisabled(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := New(cfg)
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/admin/api/search?query=anything", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 when search disabled, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok || errPayload["text_code"] != "FEATURE_DISABLED" {
+		t.Fatalf("expected FEATURE_DISABLED text_code, got %v", body)
 	}
 }

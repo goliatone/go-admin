@@ -180,6 +180,13 @@ func TestPanelSchemaIncludesFormSchema(t *testing.T) {
 	if _, ok := props["name"]; !ok {
 		t.Fatalf("expected name property in form schema")
 	}
+	nameProps := props["name"].(map[string]any)
+	if val, ok := nameProps["read_only"].(bool); !ok || val {
+		t.Fatalf("expected read_only flag in snake_case, got %v", nameProps["read_only"])
+	}
+	if val, ok := nameProps["readOnly"].(bool); !ok || val {
+		t.Fatalf("expected readOnly preserved for JSON Schema, got %v", nameProps["readOnly"])
+	}
 	req := schema.FormSchema["required"].([]string)
 	if len(req) != 1 || req[0] != "name" {
 		t.Fatalf("expected name to be required, got %v", req)

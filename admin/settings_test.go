@@ -37,6 +37,20 @@ func TestSettingsResolutionWithProvenance(t *testing.T) {
 	}
 }
 
+func TestSettingsServiceDisabledReturnsFeatureFlag(t *testing.T) {
+	svc := NewSettingsService()
+	svc.RegisterDefinition(SettingDefinition{Key: "admin.title", Default: "Admin", Type: "string"})
+	svc.Enable(false)
+
+	err := svc.Apply(context.Background(), SettingsBundle{Scope: SettingsScopeSite, Values: map[string]any{"admin.title": "New"}})
+	if !errors.Is(err, ErrFeatureDisabled) {
+		t.Fatalf("expected feature disabled error, got %v", err)
+	}
+	if values := svc.ResolveAll(""); len(values) != 0 {
+		t.Fatalf("expected no values when settings disabled, got %+v", values)
+	}
+}
+
 func TestSettingsValidationErrorsSurfaced(t *testing.T) {
 	svc := NewSettingsService()
 	svc.RegisterDefinition(SettingDefinition{Key: "feature.enabled", Default: false, Type: "boolean"})
