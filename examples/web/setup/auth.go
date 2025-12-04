@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -22,6 +23,8 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores) (*admin.GoAuthAu
 	provider := &demoIdentityProvider{users: dataStores.Users}
 
 	auther := auth.NewAuthenticator(provider, cfg)
+	auther.WithResourceRoleProvider(provider).
+		WithClaimsDecorator(auth.ClaimsDecoratorFunc(applySessionClaimsMetadata))
 	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
 	if err != nil {
 		log.Fatalf("failed to initialize go-auth HTTP authenticator: %v", err)
@@ -42,13 +45,35 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores) (*admin.GoAuthAu
 		DefaultResource: "admin",
 	}))
 
-	logDemoTokens(context.Background(), auther.TokenService(), provider)
+	logDemoTokens(context.Background(), auther, provider)
 
 	return goAuth, routeAuth, auther, cfg.GetContextKey()
 }
 
 type demoIdentityProvider struct {
 	users *stores.UserStore
+}
+
+func (p *demoIdentityProvider) FindResourceRoles(ctx context.Context, identity auth.Identity) (map[string]string, error) {
+	roles := map[string]string{}
+	if p == nil || p.users == nil || identity == nil {
+		return roles, nil
+	}
+
+	role := strings.ToLower(strings.TrimSpace(identity.Role()))
+	if record, err := p.users.Get(ctx, identity.ID()); err == nil && record != nil {
+		if recRole := strings.ToLower(strings.TrimSpace(toString(record["role"]))); recRole != "" {
+			role = recRole
+		}
+	}
+
+	global := mapToAuthRole(role)
+	resource := mapToResourceRole(role)
+
+	roles["admin"] = string(global)
+	roles["admin.users"] = string(resource)
+
+	return roles, nil
 }
 
 func (p *demoIdentityProvider) VerifyIdentity(ctx context.Context, identifier, password string) (auth.Identity, error) {
@@ -117,6 +142,7 @@ func (p *demoIdentityProvider) identityFromRecord(rec map[string]any) auth.Ident
 		username: toString(rec["username"]),
 		email:    toString(rec["email"]),
 		role:     string(mapToAuthRole(toString(rec["role"]))),
+		status:   mapToAuthStatus(toString(rec["status"])),
 	}
 }
 
@@ -125,12 +151,19 @@ type userIdentity struct {
 	username string
 	email    string
 	role     string
+	status   auth.UserStatus
 }
 
 func (i userIdentity) ID() string       { return i.id }
 func (i userIdentity) Username() string { return i.username }
 func (i userIdentity) Email() string    { return i.email }
 func (i userIdentity) Role() string     { return i.role }
+func (i userIdentity) Status() auth.UserStatus {
+	if i.status == "" {
+		return auth.UserStatusActive
+	}
+	return i.status
+}
 
 type demoAuthConfig struct {
 	signingKey string
@@ -162,8 +195,36 @@ func mapToAuthRole(role string) auth.UserRole {
 	}
 }
 
-func logDemoTokens(ctx context.Context, ts auth.TokenService, provider *demoIdentityProvider) {
-	if ts == nil || provider == nil {
+func mapToResourceRole(role string) auth.UserRole {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "admin":
+		return auth.RoleOwner
+	case "editor":
+		return auth.RoleMember
+	default:
+		return ""
+	}
+}
+
+func mapToAuthStatus(status string) auth.UserStatus {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "active":
+		return auth.UserStatusActive
+	case "pending":
+		return auth.UserStatusPending
+	case "archived":
+		return auth.UserStatusArchived
+	case "inactive", "disabled":
+		return auth.UserStatusDisabled
+	case "suspended":
+		return auth.UserStatusSuspended
+	default:
+		return auth.UserStatusActive
+	}
+}
+
+func logDemoTokens(ctx context.Context, auther *auth.Auther, provider *demoIdentityProvider) {
+	if auther == nil || provider == nil {
 		return
 	}
 	identities := provider.identities(ctx)
@@ -172,13 +233,76 @@ func logDemoTokens(ctx context.Context, ts auth.TokenService, provider *demoIden
 	}
 	log.Println("demo Authorization tokens (use Authorization: Bearer <token>):")
 	for _, identity := range identities {
-		token, err := ts.Generate(identity, nil)
+		if s := statusFromIdentity(identity); s != "" && s != auth.UserStatusActive {
+			log.Printf("  - %s (%s): skipped, status=%s", identity.Username(), identity.Role(), s)
+			continue
+		}
+		password := fmt.Sprintf("%s.pwd", identity.Username())
+		token, err := auther.Login(ctx, identity.Username(), password)
 		if err != nil {
 			log.Printf("  - %s token error: %v", identity.Username(), err)
 			continue
 		}
 		log.Printf("  - %s (%s): %s", identity.Username(), identity.Role(), token)
 	}
+}
+
+func applySessionClaimsMetadata(_ context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
+	if identity == nil || claims == nil {
+		return nil
+	}
+
+	if claims.Metadata == nil {
+		claims.Metadata = map[string]any{}
+	}
+
+	setIfPresent := func(key, value string) {
+		if strings.TrimSpace(value) == "" {
+			return
+		}
+		claims.Metadata[key] = strings.TrimSpace(value)
+	}
+
+	setIfPresent("username", identity.Username())
+	setIfPresent("email", identity.Email())
+	setIfPresent("role", identity.Role())
+	display := firstNonEmpty(identity.Username(), identity.Email(), identity.ID())
+	setIfPresent("display_name", display)
+
+	if len(claims.Resources) > 0 {
+		scopes := make([]string, 0, len(claims.Resources))
+		for resource, role := range claims.Resources {
+			if strings.TrimSpace(resource) == "" || strings.TrimSpace(role) == "" {
+				continue
+			}
+			scopes = append(scopes, fmt.Sprintf("%s:%s", strings.TrimSpace(resource), strings.TrimSpace(role)))
+		}
+		sort.Strings(scopes)
+		if len(scopes) > 0 {
+			claims.Metadata["scopes"] = scopes
+		}
+	}
+
+	return nil
+}
+
+func statusFromIdentity(identity auth.Identity) auth.UserStatus {
+	if identity == nil {
+		return ""
+	}
+	if carrier, ok := identity.(interface{ Status() auth.UserStatus }); ok {
+		return carrier.Status()
+	}
+	return ""
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, val := range values {
+		if strings.TrimSpace(val) != "" {
+			return strings.TrimSpace(val)
+		}
+	}
+	return ""
 }
 
 func toString(val any) string {
@@ -220,7 +344,7 @@ func makeAuthErrorHandler(cfg demoAuthConfig) func(router.Context, error) error 
 		}
 
 		// API routes: return JSON so fetch requests don’t turn into template errors
-		if strings.Contains(c.Path(), "/api/") {
+		if strings.Contains(c.Path(), "/api/") || strings.Contains(c.Path(), "/crud/") {
 			c.Status(status)
 			return c.JSON(status, mapped.ToErrorResponse(false, nil))
 		}

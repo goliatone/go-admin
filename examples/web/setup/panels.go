@@ -54,7 +54,13 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 		BulkActions(
 			admin.Action{Name: "activate", CommandName: "users.activate", Permission: "admin.users.edit"},
 			admin.Action{Name: "deactivate", CommandName: "users.deactivate", Permission: "admin.users.edit"},
-		)
+		).
+		Permissions(admin.PanelPermissions{
+			View:   "admin.users.view",
+			Create: "admin.users.create",
+			Edit:   "admin.users.edit",
+			Delete: "admin.users.delete",
+		})
 	return builder
 }
 
@@ -126,6 +132,7 @@ func NewPostsPanelBuilder(store *stores.PostStore) *admin.PanelBuilder {
 				{Value: "published", Label: "Published"},
 				{Value: "draft", Label: "Draft"},
 				{Value: "scheduled", Label: "Scheduled"},
+				{Value: "archived", Label: "Archived"},
 			}},
 			admin.Field{Name: "published_at", Label: "Published", Type: "datetime"},
 		).
@@ -143,6 +150,7 @@ func NewPostsPanelBuilder(store *stores.PostStore) *admin.PanelBuilder {
 				{Value: "published", Label: "Published"},
 				{Value: "draft", Label: "Draft"},
 				{Value: "scheduled", Label: "Scheduled"},
+				{Value: "archived", Label: "Archived"},
 			}},
 			admin.Field{Name: "published_at", Label: "Publish Date", Type: "datetime"},
 			admin.Field{Name: "featured_image", Label: "Featured Image", Type: "media"},
