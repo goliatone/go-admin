@@ -1,0 +1,11 @@
+<a href="{{ item.href|default:'#' }}"
+   class="nav-item{% if item.active %} active{% endif %}{% if item.classes %}{% for c in item.classes %} {{ c }}{% endfor %}{% endif %}"
+   {% if item.styles %}style="{% for k,v in item.styles %}{{ k }}: {{ v }}; {% endfor %}"{% endif %}>
+  {% if item.icon %}<i class="iconoir-{{ item.icon }}"></i>{% endif %}
+  <span class="nav-text">{{ item.label }}</span>
+  {% if item.badge %}
+    <span class="ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold {% if item.badge.color %}bg-{{ item.badge.color }}{% else %}bg-white/10{% endif %}">
+      {% if item.badge.text %}{{ item.badge.text }}{% elif item.badge.value %}{{ item.badge.value }}{% endif %}
+    </span>
+  {% endif %}
+</a>

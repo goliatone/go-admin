@@ -129,97 +129,6 @@
         <!-- Charts will be dynamically inserted here -->
       </div>
 
-      <!-- Revenue Chart -->
-      <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Receipt of Goods</div>
-        <div class="flex justify-center mb-4">
-          <div class="relative w-36 h-36">
-            <svg class="w-full h-full" viewBox="0 0 140 140">
-              <circle class="stroke-gray-100" fill="none" stroke-width="12" cx="70" cy="70" r="60"></circle>
-              <circle class="stroke-blue-500" fill="none" stroke-width="12" cx="70" cy="70" r="60" id="revenue-circle"
-                      stroke-dasharray="376.99" stroke-dashoffset="94.25"
-                      transform="rotate(-90 70 70)" stroke-linecap="round"></circle>
-            </svg>
-            <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <div class="text-2xl font-bold text-admin-dark" id="revenue-percent">75%</div>
-              <div class="text-xs text-zinc-500">Complete</div>
-            </div>
-          </div>
-        </div>
-        <div class="space-y-2">
-          <div class="flex justify-between text-sm">
-            <span class="text-zinc-500">Target</span>
-            <span class="font-semibold text-admin-dark">$50,000</span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-zinc-500">Achieved</span>
-            <span class="font-semibold text-admin-dark" id="revenue-achieved">$37,500</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- System Metrics -->
-      <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">System Metrics</div>
-        <div class="space-y-4">
-          <div>
-            <div class="text-2xl font-bold text-admin-dark" id="metric-uptime">99.9%</div>
-            <div class="text-sm text-zinc-500">Uptime</div>
-          </div>
-          <div>
-            <div class="text-2xl font-bold text-admin-dark" id="metric-requests">1.2M</div>
-            <div class="text-sm text-zinc-500">Requests/day</div>
-          </div>
-          <div>
-            <div class="text-2xl font-bold text-admin-dark" id="metric-latency">45ms</div>
-            <div class="text-sm text-zinc-500">Avg Latency</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Transaction Status -->
-      <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Transaction Status</div>
-        <ul class="space-y-3">
-          <li>
-            <div class="flex justify-between mb-2 text-sm">
-              <span class="flex items-center gap-2 text-admin-dark">
-                <span class="w-2 h-2 bg-green-500 rounded-full"></span>
-                Paid
-              </span>
-              <span class="font-semibold text-zinc-600" id="status-paid">65%</span>
-            </div>
-            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div class="h-full bg-green-500 rounded-full transition-all" style="width: 65%"></div>
-            </div>
-          </li>
-          <li>
-            <div class="flex justify-between mb-2 text-sm">
-              <span class="flex items-center gap-2 text-admin-dark">
-                <span class="w-2 h-2 bg-red-500 rounded-full"></span>
-                Cancelled
-              </span>
-              <span class="font-semibold text-zinc-600" id="status-cancelled">20%</span>
-            </div>
-            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div class="h-full bg-red-500 rounded-full transition-all" style="width: 20%"></div>
-            </div>
-          </li>
-          <li>
-            <div class="flex justify-between mb-2 text-sm">
-              <span class="flex items-center gap-2 text-admin-dark">
-                <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
-                Refunded
-              </span>
-              <span class="font-semibold text-zinc-600" id="status-refunded">15%</span>
-            </div>
-            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div class="h-full bg-amber-500 rounded-full transition-all" style="width: 15%"></div>
-            </div>
-          </li>
-        </ul>
-      </div>
-
       <!-- Notifications Preview -->
       <div class="bg-white border border-gray-200 rounded-xl p-6">
         <div class="flex items-center justify-between mb-4">
@@ -271,20 +180,6 @@
             document.getElementById('storage-percent').textContent = `${percentage}% of total`;
           }
         });
-      }
-
-      // Keep existing revenue/orders defaults (no widget for these yet)
-      document.getElementById('total-revenue').textContent = `$${data.totalRevenue?.toLocaleString() || 0}`;
-      document.getElementById('total-orders').textContent = `${data.totalOrders || 0} orders`;
-
-      // Update revenue chart
-      if (data.revenuePercent !== undefined) {
-        const circle = document.getElementById('revenue-circle');
-        const circumference = 2 * Math.PI * 60;
-        const offset = circumference - (data.revenuePercent / 100) * circumference;
-        circle.style.strokeDashoffset = offset;
-        document.getElementById('revenue-percent').textContent = `${data.revenuePercent}%`;
-        document.getElementById('revenue-achieved').textContent = `$${data.revenueAchieved?.toLocaleString() || 0}`;
       }
 
       // Update activity feed from widgets
@@ -477,7 +372,7 @@
             document.getElementById('media-preview').innerHTML = '<li class="text-zinc-500">No media yet.</li>';
           }
         } else {
-          // Media library not available - hide or show placeholder
+          // Media library not available - hide or show placeholder (404 is expected when media feature is disabled)
           document.getElementById('media-preview').innerHTML = '<li class="text-zinc-500">Media library not configured.</li>';
         }
       } catch (mediaErr) {

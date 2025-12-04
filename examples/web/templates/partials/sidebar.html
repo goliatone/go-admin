@@ -1,25 +1,41 @@
-<aside class="w-60 bg-admin-dark text-zinc-200 flex flex-col py-4 overflow-y-auto" style="background: var(--color-surface, #111827); color: var(--sidebar-text, #e5e7eb);">
-  <a href="{{ base_path }}" class="px-5 pb-6 text-lg font-semibold text-white flex items-center gap-2 no-underline">{{ title }}</a>
-  <input type="text" class="mx-4 mb-4 px-3 py-2 bg-white/10 border border-white/10 rounded-md text-zinc-200 text-sm placeholder-zinc-400" placeholder="Search... ⌘F" readonly>
+<aside id="sidebar" class="sidebar bg-admin-dark text-zinc-200 flex flex-col py-4 overflow-y-auto" data-collapsed="false" style="background: var(--color-surface, #111827); color: var(--sidebar-text, #e5e7eb);">
+  <div class="sidebar-header">
+    <a href="{{ base_path }}" class="flex items-center gap-2 no-underline w-full">
+      <img src="{{ base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo w-full h-auto" />
+    </a>
+    <button id="sidebar-toggle" class="sidebar-toggle-btn" aria-label="Toggle sidebar">
+      <i class="iconoir-menu"></i>
+    </button>
+  </div>
+
+  <div class="sidebar-search mx-4 mb-4">
+    <input type="text" class="w-full px-3 py-2 bg-white/10 border border-white/10 rounded-md text-zinc-200 text-sm placeholder-zinc-400" placeholder="Search... ⌘F" readonly>
+  </div>
 
   <nav class="flex-1 px-2">
     {% for item in nav_items %}
-    <a href="{{ item.href }}" class="nav-item{% if active == item.key %} active{% endif %}{% if item.classes %}{% for c in item.classes %} {{ c }}{% endfor %}{% endif %}"{% if item.styles %} style="{% for k,v in item.styles %}{{ k }}: {{ v }}; {% endfor %}"{% endif %}>
-      {% if item.icon %}<i class="iconoir-{{ item.icon }}"></i>{% endif %}
-      <span>{{ item.label }}</span>
-      {% if item.badge %}
-      <span class="ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold {% if item.badge.color %}bg-{{ item.badge.color }}{% else %}bg-white/10{% endif %}">
-        {% if item.badge.text %}{{ item.badge.text }}{% elif item.badge.value %}{{ item.badge.value }}{% endif %}
-      </span>
+      {% if item.type == "separator" %}
+        <div class="h-8"></div>
+      {% elif item.type == "group" %}
+        <div class="menu-group space-y-1 mb-1">
+          <div class="menu-group-title">
+            {% if item.group_title %}{{ item.group_title }}{% else %}{{ item.label }}{% endif %}
+          </div>
+          {% for child in item.children %}
+            <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}">
+              {% if child.icon %}<i class="iconoir-{{ child.icon }}"></i>{% endif %}
+              <span class="nav-text">{{ child.label }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}">
+          {% if item.icon %}<i class="iconoir-{{ item.icon }}"></i>{% endif %}
+          <span class="nav-text">{{ item.label }}</span>
+        </a>
       {% endif %}
-    </a>
     {% endfor %}
   </nav>
 
-  <div class="px-4 pt-4 border-t border-white/10 flex items-center gap-3">
-    <div class="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center font-semibold text-blue-400">A</div>
-    <div class="flex-1">
-      <div class="text-sm font-medium text-zinc-200">Admin User</div>
-    </div>
-  </div>
+  {% include "partials/session.html" %}
 </aside>
