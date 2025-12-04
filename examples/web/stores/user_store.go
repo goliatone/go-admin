@@ -11,6 +11,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
+	goerrors "github.com/goliatone/go-errors"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
@@ -19,6 +20,22 @@ import (
 
 const (
 	defaultUserPageSize = 50
+)
+
+var (
+	allowedUserRoles = map[string]struct{}{
+		"admin":  {},
+		"editor": {},
+		"viewer": {},
+	}
+	allowedUserStatuses = map[string]struct{}{
+		"active":    {},
+		"inactive":  {},
+		"pending":   {},
+		"suspended": {},
+		"disabled":  {},
+		"archived":  {},
+	}
 )
 
 // User mirrors the JSON shape expected by go-crud.
@@ -129,6 +146,80 @@ func (s *UserStore) Seed() {
 	}
 }
 
+func validateUserPayload(record map[string]any, requireCoreFields bool) error {
+	if record == nil {
+		record = map[string]any{}
+	}
+
+	username, hasUsername := trimmedField(record, "username")
+	email, hasEmail := trimmedField(record, "email")
+	role, hasRole := trimmedField(record, "role")
+	status, hasStatus := trimmedField(record, "status")
+
+	missing := []string{}
+	if requireCoreFields || hasUsername {
+		if username == "" {
+			missing = append(missing, "username")
+		}
+	}
+	if requireCoreFields || hasEmail {
+		if email == "" {
+			missing = append(missing, "email")
+		}
+	}
+
+	if len(missing) > 0 {
+		return newValidationError("missing required fields", map[string]any{
+			"fields": missing,
+		})
+	}
+
+	if email != "" && !strings.Contains(email, "@") {
+		return newValidationError("email must be valid", map[string]any{
+			"email": email,
+		})
+	}
+
+	if hasRole && role != "" {
+		if _, ok := allowedUserRoles[strings.ToLower(role)]; !ok {
+			return newValidationError("invalid role", map[string]any{
+				"role": role,
+			})
+		}
+	}
+
+	if hasStatus && status != "" {
+		if _, ok := allowedUserStatuses[strings.ToLower(status)]; !ok {
+			return newValidationError("invalid status", map[string]any{
+				"status": status,
+			})
+		}
+	}
+
+	return nil
+}
+
+func trimmedField(record map[string]any, key string) (string, bool) {
+	if record == nil {
+		return "", false
+	}
+	val, ok := record[key]
+	if !ok {
+		return "", false
+	}
+	return strings.TrimSpace(asString(val, "")), true
+}
+
+func newValidationError(message string, metadata map[string]any) error {
+	err := goerrors.New(message, goerrors.CategoryValidation).
+		WithCode(goerrors.CodeBadRequest).
+		WithTextCode("VALIDATION_ERROR")
+	if len(metadata) > 0 {
+		err = err.WithMetadata(metadata)
+	}
+	return err
+}
+
 // List returns users honoring search/filters/pagination.
 func (s *UserStore) List(ctx context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {
 	filter := userInventoryFilterFromOptions(opts)
@@ -148,7 +239,7 @@ func (s *UserStore) List(ctx context.Context, opts admin.ListOptions) ([]map[str
 func (s *UserStore) Get(ctx context.Context, id string) (map[string]any, error) {
 	userID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, fmt.Errorf("invalid user id: %w", err)
+		return nil, invalidUserIDError(id)
 	}
 	user, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
@@ -159,6 +250,10 @@ func (s *UserStore) Get(ctx context.Context, id string) (map[string]any, error) 
 
 // Create adds a new user.
 func (s *UserStore) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
+	if err := validateUserPayload(record, true); err != nil {
+		return nil, err
+	}
+
 	user, lastLogin := mapToAuthUser(record)
 	if user.ID == uuid.Nil {
 		user.ID = uuid.New()
@@ -183,9 +278,13 @@ func (s *UserStore) Create(ctx context.Context, record map[string]any) (map[stri
 
 // Update modifies an existing user.
 func (s *UserStore) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
+	if err := validateUserPayload(record, false); err != nil {
+		return nil, err
+	}
+
 	userID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, fmt.Errorf("invalid user id: %w", err)
+		return nil, invalidUserIDError(id)
 	}
 	existing, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
@@ -210,7 +309,7 @@ func (s *UserStore) Update(ctx context.Context, id string, record map[string]any
 func (s *UserStore) Delete(ctx context.Context, id string) error {
 	userID, err := uuid.Parse(id)
 	if err != nil {
-		return fmt.Errorf("invalid user id: %w", err)
+		return invalidUserIDError(id)
 	}
 
 	user, err := s.repo.GetByID(ctx, userID)
@@ -339,6 +438,16 @@ func applyUserPatch(existing *types.AuthUser, record map[string]any) *types.Auth
 func parseUUID(val string) uuid.UUID {
 	id, _ := uuid.Parse(strings.TrimSpace(val))
 	return id
+}
+
+func invalidUserIDError(id string) error {
+	message := "invalid user id"
+	if trimmed := strings.TrimSpace(id); trimmed != "" {
+		message = fmt.Sprintf("invalid user id: %s", trimmed)
+	}
+	return goerrors.New(message, goerrors.CategoryBadInput).
+		WithCode(goerrors.CodeBadRequest).
+		WithTextCode("INVALID_ID")
 }
 
 func parseStatusFilter(val any) []types.LifecycleState {

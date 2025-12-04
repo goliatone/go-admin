@@ -12,14 +12,20 @@ import (
 
 // PageStore manages pages in memory.
 type PageStore struct {
-	mu     sync.RWMutex
-	pages  []map[string]any
-	nextID int
+	mu       sync.RWMutex
+	pages    []map[string]any
+	nextID   int
+	activity admin.ActivitySink
 }
 
 // NewPageStore creates a new page store.
 func NewPageStore() *PageStore {
 	return &PageStore{pages: []map[string]any{}, nextID: 1}
+}
+
+// WithActivitySink enables activity emission on CRUD operations.
+func (s *PageStore) WithActivitySink(sink admin.ActivitySink) {
+	s.activity = sink
 }
 
 // Seed populates the store with sample data.
@@ -69,6 +75,7 @@ func (s *PageStore) Create(ctx context.Context, record map[string]any) (map[stri
 	record["updated_at"] = time.Now()
 	s.nextID++
 	s.pages = append(s.pages, record)
+	s.emitActivity(ctx, "created", record)
 	return record, nil
 }
 
@@ -81,6 +88,7 @@ func (s *PageStore) Update(ctx context.Context, id string, record map[string]any
 			record["created_at"] = p["created_at"]
 			record["updated_at"] = time.Now()
 			s.pages[i] = record
+			s.emitActivity(ctx, "updated", record)
 			return record, nil
 		}
 	}
@@ -92,9 +100,95 @@ func (s *PageStore) Delete(ctx context.Context, id string) error {
 	defer s.mu.Unlock()
 	for i, p := range s.pages {
 		if fmt.Sprintf("%v", p["id"]) == id {
+			s.emitActivity(ctx, "deleted", p)
 			s.pages = append(s.pages[:i], s.pages[i+1:]...)
 			return nil
 		}
 	}
 	return admin.ErrNotFound
+}
+
+// Publish sets the status to published for matching pages (or all when ids are empty).
+func (s *PageStore) Publish(ctx context.Context, ids []string) ([]map[string]any, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	targets := normalizeIDSet(ids)
+	now := time.Now()
+	updated := []map[string]any{}
+
+	for i, p := range s.pages {
+		id := stringID(p["id"])
+		if !idMatches(targets, id) {
+			continue
+		}
+		status := strings.ToLower(fmt.Sprint(p["status"]))
+		if status == "published" {
+			continue
+		}
+		record := cloneRecord(p)
+		record["id"] = id
+		record["status"] = "published"
+		record["updated_at"] = now
+		s.pages[i] = record
+		s.emitActivity(ctx, "published", record)
+		updated = append(updated, cloneRecord(record))
+	}
+
+	if len(updated) == 0 && len(targets) > 0 {
+		return nil, admin.ErrNotFound
+	}
+	return updated, nil
+}
+
+// Unpublish marks matching pages as drafts.
+func (s *PageStore) Unpublish(ctx context.Context, ids []string) ([]map[string]any, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	targets := normalizeIDSet(ids)
+	now := time.Now()
+	updated := []map[string]any{}
+
+	for i, p := range s.pages {
+		id := stringID(p["id"])
+		if !idMatches(targets, id) {
+			continue
+		}
+		status := strings.ToLower(fmt.Sprint(p["status"]))
+		if status == "draft" {
+			continue
+		}
+		record := cloneRecord(p)
+		record["id"] = id
+		record["status"] = "draft"
+		record["updated_at"] = now
+		s.pages[i] = record
+		s.emitActivity(ctx, "unpublished", record)
+		updated = append(updated, cloneRecord(record))
+	}
+
+	if len(updated) == 0 && len(targets) > 0 {
+		return nil, admin.ErrNotFound
+	}
+	return updated, nil
+}
+
+func (s *PageStore) emitActivity(ctx context.Context, verb string, page map[string]any) {
+	if s.activity == nil || page == nil {
+		return
+	}
+
+	objectID := strings.TrimSpace(fmt.Sprintf("%v", page["id"]))
+	entry := admin.ActivityEntry{
+		Actor:  resolveActivityActor(ctx),
+		Action: verb,
+		Object: fmt.Sprintf("page:%s", objectID),
+		Metadata: map[string]any{
+			"title":  page["title"],
+			"slug":   page["slug"],
+			"status": page["status"],
+		},
+	}
+	_ = s.activity.Record(ctx, entry)
 }

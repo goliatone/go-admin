@@ -12,14 +12,20 @@ import (
 
 // PostStore manages blog posts
 type PostStore struct {
-	mu     sync.RWMutex
-	posts  []map[string]any
-	nextID int
+	mu       sync.RWMutex
+	posts    []map[string]any
+	nextID   int
+	activity admin.ActivitySink
 }
 
 // NewPostStore creates a new PostStore instance
 func NewPostStore() *PostStore {
 	return &PostStore{posts: []map[string]any{}, nextID: 1}
+}
+
+// WithActivitySink enables activity emission on CRUD operations.
+func (s *PostStore) WithActivitySink(sink admin.ActivitySink) {
+	s.activity = sink
 }
 
 // Seed populates the PostStore with initial data
@@ -147,6 +153,7 @@ func (s *PostStore) Create(ctx context.Context, record map[string]any) (map[stri
 	record["updated_at"] = time.Now()
 	s.nextID++
 	s.posts = append(s.posts, record)
+	s.emitActivity(ctx, "created", record)
 	return record, nil
 }
 
@@ -161,6 +168,7 @@ func (s *PostStore) Update(ctx context.Context, id string, record map[string]any
 			record["created_at"] = p["created_at"]
 			record["updated_at"] = time.Now()
 			s.posts[i] = record
+			s.emitActivity(ctx, "updated", record)
 			return record, nil
 		}
 	}
@@ -174,9 +182,100 @@ func (s *PostStore) Delete(ctx context.Context, id string) error {
 
 	for i, p := range s.posts {
 		if fmt.Sprintf("%v", p["id"]) == id {
+			s.emitActivity(ctx, "deleted", p)
 			s.posts = append(s.posts[:i], s.posts[i+1:]...)
 			return nil
 		}
 	}
 	return admin.ErrNotFound
+}
+
+// Publish sets matching posts to published and stamps published_at when missing.
+func (s *PostStore) Publish(ctx context.Context, ids []string) ([]map[string]any, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	targets := normalizeIDSet(ids)
+	now := time.Now()
+	updated := []map[string]any{}
+
+	for i, p := range s.posts {
+		id := stringID(p["id"])
+		if !idMatches(targets, id) {
+			continue
+		}
+		status := strings.ToLower(fmt.Sprint(p["status"]))
+		if status == "published" {
+			continue
+		}
+		record := cloneRecord(p)
+		record["id"] = id
+		record["status"] = "published"
+		if parseTimeValue(record["published_at"]).IsZero() {
+			record["published_at"] = now
+		}
+		record["updated_at"] = now
+		s.posts[i] = record
+		s.emitActivity(ctx, "published", record)
+		updated = append(updated, cloneRecord(record))
+	}
+
+	if len(updated) == 0 && len(targets) > 0 {
+		return nil, admin.ErrNotFound
+	}
+	return updated, nil
+}
+
+// Archive marks matching posts as archived.
+func (s *PostStore) Archive(ctx context.Context, ids []string) ([]map[string]any, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	targets := normalizeIDSet(ids)
+	now := time.Now()
+	updated := []map[string]any{}
+
+	for i, p := range s.posts {
+		id := stringID(p["id"])
+		if !idMatches(targets, id) {
+			continue
+		}
+		status := strings.ToLower(fmt.Sprint(p["status"]))
+		if status == "archived" {
+			continue
+		}
+		record := cloneRecord(p)
+		record["id"] = id
+		record["status"] = "archived"
+		record["updated_at"] = now
+		s.posts[i] = record
+		s.emitActivity(ctx, "archived", record)
+		updated = append(updated, cloneRecord(record))
+	}
+
+	if len(updated) == 0 && len(targets) > 0 {
+		return nil, admin.ErrNotFound
+	}
+	return updated, nil
+}
+
+func (s *PostStore) emitActivity(ctx context.Context, verb string, post map[string]any) {
+	if s.activity == nil || post == nil {
+		return
+	}
+
+	objectID := strings.TrimSpace(fmt.Sprintf("%v", post["id"]))
+	entry := admin.ActivityEntry{
+		Actor:  resolveActivityActor(ctx),
+		Action: verb,
+		Object: fmt.Sprintf("post:%s", objectID),
+		Metadata: map[string]any{
+			"title":    post["title"],
+			"slug":     post["slug"],
+			"status":   post["status"],
+			"author":   post["author"],
+			"category": post["category"],
+		},
+	}
+	_ = s.activity.Record(ctx, entry)
 }

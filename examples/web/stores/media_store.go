@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -12,14 +13,20 @@ import (
 
 // MediaStore manages media files
 type MediaStore struct {
-	mu     sync.RWMutex
-	media  []map[string]any
-	nextID int
+	mu       sync.RWMutex
+	media    []map[string]any
+	nextID   int
+	activity admin.ActivitySink
 }
 
 // NewMediaStore creates a new MediaStore instance
 func NewMediaStore() *MediaStore {
 	return &MediaStore{media: []map[string]any{}, nextID: 1}
+}
+
+// WithActivitySink enables activity emission on CRUD operations.
+func (s *MediaStore) WithActivitySink(sink admin.ActivitySink) {
+	s.activity = sink
 }
 
 // Seed populates the MediaStore with initial data
@@ -125,6 +132,7 @@ func (s *MediaStore) Create(ctx context.Context, record map[string]any) (map[str
 	record["uploaded_at"] = time.Now()
 	s.nextID++
 	s.media = append(s.media, record)
+	s.emitActivity(ctx, "uploaded", record)
 	return record, nil
 }
 
@@ -138,6 +146,7 @@ func (s *MediaStore) Update(ctx context.Context, id string, record map[string]an
 			record["id"] = id
 			record["uploaded_at"] = m["uploaded_at"]
 			s.media[i] = record
+			s.emitActivity(ctx, "updated", record)
 			return record, nil
 		}
 	}
@@ -151,9 +160,60 @@ func (s *MediaStore) Delete(ctx context.Context, id string) error {
 
 	for i, m := range s.media {
 		if fmt.Sprintf("%v", m["id"]) == id {
+			s.emitActivity(ctx, "deleted", m)
 			s.media = append(s.media[:i], s.media[i+1:]...)
 			return nil
 		}
 	}
 	return admin.ErrNotFound
+}
+
+// DeleteMany removes multiple media files in one pass.
+func (s *MediaStore) DeleteMany(ctx context.Context, ids []string) ([]map[string]any, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	targets := normalizeIDSet(ids)
+	if len(targets) == 0 {
+		return nil, errors.New("no media ids provided")
+	}
+
+	remaining := s.media[:0]
+	deleted := []map[string]any{}
+
+	for _, m := range s.media {
+		id := stringID(m["id"])
+		if id == "" || !idMatches(targets, id) {
+			remaining = append(remaining, m)
+			continue
+		}
+		s.emitActivity(ctx, "deleted", m)
+		deleted = append(deleted, cloneRecord(m))
+	}
+
+	if len(deleted) == 0 {
+		return nil, admin.ErrNotFound
+	}
+
+	s.media = remaining
+	return deleted, nil
+}
+
+func (s *MediaStore) emitActivity(ctx context.Context, verb string, media map[string]any) {
+	if s.activity == nil || media == nil {
+		return
+	}
+
+	objectID := strings.TrimSpace(fmt.Sprintf("%v", media["id"]))
+	entry := admin.ActivityEntry{
+		Actor:  resolveActivityActor(ctx),
+		Action: verb,
+		Object: fmt.Sprintf("media:%s", objectID),
+		Metadata: map[string]any{
+			"filename": media["filename"],
+			"type":     media["type"],
+			"url":      media["url"],
+		},
+	}
+	_ = s.activity.Record(ctx, entry)
 }
