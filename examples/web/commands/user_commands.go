@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"strings"
 
+	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/stores"
 )
@@ -30,20 +32,54 @@ func (c *userActivateCommand) Name() string {
 }
 
 func (c *userActivateCommand) Execute(ctx context.Context) error {
-	log.Println("Activating users...")
+	if c.store == nil {
+		return fmt.Errorf("user store is nil")
+	}
 
-	// Emit activity event
-	c.activityHooks.Notify(ctx, activity.Event{
-		Channel:    "users",
-		Verb:       "activated",
-		ObjectType: "user",
-		ObjectID:   "bulk",
-		Data: map[string]any{
-			"action": "bulk_activate",
-		},
-	})
+	targets, err := collectUsers(ctx, c.store, admin.CommandIDs(ctx))
+	if err != nil {
+		return err
+	}
+
+	for _, user := range targets {
+		id := strings.TrimSpace(fmt.Sprint(user["id"]))
+		if id == "" {
+			continue
+		}
+		currentStatus := strings.ToLower(fmt.Sprint(user["status"]))
+		if currentStatus == "active" {
+			continue
+		}
+
+		record, err := c.store.Update(ctx, id, map[string]any{"status": "active"})
+		if err != nil {
+			return err
+		}
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "users",
+			Verb:       "activated",
+			ObjectType: "user",
+			ObjectID:   id,
+			Data: map[string]any{
+				"from_status": currentStatus,
+				"to_status":   "active",
+				"email":       record["email"],
+				"username":    record["username"],
+				"role":        record["role"],
+			},
+		})
+	}
 
 	return nil
+}
+
+func (c *userActivateCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"users", "activate"},
+		Description: "Activate selected users",
+		Group:       "users",
+		Aliases:     []string{"users:activate"},
+	}
 }
 
 // userDeactivateCommand deactivates users
@@ -68,18 +104,73 @@ func (c *userDeactivateCommand) Name() string {
 }
 
 func (c *userDeactivateCommand) Execute(ctx context.Context) error {
-	log.Println("Deactivating users...")
+	if c.store == nil {
+		return fmt.Errorf("user store is nil")
+	}
 
-	// Emit activity event
-	c.activityHooks.Notify(ctx, activity.Event{
-		Channel:    "users",
-		Verb:       "deactivated",
-		ObjectType: "user",
-		ObjectID:   "bulk",
-		Data: map[string]any{
-			"action": "bulk_deactivate",
-		},
-	})
+	targets, err := collectUsers(ctx, c.store, admin.CommandIDs(ctx))
+	if err != nil {
+		return err
+	}
+
+	for _, user := range targets {
+		id := strings.TrimSpace(fmt.Sprint(user["id"]))
+		if id == "" {
+			continue
+		}
+		currentStatus := strings.ToLower(fmt.Sprint(user["status"]))
+		if currentStatus == "inactive" {
+			continue
+		}
+
+		record, err := c.store.Update(ctx, id, map[string]any{"status": "inactive"})
+		if err != nil {
+			return err
+		}
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "users",
+			Verb:       "deactivated",
+			ObjectType: "user",
+			ObjectID:   id,
+			Data: map[string]any{
+				"from_status": currentStatus,
+				"to_status":   "inactive",
+				"email":       record["email"],
+				"username":    record["username"],
+				"role":        record["role"],
+			},
+		})
+	}
 
 	return nil
+}
+
+func (c *userDeactivateCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"users", "deactivate"},
+		Description: "Deactivate selected users",
+		Group:       "users",
+		Aliases:     []string{"users:deactivate"},
+	}
+}
+
+func collectUsers(ctx context.Context, store *stores.UserStore, ids []string) ([]map[string]any, error) {
+	if store == nil {
+		return nil, fmt.Errorf("user store is nil")
+	}
+	if len(ids) == 0 {
+		users, _, err := store.List(ctx, admin.ListOptions{PerPage: 1000})
+		return users, err
+	}
+	out := []map[string]any{}
+	for _, id := range ids {
+		if trimmed := strings.TrimSpace(id); trimmed != "" {
+			user, err := store.Get(ctx, trimmed)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, user)
+		}
+	}
+	return out, nil
 }

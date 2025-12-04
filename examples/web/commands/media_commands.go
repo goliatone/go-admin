@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"strings"
 
+	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/stores"
 )
@@ -30,18 +32,51 @@ func (c *mediaBulkDeleteCommand) Name() string {
 }
 
 func (c *mediaBulkDeleteCommand) Execute(ctx context.Context) error {
-	log.Println("Bulk deleting media...")
+	if c.store == nil {
+		return fmt.Errorf("media store is nil")
+	}
 
-	// Emit activity event
-	c.activityHooks.Notify(ctx, activity.Event{
-		Channel:    "media",
-		Verb:       "deleted",
-		ObjectType: "media",
-		ObjectID:   "bulk",
-		Data: map[string]any{
-			"action": "bulk_delete",
-		},
-	})
+	ids := admin.CommandIDs(ctx)
+	if len(ids) == 0 {
+		records, _, err := c.store.List(ctx, admin.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, record := range records {
+			if id := strings.TrimSpace(fmt.Sprint(record["id"])); id != "" {
+				ids = append(ids, id)
+			}
+		}
+	}
+
+	deleted, err := c.store.DeleteMany(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, media := range deleted {
+		id := strings.TrimSpace(fmt.Sprint(media["id"]))
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "media",
+			Verb:       "deleted",
+			ObjectType: "media",
+			ObjectID:   id,
+			Data: map[string]any{
+				"filename": media["filename"],
+				"type":     media["type"],
+				"url":      media["url"],
+			},
+		})
+	}
 
 	return nil
+}
+
+func (c *mediaBulkDeleteCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"media", "bulk", "delete"},
+		Description: "Bulk delete media items",
+		Group:       "media",
+		Aliases:     []string{"media:bulk-delete"},
+	}
 }

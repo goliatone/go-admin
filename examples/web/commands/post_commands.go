@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"strings"
 
+	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/stores"
 )
@@ -30,20 +32,41 @@ func (c *postBulkPublishCommand) Name() string {
 }
 
 func (c *postBulkPublishCommand) Execute(ctx context.Context) error {
-	log.Println("Bulk publishing posts...")
+	if c.store == nil {
+		return fmt.Errorf("post store is nil")
+	}
 
-	// Emit activity event
-	c.activityHooks.Notify(ctx, activity.Event{
-		Channel:    "posts",
-		Verb:       "published",
-		ObjectType: "post",
-		ObjectID:   "bulk",
-		Data: map[string]any{
-			"action": "bulk_publish",
-		},
-	})
+	posts, err := c.store.Publish(ctx, admin.CommandIDs(ctx))
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		id := strings.TrimSpace(fmt.Sprint(post["id"]))
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "posts",
+			Verb:       "published",
+			ObjectType: "post",
+			ObjectID:   id,
+			Data: map[string]any{
+				"title":    post["title"],
+				"slug":     post["slug"],
+				"status":   post["status"],
+				"category": post["category"],
+			},
+		})
+	}
 
 	return nil
+}
+
+func (c *postBulkPublishCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"posts", "bulk", "publish"},
+		Description: "Publish selected posts",
+		Group:       "posts",
+		Aliases:     []string{"posts:bulk-publish"},
+	}
 }
 
 // postBulkArchiveCommand archives multiple posts
@@ -68,18 +91,39 @@ func (c *postBulkArchiveCommand) Name() string {
 }
 
 func (c *postBulkArchiveCommand) Execute(ctx context.Context) error {
-	log.Println("Bulk archiving posts...")
+	if c.store == nil {
+		return fmt.Errorf("post store is nil")
+	}
 
-	// Emit activity event
-	c.activityHooks.Notify(ctx, activity.Event{
-		Channel:    "posts",
-		Verb:       "archived",
-		ObjectType: "post",
-		ObjectID:   "bulk",
-		Data: map[string]any{
-			"action": "bulk_archive",
-		},
-	})
+	posts, err := c.store.Archive(ctx, admin.CommandIDs(ctx))
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		id := strings.TrimSpace(fmt.Sprint(post["id"]))
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "posts",
+			Verb:       "archived",
+			ObjectType: "post",
+			ObjectID:   id,
+			Data: map[string]any{
+				"title":    post["title"],
+				"slug":     post["slug"],
+				"status":   post["status"],
+				"category": post["category"],
+			},
+		})
+	}
 
 	return nil
+}
+
+func (c *postBulkArchiveCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"posts", "bulk", "archive"},
+		Description: "Archive selected posts",
+		Group:       "posts",
+		Aliases:     []string{"posts:bulk-archive"},
+	}
 }

@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"strings"
 
+	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/stores"
 )
@@ -30,20 +32,40 @@ func (c *pagePublishCommand) Name() string {
 }
 
 func (c *pagePublishCommand) Execute(ctx context.Context) error {
-	log.Println("Publishing page...")
+	if c.store == nil {
+		return fmt.Errorf("page store is nil")
+	}
 
-	// Emit activity event
-	c.activityHooks.Notify(ctx, activity.Event{
-		Channel:    "pages",
-		Verb:       "published",
-		ObjectType: "page",
-		ObjectID:   "single",
-		Data: map[string]any{
-			"action": "publish",
-		},
-	})
+	pages, err := c.store.Publish(ctx, admin.CommandIDs(ctx))
+	if err != nil {
+		return err
+	}
+
+	for _, page := range pages {
+		id := strings.TrimSpace(fmt.Sprint(page["id"]))
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "pages",
+			Verb:       "published",
+			ObjectType: "page",
+			ObjectID:   id,
+			Data: map[string]any{
+				"title":  page["title"],
+				"slug":   page["slug"],
+				"status": page["status"],
+			},
+		})
+	}
 
 	return nil
+}
+
+func (c *pagePublishCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"pages", "publish"},
+		Description: "Publish selected pages",
+		Group:       "pages",
+		Aliases:     []string{"pages:publish"},
+	}
 }
 
 // pageBulkPublishCommand publishes multiple pages
@@ -68,20 +90,40 @@ func (c *pageBulkPublishCommand) Name() string {
 }
 
 func (c *pageBulkPublishCommand) Execute(ctx context.Context) error {
-	log.Println("Bulk publishing pages...")
+	if c.store == nil {
+		return fmt.Errorf("page store is nil")
+	}
 
-	// Emit activity event
-	c.activityHooks.Notify(ctx, activity.Event{
-		Channel:    "pages",
-		Verb:       "published",
-		ObjectType: "page",
-		ObjectID:   "bulk",
-		Data: map[string]any{
-			"action": "bulk_publish",
-		},
-	})
+	pages, err := c.store.Publish(ctx, admin.CommandIDs(ctx))
+	if err != nil {
+		return err
+	}
+
+	for _, page := range pages {
+		id := strings.TrimSpace(fmt.Sprint(page["id"]))
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "pages",
+			Verb:       "published",
+			ObjectType: "page",
+			ObjectID:   id,
+			Data: map[string]any{
+				"title":  page["title"],
+				"slug":   page["slug"],
+				"status": page["status"],
+			},
+		})
+	}
 
 	return nil
+}
+
+func (c *pageBulkPublishCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"pages", "bulk", "publish"},
+		Description: "Bulk publish pages",
+		Group:       "pages",
+		Aliases:     []string{"pages:bulk-publish"},
+	}
 }
 
 // pageBulkUnpublishCommand unpublishes multiple pages
@@ -106,18 +148,38 @@ func (c *pageBulkUnpublishCommand) Name() string {
 }
 
 func (c *pageBulkUnpublishCommand) Execute(ctx context.Context) error {
-	log.Println("Bulk unpublishing pages...")
+	if c.store == nil {
+		return fmt.Errorf("page store is nil")
+	}
 
-	// Emit activity event
-	c.activityHooks.Notify(ctx, activity.Event{
-		Channel:    "pages",
-		Verb:       "unpublished",
-		ObjectType: "page",
-		ObjectID:   "bulk",
-		Data: map[string]any{
-			"action": "bulk_unpublish",
-		},
-	})
+	pages, err := c.store.Unpublish(ctx, admin.CommandIDs(ctx))
+	if err != nil {
+		return err
+	}
+
+	for _, page := range pages {
+		id := strings.TrimSpace(fmt.Sprint(page["id"]))
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "pages",
+			Verb:       "unpublished",
+			ObjectType: "page",
+			ObjectID:   id,
+			Data: map[string]any{
+				"title":  page["title"],
+				"slug":   page["slug"],
+				"status": page["status"],
+			},
+		})
+	}
 
 	return nil
+}
+
+func (c *pageBulkUnpublishCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"pages", "bulk", "unpublish"},
+		Description: "Bulk unpublish pages",
+		Group:       "pages",
+		Aliases:     []string{"pages:bulk-unpublish"},
+	}
 }
