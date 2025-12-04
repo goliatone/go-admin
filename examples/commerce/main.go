@@ -35,7 +35,7 @@ func main() {
 	}
 
 	adm := admin.New(cfg)
-	setupAuth(adm)
+	_ = setupAuth(adm, dataStores)
 
 	module := &commerceModule{
 		stores:        dataStores,

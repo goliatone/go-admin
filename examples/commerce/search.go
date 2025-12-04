@@ -15,28 +15,28 @@ func registerSearch(adm *admin.Admin, data *stores.CommerceStores, basePath stri
 		return
 	}
 	engine.Register("users", &repoSearchAdapter{
-		repo:        data.Users,
-		typeName:    "user",
-		titleField:  "name",
-		summaryField:"email",
-		urlPrefix:   path.Join(basePath, "users"),
-		permission:  "commerce.users.view",
+		repo:         data.Users,
+		typeName:     "user",
+		titleField:   "name",
+		summaryField: "email",
+		urlPrefix:    path.Join(basePath, "users"),
+		permission:   "commerce.users.view",
 	})
 	engine.Register("products", &repoSearchAdapter{
-		repo:        data.Products,
-		typeName:    "product",
-		titleField:  "name",
-		summaryField:"sku",
-		urlPrefix:   path.Join(basePath, "products"),
-		permission:  "commerce.products.view",
+		repo:         data.Products,
+		typeName:     "product",
+		titleField:   "name",
+		summaryField: "sku",
+		urlPrefix:    path.Join(basePath, "products"),
+		permission:   "commerce.products.view",
 	})
 	engine.Register("orders", &repoSearchAdapter{
-		repo:        data.Orders,
-		typeName:    "order",
-		titleField:  "number",
-		summaryField:"user_name",
-		urlPrefix:   path.Join(basePath, "orders"),
-		permission:  "commerce.orders.view",
+		repo:         data.Orders,
+		typeName:     "order",
+		titleField:   "number",
+		summaryField: "user_name",
+		urlPrefix:    path.Join(basePath, "orders"),
+		permission:   "commerce.orders.view",
 	})
 }
 

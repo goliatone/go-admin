@@ -9,7 +9,7 @@ cd examples/commerce
 /Users/goliatone/.g/go/bin/go run .
 ```
 
-Visit `http://localhost:8081/admin` and include `X-User-ID` (and optional `X-User-Role`) headers when hitting APIs to satisfy the demo auth guard.
+Visit `http://localhost:8081/admin` and include an `Authorization: Bearer <token>` header when hitting APIs. Startup logs print demo tokens for the seeded users.
 
 ### What’s wired
 
@@ -22,12 +22,12 @@ Visit `http://localhost:8081/admin` and include `X-User-ID` (and optional `X-Use
 ### Handy requests
 
 ```bash
-# List users (ensure header for mock auth)
-curl -H "X-User-ID: demo" http://localhost:8081/admin/api/users
+# List users
+curl -H "Authorization: Bearer <token>" http://localhost:8081/admin/api/users
 
 # Trigger search
-curl -H "X-User-ID: demo" "http://localhost:8081/admin/api/search?query=hoodie"
+curl -H "Authorization: Bearer <token>" "http://localhost:8081/admin/api/search?query=hoodie"
 
 # Inspect jobs (cron hooks)
-curl -H "X-User-ID: demo" http://localhost:8081/admin/api/jobs
+curl -H "Authorization: Bearer <token>" http://localhost:8081/admin/api/jobs
 ```

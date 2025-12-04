@@ -9,9 +9,9 @@ import (
 )
 
 type commerceModule struct {
-	stores       *stores.CommerceStores
-	basePath     string
-	menuCode     string
+	stores        *stores.CommerceStores
+	basePath      string
+	menuCode      string
 	defaultLocale string
 }
 
@@ -59,6 +59,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 	items := []admin.MenuItem{
 		{
 			Label:    "Dashboard",
+			LabelKey: "menu.dashboard",
 			Icon:     "dashboard",
 			Target:   map[string]any{"type": "url", "path": m.basePath, "key": "dashboard"},
 			Locale:   locale,
@@ -67,6 +68,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 		},
 		{
 			Label:    "Users",
+			LabelKey: "menu.users",
 			Icon:     "users",
 			Target:   map[string]any{"type": "url", "path": path.Join(m.basePath, "users"), "key": "users"},
 			Locale:   locale,
@@ -75,6 +77,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 		},
 		{
 			Label:    "Products",
+			LabelKey: "menu.products",
 			Icon:     "box",
 			Target:   map[string]any{"type": "url", "path": path.Join(m.basePath, "products"), "key": "products"},
 			Locale:   locale,
@@ -83,6 +86,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 		},
 		{
 			Label:    "Orders",
+			LabelKey: "menu.orders",
 			Icon:     "cart",
 			Target:   map[string]any{"type": "url", "path": path.Join(m.basePath, "orders"), "key": "orders"},
 			Locale:   locale,

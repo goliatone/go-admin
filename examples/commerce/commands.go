@@ -13,10 +13,10 @@ func registerCommands(adm *admin.Admin, data *stores.CommerceStores) {
 		return
 	}
 	adm.Commands().Register(&restockLowInventoryCommand{
-		products:       data.Products,
-		threshold:      5,
-		restockAmount:  15,
-		commandName:    "commerce.restock_low",
+		products:      data.Products,
+		threshold:     5,
+		restockAmount: 15,
+		commandName:   "commerce.restock_low",
 	})
 	adm.Commands().Register(&dailyRevenueReportCommand{
 		stores: data,
