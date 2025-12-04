@@ -3,7 +3,6 @@ package helpers
 import (
 	"context"
 	"path"
-	"sort"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -11,14 +10,19 @@ import (
 )
 
 // WithNav adds navigation items to the view context
-func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string) router.ViewContext {
+func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext {
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
 	if _, ok := ctx["base_path"]; !ok {
 		ctx["base_path"] = cfg.BasePath
 	}
-	ctx["nav_items"] = BuildNavItems(adm, cfg)
+	if reqCtx == nil {
+		reqCtx = context.Background()
+	}
+	session := BuildSessionUser(reqCtx)
+	ctx["session_user"] = session.ToViewContext()
+	ctx["nav_items"] = BuildNavItems(adm, cfg, reqCtx, active)
 	if active != "" {
 		ctx["active"] = active
 	}
@@ -26,58 +30,100 @@ func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active 
 }
 
 // BuildNavItems builds navigation menu items from the admin menu service
-func BuildNavItems(adm *admin.Admin, cfg admin.Config) []map[string]any {
-	menuSvc := adm.MenuService()
-	if menuSvc == nil {
+func BuildNavItems(adm *admin.Admin, cfg admin.Config, ctx context.Context, active string) []map[string]any {
+	nav := adm.Navigation()
+	if nav == nil {
 		return nil
 	}
 	menuCode := cfg.NavMenuCode
 	if menuCode == "" {
 		menuCode = "admin.main"
 	}
-	menu, err := menuSvc.Menu(context.Background(), menuCode, cfg.DefaultLocale)
-	if err != nil {
-		return nil
+	items := nav.ResolveMenu(ctx, menuCode, cfg.DefaultLocale)
+	entries := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		entry, _ := buildNavEntry(item, cfg, active)
+		entries = append(entries, entry)
 	}
-	items := make([]map[string]any, 0, len(menu.Items))
-	for _, item := range menu.Items {
-		href := cfg.BasePath
-		if targetPath, ok := item.Target["path"].(string); ok && targetPath != "" {
-			href = targetPath
-		} else if name, ok := item.Target["name"].(string); ok && name != "" {
-			trimmed := strings.TrimPrefix(name, "admin.")
-			href = path.Join(cfg.BasePath, trimmed)
+	return entries
+}
+
+func buildNavEntry(item admin.NavigationItem, cfg admin.Config, active string) (map[string]any, bool) {
+	children := []map[string]any{}
+	childActive := false
+	for _, child := range item.Children {
+		childNode, hasActive := buildNavEntry(child, cfg, active)
+		if hasActive {
+			childActive = true
 		}
-		key := ""
-		if k, ok := item.Target["key"].(string); ok && k != "" {
-			key = k
-		} else if name, ok := item.Target["name"].(string); ok && name != "" {
-			key = strings.TrimPrefix(name, "admin.")
-		} else if href != "" {
-			parts := strings.Split(strings.Trim(href, "/"), "/")
-			if len(parts) > 0 {
-				key = parts[len(parts)-1]
-			}
-		}
-		pos := item.Position
-		if p, ok := item.Target["position"].(int); ok && p != 0 {
-			pos = p
-		}
-		items = append(items, map[string]any{
-			"label":    item.Label,
-			"icon":     item.Icon,
-			"href":     href,
-			"key":      key,
-			"position": pos,
-			"badge":    item.Badge,
-			"classes":  item.Classes,
-			"styles":   item.Styles,
-		})
+		children = append(children, childNode)
 	}
-	sort.SliceStable(items, func(i, j int) bool {
-		ival, _ := items[i]["position"].(int)
-		jval, _ := items[j]["position"].(int)
-		return ival < jval
-	})
-	return items
+
+	href, key, position := resolveNavTarget(item.Target, cfg.BasePath)
+	isActive := active != "" && key != "" && key == active
+	collapsible := item.Collapsible && len(children) > 0
+	collapsed := collapsible && item.Collapsed
+	if isActive || childActive {
+		collapsed = false
+	}
+
+	entry := map[string]any{
+		"type":            item.Type,
+		"label":           item.Label,
+		"label_key":       item.LabelKey,
+		"group_title":     item.GroupTitle,
+		"group_title_key": item.GroupTitleKey,
+		"icon":            item.Icon,
+		"href":            href,
+		"key":             key,
+		"badge":           item.Badge,
+		"classes":         item.Classes,
+		"styles":          item.Styles,
+		"children":        children,
+		"has_children":    len(children) > 0,
+		"collapsible":     collapsible,
+		"collapsed":       collapsed,
+		"position":        position,
+	}
+	entry["active"] = isActive
+	entry["expanded"] = collapsible && !collapsed
+	entry["child_active"] = childActive
+	return entry, isActive || childActive
+}
+
+func resolveNavTarget(target map[string]any, basePath string) (string, string, int) {
+	href := basePath
+	key := ""
+	position := 0
+
+	if target == nil {
+		return href, key, position
+	}
+
+	if targetPath, ok := target["path"].(string); ok && strings.TrimSpace(targetPath) != "" {
+		href = targetPath
+	} else if name, ok := target["name"].(string); ok && strings.TrimSpace(name) != "" {
+		trimmed := strings.TrimPrefix(strings.TrimSpace(name), "admin.")
+		href = path.Join(basePath, trimmed)
+	}
+
+	if k, ok := target["key"].(string); ok && strings.TrimSpace(k) != "" {
+		key = strings.TrimSpace(k)
+	} else if name, ok := target["name"].(string); ok && strings.TrimSpace(name) != "" {
+		key = strings.TrimPrefix(strings.TrimSpace(name), "admin.")
+	} else if href != "" {
+		parts := strings.Split(strings.Trim(href, "/"), "/")
+		if len(parts) > 0 {
+			key = parts[len(parts)-1]
+		}
+	}
+
+	switch p := target["position"].(type) {
+	case int:
+		position = p
+	case float64:
+		position = int(p)
+	}
+
+	return href, key, position
 }
