@@ -19,8 +19,14 @@ func NewUsersSearchAdapter(store *stores.UserStore) *usersSearchAdapter {
 }
 
 func (a *usersSearchAdapter) Search(ctx context.Context, query string, limit int) ([]admin.SearchResult, error) {
+	if limit <= 0 {
+		limit = 10
+	}
 	results := []admin.SearchResult{}
-	users, _, _ := a.store.List(ctx, admin.ListOptions{Filters: map[string]any{"_search": query}, PerPage: limit})
+	users, _, err := a.store.List(ctx, admin.ListOptions{Filters: map[string]any{"_search": query}, PerPage: limit})
+	if err != nil {
+		return nil, err
+	}
 	for _, user := range users {
 		results = append(results, admin.SearchResult{
 			Type:        "users",

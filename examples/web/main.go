@@ -4,8 +4,11 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
 	"log"
+	"net/http"
 	"path"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
@@ -13,16 +16,30 @@ import (
 	"github.com/goliatone/go-admin/examples/web/handlers"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/jobs"
+	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/search"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-crud"
+	dashboardcmp "github.com/goliatone/go-dashboard/components/dashboard"
+	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	"github.com/goliatone/go-router"
 	theme "github.com/goliatone/go-theme"
 )
 
 //go:embed assets/* templates/* openapi/*
 var webFS embed.FS
+
+// loginPayload adapts form/json login data to the go-auth LoginPayload interface.
+type loginPayload struct {
+	Identifier string `form:"identifier" json:"identifier"`
+	Password   string `form:"password" json:"password"`
+	Remember   bool   `form:"remember" json:"remember"`
+}
+
+func (l loginPayload) GetIdentifier() string    { return l.Identifier }
+func (l loginPayload) GetPassword() string      { return l.Password }
+func (l loginPayload) GetExtendedSession() bool { return l.Remember }
 
 func main() {
 	cfg := admin.Config{
@@ -46,6 +63,10 @@ func main() {
 			Media:         true,
 			Export:        true,
 			Bulk:          true,
+			Preferences:   true,
+			Profile:       true,
+			Tenants:       true,
+			Organizations: true,
 		},
 	}
 
@@ -56,6 +77,60 @@ func main() {
 	}
 
 	adm := admin.New(cfg)
+
+	// Wire dashboard activity hooks to admin activity system
+	// This creates a bidirectional bridge:
+	// 1. Admin activity events flow to dashboard hooks
+	// 2. Command activity events (from pkg/activity) flow to dashboard hooks
+	dashboardHook := activity.NewDashboardActivityHook(
+		dashboardactivity.Hooks{
+			// Log activity events to console for demonstration
+			dashboardactivity.HookFunc(func(ctx context.Context, event dashboardactivity.Event) error {
+				log.Printf("[Dashboard Activity] %s %s %s:%s (channel: %s)",
+					event.ActorID, event.Verb, event.ObjectType, event.ObjectID, event.Channel)
+				return nil
+			}),
+		},
+		dashboardactivity.Config{
+			Enabled: true,
+			Channel: "admin",
+		},
+	)
+
+	// Create activity adapter that wraps admin's activity feed and also emits to dashboard hooks
+	originalActivityFeed := adm.ActivityFeed()
+	compositeActivitySink := &compositeActivitySink{
+		primary:  originalActivityFeed,
+		hookSink: dashboardHook,
+	}
+	adm.WithActivitySink(compositeActivitySink)
+	dataStores.Users.WithActivitySink(adm.ActivityFeed())
+
+	// Seed demo tenants/orgs for navigation/search coverage
+	if svc := adm.TenantService(); svc != nil && cfg.Features.Tenants {
+		tenant, err := svc.SaveTenant(context.Background(), admin.TenantRecord{
+			Name:   "Acme Corp",
+			Slug:   "acme",
+			Status: "active",
+			Domain: "acme.local",
+			Members: []admin.TenantMember{
+				{UserID: "admin", Roles: []string{"owner"}},
+			},
+		})
+		if err == nil {
+			if orgSvc := adm.OrganizationService(); orgSvc != nil && cfg.Features.Organizations {
+				_, _ = orgSvc.SaveOrganization(context.Background(), admin.OrganizationRecord{
+					Name:     "Acme Engineering",
+					Slug:     "acme-eng",
+					Status:   "active",
+					TenantID: tenant.ID,
+					Members: []admin.OrganizationMember{
+						{UserID: "admin", Roles: []string{"manager"}},
+					},
+				})
+			}
+		}
+	}
 
 	// Seed export/media adapters with store data
 	if svc := adm.ExportService(); svc != nil {
@@ -84,7 +159,7 @@ func main() {
 	adm.WithTranslator(translator)
 
 	// Setup authentication and authorization
-	setup.SetupAuth(adm, dataStores)
+	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores)
 
 	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme
 	themeRegistry := theme.NewRegistry()
@@ -148,6 +223,26 @@ func main() {
 			StrictRouting:     false,
 			PassLocalsToViews: true,
 			Views:             viewEngine,
+			ErrorHandler: func(c *fiber.Ctx, err error) error {
+				// Return JSON errors for API routes
+				apiPrefix := path.Join(cfg.BasePath, "api")
+				if len(c.Path()) >= len(apiPrefix) && c.Path()[:len(apiPrefix)] == apiPrefix {
+					code := fiber.StatusInternalServerError
+					if e, ok := err.(*fiber.Error); ok {
+						code = e.Code
+					}
+					return c.Status(code).JSON(fiber.Map{
+						"error":  err.Error(),
+						"status": code,
+					})
+				}
+				// Default HTML error handling for non-API routes
+				code := fiber.StatusInternalServerError
+				if e, ok := err.(*fiber.Error); ok {
+					code = e.Code
+				}
+				return c.Status(code).SendString(err.Error())
+			},
 		})
 		app.Use(fiberlogger.New())
 		return app
@@ -162,6 +257,12 @@ func main() {
 			Root: ".",
 		})
 	}
+	// Serve embedded go-dashboard ECharts assets at the default path used by chart widgets.
+	echartsPrefix := strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/")
+	r.Static(echartsPrefix, ".", router.Static{
+		FS:   httpFSAdapter{fs: dashboardcmp.EChartsAssetsFS()},
+		Root: ".",
+	})
 
 	// Register modules
 	modules := []admin.Module{
@@ -171,6 +272,21 @@ func main() {
 		&postsModule{store: dataStores.Posts, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
 		&notificationsModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
 		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
+		admin.NewProfileModule(),
+		admin.NewPreferencesModule(),
+	}
+	if profiles := adm.ProfileService(); profiles != nil {
+		if users, _, err := dataStores.Users.List(context.Background(), admin.ListOptions{PerPage: 1}); err == nil && len(users) > 0 {
+			user := users[0]
+			userID := fmt.Sprint(user["id"])
+			if userID != "" {
+				_, _ = profiles.Save(context.Background(), userID, admin.UserProfile{
+					DisplayName: fmt.Sprint(user["username"]),
+					Email:       fmt.Sprint(user["email"]),
+					Locale:      cfg.DefaultLocale,
+				})
+			}
+		}
 	}
 	for _, mod := range modules {
 		if err := adm.RegisterModule(mod); err != nil {
@@ -201,7 +317,8 @@ func main() {
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
 
-	r.Get(cfg.BasePath, func(c router.Context) error {
+	// Protected dashboard page: wrap with go-auth middleware
+	r.Get(cfg.BasePath, authn.WrapHandler(func(c router.Context) error {
 		viewCtx := router.ViewContext{
 			"title":     cfg.Title,
 			"base_path": cfg.BasePath,
@@ -209,6 +326,36 @@ func main() {
 		viewCtx = helpers.WithNav(viewCtx, adm, cfg, "dashboard")
 		viewCtx = helpers.WithTheme(viewCtx, adm, c)
 		return c.Render("admin", viewCtx)
+	}))
+
+	// Login routes (render and submit).
+	r.Get(path.Join(cfg.BasePath, "login"), func(c router.Context) error {
+		viewCtx := router.ViewContext{
+			"title":     "Login",
+			"base_path": cfg.BasePath,
+		}
+		return c.Render("login", viewCtx)
+	})
+	r.Post(path.Join(cfg.BasePath, "login"), func(c router.Context) error {
+		payload := loginPayload{}
+		_ = c.Bind(&payload)
+
+		// Generate token manually so we can set an HTTP (non-secure) cookie for local dev.
+		token, err := auther.Login(c.Context(), payload.Identifier, payload.Password)
+		if err != nil {
+			return err
+		}
+
+		c.Cookie(&router.Cookie{
+			Name:     authCookieName,
+			Value:    token,
+			Path:     "/",
+			HTTPOnly: true,
+			SameSite: "Lax",
+			Secure:   false, // allow http://localhost
+		})
+
+		return c.Redirect(cfg.BasePath, fiber.StatusFound)
 	})
 
 	r.Get(path.Join(cfg.BasePath, "notifications"), func(c router.Context) error {
@@ -242,6 +389,13 @@ func main() {
 	if err := server.Serve(":8080"); err != nil {
 		log.Fatalf("server stopped: %v", err)
 	}
+}
+
+// httpFSAdapter wraps an http.FileSystem to satisfy fs.FS for go-router static handlers.
+type httpFSAdapter struct{ fs http.FileSystem }
+
+func (h httpFSAdapter) Open(name string) (fs.File, error) {
+	return h.fs.Open(name)
 }
 
 // setupSearch registers search adapters
@@ -311,4 +465,50 @@ func seedNotificationsAndActivity(adm *admin.Admin) {
 	feed.Record(ctx, admin.ActivityEntry{Actor: "system", Action: "completed", Object: "job: database backup"})
 	feed.Record(ctx, admin.ActivityEntry{Actor: "jane.smith", Action: "uploaded", Object: "media: logo.png"})
 	feed.Record(ctx, admin.ActivityEntry{Actor: "system", Action: "cleaned", Object: "cache entries"})
+}
+
+// compositeActivitySink forwards activity records to both the primary sink and dashboard hooks
+type compositeActivitySink struct {
+	primary  admin.ActivitySink
+	hookSink *activity.DashboardActivityHook
+}
+
+func (c *compositeActivitySink) Record(ctx context.Context, entry admin.ActivityEntry) error {
+	// Record to primary sink (in-memory feed for UI)
+	if err := c.primary.Record(ctx, entry); err != nil {
+		return err
+	}
+
+	// Also emit to dashboard hooks (convert admin.ActivityEntry to activity.Event)
+	if c.hookSink != nil {
+		// Parse object to extract type and ID
+		objectType := entry.Object
+		objectID := ""
+		if idx := len(entry.Object); idx > 0 {
+			for i := 0; i < idx; i++ {
+				if entry.Object[i] == ':' {
+					objectType = entry.Object[:i]
+					if i+1 < idx {
+						objectID = entry.Object[i+2:] // Skip ": "
+					}
+					break
+				}
+			}
+		}
+
+		c.hookSink.Notify(ctx, activity.Event{
+			Channel:    "admin",
+			Verb:       entry.Action,
+			ObjectType: objectType,
+			ObjectID:   objectID,
+			Data:       entry.Metadata,
+		})
+	}
+
+	return nil
+}
+
+func (c *compositeActivitySink) List(ctx context.Context, limit int, filters ...admin.ActivityFilter) ([]admin.ActivityEntry, error) {
+	// Listing only supported by primary sink
+	return c.primary.List(ctx, limit, filters...)
 }

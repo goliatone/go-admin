@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"log"
 	"time"
 
 	"github.com/goliatone/go-admin/admin"
@@ -11,6 +12,18 @@ import (
 // SetupDashboard configures dashboard widgets for the admin panel
 func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores) {
 	dash := adm.Dashboard()
+
+	// Override the default chart_sample widget to prevent old chart from showing
+	dash.RegisterProvider(admin.DashboardProviderSpec{
+		Code: "admin.widget.chart_sample",
+		Name: "Disabled Legacy Chart",
+		// NO DefaultArea - prevents creating default instance
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+			log.Printf("WARNING: Legacy chart_sample handler was called! This widget instance should have been removed. Config: %+v", cfg)
+			// Return empty data - this provider should never be used
+			return map[string]any{"disabled": true}, nil
+		},
+	})
 
 	// User stats widget (override default, no DefaultArea to avoid duplicates)
 	dash.RegisterProvider(admin.DashboardProviderSpec{
@@ -101,8 +114,8 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores) {
 // registerChartWidgets sets up ECharts-based chart widgets
 func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) {
 	// Configure ECharts providers with caching and CDN
-	// Using go-echarts.github.io to avoid CORS/ORB issues with dynamic script injection
-	cdnHost := "https://go-echarts.github.io/go-echarts-assets/assets/"
+	// Using dashboard.DefaultEChartsAssetsHost() to respect go-dashboard CDN configuration
+	cdnHost := dashboard.DefaultEChartsAssetsHost()
 	chartCache := dashboard.NewChartCache(10 * time.Minute)
 
 	// Bar chart widget - Monthly content creation
@@ -111,6 +124,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Name:        "Monthly Content",
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+			log.Printf("DEBUG: Bar chart handler called with config: %+v", cfg)
 			provider := dashboard.NewEChartsProvider(
 				"bar",
 				dashboard.WithChartCache(chartCache),
@@ -140,6 +154,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 
 			data, err := provider.Fetch(ctx.Context, widgetCtx)
 			if err != nil {
+				log.Printf("ERROR: Bar chart provider failed: %v", err)
 				return nil, err
 			}
 
@@ -194,6 +209,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 
 			data, err := provider.Fetch(ctx.Context, widgetCtx)
 			if err != nil {
+				log.Printf("ERROR: Line chart provider failed: %v", err)
 				return nil, err
 			}
 
@@ -241,6 +257,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 
 			data, err := provider.Fetch(ctx.Context, widgetCtx)
 			if err != nil {
+				log.Printf("ERROR: Pie chart provider failed: %v", err)
 				return nil, err
 			}
 
@@ -293,6 +310,73 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 
 			data, err := provider.Fetch(ctx.Context, widgetCtx)
 			if err != nil {
+				log.Printf("ERROR: Gauge chart provider failed: %v", err)
+				return nil, err
+			}
+
+			return map[string]any(data), nil
+		},
+	})
+
+	// Scatter chart widget - Correlation analysis
+	dash.RegisterProvider(admin.DashboardProviderSpec{
+		Code:        "admin.widget.scatter_chart",
+		Name:        "Engagement vs Retention",
+		DefaultArea: "admin.dashboard.main",
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+			provider := dashboard.NewEChartsProvider(
+				"scatter",
+				dashboard.WithChartCache(chartCache),
+				dashboard.WithChartAssetsHost(cdnHost),
+			)
+
+			// Generate correlation data between user engagement and retention
+			// Simulating weekly cohort analysis
+			widgetCtx := dashboard.WidgetContext{
+				Viewer: dashboard.ViewerContext{
+					UserID: ctx.UserID,
+					Locale: ctx.Locale,
+				},
+				Instance: dashboard.WidgetInstance{
+					ID:           "engagement-retention-scatter",
+					DefinitionID: "admin.widget.scatter_chart",
+					Configuration: map[string]any{
+						"title":    "User Engagement vs Retention",
+						"subtitle": "Weekly cohort analysis",
+						"series": []map[string]any{
+							{
+								"name": "Week 1",
+								"data": []map[string]any{
+									{"name": "High Engagement", "x": 92, "y": 88},
+									{"name": "Medium Engagement", "x": 75, "y": 72},
+									{"name": "Low Engagement", "x": 45, "y": 38},
+								},
+							},
+							{
+								"name": "Week 2",
+								"data": []map[string]any{
+									{"name": "High Engagement", "x": 89, "y": 85},
+									{"name": "Medium Engagement", "x": 72, "y": 68},
+									{"name": "Low Engagement", "x": 42, "y": 35},
+								},
+							},
+							{
+								"name": "Week 3",
+								"data": []map[string]any{
+									{"name": "High Engagement", "x": 94, "y": 90},
+									{"name": "Medium Engagement", "x": 78, "y": 74},
+									{"name": "Low Engagement", "x": 48, "y": 40},
+								},
+							},
+						},
+						"footer_note": "Correlation coefficient: 0.94",
+					},
+				},
+			}
+
+			data, err := provider.Fetch(ctx.Context, widgetCtx)
+			if err != nil {
+				log.Printf("ERROR: Scatter chart provider failed: %v", err)
 				return nil, err
 			}
 

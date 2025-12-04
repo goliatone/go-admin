@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/goliatone/go-admin/admin"
 )
@@ -34,6 +35,22 @@ func SetupSettings(adm *admin.Admin) {
 		Default:     "https://example.com",
 		Type:        "string",
 		Group:       "general",
+	})
+	settings.RegisterDefinition(admin.SettingDefinition{
+		Key:           "site.locale",
+		Title:         "Default Locale",
+		Description:   "Default language for the site",
+		Default:       "en",
+		Type:          "string",
+		Group:         "general",
+		AllowedScopes: []admin.SettingsScope{admin.SettingsScopeSystem, admin.SettingsScopeSite},
+		OptionsProvider: func(ctx context.Context) ([]admin.SettingOption, error) {
+			return []admin.SettingOption{
+				{Label: "English", Value: "en"},
+				{Label: "Spanish", Value: "es"},
+				{Label: "Greek", Value: "el"},
+			}, nil
+		},
 	})
 
 	// Email settings
@@ -87,6 +104,27 @@ func SetupSettings(adm *admin.Admin) {
 		Type:        "boolean",
 		Group:       "features",
 	})
+	settings.RegisterDefinition(admin.SettingDefinition{
+		Key:            "features.maintenance_message",
+		Title:          "Maintenance Message",
+		Description:    "Message displayed while maintenance mode is on",
+		Default:        "We will be back shortly",
+		Type:           "textarea",
+		Group:          "features",
+		VisibilityRule: "features.maintenance_mode == true",
+	})
+	settings.RegisterDefinition(admin.SettingDefinition{
+		Key:         "features.release_channel",
+		Title:       "Release Channel",
+		Description: "Pick the rollout channel",
+		Default:     "stable",
+		Type:        "string",
+		Group:       "features",
+		Options: []admin.SettingOption{
+			{Label: "Stable", Value: "stable"},
+			{Label: "Beta", Value: "beta"},
+		},
+	})
 
 	// Performance settings
 	settings.RegisterDefinition(admin.SettingDefinition{
@@ -104,6 +142,23 @@ func SetupSettings(adm *admin.Admin) {
 		Default:     3600,
 		Type:        "number",
 		Group:       "performance",
+		Validator: func(ctx context.Context, value any) error {
+			switch v := value.(type) {
+			case int:
+				if v <= 0 {
+					return fmt.Errorf("must be positive")
+				}
+			case int64:
+				if v <= 0 {
+					return fmt.Errorf("must be positive")
+				}
+			case float64:
+				if v <= 0 {
+					return fmt.Errorf("must be positive")
+				}
+			}
+			return nil
+		},
 	})
 
 	// Apply default system values
@@ -112,8 +167,10 @@ func SetupSettings(adm *admin.Admin) {
 		Values: map[string]any{
 			"site.name":                     "Enterprise Admin",
 			"site.url":                      "https://admin.example.com",
+			"site.locale":                   "en",
 			"features.comments_enabled":     true,
 			"features.registration_enabled": true,
+			"features.release_channel":      "stable",
 		},
 	})
 }

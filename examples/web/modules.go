@@ -6,6 +6,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/commands"
+	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 )
@@ -37,9 +38,21 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
+
+	// Create activity adapter to bridge command events to admin activity sink
+	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
+
+	// Register commands with activity hooks for event emission
+	activateCmd := commands.NewUserActivateCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(activateCmd)
+
+	deactivateCmd := commands.NewUserDeactivateCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(deactivateCmd)
+
+	// Register panel
 	builder := setup.NewUserPanelBuilder(m.store)
-	ctx.Admin.Commands().Register(commands.NewUserActivateCommand(m.store))
-	ctx.Admin.Commands().Register(commands.NewUserDeactivateCommand(m.store))
 	_, err := ctx.Admin.RegisterPanel("users", builder)
 	return err
 }
@@ -102,9 +115,23 @@ func (m *pagesModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
-	ctx.Admin.Commands().Register(commands.NewPagePublishCommand(m.store))
-	ctx.Admin.Commands().Register(commands.NewPageBulkPublishCommand(m.store))
-	ctx.Admin.Commands().Register(commands.NewPageBulkUnpublishCommand(m.store))
+
+	// Create activity adapter
+	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
+
+	// Register commands with activity hooks
+	publishCmd := commands.NewPagePublishCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(publishCmd)
+
+	bulkPublishCmd := commands.NewPageBulkPublishCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(bulkPublishCmd)
+
+	bulkUnpublishCmd := commands.NewPageBulkUnpublishCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(bulkUnpublishCmd)
+
 	_, err := ctx.Admin.RegisterPanel("pages", setup.NewPagesPanelBuilder(m.store))
 	return err
 }
@@ -167,8 +194,19 @@ func (m *postsModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
-	ctx.Admin.Commands().Register(commands.NewPostBulkPublishCommand(m.store))
-	ctx.Admin.Commands().Register(commands.NewPostBulkArchiveCommand(m.store))
+
+	// Create activity adapter
+	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
+
+	// Register commands with activity hooks
+	bulkPublishCmd := commands.NewPostBulkPublishCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(bulkPublishCmd)
+
+	bulkArchiveCmd := commands.NewPostBulkArchiveCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(bulkArchiveCmd)
+
 	_, err := ctx.Admin.RegisterPanel("posts", setup.NewPostsPanelBuilder(m.store))
 	return err
 }
@@ -236,7 +274,15 @@ func (m *mediaModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
-	ctx.Admin.Commands().Register(commands.NewMediaBulkDeleteCommand(m.store))
+
+	// Create activity adapter
+	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
+
+	// Register commands with activity hooks
+	bulkDeleteCmd := commands.NewMediaBulkDeleteCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(bulkDeleteCmd)
+
 	_, err := ctx.Admin.RegisterPanel("media", setup.NewMediaPanelBuilder(m.store))
 	return err
 }
