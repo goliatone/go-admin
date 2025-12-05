@@ -5,7 +5,8 @@
   "scripts": {
     "build:css": "tailwindcss -i ./assets/input.css -o ./assets/output.css --minify",
     "watch:css": "tailwindcss -i ./assets/input.css -o ./assets/output.css --watch",
-    "dev": "npm run watch:css"
+    "dev": "npm run watch:css",
+    "srv": "npm run build:css && go run *.go"
   },
   "keywords": ["admin", "tailwind"],
   "author": "",
