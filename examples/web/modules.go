@@ -18,6 +18,7 @@ type usersModule struct {
 	defaultLoc string
 	basePath   string
 	translator admin.Translator
+	parentID   string
 }
 
 func (m *usersModule) Manifest() admin.ModuleManifest {
@@ -69,13 +70,15 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 	label := "Users"
 	return []admin.MenuItem{
 		{
-			Label: label,
-			Icon:  "group",
+			Label:    label,
+			LabelKey: "menu.users",
+			Icon:     "group",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "users"),
 				"key":  "users",
 			},
+			ParentID:    m.parentID,
 			Permissions: []string{"admin.users.view"},
 			Locale:      locale,
 			Menu:        code,
@@ -95,6 +98,7 @@ type pagesModule struct {
 	defaultLoc string
 	basePath   string
 	translator admin.Translator
+	parentID   string
 }
 
 func (m *pagesModule) Manifest() admin.ModuleManifest {
@@ -148,13 +152,15 @@ func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
 	label := "Pages"
 	return []admin.MenuItem{
 		{
-			Label: label,
-			Icon:  "page",
+			Label:    label,
+			LabelKey: "menu.pages",
+			Icon:     "page",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "pages"),
 				"key":  "pages",
 			},
+			ParentID:    m.parentID,
 			Permissions: []string{"admin.pages.view"},
 			Locale:      locale,
 			Menu:        code,
@@ -174,6 +180,7 @@ type postsModule struct {
 	defaultLoc string
 	basePath   string
 	translator admin.Translator
+	parentID   string
 }
 
 func (m *postsModule) Manifest() admin.ModuleManifest {
@@ -223,13 +230,15 @@ func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
 	label := "Posts"
 	return []admin.MenuItem{
 		{
-			Label: label,
-			Icon:  "post",
+			Label:    label,
+			LabelKey: "menu.posts",
+			Icon:     "post",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "posts"),
 				"key":  "posts",
 			},
+			ParentID:    m.parentID,
 			Permissions: []string{"admin.posts.view"},
 			Locale:      locale,
 			Menu:        code,
@@ -253,6 +262,7 @@ type mediaModule struct {
 	defaultLoc string
 	basePath   string
 	translator admin.Translator
+	parentID   string
 }
 
 func (m *mediaModule) Manifest() admin.ModuleManifest {
@@ -299,13 +309,15 @@ func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 	label := "Media"
 	return []admin.MenuItem{
 		{
-			Label: label,
-			Icon:  "media-image",
+			Label:    label,
+			LabelKey: "menu.media",
+			Icon:     "media-image",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "media"),
 				"key":  "media",
 			},
+			ParentID:    m.parentID,
 			Permissions: []string{"admin.media.view"},
 			Locale:      locale,
 			Menu:        code,
@@ -323,6 +335,7 @@ type notificationsModule struct {
 	menuCode   string
 	defaultLoc string
 	basePath   string
+	parentID   string
 }
 
 func (m *notificationsModule) Manifest() admin.ModuleManifest {
@@ -346,13 +359,15 @@ func (m *notificationsModule) MenuItems(locale string) []admin.MenuItem {
 	}
 	return []admin.MenuItem{
 		{
-			Label: "Notifications",
-			Icon:  "bell",
+			Label:    "Notifications",
+			LabelKey: "menu.notifications",
+			Icon:     "bell",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(m.basePath, "notifications"),
 				"key":  "notifications",
 			},
+			ParentID: m.parentID,
 			Locale:   locale,
 			Menu:     code,
 			Position: 50,
@@ -366,6 +381,7 @@ type dashboardModule struct {
 	defaultLoc string
 	basePath   string
 	translator admin.Translator
+	parentID   string
 }
 
 func (m *dashboardModule) Manifest() admin.ModuleManifest {
@@ -396,16 +412,18 @@ func (m *dashboardModule) MenuItems(locale string) []admin.MenuItem {
 	label := "Dashboard"
 	return []admin.MenuItem{
 		{
-			Label: label,
-			Icon:  "home",
+			Label:    label,
+			LabelKey: "menu.dashboard",
+			Icon:     "home",
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join("/", m.basePath),
 				"key":  "dashboard",
 			},
+			ParentID: m.parentID,
 			Locale:   locale,
 			Menu:     code,
-			Position: 0,
+			Position: 1,
 		},
 	}
 }
