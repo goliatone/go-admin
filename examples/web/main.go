@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 
@@ -20,9 +21,11 @@ import (
 	"github.com/goliatone/go-admin/examples/web/search"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-crud"
 	dashboardcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-router"
 	theme "github.com/goliatone/go-theme"
 )
@@ -42,12 +45,28 @@ func (l loginPayload) GetPassword() string      { return l.Password }
 func (l loginPayload) GetExtendedSession() bool { return l.Remember }
 
 func main() {
+	defaultLocale := "en"
+
+	usePersistentCMS := strings.EqualFold(os.Getenv("USE_PERSISTENT_CMS"), "true")
+	cmsBackend := "in-memory CMS"
+	cmsOptions := admin.CMSOptions{}
+	if usePersistentCMS {
+		if persistent, err := setup.SetupPersistentCMS(context.Background(), defaultLocale, ""); err != nil {
+			log.Printf("warning: USE_PERSISTENT_CMS enabled but persistent CMS unavailable: %v", err)
+			cmsBackend = "in-memory CMS (fallback)"
+		} else {
+			cmsOptions = persistent
+			cmsBackend = "go-cms (sqlite)"
+		}
+	}
+
 	cfg := admin.Config{
 		Title:         "Enterprise Admin",
 		BasePath:      "/admin",
-		DefaultLocale: "en",
+		DefaultLocale: defaultLocale,
 		Theme:         "admin",
 		ThemeVariant:  "light",
+		NavMenuCode:   setup.NavigationMenuCode,
 		ThemeTokens: map[string]string{
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
@@ -68,7 +87,16 @@ func main() {
 			Tenants:       true,
 			Organizations: true,
 		},
+		CMS: cmsOptions,
 	}
+
+	useGoOptions := strings.EqualFold(os.Getenv("USE_GO_OPTIONS"), "true")
+	settingsBackend := "in-memory settings"
+	if useGoOptions {
+		settingsBackend = "go-options settings"
+	}
+	useGoUsersActivity := strings.EqualFold(os.Getenv("USE_GO_USERS_ACTIVITY"), "true")
+	activityBackend := "in-memory activity feed"
 
 	// Initialize data stores with seed data
 	dataStores, err := stores.Initialize()
@@ -97,14 +125,28 @@ func main() {
 		},
 	)
 
-	// Create activity adapter that wraps admin's activity feed and also emits to dashboard hooks
-	originalActivityFeed := adm.ActivityFeed()
+	// Choose activity backend (go-users sink when flag is enabled)
+	primaryActivitySink := adm.ActivityFeed()
+	if useGoUsersActivity {
+		if sink := setup.SetupActivityWithGoUsers(); sink != nil {
+			primaryActivitySink = sink
+			activityBackend = "go-users activity sink"
+		} else {
+			log.Printf("warning: USE_GO_USERS_ACTIVITY enabled but go-users sink unavailable; using in-memory feed")
+		}
+	}
+
+	// Create activity adapter that wraps the primary sink and also emits to dashboard hooks
 	compositeActivitySink := &compositeActivitySink{
-		primary:  originalActivityFeed,
+		primary:  primaryActivitySink,
 		hookSink: dashboardHook,
 	}
 	adm.WithActivitySink(compositeActivitySink)
-	dataStores.Users.WithActivitySink(adm.ActivityFeed())
+	activitySink := adm.ActivityFeed()
+	dataStores.Users.WithActivitySink(activitySink)
+	dataStores.Pages.WithActivitySink(activitySink)
+	dataStores.Posts.WithActivitySink(activitySink)
+	dataStores.Media.WithActivitySink(activitySink)
 
 	// Seed demo tenants/orgs for navigation/search coverage
 	if svc := adm.TenantService(); svc != nil && cfg.Features.Tenants {
@@ -158,6 +200,10 @@ func main() {
 	translator := helpers.NewSimpleTranslator()
 	adm.WithTranslator(translator)
 
+	if err := setup.SetupNavigation(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode); err != nil {
+		log.Printf("warning: failed to seed navigation: %v", err)
+	}
+
 	// Setup authentication and authorization
 	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores)
 
@@ -170,7 +216,16 @@ func main() {
 		Tokens: map[string]string{
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
-			"surface": "#0f172a",
+			"surface": "#1C1C1E",
+			// Sidebar dimensions
+			"sidebar-width":         "260px",
+			"sidebar-padding-x":     "12px",
+			"sidebar-padding-y":     "12px",
+			"sidebar-item-height":   "36px",
+			"sidebar-title-height":  "28px",
+			"sidebar-gap-sections":  "24px",
+			"sidebar-icon-size":     "20px",
+			"sidebar-footer-height": "64px",
 		},
 		Assets: theme.Assets{
 			Prefix: path.Join(cfg.BasePath, "assets"),
@@ -266,14 +321,14 @@ func main() {
 
 	// Register modules
 	modules := []admin.Module{
-		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
-		&usersModule{store: dataStores.Users, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
-		&pagesModule{store: dataStores.Pages, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
-		&postsModule{store: dataStores.Posts, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
-		&notificationsModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
-		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath},
-		admin.NewProfileModule(),
-		admin.NewPreferencesModule(),
+		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
+		&usersModule{store: dataStores.Users, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
+		&pagesModule{store: dataStores.Pages, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
+		&postsModule{store: dataStores.Posts, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
+		&notificationsModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupOthers},
+		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
+		admin.NewProfileModule().WithMenuParent(setup.NavigationGroupOthers),
+		admin.NewPreferencesModule().WithMenuParent(setup.NavigationGroupOthers),
 	}
 	if profiles := adm.ProfileService(); profiles != nil {
 		if users, _, err := dataStores.Users.List(context.Background(), admin.ListOptions{PerPage: 1}); err == nil && len(users) > 0 {
@@ -301,7 +356,11 @@ func main() {
 
 	// Setup admin features AFTER initialization to override default widgets
 	setup.SetupDashboard(adm, dataStores)
-	setup.SetupSettings(adm)
+	if useGoOptions {
+		setup.SetupSettingsWithOptions(adm)
+	} else {
+		setup.SetupSettings(adm)
+	}
 	setupSearch(adm, dataStores)
 	setupJobs(adm, dataStores)
 
@@ -309,13 +368,32 @@ func main() {
 	seedNotificationsAndActivity(adm)
 
 	// go-crud controller for users (JSON API)
-	userController := crud.NewController(dataStores.Users.Repository())
-	crudAPI := r.Group(path.Join(cfg.BasePath, "crud/users"))
+	crudErrorEncoder := crud.ProblemJSONErrorEncoder(
+		crud.WithProblemJSONStatusResolver(userCRUDStatusResolver),
+	)
+	userController := crud.NewController(
+		dataStores.Users.Repository(),
+		crud.WithErrorEncoder[*stores.User](crudErrorEncoder),
+		crud.WithScopeGuard[*stores.User](userCRUDScopeGuard()),
+	)
+	crudAPI := r.Group(path.Join(cfg.BasePath, "crud"))
+	crudAPI.Use(func(next router.HandlerFunc) router.HandlerFunc {
+		return authn.WrapHandler(next)
+	})
 	crudAdapter := crud.NewGoRouterAdapter(crudAPI)
 	userController.RegisterRoutes(crudAdapter)
 
+	r.Get(path.Join(cfg.BasePath, "api/session"), authn.WrapHandler(func(c router.Context) error {
+		session := helpers.BuildSessionUser(c.Context())
+		return c.JSON(fiber.StatusOK, session)
+	}))
+
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
+	var tenantHandlers *handlers.TenantHandlers
+	if svc := adm.TenantService(); svc != nil {
+		tenantHandlers = handlers.NewTenantHandlers(svc, formGenerator, adm, cfg, helpers.WithNav)
+	}
 
 	// Protected dashboard page: wrap with go-auth middleware
 	r.Get(cfg.BasePath, authn.WrapHandler(func(c router.Context) error {
@@ -323,7 +401,7 @@ func main() {
 			"title":     cfg.Title,
 			"base_path": cfg.BasePath,
 		}
-		viewCtx = helpers.WithNav(viewCtx, adm, cfg, "dashboard")
+		viewCtx = helpers.WithNav(viewCtx, adm, cfg, "dashboard", c.Context())
 		viewCtx = helpers.WithTheme(viewCtx, adm, c)
 		return c.Render("admin", viewCtx)
 	}))
@@ -358,23 +436,33 @@ func main() {
 		return c.Redirect(cfg.BasePath, fiber.StatusFound)
 	})
 
-	r.Get(path.Join(cfg.BasePath, "notifications"), func(c router.Context) error {
+	r.Get(path.Join(cfg.BasePath, "notifications"), authn.WrapHandler(func(c router.Context) error {
 		viewCtx := helpers.WithNav(router.ViewContext{
 			"title":     cfg.Title,
 			"base_path": cfg.BasePath,
-		}, adm, cfg, "notifications")
+		}, adm, cfg, "notifications", c.Context())
 		viewCtx = helpers.WithTheme(viewCtx, adm, c)
 		return c.Render("notifications", viewCtx)
-	})
+	}))
 
 	// User routes
-	r.Get(path.Join(cfg.BasePath, "users"), userHandlers.List)
-	r.Get(path.Join(cfg.BasePath, "users/new"), userHandlers.New)
-	r.Post(path.Join(cfg.BasePath, "users"), userHandlers.Create)
-	r.Get(path.Join(cfg.BasePath, "users/:id/edit"), userHandlers.Edit)
-	r.Post(path.Join(cfg.BasePath, "users/:id"), userHandlers.Update)
-	r.Get(path.Join(cfg.BasePath, "users/:id"), userHandlers.Detail)
-	r.Post(path.Join(cfg.BasePath, "users/:id/delete"), userHandlers.Delete)
+	r.Get(path.Join(cfg.BasePath, "users"), authn.WrapHandler(userHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "users/new"), authn.WrapHandler(userHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "users"), authn.WrapHandler(userHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "users/:id/edit"), authn.WrapHandler(userHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Update))
+	r.Get(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Detail))
+	r.Post(path.Join(cfg.BasePath, "users/:id/delete"), authn.WrapHandler(userHandlers.Delete))
+
+	if tenantHandlers != nil {
+		r.Get(path.Join(cfg.BasePath, "tenants"), authn.WrapHandler(tenantHandlers.List))
+		r.Get(path.Join(cfg.BasePath, "tenants/new"), authn.WrapHandler(tenantHandlers.New))
+		r.Post(path.Join(cfg.BasePath, "tenants"), authn.WrapHandler(tenantHandlers.Create))
+		r.Get(path.Join(cfg.BasePath, "tenants/:id"), authn.WrapHandler(tenantHandlers.Detail))
+		r.Get(path.Join(cfg.BasePath, "tenants/:id/edit"), authn.WrapHandler(tenantHandlers.Edit))
+		r.Post(path.Join(cfg.BasePath, "tenants/:id"), authn.WrapHandler(tenantHandlers.Update))
+		r.Post(path.Join(cfg.BasePath, "tenants/:id/delete"), authn.WrapHandler(tenantHandlers.Delete))
+	}
 
 	log.Println("Enterprise Admin available at http://localhost:8080/admin")
 	log.Println("  Dashboard: /admin/api/dashboard")
@@ -384,6 +472,10 @@ func main() {
 	log.Println("  Posts: /admin/api/posts")
 	log.Println("  Media: /admin/api/media")
 	log.Println("  Settings: /admin/api/settings")
+	log.Println("  Session: /admin/api/session")
+	log.Printf("  Activity backend: %s (USE_GO_USERS_ACTIVITY=%t)", activityBackend, useGoUsersActivity)
+	log.Printf("  CMS backend: %s (USE_PERSISTENT_CMS=%t)", cmsBackend, usePersistentCMS)
+	log.Printf("  Settings backend: %s (USE_GO_OPTIONS=%t)", settingsBackend, useGoOptions)
 	log.Println("  Search: /admin/api/search?query=...")
 
 	if err := server.Serve(":8080"); err != nil {
@@ -396,6 +488,126 @@ type httpFSAdapter struct{ fs http.FileSystem }
 
 func (h httpFSAdapter) Open(name string) (fs.File, error) {
 	return h.fs.Open(name)
+}
+
+func userCRUDScopeGuard() crud.ScopeGuardFunc[*stores.User] {
+	return func(ctx crud.Context, op crud.CrudOperation) (crud.ActorContext, crud.ScopeFilter, error) {
+		actor := crud.ActorContext{}
+		if authActor, ok := authlib.ActorFromContext(ctx.UserContext()); ok && authActor != nil {
+			actor = adaptAuthActor(authActor)
+		}
+
+		claims, ok := authlib.GetClaims(ctx.UserContext())
+		if !ok || claims == nil {
+			return actor, crud.ScopeFilter{}, goerrors.New("missing or invalid token", goerrors.CategoryAuth).
+				WithCode(goerrors.CodeUnauthorized).
+				WithTextCode("UNAUTHORIZED")
+		}
+
+		action := crudOperationAction(op)
+		if action == "" {
+			return actor, crud.ScopeFilter{}, nil
+		}
+
+		if !authlib.Can(ctx.UserContext(), "admin.users", action) {
+			return actor, crud.ScopeFilter{}, goerrors.New("forbidden", goerrors.CategoryAuthz).
+				WithCode(goerrors.CodeForbidden).
+				WithTextCode("FORBIDDEN")
+		}
+
+		return actor, crud.ScopeFilter{}, nil
+	}
+}
+
+func crudOperationAction(op crud.CrudOperation) string {
+	switch op {
+	case crud.OpList, crud.OpRead:
+		return "read"
+	case crud.OpCreate, crud.OpCreateBatch:
+		return "create"
+	case crud.OpUpdate, crud.OpUpdateBatch:
+		return "edit"
+	case crud.OpDelete, crud.OpDeleteBatch:
+		return "delete"
+	default:
+		return ""
+	}
+}
+
+func adaptAuthActor(actor *authlib.ActorContext) crud.ActorContext {
+	if actor == nil {
+		return crud.ActorContext{}
+	}
+	return crud.ActorContext{
+		ActorID:        actor.ActorID,
+		Subject:        actor.Subject,
+		Role:           actor.Role,
+		ResourceRoles:  cloneStringMap(actor.ResourceRoles),
+		TenantID:       actor.TenantID,
+		OrganizationID: actor.OrganizationID,
+		Metadata:       cloneAnyMap(actor.Metadata),
+		ImpersonatorID: actor.ImpersonatorID,
+		IsImpersonated: actor.IsImpersonated,
+	}
+}
+
+func cloneStringMap(src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]string, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func cloneAnyMap(src map[string]any) map[string]any {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func userCRUDStatusResolver(err *goerrors.Error, _ crud.CrudOperation) int {
+	if err == nil {
+		return http.StatusInternalServerError
+	}
+
+	if err.Category == goerrors.CategoryValidation || err.Category == goerrors.CategoryBadInput {
+		return http.StatusBadRequest
+	}
+
+	if err.Code > 0 {
+		return err.Code
+	}
+
+	switch err.Category {
+	case goerrors.CategoryAuth:
+		return http.StatusUnauthorized
+	case goerrors.CategoryAuthz:
+		return http.StatusForbidden
+	case goerrors.CategoryNotFound:
+		return http.StatusNotFound
+	case goerrors.CategoryConflict:
+		return http.StatusConflict
+	case goerrors.CategoryRateLimit:
+		return http.StatusTooManyRequests
+	case goerrors.CategoryMethodNotAllowed:
+		return http.StatusMethodNotAllowed
+	case goerrors.CategoryCommand:
+		return http.StatusBadRequest
+	case goerrors.CategoryExternal:
+		return http.StatusBadGateway
+	case goerrors.CategoryRouting:
+		return http.StatusNotFound
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 // setupSearch registers search adapters
@@ -484,16 +696,9 @@ func (c *compositeActivitySink) Record(ctx context.Context, entry admin.Activity
 		// Parse object to extract type and ID
 		objectType := entry.Object
 		objectID := ""
-		if idx := len(entry.Object); idx > 0 {
-			for i := 0; i < idx; i++ {
-				if entry.Object[i] == ':' {
-					objectType = entry.Object[:i]
-					if i+1 < idx {
-						objectID = entry.Object[i+2:] // Skip ": "
-					}
-					break
-				}
-			}
+		if typ, id, ok := strings.Cut(entry.Object, ":"); ok {
+			objectType = strings.TrimSpace(typ)
+			objectID = strings.TrimSpace(id)
 		}
 
 		c.hookSink.Notify(ctx, activity.Event{
