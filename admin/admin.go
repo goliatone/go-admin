@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 
 	router "github.com/goliatone/go-router"
 )
@@ -26,7 +27,6 @@ type Admin struct {
 	dashboard       *Dashboard
 	nav             *Navigation
 	search          *SearchEngine
-	panels          map[string]*Panel
 	authorizer      Authorizer
 	notifications   NotificationService
 	activity        ActivitySink
@@ -34,14 +34,24 @@ type Admin struct {
 	settings        *SettingsService
 	settingsForm    *SettingsFormAdapter
 	settingsCommand *SettingsUpdateCommand
+	preferences     *PreferencesService
+	profile         *ProfileService
+	users           *UserManagementService
+	tenants         *TenantService
+	organizations   *OrganizationService
 	panelForm       *PanelFormAdapter
 	themeProvider   ThemeProvider
 	defaultTheme    *ThemeSelection
-	modules         []Module
-	moduleIndex     map[string]Module
+	exportSvc       ExportService
+	bulkSvc         BulkService
+	mediaLibrary    MediaLibrary
 	modulesLoaded   bool
 	navMenuCode     string
 	translator      Translator
+}
+
+type activityAware interface {
+	WithActivitySink(ActivitySink)
 }
 
 // New constructs an Admin orchestrator with default in-memory services.
@@ -55,6 +65,78 @@ func New(cfg Config) *Admin {
 	}
 	if cfg.SettingsUpdatePermission == "" {
 		cfg.SettingsUpdatePermission = "admin.settings.edit"
+	}
+	if cfg.NotificationsPermission == "" {
+		cfg.NotificationsPermission = "admin.notifications.view"
+	}
+	if cfg.NotificationsUpdatePermission == "" {
+		cfg.NotificationsUpdatePermission = "admin.notifications.update"
+	}
+	if cfg.PreferencesPermission == "" {
+		cfg.PreferencesPermission = "admin.preferences.view"
+	}
+	if cfg.PreferencesUpdatePermission == "" {
+		cfg.PreferencesUpdatePermission = "admin.preferences.edit"
+	}
+	if cfg.ProfilePermission == "" {
+		cfg.ProfilePermission = "admin.profile.view"
+	}
+	if cfg.ProfileUpdatePermission == "" {
+		cfg.ProfileUpdatePermission = "admin.profile.edit"
+	}
+	if cfg.UsersPermission == "" {
+		cfg.UsersPermission = "admin.users.view"
+	}
+	if cfg.UsersCreatePermission == "" {
+		cfg.UsersCreatePermission = "admin.users.create"
+	}
+	if cfg.UsersUpdatePermission == "" {
+		cfg.UsersUpdatePermission = "admin.users.edit"
+	}
+	if cfg.UsersDeletePermission == "" {
+		cfg.UsersDeletePermission = "admin.users.delete"
+	}
+	if cfg.RolesPermission == "" {
+		cfg.RolesPermission = "admin.roles.view"
+	}
+	if cfg.RolesCreatePermission == "" {
+		cfg.RolesCreatePermission = "admin.roles.create"
+	}
+	if cfg.RolesUpdatePermission == "" {
+		cfg.RolesUpdatePermission = "admin.roles.edit"
+	}
+	if cfg.RolesDeletePermission == "" {
+		cfg.RolesDeletePermission = "admin.roles.delete"
+	}
+	if cfg.TenantsPermission == "" {
+		cfg.TenantsPermission = "admin.tenants.view"
+	}
+	if cfg.TenantsCreatePermission == "" {
+		cfg.TenantsCreatePermission = "admin.tenants.create"
+	}
+	if cfg.TenantsUpdatePermission == "" {
+		cfg.TenantsUpdatePermission = "admin.tenants.edit"
+	}
+	if cfg.TenantsDeletePermission == "" {
+		cfg.TenantsDeletePermission = "admin.tenants.delete"
+	}
+	if cfg.OrganizationsPermission == "" {
+		cfg.OrganizationsPermission = "admin.organizations.view"
+	}
+	if cfg.OrganizationsCreatePermission == "" {
+		cfg.OrganizationsCreatePermission = "admin.organizations.create"
+	}
+	if cfg.OrganizationsUpdatePermission == "" {
+		cfg.OrganizationsUpdatePermission = "admin.organizations.edit"
+	}
+	if cfg.OrganizationsDeletePermission == "" {
+		cfg.OrganizationsDeletePermission = "admin.organizations.delete"
+	}
+	if cfg.JobsPermission == "" {
+		cfg.JobsPermission = "admin.jobs.view"
+	}
+	if cfg.JobsTriggerPermission == "" {
+		cfg.JobsTriggerPermission = "admin.jobs.trigger"
 	}
 	if cfg.SettingsThemeTokens == nil {
 		cfg.SettingsThemeTokens = map[string]string{}
@@ -78,10 +160,15 @@ func New(cfg Config) *Admin {
 		}
 	}
 
-	container := NewNoopCMSContainer()
-	enableCommands := cfg.Features.Commands || cfg.Features.Settings || cfg.Features.Jobs || cfg.Features.Export || cfg.Features.Bulk
+	registry := NewRegistry()
+	container := cfg.CMS.Container
+	if container == nil {
+		container = NewNoopCMSContainer()
+	}
+	enableCommands := cfg.Features.Commands || cfg.Features.Settings || cfg.Features.Jobs || cfg.Features.Export || cfg.Features.Bulk || cfg.Features.Dashboard || cfg.Features.Notifications
 	cmdReg := NewCommandRegistry(enableCommands)
 	settingsSvc := NewSettingsService()
+	settingsSvc.WithRegistry(registry)
 	settingsForm := NewSettingsFormAdapter(settingsSvc, cfg.Theme, cfg.ThemeTokens)
 	settingsCmd := &SettingsUpdateCommand{Service: settingsSvc, Permission: cfg.SettingsUpdatePermission}
 	if cfg.Features.Settings {
@@ -91,10 +178,50 @@ func New(cfg Config) *Admin {
 	if cfg.Features.Notifications {
 		notifSvc = NewInMemoryNotificationService()
 	}
+
+	var exportSvc ExportService = DisabledExportService{}
+	if cfg.Features.Export {
+		exportSvc = NewInMemoryExportService()
+	}
+
+	var bulkSvc BulkService = DisabledBulkService{}
+	if cfg.Features.Bulk {
+		bulkSvc = NewInMemoryBulkService()
+	}
+
+	var mediaLib MediaLibrary = DisabledMediaLibrary{}
+	if cfg.Features.Media {
+		mediaBase := cfg.BasePath
+		if mediaBase == "" {
+			mediaBase = "/admin"
+		}
+		mediaLib = NewInMemoryMediaLibrary(mediaBase)
+	}
+
 	activityFeed := NewActivityFeed()
+	preferencesSvc := NewPreferencesService(nil).WithDefaults(cfg.Theme, cfg.ThemeVariant)
+	preferencesSvc.WithActivitySink(activityFeed)
+	profileSvc := NewProfileService(nil)
+	profileSvc.WithActivitySink(activityFeed)
+	userSvc := NewUserManagementService(nil, nil)
+	userSvc.WithActivitySink(activityFeed)
+	tenantSvc := NewTenantService(nil)
+	tenantSvc.WithActivitySink(activityFeed)
+	orgSvc := NewOrganizationService(nil)
+	orgSvc.WithActivitySink(activityFeed)
 	jobReg := NewJobRegistry(cmdReg)
+	jobReg.WithActivitySink(activityFeed)
 	if !cfg.Features.Jobs {
 		jobReg.Enable(false)
+	}
+	if cfg.Features.Notifications {
+		cmdReg.Register(&NotificationMarkCommand{Service: notifSvc})
+	}
+	if cfg.Features.Export {
+		cmdReg.Register(&ExportCommand{Service: exportSvc})
+	}
+	if cfg.Features.Bulk {
+		cmdReg.Register(&BulkCommand{Service: bulkSvc})
 	}
 	defaultTheme := &ThemeSelection{
 		Name:        cfg.Theme,
@@ -116,39 +243,58 @@ func New(cfg Config) *Admin {
 		navMenuCode = "admin.main"
 	}
 
+	dashboard := NewDashboard()
+	dashboard.WithRegistry(registry)
+
 	adm := &Admin{
 		config:          cfg,
 		features:        cfg.Features,
 		featureFlags:    cfg.FeatureFlags,
 		gates:           NewFeatureGates(cfg.FeatureFlags),
-		registry:        NewRegistry(),
+		registry:        registry,
 		cms:             container,
 		widgetSvc:       container.WidgetService(),
 		menuSvc:         container.MenuService(),
 		contentSvc:      container.ContentService(),
 		commandRegistry: cmdReg,
-		dashboard:       NewDashboard(),
+		dashboard:       dashboard,
 		nav:             NewNavigation(container.MenuService(), nil),
 		search:          NewSearchEngine(nil),
-		panels:          make(map[string]*Panel),
 		notifications:   notifSvc,
 		activity:        activityFeed,
 		jobs:            jobReg,
 		settings:        settingsSvc,
 		settingsForm:    settingsForm,
 		settingsCommand: settingsCmd,
+		preferences:     preferencesSvc,
+		profile:         profileSvc,
+		users:           userSvc,
+		tenants:         tenantSvc,
+		organizations:   orgSvc,
 		panelForm:       &PanelFormAdapter{},
 		defaultTheme:    defaultTheme,
-		modules:         []Module{},
-		moduleIndex:     map[string]Module{},
+		exportSvc:       exportSvc,
+		bulkSvc:         bulkSvc,
+		mediaLibrary:    mediaLib,
 		navMenuCode:     navMenuCode,
 		translator:      NoopTranslator{},
 	}
+	adm.dashboard.WithWidgetService(adm.widgetSvc)
+	adm.dashboard.WithPreferences(NewDashboardPreferencesAdapter(preferencesSvc))
+	adm.dashboard.WithCommandBus(cmdReg)
 	settingsForm.WithThemeResolver(adm.resolveTheme)
 	adm.panelForm.ThemeResolver = adm.resolveTheme
 	if adm.nav != nil {
 		adm.nav.defaultMenuCode = navMenuCode
+		adm.nav.UseCMS(adm.gates.Enabled(FeatureCMS))
 	}
+	if adm.search != nil {
+		adm.search.Enable(adm.gates.Enabled(FeatureSearch))
+	}
+	if adm.settings != nil {
+		adm.settings.Enable(adm.gates.Enabled(FeatureSettings))
+	}
+	adm.applyActivitySink(activityFeed)
 	return adm
 }
 
@@ -171,6 +317,9 @@ func (a *Admin) WithThemeProvider(provider ThemeProvider) *Admin {
 func (a *Admin) WithTranslator(t Translator) *Admin {
 	if t != nil {
 		a.translator = t
+		if a.nav != nil {
+			a.nav.translator = t
+		}
 	}
 	return a
 }
@@ -184,7 +333,80 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 	if a.search != nil {
 		a.search.authorizer = authz
 	}
+	if a.dashboard != nil {
+		a.dashboard.WithAuthorizer(authz)
+	}
 	return a
+}
+
+// WithActivitySink injects a shared activity sink (go-users compatible via adapter).
+func (a *Admin) WithActivitySink(sink ActivitySink) *Admin {
+	a.applyActivitySink(sink)
+	return a
+}
+
+// WithUserManagement overrides the user and role repositories (go-users adapters or custom stores).
+func (a *Admin) WithUserManagement(users UserRepository, roles RoleRepository) *Admin {
+	a.users = NewUserManagementService(users, roles)
+	a.applyActivitySink(a.activity)
+	return a
+}
+
+// WithTenantManagement overrides the tenant repository (go-users adapters or custom stores).
+func (a *Admin) WithTenantManagement(repo TenantRepository) *Admin {
+	a.tenants = NewTenantService(repo)
+	a.applyActivitySink(a.activity)
+	return a
+}
+
+// WithOrganizationManagement overrides the organization repository.
+func (a *Admin) WithOrganizationManagement(repo OrganizationRepository) *Admin {
+	a.organizations = NewOrganizationService(repo)
+	a.applyActivitySink(a.activity)
+	return a
+}
+
+func (a *Admin) applyActivitySink(sink ActivitySink) {
+	if a == nil || sink == nil {
+		return
+	}
+	a.activity = sink
+	if a.jobs != nil {
+		a.jobs.WithActivitySink(sink)
+	}
+	if a.dashboard != nil {
+		a.dashboard.WithActivitySink(sink)
+	}
+	if a.settings != nil {
+		a.settings.WithActivitySink(sink)
+	}
+	if aware, ok := a.notifications.(activityAware); ok {
+		aware.WithActivitySink(sink)
+	}
+	if aware, ok := a.widgetSvc.(activityAware); ok {
+		aware.WithActivitySink(sink)
+	}
+	if aware, ok := a.menuSvc.(activityAware); ok {
+		aware.WithActivitySink(sink)
+	}
+	if aware, ok := a.contentSvc.(activityAware); ok {
+		aware.WithActivitySink(sink)
+	}
+	if a.preferences != nil {
+		a.preferences.WithActivitySink(sink)
+	}
+	if a.profile != nil {
+		a.profile.WithActivitySink(sink)
+	}
+	if a.users != nil {
+		a.users.WithActivitySink(sink)
+	}
+	if a.tenants != nil {
+		a.tenants.WithActivitySink(sink)
+	}
+	if a.organizations != nil {
+		a.organizations.WithActivitySink(sink)
+	}
 }
 
 // UseCMS overrides the default CMS container (menu/widget services).
@@ -194,12 +416,35 @@ func (a *Admin) UseCMS(container CMSContainer) *Admin {
 		return a
 	}
 	a.cms = container
+	prevWidget := a.widgetSvc
+	prevMenu := a.menuSvc
+	prevContent := a.contentSvc
 	a.widgetSvc = container.WidgetService()
-	a.menuSvc = container.MenuService()
+	if a.widgetSvc == nil {
+		a.widgetSvc = prevWidget
+	}
+	menuSvc := container.MenuService()
+	if provider, ok := container.(GoCMSMenuProvider); ok {
+		if svc := provider.GoCMSMenuService(); svc != nil {
+			menuSvc = NewGoCMSMenuAdapterFromAny(svc)
+		}
+	}
+	if menuSvc == nil {
+		menuSvc = prevMenu
+	}
+	a.menuSvc = menuSvc
 	a.contentSvc = container.ContentService()
+	if a.contentSvc == nil {
+		a.contentSvc = prevContent
+	}
 	if a.nav != nil {
 		a.nav.menuSvc = a.menuSvc
+		a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
 	}
+	if a.dashboard != nil {
+		a.dashboard.WithWidgetService(a.widgetSvc)
+	}
+	a.applyActivitySink(a.activity)
 	return a
 }
 
@@ -209,21 +454,60 @@ func (a *Admin) MenuService() CMSMenuService {
 }
 
 func (a *Admin) resolveTheme(ctx context.Context) *ThemeSelection {
-	base := cloneThemeSelection(a.defaultTheme)
-	if a.themeProvider != nil {
-		selection, err := a.themeProvider(ctx, ThemeSelector{Name: a.config.Theme, Variant: a.config.ThemeVariant})
-		if err == nil && selection != nil {
-			base = mergeThemeSelections(base, selection)
+	selector := ThemeSelector{Name: a.config.Theme, Variant: a.config.ThemeVariant}
+	if a.gates.Enabled(FeaturePreferences) && a.preferences != nil {
+		if userID := userIDFromContext(ctx); userID != "" {
+			selector = mergeSelector(selector, a.preferences.ThemeSelectorForUser(ctx, userID))
 		}
 	}
-	if base.ChartTheme == "" && base.Variant != "" {
-		base.ChartTheme = base.Variant
+	selector = mergeSelector(selector, ThemeSelectorFromContext(ctx))
+
+	base := cloneThemeSelection(a.defaultTheme)
+	if selector.Name != "" {
+		base.Name = selector.Name
+		if base.Tokens == nil {
+			base.Tokens = map[string]string{}
+		}
+		base.Tokens["theme"] = selector.Name
+	}
+	if selector.Variant != "" {
+		base.Variant = selector.Variant
+	}
+	result := base
+	if a.themeProvider != nil {
+		if selection, err := a.themeProvider(ctx, selector); err == nil && selection != nil {
+			result = mergeThemeSelections(base, selection)
+		}
+	}
+	if selector.Variant != "" && selector.Variant != a.config.ThemeVariant && result.ChartTheme == a.config.ThemeVariant {
+		result.ChartTheme = selector.Variant
+	}
+	if result.ChartTheme == "" && result.Variant != "" {
+		result.ChartTheme = result.Variant
+	}
+	return result
+}
+
+func mergeSelector(base, override ThemeSelector) ThemeSelector {
+	if override.Name != "" {
+		base.Name = override.Name
+	}
+	if override.Variant != "" {
+		base.Variant = override.Variant
 	}
 	return base
 }
 
-func (a *Admin) themePayload(ctx context.Context) map[string]map[string]string {
+func (a *Admin) Theme(ctx context.Context) *ThemeSelection {
+	return cloneThemeSelection(a.resolveTheme(ctx))
+}
+
+func (a *Admin) ThemePayload(ctx context.Context) map[string]map[string]string {
 	return a.resolveTheme(ctx).payload()
+}
+
+func (a *Admin) themePayload(ctx context.Context) map[string]map[string]string {
+	return a.ThemePayload(ctx)
 }
 
 func (a *Admin) withTheme(ctx AdminContext) AdminContext {
@@ -233,20 +517,79 @@ func (a *Admin) withTheme(ctx AdminContext) AdminContext {
 	return ctx
 }
 
+func (a *Admin) adminContextFromRequest(c router.Context, locale string) AdminContext {
+	ctx := newAdminContextFromRouter(c, locale)
+	selector := selectorFromRequest(c)
+	if selector.Name != "" || selector.Variant != "" {
+		ctx.Context = WithThemeSelection(ctx.Context, selector)
+	}
+	return a.withTheme(ctx)
+}
+
+func selectorFromRequest(c router.Context) ThemeSelector {
+	selector := ThemeSelector{}
+	if c == nil {
+		return selector
+	}
+	if name := strings.TrimSpace(c.Query("theme")); name != "" {
+		selector.Name = name
+	}
+	if variant := strings.TrimSpace(c.Query("variant")); variant != "" {
+		selector.Variant = variant
+	}
+	if selector.Name == "" {
+		if name := strings.TrimSpace(c.Header("X-Admin-Theme")); name != "" {
+			selector.Name = name
+		}
+	}
+	if selector.Variant == "" {
+		if variant := strings.TrimSpace(c.Header("X-Admin-Theme-Variant")); variant != "" {
+			selector.Variant = variant
+		}
+	}
+	return selector
+}
+
+func (a *Admin) authWrapper() func(router.HandlerFunc) router.HandlerFunc {
+	if a == nil || a.authenticator == nil {
+		return func(handler router.HandlerFunc) router.HandlerFunc {
+			return handler
+		}
+	}
+	if handlerAuth, ok := a.authenticator.(HandlerAuthenticator); ok && handlerAuth != nil {
+		return func(handler router.HandlerFunc) router.HandlerFunc {
+			return handlerAuth.WrapHandler(handler)
+		}
+	}
+	return func(handler router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error {
+			if err := a.authenticator.Wrap(c); err != nil {
+				return err
+			}
+			return handler(c)
+		}
+	}
+}
+
 // Panel returns a panel builder pre-wired with the command registry.
 // The caller configures fields/actions/hooks and registers the panel via RegisterPanel.
 func (a *Admin) Panel(_ string) *PanelBuilder {
 	return &PanelBuilder{commandBus: a.commandRegistry}
 }
 
-// Dashboard returns a placeholder dashboard handle.
-func (a *Admin) Dashboard() *DashboardHandle {
-	return &DashboardHandle{}
+// Dashboard exposes the dashboard orchestration service.
+func (a *Admin) Dashboard() *Dashboard {
+	return a.dashboard
 }
 
-// Menu returns a placeholder navigation handle.
-func (a *Admin) Menu() *MenuHandle {
-	return &MenuHandle{}
+// Menu exposes the navigation resolver and fallback menu builder.
+func (a *Admin) Menu() *Navigation {
+	return a.nav
+}
+
+// Navigation returns the navigation resolver (alias for Menu).
+func (a *Admin) Navigation() *Navigation {
+	return a.nav
 }
 
 // Commands exposes the go-command registry hook.
@@ -254,22 +597,18 @@ func (a *Admin) Commands() *CommandRegistry {
 	return a.commandRegistry
 }
 
+// Registry exposes the central registry for panels/modules/widgets/settings.
+func (a *Admin) Registry() *Registry {
+	return a.registry
+}
+
 // RegisterModule registers a pluggable module before initialization.
 // Duplicate IDs are rejected to preserve ordering and idempotency.
 func (a *Admin) RegisterModule(module Module) error {
-	if module == nil {
-		return errors.New("module cannot be nil")
+	if a.registry == nil {
+		return errors.New("registry not initialized")
 	}
-	manifest := module.Manifest()
-	if manifest.ID == "" {
-		return errors.New("module ID cannot be empty")
-	}
-	if _, exists := a.moduleIndex[manifest.ID]; exists {
-		return errors.New("module already registered: " + manifest.ID)
-	}
-	a.modules = append(a.modules, module)
-	a.moduleIndex[manifest.ID] = module
-	return nil
+	return a.registry.RegisterModule(module)
 }
 
 // DashboardService exposes the dashboard orchestration.
@@ -297,6 +636,61 @@ func (a *Admin) ActivityFeed() ActivitySink {
 	return a.activity
 }
 
+// ExportService exposes the export adapter.
+func (a *Admin) ExportService() ExportService {
+	return a.exportSvc
+}
+
+// BulkService exposes the bulk adapter.
+func (a *Admin) BulkService() BulkService {
+	return a.bulkSvc
+}
+
+// MediaLibrary exposes the media library adapter.
+func (a *Admin) MediaLibrary() MediaLibrary {
+	return a.mediaLibrary
+}
+
+// PreferencesService exposes the user preferences service.
+func (a *Admin) PreferencesService() *PreferencesService {
+	return a.preferences
+}
+
+// ProfileService exposes the user profile service.
+func (a *Admin) ProfileService() *ProfileService {
+	return a.profile
+}
+
+// UserService exposes the user and role management service.
+func (a *Admin) UserService() *UserManagementService {
+	return a.users
+}
+
+// TenantService exposes the tenant management service.
+func (a *Admin) TenantService() *TenantService {
+	return a.tenants
+}
+
+// OrganizationService exposes the organization management service.
+func (a *Admin) OrganizationService() *OrganizationService {
+	return a.organizations
+}
+
+func (a *Admin) recordActivity(ctx context.Context, actor, action, object string, metadata map[string]any) {
+	if a == nil || a.activity == nil {
+		return
+	}
+	if actor == "" {
+		actor = actorFromContext(ctx)
+	}
+	_ = a.activity.Record(ctx, ActivityEntry{
+		Actor:    actor,
+		Action:   action,
+		Object:   object,
+		Metadata: metadata,
+	})
+}
+
 // Jobs exposes the job registry.
 func (a *Admin) Jobs() *JobRegistry {
 	return a.jobs
@@ -309,6 +703,9 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 	}
 	builder.name = name
 	builder.commandBus = a.commandRegistry
+	if builder.activity == nil {
+		builder.activity = a.activity
+	}
 	if builder.authorizer == nil {
 		builder.authorizer = a.authorizer
 	}
@@ -316,13 +713,17 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 	if err != nil {
 		return nil, err
 	}
-	a.panels[name] = panel
+	if a.registry != nil {
+		if err := a.registry.RegisterPanel(name, panel); err != nil {
+			return nil, err
+		}
+	}
 	return panel, nil
 }
 
 // Bootstrap initializes CMS seed data (widget areas, admin menu, default widgets).
 func (a *Admin) Bootstrap(ctx context.Context) error {
-	if a.features.CMS || a.features.Dashboard {
+	if a.gates.Enabled(FeatureCMS) || a.gates.Enabled(FeatureDashboard) {
 		if err := a.ensureCMS(ctx); err != nil {
 			return err
 		}
@@ -338,7 +739,7 @@ func (a *Admin) Bootstrap(ctx context.Context) error {
 		return err
 	}
 
-	if a.features.Settings {
+	if a.gates.Enabled(FeatureSettings) {
 		if err := a.bootstrapSettingsDefaults(ctx); err != nil {
 			return err
 		}
@@ -354,6 +755,30 @@ func joinPath(basePath, suffix string) string {
 	return path.Join("/", basePath, suffix)
 }
 
+func (a *Admin) decorateSchema(schema *Schema, panelName string) {
+	if schema == nil {
+		return
+	}
+	if a.gates.Enabled(FeatureExport) && a.exportSvc != nil {
+		schema.Export = &ExportConfig{
+			Resource: panelName,
+			Formats:  []string{"json", "csv"},
+			Endpoint: joinPath(a.config.BasePath, "api/export"),
+		}
+	}
+	if a.gates.Enabled(FeatureBulk) && a.bulkSvc != nil {
+		schema.Bulk = &BulkConfig{
+			Endpoint:         joinPath(a.config.BasePath, "api/bulk"),
+			SupportsRollback: supportsBulkRollback(a.bulkSvc),
+		}
+	}
+	if a.gates.Enabled(FeatureMedia) && a.mediaLibrary != nil {
+		libraryPath := joinPath(a.config.BasePath, "api/media/library")
+		schema.Media = &MediaConfig{LibraryPath: libraryPath}
+		applyMediaHints(schema, libraryPath)
+	}
+}
+
 // Initialize attaches the router, bootstraps, and mounts base routes.
 func (a *Admin) Initialize(r AdminRouter) error {
 	if r == nil {
@@ -363,8 +788,18 @@ func (a *Admin) Initialize(r AdminRouter) error {
 	if a.nav == nil {
 		a.nav = NewNavigation(a.menuSvc, a.authorizer)
 	}
+	if a.nav != nil {
+		a.nav.defaultMenuCode = a.navMenuCode
+		a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
+	}
 	if a.search == nil {
 		a.search = NewSearchEngine(a.authorizer)
+	}
+	if a.search != nil {
+		a.search.Enable(a.gates.Enabled(FeatureSearch))
+	}
+	if a.settings != nil {
+		a.settings.Enable(a.gates.Enabled(FeatureSettings))
 	}
 	if err := a.validateConfig(); err != nil {
 		return err
@@ -375,13 +810,25 @@ func (a *Admin) Initialize(r AdminRouter) error {
 	if err := a.loadModules(context.Background()); err != nil {
 		return err
 	}
+	if a.jobs != nil {
+		if err := a.jobs.Sync(context.Background()); err != nil {
+			return err
+		}
+	}
+	if err := a.ensureSettingsNavigation(context.Background()); err != nil {
+		return err
+	}
 	a.registerHealthRoute()
 	a.registerPanelRoutes()
 	a.registerSettingsWidget()
 	a.registerActivityWidget()
+	a.registerNotificationsWidget()
 	a.registerDashboardRoute()
 	a.registerNavigationRoute()
 	a.registerSearchRoute()
+	a.registerExportRoute()
+	a.registerBulkRoute()
+	a.registerMediaRoute()
 	a.registerNotificationsRoute()
 	a.registerActivityRoute()
 	a.registerJobsRoute()
@@ -390,18 +837,23 @@ func (a *Admin) Initialize(r AdminRouter) error {
 }
 
 func (a *Admin) ensureCMS(ctx context.Context) error {
-	if !a.features.CMS && !a.features.Dashboard {
+	if !a.gates.Enabled(FeatureCMS) && !a.gates.Enabled(FeatureDashboard) {
 		// Already using in-memory defaults.
 		return nil
 	}
-	// Future: instantiate a real CMS container using a.config.CMSConfig.
+	if a.cms == nil || a.menuSvc == nil || a.widgetSvc == nil {
+		container, err := BuildGoCMSContainer(ctx, a.config)
+		if err != nil {
+			return err
+		}
+		if container != nil {
+			a.UseCMS(container)
+		}
+	}
 	if a.cms == nil {
 		container := NewNoopCMSContainer()
-		a.cms = container
-		a.widgetSvc = container.WidgetService()
-		a.menuSvc = container.MenuService()
+		a.UseCMS(container)
 	}
-	_ = ctx
 	return nil
 }
 
@@ -440,9 +892,54 @@ func (a *Admin) validateConfig() error {
 	return InvalidFeatureConfigError{Issues: issues}
 }
 
+func (a *Admin) registerDefaultModules() error {
+	if a.registry == nil {
+		return nil
+	}
+	if a.gates.Enabled(FeatureUsers) {
+		if _, exists := a.registry.Module(usersModuleID); !exists {
+			if err := a.registry.RegisterModule(NewUserManagementModule()); err != nil {
+				return err
+			}
+		}
+	}
+	if a.gates.Enabled(FeaturePreferences) {
+		if _, exists := a.registry.Module(preferencesModuleID); !exists {
+			if err := a.registry.RegisterModule(NewPreferencesModule()); err != nil {
+				return err
+			}
+		}
+	}
+	if a.gates.Enabled(FeatureProfile) {
+		if _, exists := a.registry.Module(profileModuleID); !exists {
+			if err := a.registry.RegisterModule(NewProfileModule()); err != nil {
+				return err
+			}
+		}
+	}
+	if a.gates.Enabled(FeatureTenants) {
+		if _, exists := a.registry.Module(tenantsModuleID); !exists {
+			if err := a.registry.RegisterModule(NewTenantsModule()); err != nil {
+				return err
+			}
+		}
+	}
+	if a.gates.Enabled(FeatureOrganizations) {
+		if _, exists := a.registry.Module(organizationsModuleID); !exists {
+			if err := a.registry.RegisterModule(NewOrganizationsModule()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (a *Admin) loadModules(ctx context.Context) error {
 	if a.modulesLoaded {
 		return nil
+	}
+	if err := a.registerDefaultModules(); err != nil {
+		return err
 	}
 	ordered, err := a.orderModules()
 	if err != nil {
@@ -481,13 +978,18 @@ func (a *Admin) loadModules(ctx context.Context) error {
 }
 
 func (a *Admin) orderModules() ([]Module, error) {
+	if a.registry == nil {
+		return nil, nil
+	}
 	nodes := map[string]Module{}
-	for _, m := range a.modules {
+	order := []string{}
+	for _, m := range a.registry.Modules() {
 		if m == nil {
 			continue
 		}
 		manifest := m.Manifest()
 		nodes[manifest.ID] = m
+		order = append(order, manifest.ID)
 	}
 	visited := map[string]bool{}
 	stack := map[string]bool{}
@@ -518,7 +1020,7 @@ func (a *Admin) orderModules() ([]Module, error) {
 		result = append(result, mod)
 		return nil
 	}
-	for id := range nodes {
+	for _, id := range order {
 		if err := visit(id); err != nil {
 			return nil, err
 		}
@@ -530,6 +1032,7 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 	if len(items) == 0 {
 		return nil
 	}
+	cmsEnabled := a.gates.Enabled(FeatureCMS)
 	if a.menuSvc != nil {
 		menuCodes := map[string]bool{}
 		for _, item := range items {
@@ -547,10 +1050,9 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 				return err
 			}
 		}
-		return nil
 	}
-	if a.nav != nil {
-		converted := convertMenuItems(items)
+	if (!cmsEnabled || a.menuSvc == nil) && a.nav != nil {
+		converted := convertMenuItems(items, a.translator, a.config.DefaultLocale)
 		if len(converted) > 0 {
 			a.nav.AddFallback(converted...)
 		}
@@ -562,37 +1064,43 @@ func (a *Admin) registerHealthRoute() {
 	if a.router == nil {
 		return
 	}
+	wrap := a.authWrapper()
 	path := joinPath(a.config.BasePath, "health")
-	a.router.Get(path, func(c router.Context) error {
-		if a.authenticator != nil {
-			if err := a.authenticator.Wrap(c); err != nil {
-				return err
-			}
-		}
+	a.router.Get(path, wrap(func(c router.Context) error {
 		return c.JSON(200, map[string]string{"status": "ok"})
-	})
+	}))
 }
 
 func (a *Admin) registerPanelRoutes() {
 	if a.router == nil {
 		return
 	}
-	for name, panel := range a.panels {
+	if a.registry == nil {
+		return
+	}
+	wrap := a.authWrapper()
+	for name, panel := range a.registry.Panels() {
 		p := panel
 		base := joinPath(a.config.BasePath, "api/"+name)
 
 		// List
-		a.router.Get(base, func(c router.Context) error {
+		a.router.Get(base, wrap(func(c router.Context) error {
 			locale := c.Query("locale")
 			if locale == "" {
 				locale = a.config.DefaultLocale
 			}
-			ctx := a.withTheme(newAdminContextFromRouter(c, locale))
+			ctx := a.adminContextFromRequest(c, locale)
 			opts := parseListOptions(c)
-			if opts.Search != "" {
+			baseSchema := panel.Schema()
+			if baseSchema.UseBlocks || baseSchema.UseSEO || baseSchema.TreeView {
 				if opts.Filters == nil {
 					opts.Filters = map[string]any{}
 				}
+				if locale != "" {
+					opts.Filters["locale"] = locale
+				}
+			}
+			if opts.Search != "" {
 				opts.Filters["_search"] = opts.Search
 			}
 			records, total, err := panel.List(ctx, opts)
@@ -600,6 +1108,7 @@ func (a *Admin) registerPanelRoutes() {
 				return writeError(c, err)
 			}
 			schema := p.SchemaWithTheme(a.themePayload(ctx.Context))
+			a.decorateSchema(&schema, name)
 			var form PanelFormRequest
 			if a.panelForm != nil {
 				form = a.panelForm.Build(p, ctx, nil, nil)
@@ -610,11 +1119,15 @@ func (a *Admin) registerPanelRoutes() {
 				"schema":  schema,
 				"form":    form,
 			})
-		})
+		}))
 
 		// Detail
-		a.router.Get(joinPath(base, ":id"), func(c router.Context) error {
-			ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		a.router.Get(joinPath(base, ":id"), wrap(func(c router.Context) error {
+			locale := c.Query("locale")
+			if locale == "" {
+				locale = a.config.DefaultLocale
+			}
+			ctx := a.adminContextFromRequest(c, locale)
 			id := c.Param("id", "")
 			if id == "" {
 				return writeError(c, errors.New("missing id"))
@@ -624,11 +1137,15 @@ func (a *Admin) registerPanelRoutes() {
 				return writeError(c, err)
 			}
 			return writeJSON(c, rec)
-		})
+		}))
 
 		// Create
-		a.router.Post(base, func(c router.Context) error {
-			ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		a.router.Post(base, wrap(func(c router.Context) error {
+			locale := c.Query("locale")
+			if locale == "" {
+				locale = a.config.DefaultLocale
+			}
+			ctx := a.adminContextFromRequest(c, locale)
 			record, err := parseJSONBody(c)
 			if err != nil {
 				return writeError(c, err)
@@ -638,11 +1155,15 @@ func (a *Admin) registerPanelRoutes() {
 				return writeError(c, err)
 			}
 			return writeJSON(c, created)
-		})
+		}))
 
 		// Update
-		a.router.Put(joinPath(base, ":id"), func(c router.Context) error {
-			ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		a.router.Put(joinPath(base, ":id"), wrap(func(c router.Context) error {
+			locale := c.Query("locale")
+			if locale == "" {
+				locale = a.config.DefaultLocale
+			}
+			ctx := a.adminContextFromRequest(c, locale)
 			id := c.Param("id", "")
 			if id == "" {
 				return writeError(c, errors.New("missing id"))
@@ -656,11 +1177,15 @@ func (a *Admin) registerPanelRoutes() {
 				return writeError(c, err)
 			}
 			return writeJSON(c, updated)
-		})
+		}))
 
 		// Delete (basic: expects ?id=)
-		a.router.Delete(base, func(c router.Context) error {
-			ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		a.router.Delete(base, wrap(func(c router.Context) error {
+			locale := c.Query("locale")
+			if locale == "" {
+				locale = a.config.DefaultLocale
+			}
+			ctx := a.adminContextFromRequest(c, locale)
 			id := c.Query("id")
 			if id == "" {
 				id = c.Param("id", "")
@@ -672,10 +1197,14 @@ func (a *Admin) registerPanelRoutes() {
 				return writeError(c, err)
 			}
 			return writeJSON(c, map[string]string{"status": "deleted"})
-		})
+		}))
 
-		a.router.Delete(joinPath(base, ":id"), func(c router.Context) error {
-			ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		a.router.Delete(joinPath(base, ":id"), wrap(func(c router.Context) error {
+			locale := c.Query("locale")
+			if locale == "" {
+				locale = a.config.DefaultLocale
+			}
+			ctx := a.adminContextFromRequest(c, locale)
 			id := c.Param("id", "")
 			if id == "" {
 				return writeError(c, errors.New("missing id"))
@@ -684,11 +1213,23 @@ func (a *Admin) registerPanelRoutes() {
 				return writeError(c, err)
 			}
 			return writeJSON(c, map[string]string{"status": "deleted"})
-		})
+		}))
 
 		// Actions
-		a.router.Post(joinPath(base, "actions/:action"), func(c router.Context) error {
-			ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		a.router.Post(joinPath(base, "actions/:action"), wrap(func(c router.Context) error {
+			ctx := a.adminContextFromRequest(c, a.config.DefaultLocale)
+			body := map[string]any{}
+			if len(c.Body()) > 0 {
+				payload, err := parseJSONBody(c)
+				if err != nil {
+					return writeError(c, err)
+				}
+				body = payload
+				ctx.Context = WithCommandPayload(ctx.Context, payload)
+			}
+			if ids := parseCommandIDs(body, c.Query("id"), c.Query("ids")); len(ids) > 0 {
+				ctx.Context = WithCommandIDs(ctx.Context, ids)
+			}
 			actionName := c.Param("action", "")
 			if actionName == "" {
 				return writeError(c, errors.New("action required"))
@@ -697,11 +1238,23 @@ func (a *Admin) registerPanelRoutes() {
 				return writeError(c, err)
 			}
 			return writeJSON(c, map[string]string{"status": "ok"})
-		})
+		}))
 
 		// Bulk actions
-		a.router.Post(joinPath(base, "bulk/:action"), func(c router.Context) error {
-			ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		a.router.Post(joinPath(base, "bulk/:action"), wrap(func(c router.Context) error {
+			ctx := a.adminContextFromRequest(c, a.config.DefaultLocale)
+			body := map[string]any{}
+			if len(c.Body()) > 0 {
+				payload, err := parseJSONBody(c)
+				if err != nil {
+					return writeError(c, err)
+				}
+				body = payload
+				ctx.Context = WithCommandPayload(ctx.Context, payload)
+			}
+			if ids := parseCommandIDs(body, c.Query("id"), c.Query("ids")); len(ids) > 0 {
+				ctx.Context = WithCommandIDs(ctx.Context, ids)
+			}
 			actionName := c.Param("action", "")
 			if actionName == "" {
 				return writeError(c, errors.New("action required"))
@@ -710,7 +1263,7 @@ func (a *Admin) registerPanelRoutes() {
 				return writeError(c, err)
 			}
 			return writeJSON(c, map[string]string{"status": "ok"})
-		})
+		}))
 	}
 }
 
@@ -718,12 +1271,17 @@ func (a *Admin) registerDashboardRoute() {
 	if a.router == nil || a.dashboard == nil || !a.gates.Enabled(FeatureDashboard) {
 		return
 	}
+	wrap := a.authWrapper()
 	path := joinPath(a.config.BasePath, "api/dashboard")
-	a.router.Get(path, func(c router.Context) error {
+	a.router.Get(path, wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureDashboard); err != nil {
 			return writeError(c, err)
 		}
-		ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		locale := c.Query("locale")
+		if locale == "" {
+			locale = a.config.DefaultLocale
+		}
+		ctx := a.adminContextFromRequest(c, locale)
 		widgets, err := a.dashboard.Resolve(ctx)
 		if err != nil {
 			return writeError(c, err)
@@ -732,15 +1290,71 @@ func (a *Admin) registerDashboardRoute() {
 			"widgets": widgets,
 			"theme":   a.themePayload(ctx.Context),
 		})
-	})
+	}))
+
+	configPath := joinPath(a.config.BasePath, "api/dashboard/config")
+	a.router.Get(configPath, wrap(func(c router.Context) error {
+		if err := a.gates.Require(FeatureDashboard); err != nil {
+			return writeError(c, err)
+		}
+		locale := c.Query("locale")
+		if locale == "" {
+			locale = a.config.DefaultLocale
+		}
+		ctx := a.adminContextFromRequest(c, locale)
+		layout := a.dashboard.resolvedInstances(ctx)
+		areas := []WidgetAreaDefinition{}
+		if a.widgetSvc != nil {
+			areas = a.widgetSvc.Areas()
+		}
+		return writeJSON(c, map[string]any{
+			"providers": a.dashboard.Providers(),
+			"layout":    layout,
+			"areas":     areas,
+		})
+	}))
+
+	a.router.Post(configPath, wrap(func(c router.Context) error {
+		if err := a.gates.Require(FeatureDashboard); err != nil {
+			return writeError(c, err)
+		}
+		ctx := a.adminContextFromRequest(c, a.config.DefaultLocale)
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		rawLayout, ok := body["layout"].([]any)
+		if !ok {
+			return writeError(c, errors.New("layout must be an array"))
+		}
+		layout := []DashboardWidgetInstance{}
+		for _, item := range rawLayout {
+			obj, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			layout = append(layout, DashboardWidgetInstance{
+				DefinitionCode: toString(obj["definition"]),
+				AreaCode:       toString(obj["area"]),
+				Config:         extractMap(obj["config"]),
+				Position:       atoiDefault(toString(obj["position"]), 0),
+				Locale:         toString(obj["locale"]),
+			})
+		}
+		if len(layout) > 0 {
+			a.dashboard.SetUserLayoutWithContext(ctx, layout)
+		}
+		return writeJSON(c, map[string]any{"layout": layout})
+	}))
 }
 
 func (a *Admin) registerNavigationRoute() {
 	if a.router == nil || a.nav == nil {
 		return
 	}
+	wrap := a.authWrapper()
 	path := joinPath(a.config.BasePath, "api/navigation")
-	a.router.Get(path, func(c router.Context) error {
+	a.router.Get(path, wrap(func(c router.Context) error {
 		menuCode := c.Query("code")
 		if menuCode == "" {
 			menuCode = a.navMenuCode
@@ -749,21 +1363,22 @@ func (a *Admin) registerNavigationRoute() {
 		if locale == "" {
 			locale = a.config.DefaultLocale
 		}
-		ctx := c.Context()
-		items := a.nav.ResolveMenu(ctx, menuCode, locale)
+		ctx := a.adminContextFromRequest(c, locale)
+		items := a.nav.ResolveMenu(ctx.Context, menuCode, locale)
 		return writeJSON(c, map[string]any{
 			"items": items,
-			"theme": a.themePayload(ctx),
+			"theme": a.themePayload(ctx.Context),
 		})
-	})
+	}))
 }
 
 func (a *Admin) registerSearchRoute() {
 	if a.router == nil || a.search == nil {
 		return
 	}
+	wrap := a.authWrapper()
 	path := joinPath(a.config.BasePath, "api/search")
-	a.router.Get(path, func(c router.Context) error {
+	a.router.Get(path, wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureSearch); err != nil {
 			return writeError(c, err)
 		}
@@ -776,16 +1391,16 @@ func (a *Admin) registerSearchRoute() {
 		if locale == "" {
 			locale = a.config.DefaultLocale
 		}
-		ctx := a.withTheme(newAdminContextFromRouter(c, locale))
+		ctx := a.adminContextFromRequest(c, locale)
 		results, err := a.search.Query(ctx, query, limit)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]any{"results": results})
-	})
+	}))
 
 	typeaheadPath := joinPath(a.config.BasePath, "api/search/typeahead")
-	a.router.Get(typeaheadPath, func(c router.Context) error {
+	a.router.Get(typeaheadPath, wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureSearch); err != nil {
 			return writeError(c, err)
 		}
@@ -798,20 +1413,177 @@ func (a *Admin) registerSearchRoute() {
 		if locale == "" {
 			locale = a.config.DefaultLocale
 		}
-		ctx := a.withTheme(newAdminContextFromRouter(c, locale))
+		ctx := a.adminContextFromRequest(c, locale)
 		results, err := a.search.Query(ctx, query, limit)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]any{"results": results})
-	})
+	}))
+}
+
+func (a *Admin) registerExportRoute() {
+	if a.router == nil || a.exportSvc == nil {
+		return
+	}
+	wrap := a.authWrapper()
+	path := joinPath(a.config.BasePath, "api/export")
+	a.router.Get(path, wrap(func(c router.Context) error {
+		if err := a.gates.Require(FeatureExport); err != nil {
+			return writeError(c, err)
+		}
+		req := ExportRequest{
+			Resource: c.Query("resource"),
+			Format:   c.Query("format"),
+		}
+		res, err := a.exportSvc.Export(c.Context(), req)
+		if err != nil {
+			return writeError(c, err)
+		}
+		c.SetHeader("Content-Type", res.ContentType)
+		return writeJSON(c, map[string]any{
+			"content_type": res.ContentType,
+			"filename":     res.Filename,
+			"data":         string(res.Content),
+		})
+	}))
+	a.router.Post(path, wrap(func(c router.Context) error {
+		if err := a.gates.Require(FeatureExport); err != nil {
+			return writeError(c, err)
+		}
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		req := ExportRequest{
+			Resource: toString(body["resource"]),
+			Format:   toString(body["format"]),
+		}
+		res, err := a.exportSvc.Export(c.Context(), req)
+		if err != nil {
+			return writeError(c, err)
+		}
+		c.SetHeader("Content-Type", res.ContentType)
+		return writeJSON(c, map[string]any{
+			"content_type": res.ContentType,
+			"filename":     res.Filename,
+			"data":         string(res.Content),
+		})
+	}))
+}
+
+func (a *Admin) registerBulkRoute() {
+	if a.router == nil || a.bulkSvc == nil {
+		return
+	}
+	wrap := a.authWrapper()
+	path := joinPath(a.config.BasePath, "api/bulk")
+	a.router.Get(path, wrap(func(c router.Context) error {
+		if err := a.gates.Require(FeatureBulk); err != nil {
+			return writeError(c, err)
+		}
+		jobs := a.bulkSvc.List(c.Context())
+		return writeJSON(c, map[string]any{"jobs": jobs})
+	}))
+	a.router.Post(path, wrap(func(c router.Context) error {
+		if err := a.gates.Require(FeatureBulk); err != nil {
+			return writeError(c, err)
+		}
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		total := atoiDefault(toString(body["total"]), 0)
+		req := BulkRequest{
+			Name:   toString(body["name"]),
+			Action: toString(body["action"]),
+			Total:  total,
+		}
+		if req.Name == "" && req.Action != "" {
+			req.Name = req.Action
+		}
+		job, err := a.bulkSvc.Start(c.Context(), req)
+		if err != nil {
+			return writeError(c, err)
+		}
+		a.recordActivity(c.Context(), c.Header("X-User-ID"), "bulk.trigger", "bulk_job:"+job.ID, map[string]any{
+			"name":   job.Name,
+			"action": job.Action,
+		})
+		return writeJSON(c, map[string]any{"job": job})
+	}))
+	if rollbackSvc, ok := a.bulkSvc.(BulkRollbacker); ok {
+		rollbackPath := joinPath(path, ":id/rollback")
+		a.router.Post(rollbackPath, wrap(func(c router.Context) error {
+			if err := a.gates.Require(FeatureBulk); err != nil {
+				return writeError(c, err)
+			}
+			id := c.Param("id", "")
+			if id == "" {
+				if body, err := parseJSONBody(c); err == nil {
+					id = toString(body["id"])
+				}
+			}
+			if id == "" {
+				return writeError(c, errors.New("id required"))
+			}
+			job, err := rollbackSvc.Rollback(c.Context(), id)
+			if err != nil {
+				return writeError(c, err)
+			}
+			a.recordActivity(c.Context(), c.Header("X-User-ID"), "bulk.rollback", "bulk_job:"+job.ID, map[string]any{
+				"name":   job.Name,
+				"action": job.Action,
+			})
+			return writeJSON(c, map[string]any{"job": job})
+		}))
+	}
+}
+
+func (a *Admin) registerMediaRoute() {
+	if a.router == nil || a.mediaLibrary == nil {
+		return
+	}
+	wrap := a.authWrapper()
+	path := joinPath(a.config.BasePath, "api/media/library")
+	a.router.Get(path, wrap(func(c router.Context) error {
+		if err := a.gates.Require(FeatureMedia); err != nil {
+			return writeError(c, err)
+		}
+		items, err := a.mediaLibrary.List(c.Context())
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, map[string]any{"items": items})
+	}))
+	a.router.Post(path, wrap(func(c router.Context) error {
+		if err := a.gates.Require(FeatureMedia); err != nil {
+			return writeError(c, err)
+		}
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		item := MediaItem{
+			ID:        toString(body["id"]),
+			Name:      toString(body["name"]),
+			URL:       toString(body["url"]),
+			Thumbnail: toString(body["thumbnail"]),
+			Metadata:  extractMap(body["metadata"]),
+		}
+		created, err := a.mediaLibrary.Add(c.Context(), item)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, created)
+	}))
 }
 
 func (a *Admin) registerSettingsWidget() {
 	if a.dashboard == nil || a.settings == nil || !a.gates.Enabled(FeatureSettings) {
 		return
 	}
-	a.dashboard.RegisterProvider("admin.widget.settings_overview", func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+	handler := func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
 		if err := a.requirePermission(ctx, a.config.SettingsPermission, "settings"); err != nil {
 			return nil, err
 		}
@@ -851,9 +1623,14 @@ func (a *Admin) registerSettingsWidget() {
 			}
 		}
 		return map[string]any{"values": payload}, nil
-	})
-	a.dashboard.AddInstance("admin.dashboard.sidebar", "admin.widget.settings_overview", map[string]any{
-		"keys": []string{"admin.title", "admin.default_locale"},
+	}
+	a.dashboard.RegisterProvider(DashboardProviderSpec{
+		Code:          "admin.widget.settings_overview",
+		Name:          "Settings Overview",
+		DefaultArea:   "admin.dashboard.sidebar",
+		DefaultConfig: map[string]any{"keys": []string{"admin.title", "admin.default_locale"}},
+		Permission:    a.config.SettingsPermission,
+		Handler:       handler,
 	})
 }
 
@@ -861,18 +1638,32 @@ func (a *Admin) registerNotificationsRoute() {
 	if a.router == nil || a.notifications == nil {
 		return
 	}
+	wrap := a.authWrapper()
 	base := joinPath(a.config.BasePath, "api/notifications")
-	a.router.Get(base, func(c router.Context) error {
+	a.router.Get(base, wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureNotifications); err != nil {
 			return writeError(c, err)
 		}
-		items, err := a.notifications.List(c.Context())
+		ctx := a.adminContextFromRequest(c, a.config.DefaultLocale)
+		if err := a.requirePermission(ctx, a.config.NotificationsPermission, "notifications"); err != nil {
+			return writeError(c, err)
+		}
+		items, err := a.notifications.List(ctx.Context)
 		if err != nil {
 			return writeError(c, err)
 		}
-		return writeJSON(c, map[string]any{"notifications": items})
-	})
-	a.router.Post(joinPath(base, "read"), func(c router.Context) error {
+		unread := 0
+		for _, n := range items {
+			if !n.Read {
+				unread++
+			}
+		}
+		return writeJSON(c, map[string]any{
+			"notifications": items,
+			"unread_count":  unread,
+		})
+	}))
+	a.router.Post(joinPath(base, "read"), wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureNotifications); err != nil {
 			return writeError(c, err)
 		}
@@ -894,10 +1685,60 @@ func (a *Admin) registerNotificationsRoute() {
 				ids = append(ids, s)
 			}
 		}
-		if err := a.notifications.Mark(c.Context(), ids, read); err != nil {
+		adminCtx := a.adminContextFromRequest(c, a.config.DefaultLocale)
+		if err := a.requirePermission(adminCtx, a.config.NotificationsUpdatePermission, "notifications"); err != nil {
+			return writeError(c, err)
+		}
+		cmdCtx := withNotificationContext(adminCtx.Context, ids, read)
+		if a.commandRegistry != nil {
+			err = a.commandRegistry.Dispatch(cmdCtx, NotificationMarkCommandName)
+		} else if a.notifications != nil {
+			err = a.notifications.Mark(cmdCtx, ids, read)
+		} else {
+			err = FeatureDisabledError{Feature: string(FeatureNotifications)}
+		}
+		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]string{"status": "ok"})
+	}))
+}
+
+func (a *Admin) registerNotificationsWidget() {
+	if a.dashboard == nil || a.notifications == nil || !a.gates.Enabled(FeatureDashboard) || !a.gates.Enabled(FeatureNotifications) {
+		return
+	}
+	handler := func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+		limit := 5
+		if raw, ok := cfg["limit"].(int); ok && raw > 0 {
+			limit = raw
+		} else if rawf, ok := cfg["limit"].(float64); ok && rawf > 0 {
+			limit = int(rawf)
+		}
+		items, err := a.notifications.List(ctx.Context)
+		if err != nil {
+			return nil, err
+		}
+		unread := 0
+		if limit > 0 && len(items) > limit {
+			items = items[:limit]
+		}
+		for _, item := range items {
+			if !item.Read {
+				unread++
+			}
+		}
+		return map[string]any{
+			"notifications": items,
+			"unread":        unread,
+		}, nil
+	}
+	a.dashboard.RegisterProvider(DashboardProviderSpec{
+		Code:          "admin.widget.notifications",
+		Name:          "Notifications",
+		DefaultArea:   "admin.dashboard.sidebar",
+		DefaultConfig: map[string]any{"limit": 5},
+		Handler:       handler,
 	})
 }
 
@@ -905,7 +1746,7 @@ func (a *Admin) registerActivityWidget() {
 	if a.dashboard == nil || a.activity == nil || !a.gates.Enabled(FeatureDashboard) {
 		return
 	}
-	a.dashboard.RegisterProvider("admin.widget.activity_feed", func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+	handler := func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
 		limit := 5
 		if raw, ok := cfg["limit"].(int); ok && raw > 0 {
 			limit = raw
@@ -917,37 +1758,60 @@ func (a *Admin) registerActivityWidget() {
 			return nil, err
 		}
 		return map[string]any{"entries": entries}, nil
+	}
+	a.dashboard.RegisterProvider(DashboardProviderSpec{
+		Code:          "admin.widget.activity_feed",
+		Name:          "Recent Activity",
+		DefaultArea:   "admin.dashboard.main",
+		DefaultConfig: map[string]any{"limit": 5},
+		Permission:    "",
+		Handler:       handler,
 	})
-	a.dashboard.AddInstance("admin.dashboard.main", "admin.widget.activity_feed", map[string]any{"limit": 5})
 }
 
 func (a *Admin) registerActivityRoute() {
 	if a.router == nil || a.activity == nil {
 		return
 	}
+	wrap := a.authWrapper()
 	path := joinPath(a.config.BasePath, "api/activity")
-	a.router.Get(path, func(c router.Context) error {
+	a.router.Get(path, wrap(func(c router.Context) error {
 		limit := atoiDefault(c.Query("limit"), 10)
-		entries, err := a.activity.List(c.Context(), limit)
+		filters := []ActivityFilter{}
+		if actor := strings.TrimSpace(c.Query("actor")); actor != "" {
+			filters = append(filters, ActivityFilter{Actor: actor})
+		}
+		if action := strings.TrimSpace(c.Query("action")); action != "" {
+			filters = append(filters, ActivityFilter{Action: action})
+		}
+		if object := strings.TrimSpace(c.Query("object")); object != "" {
+			filters = append(filters, ActivityFilter{Object: object})
+		}
+		entries, err := a.activity.List(c.Context(), limit, filters...)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]any{"entries": entries})
-	})
+	}))
 }
 
 func (a *Admin) registerJobsRoute() {
 	if a.router == nil || a.jobs == nil {
 		return
 	}
+	wrap := a.authWrapper()
 	path := joinPath(a.config.BasePath, "api/jobs")
-	a.router.Get(path, func(c router.Context) error {
+	a.router.Get(path, wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureJobs); err != nil {
 			return writeError(c, err)
 		}
+		adminCtx := a.adminContextFromRequest(c, a.config.DefaultLocale)
+		if err := a.requirePermission(adminCtx, a.config.JobsPermission, "jobs"); err != nil {
+			return writeError(c, err)
+		}
 		return writeJSON(c, map[string]any{"jobs": a.jobs.List()})
-	})
-	a.router.Post(joinPath(path, "trigger"), func(c router.Context) error {
+	}))
+	a.router.Post(joinPath(path, "trigger"), wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureJobs); err != nil {
 			return writeError(c, err)
 		}
@@ -959,11 +1823,81 @@ func (a *Admin) registerJobsRoute() {
 		if name == "" {
 			return writeError(c, errors.New("name required"))
 		}
-		if err := a.jobs.Trigger(c.Context(), name); err != nil {
+		adminCtx := a.adminContextFromRequest(c, a.config.DefaultLocale)
+		if err := a.requirePermission(adminCtx, a.config.JobsTriggerPermission, "jobs"); err != nil {
+			return writeError(c, err)
+		}
+		if err := a.jobs.Trigger(adminCtx, name); err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]string{"status": "ok"})
-	})
+	}))
+}
+
+func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
+	if a.nav == nil || !a.gates.Enabled(FeatureSettings) {
+		return nil
+	}
+	settingsPath := joinPath(a.config.BasePath, "settings")
+	const targetKey = "settings"
+
+	if a.menuSvc != nil {
+		menu, err := a.menuSvc.Menu(ctx, a.navMenuCode, a.config.DefaultLocale)
+		if err == nil && menuHasTarget(menu.Items, targetKey, settingsPath) {
+			return nil
+		}
+	}
+	if navigationHasTarget(a.nav.fallback, targetKey, settingsPath) {
+		return nil
+	}
+
+	item := MenuItem{
+		Label:       "Settings",
+		Icon:        "settings",
+		Target:      map[string]any{"type": "url", "path": settingsPath, "key": targetKey},
+		Permissions: []string{a.config.SettingsPermission},
+		Menu:        a.navMenuCode,
+		Locale:      a.config.DefaultLocale,
+		Position:    80,
+	}
+	return a.addMenuItems(ctx, []MenuItem{item})
+}
+
+func menuHasTarget(items []MenuItem, key string, path string) bool {
+	for _, item := range items {
+		if targetMatches(item.Target, key, path) {
+			return true
+		}
+		if menuHasTarget(item.Children, key, path) {
+			return true
+		}
+	}
+	return false
+}
+
+func navigationHasTarget(items []NavigationItem, key string, path string) bool {
+	for _, item := range items {
+		if targetMatches(item.Target, key, path) {
+			return true
+		}
+		if navigationHasTarget(item.Children, key, path) {
+			return true
+		}
+	}
+	return false
+}
+
+func targetMatches(target map[string]any, key string, path string) bool {
+	if len(target) == 0 {
+		return false
+	}
+	if targetKey, ok := target["key"].(string); ok && targetKey == key {
+		return true
+	}
+	if targetPath, ok := target["path"].(string); ok && path != "" && targetPath == path {
+		return true
+	}
+	return false
 }
 
 func (a *Admin) registerSettingsRoutes() {
@@ -971,38 +1905,38 @@ func (a *Admin) registerSettingsRoutes() {
 		return
 	}
 	base := joinPath(a.config.BasePath, "api/settings")
+	wrap := a.authWrapper()
 
-	a.router.Get(base, func(c router.Context) error {
+	a.router.Get(base, wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureSettings); err != nil {
 			return writeError(c, err)
 		}
-		ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		ctx := a.adminContextFromRequest(c, a.config.DefaultLocale)
 		if err := a.requirePermission(ctx, a.config.SettingsPermission, "settings"); err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]any{
 			"values": a.settings.ResolveAll(ctx.UserID),
 		})
-	})
+	}))
 
-	a.router.Get(joinPath(a.config.BasePath, "api/settings/form"), func(c router.Context) error {
+	a.router.Get(joinPath(a.config.BasePath, "api/settings/form"), wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureSettings); err != nil {
 			return writeError(c, err)
 		}
-		ctx := newAdminContextFromRouter(c, a.config.DefaultLocale)
-		ctx = a.withTheme(ctx)
+		ctx := a.adminContextFromRequest(c, a.config.DefaultLocale)
 		if err := a.requirePermission(ctx, a.config.SettingsPermission, "settings"); err != nil {
 			return writeError(c, err)
 		}
-		form := a.settingsForm.FormWithContext(c.Context(), ctx.UserID)
+		form := a.settingsForm.FormWithContext(ctx.Context, ctx.UserID)
 		return writeJSON(c, form)
-	})
+	}))
 
-	a.router.Post(base, func(c router.Context) error {
+	a.router.Post(base, wrap(func(c router.Context) error {
 		if err := a.gates.Require(FeatureSettings); err != nil {
 			return writeError(c, err)
 		}
-		ctx := a.withTheme(newAdminContextFromRouter(c, a.config.DefaultLocale))
+		ctx := a.adminContextFromRequest(c, a.config.DefaultLocale)
 		if err := a.requirePermission(ctx, a.config.SettingsUpdatePermission, "settings"); err != nil {
 			return writeError(c, err)
 		}
@@ -1025,21 +1959,13 @@ func (a *Admin) registerSettingsRoutes() {
 		}
 		cmdCtx := WithSettingsBundle(ctx.Context, bundle)
 		if err := a.commandRegistry.Dispatch(cmdCtx, settingsUpdateCommandName); err != nil {
-			var validation SettingsValidationErrors
-			if errors.As(err, &validation) {
-				c.Status(400)
-				return c.JSON(400, map[string]any{
-					"error":  "validation failed",
-					"fields": validation.Fields,
-				})
-			}
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]any{
 			"status": "ok",
 			"values": a.settings.ResolveAll(ctx.UserID),
 		})
-	})
+	}))
 }
 
 func (a *Admin) requirePermission(ctx AdminContext, permission string, resource string) error {
@@ -1083,14 +2009,14 @@ func (a *Admin) registerDefaultWidgets(ctx context.Context) error {
 					"title": map[string]any{"type": "string"},
 					"metric": map[string]any{
 						"type": "string",
-						"enum": []string{"total", "active", "new"},
+						"enum": []string{"activity", "notifications", "custom"},
 					},
 				},
 			},
 		},
 		{
-			Code: "admin.widget.recent_activity",
-			Name: "Recent Activity Feed",
+			Code: "admin.widget.activity_feed",
+			Name: "Activity Feed",
 			Schema: map[string]any{
 				"type":       "object",
 				"properties": map[string]any{"limit": map[string]any{"type": "integer", "default": 10}},
@@ -1116,6 +2042,17 @@ func (a *Admin) registerDefaultWidgets(ctx context.Context) error {
 				},
 			},
 		},
+		{
+			Code: "admin.widget.chart_sample",
+			Name: "Sample Chart",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"title": map[string]any{"type": "string"},
+					"type":  map[string]any{"type": "string", "enum": []string{"line", "bar", "pie"}},
+				},
+			},
+		},
 	}
 	if a.gates.Enabled(FeatureSettings) {
 		definitions = append(definitions, WidgetDefinition{
@@ -1131,35 +2068,125 @@ func (a *Admin) registerDefaultWidgets(ctx context.Context) error {
 				},
 			},
 		})
-		definitions = append(definitions, WidgetDefinition{
-			Code: "admin.widget.activity_feed",
-			Name: "Activity Feed",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"limit": map[string]any{"type": "integer", "default": 5},
-				},
-			},
-		})
 	}
 	for _, def := range definitions {
 		if err := a.widgetSvc.RegisterDefinition(ctx, def); err != nil {
 			return err
 		}
 	}
+	a.registerDashboardProviders()
 	return nil
+}
+
+func (a *Admin) registerDashboardProviders() {
+	if a.dashboard == nil || !a.gates.Enabled(FeatureDashboard) {
+		return
+	}
+	a.dashboard.WithWidgetService(a.widgetSvc)
+	a.dashboard.WithCommandBus(a.commandRegistry)
+	a.dashboard.WithAuthorizer(a.authorizer)
+
+	statsSpec := DashboardProviderSpec{
+		Code:          "admin.widget.user_stats",
+		Name:          "User Statistics",
+		DefaultArea:   "admin.dashboard.main",
+		DefaultConfig: map[string]any{"metric": "activity", "title": "Activity"},
+		Permission:    "",
+		CommandName:   "dashboard.provider.user_stats",
+		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			metric := toString(cfg["metric"])
+			if metric == "" {
+				metric = "activity"
+			}
+			title := toString(cfg["title"])
+			if title == "" {
+				title = "Statistic"
+			}
+			value := 0
+			switch metric {
+			case "notifications":
+				if a.notifications != nil {
+					items, _ := a.notifications.List(ctx.Context)
+					value = len(items)
+				}
+			case "activity":
+				if a.activity != nil {
+					items, _ := a.activity.List(ctx.Context, 100)
+					value = len(items)
+				}
+			default:
+				if a.settings != nil {
+					values := a.settings.ResolveAll(ctx.UserID)
+					if v, ok := values[metric]; ok && v.Value != nil {
+						if iv, ok := v.Value.(int); ok {
+							value = iv
+						}
+					}
+				}
+			}
+			return map[string]any{"title": title, "metric": metric, "value": value}, nil
+		},
+	}
+
+	quickActionsSpec := DashboardProviderSpec{
+		Code:          "admin.widget.quick_actions",
+		Name:          "Quick Actions",
+		DefaultArea:   "admin.dashboard.sidebar",
+		DefaultConfig: map[string]any{},
+		Permission:    "admin.quick_actions.view",
+		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			if cfg == nil {
+				cfg = map[string]any{}
+			}
+			actions, _ := cfg["actions"].([]any)
+			if len(actions) == 0 {
+				actions = []any{
+					map[string]any{"label": "Go to CMS", "url": "/admin/pages", "icon": "file"},
+					map[string]any{"label": "View Users", "url": "/admin/users", "icon": "users"},
+				}
+			}
+			return map[string]any{"actions": actions}, nil
+		},
+	}
+
+	chartSpec := DashboardProviderSpec{
+		Code:          "admin.widget.chart_sample",
+		Name:          "Sample Chart",
+		DefaultArea:   "admin.dashboard.main",
+		DefaultConfig: map[string]any{"title": "Weekly Totals", "type": "line"},
+		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			points := []map[string]any{
+				{"label": "Mon", "value": 10},
+				{"label": "Tue", "value": 15},
+				{"label": "Wed", "value": 7},
+				{"label": "Thu", "value": 20},
+				{"label": "Fri", "value": 12},
+			}
+			return map[string]any{
+				"title": toString(cfg["title"]),
+				"type":  toString(cfg["type"]),
+				"data":  points,
+			}, nil
+		},
+	}
+
+	a.dashboard.RegisterProvider(statsSpec)
+	a.dashboard.RegisterProvider(quickActionsSpec)
+	a.dashboard.RegisterProvider(chartSpec)
 }
 
 func (a *Admin) bootstrapSettingsDefaults(ctx context.Context) error {
 	if a.settings == nil {
 		return nil
 	}
+	dashboardEnabled := a.gates.Enabled(FeatureDashboard)
+	searchEnabled := a.gates.Enabled(FeatureSearch)
 	definitions := []SettingDefinition{
 		{Key: "admin.title", Title: "Admin Title", Description: "Displayed in headers", Default: a.config.Title, Type: "string", Group: "admin"},
 		{Key: "admin.default_locale", Title: "Default Locale", Description: "Locale fallback for navigation and CMS content", Default: a.config.DefaultLocale, Type: "string", Group: "admin"},
 		{Key: "admin.theme", Title: "Theme", Description: "Theme selection for admin UI", Default: a.config.Theme, Type: "string", Group: "appearance"},
-		{Key: "admin.dashboard_enabled", Title: "Dashboard Enabled", Description: "Toggle dashboard widgets", Default: a.features.Dashboard, Type: "boolean", Group: "features"},
-		{Key: "admin.search_enabled", Title: "Search Enabled", Description: "Toggle global search", Default: a.features.Search, Type: "boolean", Group: "features"},
+		{Key: "admin.dashboard_enabled", Title: "Dashboard Enabled", Description: "Toggle dashboard widgets", Default: dashboardEnabled, Type: "boolean", Group: "features"},
+		{Key: "admin.search_enabled", Title: "Search Enabled", Description: "Toggle global search", Default: searchEnabled, Type: "boolean", Group: "features"},
 	}
 	for _, def := range definitions {
 		a.settings.RegisterDefinition(def)
@@ -1174,8 +2201,8 @@ func (a *Admin) bootstrapSettingsDefaults(ctx context.Context) error {
 	if a.config.Theme != "" {
 		systemValues["admin.theme"] = a.config.Theme
 	}
-	systemValues["admin.dashboard_enabled"] = a.features.Dashboard
-	systemValues["admin.search_enabled"] = a.features.Search
+	systemValues["admin.dashboard_enabled"] = dashboardEnabled
+	systemValues["admin.search_enabled"] = searchEnabled
 
 	if len(systemValues) > 0 {
 		_ = a.settings.Apply(ctx, SettingsBundle{Scope: SettingsScopeSystem, Values: systemValues})
