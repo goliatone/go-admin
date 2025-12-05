@@ -11,9 +11,20 @@
   {% if theme %}
   <style>
     :root {
+      /* Color tokens */
       {% if theme.tokens.primary %}--color-primary: {{ theme.tokens.primary }};{% endif %}
       {% if theme.tokens.accent %}--color-accent: {{ theme.tokens.accent }};{% endif %}
       {% if theme.tokens.surface %}--color-surface: {{ theme.tokens.surface }};{% endif %}
+
+      /* Sidebar dimension tokens */
+      {% if theme.tokens["sidebar-width"] %}--sidebar-width: {{ theme.tokens["sidebar-width"] }};{% endif %}
+      {% if theme.tokens["sidebar-padding-x"] %}--sidebar-padding-x: {{ theme.tokens["sidebar-padding-x"] }};{% endif %}
+      {% if theme.tokens["sidebar-padding-y"] %}--sidebar-padding-y: {{ theme.tokens["sidebar-padding-y"] }};{% endif %}
+      {% if theme.tokens["sidebar-item-height"] %}--sidebar-item-height: {{ theme.tokens["sidebar-item-height"] }};{% endif %}
+      {% if theme.tokens["sidebar-title-height"] %}--sidebar-title-height: {{ theme.tokens["sidebar-title-height"] }};{% endif %}
+      {% if theme.tokens["sidebar-gap-sections"] %}--sidebar-gap-sections: {{ theme.tokens["sidebar-gap-sections"] }};{% endif %}
+      {% if theme.tokens["sidebar-icon-size"] %}--sidebar-icon-size: {{ theme.tokens["sidebar-icon-size"] }};{% endif %}
+      {% if theme.tokens["sidebar-footer-height"] %}--sidebar-footer-height: {{ theme.tokens["sidebar-footer-height"] }};{% endif %}
     }
     .nav-item.active {
       background: var(--color-primary, #2563eb);

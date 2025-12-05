@@ -1,25 +1,28 @@
-{% set session = session_user|default:{} %}
 <div class="sidebar-footer px-4 pt-4 border-t border-white/10 flex items-center gap-3">
-  <div class="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center font-semibold text-blue-400">
-    {{ session.initial|default:"?" }}
-  </div>
+  {% if session_user.avatar_url %}
+    <img src="{{ session_user.avatar_url }}" alt="{{ session_user.display_name|default:"User" }}" class="w-9 h-9 rounded-full object-cover border border-white/10 bg-white/5" loading="lazy">
+  {% else %}
+    <div class="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center font-semibold text-blue-400">
+      {{ session_user.initial|default:"?" }}
+    </div>
+  {% endif %}
   <div class="flex-1 sidebar-user-info">
     <div class="text-sm font-medium text-zinc-200">
-      {% if session.display_name %}{{ session.display_name }}{% else %}Guest{% endif %}
+      {{ session_user.display_name|default:"Guest" }}
     </div>
     <div class="text-xs text-zinc-400">
-      {% if session.subtitle %}
-        {{ session.subtitle }}
-      {% elif session.role or session.tenant_id %}
-        {% if session.role %}{{ session.role }}{% endif %}{% if session.role and session.tenant_id %} · {% endif %}{% if session.tenant_id %}{{ session.tenant_id }}{% endif %}
+      {% if session_user.subtitle %}
+        {{ session_user.subtitle }}
+      {% elif session_user.role or session_user.tenant_id %}
+        {% if session_user.role %}{{ session_user.role }}{% endif %}{% if session_user.role and session_user.tenant_id %} · {% endif %}{% if session_user.tenant_id %}{{ session_user.tenant_id }}{% endif %}
       {% else %}
         Not signed in
       {% endif %}
     </div>
   </div>
-  {% if session.role %}
+  {% if session_user.role %}
     <span class="text-[11px] px-2 py-1 rounded-full bg-white/10 text-zinc-300 capitalize sidebar-user-info">
-      {{ session.role }}
+      {{ session_user.role }}
     </span>
   {% endif %}
 </div>
