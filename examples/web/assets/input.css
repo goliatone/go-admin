@@ -4,54 +4,118 @@
 
 @layer components {
   .nav-item {
-    @apply flex items-center gap-3 px-3 py-2.5 mb-1 text-zinc-400 no-underline rounded-md text-sm transition-all duration-150;
+    @apply flex items-center gap-3 px-3 py-2 text-sidebar-text-muted no-underline rounded-lg text-sm transition-all duration-150;
   }
 
   .nav-item:hover {
-    @apply bg-white/5 text-white;
+    @apply bg-sidebar-bg-hover text-sidebar-text;
   }
 
   .nav-item.active {
-    @apply bg-blue-500/15 text-blue-400;
+    @apply bg-sidebar-bg-active text-sidebar-text;
+  }
+
+  /* Active state with 8px padding on collapsed sidebar */
+  .sidebar[data-collapsed="true"] .nav-item.active {
+    @apply mx-2;
   }
 
   .nav-item i {
-    @apply text-xl opacity-80;
+    @apply text-base opacity-80;
+  }
+
+  .nav-item:hover i,
+  .nav-item.active i {
+    @apply opacity-100;
+  }
+
+  /* Badge styles */
+  .badge-count {
+    @apply ml-auto text-xs px-1.5 py-0.5 rounded bg-sidebar-bg-hover text-sidebar-text-dimmed font-medium;
+  }
+
+  .badge-new {
+    @apply ml-auto text-[10px] px-2 py-0.5 rounded-full bg-purple-600 text-white font-medium uppercase tracking-wide;
+  }
+
+  /* Keyboard shortcut styles */
+  kbd {
+    @apply text-[11px] px-1.5 py-0.5 rounded bg-sidebar-bg-hover text-sidebar-text-dimmed font-mono border border-sidebar-border;
   }
 
   .sidebar {
-    @apply w-60 transition-all duration-300;
-  }
-
-  .sidebar-header {
-    @apply px-5 pb-6 flex items-center justify-between;
-  }
-
-  .sidebar-toggle-btn {
-    @apply p-2 rounded text-zinc-300 hover:bg-white/10;
+    @apply transition-all duration-300;
   }
 
   .sidebar[data-collapsed="true"] {
-    @apply w-16;
+    width: 64px !important;
   }
 
-  .sidebar[data-collapsed="true"] .sidebar-title,
+  /* Hide text elements when collapsed */
   .sidebar[data-collapsed="true"] .nav-text,
-  .sidebar[data-collapsed="true"] .menu-group-title,
-  .sidebar[data-collapsed="true"] .sidebar-search,
-  .sidebar[data-collapsed="true"] .sidebar-user-info {
+  .sidebar[data-collapsed="true"] .sidebar-user-info,
+  .sidebar[data-collapsed="true"] kbd,
+  .sidebar[data-collapsed="true"] .menu-group button span {
     @apply hidden;
   }
 
-  .sidebar[data-collapsed="true"] .sidebar-logo {
-    @apply mx-auto;
+  /* Hide search when collapsed */
+  .sidebar[data-collapsed="true"] .sidebar-search-container {
+    @apply hidden;
   }
 
+  /* Center logo when collapsed */
+  .sidebar[data-collapsed="true"] .sidebar-logo {
+    @apply mx-auto max-w-8;
+  }
+
+  /* Center nav items when collapsed */
   .sidebar[data-collapsed="true"] .nav-item {
     @apply justify-center;
+    width: 48px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 0;
+    padding-right: 0;
   }
 
-  .sidebar[data-collapsed="true"] .submenu-indicator {
+  /* Hide external link icons when collapsed */
+  .sidebar[data-collapsed="true"] .nav-item .iconoir-open-new-window {
+    @apply hidden;
+  }
+
+  /* Show ellipsis for group headers when collapsed */
+  .sidebar[data-collapsed="true"] .menu-group button {
+    @apply justify-center px-0 mx-0;
+  }
+
+  /* Center user profile when collapsed */
+  .sidebar[data-collapsed="true"] .sidebar-bottom > div:last-child > div {
+    @apply justify-center px-0;
+  }
+
+  /* Remove padding from bottom section when collapsed */
+  .sidebar[data-collapsed="true"] .sidebar-bottom {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Remove padding from nav when collapsed */
+  .sidebar[data-collapsed="true"] nav {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .sidebar[data-collapsed="true"] .menu-group-ellipsis {
+    @apply block;
+  }
+
+  .menu-group-ellipsis {
+    @apply hidden;
+  }
+
+  /* Hide chevron and show only ellipsis when collapsed */
+  .sidebar[data-collapsed="true"] .menu-group button i {
     @apply hidden;
   }
 
