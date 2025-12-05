@@ -21,7 +21,11 @@ func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active 
 		reqCtx = context.Background()
 	}
 	session := BuildSessionUser(reqCtx)
-	ctx["session_user"] = session.ToViewContext()
+	sessionView := session.ToViewContext()
+	if sessionView["avatar_url"] == "" {
+		sessionView["avatar_url"] = path.Join(cfg.BasePath, "assets", "avatar-default.svg")
+	}
+	ctx["session_user"] = sessionView
 	ctx["nav_items"] = BuildNavItems(adm, cfg, reqCtx, active)
 	if active != "" {
 		ctx["active"] = active

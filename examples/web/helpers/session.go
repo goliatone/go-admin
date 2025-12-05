@@ -29,6 +29,7 @@ type SessionUser struct {
 	DisplayName     string            `json:"display_name,omitempty"`
 	Subtitle        string            `json:"subtitle,omitempty"`
 	Initial         string            `json:"initial,omitempty"`
+	AvatarURL       string            `json:"avatar_url,omitempty"`
 }
 
 // BuildSessionUser extracts actor/claims data from the request context.
@@ -90,6 +91,9 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 	session.OrganizationID = firstNonEmpty(session.OrganizationID,
 		stringFromMetadata(session.Metadata, "organization_id", "org_id", "org"),
 	)
+	session.AvatarURL = firstNonEmpty(session.AvatarURL,
+		stringFromMetadata(session.Metadata, "avatar", "avatar_url", "picture", "image_url"),
+	)
 
 	session.Scopes = collectScopes(session.Metadata, session.ResourceRoles)
 
@@ -97,11 +101,13 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 		stringFromMetadata(session.Metadata, "name", "display_name"),
 		session.Username,
 		session.Email,
-		session.Subject,
-		session.ID,
 	)
 	if session.DisplayName == "" {
-		session.DisplayName = "Guest"
+		if session.IsAuthenticated {
+			session.DisplayName = "Authenticated User"
+		} else {
+			session.DisplayName = "Guest"
+		}
 	}
 
 	session.IsAuthenticated = actor != nil || claims != nil
@@ -128,6 +134,7 @@ func (s SessionUser) ToViewContext() map[string]any {
 		"display_name":     s.DisplayName,
 		"subtitle":         s.Subtitle,
 		"initial":          s.Initial,
+		"avatar_url":       s.AvatarURL,
 	}
 
 	if s.IssuedAt != nil {
