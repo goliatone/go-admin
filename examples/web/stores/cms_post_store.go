@@ -1,0 +1,574 @@
+package stores
+
+import (
+	"context"
+	"strings"
+	"time"
+
+	"github.com/goliatone/go-admin/admin"
+)
+
+// CMSPostStore adapts go-cms content to the post store contract.
+type CMSPostStore struct {
+	repo          *admin.CMSContentRepository
+	content       admin.CMSContentService
+	activity      admin.ActivitySink
+	defaultLocale string
+}
+
+// NewCMSPostStore builds a content-backed post store. Returns nil when no content service is provided.
+func NewCMSPostStore(content admin.CMSContentService, defaultLocale string) *CMSPostStore {
+	if content == nil {
+		return nil
+	}
+	if strings.TrimSpace(defaultLocale) == "" {
+		defaultLocale = "en"
+	}
+	return &CMSPostStore{
+		repo:          NewFilteredContentRepository(content, "post"),
+		content:       content,
+		defaultLocale: defaultLocale,
+	}
+}
+
+// WithActivitySink wires an activity sink for CRUD events.
+func (s *CMSPostStore) WithActivitySink(sink admin.ActivitySink) {
+	s.activity = sink
+}
+
+// Seed inserts sample posts when the CMS backend is empty.
+func (s *CMSPostStore) Seed() {
+	if s == nil || s.repo == nil {
+		return
+	}
+	ctx := context.Background()
+	if existing, _, err := s.List(ctx, admin.ListOptions{PerPage: 1}); err == nil && len(existing) > 0 {
+		return
+	}
+
+	now := time.Now()
+	seeds := []map[string]any{
+		{
+			"title":          "Getting Started with Go",
+			"slug":           "getting-started-go",
+			"content":        "Learn the basics of Go programming...",
+			"excerpt":        "A beginner's guide to Go",
+			"author":         "jane.smith",
+			"category":       "tutorial",
+			"status":         "published",
+			"published_at":   now.Add(-30 * 24 * time.Hour),
+			"featured_image": "/media/go-tutorial.jpg",
+			"tags":           "go,programming,tutorial",
+			"created_at":     now.Add(-31 * 24 * time.Hour),
+			"updated_at":     now.Add(-30 * 24 * time.Hour),
+		},
+		{
+			"title":          "Building REST APIs",
+			"slug":           "building-rest-apis",
+			"content":        "How to build RESTful APIs in Go...",
+			"excerpt":        "REST API development guide",
+			"author":         "jane.smith",
+			"category":       "tutorial",
+			"status":         "published",
+			"published_at":   now.Add(-20 * 24 * time.Hour),
+			"featured_image": "/media/rest-api.jpg",
+			"tags":           "go,api,rest",
+			"created_at":     now.Add(-21 * 24 * time.Hour),
+			"updated_at":     now.Add(-20 * 24 * time.Hour),
+		},
+		{
+			"title":          "Company News: Q4 2024",
+			"slug":           "company-news-q4-2024",
+			"content":        "Exciting updates from Q4...",
+			"excerpt":        "Our Q4 achievements",
+			"author":         "john.doe",
+			"category":       "news",
+			"status":         "published",
+			"published_at":   now.Add(-10 * 24 * time.Hour),
+			"featured_image": "/media/news.jpg",
+			"tags":           "news,company",
+			"created_at":     now.Add(-11 * 24 * time.Hour),
+			"updated_at":     now.Add(-10 * 24 * time.Hour),
+		},
+		{
+			"title":        "Database Optimization Tips",
+			"slug":         "database-optimization",
+			"content":      "Tips for optimizing database queries...",
+			"excerpt":      "Improve your database performance",
+			"author":       "jane.smith",
+			"category":     "blog",
+			"status":       "draft",
+			"published_at": nil,
+			"tags":         "database,optimization",
+			"created_at":   now.Add(-5 * 24 * time.Hour),
+			"updated_at":   now.Add(-1 * 24 * time.Hour),
+		},
+		{
+			"title":          "Upcoming Features in 2025",
+			"slug":           "upcoming-features-2025",
+			"content":        "What's coming in 2025...",
+			"excerpt":        "Preview of 2025 features",
+			"author":         "admin",
+			"category":       "news",
+			"status":         "scheduled",
+			"published_at":   now.Add(7 * 24 * time.Hour),
+			"featured_image": "/media/2025.jpg",
+			"tags":           "news,roadmap",
+			"created_at":     now.Add(-2 * 24 * time.Hour),
+			"updated_at":     now.Add(-2 * 24 * time.Hour),
+		},
+	}
+
+	for _, rec := range seeds {
+		rec["locale"] = s.defaultLocale
+		if _, err := s.Create(ctx, rec); err != nil {
+			continue
+		}
+	}
+}
+
+// List returns CMS posts filtered by content_type, locale, and search.
+func (s *CMSPostStore) List(ctx context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {
+	if s == nil || s.repo == nil {
+		return nil, 0, admin.ErrNotFound
+	}
+	locale := s.resolveLocale(opts)
+	contents, err := s.content.Contents(ctx, locale)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	search := strings.ToLower(extractSearchFromOptions(opts))
+	records := []map[string]any{}
+	for _, item := range contents {
+		if !strings.EqualFold(item.ContentType, "post") {
+			continue
+		}
+		if search != "" && !strings.Contains(strings.ToLower(item.Title), search) && !strings.Contains(strings.ToLower(item.Slug), search) && !strings.Contains(strings.ToLower(asString(item.Data["content"], "")), search) {
+			continue
+		}
+		records = append(records, s.postToRecord(item))
+	}
+	return records, len(records), nil
+}
+
+// Get returns a post by id.
+func (s *CMSPostStore) Get(ctx context.Context, id string) (map[string]any, error) {
+	if s == nil || s.repo == nil {
+		return nil, admin.ErrNotFound
+	}
+	record, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	post := cmsContentFromMap(record)
+	if !strings.EqualFold(post.ContentType, "post") {
+		return nil, admin.ErrNotFound
+	}
+	return s.postToRecord(post), nil
+}
+
+// Create inserts a post into the CMS backend.
+func (s *CMSPostStore) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
+	if s == nil || s.repo == nil {
+		return nil, admin.ErrNotFound
+	}
+	payload := s.postPayload(record, nil)
+	created, err := s.repo.Create(ctx, payload)
+	if err != nil {
+		return nil, err
+	}
+	out := s.postToRecord(cmsContentFromMap(created))
+	s.emitActivity(ctx, "created", out)
+	return out, nil
+}
+
+// Update modifies an existing post.
+func (s *CMSPostStore) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
+	if s == nil || s.repo == nil {
+		return nil, admin.ErrNotFound
+	}
+	existing, err := s.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	record["id"] = id
+	payload := s.postPayload(record, existing)
+	updated, err := s.repo.Update(ctx, id, payload)
+	if err != nil {
+		return nil, err
+	}
+	out := s.postToRecord(cmsContentFromMap(updated))
+	s.emitActivity(ctx, "updated", out)
+	return out, nil
+}
+
+// Delete removes a post.
+func (s *CMSPostStore) Delete(ctx context.Context, id string) error {
+	if s == nil || s.repo == nil {
+		return admin.ErrNotFound
+	}
+	existing, _ := s.Get(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	s.emitActivity(ctx, "deleted", existing)
+	return nil
+}
+
+// Publish marks matching posts as published and stamps published_at.
+func (s *CMSPostStore) Publish(ctx context.Context, ids []string) ([]map[string]any, error) {
+	if s == nil || s.repo == nil {
+		return nil, admin.ErrNotFound
+	}
+
+	targets := normalizeIDSet(ids)
+	records, _, err := s.List(ctx, admin.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	updated := []map[string]any{}
+	for _, rec := range records {
+		id := stringID(rec["id"])
+		if !idMatches(targets, id) {
+			continue
+		}
+		if strings.EqualFold(asString(rec["status"], ""), "published") {
+			continue
+		}
+		rec["status"] = "published"
+		if parseTimeValue(rec["published_at"]).IsZero() {
+			rec["published_at"] = now
+		}
+		rec["updated_at"] = now
+		updatedRec, err := s.Update(ctx, id, rec)
+		if err != nil {
+			return nil, err
+		}
+		updated = append(updated, cloneRecord(updatedRec))
+	}
+	if len(updated) == 0 && len(targets) > 0 {
+		return nil, admin.ErrNotFound
+	}
+	return updated, nil
+}
+
+// Archive marks matching posts as archived.
+func (s *CMSPostStore) Archive(ctx context.Context, ids []string) ([]map[string]any, error) {
+	if s == nil || s.repo == nil {
+		return nil, admin.ErrNotFound
+	}
+
+	targets := normalizeIDSet(ids)
+	records, _, err := s.List(ctx, admin.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	updated := []map[string]any{}
+	for _, rec := range records {
+		id := stringID(rec["id"])
+		if !idMatches(targets, id) {
+			continue
+		}
+		if strings.EqualFold(asString(rec["status"], ""), "archived") {
+			continue
+		}
+		rec["status"] = "archived"
+		rec["updated_at"] = now
+		updatedRec, err := s.Update(ctx, id, rec)
+		if err != nil {
+			return nil, err
+		}
+		updated = append(updated, cloneRecord(updatedRec))
+	}
+	if len(updated) == 0 && len(targets) > 0 {
+		return nil, admin.ErrNotFound
+	}
+	return updated, nil
+}
+
+func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]any) map[string]any {
+	if record == nil {
+		record = map[string]any{}
+	}
+	now := time.Now()
+	locale := asString(record["locale"], asString(existing["locale"], s.defaultLocale))
+	content := asString(record["content"], asString(existing["content"], ""))
+	status := asString(record["status"], asString(existing["status"], "draft"))
+	createdAt := parseTimeValue(record["created_at"])
+	if createdAt.IsZero() {
+		createdAt = parseTimeValue(existing["created_at"])
+	}
+	if createdAt.IsZero() {
+		createdAt = now
+	}
+	updatedAt := parseTimeValue(record["updated_at"])
+	if updatedAt.IsZero() {
+		updatedAt = now
+	}
+
+	var publishedAt any
+	if ts := parseTimeValue(record["published_at"]); !ts.IsZero() {
+		publishedAt = ts
+	} else if ts := parseTimeValue(existing["published_at"]); !ts.IsZero() {
+		publishedAt = ts
+	}
+
+	payload := map[string]any{
+		"id":           asString(record["id"], asString(existing["id"], "")),
+		"title":        asString(record["title"], asString(existing["title"], "")),
+		"slug":         asString(record["slug"], asString(existing["slug"], "")),
+		"status":       status,
+		"locale":       locale,
+		"content_type": "post",
+		"data": map[string]any{
+			"content":        content,
+			"excerpt":        asString(record["excerpt"], asString(existing["excerpt"], "")),
+			"category":       asString(record["category"], asString(existing["category"], "")),
+			"featured_image": asString(record["featured_image"], asString(existing["featured_image"], "")),
+			"tags":           asString(record["tags"], asString(existing["tags"], "")),
+			"author":         asString(record["author"], asString(existing["author"], resolveActivityActor(nil))),
+			"created_at":     createdAt,
+			"updated_at":     updatedAt,
+		},
+	}
+	if publishedAt != nil {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["published_at"] = publishedAt
+	}
+	return payload
+}
+
+func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
+	record := map[string]any{
+		"id":             content.ID,
+		"title":          content.Title,
+		"slug":           content.Slug,
+		"status":         content.Status,
+		"locale":         content.Locale,
+		"content_type":   content.ContentType,
+		"content":        "",
+		"excerpt":        "",
+		"category":       "",
+		"featured_image": "",
+		"tags":           "",
+		"author":         "",
+	}
+
+	data := cloneRecord(content.Data)
+	record["content"] = asString(data["content"], "")
+	record["excerpt"] = asString(data["excerpt"], "")
+	record["category"] = asString(data["category"], "")
+	record["featured_image"] = asString(data["featured_image"], "")
+	record["tags"] = asString(data["tags"], "")
+	record["author"] = asString(data["author"], "")
+
+	if created := parseTimeValue(data["created_at"]); !created.IsZero() {
+		record["created_at"] = created
+	}
+	if updated := parseTimeValue(data["updated_at"]); !updated.IsZero() {
+		record["updated_at"] = updated
+	}
+	if published := parseTimeValue(data["published_at"]); !published.IsZero() {
+		record["published_at"] = published
+	}
+
+	return record
+}
+
+func (s *CMSPostStore) resolveLocale(opts admin.ListOptions) string {
+	if opts.Filters != nil {
+		if loc, ok := opts.Filters["locale"].(string); ok && strings.TrimSpace(loc) != "" {
+			return loc
+		}
+		if loc, ok := opts.Filters["Locale"].(string); ok && strings.TrimSpace(loc) != "" {
+			return loc
+		}
+	}
+	return s.defaultLocale
+}
+
+func (s *CMSPostStore) emitActivity(ctx context.Context, verb string, post map[string]any) {
+	if s.activity == nil || post == nil {
+		return
+	}
+	entry := admin.ActivityEntry{
+		Actor:  resolveActivityActor(ctx),
+		Action: verb,
+		Object: "post:" + stringID(post["id"]),
+		Metadata: map[string]any{
+			"title":    post["title"],
+			"slug":     post["slug"],
+			"status":   post["status"],
+			"category": post["category"],
+		},
+	}
+	_ = s.activity.Record(ctx, entry)
+}
+
+// NewFilteredContentRepository wraps CMSContentService to enforce a fixed content_type.
+func NewFilteredContentRepository(content admin.CMSContentService, contentType string) *admin.CMSContentRepository {
+	return admin.NewCMSContentRepository(&filteredContentService{inner: content, contentType: contentType})
+}
+
+type filteredContentService struct {
+	inner       admin.CMSContentService
+	contentType string
+}
+
+func (f *filteredContentService) Pages(ctx context.Context, locale string) ([]admin.CMSPage, error) {
+	return nil, admin.ErrNotFound
+}
+
+func (f *filteredContentService) Page(ctx context.Context, id, locale string) (*admin.CMSPage, error) {
+	return nil, admin.ErrNotFound
+}
+
+func (f *filteredContentService) CreatePage(ctx context.Context, page admin.CMSPage) (*admin.CMSPage, error) {
+	return nil, admin.ErrNotFound
+}
+
+func (f *filteredContentService) UpdatePage(ctx context.Context, page admin.CMSPage) (*admin.CMSPage, error) {
+	return nil, admin.ErrNotFound
+}
+
+func (f *filteredContentService) DeletePage(ctx context.Context, id string) error {
+	return admin.ErrNotFound
+}
+
+func (f *filteredContentService) Contents(ctx context.Context, locale string) ([]admin.CMSContent, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	items, err := f.inner.Contents(ctx, locale)
+	if err != nil {
+		return nil, err
+	}
+	filtered := []admin.CMSContent{}
+	for _, item := range items {
+		if !strings.EqualFold(item.ContentType, f.contentType) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered, nil
+}
+
+func (f *filteredContentService) Content(ctx context.Context, id, locale string) (*admin.CMSContent, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	content, err := f.inner.Content(ctx, id, locale)
+	if err != nil {
+		return nil, err
+	}
+	if !strings.EqualFold(content.ContentType, f.contentType) {
+		return nil, admin.ErrNotFound
+	}
+	return content, nil
+}
+
+func (f *filteredContentService) CreateContent(ctx context.Context, content admin.CMSContent) (*admin.CMSContent, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	content.ContentType = f.contentType
+	return f.inner.CreateContent(ctx, content)
+}
+
+func (f *filteredContentService) UpdateContent(ctx context.Context, content admin.CMSContent) (*admin.CMSContent, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	content.ContentType = f.contentType
+	return f.inner.UpdateContent(ctx, content)
+}
+
+func (f *filteredContentService) DeleteContent(ctx context.Context, id string) error {
+	if f.inner == nil {
+		return admin.ErrNotFound
+	}
+	return f.inner.DeleteContent(ctx, id)
+}
+
+func (f *filteredContentService) BlockDefinitions(ctx context.Context) ([]admin.CMSBlockDefinition, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	return f.inner.BlockDefinitions(ctx)
+}
+
+func (f *filteredContentService) CreateBlockDefinition(ctx context.Context, def admin.CMSBlockDefinition) (*admin.CMSBlockDefinition, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	return f.inner.CreateBlockDefinition(ctx, def)
+}
+
+func (f *filteredContentService) UpdateBlockDefinition(ctx context.Context, def admin.CMSBlockDefinition) (*admin.CMSBlockDefinition, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	return f.inner.UpdateBlockDefinition(ctx, def)
+}
+
+func (f *filteredContentService) DeleteBlockDefinition(ctx context.Context, id string) error {
+	if f.inner == nil {
+		return admin.ErrNotFound
+	}
+	return f.inner.DeleteBlockDefinition(ctx, id)
+}
+
+func (f *filteredContentService) BlocksForContent(ctx context.Context, contentID, locale string) ([]admin.CMSBlock, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	return f.inner.BlocksForContent(ctx, contentID, locale)
+}
+
+func (f *filteredContentService) SaveBlock(ctx context.Context, block admin.CMSBlock) (*admin.CMSBlock, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	return f.inner.SaveBlock(ctx, block)
+}
+
+func (f *filteredContentService) DeleteBlock(ctx context.Context, id string) error {
+	if f.inner == nil {
+		return admin.ErrNotFound
+	}
+	return f.inner.DeleteBlock(ctx, id)
+}
+
+func cmsContentFromMap(record map[string]any) admin.CMSContent {
+	if record == nil {
+		return admin.CMSContent{Data: map[string]any{}}
+	}
+	content := admin.CMSContent{
+		Data: map[string]any{},
+	}
+	if id, ok := record["id"].(string); ok {
+		content.ID = id
+	}
+	if title, ok := record["title"].(string); ok {
+		content.Title = title
+	}
+	if slug, ok := record["slug"].(string); ok {
+		content.Slug = slug
+	}
+	if locale, ok := record["locale"].(string); ok {
+		content.Locale = locale
+	}
+	if status, ok := record["status"].(string); ok {
+		content.Status = status
+	}
+	if ctype, ok := record["content_type"].(string); ok {
+		content.ContentType = ctype
+	}
+	if data, ok := record["data"].(map[string]any); ok {
+		content.Data = cloneRecord(data)
+	}
+	return content
+}
