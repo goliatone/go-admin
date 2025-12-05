@@ -93,7 +93,7 @@ func (m *usersModule) WithTranslator(t admin.Translator) {
 
 // pagesModule registers the pages panel and menu entry.
 type pagesModule struct {
-	store      *stores.PageStore
+	store      stores.PageRepository
 	menuCode   string
 	defaultLoc string
 	basePath   string
@@ -175,7 +175,7 @@ func (m *pagesModule) WithTranslator(t admin.Translator) {
 
 // postsModule registers the posts panel and menu entry.
 type postsModule struct {
-	store      *stores.PostStore
+	store      stores.PostRepository
 	menuCode   string
 	defaultLoc string
 	basePath   string
