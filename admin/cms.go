@@ -97,19 +97,26 @@ type Menu struct {
 
 // MenuItem describes a single navigation node.
 type MenuItem struct {
-	ID          string
-	Label       string
-	Target      map[string]any
-	Icon        string
-	Position    int
-	Children    []MenuItem
-	Locale      string
-	Badge       map[string]any
-	Permissions []string
-	Menu        string
-	Classes     []string
-	Styles      map[string]string
-	ParentID    string
+	ID            string            `json:"id,omitempty"`
+	Type          string            `json:"type,omitempty"`
+	Label         string            `json:"label,omitempty"`
+	LabelKey      string            `json:"label_key,omitempty"`
+	GroupTitle    string            `json:"group_title,omitempty"`
+	GroupTitleKey string            `json:"group_title_key,omitempty"`
+	Target        map[string]any    `json:"target,omitempty"`
+	Icon          string            `json:"icon,omitempty"`
+	Position      int               `json:"position,omitempty"`
+	Children      []MenuItem        `json:"children,omitempty"`
+	Locale        string            `json:"locale,omitempty"`
+	Badge         map[string]any    `json:"badge,omitempty"`
+	Permissions   []string          `json:"permissions,omitempty"`
+	Menu          string            `json:"menu,omitempty"`
+	Classes       []string          `json:"classes,omitempty"`
+	Styles        map[string]string `json:"styles,omitempty"`
+	ParentID      string            `json:"parent_id,omitempty"`
+	Collapsible   bool              `json:"collapsible,omitempty"`
+	Collapsed     bool              `json:"collapsed,omitempty"`
+	order         int               `json:"-"`
 }
 
 // CMSPage represents a page managed by the CMS.
