@@ -1,4 +1,13 @@
 <aside id="sidebar" class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden" data-collapsed="false" style="width: var(--sidebar-width, 260px);">
+  <!-- Header: Logo -->
+  <div class="flex items-center gap-2" style="padding: var(--sidebar-padding-y, 12px) var(--sidebar-padding-x, 12px);">
+    <a href="{{ base_path }}" class="flex items-center no-underline flex-1 min-w-0">
+      <img src="{{ base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo w-full h-auto" style="max-height: 32px;" />
+    </a>
+    <button id="sidebar-toggle" class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0" aria-label="Toggle sidebar">
+      <i class="iconoir-menu text-lg text-sidebar-text-muted"></i>
+    </button>
+  </div>
 
   <!-- Search Bar -->
   <div class="sidebar-search-container px-3 pb-3">

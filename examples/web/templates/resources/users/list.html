@@ -11,55 +11,209 @@
 </header>
 
 <div class="flex-1 p-8 overflow-y-auto">
-  <div class="flex gap-4 items-center mb-6">
-    <input
-      type="text"
-      id="resource-search"
-      class="flex-1 px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-      placeholder="Search..."
-    >
-    <span class="text-zinc-500 text-sm" id="results-count">{{ total|default:"0"|integer }} items</span>
+  {% if items %}
+  <!-- DataTable Container -->
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+    <!-- DataTable Toolbar -->
+    <div class="px-6 py-4 border-b border-gray-200">
+      <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+        <!-- Left: Search Input -->
+        <div class="relative max-w-xs w-full">
+          <label for="table-search" class="sr-only">Search</label>
+          <input type="text"
+                 name="table-search"
+                 id="table-search"
+                 class="py-2 px-3 ps-9 block w-full border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none"
+                 placeholder="Search for items">
+          <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3">
+            <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Right: Controls -->
+        <div class="flex items-center gap-x-3">
+          <!-- Column Visibility Toggle -->
+          <div class="relative">
+            <button id="column-toggle-btn" type="button"
+                    class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
+              <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              Columns
+            </button>
+            <div id="column-toggle-menu" class="hidden absolute right-0 z-10 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div class="p-3 space-y-2">
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" value="1" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Username</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" value="2" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Email</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" value="3" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Role</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" value="4" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Status</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" value="5" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Created</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Export Dropdown -->
+          <div class="relative">
+            <button id="export-btn" type="button"
+                    class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
+              <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              Export
+            </button>
+            <div id="export-menu" class="hidden absolute right-0 z-10 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div class="p-1">
+                <button id="export-copy" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  Copy
+                </button>
+                <button id="export-csv" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  CSV
+                </button>
+                <button id="export-excel" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  Excel
+                </button>
+                <button id="export-pdf" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  PDF
+                </button>
+                <button id="export-print" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  Print
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per Page Selector -->
+          <div class="flex items-center gap-x-2">
+            <span class="text-sm text-gray-600">Per page:</span>
+            <select id="hs-table-pagination-page-size"
+                    class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table id="users-datatable" class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <!-- Selection Column -->
+            <th scope="col" class="px-6 py-3 text-start">
+              <label class="flex">
+                <input type="checkbox"
+                       id="hs-table-checkbox-all"
+                       class="shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none">
+                <span class="sr-only">Select all</span>
+              </label>
+            </th>
+            {% for col in columns %}
+            <th scope="col" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {{ col.label }}
+            </th>
+            {% endfor %}
+            <th scope="col" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+          <!-- Filter Row - Dynamically populated by EnhancedDataTable -->
+          <tr class="bg-gray-100" id="filter-row">
+            <th></th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="username" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="email" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <select data-filter-column="role" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+                <option value="">All</option>
+                <option value="admin">Admin</option>
+                <option value="editor">Editor</option>
+                <option value="member">Member</option>
+                <option value="viewer">Viewer</option>
+                <option value="guest">Guest</option>
+              </select>
+            </th>
+            <th class="px-6 py-2">
+              <select data-filter-column="status" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="created_at" placeholder="YYYY-MM-DD" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
+          <!-- Rows will be dynamically rendered by EnhancedDataTable -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination Footer -->
+    <div class="px-6 py-4 border-t border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-600">
+            Showing <span class="font-medium" id="table-info-start">1</span> to
+            <span class="font-medium" id="table-info-end">10</span> of
+            <span class="font-medium" id="table-info-total">{{ total|default:"0" }}</span> results
+          </p>
+        </div>
+        <div>
+          <nav id="table-pagination" class="flex items-center gap-x-1">
+            <!-- Pagination buttons will be inserted here -->
+          </nav>
+        </div>
+      </div>
+    </div>
   </div>
 
-  {% if items %}
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
-    <table class="w-full border-collapse">
-      <thead>
-        <tr class="bg-gray-50 border-b border-gray-200">
-          {% for col in columns %}
-            <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide">{{ col.label }}</th>
-          {% endfor %}
-          <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="resource-table-body">
-        {% for item in items %}
-        <tr data-resource-name="{{ resource }}" data-resource-id="{{ item.id }}" class="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
-          {% for col in columns %}
-            <td class="px-4 py-4 text-sm text-admin-dark">
-              {% if col.key == 'status' %}
-                <span class="status-badge status-{{ item[col.key] }}">{{ item[col.key]|default:"-" }}</span>
-              {% else %}
-                {{ item[col.key]|default:"-" }}
-              {% endif %}
-            </td>
-          {% endfor %}
-          <td class="px-4 py-4">
-            <div class="flex gap-2">
-              {% if item.actions.view %}<a href="{{ item.actions.view }}" class="btn btn-sm btn-secondary">View</a>{% endif %}
-              {% if item.actions.edit %}<a href="{{ item.actions.edit }}" class="btn btn-sm btn-primary">Edit</a>{% endif %}
-              {% if item.actions.delete %}
-                <form method="POST" action="{{ item.actions.delete }}" class="inline">
-                  <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this {{ resource_label|default:resource|lower }}?')">Delete</button>
-                </form>
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <!-- Bulk Actions Bar (shown when items selected) -->
+  <div id="bulk-actions-bar" class="hidden mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div class="flex items-center justify-between">
+      <span class="text-sm text-blue-900">
+        <span id="selected-count" class="font-semibold">0</span> items selected
+      </span>
+      <div class="flex gap-2">
+        <button type="button"
+                onclick="bulkAction('export')"
+                class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white disabled:opacity-50 disabled:pointer-events-none">
+          Export Selected
+        </button>
+        <button type="button"
+                onclick="bulkAction('delete')"
+                class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-red-600 text-red-600 hover:bg-red-600 hover:text-white disabled:opacity-50 disabled:pointer-events-none">
+          Delete Selected
+        </button>
+      </div>
+    </div>
   </div>
+
   {% else %}
   <div class="text-center py-16">
     <div class="text-6xl mb-4">📄</div>
@@ -72,24 +226,56 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-  // Simple client-side search across all columns
-  document.getElementById('resource-search')?.addEventListener('input', function(e) {
-    const query = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('#resource-table-body tr');
-    let visible = 0;
+<script type="module">
+import { DataGrid, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
 
-    rows.forEach(row => {
-      const cells = Array.from(row.querySelectorAll('td')).map(td => td.textContent.toLowerCase());
-      const matches = cells.some(text => text.includes(query));
-      row.style.display = matches ? '' : 'none';
-      if (matches) visible++;
-    });
-
-    const label = document.getElementById('results-count');
-    if (label) {
-      label.textContent = `${visible} item${visible !== 1 ? 's' : ''}`;
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize the new TypeScript DataGrid component
+  const grid = new DataGrid({
+    tableId: 'users-datatable',
+    apiEndpoint: '/admin/crud/users',
+    columns: [
+      { field: 'username', label: 'Username', sortable: true, filterable: true },
+      { field: 'email', label: 'Email', sortable: true, filterable: true },
+      { field: 'role', label: 'Role', sortable: true, filterable: true, render: (value) => `<span class="role-badge role-${value}">${value}</span>` },
+      { field: 'status', label: 'Status', sortable: true, filterable: true, render: (value) => `<span class="status-badge status-${value}">${value}</span>` },
+      { field: 'created_at', label: 'Created', sortable: true, filterable: true }
+    ],
+    perPage: 10,
+    searchDelay: 300,
+    behaviors: {
+      search: new GoCrudSearchBehavior(['username', 'email']),
+      filter: new GoCrudFilterBehavior(),
+      pagination: new GoCrudPaginationBehavior(),
+      sort: new GoCrudSortBehavior(),
+      export: new GoCrudExportBehavior('/admin/crud/users'),
+      bulkActions: new GoCrudBulkActionBehavior('/admin/crud/users'),
+      columnVisibility: new DefaultColumnVisibilityBehavior(
+        ['username', 'email', 'role', 'status', 'created_at'],
+        'users_datatable_columns'
+      )
+    },
+    selectors: {
+      searchInput: '#table-search',
+      perPageSelect: '#table-per-page',
+      filterRow: '[data-filter-column]',
+      columnToggleBtn: '#column-toggle-btn',
+      columnToggleMenu: '#column-toggle-menu',
+      exportBtn: '#export-btn',
+      exportMenu: '#export-menu',
+      paginationContainer: '#table-pagination',
+      tableInfoStart: '#table-info-start',
+      tableInfoEnd: '#table-info-end',
+      tableInfoTotal: '#table-info-total',
+      selectAllCheckbox: '#table-checkbox-all',
+      rowCheckboxes: '.table-checkbox',
+      bulkActionsBar: '#bulk-actions-bar',
+      selectedCount: '#selected-count'
     }
   });
+
+  // Initialize the grid
+  grid.init();
+});
 </script>
 {% endblock %}
