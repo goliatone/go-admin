@@ -86,6 +86,39 @@ func TestGoAuthAuthorizerMapsPermissions(t *testing.T) {
 	}
 }
 
+func TestGoAuthAuthorizerDebugLogging(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	logs := 0
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		Debug:           true,
+		Logger: func(format string, args ...any) {
+			logs++
+		},
+	})
+	_ = authz.Can(ctx, "admin.settings.view", "")
+	if logs == 0 {
+		t.Fatalf("expected debug logger to be called when debug enabled")
+	}
+
+	logs = 0
+	authzOff := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		Debug:           false,
+		Logger: func(format string, args ...any) {
+			logs++
+		},
+	})
+	_ = authzOff.Can(ctx, "admin.settings.view", "")
+	if logs != 0 {
+		t.Fatalf("expected no debug logging when debug disabled")
+	}
+}
+
 func TestJobsAndNotificationsRoutesRequirePermission(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
