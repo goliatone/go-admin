@@ -1,0 +1,65 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ is_edit|yesno:"Edit Post,New Post" }} - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <h1 class="text-3xl font-bold text-admin-dark">{{ is_edit|yesno:"Edit Post,New Post" }}</h1>
+  <a href="{{ routes.index }}" class="text-sm text-blue-600 hover:text-blue-800">Back to list</a>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  <div class="bg-white border border-gray-200 rounded-xl p-6">
+    <form method="POST" action="{% if is_edit %}{{ routes.index }}/{{ item.id }}{% else %}{{ routes.index }}{% endif %}">
+      {% if is_edit %}<input type="hidden" name="id" value="{{ item.id }}">{% endif %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Title</span>
+          <input type="text" name="title" value="{{ item.title }}" required class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Slug</span>
+          <input type="text" name="slug" value="{{ item.slug }}" required class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Author</span>
+          <input type="text" name="author" value="{{ item.author }}" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Category</span>
+          <input type="text" name="category" value="{{ item.category }}" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Status</span>
+          <select name="status" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            <option value="draft" {% if item.status == "draft" %}selected{% endif %}>Draft</option>
+            <option value="published" {% if item.status == "published" %}selected{% endif %}>Published</option>
+            <option value="scheduled" {% if item.status == "scheduled" %}selected{% endif %}>Scheduled</option>
+            <option value="archived" {% if item.status == "archived" %}selected{% endif %}>Archived</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Excerpt</span>
+          <textarea name="excerpt" rows="2" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">{{ item.excerpt }}</textarea>
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Tags (comma separated)</span>
+          <input type="text" name="tags" value="{{ item.tags }}" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Featured Image</span>
+          <input type="text" name="featured_image" value="{{ item.featured_image }}" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block md:col-span-2">
+          <span class="text-sm font-medium text-gray-700">Content</span>
+          <textarea name="content" rows="6" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">{{ item.content }}</textarea>
+        </label>
+      </div>
+      <div class="mt-6 flex justify-end gap-3">
+        <a href="{{ routes.index }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">{{ is_edit|yesno:"Update Post,Create Post" }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

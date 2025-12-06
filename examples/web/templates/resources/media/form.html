@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ is_edit|yesno:"Edit Media,New Media" }} - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <h1 class="text-3xl font-bold text-admin-dark">{{ is_edit|yesno:"Edit Media,New Media" }}</h1>
+  <a href="{{ routes.index }}" class="text-sm text-blue-600 hover:text-blue-800">Back to list</a>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  <div class="bg-white border border-gray-200 rounded-xl p-6">
+    <form method="POST" action="{% if is_edit %}{{ routes.index }}/{{ item.id }}{% else %}{{ routes.index }}{% endif %}">
+      {% if is_edit %}<input type="hidden" name="id" value="{{ item.id }}">{% endif %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Filename</span>
+          <input type="text" name="filename" value="{{ item.filename }}" required class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Type</span>
+          <input type="text" name="type" value="{{ item.type }}" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Size</span>
+          <input type="text" name="size" value="{{ item.size }}" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">URL</span>
+          <input type="text" name="url" value="{{ item.url }}" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Uploaded By</span>
+          <input type="text" name="uploaded_by" value="{{ item.uploaded_by }}" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Alt Text</span>
+          <input type="text" name="alt_text" value="{{ item.alt_text }}" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+        </label>
+        <label class="block md:col-span-2">
+          <span class="text-sm font-medium text-gray-700">Caption</span>
+          <textarea name="caption" rows="3" class="mt-1 w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">{{ item.caption }}</textarea>
+        </label>
+      </div>
+      <div class="mt-6 flex justify-end gap-3">
+        <a href="{{ routes.index }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">{{ is_edit|yesno:"Update Media,Create Media" }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
