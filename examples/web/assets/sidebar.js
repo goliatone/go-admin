@@ -19,23 +19,50 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem(sidebarStateKey, nextState);
   });
 
-  document.querySelectorAll('[data-submenu-toggle]').forEach((toggle) => {
-    const target = toggle.getAttribute('data-submenu-toggle');
+  // User menu toggle
+  const userMenuToggle = document.getElementById('user-menu-toggle');
+  const userMenu = document.getElementById('user-menu');
+  const userMenuArrow = document.getElementById('user-menu-arrow');
+
+  userMenuToggle?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const isHidden = userMenu.classList.contains('hidden');
+    if (isHidden) {
+      userMenu.classList.remove('hidden');
+      userMenuArrow?.classList.add('rotate-180');
+    } else {
+      userMenu.classList.add('hidden');
+      userMenuArrow?.classList.remove('rotate-180');
+    }
+  });
+
+  // Close user menu when clicking outside
+  document.addEventListener('click', (event) => {
+    if (!userMenu?.contains(event.target) && event.target !== userMenuToggle) {
+      userMenu?.classList.add('hidden');
+      userMenuArrow?.classList.remove('rotate-180');
+    }
+  });
+
+  document.querySelectorAll('[data-submenu-toggle]').forEach((container) => {
+    const target = container.getAttribute('data-submenu-toggle');
     if (!target) {
       return;
     }
 
     const submenu = document.querySelector(`[data-submenu="${target}"]`);
-    if (!submenu) {
+    const toggleButton = container.querySelector('button.nav-item');
+    if (!submenu || !toggleButton) {
       return;
     }
 
     const storageKey = `submenu-${target}-collapsed`;
-    const indicator = toggle.querySelector('.submenu-indicator');
+    const indicator = toggleButton.querySelector('.submenu-indicator');
     const saved = localStorage.getItem(storageKey);
 
     const setExpanded = (expanded) => {
-      toggle.setAttribute('data-expanded', expanded.toString());
+      container.setAttribute('data-expanded', expanded.toString());
       submenu.classList.toggle('expanded', expanded);
       submenu.classList.toggle('collapsed', !expanded);
       if (indicator) {
@@ -46,13 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (saved === 'true') {
       setExpanded(false);
-    } else if (toggle.getAttribute('data-expanded') === 'true') {
+    } else if (container.getAttribute('data-expanded') === 'true') {
       setExpanded(true);
     }
 
-    toggle.addEventListener('click', (event) => {
+    // Attach click handler ONLY to the button, not the entire container
+    toggleButton.addEventListener('click', (event) => {
       event.preventDefault();
-      const isExpanded = toggle.getAttribute('data-expanded') === 'true';
+      const isExpanded = container.getAttribute('data-expanded') === 'true';
       setExpanded(!isExpanded);
     });
   });

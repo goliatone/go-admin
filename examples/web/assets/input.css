@@ -55,13 +55,25 @@
   .sidebar[data-collapsed="true"] .nav-text,
   .sidebar[data-collapsed="true"] .sidebar-user-info,
   .sidebar[data-collapsed="true"] kbd,
-  .sidebar[data-collapsed="true"] .menu-group button span {
+  .sidebar[data-collapsed="true"] .menu-group button span,
+  .sidebar[data-collapsed="true"] #user-menu,
+  .sidebar[data-collapsed="true"] .submenu,
+  .sidebar[data-collapsed="true"] .submenu-indicator {
     @apply hidden;
   }
 
   /* Hide search when collapsed */
   .sidebar[data-collapsed="true"] .sidebar-search-container {
     @apply hidden;
+  }
+
+  /* Hide logo link and center toggle button when collapsed */
+  .sidebar[data-collapsed="true"] .sidebar-header > a {
+    @apply hidden;
+  }
+
+  .sidebar[data-collapsed="true"] .sidebar-toggle-btn {
+    margin-left: 5px;
   }
 
   /* Center logo when collapsed */
