@@ -77,9 +77,10 @@ export class AdvancedSearch {
     // Restore criteria from URL on init
     this.restoreCriteriaFromURL();
 
-    // Re-render to show restored criteria in the modal
+    // Re-render to show restored criteria in the modal and chips in input
     if (this.criteria.length > 0) {
       this.renderCriteria();
+      this.renderChips();
     }
 
     this.bindEvents();
@@ -181,11 +182,8 @@ export class AdvancedSearch {
         this.searchInput.value = '';
         this.clearBtn!.classList.add('hidden');
 
-        // Clear advanced search criteria
-        this.criteria = [];
-        this.pushCriteriaToURL();
-
-        this.config.onClear();
+        // Clear advanced search criteria and chips
+        this.clearAllChips();
       }
     });
 
@@ -377,6 +375,7 @@ export class AdvancedSearch {
   private applySearch(): void {
     this.pushCriteriaToURL();
     this.config.onSearch(this.criteria);
+    this.renderChips(); // Render chips before closing modal
     this.close();
   }
 
@@ -423,5 +422,106 @@ export class AdvancedSearch {
   setCriteria(criteria: SearchCriterion[]): void {
     this.criteria = criteria;
     this.renderCriteria();
+    this.renderChips();
+  }
+
+  /**
+   * Render filter chips in the search input
+   */
+  renderChips(): void {
+    const chipsContainer = document.getElementById('filter-chips-container');
+    const searchInput = document.getElementById('table-search') as HTMLInputElement;
+    const clearBtn = document.getElementById('search-clear-btn');
+
+    if (!chipsContainer) return;
+
+    chipsContainer.innerHTML = '';
+
+    if (this.criteria.length === 0) {
+      // No chips - show placeholder, hide clear button
+      if (searchInput) {
+        searchInput.placeholder = 'Search for items';
+        searchInput.style.display = '';
+      }
+      if (clearBtn) clearBtn.classList.add('hidden');
+      return;
+    }
+
+    // Hide placeholder when chips present
+    if (searchInput) {
+      searchInput.placeholder = '';
+      searchInput.style.display = '';
+    }
+
+    // Show clear button
+    if (clearBtn) clearBtn.classList.remove('hidden');
+
+    // Render each criterion as a chip
+    this.criteria.forEach((criterion, index) => {
+      const chip = this.createChip(criterion, index);
+      chipsContainer.appendChild(chip);
+    });
+  }
+
+  /**
+   * Create a single filter chip
+   */
+  private createChip(criterion: SearchCriterion, index: number): HTMLElement {
+    const chip = document.createElement('div');
+    chip.className = 'inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded border border-blue-200';
+
+    const field = this.config.fields.find(f => f.name === criterion.field);
+    const fieldLabel = field?.label || criterion.field;
+    const operatorLabel = criterion.operator === 'ilike' ? 'contains' :
+                         criterion.operator === 'eq' ? 'is' :
+                         criterion.operator;
+
+    chip.innerHTML = `
+      <span>${fieldLabel} ${operatorLabel} "${criterion.value}"</span>
+      <button type="button"
+              data-chip-index="${index}"
+              class="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
+              title="Remove filter">
+        <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+        </svg>
+      </button>
+    `;
+
+    // Bind remove handler
+    const removeBtn = chip.querySelector('[data-chip-index]');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        this.removeChip(index);
+      });
+    }
+
+    return chip;
+  }
+
+  /**
+   * Remove a chip and update filters
+   */
+  private removeChip(index: number): void {
+    this.criteria.splice(index, 1);
+    this.renderCriteria();
+    this.renderChips();
+
+    // Trigger search with updated criteria
+    this.config.onSearch(this.criteria);
+  }
+
+  /**
+   * Clear all chips
+   */
+  clearAllChips(): void {
+    this.criteria = [];
+    this.renderCriteria();
+    this.renderChips();
+
+    // Trigger clear callback
+    if (this.config.onClear) {
+      this.config.onClear();
+    }
   }
 }

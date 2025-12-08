@@ -58,5 +58,21 @@ export declare class AdvancedSearch {
     private loadPresetsFromStorage;
     getCriteria(): SearchCriterion[];
     setCriteria(criteria: SearchCriterion[]): void;
+    /**
+     * Render filter chips in the search input
+     */
+    renderChips(): void;
+    /**
+     * Create a single filter chip
+     */
+    private createChip;
+    /**
+     * Remove a chip and update filters
+     */
+    private removeChip;
+    /**
+     * Clear all chips
+     */
+    clearAllChips(): void;
 }
 //# sourceMappingURL=advanced-search.d.ts.map
