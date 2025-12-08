@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"path"
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	authlib "github.com/goliatone/go-auth"
+	goerrors "github.com/goliatone/go-errors"
 	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
@@ -25,7 +28,7 @@ type UserHandlers struct {
 	FormGenerator *formgenorchestrator.Orchestrator
 	Admin         *admin.Admin
 	Config        admin.Config
-	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string) router.ViewContext
+	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
 }
 
 // NewUserHandlers creates a new UserHandlers instance
@@ -34,7 +37,7 @@ func NewUserHandlers(
 	formGen *formgenorchestrator.Orchestrator,
 	adm *admin.Admin,
 	cfg admin.Config,
-	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string) router.ViewContext,
+	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext,
 ) *UserHandlers {
 	return &UserHandlers{
 		Store:         store,
@@ -47,24 +50,47 @@ func NewUserHandlers(
 
 // List handles GET /users - displays list of all users
 func (h *UserHandlers) List(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
 	ctx := c.Context()
 	users, total, err := h.Store.List(ctx, admin.ListOptions{})
 	if err != nil {
 		return err
 	}
 
+	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
+	columns := []map[string]string{
+		{"key": "username", "label": "Username"},
+		{"key": "email", "label": "Email"},
+		{"key": "role", "label": "Role"},
+		{"key": "status", "label": "Status"},
+		{"key": "created_at", "label": "Created"},
+	}
+	for i := range users {
+		id := users[i]["id"]
+		users[i]["actions"] = routes.ActionsMap(id)
+	}
+
 	viewCtx := h.WithNav(router.ViewContext{
-		"title":       h.Config.Title,
-		"base_path":   h.Config.BasePath,
-		"users":       users,
-		"total_users": total,
-	}, h.Admin, h.Config, "users")
+		"title":          h.Config.Title,
+		"base_path":      h.Config.BasePath,
+		"resource":       "users",
+		"resource_label": "Users",
+		"routes":         routes.RoutesMap(),
+		"items":          users,
+		"columns":        columns,
+		"total":          total,
+	}, h.Admin, h.Config, "users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("users-list", viewCtx)
+	return c.Render("resources/users/list", viewCtx)
 }
 
 // New handles GET /users/new - displays user creation form
 func (h *UserHandlers) New(c router.Context) error {
+	if err := h.guard(c, "create"); err != nil {
+		return err
+	}
 	return h.renderUserForm(c, createUserOperation, formgenrender.RenderOptions{
 		HiddenFields: map[string]string{"_action": "create"},
 	})
@@ -72,6 +98,9 @@ func (h *UserHandlers) New(c router.Context) error {
 
 // Create handles POST /users - creates a new user
 func (h *UserHandlers) Create(c router.Context) error {
+	if err := h.guard(c, "create"); err != nil {
+		return err
+	}
 	ctx := c.Context()
 
 	record := map[string]any{
@@ -90,6 +119,9 @@ func (h *UserHandlers) Create(c router.Context) error {
 
 // Detail handles GET /users/:id - displays user details
 func (h *UserHandlers) Detail(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
 	id := c.Param("id")
 	ctx := c.Context()
 
@@ -98,17 +130,35 @@ func (h *UserHandlers) Detail(c router.Context) error {
 		return err
 	}
 
+	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
+	fields := []map[string]any{
+		{"label": "Username", "value": user["username"]},
+		{"label": "Email", "value": user["email"]},
+		{"label": "Role", "value": user["role"]},
+		{"label": "Status", "value": user["status"]},
+		{"label": "Created", "value": user["created_at"]},
+		{"label": "Last Login", "value": user["last_login"]},
+	}
+	user["actions"] = routes.ActionsMap(id)
+
 	viewCtx := h.WithNav(router.ViewContext{
-		"title":     h.Config.Title,
-		"base_path": h.Config.BasePath,
-		"user":      user,
-	}, h.Admin, h.Config, "users")
+		"title":          h.Config.Title,
+		"base_path":      h.Config.BasePath,
+		"resource":       "users",
+		"resource_label": "Users",
+		"routes":         routes.RoutesMap(),
+		"resource_item":  user,
+		"fields":         fields,
+	}, h.Admin, h.Config, "users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("users-detail", viewCtx)
+	return c.Render("resources/users/detail", viewCtx)
 }
 
 // Edit handles GET /users/:id/edit - displays user edit form
 func (h *UserHandlers) Edit(c router.Context) error {
+	if err := h.guard(c, "edit"); err != nil {
+		return err
+	}
 	id := c.Param("id")
 	ctx := c.Context()
 
@@ -132,6 +182,9 @@ func (h *UserHandlers) Edit(c router.Context) error {
 
 // Update handles POST /users/:id - updates an existing user
 func (h *UserHandlers) Update(c router.Context) error {
+	if err := h.guard(c, "edit"); err != nil {
+		return err
+	}
 	id := c.Param("id")
 	ctx := c.Context()
 
@@ -151,6 +204,9 @@ func (h *UserHandlers) Update(c router.Context) error {
 
 // Delete handles POST /users/:id/delete - deletes a user
 func (h *UserHandlers) Delete(c router.Context) error {
+	if err := h.guard(c, "delete"); err != nil {
+		return err
+	}
 	id := c.Param("id")
 	ctx := c.Context()
 
@@ -177,13 +233,40 @@ func (h *UserHandlers) renderUserForm(c router.Context, operationID string, opts
 	}
 
 	isEdit := operationID == updateUserOperation
+	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
 
 	viewCtx := h.WithNav(router.ViewContext{
-		"title":     h.Config.Title,
-		"base_path": h.Config.BasePath,
-		"is_edit":   isEdit,
-		"form_html": string(html),
-	}, h.Admin, h.Config, "users")
+		"title":          h.Config.Title,
+		"base_path":      h.Config.BasePath,
+		"resource":       "users",
+		"resource_label": "Users",
+		"routes":         routes.RoutesMap(),
+		"is_edit":        isEdit,
+		"form_html":      string(html),
+	}, h.Admin, h.Config, "users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("users-form", viewCtx)
+	return c.Render("resources/users/form", viewCtx)
+}
+
+func (h *UserHandlers) guard(c router.Context, action string) error {
+	if c == nil {
+		return goerrors.New("missing context", goerrors.CategoryAuth).
+			WithCode(goerrors.CodeUnauthorized).
+			WithTextCode("UNAUTHORIZED")
+	}
+
+	claims, ok := authlib.GetClaims(c.Context())
+	if !ok || claims == nil {
+		return goerrors.New("missing or invalid token", goerrors.CategoryAuth).
+			WithCode(goerrors.CodeUnauthorized).
+			WithTextCode("UNAUTHORIZED")
+	}
+
+	if authlib.Can(c.Context(), "admin.users", action) {
+		return nil
+	}
+
+	return goerrors.New("forbidden", goerrors.CategoryAuthz).
+		WithCode(goerrors.CodeForbidden).
+		WithTextCode("FORBIDDEN")
 }
