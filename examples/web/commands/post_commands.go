@@ -12,12 +12,12 @@ import (
 
 // postBulkPublishCommand publishes multiple posts
 type postBulkPublishCommand struct {
-	store         *stores.PostStore
+	store         stores.PostRepository
 	activityHooks activity.ActivityHookSlice
 }
 
 // NewPostBulkPublishCommand creates a new post bulk publish command
-func NewPostBulkPublishCommand(store *stores.PostStore) *postBulkPublishCommand {
+func NewPostBulkPublishCommand(store stores.PostRepository) *postBulkPublishCommand {
 	return &postBulkPublishCommand{store: store}
 }
 
@@ -71,12 +71,12 @@ func (c *postBulkPublishCommand) CLIOptions() *admin.CLIOptions {
 
 // postBulkArchiveCommand archives multiple posts
 type postBulkArchiveCommand struct {
-	store         *stores.PostStore
+	store         stores.PostRepository
 	activityHooks activity.ActivityHookSlice
 }
 
 // NewPostBulkArchiveCommand creates a new post bulk archive command
-func NewPostBulkArchiveCommand(store *stores.PostStore) *postBulkArchiveCommand {
+func NewPostBulkArchiveCommand(store stores.PostRepository) *postBulkArchiveCommand {
 	return &postBulkArchiveCommand{store: store}
 }
 
