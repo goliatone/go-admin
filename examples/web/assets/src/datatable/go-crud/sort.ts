@@ -1,5 +1,5 @@
-import type { SortBehavior, SortColumn } from '../behaviors/types';
-import type { DataGrid } from '../core';
+import type { SortBehavior, SortColumn } from '../behaviors/types.js';
+import type { DataGrid } from '../core.js';
 
 /**
  * go-crud sort behavior

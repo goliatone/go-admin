@@ -3,8 +3,8 @@
  * Exports core component and all behaviors
  */
 
-export { DataGrid } from './core';
-export type { DataGridConfig } from './core';
+export { DataGrid } from './core.js';
+export type { DataGridConfig } from './core.js';
 
 // Export behavior types
 export type {
@@ -19,7 +19,7 @@ export type {
   BulkActionBehavior,
   ColumnVisibilityBehavior,
   DataGridBehaviors
-} from './behaviors/types';
+} from './behaviors/types.js';
 
 // Export go-crud implementations
 export {
@@ -30,4 +30,4 @@ export {
   GoCrudExportBehavior,
   GoCrudBulkActionBehavior,
   DefaultColumnVisibilityBehavior
-} from './go-crud/index';
+} from './go-crud/index.js';

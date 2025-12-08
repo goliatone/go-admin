@@ -3,7 +3,7 @@ import type {
   ColumnFilter,
   SortColumn,
   DataGridBehaviors
-} from './behaviors/types';
+} from './behaviors/types.js';
 
 /**
  * DataGrid configuration
