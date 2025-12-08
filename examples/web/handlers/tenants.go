@@ -90,11 +90,11 @@ func (h *TenantHandlers) New(c router.Context) error {
 	if err := h.guard(c, "create"); err != nil {
 		return err
 	}
-	html, err := h.generateForm(c.Context(), admin.TenantRecord{}, false)
+	routes := helpers.NewResourceRoutes(h.Config.BasePath, "tenants")
+	html, err := h.generateForm(c.Context(), admin.TenantRecord{}, false, routes)
 	if err != nil {
 		return err
 	}
-	routes := helpers.NewResourceRoutes(h.Config.BasePath, "tenants")
 	viewCtx := h.WithNav(router.ViewContext{
 		"title":          h.Config.Title,
 		"base_path":      h.Config.BasePath,
@@ -170,7 +170,7 @@ func (h *TenantHandlers) Edit(c router.Context) error {
 	if err != nil {
 		return err
 	}
-	html, err := h.generateForm(c.Context(), record, true)
+	html, err := h.generateForm(c.Context(), record, true, routes)
 	if err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func (h *TenantHandlers) Delete(c router.Context) error {
 	return c.Redirect(path.Join(h.Config.BasePath, "tenants"))
 }
 
-func (h *TenantHandlers) generateForm(ctx context.Context, rec admin.TenantRecord, isEdit bool) ([]byte, error) {
+func (h *TenantHandlers) generateForm(ctx context.Context, rec admin.TenantRecord, isEdit bool, routes helpers.ResourceRoutes) ([]byte, error) {
 	if h.FormGenerator == nil {
 		return nil, goerrors.New("form generator not configured", goerrors.CategoryInternal)
 	}
@@ -248,11 +248,22 @@ func (h *TenantHandlers) generateForm(ctx context.Context, rec admin.TenantRecor
 	}
 	opts.HiddenFields["resource"] = "tenants"
 
-	return h.FormGenerator.Generate(ctx, formgenorchestrator.Request{
+	html, err := h.FormGenerator.Generate(ctx, formgenorchestrator.Request{
 		Source:        formgenopenapi.SourceFromFS(tenantFormSource),
 		OperationID:   ternary(isEdit, updateTenantOperation, createTenantOperation),
 		RenderOptions: opts,
 	})
+	if err != nil {
+		return nil, err
+	}
+	// Override action with resolved route to avoid {id} placeholders being submitted.
+	action := routes.Index()
+	if isEdit {
+		action = routes.Show(rec.ID)
+	}
+	rendered := strings.ReplaceAll(string(html), "/admin/tenants/{id}", action)
+	rendered = strings.ReplaceAll(rendered, "{id}", rec.ID)
+	return []byte(rendered), nil
 }
 
 func ternary[T any](cond bool, a, b T) T {
