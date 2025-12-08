@@ -18,19 +18,43 @@
     <div class="px-6 py-4 border-b border-gray-200">
       <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <!-- Left: Search Input -->
-        <div class="relative max-w-xs w-full">
-          <label for="table-search" class="sr-only">Search</label>
-          <input type="text"
-                 name="table-search"
-                 id="table-search"
-                 class="py-2 px-3 ps-9 block w-full border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none"
-                 placeholder="Search for items">
-          <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3">
-            <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="m21 21-4.3-4.3"/>
-            </svg>
+        <div class="relative max-w-md w-full flex gap-2">
+          <div class="relative flex-1">
+            <label for="table-search" class="sr-only">Search</label>
+            <!-- Search container with chips -->
+            <div class="relative min-h-[40px] ps-9 pe-9 border border-gray-200 rounded-lg bg-white flex items-center gap-2 flex-wrap py-1 px-2 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+              <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3 z-10">
+                <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.3-4.3"/>
+                </svg>
+              </div>
+
+              <!-- Filter chips container -->
+              <div id="filter-chips-container" class="flex items-center gap-1 flex-wrap ml-1"></div>
+
+              <!-- Actual search input -->
+              <input type="text"
+                     name="table-search"
+                     id="table-search"
+                     class="flex-1 min-w-[120px] h-8 text-sm focus:outline-none border-0 p-0 bg-transparent"
+                     placeholder="Search for items">
+
+              <!-- Clear all button -->
+              <button type="button"
+                      id="search-clear-btn"
+                      class="hidden absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 hover:text-gray-600 z-10">
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
+              </button>
+            </div>
           </div>
+          <button type="button"
+                  id="advanced-search-btn"
+                  class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
+            Advanced
+          </button>
         </div>
 
         <!-- Right: Controls -->
@@ -38,6 +62,7 @@
           <!-- Column Visibility Toggle -->
           <div class="relative">
             <button id="column-toggle-btn" type="button"
+                    data-dropdown-toggle="column-toggle-menu"
                     class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
               <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               Columns
@@ -45,23 +70,23 @@
             <div id="column-toggle-menu" class="hidden absolute right-0 z-10 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg">
               <div class="p-3 space-y-2">
                 <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" value="1" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <input type="checkbox" data-column="username" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
                   <span class="text-sm">Username</span>
                 </label>
                 <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" value="2" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <input type="checkbox" data-column="email" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
                   <span class="text-sm">Email</span>
                 </label>
                 <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" value="3" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <input type="checkbox" data-column="role" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
                   <span class="text-sm">Role</span>
                 </label>
                 <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" value="4" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <input type="checkbox" data-column="status" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
                   <span class="text-sm">Status</span>
                 </label>
                 <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" value="5" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <input type="checkbox" data-column="created_at" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
                   <span class="text-sm">Created</span>
                 </label>
               </div>
@@ -71,26 +96,21 @@
           <!-- Export Dropdown -->
           <div class="relative">
             <button id="export-btn" type="button"
+                    data-dropdown-toggle="export-menu"
                     class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
               <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
               Export
             </button>
             <div id="export-menu" class="hidden absolute right-0 z-10 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg">
               <div class="p-1">
-                <button id="export-copy" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  Copy
-                </button>
-                <button id="export-csv" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                <button data-export-format="csv" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
                   CSV
                 </button>
-                <button id="export-excel" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                <button data-export-format="excel" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
                   Excel
                 </button>
-                <button id="export-pdf" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                <button data-export-format="pdf" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
                   PDF
-                </button>
-                <button id="export-print" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  Print
                 </button>
               </div>
             </div>
@@ -99,7 +119,7 @@
           <!-- Per Page Selector -->
           <div class="flex items-center gap-x-2">
             <span class="text-sm text-gray-600">Per page:</span>
-            <select id="hs-table-pagination-page-size"
+            <select id="table-per-page"
                     class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
               <option value="5">5</option>
               <option value="10" selected>10</option>
@@ -121,16 +141,26 @@
             <th scope="col" class="px-6 py-3 text-start">
               <label class="flex">
                 <input type="checkbox"
-                       id="hs-table-checkbox-all"
+                       id="table-checkbox-all"
                        class="shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none">
                 <span class="sr-only">Select all</span>
               </label>
             </th>
-            {% for col in columns %}
-            <th scope="col" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {{ col.label }}
+            <th scope="col" data-column="username" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Username
             </th>
-            {% endfor %}
+            <th scope="col" data-column="email" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Email
+            </th>
+            <th scope="col" data-column="role" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Role
+            </th>
+            <th scope="col" data-column="status" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Status
+            </th>
+            <th scope="col" data-column="created_at" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Created
+            </th>
             <th scope="col" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
@@ -222,12 +252,72 @@
     <a href="{{ routes.new }}" class="btn btn-primary">Create</a>
   </div>
   {% endif %}
+
+  <!-- Advanced Search Modal -->
+  <div id="advanced-search-modal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+      <div class="fixed inset-0 bg-black opacity-50" id="advanced-search-overlay"></div>
+      <div class="relative bg-white rounded-lg shadow-xl max-w-3xl w-full">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-gray-900">Advanced search</h3>
+          <button type="button" id="advanced-search-close" class="text-gray-400 hover:text-gray-600">
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="px-6 py-4">
+          <!-- Search Criteria Rows -->
+          <div id="search-criteria-container" class="divide-y divide-gray-200">
+            <!-- Criteria rows will be added here dynamically -->
+          </div>
+
+          <!-- Add Criteria Button -->
+          <button type="button" id="add-criteria-btn" class="mt-4 inline-flex items-center gap-x-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14"/><path d="M5 12h14"/>
+            </svg>
+            Add criteria
+          </button>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+          <div class="flex items-center gap-x-3">
+            <button type="button" id="load-search-preset-btn" class="inline-flex items-center gap-x-2 text-sm text-gray-600 hover:text-gray-800">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>
+              </svg>
+              Load
+            </button>
+            <button type="button" id="save-search-preset-btn" class="inline-flex items-center gap-x-2 text-sm text-gray-600 hover:text-gray-800">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+              </svg>
+              Save
+            </button>
+          </div>
+          <div class="flex items-center gap-x-3">
+            <button type="button" id="advanced-search-cancel" class="py-2 px-4 text-sm font-medium text-gray-700 hover:text-gray-900">
+              Cancel
+            </button>
+            <button type="button" id="advanced-search-apply" class="py-2 px-4 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">
+              Search
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { DataGrid, AdvancedSearch, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
 
 {% verbatim %}
 document.addEventListener('DOMContentLoaded', function() {
@@ -277,6 +367,52 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Initialize the grid
   grid.init();
+
+  // Initialize advanced search
+  const advancedSearch = new AdvancedSearch({
+    fields: [
+      { name: 'username', label: 'Username', type: 'text' },
+      { name: 'email', label: 'Email', type: 'text' },
+      { name: 'role', label: 'Role', type: 'select', options: [
+        { label: 'Admin', value: 'admin' },
+        { label: 'Editor', value: 'editor' },
+        { label: 'Member', value: 'member' },
+        { label: 'Viewer', value: 'viewer' },
+        { label: 'Guest', value: 'guest' }
+      ]},
+      { name: 'status', label: 'Status', type: 'select', options: [
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' },
+        { label: 'Disabled', value: 'disabled' }
+      ]},
+      { name: 'created_at', label: 'Created Date', type: 'date' }
+    ],
+    onSearch: (criteria) => {
+      console.log('[AdvancedSearch] Search criteria:', criteria);
+
+      // Convert advanced search criteria to filters
+      const filters = criteria.map(c => ({
+        column: c.field,
+        operator: c.operator,
+        value: c.value
+      }));
+
+      // Update grid state with advanced filters
+      grid.state.filters = filters;
+      grid.resetPagination();
+      grid.pushStateToURL();
+      grid.refresh();
+    },
+    onClear: () => {
+      console.log('[AdvancedSearch] Clear search');
+      grid.state.search = '';
+      grid.state.filters = [];
+      grid.pushStateToURL();
+      grid.refresh();
+    }
+  });
+
+  advancedSearch.init();
 });
 {% endverbatim %}
 </script>

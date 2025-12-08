@@ -36,11 +36,11 @@
             {% for child in item.children %}
               {% if child.has_children and child.collapsible %}
                 <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ child.id }}" data-expanded="{% if not child.collapsed %}true{% else %}false{% endif %}">
-                  <button class="nav-item w-full" style="height: var(--sidebar-item-height, 36px);">
+                  <button class="nav-item w-full text-left" style="height: var(--sidebar-item-height, 36px);">
                     {% if child.icon %}
                       <i class="iconoir-{{ child.icon }} flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
                     {% endif %}
-                    <span class="nav-text flex-1">{{ child.label }}</span>
+                    <span class="nav-text flex-1 text-left">{{ child.label }}</span>
                     <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not child.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
                   </button>
                   <div class="submenu space-y-0.5 mt-1 pl-8 {% if child.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ child.id }}">
@@ -67,11 +67,11 @@
         </div>
       {% elif item.children and item.collapsible %}
         <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ item.id }}" data-expanded="{% if not item.collapsed %}true{% else %}false{% endif %}">
-          <button class="nav-item w-full" style="height: var(--sidebar-item-height, 36px);">
+          <button class="nav-item w-full text-left" style="height: var(--sidebar-item-height, 36px);">
             {% if item.icon %}
               <i class="iconoir-{{ item.icon }} flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
             {% endif %}
-            <span class="nav-text flex-1">{{ item.label }}</span>
+            <span class="nav-text flex-1 text-left">{{ item.label }}</span>
             <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not item.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
           </button>
           <div class="submenu space-y-0.5 mt-1 pl-8 {% if item.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ item.id }}">

@@ -7,422 +7,367 @@
   <h1 class="text-3xl font-bold text-admin-dark">Dashboard</h1>
   <div class="flex gap-3">
     <button class="btn btn-secondary" onclick="window.open('{{ base_path }}/api/dashboard')">↑ Export</button>
-    <button class="btn btn-primary">+ Import</button>
   </div>
 </header>
 
-<div class="flex-1 p-8 overflow-y-auto">
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <!-- Main Content -->
-    <div class="lg:col-span-2 space-y-6">
-      <!-- Stats Overview -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white border border-gray-200 rounded-xl p-6">
-          <div class="text-sm text-zinc-500 mb-2">Total Revenue</div>
-          <div class="text-3xl font-bold text-admin-dark" id="total-revenue">$0</div>
-          <div class="text-sm text-zinc-500 mt-1" id="total-orders">0 orders</div>
-        </div>
-        <div class="bg-white border border-gray-200 rounded-xl p-6">
-          <div class="text-sm text-zinc-500 mb-2">Total Users</div>
-          <div class="text-3xl font-bold text-admin-dark" id="total-users">0</div>
-          <div class="text-sm text-zinc-500 mt-1">Active users</div>
-        </div>
-        <div class="bg-white border border-gray-200 rounded-xl p-6">
-          <div class="text-sm text-zinc-500 mb-2">Published Content</div>
-          <div class="text-3xl font-bold text-admin-dark" id="published-content">0</div>
-          <div class="text-sm text-zinc-500 mt-1">Pages & Posts</div>
-        </div>
-        <div class="bg-white border border-gray-200 rounded-xl p-6">
-          <div class="text-sm text-zinc-500 mb-2">Storage Used</div>
-          <div class="text-3xl font-bold text-admin-dark" id="storage-used">0 GB</div>
-          <div class="text-sm text-zinc-500 mt-1" id="storage-percent">0% of total</div>
-        </div>
-      </div>
+<!-- Save status indicator -->
+<div id="save-status" class="px-8 py-3 bg-blue-50 text-blue-900 text-sm border-b border-blue-200">
+  Drag widgets to rearrange, resize, or hide them. Changes save automatically.
+</div>
 
-      <!-- Admin Panels -->
-      <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-admin-dark">Admin Panels</h2>
-        </div>
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <a href="{{ base_path }}/users" class="flex flex-col items-center text-center p-6 border border-gray-200 rounded-xl hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 transition-all no-underline">
-            <div class="text-4xl mb-3">👥</div>
-            <div class="text-base font-semibold text-admin-dark mb-1">Users</div>
-            <div class="text-sm text-zinc-500">Manage user accounts</div>
-          </a>
-          <a href="{{ base_path }}/pages" class="flex flex-col items-center text-center p-6 border border-gray-200 rounded-xl hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 transition-all no-underline">
-            <div class="text-4xl mb-3">📄</div>
-            <div class="text-base font-semibold text-admin-dark mb-1">Pages</div>
-            <div class="text-sm text-zinc-500">Edit website pages</div>
-          </a>
-          <a href="{{ base_path }}/posts" class="flex flex-col items-center text-center p-6 border border-gray-200 rounded-xl hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 transition-all no-underline">
-            <div class="text-4xl mb-3">📝</div>
-            <div class="text-base font-semibold text-admin-dark mb-1">Posts</div>
-            <div class="text-sm text-zinc-500">Manage blog posts</div>
-          </a>
-          <a href="{{ base_path }}/media" class="flex flex-col items-center text-center p-6 border border-gray-200 rounded-xl hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 transition-all no-underline">
-            <div class="text-4xl mb-3">🖼️</div>
-            <div class="text-base font-semibold text-admin-dark mb-1">Media</div>
-            <div class="text-sm text-zinc-500">Upload files & images</div>
-          </a>
-        </div>
-      </div>
+<div class="flex-1 p-8 overflow-y-auto" data-widget-grid>
+  <!-- Widget Grid Container -->
+  <div class="dashboard-grid grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-      <!-- Chart Widgets -->
-      <div id="chart-widgets-main" class="space-y-6">
-        <!-- Charts will be dynamically inserted here -->
+    <!-- Main Area -->
+    <section class="widget-area lg:col-span-2" data-area-code="admin.dashboard.main">
+      <h2 class="widget-area__title text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Main Dashboard</h2>
+      <div class="widgets-grid" data-widgets-grid data-area-grid="admin.dashboard.main">
+        <!-- Widgets will be rendered here -->
       </div>
+    </section>
 
-      <!-- Recent Activity -->
-      <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-admin-dark">Recent Activity</h2>
-          <a href="{{ base_path }}/api/activity" class="text-sm text-blue-500 hover:text-blue-600 no-underline" target="_blank">View all</a>
-        </div>
-        <ul class="space-y-3" id="activity-feed">
-          <li class="text-zinc-500">Loading...</li>
-        </ul>
-      </div>
-
-      <!-- Background Jobs -->
-      <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-admin-dark">Background Jobs</h2>
-          <a href="{{ base_path }}/api/jobs" class="text-sm text-blue-500 hover:text-blue-600 no-underline" target="_blank">Manage</a>
-        </div>
-        <ul class="space-y-2" id="jobs-list">
-          <li class="text-zinc-500">Loading...</li>
-        </ul>
-      </div>
-
-      <!-- Export & Bulk -->
-      <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-admin-dark">Data Export & Bulk</h2>
-          <a href="{{ base_path }}/api/export?resource=users&format=json" class="text-sm text-blue-500 hover:text-blue-600 no-underline" target="_blank">Export API</a>
-        </div>
-        <div class="space-y-3">
-          <div>
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-semibold text-admin-dark">Last Export</span>
-              <button class="px-3 py-2 text-sm font-semibold text-zinc-700 bg-gray-100 rounded-lg hover:bg-gray-200" onclick="runExport()">Export Users (JSON)</button>
-            </div>
-            <pre class="mt-2 p-3 bg-gray-50 rounded-lg text-xs text-zinc-600 overflow-x-auto" id="export-preview">Pending...</pre>
-          </div>
-          <div>
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-semibold text-admin-dark">Bulk Jobs</span>
-              <button class="px-3 py-2 text-sm font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600" onclick="runBulkJob()">Start Bulk Cleanup</button>
-            </div>
-            <ul class="mt-2 space-y-2" id="bulk-jobs">
-              <li class="text-zinc-500">Pending...</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Right Sidebar -->
-    <aside class="space-y-6">
-      <!-- Chart Widgets -->
-      <div id="chart-widgets-sidebar" class="space-y-6">
-        <!-- Charts will be dynamically inserted here -->
-      </div>
-
-      <!-- Notifications Preview -->
-      <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-admin-dark">Notifications</h2>
-          <a href="{{ base_path }}/notifications" class="text-sm text-blue-500 hover:text-blue-600 no-underline">Open center</a>
-        </div>
-        <ul class="space-y-3" id="notifications-preview">
-          <li class="text-zinc-500">Loading...</li>
-        </ul>
-      </div>
-
-      <!-- Media Library -->
-      <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-admin-dark">Media Library</h2>
-          <a href="{{ base_path }}/api/media/library" class="text-sm text-blue-500 hover:text-blue-600 no-underline" target="_blank">View API</a>
-        </div>
-        <ul class="space-y-3" id="media-preview">
-          <li class="text-zinc-500">Loading...</li>
-        </ul>
+    <!-- Sidebar Area -->
+    <aside class="widget-area" data-area-code="admin.dashboard.sidebar">
+      <h2 class="widget-area__title text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Sidebar</h2>
+      <div class="widgets-grid" data-widgets-grid data-area-grid="admin.dashboard.sidebar">
+        <!-- Widgets will be rendered here -->
       </div>
     </aside>
+
+    <!-- Footer/Operations Area -->
+    <section class="widget-area lg:col-span-3" data-area-code="admin.dashboard.footer">
+      <h2 class="widget-area__title text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Operations</h2>
+      <div class="widgets-grid" data-widgets-grid data-area-grid="admin.dashboard.footer">
+        <!-- Widgets will be rendered here -->
+      </div>
+    </section>
+
   </div>
 </div>
 {% endblock %}
 
+{% block styles %}
+<style>
+/* Widget Grid System */
+.widgets-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.widget {
+  grid-column: span var(--span, 12);
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  cursor: grab;
+  transition: all 200ms ease;
+}
+
+.widget:active {
+  cursor: grabbing;
+}
+
+.widget.dragging {
+  opacity: 0.5;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.widget[data-hidden="true"],
+.widget.is-hidden {
+  opacity: 0.3;
+}
+
+.widget__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.widget__toolbar-btn {
+  padding: 0.375rem 0.75rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 150ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: #6b7280;
+}
+
+.widget__toolbar-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.widget__toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.widget__toolbar-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.widget__content {
+  /* Content styling */
+}
+
+.widget-area__title {
+  margin: 0;
+}
+
+/* Chart container */
+.widget .chart-container {
+  min-height: 250px;
+}
+
+/* Stat cards within widgets */
+.widget .metrics {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.widget .metric {
+  flex: 1;
+  min-width: 140px;
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 0.625rem;
+  padding: 0.875rem 1rem;
+}
+
+.widget .metric small {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  color: #cbd5f5;
+}
+
+.widget .metric span {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-top: 0.3rem;
+}
+</style>
+{% endblock %}
+
 {% block scripts %}
-<script>
-  // Fetch and populate dashboard data
-  async function loadDashboard() {
-    try {
-      const response = await fetch('{{ base_path }}/api/dashboard');
-      const data = await response.json();
+<script type="module">
+import { WidgetGrid } from '{{ base_path }}/assets/dist/dashboard/index.js';
 
-      // Extract stats from widgets with type: "stat_card"
-      if (data.widgets) {
-        const statWidgets = data.widgets.filter(w => w.data && w.data.type === 'stat_card');
+// Widget rendering helpers
+function renderWidgetContent(widget) {
+  const def = widget.definition || '';
+  const data = widget.data || {};
+  const config = widget.config || {};
 
-        statWidgets.forEach(widget => {
-          const statData = widget.data;
-          if (statData.stat_type === 'users') {
-            document.getElementById('total-users').textContent = statData.total || 0;
-          } else if (statData.stat_type === 'content') {
-            document.getElementById('published-content').textContent = statData.published || 0;
-          } else if (statData.stat_type === 'storage') {
-            const usedGB = statData.used || 0;
-            const percentage = statData.percentage || 0;
-            document.getElementById('storage-used').textContent = `${usedGB} GB`;
-            document.getElementById('storage-percent').textContent = `${percentage}% of total`;
-          }
-        });
-      }
-
-      // Update activity feed from widgets
-      if (data.widgets) {
-        const activityWidget = data.widgets.find(w => w.definition === 'admin.widget.activity_feed');
-        if (activityWidget && activityWidget.data && activityWidget.data.entries) {
-          const activityFeed = document.getElementById('activity-feed');
-          activityFeed.innerHTML = activityWidget.data.entries.map(entry => `
-            <li class="py-3 border-b border-gray-100 last:border-b-0">
-              <div class="font-semibold text-admin-dark text-sm">${entry.actor}</div>
-              <div class="text-zinc-500 text-sm mt-1">${entry.action} ${entry.object}</div>
-            </li>
-          `).join('');
-        }
-
-        const notificationsWidget = data.widgets.find(w => w.definition === 'admin.widget.notifications');
-        if (notificationsWidget && notificationsWidget.data && notificationsWidget.data.notifications) {
-          const notifications = notificationsWidget.data.notifications;
-          const preview = document.getElementById('notifications-preview');
-          if (!notifications || notifications.length === 0) {
-            preview.innerHTML = '<li class="text-zinc-500">No notifications yet.</li>';
-          } else {
-            preview.innerHTML = notifications.slice(0, 4).map(item => `
-              <li class="py-3 border-b border-gray-100 last:border-b-0">
-                <div class="flex items-center justify-between gap-3">
-                  <div>
-                    <div class="font-semibold text-admin-dark text-sm">${item.title || 'Notification'}</div>
-                    <div class="text-zinc-500 text-sm mt-1">${item.message || ''}</div>
-                  </div>
-                  <span class="px-2 py-1 text-xs font-semibold ${item.read ? 'text-zinc-600 bg-gray-100' : 'text-white bg-blue-500'} rounded-full">${item.read ? 'Read' : 'Unread'}</span>
-                </div>
-              </li>
-            `).join('');
-          }
-        }
-
-        // Helper function to render HTML with script execution
-        function renderHTMLWithScripts(container, html) {
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = html;
-
-          // Extract script elements
-          const scripts = Array.from(tempDiv.querySelectorAll('script'));
-          const scriptContents = [];
-
-          scripts.forEach(script => {
-            if (script.src) {
-              // External script - preserve it
-              scriptContents.push({ type: 'external', src: script.src });
-            } else {
-              // Inline script - save content
-              scriptContents.push({ type: 'inline', content: script.textContent });
-            }
-            script.remove(); // Remove from HTML to prevent double execution
-          });
-
-          // Insert HTML first
-          container.innerHTML = tempDiv.innerHTML;
-
-          // Execute scripts in order
-          scriptContents.forEach(scriptInfo => {
-            if (scriptInfo.type === 'external') {
-              const script = document.createElement('script');
-              script.src = scriptInfo.src;
-              document.head.appendChild(script);
-            } else {
-              const script = document.createElement('script');
-              script.textContent = scriptInfo.content;
-              document.body.appendChild(script);
-            }
-          });
-        }
-
-        // Render ECharts chart widgets
-        if (data.widgets) {
-          const chartTypes = ['admin.widget.bar_chart', 'admin.widget.line_chart', 'admin.widget.pie_chart', 'admin.widget.gauge_chart'];
-          const chartWidgets = data.widgets.filter(w => chartTypes.includes(w.definition) && w.data && w.data.chart_html);
-
-          // Separate main and sidebar charts based on actual area field
-          const mainWidgets = chartWidgets.filter(w => w.area === 'admin.dashboard.main');
-          const sidebarWidgets = chartWidgets.filter(w => w.area === 'admin.dashboard.sidebar');
-
-          // Render main area charts
-          if (mainWidgets.length > 0) {
-            const mainContainer = document.getElementById('chart-widgets-main');
-            const mainHTML = mainWidgets.map(widget => {
-              const title = widget.data.title || 'Chart';
-              const subtitle = widget.data.subtitle || '';
-              return `
-                <div class="bg-white border border-gray-200 rounded-xl p-6">
-                  <div class="mb-4">
-                    <h2 class="text-lg font-semibold text-admin-dark">${title}</h2>
-                    ${subtitle ? `<p class="text-sm text-zinc-500 mt-1">${subtitle}</p>` : ''}
-                  </div>
-                  <div class="chart-container">
-                    ${widget.data.chart_html}
-                  </div>
-                </div>
-              `;
-            }).join('');
-            renderHTMLWithScripts(mainContainer, mainHTML);
-          }
-
-          // Render sidebar charts
-          if (sidebarWidgets.length > 0) {
-            const sidebarContainer = document.getElementById('chart-widgets-sidebar');
-            const sidebarHTML = sidebarWidgets.map(widget => {
-              const title = widget.data.title || 'Chart';
-              return `
-                <div class="bg-white border border-gray-200 rounded-xl p-6">
-                  <h3 class="text-sm font-semibold text-admin-dark mb-4 uppercase tracking-wider text-zinc-500">${title}</h3>
-                  <div class="chart-container">
-                    ${widget.data.chart_html}
-                  </div>
-                </div>
-              `;
-            }).join('');
-            renderHTMLWithScripts(sidebarContainer, sidebarHTML);
-          }
-        }
-      }
-
-      // Fetch and update jobs list from jobs API
-      try {
-        const jobsResponse = await fetch('{{ base_path }}/api/jobs');
-        const jobsData = await jobsResponse.json();
-        if (jobsData && jobsData.jobs && jobsData.jobs.length > 0) {
-          const jobsList = document.getElementById('jobs-list');
-          jobsList.innerHTML = jobsData.jobs.map(job => {
-            const schedule = job.schedule || 'On demand';
-            const lastRun = job.last_run ? new Date(job.last_run).toLocaleString() : 'Not run yet';
-            const status = job.status || 'pending';
-            return `
-              <li class="py-2 px-3 border border-gray-200 rounded-lg bg-gray-50">
-                <div class="flex items-center justify-between text-sm">
-                  <span class="font-medium text-admin-dark">${job.name || job.command}</span>
-                  <span class="text-xs text-zinc-500">${schedule}</span>
-                </div>
-                <div class="flex items-center justify-between text-xs text-zinc-500 mt-1">
-                  <span class="${status === 'failed' ? 'text-red-600' : 'text-zinc-600'}">Status: ${status}</span>
-                  <span>${lastRun}</span>
-                </div>
-              </li>
-            `;
-          }).join('');
-        }
-      } catch (jobsError) {
-        console.error('Failed to load jobs data:', jobsError);
-      }
-
-      // Fetch bulk jobs list
-      try {
-        const bulkRes = await fetch('{{ base_path }}/api/bulk');
-        const bulkData = await bulkRes.json();
-        const bulkList = document.getElementById('bulk-jobs');
-        if (bulkData && bulkData.jobs && bulkData.jobs.length > 0) {
-          bulkList.innerHTML = bulkData.jobs.map(job => `
-            <li class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div class="flex items-center justify-between text-sm">
-                <span class="font-semibold text-admin-dark">${job.name || job.action}</span>
-                <span class="text-xs text-zinc-500">${job.status || 'pending'}</span>
-              </div>
-              <div class="text-xs text-zinc-500 mt-1">${job.processed || 0}/${job.total || 0} processed</div>
-            </li>
-          `).join('');
-        } else {
-          bulkList.innerHTML = '<li class="text-zinc-500">No bulk jobs yet.</li>';
-        }
-      } catch (bulkErr) {
-        console.error('Failed to load bulk jobs:', bulkErr);
-      }
-
-      // Fetch media library preview (only if endpoint exists)
-      try {
-        const mediaRes = await fetch('{{ base_path }}/api/media/library');
-        if (mediaRes.ok) {
-          const mediaData = await mediaRes.json();
-          const mediaList = document.getElementById('media-preview');
-          if (mediaData && mediaData.items && mediaData.items.length > 0) {
-            mediaList.innerHTML = mediaData.items.slice(0, 4).map(item => `
-              <li class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-sm text-zinc-600">${(item.name || 'M')[0]}</div>
-                <div>
-                  <div class="text-sm font-semibold text-admin-dark">${item.name}</div>
-                  <div class="text-xs text-zinc-500">${item.url}</div>
-                </div>
-              </li>
-            `).join('');
-          } else {
-            document.getElementById('media-preview').innerHTML = '<li class="text-zinc-500">No media yet.</li>';
-          }
-        } else {
-          // Media library not available - hide or show placeholder (404 is expected when media feature is disabled)
-          document.getElementById('media-preview').innerHTML = '<li class="text-zinc-500">Media library not configured.</li>';
-        }
-      } catch (mediaErr) {
-        // Silently handle - media feature may not be enabled
-        document.getElementById('media-preview').innerHTML = '<li class="text-zinc-500">Media library not available.</li>';
-      }
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-    }
+  // User stats widget
+  if (def === 'admin.widget.user_stats') {
+    const values = data.values || {};
+    return `
+      <div class="metrics">
+        ${Object.entries(values).map(([key, value]) => `
+          <div class="metric">
+            <small>${key}</small>
+            <span>${formatNumber(value)}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
   }
 
-  async function runExport() {
-    const preview = document.getElementById('export-preview');
-    try {
-      const res = await fetch('{{ base_path }}/api/export?resource=users&format=json');
-      const data = await res.json();
-      preview.textContent = (data && data.data) ? data.data.substring(0, 180) + '...' : 'No data';
-    } catch (err) {
-      preview.textContent = 'Failed to export data';
-      console.error(err);
+  // Activity feed widget
+  if (def === 'admin.widget.activity_feed') {
+    const entries = data.entries || [];
+    if (entries.length === 0) {
+      return '<p class="text-gray-500">No recent activity</p>';
     }
-  }
-
-  async function runBulkJob() {
-    const bulkList = document.getElementById('bulk-jobs');
-    try {
-      const res = await fetch('{{ base_path }}/api/bulk', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name: 'users.cleanup', action: 'cleanup', total: 10}),
-      });
-      const data = await res.json();
-      if (data && data.job) {
-        bulkList.innerHTML = `
-          <li class="p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div class="flex items-center justify-between text-sm">
-              <span class="font-semibold text-admin-dark">${data.job.name}</span>
-              <span class="text-xs text-green-700">${data.job.status}</span>
-            </div>
-            <div class="text-xs text-zinc-500 mt-1">${data.job.processed}/${data.job.total} processed</div>
+    return `
+      <ul class="space-y-3">
+        ${entries.map(entry => `
+          <li class="py-3 border-b border-gray-100 last:border-b-0">
+            <div class="font-semibold text-gray-900 text-sm">${entry.actor}</div>
+            <div class="text-gray-600 text-sm mt-1">${entry.action} ${entry.object}</div>
           </li>
-        `;
-      }
-    } catch (err) {
-      console.error('Failed to start bulk job', err);
-      bulkList.innerHTML = '<li class="text-red-600">Bulk job failed</li>';
-    }
+        `).join('')}
+      </ul>
+    `;
   }
 
-  // Load dashboard data on page load
-  window.addEventListener('DOMContentLoaded', loadDashboard);
+  // Notifications widget
+  if (def === 'admin.widget.notifications') {
+    const notifications = data.notifications || [];
+    if (notifications.length === 0) {
+      return '<p class="text-gray-500">No notifications</p>';
+    }
+    return `
+      <ul class="space-y-3">
+        ${notifications.slice(0, 5).map(notif => `
+          <li class="py-3 border-b border-gray-100 last:border-b-0">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-semibold text-gray-900 text-sm">${notif.title}</div>
+                <div class="text-gray-600 text-sm mt-1">${notif.message}</div>
+              </div>
+              <span class="px-2 py-1 text-xs font-semibold ${notif.read ? 'text-gray-600 bg-gray-100' : 'text-white bg-blue-500'} rounded-full whitespace-nowrap">
+                ${notif.read ? 'Read' : 'New'}
+              </span>
+            </div>
+          </li>
+        `).join('')}
+      </ul>
+    `;
+  }
+
+  // Chart widgets (bar, line, pie, gauge)
+  if (def.includes('_chart') && data.chart_html) {
+    const title = data.title || config.title || 'Chart';
+    const subtitle = data.subtitle || config.subtitle || '';
+    return `
+      <div>
+        ${subtitle ? `<p class="text-sm text-gray-500 mb-3">${subtitle}</p>` : ''}
+        <div class="chart-container">${data.chart_html}</div>
+      </div>
+    `;
+  }
+
+  // Default: show raw data
+  return `<pre class="text-xs text-gray-600 overflow-auto">${JSON.stringify(data, null, 2)}</pre>`;
+}
+
+function renderWidget(widget, areaCode) {
+  const areaResizable = areaCode === 'admin.dashboard.main' || areaCode === 'admin.dashboard.footer';
+  const span = widget.metadata?.layout?.width || widget.span || 12;
+  const hidden = widget.hidden || false;
+  const title = widget.data?.title || widget.config?.title || getWidgetTitle(widget.definition);
+
+  return `
+    <article class="widget"
+             data-widget="${widget.id}"
+             data-span="${span}"
+             data-area-code="${areaCode}"
+             data-resizable="${areaResizable}"
+             ${hidden ? 'data-hidden="true"' : ''}
+             style="--span: ${span}">
+
+      <div class="widget__toolbar">
+        <button type="button" class="widget__toolbar-btn" data-action="toggle-hide" title="Hide widget">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+          </svg>
+          Hide
+        </button>
+
+        ${areaResizable ? `
+          <button type="button" class="widget__toolbar-btn" data-action="toggle-width" title="Toggle width">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+            </svg>
+            ${span === 12 ? 'Half' : 'Full'} Width
+          </button>
+        ` : ''}
+      </div>
+
+      <div class="widget__header mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">${title}</h3>
+      </div>
+
+      <div class="widget__content">
+        ${renderWidgetContent(widget)}
+      </div>
+    </article>
+  `;
+}
+
+function getWidgetTitle(definition) {
+  const titles = {
+    'admin.widget.user_stats': 'User Statistics',
+    'admin.widget.activity_feed': 'Recent Activity',
+    'admin.widget.notifications': 'Notifications',
+    'admin.widget.bar_chart': 'Bar Chart',
+    'admin.widget.line_chart': 'Line Chart',
+    'admin.widget.pie_chart': 'Pie Chart',
+    'admin.widget.gauge_chart': 'Gauge',
+  };
+  return titles[definition] || definition;
+}
+
+function formatNumber(value) {
+  if (typeof value === 'number') {
+    return value.toLocaleString();
+  }
+  return value;
+}
+
+// Initialize dashboard
+async function initDashboard() {
+  try {
+    // Fetch dashboard data
+    const response = await fetch('{{ base_path }}/api/dashboard');
+    const dashboardData = await response.json();
+
+    // Group widgets by area
+    const widgetsByArea = {};
+    (dashboardData.widgets || []).forEach(widget => {
+      const area = widget.area || 'admin.dashboard.main';
+      if (!widgetsByArea[area]) {
+        widgetsByArea[area] = [];
+      }
+      widgetsByArea[area].push(widget);
+    });
+
+    // Render widgets in each area
+    Object.entries(widgetsByArea).forEach(([areaCode, widgets]) => {
+      const container = document.querySelector(`[data-area-grid="${areaCode}"]`);
+      if (container) {
+        container.innerHTML = widgets.map(w => renderWidget(w, areaCode)).join('');
+      }
+    });
+
+    // Execute any chart scripts
+    document.querySelectorAll('.chart-container script').forEach(script => {
+      const newScript = document.createElement('script');
+      if (script.src) {
+        newScript.src = script.src;
+      } else {
+        newScript.textContent = script.textContent;
+      }
+      document.body.appendChild(newScript);
+    });
+
+    // Initialize widget grid with drag & drop
+    const grid = new WidgetGrid({
+      apiEndpoint: '{{ base_path }}/api/dashboard',
+      preferencesEndpoint: '{{ base_path }}/api/dashboard/preferences',
+      areas: ['admin.dashboard.main', 'admin.dashboard.sidebar', 'admin.dashboard.footer'],
+      onSave: (layout) => {
+        console.log('Layout saved:', layout);
+      },
+      onError: (error) => {
+        console.error('Widget grid error:', error);
+        document.getElementById('save-status').textContent = 'Failed to save layout';
+      }
+    });
+
+    await grid.init();
+
+  } catch (error) {
+    console.error('Failed to load dashboard:', error);
+  }
+}
+
+// Load dashboard on page load
+window.addEventListener('DOMContentLoaded', initDashboard);
 </script>
 {% endblock %}
