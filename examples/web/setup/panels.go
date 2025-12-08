@@ -65,7 +65,7 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 }
 
 // NewPagesPanelBuilder creates a panel builder for pages
-func NewPagesPanelBuilder(store *stores.PageStore) *admin.PanelBuilder {
+func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 	builder := &admin.PanelBuilder{}
 	builder.
 		WithRepository(store).
@@ -110,12 +110,18 @@ func NewPagesPanelBuilder(store *stores.PageStore) *admin.PanelBuilder {
 		BulkActions(
 			admin.Action{Name: "publish", CommandName: "pages.bulk_publish", Permission: "admin.pages.publish"},
 			admin.Action{Name: "unpublish", CommandName: "pages.bulk_unpublish", Permission: "admin.pages.publish"},
-		)
+		).
+		Permissions(admin.PanelPermissions{
+			View:   "admin.pages.view",
+			Create: "admin.pages.create",
+			Edit:   "admin.pages.edit",
+			Delete: "admin.pages.delete",
+		})
 	return builder
 }
 
 // NewPostsPanelBuilder creates a panel builder for posts
-func NewPostsPanelBuilder(store *stores.PostStore) *admin.PanelBuilder {
+func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 	builder := &admin.PanelBuilder{}
 	builder.
 		WithRepository(store).
@@ -173,7 +179,13 @@ func NewPostsPanelBuilder(store *stores.PostStore) *admin.PanelBuilder {
 		BulkActions(
 			admin.Action{Name: "publish", CommandName: "posts.bulk_publish", Permission: "admin.posts.publish"},
 			admin.Action{Name: "archive", CommandName: "posts.bulk_archive", Permission: "admin.posts.edit"},
-		)
+		).
+		Permissions(admin.PanelPermissions{
+			View:   "admin.posts.view",
+			Create: "admin.posts.create",
+			Edit:   "admin.posts.edit",
+			Delete: "admin.posts.delete",
+		})
 	return builder
 }
 
