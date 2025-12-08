@@ -8,7 +8,12 @@ import (
 )
 
 func TestBuildNavItemsOrdering(t *testing.T) {
-	cfg := admin.Config{DefaultLocale: "en"}
+	cfg := admin.Config{
+		DefaultLocale: "en",
+		Features: admin.Features{
+			CMS: true,
+		},
+	}
 	adm := admin.New(cfg)
 	ctx := context.Background()
 
