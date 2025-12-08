@@ -12,12 +12,12 @@ import (
 
 // pagePublishCommand publishes a page
 type pagePublishCommand struct {
-	store         *stores.PageStore
+	store         stores.PageRepository
 	activityHooks activity.ActivityHookSlice
 }
 
 // NewPagePublishCommand creates a new page publish command
-func NewPagePublishCommand(store *stores.PageStore) *pagePublishCommand {
+func NewPagePublishCommand(store stores.PageRepository) *pagePublishCommand {
 	return &pagePublishCommand{store: store}
 }
 
@@ -70,12 +70,12 @@ func (c *pagePublishCommand) CLIOptions() *admin.CLIOptions {
 
 // pageBulkPublishCommand publishes multiple pages
 type pageBulkPublishCommand struct {
-	store         *stores.PageStore
+	store         stores.PageRepository
 	activityHooks activity.ActivityHookSlice
 }
 
 // NewPageBulkPublishCommand creates a new page bulk publish command
-func NewPageBulkPublishCommand(store *stores.PageStore) *pageBulkPublishCommand {
+func NewPageBulkPublishCommand(store stores.PageRepository) *pageBulkPublishCommand {
 	return &pageBulkPublishCommand{store: store}
 }
 
@@ -128,12 +128,12 @@ func (c *pageBulkPublishCommand) CLIOptions() *admin.CLIOptions {
 
 // pageBulkUnpublishCommand unpublishes multiple pages
 type pageBulkUnpublishCommand struct {
-	store         *stores.PageStore
+	store         stores.PageRepository
 	activityHooks activity.ActivityHookSlice
 }
 
 // NewPageBulkUnpublishCommand creates a new page bulk unpublish command
-func NewPageBulkUnpublishCommand(store *stores.PageStore) *pageBulkUnpublishCommand {
+func NewPageBulkUnpublishCommand(store stores.PageRepository) *pageBulkUnpublishCommand {
 	return &pageBulkUnpublishCommand{store: store}
 }
 
