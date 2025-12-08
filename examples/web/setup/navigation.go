@@ -2,9 +2,12 @@ package setup
 
 import (
 	"context"
+	"os"
 	"path"
+	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 const (
@@ -32,12 +35,6 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		menuCode = NavigationMenuCode
 	}
 
-	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
-		if _, fetchErr := menuSvc.Menu(ctx, menuCode, ""); fetchErr != nil {
-			return err
-		}
-	}
-
 	groups := []admin.MenuItem{
 		{
 			ID:            NavigationGroupMain,
@@ -56,10 +53,6 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			Menu:          menuCode,
 		},
 	}
-	for _, group := range groups {
-		_ = menuSvc.AddMenuItem(ctx, menuCode, group)
-	}
-
 	content := admin.MenuItem{
 		ID:          NavigationSectionContent,
 		Type:        admin.MenuItemTypeItem,
@@ -69,16 +62,40 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		Position:    10,
 		Collapsible: true,
 		Collapsed:   false,
-		Target: map[string]any{
-			"type": "url",
-			"path": path.Join(basePath, "content"),
-			"key":  NavigationSectionContent,
-		},
-		Menu:     menuCode,
-		ParentID: NavigationGroupMain,
+		Menu:        menuCode,
+		ParentID:    NavigationGroupMain,
+		Permissions: []string{"admin.pages.view", "admin.posts.view"},
 	}
-	_ = menuSvc.AddMenuItem(ctx, menuCode, content)
-
+	contentChildren := []admin.MenuItem{
+		{
+			ID:       NavigationSectionContent + ".pages",
+			Label:    "Pages",
+			LabelKey: "menu.content.pages",
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(basePath, "pages"),
+				"key":  "pages",
+			},
+			Position: 1,
+			Menu:     menuCode,
+			ParentID: NavigationSectionContent,
+			// No permissions needed - parent Content already checks them
+		},
+		{
+			ID:       NavigationSectionContent + ".posts",
+			Label:    "Posts",
+			LabelKey: "menu.content.posts",
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(basePath, "posts"),
+				"key":  "posts",
+			},
+			Position: 2,
+			Menu:     menuCode,
+			ParentID: NavigationSectionContent,
+			// No permissions needed - parent Content already checks them
+		},
+	}
 	shop := admin.MenuItem{
 		ID:          NavigationSectionShop,
 		Type:        admin.MenuItemTypeItem,
@@ -96,10 +113,9 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		Menu:     menuCode,
 		ParentID: NavigationGroupMain,
 	}
-	_ = menuSvc.AddMenuItem(ctx, menuCode, shop)
-
 	shopChildren := []admin.MenuItem{
 		{
+			ID:       NavigationSectionShop + ".products",
 			Label:    "Products",
 			LabelKey: "menu.shop.products",
 			Target: map[string]any{
@@ -112,6 +128,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			ParentID: NavigationSectionShop,
 		},
 		{
+			ID:       NavigationSectionShop + ".orders",
 			Label:    "Orders",
 			LabelKey: "menu.shop.orders",
 			Target: map[string]any{
@@ -124,6 +141,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			ParentID: NavigationSectionShop,
 		},
 		{
+			ID:       NavigationSectionShop + ".customers",
 			Label:    "Customers",
 			LabelKey: "menu.shop.customers",
 			Target: map[string]any{
@@ -136,11 +154,8 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			ParentID: NavigationSectionShop,
 		},
 	}
-	for _, child := range shopChildren {
-		_ = menuSvc.AddMenuItem(ctx, menuCode, child)
-	}
-
 	analytics := admin.MenuItem{
+		ID:       NavigationGroupMain + ".analytics",
 		Label:    "Analytics",
 		LabelKey: "menu.analytics",
 		Icon:     "stats-report",
@@ -153,17 +168,15 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		Menu:     menuCode,
 		ParentID: NavigationGroupMain,
 	}
-	_ = menuSvc.AddMenuItem(ctx, menuCode, analytics)
-
 	separator := admin.MenuItem{
+		ID:       NavigationGroupMain + ".separator",
 		Type:     admin.MenuItemTypeSeparator,
 		Position: 80,
 		Menu:     menuCode,
 	}
-	_ = menuSvc.AddMenuItem(ctx, menuCode, separator)
-
 	secondary := []admin.MenuItem{
 		{
+			ID:       NavigationGroupOthers + ".help",
 			Label:    "Help & Support",
 			LabelKey: "menu.help",
 			Icon:     "question-mark",
@@ -177,9 +190,21 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			ParentID: NavigationGroupOthers,
 		},
 	}
-	for _, item := range secondary {
-		_ = menuSvc.AddMenuItem(ctx, menuCode, item)
-	}
 
-	return nil
+	items := append([]admin.MenuItem{}, groups...)
+	items = append(items, content)
+	items = append(items, contentChildren...)
+	items = append(items, shop)
+	items = append(items, shopChildren...)
+	items = append(items, analytics, separator)
+	items = append(items, secondary...)
+
+	return quickstart.SeedNavigation(ctx, quickstart.SeedNavigationOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Items:    items,
+		Locale:   "",
+		Reset:    strings.EqualFold(os.Getenv("RESET_NAV_MENU"), "true"),
+		Logf:     nil,
+	})
 }
