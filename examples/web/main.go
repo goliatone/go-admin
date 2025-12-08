@@ -21,6 +21,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/search"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-crud"
 	dashboardcmp "github.com/goliatone/go-dashboard/components/dashboard"
@@ -46,19 +47,6 @@ func (l loginPayload) GetExtendedSession() bool { return l.Remember }
 
 func main() {
 	defaultLocale := "en"
-
-	usePersistentCMS := strings.EqualFold(os.Getenv("USE_PERSISTENT_CMS"), "true")
-	cmsBackend := "in-memory CMS"
-	cmsOptions := admin.CMSOptions{}
-	if usePersistentCMS {
-		if persistent, err := setup.SetupPersistentCMS(context.Background(), defaultLocale, ""); err != nil {
-			log.Printf("warning: USE_PERSISTENT_CMS enabled but persistent CMS unavailable: %v", err)
-			cmsBackend = "in-memory CMS (fallback)"
-		} else {
-			cmsOptions = persistent
-			cmsBackend = "go-cms (sqlite)"
-		}
-	}
 
 	cfg := admin.Config{
 		Title:         "Enterprise Admin",
@@ -87,24 +75,36 @@ func main() {
 			Tenants:       true,
 			Organizations: true,
 		},
-		CMS: cmsOptions,
 	}
 
-	useGoOptions := strings.EqualFold(os.Getenv("USE_GO_OPTIONS"), "true")
-	settingsBackend := "in-memory settings"
-	if useGoOptions {
-		settingsBackend = "go-options settings"
+	adapterHooks := quickstart.AdapterHooks{
+		PersistentCMS: func(ctx context.Context, locale string) (admin.CMSOptions, string, error) {
+			opts, err := setup.SetupPersistentCMS(ctx, locale, "")
+			return opts, "go-cms (sqlite)", err
+		},
+		GoOptions: func(adm *admin.Admin) (string, error) {
+			setup.SetupSettingsWithOptions(adm)
+			return "go-options settings", nil
+		},
+		GoUsersActivity: setup.SetupActivityWithGoUsers,
 	}
-	useGoUsersActivity := strings.EqualFold(os.Getenv("USE_GO_USERS_ACTIVITY"), "true")
-	activityBackend := "in-memory activity feed"
+	cfg, adapterResult := quickstart.ConfigureAdapters(context.Background(), cfg, adapterHooks)
+	cmsBackend := adapterResult.CMSBackend
+	settingsBackend := adapterResult.SettingsBackend
+	activityBackend := adapterResult.ActivityBackend
 
 	// Initialize data stores with seed data
-	dataStores, err := stores.Initialize()
+	var cmsContentSvc admin.CMSContentService
+	if cfg.CMS.Container != nil {
+		cmsContentSvc = cfg.CMS.Container.ContentService()
+	}
+	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale)
 	if err != nil {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
 
 	adm := admin.New(cfg)
+	quickstart.ApplyAdapterIntegrations(adm, &adapterResult, adapterHooks)
 
 	// Wire dashboard activity hooks to admin activity system
 	// This creates a bidirectional bridge:
@@ -126,14 +126,9 @@ func main() {
 	)
 
 	// Choose activity backend (go-users sink when flag is enabled)
-	primaryActivitySink := adm.ActivityFeed()
-	if useGoUsersActivity {
-		if sink := setup.SetupActivityWithGoUsers(); sink != nil {
-			primaryActivitySink = sink
-			activityBackend = "go-users activity sink"
-		} else {
-			log.Printf("warning: USE_GO_USERS_ACTIVITY enabled but go-users sink unavailable; using in-memory feed")
-		}
+	primaryActivitySink := adapterResult.ActivitySink
+	if primaryActivitySink == nil {
+		primaryActivitySink = adm.ActivityFeed()
 	}
 
 	// Create activity adapter that wraps the primary sink and also emits to dashboard hooks
@@ -265,12 +260,19 @@ func main() {
 
 	// Initialize view engine
 	viewCfg := helpers.NewWebViewConfig(webFS)
+	if qsTemplates := quickstart.SidebarTemplatesFS(); qsTemplates != nil {
+		viewCfg.AddTemplatesFS(qsTemplates)
+	}
+	if qsAssets := quickstart.SidebarAssetsFS(); qsAssets != nil {
+		viewCfg.AddAssetsFS(qsAssets)
+	}
 	viewEngine, err := router.InitializeViewEngine(viewCfg)
 	if err != nil {
 		log.Fatalf("failed to initialize view engine: %v", err)
 	}
 
 	// Initialize Fiber server
+	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
 	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 		app := fiber.New(fiber.Config{
 			UnescapePath:      true,
@@ -278,26 +280,7 @@ func main() {
 			StrictRouting:     false,
 			PassLocalsToViews: true,
 			Views:             viewEngine,
-			ErrorHandler: func(c *fiber.Ctx, err error) error {
-				// Return JSON errors for API routes
-				apiPrefix := path.Join(cfg.BasePath, "api")
-				if len(c.Path()) >= len(apiPrefix) && c.Path()[:len(apiPrefix)] == apiPrefix {
-					code := fiber.StatusInternalServerError
-					if e, ok := err.(*fiber.Error); ok {
-						code = e.Code
-					}
-					return c.Status(code).JSON(fiber.Map{
-						"error":  err.Error(),
-						"status": code,
-					})
-				}
-				// Default HTML error handling for non-API routes
-				code := fiber.StatusInternalServerError
-				if e, ok := err.(*fiber.Error); ok {
-					code = e.Code
-				}
-				return c.Status(code).SendString(err.Error())
-			},
+			ErrorHandler:      quickstart.NewFiberErrorHandler(adm, cfg, isDev),
 		})
 		app.Use(fiberlogger.New())
 		return app
@@ -306,12 +289,14 @@ func main() {
 
 	// Static assets
 	assetsFS := helpers.MustSubFS(webFS, "assets")
-	if assetsFS != nil {
-		r.Static(path.Join(cfg.BasePath, "assets"), ".", router.Static{
-			FS:   assetsFS,
-			Root: ".",
-		})
+	var staticFS fs.FS = assetsFS
+	if qsAssets := quickstart.SidebarAssetsFS(); qsAssets != nil {
+		staticFS = helpers.WithFallbackFS(staticFS, qsAssets)
 	}
+	r.Static(path.Join(cfg.BasePath, "assets"), ".", router.Static{
+		FS:   staticFS,
+		Root: ".",
+	})
 	// Serve embedded go-dashboard ECharts assets at the default path used by chart widgets.
 	echartsPrefix := strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/")
 	r.Static(echartsPrefix, ".", router.Static{
@@ -356,11 +341,17 @@ func main() {
 
 	// Setup admin features AFTER initialization to override default widgets
 	setup.SetupDashboard(adm, dataStores)
-	if useGoOptions {
-		setup.SetupSettingsWithOptions(adm)
+	if adapterResult.Flags.UseGoOptions {
+		// Settings already wired via adapter hook
+		if adapterResult.SettingsBackend == "" {
+			adapterResult.SettingsBackend = "go-options settings"
+		}
 	} else {
 		setup.SetupSettings(adm)
+		adapterResult.SettingsBackend = "in-memory settings"
 	}
+	settingsBackend = adapterResult.SettingsBackend
+	activityBackend = adapterResult.ActivityBackend
 	setupSearch(adm, dataStores)
 	setupJobs(adm, dataStores)
 
@@ -390,6 +381,9 @@ func main() {
 
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
+	pageHandlers := handlers.NewPageHandlers(dataStores.Pages, adm, cfg, helpers.WithNav)
+	postHandlers := handlers.NewPostHandlers(dataStores.Posts, adm, cfg, helpers.WithNav)
+	mediaHandlers := handlers.NewMediaHandlers(dataStores.Media, adm, cfg, helpers.WithNav)
 	var tenantHandlers *handlers.TenantHandlers
 	if svc := adm.TenantService(); svc != nil {
 		tenantHandlers = handlers.NewTenantHandlers(svc, formGenerator, adm, cfg, helpers.WithNav)
@@ -435,6 +429,19 @@ func main() {
 
 		return c.Redirect(cfg.BasePath, fiber.StatusFound)
 	})
+	r.Get(path.Join(cfg.BasePath, "logout"), func(c router.Context) error {
+		// Clear the auth cookie
+		c.Cookie(&router.Cookie{
+			Name:     authCookieName,
+			Value:    "",
+			Path:     "/",
+			HTTPOnly: true,
+			SameSite: "Lax",
+			Secure:   false,
+			MaxAge:   -1,
+		})
+		return c.Redirect(path.Join(cfg.BasePath, "login"), fiber.StatusFound)
+	})
 
 	r.Get(path.Join(cfg.BasePath, "notifications"), authn.WrapHandler(func(c router.Context) error {
 		viewCtx := helpers.WithNav(router.ViewContext{
@@ -445,6 +452,9 @@ func main() {
 		return c.Render("notifications", viewCtx)
 	}))
 
+	// Export handlers
+	exportHandlers := handlers.NewExportHandlers(dataStores.Users, cfg)
+
 	// User routes
 	r.Get(path.Join(cfg.BasePath, "users"), authn.WrapHandler(userHandlers.List))
 	r.Get(path.Join(cfg.BasePath, "users/new"), authn.WrapHandler(userHandlers.New))
@@ -453,6 +463,40 @@ func main() {
 	r.Post(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Update))
 	r.Get(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Detail))
 	r.Post(path.Join(cfg.BasePath, "users/:id/delete"), authn.WrapHandler(userHandlers.Delete))
+
+	// Export action (custom action endpoint for go-crud compatibility)
+	r.Get(path.Join(cfg.BasePath, "crud/users/actions/export"), authn.WrapHandler(exportHandlers.ExportUsers))
+
+	// Page routes
+	r.Get(path.Join(cfg.BasePath, "pages"), authn.WrapHandler(pageHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "pages/new"), authn.WrapHandler(pageHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "pages"), authn.WrapHandler(pageHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "pages/:id"), authn.WrapHandler(pageHandlers.Detail))
+	r.Get(path.Join(cfg.BasePath, "pages/:id/edit"), authn.WrapHandler(pageHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "pages/:id"), authn.WrapHandler(pageHandlers.Update))
+	r.Post(path.Join(cfg.BasePath, "pages/:id/delete"), authn.WrapHandler(pageHandlers.Delete))
+	r.Post(path.Join(cfg.BasePath, "pages/:id/publish"), authn.WrapHandler(pageHandlers.Publish))
+	r.Post(path.Join(cfg.BasePath, "pages/:id/unpublish"), authn.WrapHandler(pageHandlers.Unpublish))
+
+	// Post routes
+	r.Get(path.Join(cfg.BasePath, "posts"), authn.WrapHandler(postHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "posts/new"), authn.WrapHandler(postHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "posts"), authn.WrapHandler(postHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "posts/:id"), authn.WrapHandler(postHandlers.Detail))
+	r.Get(path.Join(cfg.BasePath, "posts/:id/edit"), authn.WrapHandler(postHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "posts/:id"), authn.WrapHandler(postHandlers.Update))
+	r.Post(path.Join(cfg.BasePath, "posts/:id/delete"), authn.WrapHandler(postHandlers.Delete))
+	r.Post(path.Join(cfg.BasePath, "posts/:id/publish"), authn.WrapHandler(postHandlers.Publish))
+	r.Post(path.Join(cfg.BasePath, "posts/:id/archive"), authn.WrapHandler(postHandlers.Archive))
+
+	// Media routes
+	r.Get(path.Join(cfg.BasePath, "media"), authn.WrapHandler(mediaHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "media/new"), authn.WrapHandler(mediaHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "media"), authn.WrapHandler(mediaHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "media/:id"), authn.WrapHandler(mediaHandlers.Detail))
+	r.Get(path.Join(cfg.BasePath, "media/:id/edit"), authn.WrapHandler(mediaHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "media/:id"), authn.WrapHandler(mediaHandlers.Update))
+	r.Post(path.Join(cfg.BasePath, "media/:id/delete"), authn.WrapHandler(mediaHandlers.Delete))
 
 	if tenantHandlers != nil {
 		r.Get(path.Join(cfg.BasePath, "tenants"), authn.WrapHandler(tenantHandlers.List))
@@ -473,9 +517,9 @@ func main() {
 	log.Println("  Media: /admin/api/media")
 	log.Println("  Settings: /admin/api/settings")
 	log.Println("  Session: /admin/api/session")
-	log.Printf("  Activity backend: %s (USE_GO_USERS_ACTIVITY=%t)", activityBackend, useGoUsersActivity)
-	log.Printf("  CMS backend: %s (USE_PERSISTENT_CMS=%t)", cmsBackend, usePersistentCMS)
-	log.Printf("  Settings backend: %s (USE_GO_OPTIONS=%t)", settingsBackend, useGoOptions)
+	log.Printf("  Activity backend: %s (USE_GO_USERS_ACTIVITY=%t)", activityBackend, adapterResult.Flags.UseGoUsersActivity)
+	log.Printf("  CMS backend: %s (USE_PERSISTENT_CMS=%t)", cmsBackend, adapterResult.Flags.UsePersistentCMS)
+	log.Printf("  Settings backend: %s (USE_GO_OPTIONS=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
 	log.Println("  Search: /admin/api/search?query=...")
 
 	if err := server.Serve(":8080"); err != nil {
@@ -716,4 +760,26 @@ func (c *compositeActivitySink) Record(ctx context.Context, entry admin.Activity
 func (c *compositeActivitySink) List(ctx context.Context, limit int, filters ...admin.ActivityFilter) ([]admin.ActivityEntry, error) {
 	// Listing only supported by primary sink
 	return c.primary.List(ctx, limit, filters...)
+}
+
+// getErrorContext maps HTTP status codes to user-friendly headlines and messages.
+func getErrorContext(code int) (headline string, message string) {
+	switch code {
+	case fiber.StatusBadRequest:
+		return "Bad Request", "The request could not be understood or was missing required parameters."
+	case fiber.StatusUnauthorized:
+		return "Unauthorized", "You need to be logged in to access this resource."
+	case fiber.StatusForbidden:
+		return "Access Denied", "You don't have permission to access this resource."
+	case fiber.StatusNotFound:
+		return "Page Not Found", "The page you're looking for doesn't exist or has been moved."
+	case fiber.StatusMethodNotAllowed:
+		return "Method Not Allowed", "The request method is not supported for this resource."
+	case fiber.StatusInternalServerError:
+		return "Internal Server Error", "Something went wrong on our end. We're working to fix it."
+	case fiber.StatusServiceUnavailable:
+		return "Service Unavailable", "The service is temporarily unavailable. Please try again later."
+	default:
+		return "Error", "An unexpected error occurred. Please try again or contact support if the problem persists."
+	}
 }
