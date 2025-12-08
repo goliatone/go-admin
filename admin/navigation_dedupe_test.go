@@ -22,7 +22,8 @@ func (s *stubPersistentMenuService) CreateMenu(_ context.Context, code string) (
 	if _, ok := s.items[code]; !ok {
 		s.items[code] = []MenuItem{}
 	}
-	return &Menu{Code: code, Items: s.copy(code)}, nil
+	slug := NormalizeMenuSlug(code)
+	return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug), Items: s.copy(code)}, nil
 }
 
 func (s *stubPersistentMenuService) AddMenuItem(_ context.Context, menuCode string, item MenuItem) error {
@@ -52,7 +53,8 @@ func (s *stubPersistentMenuService) ReorderMenu(_ context.Context, _ string, _ [
 }
 
 func (s *stubPersistentMenuService) Menu(_ context.Context, code, locale string) (*Menu, error) {
-	return &Menu{Code: code, Items: s.copy(code)}, nil
+	slug := NormalizeMenuSlug(code)
+	return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug), Items: s.copy(code)}, nil
 }
 
 func (s *stubPersistentMenuService) copy(code string) []MenuItem {

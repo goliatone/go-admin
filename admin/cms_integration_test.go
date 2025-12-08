@@ -23,7 +23,8 @@ type stubMenuService struct {
 }
 
 func (s *stubMenuService) CreateMenu(_ context.Context, code string) (*Menu, error) {
-	return &Menu{Code: code, Items: s.items}, nil
+	slug := NormalizeMenuSlug(code)
+	return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug), Items: s.items}, nil
 }
 
 func (s *stubMenuService) AddMenuItem(_ context.Context, menuCode string, item MenuItem) error {
@@ -67,7 +68,8 @@ func (s *stubMenuService) Menu(_ context.Context, code, locale string) (*Menu, e
 			out = append(out, item)
 		}
 	}
-	return &Menu{Code: code, Items: out}, nil
+	slug := NormalizeMenuSlug(code)
+	return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug), Items: out}, nil
 }
 
 type stubWidgetService struct{}
