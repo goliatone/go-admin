@@ -46,11 +46,11 @@ func (a *usersSearchAdapter) Permission() string {
 
 // pagesSearchAdapter searches pages
 type pagesSearchAdapter struct {
-	store *stores.PageStore
+	store stores.PageRepository
 }
 
 // NewPagesSearchAdapter creates a new pages search adapter
-func NewPagesSearchAdapter(store *stores.PageStore) *pagesSearchAdapter {
+func NewPagesSearchAdapter(store stores.PageRepository) *pagesSearchAdapter {
 	return &pagesSearchAdapter{store: store}
 }
 
@@ -76,11 +76,11 @@ func (a *pagesSearchAdapter) Permission() string {
 
 // postsSearchAdapter searches posts
 type postsSearchAdapter struct {
-	store *stores.PostStore
+	store stores.PostRepository
 }
 
 // NewPostsSearchAdapter creates a new posts search adapter
-func NewPostsSearchAdapter(store *stores.PostStore) *postsSearchAdapter {
+func NewPostsSearchAdapter(store stores.PostRepository) *postsSearchAdapter {
 	return &postsSearchAdapter{store: store}
 }
 
