@@ -68,8 +68,13 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 	}
 	// Use hardcoded label since translations aren't set up yet
 	label := "Users"
+	id := "users"
+	if m.parentID != "" {
+		id = m.parentID + ".users"
+	}
 	return []admin.MenuItem{
 		{
+			ID:       id,
 			Label:    label,
 			LabelKey: "menu.users",
 			Icon:     "group",
@@ -150,8 +155,10 @@ func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
 	}
 	// Use hardcoded label since translations aren't set up yet
 	label := "Pages"
+	id := setup.NavigationSectionContent + ".pages"
 	return []admin.MenuItem{
 		{
+			ID:       id,
 			Label:    label,
 			LabelKey: "menu.pages",
 			Icon:     "page",
@@ -228,8 +235,10 @@ func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
 	}
 	// Use hardcoded label since translations aren't set up yet
 	label := "Posts"
+	id := setup.NavigationSectionContent + ".posts"
 	return []admin.MenuItem{
 		{
+			ID:       id,
 			Label:    label,
 			LabelKey: "menu.posts",
 			Icon:     "post",
@@ -307,8 +316,10 @@ func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 	}
 	// Use hardcoded label since translations aren't set up yet
 	label := "Media"
+	id := setup.NavigationSectionContent + ".media"
 	return []admin.MenuItem{
 		{
+			ID:       id,
 			Label:    label,
 			LabelKey: "menu.media",
 			Icon:     "media-image",
@@ -357,8 +368,13 @@ func (m *notificationsModule) MenuItems(locale string) []admin.MenuItem {
 	if locale == "" {
 		locale = m.defaultLoc
 	}
+	id := "notifications"
+	if m.parentID != "" {
+		id = m.parentID + ".notifications"
+	}
 	return []admin.MenuItem{
 		{
+			ID:       id,
 			Label:    "Notifications",
 			LabelKey: "menu.notifications",
 			Icon:     "bell",
@@ -410,8 +426,13 @@ func (m *dashboardModule) MenuItems(locale string) []admin.MenuItem {
 	}
 	// Use hardcoded label since translations aren't set up yet
 	label := "Dashboard"
+	id := "dashboard"
+	if m.parentID != "" {
+		id = m.parentID + ".dashboard"
+	}
 	return []admin.MenuItem{
 		{
+			ID:       id,
 			Label:    label,
 			LabelKey: "menu.dashboard",
 			Icon:     "home",
