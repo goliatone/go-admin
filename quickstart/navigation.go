@@ -49,9 +49,9 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 	if opts.MenuSvc == nil {
 		return fmt.Errorf("MenuSvc is required")
 	}
-	menuCode := strings.TrimSpace(opts.MenuCode)
+	menuCode := admin.NormalizeMenuSlug(opts.MenuCode)
 	if menuCode == "" {
-		menuCode = "admin.main"
+		menuCode = admin.NormalizeMenuSlug("admin.main")
 	}
 	resetEnv := opts.ResetEnv
 	if resetEnv == "" {
@@ -86,6 +86,8 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 
 	for _, item := range opts.Items {
 		item = normalizeMenuItem(item, menuCode)
+		item.ID = admin.EnsureMenuUUID(item.ID)
+		item.ParentID = admin.EnsureMenuUUID(item.ParentID)
 		keys := canonicalMenuKeys(item)
 		if hasAnyKey(existing, keys) {
 			continue
@@ -134,6 +136,12 @@ func normalizeMenuItem(item admin.MenuItem, menuCode string) admin.MenuItem {
 			item.ID = strings.Trim(path.Join(item.ParentID, strings.ToLower(strings.ReplaceAll(item.Label, " ", "-"))), "/")
 		}
 	}
+	if strings.TrimSpace(item.Code) == "" {
+		item.Code = strings.TrimSpace(item.ID)
+	}
+	if strings.TrimSpace(item.ParentCode) == "" {
+		item.ParentCode = strings.TrimSpace(item.ParentID)
+	}
 	return item
 }
 
@@ -143,6 +151,10 @@ func canonicalMenuKeys(item admin.MenuItem) []string {
 	keys := []string{}
 	if id := strings.TrimSpace(item.ID); id != "" {
 		keys = append(keys, "id:"+id)
+	}
+	if code := strings.TrimSpace(item.Code); code != "" {
+		keys = append(keys, "code:"+strings.ToLower(code))
+		keys = append(keys, "id:"+admin.EnsureMenuUUID(code))
 	}
 	if tgt := extractTargetKey(item.Target); tgt != "" {
 		keys = append(keys, "target:"+tgt)

@@ -52,9 +52,9 @@ func BuildNavItems(adm *admin.Admin, cfg admin.Config, ctx context.Context, acti
 	if nav == nil {
 		return nil
 	}
-	menuCode := cfg.NavMenuCode
+	menuCode := admin.NormalizeMenuSlug(cfg.NavMenuCode)
 	if menuCode == "" {
-		menuCode = "admin.main"
+		menuCode = admin.NormalizeMenuSlug("admin.main")
 	}
 	logNav := strings.EqualFold(os.Getenv("NAV_DEBUG"), "true") || strings.EqualFold(os.Getenv("NAV_DEBUG_LOG"), "true")
 	items := nav.ResolveMenu(ctx, menuCode, cfg.DefaultLocale)
