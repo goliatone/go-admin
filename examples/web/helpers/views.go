@@ -36,6 +36,22 @@ func NewWebViewConfig(embedded fs.FS) *WebViewConfig {
 	return cfg
 }
 
+// AddTemplatesFS appends an additional templates filesystem (used as fallback).
+func (c *WebViewConfig) AddTemplatesFS(fsys fs.FS) {
+	if fsys == nil {
+		return
+	}
+	c.templateFS = append(c.templateFS, fsys)
+}
+
+// AddAssetsFS prepends an additional assets filesystem (allows overrides/fallbacks).
+func (c *WebViewConfig) AddAssetsFS(fsys fs.FS) {
+	if fsys == nil {
+		return
+	}
+	c.assetsFS = WithFallbackFS(fsys, c.assetsFS)
+}
+
 // GetReload returns whether to reload templates on each request
 func (c *WebViewConfig) GetReload() bool { return true }
 
@@ -86,4 +102,46 @@ func MustSubFS(fsys embed.FS, dir string) fs.FS {
 		return nil
 	}
 	return sub
+}
+
+// MultiFS tries each filesystem in order until one succeeds.
+type MultiFS []fs.FS
+
+// Open implements fs.FS to provide fallback resolution.
+func (m MultiFS) Open(name string) (fs.File, error) {
+	var lastErr error
+	for _, f := range m {
+		if f == nil {
+			continue
+		}
+		file, err := f.Open(name)
+		if err == nil {
+			return file, nil
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = fs.ErrNotExist
+	}
+	return nil, lastErr
+}
+
+// WithFallbackFS builds a MultiFS preferring the primary FS first.
+func WithFallbackFS(primary fs.FS, fallbacks ...fs.FS) fs.FS {
+	fsList := []fs.FS{}
+	fsList = append(fsList, extractFS(primary)...)
+	for _, f := range fallbacks {
+		fsList = append(fsList, extractFS(f)...)
+	}
+	return MultiFS(fsList)
+}
+
+func extractFS(f fs.FS) []fs.FS {
+	if f == nil {
+		return nil
+	}
+	if m, ok := f.(MultiFS); ok {
+		return []fs.FS(m)
+	}
+	return []fs.FS{f}
 }
