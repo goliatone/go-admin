@@ -195,8 +195,16 @@ func main() {
 	translator := helpers.NewSimpleTranslator()
 	adm.WithTranslator(translator)
 
-	if err := setup.SetupNavigation(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode); err != nil {
-		log.Printf("warning: failed to seed navigation: %v", err)
+	if err := quickstart.EnsureDefaultMenuParents(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
+		log.Printf("warning: failed to scaffold navigation parents: %v", err)
+	}
+
+	if strings.EqualFold(os.Getenv("USE_NAV_SEED"), "true") {
+		if err := setup.SetupNavigation(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode); err != nil {
+			log.Printf("warning: failed to seed navigation: %v", err)
+		}
+	} else {
+		log.Printf("skipping navigation seed; using module menu contributions only (set USE_NAV_SEED=true to seed)")
 	}
 
 	// Setup authentication and authorization
@@ -377,6 +385,25 @@ func main() {
 	r.Get(path.Join(cfg.BasePath, "api/session"), authn.WrapHandler(func(c router.Context) error {
 		session := helpers.BuildSessionUser(c.Context())
 		return c.JSON(fiber.StatusOK, session)
+	}))
+
+	// Dashboard preferences endpoint (widget layout persistence)
+	r.Post(path.Join(cfg.BasePath, "api/dashboard/preferences"), authn.WrapHandler(func(c router.Context) error {
+		var prefs map[string]any
+		if err := c.Bind(&prefs); err != nil {
+			return c.JSON(fiber.StatusBadRequest, map[string]any{
+				"error": "invalid request payload",
+			})
+		}
+
+		// For now, just acknowledge the save (in-memory, not persisted)
+		// In production, save to database or preferences store
+		log.Printf("Dashboard preferences saved: %+v", prefs)
+
+		return c.JSON(fiber.StatusOK, map[string]any{
+			"success": true,
+			"message": "Layout preferences saved",
+		})
 	}))
 
 	// HTML routes
