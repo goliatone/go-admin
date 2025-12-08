@@ -81,20 +81,21 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 
 	existing := map[string]bool{}
 	if menu, err := opts.MenuSvc.Menu(ctx, menuCode, opts.Locale); err == nil && menu != nil {
-		for _, item := range menu.Items {
-			collectMenuIDs(item, existing)
-		}
+		addMenuKeys(menu.Items, existing)
 	}
 
 	for _, item := range opts.Items {
 		item = normalizeMenuItem(item, menuCode)
-		if existing[item.ID] {
+		keys := canonicalMenuKeys(item)
+		if hasAnyKey(existing, keys) {
 			continue
 		}
 		if err := opts.MenuSvc.AddMenuItem(ctx, menuCode, item); err != nil {
 			return err
 		}
-		existing[item.ID] = true
+		for _, k := range keys {
+			existing[k] = true
+		}
 	}
 
 	return nil
@@ -136,14 +137,48 @@ func normalizeMenuItem(item admin.MenuItem, menuCode string) admin.MenuItem {
 	return item
 }
 
-func collectMenuIDs(item admin.MenuItem, set map[string]bool) {
-	if set == nil {
-		return
+// canonicalMenuKeys returns stable keys used to dedupe menu items across persistent backends.
+// It prefers an explicit ID, otherwise falls back to the target key/path when present.
+func canonicalMenuKeys(item admin.MenuItem) []string {
+	keys := []string{}
+	if id := strings.TrimSpace(item.ID); id != "" {
+		keys = append(keys, "id:"+id)
 	}
-	if strings.TrimSpace(item.ID) != "" {
-		set[item.ID] = true
+	if tgt := extractTargetKey(item.Target); tgt != "" {
+		keys = append(keys, "target:"+tgt)
 	}
-	for _, child := range item.Children {
-		collectMenuIDs(child, set)
+	return keys
+}
+
+func extractTargetKey(target map[string]any) string {
+	if target == nil {
+		return ""
 	}
+	if key, ok := target["key"].(string); ok && strings.TrimSpace(key) != "" {
+		return strings.TrimSpace(key)
+	}
+	if path, ok := target["path"].(string); ok && strings.TrimSpace(path) != "" {
+		return strings.TrimSpace(path)
+	}
+	return ""
+}
+
+func addMenuKeys(items []admin.MenuItem, dest map[string]bool) {
+	for _, item := range items {
+		for _, key := range canonicalMenuKeys(item) {
+			dest[key] = true
+		}
+		if len(item.Children) > 0 {
+			addMenuKeys(item.Children, dest)
+		}
+	}
+}
+
+func hasAnyKey(set map[string]bool, keys []string) bool {
+	for _, k := range keys {
+		if set[k] {
+			return true
+		}
+	}
+	return false
 }
