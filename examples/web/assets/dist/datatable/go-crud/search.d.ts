@@ -1,5 +1,5 @@
-import type { SearchBehavior } from '../behaviors/types';
-import type { DataGrid } from '../core';
+import type { SearchBehavior } from '../behaviors/types.js';
+import type { DataGrid } from '../core.js';
 /**
  * go-crud search behavior
  * Builds OR queries across multiple fields using __ilike operator

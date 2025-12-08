@@ -1,4 +1,4 @@
-import type { ColumnDefinition, DataGridBehaviors } from './behaviors/types';
+import type { ColumnDefinition, DataGridBehaviors } from './behaviors/types.js';
 /**
  * DataGrid configuration
  */

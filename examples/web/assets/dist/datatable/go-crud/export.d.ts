@@ -1,5 +1,5 @@
-import type { ExportBehavior } from '../behaviors/types';
-import type { DataGrid } from '../core';
+import type { ExportBehavior } from '../behaviors/types.js';
+import type { DataGrid } from '../core.js';
 /**
  * go-crud export behavior
  * Uses custom action endpoint for exports

@@ -1,5 +1,5 @@
-import type { FilterBehavior, ColumnFilter } from '../behaviors/types';
-import type { DataGrid } from '../core';
+import type { FilterBehavior, ColumnFilter } from '../behaviors/types.js';
+import type { DataGrid } from '../core.js';
 /**
  * go-crud filter behavior
  * Builds query parameters using go-crud's filter syntax

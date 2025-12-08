@@ -2,11 +2,11 @@
  * go-crud behavior implementations
  * Default behaviors for go-crud API surface
  */
-export { GoCrudSearchBehavior } from './search';
-export { GoCrudFilterBehavior } from './filter';
-export { GoCrudPaginationBehavior } from './pagination';
-export { GoCrudSortBehavior } from './sort';
-export { GoCrudExportBehavior } from './export';
-export { GoCrudBulkActionBehavior } from './bulk';
-export { DefaultColumnVisibilityBehavior } from './column-visibility';
+export { GoCrudSearchBehavior } from './search.js';
+export { GoCrudFilterBehavior } from './filter.js';
+export { GoCrudPaginationBehavior } from './pagination.js';
+export { GoCrudSortBehavior } from './sort.js';
+export { GoCrudExportBehavior } from './export.js';
+export { GoCrudBulkActionBehavior } from './bulk.js';
+export { DefaultColumnVisibilityBehavior } from './column-visibility.js';
 //# sourceMappingURL=index.js.map

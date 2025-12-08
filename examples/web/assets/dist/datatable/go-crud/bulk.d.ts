@@ -1,5 +1,5 @@
-import type { BulkActionBehavior } from '../behaviors/types';
-import type { DataGrid } from '../core';
+import type { BulkActionBehavior } from '../behaviors/types.js';
+import type { DataGrid } from '../core.js';
 /**
  * go-crud bulk action behavior
  * Uses custom action endpoints for bulk operations

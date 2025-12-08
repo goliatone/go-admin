@@ -1,5 +1,5 @@
-import type { ColumnVisibilityBehavior } from '../behaviors/types';
-import type { DataGrid } from '../core';
+import type { ColumnVisibilityBehavior } from '../behaviors/types.js';
+import type { DataGrid } from '../core.js';
 /**
  * Default column visibility behavior
  * Stores state in localStorage
