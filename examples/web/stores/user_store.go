@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 const (
@@ -40,13 +42,14 @@ var (
 
 // User mirrors the JSON shape expected by go-crud.
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	LastLogin time.Time `json:"last_login"`
+	bun.BaseModel `bun:"table:users,alias:u"`
+	ID            uuid.UUID `json:"id" bun:"id,pk,type:uuid"`
+	Username      string    `json:"username" bun:"username"`
+	Email         string    `json:"email" bun:"email"`
+	Role          string    `json:"role" bun:"role"`
+	Status        string    `json:"status" bun:"status"`
+	CreatedAt     time.Time `json:"created_at" bun:"created_at"`
+	LastLogin     time.Time `json:"last_login" bun:"last_login"`
 }
 
 // UserStore manages user data through a go-users-compatible repository.
@@ -802,6 +805,122 @@ func cloneAuthUser(user *types.AuthUser) *types.AuthUser {
 	return &copy
 }
 
+// extractListOptionsFromCriteria extracts query parameters from SelectCriteria for the in-memory store.
+// It creates a mock bun query and applies criteria to extract filter parameters.
+func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.SelectCriteria) admin.ListOptions {
+	opts := admin.ListOptions{
+		Filters: make(map[string]any),
+	}
+
+	if len(criteria) == 0 {
+		return opts
+	}
+
+	db := newMockBunDB()
+	if db == nil {
+		return opts
+	}
+	defer db.DB.Close()
+
+	mockQuery := db.NewSelect().Model((*User)(nil))
+
+	// Apply all criteria to the mock query
+	for _, criterion := range criteria {
+		if criterion != nil {
+			mockQuery = criterion(mockQuery)
+		}
+	}
+
+	// Extract query string to parse parameters
+	queryStr := mockQuery.String()
+
+	// Debug: log the generated query
+	fmt.Printf("[DEBUG] Generated query: %s\n", queryStr)
+
+	// Parse LIMIT and OFFSET
+	if idx := strings.Index(queryStr, "LIMIT "); idx >= 0 {
+		limitStr := queryStr[idx+6:]
+		// Extract just the number part
+		var limit int
+		if _, err := fmt.Sscanf(limitStr, "%d", &limit); err == nil && limit > 0 {
+			opts.PerPage = limit
+		}
+	}
+	if idx := strings.Index(queryStr, "OFFSET "); idx >= 0 {
+		offsetStr := queryStr[idx+7:]
+		var offset int
+		if _, err := fmt.Sscanf(offsetStr, "%d", &offset); err == nil && opts.PerPage > 0 {
+			opts.Page = (offset / opts.PerPage) + 1
+		}
+	}
+
+	// Parse WHERE conditions for filters
+	if strings.Contains(queryStr, "WHERE") {
+		// Extract role filter
+		if strings.Contains(queryStr, `"role"`) {
+			roleMatch := extractWhereValue(queryStr, "role")
+			if roleMatch != "" {
+				opts.Filters["role"] = roleMatch
+			}
+		}
+		// Extract status filter
+		if strings.Contains(queryStr, `"status"`) {
+			statusMatch := extractWhereValue(queryStr, "status")
+			if statusMatch != "" {
+				opts.Filters["status"] = statusMatch
+			}
+		}
+		// Extract search (ILIKE patterns)
+		if strings.Contains(queryStr, "ILIKE") {
+			searchTerm := extractILikeValue(queryStr)
+			if searchTerm != "" {
+				opts.Filters["_search"] = searchTerm
+			}
+		}
+	}
+
+	return opts
+}
+
+// newMockBunDB creates a minimal in-memory bun DB for query building/parsing.
+// It never hits disk and is only used to stringify queries from criteria.
+func newMockBunDB() *bun.DB {
+	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		return nil
+	}
+	return bun.NewDB(sqlDB, sqlitedialect.New())
+}
+
+func extractWhereValue(query, column string) string {
+	// Try with quotes first: "column" = 'value'
+	if idx := strings.Index(query, `"`+column+`" = '`); idx >= 0 {
+		valueStart := idx + len(column) + 6 // length of "column" = '
+		if endIdx := strings.Index(query[valueStart:], "'"); endIdx >= 0 {
+			return query[valueStart : valueStart+endIdx]
+		}
+	}
+	// Try without quotes: column = 'value'
+	if idx := strings.Index(query, column+` = '`); idx >= 0 {
+		valueStart := idx + len(column) + 4 // length of column = '
+		if endIdx := strings.Index(query[valueStart:], "'"); endIdx >= 0 {
+			return query[valueStart : valueStart+endIdx]
+		}
+	}
+	return ""
+}
+
+func extractILikeValue(query string) string {
+	// Extract value from ILIKE '%value%'
+	if idx := strings.Index(query, "ILIKE '%"); idx >= 0 {
+		start := idx + 8
+		if endIdx := strings.Index(query[start:], "%'"); endIdx >= 0 {
+			return query[start : start+endIdx]
+		}
+	}
+	return ""
+}
+
 // userRepositoryAdapter bridges the go-users store to the go-crud controller.
 type userRepositoryAdapter struct {
 	store         *UserStore
@@ -845,11 +964,15 @@ func (r *userRepositoryAdapter) GetByIDTx(ctx context.Context, _ bun.IDB, id str
 	return r.GetByID(ctx, id, criteria...)
 }
 
-func (r *userRepositoryAdapter) List(ctx context.Context, _ ...repository.SelectCriteria) ([]*User, int, error) {
-	records, total, err := r.store.List(ctx, admin.ListOptions{})
+func (r *userRepositoryAdapter) List(ctx context.Context, criteria ...repository.SelectCriteria) ([]*User, int, error) {
+	fmt.Printf("[DEBUG] List called with %d criteria\n", len(criteria))
+	opts := extractListOptionsFromCriteria(ctx, criteria)
+	fmt.Printf("[DEBUG] Extracted options: PerPage=%d, Page=%d, Filters=%+v\n", opts.PerPage, opts.Page, opts.Filters)
+	records, total, err := r.store.List(ctx, opts)
 	if err != nil {
 		return nil, 0, err
 	}
+	fmt.Printf("[DEBUG] Store returned %d records, total=%d\n", len(records), total)
 	results := make([]*User, 0, len(records))
 	for _, record := range records {
 		results = append(results, mapToUserRecord(record))
