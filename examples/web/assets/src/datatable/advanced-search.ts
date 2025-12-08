@@ -1,0 +1,427 @@
+/**
+ * Advanced Search Component
+ * Provides a query builder UI for complex search queries
+ */
+
+export interface SearchCriterion {
+  field: string;
+  operator: string;
+  value: string | number;
+  logic?: 'and' | 'or'; // Logic connector to next criterion
+}
+
+export interface AdvancedSearchConfig {
+  fields: FieldDefinition[];
+  onSearch: (criteria: SearchCriterion[]) => void;
+  onClear: () => void;
+}
+
+export interface FieldDefinition {
+  name: string;
+  label: string;
+  type: 'text' | 'number' | 'select' | 'date';
+  operators?: string[];
+  options?: { label: string; value: string }[];
+}
+
+const DEFAULT_OPERATORS: Record<string, { label: string; value: string }[]> = {
+  text: [
+    { label: 'contains', value: 'ilike' },
+    { label: 'equals', value: 'eq' },
+    { label: 'starts with', value: 'starts' },
+    { label: 'ends with', value: 'ends' },
+    { label: 'not equals', value: 'ne' }
+  ],
+  number: [
+    { label: 'equals', value: 'eq' },
+    { label: 'not equals', value: 'ne' },
+    { label: 'greater than', value: 'gt' },
+    { label: 'less than', value: 'lt' },
+    { label: 'between', value: 'between' }
+  ],
+  select: [
+    { label: 'equals', value: 'eq' },
+    { label: 'not equals', value: 'ne' }
+  ],
+  date: [
+    { label: 'on', value: 'eq' },
+    { label: 'before', value: 'lt' },
+    { label: 'after', value: 'gt' },
+    { label: 'between', value: 'between' }
+  ]
+};
+
+export class AdvancedSearch {
+  private config: AdvancedSearchConfig;
+  private criteria: SearchCriterion[] = [];
+  private modal: HTMLElement | null = null;
+  private container: HTMLElement | null = null;
+  private searchInput: HTMLInputElement | null = null;
+  private clearBtn: HTMLElement | null = null;
+
+  constructor(config: AdvancedSearchConfig) {
+    this.config = config;
+  }
+
+  init(): void {
+    this.modal = document.getElementById('advanced-search-modal');
+    this.container = document.getElementById('search-criteria-container');
+    this.searchInput = document.getElementById('table-search') as HTMLInputElement;
+    this.clearBtn = document.getElementById('search-clear-btn');
+
+    if (!this.modal || !this.container) {
+      console.error('[AdvancedSearch] Required elements not found');
+      return;
+    }
+
+    // Restore criteria from URL on init
+    this.restoreCriteriaFromURL();
+
+    // Re-render to show restored criteria in the modal
+    if (this.criteria.length > 0) {
+      this.renderCriteria();
+    }
+
+    this.bindEvents();
+    this.bindClearButton();
+  }
+
+  /**
+   * Restore advanced search criteria from URL
+   */
+  private restoreCriteriaFromURL(): void {
+    const params = new URLSearchParams(window.location.search);
+    // Use the same 'filters' parameter as DataGrid for consistency
+    const filtersParam = params.get('filters');
+
+    if (filtersParam) {
+      try {
+        const filters = JSON.parse(filtersParam);
+        // Convert DataGrid filters format to advanced search criteria format
+        this.criteria = filters.map((f: any) => ({
+          field: f.column,
+          operator: f.operator || 'ilike',
+          value: f.value,
+          logic: 'and' // Default logic connector
+        }));
+        console.log('[AdvancedSearch] Restored criteria from URL:', this.criteria);
+      } catch (e) {
+        console.warn('[AdvancedSearch] Failed to parse filters from URL:', e);
+      }
+    }
+  }
+
+  /**
+   * Push criteria to URL
+   */
+  private pushCriteriaToURL(): void {
+    const params = new URLSearchParams(window.location.search);
+
+    if (this.criteria.length > 0) {
+      params.set('advancedSearch', JSON.stringify(this.criteria));
+    } else {
+      params.delete('advancedSearch');
+    }
+
+    const newURL = params.toString()
+      ? `${window.location.pathname}?${params.toString()}`
+      : window.location.pathname;
+
+    window.history.pushState({}, '', newURL);
+    console.log('[AdvancedSearch] URL updated with criteria');
+  }
+
+  private bindEvents(): void {
+    // Open modal
+    const openBtn = document.getElementById('advanced-search-btn');
+    openBtn?.addEventListener('click', () => this.open());
+
+    // Close modal
+    const closeBtn = document.getElementById('advanced-search-close');
+    const cancelBtn = document.getElementById('advanced-search-cancel');
+    const overlay = document.getElementById('advanced-search-overlay');
+
+    closeBtn?.addEventListener('click', () => this.close());
+    cancelBtn?.addEventListener('click', () => this.close());
+    overlay?.addEventListener('click', () => this.close());
+
+    // Add criteria
+    const addBtn = document.getElementById('add-criteria-btn');
+    addBtn?.addEventListener('click', () => this.addCriterion());
+
+    // Apply search
+    const applyBtn = document.getElementById('advanced-search-apply');
+    applyBtn?.addEventListener('click', () => this.applySearch());
+
+    // Save/Load presets
+    const saveBtn = document.getElementById('save-search-preset-btn');
+    const loadBtn = document.getElementById('load-search-preset-btn');
+
+    saveBtn?.addEventListener('click', () => this.savePreset());
+    loadBtn?.addEventListener('click', () => this.loadPreset());
+  }
+
+  private bindClearButton(): void {
+    if (!this.searchInput || !this.clearBtn) return;
+
+    // Show/hide clear button based on input value
+    const updateClearButton = () => {
+      if (this.searchInput!.value.trim()) {
+        this.clearBtn!.classList.remove('hidden');
+      } else {
+        this.clearBtn!.classList.add('hidden');
+      }
+    };
+
+    this.searchInput.addEventListener('input', updateClearButton);
+
+    // Clear search
+    this.clearBtn.addEventListener('click', () => {
+      if (this.searchInput) {
+        this.searchInput.value = '';
+        this.clearBtn!.classList.add('hidden');
+
+        // Clear advanced search criteria
+        this.criteria = [];
+        this.pushCriteriaToURL();
+
+        this.config.onClear();
+      }
+    });
+
+    // Initial update
+    updateClearButton();
+  }
+
+  open(): void {
+    if (!this.modal) return;
+
+    this.modal.classList.remove('hidden');
+
+    // Initialize with one criterion if empty
+    if (this.criteria.length === 0) {
+      this.addCriterion();
+    } else {
+      this.renderCriteria();
+    }
+  }
+
+  close(): void {
+    if (!this.modal) return;
+    this.modal.classList.add('hidden');
+  }
+
+  addCriterion(criterion?: Partial<SearchCriterion>): void {
+    const newCriterion: SearchCriterion = {
+      field: criterion?.field || this.config.fields[0]?.name || '',
+      operator: criterion?.operator || 'ilike',
+      value: criterion?.value || '',
+      logic: criterion?.logic || 'and'
+    };
+
+    this.criteria.push(newCriterion);
+    this.renderCriteria();
+  }
+
+  removeCriterion(index: number): void {
+    this.criteria.splice(index, 1);
+    this.renderCriteria();
+  }
+
+  private renderCriteria(): void {
+    if (!this.container) return;
+
+    this.container.innerHTML = '';
+
+    this.criteria.forEach((criterion, index) => {
+      const row = this.createCriterionRow(criterion, index);
+      this.container!.appendChild(row);
+
+      // Add logic connector between rows (except last)
+      if (index < this.criteria.length - 1) {
+        const connector = this.createLogicConnector(index);
+        this.container!.appendChild(connector);
+      }
+    });
+  }
+
+  private createCriterionRow(criterion: SearchCriterion, index: number): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2 py-3';
+
+    const field = this.config.fields.find(f => f.name === criterion.field) || this.config.fields[0];
+
+    // Field selector
+    row.innerHTML = `
+      <select data-criterion-index="${index}" data-criterion-part="field"
+              class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-50">
+        ${this.config.fields.map(f => `
+          <option value="${f.name}" ${f.name === criterion.field ? 'selected' : ''}>${f.label}</option>
+        `).join('')}
+      </select>
+
+      <select data-criterion-index="${index}" data-criterion-part="operator"
+              class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500 bg-gray-50">
+        ${this.getOperatorsForField(field).map(op => `
+          <option value="${op.value}" ${op.value === criterion.operator ? 'selected' : ''}>${op.label}</option>
+        `).join('')}
+      </select>
+
+      ${this.createValueInput(field, criterion, index)}
+
+      <button type="button" data-criterion-index="${index}" data-action="remove"
+              class="p-2 text-gray-400 hover:text-red-600">
+        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+        </svg>
+      </button>
+    `;
+
+    // Bind events
+    row.querySelectorAll('select, input').forEach(el => {
+      el.addEventListener('change', (e) => this.updateCriterion(e.target as HTMLElement));
+    });
+
+    row.querySelector('[data-action="remove"]')?.addEventListener('click', () => {
+      this.removeCriterion(index);
+    });
+
+    return row;
+  }
+
+  private createValueInput(field: FieldDefinition, criterion: SearchCriterion, index: number): string {
+    if (field.type === 'select' && field.options) {
+      return `
+        <select data-criterion-index="${index}" data-criterion-part="value"
+                class="flex-1 py-2 px-3 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
+          <option value="">Select...</option>
+          ${field.options.map(opt => `
+            <option value="${opt.value}" ${opt.value === criterion.value ? 'selected' : ''}>${opt.label}</option>
+          `).join('')}
+        </select>
+      `;
+    }
+
+    const inputType = field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text';
+
+    return `
+      <input type="${inputType}"
+             data-criterion-index="${index}"
+             data-criterion-part="value"
+             value="${criterion.value}"
+             placeholder="Enter value..."
+             class="flex-1 py-2 px-3 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
+    `;
+  }
+
+  private createLogicConnector(index: number): HTMLElement {
+    const connector = document.createElement('div');
+    connector.className = 'flex items-center justify-center gap-2 py-2';
+
+    const logic = this.criteria[index].logic || 'and';
+
+    connector.innerHTML = `
+      <button type="button"
+              data-logic-index="${index}"
+              data-logic-value="and"
+              class="px-3 py-1 text-xs font-medium rounded border ${logic === 'and' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'}">
+        And
+      </button>
+      <button type="button"
+              data-logic-index="${index}"
+              data-logic-value="or"
+              class="px-3 py-1 text-xs font-medium rounded border ${logic === 'or' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'}">
+        Or
+      </button>
+    `;
+
+    connector.querySelectorAll('[data-logic-index]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const idx = parseInt(target.dataset.logicIndex || '0', 10);
+        const value = target.dataset.logicValue as 'and' | 'or';
+        this.criteria[idx].logic = value;
+        this.renderCriteria();
+      });
+    });
+
+    return connector;
+  }
+
+  private updateCriterion(element: HTMLElement): void {
+    const index = parseInt(element.dataset.criterionIndex || '0', 10);
+    const part = element.dataset.criterionPart as 'field' | 'operator' | 'value';
+
+    if (!this.criteria[index]) return;
+
+    const value = (element as HTMLInputElement | HTMLSelectElement).value;
+
+    if (part === 'field') {
+      this.criteria[index].field = value;
+      // Re-render to update operators and value input for new field type
+      this.renderCriteria();
+    } else if (part === 'operator') {
+      this.criteria[index].operator = value;
+    } else if (part === 'value') {
+      this.criteria[index].value = value;
+    }
+  }
+
+  private getOperatorsForField(field: FieldDefinition): { label: string; value: string }[] {
+    if (field.operators && field.operators.length > 0) {
+      return field.operators.map(op => ({ label: op, value: op }));
+    }
+    return DEFAULT_OPERATORS[field.type] || DEFAULT_OPERATORS.text;
+  }
+
+  private applySearch(): void {
+    this.pushCriteriaToURL();
+    this.config.onSearch(this.criteria);
+    this.close();
+  }
+
+  private savePreset(): void {
+    const name = prompt('Enter a name for this search preset:');
+    if (!name) return;
+
+    const presets = this.loadPresetsFromStorage();
+    presets[name] = this.criteria;
+
+    localStorage.setItem('search_presets', JSON.stringify(presets));
+    alert(`Preset "${name}" saved!`);
+  }
+
+  private loadPreset(): void {
+    const presets = this.loadPresetsFromStorage();
+    const names = Object.keys(presets);
+
+    if (names.length === 0) {
+      alert('No saved presets found.');
+      return;
+    }
+
+    const name = prompt(`Available presets:\n${names.join('\n')}\n\nEnter preset name to load:`);
+    if (!name || !presets[name]) return;
+
+    this.criteria = presets[name];
+    this.renderCriteria();
+  }
+
+  private loadPresetsFromStorage(): Record<string, SearchCriterion[]> {
+    try {
+      const stored = localStorage.getItem('search_presets');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  getCriteria(): SearchCriterion[] {
+    return this.criteria;
+  }
+
+  setCriteria(criteria: SearchCriterion[]): void {
+    this.criteria = criteria;
+    this.renderCriteria();
+  }
+}

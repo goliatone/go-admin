@@ -6,6 +6,9 @@
 export { DataGrid } from './core.js';
 export type { DataGridConfig } from './core.js';
 
+export { AdvancedSearch } from './advanced-search.js';
+export type { AdvancedSearchConfig, SearchCriterion, FieldDefinition } from './advanced-search.js';
+
 // Export behavior types
 export type {
   ColumnDefinition,

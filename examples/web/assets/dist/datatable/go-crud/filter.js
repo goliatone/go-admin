@@ -5,15 +5,29 @@
 export class GoCrudFilterBehavior {
     buildFilters(filters) {
         const params = {};
+        // Group filters by column and operator to detect OR conditions
+        const grouped = new Map();
         filters.forEach(filter => {
             if (filter.value === null || filter.value === undefined || filter.value === '') {
                 return;
             }
             const operator = filter.operator || 'eq';
-            // For 'eq' operator, use plain field name: ?status=active
-            // For others, use field__operator: ?age__gte=30
             const key = operator === 'eq' ? filter.column : `${filter.column}__${operator}`;
-            params[key] = filter.value;
+            if (!grouped.has(key)) {
+                grouped.set(key, []);
+            }
+            grouped.get(key).push(filter.value);
+        });
+        // Convert grouped filters to params
+        // If multiple values for same field/operator, join with comma (OR logic)
+        grouped.forEach((values, key) => {
+            if (values.length === 1) {
+                params[key] = values[0];
+            }
+            else {
+                // Multiple values for same field - join with comma for OR logic
+                params[key] = values.join(',');
+            }
         });
         return params;
     }

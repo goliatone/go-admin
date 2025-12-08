@@ -25,8 +25,8 @@ export class GoCrudExportBehavior {
         const currentQuery = grid.buildQueryString();
         // Construct export URL
         const url = `${this.getEndpoint()}?format=${format}&${currentQuery}`;
-        // Trigger download by navigating to the URL
-        window.location.href = url;
+        // Open in new tab/window
+        window.open(url, '_blank');
     }
 }
 //# sourceMappingURL=export.js.map

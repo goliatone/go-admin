@@ -39,18 +39,23 @@ export class DataGrid {
             search: '',
             filters: [],
             sort: [],
-            selectedRows: new Set()
+            selectedRows: new Set(),
+            hiddenColumns: new Set()
         };
     }
     /**
      * Initialize the data grid
      */
     init() {
+        console.log('[DataGrid] Initializing with config:', this.config);
         this.tableEl = document.querySelector(this.selectors.table);
         if (!this.tableEl) {
-            console.error(`Table element not found: ${this.selectors.table}`);
+            console.error(`[DataGrid] Table element not found: ${this.selectors.table}`);
             return;
         }
+        console.log('[DataGrid] Table element found:', this.tableEl);
+        // Restore state from URL before binding
+        this.restoreStateFromURL();
         this.bindSearchInput();
         this.bindPerPageSelect();
         this.bindFilterInputs();
@@ -62,6 +67,142 @@ export class DataGrid {
         this.bindDropdownToggles();
         // Initial data load
         this.refresh();
+    }
+    /**
+     * Restore DataGrid state from URL parameters
+     */
+    restoreStateFromURL() {
+        const params = new URLSearchParams(window.location.search);
+        // Restore search
+        const search = params.get('search');
+        if (search) {
+            this.state.search = search;
+            const searchInput = document.querySelector(this.selectors.searchInput);
+            if (searchInput) {
+                searchInput.value = search;
+            }
+        }
+        // Restore page
+        const page = params.get('page');
+        if (page) {
+            this.state.currentPage = parseInt(page, 10) || 1;
+        }
+        // Restore perPage
+        const perPage = params.get('perPage');
+        if (perPage) {
+            this.state.perPage = parseInt(perPage, 10) || this.config.perPage || 10;
+            const perPageSelect = document.querySelector(this.selectors.perPageSelect);
+            if (perPageSelect) {
+                perPageSelect.value = String(this.state.perPage);
+            }
+        }
+        // Restore filters
+        const filtersParam = params.get('filters');
+        if (filtersParam) {
+            try {
+                this.state.filters = JSON.parse(filtersParam);
+            }
+            catch (e) {
+                console.warn('[DataGrid] Failed to parse filters from URL:', e);
+            }
+        }
+        // Restore sort
+        const sortParam = params.get('sort');
+        if (sortParam) {
+            try {
+                this.state.sort = JSON.parse(sortParam);
+            }
+            catch (e) {
+                console.warn('[DataGrid] Failed to parse sort from URL:', e);
+            }
+        }
+        // Restore hidden columns
+        const hiddenColumnsParam = params.get('hiddenColumns');
+        if (hiddenColumnsParam) {
+            try {
+                const hiddenArray = JSON.parse(hiddenColumnsParam);
+                this.state.hiddenColumns = new Set(hiddenArray);
+            }
+            catch (e) {
+                console.warn('[DataGrid] Failed to parse hidden columns from URL:', e);
+            }
+        }
+        console.log('[DataGrid] State restored from URL:', this.state);
+        // Apply restored state to UI after a short delay to ensure DOM is ready
+        setTimeout(() => {
+            this.applyRestoredState();
+        }, 0);
+    }
+    /**
+     * Apply restored state to UI elements
+     */
+    applyRestoredState() {
+        // Apply filter values to inputs
+        if (this.state.filters.length > 0) {
+            this.state.filters.forEach(filter => {
+                const input = document.querySelector(`[data-filter-column="${filter.column}"]`);
+                if (input) {
+                    input.value = String(filter.value);
+                }
+            });
+        }
+        // Apply column visibility
+        if (this.state.hiddenColumns.size > 0) {
+            const visibleColumns = this.config.columns
+                .filter(col => !this.state.hiddenColumns.has(col.field))
+                .map(col => col.field);
+            this.updateColumnVisibility(visibleColumns, true); // Skip URL update during restoration
+            // Update checkboxes in column visibility menu
+            const menu = document.querySelector(this.selectors.columnToggleMenu);
+            if (menu) {
+                this.config.columns.forEach(col => {
+                    const checkbox = menu.querySelector(`input[data-column="${col.field}"]`);
+                    if (checkbox) {
+                        checkbox.checked = !this.state.hiddenColumns.has(col.field);
+                    }
+                });
+            }
+        }
+        // Apply sort indicators
+        if (this.state.sort.length > 0) {
+            this.updateSortIndicators();
+        }
+    }
+    /**
+     * Push current state to URL without reloading page
+     */
+    pushStateToURL() {
+        const params = new URLSearchParams();
+        // Add search
+        if (this.state.search) {
+            params.set('search', this.state.search);
+        }
+        // Add page (only if not page 1)
+        if (this.state.currentPage > 1) {
+            params.set('page', String(this.state.currentPage));
+        }
+        // Add perPage (only if different from default)
+        if (this.state.perPage !== (this.config.perPage || 10)) {
+            params.set('perPage', String(this.state.perPage));
+        }
+        // Add filters
+        if (this.state.filters.length > 0) {
+            params.set('filters', JSON.stringify(this.state.filters));
+        }
+        // Add sort
+        if (this.state.sort.length > 0) {
+            params.set('sort', JSON.stringify(this.state.sort));
+        }
+        // Add hidden columns
+        if (this.state.hiddenColumns.size > 0) {
+            params.set('hiddenColumns', JSON.stringify(Array.from(this.state.hiddenColumns)));
+        }
+        // Update URL without reload
+        const newURL = params.toString()
+            ? `${window.location.pathname}?${params.toString()}`
+            : window.location.pathname;
+        window.history.pushState({}, '', newURL);
+        console.log('[DataGrid] URL updated:', newURL);
     }
     /**
      * Refresh data from API
@@ -83,6 +224,9 @@ export class DataGrid {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
+            console.log('[DataGrid] API Response:', data);
+            console.log('[DataGrid] API Response data array:', data.data);
+            console.log('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
             this.renderData(data);
             this.updatePaginationUI(data);
         }
@@ -106,7 +250,9 @@ export class DataGrid {
                 params.append(key, String(value));
             }
         });
-        return `${this.config.apiEndpoint}?${params.toString()}`;
+        const url = `${this.config.apiEndpoint}?${params.toString()}`;
+        console.log(`[DataGrid] API URL: ${url}`);
+        return url;
     }
     /**
      * Build query string (for exports, etc.)
@@ -157,10 +303,21 @@ export class DataGrid {
     /**
      * Update column visibility
      */
-    updateColumnVisibility(visibleColumns) {
+    updateColumnVisibility(visibleColumns, skipURLUpdate = false) {
         if (!this.tableEl)
             return;
         const visibleSet = new Set(visibleColumns);
+        // Update hidden columns state
+        this.state.hiddenColumns.clear();
+        this.config.columns.forEach(col => {
+            if (!visibleSet.has(col.field)) {
+                this.state.hiddenColumns.add(col.field);
+            }
+        });
+        // Update URL with new hidden columns state (unless during restoration)
+        if (!skipURLUpdate) {
+            this.pushStateToURL();
+        }
         // Update header visibility
         const headerCells = this.tableEl.querySelectorAll('thead th[data-column]');
         headerCells.forEach((th) => {
@@ -183,10 +340,13 @@ export class DataGrid {
      */
     renderData(data) {
         const tbody = this.tableEl?.querySelector('tbody');
-        if (!tbody)
+        if (!tbody) {
+            console.error('[DataGrid] tbody not found!');
             return;
+        }
         tbody.innerHTML = '';
         const items = data.data || [];
+        console.log(`[DataGrid] Rendering ${items.length} items`);
         this.state.totalRows = data.total || data.$meta?.count || data.count || items.length;
         if (items.length === 0) {
             tbody.innerHTML = `
@@ -373,6 +533,7 @@ export class DataGrid {
                 const page = parseInt(btn.dataset.page || '1', 10);
                 if (page >= 1 && page <= totalPages) {
                     this.state.currentPage = page;
+                    this.pushStateToURL();
                     if (this.config.behaviors?.pagination) {
                         await this.config.behaviors.pagination.onPageChange(page, this);
                     }
@@ -388,14 +549,19 @@ export class DataGrid {
      */
     bindSearchInput() {
         const input = document.querySelector(this.selectors.searchInput);
-        if (!input)
+        if (!input) {
+            console.warn(`[DataGrid] Search input not found: ${this.selectors.searchInput}`);
             return;
+        }
+        console.log(`[DataGrid] Search input bound to: ${this.selectors.searchInput}`);
         input.addEventListener('input', () => {
             if (this.searchTimeout) {
                 clearTimeout(this.searchTimeout);
             }
             this.searchTimeout = window.setTimeout(async () => {
+                console.log(`[DataGrid] Search triggered: "${input.value}"`);
                 this.state.search = input.value;
+                this.pushStateToURL();
                 if (this.config.behaviors?.search) {
                     await this.config.behaviors.search.onSearch(input.value, this);
                 }
@@ -416,6 +582,7 @@ export class DataGrid {
         select.addEventListener('change', async () => {
             this.state.perPage = parseInt(select.value, 10);
             this.resetPagination();
+            this.pushStateToURL();
             await this.refresh();
         });
     }
@@ -448,6 +615,7 @@ export class DataGrid {
                         this.state.filters.splice(existingIndex, 1);
                     }
                 }
+                this.pushStateToURL();
                 if (this.config.behaviors?.filter) {
                     await this.config.behaviors.filter.onFilterChange(column, value, this);
                 }
@@ -514,6 +682,7 @@ export class DataGrid {
                 else {
                     this.state.sort = [{ field, direction }];
                 }
+                this.pushStateToURL();
                 if (this.config.behaviors?.sort) {
                     await this.config.behaviors.sort.onSort(field, direction, this);
                 }

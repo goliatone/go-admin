@@ -49,6 +49,18 @@ export declare class DataGrid {
      */
     init(): void;
     /**
+     * Restore DataGrid state from URL parameters
+     */
+    private restoreStateFromURL;
+    /**
+     * Apply restored state to UI elements
+     */
+    private applyRestoredState;
+    /**
+     * Push current state to URL without reloading page
+     */
+    private pushStateToURL;
+    /**
      * Refresh data from API
      */
     refresh(): Promise<void>;
@@ -71,7 +83,7 @@ export declare class DataGrid {
     /**
      * Update column visibility
      */
-    updateColumnVisibility(visibleColumns: string[]): void;
+    updateColumnVisibility(visibleColumns: string[], skipURLUpdate?: boolean): void;
     /**
      * Render data into table
      */
