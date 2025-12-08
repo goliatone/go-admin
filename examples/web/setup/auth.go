@@ -72,6 +72,11 @@ func (p *demoIdentityProvider) FindResourceRoles(ctx context.Context, identity a
 
 	roles["admin"] = string(global)
 	roles["admin.users"] = string(resource)
+	roles["admin.tenants"] = string(resource)
+	roles["admin.organizations"] = string(resource)
+	roles["admin.pages"] = string(resource)
+	roles["admin.posts"] = string(resource)
+	roles["admin.media"] = string(resource)
 
 	return roles, nil
 }
