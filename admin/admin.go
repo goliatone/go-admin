@@ -1033,12 +1033,29 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 		return nil
 	}
 	cmsEnabled := a.gates.Enabled(FeatureCMS)
+	// Track canonical keys per menu code to avoid inserting duplicates into persistent stores.
+	menuKeys := map[string]map[string]bool{}
+	fallbackItems := []MenuItem{}
 	if a.menuSvc != nil {
 		menuCodes := map[string]bool{}
 		for _, item := range items {
 			code := item.Menu
 			if code == "" {
 				code = a.navMenuCode
+			}
+			item = normalizeMenuItem(item, code)
+			item = mapMenuIDs(item)
+			keySet, ok := menuKeys[code]
+			if !ok {
+				keySet = map[string]bool{}
+				menuKeys[code] = keySet
+				if menu, err := a.menuSvc.Menu(ctx, code, item.Locale); err == nil && menu != nil {
+					addMenuKeys(menu.Items, keySet)
+				}
+			}
+			keys := canonicalMenuKeys(item)
+			if hasAnyKey(keySet, keys) {
+				continue
 			}
 			if !menuCodes[code] {
 				if _, err := a.menuSvc.CreateMenu(ctx, code); err != nil {
@@ -1049,12 +1066,23 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 			if err := a.menuSvc.AddMenuItem(ctx, code, item); err != nil {
 				return err
 			}
+			for _, key := range keys {
+				keySet[key] = true
+			}
+			fallbackItems = append(fallbackItems, item)
 		}
 	}
 	if (!cmsEnabled || a.menuSvc == nil) && a.nav != nil {
-		converted := convertMenuItems(items, a.translator, a.config.DefaultLocale)
-		if len(converted) > 0 {
-			a.nav.AddFallback(converted...)
+		if len(fallbackItems) == 0 {
+			fallbackItems = items
+		}
+		// Ensure fallback navigation also receives deduped items when CMS is disabled.
+		if len(fallbackItems) > 0 {
+			deduped := dedupeMenuItems(fallbackItems)
+			converted := convertMenuItems(deduped, a.translator, a.config.DefaultLocale)
+			if len(converted) > 0 {
+				a.nav.AddFallback(converted...)
+			}
 		}
 	}
 	return nil
