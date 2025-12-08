@@ -229,6 +229,7 @@
 <script type="module">
 import { DataGrid, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
 
+{% verbatim %}
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize the new TypeScript DataGrid component
   const grid = new DataGrid({
@@ -277,5 +278,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize the grid
   grid.init();
 });
+{% endverbatim %}
 </script>
 {% endblock %}
