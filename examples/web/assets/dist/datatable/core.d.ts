@@ -1,4 +1,6 @@
-import type { ColumnDefinition, DataGridBehaviors } from './behaviors/types.js';
+import type { ColumnDefinition, ColumnFilter, SortColumn, DataGridBehaviors } from './behaviors/types.js';
+import type { ActionButton, BulkActionConfig } from './actions.js';
+import type { CellRenderer } from './renderers.js';
 /**
  * DataGrid configuration
  */
@@ -14,6 +16,26 @@ export interface DataGridConfig {
     searchDelay?: number;
     behaviors?: DataGridBehaviors;
     selectors?: Partial<DataGridSelectors>;
+    /**
+     * Custom row actions (overrides default view/edit/delete)
+     */
+    rowActions?: (record: any) => ActionButton[];
+    /**
+     * Custom bulk actions
+     */
+    bulkActions?: BulkActionConfig[];
+    /**
+     * Custom cell renderers (field name -> renderer function)
+     */
+    cellRenderers?: Record<string, CellRenderer>;
+    /**
+     * Custom row class provider
+     */
+    rowClassProvider?: (record: any) => string[];
+    /**
+     * Use default actions (view, edit, delete)
+     */
+    useDefaultActions?: boolean;
 }
 /**
  * DOM element selectors
@@ -37,16 +59,32 @@ interface DataGridSelectors {
     selectedCount: string;
 }
 /**
+ * DataGrid state
+ */
+interface DataGridState {
+    currentPage: number;
+    perPage: number;
+    totalRows: number;
+    search: string;
+    filters: ColumnFilter[];
+    sort: SortColumn[];
+    selectedRows: Set<string>;
+    hiddenColumns: Set<string>;
+}
+/**
  * DataGrid component
  * Behavior-agnostic data grid with pluggable behaviors
  */
 export declare class DataGrid {
     config: DataGridConfig;
-    private state;
+    state: DataGridState;
     private selectors;
     private tableEl;
     private searchTimeout;
     private abortController;
+    private actionRenderer;
+    private cellRendererRegistry;
+    private recordsById;
     constructor(config: DataGridConfig);
     /**
      * Initialize the data grid
@@ -96,6 +134,10 @@ export declare class DataGrid {
      * Create table row element
      */
     private createTableRow;
+    /**
+     * Sanitize action label to create a valid ID
+     */
+    private sanitizeActionId;
     /**
      * Handle delete action
      */

@@ -40,3 +40,11 @@ export {
   GoCrudBulkActionBehavior,
   DefaultColumnVisibilityBehavior
 } from './go-crud/index.js';
+
+// Export actions system
+export { ActionRenderer } from './actions.js';
+export type { ActionButton, BulkActionConfig, ActionVariant } from './actions.js';
+
+// Export cell renderers
+export { CellRendererRegistry, CommonRenderers } from './renderers.js';
+export type { CellRenderer } from './renderers.js';

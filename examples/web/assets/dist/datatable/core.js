@@ -1,3 +1,5 @@
+import { ActionRenderer } from './actions.js';
+import { CellRendererRegistry } from './renderers.js';
 /**
  * DataGrid component
  * Behavior-agnostic data grid with pluggable behaviors
@@ -7,6 +9,7 @@ export class DataGrid {
         this.tableEl = null;
         this.searchTimeout = null;
         this.abortController = null;
+        this.recordsById = {};
         this.config = {
             perPage: 10,
             searchDelay: 300,
@@ -42,6 +45,15 @@ export class DataGrid {
             selectedRows: new Set(),
             hiddenColumns: new Set()
         };
+        // Initialize action renderer and cell renderer registry
+        this.actionRenderer = new ActionRenderer(this.config.actionBasePath || this.config.apiEndpoint);
+        this.cellRendererRegistry = new CellRendererRegistry();
+        // Register custom cell renderers if provided
+        if (this.config.cellRenderers) {
+            Object.entries(this.config.cellRenderers).forEach(([field, renderer]) => {
+                this.cellRendererRegistry.register(field, renderer);
+            });
+        }
     }
     /**
      * Initialize the data grid
@@ -54,6 +66,12 @@ export class DataGrid {
             return;
         }
         console.log('[DataGrid] Table element found:', this.tableEl);
+        // Render bulk actions toolbar if configured
+        if (this.config.bulkActions && this.config.bulkActions.length > 0) {
+            const toolbar = this.actionRenderer.renderBulkActionsToolbar(this.config.bulkActions);
+            // Insert before the table
+            this.tableEl.parentElement?.insertBefore(toolbar, this.tableEl.parentElement.firstChild);
+        }
         // Restore state from URL before binding
         this.restoreStateFromURL();
         this.bindSearchInput();
@@ -358,7 +376,12 @@ export class DataGrid {
       `;
             return;
         }
+        // Clear and populate records by ID cache
+        this.recordsById = {};
         items.forEach((item) => {
+            if (item.id) {
+                this.recordsById[item.id] = item;
+            }
             const row = this.createTableRow(item);
             tbody.appendChild(row);
         });
@@ -370,7 +393,12 @@ export class DataGrid {
      */
     createTableRow(item) {
         const row = document.createElement('tr');
-        row.className = 'hover:bg-gray-50';
+        // Apply custom row classes if provider is configured
+        let rowClasses = ['hover:bg-gray-50'];
+        if (this.config.rowClassProvider) {
+            rowClasses = rowClasses.concat(this.config.rowClassProvider(item));
+        }
+        row.className = rowClasses.join(' ');
         // Checkbox cell
         const checkboxCell = document.createElement('td');
         checkboxCell.className = 'px-6 py-4 whitespace-nowrap';
@@ -389,8 +417,13 @@ export class DataGrid {
             cell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
             cell.setAttribute('data-column', col.field);
             const value = item[col.field];
+            // Priority: column render > custom renderer > default renderer
             if (col.render) {
                 cell.innerHTML = col.render(value, item);
+            }
+            else if (this.cellRendererRegistry.has(col.field)) {
+                const renderer = this.cellRendererRegistry.get(col.field);
+                cell.innerHTML = renderer(value, item, col.field);
             }
             else if (value === null || value === undefined) {
                 cell.textContent = '-';
@@ -407,28 +440,42 @@ export class DataGrid {
         const actionBase = this.config.actionBasePath || this.config.apiEndpoint;
         const actionsCell = document.createElement('td');
         actionsCell.className = 'px-6 py-4 whitespace-nowrap text-end text-sm font-medium';
-        actionsCell.innerHTML = `
-      <div class="flex justify-end gap-2">
-        <a href="${actionBase}/${item.id}"
-           class="text-sm font-semibold text-blue-600 hover:text-blue-800">
-          View
-        </a>
-        <a href="${actionBase}/${item.id}/edit"
-           class="text-sm font-semibold text-blue-600 hover:text-blue-800">
-          Edit
-        </a>
-        <button type="button"
-                data-delete-id="${item.id}"
-                class="text-sm font-semibold text-red-600 hover:text-red-800">
-          Delete
-        </button>
-      </div>
-    `;
-        // Bind delete button
-        const deleteBtn = actionsCell.querySelector('[data-delete-id]');
-        deleteBtn?.addEventListener('click', () => this.handleDelete(item.id));
+        // Use custom row actions if provided, otherwise use default actions
+        if (this.config.rowActions) {
+            const actions = this.config.rowActions(item);
+            actionsCell.innerHTML = this.actionRenderer.renderRowActions(item, actions);
+            // Attach event listeners for each action button
+            actions.forEach(action => {
+                const actionId = this.sanitizeActionId(action.label);
+                const button = actionsCell.querySelector(`[data-action-id="${actionId}"]`);
+                if (button) {
+                    button.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        try {
+                            await action.action(item);
+                        }
+                        catch (error) {
+                            console.error(`Action "${action.label}" failed:`, error);
+                        }
+                    });
+                }
+            });
+        }
+        else if (this.config.useDefaultActions !== false) {
+            // Default actions (view, edit, delete)
+            actionsCell.innerHTML = this.actionRenderer.renderDefaultActions(item, actionBase);
+            // Bind delete button for default actions
+            const deleteBtn = actionsCell.querySelector('[data-action="delete"]');
+            deleteBtn?.addEventListener('click', () => this.handleDelete(item.id));
+        }
         row.appendChild(actionsCell);
         return row;
+    }
+    /**
+     * Sanitize action label to create a valid ID
+     */
+    sanitizeActionId(label) {
+        return label.toLowerCase().replace(/[^a-z0-9]/g, '-');
     }
     /**
      * Handle delete action
@@ -796,17 +843,35 @@ export class DataGrid {
         const bulkActionButtons = document.querySelectorAll('[data-bulk-action]');
         bulkActionButtons.forEach((btn) => {
             btn.addEventListener('click', async () => {
-                const action = btn.dataset.bulkAction;
-                if (!action)
+                const actionId = btn.dataset.bulkAction;
+                if (!actionId)
                     return;
                 const ids = Array.from(this.state.selectedRows);
                 if (ids.length === 0) {
                     alert('Please select items first');
                     return;
                 }
+                // Try config.bulkActions first (new system)
+                if (this.config.bulkActions) {
+                    const bulkActionConfig = this.config.bulkActions.find(ba => ba.id === actionId);
+                    if (bulkActionConfig) {
+                        try {
+                            await this.actionRenderer.executeBulkAction(bulkActionConfig, ids);
+                            this.state.selectedRows.clear();
+                            this.updateBulkActionsBar();
+                            await this.refresh();
+                        }
+                        catch (error) {
+                            console.error('Bulk action failed:', error);
+                            this.showError('Bulk action failed');
+                        }
+                        return;
+                    }
+                }
+                // Fall back to behaviors.bulkActions (old system)
                 if (this.config.behaviors?.bulkActions) {
                     try {
-                        await this.config.behaviors.bulkActions.execute(action, ids, this);
+                        await this.config.behaviors.bulkActions.execute(actionId, ids, this);
                         this.state.selectedRows.clear();
                         this.updateBulkActionsBar();
                     }
@@ -817,6 +882,20 @@ export class DataGrid {
                 }
             });
         });
+        // Bind clear selection button
+        const clearBtn = document.getElementById('clear-selection-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.state.selectedRows.clear();
+                this.updateBulkActionsBar();
+                // Uncheck all checkboxes
+                const checkboxes = document.querySelectorAll('.table-checkbox');
+                checkboxes.forEach(cb => cb.checked = false);
+                const selectAll = document.querySelector(this.selectors.selectAllCheckbox);
+                if (selectAll)
+                    selectAll.checked = false;
+            });
+        }
     }
     /**
      * Update bulk actions bar visibility
