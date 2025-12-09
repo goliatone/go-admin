@@ -2,6 +2,8 @@ package setup
 
 import (
 	"log"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/goliatone/go-admin/admin"
@@ -10,8 +12,12 @@ import (
 )
 
 // SetupDashboard configures dashboard widgets for the admin panel
-func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores) {
+func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath string) {
 	dash := adm.Dashboard()
+	basePath = "/" + strings.Trim(strings.TrimSpace(basePath), "/")
+	if basePath == "/" {
+		basePath = "/admin"
+	}
 
 	// Override the default chart_sample widget to prevent old chart from showing
 	dash.RegisterProvider(admin.DashboardProviderSpec{
@@ -80,15 +86,78 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores) {
 	// Quick actions widget (override default, no DefaultArea to avoid duplicates)
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code: "admin.widget.quick_actions",
-		Name: "Quick Actions",
+		Name: "User Quick Actions",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
-			actions := []map[string]any{
-				{"label": "New Post", "url": "/admin/posts/new", "icon": "plus"},
-				{"label": "New Page", "url": "/admin/pages/new", "icon": "file-plus"},
-				{"label": "Upload Media", "url": "/admin/media/upload", "icon": "upload"},
-				{"label": "View Settings", "url": "/admin/settings", "icon": "settings"},
+			inviteURL := path.Join(basePath, "api", "onboarding", "invite")
+			resetURL := path.Join(basePath, "api", "onboarding", "password", "reset", "request")
+			lifecycleURL := path.Join(basePath, "api", "users") + "?status=suspended"
+			defaultActions := []map[string]any{
+				{
+					"label":       "Invite user",
+					"url":         inviteURL,
+					"icon":        "user-plus",
+					"method":      "POST",
+					"description": "POST {email, role, status} to issue an invite token",
+				},
+				{
+					"label":       "Request password reset",
+					"url":         resetURL,
+					"icon":        "key",
+					"method":      "POST",
+					"description": "POST {identifier} to send a reset token",
+				},
+				{
+					"label":       "Review suspended users",
+					"url":         lifecycleURL,
+					"icon":        "shield-check",
+					"method":      "GET",
+					"description": "Open suspended accounts for lifecycle actions",
+				},
+			}
+
+			actions := defaultActions
+			if raw, ok := cfg["actions"].([]any); ok && len(raw) > 0 {
+				custom := []map[string]any{}
+				for _, item := range raw {
+					if val, ok := item.(map[string]any); ok {
+						custom = append(custom, val)
+					}
+				}
+				if len(custom) > 0 {
+					actions = custom
+				}
 			}
 			return map[string]any{"actions": actions}, nil
+		},
+	})
+
+	// Activity widget focused on user channel
+	activitySink := adm.ActivityFeed()
+	dash.RegisterProvider(admin.DashboardProviderSpec{
+		Code: "admin.widget.activity_feed",
+		Name: "User Activity",
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+			if activitySink == nil {
+				return map[string]any{"entries": []admin.ActivityEntry{}}, nil
+			}
+
+			limit := 5
+			if raw, ok := cfg["limit"].(int); ok && raw > 0 {
+				limit = raw
+			} else if rawf, ok := cfg["limit"].(float64); ok && rawf > 0 {
+				limit = int(rawf)
+			}
+
+			channel := "users"
+			if raw, ok := cfg["channel"].(string); ok && strings.TrimSpace(raw) != "" {
+				channel = strings.TrimSpace(raw)
+			}
+
+			entries, err := activitySink.List(ctx.Context, limit, admin.ActivityFilter{Channel: channel})
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"entries": entries}, nil
 		},
 	})
 

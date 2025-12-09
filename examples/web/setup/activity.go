@@ -238,6 +238,9 @@ func toUsersFilter(limit int, filters ...admin.ActivityFilter) types.ActivityFil
 				out.ObjectID = objID
 			}
 		}
+		if channel := strings.TrimSpace(filter.Channel); channel != "" && out.Channel == "" {
+			out.Channel = channel
+		}
 	}
 	if out.Pagination.Limit <= 0 {
 		out.Pagination.Limit = 50

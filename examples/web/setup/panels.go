@@ -21,7 +21,10 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 			}},
 			admin.Field{Name: "status", Label: "Status", Type: "select", Options: []admin.Option{
 				{Value: "active", Label: "Active"},
-				{Value: "inactive", Label: "Inactive"},
+				{Value: "pending", Label: "Pending"},
+				{Value: "suspended", Label: "Suspended"},
+				{Value: "disabled", Label: "Disabled"},
+				{Value: "archived", Label: "Archived"},
 			}},
 			admin.Field{Name: "created_at", Label: "Created", Type: "datetime"},
 		).
@@ -35,7 +38,10 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 			}},
 			admin.Field{Name: "status", Label: "Status", Type: "select", Required: true, Options: []admin.Option{
 				{Value: "active", Label: "Active"},
-				{Value: "inactive", Label: "Inactive"},
+				{Value: "pending", Label: "Pending"},
+				{Value: "suspended", Label: "Suspended"},
+				{Value: "disabled", Label: "Disabled"},
+				{Value: "archived", Label: "Archived"},
 			}},
 		).
 		DetailFields(
@@ -51,9 +57,17 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 			admin.Filter{Name: "role", Type: "select"},
 			admin.Filter{Name: "status", Type: "select"},
 		).
+		Actions(
+			admin.Action{Name: "activate", CommandName: "users.activate", Permission: "admin.users.edit"},
+			admin.Action{Name: "suspend", CommandName: "users.suspend", Permission: "admin.users.edit"},
+			admin.Action{Name: "disable", CommandName: "users.disable", Permission: "admin.users.edit"},
+			admin.Action{Name: "archive", CommandName: "users.archive", Permission: "admin.users.delete"},
+		).
 		BulkActions(
 			admin.Action{Name: "activate", CommandName: "users.activate", Permission: "admin.users.edit"},
-			admin.Action{Name: "deactivate", CommandName: "users.deactivate", Permission: "admin.users.edit"},
+			admin.Action{Name: "suspend", CommandName: "users.suspend", Permission: "admin.users.edit"},
+			admin.Action{Name: "disable", CommandName: "users.disable", Permission: "admin.users.edit"},
+			admin.Action{Name: "archive", CommandName: "users.archive", Permission: "admin.users.delete"},
 		).
 		Permissions(admin.PanelPermissions{
 			View:   "admin.users.view",

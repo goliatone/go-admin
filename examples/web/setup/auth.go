@@ -13,14 +13,18 @@ import (
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
+	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
 // SetupAuth wires go-auth middleware and authorizer with the admin orchestrator.
 // It returns the admin authenticator adapter, the underlying RouteAuthenticator,
 // the Auther, and the context key used for the auth cookie.
-func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores) (*admin.GoAuthAuthenticator, *auth.RouteAuthenticator, *auth.Auther, string) {
+func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.UserDependencies) (*admin.GoAuthAuthenticator, *auth.RouteAuthenticator, *auth.Auther, string) {
 	cfg := demoAuthConfig{signingKey: "web-demo-secret"}
-	provider := &demoIdentityProvider{users: dataStores.Users}
+	provider := &demoIdentityProvider{
+		users:     dataStores.Users,
+		authRepo: deps.AuthRepo,
+	}
 
 	auther := auth.NewAuthenticator(provider, cfg)
 	auther.WithResourceRoleProvider(provider).
@@ -51,19 +55,29 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores) (*admin.GoAuthAu
 }
 
 type demoIdentityProvider struct {
-	users *stores.UserStore
+	users     *stores.UserStore
+	authRepo  userstypes.AuthRepository
 }
 
 func (p *demoIdentityProvider) FindResourceRoles(ctx context.Context, identity auth.Identity) (map[string]string, error) {
 	roles := map[string]string{}
-	if p == nil || p.users == nil || identity == nil {
+	if identity == nil {
 		return roles, nil
 	}
 
 	role := strings.ToLower(strings.TrimSpace(identity.Role()))
-	if record, err := p.users.Get(ctx, identity.ID()); err == nil && record != nil {
-		if recRole := strings.ToLower(strings.TrimSpace(toString(record["role"]))); recRole != "" {
-			role = recRole
+	if p != nil && p.authRepo != nil {
+		if authUser, err := p.authRepo.GetByIdentifier(ctx, identity.ID()); err == nil && authUser != nil {
+			if trimmed := strings.ToLower(strings.TrimSpace(authUser.Role)); trimmed != "" {
+				role = trimmed
+			}
+		}
+	}
+	if p != nil && p.users != nil {
+		if record, err := p.users.Get(ctx, identity.ID()); err == nil && record != nil {
+			if recRole := strings.ToLower(strings.TrimSpace(toString(record["role"]))); recRole != "" {
+				role = recRole
+			}
 		}
 	}
 
@@ -77,11 +91,24 @@ func (p *demoIdentityProvider) FindResourceRoles(ctx context.Context, identity a
 	roles["admin.pages"] = string(resource)
 	roles["admin.posts"] = string(resource)
 	roles["admin.media"] = string(resource)
+	roles["admin.profile"] = string(auth.RoleOwner)
+	roles["admin.preferences"] = string(auth.RoleOwner)
 
 	return roles, nil
 }
 
 func (p *demoIdentityProvider) VerifyIdentity(ctx context.Context, identifier, password string) (auth.Identity, error) {
+	if p != nil && p.authRepo != nil {
+		if authUser, err := p.authRepo.GetByIdentifier(ctx, identifier); err == nil && authUser != nil {
+			if raw, ok := authUser.Raw.(*auth.User); ok && raw != nil && strings.TrimSpace(raw.PasswordHash) != "" {
+				if err := auth.ComparePasswordAndHash(password, raw.PasswordHash); err != nil {
+					return nil, err
+				}
+				return p.identityFromAuthUser(authUser), nil
+			}
+		}
+	}
+
 	identity, err := p.lookup(ctx, identifier)
 	if err != nil {
 		return nil, err
@@ -100,8 +127,16 @@ func (p *demoIdentityProvider) FindIdentityByIdentifier(ctx context.Context, ide
 }
 
 func (p *demoIdentityProvider) lookup(ctx context.Context, identifier string) (auth.Identity, error) {
-	if p == nil || p.users == nil {
-		log.Printf("DEBUG: demoIdentityProvider.lookup - provider or users is nil")
+	if p == nil {
+		log.Printf("DEBUG: demoIdentityProvider.lookup - provider is nil")
+		return nil, auth.ErrIdentityNotFound
+	}
+	if p.authRepo != nil {
+		if authUser, err := p.authRepo.GetByIdentifier(ctx, identifier); err == nil && authUser != nil {
+			return p.identityFromAuthUser(authUser), nil
+		}
+	}
+	if p.users == nil {
 		return nil, auth.ErrIdentityNotFound
 	}
 	records, _, err := p.users.List(ctx, admin.ListOptions{PerPage: 50})
@@ -151,6 +186,19 @@ func (p *demoIdentityProvider) identityFromRecord(rec map[string]any) auth.Ident
 	}
 }
 
+func (p *demoIdentityProvider) identityFromAuthUser(user *userstypes.AuthUser) auth.Identity {
+	if user == nil {
+		return nil
+	}
+	return userIdentity{
+		id:       user.ID.String(),
+		username: user.Username,
+		email:    user.Email,
+		role:     string(mapToAuthRole(user.Role)),
+		status:   mapToAuthStatus(string(user.Status)),
+	}
+}
+
 type userIdentity struct {
 	id       string
 	username string
@@ -191,10 +239,16 @@ func (d demoAuthConfig) GetRejectedRouteDefault() string { return "/admin/login"
 
 func mapToAuthRole(role string) auth.UserRole {
 	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "owner":
+		return auth.RoleOwner
 	case "admin":
 		return auth.RoleAdmin
+	case "member":
+		return auth.RoleMember
 	case "editor":
 		return auth.RoleMember
+	case "viewer", "guest":
+		return auth.RoleGuest
 	default:
 		return auth.RoleGuest
 	}
@@ -202,8 +256,12 @@ func mapToAuthRole(role string) auth.UserRole {
 
 func mapToResourceRole(role string) auth.UserRole {
 	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "owner":
+		return auth.RoleOwner
 	case "admin":
 		return auth.RoleOwner
+	case "member":
+		return auth.RoleMember
 	case "editor":
 		return auth.RoleMember
 	default:
