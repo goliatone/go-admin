@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/goliatone/go-admin/admin"
 	authlib "github.com/goliatone/go-auth"
 )
 
@@ -117,6 +118,19 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 	return session
 }
 
+// FilterSessionUser hides tenant/org data when those features are disabled.
+func FilterSessionUser(session SessionUser, features admin.Features) SessionUser {
+	if !features.Tenants {
+		session.TenantID = ""
+		session.Metadata = pruneSessionMetadata(session.Metadata, tenantMetadataKeys)
+	}
+	if !features.Organizations {
+		session.OrganizationID = ""
+		session.Metadata = pruneSessionMetadata(session.Metadata, organizationMetadataKeys)
+	}
+	return session
+}
+
 // ToViewContext converts the session into snake_case keys for templates.
 func (s SessionUser) ToViewContext() map[string]any {
 	view := map[string]any{
@@ -217,6 +231,17 @@ func cloneStringMap(src map[string]string) map[string]string {
 	out := make(map[string]string, len(src))
 	for k, v := range src {
 		out[k] = v
+	}
+	return out
+}
+
+func pruneSessionMetadata(metadata map[string]any, keys []string) map[string]any {
+	if len(metadata) == 0 || len(keys) == 0 {
+		return metadata
+	}
+	out := cloneAnyMap(metadata)
+	for _, key := range keys {
+		delete(out, key)
 	}
 	return out
 }
