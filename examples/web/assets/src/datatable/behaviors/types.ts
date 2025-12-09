@@ -10,8 +10,33 @@ import type { DataGrid } from '../core';
  */
 export interface ColumnFilter {
   column: string;
-  operator?: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'ilike' | 'and' | 'or';
+  operator?: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'ilike' | 'in' | 'and' | 'or';
   value: any;
+}
+
+/**
+ * Filter condition within a group
+ */
+export interface FilterCondition {
+  field: string;
+  operator: string;
+  value: any;
+}
+
+/**
+ * Filter group with conditions joined by logic operator
+ */
+export interface FilterGroup {
+  conditions: FilterCondition[];
+  logic: 'and' | 'or';  // How conditions within this group are joined
+}
+
+/**
+ * Complete filter structure with groups
+ */
+export interface FilterStructure {
+  groups: FilterGroup[];
+  groupLogic: ('and' | 'or')[];  // How groups are joined (index i joins group i and i+1)
 }
 
 /**

@@ -9,6 +9,9 @@ export type { DataGridConfig } from './core.js';
 export { AdvancedSearch } from './advanced-search.js';
 export type { AdvancedSearchConfig, SearchCriterion, FieldDefinition } from './advanced-search.js';
 
+export { FilterBuilder } from './filter-builder.js';
+export type { FilterBuilderConfig } from './filter-builder.js';
+
 // Export behavior types
 export type {
   ColumnDefinition,
@@ -21,7 +24,10 @@ export type {
   ExportBehavior,
   BulkActionBehavior,
   ColumnVisibilityBehavior,
-  DataGridBehaviors
+  DataGridBehaviors,
+  FilterCondition,
+  FilterGroup,
+  FilterStructure
 } from './behaviors/types.js';
 
 // Export go-crud implementations

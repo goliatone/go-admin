@@ -232,14 +232,19 @@ export class AdvancedSearch {
     this.container.innerHTML = '';
 
     this.criteria.forEach((criterion, index) => {
+      // Create wrapper for row + connector to keep separator line behind buttons
+      const wrapper = document.createElement('div');
+
       const row = this.createCriterionRow(criterion, index);
-      this.container!.appendChild(row);
+      wrapper.appendChild(row);
 
       // Add logic connector between rows (except last)
       if (index < this.criteria.length - 1) {
         const connector = this.createLogicConnector(index);
-        this.container!.appendChild(connector);
+        wrapper.appendChild(connector);
       }
+
+      this.container!.appendChild(wrapper);
     });
   }
 
@@ -322,13 +327,13 @@ export class AdvancedSearch {
       <button type="button"
               data-logic-index="${index}"
               data-logic-value="and"
-              class="px-3 py-1 text-xs font-medium rounded border ${logic === 'and' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'}">
+              class="px-3 py-1 text-xs font-medium rounded border ${logic === 'and' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300'}">
         And
       </button>
       <button type="button"
               data-logic-index="${index}"
               data-logic-value="or"
-              class="px-3 py-1 text-xs font-medium rounded border ${logic === 'or' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'}">
+              class="px-3 py-1 text-xs font-medium rounded border ${logic === 'or' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300'}">
         Or
       </button>
     `;

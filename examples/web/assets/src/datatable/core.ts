@@ -11,6 +11,10 @@ import type {
 export interface DataGridConfig {
   tableId: string;
   apiEndpoint: string;
+  /**
+   * Optional base path for view/edit links (UI routes). Falls back to apiEndpoint.
+   */
+  actionBasePath?: string;
   columns: ColumnDefinition[];
   perPage?: number;
   searchDelay?: number;
@@ -538,19 +542,20 @@ export class DataGrid {
         cell.textContent = String(value);
       }
 
-      row.appendChild(cell);
-    });
+    row.appendChild(cell);
+  });
 
     // Actions cell
+    const actionBase = this.config.actionBasePath || this.config.apiEndpoint;
     const actionsCell = document.createElement('td');
     actionsCell.className = 'px-6 py-4 whitespace-nowrap text-end text-sm font-medium';
     actionsCell.innerHTML = `
       <div class="flex justify-end gap-2">
-        <a href="${this.config.apiEndpoint}/${item.id}"
+        <a href="${actionBase}/${item.id}"
            class="text-sm font-semibold text-blue-600 hover:text-blue-800">
           View
         </a>
-        <a href="${this.config.apiEndpoint}/${item.id}/edit"
+        <a href="${actionBase}/${item.id}/edit"
            class="text-sm font-semibold text-blue-600 hover:text-blue-800">
           Edit
         </a>
@@ -712,7 +717,22 @@ export class DataGrid {
 
     console.log(`[DataGrid] Search input bound to: ${this.selectors.searchInput}`);
 
+    const clearBtn = document.getElementById('clear-search-btn');
+
+    // Toggle clear button visibility
+    const toggleClearBtn = () => {
+      if (clearBtn) {
+        if (input.value.trim()) {
+          clearBtn.classList.remove('hidden');
+        } else {
+          clearBtn.classList.add('hidden');
+        }
+      }
+    };
+
     input.addEventListener('input', () => {
+      toggleClearBtn();
+
       if (this.searchTimeout) {
         clearTimeout(this.searchTimeout);
       }
@@ -729,6 +749,28 @@ export class DataGrid {
         }
       }, this.config.searchDelay);
     });
+
+    // Clear button handler
+    if (clearBtn) {
+      clearBtn.addEventListener('click', async () => {
+        input.value = '';
+        input.focus();
+        toggleClearBtn();
+
+        // Trigger search with empty value
+        this.state.search = '';
+        this.pushStateToURL();
+        if (this.config.behaviors?.search) {
+          await this.config.behaviors.search.onSearch('', this);
+        } else {
+          this.resetPagination();
+          await this.refresh();
+        }
+      });
+    }
+
+    // Initial toggle on page load
+    toggleClearBtn();
   }
 
   /**
