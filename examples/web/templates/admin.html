@@ -205,6 +205,26 @@ function renderWidgetContent(widget) {
     `;
   }
 
+  if (def === 'admin.widget.quick_actions') {
+    const actions = data.actions || [];
+    if (actions.length === 0) {
+      return '<p class="text-gray-500">No quick actions configured</p>';
+    }
+    return `
+      <div class="space-y-2">
+        ${actions.map(action => `
+          <a class="block p-3 border border-gray-200 rounded-lg hover:border-blue-200 hover:bg-blue-50/50 transition" href="${action.url || '#'}" target="_blank" rel="noreferrer">
+            <div class="flex items-center justify-between gap-2">
+              <div class="font-semibold text-gray-900 text-sm">${action.label || 'Action'}</div>
+              ${action.method ? `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${action.method}</span>` : ''}
+            </div>
+            ${action.description ? `<div class="text-gray-600 text-sm mt-1">${action.description}</div>` : ''}
+          </a>
+        `).join('')}
+      </div>
+    `;
+  }
+
   // Notifications widget
   if (def === 'admin.widget.notifications') {
     const notifications = data.notifications || [];
@@ -294,6 +314,7 @@ function getWidgetTitle(definition) {
   const titles = {
     'admin.widget.user_stats': 'User Statistics',
     'admin.widget.activity_feed': 'Recent Activity',
+    'admin.widget.quick_actions': 'Quick Actions',
     'admin.widget.notifications': 'Notifications',
     'admin.widget.bar_chart': 'Bar Chart',
     'admin.widget.line_chart': 'Line Chart',

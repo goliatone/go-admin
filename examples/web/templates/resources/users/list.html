@@ -17,44 +17,58 @@
     <!-- DataTable Toolbar -->
     <div class="px-6 py-4 border-b border-gray-200">
       <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-        <!-- Left: Search Input -->
-        <div class="relative max-w-md w-full flex gap-2">
-          <div class="relative flex-1">
-            <label for="table-search" class="sr-only">Search</label>
-            <!-- Search container with chips -->
-            <div class="relative min-h-[40px] ps-9 pe-9 border border-gray-200 rounded-lg bg-white flex items-center gap-2 flex-wrap py-1 px-2 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
-              <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3 z-10">
-                <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="8"/>
-                  <path d="m21 21-4.3-4.3"/>
-                </svg>
+        <!-- Left: Search/Filter Area -->
+        <div class="relative max-w-2xl w-full flex flex-col gap-2">
+          <!-- Top row: Filter button + Search input -->
+          <div class="flex gap-2">
+            <button type="button"
+                    id="filter-toggle-btn"
+                    class="h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              Filter
+            </button>
+            <div class="relative flex-1">
+              <label for="table-search" class="sr-only">Search</label>
+              <div class="relative h-10">
+                <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3">
+                  <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.3-4.3"/>
+                  </svg>
+                </div>
+                <input type="text"
+                       id="table-search"
+                       class="w-full h-full ps-9 pe-8 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-0 focus:border-gray-200"
+                       placeholder="Search">
+                <button type="button"
+                        id="clear-search-btn"
+                        class="hidden absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 hover:text-gray-600"
+                        aria-label="Clear search">
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+                  </svg>
+                </button>
               </div>
-
-              <!-- Filter chips container -->
-              <div id="filter-chips-container" class="flex items-center gap-1 flex-wrap ml-1"></div>
-
-              <!-- Actual search input -->
-              <input type="text"
-                     name="table-search"
-                     id="table-search"
-                     class="flex-1 min-w-[120px] h-8 text-sm focus:outline-none border-0 p-0 bg-transparent"
-                     placeholder="Search for items">
-
-              <!-- Clear all button -->
-              <button type="button"
-                      id="search-clear-btn"
-                      class="hidden absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 hover:text-gray-600 z-10">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-                </svg>
-              </button>
             </div>
           </div>
-          <button type="button"
-                  id="advanced-search-btn"
-                  class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
-            Advanced
-          </button>
+
+          <!-- Applied filter preview -->
+          <div id="applied-filter-preview" class="hidden text-xs text-gray-600">
+            <span class="font-medium">Applied filter:</span>
+            <span id="filter-preview-text" class="ml-1"></span>
+            <button type="button" id="clear-filters-btn" class="ml-2 text-red-600 hover:text-red-800">
+              <svg class="inline h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Filter Panel (dropdown) -->
+          <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
+            <!-- Panel content will be rendered here -->
+          </div>
         </div>
 
         <!-- Right: Controls -->
@@ -118,7 +132,7 @@
 
           <!-- Per Page Selector -->
           <div class="flex items-center gap-x-2">
-            <span class="text-sm text-gray-600">Per page:</span>
+            <span class="text-sm text-gray-600 whitespace-nowrap">Per page:</span>
             <select id="table-per-page"
                     class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
               <option value="5">5</option>
@@ -253,71 +267,14 @@
   </div>
   {% endif %}
 
-  <!-- Advanced Search Modal -->
-  <div id="advanced-search-modal" class="hidden fixed inset-0 z-50 overflow-y-auto">
-    <div class="flex items-center justify-center min-h-screen px-4">
-      <div class="fixed inset-0 bg-black opacity-50" id="advanced-search-overlay"></div>
-      <div class="relative bg-white rounded-lg shadow-xl max-w-3xl w-full">
-        <!-- Modal Header -->
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-gray-900">Advanced search</h3>
-          <button type="button" id="advanced-search-close" class="text-gray-400 hover:text-gray-600">
-            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Modal Body -->
-        <div class="px-6 py-4">
-          <!-- Search Criteria Rows -->
-          <div id="search-criteria-container" class="divide-y divide-gray-200">
-            <!-- Criteria rows will be added here dynamically -->
-          </div>
-
-          <!-- Add Criteria Button -->
-          <button type="button" id="add-criteria-btn" class="mt-4 inline-flex items-center gap-x-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 transition-colors">
-            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 5v14"/><path d="M5 12h14"/>
-            </svg>
-            Add criteria
-          </button>
-        </div>
-
-        <!-- Modal Footer -->
-        <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <div class="flex items-center gap-x-3">
-            <button type="button" id="load-search-preset-btn" class="inline-flex items-center gap-x-2 text-sm text-gray-600 hover:text-gray-800">
-              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>
-              </svg>
-              Load
-            </button>
-            <button type="button" id="save-search-preset-btn" class="inline-flex items-center gap-x-2 text-sm text-gray-600 hover:text-gray-800">
-              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-              </svg>
-              Save
-            </button>
-          </div>
-          <div class="flex items-center gap-x-3">
-            <button type="button" id="advanced-search-cancel" class="py-2 px-4 text-sm font-medium text-gray-700 hover:text-gray-900">
-              Cancel
-            </button>
-            <button type="button" id="advanced-search-apply" class="py-2 px-4 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">
-              Search
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- Overlay for filter panel -->
+  <div id="filter-overlay" class="hidden fixed inset-0 bg-black opacity-30 z-40"></div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, AdvancedSearch, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
 
 {% verbatim %}
 document.addEventListener('DOMContentLoaded', function() {
@@ -325,6 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const grid = new DataGrid({
     tableId: 'users-datatable',
     apiEndpoint: '/admin/crud/users',
+    actionBasePath: '{{ routes.index }}',
     columns: [
       { field: 'username', label: 'Username', sortable: true, filterable: true },
       { field: 'email', label: 'Email', sortable: true, filterable: true },
@@ -368,8 +326,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize the grid
   grid.init();
 
-  // Initialize advanced search
-  const advancedSearch = new AdvancedSearch({
+  // Initialize FilterBuilder
+  const filterBuilder = new FilterBuilder({
     fields: [
       { name: 'username', label: 'Username', type: 'text' },
       { name: 'email', label: 'Email', type: 'text' },
@@ -387,32 +345,35 @@ document.addEventListener('DOMContentLoaded', function() {
       ]},
       { name: 'created_at', label: 'Created Date', type: 'date' }
     ],
-    onSearch: (criteria) => {
-      console.log('[AdvancedSearch] Search criteria:', criteria);
+    onApply: (structure) => {
+      console.log('[FilterBuilder] Filter structure:', structure);
 
-      // Convert advanced search criteria to filters
-      const filters = criteria.map(c => ({
-        column: c.field,
-        operator: c.operator,
-        value: c.value
-      }));
+      // Convert filter structure to grid filters
+      const filters = [];
+      structure.groups.forEach(group => {
+        group.conditions.forEach(condition => {
+          filters.push({
+            column: condition.field,
+            operator: condition.operator,
+            value: condition.value
+          });
+        });
+      });
 
-      // Update grid state with advanced filters
+      // Update grid state with filters
       grid.state.filters = filters;
       grid.resetPagination();
       grid.pushStateToURL();
       grid.refresh();
     },
     onClear: () => {
-      console.log('[AdvancedSearch] Clear search');
+      console.log('[FilterBuilder] Clear filters');
       grid.state.search = '';
       grid.state.filters = [];
       grid.pushStateToURL();
       grid.refresh();
     }
   });
-
-  advancedSearch.init();
 });
 {% endverbatim %}
 </script>
