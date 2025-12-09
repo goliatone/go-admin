@@ -5,28 +5,41 @@
 export class GoCrudFilterBehavior {
     buildFilters(filters) {
         const params = {};
-        // Group filters by column and operator to detect OR conditions
+        // Group filters by column to detect OR conditions
         const grouped = new Map();
         filters.forEach(filter => {
             if (filter.value === null || filter.value === undefined || filter.value === '') {
                 return;
             }
             const operator = filter.operator || 'eq';
-            const key = operator === 'eq' ? filter.column : `${filter.column}__${operator}`;
-            if (!grouped.has(key)) {
-                grouped.set(key, []);
+            const column = filter.column;
+            if (!grouped.has(column)) {
+                grouped.set(column, { operator, values: [] });
             }
-            grouped.get(key).push(filter.value);
+            grouped.get(column).values.push(filter.value);
         });
         // Convert grouped filters to params
-        // If multiple values for same field/operator, join with comma (OR logic)
-        grouped.forEach((values, key) => {
-            if (values.length === 1) {
-                params[key] = values[0];
+        grouped.forEach((data, column) => {
+            if (data.values.length === 1) {
+                // Single value - use the original operator
+                const key = data.operator === 'eq' ? column : `${column}__${data.operator}`;
+                params[key] = data.values[0];
             }
             else {
-                // Multiple values for same field - join with comma for OR logic
-                params[key] = values.join(',');
+                // Multiple values for same field - use __in for OR logic (exact match)
+                // For pattern matching like ILIKE, join with comma and handle in backend
+                if (data.operator === 'ilike') {
+                    // Use custom OR syntax: field__ilike=val1,val2
+                    params[`${column}__ilike`] = data.values.join(',');
+                }
+                else if (data.operator === 'eq') {
+                    // Use __in for exact matches with multiple values
+                    params[`${column}__in`] = data.values.join(',');
+                }
+                else {
+                    // For other operators, join with comma
+                    params[`${column}__${data.operator}`] = data.values.join(',');
+                }
             }
         });
         return params;

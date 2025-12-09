@@ -5,6 +5,10 @@ import type { ColumnDefinition, DataGridBehaviors } from './behaviors/types.js';
 export interface DataGridConfig {
     tableId: string;
     apiEndpoint: string;
+    /**
+     * Optional base path for view/edit links (UI routes). Falls back to apiEndpoint.
+     */
+    actionBasePath?: string;
     columns: ColumnDefinition[];
     perPage?: number;
     searchDelay?: number;
