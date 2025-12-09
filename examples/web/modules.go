@@ -9,11 +9,14 @@ import (
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	userstypes "github.com/goliatone/go-users/pkg/types"
+	userssvc "github.com/goliatone/go-users/service"
 )
 
 // usersModule registers the users panel and menu entry.
 type usersModule struct {
 	store      *stores.UserStore
+	service    *userssvc.Service
 	menuCode   string
 	defaultLoc string
 	basePath   string
@@ -33,6 +36,9 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	if m == nil || m.store == nil {
 		return fmt.Errorf("users module store is nil")
 	}
+	if m.service == nil {
+		return fmt.Errorf("users module service is nil")
+	}
 	if ctx.Admin == nil {
 		return fmt.Errorf("admin is nil")
 	}
@@ -43,14 +49,20 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	// Create activity adapter to bridge command events to admin activity sink
 	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
 
-	// Register commands with activity hooks for event emission
-	activateCmd := commands.NewUserActivateCommand(m.store).
-		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(activateCmd)
-
-	deactivateCmd := commands.NewUserDeactivateCommand(m.store).
-		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(deactivateCmd)
+	// Register lifecycle commands with activity hooks for event emission
+	for _, cfg := range []struct {
+		name   string
+		target userstypes.LifecycleState
+	}{
+		{name: "users.activate", target: userstypes.LifecycleStateActive},
+		{name: "users.suspend", target: userstypes.LifecycleStateSuspended},
+		{name: "users.disable", target: userstypes.LifecycleStateDisabled},
+		{name: "users.archive", target: userstypes.LifecycleStateArchived},
+	} {
+		cmd := commands.NewUserLifecycleCommand(m.service, cfg.name, cfg.target).
+			WithActivityHooks(activityAdapter)
+		ctx.Admin.Commands().Register(cmd)
+	}
 
 	// Register panel
 	builder := setup.NewUserPanelBuilder(m.store)
