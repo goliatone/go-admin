@@ -4,6 +4,9 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	auth "github.com/goliatone/go-auth"
+	"github.com/goliatone/go-users/pkg/types"
+	"github.com/uptrace/bun"
 )
 
 // DataStores holds all in-memory or CMS-backed data stores.
@@ -15,15 +18,28 @@ type DataStores struct {
 	Stats *StatsStore
 }
 
+// UserDependencies wires DB-backed user storage and related services.
+type UserDependencies struct {
+	DB            *bun.DB
+	RepoManager   auth.RepositoryManager
+	AuthRepo      types.AuthRepository
+	InventoryRepo types.UserInventoryRepository
+	RoleRegistry  types.RoleRegistry
+	ActivitySink  types.ActivitySink
+	ActivityRepo  types.ActivityRepository
+	ProfileRepo   types.ProfileRepository
+	PreferenceRepo types.PreferenceRepository
+}
+
 // Initialize creates and seeds all data stores. When a CMS content service is
 // provided, pages and posts are backed by go-cms via CMS adapters; otherwise
 // the in-memory stores are used.
-func Initialize(contentSvc admin.CMSContentService, defaultLocale string) (*DataStores, error) {
+func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDeps UserDependencies) (*DataStores, error) {
 	if strings.TrimSpace(defaultLocale) == "" {
 		defaultLocale = "en"
 	}
 
-	userStore, err := NewUserStore()
+	userStore, err := NewUserStore(userDeps)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +63,6 @@ func Initialize(contentSvc admin.CMSContentService, defaultLocale string) (*Data
 		Stats: NewStatsStore(),
 	}
 
-	stores.Users.Seed()
 	stores.Pages.Seed()
 	stores.Posts.Seed()
 	stores.Media.Seed()

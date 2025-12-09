@@ -4,18 +4,26 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/search"
+	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	auth "github.com/goliatone/go-auth"
 )
 
 func TestUserStoreCRUDPropagatesChangesAndActivity(t *testing.T) {
-	store, err := stores.NewUserStore()
+	dsn := fmt.Sprintf("file:users_test_crud_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+	deps, _, _, err := setup.SetupUsers(context.Background(), dsn)
+	if err != nil {
+		t.Fatalf("failed to setup users: %v", err)
+	}
+	store, err := stores.NewUserStore(deps)
 	if err != nil {
 		t.Fatalf("failed to build user store: %v", err)
 	}
+	store.Teardown()
 	sink := &recordingActivitySink{}
 	store.WithActivitySink(sink)
 
@@ -57,7 +65,7 @@ func TestUserStoreCRUDPropagatesChangesAndActivity(t *testing.T) {
 	if fmt.Sprint(updated["email"]) != "updated@example.com" {
 		t.Fatalf("email not updated, got %v", updated["email"])
 	}
-	if fmt.Sprint(updated["status"]) != "inactive" {
+	if fmt.Sprint(updated["status"]) != "suspended" {
 		t.Fatalf("status not updated, got %v", updated["status"])
 	}
 
@@ -85,10 +93,16 @@ func TestUserStoreCRUDPropagatesChangesAndActivity(t *testing.T) {
 }
 
 func TestUsersSearchAdapterReflectsStoreChanges(t *testing.T) {
-	store, err := stores.NewUserStore()
+	dsn := fmt.Sprintf("file:users_test_search_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+	deps, _, _, err := setup.SetupUsers(context.Background(), dsn)
+	if err != nil {
+		t.Fatalf("failed to setup users: %v", err)
+	}
+	store, err := stores.NewUserStore(deps)
 	if err != nil {
 		t.Fatalf("failed to build user store: %v", err)
 	}
+	store.Teardown()
 	ctx := context.Background()
 
 	record, err := store.Create(ctx, map[string]any{

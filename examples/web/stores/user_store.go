@@ -5,9 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/goliatone/go-admin/admin"
@@ -24,11 +22,83 @@ const (
 	defaultUserPageSize = 50
 )
 
+// userFilterExtensions holds advanced search filters not in the base types.UserInventoryFilter
+type userFilterExtensions struct {
+	UsernameFilters []string // Support multiple values for OR logic
+	EmailFilters    []string
+	RoleFilters     []string
+}
+
+type contextKey string
+
+const userFilterExtensionsKey contextKey = "user_filter_extensions"
+
+// applyExtendedFilters applies in-memory filtering for role, username, and email filters with OR logic
+func applyExtendedFilters(users []types.AuthUser, ext userFilterExtensions) []types.AuthUser {
+	if len(ext.RoleFilters) == 0 && len(ext.UsernameFilters) == 0 && len(ext.EmailFilters) == 0 {
+		return users
+	}
+
+	filtered := make([]types.AuthUser, 0, len(users))
+	for _, user := range users {
+		// Apply role filter (OR logic within the same filter)
+		if len(ext.RoleFilters) > 0 {
+			lowerRole := strings.ToLower(user.Role)
+			match := false
+			for _, filter := range ext.RoleFilters {
+				if strings.EqualFold(lowerRole, filter) || strings.Contains(lowerRole, strings.ToLower(filter)) {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+
+		// Apply username filter (OR logic)
+		if len(ext.UsernameFilters) > 0 {
+			lowerUsername := strings.ToLower(user.Username)
+			match := false
+			for _, filter := range ext.UsernameFilters {
+				if strings.Contains(lowerUsername, strings.ToLower(filter)) {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+
+		// Apply email filter (OR logic)
+		if len(ext.EmailFilters) > 0 {
+			lowerEmail := strings.ToLower(user.Email)
+			match := false
+			for _, filter := range ext.EmailFilters {
+				if strings.Contains(lowerEmail, strings.ToLower(filter)) {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+
+		filtered = append(filtered, user)
+	}
+	return filtered
+}
+
 var (
 	allowedUserRoles = map[string]struct{}{
 		"admin":  {},
 		"editor": {},
 		"viewer": {},
+		"member": {},
+		"guest":  {},
+		"owner":  {},
 	}
 	allowedUserStatuses = map[string]struct{}{
 		"active":    {},
@@ -52,17 +122,35 @@ type User struct {
 	LastLogin     time.Time `json:"last_login" bun:"last_login"`
 }
 
-// UserStore manages user data through a go-users-compatible repository.
-type UserStore struct {
-	repo     *goUsersMemoryRepo
-	activity admin.ActivitySink
-	crudRepo repository.Repository[*User]
+// goUsersRepo captures the methods used by the store and go-users service.
+type goUsersRepo interface {
+	types.AuthRepository
+	types.UserInventoryRepository
+	Delete(ctx context.Context, id uuid.UUID) error
+	LastLogin(id uuid.UUID) time.Time
+	SetLastLogin(id uuid.UUID, ts time.Time) error
+	Reset()
 }
 
-// NewUserStore provisions an in-memory go-users repository for the example.
-func NewUserStore() (*UserStore, error) {
-	repo := newGoUsersMemoryRepo()
-	store := &UserStore{repo: repo}
+// UserStore manages user data through a go-users-compatible repository.
+type UserStore struct {
+	repo     goUsersRepo
+	activity admin.ActivitySink
+	crudRepo repository.Repository[*User]
+	users    auth.Users
+}
+
+// NewUserStore provisions a DB-backed go-users repository for the example.
+func NewUserStore(deps UserDependencies) (*UserStore, error) {
+	if deps.AuthRepo == nil || deps.InventoryRepo == nil || deps.RepoManager == nil {
+		return nil, fmt.Errorf("user dependencies incomplete")
+	}
+	repo := &goUsersDBRepo{
+		authRepo:      deps.AuthRepo,
+		inventoryRepo: deps.InventoryRepo,
+		usersRepo:     deps.RepoManager.Users(),
+	}
+	store := &UserStore{repo: repo, users: deps.RepoManager.Users()}
 	store.crudRepo = &userRepositoryAdapter{store: store}
 	return store, nil
 }
@@ -136,16 +224,25 @@ func (s *UserStore) Seed() {
 	}
 
 	for _, sample := range samples {
+		existing, _ := s.repo.GetByIdentifier(context.Background(), sample.Username)
+		if existing != nil && existing.ID != uuid.Nil {
+			continue
+		}
 		user := &types.AuthUser{
 			ID:        uuid.New(),
 			Username:  sample.Username,
 			Email:     sample.Email,
-			Role:      sample.Role,
+			Role:      normalizeRoleValue(sample.Role),
 			Status:    sample.Status,
 			CreatedAt: ptrTime(sample.CreatedAt),
 		}
-		_ = s.repo.SetLastLogin(user.ID, sample.LastLogin)
-		_, _ = s.repo.Create(context.Background(), user)
+		created, err := s.repo.Create(context.Background(), user)
+		if err != nil {
+			continue
+		}
+		if !sample.LastLogin.IsZero() {
+			_ = s.repo.SetLastLogin(created.ID, sample.LastLogin)
+		}
 	}
 }
 
@@ -213,6 +310,17 @@ func trimmedField(record map[string]any, key string) (string, bool) {
 	return strings.TrimSpace(asString(val, "")), true
 }
 
+func normalizeRoleValue(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "editor":
+		return "member"
+	case "viewer":
+		return "guest"
+	default:
+		return strings.ToLower(strings.TrimSpace(role))
+	}
+}
+
 func newValidationError(message string, metadata map[string]any) error {
 	err := goerrors.New(message, goerrors.CategoryValidation).
 		WithCode(goerrors.CodeBadRequest).
@@ -225,17 +333,23 @@ func newValidationError(message string, metadata map[string]any) error {
 
 // List returns users honoring search/filters/pagination.
 func (s *UserStore) List(ctx context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {
-	filter := userInventoryFilterFromOptions(opts)
+	ctx, filter := userInventoryFilterFromOptions(ctx, opts)
 	page, err := s.repo.ListUsers(ctx, filter)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	results := make([]map[string]any, 0, len(page.Users))
-	for _, user := range page.Users {
-		results = append(results, userToMap(&user, s.repo.LastLogin(user.ID)))
+	// Apply post-filtering for advanced filters stored in context
+	filteredUsers := page.Users
+	if ext, ok := ctx.Value(userFilterExtensionsKey).(userFilterExtensions); ok {
+		filteredUsers = applyExtendedFilters(page.Users, ext)
 	}
-	return results, page.Total, nil
+
+	results := make([]map[string]any, 0, len(filteredUsers))
+	for _, user := range filteredUsers {
+		results = append(results, userToMap(&user, lastLoginFromUser(&user, s.repo)))
+	}
+	return results, len(results), nil
 }
 
 // Get returns a single user by ID.
@@ -248,7 +362,7 @@ func (s *UserStore) Get(ctx context.Context, id string) (map[string]any, error) 
 	if err != nil {
 		return nil, err
 	}
-	return userToMap(user, s.repo.LastLogin(user.ID)), nil
+	return userToMap(user, lastLoginFromUser(user, s.repo)), nil
 }
 
 // Create adds a new user.
@@ -270,11 +384,14 @@ func (s *UserStore) Create(ctx context.Context, record map[string]any) (map[stri
 	if err != nil {
 		return nil, err
 	}
+	if hash := resolvePasswordHash(record, created.Username); hash != "" {
+		_ = s.repo.ResetPassword(ctx, created.ID, hash)
+	}
 	if !lastLogin.IsZero() {
 		_ = s.repo.SetLastLogin(created.ID, lastLogin)
 	}
 
-	result := userToMap(created, s.repo.LastLogin(created.ID))
+	result := userToMap(created, lastLoginFromUser(created, s.repo))
 	s.emitActivity(ctx, "created", created)
 	return result, nil
 }
@@ -302,8 +419,11 @@ func (s *UserStore) Update(ctx context.Context, id string, record map[string]any
 	if last := extractLastLogin(record); !last.IsZero() {
 		_ = s.repo.SetLastLogin(saved.ID, last)
 	}
+	if hash := resolvePasswordHash(record, saved.Username); hash != "" {
+		_ = s.repo.ResetPassword(ctx, saved.ID, hash)
+	}
 
-	result := userToMap(saved, s.repo.LastLogin(saved.ID))
+	result := userToMap(saved, lastLoginFromUser(saved, s.repo))
 	s.emitActivity(ctx, "updated", saved)
 	return result, nil
 }
@@ -333,9 +453,10 @@ func (s *UserStore) emitActivity(ctx context.Context, verb string, user *types.A
 
 	object := fmt.Sprintf("user: %s", user.ID.String())
 	entry := admin.ActivityEntry{
-		Actor:  resolveActivityActor(ctx),
-		Action: verb,
-		Object: object,
+		Actor:   resolveActivityActor(ctx),
+		Action:  verb,
+		Object:  object,
+		Channel: "users",
 		Metadata: map[string]any{
 			"email":    user.Email,
 			"username": user.Username,
@@ -346,7 +467,7 @@ func (s *UserStore) emitActivity(ctx context.Context, verb string, user *types.A
 	_ = s.activity.Record(ctx, entry)
 }
 
-func userInventoryFilterFromOptions(opts admin.ListOptions) types.UserInventoryFilter {
+func userInventoryFilterFromOptions(ctx context.Context, opts admin.ListOptions) (context.Context, types.UserInventoryFilter) {
 	keyword := strings.TrimSpace(opts.Search)
 	if keyword == "" {
 		if search, ok := opts.Filters["_search"].(string); ok {
@@ -358,8 +479,79 @@ func userInventoryFilterFromOptions(opts admin.ListOptions) types.UserInventoryF
 	if r, ok := opts.Filters["role"].(string); ok {
 		role = strings.TrimSpace(r)
 	}
+	role = normalizeRoleValue(role)
+
+	// Extract field-specific ILIKE filters for advanced search
+	// Support comma-separated values for OR logic (e.g., "editor,admin")
+	var usernameFilters []string
+	if u, ok := opts.Filters["username__ilike"].(string); ok {
+		u = strings.TrimSpace(u)
+		if u != "" {
+			usernameFilters = strings.Split(u, ",")
+			for i := range usernameFilters {
+				usernameFilters[i] = strings.TrimSpace(usernameFilters[i])
+			}
+		}
+	}
+
+	var emailFilters []string
+	if e, ok := opts.Filters["email__ilike"].(string); ok {
+		e = strings.TrimSpace(e)
+		if e != "" {
+			emailFilters = strings.Split(e, ",")
+			for i := range emailFilters {
+				emailFilters[i] = strings.TrimSpace(emailFilters[i])
+			}
+		}
+	}
+
+	var roleFilters []string
+	// Support both __ilike and __in for role filters
+	if r, ok := opts.Filters["role__ilike"].(string); ok {
+		r = strings.TrimSpace(r)
+		if r != "" {
+			roleFilters = strings.Split(r, ",")
+			for i := range roleFilters {
+				roleFilters[i] = strings.TrimSpace(roleFilters[i])
+			}
+		}
+	}
+	// Also check for __in (exact match OR)
+	if r, ok := opts.Filters["role__in"].(string); ok {
+		r = strings.TrimSpace(r)
+		if r != "" {
+			values := strings.Split(r, ",")
+			for _, v := range values {
+				v = strings.TrimSpace(v)
+				if v != "" {
+					roleFilters = append(roleFilters, v)
+				}
+			}
+		}
+	}
 
 	statuses := parseStatusFilter(opts.Filters["status"])
+	// Also check for status__in
+	if s, ok := opts.Filters["status__in"].(string); ok && s != "" {
+		values := strings.Split(s, ",")
+		for _, v := range values {
+			v = strings.TrimSpace(v)
+			if v != "" {
+				state := statusFromInput(v)
+				// Only add if not already in list
+				found := false
+				for _, existing := range statuses {
+					if existing == state {
+						found = true
+						break
+					}
+				}
+				if !found {
+					statuses = append(statuses, state)
+				}
+			}
+		}
+	}
 	limit := opts.PerPage
 	if limit <= 0 {
 		limit = defaultUserPageSize
@@ -370,7 +562,17 @@ func userInventoryFilterFromOptions(opts admin.ListOptions) types.UserInventoryF
 	}
 	offset := (page - 1) * limit
 
-	return types.UserInventoryFilter{
+	// Store field-specific filters in context
+	if len(usernameFilters) > 0 || len(emailFilters) > 0 || len(roleFilters) > 0 {
+		extensions := userFilterExtensions{
+			UsernameFilters: usernameFilters,
+			EmailFilters:    emailFilters,
+			RoleFilters:     roleFilters,
+		}
+		ctx = context.WithValue(ctx, userFilterExtensionsKey, extensions)
+	}
+
+	return ctx, types.UserInventoryFilter{
 		Keyword:  keyword,
 		Role:     role,
 		Statuses: statuses,
@@ -407,7 +609,7 @@ func mapToAuthUser(record map[string]any) (*types.AuthUser, time.Time) {
 		ID:       parseUUID(asString(record["id"], "")),
 		Username: asString(record["username"], ""),
 		Email:    asString(record["email"], ""),
-		Role:     asString(record["role"], "viewer"),
+		Role:     normalizeRoleValue(asString(record["role"], "viewer")),
 		Status:   statusFromInput(asString(record["status"], "active")),
 	}
 	if created := parseTimeValue(record["created_at"]); !created.IsZero() {
@@ -427,7 +629,7 @@ func applyUserPatch(existing *types.AuthUser, record map[string]any) *types.Auth
 		clone.Email = email
 	}
 	if role := asString(record["role"], ""); role != "" {
-		clone.Role = role
+		clone.Role = normalizeRoleValue(role)
 	}
 	if status := asString(record["status"], ""); status != "" {
 		clone.Status = statusFromInput(status)
@@ -436,6 +638,25 @@ func applyUserPatch(existing *types.AuthUser, record map[string]any) *types.Auth
 		clone.CreatedAt = ptrTime(created)
 	}
 	return clone
+}
+
+func resolvePasswordHash(record map[string]any, username string) string {
+	password := strings.TrimSpace(asString(record["password"], ""))
+	if password != "" {
+		if hash, err := auth.HashPassword(password); err == nil {
+			return hash
+		}
+		return ""
+	}
+
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return ""
+	}
+	if hash, err := auth.HashPassword(fmt.Sprintf("%s.pwd", username)); err == nil {
+		return hash
+	}
+	return ""
 }
 
 func parseUUID(val string) uuid.UUID {
@@ -490,8 +711,12 @@ func statusToOutput(state types.LifecycleState) string {
 		return "active"
 	case types.LifecycleStatePending:
 		return "pending"
-	case types.LifecycleStateSuspended, types.LifecycleStateDisabled, types.LifecycleStateArchived:
-		return "inactive"
+	case types.LifecycleStateSuspended:
+		return "suspended"
+	case types.LifecycleStateDisabled:
+		return "disabled"
+	case types.LifecycleStateArchived:
+		return "archived"
 	default:
 		if state == "" {
 			return "inactive"
@@ -562,220 +787,118 @@ func ptrTime(t time.Time) *time.Time {
 	return &t
 }
 
-// goUsersMemoryRepo implements go-users repositories for the example.
-type goUsersMemoryRepo struct {
-	mu        sync.RWMutex
-	users     map[uuid.UUID]*types.AuthUser
-	lastLogin map[uuid.UUID]time.Time
+// goUsersDBRepo implements go-users repositories backed by Bun/SQLite.
+type goUsersDBRepo struct {
+	authRepo      types.AuthRepository
+	inventoryRepo types.UserInventoryRepository
+	usersRepo     auth.Users
 }
 
-func newGoUsersMemoryRepo() *goUsersMemoryRepo {
-	return &goUsersMemoryRepo{
-		users:     make(map[uuid.UUID]*types.AuthUser),
-		lastLogin: make(map[uuid.UUID]time.Time),
+func (r *goUsersDBRepo) LastLogin(id uuid.UUID) time.Time {
+	if r == nil || r.usersRepo == nil {
+		return time.Time{}
 	}
+	user, err := r.usersRepo.GetByID(context.Background(), id.String())
+	if err != nil || user == nil || user.LoggedInAt == nil {
+		return time.Time{}
+	}
+	return *user.LoggedInAt
 }
 
-func (r *goUsersMemoryRepo) Reset() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.users = make(map[uuid.UUID]*types.AuthUser)
-	r.lastLogin = make(map[uuid.UUID]time.Time)
-}
-
-func (r *goUsersMemoryRepo) LastLogin(id uuid.UUID) time.Time {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.lastLogin[id]
-}
-
-func (r *goUsersMemoryRepo) SetLastLogin(id uuid.UUID, ts time.Time) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if ts.IsZero() {
-		delete(r.lastLogin, id)
-		return nil
+func (r *goUsersDBRepo) SetLastLogin(id uuid.UUID, ts time.Time) error {
+	if r == nil || r.usersRepo == nil {
+		return errors.New("users repo not configured")
 	}
-	r.lastLogin[id] = ts
-	return nil
-}
-
-func (r *goUsersMemoryRepo) GetByID(_ context.Context, id uuid.UUID) (*types.AuthUser, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	user, ok := r.users[id]
-	if !ok {
-		return nil, fmt.Errorf("user not found")
-	}
-	return cloneAuthUser(user), nil
-}
-
-func (r *goUsersMemoryRepo) GetByIdentifier(_ context.Context, identifier string) (*types.AuthUser, error) {
-	id := strings.TrimSpace(strings.ToLower(identifier))
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if parsed, err := uuid.Parse(id); err == nil {
-		if user, ok := r.users[parsed]; ok {
-			return cloneAuthUser(user), nil
-		}
-	}
-
-	for _, user := range r.users {
-		if strings.EqualFold(user.Email, id) || strings.EqualFold(user.Username, id) {
-			return cloneAuthUser(user), nil
-		}
-	}
-	return nil, fmt.Errorf("user not found")
-}
-
-func (r *goUsersMemoryRepo) Create(_ context.Context, input *types.AuthUser) (*types.AuthUser, error) {
-	if input == nil {
-		return nil, fmt.Errorf("user is nil")
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	user := cloneAuthUser(input)
-	if user.ID == uuid.Nil {
-		user.ID = uuid.New()
-	}
-	if user.CreatedAt == nil {
-		now := time.Now().UTC()
-		user.CreatedAt = &now
-	}
-	if user.Status == "" {
-		user.Status = types.LifecycleStateActive
-	}
-
-	r.users[user.ID] = user
-	return cloneAuthUser(user), nil
-}
-
-func (r *goUsersMemoryRepo) Update(_ context.Context, input *types.AuthUser) (*types.AuthUser, error) {
-	if input == nil || input.ID == uuid.Nil {
-		return nil, fmt.Errorf("user is nil")
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	existing, ok := r.users[input.ID]
-	if !ok {
-		return nil, fmt.Errorf("user not found")
-	}
-	if input.CreatedAt == nil {
-		input.CreatedAt = existing.CreatedAt
-	}
-	now := time.Now().UTC()
-	input.UpdatedAt = &now
-	r.users[input.ID] = cloneAuthUser(input)
-	return cloneAuthUser(input), nil
-}
-
-func (r *goUsersMemoryRepo) UpdateStatus(ctx context.Context, actor types.ActorRef, id uuid.UUID, next types.LifecycleState, opts ...types.TransitionOption) (*types.AuthUser, error) {
-	user, err := r.GetByID(ctx, id)
+	user, err := r.usersRepo.GetByID(context.Background(), id.String())
 	if err != nil {
-		return nil, err
+		return err
 	}
-	_ = actor
-	_ = opts
-	user.Status = next
-	return r.Update(ctx, user)
+	user.LoggedInAt = &ts
+	_, err = r.usersRepo.Update(context.Background(), user)
+	return err
 }
 
-func (r *goUsersMemoryRepo) AllowedTransitions(context.Context, uuid.UUID) ([]types.LifecycleTransition, error) {
-	return []types.LifecycleTransition{
-		{From: types.LifecycleStatePending, To: types.LifecycleStateActive},
-		{From: types.LifecycleStateActive, To: types.LifecycleStateSuspended},
-		{From: types.LifecycleStateSuspended, To: types.LifecycleStateActive},
-		{From: types.LifecycleStateActive, To: types.LifecycleStateDisabled},
-	}, nil
-}
-
-func (r *goUsersMemoryRepo) ResetPassword(context.Context, uuid.UUID, string) error {
-	return nil
-}
-
-func (r *goUsersMemoryRepo) ListUsers(_ context.Context, filter types.UserInventoryFilter) (types.UserInventoryPage, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	users := make([]types.AuthUser, 0, len(r.users))
-	keyword := strings.ToLower(strings.TrimSpace(filter.Keyword))
-	role := strings.ToLower(strings.TrimSpace(filter.Role))
-
-	statusMap := make(map[types.LifecycleState]struct{})
-	for _, status := range filter.Statuses {
-		statusMap[status] = struct{}{}
+func (r *goUsersDBRepo) GetByID(ctx context.Context, id uuid.UUID) (*types.AuthUser, error) {
+	if r == nil || r.authRepo == nil {
+		return nil, fmt.Errorf("user repo not configured")
 	}
+	return r.authRepo.GetByID(ctx, id)
+}
 
-	for _, user := range r.users {
-		if len(statusMap) > 0 {
-			if _, ok := statusMap[user.Status]; !ok {
-				continue
-			}
-		}
-		if role != "" && !strings.EqualFold(user.Role, role) {
+func (r *goUsersDBRepo) GetByIdentifier(ctx context.Context, identifier string) (*types.AuthUser, error) {
+	if r == nil || r.authRepo == nil {
+		return nil, fmt.Errorf("user repo not configured")
+	}
+	return r.authRepo.GetByIdentifier(ctx, identifier)
+}
+
+func (r *goUsersDBRepo) Create(ctx context.Context, input *types.AuthUser) (*types.AuthUser, error) {
+	if r == nil || r.authRepo == nil {
+		return nil, fmt.Errorf("user repo not configured")
+	}
+	return r.authRepo.Create(ctx, input)
+}
+
+func (r *goUsersDBRepo) Update(ctx context.Context, input *types.AuthUser) (*types.AuthUser, error) {
+	if r == nil || r.authRepo == nil {
+		return nil, fmt.Errorf("user repo not configured")
+	}
+	return r.authRepo.Update(ctx, input)
+}
+
+func (r *goUsersDBRepo) UpdateStatus(ctx context.Context, actor types.ActorRef, id uuid.UUID, next types.LifecycleState, opts ...types.TransitionOption) (*types.AuthUser, error) {
+	if r == nil || r.authRepo == nil {
+		return nil, fmt.Errorf("user repo not configured")
+	}
+	return r.authRepo.UpdateStatus(ctx, actor, id, next, opts...)
+}
+
+func (r *goUsersDBRepo) AllowedTransitions(ctx context.Context, id uuid.UUID) ([]types.LifecycleTransition, error) {
+	if r == nil || r.authRepo == nil {
+		return nil, fmt.Errorf("user repo not configured")
+	}
+	return r.authRepo.AllowedTransitions(ctx, id)
+}
+
+func (r *goUsersDBRepo) ResetPassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	if r == nil || r.authRepo == nil {
+		return fmt.Errorf("user repo not configured")
+	}
+	return r.authRepo.ResetPassword(ctx, id, passwordHash)
+}
+
+func (r *goUsersDBRepo) ListUsers(ctx context.Context, filter types.UserInventoryFilter) (types.UserInventoryPage, error) {
+	if r == nil || r.inventoryRepo == nil {
+		return types.UserInventoryPage{}, fmt.Errorf("inventory repo not configured")
+	}
+	return r.inventoryRepo.ListUsers(ctx, filter)
+}
+
+func (r *goUsersDBRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	if r == nil || r.usersRepo == nil {
+		return fmt.Errorf("user repo not configured")
+	}
+	user, err := r.usersRepo.GetByID(ctx, id.String())
+	if err != nil {
+		return err
+	}
+	return r.usersRepo.Delete(ctx, user)
+}
+
+func (r *goUsersDBRepo) Reset() {
+	if r == nil || r.usersRepo == nil {
+		return
+	}
+	users, _, err := r.usersRepo.List(context.Background())
+	if err != nil {
+		return
+	}
+	for _, user := range users {
+		if user == nil {
 			continue
 		}
-		if len(filter.UserIDs) > 0 && !containsUUID(filter.UserIDs, user.ID) {
-			continue
-		}
-		if keyword != "" &&
-			!strings.Contains(strings.ToLower(user.Email), keyword) &&
-			!strings.Contains(strings.ToLower(user.Username), keyword) &&
-			!strings.Contains(strings.ToLower(user.Role), keyword) {
-			continue
-		}
-		users = append(users, *user)
+		_ = r.usersRepo.Delete(context.Background(), user)
 	}
-
-	sort.Slice(users, func(i, j int) bool {
-		return compareTimes(users[i].CreatedAt, users[j].CreatedAt)
-	})
-
-	limit := filter.Pagination.Limit
-	if limit <= 0 {
-		limit = defaultUserPageSize
-	}
-	offset := filter.Pagination.Offset
-	if offset < 0 {
-		offset = 0
-	}
-	if offset > len(users) {
-		offset = len(users)
-	}
-	end := offset + limit
-	if end > len(users) {
-		end = len(users)
-	}
-
-	return types.UserInventoryPage{
-		Users:      append([]types.AuthUser{}, users[offset:end]...),
-		Total:      len(users),
-		NextOffset: end,
-		HasMore:    end < len(users),
-	}, nil
-}
-
-func (r *goUsersMemoryRepo) Delete(_ context.Context, id uuid.UUID) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if _, ok := r.users[id]; !ok {
-		return fmt.Errorf("user not found")
-	}
-	delete(r.users, id)
-	delete(r.lastLogin, id)
-	return nil
-}
-
-func containsUUID(list []uuid.UUID, target uuid.UUID) bool {
-	for _, id := range list {
-		if id == target {
-			return true
-		}
-	}
-	return false
 }
 
 func compareTimes(a, b *time.Time) bool {
@@ -789,6 +912,18 @@ func compareTimes(a, b *time.Time) bool {
 	default:
 		return a.Before(*b)
 	}
+}
+
+func lastLoginFromUser(user *types.AuthUser, repo goUsersRepo) time.Time {
+	if user != nil && user.Raw != nil {
+		if raw, ok := user.Raw.(*auth.User); ok && raw != nil && raw.LoggedInAt != nil {
+			return *raw.LoggedInAt
+		}
+	}
+	if repo != nil && user != nil {
+		return repo.LastLogin(user.ID)
+	}
+	return time.Time{}
 }
 
 func cloneAuthUser(user *types.AuthUser) *types.AuthUser {
@@ -856,25 +991,56 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 
 	// Parse WHERE conditions for filters
 	if strings.Contains(queryStr, "WHERE") {
-		// Extract role filter
-		if strings.Contains(queryStr, `"role"`) {
+		// Extract role filter (exact match)
+		if strings.Contains(queryStr, `"role" = `) {
 			roleMatch := extractWhereValue(queryStr, "role")
 			if roleMatch != "" {
 				opts.Filters["role"] = roleMatch
 			}
 		}
-		// Extract status filter
-		if strings.Contains(queryStr, `"status"`) {
+		// Extract status filter (exact match)
+		if strings.Contains(queryStr, `"status" = `) {
 			statusMatch := extractWhereValue(queryStr, "status")
 			if statusMatch != "" {
 				opts.Filters["status"] = statusMatch
 			}
 		}
-		// Extract search (ILIKE patterns)
-		if strings.Contains(queryStr, "ILIKE") {
-			searchTerm := extractILikeValue(queryStr)
-			if searchTerm != "" {
-				opts.Filters["_search"] = searchTerm
+
+		// Extract ILIKE patterns - handle multiple fields and multiple values per field
+		queryUpper := strings.ToUpper(queryStr)
+		if strings.Contains(queryUpper, "ILIKE") {
+			// Check for username ILIKE (support multiple values)
+			if strings.Contains(queryUpper, `USERNAME`) && strings.Contains(queryUpper, `ILIKE`) {
+				usernameTerms := extractAllILikeValuesForField(queryStr, "username")
+				fmt.Printf("[DEBUG] Extracted username ILIKE: %v\n", usernameTerms)
+				if len(usernameTerms) > 0 {
+					opts.Filters["username__ilike"] = strings.Join(usernameTerms, ",")
+				}
+			}
+			// Check for email ILIKE (support multiple values)
+			if strings.Contains(queryUpper, `EMAIL`) && strings.Contains(queryUpper, `ILIKE`) {
+				emailTerms := extractAllILikeValuesForField(queryStr, "email")
+				fmt.Printf("[DEBUG] Extracted email ILIKE: %v\n", emailTerms)
+				if len(emailTerms) > 0 {
+					opts.Filters["email__ilike"] = strings.Join(emailTerms, ",")
+				}
+			}
+			// Check for role ILIKE (support multiple values)
+			if strings.Contains(queryUpper, `ROLE`) && strings.Contains(queryUpper, `ILIKE`) {
+				roleTerms := extractAllILikeValuesForField(queryStr, "role")
+				fmt.Printf("[DEBUG] Extracted role ILIKE: %v\n", roleTerms)
+				if len(roleTerms) > 0 {
+					opts.Filters["role__ilike"] = strings.Join(roleTerms, ",")
+				}
+			}
+
+			// Fallback: if only one ILIKE without field-specific matches, use as _search
+			if len(opts.Filters) == 0 {
+				searchTerm := extractILikeValue(queryStr)
+				fmt.Printf("[DEBUG] Extracted generic ILIKE search term: '%s'\n", searchTerm)
+				if searchTerm != "" {
+					opts.Filters["_search"] = searchTerm
+				}
 			}
 		}
 	}
@@ -911,14 +1077,98 @@ func extractWhereValue(query, column string) string {
 }
 
 func extractILikeValue(query string) string {
-	// Extract value from ILIKE '%value%'
-	if idx := strings.Index(query, "ILIKE '%"); idx >= 0 {
+	// Extract value from ILIKE '%value%' or ilike '%value%'
+	queryUpper := strings.ToUpper(query)
+	if idx := strings.Index(queryUpper, "ILIKE '%"); idx >= 0 {
 		start := idx + 8
 		if endIdx := strings.Index(query[start:], "%'"); endIdx >= 0 {
 			return query[start : start+endIdx]
 		}
 	}
 	return ""
+}
+
+func extractILikeValueForField(query, field string) string {
+	// Extract value from pattern: field ilike 'value' or field ilike '%value%'
+	queryUpper := strings.ToUpper(query)
+	fieldUpper := strings.ToUpper(field)
+
+	// Look for: field ILIKE 'value' or "field" ILIKE 'value'
+	patterns := []string{
+		fieldUpper + ` ILIKE '`,
+		`"` + fieldUpper + `" ILIKE '`,
+	}
+
+	for _, pattern := range patterns {
+		if idx := strings.Index(queryUpper, pattern); idx >= 0 {
+			start := idx + len(pattern)
+			// Find end quote
+			if endIdx := strings.Index(query[start:], "'"); endIdx >= 0 {
+				value := query[start : start+endIdx]
+				// Remove % wildcards if present
+				value = strings.TrimPrefix(value, "%")
+				value = strings.TrimSuffix(value, "%")
+				return value
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractAllILikeValuesForField extracts ALL occurrences of a field ILIKE pattern
+// to support OR logic (e.g., role ILIKE 'editor' AND role ILIKE 'admin')
+func extractAllILikeValuesForField(query, field string) []string {
+	queryUpper := strings.ToUpper(query)
+	fieldUpper := strings.ToUpper(field)
+	var values []string
+
+	// Look for: field ILIKE 'value' or "field" ILIKE 'value'
+	patterns := []string{
+		fieldUpper + ` ILIKE '`,
+		`"` + fieldUpper + `" ILIKE '`,
+	}
+
+	searchPos := 0
+	for {
+		foundAny := false
+		minIdx := -1
+		matchedPattern := ""
+
+		// Find the earliest occurrence of any pattern
+		for _, pattern := range patterns {
+			if idx := strings.Index(queryUpper[searchPos:], pattern); idx >= 0 {
+				absoluteIdx := searchPos + idx
+				if minIdx == -1 || absoluteIdx < minIdx {
+					minIdx = absoluteIdx
+					matchedPattern = pattern
+					foundAny = true
+				}
+			}
+		}
+
+		if !foundAny || minIdx == -1 {
+			break
+		}
+
+		// Extract the value
+		start := minIdx + len(matchedPattern)
+		if endIdx := strings.Index(query[start:], "'"); endIdx >= 0 {
+			value := query[start : start+endIdx]
+			// Remove % wildcards if present
+			value = strings.TrimPrefix(value, "%")
+			value = strings.TrimSuffix(value, "%")
+			if value != "" {
+				values = append(values, value)
+			}
+			// Move search position past this match
+			searchPos = start + endIdx + 1
+		} else {
+			break
+		}
+	}
+
+	return values
 }
 
 // userRepositoryAdapter bridges the go-users store to the go-crud controller.
