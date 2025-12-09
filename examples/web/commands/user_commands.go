@@ -6,171 +6,104 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
-	"github.com/goliatone/go-admin/examples/web/stores"
+	userssvc "github.com/goliatone/go-users/service"
+	userstypes "github.com/goliatone/go-users/pkg/types"
+	"github.com/goliatone/go-users/command"
+	"github.com/google/uuid"
 )
 
-// userActivateCommand activates users
-type userActivateCommand struct {
-	store         *stores.UserStore
+// userLifecycleCommand drives go-users lifecycle transitions through the admin command bus.
+type userLifecycleCommand struct {
+	name          string
+	target        userstypes.LifecycleState
+	service       *userssvc.Service
 	activityHooks activity.ActivityHookSlice
 }
 
-// NewUserActivateCommand creates a new user activate command
-func NewUserActivateCommand(store *stores.UserStore) *userActivateCommand {
-	return &userActivateCommand{store: store}
+// NewUserLifecycleCommand constructs a lifecycle command for the given target status.
+func NewUserLifecycleCommand(service *userssvc.Service, name string, target userstypes.LifecycleState) *userLifecycleCommand {
+	return &userLifecycleCommand{
+		name:    name,
+		target:  target,
+		service: service,
+	}
 }
 
-// WithActivityHooks configures activity hooks for event emission
-func (c *userActivateCommand) WithActivityHooks(hooks ...activity.ActivityHook) *userActivateCommand {
+// WithActivityHooks configures fan-out activity hooks (dashboard bridge).
+func (c *userLifecycleCommand) WithActivityHooks(hooks ...activity.ActivityHook) *userLifecycleCommand {
 	c.activityHooks = append(c.activityHooks, hooks...)
 	return c
 }
 
-func (c *userActivateCommand) Name() string {
-	return "users.activate"
+func (c *userLifecycleCommand) Name() string {
+	return c.name
 }
 
-func (c *userActivateCommand) Execute(ctx context.Context) error {
-	if c.store == nil {
-		return fmt.Errorf("user store is nil")
+func (c *userLifecycleCommand) Execute(ctx context.Context) error {
+	if c == nil || c.service == nil || c.service.Commands().BulkUserTransition == nil {
+		return fmt.Errorf("user lifecycle command not configured")
 	}
 
-	targets, err := collectUsers(ctx, c.store, admin.CommandIDs(ctx))
-	if err != nil {
+	actor := helpers.ActorRefFromContext(ctx)
+	if actor.ID == uuid.Nil {
+		return fmt.Errorf("actor required for lifecycle transition")
+	}
+
+	userIDs := normalizeUserIDs(admin.CommandIDs(ctx))
+	if len(userIDs) == 0 {
+		return fmt.Errorf("user ids required")
+	}
+
+	input := command.BulkUserTransitionInput{
+		UserIDs:     userIDs,
+		Target:      c.target,
+		Actor:       actor,
+		Scope:       helpers.ScopeFromContext(ctx),
+		StopOnError: true,
+	}
+	if err := c.service.Commands().BulkUserTransition.Execute(ctx, input); err != nil {
 		return err
 	}
 
-	for _, user := range targets {
-		id := strings.TrimSpace(fmt.Sprint(user["id"]))
-		if id == "" {
-			continue
-		}
-		currentStatus := strings.ToLower(fmt.Sprint(user["status"]))
-		if currentStatus == "active" {
-			continue
-		}
-
-		record, err := c.store.Update(ctx, id, map[string]any{"status": "active"})
-		if err != nil {
-			return err
-		}
-		c.activityHooks.Notify(ctx, activity.Event{
-			Channel:    "users",
-			Verb:       "activated",
-			ObjectType: "user",
-			ObjectID:   id,
-			Data: map[string]any{
-				"from_status": currentStatus,
-				"to_status":   "active",
-				"email":       record["email"],
-				"username":    record["username"],
-				"role":        record["role"],
-			},
-		})
-	}
-
+	c.emitActivity(ctx, userIDs)
 	return nil
 }
 
-func (c *userActivateCommand) CLIOptions() *admin.CLIOptions {
+func (c *userLifecycleCommand) CLIOptions() *admin.CLIOptions {
+	action := strings.TrimPrefix(c.name, "users.")
 	return &admin.CLIOptions{
-		Path:        []string{"users", "activate"},
-		Description: "Activate selected users",
+		Path:        []string{"users", action},
+		Description: fmt.Sprintf("Transition users to %s", c.target),
 		Group:       "users",
-		Aliases:     []string{"users:activate"},
+		Aliases:     []string{"users:" + action},
 	}
 }
 
-// userDeactivateCommand deactivates users
-type userDeactivateCommand struct {
-	store         *stores.UserStore
-	activityHooks activity.ActivityHookSlice
-}
-
-// NewUserDeactivateCommand creates a new user deactivate command
-func NewUserDeactivateCommand(store *stores.UserStore) *userDeactivateCommand {
-	return &userDeactivateCommand{store: store}
-}
-
-// WithActivityHooks configures activity hooks for event emission
-func (c *userDeactivateCommand) WithActivityHooks(hooks ...activity.ActivityHook) *userDeactivateCommand {
-	c.activityHooks = append(c.activityHooks, hooks...)
-	return c
-}
-
-func (c *userDeactivateCommand) Name() string {
-	return "users.deactivate"
-}
-
-func (c *userDeactivateCommand) Execute(ctx context.Context) error {
-	if c.store == nil {
-		return fmt.Errorf("user store is nil")
+func (c *userLifecycleCommand) emitActivity(ctx context.Context, ids []uuid.UUID) {
+	if len(c.activityHooks) == 0 {
+		return
 	}
-
-	targets, err := collectUsers(ctx, c.store, admin.CommandIDs(ctx))
-	if err != nil {
-		return err
-	}
-
-	for _, user := range targets {
-		id := strings.TrimSpace(fmt.Sprint(user["id"]))
-		if id == "" {
-			continue
-		}
-		currentStatus := strings.ToLower(fmt.Sprint(user["status"]))
-		if currentStatus == "inactive" {
-			continue
-		}
-
-		record, err := c.store.Update(ctx, id, map[string]any{"status": "inactive"})
-		if err != nil {
-			return err
-		}
-		c.activityHooks.Notify(ctx, activity.Event{
-			Channel:    "users",
-			Verb:       "deactivated",
-			ObjectType: "user",
-			ObjectID:   id,
-			Data: map[string]any{
-				"from_status": currentStatus,
-				"to_status":   "inactive",
-				"email":       record["email"],
-				"username":    record["username"],
-				"role":        record["role"],
-			},
-		})
-	}
-
-	return nil
-}
-
-func (c *userDeactivateCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
-		Path:        []string{"users", "deactivate"},
-		Description: "Deactivate selected users",
-		Group:       "users",
-		Aliases:     []string{"users:deactivate"},
-	}
-}
-
-func collectUsers(ctx context.Context, store *stores.UserStore, ids []string) ([]map[string]any, error) {
-	if store == nil {
-		return nil, fmt.Errorf("user store is nil")
-	}
-	if len(ids) == 0 {
-		users, _, err := store.List(ctx, admin.ListOptions{PerPage: 1000})
-		return users, err
-	}
-	out := []map[string]any{}
+	verb := fmt.Sprintf("status.%s", c.target)
 	for _, id := range ids {
-		if trimmed := strings.TrimSpace(id); trimmed != "" {
-			user, err := store.Get(ctx, trimmed)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, user)
-		}
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "users",
+			Verb:       verb,
+			ObjectType: "user",
+			ObjectID:   id.String(),
+		})
 	}
-	return out, nil
+}
+
+func normalizeUserIDs(ids []string) []uuid.UUID {
+	clean := make([]uuid.UUID, 0, len(ids))
+	for _, raw := range ids {
+		id, err := uuid.Parse(strings.TrimSpace(raw))
+		if err != nil || id == uuid.Nil {
+			continue
+		}
+		clean = append(clean, id)
+	}
+	return clean
 }

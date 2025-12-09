@@ -75,7 +75,13 @@ func main() {
 			Tenants:       true,
 			Organizations: true,
 		},
+		FeatureFlags: map[string]bool{
+			setup.FeatureUserInvites:      true,
+			setup.FeaturePasswordReset:    true,
+			setup.FeatureSelfRegistration: false,
+		},
 	}
+	registrationCfg := setup.DefaultRegistrationConfig()
 
 	adapterHooks := quickstart.AdapterHooks{
 		PersistentCMS: func(ctx context.Context, locale string) (admin.CMSOptions, string, error) {
@@ -93,12 +99,22 @@ func main() {
 	settingsBackend := adapterResult.SettingsBackend
 	activityBackend := adapterResult.ActivityBackend
 
+	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsers(context.Background(), "")
+	if err != nil {
+		log.Fatalf("failed to setup users: %v", err)
+	}
+	if usersService != nil {
+		if err := usersService.HealthCheck(context.Background()); err != nil {
+			log.Fatalf("users service not ready: %v", err)
+		}
+	}
+
 	// Initialize data stores with seed data
 	var cmsContentSvc admin.CMSContentService
 	if cfg.CMS.Container != nil {
 		cmsContentSvc = cfg.CMS.Container.ContentService()
 	}
-	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale)
+	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale, usersDeps)
 	if err != nil {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
@@ -126,9 +142,16 @@ func main() {
 	)
 
 	// Choose activity backend (go-users sink when flag is enabled)
-	primaryActivitySink := adapterResult.ActivitySink
+	goUsersActivitySink := setup.NewGoUsersActivityAdapter(usersDeps.ActivitySink, usersDeps.ActivityRepo)
+	primaryActivitySink := goUsersActivitySink
+	if primaryActivitySink == nil {
+		primaryActivitySink = adapterResult.ActivitySink
+	}
 	if primaryActivitySink == nil {
 		primaryActivitySink = adm.ActivityFeed()
+	}
+	if goUsersActivitySink != nil {
+		activityBackend = "go-users (sqlite)"
 	}
 
 	// Create activity adapter that wraps the primary sink and also emits to dashboard hooks
@@ -137,11 +160,26 @@ func main() {
 		hookSink: dashboardHook,
 	}
 	adm.WithActivitySink(compositeActivitySink)
+	if onboardingNotifier != nil {
+		onboardingNotifier.Notifications = adm.NotificationService()
+	}
 	activitySink := adm.ActivityFeed()
 	dataStores.Users.WithActivitySink(activitySink)
 	dataStores.Pages.WithActivitySink(activitySink)
 	dataStores.Posts.WithActivitySink(activitySink)
 	dataStores.Media.WithActivitySink(activitySink)
+
+	scopeResolver := helpers.ScopeBuilder()
+	adm.WithUserManagement(
+		admin.NewGoUsersUserRepository(usersDeps.AuthRepo, usersDeps.InventoryRepo, scopeResolver),
+		admin.NewGoUsersRoleRepository(usersDeps.RoleRegistry, scopeResolver),
+	)
+	if prefStore, err := setup.NewGoUsersPreferencesStore(usersDeps.PreferenceRepo); err == nil && adm.PreferencesService() != nil {
+		adm.PreferencesService().WithStore(prefStore)
+	}
+	if usersDeps.ProfileRepo != nil && adm.ProfileService() != nil {
+		adm.ProfileService().WithStore(admin.NewGoUsersProfileStore(usersDeps.ProfileRepo, scopeResolver))
+	}
 
 	// Seed demo tenants/orgs for navigation/search coverage
 	if svc := adm.TenantService(); svc != nil && cfg.Features.Tenants {
@@ -208,7 +246,7 @@ func main() {
 	}
 
 	// Setup authentication and authorization
-	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores)
+	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps)
 
 	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme
 	themeRegistry := theme.NewRegistry()
@@ -315,7 +353,7 @@ func main() {
 	// Register modules
 	modules := []admin.Module{
 		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
-		&usersModule{store: dataStores.Users, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
+		&usersModule{store: dataStores.Users, service: usersService, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
 		&pagesModule{store: dataStores.Pages, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		&postsModule{store: dataStores.Posts, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		&notificationsModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupOthers},
@@ -348,7 +386,7 @@ func main() {
 	}
 
 	// Setup admin features AFTER initialization to override default widgets
-	setup.SetupDashboard(adm, dataStores)
+	setup.SetupDashboard(adm, dataStores, cfg.BasePath)
 	if adapterResult.Flags.UseGoOptions {
 		// Settings already wired via adapter hook
 		if adapterResult.SettingsBackend == "" {
@@ -383,7 +421,7 @@ func main() {
 	userController.RegisterRoutes(crudAdapter)
 
 	r.Get(path.Join(cfg.BasePath, "api/session"), authn.WrapHandler(func(c router.Context) error {
-		session := helpers.BuildSessionUser(c.Context())
+		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), cfg.Features)
 		return c.JSON(fiber.StatusOK, session)
 	}))
 
@@ -405,6 +443,24 @@ func main() {
 			"message": "Layout preferences saved",
 		})
 	}))
+
+	onboardingHandlers := handlers.OnboardingHandlers{
+		UsersService: usersService,
+		AuthRepo:     usersDeps.AuthRepo,
+		UserRepo:     usersDeps.RepoManager.Users(),
+		FeatureFlags: cfg.FeatureFlags,
+		Registration: registrationCfg,
+		Notifier:     onboardingNotifier,
+		Config:       cfg,
+	}
+
+	onboardingBase := path.Join(cfg.BasePath, "api", "onboarding")
+	r.Post(path.Join(onboardingBase, "invite"), authn.WrapHandler(onboardingHandlers.Invite))
+	r.Get(path.Join(onboardingBase, "invite", "verify"), onboardingHandlers.VerifyInvite)
+	r.Post(path.Join(onboardingBase, "invite", "accept"), onboardingHandlers.AcceptInvite)
+	r.Post(path.Join(onboardingBase, "register"), onboardingHandlers.SelfRegister)
+	r.Post(path.Join(onboardingBase, "password", "reset", "request"), onboardingHandlers.RequestPasswordReset)
+	r.Post(path.Join(onboardingBase, "password", "reset", "confirm"), onboardingHandlers.ConfirmPasswordReset)
 
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
@@ -455,6 +511,13 @@ func main() {
 		})
 
 		return c.Redirect(cfg.BasePath, fiber.StatusFound)
+	})
+	r.Get(path.Join(cfg.BasePath, "password-reset"), func(c router.Context) error {
+		viewCtx := router.ViewContext{
+			"title":     "Password Reset",
+			"base_path": cfg.BasePath,
+		}
+		return c.Render("password_reset", viewCtx)
 	})
 	r.Get(path.Join(cfg.BasePath, "logout"), func(c router.Context) error {
 		// Clear the auth cookie
@@ -742,12 +805,28 @@ func seedNotificationsAndActivity(adm *admin.Admin) {
 	}
 
 	feed := adm.ActivityFeed()
-	feed.Record(ctx, admin.ActivityEntry{Actor: "jane.smith", Action: "published", Object: "post: Getting Started with Go"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "john.doe", Action: "created", Object: "page: About Us"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "admin", Action: "updated", Object: "settings: email configuration"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "system", Action: "completed", Object: "job: database backup"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "jane.smith", Action: "uploaded", Object: "media: logo.png"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "system", Action: "cleaned", Object: "cache entries"})
+	feed.Record(ctx, admin.ActivityEntry{Actor: "jane.smith", Action: "published", Object: "post: Getting Started with Go", Channel: "posts"})
+	feed.Record(ctx, admin.ActivityEntry{Actor: "john.doe", Action: "created", Object: "page: About Us", Channel: "pages"})
+	feed.Record(ctx, admin.ActivityEntry{Actor: "admin", Action: "updated", Object: "settings: email configuration", Channel: "settings"})
+	feed.Record(ctx, admin.ActivityEntry{Actor: "system", Action: "completed", Object: "job: database backup", Channel: "jobs"})
+	feed.Record(ctx, admin.ActivityEntry{Actor: "jane.smith", Action: "uploaded", Object: "media: logo.png", Channel: "media"})
+	feed.Record(ctx, admin.ActivityEntry{Actor: "system", Action: "cleaned", Object: "cache entries", Channel: "admin"})
+	feed.Record(ctx, admin.ActivityEntry{
+		Actor:   "admin",
+		Action:  "user.invite",
+		Object:  "user: editor",
+		Channel: "users",
+		Metadata: map[string]any{
+			"email":      "editor@example.com",
+			"expires_at": "1h",
+		},
+	})
+	feed.Record(ctx, admin.ActivityEntry{
+		Actor:   "admin",
+		Action:  "status.activated",
+		Object:  "user: viewer",
+		Channel: "users",
+	})
 }
 
 // compositeActivitySink forwards activity records to both the primary sink and dashboard hooks
@@ -772,8 +851,13 @@ func (c *compositeActivitySink) Record(ctx context.Context, entry admin.Activity
 			objectID = strings.TrimSpace(id)
 		}
 
+		channel := strings.TrimSpace(entry.Channel)
+		if channel == "" {
+			channel = "admin"
+		}
+
 		c.hookSink.Notify(ctx, activity.Event{
-			Channel:    "admin",
+			Channel:    channel,
 			Verb:       entry.Action,
 			ObjectType: objectType,
 			ObjectID:   objectID,
