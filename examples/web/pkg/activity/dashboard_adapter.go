@@ -2,6 +2,7 @@ package activity
 
 import (
 	"context"
+	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
@@ -76,12 +77,16 @@ func (a *AdminActivitySinkAdapter) Record(ctx context.Context, entry admin.Activ
 	}
 
 	// Convert admin.ActivityEntry to dashboard.Event
+	channel := strings.TrimSpace(entry.Channel)
+	if channel == "" {
+		channel = "admin"
+	}
 	dashEvent := dashboardactivity.Event{
 		Verb:       entry.Action,
 		ActorID:    entry.Actor,
 		ObjectType: objectType,
 		ObjectID:   objectID,
-		Channel:    "admin",
+		Channel:    channel,
 		Metadata:   entry.Metadata,
 		OccurredAt: entry.CreatedAt,
 	}

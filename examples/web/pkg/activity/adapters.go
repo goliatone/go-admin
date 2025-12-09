@@ -35,6 +35,7 @@ func (a *AdminActivityAdapter) Notify(ctx context.Context, event Event) {
 		Actor:    actor,
 		Action:   event.Verb,
 		Object:   object,
+		Channel:  event.Channel,
 		Metadata: event.Data,
 	})
 }
