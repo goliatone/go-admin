@@ -7,7 +7,13 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/goliatone/go-admin/admin"
 	authlib "github.com/goliatone/go-auth"
+)
+
+var (
+	sessionTenantMetadataKeys       = []string{"tenant_id", "tenant", "default_tenant", "default_tenant_id"}
+	sessionOrganizationMetadataKeys = []string{"organization_id", "org_id", "org"}
 )
 
 // SessionUser captures session metadata to expose in templates and APIs.
@@ -116,6 +122,19 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 	return session
 }
 
+// FilterSessionUser hides tenant/org data when those features are disabled.
+func FilterSessionUser(session SessionUser, features admin.Features) SessionUser {
+	if !features.Tenants {
+		session.TenantID = ""
+		session.Metadata = pruneSessionMetadata(session.Metadata, sessionTenantMetadataKeys)
+	}
+	if !features.Organizations {
+		session.OrganizationID = ""
+		session.Metadata = pruneSessionMetadata(session.Metadata, sessionOrganizationMetadataKeys)
+	}
+	return session
+}
+
 // ToViewContext converts the session into snake_case keys for templates.
 func (s SessionUser) ToViewContext() map[string]any {
 	view := map[string]any{
@@ -194,6 +213,17 @@ func mergeStringMaps(base map[string]string, src map[string]string) map[string]s
 	}
 	for k, v := range src {
 		out[k] = v
+	}
+	return out
+}
+
+func pruneSessionMetadata(metadata map[string]any, keys []string) map[string]any {
+	if len(metadata) == 0 || len(keys) == 0 {
+		return metadata
+	}
+	out := cloneAnyMap(metadata)
+	for _, key := range keys {
+		delete(out, key)
 	}
 	return out
 }
