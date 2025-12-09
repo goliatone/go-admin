@@ -1,33 +1,38 @@
 package stores
 
 import (
+	"context"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
+	repository "github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/uptrace/bun"
 )
 
 // DataStores holds all in-memory or CMS-backed data stores.
 type DataStores struct {
-	Users *UserStore
-	Pages PageRepository
-	Posts PostRepository
-	Media *MediaStore
-	Stats *StatsStore
+	Users        *UserStore
+	Pages        PageRepository
+	Posts        PostRepository
+	Media        *MediaStore
+	Stats        *StatsStore
+	PageRecords  repository.Repository[*PageRecord]
+	PostRecords  repository.Repository[*PostRecord]
+	MediaRecords repository.Repository[*MediaRecord]
 }
 
 // UserDependencies wires DB-backed user storage and related services.
 type UserDependencies struct {
-	DB            *bun.DB
-	RepoManager   auth.RepositoryManager
-	AuthRepo      types.AuthRepository
-	InventoryRepo types.UserInventoryRepository
-	RoleRegistry  types.RoleRegistry
-	ActivitySink  types.ActivitySink
-	ActivityRepo  types.ActivityRepository
-	ProfileRepo   types.ProfileRepository
+	DB             *bun.DB
+	RepoManager    auth.RepositoryManager
+	AuthRepo       types.AuthRepository
+	InventoryRepo  types.UserInventoryRepository
+	RoleRegistry   types.RoleRegistry
+	ActivitySink   types.ActivitySink
+	ActivityRepo   types.ActivityRepository
+	ProfileRepo    types.ProfileRepository
 	PreferenceRepo types.PreferenceRepository
 }
 
@@ -38,29 +43,40 @@ func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDe
 	if strings.TrimSpace(defaultLocale) == "" {
 		defaultLocale = "en"
 	}
+	_ = contentSvc
+
+	contentDB, err := SetupContentDatabase(context.Background(), "")
+	if err != nil {
+		return nil, err
+	}
 
 	userStore, err := NewUserStore(userDeps)
 	if err != nil {
 		return nil, err
 	}
 
-	pageStore := PageRepository(NewPageStore())
-	postStore := PostRepository(NewPostStore())
-	if contentSvc != nil {
-		if cmsPages := NewCMSPageStore(contentSvc, defaultLocale); cmsPages != nil {
-			pageStore = cmsPages
-		}
-		if cmsPosts := NewCMSPostStore(contentSvc, defaultLocale); cmsPosts != nil {
-			postStore = cmsPosts
-		}
+	pageStore, err := NewPageStore(contentDB)
+	if err != nil {
+		return nil, err
+	}
+	postStore, err := NewPostStore(contentDB)
+	if err != nil {
+		return nil, err
+	}
+	mediaStore, err := NewMediaStore(contentDB)
+	if err != nil {
+		return nil, err
 	}
 
 	stores := &DataStores{
-		Users: userStore,
-		Pages: pageStore,
-		Posts: postStore,
-		Media: NewMediaStore(),
-		Stats: NewStatsStore(),
+		Users:        userStore,
+		Pages:        pageStore,
+		Posts:        postStore,
+		Media:        mediaStore,
+		Stats:        NewStatsStore(),
+		PageRecords:  pageStore.repo,
+		PostRecords:  postStore.repo,
+		MediaRecords: mediaStore.repo,
 	}
 
 	stores.Pages.Seed()

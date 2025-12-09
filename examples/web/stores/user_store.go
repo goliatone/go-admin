@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/web/helpers"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	repository "github.com/goliatone/go-repository-bun"
@@ -573,6 +574,8 @@ func userInventoryFilterFromOptions(ctx context.Context, opts admin.ListOptions)
 	}
 
 	return ctx, types.UserInventoryFilter{
+		Actor:    helpers.ActorRefFromContext(ctx),
+		Scope:    helpers.ScopeFromContext(ctx),
 		Keyword:  keyword,
 		Role:     role,
 		Statuses: statuses,
