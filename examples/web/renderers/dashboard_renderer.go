@@ -1,27 +1,31 @@
 package renderers
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
+	"html/template" // Only for template.HTML type
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	gotemplate "github.com/goliatone/go-template"
 )
 
-// TemplateRenderer renders dashboards using Go html/template with Pongo2-style syntax support
+// TemplateRenderer renders dashboards using go-template (Pongo2)
 type TemplateRenderer struct {
-	tmpl *template.Template
+	renderer *gotemplate.Engine
 }
 
-// NewTemplateRenderer creates a renderer with the given template
-func NewTemplateRenderer(tmplPath string) (*TemplateRenderer, error) {
-	tmpl, err := template.New("dashboard").Funcs(templateFuncs()).ParseFiles(tmplPath)
+// NewTemplateRenderer creates a renderer with Pongo2 templates
+func NewTemplateRenderer(templatesDir string) (*TemplateRenderer, error) {
+	renderer, err := gotemplate.NewRenderer(
+		gotemplate.WithBaseDir(templatesDir),
+		gotemplate.WithExtension(".html"),
+		gotemplate.WithTemplateFunc(templateFuncs()),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse dashboard template: %w", err)
+		return nil, fmt.Errorf("failed to create template renderer: %w", err)
 	}
-	return &TemplateRenderer{tmpl: tmpl}, nil
+	return &TemplateRenderer{renderer: renderer}, nil
 }
 
 // Render generates HTML from the dashboard layout
@@ -30,14 +34,15 @@ func (r *TemplateRenderer) Render(layout *admin.DashboardLayout) (template.HTML,
 		return "", fmt.Errorf("layout is nil")
 	}
 
-	var buf bytes.Buffer
 	data := r.buildTemplateData(layout)
 
-	if err := r.tmpl.Execute(&buf, data); err != nil {
+	// Render using go-template (Pongo2)
+	html, err := r.renderer.Render("dashboard_ssr.html", data)
+	if err != nil {
 		return "", fmt.Errorf("template execution failed: %w", err)
 	}
 
-	return template.HTML(buf.String()), nil
+	return template.HTML(html), nil
 }
 
 // buildTemplateData converts DashboardLayout to template-friendly structure
@@ -78,12 +83,12 @@ func (r *TemplateRenderer) buildTemplateData(layout *admin.DashboardLayout) map[
 	}
 }
 
-// templateFuncs returns custom template functions
-func templateFuncs() template.FuncMap {
-	return template.FuncMap{
-		"toJSON": func(v interface{}) template.JS {
+// templateFuncs returns custom template functions for Pongo2
+func templateFuncs() map[string]any {
+	return map[string]any{
+		"toJSON": func(v interface{}) string {
 			b, _ := json.Marshal(v)
-			return template.JS(b)
+			return string(b)
 		},
 		"safeHTML": func(s string) template.HTML {
 			return template.HTML(s)
