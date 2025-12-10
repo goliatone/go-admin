@@ -10,7 +10,8 @@ export declare class WidgetGrid {
     private saveTimer;
     private statusElement;
     constructor(config: WidgetGridConfig);
-    init(): Promise<void>;
+    init(serverState?: any): Promise<void>;
+    private validateHydration;
     private initializeDragDrop;
     private attachEventListeners;
     private saveLayout;

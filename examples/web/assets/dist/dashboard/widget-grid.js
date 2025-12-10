@@ -37,14 +37,33 @@ export class WidgetGrid {
             persistence: config.behaviors?.persistence || new DefaultPersistenceBehavior(),
         };
     }
-    async init() {
+    async init(serverState) {
         this.container = document.querySelector('[data-widget-grid]');
         this.statusElement = document.getElementById('save-status');
         if (!this.container) {
             throw new Error('Widget grid container not found');
         }
+        // Hydration mode: widgets already rendered by server
+        // Just attach behaviors to existing DOM elements
         this.attachEventListeners();
         this.initializeDragDrop();
+        // If server state provided, validate it matches DOM (optional)
+        if (serverState) {
+            this.validateHydration(serverState);
+        }
+    }
+    validateHydration(serverState) {
+        // Optional: Verify server-rendered state matches expected layout
+        // This helps detect hydration mismatches during development
+        if (serverState.areas) {
+            const renderedAreas = this.container?.querySelectorAll('[data-area-code]');
+            if (renderedAreas && renderedAreas.length !== serverState.areas.length) {
+                console.warn('Hydration mismatch: area count does not match', {
+                    server: serverState.areas.length,
+                    dom: renderedAreas.length,
+                });
+            }
+        }
     }
     initializeDragDrop() {
         if (!this.container)

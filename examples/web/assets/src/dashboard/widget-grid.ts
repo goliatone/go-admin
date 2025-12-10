@@ -52,7 +52,7 @@ export class WidgetGrid {
     };
   }
 
-  async init(): Promise<void> {
+  async init(serverState?: any): Promise<void> {
     this.container = document.querySelector('[data-widget-grid]');
     this.statusElement = document.getElementById('save-status');
 
@@ -60,8 +60,29 @@ export class WidgetGrid {
       throw new Error('Widget grid container not found');
     }
 
+    // Hydration mode: widgets already rendered by server
+    // Just attach behaviors to existing DOM elements
     this.attachEventListeners();
     this.initializeDragDrop();
+
+    // If server state provided, validate it matches DOM (optional)
+    if (serverState) {
+      this.validateHydration(serverState);
+    }
+  }
+
+  private validateHydration(serverState: any): void {
+    // Optional: Verify server-rendered state matches expected layout
+    // This helps detect hydration mismatches during development
+    if (serverState.areas) {
+      const renderedAreas = this.container?.querySelectorAll('[data-area-code]');
+      if (renderedAreas && renderedAreas.length !== serverState.areas.length) {
+        console.warn('Hydration mismatch: area count does not match', {
+          server: serverState.areas.length,
+          dom: renderedAreas.length,
+        });
+      }
+    }
   }
 
   private initializeDragDrop(): void {
