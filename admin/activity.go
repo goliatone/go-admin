@@ -16,6 +16,7 @@ type ActivityEntry struct {
 	Actor     string         `json:"actor,omitempty"`
 	Action    string         `json:"action,omitempty"`
 	Object    string         `json:"object,omitempty"`
+	Channel   string         `json:"channel,omitempty"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
 	CreatedAt time.Time      `json:"created_at"`
 }
@@ -38,9 +39,10 @@ type ActivityRecord struct {
 
 // ActivityFilter narrows feed listings.
 type ActivityFilter struct {
-	Actor  string
-	Action string
-	Object string
+	Actor   string
+	Action  string
+	Object  string
+	Channel string
 }
 
 // ActivitySink records activity entries.
@@ -214,6 +216,9 @@ func matchesFilters(entry ActivityEntry, filters []ActivityFilter) bool {
 		if f.Object != "" && entry.Object != f.Object {
 			return false
 		}
+		if f.Channel != "" && entry.Channel != f.Channel {
+			return false
+		}
 	}
 	return true
 }
@@ -227,6 +232,7 @@ func recordFromEntry(entry ActivityEntry) ActivityRecord {
 		Verb:       entry.Action,
 		ObjectType: objectType,
 		ObjectID:   objectID,
+		Channel:    strings.TrimSpace(entry.Channel),
 		Data:       entry.Metadata,
 		OccurredAt: entry.CreatedAt,
 	}
@@ -239,6 +245,7 @@ func entryFromRecord(record ActivityRecord) ActivityEntry {
 		Actor:     firstNonEmpty(record.ActorID, record.UserID),
 		Action:    record.Verb,
 		Object:    joinObject(record.ObjectType, record.ObjectID),
+		Channel:   record.Channel,
 		Metadata:  cloneAnyMap(record.Data),
 		CreatedAt: record.OccurredAt,
 	}
