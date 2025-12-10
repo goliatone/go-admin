@@ -174,6 +174,10 @@ func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID
 	if instance.Position > 0 {
 		setIntField(input, "Position", instance.Position)
 	}
+	if instance.Span > 0 {
+		setIntField(input, "Span", instance.Span)
+	}
+	setBoolField(input, "Hidden", instance.Hidden)
 	setMapField(input, "Configuration", cloneAnyMap(instance.Config))
 	actor := actorUUID(ctx)
 	setUUIDField(input, "CreatedBy", actor)
@@ -205,6 +209,10 @@ func (a *GoCMSWidgetAdapter) updateInstance(ctx context.Context, instance Widget
 	if instance.Position > 0 {
 		setIntPtr(input.FieldByName("Position"), instance.Position)
 	}
+	if instance.Span > 0 {
+		setIntPtr(input.FieldByName("Span"), instance.Span)
+	}
+	setBoolPtr(input.FieldByName("Hidden"), instance.Hidden)
 	if strings.TrimSpace(instance.Area) != "" {
 		setStringPtr(input.FieldByName("AreaCode"), instance.Area)
 	}
@@ -338,6 +346,12 @@ func convertWidgetInstance(val reflect.Value) WidgetInstance {
 	if pos, ok := getIntField(val, "Position"); ok {
 		inst.Position = pos
 	}
+	if span, ok := getIntField(val, "Span"); ok {
+		inst.Span = span
+	}
+	if hidden, ok := getBoolField(val, "Hidden"); ok {
+		inst.Hidden = hidden
+	}
 	return inst
 }
 
@@ -364,16 +378,24 @@ func getIntField(val reflect.Value, name string) (int, bool) {
 	return 0, false
 }
 
-func setStringPtr(field reflect.Value, value string) {
-	if !field.IsValid() || !field.CanSet() {
-		return
+func getBoolField(val reflect.Value, name string) (bool, bool) {
+	f := val.FieldByName(name)
+	if f.IsValid() && f.Kind() == reflect.Bool {
+		return f.Bool(), true
 	}
-	switch field.Kind() {
-	case reflect.Pointer:
-		ptr := reflect.New(field.Type().Elem())
-		if ptr.Elem().Kind() == reflect.String {
-			ptr.Elem().SetString(value)
-			field.Set(ptr)
-		}
-	}
+	return false, false
 }
+
+// func setStringPtr(field reflect.Value, value string) {
+// 	if !field.IsValid() || !field.CanSet() {
+// 		return
+// 	}
+// 	switch field.Kind() {
+// 	case reflect.Pointer:
+// 		ptr := reflect.New(field.Type().Elem())
+// 		if ptr.Elem().Kind() == reflect.String {
+// 			ptr.Elem().SetString(value)
+// 			field.Set(ptr)
+// 		}
+// 	}
+// }

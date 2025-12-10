@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"unicode"
 
 	cms "github.com/goliatone/go-cms"
 	"github.com/google/uuid"
@@ -50,7 +49,8 @@ func (a *GoCMSMenuAdapter) CreateMenu(ctx context.Context, code string) (*Menu, 
 		return nil, err
 	}
 
-	menu := &Menu{Code: code}
+	slug := NormalizeMenuSlug(code)
+	menu := &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug)}
 	if len(results) > 0 && results[0].IsValid() && !results[0].IsNil() {
 		menu = convertGoCMSMenu(results[0])
 	}
@@ -104,10 +104,13 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 		return err
 	}
 
-	if strings.TrimSpace(item.Label) == "" || item.Locale == "" {
+	if strings.TrimSpace(item.Locale) == "" {
 		return nil
 	}
-	return a.upsertTranslation(ctx, itemID, item.Locale, item.Label)
+	if strings.TrimSpace(item.Label) == "" && strings.TrimSpace(item.LabelKey) == "" && strings.TrimSpace(item.GroupTitle) == "" && strings.TrimSpace(item.GroupTitleKey) == "" {
+		return nil
+	}
+	return a.upsertTranslation(ctx, itemID, item)
 }
 
 // DeleteMenuItem removes an item via the go-cms menu service.
@@ -166,10 +169,15 @@ func (a *GoCMSMenuAdapter) Menu(ctx context.Context, code, locale string) (*Menu
 		return nil, err
 	}
 	if len(results) == 0 || !results[0].IsValid() {
-		return &Menu{Code: code}, nil
+		slug := NormalizeMenuSlug(code)
+		return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug)}, nil
 	}
 	items := convertNavigationNodes(results[0], locale)
-	return &Menu{Code: code, Items: items}, nil
+	slug := NormalizeMenuSlug(code)
+	if slug == "" {
+		slug = code
+	}
+	return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug), Items: items}, nil
 }
 
 func (a *GoCMSMenuAdapter) method(name string) reflect.Value {
@@ -190,26 +198,78 @@ func (a *GoCMSMenuAdapter) buildCreateMenuInput(t reflect.Type, code string) (re
 func (a *GoCMSMenuAdapter) buildAddMenuItemInput(t reflect.Type, menuID uuid.UUID, item MenuItem) (reflect.Value, error) {
 	label := strings.TrimSpace(item.Label)
 	if label == "" {
-		if lbl, ok := item.Target["label"].(string); ok && strings.TrimSpace(lbl) != "" {
-			label = strings.TrimSpace(lbl)
-		} else {
+		switch {
+		case strings.TrimSpace(item.LabelKey) != "":
+			label = strings.TrimSpace(item.LabelKey)
+		case item.Target != nil:
+			if lbl, ok := item.Target["label"].(string); ok && strings.TrimSpace(lbl) != "" {
+				label = strings.TrimSpace(lbl)
+			}
+		}
+		if label == "" {
 			return reflect.Value{}, errors.New("menu item label required")
+		} else {
+			item.Label = label
 		}
 	}
 	val := reflect.New(t).Elem()
 	setUUIDValue(val.FieldByName("MenuID"), menuID)
+	if id, err := uuidFromString(item.ID); err == nil && id != nil {
+		setUUIDValue(val.FieldByName("ItemID"), *id)
+		setUUIDPtr(val.FieldByName("ItemID"), id)
+		setUUIDValue(val.FieldByName("ID"), *id)
+		setUUIDPtr(val.FieldByName("ID"), id)
+	}
 	if parent, err := uuidFromString(item.ParentID); err == nil && parent != nil {
 		setUUIDPtr(val.FieldByName("ParentID"), parent)
 	}
 	if item.Position > 0 {
 		setIntField(val, "Position", item.Position)
 	}
+	itemType := strings.TrimSpace(item.Type)
+	if itemType == "" {
+		itemType = MenuItemTypeItem
+	}
+	setStringField(val, "Type", itemType)
+	if icon := strings.TrimSpace(item.Icon); icon != "" {
+		setStringField(val, "Icon", icon)
+	}
+	if badge := cloneAnyMap(item.Badge); len(badge) > 0 {
+		setMapField(val, "Badge", badge)
+	}
+	if perms := append([]string{}, item.Permissions...); len(perms) > 0 {
+		if f := val.FieldByName("Permissions"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Slice {
+			f.Set(reflect.ValueOf(perms))
+		}
+	}
+	if classes := append([]string{}, item.Classes...); len(classes) > 0 {
+		if f := val.FieldByName("Classes"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Slice {
+			f.Set(reflect.ValueOf(classes))
+		}
+	}
+	if styles := cloneStringMap(item.Styles); len(styles) > 0 {
+		if f := val.FieldByName("Styles"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Map {
+			f.Set(reflect.ValueOf(styles))
+		}
+	}
+	setBoolField(val, "Collapsible", item.Collapsible)
+	setBoolField(val, "Collapsed", item.Collapsed)
 	target := mergeMenuTarget(item)
+	if itemType == MenuItemTypeGroup || itemType == MenuItemTypeSeparator {
+		target = nil
+	}
 	setMapField(val, "Target", target)
 	setUUIDField(val, "CreatedBy", uuid.Nil)
 	setUUIDField(val, "UpdatedBy", uuid.Nil)
 
-	translations := buildTranslations(val.FieldByName("Translations").Type(), label, item.Locale)
+	translations := buildTranslations(
+		val.FieldByName("Translations").Type(),
+		label,
+		item.LabelKey,
+		item.GroupTitle,
+		item.GroupTitleKey,
+		item.Locale,
+	)
 	if translations.IsValid() {
 		val.FieldByName("Translations").Set(translations)
 	}
@@ -228,7 +288,44 @@ func (a *GoCMSMenuAdapter) buildUpdateMenuItemInput(t reflect.Type, itemID uuid.
 	if parent, err := uuidFromString(item.ParentID); err == nil && parent != nil {
 		setUUIDPtr(val.FieldByName("ParentID"), parent)
 	}
+	if trimmed := strings.TrimSpace(item.Type); trimmed != "" {
+		setStringPtr(val.FieldByName("Type"), trimmed)
+	}
+	if icon := strings.TrimSpace(item.Icon); icon != "" {
+		setStringPtr(val.FieldByName("Icon"), icon)
+	}
+	if badge := cloneAnyMap(item.Badge); len(badge) > 0 {
+		setMapField(val, "Badge", badge)
+	}
+	if perms := append([]string{}, item.Permissions...); len(perms) > 0 {
+		if f := val.FieldByName("Permissions"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Slice {
+			f.Set(reflect.ValueOf(perms))
+		}
+	}
+	if classes := append([]string{}, item.Classes...); len(classes) > 0 {
+		if f := val.FieldByName("Classes"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Slice {
+			f.Set(reflect.ValueOf(classes))
+		}
+	}
+	if styles := cloneStringMap(item.Styles); len(styles) > 0 {
+		if f := val.FieldByName("Styles"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Map {
+			f.Set(reflect.ValueOf(styles))
+		}
+	}
+	if item.Collapsible {
+		setBoolPtr(val.FieldByName("Collapsible"), item.Collapsible)
+	}
+	if item.Collapsed {
+		setBoolPtr(val.FieldByName("Collapsed"), item.Collapsed)
+	}
 	target := mergeMenuTarget(item)
+	itemType := strings.TrimSpace(item.Type)
+	if itemType == "" {
+		itemType = MenuItemTypeItem
+	}
+	if itemType == MenuItemTypeGroup || itemType == MenuItemTypeSeparator {
+		target = nil
+	}
 	setMapField(val, "Target", target)
 	setUUIDField(val, "UpdatedBy", uuid.Nil)
 	return val, nil
@@ -292,7 +389,7 @@ func (a *GoCMSMenuAdapter) menu(ctx context.Context, code string) (reflect.Value
 	return deref(results[0]), nil
 }
 
-func (a *GoCMSMenuAdapter) upsertTranslation(ctx context.Context, itemID uuid.UUID, locale, label string) error {
+func (a *GoCMSMenuAdapter) upsertTranslation(ctx context.Context, itemID uuid.UUID, item MenuItem) error {
 	method := a.method("AddMenuItemTranslation")
 	if !method.IsValid() {
 		return nil
@@ -300,8 +397,15 @@ func (a *GoCMSMenuAdapter) upsertTranslation(ctx context.Context, itemID uuid.UU
 	t := method.Type().In(1)
 	val := reflect.New(t).Elem()
 	setUUIDValue(val.FieldByName("ItemID"), itemID)
-	setStringField(val, "Locale", locale)
+	setStringField(val, "Locale", item.Locale)
+	label := strings.TrimSpace(item.Label)
+	if label == "" {
+		label = item.LabelKey
+	}
 	setStringField(val, "Label", label)
+	setStringField(val, "LabelKey", item.LabelKey)
+	setStringField(val, "GroupTitle", item.GroupTitle)
+	setStringField(val, "GroupTitleKey", item.GroupTitleKey)
 	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), val})
 	if err := extractError(results); err != nil {
 		return err
@@ -335,7 +439,7 @@ func mergeMenuTarget(item MenuItem) map[string]any {
 	return target
 }
 
-func buildTranslations(sliceType reflect.Type, label, locale string) reflect.Value {
+func buildTranslations(sliceType reflect.Type, label, labelKey, groupTitle, groupTitleKey, locale string) reflect.Value {
 	if sliceType.Kind() != reflect.Slice {
 		return reflect.Value{}
 	}
@@ -343,6 +447,9 @@ func buildTranslations(sliceType reflect.Type, label, locale string) reflect.Val
 	translation := reflect.New(elemType).Elem()
 	setStringField(translation, "Locale", locale)
 	setStringField(translation, "Label", label)
+	setStringField(translation, "LabelKey", labelKey)
+	setStringField(translation, "GroupTitle", groupTitle)
+	setStringField(translation, "GroupTitleKey", groupTitleKey)
 	slice := reflect.MakeSlice(sliceType, 0, 1)
 	return reflect.Append(slice, translation)
 }
@@ -352,6 +459,21 @@ func convertGoCMSMenu(menuVal reflect.Value) *Menu {
 	menu := &Menu{}
 	if code := menuVal.FieldByName("Code"); code.IsValid() && code.Kind() == reflect.String {
 		menu.Code = code.String()
+	}
+	if slug := menuVal.FieldByName("Slug"); slug.IsValid() && slug.Kind() == reflect.String {
+		menu.Slug = NormalizeMenuSlug(slug.String())
+	}
+	if id, ok := extractUUID(menuVal, "ID"); ok {
+		menu.ID = id.String()
+	}
+	if menu.Slug == "" {
+		menu.Slug = NormalizeMenuSlug(menu.Code)
+	}
+	if menu.ID == "" && menu.Slug != "" {
+		menu.ID = MenuUUIDFromSlug(menu.Slug)
+	}
+	if menu.Code == "" {
+		menu.Code = menu.Slug
 	}
 	if items := menuVal.FieldByName("Items"); items.IsValid() {
 		menu.Items = convertNavigationNodes(items, "")
@@ -380,8 +502,23 @@ func convertNavigationNode(value reflect.Value, locale string) MenuItem {
 	if id, ok := extractUUID(value, "ID"); ok {
 		item.ID = id.String()
 	}
+	if pid, ok := extractUUID(value, "ParentID"); ok {
+		item.ParentID = pid.String()
+	}
 	if label := value.FieldByName("Label"); label.IsValid() && label.Kind() == reflect.String {
 		item.Label = label.String()
+	}
+	if labelKey := value.FieldByName("LabelKey"); labelKey.IsValid() && labelKey.Kind() == reflect.String {
+		item.LabelKey = strings.TrimSpace(labelKey.String())
+	}
+	if groupTitle := value.FieldByName("GroupTitle"); groupTitle.IsValid() && groupTitle.Kind() == reflect.String {
+		item.GroupTitle = groupTitle.String()
+	}
+	if groupTitleKey := value.FieldByName("GroupTitleKey"); groupTitleKey.IsValid() && groupTitleKey.Kind() == reflect.String {
+		item.GroupTitleKey = strings.TrimSpace(groupTitleKey.String())
+	}
+	if itemType := value.FieldByName("Type"); itemType.IsValid() && itemType.Kind() == reflect.String {
+		item.Type = strings.TrimSpace(itemType.String())
 	}
 	if target := value.FieldByName("Target"); target.IsValid() {
 		if m, ok := target.Interface().(map[string]any); ok {
@@ -399,8 +536,48 @@ func convertNavigationNode(value reflect.Value, locale string) MenuItem {
 	if len(item.Target) > 0 {
 		applyMetadataFromTarget(&item, locale)
 	}
+	if icon := value.FieldByName("Icon"); icon.IsValid() && icon.Kind() == reflect.String && strings.TrimSpace(icon.String()) != "" {
+		item.Icon = strings.TrimSpace(icon.String())
+	}
+	if badge := value.FieldByName("Badge"); badge.IsValid() {
+		if m, ok := badge.Interface().(map[string]any); ok {
+			item.Badge = cloneAnyMap(m)
+		}
+	}
+	if perms := value.FieldByName("Permissions"); perms.IsValid() && perms.Kind() == reflect.Slice {
+		if slice, ok := perms.Interface().([]string); ok {
+			item.Permissions = append([]string{}, slice...)
+		}
+	}
+	if classes := value.FieldByName("Classes"); classes.IsValid() && classes.Kind() == reflect.Slice {
+		if slice, ok := classes.Interface().([]string); ok {
+			item.Classes = append([]string{}, slice...)
+		}
+	}
+	if styles := value.FieldByName("Styles"); styles.IsValid() {
+		switch s := styles.Interface().(type) {
+		case map[string]string:
+			item.Styles = cloneStringMap(s)
+		case map[string]any:
+			item.Styles = map[string]string{}
+			for k, v := range s {
+				if str, ok := v.(string); ok {
+					item.Styles[k] = str
+				}
+			}
+		}
+	}
+	if collapsible := value.FieldByName("Collapsible"); collapsible.IsValid() && collapsible.Kind() == reflect.Bool {
+		item.Collapsible = collapsible.Bool()
+	}
+	if collapsed := value.FieldByName("Collapsed"); collapsed.IsValid() && collapsed.Kind() == reflect.Bool {
+		item.Collapsed = collapsed.Bool()
+	}
 	if children := value.FieldByName("Children"); children.IsValid() {
 		item.Children = convertNavigationNodes(children, locale)
+	}
+	if strings.TrimSpace(item.Type) == "" {
+		item.Type = MenuItemTypeItem
 	}
 	if item.Locale == "" {
 		item.Locale = locale
@@ -596,6 +773,20 @@ func setIntPtr(val reflect.Value, value int) {
 	}
 }
 
+func setStringPtr(val reflect.Value, value string) {
+	if !val.IsValid() || !val.CanSet() {
+		return
+	}
+	switch val.Kind() {
+	case reflect.Pointer:
+		ptr := reflect.New(val.Type().Elem())
+		if ptr.Elem().Kind() == reflect.String {
+			ptr.Elem().SetString(value)
+			val.Set(ptr)
+		}
+	}
+}
+
 func setBoolField(val reflect.Value, name string, value bool) {
 	if !val.IsValid() {
 		return
@@ -603,6 +794,20 @@ func setBoolField(val reflect.Value, name string, value bool) {
 	f := val.FieldByName(name)
 	if f.IsValid() && f.CanSet() && f.Kind() == reflect.Bool {
 		f.SetBool(value)
+	}
+}
+
+func setBoolPtr(val reflect.Value, value bool) {
+	if !val.IsValid() || !val.CanSet() {
+		return
+	}
+	switch val.Kind() {
+	case reflect.Pointer:
+		ptr := reflect.New(val.Type().Elem())
+		if ptr.Elem().Kind() == reflect.Bool {
+			ptr.Elem().SetBool(value)
+			val.Set(ptr)
+		}
 	}
 }
 
@@ -653,17 +858,15 @@ func (a *GoCMSMenuAdapter) String() string {
 }
 
 func sanitizeMenuCode(code string) string {
-	trimmed := strings.TrimSpace(code)
-	normalized := strings.Map(func(r rune) rune {
-		switch {
-		case unicode.IsLetter(r), unicode.IsDigit(r), r == '-', r == '_':
-			return r
-		default:
+	slug := NormalizeMenuSlug(code)
+	if slug == "" {
+		return strings.TrimSpace(code)
+	}
+	sanitized := strings.Map(func(r rune) rune {
+		if r == '.' {
 			return '_'
 		}
-	}, trimmed)
-	if normalized == "" {
-		return trimmed
-	}
-	return normalized
+		return r
+	}, slug)
+	return sanitized
 }

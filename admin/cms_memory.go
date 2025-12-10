@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -173,21 +174,34 @@ func cloneWidgetInstance(in WidgetInstance) WidgetInstance {
 }
 
 type menuState struct {
-	items map[string]MenuItem
-	next  int
+	items          map[string]MenuItem
+	next           int
+	parentCounters map[string]int
+	insertSeq      int
+	slug           string
+	id             string
 }
 
 // InMemoryMenuService stores menus in memory.
 type InMemoryMenuService struct {
-	mu       sync.Mutex
-	menus    map[string]*menuState
-	activity ActivitySink
+	mu        sync.Mutex
+	menus     map[string]*menuState
+	slugIndex map[string]string
+	activity  ActivitySink
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // NewInMemoryMenuService constructs a memory-backed menu service.
 func NewInMemoryMenuService() *InMemoryMenuService {
 	return &InMemoryMenuService{
-		menus: make(map[string]*menuState),
+		menus:     make(map[string]*menuState),
+		slugIndex: make(map[string]string),
 	}
 }
 
@@ -198,37 +212,126 @@ func (s *InMemoryMenuService) WithActivitySink(sink ActivitySink) {
 	}
 }
 
+func (s *InMemoryMenuService) canonicalMenuSlug(code string) string {
+	slug := NormalizeMenuSlug(code)
+	if slug == "" {
+		slug = strings.TrimSpace(code)
+	}
+	return slug
+}
+
+func (s *InMemoryMenuService) resolveMenuState(code string) (*menuState, string) {
+	slug := s.canonicalMenuSlug(code)
+	if slug == "" {
+		return nil, ""
+	}
+	if key, ok := s.slugIndex[slug]; ok {
+		if state, exists := s.menus[key]; exists {
+			return state, key
+		}
+	}
+	if state, ok := s.menus[slug]; ok {
+		return state, slug
+	}
+	return nil, slug
+}
+
 // CreateMenu makes a menu entry if it does not exist.
 func (s *InMemoryMenuService) CreateMenu(ctx context.Context, code string) (*Menu, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.menus[code]; !ok {
-		s.menus[code] = &menuState{items: map[string]MenuItem{}, next: 1}
+	slug := s.canonicalMenuSlug(code)
+	if slug == "" {
+		return nil, fmt.Errorf("menu code required")
 	}
-	recordCMSActivity(ctx, s.activity, "cms.menu.create", "menu:"+code, nil)
-	return &Menu{Code: code}, nil
+	if state, ok := s.menus[slug]; ok {
+		recordCMSActivity(ctx, s.activity, "cms.menu.create", "menu:"+slug, map[string]any{
+			"id":   state.id,
+			"slug": state.slug,
+		})
+		return &Menu{Code: state.slug, Slug: state.slug, ID: state.id}, nil
+	}
+	state := &menuState{
+		items:          map[string]MenuItem{},
+		next:           1,
+		parentCounters: map[string]int{},
+		insertSeq:      0,
+		slug:           slug,
+		id:             MenuUUIDFromSlug(slug),
+	}
+	s.menus[slug] = state
+	s.slugIndex[slug] = slug
+	recordCMSActivity(ctx, s.activity, "cms.menu.create", "menu:"+slug, map[string]any{
+		"id":   state.id,
+		"slug": state.slug,
+	})
+	return &Menu{Code: slug, Slug: slug, ID: state.id}, nil
+}
+
+// ResetMenu removes all items for the given menu code (debug/reset helper).
+func (s *InMemoryMenuService) ResetMenu(code string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	slug := s.canonicalMenuSlug(code)
+	delete(s.menus, slug)
+	delete(s.slugIndex, slug)
+}
+
+// ResetMenuContext implements the MenuResetterWithContext interface used by quickstart helpers.
+func (s *InMemoryMenuService) ResetMenuContext(ctx context.Context, code string) error {
+	_ = ctx
+	s.ResetMenu(code)
+	return nil
 }
 
 // AddMenuItem appends an item to a menu identified by code.
 func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, item MenuItem) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	state, ok := s.menus[menuCode]
-	if !ok {
-		state = &menuState{items: map[string]MenuItem{}, next: 1}
-		s.menus[menuCode] = state
+	state, slug := s.resolveMenuState(menuCode)
+	if slug == "" {
+		return fmt.Errorf("menu code required")
+	}
+	if state == nil {
+		state = &menuState{
+			items:          map[string]MenuItem{},
+			next:           1,
+			parentCounters: map[string]int{},
+			insertSeq:      0,
+			slug:           slug,
+			id:             MenuUUIDFromSlug(slug),
+		}
+		s.menus[slug] = state
+		s.slugIndex[slug] = slug
+	}
+	if existing, ok := state.items[item.ID]; ok && strings.TrimSpace(item.ID) != "" {
+		// Idempotent add-if-missing: skip when ID already present.
+		_ = existing
+		return nil
 	}
 	if item.ID == "" {
 		item.ID = fmt.Sprintf("%s-%d", menuCode, state.next)
 		state.next++
 	}
-	if item.Position == 0 {
-		item.Position = len(state.items) + 1
+	if strings.TrimSpace(item.Code) == "" {
+		item.Code = strings.TrimSpace(item.ID)
 	}
-	item.Menu = menuCode
+	if strings.TrimSpace(item.ParentCode) == "" {
+		item.ParentCode = strings.TrimSpace(item.ParentID)
+	}
+	if item.Position == 0 {
+		item.Position = state.parentCounters[item.ParentID] + 1
+	}
+	state.parentCounters[item.ParentID] = maxInt(state.parentCounters[item.ParentID], item.Position)
+	if strings.TrimSpace(item.Type) == "" {
+		item.Type = MenuItemTypeItem
+	}
+	state.insertSeq++
+	item.order = state.insertSeq
+	item.Menu = state.slug
 	state.items[item.ID] = item
 	recordCMSActivity(ctx, s.activity, "cms.menu_item.create", "menu_item:"+item.ID, map[string]any{
-		"menu":   menuCode,
+		"menu":   state.slug,
 		"label":  item.Label,
 		"locale": item.Locale,
 	})
@@ -239,20 +342,35 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 func (s *InMemoryMenuService) UpdateMenuItem(ctx context.Context, menuCode string, item MenuItem) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	state, ok := s.menus[menuCode]
-	if !ok {
+	state, _ := s.resolveMenuState(menuCode)
+	if state == nil {
 		return ErrNotFound
 	}
-	if _, ok := state.items[item.ID]; !ok || item.ID == "" {
+	existing, ok := state.items[item.ID]
+	if !ok || item.ID == "" {
 		return ErrNotFound
 	}
 	if item.Position == 0 {
-		item.Position = state.items[item.ID].Position
+		item.Position = existing.Position
 	}
-	item.Menu = menuCode
+	if strings.TrimSpace(item.Code) == "" {
+		item.Code = existing.Code
+	}
+	if strings.TrimSpace(item.ParentCode) == "" {
+		if strings.TrimSpace(item.ParentID) != "" {
+			item.ParentCode = strings.TrimSpace(item.ParentID)
+		} else {
+			item.ParentCode = existing.ParentCode
+		}
+	}
+	if strings.TrimSpace(item.Type) == "" {
+		item.Type = MenuItemTypeItem
+	}
+	item.order = existing.order
+	item.Menu = state.slug
 	state.items[item.ID] = item
 	recordCMSActivity(ctx, s.activity, "cms.menu_item.update", "menu_item:"+item.ID, map[string]any{
-		"menu":   menuCode,
+		"menu":   state.slug,
 		"label":  item.Label,
 		"locale": item.Locale,
 	})
@@ -263,8 +381,8 @@ func (s *InMemoryMenuService) UpdateMenuItem(ctx context.Context, menuCode strin
 func (s *InMemoryMenuService) DeleteMenuItem(ctx context.Context, menuCode, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	state, ok := s.menus[menuCode]
-	if !ok {
+	state, _ := s.resolveMenuState(menuCode)
+	if state == nil {
 		return ErrNotFound
 	}
 	if _, ok := state.items[id]; !ok {
@@ -273,7 +391,7 @@ func (s *InMemoryMenuService) DeleteMenuItem(ctx context.Context, menuCode, id s
 	s.deleteChildren(state, id)
 	delete(state.items, id)
 	recordCMSActivity(ctx, s.activity, "cms.menu_item.delete", "menu_item:"+id, map[string]any{
-		"menu": menuCode,
+		"menu": state.slug,
 	})
 	return nil
 }
@@ -291,8 +409,8 @@ func (s *InMemoryMenuService) deleteChildren(state *menuState, id string) {
 func (s *InMemoryMenuService) ReorderMenu(ctx context.Context, menuCode string, orderedIDs []string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	state, ok := s.menus[menuCode]
-	if !ok {
+	state, _ := s.resolveMenuState(menuCode)
+	if state == nil {
 		return ErrNotFound
 	}
 	for idx, id := range orderedIDs {
@@ -303,7 +421,7 @@ func (s *InMemoryMenuService) ReorderMenu(ctx context.Context, menuCode string, 
 		item.Position = idx + 1
 		state.items[id] = item
 	}
-	recordCMSActivity(ctx, s.activity, "cms.menu.reorder", "menu:"+menuCode, map[string]any{
+	recordCMSActivity(ctx, s.activity, "cms.menu.reorder", "menu:"+state.slug, map[string]any{
 		"ordered_ids": append([]string{}, orderedIDs...),
 	})
 	return nil
@@ -313,9 +431,12 @@ func (s *InMemoryMenuService) ReorderMenu(ctx context.Context, menuCode string, 
 func (s *InMemoryMenuService) Menu(_ context.Context, code, locale string) (*Menu, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	state, ok := s.menus[code]
-	if !ok {
-		return &Menu{Code: code}, nil
+	state, slug := s.resolveMenuState(code)
+	if state == nil {
+		if slug == "" {
+			return &Menu{}, nil
+		}
+		return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug)}, nil
 	}
 	items := []MenuItem{}
 	for _, item := range state.items {
@@ -326,51 +447,17 @@ func (s *InMemoryMenuService) Menu(_ context.Context, code, locale string) (*Men
 		items = append(items, item)
 	}
 	tree := buildMenuTree(items)
-	return &Menu{Code: code, Items: tree}, nil
-}
-
-func buildMenuTree(items []MenuItem) []MenuItem {
-	nodes := map[string]*MenuItem{}
-	for i := range items {
-		item := items[i]
-		copy := item
-		copy.Children = []MenuItem{}
-		nodes[item.ID] = &copy
-	}
-	roots := []*MenuItem{}
-	for _, item := range nodes {
-		if item.ParentID == "" {
-			roots = append(roots, item)
-			continue
-		}
-		if parent, ok := nodes[item.ParentID]; ok {
-			parent.Children = append(parent.Children, *item)
-		} else {
-			roots = append(roots, item)
-		}
-	}
-	sortMenuItems(roots)
-	out := make([]MenuItem, len(roots))
-	for i, node := range roots {
-		sortMenuChildren(&node.Children)
-		out[i] = *node
-	}
-	return out
-}
-
-func sortMenuItems(items []*MenuItem) {
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].Position == items[j].Position {
-			return items[i].Label < items[j].Label
-		}
-		return items[i].Position < items[j].Position
-	})
+	sortMenuChildren(&tree)
+	return &Menu{Code: state.slug, Slug: state.slug, ID: state.id, Items: tree}, nil
 }
 
 func sortMenuChildren(children *[]MenuItem) {
 	sort.Slice(*children, func(i, j int) bool {
 		if (*children)[i].Position == (*children)[j].Position {
-			return (*children)[i].Label < (*children)[j].Label
+			if (*children)[i].order == (*children)[j].order {
+				return (*children)[i].ID < (*children)[j].ID
+			}
+			return (*children)[i].order < (*children)[j].order
 		}
 		return (*children)[i].Position < (*children)[j].Position
 	})
