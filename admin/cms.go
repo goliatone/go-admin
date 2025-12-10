@@ -87,17 +87,22 @@ type WidgetInstance struct {
 	Locale         string
 	Config         map[string]any
 	Position       int
+	Span           int
+	Hidden         bool
 }
 
 // Menu represents a simple CMS menu tree.
 type Menu struct {
+	ID    string
 	Code  string
+	Slug  string
 	Items []MenuItem
 }
 
 // MenuItem describes a single navigation node.
 type MenuItem struct {
 	ID            string            `json:"id,omitempty"`
+	Code          string            `json:"code,omitempty"`
 	Type          string            `json:"type,omitempty"`
 	Label         string            `json:"label,omitempty"`
 	LabelKey      string            `json:"label_key,omitempty"`
@@ -114,6 +119,7 @@ type MenuItem struct {
 	Classes       []string          `json:"classes,omitempty"`
 	Styles        map[string]string `json:"styles,omitempty"`
 	ParentID      string            `json:"parent_id,omitempty"`
+	ParentCode    string            `json:"parent_code,omitempty"`
 	Collapsible   bool              `json:"collapsible,omitempty"`
 	Collapsed     bool              `json:"collapsed,omitempty"`
 	order         int               `json:"-"`
