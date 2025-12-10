@@ -1,0 +1,22 @@
+<article class="widget"
+         data-widget="{{ widget.id }}"
+         data-span="{{ widget.span }}"
+         data-area-code="{{ widget.area }}"
+         data-resizable="{% if widget.area == "admin.dashboard.main" or widget.area == "admin.dashboard.footer" %}true{% else %}false{% endif %}"
+         {% if widget.hidden %}data-hidden="true"{% endif %}
+         style="--span: {{ widget.span }}">
+  <div class="widget__toolbar">
+    <button type="button" class="hide-widget">Toggle Hide</button>
+    {% if widget.area == "admin.dashboard.main" or widget.area == "admin.dashboard.footer" %}
+      <button type="button" class="resize-widget">Half Width</button>
+    {% else %}
+      <button type="button" class="resize-widget" disabled title="Resize only available in Main or Operations">Half Width</button>
+    {% endif %}
+  </div>
+  <div class="widget__header mb-4">
+    <h3 class="text-lg font-semibold text-gray-900">{{ getWidgetTitle(widget.definition) }}</h3>
+  </div>
+  <div class="widget__content">
+    {% include "dashboard_widget_content.html" %}
+  </div>
+</article>

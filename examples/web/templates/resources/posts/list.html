@@ -1,70 +1,370 @@
 {% extends "layout.html" %}
 
-{% block title %}Posts - {{ title }}{% endblock %}
+{% block title %}{{ resource_label|default:resource|title }} - {{ title }}{% endblock %}
 
 {% block content %}
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-  <h1 class="text-3xl font-bold text-admin-dark">Posts</h1>
-  <a href="{{ routes.new }}" class="btn btn-primary">+ New Post</a>
+  <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
+  <div class="flex gap-3">
+    <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ resource_label|default:resource|title }}</a>
+  </div>
 </header>
 
 <div class="flex-1 p-8 overflow-y-auto">
   {% if items %}
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
-        <tr>
-          {% for col in columns %}
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            {{ col.label }}
-          </th>
-          {% endfor %}
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-200">
-        {% for item in items %}
-        <tr class="hover:bg-gray-50">
-          {% for col in columns %}
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-            {{ item[col.key]|default:"-" }}
-          </td>
-          {% endfor %}
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <div class="flex justify-end gap-2">
-              <a href="{{ item.actions.view }}" class="text-blue-600 hover:text-blue-800">View</a>
-              <a href="{{ item.actions.edit }}" class="text-blue-600 hover:text-blue-800">Edit</a>
-              <form method="POST" action="{{ routes.index }}/{{ item.id }}/publish" class="inline">
-                <button type="submit" class="text-blue-600 hover:text-blue-800">Publish</button>
-              </form>
-              <form method="POST" action="{{ routes.index }}/{{ item.id }}/archive" class="inline">
-                <button type="submit" class="text-yellow-600 hover:text-yellow-800">Archive</button>
-              </form>
-              <button type="button" class="text-red-600 hover:text-red-800" onclick="deleteResource('{{ item.actions.delete }}')">Delete</button>
+  <!-- DataTable Container -->
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+    <!-- DataTable Toolbar -->
+    <div class="px-6 py-4 border-b border-gray-200">
+      <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+        <!-- Left: Search/Filter Area -->
+        <div class="relative max-w-2xl w-full flex flex-col gap-2">
+          <!-- Top row: Filter button + Search input -->
+          <div class="flex gap-2">
+            <button type="button"
+                    id="filter-toggle-btn"
+                    class="h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              Filter
+            </button>
+            <div class="relative flex-1">
+              <label for="table-search" class="sr-only">Search</label>
+              <div class="relative h-10">
+                <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3">
+                  <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.3-4.3"/>
+                  </svg>
+                </div>
+                <input type="text"
+                       id="table-search"
+                       class="w-full h-full ps-9 pe-8 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-0 focus:border-gray-200"
+                       placeholder="Search">
+                <button type="button"
+                        id="clear-search-btn"
+                        class="hidden absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 hover:text-gray-600"
+                        aria-label="Clear search">
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+                  </svg>
+                </button>
+              </div>
             </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+          </div>
+
+          <!-- Applied filter preview -->
+          <div id="applied-filter-preview" class="hidden text-xs text-gray-600">
+            <span class="font-medium">Applied filter:</span>
+            <span id="filter-preview-text" class="ml-1"></span>
+            <button type="button" id="clear-filters-btn" class="ml-2 text-red-600 hover:text-red-800">
+              <svg class="inline h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Filter Panel (dropdown) -->
+          <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
+            <!-- Panel content will be rendered here -->
+          </div>
+        </div>
+
+        <!-- Right: Controls -->
+        <div class="flex items-center gap-x-3">
+          <!-- Column Visibility Toggle -->
+          <div class="relative">
+            <button id="column-toggle-btn" type="button"
+                    data-dropdown-toggle="column-toggle-menu"
+                    class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
+              <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              Columns
+            </button>
+            <div id="column-toggle-menu" class="hidden absolute right-0 z-10 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div class="p-3 space-y-2">
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="title" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Title</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="slug" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Slug</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="status" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Status</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="published_at" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Published</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="created_at" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Created</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Export Dropdown -->
+          <div class="relative">
+            <button id="export-btn" type="button"
+                    data-dropdown-toggle="export-menu"
+                    class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
+              <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              Export
+            </button>
+            <div id="export-menu" class="hidden absolute right-0 z-10 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div class="p-1">
+                <button data-export-format="csv" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  CSV
+                </button>
+                <button data-export-format="excel" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  Excel
+                </button>
+                <button data-export-format="pdf" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  PDF
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per Page Selector -->
+          <div class="flex items-center gap-x-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">Per page:</span>
+            <select id="table-per-page"
+                    class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table id="posts-datatable" class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <!-- Selection Column -->
+            <th scope="col" class="px-6 py-3 text-start">
+              <label class="flex">
+                <input type="checkbox"
+                       id="table-checkbox-all"
+                       class="shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none">
+                <span class="sr-only">Select all</span>
+              </label>
+            </th>
+            <th scope="col" data-column="title" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Title
+            </th>
+            <th scope="col" data-column="slug" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Slug
+            </th>
+            <th scope="col" data-column="status" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Status
+            </th>
+            <th scope="col" data-column="published_at" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Published
+            </th>
+            <th scope="col" data-column="created_at" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Created
+            </th>
+            <th scope="col" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+          <!-- Filter Row - Dynamically populated by EnhancedDataTable -->
+          <tr class="bg-gray-100" id="filter-row">
+            <th></th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="title" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="slug" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <select data-filter-column="status" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+                <option value="">All</option>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </select>
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="published_at" placeholder="YYYY-MM-DD" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="created_at" placeholder="YYYY-MM-DD" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
+          <!-- Rows will be dynamically rendered by EnhancedDataTable -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination Footer -->
+    <div class="px-6 py-4 border-t border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-600">
+            Showing <span class="font-medium" id="table-info-start">1</span> to
+            <span class="font-medium" id="table-info-end">10</span> of
+            <span class="font-medium" id="table-info-total">{{ total|default:"0" }}</span> results
+          </p>
+        </div>
+        <div>
+          <nav id="table-pagination" class="flex items-center gap-x-1">
+            <!-- Pagination buttons will be inserted here -->
+          </nav>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- Bulk Actions Bar (shown when items selected) -->
+  <div id="bulk-actions-bar" class="hidden mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div class="flex items-center justify-between">
+      <span class="text-sm text-blue-900">
+        <span id="selected-count" class="font-semibold">0</span> items selected
+      </span>
+      <div class="flex gap-2">
+        <button type="button"
+                onclick="bulkAction('export')"
+                class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white disabled:opacity-50 disabled:pointer-events-none">
+          Export Selected
+        </button>
+        <button type="button"
+                onclick="bulkAction('delete')"
+                class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-red-600 text-red-600 hover:bg-red-600 hover:text-white disabled:opacity-50 disabled:pointer-events-none">
+          Delete Selected
+        </button>
+      </div>
+    </div>
+  </div>
+
   {% else %}
-  <div class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500">
-    No posts found.
+  <div class="text-center py-16">
+    <div class="text-6xl mb-4">📝</div>
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">No {{ resource_label|default:resource|lower }} yet</h3>
+    <p class="text-gray-500 mb-6">Get started by creating your first {{ resource_label|default:resource|lower }}</p>
+    <a href="{{ routes.new }}" class="btn btn-primary">Create</a>
   </div>
   {% endif %}
+
+  <!-- Overlay for filter panel -->
+  <div id="filter-overlay" class="hidden fixed inset-0 bg-black opacity-30 z-40"></div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-function deleteResource(url) {
-  if (!confirm('Are you sure you want to delete this item?')) return;
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = url;
-  document.body.appendChild(form);
-  form.submit();
-}
+<script type="module">
+import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
+
+// Template variables
+const actionBasePath = '{{ routes.index }}';
+
+{% verbatim %}
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize the new TypeScript DataGrid component
+  const grid = new DataGrid({
+    tableId: 'posts-datatable',
+    apiEndpoint: '/admin/crud/posts',
+    actionBasePath: actionBasePath,
+    columns: [
+      { field: 'title', label: 'Title', sortable: true, filterable: true },
+      { field: 'slug', label: 'Slug', sortable: true, filterable: true },
+      { field: 'status', label: 'Status', sortable: true, filterable: true, render: (value) => `<span class="status-badge status-${value}">${value}</span>` },
+      { field: 'published_at', label: 'Published', sortable: true, filterable: true },
+      { field: 'created_at', label: 'Created', sortable: true, filterable: true }
+    ],
+    perPage: 10,
+    searchDelay: 300,
+    behaviors: {
+      search: new GoCrudSearchBehavior(['title', 'slug']),
+      filter: new GoCrudFilterBehavior(),
+      pagination: new GoCrudPaginationBehavior(),
+      sort: new GoCrudSortBehavior(),
+      export: new GoCrudExportBehavior('/admin/crud/posts'),
+      bulkActions: new GoCrudBulkActionBehavior('/admin/crud/posts'),
+      columnVisibility: new DefaultColumnVisibilityBehavior(
+        ['title', 'slug', 'status', 'published_at', 'created_at'],
+        'posts_datatable_columns'
+      )
+    },
+    selectors: {
+      searchInput: '#table-search',
+      perPageSelect: '#table-per-page',
+      filterRow: '[data-filter-column]',
+      columnToggleBtn: '#column-toggle-btn',
+      columnToggleMenu: '#column-toggle-menu',
+      exportBtn: '#export-btn',
+      exportMenu: '#export-menu',
+      paginationContainer: '#table-pagination',
+      tableInfoStart: '#table-info-start',
+      tableInfoEnd: '#table-info-end',
+      tableInfoTotal: '#table-info-total',
+      selectAllCheckbox: '#table-checkbox-all',
+      rowCheckboxes: '.table-checkbox',
+      bulkActionsBar: '#bulk-actions-bar',
+      selectedCount: '#selected-count'
+    }
+  });
+
+  // Initialize the grid
+  grid.init();
+
+  // Initialize FilterBuilder
+  const filterBuilder = new FilterBuilder({
+    fields: [
+      { name: 'title', label: 'Title', type: 'text' },
+      { name: 'slug', label: 'Slug', type: 'text' },
+      { name: 'status', label: 'Status', type: 'select', options: [
+        { label: 'Draft', value: 'draft' },
+        { label: 'Published', value: 'published' },
+        { label: 'Archived', value: 'archived' }
+      ]},
+      { name: 'published_at', label: 'Published Date', type: 'date' },
+      { name: 'created_at', label: 'Created Date', type: 'date' }
+    ],
+    onApply: (structure) => {
+      console.log('[FilterBuilder] Filter structure:', structure);
+
+      // Convert filter structure to grid filters
+      const filters = [];
+      structure.groups.forEach(group => {
+        group.conditions.forEach(condition => {
+          filters.push({
+            column: condition.field,
+            operator: condition.operator,
+            value: condition.value
+          });
+        });
+      });
+
+      // Update grid state with filters
+      grid.state.filters = filters;
+      grid.resetPagination();
+      grid.pushStateToURL();
+      grid.refresh();
+    },
+    onClear: () => {
+      console.log('[FilterBuilder] Clear filters');
+      grid.state.search = '';
+      grid.state.filters = [];
+      grid.pushStateToURL();
+      grid.refresh();
+    }
+  });
+});
+{% endverbatim %}
 </script>
 {% endblock %}

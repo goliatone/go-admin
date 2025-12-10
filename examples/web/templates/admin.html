@@ -47,7 +47,7 @@
 </div>
 {% endblock %}
 
-{% block styles %}
+{% block head_extra %}
 <style>
 /* Widget Grid System */
 .widgets-grid {
@@ -65,6 +65,7 @@
   padding: 1.5rem;
   cursor: grab;
   transition: all 200ms ease;
+  position: relative;
 }
 
 .widget:active {
@@ -85,36 +86,25 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
-.widget__toolbar-btn {
-  padding: 0.375rem 0.75rem;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.75rem;
+.widget__toolbar button {
+  border: none;
+  background: #e2e8f0;
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
   cursor: pointer;
-  transition: all 150ms ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  color: #6b7280;
+  font-size: 0.75rem;
 }
 
-.widget__toolbar-btn:hover:not(:disabled) {
-  background: #e5e7eb;
-  color: #374151;
+.widget__toolbar button:hover:not(:disabled) {
+  background: #cbd5db;
 }
 
-.widget__toolbar-btn:disabled {
-  opacity: 0.5;
+.widget__toolbar button:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
-}
-
-.widget__toolbar-btn svg {
-  width: 1rem;
-  height: 1rem;
 }
 
 .widget__content {
@@ -174,7 +164,14 @@ function renderWidgetContent(widget) {
 
   // User stats widget
   if (def === 'admin.widget.user_stats') {
-    const values = data.values || {};
+    const values = data.values || {
+      Total: data.total,
+      Active: data.active,
+      'New Today': data.new_today,
+    };
+    if (data.trend) {
+      values.Trend = data.trend;
+    }
     return `
       <div class="metrics">
         ${Object.entries(values).map(([key, value]) => `
@@ -184,6 +181,27 @@ function renderWidgetContent(widget) {
           </div>
         `).join('')}
       </div>
+    `;
+  }
+
+  if (def === 'admin.widget.settings_overview') {
+    const values = data.values || {};
+    const entries = Object.entries(values);
+    if (entries.length === 0) {
+      return '<p class="text-gray-500">No settings to display</p>';
+    }
+    return `
+      <dl class="space-y-2">
+        ${entries.map(([key, val]) => {
+          const value = typeof val === 'object' && val !== null ? val.value ?? val : val;
+          return `
+            <div class="flex items-start justify-between gap-4">
+              <dt class="text-sm text-gray-600">${key}</dt>
+              <dd class="text-sm font-semibold text-gray-900">${value ?? '—'}</dd>
+            </div>
+          `;
+        }).join('')}
+      </dl>
     `;
   }
 
@@ -221,6 +239,78 @@ function renderWidgetContent(widget) {
             ${action.description ? `<div class="text-gray-600 text-sm mt-1">${action.description}</div>` : ''}
           </a>
         `).join('')}
+      </div>
+    `;
+  }
+
+  // Legacy chart_sample widget - show disabled message
+  if (def === 'admin.widget.chart_sample') {
+    if (data.disabled) {
+      return '<p class="text-gray-500 text-sm italic">This legacy chart widget has been disabled.</p>';
+    }
+    // Should not reach here, but fall through to default
+  }
+
+  // System health widget
+  if (def === 'admin.widget.system_health') {
+    return `
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-600">Status:</span>
+          <span class="font-semibold text-green-600">${data.status || 'unknown'}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Uptime:</span>
+          <span class="font-semibold">${data.uptime || 'N/A'}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">API Latency:</span>
+          <span class="font-semibold">${data.api_latency || 'N/A'}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Database:</span>
+          <span class="font-semibold ${data.db_status === 'connected' ? 'text-green-600' : 'text-red-600'}">${data.db_status || 'unknown'}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Content stats widget
+  if (def === 'admin.widget.content_stats') {
+    return `
+      <div class="metrics">
+        <div class="metric">
+          <small>Published</small>
+          <span>${formatNumber(data.published || 0)}</span>
+        </div>
+        <div class="metric">
+          <small>Draft</small>
+          <span>${formatNumber(data.draft || 0)}</span>
+        </div>
+        <div class="metric">
+          <small>Scheduled</small>
+          <span>${formatNumber(data.scheduled || 0)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Storage stats widget
+  if (def === 'admin.widget.storage_stats') {
+    return `
+      <div class="metrics">
+        <div class="metric">
+          <small>Used</small>
+          <span>${data.used || '0 GB'}</span>
+        </div>
+        <div class="metric">
+          <small>Total</small>
+          <span>${data.total || '0 GB'}</span>
+        </div>
+        <div class="metric">
+          <small>Usage</small>
+          <span>${data.percentage || '0%'}</span>
+        </div>
       </div>
     `;
   }
@@ -271,40 +361,38 @@ function renderWidget(widget, areaCode) {
   const span = widget.metadata?.layout?.width || widget.span || 12;
   const hidden = widget.hidden || false;
   const title = widget.data?.title || widget.config?.title || getWidgetTitle(widget.definition);
+  const widgetId = widget.id || widget.definition || `widget-${Math.random().toString(36).substr(2, 9)}`;
+  const widgetContent = renderWidgetContent(widget);
+
+  // Build toolbar HTML
+  let toolbarHTML = '<div class="widget__toolbar">';
+
+  // Hide button
+  toolbarHTML += '<button type="button" class="hide-widget">Toggle Hide</button>';
+
+  // Resize button (only for resizable areas)
+  if (areaResizable) {
+    toolbarHTML += '<button type="button" class="resize-widget">Half Width</button>';
+  } else {
+    toolbarHTML += '<button type="button" class="resize-widget" disabled title="Resize only available in Main or Operations">Half Width</button>';
+  }
+
+  toolbarHTML += '</div>';
 
   return `
     <article class="widget"
-             data-widget="${widget.id}"
+             data-widget="${widgetId}"
              data-span="${span}"
              data-area-code="${areaCode}"
              data-resizable="${areaResizable}"
              ${hidden ? 'data-hidden="true"' : ''}
              style="--span: ${span}">
-
-      <div class="widget__toolbar">
-        <button type="button" class="widget__toolbar-btn" data-action="toggle-hide" title="Hide widget">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-          </svg>
-          Hide
-        </button>
-
-        ${areaResizable ? `
-          <button type="button" class="widget__toolbar-btn" data-action="toggle-width" title="Toggle width">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
-            </svg>
-            ${span === 12 ? 'Half' : 'Full'} Width
-          </button>
-        ` : ''}
-      </div>
-
+      ${toolbarHTML}
       <div class="widget__header mb-4">
         <h3 class="text-lg font-semibold text-gray-900">${title}</h3>
       </div>
-
       <div class="widget__content">
-        ${renderWidgetContent(widget)}
+        ${widgetContent}
       </div>
     </article>
   `;
@@ -316,10 +404,15 @@ function getWidgetTitle(definition) {
     'admin.widget.activity_feed': 'Recent Activity',
     'admin.widget.quick_actions': 'Quick Actions',
     'admin.widget.notifications': 'Notifications',
+    'admin.widget.settings_overview': 'Settings Overview',
+    'admin.widget.content_stats': 'Content Stats',
+    'admin.widget.storage_stats': 'Storage Stats',
+    'admin.widget.system_health': 'System Health',
     'admin.widget.bar_chart': 'Bar Chart',
     'admin.widget.line_chart': 'Line Chart',
     'admin.widget.pie_chart': 'Pie Chart',
     'admin.widget.gauge_chart': 'Gauge',
+    'admin.widget.scatter_chart': 'Scatter Chart',
   };
   return titles[definition] || definition;
 }
@@ -372,6 +465,10 @@ async function initDashboard() {
       apiEndpoint: '{{ base_path }}/api/dashboard',
       preferencesEndpoint: '{{ base_path }}/api/dashboard/preferences',
       areas: ['admin.dashboard.main', 'admin.dashboard.sidebar', 'admin.dashboard.footer'],
+      selectors: {
+        hideBtn: '.hide-widget',
+        resizeBtn: '.resize-widget',
+      },
       onSave: (layout) => {
         console.log('Layout saved:', layout);
       },

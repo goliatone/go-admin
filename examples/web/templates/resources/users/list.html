@@ -274,24 +274,180 @@
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior, CommonRenderers } from '{{ base_path }}/assets/dist/datatable/index.js';
+
+// Template variables
+const actionBasePath = '{{ routes.index }}';
 
 {% verbatim %}
 document.addEventListener('DOMContentLoaded', function() {
-  // Initialize the new TypeScript DataGrid component
+  // Lifecycle action handler
+  async function lifecycleAction(userId, action) {
+    try {
+      const response = await fetch(`/admin/api/users/${userId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Action failed' }));
+        throw new Error(error.error || `HTTP ${response.status}`);
+      }
+
+      // Refresh the grid to show updated status
+      grid.refresh();
+
+      // Show success message
+      console.log(`User ${action} successful`);
+    } catch (error) {
+      console.error(`Failed to ${action} user:`, error);
+      alert(`Failed to ${action} user: ${error.message}`);
+    }
+  }
+
+  // Password reset handler
+  async function resetPassword(userId) {
+    if (!confirm('Send password reset email to this user?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/admin/api/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error('Password reset request failed');
+      }
+
+      alert('Password reset email sent successfully');
+    } catch (error) {
+      console.error('Failed to send password reset:', error);
+      alert(`Failed to send password reset: ${error.message}`);
+    }
+  }
+
+  // Initialize the new TypeScript DataGrid component with custom actions
   const grid = new DataGrid({
     tableId: 'users-datatable',
     apiEndpoint: '/admin/crud/users',
-    actionBasePath: '{{ routes.index }}',
+    actionBasePath: actionBasePath,
     columns: [
       { field: 'username', label: 'Username', sortable: true, filterable: true },
       { field: 'email', label: 'Email', sortable: true, filterable: true },
-      { field: 'role', label: 'Role', sortable: true, filterable: true, render: (value) => `<span class="role-badge role-${value}">${value}</span>` },
-      { field: 'status', label: 'Status', sortable: true, filterable: true, render: (value) => `<span class="status-badge status-${value}">${value}</span>` },
+      { field: 'role', label: 'Role', sortable: true, filterable: true },
+      { field: 'status', label: 'Status', sortable: true, filterable: true },
       { field: 'created_at', label: 'Created', sortable: true, filterable: true }
     ],
     perPage: 10,
     searchDelay: 300,
+
+    // Custom row actions for lifecycle transitions
+    rowActions: (user) => {
+      const actions = [
+        {
+          label: 'View',
+          icon: 'eye',
+          action: (u) => window.location.href = `${actionBasePath}/${u.id}`,
+          variant: 'secondary'
+        },
+        {
+          label: 'Edit',
+          icon: 'edit',
+          action: (u) => window.location.href = `${actionBasePath}/${u.id}/edit`,
+          variant: 'primary'
+        }
+      ];
+
+      // Lifecycle actions based on current status
+      if (user.status !== 'active') {
+        actions.push({
+          label: 'Activate',
+          icon: 'check-circle',
+          action: async (u) => await lifecycleAction(u.id, 'activate'),
+          variant: 'success'
+        });
+      }
+
+      if (user.status === 'active') {
+        actions.push({
+          label: 'Suspend',
+          icon: 'pause',
+          action: async (u) => await lifecycleAction(u.id, 'suspend'),
+          variant: 'warning'
+        });
+      }
+
+      if (user.status !== 'disabled') {
+        actions.push({
+          label: 'Disable',
+          icon: 'pause',
+          action: async (u) => await lifecycleAction(u.id, 'disable'),
+          variant: 'danger'
+        });
+      }
+
+      if (user.status !== 'archived') {
+        actions.push({
+          label: 'Archive',
+          icon: 'archive',
+          action: async (u) => await lifecycleAction(u.id, 'archive'),
+          variant: 'secondary'
+        });
+      }
+
+      // Always show password reset
+      actions.push({
+        label: 'Reset Password',
+        icon: 'key',
+        action: async (u) => await resetPassword(u.id),
+        variant: 'secondary'
+      });
+
+      return actions;
+    },
+
+    // Custom bulk actions
+    bulkActions: [
+      {
+        id: 'bulk-activate',
+        label: 'Activate Selected',
+        icon: 'check-circle',
+        endpoint: '/admin/api/users/bulk/activate',
+        confirm: 'Activate {count} user(s)?',
+        onSuccess: () => grid.refresh()
+      },
+      {
+        id: 'bulk-suspend',
+        label: 'Suspend Selected',
+        icon: 'pause',
+        endpoint: '/admin/api/users/bulk/suspend',
+        confirm: 'Suspend {count} user(s)?',
+        onSuccess: () => grid.refresh()
+      },
+      {
+        id: 'bulk-assign-role',
+        label: 'Assign Role',
+        icon: 'user-badge',
+        endpoint: '/admin/api/users/bulk/assign-role',
+        guard: (ids) => ids.length > 0,
+        onSuccess: () => grid.refresh()
+      }
+    ],
+
+    // Custom cell renderers
+    cellRenderers: {
+      'status': CommonRenderers.statusBadge({
+        active: 'green',
+        inactive: 'gray',
+        suspended: 'red',
+        disabled: 'gray',
+        archived: 'orange'
+      }),
+      'role': CommonRenderers.roleBadge
+    },
+
     behaviors: {
       search: new GoCrudSearchBehavior(['username', 'email']),
       filter: new GoCrudFilterBehavior(),

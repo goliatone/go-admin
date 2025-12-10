@@ -1,0 +1,60 @@
+{% if widget.definition == "admin.widget.user_stats" %}
+  <div class="metrics">
+    {% set values = default(dict("Total", 0, "Active", 0, "New Today", 0), widget.data.values) %}
+    {% for key, value in values.items() %}
+      <div class="metric">
+        <small>{{ key }}</small>
+        <span>{{ formatNumber(value) }}</span>
+      </div>
+    {% endfor %}
+  </div>
+{% elif widget.definition == "admin.widget.settings_overview" %}
+  {% set values = widget.data.values %}
+  {% if values %}
+    <dl class="space-y-2">
+      {% for key, val in values.items() %}
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-sm text-gray-600">{{ key }}</dt>
+          <dd class="text-sm font-semibold text-gray-900">{{ default("—", val) }}</dd>
+        </div>
+      {% endfor %}
+    </dl>
+  {% else %}
+    <p class="text-gray-500">No settings to display</p>
+  {% endif %}
+{% elif widget.definition == "admin.widget.activity_feed" %}
+  {% set entries = widget.data.entries %}
+  {% if entries %}
+    <ul class="space-y-3">
+      {% for entry in entries %}
+        <li class="py-3 border-b border-gray-100 last:border-b-0">
+          <div class="font-semibold text-gray-900 text-sm">{{ entry.actor }}</div>
+          <div class="text-gray-600 text-sm mt-1">{{ entry.action }} {{ entry.object }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-gray-500">No recent activity</p>
+  {% endif %}
+{% elif widget.definition == "admin.widget.system_health" %}
+  <div class="space-y-2 text-sm">
+    <div class="flex justify-between">
+      <span class="text-gray-600">Status:</span>
+      <span class="font-semibold text-green-600">{{ default("unknown", widget.data.status) }}</span>
+    </div>
+    <div class="flex justify-between">
+      <span class="text-gray-600">Uptime:</span>
+      <span class="font-semibold">{{ default("N/A", widget.data.uptime) }}</span>
+    </div>
+    <div class="flex justify-between">
+      <span class="text-gray-600">API Latency:</span>
+      <span class="font-semibold">{{ default("N/A", widget.data.api_latency) }}</span>
+    </div>
+    <div class="flex justify-between">
+      <span class="text-gray-600">Database:</span>
+      <span class="font-semibold">{{ default("unknown", widget.data.db_status) }}</span>
+    </div>
+  </div>
+{% else %}
+  <pre class="text-xs text-gray-600 overflow-auto">{{ toJSON(widget.data) }}</pre>
+{% endif %}
