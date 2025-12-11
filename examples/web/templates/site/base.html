@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}{{ title|default:"CMS Demo" }}{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
+  <link rel="stylesheet" href="{{ base_path|default:'/admin' }}/assets/output.css">
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <header class="bg-gradient-to-r from-slate-900 via-sky-900 to-slate-800 text-white shadow-lg">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+          <i class="iconoir-content"></i>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-sky-200">CMS Powered</p>
+          <p class="text-lg font-semibold">Enterprise Admin Demo</p>
+        </div>
+      </div>
+      <nav class="flex flex-wrap items-center gap-2">
+        {% for item in nav_items %}
+          <a href="{{ item.href|default:'#' }}"
+             class="px-3 py-2 rounded-lg text-sm font-medium transition-colors {% if item.active %}bg-white text-slate-900 shadow{% else %}text-sky-100 hover:bg-white/10{% endif %}">
+            {{ item.label }}
+          </a>
+        {% endfor %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-10">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-6 pb-10 text-sm text-slate-500 flex flex-col gap-1">
+    <span>Navigation and pages are resolved from go-cms menus and translations.</span>
+    <span class="flex items-center gap-2 text-slate-400">
+      <i class="iconoir-database-check"></i>
+      <span>Paths are locale-aware; toggle CMS off to see the fallback menu and routes disappear.</span>
+    </span>
+  </footer>
+</body>
+</html>

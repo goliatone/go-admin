@@ -1,0 +1,36 @@
+{% extends "site/base.html" %}
+
+{% block title %}Posts · CMS Demo{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <header class="flex items-center justify-between gap-4">
+    <div>
+      <p class="text-xs uppercase tracking-[0.25em] text-slate-500">Content</p>
+      <h1 class="text-3xl font-semibold text-slate-900">Posts</h1>
+      <p class="text-slate-600">Rendered from go-cms content with locale-aware paths.</p>
+    </div>
+  </header>
+
+  {% if posts %}
+    <div class="grid md:grid-cols-2 gap-4">
+      {% for post in posts %}
+        <a href="{{ post.path }}" class="group block bg-white rounded-2xl border border-slate-100 shadow-sm p-6 hover:-translate-y-0.5 hover:shadow-md transition">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+            <span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">{{ post.published_at_text|default:"Draft" }}</span>
+            {% if post.tags %}<span class="text-slate-400">{{ post.tags }}</span>{% endif %}
+          </div>
+          <h3 class="text-xl font-semibold text-slate-900 group-hover:text-sky-700">{{ post.title }}</h3>
+          {% if post.summary %}
+            <p class="text-slate-600 mt-2">{{ post.summary }}</p>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="bg-white rounded-xl border border-amber-100 p-6 text-amber-700">
+      No posts are published yet. Create a post in the admin and refresh to see it here.
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

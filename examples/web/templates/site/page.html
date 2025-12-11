@@ -1,0 +1,21 @@
+{% extends "site/base.html" %}
+
+{% block title %}{{ page.meta_title|default:page.title }} · CMS Demo{% endblock %}
+
+{% block content %}
+<article class="bg-white rounded-2xl shadow border border-slate-100 p-8 space-y-4">
+  <div class="flex items-center gap-3 text-sm text-slate-500">
+    <span class="px-2 py-1 rounded-full bg-slate-100 text-slate-600">{{ page.path|default:"/" }}</span>
+    <span class="uppercase tracking-wide text-xs text-slate-400">Locale: {{ default_locale|default:"en" }}</span>
+  </div>
+  <header class="space-y-2">
+    <h1 class="text-3xl font-semibold text-slate-900">{{ page.title|default:"Untitled Page" }}</h1>
+    {% if page.summary %}
+      <p class="text-lg text-slate-600">{{ page.summary }}</p>
+    {% endif %}
+  </header>
+  <div class="prose prose-slate max-w-none leading-relaxed">
+    {{ page.content|default:"This page has no content yet." }}
+  </div>
+</article>
+{% endblock %}
