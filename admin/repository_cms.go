@@ -47,6 +47,7 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 			"id":          page.ID,
 			"title":       page.Title,
 			"slug":        page.Slug,
+			"template_id": page.TemplateID,
 			"locale":      page.Locale,
 			"parent_id":   page.ParentID,
 			"blocks":      append([]string{}, page.Blocks...),
@@ -72,6 +73,7 @@ func (r *CMSPageRepository) Get(ctx context.Context, id string) (map[string]any,
 		"id":          page.ID,
 		"title":       page.Title,
 		"slug":        page.Slug,
+		"template_id": page.TemplateID,
 		"locale":      page.Locale,
 		"parent_id":   page.ParentID,
 		"blocks":      append([]string{}, page.Blocks...),
@@ -887,6 +889,12 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	}
 	if preview, ok := record["preview_url"].(string); ok {
 		page.PreviewURL = preview
+	}
+	if tpl, ok := record["template_id"].(string); ok {
+		page.TemplateID = tpl
+	}
+	if tpl, ok := record["template"].(string); ok && page.TemplateID == "" {
+		page.TemplateID = tpl
 	}
 	return page
 }
