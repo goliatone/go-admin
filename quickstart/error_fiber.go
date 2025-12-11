@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -19,10 +20,14 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool) fiber.
 		code := fiber.StatusInternalServerError
 		message := "internal server error"
 
-		if fe, ok := err.(*fiber.Error); ok && fe.Code != 0 {
+		// Check for fiber.Error first
+		var fe *fiber.Error
+		if errors.As(err, &fe) {
 			code = fe.Code
 			message = fe.Message
 		}
+
+		// Then check for go-errors.Error
 		if ge := (&goerrors.Error{}); goerrors.As(err, &ge) {
 			if ge.Code != 0 {
 				code = ge.Code
@@ -47,24 +52,34 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool) fiber.
 		}
 
 		headline, userMessage := errorContext(code)
-		viewCtx := router.ViewContext{
-			"status":       code,
-			"headline":     headline,
-			"message":      userMessage,
-			"request_path": c.Path(),
-			"base_path":    cfg.BasePath,
-			"title":        cfg.Title,
-		}
-		if isDev {
-			viewCtx["error_detail"] = err.Error()
-		}
+
 		reqCtx := c.UserContext()
 		if reqCtx == nil {
 			reqCtx = context.Background()
 		}
-		viewCtx = WithNav(viewCtx, adm, cfg, "", reqCtx)
 
-		if renderErr := c.Status(code).Render("error", viewCtx); renderErr != nil {
+		// Start with nav context
+		viewCtx := WithNav(router.ViewContext{}, adm, cfg, "", reqCtx)
+
+		// Then add error-specific fields (these should override any nav values)
+		viewCtx["status"] = code
+		viewCtx["headline"] = headline
+		viewCtx["message"] = userMessage
+		viewCtx["request_path"] = c.Path()
+		viewCtx["base_path"] = cfg.BasePath
+		viewCtx["title"] = cfg.Title
+
+		if isDev {
+			viewCtx["error_detail"] = err.Error()
+		}
+
+		// Set all viewCtx values via Locals to ensure Fiber's PassLocalsToViews works
+		for key, value := range viewCtx {
+			c.Locals(key, value)
+		}
+
+		// Pass nil to force Fiber to use only c.Locals() with PassLocalsToViews
+		if renderErr := c.Status(code).Render("error", nil); renderErr != nil {
 			return c.SendString(fmt.Sprintf("%d - %s", code, headline))
 		}
 		return nil
