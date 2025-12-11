@@ -285,6 +285,14 @@ func (m *postsModule) Register(ctx admin.ModuleContext) error {
 		WithActivityHooks(activityAdapter)
 	ctx.Admin.Commands().Register(bulkPublishCmd)
 
+	bulkUnpublishCmd := commands.NewPostBulkUnpublishCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(bulkUnpublishCmd)
+
+	bulkScheduleCmd := commands.NewPostBulkScheduleCommand(m.store).
+		WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(bulkScheduleCmd)
+
 	bulkArchiveCmd := commands.NewPostBulkArchiveCommand(m.store).
 		WithActivityHooks(activityAdapter)
 	ctx.Admin.Commands().Register(bulkArchiveCmd)

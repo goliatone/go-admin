@@ -139,6 +139,10 @@ func (s *CMSPostStore) List(ctx context.Context, opts admin.ListOptions) ([]map[
 	}
 
 	search := strings.ToLower(extractSearchFromOptions(opts))
+	statusFilter := strings.ToLower(asString(opts.Filters["status"], asString(opts.Filters["Status"], "")))
+	categoryFilter := strings.ToLower(asString(opts.Filters["category"], asString(opts.Filters["Category"], "")))
+	tagFilter := strings.ToLower(asString(opts.Filters["tag"], asString(opts.Filters["Tag"], "")))
+	slugFilter := strings.ToLower(asString(opts.Filters["slug"], asString(opts.Filters["Slug"], "")))
 	records := []map[string]any{}
 	for _, item := range contents {
 		if !strings.EqualFold(item.ContentType, "post") {
@@ -147,7 +151,20 @@ func (s *CMSPostStore) List(ctx context.Context, opts admin.ListOptions) ([]map[
 		if search != "" && !strings.Contains(strings.ToLower(item.Title), search) && !strings.Contains(strings.ToLower(item.Slug), search) && !strings.Contains(strings.ToLower(asString(item.Data["content"], "")), search) {
 			continue
 		}
-		records = append(records, s.postToRecord(item))
+		rec := s.postToRecord(item)
+		if statusFilter != "" && !strings.EqualFold(asString(rec["status"], ""), statusFilter) {
+			continue
+		}
+		if slugFilter != "" && !strings.EqualFold(asString(rec["slug"], ""), slugFilter) {
+			continue
+		}
+		if categoryFilter != "" && !strings.EqualFold(asString(rec["category"], ""), categoryFilter) {
+			continue
+		}
+		if tagFilter != "" && !strings.Contains(strings.ToLower(asString(rec["tags"], "")), tagFilter) {
+			continue
+		}
+		records = append(records, rec)
 	}
 	return records, len(records), nil
 }
@@ -218,44 +235,25 @@ func (s *CMSPostStore) Delete(ctx context.Context, id string) error {
 
 // Publish marks matching posts as published and stamps published_at.
 func (s *CMSPostStore) Publish(ctx context.Context, ids []string) ([]map[string]any, error) {
-	if s == nil || s.repo == nil {
-		return nil, admin.ErrNotFound
-	}
+	return s.updateStatus(ctx, ids, "published", nil)
+}
 
-	targets := normalizeIDSet(ids)
-	records, _, err := s.List(ctx, admin.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now()
-	updated := []map[string]any{}
-	for _, rec := range records {
-		id := stringID(rec["id"])
-		if !idMatches(targets, id) {
-			continue
-		}
-		if strings.EqualFold(asString(rec["status"], ""), "published") {
-			continue
-		}
-		rec["status"] = "published"
-		if parseTimeValue(rec["published_at"]).IsZero() {
-			rec["published_at"] = now
-		}
-		rec["updated_at"] = now
-		updatedRec, err := s.Update(ctx, id, rec)
-		if err != nil {
-			return nil, err
-		}
-		updated = append(updated, cloneRecord(updatedRec))
-	}
-	if len(updated) == 0 && len(targets) > 0 {
-		return nil, admin.ErrNotFound
-	}
-	return updated, nil
+// Unpublish marks matching posts as drafts and clears publish time.
+func (s *CMSPostStore) Unpublish(ctx context.Context, ids []string) ([]map[string]any, error) {
+	return s.updateStatus(ctx, ids, "draft", nil)
+}
+
+// Schedule marks matching posts as scheduled with a publish time (defaults to now when missing).
+func (s *CMSPostStore) Schedule(ctx context.Context, ids []string, publishAt time.Time) ([]map[string]any, error) {
+	return s.updateStatus(ctx, ids, "scheduled", &publishAt)
 }
 
 // Archive marks matching posts as archived.
 func (s *CMSPostStore) Archive(ctx context.Context, ids []string) ([]map[string]any, error) {
+	return s.updateStatus(ctx, ids, "archived", nil)
+}
+
+func (s *CMSPostStore) updateStatus(ctx context.Context, ids []string, status string, publishAt *time.Time) ([]map[string]any, error) {
 	if s == nil || s.repo == nil {
 		return nil, admin.ErrNotFound
 	}
@@ -272,11 +270,33 @@ func (s *CMSPostStore) Archive(ctx context.Context, ids []string) ([]map[string]
 		if !idMatches(targets, id) {
 			continue
 		}
-		if strings.EqualFold(asString(rec["status"], ""), "archived") {
-			continue
+		currentStatus := strings.ToLower(asString(rec["status"], ""))
+		if currentStatus == strings.ToLower(status) {
+			if publishAt == nil {
+				continue
+			}
+			if ts := parseTimeValue(rec["published_at"]); !ts.IsZero() && publishAt.UTC().Equal(ts.UTC()) {
+				continue
+			}
 		}
-		rec["status"] = "archived"
+		rec["status"] = status
 		rec["updated_at"] = now
+		switch strings.ToLower(status) {
+		case "published":
+			if publishAt != nil && !publishAt.IsZero() {
+				rec["published_at"] = publishAt.UTC()
+			} else if ts := parseTimeValue(rec["published_at"]); ts.IsZero() {
+				rec["published_at"] = now
+			}
+		case "scheduled":
+			when := now
+			if publishAt != nil && !publishAt.IsZero() {
+				when = publishAt.UTC()
+			}
+			rec["published_at"] = when
+		case "draft":
+			rec["published_at"] = nil
+		}
 		updatedRec, err := s.Update(ctx, id, rec)
 		if err != nil {
 			return nil, err
@@ -297,6 +317,8 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	locale := asString(record["locale"], asString(existing["locale"], s.defaultLocale))
 	content := asString(record["content"], asString(existing["content"], ""))
 	status := asString(record["status"], asString(existing["status"], "draft"))
+	metaTitle := asString(record["meta_title"], asString(existing["meta_title"], ""))
+	metaDescription := asString(record["meta_description"], asString(existing["meta_description"], ""))
 	createdAt := parseTimeValue(record["created_at"])
 	if createdAt.IsZero() {
 		createdAt = parseTimeValue(existing["created_at"])
@@ -316,6 +338,13 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 		publishedAt = ts
 	}
 
+	tags := parseTags(record["tags"])
+	category := asString(record["category"], asString(existing["category"], ""))
+	featuredImage := asString(record["featured_image"], asString(existing["featured_image"], ""))
+	if metaTitle != "" {
+		tags = append(tags, metaTitle)
+	}
+
 	payload := map[string]any{
 		"id":           asString(record["id"], asString(existing["id"], "")),
 		"title":        asString(record["title"], asString(existing["title"], "")),
@@ -323,19 +352,49 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 		"status":       status,
 		"locale":       locale,
 		"content_type": "post",
-		"data": map[string]any{
-			"content":        content,
-			"excerpt":        asString(record["excerpt"], asString(existing["excerpt"], "")),
-			"category":       asString(record["category"], asString(existing["category"], "")),
-			"featured_image": asString(record["featured_image"], asString(existing["featured_image"], "")),
-			"tags":           asString(record["tags"], asString(existing["tags"], "")),
-			"author":         asString(record["author"], asString(existing["author"], resolveActivityActor(nil))),
-			"created_at":     createdAt,
-			"updated_at":     updatedAt,
+	}
+	payloadData := map[string]any{
+		"content":        content,
+		"excerpt":        asString(record["excerpt"], asString(existing["excerpt"], "")),
+		"category":       category,
+		"featured_image": featuredImage,
+		"tags":           tags,
+		"author":         asString(record["author"], asString(existing["author"], resolveActivityActor(nil))),
+		"created_at":     createdAt,
+		"updated_at":     updatedAt,
+	}
+	payload["data"] = payloadData
+	seo := map[string]any{}
+	if metaTitle != "" {
+		payloadData["meta_title"] = metaTitle
+		seo["title"] = metaTitle
+	}
+	if metaDescription != "" {
+		payloadData["meta_description"] = metaDescription
+		seo["description"] = metaDescription
+	}
+	markdown := map[string]any{
+		"frontmatter": map[string]any{
+			"seo":              cloneAnyMap(seo),
+			"tags":             tags,
+			"category":         category,
+			"featured_image":   featuredImage,
+			"meta_title":       metaTitle,
+			"meta_description": metaDescription,
 		},
+		"body": content,
+	}
+	payloadData["markdown"] = markdown
+
+	if len(seo) > 0 {
+		payloadData["seo"] = seo
+	}
+	if path := asString(record["path"], asString(existing["path"], "")); path != "" {
+		payloadData["path"] = path
+	} else if slug := asString(payload["slug"], ""); slug != "" {
+		payloadData["path"] = "/posts/" + strings.TrimPrefix(slug, "/")
 	}
 	if publishedAt != nil {
-		payloadData := payload["data"].(map[string]any)
 		payloadData["published_at"] = publishedAt
 	}
 	return payload
@@ -347,6 +406,7 @@ func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
 		"title":          content.Title,
 		"slug":           content.Slug,
 		"status":         content.Status,
+		"path":           "",
 		"locale":         content.Locale,
 		"content_type":   content.ContentType,
 		"content":        "",
@@ -362,8 +422,23 @@ func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
 	record["excerpt"] = asString(data["excerpt"], "")
 	record["category"] = asString(data["category"], "")
 	record["featured_image"] = asString(data["featured_image"], "")
-	record["tags"] = asString(data["tags"], "")
+	record["tags"] = parseTags(data["tags"])
 	record["author"] = asString(data["author"], "")
+	if seo, ok := data["seo"].(map[string]any); ok {
+		record["meta_title"] = asString(seo["title"], "")
+		record["meta_description"] = asString(seo["description"], "")
+	}
+	if metaTitle := asString(data["meta_title"], ""); metaTitle != "" && record["meta_title"] == "" {
+		record["meta_title"] = metaTitle
+	}
+	if metaDesc := asString(data["meta_description"], ""); metaDesc != "" && record["meta_description"] == nil {
+		record["meta_description"] = metaDesc
+	}
+	if path := asString(data["path"], ""); path != "" {
+		record["path"] = path
+	} else if slug := strings.TrimPrefix(content.Slug, "/"); slug != "" {
+		record["path"] = "/posts/" + slug
+	}
 
 	if created := parseTimeValue(data["created_at"]); !created.IsZero() {
 		record["created_at"] = created

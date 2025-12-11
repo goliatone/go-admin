@@ -215,15 +215,25 @@ func (s *PostStore) Delete(ctx context.Context, id string) error {
 
 // Publish sets matching posts to published and stamps published_at when missing.
 func (s *PostStore) Publish(ctx context.Context, ids []string) ([]map[string]any, error) {
-	return s.updateStatus(ctx, ids, "published")
+	return s.updateStatus(ctx, ids, "published", nil)
+}
+
+// Unpublish marks matching posts as drafts and clears publish time.
+func (s *PostStore) Unpublish(ctx context.Context, ids []string) ([]map[string]any, error) {
+	return s.updateStatus(ctx, ids, "draft", nil)
+}
+
+// Schedule sets posts to scheduled with a publish time (defaults to now when empty).
+func (s *PostStore) Schedule(ctx context.Context, ids []string, publishAt time.Time) ([]map[string]any, error) {
+	return s.updateStatus(ctx, ids, "scheduled", &publishAt)
 }
 
 // Archive marks matching posts as archived.
 func (s *PostStore) Archive(ctx context.Context, ids []string) ([]map[string]any, error) {
-	return s.updateStatus(ctx, ids, "archived")
+	return s.updateStatus(ctx, ids, "archived", nil)
 }
 
-func (s *PostStore) updateStatus(ctx context.Context, ids []string, status string) ([]map[string]any, error) {
+func (s *PostStore) updateStatus(ctx context.Context, ids []string, status string, publishAt *time.Time) ([]map[string]any, error) {
 	targets := normalizeIDSet(ids)
 	now := time.Now().UTC()
 	updated := []map[string]any{}
@@ -243,12 +253,30 @@ func (s *PostStore) updateStatus(ctx context.Context, ids []string, status strin
 
 	for _, rec := range records {
 		if strings.EqualFold(rec.Status, status) {
-			continue
+			if publishAt == nil {
+				continue
+			}
+			if rec.PublishedAt != nil && !rec.PublishedAt.IsZero() && publishAt.UTC().Equal(rec.PublishedAt.UTC()) {
+				continue
+			}
 		}
 		rec.Status = status
 		rec.UpdatedAt = ptrTime(now)
-		if strings.EqualFold(status, "published") && rec.PublishedAt == nil {
-			rec.PublishedAt = ptrTime(now)
+		switch strings.ToLower(status) {
+		case "published":
+			if publishAt != nil && !publishAt.IsZero() {
+				rec.PublishedAt = ptrTime(publishAt.UTC())
+			} else if rec.PublishedAt == nil {
+				rec.PublishedAt = ptrTime(now)
+			}
+		case "scheduled":
+			when := now
+			if publishAt != nil && !publishAt.IsZero() {
+				when = publishAt.UTC()
+			}
+			rec.PublishedAt = ptrTime(when)
+		case "draft":
+			rec.PublishedAt = nil
 		}
 		saved, err := s.repo.Update(ctx, rec)
 		if err != nil {

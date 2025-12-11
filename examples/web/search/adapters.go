@@ -56,7 +56,10 @@ func NewPagesSearchAdapter(store stores.PageRepository) *pagesSearchAdapter {
 
 func (a *pagesSearchAdapter) Search(ctx context.Context, query string, limit int) ([]admin.SearchResult, error) {
 	results := []admin.SearchResult{}
-	pages, _, _ := a.store.List(ctx, admin.ListOptions{Filters: map[string]any{"_search": query}, PerPage: limit})
+	pages, _, _ := a.store.List(ctx, admin.ListOptions{
+		Filters: map[string]any{"_search": query, "status": "published"},
+		PerPage: limit,
+	})
 	for _, page := range pages {
 		results = append(results, admin.SearchResult{
 			Type:        "pages",
@@ -86,7 +89,10 @@ func NewPostsSearchAdapter(store stores.PostRepository) *postsSearchAdapter {
 
 func (a *postsSearchAdapter) Search(ctx context.Context, query string, limit int) ([]admin.SearchResult, error) {
 	results := []admin.SearchResult{}
-	posts, _, _ := a.store.List(ctx, admin.ListOptions{Filters: map[string]any{"_search": query}, PerPage: limit})
+	posts, _, _ := a.store.List(ctx, admin.ListOptions{
+		Filters: map[string]any{"_search": query, "status": "published"},
+		PerPage: limit,
+	})
 	for _, post := range posts {
 		results = append(results, admin.SearchResult{
 			Type:        "posts",

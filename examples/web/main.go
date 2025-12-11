@@ -449,6 +449,7 @@ func main() {
 		dataStores.PageRecords,
 		crud.WithErrorEncoder[*stores.PageRecord](crudErrorEncoder),
 		crud.WithScopeGuard[*stores.PageRecord](contentCRUDScopeGuard[*stores.PageRecord]("admin.pages")),
+		crud.WithService[*stores.PageRecord](stores.NewPageCRUDService(dataStores.PageRecords, dataStores.Pages)),
 	)
 	pageController.RegisterRoutes(crudAdapter)
 	registerCrudAliases(crudAdapter, pageController, "pages")
@@ -456,6 +457,7 @@ func main() {
 		dataStores.PostRecords,
 		crud.WithErrorEncoder[*stores.PostRecord](crudErrorEncoder),
 		crud.WithScopeGuard[*stores.PostRecord](contentCRUDScopeGuard[*stores.PostRecord]("admin.posts")),
+		crud.WithService[*stores.PostRecord](stores.NewPostCRUDService(dataStores.PostRecords, dataStores.Posts)),
 	)
 	postController.RegisterRoutes(crudAdapter)
 	registerCrudAliases(crudAdapter, postController, "posts")
@@ -672,6 +674,22 @@ func main() {
 		r.Post(path.Join(cfg.BasePath, "tenants/:id/delete"), authn.WrapHandler(tenantHandlers.Delete))
 	}
 
+	siteHandlers := handlers.NewSiteHandlers(handlers.SiteHandlersConfig{
+		Admin:         adm,
+		Pages:         dataStores.Pages,
+		Posts:         dataStores.Posts,
+		Nav:           adm.Navigation(),
+		DefaultLocale: cfg.DefaultLocale,
+		MenuCode:      setup.SiteNavigationMenuCode,
+		AssetBasePath: cfg.BasePath,
+		AdminBasePath: cfg.BasePath,
+		CMSEnabled:    cfg.Features.CMS && adm.MenuService() != nil,
+	})
+	r.Get("/", siteHandlers.Page)
+	r.Get("/posts", siteHandlers.PostsIndex)
+	r.Get("/posts/:slug", siteHandlers.PostDetail)
+	r.Get("/*", siteHandlers.Page)
+
 	log.Println("Enterprise Admin available at http://localhost:8080/admin")
 	log.Println("  Dashboard: /admin/api/dashboard")
 	log.Println("  Navigation: /admin/api/navigation")
@@ -761,6 +779,11 @@ func contentCRUDScopeGuard[T any](resource string) crud.ScopeGuardFunc[T] {
 		target := strings.TrimSpace(resource)
 		if target == "" {
 			target = "admin"
+		}
+		if action == "delete" {
+			if claims.HasRole(string(authlib.RoleAdmin)) || claims.IsAtLeast(string(authlib.RoleAdmin)) {
+				return actor, scopeFilter, nil
+			}
 		}
 		if !authlib.Can(ctx.UserContext(), target, action) {
 			return actor, scopeFilter, goerrors.New("forbidden", goerrors.CategoryAuthz).

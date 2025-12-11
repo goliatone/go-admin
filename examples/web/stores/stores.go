@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -36,14 +37,15 @@ type UserDependencies struct {
 	PreferenceRepo types.PreferenceRepository
 }
 
-// Initialize creates and seeds all data stores. When a CMS content service is
-// provided, pages and posts are backed by go-cms via CMS adapters; otherwise
-// the in-memory stores are used.
+// Initialize creates and seeds all data stores backed by the CMS content service (pages/posts)
+// and Bun for user/media data.
 func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDeps UserDependencies) (*DataStores, error) {
 	if strings.TrimSpace(defaultLocale) == "" {
 		defaultLocale = "en"
 	}
-	_ = contentSvc
+	if contentSvc == nil {
+		return nil, fmt.Errorf("cms content service is required")
+	}
 
 	contentDB, err := SetupContentDatabase(context.Background(), "")
 	if err != nil {
@@ -55,18 +57,15 @@ func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDe
 		return nil, err
 	}
 
-	pageStore, err := NewPageStore(contentDB)
-	if err != nil {
-		return nil, err
-	}
-	postStore, err := NewPostStore(contentDB)
-	if err != nil {
-		return nil, err
-	}
+	pageStore := NewCMSPageStore(contentSvc, defaultLocale)
+	postStore := NewCMSPostStore(contentSvc, defaultLocale)
 	mediaStore, err := NewMediaStore(contentDB)
 	if err != nil {
 		return nil, err
 	}
+
+	pageRepo := repository.MustNewRepository[*PageRecord](contentDB, pageModelHandlers())
+	postRepo := repository.MustNewRepository[*PostRecord](contentDB, postModelHandlers())
 
 	stores := &DataStores{
 		Users:        userStore,
@@ -74,8 +73,8 @@ func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDe
 		Posts:        postStore,
 		Media:        mediaStore,
 		Stats:        NewStatsStore(),
-		PageRecords:  pageStore.repo,
-		PostRecords:  postStore.repo,
+		PageRecords:  pageRepo,
+		PostRecords:  postRepo,
 		MediaRecords: mediaStore.repo,
 	}
 

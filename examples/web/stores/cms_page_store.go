@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -74,12 +75,25 @@ func (s *CMSPageStore) List(ctx context.Context, opts admin.ListOptions) ([]map[
 		return nil, 0, err
 	}
 	search := strings.ToLower(extractSearchFromOptions(opts))
+	statusFilter := strings.ToLower(asString(opts.Filters["status"], asString(opts.Filters["Status"], "")))
+	slugFilter := strings.ToLower(asString(opts.Filters["slug"], asString(opts.Filters["Slug"], "")))
+	pathFilter := strings.ToLower(asString(opts.Filters["path"], asString(opts.Filters["Path"], "")))
 	records := []map[string]any{}
 	for _, page := range pages {
-		if search != "" && !strings.Contains(strings.ToLower(page.Title), search) && !strings.Contains(strings.ToLower(page.Slug), search) {
+		record := s.pageToRecord(page)
+		if search != "" && !strings.Contains(strings.ToLower(page.Title), search) && !strings.Contains(strings.ToLower(page.Slug), search) && !strings.Contains(strings.ToLower(asString(record["path"], "")), search) {
 			continue
 		}
-		records = append(records, s.pageToRecord(page))
+		if statusFilter != "" && !strings.EqualFold(asString(record["status"], ""), statusFilter) {
+			continue
+		}
+		if slugFilter != "" && !strings.EqualFold(asString(record["slug"], ""), slugFilter) {
+			continue
+		}
+		if pathFilter != "" && !strings.EqualFold(strings.ToLower(asString(record["path"], "")), pathFilter) {
+			continue
+		}
+		records = append(records, record)
 	}
 	return records, len(records), nil
 }
@@ -224,6 +238,10 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	metaDescription := asString(record["meta_description"], asString(existing["meta_description"], ""))
 	content := asString(record["content"], asString(existing["content"], ""))
 	status := asString(record["status"], asString(existing["status"], "draft"))
+	templateID := asString(record["template_id"], asString(existing["template_id"], ""))
+	if templateID == "" {
+		templateID = asString(record["template"], asString(existing["template"], ""))
+	}
 	createdAt := parseTimeValue(record["created_at"])
 	if createdAt.IsZero() {
 		createdAt = parseTimeValue(existing["created_at"])
@@ -254,6 +272,33 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 			"updated_at":       updatedAt,
 		},
 	}
+	if path := asString(record["path"], asString(existing["path"], "")); path != "" {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["path"] = path
+	}
+	if payloadData := payload["data"].(map[string]any); payloadData["path"] == nil || payloadData["path"] == "" {
+		if slug := asString(payload["slug"], ""); slug != "" {
+			payloadData["path"] = "/" + strings.TrimPrefix(slug, "/")
+		}
+	}
+	if templateID != "" {
+		payload["template_id"] = templateID
+	}
+	if blocks, ok := record["blocks"].([]string); ok && len(blocks) > 0 {
+		payload["blocks"] = append([]string{}, blocks...)
+	} else if blocksAny, ok := record["blocks"].([]any); ok && len(blocksAny) > 0 {
+		extracted := []string{}
+		for _, b := range blocksAny {
+			if str := strings.TrimSpace(fmt.Sprint(b)); str != "" {
+				extracted = append(extracted, str)
+			}
+		}
+		if len(extracted) > 0 {
+			payload["blocks"] = extracted
+		}
+	} else if existingBlocks, ok := existing["blocks"].([]string); ok && len(existingBlocks) > 0 {
+		payload["blocks"] = append([]string{}, existingBlocks...)
+	}
 
 	if id := asString(record["id"], asString(existing["id"], "")); id != "" {
 		payload["id"] = id
@@ -267,9 +312,13 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 		"title":       page.Title,
 		"slug":        page.Slug,
 		"status":      page.Status,
+		"template_id": page.TemplateID,
 		"parent_id":   page.ParentID,
 		"locale":      page.Locale,
 		"preview_url": page.PreviewURL,
+	}
+	if len(page.Blocks) > 0 {
+		record["blocks"] = append([]string{}, page.Blocks...)
 	}
 
 	data := cloneRecord(page.Data)
@@ -278,6 +327,21 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 	record["content"] = asString(data["content"], "")
 	record["meta_title"] = asString(seo["title"], asString(data["meta_title"], ""))
 	record["meta_description"] = asString(seo["description"], asString(data["meta_description"], ""))
+	if tpl := asString(data["template_id"], asString(data["template"], "")); tpl != "" && asString(record["template_id"], "") == "" {
+		record["template_id"] = tpl
+	}
+	if path := asString(data["path"], ""); path != "" {
+		record["path"] = path
+	} else if path := asString(seo["path"], ""); path != "" {
+		record["path"] = path
+	} else if page.PreviewURL != "" {
+		record["path"] = page.PreviewURL
+	} else if page.Slug != "" {
+		record["path"] = "/" + strings.TrimPrefix(page.Slug, "/")
+	}
+	if record["preview_url"] == "" && record["path"] != nil {
+		record["preview_url"] = record["path"]
+	}
 
 	if created := parseTimeValue(data["created_at"]); !created.IsZero() {
 		record["created_at"] = created
@@ -347,6 +411,18 @@ func cmsPageFromMap(record map[string]any) admin.CMSPage {
 	}
 	if preview, ok := record["preview_url"].(string); ok {
 		page.PreviewURL = preview
+	}
+	if tpl, ok := record["template_id"].(string); ok {
+		page.TemplateID = tpl
+	}
+	if blocks, ok := record["blocks"].([]string); ok {
+		page.Blocks = append([]string{}, blocks...)
+	} else if blocksAny, ok := record["blocks"].([]any); ok {
+		for _, blk := range blocksAny {
+			if b, ok := blk.(string); ok && strings.TrimSpace(b) != "" {
+				page.Blocks = append(page.Blocks, b)
+			}
+		}
 	}
 	if data, ok := record["data"].(map[string]any); ok {
 		page.Data = cloneRecord(data)

@@ -222,6 +222,8 @@ func statusVerb(status string) string {
 		return "published"
 	case "draft":
 		return "unpublished"
+	case "scheduled":
+		return "scheduled"
 	default:
 		return status
 	}

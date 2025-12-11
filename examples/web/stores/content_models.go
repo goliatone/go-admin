@@ -21,18 +21,23 @@ func seedContentUUID(seed string) uuid.UUID {
 	return uuid.NewSHA1(contentIDNamespace, []byte(trimmed))
 }
 
-// PageRecord maps the page payload exposed by go-crud.
+// PageRecord maps CMS-backed page records exposed by go-crud.
 type PageRecord struct {
-	bun.BaseModel `bun:"table:pages,alias:p" crud:"resource:page"`
+	bun.BaseModel `bun:"table:admin_page_records,alias:pr" crud:"resource:page"`
 
 	ID              uuid.UUID  `json:"id" bun:"id,pk,type:uuid"`
+	ContentID       uuid.UUID  `json:"content_id" bun:"content_id,type:uuid"`
+	TemplateID      uuid.UUID  `json:"template_id" bun:"template_id,type:uuid"`
 	Title           string     `json:"title" bun:"title"`
 	Slug            string     `json:"slug" bun:"slug"`
+	Path            string     `json:"path" bun:"path"`
+	Locale          string     `json:"locale" bun:"locale"`
 	Status          string     `json:"status" bun:"status"`
 	ParentID        *uuid.UUID `json:"parent_id,omitempty" bun:"parent_id"`
 	MetaTitle       string     `json:"meta_title,omitempty" bun:"meta_title"`
 	MetaDescription string     `json:"meta_description,omitempty" bun:"meta_description"`
 	Content         string     `json:"content,omitempty" bun:"content"`
+	Tags            []string   `json:"tags,omitempty" bun:"tags,type:jsonb"`
 	PreviewURL      string     `json:"preview_url,omitempty" bun:"preview_url"`
 	PublishedAt     *time.Time `json:"published_at,omitempty" bun:"published_at,nullzero"`
 	CreatedAt       *time.Time `json:"created_at,omitempty" bun:"created_at,nullzero,default:current_timestamp"`
@@ -41,21 +46,25 @@ type PageRecord struct {
 
 // PostRecord represents posts exposed via go-crud.
 type PostRecord struct {
-	bun.BaseModel `bun:"table:posts,alias:po" crud:"resource:post"`
+	bun.BaseModel `bun:"table:admin_post_records,alias:apr" crud:"resource:post"`
 
-	ID            uuid.UUID  `json:"id" bun:"id,pk,type:uuid"`
-	Title         string     `json:"title" bun:"title"`
-	Slug          string     `json:"slug" bun:"slug"`
-	Status        string     `json:"status" bun:"status"`
-	Author        string     `json:"author,omitempty" bun:"author"`
-	Excerpt       string     `json:"excerpt,omitempty" bun:"excerpt"`
-	Content       string     `json:"content,omitempty" bun:"content"`
-	Category      string     `json:"category,omitempty" bun:"category"`
-	FeaturedImage string     `json:"featured_image,omitempty" bun:"featured_image"`
-	Tags          []string   `json:"tags,omitempty" bun:"tags,type:jsonb"`
-	PublishedAt   *time.Time `json:"published_at,omitempty" bun:"published_at,nullzero"`
-	CreatedAt     *time.Time `json:"created_at,omitempty" bun:"created_at,nullzero,default:current_timestamp"`
-	UpdatedAt     *time.Time `json:"updated_at,omitempty" bun:"updated_at,nullzero,default:current_timestamp"`
+	ID              uuid.UUID  `json:"id" bun:"id,pk,type:uuid"`
+	Title           string     `json:"title" bun:"title"`
+	Slug            string     `json:"slug" bun:"slug"`
+	Status          string     `json:"status" bun:"status"`
+	Locale          string     `json:"locale" bun:"locale"`
+	Path            string     `json:"path" bun:"path"`
+	Author          string     `json:"author,omitempty" bun:"author"`
+	Excerpt         string     `json:"excerpt,omitempty" bun:"excerpt"`
+	Content         string     `json:"content,omitempty" bun:"content"`
+	Category        string     `json:"category,omitempty" bun:"category"`
+	FeaturedImage   string     `json:"featured_image,omitempty" bun:"featured_image"`
+	Tags            []string   `json:"tags,omitempty" bun:"tags,type:jsonb"`
+	MetaTitle       string     `json:"meta_title,omitempty" bun:"meta_title"`
+	MetaDescription string     `json:"meta_description,omitempty" bun:"meta_description"`
+	PublishedAt     *time.Time `json:"published_at,omitempty" bun:"published_at,nullzero"`
+	CreatedAt       *time.Time `json:"created_at,omitempty" bun:"created_at,nullzero,default:current_timestamp"`
+	UpdatedAt       *time.Time `json:"updated_at,omitempty" bun:"updated_at,nullzero,default:current_timestamp"`
 }
 
 // MediaRecord represents media assets in go-crud responses.
@@ -80,11 +89,19 @@ func pageRecordFromMap(record map[string]any) *PageRecord {
 		ID:              parseSeededUUID(stringID(record["id"]), "page:"+asString(record["slug"], asString(record["title"], ""))),
 		Title:           asString(record["title"], ""),
 		Slug:            sanitizeSlug(asString(record["slug"], "")),
+		Path:            asString(record["path"], ""),
+		Locale:          strings.TrimSpace(asString(record["locale"], "")),
 		Status:          strings.ToLower(asString(record["status"], "draft")),
 		Content:         asString(record["content"], ""),
 		PreviewURL:      asString(record["preview_url"], ""),
 		MetaTitle:       asString(record["meta_title"], ""),
 		MetaDescription: asString(record["meta_description"], ""),
+	}
+	if cid := stringID(record["content_id"]); cid != "" {
+		rec.ContentID = parseSeededUUID(cid, cid)
+	}
+	if tid := stringID(record["template_id"]); tid != "" {
+		rec.TemplateID = parseSeededUUID(tid, tid)
 	}
 	if rec.Slug == "" && rec.Title != "" {
 		rec.Slug = sanitizeSlug(rec.Title)
@@ -92,6 +109,9 @@ func pageRecordFromMap(record map[string]any) *PageRecord {
 	if parent := stringID(record["parent_id"]); parent != "" {
 		pid := parseSeededUUID(parent, "page-parent:"+parent)
 		rec.ParentID = &pid
+	}
+	if tags := parseTags(record["tags"]); len(tags) > 0 {
+		rec.Tags = tags
 	}
 	if ts := parseTimeValue(record["published_at"]); !ts.IsZero() {
 		rec.PublishedAt = ptrTime(ts)
@@ -117,14 +137,25 @@ func pageRecordToMap(record *PageRecord) map[string]any {
 		"id":               record.ID.String(),
 		"title":            record.Title,
 		"slug":             record.Slug,
+		"path":             record.Path,
+		"locale":           record.Locale,
 		"status":           strings.ToLower(record.Status),
 		"meta_title":       record.MetaTitle,
 		"meta_description": record.MetaDescription,
 		"content":          record.Content,
 		"preview_url":      record.PreviewURL,
 	}
+	if record.ContentID != uuid.Nil {
+		out["content_id"] = record.ContentID.String()
+	}
+	if record.TemplateID != uuid.Nil {
+		out["template_id"] = record.TemplateID.String()
+	}
 	if record.ParentID != nil && *record.ParentID != uuid.Nil {
 		out["parent_id"] = record.ParentID.String()
+	}
+	if len(record.Tags) > 0 {
+		out["tags"] = record.Tags
 	}
 	if record.PublishedAt != nil && !record.PublishedAt.IsZero() {
 		out["published_at"] = record.PublishedAt
@@ -141,16 +172,20 @@ func pageRecordToMap(record *PageRecord) map[string]any {
 func postRecordFromMap(record map[string]any) *PostRecord {
 	now := time.Now().UTC()
 	rec := &PostRecord{
-		ID:            parseSeededUUID(stringID(record["id"]), "post:"+asString(record["slug"], asString(record["title"], ""))),
-		Title:         asString(record["title"], ""),
-		Slug:          sanitizeSlug(asString(record["slug"], "")),
-		Status:        strings.ToLower(asString(record["status"], "draft")),
-		Author:        asString(record["author"], ""),
-		Excerpt:       asString(record["excerpt"], ""),
-		Content:       asString(record["content"], ""),
-		Category:      strings.ToLower(asString(record["category"], "")),
-		FeaturedImage: asString(record["featured_image"], ""),
-		Tags:          parseTags(record["tags"]),
+		ID:              parseSeededUUID(stringID(record["id"]), "post:"+asString(record["slug"], asString(record["title"], ""))),
+		Title:           asString(record["title"], ""),
+		Slug:            sanitizeSlug(asString(record["slug"], "")),
+		Path:            asString(record["path"], ""),
+		Locale:          strings.TrimSpace(asString(record["locale"], "")),
+		Status:          strings.ToLower(asString(record["status"], "draft")),
+		Author:          asString(record["author"], ""),
+		Excerpt:         asString(record["excerpt"], ""),
+		Content:         asString(record["content"], ""),
+		Category:        strings.ToLower(asString(record["category"], "")),
+		FeaturedImage:   asString(record["featured_image"], ""),
+		Tags:            parseTags(record["tags"]),
+		MetaTitle:       asString(record["meta_title"], ""),
+		MetaDescription: asString(record["meta_description"], ""),
 	}
 	if rec.Slug == "" && rec.Title != "" {
 		rec.Slug = sanitizeSlug(rec.Title)
@@ -180,6 +215,8 @@ func postRecordToMap(record *PostRecord) map[string]any {
 		"title":          record.Title,
 		"slug":           record.Slug,
 		"status":         strings.ToLower(record.Status),
+		"locale":         record.Locale,
+		"path":           record.Path,
 		"author":         record.Author,
 		"excerpt":        record.Excerpt,
 		"content":        record.Content,
@@ -188,6 +225,12 @@ func postRecordToMap(record *PostRecord) map[string]any {
 	}
 	if len(record.Tags) > 0 {
 		out["tags"] = record.Tags
+	}
+	if record.MetaTitle != "" {
+		out["meta_title"] = record.MetaTitle
+	}
+	if record.MetaDescription != "" {
+		out["meta_description"] = record.MetaDescription
 	}
 	if record.PublishedAt != nil && !record.PublishedAt.IsZero() {
 		out["published_at"] = record.PublishedAt

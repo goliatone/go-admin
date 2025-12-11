@@ -3,15 +3,19 @@ package setup
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/web/stores"
 	cms "github.com/goliatone/go-cms"
 	"github.com/goliatone/go-cms/pkg/storage"
 	persistence "github.com/goliatone/go-persistence-bun"
+	"github.com/google/uuid"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
@@ -37,7 +41,8 @@ func (c persistentConfig) GetOtelIdentifier() string { return "" }
 
 // SetupPersistentCMS wires a go-cms container backed by Bun/SQLite and applies migrations.
 // DSN falls back to a temp file (under /tmp) when none is provided and can be overridden
-// via the CMS_DATABASE_DSN environment variable.
+// via CONTENT_DATABASE_DSN (preferred) or CMS_DATABASE_DSN to keep env parity with the
+// existing example.
 func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.CMSOptions, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -46,14 +51,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		defaultLocale = "en"
 	}
 
-	resolvedDSN := strings.TrimSpace(dsn)
-	if resolvedDSN == "" {
-		if env := strings.TrimSpace(os.Getenv("CMS_DATABASE_DSN")); env != "" {
-			resolvedDSN = env
-		} else {
-			resolvedDSN = defaultCMSDSN()
-		}
-	}
+	resolvedDSN := resolveCMSDSN(dsn)
 
 	registerSQLiteDrivers("sqlite3", "sqlite")
 
@@ -73,26 +71,45 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		_ = sqlDB.Close()
 		return admin.CMSOptions{}, err
 	}
-	defer client.Close()
 
-	client.RegisterSQLMigrations(cms.GetMigrationsFS())
+	client.RegisterSQLMigrations(stores.SanitizeSQLiteMigrations(resolveCMSMigrationsFS()))
 	if err := client.Migrate(ctx); err != nil {
 		return admin.CMSOptions{}, err
+	}
+
+	seedRefs, err := seedCMSPrereqs(ctx, client.DB(), defaultLocale)
+	if err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("seed cms prereqs: %w", err)
 	}
 
 	cmsCfg := cms.DefaultConfig()
 	cmsCfg.DefaultLocale = defaultLocale
 	cmsCfg.I18N.Locales = []string{defaultLocale}
+	cmsCfg.I18N.Enabled = true
 	cmsCfg.I18N.RequireTranslations = false
 	cmsCfg.Activity.Enabled = true
 	cmsCfg.Features = cms.Features{
 		Widgets:      true,
 		Themes:       true,
 		Versioning:   true,
+		Scheduling:   true,
 		Logger:       true,
 		Shortcodes:   false,
 		Activity:     true,
 		MediaLibrary: false,
+	}
+	cmsCfg.Features.Markdown = true
+	cmsCfg.Markdown.Enabled = true
+	cmsCfg.Markdown.DefaultLocale = defaultLocale
+	cmsCfg.Markdown.Locales = []string{defaultLocale}
+	contentDir, err := os.MkdirTemp("", "cms-content-*")
+	if err != nil {
+		return admin.CMSOptions{}, err
+	}
+	cmsCfg.Markdown.ContentDir = contentDir
+	cmsCfg.Retention = cms.RetentionConfig{
+		Content: 5,
+		Pages:   5,
 	}
 
 	profileName := "primary"
@@ -115,7 +132,34 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		return admin.CMSOptions{}, err
 	}
 
-	return admin.CMSOptions{Container: admin.NewGoCMSContainerAdapter(module)}, nil
+	if err := seedCMSDemoContent(ctx, client.DB(), module.Markdown(), admin.NewGoCMSMenuAdapter(module.Menus()), seedRefs, defaultLocale); err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("seed cms content: %w", err)
+	}
+
+	adapter := admin.NewGoCMSContainerAdapter(module)
+	widgetSvc := admin.CMSWidgetService(nil)
+	menuSvc := admin.CMSMenuService(nil)
+	if adapter != nil {
+		widgetSvc = adapter.WidgetService()
+		menuSvc = adapter.MenuService()
+	}
+	contentSvc := admin.CMSContentService(admin.NewInMemoryContentService())
+	if adapter != nil && adapter.ContentService() != nil {
+		contentSvc = adapter.ContentService()
+	} else if module != nil && module.Content() != nil {
+		contentSvc = newGoCMSContentBridge(module.Content(), module.Pages(), seedRefs.TemplateID, map[string]uuid.UUID{
+			"page": seedRefs.PageContentTypeID,
+			"post": seedRefs.PostContentTypeID,
+		})
+	}
+
+	container := &cmsContainerAdapter{
+		widgetSvc:  widgetSvc,
+		menuSvc:    menuSvc,
+		contentSvc: contentSvc,
+	}
+
+	return admin.CMSOptions{Container: container}, nil
 }
 
 func registerSQLiteDrivers(names ...string) {
@@ -137,4 +181,51 @@ func registerSQLiteDrivers(names ...string) {
 func defaultCMSDSN() string {
 	path := filepath.Join(os.TempDir(), "go-admin-cms.db")
 	return "file:" + path + "?cache=shared&_fk=1"
+}
+
+func resolveCMSDSN(input string) string {
+	if trimmed := strings.TrimSpace(input); trimmed != "" {
+		return trimmed
+	}
+	if env := strings.TrimSpace(os.Getenv("CONTENT_DATABASE_DSN")); env != "" {
+		return env
+	}
+	if env := strings.TrimSpace(os.Getenv("CMS_DATABASE_DSN")); env != "" {
+		return env
+	}
+	return defaultCMSDSN()
+}
+
+func resolveCMSMigrationsFS() fs.FS {
+	candidates := []string{
+		filepath.Join("..", "go-cms", "data", "sql", "migrations"),
+		filepath.Join("..", "..", "go-cms", "data", "sql", "migrations"),
+	}
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return os.DirFS(candidate)
+		}
+	}
+	if sub, err := fs.Sub(cms.GetMigrationsFS(), "data/sql/migrations"); err == nil {
+		return sub
+	}
+	return cms.GetMigrationsFS()
+}
+
+type cmsContainerAdapter struct {
+	widgetSvc  admin.CMSWidgetService
+	menuSvc    admin.CMSMenuService
+	contentSvc admin.CMSContentService
+}
+
+func (c *cmsContainerAdapter) WidgetService() admin.CMSWidgetService {
+	return c.widgetSvc
+}
+
+func (c *cmsContainerAdapter) MenuService() admin.CMSMenuService {
+	return c.menuSvc
+}
+
+func (c *cmsContainerAdapter) ContentService() admin.CMSContentService {
+	return c.contentSvc
 }

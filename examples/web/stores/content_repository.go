@@ -5,6 +5,7 @@ import (
 
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
 func pageModelHandlers() repository.ModelHandlers[*PageRecord] {
@@ -45,6 +46,7 @@ func pageModelHandlers() repository.ModelHandlers[*PageRecord] {
 			return []repository.IdentifierOption{
 				{Column: "ID", Value: trimmed},
 				{Column: "Slug", Value: trimmed},
+				{Column: "Path", Value: trimmed},
 				{Column: "Title", Value: trimmed},
 			}
 		},
@@ -91,6 +93,7 @@ func postModelHandlers() repository.ModelHandlers[*PostRecord] {
 				{Column: "Slug", Value: trimmed},
 				{Column: "Title", Value: trimmed},
 				{Column: "Category", Value: trimmed},
+				{Column: "Path", Value: trimmed},
 			}
 		},
 	}
@@ -138,4 +141,14 @@ func mediaModelHandlers() repository.ModelHandlers[*MediaRecord] {
 			}
 		},
 	}
+}
+
+// NewPageRecordRepository builds a repository for CMS-backed page records.
+func NewPageRecordRepository(db *bun.DB) repository.Repository[*PageRecord] {
+	return repository.MustNewRepository[*PageRecord](db, pageModelHandlers())
+}
+
+// NewPostRecordRepository builds a repository for CMS-backed post records.
+func NewPostRecordRepository(db *bun.DB) repository.Repository[*PostRecord] {
+	return repository.MustNewRepository[*PostRecord](db, postModelHandlers())
 }

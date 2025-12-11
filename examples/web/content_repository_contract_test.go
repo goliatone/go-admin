@@ -10,13 +10,15 @@ import (
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/stretchr/testify/require"
+	"path/filepath"
 )
 
 func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dbPath := filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db")
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", dbPath)
 
 	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
 	require.NoError(t, err, "setup persistent cms")
@@ -31,6 +33,12 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 	postStore := stores.NewCMSPostStore(contentSvc, "en")
 	mediaStore, err := stores.NewMediaStore(db)
 	require.NoError(t, err, "media store")
+	pageStore := stores.NewCMSPageStore(contentSvc, "en")
+	require.NotNil(t, pageStore, "page store")
+
+	totalPageRows, err := db.NewSelect().Table("admin_page_records").Count(ctx)
+	require.NoError(t, err, "count existing page rows")
+	require.Greater(t, totalPageRows, 0, "page view should be hydrated by seeds")
 
 	pageRepo := stores.NewPageRecordRepository(db)
 	postRepo := stores.NewPostRecordRepository(db)
@@ -50,6 +58,83 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 	require.NotEmpty(t, pageResults)
 	require.NotEmpty(t, pageResults[0]["meta_title"])
 	require.NotEmpty(t, pageResults[0]["path"])
+
+	pagePayload := map[string]any{
+		"title":            "Contract Scope Page",
+		"slug":             "contract-page",
+		"status":           "draft",
+		"locale":           "en",
+		"path":             "/contract-page",
+		"meta_title":       "PageVirtualScope",
+		"meta_description": "PageVirtualScope",
+	}
+	createdPage, err := pageStore.Create(ctx, pagePayload)
+	require.NoError(t, err, "create page via cms store")
+	pageID := fmt.Sprint(createdPage["id"])
+	require.NotEmpty(t, pageID)
+
+	var pageRow struct {
+		ID        string `bun:"id"`
+		ContentID string `bun:"content_id"`
+	}
+	err = db.NewSelect().
+		Table("pages").
+		Column("id", "content_id").
+		Where("slug = ?", "contract-page").
+		Scan(ctx, &pageRow)
+	require.NoError(t, err, "fetch contract page row")
+	require.NotEmpty(t, pageRow.ID)
+	require.NotEmpty(t, pageRow.ContentID)
+
+	var contentTranslations []string
+	err = db.NewSelect().
+		Table("content_translations").
+		Column("locale_id").
+		Where("content_id = ?", pageRow.ContentID).
+		Scan(ctx, &contentTranslations)
+	require.NoError(t, err, "load content translations for contract page")
+	require.NotEmpty(t, contentTranslations, "content translations should exist for contract page")
+
+	var pageTranslations []string
+	err = db.NewSelect().
+		Table("page_translations").
+		Column("locale_id").
+		Where("page_id = ?", pageRow.ID).
+		Scan(ctx, &pageTranslations)
+	require.NoError(t, err, "load page translations for contract page")
+	require.NotEmpty(t, pageTranslations, "page translations should exist for contract page")
+
+	pageCount, err := db.NewSelect().
+		Table("admin_page_records").
+		Where("slug = ?", "contract-page").
+		Count(ctx)
+	require.NoError(t, err, "count contract page rows")
+	require.Equalf(t, 1, pageCount, "contract page should exist in admin_page_records view (content translations: %d, page translations: %d)", len(contentTranslations), len(pageTranslations))
+
+	pageScopedResults, pageScopedTotal, err := pageAdapter.List(ctx, admin.ListOptions{
+		Filters: map[string]any{"slug": "contract-page"},
+		PerPage: 5,
+	})
+	require.NoError(t, err, "list pages by slug")
+	require.Equal(t, 1, pageScopedTotal)
+	require.Len(t, pageScopedResults, 1)
+	require.NotEmpty(t, pageScopedResults[0]["path"])
+	require.Equal(t, "PageVirtualScope", fmt.Sprint(pageScopedResults[0]["meta_title"]))
+
+	updatedPage, err := pageStore.Update(ctx, pageID, map[string]any{"status": "published"})
+	require.NoError(t, err, "update page status")
+	require.Equal(t, "published", fmt.Sprint(updatedPage["status"]))
+
+	err = pageStore.Delete(ctx, pageID)
+	require.NoError(t, err, "delete page")
+
+	deletedResults, deletedTotal, err := pageAdapter.List(ctx, admin.ListOptions{
+		Filters: map[string]any{"slug": "contract-page"},
+		PerPage: 5,
+	})
+	require.NoError(t, err, "list pages after delete")
+	require.Equal(t, 0, deletedTotal)
+	require.Len(t, deletedResults, 0)
 
 	postPayload := map[string]any{
 		"title":            "Scoped Story",
@@ -91,6 +176,41 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 	updatedPost, err := postStore.Update(ctx, postID, map[string]any{"status": "scheduled"})
 	require.NoError(t, err, "update post status")
 	require.Equal(t, "scheduled", fmt.Sprint(updatedPost["status"]))
+
+	sortPostA, err := postStore.Create(ctx, map[string]any{
+		"title":            "Sort Alpha Story",
+		"slug":             "sort-alpha",
+		"status":           "draft",
+		"locale":           "en",
+		"path":             "/posts/sort-alpha",
+		"meta_title":       "AlphaSort",
+		"meta_description": "virtual-sort-check",
+	})
+	require.NoError(t, err, "create sort alpha post")
+	require.NotEmpty(t, fmt.Sprint(sortPostA["id"]))
+
+	sortPostB, err := postStore.Create(ctx, map[string]any{
+		"title":            "Sort Zeta Story",
+		"slug":             "sort-zeta",
+		"status":           "draft",
+		"locale":           "en",
+		"path":             "/posts/sort-zeta",
+		"meta_title":       "ZetaSort",
+		"meta_description": "virtual-sort-check",
+	})
+	require.NoError(t, err, "create sort zeta post")
+	require.NotEmpty(t, fmt.Sprint(sortPostB["id"]))
+
+	sortResults, sortTotal, err := postAdapter.List(ctx, admin.ListOptions{
+		Search:   "virtual-sort-check",
+		SortBy:   "meta_title",
+		SortDesc: true,
+	})
+	require.NoError(t, err, "sort posts by virtual meta title")
+	require.Equal(t, 2, sortTotal)
+	require.Len(t, sortResults, 2)
+	require.Equal(t, "sort-zeta", fmt.Sprint(sortResults[0]["slug"]))
+	require.Equal(t, "sort-alpha", fmt.Sprint(sortResults[1]["slug"]))
 
 	createdMedia, err := mediaStore.Create(ctx, map[string]any{
 		"filename":    "contract-asset.png",

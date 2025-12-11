@@ -44,3 +44,14 @@ func idMatches(set map[string]struct{}, id string) bool {
 func stringID(val any) string {
 	return strings.TrimSpace(fmt.Sprint(val))
 }
+
+func cloneAnyMap(src map[string]any) map[string]any {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}

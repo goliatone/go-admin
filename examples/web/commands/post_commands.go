@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
@@ -66,6 +67,148 @@ func (c *postBulkPublishCommand) CLIOptions() *admin.CLIOptions {
 		Description: "Publish selected posts",
 		Group:       "posts",
 		Aliases:     []string{"posts:bulk-publish"},
+	}
+}
+
+// postBulkUnpublishCommand marks posts as drafts.
+type postBulkUnpublishCommand struct {
+	store         stores.PostRepository
+	activityHooks activity.ActivityHookSlice
+}
+
+// NewPostBulkUnpublishCommand creates a new post bulk unpublish command.
+func NewPostBulkUnpublishCommand(store stores.PostRepository) *postBulkUnpublishCommand {
+	return &postBulkUnpublishCommand{store: store}
+}
+
+// WithActivityHooks configures activity hooks for event emission.
+func (c *postBulkUnpublishCommand) WithActivityHooks(hooks ...activity.ActivityHook) *postBulkUnpublishCommand {
+	c.activityHooks = append(c.activityHooks, hooks...)
+	return c
+}
+
+func (c *postBulkUnpublishCommand) Name() string {
+	return "posts.bulk_unpublish"
+}
+
+func (c *postBulkUnpublishCommand) Execute(ctx context.Context) error {
+	if c.store == nil {
+		return fmt.Errorf("post store is nil")
+	}
+
+	posts, err := c.store.Unpublish(ctx, admin.CommandIDs(ctx))
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		id := strings.TrimSpace(fmt.Sprint(post["id"]))
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "posts",
+			Verb:       "unpublished",
+			ObjectType: "post",
+			ObjectID:   id,
+			Data: map[string]any{
+				"title":    post["title"],
+				"slug":     post["slug"],
+				"status":   post["status"],
+				"category": post["category"],
+			},
+		})
+	}
+
+	return nil
+}
+
+func (c *postBulkUnpublishCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"posts", "bulk", "unpublish"},
+		Description: "Unpublish selected posts",
+		Group:       "posts",
+		Aliases:     []string{"posts:bulk-unpublish"},
+	}
+}
+
+// postBulkScheduleCommand schedules posts for publication.
+type postBulkScheduleCommand struct {
+	store         stores.PostRepository
+	activityHooks activity.ActivityHookSlice
+}
+
+// NewPostBulkScheduleCommand creates a new post bulk schedule command.
+func NewPostBulkScheduleCommand(store stores.PostRepository) *postBulkScheduleCommand {
+	return &postBulkScheduleCommand{store: store}
+}
+
+// WithActivityHooks configures activity hooks for event emission.
+func (c *postBulkScheduleCommand) WithActivityHooks(hooks ...activity.ActivityHook) *postBulkScheduleCommand {
+	c.activityHooks = append(c.activityHooks, hooks...)
+	return c
+}
+
+func (c *postBulkScheduleCommand) Name() string {
+	return "posts.bulk_schedule"
+}
+
+func (c *postBulkScheduleCommand) Execute(ctx context.Context) error {
+	if c.store == nil {
+		return fmt.Errorf("post store is nil")
+	}
+
+	publishAt := time.Now()
+	if payload := admin.CommandPayload(ctx); payload != nil {
+		raw := payload["publish_at"]
+		if raw == nil {
+			raw = payload["scheduled_at"]
+		}
+		switch v := raw.(type) {
+		case time.Time:
+			if !v.IsZero() {
+				publishAt = v
+			}
+		case *time.Time:
+			if v != nil && !v.IsZero() {
+				publishAt = *v
+			}
+		case string:
+			if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(v)); err == nil {
+				publishAt = parsed
+			}
+		}
+	}
+
+	posts, err := c.store.Schedule(ctx, admin.CommandIDs(ctx), publishAt)
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		id := strings.TrimSpace(fmt.Sprint(post["id"]))
+		c.activityHooks.Notify(ctx, activity.Event{
+			Channel:    "posts",
+			Verb:       "scheduled",
+			ObjectType: "post",
+			ObjectID:   id,
+			Data: map[string]any{
+				"title":       post["title"],
+				"slug":        post["slug"],
+				"status":      post["status"],
+				"publish_at":  publishAt.UTC(),
+				"category":    post["category"],
+				"publishedAt": post["published_at"],
+			},
+		})
+	}
+
+	return nil
+}
+
+func (c *postBulkScheduleCommand) CLIOptions() *admin.CLIOptions {
+	return &admin.CLIOptions{
+		Path:        []string{"posts", "bulk", "schedule"},
+		Description: "Schedule selected posts",
+		Group:       "posts",
+		Aliases:     []string{"posts:bulk-schedule"},
 	}
 }
 

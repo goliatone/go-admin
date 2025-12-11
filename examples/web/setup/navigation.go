@@ -13,6 +13,8 @@ import (
 const (
 	// NavigationMenuCode is the default menu identifier for the admin sidebar.
 	NavigationMenuCode = "admin.main"
+	// SiteNavigationMenuCode is the default menu identifier for the public site navigation.
+	SiteNavigationMenuCode = "site.main"
 	// NavigationGroupMain is the parent node for primary navigation entries.
 	NavigationGroupMain = "nav.group.main"
 	// NavigationGroupOthers groups secondary/utility links.

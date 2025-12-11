@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"time"
 
 	"github.com/goliatone/go-admin/admin"
 )
@@ -29,5 +30,7 @@ type PostRepository interface {
 	Update(ctx context.Context, id string, record map[string]any) (map[string]any, error)
 	Delete(ctx context.Context, id string) error
 	Publish(ctx context.Context, ids []string) ([]map[string]any, error)
+	Unpublish(ctx context.Context, ids []string) ([]map[string]any, error)
+	Schedule(ctx context.Context, ids []string, publishAt time.Time) ([]map[string]any, error)
 	Archive(ctx context.Context, ids []string) ([]map[string]any, error)
 }
