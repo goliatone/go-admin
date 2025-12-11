@@ -25,11 +25,20 @@ type SearchAdapter interface {
 type SearchEngine struct {
 	adapters   map[string]SearchAdapter
 	authorizer Authorizer
+	enabled    bool
 }
 
 // NewSearchEngine constructs a search engine.
 func NewSearchEngine(authorizer Authorizer) *SearchEngine {
-	return &SearchEngine{adapters: make(map[string]SearchAdapter), authorizer: authorizer}
+	return &SearchEngine{adapters: make(map[string]SearchAdapter), authorizer: authorizer, enabled: true}
+}
+
+// Enable toggles whether search is available.
+func (s *SearchEngine) Enable(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.enabled = enabled
 }
 
 // Register registers a search adapter under a key.
@@ -42,6 +51,9 @@ func (s *SearchEngine) Register(key string, adapter SearchAdapter) {
 
 // Query searches all adapters respecting permissions.
 func (s *SearchEngine) Query(ctx AdminContext, query string, limit int) ([]SearchResult, error) {
+	if s == nil || !s.enabled {
+		return nil, FeatureDisabledError{Feature: string(FeatureSearch)}
+	}
 	if limit <= 0 {
 		limit = 10
 	}
