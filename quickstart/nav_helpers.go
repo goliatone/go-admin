@@ -12,8 +12,65 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+// PlacementConfig maps logical placements to menu codes and dashboard areas.
+type PlacementConfig struct {
+	MenuCodes      map[string]string
+	DashboardAreas map[string]string
+}
+
+// DefaultPlacements builds a placement map seeded with defaults.
+func DefaultPlacements(cfg admin.Config) PlacementConfig {
+	menuCode := admin.NormalizeMenuSlug(cfg.NavMenuCode)
+	if menuCode == "" {
+		menuCode = admin.NormalizeMenuSlug("admin.main")
+	}
+	return PlacementConfig{
+		MenuCodes: map[string]string{
+			"sidebar": menuCode,
+			"footer":  admin.NormalizeMenuSlug("admin.footer"),
+		},
+		DashboardAreas: map[string]string{
+			"main":    "admin.dashboard.main",
+			"sidebar": "admin.dashboard.sidebar",
+			"footer":  "admin.dashboard.footer",
+		},
+	}
+}
+
+// MenuCodeFor returns the menu code for a placement, falling back to the provided default.
+func (p PlacementConfig) MenuCodeFor(placement, fallback string) string {
+	if p.MenuCodes != nil {
+		if code := strings.TrimSpace(p.MenuCodes[placement]); code != "" {
+			return admin.NormalizeMenuSlug(code)
+		}
+	}
+	code := admin.NormalizeMenuSlug(fallback)
+	if code == "" {
+		code = admin.NormalizeMenuSlug("admin.main")
+	}
+	return code
+}
+
+// DashboardAreaFor returns the dashboard area for a placement, with fallback support.
+func (p PlacementConfig) DashboardAreaFor(placement, fallback string) string {
+	if p.DashboardAreas != nil {
+		if area := strings.TrimSpace(p.DashboardAreas[placement]); area != "" {
+			return area
+		}
+	}
+	if strings.TrimSpace(fallback) != "" {
+		return fallback
+	}
+	return "admin.dashboard.main"
+}
+
 // WithNav adds session, theme, and navigation payload to the view context.
 func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext {
+	return WithNavPlacements(ctx, adm, cfg, DefaultPlacements(cfg), "sidebar", active, reqCtx)
+}
+
+// WithNavPlacements is like WithNav but allows selecting a placement-specific menu.
+func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement string, active string, reqCtx context.Context) router.ViewContext {
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
@@ -23,13 +80,13 @@ func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active 
 	if reqCtx == nil {
 		reqCtx = context.Background()
 	}
-	session := BuildSessionUser(reqCtx)
+	session := FilterSessionUser(BuildSessionUser(reqCtx), cfg.Features)
 	sessionView := session.ToViewContext()
 	if sessionView["avatar_url"] == "" {
 		sessionView["avatar_url"] = path.Join(cfg.BasePath, "assets", "avatar-default.svg")
 	}
 	ctx["session_user"] = sessionView
-	ctx["nav_items"] = BuildNavItems(adm, cfg, reqCtx, active)
+	ctx["nav_items"] = BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
 	ctx["theme"] = adm.ThemePayload(reqCtx)
 	if active != "" {
 		ctx["active"] = active
@@ -45,26 +102,28 @@ func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active 
 
 // BuildNavItems builds navigation menu items from the admin menu service.
 func BuildNavItems(adm *admin.Admin, cfg admin.Config, ctx context.Context, active string) []map[string]any {
+	return BuildNavItemsForPlacement(adm, cfg, DefaultPlacements(cfg), "sidebar", ctx, active)
+}
+
+// BuildNavItemsForPlacement resolves a menu for a placement and returns render-ready entries.
+func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement string, ctx context.Context, active string) []map[string]any {
+	entries := []map[string]any{}
 	if adm == nil {
-		return nil
+		return entries
 	}
 	nav := adm.Navigation()
 	if nav == nil {
-		return nil
+		return entries
 	}
-	menuCode := admin.NormalizeMenuSlug(cfg.NavMenuCode)
-	if menuCode == "" {
-		menuCode = admin.NormalizeMenuSlug("admin.main")
-	}
+	menuCode := placements.MenuCodeFor(placement, cfg.NavMenuCode)
 	logNav := strings.EqualFold(os.Getenv("NAV_DEBUG"), "true") || strings.EqualFold(os.Getenv("NAV_DEBUG_LOG"), "true")
 	items := nav.ResolveMenu(ctx, menuCode, cfg.DefaultLocale)
-	entries := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		entry, _ := buildNavEntry(item, cfg, active)
 		entries = append(entries, entry)
 	}
 	if logNav {
-		if raw, err := json.Marshal(map[string]any{"menu_code": menuCode, "items": entries}); err == nil {
+		if raw, err := json.Marshal(map[string]any{"placement": placement, "menu_code": menuCode, "items": entries}); err == nil {
 			log.Printf("[nav] payload=%s", string(raw))
 		}
 	}
