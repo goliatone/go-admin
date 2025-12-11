@@ -45,6 +45,10 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
+	roleSvc := ctx.Admin.UserService()
+	if roleSvc == nil {
+		return fmt.Errorf("user service is nil")
+	}
 
 	// Create activity adapter to bridge command events to admin activity sink
 	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
@@ -66,7 +70,38 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 
 	// Register panel
 	builder := setup.NewUserPanelBuilder(m.store)
-	_, err := ctx.Admin.RegisterPanel("users", builder)
+	if _, err := ctx.Admin.RegisterPanel("users", builder); err != nil {
+		return err
+	}
+
+	roleRepo := admin.NewRolePanelRepository(roleSvc)
+	roleBuilder := ctx.Admin.Panel("roles").
+		WithRepository(roleRepo).
+		ListFields(
+			admin.Field{Name: "name", Label: "Name", Type: "text"},
+			admin.Field{Name: "description", Label: "Description", Type: "text"},
+			admin.Field{Name: "permissions", Label: "Permissions", Type: "text"},
+			admin.Field{Name: "is_system", Label: "System Role", Type: "boolean"},
+		).
+		FormFields(
+			admin.Field{Name: "name", Label: "Name", Type: "text", Required: true},
+			admin.Field{Name: "description", Label: "Description", Type: "textarea"},
+			admin.Field{Name: "permissions", Label: "Permissions", Type: "textarea"},
+			admin.Field{Name: "is_system", Label: "System Role", Type: "boolean"},
+		).
+		DetailFields(
+			admin.Field{Name: "name", Label: "Name", Type: "text"},
+			admin.Field{Name: "description", Label: "Description", Type: "text"},
+			admin.Field{Name: "permissions", Label: "Permissions", Type: "text"},
+			admin.Field{Name: "is_system", Label: "System Role", Type: "boolean"},
+		).
+		Permissions(admin.PanelPermissions{
+			View:   "admin.roles.view",
+			Create: "admin.roles.create",
+			Edit:   "admin.roles.edit",
+			Delete: "admin.roles.delete",
+		})
+	_, err := ctx.Admin.RegisterPanel("roles", roleBuilder)
 	return err
 }
 
@@ -84,7 +119,7 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 	if m.parentID != "" {
 		id = m.parentID + ".users"
 	}
-	return []admin.MenuItem{
+	items := []admin.MenuItem{
 		{
 			ID:       id,
 			Label:    label,
@@ -102,6 +137,27 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 			Position:    10,
 		},
 	}
+	roleID := "roles"
+	if m.parentID != "" {
+		roleID = m.parentID + ".roles"
+	}
+	items = append(items, admin.MenuItem{
+		ID:       roleID,
+		Label:    "Roles",
+		LabelKey: "menu.roles",
+		Icon:     "shield",
+		Target: map[string]any{
+			"type": "url",
+			"path": path.Join(m.basePath, "roles"),
+			"key":  "roles",
+		},
+		ParentID:    m.parentID,
+		Permissions: []string{"admin.roles.view"},
+		Locale:      locale,
+		Menu:        code,
+		Position:    11,
+	})
+	return items
 }
 
 func (m *usersModule) WithTranslator(t admin.Translator) {

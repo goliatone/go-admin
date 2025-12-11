@@ -22,7 +22,7 @@ import (
 func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.UserDependencies) (*admin.GoAuthAuthenticator, *auth.RouteAuthenticator, *auth.Auther, string) {
 	cfg := demoAuthConfig{signingKey: "web-demo-secret"}
 	provider := &demoIdentityProvider{
-		users:     dataStores.Users,
+		users:    dataStores.Users,
 		authRepo: deps.AuthRepo,
 	}
 
@@ -55,8 +55,8 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 }
 
 type demoIdentityProvider struct {
-	users     *stores.UserStore
-	authRepo  userstypes.AuthRepository
+	users    *stores.UserStore
+	authRepo userstypes.AuthRepository
 }
 
 func (p *demoIdentityProvider) FindResourceRoles(ctx context.Context, identity auth.Identity) (map[string]string, error) {

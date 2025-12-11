@@ -8,9 +8,9 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
-	userssvc "github.com/goliatone/go-users/service"
-	userstypes "github.com/goliatone/go-users/pkg/types"
 	"github.com/goliatone/go-users/command"
+	userstypes "github.com/goliatone/go-users/pkg/types"
+	userssvc "github.com/goliatone/go-users/service"
 	"github.com/google/uuid"
 )
 

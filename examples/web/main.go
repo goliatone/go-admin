@@ -29,6 +29,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-router"
 	theme "github.com/goliatone/go-theme"
+	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
 //go:embed assets/* templates/* openapi/*
@@ -82,6 +83,20 @@ func main() {
 		},
 	}
 	registrationCfg := setup.DefaultRegistrationConfig()
+	cfg.FeatureFlags[setup.FeatureUserInvites] = flagFromEnv("USE_USER_INVITES", cfg.FeatureFlags[setup.FeatureUserInvites])
+	cfg.FeatureFlags[setup.FeaturePasswordReset] = flagFromEnv("USE_PASSWORD_RESET", cfg.FeatureFlags[setup.FeaturePasswordReset])
+	cfg.FeatureFlags[setup.FeatureSelfRegistration] = flagFromEnv("USE_SELF_REGISTRATION", cfg.FeatureFlags[setup.FeatureSelfRegistration])
+	if mode := strings.TrimSpace(os.Getenv("REGISTRATION_MODE")); mode != "" {
+		if parsed := parseRegistrationMode(mode, registrationCfg.Mode); parsed != "" {
+			registrationCfg.Mode = parsed
+			if parsed == setup.RegistrationOpen || parsed == setup.RegistrationAllowlist {
+				cfg.FeatureFlags[setup.FeatureSelfRegistration] = true
+			}
+		}
+	}
+	if allowlist := strings.TrimSpace(os.Getenv("REGISTRATION_ALLOWLIST")); allowlist != "" {
+		registrationCfg.Allowlist = splitAndTrimCSV(allowlist)
+	}
 
 	adapterHooks := quickstart.AdapterHooks{
 		PersistentCMS: func(ctx context.Context, locale string) (admin.CMSOptions, string, error) {
@@ -380,6 +395,17 @@ func main() {
 		}
 	}
 
+	// Wire dashboard renderer for server-side rendering
+	dashboardRenderer, err := setup.NewDashboardRenderer()
+	if err != nil {
+		log.Printf("warning: failed to initialize dashboard renderer (falling back to JSON API): %v", err)
+	} else {
+		if dashboard := adm.Dashboard(); dashboard != nil {
+			dashboard.WithRenderer(dashboardRenderer)
+			log.Println("Dashboard SSR enabled")
+		}
+	}
+
 	// Initialize admin
 	if err := adm.Initialize(r); err != nil {
 		log.Fatalf("failed to initialize admin: %v", err)
@@ -419,6 +445,27 @@ func main() {
 	})
 	crudAdapter := crud.NewGoRouterAdapter(crudAPI)
 	userController.RegisterRoutes(crudAdapter)
+	pageController := crud.NewController(
+		dataStores.PageRecords,
+		crud.WithErrorEncoder[*stores.PageRecord](crudErrorEncoder),
+		crud.WithScopeGuard[*stores.PageRecord](contentCRUDScopeGuard[*stores.PageRecord]("admin.pages")),
+	)
+	pageController.RegisterRoutes(crudAdapter)
+	registerCrudAliases(crudAdapter, pageController, "pages")
+	postController := crud.NewController(
+		dataStores.PostRecords,
+		crud.WithErrorEncoder[*stores.PostRecord](crudErrorEncoder),
+		crud.WithScopeGuard[*stores.PostRecord](contentCRUDScopeGuard[*stores.PostRecord]("admin.posts")),
+	)
+	postController.RegisterRoutes(crudAdapter)
+	registerCrudAliases(crudAdapter, postController, "posts")
+	mediaController := crud.NewController(
+		dataStores.MediaRecords,
+		crud.WithErrorEncoder[*stores.MediaRecord](crudErrorEncoder),
+		crud.WithScopeGuard[*stores.MediaRecord](contentCRUDScopeGuard[*stores.MediaRecord]("admin.media")),
+	)
+	mediaController.RegisterRoutes(crudAdapter)
+	registerCrudAliases(crudAdapter, mediaController, "media")
 
 	r.Get(path.Join(cfg.BasePath, "api/session"), authn.WrapHandler(func(c router.Context) error {
 		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), cfg.Features)
@@ -461,6 +508,28 @@ func main() {
 	r.Post(path.Join(onboardingBase, "register"), onboardingHandlers.SelfRegister)
 	r.Post(path.Join(onboardingBase, "password", "reset", "request"), onboardingHandlers.RequestPasswordReset)
 	r.Post(path.Join(onboardingBase, "password", "reset", "confirm"), onboardingHandlers.ConfirmPasswordReset)
+
+	userActions := &handlers.UserActionHandlers{
+		Service:      usersService,
+		Roles:        usersDeps.RoleRegistry,
+		AuthRepo:     usersDeps.AuthRepo,
+		FeatureFlags: cfg.FeatureFlags,
+	}
+	for _, base := range []string{path.Join(cfg.BasePath, "api", "users"), path.Join(cfg.BasePath, "crud", "users")} {
+		r.Post(path.Join(base, ":id", "activate"), authn.WrapHandler(userActions.Lifecycle(userstypes.LifecycleStateActive)))
+		r.Post(path.Join(base, ":id", "suspend"), authn.WrapHandler(userActions.Lifecycle(userstypes.LifecycleStateSuspended)))
+		r.Post(path.Join(base, ":id", "disable"), authn.WrapHandler(userActions.Lifecycle(userstypes.LifecycleStateDisabled)))
+		r.Post(path.Join(base, ":id", "archive"), authn.WrapHandler(userActions.Lifecycle(userstypes.LifecycleStateArchived)))
+		r.Post(path.Join(base, ":id", "reset-password"), authn.WrapHandler(userActions.ResetPassword))
+		r.Post(path.Join(base, ":id", "invite"), authn.WrapHandler(userActions.InviteByID))
+
+		r.Post(path.Join(base, "bulk", "activate"), authn.WrapHandler(userActions.BulkLifecycle(userstypes.LifecycleStateActive)))
+		r.Post(path.Join(base, "bulk", "suspend"), authn.WrapHandler(userActions.BulkLifecycle(userstypes.LifecycleStateSuspended)))
+		r.Post(path.Join(base, "bulk", "disable"), authn.WrapHandler(userActions.BulkLifecycle(userstypes.LifecycleStateDisabled)))
+		r.Post(path.Join(base, "bulk", "archive"), authn.WrapHandler(userActions.BulkLifecycle(userstypes.LifecycleStateArchived)))
+		r.Post(path.Join(base, "bulk", "assign-role"), authn.WrapHandler(userActions.BulkAssignRole))
+		r.Post(path.Join(base, "bulk", "unassign-role"), authn.WrapHandler(userActions.BulkUnassignRole))
+	}
 
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
@@ -513,6 +582,11 @@ func main() {
 		return c.Redirect(cfg.BasePath, fiber.StatusFound)
 	})
 	r.Get(path.Join(cfg.BasePath, "password-reset"), func(c router.Context) error {
+		if !cfg.FeatureFlags[setup.FeaturePasswordReset] {
+			return goerrors.New("password reset disabled", goerrors.CategoryAuthz).
+				WithCode(fiber.StatusForbidden).
+				WithTextCode("FEATURE_DISABLED")
+		}
 		viewCtx := router.ViewContext{
 			"title":     "Password Reset",
 			"base_path": cfg.BasePath,
@@ -630,27 +704,111 @@ func userCRUDScopeGuard() crud.ScopeGuardFunc[*stores.User] {
 		if authActor, ok := authlib.ActorFromContext(ctx.UserContext()); ok && authActor != nil {
 			actor = adaptAuthActor(authActor)
 		}
+		scope := helpers.ScopeFromContext(ctx.UserContext())
+		scopeFilter := crud.ScopeFilter{
+			Raw: map[string]any{
+				"scope": scope,
+			},
+		}
 
 		claims, ok := authlib.GetClaims(ctx.UserContext())
 		if !ok || claims == nil {
-			return actor, crud.ScopeFilter{}, goerrors.New("missing or invalid token", goerrors.CategoryAuth).
+			return actor, scopeFilter, goerrors.New("missing or invalid token", goerrors.CategoryAuth).
 				WithCode(goerrors.CodeUnauthorized).
 				WithTextCode("UNAUTHORIZED")
 		}
 
 		action := crudOperationAction(op)
 		if action == "" {
-			return actor, crud.ScopeFilter{}, nil
+			return actor, scopeFilter, nil
 		}
 
 		if !authlib.Can(ctx.UserContext(), "admin.users", action) {
-			return actor, crud.ScopeFilter{}, goerrors.New("forbidden", goerrors.CategoryAuthz).
+			return actor, scopeFilter, goerrors.New("forbidden", goerrors.CategoryAuthz).
 				WithCode(goerrors.CodeForbidden).
 				WithTextCode("FORBIDDEN")
 		}
 
-		return actor, crud.ScopeFilter{}, nil
+		return actor, scopeFilter, nil
 	}
+}
+
+func contentCRUDScopeGuard[T any](resource string) crud.ScopeGuardFunc[T] {
+	return func(ctx crud.Context, op crud.CrudOperation) (crud.ActorContext, crud.ScopeFilter, error) {
+		actor := crud.ActorContext{}
+		if authActor, ok := authlib.ActorFromContext(ctx.UserContext()); ok && authActor != nil {
+			actor = adaptAuthActor(authActor)
+		}
+		scope := helpers.ScopeFromContext(ctx.UserContext())
+		scopeFilter := crud.ScopeFilter{
+			Raw: map[string]any{
+				"scope": scope,
+			},
+		}
+
+		claims, ok := authlib.GetClaims(ctx.UserContext())
+		if !ok || claims == nil {
+			return actor, scopeFilter, goerrors.New("missing or invalid token", goerrors.CategoryAuth).
+				WithCode(goerrors.CodeUnauthorized).
+				WithTextCode("UNAUTHORIZED")
+		}
+
+		action := crudOperationAction(op)
+		if action == "" {
+			return actor, scopeFilter, nil
+		}
+
+		target := strings.TrimSpace(resource)
+		if target == "" {
+			target = "admin"
+		}
+		if !authlib.Can(ctx.UserContext(), target, action) {
+			return actor, scopeFilter, goerrors.New("forbidden", goerrors.CategoryAuthz).
+				WithCode(goerrors.CodeForbidden).
+				WithTextCode("FORBIDDEN")
+		}
+
+		return actor, scopeFilter, nil
+	}
+}
+
+func flagFromEnv(envVar string, current bool) bool {
+	val := strings.TrimSpace(os.Getenv(envVar))
+	switch strings.ToLower(val) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return current
+	}
+}
+
+func parseRegistrationMode(raw string, fallback setup.RegistrationMode) setup.RegistrationMode {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "open":
+		return setup.RegistrationOpen
+	case "allowlist", "allow", "whitelist":
+		return setup.RegistrationAllowlist
+	case "closed", "off", "disabled":
+		return setup.RegistrationClosed
+	default:
+		return fallback
+	}
+}
+
+func splitAndTrimCSV(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ';' })
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func crudOperationAction(op crud.CrudOperation) string {
