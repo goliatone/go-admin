@@ -103,6 +103,14 @@ func (s *ProfileService) WithActivitySink(sink ActivitySink) {
 	}
 }
 
+// WithStore swaps the underlying profile store.
+func (s *ProfileService) WithStore(store ProfileStore) *ProfileService {
+	if s != nil && store != nil {
+		s.store = store
+	}
+	return s
+}
+
 // Store exposes the underlying profile store (useful for adapters).
 func (s *ProfileService) Store() ProfileStore {
 	if s == nil {
