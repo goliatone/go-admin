@@ -85,6 +85,7 @@ type CMSPage struct {
 	ID         string
 	Title      string
 	Slug       string
+	TemplateID string
 	Locale     string
 	ParentID   string
 	Blocks     []string
