@@ -2,10 +2,10 @@ package boot
 
 import (
 	"errors"
-	"path"
 	"strconv"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/internal/helpers"
 	router "github.com/goliatone/go-router"
 )
 
@@ -55,7 +55,7 @@ func applyRoutes(ctx BootCtx, routes []RouteSpec) error {
 }
 
 func joinPath(basePath, suffix string) string {
-	return path.Join("/", basePath, suffix)
+	return helpers.JoinPath(basePath, suffix)
 }
 
 func parseListOptions(c router.Context) ListOptions {
