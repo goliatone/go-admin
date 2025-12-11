@@ -1,6 +1,9 @@
 package admin
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 type themeSelectorKey string
 
@@ -71,6 +74,45 @@ func cloneThemeSelection(sel *ThemeSelection) *ThemeSelection {
 		ChartTheme:  sel.ChartTheme,
 		AssetPrefix: sel.AssetPrefix,
 	}
+}
+
+type RouterContext interface {
+	Query(name string, defaultValue ...string) string
+	Header(string) string
+}
+
+func selectorFromRequest(c RouterContext) ThemeSelector {
+	selector := ThemeSelector{}
+	if c == nil {
+		return selector
+	}
+	if name := strings.TrimSpace(c.Query("theme")); name != "" {
+		selector.Name = name
+	}
+	if variant := strings.TrimSpace(c.Query("variant")); variant != "" {
+		selector.Variant = variant
+	}
+	if selector.Name == "" {
+		if name := strings.TrimSpace(c.Header("X-Admin-Theme")); name != "" {
+			selector.Name = name
+		}
+	}
+	if selector.Variant == "" {
+		if variant := strings.TrimSpace(c.Header("X-Admin-Theme-Variant")); variant != "" {
+			selector.Variant = variant
+		}
+	}
+	return selector
+}
+
+func mergeSelector(base, override ThemeSelector) ThemeSelector {
+	if override.Name != "" {
+		base.Name = override.Name
+	}
+	if override.Variant != "" {
+		base.Variant = override.Variant
+	}
+	return base
 }
 
 func mergeThemeSelections(base, override *ThemeSelection) *ThemeSelection {
