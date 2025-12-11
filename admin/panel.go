@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"errors"
+
+	crud "github.com/goliatone/go-crud"
 )
 
 // PanelBuilder configures a panel before registration.
@@ -22,6 +24,7 @@ type PanelBuilder struct {
 	treeView     bool
 	authorizer   Authorizer
 	commandBus   *CommandRegistry
+	activity     ActivitySink
 }
 
 // Panel represents a registered panel.
@@ -41,6 +44,7 @@ type Panel struct {
 	treeView     bool
 	authorizer   Authorizer
 	commandBus   *CommandRegistry
+	activity     ActivitySink
 }
 
 // Repository provides CRUD operations for panel data.
@@ -131,11 +135,40 @@ type Schema struct {
 	TreeView     bool                         `json:"tree_view,omitempty"`
 	Permissions  PanelPermissions             `json:"permissions,omitempty"`
 	Theme        map[string]map[string]string `json:"theme,omitempty"`
+	Export       *ExportConfig                `json:"export,omitempty"`
+	Bulk         *BulkConfig                  `json:"bulk,omitempty"`
+	Media        *MediaConfig                 `json:"media,omitempty"`
+}
+
+// ExportConfig captures export metadata for UI consumers.
+type ExportConfig struct {
+	Resource string   `json:"resource"`
+	Formats  []string `json:"formats"`
+	Endpoint string   `json:"endpoint"`
+}
+
+// BulkConfig captures bulk endpoint metadata and capabilities.
+type BulkConfig struct {
+	Endpoint         string `json:"endpoint"`
+	SupportsRollback bool   `json:"supports_rollback,omitempty"`
+}
+
+// MediaConfig surfaces media library configuration for form widgets.
+type MediaConfig struct {
+	LibraryPath string `json:"library_path"`
 }
 
 // WithRepository sets the panel repository.
 func (b *PanelBuilder) WithRepository(repo Repository) *PanelBuilder {
 	b.repo = repo
+	return b
+}
+
+// WithCRUDService configures the panel to use a go-crud service (Bun-backed).
+func (b *PanelBuilder) WithCRUDService(service crud.Service[map[string]any]) *PanelBuilder {
+	if service != nil {
+		b.repo = NewCRUDRepositoryAdapter(service)
+	}
 	return b
 }
 
@@ -217,6 +250,12 @@ func (b *PanelBuilder) WithCommandBus(bus *CommandRegistry) *PanelBuilder {
 	return b
 }
 
+// WithActivitySink wires the activity sink used to record panel events.
+func (b *PanelBuilder) WithActivitySink(sink ActivitySink) *PanelBuilder {
+	b.activity = sink
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
@@ -238,6 +277,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		treeView:     b.treeView,
 		authorizer:   b.authorizer,
 		commandBus:   b.commandBus,
+		activity:     b.activity,
 	}, nil
 }
 
@@ -275,14 +315,22 @@ func buildFormSchema(fields []Field) map[string]any {
 	required := []string{}
 	props := schema["properties"].(map[string]any)
 	for _, f := range fields {
-		props[f.Name] = map[string]any{
+		prop := map[string]any{
 			"type":         mapFieldType(f.Type),
 			"title":        f.Label,
 			"readOnly":     f.ReadOnly,
+			"read_only":    f.ReadOnly,
 			"x-hidden":     f.Hidden,
 			"x-options":    f.Options,
 			"x-validation": f.Validation,
 		}
+		if widget := mapWidget(f.Type); widget != "" {
+			prop["x-formgen:widget"] = widget
+		}
+		if f.Validation != "" {
+			prop["x-validation-source"] = "panel"
+		}
+		props[f.Name] = prop
 		if f.Required {
 			required = append(required, f.Name)
 		}
@@ -301,6 +349,45 @@ func mapFieldType(t string) string {
 		return "boolean"
 	default:
 		return "string"
+	}
+}
+
+func mapWidget(t string) string {
+	switch t {
+	case "textarea":
+		return "textarea"
+	case "media", "media_picker":
+		return "media-picker"
+	default:
+		return ""
+	}
+}
+
+func applyMediaHints(schema *Schema, libraryPath string) {
+	if schema == nil || schema.FormSchema == nil || libraryPath == "" {
+		return
+	}
+	props, ok := schema.FormSchema["properties"].(map[string]any)
+	if !ok {
+		return
+	}
+	for _, field := range schema.FormFields {
+		if field.Type != "media" && field.Type != "media_picker" {
+			continue
+		}
+		prop, ok := props[field.Name].(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, ok := prop["x-formgen:widget"]; !ok {
+			prop["x-formgen:widget"] = "media-picker"
+		}
+		adminMeta, _ := prop["x-admin"].(map[string]any)
+		if adminMeta == nil {
+			adminMeta = map[string]any{}
+		}
+		adminMeta["media_library_path"] = libraryPath
+		prop["x-admin"] = adminMeta
 	}
 }
 
@@ -345,6 +432,10 @@ func (p *Panel) Create(ctx AdminContext, record map[string]any) (map[string]any,
 			return nil, err
 		}
 	}
+	p.recordActivity(ctx, "panel.create", map[string]any{
+		"id":    extractRecordID(res),
+		"panel": p.name,
+	})
 	return res, nil
 }
 
@@ -369,6 +460,10 @@ func (p *Panel) Update(ctx AdminContext, id string, record map[string]any) (map[
 			return nil, err
 		}
 	}
+	p.recordActivity(ctx, "panel.update", map[string]any{
+		"id":    extractRecordID(res, id),
+		"panel": p.name,
+	})
 	return res, nil
 }
 
@@ -392,6 +487,10 @@ func (p *Panel) Delete(ctx AdminContext, id string) error {
 			return err
 		}
 	}
+	p.recordActivity(ctx, "panel.delete", map[string]any{
+		"id":    id,
+		"panel": p.name,
+	})
 	return nil
 }
 
@@ -402,7 +501,14 @@ func (p *Panel) RunAction(ctx AdminContext, name string) error {
 			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
 				return ErrForbidden
 			}
-			return p.commandBus.Dispatch(ctx.Context, action.CommandName)
+			err := p.commandBus.Dispatch(ctx.Context, action.CommandName)
+			if err == nil {
+				p.recordActivity(ctx, "panel.action", map[string]any{
+					"panel":  p.name,
+					"action": name,
+				})
+			}
+			return err
 		}
 	}
 	return errors.New("action not found")
@@ -415,8 +521,51 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string) error {
 			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
 				return ErrForbidden
 			}
-			return p.commandBus.Dispatch(ctx.Context, action.CommandName)
+			err := p.commandBus.Dispatch(ctx.Context, action.CommandName)
+			if err == nil {
+				p.recordActivity(ctx, "panel.bulk_action", map[string]any{
+					"panel":  p.name,
+					"action": name,
+				})
+			}
+			return err
 		}
 	}
 	return errors.New("bulk action not found")
+}
+
+func (p *Panel) recordActivity(ctx AdminContext, action string, metadata map[string]any) {
+	if p == nil || p.activity == nil {
+		return
+	}
+	actor := ctx.UserID
+	if actor == "" {
+		actor = actorFromContext(ctx.Context)
+	}
+	entry := ActivityEntry{
+		Actor:    actor,
+		Action:   action,
+		Object:   "panel:" + p.name,
+		Metadata: metadata,
+	}
+	_ = p.activity.Record(ctx.Context, entry)
+}
+
+func extractRecordID(values ...any) string {
+	for _, val := range values {
+		switch v := val.(type) {
+		case map[string]any:
+			if id, ok := v["id"].(string); ok && id != "" {
+				return id
+			}
+			if id, ok := v["ID"].(string); ok && id != "" {
+				return id
+			}
+		case string:
+			if v != "" {
+				return v
+			}
+		}
+	}
+	return ""
 }
