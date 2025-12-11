@@ -21,6 +21,11 @@ const (
 	FeatureNotifications FeatureKey = "notifications"
 	FeatureMedia         FeatureKey = "media"
 	FeatureBulk          FeatureKey = "bulk"
+	FeaturePreferences   FeatureKey = "preferences"
+	FeatureProfile       FeatureKey = "profile"
+	FeatureUsers         FeatureKey = "users"
+	FeatureTenants       FeatureKey = "tenants"
+	FeatureOrganizations FeatureKey = "organizations"
 )
 
 // Features captures typed feature toggles used across the admin surface.
@@ -35,6 +40,11 @@ type Features struct {
 	Notifications bool
 	Media         bool
 	Bulk          bool
+	Preferences   bool
+	Profile       bool
+	Users         bool
+	Tenants       bool
+	Organizations bool
 }
 
 // flagMap returns the typed feature toggles as a string-keyed map.
@@ -50,41 +60,61 @@ func (f Features) flagMap() map[string]bool {
 		string(FeatureNotifications): f.Notifications,
 		string(FeatureMedia):         f.Media,
 		string(FeatureBulk):          f.Bulk,
+		string(FeaturePreferences):   f.Preferences,
+		string(FeatureProfile):       f.Profile,
+		string(FeatureUsers):         f.Users,
+		string(FeatureTenants):       f.Tenants,
+		string(FeatureOrganizations): f.Organizations,
 	}
 }
 
 // applyLegacy merges legacy boolean fields into the typed feature struct.
 func (f Features) applyLegacy(cfg Config) Features {
-	if cfg.EnableDashboard {
-		f.Dashboard = true
-	}
-	if cfg.EnableSearch {
-		f.Search = true
-	}
-	if cfg.EnableExport {
-		f.Export = true
-	}
-	if cfg.EnableCMS {
-		f.CMS = true
-	}
-	if cfg.EnableJobs {
-		f.Jobs = true
-	}
-	if cfg.EnableCommands {
-		f.Commands = true
-	}
-	if cfg.EnableSettings {
-		f.Settings = true
-	}
-	if cfg.EnableNotifications {
-		f.Notifications = true
-	}
 	if cfg.FeatureFlags != nil {
+		if enabled, ok := cfg.FeatureFlags[string(FeatureDashboard)]; ok && enabled {
+			f.Dashboard = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureSearch)]; ok && enabled {
+			f.Search = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureExport)]; ok && enabled {
+			f.Export = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureCMS)]; ok && enabled {
+			f.CMS = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureJobs)]; ok && enabled {
+			f.Jobs = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureCommands)]; ok && enabled {
+			f.Commands = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureSettings)]; ok && enabled {
+			f.Settings = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureNotifications)]; ok && enabled {
+			f.Notifications = true
+		}
 		if enabled, ok := cfg.FeatureFlags[string(FeatureMedia)]; ok && enabled {
 			f.Media = true
 		}
 		if enabled, ok := cfg.FeatureFlags[string(FeatureBulk)]; ok && enabled {
 			f.Bulk = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeaturePreferences)]; ok && enabled {
+			f.Preferences = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureProfile)]; ok && enabled {
+			f.Profile = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureUsers)]; ok && enabled {
+			f.Users = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureTenants)]; ok && enabled {
+			f.Tenants = true
+		}
+		if enabled, ok := cfg.FeatureFlags[string(FeatureOrganizations)]; ok && enabled {
+			f.Organizations = true
 		}
 	}
 	return f

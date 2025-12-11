@@ -16,6 +16,7 @@ type PreferencesModule struct {
 	menuCode      string
 	defaultLocale string
 	permission    string
+	menuParent    string
 }
 
 // NewPreferencesModule constructs the default preferences module.
@@ -88,14 +89,22 @@ func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 	return []MenuItem{
 		{
 			Label:       "Preferences",
-			Icon:        "person",
+			LabelKey:    "menu.preferences",
+			Icon:        "user-circle",
 			Target:      map[string]any{"type": "url", "path": path, "key": preferencesModuleID},
 			Permissions: []string{m.permission},
 			Menu:        m.menuCode,
 			Locale:      locale,
 			Position:    60,
+			ParentID:    m.menuParent,
 		},
 	}
+}
+
+// WithMenuParent nests the preferences navigation under a parent menu item ID.
+func (m *PreferencesModule) WithMenuParent(parent string) *PreferencesModule {
+	m.menuParent = parent
+	return m
 }
 
 func (m *PreferencesModule) themeOptions(admin *Admin) []Option {

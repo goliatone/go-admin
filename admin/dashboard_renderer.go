@@ -1,15 +1,11 @@
 package admin
 
-import (
-	"html/template"
-)
-
 // DashboardRenderer defines the interface for rendering dashboards as HTML.
 // Implementations can use any template engine or rendering approach.
 type DashboardRenderer interface {
 	// Render generates HTML from the dashboard layout.
 	// Returns HTML string and any rendering error.
-	Render(layout *DashboardLayout) (template.HTML, error)
+	Render(layout *DashboardLayout) (string, error)
 }
 
 // DashboardLayout represents the complete dashboard state ready for rendering.
@@ -23,7 +19,7 @@ type DashboardLayout struct {
 	Theme *ThemeSelection `json:"theme,omitempty"`
 
 	// Metadata contains additional context for rendering
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 
 	// BasePath is the admin base path for constructing URLs
 	BasePath string `json:"base_path"`
@@ -54,10 +50,10 @@ type ResolvedWidget struct {
 	Area string `json:"area"`
 
 	// Data contains the widget's rendered data
-	Data map[string]interface{} `json:"data"`
+	Data map[string]any `json:"data"`
 
 	// Config contains widget configuration
-	Config map[string]interface{} `json:"config,omitempty"`
+	Config map[string]any `json:"config,omitempty"`
 
 	// Metadata contains layout and state information
 	Metadata *WidgetMetadata `json:"metadata,omitempty"`

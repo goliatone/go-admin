@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
+	cmsboot "github.com/goliatone/go-admin/admin/internal/cmsboot"
+	helpers "github.com/goliatone/go-admin/admin/internal/helpers"
+	"github.com/goliatone/go-admin/admin/internal/modules"
+	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
+	settingsinternal "github.com/goliatone/go-admin/admin/internal/settings"
 	router "github.com/goliatone/go-router"
 )
 
@@ -286,7 +290,7 @@ func New(cfg Config) *Admin {
 	settingsForm.WithThemeResolver(adm.resolveTheme)
 	adm.panelForm.ThemeResolver = adm.resolveTheme
 	if adm.nav != nil {
-		adm.nav.defaultMenuCode = navMenuCode
+		adm.nav.SetDefaultMenuCode(navMenuCode)
 		adm.nav.UseCMS(adm.gates.Enabled(FeatureCMS))
 	}
 	if adm.search != nil {
@@ -319,7 +323,7 @@ func (a *Admin) WithTranslator(t Translator) *Admin {
 	if t != nil {
 		a.translator = t
 		if a.nav != nil {
-			a.nav.translator = t
+			a.nav.SetTranslator(t)
 		}
 	}
 	return a
@@ -329,7 +333,7 @@ func (a *Admin) WithTranslator(t Translator) *Admin {
 func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 	a.authorizer = authz
 	if a.nav != nil {
-		a.nav.authorizer = authz
+		a.nav.SetAuthorizer(authz)
 	}
 	if a.search != nil {
 		a.search.authorizer = authz
@@ -439,7 +443,7 @@ func (a *Admin) UseCMS(container CMSContainer) *Admin {
 		a.contentSvc = prevContent
 	}
 	if a.nav != nil {
-		a.nav.menuSvc = a.menuSvc
+		a.nav.SetMenuService(a.menuSvc)
 		a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
 	}
 	if a.dashboard != nil {
@@ -783,7 +787,7 @@ func (a *Admin) Initialize(r AdminRouter) error {
 		a.nav = NewNavigation(a.menuSvc, a.authorizer)
 	}
 	if a.nav != nil {
-		a.nav.defaultMenuCode = a.navMenuCode
+		a.nav.SetDefaultMenuCode(a.navMenuCode)
 		a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
 	}
 	if a.search == nil {
@@ -816,22 +820,40 @@ func (a *Admin) Initialize(r AdminRouter) error {
 }
 
 func (a *Admin) ensureCMS(ctx context.Context) error {
-	if !a.gates.Enabled(FeatureCMS) && !a.gates.Enabled(FeatureDashboard) {
-		// Already using in-memory defaults.
+	requireCMS := a.gates.Enabled(FeatureCMS) || a.gates.Enabled(FeatureDashboard)
+	if !requireCMS {
 		return nil
 	}
-	if a.cms == nil || a.menuSvc == nil || a.widgetSvc == nil {
-		container, err := BuildGoCMSContainer(ctx, a.config)
-		if err != nil {
-			return err
-		}
-		if container != nil {
-			a.UseCMS(container)
-		}
+	resolved, err := cmsboot.Ensure(ctx, cmsboot.EnsureOptions{
+		Container:         a.cms,
+		WidgetService:     a.widgetSvc,
+		MenuService:       a.menuSvc,
+		ContentService:    a.contentSvc,
+		RequireCMS:        requireCMS,
+		FallbackContainer: func() cmsboot.CMSContainer { return NewNoopCMSContainer() },
+		BuildContainer: func(ctx context.Context) (cmsboot.CMSContainer, error) {
+			return BuildGoCMSContainer(ctx, a.config)
+		},
+	})
+	if err != nil {
+		return err
 	}
-	if a.cms == nil {
-		container := NewNoopCMSContainer()
-		a.UseCMS(container)
+	if resolved.Container != nil {
+		a.UseCMS(resolved.Container)
+	} else {
+		if resolved.WidgetService != nil {
+			a.widgetSvc = resolved.WidgetService
+		}
+		if resolved.MenuService != nil {
+			a.menuSvc = resolved.MenuService
+			if a.nav != nil {
+				a.nav.SetMenuService(a.menuSvc)
+				a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
+			}
+		}
+		if resolved.ContentService != nil {
+			a.contentSvc = resolved.ContentService
+		}
 	}
 	return nil
 }
@@ -920,91 +942,41 @@ func (a *Admin) loadModules(ctx context.Context) error {
 	if err := a.registerDefaultModules(); err != nil {
 		return err
 	}
-	ordered, err := a.orderModules()
+	modulesToLoad := []modules.Module{}
+	for _, mod := range a.registry.Modules() {
+		if mod == nil {
+			continue
+		}
+		modulesToLoad = append(modulesToLoad, mod)
+	}
+
+	err := modules.Load(ctx, modules.LoadOptions{
+		Modules:       modulesToLoad,
+		Gates:         a.gates,
+		DefaultLocale: a.config.DefaultLocale,
+		Translator:    a.translator,
+		DisabledError: func(feature, moduleID string) error {
+			return FeatureDisabledError{
+				Feature: feature,
+				Reason:  fmt.Sprintf("required by module %s; set via Config.Features or FeatureFlags", moduleID),
+			}
+		},
+		Register: func(mod modules.Module) error {
+			registrar, ok := mod.(Module)
+			if !ok {
+				return fmt.Errorf("module %s missing Register implementation", mod.Manifest().ID)
+			}
+			return registrar.Register(ModuleContext{Admin: a, Locale: a.config.DefaultLocale, Translator: a.translator})
+		},
+		AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
+			return a.addMenuItems(ctx, []MenuItem(items))
+		},
+	})
 	if err != nil {
 		return err
 	}
-	for _, module := range ordered {
-		if module == nil {
-			continue
-		}
-		manifest := module.Manifest()
-		if len(manifest.FeatureFlags) > 0 {
-			for _, flag := range manifest.FeatureFlags {
-				if !a.gates.EnabledKey(flag) {
-					return FeatureDisabledError{
-						Feature: flag,
-						Reason:  fmt.Sprintf("required by module %s; set via Config.Features or FeatureFlags", manifest.ID),
-					}
-				}
-			}
-		}
-		if aware, ok := module.(TranslatorAware); ok {
-			aware.WithTranslator(a.translator)
-		}
-		if err := module.Register(ModuleContext{Admin: a, Locale: a.config.DefaultLocale, Translator: a.translator}); err != nil {
-			return err
-		}
-		if contributor, ok := module.(MenuContributor); ok {
-			items := contributor.MenuItems(a.config.DefaultLocale)
-			if err := a.addMenuItems(ctx, items); err != nil {
-				return err
-			}
-		}
-	}
 	a.modulesLoaded = true
 	return nil
-}
-
-func (a *Admin) orderModules() ([]Module, error) {
-	if a.registry == nil {
-		return nil, nil
-	}
-	nodes := map[string]Module{}
-	order := []string{}
-	for _, m := range a.registry.Modules() {
-		if m == nil {
-			continue
-		}
-		manifest := m.Manifest()
-		nodes[manifest.ID] = m
-		order = append(order, manifest.ID)
-	}
-	visited := map[string]bool{}
-	stack := map[string]bool{}
-	result := []Module{}
-	var visit func(id string) error
-	visit = func(id string) error {
-		if visited[id] {
-			return nil
-		}
-		if stack[id] {
-			return fmt.Errorf("module dependency cycle detected at %s", id)
-		}
-		stack[id] = true
-		mod, ok := nodes[id]
-		if !ok {
-			return fmt.Errorf("module %s not registered", id)
-		}
-		for _, dep := range mod.Manifest().Dependencies {
-			if _, ok := nodes[dep]; !ok {
-				return fmt.Errorf("module %s missing dependency %s", id, dep)
-			}
-			if err := visit(dep); err != nil {
-				return err
-			}
-		}
-		stack[id] = false
-		visited[id] = true
-		result = append(result, mod)
-		return nil
-	}
-	for _, id := range order {
-		if err := visit(id); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
 }
 
 func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
@@ -1064,7 +1036,7 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 		// Ensure fallback navigation also receives deduped items when CMS is disabled.
 		if len(fallbackItems) > 0 {
 			deduped := dedupeMenuItems(fallbackItems)
-			converted := convertMenuItems(deduped, a.translator, a.config.DefaultLocale)
+			converted := navinternal.ConvertMenuItems(deduped, a.translator, a.config.DefaultLocale)
 			if len(converted) > 0 {
 				a.nav.AddFallback(converted...)
 			}
@@ -1082,11 +1054,11 @@ func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
 
 	if a.menuSvc != nil {
 		menu, err := a.menuSvc.Menu(ctx, a.navMenuCode, a.config.DefaultLocale)
-		if err == nil && menuHasTarget(menu.Items, targetKey, settingsPath) {
+		if err == nil && navinternal.MenuHasTarget(menu.Items, targetKey, settingsPath) {
 			return nil
 		}
 	}
-	if navigationHasTarget(a.nav.fallback, targetKey, settingsPath) {
+	if navinternal.NavigationHasTarget(a.nav.Fallback(), targetKey, settingsPath) {
 		return nil
 	}
 
@@ -1116,31 +1088,25 @@ func (a *Admin) bootstrapSettingsDefaults(ctx context.Context) error {
 	if a.settings == nil {
 		return nil
 	}
-	dashboardEnabled := a.gates.Enabled(FeatureDashboard)
-	searchEnabled := a.gates.Enabled(FeatureSearch)
-	definitions := []SettingDefinition{
-		{Key: "admin.title", Title: "Admin Title", Description: "Displayed in headers", Default: a.config.Title, Type: "string", Group: "admin"},
-		{Key: "admin.default_locale", Title: "Default Locale", Description: "Locale fallback for navigation and CMS content", Default: a.config.DefaultLocale, Type: "string", Group: "admin"},
-		{Key: "admin.theme", Title: "Theme", Description: "Theme selection for admin UI", Default: a.config.Theme, Type: "string", Group: "appearance"},
-		{Key: "admin.dashboard_enabled", Title: "Dashboard Enabled", Description: "Toggle dashboard widgets", Default: dashboardEnabled, Type: "boolean", Group: "features"},
-		{Key: "admin.search_enabled", Title: "Search Enabled", Description: "Toggle global search", Default: searchEnabled, Type: "boolean", Group: "features"},
-	}
-	for _, def := range definitions {
-		a.settings.RegisterDefinition(def)
-	}
-	systemValues := map[string]any{}
-	if a.config.Title != "" {
-		systemValues["admin.title"] = a.config.Title
-	}
-	if a.config.DefaultLocale != "" {
-		systemValues["admin.default_locale"] = a.config.DefaultLocale
-	}
-	if a.config.Theme != "" {
-		systemValues["admin.theme"] = a.config.Theme
-	}
-	systemValues["admin.dashboard_enabled"] = dashboardEnabled
-	systemValues["admin.search_enabled"] = searchEnabled
 
+	cfg := settingsinternal.BootstrapConfig{
+		Title:            a.config.Title,
+		DefaultLocale:    a.config.DefaultLocale,
+		Theme:            a.config.Theme,
+		DashboardEnabled: a.gates.Enabled(FeatureDashboard),
+		SearchEnabled:    a.gates.Enabled(FeatureSearch),
+	}
+	defs, systemValues := settingsinternal.DefaultDefinitions(cfg)
+	for _, def := range defs {
+		a.settings.RegisterDefinition(SettingDefinition{
+			Key:         def.Key,
+			Title:       def.Title,
+			Description: def.Description,
+			Default:     def.Default,
+			Type:        def.Type,
+			Group:       def.Group,
+		})
+	}
 	if len(systemValues) > 0 {
 		_ = a.settings.Apply(ctx, SettingsBundle{Scope: SettingsScopeSystem, Values: systemValues})
 	}
@@ -1148,55 +1114,21 @@ func (a *Admin) bootstrapSettingsDefaults(ctx context.Context) error {
 }
 
 func (a *Admin) bootstrapAdminMenu(ctx context.Context) error {
-	if a.menuSvc == nil {
-		return nil
-	}
-	menu, err := a.menuSvc.CreateMenu(ctx, "admin.main")
-	if err != nil {
-		return err
-	}
-	_ = menu
-	// Modules are responsible for contributing menu items. We only ensure the menu exists.
-	return nil
+	return cmsboot.BootstrapMenu(ctx, a.menuSvc, a.navMenuCode)
 }
 
 func joinPath(basePath, suffix string) string {
-	return path.Join("/", basePath, suffix)
+	return helpers.JoinPath(basePath, suffix)
 }
 
 func menuHasTarget(items []MenuItem, key string, path string) bool {
-	for _, item := range items {
-		if targetMatches(item.Target, key, path) {
-			return true
-		}
-		if menuHasTarget(item.Children, key, path) {
-			return true
-		}
-	}
-	return false
+	return helpers.MenuHasTarget(items, key, path)
 }
 
 func navigationHasTarget(items []NavigationItem, key string, path string) bool {
-	for _, item := range items {
-		if targetMatches(item.Target, key, path) {
-			return true
-		}
-		if navigationHasTarget(item.Children, key, path) {
-			return true
-		}
-	}
-	return false
+	return helpers.NavigationHasTarget(items, key, path)
 }
 
 func targetMatches(target map[string]any, key string, path string) bool {
-	if len(target) == 0 {
-		return false
-	}
-	if targetKey, ok := target["key"].(string); ok && targetKey == key {
-		return true
-	}
-	if targetPath, ok := target["path"].(string); ok && path != "" && targetPath == path {
-		return true
-	}
-	return false
+	return helpers.TargetMatches(target, key, path)
 }

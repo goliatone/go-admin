@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 )
 
 func recordCMSActivity(ctx context.Context, sink ActivitySink, action, object string, meta map[string]any) {
@@ -327,7 +329,7 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 		item.Type = MenuItemTypeItem
 	}
 	state.insertSeq++
-	item.order = state.insertSeq
+	navinternal.SetMenuItemOrder(&item, state.insertSeq)
 	item.Menu = state.slug
 	state.items[item.ID] = item
 	recordCMSActivity(ctx, s.activity, "cms.menu_item.create", "menu_item:"+item.ID, map[string]any{
@@ -366,7 +368,7 @@ func (s *InMemoryMenuService) UpdateMenuItem(ctx context.Context, menuCode strin
 	if strings.TrimSpace(item.Type) == "" {
 		item.Type = MenuItemTypeItem
 	}
-	item.order = existing.order
+	navinternal.SetMenuItemOrder(&item, navinternal.MenuItemOrder(existing))
 	item.Menu = state.slug
 	state.items[item.ID] = item
 	recordCMSActivity(ctx, s.activity, "cms.menu_item.update", "menu_item:"+item.ID, map[string]any{
@@ -454,10 +456,12 @@ func (s *InMemoryMenuService) Menu(_ context.Context, code, locale string) (*Men
 func sortMenuChildren(children *[]MenuItem) {
 	sort.Slice(*children, func(i, j int) bool {
 		if (*children)[i].Position == (*children)[j].Position {
-			if (*children)[i].order == (*children)[j].order {
+			leftOrder := navinternal.MenuItemOrder((*children)[i])
+			rightOrder := navinternal.MenuItemOrder((*children)[j])
+			if leftOrder == rightOrder {
 				return (*children)[i].ID < (*children)[j].ID
 			}
-			return (*children)[i].order < (*children)[j].order
+			return leftOrder < rightOrder
 		}
 		return (*children)[i].Position < (*children)[j].Position
 	})

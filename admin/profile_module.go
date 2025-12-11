@@ -15,6 +15,7 @@ type ProfileModule struct {
 	defaultLocale    string
 	viewPermission   string
 	updatePermission string
+	menuParent       string
 }
 
 // NewProfileModule constructs the default profile module.
@@ -101,14 +102,22 @@ func (m *ProfileModule) MenuItems(locale string) []MenuItem {
 	return []MenuItem{
 		{
 			Label:       "Profile",
+			LabelKey:    "menu.profile",
 			Icon:        "user",
 			Target:      map[string]any{"type": "url", "path": path, "key": profileModuleID},
 			Permissions: []string{m.viewPermission},
 			Menu:        m.menuCode,
 			Locale:      locale,
 			Position:    55,
+			ParentID:    m.menuParent,
 		},
 	}
+}
+
+// WithMenuParent nests the profile navigation under a parent menu item ID.
+func (m *ProfileModule) WithMenuParent(parent string) *ProfileModule {
+	m.menuParent = parent
+	return m
 }
 
 // ProfileRepository adapts ProfileService to the panel Repository contract.

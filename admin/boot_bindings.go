@@ -172,11 +172,7 @@ func (d *dashboardBinding) RenderHTML(c router.Context, locale string) (string, 
 	if err != nil {
 		return "", err
 	}
-	html, err := d.admin.dashboard.renderer.Render(layout)
-	if err != nil {
-		return "", err
-	}
-	return string(html), nil
+	return d.admin.dashboard.renderer.Render(layout)
 }
 
 func (d *dashboardBinding) Widgets(c router.Context, locale string) (map[string]any, error) {

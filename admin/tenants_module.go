@@ -22,6 +22,7 @@ type TenantsModule struct {
 	createPerm    string
 	updatePerm    string
 	deletePerm    string
+	menuParent    string
 }
 
 // NewTenantsModule constructs the default tenants module.
@@ -125,12 +126,14 @@ func (m *TenantsModule) MenuItems(locale string) []MenuItem {
 	return []MenuItem{
 		{
 			Label:       "Tenants",
+			LabelKey:    "menu.tenants",
 			Icon:        "building",
 			Target:      map[string]any{"type": "url", "path": path, "key": tenantsModuleID},
 			Permissions: []string{m.viewPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
 			Position:    32,
+			ParentID:    m.menuParent,
 		},
 	}
 }
@@ -144,6 +147,7 @@ type OrganizationsModule struct {
 	createPerm    string
 	updatePerm    string
 	deletePerm    string
+	menuParent    string
 }
 
 // NewOrganizationsModule constructs the default organizations module.
@@ -248,14 +252,28 @@ func (m *OrganizationsModule) MenuItems(locale string) []MenuItem {
 	return []MenuItem{
 		{
 			Label:       "Organizations",
-			Icon:        "briefcase",
+			LabelKey:    "menu.organizations",
+			Icon:        "community",
 			Target:      map[string]any{"type": "url", "path": path, "key": organizationsModuleID},
 			Permissions: []string{m.viewPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
 			Position:    33,
+			ParentID:    m.menuParent,
 		},
 	}
+}
+
+// WithMenuParent nests tenant navigation under a parent menu item ID.
+func (m *TenantsModule) WithMenuParent(parent string) *TenantsModule {
+	m.menuParent = parent
+	return m
+}
+
+// WithMenuParent nests organization navigation under a parent menu item ID.
+func (m *OrganizationsModule) WithMenuParent(parent string) *OrganizationsModule {
+	m.menuParent = parent
+	return m
 }
 
 // TenantPanelRepository adapts TenantService to the panel Repository contract.

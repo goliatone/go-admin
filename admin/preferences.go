@@ -106,6 +106,14 @@ func (s *PreferencesService) WithActivitySink(sink ActivitySink) {
 	}
 }
 
+// WithStore swaps the underlying preferences store.
+func (s *PreferencesService) WithStore(store PreferencesStore) *PreferencesService {
+	if s != nil && store != nil {
+		s.store = store
+	}
+	return s
+}
+
 // Store returns the underlying preferences store (useful for adapters).
 func (s *PreferencesService) Store() PreferencesStore {
 	if s == nil {
@@ -295,6 +303,8 @@ func flattenDashboardLayout(layout []DashboardWidgetInstance) []map[string]any {
 			"area":       inst.AreaCode,
 			"config":     cloneAnyMap(inst.Config),
 			"position":   inst.Position,
+			"span":       inst.Span,
+			"hidden":     inst.Hidden,
 			"locale":     inst.Locale,
 		})
 	}
@@ -314,6 +324,8 @@ func expandDashboardLayout(input any) []DashboardWidgetInstance {
 				AreaCode:       toString(obj["area"]),
 				Config:         cloneAnyMap(extractMap(obj["config"])),
 				Position:       atoiDefault(toString(obj["position"]), 0),
+				Span:           atoiDefault(toString(obj["span"]), 0),
+				Hidden:         toBool(obj["hidden"]),
 				Locale:         toString(obj["locale"]),
 			})
 		}
@@ -329,6 +341,8 @@ func expandDashboardLayout(input any) []DashboardWidgetInstance {
 				AreaCode:       toString(obj["area"]),
 				Config:         cloneAnyMap(extractMap(obj["config"])),
 				Position:       atoiDefault(toString(obj["position"]), 0),
+				Span:           atoiDefault(toString(obj["span"]), 0),
+				Hidden:         toBool(obj["hidden"]),
 				Locale:         toString(obj["locale"]),
 			})
 		}

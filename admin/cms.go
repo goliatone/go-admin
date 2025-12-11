@@ -1,178 +1,51 @@
 package admin
 
-import "context"
+import cmsboot "github.com/goliatone/go-admin/admin/internal/cmsboot"
 
 // CMSContainer abstracts CMS services used by admin.
-type CMSContainer interface {
-	WidgetService() CMSWidgetService
-	MenuService() CMSMenuService
-	ContentService() CMSContentService
-}
+type CMSContainer = cmsboot.CMSContainer
 
 // GoCMSMenuProvider exposes a raw go-cms menu service for adapter wiring.
-type GoCMSMenuProvider interface {
-	GoCMSMenuService() any
-}
+type GoCMSMenuProvider = cmsboot.GoCMSMenuProvider
 
 // CMSWidgetService registers dashboard widget areas/definitions.
-type CMSWidgetService interface {
-	RegisterAreaDefinition(ctx context.Context, def WidgetAreaDefinition) error
-	RegisterDefinition(ctx context.Context, def WidgetDefinition) error
-	DeleteDefinition(ctx context.Context, code string) error
-	Areas() []WidgetAreaDefinition
-	Definitions() []WidgetDefinition
-	SaveInstance(ctx context.Context, instance WidgetInstance) (*WidgetInstance, error)
-	DeleteInstance(ctx context.Context, id string) error
-	ListInstances(ctx context.Context, filter WidgetInstanceFilter) ([]WidgetInstance, error)
-}
+type CMSWidgetService = cmsboot.CMSWidgetService
 
 // CMSMenuService manages CMS-backed menus.
-type CMSMenuService interface {
-	CreateMenu(ctx context.Context, code string) (*Menu, error)
-	AddMenuItem(ctx context.Context, menuCode string, item MenuItem) error
-	UpdateMenuItem(ctx context.Context, menuCode string, item MenuItem) error
-	DeleteMenuItem(ctx context.Context, menuCode, id string) error
-	ReorderMenu(ctx context.Context, menuCode string, orderedIDs []string) error
-	Menu(ctx context.Context, code, locale string) (*Menu, error)
-}
+type CMSMenuService = cmsboot.CMSMenuService
 
 // CMSContentService manages pages/blocks backed by the CMS.
-type CMSContentService interface {
-	Pages(ctx context.Context, locale string) ([]CMSPage, error)
-	Page(ctx context.Context, id, locale string) (*CMSPage, error)
-	CreatePage(ctx context.Context, page CMSPage) (*CMSPage, error)
-	UpdatePage(ctx context.Context, page CMSPage) (*CMSPage, error)
-	DeletePage(ctx context.Context, id string) error
-	Contents(ctx context.Context, locale string) ([]CMSContent, error)
-	Content(ctx context.Context, id, locale string) (*CMSContent, error)
-	CreateContent(ctx context.Context, content CMSContent) (*CMSContent, error)
-	UpdateContent(ctx context.Context, content CMSContent) (*CMSContent, error)
-	DeleteContent(ctx context.Context, id string) error
-	BlockDefinitions(ctx context.Context) ([]CMSBlockDefinition, error)
-	CreateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error)
-	UpdateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error)
-	DeleteBlockDefinition(ctx context.Context, id string) error
-	BlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error)
-	SaveBlock(ctx context.Context, block CMSBlock) (*CMSBlock, error)
-	DeleteBlock(ctx context.Context, id string) error
-}
+type CMSContentService = cmsboot.CMSContentService
 
 // WidgetAreaDefinition captures CMS widget area metadata.
-type WidgetAreaDefinition struct {
-	Code  string
-	Name  string
-	Scope string
-}
+type WidgetAreaDefinition = cmsboot.WidgetAreaDefinition
 
 // WidgetDefinition captures admin widget metadata.
-type WidgetDefinition struct {
-	Code   string
-	Name   string
-	Schema map[string]any
-}
+type WidgetDefinition = cmsboot.WidgetDefinition
 
 // WidgetInstanceFilter narrows widget instance queries.
-type WidgetInstanceFilter struct {
-	Area   string
-	PageID string
-	Locale string
-}
+type WidgetInstanceFilter = cmsboot.WidgetInstanceFilter
 
 // WidgetInstance links a widget definition to a specific area/page.
-type WidgetInstance struct {
-	ID             string
-	DefinitionCode string
-	Area           string
-	PageID         string
-	Locale         string
-	Config         map[string]any
-	Position       int
-	Span           int
-	Hidden         bool
-}
+type WidgetInstance = cmsboot.WidgetInstance
 
 // Menu represents a simple CMS menu tree.
-type Menu struct {
-	ID    string
-	Code  string
-	Slug  string
-	Items []MenuItem
-}
+type Menu = cmsboot.Menu
 
 // MenuItem describes a single navigation node.
-type MenuItem struct {
-	ID            string            `json:"id,omitempty"`
-	Code          string            `json:"code,omitempty"`
-	Type          string            `json:"type,omitempty"`
-	Label         string            `json:"label,omitempty"`
-	LabelKey      string            `json:"label_key,omitempty"`
-	GroupTitle    string            `json:"group_title,omitempty"`
-	GroupTitleKey string            `json:"group_title_key,omitempty"`
-	Target        map[string]any    `json:"target,omitempty"`
-	Icon          string            `json:"icon,omitempty"`
-	Position      int               `json:"position,omitempty"`
-	Children      []MenuItem        `json:"children,omitempty"`
-	Locale        string            `json:"locale,omitempty"`
-	Badge         map[string]any    `json:"badge,omitempty"`
-	Permissions   []string          `json:"permissions,omitempty"`
-	Menu          string            `json:"menu,omitempty"`
-	Classes       []string          `json:"classes,omitempty"`
-	Styles        map[string]string `json:"styles,omitempty"`
-	ParentID      string            `json:"parent_id,omitempty"`
-	ParentCode    string            `json:"parent_code,omitempty"`
-	Collapsible   bool              `json:"collapsible,omitempty"`
-	Collapsed     bool              `json:"collapsed,omitempty"`
-	order         int               `json:"-"`
-}
+type MenuItem = cmsboot.MenuItem
 
 // CMSPage represents a page managed by the CMS.
-type CMSPage struct {
-	ID         string
-	Title      string
-	Slug       string
-	Locale     string
-	ParentID   string
-	Blocks     []string
-	SEO        map[string]any
-	Status     string
-	Data       map[string]any
-	PreviewURL string
-}
+type CMSPage = cmsboot.CMSPage
 
 // CMSContent represents structured content managed by the CMS.
-type CMSContent struct {
-	ID          string
-	Title       string
-	Slug        string
-	Locale      string
-	ContentType string
-	Status      string
-	Blocks      []string
-	Data        map[string]any
-}
+type CMSContent = cmsboot.CMSContent
 
 // CMSBlockDefinition describes a reusable block schema.
-type CMSBlockDefinition struct {
-	ID     string
-	Name   string
-	Type   string
-	Schema map[string]any
-	Locale string
-}
+type CMSBlockDefinition = cmsboot.CMSBlockDefinition
 
 // CMSBlock represents a block instance attached to content/pages.
-type CMSBlock struct {
-	ID             string
-	DefinitionID   string
-	ContentID      string
-	Region         string
-	Locale         string
-	Status         string
-	Data           map[string]any
-	Position       int
-	BlockType      string
-	BlockSchemaKey string
-}
+type CMSBlock = cmsboot.CMSBlock
 
 // NoopCMSContainer returns in-memory services that satisfy the CMS contracts.
 type NoopCMSContainer struct {

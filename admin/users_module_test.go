@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http/httptest"
 	"testing"
 
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
+	users "github.com/goliatone/go-users/pkg/types"
+	"github.com/google/uuid"
 )
 
 func TestUserModuleRegistersPanelsAndNavigation(t *testing.T) {
@@ -164,4 +168,169 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 	if !foundRoleCreate {
 		t.Fatalf("expected role.create activity entry, got %+v", entries)
 	}
+}
+
+func TestUserLifecycleCommandTransitionsStatus(t *testing.T) {
+	svc := NewUserManagementService(nil, nil)
+	feed := NewActivityFeed()
+	svc.WithActivitySink(feed)
+
+	record, err := svc.SaveUser(context.Background(), UserRecord{
+		Email:    "lifecycle@example.com",
+		Username: "lifecycle",
+		Status:   "pending",
+	})
+	if err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+
+	cmd := newUserLifecycleCommand(svc, "users.activate", "active")
+	ctx := WithCommandIDs(context.Background(), []string{record.ID})
+	if err := cmd.Execute(ctx); err != nil {
+		t.Fatalf("execute lifecycle command: %v", err)
+	}
+
+	updated, err := svc.GetUser(ctx, record.ID)
+	if err != nil {
+		t.Fatalf("get after lifecycle: %v", err)
+	}
+	if updated.Status != "active" {
+		t.Fatalf("expected status active, got %s", updated.Status)
+	}
+	entries, _ := feed.List(context.Background(), 10)
+	found := false
+	for _, entry := range entries {
+		if entry.Action == "user.status.active" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected user.status.active activity, got %+v", entries)
+	}
+}
+
+func TestGoUsersUserRepositoryAppliesFilters(t *testing.T) {
+	inventory := &recordingInventoryRepo{}
+	repo := NewGoUsersUserRepository(&stubGoUsersAuthRepo{}, inventory, nil)
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: uuid.NewString()})
+
+	opts := ListOptions{
+		Filters: map[string]any{
+			"status": []string{"suspended"},
+			"role":   "editor",
+		},
+		Search:  "needle",
+		Page:    2,
+		PerPage: 5,
+	}
+	if _, _, err := repo.List(ctx, opts); err != nil {
+		t.Fatalf("list with filters: %v", err)
+	}
+	filter := inventory.lastFilter
+	if len(filter.Statuses) != 1 || filter.Statuses[0] != users.LifecycleStateSuspended {
+		t.Fatalf("expected suspended status filter, got %+v", filter.Statuses)
+	}
+	if filter.Role != "editor" {
+		t.Fatalf("expected role filter editor, got %s", filter.Role)
+	}
+	if filter.Keyword != "needle" {
+		t.Fatalf("expected keyword needle, got %s", filter.Keyword)
+	}
+	if filter.Pagination.Limit != 5 || filter.Pagination.Offset != 5 {
+		t.Fatalf("expected pagination limit=5 offset=5, got %+v", filter.Pagination)
+	}
+}
+
+func TestRoleOptionsUsesSyntheticActorContext(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Users: true,
+		},
+	}
+	adm := New(cfg)
+	guarded := &guardedRoleRepo{}
+	adm.users.roles = guarded
+
+	module := NewUserManagementModule()
+	options := module.roleOptions(adm)
+	if len(options) == 0 {
+		t.Fatalf("expected role options, got none")
+	}
+	if !guarded.called {
+		t.Fatalf("expected guarded repo to be invoked for role options")
+	}
+	if userIDFromContext(guarded.ctx) == "" {
+		t.Fatalf("expected synthetic actor in context for role options")
+	}
+}
+
+type stubGoUsersAuthRepo struct{}
+
+func (stubGoUsersAuthRepo) GetByID(context.Context, uuid.UUID) (*users.AuthUser, error) {
+	return nil, errors.New("not implemented")
+}
+func (stubGoUsersAuthRepo) GetByIdentifier(context.Context, string) (*users.AuthUser, error) {
+	return nil, errors.New("not implemented")
+}
+func (stubGoUsersAuthRepo) Create(context.Context, *users.AuthUser) (*users.AuthUser, error) {
+	return nil, errors.New("not implemented")
+}
+func (stubGoUsersAuthRepo) Update(context.Context, *users.AuthUser) (*users.AuthUser, error) {
+	return nil, errors.New("not implemented")
+}
+func (stubGoUsersAuthRepo) UpdateStatus(context.Context, users.ActorRef, uuid.UUID, users.LifecycleState, ...users.TransitionOption) (*users.AuthUser, error) {
+	return nil, errors.New("not implemented")
+}
+func (stubGoUsersAuthRepo) AllowedTransitions(context.Context, uuid.UUID) ([]users.LifecycleTransition, error) {
+	return nil, errors.New("not implemented")
+}
+func (stubGoUsersAuthRepo) ResetPassword(context.Context, uuid.UUID, string) error {
+	return errors.New("not implemented")
+}
+
+type recordingInventoryRepo struct {
+	lastFilter users.UserInventoryFilter
+}
+
+func (r *recordingInventoryRepo) ListUsers(_ context.Context, filter users.UserInventoryFilter) (users.UserInventoryPage, error) {
+	r.lastFilter = filter
+	return users.UserInventoryPage{
+		Users:      []users.AuthUser{},
+		Total:      0,
+		NextOffset: 0,
+		HasMore:    false,
+	}, nil
+}
+
+type guardedRoleRepo struct {
+	called bool
+	ctx    context.Context
+}
+
+func (r *guardedRoleRepo) List(ctx context.Context, _ ListOptions) ([]RoleRecord, int, error) {
+	r.called = true
+	r.ctx = ctx
+	if userIDFromContext(ctx) == "" {
+		return nil, 0, ErrForbidden
+	}
+	return []RoleRecord{{ID: "role-1", Name: "Admin"}}, 1, nil
+}
+
+func (r *guardedRoleRepo) Get(context.Context, string) (RoleRecord, error) {
+	return RoleRecord{}, ErrNotFound
+}
+func (r *guardedRoleRepo) Create(context.Context, RoleRecord) (RoleRecord, error) {
+	return RoleRecord{}, nil
+}
+func (r *guardedRoleRepo) Update(context.Context, RoleRecord) (RoleRecord, error) {
+	return RoleRecord{}, nil
+}
+func (r *guardedRoleRepo) Delete(context.Context, string) error           { return nil }
+func (r *guardedRoleRepo) Assign(context.Context, string, string) error   { return nil }
+func (r *guardedRoleRepo) Unassign(context.Context, string, string) error { return nil }
+func (r *guardedRoleRepo) RolesForUser(context.Context, string) ([]RoleRecord, error) {
+	return nil, nil
 }

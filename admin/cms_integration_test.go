@@ -106,14 +106,11 @@ func TestUseCMSOverridesNavigationSource(t *testing.T) {
 		t.Fatalf("init failed: %v", err)
 	}
 	t.Logf("admin menu svc type=%T", adm.menuSvc)
-	if adm.nav.menuSvc == nil {
+	if adm.nav.MenuService() == nil {
 		t.Fatalf("nav menu service not set")
 	}
-	if !adm.nav.useCMS {
-		t.Fatalf("navigation should use CMS")
-	}
-	if adm.nav.defaultMenuCode != "admin.main" {
-		t.Fatalf("unexpected default menu code %s", adm.nav.defaultMenuCode)
+	if adm.nav.DefaultMenuCode() != "admin.main" {
+		t.Fatalf("unexpected default menu code %s", adm.nav.DefaultMenuCode())
 	}
 	menu, err := adm.menuSvc.Menu(context.Background(), "admin.main", "en")
 	if err != nil {

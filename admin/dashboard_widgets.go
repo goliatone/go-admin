@@ -3,224 +3,151 @@ package admin
 import (
 	"context"
 	"strings"
+
+	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 )
 
 func (a *Admin) registerWidgetAreas() error {
 	if a == nil {
 		return nil
 	}
-	if !a.gates.Enabled(FeatureCMS) && !a.gates.Enabled(FeatureDashboard) {
-		return nil
+	features := dashinternal.FeatureFlags{
+		CMS:       a.gates.Enabled(FeatureCMS),
+		Dashboard: a.gates.Enabled(FeatureDashboard),
+		Settings:  a.gates.Enabled(FeatureSettings),
 	}
-	ctx := context.Background()
-	if a.dashboard != nil && len(a.dashboard.Areas()) > 0 {
-		return nil
-	}
-	if a.widgetSvc != nil {
-		if areas := a.widgetSvc.Areas(); len(areas) > 0 {
-			return nil
-		}
-	}
-	areas := []WidgetAreaDefinition{
-		{Code: "admin.dashboard.main", Name: "Main Dashboard Area", Scope: "global"},
-		{Code: "admin.dashboard.sidebar", Name: "Dashboard Sidebar", Scope: "global"},
-		{Code: "admin.dashboard.footer", Name: "Dashboard Footer", Scope: "global"},
-	}
-	for _, area := range areas {
-		if a.dashboard != nil {
-			a.dashboard.RegisterArea(area)
-		} else if a.widgetSvc != nil {
-			if err := a.widgetSvc.RegisterAreaDefinition(ctx, area); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return dashinternal.RegisterWidgetAreas(
+		a.dashboardAreaAdapter(),
+		a.widgetServiceAdapter(),
+		features,
+	)
 }
 
 func (a *Admin) registerDefaultWidgets() error {
-	if a == nil || a.widgetSvc == nil {
+	if a == nil {
 		return nil
 	}
-	ctx := context.Background()
-	if defs := a.widgetSvc.Definitions(); len(defs) > 0 {
-		return a.registerDashboardProviders()
+	features := dashinternal.FeatureFlags{
+		CMS:       a.gates.Enabled(FeatureCMS),
+		Dashboard: a.gates.Enabled(FeatureDashboard),
+		Settings:  a.gates.Enabled(FeatureSettings),
 	}
-	definitions := []WidgetDefinition{
-		{
-			Code: "admin.widget.user_stats",
-			Name: "User Statistics",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"title": map[string]any{"type": "string"},
-					"metric": map[string]any{
-						"type": "string",
-						"enum": []string{"activity", "notifications", "custom"},
-					},
-				},
-			},
-		},
-		{
-			Code: "admin.widget.activity_feed",
-			Name: "Activity Feed",
-			Schema: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{"limit": map[string]any{"type": "integer", "default": 10}},
-			},
-		},
-		{
-			Code: "admin.widget.quick_actions",
-			Name: "Quick Actions",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"actions": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type": "object",
-							"properties": map[string]any{
-								"label": map[string]any{"type": "string"},
-								"url":   map[string]any{"type": "string"},
-								"icon":  map[string]any{"type": "string"},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			Code: "admin.widget.chart_sample",
-			Name: "Sample Chart",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"title": map[string]any{"type": "string"},
-					"type":  map[string]any{"type": "string", "enum": []string{"line", "bar", "pie"}},
-				},
-			},
-		},
-	}
-	if a.gates.Enabled(FeatureSettings) {
-		definitions = append(definitions, WidgetDefinition{
-			Code: "admin.widget.settings_overview",
-			Name: "Settings Overview",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"keys": map[string]any{
-						"type":  "array",
-						"items": map[string]any{"type": "string"},
-					},
-				},
-			},
-		})
-	}
-	for _, def := range definitions {
-		if err := a.widgetSvc.RegisterDefinition(ctx, def); err != nil {
-			return err
-		}
-	}
-	return a.registerDashboardProviders()
+	return dashinternal.RegisterDefaultWidgets(
+		a.widgetServiceAdapter(),
+		features,
+		func() error { return a.registerDashboardProviders() },
+	)
 }
 
 func (a *Admin) registerDashboardProviders() error {
-	if a == nil || a.dashboard == nil || !a.gates.Enabled(FeatureDashboard) {
+	if a == nil || a.dashboard == nil {
 		return nil
 	}
-	a.dashboard.WithWidgetService(a.widgetSvc)
-	a.dashboard.WithCommandBus(a.commandRegistry)
-	a.dashboard.WithAuthorizer(a.authorizer)
-
-	statsSpec := DashboardProviderSpec{
-		Code:          "admin.widget.user_stats",
-		Name:          "User Statistics",
-		DefaultArea:   "admin.dashboard.main",
-		DefaultConfig: map[string]any{"metric": "activity", "title": "Activity"},
-		DefaultSpan:   4,
-		Permission:    "",
-		CommandName:   "dashboard.provider.user_stats",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-			metric := toString(cfg["metric"])
-			if metric == "" {
-				metric = "activity"
-			}
-			title := toString(cfg["title"])
-			if title == "" {
-				title = "Statistic"
-			}
-			value := 0
-			switch metric {
-			case "notifications":
-				if a.notifications != nil {
-					items, _ := a.notifications.List(ctx.Context)
-					value = len(items)
-				}
-			case "activity":
-				if a.activity != nil {
-					items, _ := a.activity.List(ctx.Context, 100)
-					value = len(items)
-				}
-			default:
-				if a.settings != nil {
-					values := a.settings.ResolveAll(ctx.UserID)
-					if v, ok := values[metric]; ok && v.Value != nil {
-						if iv, ok := v.Value.(int); ok {
-							value = iv
+	if a.commandRegistry != nil {
+		a.dashboard.WithCommandBus(a.commandRegistry)
+	}
+	features := dashinternal.FeatureFlags{
+		CMS:       a.gates.Enabled(FeatureCMS),
+		Dashboard: a.gates.Enabled(FeatureDashboard),
+		Settings:  a.gates.Enabled(FeatureSettings),
+	}
+	return dashinternal.RegisterProviders(
+		a.providerHostAdapter(),
+		a.widgetServiceAdapter(),
+		a.authorizer,
+		features,
+		func() error {
+			statsSpec := DashboardProviderSpec{
+				Code:          "admin.widget.user_stats",
+				Name:          "User Statistics",
+				DefaultArea:   "admin.dashboard.main",
+				DefaultConfig: map[string]any{"metric": "activity", "title": "Activity"},
+				DefaultSpan:   4,
+				Permission:    "",
+				CommandName:   "dashboard.provider.user_stats",
+				Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+					metric := toString(cfg["metric"])
+					if metric == "" {
+						metric = "activity"
+					}
+					title := toString(cfg["title"])
+					if title == "" {
+						title = "Statistic"
+					}
+					value := 0
+					switch metric {
+					case "notifications":
+						if a.notifications != nil {
+							items, _ := a.notifications.List(ctx.Context)
+							value = len(items)
+						}
+					case "activity":
+						if a.activity != nil {
+							items, _ := a.activity.List(ctx.Context, 100)
+							value = len(items)
+						}
+					default:
+						if a.settings != nil {
+							values := a.settings.ResolveAll(ctx.UserID)
+							if v, ok := values[metric]; ok && v.Value != nil {
+								if iv, ok := v.Value.(int); ok {
+									value = iv
+								}
+							}
 						}
 					}
-				}
+					return map[string]any{"title": title, "metric": metric, "value": value}, nil
+				},
 			}
-			return map[string]any{"title": title, "metric": metric, "value": value}, nil
-		},
-	}
 
-	quickActionsSpec := DashboardProviderSpec{
-		Code:          "admin.widget.quick_actions",
-		Name:          "Quick Actions",
-		DefaultArea:   "admin.dashboard.sidebar",
-		DefaultConfig: map[string]any{},
-		Permission:    "admin.quick_actions.view",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-			if cfg == nil {
-				cfg = map[string]any{}
+			quickActionsSpec := DashboardProviderSpec{
+				Code:          "admin.widget.quick_actions",
+				Name:          "Quick Actions",
+				DefaultArea:   "admin.dashboard.sidebar",
+				DefaultConfig: map[string]any{},
+				Permission:    "admin.quick_actions.view",
+				Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+					if cfg == nil {
+						cfg = map[string]any{}
+					}
+					actions, _ := cfg["actions"].([]any)
+					if len(actions) == 0 {
+						actions = []any{
+							map[string]any{"label": "Go to CMS", "url": "/admin/pages", "icon": "file"},
+							map[string]any{"label": "View Users", "url": "/admin/users", "icon": "users"},
+						}
+					}
+					return map[string]any{"actions": actions}, nil
+				},
 			}
-			actions, _ := cfg["actions"].([]any)
-			if len(actions) == 0 {
-				actions = []any{
-					map[string]any{"label": "Go to CMS", "url": "/admin/pages", "icon": "file"},
-					map[string]any{"label": "View Users", "url": "/admin/users", "icon": "users"},
-				}
-			}
-			return map[string]any{"actions": actions}, nil
-		},
-	}
 
-	chartSpec := DashboardProviderSpec{
-		Code:          "admin.widget.chart_sample",
-		Name:          "Sample Chart",
-		DefaultArea:   "admin.dashboard.main",
-		DefaultConfig: map[string]any{"title": "Weekly Totals", "type": "line"},
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-			points := []map[string]any{
-				{"label": "Mon", "value": 10},
-				{"label": "Tue", "value": 15},
-				{"label": "Wed", "value": 7},
-				{"label": "Thu", "value": 20},
-				{"label": "Fri", "value": 12},
+			chartSpec := DashboardProviderSpec{
+				Code:          "admin.widget.chart_sample",
+				Name:          "Sample Chart",
+				DefaultArea:   "admin.dashboard.main",
+				DefaultConfig: map[string]any{"title": "Weekly Totals", "type": "line"},
+				Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+					points := []map[string]any{
+						{"label": "Mon", "value": 10},
+						{"label": "Tue", "value": 15},
+						{"label": "Wed", "value": 7},
+						{"label": "Thu", "value": 20},
+						{"label": "Fri", "value": 12},
+					}
+					return map[string]any{
+						"title": toString(cfg["title"]),
+						"type":  toString(cfg["type"]),
+						"data":  points,
+					}, nil
+				},
 			}
-			return map[string]any{
-				"title": toString(cfg["title"]),
-				"type":  toString(cfg["type"]),
-				"data":  points,
-			}, nil
-		},
-	}
 
-	a.dashboard.RegisterProvider(statsSpec)
-	a.dashboard.RegisterProvider(quickActionsSpec)
-	a.dashboard.RegisterProvider(chartSpec)
-	return nil
+			a.dashboard.RegisterProvider(statsSpec)
+			a.dashboard.RegisterProvider(quickActionsSpec)
+			a.dashboard.RegisterProvider(chartSpec)
+			return nil
+		},
+	)
 }
 
 func (a *Admin) registerSettingsWidget() error {
@@ -348,4 +275,193 @@ func (a *Admin) registerActivityWidget() error {
 		Handler:       handler,
 	})
 	return nil
+}
+
+func (a *Admin) dashboardAreaAdapter() dashinternal.DashboardAreaRegistrar {
+	if a == nil || a.dashboard == nil {
+		return nil
+	}
+	return dashboardAreaAdapter{dash: a.dashboard}
+}
+
+func (a *Admin) widgetServiceAdapter() dashinternal.WidgetService {
+	if a == nil || a.widgetSvc == nil {
+		return nil
+	}
+	if svc, ok := a.widgetSvc.(dashinternal.WidgetService); ok {
+		return svc
+	}
+	return cmsWidgetServiceAdapter{svc: a.widgetSvc}
+}
+
+func (a *Admin) providerHostAdapter() dashinternal.ProviderHost {
+	if a == nil || a.dashboard == nil {
+		return nil
+	}
+	return dashboardProviderHost{dash: a.dashboard}
+}
+
+type dashboardAreaAdapter struct {
+	dash *Dashboard
+}
+
+func (d dashboardAreaAdapter) Areas() []dashinternal.WidgetAreaDefinition {
+	if d.dash == nil {
+		return nil
+	}
+	return d.dash.Areas()
+}
+
+func (d dashboardAreaAdapter) RegisterArea(def dashinternal.WidgetAreaDefinition) {
+	if d.dash != nil {
+		d.dash.RegisterArea(def)
+	}
+}
+
+type cmsWidgetServiceAdapter struct {
+	svc CMSWidgetService
+}
+
+func (w cmsWidgetServiceAdapter) RegisterAreaDefinition(ctx context.Context, def dashinternal.WidgetAreaDefinition) error {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.RegisterAreaDefinition(ctx, def)
+}
+
+func (w cmsWidgetServiceAdapter) RegisterDefinition(ctx context.Context, def dashinternal.WidgetDefinition) error {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.RegisterDefinition(ctx, def)
+}
+
+func (w cmsWidgetServiceAdapter) DeleteDefinition(ctx context.Context, code string) error {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.DeleteDefinition(ctx, code)
+}
+
+func (w cmsWidgetServiceAdapter) Areas() []dashinternal.WidgetAreaDefinition {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.Areas()
+}
+
+func (w cmsWidgetServiceAdapter) Definitions() []dashinternal.WidgetDefinition {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.Definitions()
+}
+
+func (w cmsWidgetServiceAdapter) SaveInstance(ctx context.Context, instance dashinternal.WidgetInstance) (*dashinternal.WidgetInstance, error) {
+	if w.svc == nil {
+		return nil, nil
+	}
+	return w.svc.SaveInstance(ctx, instance)
+}
+
+func (w cmsWidgetServiceAdapter) DeleteInstance(ctx context.Context, id string) error {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.DeleteInstance(ctx, id)
+}
+
+func (w cmsWidgetServiceAdapter) ListInstances(ctx context.Context, filter dashinternal.WidgetInstanceFilter) ([]dashinternal.WidgetInstance, error) {
+	if w.svc == nil {
+		return nil, nil
+	}
+	return w.svc.ListInstances(ctx, filter)
+}
+
+type widgetServiceBridge struct {
+	svc dashinternal.WidgetService
+}
+
+func (w widgetServiceBridge) RegisterAreaDefinition(ctx context.Context, def WidgetAreaDefinition) error {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.RegisterAreaDefinition(ctx, def)
+}
+
+func (w widgetServiceBridge) RegisterDefinition(ctx context.Context, def WidgetDefinition) error {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.RegisterDefinition(ctx, def)
+}
+
+func (w widgetServiceBridge) DeleteDefinition(ctx context.Context, code string) error {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.DeleteDefinition(ctx, code)
+}
+
+func (w widgetServiceBridge) Areas() []WidgetAreaDefinition {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.Areas()
+}
+
+func (w widgetServiceBridge) Definitions() []WidgetDefinition {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.Definitions()
+}
+
+func (w widgetServiceBridge) SaveInstance(ctx context.Context, instance WidgetInstance) (*WidgetInstance, error) {
+	if w.svc == nil {
+		return nil, nil
+	}
+	inst, err := w.svc.SaveInstance(ctx, instance)
+	if err != nil || inst == nil {
+		return inst, err
+	}
+	return inst, nil
+}
+
+func (w widgetServiceBridge) DeleteInstance(ctx context.Context, id string) error {
+	if w.svc == nil {
+		return nil
+	}
+	return w.svc.DeleteInstance(ctx, id)
+}
+
+func (w widgetServiceBridge) ListInstances(ctx context.Context, filter WidgetInstanceFilter) ([]WidgetInstance, error) {
+	if w.svc == nil {
+		return nil, nil
+	}
+	return w.svc.ListInstances(ctx, filter)
+}
+
+type dashboardProviderHost struct {
+	dash *Dashboard
+}
+
+func (d dashboardProviderHost) WithWidgetService(svc dashinternal.WidgetService) {
+	if d.dash == nil || svc == nil {
+		return
+	}
+	if cmsSvc, ok := svc.(CMSWidgetService); ok {
+		d.dash.WithWidgetService(cmsSvc)
+		return
+	}
+	d.dash.WithWidgetService(widgetServiceBridge{svc: svc})
+}
+
+func (d dashboardProviderHost) WithAuthorizer(auth dashinternal.Authorizer) {
+	if d.dash == nil || auth == nil {
+		return
+	}
+	if az, ok := auth.(Authorizer); ok {
+		d.dash.WithAuthorizer(az)
+	}
 }

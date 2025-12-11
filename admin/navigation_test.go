@@ -34,7 +34,7 @@ func TestNavigationResolveMenuCode(t *testing.T) {
 	_ = menuSvc.AddMenuItem(ctx, "admin.reports", MenuItem{Label: "Reports", Locale: "en"})
 
 	nav := NewNavigation(menuSvc, allowAllNav{})
-	nav.defaultMenuCode = "admin.main"
+	nav.SetDefaultMenuCode("admin.main")
 
 	mainItems := nav.Resolve(ctx, "en")
 	if len(mainItems) != 1 || mainItems[0].Label != "Main" {
@@ -149,7 +149,7 @@ func TestNavigationFallbackLocaleAndPermissions(t *testing.T) {
 		t.Fatalf("expected spanish item first, got %+v", es)
 	}
 
-	nav.authorizer = denyAllNav{}
+	nav.SetAuthorizer(denyAllNav{})
 	secureFiltered := nav.Resolve(ctx, "en")
 	for _, item := range secureFiltered {
 		if item.Label == "Secure" {

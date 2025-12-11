@@ -7,6 +7,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const usersModuleID = "users"
@@ -19,6 +21,7 @@ type UserManagementModule struct {
 	defaultLocale string
 	usersPerm     string
 	rolesPerm     string
+	menuParent    string
 }
 
 // NewUserManagementModule constructs the default user management module.
@@ -101,11 +104,35 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 			Delete: ctx.Admin.config.UsersDeletePermission,
 		})
 
+	if registry := ctx.Admin.Commands(); registry != nil {
+		for _, cmd := range []struct {
+			name   string
+			status string
+		}{
+			{name: "users.activate", status: "active"},
+			{name: "users.suspend", status: "suspended"},
+			{name: "users.disable", status: "disabled"},
+			{name: "users.archive", status: "archived"},
+		} {
+			registry.Register(newUserLifecycleCommand(ctx.Admin.users, cmd.name, cmd.status))
+		}
+	}
+
+	lifecycleActions := []Action{
+		{Name: "activate", CommandName: "users.activate", Permission: ctx.Admin.config.UsersUpdatePermission},
+		{Name: "suspend", CommandName: "users.suspend", Permission: ctx.Admin.config.UsersUpdatePermission},
+		{Name: "disable", CommandName: "users.disable", Permission: ctx.Admin.config.UsersUpdatePermission},
+		{Name: "archive", CommandName: "users.archive", Permission: ctx.Admin.config.UsersDeletePermission},
+	}
+	userBuilder.Actions(lifecycleActions...)
+	userBuilder.BulkActions(lifecycleActions...)
+
 	roleBuilder := ctx.Admin.Panel(rolesPanelID).
 		WithRepository(roleRepo).
 		ListFields(
 			Field{Name: "name", Label: "Name", Type: "text"},
 			Field{Name: "description", Label: "Description", Type: "text"},
+			Field{Name: "permissions", Label: "Permissions", Type: "text"},
 			Field{Name: "is_system", Label: "System Role", Type: "boolean"},
 		).
 		FormFields(
@@ -154,30 +181,41 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 	return []MenuItem{
 		{
 			Label:       "Users",
+			LabelKey:    "menu.users",
 			Icon:        "users",
 			Target:      map[string]any{"type": "url", "path": usersPath, "key": usersModuleID},
 			Permissions: []string{m.usersPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
 			Position:    40,
+			ParentID:    m.menuParent,
 		},
 		{
 			Label:       "Roles",
+			LabelKey:    "menu.roles",
 			Icon:        "shield",
 			Target:      map[string]any{"type": "url", "path": rolesPath, "key": rolesPanelID},
 			Permissions: []string{m.rolesPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
 			Position:    41,
+			ParentID:    m.menuParent,
 		},
 	}
+}
+
+// WithMenuParent nests the module navigation under a parent menu item ID.
+func (m *UserManagementModule) WithMenuParent(parent string) *UserManagementModule {
+	m.menuParent = parent
+	return m
 }
 
 func (m *UserManagementModule) roleOptions(admin *Admin) []Option {
 	if admin == nil || admin.users == nil {
 		return nil
 	}
-	roles, _, err := admin.users.ListRoles(context.Background(), ListOptions{PerPage: 50})
+	ctx := context.WithValue(context.Background(), userIDContextKey, uuid.NewString())
+	roles, _, err := admin.users.ListRoles(ctx, ListOptions{PerPage: 50})
 	if err != nil {
 		return nil
 	}
