@@ -139,6 +139,9 @@ func (s *UserManagementService) SaveUser(ctx context.Context, user UserRecord) (
 	if user.ID == "" {
 		user.ID = s.idBuilder()
 	}
+	if normalized := normalizeLifecycleState(user.Status); normalized != "" {
+		user.Status = string(normalized)
+	}
 	if user.Status == "" {
 		user.Status = "active"
 	}
@@ -198,6 +201,34 @@ func (s *UserManagementService) DeleteUser(ctx context.Context, id string) error
 	}
 	s.recordActivity(ctx, "user.delete", "user:"+id, map[string]any{"user_id": id})
 	return nil
+}
+
+// TransitionUser updates the lifecycle state for a user and records activity.
+func (s *UserManagementService) TransitionUser(ctx context.Context, id string, status string) (UserRecord, error) {
+	if s == nil || s.users == nil {
+		return UserRecord{}, errors.New("user service not configured")
+	}
+	next := normalizeLifecycleState(status)
+	if next == "" {
+		return UserRecord{}, errors.New("invalid status")
+	}
+	current, err := s.GetUser(ctx, id)
+	if err != nil {
+		return UserRecord{}, err
+	}
+	prev := current.Status
+	current.Status = string(next)
+
+	updated, err := s.SaveUser(ctx, current)
+	if err != nil {
+		return UserRecord{}, err
+	}
+	s.recordActivity(ctx, "user.status."+string(next), "user:"+updated.ID, map[string]any{
+		"user_id": id,
+		"from":    prev,
+		"to":      string(next),
+	})
+	return updated, nil
 }
 
 // ListRoles returns registered roles.
@@ -322,6 +353,7 @@ func (s *UserManagementService) recordActivity(ctx context.Context, action, obje
 		Actor:    actor,
 		Action:   action,
 		Object:   object,
+		Channel:  "users",
 		Metadata: metadata,
 	})
 }
@@ -802,6 +834,9 @@ func (r *GoUsersUserRepository) List(ctx context.Context, opts ListOptions) ([]U
 	if role, ok := opts.Filters["role"].(string); ok && role != "" {
 		filter.Role = role
 	}
+	if statuses := lifecycleStatesFromFilter(opts.Filters["status"]); len(statuses) > 0 {
+		filter.Statuses = statuses
+	}
 	page, err := r.inventory.ListUsers(ctx, filter)
 	if err != nil {
 		return nil, 0, err
@@ -1121,6 +1156,53 @@ func uuidFromContext(ctx context.Context) uuid.UUID {
 		}
 	}
 	return uuid.Nil
+}
+
+func lifecycleStatesFromFilter(val any) []users.LifecycleState {
+	switch v := val.(type) {
+	case string:
+		if state := normalizeLifecycleState(v); state != "" {
+			return []users.LifecycleState{state}
+		}
+	case []string:
+		states := []users.LifecycleState{}
+		for _, item := range v {
+			if state := normalizeLifecycleState(item); state != "" {
+				states = append(states, state)
+			}
+		}
+		if len(states) > 0 {
+			return states
+		}
+	case []any:
+		states := []users.LifecycleState{}
+		for _, item := range v {
+			if state := normalizeLifecycleState(toString(item)); state != "" {
+				states = append(states, state)
+			}
+		}
+		if len(states) > 0 {
+			return states
+		}
+	}
+	return nil
+}
+
+func normalizeLifecycleState(status string) users.LifecycleState {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "active":
+		return users.LifecycleStateActive
+	case "pending":
+		return users.LifecycleStatePending
+	case "suspended", "inactive":
+		return users.LifecycleStateSuspended
+	case "disabled":
+		return users.LifecycleStateDisabled
+	case "archived":
+		return users.LifecycleStateArchived
+	default:
+		return ""
+	}
 }
 
 func fromUsersAuthUser(u users.AuthUser) UserRecord {
