@@ -4,7 +4,7 @@ import (
 	"context"
 	"path"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	authlib "github.com/goliatone/go-auth"
