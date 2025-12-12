@@ -3,15 +3,8 @@ package admin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
-	"github.com/goliatone/go-admin/admin/internal/boot"
-	cmsboot "github.com/goliatone/go-admin/admin/internal/cmsboot"
-	helpers "github.com/goliatone/go-admin/admin/internal/helpers"
-	"github.com/goliatone/go-admin/admin/internal/modules"
-	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
-	settingsinternal "github.com/goliatone/go-admin/admin/internal/settings"
 	router "github.com/goliatone/go-router"
 )
 
@@ -30,6 +23,7 @@ type Admin struct {
 	router          AdminRouter
 	commandRegistry *CommandRegistry
 	dashboard       *Dashboard
+	dash            *dashboardComponents
 	nav             *Navigation
 	search          *SearchEngine
 	authorizer      Authorizer
@@ -59,166 +53,122 @@ type activityAware interface {
 	WithActivitySink(ActivitySink)
 }
 
-// New constructs an Admin orchestrator with default in-memory services.
-func New(cfg Config) *Admin {
-	cfg.normalizeFeatures()
-	if cfg.ThemeVariant == "" {
-		cfg.ThemeVariant = "default"
-	}
-	if cfg.SettingsPermission == "" {
-		cfg.SettingsPermission = "admin.settings.view"
-	}
-	if cfg.SettingsUpdatePermission == "" {
-		cfg.SettingsUpdatePermission = "admin.settings.edit"
-	}
-	if cfg.NotificationsPermission == "" {
-		cfg.NotificationsPermission = "admin.notifications.view"
-	}
-	if cfg.NotificationsUpdatePermission == "" {
-		cfg.NotificationsUpdatePermission = "admin.notifications.update"
-	}
-	if cfg.PreferencesPermission == "" {
-		cfg.PreferencesPermission = "admin.preferences.view"
-	}
-	if cfg.PreferencesUpdatePermission == "" {
-		cfg.PreferencesUpdatePermission = "admin.preferences.edit"
-	}
-	if cfg.ProfilePermission == "" {
-		cfg.ProfilePermission = "admin.profile.view"
-	}
-	if cfg.ProfileUpdatePermission == "" {
-		cfg.ProfileUpdatePermission = "admin.profile.edit"
-	}
-	if cfg.UsersPermission == "" {
-		cfg.UsersPermission = "admin.users.view"
-	}
-	if cfg.UsersCreatePermission == "" {
-		cfg.UsersCreatePermission = "admin.users.create"
-	}
-	if cfg.UsersUpdatePermission == "" {
-		cfg.UsersUpdatePermission = "admin.users.edit"
-	}
-	if cfg.UsersDeletePermission == "" {
-		cfg.UsersDeletePermission = "admin.users.delete"
-	}
-	if cfg.RolesPermission == "" {
-		cfg.RolesPermission = "admin.roles.view"
-	}
-	if cfg.RolesCreatePermission == "" {
-		cfg.RolesCreatePermission = "admin.roles.create"
-	}
-	if cfg.RolesUpdatePermission == "" {
-		cfg.RolesUpdatePermission = "admin.roles.edit"
-	}
-	if cfg.RolesDeletePermission == "" {
-		cfg.RolesDeletePermission = "admin.roles.delete"
-	}
-	if cfg.TenantsPermission == "" {
-		cfg.TenantsPermission = "admin.tenants.view"
-	}
-	if cfg.TenantsCreatePermission == "" {
-		cfg.TenantsCreatePermission = "admin.tenants.create"
-	}
-	if cfg.TenantsUpdatePermission == "" {
-		cfg.TenantsUpdatePermission = "admin.tenants.edit"
-	}
-	if cfg.TenantsDeletePermission == "" {
-		cfg.TenantsDeletePermission = "admin.tenants.delete"
-	}
-	if cfg.OrganizationsPermission == "" {
-		cfg.OrganizationsPermission = "admin.organizations.view"
-	}
-	if cfg.OrganizationsCreatePermission == "" {
-		cfg.OrganizationsCreatePermission = "admin.organizations.create"
-	}
-	if cfg.OrganizationsUpdatePermission == "" {
-		cfg.OrganizationsUpdatePermission = "admin.organizations.edit"
-	}
-	if cfg.OrganizationsDeletePermission == "" {
-		cfg.OrganizationsDeletePermission = "admin.organizations.delete"
-	}
-	if cfg.JobsPermission == "" {
-		cfg.JobsPermission = "admin.jobs.view"
-	}
-	if cfg.JobsTriggerPermission == "" {
-		cfg.JobsTriggerPermission = "admin.jobs.trigger"
-	}
-	if cfg.SettingsThemeTokens == nil {
-		cfg.SettingsThemeTokens = map[string]string{}
-	}
-	if cfg.ThemeTokens == nil {
-		cfg.ThemeTokens = map[string]string{}
-	}
-	if cfg.BasePath != "" {
-		cfg.SettingsThemeTokens["base_path"] = cfg.BasePath
-		cfg.ThemeTokens["base_path"] = cfg.BasePath
-	}
-	if cfg.Theme != "" {
-		cfg.SettingsThemeTokens["theme"] = cfg.Theme
-		if _, ok := cfg.ThemeTokens["theme"]; !ok {
-			cfg.ThemeTokens["theme"] = cfg.Theme
-		}
-	}
-	for k, v := range cfg.SettingsThemeTokens {
-		if _, ok := cfg.ThemeTokens[k]; !ok {
-			cfg.ThemeTokens[k] = v
-		}
+// New constructs an Admin orchestrator with explicit dependencies.
+func New(cfg Config, deps Dependencies) (*Admin, error) {
+	cfg = applyConfigDefaults(cfg)
+	if err := deps.validate(cfg); err != nil {
+		return nil, err
 	}
 
-	registry := NewRegistry()
+	if deps.CMSContainer != nil {
+		cfg.CMS.Container = deps.CMSContainer
+	}
+	if deps.CMSContainerBuilder != nil {
+		cfg.CMS.ContainerBuilder = deps.CMSContainerBuilder
+	}
+
+	registry := deps.Registry
+	if registry == nil {
+		registry = NewRegistry()
+	}
+
 	container := cfg.CMS.Container
 	if container == nil {
 		container = NewNoopCMSContainer()
 	}
-	enableCommands := cfg.Features.Commands || cfg.Features.Settings || cfg.Features.Jobs || cfg.Features.Export || cfg.Features.Bulk || cfg.Features.Dashboard || cfg.Features.Notifications
-	cmdReg := NewCommandRegistry(enableCommands)
-	settingsSvc := NewSettingsService()
+
+	translator := deps.Translator
+	if translator == nil {
+		translator = NoopTranslator{}
+	}
+
+	activitySink := deps.ActivitySink
+	if activitySink == nil {
+		activitySink = NewActivityFeed()
+	}
+
+	cmdReg := deps.CommandRegistry
+	if cmdReg == nil {
+		enableCommands := cfg.Features.Commands || cfg.Features.Settings || cfg.Features.Jobs || cfg.Features.Export || cfg.Features.Bulk || cfg.Features.Dashboard || cfg.Features.Notifications
+		cmdReg = NewCommandRegistry(enableCommands)
+	}
+
+	settingsSvc := deps.SettingsService
+	if settingsSvc == nil {
+		settingsSvc = NewSettingsService()
+	}
 	settingsSvc.WithRegistry(registry)
+	if cfg.Features.Settings {
+		if db, err := newSettingsDB(); err == nil {
+			if adapter, err := NewBunSettingsAdapter(db); err == nil {
+				settingsSvc.UseAdapter(adapter)
+			}
+		}
+	}
 	settingsForm := NewSettingsFormAdapter(settingsSvc, cfg.Theme, cfg.ThemeTokens)
 	settingsCmd := &SettingsUpdateCommand{Service: settingsSvc, Permission: cfg.SettingsUpdatePermission}
 	if cfg.Features.Settings {
 		cmdReg.Register(settingsCmd)
 	}
-	var notifSvc NotificationService = DisabledNotificationService{}
-	if cfg.Features.Notifications {
-		notifSvc = NewInMemoryNotificationService()
-	}
 
-	var exportSvc ExportService = DisabledExportService{}
-	if cfg.Features.Export {
-		exportSvc = NewInMemoryExportService()
-	}
-
-	var bulkSvc BulkService = DisabledBulkService{}
-	if cfg.Features.Bulk {
-		bulkSvc = NewInMemoryBulkService()
-	}
-
-	var mediaLib MediaLibrary = DisabledMediaLibrary{}
-	if cfg.Features.Media {
-		mediaBase := cfg.BasePath
-		if mediaBase == "" {
-			mediaBase = "/admin"
+	notifSvc := deps.NotificationService
+	if notifSvc == nil {
+		notifSvc = DisabledNotificationService{}
+		if cfg.Features.Notifications {
+			if svc, err := newGoNotificationsService(cfg.DefaultLocale, translator, activitySink); err == nil {
+				notifSvc = svc
+			}
 		}
-		mediaLib = NewInMemoryMediaLibrary(mediaBase)
 	}
 
-	activityFeed := NewActivityFeed()
-	preferencesSvc := NewPreferencesService(nil).WithDefaults(cfg.Theme, cfg.ThemeVariant)
-	preferencesSvc.WithActivitySink(activityFeed)
-	profileSvc := NewProfileService(nil)
-	profileSvc.WithActivitySink(activityFeed)
-	userSvc := NewUserManagementService(nil, nil)
-	userSvc.WithActivitySink(activityFeed)
-	tenantSvc := NewTenantService(nil)
-	tenantSvc.WithActivitySink(activityFeed)
-	orgSvc := NewOrganizationService(nil)
-	orgSvc.WithActivitySink(activityFeed)
-	jobReg := NewJobRegistry(cmdReg)
-	jobReg.WithActivitySink(activityFeed)
+	exportSvc := deps.ExportService
+	if exportSvc == nil {
+		exportSvc = DisabledExportService{}
+		if cfg.Features.Export {
+			exportSvc = NewInMemoryExportService()
+		}
+	}
+
+	bulkSvc := deps.BulkService
+	if bulkSvc == nil {
+		bulkSvc = DisabledBulkService{}
+		if cfg.Features.Bulk {
+			bulkSvc = NewInMemoryBulkService()
+		}
+	}
+
+	mediaLib := deps.MediaLibrary
+	if mediaLib == nil {
+		mediaLib = DisabledMediaLibrary{}
+		if cfg.Features.Media {
+			mediaBase := cfg.BasePath
+			if mediaBase == "" {
+				mediaBase = "/admin"
+			}
+			mediaLib = NewInMemoryMediaLibrary(mediaBase)
+		}
+	}
+
+	preferencesSvc := NewPreferencesService(deps.PreferencesStore).WithDefaults(cfg.Theme, cfg.ThemeVariant)
+	preferencesSvc.WithActivitySink(activitySink)
+	profileSvc := NewProfileService(deps.ProfileStore)
+	profileSvc.WithActivitySink(activitySink)
+	userSvc := NewUserManagementService(deps.UserRepository, deps.RoleRepository)
+	userSvc.WithActivitySink(activitySink)
+	tenantSvc := NewTenantService(deps.TenantRepository)
+	tenantSvc.WithActivitySink(activitySink)
+	orgSvc := NewOrganizationService(deps.OrganizationRepository)
+	orgSvc.WithActivitySink(activitySink)
+
+	jobReg := deps.JobRegistry
+	if jobReg == nil {
+		jobReg = NewJobRegistry(cmdReg)
+	}
+	jobReg.WithActivitySink(activitySink)
 	if !cfg.Features.Jobs {
 		jobReg.Enable(false)
 	}
+
 	if cfg.Features.Notifications {
 		cmdReg.Register(&NotificationMarkCommand{Service: notifSvc})
 	}
@@ -228,6 +178,7 @@ func New(cfg Config) *Admin {
 	if cfg.Features.Bulk {
 		cmdReg.Register(&BulkCommand{Service: bulkSvc})
 	}
+
 	defaultTheme := &ThemeSelection{
 		Name:        cfg.Theme,
 		Variant:     cfg.ThemeVariant,
@@ -251,22 +202,30 @@ func New(cfg Config) *Admin {
 	dashboard := NewDashboard()
 	dashboard.WithRegistry(registry)
 
+	gates := NewFeatureGates(cfg.FeatureFlags)
+	if deps.Gates != nil {
+		gates = *deps.Gates
+	}
+
 	adm := &Admin{
 		config:          cfg,
 		features:        cfg.Features,
 		featureFlags:    cfg.FeatureFlags,
-		gates:           NewFeatureGates(cfg.FeatureFlags),
+		gates:           gates,
 		registry:        registry,
 		cms:             container,
 		widgetSvc:       container.WidgetService(),
 		menuSvc:         container.MenuService(),
 		contentSvc:      container.ContentService(),
+		authenticator:   deps.Authenticator,
+		router:          deps.Router,
 		commandRegistry: cmdReg,
 		dashboard:       dashboard,
-		nav:             NewNavigation(container.MenuService(), nil),
-		search:          NewSearchEngine(nil),
+		nav:             NewNavigation(container.MenuService(), deps.Authorizer),
+		search:          NewSearchEngine(deps.Authorizer),
+		authorizer:      deps.Authorizer,
 		notifications:   notifSvc,
-		activity:        activityFeed,
+		activity:        activitySink,
 		jobs:            jobReg,
 		settings:        settingsSvc,
 		settingsForm:    settingsForm,
@@ -282,16 +241,23 @@ func New(cfg Config) *Admin {
 		bulkSvc:         bulkSvc,
 		mediaLibrary:    mediaLib,
 		navMenuCode:     navMenuCode,
-		translator:      NoopTranslator{},
+		translator:      translator,
 	}
+
 	adm.dashboard.WithWidgetService(adm.widgetSvc)
 	adm.dashboard.WithPreferences(NewDashboardPreferencesAdapter(preferencesSvc))
+	adm.dashboard.WithPreferenceService(preferencesSvc)
 	adm.dashboard.WithCommandBus(cmdReg)
+	adm.dashboard.WithActivitySink(activitySink)
+	adm.dashboard.WithAuthorizer(deps.Authorizer)
+
 	settingsForm.WithThemeResolver(adm.resolveTheme)
 	adm.panelForm.ThemeResolver = adm.resolveTheme
+
 	if adm.nav != nil {
 		adm.nav.SetDefaultMenuCode(navMenuCode)
 		adm.nav.UseCMS(adm.gates.Enabled(FeatureCMS))
+		adm.nav.SetTranslator(translator)
 	}
 	if adm.search != nil {
 		adm.search.Enable(adm.gates.Enabled(FeatureSearch))
@@ -299,8 +265,9 @@ func New(cfg Config) *Admin {
 	if adm.settings != nil {
 		adm.settings.Enable(adm.gates.Enabled(FeatureSettings))
 	}
-	adm.applyActivitySink(activityFeed)
-	return adm
+	adm.applyActivitySink(activitySink)
+
+	return adm, nil
 }
 
 // WithAuth attaches an authenticator for route protection.
@@ -412,50 +379,6 @@ func (a *Admin) applyActivitySink(sink ActivitySink) {
 	if a.organizations != nil {
 		a.organizations.WithActivitySink(sink)
 	}
-}
-
-// UseCMS overrides the default CMS container (menu/widget services).
-// Call before Initialize to wire a real go-cms container.
-func (a *Admin) UseCMS(container CMSContainer) *Admin {
-	if container == nil {
-		return a
-	}
-	a.cms = container
-	prevWidget := a.widgetSvc
-	prevMenu := a.menuSvc
-	prevContent := a.contentSvc
-	a.widgetSvc = container.WidgetService()
-	if a.widgetSvc == nil {
-		a.widgetSvc = prevWidget
-	}
-	menuSvc := container.MenuService()
-	if provider, ok := container.(GoCMSMenuProvider); ok {
-		if svc := provider.GoCMSMenuService(); svc != nil {
-			menuSvc = NewGoCMSMenuAdapterFromAny(svc)
-		}
-	}
-	if menuSvc == nil {
-		menuSvc = prevMenu
-	}
-	a.menuSvc = menuSvc
-	a.contentSvc = container.ContentService()
-	if a.contentSvc == nil {
-		a.contentSvc = prevContent
-	}
-	if a.nav != nil {
-		a.nav.SetMenuService(a.menuSvc)
-		a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
-	}
-	if a.dashboard != nil {
-		a.dashboard.WithWidgetService(a.widgetSvc)
-	}
-	a.applyActivitySink(a.activity)
-	return a
-}
-
-// MenuService exposes the configured CMS menu service for host seeding.
-func (a *Admin) MenuService() CMSMenuService {
-	return a.menuSvc
 }
 
 func (a *Admin) resolveTheme(ctx context.Context) *ThemeSelection {
@@ -602,15 +525,6 @@ func (a *Admin) Registry() *Registry {
 	return a.registry
 }
 
-// RegisterModule registers a pluggable module before initialization.
-// Duplicate IDs are rejected to preserve ordering and idempotency.
-func (a *Admin) RegisterModule(module Module) error {
-	if a.registry == nil {
-		return errors.New("registry not initialized")
-	}
-	return a.registry.RegisterModule(module)
-}
-
 // DashboardService exposes the dashboard orchestration.
 func (a *Admin) DashboardService() *Dashboard {
 	return a.dashboard
@@ -721,38 +635,6 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 	return panel, nil
 }
 
-// Bootstrap initializes CMS seed data (CMS container, admin menu, settings defaults).
-func (a *Admin) Bootstrap(ctx context.Context) error {
-	if a.gates.Enabled(FeatureCMS) || a.gates.Enabled(FeatureDashboard) {
-		if err := a.ensureCMS(ctx); err != nil {
-			return err
-		}
-		if err := a.registerWidgetAreas(); err != nil {
-			return err
-		}
-		if err := a.registerDefaultWidgets(); err != nil {
-			return err
-		}
-	}
-
-	if err := a.bootstrapAdminMenu(ctx); err != nil {
-		return err
-	}
-
-	if a.gates.Enabled(FeatureSettings) {
-		if err := a.bootstrapSettingsDefaults(ctx); err != nil {
-			return err
-		}
-	}
-
-	// TODO: Configurable
-	if a.gates.Enabled(FeatureNotifications) && a.notifications != nil {
-		_, _ = a.notifications.Add(ctx, Notification{Title: "Welcome to go-admin", Message: "Notifications are wired", Read: false})
-	}
-
-	return nil
-}
-
 func (a *Admin) decorateSchema(schema *Schema, panelName string) {
 	if schema == nil {
 		return
@@ -775,360 +657,4 @@ func (a *Admin) decorateSchema(schema *Schema, panelName string) {
 		schema.Media = &MediaConfig{LibraryPath: libraryPath}
 		applyMediaHints(schema, libraryPath)
 	}
-}
-
-// Initialize attaches the router, bootstraps, and mounts base routes.
-func (a *Admin) Initialize(r AdminRouter) error {
-	if r == nil {
-		return errors.New("router cannot be nil")
-	}
-	a.router = r
-	if a.nav == nil {
-		a.nav = NewNavigation(a.menuSvc, a.authorizer)
-	}
-	if a.nav != nil {
-		a.nav.SetDefaultMenuCode(a.navMenuCode)
-		a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
-	}
-	if a.search == nil {
-		a.search = NewSearchEngine(a.authorizer)
-	}
-	if a.search != nil {
-		a.search.Enable(a.gates.Enabled(FeatureSearch))
-	}
-	if a.settings != nil {
-		a.settings.Enable(a.gates.Enabled(FeatureSettings))
-	}
-	if err := a.validateConfig(); err != nil {
-		return err
-	}
-	if err := a.Bootstrap(context.Background()); err != nil {
-		return err
-	}
-	if err := a.loadModules(context.Background()); err != nil {
-		return err
-	}
-	if a.jobs != nil {
-		if err := a.jobs.Sync(context.Background()); err != nil {
-			return err
-		}
-	}
-	if err := a.ensureSettingsNavigation(context.Background()); err != nil {
-		return err
-	}
-	return a.Boot(boot.DefaultBootSteps()...)
-}
-
-func (a *Admin) ensureCMS(ctx context.Context) error {
-	requireCMS := a.gates.Enabled(FeatureCMS) || a.gates.Enabled(FeatureDashboard)
-	if !requireCMS {
-		return nil
-	}
-	resolved, err := cmsboot.Ensure(ctx, cmsboot.EnsureOptions{
-		Container:         a.cms,
-		WidgetService:     a.widgetSvc,
-		MenuService:       a.menuSvc,
-		ContentService:    a.contentSvc,
-		RequireCMS:        requireCMS,
-		FallbackContainer: func() cmsboot.CMSContainer { return NewNoopCMSContainer() },
-		BuildContainer: func(ctx context.Context) (cmsboot.CMSContainer, error) {
-			return BuildGoCMSContainer(ctx, a.config)
-		},
-	})
-	if err != nil {
-		return err
-	}
-	if resolved.Container != nil {
-		a.UseCMS(resolved.Container)
-	} else {
-		if resolved.WidgetService != nil {
-			a.widgetSvc = resolved.WidgetService
-		}
-		if resolved.MenuService != nil {
-			a.menuSvc = resolved.MenuService
-			if a.nav != nil {
-				a.nav.SetMenuService(a.menuSvc)
-				a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
-			}
-		}
-		if resolved.ContentService != nil {
-			a.contentSvc = resolved.ContentService
-		}
-	}
-	return nil
-}
-
-func (a *Admin) validateConfig() error {
-	issues := []FeatureDependencyError{}
-	require := func(feature FeatureKey, deps ...FeatureKey) {
-		if !a.gates.Enabled(feature) {
-			return
-		}
-		missing := []string{}
-		for _, dep := range deps {
-			if !a.gates.Enabled(dep) {
-				missing = append(missing, string(dep))
-			}
-		}
-		if len(missing) > 0 {
-			issues = append(issues, FeatureDependencyError{Feature: string(feature), Missing: missing})
-		}
-	}
-
-	require(FeatureJobs, FeatureCommands)
-	require(FeatureExport, FeatureCommands, FeatureJobs)
-	require(FeatureBulk, FeatureCommands, FeatureJobs)
-
-	for _, feature := range []FeatureKey{FeatureMedia, FeatureExport, FeatureBulk} {
-		if a.gates.Enabled(feature) && !a.gates.Enabled(FeatureCMS) {
-			issues = append(issues, FeatureDependencyError{
-				Feature: string(feature),
-				Missing: []string{string(FeatureCMS)},
-			})
-		}
-	}
-	if len(issues) == 0 {
-		return nil
-	}
-	return InvalidFeatureConfigError{Issues: issues}
-}
-
-func (a *Admin) registerDefaultModules() error {
-	if a.registry == nil {
-		return nil
-	}
-	if a.gates.Enabled(FeatureUsers) {
-		if _, exists := a.registry.Module(usersModuleID); !exists {
-			if err := a.registry.RegisterModule(NewUserManagementModule()); err != nil {
-				return err
-			}
-		}
-	}
-	if a.gates.Enabled(FeaturePreferences) {
-		if _, exists := a.registry.Module(preferencesModuleID); !exists {
-			if err := a.registry.RegisterModule(NewPreferencesModule()); err != nil {
-				return err
-			}
-		}
-	}
-	if a.gates.Enabled(FeatureProfile) {
-		if _, exists := a.registry.Module(profileModuleID); !exists {
-			if err := a.registry.RegisterModule(NewProfileModule()); err != nil {
-				return err
-			}
-		}
-	}
-	if a.gates.Enabled(FeatureTenants) {
-		if _, exists := a.registry.Module(tenantsModuleID); !exists {
-			if err := a.registry.RegisterModule(NewTenantsModule()); err != nil {
-				return err
-			}
-		}
-	}
-	if a.gates.Enabled(FeatureOrganizations) {
-		if _, exists := a.registry.Module(organizationsModuleID); !exists {
-			if err := a.registry.RegisterModule(NewOrganizationsModule()); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (a *Admin) loadModules(ctx context.Context) error {
-	if a.modulesLoaded {
-		return nil
-	}
-	if err := a.registerDefaultModules(); err != nil {
-		return err
-	}
-	modulesToLoad := []modules.Module{}
-	for _, mod := range a.registry.Modules() {
-		if mod == nil {
-			continue
-		}
-		modulesToLoad = append(modulesToLoad, mod)
-	}
-
-	err := modules.Load(ctx, modules.LoadOptions{
-		Modules:       modulesToLoad,
-		Gates:         a.gates,
-		DefaultLocale: a.config.DefaultLocale,
-		Translator:    a.translator,
-		DisabledError: func(feature, moduleID string) error {
-			return FeatureDisabledError{
-				Feature: feature,
-				Reason:  fmt.Sprintf("required by module %s; set via Config.Features or FeatureFlags", moduleID),
-			}
-		},
-		Register: func(mod modules.Module) error {
-			registrar, ok := mod.(Module)
-			if !ok {
-				return fmt.Errorf("module %s missing Register implementation", mod.Manifest().ID)
-			}
-			return registrar.Register(ModuleContext{Admin: a, Locale: a.config.DefaultLocale, Translator: a.translator})
-		},
-		AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
-			return a.addMenuItems(ctx, []MenuItem(items))
-		},
-	})
-	if err != nil {
-		return err
-	}
-	a.modulesLoaded = true
-	return nil
-}
-
-func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
-	if len(items) == 0 {
-		return nil
-	}
-	cmsEnabled := a.gates.Enabled(FeatureCMS)
-	// Track canonical keys per menu code to avoid inserting duplicates into persistent stores.
-	menuKeys := map[string]map[string]bool{}
-	fallbackItems := []MenuItem{}
-	if a.menuSvc != nil {
-		menuCodes := map[string]bool{}
-		for _, item := range items {
-			code := item.Menu
-			if code == "" {
-				code = a.navMenuCode
-			}
-			code = NormalizeMenuSlug(code)
-			if code == "" {
-				code = a.navMenuCode
-			}
-			item = normalizeMenuItem(item, code)
-			item = mapMenuIDs(item)
-			keySet, ok := menuKeys[code]
-			if !ok {
-				keySet = map[string]bool{}
-				menuKeys[code] = keySet
-				if menu, err := a.menuSvc.Menu(ctx, code, item.Locale); err == nil && menu != nil {
-					addMenuKeys(menu.Items, keySet)
-				}
-			}
-			keys := canonicalMenuKeys(item)
-			if hasAnyKey(keySet, keys) {
-				continue
-			}
-			if !menuCodes[code] {
-				if _, err := a.menuSvc.CreateMenu(ctx, code); err != nil {
-					if !strings.Contains(strings.ToLower(err.Error()), "exist") {
-						return err
-					}
-				}
-				menuCodes[code] = true
-			}
-			if err := a.menuSvc.AddMenuItem(ctx, code, item); err != nil {
-				return err
-			}
-			for _, key := range keys {
-				keySet[key] = true
-			}
-			fallbackItems = append(fallbackItems, item)
-		}
-	}
-	if (!cmsEnabled || a.menuSvc == nil) && a.nav != nil {
-		if len(fallbackItems) == 0 {
-			fallbackItems = items
-		}
-		// Ensure fallback navigation also receives deduped items when CMS is disabled.
-		if len(fallbackItems) > 0 {
-			deduped := dedupeMenuItems(fallbackItems)
-			converted := navinternal.ConvertMenuItems(deduped, a.translator, a.config.DefaultLocale)
-			if len(converted) > 0 {
-				a.nav.AddFallback(converted...)
-			}
-		}
-	}
-	return nil
-}
-
-func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
-	if a.nav == nil || !a.gates.Enabled(FeatureSettings) {
-		return nil
-	}
-	settingsPath := joinPath(a.config.BasePath, "settings")
-	const targetKey = "settings"
-
-	if a.menuSvc != nil {
-		menu, err := a.menuSvc.Menu(ctx, a.navMenuCode, a.config.DefaultLocale)
-		if err == nil && navinternal.MenuHasTarget(menu.Items, targetKey, settingsPath) {
-			return nil
-		}
-	}
-	if navinternal.NavigationHasTarget(a.nav.Fallback(), targetKey, settingsPath) {
-		return nil
-	}
-
-	item := MenuItem{
-		Label:       "Settings",
-		Icon:        "settings",
-		Target:      map[string]any{"type": "url", "path": settingsPath, "key": targetKey},
-		Permissions: []string{a.config.SettingsPermission},
-		Menu:        a.navMenuCode,
-		Locale:      a.config.DefaultLocale,
-		Position:    80,
-	}
-	return a.addMenuItems(ctx, []MenuItem{item})
-}
-
-func (a *Admin) requirePermission(ctx AdminContext, permission string, resource string) error {
-	if permission == "" || a.authorizer == nil {
-		return nil
-	}
-	if !a.authorizer.Can(ctx.Context, permission, resource) {
-		return ErrForbidden
-	}
-	return nil
-}
-
-func (a *Admin) bootstrapSettingsDefaults(ctx context.Context) error {
-	if a.settings == nil {
-		return nil
-	}
-
-	cfg := settingsinternal.BootstrapConfig{
-		Title:            a.config.Title,
-		DefaultLocale:    a.config.DefaultLocale,
-		Theme:            a.config.Theme,
-		DashboardEnabled: a.gates.Enabled(FeatureDashboard),
-		SearchEnabled:    a.gates.Enabled(FeatureSearch),
-	}
-	defs, systemValues := settingsinternal.DefaultDefinitions(cfg)
-	for _, def := range defs {
-		a.settings.RegisterDefinition(SettingDefinition{
-			Key:         def.Key,
-			Title:       def.Title,
-			Description: def.Description,
-			Default:     def.Default,
-			Type:        def.Type,
-			Group:       def.Group,
-		})
-	}
-	if len(systemValues) > 0 {
-		_ = a.settings.Apply(ctx, SettingsBundle{Scope: SettingsScopeSystem, Values: systemValues})
-	}
-	return nil
-}
-
-func (a *Admin) bootstrapAdminMenu(ctx context.Context) error {
-	return cmsboot.BootstrapMenu(ctx, a.menuSvc, a.navMenuCode)
-}
-
-func joinPath(basePath, suffix string) string {
-	return helpers.JoinPath(basePath, suffix)
-}
-
-func menuHasTarget(items []MenuItem, key string, path string) bool {
-	return helpers.MenuHasTarget(items, key, path)
-}
-
-func navigationHasTarget(items []NavigationItem, key string, path string) bool {
-	return helpers.NavigationHasTarget(items, key, path)
-}
-
-func targetMatches(target map[string]any, key string, path string) bool {
-	return helpers.TargetMatches(target, key, path)
 }
