@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 )
 
