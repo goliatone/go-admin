@@ -20,7 +20,7 @@ func TestTenantAndOrganizationModulesRegister(t *testing.T) {
 			Search:        true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
@@ -52,7 +52,7 @@ func TestTenantModuleEnforcesPermissions(t *testing.T) {
 			Tenants: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(stubAuthorizer{allow: false})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -78,7 +78,7 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 			Search:        true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {

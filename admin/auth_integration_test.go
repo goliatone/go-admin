@@ -129,7 +129,7 @@ func TestJobsAndNotificationsRoutesRequirePermission(t *testing.T) {
 			Notifications: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(denyAllAuthz{})
 
 	server := router.NewHTTPServer()

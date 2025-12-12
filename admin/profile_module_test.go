@@ -18,7 +18,7 @@ func TestProfileModuleRegistersPanelAndNavigation(t *testing.T) {
 			Profile: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
@@ -50,7 +50,7 @@ func TestProfilePanelRequiresPermissions(t *testing.T) {
 			Profile: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(stubAuthorizer{allow: false})
 	server := router.NewHTTPServer()
 
@@ -75,7 +75,7 @@ func TestProfileAPIRejectsMismatchedUser(t *testing.T) {
 			Profile: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize: %v", err)
@@ -103,7 +103,7 @@ func TestProfileUpdateRoundTripViaAPI(t *testing.T) {
 			Profile: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -157,7 +157,7 @@ func TestProfileSchemaIncludesMediaHintsWhenEnabled(t *testing.T) {
 			CMS:     true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {

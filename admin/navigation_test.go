@@ -85,7 +85,7 @@ func TestAdminNavigationUsesFallbackWithoutCMSFeature(t *testing.T) {
 	cfg := Config{
 		DefaultLocale: "en",
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	ctx := context.Background()
 
 	_, _ = adm.menuSvc.CreateMenu(ctx, "admin.main")
@@ -118,7 +118,7 @@ func TestSettingsNavigationPermissionFilters(t *testing.T) {
 			Settings: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(denySettingsNav{})
 
 	if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {

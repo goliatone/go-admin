@@ -14,7 +14,10 @@ func TestBuildNavItemsOrdering(t *testing.T) {
 			CMS: true,
 		},
 	}
-	adm := admin.New(cfg)
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
 	ctx := context.Background()
 
 	menu := adm.MenuService()
@@ -60,7 +63,10 @@ func TestBuildNavItemsOrdering(t *testing.T) {
 
 func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
-	adm := admin.New(cfg)
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
 	ctx := context.Background()
 
 	view := WithNav(nil, adm, cfg, "", ctx)

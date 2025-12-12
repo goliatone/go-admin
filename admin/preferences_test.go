@@ -55,7 +55,7 @@ func TestPreferencesModuleRegistersPanelAndNavigation(t *testing.T) {
 			Preferences: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
@@ -87,7 +87,7 @@ func TestPreferencesPanelRequiresPermissions(t *testing.T) {
 			Preferences: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(stubAuthorizer{allow: false})
 	server := router.NewHTTPServer()
 
@@ -114,7 +114,7 @@ func TestPreferencesInfluenceThemeResolution(t *testing.T) {
 			Preferences: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	if _, err := adm.preferences.Save(context.Background(), "user-1", UserPreferences{
 		Theme:        "custom",
 		ThemeVariant: "night",
@@ -142,7 +142,7 @@ func TestPreferencesUpdateRoundTripViaAPI(t *testing.T) {
 			Preferences: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {

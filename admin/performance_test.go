@@ -36,10 +36,13 @@ func BenchmarkMemoryRepositoryCRUD(b *testing.B) {
 
 func BenchmarkPanelListRoute(b *testing.B) {
 	repo := NewMemoryRepository()
-	adm := New(Config{
+	adm, err := New(Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-	})
+	}, Dependencies{})
+	if err != nil {
+		b.Fatalf("admin.New: %v", err)
+	}
 	builder := (&PanelBuilder{}).
 		WithRepository(repo).
 		ListFields(Field{Name: "id", Label: "ID", Type: "text"}, Field{Name: "name", Label: "Name", Type: "text"}).
@@ -64,7 +67,10 @@ func BenchmarkPanelListRoute(b *testing.B) {
 }
 
 func BenchmarkPanelCreateRoute(b *testing.B) {
-	adm := New(Config{BasePath: "/admin", DefaultLocale: "en"})
+	adm, err := New(Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	if err != nil {
+		b.Fatalf("admin.New: %v", err)
+	}
 	repo := NewMemoryRepository()
 	builder := (&PanelBuilder{}).
 		WithRepository(repo).

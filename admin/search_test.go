@@ -97,7 +97,7 @@ func TestSearchRouteAggregatesAndFiltersByPermission(t *testing.T) {
 		DefaultLocale: "en",
 		Features:      Features{Search: true},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(searchAuthorizer{allowed: map[string]bool{"search.users": true}})
 
 	adm.SearchService().Register("users", &stubSearchAdapter{
@@ -163,7 +163,7 @@ func TestSearchRouteFeatureGateDisabled(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize: %v", err)

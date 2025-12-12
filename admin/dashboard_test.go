@@ -3,7 +3,6 @@ package admin
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"net/http/httptest"
 	"testing"
 
@@ -27,6 +26,7 @@ func TestDashboardProviderRegistersCommandAndResolvesInstances(t *testing.T) {
 	dash.WithWidgetService(widgetSvc)
 	cmdReg := NewCommandRegistry(true)
 	dash.WithCommandBus(cmdReg)
+	dash.RegisterArea(WidgetAreaDefinition{Code: "admin.dashboard.main"})
 
 	called := false
 	dash.RegisterProvider(DashboardProviderSpec{
@@ -59,6 +59,7 @@ func TestDashboardProviderRegistersCommandAndResolvesInstances(t *testing.T) {
 
 func TestDashboardVisibilityPermissionFilters(t *testing.T) {
 	dash := NewDashboard()
+	dash.WithWidgetService(NewInMemoryWidgetService())
 	dash.WithAuthorizer(stubAuthorizer{allow: false})
 	dash.RegisterProvider(DashboardProviderSpec{
 		Code:        "secure.widget",
@@ -85,34 +86,35 @@ func TestDashboardConfigRoutePersistsLayoutPerUser(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 		Features: Features{
-			Dashboard: true,
+			Dashboard:   true,
+			CMS:         true,
+			Preferences: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 	if err := adm.Initialize(r); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	layoutPayload := map[string]any{
-		"layout": []map[string]any{
-			{
-				"definition": "admin.widget.quick_actions",
-				"area":       "admin.dashboard.main",
-				"config":     map[string]any{"title": "My Actions"},
-				"position":   1,
-			},
-		},
-	}
-	body, _ := json.Marshal(layoutPayload)
-	req := httptest.NewRequest("POST", "/admin/api/dashboard/config", bytes.NewReader(body))
+	body := []byte(`{"area_order":{"admin.dashboard.main":["w1"]},"layout_rows":{"admin.dashboard.main":[{"widgets":[{"id":"w1","width":12}]}]},"hidden_widget_ids":["w1"]}`)
+	req := httptest.NewRequest("POST", "/admin/api/dashboard/preferences", bytes.NewReader(body))
 	req.Header.Set("X-User-ID", "user-1")
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
-		t.Fatalf("config save status: %d body=%s", rr.Code, rr.Body.String())
+		t.Fatalf("preferences save status: %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	saved := adm.PreferencesService().DashboardOverrides(context.Background(), "user-1")
+	rows := saved.AreaRows["admin.dashboard.main"]
+	if len(rows) != 1 || len(rows[0].Widgets) != 1 || rows[0].Widgets[0].ID != "w1" {
+		t.Fatalf("expected overrides to persist, got %+v", saved.AreaRows)
+	}
+	if !saved.HiddenWidgets["w1"] {
+		t.Fatalf("expected widget hidden flag to persist, got %+v", saved.HiddenWidgets)
 	}
 
 	req = httptest.NewRequest("GET", "/admin/api/dashboard", nil)
@@ -121,15 +123,5 @@ func TestDashboardConfigRoutePersistsLayoutPerUser(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
 		t.Fatalf("dashboard status: %d body=%s", rr.Code, rr.Body.String())
-	}
-	var resp map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
-	widgets, ok := resp["widgets"].([]any)
-	if !ok || len(widgets) == 0 {
-		t.Fatalf("expected widgets in response, got %v", resp["widgets"])
-	}
-	first := widgets[0].(map[string]any)
-	if first["definition"] != "admin.widget.quick_actions" {
-		t.Fatalf("expected saved layout to apply, got %+v", first)
 	}
 }

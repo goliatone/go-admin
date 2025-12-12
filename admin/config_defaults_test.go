@@ -1,0 +1,48 @@
+package admin
+
+import "testing"
+
+func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
+	adm, err := New(Config{}, Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+
+	if adm.config.DefaultLocale != "en" {
+		t.Fatalf("expected default locale 'en', got %q", adm.config.DefaultLocale)
+	}
+	if adm.config.ThemeVariant != "default" {
+		t.Fatalf("expected default theme variant 'default', got %q", adm.config.ThemeVariant)
+	}
+	if adm.config.SettingsPermission != "admin.settings.view" {
+		t.Fatalf("expected settings permission default, got %q", adm.config.SettingsPermission)
+	}
+	if adm.config.SettingsUpdatePermission != "admin.settings.edit" {
+		t.Fatalf("expected settings update permission default, got %q", adm.config.SettingsUpdatePermission)
+	}
+	if adm.config.PreferencesPermission != "admin.preferences.view" {
+		t.Fatalf("expected preferences permission default, got %q", adm.config.PreferencesPermission)
+	}
+	if adm.config.PreferencesUpdatePermission != "admin.preferences.edit" {
+		t.Fatalf("expected preferences update permission default, got %q", adm.config.PreferencesUpdatePermission)
+	}
+	if adm.config.ProfilePermission != "admin.profile.view" {
+		t.Fatalf("expected profile permission default, got %q", adm.config.ProfilePermission)
+	}
+	if adm.config.ProfileUpdatePermission != "admin.profile.edit" {
+		t.Fatalf("expected profile update permission default, got %q", adm.config.ProfileUpdatePermission)
+	}
+	if adm.config.ThemeTokens == nil || adm.config.SettingsThemeTokens == nil {
+		t.Fatalf("expected theme token maps to be initialized")
+	}
+
+	withLegacy := Config{FeatureFlags: map[string]bool{"commands": true}}
+	adm2, err := New(withLegacy, Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	if !adm2.features.Commands || !adm2.gates.Enabled(FeatureCommands) {
+		t.Fatalf("expected legacy feature flag to enable commands")
+	}
+}
+

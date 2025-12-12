@@ -70,7 +70,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			Jobs:      true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	authn := &recordingAuthenticator{}
 	adm.WithAuth(authn, nil)
 	authz := &recordingAuthorizer{allow: true}

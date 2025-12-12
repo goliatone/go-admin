@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -64,7 +65,7 @@ func TestInitializeRegistersHealth(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	r := server.Router()
@@ -81,6 +82,43 @@ func TestInitializeRegistersHealth(t *testing.T) {
 	}
 }
 
+func TestInitializeRunsPreRoutePreparation(t *testing.T) {
+	cfg := Config{
+		Title:         "test admin",
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+
+	called := false
+	if err := adm.RegisterModule(&initModule{called: &called}); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if !called {
+		t.Fatalf("expected module Register to be called during Initialize")
+	}
+}
+
+type initModule struct {
+	called *bool
+}
+
+func (m *initModule) Manifest() ModuleManifest {
+	return ModuleManifest{ID: "init.module"}
+}
+
+func (m *initModule) Register(_ ModuleContext) error {
+	if m.called != nil {
+		*m.called = true
+	}
+	return nil
+}
+
 func TestBootstrapSeedsWidgetsAndMenu(t *testing.T) {
 	cfg := Config{
 		Title:         "cms admin",
@@ -92,7 +130,7 @@ func TestBootstrapSeedsWidgetsAndMenu(t *testing.T) {
 			Settings:  true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 
 	if err := adm.Bootstrap(context.Background()); err != nil {
 		t.Fatalf("bootstrap: %v", err)
@@ -126,7 +164,7 @@ func (fakeAuth) Wrap(ctx router.Context) error {
 
 func TestCommandRegistryRegistersHandlers(t *testing.T) {
 	cfg := Config{Features: Features{Commands: true}}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 
 	cmd := &stubCommand{name: "demo"}
 	adm.Commands().Register(cmd)
@@ -146,7 +184,7 @@ func TestExportAndBulkCommandsExposeCLI(t *testing.T) {
 			CMS:      true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	opts := adm.Commands().CLI()
 	if len(opts) == 0 {
 		t.Fatalf("expected cli options")
@@ -208,7 +246,7 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 			Commands: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 
@@ -308,8 +346,12 @@ func TestNotificationsRoutes(t *testing.T) {
 			Dashboard:     true,
 		},
 	}
-	adm := New(cfg)
-	_, _ = adm.NotificationService().Add(context.Background(), Notification{Title: "Hello", Message: "world"})
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	userCtx := context.WithValue(context.Background(), userIDContextKey, "tester")
+	_, err := adm.NotificationService().Add(userCtx, Notification{Title: "Hello", Message: "world", UserID: "tester"})
+	if err != nil {
+		t.Fatalf("seed notification: %v", err)
+	}
 
 	server := router.NewHTTPServer()
 	r := server.Router()
@@ -318,6 +360,7 @@ func TestNotificationsRoutes(t *testing.T) {
 	}
 
 	req := httptest.NewRequest("GET", "/admin/api/notifications", nil)
+	req.Header.Set("X-User-ID", "tester")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -331,19 +374,29 @@ func TestNotificationsRoutes(t *testing.T) {
 	if _, ok := listBody["unread_count"]; !ok {
 		t.Fatalf("unread_count missing from payload")
 	}
+	items, _ := listBody["notifications"].([]any)
+	if len(items) == 0 {
+		t.Fatalf("expected at least one notification in payload")
+	}
+	itemMap, _ := items[0].(map[string]any)
+	targetID, _ := itemMap["id"].(string)
+	if targetID == "" {
+		t.Fatalf("expected notification id in payload")
+	}
 
-	req = httptest.NewRequest("POST", "/admin/api/notifications/read", strings.NewReader(`{"ids":["1"],"read":true}`))
+	req = httptest.NewRequest("POST", "/admin/api/notifications/read", strings.NewReader(fmt.Sprintf(`{"ids":["%s"],"read":true}`, targetID)))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "tester")
 	rr = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
 		t.Fatalf("mark read status: %d body=%s", rr.Code, rr.Body.String())
 	}
 
-	items, _ := adm.NotificationService().List(context.Background())
+	itemsList, _ := adm.NotificationService().List(userCtx)
 	foundMarked := false
-	for _, item := range items {
-		if item.ID == "1" && item.Read {
+	for _, item := range itemsList {
+		if item.ID == targetID && item.Read {
 			foundMarked = true
 		}
 	}
@@ -351,7 +404,7 @@ func TestNotificationsRoutes(t *testing.T) {
 		t.Fatalf("expected notification marked as read")
 	}
 
-	widgets, err := adm.DashboardService().Resolve(AdminContext{Context: context.Background()})
+	widgets, err := adm.DashboardService().Resolve(AdminContext{Context: userCtx})
 	if err != nil {
 		t.Fatalf("resolve dashboard: %v", err)
 	}
@@ -381,7 +434,7 @@ func TestActivityRouteAndWidget(t *testing.T) {
 			Dashboard: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	_ = adm.activity.Record(context.Background(), ActivityEntry{Actor: "user", Action: "created", Object: "item"})
 
 	server := router.NewHTTPServer()
@@ -420,7 +473,7 @@ func TestPanelActivityEmission(t *testing.T) {
 			Dashboard: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	repo := NewMemoryRepository()
 	builder := (&PanelBuilder{}).
 		WithRepository(repo).
@@ -467,7 +520,7 @@ func TestExportRoute(t *testing.T) {
 			CMS:      true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	if svc := adm.ExportService(); svc != nil {
 		svc.Seed("users", []map[string]any{{"id": "1", "name": "Alice"}})
 	}
@@ -517,7 +570,7 @@ func TestBulkRoute(t *testing.T) {
 			CMS:      true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 	if err := adm.Initialize(r); err != nil {
@@ -585,7 +638,7 @@ func TestMediaLibraryRoute(t *testing.T) {
 			CMS:   true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 	if err := adm.Initialize(r); err != nil {
@@ -623,7 +676,7 @@ func TestPanelSchemaIncludesFeatureMetadata(t *testing.T) {
 			Jobs:     true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	repo := NewMemoryRepository()
 	builder := (&PanelBuilder{}).
 		WithRepository(repo).
@@ -693,7 +746,7 @@ func TestJobsRouteAndTrigger(t *testing.T) {
 			Commands: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	cmd := &cronCommand{name: "jobs.cleanup"}
 	adm.Commands().Register(cmd)
 
@@ -759,7 +812,7 @@ func TestSearchRouteReturnsResults(t *testing.T) {
 			Search: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.search.Register("items", &stubSearchAdapter{
 		results: []SearchResult{{ID: "1", Title: "Alpha"}},
 	})

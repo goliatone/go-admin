@@ -199,7 +199,7 @@ func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 			Settings: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 
@@ -244,7 +244,7 @@ func TestSettingsWidgetResolvesValues(t *testing.T) {
 		},
 		Title: "test admin",
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 
@@ -287,7 +287,7 @@ func TestSettingsNavigationRespectsPermission(t *testing.T) {
 			Settings: true,
 		},
 	}
-	denyAdmin := New(cfg)
+	denyAdmin := mustNewAdmin(t, cfg, Dependencies{})
 	denyAdmin.WithAuthorizer(stubAuthorizer{allow: false})
 	server := router.NewHTTPServer()
 	if err := denyAdmin.Initialize(server.Router()); err != nil {
@@ -297,7 +297,7 @@ func TestSettingsNavigationRespectsPermission(t *testing.T) {
 		t.Fatalf("expected navigation to be filtered by permission, got %d items", len(items))
 	}
 
-	allowAdmin := New(cfg)
+	allowAdmin := mustNewAdmin(t, cfg, Dependencies{})
 	allowAdmin.WithAuthorizer(stubAuthorizer{allow: true})
 	server = router.NewHTTPServer()
 	if err := allowAdmin.Initialize(server.Router()); err != nil {
@@ -315,5 +315,59 @@ func TestSettingsNavigationRespectsPermission(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected navigation to include settings target")
+	}
+}
+
+func TestBunSettingsAdapterPersistsScopes(t *testing.T) {
+	db, err := newSettingsDB()
+	if err != nil {
+		t.Fatalf("settings db: %v", err)
+	}
+	adapter, err := NewBunSettingsAdapter(db)
+	if err != nil {
+		t.Fatalf("bun adapter: %v", err)
+	}
+
+	svc := NewSettingsService()
+	svc.UseAdapter(adapter)
+	svc.RegisterDefinition(SettingDefinition{Key: "admin.title", Default: "Admin", Type: "string"})
+	svc.RegisterDefinition(SettingDefinition{Key: "feature.enabled", Default: false, Type: "boolean"})
+
+	ctx := context.Background()
+	userID := "user-123"
+
+	if err := svc.Apply(ctx, SettingsBundle{Scope: SettingsScopeSystem, Values: map[string]any{"admin.title": "System"}}); err != nil {
+		t.Fatalf("apply system: %v", err)
+	}
+	if err := svc.Apply(ctx, SettingsBundle{Scope: SettingsScopeSite, Values: map[string]any{"admin.title": "Site"}}); err != nil {
+		t.Fatalf("apply site: %v", err)
+	}
+	if err := svc.Apply(ctx, SettingsBundle{Scope: SettingsScopeUser, UserID: userID, Values: map[string]any{"admin.title": "Personal"}}); err != nil {
+		t.Fatalf("apply user: %v", err)
+	}
+
+	userValue := svc.Resolve("admin.title", userID)
+	if userValue.Value != "Personal" || userValue.Provenance != string(SettingsScopeUser) {
+		t.Fatalf("unexpected user resolution: %+v", userValue)
+	}
+
+	// Reuse the adapter to confirm values persist across service instances.
+	svc2 := NewSettingsService()
+	svc2.UseAdapter(adapter)
+	svc2.RegisterDefinition(SettingDefinition{Key: "admin.title", Default: "Admin", Type: "string"})
+	svc2.RegisterDefinition(SettingDefinition{Key: "feature.enabled", Default: false, Type: "boolean"})
+
+	siteValue := svc2.Resolve("admin.title", "")
+	if siteValue.Value != "Site" || siteValue.Provenance != string(SettingsScopeSite) {
+		t.Fatalf("unexpected site resolution after reuse: %+v", siteValue)
+	}
+
+	err = svc2.Apply(ctx, SettingsBundle{Scope: SettingsScopeUser, UserID: userID, Values: map[string]any{"feature.enabled": "yes"}})
+	var validation SettingsValidationErrors
+	if err == nil || !errors.As(err, &validation) {
+		t.Fatalf("expected validation errors for invalid boolean, got %v", err)
+	}
+	if validation.Fields["feature.enabled"] == "" {
+		t.Fatalf("expected validation field error for feature.enabled")
 	}
 }

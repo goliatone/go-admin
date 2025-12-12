@@ -70,11 +70,11 @@ func TestAddMenuItemsDedupesPersistentMenus(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := newStubPersistentMenuService()
 	container := &stubCMSContainer{menu: menuSvc}
-	adm := New(Config{
-		DefaultLocale: "en",
-		NavMenuCode:   "admin.main",
-		Features:      Features{CMS: true},
-	})
+		adm := mustNewAdmin(t, Config{
+			DefaultLocale: "en",
+			NavMenuCode:   "admin.main",
+			Features:      Features{CMS: true},
+		}, Dependencies{})
 	adm.UseCMS(container)
 
 	items := []MenuItem{

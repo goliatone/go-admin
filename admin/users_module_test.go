@@ -23,7 +23,7 @@ func TestUserModuleRegistersPanelsAndNavigation(t *testing.T) {
 			Search: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
@@ -62,7 +62,7 @@ func TestUserModuleEnforcesPermissions(t *testing.T) {
 			Users: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(stubAuthorizer{allow: false})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -87,7 +87,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 			Search: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize: %v", err)
@@ -250,7 +250,7 @@ func TestRoleOptionsUsesSyntheticActorContext(t *testing.T) {
 			Users: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	guarded := &guardedRoleRepo{}
 	adm.users.roles = guarded
 

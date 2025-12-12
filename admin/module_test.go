@@ -7,7 +7,7 @@ import (
 )
 
 func TestRegisterModuleRejectsDuplicates(t *testing.T) {
-	adm := New(Config{DefaultLocale: "en"})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 
 	if err := adm.RegisterModule(&stubModule{id: "mod"}); err != nil {
 		t.Fatalf("register module failed: %v", err)
@@ -18,7 +18,7 @@ func TestRegisterModuleRejectsDuplicates(t *testing.T) {
 }
 
 func TestLoadModulesRunsInOrderOnce(t *testing.T) {
-	adm := New(Config{DefaultLocale: "en"})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 	seq := []string{}
 
 	m1 := &stubModule{id: "one", onRegister: func() { seq = append(seq, "one") }}
@@ -49,8 +49,40 @@ func TestLoadModulesRunsInOrderOnce(t *testing.T) {
 	}
 }
 
+func TestLoadModulesOrdersByDependencies(t *testing.T) {
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
+	seq := []string{}
+
+	child := &stubModule{id: "child", onRegister: func() { seq = append(seq, "child") }}
+	parent := &stubModule{id: "parent", onRegister: func() { seq = append(seq, "parent") }}
+	parent.manifestFn = func() ModuleManifest {
+		return ModuleManifest{ID: "parent", Dependencies: []string{"child"}}
+	}
+
+	if err := adm.RegisterModule(parent); err != nil {
+		t.Fatalf("register parent failed: %v", err)
+	}
+	if err := adm.RegisterModule(child); err != nil {
+		t.Fatalf("register child failed: %v", err)
+	}
+
+	if err := adm.loadModules(context.Background()); err != nil {
+		t.Fatalf("load modules failed: %v", err)
+	}
+
+	expected := []string{"child", "parent"}
+	if len(seq) != len(expected) {
+		t.Fatalf("expected sequence %v, got %v", expected, seq)
+	}
+	for i := range expected {
+		if seq[i] != expected[i] {
+			t.Fatalf("expected sequence %v, got %v", expected, seq)
+		}
+	}
+}
+
 func TestModuleMenuItemsRespectPermissions(t *testing.T) {
-	adm := New(Config{DefaultLocale: "en"})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 	menu := []MenuItem{{Label: "Secret", Permissions: []string{"nav.secret"}, Locale: "en"}}
 
 	mod := &menuModule{id: "nav", menu: menu}
@@ -70,7 +102,7 @@ func TestModuleMenuItemsRespectPermissions(t *testing.T) {
 }
 
 func TestModuleMenuItemsAppearInNavigation(t *testing.T) {
-	adm := New(Config{DefaultLocale: "en"})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 	menu := []MenuItem{{Label: "Users", Icon: "users", Locale: "en"}}
 	mod := &menuModule{id: "nav", menu: menu}
 
@@ -93,10 +125,10 @@ func TestModuleMenuItemsAppearInNavigation(t *testing.T) {
 }
 
 func TestModuleDependenciesAndFeatureFlags(t *testing.T) {
-	adm := New(Config{
+	adm := mustNewAdmin(t, Config{
 		DefaultLocale: "en",
 		FeatureFlags:  map[string]bool{"feature.a": true},
-	})
+	}, Dependencies{})
 	child := &stubModule{id: "child"}
 	parent := &stubModule{id: "parent"}
 	parentManifest := ModuleManifest{ID: "parent", Dependencies: []string{"child"}, FeatureFlags: []string{"feature.a"}}
@@ -119,7 +151,7 @@ func TestModuleDependenciesAndFeatureFlags(t *testing.T) {
 }
 
 func TestModuleDependencyMissingFails(t *testing.T) {
-	adm := New(Config{DefaultLocale: "en"})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 	parent := &stubModule{id: "parent"}
 	parentManifest := ModuleManifest{ID: "parent", Dependencies: []string{"missing"}}
 	parent.manifestFn = func() ModuleManifest { return parentManifest }
@@ -132,7 +164,7 @@ func TestModuleDependencyMissingFails(t *testing.T) {
 }
 
 func TestModuleFeatureFlagMissingFails(t *testing.T) {
-	adm := New(Config{DefaultLocale: "en", FeatureFlags: map[string]bool{}})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en", FeatureFlags: map[string]bool{}}, Dependencies{})
 	mod := &stubModule{id: "needs.flag"}
 	mod.manifestFn = func() ModuleManifest { return ModuleManifest{ID: "needs.flag", FeatureFlags: []string{"flag.missing"}} }
 	if err := adm.RegisterModule(mod); err != nil {
@@ -146,7 +178,7 @@ func TestModuleFeatureFlagMissingFails(t *testing.T) {
 }
 
 func TestModuleTranslatorInjection(t *testing.T) {
-	adm := New(Config{DefaultLocale: "en"})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 	tx := &captureTranslator{}
 	adm.WithTranslator(tx)
 
@@ -163,12 +195,12 @@ func TestModuleTranslatorInjection(t *testing.T) {
 }
 
 func TestModuleFeatureFlagsHonorTypedFeatures(t *testing.T) {
-	adm := New(Config{
+	adm := mustNewAdmin(t, Config{
 		DefaultLocale: "en",
 		Features: Features{
 			Search: true,
 		},
-	})
+	}, Dependencies{})
 	mod := &stubModule{id: "needs.search"}
 	mod.manifestFn = func() ModuleManifest {
 		return ModuleManifest{

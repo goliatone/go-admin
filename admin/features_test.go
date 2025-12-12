@@ -18,7 +18,7 @@ func TestInitializeValidatesFeatureDependencies(t *testing.T) {
 			Bulk: true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 
 	err := adm.Initialize(server.Router())
@@ -39,7 +39,7 @@ func TestSearchRouteRespectsFeatureGates(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 

@@ -132,7 +132,7 @@ func TestUseCMSWrapsGoCMSMenuService(t *testing.T) {
 	}
 
 	cfg := Config{DefaultLocale: "en", Features: Features{CMS: true}}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.UseCMS(container)
 	if err := adm.Initialize(nilRouter{}); err != nil {
 		t.Fatalf("initialize: %v", err)

@@ -96,7 +96,7 @@ func (stubWidgetService) ListInstances(ctx context.Context, filter WidgetInstanc
 func TestUseCMSOverridesNavigationSource(t *testing.T) {
 	menuSvc := &stubMenuService{}
 	container := &stubCMSContainer{menu: menuSvc, widgets: stubWidgetService{}}
-	adm := New(Config{DefaultLocale: "en", Features: Features{CMS: true}})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en", Features: Features{CMS: true}}, Dependencies{})
 	adm.UseCMS(container)
 	menuSvc.AddMenuItem(context.Background(), "admin.main", MenuItem{Label: "CMS Item"})
 	if len(menuSvc.items) != 1 {

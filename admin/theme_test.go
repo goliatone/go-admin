@@ -26,7 +26,7 @@ func TestDashboardRouteReturnsTheme(t *testing.T) {
 		},
 		ThemeAssetPrefix: "https://cdn.example.com",
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 
@@ -76,7 +76,7 @@ func TestPanelSchemaIncludesThemePayload(t *testing.T) {
 			"primary": "#123456",
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	repo := NewMemoryRepository()
 	builder := (&PanelBuilder{}).WithRepository(repo)
 	if _, err := adm.RegisterPanel("items", builder); err != nil {
@@ -191,7 +191,7 @@ func TestThemeOverrideViaGoThemeSelector(t *testing.T) {
 			Settings:  true,
 		},
 	}
-	adm := New(cfg)
+	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithGoTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
 
 	repo := NewMemoryRepository()

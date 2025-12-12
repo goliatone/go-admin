@@ -19,11 +19,11 @@ func TestGoCMSNavigationDeterministicIDsAndDedupe(t *testing.T) {
 	}
 	container := module.Container()
 
-	adm := New(Config{
+	adm := mustNewAdmin(t, Config{
 		DefaultLocale: "en",
 		Features:      Features{CMS: true},
 		CMS:           CMSOptions{Container: NewGoCMSContainerAdapter(container)},
-	})
+	}, Dependencies{})
 	if err := adm.Initialize(nilRouter{}); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}

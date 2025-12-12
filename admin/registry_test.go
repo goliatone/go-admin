@@ -58,7 +58,7 @@ func TestSettingsServiceRegistersIntoRegistry(t *testing.T) {
 }
 
 func TestAdminRegisterPanelUsesRegistry(t *testing.T) {
-	adm := New(Config{})
+	adm := mustNewAdmin(t, Config{}, Dependencies{})
 	builder := (&PanelBuilder{}).WithRepository(NewMemoryRepository())
 
 	if _, err := adm.RegisterPanel("items", builder); err != nil {
