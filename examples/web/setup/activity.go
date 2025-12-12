@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
 )

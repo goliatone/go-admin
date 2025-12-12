@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/google/uuid"
 )
 

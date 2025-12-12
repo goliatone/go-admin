@@ -1,7 +1,7 @@
 package setup
 
 import (
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/renderers"
 )
 

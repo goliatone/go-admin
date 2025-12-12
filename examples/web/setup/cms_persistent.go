@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	cms "github.com/goliatone/go-cms"
 	"github.com/goliatone/go-cms/pkg/storage"

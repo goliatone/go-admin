@@ -4,13 +4,12 @@ import (
 	"context"
 	"log"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 // SetupSettingsWithOptions swaps the settings backend to the go-options adapter.
 func SetupSettingsWithOptions(adm *admin.Admin) {
 	settings := adm.SettingsService()
-	settings.UseAdapter(admin.NewGoOptionsSettingsAdapter())
 
 	for _, def := range settingsDefinitions() {
 		settings.RegisterDefinition(def)

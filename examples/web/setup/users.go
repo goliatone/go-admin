@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	auth "github.com/goliatone/go-auth"

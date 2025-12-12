@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 // SetupSettings configures settings definitions for the admin panel.
