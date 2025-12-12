@@ -16,6 +16,16 @@ func JoinPath(basePath, suffix string) string {
 	return path.Join("/", basePath, suffix)
 }
 
+// NormalizeMenuSlug converts an arbitrary name/code into a normalized slug.
+func NormalizeMenuSlug(raw string) string {
+	return navinternal.NormalizeMenuSlug(raw)
+}
+
+// MenuUUIDFromSlug derives a deterministic UUID string from a menu slug/name.
+func MenuUUIDFromSlug(slug string) string {
+	return navinternal.MenuUUIDFromSlug(slug)
+}
+
 // NormalizeMenuItem ensures menu code is set and derives an ID when missing.
 func NormalizeMenuItem(item navinternal.MenuItem, menuCode string) navinternal.MenuItem {
 	return navinternal.NormalizeMenuItem(item, menuCode)

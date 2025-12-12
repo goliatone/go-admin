@@ -1,6 +1,9 @@
 package cmsboot
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 // EnsureOptions configure CMS container resolution.
 type EnsureOptions struct {
@@ -67,5 +70,13 @@ func BootstrapMenu(ctx context.Context, svc CMSMenuService, code string) error {
 		return nil
 	}
 	_, err := svc.CreateMenu(ctx, code)
-	return err
+	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		// Ignore duplicate menu errors - menu might already exist from previous runs or setup
+		if strings.Contains(errMsg, "already exists") || strings.Contains(errMsg, "code already exists") {
+			return nil
+		}
+		return err
+	}
+	return nil
 }

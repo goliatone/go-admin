@@ -113,6 +113,8 @@ func CloneDashboardInstances(in []DashboardWidgetInstance) []DashboardWidgetInst
 			AreaCode:       inst.AreaCode,
 			Config:         cloneAnyMap(inst.Config),
 			Position:       inst.Position,
+			Span:           inst.Span,
+			Hidden:         inst.Hidden,
 			Locale:         inst.Locale,
 		})
 	}
