@@ -13,7 +13,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/handlers"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/jobs"
@@ -134,8 +134,11 @@ func main() {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
 
-	adm := admin.New(cfg)
-	quickstart.ApplyAdapterIntegrations(adm, &adapterResult, adapterHooks)
+		adm, err := admin.New(cfg, admin.Dependencies{})
+		if err != nil {
+			log.Fatalf("failed to construct admin: %v", err)
+		}
+		quickstart.ApplyAdapterIntegrations(adm, &adapterResult, adapterHooks)
 
 	// Wire dashboard activity hooks to admin activity system
 	// This creates a bidirectional bridge:
@@ -474,25 +477,6 @@ func main() {
 		return c.JSON(fiber.StatusOK, session)
 	}))
 
-	// Dashboard preferences endpoint (widget layout persistence)
-	r.Post(path.Join(cfg.BasePath, "api/dashboard/preferences"), authn.WrapHandler(func(c router.Context) error {
-		var prefs map[string]any
-		if err := c.Bind(&prefs); err != nil {
-			return c.JSON(fiber.StatusBadRequest, map[string]any{
-				"error": "invalid request payload",
-			})
-		}
-
-		// For now, just acknowledge the save (in-memory, not persisted)
-		// In production, save to database or preferences store
-		log.Printf("Dashboard preferences saved: %+v", prefs)
-
-		return c.JSON(fiber.StatusOK, map[string]any{
-			"success": true,
-			"message": "Layout preferences saved",
-		})
-	}))
-
 	onboardingHandlers := handlers.OnboardingHandlers{
 		UsersService: usersService,
 		AuthRepo:     usersDeps.AuthRepo,
@@ -699,6 +683,7 @@ func main() {
 	log.Println("  Media: /admin/api/media")
 	log.Println("  Settings: /admin/api/settings")
 	log.Println("  Session: /admin/api/session")
+	log.Printf("  Dashboard: go-dashboard (persistent, requires CMS)")
 	log.Printf("  Activity backend: %s (USE_GO_USERS_ACTIVITY=%t)", activityBackend, adapterResult.Flags.UseGoUsersActivity)
 	log.Printf("  CMS backend: %s (USE_PERSISTENT_CMS=%t)", cmsBackend, adapterResult.Flags.UsePersistentCMS)
 	log.Printf("  Settings backend: %s (USE_GO_OPTIONS=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
