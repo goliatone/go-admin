@@ -2,10 +2,14 @@ package admin
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
+	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
+	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
 	router "github.com/goliatone/go-router"
+	"github.com/julienschmidt/httprouter"
 )
 
 type featureGatesAdapter struct {
@@ -172,7 +176,7 @@ func (d *dashboardBinding) RenderHTML(c router.Context, locale string) (string, 
 	if err != nil {
 		return "", err
 	}
-	return d.admin.dashboard.renderer.Render(layout)
+	return d.admin.dashboard.renderer.Render("dashboard_ssr.html", layout)
 }
 
 func (d *dashboardBinding) Widgets(c router.Context, locale string) (map[string]any, error) {
@@ -212,6 +216,13 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 		return nil, nil
 	}
 	ctx := d.admin.adminContextFromRequest(c, d.admin.config.DefaultLocale)
+
+	if ctx.UserID != "" && d.admin.preferences != nil {
+		overrides := expandDashboardOverrides(body)
+		if _, err := d.admin.preferences.SaveDashboardOverrides(ctx.Context, ctx.UserID, overrides); err != nil {
+			return nil, err
+		}
+	}
 
 	if _, ok := body["layout_rows"]; ok {
 		type widgetSlot struct {
@@ -325,6 +336,198 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 		d.admin.dashboard.SetUserLayoutWithContext(ctx, layout)
 	}
 	return map[string]any{"layout": layout}, nil
+}
+
+type dashboardGoBinding struct {
+	admin *Admin
+}
+
+func (d *dashboardGoBinding) Enabled() bool {
+	return d.admin != nil && d.admin.gates.Enabled(FeatureDashboard)
+}
+
+func (d *dashboardGoBinding) HasRenderer() bool {
+	return d.admin != nil && d.admin.dash != nil && d.admin.dash.controller != nil
+}
+
+func (d *dashboardGoBinding) RenderHTML(c router.Context, locale string) (string, error) {
+	if d.admin == nil || d.admin.dash == nil || d.admin.dash.controller == nil {
+		return "", nil
+	}
+	viewer := d.viewer(c, locale)
+	var buf strings.Builder
+	if err := d.admin.dash.controller.RenderTemplate(c.Context(), viewer, &buf); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func (d *dashboardGoBinding) Widgets(c router.Context, locale string) (map[string]any, error) {
+	if d.admin == nil || d.admin.dashboard == nil {
+		return nil, nil
+	}
+	if locale == "" {
+		locale = d.admin.config.DefaultLocale
+	}
+	adminCtx := d.admin.adminContextFromRequest(c, locale)
+	widgets, err := d.admin.dashboard.Resolve(adminCtx)
+	if err != nil {
+		return nil, err
+	}
+	payload := map[string]any{
+		"widgets": widgets,
+		"locale":  locale,
+	}
+	if base := d.admin.config.BasePath; base != "" {
+		payload["base_path"] = base
+	}
+	if theme := d.admin.themePayload(adminCtx.Context); theme != nil {
+		payload["theme"] = theme
+	}
+	return payload, nil
+}
+
+func (d *dashboardGoBinding) Preferences(c router.Context, locale string) (map[string]any, error) {
+	return d.Widgets(c, locale)
+}
+
+func (d *dashboardGoBinding) SavePreferences(c router.Context, _ map[string]any) (map[string]any, error) {
+	if d.admin == nil || d.admin.dash == nil {
+		return nil, nil
+	}
+	viewer := d.viewer(c, d.admin.config.DefaultLocale)
+	if viewer.UserID == "" {
+		return map[string]any{"status": "skipped"}, nil
+	}
+	if err := d.admin.dash.service.SavePreferences(c.Context(), viewer, dashcmp.LayoutOverrides{}); err != nil {
+		return nil, err
+	}
+	return map[string]any{"status": "ok"}, nil
+}
+
+func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
+	if d.admin == nil || d.admin.dash == nil || d.admin.router == nil {
+		return nil
+	}
+	defaultLocale := d.admin.config.DefaultLocale
+	viewerResolver := func(c router.Context) dashcmp.ViewerContext {
+		locale := strings.TrimSpace(c.Query("locale"))
+		if locale == "" {
+			locale = defaultLocale
+		}
+		adminCtx := d.admin.adminContextFromRequest(c, locale)
+		if c != nil {
+			c.SetContext(adminCtx.Context)
+		}
+		return dashcmp.ViewerContext{
+			UserID: adminCtx.UserID,
+			Locale: locale,
+		}
+	}
+	routes := dashboardrouter.RouteConfig{
+		HTML:        "/dashboard",
+		Layout:      "/api/dashboard",
+		Widgets:     "/api/dashboard/widgets",
+		WidgetID:    "/api/dashboard/widgets/:id",
+		Reorder:     "/api/dashboard/widgets/reorder",
+		Refresh:     "/api/dashboard/widgets/refresh",
+		Preferences: "/api/dashboard/preferences",
+	}
+	if rt, ok := d.admin.router.(router.Router[router.Context]); ok {
+		if err := dashboardrouter.Register(dashboardrouter.Config[router.Context]{
+			Router:         rt,
+			Controller:     d.admin.dash.controller,
+			API:            d.admin.dash.executor,
+			Broadcast:      d.admin.dash.broadcast,
+			ViewerResolver: viewerResolver,
+			BasePath:       d.admin.config.BasePath,
+			Routes:         routes,
+		}); err == nil {
+			return nil
+		}
+	}
+	if rt, ok := d.admin.router.(router.Router[*httprouter.Router]); ok {
+		if err := dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
+			Router:         rt,
+			Controller:     d.admin.dash.controller,
+			API:            d.admin.dash.executor,
+			Broadcast:      d.admin.dash.broadcast,
+			ViewerResolver: viewerResolver,
+			BasePath:       d.admin.config.BasePath,
+			Routes:         routes,
+		}); err == nil {
+			return nil
+		}
+	}
+	if rt, ok := d.admin.router.(AdminRouter); ok {
+		basePath := d.admin.config.BasePath
+		getLocale := func(c router.Context) string {
+			locale := strings.TrimSpace(c.Query("locale"))
+			if locale == "" {
+				locale = defaultLocale
+			}
+			return locale
+		}
+		rt.Get(joinPath(basePath, "api/dashboard"), func(c router.Context) error {
+			payload, err := d.Widgets(c, getLocale(c))
+			if err != nil {
+				return writeError(c, err)
+			}
+			return writeJSON(c, payload)
+		})
+		rt.Get(joinPath(basePath, "api/dashboard/preferences"), func(c router.Context) error {
+			payload, err := d.Widgets(c, getLocale(c))
+			if err != nil {
+				return writeError(c, err)
+			}
+			return writeJSON(c, payload)
+		})
+		rt.Get(joinPath(basePath, "api/dashboard/config"), func(c router.Context) error {
+			payload, err := d.Widgets(c, getLocale(c))
+			if err != nil {
+				return writeError(c, err)
+			}
+			return writeJSON(c, payload)
+		})
+		savePrefs := func(c router.Context) error {
+			locale := getLocale(c)
+			adminCtx := d.admin.adminContextFromRequest(c, locale)
+			viewer := dashcmp.ViewerContext{UserID: adminCtx.UserID, Locale: adminCtx.Locale}
+			if viewer.UserID == "" {
+				return writeError(c, ErrForbidden)
+			}
+			raw, err := d.admin.ParseBody(c)
+			if err != nil {
+				return writeError(c, err)
+			}
+			adminOverrides := expandDashboardOverrides(raw)
+			if adminOverrides.Locale == "" {
+				adminOverrides.Locale = locale
+			}
+			overrides := dashcmp.LayoutOverrides{
+				Locale:        adminOverrides.Locale,
+				AreaOrder:     cloneStringSliceMap(adminOverrides.AreaOrder),
+				AreaRows:      convertDashboardRows(adminOverrides.AreaRows),
+				HiddenWidgets: cloneHiddenWidgetMap(adminOverrides.HiddenWidgets),
+			}
+			if err := d.admin.dash.service.SavePreferences(c.Context(), viewer, overrides); err != nil {
+				return writeError(c, err)
+			}
+			return writeJSON(c, map[string]any{"status": "ok"})
+		}
+		rt.Post(joinPath(basePath, "api/dashboard/preferences"), savePrefs)
+		rt.Post(joinPath(basePath, "api/dashboard/config"), savePrefs)
+		return nil
+	}
+	return fmt.Errorf("router does not support go-dashboard routes")
+}
+
+func (d *dashboardGoBinding) viewer(c router.Context, locale string) dashcmp.ViewerContext {
+	adminCtx := d.admin.adminContextFromRequest(c, locale)
+	return dashcmp.ViewerContext{
+		UserID: adminCtx.UserID,
+		Locale: locale,
+	}
 }
 
 type navigationBinding struct {

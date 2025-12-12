@@ -11,6 +11,7 @@ const (
 	preferencesKeyTheme           = "theme"
 	preferencesKeyThemeVariant    = "theme_variant"
 	preferencesKeyDashboardLayout = "dashboard_layout"
+	preferencesKeyDashboardPrefs  = "dashboard_overrides"
 )
 
 // PreferencesStore defines a minimal contract compatible with go-users preferences.
@@ -68,7 +69,27 @@ type UserPreferences struct {
 	Theme           string                    `json:"theme,omitempty"`
 	ThemeVariant    string                    `json:"theme_variant,omitempty"`
 	DashboardLayout []DashboardWidgetInstance `json:"dashboard_layout,omitempty"`
+	DashboardPrefs  DashboardLayoutOverrides  `json:"dashboard_overrides,omitempty"`
 	Raw             map[string]any            `json:"raw,omitempty"`
+}
+
+// DashboardLayoutOverrides persists go-dashboard layout adjustments.
+type DashboardLayoutOverrides struct {
+	Locale        string                          `json:"locale,omitempty"`
+	AreaOrder     map[string][]string             `json:"area_order,omitempty"`
+	AreaRows      map[string][]DashboardLayoutRow `json:"area_rows,omitempty"`
+	HiddenWidgets map[string]bool                 `json:"hidden_widgets,omitempty"`
+}
+
+// DashboardLayoutRow captures widget slots on a single row.
+type DashboardLayoutRow struct {
+	Widgets []DashboardLayoutSlot `json:"widgets,omitempty"`
+}
+
+// DashboardLayoutSlot describes a widget placement and width.
+type DashboardLayoutSlot struct {
+	ID    string `json:"id,omitempty"`
+	Width int    `json:"width,omitempty"`
 }
 
 // PreferencesService orchestrates access to the PreferencesStore and applies defaults.
@@ -178,6 +199,21 @@ func (s *PreferencesService) SaveDashboardLayout(ctx context.Context, userID str
 	})
 }
 
+// SaveDashboardOverrides stores go-dashboard layout overrides for a user.
+func (s *PreferencesService) SaveDashboardOverrides(ctx context.Context, userID string, overrides DashboardLayoutOverrides) (UserPreferences, error) {
+	if userID == "" {
+		return UserPreferences{}, ErrForbidden
+	}
+	normalized := normalizeDashboardOverrides(overrides)
+	return s.Save(ctx, userID, UserPreferences{
+		UserID:         userID,
+		DashboardPrefs: normalized,
+		Raw: map[string]any{
+			preferencesKeyDashboardPrefs: flattenDashboardOverrides(normalized),
+		},
+	})
+}
+
 // DashboardLayout returns the stored dashboard layout, if any.
 func (s *PreferencesService) DashboardLayout(ctx context.Context, userID string) []DashboardWidgetInstance {
 	prefs, err := s.Get(ctx, userID)
@@ -185,6 +221,15 @@ func (s *PreferencesService) DashboardLayout(ctx context.Context, userID string)
 		return nil
 	}
 	return cloneDashboardInstances(prefs.DashboardLayout)
+}
+
+// DashboardOverrides returns persisted go-dashboard layout overrides, if any.
+func (s *PreferencesService) DashboardOverrides(ctx context.Context, userID string) DashboardLayoutOverrides {
+	prefs, err := s.Get(ctx, userID)
+	if err != nil {
+		return normalizeDashboardOverrides(DashboardLayoutOverrides{})
+	}
+	return normalizeDashboardOverrides(prefs.DashboardPrefs)
 }
 
 // ThemeSelectorForUser builds a ThemeSelector using stored preferences when present.
@@ -250,6 +295,9 @@ func preferencesFromMap(userID string, raw map[string]any) UserPreferences {
 	if layout, ok := raw[preferencesKeyDashboardLayout]; ok {
 		prefs.DashboardLayout = expandDashboardLayout(layout)
 	}
+	if overrides, ok := raw[preferencesKeyDashboardPrefs]; ok {
+		prefs.DashboardPrefs = expandDashboardOverrides(overrides)
+	}
 	return prefs
 }
 
@@ -276,6 +324,13 @@ func preferencesToMap(prefs UserPreferences) map[string]any {
 		update[preferencesKeyDashboardLayout] = flattenDashboardLayout(expandDashboardLayout(layout))
 	} else if len(prefs.DashboardLayout) > 0 {
 		update[preferencesKeyDashboardLayout] = flattenDashboardLayout(prefs.DashboardLayout)
+	}
+	if val, ok := prefs.Raw[preferencesKeyDashboardPrefs]; ok || !dashboardOverridesEmpty(prefs.DashboardPrefs) {
+		if ok {
+			update[preferencesKeyDashboardPrefs] = val
+		} else {
+			update[preferencesKeyDashboardPrefs] = flattenDashboardOverrides(prefs.DashboardPrefs)
+		}
 	}
 	return update
 }
@@ -350,6 +405,179 @@ func expandDashboardLayout(input any) []DashboardWidgetInstance {
 		return nil
 	}
 	return out
+}
+
+func dashboardOverridesEmpty(overrides DashboardLayoutOverrides) bool {
+	return overrides.Locale == "" && len(overrides.AreaOrder) == 0 && len(overrides.AreaRows) == 0 && len(overrides.HiddenWidgets) == 0
+}
+
+func normalizeDashboardOverrides(overrides DashboardLayoutOverrides) DashboardLayoutOverrides {
+	if overrides.AreaOrder == nil {
+		overrides.AreaOrder = map[string][]string{}
+	}
+	if overrides.AreaRows == nil {
+		overrides.AreaRows = map[string][]DashboardLayoutRow{}
+	}
+	if overrides.HiddenWidgets == nil {
+		overrides.HiddenWidgets = map[string]bool{}
+	}
+	return overrides
+}
+
+func flattenDashboardOverrides(overrides DashboardLayoutOverrides) map[string]any {
+	overrides = normalizeDashboardOverrides(overrides)
+	out := map[string]any{}
+	if overrides.Locale != "" {
+		out["locale"] = overrides.Locale
+	}
+	if len(overrides.AreaOrder) > 0 {
+		out["area_order"] = overrides.AreaOrder
+	}
+	if len(overrides.AreaRows) > 0 {
+		rows := map[string]any{}
+		for area, areaRows := range overrides.AreaRows {
+			serialized := []map[string]any{}
+			for _, row := range areaRows {
+				if len(row.Widgets) == 0 {
+					continue
+				}
+				widgets := []map[string]any{}
+				for _, slot := range row.Widgets {
+					if slot.ID == "" {
+						continue
+					}
+					widget := map[string]any{"id": slot.ID}
+					if slot.Width > 0 {
+						widget["width"] = slot.Width
+					}
+					widgets = append(widgets, widget)
+				}
+				if len(widgets) > 0 {
+					serialized = append(serialized, map[string]any{"widgets": widgets})
+				}
+			}
+			if len(serialized) > 0 {
+				rows[area] = serialized
+			}
+		}
+		if len(rows) > 0 {
+			out["area_rows"] = rows
+		}
+	}
+	hidden := []string{}
+	for id, isHidden := range overrides.HiddenWidgets {
+		if isHidden {
+			hidden = append(hidden, id)
+		}
+	}
+	sort.Strings(hidden)
+	if len(hidden) > 0 {
+		out["hidden_widget_ids"] = hidden
+	}
+	return out
+}
+
+func expandDashboardOverrides(input any) DashboardLayoutOverrides {
+	overrides := normalizeDashboardOverrides(DashboardLayoutOverrides{})
+	raw, ok := input.(map[string]any)
+	if !ok {
+		return overrides
+	}
+	if locale, ok := raw["locale"]; ok {
+		overrides.Locale = toString(locale)
+	}
+	if order, ok := raw["area_order"].(map[string]any); ok {
+		for area, seq := range order {
+			overrides.AreaOrder[area] = toStringSlice(seq)
+		}
+	}
+	rowsValue, ok := raw["area_rows"]
+	if !ok {
+		rowsValue = raw["layout_rows"]
+	}
+	if rows, ok := rowsValue.(map[string]any); ok {
+		for area, val := range rows {
+			expanded := expandDashboardLayoutRows(val)
+			if len(expanded) > 0 {
+				overrides.AreaRows[area] = expanded
+			}
+		}
+	}
+	if hidden, ok := raw["hidden_widget_ids"]; ok {
+		for _, id := range toStringSlice(hidden) {
+			if id != "" {
+				overrides.HiddenWidgets[id] = true
+			}
+		}
+	}
+	if hiddenMap, ok := raw["hidden_widgets"].(map[string]any); ok {
+		for id, val := range hiddenMap {
+			if toBool(val) {
+				overrides.HiddenWidgets[id] = true
+			}
+		}
+	}
+	return overrides
+}
+
+func expandDashboardLayoutRows(val any) []DashboardLayoutRow {
+	rows := []DashboardLayoutRow{}
+	switch typed := val.(type) {
+	case []any:
+		for _, rowVal := range typed {
+			rowMap, ok := rowVal.(map[string]any)
+			if !ok {
+				continue
+			}
+			row := expandDashboardLayoutRow(rowMap)
+			if len(row.Widgets) > 0 {
+				rows = append(rows, row)
+			}
+		}
+	case []map[string]any:
+		for _, rowMap := range typed {
+			row := expandDashboardLayoutRow(rowMap)
+			if len(row.Widgets) > 0 {
+				rows = append(rows, row)
+			}
+		}
+	}
+	return rows
+}
+
+func expandDashboardLayoutRow(rowMap map[string]any) DashboardLayoutRow {
+	row := DashboardLayoutRow{}
+	rawWidgets, ok := rowMap["widgets"]
+	if !ok {
+		return row
+	}
+	switch widgets := rawWidgets.(type) {
+	case []any:
+		for _, w := range widgets {
+			if wMap, ok := w.(map[string]any); ok {
+				row.Widgets = append(row.Widgets, DashboardLayoutSlot{
+					ID:    toString(wMap["id"]),
+					Width: atoiDefault(toString(wMap["width"]), 0),
+				})
+			}
+		}
+	case []map[string]any:
+		for _, wMap := range widgets {
+			row.Widgets = append(row.Widgets, DashboardLayoutSlot{
+				ID:    toString(wMap["id"]),
+				Width: atoiDefault(toString(wMap["width"]), 0),
+			})
+		}
+	}
+	filtered := []DashboardLayoutSlot{}
+	for _, slot := range row.Widgets {
+		if slot.ID == "" {
+			continue
+		}
+		filtered = append(filtered, slot)
+	}
+	row.Widgets = filtered
+	return row
 }
 
 // NewDashboardPreferencesAdapter bridges PreferencesService into the DashboardPreferences contract.

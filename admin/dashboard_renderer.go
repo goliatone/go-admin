@@ -1,11 +1,12 @@
 package admin
 
+import "io"
+
 // DashboardRenderer defines the interface for rendering dashboards as HTML.
 // Implementations can use any template engine or rendering approach.
 type DashboardRenderer interface {
-	// Render generates HTML from the dashboard layout.
-	// Returns HTML string and any rendering error.
-	Render(layout *DashboardLayout) (string, error)
+	// Render matches the go-dashboard Renderer contract and returns the rendered HTML.
+	Render(name string, data any, out ...io.Writer) (string, error)
 }
 
 // DashboardLayout represents the complete dashboard state ready for rendering.

@@ -222,6 +222,9 @@ func (a *GoCMSMenuAdapter) buildAddMenuItemInput(t reflect.Type, menuID uuid.UUI
 	}
 	if parent, err := uuidFromString(item.ParentID); err == nil && parent != nil {
 		setUUIDPtr(val.FieldByName("ParentID"), parent)
+	} else if strings.TrimSpace(item.ParentID) != "" {
+		// ParentID is not a valid UUID - treat it as a ParentCode (string identifier/slug)
+		setStringField(val, "ParentCode", strings.TrimSpace(item.ParentID))
 	}
 	if item.Position > 0 {
 		setIntField(val, "Position", item.Position)
@@ -287,6 +290,9 @@ func (a *GoCMSMenuAdapter) buildUpdateMenuItemInput(t reflect.Type, itemID uuid.
 	}
 	if parent, err := uuidFromString(item.ParentID); err == nil && parent != nil {
 		setUUIDPtr(val.FieldByName("ParentID"), parent)
+	} else if strings.TrimSpace(item.ParentID) != "" {
+		// ParentID is not a valid UUID - treat it as a ParentCode (string identifier/slug)
+		setStringField(val, "ParentCode", strings.TrimSpace(item.ParentID))
 	}
 	if trimmed := strings.TrimSpace(item.Type); trimmed != "" {
 		setStringPtr(val.FieldByName("Type"), trimmed)

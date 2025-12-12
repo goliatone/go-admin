@@ -228,6 +228,9 @@ func (r *PreferencesRepository) recordFromPreferences(prefs UserPreferences) map
 	if len(prefs.DashboardLayout) > 0 {
 		record["dashboard_layout"] = flattenDashboardLayout(prefs.DashboardLayout)
 	}
+	if !dashboardOverridesEmpty(prefs.DashboardPrefs) {
+		record["dashboard_overrides"] = flattenDashboardOverrides(prefs.DashboardPrefs)
+	}
 	return record
 }
 
@@ -243,6 +246,9 @@ func (r *PreferencesRepository) preferencesFromRecord(record map[string]any) Use
 	}
 	if val, ok := record["dashboard_layout"]; ok {
 		prefs.DashboardLayout = expandDashboardLayout(val)
+	}
+	if val, ok := record["dashboard_overrides"]; ok {
+		prefs.DashboardPrefs = expandDashboardOverrides(val)
 	}
 	return prefs
 }
