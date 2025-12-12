@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 // PageRepository represents the operations needed by panels, search, and commands.

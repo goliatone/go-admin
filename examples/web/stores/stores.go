@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	auth "github.com/goliatone/go-auth"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-users/pkg/types"

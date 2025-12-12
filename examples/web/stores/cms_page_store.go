@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 // CMSPageStore adapts a CMSContentService-backed page repository to the panel/store contract.

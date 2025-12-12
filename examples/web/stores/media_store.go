@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/uptrace/bun"
 )
