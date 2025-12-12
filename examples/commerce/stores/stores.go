@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 // CommerceStores groups the in-memory repositories used by the commerce example.

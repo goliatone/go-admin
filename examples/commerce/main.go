@@ -7,7 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-router"
 )
@@ -34,8 +34,11 @@ func main() {
 		},
 	}
 
-	adm := admin.New(cfg)
-	_ = setupAuth(adm, dataStores)
+		adm, err := admin.New(cfg, admin.Dependencies{})
+		if err != nil {
+			log.Fatalf("failed to construct admin: %v", err)
+		}
+		_ = setupAuth(adm, dataStores)
 
 	module := &commerceModule{
 		stores:        dataStores,
