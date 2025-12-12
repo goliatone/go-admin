@@ -11,11 +11,15 @@ import (
 
 // Notification represents an inbox item.
 type Notification struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	Message   string    `json:"message"`
-	Read      bool      `json:"read"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string         `json:"id"`
+	Title     string         `json:"title"`
+	Message   string         `json:"message"`
+	Locale    string         `json:"locale,omitempty"`
+	ActionURL string         `json:"action_url,omitempty"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
+	UserID    string         `json:"user_id,omitempty"`
+	Read      bool           `json:"read"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 // NotificationService manages inbox items.
