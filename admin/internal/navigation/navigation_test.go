@@ -19,14 +19,14 @@ func TestNavigationFallbackFiltersSeparatorsAndEmptyNodes(t *testing.T) {
 	nav := NewNavigation(nil, allowAllAuthorizer{})
 	nav.SetTranslator(translatorStub{})
 	nav.AddFallback(
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en"},
-		NavigationItem{Type: MenuItemTypeItem, Label: "A", Locale: "en"},
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en"},
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en"},
-		NavigationItem{Type: MenuItemTypeGroup, Label: "Empty Group", Locale: "en"},
-		NavigationItem{Type: MenuItemTypeItem, Label: "Collapsible Empty", Collapsible: true, Locale: "en"},
-		NavigationItem{Type: MenuItemTypeItem, Label: "B", Locale: "en"},
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en"},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: 0},
+		NavigationItem{Type: MenuItemTypeItem, Label: "A", Locale: "en", Position: 1},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: 2},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: 2},
+		NavigationItem{Type: MenuItemTypeItem, Label: "B", Locale: "en", Position: 3},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: 4},
+		NavigationItem{Type: MenuItemTypeGroup, Label: "Empty Group", Locale: "en", Position: 10},
+		NavigationItem{Type: MenuItemTypeItem, Label: "Collapsible Empty", Collapsible: true, Locale: "en", Position: 11},
 	)
 
 	items := nav.Resolve(context.Background(), "en")
