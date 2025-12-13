@@ -34,7 +34,6 @@ func TestGoCMSNavigationDeterministicIDsAndDedupe(t *testing.T) {
 			ID:         "nav.group.main",
 			Type:       MenuItemTypeGroup,
 			GroupTitle: "Main",
-			Label:      "Main",
 			Menu:       menuCode,
 			Locale:     "en",
 			Position:   0,

@@ -45,7 +45,7 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 	mediaStore.Seed()
 
 	if menuSvc := cmsOpts.Container.MenuService(); menuSvc != nil {
-		_ = setup.SetupNavigation(ctx, menuSvc, "/admin", setup.NavigationMenuCode)
+		_ = setup.SetupNavigation(ctx, menuSvc, "/admin", setup.NavigationMenuCode, "en")
 	}
 
 	app := fiber.New()
@@ -110,7 +110,7 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 		}
 		items, err := menuSvc.Menu(c.UserContext(), setup.NavigationMenuCode, locale)
 		if (err != nil || items == nil || len(items.Items) == 0) && menuSvc != nil {
-			_ = setup.SetupNavigation(c.UserContext(), menuSvc, "/admin", setup.NavigationMenuCode)
+			_ = setup.SetupNavigation(c.UserContext(), menuSvc, "/admin", setup.NavigationMenuCode, "en")
 			items, err = menuSvc.Menu(c.UserContext(), setup.NavigationMenuCode, locale)
 		}
 		if err != nil || items == nil {
