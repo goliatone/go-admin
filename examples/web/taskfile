@@ -106,6 +106,7 @@ function dev:serve {
     lgr exec -- npm run build
     export NAV_DEBUG=true;
     export RESET_NAV_MENU=true;
+    export USE_PERSISTENT_CMS=true
     go run .
 }
 
@@ -348,4 +349,4 @@ function help {
 }
 
 TIMEFORMAT="Task completed in %3lR"
-time "${@:-help}"
+time "${@:-help}"; exit $?
