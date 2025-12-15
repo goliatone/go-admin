@@ -7,6 +7,7 @@ import (
 
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	"github.com/goliatone/go-admin/examples/web/setup"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
@@ -80,7 +81,7 @@ func (h *TenantHandlers) List(c router.Context) error {
 		"items":          items,
 		"columns":        columns,
 		"total":          total,
-	}, h.Admin, h.Config, "tenants", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/tenants/list", viewCtx)
 }
@@ -103,7 +104,7 @@ func (h *TenantHandlers) New(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"is_edit":        false,
 		"form_html":      string(html),
-	}, h.Admin, h.Config, "tenants", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/tenants/form", viewCtx)
 }
@@ -154,7 +155,7 @@ func (h *TenantHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  item,
 		"fields":         fields,
-	}, h.Admin, h.Config, "tenants", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/tenants/detail", viewCtx)
 }
@@ -183,7 +184,7 @@ func (h *TenantHandlers) Edit(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"is_edit":        true,
 		"form_html":      string(html),
-	}, h.Admin, h.Config, "tenants", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/tenants/form", viewCtx)
 }

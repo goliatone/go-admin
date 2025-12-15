@@ -7,6 +7,7 @@ import (
 
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
@@ -81,7 +82,7 @@ func (h *UserHandlers) List(c router.Context) error {
 		"items":          users,
 		"columns":        columns,
 		"total":          total,
-	}, h.Admin, h.Config, "users", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/list", viewCtx)
 }
@@ -149,7 +150,7 @@ func (h *UserHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  user,
 		"fields":         fields,
-	}, h.Admin, h.Config, "users", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/detail", viewCtx)
 }
@@ -243,7 +244,7 @@ func (h *UserHandlers) renderUserForm(c router.Context, operationID string, opts
 		"routes":         routes.RoutesMap(),
 		"is_edit":        isEdit,
 		"form_html":      string(html),
-	}, h.Admin, h.Config, "users", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/form", viewCtx)
 }

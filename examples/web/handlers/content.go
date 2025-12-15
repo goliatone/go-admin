@@ -6,6 +6,7 @@ import (
 
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
@@ -54,7 +55,7 @@ func (h *PageHandlers) List(c router.Context) error {
 		"items":          pages,
 		"columns":        columns,
 		"total":          total,
-	}, h.Admin, h.Config, "pages", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".pages", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/pages/list", viewCtx)
 }
@@ -71,7 +72,7 @@ func (h *PageHandlers) New(c router.Context) error {
 		"resource_label": "Pages",
 		"routes":         routes.RoutesMap(),
 		"is_edit":        false,
-	}, h.Admin, h.Config, "pages", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".pages", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/pages/form", viewCtx)
 }
@@ -125,7 +126,7 @@ func (h *PageHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  page,
 		"fields":         fields,
-	}, h.Admin, h.Config, "pages", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".pages", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/pages/detail", viewCtx)
 }
@@ -149,7 +150,7 @@ func (h *PageHandlers) Edit(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"is_edit":        true,
 		"item":           page,
-	}, h.Admin, h.Config, "pages", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".pages", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/pages/form", viewCtx)
 }
@@ -254,7 +255,7 @@ func (h *PostHandlers) List(c router.Context) error {
 		"items":          posts,
 		"columns":        columns,
 		"total":          total,
-	}, h.Admin, h.Config, "posts", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".posts", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/posts/list", viewCtx)
 }
@@ -271,7 +272,7 @@ func (h *PostHandlers) New(c router.Context) error {
 		"resource_label": "Posts",
 		"routes":         routes.RoutesMap(),
 		"is_edit":        false,
-	}, h.Admin, h.Config, "posts", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".posts", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/posts/form", viewCtx)
 }
@@ -331,7 +332,7 @@ func (h *PostHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  post,
 		"fields":         fields,
-	}, h.Admin, h.Config, "posts", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".posts", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/posts/detail", viewCtx)
 }
@@ -355,7 +356,7 @@ func (h *PostHandlers) Edit(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"is_edit":        true,
 		"item":           post,
-	}, h.Admin, h.Config, "posts", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".posts", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/posts/form", viewCtx)
 }
@@ -463,7 +464,7 @@ func (h *MediaHandlers) List(c router.Context) error {
 		"items":          items,
 		"columns":        columns,
 		"total":          total,
-	}, h.Admin, h.Config, "media", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/media/list", viewCtx)
 }
@@ -480,7 +481,7 @@ func (h *MediaHandlers) New(c router.Context) error {
 		"resource_label": "Media",
 		"routes":         routes.RoutesMap(),
 		"is_edit":        false,
-	}, h.Admin, h.Config, "media", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/media/form", viewCtx)
 }
@@ -535,7 +536,7 @@ func (h *MediaHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  item,
 		"fields":         fields,
-	}, h.Admin, h.Config, "media", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/media/detail", viewCtx)
 }
@@ -559,7 +560,7 @@ func (h *MediaHandlers) Edit(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"is_edit":        true,
 		"item":           item,
-	}, h.Admin, h.Config, "media", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/media/form", viewCtx)
 }
