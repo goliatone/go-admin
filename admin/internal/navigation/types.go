@@ -2,11 +2,7 @@ package navigation
 
 import (
 	"context"
-	"path"
 	"strings"
-
-	"github.com/goliatone/hashid/pkg/hashid"
-	"github.com/google/uuid"
 )
 
 // Menu represents a simple CMS menu tree.
@@ -89,19 +85,36 @@ type MenuService interface {
 
 // NormalizeMenuItem ensures menu code is set and derives an ID when missing.
 func NormalizeMenuItem(item MenuItem, menuCode string) MenuItem {
+	menuCode = canonicalMenuCode(menuCode)
 	item.Menu = menuCode
-	if strings.TrimSpace(item.ID) == "" {
-		if key, ok := item.Target["key"].(string); ok && strings.TrimSpace(key) != "" {
-			item.ID = strings.TrimSpace(key)
+
+	parent := canonicalMenuItemPath(menuCode, firstNonEmpty(item.ParentID, item.ParentCode))
+	item.ParentID = parent
+	item.ParentCode = parent
+
+	rawID := strings.TrimSpace(item.ID)
+	if rawID == "" {
+		if key := strings.TrimSpace(ExtractTargetKey(item.Target)); key != "" {
+			rawID = key
 		} else {
-			item.ID = strings.Trim(path.Join(item.ParentID, strings.ToLower(strings.ReplaceAll(item.Label, " ", "-"))), "/")
+			rawID = sanitizePathSegment(firstNonEmpty(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey))
 		}
 	}
-	if strings.TrimSpace(item.Code) == "" {
-		item.Code = strings.TrimSpace(item.ID)
+	if parent != "" && rawID != "" {
+		if !strings.Contains(rawID, ".") && !strings.Contains(rawID, "/") {
+			rawID = parent + "." + sanitizePathSegment(rawID)
+		}
 	}
-	if strings.TrimSpace(item.ParentCode) == "" {
-		item.ParentCode = strings.TrimSpace(item.ParentID)
+	item.ID = canonicalMenuItemPath(menuCode, rawID)
+
+	if strings.TrimSpace(item.Code) == "" {
+		item.Code = item.ID
+	} else {
+		item.Code = canonicalMenuItemPath(menuCode, item.Code)
+	}
+
+	if strings.TrimSpace(item.Type) == "" {
+		item.Type = MenuItemTypeItem
 	}
 	return item
 }
@@ -111,11 +124,10 @@ func NormalizeMenuItem(item MenuItem, menuCode string) MenuItem {
 func CanonicalMenuKeys(item MenuItem) []string {
 	keys := []string{}
 	if id := strings.TrimSpace(item.ID); id != "" {
-		keys = append(keys, "id:"+id)
+		keys = append(keys, "path:"+id)
 	}
 	if code := strings.TrimSpace(item.Code); code != "" {
 		keys = append(keys, "code:"+strings.ToLower(code))
-		keys = append(keys, "id:"+EnsureMenuUUID(code))
 	}
 	if tgt := ExtractTargetKey(item.Target); tgt != "" {
 		keys = append(keys, "target:"+tgt)
@@ -159,55 +171,115 @@ func HasAnyKey(set map[string]bool, keys []string) bool {
 	return false
 }
 
-// DeterministicMenuUUID maps an arbitrary string to a deterministic UUID using hashid.
-func DeterministicMenuUUID(raw string) (uuid.UUID, error) {
-	return hashid.NewUUID(strings.TrimSpace(raw))
+func canonicalMenuCode(code string) string {
+	slug := NormalizeMenuSlug(code)
+	if slug == "" {
+		slug = strings.TrimSpace(code)
+	}
+	slug = strings.ReplaceAll(slug, ".", "_")
+	slug = strings.Trim(slug, "-_")
+	return slug
 }
 
-// EnsureMenuUUID maps an arbitrary string to a UUID string, preserving valid UUID inputs.
-func EnsureMenuUUID(raw string) string {
-	return ensureMenuUUIDString(raw)
-}
-
-func ensureMenuUUIDString(raw string) string {
+func canonicalMenuItemPath(menuCode, raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""
 	}
-	if parsed, err := uuid.Parse(raw); err == nil {
-		return parsed.String()
+	menuCode = canonicalMenuCode(menuCode)
+
+	path := sanitizeDotPath(raw)
+	if path == "" {
+		return ""
 	}
-	if mapped, err := DeterministicMenuUUID(raw); err == nil {
-		return mapped.String()
+	if path == menuCode || strings.HasPrefix(path, menuCode+".") {
+		return path
 	}
-	return raw
+	return menuCode + "." + strings.TrimPrefix(path, ".")
 }
 
-// MapMenuIDs applies deterministic UUID mapping to ID and ParentID when they are not valid UUIDs.
-func MapMenuIDs(item MenuItem) MenuItem {
-	rawID := strings.TrimSpace(item.ID)
-	if rawID == "" {
-		rawID = strings.TrimSpace(item.Code)
-		item.ID = rawID
+func sanitizeDotPath(raw string) string {
+	normalized := strings.ReplaceAll(strings.TrimSpace(raw), "/", ".")
+	normalized = strings.Trim(normalized, ".")
+	if normalized == "" {
+		return ""
 	}
-	if strings.TrimSpace(item.Code) == "" {
-		item.Code = rawID
+	parts := strings.Split(normalized, ".")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		seg := sanitizePathSegment(p)
+		if seg == "" {
+			continue
+		}
+		out = append(out, seg)
 	}
-	if rawID != "" {
-		item.ID = ensureMenuUUIDString(rawID)
-	}
+	return strings.Join(out, ".")
+}
 
-	rawParent := strings.TrimSpace(item.ParentID)
-	if rawParent == "" {
-		rawParent = strings.TrimSpace(item.ParentCode)
-		item.ParentID = rawParent
+func sanitizePathSegment(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
 	}
-	if strings.TrimSpace(item.ParentCode) == "" {
-		item.ParentCode = rawParent
+	var b strings.Builder
+	b.Grow(len(raw))
+	lastDash := false
+	for _, r := range raw {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+			lastDash = false
+		case r >= 'A' && r <= 'Z':
+			b.WriteRune(r + ('a' - 'A'))
+			lastDash = false
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastDash = false
+		case r == '_' || r == '-':
+			b.WriteRune(r)
+			lastDash = false
+		default:
+			if !lastDash {
+				b.WriteRune('-')
+				lastDash = true
+			}
+		}
 	}
-	if rawParent != "" {
-		item.ParentID = ensureMenuUUIDString(rawParent)
+	seg := strings.Trim(b.String(), "-_")
+	return seg
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
 	}
+	return ""
+}
+
+// EnsureMenuUUID is retained for compatibility but no longer maps strings into UUIDs.
+// Menu identity is string-first and should use menu codes + item paths.
+func EnsureMenuUUID(raw string) string {
+	return strings.TrimSpace(raw)
+}
+
+// MapMenuIDs normalizes ID and ParentID to menu item paths.
+// Deprecated: go-admin no longer maps menu IDs to UUIDs.
+func MapMenuIDs(item MenuItem) MenuItem {
+	menuCode := canonicalMenuCode(item.Menu)
+	if menuCode == "" {
+		menuCode = canonicalMenuCode(item.Menu)
+	}
+	item.Menu = menuCode
+
+	rawID := firstNonEmpty(item.ID, item.Code)
+	item.ID = canonicalMenuItemPath(menuCode, rawID)
+	item.Code = canonicalMenuItemPath(menuCode, firstNonEmpty(item.Code, item.ID))
+
+	rawParent := firstNonEmpty(item.ParentID, item.ParentCode)
+	item.ParentID = canonicalMenuItemPath(menuCode, rawParent)
+	item.ParentCode = canonicalMenuItemPath(menuCode, firstNonEmpty(item.ParentCode, item.ParentID))
 	return item
 }
 
