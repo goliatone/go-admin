@@ -69,9 +69,31 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 		logf = log.Printf
 	}
 
+	autoCreateParents := opts.AutoCreateParents
+	if !autoCreateParents {
+		for _, item := range opts.Items {
+			if strings.TrimSpace(item.ParentID) != "" || strings.TrimSpace(item.ParentCode) != "" {
+				continue
+			}
+			id := strings.TrimSpace(item.ID)
+			if strings.Contains(id, ".") || strings.Contains(id, "/") {
+				autoCreateParents = true
+				break
+			}
+		}
+	}
+
 	locale := strings.TrimSpace(opts.Locale)
 	if locale == "" {
-		locale = strings.TrimSpace(opts.Locale)
+		for _, item := range opts.Items {
+			if v := strings.TrimSpace(item.Locale); v != "" {
+				locale = v
+				break
+			}
+		}
+	}
+	if locale == "" {
+		locale = "en"
 	}
 
 	if reset {
@@ -88,14 +110,19 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 		seedItems = append(seedItems, toSeedMenuItem(menuCode, locale, item))
 	}
 
-	return cms.SeedMenu(ctx, cms.SeedMenuOptions{
+	if err := cms.SeedMenu(ctx, cms.SeedMenuOptions{
 		Menus:             menus,
 		MenuCode:          menuCode,
 		Locale:            locale,
 		Actor:             uuid.Nil,
 		Items:             seedItems,
-		AutoCreateParents: opts.AutoCreateParents,
-	})
+		AutoCreateParents: autoCreateParents,
+		Ensure:            true,
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) cms.SeedMenuItem {
@@ -106,14 +133,11 @@ func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) 
 	target := cloneAnyMap(item.Target)
 	if itemType == admin.MenuItemTypeGroup || itemType == admin.MenuItemTypeSeparator {
 		target = nil
-	} else {
-		item.Target = target
-		target = mergeMenuTarget(item)
 	}
 
 	seed := cms.SeedMenuItem{
 		Path:        path,
-		Position:    positionPtr(item.Position),
+		Position:    seedPositionPtr(itemType, item.Position),
 		Type:        itemType,
 		Target:      target,
 		Icon:        strings.TrimSpace(item.Icon),
@@ -275,7 +299,14 @@ func sanitizePathSegment(raw string) string {
 	return seg
 }
 
-func positionPtr(pos int) *int {
+func seedPositionPtr(itemType string, pos int) *int {
+	// go-admin represents missing positions as the default 0 value. go-cms treats positions as
+	// 0-based insertion indices, and 0 is a meaningful value. Preserve explicit 0 positions for
+	// structural items so root group ordering remains deterministic.
+	if pos == 0 && (itemType == admin.MenuItemTypeGroup || itemType == admin.MenuItemTypeSeparator) {
+		v := 0
+		return &v
+	}
 	if pos <= 0 {
 		return nil
 	}
@@ -296,36 +327,4 @@ func normalizeMenuItemTranslationFields(item admin.MenuItem) (label, labelKey, g
 		groupTitle = groupTitleKey
 	}
 	return
-}
-
-func mergeMenuTarget(item admin.MenuItem) map[string]any {
-	target := cloneAnyMap(item.Target)
-	if target == nil {
-		target = map[string]any{}
-	}
-	if _, ok := target["collapsible"]; !ok && item.Collapsible {
-		target["collapsible"] = true
-	}
-	if _, ok := target["collapsed"]; !ok && item.Collapsed {
-		target["collapsed"] = true
-	}
-	if _, ok := target["icon"]; !ok && strings.TrimSpace(item.Icon) != "" {
-		target["icon"] = strings.TrimSpace(item.Icon)
-	}
-	if _, ok := target["badge"]; !ok && item.Badge != nil {
-		target["badge"] = cloneAnyMap(item.Badge)
-	}
-	if _, ok := target["classes"]; !ok && len(item.Classes) > 0 {
-		target["classes"] = append([]string{}, item.Classes...)
-	}
-	if _, ok := target["styles"]; !ok && len(item.Styles) > 0 {
-		target["styles"] = cloneStringMap(item.Styles)
-	}
-	if _, ok := target["permissions"]; !ok && len(item.Permissions) > 0 {
-		target["permissions"] = append([]string{}, item.Permissions...)
-	}
-	if _, ok := target["locale"]; !ok && strings.TrimSpace(item.Locale) != "" {
-		target["locale"] = strings.TrimSpace(item.Locale)
-	}
-	return target
 }
