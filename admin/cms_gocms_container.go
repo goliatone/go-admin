@@ -88,9 +88,9 @@ func resolveGoCMSMenuService(container any) CMSMenuService {
 		}
 	}
 
-	// Prefer grabbing the internal menus service via go-cms Module.Container().MenuService()
-	// so we can perform menu mutations (CreateMenu/AddMenuItem/etc). The public go-cms
-	// menu facade only exposes ResolveNavigation.
+	// Some go-cms modules expose services on the internal container; prefer using the public
+	// cms.MenuService facade when available (Menus/MenuService), which supports both navigation
+	// resolution and path-based mutations.
 	if inner := callMethod(container, "Container"); inner != nil {
 		if adapted := NewGoCMSMenuAdapterFromAny(callMethod(inner, "MenuService")); adapted != nil {
 			return adapted
