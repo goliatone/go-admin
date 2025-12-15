@@ -103,11 +103,39 @@ func (s *CMSPageStore) Get(ctx context.Context, id string) (map[string]any, erro
 	if s == nil || s.repo == nil {
 		return nil, admin.ErrNotFound
 	}
-	record, err := s.repo.Get(ctx, id)
+	locale := strings.TrimSpace(s.defaultLocale)
+	if locale == "" {
+		locale = "en"
+	}
+	page, err := s.content.Page(ctx, id, locale)
+	if err != nil {
+		// Some CMS backends allow empty-locale lookups; keep as a best-effort fallback.
+		page, err = s.content.Page(ctx, id, "")
+	}
+	if err != nil {
+		// When the ID is valid but the locale differs (or the backend requires locale),
+		// locate the record via a global listing and retry with the discovered locale.
+		if pages, listErr := s.content.Pages(ctx, ""); listErr == nil {
+			for _, p := range pages {
+				if p.ID != id {
+					continue
+				}
+				if loc := strings.TrimSpace(p.Locale); loc != "" && !strings.EqualFold(loc, locale) {
+					page, err = s.content.Page(ctx, id, loc)
+				} else {
+					page, err = s.content.Page(ctx, id, "")
+				}
+				break
+			}
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
-	return s.pageToRecord(cmsPageFromMap(record)), nil
+	if page == nil {
+		return nil, admin.ErrNotFound
+	}
+	return s.pageToRecord(*page), nil
 }
 
 // Create inserts a page into the CMS backend.

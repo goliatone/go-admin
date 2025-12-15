@@ -174,15 +174,39 @@ func (s *CMSPostStore) Get(ctx context.Context, id string) (map[string]any, erro
 	if s == nil || s.repo == nil {
 		return nil, admin.ErrNotFound
 	}
-	record, err := s.repo.Get(ctx, id)
+	locale := strings.TrimSpace(s.defaultLocale)
+	if locale == "" {
+		locale = "en"
+	}
+	content, err := s.content.Content(ctx, id, locale)
+	if err != nil {
+		// Some CMS backends allow empty-locale lookups; keep as a best-effort fallback.
+		content, err = s.content.Content(ctx, id, "")
+	}
+	if err != nil {
+		// When the ID is valid but the locale differs (or the backend requires locale),
+		// locate the record via a global listing and retry with the discovered locale.
+		if items, listErr := s.content.Contents(ctx, ""); listErr == nil {
+			for _, item := range items {
+				if item.ID != id {
+					continue
+				}
+				if loc := strings.TrimSpace(item.Locale); loc != "" && !strings.EqualFold(loc, locale) {
+					content, err = s.content.Content(ctx, id, loc)
+				} else {
+					content, err = s.content.Content(ctx, id, "")
+				}
+				break
+			}
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
-	post := cmsContentFromMap(record)
-	if !strings.EqualFold(post.ContentType, "post") {
+	if content == nil || !strings.EqualFold(content.ContentType, "post") {
 		return nil, admin.ErrNotFound
 	}
-	return s.postToRecord(post), nil
+	return s.postToRecord(*content), nil
 }
 
 // Create inserts a post into the CMS backend.

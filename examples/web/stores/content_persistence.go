@@ -3,9 +3,11 @@ package stores
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing/fstest"
 	"time"
@@ -336,6 +338,20 @@ func registerSQLiteDrivers(names ...string) {
 }
 
 func defaultContentDSN() string {
-	path := filepath.Join(os.TempDir(), "go-admin-cms.db")
-	return "file:" + path + "?cache=shared&_fk=1"
+	// Tests should not share a stable on-disk DB (cross-test contamination).
+	if flag.Lookup("test.v") != nil {
+		if f, err := os.CreateTemp("", "go-admin-content-*.db"); err == nil {
+			_ = f.Close()
+			return "file:" + f.Name() + "?cache=shared&_fk=1"
+		}
+	}
+
+	// Prefer a stable on-disk database in the example directory so IDs remain
+	// consistent across restarts (unlike per-run OS temp dirs).
+	if _, currentFile, _, ok := runtime.Caller(0); ok {
+		exampleDir := filepath.Clean(filepath.Join(filepath.Dir(currentFile), ".."))
+		dbPath := filepath.Join(exampleDir, "admin.db")
+		return "file:" + dbPath + "?cache=shared&_fk=1"
+	}
+	return "file:" + filepath.Join(os.TempDir(), "go-admin-cms.db") + "?cache=shared&_fk=1"
 }

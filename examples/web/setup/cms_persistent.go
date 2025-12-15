@@ -3,15 +3,17 @@ package setup
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	cms "github.com/goliatone/go-cms"
 	"github.com/goliatone/go-cms/pkg/storage"
 	persistence "github.com/goliatone/go-persistence-bun"
@@ -132,7 +134,12 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		return admin.CMSOptions{}, err
 	}
 
-	if err := seedCMSDemoContent(ctx, client.DB(), module.Markdown(), admin.NewGoCMSMenuAdapter(module.Menus()), seedRefs, defaultLocale); err != nil {
+	menuAdapter := admin.CMSMenuService(nil)
+	if adapted := admin.NewGoCMSContainerAdapter(module); adapted != nil {
+		menuAdapter = adapted.MenuService()
+	}
+
+	if err := seedCMSDemoContent(ctx, client.DB(), module.Markdown(), menuAdapter, seedRefs, defaultLocale); err != nil {
 		return admin.CMSOptions{}, fmt.Errorf("seed cms content: %w", err)
 	}
 
@@ -179,8 +186,22 @@ func registerSQLiteDrivers(names ...string) {
 }
 
 func defaultCMSDSN() string {
-	path := filepath.Join(os.TempDir(), "go-admin-cms.db")
-	return "file:" + path + "?cache=shared&_fk=1"
+	// Tests should not share a stable on-disk DB (cross-test contamination).
+	if flag.Lookup("test.v") != nil {
+		if f, err := os.CreateTemp("", "go-admin-cms-*.db"); err == nil {
+			_ = f.Close()
+			return "file:" + f.Name() + "?cache=shared&_fk=1"
+		}
+	}
+
+	// Prefer a stable on-disk database in the example directory so IDs remain
+	// consistent across restarts (unlike per-run OS temp dirs).
+	if _, currentFile, _, ok := runtime.Caller(0); ok {
+		exampleDir := filepath.Clean(filepath.Join(filepath.Dir(currentFile), ".."))
+		dbPath := filepath.Join(exampleDir, "admin.db")
+		return "file:" + dbPath + "?cache=shared&_fk=1"
+	}
+	return "file:" + filepath.Join(os.TempDir(), "go-admin-cms.db") + "?cache=shared&_fk=1"
 }
 
 func resolveCMSDSN(input string) string {

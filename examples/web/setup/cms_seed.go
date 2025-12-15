@@ -596,7 +596,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 	}
 	items := []admin.MenuItem{
 		{
-			ID:       "site.home",
+			ID:       "home",
 			Label:    "Home",
 			Target:   map[string]any{"type": "url", "path": "/"},
 			Position: 1,
@@ -604,7 +604,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			Locale:   locale,
 		},
 		{
-			ID:       "site.about",
+			ID:       "about",
 			Label:    "About Us",
 			Target:   map[string]any{"type": "url", "path": "/about"},
 			Position: 2,
@@ -612,7 +612,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			Locale:   locale,
 		},
 		{
-			ID:       "site.team",
+			ID:       "team",
 			Label:    "Our Team",
 			Target:   map[string]any{"type": "url", "path": "/about/team"},
 			Position: 3,
@@ -620,7 +620,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			Locale:   locale,
 		},
 		{
-			ID:       "site.contact",
+			ID:       "contact",
 			Label:    "Contact",
 			Target:   map[string]any{"type": "url", "path": "/contact"},
 			Position: 4,
@@ -628,7 +628,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			Locale:   locale,
 		},
 		{
-			ID:       "site.posts",
+			ID:       "posts",
 			Label:    "Posts",
 			Target:   map[string]any{"type": "url", "path": "/posts"},
 			Position: 5,
@@ -636,10 +636,10 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			Locale:   locale,
 		},
 		{
-			ID:       "site.posts.detail.getting-started",
+			ID:       "posts.getting-started-go",
 			Label:    "Getting Started with Go",
 			Target:   map[string]any{"type": "url", "path": "/posts/getting-started-go"},
-			ParentID: "site.posts",
+			ParentID: "posts",
 			Position: 6,
 			Menu:     SiteNavigationMenuCode,
 			Locale:   locale,
@@ -647,11 +647,12 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 	}
 
 	return quickstart.SeedNavigation(ctx, quickstart.SeedNavigationOptions{
-		MenuSvc:    menuSvc,
-		MenuCode:   SiteNavigationMenuCode,
-		Items:      items,
-		Locale:     locale,
-		SkipLogger: true,
+		MenuSvc:           menuSvc,
+		MenuCode:          SiteNavigationMenuCode,
+		Items:             items,
+		Locale:            locale,
+		SkipLogger:        true,
+		AutoCreateParents: true,
 	})
 }
 
