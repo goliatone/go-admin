@@ -254,31 +254,9 @@ func main() {
 	adm.WithTranslator(translator)
 
 	// Allow dev workflows to fully rebuild navigation even when we're not running the
-	// explicit seed path (USE_NAV_SEED=false). This is especially useful with the
-	// persistent go-cms backend where menu items are stored across runs.
-	if strings.EqualFold(os.Getenv("RESET_NAV_MENU"), "true") {
-		if err := quickstart.SeedNavigation(context.Background(), quickstart.SeedNavigationOptions{
-			MenuSvc:    adm.MenuService(),
-			MenuCode:   cfg.NavMenuCode,
-			Locale:     cfg.DefaultLocale,
-			Reset:      true,
-			SkipLogger: true,
-		}); err != nil {
-			log.Printf("warning: failed to reset navigation menu: %v", err)
-		}
-	}
-
-	if err := quickstart.EnsureDefaultMenuParents(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		log.Printf("warning: failed to scaffold navigation parents: %v", err)
-	}
-
-	if strings.EqualFold(os.Getenv("USE_NAV_SEED"), "true") {
-		if err := setup.SetupNavigation(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-			log.Printf("warning: failed to seed navigation: %v", err)
-		}
-	} else {
-		log.Printf("skipping navigation seed; using module menu contributions only (set USE_NAV_SEED=true to seed)")
-	}
+	// explicit seed path. Navigation is seeded once modules are assembled so we can
+	// converge parent scaffolding + module contributions deterministically across
+	// both in-memory and persistent go-cms backends.
 
 	// Setup authentication and authorization
 	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps)
@@ -417,6 +395,11 @@ func main() {
 		admin.NewProfileModule().WithMenuParent(setup.NavigationGroupOthers),
 		admin.NewPreferencesModule().WithMenuParent(setup.NavigationGroupOthers),
 	}
+
+	if err := setup.SeedAdminNavigation(context.Background(), adm.MenuService(), cfg, modules, adm.Gates(), isDev); err != nil {
+		log.Printf("warning: failed to seed admin navigation: %v", err)
+	}
+
 	if profiles := adm.ProfileService(); profiles != nil {
 		if users, _, err := dataStores.Users.List(context.Background(), admin.ListOptions{PerPage: 1}); err == nil && len(users) > 0 {
 			user := users[0]
@@ -450,12 +433,6 @@ func main() {
 	// Initialize admin
 	if err := adm.Initialize(r); err != nil {
 		log.Fatalf("failed to initialize admin: %v", err)
-	}
-
-	// Persistent CMS backends keep menu item positions across runs. Ensure Dashboard
-	// renders before Content even when menu items were inserted by module contributions.
-	if err := setup.EnsureDashboardFirst(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		log.Printf("warning: failed to ensure dashboard menu ordering: %v", err)
 	}
 
 	// Setup admin features AFTER initialization to override default widgets
