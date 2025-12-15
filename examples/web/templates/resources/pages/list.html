@@ -232,7 +232,6 @@
 <script type="module">
   import {
     DataGrid,
-    FilterBuilder,
     GoCrudSearchBehavior,
     GoCrudFilterBehavior,
     GoCrudPaginationBehavior,
@@ -270,66 +269,28 @@
         ['title', 'slug', 'status', 'published_at', 'created_at'],
         'pages_datatable_columns'
       )
+    },
+    selectors: {
+      searchInput: '#search-input',
+      perPageSelect: '#per-page-select',
+      paginationContainer: '#page-numbers',
+      tableInfoStart: '#page-info-start',
+      tableInfoEnd: '#page-info-end',
+      tableInfoTotal: '#page-info-total'
     }
-  });
-
-  // Initialize FilterBuilder
-  const filterBuilder = new FilterBuilder({
-    fields: [
-      { name: 'title', label: 'Title', type: 'text' },
-      { name: 'slug', label: 'Slug', type: 'text' },
-      { name: 'status', label: 'Status', type: 'select', options: [
-        { label: 'Draft', value: 'draft' },
-        { label: 'Published', value: 'published' },
-        { label: 'Archived', value: 'archived' }
-      ]},
-      { name: 'published_at', label: 'Published Date', type: 'date' },
-      { name: 'created_at', label: 'Created Date', type: 'date' }
-    ],
-    onApply: (structure) => {
-      const filters = [];
-      structure.groups.forEach(group => {
-        group.conditions.forEach(condition => {
-          filters.push({
-            column: condition.field,
-            operator: condition.operator,
-            value: condition.value
-          });
-        });
-      });
-      grid.state.filters = filters;
-      grid.resetPagination();
-      grid.pushStateToURL();
-      grid.refresh();
-    }
-  });
-
-  filterBuilder.mount(document.getElementById('filter-builder-root'));
-
-  // UI Event Handlers
-  document.getElementById('filter-toggle-btn').addEventListener('click', () => {
-    const panel = document.getElementById('filter-builder-panel');
-    panel.classList.toggle('hidden');
-  });
-
-  document.getElementById('apply-filters-btn').addEventListener('click', () => {
-    filterBuilder.apply();
-  });
-
-  document.getElementById('clear-filters-btn').addEventListener('click', () => {
-    filterBuilder.clear();
-    grid.state.filters = [];
-    grid.resetPagination();
-    grid.pushStateToURL();
-    grid.refresh();
-  });
-
-  document.getElementById('refresh-btn').addEventListener('click', () => {
-    grid.refresh();
   });
 
   // Initialize grid
   grid.init();
+
+  // Hide legacy pager buttons (DataGrid renders its own into #page-numbers)
+  document.getElementById('prev-page')?.classList.add('hidden');
+  document.getElementById('next-page')?.classList.add('hidden');
+
+  // Refresh handler
+  document.getElementById('refresh-btn')?.addEventListener('click', () => {
+    grid.refresh();
+  });
 </script>
 {% endverbatim %}
 {% endblock %}

@@ -12,10 +12,8 @@
 
 <div class="flex-1 p-8 overflow-y-auto">
   {% if items %}
-  <!-- DataTable Container -->
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-    <!-- DataTable Toolbar -->
-    <div class="px-6 py-4 border-b border-gray-200">
+  <!-- DataTable Toolbar -->
+  <div class="bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm">
       <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <!-- Left: Search/Filter Area -->
         <div class="relative max-w-2xl w-full flex flex-col gap-2">
@@ -144,9 +142,10 @@
           </div>
         </div>
       </div>
-    </div>
+  </div>
 
-    <!-- Table -->
+  <!-- DataTable Table -->
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
     <div class="overflow-x-auto">
       <table id="users-datatable" class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
@@ -217,22 +216,22 @@
         </tbody>
       </table>
     </div>
+  </div>
 
-    <!-- Pagination Footer -->
-    <div class="px-6 py-4 border-t border-gray-200">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-gray-600">
-            Showing <span class="font-medium" id="table-info-start">1</span> to
-            <span class="font-medium" id="table-info-end">10</span> of
-            <span class="font-medium" id="table-info-total">{{ total|default:"0" }}</span> results
-          </p>
-        </div>
-        <div>
-          <nav id="table-pagination" class="flex items-center gap-x-1">
-            <!-- Pagination buttons will be inserted here -->
-          </nav>
-        </div>
+  <!-- Pagination Footer -->
+  <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-gray-600">
+          Showing <span class="font-medium" id="table-info-start">1</span> to
+          <span class="font-medium" id="table-info-end">10</span> of
+          <span class="font-medium" id="table-info-total">{{ total|default:"0" }}</span> results
+        </p>
+      </div>
+      <div>
+        <nav id="table-pagination" class="flex items-center gap-x-1">
+          <!-- Pagination buttons will be inserted here -->
+        </nav>
       </div>
     </div>
   </div>
