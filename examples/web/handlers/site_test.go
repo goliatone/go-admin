@@ -15,7 +15,7 @@ func TestNavUsesCMSMenuWhenEnabled(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := admin.NewInMemoryMenuService()
 	err := menuSvc.AddMenuItem(ctx, setup.SiteNavigationMenuCode, admin.MenuItem{
-		ID:       "site.home",
+		ID:       "home",
 		Label:    "Home",
 		Target:   map[string]any{"path": "/"},
 		Position: 1,
@@ -24,7 +24,7 @@ func TestNavUsesCMSMenuWhenEnabled(t *testing.T) {
 		t.Fatalf("add menu item: %v", err)
 	}
 	err = menuSvc.AddMenuItem(ctx, setup.SiteNavigationMenuCode, admin.MenuItem{
-		ID:       "site.about",
+		ID:       "about",
 		Label:    "About",
 		Target:   map[string]any{"path": "/about"},
 		Position: 2,

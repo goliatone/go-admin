@@ -31,55 +31,86 @@ func newGoCMSContentBridge(contentSvc any, pageSvc any, defaultTemplate uuid.UUI
 	}
 }
 
+func (b *goCMSContentBridge) hasPageService() bool {
+	if b == nil || b.page == nil {
+		return false
+	}
+	v := reflect.ValueOf(b.page)
+	for _, name := range []string{"List", "Get", "Create", "Update", "Delete"} {
+		if !v.MethodByName(name).IsValid() {
+			return false
+		}
+	}
+	return true
+}
+
 func (b *goCMSContentBridge) Pages(ctx context.Context, locale string) ([]admin.CMSPage, error) {
-	if b.page == nil {
-		return nil, admin.ErrNotFound
+	if b.hasPageService() {
+		method := reflect.ValueOf(b.page).MethodByName("List")
+		results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+		if err := reflectError(results); err != nil {
+			return nil, err
+		}
+		if len(results) == 0 || !results[0].IsValid() {
+			return nil, nil
+		}
+		slice := deref(results[0])
+		out := make([]admin.CMSPage, 0, slice.Len())
+		for i := 0; i < slice.Len(); i++ {
+			out = append(out, b.convertPage(slice.Index(i), locale))
+		}
+		return out, nil
 	}
-	method := reflect.ValueOf(b.page).MethodByName("List")
-	if !method.IsValid() {
-		return nil, admin.ErrNotFound
-	}
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
-	if err := reflectError(results); err != nil {
+
+	// Fallback: when go-cms doesn't expose a page service matching the expected
+	// contract, surface "page" content types as CMS pages so the example can
+	// still list/seed pages.
+	contents, err := b.Contents(ctx, locale)
+	if err != nil {
 		return nil, err
 	}
-	if len(results) == 0 || !results[0].IsValid() {
-		return nil, nil
-	}
-	slice := deref(results[0])
-	out := make([]admin.CMSPage, 0, slice.Len())
-	for i := 0; i < slice.Len(); i++ {
-		out = append(out, b.convertPage(slice.Index(i), locale))
+	out := make([]admin.CMSPage, 0, len(contents))
+	for _, item := range contents {
+		if !strings.EqualFold(item.ContentType, "page") {
+			continue
+		}
+		out = append(out, b.pageFromContent(item))
 	}
 	return out, nil
 }
 
 func (b *goCMSContentBridge) Page(ctx context.Context, id, locale string) (*admin.CMSPage, error) {
-	if b.page == nil {
-		return nil, admin.ErrNotFound
+	if b.hasPageService() {
+		method := reflect.ValueOf(b.page).MethodByName("Get")
+		u, err := uuid.Parse(strings.TrimSpace(id))
+		if err != nil {
+			return nil, err
+		}
+		results := method.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(u)})
+		if err := reflectError(results); err != nil {
+			return nil, err
+		}
+		if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+			return nil, admin.ErrNotFound
+		}
+		rec := b.convertPage(results[0], locale)
+		return &rec, nil
 	}
-	method := reflect.ValueOf(b.page).MethodByName("Get")
-	if !method.IsValid() {
-		return nil, admin.ErrNotFound
-	}
-	u, err := uuid.Parse(strings.TrimSpace(id))
+
+	content, err := b.Content(ctx, id, locale)
 	if err != nil {
 		return nil, err
 	}
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(u)})
-	if err := reflectError(results); err != nil {
-		return nil, err
-	}
-	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+	if content == nil || !strings.EqualFold(content.ContentType, "page") {
 		return nil, admin.ErrNotFound
 	}
-	rec := b.convertPage(results[0], locale)
+	rec := b.pageFromContent(*content)
 	return &rec, nil
 }
 
 func (b *goCMSContentBridge) CreatePage(ctx context.Context, page admin.CMSPage) (*admin.CMSPage, error) {
-	if b.page == nil {
-		return nil, admin.ErrNotFound
+	if !b.hasPageService() {
+		return b.createPageFromContent(ctx, page)
 	}
 	locale := strings.TrimSpace(page.Locale)
 	if locale == "" {
@@ -115,9 +146,6 @@ func (b *goCMSContentBridge) CreatePage(ctx context.Context, page admin.CMSPage)
 	}
 
 	method := reflect.ValueOf(b.page).MethodByName("Create")
-	if !method.IsValid() {
-		return nil, admin.ErrNotFound
-	}
 	reqType := method.Type().In(1)
 	req := reflect.New(reqType).Elem()
 	setUUIDField(req, "ContentID", uuidOrNil(contentRes.ID))
@@ -155,17 +183,14 @@ func (b *goCMSContentBridge) CreatePage(ctx context.Context, page admin.CMSPage)
 }
 
 func (b *goCMSContentBridge) UpdatePage(ctx context.Context, page admin.CMSPage) (*admin.CMSPage, error) {
-	if b.page == nil {
-		return nil, admin.ErrNotFound
+	if !b.hasPageService() {
+		return b.updatePageFromContent(ctx, page)
 	}
 	pageID := uuidOrNil(page.ID)
 	if pageID == uuid.Nil {
 		return nil, admin.ErrNotFound
 	}
 	method := reflect.ValueOf(b.page).MethodByName("Update")
-	if !method.IsValid() {
-		return nil, admin.ErrNotFound
-	}
 	reqType := method.Type().In(1)
 	req := reflect.New(reqType).Elem()
 	setUUIDField(req, "ID", pageID)
@@ -199,26 +224,182 @@ func (b *goCMSContentBridge) UpdatePage(ctx context.Context, page admin.CMSPage)
 }
 
 func (b *goCMSContentBridge) DeletePage(ctx context.Context, id string) error {
-	if b.page == nil {
+	if b.hasPageService() {
+		method := reflect.ValueOf(b.page).MethodByName("Delete")
+		pageID := uuidOrNil(id)
+		if pageID == uuid.Nil {
+			return admin.ErrNotFound
+		}
+		reqType := method.Type().In(1)
+		req := reflect.New(reqType).Elem()
+		setUUIDField(req, "ID", pageID)
+		setUUIDField(req, "DeletedBy", uuid.Nil)
+		if f := req.FieldByName("HardDelete"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Bool {
+			f.SetBool(true)
+		}
+		results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
+		return reflectError(results)
+	}
+
+	return b.deletePageFromContent(ctx, id)
+}
+
+func (b *goCMSContentBridge) pageFromContent(content admin.CMSContent) admin.CMSPage {
+	data := cloneAnyMap(content.Data)
+	path := strings.TrimSpace(asString(data["path"], ""))
+	if path == "" && strings.TrimSpace(content.Slug) != "" {
+		path = "/" + strings.TrimPrefix(content.Slug, "/")
+		data["path"] = path
+	}
+
+	templateID := strings.TrimSpace(asString(data["template_id"], asString(data["template"], "")))
+	parentID := strings.TrimSpace(asString(data["parent_id"], ""))
+
+	seo := map[string]any{}
+	if mt := strings.TrimSpace(asString(data["meta_title"], "")); mt != "" {
+		seo["title"] = mt
+	}
+	if md := strings.TrimSpace(asString(data["meta_description"], "")); md != "" {
+		seo["description"] = md
+	}
+
+	out := admin.CMSPage{
+		ID:         content.ID,
+		Title:      content.Title,
+		Slug:       content.Slug,
+		TemplateID: templateID,
+		Locale:     content.Locale,
+		ParentID:   parentID,
+		Blocks:     append([]string{}, content.Blocks...),
+		SEO:        seo,
+		Status:     content.Status,
+		Data:       data,
+		PreviewURL: path,
+	}
+	if out.PreviewURL == "" && strings.TrimSpace(out.Slug) != "" {
+		out.PreviewURL = "/" + strings.TrimPrefix(out.Slug, "/")
+	}
+	return out
+}
+
+func (b *goCMSContentBridge) createPageFromContent(ctx context.Context, page admin.CMSPage) (*admin.CMSPage, error) {
+	locale := strings.TrimSpace(page.Locale)
+	if locale == "" {
+		locale = "en"
+	}
+	data := cloneAnyMap(page.Data)
+	if mt := asString(page.SEO["title"], asString(data["meta_title"], "")); strings.TrimSpace(mt) != "" {
+		data["meta_title"] = mt
+	}
+	if md := asString(page.SEO["description"], asString(data["meta_description"], "")); strings.TrimSpace(md) != "" {
+		data["meta_description"] = md
+	}
+	if strings.TrimSpace(page.ParentID) != "" {
+		data["parent_id"] = page.ParentID
+	}
+	if strings.TrimSpace(page.TemplateID) != "" {
+		data["template_id"] = page.TemplateID
+	}
+	path := strings.TrimSpace(asString(data["path"], page.PreviewURL))
+	if path == "" {
+		path = "/" + strings.TrimPrefix(page.Slug, "/")
+	}
+	data["path"] = path
+
+	created, err := b.CreateContent(ctx, admin.CMSContent{
+		Title:       page.Title,
+		Slug:        page.Slug,
+		Status:      page.Status,
+		Locale:      locale,
+		ContentType: "page",
+		Blocks:      append([]string{}, page.Blocks...),
+		Data:        data,
+	})
+	if err != nil {
+		return nil, err
+	}
+	rec := b.pageFromContent(*created)
+	return &rec, nil
+}
+
+func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page admin.CMSPage) (*admin.CMSPage, error) {
+	locale := strings.TrimSpace(page.Locale)
+	if locale == "" {
+		locale = "en"
+	}
+	existing, err := b.Content(ctx, page.ID, locale)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil || !strings.EqualFold(existing.ContentType, "page") {
+		return nil, admin.ErrNotFound
+	}
+
+	data := cloneAnyMap(existing.Data)
+	for k, v := range cloneAnyMap(page.Data) {
+		data[k] = v
+	}
+	if mt := asString(page.SEO["title"], asString(data["meta_title"], "")); strings.TrimSpace(mt) != "" {
+		data["meta_title"] = mt
+	}
+	if md := asString(page.SEO["description"], asString(data["meta_description"], "")); strings.TrimSpace(md) != "" {
+		data["meta_description"] = md
+	}
+	if strings.TrimSpace(page.ParentID) != "" {
+		data["parent_id"] = page.ParentID
+	}
+	if strings.TrimSpace(page.TemplateID) != "" {
+		data["template_id"] = page.TemplateID
+	}
+	path := strings.TrimSpace(asString(data["path"], page.PreviewURL))
+	if path == "" {
+		path = "/" + strings.TrimPrefix(asString(page.Slug, existing.Slug), "/")
+	}
+	data["path"] = path
+
+	title := strings.TrimSpace(page.Title)
+	if title == "" {
+		title = existing.Title
+	}
+	slug := strings.TrimSpace(page.Slug)
+	if slug == "" {
+		slug = existing.Slug
+	}
+	status := strings.TrimSpace(page.Status)
+	if status == "" {
+		status = existing.Status
+	}
+	blocks := append([]string{}, existing.Blocks...)
+	if len(page.Blocks) > 0 {
+		blocks = append([]string{}, page.Blocks...)
+	}
+
+	updated, err := b.UpdateContent(ctx, admin.CMSContent{
+		ID:          existing.ID,
+		Title:       title,
+		Slug:        slug,
+		Status:      status,
+		Locale:      locale,
+		ContentType: "page",
+		Blocks:      blocks,
+		Data:        data,
+	})
+	if err != nil {
+		return nil, err
+	}
+	rec := b.pageFromContent(*updated)
+	return &rec, nil
+}
+
+func (b *goCMSContentBridge) deletePageFromContent(ctx context.Context, id string) error {
+	existing, err := b.Content(ctx, id, "")
+	if err != nil {
+		return err
+	}
+	if existing == nil || !strings.EqualFold(existing.ContentType, "page") {
 		return admin.ErrNotFound
 	}
-	method := reflect.ValueOf(b.page).MethodByName("Delete")
-	if !method.IsValid() {
-		return admin.ErrNotFound
-	}
-	pageID := uuidOrNil(id)
-	if pageID == uuid.Nil {
-		return admin.ErrNotFound
-	}
-	reqType := method.Type().In(1)
-	req := reflect.New(reqType).Elem()
-	setUUIDField(req, "ID", pageID)
-	setUUIDField(req, "DeletedBy", uuid.Nil)
-	if f := req.FieldByName("HardDelete"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Bool {
-		f.SetBool(true)
-	}
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
-	return reflectError(results)
+	return b.DeleteContent(ctx, existing.ID)
 }
 
 func (b *goCMSContentBridge) Contents(ctx context.Context, locale string) ([]admin.CMSContent, error) {

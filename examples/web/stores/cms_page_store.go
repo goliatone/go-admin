@@ -48,20 +48,70 @@ func (s *CMSPageStore) Seed() {
 	}
 
 	now := time.Now()
-	seeds := []map[string]any{
-		{"title": "Home", "slug": "home", "content": "Welcome to our website", "status": "published", "meta_title": "Home - Enterprise Admin", "meta_description": "Welcome to Enterprise Admin", "created_at": now.Add(-100 * 24 * time.Hour), "updated_at": now.Add(-10 * 24 * time.Hour)},
-		{"title": "About Us", "slug": "about", "content": "Learn more about our company", "status": "published", "meta_title": "About Us", "meta_description": "Learn more about our company", "created_at": now.Add(-90 * 24 * time.Hour), "updated_at": now.Add(-5 * 24 * time.Hour)},
-		{"title": "Our Team", "slug": "team", "content": "Meet our team members", "status": "published", "parent_id": "", "meta_title": "Our Team", "meta_description": "Meet our team", "created_at": now.Add(-80 * 24 * time.Hour), "updated_at": now.Add(-3 * 24 * time.Hour)},
-		{"title": "Contact", "slug": "contact", "content": "Get in touch with us", "status": "published", "meta_title": "Contact Us", "meta_description": "Get in touch", "created_at": now.Add(-70 * 24 * time.Hour), "updated_at": now.Add(-1 * 24 * time.Hour)},
-		{"title": "Privacy Policy", "slug": "privacy", "content": "Our privacy policy", "status": "draft", "meta_title": "Privacy Policy", "meta_description": "Our privacy policy", "created_at": now.Add(-20 * 24 * time.Hour), "updated_at": now.Add(-20 * 24 * time.Hour)},
+	create := func(rec map[string]any) map[string]any {
+		rec["locale"] = s.defaultLocale
+		created, err := s.Create(ctx, rec)
+		if err != nil {
+			return nil
+		}
+		return created
 	}
 
-	for _, rec := range seeds {
-		rec["locale"] = s.defaultLocale
-		if _, err := s.Create(ctx, rec); err != nil {
-			continue
-		}
+	_ = create(map[string]any{
+		"title":            "Home",
+		"slug":             "home",
+		"content":          "Welcome to our website",
+		"status":           "published",
+		"meta_title":       "Home - Enterprise Admin",
+		"meta_description": "Welcome to Enterprise Admin",
+		"created_at":       now.Add(-100 * 24 * time.Hour),
+		"updated_at":       now.Add(-10 * 24 * time.Hour),
+	})
+	about := create(map[string]any{
+		"title":            "About Us",
+		"slug":             "about",
+		"content":          "Learn more about our company",
+		"status":           "published",
+		"meta_title":       "About Us",
+		"meta_description": "Learn more about our company",
+		"created_at":       now.Add(-90 * 24 * time.Hour),
+		"updated_at":       now.Add(-5 * 24 * time.Hour),
+	})
+	parentID := ""
+	if about != nil {
+		parentID = stringID(about["id"])
 	}
+	_ = create(map[string]any{
+		"title":            "Our Team",
+		"slug":             "team",
+		"content":          "Meet our team members",
+		"status":           "published",
+		"parent_id":        parentID,
+		"meta_title":       "Our Team",
+		"meta_description": "Meet our team",
+		"created_at":       now.Add(-80 * 24 * time.Hour),
+		"updated_at":       now.Add(-3 * 24 * time.Hour),
+	})
+	_ = create(map[string]any{
+		"title":            "Contact",
+		"slug":             "contact",
+		"content":          "Get in touch with us",
+		"status":           "published",
+		"meta_title":       "Contact Us",
+		"meta_description": "Get in touch",
+		"created_at":       now.Add(-70 * 24 * time.Hour),
+		"updated_at":       now.Add(-1 * 24 * time.Hour),
+	})
+	_ = create(map[string]any{
+		"title":            "Privacy Policy",
+		"slug":             "privacy",
+		"content":          "Our privacy policy",
+		"status":           "draft",
+		"meta_title":       "Privacy Policy",
+		"meta_description": "Our privacy policy",
+		"created_at":       now.Add(-20 * 24 * time.Hour),
+		"updated_at":       now.Add(-20 * 24 * time.Hour),
+	})
 }
 
 // List returns CMS pages filtered by locale/search.

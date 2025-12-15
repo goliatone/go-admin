@@ -122,7 +122,7 @@ SELECT
         json_extract(ct.content, '$.data.path')
     ) AS path,
     pt.title               AS title,
-    l.code                 AS locale,
+    COALESCE(l.code, '')   AS locale,
     pt.locale_id           AS locale_id,
     COALESCE(
         pt.seo_title,
@@ -168,8 +168,16 @@ SELECT
     ) AS preview_url
 FROM page_translations AS pt
          JOIN pages AS p ON p.id = pt.page_id
-         JOIN content_translations AS ct ON ct.content_id = p.content_id AND ct.locale_id = pt.locale_id
-         JOIN locales AS l ON l.id = pt.locale_id;
+         LEFT JOIN contents AS c ON c.id = p.content_id
+         LEFT JOIN content_types AS t ON t.id = c.content_type_id
+         LEFT JOIN content_translations AS ct ON ct.content_id = p.content_id AND ct.locale_id = pt.locale_id
+         LEFT JOIN locales AS l ON l.id = pt.locale_id
+WHERE LOWER(COALESCE(
+              t.name,
+              json_extract(ct.content, '$.content_type'),
+              json_extract(ct.content, '$.data.content_type'),
+              json_extract(ct.content, '$.type')
+          )) = 'page';
 
 DROP VIEW IF EXISTS admin_post_records;
 CREATE VIEW admin_post_records AS
