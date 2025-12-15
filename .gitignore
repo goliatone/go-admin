@@ -55,3 +55,4 @@ go.work
 .tmp
 node_modules
 .gocache
+*.log
