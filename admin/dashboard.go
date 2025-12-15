@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -234,11 +235,21 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	}
 
 	// Register widget definition with CMS widget service when available.
-	if d.widgetSvc != nil && spec.Schema != nil {
+	// Some CMS backends require a non-empty schema, so default to an empty schema
+	// to allow persistence/seed even for non-configurable widgets.
+	if d.widgetSvc != nil {
+		schema := cloneAnyMap(spec.Schema)
+		if len(schema) == 0 {
+			schema = map[string]any{"fields": []any{}}
+		}
+		name := strings.TrimSpace(spec.Name)
+		if name == "" {
+			name = spec.Code
+		}
 		_ = d.widgetSvc.RegisterDefinition(context.Background(), WidgetDefinition{
 			Code:   spec.Code,
-			Name:   spec.Name,
-			Schema: spec.Schema,
+			Name:   name,
+			Schema: schema,
 		})
 	}
 
@@ -284,13 +295,15 @@ func (d *Dashboard) AddDefaultInstance(area, defCode string, cfg map[string]any,
 		Locale:         locale,
 	})
 	if d.widgetSvc != nil {
-		_, _ = d.widgetSvc.SaveInstance(context.Background(), WidgetInstance{
+		if _, err := d.widgetSvc.SaveInstance(context.Background(), WidgetInstance{
 			DefinitionCode: defCode,
 			Area:           area,
 			Config:         cloneAnyMap(cfg),
 			Span:           span,
 			Locale:         locale,
-		})
+		}); err != nil {
+			log.Printf("[dashboard] failed to persist default widget instance definition=%s area=%s: %v", defCode, area, err)
+		}
 	}
 }
 
