@@ -65,7 +65,12 @@ func (r *CMSPageRepository) Get(ctx context.Context, id string) (map[string]any,
 	if r.content == nil {
 		return nil, ErrNotFound
 	}
-	page, err := r.content.Page(ctx, id, "")
+	page, err := r.content.Page(ctx, id, localeFromContext(ctx))
+	if err != nil && errors.Is(err, ErrNotFound) {
+		if locale := r.resolvePageLocale(ctx, id); locale != "" {
+			page, err = r.content.Page(ctx, id, locale)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +126,14 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 	}
 	page := mapToCMSPage(record)
 	page.ID = id
+	if strings.TrimSpace(page.Locale) == "" {
+		if locale := localeFromContext(ctx); locale != "" {
+			page.Locale = locale
+		}
+		if locale := r.resolvePageLocale(ctx, id); locale != "" {
+			page.Locale = locale
+		}
+	}
 	if err := r.ensureUniqueSlug(ctx, page.Slug, id, page.Locale); err != nil {
 		return nil, err
 	}
@@ -219,7 +232,12 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 	if r.content == nil {
 		return nil, ErrNotFound
 	}
-	item, err := r.content.Content(ctx, id, "")
+	item, err := r.content.Content(ctx, id, localeFromContext(ctx))
+	if err != nil && errors.Is(err, ErrNotFound) {
+		if locale := r.resolveContentLocale(ctx, id); locale != "" {
+			item, err = r.content.Content(ctx, id, locale)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -264,6 +282,14 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 	}
 	content := mapToCMSContent(record)
 	content.ID = id
+	if strings.TrimSpace(content.Locale) == "" {
+		if locale := localeFromContext(ctx); locale != "" {
+			content.Locale = locale
+		}
+		if locale := r.resolveContentLocale(ctx, id); locale != "" {
+			content.Locale = locale
+		}
+	}
 	updated, err := r.content.UpdateContent(ctx, content)
 	if err != nil {
 		return nil, err
@@ -1150,6 +1176,38 @@ func extractLocale(opts ListOptions, fallback string) string {
 	}
 	if fallback != "" {
 		return fallback
+	}
+	return ""
+}
+
+func (r *CMSContentRepository) resolveContentLocale(ctx context.Context, id string) string {
+	if r == nil || r.content == nil || strings.TrimSpace(id) == "" {
+		return ""
+	}
+	items, err := r.content.Contents(ctx, "")
+	if err != nil {
+		return ""
+	}
+	for _, item := range items {
+		if item.ID == id {
+			return item.Locale
+		}
+	}
+	return ""
+}
+
+func (r *CMSPageRepository) resolvePageLocale(ctx context.Context, id string) string {
+	if r == nil || r.content == nil || strings.TrimSpace(id) == "" {
+		return ""
+	}
+	pages, err := r.content.Pages(ctx, "")
+	if err != nil {
+		return ""
+	}
+	for _, page := range pages {
+		if page.ID == id {
+			return page.Locale
+		}
 	}
 	return ""
 }
