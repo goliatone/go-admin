@@ -13,7 +13,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/handlers"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/jobs"
@@ -21,6 +20,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/search"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-crud"
@@ -125,20 +125,22 @@ func main() {
 	}
 
 	// Initialize data stores with seed data
-	var cmsContentSvc admin.CMSContentService
+	cmsContentSvc := admin.CMSContentService(admin.NewInMemoryContentService())
 	if cfg.CMS.Container != nil {
-		cmsContentSvc = cfg.CMS.Container.ContentService()
+		if svc := cfg.CMS.Container.ContentService(); svc != nil {
+			cmsContentSvc = svc
+		}
 	}
 	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale, usersDeps)
 	if err != nil {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
 
-		adm, err := admin.New(cfg, admin.Dependencies{})
-		if err != nil {
-			log.Fatalf("failed to construct admin: %v", err)
-		}
-		quickstart.ApplyAdapterIntegrations(adm, &adapterResult, adapterHooks)
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		log.Fatalf("failed to construct admin: %v", err)
+	}
+	quickstart.ApplyAdapterIntegrations(adm, &adapterResult, adapterHooks)
 
 	// Wire dashboard activity hooks to admin activity system
 	// This creates a bidirectional bridge:
@@ -251,12 +253,27 @@ func main() {
 	translator := helpers.NewSimpleTranslator()
 	adm.WithTranslator(translator)
 
+	// Allow dev workflows to fully rebuild navigation even when we're not running the
+	// explicit seed path (USE_NAV_SEED=false). This is especially useful with the
+	// persistent go-cms backend where menu items are stored across runs.
+	if strings.EqualFold(os.Getenv("RESET_NAV_MENU"), "true") {
+		if err := quickstart.SeedNavigation(context.Background(), quickstart.SeedNavigationOptions{
+			MenuSvc:    adm.MenuService(),
+			MenuCode:   cfg.NavMenuCode,
+			Locale:     cfg.DefaultLocale,
+			Reset:      true,
+			SkipLogger: true,
+		}); err != nil {
+			log.Printf("warning: failed to reset navigation menu: %v", err)
+		}
+	}
+
 	if err := quickstart.EnsureDefaultMenuParents(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		log.Printf("warning: failed to scaffold navigation parents: %v", err)
 	}
 
 	if strings.EqualFold(os.Getenv("USE_NAV_SEED"), "true") {
-		if err := setup.SetupNavigation(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode); err != nil {
+		if err := setup.SetupNavigation(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 			log.Printf("warning: failed to seed navigation: %v", err)
 		}
 	} else {
@@ -353,7 +370,28 @@ func main() {
 
 	// Static assets
 	assetsFS := helpers.MustSubFS(webFS, "assets")
-	var staticFS fs.FS = assetsFS
+
+	// Prefer serving assets from disk when available (dev flow), and fall back to embedded assets.
+	// This avoids 404s when the running binary was compiled without the latest generated assets
+	// (e.g., output.css, assets/dist/*) and supports iterative frontend builds.
+	var diskAssetsDir string
+	if _, err := os.Stat(path.Join("assets", "output.css")); err == nil {
+		diskAssetsDir = "assets"
+	} else if _, err := os.Stat(path.Join("examples", "web", "assets", "output.css")); err == nil {
+		diskAssetsDir = path.Join("examples", "web", "assets")
+	}
+
+	var diskAssetsFS fs.FS
+	if diskAssetsDir != "" {
+		diskAssetsFS = os.DirFS(diskAssetsDir)
+	}
+
+	var staticFS fs.FS
+	if diskAssetsFS != nil {
+		staticFS = helpers.WithFallbackFS(diskAssetsFS, assetsFS)
+	} else {
+		staticFS = assetsFS
+	}
 	if qsAssets := quickstart.SidebarAssetsFS(); qsAssets != nil {
 		staticFS = helpers.WithFallbackFS(staticFS, qsAssets)
 	}
@@ -412,6 +450,12 @@ func main() {
 	// Initialize admin
 	if err := adm.Initialize(r); err != nil {
 		log.Fatalf("failed to initialize admin: %v", err)
+	}
+
+	// Persistent CMS backends keep menu item positions across runs. Ensure Dashboard
+	// renders before Content even when menu items were inserted by module contributions.
+	if err := setup.EnsureDashboardFirst(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
+		log.Printf("warning: failed to ensure dashboard menu ordering: %v", err)
 	}
 
 	// Setup admin features AFTER initialization to override default widgets
@@ -533,7 +577,7 @@ func main() {
 			"title":     cfg.Title,
 			"base_path": cfg.BasePath,
 		}
-		viewCtx = helpers.WithNav(viewCtx, adm, cfg, "dashboard", c.Context())
+		viewCtx = helpers.WithNav(viewCtx, adm, cfg, setup.NavigationSectionDashboard, c.Context())
 		viewCtx = helpers.WithTheme(viewCtx, adm, c)
 		return c.Render("admin", viewCtx)
 	}))
@@ -597,7 +641,7 @@ func main() {
 		viewCtx := helpers.WithNav(router.ViewContext{
 			"title":     cfg.Title,
 			"base_path": cfg.BasePath,
-		}, adm, cfg, "notifications", c.Context())
+		}, adm, cfg, setup.NavigationGroupOthers+".notifications", c.Context())
 		viewCtx = helpers.WithTheme(viewCtx, adm, c)
 		return c.Render("notifications", viewCtx)
 	}))

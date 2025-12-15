@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/commands"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 	userssvc "github.com/goliatone/go-users/service"
 )
@@ -108,7 +108,7 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 	code := m.menuCode
 	if code == "" {
-		code = "admin.main"
+		code = setup.NavigationMenuCode
 	}
 	if locale == "" {
 		locale = m.defaultLoc
@@ -134,7 +134,7 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 			Permissions: []string{"admin.users.view"},
 			Locale:      locale,
 			Menu:        code,
-			Position:    10,
+			Position:    20,
 		},
 	}
 	roleID := "roles"
@@ -155,7 +155,7 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 		Permissions: []string{"admin.roles.view"},
 		Locale:      locale,
 		Menu:        code,
-		Position:    11,
+		Position:    30,
 	})
 	return items
 }
@@ -216,7 +216,7 @@ func (m *pagesModule) Register(ctx admin.ModuleContext) error {
 func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
 	code := m.menuCode
 	if code == "" {
-		code = "admin.main"
+		code = setup.NavigationMenuCode
 	}
 	if locale == "" {
 		locale = m.defaultLoc
@@ -304,7 +304,7 @@ func (m *postsModule) Register(ctx admin.ModuleContext) error {
 func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
 	code := m.menuCode
 	if code == "" {
-		code = "admin.main"
+		code = setup.NavigationMenuCode
 	}
 	if locale == "" {
 		locale = m.defaultLoc
@@ -385,7 +385,7 @@ func (m *mediaModule) Register(ctx admin.ModuleContext) error {
 func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 	code := m.menuCode
 	if code == "" {
-		code = "admin.main"
+		code = setup.NavigationMenuCode
 	}
 	if locale == "" {
 		locale = m.defaultLoc
@@ -439,7 +439,7 @@ func (m *notificationsModule) Register(ctx admin.ModuleContext) error {
 func (m *notificationsModule) MenuItems(locale string) []admin.MenuItem {
 	code := m.menuCode
 	if code == "" {
-		code = "admin.main"
+		code = setup.NavigationMenuCode
 	}
 	if locale == "" {
 		locale = m.defaultLoc
@@ -495,7 +495,7 @@ func (m *dashboardModule) Register(ctx admin.ModuleContext) error {
 func (m *dashboardModule) MenuItems(locale string) []admin.MenuItem {
 	code := m.menuCode
 	if code == "" {
-		code = "admin.main"
+		code = setup.NavigationMenuCode
 	}
 	if locale == "" {
 		locale = m.defaultLoc

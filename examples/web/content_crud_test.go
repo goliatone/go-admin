@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-crud"
 	"github.com/stretchr/testify/require"
@@ -256,27 +256,48 @@ func TestNavigationUsesCMSMenu(t *testing.T) {
 	payload, status := doJSONRequest(t, app, http.MethodGet, "/admin/api/navigation", nil)
 	require.Equal(t, http.StatusOK, status)
 
-	rawItems := payload["data"]
-	items, ok := rawItems.([]any)
-	if !ok {
-		if m, okMap := rawItems.(map[string]any); okMap {
-			items = []any{m}
-		}
-	}
-	require.NotEmptyf(t, items, "navigation should return CMS items, payload: %+v", payload)
+	rawMenu, ok := payload["data"].(map[string]any)
+	require.Truef(t, ok, "expected CMS menu object, payload: %+v", payload)
 
+	rawItems, ok := rawMenu["Items"].([]any)
+	require.Truef(t, ok, "expected Items array in menu payload, payload: %+v", payload)
+	require.NotEmptyf(t, rawItems, "navigation should return CMS items, payload: %+v", payload)
+
+	groupFound := false
+	dashboardFirst := false
 	foundContent := false
-	for _, raw := range items {
+
+	for _, raw := range rawItems {
 		item, ok := raw.(map[string]any)
 		if !ok {
 			continue
 		}
-		label := strings.ToLower(fmt.Sprint(item["label"]))
-		if label == "content" {
-			foundContent = true
-			break
+		typ := strings.ToLower(fmt.Sprint(item["type"]))
+		if typ != "group" {
+			continue
+		}
+		groupFound = true
+		children, _ := item["children"].([]any)
+		if len(children) == 0 {
+			continue
+		}
+		if first, ok := children[0].(map[string]any); ok {
+			if strings.EqualFold(fmt.Sprint(first["label"]), "dashboard") {
+				dashboardFirst = true
+			}
+		}
+		for _, child := range children {
+			cm, ok := child.(map[string]any)
+			if !ok {
+				continue
+			}
+			if strings.EqualFold(fmt.Sprint(cm["label"]), "content") {
+				foundContent = true
+			}
 		}
 	}
+	require.Truef(t, groupFound, "expected CMS menu group, payload: %+v", payload)
+	require.Truef(t, dashboardFirst, "expected Dashboard to be first item in menu group, payload: %+v", payload)
 	require.Truef(t, foundContent, "expected CMS-backed Content menu entry, payload: %+v", payload)
 }
 
