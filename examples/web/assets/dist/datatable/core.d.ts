@@ -1,5 +1,5 @@
 import type { ColumnDefinition, ColumnFilter, SortColumn, DataGridBehaviors } from './behaviors/types.js';
-import type { ActionButton, BulkActionConfig } from './actions.js';
+import type { ActionButton, BulkActionConfig, ActionRenderMode } from './actions.js';
 import type { CellRenderer } from './renderers.js';
 /**
  * DataGrid configuration
@@ -36,6 +36,10 @@ export interface DataGridConfig {
      * Use default actions (view, edit, delete)
      */
     useDefaultActions?: boolean;
+    /**
+     * Action rendering mode: 'inline' (buttons) or 'dropdown' (menu)
+     */
+    actionRenderMode?: ActionRenderMode;
 }
 /**
  * DOM element selectors
@@ -194,6 +198,10 @@ export declare class DataGrid {
      * Update bulk actions bar visibility
      */
     private updateBulkActionsBar;
+    /**
+     * Position dropdown menu intelligently based on available space
+     */
+    private positionDropdownMenu;
     /**
      * Bind dropdown toggles
      */

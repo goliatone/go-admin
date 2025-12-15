@@ -3,6 +3,7 @@
  * Provides extensible row and bulk action capabilities
  */
 export type ActionVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
+export type ActionRenderMode = 'inline' | 'dropdown';
 export interface ActionButton {
     label: string;
     icon?: string;
@@ -22,15 +23,38 @@ export interface BulkActionConfig {
     onSuccess?: (response: any) => void;
     onError?: (error: Error) => void;
 }
+export interface ActionRendererConfig {
+    mode?: ActionRenderMode;
+    actionBasePath?: string;
+}
 export declare class ActionRenderer {
     private actionBasePath;
-    constructor(actionBasePath?: string);
+    private mode;
+    constructor(config?: ActionRendererConfig);
     /**
      * Render row actions as HTML
      */
     renderRowActions(record: any, actions: ActionButton[]): string;
     /**
+     * Render row actions as dropdown menu
+     */
+    private renderRowActionsDropdown;
+    /**
+     * Build dropdown menu items HTML
+     */
+    private buildDropdownItems;
+    /**
+     * Determine if divider should be shown before action
+     */
+    private shouldShowDivider;
+    /**
+     * Render three-dot vertical icon
+     */
+    private renderDotsIcon;
+    /**
      * Render default actions (view, edit, delete)
+     * NOTE: This method is deprecated - default actions are now handled in core.ts
+     * Kept for backward compatibility
      */
     renderDefaultActions(record: any, basePath: string): string;
     /**
@@ -48,5 +72,6 @@ export declare class ActionRenderer {
     private getVariantClass;
     private renderIcon;
     private sanitize;
+    private escapeHtml;
 }
 //# sourceMappingURL=actions.d.ts.map

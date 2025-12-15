@@ -46,7 +46,10 @@ export class DataGrid {
             hiddenColumns: new Set()
         };
         // Initialize action renderer and cell renderer registry
-        this.actionRenderer = new ActionRenderer(this.config.actionBasePath || this.config.apiEndpoint);
+        this.actionRenderer = new ActionRenderer({
+            mode: this.config.actionRenderMode || 'dropdown', // Default to dropdown
+            actionBasePath: this.config.actionBasePath || this.config.apiEndpoint
+        });
         this.cellRendererRegistry = new CellRendererRegistry();
         // Register custom cell renderers if provided
         if (this.config.cellRenderers) {
@@ -463,10 +466,44 @@ export class DataGrid {
         }
         else if (this.config.useDefaultActions !== false) {
             // Default actions (view, edit, delete)
-            actionsCell.innerHTML = this.actionRenderer.renderDefaultActions(item, actionBase);
-            // Bind delete button for default actions
-            const deleteBtn = actionsCell.querySelector('[data-action="delete"]');
-            deleteBtn?.addEventListener('click', () => this.handleDelete(item.id));
+            const defaultActions = [
+                {
+                    label: 'View',
+                    icon: 'eye',
+                    action: () => { window.location.href = `${actionBase}/${item.id}`; },
+                    variant: 'secondary'
+                },
+                {
+                    label: 'Edit',
+                    icon: 'edit',
+                    action: () => { window.location.href = `${actionBase}/${item.id}/edit`; },
+                    variant: 'primary'
+                },
+                {
+                    label: 'Delete',
+                    icon: 'trash',
+                    action: async () => { await this.handleDelete(item.id); },
+                    variant: 'danger'
+                }
+            ];
+            actionsCell.innerHTML = this.actionRenderer.renderRowActions(item, defaultActions);
+            // Attach event listeners for each default action
+            defaultActions.forEach(action => {
+                const actionId = this.sanitizeActionId(action.label);
+                const button = actionsCell.querySelector(`[data-action-id="${actionId}"]`);
+                if (button) {
+                    button.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        try {
+                            await action.action();
+                        }
+                        catch (error) {
+                            console.error(`Action "${action.label}" failed:`, error);
+                        }
+                    });
+                }
+            });
         }
         row.appendChild(actionsCell);
         return row;
@@ -673,7 +710,8 @@ export class DataGrid {
     bindFilterInputs() {
         const filterInputs = document.querySelectorAll(this.selectors.filterRow);
         filterInputs.forEach((input) => {
-            input.addEventListener('input', async () => {
+            // Handler function for both input and change events
+            const handleFilterChange = async () => {
                 const column = input.dataset.filterColumn;
                 const operator = input.dataset.filterOperator || 'eq';
                 const value = input.value;
@@ -704,7 +742,10 @@ export class DataGrid {
                     this.resetPagination();
                     await this.refresh();
                 }
-            });
+            };
+            // Bind both input (for text inputs) and change (for selects) events
+            input.addEventListener('input', handleFilterChange);
+            input.addEventListener('change', handleFilterChange);
         });
     }
     /**
@@ -911,9 +952,36 @@ export class DataGrid {
         }
     }
     /**
+     * Position dropdown menu intelligently based on available space
+     */
+    positionDropdownMenu(trigger, menu) {
+        const triggerRect = trigger.getBoundingClientRect();
+        const menuHeight = menu.offsetHeight || 300; // Estimate if not rendered
+        const viewportHeight = window.innerHeight;
+        const spaceBelow = viewportHeight - triggerRect.bottom;
+        const spaceAbove = triggerRect.top;
+        // Determine if menu should open upward or downward
+        const shouldOpenUpward = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+        // Position horizontally (align right edge of menu with trigger)
+        const left = triggerRect.right - (menu.offsetWidth || 224); // 224px = 14rem default width
+        menu.style.left = `${Math.max(10, left)}px`; // At least 10px from left edge
+        // Position vertically
+        if (shouldOpenUpward) {
+            // Open upward
+            menu.style.top = `${triggerRect.top - menuHeight - 8}px`;
+            menu.style.bottom = 'auto';
+        }
+        else {
+            // Open downward (default)
+            menu.style.top = `${triggerRect.bottom + 8}px`;
+            menu.style.bottom = 'auto';
+        }
+    }
+    /**
      * Bind dropdown toggles
      */
     bindDropdownToggles() {
+        // Existing dropdown toggles (column visibility, export, etc.)
         document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
             toggle.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -924,15 +992,50 @@ export class DataGrid {
                 }
             });
         });
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', () => {
-            document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-                const targetId = toggle.dataset.dropdownToggle;
-                const target = document.getElementById(targetId || '');
-                if (target) {
-                    target.classList.add('hidden');
+        // Action dropdown menus (row actions)
+        document.addEventListener('click', (e) => {
+            const trigger = e.target.closest('[data-dropdown-trigger]');
+            if (trigger) {
+                e.stopPropagation();
+                const dropdown = trigger.closest('[data-dropdown]');
+                const menu = dropdown?.querySelector('.actions-menu');
+                // Close other action dropdowns
+                document.querySelectorAll('.actions-menu').forEach(m => {
+                    if (m !== menu)
+                        m.classList.add('hidden');
+                });
+                // Toggle this dropdown
+                const isOpening = menu?.classList.contains('hidden');
+                menu?.classList.toggle('hidden');
+                trigger.setAttribute('aria-expanded', isOpening ? 'true' : 'false');
+                // Position the dropdown intelligently (only when opening)
+                if (isOpening && menu) {
+                    this.positionDropdownMenu(trigger, menu);
                 }
-            });
+            }
+            else {
+                // Close all action dropdowns when clicking outside
+                document.querySelectorAll('.actions-menu').forEach(m => m.classList.add('hidden'));
+                // Also close existing dropdowns
+                document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
+                    const targetId = toggle.dataset.dropdownToggle;
+                    const target = document.getElementById(targetId || '');
+                    if (target) {
+                        target.classList.add('hidden');
+                    }
+                });
+            }
+        });
+        // ESC key closes all dropdowns
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.actions-menu').forEach(m => {
+                    m.classList.add('hidden');
+                    const trigger = m.closest('[data-dropdown]')?.querySelector('[data-dropdown-trigger]');
+                    if (trigger)
+                        trigger.setAttribute('aria-expanded', 'false');
+                });
+            }
         });
     }
     /**
