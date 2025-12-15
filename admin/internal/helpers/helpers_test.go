@@ -21,7 +21,7 @@ func TestJoinPath(t *testing.T) {
 func TestMenuHelpersNormalizeAndDedupe(t *testing.T) {
 	item := navinternal.MenuItem{Label: "Settings", Target: map[string]any{"key": "settings"}}
 	normalized := NormalizeMenuItem(item, "admin.main")
-	if normalized.Code == "" || normalized.Menu != "admin.main" {
+	if normalized.Code == "" || normalized.Menu != "admin_main" {
 		t.Fatalf("expected menu code set, got code=%s menu=%s", normalized.Code, normalized.Menu)
 	}
 	if normalized.ID == "" {

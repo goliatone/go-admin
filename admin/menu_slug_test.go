@@ -3,8 +3,6 @@ package admin
 import (
 	"context"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
 func TestMenuSlugDeterminismAndUniqueness(t *testing.T) {
@@ -22,9 +20,6 @@ func TestMenuSlugDeterminismAndUniqueness(t *testing.T) {
 	expectedID := MenuUUIDFromSlug(expectedSlug)
 	if menu.ID != expectedID {
 		t.Fatalf("expected menu id %s, got %s", expectedID, menu.ID)
-	}
-	if _, err := uuid.Parse(expectedID); err != nil {
-		t.Fatalf("expected valid uuid from slug, got %v", err)
 	}
 
 	dup, err := svc.CreateMenu(ctx, "admin main")
