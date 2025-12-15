@@ -163,17 +163,24 @@ func ConvertMenuItems(items []MenuItem, t Translator, locale string) []Navigatio
 		if groupTitleKey == "" {
 			groupTitleKey = translated.LabelKey
 		}
-		groupTitle := translated.GroupTitle
-		if groupTitle == "" {
-			groupTitle = translated.Label
-		}
-		translated.GroupTitleKey = groupTitleKey
-		translated.GroupTitle = translateValue(groupTitle, groupTitleKey, t, locale)
+			groupTitle := translated.GroupTitle
+			if groupTitle == "" {
+				groupTitle = translated.Label
+			}
+			translated.GroupTitleKey = groupTitleKey
+			translated.GroupTitle = translateValue(groupTitle, groupTitleKey, t, locale)
 
-		out = append(out, translated)
+			if !translated.Collapsible && boolFromTarget(translated.Target, "collapsible") {
+				translated.Collapsible = true
+			}
+			if !translated.Collapsed && boolFromTarget(translated.Target, "collapsed") {
+				translated.Collapsed = true
+			}
+
+			out = append(out, translated)
+		}
+		return out
 	}
-	return out
-}
 
 func orderNavigation(items []NavigationItem) []NavigationItem {
 	sort.Slice(items, func(i, j int) bool {
@@ -210,7 +217,7 @@ func (n *Navigation) filter(items []NavigationItem, ctx context.Context) []Navig
 		if item.Type == MenuItemTypeGroup && len(item.Children) == 0 {
 			continue
 		}
-		if item.Collapsible && len(item.Children) == 0 {
+		if (item.Collapsible || boolFromTarget(item.Target, "collapsible")) && len(item.Children) == 0 {
 			continue
 		}
 		if item.Type == MenuItemTypeSeparator {
@@ -228,6 +235,24 @@ func (n *Navigation) filter(items []NavigationItem, ctx context.Context) []Navig
 		out = out[:len(out)-1]
 	}
 	return out
+}
+
+func boolFromTarget(target map[string]any, key string) bool {
+	if target == nil {
+		return false
+	}
+	raw, ok := target[key]
+	if !ok || raw == nil {
+		return false
+	}
+	switch v := raw.(type) {
+	case bool:
+		return v
+	case string:
+		return strings.EqualFold(strings.TrimSpace(v), "true")
+	default:
+		return false
+	}
 }
 
 func (n *Navigation) localize(items []NavigationItem, locale string) []NavigationItem {
