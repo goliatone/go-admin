@@ -72,16 +72,8 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 		target = nil
 	}
 
-	// go-cms enforces `Collapsible` semantics at write time; go-admin can seed collapsible parents
-	// before their children are added, so we store collapsible intent in the target payload and
-	// only set the strict go-cms flags when children are present on the write.
-	collapsible := item.Collapsible
-	collapsed := item.Collapsed
-	if collapsible && len(item.Children) == 0 {
-		collapsible = false
-		collapsed = false
-	}
-
+	// go-cms menus are path-addressed; Collapsible/Collapsed and ParentPath are safe to upsert
+	// even when parents/children are not yet present (order-independent seeding).
 	input := cms.UpsertMenuItemByPathInput{
 		Path:        path,
 		ParentPath:  parentPath,
@@ -93,8 +85,8 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 		Permissions: cloneStringSliceOrNil(item.Permissions),
 		Classes:     cloneStringSliceOrNil(item.Classes),
 		Styles:      cloneStringMapOrNil(item.Styles),
-		Collapsible: collapsible,
-		Collapsed:   collapsed,
+		Collapsible: item.Collapsible,
+		Collapsed:   item.Collapsed,
 		Metadata: map[string]any{
 			"path":        path,
 			"parent_path": parentPath,
@@ -255,6 +247,7 @@ func (a *GoCMSMenuAdapter) Menu(ctx context.Context, code, locale string) (*Menu
 		return nil, ErrNotFound
 	}
 	menuCode := canonicalMenuCode(code)
+
 	nodes, err := a.service.ResolveNavigation(ctx, menuCode, locale)
 	if err != nil {
 		return nil, err
@@ -456,6 +449,7 @@ func convertPublicNavigationNodes(nodes []cms.NavigationNode, menuCode, parentPa
 			Styles:        cloneStringMapOrNil(node.Styles),
 			Collapsible:   node.Collapsible,
 			Collapsed:     node.Collapsed,
+			Position:      node.Position,
 			Menu:          menuCode,
 			ParentID:      parentPath,
 			ParentCode:    parentPath,
@@ -498,33 +492,5 @@ func navigationNodePath(node cms.NavigationNode, menuCode string) string {
 }
 
 func mergeMenuTarget(item MenuItem) map[string]any {
-	target := cloneAnyMap(item.Target)
-	if target == nil {
-		target = map[string]any{}
-	}
-	if _, ok := target["collapsible"]; !ok && item.Collapsible {
-		target["collapsible"] = true
-	}
-	if _, ok := target["collapsed"]; !ok && item.Collapsed {
-		target["collapsed"] = true
-	}
-	if _, ok := target["icon"]; !ok && strings.TrimSpace(item.Icon) != "" {
-		target["icon"] = strings.TrimSpace(item.Icon)
-	}
-	if _, ok := target["badge"]; !ok && item.Badge != nil {
-		target["badge"] = cloneAnyMap(item.Badge)
-	}
-	if _, ok := target["classes"]; !ok && len(item.Classes) > 0 {
-		target["classes"] = append([]string{}, item.Classes...)
-	}
-	if _, ok := target["styles"]; !ok && len(item.Styles) > 0 {
-		target["styles"] = cloneStringMap(item.Styles)
-	}
-	if _, ok := target["permissions"]; !ok && len(item.Permissions) > 0 {
-		target["permissions"] = append([]string{}, item.Permissions...)
-	}
-	if _, ok := target["locale"]; !ok && strings.TrimSpace(item.Locale) != "" {
-		target["locale"] = strings.TrimSpace(item.Locale)
-	}
-	return target
+	return cloneAnyMap(item.Target)
 }
