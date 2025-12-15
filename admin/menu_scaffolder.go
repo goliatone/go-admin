@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // EnsureMenuParentsOptions controls how parent/group menu items are scaffolded.
@@ -39,8 +40,10 @@ func EnsureMenuParents(ctx context.Context, opts EnsureMenuParentsOptions) error
 
 	for _, parent := range opts.Parents {
 		parent.Menu = menuCode
+		if strings.TrimSpace(parent.Locale) == "" && strings.TrimSpace(opts.Locale) != "" {
+			parent.Locale = strings.TrimSpace(opts.Locale)
+		}
 		parent = normalizeMenuItem(parent, menuCode)
-		parent = mapMenuIDs(parent)
 		keys := canonicalMenuKeys(parent)
 		if hasAnyKey(existing, keys) {
 			continue
