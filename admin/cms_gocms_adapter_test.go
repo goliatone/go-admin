@@ -205,6 +205,41 @@ func (s *stubCMSMenuService) GetMenuByCode(_ context.Context, code string) (*cms
 	return &cms.MenuInfo{Code: code}, nil
 }
 
+func (s *stubCMSMenuService) ListMenuItemsByCode(_ context.Context, menuCode string) ([]*cms.MenuItemInfo, error) {
+	menu := s.menus[menuCode]
+	if menu == nil {
+		return nil, cms.ErrMenuNotFound
+	}
+	out := make([]*cms.MenuItemInfo, 0, len(menu.items))
+	for _, item := range menu.items {
+		if item == nil {
+			continue
+		}
+		out = append(out, &cms.MenuItemInfo{
+			Path:        item.path,
+			Type:        item.typeName,
+			Position:    item.position,
+			Target:      cloneAnyMap(item.target),
+			Icon:        item.icon,
+			Badge:       cloneAnyMap(item.badge),
+			Permissions: append([]string{}, item.perms...),
+			Classes:     append([]string{}, item.classes...),
+			Styles:      cloneStringMap(item.styles),
+			Collapsible: item.collapsible,
+			Collapsed:   item.collapsed,
+			Metadata:    cloneAnyMap(item.meta),
+		})
+	}
+	return out, nil
+}
+
+func (s *stubCMSMenuService) ReconcileMenuByCode(_ context.Context, menuCode string, _ uuid.UUID) (*cms.ReconcileMenuResult, error) {
+	if s.menus[menuCode] == nil {
+		return nil, cms.ErrMenuNotFound
+	}
+	return &cms.ReconcileMenuResult{}, nil
+}
+
 func (s *stubCMSMenuService) ResolveNavigation(_ context.Context, menuCode string, locale string) ([]cms.NavigationNode, error) {
 	menu := s.menus[menuCode]
 	if menu == nil {
@@ -230,6 +265,32 @@ func (s *stubCMSMenuService) ResetMenuByCode(_ context.Context, code string, _ u
 		return nil
 	}
 	s.menus[code].items = map[string]*stubCMSMenuItem{}
+	return nil
+}
+
+func (s *stubCMSMenuService) MoveMenuItemToTop(_ context.Context, menuCode string, path string, _ uuid.UUID) error {
+	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: positionPtr(1)})
+	return err
+}
+
+func (s *stubCMSMenuService) MoveMenuItemToBottom(_ context.Context, menuCode string, path string, _ uuid.UUID) error {
+	menu := s.menus[menuCode]
+	if menu == nil {
+		return cms.ErrMenuNotFound
+	}
+	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: positionPtr(len(menu.items) + 1)})
+	return err
+}
+
+func (s *stubCMSMenuService) MoveMenuItemBefore(_ context.Context, _ string, _ string, _ string, _ uuid.UUID) error {
+	return nil
+}
+
+func (s *stubCMSMenuService) MoveMenuItemAfter(_ context.Context, _ string, _ string, _ string, _ uuid.UUID) error {
+	return nil
+}
+
+func (s *stubCMSMenuService) SetMenuSiblingOrder(_ context.Context, _ string, _ string, _ []string, _ uuid.UUID) error {
 	return nil
 }
 
