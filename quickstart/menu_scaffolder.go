@@ -13,7 +13,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		menuCode = admin.NormalizeMenuSlug("admin.main")
 	}
 	mainGroup := admin.MenuItem{
-		ID:            "nav.group.main",
+		ID:            "nav-group-main",
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Main Menu",
 		GroupTitleKey: "menu.group.main",
@@ -21,7 +21,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Menu:          menuCode,
 	}
 	content := admin.MenuItem{
-		ID:          "nav.section.content",
+		ID:          mainGroup.ID + ".content",
 		Type:        admin.MenuItemTypeItem,
 		Label:       "Content",
 		LabelKey:    "menu.content",
@@ -29,12 +29,19 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Position:    10,
 		Collapsible: true,
 		Collapsed:   false,
+		Target: map[string]any{
+			// go-cms requires a non-empty target for `item` types; the actual href is irrelevant
+			// when this node renders as a collapsible parent.
+			"type": "url",
+			"key":  "content",
+			"name": "admin.pages",
+		},
 		Menu:        menuCode,
 		ParentID:    mainGroup.ID,
 		Permissions: []string{"admin.pages.view", "admin.posts.view"},
 	}
 	others := admin.MenuItem{
-		ID:            "nav.group.others",
+		ID:            "nav-group-others",
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Others",
 		GroupTitleKey: "menu.group.others",

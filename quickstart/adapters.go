@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"log"
 	"os"
 	"strings"
 
@@ -59,6 +60,8 @@ func ConfigureAdapters(ctx context.Context, cfg admin.Config, hooks AdapterHooks
 			cfg.CMS = opts
 			result.CMSBackend = backend
 			result.PersistentCMSSet = true
+		} else if err != nil {
+			log.Printf("warning: persistent CMS requested but setup failed: %v", err)
 		}
 	}
 	return cfg, result

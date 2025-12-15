@@ -37,6 +37,15 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool) fiber.
 			}
 		}
 
+		// Map core admin errors to HTTP status codes.
+		if errors.Is(err, admin.ErrNotFound) {
+			code = fiber.StatusNotFound
+			message = "not found"
+		} else if errors.Is(err, admin.ErrForbidden) {
+			code = fiber.StatusForbidden
+			message = "forbidden"
+		}
+
 		apiPrefix := path.Join(cfg.BasePath, "api")
 		crudPrefix := path.Join(cfg.BasePath, "crud")
 		isAPI := strings.HasPrefix(c.Path(), apiPrefix) || strings.HasPrefix(c.Path(), crudPrefix)
