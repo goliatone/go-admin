@@ -27,7 +27,7 @@ type TenantsModule struct {
 
 // NewTenantsModule constructs the default tenants module.
 func NewTenantsModule() *TenantsModule {
-	return &TenantsModule{}
+	return (&TenantsModule{}).WithMenuParent("nav-group-main")
 }
 
 // Manifest describes the module metadata.
@@ -152,7 +152,7 @@ type OrganizationsModule struct {
 
 // NewOrganizationsModule constructs the default organizations module.
 func NewOrganizationsModule() *OrganizationsModule {
-	return &OrganizationsModule{}
+	return (&OrganizationsModule{}).WithMenuParent("nav-group-main")
 }
 
 // Manifest describes the module metadata.
