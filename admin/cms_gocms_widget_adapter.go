@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -22,6 +23,26 @@ func NewGoCMSWidgetAdapter(service any) *GoCMSWidgetAdapter {
 		return nil
 	}
 	return &GoCMSWidgetAdapter{service: service, definitions: map[string]uuid.UUID{}, idToCode: map[uuid.UUID]string{}}
+}
+
+func minimalWidgetSchema() map[string]any {
+	return map[string]any{"fields": []any{}}
+}
+
+func normalizeWidgetDefinition(def WidgetDefinition) (code string, displayName string, schema map[string]any) {
+	code = strings.TrimSpace(def.Code)
+	if code == "" {
+		code = strings.TrimSpace(def.Name)
+	}
+	displayName = strings.TrimSpace(def.Name)
+	if displayName == "" {
+		displayName = code
+	}
+	schema = def.Schema
+	if len(schema) == 0 {
+		schema = minimalWidgetSchema()
+	}
+	return code, displayName, schema
 }
 
 func (a *GoCMSWidgetAdapter) RegisterAreaDefinition(ctx context.Context, def WidgetAreaDefinition) error {
@@ -50,21 +71,24 @@ func (a *GoCMSWidgetAdapter) RegisterDefinition(ctx context.Context, def WidgetD
 	if !method.IsValid() {
 		return ErrNotFound
 	}
-	input := reflect.New(method.Type().In(1)).Elem()
-	name := def.Name
-	if strings.TrimSpace(name) == "" {
-		name = def.Code
+	code, displayName, schema := normalizeWidgetDefinition(def)
+	if code == "" {
+		return fmt.Errorf("widget definition code is required")
 	}
-	setStringField(input, "Name", name)
-	setMapField(input, "Schema", def.Schema)
+	input := reflect.New(method.Type().In(1)).Elem()
+	// go-cms widget definitions don't expose a stable "code" field; persist go-admin's
+	// provider code in Name so it can be used as a durable identifier.
+	setStringField(input, "Name", code)
+	setStringPtr(input.FieldByName("Description"), displayName)
+	setMapField(input, "Schema", schema)
 	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
 	if err := extractError(results); err != nil {
 		return err
 	}
 	if len(results) > 0 {
 		if id, ok := extractUUID(results[0], "ID"); ok {
-			a.definitions[def.Code] = id
-			a.idToCode[id] = def.Code
+			a.definitions[code] = id
+			a.idToCode[id] = code
 		}
 	}
 	return nil
@@ -78,15 +102,9 @@ func (a *GoCMSWidgetAdapter) DeleteDefinition(ctx context.Context, code string) 
 	if !method.IsValid() {
 		return ErrNotFound
 	}
+	code = strings.TrimSpace(code)
+	a.refreshDefinitions(ctx)
 	id, ok := a.definitions[code]
-	if !ok {
-		for _, def := range a.Definitions() {
-			if def.Code == code {
-				id, ok = a.definitions[code]
-				break
-			}
-		}
-	}
 	if !ok {
 		return ErrNotFound
 	}
@@ -138,6 +156,12 @@ func (a *GoCMSWidgetAdapter) Definitions() []WidgetDefinition {
 	case reflect.Slice:
 		for i := 0; i < value.Len(); i++ {
 			def := convertWidgetDefinition(value.Index(i))
+			if def.Code != "" {
+				if id, ok := extractUUID(deref(value.Index(i)), "ID"); ok {
+					a.definitions[def.Code] = id
+					a.idToCode[id] = def.Code
+				}
+			}
 			defs = append(defs, def)
 		}
 	}
@@ -146,11 +170,13 @@ func (a *GoCMSWidgetAdapter) Definitions() []WidgetDefinition {
 
 func (a *GoCMSWidgetAdapter) SaveInstance(ctx context.Context, instance WidgetInstance) (*WidgetInstance, error) {
 	if a == nil || a.service == nil {
-		return nil, ErrNotFound
+		return nil, fmt.Errorf("adapter or service nil")
 	}
-	defID, ok := a.definitions[instance.DefinitionCode]
+	defCode := strings.TrimSpace(instance.DefinitionCode)
+	a.refreshDefinitions(ctx)
+	defID, ok := a.definitions[defCode]
 	if !ok {
-		return nil, ErrNotFound
+		return nil, fmt.Errorf("definition %q not found in cache (have %d definitions)", defCode, len(a.definitions))
 	}
 	if strings.TrimSpace(instance.Area) != "" {
 		_ = a.RegisterAreaDefinition(ctx, WidgetAreaDefinition{Code: instance.Area, Name: instance.Area, Scope: "global"})
@@ -162,9 +188,12 @@ func (a *GoCMSWidgetAdapter) SaveInstance(ctx context.Context, instance WidgetIn
 }
 
 func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID, instance WidgetInstance) (*WidgetInstance, error) {
+	if defID == uuid.Nil {
+		return nil, fmt.Errorf("createInstance called with nil defID for instance code=%q", instance.DefinitionCode)
+	}
 	method := reflect.ValueOf(a.service).MethodByName("CreateInstance")
 	if !method.IsValid() {
-		return nil, ErrNotFound
+		return nil, fmt.Errorf("CreateInstance method not found")
 	}
 	input := reflect.New(method.Type().In(1)).Elem()
 	setUUIDField(input, "DefinitionID", defID)
@@ -190,7 +219,7 @@ func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID
 		return nil, errors.New("widget instance not returned")
 	}
 	converted := convertWidgetInstance(results[0])
-	converted.DefinitionCode = instance.DefinitionCode
+	converted.DefinitionCode = strings.TrimSpace(instance.DefinitionCode)
 	return &converted, nil
 }
 
@@ -226,7 +255,7 @@ func (a *GoCMSWidgetAdapter) updateInstance(ctx context.Context, instance Widget
 		return nil, errors.New("widget instance not returned")
 	}
 	converted := convertWidgetInstance(results[0])
-	converted.DefinitionCode = instance.DefinitionCode
+	converted.DefinitionCode = strings.TrimSpace(instance.DefinitionCode)
 	return &converted, nil
 }
 
@@ -254,6 +283,7 @@ func (a *GoCMSWidgetAdapter) ListInstances(ctx context.Context, filter WidgetIns
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
+	a.refreshDefinitions(ctx)
 	var method reflect.Value
 	if filter.Area != "" {
 		method = reflect.ValueOf(a.service).MethodByName("ListInstancesByArea")
@@ -291,6 +321,50 @@ func (a *GoCMSWidgetAdapter) ListInstances(ctx context.Context, filter WidgetIns
 	return out, nil
 }
 
+func (a *GoCMSWidgetAdapter) refreshDefinitions(ctx context.Context) {
+	if a == nil || a.service == nil {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	method := reflect.ValueOf(a.service).MethodByName("ListDefinitions")
+	if !method.IsValid() {
+		return
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+	if err := extractError(results); err != nil {
+		return
+	}
+	if len(results) == 0 || !results[0].IsValid() {
+		return
+	}
+	value := deref(results[0])
+	if value.Kind() != reflect.Slice {
+		return
+	}
+	for i := 0; i < value.Len(); i++ {
+		item := deref(value.Index(i))
+		if !item.IsValid() {
+			continue
+		}
+		id, ok := extractUUID(item, "ID")
+		if !ok || id == uuid.Nil {
+			continue
+		}
+		name, ok := getStringField(item, "Name")
+		if !ok {
+			continue
+		}
+		code := strings.TrimSpace(name)
+		if code == "" {
+			continue
+		}
+		a.definitions[code] = id
+		a.idToCode[id] = code
+	}
+}
+
 func convertAreaDefinition(val reflect.Value) WidgetAreaDefinition {
 	val = deref(val)
 	def := WidgetAreaDefinition{}
@@ -309,11 +383,10 @@ func convertAreaDefinition(val reflect.Value) WidgetAreaDefinition {
 func convertWidgetDefinition(val reflect.Value) WidgetDefinition {
 	val = deref(val)
 	def := WidgetDefinition{}
-	if id, ok := extractUUID(val, "ID"); ok {
-		def.Code = id.String()
-	}
 	if name, ok := getStringField(val, "Name"); ok {
-		def.Name = name
+		code := strings.TrimSpace(name)
+		def.Code = code
+		def.Name = code
 	}
 	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
 		if schema, ok := schemaField.Interface().(map[string]any); ok {

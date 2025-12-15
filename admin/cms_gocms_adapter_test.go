@@ -2,28 +2,22 @@ package admin
 
 import (
 	"context"
-	"errors"
-	"reflect"
-	"sort"
+	"strings"
 	"testing"
 
+	cms "github.com/goliatone/go-cms"
 	"github.com/google/uuid"
 )
 
 func TestGoCMSMenuAdapterAddsAndResolvesNavigation(t *testing.T) {
 	ctx := context.Background()
-	menuSvc := newStubGoCMSMenuService()
+	menuSvc := newStubCMSMenuService()
 	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
 
 	if _, err := adapter.CreateMenu(ctx, "admin.main"); err != nil {
 		t.Fatalf("create menu: %v", err)
 	}
-	menuVal := mustMenu(t, adapter, ctx, "admin.main")
-	if id, ok := extractUUID(menuVal, "ID"); !ok {
-		t.Fatalf("menu missing id")
-	} else {
-		t.Logf("menu id=%s", id)
-	}
+
 	item := MenuItem{
 		Label:       "Home",
 		Locale:      "en",
@@ -54,6 +48,9 @@ func TestGoCMSMenuAdapterAddsAndResolvesNavigation(t *testing.T) {
 		t.Fatalf("expected 1 menu item, got %d", len(menu.Items))
 	}
 	got := menu.Items[0]
+	if got.ID == "" || got.ID != "admin_main.home" {
+		t.Fatalf("expected derived path ID admin_main.home, got %q", got.ID)
+	}
 	if got.Label != "Home" || got.Icon != "hero" {
 		t.Fatalf("unexpected item mapping: %+v", got)
 	}
@@ -72,17 +69,19 @@ func TestGoCMSMenuAdapterAddsAndResolvesNavigation(t *testing.T) {
 	if url, ok := got.Target["url"].(string); !ok || url == "" {
 		t.Fatalf("expected url injected into target, got %+v", got.Target)
 	}
+	if key, ok := got.Target["key"].(string); !ok || key == "" {
+		t.Fatalf("expected key present in target, got %+v", got.Target)
+	}
 }
 
 func TestGoCMSMenuAdapterReordersAndUpdates(t *testing.T) {
 	ctx := context.Background()
-	menuSvc := newStubGoCMSMenuService()
+	menuSvc := newStubCMSMenuService()
 	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
 
 	if _, err := adapter.CreateMenu(ctx, "admin.main"); err != nil {
 		t.Fatalf("create menu: %v", err)
 	}
-	_ = mustMenu(t, adapter, ctx, "admin.main")
 	if err := adapter.AddMenuItem(ctx, "admin.main", MenuItem{Label: "First", Locale: "en", Target: map[string]any{"slug": "first"}}); err != nil {
 		t.Fatalf("add first: %v", err)
 	}
@@ -125,7 +124,7 @@ func TestGoCMSMenuAdapterReordersAndUpdates(t *testing.T) {
 
 func TestUseCMSWrapsGoCMSMenuService(t *testing.T) {
 	ctx := context.Background()
-	menuSvc := newStubGoCMSMenuService()
+	menuSvc := newStubCMSMenuService()
 	container := &stubGoCMSContainer{
 		menu:    menuSvc,
 		widgets: NewInMemoryWidgetService(),
@@ -138,7 +137,7 @@ func TestUseCMSWrapsGoCMSMenuService(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	if err := adm.menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "CMS Link", Locale: "en"}); err != nil {
+	if err := adm.menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "CMS Link", Locale: "en", Target: map[string]any{"slug": "cms-link"}}); err != nil {
 		t.Fatalf("add menu item through adapter: %v", err)
 	}
 
@@ -148,19 +147,8 @@ func TestUseCMSWrapsGoCMSMenuService(t *testing.T) {
 	}
 }
 
-func mustMenu(t *testing.T, adapter *GoCMSMenuAdapter, ctx context.Context, code string) reflect.Value {
-	t.Helper()
-	val, err := adapter.menu(ctx, code)
-	if err != nil {
-		t.Fatalf("menu lookup failed: %v", err)
-	}
-	idField := val.FieldByName("ID")
-	t.Logf("resolved menu type=%s idValid=%v idKind=%s idType=%s", val.Type(), idField.IsValid(), idField.Kind(), idField.Type())
-	return val
-}
-
 type stubGoCMSContainer struct {
-	menu    *stubGoCMSMenuService
+	menu    *stubCMSMenuService
 	widgets CMSWidgetService
 }
 
@@ -169,327 +157,285 @@ func (s *stubGoCMSContainer) MenuService() CMSMenuService       { return nil }
 func (s *stubGoCMSContainer) ContentService() CMSContentService { return nil }
 func (s *stubGoCMSContainer) GoCMSMenuService() any             { return s.menu }
 
-type stubGoCMSMenuService struct {
-	menus map[string]*stubGoCMSMenu
+type stubCMSMenuService struct {
+	menus map[string]*stubCMSMenu
 }
 
-type stubGoCMSMenu struct {
-	ID    uuid.UUID
-	Code  string
-	Items []*stubGoCMSMenuItem
+type stubCMSMenu struct {
+	code  string
+	items map[string]*stubCMSMenuItem
 }
 
-type stubGoCMSMenuItem struct {
-	ID           uuid.UUID
-	MenuID       uuid.UUID
-	ParentID     *uuid.UUID
-	Position     int
-	Target       map[string]any
-	Translations []stubGoCMSMenuTranslation
-	Children     []*stubGoCMSMenuItem
+type stubCMSMenuItem struct {
+	path       string
+	parentPath string
+	position   int
+	typeName   string
+	target     map[string]any
+	icon       string
+	badge      map[string]any
+	perms      []string
+	classes    []string
+	styles     map[string]string
+	meta       map[string]any
+	tr         map[string]cms.MenuItemTranslationInput
+	collapsible bool
+	collapsed   bool
 }
 
-type stubGoCMSMenuTranslation struct {
-	Locale string
-	Label  string
+func newStubCMSMenuService() *stubCMSMenuService {
+	return &stubCMSMenuService{menus: map[string]*stubCMSMenu{}}
 }
 
-type stubGoCMSNavigationNode struct {
-	ID       uuid.UUID
-	Label    string
-	URL      string
-	Target   map[string]any
-	Children []stubGoCMSNavigationNode
+func (s *stubCMSMenuService) GetOrCreateMenu(ctx context.Context, code string, description *string, actor uuid.UUID) (*cms.MenuInfo, error) {
+	return s.UpsertMenu(ctx, code, description, actor)
 }
 
-type stubCreateMenuInput struct {
-	Code      string
-	CreatedBy uuid.UUID
-	UpdatedBy uuid.UUID
-}
-
-type stubAddMenuItemInput struct {
-	MenuID                   uuid.UUID
-	ParentID                 *uuid.UUID
-	Position                 int
-	Target                   map[string]any
-	CreatedBy                uuid.UUID
-	UpdatedBy                uuid.UUID
-	Translations             []stubMenuItemTranslationInput
-	AllowMissingTranslations bool
-}
-
-type stubMenuItemTranslationInput struct {
-	Locale string
-	Label  string
-}
-
-type stubUpdateMenuItemInput struct {
-	ItemID    uuid.UUID
-	Target    map[string]any
-	Position  *int
-	ParentID  *uuid.UUID
-	UpdatedBy uuid.UUID
-}
-
-type stubDeleteMenuItemRequest struct {
-	ItemID          uuid.UUID
-	CascadeChildren bool
-	DeletedBy       uuid.UUID
-}
-
-type stubBulkReorderMenuItemsInput struct {
-	MenuID    uuid.UUID
-	Items     []stubItemOrder
-	UpdatedBy uuid.UUID
-}
-
-type stubItemOrder struct {
-	ItemID   uuid.UUID
-	ParentID *uuid.UUID
-	Position int
-}
-
-type stubAddMenuItemTranslationInput struct {
-	ItemID      uuid.UUID
-	Locale      string
-	Label       string
-	URLOverride *string
-}
-
-func newStubGoCMSMenuService() *stubGoCMSMenuService {
-	return &stubGoCMSMenuService{menus: map[string]*stubGoCMSMenu{}}
-}
-
-func (s *stubGoCMSMenuService) CreateMenu(_ context.Context, input stubCreateMenuInput) (*stubGoCMSMenu, error) {
-	menu := &stubGoCMSMenu{
-		ID:    uuid.New(),
-		Code:  input.Code,
-		Items: []*stubGoCMSMenuItem{},
+func (s *stubCMSMenuService) UpsertMenu(_ context.Context, code string, _ *string, _ uuid.UUID) (*cms.MenuInfo, error) {
+	if s.menus[code] == nil {
+		s.menus[code] = &stubCMSMenu{code: code, items: map[string]*stubCMSMenuItem{}}
 	}
-	s.menus[input.Code] = menu
-	return menu, nil
+	return &cms.MenuInfo{Code: code}, nil
 }
 
-func (s *stubGoCMSMenuService) GetMenuByCode(_ context.Context, code string) (*stubGoCMSMenu, error) {
-	if menu, ok := s.menus[code]; ok {
-		return menu, nil
+func (s *stubCMSMenuService) GetMenuByCode(_ context.Context, code string) (*cms.MenuInfo, error) {
+	if s.menus[code] == nil {
+		return nil, cms.ErrMenuNotFound
 	}
-	return nil, errors.New("menu not found")
+	return &cms.MenuInfo{Code: code}, nil
 }
 
-func (s *stubGoCMSMenuService) AddMenuItem(_ context.Context, input stubAddMenuItemInput) (*stubGoCMSMenuItem, error) {
-	menu := s.menuByID(input.MenuID)
+func (s *stubCMSMenuService) ResolveNavigation(_ context.Context, menuCode string, locale string) ([]cms.NavigationNode, error) {
+	menu := s.menus[menuCode]
 	if menu == nil {
-		return nil, errors.New("menu not found")
+		return nil, cms.ErrMenuNotFound
 	}
-	item := &stubGoCMSMenuItem{
-		ID:           uuid.New(),
-		MenuID:       input.MenuID,
-		ParentID:     input.ParentID,
-		Position:     input.Position,
-		Target:       cloneAnyMap(input.Target),
-		Translations: []stubGoCMSMenuTranslation{},
-	}
-	for _, t := range input.Translations {
-		item.Translations = append(item.Translations, stubGoCMSMenuTranslation{Locale: t.Locale, Label: t.Label})
-	}
-	if input.ParentID != nil {
-		parent := findMenuItem(menu.Items, *input.ParentID)
-		if parent != nil {
-			parent.Children = append(parent.Children, item)
+	roots := []*stubCMSMenuItem{}
+	for _, item := range menu.items {
+		if item.parentPath == "" || item.parentPath == menuCode {
+			roots = append(roots, item)
 		}
-	} else {
-		menu.Items = append(menu.Items, item)
 	}
-	return item, nil
+	sortByPosition(roots)
+
+	out := make([]cms.NavigationNode, 0, len(roots))
+	for _, root := range roots {
+		out = append(out, buildNode(menu, root, menuCode, locale))
+	}
+	return out, nil
 }
 
-func (s *stubGoCMSMenuService) UpdateMenuItem(_ context.Context, input stubUpdateMenuItemInput) (*stubGoCMSMenuItem, error) {
-	item := s.findItem(input.ItemID)
-	if item == nil {
-		return nil, errors.New("item not found")
+func (s *stubCMSMenuService) ResetMenuByCode(_ context.Context, code string, _ uuid.UUID, _ bool) error {
+	if s.menus[code] == nil {
+		return nil
 	}
-	if input.Target != nil {
-		item.Target = cloneAnyMap(input.Target)
+	s.menus[code].items = map[string]*stubCMSMenuItem{}
+	return nil
+}
+
+func (s *stubCMSMenuService) UpsertMenuItemByPath(_ context.Context, input cms.UpsertMenuItemByPathInput) (*cms.MenuItemInfo, error) {
+	parsed, err := cms.ParseMenuItemPath(input.Path)
+	if err != nil {
+		return nil, err
+	}
+	menu := s.menus[parsed.MenuCode]
+	if menu == nil {
+		menu = &stubCMSMenu{code: parsed.MenuCode, items: map[string]*stubCMSMenuItem{}}
+		s.menus[parsed.MenuCode] = menu
+	}
+
+	parent := strings.TrimSpace(input.ParentPath)
+	if parent == "" {
+		parent = parsed.ParentPath
+	}
+
+	position := 0
+	if input.Position != nil {
+		position = *input.Position
+	}
+
+	item := menu.items[parsed.Path]
+	if item == nil {
+		item = &stubCMSMenuItem{path: parsed.Path, tr: map[string]cms.MenuItemTranslationInput{}}
+		menu.items[parsed.Path] = item
+		if position == 0 {
+			position = len(menu.items)
+		}
+	}
+	if position == 0 {
+		position = item.position
+	}
+	item.parentPath = parent
+	item.position = position
+	item.typeName = input.Type
+	item.target = cloneAnyMap(input.Target)
+	item.icon = input.Icon
+	item.badge = cloneAnyMap(input.Badge)
+	item.perms = append([]string{}, input.Permissions...)
+	item.classes = append([]string{}, input.Classes...)
+	item.styles = cloneStringMap(input.Styles)
+	item.meta = cloneAnyMap(input.Metadata)
+	item.collapsible = input.Collapsible
+	item.collapsed = input.Collapsed
+	for _, tr := range input.Translations {
+		item.tr[tr.Locale] = tr
+	}
+
+	return &cms.MenuItemInfo{Path: parsed.Path, Type: input.Type, Target: cloneAnyMap(input.Target)}, nil
+}
+
+func (s *stubCMSMenuService) UpdateMenuItemByPath(_ context.Context, menuCode string, path string, input cms.UpdateMenuItemByPathInput) (*cms.MenuItemInfo, error) {
+	parsed, err := cms.ParseMenuItemPathForMenu(menuCode, path)
+	if err != nil {
+		return nil, err
+	}
+	menu := s.menus[menuCode]
+	if menu == nil {
+		return nil, cms.ErrMenuNotFound
+	}
+	item := menu.items[parsed.Path]
+	if item == nil {
+		return nil, cms.ErrMenuNotFound
 	}
 	if input.Position != nil {
-		item.Position = *input.Position
+		item.position = *input.Position
 	}
-	if input.ParentID != nil {
-		item.ParentID = input.ParentID
+	if input.ParentPath != nil {
+		item.parentPath = strings.TrimSpace(*input.ParentPath)
 	}
-	return item, nil
+	if input.Type != nil {
+		item.typeName = *input.Type
+	}
+	if input.Target != nil {
+		item.target = cloneAnyMap(input.Target)
+	}
+	if input.Icon != nil {
+		item.icon = *input.Icon
+	}
+	if input.Badge != nil {
+		item.badge = cloneAnyMap(input.Badge)
+	}
+	if input.Permissions != nil {
+		item.perms = append([]string{}, input.Permissions...)
+	}
+	if input.Classes != nil {
+		item.classes = append([]string{}, input.Classes...)
+	}
+	if input.Styles != nil {
+		item.styles = cloneStringMap(input.Styles)
+	}
+	if input.Metadata != nil {
+		item.meta = cloneAnyMap(input.Metadata)
+	}
+	if input.Collapsible != nil {
+		item.collapsible = *input.Collapsible
+	}
+	if input.Collapsed != nil {
+		item.collapsed = *input.Collapsed
+	}
+	return &cms.MenuItemInfo{Path: parsed.Path, Type: item.typeName, Target: cloneAnyMap(item.target)}, nil
 }
 
-func (s *stubGoCMSMenuService) DeleteMenuItem(_ context.Context, req stubDeleteMenuItemRequest) error {
-	for _, menu := range s.menus {
-		if removeItem(&menu.Items, req.ItemID, req.CascadeChildren) {
-			return nil
-		}
+func (s *stubCMSMenuService) DeleteMenuItemByPath(_ context.Context, menuCode string, path string, _ uuid.UUID, cascadeChildren bool) error {
+	parsed, err := cms.ParseMenuItemPathForMenu(menuCode, path)
+	if err != nil {
+		return err
 	}
-	return errors.New("item not found")
-}
-
-func (s *stubGoCMSMenuService) BulkReorderMenuItems(_ context.Context, input stubBulkReorderMenuItemsInput) ([]*stubGoCMSMenuItem, error) {
-	menu := s.menuByID(input.MenuID)
+	menu := s.menus[menuCode]
 	if menu == nil {
-		return nil, errors.New("menu not found")
+		return cms.ErrMenuNotFound
 	}
-	index := map[uuid.UUID]*stubGoCMSMenuItem{}
-	flattenItems(menu.Items, index)
-	for i := range menu.Items {
-		menu.Items[i].Children = nil
-	}
-	for _, order := range input.Items {
-		if item, ok := index[order.ItemID]; ok {
-			item.ParentID = order.ParentID
-			item.Position = order.Position
+	delete(menu.items, parsed.Path)
+	if cascadeChildren {
+		for key, item := range menu.items {
+			if item != nil && strings.HasPrefix(key, parsed.Path+".") {
+				delete(menu.items, key)
+			}
 		}
 	}
-	menu.Items = rebuildTree(index)
-	return nil, nil
+	return nil
 }
 
-func (s *stubGoCMSMenuService) AddMenuItemTranslation(_ context.Context, input stubAddMenuItemTranslationInput) (*stubGoCMSMenuTranslation, error) {
-	item := s.findItem(input.ItemID)
+func (s *stubCMSMenuService) UpsertMenuItemTranslationByPath(_ context.Context, menuCode string, path string, input cms.MenuItemTranslationInput) error {
+	parsed, err := cms.ParseMenuItemPathForMenu(menuCode, path)
+	if err != nil {
+		return err
+	}
+	menu := s.menus[menuCode]
+	if menu == nil {
+		return cms.ErrMenuNotFound
+	}
+	item := menu.items[parsed.Path]
 	if item == nil {
-		return nil, errors.New("item not found")
+		return cms.ErrMenuNotFound
 	}
-	for idx, translation := range item.Translations {
-		if translation.Locale == input.Locale {
-			item.Translations[idx].Label = input.Label
-			return &item.Translations[idx], nil
-		}
+	if item.tr == nil {
+		item.tr = map[string]cms.MenuItemTranslationInput{}
 	}
-	item.Translations = append(item.Translations, stubGoCMSMenuTranslation{Locale: input.Locale, Label: input.Label})
-	return &item.Translations[len(item.Translations)-1], nil
-}
-
-func (s *stubGoCMSMenuService) ResolveNavigation(_ context.Context, code string, locale string) ([]stubGoCMSNavigationNode, error) {
-	menu := s.menus[code]
-	if menu == nil {
-		return nil, errors.New("menu not found")
-	}
-	nodes := []stubGoCMSNavigationNode{}
-	for _, item := range menu.Items {
-		nodes = append(nodes, buildNavNode(item, locale))
-	}
-	return nodes, nil
-}
-
-func (s *stubGoCMSMenuService) InvalidateCache(context.Context) error { return nil }
-
-func (s *stubGoCMSMenuService) menuByID(id uuid.UUID) *stubGoCMSMenu {
-	for _, menu := range s.menus {
-		if menu.ID == id {
-			return menu
-		}
-	}
+	item.tr[input.Locale] = input
 	return nil
 }
 
-func (s *stubGoCMSMenuService) findItem(id uuid.UUID) *stubGoCMSMenuItem {
-	for _, menu := range s.menus {
-		if found := findMenuItem(menu.Items, id); found != nil {
-			return found
+func buildNode(menu *stubCMSMenu, item *stubCMSMenuItem, menuCode, locale string) cms.NavigationNode {
+	label := ""
+	labelKey := ""
+	groupTitle := ""
+	groupTitleKey := ""
+	if item.tr != nil {
+		if tr, ok := item.tr[locale]; ok {
+			label = tr.Label
+			labelKey = tr.LabelKey
+			groupTitle = tr.GroupTitle
+			groupTitleKey = tr.GroupTitleKey
 		}
 	}
-	return nil
-}
+	url := ""
+	if item.target != nil {
+		if slug, ok := item.target["slug"].(string); ok && slug != "" {
+			url = "/" + slug
+		}
+	}
 
-func findMenuItem(items []*stubGoCMSMenuItem, id uuid.UUID) *stubGoCMSMenuItem {
-	for _, item := range items {
-		if item.ID == id {
-			return item
-		}
-		if found := findMenuItem(item.Children, id); found != nil {
-			return found
-		}
+	node := cms.NavigationNode{
+		Type:          item.typeName,
+		Label:         label,
+		LabelKey:      labelKey,
+		GroupTitle:    groupTitle,
+		GroupTitleKey: groupTitleKey,
+		URL:           url,
+		Target:        cloneAnyMap(item.target),
+		Icon:          item.icon,
+		Badge:         cloneAnyMap(item.badge),
+		Permissions:   append([]string{}, item.perms...),
+		Classes:       append([]string{}, item.classes...),
+		Styles:        cloneStringMap(item.styles),
+		Collapsible:   item.collapsible,
+		Collapsed:     item.collapsed,
+		Metadata:      cloneAnyMap(item.meta),
 	}
-	return nil
-}
 
-func buildNavNode(item *stubGoCMSMenuItem, locale string) stubGoCMSNavigationNode {
-	node := stubGoCMSNavigationNode{
-		ID:       item.ID,
-		Target:   cloneAnyMap(item.Target),
-		Children: []stubGoCMSNavigationNode{},
-	}
-	for _, translation := range item.Translations {
-		if translation.Locale == locale {
-			node.Label = translation.Label
-			break
+	children := []*stubCMSMenuItem{}
+	for _, child := range menu.items {
+		if child != nil && child.parentPath == item.path {
+			children = append(children, child)
 		}
 	}
-	if node.Label == "" && len(item.Translations) > 0 {
-		node.Label = item.Translations[0].Label
-	}
-	if slug, ok := item.Target["slug"].(string); ok && slug != "" {
-		node.URL = "/" + slug
-	}
-	for _, child := range item.Children {
-		node.Children = append(node.Children, buildNavNode(child, locale))
+	sortByPosition(children)
+	if len(children) > 0 {
+		node.Children = make([]cms.NavigationNode, 0, len(children))
+		for _, child := range children {
+			node.Children = append(node.Children, buildNode(menu, child, menuCode, locale))
+		}
 	}
 	return node
 }
 
-func removeItem(items *[]*stubGoCMSMenuItem, id uuid.UUID, cascade bool) bool {
-	out := []*stubGoCMSMenuItem{}
-	removed := false
-	for _, item := range *items {
-		if item.ID == id {
-			removed = true
-			if !cascade {
-				out = append(out, item.Children...)
+func sortByPosition(items []*stubCMSMenuItem) {
+	for i := 0; i < len(items); i++ {
+		for j := i + 1; j < len(items); j++ {
+			if items[j].position < items[i].position {
+				items[i], items[j] = items[j], items[i]
 			}
-			continue
 		}
-		if removeItem(&item.Children, id, cascade) {
-			removed = true
-		}
-		out = append(out, item)
-	}
-	*items = out
-	return removed
-}
-
-func flattenItems(items []*stubGoCMSMenuItem, dest map[uuid.UUID]*stubGoCMSMenuItem) {
-	for _, item := range items {
-		dest[item.ID] = item
-		flattenItems(item.Children, dest)
-	}
-}
-
-func rebuildTree(index map[uuid.UUID]*stubGoCMSMenuItem) []*stubGoCMSMenuItem {
-	roots := []*stubGoCMSMenuItem{}
-	for _, item := range index {
-		item.Children = nil
-	}
-	for _, item := range index {
-		if item.ParentID == nil {
-			roots = append(roots, item)
-			continue
-		}
-		if parent, ok := index[*item.ParentID]; ok {
-			parent.Children = append(parent.Children, item)
-		} else {
-			roots = append(roots, item)
-		}
-	}
-	sort.Slice(roots, func(i, j int) bool { return roots[i].Position < roots[j].Position })
-	for _, item := range roots {
-		sortChildren(item)
-	}
-	return roots
-}
-
-func sortChildren(item *stubGoCMSMenuItem) {
-	if item == nil || len(item.Children) == 0 {
-		return
-	}
-	sort.Slice(item.Children, func(i, j int) bool { return item.Children[i].Position < item.Children[j].Position })
-	for _, child := range item.Children {
-		sortChildren(child)
 	}
 }

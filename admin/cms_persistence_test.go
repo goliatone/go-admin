@@ -17,12 +17,11 @@ func TestGoCMSContainerBackedNavigationAndDashboard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cms new: %v", err)
 	}
-	container := module.Container()
 
 	adm := mustNewAdmin(t, Config{
 		DefaultLocale: "en",
 		Features:      Features{CMS: true, Dashboard: true},
-		CMS:           CMSOptions{Container: NewGoCMSContainerAdapter(container)},
+		CMS:           CMSOptions{Container: NewGoCMSContainerAdapter(module)},
 	}, Dependencies{})
 
 	if err := adm.Initialize(nilRouter{}); err != nil {

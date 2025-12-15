@@ -219,6 +219,9 @@ func (s *InMemoryMenuService) canonicalMenuSlug(code string) string {
 	if slug == "" {
 		slug = strings.TrimSpace(code)
 	}
+	// Menu codes must be compatible with go-cms validation and safe to use as the first path segment.
+	slug = strings.ReplaceAll(slug, ".", "_")
+	slug = strings.Trim(slug, "-_")
 	return slug
 }
 
