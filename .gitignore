@@ -56,3 +56,4 @@ go.work
 node_modules
 .gocache
 *.log
+*.db
