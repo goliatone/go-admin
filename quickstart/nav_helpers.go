@@ -147,10 +147,8 @@ func buildNavEntry(item admin.NavigationItem, cfg admin.Config, active string) (
 		key = derivedKey
 	}
 	isActive := active != "" && key != "" && key == active
-	desiredCollapsible := item.Collapsible || boolFromTarget(item.Target, "collapsible")
-	collapsible := desiredCollapsible && len(children) > 0
-	desiredCollapsed := item.Collapsed || boolFromTarget(item.Target, "collapsed")
-	collapsed := collapsible && desiredCollapsed
+	collapsible := item.Collapsible && len(children) > 0
+	collapsed := collapsible && item.Collapsed
 	if isActive || childActive {
 		collapsed = false
 	}
@@ -178,24 +176,6 @@ func buildNavEntry(item admin.NavigationItem, cfg admin.Config, active string) (
 		"child_active":    childActive,
 	}
 	return entry, isActive || childActive
-}
-
-func boolFromTarget(target map[string]any, key string) bool {
-	if target == nil {
-		return false
-	}
-	raw, ok := target[key]
-	if !ok || raw == nil {
-		return false
-	}
-	switch v := raw.(type) {
-	case bool:
-		return v
-	case string:
-		return strings.EqualFold(strings.TrimSpace(v), "true")
-	default:
-		return false
-	}
 }
 
 func resolveNavTarget(target map[string]any, basePath string) (string, string, int) {
