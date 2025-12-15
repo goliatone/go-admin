@@ -19,6 +19,7 @@ type adminContextKey string
 type commandContextKey string
 
 const userIDContextKey adminContextKey = "admin.user_id"
+const localeContextKey adminContextKey = "admin.locale"
 const (
 	commandPayloadKey commandContextKey = "admin.command.payload"
 	commandIDsKey     commandContextKey = "admin.command.ids"
@@ -44,6 +45,9 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	if userID != "" {
 		ctx = context.WithValue(ctx, userIDContextKey, userID)
 	}
+	if locale != "" {
+		ctx = context.WithValue(ctx, localeContextKey, locale)
+	}
 	return AdminContext{
 		Context: ctx,
 		UserID:  userID,
@@ -60,6 +64,16 @@ func userIDFromContext(ctx context.Context) string {
 	}
 	if actor := actorFromContext(ctx); actor != "" {
 		return actor
+	}
+	return ""
+}
+
+func localeFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if locale, ok := ctx.Value(localeContextKey).(string); ok && locale != "" {
+		return locale
 	}
 	return ""
 }
