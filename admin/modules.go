@@ -125,7 +125,6 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 				code = a.navMenuCode
 			}
 			item = normalizeMenuItem(item, code)
-			item = mapMenuIDs(item)
 			keySet, ok := menuKeys[code]
 			if !ok {
 				keySet = map[string]bool{}
