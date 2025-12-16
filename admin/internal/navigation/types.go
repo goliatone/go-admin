@@ -3,6 +3,8 @@ package navigation
 import (
 	"context"
 	"strings"
+
+	cms "github.com/goliatone/go-cms"
 )
 
 // Menu represents a simple CMS menu tree.
@@ -97,12 +99,12 @@ func NormalizeMenuItem(item MenuItem, menuCode string) MenuItem {
 		if key := strings.TrimSpace(ExtractTargetKey(item.Target)); key != "" {
 			rawID = key
 		} else {
-			rawID = sanitizePathSegment(firstNonEmpty(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey))
+			rawID = cms.SanitizeMenuItemSegment(firstNonEmpty(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey))
 		}
 	}
 	if parent != "" && rawID != "" {
 		if !strings.Contains(rawID, ".") && !strings.Contains(rawID, "/") {
-			rawID = parent + "." + sanitizePathSegment(rawID)
+			rawID = parent + "." + cms.SanitizeMenuItemSegment(rawID)
 		}
 	}
 	item.ID = canonicalMenuItemPath(menuCode, rawID)
@@ -172,81 +174,19 @@ func HasAnyKey(set map[string]bool, keys []string) bool {
 }
 
 func canonicalMenuCode(code string) string {
-	slug := NormalizeMenuSlug(code)
-	if slug == "" {
-		slug = strings.TrimSpace(code)
-	}
-	slug = strings.ReplaceAll(slug, ".", "_")
-	slug = strings.Trim(slug, "-_")
-	return slug
+	return cms.CanonicalMenuCode(code)
 }
 
 func canonicalMenuItemPath(menuCode, raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
 		return ""
 	}
-	menuCode = canonicalMenuCode(menuCode)
-
-	path := sanitizeDotPath(raw)
-	if path == "" {
+	path, err := cms.CanonicalMenuItemPath(menuCode, trimmed)
+	if err != nil {
 		return ""
 	}
-	if path == menuCode || strings.HasPrefix(path, menuCode+".") {
-		return path
-	}
-	return menuCode + "." + strings.TrimPrefix(path, ".")
-}
-
-func sanitizeDotPath(raw string) string {
-	normalized := strings.ReplaceAll(strings.TrimSpace(raw), "/", ".")
-	normalized = strings.Trim(normalized, ".")
-	if normalized == "" {
-		return ""
-	}
-	parts := strings.Split(normalized, ".")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		seg := sanitizePathSegment(p)
-		if seg == "" {
-			continue
-		}
-		out = append(out, seg)
-	}
-	return strings.Join(out, ".")
-}
-
-func sanitizePathSegment(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	var b strings.Builder
-	b.Grow(len(raw))
-	lastDash := false
-	for _, r := range raw {
-		switch {
-		case r >= 'a' && r <= 'z':
-			b.WriteRune(r)
-			lastDash = false
-		case r >= 'A' && r <= 'Z':
-			b.WriteRune(r + ('a' - 'A'))
-			lastDash = false
-		case r >= '0' && r <= '9':
-			b.WriteRune(r)
-			lastDash = false
-		case r == '_' || r == '-':
-			b.WriteRune(r)
-			lastDash = false
-		default:
-			if !lastDash {
-				b.WriteRune('-')
-				lastDash = true
-			}
-		}
-	}
-	seg := strings.Trim(b.String(), "-_")
-	return seg
+	return path
 }
 
 func firstNonEmpty(values ...string) string {
