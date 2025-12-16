@@ -94,7 +94,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			Type:          admin.MenuItemTypeGroup,
 			GroupTitle:    "Main Menu",
 			GroupTitleKey: "menu.group.main",
-			Position:      0,
+			Position:      admin.IntPtr(0),
 			Menu:          menuCode,
 		},
 		{
@@ -102,7 +102,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			Type:          admin.MenuItemTypeGroup,
 			GroupTitle:    "Others",
 			GroupTitleKey: "menu.group.others",
-			Position:      90,
+			Position:      admin.IntPtr(90),
 			Menu:          menuCode,
 		},
 		{
@@ -111,7 +111,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			Label:       "Content",
 			LabelKey:    "menu.content",
 			Icon:        "page",
-			Position:    10,
+			Position:    admin.IntPtr(10),
 			Collapsible: true,
 			Collapsed:   false,
 			Target: map[string]any{
@@ -129,7 +129,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			Label:    "My Shop",
 			LabelKey: "menu.shop",
 			Icon:     "shop",
-			Position: 40,
+			Position: admin.IntPtr(40),
 			Target: map[string]any{
 				"type": "url",
 				"path": path.Join(basePath, "shop"),
@@ -148,7 +148,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 				"path": path.Join(basePath, "products"),
 				"key":  "products",
 			},
-			Position: 1,
+			Position: admin.IntPtr(1),
 			Menu:     menuCode,
 			ParentID: mainGroup + ".shop",
 		},
@@ -161,7 +161,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 				"path": path.Join(basePath, "orders"),
 				"key":  "orders",
 			},
-			Position: 2,
+			Position: admin.IntPtr(2),
 			Menu:     menuCode,
 			ParentID: mainGroup + ".shop",
 		},
@@ -174,7 +174,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 				"path": path.Join(basePath, "customers"),
 				"key":  "customers",
 			},
-			Position: 3,
+			Position: admin.IntPtr(3),
 			Menu:     menuCode,
 			ParentID: mainGroup + ".shop",
 		},
@@ -188,14 +188,14 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 				"path": path.Join(basePath, "analytics"),
 				"key":  "analytics",
 			},
-			Position: 60,
+			Position: admin.IntPtr(60),
 			Menu:     menuCode,
 			ParentID: mainGroup,
 		},
 		{
 			ID:       mainGroup + ".separator",
 			Type:     admin.MenuItemTypeSeparator,
-			Position: 80,
+			Position: admin.IntPtr(80),
 			Menu:     menuCode,
 		},
 		{
@@ -208,7 +208,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 				"path": path.Join(basePath, "help"),
 				"key":  "help",
 			},
-			Position: 10,
+			Position: admin.IntPtr(10),
 			Menu:     menuCode,
 			ParentID: othersGroup,
 		},
@@ -301,12 +301,9 @@ func toSeedMenuItems(menuCode, locale string, items []admin.MenuItem) []cms.Seed
 			target = nil
 		}
 
-		pos := item.Position
-		position := &pos
-
 		seedItem := cms.SeedMenuItem{
 			Path:        path,
-			Position:    position,
+			Position:    item.Position,
 			Type:        itemType,
 			Target:      target,
 			Icon:        strings.TrimSpace(item.Icon),

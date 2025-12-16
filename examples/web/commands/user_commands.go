@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 	userssvc "github.com/goliatone/go-users/service"

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/setup"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 func TestNavUsesCMSMenuWhenEnabled(t *testing.T) {
@@ -18,7 +18,7 @@ func TestNavUsesCMSMenuWhenEnabled(t *testing.T) {
 		ID:       "home",
 		Label:    "Home",
 		Target:   map[string]any{"path": "/"},
-		Position: 1,
+		Position: admin.IntPtr(1),
 	})
 	if err != nil {
 		t.Fatalf("add menu item: %v", err)
@@ -27,7 +27,7 @@ func TestNavUsesCMSMenuWhenEnabled(t *testing.T) {
 		ID:       "about",
 		Label:    "About",
 		Target:   map[string]any{"path": "/about"},
-		Position: 2,
+		Position: admin.IntPtr(2),
 	})
 	if err != nil {
 		t.Fatalf("add menu item: %v", err)

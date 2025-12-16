@@ -589,6 +589,11 @@ func updatePageParents(ctx context.Context, db *bun.DB, parents map[string]strin
 	return nil
 }
 
+func prtInt(v int) *int {
+	o := v
+	return &o
+}
+
 func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLocale string) error {
 	locale := strings.TrimSpace(defaultLocale)
 	if locale == "" {
@@ -599,7 +604,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			ID:       "home",
 			Label:    "Home",
 			Target:   map[string]any{"type": "url", "path": "/"},
-			Position: 1,
+			Position: prtInt(1),
 			Menu:     SiteNavigationMenuCode,
 			Locale:   locale,
 		},
@@ -607,7 +612,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			ID:       "about",
 			Label:    "About Us",
 			Target:   map[string]any{"type": "url", "path": "/about"},
-			Position: 2,
+			Position: prtInt(2),
 			Menu:     SiteNavigationMenuCode,
 			Locale:   locale,
 		},
@@ -615,7 +620,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			ID:       "team",
 			Label:    "Our Team",
 			Target:   map[string]any{"type": "url", "path": "/about/team"},
-			Position: 3,
+			Position: prtInt(3),
 			Menu:     SiteNavigationMenuCode,
 			Locale:   locale,
 		},
@@ -623,7 +628,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			ID:       "contact",
 			Label:    "Contact",
 			Target:   map[string]any{"type": "url", "path": "/contact"},
-			Position: 4,
+			Position: prtInt(4),
 			Menu:     SiteNavigationMenuCode,
 			Locale:   locale,
 		},
@@ -631,7 +636,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			ID:       "posts",
 			Label:    "Posts",
 			Target:   map[string]any{"type": "url", "path": "/posts"},
-			Position: 5,
+			Position: prtInt(5),
 			Menu:     SiteNavigationMenuCode,
 			Locale:   locale,
 		},
@@ -640,7 +645,7 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			Label:    "Getting Started with Go",
 			Target:   map[string]any{"type": "url", "path": "/posts/getting-started-go"},
 			ParentID: "posts",
-			Position: 6,
+			Position: prtInt(6),
 			Menu:     SiteNavigationMenuCode,
 			Locale:   locale,
 		},

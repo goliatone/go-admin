@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/stretchr/testify/require"
 	"path/filepath"
 )

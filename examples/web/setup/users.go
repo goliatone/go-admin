@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	auth "github.com/goliatone/go-auth"
 	persistence "github.com/goliatone/go-persistence-bun"
 	users "github.com/goliatone/go-users"

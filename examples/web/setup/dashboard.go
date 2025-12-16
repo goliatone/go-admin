@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-dashboard/components/dashboard"
 )
 

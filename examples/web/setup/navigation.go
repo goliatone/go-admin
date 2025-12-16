@@ -64,7 +64,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			Type:          admin.MenuItemTypeGroup,
 			GroupTitle:    "Main Menu",
 			GroupTitleKey: "menu.group.main",
-			Position:      0,
+			Position:      prtInt(0),
 			Menu:          menuCode,
 		},
 		{
@@ -72,7 +72,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			Type:          admin.MenuItemTypeGroup,
 			GroupTitle:    "Others",
 			GroupTitleKey: "menu.group.others",
-			Position:      90,
+			Position:      prtInt(90),
 			Menu:          menuCode,
 		},
 	}
@@ -82,7 +82,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		Label:       "Content",
 		LabelKey:    "menu.content",
 		Icon:        "page",
-		Position:    10,
+		Position:    prtInt(10),
 		Collapsible: true,
 		Collapsed:   false,
 		Target: map[string]any{
@@ -105,7 +105,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			"path": basePath,
 			"key":  "dashboard",
 		},
-		Position: 5,
+		Position: prtInt(5),
 		Menu:     menuCode,
 		ParentID: NavigationGroupMain,
 	}
@@ -119,7 +119,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 				"path": path.Join(basePath, "pages"),
 				"key":  "pages",
 			},
-			Position: 1,
+			Position: prtInt(1),
 			Menu:     menuCode,
 			ParentID: NavigationSectionContent,
 			// No permissions needed - parent Content already checks them
@@ -133,7 +133,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 				"path": path.Join(basePath, "posts"),
 				"key":  "posts",
 			},
-			Position: 2,
+			Position: prtInt(2),
 			Menu:     menuCode,
 			ParentID: NavigationSectionContent,
 			// No permissions needed - parent Content already checks them
@@ -145,7 +145,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		Label:       "My Shop",
 		LabelKey:    "menu.shop",
 		Icon:        "shop",
-		Position:    40,
+		Position:    prtInt(40),
 		Collapsible: true,
 		Collapsed:   false,
 		Target: map[string]any{
@@ -166,7 +166,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 				"path": path.Join(basePath, "products"),
 				"key":  "products",
 			},
-			Position: 1,
+			Position: prtInt(1),
 			Menu:     menuCode,
 			ParentID: NavigationSectionShop,
 		},
@@ -179,7 +179,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 				"path": path.Join(basePath, "orders"),
 				"key":  "orders",
 			},
-			Position: 2,
+			Position: prtInt(2),
 			Menu:     menuCode,
 			ParentID: NavigationSectionShop,
 		},
@@ -192,7 +192,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 				"path": path.Join(basePath, "customers"),
 				"key":  "customers",
 			},
-			Position: 3,
+			Position: prtInt(3),
 			Menu:     menuCode,
 			ParentID: NavigationSectionShop,
 		},
@@ -207,14 +207,14 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			"path": path.Join(basePath, "analytics"),
 			"key":  "analytics",
 		},
-		Position: 60,
+		Position: prtInt(60),
 		Menu:     menuCode,
 		ParentID: NavigationGroupMain,
 	}
 	separator := admin.MenuItem{
 		ID:       NavigationGroupMain + ".separator",
 		Type:     admin.MenuItemTypeSeparator,
-		Position: 80,
+		Position: prtInt(80),
 		Menu:     menuCode,
 	}
 	secondary := []admin.MenuItem{
@@ -228,7 +228,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 				"path": path.Join(basePath, "help"),
 				"key":  "help",
 			},
-			Position: 10,
+			Position: prtInt(10),
 			Menu:     menuCode,
 			ParentID: NavigationGroupOthers,
 		},
@@ -273,10 +273,14 @@ func describeMenuItem(item admin.MenuItem) string {
 	if label == "" {
 		label = "(unnamed)"
 	}
-	if tgt != "" {
-		return fmt.Sprintf("%s (target=%s id=%s pos=%d)", label, tgt, item.ID, item.Position)
+	pos := 0
+	if item.Position != nil {
+		pos = *item.Position
 	}
-	return fmt.Sprintf("%s (id=%s pos=%d)", label, item.ID, item.Position)
+	if tgt != "" {
+		return fmt.Sprintf("%s (target=%s id=%s pos=%d)", label, tgt, item.ID, pos)
+	}
+	return fmt.Sprintf("%s (id=%s pos=%d)", label, item.ID, pos)
 }
 
 func flattenMenuIDs(items []admin.MenuItem, out *[]string) {
@@ -390,7 +394,7 @@ func EnsureDashboardFirst(ctx context.Context, menuSvc admin.CMSMenuService, bas
 
 	if dashboardItem != nil && dashboardIndex != 0 {
 		updated := *dashboardItem
-		updated.Position = dashboardPos
+		updated.Position = &dashboardPos
 		if err := menuSvc.UpdateMenuItem(ctx, menuCode, updated); err != nil {
 			return err
 		}
@@ -398,7 +402,7 @@ func EnsureDashboardFirst(ctx context.Context, menuSvc admin.CMSMenuService, bas
 
 	if contentItem != nil && dashboardItem != nil && contentIndex != 1 {
 		updated := *contentItem
-		updated.Position = contentPos
+		updated.Position = &contentPos
 		updated.Collapsible = true
 		if updated.Target == nil {
 			updated.Target = map[string]any{}

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	"github.com/goliatone/go-admin/pkg/admin"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	repository "github.com/goliatone/go-repository-bun"

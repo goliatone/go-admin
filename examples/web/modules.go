@@ -134,7 +134,7 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 			Permissions: []string{"admin.users.view"},
 			Locale:      locale,
 			Menu:        code,
-			Position:    20,
+			Position:    admin.IntPtr(20),
 		},
 	}
 	roleID := "roles"
@@ -155,7 +155,7 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 		Permissions: []string{"admin.roles.view"},
 		Locale:      locale,
 		Menu:        code,
-		Position:    30,
+		Position:    admin.IntPtr(30),
 	})
 	return items
 }
@@ -239,7 +239,7 @@ func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
 			Permissions: []string{"admin.pages.view"},
 			Locale:      locale,
 			Menu:        code,
-			Position:    20,
+			Position:    admin.IntPtr(20),
 		},
 	}
 }
@@ -327,7 +327,7 @@ func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
 			Permissions: []string{"admin.posts.view"},
 			Locale:      locale,
 			Menu:        code,
-			Position:    30,
+			Position:    admin.IntPtr(30),
 			Badge: map[string]any{
 				"text": "3",
 			},
@@ -408,7 +408,7 @@ func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 			Permissions: []string{"admin.media.view"},
 			Locale:      locale,
 			Menu:        code,
-			Position:    40,
+			Position:    admin.IntPtr(40),
 		},
 	}
 }
@@ -462,7 +462,7 @@ func (m *notificationsModule) MenuItems(locale string) []admin.MenuItem {
 			ParentID: m.parentID,
 			Locale:   locale,
 			Menu:     code,
-			Position: 50,
+			Position: admin.IntPtr(50),
 		},
 	}
 }
@@ -520,7 +520,7 @@ func (m *dashboardModule) MenuItems(locale string) []admin.MenuItem {
 			ParentID: m.parentID,
 			Locale:   locale,
 			Menu:     code,
-			Position: 1,
+			Position: admin.IntPtr(1),
 		},
 	}
 }
