@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	cms "github.com/goliatone/go-cms"
 )
 
 type allowAllNav struct{}
@@ -32,7 +33,7 @@ func findNavItem(items []admin.NavigationItem, match func(admin.NavigationItem) 
 func TestEnsureDefaultMenuParentsNestsChildren(t *testing.T) {
 	ctx := context.Background()
 	menuCode := "admin.main"
-	code := canonicalMenuCode(menuCode)
+	code := cms.CanonicalMenuCode(menuCode)
 
 	svc := admin.NewInMemoryMenuService()
 
