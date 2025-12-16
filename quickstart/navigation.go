@@ -53,9 +53,9 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 	}
 	menus := provider.GoCMSMenuService()
 
-	menuCode := canonicalMenuCode(opts.MenuCode)
+	menuCode := cms.CanonicalMenuCode(opts.MenuCode)
 	if menuCode == "" {
-		menuCode = canonicalMenuCode("admin")
+		menuCode = cms.CanonicalMenuCode("admin")
 	}
 
 	resetEnv := opts.ResetEnv
@@ -67,20 +67,6 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 	logf := opts.Logf
 	if logf == nil && !opts.SkipLogger {
 		logf = log.Printf
-	}
-
-	autoCreateParents := opts.AutoCreateParents
-	if !autoCreateParents {
-		for _, item := range opts.Items {
-			if strings.TrimSpace(item.ParentID) != "" || strings.TrimSpace(item.ParentCode) != "" {
-				continue
-			}
-			id := strings.TrimSpace(item.ID)
-			if strings.Contains(id, ".") || strings.Contains(id, "/") {
-				autoCreateParents = true
-				break
-			}
-		}
 	}
 
 	locale := strings.TrimSpace(opts.Locale)
@@ -107,7 +93,16 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 
 	seedItems := make([]cms.SeedMenuItem, 0, len(opts.Items))
 	for _, item := range opts.Items {
-		seedItems = append(seedItems, toSeedMenuItem(menuCode, locale, item))
+		seed, err := toSeedMenuItem(menuCode, locale, item)
+		if err != nil {
+			return err
+		}
+		seedItems = append(seedItems, seed)
+	}
+
+	autoCreateParents := opts.AutoCreateParents
+	if !autoCreateParents {
+		autoCreateParents = cms.ShouldAutoCreateParentsSeed(seedItems)
 	}
 
 	if err := cms.SeedMenu(ctx, cms.SeedMenuOptions{
@@ -125,19 +120,33 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 	return nil
 }
 
-func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) cms.SeedMenuItem {
+func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) (cms.SeedMenuItem, error) {
 	itemType := normalizeMenuItemType(item.Type)
-	parentPath := resolveParentPath(menuCode, item)
-	path := resolveItemPath(menuCode, parentPath, item)
+	derived, err := cms.DeriveMenuItemPaths(
+		menuCode,
+		item.ID,
+		firstNonEmpty(item.ParentID, item.ParentCode),
+		firstNonEmpty(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey),
+	)
+	if err != nil {
+		return cms.SeedMenuItem{}, err
+	}
+	parentPath := derived.ParentPath
+	path := derived.Path
 
 	target := cloneAnyMap(item.Target)
 	if itemType == admin.MenuItemTypeGroup || itemType == admin.MenuItemTypeSeparator {
 		target = nil
 	}
 
+	var position *int
+	if item.Position != nil {
+		position = cms.SeedPositionPtrForType(itemType, *item.Position)
+	}
+
 	seed := cms.SeedMenuItem{
 		Path:        path,
-		Position:    item.Position,
+		Position:    position,
 		Type:        itemType,
 		Target:      target,
 		Icon:        strings.TrimSpace(item.Icon),
@@ -159,10 +168,10 @@ func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) 
 	}
 	if locale == "" {
 		seed.AllowMissingTranslations = true
-		return seed
+		return seed, nil
 	}
 	if itemType == admin.MenuItemTypeSeparator {
-		return seed
+		return seed, nil
 	}
 
 	label, labelKey, groupTitle, groupTitleKey := normalizeMenuItemTranslationFields(item)
@@ -173,17 +182,7 @@ func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) 
 		GroupTitle:    groupTitle,
 		GroupTitleKey: groupTitleKey,
 	}}
-	return seed
-}
-
-func canonicalMenuCode(code string) string {
-	slug := admin.NormalizeMenuSlug(code)
-	if slug == "" {
-		slug = strings.TrimSpace(code)
-	}
-	slug = strings.ReplaceAll(slug, ".", "_")
-	slug = strings.Trim(slug, "-_")
-	return slug
+	return seed, nil
 }
 
 func normalizeMenuItemType(raw string) string {
@@ -195,108 +194,6 @@ func normalizeMenuItemType(raw string) string {
 	default:
 		return admin.MenuItemTypeItem
 	}
-}
-
-func resolveParentPath(menuCode string, item admin.MenuItem) string {
-	parent := strings.TrimSpace(item.ParentID)
-	if parent == "" {
-		parent = strings.TrimSpace(item.ParentCode)
-	}
-	if parent == "" {
-		return ""
-	}
-	return canonicalMenuItemPath(menuCode, parent)
-}
-
-func resolveItemPath(menuCode string, parentPath string, item admin.MenuItem) string {
-	if strings.TrimSpace(item.ID) != "" {
-		candidate := canonicalMenuItemPath(menuCode, item.ID)
-		if parentPath != "" && !strings.HasPrefix(candidate, parentPath+".") {
-			// Single-segment IDs can be relative to an explicit parent.
-			if !strings.Contains(strings.TrimSpace(item.ID), ".") && !strings.Contains(strings.TrimSpace(item.ID), "/") {
-				candidate = parentPath + "." + sanitizePathSegment(item.ID)
-			}
-		}
-		return candidate
-	}
-
-	seed := firstNonEmpty(strings.TrimSpace(item.Label), strings.TrimSpace(item.GroupTitle), strings.TrimSpace(item.LabelKey), strings.TrimSpace(item.GroupTitleKey))
-	seg := sanitizePathSegment(seed)
-	if seg == "" {
-		seg = "item"
-	}
-	if parentPath != "" {
-		return parentPath + "." + seg
-	}
-	return canonicalMenuItemPath(menuCode, seg)
-}
-
-func canonicalMenuItemPath(menuCode, raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	menuCode = canonicalMenuCode(menuCode)
-
-	path := sanitizeDotPath(raw)
-	if path == "" {
-		return ""
-	}
-	if path == menuCode || strings.HasPrefix(path, menuCode+".") {
-		return path
-	}
-	return menuCode + "." + strings.TrimPrefix(path, ".")
-}
-
-func sanitizeDotPath(raw string) string {
-	normalized := strings.ReplaceAll(strings.TrimSpace(raw), "/", ".")
-	normalized = strings.Trim(normalized, ".")
-	if normalized == "" {
-		return ""
-	}
-	parts := strings.Split(normalized, ".")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		seg := sanitizePathSegment(p)
-		if seg == "" {
-			continue
-		}
-		out = append(out, seg)
-	}
-	return strings.Join(out, ".")
-}
-
-func sanitizePathSegment(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	var b strings.Builder
-	b.Grow(len(raw))
-	lastDash := false
-	for _, r := range raw {
-		switch {
-		case r >= 'a' && r <= 'z':
-			b.WriteRune(r)
-			lastDash = false
-		case r >= 'A' && r <= 'Z':
-			b.WriteRune(r + ('a' - 'A'))
-			lastDash = false
-		case r >= '0' && r <= '9':
-			b.WriteRune(r)
-			lastDash = false
-		case r == '_' || r == '-':
-			b.WriteRune(r)
-			lastDash = false
-		default:
-			if !lastDash {
-				b.WriteRune('-')
-				lastDash = true
-			}
-		}
-	}
-	seg := strings.Trim(b.String(), "-_")
-	return seg
 }
 
 func normalizeMenuItemTranslationFields(item admin.MenuItem) (label, labelKey, groupTitle, groupTitleKey string) {
