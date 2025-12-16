@@ -132,7 +132,7 @@ func (m *TenantsModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.viewPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    32,
+			Position:    intPtr(32),
 			ParentID:    m.menuParent,
 		},
 	}
@@ -258,7 +258,7 @@ func (m *OrganizationsModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.viewPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    33,
+			Position:    intPtr(33),
 			ParentID:    m.menuParent,
 		},
 	}
