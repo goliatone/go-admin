@@ -27,6 +27,8 @@ import (
 	dashboardcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	goerrors "github.com/goliatone/go-errors"
+	formgen "github.com/goliatone/go-formgen"
+	formgenvanilla "github.com/goliatone/go-formgen/pkg/renderers/vanilla"
 	"github.com/goliatone/go-router"
 	theme "github.com/goliatone/go-theme"
 	userstypes "github.com/goliatone/go-users/pkg/types"
@@ -376,6 +378,18 @@ func main() {
 	}
 	r.Static(path.Join(cfg.BasePath, "assets"), ".", router.Static{
 		FS:   staticFS,
+		Root: ".",
+	})
+
+	// Serve go-formgen runtime bundles (relationships + runtime components).
+	r.Static("/runtime", ".", router.Static{
+		FS:   formgen.RuntimeAssetsFS(),
+		Root: ".",
+	})
+
+	// Serve go-formgen vanilla renderer stylesheet bundle.
+	r.Static(path.Join(cfg.BasePath, "formgen"), ".", router.Static{
+		FS:   formgenvanilla.AssetsFS(),
 		Root: ".",
 	})
 	// Serve embedded go-dashboard ECharts assets at the default path used by chart widgets.
