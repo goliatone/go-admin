@@ -17,7 +17,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Main Menu",
 		GroupTitleKey: "menu.group.main",
-		Position:      0,
+		Position:      intPtr(0),
 		Menu:          menuCode,
 	}
 	content := admin.MenuItem{
@@ -26,7 +26,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Label:       "Content",
 		LabelKey:    "menu.content",
 		Icon:        "page",
-		Position:    10,
+		Position:    intPtr(10),
 		Collapsible: true,
 		Collapsed:   false,
 		Target: map[string]any{
@@ -45,7 +45,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Others",
 		GroupTitleKey: "menu.group.others",
-		Position:      90,
+		Position:      intPtr(90),
 		Menu:          menuCode,
 	}
 	return []admin.MenuItem{mainGroup, content, others}
