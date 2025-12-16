@@ -36,9 +36,9 @@ export declare const CommonRenderers: {
      */
     statusBadge: (colorMap?: Record<string, string>) => CellRenderer;
     /**
-     * Role/tag badge renderer
+     * Role badge renderer with color mapping
      */
-    roleBadge: (value: any) => string;
+    roleBadge: (colorMap?: Record<string, string>) => CellRenderer;
     /**
      * Combined name+email renderer
      */

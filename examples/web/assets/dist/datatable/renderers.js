@@ -210,10 +210,27 @@ export const CommonRenderers = {
         };
     },
     /**
-     * Role/tag badge renderer
+     * Role badge renderer with color mapping
      */
-    roleBadge: (value) => {
-        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${value}</span>`;
+    roleBadge: (colorMap) => {
+        const defaultColors = {
+            admin: 'red',
+            editor: 'blue',
+            member: 'purple',
+            viewer: 'gray',
+            guest: 'yellow',
+        };
+        const colors = { ...defaultColors, ...colorMap };
+        return (value) => {
+            const role = String(value).toLowerCase();
+            const color = colors[role];
+            // If color is defined, use role-specific CSS class
+            if (color) {
+                return `<span class="role-badge role-${role}">${value}</span>`;
+            }
+            // Fallback to generic badge
+            return `<span class="badge bg-blue-100 text-blue-900 border-blue-200">${value}</span>`;
+        };
     },
     /**
      * Combined name+email renderer
