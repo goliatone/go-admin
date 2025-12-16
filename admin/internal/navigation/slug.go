@@ -44,4 +44,3 @@ func MenuUUIDFromSlug(slug string) string {
 	}
 	return EnsureMenuUUID(normalized)
 }
-
