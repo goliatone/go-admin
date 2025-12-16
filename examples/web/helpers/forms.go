@@ -13,13 +13,17 @@ import (
 )
 
 // NewUserFormGenerator creates a form generator for user forms from an OpenAPI filesystem
-func NewUserFormGenerator(openapiFS fs.FS) *formgenorchestrator.Orchestrator {
+func NewUserFormGenerator(openapiFS fs.FS, templatesFS fs.FS) *formgenorchestrator.Orchestrator {
 	if openapiFS == nil {
 		return nil
 	}
 
 	registry := formgenrender.NewRegistry()
-	vanillaRenderer, err := vanilla.New(vanilla.WithoutStyles())
+	templateBundle := vanilla.TemplatesFS()
+	if templatesFS != nil {
+		templateBundle = WithFallbackFS(templatesFS, templateBundle)
+	}
+	vanillaRenderer, err := vanilla.New(vanilla.WithoutStyles(), vanilla.WithTemplatesFS(templateBundle))
 	if err != nil {
 		log.Printf("failed to initialize form renderer: %v", err)
 		return nil
