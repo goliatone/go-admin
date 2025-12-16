@@ -10,4 +10,3 @@ func mustNewAdmin(t *testing.T, cfg Config, deps Dependencies) *Admin {
 	}
 	return adm
 }
-

@@ -45,4 +45,3 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 		t.Fatalf("expected legacy feature flag to enable commands")
 	}
 }
-

@@ -25,7 +25,11 @@ func TestInMemoryMenuServiceAddMenuItemIdempotent(t *testing.T) {
 	if got := len(menu.Items); got != 1 {
 		t.Fatalf("expected 1 item after duplicate add, got %d", got)
 	}
-	if menu.Items[0].Position != 1 {
-		t.Fatalf("expected position to remain 1, got %d", menu.Items[0].Position)
+	if menu.Items[0].Position == nil || *menu.Items[0].Position != 1 {
+		got := 0
+		if menu.Items[0].Position != nil {
+			got = *menu.Items[0].Position
+		}
+		t.Fatalf("expected position to remain 1, got %d", got)
 	}
 }

@@ -48,4 +48,3 @@ func TestNewAppliesDependencyDefaults(t *testing.T) {
 		t.Fatalf("expected noop translator default")
 	}
 }
-

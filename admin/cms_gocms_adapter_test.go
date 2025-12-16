@@ -167,18 +167,18 @@ type stubCMSMenu struct {
 }
 
 type stubCMSMenuItem struct {
-	path       string
-	parentPath string
-	position   int
-	typeName   string
-	target     map[string]any
-	icon       string
-	badge      map[string]any
-	perms      []string
-	classes    []string
-	styles     map[string]string
-	meta       map[string]any
-	tr         map[string]cms.MenuItemTranslationInput
+	path        string
+	parentPath  string
+	position    int
+	typeName    string
+	target      map[string]any
+	icon        string
+	badge       map[string]any
+	perms       []string
+	classes     []string
+	styles      map[string]string
+	meta        map[string]any
+	tr          map[string]cms.MenuItemTranslationInput
 	collapsible bool
 	collapsed   bool
 }
@@ -269,7 +269,7 @@ func (s *stubCMSMenuService) ResetMenuByCode(_ context.Context, code string, _ u
 }
 
 func (s *stubCMSMenuService) MoveMenuItemToTop(_ context.Context, menuCode string, path string, _ uuid.UUID) error {
-	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: positionPtr(1)})
+	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: intPtr(1)})
 	return err
 }
 
@@ -278,7 +278,7 @@ func (s *stubCMSMenuService) MoveMenuItemToBottom(_ context.Context, menuCode st
 	if menu == nil {
 		return cms.ErrMenuNotFound
 	}
-	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: positionPtr(len(menu.items) + 1)})
+	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: intPtr(len(menu.items) + 1)})
 	return err
 }
 

@@ -35,7 +35,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 			GroupTitle: "Main",
 			Menu:       menuCode,
 			Locale:     "en",
-			Position:   0,
+			Position:   intPtr(0),
 		},
 		{
 			ID:       "nav-group-main.content",
@@ -44,7 +44,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 			Menu:     menuCode,
 			Locale:   "en",
 			ParentID: "nav-group-main",
-			Position: 1,
+			Position: intPtr(1),
 			Target: map[string]any{
 				"type": "url",
 				"path": "/admin/pages",
@@ -61,7 +61,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 				"type": "url",
 				"path": "/admin/pages",
 			},
-			Position: 1,
+			Position: intPtr(1),
 		},
 		{
 			ID:       "nav-group-main.content.posts",
@@ -73,7 +73,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 				"type": "url",
 				"path": "/admin/posts",
 			},
-			Position: 2,
+			Position: intPtr(2),
 		},
 	}
 

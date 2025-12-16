@@ -19,14 +19,14 @@ func TestNavigationFallbackFiltersSeparatorsAndEmptyNodes(t *testing.T) {
 	nav := NewNavigation(nil, allowAllAuthorizer{})
 	nav.SetTranslator(translatorStub{})
 	nav.AddFallback(
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: 0},
-		NavigationItem{Type: MenuItemTypeItem, Label: "A", Locale: "en", Position: 1},
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: 2},
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: 2},
-		NavigationItem{Type: MenuItemTypeItem, Label: "B", Locale: "en", Position: 3},
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: 4},
-		NavigationItem{Type: MenuItemTypeGroup, Label: "Empty Group", Locale: "en", Position: 10},
-		NavigationItem{Type: MenuItemTypeItem, Label: "Collapsible Empty", Collapsible: true, Locale: "en", Position: 11},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: intPtr(0)},
+		NavigationItem{Type: MenuItemTypeItem, Label: "A", Locale: "en", Position: intPtr(1)},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: intPtr(2)},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: intPtr(2)},
+		NavigationItem{Type: MenuItemTypeItem, Label: "B", Locale: "en", Position: intPtr(3)},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: intPtr(4)},
+		NavigationItem{Type: MenuItemTypeGroup, Label: "Empty Group", Locale: "en", Position: intPtr(10)},
+		NavigationItem{Type: MenuItemTypeItem, Label: "Collapsible Empty", Collapsible: true, Locale: "en", Position: intPtr(11)},
 	)
 
 	items := nav.Resolve(context.Background(), "en")
@@ -42,6 +42,10 @@ func TestNavigationFallbackFiltersSeparatorsAndEmptyNodes(t *testing.T) {
 	if items[2].Label != "B" {
 		t.Fatalf("expected last item B, got %q", items[2].Label)
 	}
+}
+
+func intPtr(v int) *int {
+	return &v
 }
 
 func TestConvertMenuItemsTranslatesLabelAndGroupTitle(t *testing.T) {
