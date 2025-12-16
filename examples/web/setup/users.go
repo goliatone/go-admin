@@ -468,7 +468,18 @@ func (a *authRepositoryAdapter) fromAuthUser(user *types.AuthUser) *auth.User {
 		out.UpdatedAt = user.UpdatedAt
 	}
 	if raw, ok := user.Raw.(*auth.User); ok && raw != nil {
+		out.PasswordHash = raw.PasswordHash
+		out.LoginAttempts = raw.LoginAttempts
+		out.LoginAttemptAt = raw.LoginAttemptAt
 		out.LoggedInAt = raw.LoggedInAt
+		out.SuspendedAt = raw.SuspendedAt
+		out.ResetedAt = raw.ResetedAt
+		out.ProfilePicture = raw.ProfilePicture
+		out.Phone = raw.Phone
+		out.EmailValidated = raw.EmailValidated
+		if out.Metadata == nil && raw.Metadata != nil {
+			out.Metadata = raw.Metadata
+		}
 	}
 	return out
 }
