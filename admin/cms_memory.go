@@ -199,6 +199,17 @@ func maxInt(a, b int) int {
 	return b
 }
 
+func intPtr(v int) *int {
+	return &v
+}
+
+func intFromPtr(v *int) int {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
 // NewInMemoryMenuService constructs a memory-backed menu service.
 func NewInMemoryMenuService() *InMemoryMenuService {
 	return &InMemoryMenuService{
@@ -324,10 +335,11 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 	if strings.TrimSpace(item.ParentCode) == "" {
 		item.ParentCode = strings.TrimSpace(item.ParentID)
 	}
-	if item.Position == 0 {
-		item.Position = state.parentCounters[item.ParentID] + 1
+	if item.Position == nil {
+		pos := state.parentCounters[item.ParentID] + 1
+		item.Position = intPtr(pos)
 	}
-	state.parentCounters[item.ParentID] = maxInt(state.parentCounters[item.ParentID], item.Position)
+	state.parentCounters[item.ParentID] = maxInt(state.parentCounters[item.ParentID], intFromPtr(item.Position))
 	if strings.TrimSpace(item.Type) == "" {
 		item.Type = MenuItemTypeItem
 	}
@@ -355,7 +367,7 @@ func (s *InMemoryMenuService) UpdateMenuItem(ctx context.Context, menuCode strin
 	if !ok || item.ID == "" {
 		return ErrNotFound
 	}
-	if item.Position == 0 {
+	if item.Position == nil {
 		item.Position = existing.Position
 	}
 	if strings.TrimSpace(item.Code) == "" {
@@ -423,7 +435,7 @@ func (s *InMemoryMenuService) ReorderMenu(ctx context.Context, menuCode string, 
 		if !ok {
 			continue
 		}
-		item.Position = idx + 1
+		item.Position = intPtr(idx + 1)
 		state.items[id] = item
 	}
 	recordCMSActivity(ctx, s.activity, "cms.menu.reorder", "menu:"+state.slug, map[string]any{
@@ -457,8 +469,16 @@ func (s *InMemoryMenuService) Menu(_ context.Context, code, locale string) (*Men
 }
 
 func sortMenuChildren(children *[]MenuItem) {
+	posKey := func(item MenuItem) int {
+		if item.Position == nil {
+			return int(^uint(0) >> 1)
+		}
+		return *item.Position
+	}
 	sort.Slice(*children, func(i, j int) bool {
-		if (*children)[i].Position == (*children)[j].Position {
+		pi := posKey((*children)[i])
+		pj := posKey((*children)[j])
+		if pi == pj {
 			leftOrder := navinternal.MenuItemOrder((*children)[i])
 			rightOrder := navinternal.MenuItemOrder((*children)[j])
 			if leftOrder == rightOrder {
@@ -466,7 +486,7 @@ func sortMenuChildren(children *[]MenuItem) {
 			}
 			return leftOrder < rightOrder
 		}
-		return (*children)[i].Position < (*children)[j].Position
+		return pi < pj
 	})
 	for idx := range *children {
 		sortMenuChildren(&(*children)[idx].Children)
