@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/setup"
@@ -253,6 +254,15 @@ func (h *UserHandlers) renderUserForm(c router.Context, operationID string, opts
 
 	isEdit := operationID == updateUserOperation
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
+	if isEdit {
+		id := strings.TrimSpace(c.Param("id"))
+		if id != "" {
+			action := routes.Show(id)
+			rendered := strings.ReplaceAll(string(html), path.Join(h.Config.BasePath, "users", "{id}"), action)
+			rendered = strings.ReplaceAll(rendered, "{id}", id)
+			html = []byte(rendered)
+		}
+	}
 
 	viewCtx := h.WithNav(router.ViewContext{
 		"title":          h.Config.Title,
