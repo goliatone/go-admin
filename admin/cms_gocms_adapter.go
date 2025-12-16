@@ -49,7 +49,7 @@ func (a *GoCMSMenuAdapter) CreateMenu(ctx context.Context, code string) (*Menu, 
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
-	menuCode := canonicalMenuCode(code)
+	menuCode := cms.CanonicalMenuCode(code)
 	if _, err := a.service.UpsertMenu(ctx, menuCode, nil, uuid.Nil); err != nil {
 		return nil, err
 	}
@@ -61,10 +61,12 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 	if a == nil || a.service == nil {
 		return ErrNotFound
 	}
-	menuCode = canonicalMenuCode(menuCode)
+	menuCode = cms.CanonicalMenuCode(menuCode)
 
-	path := resolveMenuItemPath(menuCode, item)
-	parentPath := resolveMenuItemParentPath(menuCode, item)
+	path, parentPath, err := deriveMenuItemPaths(menuCode, item)
+	if err != nil {
+		return err
+	}
 
 	itemType := normalizeMenuItemType(item.Type)
 	target := mergeMenuTarget(item)
@@ -108,7 +110,7 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 		}}
 	}
 
-	_, err := a.service.UpsertMenuItemByPath(ctx, input)
+	_, err = a.service.UpsertMenuItemByPath(ctx, input)
 	return err
 }
 
@@ -117,9 +119,12 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 	if a == nil || a.service == nil {
 		return ErrNotFound
 	}
-	menuCode = canonicalMenuCode(menuCode)
+	menuCode = cms.CanonicalMenuCode(menuCode)
 
-	path := resolveMenuItemPath(menuCode, item)
+	path, parent, err := deriveMenuItemPaths(menuCode, item)
+	if err != nil {
+		return err
+	}
 	update := cms.UpdateMenuItemByPathInput{Actor: uuid.Nil}
 
 	if item.Position != nil {
@@ -160,7 +165,6 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 		}
 	}
 
-	parent := resolveMenuItemParentPath(menuCode, item)
 	if parent != "" {
 		update.ParentPath = &parent
 	}
@@ -192,7 +196,7 @@ func (a *GoCMSMenuAdapter) DeleteMenuItem(ctx context.Context, menuCode, id stri
 	if a == nil || a.service == nil {
 		return ErrNotFound
 	}
-	menuCode = canonicalMenuCode(menuCode)
+	menuCode = cms.CanonicalMenuCode(menuCode)
 	path := canonicalMenuItemPath(menuCode, id)
 	if path == "" {
 		return ErrNotFound
@@ -207,7 +211,7 @@ func (a *GoCMSMenuAdapter) ReorderMenu(ctx context.Context, menuCode string, ord
 	if a == nil || a.service == nil {
 		return ErrNotFound
 	}
-	menuCode = canonicalMenuCode(menuCode)
+	menuCode = cms.CanonicalMenuCode(menuCode)
 
 	menu, err := a.Menu(ctx, menuCode, "")
 	if err != nil {
@@ -246,7 +250,7 @@ func (a *GoCMSMenuAdapter) Menu(ctx context.Context, code, locale string) (*Menu
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
-	menuCode := canonicalMenuCode(code)
+	menuCode := cms.CanonicalMenuCode(code)
 
 	nodes, err := a.service.ResolveNavigation(ctx, menuCode, locale)
 	if err != nil {
@@ -265,7 +269,7 @@ func (a *GoCMSMenuAdapter) ResetMenuContext(ctx context.Context, code string) er
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	menuCode := canonicalMenuCode(code)
+	menuCode := cms.CanonicalMenuCode(code)
 	return a.service.ResetMenuByCode(ctx, menuCode, uuid.Nil, true)
 }
 
@@ -276,106 +280,16 @@ func (a *GoCMSMenuAdapter) String() string {
 	return "GoCMSMenuAdapter{go-cms}"
 }
 
-func canonicalMenuCode(code string) string {
-	slug := NormalizeMenuSlug(code)
-	if slug == "" {
-		slug = strings.TrimSpace(code)
-	}
-	slug = strings.ReplaceAll(slug, ".", "_")
-	slug = strings.Trim(slug, "-_")
-	return slug
-}
-
 func canonicalMenuItemPath(menuCode, raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
 		return ""
 	}
-	menuCode = canonicalMenuCode(menuCode)
-
-	path := sanitizeDotPath(raw)
-	if path == "" {
+	path, err := cms.CanonicalMenuItemPath(menuCode, trimmed)
+	if err != nil {
 		return ""
 	}
-	if path == menuCode || strings.HasPrefix(path, menuCode+".") {
-		return path
-	}
-	return menuCode + "." + strings.TrimPrefix(path, ".")
-}
-
-func resolveMenuItemParentPath(menuCode string, item MenuItem) string {
-	parent := strings.TrimSpace(firstNonEmpty(item.ParentID, item.ParentCode))
-	if parent == "" {
-		return ""
-	}
-	return canonicalMenuItemPath(menuCode, parent)
-}
-
-func resolveMenuItemPath(menuCode string, item MenuItem) string {
-	if strings.TrimSpace(item.ID) != "" {
-		return canonicalMenuItemPath(menuCode, item.ID)
-	}
-	parent := resolveMenuItemParentPath(menuCode, item)
-	seed := firstNonEmpty(strings.TrimSpace(item.Label), strings.TrimSpace(item.GroupTitle), strings.TrimSpace(item.LabelKey), strings.TrimSpace(item.GroupTitleKey))
-	seg := sanitizePathSegment(seed)
-	if seg == "" {
-		seg = "item"
-	}
-	if parent != "" {
-		return parent + "." + seg
-	}
-	return canonicalMenuItemPath(menuCode, seg)
-}
-
-func sanitizeDotPath(raw string) string {
-	normalized := strings.ReplaceAll(strings.TrimSpace(raw), "/", ".")
-	normalized = strings.Trim(normalized, ".")
-	if normalized == "" {
-		return ""
-	}
-	parts := strings.Split(normalized, ".")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		seg := sanitizePathSegment(p)
-		if seg == "" {
-			continue
-		}
-		out = append(out, seg)
-	}
-	return strings.Join(out, ".")
-}
-
-func sanitizePathSegment(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	var b strings.Builder
-	b.Grow(len(raw))
-	lastDash := false
-	for _, r := range raw {
-		switch {
-		case r >= 'a' && r <= 'z':
-			b.WriteRune(r)
-			lastDash = false
-		case r >= 'A' && r <= 'Z':
-			b.WriteRune(r + ('a' - 'A'))
-			lastDash = false
-		case r >= '0' && r <= '9':
-			b.WriteRune(r)
-			lastDash = false
-		case r == '_' || r == '-':
-			b.WriteRune(r)
-			lastDash = false
-		default:
-			if !lastDash {
-				b.WriteRune('-')
-				lastDash = true
-			}
-		}
-	}
-	seg := strings.Trim(b.String(), "-_")
-	return seg
+	return path
 }
 
 func normalizeMenuItemType(raw string) string {
@@ -402,6 +316,19 @@ func normalizeMenuItemTranslationFields(item MenuItem) (label, labelKey, groupTi
 		groupTitle = groupTitleKey
 	}
 	return
+}
+
+func deriveMenuItemPaths(menuCode string, item MenuItem) (string, string, error) {
+	derived, err := cms.DeriveMenuItemPaths(
+		menuCode,
+		item.ID,
+		firstNonEmpty(item.ParentID, item.ParentCode),
+		firstNonEmpty(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey),
+	)
+	if err != nil {
+		return "", "", err
+	}
+	return derived.Path, derived.ParentPath, nil
 }
 
 func cloneIntPtr(pos *int) *int {
@@ -431,7 +358,9 @@ func convertPublicNavigationNodes(nodes []cms.NavigationNode, menuCode, parentPa
 	for _, node := range nodes {
 		path := navigationNodePath(node, menuCode)
 		if path == "" {
-			path = canonicalMenuItemPath(menuCode, sanitizePathSegment(node.Label))
+			if seg := cms.SanitizeMenuItemSegment(node.Label); seg != "" {
+				path = canonicalMenuItemPath(menuCode, seg)
+			}
 		}
 		pos := node.Position
 		item := MenuItem{
