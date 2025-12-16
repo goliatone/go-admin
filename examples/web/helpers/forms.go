@@ -19,7 +19,7 @@ func NewUserFormGenerator(openapiFS fs.FS) *formgenorchestrator.Orchestrator {
 	}
 
 	registry := formgenrender.NewRegistry()
-	vanillaRenderer, err := vanilla.New(vanilla.WithDefaultStyles())
+	vanillaRenderer, err := vanilla.New(vanilla.WithoutStyles())
 	if err != nil {
 		log.Printf("failed to initialize form renderer: %v", err)
 		return nil
