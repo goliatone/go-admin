@@ -77,7 +77,7 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 	input := cms.UpsertMenuItemByPathInput{
 		Path:        path,
 		ParentPath:  parentPath,
-		Position:    positionPtr(item.Position),
+		Position:    cloneIntPtr(item.Position),
 		Type:        itemType,
 		Target:      target,
 		Icon:        strings.TrimSpace(item.Icon),
@@ -122,8 +122,8 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 	path := resolveMenuItemPath(menuCode, item)
 	update := cms.UpdateMenuItemByPathInput{Actor: uuid.Nil}
 
-	if item.Position > 0 {
-		update.Position = positionPtr(item.Position)
+	if item.Position != nil {
+		update.Position = cloneIntPtr(item.Position)
 	}
 	if trimmed := strings.TrimSpace(item.Type); trimmed != "" {
 		normalized := normalizeMenuItemType(trimmed)
@@ -404,12 +404,12 @@ func normalizeMenuItemTranslationFields(item MenuItem) (label, labelKey, groupTi
 	return
 }
 
-func positionPtr(pos int) *int {
-	if pos <= 0 {
+func cloneIntPtr(pos *int) *int {
+	if pos == nil {
 		return nil
 	}
-	copy := pos
-	return &copy
+	v := *pos
+	return &v
 }
 
 func cloneStringSliceOrNil(in []string) []string {
@@ -433,6 +433,7 @@ func convertPublicNavigationNodes(nodes []cms.NavigationNode, menuCode, parentPa
 		if path == "" {
 			path = canonicalMenuItemPath(menuCode, sanitizePathSegment(node.Label))
 		}
+		pos := node.Position
 		item := MenuItem{
 			ID:            path,
 			Code:          path,
@@ -449,7 +450,7 @@ func convertPublicNavigationNodes(nodes []cms.NavigationNode, menuCode, parentPa
 			Styles:        cloneStringMapOrNil(node.Styles),
 			Collapsible:   node.Collapsible,
 			Collapsed:     node.Collapsed,
-			Position:      node.Position,
+			Position:      cloneIntPtr(&pos),
 			Menu:          menuCode,
 			ParentID:      parentPath,
 			ParentCode:    parentPath,
