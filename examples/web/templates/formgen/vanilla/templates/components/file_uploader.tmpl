@@ -1,0 +1,50 @@
+{% set data_attrs = field.metadata.__data_attrs -%}
+{% set validation_state = field.metadata["validation.state"] -%}
+{% set readonly_value = field.readonly or field.uiHints.readonly == "true" or field.metadata.readonly == "true" or field.metadata["prefill.readonly"] == "true" -%}
+{% set disabled_value = field.disabled or field.uiHints.disabled == "true" or field.metadata.disabled == "true" or field.metadata["prefill.disabled"] == "true" -%}
+{% set provenance = field.metadata["prefill.provenance"] -%}
+{% set current_url = field.default -%}
+
+<div class="space-y-3" data-file-uploader>
+  <input
+    type="hidden"
+    id="fg-{{ field.name }}__url"
+    name="{{ field.name }}"
+    {% if field.required %}required{% endif %}
+    {% if disabled_value %}disabled{% endif %}
+    {% if readonly_value %}readonly{% endif %}
+    {% if readonly_value %}aria-readonly="true"{% endif %}
+    {% if current_url %}value="{{ current_url }}"{% endif %}
+    {% if validation_state == "invalid" %}aria-invalid="true"{% endif %}
+    {% if provenance %}data-prefill-provenance="{{ provenance }}"{% endif %}
+    data-file-uploader-url
+    {% if data_attrs %}{{ data_attrs|safe }}{% endif %}
+  >
+
+  <div class="flex items-start gap-4">
+    <div class="h-24 w-24 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
+      <img
+        data-file-uploader-preview
+        {% if current_url %}src="{{ current_url }}"{% endif %}
+        alt=""
+        class="h-full w-full object-cover{% if not current_url %} hidden{% endif %}"
+      >
+      <div data-file-uploader-placeholder class="h-full w-full flex items-center justify-center text-xs text-gray-400{% if current_url %} hidden{% endif %}">
+        No image
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <input
+        type="file"
+        id="fg-{{ field.name }}"
+        accept="image/*"
+        class="block w-full text-sm text-gray-700"
+        {% if disabled_value or readonly_value %}disabled{% endif %}
+        data-file-uploader-file
+      >
+      <p class="text-xs text-gray-500">Choose an image to upload.</p>
+    </div>
+  </div>
+</div>
+

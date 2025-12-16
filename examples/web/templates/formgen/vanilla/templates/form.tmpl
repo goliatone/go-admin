@@ -1,0 +1,129 @@
+{%- if not stylesheets and not inline_styles -%}
+{{ top_padding|safe }}
+{%- endif -%}
+{% if stylesheets -%}
+{% for href in stylesheets -%}
+<link rel="stylesheet" href="{{ href }}">
+{%- endfor -%}
+{%- endif -%}
+{% if theme.css_vars_style %}
+<style data-formgen-theme-vars>{{ theme.css_vars_style|safe }}</style>
+{% endif -%}
+{%- if inline_styles -%}
+<style data-formgen-default-style>{{ inline_styles|safe }}</style>
+
+
+{% endif -%}
+{% if theme.json -%}
+<script id="formgen-theme" type="application/json">{{ theme.json|safe }}</script>
+{% endif -%}
+{% set grid_columns = layout.gridColumnsValue -%}
+{% if not grid_columns -%}
+{% set grid_columns = layout.gridColumns -%}
+{% endif -%}
+{% if not grid_columns -%}
+{% set grid_columns = 12 -%}
+{% endif -%}
+{% set grid_gutter = layout.gutter -%}
+{% if not grid_gutter -%}
+{% set grid_gutter = 'md' -%}
+{% endif %}
+<form class="max-w-4xl mx-auto space-y-6 p-6 bg-white rounded-xl border border-gray-200 dark:bg-slate-900 dark:border-gray-700" method="{{ render_options.method_attr }}" action="{{ form.endpoint }}" data-formgen-auto-init="true"{% if theme.name %} data-formgen-theme="{{ theme.name }}"{% endif %}{% if theme.variant %} data-formgen-theme-variant="{{ theme.variant }}"{% endif %}>
+    {% if render_options.method_override %}
+    <input type="hidden" name="_method" value="{{ render_options.method_override }}">
+    {% endif %}
+    {% if render_options.hidden_fields %}
+    {% for field in render_options.hidden_fields %}
+    <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+    {% endfor %}
+    {% endif %}
+    {% if render_options.form_errors %}
+    <div class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+        <ul class="list-disc space-y-1 pl-4">
+        {% for message in render_options.form_errors %}
+            <li>{{ message }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% if form.uiHints and (form.uiHints['layout.title'] or form.uiHints['layout.subtitle']) %}
+    <header class="space-y-2 pb-4 border-b border-gray-200 dark:border-gray-700">
+        {% if form.uiHints['layout.title'] %}
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ form.uiHints['layout.title'] }}</h1>
+        {% endif %}
+        {% if form.uiHints['layout.subtitle'] %}
+        <p class="text-sm text-gray-600 dark:text-gray-400">{{ form.uiHints['layout.subtitle'] }}</p>
+        {% endif %}
+    </header>
+    {% endif %}
+
+    {% if layout.unsectioned and layout.unsectioned|length > 0 %}
+    <div class="grid gap-6"{% if grid_columns and grid_columns > 1 %} style="grid-template-columns: repeat({{ grid_columns }}, minmax(0, 1fr))"{% endif %}>
+        {% for field in layout.unsectioned %}
+        <div{% if field.style %}{{ field.style|safe }}{% endif %}>
+            {{ field.html|safe }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if layout.sections %}
+    {% for section in layout.sections %}
+    <section class="space-y-4{% if section.fieldset %} p-4 border border-gray-200 rounded-lg dark:border-gray-700{% endif %}">
+        {% if section.title or section.description %}
+        <header class="space-y-1">
+            {% if section.title %}
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ section.title }}</h2>
+            {% endif %}
+            {% if section.description %}
+            <p class="text-sm text-gray-600 dark:text-gray-400">{{ section.description }}</p>
+            {% endif %}
+        </header>
+        {% endif %}
+        {% if section.fieldset %}
+        <fieldset>
+            <div class="grid gap-6"{% if grid_columns and grid_columns > 1 %} style="grid-template-columns: repeat({{ grid_columns }}, minmax(0, 1fr))"{% endif %}>
+                {% for field in section.fields %}
+                <div{% if field.style %}{{ field.style|safe }}{% endif %}>
+                    {{ field.html|safe }}
+                </div>
+                {% endfor %}
+            </div>
+        </fieldset>
+        {% else %}
+        <div class="grid gap-6"{% if grid_columns and grid_columns > 1 %} style="grid-template-columns: repeat({{ grid_columns }}, minmax(0, 1fr))"{% endif %}>
+            {% for field in section.fields %}
+            <div{% if field.style %}{{ field.style|safe }}{% endif %}>
+                {{ field.html|safe }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+    {% endfor %}
+    {% endif %}
+
+    <div class="mt-6 flex justify-end gap-3">
+        {% if actions and actions|length > 0 %}
+            {% for action in actions %}
+                {% if action.href %}
+                <a href="{{ action.href }}" class="btn btn-secondary">{{ action.label }}</a>
+                {% else %}
+                <button{% if action.type %} type="{{ action.type }}"{% endif %} class="btn {% if action.kind == 'primary' or not action.kind %}btn-primary{% else %}btn-secondary{% endif %}">{{ action.label }}</button>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <button type="submit" class="btn btn-primary">Submit</button>
+        {% endif %}
+    </div>
+</form>
+{%- if component_scripts and component_scripts|length > 0 -%}
+{%- for script in component_scripts -%}
+{%- if script.inline -%}
+<script{% if script.type %} type="{{ script.type }}"{% elif script.module %} type="module"{% endif %}{% if script.defer %} defer{% endif %}{% if script.async %} async{% endif %}{% if script.attrs %}{% for key, value in script.attrs.items() %} {{ key }}="{{ value }}"{% endfor %}{% endif %}>{{ script.inline|safe }}</script>
+{%- else -%}
+<script src="{{ script.src }}"{% if script.type %} type="{{ script.type }}"{% elif script.module %} type="module"{% endif %}{% if script.defer %} defer{% endif %}{% if script.async %} async{% endif %}{% if script.attrs %}{% for key, value in script.attrs.items() %} {{ key }}="{{ value }}"{% endfor %}{% endif %}></script>
+{%- endif -%}
+{%- endfor -%}
+{%- endif %}
+
