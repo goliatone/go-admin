@@ -32,11 +32,21 @@ func NewUserFormGenerator(openapiFS fs.FS, templatesFS fs.FS) *formgenorchestrat
 
 	loader := formgen.NewLoader(formgenopenapi.WithFileSystem(openapiFS))
 
-	return formgen.NewOrchestrator(
+	var uiSchemaFS fs.FS
+	if sub, err := fs.Sub(openapiFS, "uischema"); err == nil {
+		uiSchemaFS = sub
+	}
+
+	opts := []formgenorchestrator.Option{
 		formgenorchestrator.WithLoader(loader),
 		formgenorchestrator.WithParser(formgen.NewParser()),
 		formgenorchestrator.WithModelBuilder(formgenmodel.NewBuilder()),
 		formgenorchestrator.WithRegistry(registry),
 		formgenorchestrator.WithDefaultRenderer(vanillaRenderer.Name()),
-	)
+	}
+	if uiSchemaFS != nil {
+		opts = append(opts, formgenorchestrator.WithUISchemaFS(uiSchemaFS))
+	}
+
+	return formgen.NewOrchestrator(opts...)
 }
