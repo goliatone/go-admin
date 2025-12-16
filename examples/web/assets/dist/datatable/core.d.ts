@@ -131,6 +131,10 @@ export declare class DataGrid {
      */
     updateColumnVisibility(visibleColumns: string[], skipURLUpdate?: boolean): void;
     /**
+     * Sync column visibility checkboxes with current state
+     */
+    private syncColumnVisibilityCheckboxes;
+    /**
      * Render data into table
      */
     private renderData;

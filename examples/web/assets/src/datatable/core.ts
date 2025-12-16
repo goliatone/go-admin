@@ -258,15 +258,24 @@ export class DataGrid {
       }
     }
 
-    // Restore hidden columns
+    // Restore hidden columns with precedence: URL > localStorage > defaults
     const hiddenColumnsParam = params.get('hiddenColumns');
     if (hiddenColumnsParam) {
+      // Priority 1: URL params (authoritative for shared links)
       try {
         const hiddenArray = JSON.parse(hiddenColumnsParam);
         this.state.hiddenColumns = new Set(hiddenArray);
       } catch (e) {
         console.warn('[DataGrid] Failed to parse hidden columns from URL:', e);
       }
+    } else if (this.config.behaviors?.columnVisibility) {
+      // Priority 2: localStorage cache (fallback when no URL params)
+      const allColumnFields = this.config.columns.map(col => col.field);
+      const cachedHidden = this.config.behaviors.columnVisibility.loadHiddenColumnsFromCache(allColumnFields);
+      if (cachedHidden.size > 0) {
+        this.state.hiddenColumns = cachedHidden;
+      }
+      // Priority 3: defaults (all visible) - already initialized in constructor
     }
 
     console.log('[DataGrid] State restored from URL:', this.state);
@@ -293,27 +302,12 @@ export class DataGrid {
       });
     }
 
-    // Apply column visibility
-    if (this.state.hiddenColumns.size > 0) {
-      const visibleColumns = this.config.columns
-        .filter(col => !this.state.hiddenColumns.has(col.field))
-        .map(col => col.field);
+    // Apply column visibility (always, even if all visible)
+    const visibleColumns = this.config.columns
+      .filter(col => !this.state.hiddenColumns.has(col.field))
+      .map(col => col.field);
 
-      this.updateColumnVisibility(visibleColumns, true); // Skip URL update during restoration
-
-      // Update checkboxes in column visibility menu
-      const menu = document.querySelector(this.selectors.columnToggleMenu);
-      if (menu) {
-        this.config.columns.forEach(col => {
-          const checkbox = menu.querySelector<HTMLInputElement>(
-            `input[data-column="${col.field}"]`
-          );
-          if (checkbox) {
-            checkbox.checked = !this.state.hiddenColumns.has(col.field);
-          }
-        });
-      }
-    }
+    this.updateColumnVisibility(visibleColumns, true); // Skip URL update during restoration
 
     // Apply sort indicators
     if (this.state.sort.length > 0) {
@@ -518,6 +512,26 @@ export class DataGrid {
       const field = (td as HTMLElement).dataset.column;
       if (field) {
         (td as HTMLElement).style.display = visibleSet.has(field) ? '' : 'none';
+      }
+    });
+
+    // Sync checkbox state in column visibility menu
+    this.syncColumnVisibilityCheckboxes();
+  }
+
+  /**
+   * Sync column visibility checkboxes with current state
+   */
+  private syncColumnVisibilityCheckboxes(): void {
+    const menu = document.querySelector(this.selectors.columnToggleMenu);
+    if (!menu) return;
+
+    this.config.columns.forEach(col => {
+      const checkbox = menu.querySelector<HTMLInputElement>(
+        `input[data-column="${col.field}"]`
+      );
+      if (checkbox) {
+        checkbox.checked = !this.state.hiddenColumns.has(col.field);
       }
     });
   }
@@ -1215,6 +1229,18 @@ export class DataGrid {
         const target = document.getElementById(targetId || '');
 
         if (target) {
+          const isOpening = target.classList.contains('hidden');
+
+          // Close all other toggle dropdowns before opening this one
+          document.querySelectorAll('[data-dropdown-toggle]').forEach((otherToggle) => {
+            const otherId = (otherToggle as HTMLElement).dataset.dropdownToggle;
+            const otherTarget = document.getElementById(otherId || '');
+            if (otherTarget && otherTarget !== target) {
+              otherTarget.classList.add('hidden');
+            }
+          });
+
+          // Toggle this dropdown
           target.classList.toggle('hidden');
         }
       });
@@ -1263,10 +1289,20 @@ export class DataGrid {
     // ESC key closes all dropdowns
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        // Close action dropdowns
         document.querySelectorAll('.actions-menu').forEach(m => {
           m.classList.add('hidden');
           const trigger = m.closest('[data-dropdown]')?.querySelector('[data-dropdown-trigger]');
           if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        });
+
+        // Close toggle dropdowns (column visibility, export, etc.)
+        document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
+          const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
+          const target = document.getElementById(targetId || '');
+          if (target) {
+            target.classList.add('hidden');
+          }
         });
       }
     });

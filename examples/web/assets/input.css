@@ -247,4 +247,14 @@
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border;
   }
+
+  /* Sidebar search input - override @tailwindcss/forms defaults */
+  .sidebar-search-container input[type="text"] {
+    @apply bg-sidebar-bg-hover border-sidebar-border text-sidebar-text placeholder-sidebar-text-muted;
+  }
+
+  .sidebar-search-container input[type="text"]:focus {
+    @apply outline-none border-sidebar-text-muted bg-sidebar-bg-hover;
+    box-shadow: none;
+  }
 }

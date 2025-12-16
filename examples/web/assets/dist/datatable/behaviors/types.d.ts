@@ -134,21 +134,18 @@ export interface BulkActionBehavior {
  */
 export interface ColumnVisibilityBehavior {
     /**
-     * Get currently visible columns
+     * Get currently visible columns from grid state
      */
-    getVisibleColumns(): string[];
+    getVisibleColumns(grid: DataGrid): string[];
     /**
      * Toggle column visibility
      */
     toggleColumn(field: string, grid: DataGrid): void;
     /**
-     * Save visibility state (e.g., to localStorage)
+     * Load hidden columns from cache (localStorage)
+     * Used for fallback when URL params are not present
      */
-    saveState(state: Record<string, boolean>): void;
-    /**
-     * Load visibility state
-     */
-    loadState(): Record<string, boolean>;
+    loadHiddenColumnsFromCache(allColumns: string[]): Set<string>;
 }
 /**
  * Behavior collection for DataGrid
