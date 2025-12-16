@@ -187,7 +187,7 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.usersPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    40,
+			Position:    intPtr(40),
 			ParentID:    m.menuParent,
 		},
 		{
@@ -198,7 +198,7 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.rolesPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    41,
+			Position:    intPtr(41),
 			ParentID:    m.menuParent,
 		},
 	}
