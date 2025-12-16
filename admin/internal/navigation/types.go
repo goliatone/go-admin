@@ -30,7 +30,7 @@ type MenuItem struct {
 	GroupTitleKey string            `json:"group_title_key,omitempty"`
 	Target        map[string]any    `json:"target,omitempty"`
 	Icon          string            `json:"icon,omitempty"`
-	Position      int               `json:"position,omitempty"`
+	Position      *int              `json:"position,omitempty"`
 	Children      []MenuItem        `json:"children,omitempty"`
 	Locale        string            `json:"locale,omitempty"`
 	Badge         map[string]any    `json:"badge,omitempty"`
@@ -63,7 +63,7 @@ type NavigationItem struct {
 	Styles        map[string]string `json:"styles,omitempty"`
 	Collapsible   bool              `json:"collapsible,omitempty"`
 	Collapsed     bool              `json:"collapsed,omitempty"`
-	Position      int               `json:"position,omitempty"`
+	Position      *int              `json:"position,omitempty"`
 
 	order int `json:"-"`
 }
