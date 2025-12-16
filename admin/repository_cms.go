@@ -592,11 +592,15 @@ func (r *CMSMenuRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 	sliced, total := paginateMenu(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, item := range sliced {
+		var position any
+		if item.Position != nil {
+			position = *item.Position
+		}
 		out = append(out, map[string]any{
 			"id":          item.ID,
 			"label":       item.Label,
 			"icon":        item.Icon,
-			"position":    item.Position,
+			"position":    position,
 			"locale":      item.Locale,
 			"menu":        code,
 			"parent_id":   item.ParentID,
@@ -1056,9 +1060,9 @@ func mapToMenuItem(record map[string]any, defaultMenu string) (MenuItem, string)
 		item.Icon = icon
 	}
 	if pos, ok := record["position"].(int); ok {
-		item.Position = pos
+		item.Position = intPtr(pos)
 	} else if posf, ok := record["position"].(float64); ok {
-		item.Position = int(posf)
+		item.Position = intPtr(int(posf))
 	}
 	if locale, ok := record["locale"].(string); ok {
 		item.Locale = locale
