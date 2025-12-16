@@ -137,7 +137,7 @@ func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) 
 
 	seed := cms.SeedMenuItem{
 		Path:        path,
-		Position:    seedPositionPtr(itemType, item.Position),
+		Position:    item.Position,
 		Type:        itemType,
 		Target:      target,
 		Icon:        strings.TrimSpace(item.Icon),
@@ -297,21 +297,6 @@ func sanitizePathSegment(raw string) string {
 	}
 	seg := strings.Trim(b.String(), "-_")
 	return seg
-}
-
-func seedPositionPtr(itemType string, pos int) *int {
-	// go-admin represents missing positions as the default 0 value. go-cms treats positions as
-	// 0-based insertion indices, and 0 is a meaningful value. Preserve explicit 0 positions for
-	// structural items so root group ordering remains deterministic.
-	if pos == 0 && (itemType == admin.MenuItemTypeGroup || itemType == admin.MenuItemTypeSeparator) {
-		v := 0
-		return &v
-	}
-	if pos <= 0 {
-		return nil
-	}
-	copy := pos
-	return &copy
 }
 
 func normalizeMenuItemTranslationFields(item admin.MenuItem) (label, labelKey, groupTitle, groupTitleKey string) {
