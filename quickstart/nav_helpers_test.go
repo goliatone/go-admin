@@ -24,17 +24,17 @@ func TestBuildNavItemsOrdering(t *testing.T) {
 	_, _ = menu.CreateMenu(ctx, "admin.main")
 
 	// Add out-of-order items; positions and insertion order should stabilize output.
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "Second", Position: 2})
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "First", Position: 1})
+	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "Second", Position: intPtr(2)})
+	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "First", Position: intPtr(1)})
 	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{
 		ID:          "parent",
 		Label:       "Parent",
 		Collapsible: true,
-		Position:    5,
+		Position:    intPtr(5),
 	})
 	// Children with mixed positions and auto order.
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "ChildB", ParentID: "parent", Position: 2})
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "ChildA", ParentID: "parent", Position: 1})
+	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "ChildB", ParentID: "parent", Position: intPtr(2)})
+	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "ChildA", ParentID: "parent", Position: intPtr(1)})
 	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "ChildAuto", ParentID: "parent"})
 
 	items := BuildNavItems(adm, cfg, ctx, "")
