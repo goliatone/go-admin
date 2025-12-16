@@ -32,3 +32,7 @@ func cloneStringMap(in map[string]string) map[string]string {
 	}
 	return out
 }
+
+func intPtr(v int) *int {
+	return &v
+}
