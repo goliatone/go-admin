@@ -440,11 +440,17 @@ document.addEventListener('DOMContentLoaded', function() {
       'status': CommonRenderers.statusBadge({
         active: 'green',
         inactive: 'gray',
-        suspended: 'red',
-        disabled: 'gray',
-        archived: 'orange'
+        suspended: 'orange',
+        disabled: 'red',
+        archived: 'purple'
       }),
-      'role': CommonRenderers.roleBadge
+      'role': CommonRenderers.roleBadge({
+        admin: 'red',
+        editor: 'blue',
+        member: 'purple',
+        viewer: 'gray',
+        guest: 'yellow'
+      })
     },
 
     behaviors: {
