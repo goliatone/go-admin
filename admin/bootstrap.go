@@ -149,7 +149,7 @@ func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
 		Permissions: []string{a.config.SettingsPermission},
 		Menu:        a.navMenuCode,
 		Locale:      a.config.DefaultLocale,
-		Position:    80,
+		Position:    intPtr(80),
 		ParentID:    "nav-group-main",
 	}
 	return a.addMenuItems(ctx, []MenuItem{item})
