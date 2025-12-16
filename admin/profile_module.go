@@ -108,7 +108,7 @@ func (m *ProfileModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.viewPermission},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    55,
+			Position:    intPtr(55),
 			ParentID:    m.menuParent,
 		},
 	}
