@@ -1,11 +1,12 @@
 {% set data_attrs = field.metadata.__data_attrs -%}
+{% set component_config = field.metadata["component.config"] -%}
 {% set validation_state = field.metadata["validation.state"] -%}
 {% set readonly_value = field.readonly or field.uiHints.readonly == "true" or field.metadata.readonly == "true" or field.metadata["prefill.readonly"] == "true" -%}
 {% set disabled_value = field.disabled or field.uiHints.disabled == "true" or field.metadata.disabled == "true" or field.metadata["prefill.disabled"] == "true" -%}
 {% set provenance = field.metadata["prefill.provenance"] -%}
 {% set current_url = field.default -%}
 
-<div class="space-y-3" data-file-uploader>
+<div class="space-y-3" data-file-uploader data-component="file_uploader" {% if component_config %}data-component-config='{{ component_config|safe }}'{% endif %}>
   <input
     type="hidden"
     id="fg-{{ field.name }}__url"
@@ -46,5 +47,7 @@
       <p class="text-xs text-gray-500">Choose an image to upload.</p>
     </div>
   </div>
-</div>
 
+  <p class="text-sm text-red-600 hidden" data-file-uploader-error="true"></p>
+  <p class="text-xs text-gray-500 hidden" data-file-uploader-status="true"></p>
+</div>
