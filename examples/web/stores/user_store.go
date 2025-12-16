@@ -3,6 +3,7 @@ package stores
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -596,14 +597,31 @@ func userToMap(user *types.AuthUser, lastLogin time.Time) map[string]any {
 		last = lastLogin.Format(time.RFC3339)
 	}
 
+	var (
+		phoneNumber    string
+		profilePicture string
+		emailVerified  bool
+	)
+	if raw, ok := user.Raw.(*auth.User); ok && raw != nil {
+		phoneNumber = raw.Phone
+		profilePicture = raw.ProfilePicture
+		emailVerified = raw.EmailValidated
+	}
+
 	return map[string]any{
-		"id":         user.ID.String(),
-		"username":   user.Username,
-		"email":      user.Email,
-		"role":       user.Role,
-		"status":     statusToOutput(user.Status),
-		"created_at": created,
-		"last_login": last,
+		"id":                user.ID.String(),
+		"first_name":        user.FirstName,
+		"last_name":         user.LastName,
+		"username":          user.Username,
+		"email":             user.Email,
+		"phone_number":      phoneNumber,
+		"profile_picture":   profilePicture,
+		"is_email_verified": emailVerified,
+		"role":              user.Role,
+		"status":            statusToOutput(user.Status),
+		"metadata":          user.Metadata,
+		"created_at":        created,
+		"last_login":        last,
 	}
 }
 
@@ -614,10 +632,36 @@ func mapToAuthUser(record map[string]any) (*types.AuthUser, time.Time) {
 		Email:    asString(record["email"], ""),
 		Role:     normalizeRoleValue(asString(record["role"], "viewer")),
 		Status:   statusFromInput(asString(record["status"], "active")),
+		FirstName: func() string {
+			first, _ := trimmedField(record, "first_name")
+			return first
+		}(),
+		LastName: func() string {
+			last, _ := trimmedField(record, "last_name")
+			return last
+		}(),
 	}
 	if created := parseTimeValue(record["created_at"]); !created.IsZero() {
 		user.CreatedAt = ptrTime(created)
 	}
+	if meta, ok := parseMetadataValue(record["metadata"]); ok {
+		user.Metadata = meta
+	}
+
+	raw := &auth.User{}
+	if phone, ok := trimmedField(record, "phone_number"); ok {
+		raw.Phone = phone
+	}
+	if picture, ok := trimmedField(record, "profile_picture"); ok {
+		raw.ProfilePicture = picture
+	}
+	if verified, ok := parseBoolValue(record["is_email_verified"]); ok {
+		raw.EmailValidated = verified
+	}
+	if user.Metadata != nil {
+		raw.Metadata = user.Metadata
+	}
+	user.Raw = raw
 
 	return user, extractLastLogin(record)
 }
@@ -625,6 +669,12 @@ func mapToAuthUser(record map[string]any) (*types.AuthUser, time.Time) {
 func applyUserPatch(existing *types.AuthUser, record map[string]any) *types.AuthUser {
 	clone := cloneAuthUser(existing)
 
+	if first, ok := trimmedField(record, "first_name"); ok {
+		clone.FirstName = first
+	}
+	if last, ok := trimmedField(record, "last_name"); ok {
+		clone.LastName = last
+	}
 	if username := asString(record["username"], ""); username != "" {
 		clone.Username = username
 	}
@@ -639,6 +689,26 @@ func applyUserPatch(existing *types.AuthUser, record map[string]any) *types.Auth
 	}
 	if created := parseTimeValue(record["created_at"]); !created.IsZero() {
 		clone.CreatedAt = ptrTime(created)
+	}
+	if meta, ok := parseMetadataValue(record["metadata"]); ok {
+		clone.Metadata = meta
+	}
+	raw, _ := clone.Raw.(*auth.User)
+	if raw == nil {
+		raw = &auth.User{}
+		clone.Raw = raw
+	}
+	if phone, ok := trimmedField(record, "phone_number"); ok {
+		raw.Phone = phone
+	}
+	if picture, ok := trimmedField(record, "profile_picture"); ok {
+		raw.ProfilePicture = picture
+	}
+	if verified, ok := parseBoolValue(record["is_email_verified"]); ok {
+		raw.EmailValidated = verified
+	}
+	if clone.Metadata != nil {
+		raw.Metadata = clone.Metadata
 	}
 	return clone
 }
@@ -768,6 +838,63 @@ func asString(val any, def string) string {
 		return v.String()
 	default:
 		return fmt.Sprintf("%v", v)
+	}
+}
+
+func parseBoolValue(val any) (bool, bool) {
+	switch v := val.(type) {
+	case bool:
+		return v, true
+	case string:
+		trimmed := strings.ToLower(strings.TrimSpace(v))
+		if trimmed == "" {
+			return false, true
+		}
+		switch trimmed {
+		case "1", "true", "yes", "on":
+			return true, true
+		case "0", "false", "no", "off":
+			return false, true
+		default:
+			return false, false
+		}
+	default:
+		return false, false
+	}
+}
+
+func parseMetadataValue(val any) (map[string]any, bool) {
+	switch typed := val.(type) {
+	case nil:
+		return nil, false
+	case map[string]any:
+		return typed, true
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if trimmed == "" {
+			return map[string]any{}, true
+		}
+		var out map[string]any
+		if err := json.Unmarshal([]byte(trimmed), &out); err != nil {
+			return nil, false
+		}
+		if out == nil {
+			out = map[string]any{}
+		}
+		return out, true
+	default:
+		data, err := json.Marshal(typed)
+		if err != nil {
+			return nil, false
+		}
+		var out map[string]any
+		if err := json.Unmarshal(data, &out); err != nil {
+			return nil, false
+		}
+		if out == nil {
+			out = map[string]any{}
+		}
+		return out, true
 	}
 }
 
