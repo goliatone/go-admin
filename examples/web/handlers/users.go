@@ -105,10 +105,16 @@ func (h *UserHandlers) Create(c router.Context) error {
 	ctx := c.Context()
 
 	record := map[string]any{
-		"username": c.FormValue("username"),
-		"email":    c.FormValue("email"),
-		"role":     c.FormValue("role"),
-		"status":   c.FormValue("status"),
+		"first_name":        c.FormValue("first_name"),
+		"last_name":         c.FormValue("last_name"),
+		"username":          c.FormValue("username"),
+		"email":             c.FormValue("email"),
+		"phone_number":      c.FormValue("phone_number"),
+		"profile_picture":   c.FormValue("profile_picture"),
+		"is_email_verified": c.FormValue("is_email_verified") != "",
+		"role":              c.FormValue("role"),
+		"status":            c.FormValue("status"),
+		"metadata":          c.FormValue("metadata"),
 	}
 
 	if _, err := h.Store.Create(ctx, record); err != nil {
@@ -170,10 +176,16 @@ func (h *UserHandlers) Edit(c router.Context) error {
 
 	return h.renderUserForm(c, updateUserOperation, formgenrender.RenderOptions{
 		Values: map[string]any{
-			"username": user["username"],
-			"email":    user["email"],
-			"role":     user["role"],
-			"status":   user["status"],
+			"first_name":        user["first_name"],
+			"last_name":         user["last_name"],
+			"username":          user["username"],
+			"email":             user["email"],
+			"phone_number":      user["phone_number"],
+			"profile_picture":   user["profile_picture"],
+			"is_email_verified": user["is_email_verified"],
+			"role":              user["role"],
+			"status":            user["status"],
+			"metadata":          user["metadata"],
 		},
 		HiddenFields: map[string]string{
 			"id": id,
@@ -190,10 +202,16 @@ func (h *UserHandlers) Update(c router.Context) error {
 	ctx := c.Context()
 
 	record := map[string]any{
-		"username": c.FormValue("username"),
-		"email":    c.FormValue("email"),
-		"role":     c.FormValue("role"),
-		"status":   c.FormValue("status"),
+		"first_name":        c.FormValue("first_name"),
+		"last_name":         c.FormValue("last_name"),
+		"username":          c.FormValue("username"),
+		"email":             c.FormValue("email"),
+		"phone_number":      c.FormValue("phone_number"),
+		"profile_picture":   c.FormValue("profile_picture"),
+		"is_email_verified": c.FormValue("is_email_verified") != "",
+		"role":              c.FormValue("role"),
+		"status":            c.FormValue("status"),
+		"metadata":          c.FormValue("metadata"),
 	}
 
 	if _, err := h.Store.Update(ctx, id, record); err != nil {
