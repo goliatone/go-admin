@@ -334,11 +334,11 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 			dashboardTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "")}
 			contentTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "content")}
 			pagesTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "pages")}
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: 1, Locale: "en", Target: dashboardTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: 2, Locale: "en", Target: contentTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Pages", Icon: "file-text", Position: 3, Locale: "en", Target: pagesTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Contenido", Icon: "file", Position: 2, Locale: "es", Target: contentTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Paginas", Icon: "file-text", Position: 3, Locale: "es", Target: pagesTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: intPtr(1), Locale: "en", Target: dashboardTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: intPtr(2), Locale: "en", Target: contentTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Pages", Icon: "file-text", Position: intPtr(3), Locale: "en", Target: pagesTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Contenido", Icon: "file", Position: intPtr(2), Locale: "es", Target: contentTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Paginas", Icon: "file-text", Position: intPtr(3), Locale: "es", Target: pagesTarget})
 		}
 	}
 }
