@@ -36,6 +36,7 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 		{path: "/admin/assets/logo.svg"},
 		{path: "/admin/assets/sidebar.js"},
 		{path: "/admin/assets/dist/dashboard/index.js"},
+		{path: "/admin/assets/dist/formgen/file_uploader.js"},
 	}
 
 	for _, tt := range tests {
