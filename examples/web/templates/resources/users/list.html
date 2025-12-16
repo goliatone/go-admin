@@ -82,12 +82,12 @@
             <div id="column-toggle-menu" class="hidden absolute right-0 z-10 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg">
               <div class="p-3 space-y-2">
                 <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="username" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Username</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
                   <input type="checkbox" data-column="email" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
                   <span class="text-sm">Email</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="username" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Username</span>
                 </label>
                 <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
                   <input type="checkbox" data-column="role" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
@@ -159,11 +159,11 @@
                 <span class="sr-only">Select all</span>
               </label>
             </th>
-            <th scope="col" data-column="username" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Username
-            </th>
             <th scope="col" data-column="email" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               Email
+            </th>
+            <th scope="col" data-column="username" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Username
             </th>
             <th scope="col" data-column="role" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               Role
@@ -182,10 +182,10 @@
           <tr class="bg-gray-100" id="filter-row">
             <th></th>
             <th class="px-6 py-2">
-              <input type="text" data-filter-column="username" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+              <input type="text" data-filter-column="email" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
             <th class="px-6 py-2">
-              <input type="text" data-filter-column="email" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+              <input type="text" data-filter-column="username" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
             <th class="px-6 py-2">
               <select data-filter-column="role" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
@@ -333,8 +333,8 @@ document.addEventListener('DOMContentLoaded', function() {
     apiEndpoint: '/admin/crud/users',
     actionBasePath: actionBasePath,
     columns: [
-      { field: 'username', label: 'Username', sortable: true, filterable: true },
       { field: 'email', label: 'Email', sortable: true, filterable: true },
+      { field: 'username', label: 'Username', sortable: true, filterable: true },
       { field: 'role', label: 'Role', sortable: true, filterable: true },
       { field: 'status', label: 'Status', sortable: true, filterable: true },
       { field: 'created_at', label: 'Created', sortable: true, filterable: true }
@@ -437,6 +437,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Custom cell renderers
     cellRenderers: {
+      'email': (value, record) => {
+        return `<a href="${actionBasePath}/${record.id}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">${value}</a>`;
+      },
       'status': CommonRenderers.statusBadge({
         active: 'green',
         inactive: 'gray',
@@ -461,7 +464,7 @@ document.addEventListener('DOMContentLoaded', function() {
       export: new GoCrudExportBehavior('/admin/crud/users'),
       bulkActions: new GoCrudBulkActionBehavior('/admin/crud/users'),
       columnVisibility: new DefaultColumnVisibilityBehavior(
-        ['username', 'email', 'role', 'status', 'created_at'],
+        ['email', 'username', 'role', 'status', 'created_at'],
         'users_datatable_columns'
       )
     },
