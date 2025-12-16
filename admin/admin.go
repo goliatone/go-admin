@@ -117,6 +117,10 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		if cfg.Features.Notifications {
 			if svc, err := newGoNotificationsService(cfg.DefaultLocale, translator, activitySink); err == nil {
 				notifSvc = svc
+			} else {
+				mem := NewInMemoryNotificationService()
+				mem.WithActivitySink(activitySink)
+				notifSvc = mem
 			}
 		}
 	}
