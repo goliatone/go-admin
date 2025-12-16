@@ -312,7 +312,8 @@ func main() {
 
 	// Initialize form generator
 	openapiFS := helpers.MustSubFS(webFS, "openapi")
-	formGenerator := helpers.NewUserFormGenerator(openapiFS)
+	formTemplatesFS := helpers.MustSubFS(webFS, "templates/formgen/vanilla")
+	formGenerator := helpers.NewUserFormGenerator(openapiFS, formTemplatesFS)
 	if formGenerator == nil {
 		log.Fatalf("failed to initialize form generator")
 	}
@@ -515,6 +516,9 @@ func main() {
 	r.Post(path.Join(onboardingBase, "register"), onboardingHandlers.SelfRegister)
 	r.Post(path.Join(onboardingBase, "password", "reset", "request"), onboardingHandlers.RequestPasswordReset)
 	r.Post(path.Join(onboardingBase, "password", "reset", "confirm"), onboardingHandlers.ConfirmPasswordReset)
+
+	uploadsBase := path.Join(cfg.BasePath, "api", "uploads", "users")
+	r.Post(path.Join(uploadsBase, "profile-picture"), authn.WrapHandler(handlers.ProfilePictureUploadHandler(cfg.BasePath, diskAssetsDir)))
 
 	userActions := &handlers.UserActionHandlers{
 		Service:      usersService,
