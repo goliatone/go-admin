@@ -115,4 +115,3 @@ func applyConfigDefaults(cfg Config) Config {
 
 	return cfg
 }
-

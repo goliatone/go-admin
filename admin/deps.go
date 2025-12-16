@@ -86,4 +86,3 @@ func (d Dependencies) validate(cfg Config) error {
 	}
 	return InvalidDependenciesError{Issues: issues}
 }
-

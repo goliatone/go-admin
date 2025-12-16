@@ -163,28 +163,36 @@ func ConvertMenuItems(items []MenuItem, t Translator, locale string) []Navigatio
 		if groupTitleKey == "" {
 			groupTitleKey = translated.LabelKey
 		}
-			groupTitle := translated.GroupTitle
-			if groupTitle == "" {
-				groupTitle = translated.Label
-			}
-			translated.GroupTitleKey = groupTitleKey
-			translated.GroupTitle = translateValue(groupTitle, groupTitleKey, t, locale)
-
-			if !translated.Collapsible && boolFromTarget(translated.Target, "collapsible") {
-				translated.Collapsible = true
-			}
-			if !translated.Collapsed && boolFromTarget(translated.Target, "collapsed") {
-				translated.Collapsed = true
-			}
-
-			out = append(out, translated)
+		groupTitle := translated.GroupTitle
+		if groupTitle == "" {
+			groupTitle = translated.Label
 		}
-		return out
+		translated.GroupTitleKey = groupTitleKey
+		translated.GroupTitle = translateValue(groupTitle, groupTitleKey, t, locale)
+
+		if !translated.Collapsible && boolFromTarget(translated.Target, "collapsible") {
+			translated.Collapsible = true
+		}
+		if !translated.Collapsed && boolFromTarget(translated.Target, "collapsed") {
+			translated.Collapsed = true
+		}
+
+		out = append(out, translated)
 	}
+	return out
+}
 
 func orderNavigation(items []NavigationItem) []NavigationItem {
+	posKey := func(item NavigationItem) int {
+		if item.Position == nil {
+			return int(^uint(0) >> 1)
+		}
+		return *item.Position
+	}
 	sort.Slice(items, func(i, j int) bool {
-		if items[i].Position == items[j].Position {
+		pi := posKey(items[i])
+		pj := posKey(items[j])
+		if pi == pj {
 			if items[i].order == items[j].order {
 				if items[i].ID == items[j].ID {
 					return items[i].Label < items[j].Label
@@ -193,7 +201,7 @@ func orderNavigation(items []NavigationItem) []NavigationItem {
 			}
 			return items[i].order < items[j].order
 		}
-		return items[i].Position < items[j].Position
+		return pi < pj
 	})
 	for idx := range items {
 		items[idx].Children = orderNavigation(items[idx].Children)
