@@ -7,6 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	formgen "github.com/goliatone/go-formgen"
+	formgenvanilla "github.com/goliatone/go-formgen/pkg/renderers/vanilla"
 	"github.com/goliatone/go-router"
 )
 
@@ -26,6 +28,8 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 	}
 
 	r.Static("/admin/assets", ".", router.Static{FS: assetsFS, Root: "."})
+	r.Static("/runtime", ".", router.Static{FS: formgen.RuntimeAssetsFS(), Root: "."})
+	r.Static("/admin/formgen", ".", router.Static{FS: formgenvanilla.AssetsFS(), Root: "."})
 	adapter.Init()
 	app := adapter.WrappedRouter()
 
@@ -36,7 +40,11 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 		{path: "/admin/assets/logo.svg"},
 		{path: "/admin/assets/sidebar.js"},
 		{path: "/admin/assets/dist/dashboard/index.js"},
+		// Legacy (example-only) uploader bundle; kept for now.
 		{path: "/admin/assets/dist/formgen/file_uploader.js"},
+		// go-formgen v0.6+ assets used by runtime file_uploader.
+		{path: "/runtime/formgen-relationships.min.js"},
+		{path: "/admin/formgen/formgen-vanilla.css"},
 	}
 
 	for _, tt := range tests {
