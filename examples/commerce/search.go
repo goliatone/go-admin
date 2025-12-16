@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 func registerSearch(adm *admin.Admin, data *stores.CommerceStores, basePath string) {

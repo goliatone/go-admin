@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 func registerCommands(adm *admin.Admin, data *stores.CommerceStores) {

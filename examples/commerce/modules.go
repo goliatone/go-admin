@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 type commerceModule struct {
@@ -64,7 +64,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 			Target:   map[string]any{"type": "url", "path": m.basePath, "key": "dashboard"},
 			Locale:   locale,
 			Menu:     code,
-			Position: 5,
+			Position: admin.IntPtr(5),
 		},
 		{
 			Label:    "Users",
@@ -73,7 +73,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 			Target:   map[string]any{"type": "url", "path": path.Join(m.basePath, "users"), "key": "users"},
 			Locale:   locale,
 			Menu:     code,
-			Position: 10,
+			Position: admin.IntPtr(10),
 		},
 		{
 			Label:    "Products",
@@ -82,7 +82,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 			Target:   map[string]any{"type": "url", "path": path.Join(m.basePath, "products"), "key": "products"},
 			Locale:   locale,
 			Menu:     code,
-			Position: 20,
+			Position: admin.IntPtr(20),
 		},
 		{
 			Label:    "Orders",
@@ -91,7 +91,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 			Target:   map[string]any{"type": "url", "path": path.Join(m.basePath, "orders"), "key": "orders"},
 			Locale:   locale,
 			Menu:     code,
-			Position: 30,
+			Position: admin.IntPtr(30),
 		},
 	}
 	return items

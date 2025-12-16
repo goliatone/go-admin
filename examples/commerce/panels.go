@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 func newUserPanel(store *stores.CommerceStores) *admin.PanelBuilder {

@@ -6,8 +6,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-router"
 )
