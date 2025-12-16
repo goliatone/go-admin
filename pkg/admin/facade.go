@@ -11,45 +11,47 @@ import (
 	users "github.com/goliatone/go-users/pkg/types"
 )
 
+func IntPtr(v int) *int { return &v }
+
 type (
-	Action        = core.Action
-	ActivityEntry = core.ActivityEntry
-	ActivityFilter = core.ActivityFilter
-	ActivityLogger = core.ActivityLogger
-	ActivityRecord = core.ActivityRecord
+	Action               = core.Action
+	ActivityEntry        = core.ActivityEntry
+	ActivityFilter       = core.ActivityFilter
+	ActivityLogger       = core.ActivityLogger
+	ActivityRecord       = core.ActivityRecord
 	ActivityRecordLister = core.ActivityRecordLister
-	ActivitySink          = core.ActivitySink
-	ActivitySinkAdapter   = core.ActivitySinkAdapter
+	ActivitySink         = core.ActivitySink
+	ActivitySinkAdapter  = core.ActivitySinkAdapter
 
 	Admin        = core.Admin
 	AdminContext = core.AdminContext
 	AuthConfig   = core.AuthConfig
 	Authorizer   = core.Authorizer
 
-	BunRecordMapper[T any]     = core.BunRecordMapper[T]
+	BunRecordMapper[T any]      = core.BunRecordMapper[T]
 	BunRepositoryAdapter[T any] = core.BunRepositoryAdapter[T]
 	BunRepositoryOption[T any]  = core.BunRepositoryOption[T]
 
 	CLIOptions = core.CLIOptions
 
-	CMSBlock            = core.CMSBlock
-	CMSBlockDefinition  = core.CMSBlockDefinition
-	CMSContent          = core.CMSContent
+	CMSBlock             = core.CMSBlock
+	CMSBlockDefinition   = core.CMSBlockDefinition
+	CMSContent           = core.CMSContent
 	CMSContentRepository = core.CMSContentRepository
-	CMSContentService   = core.CMSContentService
-	CMSMenuService      = core.CMSMenuService
-	CMSOptions          = core.CMSOptions
-	CMSPage             = core.CMSPage
-	CMSPageRepository   = core.CMSPageRepository
-	CMSWidgetService    = core.CMSWidgetService
+	CMSContentService    = core.CMSContentService
+	CMSMenuService       = core.CMSMenuService
+	CMSOptions           = core.CMSOptions
+	CMSPage              = core.CMSPage
+	CMSPageRepository    = core.CMSPageRepository
+	CMSWidgetService     = core.CMSWidgetService
 
 	Config       = core.Config
 	Dependencies = core.Dependencies
 
-	Dashboard            = core.Dashboard
-	DashboardLayout      = core.DashboardLayout
+	Dashboard             = core.Dashboard
+	DashboardLayout       = core.DashboardLayout
 	DashboardProviderSpec = core.DashboardProviderSpec
-	DashboardRenderer    = core.DashboardRenderer
+	DashboardRenderer     = core.DashboardRenderer
 
 	FeatureGates = core.FeatureGates
 	FeatureKey   = core.FeatureKey
@@ -114,8 +116,8 @@ type (
 	SettingsBundle = core.SettingsBundle
 	SettingsScope  = core.SettingsScope
 
-	TenantMember = core.TenantMember
-	TenantRecord = core.TenantRecord
+	TenantMember  = core.TenantMember
+	TenantRecord  = core.TenantRecord
 	TenantService = core.TenantService
 
 	ThemeSelector = core.ThemeSelector
