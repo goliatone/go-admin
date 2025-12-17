@@ -568,3 +568,169 @@
   @apply bg-blue-600 hover:bg-blue-700;
   @apply text-white border-none;
 }
+
+/* ============================================================================
+   Column Manager (DataGrid column visibility + reorder)
+   ============================================================================ */
+
+/* Column item row */
+.column-item {
+  @apply flex items-center justify-between gap-3;
+  @apply p-3 rounded-lg;
+  @apply hover:bg-gray-50;
+  @apply cursor-default;
+  @apply transition-colors duration-150;
+}
+
+/* Content wrapper (drag handle + label) */
+.column-item-content {
+  @apply flex items-center gap-3;
+  @apply flex-1;
+}
+
+/* Drag handle */
+.drag-handle {
+  @apply w-4 h-4 text-gray-400;
+  @apply cursor-grab;
+  @apply flex-shrink-0;
+  @apply transition-colors duration-150;
+}
+
+.drag-handle:hover {
+  @apply text-gray-600;
+}
+
+.drag-handle:active {
+  @apply cursor-grabbing;
+}
+
+/* Column label */
+.column-label {
+  @apply text-sm text-gray-700;
+  @apply select-none;
+}
+
+/* iOS-style Switch Toggle */
+.column-switch {
+  @apply relative inline-block;
+  @apply w-11 h-6;
+  @apply flex-shrink-0;
+}
+
+.column-switch input {
+  @apply opacity-0 w-0 h-0;
+  position: absolute;
+}
+
+.column-switch-slider {
+  @apply absolute cursor-pointer inset-0;
+  @apply bg-gray-300;
+  @apply rounded-full;
+  @apply transition-all duration-300;
+}
+
+.column-switch-slider:before {
+  @apply absolute;
+  @apply h-5 w-5;
+  @apply bg-white;
+  @apply rounded-full;
+  @apply transition-transform duration-300;
+  content: '';
+  left: 2px;
+  bottom: 2px;
+}
+
+.column-switch input:checked + .column-switch-slider {
+  @apply bg-blue-600;
+}
+
+.column-switch input:checked + .column-switch-slider:before {
+  transform: translateX(20px);
+}
+
+.column-switch input:focus + .column-switch-slider {
+  @apply ring-2 ring-blue-500 ring-offset-2;
+}
+
+/* SortableJS drag states */
+.column-item-ghost {
+  @apply opacity-50 bg-blue-50;
+}
+
+.column-item-drag {
+  @apply opacity-0;
+}
+
+.column-item-chosen {
+  @apply bg-gray-100;
+}
+
+/* Column list wrapper */
+.column-list {
+  @apply max-h-64 overflow-y-auto;
+}
+
+/* Column manager footer with reset button */
+.column-manager-footer {
+  @apply border-t border-gray-200;
+  @apply mt-2 pt-2;
+}
+
+/* Reset to Default button */
+.column-reset-btn {
+  @apply w-full flex items-center justify-center gap-2;
+  @apply py-2 px-3;
+  @apply text-sm text-gray-600;
+  @apply rounded-lg;
+  @apply hover:bg-gray-100 hover:text-gray-800;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1;
+  @apply transition-colors duration-150;
+}
+
+.column-reset-icon {
+  @apply w-4 h-4;
+}
+
+/* Focus visible states for keyboard navigation */
+.column-item:focus-within {
+  @apply outline-none ring-2 ring-blue-500 ring-offset-1 rounded-lg;
+}
+
+/* Drag handle focus state (for potential keyboard reordering) */
+.drag-handle:focus {
+  @apply outline-none ring-2 ring-blue-500 rounded;
+}
+
+/* High contrast focus for switches */
+.column-switch input:focus-visible + .column-switch-slider {
+  @apply ring-2 ring-blue-500 ring-offset-2;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+/* Touch-friendly drag handle - larger touch target on mobile */
+@media (pointer: coarse) {
+  .drag-handle {
+    @apply w-6 h-6;
+    @apply p-1;
+    @apply -ml-1;  /* Compensate for padding */
+    touch-action: none;
+  }
+
+  .column-item {
+    @apply py-4;  /* More vertical space for touch */
+  }
+
+  .column-switch {
+    @apply w-14 h-8;  /* Larger switch on touch devices */
+  }
+
+  .column-switch-slider:before {
+    @apply h-7 w-7;
+    left: 2px;
+    bottom: 2px;
+  }
+
+  .column-switch input:checked + .column-switch-slider:before {
+    transform: translateX(24px);
+  }
+}
