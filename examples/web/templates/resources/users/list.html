@@ -128,18 +128,14 @@
             </div>
           </div>
 
-          <!-- Per Page Selector -->
-          <div class="flex items-center gap-x-2">
-            <span class="text-sm text-gray-600 whitespace-nowrap">Per page:</span>
-            <select id="table-per-page"
-                    class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
-              <option value="5">5</option>
-              <option value="10" selected>10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-          </div>
+          <!-- Refresh Button -->
+          <button id="refresh-btn" type="button"
+                  class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
+                  aria-label="Refresh table">
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+          </button>
         </div>
       </div>
   </div>
@@ -159,20 +155,55 @@
                 <span class="sr-only">Select all</span>
               </label>
             </th>
-            <th scope="col" data-column="email" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Email
+            <th scope="col" data-column="email" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Email</span>
+                <button type="button" data-sort-column="email" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Email">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
             </th>
-            <th scope="col" data-column="username" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Username
+            <th scope="col" data-column="username" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Username</span>
+                <button type="button" data-sort-column="username" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Username">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
             </th>
-            <th scope="col" data-column="role" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Role
+            <th scope="col" data-column="role" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Role</span>
+                <button type="button" data-sort-column="role" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Role">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
             </th>
-            <th scope="col" data-column="status" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Status
+            <th scope="col" data-column="status" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Status</span>
+                <button type="button" data-sort-column="status" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Status">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
             </th>
-            <th scope="col" data-column="created_at" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Created
+            <th scope="col" data-column="created_at" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Created</span>
+                <button type="button" data-sort-column="created_at" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Created">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
             </th>
             <th scope="col" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
@@ -220,39 +251,34 @@
 
   <!-- Pagination Footer -->
   <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
-    <div class="flex items-center justify-between">
-      <div>
+    <div class="flex items-center justify-between gap-4">
+      <!-- Left: Info text -->
+      <div class="flex-shrink-0">
         <p class="text-sm text-gray-600">
           Showing <span class="font-medium" id="table-info-start">1</span> to
           <span class="font-medium" id="table-info-end">10</span> of
           <span class="font-medium" id="table-info-total">{{ total|default:"0" }}</span> results
         </p>
       </div>
-      <div>
+
+      <!-- Center: Pagination buttons -->
+      <div class="flex-1 flex justify-center">
         <nav id="table-pagination" class="flex items-center gap-x-1">
           <!-- Pagination buttons will be inserted here -->
         </nav>
       </div>
-    </div>
-  </div>
 
-  <!-- Bulk Actions Bar (shown when items selected) -->
-  <div id="bulk-actions-bar" class="hidden mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-    <div class="flex items-center justify-between">
-      <span class="text-sm text-blue-900">
-        <span id="selected-count" class="font-semibold">0</span> items selected
-      </span>
-      <div class="flex gap-2">
-        <button type="button"
-                onclick="bulkAction('export')"
-                class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white disabled:opacity-50 disabled:pointer-events-none">
-          Export Selected
-        </button>
-        <button type="button"
-                onclick="bulkAction('delete')"
-                class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-red-600 text-red-600 hover:bg-red-600 hover:text-white disabled:opacity-50 disabled:pointer-events-none">
-          Delete Selected
-        </button>
+      <!-- Right: Per Page selector -->
+      <div class="flex items-center gap-x-2 flex-shrink-0">
+        <span class="text-sm text-gray-600 whitespace-nowrap">Per page:</span>
+        <select id="table-per-page"
+                class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
       </div>
     </div>
   </div>
@@ -268,6 +294,49 @@
 
   <!-- Overlay for filter panel -->
   <div id="filter-overlay" class="hidden fixed inset-0 bg-black opacity-30 z-40"></div>
+
+  <!-- Floating Bulk Actions Bar -->
+  <div id="bulk-actions-overlay" class="bulk-actions-overlay hidden">
+    <div class="bulk-actions-bar">
+      <!-- Left: Close + Count -->
+      <div class="flex items-center gap-4">
+        <button id="bulk-clear-selection" class="bulk-close-btn" aria-label="Clear selection">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+        <span class="bulk-count-text">Selected: <span id="selected-count">0</span></span>
+      </div>
+
+      <!-- Right: Action Buttons -->
+      <div class="flex items-center gap-2">
+        <button class="bulk-action-btn" data-bulk-action="bulk-export">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Export
+        </button>
+        <button class="bulk-action-btn" data-bulk-action="bulk-activate">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Activate
+        </button>
+        <button class="bulk-action-btn" data-bulk-action="bulk-suspend">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Suspend
+        </button>
+        <!-- More actions dropdown trigger -->
+        <button class="bulk-action-btn-icon" id="bulk-more-btn" aria-label="More actions">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -285,45 +354,56 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       const response = await fetch(`/admin/api/users/${userId}/${action}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Action failed' }));
-        throw new Error(error.error || `HTTP ${response.status}`);
+        const errorMsg = await window.extractErrorMessage(response);
+        window.toastManager.error(errorMsg);
+        throw new Error(errorMsg);
       }
 
       // Refresh the grid to show updated status
       grid.refresh();
 
       // Show success message
-      console.log(`User ${action} successful`);
+      const actionLabel = action.replace('-', ' ');
+      window.toastManager.success(`User ${actionLabel} successful`);
     } catch (error) {
       console.error(`Failed to ${action} user:`, error);
-      alert(`Failed to ${action} user: ${error.message}`);
+      // Error already shown via toast above
     }
   }
 
   // Password reset handler
   async function resetPassword(userId) {
-    if (!confirm('Send password reset email to this user?')) {
+    const confirmed = await window.toastManager.confirm('Send password reset email to this user?');
+    if (!confirmed) {
       return;
     }
 
     try {
       const response = await fetch(`/admin/api/users/${userId}/reset-password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
       });
 
       if (!response.ok) {
-        throw new Error('Password reset request failed');
+        const errorMsg = await window.extractErrorMessage(response);
+        window.toastManager.error(errorMsg);
+        throw new Error(errorMsg);
       }
 
-      alert('Password reset email sent successfully');
+      window.toastManager.success('Password reset email sent successfully');
     } catch (error) {
       console.error('Failed to send password reset:', error);
-      alert(`Failed to send password reset: ${error.message}`);
+      // Error already shown via toast above
     }
   }
 
@@ -482,20 +562,39 @@ document.addEventListener('DOMContentLoaded', function() {
       tableInfoTotal: '#table-info-total',
       selectAllCheckbox: '#table-checkbox-all',
       rowCheckboxes: '.table-checkbox',
-      bulkActionsBar: '#bulk-actions-bar',
+      bulkActionsBar: '#bulk-actions-overlay',
       selectedCount: '#selected-count'
-    }
+    },
+
+    // Wire toast notification system (initialized globally in layout.html)
+    notifier: window.toastManager
   });
 
   // Initialize the grid
   grid.init();
 
+  // Bind refresh button
+  const refreshBtn = document.getElementById('refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.classList.add('opacity-50');
+      try {
+        await grid.refresh();
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.classList.remove('opacity-50');
+      }
+    });
+  }
+
   // Initialize FilterBuilder
-  const filterBuilder = new FilterBuilder({
-    fields: [
-      { name: 'username', label: 'Username', type: 'text' },
-      { name: 'email', label: 'Email', type: 'text' },
-      { name: 'role', label: 'Role', type: 'select', options: [
+	  const filterBuilder = new FilterBuilder({
+	    notifier: window.toastManager,
+	    fields: [
+	      { name: 'username', label: 'Username', type: 'text' },
+	      { name: 'email', label: 'Email', type: 'text' },
+	      { name: 'role', label: 'Role', type: 'select', options: [
         { label: 'Admin', value: 'admin' },
         { label: 'Editor', value: 'editor' },
         { label: 'Member', value: 'member' },

@@ -18,7 +18,14 @@
   {% block head_extra %}{% endblock %}
 </head>
 <body class="font-sans bg-gray-50 text-gray-900 leading-normal">
+  <!-- Toast notification container -->
+  {% include "partials/toast-container.html" %}
+
   {% block content %}{% endblock %}
+
+  <!-- Initialize toast manager globally -->
+  <script type="module" src="{{ base_path }}/assets/dist/toast/init.js"></script>
+
   {% block scripts %}{% endblock %}
 </body>
 </html>

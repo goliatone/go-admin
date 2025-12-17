@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if is_edit %}Edit {{ resource_label|default:resource|title }}{% else %}New {{ resource_label|default:resource|title }}{% endif %} - {{ title }}{% endblock %}
+
+{% block content %}
+  <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+    <h1 class="text-3xl font-bold text-admin-dark">{% if is_edit %}Edit{% else %}Create{% endif %} {{ resource_label|default:resource|title }}</h1>
+    {% if routes.index %}
+      <a href="{{ routes.index }}" class="btn btn-secondary">
+        <i class="iconoir-arrow-left"></i>
+        Back to {{ resource_label|default:resource|title }}
+      </a>
+    {% endif %}
+  </header>
+
+  <div class="flex-1 p-8 overflow-y-auto">
+    {{ form_html|safe }}
+  </div>
+{% endblock %}

@@ -323,10 +323,11 @@ document.addEventListener('DOMContentLoaded', function() {
   grid.init();
 
   // Initialize FilterBuilder
-  const filterBuilder = new FilterBuilder({
-    fields: [
-      { name: 'title', label: 'Title', type: 'text' },
-      { name: 'slug', label: 'Slug', type: 'text' },
+	  const filterBuilder = new FilterBuilder({
+	    notifier: window.toastManager,
+	    fields: [
+	      { name: 'title', label: 'Title', type: 'text' },
+	      { name: 'slug', label: 'Slug', type: 'text' },
       { name: 'status', label: 'Status', type: 'select', options: [
         { label: 'Draft', value: 'draft' },
         { label: 'Published', value: 'published' },

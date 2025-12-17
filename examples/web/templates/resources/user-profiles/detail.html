@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}{{ resource_label|default:resource|title }} - {{ resource_item.username|default:resource_item.id }}{% endblock %}
+{% block title %}{{ resource_label|default:resource|title }} - {{ resource_item.display_name|default:resource_item.id }}{% endblock %}
 
 {% block content %}
   <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
@@ -25,11 +25,12 @@
     <div class="max-w-3xl bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div class="p-8 bg-gradient-to-br from-blue-900 to-blue-800 text-white flex items-center gap-6">
         <div class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold border-3 border-white/30">
-          {{ resource_item.username|default:resource_item.display_name|default:resource_item.email|default:resource_item.id|slice:"0:1"|upper }}
+          {{ resource_item.display_name|default:resource_item.email|default:resource_item.id|slice:"0:1"|upper }}
         </div>
         <div>
-          <h2 class="text-2xl mb-1">{{ resource_item.username|default:resource_item.display_name|default:resource_item.id }}</h2>
+          <h2 class="text-2xl mb-1">{{ resource_item.display_name|default:"(unnamed)" }}</h2>
           <p class="opacity-90 text-base">{{ resource_item.email|default:"" }}</p>
+          <p class="opacity-80 text-sm">User ID: {{ resource_item.id }}</p>
         </div>
       </div>
       <div class="p-8 space-y-8">

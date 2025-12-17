@@ -1,0 +1,420 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ resource_label|default:resource|title }} - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
+  <div class="flex gap-3">
+    <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ resource_label|default:resource|title }}</a>
+  </div>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  {% if items %}
+  <!-- DataTable Toolbar -->
+  <div class="bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm">
+      <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+        <!-- Left: Search/Filter Area -->
+        <div class="relative max-w-2xl w-full flex flex-col gap-2">
+          <div class="flex gap-2">
+            <button type="button"
+                    id="filter-toggle-btn"
+                    class="h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50">
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              Filter
+            </button>
+            <div class="relative flex-1">
+              <label for="table-search" class="sr-only">Search</label>
+              <div class="relative h-10">
+                <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3">
+                  <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.3-4.3"/>
+                  </svg>
+                </div>
+                <input type="text"
+                       id="table-search"
+                       class="w-full h-full ps-9 pe-8 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-0 focus:border-gray-200"
+                       placeholder="Search">
+                <button type="button"
+                        id="clear-search-btn"
+                        class="hidden absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 hover:text-gray-600"
+                        aria-label="Clear search">
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="applied-filter-preview" class="hidden text-xs text-gray-600">
+            <span class="font-medium">Applied filter:</span>
+            <span id="filter-preview-text" class="ml-1"></span>
+            <button type="button" id="clear-filters-btn" class="ml-2 text-red-600 hover:text-red-800">
+              <svg class="inline h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+              </svg>
+            </button>
+          </div>
+
+          <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
+          </div>
+        </div>
+
+        <!-- Right: Controls -->
+        <div class="flex items-center gap-x-3">
+          <div class="relative">
+            <button id="column-toggle-btn" type="button"
+                    data-dropdown-toggle="column-toggle-menu"
+                    class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
+              <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              Columns
+            </button>
+            <div id="column-toggle-menu" class="hidden absolute right-0 z-10 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div class="p-3 space-y-2">
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="id" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">User ID</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="display_name" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Display Name</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="email" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Email</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="locale" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Locale</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="timezone" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Timezone</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="bio" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Bio</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="updated_at" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Updated</span>
+                </label>
+                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
+                  <input type="checkbox" data-column="created_at" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
+                  <span class="text-sm">Created</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <button id="refresh-btn" type="button"
+                  class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
+                  aria-label="Refresh table">
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+    <div class="overflow-x-auto">
+      <table id="user-profiles-datatable" class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-start">
+              <label class="flex">
+                <input type="checkbox"
+                       id="table-checkbox-all"
+                       class="shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none">
+                <span class="sr-only">Select all</span>
+              </label>
+            </th>
+            <th scope="col" data-column="id" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>User ID</span>
+                <button type="button" data-sort-column="id" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by User ID">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+            <th scope="col" data-column="display_name" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Display Name</span>
+                <button type="button" data-sort-column="display_name" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Display Name">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+            <th scope="col" data-column="email" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Email</span>
+                <button type="button" data-sort-column="email" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Email">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+            <th scope="col" data-column="locale" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Locale</span>
+                <button type="button" data-sort-column="locale" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Locale">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+            <th scope="col" data-column="timezone" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Timezone</span>
+                <button type="button" data-sort-column="timezone" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Timezone">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+            <th scope="col" data-column="bio" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Bio</span>
+                <button type="button" data-sort-column="bio" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Bio">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+            <th scope="col" data-column="updated_at" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Updated</span>
+                <button type="button" data-sort-column="updated_at" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Updated">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+            <th scope="col" data-column="created_at" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2 group">
+                <span>Created</span>
+                <button type="button" data-sort-column="created_at" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Created">
+                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+            <th scope="col" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+          <tr class="bg-gray-100" id="filter-row">
+            <th></th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="id" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="display_name" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="email" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="locale" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="timezone" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="bio" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="updated_at" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-2">
+              <input type="text" data-filter-column="created_at" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex-shrink-0">
+        <p class="text-sm text-gray-600">
+          Showing <span class="font-medium" id="table-info-start">1</span> to
+          <span class="font-medium" id="table-info-end">10</span> of
+          <span class="font-medium" id="table-info-total">{{ total|default:"0" }}</span> results
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <label for="table-per-page" class="text-sm text-gray-600">Show</label>
+          <select id="table-per-page" class="border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div id="table-pagination" class="flex items-center gap-1"></div>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="bg-white border border-gray-200 rounded-xl p-12 text-center">
+    <h3 class="text-lg font-medium text-gray-900 mb-2">No profiles found</h3>
+    <p class="text-gray-600 mb-6">Get started by creating a new user profile.</p>
+    <a href="{{ routes.new }}" class="btn btn-primary">+ New User Profile</a>
+  </div>
+  {% endif %}
+</div>
+
+{% if items %}
+<script type="module">
+import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
+
+document.addEventListener('DOMContentLoaded', () => {
+  const actionBasePath = '{{ base_path }}/user-profiles';
+
+  const grid = new DataGrid({
+    tableId: 'user-profiles-datatable',
+    apiEndpoint: '{{ base_path }}/crud/user-profiles',
+    actionBasePath: actionBasePath,
+    columns: [
+      { field: 'id', label: 'User ID', sortable: true, filterable: true },
+      { field: 'display_name', label: 'Display Name', sortable: true, filterable: true },
+      { field: 'email', label: 'Email', sortable: true, filterable: true },
+      { field: 'locale', label: 'Locale', sortable: true, filterable: true },
+      { field: 'timezone', label: 'Timezone', sortable: true, filterable: true },
+      { field: 'bio', label: 'Bio', sortable: true, filterable: true },
+      { field: 'updated_at', label: 'Updated', sortable: true, filterable: true },
+      { field: 'created_at', label: 'Created', sortable: true, filterable: true }
+    ],
+    perPage: 10,
+    searchDelay: 300,
+
+    rowActions: (profile) => {
+      return [
+        {
+          label: 'View',
+          icon: 'eye',
+          action: (p) => window.location.href = `${actionBasePath}/${p.id}`,
+          variant: 'secondary'
+        },
+        {
+          label: 'Edit',
+          icon: 'edit',
+          action: (p) => window.location.href = `${actionBasePath}/${p.id}/edit`,
+          variant: 'primary'
+        }
+      ];
+    },
+
+    cellRenderers: {
+      'email': (value, record) => {
+        const label = value || '(none)';
+        return `<a href="${actionBasePath}/${record.id}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">${label}</a>`;
+      },
+      'display_name': (value, record) => {
+        const label = value || '(unnamed)';
+        return `<a href="${actionBasePath}/${record.id}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">${label}</a>`;
+      }
+    },
+
+    behaviors: {
+      search: new GoCrudSearchBehavior(['display_name', 'email']),
+      filter: new GoCrudFilterBehavior(),
+      pagination: new GoCrudPaginationBehavior(),
+      sort: new GoCrudSortBehavior(),
+      columnVisibility: new DefaultColumnVisibilityBehavior(
+        ['id', 'display_name', 'email', 'locale', 'timezone', 'bio', 'updated_at', 'created_at'],
+        'user_profiles_datatable_columns'
+      )
+    },
+    selectors: {
+      searchInput: '#table-search',
+      perPageSelect: '#table-per-page',
+      filterRow: '[data-filter-column]',
+      columnToggleBtn: '#column-toggle-btn',
+      columnToggleMenu: '#column-toggle-menu',
+      paginationContainer: '#table-pagination',
+      tableInfoStart: '#table-info-start',
+      tableInfoEnd: '#table-info-end',
+      tableInfoTotal: '#table-info-total',
+      selectAllCheckbox: '#table-checkbox-all',
+      rowCheckboxes: '.table-checkbox'
+    }
+  });
+
+  grid.init();
+
+  const refreshBtn = document.getElementById('refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.classList.add('opacity-50');
+      try {
+        await grid.refresh();
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.classList.remove('opacity-50');
+      }
+    });
+  }
+
+  const filterBuilder = new FilterBuilder({
+    fields: [
+      { name: 'id', label: 'User ID', type: 'text' },
+      { name: 'display_name', label: 'Display Name', type: 'text' },
+      { name: 'email', label: 'Email', type: 'text' },
+      { name: 'locale', label: 'Locale', type: 'text' },
+      { name: 'timezone', label: 'Timezone', type: 'text' },
+      { name: 'bio', label: 'Bio', type: 'text' }
+    ],
+    onApply: (structure) => {
+      const filters = [];
+      structure.groups.forEach(group => {
+        group.conditions.forEach(condition => {
+          filters.push({
+            column: condition.field,
+            operator: condition.operator,
+            value: condition.value
+          });
+        });
+      });
+      grid.state.filters = filters;
+      grid.resetPagination();
+      grid.pushStateToURL();
+      grid.refresh();
+    },
+    onClear: () => {
+      grid.state.search = '';
+      grid.state.filters = [];
+      grid.pushStateToURL();
+      grid.refresh();
+    }
+  });
+});
+</script>
+{% endif %}
+{% endblock %}

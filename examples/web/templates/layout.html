@@ -42,12 +42,19 @@
   {% block head_extra %}{% endblock %}
 </head>
 <body class="font-sans bg-gray-50 text-gray-900 leading-normal flex h-screen overflow-hidden" data-theme="{{ theme.selection.variant|default:"default" }}">
+  <!-- Toast notification container -->
+  {% include "partials/toast-container.html" %}
+
   <div class="flex w-full h-screen overflow-hidden">
     {% include "partials/sidebar.html" %}
     <main class="flex-1 flex flex-col overflow-hidden">
       {% block content %}{% endblock %}
     </main>
   </div>
+
+  <!-- Initialize toast manager globally -->
+  <script type="module" src="{{ base_path }}/assets/dist/toast/init.js"></script>
+
   <script src="{{ base_path }}/assets/sidebar.js"></script>
   {% block scripts %}{% endblock %}
 </body>

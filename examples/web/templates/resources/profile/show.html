@@ -1,0 +1,116 @@
+{% extends "layout.html" %}
+
+{% block title %}Profile - {{ title }}{% endblock %}
+
+{% block content %}
+  <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+    <div>
+      <h1 class="text-3xl font-bold text-admin-dark">Profile</h1>
+      <p class="text-sm text-gray-500 mt-1">Manage your personal details.</p>
+    </div>
+    {% if not can_edit %}
+      <span class="text-sm text-gray-500">Read-only</span>
+    {% endif %}
+  </header>
+
+  <div class="flex-1 p-8 overflow-y-auto">
+    {% if saved %}
+      <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800">
+        Profile saved.
+      </div>
+    {% endif %}
+
+    {% if errors %}
+      <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+        Please fix the highlighted fields.
+      </div>
+    {% endif %}
+
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+      <form method="post" action="">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="md:col-span-1">
+            <div class="flex items-center gap-4">
+              <img src="{% if profile.avatar_url %}{{ profile.avatar_url }}{% else %}{{ base_path }}/assets/avatar-default.svg{% endif %}" alt="Avatar" class="h-14 w-14 rounded-full border border-gray-200 object-cover bg-gray-100" />
+              <div class="min-w-0">
+                <div class="text-sm font-medium text-gray-900 truncate">{{ profile.display_name|default:"" }}</div>
+                <div class="text-xs text-gray-500 truncate">{{ profile.email|default:"" }}</div>
+              </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-4">
+              Changes here persist via the same store as <code>{{ base_path }}/api/profile</code>.
+            </p>
+          </div>
+
+          <div class="md:col-span-2 space-y-5">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Name</label>
+              <input name="display_name" value="{{ profile.display_name|default:'' }}"
+                     {% if not can_edit %}disabled{% endif %}
+                     class="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-gray-300 {% if errors.display_name %}border-red-300{% endif %}">
+              {% if errors.display_name %}
+                {% for msg in errors.display_name %}
+                  <p class="mt-1 text-sm text-red-700">{{ msg }}</p>
+                {% endfor %}
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Email</label>
+              <input name="email" type="email" value="{{ profile.email|default:'' }}"
+                     {% if not can_edit %}disabled{% endif %}
+                     class="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-gray-300 {% if errors.email %}border-red-300{% endif %}">
+              {% if errors.email %}
+                {% for msg in errors.email %}
+                  <p class="mt-1 text-sm text-red-700">{{ msg }}</p>
+                {% endfor %}
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Avatar URL</label>
+              <input name="avatar_url" value="{{ profile.avatar_url|default:'' }}"
+                     {% if not can_edit %}disabled{% endif %}
+                     class="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-gray-300">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Locale</label>
+                <input name="locale" value="{{ profile.locale|default:'' }}"
+                       {% if not can_edit %}disabled{% endif %}
+                       class="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-gray-300 {% if errors.locale %}border-red-300{% endif %}">
+                {% if errors.locale %}
+                  {% for msg in errors.locale %}
+                    <p class="mt-1 text-sm text-red-700">{{ msg }}</p>
+                  {% endfor %}
+                {% endif %}
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Timezone</label>
+                <input name="timezone" value="{{ profile.timezone|default:'' }}"
+                       {% if not can_edit %}disabled{% endif %}
+                       class="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-gray-300">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Bio</label>
+              <textarea name="bio" rows="4"
+                        {% if not can_edit %}disabled{% endif %}
+                        class="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-gray-300">{{ profile.bio|default:'' }}</textarea>
+            </div>
+
+            {% if can_edit %}
+              <div class="flex justify-end">
+                <button type="submit" class="btn btn-primary">
+                  Save Profile
+                </button>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

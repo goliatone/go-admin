@@ -28,13 +28,21 @@
 
 {% block scripts %}
 <script>
-function deleteResource(url) {
-  if (!confirm('Are you sure you want to delete this item?')) return;
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = url;
-  document.body.appendChild(form);
-  form.submit();
-}
+	async function deleteResource(url) {
+	  if (!window.toastManager) {
+	    console.error('[deleteResource] ToastManager not available');
+	    return;
+	  }
+	  const confirmed = await window.toastManager.confirm(
+	    'Are you sure you want to delete this item?',
+	    { title: 'Confirm Delete', confirmText: 'Delete', cancelText: 'Cancel' }
+	  );
+	  if (!confirmed) return;
+	  const form = document.createElement('form');
+	  form.method = 'POST';
+	  form.action = url;
+	  document.body.appendChild(form);
+	  form.submit();
+	}
 </script>
 {% endblock %}
