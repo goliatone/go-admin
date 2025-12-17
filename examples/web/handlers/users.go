@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"strings"
@@ -202,6 +203,8 @@ func (h *UserHandlers) Update(c router.Context) error {
 	id := c.Param("id")
 	ctx := c.Context()
 
+	metadataValue, metadataErr := normalizeMetadataObjectInput(c.FormValue("metadata"))
+
 	record := map[string]any{
 		"first_name":        c.FormValue("first_name"),
 		"last_name":         c.FormValue("last_name"),
@@ -212,11 +215,31 @@ func (h *UserHandlers) Update(c router.Context) error {
 		"is_email_verified": c.FormValue("is_email_verified") != "",
 		"role":              c.FormValue("role"),
 		"status":            c.FormValue("status"),
-		"metadata":          c.FormValue("metadata"),
+		"metadata":          metadataValue,
+	}
+
+	if metadataErr != nil {
+		return h.renderUserForm(c, updateUserOperation, formgenrender.RenderOptions{
+			Values: record,
+			Errors: map[string][]string{
+				"metadata": {metadataErr.Error()},
+			},
+			HiddenFields: map[string]string{
+				"id": id,
+			},
+		})
 	}
 
 	if _, err := h.Store.Update(ctx, id, record); err != nil {
-		return err
+		return h.renderUserForm(c, updateUserOperation, formgenrender.RenderOptions{
+			Values: record,
+			FormErrors: []string{
+				err.Error(),
+			},
+			HiddenFields: map[string]string{
+				"id": id,
+			},
+		})
 	}
 
 	return c.Redirect(path.Join(h.Config.BasePath, "users"))
@@ -298,4 +321,37 @@ func (h *UserHandlers) guard(c router.Context, action string) error {
 	return goerrors.New("forbidden", goerrors.CategoryAuthz).
 		WithCode(goerrors.CodeForbidden).
 		WithTextCode("FORBIDDEN")
+}
+
+func normalizeMetadataObjectInput(raw string) (any, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		// Treat empty as "clear metadata".
+		return "", nil
+	}
+
+	var decoded any
+	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+		return raw, fmt.Errorf("metadata must be a valid JSON object")
+	}
+
+	switch typed := decoded.(type) {
+	case map[string]any:
+		return typed, nil
+	case string:
+		inner := strings.TrimSpace(typed)
+		if inner == "" {
+			return "", nil
+		}
+		var innerDecoded any
+		if err := json.Unmarshal([]byte(inner), &innerDecoded); err != nil {
+			return raw, fmt.Errorf("metadata must be a JSON object, not a string")
+		}
+		if obj, ok := innerDecoded.(map[string]any); ok {
+			return obj, nil
+		}
+		return raw, fmt.Errorf("metadata must be a JSON object")
+	default:
+		return raw, fmt.Errorf("metadata must be a JSON object")
+	}
 }
