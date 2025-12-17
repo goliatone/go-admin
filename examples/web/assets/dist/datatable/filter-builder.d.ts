@@ -5,6 +5,7 @@
  * Renders a UI similar to query builders with drag-and-drop reordering.
  */
 import type { FilterStructure } from './behaviors/types.js';
+import type { ToastNotifier } from '../toast/types.js';
 export interface FieldDefinition {
     name: string;
     label: string;
@@ -19,6 +20,7 @@ export interface FilterBuilderConfig {
     fields: FieldDefinition[];
     onApply: (structure: FilterStructure) => void;
     onClear: () => void;
+    notifier?: ToastNotifier;
 }
 export declare class FilterBuilder {
     private config;
@@ -28,6 +30,7 @@ export declare class FilterBuilder {
     private previewElement;
     private sqlPreviewElement;
     private overlay;
+    private notifier;
     constructor(config: FilterBuilderConfig);
     private init;
     private buildPanelStructure;

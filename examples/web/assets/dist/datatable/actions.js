@@ -2,10 +2,13 @@
  * Action System for DataGrid
  * Provides extensible row and bulk action capabilities
  */
+import { FallbackNotifier } from '../toast/toast-manager.js';
+import { extractErrorMessage } from '../toast/error-helpers.js';
 export class ActionRenderer {
     constructor(config = {}) {
         this.actionBasePath = config.actionBasePath || '';
         this.mode = config.mode || 'dropdown'; // Default to dropdown
+        this.notifier = config.notifier || new FallbackNotifier();
     }
     /**
      * Render row actions as HTML
@@ -145,6 +148,8 @@ export class ActionRenderer {
                         }
                         catch (error) {
                             console.error(`Action "${action.label}" failed:`, error);
+                            const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
+                            this.notifier.error(errorMsg);
                         }
                     });
                 }
@@ -196,10 +201,11 @@ export class ActionRenderer {
             console.warn(`Bulk action "${config.id}" guard failed`);
             return;
         }
-        // Confirm if needed
+        // Confirm if needed - use notifier's async confirm
         if (config.confirm) {
             const message = config.confirm.replace('{count}', selectedIds.length.toString());
-            if (!confirm(message)) {
+            const confirmed = await this.notifier.confirm(message);
+            if (!confirmed) {
                 return;
             }
         }
@@ -208,11 +214,14 @@ export class ActionRenderer {
                 method: config.method || 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                 },
                 body: JSON.stringify({ ids: selectedIds }),
             });
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorMsg = await extractErrorMessage(response);
+                this.notifier.error(errorMsg);
+                throw new Error(errorMsg);
             }
             const data = await response.json();
             if (config.onSuccess) {
@@ -221,6 +230,11 @@ export class ActionRenderer {
         }
         catch (error) {
             console.error(`Bulk action "${config.id}" failed:`, error);
+            // Show error toast if onError callback didn't handle it
+            if (!config.onError) {
+                const errorMsg = error instanceof Error ? error.message : 'Bulk action failed';
+                this.notifier.error(errorMsg);
+            }
             if (config.onError) {
                 config.onError(error);
             }

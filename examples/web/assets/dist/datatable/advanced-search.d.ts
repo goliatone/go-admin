@@ -2,6 +2,7 @@
  * Advanced Search Component
  * Provides a query builder UI for complex search queries
  */
+import type { ToastNotifier } from '../toast/types.js';
 export interface SearchCriterion {
     field: string;
     operator: string;
@@ -12,6 +13,7 @@ export interface AdvancedSearchConfig {
     fields: FieldDefinition[];
     onSearch: (criteria: SearchCriterion[]) => void;
     onClear: () => void;
+    notifier?: ToastNotifier;
 }
 export interface FieldDefinition {
     name: string;
@@ -30,6 +32,7 @@ export declare class AdvancedSearch {
     private container;
     private searchInput;
     private clearBtn;
+    private notifier;
     constructor(config: AdvancedSearchConfig);
     init(): void;
     /**

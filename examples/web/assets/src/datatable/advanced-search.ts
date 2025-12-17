@@ -3,6 +3,9 @@
  * Provides a query builder UI for complex search queries
  */
 
+import type { ToastNotifier } from '../toast/types.js';
+import { FallbackNotifier } from '../toast/toast-manager.js';
+
 export interface SearchCriterion {
   field: string;
   operator: string;
@@ -14,6 +17,7 @@ export interface AdvancedSearchConfig {
   fields: FieldDefinition[];
   onSearch: (criteria: SearchCriterion[]) => void;
   onClear: () => void;
+  notifier?: ToastNotifier;
 }
 
 export interface FieldDefinition {
@@ -58,9 +62,11 @@ export class AdvancedSearch {
   private container: HTMLElement | null = null;
   private searchInput: HTMLInputElement | null = null;
   private clearBtn: HTMLElement | null = null;
+  private notifier: ToastNotifier;
 
   constructor(config: AdvancedSearchConfig) {
     this.config = config;
+    this.notifier = config.notifier || new FallbackNotifier();
   }
 
   init(): void {
@@ -392,7 +398,7 @@ export class AdvancedSearch {
     presets[name] = this.criteria;
 
     localStorage.setItem('search_presets', JSON.stringify(presets));
-    alert(`Preset "${name}" saved!`);
+    this.notifier.success(`Preset "${name}" saved!`);
   }
 
   private loadPreset(): void {
@@ -400,7 +406,7 @@ export class AdvancedSearch {
     const names = Object.keys(presets);
 
     if (names.length === 0) {
-      alert('No saved presets found.');
+      this.notifier.warning('No saved presets found.');
       return;
     }
 

@@ -4,6 +4,7 @@
  * Manages complex filter groups with AND/OR logic between conditions and groups.
  * Renders a UI similar to query builders with drag-and-drop reordering.
  */
+import { FallbackNotifier } from '../toast/toast-manager.js';
 const DEFAULT_OPERATORS = {
     text: [
         { label: 'contains', value: 'ilike' },
@@ -36,6 +37,7 @@ export class FilterBuilder {
         this.sqlPreviewElement = null;
         this.overlay = null;
         this.config = config;
+        this.notifier = config.notifier || new FallbackNotifier();
         this.structure = { groups: [], groupLogic: [] };
         this.init();
     }
@@ -521,13 +523,13 @@ export class FilterBuilder {
         const nameInput = document.getElementById('save-filter-name');
         const name = nameInput?.value.trim();
         if (!name) {
-            alert('Please enter a name for the filter');
+            this.notifier.warning('Please enter a name for the filter');
             return;
         }
         const saved = this.getSavedFilters();
         saved[name] = this.structure;
         localStorage.setItem('saved_filters', JSON.stringify(saved));
-        alert(`Filter "${name}" saved!`);
+        this.notifier.success(`Filter "${name}" saved!`);
         if (nameInput)
             nameInput.value = '';
     }

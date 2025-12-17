@@ -6,6 +6,8 @@
  */
 
 import type { FilterCondition, FilterGroup, FilterStructure } from './behaviors/types.js';
+import type { ToastNotifier } from '../toast/types.js';
+import { FallbackNotifier } from '../toast/toast-manager.js';
 
 export interface FieldDefinition {
   name: string;
@@ -19,6 +21,7 @@ export interface FilterBuilderConfig {
   fields: FieldDefinition[];
   onApply: (structure: FilterStructure) => void;
   onClear: () => void;
+  notifier?: ToastNotifier;
 }
 
 const DEFAULT_OPERATORS: Record<string, { label: string; value: string }[]> = {
@@ -54,9 +57,11 @@ export class FilterBuilder {
   private previewElement: HTMLElement | null = null;
   private sqlPreviewElement: HTMLElement | null = null;
   private overlay: HTMLElement | null = null;
+  private notifier: ToastNotifier;
 
   constructor(config: FilterBuilderConfig) {
     this.config = config;
+    this.notifier = config.notifier || new FallbackNotifier();
     this.structure = { groups: [], groupLogic: [] };
     this.init();
   }
@@ -604,7 +609,7 @@ export class FilterBuilder {
     const name = nameInput?.value.trim();
 
     if (!name) {
-      alert('Please enter a name for the filter');
+      this.notifier.warning('Please enter a name for the filter');
       return;
     }
 
@@ -612,7 +617,7 @@ export class FilterBuilder {
     saved[name] = this.structure;
     localStorage.setItem('saved_filters', JSON.stringify(saved));
 
-    alert(`Filter "${name}" saved!`);
+    this.notifier.success(`Filter "${name}" saved!`);
     if (nameInput) nameInput.value = '';
   }
 

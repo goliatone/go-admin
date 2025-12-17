@@ -43,6 +43,21 @@
     @apply text-[11px] px-1.5 py-0.5 rounded bg-sidebar-bg-hover text-sidebar-text-dimmed font-mono border border-sidebar-border;
   }
 
+  /* Sidebar logo - expand to fill available space */
+  .sidebar-header a {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sidebar-logo {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-width: 100%;
+    max-height: 40px;
+  }
+
   .sidebar {
     @apply transition-all duration-300;
   }
@@ -257,4 +272,299 @@
     @apply outline-none border-sidebar-text-muted bg-sidebar-bg-hover;
     box-shadow: none;
   }
+
+  /* Sort button styling */
+  .sort-btn {
+    @apply inline-flex items-center justify-center rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all;
+    padding: 2px;
+  }
+
+  .sort-btn svg {
+    @apply transition-colors;
+  }
+
+  .sort-btn:hover svg {
+    @apply text-gray-600;
+  }
+
+  /* Floating Bulk Actions Bar - using sidebar theme colors */
+  .bulk-actions-overlay {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    padding-bottom: 32px;
+    pointer-events: none;
+    z-index: 40;
+
+    /* Slide-up animation */
+    transform: translateY(calc(100% + 32px));
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .bulk-actions-overlay:not(.hidden) {
+    transform: translateY(0);
+  }
+
+  /* The actual floating bar - matches sidebar colors */
+  .bulk-actions-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 12px 24px;
+
+    /* Use sidebar colors for consistency */
+    @apply bg-sidebar-bg border border-sidebar-border text-sidebar-text;
+    border-radius: 9999px;
+    box-shadow:
+      0 20px 25px -5px rgba(0, 0, 0, 0.3),
+      0 10px 10px -5px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+
+    pointer-events: auto;
+
+    /* Minimum width but allow growth */
+    min-width: 400px;
+    max-width: 600px;
+  }
+
+  /* Close button */
+  .bulk-close-btn {
+    @apply p-1 rounded-lg transition-colors text-sidebar-text-muted;
+  }
+
+  .bulk-close-btn:hover {
+    @apply bg-sidebar-bg-hover text-sidebar-text;
+  }
+
+  /* Count text */
+  .bulk-count-text {
+    @apply text-sm font-medium text-sidebar-text;
+  }
+
+  #selected-count {
+    @apply font-semibold;
+  }
+
+  /* Action buttons */
+  .bulk-action-btn {
+    @apply inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all text-sidebar-text bg-sidebar-bg-hover;
+  }
+
+  .bulk-action-btn:hover {
+    @apply bg-sidebar-bg-active;
+  }
+
+  .bulk-action-btn:active {
+    transform: scale(0.98);
+  }
+
+  /* Icon-only button (More menu) */
+  .bulk-action-btn-icon {
+    @apply p-2 rounded-lg transition-all text-sidebar-text bg-sidebar-bg-hover;
+  }
+
+  .bulk-action-btn-icon:hover {
+    @apply bg-sidebar-bg-active;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 640px) {
+    .bulk-actions-bar {
+      min-width: calc(100vw - 32px);
+      max-width: calc(100vw - 32px);
+      padding: 10px 16px;
+      gap: 16px;
+    }
+
+    .bulk-action-btn {
+      @apply px-3 py-1.5 text-xs;
+    }
+  }
+
+  /* Account for sidebar - shift center point */
+  @media (min-width: 1024px) {
+    .bulk-actions-overlay {
+      left: 128px;
+    }
+  }
+}
+
+/* ============================================================================
+   Toast Notifications
+   ============================================================================ */
+
+/* Toast container - fixed positioning */
+.toast-container {
+  @apply fixed z-[9999] pointer-events-none;
+  @apply flex flex-col gap-2;
+}
+
+.toast-top-right {
+  @apply top-4 right-4;
+}
+
+.toast-top-center {
+  @apply top-4 left-1/2 -translate-x-1/2;
+}
+
+.toast-bottom-right {
+  @apply bottom-4 right-4;
+}
+
+.toast-bottom-center {
+  @apply bottom-4 left-1/2 -translate-x-1/2;
+}
+
+/* Individual toast card - dark design */
+.toast {
+  @apply pointer-events-auto;
+  @apply bg-[#2C2C2E] border border-[#3A3A3C] text-white;
+  @apply rounded-xl shadow-2xl;
+  @apply p-4 min-w-[360px] max-w-[500px];
+  @apply flex flex-col gap-3;
+  transform: translateX(400px);
+  opacity: 0;
+  transition: all 0.3s ease-out;
+}
+
+.toast-enter-active {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-leave-active {
+  transform: translateX(400px);
+  opacity: 0;
+}
+
+/* Toast header with icon, pin, and title */
+.toast-header {
+  @apply flex items-center justify-between gap-3;
+}
+
+.toast-header-left {
+  @apply flex items-center gap-2;
+}
+
+/* Icon styling - filled circles with colors */
+.toast-icon {
+  @apply flex-shrink-0;
+}
+
+.toast-icon-success {
+  @apply text-green-500;
+}
+
+.toast-icon-error {
+  @apply text-red-500;
+}
+
+.toast-icon-warning {
+  @apply text-yellow-500;
+}
+
+.toast-icon-info {
+  @apply text-blue-500;
+}
+
+/* Pin icon */
+.toast-pin-icon {
+  @apply text-gray-400 flex-shrink-0;
+}
+
+/* Toast title - white text */
+.toast-title {
+  @apply font-medium text-sm text-white;
+}
+
+/* Toast content */
+.toast-content {
+  @apply flex-1 min-w-0;
+  @apply pl-7; /* Align with title after icon */
+}
+
+/* Toast message - gray subtitle text */
+.toast-message {
+  @apply text-sm text-gray-400 leading-relaxed;
+}
+
+/* Dismiss button */
+.toast-dismiss {
+  @apply flex-shrink-0 text-gray-400 hover:text-white;
+  @apply transition-colors cursor-pointer;
+  @apply bg-transparent border-none p-0;
+}
+
+/* ============================================================================
+   Confirmation Modal
+   ============================================================================ */
+
+.confirm-modal-overlay {
+  @apply fixed inset-0 z-[10000];
+  @apply bg-black bg-opacity-50;
+  @apply flex items-center justify-center;
+  @apply opacity-0 transition-opacity duration-200;
+  pointer-events: all;
+}
+
+.confirm-modal-active {
+  @apply opacity-100;
+}
+
+.confirm-modal-leaving {
+  @apply opacity-0;
+}
+
+.confirm-modal {
+  @apply bg-sidebar-bg border border-sidebar-border;
+  @apply rounded-lg shadow-2xl;
+  @apply max-w-md w-full mx-4;
+  @apply transform scale-95 transition-transform duration-200;
+}
+
+.confirm-modal-active .confirm-modal {
+  @apply scale-100;
+}
+
+.confirm-modal-header {
+  @apply px-6 py-4 border-b border-sidebar-border;
+}
+
+.confirm-modal-title {
+  @apply text-lg font-semibold text-sidebar-text;
+}
+
+.confirm-modal-body {
+  @apply px-6 py-4;
+}
+
+.confirm-modal-message {
+  @apply text-sidebar-text-muted;
+}
+
+.confirm-modal-footer {
+  @apply px-6 py-4 border-t border-sidebar-border;
+  @apply flex items-center justify-end gap-3;
+}
+
+.confirm-modal-btn {
+  @apply px-4 py-2 rounded-lg;
+  @apply font-medium text-sm;
+  @apply transition-colors;
+  @apply cursor-pointer;
+}
+
+.confirm-modal-btn-cancel {
+  @apply bg-transparent border border-sidebar-border;
+  @apply text-sidebar-text hover:bg-sidebar-bg-hover;
+}
+
+.confirm-modal-btn-confirm {
+  @apply bg-blue-600 hover:bg-blue-700;
+  @apply text-white border-none;
 }

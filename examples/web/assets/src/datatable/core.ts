@@ -6,8 +6,11 @@ import type {
 } from './behaviors/types.js';
 import type { ActionButton, BulkActionConfig, ActionRenderMode } from './actions.js';
 import type { CellRenderer } from './renderers.js';
+import type { ToastNotifier } from '../toast/types.js';
 import { ActionRenderer } from './actions.js';
 import { CellRendererRegistry } from './renderers.js';
+import { FallbackNotifier } from '../toast/toast-manager.js';
+import { extractErrorMessage } from '../toast/error-helpers.js';
 
 /**
  * DataGrid configuration
@@ -50,6 +53,11 @@ export interface DataGridConfig {
    * Action rendering mode: 'inline' (buttons) or 'dropdown' (menu)
    */
   actionRenderMode?: ActionRenderMode;
+  /**
+   * Toast notification handler (optional)
+   * If not provided, falls back to native alert/confirm
+   */
+  notifier?: ToastNotifier;
 }
 
 /**
@@ -115,6 +123,7 @@ export class DataGrid {
   private actionRenderer: ActionRenderer;
   private cellRendererRegistry: CellRendererRegistry;
   private recordsById: Record<string, any> = {};
+  private notifier: ToastNotifier;
 
   constructor(config: DataGridConfig) {
     this.config = {
@@ -123,6 +132,9 @@ export class DataGrid {
       behaviors: {},
       ...config
     };
+
+    // Initialize notifier (use provided or fallback to alert/confirm)
+    this.notifier = config.notifier || new FallbackNotifier();
 
     this.selectors = {
       table: `#${config.tableId}`,
@@ -158,7 +170,8 @@ export class DataGrid {
     // Initialize action renderer and cell renderer registry
     this.actionRenderer = new ActionRenderer({
       mode: this.config.actionRenderMode || 'dropdown',  // Default to dropdown
-      actionBasePath: this.config.actionBasePath || this.config.apiEndpoint
+      actionBasePath: this.config.actionBasePath || this.config.apiEndpoint,
+      notifier: this.notifier  // Pass notifier to ActionRenderer
     });
     this.cellRendererRegistry = new CellRendererRegistry();
 
@@ -182,12 +195,9 @@ export class DataGrid {
     }
     console.log('[DataGrid] Table element found:', this.tableEl);
 
-    // Render bulk actions toolbar if configured
-    if (this.config.bulkActions && this.config.bulkActions.length > 0) {
-      const toolbar = this.actionRenderer.renderBulkActionsToolbar(this.config.bulkActions);
-      // Insert before the table
-      this.tableEl.parentElement?.insertBefore(toolbar, this.tableEl.parentElement.firstChild);
-    }
+    // Don't auto-inject bulk actions toolbar - we use a custom overlay in the template
+    // that's positioned at the bottom of the page
+    // The auto-injection creates duplicate IDs and conflicts with our custom overlay
 
     // Restore state from URL before binding
     this.restoreStateFromURL();
@@ -200,6 +210,7 @@ export class DataGrid {
     this.bindSorting();
     this.bindSelection();
     this.bindBulkActions();
+    this.bindBulkClearButton();
     this.bindDropdownToggles();
 
     // Initial data load
@@ -364,6 +375,9 @@ export class DataGrid {
    * Refresh data from API
    */
   async refresh(): Promise<void> {
+    console.log('[DataGrid] ===== refresh() CALLED =====');
+    console.log('[DataGrid] Current sort state:', JSON.stringify(this.state.sort));
+
     if (this.abortController) {
       this.abortController.abort();
     }
@@ -387,14 +401,17 @@ export class DataGrid {
       console.log('[DataGrid] API Response:', data);
       console.log('[DataGrid] API Response data array:', data.data);
       console.log('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
+      console.log('[DataGrid] About to call renderData()...');
       this.renderData(data);
+      console.log('[DataGrid] renderData() completed');
       this.updatePaginationUI(data);
+      console.log('[DataGrid] ===== refresh() COMPLETED =====');
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('Request aborted');
+        console.log('[DataGrid] Request aborted');
         return;
       }
-      console.error('Error fetching data:', error);
+      console.error('[DataGrid] Error fetching data:', error);
       this.showError('Failed to load data');
     }
   }
@@ -549,7 +566,8 @@ export class DataGrid {
     tbody.innerHTML = '';
 
     const items = data.data || [];
-    console.log(`[DataGrid] Rendering ${items.length} items`);
+    console.log(`[DataGrid] renderData() called with ${items.length} items`);
+    console.log('[DataGrid] First 3 items:', items.slice(0, 3));
     this.state.totalRows = data.total || data.$meta?.count || data.count || items.length;
 
     if (items.length === 0) {
@@ -565,13 +583,17 @@ export class DataGrid {
 
     // Clear and populate records by ID cache
     this.recordsById = {};
-    items.forEach((item: any) => {
+    items.forEach((item: any, index: number) => {
+      console.log(`[DataGrid] Rendering row ${index + 1}: id=${item.id}, email=${item.email}, role=${item.role}, status=${item.status}`);
       if (item.id) {
         this.recordsById[item.id] = item;
       }
       const row = this.createTableRow(item);
       tbody.appendChild(row);
     });
+
+    console.log(`[DataGrid] Finished appending ${items.length} rows to tbody`);
+    console.log(`[DataGrid] tbody.children.length =`, tbody.children.length);
 
     // Rebind selection after rendering
     this.updateSelectionBindings();
@@ -649,6 +671,8 @@ export class DataGrid {
               await action.action(item);
             } catch (error) {
               console.error(`Action "${action.label}" failed:`, error);
+              const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
+              this.notify(errorMsg, 'error');
             }
           });
         }
@@ -690,6 +714,8 @@ export class DataGrid {
               await action.action();
             } catch (error) {
               console.error(`Action "${action.label}" failed:`, error);
+              const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
+              this.notify(errorMsg, 'error');
             }
           });
         }
@@ -712,13 +738,17 @@ export class DataGrid {
    * Handle delete action
    */
   private async handleDelete(id: string): Promise<void> {
-    if (!confirm('Are you sure you want to delete this item?')) {
+    const confirmed = await this.confirmAction('Are you sure you want to delete this item?');
+    if (!confirmed) {
       return;
     }
 
     try {
       const response = await fetch(`${this.config.apiEndpoint}/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json'
+        }
       });
 
       if (!response.ok) {
@@ -1010,6 +1040,49 @@ export class DataGrid {
   private bindSorting(): void {
     if (!this.tableEl) return;
 
+    // Bind new sort buttons ([data-sort-column])
+    const sortButtons = this.tableEl.querySelectorAll<HTMLButtonElement>('[data-sort-column]');
+
+    sortButtons.forEach((button) => {
+      button.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const field = button.dataset.sortColumn;
+        if (!field) return;
+
+        console.log(`[DataGrid] Sort button clicked for field: ${field}`);
+
+        // Toggle sort direction: none -> asc -> desc -> asc -> ...
+        const existing = this.state.sort.find(s => s.field === field);
+        let direction: 'asc' | 'desc' = 'asc';
+
+        if (existing) {
+          direction = existing.direction === 'asc' ? 'desc' : 'asc';
+          existing.direction = direction;
+        } else {
+          this.state.sort = [{ field, direction }];
+        }
+
+        console.log(`[DataGrid] New sort state:`, this.state.sort);
+
+        this.pushStateToURL();
+
+        if (this.config.behaviors?.sort) {
+          console.log('[DataGrid] Calling custom sort behavior');
+          await this.config.behaviors.sort.onSort(field, direction, this);
+        } else {
+          console.log('[DataGrid] Calling refresh() for sort');
+          await this.refresh();
+        }
+
+        // Update UI
+        console.log('[DataGrid] Updating sort indicators');
+        this.updateSortIndicators();
+      });
+    });
+
+    // Also bind legacy sortable headers ([data-sort])
     const sortableHeaders = this.tableEl.querySelectorAll<HTMLElement>('[data-sort]');
 
     sortableHeaders.forEach((header) => {
@@ -1048,8 +1121,45 @@ export class DataGrid {
   private updateSortIndicators(): void {
     if (!this.tableEl) return;
 
-    const headers = this.tableEl.querySelectorAll<HTMLElement>('[data-sort]');
+    // Handle both old [data-sort] and new [data-sort-column] buttons
+    const sortButtons = this.tableEl.querySelectorAll<HTMLButtonElement>('[data-sort-column]');
 
+    sortButtons.forEach((button) => {
+      const field = button.dataset.sortColumn;
+      if (!field) return;
+
+      const sorted = this.state.sort.find(s => s.field === field);
+      const svg = button.querySelector('svg');
+
+      if (svg) {
+        // Update button visibility and styling based on sort state
+        if (sorted) {
+          button.classList.remove('opacity-0');
+          button.classList.add('opacity-100');
+
+          // Update icon based on direction
+          if (sorted.direction === 'asc') {
+            // Show ascending arrow (up arrow only)
+            svg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />';
+            svg.classList.add('text-blue-600');
+            svg.classList.remove('text-gray-400');
+          } else {
+            // Show descending arrow (down arrow only)
+            svg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />';
+            svg.classList.add('text-blue-600');
+            svg.classList.remove('text-gray-400');
+          }
+        } else {
+          // Reset to default double arrow
+          svg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />';
+          svg.classList.remove('text-blue-600');
+          svg.classList.add('text-gray-400');
+        }
+      }
+    });
+
+    // Also handle legacy [data-sort] headers with .sort-indicator
+    const headers = this.tableEl.querySelectorAll<HTMLElement>('[data-sort]');
     headers.forEach((header) => {
       const field = header.dataset.sort;
       const sorted = this.state.sort.find(s => s.field === field);
@@ -1090,13 +1200,21 @@ export class DataGrid {
 
   /**
    * Update selection bindings after rendering
+   * This syncs checkbox states with the selectedRows Set
    */
   private updateSelectionBindings(): void {
     const checkboxes = document.querySelectorAll<HTMLInputElement>(this.selectors.rowCheckboxes);
 
     checkboxes.forEach((cb) => {
+      const id = cb.dataset.id;
+
+      // Sync checkbox state with selectedRows Set
+      if (id) {
+        cb.checked = this.state.selectedRows.has(id);
+      }
+
+      // Remove old listeners to avoid duplicates (use once: true or track bound status in production)
       cb.addEventListener('change', () => {
-        const id = cb.dataset.id;
         if (id) {
           if (cb.checked) {
             this.state.selectedRows.add(id);
@@ -1122,7 +1240,7 @@ export class DataGrid {
 
         const ids = Array.from(this.state.selectedRows);
         if (ids.length === 0) {
-          alert('Please select items first');
+          this.notify('Please select items first', 'warning');
           return;
         }
 
@@ -1173,19 +1291,64 @@ export class DataGrid {
   }
 
   /**
-   * Update bulk actions bar visibility
+   * Update bulk actions bar visibility with animation
    */
   private updateBulkActionsBar(): void {
-    const bar = document.querySelector(this.selectors.bulkActionsBar);
-    const countEl = document.querySelector(this.selectors.selectedCount);
+    const overlay = document.getElementById('bulk-actions-overlay');
+    const countEl = document.getElementById('selected-count');
+    const selectedCount = this.state.selectedRows.size;
 
-    if (bar) {
-      bar.classList.toggle('hidden', this.state.selectedRows.size === 0);
+    console.log('[DataGrid] updateBulkActionsBar - overlay:', overlay, 'countEl:', countEl, 'count:', selectedCount);
+
+    if (!overlay || !countEl) {
+      console.error('[DataGrid] Missing bulk actions elements!');
+      return;
     }
 
-    if (countEl) {
-      countEl.textContent = String(this.state.selectedRows.size);
+    // Update count
+    countEl.textContent = String(selectedCount);
+
+    // Show/hide with animation
+    if (selectedCount > 0) {
+      overlay.classList.remove('hidden');
+      // Trigger reflow for animation
+      void overlay.offsetHeight;
+    } else {
+      overlay.classList.add('hidden');
     }
+  }
+
+  /**
+   * Bind clear selection button
+   */
+  private bindBulkClearButton(): void {
+    const clearBtn = document.getElementById('bulk-clear-selection');
+    console.log('[DataGrid] Binding clear button:', clearBtn);
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        console.log('[DataGrid] Clear button clicked!');
+        this.clearSelection();
+      });
+    } else {
+      console.error('[DataGrid] Clear button not found!');
+    }
+  }
+
+  /**
+   * Clear all selections
+   */
+  private clearSelection(): void {
+    console.log('[DataGrid] Clearing selection...');
+    this.state.selectedRows.clear();
+
+    // Uncheck the "select all" checkbox in the table header
+    const selectAllCheckbox = document.querySelector<HTMLInputElement>(this.selectors.selectAllCheckbox);
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = false;
+    }
+
+    this.updateBulkActionsBar();
+    this.updateSelectionBindings();
   }
 
   /**
@@ -1309,12 +1472,38 @@ export class DataGrid {
   }
 
   /**
-   * Show error message
+   * Show error message using notifier
    */
   private showError(message: string): void {
-    // Simple error display - can be enhanced
     console.error(message);
-    alert(message);
+    this.notifier.error(message);
+  }
+
+  /**
+   * Show notification using notifier
+   */
+  private notify(message: string, type: 'success' | 'error' | 'warning' | 'info'): void {
+    this.notifier.show({ message, type });
+  }
+
+  /**
+   * Show confirmation dialog using notifier
+   */
+  private async confirmAction(message: string): Promise<boolean> {
+    return this.notifier.confirm(message);
+  }
+
+  /**
+   * Extract error message from Response or Error
+   */
+  private async extractError(error: unknown): Promise<string> {
+    if (error instanceof Response) {
+      return extractErrorMessage(error);
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return 'An unexpected error occurred';
   }
 }
 

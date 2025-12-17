@@ -2,6 +2,7 @@
  * Advanced Search Component
  * Provides a query builder UI for complex search queries
  */
+import { FallbackNotifier } from '../toast/toast-manager.js';
 const DEFAULT_OPERATORS = {
     text: [
         { label: 'contains', value: 'ilike' },
@@ -36,6 +37,7 @@ export class AdvancedSearch {
         this.searchInput = null;
         this.clearBtn = null;
         this.config = config;
+        this.notifier = config.notifier || new FallbackNotifier();
     }
     init() {
         this.modal = document.getElementById('advanced-search-modal');
@@ -319,13 +321,13 @@ export class AdvancedSearch {
         const presets = this.loadPresetsFromStorage();
         presets[name] = this.criteria;
         localStorage.setItem('search_presets', JSON.stringify(presets));
-        alert(`Preset "${name}" saved!`);
+        this.notifier.success(`Preset "${name}" saved!`);
     }
     loadPreset() {
         const presets = this.loadPresetsFromStorage();
         const names = Object.keys(presets);
         if (names.length === 0) {
-            alert('No saved presets found.');
+            this.notifier.warning('No saved presets found.');
             return;
         }
         const name = prompt(`Available presets:\n${names.join('\n')}\n\nEnter preset name to load:`);

@@ -7,9 +7,9 @@ export class GoCrudBulkActionBehavior {
         this.baseEndpoint = baseEndpoint;
     }
     getActionEndpoint(action) {
-        // Custom action endpoint pattern: /admin/crud/users/actions/{action}
+        // Bulk action endpoint pattern: /admin/crud/users/bulk/{action}
         const plural = this.getPluralEndpoint();
-        return `${plural}/actions/${action}`;
+        return `${plural}/bulk/${action}`;
     }
     getPluralEndpoint() {
         // If baseEndpoint ends with singular form, convert to plural

@@ -2,6 +2,7 @@
  * Action System for DataGrid
  * Provides extensible row and bulk action capabilities
  */
+import type { ToastNotifier } from '../toast/types.js';
 export type ActionVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
 export type ActionRenderMode = 'inline' | 'dropdown';
 export interface ActionButton {
@@ -26,10 +27,12 @@ export interface BulkActionConfig {
 export interface ActionRendererConfig {
     mode?: ActionRenderMode;
     actionBasePath?: string;
+    notifier?: ToastNotifier;
 }
 export declare class ActionRenderer {
     private actionBasePath;
     private mode;
+    private notifier;
     constructor(config?: ActionRendererConfig);
     /**
      * Render row actions as HTML

@@ -1,6 +1,7 @@
 import type { ColumnDefinition, ColumnFilter, SortColumn, DataGridBehaviors } from './behaviors/types.js';
 import type { ActionButton, BulkActionConfig, ActionRenderMode } from './actions.js';
 import type { CellRenderer } from './renderers.js';
+import type { ToastNotifier } from '../toast/types.js';
 /**
  * DataGrid configuration
  */
@@ -40,6 +41,11 @@ export interface DataGridConfig {
      * Action rendering mode: 'inline' (buttons) or 'dropdown' (menu)
      */
     actionRenderMode?: ActionRenderMode;
+    /**
+     * Toast notification handler (optional)
+     * If not provided, falls back to native alert/confirm
+     */
+    notifier?: ToastNotifier;
 }
 /**
  * DOM element selectors
@@ -89,6 +95,7 @@ export declare class DataGrid {
     private actionRenderer;
     private cellRendererRegistry;
     private recordsById;
+    private notifier;
     constructor(config: DataGridConfig);
     /**
      * Initialize the data grid
@@ -192,6 +199,7 @@ export declare class DataGrid {
     private bindSelection;
     /**
      * Update selection bindings after rendering
+     * This syncs checkbox states with the selectedRows Set
      */
     private updateSelectionBindings;
     /**
@@ -199,9 +207,17 @@ export declare class DataGrid {
      */
     private bindBulkActions;
     /**
-     * Update bulk actions bar visibility
+     * Update bulk actions bar visibility with animation
      */
     private updateBulkActionsBar;
+    /**
+     * Bind clear selection button
+     */
+    private bindBulkClearButton;
+    /**
+     * Clear all selections
+     */
+    private clearSelection;
     /**
      * Position dropdown menu intelligently based on available space
      */
@@ -211,9 +227,21 @@ export declare class DataGrid {
      */
     private bindDropdownToggles;
     /**
-     * Show error message
+     * Show error message using notifier
      */
     private showError;
+    /**
+     * Show notification using notifier
+     */
+    private notify;
+    /**
+     * Show confirmation dialog using notifier
+     */
+    private confirmAction;
+    /**
+     * Extract error message from Response or Error
+     */
+    private extractError;
 }
 export {};
 //# sourceMappingURL=core.d.ts.map

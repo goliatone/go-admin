@@ -9,9 +9,9 @@ export class GoCrudBulkActionBehavior implements BulkActionBehavior {
   constructor(private baseEndpoint: string) {}
 
   getActionEndpoint(action: string): string {
-    // Custom action endpoint pattern: /admin/crud/users/actions/{action}
+    // Bulk action endpoint pattern: /admin/crud/users/bulk/{action}
     const plural = this.getPluralEndpoint();
-    return `${plural}/actions/${action}`;
+    return `${plural}/bulk/${action}`;
   }
 
   private getPluralEndpoint(): string {
