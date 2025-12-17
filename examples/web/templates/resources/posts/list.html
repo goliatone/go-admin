@@ -152,7 +152,7 @@
         <thead class="bg-gray-50">
           <tr>
             <!-- Selection Column -->
-            <th scope="col" class="px-6 py-3 text-start">
+            <th scope="col" data-role="selection" data-fixed="left" class="px-6 py-3 text-start">
               <label class="flex">
                 <input type="checkbox"
                        id="table-checkbox-all"
@@ -175,20 +175,20 @@
             <th scope="col" data-column="created_at" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               Created
             </th>
-            <th scope="col" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" data-role="actions" data-fixed="right" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
           <!-- Filter Row - Dynamically populated by EnhancedDataTable -->
           <tr class="bg-gray-100" id="filter-row">
-            <th></th>
-            <th class="px-6 py-2">
+            <th data-role="selection" data-fixed="left"></th>
+            <th data-column="title" class="px-6 py-2">
               <input type="text" data-filter-column="title" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="slug" class="px-6 py-2">
               <input type="text" data-filter-column="slug" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="status" class="px-6 py-2">
               <select data-filter-column="status" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
                 <option value="">All</option>
                 <option value="draft">Draft</option>
@@ -196,13 +196,13 @@
                 <option value="archived">Archived</option>
               </select>
             </th>
-            <th class="px-6 py-2">
+            <th data-column="published_at" class="px-6 py-2">
               <input type="text" data-filter-column="published_at" placeholder="YYYY-MM-DD" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="created_at" class="px-6 py-2">
               <input type="text" data-filter-column="created_at" placeholder="YYYY-MM-DD" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th></th>
+            <th data-role="actions" data-fixed="right"></th>
           </tr>
         </thead>
         <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
@@ -354,14 +354,14 @@ document.addEventListener('DOMContentLoaded', function() {
       // Update grid state with filters
       grid.state.filters = filters;
       grid.resetPagination();
-      grid.pushStateToURL();
+      grid.syncURL();
       grid.refresh();
     },
     onClear: () => {
       console.log('[FilterBuilder] Clear filters');
       grid.state.search = '';
       grid.state.filters = [];
-      grid.pushStateToURL();
+      grid.syncURL();
       grid.refresh();
     }
   });

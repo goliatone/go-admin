@@ -128,7 +128,7 @@
       <table id="user-profiles-datatable" class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th scope="col" class="px-6 py-3 text-start">
+            <th scope="col" data-role="selection" data-fixed="left" class="px-6 py-3 text-start">
               <label class="flex">
                 <input type="checkbox"
                        id="table-checkbox-all"
@@ -216,37 +216,37 @@
                 </button>
               </div>
             </th>
-            <th scope="col" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" data-role="actions" data-fixed="right" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
           <tr class="bg-gray-100" id="filter-row">
-            <th></th>
-            <th class="px-6 py-2">
+            <th data-role="selection" data-fixed="left"></th>
+            <th data-column="id" class="px-6 py-2">
               <input type="text" data-filter-column="id" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="display_name" class="px-6 py-2">
               <input type="text" data-filter-column="display_name" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="email" class="px-6 py-2">
               <input type="text" data-filter-column="email" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="locale" class="px-6 py-2">
               <input type="text" data-filter-column="locale" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="timezone" class="px-6 py-2">
               <input type="text" data-filter-column="timezone" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="bio" class="px-6 py-2">
               <input type="text" data-filter-column="bio" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="updated_at" class="px-6 py-2">
               <input type="text" data-filter-column="updated_at" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th class="px-6 py-2">
+            <th data-column="created_at" class="px-6 py-2">
               <input type="text" data-filter-column="created_at" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
             </th>
-            <th></th>
+            <th data-role="actions" data-fixed="right"></th>
           </tr>
         </thead>
         <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
@@ -404,13 +404,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       grid.state.filters = filters;
       grid.resetPagination();
-      grid.pushStateToURL();
+      grid.syncURL();
       grid.refresh();
     },
     onClear: () => {
       grid.state.search = '';
       grid.state.filters = [];
-      grid.pushStateToURL();
+      grid.syncURL();
       grid.refresh();
     }
   });

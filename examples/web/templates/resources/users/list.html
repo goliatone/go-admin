@@ -79,29 +79,12 @@
               <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               Columns
             </button>
-            <div id="column-toggle-menu" class="hidden absolute right-0 z-10 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg">
-              <div class="p-3 space-y-2">
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="email" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Email</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="username" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Username</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="role" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Role</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="status" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Status</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="created_at" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Created</span>
-                </label>
-              </div>
+            <!-- ColumnManager renders column items with switches and drag handles into this container -->
+            <div id="column-toggle-menu"
+                 class="hidden absolute right-0 z-10 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-2"
+                 role="listbox"
+                 aria-label="Column visibility and order">
+              <!-- Items rendered dynamically by ColumnManager -->
             </div>
           </div>
 
@@ -113,16 +96,36 @@
               <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
               Export
             </button>
-            <div id="export-menu" class="hidden absolute right-0 z-10 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg">
+            <div id="export-menu" class="hidden absolute right-0 z-10 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg">
               <div class="p-1">
-                <button data-export-format="csv" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  CSV
+                <button data-export-format="csv" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  <svg class="w-4 h-4 text-green-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <path d="M12 18v-6"/>
+                    <path d="m9 15 3 3 3-3"/>
+                  </svg>
+                  <span>CSV</span>
                 </button>
-                <button data-export-format="excel" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  Excel
+                <button data-export-format="excel" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  <svg class="w-4 h-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <rect x="8" y="12" width="8" height="6" rx="1"/>
+                    <path d="M10 12v6"/>
+                    <path d="M14 12v6"/>
+                  </svg>
+                  <span>Excel</span>
                 </button>
-                <button data-export-format="pdf" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  PDF
+                <button data-export-format="pdf" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <path d="M10 12.5a2.5 2.5 0 0 1 2.5-2.5H14"/>
+                    <path d="M10 12.5V17"/>
+                    <path d="M12.5 10H14a2 2 0 0 1 0 4h-1.5"/>
+                  </svg>
+                  <span>PDF</span>
                 </button>
               </div>
             </div>
@@ -146,8 +149,8 @@
       <table id="users-datatable" class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <!-- Selection Column -->
-            <th scope="col" class="px-6 py-3 text-start">
+            <!-- Selection Column (fixed, not reorderable) -->
+            <th scope="col" data-role="selection" data-fixed="left" class="px-6 py-3 text-start">
               <label class="flex">
                 <input type="checkbox"
                        id="table-checkbox-all"
@@ -155,70 +158,40 @@
                 <span class="sr-only">Select all</span>
               </label>
             </th>
-            <th scope="col" data-column="email" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+            {% for col in columns %}
+            <th scope="col"
+                data-column="{{ col.field }}"
+                {% if col.sortable %}data-sortable="true"{% endif %}
+                class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               <div class="flex items-center gap-2 group">
-                <span>Email</span>
-                <button type="button" data-sort-column="email" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Email">
+                <span>{{ col.label }}</span>
+                {% if col.sortable %}
+                <button type="button"
+                        data-sort-column="{{ col.field }}"
+                        class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                        aria-label="Sort by {{ col.label }} (click to cycle: ascending, descending, clear)"
+                        title="Click to cycle: ascending → descending → clear">
                   <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
                   </svg>
                 </button>
+                {% endif %}
               </div>
             </th>
-            <th scope="col" data-column="username" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Username</span>
-                <button type="button" data-sort-column="username" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Username">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" data-column="role" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Role</span>
-                <button type="button" data-sort-column="role" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Role">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" data-column="status" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Status</span>
-                <button type="button" data-sort-column="status" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Status">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" data-column="created_at" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Created</span>
-                <button type="button" data-sort-column="created_at" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Created">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
+            {% endfor %}
+            <!-- Actions Column (fixed, not reorderable) -->
+            <th scope="col" data-role="actions" data-fixed="right" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
-          <!-- Filter Row - Dynamically populated by EnhancedDataTable -->
+          <!-- Filter Row - Cells have data-column to match header/body for reorder/hide alignment -->
           <tr class="bg-gray-100" id="filter-row">
-            <th></th>
-            <th class="px-6 py-2">
-              <input type="text" data-filter-column="email" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
-            <th class="px-6 py-2">
-              <input type="text" data-filter-column="username" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
-            <th class="px-6 py-2">
+            <!-- Selection filter cell (fixed, not reorderable) -->
+            <th data-role="selection" data-fixed="left"></th>
+            {% for col in columns %}
+            <th data-column="{{ col.field }}" class="px-6 py-2">
+              {% if not col.filterable %}
+              {% elif col.field == "role" %}
               <select data-filter-column="role" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
                 <option value="">All</option>
                 <option value="admin">Admin</option>
@@ -227,19 +200,23 @@
                 <option value="viewer">Viewer</option>
                 <option value="guest">Guest</option>
               </select>
-            </th>
-            <th class="px-6 py-2">
+              {% elif col.field == "status" %}
               <select data-filter-column="status" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
                 <option value="">All</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
                 <option value="disabled">Disabled</option>
               </select>
+              {% else %}
+              <input type="text"
+                     data-filter-column="{{ col.field }}"
+                     placeholder="{% if col.field == "created_at" %}YYYY-MM-DD{% else %}Filter...{% endif %}"
+                     class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+              {% endif %}
             </th>
-            <th class="px-6 py-2">
-              <input type="text" data-filter-column="created_at" placeholder="YYYY-MM-DD" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
-            <th></th>
+            {% endfor %}
+            <!-- Actions filter cell (fixed, not reorderable) -->
+            <th data-role="actions" data-fixed="right"></th>
           </tr>
         </thead>
         <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
@@ -342,13 +319,15 @@
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior, CommonRenderers } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, ServerColumnVisibilityBehavior, CommonRenderers } from '{{ base_path }}/assets/dist/datatable/index.js';
 
 // Template variables
 const actionBasePath = '{{ routes.index }}';
+const columns = {{ toJSON(columns)|safe }};
+const columnFields = columns.map(c => c.field);
 
 {% verbatim %}
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   // Lifecycle action handler
   async function lifecycleAction(userId, action) {
     try {
@@ -407,18 +386,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
+  const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
+    resource: 'users',
+    localStorageKey: 'users_datatable_columns'
+  });
+  await columnVisibility.loadFromServer();
+
   // Initialize the new TypeScript DataGrid component with custom actions
   const grid = new DataGrid({
     tableId: 'users-datatable',
     apiEndpoint: '/admin/crud/users',
     actionBasePath: actionBasePath,
-    columns: [
-      { field: 'email', label: 'Email', sortable: true, filterable: true },
-      { field: 'username', label: 'Username', sortable: true, filterable: true },
-      { field: 'role', label: 'Role', sortable: true, filterable: true },
-      { field: 'status', label: 'Status', sortable: true, filterable: true },
-      { field: 'created_at', label: 'Created', sortable: true, filterable: true }
-    ],
+    columns: columns,
     perPage: 10,
     searchDelay: 300,
 
@@ -543,10 +523,7 @@ document.addEventListener('DOMContentLoaded', function() {
       sort: new GoCrudSortBehavior(),
       export: new GoCrudExportBehavior('/admin/crud/users'),
       bulkActions: new GoCrudBulkActionBehavior('/admin/crud/users'),
-      columnVisibility: new DefaultColumnVisibilityBehavior(
-        ['email', 'username', 'role', 'status', 'created_at'],
-        'users_datatable_columns'
-      )
+      columnVisibility: columnVisibility
     },
     selectors: {
       searchInput: '#table-search',
@@ -626,14 +603,14 @@ document.addEventListener('DOMContentLoaded', function() {
       // Update grid state with filters
       grid.state.filters = filters;
       grid.resetPagination();
-      grid.pushStateToURL();
+      grid.syncURL();
       grid.refresh();
     },
     onClear: () => {
       console.log('[FilterBuilder] Clear filters');
       grid.state.search = '';
       grid.state.filters = [];
-      grid.pushStateToURL();
+      grid.syncURL();
       grid.refresh();
     }
   });
