@@ -2,6 +2,7 @@ import { ActionRenderer } from './actions.js';
 import { CellRendererRegistry } from './renderers.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import { extractErrorMessage } from '../toast/error-helpers.js';
+import { ColumnManager } from './column-manager.js';
 /**
  * DataGrid component
  * Behavior-agnostic data grid with pluggable behaviors
@@ -11,7 +12,11 @@ export class DataGrid {
         this.tableEl = null;
         this.searchTimeout = null;
         this.abortController = null;
+        this.dropdownAbortController = null;
+        this.didRestoreColumnOrder = false;
+        this.shouldReorderDOMOnRestore = false;
         this.recordsById = {};
+        this.columnManager = null;
         this.config = {
             perPage: 10,
             searchDelay: 300,
@@ -47,7 +52,8 @@ export class DataGrid {
             filters: [],
             sort: [],
             selectedRows: new Set(),
-            hiddenColumns: new Set()
+            hiddenColumns: new Set(),
+            columnOrder: this.config.columns.map(col => col.field) // Initialize with config column order
         };
         // Initialize action renderer and cell renderer registry
         this.actionRenderer = new ActionRenderer({
@@ -62,6 +68,9 @@ export class DataGrid {
                 this.cellRendererRegistry.register(field, renderer);
             });
         }
+        // Snapshot default columns for "Reset to Default" behavior.
+        // Keep a shallow copy so functions (renderers) remain intact.
+        this.defaultColumns = this.config.columns.map(col => ({ ...col }));
     }
     /**
      * Initialize the data grid
@@ -97,6 +106,8 @@ export class DataGrid {
      */
     restoreStateFromURL() {
         const params = new URLSearchParams(window.location.search);
+        this.didRestoreColumnOrder = false;
+        this.shouldReorderDOMOnRestore = false;
         // Restore search
         const search = params.get('search');
         if (search) {
@@ -146,7 +157,8 @@ export class DataGrid {
             // Priority 1: URL params (authoritative for shared links)
             try {
                 const hiddenArray = JSON.parse(hiddenColumnsParam);
-                this.state.hiddenColumns = new Set(hiddenArray);
+                const validFields = new Set(this.config.columns.map(col => col.field));
+                this.state.hiddenColumns = new Set((Array.isArray(hiddenArray) ? hiddenArray : []).filter((field) => validFields.has(field)));
             }
             catch (e) {
                 console.warn('[DataGrid] Failed to parse hidden columns from URL:', e);
@@ -160,6 +172,27 @@ export class DataGrid {
                 this.state.hiddenColumns = cachedHidden;
             }
             // Priority 3: defaults (all visible) - already initialized in constructor
+        }
+        // Restore column order from localStorage cache (not in URL by default per guiding notes)
+        // Note: Column order is preferences-only, not URL-shareable
+        if (this.config.behaviors?.columnVisibility?.loadColumnOrderFromCache) {
+            const allColumnFields = this.config.columns.map(col => col.field);
+            const cachedOrder = this.config.behaviors.columnVisibility.loadColumnOrderFromCache(allColumnFields);
+            if (cachedOrder && cachedOrder.length > 0) {
+                // Merge cached order with current columns (drop missing, append new)
+                const validOrder = this.mergeColumnOrder(cachedOrder);
+                this.state.columnOrder = validOrder;
+                // Track whether we restored an order, and whether it requires DOM reordering.
+                this.didRestoreColumnOrder = true;
+                const defaultOrder = this.defaultColumns.map(col => col.field);
+                this.shouldReorderDOMOnRestore = defaultOrder.join('|') !== validOrder.join('|');
+                // Reorder config.columns to match
+                const columnMap = new Map(this.config.columns.map(c => [c.field, c]));
+                this.config.columns = validOrder
+                    .map(field => columnMap.get(field))
+                    .filter((c) => c !== undefined);
+                console.log('[DataGrid] Column order restored from cache:', validOrder);
+            }
         }
         console.log('[DataGrid] State restored from URL:', this.state);
         // Apply restored state to UI after a short delay to ensure DOM is ready
@@ -179,6 +212,11 @@ export class DataGrid {
                     input.value = String(filter.value);
                 }
             });
+        }
+        // Apply column order if restored from cache
+        // Note: This reorders header/filter rows in DOM to match state.columnOrder
+        if (this.didRestoreColumnOrder && this.shouldReorderDOMOnRestore) {
+            this.reorderTableColumns(this.state.columnOrder);
         }
         // Apply column visibility (always, even if all visible)
         const visibleColumns = this.config.columns
@@ -225,6 +263,13 @@ export class DataGrid {
             : window.location.pathname;
         window.history.pushState({}, '', newURL);
         console.log('[DataGrid] URL updated:', newURL);
+    }
+    /**
+     * Public API: sync current grid state to the URL.
+     * Keeps `hiddenColumns` shareable; column order stays preferences-only by default.
+     */
+    syncURL() {
+        this.pushStateToURL();
     }
     /**
      * Refresh data from API
@@ -345,7 +390,9 @@ export class DataGrid {
         if (!skipURLUpdate) {
             this.pushStateToURL();
         }
-        // Update header visibility
+        // Update header and filter row visibility
+        // Note: This selector matches both header row th[data-column] and filter row th[data-column]
+        // Filter row cells must have data-column attributes to stay aligned with headers
         const headerCells = this.tableEl.querySelectorAll('thead th[data-column]');
         headerCells.forEach((th) => {
             const field = th.dataset.column;
@@ -365,9 +412,16 @@ export class DataGrid {
         this.syncColumnVisibilityCheckboxes();
     }
     /**
-     * Sync column visibility checkboxes with current state
+     * Sync column visibility switches with current state
+     * Uses ColumnManager if available, falls back to direct DOM manipulation
      */
     syncColumnVisibilityCheckboxes() {
+        // Prefer ColumnManager if initialized
+        if (this.columnManager) {
+            this.columnManager.syncWithGridState();
+            return;
+        }
+        // Fallback to direct DOM manipulation for legacy checkboxes
         const menu = document.querySelector(this.selectors.columnToggleMenu);
         if (!menu)
             return;
@@ -414,6 +468,17 @@ export class DataGrid {
         });
         console.log(`[DataGrid] Finished appending ${items.length} rows to tbody`);
         console.log(`[DataGrid] tbody.children.length =`, tbody.children.length);
+        // Apply column visibility to new body cells
+        // Note: config.columns is already in the correct order, but some may be hidden
+        if (this.state.hiddenColumns.size > 0) {
+            const bodyCells = tbody.querySelectorAll('td[data-column]');
+            bodyCells.forEach((td) => {
+                const field = td.dataset.column;
+                if (field && this.state.hiddenColumns.has(field)) {
+                    td.style.display = 'none';
+                }
+            });
+        }
         // Rebind selection after rendering
         this.updateSelectionBindings();
     }
@@ -431,6 +496,8 @@ export class DataGrid {
         // Checkbox cell
         const checkboxCell = document.createElement('td');
         checkboxCell.className = 'px-6 py-4 whitespace-nowrap';
+        checkboxCell.dataset.role = 'selection';
+        checkboxCell.dataset.fixed = 'left';
         checkboxCell.innerHTML = `
       <label class="flex">
         <input type="checkbox"
@@ -469,6 +536,8 @@ export class DataGrid {
         const actionBase = this.config.actionBasePath || this.config.apiEndpoint;
         const actionsCell = document.createElement('td');
         actionsCell.className = 'px-6 py-4 whitespace-nowrap text-end text-sm font-medium';
+        actionsCell.dataset.role = 'actions';
+        actionsCell.dataset.fixed = 'right';
         // Use custom row actions if provided, otherwise use default actions
         if (this.config.rowActions) {
             const actions = this.config.rowActions(item);
@@ -783,21 +852,23 @@ export class DataGrid {
         });
     }
     /**
-     * Bind column visibility toggle
+     * Bind column visibility toggle using ColumnManager
      */
     bindColumnVisibility() {
         const toggleBtn = document.querySelector(this.selectors.columnToggleBtn);
         const menu = document.querySelector(this.selectors.columnToggleMenu);
         if (!toggleBtn || !menu)
             return;
-        const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach((checkbox) => {
-            checkbox.addEventListener('change', () => {
-                const field = checkbox.dataset.column;
-                if (field && this.config.behaviors?.columnVisibility) {
-                    this.config.behaviors.columnVisibility.toggleColumn(field, this);
-                }
-            });
+        // Initialize ColumnManager to render column items with switches and drag handles
+        this.columnManager = new ColumnManager({
+            container: menu,
+            grid: this,
+            onToggle: (field, visible) => {
+                console.log(`[DataGrid] Column ${field} visibility toggled to ${visible}`);
+            },
+            onReorder: (order) => {
+                console.log(`[DataGrid] Columns reordered:`, order);
+            }
         });
     }
     /**
@@ -832,19 +903,30 @@ export class DataGrid {
                 if (!field)
                     return;
                 console.log(`[DataGrid] Sort button clicked for field: ${field}`);
-                // Toggle sort direction: none -> asc -> desc -> asc -> ...
+                // Triple-click cycle: none -> asc -> desc -> none -> asc -> ...
                 const existing = this.state.sort.find(s => s.field === field);
-                let direction = 'asc';
+                let direction = null;
                 if (existing) {
-                    direction = existing.direction === 'asc' ? 'desc' : 'asc';
-                    existing.direction = direction;
+                    if (existing.direction === 'asc') {
+                        // asc -> desc
+                        direction = 'desc';
+                        existing.direction = direction;
+                    }
+                    else {
+                        // desc -> none (clear sort)
+                        this.state.sort = this.state.sort.filter(s => s.field !== field);
+                        direction = null;
+                        console.log(`[DataGrid] Sort cleared for field: ${field}`);
+                    }
                 }
                 else {
+                    // none -> asc
+                    direction = 'asc';
                     this.state.sort = [{ field, direction }];
                 }
                 console.log(`[DataGrid] New sort state:`, this.state.sort);
                 this.pushStateToURL();
-                if (this.config.behaviors?.sort) {
+                if (direction !== null && this.config.behaviors?.sort) {
                     console.log('[DataGrid] Calling custom sort behavior');
                     await this.config.behaviors.sort.onSort(field, direction, this);
                 }
@@ -864,18 +946,28 @@ export class DataGrid {
                 const field = header.dataset.sort;
                 if (!field)
                     return;
-                // Toggle sort direction
+                // Triple-click cycle: none -> asc -> desc -> none -> asc -> ...
                 const existing = this.state.sort.find(s => s.field === field);
-                let direction = 'asc';
+                let direction = null;
                 if (existing) {
-                    direction = existing.direction === 'asc' ? 'desc' : 'asc';
-                    existing.direction = direction;
+                    if (existing.direction === 'asc') {
+                        // asc -> desc
+                        direction = 'desc';
+                        existing.direction = direction;
+                    }
+                    else {
+                        // desc -> none (clear sort)
+                        this.state.sort = this.state.sort.filter(s => s.field !== field);
+                        direction = null;
+                    }
                 }
                 else {
+                    // none -> asc
+                    direction = 'asc';
                     this.state.sort = [{ field, direction }];
                 }
                 this.pushStateToURL();
-                if (this.config.behaviors?.sort) {
+                if (direction !== null && this.config.behaviors?.sort) {
                     await this.config.behaviors.sort.onSort(field, direction, this);
                 }
                 else {
@@ -1134,6 +1226,12 @@ export class DataGrid {
      * Bind dropdown toggles
      */
     bindDropdownToggles() {
+        // Ensure we don't stack global listeners across in-page navigations.
+        if (this.dropdownAbortController) {
+            this.dropdownAbortController.abort();
+        }
+        this.dropdownAbortController = new AbortController();
+        const { signal } = this.dropdownAbortController;
         // Existing dropdown toggles (column visibility, export, etc.)
         document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
             toggle.addEventListener('click', (e) => {
@@ -1153,7 +1251,7 @@ export class DataGrid {
                     // Toggle this dropdown
                     target.classList.toggle('hidden');
                 }
-            });
+            }, { signal });
         });
         // Action dropdown menus (row actions)
         document.addEventListener('click', (e) => {
@@ -1188,7 +1286,7 @@ export class DataGrid {
                     }
                 });
             }
-        });
+        }, { signal });
         // ESC key closes all dropdowns
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -1208,7 +1306,7 @@ export class DataGrid {
                     }
                 });
             }
-        });
+        }, { signal });
     }
     /**
      * Show error message using notifier
@@ -1240,6 +1338,163 @@ export class DataGrid {
             return error.message;
         }
         return 'An unexpected error occurred';
+    }
+    /**
+     * Reorder columns based on the provided order array
+     * Updates config.columns order and triggers DOM reordering
+     * Note: Column order is NOT pushed to URL by default (per guiding notes)
+     */
+    reorderColumns(newOrder) {
+        if (!this.tableEl)
+            return;
+        // Validate and merge order with current columns
+        // - Keep only columns that exist in config.columns
+        // - Append any new columns not in newOrder
+        const validOrder = this.mergeColumnOrder(newOrder);
+        // Update state
+        this.state.columnOrder = validOrder;
+        // Reorder config.columns to match the new order
+        const columnMap = new Map(this.config.columns.map(c => [c.field, c]));
+        this.config.columns = validOrder
+            .map(field => columnMap.get(field))
+            .filter((c) => c !== undefined);
+        // Reorder DOM elements
+        this.reorderTableColumns(validOrder);
+        console.log('[DataGrid] Columns reordered:', validOrder);
+    }
+    /**
+     * Reset columns to their initial/default order and visibility.
+     * Intended to be called by ColumnManager's "Reset to Default" action.
+     */
+    resetColumnsToDefault() {
+        // Restore default config columns (shallow copies)
+        this.config.columns = this.defaultColumns.map(col => ({ ...col }));
+        this.state.columnOrder = this.config.columns.map(col => col.field);
+        // Default visibility: visible unless column.hidden is true
+        const visibleColumns = this.config.columns
+            .filter(col => !col.hidden)
+            .map(col => col.field);
+        // Apply DOM updates if table is initialized
+        if (this.tableEl) {
+            this.reorderTableColumns(this.state.columnOrder);
+            this.updateColumnVisibility(visibleColumns);
+        }
+        else {
+            this.state.hiddenColumns = new Set(this.config.columns.filter(col => col.hidden).map(col => col.field));
+        }
+        // Persist defaults via behavior layer (local + optional server)
+        this.config.behaviors?.columnVisibility?.reorderColumns?.(this.state.columnOrder, this);
+        // Re-render the column menu to reflect defaults (Sortable is re-initialized in refresh()).
+        if (this.columnManager) {
+            this.columnManager.refresh();
+            this.columnManager.syncWithGridState();
+        }
+        console.log('[DataGrid] Columns reset to default');
+    }
+    /**
+     * Merge and validate saved column order with current columns
+     * - Drops columns that no longer exist
+     * - Appends new columns that aren't in saved order
+     */
+    mergeColumnOrder(savedOrder) {
+        const currentFields = new Set(this.config.columns.map(c => c.field));
+        const savedSet = new Set(savedOrder);
+        // Keep only saved columns that still exist
+        const validSaved = savedOrder.filter(field => currentFields.has(field));
+        // Find new columns not in saved order (append at end)
+        const newColumns = this.config.columns
+            .map(c => c.field)
+            .filter(field => !savedSet.has(field));
+        return [...validSaved, ...newColumns];
+    }
+    /**
+     * Reorder table DOM elements (header, filter row, body rows)
+     * Moves existing nodes rather than recreating them to preserve event listeners
+     */
+    reorderTableColumns(order) {
+        if (!this.tableEl)
+            return;
+        // Reorder header row
+        const headerRow = this.tableEl.querySelector('thead tr:first-child');
+        if (headerRow) {
+            this.reorderRowCells(headerRow, order, 'th');
+        }
+        // Reorder filter row
+        const filterRow = this.tableEl.querySelector('#filter-row');
+        if (filterRow) {
+            this.reorderRowCells(filterRow, order, 'th');
+        }
+        // Reorder body rows
+        const bodyRows = this.tableEl.querySelectorAll('tbody tr');
+        bodyRows.forEach(row => {
+            this.reorderRowCells(row, order, 'td');
+        });
+    }
+    /**
+     * Reorder cells within a single row
+     * Preserves fixed columns (selection on left, actions on right)
+     */
+    reorderRowCells(row, order, cellTag) {
+        // Get data cells (those with data-column attribute)
+        const dataCells = Array.from(row.querySelectorAll(`${cellTag}[data-column]`));
+        const cellMap = new Map(dataCells.map(cell => [cell.dataset.column, cell]));
+        // Get fixed cells (selection/actions)
+        // Prefer explicit markers; fall back to heuristics for legacy tables.
+        const allCells = Array.from(row.querySelectorAll(cellTag));
+        const selectionCell = row.querySelector(`${cellTag}[data-role="selection"]`) ||
+            allCells.find(cell => cell.querySelector('input[type="checkbox"]'));
+        const actionsCell = row.querySelector(`${cellTag}[data-role="actions"]`) ||
+            allCells.find(cell => !(cell.dataset.column) && (cell.querySelector('[data-action]') ||
+                cell.querySelector('[data-action-id]') ||
+                cell.querySelector('.dropdown')));
+        // Build reordered cells array
+        const reorderedCells = [];
+        // Add selection cell first (if exists)
+        if (selectionCell) {
+            reorderedCells.push(selectionCell);
+        }
+        // Add data cells in new order
+        order.forEach(field => {
+            const cell = cellMap.get(field);
+            if (cell) {
+                reorderedCells.push(cell);
+            }
+        });
+        // Add actions cell last (if exists)
+        if (actionsCell) {
+            reorderedCells.push(actionsCell);
+        }
+        // Move cells to new positions (appending moves, doesn't clone)
+        reorderedCells.forEach(cell => {
+            row.appendChild(cell);
+        });
+    }
+    /**
+     * Cleanup and destroy the DataGrid instance
+     * Call this when removing the grid from the DOM to prevent memory leaks
+     */
+    destroy() {
+        // Destroy ColumnManager (cleans up SortableJS instance)
+        if (this.columnManager) {
+            this.columnManager.destroy();
+            this.columnManager = null;
+        }
+        // Remove global dropdown listeners
+        if (this.dropdownAbortController) {
+            this.dropdownAbortController.abort();
+            this.dropdownAbortController = null;
+        }
+        // Abort any pending API requests
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+        // Clear search timeout
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = null;
+        }
+        console.log('[DataGrid] Instance destroyed');
     }
 }
 // Export for global usage

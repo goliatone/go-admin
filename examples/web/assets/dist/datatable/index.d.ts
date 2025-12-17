@@ -9,9 +9,12 @@ export type { AdvancedSearchConfig, SearchCriterion, FieldDefinition } from './a
 export { FilterBuilder } from './filter-builder.js';
 export type { FilterBuilderConfig } from './filter-builder.js';
 export type { ColumnDefinition, ColumnFilter, SortColumn, SearchBehavior, FilterBehavior, PaginationBehavior, SortBehavior, ExportBehavior, BulkActionBehavior, ColumnVisibilityBehavior, DataGridBehaviors, FilterCondition, FilterGroup, FilterStructure } from './behaviors/types.js';
-export { GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior } from './go-crud/index.js';
+export { GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior, ServerColumnVisibilityBehavior } from './go-crud/index.js';
+export type { ServerColumnVisibilityConfig } from './go-crud/index.js';
 export { ActionRenderer } from './actions.js';
 export type { ActionButton, BulkActionConfig, ActionVariant } from './actions.js';
 export { CellRendererRegistry, CommonRenderers } from './renderers.js';
 export type { CellRenderer } from './renderers.js';
+export { ColumnManager } from './column-manager.js';
+export type { ColumnManagerConfig } from './column-manager.js';
 //# sourceMappingURL=index.d.ts.map

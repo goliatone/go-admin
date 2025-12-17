@@ -80,6 +80,7 @@ interface DataGridState {
     sort: SortColumn[];
     selectedRows: Set<string>;
     hiddenColumns: Set<string>;
+    columnOrder: string[];
 }
 /**
  * DataGrid component
@@ -92,10 +93,15 @@ export declare class DataGrid {
     private tableEl;
     private searchTimeout;
     private abortController;
+    private dropdownAbortController;
+    private didRestoreColumnOrder;
+    private shouldReorderDOMOnRestore;
     private actionRenderer;
     private cellRendererRegistry;
     private recordsById;
     private notifier;
+    private columnManager;
+    private defaultColumns;
     constructor(config: DataGridConfig);
     /**
      * Initialize the data grid
@@ -113,6 +119,11 @@ export declare class DataGrid {
      * Push current state to URL without reloading page
      */
     private pushStateToURL;
+    /**
+     * Public API: sync current grid state to the URL.
+     * Keeps `hiddenColumns` shareable; column order stays preferences-only by default.
+     */
+    syncURL(): void;
     /**
      * Refresh data from API
      */
@@ -138,7 +149,8 @@ export declare class DataGrid {
      */
     updateColumnVisibility(visibleColumns: string[], skipURLUpdate?: boolean): void;
     /**
-     * Sync column visibility checkboxes with current state
+     * Sync column visibility switches with current state
+     * Uses ColumnManager if available, falls back to direct DOM manipulation
      */
     private syncColumnVisibilityCheckboxes;
     /**
@@ -178,7 +190,7 @@ export declare class DataGrid {
      */
     private bindFilterInputs;
     /**
-     * Bind column visibility toggle
+     * Bind column visibility toggle using ColumnManager
      */
     private bindColumnVisibility;
     /**
@@ -242,6 +254,38 @@ export declare class DataGrid {
      * Extract error message from Response or Error
      */
     private extractError;
+    /**
+     * Reorder columns based on the provided order array
+     * Updates config.columns order and triggers DOM reordering
+     * Note: Column order is NOT pushed to URL by default (per guiding notes)
+     */
+    reorderColumns(newOrder: string[]): void;
+    /**
+     * Reset columns to their initial/default order and visibility.
+     * Intended to be called by ColumnManager's "Reset to Default" action.
+     */
+    resetColumnsToDefault(): void;
+    /**
+     * Merge and validate saved column order with current columns
+     * - Drops columns that no longer exist
+     * - Appends new columns that aren't in saved order
+     */
+    private mergeColumnOrder;
+    /**
+     * Reorder table DOM elements (header, filter row, body rows)
+     * Moves existing nodes rather than recreating them to preserve event listeners
+     */
+    private reorderTableColumns;
+    /**
+     * Reorder cells within a single row
+     * Preserves fixed columns (selection on left, actions on right)
+     */
+    private reorderRowCells;
+    /**
+     * Cleanup and destroy the DataGrid instance
+     * Call this when removing the grid from the DOM to prevent memory leaks
+     */
+    destroy(): void;
 }
 export {};
 //# sourceMappingURL=core.d.ts.map
