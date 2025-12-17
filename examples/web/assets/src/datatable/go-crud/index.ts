@@ -9,4 +9,5 @@ export { GoCrudPaginationBehavior } from './pagination.js';
 export { GoCrudSortBehavior } from './sort.js';
 export { GoCrudExportBehavior } from './export.js';
 export { GoCrudBulkActionBehavior } from './bulk.js';
-export { DefaultColumnVisibilityBehavior } from './column-visibility.js';
+export { DefaultColumnVisibilityBehavior, ServerColumnVisibilityBehavior } from './column-visibility.js';
+export type { ServerColumnVisibilityConfig } from './column-visibility.js';

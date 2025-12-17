@@ -168,6 +168,25 @@ export interface ColumnVisibilityBehavior {
    * Used for fallback when URL params are not present
    */
   loadHiddenColumnsFromCache(allColumns: string[]): Set<string>;
+
+  /**
+   * Reorder columns and persist to storage
+   * Optional - implemented in Phase FE3
+   */
+  reorderColumns?(order: string[], grid: DataGrid): void;
+
+  /**
+   * Load column order from cache (localStorage)
+   * Optional - implemented in Phase FE3
+   */
+  loadColumnOrderFromCache?(allColumns: string[]): string[];
+
+  /**
+   * Clear saved preferences (localStorage and server if applicable)
+   * Called when user clicks "Reset to Default"
+   * Optional - implemented in Phase FE4
+   */
+  clearSavedPrefs?(): void;
 }
 
 /**
