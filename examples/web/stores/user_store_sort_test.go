@@ -22,4 +22,3 @@ func TestExtractListOptionsFromCriteriaParsesOrderBy(t *testing.T) {
 		t.Fatalf("expected SortDesc to be true")
 	}
 }
-

@@ -168,3 +168,103 @@ func TestPreferencesUpdateRoundTripViaAPI(t *testing.T) {
 		t.Fatalf("expected theme to update, got %v", resp["theme"])
 	}
 }
+
+func TestPreferencesUpdateRoundTripViaAPIStoresRawUIKeysAndStripsReserved(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Preferences: true,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	server := router.NewHTTPServer()
+
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	type testCase struct {
+		name   string
+		method string
+		path   string
+	}
+	tests := []testCase{
+		{name: "POST", method: "POST", path: "/admin/api/preferences"},
+		{name: "PUT", method: "PUT", path: "/admin/api/preferences/user-1"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := map[string]any{
+				"id": "should-not-persist",
+				"raw": map[string]any{
+					"ui.datagrid.users.columns": map[string]any{
+						"version":    2,
+						"visibility": map[string]any{"email": true},
+						"order":      []any{"email", "username"},
+					},
+					"not.allowed": "nope",
+					"id":          "also-not-allowed",
+				},
+			}
+			body, _ := json.Marshal(payload)
+			req := httptest.NewRequest(tc.method, tc.path, bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-User-ID", "user-1")
+			rr := httptest.NewRecorder()
+			server.WrappedRouter().ServeHTTP(rr, req)
+			if rr.Code != 200 {
+				t.Fatalf("expected 200 on update, got %d body=%s", rr.Code, rr.Body.String())
+			}
+
+			var resp map[string]any
+			_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+
+			raw := extractMap(resp["raw"])
+			if _, ok := raw["ui.datagrid.users.columns"]; !ok {
+				t.Fatalf("expected raw ui key in response, got %v", raw)
+			}
+			if _, ok := raw["not.allowed"]; ok {
+				t.Fatalf("expected disallowed raw key to be stripped, got %v", raw)
+			}
+			if _, ok := raw["id"]; ok {
+				t.Fatalf("expected reserved raw key to be stripped, got %v", raw)
+			}
+
+			stored, err := adm.preferences.Store().Get(context.Background(), "user-1")
+			if err != nil {
+				t.Fatalf("get stored preferences: %v", err)
+			}
+			if _, ok := stored["ui.datagrid.users.columns"]; !ok {
+				t.Fatalf("expected ui key to be persisted, got %v", stored)
+			}
+			if _, ok := stored["not.allowed"]; ok {
+				t.Fatalf("expected disallowed key not to persist, got %v", stored)
+			}
+			if _, ok := stored["id"]; ok {
+				t.Fatalf("expected reserved key not to persist, got %v", stored)
+			}
+
+			getReq := httptest.NewRequest("GET", "/admin/api/preferences", nil)
+			getReq.Header.Set("X-User-ID", "user-1")
+			getRR := httptest.NewRecorder()
+			server.WrappedRouter().ServeHTTP(getRR, getReq)
+			if getRR.Code != 200 {
+				t.Fatalf("expected 200 on get, got %d body=%s", getRR.Code, getRR.Body.String())
+			}
+
+			var listResp map[string]any
+			_ = json.Unmarshal(getRR.Body.Bytes(), &listResp)
+			records, ok := listResp["records"].([]any)
+			if !ok || len(records) != 1 {
+				t.Fatalf("expected records array, got %v", listResp["records"])
+			}
+			rec := extractMap(records[0])
+			raw = extractMap(rec["raw"])
+			if _, ok := raw["ui.datagrid.users.columns"]; !ok {
+				t.Fatalf("expected raw ui key in list response, got %v", raw)
+			}
+		})
+	}
+}
