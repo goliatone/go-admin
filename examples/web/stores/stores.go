@@ -15,6 +15,7 @@ import (
 // DataStores holds all in-memory or CMS-backed data stores.
 type DataStores struct {
 	Users        *UserStore
+	UserProfiles *UserProfileStore
 	Pages        PageRepository
 	Posts        PostRepository
 	Media        *MediaStore
@@ -56,6 +57,10 @@ func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDe
 	if err != nil {
 		return nil, err
 	}
+	profileStore, err := NewUserProfileStore(userDeps)
+	if err != nil {
+		return nil, err
+	}
 
 	pageStore := NewCMSPageStore(contentSvc, defaultLocale)
 	postStore := NewCMSPostStore(contentSvc, defaultLocale)
@@ -69,6 +74,7 @@ func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDe
 
 	stores := &DataStores{
 		Users:        userStore,
+		UserProfiles: profileStore,
 		Pages:        pageStore,
 		Posts:        postStore,
 		Media:        mediaStore,

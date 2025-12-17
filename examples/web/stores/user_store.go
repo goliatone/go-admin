@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -118,6 +119,7 @@ type User struct {
 	ID            uuid.UUID `json:"id" bun:"id,pk,type:uuid"`
 	Username      string    `json:"username" bun:"username"`
 	Email         string    `json:"email" bun:"email"`
+	Label         string    `json:"label" bun:"-"`
 	Role          string    `json:"role" bun:"role"`
 	Status        string    `json:"status" bun:"status"`
 	CreatedAt     time.Time `json:"created_at" bun:"created_at"`
@@ -335,6 +337,17 @@ func newValidationError(message string, metadata map[string]any) error {
 
 // List returns users honoring search/filters/pagination.
 func (s *UserStore) List(ctx context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {
+	if raw, ok := opts.Filters["id"].(string); ok {
+		id := strings.TrimSpace(raw)
+		if id != "" {
+			user, err := s.Get(ctx, id)
+			if err != nil {
+				return nil, 0, err
+			}
+			return []map[string]any{user}, 1, nil
+		}
+	}
+
 	ctx, filter := userInventoryFilterFromOptions(ctx, opts)
 	page, err := s.repo.ListUsers(ctx, filter)
 	if err != nil {
@@ -351,6 +364,12 @@ func (s *UserStore) List(ctx context.Context, opts admin.ListOptions) ([]map[str
 	for _, user := range filteredUsers {
 		results = append(results, userToMap(&user, lastLoginFromUser(&user, s.repo)))
 	}
+
+	// Apply sorting if specified
+	if opts.SortBy != "" {
+		sortUserResults(results, opts.SortBy, opts.SortDesc)
+	}
+
 	return results, len(results), nil
 }
 
@@ -467,6 +486,69 @@ func (s *UserStore) emitActivity(ctx context.Context, verb string, user *types.A
 		},
 	}
 	_ = s.activity.Record(ctx, entry)
+}
+
+// sortUserResults sorts user results in-place by the specified field and direction
+func sortUserResults(results []map[string]any, sortBy string, sortDesc bool) {
+	if len(results) == 0 {
+		return
+	}
+
+	sort.SliceStable(results, func(i, j int) bool {
+		vi := results[i][sortBy]
+		vj := results[j][sortBy]
+
+		// Handle nil values
+		if vi == nil && vj == nil {
+			return false
+		}
+		if vi == nil {
+			return !sortDesc
+		}
+		if vj == nil {
+			return sortDesc
+		}
+
+		// Compare based on type
+		switch v1 := vi.(type) {
+		case string:
+			if v2, ok := vj.(string); ok {
+				if sortDesc {
+					return v1 > v2
+				}
+				return v1 < v2
+			}
+		case int:
+			if v2, ok := vj.(int); ok {
+				if sortDesc {
+					return v1 > v2
+				}
+				return v1 < v2
+			}
+		case float64:
+			if v2, ok := vj.(float64); ok {
+				if sortDesc {
+					return v1 > v2
+				}
+				return v1 < v2
+			}
+		case time.Time:
+			if v2, ok := vj.(time.Time); ok {
+				if sortDesc {
+					return v1.After(v2)
+				}
+				return v1.Before(v2)
+			}
+		}
+
+		// Default: convert to string and compare
+		s1 := fmt.Sprintf("%v", vi)
+		s2 := fmt.Sprintf("%v", vj)
+		if sortDesc {
+			return s1 > s2
+		}
+		return s1 < s2
+	})
 }
 
 func userInventoryFilterFromOptions(ctx context.Context, opts admin.ListOptions) (context.Context, types.UserInventoryFilter) {
@@ -1119,8 +1201,22 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 		}
 	}
 
+	// Parse ORDER BY for sorting (go-crud uses order criteria, but our in-memory store needs SortBy/SortDesc)
+	if sortBy, sortDesc := extractOrderBy(queryStr); sortBy != "" {
+		opts.SortBy = sortBy
+		opts.SortDesc = sortDesc
+	}
+
 	// Parse WHERE conditions for filters
 	if strings.Contains(queryStr, "WHERE") {
+		// Extract id filter (exact match)
+		if strings.Contains(queryStr, `"id" = `) {
+			idMatch := extractWhereValue(queryStr, "id")
+			if idMatch != "" {
+				opts.Filters["id"] = idMatch
+			}
+		}
+
 		// Extract role filter (exact match)
 		if strings.Contains(queryStr, `"role" = `) {
 			roleMatch := extractWhereValue(queryStr, "role")
@@ -1139,9 +1235,15 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 		// Extract ILIKE patterns - handle multiple fields and multiple values per field
 		queryUpper := strings.ToUpper(queryStr)
 		if strings.Contains(queryUpper, "ILIKE") {
+			var (
+				usernameTerms []string
+				emailTerms    []string
+				roleTerms     []string
+			)
+
 			// Check for username ILIKE (support multiple values)
 			if strings.Contains(queryUpper, `USERNAME`) && strings.Contains(queryUpper, `ILIKE`) {
-				usernameTerms := extractAllILikeValuesForField(queryStr, "username")
+				usernameTerms = extractAllILikeValuesForField(queryStr, "username")
 				fmt.Printf("[DEBUG] Extracted username ILIKE: %v\n", usernameTerms)
 				if len(usernameTerms) > 0 {
 					opts.Filters["username__ilike"] = strings.Join(usernameTerms, ",")
@@ -1149,7 +1251,7 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 			}
 			// Check for email ILIKE (support multiple values)
 			if strings.Contains(queryUpper, `EMAIL`) && strings.Contains(queryUpper, `ILIKE`) {
-				emailTerms := extractAllILikeValuesForField(queryStr, "email")
+				emailTerms = extractAllILikeValuesForField(queryStr, "email")
 				fmt.Printf("[DEBUG] Extracted email ILIKE: %v\n", emailTerms)
 				if len(emailTerms) > 0 {
 					opts.Filters["email__ilike"] = strings.Join(emailTerms, ",")
@@ -1157,11 +1259,20 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 			}
 			// Check for role ILIKE (support multiple values)
 			if strings.Contains(queryUpper, `ROLE`) && strings.Contains(queryUpper, `ILIKE`) {
-				roleTerms := extractAllILikeValuesForField(queryStr, "role")
+				roleTerms = extractAllILikeValuesForField(queryStr, "role")
 				fmt.Printf("[DEBUG] Extracted role ILIKE: %v\n", roleTerms)
 				if len(roleTerms) > 0 {
 					opts.Filters["role__ilike"] = strings.Join(roleTerms, ",")
 				}
+			}
+
+			// Treat matching username/email ILIKE patterns as a single global search.
+			// go-crud builds these as separate WHERE clauses, but for go-users inventory
+			// the expected behavior is a keyword search across multiple fields.
+			if len(usernameTerms) == 1 && len(emailTerms) == 1 && usernameTerms[0] != "" && usernameTerms[0] == emailTerms[0] {
+				opts.Filters["_search"] = usernameTerms[0]
+				delete(opts.Filters, "username__ilike")
+				delete(opts.Filters, "email__ilike")
 			}
 
 			// Fallback: if only one ILIKE without field-specific matches, use as _search
@@ -1621,6 +1732,16 @@ func mapToUserRecord(record map[string]any) *User {
 		Email:    asString(record["email"], ""),
 		Role:     asString(record["role"], "viewer"),
 		Status:   asString(record["status"], "active"),
+	}
+	if user.Username != "" || user.Email != "" {
+		switch {
+		case user.Username != "" && user.Email != "":
+			user.Label = user.Username + " <" + user.Email + ">"
+		case user.Username != "":
+			user.Label = user.Username
+		default:
+			user.Label = user.Email
+		}
 	}
 	if created := parseTimeValue(record["created_at"]); !created.IsZero() {
 		user.CreatedAt = created
