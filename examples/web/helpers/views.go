@@ -78,7 +78,7 @@ func (c *WebViewConfig) GetDirOS() string { return "" }
 func (c *WebViewConfig) GetURLPrefix() string { return "" }
 
 // GetTemplateFunctions returns custom template functions
-func (c *WebViewConfig) GetTemplateFunctions() map[string]any { return nil }
+func (c *WebViewConfig) GetTemplateFunctions() map[string]any { return TemplateFuncs() }
 
 // GetExt returns the template file extension
 func (c *WebViewConfig) GetExt() string { return ".html" }
