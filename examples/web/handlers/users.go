@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"path"
 	"strings"
 
@@ -32,6 +33,16 @@ type UserHandlers struct {
 	Admin         *admin.Admin
 	Config        admin.Config
 	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
+}
+
+func userDataGridColumns() []map[string]any {
+	return []map[string]any{
+		{"field": "email", "label": "Email", "sortable": true, "filterable": true},
+		{"field": "username", "label": "Username", "sortable": true, "filterable": true},
+		{"field": "role", "label": "Role", "sortable": true, "filterable": true},
+		{"field": "status", "label": "Status", "sortable": true, "filterable": true},
+		{"field": "created_at", "label": "Created", "sortable": true, "filterable": true},
+	}
 }
 
 // NewUserHandlers creates a new UserHandlers instance
@@ -63,13 +74,7 @@ func (h *UserHandlers) List(c router.Context) error {
 	}
 
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
-	columns := []map[string]string{
-		{"key": "username", "label": "Username"},
-		{"key": "email", "label": "Email"},
-		{"key": "role", "label": "Role"},
-		{"key": "status", "label": "Status"},
-		{"key": "created_at", "label": "Created"},
-	}
+	columns := userDataGridColumns()
 	for i := range users {
 		id := users[i]["id"]
 		users[i]["actions"] = routes.ActionsMap(id)
@@ -87,6 +92,16 @@ func (h *UserHandlers) List(c router.Context) error {
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/list", viewCtx)
+}
+
+// Columns handles GET /admin/api/users/columns - returns allowlisted user columns for UI use.
+func (h *UserHandlers) Columns(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"columns": userDataGridColumns(),
+	})
 }
 
 // New handles GET /users/new - displays user creation form
