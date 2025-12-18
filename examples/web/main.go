@@ -414,20 +414,6 @@ func main() {
 	if err := setup.SeedAdminNavigation(context.Background(), adm.MenuService(), cfg, modules, adm.Gates(), isDev); err != nil {
 		log.Printf("warning: failed to seed admin navigation: %v", err)
 	}
-
-	if profiles := adm.ProfileService(); profiles != nil {
-		if users, _, err := dataStores.Users.List(context.Background(), admin.ListOptions{PerPage: 1}); err == nil && len(users) > 0 {
-			user := users[0]
-			userID := fmt.Sprint(user["id"])
-			if userID != "" {
-				_, _ = profiles.Save(context.Background(), userID, admin.UserProfile{
-					DisplayName: fmt.Sprint(user["username"]),
-					Email:       fmt.Sprint(user["email"]),
-					Locale:      cfg.DefaultLocale,
-				})
-			}
-		}
-	}
 	for _, mod := range modules {
 		if err := adm.RegisterModule(mod); err != nil {
 			log.Fatalf("failed to register module %s: %v", mod.Manifest().ID, err)
@@ -484,6 +470,13 @@ func main() {
 	})
 	crudAdapter := crud.NewGoRouterAdapter(crudAPI)
 	userController.RegisterRoutes(crudAdapter)
+	userProfileController := crud.NewController(
+		dataStores.UserProfiles.Repository(),
+		crud.WithErrorEncoder[*stores.UserProfile](crudErrorEncoder),
+		crud.WithScopeGuard[*stores.UserProfile](userProfilesCRUDScopeGuard()),
+	)
+	userProfileController.RegisterRoutes(crudAdapter)
+	registerCrudAliases(crudAdapter, userProfileController, "user-profiles")
 	pageController := crud.NewController(
 		dataStores.PageRecords,
 		crud.WithErrorEncoder[*stores.PageRecord](crudErrorEncoder),
@@ -512,6 +505,8 @@ func main() {
 		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), cfg.Features)
 		return c.JSON(fiber.StatusOK, session)
 	}))
+
+	r.Get(path.Join(cfg.BasePath, "api", "timezones"), authn.WrapHandler(handlers.ListTimezones))
 
 	onboardingHandlers := handlers.OnboardingHandlers{
 		UsersService: usersService,
@@ -558,13 +553,18 @@ func main() {
 
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
+	userProfileHandlers := handlers.NewUserProfileHandlers(dataStores.UserProfiles, formGenerator, adm, cfg, helpers.WithNav)
 	pageHandlers := handlers.NewPageHandlers(dataStores.Pages, adm, cfg, helpers.WithNav)
 	postHandlers := handlers.NewPostHandlers(dataStores.Posts, adm, cfg, helpers.WithNav)
 	mediaHandlers := handlers.NewMediaHandlers(dataStores.Media, adm, cfg, helpers.WithNav)
+	profileHandlers := handlers.NewProfileHandlers(adm, cfg, helpers.WithNav)
 	var tenantHandlers *handlers.TenantHandlers
 	if svc := adm.TenantService(); svc != nil {
 		tenantHandlers = handlers.NewTenantHandlers(svc, formGenerator, adm, cfg, helpers.WithNav)
 	}
+
+	// Optional metadata endpoint for frontend DataGrid column definitions.
+	r.Get(path.Join(cfg.BasePath, "api", "users", "columns"), authn.WrapHandler(userHandlers.Columns))
 
 	// Protected dashboard page: wrap with go-auth middleware
 	r.Get(cfg.BasePath, authn.WrapHandler(func(c router.Context) error {
@@ -641,6 +641,10 @@ func main() {
 		return c.Render("notifications", viewCtx)
 	}))
 
+	// Profile routes (self-service HTML)
+	r.Get(path.Join(cfg.BasePath, "profile"), authn.WrapHandler(profileHandlers.Show))
+	r.Post(path.Join(cfg.BasePath, "profile"), authn.WrapHandler(profileHandlers.Save))
+
 	// Export handlers
 	exportHandlers := handlers.NewExportHandlers(dataStores.Users, cfg)
 
@@ -652,6 +656,15 @@ func main() {
 	r.Post(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Update))
 	r.Get(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Detail))
 	r.Post(path.Join(cfg.BasePath, "users/:id/delete"), authn.WrapHandler(userHandlers.Delete))
+
+	// User Profiles routes
+	r.Get(path.Join(cfg.BasePath, "user-profiles"), authn.WrapHandler(userProfileHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "user-profiles/new"), authn.WrapHandler(userProfileHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "user-profiles"), authn.WrapHandler(userProfileHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "user-profiles/:id/edit"), authn.WrapHandler(userProfileHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "user-profiles/:id"), authn.WrapHandler(userProfileHandlers.Update))
+	r.Get(path.Join(cfg.BasePath, "user-profiles/:id"), authn.WrapHandler(userProfileHandlers.Detail))
+	r.Post(path.Join(cfg.BasePath, "user-profiles/:id/delete"), authn.WrapHandler(userProfileHandlers.Delete))
 
 	// Export action (custom action endpoint for go-crud compatibility)
 	r.Get(path.Join(cfg.BasePath, "crud/users/actions/export"), authn.WrapHandler(exportHandlers.ExportUsers))
@@ -741,6 +754,41 @@ func (h httpFSAdapter) Open(name string) (fs.File, error) {
 }
 
 func userCRUDScopeGuard() crud.ScopeGuardFunc[*stores.User] {
+	return func(ctx crud.Context, op crud.CrudOperation) (crud.ActorContext, crud.ScopeFilter, error) {
+		actor := crud.ActorContext{}
+		if authActor, ok := authlib.ActorFromContext(ctx.UserContext()); ok && authActor != nil {
+			actor = adaptAuthActor(authActor)
+		}
+		scope := helpers.ScopeFromContext(ctx.UserContext())
+		scopeFilter := crud.ScopeFilter{
+			Raw: map[string]any{
+				"scope": scope,
+			},
+		}
+
+		claims, ok := authlib.GetClaims(ctx.UserContext())
+		if !ok || claims == nil {
+			return actor, scopeFilter, goerrors.New("missing or invalid token", goerrors.CategoryAuth).
+				WithCode(goerrors.CodeUnauthorized).
+				WithTextCode("UNAUTHORIZED")
+		}
+
+		action := crudOperationAction(op)
+		if action == "" {
+			return actor, scopeFilter, nil
+		}
+
+		if !authlib.Can(ctx.UserContext(), "admin.users", action) {
+			return actor, scopeFilter, goerrors.New("forbidden", goerrors.CategoryAuthz).
+				WithCode(goerrors.CodeForbidden).
+				WithTextCode("FORBIDDEN")
+		}
+
+		return actor, scopeFilter, nil
+	}
+}
+
+func userProfilesCRUDScopeGuard() crud.ScopeGuardFunc[*stores.UserProfile] {
 	return func(ctx crud.Context, op crud.CrudOperation) (crud.ActorContext, crud.ScopeFilter, error) {
 		actor := crud.ActorContext{}
 		if authActor, ok := authlib.ActorFromContext(ctx.UserContext()); ok && authActor != nil {
