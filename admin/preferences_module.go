@@ -8,6 +8,7 @@ import (
 )
 
 const preferencesModuleID = "preferences"
+const preferencesRawNamespacePrefix = "ui."
 
 // PreferencesModule registers a user preferences panel and navigation entry.
 // It is feature-gated via FeaturePreferences and backed by PreferencesService.
@@ -224,6 +225,7 @@ func (r *PreferencesRepository) recordFromPreferences(prefs UserPreferences) map
 		"id":            prefs.UserID,
 		"theme":         prefs.Theme,
 		"theme_variant": prefs.ThemeVariant,
+		"raw":           filterAllowedRawPreferences(prefs.Raw),
 	}
 	if len(prefs.DashboardLayout) > 0 {
 		record["dashboard_layout"] = flattenDashboardLayout(prefs.DashboardLayout)
@@ -236,19 +238,64 @@ func (r *PreferencesRepository) recordFromPreferences(prefs UserPreferences) map
 
 func (r *PreferencesRepository) preferencesFromRecord(record map[string]any) UserPreferences {
 	prefs := UserPreferences{
-		Raw: cloneAnyMap(record),
+		Raw: map[string]any{},
+	}
+	if rawVal, ok := record["raw"]; ok {
+		prefs.Raw = filterAllowedRawPreferences(extractMap(rawVal))
 	}
 	if val, ok := record["theme"]; ok {
 		prefs.Theme = toString(val)
+		prefs.Raw[preferencesKeyTheme] = prefs.Theme
 	}
 	if val, ok := record["theme_variant"]; ok {
 		prefs.ThemeVariant = toString(val)
+		prefs.Raw[preferencesKeyThemeVariant] = prefs.ThemeVariant
 	}
 	if val, ok := record["dashboard_layout"]; ok {
 		prefs.DashboardLayout = expandDashboardLayout(val)
+		prefs.Raw[preferencesKeyDashboardLayout] = flattenDashboardLayout(prefs.DashboardLayout)
 	}
 	if val, ok := record["dashboard_overrides"]; ok {
 		prefs.DashboardPrefs = expandDashboardOverrides(val)
+		prefs.Raw[preferencesKeyDashboardPrefs] = flattenDashboardOverrides(prefs.DashboardPrefs)
 	}
 	return prefs
+}
+
+func filterAllowedRawPreferences(raw map[string]any) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	for key, val := range raw {
+		if isAllowedRawPreferenceKey(key) {
+			out[key] = val
+		}
+	}
+	return out
+}
+
+func isAllowedRawPreferenceKey(key string) bool {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return false
+	}
+	if key == "id" || key == "raw" {
+		return false
+	}
+	if !strings.HasPrefix(key, preferencesRawNamespacePrefix) {
+		return false
+	}
+	for i := 0; i < len(key); i++ {
+		ch := key[i]
+		switch {
+		case ch >= 'a' && ch <= 'z':
+		case ch >= 'A' && ch <= 'Z':
+		case ch >= '0' && ch <= '9':
+		case ch == '.' || ch == '_' || ch == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
