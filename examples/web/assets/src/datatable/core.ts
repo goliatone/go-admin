@@ -1648,6 +1648,10 @@ export class DataGrid {
    * Intended to be called by ColumnManager's "Reset to Default" action.
    */
   resetColumnsToDefault(): void {
+    // Clear persisted preferences first (localStorage + optional server sync)
+    // so "Reset to Default" truly removes saved state instead of re-saving defaults.
+    this.config.behaviors?.columnVisibility?.clearSavedPrefs?.();
+
     // Restore default config columns (shallow copies)
     this.config.columns = this.defaultColumns.map(col => ({ ...col }));
     this.state.columnOrder = this.config.columns.map(col => col.field);
@@ -1666,9 +1670,6 @@ export class DataGrid {
         this.config.columns.filter(col => col.hidden).map(col => col.field)
       );
     }
-
-    // Persist defaults via behavior layer (local + optional server)
-    this.config.behaviors?.columnVisibility?.reorderColumns?.(this.state.columnOrder, this);
 
     // Re-render the column menu to reflect defaults (Sortable is re-initialized in refresh()).
     if (this.columnManager) {

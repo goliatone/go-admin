@@ -1,34 +1,19 @@
-import { ToastManager } from './toast-manager.js';
-import { extractErrorMessage, getErrorMessage } from './error-helpers.js';
-/**
- * Initialize global toast manager
- * Exposed as window.toastManager and window.notify for easy template access
- */
-export function initGlobalToastManager(position) {
-    const manager = new ToastManager({ position: position || 'top-right' });
-    // Expose globally for template access
-    window.toastManager = manager;
-    // Also expose convenient helper functions
-    window.notify = {
-        success: (msg, duration) => manager.success(msg, duration),
-        error: (msg, duration) => manager.error(msg, duration),
-        warning: (msg, duration) => manager.warning(msg, duration),
-        info: (msg, duration) => manager.info(msg, duration),
-        confirm: (msg, options) => manager.confirm(msg, options)
-    };
-    // Expose error helpers globally
-    window.extractErrorMessage = extractErrorMessage;
-    window.getErrorMessage = getErrorMessage;
-    return manager;
+import { T as t, e as s, g as i } from "../chunks/error-helpers-CECqNnwO.js";
+function n(a) {
+  const o = new t({ position: a || "top-right" });
+  return window.toastManager = o, window.notify = {
+    success: (r, e) => o.success(r, e),
+    error: (r, e) => o.error(r, e),
+    warning: (r, e) => o.warning(r, e),
+    info: (r, e) => o.info(r, e),
+    confirm: (r, e) => o.confirm(r, e)
+  }, window.extractErrorMessage = s, window.getErrorMessage = i, o;
 }
-// Auto-initialize on DOM ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => initGlobalToastManager());
-}
-else {
-    initGlobalToastManager();
-}
-// Also export for module usage
-export { ToastManager } from './toast-manager.js';
-export { extractErrorMessage, getErrorMessage } from './error-helpers.js';
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", () => n()) : n();
+export {
+  t as ToastManager,
+  s as extractErrorMessage,
+  i as getErrorMessage,
+  n as initGlobalToastManager
+};
 //# sourceMappingURL=init.js.map

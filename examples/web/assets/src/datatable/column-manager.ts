@@ -63,7 +63,7 @@ export class ColumnManager {
     // Create column list wrapper for SortableJS
     const columnList = document.createElement('div');
     columnList.className = 'column-list';
-    columnList.setAttribute('role', 'listbox');
+    columnList.setAttribute('role', 'list');
     columnList.setAttribute('aria-label', 'Column visibility and order');
 
     // Build each column item using DOM APIs (safe from XSS)
@@ -128,15 +128,8 @@ export class ColumnManager {
    * Handle reset button click
    */
   private handleReset(): void {
-    // Notify via callback if provided
-    if (this.onReset) {
-      this.onReset();
-    }
-
-    // Reset via grid method
-    if (typeof (this.grid as any).resetColumnsToDefault === 'function') {
-      (this.grid as any).resetColumnsToDefault();
-    }
+    this.grid.resetColumnsToDefault();
+    this.onReset?.();
   }
 
   /**
@@ -152,8 +145,7 @@ export class ColumnManager {
     item.className = 'column-item';
     item.id = itemId;
     item.dataset.column = field;
-    item.setAttribute('role', 'option');
-    item.setAttribute('aria-selected', String(isVisible));
+    item.setAttribute('role', 'listitem');
 
     // Content wrapper (drag handle + label)
     const content = document.createElement('div');
@@ -279,12 +271,6 @@ export class ColumnManager {
         // Update ARIA attributes
         checkbox.setAttribute('aria-checked', String(isVisible));
 
-        // Update parent item aria-selected
-        const item = checkbox.closest('.column-item');
-        if (item) {
-          item.setAttribute('aria-selected', String(isVisible));
-        }
-
         // Update description text
         const descId = `column-item-${field}-desc`;
         const description = this.container.querySelector(`#${descId}`);
@@ -318,12 +304,6 @@ export class ColumnManager {
     if (checkbox) {
       checkbox.checked = isVisible;
       checkbox.setAttribute('aria-checked', String(isVisible));
-
-      // Update parent item aria-selected
-      const item = checkbox.closest('.column-item');
-      if (item) {
-        item.setAttribute('aria-selected', String(isVisible));
-      }
     }
   }
 
