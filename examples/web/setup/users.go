@@ -182,6 +182,12 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 			user.LoggedInAt = ptrTime(seed.LastLogin)
 			_, _ = usersRepo.Update(ctx, user)
 		}
+
+		if deps.ProfileRepo != nil {
+			if err := seedUserProfile(ctx, deps.ProfileRepo, user); err != nil {
+				return err
+			}
+		}
 	}
 
 	if preferenceRepo != nil {
@@ -190,6 +196,117 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 		}
 	}
 	return nil
+}
+
+func seedUserProfile(ctx context.Context, repo types.ProfileRepository, user *auth.User) error {
+	if repo == nil || user == nil || user.ID == uuid.Nil {
+		return nil
+	}
+
+	scope := types.ScopeFilter{}
+	existing, err := repo.GetProfile(ctx, user.ID, scope)
+	if err != nil {
+		return err
+	}
+
+	seed := types.UserProfile{
+		UserID:      user.ID,
+		DisplayName: seedDisplayName(user.Username),
+		Locale:      "en",
+		Timezone:    "UTC",
+		Bio:         seedProfileBio(user.Username),
+		AvatarURL:   "",
+		Contact: map[string]any{
+			"email": user.Email,
+		},
+		Metadata: map[string]any{
+			"username": user.Username,
+		},
+		Scope:     scope,
+		CreatedBy: user.ID,
+		UpdatedBy: user.ID,
+	}
+
+	if existing == nil {
+		_, err := repo.UpsertProfile(ctx, seed)
+		return err
+	}
+
+	merged := *existing
+	changed := false
+	if strings.TrimSpace(merged.DisplayName) == "" && strings.TrimSpace(seed.DisplayName) != "" {
+		merged.DisplayName = seed.DisplayName
+		changed = true
+	}
+	if strings.TrimSpace(merged.Locale) == "" && strings.TrimSpace(seed.Locale) != "" {
+		merged.Locale = seed.Locale
+		changed = true
+	}
+	if strings.TrimSpace(merged.Timezone) == "" && strings.TrimSpace(seed.Timezone) != "" {
+		merged.Timezone = seed.Timezone
+		changed = true
+	}
+	if strings.TrimSpace(merged.Bio) == "" && strings.TrimSpace(seed.Bio) != "" {
+		merged.Bio = seed.Bio
+		changed = true
+	}
+	if strings.TrimSpace(merged.AvatarURL) == "" && strings.TrimSpace(seed.AvatarURL) != "" {
+		merged.AvatarURL = seed.AvatarURL
+		changed = true
+	}
+	if merged.Contact == nil {
+		merged.Contact = map[string]any{}
+	}
+	if strings.TrimSpace(toString(merged.Contact["email"])) == "" && strings.TrimSpace(user.Email) != "" {
+		merged.Contact["email"] = user.Email
+		changed = true
+	}
+	if merged.Metadata == nil {
+		merged.Metadata = map[string]any{}
+	}
+	if strings.TrimSpace(toString(merged.Metadata["username"])) == "" && strings.TrimSpace(user.Username) != "" {
+		merged.Metadata["username"] = user.Username
+		changed = true
+	}
+
+	if !changed {
+		return nil
+	}
+
+	merged.UpdatedBy = user.ID
+	_, err = repo.UpsertProfile(ctx, merged)
+	return err
+}
+
+func seedDisplayName(username string) string {
+	trimmed := strings.TrimSpace(username)
+	if trimmed == "" {
+		return ""
+	}
+	trimmed = strings.ReplaceAll(trimmed, ".", " ")
+	trimmed = strings.ReplaceAll(trimmed, "_", " ")
+	trimmed = strings.ReplaceAll(trimmed, "-", " ")
+	parts := strings.Fields(trimmed)
+	for i, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		lower := strings.ToLower(part)
+		parts[i] = strings.ToUpper(lower[:1]) + lower[1:]
+	}
+	return strings.Join(parts, " ")
+}
+
+func seedProfileBio(username string) string {
+	switch strings.ToLower(strings.TrimSpace(username)) {
+	case "admin":
+		return "Demo admin account for the go-admin example app."
+	case "viewer":
+		return "Demo viewer account with limited permissions."
+	default:
+		return "Demo account for the go-admin example app."
+	}
 }
 
 func seedUserPreferences(ctx context.Context, repo *preferences.Repository, usersRepo auth.Users) error {
