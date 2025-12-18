@@ -48,6 +48,19 @@ func parseListOptions(c router.Context) ListOptions {
 	sortDesc := c.Query("sort_desc") == "true"
 	search := c.Query("search")
 
+	// Also support go-crud style "order" parameter (e.g., "role asc" or "role desc")
+	if sort == "" {
+		if order := c.Query("order"); order != "" {
+			parts := strings.Fields(order)
+			if len(parts) > 0 {
+				sort = parts[0]
+				if len(parts) > 1 {
+					sortDesc = strings.ToLower(parts[1]) == "desc"
+				}
+			}
+		}
+	}
+
 	filters := map[string]any{}
 	for key, val := range c.Queries() {
 		if len(val) == 0 {
