@@ -81,7 +81,7 @@
             </button>
             <!-- ColumnManager renders column items with switches and drag handles into this container -->
             <div id="column-toggle-menu"
-                 class="hidden absolute right-0 z-10 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-2"
+                 class="hidden absolute right-0 z-10 mt-2 w-64 max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-2"
                  role="listbox"
                  aria-label="Column visibility and order">
               <!-- Items rendered dynamically by ColumnManager -->
@@ -107,6 +107,19 @@
                   </svg>
                   <span>CSV</span>
                 </button>
+                <button data-export-format="json" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  <svg class="w-4 h-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <path d="M8 13h2"/>
+                    <path d="M8 17h2"/>
+                    <path d="M14 13h2"/>
+                    <path d="M14 17h2"/>
+                  </svg>
+                  <span>JSON</span>
+                </button>
+                <!-- Divider -->
+                <div class="border-t border-gray-200 my-1"></div>
                 <button data-export-format="excel" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
                   <svg class="w-4 h-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -325,6 +338,10 @@ import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFi
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};
 const columnFields = columns.map(c => c.field);
+const gridColumns = columns.map(col => ({
+  ...col,
+  hidden: col.default === false
+}));
 
 {% verbatim %}
 document.addEventListener('DOMContentLoaded', async function() {
@@ -398,7 +415,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     tableId: 'users-datatable',
     apiEndpoint: '/admin/crud/users',
     actionBasePath: actionBasePath,
-    columns: columns,
+    columns: gridColumns,
     perPage: 10,
     searchDelay: 300,
 
