@@ -51,13 +51,21 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool) fiber.
 		isAPI := strings.HasPrefix(c.Path(), apiPrefix) || strings.HasPrefix(c.Path(), crudPrefix)
 
 		if isAPI {
-			payload := fiber.Map{"status": code}
-			if isDev {
-				payload["error"] = err.Error()
-			} else {
-				payload["error"] = message
+			mapped := goerrors.MapToError(err, goerrors.DefaultErrorMappers())
+			if mapped == nil {
+				mapped = goerrors.New(message, goerrors.CategoryInternal).
+					WithCode(code).
+					WithTextCode(goerrors.HTTPStatusToTextCode(code))
 			}
-			return c.Status(code).JSON(payload)
+			if mapped.Code != 0 {
+				code = mapped.Code
+			} else {
+				mapped.Code = code
+			}
+			if isDev && mapped.Category == goerrors.CategoryInternal {
+				mapped.Message = err.Error()
+			}
+			return c.Status(code).JSON(mapped.ToErrorResponse(false, nil))
 		}
 
 		headline, userMessage := errorContext(code)
