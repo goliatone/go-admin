@@ -120,9 +120,14 @@ type User struct {
 	Username      string    `json:"username" bun:"username"`
 	Email         string    `json:"email" bun:"email"`
 	Label         string    `json:"label" bun:"-"`
+	FirstName     string    `json:"first_name" bun:"first_name"`
+	LastName      string    `json:"last_name" bun:"last_name"`
+	PhoneNumber   string    `json:"phone_number" bun:"phone_number"`
+	IsEmailVerified bool    `json:"is_email_verified" bun:"is_email_verified"`
 	Role          string    `json:"role" bun:"role"`
 	Status        string    `json:"status" bun:"status"`
 	CreatedAt     time.Time `json:"created_at" bun:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" bun:"updated_at"`
 	LastLogin     time.Time `json:"last_login" bun:"last_login"`
 }
 
@@ -674,6 +679,10 @@ func userToMap(user *types.AuthUser, lastLogin time.Time) map[string]any {
 	if user.CreatedAt != nil {
 		created = user.CreatedAt.Format(time.RFC3339)
 	}
+	updated := ""
+	if user.UpdatedAt != nil {
+		updated = user.UpdatedAt.Format(time.RFC3339)
+	}
 	last := ""
 	if !lastLogin.IsZero() {
 		last = lastLogin.Format(time.RFC3339)
@@ -703,6 +712,7 @@ func userToMap(user *types.AuthUser, lastLogin time.Time) map[string]any {
 		"status":            statusToOutput(user.Status),
 		"metadata":          user.Metadata,
 		"created_at":        created,
+		"updated_at":        updated,
 		"last_login":        last,
 	}
 }
@@ -1707,14 +1717,27 @@ func userRecordToMap(u *User) map[string]any {
 		return nil
 	}
 	record := map[string]any{
-		"id":       u.ID.String(),
-		"username": u.Username,
-		"email":    u.Email,
-		"role":     u.Role,
-		"status":   u.Status,
+		"id":                u.ID.String(),
+		"username":          u.Username,
+		"email":             u.Email,
+		"role":              u.Role,
+		"status":            u.Status,
+		"is_email_verified": u.IsEmailVerified,
+	}
+	if u.FirstName != "" {
+		record["first_name"] = u.FirstName
+	}
+	if u.LastName != "" {
+		record["last_name"] = u.LastName
+	}
+	if u.PhoneNumber != "" {
+		record["phone_number"] = u.PhoneNumber
 	}
 	if !u.CreatedAt.IsZero() {
 		record["created_at"] = u.CreatedAt.Format(time.RFC3339)
+	}
+	if !u.UpdatedAt.IsZero() {
+		record["updated_at"] = u.UpdatedAt.Format(time.RFC3339)
 	}
 	if !u.LastLogin.IsZero() {
 		record["last_login"] = u.LastLogin.Format(time.RFC3339)
@@ -1727,11 +1750,17 @@ func mapToUserRecord(record map[string]any) *User {
 		return &User{}
 	}
 	user := &User{
-		ID:       parseUUID(asString(record["id"], "")),
-		Username: asString(record["username"], ""),
-		Email:    asString(record["email"], ""),
-		Role:     asString(record["role"], "viewer"),
-		Status:   asString(record["status"], "active"),
+		ID:          parseUUID(asString(record["id"], "")),
+		Username:    asString(record["username"], ""),
+		Email:       asString(record["email"], ""),
+		FirstName:   asString(record["first_name"], ""),
+		LastName:    asString(record["last_name"], ""),
+		PhoneNumber: asString(record["phone_number"], ""),
+		Role:        asString(record["role"], "viewer"),
+		Status:      asString(record["status"], "active"),
+	}
+	if verified, ok := parseBoolValue(record["is_email_verified"]); ok {
+		user.IsEmailVerified = verified
 	}
 	if user.Username != "" || user.Email != "" {
 		switch {
@@ -1745,6 +1774,9 @@ func mapToUserRecord(record map[string]any) *User {
 	}
 	if created := parseTimeValue(record["created_at"]); !created.IsZero() {
 		user.CreatedAt = created
+	}
+	if updated := parseTimeValue(record["updated_at"]); !updated.IsZero() {
+		user.UpdatedAt = updated
 	}
 	if last := parseTimeValue(record["last_login"]); !last.IsZero() {
 		user.LastLogin = last
