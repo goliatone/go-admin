@@ -64,12 +64,12 @@ func (h *TenantHandlers) List(c router.Context) error {
 		items = append(items, tenantRecordToMap(rec, routes))
 	}
 
-	columns := []map[string]string{
-		{"key": "name", "label": "Name"},
-		{"key": "slug", "label": "Slug"},
-		{"key": "domain", "label": "Domain"},
-		{"key": "status", "label": "Status"},
-		{"key": "created_at", "label": "Created"},
+	columns := []helpers.DataGridColumn{
+		{Field: "name", Label: "Name"},
+		{Field: "slug", Label: "Slug"},
+		{Field: "domain", Label: "Domain"},
+		{Field: "status", Label: "Status"},
+		{Field: "created_at", Label: "Created"},
 	}
 
 	viewCtx := h.WithNav(router.ViewContext{

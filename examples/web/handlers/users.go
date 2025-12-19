@@ -35,13 +35,19 @@ type UserHandlers struct {
 	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
 }
 
-func userDataGridColumns() []map[string]any {
-	return []map[string]any{
-		{"field": "email", "label": "Email", "sortable": true, "filterable": true},
-		{"field": "username", "label": "Username", "sortable": true, "filterable": true},
-		{"field": "role", "label": "Role", "sortable": true, "filterable": true},
-		{"field": "status", "label": "Status", "sortable": true, "filterable": true},
-		{"field": "created_at", "label": "Created", "sortable": true, "filterable": true},
+func userDataGridColumns() []helpers.DataGridColumn {
+	return []helpers.DataGridColumn{
+		{Field: "email", Label: "Email", Sortable: true, Filterable: true, Default: true},
+		{Field: "username", Label: "Username", Sortable: true, Filterable: true, Default: true},
+		{Field: "first_name", Label: "First Name", Sortable: true, Filterable: true, Default: false},
+		{Field: "last_name", Label: "Last Name", Sortable: true, Filterable: true, Default: false},
+		{Field: "role", Label: "Role", Sortable: true, Filterable: true, Default: true},
+		{Field: "status", Label: "Status", Sortable: true, Filterable: true, Default: true},
+		{Field: "phone_number", Label: "Phone", Sortable: true, Filterable: true, Default: false},
+		{Field: "is_email_verified", Label: "Email Verified", Sortable: true, Default: false},
+		{Field: "created_at", Label: "Created", Sortable: true, Filterable: true, Default: true},
+		{Field: "updated_at", Label: "Updated", Sortable: true, Default: false},
+		{Field: "last_login", Label: "Last Login", Sortable: true, Default: false},
 	}
 }
 

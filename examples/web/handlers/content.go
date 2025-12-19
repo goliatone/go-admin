@@ -35,11 +35,11 @@ func (h *PageHandlers) List(c router.Context) error {
 	}
 
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "pages")
-	columns := []map[string]string{
-		{"key": "title", "label": "Title"},
-		{"key": "slug", "label": "Slug"},
-		{"key": "status", "label": "Status"},
-		{"key": "updated_at", "label": "Updated"},
+	columns := []helpers.DataGridColumn{
+		{Field: "title", Label: "Title"},
+		{Field: "slug", Label: "Slug"},
+		{Field: "status", Label: "Status"},
+		{Field: "updated_at", Label: "Updated"},
 	}
 	for i := range pages {
 		id := pages[i]["id"]
@@ -236,11 +236,11 @@ func (h *PostHandlers) List(c router.Context) error {
 		return err
 	}
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "posts")
-	columns := []map[string]string{
-		{"key": "title", "label": "Title"},
-		{"key": "author", "label": "Author"},
-		{"key": "status", "label": "Status"},
-		{"key": "published_at", "label": "Published"},
+	columns := []helpers.DataGridColumn{
+		{Field: "title", Label: "Title"},
+		{Field: "author", Label: "Author"},
+		{Field: "status", Label: "Status"},
+		{Field: "published_at", Label: "Published"},
 	}
 	for i := range posts {
 		id := posts[i]["id"]
@@ -445,11 +445,11 @@ func (h *MediaHandlers) List(c router.Context) error {
 		return err
 	}
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "media")
-	columns := []map[string]string{
-		{"key": "filename", "label": "Filename"},
-		{"key": "type", "label": "Type"},
-		{"key": "size", "label": "Size"},
-		{"key": "uploaded_by", "label": "Uploaded By"},
+	columns := []helpers.DataGridColumn{
+		{Field: "filename", Label: "Filename"},
+		{Field: "type", Label: "Type"},
+		{Field: "size", Label: "Size"},
+		{Field: "uploaded_by", Label: "Uploaded By"},
 	}
 	for i := range items {
 		id := items[i]["id"]

@@ -61,14 +61,14 @@ func (h *UserProfileHandlers) List(c router.Context) error {
 	}
 
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "user-profiles")
-	columns := []map[string]string{
-		{"key": "id", "label": "User ID"},
-		{"key": "display_name", "label": "Display Name"},
-		{"key": "email", "label": "Email"},
-		{"key": "locale", "label": "Locale"},
-		{"key": "timezone", "label": "Timezone"},
-		{"key": "bio", "label": "Bio"},
-		{"key": "updated_at", "label": "Updated"},
+	columns := []helpers.DataGridColumn{
+		{Field: "id", Label: "User ID"},
+		{Field: "display_name", Label: "Display Name"},
+		{Field: "email", Label: "Email"},
+		{Field: "locale", Label: "Locale"},
+		{Field: "timezone", Label: "Timezone"},
+		{Field: "bio", Label: "Bio"},
+		{Field: "updated_at", Label: "Updated"},
 	}
 	for i := range items {
 		id := items[i]["id"]

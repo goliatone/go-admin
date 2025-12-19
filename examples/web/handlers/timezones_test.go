@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-router"
 )
@@ -28,6 +30,7 @@ func setupTimezonesTestApp() *fiber.App {
 			UnescapePath:      true,
 			EnablePrintRoutes: false,
 			StrictRouting:     false,
+			ErrorHandler:      quickstart.NewFiberErrorHandler(nil, admin.Config{BasePath: "/admin"}, true),
 		})
 
 		app.Use(func(c *fiber.Ctx) error {
@@ -131,4 +134,3 @@ func TestListTimezones_OK(t *testing.T) {
 		t.Fatalf("unexpected option: %#v", payload.Data[0])
 	}
 }
-
