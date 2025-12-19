@@ -137,6 +137,28 @@ func (m *usersModule) MenuItems(locale string) []admin.MenuItem {
 			Position:    admin.IntPtr(20),
 		},
 	}
+
+	profilesID := "user-profiles"
+	if m.parentID != "" {
+		profilesID = m.parentID + ".user-profiles"
+	}
+	items = append(items, admin.MenuItem{
+		ID:       profilesID,
+		Label:    "User Profiles",
+		LabelKey: "menu.user_profiles",
+		Icon:     "user-circle",
+		Target: map[string]any{
+			"type": "url",
+			"path": path.Join(m.basePath, "user-profiles"),
+			"key":  "user-profiles",
+		},
+		ParentID:    m.parentID,
+		Permissions: []string{"admin.users.view"},
+		Locale:      locale,
+		Menu:        code,
+		Position:    admin.IntPtr(25),
+	})
+
 	roleID := "roles"
 	if m.parentID != "" {
 		roleID = m.parentID + ".roles"
