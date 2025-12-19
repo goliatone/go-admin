@@ -43,48 +43,6 @@ func NewUserFormGenerator(openapiFS fs.FS, templatesFS fs.FS) *formgenorchestrat
 		formgenorchestrator.WithModelBuilder(formgenmodel.NewBuilder()),
 		formgenorchestrator.WithRegistry(registry),
 		formgenorchestrator.WithDefaultRenderer(vanillaRenderer.Name()),
-		formgenorchestrator.WithEndpointOverrides([]formgenorchestrator.EndpointOverride{
-			{
-				OperationID: "createUserProfile",
-				FieldPath:   "timezone",
-				Endpoint: formgenorchestrator.EndpointConfig{
-					URL:         "/admin/api/timezones",
-					Method:      "GET",
-					ResultsPath: "data",
-					Params: map[string]string{
-						"format": "options",
-						"limit":  "50",
-					},
-					DynamicParams: map[string]string{
-						"q": "{{self}}",
-					},
-					Mapping: formgenorchestrator.EndpointMapping{
-						Value: "value",
-						Label: "label",
-					},
-				},
-			},
-			{
-				OperationID: "updateUserProfile",
-				FieldPath:   "timezone",
-				Endpoint: formgenorchestrator.EndpointConfig{
-					URL:         "/admin/api/timezones",
-					Method:      "GET",
-					ResultsPath: "data",
-					Params: map[string]string{
-						"format": "options",
-						"limit":  "50",
-					},
-					DynamicParams: map[string]string{
-						"q": "{{self}}",
-					},
-					Mapping: formgenorchestrator.EndpointMapping{
-						Value: "value",
-						Label: "label",
-					},
-				},
-			},
-		}),
 	}
 	if uiSchemaFS != nil {
 		opts = append(opts, formgenorchestrator.WithUISchemaFS(uiSchemaFS))
