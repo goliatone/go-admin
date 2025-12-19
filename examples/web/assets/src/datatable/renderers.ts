@@ -263,6 +263,27 @@ export const CommonRenderers = {
   },
 
   /**
+   * Boolean chip renderer with icon + label (e.g., [✓ Yes] or [✕ No])
+   */
+  booleanChip: (options?: { trueLabel?: string; falseLabel?: string }): CellRenderer => {
+    const trueLabel = options?.trueLabel || 'Yes';
+    const falseLabel = options?.falseLabel || 'No';
+
+    const checkIcon = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+    const xIcon = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+
+    return (value: any): string => {
+      const isTrue = Boolean(value);
+
+      if (isTrue) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">${checkIcon}${trueLabel}</span>`;
+      }
+
+      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">${xIcon}${falseLabel}</span>`;
+    };
+  },
+
+  /**
    * Relative time renderer (e.g., "2 hours ago")
    */
   relativeTime: (value: any): string => {

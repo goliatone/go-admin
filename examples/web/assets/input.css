@@ -691,8 +691,8 @@
   @apply w-4 h-4;
 }
 
-/* Focus visible states for keyboard navigation */
-.column-item:focus-within {
+/* Focus visible states for keyboard navigation - only show on keyboard focus, not click */
+.column-item:focus-within:has(:focus-visible) {
   @apply outline-none ring-2 ring-blue-500 ring-offset-1 rounded-lg;
 }
 

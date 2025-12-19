@@ -44,6 +44,13 @@ export declare const CommonRenderers: {
      */
     userInfo: (value: any, record: any) => string;
     /**
+     * Boolean chip renderer with icon + label (e.g., [✓ Yes] or [✕ No])
+     */
+    booleanChip: (options?: {
+        trueLabel?: string;
+        falseLabel?: string;
+    }) => CellRenderer;
+    /**
      * Relative time renderer (e.g., "2 hours ago")
      */
     relativeTime: (value: any) => string;
