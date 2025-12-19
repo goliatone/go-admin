@@ -171,7 +171,9 @@ export class DataGrid {
       filters: [],
       sort: [],
       selectedRows: new Set(),
-      hiddenColumns: new Set(),
+      hiddenColumns: new Set(
+        this.config.columns.filter(col => col.hidden).map(col => col.field)
+      ),
       columnOrder: this.config.columns.map(col => col.field)  // Initialize with config column order
     };
 
@@ -1109,7 +1111,7 @@ export class DataGrid {
 
     menu.querySelectorAll('[data-export-format]').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        const format = (btn as HTMLElement).dataset.exportFormat as 'csv' | 'excel' | 'pdf';
+        const format = (btn as HTMLElement).dataset.exportFormat as 'csv' | 'json' | 'excel' | 'pdf';
         if (format && this.config.behaviors?.export) {
           await this.config.behaviors.export.export(format, this);
         }
@@ -1542,19 +1544,24 @@ export class DataGrid {
           this.positionDropdownMenu(trigger as HTMLElement, menu);
         }
       } else {
-        // Close all action dropdowns when clicking outside
-        document.querySelectorAll('.actions-menu').forEach(m =>
-          m.classList.add('hidden')
-        );
+        // Check if the click is inside an open dropdown menu (e.g., column toggle menu)
+        const clickedInsideDropdownMenu = (e.target as HTMLElement).closest('[data-dropdown-toggle], #column-toggle-menu, #export-menu');
 
-        // Also close existing dropdowns
-        document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-          const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
-          const target = document.getElementById(targetId || '');
-          if (target) {
-            target.classList.add('hidden');
-          }
-        });
+        if (!clickedInsideDropdownMenu) {
+          // Close all action dropdowns when clicking outside
+          document.querySelectorAll('.actions-menu').forEach(m =>
+            m.classList.add('hidden')
+          );
+
+          // Also close existing dropdowns
+          document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
+            const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
+            const target = document.getElementById(targetId || '');
+            if (target) {
+              target.classList.add('hidden');
+            }
+          });
+        }
       }
     }, { signal });
 

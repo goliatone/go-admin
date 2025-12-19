@@ -26,7 +26,7 @@ export class GoCrudExportBehavior implements ExportBehavior {
     return `${this.baseEndpoint}s`;
   }
 
-  async export(format: 'csv' | 'excel' | 'pdf', grid: DataGrid): Promise<void> {
+  async export(format: 'csv' | 'json' | 'excel' | 'pdf', grid: DataGrid): Promise<void> {
     // Build current query string with all filters, search, etc.
     const currentQuery = grid.buildQueryString();
 

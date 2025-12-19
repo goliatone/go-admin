@@ -114,7 +114,7 @@ export interface ExportBehavior {
     /**
      * Export data in specified format
      */
-    export(format: 'csv' | 'excel' | 'pdf', grid: DataGrid): Promise<void>;
+    export(format: 'csv' | 'json' | 'excel' | 'pdf', grid: DataGrid): Promise<void>;
 }
 /**
  * Bulk action behavior - handles bulk operations

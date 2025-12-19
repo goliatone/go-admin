@@ -10,6 +10,6 @@ export declare class GoCrudExportBehavior implements ExportBehavior {
     constructor(baseEndpoint: string, actionSlug?: string);
     getEndpoint(): string;
     private getPluralEndpoint;
-    export(format: 'csv' | 'excel' | 'pdf', grid: DataGrid): Promise<void>;
+    export(format: 'csv' | 'json' | 'excel' | 'pdf', grid: DataGrid): Promise<void>;
 }
 //# sourceMappingURL=export.d.ts.map

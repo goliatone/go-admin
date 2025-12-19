@@ -1793,7 +1793,9 @@ class hr {
       filters: [],
       sort: [],
       selectedRows: /* @__PURE__ */ new Set(),
-      hiddenColumns: /* @__PURE__ */ new Set(),
+      hiddenColumns: new Set(
+        this.config.columns.filter((t) => t.hidden).map((t) => t.field)
+      ),
       columnOrder: this.config.columns.map((t) => t.field)
       // Initialize with config column order
     }, this.actionRenderer = new Nt({
@@ -2459,12 +2461,12 @@ class hr {
         const s = o?.classList.contains("hidden");
         o?.classList.toggle("hidden"), r.setAttribute("aria-expanded", s ? "true" : "false"), s && o && this.positionDropdownMenu(r, o);
       } else
-        document.querySelectorAll(".actions-menu").forEach(
-          (n) => n.classList.add("hidden")
-        ), document.querySelectorAll("[data-dropdown-toggle]").forEach((n) => {
-          const o = n.dataset.dropdownToggle, s = document.getElementById(o || "");
-          s && s.classList.add("hidden");
-        });
+        t.target.closest("[data-dropdown-toggle], #column-toggle-menu, #export-menu") || (document.querySelectorAll(".actions-menu").forEach(
+          (o) => o.classList.add("hidden")
+        ), document.querySelectorAll("[data-dropdown-toggle]").forEach((o) => {
+          const s = o.dataset.dropdownToggle, a = document.getElementById(s || "");
+          a && a.classList.add("hidden");
+        }));
     }, { signal: e }), document.addEventListener("keydown", (t) => {
       t.key === "Escape" && (document.querySelectorAll(".actions-menu").forEach((r) => {
         r.classList.add("hidden");

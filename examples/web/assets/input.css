@@ -665,9 +665,9 @@
   @apply bg-gray-100;
 }
 
-/* Column list wrapper */
+/* Column list wrapper - grows with content, parent container controls max height */
 .column-list {
-  @apply max-h-64 overflow-y-auto;
+  @apply overflow-y-auto;
 }
 
 /* Column manager footer with reset button */
