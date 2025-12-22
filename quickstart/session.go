@@ -84,6 +84,8 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 		}
 	}
 
+	session.IsAuthenticated = actor != nil || claims != nil
+
 	session.Email = firstNonEmpty(session.Email,
 		stringFromMetadata(session.Metadata, "email", "user_email"),
 	)
@@ -115,7 +117,6 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 		}
 	}
 
-	session.IsAuthenticated = actor != nil || claims != nil
 	session.Subtitle = buildSubtitle(session)
 	session.Initial = strings.ToUpper(initialRune(session.DisplayName))
 
