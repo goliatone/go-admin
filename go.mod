@@ -4,22 +4,24 @@ go 1.24.10
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/goliatone/go-auth v0.21.0
-	github.com/goliatone/go-cms v0.14.0
+	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
+	github.com/goliatone/go-auth v0.22.0
+	github.com/goliatone/go-cms v0.16.0
 	github.com/goliatone/go-command v0.10.0
-	github.com/goliatone/go-crud v0.13.0
+	github.com/goliatone/go-crud v0.15.0
 	github.com/goliatone/go-dashboard v0.5.0
 	github.com/goliatone/go-errors v0.9.0
-	github.com/goliatone/go-formgen v0.4.0
+	github.com/goliatone/go-formgen v0.11.0
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.13.0
 	github.com/goliatone/go-notifications v0.5.0
-	github.com/goliatone/go-options v0.5.0
+	github.com/goliatone/go-options v0.7.0
 	github.com/goliatone/go-persistence-bun v0.7.0
 	github.com/goliatone/go-repository-bun v0.10.0
-	github.com/goliatone/go-router v0.37.0
+	github.com/goliatone/go-router v0.39.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
+	github.com/goliatone/go-uploader v0.3.0
 	github.com/goliatone/go-users v0.3.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -33,7 +35,7 @@ require (
 require (
 	cel.dev/expr v0.25.1 // indirect
 	dario.cat/mergo v1.0.2 // indirect
-	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/MicahParks/keyfunc/v2 v2.1.0 // indirect
 	github.com/adrg/frontmatter v0.2.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.20.0 // indirect
@@ -41,6 +43,17 @@ require (
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.41.0 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.16 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.16 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.8.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.16 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.1 // indirect
+	github.com/aws/smithy-go v1.24.0 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
@@ -87,6 +100,7 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
+	github.com/jszwec/s3fs/v2 v2.0.0 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/lithammer/shortuuid v3.0.0+incompatible // indirect
@@ -124,7 +138,7 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
-	github.com/yuin/goldmark v1.6.0 // indirect
+	github.com/yuin/goldmark v1.7.13 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.39.0 // indirect
 	go.opentelemetry.io/otel/metric v1.39.0 // indirect
@@ -145,3 +159,5 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.40.1 // indirect
 )
+
+replace github.com/goliatone/go-admin/quickstart => ./quickstart
