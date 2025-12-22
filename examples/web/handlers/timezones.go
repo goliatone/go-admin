@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/goliatone/go-admin/pkg/formgencomponents/timezones"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
+	"github.com/goliatone/go-formgen/components/timezones"
 	"github.com/goliatone/go-router"
 )
 
