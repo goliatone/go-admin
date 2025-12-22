@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"path"
 	"strings"
 
@@ -23,6 +24,23 @@ const (
 	createUserProfileOperation = "createUserProfile"
 	updateUserProfileOperation = "updateUserProfile"
 )
+
+// userProfileDataGridColumns returns the allowlisted columns for user profiles DataGrid.
+// Filterable flags align with what the store actually filters: id, display_name, email, locale, timezone, bio.
+// created_at/updated_at are sortable but not filterable.
+func userProfileDataGridColumns() []helpers.DataGridColumn {
+	return []helpers.DataGridColumn{
+		{Field: "id", Label: "User ID", Sortable: true, Filterable: true, Default: false},
+		{Field: "display_name", Label: "Display Name", Sortable: true, Filterable: true, Default: true},
+		{Field: "email", Label: "Email", Sortable: true, Filterable: true, Default: true},
+		{Field: "avatar_url", Label: "Avatar", Sortable: false, Filterable: false, Default: false},
+		{Field: "locale", Label: "Locale", Sortable: true, Filterable: true, Default: true},
+		{Field: "timezone", Label: "Timezone", Sortable: true, Filterable: true, Default: true},
+		{Field: "bio", Label: "Bio", Sortable: true, Filterable: true, Default: false},
+		{Field: "created_at", Label: "Created", Sortable: true, Filterable: false, Default: false},
+		{Field: "updated_at", Label: "Updated", Sortable: true, Filterable: false, Default: true},
+	}
+}
 
 // UserProfileHandlers holds dependencies for user-profile HTML handlers.
 type UserProfileHandlers struct {
@@ -61,15 +79,7 @@ func (h *UserProfileHandlers) List(c router.Context) error {
 	}
 
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "user-profiles")
-	columns := []helpers.DataGridColumn{
-		{Field: "id", Label: "User ID"},
-		{Field: "display_name", Label: "Display Name"},
-		{Field: "email", Label: "Email"},
-		{Field: "locale", Label: "Locale"},
-		{Field: "timezone", Label: "Timezone"},
-		{Field: "bio", Label: "Bio"},
-		{Field: "updated_at", Label: "Updated"},
-	}
+	columns := userProfileDataGridColumns()
 	for i := range items {
 		id := items[i]["id"]
 		items[i]["actions"] = routes.ActionsMap(id)
@@ -87,6 +97,16 @@ func (h *UserProfileHandlers) List(c router.Context) error {
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/user-profiles/list", viewCtx)
+}
+
+// Columns handles GET /admin/api/user-profiles/columns - returns allowlisted columns for UI use.
+func (h *UserProfileHandlers) Columns(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"columns": userProfileDataGridColumns(),
+	})
 }
 
 func (h *UserProfileHandlers) New(c router.Context) error {
