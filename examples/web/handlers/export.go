@@ -13,15 +13,17 @@ import (
 
 // ExportHandlers holds dependencies for export-related handlers
 type ExportHandlers struct {
-	UserStore *stores.UserStore
-	Config    admin.Config
+	UserStore        *stores.UserStore
+	UserProfileStore *stores.UserProfileStore
+	Config           admin.Config
 }
 
 // NewExportHandlers creates a new ExportHandlers instance
-func NewExportHandlers(userStore *stores.UserStore, cfg admin.Config) *ExportHandlers {
+func NewExportHandlers(userStore *stores.UserStore, userProfileStore *stores.UserProfileStore, cfg admin.Config) *ExportHandlers {
 	return &ExportHandlers{
-		UserStore: userStore,
-		Config:    cfg,
+		UserStore:        userStore,
+		UserProfileStore: userProfileStore,
+		Config:           cfg,
 	}
 }
 
@@ -87,6 +89,71 @@ func (h *ExportHandlers) exportUsersCSV(c router.Context, users []map[string]any
 
 	c.Set("Content-Type", "text/csv")
 	c.Set("Content-Disposition", "attachment; filename=users.csv")
+	return c.Send(buf.Bytes())
+}
+
+// ExportUserProfiles handles GET /user-profiles/actions/export
+// Exports user profiles based on current query parameters (filters, search, etc.)
+func (h *ExportHandlers) ExportUserProfiles(c router.Context) error {
+	format := c.Query("format", "csv")
+	ctx := c.Context()
+
+	// TODO: Parse query parameters for filters, search, pagination
+	// For now, fetch all user profiles
+	profiles, _, err := h.UserProfileStore.List(ctx, admin.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case "csv":
+		return h.exportUserProfilesCSV(c, profiles)
+	case "excel":
+		// TODO: Implement Excel export
+		return fmt.Errorf("excel export not yet implemented")
+	case "pdf":
+		// TODO: Implement PDF export
+		return fmt.Errorf("pdf export not yet implemented")
+	default:
+		return fmt.Errorf("unsupported export format: %s", format)
+	}
+}
+
+// exportUserProfilesCSV exports user profiles as CSV
+func (h *ExportHandlers) exportUserProfilesCSV(c router.Context, profiles []map[string]any) error {
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+
+	// Define columns
+	columns := []string{"id", "display_name", "email", "avatar_url", "locale", "timezone", "bio", "created_at", "updated_at"}
+
+	// Write header
+	if err := w.Write(columns); err != nil {
+		return err
+	}
+
+	// Write rows
+	for _, profile := range profiles {
+		row := make([]string, len(columns))
+		for i, col := range columns {
+			if val, ok := profile[col]; ok && val != nil {
+				row[i] = fmt.Sprintf("%v", val)
+			} else {
+				row[i] = ""
+			}
+		}
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return err
+	}
+
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=user-profiles.csv")
 	return c.Send(buf.Bytes())
 }
 
