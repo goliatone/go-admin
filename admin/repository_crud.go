@@ -142,6 +142,26 @@ func (c *crudAdapterContext) Query(key string, defaultValue ...string) string {
 	}
 	return ""
 }
+func (c *crudAdapterContext) QueryValues(key string) []string {
+	val, ok := c.queries[key]
+	if !ok {
+		return nil
+	}
+	if strings.Contains(val, ",") {
+		raw := strings.Split(val, ",")
+		out := make([]string, 0, len(raw))
+		for _, item := range raw {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+		return out
+	}
+	if strings.TrimSpace(val) == "" {
+		return nil
+	}
+	return []string{val}
+}
 func (c *crudAdapterContext) QueryInt(key string, defaultValue ...int) int {
 	if val, ok := c.queries[key]; ok {
 		if parsed, err := strconv.Atoi(val); err == nil {
