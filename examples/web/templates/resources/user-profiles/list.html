@@ -17,6 +17,7 @@
       <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <!-- Left: Search/Filter Area -->
         <div class="relative max-w-2xl w-full flex flex-col gap-2">
+          <!-- Top row: Filter button + Search input -->
           <div class="flex gap-2">
             <button type="button"
                     id="filter-toggle-btn"
@@ -51,6 +52,7 @@
             </div>
           </div>
 
+          <!-- Applied filter preview -->
           <div id="applied-filter-preview" class="hidden text-xs text-gray-600">
             <span class="font-medium">Applied filter:</span>
             <span id="filter-preview-text" class="ml-1"></span>
@@ -61,12 +63,15 @@
             </button>
           </div>
 
+          <!-- Filter Panel (dropdown) -->
           <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
+            <!-- Panel content will be rendered here -->
           </div>
         </div>
 
         <!-- Right: Controls -->
         <div class="flex items-center gap-x-3">
+          <!-- Column Visibility Toggle -->
           <div class="relative">
             <button id="column-toggle-btn" type="button"
                     data-dropdown-toggle="column-toggle-menu"
@@ -74,44 +79,72 @@
               <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               Columns
             </button>
-            <div id="column-toggle-menu" class="hidden absolute right-0 z-10 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg">
-              <div class="p-3 space-y-2">
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="id" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">User ID</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="display_name" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Display Name</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="email" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Email</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="locale" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Locale</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="timezone" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Timezone</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="bio" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Bio</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="updated_at" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Updated</span>
-                </label>
-                <label class="flex items-center gap-2 hover:bg-gray-50 p-2 rounded cursor-pointer">
-                  <input type="checkbox" data-column="created_at" checked class="column-toggle border-gray-300 rounded text-blue-600 focus:ring-blue-500">
-                  <span class="text-sm">Created</span>
-                </label>
+            <!-- ColumnManager renders column items with switches and drag handles into this container -->
+            <div id="column-toggle-menu"
+                 class="hidden absolute right-0 z-10 mt-2 w-64 max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-2"
+                 role="listbox"
+                 aria-label="Column visibility and order">
+              <!-- Items rendered dynamically by ColumnManager -->
+            </div>
+          </div>
+
+          <!-- Export Dropdown -->
+          <div class="relative">
+            <button id="export-btn" type="button"
+                    data-dropdown-toggle="export-menu"
+                    class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
+              <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              Export
+            </button>
+            <div id="export-menu" class="hidden absolute right-0 z-10 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div class="p-1">
+                <button data-export-format="csv" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  <svg class="w-4 h-4 text-green-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <path d="M12 18v-6"/>
+                    <path d="m9 15 3 3 3-3"/>
+                  </svg>
+                  <span>CSV</span>
+                </button>
+                <button data-export-format="json" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  <svg class="w-4 h-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <path d="M8 13h2"/>
+                    <path d="M8 17h2"/>
+                    <path d="M14 13h2"/>
+                    <path d="M14 17h2"/>
+                  </svg>
+                  <span>JSON</span>
+                </button>
+                <!-- Divider -->
+                <div class="border-t border-gray-200 my-1"></div>
+                <button data-export-format="excel" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  <svg class="w-4 h-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <rect x="8" y="12" width="8" height="6" rx="1"/>
+                    <path d="M10 12v6"/>
+                    <path d="M14 12v6"/>
+                  </svg>
+                  <span>Excel</span>
+                </button>
+                <button data-export-format="pdf" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
+                  <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <path d="M10 12.5a2.5 2.5 0 0 1 2.5-2.5H14"/>
+                    <path d="M10 12.5V17"/>
+                    <path d="M12.5 10H14a2 2 0 0 1 0 4h-1.5"/>
+                  </svg>
+                  <span>PDF</span>
+                </button>
               </div>
             </div>
           </div>
 
+          <!-- Refresh Button -->
           <button id="refresh-btn" type="button"
                   class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
                   aria-label="Refresh table">
@@ -123,11 +156,13 @@
       </div>
   </div>
 
+  <!-- DataTable Table -->
   <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
     <div class="overflow-x-auto">
       <table id="user-profiles-datatable" class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
+            <!-- Selection Column (fixed, not reorderable) -->
             <th scope="col" data-role="selection" data-fixed="left" class="px-6 py-3 text-start">
               <label class="flex">
                 <input type="checkbox"
@@ -136,127 +171,70 @@
                 <span class="sr-only">Select all</span>
               </label>
             </th>
-            <th scope="col" data-column="id" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+            {% for col in columns %}
+            <th scope="col"
+                data-column="{{ col.field }}"
+                {% if col.sortable %}data-sortable="true"{% endif %}
+                class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               <div class="flex items-center gap-2 group">
-                <span>User ID</span>
-                <button type="button" data-sort-column="id" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by User ID">
+                <span>{{ col.label }}</span>
+                {% if col.sortable %}
+                <button type="button"
+                        data-sort-column="{{ col.field }}"
+                        class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                        aria-label="Sort by {{ col.label }} (click to cycle: ascending, descending, clear)"
+                        title="Click to cycle: ascending → descending → clear">
                   <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
                   </svg>
                 </button>
+                {% endif %}
               </div>
             </th>
-            <th scope="col" data-column="display_name" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Display Name</span>
-                <button type="button" data-sort-column="display_name" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Display Name">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" data-column="email" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Email</span>
-                <button type="button" data-sort-column="email" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Email">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" data-column="locale" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Locale</span>
-                <button type="button" data-sort-column="locale" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Locale">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" data-column="timezone" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Timezone</span>
-                <button type="button" data-sort-column="timezone" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Timezone">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" data-column="bio" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Bio</span>
-                <button type="button" data-sort-column="bio" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Bio">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" data-column="updated_at" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Updated</span>
-                <button type="button" data-sort-column="updated_at" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Updated">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-            <th scope="col" data-column="created_at" data-sortable="true" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>Created</span>
-                <button type="button" data-sort-column="created_at" class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Sort by Created">
-                  <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                  </svg>
-                </button>
-              </div>
-            </th>
+            {% endfor %}
+            <!-- Actions Column (fixed, not reorderable) -->
             <th scope="col" data-role="actions" data-fixed="right" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
+          <!-- Filter Row - Cells have data-column to match header/body for reorder/hide alignment -->
           <tr class="bg-gray-100" id="filter-row">
+            <!-- Selection filter cell (fixed, not reorderable) -->
             <th data-role="selection" data-fixed="left"></th>
-            <th data-column="id" class="px-6 py-2">
-              <input type="text" data-filter-column="id" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+            {% for col in columns %}
+            <th data-column="{{ col.field }}" class="px-6 py-2">
+              {% if not col.filterable %}
+              {% elif col.field == "locale" %}
+              <select data-filter-column="locale" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+                <option value="">All</option>
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+              </select>
+              {% else %}
+              <input type="text"
+                     data-filter-column="{{ col.field }}"
+                     placeholder="Filter..."
+                     class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+              {% endif %}
             </th>
-            <th data-column="display_name" class="px-6 py-2">
-              <input type="text" data-filter-column="display_name" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
-            <th data-column="email" class="px-6 py-2">
-              <input type="text" data-filter-column="email" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
-            <th data-column="locale" class="px-6 py-2">
-              <input type="text" data-filter-column="locale" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
-            <th data-column="timezone" class="px-6 py-2">
-              <input type="text" data-filter-column="timezone" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
-            <th data-column="bio" class="px-6 py-2">
-              <input type="text" data-filter-column="bio" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
-            <th data-column="updated_at" class="px-6 py-2">
-              <input type="text" data-filter-column="updated_at" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
-            <th data-column="created_at" class="px-6 py-2">
-              <input type="text" data-filter-column="created_at" placeholder="Filter..." class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
-            </th>
+            {% endfor %}
+            <!-- Actions filter cell (fixed, not reorderable) -->
             <th data-role="actions" data-fixed="right"></th>
           </tr>
         </thead>
         <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
+          <!-- Rows will be dynamically rendered by DataGrid -->
         </tbody>
       </table>
     </div>
   </div>
 
+  <!-- Pagination Footer -->
   <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
     <div class="flex items-center justify-between gap-4">
+      <!-- Left: Info text -->
       <div class="flex-shrink-0">
         <p class="text-sm text-gray-600">
           Showing <span class="font-medium" id="table-info-start">1</span> to
@@ -265,54 +243,99 @@
         </p>
       </div>
 
-      <div class="flex items-center gap-3">
-        <div class="flex items-center gap-2">
-          <label for="table-per-page" class="text-sm text-gray-600">Show</label>
-          <select id="table-per-page" class="border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-        <div id="table-pagination" class="flex items-center gap-1"></div>
+      <!-- Center: Pagination buttons -->
+      <div class="flex-1 flex justify-center">
+        <nav id="table-pagination" class="flex items-center gap-x-1">
+          <!-- Pagination buttons will be inserted here -->
+        </nav>
+      </div>
+
+      <!-- Right: Per Page selector -->
+      <div class="flex items-center gap-x-2 flex-shrink-0">
+        <span class="text-sm text-gray-600 whitespace-nowrap">Per page:</span>
+        <select id="table-per-page"
+                class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
       </div>
     </div>
   </div>
 
   {% else %}
-  <div class="bg-white border border-gray-200 rounded-xl p-12 text-center">
-    <h3 class="text-lg font-medium text-gray-900 mb-2">No profiles found</h3>
-    <p class="text-gray-600 mb-6">Get started by creating a new user profile.</p>
-    <a href="{{ routes.new }}" class="btn btn-primary">+ New User Profile</a>
+  <div class="text-center py-16">
+    <div class="text-6xl mb-4">👤</div>
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">No {{ resource_label|default:resource|lower }} yet</h3>
+    <p class="text-gray-500 mb-6">Get started by creating your first {{ resource_label|default:resource|lower }}</p>
+    <a href="{{ routes.new }}" class="btn btn-primary">Create</a>
   </div>
   {% endif %}
+
+  <!-- Overlay for filter panel -->
+  <div id="filter-overlay" class="hidden fixed inset-0 bg-black opacity-30 z-40"></div>
+
+  <!-- Floating Bulk Actions Bar -->
+  <div id="bulk-actions-overlay" class="bulk-actions-overlay hidden">
+    <div class="bulk-actions-bar">
+      <!-- Left: Close + Count -->
+      <div class="flex items-center gap-4">
+        <button id="bulk-clear-selection" class="bulk-close-btn" aria-label="Clear selection">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+        <span class="bulk-count-text">Selected: <span id="selected-count">0</span></span>
+      </div>
+
+      <!-- Right: Action Buttons -->
+      <div class="flex items-center gap-2">
+        <button class="bulk-action-btn" data-bulk-action="bulk-delete">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
+{% endblock %}
 
-{% if items %}
+{% block scripts %}
 <script type="module">
-import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, DefaultColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
 
-document.addEventListener('DOMContentLoaded', () => {
-  const actionBasePath = '{{ base_path }}/user-profiles';
+// Template variables
+const actionBasePath = '{{ routes.index }}';
+const columns = {{ toJSON(columns)|safe }};
+const columnFields = columns.map(c => c.field);
+const gridColumns = columns.map(col => ({
+  ...col,
+  hidden: col.default === false
+}));
 
+{% verbatim %}
+document.addEventListener('DOMContentLoaded', async function() {
+  // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
+  const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
+    resource: 'user-profiles',
+    localStorageKey: 'user_profiles_datatable_columns'
+  });
+  await columnVisibility.loadFromServer();
+
+  // Initialize the DataGrid component
   const grid = new DataGrid({
     tableId: 'user-profiles-datatable',
-    apiEndpoint: '{{ base_path }}/crud/user-profiles',
+    apiEndpoint: '/admin/crud/user-profiles',
     actionBasePath: actionBasePath,
-    columns: [
-      { field: 'id', label: 'User ID', sortable: true, filterable: true },
-      { field: 'display_name', label: 'Display Name', sortable: true, filterable: true },
-      { field: 'email', label: 'Email', sortable: true, filterable: true },
-      { field: 'locale', label: 'Locale', sortable: true, filterable: true },
-      { field: 'timezone', label: 'Timezone', sortable: true, filterable: true },
-      { field: 'bio', label: 'Bio', sortable: true, filterable: true },
-      { field: 'updated_at', label: 'Updated', sortable: true, filterable: true },
-      { field: 'created_at', label: 'Created', sortable: true, filterable: true }
-    ],
+    columns: gridColumns,
     perPage: 10,
     searchDelay: 300,
 
+    // Custom row actions
     rowActions: (profile) => {
       return [
         {
@@ -330,14 +353,26 @@ document.addEventListener('DOMContentLoaded', () => {
       ];
     },
 
+    // Custom cell renderers
     cellRenderers: {
-      'email': (value, record) => {
-        const label = value || '(none)';
-        return `<a href="${actionBasePath}/${record.id}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">${label}</a>`;
-      },
       'display_name': (value, record) => {
         const label = value || '(unnamed)';
         return `<a href="${actionBasePath}/${record.id}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">${label}</a>`;
+      },
+      'email': (value, record) => {
+        if (!value) return '<span class="text-gray-400">-</span>';
+        return `<a href="mailto:${value}" class="text-blue-600 hover:text-blue-800">${value}</a>`;
+      },
+      'avatar_url': (value) => {
+        if (!value) return '<span class="text-gray-400">-</span>';
+        return `<img src="${value}" alt="Avatar" class="h-8 w-8 rounded-full object-cover" />`;
+      },
+      'bio': (value) => {
+        if (!value) return '<span class="text-gray-400">-</span>';
+        const text = String(value);
+        const maxLength = 50;
+        if (text.length <= maxLength) return text;
+        return `<span title="${text}">${text.substring(0, maxLength)}...</span>`;
       }
     },
 
@@ -346,10 +381,8 @@ document.addEventListener('DOMContentLoaded', () => {
       filter: new GoCrudFilterBehavior(),
       pagination: new GoCrudPaginationBehavior(),
       sort: new GoCrudSortBehavior(),
-      columnVisibility: new DefaultColumnVisibilityBehavior(
-        ['id', 'display_name', 'email', 'locale', 'timezone', 'bio', 'updated_at', 'created_at'],
-        'user_profiles_datatable_columns'
-      )
+      export: new GoCrudExportBehavior('/admin/crud/user-profiles'),
+      columnVisibility: columnVisibility
     },
     selectors: {
       searchInput: '#table-search',
@@ -357,17 +390,26 @@ document.addEventListener('DOMContentLoaded', () => {
       filterRow: '[data-filter-column]',
       columnToggleBtn: '#column-toggle-btn',
       columnToggleMenu: '#column-toggle-menu',
+      exportBtn: '#export-btn',
+      exportMenu: '#export-menu',
       paginationContainer: '#table-pagination',
       tableInfoStart: '#table-info-start',
       tableInfoEnd: '#table-info-end',
       tableInfoTotal: '#table-info-total',
       selectAllCheckbox: '#table-checkbox-all',
-      rowCheckboxes: '.table-checkbox'
-    }
+      rowCheckboxes: '.table-checkbox',
+      bulkActionsBar: '#bulk-actions-overlay',
+      selectedCount: '#selected-count'
+    },
+
+    // Wire toast notification system (initialized globally in layout.html)
+    notifier: window.toastManager
   });
 
+  // Initialize the grid
   grid.init();
 
+  // Bind refresh button
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async () => {
@@ -382,16 +424,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Initialize FilterBuilder
   const filterBuilder = new FilterBuilder({
+    notifier: window.toastManager,
     fields: [
       { name: 'id', label: 'User ID', type: 'text' },
       { name: 'display_name', label: 'Display Name', type: 'text' },
       { name: 'email', label: 'Email', type: 'text' },
-      { name: 'locale', label: 'Locale', type: 'text' },
+      { name: 'locale', label: 'Locale', type: 'select', options: [
+        { label: 'English', value: 'en' },
+        { label: 'Spanish', value: 'es' },
+        { label: 'French', value: 'fr' },
+        { label: 'German', value: 'de' }
+      ]},
       { name: 'timezone', label: 'Timezone', type: 'text' },
       { name: 'bio', label: 'Bio', type: 'text' }
     ],
     onApply: (structure) => {
+      console.log('[FilterBuilder] Filter structure:', structure);
+
+      // Convert filter structure to grid filters
       const filters = [];
       structure.groups.forEach(group => {
         group.conditions.forEach(condition => {
@@ -402,12 +454,15 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         });
       });
+
+      // Update grid state with filters
       grid.state.filters = filters;
       grid.resetPagination();
       grid.syncURL();
       grid.refresh();
     },
     onClear: () => {
+      console.log('[FilterBuilder] Clear filters');
       grid.state.search = '';
       grid.state.filters = [];
       grid.syncURL();
@@ -415,6 +470,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+{% endverbatim %}
 </script>
-{% endif %}
 {% endblock %}

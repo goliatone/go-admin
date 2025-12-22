@@ -57,3 +57,6 @@ node_modules
 .gocache
 *.log
 *.db
+examples/web/assets/uploads/users/profile-pictures
+.cache
+.codex_tmp/
