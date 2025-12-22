@@ -35,6 +35,7 @@ type AdapterResult struct {
 	ActivityBackend  string
 	ActivitySink     admin.ActivitySink
 	PersistentCMSSet bool
+	Config           admin.Config
 }
 
 // ResolveAdapterFlags reads environment toggles.
@@ -64,6 +65,7 @@ func ConfigureAdapters(ctx context.Context, cfg admin.Config, hooks AdapterHooks
 			log.Printf("warning: persistent CMS requested but setup failed: %v", err)
 		}
 	}
+	result.Config = cfg
 	return cfg, result
 }
 
