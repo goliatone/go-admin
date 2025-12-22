@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -12,11 +11,9 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/goliatone/go-admin/examples/web/handlers"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/jobs"
-	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/search"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
@@ -24,13 +21,9 @@ import (
 	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-crud"
-	dashboardcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	goerrors "github.com/goliatone/go-errors"
-	formgen "github.com/goliatone/go-formgen"
-	formgenvanilla "github.com/goliatone/go-formgen/pkg/renderers/vanilla"
 	"github.com/goliatone/go-router"
-	theme "github.com/goliatone/go-theme"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
@@ -51,18 +44,13 @@ func (l loginPayload) GetExtendedSession() bool { return l.Remember }
 func main() {
 	defaultLocale := "en"
 
-	cfg := admin.Config{
-		Title:         "Enterprise Admin",
-		BasePath:      "/admin",
-		DefaultLocale: defaultLocale,
-		Theme:         "admin",
-		ThemeVariant:  "light",
-		NavMenuCode:   setup.NavigationMenuCode,
-		ThemeTokens: map[string]string{
+	cfg := quickstart.NewAdminConfig("/admin", "Enterprise Admin", defaultLocale,
+		quickstart.WithNavMenuCode(setup.NavigationMenuCode),
+		quickstart.WithThemeTokens(map[string]string{
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
-		},
-		Features: admin.Features{
+		}),
+		quickstart.WithFeatures(admin.Features{
 			Dashboard:     true,
 			CMS:           true,
 			Commands:      true,
@@ -75,19 +63,22 @@ func main() {
 			Bulk:          true,
 			Preferences:   true,
 			Profile:       true,
+			Users:         false,
 			Tenants:       true,
 			Organizations: true,
-		},
-		FeatureFlags: map[string]bool{
+		}),
+		quickstart.WithFeatureFlags(map[string]bool{
 			setup.FeatureUserInvites:      true,
 			setup.FeaturePasswordReset:    true,
 			setup.FeatureSelfRegistration: false,
-		},
-	}
+		}),
+		quickstart.WithFeatureFlagsFromEnv(
+			quickstart.EnvFlagOverride{Env: "USE_USER_INVITES", Key: setup.FeatureUserInvites},
+			quickstart.EnvFlagOverride{Env: "USE_PASSWORD_RESET", Key: setup.FeaturePasswordReset},
+			quickstart.EnvFlagOverride{Env: "USE_SELF_REGISTRATION", Key: setup.FeatureSelfRegistration},
+		),
+	)
 	registrationCfg := setup.DefaultRegistrationConfig()
-	cfg.FeatureFlags[setup.FeatureUserInvites] = flagFromEnv("USE_USER_INVITES", cfg.FeatureFlags[setup.FeatureUserInvites])
-	cfg.FeatureFlags[setup.FeaturePasswordReset] = flagFromEnv("USE_PASSWORD_RESET", cfg.FeatureFlags[setup.FeaturePasswordReset])
-	cfg.FeatureFlags[setup.FeatureSelfRegistration] = flagFromEnv("USE_SELF_REGISTRATION", cfg.FeatureFlags[setup.FeatureSelfRegistration])
 	if mode := strings.TrimSpace(os.Getenv("REGISTRATION_MODE")); mode != "" {
 		if parsed := parseRegistrationMode(mode, registrationCfg.Mode); parsed != "" {
 			registrationCfg.Mode = parsed
@@ -111,10 +102,6 @@ func main() {
 		},
 		GoUsersActivity: setup.SetupActivityWithGoUsers,
 	}
-	cfg, adapterResult := quickstart.ConfigureAdapters(context.Background(), cfg, adapterHooks)
-	cmsBackend := adapterResult.CMSBackend
-	settingsBackend := adapterResult.SettingsBackend
-	activityBackend := adapterResult.ActivityBackend
 
 	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsers(context.Background(), "")
 	if err != nil {
@@ -125,6 +112,15 @@ func main() {
 			log.Fatalf("users service not ready: %v", err)
 		}
 	}
+
+	adm, adapterResult, err := quickstart.NewAdmin(cfg, adapterHooks, quickstart.WithAdminContext(context.Background()))
+	if err != nil {
+		log.Fatalf("failed to construct admin: %v", err)
+	}
+	cfg = adapterResult.Config
+	cmsBackend := adapterResult.CMSBackend
+	settingsBackend := adapterResult.SettingsBackend
+	activityBackend := adapterResult.ActivityBackend
 
 	// Initialize data stores with seed data
 	cmsContentSvc := admin.CMSContentService(admin.NewInMemoryContentService())
@@ -138,30 +134,19 @@ func main() {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
 
-	adm, err := admin.New(cfg, admin.Dependencies{})
-	if err != nil {
-		log.Fatalf("failed to construct admin: %v", err)
+	// Wire dashboard activity hooks to admin activity system.
+	dashboardHooks := dashboardactivity.Hooks{
+		// Log activity events to console for demonstration.
+		dashboardactivity.HookFunc(func(ctx context.Context, event dashboardactivity.Event) error {
+			log.Printf("[Dashboard Activity] %s %s %s:%s (channel: %s)",
+				event.ActorID, event.Verb, event.ObjectType, event.ObjectID, event.Channel)
+			return nil
+		}),
 	}
-	quickstart.ApplyAdapterIntegrations(adm, &adapterResult, adapterHooks)
-
-	// Wire dashboard activity hooks to admin activity system
-	// This creates a bidirectional bridge:
-	// 1. Admin activity events flow to dashboard hooks
-	// 2. Command activity events (from pkg/activity) flow to dashboard hooks
-	dashboardHook := activity.NewDashboardActivityHook(
-		dashboardactivity.Hooks{
-			// Log activity events to console for demonstration
-			dashboardactivity.HookFunc(func(ctx context.Context, event dashboardactivity.Event) error {
-				log.Printf("[Dashboard Activity] %s %s %s:%s (channel: %s)",
-					event.ActorID, event.Verb, event.ObjectType, event.ObjectID, event.Channel)
-				return nil
-			}),
-		},
-		dashboardactivity.Config{
-			Enabled: true,
-			Channel: "admin",
-		},
-	)
+	dashboardCfg := dashboardactivity.Config{
+		Enabled: true,
+		Channel: "admin",
+	}
 
 	// Choose activity backend (go-users sink when flag is enabled)
 	goUsersActivitySink := setup.NewGoUsersActivityAdapter(usersDeps.ActivitySink, usersDeps.ActivityRepo)
@@ -176,11 +161,8 @@ func main() {
 		activityBackend = "go-users (sqlite)"
 	}
 
-	// Create activity adapter that wraps the primary sink and also emits to dashboard hooks
-	compositeActivitySink := &compositeActivitySink{
-		primary:  primaryActivitySink,
-		hookSink: dashboardHook,
-	}
+	// Create activity adapter that wraps the primary sink and also emits to dashboard hooks.
+	compositeActivitySink := quickstart.NewCompositeActivitySink(primaryActivitySink, dashboardHooks, dashboardCfg)
 	adm.WithActivitySink(compositeActivitySink)
 	if onboardingNotifier != nil {
 		onboardingNotifier.Notifications = adm.NotificationService()
@@ -263,91 +245,35 @@ func main() {
 	// Setup authentication and authorization
 	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps)
 
-	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme
-	themeRegistry := theme.NewRegistry()
-	manifest := &theme.Manifest{
-		Name:        "admin",
-		Version:     "1.0.0",
-		Description: "Example admin theme",
-		Tokens: map[string]string{
-			"primary": "#2563eb",
-			"accent":  "#f59e0b",
-			"surface": "#1C1C1E",
-			// Sidebar dimensions
-			"sidebar-width":         "260px",
-			"sidebar-padding-x":     "12px",
-			"sidebar-padding-y":     "12px",
-			"sidebar-item-height":   "36px",
-			"sidebar-title-height":  "28px",
-			"sidebar-gap-sections":  "24px",
-			"sidebar-icon-size":     "20px",
-			"sidebar-footer-height": "64px",
-		},
-		Assets: theme.Assets{
-			Prefix: path.Join(cfg.BasePath, "assets"),
-			Files: map[string]string{
-				"logo":    "logo.svg",
-				"favicon": "logo.svg",
-			},
-		},
-		Variants: map[string]theme.Variant{
-			"dark": {
-				Tokens: map[string]string{
-					"primary": "#0ea5e9",
-					"accent":  "#fbbf24",
-					"surface": "#0b1221",
-				},
-				Assets: theme.Assets{
-					Prefix: path.Join(cfg.BasePath, "assets"),
-					Files: map[string]string{
-						"logo": "logo.svg",
-					},
-				},
-			},
-		},
-	}
-	if err := themeRegistry.Register(manifest); err != nil {
+	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme.
+	themeSelector, _, err := quickstart.NewThemeSelector(cfg.Theme, cfg.ThemeVariant, cfg.ThemeTokens,
+		quickstart.WithThemeAssets(path.Join(cfg.BasePath, "assets"), map[string]string{
+			"logo":    "logo.svg",
+			"favicon": "logo.svg",
+		}),
+	)
+	if err != nil {
 		log.Fatalf("failed to register theme: %v", err)
 	}
-	themeSelector := theme.Selector{Registry: themeRegistry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant}
 	adm.WithGoTheme(themeSelector)
 
 	// Initialize form generator
 	openapiFS := helpers.MustSubFS(webFS, "openapi")
 	formTemplatesFS := helpers.MustSubFS(webFS, "templates/formgen/vanilla")
-	formGenerator := helpers.NewUserFormGenerator(openapiFS, formTemplatesFS)
-	if formGenerator == nil {
-		log.Fatalf("failed to initialize form generator")
+	formGenerator, err := quickstart.NewFormGenerator(openapiFS, formTemplatesFS)
+	if err != nil {
+		log.Fatalf("failed to initialize form generator: %v", err)
 	}
 
 	// Initialize view engine
-	viewCfg := helpers.NewWebViewConfig(webFS)
-	if qsTemplates := quickstart.SidebarTemplatesFS(); qsTemplates != nil {
-		viewCfg.AddTemplatesFS(qsTemplates)
-	}
-	if qsAssets := quickstart.SidebarAssetsFS(); qsAssets != nil {
-		viewCfg.AddAssetsFS(qsAssets)
-	}
-	viewEngine, err := router.InitializeViewEngine(viewCfg)
+	viewEngine, err := quickstart.NewViewEngine(webFS, quickstart.WithViewTemplateFuncs(helpers.TemplateFuncs()))
 	if err != nil {
 		log.Fatalf("failed to initialize view engine: %v", err)
 	}
 
 	// Initialize Fiber server
 	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
-	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
-		app := fiber.New(fiber.Config{
-			UnescapePath:      true,
-			EnablePrintRoutes: true,
-			StrictRouting:     false,
-			PassLocalsToViews: true,
-			Views:             viewEngine,
-			ErrorHandler:      quickstart.NewFiberErrorHandler(adm, cfg, isDev),
-		})
-		app.Use(fiberlogger.New())
-		return app
-	})
-	r := server.Router()
+	server, r := quickstart.NewFiberServer(viewEngine, cfg, adm, isDev)
 
 	// Static assets
 	assetsFS := helpers.MustSubFS(webFS, "assets")
@@ -361,43 +287,11 @@ func main() {
 	} else if _, err := os.Stat(path.Join("examples", "web", "assets", "output.css")); err == nil {
 		diskAssetsDir = path.Join("examples", "web", "assets")
 	}
-
-	var diskAssetsFS fs.FS
+	staticOpts := []quickstart.StaticAssetsOption{}
 	if diskAssetsDir != "" {
-		diskAssetsFS = os.DirFS(diskAssetsDir)
+		staticOpts = append(staticOpts, quickstart.WithDiskAssetsDir(diskAssetsDir))
 	}
-
-	var staticFS fs.FS
-	if diskAssetsFS != nil {
-		staticFS = helpers.WithFallbackFS(diskAssetsFS, assetsFS)
-	} else {
-		staticFS = assetsFS
-	}
-	if qsAssets := quickstart.SidebarAssetsFS(); qsAssets != nil {
-		staticFS = helpers.WithFallbackFS(staticFS, qsAssets)
-	}
-	r.Static(path.Join(cfg.BasePath, "assets"), ".", router.Static{
-		FS:   staticFS,
-		Root: ".",
-	})
-
-	// Serve go-formgen runtime bundles (relationships + runtime components).
-	r.Static("/runtime", ".", router.Static{
-		FS:   formgen.RuntimeAssetsFS(),
-		Root: ".",
-	})
-
-	// Serve go-formgen vanilla renderer stylesheet bundle.
-	r.Static(path.Join(cfg.BasePath, "formgen"), ".", router.Static{
-		FS:   formgenvanilla.AssetsFS(),
-		Root: ".",
-	})
-	// Serve embedded go-dashboard ECharts assets at the default path used by chart widgets.
-	echartsPrefix := strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/")
-	r.Static(echartsPrefix, ".", router.Static{
-		FS:   httpFSAdapter{fs: dashboardcmp.EChartsAssetsFS()},
-		Root: ".",
-	})
+	quickstart.NewStaticAssets(r, cfg, assetsFS, staticOpts...)
 
 	// Register modules
 	modules := []admin.Module{
@@ -414,10 +308,8 @@ func main() {
 	if err := setup.SeedAdminNavigation(context.Background(), adm.MenuService(), cfg, modules, adm.Gates(), isDev); err != nil {
 		log.Printf("warning: failed to seed admin navigation: %v", err)
 	}
-	for _, mod := range modules {
-		if err := adm.RegisterModule(mod); err != nil {
-			log.Fatalf("failed to register module %s: %v", mod.Manifest().ID, err)
-		}
+	if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev, quickstart.WithSeedNavigation(false)); err != nil {
+		log.Fatalf("failed to register modules: %v", err)
 	}
 
 	// Wire dashboard renderer for server-side rendering
@@ -565,6 +457,7 @@ func main() {
 
 	// Optional metadata endpoint for frontend DataGrid column definitions.
 	r.Get(path.Join(cfg.BasePath, "api", "users", "columns"), authn.WrapHandler(userHandlers.Columns))
+	r.Get(path.Join(cfg.BasePath, "api", "user-profiles", "columns"), authn.WrapHandler(userProfileHandlers.Columns))
 
 	// Protected dashboard page: wrap with go-auth middleware
 	r.Get(cfg.BasePath, authn.WrapHandler(func(c router.Context) error {
@@ -646,7 +539,7 @@ func main() {
 	r.Post(path.Join(cfg.BasePath, "profile"), authn.WrapHandler(profileHandlers.Save))
 
 	// Export handlers
-	exportHandlers := handlers.NewExportHandlers(dataStores.Users, cfg)
+	exportHandlers := handlers.NewExportHandlers(dataStores.Users, dataStores.UserProfiles, cfg)
 
 	// User routes
 	r.Get(path.Join(cfg.BasePath, "users"), authn.WrapHandler(userHandlers.List))
@@ -668,6 +561,7 @@ func main() {
 
 	// Export action (custom action endpoint for go-crud compatibility)
 	r.Get(path.Join(cfg.BasePath, "crud/users/actions/export"), authn.WrapHandler(exportHandlers.ExportUsers))
+	r.Get(path.Join(cfg.BasePath, "crud/user-profiles/actions/export"), authn.WrapHandler(exportHandlers.ExportUserProfiles))
 
 	// Page routes
 	r.Get(path.Join(cfg.BasePath, "pages"), authn.WrapHandler(pageHandlers.List))
@@ -726,7 +620,8 @@ func main() {
 	r.Get("/posts/:slug", siteHandlers.PostDetail)
 	r.Get("/*", siteHandlers.Page)
 
-	log.Println("Enterprise Admin available at http://localhost:8080/admin")
+	listenAddr := resolveListenAddr()
+	log.Printf("Enterprise Admin available at %s", urlForListenAddr(listenAddr))
 	log.Println("  Dashboard: /admin/api/dashboard")
 	log.Println("  Navigation: /admin/api/navigation")
 	log.Println("  Users: /admin/api/users")
@@ -741,16 +636,36 @@ func main() {
 	log.Printf("  Settings backend: %s (USE_GO_OPTIONS=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
 	log.Println("  Search: /admin/api/search?query=...")
 
-	if err := server.Serve(":8080"); err != nil {
+	if err := server.Serve(listenAddr); err != nil {
 		log.Fatalf("server stopped: %v", err)
 	}
 }
 
-// httpFSAdapter wraps an http.FileSystem to satisfy fs.FS for go-router static handlers.
-type httpFSAdapter struct{ fs http.FileSystem }
+func resolveListenAddr() string {
+	if addr := strings.TrimSpace(os.Getenv("ADMIN_ADDR")); addr != "" {
+		return addr
+	}
+	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
+		if strings.HasPrefix(port, ":") {
+			return port
+		}
+		return ":" + port
+	}
+	return ":8080"
+}
 
-func (h httpFSAdapter) Open(name string) (fs.File, error) {
-	return h.fs.Open(name)
+func urlForListenAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return "http://localhost:8080/admin"
+	}
+	if strings.HasPrefix(addr, ":") {
+		return "http://localhost" + addr + "/admin"
+	}
+	if idx := strings.LastIndex(addr, ":"); idx != -1 {
+		return "http://localhost" + addr[idx:] + "/admin"
+	}
+	return "http://localhost:8080/admin"
 }
 
 func userCRUDScopeGuard() crud.ScopeGuardFunc[*stores.User] {
@@ -864,18 +779,6 @@ func contentCRUDScopeGuard[T any](resource string) crud.ScopeGuardFunc[T] {
 		}
 
 		return actor, scopeFilter, nil
-	}
-}
-
-func flagFromEnv(envVar string, current bool) bool {
-	val := strings.TrimSpace(os.Getenv(envVar))
-	switch strings.ToLower(val) {
-	case "1", "true", "yes", "on":
-		return true
-	case "0", "false", "no", "off":
-		return false
-	default:
-		return current
 	}
 }
 
@@ -1080,50 +983,6 @@ func seedNotificationsAndActivity(adm *admin.Admin) {
 		Object:  "user: viewer",
 		Channel: "users",
 	})
-}
-
-// compositeActivitySink forwards activity records to both the primary sink and dashboard hooks
-type compositeActivitySink struct {
-	primary  admin.ActivitySink
-	hookSink *activity.DashboardActivityHook
-}
-
-func (c *compositeActivitySink) Record(ctx context.Context, entry admin.ActivityEntry) error {
-	// Record to primary sink (in-memory feed for UI)
-	if err := c.primary.Record(ctx, entry); err != nil {
-		return err
-	}
-
-	// Also emit to dashboard hooks (convert admin.ActivityEntry to activity.Event)
-	if c.hookSink != nil {
-		// Parse object to extract type and ID
-		objectType := entry.Object
-		objectID := ""
-		if typ, id, ok := strings.Cut(entry.Object, ":"); ok {
-			objectType = strings.TrimSpace(typ)
-			objectID = strings.TrimSpace(id)
-		}
-
-		channel := strings.TrimSpace(entry.Channel)
-		if channel == "" {
-			channel = "admin"
-		}
-
-		c.hookSink.Notify(ctx, activity.Event{
-			Channel:    channel,
-			Verb:       entry.Action,
-			ObjectType: objectType,
-			ObjectID:   objectID,
-			Data:       entry.Metadata,
-		})
-	}
-
-	return nil
-}
-
-func (c *compositeActivitySink) List(ctx context.Context, limit int, filters ...admin.ActivityFilter) ([]admin.ActivityEntry, error) {
-	// Listing only supported by primary sink
-	return c.primary.List(ctx, limit, filters...)
 }
 
 // getErrorContext maps HTTP status codes to user-friendly headlines and messages.
