@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commerce Admin Demo</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+
+        /* Header */
+        header {
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { font-size: 1.25rem; font-weight: 600; }
+        .token-display {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Navigation */
+        nav {
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 0 1.5rem;
+        }
+        nav ul { display: flex; list-style: none; gap: 0.5rem; }
+        nav a {
+            display: block;
+            padding: 0.75rem 1rem;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        nav a:hover { color: var(--text); }
+        nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+        /* Dashboard Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+        }
+        .stat-card h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .stat-card .value {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+        .stat-card .flag { font-size: 0.875rem; margin-left: 0.5rem; }
+        .stat-card .flag.up { color: var(--success); }
+        .stat-card .flag.stable { color: var(--text-muted); }
+
+        /* Section */
+        .section {
+            display: none;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .section.active { display: block; }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .section-header h2 { font-size: 1rem; font-weight: 600; }
+
+        /* Button */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            background: var(--card);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn:hover { background: var(--bg); }
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+        .btn-danger { color: var(--danger); }
+        .btn-danger:hover { background: #fef2f2; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            background: var(--bg);
+        }
+        td { font-size: 0.875rem; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f1f5f9; }
+        .actions { display: flex; gap: 0.25rem; }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 9999px;
+        }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-muted { background: #f1f5f9; color: #475569; }
+        .badge-gold { background: #fef3c7; color: #92400e; }
+        .badge-silver { background: #f1f5f9; color: #475569; }
+        .badge-bronze { background: #fed7aa; color: #9a3412; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--card);
+            border-radius: 0.5rem;
+            width: 100%;
+            max-width: 480px;
+            max-height: 90vh;
+            overflow: auto;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-header h3 { font-size: 1rem; font-weight: 600; }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .modal-body { padding: 1.25rem; }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Form */
+        .form-group { margin-bottom: 1rem; }
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.375rem;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            background: var(--card);
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-muted);
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 200;
+        }
+        .toast {
+            background: var(--text);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            animation: slideIn 0.2s ease;
+        }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Commerce Admin</h1>
+        <div class="token-display" id="token-display">Token: Loading...</div>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="#dashboard" class="active" data-section="dashboard">Dashboard</a></li>
+            <li><a href="#users" data-section="users">Users</a></li>
+            <li><a href="#products" data-section="products">Products</a></li>
+            <li><a href="#orders" data-section="orders">Orders</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <!-- Dashboard Section -->
+        <section id="section-dashboard" class="section active">
+            <div class="stats-grid" id="stats-grid">
+                <div class="loading">Loading dashboard...</div>
+            </div>
+        </section>
+
+        <!-- Users Section -->
+        <section id="section-users" class="section">
+            <div class="section-header">
+                <h2>Users</h2>
+                <button class="btn btn-primary" onclick="openModal('user')">+ Add User</button>
+            </div>
+            <div id="users-table"><div class="loading">Loading...</div></div>
+        </section>
+
+        <!-- Products Section -->
+        <section id="section-products" class="section">
+            <div class="section-header">
+                <h2>Products</h2>
+                <button class="btn btn-primary" onclick="openModal('product')">+ Add Product</button>
+            </div>
+            <div id="products-table"><div class="loading">Loading...</div></div>
+        </section>
+
+        <!-- Orders Section -->
+        <section id="section-orders" class="section">
+            <div class="section-header">
+                <h2>Orders</h2>
+                <button class="btn btn-primary" onclick="openModal('order')">+ Add Order</button>
+            </div>
+            <div id="orders-table"><div class="loading">Loading...</div></div>
+        </section>
+    </main>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Add Item</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Form content injected here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" id="modal-submit">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // Configuration
+        const API_BASE = '/admin/api';
+        let AUTH_TOKEN = '';
+        let currentSection = 'dashboard';
+        let editingId = null;
+        let editingType = null;
+
+        // API Client
+        async function api(endpoint, options = {}) {
+            const url = `${API_BASE}${endpoint}`;
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            if (AUTH_TOKEN) {
+                headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
+            }
+
+            const response = await fetch(url, { ...options, headers });
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || response.statusText);
+            }
+            return response.json();
+        }
+
+        // Toast notifications
+        function toast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            el.textContent = message;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+
+        // Navigation
+        document.querySelectorAll('nav a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.dataset.section;
+                switchSection(section);
+            });
+        });
+
+        function switchSection(section) {
+            currentSection = section;
+            document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+            document.querySelector(`nav a[data-section="${section}"]`).classList.add('active');
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(`section-${section}`).classList.add('active');
+            loadSectionData(section);
+        }
+
+        async function loadSectionData(section) {
+            switch(section) {
+                case 'dashboard': await loadDashboard(); break;
+                case 'users': await loadUsers(); break;
+                case 'products': await loadProducts(); break;
+                case 'orders': await loadOrders(); break;
+            }
+        }
+
+        // Dashboard
+        async function loadDashboard() {
+            const container = document.getElementById('stats-grid');
+            try {
+                const data = await api('/dashboard');
+                // Find the sales_overview widget in the widgets array
+                const widgets = data.widgets || [];
+                const salesWidget = widgets.find(w => w.definition === 'commerce.widget.sales_overview');
+
+                let html = '';
+                if (salesWidget && salesWidget.data) {
+                    const d = salesWidget.data;
+                    html = `
+                        <div class="stat-card">
+                            <h3>Total Orders</h3>
+                            <div class="value">${d.orders || 0}</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Products</h3>
+                            <div class="value">${d.products || 0}</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Revenue</h3>
+                            <div class="value">
+                                $${(d.revenue || 0).toFixed(2)}
+                                <span class="flag ${d.revenue_flag || 'stable'}">${d.revenue_flag === 'up' ? '↑' : '→'}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html = '<div class="empty-state">No dashboard data available</div>';
+                }
+                container.innerHTML = html;
+            } catch (err) {
+                container.innerHTML = `<div class="empty-state">Failed to load dashboard: ${err.message}</div>`;
+            }
+        }
+
+        // Users
+        async function loadUsers() {
+            const container = document.getElementById('users-table');
+            try {
+                const data = await api('/users');
+                const users = data.records || data.data || [];
+
+                if (users.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No users found</div>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Loyalty Tier</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${users.map(u => `
+                                <tr>
+                                    <td>${escapeHtml(u.name)}</td>
+                                    <td>${escapeHtml(u.email)}</td>
+                                    <td><span class="badge badge-${u.loyalty_tier}">${u.loyalty_tier}</span></td>
+                                    <td><span class="badge ${u.status === 'active' ? 'badge-success' : 'badge-muted'}">${u.status}</span></td>
+                                    <td class="actions">
+                                        <button class="btn btn-sm" onclick="editItem('user', '${u.id}')">Edit</button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteItem('users', '${u.id}')">Delete</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                container.innerHTML = `<div class="empty-state">Failed to load users: ${err.message}</div>`;
+            }
+        }
+
+        // Products
+        async function loadProducts() {
+            const container = document.getElementById('products-table');
+            try {
+                const data = await api('/products');
+                const products = data.records || data.data || [];
+
+                if (products.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No products found</div>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>SKU</th>
+                                <th>Price</th>
+                                <th>Inventory</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${products.map(p => `
+                                <tr>
+                                    <td>${escapeHtml(p.name)}</td>
+                                    <td><code>${escapeHtml(p.sku)}</code></td>
+                                    <td>$${Number(p.price).toFixed(2)}</td>
+                                    <td>${p.inventory}</td>
+                                    <td><span class="badge ${p.status === 'active' ? 'badge-success' : 'badge-muted'}">${p.status}</span></td>
+                                    <td class="actions">
+                                        <button class="btn btn-sm" onclick="editItem('product', '${p.id}')">Edit</button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteItem('products', '${p.id}')">Delete</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                container.innerHTML = `<div class="empty-state">Failed to load products: ${err.message}</div>`;
+            }
+        }
+
+        // Orders
+        async function loadOrders() {
+            const container = document.getElementById('orders-table');
+            try {
+                const data = await api('/orders');
+                const orders = data.records || data.data || [];
+
+                if (orders.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No orders found</div>';
+                    return;
+                }
+
+                const statusBadge = (status) => {
+                    const map = { paid: 'badge-success', fulfilled: 'badge-success', pending: 'badge-warning' };
+                    return map[status] || 'badge-muted';
+                };
+
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Customer</th>
+                                <th>Status</th>
+                                <th>Total</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${orders.map(o => `
+                                <tr>
+                                    <td><strong>#${escapeHtml(o.number)}</strong></td>
+                                    <td>${escapeHtml(o.user_name)}</td>
+                                    <td><span class="badge ${statusBadge(o.status)}">${o.status}</span></td>
+                                    <td>$${Number(o.total).toFixed(2)}</td>
+                                    <td>${formatDate(o.created_at)}</td>
+                                    <td class="actions">
+                                        <button class="btn btn-sm" onclick="editItem('order', '${o.id}')">Edit</button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteItem('orders', '${o.id}')">Delete</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                container.innerHTML = `<div class="empty-state">Failed to load orders: ${err.message}</div>`;
+            }
+        }
+
+        // Modal Forms
+        const formTemplates = {
+            user: () => `
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Loyalty Tier</label>
+                    <select name="loyalty_tier">
+                        <option value="bronze">Bronze</option>
+                        <option value="silver">Silver</option>
+                        <option value="gold">Gold</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            `,
+            product: () => `
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label>SKU</label>
+                    <input type="text" name="sku" required>
+                </div>
+                <div class="form-group">
+                    <label>Price</label>
+                    <input type="number" name="price" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Inventory</label>
+                    <input type="number" name="inventory" required>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="active">Active</option>
+                        <option value="archived">Archived</option>
+                    </select>
+                </div>
+            `,
+            order: () => `
+                <div class="form-group">
+                    <label>Order Number</label>
+                    <input type="text" name="number" required>
+                </div>
+                <div class="form-group">
+                    <label>Customer Name</label>
+                    <input type="text" name="user_name" required>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="pending">Pending</option>
+                        <option value="paid">Paid</option>
+                        <option value="fulfilled">Fulfilled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Total</label>
+                    <input type="number" name="total" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Line Items</label>
+                    <textarea name="line_items" rows="3"></textarea>
+                </div>
+            `
+        };
+
+        function openModal(type, data = null) {
+            editingType = type;
+            editingId = data?.id || null;
+
+            const titleMap = { user: 'User', product: 'Product', order: 'Order' };
+            document.getElementById('modal-title').textContent = `${editingId ? 'Edit' : 'Add'} ${titleMap[type]}`;
+            document.getElementById('modal-body').innerHTML = formTemplates[type]();
+
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    const input = document.querySelector(`#modal-body [name="${key}"]`);
+                    if (input) input.value = data[key];
+                });
+            }
+
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('active');
+            editingType = null;
+            editingId = null;
+        }
+
+        async function editItem(type, id) {
+            const endpoints = { user: 'users', product: 'products', order: 'orders' };
+            try {
+                const data = await api(`/${endpoints[type]}/${id}`);
+                openModal(type, data.data || data);
+            } catch (err) {
+                toast(`Failed to load item: ${err.message}`, 'error');
+            }
+        }
+
+        async function deleteItem(endpoint, id) {
+            if (!confirm('Are you sure you want to delete this item?')) return;
+            try {
+                await api(`/${endpoint}/${id}`, { method: 'DELETE' });
+                toast('Item deleted successfully', 'success');
+                loadSectionData(currentSection);
+            } catch (err) {
+                toast(`Failed to delete: ${err.message}`, 'error');
+            }
+        }
+
+        document.getElementById('modal-submit').addEventListener('click', async () => {
+            const endpoints = { user: 'users', product: 'products', order: 'orders' };
+            const form = document.getElementById('modal-body');
+            const data = {};
+
+            form.querySelectorAll('input, select, textarea').forEach(el => {
+                let value = el.value;
+                if (el.type === 'number') value = parseFloat(value) || 0;
+                data[el.name] = value;
+            });
+
+            try {
+                const endpoint = `/${endpoints[editingType]}${editingId ? '/' + editingId : ''}`;
+                const method = editingId ? 'PUT' : 'POST';
+                await api(endpoint, { method, body: JSON.stringify(data) });
+                toast(`${editingType} ${editingId ? 'updated' : 'created'} successfully`, 'success');
+                closeModal();
+                loadSectionData(currentSection);
+            } catch (err) {
+                toast(`Failed to save: ${err.message}`, 'error');
+            }
+        });
+
+        // Utilities
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[m]));
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            try {
+                return new Date(dateStr).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+            } catch {
+                return dateStr;
+            }
+        }
+
+        // Initialize
+        async function init() {
+            // Get token from URL or prompt
+            const urlParams = new URLSearchParams(window.location.search);
+            AUTH_TOKEN = urlParams.get('token') || localStorage.getItem('commerce_token') || '';
+
+            if (!AUTH_TOKEN) {
+                AUTH_TOKEN = prompt('Enter your Bearer token (from server startup logs):');
+                if (AUTH_TOKEN) {
+                    localStorage.setItem('commerce_token', AUTH_TOKEN);
+                }
+            }
+
+            if (AUTH_TOKEN) {
+                document.getElementById('token-display').textContent = `Token: ${AUTH_TOKEN.substring(0, 20)}...`;
+            } else {
+                document.getElementById('token-display').textContent = 'No token set';
+            }
+
+            // Load initial data
+            await loadDashboard();
+        }
+
+        // Close modal on overlay click
+        document.getElementById('modal-overlay').addEventListener('click', (e) => {
+            if (e.target.id === 'modal-overlay') closeModal();
+        });
+
+        // Close modal on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        init();
+    </script>
+</body>
+</html>
