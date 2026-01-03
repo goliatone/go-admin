@@ -23,7 +23,9 @@ type Dependencies struct {
 	ActivitySink  ActivitySink
 
 	NotificationService NotificationService
-	ExportService       ExportService
+	ExportRegistry      ExportRegistry
+	ExportRegistrar     ExportHTTPRegistrar
+	ExportMetadata      ExportMetadataProvider
 	BulkService         BulkService
 	MediaLibrary        MediaLibrary
 
