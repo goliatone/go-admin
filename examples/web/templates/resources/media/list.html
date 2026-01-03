@@ -62,10 +62,19 @@
           </svg>
           Export
         </button>
-        <div id="export-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-          <button data-format="csv" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">CSV</button>
-          <button data-format="json" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">JSON</button>
-          <button data-format="excel" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">Excel</button>
+        <div id="export-menu" class="hidden absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+          <button data-export-format="csv" class="export-btn w-full flex items-center gap-2 text-left px-4 py-2 hover:bg-gray-100 text-sm disabled:opacity-50 disabled:pointer-events-none">
+            <span class="export-icon">CSV</span>
+            <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
+          </button>
+          <button data-export-format="json" class="export-btn w-full flex items-center gap-2 text-left px-4 py-2 hover:bg-gray-100 text-sm disabled:opacity-50 disabled:pointer-events-none">
+            <span class="export-icon">JSON</span>
+            <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
+          </button>
+          <button data-export-format="excel" class="export-btn w-full flex items-center gap-2 text-left px-4 py-2 hover:bg-gray-100 text-sm disabled:opacity-50 disabled:pointer-events-none">
+            <span class="export-icon">Excel</span>
+            <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
+          </button>
         </div>
       </div>
 
@@ -218,7 +227,6 @@
 {% endblock %}
 
 {% block scripts %}
-{% verbatim %}
 <script type="module">
   import {
     DataGrid,
@@ -234,6 +242,7 @@
 
   // Action base path for view/edit/delete
   const actionBasePath = window.location.pathname.replace('/list', '');
+  const exportConfig = {{ toJSON(export_config)|safe }};
 
   // Initialize DataGrid
   const grid = new DataGrid({
@@ -257,7 +266,7 @@
       filter: new GoCrudFilterBehavior(),
       pagination: new GoCrudPaginationBehavior(),
       sort: new GoCrudSortBehavior(),
-      export: new GoCrudExportBehavior('/admin/crud/media'),
+      export: new GoCrudExportBehavior(exportConfig),
       bulkActions: new GoCrudBulkActionBehavior('/admin/crud/media'),
       columnVisibility: new DefaultColumnVisibilityBehavior(
         ['filename', 'mime_type', 'size', 'created_at'],
@@ -323,5 +332,4 @@
   // Initialize grid
   grid.init();
 </script>
-{% endverbatim %}
 {% endblock %}

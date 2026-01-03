@@ -98,17 +98,18 @@
             </button>
             <div id="export-menu" class="hidden absolute right-0 z-10 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg">
               <div class="p-1">
-                <button data-export-format="csv" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  <svg class="w-4 h-4 text-green-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button data-export-format="csv" class="export-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded disabled:opacity-50 disabled:pointer-events-none">
+                  <svg class="export-icon w-4 h-4 text-green-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <path d="M14 2v6h6"/>
                     <path d="M12 18v-6"/>
                     <path d="m9 15 3 3 3-3"/>
                   </svg>
+                  <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
                   <span>CSV</span>
                 </button>
-                <button data-export-format="json" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  <svg class="w-4 h-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button data-export-format="json" class="export-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded disabled:opacity-50 disabled:pointer-events-none">
+                  <svg class="export-icon w-4 h-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <path d="M14 2v6h6"/>
                     <path d="M8 13h2"/>
@@ -116,28 +117,31 @@
                     <path d="M14 13h2"/>
                     <path d="M14 17h2"/>
                   </svg>
+                  <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
                   <span>JSON</span>
                 </button>
                 <!-- Divider -->
                 <div class="border-t border-gray-200 my-1"></div>
-                <button data-export-format="excel" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  <svg class="w-4 h-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button data-export-format="excel" class="export-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded disabled:opacity-50 disabled:pointer-events-none">
+                  <svg class="export-icon w-4 h-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <path d="M14 2v6h6"/>
                     <rect x="8" y="12" width="8" height="6" rx="1"/>
                     <path d="M10 12v6"/>
                     <path d="M14 12v6"/>
                   </svg>
+                  <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
                   <span>Excel</span>
                 </button>
-                <button data-export-format="pdf" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button data-export-format="pdf" class="export-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded disabled:opacity-50 disabled:pointer-events-none">
+                  <svg class="export-icon w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <path d="M14 2v6h6"/>
                     <path d="M10 12.5a2.5 2.5 0 0 1 2.5-2.5H14"/>
                     <path d="M10 12.5V17"/>
                     <path d="M12.5 10H14a2 2 0 0 1 0 4h-1.5"/>
                   </svg>
+                  <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
                   <span>PDF</span>
                 </button>
               </div>
@@ -311,6 +315,7 @@ import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, Go
 // Template variables
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};
+const exportConfig = {{ toJSON(export_config)|safe }};
 const columnFields = columns.map(c => c.field);
 const gridColumns = columns.map(col => ({
   ...col,
@@ -381,7 +386,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       filter: new GoCrudFilterBehavior(),
       pagination: new GoCrudPaginationBehavior(),
       sort: new GoCrudSortBehavior(),
-      export: new GoCrudExportBehavior('/admin/crud/user-profiles'),
+      export: new GoCrudExportBehavior(exportConfig),
       columnVisibility: columnVisibility
     },
     selectors: {

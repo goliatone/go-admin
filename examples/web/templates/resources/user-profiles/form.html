@@ -16,13 +16,110 @@
   <div class="flex-1 p-8 overflow-y-auto">
     {{ form_html|safe }}
   </div>
+
+  {% include "partials/modals/user_create.html" %}
 {% endblock %}
 
 {% block scripts %}
   <script src="/runtime/formgen-relationships.min.js" defer></script>
   <script>
     window.addEventListener("DOMContentLoaded", () => {
-      window.FormgenRelationships?.initRelationships?.();
+      const api = window.FormgenRelationships;
+      if (!api?.initRelationships) {
+        return;
+      }
+
+      const openModal = (modal) => {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+        modal.setAttribute("aria-hidden", "false");
+      };
+
+      const closeModal = (modal) => {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+        modal.setAttribute("aria-hidden", "true");
+      };
+
+      const waitForSubmit = (form) =>
+        new Promise((resolve) => {
+          const onSubmit = (event) => {
+            event.preventDefault();
+            form.removeEventListener("submit", onSubmit);
+            resolve(new FormData(form));
+          };
+          const onCancel = () => {
+            form.removeEventListener("submit", onSubmit);
+            resolve(null);
+          };
+          form.addEventListener("submit", onSubmit, { once: true });
+          form.querySelectorAll("[data-fg-modal-close]").forEach((btn) => {
+            btn.addEventListener("click", onCancel, { once: true });
+          });
+        });
+
+      const unwrapRecord = (payload) => {
+        if (!payload) {
+          return null;
+        }
+        if (payload.data && typeof payload.data === "object") {
+          return payload.data;
+        }
+        return payload;
+      };
+
+      api.initRelationships({
+        onCreateAction: async (_context, detail) => {
+          if (!detail || detail.actionId !== "user") {
+            return;
+          }
+
+          const modal = document.querySelector('[data-fg-create-modal="user"]');
+          const form = document.getElementById("form-user-create");
+          if (!(modal instanceof HTMLElement) || !(form instanceof HTMLFormElement)) {
+            return;
+          }
+
+          const usernameInput = form.querySelector('input[name="username"]');
+          if (usernameInput instanceof HTMLInputElement && detail.query) {
+            usernameInput.value = detail.query;
+          }
+
+          openModal(modal);
+          const data = await waitForSubmit(form);
+          closeModal(modal);
+          if (!data) {
+            return;
+          }
+
+          const payload = Object.fromEntries(data.entries());
+          const response = await fetch("/admin/crud/users", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) {
+            console.error("user create failed", response.status);
+            return;
+          }
+
+          let record = null;
+          try {
+            record = unwrapRecord(await response.json());
+          } catch (err) {
+            console.error("user create failed to parse response", err);
+            return;
+          }
+
+          const value = record?.id || payload.username || payload.email;
+          const label = record?.label || record?.username || record?.email || payload.username || payload.email;
+          if (!value || !label) {
+            return;
+          }
+
+          return { value: String(value), label: String(label) };
+        },
+      });
     });
   </script>
 {% endblock %}

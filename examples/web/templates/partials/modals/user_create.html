@@ -1,0 +1,24 @@
+<div id="modal-user-create" class="fixed inset-0 hidden items-center justify-center bg-black/50" data-fg-create-modal="user" aria-hidden="true">
+  <div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+    <header class="mb-4">
+      <h2 class="text-lg font-semibold text-gray-900">Create User</h2>
+      <p class="text-sm text-gray-500">Add the minimum details to attach a profile.</p>
+    </header>
+    <form id="form-user-create" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700" for="fg-user-create-username">Username</label>
+        <input id="fg-user-create-username" name="username" class="w-full rounded-md border border-gray-300 px-3 py-2" required />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700" for="fg-user-create-email">Email</label>
+        <input id="fg-user-create-email" name="email" type="email" class="w-full rounded-md border border-gray-300 px-3 py-2" required />
+      </div>
+      <input type="hidden" name="role" value="member" />
+      <input type="hidden" name="status" value="active" />
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" class="btn btn-secondary" data-fg-modal-close="user">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>

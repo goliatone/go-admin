@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{% if title %}{{ title }}{% else %}{{ definition }}{% endif %} Export</title>
+  <style>
+    body {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      color: #111827;
+      margin: 32px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    header {
+      margin-bottom: 24px;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+    }
+    .meta {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      border: 1px solid #e5e7eb;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+    }
+    tbody tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    footer {
+      margin-top: 16px;
+      color: #6b7280;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{% if title %}{{ title }}{% else %}{{ definition }}{% endif %}</h1>
+    <div class="meta">Definition: {{ definition }}</div>
+    <div class="meta">Generated: {{ generated }}</div>
+  </header>
+
+  <table>
+    <thead>
+      <tr>
+        {% for col in columns %}
+          <th>{{ col }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% if rows and rows|length > 0 %}
+        {% for row in rows %}
+          <tr>
+            {% for cell in row %}
+              <td>{{ cell }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="{{ columns|length }}">No data</td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <footer>Rows: {{ row_count|integer }}</footer>
+</body>
+</html>

@@ -117,14 +117,17 @@
             </button>
             <div id="export-menu" class="hidden absolute right-0 z-10 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg">
               <div class="p-1">
-                <button data-export-format="csv" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  CSV
+                <button data-export-format="csv" class="export-btn w-full flex items-center gap-2 text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded disabled:opacity-50 disabled:pointer-events-none">
+                  <span class="export-icon">CSV</span>
+                  <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
                 </button>
-                <button data-export-format="excel" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  Excel
+                <button data-export-format="excel" class="export-btn w-full flex items-center gap-2 text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded disabled:opacity-50 disabled:pointer-events-none">
+                  <span class="export-icon">Excel</span>
+                  <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
                 </button>
-                <button data-export-format="pdf" class="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded">
-                  PDF
+                <button data-export-format="pdf" class="export-btn w-full flex items-center gap-2 text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded disabled:opacity-50 disabled:pointer-events-none">
+                  <span class="export-icon">PDF</span>
+                  <span class="export-spinner hidden w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
                 </button>
               </div>
             </div>
@@ -271,8 +274,8 @@ import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFi
 
 // Template variables
 const actionBasePath = '{{ routes.index }}';
+const exportConfig = {{ toJSON(export_config)|safe }};
 
-{% verbatim %}
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize the new TypeScript DataGrid component
   const grid = new DataGrid({
@@ -293,7 +296,7 @@ document.addEventListener('DOMContentLoaded', function() {
       filter: new GoCrudFilterBehavior(),
       pagination: new GoCrudPaginationBehavior(),
       sort: new GoCrudSortBehavior(),
-      export: new GoCrudExportBehavior('/admin/crud/posts'),
+      export: new GoCrudExportBehavior(exportConfig),
       bulkActions: new GoCrudBulkActionBehavior('/admin/crud/posts'),
       columnVisibility: new DefaultColumnVisibilityBehavior(
         ['title', 'slug', 'status', 'published_at', 'created_at'],
@@ -366,6 +369,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
-{% endverbatim %}
 </script>
 {% endblock %}
