@@ -15,7 +15,7 @@ func DefaultBootSteps() []Step {
 		DashboardStep,
 		NavigationStep,
 		SearchStep,
-		ExportStep,
+		ExportRegistrarStep,
 		BulkStep,
 		MediaStep,
 		NotificationsRouteStep,
