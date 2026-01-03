@@ -11,8 +11,9 @@ require (
 	github.com/goliatone/go-cms v0.16.0
 	github.com/goliatone/go-dashboard v0.5.0
 	github.com/goliatone/go-errors v0.9.0
-	github.com/goliatone/go-formgen v0.10.0
-	github.com/goliatone/go-router v0.39.0
+	github.com/goliatone/go-export v0.2.0
+	github.com/goliatone/go-formgen v0.13.0
+	github.com/goliatone/go-router v0.41.0
 	github.com/goliatone/go-theme v0.2.0
 	github.com/google/uuid v1.6.0
 )
@@ -67,7 +68,7 @@ require (
 	github.com/goliatone/go-job v0.13.0 // indirect
 	github.com/goliatone/go-logger v0.4.0 // indirect
 	github.com/goliatone/go-masker v0.1.0 // indirect
-	github.com/goliatone/go-notifications v0.5.0 // indirect
+	github.com/goliatone/go-notifications v0.8.0 // indirect
 	github.com/goliatone/go-options v0.7.0 // indirect
 	github.com/goliatone/go-persistence-bun v0.7.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
@@ -104,6 +105,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/richardlehane/mscfb v1.0.4 // indirect
+	github.com/richardlehane/msoleps v1.0.3 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
@@ -127,6 +130,9 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
+	github.com/xuri/efp v0.0.0-20231025114914-d1ff6096ae53 // indirect
+	github.com/xuri/excelize/v2 v2.8.1 // indirect
+	github.com/xuri/nfp v0.0.0-20230919160717-d98342af3f05 // indirect
 	github.com/yuin/goldmark v1.7.13 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.39.0 // indirect
