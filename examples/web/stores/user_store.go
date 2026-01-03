@@ -115,20 +115,20 @@ var (
 
 // User mirrors the JSON shape expected by go-crud.
 type User struct {
-	bun.BaseModel `bun:"table:users,alias:u"`
-	ID            uuid.UUID `json:"id" bun:"id,pk,type:uuid"`
-	Username      string    `json:"username" bun:"username"`
-	Email         string    `json:"email" bun:"email"`
-	Label         string    `json:"label" bun:"-"`
-	FirstName     string    `json:"first_name" bun:"first_name"`
-	LastName      string    `json:"last_name" bun:"last_name"`
-	PhoneNumber   string    `json:"phone_number" bun:"phone_number"`
-	IsEmailVerified bool    `json:"is_email_verified" bun:"is_email_verified"`
-	Role          string    `json:"role" bun:"role"`
-	Status        string    `json:"status" bun:"status"`
-	CreatedAt     time.Time `json:"created_at" bun:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" bun:"updated_at"`
-	LastLogin     time.Time `json:"last_login" bun:"last_login"`
+	bun.BaseModel   `bun:"table:users,alias:u"`
+	ID              uuid.UUID `json:"id" bun:"id,pk,type:uuid"`
+	Username        string    `json:"username" bun:"username"`
+	Email           string    `json:"email" bun:"email"`
+	Label           string    `json:"label" bun:"-"`
+	FirstName       string    `json:"first_name" bun:"first_name"`
+	LastName        string    `json:"last_name" bun:"last_name"`
+	PhoneNumber     string    `json:"phone_number" bun:"phone_number"`
+	IsEmailVerified bool      `json:"is_email_verified" bun:"is_email_verified"`
+	Role            string    `json:"role" bun:"role"`
+	Status          string    `json:"status" bun:"status"`
+	CreatedAt       time.Time `json:"created_at" bun:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" bun:"updated_at"`
+	LastLogin       time.Time `json:"last_login" bun:"last_login"`
 }
 
 // goUsersRepo captures the methods used by the store and go-users service.
