@@ -87,9 +87,15 @@ type SearchBinding interface {
 	Query(router.Context, string, string, int) ([]any, error)
 }
 
-// ExportBinding exposes export operations.
-type ExportBinding interface {
-	Export(router.Context, string, string) (map[string]any, error)
+// ExportRouteOptions configures export route registration.
+type ExportRouteOptions struct {
+	BasePath string
+	Wrap     HandlerWrapper
+}
+
+// ExportRegistrar registers export HTTP endpoints on the router.
+type ExportRegistrar interface {
+	Register(Router, ExportRouteOptions) error
 }
 
 // BulkBinding exposes bulk operations.
@@ -144,7 +150,7 @@ type BootCtx interface {
 	BootDashboard() DashboardBinding
 	BootNavigation() NavigationBinding
 	BootSearch() SearchBinding
-	BootExport() ExportBinding
+	ExportRegistrar() ExportRegistrar
 	BootBulk() BulkBinding
 	BootMedia() MediaBinding
 	BootNotifications() NotificationsBinding
