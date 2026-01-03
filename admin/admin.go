@@ -41,7 +41,9 @@ type Admin struct {
 	panelForm       *PanelFormAdapter
 	themeProvider   ThemeProvider
 	defaultTheme    *ThemeSelection
-	exportSvc       ExportService
+	exportRegistry  ExportRegistry
+	exportRegistrar ExportHTTPRegistrar
+	exportMetadata  ExportMetadataProvider
 	bulkSvc         BulkService
 	mediaLibrary    MediaLibrary
 	modulesLoaded   bool
@@ -89,7 +91,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 
 	cmdReg := deps.CommandRegistry
 	if cmdReg == nil {
-		enableCommands := cfg.Features.Commands || cfg.Features.Settings || cfg.Features.Jobs || cfg.Features.Export || cfg.Features.Bulk || cfg.Features.Dashboard || cfg.Features.Notifications
+		enableCommands := cfg.Features.Commands || cfg.Features.Settings || cfg.Features.Jobs || cfg.Features.Bulk || cfg.Features.Dashboard || cfg.Features.Notifications
 		cmdReg = NewCommandRegistry(enableCommands)
 	}
 
@@ -125,13 +127,9 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		}
 	}
 
-	exportSvc := deps.ExportService
-	if exportSvc == nil {
-		exportSvc = DisabledExportService{}
-		if cfg.Features.Export {
-			exportSvc = NewInMemoryExportService()
-		}
-	}
+	exportRegistry := deps.ExportRegistry
+	exportRegistrar := deps.ExportRegistrar
+	exportMetadata := deps.ExportMetadata
 
 	bulkSvc := deps.BulkService
 	if bulkSvc == nil {
@@ -175,9 +173,6 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 
 	if cfg.Features.Notifications {
 		cmdReg.Register(&NotificationMarkCommand{Service: notifSvc})
-	}
-	if cfg.Features.Export {
-		cmdReg.Register(&ExportCommand{Service: exportSvc})
 	}
 	if cfg.Features.Bulk {
 		cmdReg.Register(&BulkCommand{Service: bulkSvc})
@@ -241,7 +236,9 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		organizations:   orgSvc,
 		panelForm:       &PanelFormAdapter{},
 		defaultTheme:    defaultTheme,
-		exportSvc:       exportSvc,
+		exportRegistry:  exportRegistry,
+		exportRegistrar: exportRegistrar,
+		exportMetadata:  exportMetadata,
 		bulkSvc:         bulkSvc,
 		mediaLibrary:    mediaLib,
 		navMenuCode:     navMenuCode,
@@ -554,9 +551,19 @@ func (a *Admin) ActivityFeed() ActivitySink {
 	return a.activity
 }
 
-// ExportService exposes the export adapter.
-func (a *Admin) ExportService() ExportService {
-	return a.exportSvc
+// ExportRegistry exposes the export definition registry.
+func (a *Admin) ExportRegistry() ExportRegistry {
+	return a.exportRegistry
+}
+
+// ExportHTTPRegistrar exposes the export HTTP registrar.
+func (a *Admin) ExportHTTPRegistrar() ExportHTTPRegistrar {
+	return a.exportRegistrar
+}
+
+// ExportMetadataProvider exposes export metadata resolution.
+func (a *Admin) ExportMetadataProvider() ExportMetadataProvider {
+	return a.exportMetadata
 }
 
 // BulkService exposes the bulk adapter.
@@ -643,11 +650,10 @@ func (a *Admin) decorateSchema(schema *Schema, panelName string) {
 	if schema == nil {
 		return
 	}
-	if a.gates.Enabled(FeatureExport) && a.exportSvc != nil {
+	if a.gates.Enabled(FeatureExport) {
 		schema.Export = &ExportConfig{
-			Resource: panelName,
-			Formats:  []string{"json", "csv"},
-			Endpoint: joinPath(a.config.BasePath, "api/export"),
+			Definition: panelName,
+			Endpoint:   joinPath(a.config.BasePath, "exports"),
 		}
 	}
 	if a.gates.Enabled(FeatureBulk) && a.bulkSvc != nil {
