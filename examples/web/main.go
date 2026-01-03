@@ -4,11 +4,14 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/examples/web/handlers"
@@ -23,7 +26,12 @@ import (
 	"github.com/goliatone/go-crud"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	goerrors "github.com/goliatone/go-errors"
+	exportpdf "github.com/goliatone/go-export/adapters/pdf"
+	exporttemplate "github.com/goliatone/go-export/adapters/template"
+	exportgotemplate "github.com/goliatone/go-export/adapters/template/go-template"
+	"github.com/goliatone/go-export/export"
 	"github.com/goliatone/go-router"
+	gotemplate "github.com/goliatone/go-template"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
@@ -113,7 +121,29 @@ func main() {
 		}
 	}
 
-	adm, adapterResult, err := quickstart.NewAdmin(cfg, adapterHooks, quickstart.WithAdminContext(context.Background()))
+	exportBundle := quickstart.NewExportBundle(
+		quickstart.WithExportActorProvider(exportActorProvider{}),
+		quickstart.WithExportGuard(exportGuard{}),
+		quickstart.WithExportHistoryPath("exports-history"),
+		quickstart.WithExportAsyncInProcess(10*time.Minute),
+	)
+	if cfg.Features.Export {
+		exportTemplatesFS := helpers.MustSubFS(webFS, "templates")
+		if err := configureExportRenderers(exportBundle, exportTemplatesFS); err != nil {
+			log.Fatalf("failed to configure export renderers: %v", err)
+		}
+	}
+	exportDeps := admin.Dependencies{
+		ExportRegistry:  exportBundle.Registry,
+		ExportRegistrar: exportBundle.Registrar,
+		ExportMetadata:  exportBundle.Metadata,
+	}
+	adm, adapterResult, err := quickstart.NewAdmin(
+		cfg,
+		adapterHooks,
+		quickstart.WithAdminContext(context.Background()),
+		quickstart.WithAdminDependencies(exportDeps),
+	)
 	if err != nil {
 		log.Fatalf("failed to construct admin: %v", err)
 	}
@@ -132,6 +162,11 @@ func main() {
 	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale, usersDeps)
 	if err != nil {
 		log.Fatalf("failed to initialize data stores: %v", err)
+	}
+	if cfg.Features.Export {
+		if err := registerExampleExports(exportBundle, dataStores, adm.TenantService()); err != nil {
+			log.Fatalf("failed to register exports: %v", err)
+		}
 	}
 
 	// Wire dashboard activity hooks to admin activity system.
@@ -211,13 +246,6 @@ func main() {
 		}
 	}
 
-	// Seed export/media adapters with store data
-	if svc := adm.ExportService(); svc != nil {
-		users, _, _ := dataStores.Users.List(context.Background(), admin.ListOptions{})
-		svc.Seed("users", users)
-		posts, _, _ := dataStores.Posts.List(context.Background(), admin.ListOptions{})
-		svc.Seed("posts", posts)
-	}
 	if lib := adm.MediaLibrary(); lib != nil {
 		mediaItems, _, _ := dataStores.Media.List(context.Background(), admin.ListOptions{})
 		for _, item := range mediaItems {
@@ -276,8 +304,6 @@ func main() {
 	server, r := quickstart.NewFiberServer(viewEngine, cfg, adm, isDev)
 
 	// Static assets
-	assetsFS := helpers.MustSubFS(webFS, "assets")
-
 	// Prefer serving assets from disk when available (dev flow), and fall back to embedded assets.
 	// This avoids 404s when the running binary was compiled without the latest generated assets
 	// (e.g., output.css, assets/dist/*) and supports iterative frontend builds.
@@ -291,7 +317,7 @@ func main() {
 	if diskAssetsDir != "" {
 		staticOpts = append(staticOpts, quickstart.WithDiskAssetsDir(diskAssetsDir))
 	}
-	quickstart.NewStaticAssets(r, cfg, assetsFS, staticOpts...)
+	quickstart.NewStaticAssets(r, cfg, webFS, staticOpts...)
 
 	// Register modules
 	modules := []admin.Module{
@@ -305,10 +331,99 @@ func main() {
 		admin.NewPreferencesModule().WithMenuParent(setup.NavigationGroupOthers),
 	}
 
-	if err := setup.SeedAdminNavigation(context.Background(), adm.MenuService(), cfg, modules, adm.Gates(), isDev); err != nil {
-		log.Printf("warning: failed to seed admin navigation: %v", err)
+	extraMenuItems := []admin.MenuItem{
+		{
+			ID:       setup.NavigationSectionShop,
+			Type:     admin.MenuItemTypeItem,
+			Label:    "My Shop",
+			LabelKey: "menu.shop",
+			Icon:     "shop",
+			Position: admin.IntPtr(40),
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(cfg.BasePath, "shop"),
+				"key":  "shop",
+			},
+			Menu:        cfg.NavMenuCode,
+			ParentID:    setup.NavigationGroupMain,
+			Collapsible: true,
+		},
+		{
+			ID:       setup.NavigationSectionShop + ".products",
+			Label:    "Products",
+			LabelKey: "menu.shop.products",
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(cfg.BasePath, "products"),
+				"key":  "products",
+			},
+			Position: admin.IntPtr(1),
+			Menu:     cfg.NavMenuCode,
+			ParentID: setup.NavigationSectionShop,
+		},
+		{
+			ID:       setup.NavigationSectionShop + ".orders",
+			Label:    "Orders",
+			LabelKey: "menu.shop.orders",
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(cfg.BasePath, "orders"),
+				"key":  "orders",
+			},
+			Position: admin.IntPtr(2),
+			Menu:     cfg.NavMenuCode,
+			ParentID: setup.NavigationSectionShop,
+		},
+		{
+			ID:       setup.NavigationSectionShop + ".customers",
+			Label:    "Customers",
+			LabelKey: "menu.shop.customers",
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(cfg.BasePath, "customers"),
+				"key":  "customers",
+			},
+			Position: admin.IntPtr(3),
+			Menu:     cfg.NavMenuCode,
+			ParentID: setup.NavigationSectionShop,
+		},
+		{
+			ID:       setup.NavigationGroupMain + ".analytics",
+			Label:    "Analytics",
+			LabelKey: "menu.analytics",
+			Icon:     "stats-report",
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(cfg.BasePath, "analytics"),
+				"key":  "analytics",
+			},
+			Position: admin.IntPtr(60),
+			Menu:     cfg.NavMenuCode,
+			ParentID: setup.NavigationGroupMain,
+		},
+		{
+			ID:       setup.NavigationGroupMain + ".separator",
+			Type:     admin.MenuItemTypeSeparator,
+			Position: admin.IntPtr(80),
+			Menu:     cfg.NavMenuCode,
+		},
+		{
+			ID:       setup.NavigationGroupOthers + ".help",
+			Label:    "Help & Support",
+			LabelKey: "menu.help",
+			Icon:     "question-mark",
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(cfg.BasePath, "help"),
+				"key":  "help",
+			},
+			Position: admin.IntPtr(10),
+			Menu:     cfg.NavMenuCode,
+			ParentID: setup.NavigationGroupOthers,
+		},
 	}
-	if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev, quickstart.WithSeedNavigation(false)); err != nil {
+
+	if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev, quickstart.WithModuleMenuItems(extraMenuItems...)); err != nil {
 		log.Fatalf("failed to register modules: %v", err)
 	}
 
@@ -538,9 +653,6 @@ func main() {
 	r.Get(path.Join(cfg.BasePath, "profile"), authn.WrapHandler(profileHandlers.Show))
 	r.Post(path.Join(cfg.BasePath, "profile"), authn.WrapHandler(profileHandlers.Save))
 
-	// Export handlers
-	exportHandlers := handlers.NewExportHandlers(dataStores.Users, dataStores.UserProfiles, cfg)
-
 	// User routes
 	r.Get(path.Join(cfg.BasePath, "users"), authn.WrapHandler(userHandlers.List))
 	r.Get(path.Join(cfg.BasePath, "users/new"), authn.WrapHandler(userHandlers.New))
@@ -558,10 +670,6 @@ func main() {
 	r.Post(path.Join(cfg.BasePath, "user-profiles/:id"), authn.WrapHandler(userProfileHandlers.Update))
 	r.Get(path.Join(cfg.BasePath, "user-profiles/:id"), authn.WrapHandler(userProfileHandlers.Detail))
 	r.Post(path.Join(cfg.BasePath, "user-profiles/:id/delete"), authn.WrapHandler(userProfileHandlers.Delete))
-
-	// Export action (custom action endpoint for go-crud compatibility)
-	r.Get(path.Join(cfg.BasePath, "crud/users/actions/export"), authn.WrapHandler(exportHandlers.ExportUsers))
-	r.Get(path.Join(cfg.BasePath, "crud/user-profiles/actions/export"), authn.WrapHandler(exportHandlers.ExportUserProfiles))
 
 	// Page routes
 	r.Get(path.Join(cfg.BasePath, "pages"), authn.WrapHandler(pageHandlers.List))
@@ -898,6 +1006,234 @@ func userCRUDStatusResolver(err *goerrors.Error, _ crud.CrudOperation) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+func configureExportRenderers(bundle *quickstart.ExportBundle, templatesFS fs.FS) error {
+	if bundle == nil || bundle.Runner == nil || bundle.Runner.Renderers == nil {
+		return nil
+	}
+	if templatesFS == nil {
+		return fmt.Errorf("export templates filesystem is required")
+	}
+
+	engine, err := exportgotemplate.NewEngine(
+		gotemplate.WithFS(templatesFS),
+		gotemplate.WithExtension(".html"),
+		gotemplate.WithTemplateFunc(helpers.TemplateFuncs()),
+	)
+	if err != nil {
+		return err
+	}
+
+	templateRenderer := exporttemplate.Renderer{
+		Enabled:      true,
+		Templates:    exportgotemplate.NewExecutor(engine),
+		TemplateName: "export",
+		Strategy:     exporttemplate.BufferedStrategy{MaxRows: 5000},
+	}
+	if err := bundle.Runner.Renderers.Register(export.FormatTemplate, templateRenderer); err != nil {
+		return err
+	}
+
+	pdfRenderer, err := buildPDFRenderer(templateRenderer)
+	if err != nil {
+		return err
+	}
+	if err := bundle.Runner.Renderers.Register(export.FormatPDF, pdfRenderer); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func buildPDFRenderer(templateRenderer exporttemplate.Renderer) (exportpdf.Renderer, error) {
+	engineName := strings.ToLower(strings.TrimSpace(os.Getenv("EXPORT_PDF_ENGINE")))
+	if engineName == "" {
+		engineName = "chromium"
+	}
+
+	switch engineName {
+	case "wkhtmltopdf":
+		return exportpdf.Renderer{
+			Enabled:      true,
+			HTMLRenderer: templateRenderer,
+			Engine: exportpdf.WKHTMLTOPDFEngine{
+				Command: strings.TrimSpace(os.Getenv("WKHTMLTOPDF_PATH")),
+				Timeout: envDurationSeconds("EXPORT_PDF_TIMEOUT_SECONDS", 30),
+			},
+		}, nil
+	case "chromium", "chromedp":
+	default:
+		return exportpdf.Renderer{}, fmt.Errorf("unsupported export pdf engine: %s", engineName)
+	}
+
+	printBackground := envBool("EXPORT_PDF_PRINT_BACKGROUND", true)
+	preferCSS := envBool("EXPORT_PDF_PREFER_CSS_PAGE_SIZE", true)
+	headless := envBool("EXPORT_PDF_HEADLESS", true)
+	args := envCSV("EXPORT_PDF_ARGS")
+	if len(args) == 0 {
+		args = []string{"--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"}
+	}
+
+	return exportpdf.Renderer{
+		Enabled:      true,
+		HTMLRenderer: templateRenderer,
+		Engine: &exportpdf.ChromiumEngine{
+			BrowserPath: strings.TrimSpace(os.Getenv("EXPORT_PDF_BROWSER_PATH")),
+			Headless:    headless,
+			Args:        args,
+			Timeout:     envDurationSeconds("EXPORT_PDF_TIMEOUT_SECONDS", 30),
+			DefaultPDF: export.PDFOptions{
+				PageSize:          strings.TrimSpace(os.Getenv("EXPORT_PDF_PAGE_SIZE")),
+				PrintBackground:   &printBackground,
+				PreferCSSPageSize: &preferCSS,
+			},
+		},
+	}, nil
+}
+
+func envDurationSeconds(key string, fallback int) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return time.Duration(fallback) * time.Second
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		return time.Duration(fallback) * time.Second
+	}
+	return time.Duration(value) * time.Second
+}
+
+func envBool(key string, fallback bool) bool {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fallback
+	}
+	return value
+}
+
+func envCSV(key string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil
+	}
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ';'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+type exportActorProvider struct{}
+
+func (exportActorProvider) FromContext(ctx context.Context) (export.Actor, error) {
+	session := helpers.BuildSessionUser(ctx)
+	if !session.IsAuthenticated {
+		return export.Actor{}, export.NewError(export.KindAuthz, "actor not authenticated", nil)
+	}
+
+	actorID := strings.TrimSpace(session.ID)
+	if actorID == "" {
+		actorID = strings.TrimSpace(session.Subject)
+	}
+	if actorID == "" {
+		return export.Actor{}, export.NewError(export.KindAuthz, "actor id missing", nil)
+	}
+
+	actor := export.Actor{
+		ID: actorID,
+		Scope: export.Scope{
+			TenantID:    strings.TrimSpace(session.TenantID),
+			WorkspaceID: strings.TrimSpace(session.OrganizationID),
+		},
+	}
+
+	roles := []string{}
+	if strings.TrimSpace(session.Role) != "" {
+		roles = append(roles, strings.TrimSpace(session.Role))
+	}
+	if len(session.Scopes) > 0 {
+		roles = append(roles, session.Scopes...)
+	}
+	if len(roles) > 0 {
+		actor.Roles = roles
+	}
+
+	details := map[string]any{}
+	if strings.TrimSpace(session.Subject) != "" {
+		details["subject"] = strings.TrimSpace(session.Subject)
+	}
+	if strings.TrimSpace(session.Username) != "" {
+		details["username"] = strings.TrimSpace(session.Username)
+	}
+	if strings.TrimSpace(session.Email) != "" {
+		details["email"] = strings.TrimSpace(session.Email)
+	}
+	if strings.TrimSpace(session.Role) != "" {
+		details["role"] = strings.TrimSpace(session.Role)
+	}
+	if len(session.ResourceRoles) > 0 {
+		details["resource_roles"] = session.ResourceRoles
+	}
+	if len(session.Metadata) > 0 {
+		details["metadata"] = session.Metadata
+	}
+	if len(session.Scopes) > 0 {
+		details["scopes"] = session.Scopes
+	}
+	if len(details) > 0 {
+		actor.Details = details
+	}
+
+	return actor, nil
+}
+
+type exportGuard struct{}
+
+func (exportGuard) AuthorizeExport(ctx context.Context, actor export.Actor, req export.ExportRequest, def export.ResolvedDefinition) error {
+	if strings.TrimSpace(actor.ID) == "" {
+		return export.NewError(export.KindAuthz, "export actor missing", nil)
+	}
+
+	resource := strings.TrimSpace(def.Resource)
+	if resource == "" {
+		resource = strings.TrimSpace(def.Name)
+	}
+	if resource == "" {
+		resource = strings.TrimSpace(req.Resource)
+	}
+	if resource == "" {
+		resource = strings.TrimSpace(req.Definition)
+	}
+
+	if resource != "" {
+		target := "admin." + resource
+		if !authlib.Can(ctx, target, "read") {
+			return export.NewError(export.KindAuthz, "export not authorized", nil)
+		}
+	}
+
+	return nil
+}
+
+func (exportGuard) AuthorizeDownload(ctx context.Context, actor export.Actor, exportID string) error {
+	_ = exportID
+	if strings.TrimSpace(actor.ID) == "" {
+		return export.NewError(export.KindAuthz, "export actor missing", nil)
+	}
+	if !authlib.Can(ctx, "admin", "read") {
+		return export.NewError(export.KindAuthz, "export download not authorized", nil)
+	}
+	return nil
 }
 
 // setupSearch registers search adapters
