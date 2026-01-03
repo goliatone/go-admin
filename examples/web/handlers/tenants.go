@@ -64,13 +64,7 @@ func (h *TenantHandlers) List(c router.Context) error {
 		items = append(items, tenantRecordToMap(rec, routes))
 	}
 
-	columns := []helpers.DataGridColumn{
-		{Field: "name", Label: "Name"},
-		{Field: "slug", Label: "Slug"},
-		{Field: "domain", Label: "Domain"},
-		{Field: "status", Label: "Status"},
-		{Field: "created_at", Label: "Created"},
-	}
+	columns := tenantDataGridColumns()
 
 	viewCtx := h.WithNav(router.ViewContext{
 		"title":          h.Config.Title,
@@ -81,6 +75,7 @@ func (h *TenantHandlers) List(c router.Context) error {
 		"items":          items,
 		"columns":        columns,
 		"total":          total,
+		"export_config":  helpers.BuildExportConfig(h.Config, "tenants", ""),
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/tenants/list", viewCtx)

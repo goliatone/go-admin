@@ -35,12 +35,7 @@ func (h *PageHandlers) List(c router.Context) error {
 	}
 
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "pages")
-	columns := []helpers.DataGridColumn{
-		{Field: "title", Label: "Title"},
-		{Field: "slug", Label: "Slug"},
-		{Field: "status", Label: "Status"},
-		{Field: "updated_at", Label: "Updated"},
-	}
+	columns := pageDataGridColumns()
 	for i := range pages {
 		id := pages[i]["id"]
 		pages[i]["actions"] = routes.ActionsMap(id)
@@ -55,6 +50,7 @@ func (h *PageHandlers) List(c router.Context) error {
 		"items":          pages,
 		"columns":        columns,
 		"total":          total,
+		"export_config":  helpers.BuildExportConfig(h.Config, "pages", ""),
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".pages", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/pages/list", viewCtx)
@@ -236,12 +232,7 @@ func (h *PostHandlers) List(c router.Context) error {
 		return err
 	}
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "posts")
-	columns := []helpers.DataGridColumn{
-		{Field: "title", Label: "Title"},
-		{Field: "author", Label: "Author"},
-		{Field: "status", Label: "Status"},
-		{Field: "published_at", Label: "Published"},
-	}
+	columns := postDataGridColumns()
 	for i := range posts {
 		id := posts[i]["id"]
 		posts[i]["actions"] = routes.ActionsMap(id)
@@ -255,6 +246,7 @@ func (h *PostHandlers) List(c router.Context) error {
 		"items":          posts,
 		"columns":        columns,
 		"total":          total,
+		"export_config":  helpers.BuildExportConfig(h.Config, "posts", ""),
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".posts", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/posts/list", viewCtx)
@@ -445,12 +437,7 @@ func (h *MediaHandlers) List(c router.Context) error {
 		return err
 	}
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "media")
-	columns := []helpers.DataGridColumn{
-		{Field: "filename", Label: "Filename"},
-		{Field: "type", Label: "Type"},
-		{Field: "size", Label: "Size"},
-		{Field: "uploaded_by", Label: "Uploaded By"},
-	}
+	columns := mediaDataGridColumns()
 	for i := range items {
 		id := items[i]["id"]
 		items[i]["actions"] = routes.ActionsMap(id)
@@ -464,6 +451,7 @@ func (h *MediaHandlers) List(c router.Context) error {
 		"items":          items,
 		"columns":        columns,
 		"total":          total,
+		"export_config":  helpers.BuildExportConfig(h.Config, "media", ""),
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/media/list", viewCtx)

@@ -95,6 +95,7 @@ func (h *UserHandlers) List(c router.Context) error {
 		"items":          users,
 		"columns":        columns,
 		"total":          total,
+		"export_config":  helpers.BuildExportConfig(h.Config, "users", ""),
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/list", viewCtx)
