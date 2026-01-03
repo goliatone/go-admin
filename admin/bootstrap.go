@@ -108,7 +108,6 @@ func (a *Admin) validateConfig() error {
 	}
 
 	require(FeatureJobs, FeatureCommands)
-	require(FeatureExport, FeatureCommands, FeatureJobs)
 	require(FeatureBulk, FeatureCommands, FeatureJobs)
 
 	for _, feature := range []FeatureKey{FeatureMedia, FeatureExport, FeatureBulk} {
