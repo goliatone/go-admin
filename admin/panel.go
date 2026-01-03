@@ -142,9 +142,9 @@ type Schema struct {
 
 // ExportConfig captures export metadata for UI consumers.
 type ExportConfig struct {
-	Resource string   `json:"resource"`
-	Formats  []string `json:"formats"`
-	Endpoint string   `json:"endpoint"`
+	Definition string `json:"definition"`
+	Variant    string `json:"variant,omitempty"`
+	Endpoint   string `json:"endpoint"`
 }
 
 // BulkConfig captures bulk endpoint metadata and capabilities.
