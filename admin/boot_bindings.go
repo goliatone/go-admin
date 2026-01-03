@@ -571,33 +571,6 @@ func (s *searchBinding) Query(c router.Context, locale, query string, limit int)
 	return out, nil
 }
 
-type exportBinding struct {
-	admin *Admin
-}
-
-func newExportBinding(a *Admin) boot.ExportBinding {
-	if a == nil || a.exportSvc == nil {
-		return nil
-	}
-	return &exportBinding{admin: a}
-}
-
-func (e *exportBinding) Export(c router.Context, resource, format string) (map[string]any, error) {
-	res, err := e.admin.exportSvc.Export(c.Context(), ExportRequest{
-		Resource: resource,
-		Format:   format,
-	})
-	if err != nil {
-		return nil, err
-	}
-	c.SetHeader("Content-Type", res.ContentType)
-	return map[string]any{
-		"content_type": res.ContentType,
-		"filename":     res.Filename,
-		"data":         string(res.Content),
-	}, nil
-}
-
 type bulkBinding struct {
 	admin *Admin
 }
