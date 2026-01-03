@@ -174,11 +174,10 @@ func TestCommandRegistryRegistersHandlers(t *testing.T) {
 	}
 }
 
-func TestExportAndBulkCommandsExposeCLI(t *testing.T) {
+func TestBulkCommandsExposeCLI(t *testing.T) {
 	cfg := Config{
 		Features: Features{
 			Commands: true,
-			Export:   true,
 			Bulk:     true,
 			Jobs:     true,
 			CMS:      true,
@@ -189,18 +188,15 @@ func TestExportAndBulkCommandsExposeCLI(t *testing.T) {
 	if len(opts) == 0 {
 		t.Fatalf("expected cli options")
 	}
-	hasExport, hasBulk := false, false
+	hasBulk := false
 	for _, opt := range opts {
 		path := strings.Join(opt.Path, " ")
-		if path == "admin export" {
-			hasExport = true
-		}
 		if path == "admin bulk" {
 			hasBulk = true
 		}
 	}
-	if !hasExport || !hasBulk {
-		t.Fatalf("expected admin export and bulk CLI entries, got %v", opts)
+	if !hasBulk {
+		t.Fatalf("expected admin bulk CLI entry, got %v", opts)
 	}
 }
 
@@ -509,56 +505,6 @@ func TestPanelActivityEmission(t *testing.T) {
 	}
 }
 
-func TestExportRoute(t *testing.T) {
-	cfg := Config{
-		BasePath:      "/admin",
-		DefaultLocale: "en",
-		Features: Features{
-			Export:   true,
-			Commands: true,
-			Jobs:     true,
-			CMS:      true,
-		},
-	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
-	if svc := adm.ExportService(); svc != nil {
-		svc.Seed("users", []map[string]any{{"id": "1", "name": "Alice"}})
-	}
-
-	server := router.NewHTTPServer()
-	r := server.Router()
-	if err := adm.Initialize(r); err != nil {
-		t.Fatalf("init: %v", err)
-	}
-
-	req := httptest.NewRequest("GET", "/admin/api/export?resource=users&format=json", nil)
-	rr := httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("export status: %d body=%s", rr.Code, rr.Body.String())
-	}
-	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if body["data"] == "" {
-		t.Fatalf("expected export data")
-	}
-	if ct := body["content_type"]; ct == "" {
-		t.Fatalf("expected content type on export payload")
-	}
-
-	req = httptest.NewRequest("GET", "/admin/api/export?resource=users&format=csv", nil)
-	rr = httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("export csv status: %d body=%s", rr.Code, rr.Body.String())
-	}
-	body = map[string]any{}
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	if ct := body["content_type"]; ct != "text/csv" {
-		t.Fatalf("expected csv content type, got %v", ct)
-	}
-}
-
 func TestBulkRoute(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
@@ -705,11 +651,23 @@ func TestPanelSchemaIncludesFeatureMetadata(t *testing.T) {
 		t.Fatalf("schema missing from response")
 	}
 	exportConf, _ := schema["export"].(map[string]any)
-	if exportConf == nil || exportConf["resource"] != "items" {
+	if exportConf == nil || exportConf["definition"] != "items" {
 		t.Fatalf("expected export metadata for items, got %v", exportConf)
 	}
 	if endpoint, _ := exportConf["endpoint"].(string); endpoint == "" {
 		t.Fatalf("expected export endpoint")
+	}
+	if variant, ok := exportConf["variant"].(string); ok && variant != "" {
+		t.Fatalf("expected empty export variant, got %v", variant)
+	}
+	if _, ok := exportConf["resource"]; ok {
+		t.Fatalf("expected legacy export resource to be omitted, got %v", exportConf["resource"])
+	}
+	if _, ok := exportConf["formats"]; ok {
+		t.Fatalf("expected legacy export formats to be omitted, got %v", exportConf["formats"])
+	}
+	if _, ok := exportConf["format"]; ok {
+		t.Fatalf("expected legacy export format to be omitted, got %v", exportConf["format"])
 	}
 	bulkConf, _ := schema["bulk"].(map[string]any)
 	if bulkConf == nil {

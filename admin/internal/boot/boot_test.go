@@ -57,7 +57,7 @@ func (s *stubCtx) Panels() []PanelBinding            { return s.panels }
 func (s *stubCtx) BootDashboard() DashboardBinding   { return s.dashboard }
 func (s *stubCtx) BootNavigation() NavigationBinding { return s.navigation }
 func (s *stubCtx) BootSearch() SearchBinding         { return nil }
-func (s *stubCtx) BootExport() ExportBinding         { return nil }
+func (s *stubCtx) ExportRegistrar() ExportRegistrar  { return nil }
 func (s *stubCtx) BootBulk() BulkBinding             { return nil }
 func (s *stubCtx) BootMedia() MediaBinding           { return nil }
 func (s *stubCtx) BootNotifications() NotificationsBinding {
