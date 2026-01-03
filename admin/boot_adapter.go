@@ -73,9 +73,9 @@ func (a *Admin) BootSearch() boot.SearchBinding {
 	return newSearchBinding(a)
 }
 
-// BootExport exposes the export binding.
-func (a *Admin) BootExport() boot.ExportBinding {
-	return newExportBinding(a)
+// ExportRegistrar exposes the export HTTP registrar.
+func (a *Admin) ExportRegistrar() boot.ExportRegistrar {
+	return newExportRegistrarBinding(a)
 }
 
 // BootBulk exposes the bulk binding.
