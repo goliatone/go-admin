@@ -1,15 +1,28 @@
 ## Commerce Example
 
-This example shows a small e-commerce admin with users, products, and orders backed by in-memory stores.
+This example shows a small e-commerce admin with users, products, and orders backed by in-memory stores. It includes a lightweight demo UI for visual interaction.
 
 ### Run it
 
 ```bash
 cd examples/commerce
-/Users/goliatone/.g/go/bin/go run .
+go run .
 ```
 
-Visit `http://localhost:8081/admin` and include an `Authorization: Bearer <token>` header when hitting APIs. Startup logs print demo tokens for the seeded users.
+### Demo UI
+
+Open `http://localhost:8081/` in your browser. On first load, paste a token from the startup logs when prompted. The UI provides:
+
+- **Dashboard**: Sales overview with order count, products, and revenue
+- **Users**: List/create/edit customers with loyalty tiers
+- **Products**: Manage inventory with SKUs and pricing
+- **Orders**: View and manage order status
+
+The token is saved to localStorage for convenience. Pass `?token=<TOKEN>` as a URL parameter for direct access.
+
+### API Access
+
+APIs require `Authorization: Bearer <token>` header. Startup logs print demo tokens for seeded users.
 
 ### What’s wired
 
