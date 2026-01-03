@@ -7,6 +7,7 @@ Each helper is optional and composable.
 
 - `NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOption) admin.Config` - Inputs: base path/title/locale plus option setters. Outputs: `admin.Config` with quickstart defaults and overrides applied.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
+- `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
 - `NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool) fiber.ErrorHandler` - Inputs: admin, config, dev flag. Outputs: Fiber error handler.
 - `NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error)` - Inputs: base FS and view options. Outputs: Fiber views engine and error.
 - `NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App])` - Inputs: views, config, admin, dev flag, server options. Outputs: go-router server adapter and router.
@@ -19,14 +20,23 @@ Each helper is optional and composable.
 ## Usage example
 ```go
 cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+exportBundle := quickstart.NewExportBundle()
 adm, adapters, err := quickstart.NewAdmin(cfg, quickstart.AdapterHooks{
 	PersistentCMS: func(ctx context.Context, defaultLocale string) (admin.CMSOptions, string, error) {
 		return admin.CMSOptions{}, "in-memory CMS", nil
 	},
-})
+}, quickstart.WithAdminDependencies(admin.Dependencies{
+	ExportRegistry:  exportBundle.Registry,
+	ExportRegistrar: exportBundle.Registrar,
+	ExportMetadata:  exportBundle.Metadata,
+}))
 if err != nil {
 	return err
 }
+
+// Register definitions and row sources on exportBundle.Runner.
+// exportBundle.Runner.Definitions.Register(...)
+// exportBundle.Runner.RowSources.Register(...)
 
 views, err := quickstart.NewViewEngine(os.DirFS("./web"))
 if err != nil {
