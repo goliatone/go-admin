@@ -104,6 +104,13 @@ export interface SortBehavior {
     onSort(column: string, direction: 'asc' | 'desc', grid: DataGrid): Promise<void>;
 }
 /**
+ * Export concurrency mode
+ * - 'single': Block all export buttons while any export is in progress (default)
+ * - 'per-format': Block only the clicked format's button
+ * - 'none': Allow parallel exports (no blocking)
+ */
+export type ExportConcurrencyMode = 'single' | 'per-format' | 'none';
+/**
  * Export behavior - handles data export
  */
 export interface ExportBehavior {
@@ -115,6 +122,11 @@ export interface ExportBehavior {
      * Export data in specified format
      */
     export(format: 'csv' | 'json' | 'excel' | 'pdf', grid: DataGrid): Promise<void>;
+    /**
+     * Get the concurrency mode for export operations
+     * Defaults to 'single' if not implemented
+     */
+    getConcurrency?(): ExportConcurrencyMode;
 }
 /**
  * Bulk action behavior - handles bulk operations

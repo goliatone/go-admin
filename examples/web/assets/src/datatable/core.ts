@@ -1109,11 +1109,74 @@ export class DataGrid {
     const menu = document.querySelector(this.selectors.exportMenu);
     if (!menu) return;
 
-    menu.querySelectorAll('[data-export-format]').forEach((btn) => {
+    const exportButtons = menu.querySelectorAll<HTMLButtonElement>('[data-export-format]');
+
+    exportButtons.forEach((btn) => {
       btn.addEventListener('click', async () => {
         const format = (btn as HTMLElement).dataset.exportFormat as 'csv' | 'json' | 'excel' | 'pdf';
-        if (format && this.config.behaviors?.export) {
+        if (!format || !this.config.behaviors?.export) return;
+
+        // Get concurrency mode (default to 'single')
+        const concurrency = this.config.behaviors.export.getConcurrency?.() || 'single';
+
+        // Determine which buttons to disable based on concurrency mode
+        const buttonsToDisable: HTMLButtonElement[] = [];
+        if (concurrency === 'single') {
+          // Disable all export buttons
+          exportButtons.forEach(b => buttonsToDisable.push(b));
+        } else if (concurrency === 'per-format') {
+          // Disable only the clicked button
+          buttonsToDisable.push(btn);
+        }
+        // 'none' mode: no buttons disabled, but clicked button still shows spinner
+
+        // Helper to toggle spinner visibility on a button
+        const showSpinner = (b: HTMLButtonElement) => {
+          const icon = b.querySelector('.export-icon');
+          const spinner = b.querySelector('.export-spinner');
+          if (icon) icon.classList.add('hidden');
+          if (spinner) spinner.classList.remove('hidden');
+        };
+
+        const hideSpinner = (b: HTMLButtonElement) => {
+          const icon = b.querySelector('.export-icon');
+          const spinner = b.querySelector('.export-spinner');
+          if (icon) icon.classList.remove('hidden');
+          if (spinner) spinner.classList.add('hidden');
+        };
+
+        // Apply loading state to buttons that should be disabled
+        buttonsToDisable.forEach(b => {
+          b.setAttribute('data-export-loading', 'true');
+          b.disabled = true;
+          showSpinner(b);
+        });
+
+        // For 'none' mode, still show spinner on clicked button (but don't disable)
+        const showSpinnerOnly = concurrency === 'none';
+        if (showSpinnerOnly) {
+          btn.setAttribute('data-export-loading', 'true');
+          showSpinner(btn);
+        }
+
+        try {
           await this.config.behaviors.export.export(format, this);
+        } catch (error) {
+          // Error already handled by the export behavior (toast shown)
+          console.error('[DataGrid] Export failed:', error);
+        } finally {
+          // Clear loading state from disabled buttons
+          buttonsToDisable.forEach(b => {
+            b.removeAttribute('data-export-loading');
+            b.disabled = false;
+            hideSpinner(b);
+          });
+
+          // Clear spinner-only state for 'none' mode
+          if (showSpinnerOnly) {
+            btn.removeAttribute('data-export-loading');
+            hideSpinner(btn);
+          }
         }
       });
     });
