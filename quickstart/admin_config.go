@@ -71,6 +71,14 @@ func DefaultAdminFeatures() admin.Features {
 	}
 }
 
+// DefaultMinimalFeatures returns a Stage 1 friendly feature set.
+func DefaultMinimalFeatures() admin.Features {
+	return admin.Features{
+		Dashboard: true,
+		CMS:       true,
+	}
+}
+
 // DefaultThemeTokens returns the baseline theme tokens used by quickstart.
 func DefaultThemeTokens() map[string]string {
 	return map[string]string{
@@ -86,6 +94,17 @@ func WithFeatures(features admin.Features) AdminConfigOption {
 			return
 		}
 		cfg.Features = features
+	}
+}
+
+// WithFeaturesExplicit replaces the defaults and clears existing feature flags.
+func WithFeaturesExplicit(features admin.Features) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.Features = features
+		cfg.FeatureFlags = map[string]bool{}
 	}
 }
 
