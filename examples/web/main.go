@@ -213,6 +213,7 @@ func main() {
 		admin.NewGoUsersUserRepository(usersDeps.AuthRepo, usersDeps.InventoryRepo, scopeResolver),
 		admin.NewGoUsersRoleRepository(usersDeps.RoleRegistry, scopeResolver),
 	)
+	adm.WithRoleAssignmentLookup(admin.UUIDRoleAssignmentLookup{})
 	if prefStore, err := setup.NewGoUsersPreferencesStore(usersDeps.PreferenceRepo); err == nil && adm.PreferencesService() != nil {
 		adm.PreferencesService().WithStore(prefStore)
 	}
