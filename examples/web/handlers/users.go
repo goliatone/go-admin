@@ -160,6 +160,11 @@ func (h *UserHandlers) Detail(c router.Context) error {
 	if err != nil {
 		return err
 	}
+	tabs, err := helpers.FetchPanelTabs(c, h.Config, "users", id)
+	if err != nil {
+		tabs = nil
+	}
+	tabViews := helpers.BuildPanelTabViews(tabs, h.Config.BasePath, user)
 
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
 	fields := []map[string]any{
@@ -180,6 +185,7 @@ func (h *UserHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  user,
 		"fields":         fields,
+		"tabs":           tabViews,
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/detail", viewCtx)
