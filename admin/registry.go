@@ -3,6 +3,7 @@ package admin
 import (
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ type Registry struct {
 	moduleIndex        map[string]Module
 	dashboardProviders map[string]DashboardProviderSpec
 	settings           map[string]SettingDefinition
+	panelTabs          map[string]map[string]PanelTab
 }
 
 // NewRegistry creates an empty registry.
@@ -25,6 +27,7 @@ func NewRegistry() *Registry {
 		moduleIndex:        map[string]Module{},
 		dashboardProviders: map[string]DashboardProviderSpec{},
 		settings:           map[string]SettingDefinition{},
+		panelTabs:          map[string]map[string]PanelTab{},
 	}
 }
 
@@ -54,6 +57,93 @@ func (r *Registry) Panels() map[string]*Panel {
 	for name, panel := range r.panels {
 		out[name] = panel
 	}
+	return out
+}
+
+// RegisterPanelTab records a panel tab for the named panel.
+func (r *Registry) RegisterPanelTab(panelName string, tab PanelTab) error {
+	panelName = strings.TrimSpace(panelName)
+	if panelName == "" {
+		return errors.New("panel name cannot be empty")
+	}
+	tabID := strings.TrimSpace(tab.ID)
+	if tabID == "" {
+		tabID = derivePanelTabID(tab)
+		tab.ID = tabID
+	}
+	if tabID == "" {
+		return errors.New("panel tab ID cannot be empty")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.panelTabs == nil {
+		r.panelTabs = map[string]map[string]PanelTab{}
+	}
+	panelTabs := r.panelTabs[panelName]
+	if panelTabs == nil {
+		panelTabs = map[string]PanelTab{}
+		r.panelTabs[panelName] = panelTabs
+	}
+	if existing, exists := panelTabs[tabID]; exists {
+		log.Printf("[admin] panel tab collision panel=%s id=%s existing_label=%s incoming_label=%s", panelName, tabID, existing.Label, tab.Label)
+		return nil
+	}
+	panelTabs[tabID] = tab
+	return nil
+}
+
+// SetPanelTab upserts a panel tab for the named panel.
+func (r *Registry) SetPanelTab(panelName string, tab PanelTab) error {
+	panelName = strings.TrimSpace(panelName)
+	if panelName == "" {
+		return errors.New("panel name cannot be empty")
+	}
+	tabID := strings.TrimSpace(tab.ID)
+	if tabID == "" {
+		tabID = derivePanelTabID(tab)
+		tab.ID = tabID
+	}
+	if tabID == "" {
+		return errors.New("panel tab ID cannot be empty")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.panelTabs == nil {
+		r.panelTabs = map[string]map[string]PanelTab{}
+	}
+	panelTabs := r.panelTabs[panelName]
+	if panelTabs == nil {
+		panelTabs = map[string]PanelTab{}
+		r.panelTabs[panelName] = panelTabs
+	}
+	panelTabs[tabID] = tab
+	return nil
+}
+
+// PanelTabs returns registered tabs for a panel, ordered by position then ID.
+func (r *Registry) PanelTabs(panelName string) []PanelTab {
+	panelName = strings.TrimSpace(panelName)
+	if panelName == "" {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	panelTabs := r.panelTabs[panelName]
+	if len(panelTabs) == 0 {
+		return nil
+	}
+	out := make([]PanelTab, 0, len(panelTabs))
+	for _, tab := range panelTabs {
+		out = append(out, tab)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Position == out[j].Position {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].Position < out[j].Position
+	})
 	return out
 }
 
