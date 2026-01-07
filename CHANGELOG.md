@@ -1,5 +1,34 @@
 # Changelog
 
+# [0.2.0](https://github.com/goliatone/go-admin/compare/v0.1.0...v0.2.0) - (2026-01-07)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.2.0 ([8c7a205](https://github.com/goliatone/go-admin/commit/8c7a2056249a5ada4bd62ee0c5e3286f8af13252))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Tabs and panel support ([d126dc9](https://github.com/goliatone/go-admin/commit/d126dc903c9857e696c647ddac2163dfec46b19a))  - (goliatone)
+- Role assignment lookup ([707b317](https://github.com/goliatone/go-admin/commit/707b317a20759f03e68221115f07fb1fbcda2095))  - (goliatone)
+- Penal tabs support ([c8c8cdf](https://github.com/goliatone/go-admin/commit/c8c8cdf60639e6270ac7ff4164479b68ba21c04e))  - (goliatone)
+- Response envelope ([15b4c8c](https://github.com/goliatone/go-admin/commit/15b4c8c544e042410d8746fe150f008b6767a5e4))  - (goliatone)
+- Support for tabs in panel ([97385fc](https://github.com/goliatone/go-admin/commit/97385fcb0f1f4913dfed12144400d230cb344d8a))  - (goliatone)
+- Role lookup and panel setup ([11dd17a](https://github.com/goliatone/go-admin/commit/11dd17a9fce914866381d07578b141761889da2c))  - (goliatone)
+- Datatable updates ([bc7ff63](https://github.com/goliatone/go-admin/commit/bc7ff636cef84767e2afb2265200883ad29c6da9))  - (goliatone)
+- Tabs panel ([b4ee541](https://github.com/goliatone/go-admin/commit/b4ee541e9bc0ce1097653fa633bcc35f14578da7))  - (goliatone)
+- Tabs ([3a36da8](https://github.com/goliatone/go-admin/commit/3a36da8ac726adfdcc008d3b2423237dc5be65e1))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.1.0 ([2a749b7](https://github.com/goliatone/go-admin/commit/2a749b700883b2369bdda08cc2ea8ac5db5baa82))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Udpate example ([95d28b8](https://github.com/goliatone/go-admin/commit/95d28b8be218fa562d3ec9fc7be5e94a854380ae))  - (goliatone)
+- Update tests ([991902e](https://github.com/goliatone/go-admin/commit/991902ec603d34fa25210fe655b8595ecc79d134))  - (goliatone)
+- Update examples ([aee947f](https://github.com/goliatone/go-admin/commit/aee947f656c2c6eadc274f9b9ab8ac757e1f80bd))  - (goliatone)
+- Update deps ([12109d6](https://github.com/goliatone/go-admin/commit/12109d67421c2bc35db550d51b64249593f757db))  - (goliatone)
+
 # [0.1.0](https://github.com/goliatone/go-admin/tree/v0.1.0) - (2026-01-07)
 
 ## <!-- 1 -->🐛 Bug Fixes
