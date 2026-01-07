@@ -13,7 +13,7 @@ const (
 
 // PanelTabTarget describes the navigation target for a tab.
 type PanelTabTarget struct {
-	Type  string `json:"type"`           // "panel" | "path" | "external"
+	Type  string `json:"type"`            // "panel" | "path" | "external"
 	Panel string `json:"panel,omitempty"` // when Type == "panel"
 	Path  string `json:"path,omitempty"`  // when Type == "path" or "external"
 }
