@@ -98,15 +98,23 @@ type (
 	OrganizationMember = core.OrganizationMember
 	OrganizationRecord = core.OrganizationRecord
 
-	PanelBuilder     = core.PanelBuilder
-	PanelPermissions = core.PanelPermissions
+	PanelBuilder                = core.PanelBuilder
+	PanelPermissions            = core.PanelPermissions
+	PanelTab                    = core.PanelTab
+	PanelTabCollisionHandler    = core.PanelTabCollisionHandler
+	PanelTabPermissionEvaluator = core.PanelTabPermissionEvaluator
+	PanelTabScope               = core.PanelTabScope
+	PanelTabTarget              = core.PanelTabTarget
 
 	PreferencesModule = core.PreferencesModule
 	ProfileModule     = core.ProfileModule
 
 	ResolvedWidget = core.ResolvedWidget
 
-	RolePanelRepository = core.RolePanelRepository
+	RolePanelRepository      = core.RolePanelRepository
+	RoleAssignmentLookup     = core.RoleAssignmentLookup
+	RoleRepositoryLookup     = core.RoleRepositoryLookup
+	UUIDRoleAssignmentLookup = core.UUIDRoleAssignmentLookup
 
 	SearchResult = core.SearchResult
 
@@ -146,6 +154,10 @@ const (
 	MenuItemTypeItem      = core.MenuItemTypeItem
 	MenuItemTypeGroup     = core.MenuItemTypeGroup
 	MenuItemTypeSeparator = core.MenuItemTypeSeparator
+
+	PanelTabScopeList   = core.PanelTabScopeList
+	PanelTabScopeDetail = core.PanelTabScopeDetail
+	PanelTabScopeForm   = core.PanelTabScopeForm
 
 	SettingsScopeSystem = core.SettingsScopeSystem
 	SettingsScopeSite   = core.SettingsScopeSite
