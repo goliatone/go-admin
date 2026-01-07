@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/goliatone/go-admin/examples/web/helpers"
+	"github.com/goliatone/go-admin/pkg/client"
 	formgen "github.com/goliatone/go-formgen"
 	formgenvanilla "github.com/goliatone/go-formgen/pkg/renderers/vanilla"
 	"github.com/goliatone/go-router"
@@ -22,12 +22,7 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 	})
 	r := adapter.Router()
 
-	assetsFS := helpers.MustSubFS(webFS, "assets")
-	if assetsFS == nil {
-		t.Fatal("expected embedded assets FS")
-	}
-
-	r.Static("/admin/assets", ".", router.Static{FS: assetsFS, Root: "."})
+	client.RegisterAssets(r, "/admin/assets")
 	r.Static("/runtime", ".", router.Static{FS: formgen.RuntimeAssetsFS(), Root: "."})
 	r.Static("/admin/formgen", ".", router.Static{FS: formgenvanilla.AssetsFS(), Root: "."})
 	adapter.Init()
@@ -72,12 +67,7 @@ func TestEmbeddedAssetsServedWithCatchAll(t *testing.T) {
 	})
 	r := adapter.Router()
 
-	assetsFS := helpers.MustSubFS(webFS, "assets")
-	if assetsFS == nil {
-		t.Fatal("expected embedded assets FS")
-	}
-
-	r.Static("/admin/assets", ".", router.Static{FS: assetsFS, Root: "."})
+	client.RegisterAssets(r, "/admin/assets")
 	r.Get("/*", func(c router.Context) error {
 		return c.Status(418).SendString("catch-all")
 	})
