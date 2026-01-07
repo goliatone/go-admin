@@ -17,6 +17,19 @@ export interface GoCrudExportConfig {
     variant?: string;
     sourceVariant?: string;
     delivery?: DeliveryMode;
+    /**
+     * Formats that should default to async delivery (when delivery is not explicitly set).
+     * Defaults to ['pdf'].
+     */
+    asyncFormats?: ExportFormat[];
+    /**
+     * Polling interval for async exports (ms).
+     */
+    statusPollIntervalMs?: number;
+    /**
+     * Maximum polling duration for async exports (ms). Set to 0 to disable timeout.
+     */
+    statusPollTimeoutMs?: number;
     selection?: ExportSelection;
     columns?: string[];
     /**
