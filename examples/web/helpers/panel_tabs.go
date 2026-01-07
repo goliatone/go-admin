@@ -1,0 +1,133 @@
+package helpers
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/url"
+	"path"
+	"strings"
+
+	"github.com/goliatone/go-admin/pkg/admin"
+	router "github.com/goliatone/go-router"
+)
+
+type adminDetailPayload struct {
+	Schema struct {
+		Tabs []admin.PanelTab `json:"tabs"`
+	} `json:"schema"`
+}
+
+// FetchPanelTabs loads panel tabs from the admin detail API for the given record.
+func FetchPanelTabs(c router.Context, cfg admin.Config, panelName, id string) ([]admin.PanelTab, error) {
+	if c == nil {
+		return nil, nil
+	}
+	host := strings.TrimSpace(c.Header("X-Forwarded-Host"))
+	if host == "" {
+		host = strings.TrimSpace(c.Header("Host"))
+	}
+	if host == "" {
+		return nil, fmt.Errorf("missing host header")
+	}
+	scheme := strings.TrimSpace(c.Header("X-Forwarded-Proto"))
+	if scheme == "" {
+		scheme = "http"
+	}
+	endpoint := scheme + "://" + host + path.Join(cfg.BasePath, "api", panelName, id)
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	if cookie := strings.TrimSpace(c.Header("Cookie")); cookie != "" {
+		req.Header.Set("Cookie", cookie)
+	}
+	if auth := strings.TrimSpace(c.Header("Authorization")); auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+	if userID := strings.TrimSpace(c.Header("X-User-ID")); userID != "" {
+		req.Header.Set("X-User-ID", userID)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("admin detail status %d", resp.StatusCode)
+	}
+	var payload adminDetailPayload
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.Schema.Tabs, nil
+}
+
+// BuildPanelTabViews maps admin tabs to template-friendly payloads with hrefs.
+func BuildPanelTabViews(tabs []admin.PanelTab, basePath string, record map[string]any) []map[string]any {
+	if len(tabs) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(tabs))
+	for _, tab := range tabs {
+		href := buildPanelTabHref(tab, basePath, record)
+		out = append(out, map[string]any{
+			"id":        tab.ID,
+			"label":     tab.Label,
+			"label_key": tab.LabelKey,
+			"icon":      tab.Icon,
+			"href":      href,
+			"scope":     string(tab.Scope),
+		})
+	}
+	return out
+}
+
+func buildPanelTabHref(tab admin.PanelTab, basePath string, record map[string]any) string {
+	base := ""
+	switch tab.Target.Type {
+	case "panel":
+		base = path.Join(basePath, tab.Target.Panel)
+	case "path":
+		base = strings.TrimSpace(tab.Target.Path)
+		if base != "" && !strings.HasPrefix(base, "/") {
+			base = path.Join(basePath, base)
+		}
+	case "external":
+		base = strings.TrimSpace(tab.Target.Path)
+	default:
+		return ""
+	}
+	values := url.Values{}
+	for key, raw := range tab.Filters {
+		if resolved := resolveTabToken(raw, record); resolved != "" {
+			values.Set("filter_"+key, resolved)
+		}
+	}
+	for key, raw := range tab.Query {
+		if resolved := resolveTabToken(raw, record); resolved != "" {
+			values.Set(key, resolved)
+		}
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return base + "?" + encoded
+	}
+	return base
+}
+
+func resolveTabToken(value string, record map[string]any) string {
+	const prefix = "{{record."
+	const suffix = "}}"
+	if strings.HasPrefix(value, prefix) && strings.HasSuffix(value, suffix) {
+		key := strings.TrimSuffix(strings.TrimPrefix(value, prefix), suffix)
+		if record == nil {
+			return ""
+		}
+		if resolved, ok := record[key]; ok && resolved != nil {
+			return fmt.Sprint(resolved)
+		}
+		return ""
+	}
+	return value
+}
