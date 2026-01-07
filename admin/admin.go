@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"errors"
+	"log"
+	"sort"
 	"strings"
 
 	router "github.com/goliatone/go-router"
@@ -10,45 +12,47 @@ import (
 
 // Admin orchestrates CMS-backed admin features and adapters.
 type Admin struct {
-	config          Config
-	features        Features
-	featureFlags    map[string]bool
-	gates           FeatureGates
-	registry        *Registry
-	cms             CMSContainer
-	widgetSvc       CMSWidgetService
-	menuSvc         CMSMenuService
-	contentSvc      CMSContentService
-	authenticator   Authenticator
-	router          AdminRouter
-	commandRegistry *CommandRegistry
-	dashboard       *Dashboard
-	dash            *dashboardComponents
-	nav             *Navigation
-	search          *SearchEngine
-	authorizer      Authorizer
-	notifications   NotificationService
-	activity        ActivitySink
-	jobs            *JobRegistry
-	settings        *SettingsService
-	settingsForm    *SettingsFormAdapter
-	settingsCommand *SettingsUpdateCommand
-	preferences     *PreferencesService
-	profile         *ProfileService
-	users           *UserManagementService
-	tenants         *TenantService
-	organizations   *OrganizationService
-	panelForm       *PanelFormAdapter
-	themeProvider   ThemeProvider
-	defaultTheme    *ThemeSelection
-	exportRegistry  ExportRegistry
-	exportRegistrar ExportHTTPRegistrar
-	exportMetadata  ExportMetadataProvider
-	bulkSvc         BulkService
-	mediaLibrary    MediaLibrary
-	modulesLoaded   bool
-	navMenuCode     string
-	translator      Translator
+	config                      Config
+	features                    Features
+	featureFlags                map[string]bool
+	gates                       FeatureGates
+	registry                    *Registry
+	cms                         CMSContainer
+	widgetSvc                   CMSWidgetService
+	menuSvc                     CMSMenuService
+	contentSvc                  CMSContentService
+	authenticator               Authenticator
+	router                      AdminRouter
+	commandRegistry             *CommandRegistry
+	dashboard                   *Dashboard
+	dash                        *dashboardComponents
+	nav                         *Navigation
+	search                      *SearchEngine
+	authorizer                  Authorizer
+	notifications               NotificationService
+	activity                    ActivitySink
+	jobs                        *JobRegistry
+	settings                    *SettingsService
+	settingsForm                *SettingsFormAdapter
+	settingsCommand             *SettingsUpdateCommand
+	preferences                 *PreferencesService
+	profile                     *ProfileService
+	users                       *UserManagementService
+	tenants                     *TenantService
+	organizations               *OrganizationService
+	panelForm                   *PanelFormAdapter
+	themeProvider               ThemeProvider
+	defaultTheme                *ThemeSelection
+	exportRegistry              ExportRegistry
+	exportRegistrar             ExportHTTPRegistrar
+	exportMetadata              ExportMetadataProvider
+	bulkSvc                     BulkService
+	mediaLibrary                MediaLibrary
+	modulesLoaded               bool
+	navMenuCode                 string
+	translator                  Translator
+	panelTabPermissionEvaluator PanelTabPermissionEvaluator
+	panelTabCollisionHandler    PanelTabCollisionHandler
 }
 
 type activityAware interface {
@@ -322,6 +326,15 @@ func (a *Admin) WithActivitySink(sink ActivitySink) *Admin {
 func (a *Admin) WithUserManagement(users UserRepository, roles RoleRepository) *Admin {
 	a.users = NewUserManagementService(users, roles)
 	a.applyActivitySink(a.activity)
+	return a
+}
+
+// WithRoleAssignmentLookup sets the lookup used to validate custom role assignments.
+func (a *Admin) WithRoleAssignmentLookup(lookup RoleAssignmentLookup) *Admin {
+	if a == nil || a.users == nil || lookup == nil {
+		return a
+	}
+	a.users.WithRoleAssignmentLookup(lookup)
 	return a
 }
 
@@ -646,6 +659,52 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 	return panel, nil
 }
 
+// RegisterPanelTab attaches a tab to an existing or future panel.
+func (a *Admin) RegisterPanelTab(panelName string, tab PanelTab) error {
+	if a.registry == nil {
+		return errors.New("registry is nil")
+	}
+	if a.panelTabCollisionHandler == nil {
+		return a.registry.RegisterPanelTab(panelName, tab)
+	}
+
+	tabID := strings.TrimSpace(tab.ID)
+	if tabID == "" {
+		tabID = derivePanelTabID(tab)
+		tab.ID = tabID
+	}
+	if tabID == "" {
+		return errors.New("panel tab ID cannot be empty")
+	}
+
+	for _, existing := range a.registry.PanelTabs(panelName) {
+		if existing.ID != tabID {
+			continue
+		}
+		chosen, err := a.resolvePanelTabCollision(panelName, existing, tab)
+		if err != nil {
+			return err
+		}
+		chosen.ID = tabID
+		chosen = normalizePanelTab(chosen)
+		return a.registry.SetPanelTab(panelName, chosen)
+	}
+
+	return a.registry.RegisterPanelTab(panelName, tab)
+}
+
+// WithPanelTabPermissionEvaluator sets a custom permission evaluator for tabs.
+func (a *Admin) WithPanelTabPermissionEvaluator(fn PanelTabPermissionEvaluator) *Admin {
+	a.panelTabPermissionEvaluator = fn
+	return a
+}
+
+// WithPanelTabCollisionHandler sets a collision handler for tab registrations.
+func (a *Admin) WithPanelTabCollisionHandler(fn PanelTabCollisionHandler) *Admin {
+	a.panelTabCollisionHandler = fn
+	return a
+}
+
 func (a *Admin) decorateSchema(schema *Schema, panelName string) {
 	if schema == nil {
 		return
@@ -667,4 +726,114 @@ func (a *Admin) decorateSchema(schema *Schema, panelName string) {
 		schema.Media = &MediaConfig{LibraryPath: libraryPath}
 		applyMediaHints(schema, libraryPath)
 	}
+}
+
+func (a *Admin) decorateSchemaFor(ctx AdminContext, schema *Schema, panelName string) error {
+	if schema == nil {
+		return nil
+	}
+	a.decorateSchema(schema, panelName)
+	tabs, err := a.resolvePanelTabs(ctx, panelName)
+	if err != nil {
+		return err
+	}
+	if len(tabs) > 0 {
+		schema.Tabs = tabs
+	} else {
+		schema.Tabs = nil
+	}
+	return nil
+}
+
+func (a *Admin) resolvePanelTabs(ctx AdminContext, panelName string) ([]PanelTab, error) {
+	if a == nil || a.registry == nil {
+		return nil, nil
+	}
+	ownerTabs := []PanelTab{}
+	if panel, ok := a.registry.Panel(panelName); ok && panel != nil {
+		ownerTabs = append(ownerTabs, panel.tabs...)
+	}
+	registryTabs := a.registry.PanelTabs(panelName)
+	return a.mergePanelTabs(ctx, panelName, ownerTabs, registryTabs)
+}
+
+func (a *Admin) mergePanelTabs(ctx AdminContext, panelName string, groups ...[]PanelTab) ([]PanelTab, error) {
+	byID := map[string]PanelTab{}
+	for _, group := range groups {
+		for _, tab := range group {
+			normalized := normalizePanelTab(tab)
+			if normalized.ID == "" {
+				continue
+			}
+			if !a.panelTabAllowed(ctx, normalized, panelName) {
+				continue
+			}
+			if existing, ok := byID[normalized.ID]; ok {
+				chosen, err := a.resolvePanelTabCollision(panelName, existing, normalized)
+				if err != nil {
+					return nil, err
+				}
+				chosen.ID = normalized.ID
+				chosen = normalizePanelTab(chosen)
+				if !a.panelTabAllowed(ctx, chosen, panelName) {
+					continue
+				}
+				byID[normalized.ID] = chosen
+				continue
+			}
+			byID[normalized.ID] = normalized
+		}
+	}
+	if len(byID) == 0 {
+		return nil, nil
+	}
+	out := make([]PanelTab, 0, len(byID))
+	for _, tab := range byID {
+		out = append(out, tab)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Position == out[j].Position {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].Position < out[j].Position
+	})
+	return out, nil
+}
+
+func normalizePanelTab(tab PanelTab) PanelTab {
+	if strings.TrimSpace(tab.ID) == "" {
+		tab.ID = derivePanelTabID(tab)
+	}
+	if tab.Scope == "" {
+		tab.Scope = PanelTabScopeList
+	}
+	if len(tab.Contexts) == 0 {
+		tab.Contexts = []string{string(tab.Scope)}
+	}
+	return tab
+}
+
+func (a *Admin) panelTabAllowed(ctx AdminContext, tab PanelTab, panelName string) bool {
+	if a == nil {
+		return false
+	}
+	if a.panelTabPermissionEvaluator != nil {
+		return a.panelTabPermissionEvaluator(ctx, tab, panelName)
+	}
+	perm := strings.TrimSpace(tab.Permission)
+	if perm == "" {
+		return true
+	}
+	if a.authorizer == nil {
+		return true
+	}
+	return a.authorizer.Can(ctx.Context, perm, "navigation")
+}
+
+func (a *Admin) resolvePanelTabCollision(panelName string, existing PanelTab, incoming PanelTab) (PanelTab, error) {
+	if a != nil && a.panelTabCollisionHandler != nil {
+		return a.panelTabCollisionHandler(panelName, existing, incoming)
+	}
+	log.Printf("[admin] panel tab collision panel=%s id=%s existing_label=%s incoming_label=%s", panelName, existing.ID, existing.Label, incoming.Label)
+	return existing, nil
 }
