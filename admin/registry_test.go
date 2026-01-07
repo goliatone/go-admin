@@ -1,6 +1,9 @@
 package admin
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 type registryStubModule struct{ manifest ModuleManifest }
 
@@ -119,5 +122,47 @@ func TestRegistryPanelTabsPreRegistrationAndDerivedID(t *testing.T) {
 	expected := derivePanelTabID(tab)
 	if tabs[0].ID != expected {
 		t.Fatalf("expected derived ID %q, got %q", expected, tabs[0].ID)
+	}
+}
+
+func TestAdminRegisterPanelTabCollisionHandlerOverwrite(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{})
+	adm.WithPanelTabCollisionHandler(func(string, PanelTab, PanelTab) (PanelTab, error) {
+		return PanelTab{
+			ID:     "dup",
+			Label:  "Second",
+			Target: PanelTabTarget{Type: "panel", Panel: "second"},
+		}, nil
+	})
+
+	if err := adm.RegisterPanelTab("users", PanelTab{ID: "dup", Label: "First", Target: PanelTabTarget{Type: "panel", Panel: "first"}}); err != nil {
+		t.Fatalf("register tab: %v", err)
+	}
+	if err := adm.RegisterPanelTab("users", PanelTab{ID: "dup", Label: "Second", Target: PanelTabTarget{Type: "panel", Panel: "second"}}); err != nil {
+		t.Fatalf("register tab overwrite: %v", err)
+	}
+
+	tabs := adm.Registry().PanelTabs("users")
+	if len(tabs) != 1 || tabs[0].Label != "Second" {
+		t.Fatalf("expected overwritten tab, got %+v", tabs)
+	}
+}
+
+func TestAdminRegisterPanelTabCollisionHandlerError(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{})
+	adm.WithPanelTabCollisionHandler(func(string, PanelTab, PanelTab) (PanelTab, error) {
+		return PanelTab{}, errors.New("collision failure")
+	})
+
+	if err := adm.RegisterPanelTab("users", PanelTab{ID: "dup", Label: "First", Target: PanelTabTarget{Type: "panel", Panel: "first"}}); err != nil {
+		t.Fatalf("register tab: %v", err)
+	}
+	if err := adm.RegisterPanelTab("users", PanelTab{ID: "dup", Label: "Second", Target: PanelTabTarget{Type: "panel", Panel: "second"}}); err == nil {
+		t.Fatalf("expected collision error")
+	}
+
+	tabs := adm.Registry().PanelTabs("users")
+	if len(tabs) != 1 || tabs[0].Label != "First" {
+		t.Fatalf("expected original tab, got %+v", tabs)
 	}
 }

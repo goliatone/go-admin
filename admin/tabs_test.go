@@ -110,7 +110,7 @@ func TestMergePanelTabsDeniedOwnerDoesNotBlockAllowed(t *testing.T) {
 func TestMergePanelTabsCollisionHandlerOverwrite(t *testing.T) {
 	admin := &Admin{authorizer: allowAuthorizer{}}
 	admin.panelTabCollisionHandler = func(string, PanelTab, PanelTab) (PanelTab, error) {
-		return PanelTab{ID: "dup", Label: "Second", Target: PanelTabTarget{Type: "panel", Panel: "second"}}, nil
+		return PanelTab{ID: "dup", Label: "Second", Scope: PanelTabScopeDetail, Target: PanelTabTarget{Type: "panel", Panel: "second"}}, nil
 	}
 	ctx := AdminContext{Context: context.Background()}
 	first := PanelTab{
@@ -129,6 +129,9 @@ func TestMergePanelTabsCollisionHandlerOverwrite(t *testing.T) {
 	}
 	if len(tabs) != 1 || tabs[0].Label != "Second" {
 		t.Fatalf("expected second tab to win, got %+v", tabs)
+	}
+	if len(tabs[0].Contexts) != 1 || tabs[0].Contexts[0] != "detail" {
+		t.Fatalf("expected normalized contexts, got %+v", tabs[0].Contexts)
 	}
 }
 
@@ -151,5 +154,35 @@ func TestMergePanelTabsCollisionHandlerError(t *testing.T) {
 	_, err := admin.mergePanelTabs(ctx, "items", []PanelTab{first}, []PanelTab{second})
 	if err == nil {
 		t.Fatalf("expected collision error")
+	}
+}
+
+func TestMergePanelTabsCollisionHandlerRejectedChoiceKeepsExisting(t *testing.T) {
+	admin := &Admin{authorizer: denyAuthorizer{}}
+	admin.panelTabCollisionHandler = func(string, PanelTab, PanelTab) (PanelTab, error) {
+		return PanelTab{
+			ID:         "dup",
+			Label:      "Blocked",
+			Permission: "tabs.blocked",
+			Target:     PanelTabTarget{Type: "panel", Panel: "blocked"},
+		}, nil
+	}
+	ctx := AdminContext{Context: context.Background()}
+	first := PanelTab{
+		ID:     "dup",
+		Label:  "First",
+		Target: PanelTabTarget{Type: "panel", Panel: "first"},
+	}
+	second := PanelTab{
+		ID:     "dup",
+		Label:  "Second",
+		Target: PanelTabTarget{Type: "panel", Panel: "second"},
+	}
+	tabs, err := admin.mergePanelTabs(ctx, "items", []PanelTab{first}, []PanelTab{second})
+	if err != nil {
+		t.Fatalf("merge tabs: %v", err)
+	}
+	if len(tabs) != 1 || tabs[0].Label != "First" {
+		t.Fatalf("expected existing tab to remain, got %+v", tabs)
 	}
 }

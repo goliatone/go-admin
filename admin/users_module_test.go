@@ -170,6 +170,69 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 	}
 }
 
+func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Users: true,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm.WithRoleAssignmentLookup(UUIDRoleAssignmentLookup{})
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	rolePayload := map[string]any{
+		"name":        "custom",
+		"description": "Custom role",
+		"permissions": []string{"admin.users.view"},
+	}
+	roleBody, _ := json.Marshal(rolePayload)
+	roleReq := httptest.NewRequest("POST", "/admin/api/roles", bytes.NewReader(roleBody))
+	roleReq.Header.Set("Content-Type", "application/json")
+	roleReq.Header.Set("X-User-ID", "seed-actor")
+	roleRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(roleRes, roleReq)
+	if roleRes.Code != 200 {
+		t.Fatalf("expected role create 200, got %d body=%s", roleRes.Code, roleRes.Body.String())
+	}
+	var role map[string]any
+	_ = json.Unmarshal(roleRes.Body.Bytes(), &role)
+	roleID := toString(role["id"])
+	if roleID == "" {
+		t.Fatalf("expected role id in response, got %v", role)
+	}
+
+	userPayload := map[string]any{
+		"email":    "system@example.com",
+		"username": "system",
+		"status":   "active",
+		"role":     "member",
+		"roles":    []string{roleID},
+	}
+	userBody, _ := json.Marshal(userPayload)
+	userReq := httptest.NewRequest("POST", "/admin/api/users", bytes.NewReader(userBody))
+	userReq.Header.Set("Content-Type", "application/json")
+	userReq.Header.Set("X-User-ID", "actor-123")
+	userRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(userRes, userReq)
+	if userRes.Code != 200 {
+		t.Fatalf("expected user create 200, got %d body=%s", userRes.Code, userRes.Body.String())
+	}
+	var user map[string]any
+	_ = json.Unmarshal(userRes.Body.Bytes(), &user)
+	if toString(user["role"]) != "member" {
+		t.Fatalf("expected role member in response, got %v", user["role"])
+	}
+	roles := toStringSlice(user["roles"])
+	if len(roles) != 1 || roles[0] != roleID {
+		t.Fatalf("expected roles %v, got %v", []string{roleID}, roles)
+	}
+}
+
 func TestUserLifecycleCommandTransitionsStatus(t *testing.T) {
 	svc := NewUserManagementService(nil, nil)
 	feed := NewActivityFeed()
