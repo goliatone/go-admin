@@ -73,6 +73,30 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	if _, err := ctx.Admin.RegisterPanel("users", builder); err != nil {
 		return err
 	}
+	if err := ctx.Admin.RegisterPanelTab("users", admin.PanelTab{
+		ID:         "profile",
+		Label:      "Profile",
+		Icon:       "user-circle",
+		Position:   10,
+		Scope:      admin.PanelTabScopeDetail,
+		Permission: "admin.users.view",
+		Target:     admin.PanelTabTarget{Type: "panel", Panel: "user-profiles"},
+		Filters:    map[string]string{"user_id": "{{record.id}}"},
+	}); err != nil {
+		return err
+	}
+	if err := ctx.Admin.RegisterPanelTab("users", admin.PanelTab{
+		ID:         "activity",
+		Label:      "Activity",
+		Icon:       "clock",
+		Position:   20,
+		Scope:      admin.PanelTabScopeDetail,
+		Permission: "admin.users.view",
+		Target:     admin.PanelTabTarget{Type: "path", Path: path.Join(m.basePath, "activity")},
+		Query:      map[string]string{"user_id": "{{record.id}}"},
+	}); err != nil {
+		return err
+	}
 
 	roleRepo := admin.NewRolePanelRepository(roleSvc)
 	roleBuilder := ctx.Admin.Panel("roles").
