@@ -21,6 +21,8 @@
     </div>
   </header>
 
+  {% include "partials/panel-tabs.html" with tabs=tabs active_tab=active_tab %}
+
   <div class="flex-1 p-8 overflow-y-auto">
     <div class="max-w-3xl bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div class="p-8 bg-gradient-to-br from-blue-900 to-blue-800 text-white flex items-center gap-6">
