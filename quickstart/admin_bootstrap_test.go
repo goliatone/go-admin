@@ -160,3 +160,100 @@ func TestNewAdminAdapterHookErrors(t *testing.T) {
 		t.Fatalf("expected settings backend fallback, got %q", result.SettingsBackend)
 	}
 }
+
+func TestNewAdminAdapterFlagsOverrideEnv(t *testing.T) {
+	t.Setenv("USE_PERSISTENT_CMS", "true")
+	t.Setenv("USE_GO_OPTIONS", "true")
+	t.Setenv("USE_GO_USERS_ACTIVITY", "true")
+
+	cfg := NewAdminConfig("", "", "")
+	activitySink := &stubActivitySink{}
+	var persistentCalled bool
+	var optionsCalled bool
+	var activityCalled bool
+
+	hooks := AdapterHooks{
+		PersistentCMS: func(ctx context.Context, defaultLocale string) (admin.CMSOptions, string, error) {
+			_, _ = ctx, defaultLocale
+			persistentCalled = true
+			return admin.CMSOptions{Container: admin.NewNoopCMSContainer()}, "persistent CMS", nil
+		},
+		GoOptions: func(adm *admin.Admin) (string, error) {
+			_ = adm
+			optionsCalled = true
+			return "go-options", nil
+		},
+		GoUsersActivity: func() admin.ActivitySink {
+			activityCalled = true
+			return activitySink
+		},
+	}
+
+	flags := AdapterFlags{}
+	_, result, err := NewAdmin(cfg, hooks, WithAdapterFlags(flags))
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if persistentCalled || optionsCalled || activityCalled {
+		t.Fatalf("expected hooks skipped, got persistent=%v options=%v activity=%v", persistentCalled, optionsCalled, activityCalled)
+	}
+	if result.Flags.UsePersistentCMS || result.Flags.UseGoOptions || result.Flags.UseGoUsersActivity {
+		t.Fatalf("expected flags false, got %+v", result.Flags)
+	}
+	if result.PersistentCMSSet {
+		t.Fatalf("expected persistent CMS not set, got %+v", result)
+	}
+}
+
+func TestNewAdminAdapterFlagsSupplied(t *testing.T) {
+	cfg := NewAdminConfig("", "", "")
+	cmsContainer := admin.NewNoopCMSContainer()
+	activitySink := &stubActivitySink{}
+	var persistentCalled bool
+	var optionsCalled bool
+	var activityCalled bool
+
+	hooks := AdapterHooks{
+		PersistentCMS: func(ctx context.Context, defaultLocale string) (admin.CMSOptions, string, error) {
+			_, _ = ctx, defaultLocale
+			persistentCalled = true
+			return admin.CMSOptions{Container: cmsContainer}, "persistent CMS", nil
+		},
+		GoOptions: func(adm *admin.Admin) (string, error) {
+			if adm == nil {
+				return "", errors.New("admin missing")
+			}
+			optionsCalled = true
+			return "go-options", nil
+		},
+		GoUsersActivity: func() admin.ActivitySink {
+			activityCalled = true
+			return activitySink
+		},
+	}
+
+	flags := AdapterFlags{
+		UsePersistentCMS:   true,
+		UseGoOptions:       true,
+		UseGoUsersActivity: true,
+	}
+	_, result, err := NewAdmin(cfg, hooks, WithAdapterFlags(flags))
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if !persistentCalled || !optionsCalled || !activityCalled {
+		t.Fatalf("expected hooks called, got persistent=%v options=%v activity=%v", persistentCalled, optionsCalled, activityCalled)
+	}
+	if !result.Flags.UsePersistentCMS || !result.Flags.UseGoOptions || !result.Flags.UseGoUsersActivity {
+		t.Fatalf("expected flags enabled, got %+v", result.Flags)
+	}
+	if !result.PersistentCMSSet || result.CMSBackend != "persistent CMS" {
+		t.Fatalf("expected persistent CMS applied, got %+v", result)
+	}
+	if result.SettingsBackend != "go-options" {
+		t.Fatalf("expected settings backend go-options, got %q", result.SettingsBackend)
+	}
+	if result.ActivityBackend != "go-users activity sink" || result.ActivitySink != activitySink {
+		t.Fatalf("expected activity sink wired, got backend=%q sink=%v", result.ActivityBackend, result.ActivitySink)
+	}
+}

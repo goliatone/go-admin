@@ -69,3 +69,27 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 		t.Fatalf("expected feature flags override, got %+v", cfg.FeatureFlags)
 	}
 }
+
+func TestDefaultMinimalFeatures(t *testing.T) {
+	got := DefaultMinimalFeatures()
+	expected := admin.Features{Dashboard: true, CMS: true}
+	if got != expected {
+		t.Fatalf("expected minimal features %+v, got %+v", expected, got)
+	}
+}
+
+func TestWithFeaturesExplicitClearsFlags(t *testing.T) {
+	cfg := NewAdminConfig(
+		"",
+		"",
+		"",
+		WithFeatureFlags(map[string]bool{"users": true}),
+		WithFeaturesExplicit(DefaultMinimalFeatures()),
+	)
+	if !cfg.Features.Dashboard || !cfg.Features.CMS || cfg.Features.Users {
+		t.Fatalf("expected minimal features, got %+v", cfg.Features)
+	}
+	if len(cfg.FeatureFlags) != 0 {
+		t.Fatalf("expected feature flags cleared, got %+v", cfg.FeatureFlags)
+	}
+}
