@@ -1,0 +1,268 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Admin User Profiles",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/admin/user-profiles": {
+      "post": {
+        "operationId": "createUserProfile",
+        "summary": "Create user profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserProfileCreatePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/admin/user-profiles/{id}": {
+      "post": {
+        "operationId": "updateUserProfile",
+        "summary": "Update user profile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserProfileUpdatePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserProfileCreatePayload": {
+        "type": "object",
+        "required": [
+          "user"
+        ],
+        "properties": {
+          "user": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User",
+            "description": "Select the user this profile belongs to",
+            "x-relationships": {
+              "type": "belongsTo",
+              "target": "#/components/schemas/User",
+              "foreignKey": "user",
+              "cardinality": "one"
+            },
+            "x-endpoint": {
+              "url": "/admin/crud/users",
+              "resultsPath": "data",
+              "mode": "search",
+              "mapping": {
+                "value": "id",
+                "label": "label"
+              },
+              "params": {
+                "order": "username asc",
+                "limit": "25"
+              },
+              "dynamicParams": {
+                "username__ilike": "%{{self}}%",
+                "email__ilike": "%{{self}}%"
+              }
+            }
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display name"
+          },
+          "avatar_url": {
+            "type": "string",
+            "format": "uri",
+            "title": "Avatar URL"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Contact email"
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale",
+            "default": "en"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone",
+            "default": "UTC",
+            "x-relationships": {
+              "type": "belongsTo",
+              "target": "#/components/schemas/TimezoneOption",
+              "foreignKey": "timezone",
+              "cardinality": "one"
+            },
+            "x-endpoint": {
+              "url": "/admin/api/timezones",
+              "method": "GET",
+              "resultsPath": "data",
+              "mode": "search",
+              "searchParam": "q",
+              "mapping": {
+                "value": "value",
+                "label": "label"
+              },
+              "params": {
+                "format": "options",
+                "limit": "50"
+              }
+            }
+          },
+          "bio": {
+            "type": "string",
+            "title": "Bio"
+          }
+        }
+      },
+      "UserProfileUpdatePayload": {
+        "type": "object",
+        "required": [
+          "user"
+        ],
+        "properties": {
+          "user": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User",
+            "description": "Select the user this profile belongs to",
+            "x-relationships": {
+              "type": "belongsTo",
+              "target": "#/components/schemas/User",
+              "foreignKey": "user",
+              "cardinality": "one"
+            },
+            "x-endpoint": {
+              "url": "/admin/crud/users",
+              "resultsPath": "data",
+              "mode": "default",
+              "mapping": {
+                "value": "id",
+                "label": "label"
+              },
+              "params": {
+                "limit": "1"
+              },
+              "dynamicParams": {
+                "id": "{{self}}"
+              }
+            }
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display name"
+          },
+          "avatar_url": {
+            "type": "string",
+            "format": "uri",
+            "title": "Avatar URL"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Contact email"
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale",
+            "default": "en"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone",
+            "default": "UTC",
+            "x-relationships": {
+              "type": "belongsTo",
+              "target": "#/components/schemas/TimezoneOption",
+              "foreignKey": "timezone",
+              "cardinality": "one"
+            },
+            "x-endpoint": {
+              "url": "/admin/api/timezones",
+              "method": "GET",
+              "resultsPath": "data",
+              "mode": "search",
+              "searchParam": "q",
+              "mapping": {
+                "value": "value",
+                "label": "label"
+              },
+              "params": {
+                "format": "options",
+                "limit": "50"
+              }
+            }
+          },
+          "bio": {
+            "type": "string",
+            "title": "Bio"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "x-formgen-label-field": "label",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "label": {
+            "type": "string",
+            "description": "Display label (username <email>)"
+          }
+        }
+      },
+      "TimezoneOption": {
+        "type": "object",
+        "x-formgen-label-field": "label",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

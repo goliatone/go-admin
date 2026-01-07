@@ -1,0 +1,109 @@
+operations:
+  createUserProfile:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/user-profiles
+        - kind: primary
+          label: Create Profile
+          type: submit
+    fields:
+      user:
+        order: 0
+        grid:
+          span: 12
+        metadata:
+          relationship.endpoint.createAction: "true"
+          relationship.endpoint.createActionId: "user"
+          relationship.endpoint.createActionLabel: "Create User"
+          relationship.endpoint.createActionSelect: "replace"
+      avatar_url:
+        order: 1
+        grid:
+          span: 12
+        component: file_uploader
+        componentOptions:
+          preview: true
+          allowedTypes:
+            - image/jpeg
+            - image/png
+            - image/webp
+          maxSize: 5242880
+          uploadEndpoint: /admin/api/uploads/users/profile-picture
+          variant: image
+      display_name:
+        order: 2
+        grid:
+          span: 12
+      email:
+        order: 3
+        grid:
+          span: 12
+      locale:
+        order: 4
+        grid:
+          span: 6
+      timezone:
+        order: 5
+        grid:
+          span: 6
+      bio:
+        order: 6
+        grid:
+          span: 12
+        widget: textarea
+
+  updateUserProfile:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/user-profiles
+        - kind: primary
+          label: Update Profile
+          type: submit
+    fields:
+      user:
+        order: 0
+        grid:
+          span: 12
+      avatar_url:
+        order: 1
+        grid:
+          span: 12
+        component: file_uploader
+        componentOptions:
+          preview: true
+          allowedTypes:
+            - image/jpeg
+            - image/png
+            - image/webp
+          maxSize: 5242880
+          uploadEndpoint: /admin/api/uploads/users/profile-picture
+          variant: image
+      display_name:
+        order: 2
+        grid:
+          span: 12
+      email:
+        order: 3
+        grid:
+          span: 12
+      locale:
+        order: 4
+        grid:
+          span: 6
+      timezone:
+        order: 5
+        grid:
+          span: 6
+      bio:
+        order: 6
+        grid:
+          span: 12
+        widget: textarea

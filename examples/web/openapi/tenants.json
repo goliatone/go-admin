@@ -1,0 +1,100 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Admin Tenants",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/admin/tenants": {
+      "post": {
+        "operationId": "createTenant",
+        "summary": "Create tenant",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/admin/tenants/{id}": {
+      "post": {
+        "operationId": "updateTenant",
+        "summary": "Update tenant",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TenantPayload": {
+        "type": "object",
+        "required": [
+          "name",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "title": "Name",
+            "description": "Display name for the tenant"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "description": "URL-friendly identifier (optional)"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain",
+            "description": "Primary domain for routing (optional)"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "enum": [
+              "active",
+              "pending",
+              "suspended",
+              "archived"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

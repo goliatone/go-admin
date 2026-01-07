@@ -1,0 +1,178 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Admin Users",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/admin/users": {
+      "post": {
+        "operationId": "createUser",
+        "summary": "Create user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "post": {
+        "operationId": "updateUser",
+        "summary": "Update user",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserPayload": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "role",
+          "status"
+        ],
+        "properties": {
+          "first_name": {
+            "type": "string",
+            "title": "First name",
+            "x-admin": {
+              "group": "identity",
+              "order": "1"
+            }
+          },
+          "last_name": {
+            "type": "string",
+            "title": "Last name",
+            "x-admin": {
+              "group": "identity",
+              "order": "2"
+            }
+          },
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "title": "Username",
+            "description": "Unique handle used to log in",
+            "x-admin": {
+              "group": "identity",
+              "order": "3"
+            }
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "x-admin": {
+              "group": "identity",
+              "order": "4"
+            }
+          },
+          "phone_number": {
+            "type": "string",
+            "title": "Phone number",
+            "x-admin": {
+              "group": "identity",
+              "order": "5"
+            }
+          },
+          "profile_picture": {
+            "type": "string",
+            "format": "uri",
+            "title": "Profile picture URL",
+            "x-admin": {
+              "group": "identity",
+              "order": "6"
+            }
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "enum": [
+              "admin",
+              "owner",
+              "member",
+              "guest",
+              "editor",
+              "viewer"
+            ],
+            "x-admin": {
+              "group": "access",
+              "order": "1"
+            }
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "enum": [
+              "active",
+              "inactive",
+              "pending",
+              "suspended",
+              "disabled",
+              "archived"
+            ],
+            "x-admin": {
+              "group": "access",
+              "order": "2"
+            }
+          },
+          "is_email_verified": {
+            "type": "boolean",
+            "title": "Email verified",
+            "x-admin": {
+              "group": "access",
+              "order": "3"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "title": "Metadata",
+            "additionalProperties": true,
+            "x-admin": {
+              "group": "advanced",
+              "order": "1",
+              "widget": "json-editor"
+            }
+          }
+        }
+      }
+    }
+  }
+}

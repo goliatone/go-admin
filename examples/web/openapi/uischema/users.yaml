@@ -1,0 +1,128 @@
+operations:
+  createUser:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/users
+        - kind: primary
+          label: Create User
+          type: submit
+    fields:
+      first_name:
+        order: 0
+        grid:
+          span: 6
+      last_name:
+        order: 1
+        grid:
+          span: 6
+      username:
+        order: 2
+        grid:
+          span: 12
+      role:
+        order: 3
+        grid:
+          span: 6
+      status:
+        order: 4
+        grid:
+          span: 6
+      email:
+        order: 5
+        grid:
+          span: 6
+      is_email_verified:
+        order: 6
+        grid:
+          span: 6
+      phone_number:
+        order: 7
+        grid:
+          span: 12
+      profile_picture:
+        order: 8
+        grid:
+          span: 12
+        component: file_uploader
+        componentOptions:
+          preview: true
+          allowedTypes:
+            - image/jpeg
+            - image/png
+            - image/webp
+          maxSize: 5242880
+          uploadEndpoint: /admin/api/uploads/users/profile-picture
+          variant: image
+      metadata:
+        order: 9
+        grid:
+          span: 12
+        widget: json-editor
+
+  updateUser:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/users
+        - kind: primary
+          label: Update User
+          type: submit
+    fields:
+      first_name:
+        order: 0
+        grid:
+          span: 6
+      last_name:
+        order: 1
+        grid:
+          span: 6
+      username:
+        order: 2
+        grid:
+          span: 12
+      role:
+        order: 3
+        grid:
+          span: 6
+      status:
+        order: 4
+        grid:
+          span: 6
+      email:
+        order: 5
+        grid:
+          span: 6
+      is_email_verified:
+        order: 6
+        grid:
+          span: 6
+      phone_number:
+        order: 7
+        grid:
+          span: 12
+      profile_picture:
+        order: 8
+        grid:
+          span: 12
+        component: file_uploader
+        componentOptions:
+          preview: true
+          allowedTypes:
+            - image/jpeg
+            - image/png
+            - image/webp
+          maxSize: 5242880
+          uploadEndpoint: /admin/api/uploads/users/profile-picture
+          variant: image
+      metadata:
+        order: 9
+        grid:
+          span: 12
+        widget: json-editor
