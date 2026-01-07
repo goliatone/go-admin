@@ -87,6 +87,23 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		productID = fmt.Sprintf("%v", productsAfterCreate[len(productsAfterCreate)-1]["id"])
 	}
 
+	detailReq := httptest.NewRequest("GET", "/admin/api/products/"+productID, nil)
+	detailReq.Header.Set("Authorization", authHeader)
+	detailResp, err := app.Test(detailReq, -1)
+	if err != nil {
+		t.Fatalf("detail product request failed: %v", err)
+	}
+	defer detailResp.Body.Close()
+	detailBody, _ := io.ReadAll(detailResp.Body)
+	if detailResp.StatusCode != 200 {
+		t.Fatalf("detail product status: %d body=%s", detailResp.StatusCode, string(detailBody))
+	}
+	var detailPayload map[string]any
+	_ = json.Unmarshal(detailBody, &detailPayload)
+	if _, ok := detailPayload["data"].(map[string]any); !ok {
+		t.Fatalf("expected detail payload to include data, got %v", detailPayload)
+	}
+
 	listReq := httptest.NewRequest("GET", "/admin/api/products", nil)
 	listReq.Header.Set("Authorization", authHeader)
 	listResp, err := app.Test(listReq, -1)

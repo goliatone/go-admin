@@ -158,8 +158,9 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 	}
 	var tenantDetail map[string]any
 	_ = json.Unmarshal(tenantDetailRes.Body.Bytes(), &tenantDetail)
-	if members, ok := tenantDetail["members"].([]any); !ok || len(members) != 1 {
-		t.Fatalf("expected tenant members to persist, got %+v", tenantDetail["members"])
+	record, _ := tenantDetail["data"].(map[string]any)
+	if members, ok := record["members"].([]any); !ok || len(members) != 1 {
+		t.Fatalf("expected tenant members to persist, got %+v", record["members"])
 	}
 
 	entries, _ := adm.ActivityFeed().List(context.Background(), 10)

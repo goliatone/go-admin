@@ -68,3 +68,56 @@ func TestAdminRegisterPanelUsesRegistry(t *testing.T) {
 		t.Fatalf("expected panel to be stored in registry")
 	}
 }
+
+func TestRegistryPanelTabsOrderingAndDedupe(t *testing.T) {
+	reg := NewRegistry()
+
+	tabB := PanelTab{
+		ID:       "b",
+		Label:    "B",
+		Position: 2,
+		Target:   PanelTabTarget{Type: "panel", Panel: "b"},
+	}
+	tabA := PanelTab{
+		ID:       "a",
+		Label:    "A",
+		Position: 1,
+		Target:   PanelTabTarget{Type: "panel", Panel: "a"},
+	}
+	if err := reg.RegisterPanelTab("users", tabB); err != nil {
+		t.Fatalf("register tab b: %v", err)
+	}
+	if err := reg.RegisterPanelTab("users", tabA); err != nil {
+		t.Fatalf("register tab a: %v", err)
+	}
+	if err := reg.RegisterPanelTab("users", PanelTab{ID: "a", Label: "A2", Target: PanelTabTarget{Type: "panel", Panel: "a"}}); err != nil {
+		t.Fatalf("register duplicate tab: %v", err)
+	}
+
+	tabs := reg.PanelTabs("users")
+	if len(tabs) != 2 {
+		t.Fatalf("expected 2 tabs, got %d", len(tabs))
+	}
+	if tabs[0].ID != "a" || tabs[1].ID != "b" {
+		t.Fatalf("unexpected tab ordering: %+v", tabs)
+	}
+}
+
+func TestRegistryPanelTabsPreRegistrationAndDerivedID(t *testing.T) {
+	reg := NewRegistry()
+	tab := PanelTab{
+		Label:  "Activity",
+		Target: PanelTabTarget{Type: "panel", Panel: "activity"},
+	}
+	if err := reg.RegisterPanelTab("profile", tab); err != nil {
+		t.Fatalf("register tab: %v", err)
+	}
+	tabs := reg.PanelTabs("profile")
+	if len(tabs) != 1 {
+		t.Fatalf("expected 1 tab, got %d", len(tabs))
+	}
+	expected := derivePanelTabID(tab)
+	if tabs[0].ID != expected {
+		t.Fatalf("expected derived ID %q, got %q", expected, tabs[0].ID)
+	}
+}
