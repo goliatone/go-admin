@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -13,10 +14,12 @@ import (
 type ModuleRegistrarOption func(*moduleRegistrarOptions)
 
 type moduleRegistrarOptions struct {
-	ctx       context.Context
-	menuItems []admin.MenuItem
-	seed      bool
-	seedOpts  SeedNavigationOptions
+	ctx        context.Context
+	menuItems  []admin.MenuItem
+	seed       bool
+	seedOpts   SeedNavigationOptions
+	gates      *admin.FeatureGates
+	onDisabled func(feature, moduleID string) error
 }
 
 // WithModuleRegistrarContext sets the context used for navigation seeding.
@@ -61,6 +64,27 @@ func WithSeedNavigationOptions(mutator func(*SeedNavigationOptions)) ModuleRegis
 	}
 }
 
+// WithModuleFeatureGates enables feature-gated module filtering.
+func WithModuleFeatureGates(gates admin.FeatureGates) ModuleRegistrarOption {
+	return func(opts *moduleRegistrarOptions) {
+		if opts == nil {
+			return
+		}
+		copied := gates
+		opts.gates = &copied
+	}
+}
+
+// WithModuleFeatureDisabledHandler configures how feature-disabled modules are handled.
+func WithModuleFeatureDisabledHandler(handler func(feature, moduleID string) error) ModuleRegistrarOption {
+	return func(opts *moduleRegistrarOptions) {
+		if opts == nil {
+			return
+		}
+		opts.onDisabled = handler
+	}
+}
+
 // NewModuleRegistrar seeds navigation and registers modules deterministically.
 func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Module, isDev bool, opts ...ModuleRegistrarOption) error {
 	if adm == nil {
@@ -92,23 +116,17 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 		}
 	}
 
-	ordered, err := orderModules(modules)
+	filtered, err := filterModulesForRegistrar(modules, options.gates, options.onDisabled)
+	if err != nil {
+		return err
+	}
+	ordered, err := orderModules(filtered)
 	if err != nil {
 		return err
 	}
 
 	if options.seed && options.seedOpts.MenuSvc != nil {
-		items := append([]admin.MenuItem{}, DefaultMenuParents(menuCode)...)
-		items = append(items, options.menuItems...)
-		for _, mod := range ordered {
-			if mod == nil {
-				continue
-			}
-			if contributor, ok := mod.(interface{ MenuItems(string) []admin.MenuItem }); ok {
-				items = append(items, contributor.MenuItems(locale)...)
-			}
-		}
-		items = dedupeMenuItems(items)
+		items := buildSeedMenuItems(menuCode, locale, ordered, options.menuItems)
 		options.seedOpts.Items = items
 		if err := SeedNavigation(options.ctx, options.seedOpts); err != nil {
 			if !errors.Is(err, ErrSeedNavigationRequiresGoCMS) {
@@ -193,6 +211,111 @@ func orderModules(mods []admin.Module) ([]admin.Module, error) {
 	}
 
 	return result, nil
+}
+
+func filterModulesForRegistrar(mods []admin.Module, gates *admin.FeatureGates, onDisabled func(feature, moduleID string) error) ([]admin.Module, error) {
+	if gates == nil {
+		return mods, nil
+	}
+	if onDisabled == nil {
+		onDisabled = func(feature, moduleID string) error {
+			log.Printf("module %s skipped: feature %s disabled", moduleID, feature)
+			return nil
+		}
+	}
+
+	filtered := make([]admin.Module, 0, len(mods))
+	for _, mod := range mods {
+		if mod == nil {
+			continue
+		}
+		manifest := mod.Manifest()
+		id := strings.TrimSpace(manifest.ID)
+		if id == "" {
+			return nil, fmt.Errorf("module missing ID")
+		}
+		disabled := false
+		for _, flag := range manifest.FeatureFlags {
+			if gates.EnabledKey(flag) {
+				continue
+			}
+			disabled = true
+			if err := onDisabled(flag, id); err != nil {
+				return nil, err
+			}
+			break
+		}
+		if disabled {
+			continue
+		}
+		filtered = append(filtered, mod)
+	}
+
+	index := map[string]admin.Module{}
+	for _, mod := range filtered {
+		if mod == nil {
+			continue
+		}
+		id := strings.TrimSpace(mod.Manifest().ID)
+		if id == "" {
+			return nil, fmt.Errorf("module missing ID")
+		}
+		if _, exists := index[id]; exists {
+			return nil, fmt.Errorf("duplicate module ID %s", id)
+		}
+		index[id] = mod
+	}
+
+	removed := true
+	for removed {
+		removed = false
+		for _, mod := range filtered {
+			if mod == nil {
+				continue
+			}
+			manifest := mod.Manifest()
+			id := strings.TrimSpace(manifest.ID)
+			if _, ok := index[id]; !ok {
+				continue
+			}
+			for _, dep := range manifest.Dependencies {
+				if _, ok := index[dep]; !ok {
+					delete(index, id)
+					removed = true
+					if err := onDisabled("dependency:"+dep, id); err != nil {
+						return nil, err
+					}
+					break
+				}
+			}
+		}
+	}
+
+	out := make([]admin.Module, 0, len(index))
+	for _, mod := range filtered {
+		if mod == nil {
+			continue
+		}
+		id := strings.TrimSpace(mod.Manifest().ID)
+		if _, ok := index[id]; ok {
+			out = append(out, mod)
+		}
+	}
+	return out, nil
+}
+
+func buildSeedMenuItems(menuCode, locale string, modules []admin.Module, baseItems []admin.MenuItem) []admin.MenuItem {
+	items := append([]admin.MenuItem{}, DefaultMenuParents(menuCode)...)
+	items = append(items, baseItems...)
+	for _, mod := range modules {
+		if mod == nil {
+			continue
+		}
+		if contributor, ok := mod.(interface{ MenuItems(string) []admin.MenuItem }); ok {
+			items = append(items, contributor.MenuItems(locale)...)
+		}
+	}
+	return dedupeMenuItems(items)
 }
 
 func dedupeMenuItems(items []admin.MenuItem) []admin.MenuItem {
