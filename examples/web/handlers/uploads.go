@@ -57,7 +57,7 @@ func ProfilePictureUploadHandler(basePath string, diskAssetsDir string) router.H
 
 		assetsDir := strings.TrimSpace(diskAssetsDir)
 		if assetsDir == "" {
-			assetsDir = filepath.Join("examples", "web", "assets")
+			assetsDir = filepath.Join("pkg", "client", "assets")
 		}
 		if err := os.MkdirAll(filepath.Join(assetsDir, "uploads", "users", "profile-pictures"), 0o755); err != nil {
 			return err
