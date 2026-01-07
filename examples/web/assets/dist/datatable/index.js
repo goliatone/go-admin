@@ -422,7 +422,7 @@ function Y(o) {
   if (typeof window < "u" && window.navigator)
     return !!/* @__PURE__ */ navigator.userAgent.match(o);
 }
-var W = Y(/(?:Trident.*rv[ :]?11\.|msie|iemobile|Windows Phone)/i), ke = Y(/Edge/i), ht = Y(/firefox/i), Ce = Y(/safari/i) && !Y(/chrome/i) && !Y(/android/i), st = Y(/iP(ad|od|hone)/i), Dt = Y(/chrome/i) && Y(/android/i), At = {
+var W = Y(/(?:Trident.*rv[ :]?11\.|msie|iemobile|Windows Phone)/i), ke = Y(/Edge/i), ht = Y(/firefox/i), Se = Y(/safari/i) && !Y(/chrome/i) && !Y(/android/i), st = Y(/iP(ad|od|hone)/i), Dt = Y(/chrome/i) && Y(/android/i), At = {
   capture: !1,
   passive: !1
 };
@@ -432,7 +432,7 @@ function w(o, e, t) {
 function y(o, e, t) {
   o.removeEventListener(e, t, !W && At);
 }
-function Fe(o, e) {
+function Ne(o, e) {
   if (e) {
     if (e[0] === ">" && (e = e.substring(1)), o)
       try {
@@ -455,7 +455,7 @@ function G(o, e, t, r) {
   if (o) {
     t = t || document;
     do {
-      if (e != null && (e[0] === ">" ? o.parentNode === t && Fe(o, e) : Fe(o, e)) || r && o === t)
+      if (e != null && (e[0] === ">" ? o.parentNode === t && Ne(o, e) : Ne(o, e)) || r && o === t)
         return o;
       if (o === t) break;
     } while (o = kt(o));
@@ -552,16 +552,16 @@ function fe(o, e, t, r) {
   return null;
 }
 function at(o, e) {
-  for (var t = o.lastElementChild; t && (t === g.ghost || p(t, "display") === "none" || e && !Fe(t, e)); )
+  for (var t = o.lastElementChild; t && (t === g.ghost || p(t, "display") === "none" || e && !Ne(t, e)); )
     t = t.previousElementSibling;
   return t || null;
 }
-function F(o, e) {
+function N(o, e) {
   var t = 0;
   if (!o || !o.parentNode)
     return -1;
   for (; o = o.previousElementSibling; )
-    o.nodeName.toUpperCase() !== "TEMPLATE" && o !== g.clone && (!e || Fe(o, e)) && t++;
+    o.nodeName.toUpperCase() !== "TEMPLATE" && o !== g.clone && (!e || Ne(o, e)) && t++;
   return t;
 }
 function gt(o) {
@@ -605,24 +605,24 @@ function Wt(o, e) {
 function ze(o, e) {
   return Math.round(o.top) === Math.round(e.top) && Math.round(o.left) === Math.round(e.left) && Math.round(o.height) === Math.round(e.height) && Math.round(o.width) === Math.round(e.width);
 }
-var Se;
+var Ce;
 function Tt(o, e) {
   return function() {
-    if (!Se) {
+    if (!Ce) {
       var t = arguments, r = this;
-      t.length === 1 ? o.call(r, t[0]) : o.apply(r, t), Se = setTimeout(function() {
-        Se = void 0;
+      t.length === 1 ? o.call(r, t[0]) : o.apply(r, t), Ce = setTimeout(function() {
+        Ce = void 0;
       }, e);
     }
   };
 }
 function Jt() {
-  clearTimeout(Se), Se = void 0;
+  clearTimeout(Ce), Ce = void 0;
 }
-function Lt(o, e, t) {
+function $t(o, e, t) {
   o.scrollLeft += e, o.scrollTop += t;
 }
-function $t(o) {
+function Lt(o) {
   var e = window.Polymer, t = window.jQuery || window.Zepto;
   return e && e.dom ? e.dom(o).cloneNode(!0) : t ? t(o).clone(!0)[0] : o.cloneNode(!0);
 }
@@ -756,7 +756,7 @@ var le = [], Ye = {
 function er(o) {
   var e = o.sortable, t = o.rootEl, r = o.name, n = o.targetEl, i = o.cloneEl, s = o.toEl, a = o.fromEl, l = o.oldIndex, c = o.newIndex, d = o.oldDraggableIndex, u = o.newDraggableIndex, f = o.originalEvent, m = o.putSortable, b = o.extraEventProperties;
   if (e = e || t && t[_], !!e) {
-    var E, I = e.options, $ = "on" + r.charAt(0).toUpperCase() + r.substr(1);
+    var E, I = e.options, L = "on" + r.charAt(0).toUpperCase() + r.substr(1);
     window.CustomEvent && !W && !ke ? E = new CustomEvent(r, {
       bubbles: !0,
       cancelable: !0
@@ -764,7 +764,7 @@ function er(o) {
     var T = V(V({}, b), Pe.getEventProperties(r, e));
     for (var q in T)
       E[q] = T[q];
-    t && t.dispatchEvent(E), I[$] && I[$].call(e, E);
+    t && t.dispatchEvent(E), I[L] && I[L].call(e, E);
   }
 }
 var tr = ["evt"], B = function(e, t) {
@@ -773,10 +773,10 @@ var tr = ["evt"], B = function(e, t) {
     dragEl: h,
     parentEl: x,
     ghostEl: v,
-    rootEl: C,
+    rootEl: S,
     nextEl: ae,
     lastDownEl: Oe,
-    cloneEl: S,
+    cloneEl: C,
     cloneHidden: Z,
     dragStarted: ye,
     putSortable: k,
@@ -784,7 +784,7 @@ var tr = ["evt"], B = function(e, t) {
     originalEvent: n,
     oldIndex: ue,
     oldDraggableIndex: xe,
-    newIndex: N,
+    newIndex: F,
     newDraggableIndex: K,
     hideGhostForTarget: Mt,
     unhideGhostForTarget: Rt,
@@ -795,7 +795,7 @@ var tr = ["evt"], B = function(e, t) {
       Z = !1;
     },
     dispatchSortableEvent: function(a) {
-      L({
+      $({
         sortable: t,
         name: a,
         originalEvent: n
@@ -803,19 +803,19 @@ var tr = ["evt"], B = function(e, t) {
     }
   }, i));
 };
-function L(o) {
+function $(o) {
   er(V({
     putSortable: k,
-    cloneEl: S,
+    cloneEl: C,
     targetEl: h,
-    rootEl: C,
+    rootEl: S,
     oldIndex: ue,
     oldDraggableIndex: xe,
-    newIndex: N,
+    newIndex: F,
     newDraggableIndex: K
   }, o));
 }
-var h, x, v, C, ae, Oe, S, Z, ue, N, xe, K, Le, k, de = !1, qe = !1, je = [], oe, j, Xe, We, mt, vt, ye, ce, De, Ae = !1, $e = !1, Me, P, Je = [], tt = !1, Ge = [], Ve = typeof document < "u", Be = st, bt = ke || W ? "cssFloat" : "float", rr = Ve && !Dt && !st && "draggable" in document.createElement("div"), _t = function() {
+var h, x, v, S, ae, Oe, C, Z, ue, F, xe, K, $e, k, de = !1, qe = !1, je = [], oe, j, Xe, We, mt, vt, ye, ce, De, Ae = !1, Le = !1, Me, P, Je = [], tt = !1, Ge = [], Ve = typeof document < "u", Be = st, bt = ke || W ? "cssFloat" : "float", rr = Ve && !Dt && !st && "draggable" in document.createElement("div"), _t = function() {
   if (Ve) {
     if (W)
       return !1;
@@ -936,7 +936,7 @@ function g(o, e) {
       y: 0
     },
     // Disabled on Safari: #1571; Enabled on Safari IOS: #2244
-    supportPointer: g.supportPointer !== !1 && "PointerEvent" in window && (!Ce || st),
+    supportPointer: g.supportPointer !== !1 && "PointerEvent" in window && (!Se || st),
     emptyInsertThreshold: 5
   };
   Pe.initializePlugins(this, o, t);
@@ -959,10 +959,10 @@ g.prototype = /** @lends Sortable.prototype */
   _onTapStart: function(e) {
     if (e.cancelable) {
       var t = this, r = this.el, n = this.options, i = n.preventOnFilter, s = e.type, a = e.touches && e.touches[0] || e.pointerType && e.pointerType === "touch" && e, l = (a || e).target, c = e.target.shadowRoot && (e.path && e.path[0] || e.composedPath && e.composedPath()[0]) || l, d = n.filter;
-      if (fr(r), !h && !(/mousedown|pointerdown/.test(s) && e.button !== 0 || n.disabled) && !c.isContentEditable && !(!this.nativeDraggable && Ce && l && l.tagName.toUpperCase() === "SELECT") && (l = G(l, n.draggable, r, !1), !(l && l.animated) && Oe !== l)) {
-        if (ue = F(l), xe = F(l, n.draggable), typeof d == "function") {
+      if (fr(r), !h && !(/mousedown|pointerdown/.test(s) && e.button !== 0 || n.disabled) && !c.isContentEditable && !(!this.nativeDraggable && Se && l && l.tagName.toUpperCase() === "SELECT") && (l = G(l, n.draggable, r, !1), !(l && l.animated) && Oe !== l)) {
+        if (ue = N(l), xe = N(l, n.draggable), typeof d == "function") {
           if (d.call(this, e, l, this)) {
-            L({
+            $({
               sortable: t,
               rootEl: c,
               name: "filter",
@@ -976,7 +976,7 @@ g.prototype = /** @lends Sortable.prototype */
           }
         } else if (d && (d = d.split(",").some(function(u) {
           if (u = G(c, u.trim(), r, !1), u)
-            return L({
+            return $({
               sortable: t,
               rootEl: u,
               name: "filter",
@@ -998,7 +998,7 @@ g.prototype = /** @lends Sortable.prototype */
     var n = this, i = n.el, s = n.options, a = i.ownerDocument, l;
     if (r && !h && r.parentNode === i) {
       var c = A(r);
-      if (C = i, h = r, x = h.parentNode, ae = h.nextSibling, Oe = r, Le = s.group, g.dragged = h, oe = {
+      if (S = i, h = r, x = h.parentNode, ae = h.nextSibling, Oe = r, $e = s.group, g.dragged = h, oe = {
         target: h,
         clientX: (t || e).clientX,
         clientY: (t || e).clientY
@@ -1009,7 +1009,7 @@ g.prototype = /** @lends Sortable.prototype */
           n._onDrop();
           return;
         }
-        n._disableDelayedDragEvents(), !ht && n.nativeDraggable && (h.draggable = !0), n._triggerDragStart(e, t), L({
+        n._disableDelayedDragEvents(), !ht && n.nativeDraggable && (h.draggable = !0), n._triggerDragStart(e, t), $({
           sortable: n,
           name: "choose",
           originalEvent: e
@@ -1040,7 +1040,7 @@ g.prototype = /** @lends Sortable.prototype */
     y(e, "mouseup", this._disableDelayedDrag), y(e, "touchend", this._disableDelayedDrag), y(e, "touchcancel", this._disableDelayedDrag), y(e, "pointerup", this._disableDelayedDrag), y(e, "pointercancel", this._disableDelayedDrag), y(e, "mousemove", this._delayedDragTouchMoveHandler), y(e, "touchmove", this._delayedDragTouchMoveHandler), y(e, "pointermove", this._delayedDragTouchMoveHandler);
   },
   _triggerDragStart: function(e, t) {
-    t = t || e.pointerType == "touch" && e, !this.nativeDraggable || t ? this.options.supportPointer ? w(document, "pointermove", this._onTouchMove) : t ? w(document, "touchmove", this._onTouchMove) : w(document, "mousemove", this._onTouchMove) : (w(h, "dragend", this), w(C, "dragstart", this._onDragStart));
+    t = t || e.pointerType == "touch" && e, !this.nativeDraggable || t ? this.options.supportPointer ? w(document, "pointermove", this._onTouchMove) : t ? w(document, "touchmove", this._onTouchMove) : w(document, "mousemove", this._onTouchMove) : (w(h, "dragend", this), w(S, "dragstart", this._onDragStart));
     try {
       document.selection ? Re(function() {
         document.selection.empty();
@@ -1049,12 +1049,12 @@ g.prototype = /** @lends Sortable.prototype */
     }
   },
   _dragStarted: function(e, t) {
-    if (de = !1, C && h) {
+    if (de = !1, S && h) {
       B("dragStarted", this, {
         evt: t
       }), this.nativeDraggable && w(document, "dragover", ir);
       var r = this.options;
-      !e && R(h, r.dragClass, !1), R(h, r.ghostClass, !0), g.active = this, e && this._appendGhost(), L({
+      !e && R(h, r.dragClass, !1), R(h, r.ghostClass, !0), g.active = this, e && this._appendGhost(), $({
         sortable: this,
         name: "start",
         originalEvent: t
@@ -1109,7 +1109,7 @@ g.prototype = /** @lends Sortable.prototype */
   },
   _appendGhost: function() {
     if (!v) {
-      var e = this.options.fallbackOnBody ? document.body : C, t = A(h, !0, Be, !0, e), r = this.options;
+      var e = this.options.fallbackOnBody ? document.body : S, t = A(h, !0, Be, !0, e), r = this.options;
       if (Be) {
         for (P = e; p(P, "position") === "static" && p(P, "transform") === "none" && P !== document; )
           P = P.parentNode;
@@ -1126,16 +1126,16 @@ g.prototype = /** @lends Sortable.prototype */
       this._onDrop();
       return;
     }
-    B("setupClone", this), g.eventCanceled || (S = $t(h), S.removeAttribute("id"), S.draggable = !1, S.style["will-change"] = "", this._hideClone(), R(S, this.options.chosenClass, !1), g.clone = S), r.cloneId = Re(function() {
-      B("clone", r), !g.eventCanceled && (r.options.removeCloneOnHide || C.insertBefore(S, h), r._hideClone(), L({
+    B("setupClone", this), g.eventCanceled || (C = Lt(h), C.removeAttribute("id"), C.draggable = !1, C.style["will-change"] = "", this._hideClone(), R(C, this.options.chosenClass, !1), g.clone = C), r.cloneId = Re(function() {
+      B("clone", r), !g.eventCanceled && (r.options.removeCloneOnHide || S.insertBefore(C, h), r._hideClone(), $({
         sortable: r,
         name: "clone"
       }));
-    }), !t && R(h, i.dragClass, !0), t ? (qe = !0, r._loopId = setInterval(r._emulateDragOver, 50)) : (y(document, "mouseup", r._onDrop), y(document, "touchend", r._onDrop), y(document, "touchcancel", r._onDrop), n && (n.effectAllowed = "move", i.setData && i.setData.call(r, n, h)), w(document, "drop", r), p(h, "transform", "translateZ(0)")), de = !0, r._dragStartId = Re(r._dragStarted.bind(r, t, e)), w(document, "selectstart", r), ye = !0, window.getSelection().removeAllRanges(), Ce && p(document.body, "user-select", "none");
+    }), !t && R(h, i.dragClass, !0), t ? (qe = !0, r._loopId = setInterval(r._emulateDragOver, 50)) : (y(document, "mouseup", r._onDrop), y(document, "touchend", r._onDrop), y(document, "touchcancel", r._onDrop), n && (n.effectAllowed = "move", i.setData && i.setData.call(r, n, h)), w(document, "drop", r), p(h, "transform", "translateZ(0)")), de = !0, r._dragStartId = Re(r._dragStarted.bind(r, t, e)), w(document, "selectstart", r), ye = !0, window.getSelection().removeAllRanges(), Se && p(document.body, "user-select", "none");
   },
   // Returns true - if no further action is needed (either inserted or another condition)
   _onDragOver: function(e) {
-    var t = this.el, r = e.target, n, i, s, a = this.options, l = a.group, c = g.active, d = Le === l, u = a.sort, f = k || c, m, b = this, E = !1;
+    var t = this.el, r = e.target, n, i, s, a = this.options, l = a.group, c = g.active, d = $e === l, u = a.sort, f = k || c, m, b = this, E = !1;
     if (tt) return;
     function I(be, qt) {
       B(be, b, V({
@@ -1150,12 +1150,12 @@ g.prototype = /** @lends Sortable.prototype */
         target: r,
         completed: T,
         onMove: function(dt, jt) {
-          return _e(C, t, h, n, dt, A(dt), e, jt);
+          return _e(S, t, h, n, dt, A(dt), e, jt);
         },
         changed: q
       }, qt));
     }
-    function $() {
+    function L() {
       I("dragOverAnimationCapture"), b.captureAnimationState(), b !== f && f.captureAnimationState();
     }
     function T(be) {
@@ -1166,11 +1166,11 @@ g.prototype = /** @lends Sortable.prototype */
       }), b !== f && (f.animateAll(), f._ignoreWhileAnimating = null)), (r === h && !h.animated || r === t && !r.animated) && (ce = null), !a.dragoverBubble && !e.rootEl && r !== document && (h.parentNode[_]._isOutsideThisEl(e.target), !be && ie(e)), !a.dragoverBubble && e.stopPropagation && e.stopPropagation(), E = !0;
     }
     function q() {
-      N = F(h), K = F(h, a.draggable), L({
+      F = N(h), K = N(h, a.draggable), $({
         sortable: b,
         name: "change",
         toEl: t,
-        newIndex: N,
+        newIndex: F,
         newDraggableIndex: K,
         originalEvent: e
       });
@@ -1178,29 +1178,29 @@ g.prototype = /** @lends Sortable.prototype */
     if (e.preventDefault !== void 0 && e.cancelable && e.preventDefault(), r = G(r, a.draggable, t, !0), I("dragOver"), g.eventCanceled) return E;
     if (h.contains(e.target) || r.animated && r.animatingX && r.animatingY || b._ignoreWhileAnimating === r)
       return T(!1);
-    if (qe = !1, c && !a.disabled && (d ? u || (s = x !== C) : k === this || (this.lastPutMode = Le.checkPull(this, c, h, e)) && l.checkPut(this, c, h, e))) {
+    if (qe = !1, c && !a.disabled && (d ? u || (s = x !== S) : k === this || (this.lastPutMode = $e.checkPull(this, c, h, e)) && l.checkPut(this, c, h, e))) {
       if (m = this._getDirection(e, r) === "vertical", n = A(h), I("dragOverValid"), g.eventCanceled) return E;
       if (s)
-        return x = C, $(), this._hideClone(), I("revert"), g.eventCanceled || (ae ? C.insertBefore(h, ae) : C.appendChild(h)), T(!0);
+        return x = S, L(), this._hideClone(), I("revert"), g.eventCanceled || (ae ? S.insertBefore(h, ae) : S.appendChild(h)), T(!0);
       var O = at(t, a.draggable);
       if (!O || cr(e, m, this) && !O.animated) {
         if (O === h)
           return T(!1);
-        if (O && t === e.target && (r = O), r && (i = A(r)), _e(C, t, h, n, r, i, e, !!r) !== !1)
-          return $(), O && O.nextSibling ? t.insertBefore(h, O.nextSibling) : t.appendChild(h), x = t, q(), T(!0);
+        if (O && t === e.target && (r = O), r && (i = A(r)), _e(S, t, h, n, r, i, e, !!r) !== !1)
+          return L(), O && O.nextSibling ? t.insertBefore(h, O.nextSibling) : t.appendChild(h), x = t, q(), T(!0);
       } else if (O && lr(e, m, this)) {
         var te = fe(t, 0, a, !0);
         if (te === h)
           return T(!1);
-        if (r = te, i = A(r), _e(C, t, h, n, r, i, e, !1) !== !1)
-          return $(), t.insertBefore(h, te), x = t, q(), T(!0);
+        if (r = te, i = A(r), _e(S, t, h, n, r, i, e, !1) !== !1)
+          return L(), t.insertBefore(h, te), x = t, q(), T(!0);
       } else if (r.parentNode === t) {
         i = A(r);
         var H = 0, re, pe = h.parentNode !== t, M = !nr(h.animated && h.toRect || n, r.animated && r.toRect || i, m), ge = m ? "top" : "left", J = pt(r, "top", "top") || pt(h, "top", "top"), me = J ? J.scrollTop : void 0;
-        ce !== r && (re = i[ge], Ae = !1, $e = !M && a.invertSwap || pe), H = dr(e, r, i, m, M ? 1 : a.swapThreshold, a.invertedSwapThreshold == null ? a.swapThreshold : a.invertedSwapThreshold, $e, ce === r);
+        ce !== r && (re = i[ge], Ae = !1, Le = !M && a.invertSwap || pe), H = dr(e, r, i, m, M ? 1 : a.swapThreshold, a.invertedSwapThreshold == null ? a.swapThreshold : a.invertedSwapThreshold, Le, ce === r);
         var z;
         if (H !== 0) {
-          var ne = F(h);
+          var ne = N(h);
           do
             ne -= H, z = x.children[ne];
           while (z && (p(z, "display") === "none" || z === v));
@@ -1210,9 +1210,9 @@ g.prototype = /** @lends Sortable.prototype */
         ce = r, De = H;
         var ve = r.nextElementSibling, Q = !1;
         Q = H === 1;
-        var Te = _e(C, t, h, n, r, i, e, Q);
+        var Te = _e(S, t, h, n, r, i, e, Q);
         if (Te !== !1)
-          return (Te === 1 || Te === -1) && (Q = Te === 1), tt = !0, setTimeout(ar, 30), $(), Q && !ve ? t.appendChild(h) : r.parentNode.insertBefore(h, Q ? ve : r), J && Lt(J, 0, me - J.scrollTop), x = h.parentNode, re !== void 0 && !$e && (Me = Math.abs(re - A(r)[ge])), q(), T(!0);
+          return (Te === 1 || Te === -1) && (Q = Te === 1), tt = !0, setTimeout(ar, 30), L(), Q && !ve ? t.appendChild(h) : r.parentNode.insertBefore(h, Q ? ve : r), J && $t(J, 0, me - J.scrollTop), x = h.parentNode, re !== void 0 && !Le && (Me = Math.abs(re - A(r)[ge])), q(), T(!0);
       }
       if (t.contains(h))
         return T(!1);
@@ -1229,52 +1229,52 @@ g.prototype = /** @lends Sortable.prototype */
   },
   _onDrop: function(e) {
     var t = this.el, r = this.options;
-    if (N = F(h), K = F(h, r.draggable), B("drop", this, {
+    if (F = N(h), K = N(h, r.draggable), B("drop", this, {
       evt: e
-    }), x = h && h.parentNode, N = F(h), K = F(h, r.draggable), g.eventCanceled) {
+    }), x = h && h.parentNode, F = N(h), K = N(h, r.draggable), g.eventCanceled) {
       this._nulling();
       return;
     }
-    de = !1, $e = !1, Ae = !1, clearInterval(this._loopId), clearTimeout(this._dragStartTimer), rt(this.cloneId), rt(this._dragStartId), this.nativeDraggable && (y(document, "drop", this), y(t, "dragstart", this._onDragStart)), this._offMoveEvents(), this._offUpEvents(), Ce && p(document.body, "user-select", ""), p(h, "transform", ""), e && (ye && (e.cancelable && e.preventDefault(), !r.dropBubble && e.stopPropagation()), v && v.parentNode && v.parentNode.removeChild(v), (C === x || k && k.lastPutMode !== "clone") && S && S.parentNode && S.parentNode.removeChild(S), h && (this.nativeDraggable && y(h, "dragend", this), Qe(h), h.style["will-change"] = "", ye && !de && R(h, k ? k.options.ghostClass : this.options.ghostClass, !1), R(h, this.options.chosenClass, !1), L({
+    de = !1, Le = !1, Ae = !1, clearInterval(this._loopId), clearTimeout(this._dragStartTimer), rt(this.cloneId), rt(this._dragStartId), this.nativeDraggable && (y(document, "drop", this), y(t, "dragstart", this._onDragStart)), this._offMoveEvents(), this._offUpEvents(), Se && p(document.body, "user-select", ""), p(h, "transform", ""), e && (ye && (e.cancelable && e.preventDefault(), !r.dropBubble && e.stopPropagation()), v && v.parentNode && v.parentNode.removeChild(v), (S === x || k && k.lastPutMode !== "clone") && C && C.parentNode && C.parentNode.removeChild(C), h && (this.nativeDraggable && y(h, "dragend", this), Qe(h), h.style["will-change"] = "", ye && !de && R(h, k ? k.options.ghostClass : this.options.ghostClass, !1), R(h, this.options.chosenClass, !1), $({
       sortable: this,
       name: "unchoose",
       toEl: x,
       newIndex: null,
       newDraggableIndex: null,
       originalEvent: e
-    }), C !== x ? (N >= 0 && (L({
+    }), S !== x ? (F >= 0 && ($({
       rootEl: x,
       name: "add",
       toEl: x,
-      fromEl: C,
+      fromEl: S,
       originalEvent: e
-    }), L({
+    }), $({
       sortable: this,
       name: "remove",
       toEl: x,
       originalEvent: e
-    }), L({
+    }), $({
       rootEl: x,
       name: "sort",
       toEl: x,
-      fromEl: C,
+      fromEl: S,
       originalEvent: e
-    }), L({
+    }), $({
       sortable: this,
       name: "sort",
       toEl: x,
       originalEvent: e
-    })), k && k.save()) : N !== ue && N >= 0 && (L({
+    })), k && k.save()) : F !== ue && F >= 0 && ($({
       sortable: this,
       name: "update",
       toEl: x,
       originalEvent: e
-    }), L({
+    }), $({
       sortable: this,
       name: "sort",
       toEl: x,
       originalEvent: e
-    })), g.active && ((N == null || N === -1) && (N = ue, K = xe), L({
+    })), g.active && ((F == null || F === -1) && (F = ue, K = xe), $({
       sortable: this,
       name: "end",
       toEl: x,
@@ -1282,7 +1282,7 @@ g.prototype = /** @lends Sortable.prototype */
     }), this.save()))), this._nulling();
   },
   _nulling: function() {
-    B("nulling", this), C = h = x = v = ae = S = Oe = Z = oe = j = ye = N = K = ue = xe = ce = De = k = Le = g.dragged = g.ghost = g.clone = g.active = null, Ge.forEach(function(e) {
+    B("nulling", this), S = h = x = v = ae = C = Oe = Z = oe = j = ye = F = K = ue = xe = ce = De = k = $e = g.dragged = g.ghost = g.clone = g.active = null, Ge.forEach(function(e) {
       e.checked = !0;
     }), Ge.length = Xe = We = 0;
   },
@@ -1365,7 +1365,7 @@ g.prototype = /** @lends Sortable.prototype */
   _hideClone: function() {
     if (!Z) {
       if (B("hideClone", this), g.eventCanceled) return;
-      p(S, "display", "none"), this.options.removeCloneOnHide && S.parentNode && S.parentNode.removeChild(S), Z = !0;
+      p(C, "display", "none"), this.options.removeCloneOnHide && C.parentNode && C.parentNode.removeChild(C), Z = !0;
     }
   },
   _showClone: function(e) {
@@ -1375,7 +1375,7 @@ g.prototype = /** @lends Sortable.prototype */
     }
     if (Z) {
       if (B("showClone", this), g.eventCanceled) return;
-      h.parentNode == C && !this.options.group.revertClone ? C.insertBefore(S, h) : ae ? C.insertBefore(S, ae) : C.appendChild(S), this.options.group.revertClone && this.animate(h, S), p(S, "display", ""), Z = !1;
+      h.parentNode == S && !this.options.group.revertClone ? S.insertBefore(C, h) : ae ? S.insertBefore(C, ae) : S.appendChild(C), this.options.group.revertClone && this.animate(h, C), p(C, "display", ""), Z = !1;
     }
   }
 };
@@ -1417,7 +1417,7 @@ function dr(o, e, t, r, n, i, s, a) {
   return f = f || s, f && (l < d + c * i / 2 || l > u - c * i / 2) ? l > d + c / 2 ? 1 : -1 : 0;
 }
 function ur(o) {
-  return F(h) < F(o) ? 1 : -1;
+  return N(h) < N(o) ? 1 : -1;
 }
 function hr(o) {
   for (var e = o.tagName + o.className + o.src + o.href + o.textContent, t = e.length, r = 0; t--; )
@@ -1452,8 +1452,8 @@ g.utils = {
   throttle: Tt,
   closest: G,
   toggleClass: R,
-  clone: $t,
-  index: F,
+  clone: Lt,
+  index: N,
   nextTick: Re,
   cancelNextTick: rt,
   detectDirection: It,
@@ -1499,7 +1499,7 @@ function pr() {
       !this.options.dragOverBubble && !r.rootEl && this._handleAutoScroll(r);
     },
     drop: function() {
-      this.sortable.nativeDraggable ? y(document, "dragover", this._handleAutoScroll) : (y(document, "pointermove", this._handleFallbackAutoScroll), y(document, "touchmove", this._handleFallbackAutoScroll), y(document, "mousemove", this._handleFallbackAutoScroll)), yt(), Ne(), Jt();
+      this.sortable.nativeDraggable ? y(document, "dragover", this._handleAutoScroll) : (y(document, "pointermove", this._handleFallbackAutoScroll), y(document, "touchmove", this._handleFallbackAutoScroll), y(document, "mousemove", this._handleFallbackAutoScroll)), yt(), Fe(), Jt();
     },
     nulling: function() {
       He = nt = we = ot = Ee = Ke = Ze = null, D.length = 0;
@@ -1509,16 +1509,16 @@ function pr() {
     },
     _handleAutoScroll: function(t, r) {
       var n = this, i = (t.touches ? t.touches[0] : t).clientX, s = (t.touches ? t.touches[0] : t).clientY, a = document.elementFromPoint(i, s);
-      if (He = t, r || this.options.forceAutoScrollFallback || ke || W || Ce) {
+      if (He = t, r || this.options.forceAutoScrollFallback || ke || W || Se) {
         et(t, this.options, a, r);
         var l = ee(a, !0);
         ot && (!Ee || i !== Ke || s !== Ze) && (Ee && yt(), Ee = setInterval(function() {
           var c = ee(document.elementFromPoint(i, s), !0);
-          c !== l && (l = c, Ne()), et(t, n.options, c, r);
+          c !== l && (l = c, Fe()), et(t, n.options, c, r);
         }, 10), Ke = i, Ze = s);
       } else {
         if (!this.options.bubbleScroll || ee(a, !0) === U()) {
-          Ne();
+          Fe();
           return;
         }
         et(t, this.options, ee(a, !1), !1);
@@ -1529,7 +1529,7 @@ function pr() {
     initializeByDefault: !0
   });
 }
-function Ne() {
+function Fe() {
   D.forEach(function(o) {
     clearInterval(o.pid);
   }), D = [];
@@ -1540,26 +1540,26 @@ function yt() {
 var et = Tt(function(o, e, t, r) {
   if (e.scroll) {
     var n = (o.touches ? o.touches[0] : o).clientX, i = (o.touches ? o.touches[0] : o).clientY, s = e.scrollSensitivity, a = e.scrollSpeed, l = U(), c = !1, d;
-    nt !== t && (nt = t, Ne(), we = e.scroll, d = e.scrollFn, we === !0 && (we = ee(t, !0)));
+    nt !== t && (nt = t, Fe(), we = e.scroll, d = e.scrollFn, we === !0 && (we = ee(t, !0)));
     var u = 0, f = we;
     do {
-      var m = f, b = A(m), E = b.top, I = b.bottom, $ = b.left, T = b.right, q = b.width, O = b.height, te = void 0, H = void 0, re = m.scrollWidth, pe = m.scrollHeight, M = p(m), ge = m.scrollLeft, J = m.scrollTop;
+      var m = f, b = A(m), E = b.top, I = b.bottom, L = b.left, T = b.right, q = b.width, O = b.height, te = void 0, H = void 0, re = m.scrollWidth, pe = m.scrollHeight, M = p(m), ge = m.scrollLeft, J = m.scrollTop;
       m === l ? (te = q < re && (M.overflowX === "auto" || M.overflowX === "scroll" || M.overflowX === "visible"), H = O < pe && (M.overflowY === "auto" || M.overflowY === "scroll" || M.overflowY === "visible")) : (te = q < re && (M.overflowX === "auto" || M.overflowX === "scroll"), H = O < pe && (M.overflowY === "auto" || M.overflowY === "scroll"));
-      var me = te && (Math.abs(T - n) <= s && ge + q < re) - (Math.abs($ - n) <= s && !!ge), z = H && (Math.abs(I - i) <= s && J + O < pe) - (Math.abs(E - i) <= s && !!J);
+      var me = te && (Math.abs(T - n) <= s && ge + q < re) - (Math.abs(L - n) <= s && !!ge), z = H && (Math.abs(I - i) <= s && J + O < pe) - (Math.abs(E - i) <= s && !!J);
       if (!D[u])
         for (var ne = 0; ne <= u; ne++)
           D[ne] || (D[ne] = {});
       (D[u].vx != me || D[u].vy != z || D[u].el !== m) && (D[u].el = m, D[u].vx = me, D[u].vy = z, clearInterval(D[u].pid), (me != 0 || z != 0) && (c = !0, D[u].pid = setInterval(function() {
         r && this.layer === 0 && g.active._onTouchMove(He);
         var ve = D[this.layer].vy ? D[this.layer].vy * a : 0, Q = D[this.layer].vx ? D[this.layer].vx * a : 0;
-        typeof d == "function" && d.call(g.dragged.parentNode[_], Q, ve, o, He, D[this.layer].el) !== "continue" || Lt(D[this.layer].el, Q, ve);
+        typeof d == "function" && d.call(g.dragged.parentNode[_], Q, ve, o, He, D[this.layer].el) !== "continue" || $t(D[this.layer].el, Q, ve);
       }.bind({
         layer: u
       }), 24))), u++;
     } while (e.bubbleScroll && f !== l && (f = ee(f, !1)));
     ot = c;
   }
-}, 30), Nt = function(e) {
+}, 30), Ft = function(e) {
   var t = e.originalEvent, r = e.putSortable, n = e.dragEl, i = e.activeSortable, s = e.dispatchSortableEvent, a = e.hideGhostForTarget, l = e.unhideGhostForTarget;
   if (t) {
     var c = r || i;
@@ -1585,7 +1585,7 @@ lt.prototype = {
     var n = fe(this.sortable.el, this.startIndex, this.options);
     n ? this.sortable.el.insertBefore(t, n) : this.sortable.el.appendChild(t), this.sortable.animateAll(), r && r.animateAll();
   },
-  drop: Nt
+  drop: Ft
 };
 X(lt, {
   pluginName: "revertOnSpill"
@@ -1597,7 +1597,7 @@ ct.prototype = {
     var t = e.dragEl, r = e.putSortable, n = r || this.sortable;
     n.captureAnimationState(), t.parentNode && t.parentNode.removeChild(t), n.animateAll();
   },
-  drop: Nt
+  drop: Ft
 };
 X(ct, {
   pluginName: "removeOnSpill"
@@ -1670,8 +1670,8 @@ class gr {
       [11, 10],
       [11, 16]
     ].forEach(([E, I]) => {
-      const $ = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      $.setAttribute("cx", String(E)), $.setAttribute("cy", String(I)), $.setAttribute("r", "1.5"), l.appendChild($);
+      const L = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      L.setAttribute("cx", String(E)), L.setAttribute("cy", String(I)), L.setAttribute("r", "1.5"), l.appendChild(L);
     });
     const d = document.createElement("span");
     d.className = "column-label", d.id = `${n}-label`, d.textContent = t, a.appendChild(l), a.appendChild(d);
@@ -1769,7 +1769,7 @@ class gr {
 }
 class mr {
   constructor(e) {
-    this.tableEl = null, this.searchTimeout = null, this.abortController = null, this.dropdownAbortController = null, this.didRestoreColumnOrder = !1, this.shouldReorderDOMOnRestore = !1, this.recordsById = {}, this.columnManager = null, this.config = {
+    this.tableEl = null, this.searchTimeout = null, this.abortController = null, this.dropdownAbortController = null, this.didRestoreColumnOrder = !1, this.shouldReorderDOMOnRestore = !1, this.recordsById = {}, this.columnManager = null, this.lastSchema = null, this.lastForm = null, this.config = {
       perPage: 10,
       searchDelay: 300,
       behaviors: {},
@@ -1932,7 +1932,7 @@ class mr {
       if (!t.ok)
         throw new Error(`HTTP error! status: ${t.status}`);
       const r = await t.json();
-      console.log("[DataGrid] API Response:", r), console.log("[DataGrid] API Response data array:", r.data), console.log("[DataGrid] API Response total:", r.total, "count:", r.count, "$meta:", r.$meta), console.log("[DataGrid] About to call renderData()..."), this.renderData(r), console.log("[DataGrid] renderData() completed"), this.updatePaginationUI(r), console.log("[DataGrid] ===== refresh() COMPLETED =====");
+      console.log("[DataGrid] API Response:", r), console.log("[DataGrid] API Response data array:", r.data), console.log("[DataGrid] API Response total:", r.total, "count:", r.count, "$meta:", r.$meta), this.lastSchema = r.schema || null, this.lastForm = r.form || null, console.log("[DataGrid] About to call renderData()..."), this.renderData(r), console.log("[DataGrid] renderData() completed"), this.updatePaginationUI(r), console.log("[DataGrid] ===== refresh() COMPLETED =====");
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") {
         console.log("[DataGrid] Request aborted");
@@ -2036,7 +2036,7 @@ class mr {
       return;
     }
     t.innerHTML = "";
-    const r = e.data || [];
+    const r = e.data || e.records || [];
     if (console.log(`[DataGrid] renderData() called with ${r.length} items`), console.log("[DataGrid] First 3 items:", r.slice(0, 3)), this.state.totalRows = e.total || e.$meta?.count || e.count || r.length, r.length === 0) {
       t.innerHTML = `
         <tr>
@@ -2055,6 +2055,52 @@ class mr {
       const s = i.dataset.column;
       s && this.state.hiddenColumns.has(s) && (i.style.display = "none");
     }), this.updateSelectionBindings();
+  }
+  /**
+   * Fetch a detail payload and unwrap the record from the `data` field.
+   */
+  async fetchDetail(e) {
+    const t = await fetch(`${this.config.apiEndpoint}/${e}`, {
+      headers: {
+        Accept: "application/json"
+      }
+    });
+    if (!t.ok)
+      throw new Error(`Detail request failed: ${t.status}`);
+    const r = await t.json(), n = this.normalizeDetailResponse(r);
+    return n.schema && (this.lastSchema = n.schema), n.form && (this.lastForm = n.form), {
+      ...n,
+      tabs: n.schema?.tabs || []
+    };
+  }
+  /**
+   * Access the most recent schema returned by the API (list or detail).
+   */
+  getSchema() {
+    return this.lastSchema;
+  }
+  /**
+   * Access the most recent form returned by the API (list or detail).
+   */
+  getForm() {
+    return this.lastForm;
+  }
+  /**
+   * Access tabs from the most recent schema payload.
+   */
+  getTabs() {
+    return this.lastSchema?.tabs || [];
+  }
+  normalizeDetailResponse(e) {
+    if (e && typeof e == "object" && "data" in e) {
+      const t = e;
+      return {
+        data: t.data,
+        schema: t.schema,
+        form: t.form
+      };
+    }
+    return { data: e };
   }
   /**
    * Create table row element
@@ -2910,7 +2956,7 @@ const Et = {
     { label: "is not", value: "ne" }
   ]
 };
-class Nr {
+class Fr {
   constructor(e) {
     this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new Ue(), this.structure = { groups: [], groupLogic: [] }, this.init();
   }
@@ -3276,7 +3322,7 @@ class Nr {
     this.structure = e, this.render();
   }
 }
-class Fr {
+class Nr {
   constructor(e) {
     if (this.searchableFields = e, !e || e.length === 0)
       throw new Error("At least one searchable field is required");
@@ -3372,7 +3418,7 @@ class Hr {
       if (s) {
         const a = Er(i, s);
         try {
-          await Cr(s, {
+          await Sr(s, {
             intervalMs: yr(this.config),
             timeoutMs: wr(this.config)
           });
@@ -3385,7 +3431,7 @@ class Hr {
             const c = await it(l);
             throw se(t, "error", c), new Error(c);
           }
-          await St(l, r.definition || r.resource || "export", r.format), se(t, "success", "Export ready.");
+          await Ct(l, r.definition || r.resource || "export", r.format), se(t, "success", "Export ready.");
           return;
         } catch (l) {
           const c = l instanceof Error ? l.message : "Export failed";
@@ -3402,11 +3448,11 @@ class Hr {
       const i = await it(n);
       throw se(t, "error", i), new Error(i);
     }
-    await St(n, r.definition || r.resource || "export", r.format), se(t, "success", "Export ready.");
+    await Ct(n, r.definition || r.resource || "export", r.format), se(t, "success", "Export ready.");
   }
 }
 function vr(o, e, t) {
-  const r = Lr(t), n = xr(o, e), i = Dr(o, e), s = Ar(o), a = kr(s), l = {
+  const r = $r(t), n = xr(o, e), i = Dr(o, e), s = Ar(o), a = kr(s), l = {
     format: r,
     query: a,
     selection: n,
@@ -3431,7 +3477,7 @@ function wr(o) {
 function Er(o, e) {
   return o?.download_url ? o.download_url : `${e.replace(/\/+$/, "")}/download`;
 }
-async function Cr(o, e) {
+async function Sr(o, e) {
   const t = Date.now(), r = Math.max(250, e.intervalMs);
   for (; ; ) {
     const n = await fetch(o, {
@@ -3454,10 +3500,10 @@ async function Cr(o, e) {
       throw new Error("Export deleted");
     if (e.timeoutMs > 0 && Date.now() - t > e.timeoutMs)
       throw new Error("Export status timed out");
-    await Sr(r);
+    await Cr(r);
   }
 }
-function Sr(o) {
+function Cr(o) {
   return new Promise((e) => setTimeout(e, o));
 }
 function xr(o, e) {
@@ -3486,10 +3532,10 @@ function kr(o) {
       return;
     switch (r) {
       case "limit":
-        e.limit = Ct(n);
+        e.limit = St(n);
         return;
       case "offset":
-        e.offset = Ct(n);
+        e.offset = St(n);
         return;
       case "order":
       case "sort":
@@ -3514,19 +3560,19 @@ function Tr(o) {
     return { field: r, desc: n.toLowerCase() === "desc" };
   }).filter((e) => e.field) : [];
 }
-function Lr(o) {
+function $r(o) {
   const e = String(o || "").trim().toLowerCase();
   return e === "excel" || e === "xls" ? "xlsx" : e || "csv";
 }
-function Ct(o) {
+function St(o) {
   const e = Number(o);
   return Number.isFinite(e) ? e : 0;
 }
-async function St(o, e, t) {
-  const r = await o.blob(), n = $r(o, e, t), i = URL.createObjectURL(r), s = document.createElement("a");
+async function Ct(o, e, t) {
+  const r = await o.blob(), n = Lr(o, e, t), i = URL.createObjectURL(r), s = document.createElement("a");
   s.href = i, s.download = n, s.rel = "noopener", document.body.appendChild(s), s.click(), s.remove(), URL.revokeObjectURL(i);
 }
-function $r(o, e, t) {
+function Lr(o, e, t) {
   const r = o.headers.get("content-disposition") || "", n = `${e}.${t}`;
   return Br(r) || n;
 }
@@ -3587,7 +3633,7 @@ class Ur {
     await r.refresh();
   }
 }
-function Ft(o) {
+function Nt(o) {
   return typeof o == "object" && o !== null && "version" in o && o.version === 2;
 }
 class _r {
@@ -3672,7 +3718,7 @@ class _r {
       const e = localStorage.getItem(this.storageKey);
       if (!e) return null;
       const t = JSON.parse(e);
-      if (Ft(t))
+      if (Nt(t))
         return t;
       const n = {
         version: 2,
@@ -3752,7 +3798,7 @@ class Vr extends _r {
       if (!n || !n[this.serverPrefsKey])
         return console.log("[ServerColumnVisibility] No column preferences in server response"), null;
       const i = n[this.serverPrefsKey];
-      return Ft(i) ? (this.serverPrefs = i, this.savePrefs(i), console.log("[ServerColumnVisibility] Loaded prefs from server:", i), i) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", i), null);
+      return Nt(i) ? (this.serverPrefs = i, this.savePrefs(i), console.log("[ServerColumnVisibility] Loaded prefs from server:", i), i) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", i), null);
     } catch (e) {
       return console.warn("[ServerColumnVisibility] Error loading server prefs:", e), null;
     }
@@ -3866,12 +3912,12 @@ export {
   Mr as CommonRenderers,
   mr as DataGrid,
   _r as DefaultColumnVisibilityBehavior,
-  Nr as FilterBuilder,
+  Fr as FilterBuilder,
   Ur as GoCrudBulkActionBehavior,
   Hr as GoCrudExportBehavior,
   qr as GoCrudFilterBehavior,
   jr as GoCrudPaginationBehavior,
-  Fr as GoCrudSearchBehavior,
+  Nr as GoCrudSearchBehavior,
   Gr as GoCrudSortBehavior,
   Vr as ServerColumnVisibilityBehavior
 };

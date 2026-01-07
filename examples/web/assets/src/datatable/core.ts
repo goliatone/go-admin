@@ -104,11 +104,20 @@ interface DataGridState {
 interface ApiResponse<T = any> {
   success?: boolean;
   data?: T[];
+  records?: T[];
   total?: number;
   count?: number;
   $meta?: {
     count?: number;
   };
+  schema?: Record<string, any>;
+  form?: Record<string, any>;
+}
+
+interface DetailResponse<T = any> {
+  data?: T;
+  schema?: Record<string, any>;
+  form?: Record<string, any>;
 }
 
 /**
@@ -131,6 +140,8 @@ export class DataGrid {
   private notifier: ToastNotifier;
   private columnManager: ColumnManager | null = null;
   private defaultColumns: ColumnDefinition[];
+  private lastSchema: Record<string, any> | null = null;
+  private lastForm: Record<string, any> | null = null;
 
   constructor(config: DataGridConfig) {
     this.config = {
@@ -459,6 +470,8 @@ export class DataGrid {
       console.log('[DataGrid] API Response:', data);
       console.log('[DataGrid] API Response data array:', data.data);
       console.log('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
+      this.lastSchema = data.schema || null;
+      this.lastForm = data.form || null;
       console.log('[DataGrid] About to call renderData()...');
       this.renderData(data);
       console.log('[DataGrid] renderData() completed');
@@ -633,7 +646,7 @@ export class DataGrid {
 
     tbody.innerHTML = '';
 
-    const items = data.data || [];
+    const items = data.data || data.records || [];
     console.log(`[DataGrid] renderData() called with ${items.length} items`);
     console.log('[DataGrid] First 3 items:', items.slice(0, 3));
     this.state.totalRows = data.total || data.$meta?.count || data.count || items.length;
@@ -677,6 +690,65 @@ export class DataGrid {
 
     // Rebind selection after rendering
     this.updateSelectionBindings();
+  }
+
+  /**
+   * Fetch a detail payload and unwrap the record from the `data` field.
+   */
+  async fetchDetail(id: string): Promise<{ data: any; schema?: Record<string, any>; form?: Record<string, any>; tabs?: any[] }> {
+    const response = await fetch(`${this.config.apiEndpoint}/${id}`, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`Detail request failed: ${response.status}`);
+    }
+    const payload = await response.json();
+    const detail = this.normalizeDetailResponse(payload);
+    if (detail.schema) {
+      this.lastSchema = detail.schema;
+    }
+    if (detail.form) {
+      this.lastForm = detail.form;
+    }
+    return {
+      ...detail,
+      tabs: detail.schema?.tabs || [],
+    };
+  }
+
+  /**
+   * Access the most recent schema returned by the API (list or detail).
+   */
+  getSchema(): Record<string, any> | null {
+    return this.lastSchema;
+  }
+
+  /**
+   * Access the most recent form returned by the API (list or detail).
+   */
+  getForm(): Record<string, any> | null {
+    return this.lastForm;
+  }
+
+  /**
+   * Access tabs from the most recent schema payload.
+   */
+  getTabs(): any[] {
+    return this.lastSchema?.tabs || [];
+  }
+
+  private normalizeDetailResponse(payload: any): { data: any; schema?: Record<string, any>; form?: Record<string, any> } {
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+      const detail = payload as DetailResponse;
+      return {
+        data: detail.data,
+        schema: detail.schema,
+        form: detail.form,
+      };
+    }
+    return { data: payload };
   }
 
   /**

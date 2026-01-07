@@ -734,3 +734,89 @@
     transform: translateX(24px);
   }
 }
+
+/* ============================================================================
+   Panel Tabs - Underline style navigation for detail/form views
+   ============================================================================ */
+
+.panel-tabs {
+  @apply bg-white border-b border-gray-200;
+}
+
+.panel-tabs-container {
+  @apply flex gap-1 px-8;
+  @apply overflow-x-auto;
+  /* Hide scrollbar but allow scrolling */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.panel-tabs-container::-webkit-scrollbar {
+  display: none;
+}
+
+.panel-tab {
+  @apply relative flex items-center gap-2;
+  @apply px-4 py-3;
+  @apply text-sm font-medium;
+  @apply text-gray-600;
+  @apply no-underline;
+  @apply border-b-2 border-transparent;
+  @apply -mb-px; /* Overlap container border */
+  @apply transition-colors duration-150;
+  @apply whitespace-nowrap;
+  @apply flex-shrink-0;
+}
+
+.panel-tab:hover {
+  @apply text-gray-900;
+  @apply border-gray-300;
+}
+
+.panel-tab:focus {
+  @apply outline-none;
+}
+
+.panel-tab:focus-visible {
+  @apply ring-2 ring-blue-500 ring-offset-2 rounded-t;
+}
+
+.panel-tab-active {
+  @apply text-blue-600;
+  @apply border-blue-600;
+}
+
+.panel-tab-active:hover {
+  @apply text-blue-700;
+  @apply border-blue-700;
+}
+
+.panel-tab-icon {
+  @apply text-base opacity-80;
+}
+
+.panel-tab:hover .panel-tab-icon,
+.panel-tab-active .panel-tab-icon {
+  @apply opacity-100;
+}
+
+.panel-tab-label {
+  @apply select-none;
+}
+
+/* Responsive: Stack tabs vertically on very small screens */
+@media (max-width: 480px) {
+  .panel-tabs-container {
+    @apply flex-col gap-0 px-4;
+  }
+
+  .panel-tab {
+    @apply border-b-0 border-l-2;
+    @apply py-2 px-3;
+    @apply -ml-px mb-0;
+  }
+
+  .panel-tab-active {
+    @apply border-l-blue-600;
+  }
+}

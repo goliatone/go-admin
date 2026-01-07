@@ -22,6 +22,8 @@ export class WidgetGrid {
   private container: HTMLElement | null = null;
   private saveTimer: number | null = null;
   private statusElement: HTMLElement | null = null;
+  private panelSchema: Record<string, any> | null = null;
+  private panelTabs: any[] = [];
 
   constructor(config: WidgetGridConfig) {
     this.config = {
@@ -60,14 +62,20 @@ export class WidgetGrid {
       throw new Error('Widget grid container not found');
     }
 
+    const resolvedState = this.normalizePanelDetailState(serverState);
+    if (resolvedState.schema) {
+      this.panelSchema = resolvedState.schema;
+      this.panelTabs = resolvedState.schema.tabs || [];
+    }
+
     // Hydration mode: widgets already rendered by server
     // Just attach behaviors to existing DOM elements
     this.attachEventListeners();
     this.initializeDragDrop();
 
     // If server state provided, validate it matches DOM (optional)
-    if (serverState) {
-      this.validateHydration(serverState);
+    if (resolvedState.data) {
+      this.validateHydration(resolvedState.data);
     }
   }
 
@@ -83,6 +91,28 @@ export class WidgetGrid {
         });
       }
     }
+  }
+
+  getSchema(): Record<string, any> | null {
+    return this.panelSchema;
+  }
+
+  getTabs(): any[] {
+    return this.panelTabs;
+  }
+
+  private normalizePanelDetailState(payload: any): { data?: any; schema?: Record<string, any> } {
+    if (!payload) {
+      return {};
+    }
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+      const detail = payload as { data?: any; schema?: Record<string, any> };
+      return {
+        data: detail.data,
+        schema: detail.schema,
+      };
+    }
+    return { data: payload };
   }
 
   private initializeDragDrop(): void {

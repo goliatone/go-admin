@@ -102,6 +102,8 @@ export declare class DataGrid {
     private notifier;
     private columnManager;
     private defaultColumns;
+    private lastSchema;
+    private lastForm;
     constructor(config: DataGridConfig);
     /**
      * Initialize the data grid
@@ -157,6 +159,28 @@ export declare class DataGrid {
      * Render data into table
      */
     private renderData;
+    /**
+     * Fetch a detail payload and unwrap the record from the `data` field.
+     */
+    fetchDetail(id: string): Promise<{
+        data: any;
+        schema?: Record<string, any>;
+        form?: Record<string, any>;
+        tabs?: any[];
+    }>;
+    /**
+     * Access the most recent schema returned by the API (list or detail).
+     */
+    getSchema(): Record<string, any> | null;
+    /**
+     * Access the most recent form returned by the API (list or detail).
+     */
+    getForm(): Record<string, any> | null;
+    /**
+     * Access tabs from the most recent schema payload.
+     */
+    getTabs(): any[];
+    private normalizeDetailResponse;
     /**
      * Create table row element
      */

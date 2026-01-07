@@ -9,9 +9,14 @@ export declare class WidgetGrid {
     private container;
     private saveTimer;
     private statusElement;
+    private panelSchema;
+    private panelTabs;
     constructor(config: WidgetGridConfig);
     init(serverState?: any): Promise<void>;
     private validateHydration;
+    getSchema(): Record<string, any> | null;
+    getTabs(): any[];
+    private normalizePanelDetailState;
     private initializeDragDrop;
     private attachEventListeners;
     private saveLayout;
