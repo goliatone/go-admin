@@ -10,8 +10,9 @@ import (
 type AdminOption func(*adminOptions)
 
 type adminOptions struct {
-	ctx  context.Context
-	deps admin.Dependencies
+	ctx   context.Context
+	deps  admin.Dependencies
+	flags *AdapterFlags
 }
 
 // WithAdminContext sets the context used when resolving adapter hooks.
@@ -36,6 +37,16 @@ func WithAdminDependencies(deps admin.Dependencies) AdminOption {
 	}
 }
 
+// WithAdapterFlags overrides env-driven adapter flag resolution.
+func WithAdapterFlags(flags AdapterFlags) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.flags = &flags
+	}
+}
+
 // NewAdmin constructs an admin instance with adapter wiring applied.
 func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error) {
 	options := adminOptions{
@@ -47,7 +58,12 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		}
 	}
 
-	cfg, result := ConfigureAdapters(options.ctx, cfg, hooks)
+	var result AdapterResult
+	if options.flags != nil {
+		cfg, result = ConfigureAdaptersWithFlags(options.ctx, cfg, hooks, *options.flags)
+	} else {
+		cfg, result = ConfigureAdapters(options.ctx, cfg, hooks)
+	}
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {
 		return nil, result, err
