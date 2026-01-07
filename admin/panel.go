@@ -17,6 +17,7 @@ type PanelBuilder struct {
 	filters      []Filter
 	actions      []Action
 	bulkActions  []Action
+	tabs         []PanelTab
 	hooks        PanelHooks
 	permissions  PanelPermissions
 	useBlocks    bool
@@ -37,6 +38,7 @@ type Panel struct {
 	filters      []Filter
 	actions      []Action
 	bulkActions  []Action
+	tabs         []PanelTab
 	hooks        PanelHooks
 	permissions  PanelPermissions
 	useBlocks    bool
@@ -129,6 +131,7 @@ type Schema struct {
 	Filters      []Filter                     `json:"filters,omitempty"`
 	Actions      []Action                     `json:"actions,omitempty"`
 	BulkActions  []Action                     `json:"bulk_actions,omitempty"`
+	Tabs         []PanelTab                   `json:"tabs,omitempty"`
 	FormSchema   map[string]any               `json:"form_schema,omitempty"`
 	UseBlocks    bool                         `json:"use_blocks,omitempty"`
 	UseSEO       bool                         `json:"use_seo,omitempty"`
@@ -208,6 +211,12 @@ func (b *PanelBuilder) BulkActions(actions ...Action) *PanelBuilder {
 	return b
 }
 
+// Tabs sets owner tabs for the panel.
+func (b *PanelBuilder) Tabs(tabs ...PanelTab) *PanelBuilder {
+	b.tabs = append([]PanelTab{}, tabs...)
+	return b
+}
+
 // Hooks sets lifecycle hooks.
 func (b *PanelBuilder) Hooks(h PanelHooks) *PanelBuilder {
 	b.hooks = h
@@ -270,6 +279,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		filters:      b.filters,
 		actions:      b.actions,
 		bulkActions:  b.bulkActions,
+		tabs:         b.tabs,
 		hooks:        b.hooks,
 		permissions:  b.permissions,
 		useBlocks:    b.useBlocks,
@@ -290,6 +300,7 @@ func (p *Panel) Schema() Schema {
 		Filters:      p.filters,
 		Actions:      p.actions,
 		BulkActions:  p.bulkActions,
+		Tabs:         append([]PanelTab{}, p.tabs...),
 		FormSchema:   buildFormSchema(p.formFields),
 		UseBlocks:    p.useBlocks,
 		UseSEO:       p.useSEO,
