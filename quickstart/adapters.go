@@ -9,7 +9,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 )
 
-// AdapterFlags captures env-driven adapter switches.
+// AdapterFlags captures adapter switches (config or env).
 type AdapterFlags struct {
 	UsePersistentCMS   bool
 	UseGoOptions       bool
@@ -50,6 +50,11 @@ func ResolveAdapterFlags() AdapterFlags {
 // ConfigureAdapters mutates the admin config (CMS) based on env flags and available hooks.
 func ConfigureAdapters(ctx context.Context, cfg admin.Config, hooks AdapterHooks) (admin.Config, AdapterResult) {
 	flags := ResolveAdapterFlags()
+	return ConfigureAdaptersWithFlags(ctx, cfg, hooks, flags)
+}
+
+// ConfigureAdaptersWithFlags mutates the admin config (CMS) based on supplied flags.
+func ConfigureAdaptersWithFlags(ctx context.Context, cfg admin.Config, hooks AdapterHooks, flags AdapterFlags) (admin.Config, AdapterResult) {
 	result := AdapterResult{
 		Flags:           flags,
 		CMSBackend:      "in-memory CMS",
