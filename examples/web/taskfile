@@ -103,7 +103,7 @@ function ci:test:example-users {
 }
 
 function dev:serve {
-    lgr exec -- npm run build
+    (cd "$(pwd)/../pkg/client/assets" && lgr exec -- npm run build)
     export NAV_DEBUG=true;
     export RESET_NAV_MENU=true;
     export USE_PERSISTENT_CMS=true
