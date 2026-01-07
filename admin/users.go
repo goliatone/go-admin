@@ -63,11 +63,12 @@ type RoleRepository interface {
 
 // UserManagementService orchestrates user/role management and activity emission.
 type UserManagementService struct {
-	users     UserRepository
-	roles     RoleRepository
-	activity  ActivitySink
-	timeNow   func() time.Time
-	idBuilder func() string
+	users      UserRepository
+	roles      RoleRepository
+	roleLookup RoleAssignmentLookup
+	activity   ActivitySink
+	timeNow    func() time.Time
+	idBuilder  func() string
 }
 
 // NewUserManagementService constructs a service with the provided repositories or in-memory defaults.
@@ -79,12 +80,16 @@ func NewUserManagementService(users UserRepository, roles RoleRepository) *UserM
 	if roles == nil {
 		roles = &inMemoryRoleRepoAdapter{store: store}
 	}
-	return &UserManagementService{
+	service := &UserManagementService{
 		users:     users,
 		roles:     roles,
 		timeNow:   time.Now,
 		idBuilder: func() string { return uuid.NewString() },
 	}
+	if lookup := defaultRoleAssignmentLookup(roles); lookup != nil {
+		service.roleLookup = lookup
+	}
+	return service
 }
 
 // WithActivitySink wires activity emission for user and role mutations.
@@ -92,6 +97,14 @@ func (s *UserManagementService) WithActivitySink(sink ActivitySink) {
 	if s != nil && sink != nil {
 		s.activity = sink
 	}
+}
+
+// WithRoleAssignmentLookup sets the lookup used to validate custom role assignments.
+func (s *UserManagementService) WithRoleAssignmentLookup(lookup RoleAssignmentLookup) *UserManagementService {
+	if s != nil && lookup != nil {
+		s.roleLookup = lookup
+	}
+	return s
 }
 
 // ListUsers returns users with role assignments populated.
@@ -147,6 +160,13 @@ func (s *UserManagementService) SaveUser(ctx context.Context, user UserRecord) (
 	}
 	if user.Role == "" && len(user.Roles) > 0 {
 		user.Role = user.Roles[0]
+	}
+	if s != nil {
+		if filtered, err := s.filterAssignableRoles(ctx, user.Roles); err != nil {
+			return UserRecord{}, err
+		} else {
+			user.Roles = filtered
+		}
 	}
 	var (
 		result UserRecord
@@ -339,6 +359,29 @@ func (s *UserManagementService) syncAssignments(ctx context.Context, userID stri
 		}
 	}
 	return nil
+}
+
+func (s *UserManagementService) filterAssignableRoles(ctx context.Context, roles []string) ([]string, error) {
+	if s == nil || s.roleLookup == nil {
+		return dedupeStrings(roles), nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(roles))
+	for _, roleID := range roles {
+		roleID = strings.TrimSpace(roleID)
+		if roleID == "" || seen[roleID] {
+			continue
+		}
+		ok, err := s.roleLookup.IsAssignable(ctx, roleID)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			seen[roleID] = true
+			out = append(out, roleID)
+		}
+	}
+	return out, nil
 }
 
 func (s *UserManagementService) recordActivity(ctx context.Context, action, object string, metadata map[string]any) {
