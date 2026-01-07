@@ -93,17 +93,41 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		return nil, 0, nil, nil, err
 	}
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
-	p.admin.decorateSchema(&schema, p.name)
+	if err := p.admin.decorateSchemaFor(ctx, &schema, p.name); err != nil {
+		return nil, 0, nil, nil, err
+	}
 	var form PanelFormRequest
 	if p.admin.panelForm != nil {
 		form = p.admin.panelForm.Build(p.panel, ctx, nil, nil)
+		if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
+			return nil, 0, nil, nil, err
+		}
 	}
 	return records, total, schema, form, nil
 }
 
 func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[string]any, error) {
 	ctx := p.admin.adminContextFromRequest(c, locale)
-	return p.panel.Get(ctx, id)
+	record, err := p.panel.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
+	if err := p.admin.decorateSchemaFor(ctx, &schema, p.name); err != nil {
+		return nil, err
+	}
+	var form PanelFormRequest
+	if p.admin.panelForm != nil {
+		form = p.admin.panelForm.Build(p.panel, ctx, nil, nil)
+		if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
+			return nil, err
+		}
+	}
+	return map[string]any{
+		"data":   record,
+		"schema": schema,
+		"form":   form,
+	}, nil
 }
 
 func (p *panelBinding) Create(c router.Context, locale string, body map[string]any) (map[string]any, error) {
