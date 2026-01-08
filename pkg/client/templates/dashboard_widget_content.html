@@ -8,7 +8,7 @@
       </div>
     {% endfor %}
   </div>
-{% elif widget.definition == "admin.widget.settings_overview" %}
+{% elif widget.definition == "admin.widget.settings_overview" or widget.definition == "admin.widget.user_profile_overview" %}
   {% set values = widget.data.values %}
   {% if values %}
     <dl class="space-y-2">
@@ -22,7 +22,7 @@
   {% else %}
     <p class="text-gray-500">No settings to display</p>
   {% endif %}
-{% elif widget.definition == "admin.widget.activity_feed" %}
+{% elif widget.definition == "admin.widget.activity_feed" or widget.definition == "admin.widget.user_activity_feed" %}
   {% set entries = widget.data.entries %}
   {% if entries %}
     <ul class="space-y-3">
