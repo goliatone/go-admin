@@ -135,9 +135,10 @@ type (
 
 	UserManagementService = core.UserManagementService
 
-	WidgetArea     = core.WidgetArea
-	WidgetLayout   = core.WidgetLayout
-	WidgetMetadata = core.WidgetMetadata
+	WidgetArea           = core.WidgetArea
+	WidgetAreaDefinition = core.WidgetAreaDefinition
+	WidgetLayout         = core.WidgetLayout
+	WidgetMetadata       = core.WidgetMetadata
 )
 
 var (
