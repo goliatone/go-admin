@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -64,24 +65,64 @@ func FetchPanelTabs(c router.Context, cfg admin.Config, panelName, id string) ([
 	return payload.Schema.Tabs, nil
 }
 
+// PanelTabViewOptions controls how panel tabs are mapped to template payloads.
+type PanelTabViewOptions struct {
+	Context      context.Context
+	PanelName    string
+	BasePath     string
+	DetailPath   string
+	Record       map[string]any
+	Resolver     TabContentResolver
+	ModeSelector TabRenderModeSelector
+}
+
 // BuildPanelTabViews maps admin tabs to template-friendly payloads with hrefs.
-func BuildPanelTabViews(tabs []admin.PanelTab, basePath string, record map[string]any) []map[string]any {
+func BuildPanelTabViews(tabs []admin.PanelTab, opts PanelTabViewOptions) []map[string]any {
 	if len(tabs) == 0 {
 		return nil
 	}
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	out := make([]map[string]any, 0, len(tabs))
 	for _, tab := range tabs {
-		href := buildPanelTabHref(tab, basePath, record)
+		spec := TabContentSpec{}
+		if opts.Resolver != nil {
+			resolved, err := opts.Resolver.ResolveTabContent(ctx, opts.PanelName, opts.Record, tab)
+			if err == nil {
+				spec = resolved
+			}
+		}
+		inline := IsInlineTab(spec)
+		href := buildPanelTabHref(tab, opts.BasePath, opts.Record)
+		if inline && opts.DetailPath != "" && tab.ID != "" {
+			href = buildInlineTabHref(opts.DetailPath, tab.ID)
+		}
+		mode := opts.ModeSelector.ModeFor(opts.PanelName, tab, spec)
+		if spec.Kind == TabContentTemplate && mode == TabRenderModeClient {
+			mode = TabRenderModeHybrid
+		}
+		if !inline {
+			mode = ""
+		}
 		out = append(out, map[string]any{
-			"id":        tab.ID,
-			"label":     tab.Label,
-			"label_key": tab.LabelKey,
-			"icon":      tab.Icon,
-			"href":      href,
-			"scope":     string(tab.Scope),
+			"id":          tab.ID,
+			"label":       tab.Label,
+			"label_key":   tab.LabelKey,
+			"icon":        tab.Icon,
+			"href":        href,
+			"scope":       string(tab.Scope),
+			"inline":      inline,
+			"render_mode": string(mode),
 		})
 	}
 	return out
+}
+
+// PanelTabHref builds the target URL for a tab target (panel/path/external).
+func PanelTabHref(tab admin.PanelTab, basePath string, record map[string]any) string {
+	return buildPanelTabHref(tab, basePath, record)
 }
 
 func buildPanelTabHref(tab admin.PanelTab, basePath string, record map[string]any) string {
@@ -114,6 +155,20 @@ func buildPanelTabHref(tab admin.PanelTab, basePath string, record map[string]an
 		return base + "?" + encoded
 	}
 	return base
+}
+
+func buildInlineTabHref(detailPath, tabID string) string {
+	if detailPath == "" || tabID == "" {
+		return detailPath
+	}
+	parsed, err := url.Parse(detailPath)
+	if err != nil {
+		return detailPath
+	}
+	values := parsed.Query()
+	values.Set("tab", tabID)
+	parsed.RawQuery = values.Encode()
+	return parsed.String()
 }
 
 func resolveTabToken(value string, record map[string]any) string {
