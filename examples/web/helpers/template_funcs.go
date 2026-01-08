@@ -48,19 +48,21 @@ func TemplateFuncs() map[string]any {
 // getWidgetTitle returns a human-readable title for widget definitions
 func getWidgetTitle(definition string) string {
 	titles := map[string]string{
-		"admin.widget.user_stats":        "User Statistics",
-		"admin.widget.activity_feed":     "Recent Activity",
-		"admin.widget.quick_actions":     "Quick Actions",
-		"admin.widget.notifications":     "Notifications",
-		"admin.widget.settings_overview": "Settings Overview",
-		"admin.widget.content_stats":     "Content Stats",
-		"admin.widget.storage_stats":     "Storage Stats",
-		"admin.widget.system_health":     "System Health",
-		"admin.widget.bar_chart":         "Bar Chart",
-		"admin.widget.line_chart":        "Line Chart",
-		"admin.widget.pie_chart":         "Pie Chart",
-		"admin.widget.gauge_chart":       "Gauge",
-		"admin.widget.scatter_chart":     "Scatter Chart",
+		"admin.widget.user_stats":            "User Statistics",
+		"admin.widget.activity_feed":         "Recent Activity",
+		"admin.widget.user_activity_feed":    UserActivityWidgetLabel,
+		"admin.widget.quick_actions":         "Quick Actions",
+		"admin.widget.notifications":         "Notifications",
+		"admin.widget.settings_overview":     "Settings Overview",
+		"admin.widget.user_profile_overview": UserProfileWidgetLabel,
+		"admin.widget.content_stats":         "Content Stats",
+		"admin.widget.storage_stats":         "Storage Stats",
+		"admin.widget.system_health":         "System Health",
+		"admin.widget.bar_chart":             "Bar Chart",
+		"admin.widget.line_chart":            "Line Chart",
+		"admin.widget.pie_chart":             "Pie Chart",
+		"admin.widget.gauge_chart":           "Gauge",
+		"admin.widget.scatter_chart":         "Scatter Chart",
 	}
 	if title, ok := titles[definition]; ok {
 		return title
