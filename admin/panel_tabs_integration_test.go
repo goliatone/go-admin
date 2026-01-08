@@ -130,7 +130,7 @@ func TestPanelTabsPermissionFiltering(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{Authorizer: denyAuthorizer{}})
+	adm := mustNewAdmin(t, cfg, Dependencies{Authorizer: tabsDenyAuthorizer{}})
 	server := router.NewHTTPServer()
 
 	repo := NewMemoryRepository()

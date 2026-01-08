@@ -7,17 +7,17 @@ export default defineConfig({
     lib: {
       // Multiple entry points
       entry: {
-        'datatable/index': resolve(__dirname, 'assets/src/datatable/index.ts'),
-        'dashboard/index': resolve(__dirname, 'assets/src/dashboard/index.ts'),
-        'toast/init': resolve(__dirname, 'assets/src/toast/init.ts'),
-        'formgen/file_uploader': resolve(__dirname, 'assets/src/formgen/file_uploader.ts'),
+        'datatable/index': resolve(__dirname, 'src/datatable/index.ts'),
+        'dashboard/index': resolve(__dirname, 'src/dashboard/index.ts'),
+        'toast/init': resolve(__dirname, 'src/toast/init.ts'),
+        'formgen/file_uploader': resolve(__dirname, 'src/formgen/file_uploader.ts'),
       },
       formats: ['es'],
       // Output file names without hash for predictable paths
       fileName: (format, entryName) => `${entryName}.js`,
     },
-    // Output to assets/dist to match current structure
-    outDir: 'assets/dist',
+    // Output to dist to match embedded asset layout
+    outDir: 'dist',
     // Clean output directory before build
     emptyDirBeforeWrite: true,
     // Generate source maps
@@ -42,7 +42,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // Allow importing from src directory
-      '@': resolve(__dirname, 'assets/src'),
+      '@': resolve(__dirname, 'src'),
     },
   },
   // Dev server configuration

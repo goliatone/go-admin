@@ -2,16 +2,16 @@ package renderers
 
 import (
 	"bytes"
-	"path/filepath"
 	"testing"
 
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTemplateRendererSupportsGoDashboardSignature(t *testing.T) {
-	renderer, err := NewTemplateRenderer(filepath.Join("..", "templates"))
+	renderer, err := NewTemplateRenderer(client.Templates())
 	if err != nil {
 		t.Fatalf("renderer init: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestNormalizeData_UnsupportedType(t *testing.T) {
 }
 
 func TestRenderGoDashboardPayload_Integration(t *testing.T) {
-	renderer, err := NewTemplateRenderer(filepath.Join("..", "templates"))
+	renderer, err := NewTemplateRenderer(client.Templates())
 	require.NoError(t, err)
 
 	// Full go-dashboard payload as would come from controller.LayoutPayload()

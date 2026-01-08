@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-type allowAuthorizer struct{}
+type tabsAllowAuthorizer struct{}
 
-func (allowAuthorizer) Can(context.Context, string, string) bool { return true }
+func (tabsAllowAuthorizer) Can(context.Context, string, string) bool { return true }
 
-type denyAuthorizer struct{}
+type tabsDenyAuthorizer struct{}
 
-func (denyAuthorizer) Can(context.Context, string, string) bool { return false }
+func (tabsDenyAuthorizer) Can(context.Context, string, string) bool { return false }
 
 func TestDerivePanelTabIDDeterministic(t *testing.T) {
 	tab := PanelTab{
@@ -40,7 +40,7 @@ func TestNormalizePanelTabDefaultsScopeAndContexts(t *testing.T) {
 }
 
 func TestMergePanelTabsFiltersByPermission(t *testing.T) {
-	admin := &Admin{authorizer: denyAuthorizer{}}
+	admin := &Admin{authorizer: tabsDenyAuthorizer{}}
 	ctx := AdminContext{Context: context.Background()}
 	allowed := PanelTab{
 		ID:     "public",
@@ -63,7 +63,7 @@ func TestMergePanelTabsFiltersByPermission(t *testing.T) {
 }
 
 func TestMergePanelTabsCollisionKeepsFirst(t *testing.T) {
-	admin := &Admin{authorizer: allowAuthorizer{}}
+	admin := &Admin{authorizer: tabsAllowAuthorizer{}}
 	ctx := AdminContext{Context: context.Background()}
 	first := PanelTab{
 		ID:     "dup",
@@ -85,7 +85,7 @@ func TestMergePanelTabsCollisionKeepsFirst(t *testing.T) {
 }
 
 func TestMergePanelTabsDeniedOwnerDoesNotBlockAllowed(t *testing.T) {
-	admin := &Admin{authorizer: denyAuthorizer{}}
+	admin := &Admin{authorizer: tabsDenyAuthorizer{}}
 	ctx := AdminContext{Context: context.Background()}
 	owner := PanelTab{
 		ID:         "dup",
@@ -108,7 +108,7 @@ func TestMergePanelTabsDeniedOwnerDoesNotBlockAllowed(t *testing.T) {
 }
 
 func TestMergePanelTabsCollisionHandlerOverwrite(t *testing.T) {
-	admin := &Admin{authorizer: allowAuthorizer{}}
+	admin := &Admin{authorizer: tabsAllowAuthorizer{}}
 	admin.panelTabCollisionHandler = func(string, PanelTab, PanelTab) (PanelTab, error) {
 		return PanelTab{ID: "dup", Label: "Second", Scope: PanelTabScopeDetail, Target: PanelTabTarget{Type: "panel", Panel: "second"}}, nil
 	}
@@ -136,7 +136,7 @@ func TestMergePanelTabsCollisionHandlerOverwrite(t *testing.T) {
 }
 
 func TestMergePanelTabsCollisionHandlerError(t *testing.T) {
-	admin := &Admin{authorizer: allowAuthorizer{}}
+	admin := &Admin{authorizer: tabsAllowAuthorizer{}}
 	admin.panelTabCollisionHandler = func(string, PanelTab, PanelTab) (PanelTab, error) {
 		return PanelTab{}, errors.New("collision failure")
 	}
@@ -158,7 +158,7 @@ func TestMergePanelTabsCollisionHandlerError(t *testing.T) {
 }
 
 func TestMergePanelTabsCollisionHandlerRejectedChoiceKeepsExisting(t *testing.T) {
-	admin := &Admin{authorizer: denyAuthorizer{}}
+	admin := &Admin{authorizer: tabsDenyAuthorizer{}}
 	admin.panelTabCollisionHandler = func(string, PanelTab, PanelTab) (PanelTab, error) {
 		return PanelTab{
 			ID:         "dup",
