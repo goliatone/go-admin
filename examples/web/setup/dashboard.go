@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-dashboard/components/dashboard"
@@ -161,6 +162,8 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		},
 	})
 
+	registerUserDetailWidgets(dash, activitySink)
+
 	// System health widget
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:        "admin.widget.system_health",
@@ -178,6 +181,77 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 
 	// Register ECharts chart widgets
 	registerChartWidgets(dash, dataStores)
+}
+
+func registerUserDetailWidgets(dash *admin.Dashboard, activitySink admin.ActivitySink) {
+	if dash == nil {
+		return
+	}
+	dash.RegisterArea(admin.WidgetAreaDefinition{
+		Code:  helpers.UserProfileAreaCode,
+		Name:  "User Profile",
+		Scope: helpers.UserDetailAreaScope,
+	})
+	dash.RegisterArea(admin.WidgetAreaDefinition{
+		Code:  helpers.UserActivityAreaCode,
+		Name:  "User Activity",
+		Scope: helpers.UserDetailAreaScope,
+	})
+	dash.RegisterProvider(admin.DashboardProviderSpec{
+		Code:        helpers.UserProfileWidgetCode,
+		Name:        helpers.UserProfileWidgetLabel,
+		DefaultArea: helpers.UserProfileAreaCode,
+		DefaultConfig: map[string]any{
+			"values": map[string]any{
+				"Username": "",
+				"Email":    "",
+				"Role":     "",
+				"Status":   "",
+				"Created":  "",
+			},
+		},
+		Handler: func(_ admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+			values := map[string]any{}
+			switch raw := cfg["values"].(type) {
+			case map[string]any:
+				values = raw
+			case map[string]string:
+				for key, val := range raw {
+					values[key] = val
+				}
+			}
+			return map[string]any{"values": values}, nil
+		},
+	})
+	dash.RegisterProvider(admin.DashboardProviderSpec{
+		Code:        helpers.UserActivityWidgetCode,
+		Name:        helpers.UserActivityWidgetLabel,
+		DefaultArea: helpers.UserActivityAreaCode,
+		DefaultConfig: map[string]any{
+			"limit":   5,
+			"channel": "users",
+		},
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+			if activitySink == nil {
+				return map[string]any{"entries": []admin.ActivityEntry{}}, nil
+			}
+			limit := 5
+			if raw, ok := cfg["limit"].(int); ok && raw > 0 {
+				limit = raw
+			} else if rawf, ok := cfg["limit"].(float64); ok && rawf > 0 {
+				limit = int(rawf)
+			}
+			channel := "users"
+			if raw, ok := cfg["channel"].(string); ok && strings.TrimSpace(raw) != "" {
+				channel = strings.TrimSpace(raw)
+			}
+			entries, err := activitySink.List(ctx.Context, limit, admin.ActivityFilter{Channel: channel})
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"entries": entries}, nil
+		},
+	})
 }
 
 // registerChartWidgets sets up ECharts-based chart widgets
