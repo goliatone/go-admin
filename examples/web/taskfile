@@ -103,7 +103,9 @@ function ci:test:example-users {
 }
 
 function dev:serve {
-    (cd "$(pwd)/../pkg/client/assets" && lgr exec -- npm run build)
+    local root_dir
+    root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+    (cd "${root_dir}/pkg/client/assets" && lgr exec -- npm run build)
     export NAV_DEBUG=true;
     export RESET_NAV_MENU=true;
     export USE_PERSISTENT_CMS=true
