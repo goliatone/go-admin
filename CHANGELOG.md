@@ -1,5 +1,30 @@
 # Changelog
 
+# [0.4.0](https://github.com/goliatone/go-admin/compare/v0.3.0...v0.4.0) - (2026-01-08)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Facade for area def ([f95e8f9](https://github.com/goliatone/go-admin/commit/f95e8f9d7e64069908dc2971e0493ef291b5e8a3))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.4.0 ([2cac2bf](https://github.com/goliatone/go-admin/commit/2cac2bf43c773dab732bb46ab2de8bd023151256))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Tab rendering ([947b7fd](https://github.com/goliatone/go-admin/commit/947b7fda21272e4bfd9634f7222276378b6e56a3))  - (goliatone)
+- Include templates for content ([f2f1286](https://github.com/goliatone/go-admin/commit/f2f1286348bc94455ff002e9e80b31dc4508c4ef))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.3.0 ([5174a58](https://github.com/goliatone/go-admin/commit/5174a589998890c2ddf2405b5b8fb58eb1d39fd7))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Udpate assets ([10bae6c](https://github.com/goliatone/go-admin/commit/10bae6c43805a7065ff22fad450c32eab2536ba2))  - (goliatone)
+- Update examples ([e84af0f](https://github.com/goliatone/go-admin/commit/e84af0ffa6476ba8690170db1a58af49e0c14d2b))  - (goliatone)
+- Update tests ([0bd3b70](https://github.com/goliatone/go-admin/commit/0bd3b703aec2c802a3a0f830c66692fcea6eb16e))  - (goliatone)
+
 # [0.3.0](https://github.com/goliatone/go-admin/compare/v0.2.0...v0.3.0) - (2026-01-08)
 
 ## <!-- 1 -->🐛 Bug Fixes
