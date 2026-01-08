@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"strings"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
@@ -17,10 +18,13 @@ type TemplateRenderer struct {
 	renderer *gotemplate.Engine
 }
 
-// NewTemplateRenderer creates a renderer with Pongo2 templates
-func NewTemplateRenderer(templatesDir string) (*TemplateRenderer, error) {
+// NewTemplateRenderer creates a renderer with Pongo2 templates.
+func NewTemplateRenderer(templatesFS fs.FS) (*TemplateRenderer, error) {
+	if templatesFS == nil {
+		return nil, fmt.Errorf("templates filesystem is required")
+	}
 	renderer, err := gotemplate.NewRenderer(
-		gotemplate.WithBaseDir(templatesDir),
+		gotemplate.WithFS(templatesFS),
 		gotemplate.WithExtension(".html"),
 		gotemplate.WithTemplateFunc(helpers.TemplateFuncs()),
 	)
