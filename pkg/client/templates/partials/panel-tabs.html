@@ -8,6 +8,8 @@
         role="tab"
         aria-selected="{% if active_tab == tab.id %}true{% else %}false{% endif %}"
         {% if tab.id %}data-tab-id="{{ tab.id }}"{% endif %}
+        {% if tab.inline %}data-inline="true"{% endif %}
+        {% if tab.render_mode %}data-render-mode="{{ tab.render_mode }}"{% endif %}
       >
         {% if tab.icon %}
           <i class="iconoir-{{ tab.icon }} panel-tab-icon"></i>
