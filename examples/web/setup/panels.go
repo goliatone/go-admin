@@ -53,6 +53,17 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 			admin.Field{Name: "created_at", Label: "Created", Type: "datetime", ReadOnly: true},
 			admin.Field{Name: "last_login", Label: "Last Login", Type: "datetime", ReadOnly: true},
 		).
+		Tabs(
+			admin.PanelTab{
+				ID:         "details",
+				Label:      "Details",
+				Icon:       "user",
+				Position:   0,
+				Scope:      admin.PanelTabScopeDetail,
+				Permission: "admin.users.view",
+				Target:     admin.PanelTabTarget{Type: "panel", Panel: "users"},
+			},
+		).
 		Filters(
 			admin.Filter{Name: "role", Type: "select"},
 			admin.Filter{Name: "status", Type: "select"},
