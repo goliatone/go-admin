@@ -36,7 +36,7 @@ import (
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
-//go:embed templates/* openapi/*
+//go:embed openapi/*
 var webFS embed.FS
 
 // loginPayload adapts form/json login data to the go-auth LoginPayload interface.
@@ -129,7 +129,7 @@ func main() {
 		quickstart.WithExportAsyncInProcess(10*time.Minute),
 	)
 	if cfg.Features.Export {
-		exportTemplatesFS := helpers.MustSubFS(webFS, "templates")
+		exportTemplatesFS := client.Templates()
 		if err := configureExportRenderers(exportBundle, exportTemplatesFS); err != nil {
 			log.Fatalf("failed to configure export renderers: %v", err)
 		}
@@ -289,7 +289,10 @@ func main() {
 
 	// Initialize form generator
 	openapiFS := helpers.MustSubFS(webFS, "openapi")
-	formTemplatesFS := helpers.MustSubFS(webFS, "templates/formgen/vanilla")
+	formTemplatesFS, err := fs.Sub(client.Templates(), "formgen/vanilla")
+	if err != nil {
+		log.Fatalf("failed to access form templates: %v", err)
+	}
 	formGenerator, err := quickstart.NewFormGenerator(openapiFS, formTemplatesFS)
 	if err != nil {
 		log.Fatalf("failed to initialize form generator: %v", err)
@@ -297,9 +300,8 @@ func main() {
 
 	// Initialize view engine
 	viewEngine, err := quickstart.NewViewEngine(
-		webFS,
+		client.FS(),
 		quickstart.WithViewTemplateFuncs(helpers.TemplateFuncs()),
-		quickstart.WithViewAssetsFS(client.Assets()),
 	)
 	if err != nil {
 		log.Fatalf("failed to initialize view engine: %v", err)
