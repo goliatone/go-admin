@@ -21,6 +21,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-crud"
@@ -35,7 +36,7 @@ import (
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
-//go:embed assets/* templates/* openapi/*
+//go:embed openapi/*
 var webFS embed.FS
 
 // loginPayload adapts form/json login data to the go-auth LoginPayload interface.
@@ -128,7 +129,7 @@ func main() {
 		quickstart.WithExportAsyncInProcess(10*time.Minute),
 	)
 	if cfg.Features.Export {
-		exportTemplatesFS := helpers.MustSubFS(webFS, "templates")
+		exportTemplatesFS := client.Templates()
 		if err := configureExportRenderers(exportBundle, exportTemplatesFS); err != nil {
 			log.Fatalf("failed to configure export renderers: %v", err)
 		}
@@ -288,14 +289,20 @@ func main() {
 
 	// Initialize form generator
 	openapiFS := helpers.MustSubFS(webFS, "openapi")
-	formTemplatesFS := helpers.MustSubFS(webFS, "templates/formgen/vanilla")
+	formTemplatesFS, err := fs.Sub(client.Templates(), "formgen/vanilla")
+	if err != nil {
+		log.Fatalf("failed to access form templates: %v", err)
+	}
 	formGenerator, err := quickstart.NewFormGenerator(openapiFS, formTemplatesFS)
 	if err != nil {
 		log.Fatalf("failed to initialize form generator: %v", err)
 	}
 
 	// Initialize view engine
-	viewEngine, err := quickstart.NewViewEngine(webFS, quickstart.WithViewTemplateFuncs(helpers.TemplateFuncs()))
+	viewEngine, err := quickstart.NewViewEngine(
+		client.FS(),
+		quickstart.WithViewTemplateFuncs(helpers.TemplateFuncs()),
+	)
 	if err != nil {
 		log.Fatalf("failed to initialize view engine: %v", err)
 	}
@@ -309,16 +316,23 @@ func main() {
 	// This avoids 404s when the running binary was compiled without the latest generated assets
 	// (e.g., output.css, assets/dist/*) and supports iterative frontend builds.
 	var diskAssetsDir string
-	if _, err := os.Stat(path.Join("assets", "output.css")); err == nil {
+	if _, err := os.Stat(path.Join("pkg", "client", "assets", "output.css")); err == nil {
+		diskAssetsDir = path.Join("pkg", "client", "assets")
+	} else if _, err := os.Stat(path.Join("..", "pkg", "client", "assets", "output.css")); err == nil {
+		diskAssetsDir = path.Join("..", "pkg", "client", "assets")
+	} else if _, err := os.Stat(path.Join("assets", "output.css")); err == nil {
 		diskAssetsDir = "assets"
-	} else if _, err := os.Stat(path.Join("examples", "web", "assets", "output.css")); err == nil {
-		diskAssetsDir = path.Join("examples", "web", "assets")
 	}
-	staticOpts := []quickstart.StaticAssetsOption{}
+
+	assetsBasePath := path.Join(cfg.BasePath, "assets")
 	if diskAssetsDir != "" {
-		staticOpts = append(staticOpts, quickstart.WithDiskAssetsDir(diskAssetsDir))
+		diskAssetsFS := os.DirFS(diskAssetsDir)
+		assetsFS := helpers.WithFallbackFS(diskAssetsFS, client.Assets(), quickstart.SidebarAssetsFS())
+		r.Static(assetsBasePath, ".", router.Static{FS: assetsFS, Root: "."})
+	} else {
+		client.RegisterAssets(r, assetsBasePath)
 	}
-	quickstart.NewStaticAssets(r, cfg, webFS, staticOpts...)
+	quickstart.NewStaticAssets(r, cfg, nil, quickstart.WithAssetsPrefix(""))
 
 	// Register modules
 	modules := []admin.Module{

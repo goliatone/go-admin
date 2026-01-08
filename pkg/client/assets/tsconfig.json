@@ -10,8 +10,8 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "./assets/dist",
-    "rootDir": "./assets/src",
+    "outDir": "./dist",
+    "rootDir": "./src",
     "removeComments": false,
     "noEmitOnError": true,
     "forceConsistentCasingInFileNames": true,
@@ -20,10 +20,10 @@
     "noEmit": false
   },
   "include": [
-    "assets/src/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "assets/dist"
+    "dist"
   ]
 }

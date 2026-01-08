@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	"github.com/goliatone/go-admin/pkg/client"
 	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
@@ -74,7 +75,7 @@ func TestUserProfilesTimezoneEditRendersCurrentValueMetadata(t *testing.T) {
 }
 
 func TestUserProfilesTemplateLoadsRelationshipsRuntime(t *testing.T) {
-	f, err := webFS.Open("templates/resources/user-profiles/form.html")
+	f, err := client.Templates().Open("resources/user-profiles/form.html")
 	if err != nil {
 		t.Fatalf("open template: %v", err)
 	}
