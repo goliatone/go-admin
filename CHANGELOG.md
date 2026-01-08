@@ -1,5 +1,34 @@
 # Changelog
 
+# [0.3.0](https://github.com/goliatone/go-admin/compare/v0.2.0...v0.3.0) - (2026-01-08)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Root dir to client ([874155d](https://github.com/goliatone/go-admin/commit/874155d7aa213ef20eab1c0d05a6c3076f9b66e0))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.3.0 ([6c7d6ed](https://github.com/goliatone/go-admin/commit/6c7d6ed157bc2da9b9e70468076a964a1cdc6149))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Move templates to client ([f86a97c](https://github.com/goliatone/go-admin/commit/f86a97c9eb84a2a47fb2608171b2aa6ee433f769))  - (goliatone)
+- Move assets from example to package ([5716566](https://github.com/goliatone/go-admin/commit/5716566dec232517e5005bc6ce6f090ec46e8809))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.2.0 ([e6c0f9c](https://github.com/goliatone/go-admin/commit/e6c0f9c46266a38b79d2eb4d459f48778508bc86))  - (goliatone)
+
+## <!-- 30 -->📝 Other
+
+- PR [#1](https://github.com/goliatone/go-admin/pull/1): assets ([7ea34fc](https://github.com/goliatone/go-admin/commit/7ea34fc835088d90a4c9f3424ae72b32f7b82fd7))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update assets runtime ([5d2b8d9](https://github.com/goliatone/go-admin/commit/5d2b8d95480df5a5919a0eab23347883481c892c))  - (goliatone)
+- Update task to serve assets ([72e8058](https://github.com/goliatone/go-admin/commit/72e8058bd83d96d5ce422abea37f79c0fee100a1))  - (goliatone)
+- Update tests ([f405780](https://github.com/goliatone/go-admin/commit/f4057805ee988481d86d6887cb7bfa3be04069b6))  - (goliatone)
+
 # [0.2.0](https://github.com/goliatone/go-admin/compare/v0.1.0...v0.2.0) - (2026-01-07)
 
 ## <!-- 13 -->📦 Bumps
