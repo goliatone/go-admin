@@ -674,6 +674,8 @@ func main() {
 	r.Post(path.Join(cfg.BasePath, "users"), authn.WrapHandler(userHandlers.Create))
 	r.Get(path.Join(cfg.BasePath, "users/:id/edit"), authn.WrapHandler(userHandlers.Edit))
 	r.Post(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Update))
+	r.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), authn.WrapHandler(userHandlers.TabHTML))
+	r.Get(path.Join(cfg.BasePath, "api", "users", ":id", "tabs", ":tab"), authn.WrapHandler(userHandlers.TabJSON))
 	r.Get(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Detail))
 	r.Post(path.Join(cfg.BasePath, "users/:id/delete"), authn.WrapHandler(userHandlers.Delete))
 
