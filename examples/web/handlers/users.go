@@ -33,6 +33,8 @@ type UserHandlers struct {
 	Admin         *admin.Admin
 	Config        admin.Config
 	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
+	TabResolver   helpers.TabContentResolver
+	TabMode       helpers.TabRenderModeSelector
 }
 
 func userDataGridColumns() []helpers.DataGridColumn {
@@ -59,12 +61,33 @@ func NewUserHandlers(
 	cfg admin.Config,
 	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext,
 ) *UserHandlers {
+	tabResolver := helpers.NewTabContentRegistry()
+	tabResolver.Register("users", "details", helpers.TabContentSpec{
+		Kind: helpers.TabContentDetails,
+	})
+	tabResolver.Register("users", "profile", helpers.TabContentSpec{
+		Kind:     helpers.TabContentCMS,
+		AreaCode: helpers.UserProfileAreaCode,
+	})
+	tabResolver.Register("users", "activity", helpers.TabContentSpec{
+		Kind:     helpers.TabContentDashboard,
+		AreaCode: helpers.UserActivityAreaCode,
+	})
+	tabMode := helpers.TabRenderModeSelector{
+		Default: helpers.TabRenderModeSSR,
+		Overrides: map[string]helpers.TabRenderMode{
+			helpers.TabKey("users", "profile"):  helpers.TabRenderModeClient,
+			helpers.TabKey("users", "activity"): helpers.TabRenderModeHybrid,
+		},
+	}
 	return &UserHandlers{
 		Store:         store,
 		FormGenerator: formGen,
 		Admin:         adm,
 		Config:        cfg,
 		WithNav:       withNav,
+		TabResolver:   tabResolver,
+		TabMode:       tabMode,
 	}
 }
 
@@ -155,6 +178,10 @@ func (h *UserHandlers) Detail(c router.Context) error {
 	}
 	id := c.Param("id")
 	ctx := c.Context()
+	activeTab := strings.TrimSpace(c.Query("tab", ""))
+	if activeTab == "" {
+		activeTab = "details"
+	}
 
 	user, err := h.Store.Get(ctx, id)
 	if err != nil {
@@ -164,17 +191,28 @@ func (h *UserHandlers) Detail(c router.Context) error {
 	if err != nil {
 		tabs = nil
 	}
-	tabViews := helpers.BuildPanelTabViews(tabs, h.Config.BasePath, user)
+	detailPath := path.Join(h.Config.BasePath, "users", id)
+	tabViews := helpers.BuildPanelTabViews(tabs, helpers.PanelTabViewOptions{
+		Context:      ctx,
+		PanelName:    "users",
+		BasePath:     h.Config.BasePath,
+		DetailPath:   detailPath,
+		Record:       user,
+		Resolver:     h.TabResolver,
+		ModeSelector: h.TabMode,
+	})
+	activeSpec, activeDef := h.resolveTabSpec(ctx, user, tabs, activeTab)
+	if activeTab != "details" && (activeDef == nil || !helpers.IsInlineTab(activeSpec)) {
+		activeTab = "details"
+		activeSpec, activeDef = h.resolveTabSpec(ctx, user, tabs, activeTab)
+	}
+	if !helpers.IsInlineTab(activeSpec) {
+		activeSpec = helpers.TabContentSpec{Kind: helpers.TabContentDetails}
+	}
+	tabPanel := h.buildTabPanel(c, user, activeTab, activeDef, activeSpec)
 
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
-	fields := []map[string]any{
-		{"label": "Username", "value": user["username"]},
-		{"label": "Email", "value": user["email"]},
-		{"label": "Role", "value": user["role"]},
-		{"label": "Status", "value": user["status"]},
-		{"label": "Created", "value": user["created_at"]},
-		{"label": "Last Login", "value": user["last_login"]},
-	}
+	fields := userDetailFields(user)
 	user["actions"] = routes.ActionsMap(id)
 
 	viewCtx := h.WithNav(router.ViewContext{
@@ -186,9 +224,96 @@ func (h *UserHandlers) Detail(c router.Context) error {
 		"resource_item":  user,
 		"fields":         fields,
 		"tabs":           tabViews,
+		"active_tab":     activeTab,
+		"tab_panel":      tabPanel,
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/detail", viewCtx)
+}
+
+// TabHTML handles GET /users/:id/tabs/:tab - renders tab panel HTML for hybrid mode.
+func (h *UserHandlers) TabHTML(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	tabID := strings.TrimSpace(c.Param("tab"))
+	if tabID == "" {
+		return goerrors.New("tab id required", goerrors.CategoryValidation).
+			WithCode(goerrors.CodeBadRequest)
+	}
+	ctx := c.Context()
+	user, err := h.Store.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	tabs, err := helpers.FetchPanelTabs(c, h.Config, "users", id)
+	if err != nil {
+		return err
+	}
+	spec, tabDef := h.resolveTabSpec(ctx, user, tabs, tabID)
+	if tabID != "details" && tabDef == nil {
+		return goerrors.New("tab not found", goerrors.CategoryNotFound).
+			WithCode(goerrors.CodeNotFound)
+	}
+	if !helpers.IsInlineTab(spec) {
+		return goerrors.New("tab is not available for inline rendering", goerrors.CategoryValidation).
+			WithCode(goerrors.CodeBadRequest)
+	}
+	tabPanel := h.buildTabPanel(c, user, tabID, tabDef, spec)
+	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
+	user["actions"] = routes.ActionsMap(id)
+
+	viewCtx := router.ViewContext{
+		"resource":       "users",
+		"resource_label": "Users",
+		"resource_item":  user,
+		"fields":         userDetailFields(user),
+		"tab_panel":      tabPanel,
+	}
+	return c.Render("partials/tab-panel", viewCtx)
+}
+
+// TabJSON handles GET /admin/api/users/:id/tabs/:tab - returns tab panel JSON for client mode.
+func (h *UserHandlers) TabJSON(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	tabID := strings.TrimSpace(c.Param("tab"))
+	if tabID == "" {
+		return goerrors.New("tab id required", goerrors.CategoryValidation).
+			WithCode(goerrors.CodeBadRequest)
+	}
+	ctx := c.Context()
+	user, err := h.Store.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	tabs, err := helpers.FetchPanelTabs(c, h.Config, "users", id)
+	if err != nil {
+		return err
+	}
+	spec, tabDef := h.resolveTabSpec(ctx, user, tabs, tabID)
+	if tabID != "details" && tabDef == nil {
+		return goerrors.New("tab not found", goerrors.CategoryNotFound).
+			WithCode(goerrors.CodeNotFound)
+	}
+	if !helpers.IsInlineTab(spec) {
+		return goerrors.New("tab is not available for inline rendering", goerrors.CategoryValidation).
+			WithCode(goerrors.CodeBadRequest)
+	}
+	tabPanel := h.buildTabPanel(c, user, tabID, tabDef, spec)
+	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
+	user["actions"] = routes.ActionsMap(id)
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"tab":            tabPanel,
+		"record":         user,
+		"fields":         userDetailFields(user),
+		"resource":       "users",
+		"resource_label": "Users",
+	})
 }
 
 // Edit handles GET /users/:id/edit - displays user edit form
@@ -349,6 +474,101 @@ func (h *UserHandlers) guard(c router.Context, action string) error {
 	return goerrors.New("forbidden", goerrors.CategoryAuthz).
 		WithCode(goerrors.CodeForbidden).
 		WithTextCode("FORBIDDEN")
+}
+
+func (h *UserHandlers) resolveTabSpec(ctx context.Context, user map[string]any, tabs []admin.PanelTab, tabID string) (helpers.TabContentSpec, *admin.PanelTab) {
+	if tabID == "" || tabID == "details" {
+		return helpers.TabContentSpec{Kind: helpers.TabContentDetails}, findPanelTab(tabs, "details")
+	}
+	tabDef := findPanelTab(tabs, tabID)
+	if tabDef == nil {
+		return helpers.TabContentSpec{Kind: helpers.TabContentDetails}, nil
+	}
+	if h.TabResolver != nil {
+		if spec, err := h.TabResolver.ResolveTabContent(ctx, "users", user, *tabDef); err == nil && spec.Kind != "" {
+			return spec, tabDef
+		}
+	}
+	return helpers.TabContentSpec{}, tabDef
+}
+
+func (h *UserHandlers) buildTabPanel(c router.Context, user map[string]any, tabID string, tabDef *admin.PanelTab, spec helpers.TabContentSpec) map[string]any {
+	if spec.Kind == "" {
+		spec.Kind = helpers.TabContentDetails
+	}
+	tabPanel := map[string]any{
+		"id":            tabID,
+		"kind":          string(spec.Kind),
+		"area_code":     spec.AreaCode,
+		"empty_message": helpers.UserDetailEmptyPanelNotice,
+	}
+	if spec.Panel != "" {
+		tabPanel["panel"] = spec.Panel
+	}
+	if spec.Template != "" {
+		tabPanel["template"] = spec.Template
+	}
+	if spec.Data != nil {
+		tabPanel["data"] = spec.Data
+	}
+	if tabDef != nil {
+		if spec.Kind == helpers.TabContentPanel && spec.Panel == "" && tabDef.Target.Type == "panel" {
+			tabPanel["panel"] = tabDef.Target.Panel
+		}
+		if href := helpers.PanelTabHref(*tabDef, h.Config.BasePath, user); href != "" {
+			tabPanel["href"] = href
+		}
+	}
+	if spec.Kind == helpers.TabContentDashboard || spec.Kind == helpers.TabContentCMS {
+		adminCtx := buildDashboardContext(c, h.Config)
+		widgets, err := helpers.ResolveTabWidgets(adminCtx, h.Admin, h.Config.BasePath, spec.AreaCode)
+		if err == nil {
+			helpers.ApplyUserProfileWidgetOverrides(widgets, user)
+			tabPanel["widgets"] = widgets
+		}
+	}
+	return tabPanel
+}
+
+func userDetailFields(user map[string]any) []map[string]any {
+	return []map[string]any{
+		{"label": "Username", "value": user["username"]},
+		{"label": "Email", "value": user["email"]},
+		{"label": "Role", "value": user["role"]},
+		{"label": "Status", "value": user["status"]},
+		{"label": "Created", "value": user["created_at"]},
+		{"label": "Last Login", "value": user["last_login"]},
+	}
+}
+
+func findPanelTab(tabs []admin.PanelTab, id string) *admin.PanelTab {
+	if id == "" {
+		return nil
+	}
+	for i := range tabs {
+		if tabs[i].ID == id {
+			return &tabs[i]
+		}
+	}
+	return nil
+}
+
+func buildDashboardContext(c router.Context, cfg admin.Config) admin.AdminContext {
+	ctx := c.Context()
+	userID := strings.TrimSpace(c.Header("X-User-ID"))
+	if actor, ok := authlib.ActorFromRouterContext(c); ok && actor != nil {
+		if actor.ActorID != "" {
+			userID = actor.ActorID
+		} else if actor.Subject != "" {
+			userID = actor.Subject
+		}
+		ctx = authlib.WithActorContext(ctx, actor)
+	}
+	return admin.AdminContext{
+		Context: ctx,
+		UserID:  userID,
+		Locale:  cfg.DefaultLocale,
+	}
 }
 
 func normalizeMetadataObjectInput(raw string) (any, error) {
