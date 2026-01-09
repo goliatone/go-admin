@@ -1,5 +1,25 @@
 # Changelog
 
+# [0.5.0](https://github.com/goliatone/go-admin/compare/v0.4.0...v0.5.0) - (2026-01-09)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.5.0 ([9ef8aa4](https://github.com/goliatone/go-admin/commit/9ef8aa4f49eb84b8b78a762449e1bdfd65f60ec7))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Form generator incorporate optional configuration ([cb0f24e](https://github.com/goliatone/go-admin/commit/cb0f24e45ac1f4b9f917fe0ec09520d4c82e1f69))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.4.0 ([8d82a17](https://github.com/goliatone/go-admin/commit/8d82a17861e8b9032b7eaaad9775cf0e513693ab))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([bf8de80](https://github.com/goliatone/go-admin/commit/bf8de800d43d2ae3072eb3f85a2002eda0852398))  - (goliatone)
+- Update tests ([1742f70](https://github.com/goliatone/go-admin/commit/1742f70018356eb1d1236981739fa4da52fff053))  - (goliatone)
+- Update deps ([394935c](https://github.com/goliatone/go-admin/commit/394935ce0ca19f7bc53a98d416e9bbb0ec5372ef))  - (goliatone)
+
 # [0.4.0](https://github.com/goliatone/go-admin/compare/v0.3.0...v0.4.0) - (2026-01-08)
 
 ## <!-- 1 -->🐛 Bug Fixes
