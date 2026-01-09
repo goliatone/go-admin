@@ -104,7 +104,7 @@ func NewFormGenerator(openapiFS fs.FS, templatesFS fs.FS, opts ...FormGeneratorO
 		uiSchemaFS = sub
 	}
 
-	opts := []formgenorchestrator.Option{
+	orchestratorOpts := []formgenorchestrator.Option{
 		formgenorchestrator.WithLoader(loader),
 		formgenorchestrator.WithParser(formgen.NewParser()),
 		formgenorchestrator.WithModelBuilder(formgenmodel.NewBuilder()),
@@ -112,8 +112,8 @@ func NewFormGenerator(openapiFS fs.FS, templatesFS fs.FS, opts ...FormGeneratorO
 		formgenorchestrator.WithDefaultRenderer(vanillaRenderer.Name()),
 	}
 	if uiSchemaFS != nil {
-		opts = append(opts, formgenorchestrator.WithUISchemaFS(uiSchemaFS))
+		orchestratorOpts = append(orchestratorOpts, formgenorchestrator.WithUISchemaFS(uiSchemaFS))
 	}
 
-	return formgen.NewOrchestrator(opts...), nil
+	return formgen.NewOrchestrator(orchestratorOpts...), nil
 }
