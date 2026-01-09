@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.7.0](https://github.com/goliatone/go-admin/compare/v0.6.0...v0.7.0) - (2026-01-09)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Typeo ([7b04a27](https://github.com/goliatone/go-admin/commit/7b04a27175ddeadfca7f1cdb1cb19a721086a981))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.7.0 ([46d5fc3](https://github.com/goliatone/go-admin/commit/46d5fc3dbda97903dfea5fdb61cbaabd29317941))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.6.0 ([65975f3](https://github.com/goliatone/go-admin/commit/65975f307e782ad8876c1b1b2b04420253c21e58))  - (goliatone)
+
 # [0.6.0](https://github.com/goliatone/go-admin/compare/v0.5.0...v0.6.0) - (2026-01-09)
 
 ## <!-- 13 -->📦 Bumps
