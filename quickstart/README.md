@@ -25,7 +25,10 @@ Each helper is optional and composable.
 - `WithDashboardTemplatesFS(fsys fs.FS) DashboardRendererOption` - Inputs: template FS; outputs: renderer option for overrides.
 - `WithDashboardEmbeddedTemplates(enabled bool) DashboardRendererOption` - Inputs: boolean; outputs: renderer option to enable/disable embedded templates.
 - `NewCompositeActivitySink(primary admin.ActivitySink, hooks dashboardactivity.Hooks, cfg dashboardactivity.Config) admin.ActivitySink` - Inputs: primary sink, dashboard hooks/config. Outputs: activity sink bridge.
-- `NewFormGenerator(openapiFS fs.FS, templatesFS fs.FS) (*formgenorchestrator.Orchestrator, error)` - Inputs: OpenAPI FS and templates FS. Outputs: form generator orchestrator and error.
+- `NewFormGenerator(openapiFS fs.FS, templatesFS fs.FS, opts ...FormGeneratorOption) (*formgenorchestrator.Orchestrator, error)` - Inputs: OpenAPI FS, templates FS, optional configuration. Outputs: form generator orchestrator and error.
+- `WithComponentRegistry(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that replaces default components (clean replace).
+- `WithComponentRegistryMergeDefaults(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that merges into defaults, overriding matching names.
+- `WithVanillaOption(opt formgenvanilla.Option) FormGeneratorOption` - Inputs: vanilla renderer option; outputs: option applied last so it can override templates/styles/registry.
 
 ## Usage example
 ```go
@@ -123,6 +126,26 @@ if err != nil {
 }
 _ = formgen
 ```
+
+```go
+registry := components.New()
+registry.MustRegister("permission-matrix", components.Descriptor{
+	Renderer: permissionMatrixRenderer,
+})
+
+formgen, err := quickstart.NewFormGenerator(
+	os.DirFS("./openapi"),
+	os.DirFS("./forms"),
+	quickstart.WithComponentRegistryMergeDefaults(registry),
+	quickstart.WithVanillaOption(formgenvanilla.WithStylesheet("/admin/assets/forms.css")),
+)
+if err != nil {
+	return err
+}
+_ = formgen
+```
+
+`WithVanillaOption(...)` is applied last, so it can override templates/styles/registry. Use `WithComponentRegistry(...)` instead of the merge option to replace defaults entirely.
 
 ## Stage 1 minimal flow
 - Build config with `WithFeaturesExplicit(DefaultMinimalFeatures())`.
