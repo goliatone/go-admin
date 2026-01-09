@@ -13,7 +13,7 @@ require (
 	github.com/goliatone/go-errors v0.9.0
 	github.com/goliatone/go-export v0.3.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.0.0-20260107043437-42444165f3bf
-	github.com/goliatone/go-formgen v0.13.0
+	github.com/goliatone/go-formgen v0.14.0
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
 	github.com/goliatone/go-notifications v0.10.0
