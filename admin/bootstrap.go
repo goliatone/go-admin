@@ -159,7 +159,7 @@ func (a *Admin) requirePermission(ctx AdminContext, permission string, resource 
 		return nil
 	}
 	if !a.authorizer.Can(ctx.Context, permission, resource) {
-		return ErrForbidden
+		return permissionDenied(permission, resource)
 	}
 	return nil
 }
