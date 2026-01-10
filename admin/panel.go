@@ -406,7 +406,7 @@ func applyMediaHints(schema *Schema, libraryPath string) {
 func (p *Panel) Get(ctx AdminContext, id string) (map[string]any, error) {
 	if p.permissions.View != "" && p.authorizer != nil {
 		if !p.authorizer.Can(ctx.Context, p.permissions.View, p.name) {
-			return nil, ErrForbidden
+			return nil, permissionDenied(p.permissions.View, p.name)
 		}
 	}
 	return p.repo.Get(ctx.Context, id)
@@ -416,7 +416,7 @@ func (p *Panel) Get(ctx AdminContext, id string) (map[string]any, error) {
 func (p *Panel) List(ctx AdminContext, opts ListOptions) ([]map[string]any, int, error) {
 	if p.permissions.View != "" && p.authorizer != nil {
 		if !p.authorizer.Can(ctx.Context, p.permissions.View, p.name) {
-			return nil, 0, ErrForbidden
+			return nil, 0, permissionDenied(p.permissions.View, p.name)
 		}
 	}
 	return p.repo.List(ctx.Context, opts)
@@ -426,7 +426,7 @@ func (p *Panel) List(ctx AdminContext, opts ListOptions) ([]map[string]any, int,
 func (p *Panel) Create(ctx AdminContext, record map[string]any) (map[string]any, error) {
 	if p.permissions.Create != "" && p.authorizer != nil {
 		if !p.authorizer.Can(ctx.Context, p.permissions.Create, p.name) {
-			return nil, ErrForbidden
+			return nil, permissionDenied(p.permissions.Create, p.name)
 		}
 	}
 	if p.hooks.BeforeCreate != nil {
@@ -454,7 +454,7 @@ func (p *Panel) Create(ctx AdminContext, record map[string]any) (map[string]any,
 func (p *Panel) Update(ctx AdminContext, id string, record map[string]any) (map[string]any, error) {
 	if p.permissions.Edit != "" && p.authorizer != nil {
 		if !p.authorizer.Can(ctx.Context, p.permissions.Edit, p.name) {
-			return nil, ErrForbidden
+			return nil, permissionDenied(p.permissions.Edit, p.name)
 		}
 	}
 	if p.hooks.BeforeUpdate != nil {
@@ -482,7 +482,7 @@ func (p *Panel) Update(ctx AdminContext, id string, record map[string]any) (map[
 func (p *Panel) Delete(ctx AdminContext, id string) error {
 	if p.permissions.Delete != "" && p.authorizer != nil {
 		if !p.authorizer.Can(ctx.Context, p.permissions.Delete, p.name) {
-			return ErrForbidden
+			return permissionDenied(p.permissions.Delete, p.name)
 		}
 	}
 	if p.hooks.BeforeDelete != nil {
@@ -510,7 +510,7 @@ func (p *Panel) RunAction(ctx AdminContext, name string) error {
 	for _, action := range p.actions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
 			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
-				return ErrForbidden
+				return permissionDenied(action.Permission, p.name)
 			}
 			err := p.commandBus.Dispatch(ctx.Context, action.CommandName)
 			if err == nil {
@@ -530,7 +530,7 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string) error {
 	for _, action := range p.bulkActions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
 			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
-				return ErrForbidden
+				return permissionDenied(action.Permission, p.name)
 			}
 			err := p.commandBus.Dispatch(ctx.Context, action.CommandName)
 			if err == nil {
