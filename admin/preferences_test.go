@@ -102,6 +102,19 @@ func TestPreferencesPanelRequiresPermissions(t *testing.T) {
 	if rr.Code != 403 {
 		t.Fatalf("expected 403 when permission denied, got %d", rr.Code)
 	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if meta["permission"] != "admin.preferences.view" {
+		t.Fatalf("expected permission metadata, got %v", meta["permission"])
+	}
+	if meta["resource"] != "preferences" {
+		t.Fatalf("expected resource metadata, got %v", meta["resource"])
+	}
 }
 
 func TestPreferencesInfluenceThemeResolution(t *testing.T) {
