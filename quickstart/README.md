@@ -9,8 +9,13 @@ Each helper is optional and composable.
 - `DefaultMinimalFeatures() admin.Features` - Outputs: minimal Stage 1 feature set (`Dashboard` + `CMS`).
 - `WithFeaturesExplicit(features admin.Features) AdminConfigOption` - Inputs: feature set; outputs: config option that replaces defaults and clears `FeatureFlags`.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
+- `NewAdminWithGoUsersPreferences(cfg admin.Config, repo types.PreferenceRepository, opts ...PreferencesOption) (*admin.Admin, error)` - Inputs: config, go-users preference repo, options. Outputs: admin instance.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
+- `EnablePreferences() PreferencesOption` - Inputs: none; outputs: option to enable `FeaturePreferences`.
+- `EnableFeature(feature admin.FeatureKey) PreferencesOption` - Inputs: feature key; outputs: option to enable a single feature flag.
 - `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
+- `PreferencesPermissions() []PermissionDefinition` - Outputs: default preferences permission definitions.
+- `RegisterPreferencesPermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers default preferences permissions).
 - `NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool) fiber.ErrorHandler` - Inputs: admin, config, dev flag. Outputs: Fiber error handler.
 - `NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error)` - Inputs: base FS and view options. Outputs: Fiber views engine and error.
 - `NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App])` - Inputs: views, config, admin, dev flag, server options. Outputs: go-router server adapter and router.
@@ -146,6 +151,46 @@ _ = formgen
 ```
 
 `WithVanillaOption(...)` is applied last, so it can override templates/styles/registry. Use `WithComponentRegistry(...)` instead of the merge option to replace defaults entirely.
+
+## Preferences quickstart
+- `FeaturePreferences` remains opt-in: pass `EnablePreferences()` or set `cfg.Features.Preferences`/`cfg.FeatureFlags` yourself.
+- A 403 on `/admin/api/preferences` usually means the default permissions are missing (`admin.preferences.view`, `admin.preferences.edit`).
+
+```go
+prefsStore, err := quickstart.NewGoUsersPreferencesStore(preferenceRepo)
+if err != nil {
+	return err
+}
+
+adm, err := admin.New(cfg, admin.Dependencies{
+	PreferencesStore: prefsStore,
+})
+if err != nil {
+	return err
+}
+_ = adm
+```
+
+```go
+adm, err := quickstart.NewAdminWithGoUsersPreferences(
+	cfg,
+	preferenceRepo,
+	quickstart.EnablePreferences(),
+)
+if err != nil {
+	return err
+}
+_ = adm
+```
+
+```go
+err := quickstart.RegisterPreferencesPermissions(func(def quickstart.PermissionDefinition) error {
+	return permissions.Register(def.Key, def.Description)
+})
+if err != nil {
+	return err
+}
+```
 
 ## Stage 1 minimal flow
 - Build config with `WithFeaturesExplicit(DefaultMinimalFeatures())`.
