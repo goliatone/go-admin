@@ -53,6 +53,24 @@ func WithVanillaOption(opt formgenvanilla.Option) FormGeneratorOption {
 	}
 }
 
+// MergeComponentDescriptors combines a default descriptor with an override.
+// Renderer uses the override when provided; assets are appended.
+func MergeComponentDescriptors(base, override components.Descriptor) components.Descriptor {
+	out := base
+	out.Stylesheets = append([]string(nil), base.Stylesheets...)
+	out.Scripts = append([]components.Script(nil), base.Scripts...)
+	if override.Renderer != nil {
+		out.Renderer = override.Renderer
+	}
+	if len(override.Stylesheets) > 0 {
+		out.Stylesheets = append(out.Stylesheets, override.Stylesheets...)
+	}
+	if len(override.Scripts) > 0 {
+		out.Scripts = append(out.Scripts, override.Scripts...)
+	}
+	return out
+}
+
 // NewFormGenerator creates a form generator from OpenAPI and template filesystems.
 func NewFormGenerator(openapiFS fs.FS, templatesFS fs.FS, opts ...FormGeneratorOption) (*formgenorchestrator.Orchestrator, error) {
 	if openapiFS == nil {
@@ -81,7 +99,12 @@ func NewFormGenerator(openapiFS fs.FS, templatesFS fs.FS, opts ...FormGeneratorO
 		merged := components.NewDefaultRegistry()
 		for _, name := range componentRegistry.Names() {
 			if descriptor, ok := componentRegistry.Descriptor(name); ok {
-				merged.MustRegister(name, descriptor)
+				if baseDescriptor, ok := merged.Descriptor(name); ok {
+					descriptor = MergeComponentDescriptors(baseDescriptor, descriptor)
+				}
+				if err := merged.Register(name, descriptor); err != nil {
+					return nil, fmt.Errorf("merge component registry: %s: %w", name, err)
+				}
 			}
 		}
 		componentRegistry = merged

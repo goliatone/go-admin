@@ -3,6 +3,7 @@ package quickstart
 import (
 	"bytes"
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -113,5 +114,52 @@ func TestNewFormGeneratorReplaceComponentRegistry(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), `component "input" not registered`) {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestMergeComponentDescriptors(t *testing.T) {
+	baseRenderer := func(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
+		_ = buf
+		_ = field
+		_ = data
+		return nil
+	}
+	overrideRenderer := func(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
+		_ = buf
+		_ = field
+		_ = data
+		return nil
+	}
+
+	base := components.Descriptor{
+		Renderer:    baseRenderer,
+		Stylesheets: []string{"base.css"},
+		Scripts: []components.Script{
+			{Src: "base.js"},
+		},
+	}
+	override := components.Descriptor{
+		Renderer:    overrideRenderer,
+		Stylesheets: []string{"override.css"},
+		Scripts: []components.Script{
+			{Src: "override.js"},
+		},
+	}
+
+	merged := MergeComponentDescriptors(base, override)
+	if got, want := reflect.ValueOf(merged.Renderer).Pointer(), reflect.ValueOf(overrideRenderer).Pointer(); got != want {
+		t.Fatalf("expected override renderer to win")
+	}
+	if len(merged.Stylesheets) != 2 {
+		t.Fatalf("expected merged stylesheets, got %d", len(merged.Stylesheets))
+	}
+	if merged.Stylesheets[0] != "base.css" || merged.Stylesheets[1] != "override.css" {
+		t.Fatalf("unexpected stylesheet order: %v", merged.Stylesheets)
+	}
+	if len(merged.Scripts) != 2 {
+		t.Fatalf("expected merged scripts, got %d", len(merged.Scripts))
+	}
+	if merged.Scripts[0].Src != "base.js" || merged.Scripts[1].Src != "override.js" {
+		t.Fatalf("unexpected script order: %v", merged.Scripts)
 	}
 }
