@@ -163,6 +163,7 @@ func toGoError(err error) (*goerrors.Error, int) {
 	var mapped *goerrors.Error
 	var validation SettingsValidationErrors
 	var invalid InvalidFeatureConfigError
+	var permission PermissionDeniedError
 
 	switch {
 	case errors.As(err, &validation):
@@ -189,6 +190,21 @@ func toGoError(err error) (*goerrors.Error, int) {
 			"issues": issues,
 		}
 		status = http.StatusBadRequest
+	case errors.As(err, &permission):
+		mapped = goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
+			WithCode(http.StatusForbidden).
+			WithTextCode("FORBIDDEN")
+		meta := map[string]any{}
+		if permission.Permission != "" {
+			meta["permission"] = permission.Permission
+		}
+		if permission.Resource != "" {
+			meta["resource"] = permission.Resource
+		}
+		if len(meta) > 0 {
+			mapped.Metadata = meta
+		}
+		status = http.StatusForbidden
 	case errors.Is(err, ErrForbidden):
 		mapped = goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
 			WithCode(http.StatusForbidden).
