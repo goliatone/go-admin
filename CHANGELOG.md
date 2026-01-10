@@ -1,5 +1,28 @@
 # Changelog
 
+# [0.8.0](https://github.com/goliatone/go-admin/compare/v0.7.0...v0.8.0) - (2026-01-10)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.8.0 ([61250b7](https://github.com/goliatone/go-admin/commit/61250b79d9a962a6c805494a012bcd96ebba7206))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Better error info ([e3b9e16](https://github.com/goliatone/go-admin/commit/e3b9e162078e102b91993cc2a3a870a4ab5895cb))  - (goliatone)
+- Acl to panel ([005c558](https://github.com/goliatone/go-admin/commit/005c558b0a0f19a2383219b570faeabf857af7f3))  - (goliatone)
+- Form generator confit ([baf5b90](https://github.com/goliatone/go-admin/commit/baf5b9058a686c170e0f1b95d8867b9f3bb60585))  - (goliatone)
+- Preferences setup ([25b6998](https://github.com/goliatone/go-admin/commit/25b6998c3eec95f71a4fe69991db8e1881054d54))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.7.0 ([ca5e55d](https://github.com/goliatone/go-admin/commit/ca5e55dc4e437e623408ede668acc881c507659d))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([458bf30](https://github.com/goliatone/go-admin/commit/458bf30fd100a536b83e635ece882a6de2a9778f))  - (goliatone)
+- Update readme ([06ead95](https://github.com/goliatone/go-admin/commit/06ead95634977ab7a74d6d5e0051ac3f7871951f))  - (goliatone)
+- Update deps ([f165ab8](https://github.com/goliatone/go-admin/commit/f165ab8b67e3819f72d429b06a4c94c23f794b7b))  - (goliatone)
+
 # [0.7.0](https://github.com/goliatone/go-admin/compare/v0.6.0...v0.7.0) - (2026-01-09)
 
 ## <!-- 1 -->🐛 Bug Fixes
