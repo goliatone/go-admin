@@ -206,7 +206,19 @@ func (r *PreferencesRepository) Update(ctx context.Context, id string, record ma
 	if userID == "" || (id != "" && id != userID) {
 		return nil, ErrForbidden
 	}
-	prefs := r.preferencesFromRecord(record)
+	prefs, clearKeys := r.preferencesFromRecord(record)
+	if len(clearKeys) > 0 {
+		if _, err := r.service.Clear(ctx, userID, clearKeys); err != nil {
+			return nil, err
+		}
+		if len(preferencesToMap(prefs)) == 0 {
+			updated, err := r.service.Get(ctx, userID)
+			if err != nil {
+				return nil, err
+			}
+			return r.recordFromPreferences(updated), nil
+		}
+	}
 	updated, err := r.service.Save(ctx, userID, prefs)
 	if err != nil {
 		return nil, err
@@ -236,7 +248,7 @@ func (r *PreferencesRepository) recordFromPreferences(prefs UserPreferences) map
 	return record
 }
 
-func (r *PreferencesRepository) preferencesFromRecord(record map[string]any) UserPreferences {
+func (r *PreferencesRepository) preferencesFromRecord(record map[string]any) (UserPreferences, []string) {
 	prefs := UserPreferences{
 		Raw: map[string]any{},
 	}
@@ -259,7 +271,11 @@ func (r *PreferencesRepository) preferencesFromRecord(record map[string]any) Use
 		prefs.DashboardPrefs = expandDashboardOverrides(val)
 		prefs.Raw[preferencesKeyDashboardPrefs] = flattenDashboardOverrides(prefs.DashboardPrefs)
 	}
-	return prefs
+	clearKeys := filterClearPreferenceKeys(toStringSlice(record["clear"]))
+	if len(clearKeys) == 0 {
+		clearKeys = filterClearPreferenceKeys(toStringSlice(record["clear_keys"]))
+	}
+	return prefs, clearKeys
 }
 
 func filterAllowedRawPreferences(raw map[string]any) map[string]any {
@@ -298,4 +314,32 @@ func isAllowedRawPreferenceKey(key string) bool {
 		}
 	}
 	return true
+}
+
+func filterClearPreferenceKeys(keys []string) []string {
+	if len(keys) == 0 {
+		return nil
+	}
+	out := []string{}
+	seen := map[string]bool{}
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" || seen[key] {
+			continue
+		}
+		if isClearablePreferenceKey(key) {
+			out = append(out, key)
+			seen[key] = true
+		}
+	}
+	return out
+}
+
+func isClearablePreferenceKey(key string) bool {
+	switch key {
+	case preferencesKeyTheme, preferencesKeyThemeVariant, preferencesKeyDashboardLayout, preferencesKeyDashboardPrefs:
+		return true
+	default:
+		return isAllowedRawPreferenceKey(key)
+	}
 }
