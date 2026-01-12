@@ -21,6 +21,11 @@ type PreferencesStore interface {
 	Save(ctx context.Context, userID string, prefs map[string]any) error
 }
 
+// PreferencesClearer optionally supports delete semantics for stored preferences.
+type PreferencesClearer interface {
+	Clear(ctx context.Context, userID string, keys []string) error
+}
+
 // InMemoryPreferencesStore keeps preferences per-user in memory.
 type InMemoryPreferencesStore struct {
 	mu     sync.RWMutex
@@ -182,6 +187,49 @@ func (s *PreferencesService) Save(ctx context.Context, userID string, prefs User
 	return s.applyDefaults(preferencesFromMap(userID, merged)), nil
 }
 
+// Clear removes stored preference keys for a user.
+func (s *PreferencesService) Clear(ctx context.Context, userID string, keys []string) (UserPreferences, error) {
+	if s == nil {
+		return UserPreferences{}, errors.New("preferences service not configured")
+	}
+	if userID == "" {
+		return UserPreferences{}, ErrForbidden
+	}
+	keys = normalizePreferenceKeys(keys)
+	if len(keys) == 0 {
+		return s.Get(ctx, userID)
+	}
+	if clearer, ok := s.store.(PreferencesClearer); ok && clearer != nil {
+		if err := clearer.Clear(ctx, userID, keys); err != nil {
+			return UserPreferences{}, err
+		}
+		s.recordActivity(ctx, userID, keysToUpdateMap(keys))
+		return s.Get(ctx, userID)
+	}
+	current, err := s.store.Get(ctx, userID)
+	if err != nil {
+		return UserPreferences{}, err
+	}
+	changed := false
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		if _, ok := current[key]; ok {
+			delete(current, key)
+			changed = true
+		}
+	}
+	if !changed {
+		return s.applyDefaults(preferencesFromMap(userID, current)), nil
+	}
+	if err := s.store.Save(ctx, userID, current); err != nil {
+		return UserPreferences{}, err
+	}
+	s.recordActivity(ctx, userID, keysToUpdateMap(keys))
+	return s.applyDefaults(preferencesFromMap(userID, current)), nil
+}
+
 // SaveDashboardLayout stores dashboard layout preferences for a user.
 func (s *PreferencesService) SaveDashboardLayout(ctx context.Context, userID string, layout []DashboardWidgetInstance) (UserPreferences, error) {
 	if userID == "" {
@@ -279,6 +327,34 @@ func (s *PreferencesService) recordActivity(ctx context.Context, userID string, 
 			"keys":    keys,
 		},
 	})
+}
+
+func normalizePreferenceKeys(keys []string) []string {
+	if len(keys) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(keys))
+	seen := map[string]bool{}
+	for _, key := range keys {
+		key = toString(key)
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, key)
+	}
+	return out
+}
+
+func keysToUpdateMap(keys []string) map[string]any {
+	out := map[string]any{}
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		out[key] = nil
+	}
+	return out
 }
 
 func preferencesFromMap(userID string, raw map[string]any) UserPreferences {
