@@ -13,6 +13,7 @@ Each helper is optional and composable.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
 - `EnablePreferences() PreferencesOption` - Inputs: none; outputs: option to enable `FeaturePreferences`.
 - `EnableFeature(feature admin.FeatureKey) PreferencesOption` - Inputs: feature key; outputs: option to enable a single feature flag.
+- `WithPreferencesAdapterHooks(hooks AdapterHooks) PreferencesOption` - Inputs: adapter hooks; outputs: option to apply quickstart adapter wiring.
 - `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
 - `PreferencesPermissions() []PermissionDefinition` - Outputs: default preferences permission definitions.
 - `RegisterPreferencesPermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers default preferences permissions).
