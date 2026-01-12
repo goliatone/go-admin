@@ -10,6 +10,7 @@ type PreferencesOption func(*preferencesOptions)
 
 type preferencesOptions struct {
 	enabledFeatures map[admin.FeatureKey]bool
+	hooks           AdapterHooks
 }
 
 // EnableFeature enables a single admin feature key.
@@ -30,6 +31,16 @@ func EnablePreferences() PreferencesOption {
 	return EnableFeature(admin.FeaturePreferences)
 }
 
+// WithPreferencesAdapterHooks sets adapter hooks used by NewAdminWithGoUsersPreferences.
+func WithPreferencesAdapterHooks(hooks AdapterHooks) PreferencesOption {
+	return func(opts *preferencesOptions) {
+		if opts == nil {
+			return
+		}
+		opts.hooks = hooks
+	}
+}
+
 // NewAdminWithGoUsersPreferences wires a go-users preferences store and returns an admin instance.
 func NewAdminWithGoUsersPreferences(cfg admin.Config, repo types.PreferenceRepository, opts ...PreferencesOption) (*admin.Admin, error) {
 	store, err := NewGoUsersPreferencesStore(repo)
@@ -43,7 +54,11 @@ func NewAdminWithGoUsersPreferences(cfg admin.Config, repo types.PreferenceRepos
 		}
 	}
 	cfg = applyPreferencesOptions(cfg, options)
-	return admin.New(cfg, admin.Dependencies{PreferencesStore: store})
+	adm, _, err := NewAdmin(cfg, options.hooks, WithAdminDependencies(admin.Dependencies{PreferencesStore: store}))
+	if err != nil {
+		return nil, err
+	}
+	return adm, nil
 }
 
 func applyPreferencesOptions(cfg admin.Config, options preferencesOptions) admin.Config {
