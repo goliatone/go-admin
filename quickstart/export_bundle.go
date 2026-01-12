@@ -30,19 +30,19 @@ type ExportBundle struct {
 type ExportBundleOption func(*exportBundleOptions)
 
 type exportBundleOptions struct {
-	basePath           string
-	pathSuffix         string
-	historyPath        string
-	guard              export.Guard
-	actorProvider      export.ActorProvider
-	store              export.ArtifactStore
-	tracker            export.ProgressTracker
-	logger             export.Logger
-	deliveryPolicy     export.DeliveryPolicy
+	basePath              string
+	pathSuffix            string
+	historyPath           string
+	guard                 export.Guard
+	actorProvider         export.ActorProvider
+	store                 export.ArtifactStore
+	tracker               export.ProgressTracker
+	logger                export.Logger
+	deliveryPolicy        export.DeliveryPolicy
 	asyncRequesterFactory AsyncRequesterFactory
-	requestDecoder     exportapi.RequestDecoder
-	queryRequestDecoder exportapi.RequestDecoder
-	maxBufferBytes     int64
+	requestDecoder        exportapi.RequestDecoder
+	queryRequestDecoder   exportapi.RequestDecoder
+	maxBufferBytes        int64
 }
 
 // WithExportBasePath overrides the default export base path.
@@ -336,7 +336,7 @@ type exportHTTPRegistrar struct {
 	runner              *export.Runner
 	store               export.ArtifactStore
 	guard               export.Guard
-	actorProvider        export.ActorProvider
+	actorProvider       export.ActorProvider
 	deliveryPolicy      export.DeliveryPolicy
 	asyncRequester      exportapi.AsyncRequester
 	requestDecoder      exportapi.RequestDecoder
