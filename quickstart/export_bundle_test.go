@@ -31,22 +31,22 @@ func (r *recordingRouter) has(method, path string) bool {
 
 func (r *recordingRouter) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.record("GET", path)
-	return router.RouteInfo{}
+	return nil
 }
 
 func (r *recordingRouter) Post(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.record("POST", path)
-	return router.RouteInfo{}
+	return nil
 }
 
 func (r *recordingRouter) Put(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.record("PUT", path)
-	return router.RouteInfo{}
+	return nil
 }
 
 func (r *recordingRouter) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.record("DELETE", path)
-	return router.RouteInfo{}
+	return nil
 }
 
 func TestExportBundleWiresRegistryAndRoutes(t *testing.T) {
