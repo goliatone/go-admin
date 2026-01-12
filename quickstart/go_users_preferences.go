@@ -57,12 +57,35 @@ func (s *GoUsersPreferencesStore) Save(ctx context.Context, userID string, prefs
 		return fmt.Errorf("preferences store not configured")
 	}
 	for key, val := range prefs {
-		_, _ = s.repo.UpsertPreference(ctx, types.PreferenceRecord{
+		_, err := s.repo.UpsertPreference(ctx, types.PreferenceRecord{
 			Key:    strings.ToLower(strings.TrimSpace(key)),
 			UserID: uid,
 			Level:  types.PreferenceLevelUser,
 			Value:  map[string]any{"value": val},
 		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *GoUsersPreferencesStore) Clear(ctx context.Context, userID string, keys []string) error {
+	uid, err := uuid.Parse(strings.TrimSpace(userID))
+	if err != nil || uid == uuid.Nil {
+		return fmt.Errorf("invalid user id")
+	}
+	if s == nil || s.repo == nil {
+		return fmt.Errorf("preferences store not configured")
+	}
+	for _, key := range keys {
+		key = strings.ToLower(strings.TrimSpace(key))
+		if key == "" {
+			continue
+		}
+		if err := s.repo.DeletePreference(ctx, uid, types.ScopeFilter{}, types.PreferenceLevelUser, key); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -85,3 +108,4 @@ func flattenPreferences(input map[string]any) map[string]any {
 }
 
 var _ admin.PreferencesStore = (*GoUsersPreferencesStore)(nil)
+var _ admin.PreferencesClearer = (*GoUsersPreferencesStore)(nil)
