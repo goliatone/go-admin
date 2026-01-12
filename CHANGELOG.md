@@ -1,5 +1,30 @@
 # Changelog
 
+# [0.10.0](https://github.com/goliatone/go-admin/compare/v0.9.0...v0.10.0) - (2026-01-12)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Test for routes ([e2ad961](https://github.com/goliatone/go-admin/commit/e2ad961a0a0467bea1d0c04bec721a6c0823bb8e))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.10.0 ([9cc7ae6](https://github.com/goliatone/go-admin/commit/9cc7ae6834710cce65bc38103f6f78741dd3e18c))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Clear method to user preferences ([545f9b7](https://github.com/goliatone/go-admin/commit/545f9b74bc38b8aeafaad6ef8ca75d6709b61fdf))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.9.0 ([bb014e7](https://github.com/goliatone/go-admin/commit/bb014e74f1d82cca213824856400021031163271))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update style ([ad42b8a](https://github.com/goliatone/go-admin/commit/ad42b8a6939ac13dc67eeda838c81ced1d298911))  - (goliatone)
+- Update deps ([c711a3d](https://github.com/goliatone/go-admin/commit/c711a3def10d644475444788170256096d44163c))  - (goliatone)
+- Update tests ([e4ea429](https://github.com/goliatone/go-admin/commit/e4ea429be9e9ccb68b64841b196bea446b3731c2))  - (goliatone)
+- Update readme ([1a81250](https://github.com/goliatone/go-admin/commit/1a812501eee6d4a1f50b1fffface4d25ab39552c))  - (goliatone)
+
 # [0.9.0](https://github.com/goliatone/go-admin/compare/v0.8.0...v0.9.0) - (2026-01-12)
 
 ## <!-- 13 -->📦 Bumps
