@@ -157,8 +157,6 @@ github.com/goliatone/go-export v0.3.0 h1:/07YrWoXg/O+Z2tZ7SlxTP001aQ9cDQ4Lj99LB7
 github.com/goliatone/go-export v0.3.0/go.mod h1:UPOMkN0hI/7B2cpXI1Q0WA65h6e88vuxvp8omUO2+hs=
 github.com/goliatone/go-export/adapters/template/go-template v0.0.0-20260107043437-42444165f3bf h1:8qyzgGu906M+9tkuYlBC/fDIsBxtpL27oqWlD81x970=
 github.com/goliatone/go-export/adapters/template/go-template v0.0.0-20260107043437-42444165f3bf/go.mod h1:oyvTgAQxBfWd0QA+giCC44OmFt8b5SRNp/mSA6fyTjc=
-github.com/goliatone/go-formgen v0.13.0 h1:j69HamI4Oz58xj8a0NcBP56rsmx85n7fxV6Do0vxH3I=
-github.com/goliatone/go-formgen v0.13.0/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
 github.com/goliatone/go-formgen v0.14.0 h1:H2znJBKMRqhnGJRQ4uhbpyFjkMXgHLkS3nxUQFjwcr4=
 github.com/goliatone/go-formgen v0.14.0/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
 github.com/goliatone/go-i18n v0.2.0 h1:TDKJYZgJQq5koQ5aybM8+9NbhhlKNTPeGug4MrH/HNc=
