@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http/httptest"
 	"testing"
 
@@ -14,8 +15,9 @@ import (
 )
 
 type stubPreferenceRepo struct {
-	records map[string]types.PreferenceRecord
-	upserts []types.PreferenceRecord
+	records   map[string]types.PreferenceRecord
+	upserts   []types.PreferenceRecord
+	upsertErr error
 }
 
 func newStubPreferenceRepo() *stubPreferenceRepo {
@@ -42,6 +44,9 @@ func (s *stubPreferenceRepo) ListPreferences(_ context.Context, filter types.Pre
 }
 
 func (s *stubPreferenceRepo) UpsertPreference(_ context.Context, record types.PreferenceRecord) (*types.PreferenceRecord, error) {
+	if s.upsertErr != nil {
+		return nil, s.upsertErr
+	}
 	if record.ID == uuid.Nil {
 		record.ID = uuid.New()
 	}
@@ -155,6 +160,20 @@ func TestGoUsersPreferencesStoreSaveRequiresValidUserID(t *testing.T) {
 
 	if err := store.Save(context.Background(), "invalid-id", map[string]any{"theme": "dark"}); err == nil {
 		t.Fatalf("expected error for invalid user id")
+	}
+}
+
+func TestGoUsersPreferencesStoreSaveSurfacesUpsertErrors(t *testing.T) {
+	repo := newStubPreferenceRepo()
+	repo.upsertErr = errors.New("upsert failed")
+	store, err := NewGoUsersPreferencesStore(repo)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	uid := uuid.New()
+	if err := store.Save(context.Background(), uid.String(), map[string]any{"theme": "dark"}); err == nil {
+		t.Fatalf("expected error from upsert")
 	}
 }
 
