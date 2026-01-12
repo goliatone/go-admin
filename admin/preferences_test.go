@@ -281,3 +281,64 @@ func TestPreferencesUpdateRoundTripViaAPIStoresRawUIKeysAndStripsReserved(t *tes
 		})
 	}
 }
+
+func TestPreferencesClearKeysViaAPI(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Theme:         "base",
+		Features: Features{
+			Preferences: true,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	server := router.NewHTTPServer()
+
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	_, err := adm.preferences.Save(context.Background(), "user-1", UserPreferences{
+		Theme: "teal",
+		Raw: map[string]any{
+			"ui.datagrid.users.columns": map[string]any{"order": []any{"email"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("seed preferences: %v", err)
+	}
+
+	payload := map[string]any{
+		"clear": []any{"theme", "ui.datagrid.users.columns"},
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest("PUT", "/admin/api/preferences/user-1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 on clear, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if toString(resp["theme"]) != "base" {
+		t.Fatalf("expected theme to reset to default, got %v", resp["theme"])
+	}
+	raw := extractMap(resp["raw"])
+	if _, ok := raw["ui.datagrid.users.columns"]; ok {
+		t.Fatalf("expected raw key cleared, got %v", raw)
+	}
+
+	stored, err := adm.preferences.Store().Get(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("get stored preferences: %v", err)
+	}
+	if _, ok := stored["theme"]; ok {
+		t.Fatalf("expected theme key to be removed, got %v", stored["theme"])
+	}
+	if _, ok := stored["ui.datagrid.users.columns"]; ok {
+		t.Fatalf("expected ui key removed from store, got %v", stored)
+	}
+}
