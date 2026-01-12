@@ -106,10 +106,10 @@ func TestNewStaticAssetsPrefersDiskAssets(t *testing.T) {
 	r := &stubRouter{}
 	cfg := admin.Config{BasePath: "/admin"}
 	diskFS := fstest.MapFS{
-		"app.js": {Data: []byte("disk")},
+		"assets/app.js": {Data: []byte("disk")},
 	}
 	embeddedFS := fstest.MapFS{
-		"app.js": {Data: []byte("embedded")},
+		"assets/app.js": {Data: []byte("embedded")},
 	}
 
 	NewStaticAssets(r, cfg, embeddedFS, WithDiskAssetsFS(diskFS))
