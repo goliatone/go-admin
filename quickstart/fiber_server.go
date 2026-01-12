@@ -11,10 +11,10 @@ import (
 type FiberServerOption func(*fiberServerOptions)
 
 type fiberServerOptions struct {
-	config        fiber.Config
-	errorHandler  fiber.ErrorHandler
-	middleware    []fiber.Handler
-	enableLogger  bool
+	config       fiber.Config
+	errorHandler fiber.ErrorHandler
+	middleware   []fiber.Handler
+	enableLogger bool
 }
 
 // WithFiberConfig overrides the default Fiber config.

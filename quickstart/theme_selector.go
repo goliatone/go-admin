@@ -124,9 +124,9 @@ func NewThemeSelector(name, variant string, tokenOverrides map[string]string, op
 
 func defaultThemeManifest(name string, tokenOverrides map[string]string, options themeOptions) *theme.Manifest {
 	tokens := map[string]string{
-		"primary": "#2563eb",
-		"accent":  "#f59e0b",
-		"surface": "#1C1C1E",
+		"primary":               "#2563eb",
+		"accent":                "#f59e0b",
+		"surface":               "#1C1C1E",
 		"sidebar-width":         "260px",
 		"sidebar-padding-x":     "12px",
 		"sidebar-padding-y":     "12px",
