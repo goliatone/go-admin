@@ -95,17 +95,25 @@ func (s *GoUsersPreferencesStore) Upsert(ctx context.Context, input admin.Prefer
 	if s == nil || s.repo == nil || s.upsert == nil {
 		return admin.PreferenceSnapshot{}, preferenceConfigError("preferences store not configured")
 	}
+	level := normalizeAdminLevel(input.Level)
+	if err := validateAdminScope(level, input.Scope); err != nil {
+		return admin.PreferenceSnapshot{}, err
+	}
 	scope, err := toUsersScope(input.Scope)
 	if err != nil {
 		return admin.PreferenceSnapshot{}, err
 	}
-	userID, err := parseRequiredUserUUID(input.Scope.UserID)
+	actorID, err := parseRequiredUserUUID(input.Scope.UserID)
 	if err != nil {
 		return admin.PreferenceSnapshot{}, err
 	}
-	level, err := toUsersLevel(normalizeAdminLevel(input.Level))
+	usersLevel, err := toUsersLevel(level)
 	if err != nil {
 		return admin.PreferenceSnapshot{}, err
+	}
+	userID := uuid.Nil
+	if level == admin.PreferenceLevelUser {
+		userID = actorID
 	}
 	updates := normalizePreferenceValues(input.Values)
 	if len(updates) == 0 {
@@ -117,10 +125,10 @@ func (s *GoUsersPreferencesStore) Upsert(ctx context.Context, input admin.Prefer
 		err := s.upsert.Execute(ctx, command.PreferenceUpsertInput{
 			UserID: userID,
 			Scope:  scope,
-			Level:  level,
+			Level:  usersLevel,
 			Key:    key,
 			Value:  map[string]any{"value": val},
-			Actor:  types.ActorRef{ID: userID},
+			Actor:  types.ActorRef{ID: actorID},
 			Result: &record,
 		})
 		if err != nil {
@@ -134,26 +142,34 @@ func (s *GoUsersPreferencesStore) Delete(ctx context.Context, input admin.Prefer
 	if s == nil || s.repo == nil || s.deleter == nil {
 		return preferenceConfigError("preferences store not configured")
 	}
+	level := normalizeAdminLevel(input.Level)
+	if err := validateAdminScope(level, input.Scope); err != nil {
+		return err
+	}
 	scope, err := toUsersScope(input.Scope)
 	if err != nil {
 		return err
 	}
-	userID, err := parseRequiredUserUUID(input.Scope.UserID)
+	actorID, err := parseRequiredUserUUID(input.Scope.UserID)
 	if err != nil {
 		return err
 	}
-	level, err := toUsersLevel(normalizeAdminLevel(input.Level))
+	usersLevel, err := toUsersLevel(level)
 	if err != nil {
 		return err
+	}
+	userID := uuid.Nil
+	if level == admin.PreferenceLevelUser {
+		userID = actorID
 	}
 	keys := normalizePreferenceKeys(input.Keys)
 	for _, key := range keys {
 		if err := s.deleter.Execute(ctx, command.PreferenceDeleteInput{
 			UserID: userID,
 			Scope:  scope,
-			Level:  level,
+			Level:  usersLevel,
 			Key:    key,
-			Actor:  types.ActorRef{ID: userID},
+			Actor:  types.ActorRef{ID: actorID},
 		}); err != nil {
 			return err
 		}
@@ -469,6 +485,39 @@ func preferenceValidationError(message string, metadata map[string]any) error {
 		return err.WithMetadata(metadata)
 	}
 	return err
+}
+
+func validateAdminScope(level admin.PreferenceLevel, scope admin.PreferenceScope) error {
+	switch level {
+	case admin.PreferenceLevelSystem:
+		return nil
+	case admin.PreferenceLevelTenant:
+		if strings.TrimSpace(scope.TenantID) == "" {
+			return preferenceValidationError("tenant id required", map[string]any{
+				"field": "tenant_id",
+				"level": string(level),
+			})
+		}
+	case admin.PreferenceLevelOrg:
+		if strings.TrimSpace(scope.OrgID) == "" {
+			return preferenceValidationError("org id required", map[string]any{
+				"field": "org_id",
+				"level": string(level),
+			})
+		}
+	case admin.PreferenceLevelUser:
+		if strings.TrimSpace(scope.UserID) == "" {
+			return preferenceValidationError("user id required", map[string]any{
+				"field": "user_id",
+				"level": string(level),
+			})
+		}
+	default:
+		return preferenceValidationError("unsupported preference level", map[string]any{
+			"level": string(level),
+		})
+	}
+	return nil
 }
 
 var _ admin.PreferencesStore = (*GoUsersPreferencesStore)(nil)
