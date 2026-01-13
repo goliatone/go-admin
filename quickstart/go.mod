@@ -6,7 +6,7 @@ replace github.com/goliatone/go-admin => ..
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/goliatone/go-admin v0.0.0-00010101000000-000000000000
+	github.com/goliatone/go-admin v0.11.0
 	github.com/goliatone/go-auth v0.22.0
 	github.com/goliatone/go-cms v0.18.0
 	github.com/goliatone/go-dashboard v0.6.0
