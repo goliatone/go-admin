@@ -7,3 +7,30 @@ The core `github.com/goliatone/go-admin` module stays dependency-light and focus
 - Task plan: `QUICKBOOT_TSK.md`
 - Export refactor design: `EXPORT_REF_TDD.md`
 - Export refactor plan: `EXPORT_REF_TSK.md`
+
+## Commands (go-command)
+
+Commands are message-driven: define a message type with a stable `Type()` string, implement a `command.Commander[Msg]`, and register a message factory for name-based dispatch from HTTP/panels.
+
+```go
+type PublishPageMsg struct {
+	IDs []string
+}
+
+func (PublishPageMsg) Type() string { return "pages.publish" }
+
+type PublishPageCommand struct {
+	store *Store
+}
+
+func (c *PublishPageCommand) Execute(ctx context.Context, msg PublishPageMsg) error {
+	return c.store.Publish(ctx, msg.IDs)
+}
+
+adm.Commands().Register(&PublishPageCommand{store: store})
+admin.RegisterMessageFactory(adm.Commands(), "pages.publish", func(payload map[string]any, ids []string) (PublishPageMsg, error) {
+	return PublishPageMsg{IDs: ids}, nil
+})
+```
+
+CLI/cron metadata is optional via `command.CLICommand` (`CLIOptions`) and `command.CronCommand` (`CronOptions`).
