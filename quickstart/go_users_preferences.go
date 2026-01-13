@@ -3,10 +3,12 @@ package quickstart
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-users/command"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/goliatone/go-users/preferences"
@@ -24,7 +26,9 @@ type GoUsersPreferencesStore struct {
 // NewGoUsersPreferencesStore builds a preferences store backed by go-users.
 func NewGoUsersPreferencesStore(repo types.PreferenceRepository) (*GoUsersPreferencesStore, error) {
 	if repo == nil {
-		return nil, fmt.Errorf("preferences repository required")
+		return nil, preferenceValidationError("preferences repository required", map[string]any{
+			"field": "repository",
+		})
 	}
 	resolver, err := preferences.NewResolver(preferences.ResolverConfig{Repository: repo})
 	if err != nil {
@@ -41,7 +45,7 @@ func NewGoUsersPreferencesStore(repo types.PreferenceRepository) (*GoUsersPrefer
 
 func (s *GoUsersPreferencesStore) Resolve(ctx context.Context, input admin.PreferencesResolveInput) (admin.PreferenceSnapshot, error) {
 	if s == nil || s.repo == nil || s.resolver == nil {
-		return admin.PreferenceSnapshot{}, fmt.Errorf("preferences store not configured")
+		return admin.PreferenceSnapshot{}, preferenceConfigError("preferences store not configured")
 	}
 	scope, err := toUsersScope(input.Scope)
 	if err != nil {
@@ -89,7 +93,7 @@ func (s *GoUsersPreferencesStore) Resolve(ctx context.Context, input admin.Prefe
 
 func (s *GoUsersPreferencesStore) Upsert(ctx context.Context, input admin.PreferencesUpsertInput) (admin.PreferenceSnapshot, error) {
 	if s == nil || s.repo == nil || s.upsert == nil {
-		return admin.PreferenceSnapshot{}, fmt.Errorf("preferences store not configured")
+		return admin.PreferenceSnapshot{}, preferenceConfigError("preferences store not configured")
 	}
 	scope, err := toUsersScope(input.Scope)
 	if err != nil {
@@ -128,7 +132,7 @@ func (s *GoUsersPreferencesStore) Upsert(ctx context.Context, input admin.Prefer
 
 func (s *GoUsersPreferencesStore) Delete(ctx context.Context, input admin.PreferencesDeleteInput) error {
 	if s == nil || s.repo == nil || s.deleter == nil {
-		return fmt.Errorf("preferences store not configured")
+		return preferenceConfigError("preferences store not configured")
 	}
 	scope, err := toUsersScope(input.Scope)
 	if err != nil {
@@ -258,7 +262,9 @@ func toUsersLevel(level admin.PreferenceLevel) (types.PreferenceLevel, error) {
 	case admin.PreferenceLevelUser:
 		return types.PreferenceLevelUser, nil
 	default:
-		return "", fmt.Errorf("unsupported preference level")
+		return "", preferenceValidationError("unsupported preference level", map[string]any{
+			"level": string(level),
+		})
 	}
 }
 
@@ -299,7 +305,9 @@ func parseUserUUID(raw string) (uuid.UUID, error) {
 	}
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("invalid user id")
+		return uuid.Nil, preferenceValidationError("invalid user id", map[string]any{
+			"field": "user_id",
+		})
 	}
 	return parsed, nil
 }
@@ -310,7 +318,9 @@ func parseRequiredUserUUID(raw string) (uuid.UUID, error) {
 		return uuid.Nil, err
 	}
 	if userID == uuid.Nil {
-		return uuid.Nil, fmt.Errorf("user id required")
+		return uuid.Nil, preferenceValidationError("user id required", map[string]any{
+			"field": "user_id",
+		})
 	}
 	return userID, nil
 }
@@ -322,7 +332,9 @@ func parseScopeUUID(raw string, field string) (uuid.UUID, error) {
 	}
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("invalid %s id", field)
+		return uuid.Nil, preferenceValidationError(fmt.Sprintf("invalid %s id", field), map[string]any{
+			"field": fmt.Sprintf("%s_id", field),
+		})
 	}
 	return parsed, nil
 }
@@ -443,6 +455,20 @@ func uuidToString(id uuid.UUID) string {
 		return ""
 	}
 	return id.String()
+}
+
+func preferenceConfigError(message string) error {
+	return goerrors.New(message, goerrors.CategoryInternal).
+		WithCode(http.StatusInternalServerError)
+}
+
+func preferenceValidationError(message string, metadata map[string]any) error {
+	err := goerrors.New(message, goerrors.CategoryValidation).
+		WithCode(http.StatusBadRequest)
+	if len(metadata) > 0 {
+		return err.WithMetadata(metadata)
+	}
+	return err
 }
 
 var _ admin.PreferencesStore = (*GoUsersPreferencesStore)(nil)
