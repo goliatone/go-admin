@@ -267,6 +267,63 @@ func TestGoUsersPreferencesStoreResolveIncludesTracesAndVersions(t *testing.T) {
 	}
 }
 
+func TestGoUsersPreferencesStoreResolveHonorsTenantScope(t *testing.T) {
+	repo := newStubPreferenceRepo()
+	uid := uuid.New()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	repo.records[recordKey(types.PreferenceRecord{
+		Level: types.PreferenceLevelSystem,
+		Key:   "theme",
+	})] = types.PreferenceRecord{
+		Level:   types.PreferenceLevelSystem,
+		Key:     "theme",
+		Value:   map[string]any{"value": "system"},
+		Version: 1,
+	}
+	repo.records[recordKey(types.PreferenceRecord{
+		Scope: types.ScopeFilter{TenantID: tenantA},
+		Level: types.PreferenceLevelTenant,
+		Key:   "theme",
+	})] = types.PreferenceRecord{
+		Scope:   types.ScopeFilter{TenantID: tenantA},
+		Level:   types.PreferenceLevelTenant,
+		Key:     "theme",
+		Value:   map[string]any{"value": "tenant-a"},
+		Version: 2,
+	}
+	repo.records[recordKey(types.PreferenceRecord{
+		Scope: types.ScopeFilter{TenantID: tenantB},
+		Level: types.PreferenceLevelTenant,
+		Key:   "theme",
+	})] = types.PreferenceRecord{
+		Scope:   types.ScopeFilter{TenantID: tenantB},
+		Level:   types.PreferenceLevelTenant,
+		Key:     "theme",
+		Value:   map[string]any{"value": "tenant-b"},
+		Version: 3,
+	}
+
+	store, err := NewGoUsersPreferencesStore(repo)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	snap, err := store.Resolve(context.Background(), admin.PreferencesResolveInput{
+		Scope: admin.PreferenceScope{
+			UserID:   uid.String(),
+			TenantID: tenantA.String(),
+		},
+		Keys: []string{"theme"},
+	})
+	if err != nil {
+		t.Fatalf("resolve preferences: %v", err)
+	}
+	if snap.Effective["theme"] != "tenant-a" {
+		t.Fatalf("expected tenant-a theme, got %v", snap.Effective["theme"])
+	}
+}
+
 func TestGoUsersPreferencesStoreUpsertAndDelete(t *testing.T) {
 	repo := newStubPreferenceRepo()
 	uid := uuid.New()

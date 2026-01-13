@@ -555,6 +555,38 @@ func TestPreferencesQueryParamsIncludeTracesAndVersions(t *testing.T) {
 	}
 }
 
+func TestPreferencesQueryParamsRejectInvalidLevels(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Features: Features{
+			Preferences: true,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	server := router.NewHTTPServer()
+
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/admin/api/preferences?levels=unknown", nil)
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400 on invalid levels, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	errPayload := extractMap(resp["error"])
+	meta := extractMap(errPayload["metadata"])
+	if meta["level"] != "unknown" {
+		t.Fatalf("expected level metadata, got %v", meta["level"])
+	}
+}
+
 func TestPreferencesEmptyThemeClearsToInheritedValue(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
