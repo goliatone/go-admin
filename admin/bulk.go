@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/goliatone/go-command"
 )
 
 // BulkRequest describes a requested bulk job.
@@ -191,50 +193,22 @@ func (DisabledBulkService) Rollback(ctx context.Context, id string) (BulkJob, er
 	return BulkJob{}, FeatureDisabledError{Feature: string(FeatureBulk)}
 }
 
-type bulkContextKey string
-
-const (
-	bulkNameKey   bulkContextKey = "bulk_name"
-	bulkActionKey bulkContextKey = "bulk_action"
-	bulkTotalKey  bulkContextKey = "bulk_total"
-)
-
-func withBulkContext(ctx context.Context, req BulkRequest) context.Context {
-	ctx = context.WithValue(ctx, bulkNameKey, req.Name)
-	ctx = context.WithValue(ctx, bulkActionKey, req.Action)
-	ctx = context.WithValue(ctx, bulkTotalKey, req.Total)
-	return ctx
-}
-
-func bulkRequestFromContext(ctx context.Context) BulkRequest {
-	req := BulkRequest{}
-	if ctx == nil {
-		return req
-	}
-	if name, ok := ctx.Value(bulkNameKey).(string); ok {
-		req.Name = name
-	}
-	if action, ok := ctx.Value(bulkActionKey).(string); ok {
-		req.Action = action
-	}
-	if total, ok := ctx.Value(bulkTotalKey).(int); ok {
-		req.Total = total
-	}
-	return req
-}
+// bulk context keys removed; use BulkStartMsg instead.
 
 // BulkCommand triggers a bulk job via the command bus.
 type BulkCommand struct {
 	Service BulkService
 }
 
-func (c *BulkCommand) Name() string { return "admin.bulk" }
-
-func (c *BulkCommand) Execute(ctx context.Context) error {
+func (c *BulkCommand) Execute(ctx context.Context, msg BulkStartMsg) error {
 	if c == nil || c.Service == nil {
 		return FeatureDisabledError{Feature: string(FeatureBulk)}
 	}
-	req := bulkRequestFromContext(ctx)
+	req := BulkRequest{
+		Name:   msg.Name,
+		Action: msg.Action,
+		Total:  msg.Total,
+	}
 	if req.Name == "" {
 		return errors.New("name required")
 	}
@@ -242,11 +216,15 @@ func (c *BulkCommand) Execute(ctx context.Context) error {
 	return err
 }
 
-func (c *BulkCommand) CLIOptions() *CLIOptions {
+func (c *BulkCommand) CLIHandler() any {
+	return &NoopCLIHandler{}
+}
+
+func (c *BulkCommand) CLIOptions() command.CLIConfig {
 	if c == nil {
-		return nil
+		return command.CLIConfig{}
 	}
-	return &CLIOptions{
+	return command.CLIConfig{
 		Path:        []string{"admin", "bulk"},
 		Description: "Trigger an admin bulk job (use context to pass name/action/total)",
 		Group:       "admin",
