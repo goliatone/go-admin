@@ -139,17 +139,16 @@ func orgIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-func withQueryParams(ctx context.Context, params map[string][]string) context.Context {
+func withQueryParams(ctx context.Context, params map[string]string) context.Context {
 	if ctx == nil || len(params) == 0 {
 		return ctx
 	}
 	clone := map[string][]string{}
-	for key, values := range params {
-		if len(values) == 0 {
+	for key, value := range params {
+		if strings.TrimSpace(value) == "" {
 			continue
 		}
-		copied := append([]string(nil), values...)
-		clone[key] = copied
+		clone[key] = []string{value}
 	}
 	if len(clone) == 0 {
 		return ctx
