@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -14,6 +15,7 @@ type preferenceQueryOptions struct {
 	IncludeTraces    bool
 	IncludeVersions  bool
 	IncludeEffective bool
+	Base             map[string]any
 }
 
 func preferenceQueryOptionsFromContext(ctx context.Context) (preferenceQueryOptions, error) {
@@ -37,6 +39,12 @@ func preferenceQueryOptionsFromContext(ctx context.Context) (preferenceQueryOpti
 	}
 	if versions, ok := params["include_versions"]; ok {
 		opts.IncludeVersions = parsePreferenceQueryBool(versions)
+	}
+	if base, ok := params["base"]; ok {
+		opts.Base, err = parsePreferenceBase(base)
+		if err != nil {
+			return opts, err
+		}
 	}
 	opts.IncludeEffective = opts.IncludeTraces || opts.IncludeVersions || len(opts.Levels) > 0 || len(opts.Keys) > 0
 	return opts, nil
@@ -94,6 +102,28 @@ func parsePreferenceQueryBool(values []string) bool {
 		}
 	}
 	return false
+}
+
+func parsePreferenceBase(values []string) (map[string]any, error) {
+	raw := ""
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			raw = trimmed
+			break
+		}
+	}
+	if raw == "" {
+		return nil, nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil, goerrors.New("invalid base payload", goerrors.CategoryValidation).
+			WithCode(http.StatusBadRequest).
+			WithMetadata(map[string]any{
+				"field": "base",
+			})
+	}
+	return out, nil
 }
 
 func splitPreferenceQueryValues(values []string) []string {
