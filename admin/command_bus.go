@@ -50,6 +50,9 @@ func RegisterCommand[T any](bus *CommandBus, cmd command.Commander[T], runnerOpt
 	}
 	sub, err := registry.RegisterCommand(cmd, runnerOpts...)
 	if err != nil {
+		if sub != nil {
+			sub.Unsubscribe()
+		}
 		return nil, err
 	}
 	bus.track(sub)
@@ -63,6 +66,9 @@ func RegisterQuery[T any, R any](bus *CommandBus, qry command.Querier[T, R], run
 	}
 	sub, err := registry.RegisterQuery(qry, runnerOpts...)
 	if err != nil {
+		if sub != nil {
+			sub.Unsubscribe()
+		}
 		return nil, err
 	}
 	bus.track(sub)
