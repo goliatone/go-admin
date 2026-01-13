@@ -153,7 +153,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 	if ids := parseCommandIDs(body, c.Query("id"), c.Query("ids")); len(ids) > 0 {
 		ctx.Context = WithCommandIDs(ctx.Context, ids)
 	}
-	return p.panel.RunAction(ctx, action)
+	return p.panel.RunAction(ctx, action, body)
 }
 
 func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[string]any) error {
@@ -164,7 +164,7 @@ func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[st
 	if ids := parseCommandIDs(body, c.Query("id"), c.Query("ids")); len(ids) > 0 {
 		ctx.Context = WithCommandIDs(ctx.Context, ids)
 	}
-	return p.panel.RunBulkAction(ctx, action)
+	return p.panel.RunBulkAction(ctx, action, body)
 }
 
 type dashboardBinding struct {
