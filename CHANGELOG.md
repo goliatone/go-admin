@@ -1,5 +1,51 @@
 # Changelog
 
+# [0.12.0](https://github.com/goliatone/go-admin/compare/v0.11.0...v0.12.0) - (2026-01-13)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Tie quickstart to go-admin version ([432df56](https://github.com/goliatone/go-admin/commit/432df56f41fc2d0262ac4b6cdaea29f60679ecfe))  - (goliatone)
+- Add new interface ([5e8d15f](https://github.com/goliatone/go-admin/commit/5e8d15fb6b3a2d95ea7a6f60caf325a6c60b4a8c))  - (goliatone)
+- Include body in binding ([ecda3cc](https://github.com/goliatone/go-admin/commit/ecda3cc8e0722c1537bdc6d7d015d6acb5879ed4))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.12.0 ([4034fe7](https://github.com/goliatone/go-admin/commit/4034fe72a35c935a5ca8d23e1a3cad602e0ef958))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- View engine ([fd105e0](https://github.com/goliatone/go-admin/commit/fd105e0f55aa263f22621583a7cfd1409ac7a23f))  - (goliatone)
+- Quickstart template funcs ([b969f14](https://github.com/goliatone/go-admin/commit/b969f148ec5d71d2d8cb8ce7452ae8c9fd062db1))  - (goliatone)
+- Expose admin types ([75b4404](https://github.com/goliatone/go-admin/commit/75b44041f691c99bc2a631e70442cc337a2f86c6))  - (goliatone)
+- Command bus udpate ([9d54bf2](https://github.com/goliatone/go-admin/commit/9d54bf24aec9fe1207b1a179c47a37e1a8325e1c))  - (goliatone)
+- New command registraion flow ([2bd6904](https://github.com/goliatone/go-admin/commit/2bd6904563a69910a47559b150824fc846c37568))  - (goliatone)
+- New command bus ([e0148cd](https://github.com/goliatone/go-admin/commit/e0148cd4796d93fe1e24a71e4e1f351324b49027))  - (goliatone)
+- Register commands ([6a0c351](https://github.com/goliatone/go-admin/commit/6a0c35183aa69062d7c3c128a61ec2ca5171a47e))  - (goliatone)
+- Task to publish quickstart ([b54e24a](https://github.com/goliatone/go-admin/commit/b54e24ae5eb2cf2a56c8b5a87858dd7605c327e0))  - (goliatone)
+- CLI helpers ([2f4d126](https://github.com/goliatone/go-admin/commit/2f4d1268aff8188e070b92156c714566df22251a))  - (goliatone)
+- Cli config ([ded2aa6](https://github.com/goliatone/go-admin/commit/ded2aa67178d8ebe20d7d03a8d847c5a73d69363))  - (goliatone)
+- Command messages ([9ff75b4](https://github.com/goliatone/go-admin/commit/9ff75b4541bdb45533a9ec97bc6a7a0837e5435f))  - (goliatone)
+- Command bus ([35aa0d8](https://github.com/goliatone/go-admin/commit/35aa0d8ded5b5df513711dc751b7f638614aac49))  - (goliatone)
+- Base ([00ea34a](https://github.com/goliatone/go-admin/commit/00ea34a4c796abda3fd2c19b9e9be1a0db2e7443))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Command implementation ([084202c](https://github.com/goliatone/go-admin/commit/084202c870e5efb697b636be0ba53a5262e54fc1))  - (goliatone)
+- Update command facades ([fee1534](https://github.com/goliatone/go-admin/commit/fee15340deced6b0e02b6bed614332d718a5b123))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.11.0 ([6071942](https://github.com/goliatone/go-admin/commit/60719429173c5617d1fc12afb103f3670ba581c8))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Udpate example ([ca679ad](https://github.com/goliatone/go-admin/commit/ca679adce1c01a17438c859cc121e137ec2cb7be))  - (goliatone)
+- Update deps ([04f996a](https://github.com/goliatone/go-admin/commit/04f996aa6c015a2069a2595e12b447770fdc5a38))  - (goliatone)
+- Update readme ([1e325c7](https://github.com/goliatone/go-admin/commit/1e325c7c531186683e376b487f1ede2551ea06f3))  - (goliatone)
+- Update tests ([5acb046](https://github.com/goliatone/go-admin/commit/5acb046a52e23f2a0af10033d59030e54d4808d5))  - (goliatone)
+- Update examples ([6231d4a](https://github.com/goliatone/go-admin/commit/6231d4a8ff1d3d8d9757eb0afed1d06bbe92e052))  - (goliatone)
+- Udpate deps ([27b29d1](https://github.com/goliatone/go-admin/commit/27b29d16da4a2526d1956b98658a5655ad18fe09))  - (goliatone)
+
 # [0.11.0](https://github.com/goliatone/go-admin/compare/v0.10.0...v0.11.0) - (2026-01-13)
 
 ## <!-- 1 -->🐛 Bug Fixes
