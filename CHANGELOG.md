@@ -1,5 +1,35 @@
 # Changelog
 
+# [0.11.0](https://github.com/goliatone/go-admin/compare/v0.10.0...v0.11.0) - (2026-01-13)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Format ([f6e35e2](https://github.com/goliatone/go-admin/commit/f6e35e2c5641357c93b126300c142823275e12e9))  - (goliatone)
+- Testing prefs ([24bdf0a](https://github.com/goliatone/go-admin/commit/24bdf0a6b562824d4524498ca47743b670fdb377))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.11.0 ([8007f8a](https://github.com/goliatone/go-admin/commit/8007f8a2521ec0d0bb814a096e8e31de71c3fce3))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Use go-errors for prefs ([4d7b1f3](https://github.com/goliatone/go-admin/commit/4d7b1f3a3ca18dfc6ad6da2bb72dfa26045d5c40))  - (goliatone)
+- Config defaults for admin prefs ([de8a97e](https://github.com/goliatone/go-admin/commit/de8a97e69532e0f21704ac3081fac485ef5a4c5e))  - (goliatone)
+- Take tenant and org ID into account in contxt ([dfe77c2](https://github.com/goliatone/go-admin/commit/dfe77c23cbf48b9292ae069b9df70b15218dc5dd))  - (goliatone)
+- Expose preference types ([c26f57e](https://github.com/goliatone/go-admin/commit/c26f57e1ae71960e49da1379a006bce848fed7d6))  - (goliatone)
+- Upsert and delete actions to user prefs ([7a151ce](https://github.com/goliatone/go-admin/commit/7a151ce8cdf908b4d53a176b1af15c54ae8119c8))  - (goliatone)
+- Preferences query and scope ([9d5e117](https://github.com/goliatone/go-admin/commit/9d5e1174ff0be37a7d8a8ce256407648a649e203))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.10.0 ([5e88824](https://github.com/goliatone/go-admin/commit/5e888240b046a7c7c6dd4e063d3c916c255943e6))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([ae1537e](https://github.com/goliatone/go-admin/commit/ae1537e3de1a567bdc81730054936d39f2d095b1))  - (goliatone)
+- Update readme ([0614dfb](https://github.com/goliatone/go-admin/commit/0614dfb868f152b5a75ed4ee1c8e89e3dc30e2cb))  - (goliatone)
+- Update tests ([47fd0e8](https://github.com/goliatone/go-admin/commit/47fd0e8c9d6a9f9ab5acfa346317a39401b9d0f2))  - (goliatone)
+
 # [0.10.0](https://github.com/goliatone/go-admin/compare/v0.9.0...v0.10.0) - (2026-01-12)
 
 ## <!-- 1 -->🐛 Bug Fixes
