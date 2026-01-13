@@ -19,16 +19,24 @@ import (
 // SetupAuth wires go-auth middleware and authorizer with the admin orchestrator.
 // It returns the admin authenticator adapter, the underlying RouteAuthenticator,
 // the Auther, and the context key used for the auth cookie.
-func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.UserDependencies) (*admin.GoAuthAuthenticator, *auth.RouteAuthenticator, *auth.Auther, string) {
+func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.UserDependencies, opts ...AuthOption) (*admin.GoAuthAuthenticator, *auth.RouteAuthenticator, *auth.Auther, string) {
 	cfg := demoAuthConfig{signingKey: "web-demo-secret"}
 	provider := &demoIdentityProvider{
 		users:    dataStores.Users,
 		authRepo: deps.AuthRepo,
 	}
+	options := authOptions{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
 
 	auther := auth.NewAuthenticator(provider, cfg)
 	auther.WithResourceRoleProvider(provider).
-		WithClaimsDecorator(auth.ClaimsDecoratorFunc(applySessionClaimsMetadata))
+		WithClaimsDecorator(auth.ClaimsDecoratorFunc(func(ctx context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
+			return applySessionClaimsMetadata(ctx, identity, claims, options)
+		}))
 	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
 	if err != nil {
 		log.Fatalf("failed to initialize go-auth HTTP authenticator: %v", err)
@@ -52,6 +60,25 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 	logDemoTokens(context.Background(), auther, provider)
 
 	return goAuth, routeAuth, auther, cfg.GetContextKey()
+}
+
+type authOptions struct {
+	defaultTenantID string
+	defaultOrgID    string
+}
+
+// AuthOption configures optional demo auth behavior.
+type AuthOption func(*authOptions)
+
+// WithDefaultScope injects tenant/org metadata into demo JWTs when available.
+func WithDefaultScope(tenantID, orgID string) AuthOption {
+	return func(opts *authOptions) {
+		if opts == nil {
+			return
+		}
+		opts.defaultTenantID = strings.TrimSpace(tenantID)
+		opts.defaultOrgID = strings.TrimSpace(orgID)
+	}
 }
 
 type demoIdentityProvider struct {
@@ -310,7 +337,7 @@ func logDemoTokens(ctx context.Context, auther *auth.Auther, provider *demoIdent
 	}
 }
 
-func applySessionClaimsMetadata(_ context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
+func applySessionClaimsMetadata(_ context.Context, identity auth.Identity, claims *auth.JWTClaims, defaults authOptions) error {
 	if identity == nil || claims == nil {
 		return nil
 	}
@@ -325,12 +352,23 @@ func applySessionClaimsMetadata(_ context.Context, identity auth.Identity, claim
 		}
 		claims.Metadata[key] = strings.TrimSpace(value)
 	}
+	setIfMissing := func(key, value string) {
+		if strings.TrimSpace(value) == "" {
+			return
+		}
+		if _, ok := claims.Metadata[key]; ok {
+			return
+		}
+		claims.Metadata[key] = strings.TrimSpace(value)
+	}
 
 	setIfPresent("username", identity.Username())
 	setIfPresent("email", identity.Email())
 	setIfPresent("role", identity.Role())
 	display := firstNonEmpty(identity.Username(), identity.Email(), identity.ID())
 	setIfPresent("display_name", display)
+	setIfMissing("tenant_id", defaults.defaultTenantID)
+	setIfMissing("organization_id", defaults.defaultOrgID)
 
 	if len(claims.Resources) > 0 {
 		scopes := make([]string, 0, len(claims.Resources))
