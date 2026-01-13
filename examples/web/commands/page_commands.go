@@ -59,8 +59,12 @@ func (c *pagePublishCommand) Execute(ctx context.Context, msg PagePublishMsg) er
 	return nil
 }
 
-func (c *pagePublishCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
+func (c *pagePublishCommand) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *pagePublishCommand) CLIOptions() admin.CLIConfig {
+	return admin.CLIConfig{
 		Path:        []string{"pages", "publish"},
 		Description: "Publish selected pages",
 		Group:       "pages",
@@ -117,8 +121,12 @@ func (c *pageBulkPublishCommand) Execute(ctx context.Context, msg PageBulkPublis
 	return nil
 }
 
-func (c *pageBulkPublishCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
+func (c *pageBulkPublishCommand) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *pageBulkPublishCommand) CLIOptions() admin.CLIConfig {
+	return admin.CLIConfig{
 		Path:        []string{"pages", "bulk", "publish"},
 		Description: "Bulk publish pages",
 		Group:       "pages",
@@ -175,8 +183,12 @@ func (c *pageBulkUnpublishCommand) Execute(ctx context.Context, msg PageBulkUnpu
 	return nil
 }
 
-func (c *pageBulkUnpublishCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
+func (c *pageBulkUnpublishCommand) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *pageBulkUnpublishCommand) CLIOptions() admin.CLIConfig {
+	return admin.CLIConfig{
 		Path:        []string{"pages", "bulk", "unpublish"},
 		Description: "Bulk unpublish pages",
 		Group:       "pages",

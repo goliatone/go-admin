@@ -61,8 +61,12 @@ func (c *postBulkPublishCommand) Execute(ctx context.Context, msg PostBulkPublis
 	return nil
 }
 
-func (c *postBulkPublishCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
+func (c *postBulkPublishCommand) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *postBulkPublishCommand) CLIOptions() admin.CLIConfig {
+	return admin.CLIConfig{
 		Path:        []string{"posts", "bulk", "publish"},
 		Description: "Publish selected posts",
 		Group:       "posts",
@@ -120,8 +124,12 @@ func (c *postBulkUnpublishCommand) Execute(ctx context.Context, msg PostBulkUnpu
 	return nil
 }
 
-func (c *postBulkUnpublishCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
+func (c *postBulkUnpublishCommand) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *postBulkUnpublishCommand) CLIOptions() admin.CLIConfig {
+	return admin.CLIConfig{
 		Path:        []string{"posts", "bulk", "unpublish"},
 		Description: "Unpublish selected posts",
 		Group:       "posts",
@@ -209,8 +217,12 @@ func (c *postBulkScheduleCommand) Execute(ctx context.Context, msg PostBulkSched
 	return nil
 }
 
-func (c *postBulkScheduleCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
+func (c *postBulkScheduleCommand) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *postBulkScheduleCommand) CLIOptions() admin.CLIConfig {
+	return admin.CLIConfig{
 		Path:        []string{"posts", "bulk", "schedule"},
 		Description: "Schedule selected posts",
 		Group:       "posts",
@@ -268,8 +280,12 @@ func (c *postBulkArchiveCommand) Execute(ctx context.Context, msg PostBulkArchiv
 	return nil
 }
 
-func (c *postBulkArchiveCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
+func (c *postBulkArchiveCommand) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *postBulkArchiveCommand) CLIOptions() admin.CLIConfig {
+	return admin.CLIConfig{
 		Path:        []string{"posts", "bulk", "archive"},
 		Description: "Archive selected posts",
 		Group:       "posts",
