@@ -1,10 +1,10 @@
 {% extends "layout.html" %}
 
-{% block title %}{{ resource_label|default:resource|title }} - {{ resource_item.display_name|default:resource_item.id }}{% endblock %}
+{% block title %}{{ singularize(resource_label|default:resource)|title }} - {{ resource_item.display_name|default:resource_item.id }}{% endblock %}
 
 {% block content %}
   <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-    <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
+    <h1 class="text-3xl font-bold text-admin-dark">{{ singularize(resource_label|default:resource)|title }}</h1>
     <div class="flex gap-3">
       {% if resource_item.actions.edit %}
         <a href="{{ resource_item.actions.edit }}" class="btn btn-primary">
