@@ -222,6 +222,8 @@ func main() {
 		adm.ProfileService().WithStore(admin.NewGoUsersProfileStore(usersDeps.ProfileRepo, scopeResolver))
 	}
 
+	var defaultTenantID string
+	var defaultOrgID string
 	// Seed demo tenants/orgs for navigation/search coverage
 	if svc := adm.TenantService(); svc != nil && cfg.Features.Tenants {
 		tenant, err := svc.SaveTenant(context.Background(), admin.TenantRecord{
@@ -234,8 +236,9 @@ func main() {
 			},
 		})
 		if err == nil {
+			defaultTenantID = tenant.ID
 			if orgSvc := adm.OrganizationService(); orgSvc != nil && cfg.Features.Organizations {
-				_, _ = orgSvc.SaveOrganization(context.Background(), admin.OrganizationRecord{
+				org, err := orgSvc.SaveOrganization(context.Background(), admin.OrganizationRecord{
 					Name:     "Acme Engineering",
 					Slug:     "acme-eng",
 					Status:   "active",
@@ -244,6 +247,9 @@ func main() {
 						{UserID: "admin", Roles: []string{"manager"}},
 					},
 				})
+				if err == nil {
+					defaultOrgID = org.ID
+				}
 			}
 		}
 	}
@@ -273,7 +279,7 @@ func main() {
 	// both in-memory and persistent go-cms backends.
 
 	// Setup authentication and authorization
-	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps)
+	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps, setup.WithDefaultScope(defaultTenantID, defaultOrgID))
 
 	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme.
 	themeSelector, _, err := quickstart.NewThemeSelector(cfg.Theme, cfg.ThemeVariant, cfg.ThemeTokens,
