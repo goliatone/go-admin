@@ -24,7 +24,7 @@ type PanelBuilder struct {
 	useSEO       bool
 	treeView     bool
 	authorizer   Authorizer
-	commandBus   *CommandRegistry
+	commandBus   *CommandBus
 	activity     ActivitySink
 }
 
@@ -45,7 +45,7 @@ type Panel struct {
 	useSEO       bool
 	treeView     bool
 	authorizer   Authorizer
-	commandBus   *CommandRegistry
+	commandBus   *CommandBus
 	activity     ActivitySink
 }
 
@@ -253,8 +253,8 @@ func (b *PanelBuilder) WithAuthorizer(a Authorizer) *PanelBuilder {
 	return b
 }
 
-// WithCommandBus attaches the command registry.
-func (b *PanelBuilder) WithCommandBus(bus *CommandRegistry) *PanelBuilder {
+// WithCommandBus attaches the command bus.
+func (b *PanelBuilder) WithCommandBus(bus *CommandBus) *PanelBuilder {
 	b.commandBus = bus
 	return b
 }
@@ -506,13 +506,13 @@ func (p *Panel) Delete(ctx AdminContext, id string) error {
 }
 
 // RunAction dispatches a command-backed action.
-func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any) error {
+func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any, ids []string) error {
 	for _, action := range p.actions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
 			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
 				return permissionDenied(action.Permission, p.name)
 			}
-			err := p.commandBus.DispatchWithPayload(ctx.Context, action.CommandName, payload)
+			err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, ids)
 			if err == nil {
 				p.recordActivity(ctx, "panel.action", map[string]any{
 					"panel":  p.name,
@@ -526,13 +526,13 @@ func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any)
 }
 
 // RunBulkAction dispatches a command-backed bulk action.
-func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]any) error {
+func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]any, ids []string) error {
 	for _, action := range p.bulkActions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
 			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
 				return permissionDenied(action.Permission, p.name)
 			}
-			err := p.commandBus.DispatchWithPayload(ctx.Context, action.CommandName, payload)
+			err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, ids)
 			if err == nil {
 				p.recordActivity(ctx, "panel.bulk_action", map[string]any{
 					"panel":  p.name,
