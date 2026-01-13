@@ -26,6 +26,15 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.PreferencesUpdatePermission != "admin.preferences.edit" {
 		t.Fatalf("expected preferences update permission default, got %q", adm.config.PreferencesUpdatePermission)
 	}
+	if adm.config.PreferencesManageTenantPermission != "admin.preferences.manage_tenant" {
+		t.Fatalf("expected preferences manage tenant permission default, got %q", adm.config.PreferencesManageTenantPermission)
+	}
+	if adm.config.PreferencesManageOrgPermission != "admin.preferences.manage_org" {
+		t.Fatalf("expected preferences manage org permission default, got %q", adm.config.PreferencesManageOrgPermission)
+	}
+	if adm.config.PreferencesManageSystemPermission != "admin.preferences.manage_system" {
+		t.Fatalf("expected preferences manage system permission default, got %q", adm.config.PreferencesManageSystemPermission)
+	}
 	if adm.config.ProfilePermission != "admin.profile.view" {
 		t.Fatalf("expected profile permission default, got %q", adm.config.ProfilePermission)
 	}
