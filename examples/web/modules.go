@@ -51,16 +51,25 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 
 	// Create activity adapter to bridge command events to admin activity sink
 	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
+	bus := ctx.Admin.Commands()
 
 	// Register lifecycle commands with activity hooks for event emission
 	activateCmd := commands.NewUserActivateCommand(m.service).WithActivityHooks(activityAdapter)
 	suspendCmd := commands.NewUserSuspendCommand(m.service).WithActivityHooks(activityAdapter)
 	disableCmd := commands.NewUserDisableCommand(m.service).WithActivityHooks(activityAdapter)
 	archiveCmd := commands.NewUserArchiveCommand(m.service).WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(activateCmd)
-	ctx.Admin.Commands().Register(suspendCmd)
-	ctx.Admin.Commands().Register(disableCmd)
-	ctx.Admin.Commands().Register(archiveCmd)
+	if err := bus.Register(activateCmd); err != nil {
+		return err
+	}
+	if err := bus.Register(suspendCmd); err != nil {
+		return err
+	}
+	if err := bus.Register(disableCmd); err != nil {
+		return err
+	}
+	if err := bus.Register(archiveCmd); err != nil {
+		return err
+	}
 
 	// Register panel
 	builder := setup.NewUserPanelBuilder(m.store)
@@ -235,19 +244,29 @@ func (m *pagesModule) Register(ctx admin.ModuleContext) error {
 
 	// Create activity adapter
 	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
+	bus := ctx.Admin.Commands()
+	if err := commands.RegisterPageCommandFactories(bus); err != nil {
+		return err
+	}
 
 	// Register commands with activity hooks
 	publishCmd := commands.NewPagePublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(publishCmd)
+	if err := bus.Register(publishCmd); err != nil {
+		return err
+	}
 
 	bulkPublishCmd := commands.NewPageBulkPublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(bulkPublishCmd)
+	if err := bus.Register(bulkPublishCmd); err != nil {
+		return err
+	}
 
 	bulkUnpublishCmd := commands.NewPageBulkUnpublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(bulkUnpublishCmd)
+	if err := bus.Register(bulkUnpublishCmd); err != nil {
+		return err
+	}
 
 	_, err := ctx.Admin.RegisterPanel("pages", setup.NewPagesPanelBuilder(m.store))
 	return err
@@ -319,23 +338,35 @@ func (m *postsModule) Register(ctx admin.ModuleContext) error {
 
 	// Create activity adapter
 	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
+	bus := ctx.Admin.Commands()
+	if err := commands.RegisterPostCommandFactories(bus); err != nil {
+		return err
+	}
 
 	// Register commands with activity hooks
 	bulkPublishCmd := commands.NewPostBulkPublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(bulkPublishCmd)
+	if err := bus.Register(bulkPublishCmd); err != nil {
+		return err
+	}
 
 	bulkUnpublishCmd := commands.NewPostBulkUnpublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(bulkUnpublishCmd)
+	if err := bus.Register(bulkUnpublishCmd); err != nil {
+		return err
+	}
 
 	bulkScheduleCmd := commands.NewPostBulkScheduleCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(bulkScheduleCmd)
+	if err := bus.Register(bulkScheduleCmd); err != nil {
+		return err
+	}
 
 	bulkArchiveCmd := commands.NewPostBulkArchiveCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(bulkArchiveCmd)
+	if err := bus.Register(bulkArchiveCmd); err != nil {
+		return err
+	}
 
 	_, err := ctx.Admin.RegisterPanel("posts", setup.NewPostsPanelBuilder(m.store))
 	return err
@@ -412,11 +443,17 @@ func (m *mediaModule) Register(ctx admin.ModuleContext) error {
 
 	// Create activity adapter
 	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
+	bus := ctx.Admin.Commands()
+	if err := commands.RegisterMediaCommandFactories(bus); err != nil {
+		return err
+	}
 
 	// Register commands with activity hooks
 	bulkDeleteCmd := commands.NewMediaBulkDeleteCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	ctx.Admin.Commands().Register(bulkDeleteCmd)
+	if err := bus.Register(bulkDeleteCmd); err != nil {
+		return err
+	}
 
 	_, err := ctx.Admin.RegisterPanel("media", setup.NewMediaPanelBuilder(m.store))
 	return err
