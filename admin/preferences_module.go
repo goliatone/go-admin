@@ -3,8 +3,11 @@ package admin
 import (
 	"context"
 	"errors"
+	"net/http"
 	"sort"
 	"strings"
+
+	goerrors "github.com/goliatone/go-errors"
 )
 
 const preferencesModuleID = "preferences"
@@ -55,7 +58,7 @@ func (m *PreferencesModule) Register(ctx ModuleContext) error {
 	}
 
 	builder := ctx.Admin.Panel("preferences").
-		WithRepository(NewPreferencesRepository(ctx.Admin.preferences)).
+		WithRepository(NewPreferencesRepository(ctx.Admin)).
 		ListFields(
 			Field{Name: "theme", Label: "Theme", Type: "text"},
 			Field{Name: "theme_variant", Label: "Theme Variant", Type: "text"},
@@ -155,73 +158,137 @@ func titleCase(val string) string {
 
 // PreferencesRepository adapts PreferencesService to the panel Repository contract.
 type PreferencesRepository struct {
-	service *PreferencesService
+	service                *PreferencesService
+	authorizer             Authorizer
+	manageTenantPermission string
+	manageOrgPermission    string
+	manageSystemPermission string
 }
 
 // NewPreferencesRepository constructs a repository backed by PreferencesService.
-func NewPreferencesRepository(service *PreferencesService) *PreferencesRepository {
-	return &PreferencesRepository{service: service}
+func NewPreferencesRepository(admin *Admin) *PreferencesRepository {
+	if admin == nil {
+		return &PreferencesRepository{}
+	}
+	return &PreferencesRepository{
+		service:                admin.preferences,
+		authorizer:             admin.authorizer,
+		manageTenantPermission: admin.config.PreferencesManageTenantPermission,
+		manageOrgPermission:    admin.config.PreferencesManageOrgPermission,
+		manageSystemPermission: admin.config.PreferencesManageSystemPermission,
+	}
 }
 
 func (r *PreferencesRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
 	_ = opts
-	userID := userIDFromContext(ctx)
+	scope := preferenceScopeFromContext(ctx)
+	userID := scope.UserID
 	if r.service == nil {
 		return nil, 0, FeatureDisabledError{Feature: string(FeaturePreferences)}
 	}
 	if userID == "" {
 		return nil, 0, ErrForbidden
 	}
-	prefs, err := r.service.Get(ctx, userID)
+	queryOpts, err := preferenceQueryOptionsFromContext(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
-	return []map[string]any{r.recordFromPreferences(prefs)}, 1, nil
+	snapshot, err := r.resolveSnapshot(ctx, scope, queryOpts)
+	if err != nil {
+		return nil, 0, err
+	}
+	record := r.recordFromSnapshot(scope, snapshot, queryOpts)
+	return []map[string]any{record}, 1, nil
 }
 
 func (r *PreferencesRepository) Get(ctx context.Context, id string) (map[string]any, error) {
-	userID := userIDFromContext(ctx)
+	scope := preferenceScopeFromContext(ctx)
+	userID := scope.UserID
 	if r.service == nil {
 		return nil, FeatureDisabledError{Feature: string(FeaturePreferences)}
 	}
 	if userID == "" || (id != "" && id != userID) {
 		return nil, ErrForbidden
 	}
-	prefs, err := r.service.Get(ctx, userID)
+	queryOpts, err := preferenceQueryOptionsFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return r.recordFromPreferences(prefs), nil
+	snapshot, err := r.resolveSnapshot(ctx, scope, queryOpts)
+	if err != nil {
+		return nil, err
+	}
+	return r.recordFromSnapshot(scope, snapshot, queryOpts), nil
 }
 
 func (r *PreferencesRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	return r.Update(ctx, userIDFromContext(ctx), record)
+	scope := preferenceScopeFromContext(ctx)
+	return r.Update(ctx, scope.UserID, record)
 }
 
 func (r *PreferencesRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	userID := userIDFromContext(ctx)
+	scope := preferenceScopeFromContext(ctx)
+	userID := scope.UserID
 	if r.service == nil {
 		return nil, FeatureDisabledError{Feature: string(FeaturePreferences)}
 	}
 	if userID == "" || (id != "" && id != userID) {
 		return nil, ErrForbidden
 	}
-	prefs, clearKeys := r.preferencesFromRecord(record)
-	if len(clearKeys) > 0 {
-		if _, err := r.service.Clear(ctx, userID, clearKeys); err != nil {
-			return nil, err
-		}
-		if len(preferencesToMap(prefs)) == 0 {
-			updated, err := r.service.Get(ctx, userID)
-			if err != nil {
-				return nil, err
-			}
-			return r.recordFromPreferences(updated), nil
-		}
-	}
-	updated, err := r.service.Save(ctx, userID, prefs)
+	queryOpts, err := preferenceQueryOptionsFromContext(ctx)
 	if err != nil {
 		return nil, err
+	}
+	level, err := preferenceLevelFromRecord(record)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.requireScopePermission(ctx, level); err != nil {
+		return nil, err
+	}
+	prefs, clearKeys := r.preferencesFromRecord(record, level)
+	if len(clearKeys) > 0 {
+		if level == PreferenceLevelUser {
+			if _, err := r.service.Clear(ctx, userID, clearKeys); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := r.service.Store().Delete(ctx, PreferencesDeleteInput{
+				Scope: scope,
+				Level: level,
+				Keys:  clearKeys,
+			}); err != nil {
+				return nil, err
+			}
+		}
+	}
+	updateValues := preferencesToMap(prefs)
+	var updated UserPreferences
+	if len(updateValues) == 0 {
+		updated, err = r.service.Get(ctx, userID)
+	} else {
+		if level == PreferenceLevelUser {
+			updated, err = r.service.Save(ctx, userID, prefs)
+		} else {
+			if _, err := r.service.Store().Upsert(ctx, PreferencesUpsertInput{
+				Scope:  scope,
+				Level:  level,
+				Values: updateValues,
+			}); err != nil {
+				return nil, err
+			}
+			updated, err = r.service.Get(ctx, userID)
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if queryOpts.IncludeEffective {
+		snapshot, err := r.resolveSnapshot(ctx, scope, queryOpts)
+		if err != nil {
+			return nil, err
+		}
+		return r.recordFromSnapshot(scope, snapshot, queryOpts), nil
 	}
 	return r.recordFromPreferences(updated), nil
 }
@@ -230,6 +297,39 @@ func (r *PreferencesRepository) Delete(ctx context.Context, id string) error {
 	_ = ctx
 	_ = id
 	return ErrForbidden
+}
+
+func (r *PreferencesRepository) resolveSnapshot(ctx context.Context, scope PreferenceScope, opts preferenceQueryOptions) (PreferenceSnapshot, error) {
+	return r.service.Resolve(ctx, PreferencesResolveInput{
+		Scope:          scope,
+		Keys:           opts.Keys,
+		Levels:         opts.Levels,
+		IncludeTraces:  opts.IncludeTraces,
+		IncludeVersion: opts.IncludeVersions,
+	})
+}
+
+func (r *PreferencesRepository) recordFromSnapshot(scope PreferenceScope, snapshot PreferenceSnapshot, opts preferenceQueryOptions) map[string]any {
+	prefs := preferencesFromMap(scope.UserID, snapshot.Effective)
+	record := r.recordFromPreferences(prefs)
+	if opts.IncludeEffective {
+		effective := snapshot.Effective
+		if effective == nil {
+			effective = map[string]any{}
+		}
+		record["effective"] = cloneAnyMap(effective)
+	}
+	if opts.IncludeTraces {
+		record["traces"] = snapshot.Traces
+	}
+	if opts.IncludeVersions {
+		versions := snapshot.Versions
+		if versions == nil {
+			versions = map[string]int{}
+		}
+		record["versions"] = versions
+	}
+	return record
 }
 
 func (r *PreferencesRepository) recordFromPreferences(prefs UserPreferences) map[string]any {
@@ -248,32 +348,54 @@ func (r *PreferencesRepository) recordFromPreferences(prefs UserPreferences) map
 	return record
 }
 
-func (r *PreferencesRepository) preferencesFromRecord(record map[string]any) (UserPreferences, []string) {
+func (r *PreferencesRepository) preferencesFromRecord(record map[string]any, level PreferenceLevel) (UserPreferences, []string) {
 	prefs := UserPreferences{
 		Raw: map[string]any{},
 	}
 	if rawVal, ok := record["raw"]; ok {
 		prefs.Raw = filterAllowedRawPreferences(extractMap(rawVal))
 	}
-	if val, ok := record["theme"]; ok {
-		prefs.Theme = toString(val)
-		prefs.Raw[preferencesKeyTheme] = prefs.Theme
-	}
-	if val, ok := record["theme_variant"]; ok {
-		prefs.ThemeVariant = toString(val)
-		prefs.Raw[preferencesKeyThemeVariant] = prefs.ThemeVariant
-	}
-	if val, ok := record["dashboard_layout"]; ok {
-		prefs.DashboardLayout = expandDashboardLayout(val)
-		prefs.Raw[preferencesKeyDashboardLayout] = flattenDashboardLayout(prefs.DashboardLayout)
-	}
-	if val, ok := record["dashboard_overrides"]; ok {
-		prefs.DashboardPrefs = expandDashboardOverrides(val)
-		prefs.Raw[preferencesKeyDashboardPrefs] = flattenDashboardOverrides(prefs.DashboardPrefs)
-	}
 	clearKeys := filterClearPreferenceKeys(toStringSlice(record["clear"]))
 	if len(clearKeys) == 0 {
 		clearKeys = filterClearPreferenceKeys(toStringSlice(record["clear_keys"]))
+	}
+	if level == PreferenceLevelUser {
+		if val, ok := record["theme"]; ok && isEmptyPreferenceValue(val) {
+			clearKeys = append(clearKeys, preferencesKeyTheme)
+		}
+		if val, ok := record["theme_variant"]; ok && isEmptyPreferenceValue(val) {
+			clearKeys = append(clearKeys, preferencesKeyThemeVariant)
+		}
+	}
+	clearKeys = filterClearPreferenceKeys(clearKeys)
+	clearSet := map[string]bool{}
+	for _, key := range clearKeys {
+		clearSet[key] = true
+	}
+	if val, ok := record["theme"]; ok && !clearSet[preferencesKeyTheme] {
+		if level != PreferenceLevelUser || !isEmptyPreferenceValue(val) {
+			prefs.Theme = toString(val)
+			prefs.Raw[preferencesKeyTheme] = prefs.Theme
+		}
+	}
+	if val, ok := record["theme_variant"]; ok && !clearSet[preferencesKeyThemeVariant] {
+		if level != PreferenceLevelUser || !isEmptyPreferenceValue(val) {
+			prefs.ThemeVariant = toString(val)
+			prefs.Raw[preferencesKeyThemeVariant] = prefs.ThemeVariant
+		}
+	}
+	if val, ok := record["dashboard_layout"]; ok && !clearSet[preferencesKeyDashboardLayout] {
+		prefs.DashboardLayout = expandDashboardLayout(val)
+		prefs.Raw[preferencesKeyDashboardLayout] = flattenDashboardLayout(prefs.DashboardLayout)
+	}
+	if val, ok := record["dashboard_overrides"]; ok && !clearSet[preferencesKeyDashboardPrefs] {
+		prefs.DashboardPrefs = expandDashboardOverrides(val)
+		prefs.Raw[preferencesKeyDashboardPrefs] = flattenDashboardOverrides(prefs.DashboardPrefs)
+	}
+	if len(clearSet) > 0 && len(prefs.Raw) > 0 {
+		for key := range clearSet {
+			delete(prefs.Raw, key)
+		}
 	}
 	return prefs, clearKeys
 }
@@ -342,4 +464,71 @@ func isClearablePreferenceKey(key string) bool {
 	default:
 		return isAllowedRawPreferenceKey(key)
 	}
+}
+
+func isEmptyPreferenceValue(value any) bool {
+	switch typed := value.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(typed) == ""
+	default:
+		return false
+	}
+}
+
+func (r *PreferencesRepository) requireScopePermission(ctx context.Context, level PreferenceLevel) error {
+	if level == PreferenceLevelUser {
+		return nil
+	}
+	if r == nil || r.authorizer == nil {
+		return nil
+	}
+	permission := ""
+	switch level {
+	case PreferenceLevelTenant:
+		permission = r.manageTenantPermission
+	case PreferenceLevelOrg:
+		permission = r.manageOrgPermission
+	case PreferenceLevelSystem:
+		permission = r.manageSystemPermission
+	default:
+		return goerrors.New("unsupported preference level", goerrors.CategoryValidation).
+			WithCode(http.StatusBadRequest).
+			WithMetadata(map[string]any{"level": string(level)})
+	}
+	if permission == "" {
+		return nil
+	}
+	if !r.authorizer.Can(ctx, permission, preferencesModuleID) {
+		return permissionDenied(permission, preferencesModuleID)
+	}
+	return nil
+}
+
+func preferenceLevelFromRecord(record map[string]any) (PreferenceLevel, error) {
+	if record == nil {
+		return PreferenceLevelUser, nil
+	}
+	if val, ok := record["level"]; ok {
+		level := strings.ToLower(strings.TrimSpace(toString(val)))
+		if level == "" {
+			return PreferenceLevelUser, nil
+		}
+		switch level {
+		case string(PreferenceLevelSystem):
+			return PreferenceLevelSystem, nil
+		case string(PreferenceLevelTenant):
+			return PreferenceLevelTenant, nil
+		case string(PreferenceLevelOrg):
+			return PreferenceLevelOrg, nil
+		case string(PreferenceLevelUser):
+			return PreferenceLevelUser, nil
+		default:
+			return "", goerrors.New("invalid preference level", goerrors.CategoryValidation).
+				WithCode(http.StatusBadRequest).
+				WithMetadata(map[string]any{"level": level})
+		}
+	}
+	return PreferenceLevelUser, nil
 }

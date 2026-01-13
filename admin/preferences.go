@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -14,57 +15,240 @@ const (
 	preferencesKeyDashboardPrefs  = "dashboard_overrides"
 )
 
-// PreferencesStore defines a minimal contract compatible with go-users preferences.
-// Implementations can be backed by go-users models, databases, or in-memory maps.
+// PreferenceLevel represents the scope level for resolved preferences.
+type PreferenceLevel string
+
+const (
+	PreferenceLevelSystem PreferenceLevel = "system"
+	PreferenceLevelTenant PreferenceLevel = "tenant"
+	PreferenceLevelOrg    PreferenceLevel = "org"
+	PreferenceLevelUser   PreferenceLevel = "user"
+)
+
+// PreferenceScope captures scope identifiers used during resolution.
+type PreferenceScope struct {
+	UserID   string `json:"user_id,omitempty"`
+	TenantID string `json:"tenant_id,omitempty"`
+	OrgID    string `json:"org_id,omitempty"`
+}
+
+// PreferencesResolveInput configures preference resolution.
+type PreferencesResolveInput struct {
+	Scope          PreferenceScope
+	Keys           []string
+	Levels         []PreferenceLevel
+	Base           map[string]any
+	IncludeTraces  bool
+	IncludeVersion bool
+}
+
+// PreferenceTraceLayer records a resolved value at a specific level.
+type PreferenceTraceLayer struct {
+	Level   PreferenceLevel `json:"level"`
+	Scope   PreferenceScope `json:"scope"`
+	Found   bool            `json:"found"`
+	Value   any             `json:"value,omitempty"`
+	Version int             `json:"version,omitempty"`
+}
+
+// PreferenceTrace records provenance for a single key.
+type PreferenceTrace struct {
+	Key    string                `json:"key"`
+	Layers []PreferenceTraceLayer `json:"layers"`
+}
+
+// PreferenceSnapshot returns effective values plus optional metadata.
+type PreferenceSnapshot struct {
+	Effective map[string]any
+	Traces    []PreferenceTrace
+	Versions  map[string]int
+}
+
+// PreferencesUpsertInput represents a scoped preference update.
+type PreferencesUpsertInput struct {
+	Scope  PreferenceScope
+	Level  PreferenceLevel
+	Values map[string]any
+}
+
+// PreferencesDeleteInput represents a scoped preference delete.
+type PreferencesDeleteInput struct {
+	Scope PreferenceScope
+	Level PreferenceLevel
+	Keys  []string
+}
+
+// PreferencesStore defines the resolver-based preference contract.
 type PreferencesStore interface {
-	Get(ctx context.Context, userID string) (map[string]any, error)
-	Save(ctx context.Context, userID string, prefs map[string]any) error
+	Resolve(ctx context.Context, input PreferencesResolveInput) (PreferenceSnapshot, error)
+	Upsert(ctx context.Context, input PreferencesUpsertInput) (PreferenceSnapshot, error)
+	Delete(ctx context.Context, input PreferencesDeleteInput) error
 }
 
-// PreferencesClearer optionally supports delete semantics for stored preferences.
-type PreferencesClearer interface {
-	Clear(ctx context.Context, userID string, keys []string) error
-}
-
-// InMemoryPreferencesStore keeps preferences per-user in memory.
+// InMemoryPreferencesStore keeps preferences per-scope in memory.
 type InMemoryPreferencesStore struct {
-	mu     sync.RWMutex
-	values map[string]map[string]any
+	mu      sync.RWMutex
+	system  map[string]preferenceRecord
+	tenants map[string]map[string]preferenceRecord
+	orgs    map[string]map[string]preferenceRecord
+	users   map[string]map[string]preferenceRecord
+}
+
+type preferenceRecord struct {
+	Value   any
+	Version int
 }
 
 // NewInMemoryPreferencesStore builds an empty in-memory preference store.
 func NewInMemoryPreferencesStore() *InMemoryPreferencesStore {
 	return &InMemoryPreferencesStore{
-		values: map[string]map[string]any{},
+		system:  map[string]preferenceRecord{},
+		tenants: map[string]map[string]preferenceRecord{},
+		orgs:    map[string]map[string]preferenceRecord{},
+		users:   map[string]map[string]preferenceRecord{},
 	}
 }
 
-// Get returns a shallow copy of stored preferences for a user.
-func (s *InMemoryPreferencesStore) Get(ctx context.Context, userID string) (map[string]any, error) {
+// Resolve returns stored preferences across scopes.
+func (s *InMemoryPreferencesStore) Resolve(ctx context.Context, input PreferencesResolveInput) (PreferenceSnapshot, error) {
 	_ = ctx
-	if s == nil || userID == "" {
-		return map[string]any{}, nil
+	if s == nil {
+		return PreferenceSnapshot{}, errors.New("preferences store not configured")
 	}
+	levelOrder := resolvePreferenceLevels(input.Levels)
+	base := cloneAnyMap(input.Base)
+	if base == nil {
+		base = map[string]any{}
+	}
+	requestedKeys := normalizePreferenceKeys(input.Keys)
+	sort.Strings(requestedKeys)
+	scope := input.Scope
+
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if prefs, ok := s.values[userID]; ok {
-		return cloneAnyMap(prefs), nil
+	system := clonePreferenceRecords(s.system)
+	tenant := clonePreferenceRecords(s.tenants[scope.TenantID])
+	org := clonePreferenceRecords(s.orgs[scope.OrgID])
+	user := clonePreferenceRecords(s.users[scope.UserID])
+	s.mu.RUnlock()
+
+	levelRecords := map[PreferenceLevel]map[string]preferenceRecord{
+		PreferenceLevelSystem: system,
+		PreferenceLevelTenant: tenant,
+		PreferenceLevelOrg:    org,
+		PreferenceLevelUser:   user,
 	}
-	return map[string]any{}, nil
+
+	effective := cloneAnyMap(base)
+	versionLookup := map[string]int{}
+	for _, level := range levelOrder {
+		records := levelRecords[level]
+		if len(records) == 0 {
+			continue
+		}
+		for key, record := range records {
+			if strings.TrimSpace(key) == "" {
+				continue
+			}
+			effective[key] = clonePreferenceValue(record.Value)
+			if input.IncludeVersion {
+				versionLookup[key] = record.Version
+			}
+		}
+	}
+	if len(requestedKeys) > 0 {
+		effective = filterPreferenceKeys(effective, requestedKeys)
+	}
+	if effective == nil {
+		effective = map[string]any{}
+	}
+
+	var versions map[string]int
+	if input.IncludeVersion {
+		versions = map[string]int{}
+		for key := range effective {
+			if version, ok := versionLookup[key]; ok {
+				versions[key] = version
+			} else {
+				versions[key] = 0
+			}
+		}
+	}
+
+	var traces []PreferenceTrace
+	if input.IncludeTraces {
+		traceKeys := requestedKeys
+		if len(traceKeys) == 0 {
+			traceKeys = collectPreferenceKeys(base, system, tenant, org, user)
+		}
+		traces = buildPreferenceTraces(traceKeys, levelOrder, levelRecords, scope)
+	}
+
+	return PreferenceSnapshot{
+		Effective: effective,
+		Traces:    traces,
+		Versions:  versions,
+	}, nil
 }
 
-// Save stores preferences for a user.
-func (s *InMemoryPreferencesStore) Save(ctx context.Context, userID string, prefs map[string]any) error {
+// Upsert stores preferences for a scoped level.
+func (s *InMemoryPreferencesStore) Upsert(ctx context.Context, input PreferencesUpsertInput) (PreferenceSnapshot, error) {
+	_ = ctx
+	if s == nil {
+		return PreferenceSnapshot{}, errors.New("preferences store not configured")
+	}
+	level := normalizePreferenceLevel(input.Level)
+	scope := input.Scope
+	if err := validatePreferenceScope(level, scope); err != nil {
+		return PreferenceSnapshot{}, err
+	}
+	values := input.Values
+	if len(values) == 0 {
+		return PreferenceSnapshot{Effective: map[string]any{}}, nil
+	}
+
+	s.mu.Lock()
+	target := s.recordsForWrite(level, scope)
+	for key, val := range values {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		record := target[key]
+		if record.Version <= 0 {
+			record.Version = 1
+		} else {
+			record.Version++
+		}
+		record.Value = clonePreferenceValue(val)
+		target[key] = record
+	}
+	snapshot := PreferenceSnapshot{Effective: flattenPreferenceRecords(target)}
+	s.mu.Unlock()
+
+	return snapshot, nil
+}
+
+// Delete removes stored preferences for a scoped level.
+func (s *InMemoryPreferencesStore) Delete(ctx context.Context, input PreferencesDeleteInput) error {
 	_ = ctx
 	if s == nil {
 		return errors.New("preferences store not configured")
 	}
-	if userID == "" {
-		return errors.New("user id required")
+	level := normalizePreferenceLevel(input.Level)
+	scope := input.Scope
+	if err := validatePreferenceScope(level, scope); err != nil {
+		return err
+	}
+	keys := normalizePreferenceKeys(input.Keys)
+	if len(keys) == 0 {
+		return nil
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.values[userID] = cloneAnyMap(prefs)
+	target := s.recordsForWrite(level, scope)
+	for _, key := range keys {
+		delete(target, key)
+	}
+	s.mu.Unlock()
 	return nil
 }
 
@@ -148,19 +332,40 @@ func (s *PreferencesService) Store() PreferencesStore {
 	return s.store
 }
 
+// Resolve returns an effective snapshot for the provided scope and options.
+func (s *PreferencesService) Resolve(ctx context.Context, input PreferencesResolveInput) (PreferenceSnapshot, error) {
+	if s == nil {
+		return PreferenceSnapshot{}, errors.New("preferences service not configured")
+	}
+	if s.store == nil {
+		return PreferenceSnapshot{}, errors.New("preferences store not configured")
+	}
+	input.Scope = mergePreferenceScope(ctx, input.Scope)
+	input.Base = s.applyDefaultsToBase(input.Base)
+	snapshot, err := s.store.Resolve(ctx, input)
+	if err != nil {
+		return PreferenceSnapshot{}, err
+	}
+	if snapshot.Effective == nil {
+		snapshot.Effective = map[string]any{}
+	}
+	return snapshot, nil
+}
+
 // Get returns preferences for a user with defaults applied.
 func (s *PreferencesService) Get(ctx context.Context, userID string) (UserPreferences, error) {
 	if s == nil {
 		return UserPreferences{}, errors.New("preferences service not configured")
 	}
-	if userID == "" {
-		return s.applyDefaults(UserPreferences{Raw: map[string]any{}}), nil
+	scope := preferenceScopeFromContext(ctx)
+	if userID != "" {
+		scope.UserID = userID
 	}
-	raw, err := s.store.Get(ctx, userID)
+	snapshot, err := s.Resolve(ctx, PreferencesResolveInput{Scope: scope})
 	if err != nil {
 		return UserPreferences{}, err
 	}
-	return s.applyDefaults(preferencesFromMap(userID, raw)), nil
+	return preferencesFromMap(scope.UserID, snapshot.Effective), nil
 }
 
 // Save updates preferences for a user, merging with existing values.
@@ -168,23 +373,30 @@ func (s *PreferencesService) Save(ctx context.Context, userID string, prefs User
 	if s == nil {
 		return UserPreferences{}, errors.New("preferences service not configured")
 	}
-	if userID == "" {
+	scope := preferenceScopeFromContext(ctx)
+	if userID != "" {
+		scope.UserID = userID
+	}
+	if scope.UserID == "" {
 		return UserPreferences{}, ErrForbidden
 	}
 	update := preferencesToMap(prefs)
 	if len(update) == 0 {
-		return s.Get(ctx, userID)
+		return s.Get(ctx, scope.UserID)
 	}
-	current, err := s.store.Get(ctx, userID)
+	if _, err := s.store.Upsert(ctx, PreferencesUpsertInput{
+		Scope:  scope,
+		Level:  PreferenceLevelUser,
+		Values: update,
+	}); err != nil {
+		return UserPreferences{}, err
+	}
+	s.recordActivity(ctx, scope.UserID, update)
+	snapshot, err := s.Resolve(ctx, PreferencesResolveInput{Scope: scope})
 	if err != nil {
 		return UserPreferences{}, err
 	}
-	merged := mergePreferenceMaps(current, update)
-	if err := s.store.Save(ctx, userID, merged); err != nil {
-		return UserPreferences{}, err
-	}
-	s.recordActivity(ctx, userID, update)
-	return s.applyDefaults(preferencesFromMap(userID, merged)), nil
+	return preferencesFromMap(scope.UserID, snapshot.Effective), nil
 }
 
 // Clear removes stored preference keys for a user.
@@ -192,42 +404,30 @@ func (s *PreferencesService) Clear(ctx context.Context, userID string, keys []st
 	if s == nil {
 		return UserPreferences{}, errors.New("preferences service not configured")
 	}
-	if userID == "" {
+	scope := preferenceScopeFromContext(ctx)
+	if userID != "" {
+		scope.UserID = userID
+	}
+	if scope.UserID == "" {
 		return UserPreferences{}, ErrForbidden
 	}
 	keys = normalizePreferenceKeys(keys)
 	if len(keys) == 0 {
-		return s.Get(ctx, userID)
+		return s.Get(ctx, scope.UserID)
 	}
-	if clearer, ok := s.store.(PreferencesClearer); ok && clearer != nil {
-		if err := clearer.Clear(ctx, userID, keys); err != nil {
-			return UserPreferences{}, err
-		}
-		s.recordActivity(ctx, userID, keysToUpdateMap(keys))
-		return s.Get(ctx, userID)
+	if err := s.store.Delete(ctx, PreferencesDeleteInput{
+		Scope: scope,
+		Level: PreferenceLevelUser,
+		Keys:  keys,
+	}); err != nil {
+		return UserPreferences{}, err
 	}
-	current, err := s.store.Get(ctx, userID)
+	s.recordActivity(ctx, scope.UserID, keysToUpdateMap(keys))
+	snapshot, err := s.Resolve(ctx, PreferencesResolveInput{Scope: scope})
 	if err != nil {
 		return UserPreferences{}, err
 	}
-	changed := false
-	for _, key := range keys {
-		if key == "" {
-			continue
-		}
-		if _, ok := current[key]; ok {
-			delete(current, key)
-			changed = true
-		}
-	}
-	if !changed {
-		return s.applyDefaults(preferencesFromMap(userID, current)), nil
-	}
-	if err := s.store.Save(ctx, userID, current); err != nil {
-		return UserPreferences{}, err
-	}
-	s.recordActivity(ctx, userID, keysToUpdateMap(keys))
-	return s.applyDefaults(preferencesFromMap(userID, current)), nil
+	return preferencesFromMap(scope.UserID, snapshot.Effective), nil
 }
 
 // SaveDashboardLayout stores dashboard layout preferences for a user.
@@ -292,17 +492,26 @@ func (s *PreferencesService) ThemeSelectorForUser(ctx context.Context, userID st
 	}
 }
 
-func (s *PreferencesService) applyDefaults(prefs UserPreferences) UserPreferences {
-	if prefs.Raw == nil {
-		prefs.Raw = map[string]any{}
+func (s *PreferencesService) applyDefaultsToBase(base map[string]any) map[string]any {
+	if s == nil {
+		return base
 	}
-	if prefs.Theme == "" && s.defaultTheme != "" {
-		prefs.Theme = s.defaultTheme
+	if base == nil {
+		base = map[string]any{}
+	} else {
+		base = cloneAnyMap(base)
 	}
-	if prefs.ThemeVariant == "" && s.defaultVariant != "" {
-		prefs.ThemeVariant = s.defaultVariant
+	if s.defaultTheme != "" {
+		if _, ok := base[preferencesKeyTheme]; !ok {
+			base[preferencesKeyTheme] = s.defaultTheme
+		}
 	}
-	return prefs
+	if s.defaultVariant != "" {
+		if _, ok := base[preferencesKeyThemeVariant]; !ok {
+			base[preferencesKeyThemeVariant] = s.defaultVariant
+		}
+	}
+	return base
 }
 
 func (s *PreferencesService) recordActivity(ctx context.Context, userID string, updates map[string]any) {
@@ -329,6 +538,19 @@ func (s *PreferencesService) recordActivity(ctx context.Context, userID string, 
 	})
 }
 
+func mergePreferenceScope(ctx context.Context, scope PreferenceScope) PreferenceScope {
+	if scope.UserID == "" {
+		scope.UserID = userIDFromContext(ctx)
+	}
+	if scope.TenantID == "" {
+		scope.TenantID = tenantIDFromContext(ctx)
+	}
+	if scope.OrgID == "" {
+		scope.OrgID = orgIDFromContext(ctx)
+	}
+	return scope
+}
+
 func normalizePreferenceKeys(keys []string) []string {
 	if len(keys) == 0 {
 		return nil
@@ -353,6 +575,207 @@ func keysToUpdateMap(keys []string) map[string]any {
 			continue
 		}
 		out[key] = nil
+	}
+	return out
+}
+
+var preferenceResolutionOrder = []PreferenceLevel{
+	PreferenceLevelSystem,
+	PreferenceLevelTenant,
+	PreferenceLevelOrg,
+	PreferenceLevelUser,
+}
+
+func resolvePreferenceLevels(levels []PreferenceLevel) []PreferenceLevel {
+	if len(levels) == 0 {
+		return append([]PreferenceLevel(nil), preferenceResolutionOrder...)
+	}
+	allowed := map[PreferenceLevel]bool{}
+	for _, level := range levels {
+		allowed[level] = true
+	}
+	out := make([]PreferenceLevel, 0, len(preferenceResolutionOrder))
+	for _, level := range preferenceResolutionOrder {
+		if allowed[level] {
+			out = append(out, level)
+		}
+	}
+	return out
+}
+
+func normalizePreferenceLevel(level PreferenceLevel) PreferenceLevel {
+	if level == "" {
+		return PreferenceLevelUser
+	}
+	return level
+}
+
+func validatePreferenceScope(level PreferenceLevel, scope PreferenceScope) error {
+	switch level {
+	case PreferenceLevelSystem:
+		return nil
+	case PreferenceLevelTenant:
+		if strings.TrimSpace(scope.TenantID) == "" {
+			return errors.New("tenant id required")
+		}
+	case PreferenceLevelOrg:
+		if strings.TrimSpace(scope.OrgID) == "" {
+			return errors.New("org id required")
+		}
+	case PreferenceLevelUser:
+		if strings.TrimSpace(scope.UserID) == "" {
+			return errors.New("user id required")
+		}
+	default:
+		return errors.New("unsupported preference level")
+	}
+	return nil
+}
+
+func (s *InMemoryPreferencesStore) recordsForWrite(level PreferenceLevel, scope PreferenceScope) map[string]preferenceRecord {
+	switch level {
+	case PreferenceLevelSystem:
+		return s.system
+	case PreferenceLevelTenant:
+		tenantID := strings.TrimSpace(scope.TenantID)
+		if s.tenants[tenantID] == nil {
+			s.tenants[tenantID] = map[string]preferenceRecord{}
+		}
+		return s.tenants[tenantID]
+	case PreferenceLevelOrg:
+		orgID := strings.TrimSpace(scope.OrgID)
+		if s.orgs[orgID] == nil {
+			s.orgs[orgID] = map[string]preferenceRecord{}
+		}
+		return s.orgs[orgID]
+	case PreferenceLevelUser:
+		userID := strings.TrimSpace(scope.UserID)
+		if s.users[userID] == nil {
+			s.users[userID] = map[string]preferenceRecord{}
+		}
+		return s.users[userID]
+	default:
+		return map[string]preferenceRecord{}
+	}
+}
+
+func clonePreferenceRecords(in map[string]preferenceRecord) map[string]preferenceRecord {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]preferenceRecord, len(in))
+	for key, record := range in {
+		out[key] = record
+	}
+	return out
+}
+
+func flattenPreferenceRecords(records map[string]preferenceRecord) map[string]any {
+	if len(records) == 0 {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	for key, record := range records {
+		out[key] = clonePreferenceValue(record.Value)
+	}
+	return out
+}
+
+func clonePreferenceValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneAnyMap(typed)
+	default:
+		return value
+	}
+}
+
+func collectPreferenceKeys(base map[string]any, layers ...map[string]preferenceRecord) []string {
+	seen := map[string]bool{}
+	for key := range base {
+		key = strings.TrimSpace(key)
+		if key != "" {
+			seen[key] = true
+		}
+	}
+	for _, layer := range layers {
+		for key := range layer {
+			key = strings.TrimSpace(key)
+			if key != "" {
+				seen[key] = true
+			}
+		}
+	}
+	if len(seen) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(seen))
+	for key := range seen {
+		out = append(out, key)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func buildPreferenceTraces(keys []string, levels []PreferenceLevel, layerValues map[PreferenceLevel]map[string]preferenceRecord, scope PreferenceScope) []PreferenceTrace {
+	if len(keys) == 0 {
+		return nil
+	}
+	out := make([]PreferenceTrace, 0, len(keys))
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		trace := PreferenceTrace{Key: key}
+		for _, level := range levels {
+			layer := PreferenceTraceLayer{
+				Level: level,
+				Scope: scopeForPreferenceLevel(level, scope),
+			}
+			if records := layerValues[level]; len(records) > 0 {
+				if record, ok := records[key]; ok {
+					layer.Found = true
+					layer.Value = clonePreferenceValue(record.Value)
+					layer.Version = record.Version
+				}
+			}
+			trace.Layers = append(trace.Layers, layer)
+		}
+		out = append(out, trace)
+	}
+	return out
+}
+
+func scopeForPreferenceLevel(level PreferenceLevel, scope PreferenceScope) PreferenceScope {
+	switch level {
+	case PreferenceLevelTenant:
+		return PreferenceScope{TenantID: scope.TenantID}
+	case PreferenceLevelOrg:
+		return PreferenceScope{OrgID: scope.OrgID}
+	case PreferenceLevelUser:
+		return PreferenceScope{UserID: scope.UserID}
+	default:
+		return PreferenceScope{}
+	}
+}
+
+func filterPreferenceKeys(values map[string]any, keys []string) map[string]any {
+	if len(values) == 0 {
+		return map[string]any{}
+	}
+	if len(keys) == 0 {
+		return values
+	}
+	out := map[string]any{}
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		if val, ok := values[key]; ok {
+			out[key] = val
+		}
 	}
 	return out
 }
