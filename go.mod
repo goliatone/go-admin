@@ -3,6 +3,7 @@ module github.com/goliatone/go-admin
 go 1.24.10
 
 require (
+	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-auth v0.22.0
