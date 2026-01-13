@@ -32,30 +32,19 @@ type NotificationService interface {
 // NotificationMarkCommandName is the registered command for marking notifications read/unread.
 const NotificationMarkCommandName = "notifications.mark"
 
-type notificationContextKey string
-
-const (
-	notificationIDsKey  notificationContextKey = "notification_ids"
-	notificationReadKey notificationContextKey = "notification_read"
-)
-
 // NotificationMarkCommand toggles read state for notifications via the command bus.
 type NotificationMarkCommand struct {
 	Service NotificationService
 }
 
-func (c *NotificationMarkCommand) Name() string { return NotificationMarkCommandName }
-
-func (c *NotificationMarkCommand) Execute(ctx context.Context) error {
+func (c *NotificationMarkCommand) Execute(ctx context.Context, msg NotificationMarkMsg) error {
 	if c == nil || c.Service == nil {
 		return FeatureDisabledError{Feature: string(FeatureNotifications)}
 	}
-	ids := notificationIDsFromContext(ctx)
-	if len(ids) == 0 {
+	if len(msg.IDs) == 0 {
 		return errors.New("notification ids required")
 	}
-	read := notificationReadFromContext(ctx)
-	return c.Service.Mark(ctx, ids, read)
+	return c.Service.Mark(ctx, msg.IDs, msg.Read)
 }
 
 // InMemoryNotificationService stores notifications in memory.
@@ -163,28 +152,4 @@ func (s *InMemoryNotificationService) recordActivity(ctx context.Context, action
 	})
 }
 
-func notificationIDsFromContext(ctx context.Context) []string {
-	if ctx == nil {
-		return nil
-	}
-	if ids, ok := ctx.Value(notificationIDsKey).([]string); ok {
-		return ids
-	}
-	return nil
-}
-
-func notificationReadFromContext(ctx context.Context) bool {
-	if ctx == nil {
-		return true
-	}
-	if read, ok := ctx.Value(notificationReadKey).(bool); ok {
-		return read
-	}
-	return true
-}
-
-func withNotificationContext(ctx context.Context, ids []string, read bool) context.Context {
-	ctx = context.WithValue(ctx, notificationIDsKey, ids)
-	ctx = context.WithValue(ctx, notificationReadKey, read)
-	return ctx
-}
+// notification context helpers removed; use NotificationMarkMsg instead.
