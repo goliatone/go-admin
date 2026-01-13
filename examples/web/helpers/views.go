@@ -5,6 +5,8 @@ import (
 	"io/fs"
 	"log"
 	"time"
+
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 // WebViewConfig implements the ViewConfig interface for the go-router view engine
@@ -78,7 +80,9 @@ func (c *WebViewConfig) GetDirOS() string { return "" }
 func (c *WebViewConfig) GetURLPrefix() string { return "" }
 
 // GetTemplateFunctions returns custom template functions
-func (c *WebViewConfig) GetTemplateFunctions() map[string]any { return TemplateFuncs() }
+func (c *WebViewConfig) GetTemplateFunctions() map[string]any {
+	return quickstart.DefaultTemplateFuncs(TemplateFuncOptions()...)
+}
 
 // GetExt returns the template file extension
 func (c *WebViewConfig) GetExt() string { return ".html" }
