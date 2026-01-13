@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	router "github.com/goliatone/go-router"
@@ -589,6 +590,43 @@ func TestPreferencesQueryParamsRejectInvalidLevels(t *testing.T) {
 	meta := extractMap(errPayload["metadata"])
 	if meta["level"] != "unknown" {
 		t.Fatalf("expected level metadata, got %v", meta["level"])
+	}
+}
+
+func TestPreferencesQueryBaseOverridesDefaults(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Theme:         "default",
+		Features: Features{
+			Preferences: true,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	server := router.NewHTTPServer()
+
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	encodedBase := url.QueryEscape(`{"theme":"base"}`)
+	req := httptest.NewRequest("GET", "/admin/api/preferences?base="+encodedBase, nil)
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 on base query param, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	records, ok := resp["records"].([]any)
+	if !ok || len(records) != 1 {
+		t.Fatalf("expected records array, got %v", resp["records"])
+	}
+	record := extractMap(records[0])
+	if toString(record["theme"]) != "base" {
+		t.Fatalf("expected base theme override, got %v", record["theme"])
 	}
 }
 
