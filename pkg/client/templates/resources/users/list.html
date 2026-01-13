@@ -6,7 +6,7 @@
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
   <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
   <div class="flex gap-3">
-    <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ resource_label|default:resource|title }}</a>
+    <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ singularize(resource_label|default:resource)|title }}</a>
   </div>
 </header>
 
