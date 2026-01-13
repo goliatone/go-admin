@@ -1281,10 +1281,10 @@ func setupJobs(adm *admin.Admin, dataStores *stores.DataStores) {
 		return
 	}
 
-	registry.Register(jobs.NewDatabaseBackupJob())
-	registry.Register(jobs.NewCacheCleanupJob())
-	registry.Register(jobs.NewContentExportJob(dataStores))
-	registry.Register(jobs.NewInactiveUsersCleanupJob(dataStores.Users))
+	_, _ = admin.RegisterCommand(registry, jobs.NewDatabaseBackupJob())
+	_, _ = admin.RegisterCommand(registry, jobs.NewCacheCleanupJob())
+	_, _ = admin.RegisterCommand(registry, jobs.NewContentExportJob(dataStores))
+	_, _ = admin.RegisterCommand(registry, jobs.NewInactiveUsersCleanupJob(dataStores.Users))
 }
 
 // seedNotificationsAndActivity adds sample data for notifications and activity feed
