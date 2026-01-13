@@ -20,36 +20,36 @@ type Config struct {
 	CustomCSS  string
 	CustomJS   string
 
-	SettingsPermission            string
-	SettingsUpdatePermission      string
-	SettingsThemeTokens           map[string]string
-	NotificationsPermission       string
-	NotificationsUpdatePermission string
-	JobsPermission                string
-	JobsTriggerPermission         string
-	PreferencesPermission         string
-	PreferencesUpdatePermission   string
+	SettingsPermission                string
+	SettingsUpdatePermission          string
+	SettingsThemeTokens               map[string]string
+	NotificationsPermission           string
+	NotificationsUpdatePermission     string
+	JobsPermission                    string
+	JobsTriggerPermission             string
+	PreferencesPermission             string
+	PreferencesUpdatePermission       string
 	PreferencesManageTenantPermission string
 	PreferencesManageOrgPermission    string
 	PreferencesManageSystemPermission string
-	ProfilePermission             string
-	ProfileUpdatePermission       string
-	UsersPermission               string
-	UsersCreatePermission         string
-	UsersUpdatePermission         string
-	UsersDeletePermission         string
-	RolesPermission               string
-	RolesCreatePermission         string
-	RolesUpdatePermission         string
-	RolesDeletePermission         string
-	TenantsPermission             string
-	TenantsCreatePermission       string
-	TenantsUpdatePermission       string
-	TenantsDeletePermission       string
-	OrganizationsPermission       string
-	OrganizationsCreatePermission string
-	OrganizationsUpdatePermission string
-	OrganizationsDeletePermission string
+	ProfilePermission                 string
+	ProfileUpdatePermission           string
+	UsersPermission                   string
+	UsersCreatePermission             string
+	UsersUpdatePermission             string
+	UsersDeletePermission             string
+	RolesPermission                   string
+	RolesCreatePermission             string
+	RolesUpdatePermission             string
+	RolesDeletePermission             string
+	TenantsPermission                 string
+	TenantsCreatePermission           string
+	TenantsUpdatePermission           string
+	TenantsDeletePermission           string
+	OrganizationsPermission           string
+	OrganizationsCreatePermission     string
+	OrganizationsUpdatePermission     string
+	OrganizationsDeletePermission     string
 
 	AuthConfig *AuthConfig
 
