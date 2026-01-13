@@ -140,6 +140,9 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 			opt(&options)
 		}
 	}
+	if options.templateFuncs == nil {
+		options.templateFuncs = DefaultTemplateFuncs()
+	}
 
 	templateFS := baseFS
 	dirFS := "templates"
