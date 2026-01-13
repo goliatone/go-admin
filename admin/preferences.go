@@ -53,7 +53,7 @@ type PreferenceTraceLayer struct {
 
 // PreferenceTrace records provenance for a single key.
 type PreferenceTrace struct {
-	Key    string                `json:"key"`
+	Key    string                 `json:"key"`
 	Layers []PreferenceTraceLayer `json:"layers"`
 }
 
