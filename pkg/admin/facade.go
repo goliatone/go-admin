@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"context"
-
 	core "github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
 	cms "github.com/goliatone/go-cms"
@@ -32,7 +30,10 @@ type (
 	BunRepositoryAdapter[T any] = core.BunRepositoryAdapter[T]
 	BunRepositoryOption[T any]  = core.BunRepositoryOption[T]
 
-	CLIOptions = core.CLIOptions
+	CLIConfig = core.CLIConfig
+	CLIGroup  = core.CLIGroup
+
+	CommandBus = core.CommandBus
 
 	CMSBlock             = core.CMSBlock
 	CMSBlockDefinition   = core.CMSBlockDefinition
@@ -82,6 +83,8 @@ type (
 	MemoryRepository = core.MemoryRepository
 
 	MenuItem = core.MenuItem
+
+	NoopCLIHandler = core.NoopCLIHandler
 
 	Module         = core.Module
 	ModuleContext  = core.ModuleContext
@@ -181,14 +184,6 @@ const (
 
 func New(cfg Config, deps Dependencies) (*Admin, error) {
 	return core.New(cfg, deps)
-}
-
-func CommandPayload(ctx context.Context) map[string]any {
-	return core.CommandPayload(ctx)
-}
-
-func CommandIDs(ctx context.Context) []string {
-	return core.CommandIDs(ctx)
 }
 
 func NewActivitySinkAdapter(logger ActivityLogger, lister ActivityRecordLister) *ActivitySinkAdapter {
