@@ -42,7 +42,9 @@ func (m *commerceModule) Register(ctx admin.ModuleContext) error {
 		return err
 	}
 
-	registerCommands(ctx.Admin, m.stores)
+	if err := registerCommands(ctx.Admin, m.stores); err != nil {
+		return err
+	}
 	registerDashboard(ctx.Admin, m.stores)
 	registerSearch(ctx.Admin, m.stores, path.Join(m.basePath, "api"))
 	return nil
