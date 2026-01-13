@@ -6,6 +6,8 @@ import (
 
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 	settingsinternal "github.com/goliatone/go-admin/admin/internal/settings"
+	"github.com/goliatone/go-command/registry"
+	goerrors "github.com/goliatone/go-errors"
 )
 
 // Bootstrap initializes CMS seed data (CMS container, admin menu, settings defaults).
@@ -76,6 +78,9 @@ func (a *Admin) Prepare(ctx context.Context) error {
 	if err := a.loadModules(ctx); err != nil {
 		return err
 	}
+	if err := a.initializeCommandRegistry(ctx); err != nil {
+		return err
+	}
 	if err := a.ensureDashboard(ctx); err != nil {
 		return err
 	}
@@ -85,6 +90,23 @@ func (a *Admin) Prepare(ctx context.Context) error {
 		}
 	}
 	if err := a.ensureSettingsNavigation(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *Admin) initializeCommandRegistry(ctx context.Context) error {
+	if a == nil || a.commandBus == nil || !a.commandBus.enabled {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := registry.Start(ctx); err != nil {
+		var regErr *goerrors.Error
+		if errors.As(err, &regErr) && regErr.TextCode == "REGISTRY_ALREADY_INITIALIZED" {
+			return nil
+		}
 		return err
 	}
 	return nil
