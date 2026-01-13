@@ -5,9 +5,9 @@ go 1.24.10
 replace github.com/goliatone/go-admin => ..
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/gobuffalo/flect v1.0.3
-	github.com/goliatone/go-admin v0.11.0
+	github.com/gofiber/fiber/v2 v2.52.10
+	github.com/goliatone/go-admin v0.12.0
 	github.com/goliatone/go-auth v0.22.0
 	github.com/goliatone/go-cms v0.18.0
 	github.com/goliatone/go-dashboard v0.6.0
