@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 )
 
@@ -21,40 +22,43 @@ func (s stubAuthorizer) Can(ctx context.Context, action string, resource string)
 }
 
 func TestDashboardProviderRegistersCommandAndResolvesInstances(t *testing.T) {
-	widgetSvc := NewInMemoryWidgetService()
-	dash := NewDashboard()
-	dash.WithWidgetService(widgetSvc)
-	cmdReg := NewCommandRegistry(true)
-	dash.WithCommandBus(cmdReg)
-	dash.RegisterArea(WidgetAreaDefinition{Code: "admin.dashboard.main"})
+	registry.WithTestRegistry(func() {
+		widgetSvc := NewInMemoryWidgetService()
+		dash := NewDashboard()
+		dash.WithWidgetService(widgetSvc)
+		cmdBus := NewCommandBus(true)
+		defer cmdBus.Reset()
+		dash.WithCommandBus(cmdBus)
+		dash.RegisterArea(WidgetAreaDefinition{Code: "admin.dashboard.main"})
 
-	called := false
-	dash.RegisterProvider(DashboardProviderSpec{
-		Code:        "demo.widget",
-		Name:        "Demo",
-		DefaultArea: "admin.dashboard.main",
-		CommandName: "dashboard.demo.widget",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-			_ = ctx
-			_ = cfg
-			called = true
-			return map[string]any{"ok": true}, nil
-		},
+		called := false
+		dash.RegisterProvider(DashboardProviderSpec{
+			Code:        "demo.widget",
+			Name:        "Demo",
+			DefaultArea: "admin.dashboard.main",
+			CommandName: "dashboard.demo.widget",
+			Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+				_ = ctx
+				_ = cfg
+				called = true
+				return map[string]any{"ok": true}, nil
+			},
+		})
+
+		widgets, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"})
+		if err != nil {
+			t.Fatalf("resolve failed: %v", err)
+		}
+		if len(widgets) != 1 {
+			t.Fatalf("expected one widget, got %d", len(widgets))
+		}
+		if err := cmdBus.DispatchByName(context.Background(), "dashboard.demo.widget", nil, nil); err != nil {
+			t.Fatalf("command dispatch failed: %v", err)
+		}
+		if !called {
+			t.Fatalf("expected provider handler to be invoked by command")
+		}
 	})
-
-	widgets, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"})
-	if err != nil {
-		t.Fatalf("resolve failed: %v", err)
-	}
-	if len(widgets) != 1 {
-		t.Fatalf("expected one widget, got %d", len(widgets))
-	}
-	if err := cmdReg.Dispatch(context.Background(), "dashboard.demo.widget"); err != nil {
-		t.Fatalf("command dispatch failed: %v", err)
-	}
-	if !called {
-		t.Fatalf("expected provider handler to be invoked by command")
-	}
 }
 
 func TestDashboardVisibilityPermissionFilters(t *testing.T) {

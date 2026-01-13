@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"testing"
+
+	"github.com/goliatone/go-command/registry"
 )
 
 type allowAll struct{}
@@ -105,124 +107,164 @@ type commandCalled struct {
 	called bool
 }
 
-func (c *commandCalled) Name() string { return "do.something" }
-func (c *commandCalled) Execute(ctx context.Context) error {
+type commandCalledMsg struct{}
+
+func (commandCalledMsg) Type() string { return "do.something" }
+
+func (c *commandCalled) Execute(ctx context.Context, _ commandCalledMsg) error {
 	c.called = true
 	_ = ctx
 	return nil
 }
 
 type payloadCommand struct {
-	name    string
 	called  bool
 	payload map[string]any
 }
 
-func (c *payloadCommand) Name() string { return c.name }
-
-func (c *payloadCommand) Execute(ctx context.Context) error {
-	c.called = true
-	_ = ctx
-	return nil
+type payloadCommandMsg struct {
+	Payload map[string]any
 }
 
-func (c *payloadCommand) ExecuteWithPayload(ctx context.Context, payload map[string]any) error {
+func (payloadCommandMsg) Type() string { return "do.payload" }
+
+func (c *payloadCommand) Execute(ctx context.Context, msg payloadCommandMsg) error {
 	c.called = true
-	c.payload = payload
+	c.payload = msg.Payload
 	_ = ctx
 	return nil
 }
 
 func TestPanelActionDispatchesCommand(t *testing.T) {
-	reg := NewCommandRegistry(true)
-	cmd := &commandCalled{}
-	reg.Register(cmd)
+	registry.WithTestRegistry(func() {
+		reg := NewCommandBus(true)
+		defer reg.Reset()
+		cmd := &commandCalled{}
+		if _, err := RegisterCommand(reg, cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(reg, "do.something", func(payload map[string]any, ids []string) (commandCalledMsg, error) {
+			return commandCalledMsg{}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
 
-	panel := &Panel{
-		name: "actions",
-		actions: []Action{
-			{Name: "run", CommandName: "do.something"},
-		},
-		commandBus: reg,
-	}
-	ctx := AdminContext{Context: context.Background()}
-	if err := panel.RunAction(ctx, "run", nil); err != nil {
-		t.Fatalf("action dispatch failed: %v", err)
-	}
-	if !cmd.called {
-		t.Fatalf("command not executed")
-	}
+		panel := &Panel{
+			name: "actions",
+			actions: []Action{
+				{Name: "run", CommandName: "do.something"},
+			},
+			commandBus: reg,
+		}
+		ctx := AdminContext{Context: context.Background()}
+		if err := panel.RunAction(ctx, "run", nil, nil); err != nil {
+			t.Fatalf("action dispatch failed: %v", err)
+		}
+		if !cmd.called {
+			t.Fatalf("command not executed")
+		}
+	})
 }
 
 func TestPanelBulkActionDispatchesCommand(t *testing.T) {
-	reg := NewCommandRegistry(true)
-	cmd := &commandCalled{}
-	reg.Register(cmd)
+	registry.WithTestRegistry(func() {
+		reg := NewCommandBus(true)
+		defer reg.Reset()
+		cmd := &commandCalled{}
+		if _, err := RegisterCommand(reg, cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(reg, "do.something", func(payload map[string]any, ids []string) (commandCalledMsg, error) {
+			return commandCalledMsg{}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
 
-	panel := &Panel{
-		name: "actions",
-		bulkActions: []Action{
-			{Name: "bulk_run", CommandName: "do.something"},
-		},
-		commandBus: reg,
-	}
-	ctx := AdminContext{Context: context.Background()}
-	if err := panel.RunBulkAction(ctx, "bulk_run", nil); err != nil {
-		t.Fatalf("bulk action dispatch failed: %v", err)
-	}
-	if !cmd.called {
-		t.Fatalf("command not executed for bulk")
-	}
+		panel := &Panel{
+			name: "actions",
+			bulkActions: []Action{
+				{Name: "bulk_run", CommandName: "do.something"},
+			},
+			commandBus: reg,
+		}
+		ctx := AdminContext{Context: context.Background()}
+		if err := panel.RunBulkAction(ctx, "bulk_run", nil, nil); err != nil {
+			t.Fatalf("bulk action dispatch failed: %v", err)
+		}
+		if !cmd.called {
+			t.Fatalf("command not executed for bulk")
+		}
+	})
 }
 
 func TestPanelActionDispatchesPayload(t *testing.T) {
-	reg := NewCommandRegistry(true)
-	cmd := &payloadCommand{name: "do.payload"}
-	reg.Register(cmd)
+	registry.WithTestRegistry(func() {
+		reg := NewCommandBus(true)
+		defer reg.Reset()
+		cmd := &payloadCommand{}
+		if _, err := RegisterCommand(reg, cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(reg, "do.payload", func(payload map[string]any, ids []string) (payloadCommandMsg, error) {
+			return payloadCommandMsg{Payload: payload}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
 
-	panel := &Panel{
-		name: "actions",
-		actions: []Action{
-			{Name: "run", CommandName: "do.payload"},
-		},
-		commandBus: reg,
-	}
-	ctx := AdminContext{Context: context.Background()}
-	payload := map[string]any{"note": "hello"}
-	if err := panel.RunAction(ctx, "run", payload); err != nil {
-		t.Fatalf("action dispatch failed: %v", err)
-	}
-	if !cmd.called {
-		t.Fatalf("command not executed")
-	}
-	if cmd.payload["note"] != "hello" {
-		t.Fatalf("payload not forwarded")
-	}
+		panel := &Panel{
+			name: "actions",
+			actions: []Action{
+				{Name: "run", CommandName: "do.payload"},
+			},
+			commandBus: reg,
+		}
+		ctx := AdminContext{Context: context.Background()}
+		payload := map[string]any{"note": "hello"}
+		if err := panel.RunAction(ctx, "run", payload, nil); err != nil {
+			t.Fatalf("action dispatch failed: %v", err)
+		}
+		if !cmd.called {
+			t.Fatalf("command not executed")
+		}
+		if cmd.payload["note"] != "hello" {
+			t.Fatalf("payload not forwarded")
+		}
+	})
 }
 
 func TestPanelBulkActionDispatchesPayload(t *testing.T) {
-	reg := NewCommandRegistry(true)
-	cmd := &payloadCommand{name: "bulk.payload"}
-	reg.Register(cmd)
+	registry.WithTestRegistry(func() {
+		reg := NewCommandBus(true)
+		defer reg.Reset()
+		cmd := &payloadCommand{}
+		if _, err := RegisterCommand(reg, cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(reg, "do.payload", func(payload map[string]any, ids []string) (payloadCommandMsg, error) {
+			return payloadCommandMsg{Payload: payload}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
 
-	panel := &Panel{
-		name: "actions",
-		bulkActions: []Action{
-			{Name: "bulk_run", CommandName: "bulk.payload"},
-		},
-		commandBus: reg,
-	}
-	ctx := AdminContext{Context: context.Background()}
-	payload := map[string]any{"ids": []string{"a", "b"}}
-	if err := panel.RunBulkAction(ctx, "bulk_run", payload); err != nil {
-		t.Fatalf("bulk action dispatch failed: %v", err)
-	}
-	if !cmd.called {
-		t.Fatalf("command not executed for bulk")
-	}
-	if _, ok := cmd.payload["ids"]; !ok {
-		t.Fatalf("payload not forwarded")
-	}
+		panel := &Panel{
+			name: "actions",
+			bulkActions: []Action{
+				{Name: "bulk_run", CommandName: "do.payload"},
+			},
+			commandBus: reg,
+		}
+		ctx := AdminContext{Context: context.Background()}
+		payload := map[string]any{"ids": []string{"a", "b"}}
+		if err := panel.RunBulkAction(ctx, "bulk_run", payload, nil); err != nil {
+			t.Fatalf("bulk action dispatch failed: %v", err)
+		}
+		if !cmd.called {
+			t.Fatalf("command not executed for bulk")
+		}
+		if _, ok := cmd.payload["ids"]; !ok {
+			t.Fatalf("payload not forwarded")
+		}
+	})
 }
 
 func TestPanelSchemaIncludesFormSchema(t *testing.T) {
