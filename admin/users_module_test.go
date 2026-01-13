@@ -247,9 +247,9 @@ func TestUserLifecycleCommandTransitionsStatus(t *testing.T) {
 		t.Fatalf("seed user: %v", err)
 	}
 
-	cmd := newUserLifecycleCommand(svc, "users.activate", "active")
-	ctx := WithCommandIDs(context.Background(), []string{record.ID})
-	if err := cmd.Execute(ctx); err != nil {
+	cmd := newUserActivateCommand(svc)
+	ctx := context.Background()
+	if err := cmd.Execute(ctx, UserActivateMsg{IDs: []string{record.ID}}); err != nil {
 		t.Fatalf("execute lifecycle command: %v", err)
 	}
 
