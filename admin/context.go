@@ -19,17 +19,12 @@ type AdminContext struct {
 }
 
 type adminContextKey string
-type commandContextKey string
 
 const userIDContextKey adminContextKey = "admin.user_id"
 const localeContextKey adminContextKey = "admin.locale"
 const tenantIDContextKey adminContextKey = "admin.tenant_id"
 const orgIDContextKey adminContextKey = "admin.org_id"
 const queryParamsContextKey adminContextKey = "admin.query_params"
-const (
-	commandPayloadKey commandContextKey = "admin.command.payload"
-	commandIDsKey     commandContextKey = "admin.command.ids"
-)
 
 // Authorizer determines whether a subject can perform an action on a resource.
 type Authorizer interface {
@@ -162,46 +157,6 @@ func queryParamsFromContext(ctx context.Context) map[string][]string {
 	}
 	if params, ok := ctx.Value(queryParamsContextKey).(map[string][]string); ok {
 		return params
-	}
-	return nil
-}
-
-// WithCommandPayload stores an arbitrary command payload on the context so command handlers
-// can inspect request-scoped parameters (e.g., selected IDs or filters).
-func WithCommandPayload(ctx context.Context, payload map[string]any) context.Context {
-	if ctx == nil || len(payload) == 0 {
-		return ctx
-	}
-	return context.WithValue(ctx, commandPayloadKey, payload)
-}
-
-// CommandPayload retrieves the payload stored by WithCommandPayload.
-func CommandPayload(ctx context.Context) map[string]any {
-	if ctx == nil {
-		return nil
-	}
-	if payload, ok := ctx.Value(commandPayloadKey).(map[string]any); ok {
-		return payload
-	}
-	return nil
-}
-
-// WithCommandIDs stores normalized command target IDs on the context.
-func WithCommandIDs(ctx context.Context, ids []string) context.Context {
-	clean := dedupeStrings(ids)
-	if ctx == nil || len(clean) == 0 {
-		return ctx
-	}
-	return context.WithValue(ctx, commandIDsKey, clean)
-}
-
-// CommandIDs retrieves any target IDs attached to the context.
-func CommandIDs(ctx context.Context) []string {
-	if ctx == nil {
-		return nil
-	}
-	if ids, ok := ctx.Value(commandIDsKey).([]string); ok {
-		return ids
 	}
 	return nil
 }
