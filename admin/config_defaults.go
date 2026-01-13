@@ -29,6 +29,15 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.PreferencesUpdatePermission == "" {
 		cfg.PreferencesUpdatePermission = "admin.preferences.edit"
 	}
+	if cfg.PreferencesManageTenantPermission == "" {
+		cfg.PreferencesManageTenantPermission = "admin.preferences.manage_tenant"
+	}
+	if cfg.PreferencesManageOrgPermission == "" {
+		cfg.PreferencesManageOrgPermission = "admin.preferences.manage_org"
+	}
+	if cfg.PreferencesManageSystemPermission == "" {
+		cfg.PreferencesManageSystemPermission = "admin.preferences.manage_system"
+	}
 	if cfg.ProfilePermission == "" {
 		cfg.ProfilePermission = "admin.profile.view"
 	}
