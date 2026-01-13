@@ -8,6 +8,12 @@ type Command interface {
 	Execute(ctx context.Context) error
 }
 
+// CommandWithPayload allows commands to accept structured request payloads.
+type CommandWithPayload interface {
+	Command
+	ExecuteWithPayload(ctx context.Context, payload map[string]any) error
+}
+
 // CLIOptions describes optional CLI metadata for a command.
 type CLIOptions struct {
 	Path        []string
@@ -90,12 +96,23 @@ func (r *CommandRegistry) Cron() []CronHook {
 
 // Dispatch executes a registered command by name.
 func (r *CommandRegistry) Dispatch(ctx context.Context, name string) error {
+	return r.DispatchWithPayload(ctx, name, nil)
+}
+
+// DispatchWithPayload executes a registered command with an optional payload.
+func (r *CommandRegistry) DispatchWithPayload(ctx context.Context, name string, payload map[string]any) error {
 	if r == nil || !r.enabled {
 		return FeatureDisabledError{Feature: string(FeatureCommands)}
 	}
 	cmd, ok := r.commandMap[name]
 	if !ok {
 		return ErrNotFound
+	}
+	if len(payload) > 0 {
+		ctx = WithCommandPayload(ctx, payload)
+		if withPayload, ok := cmd.(CommandWithPayload); ok {
+			return withPayload.ExecuteWithPayload(ctx, payload)
+		}
 	}
 	return cmd.Execute(ctx)
 }
