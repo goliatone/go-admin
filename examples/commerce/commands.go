@@ -6,34 +6,46 @@ import (
 
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-command"
+	"github.com/goliatone/go-command/dispatcher"
 )
 
-func registerCommands(adm *admin.Admin, data *stores.CommerceStores) {
+func registerCommands(adm *admin.Admin, data *stores.CommerceStores) error {
 	if adm == nil || data == nil || adm.Commands() == nil {
-		return
+		return nil
 	}
-	adm.Commands().Register(&restockLowInventoryCommand{
+	bus := adm.Commands()
+	if err := registerCommerceCommandFactories(bus); err != nil {
+		return err
+	}
+	if err := bus.Register(&restockLowInventoryCommand{
 		products:      data.Products,
 		threshold:     5,
 		restockAmount: 15,
-		commandName:   "commerce.restock_low",
-	})
-	adm.Commands().Register(&dailyRevenueReportCommand{
+	}); err != nil {
+		return err
+	}
+	if err := bus.Register(&dailyRevenueReportCommand{
 		stores: data,
-		name:   "commerce.daily_report",
-	})
+	}); err != nil {
+		return err
+	}
+	return nil
 }
+
+const restockLowInventoryCommandName = "commerce.restock_low"
+
+type RestockLowInventoryMsg struct{}
+
+func (RestockLowInventoryMsg) Type() string { return restockLowInventoryCommandName }
 
 type restockLowInventoryCommand struct {
 	products      *admin.MemoryRepository
 	threshold     int
 	restockAmount int
-	commandName   string
 }
 
-func (c *restockLowInventoryCommand) Name() string { return c.commandName }
-
-func (c *restockLowInventoryCommand) Execute(ctx context.Context) error {
+func (c *restockLowInventoryCommand) Execute(ctx context.Context, _ RestockLowInventoryMsg) error {
 	if c.products == nil {
 		return fmt.Errorf("products repository missing")
 	}
@@ -55,21 +67,28 @@ func (c *restockLowInventoryCommand) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (c *restockLowInventoryCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
+func (c *restockLowInventoryCommand) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *restockLowInventoryCommand) CLIOptions() admin.CLIConfig {
+	return admin.CLIConfig{
 		Path:        []string{"admin", "commerce", "restock-low"},
 		Description: "Restock products that fell below the threshold",
 	}
 }
 
+const dailyRevenueReportCommandName = "commerce.daily_report"
+
+type DailyRevenueReportMsg struct{}
+
+func (DailyRevenueReportMsg) Type() string { return dailyRevenueReportCommandName }
+
 type dailyRevenueReportCommand struct {
 	stores *stores.CommerceStores
-	name   string
 }
 
-func (c *dailyRevenueReportCommand) Name() string { return c.name }
-
-func (c *dailyRevenueReportCommand) Execute(ctx context.Context) error {
+func (c *dailyRevenueReportCommand) Execute(ctx context.Context, _ DailyRevenueReportMsg) error {
 	if c.stores == nil {
 		return fmt.Errorf("stores missing")
 	}
@@ -77,14 +96,29 @@ func (c *dailyRevenueReportCommand) Execute(ctx context.Context) error {
 	return err
 }
 
-func (c *dailyRevenueReportCommand) CronSpec() string {
-	return "@daily"
-}
-
 func (c *dailyRevenueReportCommand) CronHandler() func() error {
 	return func() error {
-		return c.Execute(context.Background())
+		return dispatcher.Dispatch(context.Background(), DailyRevenueReportMsg{})
 	}
+}
+
+func (c *dailyRevenueReportCommand) CronOptions() command.HandlerConfig {
+	return command.HandlerConfig{Expression: "@daily"}
+}
+
+func registerCommerceCommandFactories(bus *admin.CommandBus) error {
+	if err := bus.RegisterMessageFactory(restockLowInventoryCommandName, buildRestockLowInventoryMsg); err != nil {
+		return err
+	}
+	return bus.RegisterMessageFactory(dailyRevenueReportCommandName, buildDailyRevenueReportMsg)
+}
+
+func buildRestockLowInventoryMsg(_ map[string]any, _ []string) (RestockLowInventoryMsg, error) {
+	return RestockLowInventoryMsg{}, nil
+}
+
+func buildDailyRevenueReportMsg(_ map[string]any, _ []string) (DailyRevenueReportMsg, error) {
+	return DailyRevenueReportMsg{}, nil
 }
 
 func toInt(v any) int {
