@@ -2,10 +2,12 @@ package admin
 
 import (
 	"context"
-	"errors"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
+
+	goerrors "github.com/goliatone/go-errors"
 )
 
 const (
@@ -113,7 +115,7 @@ func NewInMemoryPreferencesStore() *InMemoryPreferencesStore {
 func (s *InMemoryPreferencesStore) Resolve(ctx context.Context, input PreferencesResolveInput) (PreferenceSnapshot, error) {
 	_ = ctx
 	if s == nil {
-		return PreferenceSnapshot{}, errors.New("preferences store not configured")
+		return PreferenceSnapshot{}, preferencesConfigError("preferences store not configured")
 	}
 	levelOrder := resolvePreferenceLevels(input.Levels)
 	base := cloneAnyMap(input.Base)
@@ -194,7 +196,7 @@ func (s *InMemoryPreferencesStore) Resolve(ctx context.Context, input Preference
 func (s *InMemoryPreferencesStore) Upsert(ctx context.Context, input PreferencesUpsertInput) (PreferenceSnapshot, error) {
 	_ = ctx
 	if s == nil {
-		return PreferenceSnapshot{}, errors.New("preferences store not configured")
+		return PreferenceSnapshot{}, preferencesConfigError("preferences store not configured")
 	}
 	level := normalizePreferenceLevel(input.Level)
 	scope := input.Scope
@@ -232,7 +234,7 @@ func (s *InMemoryPreferencesStore) Upsert(ctx context.Context, input Preferences
 func (s *InMemoryPreferencesStore) Delete(ctx context.Context, input PreferencesDeleteInput) error {
 	_ = ctx
 	if s == nil {
-		return errors.New("preferences store not configured")
+		return preferencesConfigError("preferences store not configured")
 	}
 	level := normalizePreferenceLevel(input.Level)
 	scope := input.Scope
@@ -335,10 +337,10 @@ func (s *PreferencesService) Store() PreferencesStore {
 // Resolve returns an effective snapshot for the provided scope and options.
 func (s *PreferencesService) Resolve(ctx context.Context, input PreferencesResolveInput) (PreferenceSnapshot, error) {
 	if s == nil {
-		return PreferenceSnapshot{}, errors.New("preferences service not configured")
+		return PreferenceSnapshot{}, preferencesConfigError("preferences service not configured")
 	}
 	if s.store == nil {
-		return PreferenceSnapshot{}, errors.New("preferences store not configured")
+		return PreferenceSnapshot{}, preferencesConfigError("preferences store not configured")
 	}
 	input.Scope = mergePreferenceScope(ctx, input.Scope)
 	input.Base = s.applyDefaultsToBase(input.Base)
@@ -355,7 +357,7 @@ func (s *PreferencesService) Resolve(ctx context.Context, input PreferencesResol
 // Get returns preferences for a user with defaults applied.
 func (s *PreferencesService) Get(ctx context.Context, userID string) (UserPreferences, error) {
 	if s == nil {
-		return UserPreferences{}, errors.New("preferences service not configured")
+		return UserPreferences{}, preferencesConfigError("preferences service not configured")
 	}
 	scope := preferenceScopeFromContext(ctx)
 	if userID != "" {
@@ -371,7 +373,7 @@ func (s *PreferencesService) Get(ctx context.Context, userID string) (UserPrefer
 // Save updates preferences for a user, merging with existing values.
 func (s *PreferencesService) Save(ctx context.Context, userID string, prefs UserPreferences) (UserPreferences, error) {
 	if s == nil {
-		return UserPreferences{}, errors.New("preferences service not configured")
+		return UserPreferences{}, preferencesConfigError("preferences service not configured")
 	}
 	scope := preferenceScopeFromContext(ctx)
 	if userID != "" {
@@ -402,7 +404,7 @@ func (s *PreferencesService) Save(ctx context.Context, userID string, prefs User
 // Clear removes stored preference keys for a user.
 func (s *PreferencesService) Clear(ctx context.Context, userID string, keys []string) (UserPreferences, error) {
 	if s == nil {
-		return UserPreferences{}, errors.New("preferences service not configured")
+		return UserPreferences{}, preferencesConfigError("preferences service not configured")
 	}
 	scope := preferenceScopeFromContext(ctx)
 	if userID != "" {
@@ -616,18 +618,29 @@ func validatePreferenceScope(level PreferenceLevel, scope PreferenceScope) error
 		return nil
 	case PreferenceLevelTenant:
 		if strings.TrimSpace(scope.TenantID) == "" {
-			return errors.New("tenant id required")
+			return preferenceValidationError("tenant id required", map[string]any{
+				"field": "tenant_id",
+				"level": string(level),
+			})
 		}
 	case PreferenceLevelOrg:
 		if strings.TrimSpace(scope.OrgID) == "" {
-			return errors.New("org id required")
+			return preferenceValidationError("org id required", map[string]any{
+				"field": "org_id",
+				"level": string(level),
+			})
 		}
 	case PreferenceLevelUser:
 		if strings.TrimSpace(scope.UserID) == "" {
-			return errors.New("user id required")
+			return preferenceValidationError("user id required", map[string]any{
+				"field": "user_id",
+				"level": string(level),
+			})
 		}
 	default:
-		return errors.New("unsupported preference level")
+		return preferenceValidationError("unsupported preference level", map[string]any{
+			"level": string(level),
+		})
 	}
 	return nil
 }
@@ -832,20 +845,6 @@ func preferencesToMap(prefs UserPreferences) map[string]any {
 		}
 	}
 	return update
-}
-
-func mergePreferenceMaps(base map[string]any, override map[string]any) map[string]any {
-	if len(base) == 0 && len(override) == 0 {
-		return map[string]any{}
-	}
-	merged := map[string]any{}
-	for k, v := range base {
-		merged[k] = v
-	}
-	for k, v := range override {
-		merged[k] = v
-	}
-	return merged
 }
 
 func flattenDashboardLayout(layout []DashboardWidgetInstance) []map[string]any {
@@ -1112,5 +1111,19 @@ func (p *dashboardPreferenceAdapter) SaveWithContext(ctx context.Context, userID
 		return nil
 	}
 	_, err := p.service.SaveDashboardLayout(ctx, userID, layout)
+	return err
+}
+
+func preferencesConfigError(message string) error {
+	return goerrors.New(message, goerrors.CategoryInternal).
+		WithCode(http.StatusInternalServerError)
+}
+
+func preferenceValidationError(message string, metadata map[string]any) error {
+	err := goerrors.New(message, goerrors.CategoryValidation).
+		WithCode(http.StatusBadRequest)
+	if len(metadata) > 0 {
+		return err.WithMetadata(metadata)
+	}
 	return err
 }
