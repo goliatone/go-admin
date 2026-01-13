@@ -31,12 +31,12 @@ func (c *pagePublishCommand) Name() string {
 	return "pages.publish"
 }
 
-func (c *pagePublishCommand) Execute(ctx context.Context) error {
+func (c *pagePublishCommand) Execute(ctx context.Context, msg PagePublishMsg) error {
 	if c.store == nil {
 		return fmt.Errorf("page store is nil")
 	}
 
-	pages, err := c.store.Publish(ctx, admin.CommandIDs(ctx))
+	pages, err := c.store.Publish(ctx, msg.IDs)
 	if err != nil {
 		return err
 	}
@@ -89,12 +89,12 @@ func (c *pageBulkPublishCommand) Name() string {
 	return "pages.bulk_publish"
 }
 
-func (c *pageBulkPublishCommand) Execute(ctx context.Context) error {
+func (c *pageBulkPublishCommand) Execute(ctx context.Context, msg PageBulkPublishMsg) error {
 	if c.store == nil {
 		return fmt.Errorf("page store is nil")
 	}
 
-	pages, err := c.store.Publish(ctx, admin.CommandIDs(ctx))
+	pages, err := c.store.Publish(ctx, msg.IDs)
 	if err != nil {
 		return err
 	}
@@ -147,12 +147,12 @@ func (c *pageBulkUnpublishCommand) Name() string {
 	return "pages.bulk_unpublish"
 }
 
-func (c *pageBulkUnpublishCommand) Execute(ctx context.Context) error {
+func (c *pageBulkUnpublishCommand) Execute(ctx context.Context, msg PageBulkUnpublishMsg) error {
 	if c.store == nil {
 		return fmt.Errorf("page store is nil")
 	}
 
-	pages, err := c.store.Unpublish(ctx, admin.CommandIDs(ctx))
+	pages, err := c.store.Unpublish(ctx, msg.IDs)
 	if err != nil {
 		return err
 	}

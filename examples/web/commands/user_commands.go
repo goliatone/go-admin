@@ -14,34 +14,18 @@ import (
 	"github.com/google/uuid"
 )
 
-// userLifecycleCommand drives go-users lifecycle transitions through the admin command bus.
-type userLifecycleCommand struct {
+type userLifecycleBase struct {
 	name          string
 	target        userstypes.LifecycleState
 	service       *userssvc.Service
 	activityHooks activity.ActivityHookSlice
 }
 
-// NewUserLifecycleCommand constructs a lifecycle command for the given target status.
-func NewUserLifecycleCommand(service *userssvc.Service, name string, target userstypes.LifecycleState) *userLifecycleCommand {
-	return &userLifecycleCommand{
-		name:    name,
-		target:  target,
-		service: service,
-	}
-}
-
-// WithActivityHooks configures fan-out activity hooks (dashboard bridge).
-func (c *userLifecycleCommand) WithActivityHooks(hooks ...activity.ActivityHook) *userLifecycleCommand {
+func (c *userLifecycleBase) withActivityHooks(hooks ...activity.ActivityHook) {
 	c.activityHooks = append(c.activityHooks, hooks...)
-	return c
 }
 
-func (c *userLifecycleCommand) Name() string {
-	return c.name
-}
-
-func (c *userLifecycleCommand) Execute(ctx context.Context) error {
+func (c *userLifecycleBase) transition(ctx context.Context, ids []string) error {
 	if c == nil || c.service == nil || c.service.Commands().BulkUserTransition == nil {
 		return fmt.Errorf("user lifecycle command not configured")
 	}
@@ -51,7 +35,7 @@ func (c *userLifecycleCommand) Execute(ctx context.Context) error {
 		return fmt.Errorf("actor required for lifecycle transition")
 	}
 
-	userIDs := normalizeUserIDs(admin.CommandIDs(ctx))
+	userIDs := normalizeUserIDs(ids)
 	if len(userIDs) == 0 {
 		return fmt.Errorf("user ids required")
 	}
@@ -71,7 +55,7 @@ func (c *userLifecycleCommand) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (c *userLifecycleCommand) CLIOptions() *admin.CLIOptions {
+func (c *userLifecycleBase) cliOptions() *admin.CLIOptions {
 	action := strings.TrimPrefix(c.name, "users.")
 	return &admin.CLIOptions{
 		Path:        []string{"users", action},
@@ -81,7 +65,7 @@ func (c *userLifecycleCommand) CLIOptions() *admin.CLIOptions {
 	}
 }
 
-func (c *userLifecycleCommand) emitActivity(ctx context.Context, ids []uuid.UUID) {
+func (c *userLifecycleBase) emitActivity(ctx context.Context, ids []uuid.UUID) {
 	if len(c.activityHooks) == 0 {
 		return
 	}
@@ -95,6 +79,110 @@ func (c *userLifecycleCommand) emitActivity(ctx context.Context, ids []uuid.UUID
 		})
 	}
 }
+
+type userActivateCommand struct {
+	userLifecycleBase
+}
+
+// NewUserActivateCommand constructs a lifecycle command for active status.
+func NewUserActivateCommand(service *userssvc.Service) *userActivateCommand {
+	return &userActivateCommand{
+		userLifecycleBase{
+			name:    "users.activate",
+			target:  userstypes.LifecycleStateActive,
+			service: service,
+		},
+	}
+}
+
+func (c *userActivateCommand) WithActivityHooks(hooks ...activity.ActivityHook) *userActivateCommand {
+	c.withActivityHooks(hooks...)
+	return c
+}
+
+func (c *userActivateCommand) Execute(ctx context.Context, msg admin.UserActivateMsg) error {
+	return c.transition(ctx, msg.IDs)
+}
+
+func (c *userActivateCommand) CLIOptions() *admin.CLIOptions { return c.cliOptions() }
+
+type userSuspendCommand struct {
+	userLifecycleBase
+}
+
+// NewUserSuspendCommand constructs a lifecycle command for suspended status.
+func NewUserSuspendCommand(service *userssvc.Service) *userSuspendCommand {
+	return &userSuspendCommand{
+		userLifecycleBase{
+			name:    "users.suspend",
+			target:  userstypes.LifecycleStateSuspended,
+			service: service,
+		},
+	}
+}
+
+func (c *userSuspendCommand) WithActivityHooks(hooks ...activity.ActivityHook) *userSuspendCommand {
+	c.withActivityHooks(hooks...)
+	return c
+}
+
+func (c *userSuspendCommand) Execute(ctx context.Context, msg admin.UserSuspendMsg) error {
+	return c.transition(ctx, msg.IDs)
+}
+
+func (c *userSuspendCommand) CLIOptions() *admin.CLIOptions { return c.cliOptions() }
+
+type userDisableCommand struct {
+	userLifecycleBase
+}
+
+// NewUserDisableCommand constructs a lifecycle command for disabled status.
+func NewUserDisableCommand(service *userssvc.Service) *userDisableCommand {
+	return &userDisableCommand{
+		userLifecycleBase{
+			name:    "users.disable",
+			target:  userstypes.LifecycleStateDisabled,
+			service: service,
+		},
+	}
+}
+
+func (c *userDisableCommand) WithActivityHooks(hooks ...activity.ActivityHook) *userDisableCommand {
+	c.withActivityHooks(hooks...)
+	return c
+}
+
+func (c *userDisableCommand) Execute(ctx context.Context, msg admin.UserDisableMsg) error {
+	return c.transition(ctx, msg.IDs)
+}
+
+func (c *userDisableCommand) CLIOptions() *admin.CLIOptions { return c.cliOptions() }
+
+type userArchiveCommand struct {
+	userLifecycleBase
+}
+
+// NewUserArchiveCommand constructs a lifecycle command for archived status.
+func NewUserArchiveCommand(service *userssvc.Service) *userArchiveCommand {
+	return &userArchiveCommand{
+		userLifecycleBase{
+			name:    "users.archive",
+			target:  userstypes.LifecycleStateArchived,
+			service: service,
+		},
+	}
+}
+
+func (c *userArchiveCommand) WithActivityHooks(hooks ...activity.ActivityHook) *userArchiveCommand {
+	c.withActivityHooks(hooks...)
+	return c
+}
+
+func (c *userArchiveCommand) Execute(ctx context.Context, msg admin.UserArchiveMsg) error {
+	return c.transition(ctx, msg.IDs)
+}
+
+func (c *userArchiveCommand) CLIOptions() *admin.CLIOptions { return c.cliOptions() }
 
 func normalizeUserIDs(ids []string) []uuid.UUID {
 	clean := make([]uuid.UUID, 0, len(ids))
