@@ -23,7 +23,7 @@ type Admin struct {
 	contentSvc                  CMSContentService
 	authenticator               Authenticator
 	router                      AdminRouter
-	commandRegistry             *CommandRegistry
+	commandBus                  *CommandBus
 	dashboard                   *Dashboard
 	dash                        *dashboardComponents
 	nav                         *Navigation
@@ -93,10 +93,13 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		activitySink = NewActivityFeed()
 	}
 
-	cmdReg := deps.CommandRegistry
-	if cmdReg == nil {
+	commandBus := deps.CommandBus
+	if commandBus == nil {
 		enableCommands := cfg.Features.Commands || cfg.Features.Settings || cfg.Features.Jobs || cfg.Features.Bulk || cfg.Features.Dashboard || cfg.Features.Notifications
-		cmdReg = NewCommandRegistry(enableCommands)
+		commandBus = NewCommandBus(enableCommands)
+	}
+	if err := RegisterCoreCommandFactories(commandBus); err != nil {
+		return nil, err
 	}
 
 	settingsSvc := deps.SettingsService
@@ -114,7 +117,9 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	settingsForm := NewSettingsFormAdapter(settingsSvc, cfg.Theme, cfg.ThemeTokens)
 	settingsCmd := &SettingsUpdateCommand{Service: settingsSvc, Permission: cfg.SettingsUpdatePermission}
 	if cfg.Features.Settings {
-		cmdReg.Register(settingsCmd)
+		if _, err := RegisterCommand(commandBus, settingsCmd); err != nil {
+			return nil, err
+		}
 	}
 
 	notifSvc := deps.NotificationService
@@ -168,7 +173,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 
 	jobReg := deps.JobRegistry
 	if jobReg == nil {
-		jobReg = NewJobRegistry(cmdReg)
+		jobReg = NewJobRegistry()
 	}
 	jobReg.WithActivitySink(activitySink)
 	if !cfg.Features.Jobs {
@@ -176,10 +181,14 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	}
 
 	if cfg.Features.Notifications {
-		cmdReg.Register(&NotificationMarkCommand{Service: notifSvc})
+		if _, err := RegisterCommand(commandBus, &NotificationMarkCommand{Service: notifSvc}); err != nil {
+			return nil, err
+		}
 	}
 	if cfg.Features.Bulk {
-		cmdReg.Register(&BulkCommand{Service: bulkSvc})
+		if _, err := RegisterCommand(commandBus, &BulkCommand{Service: bulkSvc}); err != nil {
+			return nil, err
+		}
 	}
 
 	defaultTheme := &ThemeSelection{
@@ -222,7 +231,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		contentSvc:      container.ContentService(),
 		authenticator:   deps.Authenticator,
 		router:          deps.Router,
-		commandRegistry: cmdReg,
+		commandBus:      commandBus,
 		dashboard:       dashboard,
 		nav:             NewNavigation(container.MenuService(), deps.Authorizer),
 		search:          NewSearchEngine(deps.Authorizer),
@@ -252,7 +261,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	adm.dashboard.WithWidgetService(adm.widgetSvc)
 	adm.dashboard.WithPreferences(NewDashboardPreferencesAdapter(preferencesSvc))
 	adm.dashboard.WithPreferenceService(preferencesSvc)
-	adm.dashboard.WithCommandBus(cmdReg)
+	adm.dashboard.WithCommandBus(commandBus)
 	adm.dashboard.WithActivitySink(activitySink)
 	adm.dashboard.WithAuthorizer(deps.Authorizer)
 
@@ -482,7 +491,7 @@ func (a *Admin) authWrapper() func(router.HandlerFunc) router.HandlerFunc {
 // Panel returns a panel builder pre-wired with the command registry.
 // The caller configures fields/actions/hooks and registers the panel via RegisterPanel.
 func (a *Admin) Panel(_ string) *PanelBuilder {
-	return &PanelBuilder{commandBus: a.commandRegistry}
+	return &PanelBuilder{commandBus: a.commandBus}
 }
 
 // Dashboard exposes the dashboard orchestration service.
@@ -530,8 +539,8 @@ func (a *Admin) Navigation() *Navigation {
 }
 
 // Commands exposes the go-command registry hook.
-func (a *Admin) Commands() *CommandRegistry {
-	return a.commandRegistry
+func (a *Admin) Commands() *CommandBus {
+	return a.commandBus
 }
 
 // Registry exposes the central registry for panels/modules/widgets/settings.
@@ -640,7 +649,7 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 		return nil, errors.New("panel builder is nil")
 	}
 	builder.name = name
-	builder.commandBus = a.commandRegistry
+	builder.commandBus = a.commandBus
 	if builder.activity == nil {
 		builder.activity = a.activity
 	}
