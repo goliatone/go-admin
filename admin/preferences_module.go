@@ -304,6 +304,7 @@ func (r *PreferencesRepository) resolveSnapshot(ctx context.Context, scope Prefe
 		Scope:          scope,
 		Keys:           opts.Keys,
 		Levels:         opts.Levels,
+		Base:           opts.Base,
 		IncludeTraces:  opts.IncludeTraces,
 		IncludeVersion: opts.IncludeVersions,
 	})
