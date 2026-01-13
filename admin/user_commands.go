@@ -8,26 +8,13 @@ import (
 // userLifecycleCommand updates the lifecycle status for one or more users.
 type userLifecycleCommand struct {
 	service    *UserManagementService
-	name       string
 	nextStatus string
 }
 
-func newUserLifecycleCommand(service *UserManagementService, name, status string) Command {
-	return &userLifecycleCommand{service: service, name: name, nextStatus: status}
-}
-
-func (c *userLifecycleCommand) Name() string {
-	if c == nil {
-		return ""
-	}
-	return c.name
-}
-
-func (c *userLifecycleCommand) Execute(ctx context.Context) error {
+func (c *userLifecycleCommand) transition(ctx context.Context, ids []string) error {
 	if c == nil || c.service == nil {
 		return errors.New("user lifecycle command not configured")
 	}
-	ids := CommandIDs(ctx)
 	if len(ids) == 0 {
 		return errors.New("user ids required")
 	}
@@ -37,4 +24,52 @@ func (c *userLifecycleCommand) Execute(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+type userActivateCommand struct {
+	userLifecycleCommand
+}
+
+func newUserActivateCommand(service *UserManagementService) *userActivateCommand {
+	return &userActivateCommand{userLifecycleCommand{service: service, nextStatus: "active"}}
+}
+
+func (c *userActivateCommand) Execute(ctx context.Context, msg UserActivateMsg) error {
+	return c.transition(ctx, msg.IDs)
+}
+
+type userSuspendCommand struct {
+	userLifecycleCommand
+}
+
+func newUserSuspendCommand(service *UserManagementService) *userSuspendCommand {
+	return &userSuspendCommand{userLifecycleCommand{service: service, nextStatus: "suspended"}}
+}
+
+func (c *userSuspendCommand) Execute(ctx context.Context, msg UserSuspendMsg) error {
+	return c.transition(ctx, msg.IDs)
+}
+
+type userDisableCommand struct {
+	userLifecycleCommand
+}
+
+func newUserDisableCommand(service *UserManagementService) *userDisableCommand {
+	return &userDisableCommand{userLifecycleCommand{service: service, nextStatus: "disabled"}}
+}
+
+func (c *userDisableCommand) Execute(ctx context.Context, msg UserDisableMsg) error {
+	return c.transition(ctx, msg.IDs)
+}
+
+type userArchiveCommand struct {
+	userLifecycleCommand
+}
+
+func newUserArchiveCommand(service *UserManagementService) *userArchiveCommand {
+	return &userArchiveCommand{userLifecycleCommand{service: service, nextStatus: "archived"}}
+}
+
+func (c *userArchiveCommand) Execute(ctx context.Context, msg UserArchiveMsg) error {
+	return c.transition(ctx, msg.IDs)
 }
