@@ -112,6 +112,27 @@ func (c *commandCalled) Execute(ctx context.Context) error {
 	return nil
 }
 
+type payloadCommand struct {
+	name    string
+	called  bool
+	payload map[string]any
+}
+
+func (c *payloadCommand) Name() string { return c.name }
+
+func (c *payloadCommand) Execute(ctx context.Context) error {
+	c.called = true
+	_ = ctx
+	return nil
+}
+
+func (c *payloadCommand) ExecuteWithPayload(ctx context.Context, payload map[string]any) error {
+	c.called = true
+	c.payload = payload
+	_ = ctx
+	return nil
+}
+
 func TestPanelActionDispatchesCommand(t *testing.T) {
 	reg := NewCommandRegistry(true)
 	cmd := &commandCalled{}
@@ -125,7 +146,7 @@ func TestPanelActionDispatchesCommand(t *testing.T) {
 		commandBus: reg,
 	}
 	ctx := AdminContext{Context: context.Background()}
-	if err := panel.RunAction(ctx, "run"); err != nil {
+	if err := panel.RunAction(ctx, "run", nil); err != nil {
 		t.Fatalf("action dispatch failed: %v", err)
 	}
 	if !cmd.called {
@@ -146,11 +167,61 @@ func TestPanelBulkActionDispatchesCommand(t *testing.T) {
 		commandBus: reg,
 	}
 	ctx := AdminContext{Context: context.Background()}
-	if err := panel.RunBulkAction(ctx, "bulk_run"); err != nil {
+	if err := panel.RunBulkAction(ctx, "bulk_run", nil); err != nil {
 		t.Fatalf("bulk action dispatch failed: %v", err)
 	}
 	if !cmd.called {
 		t.Fatalf("command not executed for bulk")
+	}
+}
+
+func TestPanelActionDispatchesPayload(t *testing.T) {
+	reg := NewCommandRegistry(true)
+	cmd := &payloadCommand{name: "do.payload"}
+	reg.Register(cmd)
+
+	panel := &Panel{
+		name: "actions",
+		actions: []Action{
+			{Name: "run", CommandName: "do.payload"},
+		},
+		commandBus: reg,
+	}
+	ctx := AdminContext{Context: context.Background()}
+	payload := map[string]any{"note": "hello"}
+	if err := panel.RunAction(ctx, "run", payload); err != nil {
+		t.Fatalf("action dispatch failed: %v", err)
+	}
+	if !cmd.called {
+		t.Fatalf("command not executed")
+	}
+	if cmd.payload["note"] != "hello" {
+		t.Fatalf("payload not forwarded")
+	}
+}
+
+func TestPanelBulkActionDispatchesPayload(t *testing.T) {
+	reg := NewCommandRegistry(true)
+	cmd := &payloadCommand{name: "bulk.payload"}
+	reg.Register(cmd)
+
+	panel := &Panel{
+		name: "actions",
+		bulkActions: []Action{
+			{Name: "bulk_run", CommandName: "bulk.payload"},
+		},
+		commandBus: reg,
+	}
+	ctx := AdminContext{Context: context.Background()}
+	payload := map[string]any{"ids": []string{"a", "b"}}
+	if err := panel.RunBulkAction(ctx, "bulk_run", payload); err != nil {
+		t.Fatalf("bulk action dispatch failed: %v", err)
+	}
+	if !cmd.called {
+		t.Fatalf("command not executed for bulk")
+	}
+	if _, ok := cmd.payload["ids"]; !ok {
+		t.Fatalf("payload not forwarded")
 	}
 }
 

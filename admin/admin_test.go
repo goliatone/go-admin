@@ -209,13 +209,20 @@ func (s *stubCommand) Name() string { return s.name }
 func (s *stubCommand) Execute(_ context.Context) error { return nil }
 
 type calledCommand struct {
-	name   string
-	called bool
+	name    string
+	called  bool
+	payload map[string]any
 }
 
 func (c *calledCommand) Name() string { return c.name }
 func (c *calledCommand) Execute(_ context.Context) error {
 	c.called = true
+	return nil
+}
+
+func (c *calledCommand) ExecuteWithPayload(_ context.Context, payload map[string]any) error {
+	c.called = true
+	c.payload = payload
 	return nil
 }
 
@@ -314,7 +321,8 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 	}
 
 	// Action
-	req = httptest.NewRequest("POST", "/admin/api/items/actions/refresh", nil)
+	req = httptest.NewRequest("POST", "/admin/api/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
+	req.Header.Set("Content-Type", "application/json")
 	rr = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -322,6 +330,9 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 	}
 	if !cmd.called {
 		t.Fatalf("expected command executed")
+	}
+	if cmd.payload["source"] != "panel" {
+		t.Fatalf("expected action payload forwarded")
 	}
 
 	// Delete
