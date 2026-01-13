@@ -106,6 +106,16 @@ type (
 	PanelTabScope               = core.PanelTabScope
 	PanelTabTarget              = core.PanelTabTarget
 
+	PreferenceLevel         = core.PreferenceLevel
+	PreferenceScope         = core.PreferenceScope
+	PreferenceSnapshot      = core.PreferenceSnapshot
+	PreferenceTrace         = core.PreferenceTrace
+	PreferenceTraceLayer    = core.PreferenceTraceLayer
+	PreferencesDeleteInput  = core.PreferencesDeleteInput
+	PreferencesResolveInput = core.PreferencesResolveInput
+	PreferencesStore        = core.PreferencesStore
+	PreferencesUpsertInput  = core.PreferencesUpsertInput
+
 	PreferencesModule = core.PreferencesModule
 	ProfileModule     = core.ProfileModule
 
@@ -151,6 +161,11 @@ const (
 	FeatureCommands      = core.FeatureCommands
 	FeatureNotifications = core.FeatureNotifications
 	FeatureMedia         = core.FeatureMedia
+
+	PreferenceLevelSystem = core.PreferenceLevelSystem
+	PreferenceLevelTenant = core.PreferenceLevelTenant
+	PreferenceLevelOrg    = core.PreferenceLevelOrg
+	PreferenceLevelUser   = core.PreferenceLevelUser
 
 	MenuItemTypeItem      = core.MenuItemTypeItem
 	MenuItemTypeGroup     = core.MenuItemTypeGroup
