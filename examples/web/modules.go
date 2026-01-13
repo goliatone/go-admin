@@ -9,7 +9,6 @@ import (
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
-	userstypes "github.com/goliatone/go-users/pkg/types"
 	userssvc "github.com/goliatone/go-users/service"
 )
 
@@ -54,19 +53,14 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
 
 	// Register lifecycle commands with activity hooks for event emission
-	for _, cfg := range []struct {
-		name   string
-		target userstypes.LifecycleState
-	}{
-		{name: "users.activate", target: userstypes.LifecycleStateActive},
-		{name: "users.suspend", target: userstypes.LifecycleStateSuspended},
-		{name: "users.disable", target: userstypes.LifecycleStateDisabled},
-		{name: "users.archive", target: userstypes.LifecycleStateArchived},
-	} {
-		cmd := commands.NewUserLifecycleCommand(m.service, cfg.name, cfg.target).
-			WithActivityHooks(activityAdapter)
-		ctx.Admin.Commands().Register(cmd)
-	}
+	activateCmd := commands.NewUserActivateCommand(m.service).WithActivityHooks(activityAdapter)
+	suspendCmd := commands.NewUserSuspendCommand(m.service).WithActivityHooks(activityAdapter)
+	disableCmd := commands.NewUserDisableCommand(m.service).WithActivityHooks(activityAdapter)
+	archiveCmd := commands.NewUserArchiveCommand(m.service).WithActivityHooks(activityAdapter)
+	ctx.Admin.Commands().Register(activateCmd)
+	ctx.Admin.Commands().Register(suspendCmd)
+	ctx.Admin.Commands().Register(disableCmd)
+	ctx.Admin.Commands().Register(archiveCmd)
 
 	// Register panel
 	builder := setup.NewUserPanelBuilder(m.store)
