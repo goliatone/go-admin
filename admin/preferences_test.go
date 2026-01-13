@@ -702,7 +702,7 @@ func TestPreferencesTenantWriteHonorsPermission(t *testing.T) {
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAuthorizer(permissionAuthorizer{allowed: map[string]bool{
-		adm.config.PreferencesUpdatePermission:      true,
+		adm.config.PreferencesUpdatePermission:       true,
 		adm.config.PreferencesManageTenantPermission: true,
 	}})
 	server := router.NewHTTPServer()
