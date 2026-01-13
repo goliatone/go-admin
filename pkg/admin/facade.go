@@ -1,9 +1,14 @@
 package admin
 
 import (
+	"context"
+
 	core "github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
 	cms "github.com/goliatone/go-cms"
+	"github.com/goliatone/go-command"
+	"github.com/goliatone/go-command/dispatcher"
+	"github.com/goliatone/go-command/runner"
 	repository "github.com/goliatone/go-repository-bun"
 	router "github.com/goliatone/go-router"
 	users "github.com/goliatone/go-users/pkg/types"
@@ -144,6 +149,11 @@ type (
 	ThemeSelector = core.ThemeSelector
 	Translator    = core.Translator
 
+	UserActivateMsg = core.UserActivateMsg
+	UserSuspendMsg  = core.UserSuspendMsg
+	UserDisableMsg  = core.UserDisableMsg
+	UserArchiveMsg  = core.UserArchiveMsg
+
 	UserProfile = core.UserProfile
 
 	UserManagementService = core.UserManagementService
@@ -184,6 +194,14 @@ const (
 
 func New(cfg Config, deps Dependencies) (*Admin, error) {
 	return core.New(cfg, deps)
+}
+
+func RegisterCommand[T any](bus *CommandBus, cmd command.Commander[T], runnerOpts ...runner.Option) (dispatcher.Subscription, error) {
+	return core.RegisterCommand(bus, cmd, runnerOpts...)
+}
+
+func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payload map[string]any, ids []string) (T, error)) error {
+	return core.RegisterMessageFactory(bus, name, build)
 }
 
 func NewActivitySinkAdapter(logger ActivityLogger, lister ActivityRecordLister) *ActivitySinkAdapter {
