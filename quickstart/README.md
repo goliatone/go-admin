@@ -19,6 +19,8 @@ Each helper is optional and composable.
 - `RegisterPreferencesPermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers default preferences permissions).
 - `NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool) fiber.ErrorHandler` - Inputs: admin, config, dev flag. Outputs: Fiber error handler.
 - `NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error)` - Inputs: base FS and view options. Outputs: Fiber views engine and error.
+- `DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any` - Outputs: default template functions/filters (JSON, dict, singularize/pluralize, widget titles, etc.).
+- `MergeTemplateFuncs(overrides map[string]any, opts ...TemplateFuncOption) map[string]any` - Inputs: overrides + optional template options. Outputs: merged map for `WithViewTemplateFuncs`.
 - `NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App])` - Inputs: views, config, admin, dev flag, server options. Outputs: go-router server adapter and router.
 - `NewThemeSelector(name, variant string, tokenOverrides map[string]string, opts ...ThemeOption) (theme.Selector, *theme.Manifest, error)` - Inputs: theme name/variant, token overrides, theme options. Outputs: selector, manifest, error.
 - `NewStaticAssets(r router.Router[*fiber.App], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption)` - Inputs: router, config, host assets FS, asset options. Outputs: none (registers static routes).
@@ -35,6 +37,30 @@ Each helper is optional and composable.
 - `WithComponentRegistry(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that replaces default components (clean replace).
 - `WithComponentRegistryMergeDefaults(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that merges into defaults, overriding matching names.
 - `WithVanillaOption(opt formgenvanilla.Option) FormGeneratorOption` - Inputs: vanilla renderer option; outputs: option applied last so it can override templates/styles/registry.
+
+## Template functions
+`NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
+
+Template function options let you override widget title labels without touching the core map:
+- `WithWidgetTitleOverrides(overrides map[string]string) TemplateFuncOption` - merges label overrides into defaults.
+- `WithWidgetTitleMap(titles map[string]string) TemplateFuncOption` - replaces the default map entirely.
+- `WithWidgetTitleFunc(fn func(string) string) TemplateFuncOption` - provides a custom resolver.
+
+```go
+funcs := quickstart.MergeTemplateFuncs(map[string]any{
+	"titleize": strings.ToUpper,
+}, quickstart.WithWidgetTitleOverrides(map[string]string{
+	"admin.widget.user_profile_overview": "Profile Overview",
+}))
+
+views, err := quickstart.NewViewEngine(
+	os.DirFS("./web"),
+	quickstart.WithViewTemplateFuncs(funcs),
+)
+if err != nil {
+	return err
+}
+```
 
 ## Usage example
 ```go
