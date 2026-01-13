@@ -58,16 +58,16 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	suspendCmd := commands.NewUserSuspendCommand(m.service).WithActivityHooks(activityAdapter)
 	disableCmd := commands.NewUserDisableCommand(m.service).WithActivityHooks(activityAdapter)
 	archiveCmd := commands.NewUserArchiveCommand(m.service).WithActivityHooks(activityAdapter)
-	if err := bus.Register(activateCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, activateCmd); err != nil {
 		return err
 	}
-	if err := bus.Register(suspendCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, suspendCmd); err != nil {
 		return err
 	}
-	if err := bus.Register(disableCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, disableCmd); err != nil {
 		return err
 	}
-	if err := bus.Register(archiveCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, archiveCmd); err != nil {
 		return err
 	}
 
@@ -252,19 +252,19 @@ func (m *pagesModule) Register(ctx admin.ModuleContext) error {
 	// Register commands with activity hooks
 	publishCmd := commands.NewPagePublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	if err := bus.Register(publishCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, publishCmd); err != nil {
 		return err
 	}
 
 	bulkPublishCmd := commands.NewPageBulkPublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	if err := bus.Register(bulkPublishCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, bulkPublishCmd); err != nil {
 		return err
 	}
 
 	bulkUnpublishCmd := commands.NewPageBulkUnpublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	if err := bus.Register(bulkUnpublishCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, bulkUnpublishCmd); err != nil {
 		return err
 	}
 
@@ -346,25 +346,25 @@ func (m *postsModule) Register(ctx admin.ModuleContext) error {
 	// Register commands with activity hooks
 	bulkPublishCmd := commands.NewPostBulkPublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	if err := bus.Register(bulkPublishCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, bulkPublishCmd); err != nil {
 		return err
 	}
 
 	bulkUnpublishCmd := commands.NewPostBulkUnpublishCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	if err := bus.Register(bulkUnpublishCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, bulkUnpublishCmd); err != nil {
 		return err
 	}
 
 	bulkScheduleCmd := commands.NewPostBulkScheduleCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	if err := bus.Register(bulkScheduleCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, bulkScheduleCmd); err != nil {
 		return err
 	}
 
 	bulkArchiveCmd := commands.NewPostBulkArchiveCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	if err := bus.Register(bulkArchiveCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, bulkArchiveCmd); err != nil {
 		return err
 	}
 
@@ -451,7 +451,7 @@ func (m *mediaModule) Register(ctx admin.ModuleContext) error {
 	// Register commands with activity hooks
 	bulkDeleteCmd := commands.NewMediaBulkDeleteCommand(m.store).
 		WithActivityHooks(activityAdapter)
-	if err := bus.Register(bulkDeleteCmd); err != nil {
+	if _, err := admin.RegisterCommand(bus, bulkDeleteCmd); err != nil {
 		return err
 	}
 
