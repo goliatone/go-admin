@@ -104,18 +104,11 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 			Delete: ctx.Admin.config.UsersDeletePermission,
 		})
 
-	if registry := ctx.Admin.Commands(); registry != nil {
-		for _, cmd := range []struct {
-			name   string
-			status string
-		}{
-			{name: "users.activate", status: "active"},
-			{name: "users.suspend", status: "suspended"},
-			{name: "users.disable", status: "disabled"},
-			{name: "users.archive", status: "archived"},
-		} {
-			registry.Register(newUserLifecycleCommand(ctx.Admin.users, cmd.name, cmd.status))
-		}
+	if bus := ctx.Admin.Commands(); bus != nil {
+		_, _ = RegisterCommand(bus, newUserActivateCommand(ctx.Admin.users))
+		_, _ = RegisterCommand(bus, newUserSuspendCommand(ctx.Admin.users))
+		_, _ = RegisterCommand(bus, newUserDisableCommand(ctx.Admin.users))
+		_, _ = RegisterCommand(bus, newUserArchiveCommand(ctx.Admin.users))
 	}
 
 	lifecycleActions := []Action{
