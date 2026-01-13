@@ -29,6 +29,9 @@ type Config struct {
 	JobsTriggerPermission         string
 	PreferencesPermission         string
 	PreferencesUpdatePermission   string
+	PreferencesManageTenantPermission string
+	PreferencesManageOrgPermission    string
+	PreferencesManageSystemPermission string
 	ProfilePermission             string
 	ProfileUpdatePermission       string
 	UsersPermission               string
