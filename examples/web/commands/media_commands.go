@@ -72,8 +72,12 @@ func (c *mediaBulkDeleteCommand) Execute(ctx context.Context, msg MediaBulkDelet
 	return nil
 }
 
-func (c *mediaBulkDeleteCommand) CLIOptions() *admin.CLIOptions {
-	return &admin.CLIOptions{
+func (c *mediaBulkDeleteCommand) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *mediaBulkDeleteCommand) CLIOptions() admin.CLIConfig {
+	return admin.CLIConfig{
 		Path:        []string{"media", "bulk", "delete"},
 		Description: "Bulk delete media items",
 		Group:       "media",
