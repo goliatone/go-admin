@@ -1272,7 +1272,7 @@ func setupSearch(adm *admin.Admin, dataStores *stores.DataStores) {
 	engine.Register("media", search.NewMediaSearchAdapter(dataStores.Media))
 }
 
-// setupJobs registers job commands. The admin orchestrator wires these CommandWithCron
+// setupJobs registers job commands. The admin orchestrator wires these command.CronCommand
 // handlers into the go-job registry + go-command dispatcher so /api/jobs shows
 // go-job schedules/status and triggers use the shared dispatcher path.
 func setupJobs(adm *admin.Admin, dataStores *stores.DataStores) {
