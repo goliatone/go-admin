@@ -156,7 +156,10 @@ _ = formgen
 ## Preferences quickstart
 - `FeaturePreferences` remains opt-in: pass `EnablePreferences()` or set `cfg.Features.Preferences`/`cfg.FeatureFlags` yourself.
 - A 403 on `/admin/api/preferences` usually means the default permissions are missing (`admin.preferences.view`, `admin.preferences.edit`).
-- See `../docs/GUIDE_MOD_PREFERENCES.md` for module behavior and clear semantics.
+- Read query params: `levels`, `keys`, `include_traces`, `include_versions`, `tenant_id`, `org_id`.
+- Clear/delete semantics: send `clear`/`clear_keys` or empty values for known keys to delete user-level overrides.
+- Non-user writes (tenant/org/system) require `admin.preferences.manage_tenant`, `admin.preferences.manage_org`, `admin.preferences.manage_system`.
+- See `../docs/GUIDE_MOD_PREFERENCES.md` for module behavior, traces, and clear semantics.
 
 ```go
 prefsStore, err := quickstart.NewGoUsersPreferencesStore(preferenceRepo)
