@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/goliatone/go-command/registry"
 )
 
 type recordingSink struct {
@@ -147,27 +149,37 @@ func TestDashboardLayoutActivity(t *testing.T) {
 }
 
 func TestJobRegistryEmitsActivity(t *testing.T) {
-	cmdReg := NewCommandRegistry(true)
-	cmd := &cronCommand{name: "jobs.refresh"}
-	cmdReg.Register(cmd)
-	reg := NewJobRegistry(cmdReg)
-	reg.WithGoJob(nil, &stubGoJobScheduler{})
-	sink := &recordingSink{}
-	reg.WithActivitySink(sink)
-	if err := reg.Sync(context.Background()); err != nil {
-		t.Fatalf("sync: %v", err)
-	}
-	if err := reg.Trigger(AdminContext{Context: context.Background(), UserID: "jobs-user"}, cmd.name); err != nil {
-		t.Fatalf("trigger: %v", err)
-	}
-	if len(sink.entries) == 0 {
-		t.Fatalf("expected job activity entry")
-	}
-	entry := sink.entries[0]
-	if entry.Action != "job.trigger" || entry.Object != cmd.name {
-		t.Fatalf("unexpected job activity entry: %+v", entry)
-	}
-	if status, ok := entry.Metadata["status"]; !ok || status != "ok" {
-		t.Fatalf("expected status metadata, got %+v", entry.Metadata)
-	}
+	registry.WithTestRegistry(func() {
+		cmdReg := NewCommandBus(true)
+		defer cmdReg.Reset()
+		cmd := &cronCommand{}
+		if _, err := RegisterCommand(cmdReg, cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(cmdReg, "jobs.cleanup", func(payload map[string]any, ids []string) (cronCommandMsg, error) {
+			return cronCommandMsg{}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
+		reg := NewJobRegistry()
+		reg.WithGoJob(nil, &stubGoJobScheduler{})
+		sink := &recordingSink{}
+		reg.WithActivitySink(sink)
+		if err := reg.Sync(context.Background()); err != nil {
+			t.Fatalf("sync: %v", err)
+		}
+		if err := reg.Trigger(AdminContext{Context: context.Background(), UserID: "jobs-user"}, "jobs.cleanup"); err != nil {
+			t.Fatalf("trigger: %v", err)
+		}
+		if len(sink.entries) == 0 {
+			t.Fatalf("expected job activity entry")
+		}
+		entry := sink.entries[0]
+		if entry.Action != "job.trigger" || entry.Object != "jobs.cleanup" {
+			t.Fatalf("unexpected job activity entry: %+v", entry)
+		}
+		if status, ok := entry.Metadata["status"]; !ok || status != "ok" {
+			t.Fatalf("expected status metadata, got %+v", entry.Metadata)
+		}
+	})
 }

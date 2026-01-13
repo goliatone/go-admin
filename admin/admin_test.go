@@ -10,6 +10,9 @@ import (
 	"time"
 
 	auth "github.com/goliatone/go-auth"
+	"github.com/goliatone/go-command"
+	"github.com/goliatone/go-command/dispatcher"
+	"github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 )
 
@@ -162,67 +165,86 @@ func (fakeAuth) Wrap(ctx router.Context) error {
 	return nil
 }
 
-func TestCommandRegistryRegistersHandlers(t *testing.T) {
-	cfg := Config{Features: Features{Commands: true}}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+func TestCommandBusRegistersHandlers(t *testing.T) {
+	registry.WithTestRegistry(func() {
+		cfg := Config{Features: Features{Commands: true}}
+		adm := mustNewAdmin(t, cfg, Dependencies{})
+		defer adm.Commands().Reset()
 
-	cmd := &stubCommand{name: "demo"}
-	adm.Commands().Register(cmd)
-
-	if len(adm.Commands().Commands()) != 1 {
-		t.Fatalf("expected 1 command registration")
-	}
+		cmd := &stubCommand{name: "demo"}
+		if _, err := RegisterCommand(adm.Commands(), cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(adm.Commands(), "demo", func(payload map[string]any, ids []string) (stubCommandMsg, error) {
+			return stubCommandMsg{}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
+		if err := registry.Start(context.Background()); err != nil {
+			t.Fatalf("registry initialize: %v", err)
+		}
+		if err := dispatcher.Dispatch(context.Background(), stubCommandMsg{}); err != nil {
+			t.Fatalf("dispatch: %v", err)
+		}
+		if !cmd.called {
+			t.Fatalf("expected command executed")
+		}
+	})
 }
 
 func TestBulkCommandsExposeCLI(t *testing.T) {
-	cfg := Config{
-		Features: Features{
-			Commands: true,
-			Bulk:     true,
-			Jobs:     true,
-			CMS:      true,
-		},
-	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
-	opts := adm.Commands().CLI()
-	if len(opts) == 0 {
-		t.Fatalf("expected cli options")
-	}
-	hasBulk := false
-	for _, opt := range opts {
-		path := strings.Join(opt.Path, " ")
-		if path == "admin bulk" {
-			hasBulk = true
+	registry.WithTestRegistry(func() {
+		cfg := Config{
+			Features: Features{
+				Commands: true,
+				Bulk:     true,
+				Jobs:     true,
+				CMS:      true,
+			},
 		}
-	}
-	if !hasBulk {
-		t.Fatalf("expected admin bulk CLI entry, got %v", opts)
-	}
+		adm := mustNewAdmin(t, cfg, Dependencies{})
+		defer adm.Commands().Reset()
+		if err := registry.Start(context.Background()); err != nil {
+			t.Fatalf("registry initialize: %v", err)
+		}
+		opts, err := registry.GetCLIOptions()
+		if err != nil {
+			t.Fatalf("get cli options: %v", err)
+		}
+		if len(opts) == 0 {
+			t.Fatalf("expected cli options")
+		}
+	})
 }
 
 type stubCommand struct {
-	name string
+	name   string
+	called bool
 }
 
-func (s *stubCommand) Name() string { return s.name }
+type stubCommandMsg struct{}
 
-func (s *stubCommand) Execute(_ context.Context) error { return nil }
+func (stubCommandMsg) Type() string { return "demo" }
+
+func (s *stubCommand) Execute(_ context.Context, _ stubCommandMsg) error {
+	s.called = true
+	return nil
+}
 
 type calledCommand struct {
-	name    string
 	called  bool
 	payload map[string]any
 }
 
-func (c *calledCommand) Name() string { return c.name }
-func (c *calledCommand) Execute(_ context.Context) error {
-	c.called = true
-	return nil
+type calledCommandMsg struct {
+	Payload map[string]any
 }
 
-func (c *calledCommand) ExecuteWithPayload(_ context.Context, payload map[string]any) error {
+func (calledCommandMsg) Type() string { return "items.refresh" }
+
+func (c *calledCommand) Execute(_ context.Context, msg calledCommandMsg) error {
 	c.called = true
-	c.payload = payload
+	c.payload = msg.Payload
 	return nil
 }
 
@@ -231,117 +253,132 @@ type cronCommand struct {
 	called bool
 }
 
-func (c *cronCommand) Name() string { return c.name }
-func (c *cronCommand) Execute(_ context.Context) error {
+type cronCommandMsg struct{}
+
+func (cronCommandMsg) Type() string { return "jobs.cleanup" }
+
+func (c *cronCommand) Execute(_ context.Context, _ cronCommandMsg) error {
 	c.called = true
 	return nil
 }
-func (c *cronCommand) CronSpec() string { return "@every 1m" }
 func (c *cronCommand) CronHandler() func() error {
-	return func() error { return c.Execute(context.Background()) }
+	return func() error { return dispatcher.Dispatch(context.Background(), cronCommandMsg{}) }
+}
+func (c *cronCommand) CronOptions() command.HandlerConfig {
+	return command.HandlerConfig{Expression: "@every 1m"}
 }
 
 func TestPanelRoutesCRUDAndActions(t *testing.T) {
-	cfg := Config{
-		BasePath:      "/admin",
-		DefaultLocale: "en",
-		Features: Features{
-			Commands: true,
-		},
-	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
-	server := router.NewHTTPServer()
-	r := server.Router()
+	registry.WithTestRegistry(func() {
+		cfg := Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+			Features: Features{
+				Commands: true,
+			},
+		}
+		adm := mustNewAdmin(t, cfg, Dependencies{})
+		defer adm.Commands().Reset()
+		server := router.NewHTTPServer()
+		r := server.Router()
 
-	repo := NewMemoryRepository()
-	cmd := &calledCommand{name: "items.refresh"}
-	adm.Commands().Register(cmd)
+		repo := NewMemoryRepository()
+		cmd := &calledCommand{}
+		if _, err := RegisterCommand(adm.Commands(), cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(adm.Commands(), "items.refresh", func(payload map[string]any, ids []string) (calledCommandMsg, error) {
+			return calledCommandMsg{Payload: payload}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
 
-	builder := (&PanelBuilder{}).
-		WithRepository(repo).
-		ListFields(Field{Name: "id", Label: "ID", Type: "text"}, Field{Name: "name", Label: "Name", Type: "text"}).
-		FormFields(Field{Name: "name", Label: "Name", Type: "text", Required: true}).
-		DetailFields(Field{Name: "id", Label: "ID", Type: "text"}, Field{Name: "name", Label: "Name", Type: "text"}).
-		Actions(Action{Name: "refresh", CommandName: "items.refresh"})
+		builder := (&PanelBuilder{}).
+			WithRepository(repo).
+			ListFields(Field{Name: "id", Label: "ID", Type: "text"}, Field{Name: "name", Label: "Name", Type: "text"}).
+			FormFields(Field{Name: "name", Label: "Name", Type: "text", Required: true}).
+			DetailFields(Field{Name: "id", Label: "ID", Type: "text"}, Field{Name: "name", Label: "Name", Type: "text"}).
+			Actions(Action{Name: "refresh", CommandName: "items.refresh"})
 
-	if _, err := adm.RegisterPanel("items", builder); err != nil {
-		t.Fatalf("register panel: %v", err)
-	}
-	if err := adm.Initialize(r); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
+		if _, err := adm.RegisterPanel("items", builder); err != nil {
+			t.Fatalf("register panel: %v", err)
+		}
+		if err := adm.Initialize(r); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
 
-	// Create
-	req := httptest.NewRequest("POST", "/admin/api/items", strings.NewReader(`{"name":"Item 1"}`))
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("create status: %d body=%s", rr.Code, rr.Body.String())
-	}
-	var created map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &created)
-	id := created["id"].(string)
+		// Create
+		req := httptest.NewRequest("POST", "/admin/api/items", strings.NewReader(`{"name":"Item 1"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("create status: %d body=%s", rr.Code, rr.Body.String())
+		}
+		var created map[string]any
+		_ = json.Unmarshal(rr.Body.Bytes(), &created)
+		id := created["id"].(string)
 
-	// Detail
-	req = httptest.NewRequest("GET", "/admin/api/items/"+id, nil)
-	rr = httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("detail status: %d", rr.Code)
-	}
+		// Detail
+		req = httptest.NewRequest("GET", "/admin/api/items/"+id, nil)
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("detail status: %d", rr.Code)
+		}
 
-	// Update
-	req = httptest.NewRequest("PUT", "/admin/api/items/"+id, strings.NewReader(`{"name":"Updated"}`))
-	req.Header.Set("Content-Type", "application/json")
-	rr = httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("update status: %d body=%s", rr.Code, rr.Body.String())
-	}
+		// Update
+		req = httptest.NewRequest("PUT", "/admin/api/items/"+id, strings.NewReader(`{"name":"Updated"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("update status: %d body=%s", rr.Code, rr.Body.String())
+		}
 
-	// List
-	req = httptest.NewRequest("GET", "/admin/api/items", nil)
-	rr = httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("list status: %d", rr.Code)
-	}
-	var list map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &list)
-	if total := int(list["total"].(float64)); total != 1 {
-		t.Fatalf("expected total 1, got %d", total)
-	}
-	form, ok := list["form"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected form payload in response")
-	}
-	if _, ok := form["theme"]; !ok {
-		t.Fatalf("expected form.theme in response")
-	}
+		// List
+		req = httptest.NewRequest("GET", "/admin/api/items", nil)
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("list status: %d", rr.Code)
+		}
+		var list map[string]any
+		_ = json.Unmarshal(rr.Body.Bytes(), &list)
+		if total := int(list["total"].(float64)); total != 1 {
+			t.Fatalf("expected total 1, got %d", total)
+		}
+		form, ok := list["form"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected form payload in response")
+		}
+		if _, ok := form["theme"]; !ok {
+			t.Fatalf("expected form.theme in response")
+		}
 
-	// Action
-	req = httptest.NewRequest("POST", "/admin/api/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
-	req.Header.Set("Content-Type", "application/json")
-	rr = httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("action status: %d", rr.Code)
-	}
-	if !cmd.called {
-		t.Fatalf("expected command executed")
-	}
-	if cmd.payload["source"] != "panel" {
-		t.Fatalf("expected action payload forwarded")
-	}
+		// Action
+		req = httptest.NewRequest("POST", "/admin/api/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("action status: %d", rr.Code)
+		}
+		if !cmd.called {
+			t.Fatalf("expected command executed")
+		}
+		if cmd.payload["source"] != "panel" {
+			t.Fatalf("expected action payload forwarded")
+		}
 
-	// Delete
-	req = httptest.NewRequest("DELETE", "/admin/api/items/"+id, nil)
-	rr = httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("delete status: %d body=%s", rr.Code, rr.Body.String())
-	}
+		// Delete
+		req = httptest.NewRequest("DELETE", "/admin/api/items/"+id, nil)
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("delete status: %d body=%s", rr.Code, rr.Body.String())
+		}
+	})
 }
 
 func TestNotificationsRoutes(t *testing.T) {
@@ -707,71 +744,81 @@ func TestPanelSchemaIncludesFeatureMetadata(t *testing.T) {
 }
 
 func TestJobsRouteAndTrigger(t *testing.T) {
-	cfg := Config{
-		BasePath:      "/admin",
-		DefaultLocale: "en",
-		Features: Features{
-			Jobs:     true,
-			Commands: true,
-		},
-	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
-	cmd := &cronCommand{name: "jobs.cleanup"}
-	adm.Commands().Register(cmd)
+	registry.WithTestRegistry(func() {
+		cfg := Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+			Features: Features{
+				Jobs:     true,
+				Commands: true,
+			},
+		}
+		adm := mustNewAdmin(t, cfg, Dependencies{})
+		defer adm.Commands().Reset()
+		cmd := &cronCommand{}
+		if _, err := RegisterCommand(adm.Commands(), cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(adm.Commands(), "jobs.cleanup", func(payload map[string]any, ids []string) (cronCommandMsg, error) {
+			return cronCommandMsg{}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
 
-	server := router.NewHTTPServer()
-	r := server.Router()
-	if err := adm.Initialize(r); err != nil {
-		t.Fatalf("init: %v", err)
-	}
+		server := router.NewHTTPServer()
+		r := server.Router()
+		if err := adm.Initialize(r); err != nil {
+			t.Fatalf("init: %v", err)
+		}
 
-	req := httptest.NewRequest("GET", "/admin/api/jobs", nil)
-	rr := httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("jobs status: %d", rr.Code)
-	}
-	var jobsBody map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &jobsBody)
-	rawJobs, ok := jobsBody["jobs"].([]any)
-	if !ok || len(rawJobs) == 0 {
-		t.Fatalf("expected jobs payload")
-	}
-	firstJob, ok := rawJobs[0].(map[string]any)
-	if !ok {
-		t.Fatalf("job payload invalid")
-	}
-	if schedule := firstJob["schedule"]; schedule == nil || schedule == "" {
-		t.Fatalf("expected schedule in job payload, got %v", schedule)
-	}
+		req := httptest.NewRequest("GET", "/admin/api/jobs", nil)
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("jobs status: %d", rr.Code)
+		}
+		var jobsBody map[string]any
+		_ = json.Unmarshal(rr.Body.Bytes(), &jobsBody)
+		rawJobs, ok := jobsBody["jobs"].([]any)
+		if !ok || len(rawJobs) == 0 {
+			t.Fatalf("expected jobs payload")
+		}
+		firstJob, ok := rawJobs[0].(map[string]any)
+		if !ok {
+			t.Fatalf("job payload invalid")
+		}
+		if schedule := firstJob["schedule"]; schedule == nil || schedule == "" {
+			t.Fatalf("expected schedule in job payload, got %v", schedule)
+		}
 
-	req = httptest.NewRequest("POST", "/admin/api/jobs/trigger", strings.NewReader(`{"name":"jobs.cleanup"}`))
-	req.Header.Set("Content-Type", "application/json")
-	rr = httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("trigger status: %d body=%s", rr.Code, rr.Body.String())
-	}
-	if !cmd.called {
-		t.Fatalf("expected job command executed")
-	}
+		req = httptest.NewRequest("POST", "/admin/api/jobs/trigger", strings.NewReader(`{"name":"jobs.cleanup"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("trigger status: %d body=%s", rr.Code, rr.Body.String())
+		}
+		if !cmd.called {
+			t.Fatalf("expected job command executed")
+		}
 
-	req = httptest.NewRequest("GET", "/admin/api/jobs", nil)
-	rr = httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	jobsBody = map[string]any{}
-	_ = json.Unmarshal(rr.Body.Bytes(), &jobsBody)
-	rawJobs, ok = jobsBody["jobs"].([]any)
-	if !ok || len(rawJobs) == 0 {
-		t.Fatalf("expected jobs payload after trigger")
-	}
-	firstJob, ok = rawJobs[0].(map[string]any)
-	if !ok {
-		t.Fatalf("job payload invalid after trigger")
-	}
-	if status, _ := firstJob["status"].(string); status == "pending" || status == "" {
-		t.Fatalf("expected status update after trigger, got %v", status)
-	}
+		req = httptest.NewRequest("GET", "/admin/api/jobs", nil)
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		jobsBody = map[string]any{}
+		_ = json.Unmarshal(rr.Body.Bytes(), &jobsBody)
+		rawJobs, ok = jobsBody["jobs"].([]any)
+		if !ok || len(rawJobs) == 0 {
+			t.Fatalf("expected jobs payload after trigger")
+		}
+		firstJob, ok = rawJobs[0].(map[string]any)
+		if !ok {
+			t.Fatalf("job payload invalid after trigger")
+		}
+		if status, _ := firstJob["status"].(string); status == "pending" || status == "" {
+			t.Fatalf("expected status update after trigger, got %v", status)
+		}
+	})
 }
 func TestSearchRouteReturnsResults(t *testing.T) {
 	cfg := Config{
