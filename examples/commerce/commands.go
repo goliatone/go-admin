@@ -18,14 +18,14 @@ func registerCommands(adm *admin.Admin, data *stores.CommerceStores) error {
 	if err := registerCommerceCommandFactories(bus); err != nil {
 		return err
 	}
-	if err := bus.Register(&restockLowInventoryCommand{
+	if _, err := admin.RegisterCommand(bus, &restockLowInventoryCommand{
 		products:      data.Products,
 		threshold:     5,
 		restockAmount: 15,
 	}); err != nil {
 		return err
 	}
-	if err := bus.Register(&dailyRevenueReportCommand{
+	if _, err := admin.RegisterCommand(bus, &dailyRevenueReportCommand{
 		stores: data,
 	}); err != nil {
 		return err
@@ -107,10 +107,10 @@ func (c *dailyRevenueReportCommand) CronOptions() command.HandlerConfig {
 }
 
 func registerCommerceCommandFactories(bus *admin.CommandBus) error {
-	if err := bus.RegisterMessageFactory(restockLowInventoryCommandName, buildRestockLowInventoryMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, restockLowInventoryCommandName, buildRestockLowInventoryMsg); err != nil {
 		return err
 	}
-	return bus.RegisterMessageFactory(dailyRevenueReportCommandName, buildDailyRevenueReportMsg)
+	return admin.RegisterMessageFactory(bus, dailyRevenueReportCommandName, buildDailyRevenueReportMsg)
 }
 
 func buildRestockLowInventoryMsg(_ map[string]any, _ []string) (RestockLowInventoryMsg, error) {
