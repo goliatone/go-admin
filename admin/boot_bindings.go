@@ -147,24 +147,14 @@ func (p *panelBinding) Delete(c router.Context, locale string, id string) error 
 
 func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) error {
 	ctx := p.admin.adminContextFromRequest(c, locale)
-	if len(body) > 0 {
-		ctx.Context = WithCommandPayload(ctx.Context, body)
-	}
-	if ids := parseCommandIDs(body, c.Query("id"), c.Query("ids")); len(ids) > 0 {
-		ctx.Context = WithCommandIDs(ctx.Context, ids)
-	}
-	return p.panel.RunAction(ctx, action, body)
+	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
+	return p.panel.RunAction(ctx, action, body, ids)
 }
 
 func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[string]any) error {
 	ctx := p.admin.adminContextFromRequest(c, locale)
-	if len(body) > 0 {
-		ctx.Context = WithCommandPayload(ctx.Context, body)
-	}
-	if ids := parseCommandIDs(body, c.Query("id"), c.Query("ids")); len(ids) > 0 {
-		ctx.Context = WithCommandIDs(ctx.Context, ids)
-	}
-	return p.panel.RunBulkAction(ctx, action, body)
+	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
+	return p.panel.RunBulkAction(ctx, action, body, ids)
 }
 
 type dashboardBinding struct {
@@ -738,12 +728,8 @@ func (n *notificationsBinding) Mark(c router.Context, body map[string]any) error
 	if err := n.admin.requirePermission(adminCtx, n.admin.config.NotificationsUpdatePermission, "notifications"); err != nil {
 		return err
 	}
-	cmdCtx := withNotificationContext(adminCtx.Context, ids, read)
-	if n.admin.commandRegistry != nil {
-		return n.admin.commandRegistry.Dispatch(cmdCtx, NotificationMarkCommandName)
-	}
 	if n.admin.notifications != nil {
-		return n.admin.notifications.Mark(cmdCtx, ids, read)
+		return n.admin.notifications.Mark(adminCtx.Context, ids, read)
 	}
 	return FeatureDisabledError{Feature: string(FeatureNotifications)}
 }
@@ -858,9 +844,23 @@ func (s *settingsBinding) Save(c router.Context, body map[string]any) (map[strin
 		UserID: ctx.UserID,
 		Values: valuesRaw,
 	}
-	cmdCtx := WithSettingsBundle(ctx.Context, bundle)
-	if err := s.admin.commandRegistry.Dispatch(cmdCtx, settingsUpdateCommandName); err != nil {
-		return nil, err
+	if s.admin.commandBus != nil {
+		payload := map[string]any{
+			"values":  valuesRaw,
+			"scope":   string(scope),
+			"user_id": ctx.UserID,
+		}
+		if err := s.admin.commandBus.DispatchByName(ctx.Context, settingsUpdateCommandName, payload, nil); err != nil {
+			return nil, err
+		}
+	} else if s.admin.settingsCommand != nil {
+		if err := s.admin.settingsCommand.Execute(ctx.Context, SettingsUpdateMsg{Bundle: bundle}); err != nil {
+			return nil, err
+		}
+	} else if s.admin.settings != nil {
+		if err := s.admin.settings.Apply(ctx.Context, bundle); err != nil {
+			return nil, err
+		}
 	}
 	return map[string]any{
 		"status": "ok",
