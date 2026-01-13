@@ -31,12 +31,12 @@ func (c *mediaBulkDeleteCommand) Name() string {
 	return "media.bulk_delete"
 }
 
-func (c *mediaBulkDeleteCommand) Execute(ctx context.Context) error {
+func (c *mediaBulkDeleteCommand) Execute(ctx context.Context, msg MediaBulkDeleteMsg) error {
 	if c.store == nil {
 		return fmt.Errorf("media store is nil")
 	}
 
-	ids := admin.CommandIDs(ctx)
+	ids := msg.IDs
 	if len(ids) == 0 {
 		records, _, err := c.store.List(ctx, admin.ListOptions{})
 		if err != nil {

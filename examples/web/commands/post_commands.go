@@ -32,12 +32,12 @@ func (c *postBulkPublishCommand) Name() string {
 	return "posts.bulk_publish"
 }
 
-func (c *postBulkPublishCommand) Execute(ctx context.Context) error {
+func (c *postBulkPublishCommand) Execute(ctx context.Context, msg PostBulkPublishMsg) error {
 	if c.store == nil {
 		return fmt.Errorf("post store is nil")
 	}
 
-	posts, err := c.store.Publish(ctx, admin.CommandIDs(ctx))
+	posts, err := c.store.Publish(ctx, msg.IDs)
 	if err != nil {
 		return err
 	}
@@ -91,12 +91,12 @@ func (c *postBulkUnpublishCommand) Name() string {
 	return "posts.bulk_unpublish"
 }
 
-func (c *postBulkUnpublishCommand) Execute(ctx context.Context) error {
+func (c *postBulkUnpublishCommand) Execute(ctx context.Context, msg PostBulkUnpublishMsg) error {
 	if c.store == nil {
 		return fmt.Errorf("post store is nil")
 	}
 
-	posts, err := c.store.Unpublish(ctx, admin.CommandIDs(ctx))
+	posts, err := c.store.Unpublish(ctx, msg.IDs)
 	if err != nil {
 		return err
 	}
@@ -150,16 +150,19 @@ func (c *postBulkScheduleCommand) Name() string {
 	return "posts.bulk_schedule"
 }
 
-func (c *postBulkScheduleCommand) Execute(ctx context.Context) error {
+func (c *postBulkScheduleCommand) Execute(ctx context.Context, msg PostBulkScheduleMsg) error {
 	if c.store == nil {
 		return fmt.Errorf("post store is nil")
 	}
 
-	publishAt := time.Now()
-	if payload := admin.CommandPayload(ctx); payload != nil {
-		raw := payload["publish_at"]
+	publishAt := msg.PublishAt
+	if publishAt.IsZero() {
+		publishAt = msg.ScheduledAt
+	}
+	if publishAt.IsZero() && msg.Payload != nil {
+		raw := msg.Payload["publish_at"]
 		if raw == nil {
-			raw = payload["scheduled_at"]
+			raw = msg.Payload["scheduled_at"]
 		}
 		switch v := raw.(type) {
 		case time.Time:
@@ -176,8 +179,11 @@ func (c *postBulkScheduleCommand) Execute(ctx context.Context) error {
 			}
 		}
 	}
+	if publishAt.IsZero() {
+		publishAt = time.Now()
+	}
 
-	posts, err := c.store.Schedule(ctx, admin.CommandIDs(ctx), publishAt)
+	posts, err := c.store.Schedule(ctx, msg.IDs, publishAt)
 	if err != nil {
 		return err
 	}
@@ -233,12 +239,12 @@ func (c *postBulkArchiveCommand) Name() string {
 	return "posts.bulk_archive"
 }
 
-func (c *postBulkArchiveCommand) Execute(ctx context.Context) error {
+func (c *postBulkArchiveCommand) Execute(ctx context.Context, msg PostBulkArchiveMsg) error {
 	if c.store == nil {
 		return fmt.Errorf("post store is nil")
 	}
 
-	posts, err := c.store.Archive(ctx, admin.CommandIDs(ctx))
+	posts, err := c.store.Archive(ctx, msg.IDs)
 	if err != nil {
 		return err
 	}
