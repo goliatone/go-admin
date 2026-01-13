@@ -55,9 +55,13 @@ func (c *userLifecycleBase) transition(ctx context.Context, ids []string) error 
 	return nil
 }
 
-func (c *userLifecycleBase) cliOptions() *admin.CLIOptions {
+func (c *userLifecycleBase) CLIHandler() any {
+	return &admin.NoopCLIHandler{}
+}
+
+func (c *userLifecycleBase) cliOptions() admin.CLIConfig {
 	action := strings.TrimPrefix(c.name, "users.")
-	return &admin.CLIOptions{
+	return admin.CLIConfig{
 		Path:        []string{"users", action},
 		Description: fmt.Sprintf("Transition users to %s", c.target),
 		Group:       "users",
@@ -104,7 +108,7 @@ func (c *userActivateCommand) Execute(ctx context.Context, msg admin.UserActivat
 	return c.transition(ctx, msg.IDs)
 }
 
-func (c *userActivateCommand) CLIOptions() *admin.CLIOptions { return c.cliOptions() }
+func (c *userActivateCommand) CLIOptions() admin.CLIConfig { return c.cliOptions() }
 
 type userSuspendCommand struct {
 	userLifecycleBase
@@ -130,7 +134,7 @@ func (c *userSuspendCommand) Execute(ctx context.Context, msg admin.UserSuspendM
 	return c.transition(ctx, msg.IDs)
 }
 
-func (c *userSuspendCommand) CLIOptions() *admin.CLIOptions { return c.cliOptions() }
+func (c *userSuspendCommand) CLIOptions() admin.CLIConfig { return c.cliOptions() }
 
 type userDisableCommand struct {
 	userLifecycleBase
@@ -156,7 +160,7 @@ func (c *userDisableCommand) Execute(ctx context.Context, msg admin.UserDisableM
 	return c.transition(ctx, msg.IDs)
 }
 
-func (c *userDisableCommand) CLIOptions() *admin.CLIOptions { return c.cliOptions() }
+func (c *userDisableCommand) CLIOptions() admin.CLIConfig { return c.cliOptions() }
 
 type userArchiveCommand struct {
 	userLifecycleBase
@@ -182,7 +186,7 @@ func (c *userArchiveCommand) Execute(ctx context.Context, msg admin.UserArchiveM
 	return c.transition(ctx, msg.IDs)
 }
 
-func (c *userArchiveCommand) CLIOptions() *admin.CLIOptions { return c.cliOptions() }
+func (c *userArchiveCommand) CLIOptions() admin.CLIConfig { return c.cliOptions() }
 
 func normalizeUserIDs(ids []string) []uuid.UUID {
 	clean := make([]uuid.UUID, 0, len(ids))
