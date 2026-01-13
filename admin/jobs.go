@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"errors"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -9,6 +11,9 @@ import (
 
 	"github.com/goliatone/go-command"
 	gocron "github.com/goliatone/go-command/cron"
+	"github.com/goliatone/go-command/dispatcher"
+	"github.com/goliatone/go-command/registry"
+	goerrors "github.com/goliatone/go-errors"
 	gojob "github.com/goliatone/go-job"
 )
 
@@ -24,7 +29,6 @@ type Job struct {
 
 // JobRegistry keeps track of jobs registered via commands with cron metadata.
 type JobRegistry struct {
-	commands *CommandRegistry
 	enabled  bool
 	states   map[string]*jobState
 	mu       sync.Mutex
@@ -39,6 +43,8 @@ type JobRegistry struct {
 	registryProvided  bool
 	schedulerProvided bool
 	synced            bool
+
+	cronCommands map[string]*jobRegistration
 }
 
 type goJobScheduler interface {
@@ -51,6 +57,12 @@ type jobState struct {
 	schedule string
 	lastRun  time.Time
 	lastErr  string
+}
+
+type jobRegistration struct {
+	name           string
+	handlerConfig  command.HandlerConfig
+	messageFactory func() command.Message
 }
 
 func (s *jobState) status() string {
@@ -66,19 +78,61 @@ func (s *jobState) status() string {
 	return "ok"
 }
 
-// NewJobRegistry wraps a command registry.
-func NewJobRegistry(commands *CommandRegistry) *JobRegistry {
-	return &JobRegistry{
-		commands: commands,
-		enabled:  true,
-		states:   map[string]*jobState{},
-		registry: gojob.NewMemoryRegistry(),
-		scheduler: gocron.NewScheduler(
-			gocron.WithParser(gocron.StandardParser),
-		),
-		cronSubs:   map[string]gocron.Subscription{},
-		tasks:      map[string]gojob.Task{},
-		commanders: map[string]*gojob.TaskCommander{},
+// NewJobRegistry captures cron-enabled go-command registrations.
+func NewJobRegistry() *JobRegistry {
+	jobReg := &JobRegistry{
+		enabled:      true,
+		states:       map[string]*jobState{},
+		registry:     gojob.NewMemoryRegistry(),
+		scheduler:    gocron.NewScheduler(gocron.WithParser(gocron.StandardParser)),
+		cronSubs:     map[string]gocron.Subscription{},
+		tasks:        map[string]gojob.Task{},
+		commanders:   map[string]*gojob.TaskCommander{},
+		cronCommands: map[string]*jobRegistration{},
+	}
+	registry.SetCronRegister(command.NilCronRegister)
+	jobReg.attachResolver()
+	return jobReg
+}
+
+const jobResolverKey = "admin.jobs"
+
+func (j *JobRegistry) attachResolver() {
+	if j == nil {
+		return
+	}
+	if registry.HasResolver(jobResolverKey) {
+		return
+	}
+	_ = registry.AddResolver(jobResolverKey, j.commandResolver())
+}
+
+func (j *JobRegistry) commandResolver() command.Resolver {
+	return func(cmd any, meta command.CommandMeta, _ *command.Registry) error {
+		cronCmd, ok := cmd.(command.CronCommand)
+		if !ok {
+			return nil
+		}
+		if meta.MessageType == "" {
+			return nil
+		}
+		factory := messageFactoryFromMeta(meta)
+		if factory == nil {
+			return nil
+		}
+		reg := &jobRegistration{
+			name:           meta.MessageType,
+			handlerConfig:  cronCmd.CronOptions(),
+			messageFactory: factory,
+		}
+		j.mu.Lock()
+		if j.cronCommands == nil {
+			j.cronCommands = map[string]*jobRegistration{}
+		}
+		j.cronCommands[reg.name] = reg
+		j.synced = false
+		j.mu.Unlock()
+		return nil
 	}
 }
 
@@ -111,11 +165,14 @@ func (j *JobRegistry) Enable(enabled bool) {
 
 // Sync registers cron-capable commands with the go-job dispatcher and scheduler.
 func (j *JobRegistry) Sync(ctx context.Context) error {
-	if j == nil || !j.enabled || j.commands == nil {
+	if j == nil || !j.enabled {
 		return nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	if err := j.ensureRegistryInitialized(ctx); err != nil {
+		return err
 	}
 
 	j.mu.Lock()
@@ -138,24 +195,21 @@ func (j *JobRegistry) Sync(ctx context.Context) error {
 	j.tasks = map[string]gojob.Task{}
 	j.commanders = map[string]*gojob.TaskCommander{}
 
-	tasks := []gojob.Task{}
-	for _, cmd := range j.commands.Commands() {
-		task := newCommandTask(cmd)
+	for name, reg := range j.cronCommands {
+		task := newJobTask(name, reg)
 		if task == nil {
 			continue
 		}
 		_ = j.registry.Add(task)
-		name := task.GetID()
 		j.tasks[name] = task
 		j.commanders[name] = gojob.NewTaskCommander(task)
 
-		if spec := cronSpec(cmd); spec != "" {
+		if spec := strings.TrimSpace(reg.handlerConfig.Expression); spec != "" {
 			j.states[name] = &jobState{schedule: spec}
-			if err := j.registerScheduleLocked(name, spec, j.commanders[name]); err != nil {
+			if err := j.registerScheduleLocked(name, reg.handlerConfig, j.commanders[name]); err != nil {
 				return err
 			}
 		}
-		tasks = append(tasks, task)
 	}
 	j.ensureStateForTasksLocked()
 
@@ -173,7 +227,7 @@ func (j *JobRegistry) Sync(ctx context.Context) error {
 // List returns registered cron jobs.
 func (j *JobRegistry) List() []Job {
 	empty := []Job{}
-	if j == nil || !j.enabled || j.commands == nil {
+	if j == nil || !j.enabled {
 		return empty
 	}
 	_ = j.ensureSynced(context.Background())
@@ -226,8 +280,8 @@ func (j *JobRegistry) Trigger(ctx AdminContext, name string) error {
 	return err
 }
 
-func (j *JobRegistry) registerScheduleLocked(name, spec string, commander *gojob.TaskCommander) error {
-	if j == nil || j.scheduler == nil || spec == "" {
+func (j *JobRegistry) registerScheduleLocked(name string, opts command.HandlerConfig, commander *gojob.TaskCommander) error {
+	if j == nil || j.scheduler == nil || strings.TrimSpace(opts.Expression) == "" {
 		return nil
 	}
 
@@ -240,7 +294,7 @@ func (j *JobRegistry) registerScheduleLocked(name, spec string, commander *gojob
 		return err
 	}
 
-	sub, err := j.scheduler.AddHandler(command.HandlerConfig{Expression: spec}, handler)
+	sub, err := j.scheduler.AddHandler(opts, handler)
 	if err != nil {
 		return err
 	}
@@ -325,60 +379,109 @@ func (j *JobRegistry) recordActivity(ctx AdminContext, name string, state *jobSt
 	})
 }
 
-func cronSpec(cmd Command) string {
-	if withCron, ok := cmd.(CommandWithCron); ok {
-		return strings.TrimSpace(withCron.CronSpec())
+func (j *JobRegistry) ensureRegistryInitialized(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	return ""
+	if err := registry.Start(ctx); err != nil {
+		var regErr *goerrors.Error
+		if errors.As(err, &regErr) && regErr.TextCode == "REGISTRY_ALREADY_INITIALIZED" {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
-type commandTask struct {
-	command Command
-}
-
-var _ gojob.Task = (*commandTask)(nil)
-
-func newCommandTask(cmd Command) *commandTask {
-	if cmd == nil || cmd.Name() == "" {
+func messageFactoryFromMeta(meta command.CommandMeta) func() command.Message {
+	msgType := meta.MessageTypeValue
+	if msgType == nil && meta.MessageValue != nil {
+		msgType = reflect.TypeOf(meta.MessageValue)
+	}
+	if msgType == nil {
 		return nil
 	}
-	return &commandTask{command: cmd}
-}
-
-func (c *commandTask) GetID() string {
-	return c.command.Name()
-}
-
-func (c *commandTask) GetHandler() func() error {
-	handler := c.command.Execute
-	if withCron, ok := c.command.(CommandWithCron); ok {
-		if cronHandler := withCron.CronHandler(); cronHandler != nil {
-			return cronHandler
+	return func() command.Message {
+		msg := newMessageValue(msgType)
+		if typed, ok := msg.(command.Message); ok {
+			return typed
 		}
+		return nil
 	}
+}
+
+func newMessageValue(msgType reflect.Type) any {
+	if msgType == nil {
+		return nil
+	}
+	if msgType.Kind() == reflect.Ptr {
+		return reflect.New(msgType.Elem()).Interface()
+	}
+	return reflect.New(msgType).Elem().Interface()
+}
+
+type jobTask struct {
+	name           string
+	handlerConfig  command.HandlerConfig
+	messageFactory func() command.Message
+}
+
+var _ gojob.Task = (*jobTask)(nil)
+
+func newJobTask(name string, reg *jobRegistration) *jobTask {
+	if reg == nil || name == "" || reg.messageFactory == nil {
+		return nil
+	}
+	return &jobTask{
+		name:           name,
+		handlerConfig:  reg.handlerConfig,
+		messageFactory: reg.messageFactory,
+	}
+}
+
+func (t *jobTask) GetID() string {
+	return t.name
+}
+
+func (t *jobTask) GetHandler() func() error {
 	return func() error {
-		return handler(context.Background())
+		msg, err := t.message()
+		if err != nil {
+			return err
+		}
+		return dispatcher.Dispatch(context.Background(), msg)
 	}
 }
 
-func (c *commandTask) GetHandlerConfig() gojob.HandlerOptions {
-	return gojob.HandlerOptions{
-		HandlerConfig: command.HandlerConfig{
-			Expression: cronSpec(c.command),
-		},
+func (t *jobTask) GetHandlerConfig() gojob.HandlerOptions {
+	return gojob.HandlerOptions{HandlerConfig: t.handlerConfig}
+}
+
+func (t *jobTask) GetConfig() gojob.Config {
+	return gojob.Config{Schedule: strings.TrimSpace(t.handlerConfig.Expression)}
+}
+
+func (t *jobTask) GetPath() string {
+	return t.name
+}
+
+func (t *jobTask) GetEngine() gojob.Engine { return nil }
+
+func (t *jobTask) Execute(ctx context.Context, _ *gojob.ExecutionMessage) error {
+	msg, err := t.message()
+	if err != nil {
+		return err
 	}
+	return dispatcher.Dispatch(ctx, msg)
 }
 
-func (c *commandTask) GetConfig() gojob.Config {
-	return gojob.Config{Schedule: cronSpec(c.command)}
-}
-
-func (c *commandTask) GetPath() string {
-	return c.command.Name()
-}
-
-func (c *commandTask) GetEngine() gojob.Engine { return nil }
-
-func (c *commandTask) Execute(ctx context.Context, _ *gojob.ExecutionMessage) error {
-	return c.command.Execute(ctx)
+func (t *jobTask) message() (command.Message, error) {
+	if t == nil || t.messageFactory == nil {
+		return nil, errors.New("job message unavailable")
+	}
+	msg := t.messageFactory()
+	if msg == nil {
+		return nil, errors.New("job message unavailable")
+	}
+	return msg, nil
 }
