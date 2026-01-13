@@ -43,8 +43,8 @@ func (a *Admin) registerDashboardProviders() error {
 	if a == nil || a.dashboard == nil {
 		return nil
 	}
-	if a.commandRegistry != nil {
-		a.dashboard.WithCommandBus(a.commandRegistry)
+	if a.commandBus != nil {
+		a.dashboard.WithCommandBus(a.commandBus)
 	}
 	features := dashinternal.FeatureFlags{
 		CMS:       a.gates.Enabled(FeatureCMS),
