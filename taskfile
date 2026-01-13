@@ -255,6 +255,31 @@ function version:check {
     fi
 }
 
+##
+## -----
+##
+## quickstart:sync
+##
+## Keep quickstart module's go-admin requirement in sync
+## with the release tag.
+##
+## Arguments:
+## @arg 1 {string} tag
+function quickstart:sync {
+    local tag=${1}
+
+    if [ -z "$tag" ]; then
+        exit 1
+    fi
+
+    if [ ! -f "quickstart/go.mod" ]; then
+        return 0
+    fi
+
+    (cd quickstart && go mod edit -require=github.com/goliatone/go-admin@v${tag})
+    (cd quickstart && go mod tidy)
+}
+
 
 ##
 ## -----
@@ -291,12 +316,19 @@ function release {
     # Update version file
     version:set "${tag}"
 
+    # Sync quickstart module to the new tag
+    quickstart:sync "${tag}"
+
     # Add updated version file to git
     git add "${VERSION_FILE}"
+    if [ -f "quickstart/go.mod" ]; then
+        git add quickstart/go.mod quickstart/go.sum
+    fi
     git commit -m "Bump version: v${tag}"
 
     # Create a new tag
     git tag -a "v${tag}" -m "${message}"
+    git tag -a "quickstart/v${tag}" -m "Quickstart release: v${tag}"
 
     # Push tags and trigger release 🚀 🥳
     git push --tags
