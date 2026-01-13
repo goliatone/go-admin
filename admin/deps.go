@@ -13,9 +13,9 @@ type Dependencies struct {
 	CMSContainer        CMSContainer
 	CMSContainerBuilder CMSContainerBuilder
 
-	Registry        *Registry
-	CommandRegistry *CommandRegistry
-	JobRegistry     *JobRegistry
+	Registry    *Registry
+	CommandBus  *CommandBus
+	JobRegistry *JobRegistry
 
 	Authorizer    Authorizer
 	Authenticator Authenticator
