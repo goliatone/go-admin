@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"errors"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/goliatone/go-command"
 	gocron "github.com/goliatone/go-command/cron"
-	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/registry"
 	goerrors "github.com/goliatone/go-errors"
 	gojob "github.com/goliatone/go-job"
@@ -60,9 +58,9 @@ type jobState struct {
 }
 
 type jobRegistration struct {
-	name           string
-	handlerConfig  command.HandlerConfig
-	messageFactory func() command.Message
+	name          string
+	handlerConfig command.HandlerConfig
+	handler       func(context.Context) error
 }
 
 func (s *jobState) status() string {
@@ -116,14 +114,14 @@ func (j *JobRegistry) commandResolver() command.Resolver {
 		if meta.MessageType == "" {
 			return nil
 		}
-		factory := messageFactoryFromMeta(meta)
-		if factory == nil {
+		handler := cronCmd.CronHandler()
+		if handler == nil {
 			return nil
 		}
 		reg := &jobRegistration{
-			name:           meta.MessageType,
-			handlerConfig:  cronCmd.CronOptions(),
-			messageFactory: factory,
+			name:          meta.MessageType,
+			handlerConfig: cronCmd.CronOptions(),
+			handler:       func(context.Context) error { return handler() },
 		}
 		j.mu.Lock()
 		if j.cronCommands == nil {
@@ -393,49 +391,22 @@ func (j *JobRegistry) ensureRegistryInitialized(ctx context.Context) error {
 	return nil
 }
 
-func messageFactoryFromMeta(meta command.CommandMeta) func() command.Message {
-	msgType := meta.MessageTypeValue
-	if msgType == nil && meta.MessageValue != nil {
-		msgType = reflect.TypeOf(meta.MessageValue)
-	}
-	if msgType == nil {
-		return nil
-	}
-	return func() command.Message {
-		msg := newMessageValue(msgType)
-		if typed, ok := msg.(command.Message); ok {
-			return typed
-		}
-		return nil
-	}
-}
-
-func newMessageValue(msgType reflect.Type) any {
-	if msgType == nil {
-		return nil
-	}
-	if msgType.Kind() == reflect.Ptr {
-		return reflect.New(msgType.Elem()).Interface()
-	}
-	return reflect.New(msgType).Elem().Interface()
-}
-
 type jobTask struct {
-	name           string
-	handlerConfig  command.HandlerConfig
-	messageFactory func() command.Message
+	name          string
+	handlerConfig command.HandlerConfig
+	handler       func(context.Context) error
 }
 
 var _ gojob.Task = (*jobTask)(nil)
 
 func newJobTask(name string, reg *jobRegistration) *jobTask {
-	if reg == nil || name == "" || reg.messageFactory == nil {
+	if reg == nil || name == "" || reg.handler == nil {
 		return nil
 	}
 	return &jobTask{
-		name:           name,
-		handlerConfig:  reg.handlerConfig,
-		messageFactory: reg.messageFactory,
+		name:          name,
+		handlerConfig: reg.handlerConfig,
+		handler:       reg.handler,
 	}
 }
 
@@ -445,11 +416,7 @@ func (t *jobTask) GetID() string {
 
 func (t *jobTask) GetHandler() func() error {
 	return func() error {
-		msg, err := t.message()
-		if err != nil {
-			return err
-		}
-		return dispatcher.Dispatch(context.Background(), msg)
+		return t.run(context.Background())
 	}
 }
 
@@ -468,20 +435,12 @@ func (t *jobTask) GetPath() string {
 func (t *jobTask) GetEngine() gojob.Engine { return nil }
 
 func (t *jobTask) Execute(ctx context.Context, _ *gojob.ExecutionMessage) error {
-	msg, err := t.message()
-	if err != nil {
-		return err
-	}
-	return dispatcher.Dispatch(ctx, msg)
+	return t.run(ctx)
 }
 
-func (t *jobTask) message() (command.Message, error) {
-	if t == nil || t.messageFactory == nil {
-		return nil, errors.New("job message unavailable")
+func (t *jobTask) run(ctx context.Context) error {
+	if t == nil || t.handler == nil {
+		return errors.New("job handler unavailable")
 	}
-	msg := t.messageFactory()
-	if msg == nil {
-		return nil, errors.New("job message unavailable")
-	}
-	return msg, nil
+	return t.handler(ctx)
 }
