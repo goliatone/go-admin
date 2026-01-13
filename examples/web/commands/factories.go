@@ -9,30 +9,30 @@ import (
 )
 
 func RegisterPageCommandFactories(bus *admin.CommandBus) error {
-	if err := bus.RegisterMessageFactory(pagePublishCommandName, buildPagePublishMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, pagePublishCommandName, buildPagePublishMsg); err != nil {
 		return err
 	}
-	if err := bus.RegisterMessageFactory(pageBulkPublishCommandName, buildPageBulkPublishMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, pageBulkPublishCommandName, buildPageBulkPublishMsg); err != nil {
 		return err
 	}
-	return bus.RegisterMessageFactory(pageBulkUnpublishCommandName, buildPageBulkUnpublishMsg)
+	return admin.RegisterMessageFactory(bus, pageBulkUnpublishCommandName, buildPageBulkUnpublishMsg)
 }
 
 func RegisterPostCommandFactories(bus *admin.CommandBus) error {
-	if err := bus.RegisterMessageFactory(postBulkPublishCommandName, buildPostBulkPublishMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, postBulkPublishCommandName, buildPostBulkPublishMsg); err != nil {
 		return err
 	}
-	if err := bus.RegisterMessageFactory(postBulkUnpublishCommandName, buildPostBulkUnpublishMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, postBulkUnpublishCommandName, buildPostBulkUnpublishMsg); err != nil {
 		return err
 	}
-	if err := bus.RegisterMessageFactory(postBulkScheduleCommandName, buildPostBulkScheduleMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, postBulkScheduleCommandName, buildPostBulkScheduleMsg); err != nil {
 		return err
 	}
-	return bus.RegisterMessageFactory(postBulkArchiveCommandName, buildPostBulkArchiveMsg)
+	return admin.RegisterMessageFactory(bus, postBulkArchiveCommandName, buildPostBulkArchiveMsg)
 }
 
 func RegisterMediaCommandFactories(bus *admin.CommandBus) error {
-	return bus.RegisterMessageFactory(mediaBulkDeleteCommandName, buildMediaBulkDeleteMsg)
+	return admin.RegisterMessageFactory(bus, mediaBulkDeleteCommandName, buildMediaBulkDeleteMsg)
 }
 
 func buildPagePublishMsg(payload map[string]any, ids []string) (PagePublishMsg, error) {
