@@ -10,6 +10,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	gotemplate "github.com/goliatone/go-template"
 )
 
@@ -26,7 +27,7 @@ func NewTemplateRenderer(templatesFS fs.FS) (*TemplateRenderer, error) {
 	renderer, err := gotemplate.NewRenderer(
 		gotemplate.WithFS(templatesFS),
 		gotemplate.WithExtension(".html"),
-		gotemplate.WithTemplateFunc(helpers.TemplateFuncs()),
+		gotemplate.WithTemplateFunc(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create template renderer: %w", err)

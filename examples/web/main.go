@@ -307,7 +307,7 @@ func main() {
 	// Initialize view engine
 	viewEngine, err := quickstart.NewViewEngine(
 		client.FS(),
-		quickstart.WithViewTemplateFuncs(helpers.TemplateFuncs()),
+		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
 	)
 	if err != nil {
 		log.Fatalf("failed to initialize view engine: %v", err)
@@ -1042,7 +1042,7 @@ func configureExportRenderers(bundle *quickstart.ExportBundle, templatesFS fs.FS
 	engine, err := exportgotemplate.NewEngine(
 		gotemplate.WithFS(templatesFS),
 		gotemplate.WithExtension(".html"),
-		gotemplate.WithTemplateFunc(helpers.TemplateFuncs()),
+		gotemplate.WithTemplateFunc(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
 	)
 	if err != nil {
 		return err
