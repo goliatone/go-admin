@@ -506,13 +506,13 @@ func (p *Panel) Delete(ctx AdminContext, id string) error {
 }
 
 // RunAction dispatches a command-backed action.
-func (p *Panel) RunAction(ctx AdminContext, name string) error {
+func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any) error {
 	for _, action := range p.actions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
 			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
 				return permissionDenied(action.Permission, p.name)
 			}
-			err := p.commandBus.Dispatch(ctx.Context, action.CommandName)
+			err := p.commandBus.DispatchWithPayload(ctx.Context, action.CommandName, payload)
 			if err == nil {
 				p.recordActivity(ctx, "panel.action", map[string]any{
 					"panel":  p.name,
@@ -526,13 +526,13 @@ func (p *Panel) RunAction(ctx AdminContext, name string) error {
 }
 
 // RunBulkAction dispatches a command-backed bulk action.
-func (p *Panel) RunBulkAction(ctx AdminContext, name string) error {
+func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]any) error {
 	for _, action := range p.bulkActions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
 			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
 				return permissionDenied(action.Permission, p.name)
 			}
-			err := p.commandBus.Dispatch(ctx.Context, action.CommandName)
+			err := p.commandBus.DispatchWithPayload(ctx.Context, action.CommandName, payload)
 			if err == nil {
 				p.recordActivity(ctx, "panel.bulk_action", map[string]any{
 					"panel":  p.name,
