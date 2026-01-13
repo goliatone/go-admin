@@ -62,13 +62,14 @@ type Dashboard struct {
 	prefs            DashboardPreferences
 	prefService      *PreferencesService
 	authorizer       Authorizer
-	commandBus       *CommandRegistry
+	commandBus       *CommandBus
 	registry         *Registry
 	activity         ActivitySink
 	renderer         DashboardRenderer
 	areas            map[string]WidgetAreaDefinition
 	enforceAreas     bool
 	components       *dashboardComponents
+	providerCmdReady bool
 }
 
 // NewDashboard constructs a dashboard registry with in-memory defaults.
@@ -121,8 +122,8 @@ func (d *Dashboard) WithAuthorizer(authz Authorizer) {
 	d.components = nil
 }
 
-// WithCommandBus wires the command registry so providers can expose commands.
-func (d *Dashboard) WithCommandBus(bus *CommandRegistry) {
+// WithCommandBus wires the command bus so providers can expose commands.
+func (d *Dashboard) WithCommandBus(bus *CommandBus) {
 	d.commandBus = bus
 }
 
@@ -255,12 +256,13 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 
 	// Register a command hook if requested.
 	if d.commandBus != nil && spec.CommandName != "" {
-		d.commandBus.Register(&dashboardProviderCommand{
-			name:      spec.CommandName,
-			dashboard: d,
-			code:      spec.Code,
-			cfg:       cloneAnyMap(spec.DefaultConfig),
-		})
+		if !d.providerCmdReady {
+			_, _ = RegisterCommand(d.commandBus, &dashboardProviderCommand{dashboard: d})
+			d.providerCmdReady = true
+		}
+		if err := RegisterDashboardProviderFactory(d.commandBus, spec.CommandName, spec.Code, spec.DefaultConfig); err != nil {
+			log.Printf("[dashboard] failed to register command %s: %v", spec.CommandName, err)
+		}
 	}
 
 	// Seed a default instance if provided.
@@ -688,25 +690,45 @@ func (d *Dashboard) widgetServiceAdapter() dashinternal.WidgetService {
 
 // DashboardProviderCommand allows fetching widget data via command bus.
 type dashboardProviderCommand struct {
-	name      string
 	dashboard *Dashboard
-	code      string
-	cfg       map[string]any
 }
 
-func (c *dashboardProviderCommand) Name() string {
-	return c.name
-}
-
-func (c *dashboardProviderCommand) Execute(ctx context.Context) error {
+func (c *dashboardProviderCommand) Execute(ctx context.Context, msg DashboardProviderMsg) error {
 	if c.dashboard == nil {
 		return errors.New("dashboard not set")
 	}
-	adminCtx := AdminContext{Context: ctx, UserID: "", Locale: "en"}
-	provider, ok := c.dashboard.providers[c.code]
+	code := strings.TrimSpace(msg.Code)
+	if code == "" {
+		code = c.dashboard.providerCodeForCommand(msg.CommandName)
+	}
+	adminCtx := AdminContext{
+		Context: ctx,
+		UserID:  userIDFromContext(ctx),
+		Locale:  localeFromContext(ctx),
+	}
+	if adminCtx.Locale == "" {
+		adminCtx.Locale = "en"
+	}
+	provider, ok := c.dashboard.providers[code]
 	if !ok || provider.handler == nil {
 		return ErrNotFound
 	}
-	_, err := provider.handler(adminCtx, cloneAnyMap(c.cfg))
+	cfg := cloneAnyMap(msg.Config)
+	if len(cfg) == 0 {
+		cfg = cloneAnyMap(provider.spec.DefaultConfig)
+	}
+	_, err := provider.handler(adminCtx, cfg)
 	return err
+}
+
+func (d *Dashboard) providerCodeForCommand(name string) string {
+	if d == nil || name == "" {
+		return ""
+	}
+	for code, provider := range d.providers {
+		if provider.spec.CommandName == name {
+			return code
+		}
+	}
+	return ""
 }
