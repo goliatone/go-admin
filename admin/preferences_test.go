@@ -534,20 +534,25 @@ func TestPreferencesQueryParamsIncludeTracesAndVersions(t *testing.T) {
 
 	var resp map[string]any
 	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
-	if toString(resp["theme"]) != "tenant" {
-		t.Fatalf("expected tenant theme with levels override, got %v", resp["theme"])
+	records, ok := resp["records"].([]any)
+	if !ok || len(records) != 1 {
+		t.Fatalf("expected records array, got %v", resp["records"])
 	}
-	effective := extractMap(resp["effective"])
+	record := extractMap(records[0])
+	if toString(record["theme"]) != "tenant" {
+		t.Fatalf("expected tenant theme with levels override, got %v", record["theme"])
+	}
+	effective := extractMap(record["effective"])
 	if toString(effective["theme"]) != "tenant" {
 		t.Fatalf("expected effective theme to be tenant, got %v", effective["theme"])
 	}
-	versions := extractMap(resp["versions"])
+	versions := extractMap(record["versions"])
 	if versions["theme"] == nil {
 		t.Fatalf("expected versions to include theme, got %v", versions)
 	}
-	traces, ok := resp["traces"].([]any)
+	traces, ok := record["traces"].([]any)
 	if !ok || len(traces) == 0 {
-		t.Fatalf("expected traces payload, got %v", resp["traces"])
+		t.Fatalf("expected traces payload, got %v", record["traces"])
 	}
 	trace := extractMap(traces[0])
 	if toString(trace["key"]) != "theme" {
