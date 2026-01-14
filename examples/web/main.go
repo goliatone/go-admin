@@ -329,6 +329,14 @@ func main() {
 		path.Join("..", "pkg", "client", "assets"),
 		"assets",
 	)
+	if diskAssetsDir == "" {
+		diskAssetsDir = quickstart.ResolveDiskAssetsDir(
+			path.Join("dist", "output.css"),
+			path.Join("pkg", "client", "assets"),
+			path.Join("..", "pkg", "client", "assets"),
+			"assets",
+		)
+	}
 	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
 
 	if debugEnabled {
