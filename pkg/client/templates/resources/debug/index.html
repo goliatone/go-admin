@@ -436,7 +436,7 @@
 <body>
   <main class="debug-shell" data-debug-console
         data-debug-path="{{ debug_path }}"
-        data-panels='{{ panels|toJSON }}'
+        data-panels='{{ toJSON(panels) }}'
         data-max-log-entries="{{ max_log_entries }}"
         data-max-sql-queries="{{ max_sql_queries }}"
         data-slow-threshold-ms="{{ slow_query_threshold_ms }}">
