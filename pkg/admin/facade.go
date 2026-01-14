@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"log/slog"
 
 	core "github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
@@ -58,6 +59,12 @@ type (
 	DashboardLayout       = core.DashboardLayout
 	DashboardProviderSpec = core.DashboardProviderSpec
 	DashboardRenderer     = core.DashboardRenderer
+
+	DebugCollector  = core.DebugCollector
+	DebugConfig     = core.DebugConfig
+	DebugLogHandler = core.DebugLogHandler
+	DebugModule     = core.DebugModule
+	DebugQueryHook  = core.DebugQueryHook
 
 	FeatureGates = core.FeatureGates
 	FeatureKey   = core.FeatureKey
@@ -198,6 +205,26 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 
 func RegisterCommand[T any](bus *CommandBus, cmd command.Commander[T], runnerOpts ...runner.Option) (dispatcher.Subscription, error) {
 	return core.RegisterCommand(bus, cmd, runnerOpts...)
+}
+
+func CaptureViewContext(collector *DebugCollector, viewCtx router.ViewContext) router.ViewContext {
+	return core.CaptureViewContext(collector, viewCtx)
+}
+
+func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
+	return core.DebugRequestMiddleware(collector)
+}
+
+func NewDebugLogHandler(collector *DebugCollector, next slog.Handler) *DebugLogHandler {
+	return core.NewDebugLogHandler(collector, next)
+}
+
+func NewDebugModule(config DebugConfig) *DebugModule {
+	return core.NewDebugModule(config)
+}
+
+func NewDebugQueryHook(collector *DebugCollector) *DebugQueryHook {
+	return core.NewDebugQueryHook(collector)
 }
 
 func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payload map[string]any, ids []string) (T, error)) error {
