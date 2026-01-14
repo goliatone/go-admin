@@ -20,12 +20,12 @@ type MediaStore struct {
 }
 
 // NewMediaStore creates a new MediaStore instance.
-func NewMediaStore(db *bun.DB) (*MediaStore, error) {
+func NewMediaStore(db *bun.DB, opts ...repository.Option) (*MediaStore, error) {
 	if db == nil {
 		return nil, fmt.Errorf("media store database is nil")
 	}
 
-	repo := repository.MustNewRepository[*MediaRecord](db, mediaModelHandlers())
+	repo := repository.MustNewRepositoryWithOptions[*MediaRecord](db, mediaModelHandlers(), opts...)
 	adapter := admin.NewBunRepositoryAdapter[*MediaRecord](
 		repo,
 		admin.WithBunSearchColumns[*MediaRecord]("filename"),
