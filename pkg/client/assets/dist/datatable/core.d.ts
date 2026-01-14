@@ -142,6 +142,8 @@ export declare class DataGrid {
      * Build query parameters from state using behaviors
      */
     private buildQueryParams;
+    private getResponseTotal;
+    private normalizePagination;
     /**
      * Reset pagination to first page
      */
