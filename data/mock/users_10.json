@@ -1,0 +1,109 @@
+[
+  {
+    "app_role": "",
+    "email": "alice.johnson@testcorp.example",
+    "metadata": {
+      "department": "engineering",
+      "hire_date": "2023-01-15"
+    },
+    "role": "admin",
+    "status": "active",
+    "username": "test_alice"
+  },
+  {
+    "app_role": "",
+    "email": "bob.smith@testcorp.example",
+    "metadata": {
+      "department": "sales",
+      "hire_date": "2023-03-22"
+    },
+    "role": "member",
+    "status": "active",
+    "username": "test_bob"
+  },
+  {
+    "app_role": "",
+    "email": "carol.williams@testcorp.example",
+    "metadata": {
+      "department": "marketing",
+      "hire_date": "2022-11-08"
+    },
+    "role": "editor",
+    "status": "active",
+    "username": "test_carol"
+  },
+  {
+    "app_role": "",
+    "email": "david.brown@testcorp.example",
+    "metadata": {
+      "department": "engineering",
+      "hire_date": "2024-02-01"
+    },
+    "role": "member",
+    "status": "active",
+    "username": "test_david"
+  },
+  {
+    "app_role": "",
+    "email": "emma.davis@testcorp.example",
+    "metadata": {
+      "department": "hr",
+      "hire_date": "2021-06-30"
+    },
+    "role": "viewer",
+    "status": "inactive",
+    "username": "test_emma"
+  },
+  {
+    "app_role": "",
+    "email": "frank.miller@testcorp.example",
+    "metadata": {
+      "department": "finance",
+      "hire_date": "2023-09-12"
+    },
+    "role": "member",
+    "status": "active",
+    "username": "test_frank"
+  },
+  {
+    "app_role": "",
+    "email": "grace.wilson@testcorp.example",
+    "metadata": {
+      "department": "engineering",
+      "hire_date": "2022-04-18"
+    },
+    "role": "editor",
+    "status": "active",
+    "username": "test_grace"
+  },
+  {
+    "app_role": "",
+    "email": "henry.moore@testcorp.example",
+    "metadata": null,
+    "role": "member",
+    "status": "suspended",
+    "username": "test_henry"
+  },
+  {
+    "app_role": "",
+    "email": "ivy.taylor@testcorp.example",
+    "metadata": {
+      "department": "support",
+      "hire_date": "2024-01-10"
+    },
+    "role": "member",
+    "status": "active",
+    "username": "test_ivy"
+  },
+  {
+    "app_role": "",
+    "email": "jack.anderson@testcorp.example",
+    "metadata": {
+      "department": "engineering",
+      "hire_date": "2023-07-25"
+    },
+    "role": "admin",
+    "status": "active",
+    "username": "test_jack"
+  }
+]
