@@ -7,7 +7,7 @@ replace github.com/goliatone/go-admin => ..
 require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/goliatone/go-admin v0.12.0
+	github.com/goliatone/go-admin v0.13.0
 	github.com/goliatone/go-auth v0.22.0
 	github.com/goliatone/go-cms v0.18.0
 	github.com/goliatone/go-dashboard v0.6.0
@@ -18,7 +18,7 @@ require (
 	github.com/goliatone/go-router v0.41.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
-	github.com/goliatone/go-users v0.4.0
+	github.com/goliatone/go-users v0.5.0
 	github.com/google/uuid v1.6.0
 )
 
@@ -73,16 +73,16 @@ require (
 	github.com/goliatone/go-command v0.12.0 // indirect
 	github.com/goliatone/go-composite-fs v0.0.1 // indirect
 	github.com/goliatone/go-config v0.7.0 // indirect
-	github.com/goliatone/go-crud v0.15.0 // indirect
+	github.com/goliatone/go-crud v0.17.0 // indirect
 	github.com/goliatone/go-i18n v0.2.0 // indirect
 	github.com/goliatone/go-job v0.14.0 // indirect
 	github.com/goliatone/go-logger v0.4.0 // indirect
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-notifications v0.10.0 // indirect
 	github.com/goliatone/go-options v0.7.0 // indirect
-	github.com/goliatone/go-persistence-bun v0.8.0 // indirect
+	github.com/goliatone/go-persistence-bun v0.9.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
-	github.com/goliatone/go-repository-bun v0.10.0 // indirect
+	github.com/goliatone/go-repository-bun v0.11.0 // indirect
 	github.com/goliatone/go-repository-cache v0.5.0 // indirect
 	github.com/goliatone/go-urlkit v0.3.0 // indirect
 	github.com/goliatone/hashid v0.1.1 // indirect
