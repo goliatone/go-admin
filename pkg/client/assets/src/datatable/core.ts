@@ -263,13 +263,18 @@ export class DataGrid {
     // Restore page
     const page = params.get('page');
     if (page) {
-      this.state.currentPage = parseInt(page, 10) || 1;
+      const parsedPage = parseInt(page, 10);
+      this.state.currentPage = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
     }
 
     // Restore perPage
     const perPage = params.get('perPage');
     if (perPage) {
-      this.state.perPage = parseInt(perPage, 10) || this.config.perPage || 10;
+      const parsedPerPage = parseInt(perPage, 10);
+      const fallbackPerPage = this.config.perPage || 10;
+      this.state.perPage = Number.isNaN(parsedPerPage)
+        ? fallbackPerPage
+        : Math.max(1, parsedPerPage);
       const perPageSelect = document.querySelector<HTMLSelectElement>(this.selectors.perPageSelect);
       if (perPageSelect) {
         perPageSelect.value = String(this.state.perPage);
@@ -472,6 +477,10 @@ export class DataGrid {
       console.log('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
       this.lastSchema = data.schema || null;
       this.lastForm = data.form || null;
+      const total = this.getResponseTotal(data);
+      if (this.normalizePagination(total)) {
+        return this.refresh();
+      }
       console.log('[DataGrid] About to call renderData()...');
       this.renderData(data);
       console.log('[DataGrid] renderData() completed');
@@ -555,6 +564,44 @@ export class DataGrid {
     }
 
     return params;
+  }
+
+  private getResponseTotal(data: ApiResponse): number | null {
+    if (data.total !== undefined && data.total !== null) return data.total;
+    if (data.$meta?.count !== undefined && data.$meta?.count !== null) return data.$meta.count;
+    if (data.count !== undefined && data.count !== null) return data.count;
+    return null;
+  }
+
+  private normalizePagination(total: number | null): boolean {
+    if (total === null) {
+      return false;
+    }
+
+    const nextPerPage = Math.max(1, this.state.perPage || this.config.perPage || 10);
+    const maxPage = Math.max(1, Math.ceil(total / nextPerPage));
+    let nextPage = this.state.currentPage;
+
+    if (total === 0) {
+      nextPage = 1;
+    } else if (nextPage > maxPage) {
+      nextPage = maxPage;
+    } else if (nextPage < 1) {
+      nextPage = 1;
+    }
+
+    const didCorrect = nextPerPage !== this.state.perPage || nextPage !== this.state.currentPage;
+    if (didCorrect) {
+      this.state.perPage = nextPerPage;
+      this.state.currentPage = nextPage;
+      this.pushStateToURL();
+    }
+
+    if (total === 0) {
+      return false;
+    }
+
+    return didCorrect;
   }
 
   /**
@@ -649,7 +696,8 @@ export class DataGrid {
     const items = data.data || data.records || [];
     console.log(`[DataGrid] renderData() called with ${items.length} items`);
     console.log('[DataGrid] First 3 items:', items.slice(0, 3));
-    this.state.totalRows = data.total || data.$meta?.count || data.count || items.length;
+    const total = this.getResponseTotal(data);
+    this.state.totalRows = total ?? items.length;
 
     if (items.length === 0) {
       tbody.innerHTML = `
@@ -922,7 +970,7 @@ export class DataGrid {
    * Update pagination UI
    */
   private updatePaginationUI(data: ApiResponse): void {
-    const total = data.total || data.$meta?.count || data.count || this.state.totalRows;
+    const total = this.getResponseTotal(data) ?? this.state.totalRows;
     const offset = this.state.perPage * (this.state.currentPage - 1);
     const start = total === 0 ? 0 : offset + 1;
     const end = Math.min(offset + this.state.perPage, total);
