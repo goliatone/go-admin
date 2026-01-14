@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,28 +26,13 @@ import (
 	"github.com/goliatone/go-crud"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	goerrors "github.com/goliatone/go-errors"
-	exportpdf "github.com/goliatone/go-export/adapters/pdf"
-	exporttemplate "github.com/goliatone/go-export/adapters/template"
-	exportgotemplate "github.com/goliatone/go-export/adapters/template/go-template"
 	"github.com/goliatone/go-export/export"
 	"github.com/goliatone/go-router"
-	gotemplate "github.com/goliatone/go-template"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
 //go:embed openapi/*
 var webFS embed.FS
-
-// loginPayload adapts form/json login data to the go-auth LoginPayload interface.
-type loginPayload struct {
-	Identifier string `form:"identifier" json:"identifier"`
-	Password   string `form:"password" json:"password"`
-	Remember   bool   `form:"remember" json:"remember"`
-}
-
-func (l loginPayload) GetIdentifier() string    { return l.Identifier }
-func (l loginPayload) GetPassword() string      { return l.Password }
-func (l loginPayload) GetExtendedSession() bool { return l.Remember }
 
 func main() {
 	defaultLocale := "en"
@@ -130,7 +114,11 @@ func main() {
 	)
 	if cfg.Features.Export {
 		exportTemplatesFS := client.Templates()
-		if err := configureExportRenderers(exportBundle, exportTemplatesFS); err != nil {
+		if err := quickstart.ConfigureExportRenderers(
+			exportBundle,
+			exportTemplatesFS,
+			quickstart.WithExportTemplateFuncs(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
+		); err != nil {
 			log.Fatalf("failed to configure export renderers: %v", err)
 		}
 	}
@@ -321,24 +309,13 @@ func main() {
 	// Prefer serving assets from disk when available (dev flow), and fall back to embedded assets.
 	// This avoids 404s when the running binary was compiled without the latest generated assets
 	// (e.g., output.css, assets/dist/*) and supports iterative frontend builds.
-	var diskAssetsDir string
-	if _, err := os.Stat(path.Join("pkg", "client", "assets", "output.css")); err == nil {
-		diskAssetsDir = path.Join("pkg", "client", "assets")
-	} else if _, err := os.Stat(path.Join("..", "pkg", "client", "assets", "output.css")); err == nil {
-		diskAssetsDir = path.Join("..", "pkg", "client", "assets")
-	} else if _, err := os.Stat(path.Join("assets", "output.css")); err == nil {
-		diskAssetsDir = "assets"
-	}
-
-	assetsBasePath := path.Join(cfg.BasePath, "assets")
-	if diskAssetsDir != "" {
-		diskAssetsFS := os.DirFS(diskAssetsDir)
-		assetsFS := helpers.WithFallbackFS(diskAssetsFS, client.Assets(), quickstart.SidebarAssetsFS())
-		r.Static(assetsBasePath, ".", router.Static{FS: assetsFS, Root: "."})
-	} else {
-		client.RegisterAssets(r, assetsBasePath)
-	}
-	quickstart.NewStaticAssets(r, cfg, nil, quickstart.WithAssetsPrefix(""))
+	diskAssetsDir := quickstart.ResolveDiskAssetsDir(
+		"output.css",
+		path.Join("pkg", "client", "assets"),
+		path.Join("..", "pkg", "client", "assets"),
+		"assets",
+	)
+	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
 
 	// Register modules
 	modules := []admin.Module{
@@ -595,80 +572,26 @@ func main() {
 	r.Get(path.Join(cfg.BasePath, "api", "users", "columns"), authn.WrapHandler(userHandlers.Columns))
 	r.Get(path.Join(cfg.BasePath, "api", "user-profiles", "columns"), authn.WrapHandler(userProfileHandlers.Columns))
 
-	// Protected dashboard page: wrap with go-auth middleware
-	r.Get(cfg.BasePath, authn.WrapHandler(func(c router.Context) error {
-		viewCtx := router.ViewContext{
-			"title":     cfg.Title,
-			"base_path": cfg.BasePath,
-		}
-		viewCtx = helpers.WithNav(viewCtx, adm, cfg, setup.NavigationSectionDashboard, c.Context())
-		viewCtx = helpers.WithTheme(viewCtx, adm, c)
-		return c.Render("admin", viewCtx)
-	}))
+	if err := quickstart.RegisterAdminUIRoutes(
+		r,
+		cfg,
+		adm,
+		authn,
+		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
+		quickstart.WithUINotificationsActive(setup.NavigationGroupOthers+".notifications"),
+	); err != nil {
+		log.Fatalf("failed to register admin UI routes: %v", err)
+	}
 
-	// Login routes (render and submit).
-	r.Get(path.Join(cfg.BasePath, "login"), func(c router.Context) error {
-		viewCtx := router.ViewContext{
-			"title":     "Login",
-			"base_path": cfg.BasePath,
-		}
-		return c.Render("login", viewCtx)
-	})
-	r.Post(path.Join(cfg.BasePath, "login"), func(c router.Context) error {
-		payload := loginPayload{}
-		_ = c.Bind(&payload)
-
-		// Generate token manually so we can set an HTTP (non-secure) cookie for local dev.
-		token, err := auther.Login(c.Context(), payload.Identifier, payload.Password)
-		if err != nil {
-			return err
-		}
-
-		c.Cookie(&router.Cookie{
-			Name:     authCookieName,
-			Value:    token,
-			Path:     "/",
-			HTTPOnly: true,
-			SameSite: "Lax",
-			Secure:   false, // allow http://localhost
-		})
-
-		return c.Redirect(cfg.BasePath, fiber.StatusFound)
-	})
-	r.Get(path.Join(cfg.BasePath, "password-reset"), func(c router.Context) error {
-		if !cfg.FeatureFlags[setup.FeaturePasswordReset] {
-			return goerrors.New("password reset disabled", goerrors.CategoryAuthz).
-				WithCode(fiber.StatusForbidden).
-				WithTextCode("FEATURE_DISABLED")
-		}
-		viewCtx := router.ViewContext{
-			"title":     "Password Reset",
-			"base_path": cfg.BasePath,
-		}
-		return c.Render("password_reset", viewCtx)
-	})
-	r.Get(path.Join(cfg.BasePath, "logout"), func(c router.Context) error {
-		// Clear the auth cookie
-		c.Cookie(&router.Cookie{
-			Name:     authCookieName,
-			Value:    "",
-			Path:     "/",
-			HTTPOnly: true,
-			SameSite: "Lax",
-			Secure:   false,
-			MaxAge:   -1,
-		})
-		return c.Redirect(path.Join(cfg.BasePath, "login"), fiber.StatusFound)
-	})
-
-	r.Get(path.Join(cfg.BasePath, "notifications"), authn.WrapHandler(func(c router.Context) error {
-		viewCtx := helpers.WithNav(router.ViewContext{
-			"title":     cfg.Title,
-			"base_path": cfg.BasePath,
-		}, adm, cfg, setup.NavigationGroupOthers+".notifications", c.Context())
-		viewCtx = helpers.WithTheme(viewCtx, adm, c)
-		return c.Render("notifications", viewCtx)
-	}))
+	if err := quickstart.RegisterAuthUIRoutes(
+		r,
+		cfg,
+		auther,
+		authCookieName,
+		quickstart.WithAuthUITitles("Login", "Password Reset"),
+	); err != nil {
+		log.Fatalf("failed to register auth UI routes: %v", err)
+	}
 
 	// Profile routes (self-service HTML)
 	r.Get(path.Join(cfg.BasePath, "profile"), authn.WrapHandler(profileHandlers.Show))
@@ -1029,131 +952,6 @@ func userCRUDStatusResolver(err *goerrors.Error, _ crud.CrudOperation) int {
 	default:
 		return http.StatusInternalServerError
 	}
-}
-
-func configureExportRenderers(bundle *quickstart.ExportBundle, templatesFS fs.FS) error {
-	if bundle == nil || bundle.Runner == nil || bundle.Runner.Renderers == nil {
-		return nil
-	}
-	if templatesFS == nil {
-		return fmt.Errorf("export templates filesystem is required")
-	}
-
-	engine, err := exportgotemplate.NewEngine(
-		gotemplate.WithFS(templatesFS),
-		gotemplate.WithExtension(".html"),
-		gotemplate.WithTemplateFunc(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
-	)
-	if err != nil {
-		return err
-	}
-
-	templateRenderer := exporttemplate.Renderer{
-		Enabled:      true,
-		Templates:    exportgotemplate.NewExecutor(engine),
-		TemplateName: "export",
-		Strategy:     exporttemplate.BufferedStrategy{MaxRows: 5000},
-	}
-	if err := bundle.Runner.Renderers.Register(export.FormatTemplate, templateRenderer); err != nil {
-		return err
-	}
-
-	pdfRenderer, err := buildPDFRenderer(templateRenderer)
-	if err != nil {
-		return err
-	}
-	if err := bundle.Runner.Renderers.Register(export.FormatPDF, pdfRenderer); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func buildPDFRenderer(templateRenderer exporttemplate.Renderer) (exportpdf.Renderer, error) {
-	engineName := strings.ToLower(strings.TrimSpace(os.Getenv("EXPORT_PDF_ENGINE")))
-	if engineName == "" {
-		engineName = "chromium"
-	}
-
-	switch engineName {
-	case "wkhtmltopdf":
-		return exportpdf.Renderer{
-			Enabled:      true,
-			HTMLRenderer: templateRenderer,
-			Engine: exportpdf.WKHTMLTOPDFEngine{
-				Command: strings.TrimSpace(os.Getenv("WKHTMLTOPDF_PATH")),
-				Timeout: envDurationSeconds("EXPORT_PDF_TIMEOUT_SECONDS", 30),
-			},
-		}, nil
-	case "chromium", "chromedp":
-	default:
-		return exportpdf.Renderer{}, fmt.Errorf("unsupported export pdf engine: %s", engineName)
-	}
-
-	printBackground := envBool("EXPORT_PDF_PRINT_BACKGROUND", true)
-	preferCSS := envBool("EXPORT_PDF_PREFER_CSS_PAGE_SIZE", true)
-	headless := envBool("EXPORT_PDF_HEADLESS", true)
-	args := envCSV("EXPORT_PDF_ARGS")
-	if len(args) == 0 {
-		args = []string{"--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"}
-	}
-
-	return exportpdf.Renderer{
-		Enabled:      true,
-		HTMLRenderer: templateRenderer,
-		Engine: &exportpdf.ChromiumEngine{
-			BrowserPath: strings.TrimSpace(os.Getenv("EXPORT_PDF_BROWSER_PATH")),
-			Headless:    headless,
-			Args:        args,
-			Timeout:     envDurationSeconds("EXPORT_PDF_TIMEOUT_SECONDS", 30),
-			DefaultPDF: export.PDFOptions{
-				PageSize:          strings.TrimSpace(os.Getenv("EXPORT_PDF_PAGE_SIZE")),
-				PrintBackground:   &printBackground,
-				PreferCSSPageSize: &preferCSS,
-			},
-		},
-	}, nil
-}
-
-func envDurationSeconds(key string, fallback int) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return time.Duration(fallback) * time.Second
-	}
-	value, err := strconv.Atoi(raw)
-	if err != nil || value <= 0 {
-		return time.Duration(fallback) * time.Second
-	}
-	return time.Duration(value) * time.Second
-}
-
-func envBool(key string, fallback bool) bool {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-	value, err := strconv.ParseBool(raw)
-	if err != nil {
-		return fallback
-	}
-	return value
-}
-
-func envCSV(key string) []string {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return nil
-	}
-	parts := strings.FieldsFunc(raw, func(r rune) bool {
-		return r == ',' || r == ';'
-	})
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out
 }
 
 type exportActorProvider struct{}
