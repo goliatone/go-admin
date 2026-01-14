@@ -13,6 +13,7 @@ require (
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.9.0
 	github.com/goliatone/go-export v0.3.0
+	github.com/goliatone/go-export/adapters/template/go-template v0.0.0-20260107043437-42444165f3bf
 	github.com/goliatone/go-formgen v0.14.0
 	github.com/goliatone/go-router v0.41.0
 	github.com/goliatone/go-template v0.3.1
@@ -34,6 +35,9 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/chromedp/cdproto v0.0.0-20240801214329-3f85d328b335 // indirect
+	github.com/chromedp/chromedp v0.10.0 // indirect
+	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -58,6 +62,9 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/gofiber/contrib/websocket v1.3.4 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
