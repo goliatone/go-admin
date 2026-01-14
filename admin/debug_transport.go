@@ -114,7 +114,9 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 		admin.router.Post(path, handler)
 	}
 
-	register(basePath, m.handleDebugDashboard)
+	if !admin.gates.Enabled(FeatureDashboard) {
+		register(basePath, m.handleDebugDashboard)
+	}
 	register(joinPath(basePath, "api/snapshot"), m.handleDebugSnapshot)
 	registerPost(joinPath(basePath, "api/clear"), m.handleDebugClear)
 	registerPost(joinPath(basePath, "api/clear/:panel"), m.handleDebugClearPanel)
