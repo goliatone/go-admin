@@ -40,7 +40,7 @@ type UserDependencies struct {
 
 // Initialize creates and seeds all data stores backed by the CMS content service (pages/posts)
 // and Bun for user/media data.
-func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDeps UserDependencies) (*DataStores, error) {
+func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDeps UserDependencies, repoOptions ...repository.Option) (*DataStores, error) {
 	if strings.TrimSpace(defaultLocale) == "" {
 		defaultLocale = "en"
 	}
@@ -64,13 +64,13 @@ func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDe
 
 	pageStore := NewCMSPageStore(contentSvc, defaultLocale)
 	postStore := NewCMSPostStore(contentSvc, defaultLocale)
-	mediaStore, err := NewMediaStore(contentDB)
+	mediaStore, err := NewMediaStore(contentDB, repoOptions...)
 	if err != nil {
 		return nil, err
 	}
 
-	pageRepo := repository.MustNewRepository[*PageRecord](contentDB, pageModelHandlers())
-	postRepo := repository.MustNewRepository[*PostRecord](contentDB, postModelHandlers())
+	pageRepo := repository.MustNewRepositoryWithOptions[*PageRecord](contentDB, pageModelHandlers(), repoOptions...)
+	postRepo := repository.MustNewRepositoryWithOptions[*PostRecord](contentDB, postModelHandlers(), repoOptions...)
 
 	stores := &DataStores{
 		Users:        userStore,

@@ -19,12 +19,12 @@ type PageStore struct {
 }
 
 // NewPageStore creates a new page store.
-func NewPageStore(db *bun.DB) (*PageStore, error) {
+func NewPageStore(db *bun.DB, opts ...repository.Option) (*PageStore, error) {
 	if db == nil {
 		return nil, fmt.Errorf("page store database is nil")
 	}
 
-	repo := repository.MustNewRepository[*PageRecord](db, pageModelHandlers())
+	repo := repository.MustNewRepositoryWithOptions[*PageRecord](db, pageModelHandlers(), opts...)
 	adapter := admin.NewBunRepositoryAdapter[*PageRecord](
 		repo,
 		admin.WithBunSearchColumns[*PageRecord]("title", "slug"),
