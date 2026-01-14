@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Debug Console</title>
+  <link rel="stylesheet" href="{{ base_path }}/assets/output.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
+  <style>
+    :root {
+      --debug-ink: #0f172a;
+      --debug-muted: #64748b;
+      --debug-surface: #ffffff;
+      --debug-border: #e2e8f0;
+      --debug-accent: #f97316;
+      --debug-accent-strong: #ea580c;
+      --debug-cool: #0ea5e9;
+      --debug-success: #22c55e;
+      --debug-danger: #ef4444;
+      --debug-warn: #f59e0b;
+    }
+
+    body {
+      background: radial-gradient(circle at top, rgba(14, 165, 233, 0.08), transparent 60%),
+        radial-gradient(circle at 20% 30%, rgba(249, 115, 22, 0.08), transparent 50%),
+        #f8fafc;
+      color: var(--debug-ink);
+    }
+
+    .debug-shell {
+      max-width: 1200px;
+      margin: 32px auto 48px;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .debug-hero {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.05), rgba(249, 115, 22, 0.12));
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 20px;
+      padding: 24px;
+    }
+
+    .debug-title h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .debug-title p {
+      margin-top: 6px;
+      color: var(--debug-muted);
+    }
+
+    .debug-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--debug-accent-strong);
+      background: rgba(249, 115, 22, 0.12);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .debug-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .debug-button,
+    .debug-link {
+      border: 1px solid var(--debug-border);
+      background: var(--debug-surface);
+      color: var(--debug-ink);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .debug-button:hover,
+    .debug-link:hover {
+      border-color: rgba(249, 115, 22, 0.4);
+      color: var(--debug-accent-strong);
+      transform: translateY(-1px);
+    }
+
+    .debug-button--primary {
+      background: var(--debug-accent);
+      border-color: var(--debug-accent);
+      color: #fff;
+    }
+
+    .debug-button--primary:hover {
+      background: var(--debug-accent-strong);
+      border-color: var(--debug-accent-strong);
+      color: #fff;
+    }
+
+    .debug-status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--debug-surface);
+      border: 1px solid var(--debug-border);
+      border-radius: 16px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--debug-muted);
+    }
+
+    .debug-status__left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .debug-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--debug-muted);
+      box-shadow: 0 0 0 4px rgba(100, 116, 139, 0.15);
+    }
+
+    .debug-status[data-status="connected"] .debug-indicator {
+      background: var(--debug-success);
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+    }
+
+    .debug-status[data-status="error"] .debug-indicator {
+      background: var(--debug-danger);
+      box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+    }
+
+    .debug-path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      background: rgba(15, 23, 42, 0.06);
+      padding: 4px 8px;
+      border-radius: 8px;
+      color: var(--debug-ink);
+    }
+
+    .debug-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .debug-tab {
+      border: 1px solid var(--debug-border);
+      background: var(--debug-surface);
+      padding: 8px 12px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--debug-ink);
+    }
+
+    .debug-tab__count {
+      background: rgba(15, 23, 42, 0.08);
+      color: var(--debug-muted);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+    }
+
+    .debug-tab--active {
+      border-color: rgba(14, 165, 233, 0.5);
+      box-shadow: 0 12px 24px rgba(14, 165, 233, 0.12);
+      color: var(--debug-cool);
+    }
+
+    .debug-panel-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--debug-surface);
+      border: 1px solid var(--debug-border);
+      border-radius: 16px;
+      padding: 12px 16px;
+    }
+
+    .debug-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .debug-filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 140px;
+    }
+
+    .debug-filter-group label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--debug-muted);
+      font-weight: 600;
+    }
+
+    .debug-filter-group input,
+    .debug-filter-group select {
+      border: 1px solid var(--debug-border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .debug-filter-group.grow {
+      min-width: 240px;
+      flex: 1 1 auto;
+    }
+
+    .debug-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--debug-muted);
+      font-weight: 600;
+    }
+
+    .debug-panel {
+      background: var(--debug-surface);
+      border: 1px solid var(--debug-border);
+      border-radius: 20px;
+      padding: 20px;
+      min-height: 320px;
+      max-height: 65vh;
+      overflow: auto;
+    }
+
+    .debug-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .debug-card {
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(248, 250, 252, 0.6);
+    }
+
+    .debug-card--slow {
+      border-color: rgba(239, 68, 68, 0.4);
+      box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.2);
+    }
+
+    .debug-card__row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .debug-card__path {
+      font-weight: 600;
+      flex: 1 1 240px;
+      color: var(--debug-ink);
+    }
+
+    .debug-card__meta {
+      font-size: 12px;
+      color: var(--debug-muted);
+    }
+
+    .debug-card__details summary {
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    .debug-card__grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .debug-card__grid h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--debug-muted);
+      margin-bottom: 6px;
+    }
+
+    .debug-card__error {
+      color: var(--debug-danger);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .debug-code {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 12px;
+      border-radius: 12px;
+      margin-top: 10px;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+
+    .debug-badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.08);
+      color: var(--debug-ink);
+    }
+
+    .debug-badge--status {
+      background: rgba(14, 165, 233, 0.12);
+      color: var(--debug-cool);
+    }
+
+    .debug-badge--method {
+      background: rgba(249, 115, 22, 0.15);
+      color: var(--debug-accent-strong);
+    }
+
+    .debug-badge--sql {
+      background: rgba(34, 197, 94, 0.16);
+      color: #15803d;
+    }
+
+    .debug-badge--error {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--debug-danger);
+    }
+
+    .debug-badge--level {
+      background: rgba(59, 130, 246, 0.18);
+      color: #1d4ed8;
+    }
+
+    .debug-badge--custom {
+      background: rgba(148, 163, 184, 0.2);
+      color: var(--debug-ink);
+    }
+
+    .debug-json-panel {
+      border: 1px dashed rgba(148, 163, 184, 0.4);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .debug-json-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .debug-json-panel pre,
+    .debug-card pre {
+      background: rgba(15, 23, 42, 0.04);
+      padding: 10px;
+      border-radius: 12px;
+      overflow-x: auto;
+      font-size: 12px;
+      color: #1f2937;
+    }
+
+    .debug-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .debug-section-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .debug-empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--debug-muted);
+    }
+
+    .debug-muted {
+      color: var(--debug-muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .debug-shell {
+        padding: 0 16px;
+      }
+
+      .debug-panel {
+        max-height: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="debug-shell" data-debug-console
+        data-debug-path="{{ debug_path }}"
+        data-panels='{{ panels|toJSON }}'
+        data-max-log-entries="{{ max_log_entries }}"
+        data-max-sql-queries="{{ max_sql_queries }}"
+        data-slow-threshold-ms="{{ slow_query_threshold_ms }}">
+    <header class="debug-hero">
+      <div class="debug-title">
+        <div class="debug-pill"><i class="iconoir-flash"></i> Live</div>
+        <h1>Debug Console</h1>
+        <p>Real-time snapshots for template data, sessions, requests, SQL, and logs.</p>
+      </div>
+      <div class="debug-actions">
+        <a class="debug-link" href="{{ base_path }}"><i class="iconoir-arrow-left"></i> Back</a>
+        <button class="debug-button" data-debug-action="snapshot"><i class="iconoir-refresh"></i> Snapshot</button>
+        <button class="debug-button" data-debug-action="clear-panel"><i class="iconoir-erase"></i> Clear Panel</button>
+        <button class="debug-button debug-button--primary" data-debug-action="clear"><i class="iconoir-trash"></i> Clear All</button>
+        <button class="debug-button" data-debug-action="pause"><i class="iconoir-pause"></i> Pause</button>
+      </div>
+    </header>
+
+    <section class="debug-status" data-debug-status="disconnected">
+      <div class="debug-status__left">
+        <span class="debug-indicator"></span>
+        <strong data-debug-connection>disconnected</strong>
+        <span data-debug-events>0 events</span>
+        <span>Last: <span data-debug-last>--</span></span>
+      </div>
+      <div class="debug-status__right">
+        <span class="debug-path">{{ debug_path }}</span>
+      </div>
+    </section>
+
+    <nav class="debug-tabs" data-debug-tabs></nav>
+
+    <section class="debug-panel-toolbar">
+      <div class="debug-filters" data-debug-filters></div>
+    </section>
+
+    <section class="debug-panel" data-debug-panel></section>
+  </main>
+
+  <script type="module" src="{{ base_path }}/assets/dist/debug/index.js"></script>
+</body>
+</html>
