@@ -637,7 +637,12 @@ func redactSensitiveMap(data map[string]any) map[string]any {
 	out := make(map[string]any, len(data))
 	for key, value := range data {
 		if isSensitiveKey(key) {
-			out[key] = "[REDACTED]"
+			switch value.(type) {
+			case map[string]any, map[string]string, map[string][]string, []any, []map[string]any, []map[string]string:
+				out[key] = redactSensitiveValue(value)
+			default:
+				out[key] = "[REDACTED]"
+			}
 			continue
 		}
 		out[key] = redactSensitiveValue(value)
