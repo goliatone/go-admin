@@ -150,16 +150,16 @@ func (m *DebugModule) registerDashboardProviders(admin *Admin) {
 	for _, panelID := range m.config.Panels {
 		panelID := panelID
 		meta := debugPanelMetaFor(panelID)
-		label := meta.Label
-		span := meta.Span
-		if span <= 0 {
-			span = debugPanelDefaultSpan
+		panelLabel := meta.Label
+		panelSpan := meta.Span
+		if panelSpan <= 0 {
+			panelSpan = debugPanelDefaultSpan
 		}
 		admin.Dashboard().RegisterProvider(DashboardProviderSpec{
 			Code:        debugProviderCodePrefix + panelID,
-			Name:        label,
+			Name:        panelLabel,
 			DefaultArea: debugWidgetAreaCode,
-			DefaultSpan: span,
+			DefaultSpan: panelSpan,
 			Permission:  m.permission,
 			Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
 				_ = ctx
@@ -167,7 +167,7 @@ func (m *DebugModule) registerDashboardProviders(admin *Admin) {
 				snapshot := m.collector.Snapshot()
 				return map[string]any{
 					"panel": panelID,
-					"label": label,
+					"label": panelLabel,
 					"data":  snapshot[panelID],
 				}, nil
 			},
@@ -269,7 +269,7 @@ func debugDashboardRouteConfig(adminBasePath, debugBasePath string) (string, das
 	}
 
 	return basePath, dashboardrouter.RouteConfig{
-		HTML:        joinPath(routePrefix, "dashboard"),
+		HTML:        routePrefix,
 		Layout:      joinPath(routePrefix, "api/dashboard"),
 		Widgets:     joinPath(routePrefix, "api/dashboard/widgets"),
 		WidgetID:    joinPath(routePrefix, "api/dashboard/widgets/:id"),
