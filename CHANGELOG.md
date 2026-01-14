@@ -1,5 +1,36 @@
 # Changelog
 
+# [0.13.0](https://github.com/goliatone/go-admin/compare/v0.12.0...v0.13.0) - (2026-01-14)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Datatable should clamp results to max/total ([c232a64](https://github.com/goliatone/go-admin/commit/c232a64d484736ce1eff06052814f69ab21ef1c0))  - (goliatone)
+- Template use singualr label ([6f2d7a6](https://github.com/goliatone/go-admin/commit/6f2d7a67083ef39321721a4022be922225af8682))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.13.0 ([e808bea](https://github.com/goliatone/go-admin/commit/e808beaa1f069ea40f180a57498bffa7952f44e2))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Mock data ([1a209f6](https://github.com/goliatone/go-admin/commit/1a209f6561a241adfb35f591fdceca9af4c8f572))  - (goliatone)
+- Quickstart UI routes ([732722f](https://github.com/goliatone/go-admin/commit/732722f93ccc1cd57a06634b501cdd67be22ab71))  - (goliatone)
+- Quickstart theme view ([a72bafa](https://github.com/goliatone/go-admin/commit/a72bafa4fd2fbfa882dd6a4a3fc4441fda657f45))  - (goliatone)
+- Quickstart export renderers ([f406da1](https://github.com/goliatone/go-admin/commit/f406da147f86274e3f87350bdec5202688e8ba50))  - (goliatone)
+- Auth UI to quickstart ([b2b157f](https://github.com/goliatone/go-admin/commit/b2b157fb227839f4016f53e7fa3c4a928d22d77d))  - (goliatone)
+- Asset probe for quickstart ([fe9b5f3](https://github.com/goliatone/go-admin/commit/fe9b5f36c28475b778267648a6a35f6d000ca6fa))  - (goliatone)
+- Proper labels for items ([8af47b5](https://github.com/goliatone/go-admin/commit/8af47b5a80d2bc800db58bf0b1aef1b56b3e28cd))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.12.0 ([284124b](https://github.com/goliatone/go-admin/commit/284124b420e1ef8bff605b2b367f521de3e10ec1))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([8f5cb4d](https://github.com/goliatone/go-admin/commit/8f5cb4d667b1257fe223d85538c337912ae16d5b))  - (goliatone)
+- Update readme ([a12e0f4](https://github.com/goliatone/go-admin/commit/a12e0f4264dfc38048e6ae6b3b232c2c7968327b))  - (goliatone)
+- Update examples ([547bf30](https://github.com/goliatone/go-admin/commit/547bf30df2c1d6209488996306967a5b0ae743ee))  - (goliatone)
+
 # [0.12.0](https://github.com/goliatone/go-admin/compare/v0.11.0...v0.12.0) - (2026-01-13)
 
 ## <!-- 1 -->🐛 Bug Fixes
