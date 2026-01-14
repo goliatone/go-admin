@@ -92,7 +92,12 @@ func (a *Admin) loadModules(ctx context.Context) error {
 			if !ok {
 				return fmt.Errorf("module %s missing Register implementation", mod.Manifest().ID)
 			}
-			return registrar.Register(ModuleContext{Admin: a, Locale: a.config.DefaultLocale, Translator: a.translator})
+			return registrar.Register(ModuleContext{
+				Admin:      a,
+				Router:     a.router,
+				Locale:     a.config.DefaultLocale,
+				Translator: a.translator,
+			})
 		},
 		AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
 			return a.addMenuItems(ctx, []MenuItem(items))
