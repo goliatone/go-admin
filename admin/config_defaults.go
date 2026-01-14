@@ -122,5 +122,7 @@ func applyConfigDefaults(cfg Config) Config {
 		}
 	}
 
+	cfg.Debug = normalizeDebugConfig(cfg.Debug, cfg.BasePath)
+
 	return cfg
 }
