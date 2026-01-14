@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"runtime"
 	"strings"
 	"time"
 
@@ -108,14 +109,6 @@ func debugStatusFromContext(c router.Context) int {
 			return code
 		}
 	}
-	type statusGetter interface {
-		Status() int
-	}
-	if sg, ok := c.(statusGetter); ok {
-		if code := sg.Status(); code != 0 {
-			return code
-		}
-	}
 	type responseStatusGetter interface {
 		ResponseStatus() int
 	}
@@ -128,11 +121,6 @@ func debugStatusFromContext(c router.Context) int {
 		if resp := httpCtx.Response(); resp != nil {
 			if sc, ok := resp.(statusCoder); ok {
 				if code := sc.StatusCode(); code != 0 {
-					return code
-				}
-			}
-			if sg, ok := resp.(statusGetter); ok {
-				if code := sg.Status(); code != 0 {
 					return code
 				}
 			}
@@ -278,7 +266,7 @@ func debugAddSlogAttr(dest map[string]any, groups []string, attr slog.Attr) {
 	if dest == nil {
 		return
 	}
-	attr = attr.Resolve()
+	attr.Value = attr.Value.Resolve()
 	if attr.Value.Kind() == slog.KindGroup {
 		nested := groups
 		if strings.TrimSpace(attr.Key) != "" {
@@ -322,20 +310,18 @@ func debugSlogSource(r slog.Record) string {
 	if r.PC == 0 {
 		return ""
 	}
-	src := r.Source()
-	if src == nil {
+	frames := runtime.CallersFrames([]uintptr{r.PC})
+	frame, _ := frames.Next()
+	if frame.File == "" && frame.Function == "" {
 		return ""
 	}
-	if src.Function != "" {
-		return src.Function
+	if frame.Function != "" {
+		return frame.Function
 	}
-	if src.File == "" {
-		return ""
+	if frame.Line > 0 {
+		return fmt.Sprintf("%s:%d", frame.File, frame.Line)
 	}
-	if src.Line > 0 {
-		return fmt.Sprintf("%s:%d", src.File, src.Line)
-	}
-	return src.File
+	return frame.File
 }
 
 // RouteEntry captures router information for the routes panel.
