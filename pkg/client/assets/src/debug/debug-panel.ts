@@ -523,8 +523,8 @@ export class DebugPanel {
         const key = input.dataset.filter || '';
         if (key === 'slowOnly' || key === 'errorOnly') {
           next[key] = (input as HTMLInputElement).checked;
-        } else if (key && key in next) {
-          next[key as keyof typeof next] = (input as HTMLInputElement).value;
+        } else if (key === 'search') {
+          next[key] = (input as HTMLInputElement).value;
         }
       });
       this.filters.sql = next;
@@ -534,8 +534,8 @@ export class DebugPanel {
         const key = input.dataset.filter || '';
         if (key === 'autoScroll') {
           next[key] = (input as HTMLInputElement).checked;
-        } else if (key && key in next) {
-          next[key as keyof typeof next] = (input as HTMLInputElement).value;
+        } else if (key === 'level' || key === 'search') {
+          next[key] = (input as HTMLInputElement).value;
         }
       });
       this.filters.logs = next;
