@@ -3,7 +3,6 @@ module github.com/goliatone/go-admin
 go 1.24.10
 
 require (
-	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-auth v0.22.0
@@ -13,14 +12,13 @@ require (
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.9.0
 	github.com/goliatone/go-export v0.3.0
-	github.com/goliatone/go-export/adapters/template/go-template v0.0.0-20260107043437-42444165f3bf
 	github.com/goliatone/go-formgen v0.14.0
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
 	github.com/goliatone/go-notifications v0.10.0
 	github.com/goliatone/go-options v0.7.0
 	github.com/goliatone/go-persistence-bun v0.9.0
-	github.com/goliatone/go-repository-bun v0.11.0
+	github.com/goliatone/go-repository-bun v0.12.0
 	github.com/goliatone/go-router v0.41.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
@@ -85,6 +83,7 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/gobuffalo/flect v1.0.3 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
@@ -96,6 +95,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/goliatone/go-composite-fs v0.0.1 // indirect
 	github.com/goliatone/go-config v0.7.0 // indirect
+	github.com/goliatone/go-export/adapters/template/go-template v0.0.0-20260107043437-42444165f3bf // indirect
 	github.com/goliatone/go-logger v0.4.0 // indirect
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
