@@ -14,6 +14,7 @@ type Config struct {
 	CMSConfig        any
 	CMS              CMSOptions
 	Features         Features
+	Debug            DebugConfig
 
 	LogoURL    string
 	FaviconURL string
