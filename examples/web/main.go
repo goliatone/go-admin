@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -84,6 +85,18 @@ func main() {
 		registrationCfg.Allowlist = splitAndTrimCSV(allowlist)
 	}
 
+	debugEnabled := strings.EqualFold(os.Getenv("ADMIN_DEBUG"), "true")
+	cfg.Debug.Enabled = debugEnabled
+	cfg.Debug.CaptureSQL = debugEnabled
+	cfg.Debug.CaptureLogs = debugEnabled
+	if debugEnabled {
+		if cfg.FeatureFlags == nil {
+			cfg.FeatureFlags = map[string]bool{}
+		}
+		cfg.FeatureFlags["debug"] = true
+		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
+	}
+
 	adapterHooks := quickstart.AdapterHooks{
 		PersistentCMS: func(ctx context.Context, locale string) (admin.CMSOptions, string, error) {
 			opts, err := setup.SetupPersistentCMS(ctx, locale, "")
@@ -148,7 +161,8 @@ func main() {
 			cmsContentSvc = svc
 		}
 	}
-	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale, usersDeps)
+	repoOptions := adm.DebugQueryHookOptions()
+	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale, usersDeps, repoOptions...)
 	if err != nil {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
@@ -317,6 +331,20 @@ func main() {
 	)
 	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
 
+	if debugEnabled {
+		r.Use(func(next router.HandlerFunc) router.HandlerFunc {
+			return func(c router.Context) error {
+				if cfg.BasePath != "" && !strings.HasPrefix(c.Path(), cfg.BasePath) {
+					return next(c)
+				}
+				if collector := adm.Debug(); collector != nil {
+					return admin.DebugRequestMiddleware(collector)(next)(c)
+				}
+				return next(c)
+			}
+		})
+	}
+
 	// Register modules
 	modules := []admin.Module{
 		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
@@ -327,6 +355,9 @@ func main() {
 		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		admin.NewProfileModule().WithMenuParent(setup.NavigationGroupOthers),
 		admin.NewPreferencesModule().WithMenuParent(setup.NavigationGroupOthers),
+	}
+	if debugEnabled {
+		modules = append(modules, admin.NewDebugModule(cfg.Debug))
 	}
 
 	extraMenuItems := []admin.MenuItem{
@@ -439,6 +470,11 @@ func main() {
 	// Initialize admin
 	if err := adm.Initialize(r); err != nil {
 		log.Fatalf("failed to initialize admin: %v", err)
+	}
+	if debugEnabled {
+		if collector := adm.Debug(); collector != nil {
+			slog.SetDefault(slog.New(admin.NewDebugLogHandler(collector, slog.Default().Handler())))
+		}
 	}
 
 	// Setup admin features AFTER initialization to override default widgets
