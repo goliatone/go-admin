@@ -25,6 +25,7 @@ type Admin struct {
 	router                      AdminRouter
 	commandBus                  *CommandBus
 	dashboard                   *Dashboard
+	debugCollector              *DebugCollector
 	dash                        *dashboardComponents
 	nav                         *Navigation
 	search                      *SearchEngine
@@ -497,6 +498,11 @@ func (a *Admin) Panel(_ string) *PanelBuilder {
 // Dashboard exposes the dashboard orchestration service.
 func (a *Admin) Dashboard() *Dashboard {
 	return a.dashboard
+}
+
+// Debug exposes the debug collector when the module is enabled.
+func (a *Admin) Debug() *DebugCollector {
+	return a.debugCollector
 }
 
 // RegisterWidgetArea registers an additional dashboard widget area.
