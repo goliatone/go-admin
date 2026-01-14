@@ -21,6 +21,11 @@ func (a *Admin) Router() boot.Router {
 	return a.router
 }
 
+// PublicRouter exposes the configured admin router for module route registration.
+func (a *Admin) PublicRouter() AdminRouter {
+	return a.router
+}
+
 // AuthWrapper returns the configured auth wrapper for boot steps.
 func (a *Admin) AuthWrapper() boot.HandlerWrapper {
 	return a.authWrapper()
