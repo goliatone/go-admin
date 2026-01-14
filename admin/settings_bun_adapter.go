@@ -38,7 +38,7 @@ type BunSettingsAdapter struct {
 	schemaOpts  []opts.Option
 }
 
-func NewBunSettingsAdapter(db *bun.DB, opts ...repository.Option) (*BunSettingsAdapter, error) {
+func NewBunSettingsAdapter(db *bun.DB, repoOptions ...repository.Option) (*BunSettingsAdapter, error) {
 	if db == nil {
 		return nil, errors.New("settings: bun DB is required")
 	}
@@ -59,7 +59,7 @@ func NewBunSettingsAdapter(db *bun.DB, opts ...repository.Option) (*BunSettingsA
 		},
 	}
 	return &BunSettingsAdapter{
-		repo:        repository.MustNewRepositoryWithOptions(db, handlers, opts...),
+		repo:        repository.MustNewRepositoryWithOptions(db, handlers, repoOptions...),
 		definitions: map[string]SettingDefinition{},
 		schemaOpts:  []opts.Option{opts.WithScopeSchema(true), openapi.Option()},
 	}, nil
