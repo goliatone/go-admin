@@ -234,7 +234,7 @@ function formatMetadata(data) {
 }
 
 function formatTimestamp(value) {
-  if (!value) return '—';
+  if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
@@ -253,10 +253,10 @@ function renderRows(entries) {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td class="px-4 py-3 whitespace-nowrap text-gray-600">${formatTimestamp(entry.created_at)}</td>
-      <td class="px-4 py-3 font-medium text-gray-900">${entry.actor || '—'}</td>
-      <td class="px-4 py-3">${entry.action || '—'}</td>
-      <td class="px-4 py-3">${entry.object || '—'}</td>
-      <td class="px-4 py-3">${entry.channel || '—'}</td>
+      <td class="px-4 py-3 font-medium text-gray-900">${entry.actor || '-'}</td>
+      <td class="px-4 py-3">${entry.action || '-'}</td>
+      <td class="px-4 py-3">${entry.object || '-'}</td>
+      <td class="px-4 py-3">${entry.channel || '-'}</td>
       <td class="px-4 py-3 max-w-xs break-words text-xs text-gray-500">${formatMetadata(entry.metadata)}</td>
     `;
     tableBody.appendChild(row);
