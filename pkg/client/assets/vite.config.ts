@@ -11,6 +11,8 @@ export default defineConfig({
         'dashboard/index': resolve(__dirname, 'src/dashboard/index.ts'),
         'toast/init': resolve(__dirname, 'src/toast/init.ts'),
         'formgen/file_uploader': resolve(__dirname, 'src/formgen/file_uploader.ts'),
+        'debug/index': resolve(__dirname, 'src/debug/index.ts'),
+        'debug/toolbar': resolve(__dirname, 'src/debug/toolbar/index.ts'),
       },
       formats: ['es'],
       // Output file names without hash for predictable paths

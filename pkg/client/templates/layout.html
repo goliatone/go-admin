@@ -57,5 +57,8 @@
 
   <script src="{{ base_path }}/assets/sidebar.js"></script>
   {% block scripts %}{% endblock %}
+
+  <!-- Debug toolbar (only shown when debug.ToolbarMode is enabled) -->
+  {% include "partials/debug-toolbar.html" %}
 </body>
 </html>

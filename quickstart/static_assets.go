@@ -179,10 +179,26 @@ func resolveAssetsFS(base fs.FS) fs.FS {
 	if base == nil {
 		return nil
 	}
+	if assetRootHasMarker(base) {
+		return base
+	}
 	if sub, err := fs.Sub(base, "assets"); err == nil {
 		return sub
 	}
 	return base
+}
+
+func assetRootHasMarker(base fs.FS) bool {
+	if base == nil {
+		return false
+	}
+	if _, err := fs.Stat(base, "output.css"); err == nil {
+		return true
+	}
+	if _, err := fs.Stat(base, path.Join("dist", "output.css")); err == nil {
+		return true
+	}
+	return false
 }
 
 // httpFSAdapter wraps an http.FileSystem to satisfy fs.FS for go-router static handlers.
