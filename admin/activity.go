@@ -45,6 +45,13 @@ type ActivityFilter struct {
 	Channel string
 }
 
+const (
+	activityActorTypeKey    = "actor_type"
+	activityActorTypeSystem = "system"
+	activityActorTypeJob    = "job"
+	activityActorTypeTask   = "task"
+)
+
 // ActivitySink records activity entries.
 type ActivitySink interface {
 	Record(ctx context.Context, entry ActivityEntry) error
@@ -306,4 +313,19 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func tagActivityActorType(metadata map[string]any, actorType string) map[string]any {
+	actorType = strings.TrimSpace(actorType)
+	if actorType == "" {
+		return metadata
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	if _, ok := metadata[activityActorTypeKey]; ok {
+		return metadata
+	}
+	metadata[activityActorTypeKey] = actorType
+	return metadata
 }
