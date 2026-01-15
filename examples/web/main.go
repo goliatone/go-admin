@@ -162,6 +162,12 @@ func main() {
 	settingsBackend := adapterResult.SettingsBackend
 	activityBackend := adapterResult.ActivityBackend
 
+	if usersDeps.DB != nil {
+		if hook := adm.DebugQueryHook(); hook != nil {
+			usersDeps.DB.AddQueryHook(hook)
+		}
+	}
+
 	// Initialize data stores with seed data
 	cmsContentSvc := admin.CMSContentService(admin.NewInMemoryContentService())
 	if cfg.CMS.Container != nil {
