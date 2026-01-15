@@ -1,0 +1,89 @@
+package admin
+
+import "errors"
+
+const activityModuleID = "activity"
+
+// ActivityModule registers the activity log navigation and user detail tab.
+type ActivityModule struct {
+	basePath      string
+	menuCode      string
+	defaultLocale string
+	permission    string
+	menuParent    string
+}
+
+// NewActivityModule constructs the default activity module.
+func NewActivityModule() *ActivityModule {
+	return &ActivityModule{}
+}
+
+// Manifest describes the module metadata.
+func (m *ActivityModule) Manifest() ModuleManifest {
+	return ModuleManifest{
+		ID:             activityModuleID,
+		NameKey:        "modules.activity.name",
+		DescriptionKey: "modules.activity.description",
+	}
+}
+
+// Register wires the activity module metadata and user tab integration.
+func (m *ActivityModule) Register(ctx ModuleContext) error {
+	if ctx.Admin == nil {
+		return errors.New("admin is nil")
+	}
+	if m.basePath == "" {
+		m.basePath = ctx.Admin.config.BasePath
+	}
+	if m.menuCode == "" {
+		m.menuCode = ctx.Admin.navMenuCode
+	}
+	if m.defaultLocale == "" {
+		m.defaultLocale = ctx.Admin.config.DefaultLocale
+	}
+	if m.permission == "" {
+		m.permission = ctx.Admin.config.ActivityPermission
+	}
+
+	return ctx.Admin.RegisterPanelTab(usersModuleID, PanelTab{
+		ID:         "activity",
+		Label:      "Activity",
+		Icon:       "clock",
+		Position:   20,
+		Scope:      PanelTabScopeDetail,
+		Permission: m.permission,
+		Target:     PanelTabTarget{Type: "path", Path: joinPath(m.basePath, activityModuleID)},
+		Query:      map[string]string{"user_id": "{{record.id}}"},
+	})
+}
+
+// MenuItems contributes navigation for the activity module.
+func (m *ActivityModule) MenuItems(locale string) []MenuItem {
+	if locale == "" {
+		locale = m.defaultLocale
+	}
+	path := joinPath(m.basePath, activityModuleID)
+	permissions := []string{}
+	if m.permission != "" {
+		permissions = []string{m.permission}
+	}
+	return []MenuItem{
+		{
+			Label:       "Activity",
+			LabelKey:    "menu.activity",
+			Icon:        "clock",
+			Target:      map[string]any{"type": "url", "path": path, "key": activityModuleID},
+			Permissions: permissions,
+			Menu:        m.menuCode,
+			Locale:      locale,
+			Position:    intPtr(45),
+			ParentID:    m.menuParent,
+		},
+	}
+}
+
+// WithMenuParent nests the activity navigation under a parent menu item ID.
+func (m *ActivityModule) WithMenuParent(parent string) *ActivityModule {
+	m.menuParent = parent
+	return m
+}
