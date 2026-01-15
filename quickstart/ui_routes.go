@@ -20,14 +20,19 @@ type uiRouteOptions struct {
 	basePath             string
 	dashboardPath        string
 	notificationsPath    string
+	activityPath         string
 	dashboardTemplate    string
 	notificationsTemplate string
+	activityTemplate     string
 	dashboardTitle       string
 	notificationsTitle   string
+	activityTitle        string
 	dashboardActive      string
 	notificationsActive  string
+	activityActive       string
 	registerDashboard    bool
 	registerNotifications bool
+	registerActivity     bool
 	viewContext          UIViewContextBuilder
 }
 
@@ -59,6 +64,15 @@ func WithUINotificationsRoute(enabled bool) UIRouteOption {
 	}
 }
 
+// WithUIActivityRoute toggles the activity route registration.
+func WithUIActivityRoute(enabled bool) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.registerActivity = enabled
+		}
+	}
+}
+
 // WithUIDashboardPath overrides the dashboard route path.
 func WithUIDashboardPath(route string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
@@ -73,6 +87,15 @@ func WithUINotificationsPath(route string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
 		if opts != nil {
 			opts.notificationsPath = strings.TrimSpace(route)
+		}
+	}
+}
+
+// WithUIActivityPath overrides the activity route path.
+func WithUIActivityPath(route string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.activityPath = strings.TrimSpace(route)
 		}
 	}
 }
@@ -95,6 +118,15 @@ func WithUINotificationsTemplate(name string) UIRouteOption {
 	}
 }
 
+// WithUIActivityTemplate overrides the activity template name.
+func WithUIActivityTemplate(name string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.activityTemplate = strings.TrimSpace(name)
+		}
+	}
+}
+
 // WithUIDashboardTitle overrides the dashboard view title.
 func WithUIDashboardTitle(title string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
@@ -113,6 +145,15 @@ func WithUINotificationsTitle(title string) UIRouteOption {
 	}
 }
 
+// WithUIActivityTitle overrides the activity view title.
+func WithUIActivityTitle(title string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.activityTitle = strings.TrimSpace(title)
+		}
+	}
+}
+
 // WithUIDashboardActive sets the active menu key for the dashboard route.
 func WithUIDashboardActive(active string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
@@ -127,6 +168,15 @@ func WithUINotificationsActive(active string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
 		if opts != nil {
 			opts.notificationsActive = strings.TrimSpace(active)
+		}
+	}
+}
+
+// WithUIActivityActive sets the active menu key for the activity route.
+func WithUIActivityActive(active string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.activityActive = strings.TrimSpace(active)
 		}
 	}
 }
@@ -150,12 +200,16 @@ func RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 		basePath:              strings.TrimSpace(cfg.BasePath),
 		dashboardTemplate:     "admin",
 		notificationsTemplate: "notifications",
+		activityTemplate:      "resources/activity/list",
 		dashboardTitle:        strings.TrimSpace(cfg.Title),
 		notificationsTitle:    strings.TrimSpace(cfg.Title),
+		activityTitle:         "Activity",
 		dashboardActive:       "dashboard",
 		notificationsActive:   "notifications",
+		activityActive:        "activity",
 		registerDashboard:     true,
 		registerNotifications: true,
+		registerActivity:      true,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -171,6 +225,9 @@ func RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 	}
 	if options.notificationsPath == "" {
 		options.notificationsPath = path.Join(options.basePath, "notifications")
+	}
+	if options.activityPath == "" {
+		options.activityPath = path.Join(options.basePath, "activity")
 	}
 	if options.viewContext == nil {
 		options.viewContext = defaultUIViewContextBuilder(adm, cfg)
@@ -202,6 +259,18 @@ func RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 			}
 			viewCtx = options.viewContext(viewCtx, options.notificationsActive, c)
 			return c.Render(options.notificationsTemplate, viewCtx)
+		}))
+	}
+
+	if options.registerActivity {
+		r.Get(options.activityPath, wrap(func(c router.Context) error {
+			viewCtx := router.ViewContext{
+				"title":             options.activityTitle,
+				"base_path":         options.basePath,
+				"activity_api_path": path.Join(options.basePath, "api", "activity"),
+			}
+			viewCtx = options.viewContext(viewCtx, options.activityActive, c)
+			return c.Render(options.activityTemplate, viewCtx)
 		}))
 	}
 
