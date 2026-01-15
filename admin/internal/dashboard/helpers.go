@@ -66,9 +66,6 @@ func RegisterDefaultWidgets(widgetSvc WidgetService, features FeatureFlags, regi
 	}
 	ctx := context.Background()
 	if defs := widgetSvc.Definitions(); len(defs) > 0 {
-		if registerProviders != nil {
-			return registerProviders()
-		}
 		return nil
 	}
 	definitions := []WidgetDefinition{
@@ -145,9 +142,6 @@ func RegisterDefaultWidgets(widgetSvc WidgetService, features FeatureFlags, regi
 		if err := widgetSvc.RegisterDefinition(ctx, def); err != nil {
 			return err
 		}
-	}
-	if registerProviders != nil {
-		return registerProviders()
 	}
 	return nil
 }
