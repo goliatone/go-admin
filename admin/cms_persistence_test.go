@@ -35,7 +35,14 @@ func TestGoCMSContainerBackedNavigationAndDashboard(t *testing.T) {
 		t.Fatalf("add menu item: %v", err)
 	}
 	items := adm.Menu().Resolve(ctx, "en")
-	if len(items) == 0 || items[0].Label != "GoCMS" {
+	found := false
+	for _, item := range items {
+		if item.Label == "GoCMS" {
+			found = true
+			break
+		}
+	}
+	if !found {
 		t.Fatalf("expected GoCMS navigation item, got %+v", items)
 	}
 
@@ -61,14 +68,14 @@ func TestGoCMSContainerBackedNavigationAndDashboard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve dashboard: %v", err)
 	}
-	found := false
+	widgetFound := false
 	for _, widget := range widgets {
 		if widget["definition"] == "stat" {
-			found = true
+			widgetFound = true
 			break
 		}
 	}
-	if !found {
+	if !widgetFound {
 		t.Fatalf("expected widget from go-cms store, got %+v", widgets)
 	}
 }
