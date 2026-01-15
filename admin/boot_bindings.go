@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
@@ -447,6 +448,8 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 		Refresh:     "/api/dashboard/widgets/refresh",
 		Preferences: "/api/dashboard/preferences",
 	}
+
+	//TODO: Refactor so we do not need to cast
 	if rt, ok := d.admin.router.(router.Router[router.Context]); ok {
 		if err := dashboardrouter.Register(dashboardrouter.Config[router.Context]{
 			Router:         rt,
@@ -460,8 +463,24 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 			return nil
 		}
 	}
+
+	//TODO: Refactor so we do not need to cast
 	if rt, ok := d.admin.router.(router.Router[*httprouter.Router]); ok {
 		if err := dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
+			Router:         rt,
+			Controller:     d.admin.dash.controller,
+			API:            d.admin.dash.executor,
+			Broadcast:      d.admin.dash.broadcast,
+			ViewerResolver: viewerResolver,
+			BasePath:       d.admin.config.BasePath,
+			Routes:         routes,
+		}); err == nil {
+			return nil
+		}
+	}
+	//TODO: Refactor so we do not need to cast
+	if rt, ok := d.admin.router.(router.Router[*fiber.App]); ok {
+		if err := dashboardrouter.Register(dashboardrouter.Config[*fiber.App]{
 			Router:         rt,
 			Controller:     d.admin.dash.controller,
 			API:            d.admin.dash.executor,
