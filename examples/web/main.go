@@ -30,6 +30,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-export/export"
 	"github.com/goliatone/go-router"
+	"github.com/goliatone/go-users/activity"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
@@ -138,16 +139,20 @@ func main() {
 			log.Fatalf("failed to configure export renderers: %v", err)
 		}
 	}
-	exportDeps := admin.Dependencies{
+	adminDeps := admin.Dependencies{
 		ExportRegistry:  exportBundle.Registry,
 		ExportRegistrar: exportBundle.Registrar,
 		ExportMetadata:  exportBundle.Metadata,
+	}
+	if usersDeps.ActivityRepo != nil {
+		adminDeps.ActivityRepository = usersDeps.ActivityRepo
+		adminDeps.ActivityAccessPolicy = activity.NewDefaultAccessPolicy()
 	}
 	adm, adapterResult, err := quickstart.NewAdmin(
 		cfg,
 		adapterHooks,
 		quickstart.WithAdminContext(context.Background()),
-		quickstart.WithAdminDependencies(exportDeps),
+		quickstart.WithAdminDependencies(adminDeps),
 	)
 	if err != nil {
 		log.Fatalf("failed to construct admin: %v", err)
