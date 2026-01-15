@@ -64,7 +64,7 @@ module resolves it via either:
 - **Settings**: `GET /admin/api/settings`, `POST /admin/api/settings`
 - **Search**: `GET /admin/api/search?query=...`
 - **Notifications**: `GET /admin/api/notifications`
-- **Activity**: `GET /admin/api/activity?limit=50&offset=0&channel=users` (filters: `user_id`, `actor_id`, `verb`, `object_type`, `object_id`, `channel`/`channels`, `channel_denylist`, `since`, `until`, `q`; response includes `entries`, `total`, `next_offset`, `has_more`).
+- **Activity**: `GET /admin/api/activity?limit=50&offset=0&channel=users` (filters: `user_id`, `actor_id`, `verb`, `object_type`, `object_id`, `channel`/`channels`, `channel_denylist`, `since`, `until`, `q`; response includes `entries`, `total`, `next_offset`, `has_more`; defaults: limit 50, max 200, offset 0; ordered by most recent first).
 - **Jobs**: `GET /admin/api/jobs`, `POST /admin/api/jobs/:name/trigger`
 - **Users Panel**: `GET /admin/api/users`, `POST /admin/api/users`, etc.
 - **Roles Panel**: `GET /admin/api/roles`, `POST /admin/api/roles`, etc.
@@ -668,7 +668,7 @@ The example uses in-memory implementations by default. Swap with production adap
 
 **Settings**: Wire go-options registry (Phase 18 adapter available)
 
-**Activity**: Set `USE_GO_USERS_ACTIVITY=true` to use the go-users ActivityLogger adapter (Phase 17) defined in `setup/activity.go`
+**Activity**: Set `USE_GO_USERS_ACTIVITY=true` to use the go-users ActivityLogger adapter (Phase 17) defined in `setup/activity.go`. The example wires the read path with `admin.Dependencies{ActivityRepository: usersDeps.ActivityRepo, ActivityAccessPolicy: activity.NewDefaultAccessPolicy()}` in `examples/web/main.go` so `/admin/api/activity` uses the go-users policy.
 
 **CMS**: Wire go-cms persistent container (Phase 20 adapter available)
 
