@@ -73,6 +73,18 @@ func (h *DebugQueryHook) debugCollector() *DebugCollector {
 	return h.Collector
 }
 
+// DebugQueryHook returns a Bun query hook for capturing SQL in the debug collector.
+func (a *Admin) DebugQueryHook() bun.QueryHook {
+	if a == nil {
+		return nil
+	}
+	cfg := normalizeDebugConfig(a.config.Debug, a.config.BasePath)
+	if !debugConfigEnabled(cfg) || !cfg.CaptureSQL || !debugSQLPanelEnabled(cfg) {
+		return nil
+	}
+	return NewDebugQueryHookProvider(a.Debug)
+}
+
 // DebugQueryHookOptions returns repository options for wiring SQL capture hooks.
 func (a *Admin) DebugQueryHookOptions() []repository.Option {
 	if a == nil {
@@ -92,8 +104,15 @@ func (a *Admin) DebugQueryHookOptions() []repository.Option {
 }
 
 func debugSQLPanelEnabled(cfg DebugConfig) bool {
-	for _, panel := range cfg.Panels {
-		if panel == "sql" {
+	if panelIDEnabled(cfg.Panels, "sql") {
+		return true
+	}
+	return panelIDEnabled(cfg.ToolbarPanels, "sql")
+}
+
+func panelIDEnabled(panels []string, panelID string) bool {
+	for _, panel := range panels {
+		if panel == panelID {
 			return true
 		}
 	}
