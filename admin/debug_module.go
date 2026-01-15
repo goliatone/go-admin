@@ -2,9 +2,9 @@ package admin
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
 	router "github.com/goliatone/go-router"
@@ -183,7 +183,6 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 	if !debugConfigEnabled(cfg) {
 		return nil
 	}
-	captureRoutesSnapshotForCollector(a.debugCollector, a.router)
 	basePath, routes := debugDashboardRouteConfig(a.config.BasePath, cfg.BasePath)
 	defaultLocale := a.config.DefaultLocale
 	viewerResolver := func(c router.Context) dashcmp.ViewerContext {
@@ -202,6 +201,38 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 	}
 	access := debugAccessMiddleware(a, cfg, cfg.Permission)
 	authHandler := debugAuthHandler(a, cfg, cfg.Permission)
+	registerFallback := func() error {
+		debugPath := strings.TrimSpace(cfg.BasePath)
+		if debugPath == "" {
+			debugPath = joinPath(a.config.BasePath, debugDefaultPathSuffix)
+		}
+		adminBasePath := strings.TrimSpace(a.config.BasePath)
+		handler := func(c router.Context) error {
+			viewCtx := router.ViewContext{
+				"title":                   "Debug Console",
+				"base_path":               adminBasePath,
+				"debug_path":              debugPath,
+				"panels":                  cfg.Panels,
+				"max_log_entries":         cfg.MaxLogEntries,
+				"max_sql_queries":         cfg.MaxSQLQueries,
+				"slow_query_threshold_ms": cfg.SlowQueryThreshold.Milliseconds(),
+			}
+			return c.Render("resources/debug/index", viewCtx)
+		}
+		if access != nil {
+			a.router.Get(debugPath, handler, access)
+		} else {
+			a.router.Get(debugPath, handler)
+		}
+		return nil
+	}
+	if _, ok := a.router.(router.Router[*fiber.App]); ok {
+		if err := registerFallback(); err != nil {
+			return err
+		}
+		return nil
+	}
+	captureRoutesSnapshotForCollector(a.debugCollector, a.router)
 	if rt, ok := a.router.(router.Router[router.Context]); ok {
 		group := rt.Group(basePath)
 		if access != nil {
@@ -238,7 +269,10 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 			return nil
 		}
 	}
-	return fmt.Errorf("router does not support go-dashboard routes")
+	if err := registerFallback(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func debugDashboardRouteConfig(adminBasePath, debugBasePath string) (string, dashboardrouter.RouteConfig) {
