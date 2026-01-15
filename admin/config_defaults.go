@@ -23,6 +23,9 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.NotificationsUpdatePermission == "" {
 		cfg.NotificationsUpdatePermission = "admin.notifications.update"
 	}
+	if cfg.ActivityPermission == "" {
+		cfg.ActivityPermission = "admin.activity.view"
+	}
 	if cfg.PreferencesPermission == "" {
 		cfg.PreferencesPermission = "admin.preferences.view"
 	}
@@ -121,6 +124,8 @@ func applyConfigDefaults(cfg Config) Config {
 			cfg.ThemeTokens[k] = v
 		}
 	}
+
+	cfg.Debug = normalizeDebugConfig(cfg.Debug, cfg.BasePath)
 
 	return cfg
 }

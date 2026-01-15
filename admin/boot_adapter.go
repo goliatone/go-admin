@@ -10,11 +10,19 @@ func (a *Admin) Boot(steps ...boot.Step) error {
 	if len(steps) == 0 {
 		steps = boot.DefaultBootSteps()
 	}
-	return boot.Run(a, steps...)
+	if err := boot.Run(a, steps...); err != nil {
+		return err
+	}
+	return a.registerDebugDashboardRoutes()
 }
 
 // Router exposes the configured router for boot steps.
 func (a *Admin) Router() boot.Router {
+	return a.router
+}
+
+// PublicRouter exposes the configured admin router for module route registration.
+func (a *Admin) PublicRouter() AdminRouter {
 	return a.router
 }
 

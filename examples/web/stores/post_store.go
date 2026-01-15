@@ -19,12 +19,12 @@ type PostStore struct {
 }
 
 // NewPostStore creates a new PostStore instance.
-func NewPostStore(db *bun.DB) (*PostStore, error) {
+func NewPostStore(db *bun.DB, opts ...repository.Option) (*PostStore, error) {
 	if db == nil {
 		return nil, fmt.Errorf("post store database is nil")
 	}
 
-	repo := repository.MustNewRepository[*PostRecord](db, postModelHandlers())
+	repo := repository.MustNewRepositoryWithOptions[*PostRecord](db, postModelHandlers(), opts...)
 	adapter := admin.NewBunRepositoryAdapter[*PostRecord](
 		repo,
 		admin.WithBunSearchColumns[*PostRecord]("title", "slug", "category"),

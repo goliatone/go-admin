@@ -10,6 +10,7 @@ type ModuleManifest = modinternal.Manifest
 // commands, and other contributions against the admin orchestrator.
 type ModuleContext struct {
 	Admin      *Admin
+	Router     AdminRouter
 	Locale     string
 	Translator Translator
 }

@@ -14,7 +14,21 @@ import (
 	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
+	usertypes "github.com/goliatone/go-users/pkg/types"
+	"github.com/google/uuid"
 )
+
+type stubActivityFeedQuery struct {
+	page usertypes.ActivityPage
+	err  error
+}
+
+func (s stubActivityFeedQuery) Query(context.Context, usertypes.ActivityFilter) (usertypes.ActivityPage, error) {
+	if s.err != nil {
+		return usertypes.ActivityPage{}, s.err
+	}
+	return s.page, nil
+}
 
 func TestGoAuthAuthenticatorWrapsMiddleware(t *testing.T) {
 	called := false
@@ -478,8 +492,30 @@ func TestActivityRouteAndWidget(t *testing.T) {
 			Dashboard: true,
 		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
-	_ = adm.activity.Record(context.Background(), ActivityEntry{Actor: "user", Action: "created", Object: "item"})
+	actorID := uuid.New()
+	feed := stubActivityFeedQuery{
+		page: usertypes.ActivityPage{
+			Records: []usertypes.ActivityRecord{
+				{
+					ID:         uuid.New(),
+					ActorID:    actorID,
+					Verb:       "created",
+					ObjectType: "item",
+					ObjectID:   "item-1",
+					Channel:    "admin",
+					OccurredAt: time.Now().UTC(),
+				},
+			},
+			Total:      1,
+			NextOffset: 1,
+			HasMore:    false,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		Authorizer:        allowAuthorizer{},
+		ActivityFeedQuery: feed,
+	})
+	_ = adm.activity.Record(context.Background(), ActivityEntry{Actor: actorID.String(), Action: "created", Object: "item"})
 
 	server := router.NewHTTPServer()
 	r := server.Router()
@@ -488,6 +524,7 @@ func TestActivityRouteAndWidget(t *testing.T) {
 	}
 
 	req := httptest.NewRequest("GET", "/admin/api/activity?limit=1", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: actorID.String()}))
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {

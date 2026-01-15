@@ -23,71 +23,10 @@ PATH=$(pwd)/node_modules/.bin:$PATH
 PATH=$(pwd)/src/bin:$PATH
 
 
-#################################################
-# Development dependencies
-#################################################
-
-function _install:lgr {
-    mkdir -p bin
-    if hash lgr 2>/dev/null; then
-        lgr OK "lgr already installed..."
-    else
-        echo "Installing lgr"
-        brew tap goliatone/homebrew-tap
-        brew install lgr
-        lgr OK "lgr installed..."
-    fi
-}
-
-function _install:changelog {
-    if git-cliff lgr 2>/dev/null; then
-        lgr OK "git-cliff already installed..."
-    else
-        echo "Installing lgr"
-        brew install brew install orhun/git-cliff/git-cliff
-        lgr OK "git-cliff installed..."
-    fi
-}
-
-function _install:brew {
-    if [[ $(command -v brew) == "" ]]; then
-        lgr I "Installing Hombrew"
-        /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-    else
-        lgr I "Updating Homebrew"
-        brew update
-    fi
-}
-
-function _install:envset {
-    if hash envset 2>/dev/null; then
-        lgr OK "envset installed..."
-    else
-        lgr I "Installing envset..."
-        brew install envset
-        lgr OK "envset installed..."
-    fi
-}
-
 ##########################################
 # Application management
 ##########################################
 
-function dev:install {
-    cd "$(pwd)/src" || exit "$?"
-
-    _install:lgr
-    _install:brew
-
-    _install:envset
-    _install:changelog
-
-    lgr ok "dependencies intalled..."
-}
-
-function dev:env:load {
-    eval "$(envset development --isolated=true)"
-}
 
 function dev:test {
     go test ./...
@@ -106,9 +45,19 @@ function dev:serve {
     local root_dir
     root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
     (cd "${root_dir}/pkg/client/assets" && lgr exec -- npm run build)
-    export NAV_DEBUG=true;
+    local build_status=$?
+    if [ "$build_status" -ne 0 ]; then
+        lgr error "npm build failed with status $build_status"
+        return "$build_status"
+    fi
+
+    export ADMIN_ASSETS_DEBUG=1;
+    export NAV_DEBUG=false;
+    export ADMIN_DEBUG=true;
     export RESET_NAV_MENU=true;
     export USE_PERSISTENT_CMS=true
+    export ADMIN_ASSETS_DIR="${root_dir}/pkg/client/assets"
+
     go run .
 }
 

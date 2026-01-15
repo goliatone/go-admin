@@ -96,8 +96,10 @@ func TestModuleMenuItemsRespectPermissions(t *testing.T) {
 	}
 
 	items := adm.nav.Resolve(context.Background(), "en")
-	if len(items) != 0 {
-		t.Fatalf("expected navigation to be empty when permissions denied, got %v", items)
+	for _, item := range items {
+		if item.Label == "Secret" {
+			t.Fatalf("expected secret navigation to be filtered, got %v", items)
+		}
 	}
 }
 
@@ -116,11 +118,15 @@ func TestModuleMenuItemsAppearInNavigation(t *testing.T) {
 	}
 
 	items := adm.nav.Resolve(context.Background(), "en")
-	if len(items) != 1 {
-		t.Fatalf("expected 1 navigation item, got %d", len(items))
+	found := false
+	for _, item := range items {
+		if item.Label == "Users" {
+			found = true
+			break
+		}
 	}
-	if items[0].Label != "Users" {
-		t.Fatalf("expected label Users, got %s", items[0].Label)
+	if !found {
+		t.Fatalf("expected label Users in navigation, got %v", items)
 	}
 }
 

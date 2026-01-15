@@ -3,6 +3,9 @@ package admin
 import (
 	"errors"
 	"fmt"
+
+	"github.com/goliatone/go-users/activity"
+	"github.com/goliatone/go-users/pkg/types"
 )
 
 // Dependencies captures host-provided integrations and storage adapters.
@@ -17,10 +20,14 @@ type Dependencies struct {
 	CommandBus  *CommandBus
 	JobRegistry *JobRegistry
 
-	Authorizer    Authorizer
-	Authenticator Authenticator
-	Translator    Translator
-	ActivitySink  ActivitySink
+	Authorizer           Authorizer
+	Authenticator        Authenticator
+	Translator           Translator
+	ActivitySink         ActivitySink
+	ActivityRepository   types.ActivityRepository
+	ActivityAccessPolicy activity.ActivityAccessPolicy
+	ActivityFeedQuery    ActivityFeedQuerier
+	ActivityService      ActivityFeedQuerier
 
 	NotificationService NotificationService
 	ExportRegistry      ExportRegistry

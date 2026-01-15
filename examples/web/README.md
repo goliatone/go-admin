@@ -64,7 +64,7 @@ module resolves it via either:
 - **Settings**: `GET /admin/api/settings`, `POST /admin/api/settings`
 - **Search**: `GET /admin/api/search?query=...`
 - **Notifications**: `GET /admin/api/notifications`
-- **Activity**: `GET /admin/api/activity`
+- **Activity**: `GET /admin/api/activity?limit=50&offset=0&channel=users` (filters: `user_id`, `actor_id`, `verb`, `object_type`, `object_id`, `channel`/`channels`, `channel_denylist`, `since`, `until`, `q`; response includes `entries`, `total`, `next_offset`, `has_more`; defaults: limit 50, max 200, offset 0; ordered by most recent first).
 - **Jobs**: `GET /admin/api/jobs`, `POST /admin/api/jobs/:name/trigger`
 - **Users Panel**: `GET /admin/api/users`, `POST /admin/api/users`, etc.
 - **Roles Panel**: `GET /admin/api/roles`, `POST /admin/api/roles`, etc.
@@ -446,8 +446,8 @@ func (c *UserActivateCommand) Execute(ctx admin.AdminContext) error {
 ### Activity backends & smoke
 
 - Flag: `USE_GO_USERS_ACTIVITY=true` swaps the activity sink to the go-users adapter (`examples/web/setup/activity.go`) while keeping dashboard hooks and the in-memory fallback buffer.
-- Smoke (in-memory): start normally, create a page (`POST /admin/api/pages`), update a post (`PUT /admin/api/posts/<id>`), delete a media item (`DELETE /admin/api/media/<id>`), then `GET /admin/api/activity?limit=10` and confirm entries show `page:<id>`, `post:<id>`, `media:<id>` with actor + metadata.
-- Smoke (go-users): restart with the flag, repeat the same create/update/delete calls, and verify `/admin/api/activity` still returns the new events with intact IDs/actors; toggle the flag off again to confirm the feed keeps working.
+- Smoke (in-memory): start normally, create a page (`POST /admin/api/pages`), update a post (`PUT /admin/api/posts/<id>`), delete a media item (`DELETE /admin/api/media/<id>`), then `GET /admin/api/activity?limit=10` and confirm `entries` show `page:<id>`, `post:<id>`, `media:<id>` with actor + metadata.
+- Smoke (go-users): restart with the flag, repeat the same create/update/delete calls, and verify `/admin/api/activity` still returns the new events in `entries` with intact IDs/actors; toggle the flag off again to confirm the feed keeps working.
 
 ## Persistent CMS (go-cms + Bun/SQLite)
 
@@ -464,7 +464,7 @@ func (c *UserActivateCommand) Execute(ctx admin.AdminContext) error {
 - Pages and Posts panels now swap to the go-cms backend when `USE_PERSISTENT_CMS=true` (using the container from `examples/web/setup/cms_persistent.go`); with the flag off they use the in-memory stores seeded with demo content.
 - Navigation seeds a `Content` parent guarded by `admin.pages.*`/`admin.posts.*`; the go-auth role provider now issues matching resource roles so the menu and panels hide for unauthorized tokens.
 - CMS-backed stores emit `page:<id>`/`post:<id>` activity (actor + slug/status metadata) and drive search adapters from go-cms data, keeping search and activity aligned with the persistent backend.
-- Smoke: `USE_PERSISTENT_CMS=true CMS_DATABASE_DSN=file:/tmp/go-admin-cms.db?cache=shared&_fk=1 go run ./examples/web`, create/edit/delete a page and a post via `/admin/pages` and `/admin/posts`, confirm `/admin/api/search?query=<slug>` returns them and `/admin/api/activity?limit=5` shows create/update/delete with correct actors; turn the flag off to fall back to the seeded in-memory content without errors.
+- Smoke: `USE_PERSISTENT_CMS=true CMS_DATABASE_DSN=file:/tmp/go-admin-cms.db?cache=shared&_fk=1 go run ./examples/web`, create/edit/delete a page and a post via `/admin/pages` and `/admin/posts`, confirm `/admin/api/search?query=<slug>` returns them and `/admin/api/activity?limit=5` shows create/update/delete in `entries` with correct actors; turn the flag off to fall back to the seeded in-memory content without errors.
 
 ## User & Role Management
 
@@ -668,7 +668,7 @@ The example uses in-memory implementations by default. Swap with production adap
 
 **Settings**: Wire go-options registry (Phase 18 adapter available)
 
-**Activity**: Set `USE_GO_USERS_ACTIVITY=true` to use the go-users ActivityLogger adapter (Phase 17) defined in `setup/activity.go`
+**Activity**: Set `USE_GO_USERS_ACTIVITY=true` to use the go-users ActivityLogger adapter (Phase 17) defined in `setup/activity.go`. The example wires the read path with `admin.Dependencies{ActivityRepository: usersDeps.ActivityRepo, ActivityAccessPolicy: activity.NewDefaultAccessPolicy()}` in `examples/web/main.go` so `/admin/api/activity` uses the go-users policy.
 
 **CMS**: Wire go-cms persistent container (Phase 20 adapter available)
 

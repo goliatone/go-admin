@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
 	router "github.com/goliatone/go-router"
+	"github.com/goliatone/go-users/pkg/authctx"
+	usertypes "github.com/goliatone/go-users/pkg/types"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -447,6 +450,8 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 		Refresh:     "/api/dashboard/widgets/refresh",
 		Preferences: "/api/dashboard/preferences",
 	}
+
+	//TODO: Refactor so we do not need to cast
 	if rt, ok := d.admin.router.(router.Router[router.Context]); ok {
 		if err := dashboardrouter.Register(dashboardrouter.Config[router.Context]{
 			Router:         rt,
@@ -460,8 +465,24 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 			return nil
 		}
 	}
+
+	//TODO: Refactor so we do not need to cast
 	if rt, ok := d.admin.router.(router.Router[*httprouter.Router]); ok {
 		if err := dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
+			Router:         rt,
+			Controller:     d.admin.dash.controller,
+			API:            d.admin.dash.executor,
+			Broadcast:      d.admin.dash.broadcast,
+			ViewerResolver: viewerResolver,
+			BasePath:       d.admin.config.BasePath,
+			Routes:         routes,
+		}); err == nil {
+			return nil
+		}
+	}
+	//TODO: Refactor so we do not need to cast
+	if rt, ok := d.admin.router.(router.Router[*fiber.App]); ok {
+		if err := dashboardrouter.Register(dashboardrouter.Config[*fiber.App]{
 			Router:         rt,
 			Controller:     d.admin.dash.controller,
 			API:            d.admin.dash.executor,
@@ -615,10 +636,10 @@ func (b *bulkBinding) Start(c router.Context, body map[string]any) (map[string]a
 	if err != nil {
 		return nil, err
 	}
-	b.admin.recordActivity(c.Context(), c.Header("X-User-ID"), "bulk.trigger", "bulk_job:"+job.ID, map[string]any{
+	b.admin.recordActivity(c.Context(), c.Header("X-User-ID"), "bulk.trigger", "bulk_job:"+job.ID, tagActivityActorType(map[string]any{
 		"name":   job.Name,
 		"action": job.Action,
-	})
+	}, activityActorTypeTask))
 	return map[string]any{"job": job}, nil
 }
 
@@ -634,10 +655,10 @@ func (b *bulkBinding) Rollback(c router.Context, id string, body map[string]any)
 		if err != nil {
 			return nil, err
 		}
-		b.admin.recordActivity(c.Context(), c.Header("X-User-ID"), "bulk.rollback", "bulk_job:"+job.ID, map[string]any{
+		b.admin.recordActivity(c.Context(), c.Header("X-User-ID"), "bulk.rollback", "bulk_job:"+job.ID, tagActivityActorType(map[string]any{
 			"name":   job.Name,
 			"action": job.Action,
-		})
+		}, activityActorTypeTask))
 		return map[string]any{"job": job}, nil
 	}
 	return nil, FeatureDisabledError{Feature: string(FeatureBulk)}
@@ -739,32 +760,41 @@ type activityBinding struct {
 }
 
 func newActivityBinding(a *Admin) boot.ActivityBinding {
-	if a == nil || a.activity == nil {
+	if a == nil {
 		return nil
 	}
 	return &activityBinding{admin: a}
 }
 
 func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) {
-	limit := atoiDefault(c.Query("limit"), 10)
-	filters := []ActivityFilter{}
-	if actor := strings.TrimSpace(c.Query("actor")); actor != "" {
-		filters = append(filters, ActivityFilter{Actor: actor})
-	}
-	if action := strings.TrimSpace(c.Query("action")); action != "" {
-		filters = append(filters, ActivityFilter{Action: action})
-	}
-	if object := strings.TrimSpace(c.Query("object")); object != "" {
-		filters = append(filters, ActivityFilter{Object: object})
-	}
-	if channel := strings.TrimSpace(c.Query("channel")); channel != "" {
-		filters = append(filters, ActivityFilter{Channel: channel})
-	}
-	entries, err := aBinding.admin.activity.List(c.Context(), limit, filters...)
+	adminCtx := aBinding.admin.adminContextFromRequest(c, aBinding.admin.config.DefaultLocale)
+	actorRef, actorCtx, err := authctx.ResolveActor(adminCtx.Context)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"entries": entries}, nil
+	if err := aBinding.admin.requirePermission(adminCtx, aBinding.admin.config.ActivityPermission, "activity"); err != nil {
+		return nil, err
+	}
+	if aBinding.admin.activityFeed == nil {
+		return nil, FeatureDisabledError{Feature: "activity"}
+	}
+	filter, err := parseActivityFilter(c, actorRef, authctx.ScopeFromActorContext(actorCtx))
+	if err != nil {
+		return nil, err
+	}
+	page, err := aBinding.admin.activityFeed.Query(adminCtx.Context, filter)
+	if err != nil {
+		if errors.Is(err, usertypes.ErrMissingActivityRepository) {
+			return nil, FeatureDisabledError{Feature: "activity"}
+		}
+		return nil, err
+	}
+	return map[string]any{
+		"entries":     entriesFromUsersRecords(page.Records),
+		"total":       page.Total,
+		"next_offset": page.NextOffset,
+		"has_more":    page.HasMore,
+	}, nil
 }
 
 type jobsBinding struct {

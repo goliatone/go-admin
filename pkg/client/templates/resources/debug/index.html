@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Debug Console</title>
+  <link rel="stylesheet" href="{{ base_path }}/assets/output.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
+  <style>
+    :root {
+      /* Catppuccin Mocha palette */
+      --debug-bg: #1e1e2e;
+      --debug-bg-secondary: #181825;
+      --debug-surface: #313244;
+      --debug-overlay: #45475a;
+      --debug-ink: #cdd6f4;
+      --debug-muted: #6c7086;
+      --debug-border: #313244;
+      --debug-accent: #89b4fa;
+      --debug-accent-hover: #b4befe;
+      --debug-success: #a6e3a1;
+      --debug-danger: #f38ba8;
+      --debug-warn: #f9e2af;
+      --debug-info: #89dceb;
+      --debug-mauve: #cba6f7;
+      --debug-peach: #fab387;
+      --debug-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: radial-gradient(circle at top, rgba(137, 180, 250, 0.08), transparent 60%),
+        radial-gradient(circle at 20% 30%, rgba(203, 166, 247, 0.06), transparent 50%),
+        var(--debug-bg);
+      color: var(--debug-ink);
+      font-family: var(--debug-font);
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    .debug-shell {
+      max-width: 1200px;
+      margin: 32px auto 48px;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .debug-hero {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, rgba(137, 180, 250, 0.08), rgba(203, 166, 247, 0.06));
+      border: 1px solid var(--debug-border);
+      border-radius: 20px;
+      padding: 24px;
+    }
+
+    .debug-title h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--debug-ink);
+    }
+
+    .debug-title p {
+      margin-top: 6px;
+      color: var(--debug-muted);
+    }
+
+    .debug-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--debug-success);
+      background: rgba(166, 227, 161, 0.15);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .debug-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .debug-button,
+    .debug-link {
+      border: 1px solid var(--debug-border);
+      background: var(--debug-surface);
+      color: var(--debug-ink);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: var(--debug-font);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .debug-button:hover,
+    .debug-link:hover {
+      border-color: var(--debug-accent);
+      color: var(--debug-accent);
+      transform: translateY(-1px);
+    }
+
+    .debug-button--primary {
+      background: var(--debug-danger);
+      border-color: var(--debug-danger);
+      color: var(--debug-bg);
+    }
+
+    .debug-button--primary:hover {
+      background: #eba0ac;
+      border-color: #eba0ac;
+      color: var(--debug-bg);
+    }
+
+    .debug-status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--debug-bg-secondary);
+      border: 1px solid var(--debug-border);
+      border-radius: 16px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--debug-muted);
+    }
+
+    .debug-status__left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .debug-status__left strong {
+      color: var(--debug-ink);
+    }
+
+    .debug-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--debug-muted);
+      box-shadow: 0 0 0 4px rgba(108, 112, 134, 0.2);
+    }
+
+    .debug-status[data-status="connected"] .debug-indicator {
+      background: var(--debug-success);
+      box-shadow: 0 0 8px var(--debug-success), 0 0 0 4px rgba(166, 227, 161, 0.2);
+    }
+
+    .debug-status[data-status="error"] .debug-indicator {
+      background: var(--debug-danger);
+      box-shadow: 0 0 8px var(--debug-danger), 0 0 0 4px rgba(243, 139, 168, 0.2);
+    }
+
+    .debug-status[data-status="reconnecting"] .debug-indicator {
+      background: var(--debug-warn);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .debug-path {
+      font-family: var(--debug-font);
+      font-size: 12px;
+      background: var(--debug-surface);
+      padding: 4px 8px;
+      border-radius: 8px;
+      color: var(--debug-accent);
+    }
+
+    .debug-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .debug-tab {
+      border: 1px solid var(--debug-border);
+      background: var(--debug-surface);
+      padding: 8px 12px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--debug-font);
+      color: var(--debug-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .debug-tab:hover {
+      border-color: rgba(137, 180, 250, 0.4);
+      color: var(--debug-ink);
+    }
+
+    .debug-tab__count {
+      background: rgba(137, 180, 250, 0.15);
+      color: var(--debug-accent);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+    }
+
+    .debug-tab--active {
+      border-color: var(--debug-accent);
+      background: rgba(137, 180, 250, 0.1);
+      color: var(--debug-accent);
+      box-shadow: 0 4px 16px rgba(137, 180, 250, 0.15);
+    }
+
+    .debug-tab--active .debug-tab__count {
+      background: var(--debug-accent);
+      color: var(--debug-bg);
+    }
+
+    .debug-panel-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--debug-bg-secondary);
+      border: 1px solid var(--debug-border);
+      border-radius: 16px;
+      padding: 12px 16px;
+    }
+
+    .debug-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .debug-filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 140px;
+    }
+
+    .debug-filter-group label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--debug-muted);
+      font-weight: 600;
+    }
+
+    .debug-filter-group input,
+    .debug-filter-group select {
+      border: 1px solid var(--debug-border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: var(--debug-font);
+      background: var(--debug-surface);
+      color: var(--debug-ink);
+      transition: border-color 0.2s ease;
+    }
+
+    .debug-filter-group input:focus,
+    .debug-filter-group select:focus {
+      outline: none;
+      border-color: var(--debug-accent);
+    }
+
+    .debug-filter-group input::placeholder {
+      color: var(--debug-muted);
+    }
+
+    .debug-filter-group.grow {
+      min-width: 240px;
+      flex: 1 1 auto;
+    }
+
+    .debug-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--debug-muted);
+      font-weight: 600;
+    }
+
+    .debug-panel {
+      background: var(--debug-bg-secondary);
+      border: 1px solid var(--debug-border);
+      border-radius: 20px;
+      padding: 20px;
+      min-height: 320px;
+      max-height: 65vh;
+      overflow: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--debug-surface) transparent;
+    }
+
+    .debug-panel::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .debug-panel::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .debug-panel::-webkit-scrollbar-thumb {
+      background: var(--debug-surface);
+      border-radius: 4px;
+    }
+
+    .debug-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .debug-card {
+      border: 1px solid var(--debug-border);
+      border-radius: 16px;
+      padding: 14px;
+      background: var(--debug-surface);
+      transition: border-color 0.2s ease;
+    }
+
+    .debug-card:hover {
+      border-color: rgba(137, 180, 250, 0.3);
+    }
+
+    .debug-card--slow {
+      border-color: rgba(249, 226, 175, 0.5);
+      box-shadow: inset 0 0 0 1px rgba(249, 226, 175, 0.15);
+    }
+
+    .debug-card--error {
+      border-color: rgba(243, 139, 168, 0.5);
+      box-shadow: inset 0 0 0 1px rgba(243, 139, 168, 0.15);
+    }
+
+    .debug-card__row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .debug-card__path {
+      font-weight: 600;
+      flex: 1 1 240px;
+      color: var(--debug-ink);
+    }
+
+    .debug-card__meta {
+      font-size: 12px;
+      color: var(--debug-muted);
+    }
+
+    .debug-card__details summary {
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 10px;
+      color: var(--debug-accent);
+      transition: color 0.2s ease;
+    }
+
+    .debug-card__details summary:hover {
+      color: var(--debug-accent-hover);
+    }
+
+    .debug-card__grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .debug-card__grid h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--debug-muted);
+      margin-bottom: 6px;
+    }
+
+    .debug-card__error {
+      color: var(--debug-danger);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .debug-code {
+      background: var(--debug-bg);
+      color: var(--debug-ink);
+      padding: 12px;
+      border-radius: 12px;
+      margin-top: 10px;
+      font-size: 12px;
+      overflow-x: auto;
+      border: 1px solid var(--debug-border);
+    }
+
+    .debug-badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--debug-overlay);
+      color: var(--debug-ink);
+    }
+
+    .debug-badge--status {
+      background: rgba(166, 227, 161, 0.2);
+      color: var(--debug-success);
+    }
+
+    .debug-badge--status-error {
+      background: rgba(243, 139, 168, 0.2);
+      color: var(--debug-danger);
+    }
+
+    .debug-badge--status-warn {
+      background: rgba(249, 226, 175, 0.2);
+      color: var(--debug-warn);
+    }
+
+    .debug-badge--method {
+      min-width: 50px;
+      text-align: center;
+    }
+
+    .debug-badge--method-get {
+      background: rgba(166, 227, 161, 0.2);
+      color: var(--debug-success);
+    }
+
+    .debug-badge--method-post {
+      background: rgba(137, 180, 250, 0.2);
+      color: var(--debug-accent);
+    }
+
+    .debug-badge--method-put,
+    .debug-badge--method-patch {
+      background: rgba(249, 226, 175, 0.2);
+      color: var(--debug-warn);
+    }
+
+    .debug-badge--method-delete {
+      background: rgba(243, 139, 168, 0.2);
+      color: var(--debug-danger);
+    }
+
+    .debug-badge--sql {
+      background: rgba(203, 166, 247, 0.2);
+      color: var(--debug-mauve);
+    }
+
+    .debug-badge--error {
+      background: rgba(243, 139, 168, 0.2);
+      color: var(--debug-danger);
+    }
+
+    .debug-badge--level {
+      min-width: 50px;
+      text-align: center;
+    }
+
+    .debug-badge--level-debug {
+      background: rgba(108, 112, 134, 0.3);
+      color: var(--debug-muted);
+    }
+
+    .debug-badge--level-info {
+      background: rgba(137, 220, 235, 0.2);
+      color: var(--debug-info);
+    }
+
+    .debug-badge--level-warn {
+      background: rgba(249, 226, 175, 0.2);
+      color: var(--debug-warn);
+    }
+
+    .debug-badge--level-error {
+      background: rgba(243, 139, 168, 0.2);
+      color: var(--debug-danger);
+    }
+
+    .debug-badge--custom {
+      background: rgba(250, 179, 135, 0.2);
+      color: var(--debug-peach);
+    }
+
+    .debug-json-panel {
+      border: 1px solid var(--debug-border);
+      border-radius: 16px;
+      padding: 14px;
+      background: var(--debug-surface);
+    }
+
+    .debug-json-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .debug-json-panel pre,
+    .debug-card pre {
+      background: var(--debug-bg);
+      padding: 12px;
+      border-radius: 12px;
+      overflow-x: auto;
+      font-size: 12px;
+      color: var(--debug-ink);
+      border: 1px solid var(--debug-border);
+      line-height: 1.5;
+    }
+
+    .debug-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .debug-section-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--debug-ink);
+    }
+
+    .debug-empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--debug-muted);
+    }
+
+    .debug-muted {
+      color: var(--debug-muted);
+      font-size: 12px;
+    }
+
+    /* Duration formatting */
+    .debug-duration {
+      font-variant-numeric: tabular-nums;
+      color: var(--debug-muted);
+    }
+
+    .debug-duration--slow {
+      color: var(--debug-warn);
+      font-weight: 600;
+    }
+
+    /* Timestamp */
+    .debug-timestamp {
+      font-variant-numeric: tabular-nums;
+      color: var(--debug-muted);
+      white-space: nowrap;
+    }
+
+    @media (max-width: 768px) {
+      .debug-shell {
+        padding: 0 16px;
+      }
+
+      .debug-panel {
+        max-height: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="debug-shell" data-debug-console
+        data-debug-path="{{ debug_path }}"
+        data-panels='{{ toJSON(panels) }}'
+        data-max-log-entries="{{ max_log_entries }}"
+        data-max-sql-queries="{{ max_sql_queries }}"
+        data-slow-threshold-ms="{{ slow_query_threshold_ms }}">
+    <header class="debug-hero">
+      <div class="debug-title">
+        <div class="debug-pill"><i class="iconoir-flash"></i> Live</div>
+        <h1>Debug Console</h1>
+        <p>Real-time snapshots for template data, sessions, requests, SQL, and logs.</p>
+      </div>
+      <div class="debug-actions">
+        <a class="debug-link" href="{{ base_path }}"><i class="iconoir-arrow-left"></i> Back</a>
+        <button class="debug-button" data-debug-action="snapshot"><i class="iconoir-refresh"></i> Snapshot</button>
+        <button class="debug-button" data-debug-action="clear-panel"><i class="iconoir-erase"></i> Clear Panel</button>
+        <button class="debug-button debug-button--primary" data-debug-action="clear"><i class="iconoir-trash"></i> Clear All</button>
+        <button class="debug-button" data-debug-action="pause"><i class="iconoir-pause"></i> Pause</button>
+      </div>
+    </header>
+
+    <section class="debug-status" data-debug-status="disconnected">
+      <div class="debug-status__left">
+        <span class="debug-indicator"></span>
+        <strong data-debug-connection>disconnected</strong>
+        <span data-debug-events>0 events</span>
+        <span>Last: <span data-debug-last>--</span></span>
+      </div>
+      <div class="debug-status__right">
+        <span class="debug-path">{{ debug_path }}</span>
+      </div>
+    </section>
+
+    <nav class="debug-tabs" data-debug-tabs></nav>
+
+    <section class="debug-panel-toolbar">
+      <div class="debug-filters" data-debug-filters></div>
+    </section>
+
+    <section class="debug-panel" data-debug-panel></section>
+  </main>
+
+  <script type="module" src="{{ base_path }}/assets/dist/debug/index.js"></script>
+</body>
+</html>

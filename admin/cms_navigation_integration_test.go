@@ -88,10 +88,11 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("menu fetch failed: %v", err)
 	}
-	if len(menu.Items) != 1 {
-		t.Fatalf("expected single root group after dedupe, got %d", len(menu.Items))
+	menuItems := filterMenuItems(menu.Items, isActivityMenuItem)
+	if len(menuItems) != 1 {
+		t.Fatalf("expected single root group after dedupe, got %d", len(menuItems))
 	}
-	root := menu.Items[0]
+	root := menuItems[0]
 	if root.ID == "" {
 		t.Fatalf("expected root ID")
 	}
@@ -106,11 +107,59 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 		t.Fatalf("expected 2 children under Content, got %d", len(section.Children))
 	}
 
-	nav := adm.Navigation().Resolve(ctx, "en")
+	nav := filterNavigation(adm.Navigation().Resolve(ctx, "en"), isActivityNavItem)
 	if len(nav) != 1 {
 		t.Fatalf("expected navigation to have 1 root, got %d", len(nav))
 	}
 	if len(nav[0].Children) != 1 || len(nav[0].Children[0].Children) != 2 {
 		t.Fatalf("expected grouped navigation tree, got %+v", nav)
 	}
+}
+
+func filterMenuItems(items []MenuItem, skip func(MenuItem) bool) []MenuItem {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]MenuItem, 0, len(items))
+	for _, item := range items {
+		if skip != nil && skip(item) {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func filterNavigation(items []NavigationItem, skip func(NavigationItem) bool) []NavigationItem {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]NavigationItem, 0, len(items))
+	for _, item := range items {
+		if skip != nil && skip(item) {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func isActivityMenuItem(item MenuItem) bool {
+	if item.LabelKey == "menu.activity" || item.Label == "Activity" {
+		return true
+	}
+	if toString(item.Target["key"]) == activityModuleID {
+		return true
+	}
+	return false
+}
+
+func isActivityNavItem(item NavigationItem) bool {
+	if item.LabelKey == "menu.activity" || item.Label == "Activity" {
+		return true
+	}
+	if toString(item.Target["key"]) == activityModuleID {
+		return true
+	}
+	return false
 }

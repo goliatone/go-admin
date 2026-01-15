@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,6 +30,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-export/export"
 	"github.com/goliatone/go-router"
+	"github.com/goliatone/go-users/activity"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
@@ -84,6 +87,20 @@ func main() {
 		registrationCfg.Allowlist = splitAndTrimCSV(allowlist)
 	}
 
+	debugEnabled := strings.EqualFold(os.Getenv("ADMIN_DEBUG"), "true")
+	cfg.Debug.Enabled = debugEnabled
+	cfg.Debug.ToolbarMode = debugEnabled
+	cfg.Debug.ToolbarPanels = []string{"requests", "sql", "logs", "routes", "config", "template", "session"}
+	cfg.Debug.CaptureSQL = debugEnabled
+	cfg.Debug.CaptureLogs = debugEnabled
+	if debugEnabled {
+		if cfg.FeatureFlags == nil {
+			cfg.FeatureFlags = map[string]bool{}
+		}
+		cfg.FeatureFlags["debug"] = true
+		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
+	}
+
 	adapterHooks := quickstart.AdapterHooks{
 		PersistentCMS: func(ctx context.Context, locale string) (admin.CMSOptions, string, error) {
 			opts, err := setup.SetupPersistentCMS(ctx, locale, "")
@@ -122,16 +139,20 @@ func main() {
 			log.Fatalf("failed to configure export renderers: %v", err)
 		}
 	}
-	exportDeps := admin.Dependencies{
+	adminDeps := admin.Dependencies{
 		ExportRegistry:  exportBundle.Registry,
 		ExportRegistrar: exportBundle.Registrar,
 		ExportMetadata:  exportBundle.Metadata,
+	}
+	if usersDeps.ActivityRepo != nil {
+		adminDeps.ActivityRepository = usersDeps.ActivityRepo
+		adminDeps.ActivityAccessPolicy = activity.NewDefaultAccessPolicy()
 	}
 	adm, adapterResult, err := quickstart.NewAdmin(
 		cfg,
 		adapterHooks,
 		quickstart.WithAdminContext(context.Background()),
-		quickstart.WithAdminDependencies(exportDeps),
+		quickstart.WithAdminDependencies(adminDeps),
 	)
 	if err != nil {
 		log.Fatalf("failed to construct admin: %v", err)
@@ -141,6 +162,12 @@ func main() {
 	settingsBackend := adapterResult.SettingsBackend
 	activityBackend := adapterResult.ActivityBackend
 
+	if usersDeps.DB != nil {
+		if hook := adm.DebugQueryHook(); hook != nil {
+			usersDeps.DB.AddQueryHook(hook)
+		}
+	}
+
 	// Initialize data stores with seed data
 	cmsContentSvc := admin.CMSContentService(admin.NewInMemoryContentService())
 	if cfg.CMS.Container != nil {
@@ -148,7 +175,8 @@ func main() {
 			cmsContentSvc = svc
 		}
 	}
-	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale, usersDeps)
+	repoOptions := adm.DebugQueryHookOptions()
+	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale, usersDeps, repoOptions...)
 	if err != nil {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
@@ -309,13 +337,50 @@ func main() {
 	// Prefer serving assets from disk when available (dev flow), and fall back to embedded assets.
 	// This avoids 404s when the running binary was compiled without the latest generated assets
 	// (e.g., output.css, assets/dist/*) and supports iterative frontend builds.
-	diskAssetsDir := quickstart.ResolveDiskAssetsDir(
-		"output.css",
-		path.Join("pkg", "client", "assets"),
-		path.Join("..", "pkg", "client", "assets"),
-		"assets",
-	)
-	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
+	diskAssetsDir := strings.TrimSpace(os.Getenv("ADMIN_ASSETS_DIR"))
+	if diskAssetsDir != "" {
+		if abs, err := filepath.Abs(diskAssetsDir); err == nil {
+			diskAssetsDir = abs
+		}
+		if info, err := os.Stat(diskAssetsDir); err != nil || !info.IsDir() {
+			log.Printf("warning: ADMIN_ASSETS_DIR %q not accessible: %v", diskAssetsDir, err)
+			diskAssetsDir = ""
+		}
+	}
+	if diskAssetsDir == "" {
+		diskAssetsDir = quickstart.ResolveDiskAssetsDir(
+			"output.css",
+			path.Join("pkg", "client", "assets"),
+			path.Join("..", "..", "pkg", "client", "assets"),
+			path.Join("..", "pkg", "client", "assets"),
+			"assets",
+		)
+		if diskAssetsDir == "" {
+			diskAssetsDir = quickstart.ResolveDiskAssetsDir(
+				path.Join("dist", "output.css"),
+				path.Join("pkg", "client", "assets"),
+				path.Join("..", "..", "pkg", "client", "assets"),
+				path.Join("..", "pkg", "client", "assets"),
+				"assets",
+			)
+		}
+	}
+	embeddedAssetsFS := client.Assets()
+	quickstart.NewStaticAssets(r, cfg, embeddedAssetsFS, quickstart.WithDiskAssetsDir(diskAssetsDir))
+
+	if debugEnabled {
+		r.Use(func(next router.HandlerFunc) router.HandlerFunc {
+			return func(c router.Context) error {
+				if cfg.BasePath != "" && !strings.HasPrefix(c.Path(), cfg.BasePath) {
+					return next(c)
+				}
+				if collector := adm.Debug(); collector != nil {
+					return admin.DebugRequestMiddleware(collector)(next)(c)
+				}
+				return next(c)
+			}
+		})
+	}
 
 	// Register modules
 	modules := []admin.Module{
@@ -327,6 +392,9 @@ func main() {
 		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		admin.NewProfileModule().WithMenuParent(setup.NavigationGroupOthers),
 		admin.NewPreferencesModule().WithMenuParent(setup.NavigationGroupOthers),
+	}
+	if debugEnabled {
+		modules = append(modules, admin.NewDebugModule(cfg.Debug))
 	}
 
 	extraMenuItems := []admin.MenuItem{
@@ -439,6 +507,19 @@ func main() {
 	// Initialize admin
 	if err := adm.Initialize(r); err != nil {
 		log.Fatalf("failed to initialize admin: %v", err)
+	}
+	if debugEnabled {
+		if collector := adm.Debug(); collector != nil {
+			enableSlog := !strings.EqualFold(os.Getenv("ADMIN_DEBUG_SLOG"), "false") &&
+				strings.TrimSpace(os.Getenv("ADMIN_DEBUG_SLOG")) != "0"
+			if enableSlog {
+				logWriter := log.Writer()
+				delegate := slog.NewTextHandler(logWriter, &slog.HandlerOptions{Level: slog.LevelInfo})
+				handler := admin.NewDebugLogHandler(collector, delegate)
+				logger := slog.New(handler)
+				slog.SetDefault(logger)
+			}
+		}
 	}
 
 	// Setup admin features AFTER initialization to override default widgets

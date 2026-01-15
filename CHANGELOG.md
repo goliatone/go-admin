@@ -1,5 +1,11 @@
 # Changelog
 
+# [Unreleased]
+
+## <!-- 0 -->💥 Breaking Changes
+
+- Activity API: remove legacy params (actor/action/object/channel). Use `actor_id`, `verb`, `object_type`/`object_id`, and `channel` or `channels` (mutually exclusive) with `limit`/`offset` (default 50, max 200). Response now includes `entries`, `total`, `next_offset`, `has_more` - update client requests and response parsing.
+
 # [0.13.0](https://github.com/goliatone/go-admin/compare/v0.12.0...v0.13.0) - (2026-01-14)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -443,5 +449,3 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
-
