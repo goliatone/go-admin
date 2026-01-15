@@ -7,7 +7,7 @@ import (
 
 const (
 	debugDefaultFeatureKey         = "debug"
-	debugDefaultPermission         = "admin.debug"
+	debugDefaultPermission         = "admin.debug.view"
 	debugDefaultPathSuffix         = "debug"
 	debugDefaultMaxLogEntries      = 500
 	debugDefaultMaxSQLQueries      = 200
@@ -33,6 +33,7 @@ type DebugConfig struct {
 	StrictQueryHooks   bool
 	MaxLogEntries      int
 	MaxSQLQueries      int
+	MaskFieldTypes     map[string]string
 	Panels             []string
 	FeatureKey         string
 	Permission         string
@@ -68,6 +69,7 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 		cfg.Panels = append([]string{}, defaultDebugPanels...)
 	}
 	cfg.Panels = normalizePanelIDs(cfg.Panels)
+	cfg.MaskFieldTypes = normalizeMaskFieldTypes(cfg.MaskFieldTypes)
 	return cfg
 }
 
@@ -88,6 +90,24 @@ func normalizePanelIDs(panels []string) []string {
 		}
 		seen[normalized] = true
 		out = append(out, normalized)
+	}
+	return out
+}
+
+func normalizeMaskFieldTypes(fields map[string]string) map[string]string {
+	if len(fields) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(fields))
+	for field, maskType := range fields {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		out[field] = strings.TrimSpace(maskType)
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }
