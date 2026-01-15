@@ -8,23 +8,37 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
   <style>
     :root {
-      --debug-ink: #0f172a;
-      --debug-muted: #64748b;
-      --debug-surface: #ffffff;
-      --debug-border: #e2e8f0;
-      --debug-accent: #f97316;
-      --debug-accent-strong: #ea580c;
-      --debug-cool: #0ea5e9;
-      --debug-success: #22c55e;
-      --debug-danger: #ef4444;
-      --debug-warn: #f59e0b;
+      /* Catppuccin Mocha palette */
+      --debug-bg: #1e1e2e;
+      --debug-bg-secondary: #181825;
+      --debug-surface: #313244;
+      --debug-overlay: #45475a;
+      --debug-ink: #cdd6f4;
+      --debug-muted: #6c7086;
+      --debug-border: #313244;
+      --debug-accent: #89b4fa;
+      --debug-accent-hover: #b4befe;
+      --debug-success: #a6e3a1;
+      --debug-danger: #f38ba8;
+      --debug-warn: #f9e2af;
+      --debug-info: #89dceb;
+      --debug-mauve: #cba6f7;
+      --debug-peach: #fab387;
+      --debug-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
-      background: radial-gradient(circle at top, rgba(14, 165, 233, 0.08), transparent 60%),
-        radial-gradient(circle at 20% 30%, rgba(249, 115, 22, 0.08), transparent 50%),
-        #f8fafc;
+      background: radial-gradient(circle at top, rgba(137, 180, 250, 0.08), transparent 60%),
+        radial-gradient(circle at 20% 30%, rgba(203, 166, 247, 0.06), transparent 50%),
+        var(--debug-bg);
       color: var(--debug-ink);
+      font-family: var(--debug-font);
+      margin: 0;
+      min-height: 100vh;
     }
 
     .debug-shell {
@@ -42,8 +56,8 @@
       gap: 16px;
       align-items: center;
       justify-content: space-between;
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.05), rgba(249, 115, 22, 0.12));
-      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: linear-gradient(135deg, rgba(137, 180, 250, 0.08), rgba(203, 166, 247, 0.06));
+      border: 1px solid var(--debug-border);
       border-radius: 20px;
       padding: 24px;
     }
@@ -52,6 +66,7 @@
       font-size: 28px;
       font-weight: 700;
       letter-spacing: -0.02em;
+      color: var(--debug-ink);
     }
 
     .debug-title p {
@@ -66,8 +81,8 @@
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.12em;
-      color: var(--debug-accent-strong);
-      background: rgba(249, 115, 22, 0.12);
+      color: var(--debug-success);
+      background: rgba(166, 227, 161, 0.15);
       padding: 6px 10px;
       border-radius: 999px;
       font-weight: 600;
@@ -88,29 +103,32 @@
       border-radius: 10px;
       font-size: 14px;
       font-weight: 600;
+      font-family: var(--debug-font);
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      cursor: pointer;
+      text-decoration: none;
       transition: all 0.2s ease;
     }
 
     .debug-button:hover,
     .debug-link:hover {
-      border-color: rgba(249, 115, 22, 0.4);
-      color: var(--debug-accent-strong);
+      border-color: var(--debug-accent);
+      color: var(--debug-accent);
       transform: translateY(-1px);
     }
 
     .debug-button--primary {
-      background: var(--debug-accent);
-      border-color: var(--debug-accent);
-      color: #fff;
+      background: var(--debug-danger);
+      border-color: var(--debug-danger);
+      color: var(--debug-bg);
     }
 
     .debug-button--primary:hover {
-      background: var(--debug-accent-strong);
-      border-color: var(--debug-accent-strong);
-      color: #fff;
+      background: #eba0ac;
+      border-color: #eba0ac;
+      color: var(--debug-bg);
     }
 
     .debug-status {
@@ -119,7 +137,7 @@
       gap: 12px;
       align-items: center;
       justify-content: space-between;
-      background: var(--debug-surface);
+      background: var(--debug-bg-secondary);
       border: 1px solid var(--debug-border);
       border-radius: 16px;
       padding: 12px 16px;
@@ -134,31 +152,45 @@
       flex-wrap: wrap;
     }
 
+    .debug-status__left strong {
+      color: var(--debug-ink);
+    }
+
     .debug-indicator {
       width: 10px;
       height: 10px;
       border-radius: 999px;
       background: var(--debug-muted);
-      box-shadow: 0 0 0 4px rgba(100, 116, 139, 0.15);
+      box-shadow: 0 0 0 4px rgba(108, 112, 134, 0.2);
     }
 
     .debug-status[data-status="connected"] .debug-indicator {
       background: var(--debug-success);
-      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+      box-shadow: 0 0 8px var(--debug-success), 0 0 0 4px rgba(166, 227, 161, 0.2);
     }
 
     .debug-status[data-status="error"] .debug-indicator {
       background: var(--debug-danger);
-      box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+      box-shadow: 0 0 8px var(--debug-danger), 0 0 0 4px rgba(243, 139, 168, 0.2);
+    }
+
+    .debug-status[data-status="reconnecting"] .debug-indicator {
+      background: var(--debug-warn);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
     }
 
     .debug-path {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-family: var(--debug-font);
       font-size: 12px;
-      background: rgba(15, 23, 42, 0.06);
+      background: var(--debug-surface);
       padding: 4px 8px;
       border-radius: 8px;
-      color: var(--debug-ink);
+      color: var(--debug-accent);
     }
 
     .debug-tabs {
@@ -177,21 +209,35 @@
       gap: 8px;
       font-size: 13px;
       font-weight: 600;
+      font-family: var(--debug-font);
+      color: var(--debug-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .debug-tab:hover {
+      border-color: rgba(137, 180, 250, 0.4);
       color: var(--debug-ink);
     }
 
     .debug-tab__count {
-      background: rgba(15, 23, 42, 0.08);
-      color: var(--debug-muted);
+      background: rgba(137, 180, 250, 0.15);
+      color: var(--debug-accent);
       padding: 2px 8px;
       border-radius: 999px;
       font-size: 11px;
     }
 
     .debug-tab--active {
-      border-color: rgba(14, 165, 233, 0.5);
-      box-shadow: 0 12px 24px rgba(14, 165, 233, 0.12);
-      color: var(--debug-cool);
+      border-color: var(--debug-accent);
+      background: rgba(137, 180, 250, 0.1);
+      color: var(--debug-accent);
+      box-shadow: 0 4px 16px rgba(137, 180, 250, 0.15);
+    }
+
+    .debug-tab--active .debug-tab__count {
+      background: var(--debug-accent);
+      color: var(--debug-bg);
     }
 
     .debug-panel-toolbar {
@@ -200,7 +246,7 @@
       gap: 12px;
       align-items: center;
       justify-content: space-between;
-      background: var(--debug-surface);
+      background: var(--debug-bg-secondary);
       border: 1px solid var(--debug-border);
       border-radius: 16px;
       padding: 12px 16px;
@@ -234,7 +280,20 @@
       border-radius: 10px;
       padding: 8px 10px;
       font-size: 13px;
-      background: #fff;
+      font-family: var(--debug-font);
+      background: var(--debug-surface);
+      color: var(--debug-ink);
+      transition: border-color 0.2s ease;
+    }
+
+    .debug-filter-group input:focus,
+    .debug-filter-group select:focus {
+      outline: none;
+      border-color: var(--debug-accent);
+    }
+
+    .debug-filter-group input::placeholder {
+      color: var(--debug-muted);
     }
 
     .debug-filter-group.grow {
@@ -252,13 +311,28 @@
     }
 
     .debug-panel {
-      background: var(--debug-surface);
+      background: var(--debug-bg-secondary);
       border: 1px solid var(--debug-border);
       border-radius: 20px;
       padding: 20px;
       min-height: 320px;
       max-height: 65vh;
       overflow: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--debug-surface) transparent;
+    }
+
+    .debug-panel::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .debug-panel::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .debug-panel::-webkit-scrollbar-thumb {
+      background: var(--debug-surface);
+      border-radius: 4px;
     }
 
     .debug-stack {
@@ -268,15 +342,25 @@
     }
 
     .debug-card {
-      border: 1px solid rgba(148, 163, 184, 0.35);
+      border: 1px solid var(--debug-border);
       border-radius: 16px;
       padding: 14px;
-      background: rgba(248, 250, 252, 0.6);
+      background: var(--debug-surface);
+      transition: border-color 0.2s ease;
+    }
+
+    .debug-card:hover {
+      border-color: rgba(137, 180, 250, 0.3);
     }
 
     .debug-card--slow {
-      border-color: rgba(239, 68, 68, 0.4);
-      box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.2);
+      border-color: rgba(249, 226, 175, 0.5);
+      box-shadow: inset 0 0 0 1px rgba(249, 226, 175, 0.15);
+    }
+
+    .debug-card--error {
+      border-color: rgba(243, 139, 168, 0.5);
+      box-shadow: inset 0 0 0 1px rgba(243, 139, 168, 0.15);
     }
 
     .debug-card__row {
@@ -301,6 +385,12 @@
       cursor: pointer;
       font-weight: 600;
       margin-top: 10px;
+      color: var(--debug-accent);
+      transition: color 0.2s ease;
+    }
+
+    .debug-card__details summary:hover {
+      color: var(--debug-accent-hover);
     }
 
     .debug-card__grid {
@@ -325,61 +415,113 @@
     }
 
     .debug-code {
-      background: #0f172a;
-      color: #e2e8f0;
+      background: var(--debug-bg);
+      color: var(--debug-ink);
       padding: 12px;
       border-radius: 12px;
       margin-top: 10px;
       font-size: 12px;
       overflow-x: auto;
+      border: 1px solid var(--debug-border);
     }
 
     .debug-badge {
       font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-weight: 700;
+      letter-spacing: 0.05em;
+      font-weight: 600;
       padding: 4px 8px;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.08);
+      border-radius: 6px;
+      background: var(--debug-overlay);
       color: var(--debug-ink);
     }
 
     .debug-badge--status {
-      background: rgba(14, 165, 233, 0.12);
-      color: var(--debug-cool);
+      background: rgba(166, 227, 161, 0.2);
+      color: var(--debug-success);
+    }
+
+    .debug-badge--status-error {
+      background: rgba(243, 139, 168, 0.2);
+      color: var(--debug-danger);
+    }
+
+    .debug-badge--status-warn {
+      background: rgba(249, 226, 175, 0.2);
+      color: var(--debug-warn);
     }
 
     .debug-badge--method {
-      background: rgba(249, 115, 22, 0.15);
-      color: var(--debug-accent-strong);
+      min-width: 50px;
+      text-align: center;
+    }
+
+    .debug-badge--method-get {
+      background: rgba(166, 227, 161, 0.2);
+      color: var(--debug-success);
+    }
+
+    .debug-badge--method-post {
+      background: rgba(137, 180, 250, 0.2);
+      color: var(--debug-accent);
+    }
+
+    .debug-badge--method-put,
+    .debug-badge--method-patch {
+      background: rgba(249, 226, 175, 0.2);
+      color: var(--debug-warn);
+    }
+
+    .debug-badge--method-delete {
+      background: rgba(243, 139, 168, 0.2);
+      color: var(--debug-danger);
     }
 
     .debug-badge--sql {
-      background: rgba(34, 197, 94, 0.16);
-      color: #15803d;
+      background: rgba(203, 166, 247, 0.2);
+      color: var(--debug-mauve);
     }
 
     .debug-badge--error {
-      background: rgba(239, 68, 68, 0.2);
+      background: rgba(243, 139, 168, 0.2);
       color: var(--debug-danger);
     }
 
     .debug-badge--level {
-      background: rgba(59, 130, 246, 0.18);
-      color: #1d4ed8;
+      min-width: 50px;
+      text-align: center;
+    }
+
+    .debug-badge--level-debug {
+      background: rgba(108, 112, 134, 0.3);
+      color: var(--debug-muted);
+    }
+
+    .debug-badge--level-info {
+      background: rgba(137, 220, 235, 0.2);
+      color: var(--debug-info);
+    }
+
+    .debug-badge--level-warn {
+      background: rgba(249, 226, 175, 0.2);
+      color: var(--debug-warn);
+    }
+
+    .debug-badge--level-error {
+      background: rgba(243, 139, 168, 0.2);
+      color: var(--debug-danger);
     }
 
     .debug-badge--custom {
-      background: rgba(148, 163, 184, 0.2);
-      color: var(--debug-ink);
+      background: rgba(250, 179, 135, 0.2);
+      color: var(--debug-peach);
     }
 
     .debug-json-panel {
-      border: 1px dashed rgba(148, 163, 184, 0.4);
+      border: 1px solid var(--debug-border);
       border-radius: 16px;
       padding: 14px;
-      background: rgba(255, 255, 255, 0.6);
+      background: var(--debug-surface);
     }
 
     .debug-json-header {
@@ -391,12 +533,14 @@
 
     .debug-json-panel pre,
     .debug-card pre {
-      background: rgba(15, 23, 42, 0.04);
-      padding: 10px;
+      background: var(--debug-bg);
+      padding: 12px;
       border-radius: 12px;
       overflow-x: auto;
       font-size: 12px;
-      color: #1f2937;
+      color: var(--debug-ink);
+      border: 1px solid var(--debug-border);
+      line-height: 1.5;
     }
 
     .debug-grid {
@@ -409,6 +553,7 @@
       font-size: 14px;
       font-weight: 700;
       margin-bottom: 10px;
+      color: var(--debug-ink);
     }
 
     .debug-empty {
@@ -420,6 +565,24 @@
     .debug-muted {
       color: var(--debug-muted);
       font-size: 12px;
+    }
+
+    /* Duration formatting */
+    .debug-duration {
+      font-variant-numeric: tabular-nums;
+      color: var(--debug-muted);
+    }
+
+    .debug-duration--slow {
+      color: var(--debug-warn);
+      font-weight: 600;
+    }
+
+    /* Timestamp */
+    .debug-timestamp {
+      font-variant-numeric: tabular-nums;
+      color: var(--debug-muted);
+      white-space: nowrap;
     }
 
     @media (max-width: 768px) {
