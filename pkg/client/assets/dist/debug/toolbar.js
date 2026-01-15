@@ -1095,10 +1095,10 @@ const j = `
   /* Connection status dot */
   .fab-status-dot {
     position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 12px;
-    height: 12px;
+    bottom: 6px;
+    right: 6px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     border: 2px solid var(--fab-bg);
     background: var(--fab-text-muted);
