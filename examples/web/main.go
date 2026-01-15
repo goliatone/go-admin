@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -87,6 +88,8 @@ func main() {
 
 	debugEnabled := strings.EqualFold(os.Getenv("ADMIN_DEBUG"), "true")
 	cfg.Debug.Enabled = debugEnabled
+	cfg.Debug.ToolbarMode = debugEnabled
+	cfg.Debug.ToolbarPanels = []string{"requests", "sql", "logs", "routes", "config", "template", "session"}
 	cfg.Debug.CaptureSQL = debugEnabled
 	cfg.Debug.CaptureLogs = debugEnabled
 	if debugEnabled {
@@ -323,21 +326,36 @@ func main() {
 	// Prefer serving assets from disk when available (dev flow), and fall back to embedded assets.
 	// This avoids 404s when the running binary was compiled without the latest generated assets
 	// (e.g., output.css, assets/dist/*) and supports iterative frontend builds.
-	diskAssetsDir := quickstart.ResolveDiskAssetsDir(
-		"output.css",
-		path.Join("pkg", "client", "assets"),
-		path.Join("..", "pkg", "client", "assets"),
-		"assets",
-	)
+	diskAssetsDir := strings.TrimSpace(os.Getenv("ADMIN_ASSETS_DIR"))
+	if diskAssetsDir != "" {
+		if abs, err := filepath.Abs(diskAssetsDir); err == nil {
+			diskAssetsDir = abs
+		}
+		if info, err := os.Stat(diskAssetsDir); err != nil || !info.IsDir() {
+			log.Printf("warning: ADMIN_ASSETS_DIR %q not accessible: %v", diskAssetsDir, err)
+			diskAssetsDir = ""
+		}
+	}
 	if diskAssetsDir == "" {
 		diskAssetsDir = quickstart.ResolveDiskAssetsDir(
-			path.Join("dist", "output.css"),
+			"output.css",
 			path.Join("pkg", "client", "assets"),
+			path.Join("..", "..", "pkg", "client", "assets"),
 			path.Join("..", "pkg", "client", "assets"),
 			"assets",
 		)
+		if diskAssetsDir == "" {
+			diskAssetsDir = quickstart.ResolveDiskAssetsDir(
+				path.Join("dist", "output.css"),
+				path.Join("pkg", "client", "assets"),
+				path.Join("..", "..", "pkg", "client", "assets"),
+				path.Join("..", "pkg", "client", "assets"),
+				"assets",
+			)
+		}
 	}
-	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
+	embeddedAssetsFS := client.Assets()
+	quickstart.NewStaticAssets(r, cfg, embeddedAssetsFS, quickstart.WithDiskAssetsDir(diskAssetsDir))
 
 	if debugEnabled {
 		r.Use(func(next router.HandlerFunc) router.HandlerFunc {
@@ -481,7 +499,15 @@ func main() {
 	}
 	if debugEnabled {
 		if collector := adm.Debug(); collector != nil {
-			slog.SetDefault(slog.New(admin.NewDebugLogHandler(collector, slog.Default().Handler())))
+			enableSlog := !strings.EqualFold(os.Getenv("ADMIN_DEBUG_SLOG"), "false") &&
+				strings.TrimSpace(os.Getenv("ADMIN_DEBUG_SLOG")) != "0"
+			if enableSlog {
+				logWriter := log.Writer()
+				delegate := slog.NewTextHandler(logWriter, &slog.HandlerOptions{Level: slog.LevelInfo})
+				handler := admin.NewDebugLogHandler(collector, delegate)
+				logger := slog.New(handler)
+				slog.SetDefault(logger)
+			}
 		}
 	}
 
