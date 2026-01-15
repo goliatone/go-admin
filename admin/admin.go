@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	router "github.com/goliatone/go-router"
+	"github.com/goliatone/go-users/activity"
+	"github.com/goliatone/go-users/query"
 )
 
 // Admin orchestrates CMS-backed admin features and adapters.
@@ -32,6 +34,8 @@ type Admin struct {
 	authorizer                  Authorizer
 	notifications               NotificationService
 	activity                    ActivitySink
+	activityFeed                ActivityFeedQuerier
+	activityPolicy              activity.ActivityAccessPolicy
 	jobs                        *JobRegistry
 	settings                    *SettingsService
 	settingsForm                *SettingsFormAdapter
@@ -92,6 +96,22 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	activitySink := deps.ActivitySink
 	if activitySink == nil {
 		activitySink = NewActivityFeed()
+	}
+	activityPolicy := deps.ActivityAccessPolicy
+	if activityPolicy == nil {
+		// TODO: Review to make sure we have something that makes sense
+		activityPolicy = activity.NewDefaultAccessPolicy()
+	}
+	activityFeed := deps.ActivityFeedQuery
+	if activityFeed == nil {
+		activityFeed = deps.ActivityService
+	}
+	if activityFeed == nil && deps.ActivityRepository != nil {
+		opts := []query.ActivityQueryOption{}
+		if activityPolicy != nil {
+			opts = append(opts, query.WithActivityAccessPolicy(activityPolicy))
+		}
+		activityFeed = query.NewActivityFeedQuery(deps.ActivityRepository, nil, opts...)
 	}
 
 	commandBus := deps.CommandBus
@@ -239,6 +259,8 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		authorizer:      deps.Authorizer,
 		notifications:   notifSvc,
 		activity:        activitySink,
+		activityFeed:    activityFeed,
+		activityPolicy:  activityPolicy,
 		jobs:            jobReg,
 		settings:        settingsSvc,
 		settingsForm:    settingsForm,
@@ -635,6 +657,12 @@ func (a *Admin) recordActivity(ctx context.Context, actor, action, object string
 	}
 	if actor == "" {
 		actor = actorFromContext(ctx)
+	}
+	if actor == "" {
+		actor = activityActorTypeSystem
+	}
+	if actor == activityActorTypeSystem {
+		metadata = tagActivityActorType(metadata, activityActorTypeSystem)
 	}
 	_ = a.activity.Record(ctx, ActivityEntry{
 		Actor:    actor,
