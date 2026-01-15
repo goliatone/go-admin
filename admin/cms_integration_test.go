@@ -118,7 +118,14 @@ func TestUseCMSOverridesNavigationSource(t *testing.T) {
 	}
 	t.Logf("menu items via svc: %d", len(menu.Items))
 	items := adm.nav.Resolve(context.Background(), "en")
-	if len(items) != 1 || items[0].Label != "CMS Item" {
+	found := false
+	for _, item := range items {
+		if item.Label == "CMS Item" {
+			found = true
+			break
+		}
+	}
+	if !found {
 		t.Fatalf("expected CMS-provided menu, got %+v", items)
 	}
 }

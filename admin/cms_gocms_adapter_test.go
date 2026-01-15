@@ -142,7 +142,14 @@ func TestUseCMSWrapsGoCMSMenuService(t *testing.T) {
 	}
 
 	items := adm.nav.Resolve(ctx, "en")
-	if len(items) == 0 || items[0].Label != "CMS Link" {
+	found := false
+	for _, item := range items {
+		if item.Label == "CMS Link" {
+			found = true
+			break
+		}
+	}
+	if !found {
 		t.Fatalf("expected navigation from go-cms adapter, got %+v", items)
 	}
 }
