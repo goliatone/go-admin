@@ -1,10 +1,14 @@
 // Debug Toolbar Entry Point
-// Auto-registers the <debug-toolbar> custom element when imported
+// Auto-registers the <debug-toolbar> and <debug-fab> custom elements when imported
 
 import './debug-toolbar.js';
+import './debug-fab.js';
 
 // Re-export for programmatic use
 export { DebugToolbar } from './debug-toolbar.js';
+export { DebugFab } from './debug-fab.js';
+export { DebugManager, initDebugManager } from './debug-manager.js';
+export type { DebugManagerOptions } from './debug-manager.js';
 export { renderPanel, getCounts } from './panel-renderers.js';
 export type {
   DebugSnapshot,

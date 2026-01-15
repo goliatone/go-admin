@@ -1,37 +1,25 @@
 import { DebugStream, type DebugStreamStatus } from '../debug-stream.js';
 import { type DebugSnapshot } from './panel-renderers.js';
-export declare class DebugToolbar extends HTMLElement {
+export declare class DebugFab extends HTMLElement {
     private shadow;
     private stream;
-    private externalStream;
     private snapshot;
-    private expanded;
-    private activePanel;
     private connectionStatus;
-    private slowThresholdMs;
-    private useFab;
+    private isHovered;
+    private toolbarExpanded;
     static get observedAttributes(): string[];
     constructor();
     connectedCallback(): void;
     disconnectedCallback(): void;
     attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void;
-    setExpanded(expanded: boolean): void;
-    setSnapshot(snapshot: DebugSnapshot): void;
-    setConnectionStatus(status: DebugStreamStatus): void;
-    setStream(stream: DebugStream): void;
-    isExpanded(): boolean;
-    private loadState;
-    private saveState;
-    private handleKeyDown;
-    private setupKeyboardShortcut;
-    private toggleExpanded;
-    private collapse;
-    private dispatchExpandEvent;
-    private get basePath();
+    setToolbarExpanded(expanded: boolean): void;
+    getSnapshot(): DebugSnapshot;
+    getConnectionStatus(): DebugStreamStatus;
+    getStream(): DebugStream | null;
     private get debugPath();
     private get panels();
-    private get wsUrl();
-    private getStream;
+    private loadState;
+    private saveState;
     private initWebSocket;
     private fetchInitialSnapshot;
     private handleEvent;
@@ -40,10 +28,8 @@ export declare class DebugToolbar extends HTMLElement {
     private applySnapshot;
     private trimArray;
     private render;
-    private updateContent;
-    private updateSummary;
+    private updateCounters;
     private updateConnectionStatus;
-    private getPanelCount;
     private attachEventListeners;
 }
-//# sourceMappingURL=debug-toolbar.d.ts.map
+//# sourceMappingURL=debug-fab.d.ts.map
