@@ -82,10 +82,12 @@ export const fabStyles = `
   }
 
   /* Connection status dot - positioned at bottom-right of icon area */
+  /* Icon is 24x24 centered in 48x48 container: icon spans 12px-36px both axes */
+  /* Dot overlaps icon's bottom-right corner */
   .fab-status-dot {
     position: absolute;
-    bottom: 6px;
-    left: 34px;
+    bottom: 10px;
+    left: 30px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -212,8 +214,8 @@ export const fabStyles = `
     .fab-status-dot {
       width: 8px;
       height: 8px;
-      bottom: 5px;
-      left: 32px;
+      bottom: 10px;
+      left: 28px;
     }
 
     .fab-counter {
