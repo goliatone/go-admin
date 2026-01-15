@@ -58,6 +58,11 @@ func (a *Admin) registerDefaultModules() error {
 			}
 		}
 	}
+	if _, exists := a.registry.Module(activityModuleID); !exists {
+		if err := a.registry.RegisterModule(NewActivityModule()); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
