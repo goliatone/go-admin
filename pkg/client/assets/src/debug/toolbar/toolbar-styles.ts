@@ -39,7 +39,7 @@ export const toolbarStyles = `
     background: var(--toolbar-bg);
     border-top: 1px solid var(--toolbar-border);
     color: var(--toolbar-text);
-    transition: height 0.2s ease-out;
+    transition: height 0.2s ease-out, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
     display: flex;
     flex-direction: column;
   }
@@ -50,6 +50,12 @@ export const toolbarStyles = `
 
   .toolbar.expanded {
     height: var(--toolbar-height-expanded);
+  }
+
+  .toolbar.hidden {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
   }
 
   /* Header with tabs */
@@ -121,6 +127,17 @@ export const toolbarStyles = `
     align-items: center;
   }
 
+  .connection-indicator {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+  }
+
+  .connection-indicator .status-dot {
+    width: 8px;
+    height: 8px;
+  }
+
   .action-btn {
     background: transparent;
     border: none;
@@ -146,6 +163,11 @@ export const toolbarStyles = `
     padding: 6px 10px;
   }
 
+  .action-btn.collapse-btn:hover {
+    background: rgba(243, 139, 168, 0.2);
+    color: var(--toolbar-error);
+  }
+
   .expand-link {
     color: var(--toolbar-text-muted);
     text-decoration: none;
@@ -153,6 +175,9 @@ export const toolbarStyles = `
     font-size: 14px;
     border-radius: 4px;
     transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .expand-link:hover {

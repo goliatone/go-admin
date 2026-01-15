@@ -1,5 +1,6 @@
 // Debug Toolbar Web Component
 // A self-contained toolbar that displays debug information at the bottom of the page
+// Works in conjunction with DebugFab for collapsed state
 
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from '../debug-stream.js';
 import { toolbarStyles } from './toolbar-styles.js';
@@ -40,14 +41,16 @@ const eventToPanel: Record<string, string> = {
 export class DebugToolbar extends HTMLElement {
   private shadow: ShadowRoot;
   private stream: DebugStream | null = null;
+  private externalStream: DebugStream | null = null;
   private snapshot: DebugSnapshot = {};
   private expanded = false;
   private activePanel = 'requests';
   private connectionStatus: DebugStreamStatus = 'disconnected';
   private slowThresholdMs = 50;
+  private useFab = false;
 
   static get observedAttributes(): string[] {
-    return ['base-path', 'debug-path', 'panels', 'expanded', 'slow-threshold-ms'];
+    return ['base-path', 'debug-path', 'panels', 'expanded', 'slow-threshold-ms', 'use-fab'];
   }
 
   constructor() {
@@ -56,13 +59,19 @@ export class DebugToolbar extends HTMLElement {
   }
 
   connectedCallback(): void {
+    this.loadState();
     this.render();
-    this.initWebSocket();
-    this.fetchInitialSnapshot();
+    // Only init WebSocket if not using FAB (FAB manages its own connection)
+    if (!this.useFab) {
+      this.initWebSocket();
+      this.fetchInitialSnapshot();
+    }
+    this.setupKeyboardShortcut();
   }
 
   disconnectedCallback(): void {
     this.stream?.close();
+    document.removeEventListener('keydown', this.handleKeyDown);
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -70,10 +79,98 @@ export class DebugToolbar extends HTMLElement {
 
     if (name === 'expanded') {
       this.expanded = newValue === 'true' || newValue === '';
+      this.saveState();
       this.render();
     } else if (name === 'slow-threshold-ms') {
       this.slowThresholdMs = parseInt(newValue || '50', 10) || 50;
+    } else if (name === 'use-fab') {
+      this.useFab = newValue === 'true' || newValue === '';
     }
+  }
+
+  // Public API for FAB integration
+  public setExpanded(expanded: boolean): void {
+    this.expanded = expanded;
+    this.saveState();
+    this.render();
+  }
+
+  public setSnapshot(snapshot: DebugSnapshot): void {
+    this.snapshot = snapshot || {};
+    this.updateContent();
+  }
+
+  public setConnectionStatus(status: DebugStreamStatus): void {
+    this.connectionStatus = status;
+    this.updateConnectionStatus();
+  }
+
+  public setStream(stream: DebugStream): void {
+    this.externalStream = stream;
+  }
+
+  public isExpanded(): boolean {
+    return this.expanded;
+  }
+
+  // State persistence
+  private loadState(): void {
+    try {
+      const stored = localStorage.getItem('debug-toolbar-expanded');
+      if (stored !== null) {
+        this.expanded = stored === 'true';
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }
+
+  private saveState(): void {
+    try {
+      localStorage.setItem('debug-toolbar-expanded', String(this.expanded));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }
+
+  // Keyboard shortcut
+  private handleKeyDown = (e: KeyboardEvent): void => {
+    // Ctrl+Shift+D or Cmd+Shift+D to toggle
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+      e.preventDefault();
+      this.toggleExpanded();
+    }
+    // Escape to collapse
+    if (e.key === 'Escape' && this.expanded) {
+      this.collapse();
+    }
+  };
+
+  private setupKeyboardShortcut(): void {
+    document.addEventListener('keydown', this.handleKeyDown);
+  }
+
+  private toggleExpanded(): void {
+    this.expanded = !this.expanded;
+    this.saveState();
+    this.render();
+    this.dispatchExpandEvent();
+  }
+
+  private collapse(): void {
+    if (!this.expanded) return;
+    this.expanded = false;
+    this.saveState();
+    this.render();
+    this.dispatchExpandEvent();
+  }
+
+  private dispatchExpandEvent(): void {
+    this.dispatchEvent(new CustomEvent('debug-expand', {
+      detail: { expanded: this.expanded },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   // Attribute getters
@@ -101,6 +198,11 @@ export class DebugToolbar extends HTMLElement {
 
   private get wsUrl(): string {
     return `${this.debugPath}/ws`;
+  }
+
+  // Get the active stream (external from FAB or internal)
+  private getStream(): DebugStream | null {
+    return this.externalStream || this.stream;
   }
 
   // WebSocket initialization
@@ -168,8 +270,8 @@ export class DebugToolbar extends HTMLElement {
         break;
     }
 
-    // Update UI if showing affected panel or summary
-    if (panel === this.activePanel || !this.expanded) {
+    // Update UI if showing affected panel
+    if (panel === this.activePanel && this.expanded) {
       this.updateContent();
     }
   }
@@ -222,20 +324,43 @@ export class DebugToolbar extends HTMLElement {
       })
       .join('');
 
+    // When using FAB, toolbar is either expanded (visible) or collapsed (hidden)
+    // When not using FAB, show the summary bar in collapsed state
+    const showToolbar = this.useFab ? this.expanded : true;
     const expandedClass = this.expanded ? 'expanded' : 'collapsed';
-    const toggleIcon = this.expanded ? '▼' : '▲';
+    const hiddenClass = this.useFab && !this.expanded ? 'hidden' : '';
 
     this.shadow.innerHTML = `
       <style>${toolbarStyles}</style>
-      <div class="toolbar ${expandedClass}">
+      <div class="toolbar ${expandedClass} ${hiddenClass}">
         ${this.expanded ? `
           <div class="toolbar-header">
             <div class="toolbar-tabs">${panelTabs}</div>
             <div class="toolbar-actions">
-              <button class="action-btn" data-action="refresh" title="Refresh">↻</button>
-              <button class="action-btn" data-action="clear" title="Clear">🗑</button>
-              <a class="expand-link" href="${this.debugPath}" title="Open full debug page">⛶</a>
-              <button class="action-btn toggle-btn" data-action="toggle" title="Collapse">${toggleIcon}</button>
+              <span class="connection-indicator">
+                <span class="status-dot ${this.connectionStatus}"></span>
+              </span>
+              <button class="action-btn" data-action="refresh" title="Refresh (get snapshot)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M23 4v6h-6M1 20v-6h6"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+              </button>
+              <button class="action-btn" data-action="clear" title="Clear all data">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </button>
+              <a class="action-btn expand-link" href="${this.debugPath}" title="Open full debug page">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                </svg>
+              </a>
+              <button class="action-btn collapse-btn" data-action="collapse" title="Collapse (Esc)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
             </div>
           </div>
           <div class="toolbar-content">
@@ -244,30 +369,32 @@ export class DebugToolbar extends HTMLElement {
             </div>
           </div>
         ` : ''}
-        <div class="toolbar-summary">
-          <div class="summary-item ${counts.errors > 0 ? 'has-errors' : ''}">
-            <span>Requests:</span>
-            <span class="count">${counts.requests}</span>
-          </div>
-          <div class="summary-item ${counts.slowQueries > 0 ? 'has-slow' : ''}">
-            <span>SQL:</span>
-            <span class="count">${counts.sql}</span>
-          </div>
-          <div class="summary-item">
-            <span>Logs:</span>
-            <span class="count">${counts.logs}</span>
-          </div>
-          ${counts.errors > 0 ? `
-            <div class="summary-item has-errors">
-              <span>Errors:</span>
-              <span class="count">${counts.errors}</span>
+        ${!this.useFab ? `
+          <div class="toolbar-summary">
+            <div class="summary-item ${counts.errors > 0 ? 'has-errors' : ''}">
+              <span>Requests:</span>
+              <span class="count">${counts.requests}</span>
             </div>
-          ` : ''}
-          <div class="connection-status">
-            <span class="status-dot ${this.connectionStatus}"></span>
-            <span>${this.connectionStatus}</span>
+            <div class="summary-item ${counts.slowQueries > 0 ? 'has-slow' : ''}">
+              <span>SQL:</span>
+              <span class="count">${counts.sql}</span>
+            </div>
+            <div class="summary-item">
+              <span>Logs:</span>
+              <span class="count">${counts.logs}</span>
+            </div>
+            ${counts.errors > 0 ? `
+              <div class="summary-item has-errors">
+                <span>Errors:</span>
+                <span class="count">${counts.errors}</span>
+              </div>
+            ` : ''}
+            <div class="connection-status">
+              <span class="status-dot ${this.connectionStatus}"></span>
+              <span>${this.connectionStatus}</span>
+            </div>
           </div>
-        </div>
+        ` : ''}
       </div>
     `;
 
@@ -290,8 +417,10 @@ export class DebugToolbar extends HTMLElement {
       });
     }
 
-    // Update summary counts
-    this.updateSummary();
+    // Update summary counts (only when not using FAB)
+    if (!this.useFab) {
+      this.updateSummary();
+    }
   }
 
   private updateSummary(): void {
@@ -320,13 +449,20 @@ export class DebugToolbar extends HTMLElement {
   }
 
   private updateConnectionStatus(): void {
-    const dot = this.shadow.querySelector('.status-dot');
-    const text = this.shadow.querySelector('.connection-status span:last-child');
-    if (dot) {
-      dot.className = `status-dot ${this.connectionStatus}`;
+    // Update header indicator
+    const headerDot = this.shadow.querySelector('.connection-indicator .status-dot');
+    if (headerDot) {
+      headerDot.className = `status-dot ${this.connectionStatus}`;
     }
-    if (text) {
-      text.textContent = this.connectionStatus;
+
+    // Update summary indicator (when not using FAB)
+    const summaryDot = this.shadow.querySelector('.connection-status .status-dot');
+    const summaryText = this.shadow.querySelector('.connection-status span:last-child');
+    if (summaryDot) {
+      summaryDot.className = `status-dot ${this.connectionStatus}`;
+    }
+    if (summaryText) {
+      summaryText.textContent = this.connectionStatus;
     }
   }
 
@@ -377,16 +513,19 @@ export class DebugToolbar extends HTMLElement {
     this.shadow.querySelectorAll('[data-action]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         const action = (e.currentTarget as HTMLElement).dataset.action;
+        const activeStream = this.getStream();
         switch (action) {
           case 'toggle':
-            this.expanded = !this.expanded;
-            this.render();
+            this.toggleExpanded();
+            break;
+          case 'collapse':
+            this.collapse();
             break;
           case 'refresh':
-            this.stream?.requestSnapshot();
+            activeStream?.requestSnapshot();
             break;
           case 'clear':
-            this.stream?.clear();
+            activeStream?.clear();
             this.snapshot = {};
             this.updateContent();
             break;
@@ -394,15 +533,19 @@ export class DebugToolbar extends HTMLElement {
       });
     });
 
-    // Summary click to expand
-    const summary = this.shadow.querySelector('.toolbar-summary');
-    if (summary) {
-      summary.addEventListener('click', () => {
-        if (!this.expanded) {
-          this.expanded = true;
-          this.render();
-        }
-      });
+    // Summary click to expand (when not using FAB)
+    if (!this.useFab) {
+      const summary = this.shadow.querySelector('.toolbar-summary');
+      if (summary) {
+        summary.addEventListener('click', () => {
+          if (!this.expanded) {
+            this.expanded = true;
+            this.saveState();
+            this.render();
+            this.dispatchExpandEvent();
+          }
+        });
+      }
     }
   }
 }
