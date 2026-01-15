@@ -288,7 +288,7 @@ func (j *JobRegistry) registerScheduleLocked(name string, opts command.HandlerCo
 			JobID:      name,
 			ScriptPath: commander.Task.GetPath(),
 		})
-		j.recordJobRun(AdminContext{Context: context.Background(), UserID: "system"}, name, j.stateLocked(name), err)
+		j.recordJobRun(AdminContext{Context: context.Background(), UserID: activityActorTypeSystem}, name, j.stateLocked(name), err)
 		return err
 	}
 
@@ -362,11 +362,12 @@ func (j *JobRegistry) recordActivity(ctx AdminContext, name string, state *jobSt
 	} else {
 		meta["status"] = "ok"
 	}
+	meta = tagActivityActorType(meta, activityActorTypeJob)
 	actor := ctx.UserID
 	if actor == "" {
 		actor = actorFromContext(ctx.Context)
 		if actor == "" {
-			actor = "system"
+			actor = activityActorTypeSystem
 		}
 	}
 	_ = j.activity.Record(ctx.Context, ActivityEntry{
