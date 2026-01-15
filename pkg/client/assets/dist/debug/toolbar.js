@@ -1097,8 +1097,8 @@ const j = `
   /* Dot overlaps icon's bottom-right corner */
   .fab-status-dot {
     position: absolute;
-    bottom: 10px;
-    left: 30px;
+    bottom: 11px;
+    left: 40px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -1225,8 +1225,8 @@ const j = `
     .fab-status-dot {
       width: 8px;
       height: 8px;
-      bottom: 10px;
-      left: 28px;
+      bottom: 11px;
+      left: 40px;
     }
 
     .fab-counter {
