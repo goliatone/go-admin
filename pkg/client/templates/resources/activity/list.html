@@ -1,0 +1,348 @@
+{% extends "layout.html" %}
+
+{% block title %}Activity - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <h1 class="text-3xl font-bold text-admin-dark">Activity</h1>
+  <button type="button" id="activity-refresh" class="btn btn-secondary">Refresh</button>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  <div id="activity-disabled" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+    Activity logging is not configured. Connect an ActivityRepository to enable this view.
+  </div>
+  <div id="activity-error" class="hidden mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"></div>
+
+  <div class="bg-white border border-gray-200 rounded-xl mb-6 p-4 shadow-sm">
+    <form id="activity-filters" class="grid gap-4 md:grid-cols-3">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-q">Keyword</label>
+        <input id="filter-q" name="q" type="text" placeholder="Search metadata"
+               class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-verb">Verb</label>
+        <input id="filter-verb" name="verb" type="text" placeholder="created, updated"
+               class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-channels">Channels</label>
+        <input id="filter-channels" name="channels" type="text" placeholder="users, settings"
+               class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-object-type">Object Type</label>
+        <input id="filter-object-type" name="object_type" type="text" placeholder="user, role"
+               class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-object-id">Object ID</label>
+        <input id="filter-object-id" name="object_id" type="text" placeholder="123"
+               class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-limit">Results</label>
+        <select id="filter-limit" name="limit"
+                class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+          <option value="50">50 per page</option>
+          <option value="100">100 per page</option>
+          <option value="200">200 per page</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-since">Since</label>
+        <input id="filter-since" name="since" type="datetime-local"
+               class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-until">Until</label>
+        <input id="filter-until" name="until" type="datetime-local"
+               class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+      </div>
+      <div class="flex items-end gap-2 md:col-span-3">
+        <button type="submit" class="btn btn-primary">Apply Filters</button>
+        <button type="button" id="activity-clear" class="btn btn-secondary">Clear</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm text-left text-gray-700">
+        <thead class="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="px-4 py-3">When</th>
+            <th class="px-4 py-3">Actor</th>
+            <th class="px-4 py-3">Action</th>
+            <th class="px-4 py-3">Object</th>
+            <th class="px-4 py-3">Channel</th>
+            <th class="px-4 py-3">Metadata</th>
+          </tr>
+        </thead>
+        <tbody id="activity-table-body" class="divide-y divide-gray-100 bg-white"></tbody>
+      </table>
+    </div>
+    <div id="activity-empty" class="hidden p-6 text-sm text-gray-500">No activity found.</div>
+  </div>
+
+  <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div id="activity-count" class="text-sm text-gray-600"></div>
+    <div class="flex gap-2">
+      <button type="button" id="activity-prev" class="btn btn-secondary">Previous</button>
+      <button type="button" id="activity-next" class="btn btn-secondary">Next</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+const basePath = '{{ base_path }}';
+const apiPath = '{{ activity_api_path|default:"" }}' || `${basePath}/api/activity`;
+const form = document.getElementById('activity-filters');
+const tableBody = document.getElementById('activity-table-body');
+const emptyState = document.getElementById('activity-empty');
+const disabledState = document.getElementById('activity-disabled');
+const errorState = document.getElementById('activity-error');
+const countEl = document.getElementById('activity-count');
+const prevBtn = document.getElementById('activity-prev');
+const nextBtn = document.getElementById('activity-next');
+const refreshBtn = document.getElementById('activity-refresh');
+const clearBtn = document.getElementById('activity-clear');
+const limitInput = document.getElementById('filter-limit');
+
+const state = {
+  limit: 50,
+  offset: 0,
+  total: 0,
+  nextOffset: 0,
+  hasMore: false,
+  extraParams: {},
+};
+
+const fieldIds = ['q', 'verb', 'channels', 'object_type', 'object_id'];
+const dateFields = ['since', 'until'];
+const passthroughFields = ['user_id', 'actor_id'];
+
+function getInputValue(name) {
+  const input = document.getElementById(`filter-${name.replace('_', '-')}`);
+  if (!input) return '';
+  return String(input.value || '').trim();
+}
+
+function setInputValue(name, value) {
+  const input = document.getElementById(`filter-${name.replace('_', '-')}`);
+  if (!input) return;
+  input.value = value || '';
+}
+
+function toLocalInput(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  const offset = parsed.getTimezoneOffset() * 60000;
+  return new Date(parsed.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function toRFC3339(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  return parsed.toISOString();
+}
+
+function syncFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const limit = parseInt(params.get('limit') || '', 10);
+  const offset = parseInt(params.get('offset') || '', 10);
+  if (!Number.isNaN(limit) && limit > 0) {
+    state.limit = limit;
+  }
+  if (!Number.isNaN(offset) && offset >= 0) {
+    state.offset = offset;
+  }
+  limitInput.value = String(state.limit);
+  fieldIds.forEach((name) => setInputValue(name, params.get(name) || ''));
+  dateFields.forEach((name) => setInputValue(name, toLocalInput(params.get(name) || '')));
+  passthroughFields.forEach((name) => {
+    const val = params.get(name);
+    if (val) {
+      state.extraParams[name] = val;
+    }
+  });
+}
+
+function buildParams() {
+  const params = new URLSearchParams();
+  params.set('limit', String(state.limit));
+  params.set('offset', String(state.offset));
+  fieldIds.forEach((name) => {
+    const value = getInputValue(name);
+    if (value) {
+      params.set(name, value);
+    }
+  });
+  dateFields.forEach((name) => {
+    const value = toRFC3339(getInputValue(name));
+    if (value) {
+      params.set(name, value);
+    }
+  });
+  Object.entries(state.extraParams).forEach(([key, value]) => {
+    if (value) {
+      params.set(key, value);
+    }
+  });
+  return params;
+}
+
+function syncUrl(params) {
+  const query = params.toString();
+  const next = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+  window.history.replaceState({}, '', next);
+}
+
+function resetStates() {
+  disabledState.classList.add('hidden');
+  errorState.classList.add('hidden');
+}
+
+function showError(message) {
+  errorState.textContent = message;
+  errorState.classList.remove('hidden');
+}
+
+function showDisabled(message) {
+  disabledState.textContent = message;
+  disabledState.classList.remove('hidden');
+}
+
+function formatMetadata(data) {
+  if (!data || typeof data !== 'object') {
+    return '';
+  }
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return '';
+  }
+}
+
+function formatTimestamp(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString();
+}
+
+function renderRows(entries) {
+  tableBody.innerHTML = '';
+  if (!entries || entries.length === 0) {
+    emptyState.classList.remove('hidden');
+    return;
+  }
+  emptyState.classList.add('hidden');
+  entries.forEach((entry) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="px-4 py-3 whitespace-nowrap text-gray-600">${formatTimestamp(entry.created_at)}</td>
+      <td class="px-4 py-3 font-medium text-gray-900">${entry.actor || '—'}</td>
+      <td class="px-4 py-3">${entry.action || '—'}</td>
+      <td class="px-4 py-3">${entry.object || '—'}</td>
+      <td class="px-4 py-3">${entry.channel || '—'}</td>
+      <td class="px-4 py-3 max-w-xs break-words text-xs text-gray-500">${formatMetadata(entry.metadata)}</td>
+    `;
+    tableBody.appendChild(row);
+  });
+}
+
+function updatePagination(count) {
+  const total = Number.isFinite(state.total) ? state.total : 0;
+  const start = count > 0 ? state.offset + 1 : 0;
+  const end = state.offset + count;
+  if (total > 0) {
+    countEl.textContent = `Showing ${start}-${end} of ${total}`;
+  } else if (count > 0) {
+    countEl.textContent = `Showing ${start}-${end}`;
+  } else {
+    countEl.textContent = 'No activity entries';
+  }
+  prevBtn.disabled = state.offset <= 0;
+  nextBtn.disabled = !state.hasMore;
+}
+
+async function loadActivity() {
+  resetStates();
+  const params = buildParams();
+  syncUrl(params);
+  const url = `${apiPath}?${params.toString()}`;
+  try {
+    const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!response.ok) {
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+      if (response.status === 404 && payload && payload.text_code === 'FEATURE_DISABLED') {
+        showDisabled(payload.message || 'Activity feature disabled.');
+        renderRows([]);
+        updatePagination(0);
+        return;
+      }
+      showError(payload && payload.message ? payload.message : `Failed to load activity (${response.status})`);
+      return;
+    }
+    const payload = await response.json();
+    const entries = Array.isArray(payload.entries) ? payload.entries : [];
+    state.total = typeof payload.total === 'number' ? payload.total : entries.length;
+    state.hasMore = Boolean(payload.has_more);
+    state.nextOffset = typeof payload.next_offset === 'number' ? payload.next_offset : state.offset + entries.length;
+    renderRows(entries);
+    updatePagination(entries.length);
+  } catch (err) {
+    showError('Failed to load activity.');
+  }
+}
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  state.limit = parseInt(limitInput.value || '50', 10) || 50;
+  state.offset = 0;
+  loadActivity();
+});
+
+clearBtn.addEventListener('click', () => {
+  fieldIds.forEach((name) => setInputValue(name, ''));
+  dateFields.forEach((name) => setInputValue(name, ''));
+  state.offset = 0;
+  loadActivity();
+});
+
+prevBtn.addEventListener('click', () => {
+  state.offset = Math.max(0, state.offset - state.limit);
+  loadActivity();
+});
+
+nextBtn.addEventListener('click', () => {
+  if (!state.hasMore) return;
+  state.offset = state.nextOffset;
+  loadActivity();
+});
+
+refreshBtn.addEventListener('click', () => {
+  loadActivity();
+});
+
+syncFromQuery();
+loadActivity();
+</script>
+{% endblock %}
