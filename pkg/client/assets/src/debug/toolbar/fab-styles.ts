@@ -31,6 +31,7 @@ export const fabStyles = `
   }
 
   .fab {
+    position: relative;
     display: flex;
     align-items: center;
     background: var(--fab-bg);
@@ -39,7 +40,7 @@ export const fabStyles = `
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
+    overflow: visible;
     height: 48px;
     min-width: 48px;
   }
@@ -64,7 +65,6 @@ export const fabStyles = `
     width: 48px;
     height: 48px;
     flex-shrink: 0;
-    position: relative;
   }
 
   .fab-icon {
@@ -81,17 +81,18 @@ export const fabStyles = `
     height: 100%;
   }
 
-  /* Connection status dot */
+  /* Connection status dot - positioned at bottom-right of icon area */
   .fab-status-dot {
     position: absolute;
     bottom: 6px;
-    right: 6px;
+    left: 34px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
     border: 2px solid var(--fab-bg);
     background: var(--fab-text-muted);
     transition: background 0.2s, box-shadow 0.2s;
+    z-index: 1;
   }
 
   .fab[data-status="connected"] .fab-status-dot {
@@ -209,10 +210,10 @@ export const fabStyles = `
     }
 
     .fab-status-dot {
-      width: 10px;
-      height: 10px;
-      bottom: 3px;
-      right: 3px;
+      width: 8px;
+      height: 8px;
+      bottom: 5px;
+      left: 32px;
     }
 
     .fab-counter {
