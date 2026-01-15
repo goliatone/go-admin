@@ -5,7 +5,7 @@ go 1.24.10
 require (
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
-	github.com/goliatone/go-auth v0.22.0
+	github.com/goliatone/go-auth v0.23.0
 	github.com/goliatone/go-cms v0.18.0
 	github.com/goliatone/go-command v0.12.0
 	github.com/goliatone/go-crud v0.17.0
@@ -23,7 +23,7 @@ require (
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-uploader v0.3.0
-	github.com/goliatone/go-users v0.5.0
+	github.com/goliatone/go-users v0.10.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.32
@@ -99,7 +99,7 @@ require (
 	github.com/goliatone/go-logger v0.4.0 // indirect
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
-	github.com/goliatone/go-repository-cache v0.5.0 // indirect
+	github.com/goliatone/go-repository-cache v0.6.0 // indirect
 	github.com/goliatone/go-urlkit v0.3.0 // indirect
 	github.com/goliatone/hashid v0.1.1 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
