@@ -614,14 +614,21 @@ export class DebugPanel {
       .map((entry) => {
         const headers = entry.headers ? formatJSON(entry.headers) : '{}';
         const query = entry.query ? formatJSON(entry.query) : '{}';
+        const methodClass = `debug-badge--method-${(entry.method || 'get').toLowerCase()}`;
+        const statusCode = entry.status || 0;
+        const statusClass = statusCode >= 500 ? 'debug-badge--status-error' : statusCode >= 400 ? 'debug-badge--status-warn' : 'debug-badge--status';
+        const cardClass = statusCode >= 400 ? 'debug-card--error' : '';
+        const duration = entry.duration || 0;
+        const durationMs = typeof duration === 'number' ? duration / 1e6 : 0;
+        const durationClass = durationMs >= this.slowThresholdMs ? 'debug-duration--slow' : '';
         return `
-          <article class="debug-card">
+          <article class="debug-card ${cardClass}">
             <div class="debug-card__row">
-              <span class="debug-badge debug-badge--method">${escapeHTML(entry.method || 'GET')}</span>
+              <span class="debug-badge debug-badge--method ${methodClass}">${escapeHTML(entry.method || 'GET')}</span>
               <span class="debug-card__path">${escapeHTML(entry.path || '')}</span>
-              <span class="debug-badge debug-badge--status">${escapeHTML(entry.status || 0)}</span>
-              <span class="debug-card__meta">${formatDuration(entry.duration)}</span>
-              <span class="debug-card__meta">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
+              <span class="debug-badge ${statusClass}">${escapeHTML(statusCode)}</span>
+              <span class="debug-card__meta debug-duration ${durationClass}">${formatDuration(entry.duration)}</span>
+              <span class="debug-card__meta debug-timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
             </div>
             <details class="debug-card__details">
               <summary>Details</summary>
@@ -668,15 +675,18 @@ export class DebugPanel {
     const rows = entries
       .map((entry) => {
         const isSlow = this.isSlowQuery(entry);
+        const hasError = !!entry.error;
         const args = entry.args ? formatJSON(entry.args) : '[]';
+        const cardClass = hasError ? 'debug-card--error' : isSlow ? 'debug-card--slow' : '';
+        const durationClass = isSlow ? 'debug-duration--slow' : '';
         return `
-          <article class="debug-card ${isSlow ? 'debug-card--slow' : ''}">
+          <article class="debug-card ${cardClass}">
             <div class="debug-card__row">
               <span class="debug-badge debug-badge--sql">SQL</span>
-              <span class="debug-card__meta">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
-              <span class="debug-card__meta">${formatDuration(entry.duration)}</span>
+              <span class="debug-card__meta debug-timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
+              <span class="debug-card__meta debug-duration ${durationClass}">${formatDuration(entry.duration)}</span>
               <span class="debug-card__meta">Rows: ${escapeHTML(formatNumber(entry.row_count || 0))}</span>
-              ${entry.error ? `<span class="debug-badge debug-badge--error">Error</span>` : ''}
+              ${hasError ? `<span class="debug-badge debug-badge--error">Error</span>` : ''}
             </div>
             <pre class="debug-code">${escapeHTML(entry.query || '')}</pre>
             <div class="debug-card__grid">
@@ -684,7 +694,7 @@ export class DebugPanel {
                 <h4>Args</h4>
                 <pre>${escapeHTML(args)}</pre>
               </div>
-              ${entry.error ? `<div><h4>Error</h4><pre>${escapeHTML(entry.error)}</pre></div>` : ''}
+              ${hasError ? `<div><h4>Error</h4><pre>${escapeHTML(entry.error)}</pre></div>` : ''}
             </div>
           </article>
         `;
@@ -714,11 +724,15 @@ export class DebugPanel {
 
     const rows = entries
       .map((entry) => {
+        const logLevel = (entry.level || 'info').toLowerCase();
+        const levelClass = `debug-badge--level-${logLevel}`;
+        const isError = logLevel === 'error' || logLevel === 'fatal';
+        const cardClass = isError ? 'debug-card--error' : '';
         return `
-          <article class="debug-card">
+          <article class="debug-card ${cardClass}">
             <div class="debug-card__row">
-              <span class="debug-badge debug-badge--level">${escapeHTML((entry.level || 'info').toUpperCase())}</span>
-              <span class="debug-card__meta">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
+              <span class="debug-badge debug-badge--level ${levelClass}">${escapeHTML((entry.level || 'info').toUpperCase())}</span>
+              <span class="debug-card__meta debug-timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
               <span class="debug-card__path">${escapeHTML(entry.message || '')}</span>
             </div>
             <div class="debug-card__grid">
@@ -753,10 +767,11 @@ export class DebugPanel {
 
     const rows = entries
       .map((entry) => {
+        const methodClass = `debug-badge--method-${(entry.method || 'get').toLowerCase()}`;
         return `
           <article class="debug-card">
             <div class="debug-card__row">
-              <span class="debug-badge debug-badge--method">${escapeHTML(entry.method || '')}</span>
+              <span class="debug-badge debug-badge--method ${methodClass}">${escapeHTML(entry.method || '')}</span>
               <span class="debug-card__path">${escapeHTML(entry.path || '')}</span>
               ${entry.handler ? `<span class="debug-card__meta">${escapeHTML(entry.handler)}</span>` : ''}
             </div>
