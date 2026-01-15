@@ -16,9 +16,24 @@ import (
 )
 
 // CaptureViewContext stores template data in the debug collector and returns the view context.
+// When the debug collector has ToolbarMode enabled, it also injects toolbar template variables:
+// - debug_toolbar_enabled: true when toolbar should be shown
+// - debug_path: the debug module base path
+// - debug_toolbar_panels: comma-separated list of panels for the toolbar
+// - debug_slow_threshold_ms: slow query threshold in milliseconds
 func CaptureViewContext(collector *DebugCollector, viewCtx router.ViewContext) router.ViewContext {
-	if collector != nil {
-		collector.CaptureTemplateData(viewCtx)
+	if collector == nil {
+		return viewCtx
+	}
+	collector.CaptureTemplateData(viewCtx)
+
+	// Inject toolbar variables when ToolbarMode is enabled
+	cfg := collector.config
+	if cfg.ToolbarMode && debugConfigEnabled(cfg) {
+		viewCtx["debug_toolbar_enabled"] = true
+		viewCtx["debug_path"] = cfg.BasePath
+		viewCtx["debug_toolbar_panels"] = strings.Join(cfg.ToolbarPanels, ",")
+		viewCtx["debug_slow_threshold_ms"] = cfg.SlowQueryThreshold.Milliseconds()
 	}
 	return viewCtx
 }
@@ -73,19 +88,13 @@ func debugRequestHeaders(c router.Context) map[string]string {
 	if len(headers) == 0 {
 		return nil
 	}
-	if redacted, ok := redactSensitiveValue(headers).(map[string]string); ok {
-		return redacted
-	}
-	return headers
+	return normalizeHeaderMap(headers)
 }
 
 func debugRequestQueries(c router.Context) map[string]string {
 	queries := cloneStringMap(c.Queries())
 	if len(queries) == 0 {
 		return nil
-	}
-	if redacted, ok := redactSensitiveValue(queries).(map[string]string); ok {
-		return redacted
 	}
 	return queries
 }
