@@ -26,6 +26,7 @@ type Config struct {
 	SettingsThemeTokens               map[string]string
 	NotificationsPermission           string
 	NotificationsUpdatePermission     string
+	ActivityPermission                string
 	JobsPermission                    string
 	JobsTriggerPermission             string
 	PreferencesPermission             string
