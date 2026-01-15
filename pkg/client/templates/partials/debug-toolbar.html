@@ -1,9 +1,14 @@
 {% if debug_toolbar_enabled %}
-<script type="module" src="{{ base_path }}/assets/dist/debug/toolbar.js"></script>
-<debug-toolbar
-  base-path="{{ base_path }}"
-  debug-path="{{ debug_path }}"
-  panels="{{ debug_toolbar_panels|default:"requests,sql,logs,routes,config" }}"
-  slow-threshold-ms="{{ debug_slow_threshold_ms|default:"50" }}">
-</debug-toolbar>
+<script>
+  window.DEBUG_CONFIG = {
+    basePath: '{{ base_path }}',
+    debugPath: '{{ debug_path }}',
+    panels: '{{ debug_toolbar_panels|default:"requests,sql,logs,routes,config" }}'.split(','),
+    slowThresholdMs: {{ debug_slow_threshold_ms|default:"50" }}
+  };
+</script>
+<script type="module">
+  import { initDebugManager } from '{{ base_path }}/assets/dist/debug/toolbar.js';
+  initDebugManager();
+</script>
 {% endif %}
