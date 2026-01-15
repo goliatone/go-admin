@@ -169,7 +169,7 @@ export function initDebugManager(): DebugManager | null {
 
   if (windowConfig) {
     options = {
-      debugPath: windowConfig.basePath || windowConfig.debugPath,
+      debugPath: windowConfig.debugPath || windowConfig.basePath,
       panels: windowConfig.panels,
       slowThresholdMs: windowConfig.slowThresholdMs,
     };

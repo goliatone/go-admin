@@ -84,8 +84,8 @@ export const fabStyles = `
   /* Connection status dot */
   .fab-status-dot {
     position: absolute;
-    bottom: 8px;
-    right: 8px;
+    bottom: 6px;
+    right: 6px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -209,10 +209,10 @@ export const fabStyles = `
     }
 
     .fab-status-dot {
-      width: 8px;
-      height: 8px;
-      bottom: 6px;
-      right: 6px;
+      width: 10px;
+      height: 10px;
+      bottom: 3px;
+      right: 3px;
     }
 
     .fab-counter {

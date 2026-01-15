@@ -495,7 +495,7 @@ const S = `
   } catch {
     return String(s ?? "");
   }
-}, g = (s, t) => s ? s.length > t ? s.substring(0, t) + "..." : s : "", k = (s) => s ? s >= 500 ? "error" : s >= 400 ? "warn" : "" : "", C = (s) => {
+}, g = (s, t) => s ? s.length > t ? s.substring(0, t) + "..." : s : "", C = (s) => s ? s >= 500 ? "error" : s >= 400 ? "warn" : "" : "", k = (s) => {
   if (!s) return "info";
   const t = s.toLowerCase();
   return t === "error" || t === "fatal" ? "error" : t === "warn" || t === "warning" ? "warn" : t === "debug" || t === "trace" ? "debug" : "info";
@@ -535,7 +535,7 @@ function q(s) {
         </tr>
       </thead>
       <tbody>${s.slice(-50).reverse().map((e) => {
-    const a = (e.method || "get").toLowerCase(), o = k(e.status), r = v(e.duration);
+    const a = (e.method || "get").toLowerCase(), o = C(e.status), r = v(e.duration);
     return `
         <tr>
           <td><span class="badge badge-method ${a}">${n(e.method || "GET")}</span></td>
@@ -586,7 +586,7 @@ function $(s) {
       </thead>
       <tbody>${s.slice(-100).reverse().map((e) => `
         <tr>
-          <td><span class="badge badge-level ${C(e.level)}">${n((e.level || "INFO").toUpperCase())}</span></td>
+          <td><span class="badge badge-level ${k(e.level)}">${n((e.level || "INFO").toUpperCase())}</span></td>
           <td class="message" title="${n(e.message || "")}">${n(g(e.message || "", 100))}</td>
           <td class="timestamp">${n(u(e.timestamp))}</td>
         </tr>
@@ -685,7 +685,7 @@ const f = ["requests", "sql", "logs", "routes", "config"], T = {
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, z = {
+}, A = {
   request: "requests",
   sql: "sql",
   log: "logs",
@@ -693,7 +693,7 @@ const f = ["requests", "sql", "logs", "routes", "config"], T = {
   session: "session",
   custom: "custom"
 };
-class A extends HTMLElement {
+class z extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
@@ -808,7 +808,7 @@ class A extends HTMLElement {
       this.applySnapshot(t.payload);
       return;
     }
-    const e = z[t.type] || t.type;
+    const e = A[t.type] || t.type;
     switch (t.type) {
       case "request":
         this.snapshot.requests = this.snapshot.requests || [], this.snapshot.requests.push(t.payload), this.trimArray(this.snapshot.requests, 500);
@@ -1011,7 +1011,7 @@ class A extends HTMLElement {
     }
   }
 }
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", A);
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", z);
 const j = `
   :host {
     --fab-bg: #1e1e2e;
@@ -1095,10 +1095,10 @@ const j = `
   /* Connection status dot */
   .fab-status-dot {
     position: absolute;
-    bottom: 8px;
-    right: 8px;
-    width: 10px;
-    height: 10px;
+    bottom: 4px;
+    right: 4px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     border: 2px solid var(--fab-bg);
     background: var(--fab-text-muted);
@@ -1220,10 +1220,10 @@ const j = `
     }
 
     .fab-status-dot {
-      width: 8px;
-      height: 8px;
-      bottom: 6px;
-      right: 6px;
+      width: 10px;
+      height: 10px;
+      bottom: 3px;
+      right: 3px;
     }
 
     .fab-counter {
@@ -1385,11 +1385,8 @@ class D extends HTMLElement {
       <div class="fab ${o}" data-status="${this.connectionStatus}">
         <div class="fab-collapsed">
           <span class="fab-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-              <circle cx="8" cy="14" r="1.5"/>
-              <circle cx="16" cy="14" r="1.5"/>
-              <path d="M12 8c-2 0-3.5 1-4 2.5h8c-.5-1.5-2-2.5-4-2.5z"/>
+            <svg viewBox="0 0 24 24" stroke-width="1.5" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25C15.4148 2.25 18.157 4.93659 19.2445 8.53907L20.6646 7.82902C21.0351 7.64377 21.4856 7.79394 21.6709 8.16443C21.8561 8.53491 21.7059 8.98541 21.3355 9.17066L19.5919 10.0425C19.6958 10.6789 19.75 11.3341 19.75 12C19.75 12.4216 19.7283 12.839 19.6859 13.25H22C22.4142 13.25 22.75 13.5858 22.75 14C22.75 14.4142 22.4142 14.75 22 14.75H19.4347C19.2438 15.5659 18.9699 16.3431 18.6235 17.0629L20.5303 18.9697C20.8232 19.2626 20.8232 19.7374 20.5303 20.0303C20.2374 20.3232 19.7626 20.3232 19.4697 20.0303L17.8463 18.4069C16.4519 20.4331 14.3908 21.75 12 21.75C9.60921 21.75 7.54809 20.4331 6.15371 18.4069L4.53033 20.0303C4.23744 20.3232 3.76256 20.3232 3.46967 20.0303C3.17678 19.7374 3.17678 19.2626 3.46967 18.9697L5.37647 17.0629C5.03008 16.3431 4.7562 15.5659 4.56527 14.75H2C1.58579 14.75 1.25 14.4142 1.25 14C1.25 13.5858 1.58579 13.25 2 13.25H4.31407C4.27174 12.839 4.25 12.4216 4.25 12C4.25 11.3341 4.30423 10.6789 4.40814 10.0425L2.66455 9.17066C2.29406 8.98541 2.1439 8.53491 2.32914 8.16443C2.51438 7.79394 2.96488 7.64377 3.33537 7.82902L4.75547 8.53907C5.84297 4.93659 8.58522 2.25 12 2.25ZM11.25 19C11.25 19.4142 11.5858 19.75 12 19.75C12.4142 19.75 12.75 19.4142 12.75 19V9.73117C14.005 9.6696 15.2088 9.46632 16.1588 9.26042C16.5636 9.17268 16.8207 8.77339 16.7329 8.36857C16.6452 7.96376 16.2459 7.70672 15.8411 7.79445C14.7597 8.02883 13.3718 8.25 12 8.25C10.6281 8.25 9.24022 8.02883 8.15882 7.79445C7.75401 7.70672 7.35472 7.96376 7.26698 8.36857C7.17924 8.77339 7.43629 9.17268 7.8411 9.26042C8.79115 9.46632 9.99494 9.6696 11.25 9.73117V19Z" fill="currentColor"></path>
             </svg>
           </span>
           <span class="fab-status-dot"></span>
@@ -1528,7 +1525,7 @@ function F() {
   const s = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (s ? e = {
-    debugPath: s.basePath || s.debugPath,
+    debugPath: s.debugPath || s.basePath,
     panels: s.panels,
     slowThresholdMs: s.slowThresholdMs
   } : t && (e = {
@@ -1545,7 +1542,7 @@ window.initDebugManager = F;
 export {
   D as DebugFab,
   y as DebugManager,
-  A as DebugToolbar,
+  z as DebugToolbar,
   c as getCounts,
   F as initDebugManager,
   p as renderPanel
