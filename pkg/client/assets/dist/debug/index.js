@@ -1,89 +1,5 @@
-const $ = (a) => {
-  const e = (a || "").trim();
-  return e ? e.startsWith("/") ? e.replace(/\/+$/, "") : `/${e.replace(/\/+$/, "")}` : "";
-}, E = (a) => {
-  const e = window.location.protocol === "https:" ? "wss:" : "ws:", t = $(a);
-  return `${e}//${window.location.host}${t}/ws`;
-};
-class q {
-  constructor(e) {
-    this.ws = null, this.reconnectTimer = null, this.reconnectAttempts = 0, this.manualClose = !1, this.pendingCommands = [], this.status = "disconnected", this.options = e;
-  }
-  connect() {
-    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING))
-      return;
-    this.manualClose = !1;
-    const e = E(this.options.basePath);
-    this.ws = new WebSocket(e), this.ws.onopen = () => {
-      this.reconnectAttempts = 0, this.setStatus("connected"), this.flushPending();
-    }, this.ws.onmessage = (t) => {
-      if (!(!t || typeof t.data != "string"))
-        try {
-          const s = JSON.parse(t.data);
-          this.options.onEvent?.(s);
-        } catch {
-        }
-    }, this.ws.onclose = () => {
-      if (this.ws = null, this.manualClose) {
-        this.setStatus("disconnected");
-        return;
-      }
-      this.setStatus("reconnecting"), this.scheduleReconnect();
-    }, this.ws.onerror = (t) => {
-      this.options.onError?.(t), this.setStatus("error");
-    };
-  }
-  close() {
-    this.manualClose = !0, this.reconnectTimer !== null && (window.clearTimeout(this.reconnectTimer), this.reconnectTimer = null), this.ws && this.ws.close();
-  }
-  sendCommand(e) {
-    if (!(!e || !e.type)) {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify(e));
-        return;
-      }
-      this.pendingCommands.push(e);
-    }
-  }
-  subscribe(e) {
-    this.sendCommand({ type: "subscribe", panels: e });
-  }
-  unsubscribe(e) {
-    this.sendCommand({ type: "unsubscribe", panels: e });
-  }
-  requestSnapshot() {
-    this.sendCommand({ type: "snapshot" });
-  }
-  clear(e) {
-    this.sendCommand({ type: "clear", panels: e });
-  }
-  getStatus() {
-    return this.status;
-  }
-  setStatus(e) {
-    this.status !== e && (this.status = e, this.options.onStatusChange?.(e));
-  }
-  flushPending() {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || this.pendingCommands.length === 0)
-      return;
-    const e = [...this.pendingCommands];
-    this.pendingCommands = [];
-    for (const t of e)
-      this.ws.send(JSON.stringify(t));
-  }
-  scheduleReconnect() {
-    const e = this.options.maxReconnectAttempts ?? 8, t = this.options.reconnectDelayMs ?? 1e3, s = this.options.maxReconnectDelayMs ?? 12e3;
-    if (this.reconnectAttempts >= e) {
-      this.setStatus("disconnected");
-      return;
-    }
-    const r = this.reconnectAttempts, i = Math.min(t * Math.pow(2, r), s), n = i * (0.2 + Math.random() * 0.3);
-    this.reconnectAttempts += 1, this.reconnectTimer = window.setTimeout(() => {
-      this.connect();
-    }, i + n);
-  }
-}
-const y = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], f = {
+import { D as E } from "../chunks/debug-stream-DXYTUS6I.js";
+const q = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], b = {
   template: "Template",
   session: "Session",
   requests: "Requests",
@@ -92,7 +8,7 @@ const y = ["template", "session", "requests", "sql", "logs", "config", "routes",
   config: "Config",
   routes: "Routes",
   custom: "Custom"
-}, C = {
+}, w = {
   template: "template",
   session: "session",
   requests: "request",
@@ -106,77 +22,77 @@ const y = ["template", "session", "requests", "sql", "logs", "config", "routes",
   template: "template",
   session: "session",
   custom: "custom"
-}, L = (a) => {
-  if (!a)
+}, _ = (r) => {
+  if (!r)
     return null;
   try {
-    return JSON.parse(a);
+    return JSON.parse(r);
   } catch {
     return null;
   }
-}, l = (a) => String(a ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), d = (a) => {
-  if (!a)
+}, n = (r) => String(r ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), d = (r) => {
+  if (!r)
     return "";
-  if (typeof a == "number")
-    return new Date(a).toLocaleTimeString();
-  if (typeof a == "string") {
-    const e = new Date(a);
-    return Number.isNaN(e.getTime()) ? a : e.toLocaleTimeString();
+  if (typeof r == "number")
+    return new Date(r).toLocaleTimeString();
+  if (typeof r == "string") {
+    const e = new Date(r);
+    return Number.isNaN(e.getTime()) ? r : e.toLocaleTimeString();
   }
   return "";
-}, b = (a) => {
-  if (a == null)
+}, m = (r) => {
+  if (r == null)
     return "0ms";
-  if (typeof a == "string")
-    return a;
-  const e = Number(a);
+  if (typeof r == "string")
+    return r;
+  const e = Number(r);
   if (Number.isNaN(e))
     return "0ms";
   const t = e / 1e6;
   return t < 1 ? `${(e / 1e3).toFixed(1)}us` : t < 1e3 ? `${t.toFixed(2)}ms` : `${(t / 1e3).toFixed(2)}s`;
-}, h = (a) => {
-  if (a == null || a === "")
+}, h = (r) => {
+  if (r == null || r === "")
     return "0";
-  const e = Number(a);
-  return Number.isNaN(e) ? String(a) : e.toLocaleString();
-}, c = (a) => {
-  if (a === void 0)
+  const e = Number(r);
+  return Number.isNaN(e) ? String(r) : e.toLocaleString();
+}, c = (r) => {
+  if (r === void 0)
     return "{}";
   try {
-    return JSON.stringify(a, null, 2);
+    return JSON.stringify(r, null, 2);
   } catch {
-    return String(a ?? "");
+    return String(r ?? "");
   }
-}, _ = (a) => Array.isArray(a) && a.length > 0 ? a.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : [...y], v = (a) => f[a] ? f[a] : a ? a.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/i, "SQL").replace(/\b([a-z])/g, (e) => e.toUpperCase()) : "", S = (a, e) => {
+}, L = (r) => Array.isArray(r) && r.length > 0 ? r.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : [...q], v = (r) => b[r] ? b[r] : r ? r.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/i, "SQL").replace(/\b([a-z])/g, (e) => e.toUpperCase()) : "", $ = (r, e) => {
   if (!e)
-    return a;
+    return r;
   const t = e.toLowerCase(), s = {};
-  for (const [r, i] of Object.entries(a || {}))
-    r.toLowerCase().includes(t) && (s[r] = i);
+  for (const [a, i] of Object.entries(r || {}))
+    a.toLowerCase().includes(t) && (s[a] = i);
   return s;
-}, k = (a, e, t) => {
-  if (!a || !e)
+}, C = (r, e, t) => {
+  if (!r || !e)
     return;
   const s = e.split(".").map((i) => i.trim()).filter(Boolean);
   if (s.length === 0)
     return;
-  let r = a;
+  let a = r;
   for (let i = 0; i < s.length - 1; i += 1) {
-    const n = s[i];
-    (!r[n] || typeof r[n] != "object") && (r[n] = {}), r = r[n];
+    const l = s[i];
+    (!a[l] || typeof a[l] != "object") && (a[l] = {}), a = a[l];
   }
-  r[s[s.length - 1]] = t;
-}, u = (a) => Array.isArray(a) ? a : [], m = (a, e) => {
-  if (!a)
+  a[s[s.length - 1]] = t;
+}, u = (r) => Array.isArray(r) ? r : [], f = (r, e) => {
+  if (!r)
     return e;
-  const t = Number(a);
+  const t = Number(r);
   return Number.isNaN(t) ? e : t;
 };
-class N {
+class y {
   constructor(e) {
     this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.container = e;
-    const t = L(e.dataset.panels);
-    this.panels = _(t), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.maxLogEntries = m(e.dataset.maxLogEntries, 500), this.maxSQLQueries = m(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = m(e.dataset.slowThresholdMs, 50), this.state = {
+    const t = _(e.dataset.panels);
+    this.panels = L(t), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.maxLogEntries = f(e.dataset.maxLogEntries, 500), this.maxSQLQueries = f(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = f(e.dataset.slowThresholdMs, 50), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -192,11 +108,11 @@ class N {
       routes: { method: "all", search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.tabsEl = this.requireElement("[data-debug-tabs]"), this.panelEl = this.requireElement("[data-debug-panel]"), this.filtersEl = this.requireElement("[data-debug-filters]"), this.statusEl = this.requireElement("[data-debug-status]"), this.connectionEl = this.requireElement("[data-debug-connection]"), this.eventCountEl = this.requireElement("[data-debug-events]"), this.lastEventEl = this.requireElement("[data-debug-last]"), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.stream = new q({
+    }, this.tabsEl = this.requireElement("[data-debug-tabs]"), this.panelEl = this.requireElement("[data-debug-panel]"), this.filtersEl = this.requireElement("[data-debug-filters]"), this.statusEl = this.requireElement("[data-debug-status]"), this.connectionEl = this.requireElement("[data-debug-connection]"), this.eventCountEl = this.requireElement("[data-debug-events]"), this.lastEventEl = this.requireElement("[data-debug-last]"), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.stream = new E({
       basePath: this.debugPath,
       onEvent: (s) => this.handleEvent(s),
       onStatusChange: (s) => this.updateConnectionStatus(s)
-    }), this.fetchSnapshot(), this.stream.connect(), this.stream.subscribe(this.panels.map((s) => C[s] || s));
+    }), this.fetchSnapshot(), this.stream.connect(), this.stream.subscribe(this.panels.map((s) => w[s] || s));
   }
   requireElement(e) {
     const t = this.container.querySelector(e);
@@ -209,10 +125,10 @@ class N {
       const s = t.target;
       if (!s)
         return;
-      const r = s.closest("[data-panel]");
-      if (!r)
+      const a = s.closest("[data-panel]");
+      if (!a)
         return;
-      const i = r.dataset.panel || "";
+      const i = a.dataset.panel || "";
       !i || i === this.activePanel || (this.activePanel = i, this.renderActivePanel());
     }), this.container.querySelectorAll("[data-debug-action]").forEach((t) => {
       t.addEventListener("click", () => {
@@ -235,9 +151,9 @@ class N {
   }
   renderTabs() {
     const e = this.panels.map((t) => `
-          <button class="debug-tab ${t === this.activePanel ? "debug-tab--active" : ""}" data-panel="${l(t)}">
-            <span class="debug-tab__label">${l(v(t))}</span>
-            <span class="debug-tab__count" data-panel-count="${l(t)}">0</span>
+          <button class="debug-tab ${t === this.activePanel ? "debug-tab--active" : ""}" data-panel="${n(t)}">
+            <span class="debug-tab__label">${n(v(t))}</span>
+            <span class="debug-tab__count" data-panel-count="${n(t)}">0</span>
           </button>
         `).join("");
     this.tabsEl.innerHTML = e, this.updateTabCounts();
@@ -265,7 +181,7 @@ class N {
         </div>
         <div class="debug-filter-group grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${l(s.search)}" placeholder="/admin/users" />
+          <input type="search" data-filter="search" value="${n(s.search)}" placeholder="/admin/users" />
         </div>
       `;
     } else if (e === "sql") {
@@ -273,7 +189,7 @@ class N {
       t = `
         <div class="debug-filter-group grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${l(s.search)}" placeholder="SELECT" />
+          <input type="search" data-filter="search" value="${n(s.search)}" placeholder="SELECT" />
         </div>
         <label class="debug-toggle">
           <input type="checkbox" data-filter="slowOnly" ${s.slowOnly ? "checked" : ""} />
@@ -295,7 +211,7 @@ class N {
         </div>
         <div class="debug-filter-group grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${l(s.search)}" placeholder="database" />
+          <input type="search" data-filter="search" value="${n(s.search)}" placeholder="database" />
         </div>
         <label class="debug-toggle">
           <input type="checkbox" data-filter="autoScroll" ${s.autoScroll ? "checked" : ""} />
@@ -313,7 +229,7 @@ class N {
         </div>
         <div class="debug-filter-group grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${l(s.search)}" placeholder="/admin" />
+          <input type="search" data-filter="search" value="${n(s.search)}" placeholder="/admin" />
         </div>
       `;
     } else {
@@ -321,7 +237,7 @@ class N {
       t = `
         <div class="debug-filter-group grow">
           <label>Search keys</label>
-          <input type="search" data-filter="search" value="${l(s.search)}" placeholder="token" />
+          <input type="search" data-filter="search" value="${n(s.search)}" placeholder="token" />
         </div>
       `;
     }
@@ -336,33 +252,33 @@ class N {
     const e = this.activePanel, t = this.filtersEl.querySelectorAll("[data-filter]");
     if (e === "requests") {
       const s = { ...this.filters.requests };
-      t.forEach((r) => {
-        const i = r.dataset.filter || "";
-        i && i in s && (s[i] = r.value);
+      t.forEach((a) => {
+        const i = a.dataset.filter || "";
+        i && i in s && (s[i] = a.value);
       }), this.filters.requests = s;
     } else if (e === "sql") {
       const s = { ...this.filters.sql };
-      t.forEach((r) => {
-        const i = r.dataset.filter || "";
-        i === "slowOnly" || i === "errorOnly" ? s[i] = r.checked : i === "search" && (s[i] = r.value);
+      t.forEach((a) => {
+        const i = a.dataset.filter || "";
+        i === "slowOnly" || i === "errorOnly" ? s[i] = a.checked : i === "search" && (s[i] = a.value);
       }), this.filters.sql = s;
     } else if (e === "logs") {
       const s = { ...this.filters.logs };
-      t.forEach((r) => {
-        const i = r.dataset.filter || "";
-        i === "autoScroll" ? s[i] = r.checked : (i === "level" || i === "search") && (s[i] = r.value);
+      t.forEach((a) => {
+        const i = a.dataset.filter || "";
+        i === "autoScroll" ? s[i] = a.checked : (i === "level" || i === "search") && (s[i] = a.value);
       }), this.filters.logs = s;
     } else if (e === "routes") {
       const s = { ...this.filters.routes };
-      t.forEach((r) => {
-        const i = r.dataset.filter || "";
-        i && i in s && (s[i] = r.value);
+      t.forEach((a) => {
+        const i = a.dataset.filter || "";
+        i && i in s && (s[i] = a.value);
       }), this.filters.routes = s;
     } else {
       const s = { ...this.filters.objects };
-      t.forEach((r) => {
-        const i = r.dataset.filter || "";
-        i && i in s && (s[i] = r.value);
+      t.forEach((a) => {
+        const i = a.dataset.filter || "";
+        i && i in s && (s[i] = a.value);
       }), this.filters.objects = s;
     }
     this.renderPanel();
@@ -373,29 +289,29 @@ class N {
     e === "template" ? t = this.renderJSONPanel("Template Context", this.state.template, this.filters.objects.search) : e === "session" ? t = this.renderJSONPanel("Session", this.state.session, this.filters.objects.search) : e === "config" ? t = this.renderJSONPanel("Config", this.state.config, this.filters.objects.search) : e === "requests" ? t = this.renderRequests() : e === "sql" ? t = this.renderSQL() : e === "logs" ? t = this.renderLogs() : e === "routes" ? t = this.renderRoutes() : e === "custom" ? t = this.renderCustom() : t = this.renderJSONPanel(v(e), this.state[e] || {}, this.filters.objects.search), this.panelEl.innerHTML = t, e === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.panelEl.scrollHeight);
   }
   renderRequests() {
-    const { method: e, status: t, search: s } = this.filters.requests, r = s.toLowerCase(), i = this.state.requests.filter((o) => !(e !== "all" && (o.method || "").toUpperCase() !== e || t !== "all" && String(o.status || "") !== t || r && !(o.path || "").toLowerCase().includes(r)));
+    const { method: e, status: t, search: s } = this.filters.requests, a = s.toLowerCase(), i = this.state.requests.filter((o) => !(e !== "all" && (o.method || "").toUpperCase() !== e || t !== "all" && String(o.status || "") !== t || a && !(o.path || "").toLowerCase().includes(a)));
     return i.length === 0 ? this.renderEmptyState("No requests captured yet.") : `<div class="debug-stack">${i.map((o) => {
       const p = o.headers ? c(o.headers) : "{}", g = o.query ? c(o.query) : "{}";
       return `
           <article class="debug-card">
             <div class="debug-card__row">
-              <span class="debug-badge debug-badge--method">${l(o.method || "GET")}</span>
-              <span class="debug-card__path">${l(o.path || "")}</span>
-              <span class="debug-badge debug-badge--status">${l(o.status || 0)}</span>
-              <span class="debug-card__meta">${b(o.duration)}</span>
-              <span class="debug-card__meta">${l(d(o.timestamp))}</span>
+              <span class="debug-badge debug-badge--method">${n(o.method || "GET")}</span>
+              <span class="debug-card__path">${n(o.path || "")}</span>
+              <span class="debug-badge debug-badge--status">${n(o.status || 0)}</span>
+              <span class="debug-card__meta">${m(o.duration)}</span>
+              <span class="debug-card__meta">${n(d(o.timestamp))}</span>
             </div>
             <details class="debug-card__details">
               <summary>Details</summary>
-              ${o.error ? `<div class="debug-card__error">${l(o.error)}</div>` : ""}
+              ${o.error ? `<div class="debug-card__error">${n(o.error)}</div>` : ""}
               <div class="debug-card__grid">
                 <div>
                   <h4>Query</h4>
-                  <pre>${l(g)}</pre>
+                  <pre>${n(g)}</pre>
                 </div>
                 <div>
                   <h4>Headers</h4>
-                  <pre>${l(p)}</pre>
+                  <pre>${n(p)}</pre>
                 </div>
               </div>
             </details>
@@ -404,84 +320,84 @@ class N {
     }).join("")}</div>`;
   }
   renderSQL() {
-    const { search: e, slowOnly: t, errorOnly: s } = this.filters.sql, r = e.toLowerCase(), i = this.state.sql.filter((o) => !(s && !o.error || t && !this.isSlowQuery(o) || r && !(o.query || "").toLowerCase().includes(r)));
+    const { search: e, slowOnly: t, errorOnly: s } = this.filters.sql, a = e.toLowerCase(), i = this.state.sql.filter((o) => !(s && !o.error || t && !this.isSlowQuery(o) || a && !(o.query || "").toLowerCase().includes(a)));
     return i.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : `<div class="debug-stack">${i.map((o) => {
       const p = this.isSlowQuery(o), g = o.args ? c(o.args) : "[]";
       return `
           <article class="debug-card ${p ? "debug-card--slow" : ""}">
             <div class="debug-card__row">
               <span class="debug-badge debug-badge--sql">SQL</span>
-              <span class="debug-card__meta">${l(d(o.timestamp))}</span>
-              <span class="debug-card__meta">${b(o.duration)}</span>
-              <span class="debug-card__meta">Rows: ${l(h(o.row_count || 0))}</span>
+              <span class="debug-card__meta">${n(d(o.timestamp))}</span>
+              <span class="debug-card__meta">${m(o.duration)}</span>
+              <span class="debug-card__meta">Rows: ${n(h(o.row_count || 0))}</span>
               ${o.error ? '<span class="debug-badge debug-badge--error">Error</span>' : ""}
             </div>
-            <pre class="debug-code">${l(o.query || "")}</pre>
+            <pre class="debug-code">${n(o.query || "")}</pre>
             <div class="debug-card__grid">
               <div>
                 <h4>Args</h4>
-                <pre>${l(g)}</pre>
+                <pre>${n(g)}</pre>
               </div>
-              ${o.error ? `<div><h4>Error</h4><pre>${l(o.error)}</pre></div>` : ""}
+              ${o.error ? `<div><h4>Error</h4><pre>${n(o.error)}</pre></div>` : ""}
             </div>
           </article>
         `;
     }).join("")}</div>`;
   }
   renderLogs() {
-    const { level: e, search: t } = this.filters.logs, s = t.toLowerCase(), r = this.state.logs.filter((n) => {
-      if (e !== "all" && (n.level || "").toLowerCase() !== e)
+    const { level: e, search: t } = this.filters.logs, s = t.toLowerCase(), a = this.state.logs.filter((l) => {
+      if (e !== "all" && (l.level || "").toLowerCase() !== e)
         return !1;
-      const o = `${n.message || ""} ${n.source || ""} ${c(n.fields || {})}`.toLowerCase();
+      const o = `${l.message || ""} ${l.source || ""} ${c(l.fields || {})}`.toLowerCase();
       return !(s && !o.includes(s));
     });
-    return r.length === 0 ? this.renderEmptyState("No logs captured yet.") : `<div class="debug-stack">${r.map((n) => `
+    return a.length === 0 ? this.renderEmptyState("No logs captured yet.") : `<div class="debug-stack">${a.map((l) => `
           <article class="debug-card">
             <div class="debug-card__row">
-              <span class="debug-badge debug-badge--level">${l((n.level || "info").toUpperCase())}</span>
-              <span class="debug-card__meta">${l(d(n.timestamp))}</span>
-              <span class="debug-card__path">${l(n.message || "")}</span>
+              <span class="debug-badge debug-badge--level">${n((l.level || "info").toUpperCase())}</span>
+              <span class="debug-card__meta">${n(d(l.timestamp))}</span>
+              <span class="debug-card__path">${n(l.message || "")}</span>
             </div>
             <div class="debug-card__grid">
-              ${n.source ? `<div><h4>Source</h4><pre>${l(n.source)}</pre></div>` : ""}
-              ${n.fields ? `<div><h4>Fields</h4><pre>${l(c(n.fields))}</pre></div>` : ""}
+              ${l.source ? `<div><h4>Source</h4><pre>${n(l.source)}</pre></div>` : ""}
+              ${l.fields ? `<div><h4>Fields</h4><pre>${n(c(l.fields))}</pre></div>` : ""}
             </div>
           </article>
         `).join("")}</div>`;
   }
   renderRoutes() {
-    const { method: e, search: t } = this.filters.routes, s = t.toLowerCase(), r = this.state.routes.filter((n) => {
-      if (e !== "all" && (n.method || "").toUpperCase() !== e)
+    const { method: e, search: t } = this.filters.routes, s = t.toLowerCase(), a = this.state.routes.filter((l) => {
+      if (e !== "all" && (l.method || "").toUpperCase() !== e)
         return !1;
-      const o = `${n.path || ""} ${n.handler || ""} ${n.summary || ""}`.toLowerCase();
+      const o = `${l.path || ""} ${l.handler || ""} ${l.summary || ""}`.toLowerCase();
       return !(s && !o.includes(s));
     });
-    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : `<div class="debug-stack">${r.map((n) => `
+    return a.length === 0 ? this.renderEmptyState("No routes captured yet.") : `<div class="debug-stack">${a.map((l) => `
           <article class="debug-card">
             <div class="debug-card__row">
-              <span class="debug-badge debug-badge--method">${l(n.method || "")}</span>
-              <span class="debug-card__path">${l(n.path || "")}</span>
-              ${n.handler ? `<span class="debug-card__meta">${l(n.handler)}</span>` : ""}
+              <span class="debug-badge debug-badge--method">${n(l.method || "")}</span>
+              <span class="debug-card__path">${n(l.path || "")}</span>
+              ${l.handler ? `<span class="debug-card__meta">${n(l.handler)}</span>` : ""}
             </div>
             <div class="debug-card__grid">
-              ${n.summary ? `<div><h4>Summary</h4><pre>${l(n.summary)}</pre></div>` : ""}
-              ${n.middleware && n.middleware.length > 0 ? `<div><h4>Middleware</h4><pre>${l(c(n.middleware))}</pre></div>` : ""}
-              ${n.tags && n.tags.length > 0 ? `<div><h4>Tags</h4><pre>${l(c(n.tags))}</pre></div>` : ""}
+              ${l.summary ? `<div><h4>Summary</h4><pre>${n(l.summary)}</pre></div>` : ""}
+              ${l.middleware && l.middleware.length > 0 ? `<div><h4>Middleware</h4><pre>${n(c(l.middleware))}</pre></div>` : ""}
+              ${l.tags && l.tags.length > 0 ? `<div><h4>Tags</h4><pre>${n(c(l.tags))}</pre></div>` : ""}
             </div>
           </article>
         `).join("")}</div>`;
   }
   renderCustom() {
-    const { search: e } = this.filters.custom, t = S(this.state.custom.data, e), s = this.renderJSONPanel("Custom Data", t, ""), r = this.state.custom.logs, i = r.length ? `
+    const { search: e } = this.filters.custom, t = $(this.state.custom.data, e), s = this.renderJSONPanel("Custom Data", t, ""), a = this.state.custom.logs, i = a.length ? `
         <div class="debug-stack">
-          ${r.map((n) => `
+          ${a.map((l) => `
                 <article class="debug-card">
                   <div class="debug-card__row">
-                    <span class="debug-badge debug-badge--custom">${l(n.category || "custom")}</span>
-                    <span class="debug-card__meta">${l(d(n.timestamp))}</span>
-                    <span class="debug-card__path">${l(n.message || "")}</span>
+                    <span class="debug-badge debug-badge--custom">${n(l.category || "custom")}</span>
+                    <span class="debug-card__meta">${n(d(l.timestamp))}</span>
+                    <span class="debug-card__path">${n(l.message || "")}</span>
                   </div>
-                  ${n.fields ? `<pre>${l(c(n.fields))}</pre>` : ""}
+                  ${l.fields ? `<pre>${n(c(l.fields))}</pre>` : ""}
                 </article>
               `).join("")}
         </div>
@@ -500,28 +416,28 @@ class N {
     `;
   }
   renderJSONPanel(e, t, s) {
-    const r = S(t || {}, s);
+    const a = $(t || {}, s);
     return `
       <section class="debug-json-panel">
         <div class="debug-json-header">
-          <h3>${l(e)}</h3>
-          <span class="debug-muted">${h(Object.keys(r || {}).length)} keys</span>
+          <h3>${n(e)}</h3>
+          <span class="debug-muted">${h(Object.keys(a || {}).length)} keys</span>
         </div>
-        <pre>${l(c(r))}</pre>
+        <pre>${n(c(a))}</pre>
       </section>
     `;
   }
   renderEmptyState(e) {
     return `
       <div class="debug-empty">
-        <p>${l(e)}</p>
+        <p>${n(e)}</p>
       </div>
     `;
   }
   renderSelectOptions(e, t) {
     return e.map((s) => {
-      const r = s.toLowerCase() === t.toLowerCase() ? "selected" : "";
-      return `<option value="${l(s)}" ${r}>${l(s)}</option>`;
+      const a = s.toLowerCase() === t.toLowerCase() ? "selected" : "";
+      return `<option value="${n(s)}" ${a}>${n(s)}</option>`;
     }).join("");
   }
   updateTabCounts() {
@@ -536,8 +452,8 @@ class N {
       custom: Object.keys(this.state.custom.data || {}).length + this.state.custom.logs.length
     };
     Object.entries(e).forEach(([t, s]) => {
-      const r = this.tabsEl.querySelector(`[data-panel-count="${t}"]`);
-      r && (r.textContent = h(s));
+      const a = this.tabsEl.querySelector(`[data-panel-count="${t}"]`);
+      a && (a.textContent = h(s));
     });
   }
   updateConnectionStatus(e) {
@@ -581,7 +497,7 @@ class N {
   handleCustomEvent(e) {
     if (e) {
       if (typeof e == "object" && "key" in e && "value" in e) {
-        k(this.state.custom.data, String(e.key), e.value);
+        C(this.state.custom.data, String(e.key), e.value);
         return;
       }
       if (typeof e == "object" && ("category" in e || "message" in e)) {
@@ -638,16 +554,16 @@ class N {
     this.paused = !this.paused, e.textContent = this.paused ? "Resume" : "Pause", this.paused || this.stream.requestSnapshot();
   }
 }
-const T = (a) => {
-  const e = a || document.querySelector("[data-debug-console]");
-  return e ? new N(e) : null;
-}, w = () => {
-  T();
+const k = (r) => {
+  const e = r || document.querySelector("[data-debug-console]");
+  return e ? new y(e) : null;
+}, S = () => {
+  k();
 };
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", w) : w();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", S) : S();
 export {
-  N as DebugPanel,
-  q as DebugStream,
-  T as initDebugPanel
+  y as DebugPanel,
+  E as DebugStream,
+  k as initDebugPanel
 };
 //# sourceMappingURL=index.js.map
