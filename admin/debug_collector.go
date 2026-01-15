@@ -5,7 +5,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	router "github.com/goliatone/go-router"
 )
@@ -93,6 +92,7 @@ type DebugEvent struct {
 // NewDebugCollector initializes a collector with the provided configuration.
 func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 	cfg = normalizeDebugConfig(cfg, "")
+	debugMasker(cfg)
 	panelSet := map[string]bool{}
 	for _, panel := range cfg.Panels {
 		panelSet[strings.ToLower(strings.TrimSpace(panel))] = true
@@ -135,7 +135,7 @@ func (c *DebugCollector) CaptureTemplateData(viewCtx router.ViewContext) {
 	if c == nil || !c.panelEnabled("template") {
 		return
 	}
-	data := redactSensitiveMap(cloneAnyMap(map[string]any(viewCtx)))
+	data := debugMaskMap(c.config, cloneAnyMap(map[string]any(viewCtx)))
 	c.mu.Lock()
 	c.templateData = data
 	c.mu.Unlock()
@@ -147,7 +147,7 @@ func (c *DebugCollector) CaptureSession(session map[string]any) {
 	if c == nil || !c.panelEnabled("session") {
 		return
 	}
-	data := redactSensitiveMap(cloneAnyMap(session))
+	data := debugMaskMap(c.config, cloneAnyMap(session))
 	c.mu.Lock()
 	c.sessionData = data
 	c.mu.Unlock()
@@ -163,14 +163,10 @@ func (c *DebugCollector) CaptureRequest(entry RequestEntry) {
 		entry.Timestamp = time.Now()
 	}
 	if len(entry.Headers) > 0 {
-		if redacted, ok := redactSensitiveValue(entry.Headers).(map[string]string); ok {
-			entry.Headers = redacted
-		}
+		entry.Headers = debugMaskStringMap(c.config, normalizeHeaderMap(entry.Headers))
 	}
 	if len(entry.Query) > 0 {
-		if redacted, ok := redactSensitiveValue(entry.Query).(map[string]string); ok {
-			entry.Query = redacted
-		}
+		entry.Query = debugMaskStringMap(c.config, entry.Query)
 	}
 	log := c.requestLog
 	if log != nil {
@@ -188,9 +184,7 @@ func (c *DebugCollector) CaptureSQL(entry SQLEntry) {
 		entry.Timestamp = time.Now()
 	}
 	if len(entry.Args) > 0 {
-		if redacted, ok := redactSensitiveValue(entry.Args).([]any); ok {
-			entry.Args = redacted
-		}
+		entry.Args = debugMaskSlice(c.config, entry.Args)
 	}
 	log := c.sqlLog
 	if log != nil {
@@ -208,7 +202,7 @@ func (c *DebugCollector) CaptureLog(entry LogEntry) {
 		entry.Timestamp = time.Now()
 	}
 	if len(entry.Fields) > 0 {
-		entry.Fields = redactSensitiveMap(entry.Fields)
+		entry.Fields = debugMaskMap(c.config, entry.Fields)
 	}
 	log := c.serverLog
 	if log != nil {
@@ -222,7 +216,7 @@ func (c *DebugCollector) CaptureConfigSnapshot(snapshot map[string]any) {
 	if c == nil || !c.panelEnabled("config") {
 		return
 	}
-	snapshot = sanitizeConfigPayload(snapshot)
+	snapshot = debugMaskMap(c.config, snapshot)
 	c.mu.Lock()
 	c.configData = cloneAnyMap(snapshot)
 	c.mu.Unlock()
@@ -247,11 +241,7 @@ func (c *DebugCollector) Set(key string, value any) {
 	if key == "" {
 		return
 	}
-	if isSensitiveKey(key) {
-		value = "[REDACTED]"
-	} else {
-		value = redactSensitiveValue(value)
-	}
+	value = debugMaskFieldValue(c.config, key, value)
 	c.mu.Lock()
 	if c.customData == nil {
 		c.customData = map[string]any{}
@@ -282,7 +272,7 @@ func (c *DebugCollector) Log(category, message string, fields ...any) {
 	}
 	payload := fieldsToMap(fields)
 	if len(payload) > 0 {
-		payload = redactSensitiveMap(payload)
+		payload = debugMaskMap(c.config, payload)
 	}
 	entry := CustomLogEntry{
 		Timestamp: time.Now(),
@@ -376,7 +366,7 @@ func (c *DebugCollector) Snapshot() map[string]any {
 		snapshot["custom"] = customSnapshot
 	}
 	if c.panelEnabled("config") && len(configData) > 0 {
-		snapshot["config"] = sanitizeConfigPayload(configData)
+		snapshot["config"] = debugMaskMap(c.config, configData)
 	}
 	if c.panelEnabled("routes") && len(routesData) > 0 {
 		snapshot["routes"] = routesData
@@ -607,150 +597,6 @@ func fieldsToMap(fields []any) map[string]any {
 	}
 	if len(out) == 0 {
 		return nil
-	}
-	return out
-}
-
-var debugSensitiveKeys = []string{
-	"password",
-	"secret",
-	"token",
-	"key",
-	"credential",
-	"authorization",
-	"api_key",
-	"apikey",
-	"auth",
-	"bearer",
-	"cookie",
-	"jwt",
-}
-
-func sanitizeConfigPayload(data map[string]any) map[string]any {
-	return redactSensitiveMap(data)
-}
-
-func redactSensitiveMap(data map[string]any) map[string]any {
-	if len(data) == 0 {
-		return map[string]any{}
-	}
-	out := make(map[string]any, len(data))
-	for key, value := range data {
-		if isSensitiveKey(key) {
-			switch value.(type) {
-			case map[string]any, map[string]string, map[string][]string, []any, []map[string]any, []map[string]string:
-				out[key] = redactSensitiveValue(value)
-			default:
-				out[key] = "[REDACTED]"
-			}
-			continue
-		}
-		out[key] = redactSensitiveValue(value)
-	}
-	return out
-}
-
-func redactSensitiveValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return redactSensitiveMap(typed)
-	case map[string]string:
-		out := make(map[string]string, len(typed))
-		for key, val := range typed {
-			if isSensitiveKey(key) {
-				out[key] = "[REDACTED]"
-			} else {
-				out[key] = val
-			}
-		}
-		return out
-	case map[string][]string:
-		out := make(map[string][]string, len(typed))
-		for key, val := range typed {
-			if isSensitiveKey(key) {
-				redacted := make([]string, len(val))
-				for i := range redacted {
-					redacted[i] = "[REDACTED]"
-				}
-				out[key] = redacted
-				continue
-			}
-			out[key] = append([]string{}, val...)
-		}
-		return out
-	case []any:
-		out := make([]any, 0, len(typed))
-		for _, item := range typed {
-			out = append(out, redactSensitiveValue(item))
-		}
-		return out
-	case []map[string]any:
-		out := make([]map[string]any, 0, len(typed))
-		for _, item := range typed {
-			out = append(out, redactSensitiveMap(item))
-		}
-		return out
-	case []map[string]string:
-		out := make([]map[string]string, 0, len(typed))
-		for _, item := range typed {
-			if item == nil {
-				out = append(out, nil)
-				continue
-			}
-			redacted, _ := redactSensitiveValue(item).(map[string]string)
-			out = append(out, redacted)
-		}
-		return out
-	default:
-		return value
-	}
-}
-
-func isSensitiveKey(key string) bool {
-	normalized := normalizeKey(key)
-	if normalized == "" {
-		return false
-	}
-	for _, token := range debugSensitiveKeys {
-		if normalized == token {
-			return true
-		}
-	}
-	segments := splitKeySegments(normalized)
-	for _, segment := range segments {
-		if segment == "key" {
-			return true
-		}
-		for _, token := range debugSensitiveKeys {
-			if segment == token {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func normalizeKey(key string) string {
-	var out []rune
-	out = make([]rune, 0, len(key))
-	for i, r := range key {
-		if unicode.IsUpper(r) && i > 0 {
-			out = append(out, '_')
-		}
-		out = append(out, unicode.ToLower(r))
-	}
-	return strings.TrimSpace(string(out))
-}
-
-func splitKeySegments(key string) []string {
-	parts := strings.FieldsFunc(key, func(r rune) bool {
-		return !(unicode.IsLetter(r) || unicode.IsNumber(r))
-	})
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			out = append(out, trimmed)
-		}
 	}
 	return out
 }
