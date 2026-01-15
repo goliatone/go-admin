@@ -281,6 +281,7 @@ func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewConte
 	return func(ctx router.ViewContext, active string, c router.Context) router.ViewContext {
 		reqCtx := c.Context()
 		ctx = WithNav(ctx, adm, cfg, active, reqCtx)
-		return WithThemeContext(ctx, adm, c)
+		ctx = WithThemeContext(ctx, adm, c)
+		return admin.CaptureViewContext(adm.Debug(), ctx)
 	}
 }
