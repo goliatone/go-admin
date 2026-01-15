@@ -170,7 +170,7 @@ func activityQueryError(field, message string) error {
 
 func entriesFromUsersRecords(records []types.ActivityRecord) []ActivityEntry {
 	if len(records) == 0 {
-		return nil
+		return []ActivityEntry{}
 	}
 	entries := make([]ActivityEntry, 0, len(records))
 	for _, record := range records {
