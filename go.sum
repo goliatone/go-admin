@@ -141,6 +141,8 @@ github.com/golang-jwt/jwt/v5 v5.3.0 h1:pv4AsKCKKZuqlgs5sUmn4x8UlGa0kEVt/puTpKx9v
 github.com/golang-jwt/jwt/v5 v5.3.0/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/goliatone/go-auth v0.22.0 h1:ZFeK1gXtGatI4LV5QkMSD2bM+mQCEHYsDhy8seCDGp0=
 github.com/goliatone/go-auth v0.22.0/go.mod h1:gvqU0K8fD0vP4JQ0HbNSvlMaMMMP5Bcrkm3w+qGbHyA=
+github.com/goliatone/go-auth v0.23.0 h1:UQAZL/tn38DnPmTCD+BJ2SMtQPJh53wv9Hal+uu8BrQ=
+github.com/goliatone/go-auth v0.23.0/go.mod h1:gvqU0K8fD0vP4JQ0HbNSvlMaMMMP5Bcrkm3w+qGbHyA=
 github.com/goliatone/go-cms v0.18.0 h1:VRCbBTPnSjUfR/tChyNckSPl0f47MEEpbkn/Y3GB4Po=
 github.com/goliatone/go-cms v0.18.0/go.mod h1:q9qjbWeexdB6IRs3Td4y9hnwSVn/AHkxvwghsEvOMlg=
 github.com/goliatone/go-command v0.12.0 h1:AWxFg5og+BYIuQ5651yxlV2uT83cJA1rHhr6I2JRtH4=
@@ -181,6 +183,8 @@ github.com/goliatone/go-repository-bun v0.12.0 h1:N5obOl75cPD4NVHblL+pizabSBUiGM
 github.com/goliatone/go-repository-bun v0.12.0/go.mod h1:ZG2ZKOpbHhgi81rUtVgdtNCCApu49ihPhHpce4qjaOI=
 github.com/goliatone/go-repository-cache v0.5.0 h1:NIYtv7G9z+CJC0ryoLpKf0TZOnGppJTidnGx+Uh5zSY=
 github.com/goliatone/go-repository-cache v0.5.0/go.mod h1:SaGDxDSI2ZOmQWUo5VMHlkqroU4BkDopMDVs4nUJy7U=
+github.com/goliatone/go-repository-cache v0.6.0 h1:FipPsUZwlYsP+jzEI4POdy6Z7oCxYZ3D57aVvKGYW4k=
+github.com/goliatone/go-repository-cache v0.6.0/go.mod h1:SaGDxDSI2ZOmQWUo5VMHlkqroU4BkDopMDVs4nUJy7U=
 github.com/goliatone/go-router v0.41.0 h1:m7qH0TUj+0msW+sCe4GwbcDsD4pfs9tsne0Zjasr9r0=
 github.com/goliatone/go-router v0.41.0/go.mod h1:85wCKmRHdnZSChgDl1QCRP385mh9CoSCrks7AQe7EPQ=
 github.com/goliatone/go-template v0.3.1 h1:x714biuWqtCyrtTmIrt2YjXWPYBOIS/Y2DPdWXtrAr8=
@@ -193,6 +197,8 @@ github.com/goliatone/go-urlkit v0.3.0 h1:U0lG3ksfwGXgFwyTEPXbhQ8XmQD2HwTx6DW8bqi
 github.com/goliatone/go-urlkit v0.3.0/go.mod h1:QVCju3Z9io9mX+t2D7RCp+ja9PYrLNJoucWc124siFQ=
 github.com/goliatone/go-users v0.5.0 h1:pc2Ib1z5poMTMSPHpopDTOhaqUAuMWO78ieHizD/iLY=
 github.com/goliatone/go-users v0.5.0/go.mod h1:aFut//YdOIwXCIPvG+CP5vOq7xdbJipHkuiJNorInrA=
+github.com/goliatone/go-users v0.10.0 h1:B6HK5t9q2mceOIsHiCx8AS/aQSUZxuP3U/g4kRurUuc=
+github.com/goliatone/go-users v0.10.0/go.mod h1:lOLOo8lcRMOgqJzFGQezd4xbA9eBDq7kPNAjFLEuqQ8=
 github.com/goliatone/hashid v0.1.1 h1:VfZZf7s0uM+JZ3ZBkqaEM1mL/CJfiTmFOzZ1QuXY3EM=
 github.com/goliatone/hashid v0.1.1/go.mod h1:K9jzegsVvT8S+Nn5wL1AuGVKcz2jcwYMxwe4g1UGz4E=
 github.com/goodsign/monday v1.0.2 h1:k8kRMkCRVfCTWOU4dRfRgneQsWlB1+mJd3MxG0lGLzQ=
