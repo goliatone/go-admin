@@ -71,9 +71,9 @@ require (
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
-	github.com/goliatone/go-command v0.12.0 // indirect
+	github.com/goliatone/go-command v0.13.0 // indirect
 	github.com/goliatone/go-composite-fs v0.0.1 // indirect
-	github.com/goliatone/go-config v0.7.0 // indirect
+	github.com/goliatone/go-config v0.8.0 // indirect
 	github.com/goliatone/go-crud v0.17.0 // indirect
 	github.com/goliatone/go-i18n v0.2.0 // indirect
 	github.com/goliatone/go-job v0.14.0 // indirect
