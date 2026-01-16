@@ -40,6 +40,7 @@ require (
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
+	github.com/creack/pty v1.1.20 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dop251/base64dec v0.0.0-20231022112746-c6c9f9a96217 // indirect
@@ -124,6 +125,7 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
+	github.com/traefik/yaegi v0.16.1 // indirect
 	github.com/uptrace/bun v1.2.16 // indirect
 	github.com/uptrace/bun/dbfixture v1.2.16 // indirect
 	github.com/uptrace/bun/dialect/pgdialect v1.2.16 // indirect

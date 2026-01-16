@@ -3,7 +3,9 @@ module github.com/goliatone/go-admin
 go 1.24.10
 
 require (
+	github.com/creack/pty v1.1.20
 	github.com/gofiber/fiber/v2 v2.52.10
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-auth v0.23.0
 	github.com/goliatone/go-cms v0.18.0
@@ -15,6 +17,7 @@ require (
 	github.com/goliatone/go-formgen v0.14.0
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
+	github.com/goliatone/go-masker v0.1.0
 	github.com/goliatone/go-notifications v0.10.0
 	github.com/goliatone/go-options v0.7.0
 	github.com/goliatone/go-persistence-bun v0.10.0
@@ -28,6 +31,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/stretchr/testify v1.11.1
+	github.com/traefik/yaegi v0.16.1
 	github.com/uptrace/bun v1.2.16
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
 	github.com/uptrace/bun/driver/sqliteshim v1.2.16
@@ -92,12 +96,10 @@ require (
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/goliatone/go-composite-fs v0.0.1 // indirect
 	github.com/goliatone/go-config v0.7.0 // indirect
 	github.com/goliatone/go-export/adapters/template/go-template v0.0.0-20260107043437-42444165f3bf // indirect
 	github.com/goliatone/go-logger v0.4.0 // indirect
-	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.6.0 // indirect
 	github.com/goliatone/go-urlkit v0.3.0 // indirect
