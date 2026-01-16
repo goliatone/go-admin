@@ -95,6 +95,10 @@ func debugConfigEnabled(cfg DebugConfig) bool {
 	return cfg.Enabled && len(cfg.Panels) > 0
 }
 
+func normalizePanelID(panel string) string {
+	return strings.ToLower(strings.TrimSpace(panel))
+}
+
 func normalizePanelIDs(panels []string) []string {
 	if len(panels) == 0 {
 		return nil
@@ -102,7 +106,7 @@ func normalizePanelIDs(panels []string) []string {
 	seen := map[string]bool{}
 	out := make([]string, 0, len(panels))
 	for _, panel := range panels {
-		normalized := strings.ToLower(strings.TrimSpace(panel))
+		normalized := normalizePanelID(panel)
 		if normalized == "" || seen[normalized] {
 			continue
 		}
