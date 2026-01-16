@@ -121,12 +121,12 @@ github.com/goliatone/go-auth v0.23.0 h1:UQAZL/tn38DnPmTCD+BJ2SMtQPJh53wv9Hal+uu8
 github.com/goliatone/go-auth v0.23.0/go.mod h1:gvqU0K8fD0vP4JQ0HbNSvlMaMMMP5Bcrkm3w+qGbHyA=
 github.com/goliatone/go-cms v0.18.0 h1:VRCbBTPnSjUfR/tChyNckSPl0f47MEEpbkn/Y3GB4Po=
 github.com/goliatone/go-cms v0.18.0/go.mod h1:q9qjbWeexdB6IRs3Td4y9hnwSVn/AHkxvwghsEvOMlg=
-github.com/goliatone/go-command v0.12.0 h1:AWxFg5og+BYIuQ5651yxlV2uT83cJA1rHhr6I2JRtH4=
-github.com/goliatone/go-command v0.12.0/go.mod h1:E9/Yki61QfTWSdA4Mxh6XV+4ox84in0VSQz+ycVFr2E=
+github.com/goliatone/go-command v0.13.0 h1:AQ8LHwkkt7BCDcAFdbkY/XAjnwGqBFPNfXSsWUfhh9g=
+github.com/goliatone/go-command v0.13.0/go.mod h1:E9/Yki61QfTWSdA4Mxh6XV+4ox84in0VSQz+ycVFr2E=
 github.com/goliatone/go-composite-fs v0.0.1 h1:sX1mHuYwIRhiyhnezK5JN3B70DpHjlGAyJjUhppRwMk=
 github.com/goliatone/go-composite-fs v0.0.1/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
-github.com/goliatone/go-config v0.7.0 h1:pOjCdD5T4pMOhTVMBa9lg5tisqobVNHdi4j1wene94c=
-github.com/goliatone/go-config v0.7.0/go.mod h1:ur5uCyQz4ngVnasyvYBLq1PUNIlwJfXhDQDbuML6Gu0=
+github.com/goliatone/go-config v0.8.0 h1:LSrN3TFNNrFyR+7ZAMRrJratoY6+aIfYVAMsMc2FisY=
+github.com/goliatone/go-config v0.8.0/go.mod h1:iTzuUXjWS+m/IvCPsBQOKGkPl9RQsEm8E2HKlOkwEfc=
 github.com/goliatone/go-crud v0.17.0 h1:IH23V7baFss4vL8uP6AXgK1oRtQSIMYN7K0K4TY1WE0=
 github.com/goliatone/go-crud v0.17.0/go.mod h1:5ccW6GGO3FVE8lKalkVcoPYCd+VqrMXhSw2o0BQgIqA=
 github.com/goliatone/go-dashboard v0.6.0 h1:nOiVgZwDI4NIbqiV7MfJrjbSRVlwdPARmnXgiGp3YRg=
