@@ -554,20 +554,22 @@ function E(s, t) {
     <table>
       <thead>
         <tr>
-          <th>Query</th>
           <th>Duration</th>
           <th>Rows</th>
           <th>Time</th>
+          <th>Status</th>
+          <th>Query</th>
         </tr>
       </thead>
       <tbody>${s.slice(-50).reverse().map((a) => {
     const o = v(a.duration, t), r = [];
     return o.isSlow && r.push("slow-query"), a.error && r.push("error-query"), `
         <tr class="${r.join(" ")}">
-          <td class="query-text" title="${n(a.query || "")}">${n(g(a.query || "", 80))}</td>
           <td class="duration ${o.isSlow ? "slow" : ""}">${o.text}</td>
           <td>${n(a.row_count ?? "-")}</td>
           <td class="timestamp">${n(u(a.timestamp))}</td>
+          <td>${a.error ? '<span class="badge badge-error">Error</span>' : ""}</td>
+          <td class="query-text" title="${n(a.query || "")}">${n(g(a.query || "", 80))}</td>
         </tr>
       `;
   }).join("")}</tbody>

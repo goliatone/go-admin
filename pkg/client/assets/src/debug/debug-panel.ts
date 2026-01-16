@@ -61,6 +61,7 @@ type DebugSnapshot = {
   config?: Record<string, any>;
   routes?: RouteEntry[];
   custom?: CustomSnapshot;
+  [key: string]: any;
 };
 
 type PanelFilters = {
@@ -81,9 +82,11 @@ type DebugState = {
   config: Record<string, any>;
   routes: RouteEntry[];
   custom: { data: Record<string, any>; logs: CustomLogEntry[] };
+  extra: Record<string, any>;
 };
 
 const defaultPanels = ['template', 'session', 'requests', 'sql', 'logs', 'config', 'routes', 'custom'];
+const knownPanels = new Set(defaultPanels);
 
 const panelLabels: Record<string, string> = {
   template: 'Template',
@@ -196,6 +199,19 @@ const formatJSON = (value: any): string => {
   }
 };
 
+const countPanelPayload = (value: any): number => {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  if (Array.isArray(value)) {
+    return value.length;
+  }
+  if (typeof value === 'object') {
+    return Object.keys(value).length;
+  }
+  return 1;
+};
+
 const normalizePanelList = (value: any): string[] => {
   if (Array.isArray(value) && value.length > 0) {
     return value.filter((panel) => typeof panel === 'string' && panel.trim()).map((panel) => panel.trim());
@@ -306,6 +322,7 @@ export class DebugPanel {
       config: {},
       routes: [],
       custom: { data: {}, logs: [] },
+      extra: {},
     };
 
     this.filters = {
@@ -317,13 +334,13 @@ export class DebugPanel {
       objects: { search: '' },
     };
 
-    this.tabsEl = this.requireElement('[data-debug-tabs]');
-    this.panelEl = this.requireElement('[data-debug-panel]');
-    this.filtersEl = this.requireElement('[data-debug-filters]');
-    this.statusEl = this.requireElement('[data-debug-status]');
-    this.connectionEl = this.requireElement('[data-debug-connection]');
-    this.eventCountEl = this.requireElement('[data-debug-events]');
-    this.lastEventEl = this.requireElement('[data-debug-last]');
+    this.tabsEl = this.requireElement('[data-debug-tabs]', document);
+    this.panelEl = this.requireElement('[data-debug-panel]', document);
+    this.filtersEl = this.requireElement('[data-debug-filters]', document);
+    this.statusEl = document.querySelector('[data-debug-status]') || this.container;
+    this.connectionEl = this.requireElement('[data-debug-connection]', document);
+    this.eventCountEl = this.requireElement('[data-debug-events]', document);
+    this.lastEventEl = this.requireElement('[data-debug-last]', document);
 
     this.renderTabs();
     this.renderActivePanel();
@@ -340,8 +357,8 @@ export class DebugPanel {
     this.stream.subscribe(this.panels.map((panel) => panelEventMap[panel] || panel));
   }
 
-  private requireElement(selector: string): HTMLElement {
-    const el = this.container.querySelector(selector);
+  private requireElement(selector: string, parent: ParentNode = this.container): HTMLElement {
+    const el = parent.querySelector(selector);
     if (!el) {
       throw new Error(`Missing debug element: ${selector}`);
     }
@@ -418,19 +435,19 @@ export class DebugPanel {
     if (panel === 'requests') {
       const values = this.filters.requests;
       content = `
-        <div class="debug-filter-group">
+        <div class="debug-filter">
           <label>Method</label>
           <select data-filter="method">
             ${this.renderSelectOptions(['all', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'], values.method)}
           </select>
         </div>
-        <div class="debug-filter-group">
+        <div class="debug-filter">
           <label>Status</label>
           <select data-filter="status">
             ${this.renderSelectOptions(['all', '200', '201', '204', '400', '401', '403', '404', '500'], values.status)}
           </select>
         </div>
-        <div class="debug-filter-group grow">
+        <div class="debug-filter debug-filter--grow">
           <label>Search</label>
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="/admin/users" />
         </div>
@@ -438,15 +455,15 @@ export class DebugPanel {
     } else if (panel === 'sql') {
       const values = this.filters.sql;
       content = `
-        <div class="debug-filter-group grow">
+        <div class="debug-filter debug-filter--grow">
           <label>Search</label>
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="SELECT" />
         </div>
-        <label class="debug-toggle">
+        <label class="debug-btn">
           <input type="checkbox" data-filter="slowOnly" ${values.slowOnly ? 'checked' : ''} />
           <span>Slow only</span>
         </label>
-        <label class="debug-toggle">
+        <label class="debug-btn">
           <input type="checkbox" data-filter="errorOnly" ${values.errorOnly ? 'checked' : ''} />
           <span>Errors</span>
         </label>
@@ -454,17 +471,17 @@ export class DebugPanel {
     } else if (panel === 'logs') {
       const values = this.filters.logs;
       content = `
-        <div class="debug-filter-group">
+        <div class="debug-filter">
           <label>Level</label>
           <select data-filter="level">
             ${this.renderSelectOptions(['all', 'debug', 'info', 'warn', 'error'], values.level)}
           </select>
         </div>
-        <div class="debug-filter-group grow">
+        <div class="debug-filter debug-filter--grow">
           <label>Search</label>
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="database" />
         </div>
-        <label class="debug-toggle">
+        <label class="debug-btn">
           <input type="checkbox" data-filter="autoScroll" ${values.autoScroll ? 'checked' : ''} />
           <span>Auto-scroll</span>
         </label>
@@ -472,13 +489,13 @@ export class DebugPanel {
     } else if (panel === 'routes') {
       const values = this.filters.routes;
       content = `
-        <div class="debug-filter-group">
+        <div class="debug-filter">
           <label>Method</label>
           <select data-filter="method">
             ${this.renderSelectOptions(['all', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'], values.method)}
           </select>
         </div>
-        <div class="debug-filter-group grow">
+        <div class="debug-filter debug-filter--grow">
           <label>Search</label>
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="/admin" />
         </div>
@@ -486,14 +503,14 @@ export class DebugPanel {
     } else {
       const values = this.filters.objects;
       content = `
-        <div class="debug-filter-group grow">
+        <div class="debug-filter debug-filter--grow">
           <label>Search keys</label>
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="token" />
         </div>
       `;
     }
 
-    this.filtersEl.innerHTML = content || '<span class="debug-muted">No filters</span>';
+    this.filtersEl.innerHTML = content || '<span class="timestamp">No filters</span>';
     this.bindFilterInputs();
   }
 
@@ -581,7 +598,7 @@ export class DebugPanel {
     } else if (panel === 'custom') {
       content = this.renderCustom();
     } else {
-      content = this.renderJSONPanel(panelLabel(panel), (this.state as any)[panel] || {}, this.filters.objects.search);
+      content = this.renderJSONPanel(panelLabel(panel), this.state.extra[panel], this.filters.objects.search);
     }
 
     this.panelEl.innerHTML = content;
@@ -612,44 +629,39 @@ export class DebugPanel {
 
     const rows = entries
       .map((entry) => {
-        const headers = entry.headers ? formatJSON(entry.headers) : '{}';
-        const query = entry.query ? formatJSON(entry.query) : '{}';
-        const methodClass = `debug-badge--method-${(entry.method || 'get').toLowerCase()}`;
+        const methodClass = `badge--method-${(entry.method || 'get').toLowerCase()}`;
         const statusCode = entry.status || 0;
-        const statusClass = statusCode >= 500 ? 'debug-badge--status-error' : statusCode >= 400 ? 'debug-badge--status-warn' : 'debug-badge--status';
-        const cardClass = statusCode >= 400 ? 'debug-card--error' : '';
+        const statusClass = statusCode >= 500 ? 'badge--status-error' : statusCode >= 400 ? 'badge--status-warn' : 'badge--status';
+        const rowClass = statusCode >= 400 ? 'error' : '';
         const duration = entry.duration || 0;
         const durationMs = typeof duration === 'number' ? duration / 1e6 : 0;
-        const durationClass = durationMs >= this.slowThresholdMs ? 'debug-duration--slow' : '';
+        const durationClass = durationMs >= this.slowThresholdMs ? 'duration--slow' : '';
         return `
-          <article class="debug-card ${cardClass}">
-            <div class="debug-card__row">
-              <span class="debug-badge debug-badge--method ${methodClass}">${escapeHTML(entry.method || 'GET')}</span>
-              <span class="debug-card__path">${escapeHTML(entry.path || '')}</span>
-              <span class="debug-badge ${statusClass}">${escapeHTML(statusCode)}</span>
-              <span class="debug-card__meta debug-duration ${durationClass}">${formatDuration(entry.duration)}</span>
-              <span class="debug-card__meta debug-timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
-            </div>
-            <details class="debug-card__details">
-              <summary>Details</summary>
-              ${entry.error ? `<div class="debug-card__error">${escapeHTML(entry.error)}</div>` : ''}
-              <div class="debug-card__grid">
-                <div>
-                  <h4>Query</h4>
-                  <pre>${escapeHTML(query)}</pre>
-                </div>
-                <div>
-                  <h4>Headers</h4>
-                  <pre>${escapeHTML(headers)}</pre>
-                </div>
-              </div>
-            </details>
-          </article>
+          <tr class="${rowClass}">
+            <td><span class="badge ${methodClass}">${escapeHTML(entry.method || 'GET')}</span></td>
+            <td><span class="path">${escapeHTML(entry.path || '')}</span></td>
+            <td><span class="badge ${statusClass}">${escapeHTML(statusCode)}</span></td>
+            <td><span class="duration ${durationClass}">${formatDuration(entry.duration)}</span></td>
+            <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
+          </tr>
         `;
       })
       .join('');
 
-    return `<div class="debug-stack">${rows}</div>`;
+    return `
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Path</th>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
   }
 
   private renderSQL(): string {
@@ -676,32 +688,34 @@ export class DebugPanel {
       .map((entry) => {
         const isSlow = this.isSlowQuery(entry);
         const hasError = !!entry.error;
-        const args = entry.args ? formatJSON(entry.args) : '[]';
-        const cardClass = hasError ? 'debug-card--error' : isSlow ? 'debug-card--slow' : '';
-        const durationClass = isSlow ? 'debug-duration--slow' : '';
+        const rowClass = hasError ? 'error' : isSlow ? 'slow' : '';
+        const durationClass = isSlow ? 'duration--slow' : '';
         return `
-          <article class="debug-card ${cardClass}">
-            <div class="debug-card__row">
-              <span class="debug-badge debug-badge--sql">SQL</span>
-              <span class="debug-card__meta debug-timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
-              <span class="debug-card__meta debug-duration ${durationClass}">${formatDuration(entry.duration)}</span>
-              <span class="debug-card__meta">Rows: ${escapeHTML(formatNumber(entry.row_count || 0))}</span>
-              ${hasError ? `<span class="debug-badge debug-badge--error">Error</span>` : ''}
-            </div>
-            <pre class="debug-code">${escapeHTML(entry.query || '')}</pre>
-            <div class="debug-card__grid">
-              <div>
-                <h4>Args</h4>
-                <pre>${escapeHTML(args)}</pre>
-              </div>
-              ${hasError ? `<div><h4>Error</h4><pre>${escapeHTML(entry.error)}</pre></div>` : ''}
-            </div>
-          </article>
+          <tr class="${rowClass}">
+            <td><span class="duration ${durationClass}">${formatDuration(entry.duration)}</span></td>
+            <td>${escapeHTML(formatNumber(entry.row_count || 0))}</td>
+            <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
+            <td>${hasError ? `<span class="badge badge--status-error">Error</span>` : ''}</td>
+            <td><span class="query-text">${escapeHTML(entry.query || '')}</span></td>
+          </tr>
         `;
       })
       .join('');
 
-    return `<div class="debug-stack">${rows}</div>`;
+    return `
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th>Duration</th>
+            <th>Rows</th>
+            <th>Time</th>
+            <th>Status</th>
+            <th>Query</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
   }
 
   private renderLogs(): string {
@@ -725,26 +739,33 @@ export class DebugPanel {
     const rows = entries
       .map((entry) => {
         const logLevel = (entry.level || 'info').toLowerCase();
-        const levelClass = `debug-badge--level-${logLevel}`;
+        const levelClass = `badge--level-${logLevel}`;
         const isError = logLevel === 'error' || logLevel === 'fatal';
-        const cardClass = isError ? 'debug-card--error' : '';
+        const rowClass = isError ? 'error' : '';
         return `
-          <article class="debug-card ${cardClass}">
-            <div class="debug-card__row">
-              <span class="debug-badge debug-badge--level ${levelClass}">${escapeHTML((entry.level || 'info').toUpperCase())}</span>
-              <span class="debug-card__meta debug-timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
-              <span class="debug-card__path">${escapeHTML(entry.message || '')}</span>
-            </div>
-            <div class="debug-card__grid">
-              ${entry.source ? `<div><h4>Source</h4><pre>${escapeHTML(entry.source)}</pre></div>` : ''}
-              ${entry.fields ? `<div><h4>Fields</h4><pre>${escapeHTML(formatJSON(entry.fields))}</pre></div>` : ''}
-            </div>
-          </article>
+          <tr class="${rowClass}">
+            <td><span class="badge ${levelClass}">${escapeHTML((entry.level || 'info').toUpperCase())}</span></td>
+            <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
+            <td><span class="message">${escapeHTML(entry.message || '')}</span></td>
+            <td><span class="timestamp">${escapeHTML(entry.source || '')}</span></td>
+          </tr>
         `;
       })
       .join('');
 
-    return `<div class="debug-stack">${rows}</div>`;
+    return `
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th>Level</th>
+            <th>Time</th>
+            <th>Message</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
   }
 
   private renderRoutes(): string {
@@ -767,25 +788,31 @@ export class DebugPanel {
 
     const rows = entries
       .map((entry) => {
-        const methodClass = `debug-badge--method-${(entry.method || 'get').toLowerCase()}`;
+        const methodClass = `badge--method-${(entry.method || 'get').toLowerCase()}`;
         return `
-          <article class="debug-card">
-            <div class="debug-card__row">
-              <span class="debug-badge debug-badge--method ${methodClass}">${escapeHTML(entry.method || '')}</span>
-              <span class="debug-card__path">${escapeHTML(entry.path || '')}</span>
-              ${entry.handler ? `<span class="debug-card__meta">${escapeHTML(entry.handler)}</span>` : ''}
-            </div>
-            <div class="debug-card__grid">
-              ${entry.summary ? `<div><h4>Summary</h4><pre>${escapeHTML(entry.summary)}</pre></div>` : ''}
-              ${entry.middleware && entry.middleware.length > 0 ? `<div><h4>Middleware</h4><pre>${escapeHTML(formatJSON(entry.middleware))}</pre></div>` : ''}
-              ${entry.tags && entry.tags.length > 0 ? `<div><h4>Tags</h4><pre>${escapeHTML(formatJSON(entry.tags))}</pre></div>` : ''}
-            </div>
-          </article>
+          <tr>
+            <td><span class="badge ${methodClass}">${escapeHTML(entry.method || '')}</span></td>
+            <td><span class="path">${escapeHTML(entry.path || '')}</span></td>
+            <td><span class="timestamp">${escapeHTML(entry.handler || '')}</span></td>
+            <td><span class="timestamp">${escapeHTML(entry.name || '')}</span></td>
+          </tr>
         `;
       })
       .join('');
 
-    return `<div class="debug-stack">${rows}</div>`;
+    return `
+      <table class="debug-table debug-routes-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Path</th>
+            <th>Handler</th>
+            <th>Name</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
   }
 
   private renderCustom(): string {
@@ -794,52 +821,97 @@ export class DebugPanel {
     const dataPanel = this.renderJSONPanel('Custom Data', data, '');
     const logs = this.state.custom.logs;
 
+    const logRows = logs.length
+      ? logs
+          .map((entry) => {
+            return `
+              <tr>
+                <td><span class="badge badge--custom">${escapeHTML(entry.category || 'custom')}</span></td>
+                <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
+                <td><span class="message">${escapeHTML(entry.message || '')}</span></td>
+              </tr>
+            `;
+          })
+          .join('')
+      : '';
+
     const logPanel = logs.length
       ? `
-        <div class="debug-stack">
-          ${logs
-            .map((entry) => {
-              return `
-                <article class="debug-card">
-                  <div class="debug-card__row">
-                    <span class="debug-badge debug-badge--custom">${escapeHTML(entry.category || 'custom')}</span>
-                    <span class="debug-card__meta">${escapeHTML(formatTimestamp(entry.timestamp))}</span>
-                    <span class="debug-card__path">${escapeHTML(entry.message || '')}</span>
-                  </div>
-                  ${entry.fields ? `<pre>${escapeHTML(formatJSON(entry.fields))}</pre>` : ''}
-                </article>
-              `;
-            })
-            .join('')}
-        </div>
+        <table class="debug-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Time</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>${logRows}</tbody>
+        </table>
       `
       : this.renderEmptyState('No custom logs yet.');
 
     return `
-      <div class="debug-grid">
-        <section>
-          <h3 class="debug-section-title">Custom Data</h3>
-          ${dataPanel}
-        </section>
-        <section>
-          <h3 class="debug-section-title">Custom Logs</h3>
-          ${logPanel}
-        </section>
+      <div class="debug-json-grid">
+        <div class="debug-json-panel">
+          <div class="debug-json-header">
+            <h3>Custom Data</h3>
+            <span class="timestamp">${formatNumber(countPanelPayload(data))} keys</span>
+          </div>
+          <div class="debug-json-content">
+            <pre>${escapeHTML(formatJSON(data))}</pre>
+          </div>
+        </div>
+        <div class="debug-json-panel">
+          <div class="debug-json-header">
+            <h3>Custom Logs</h3>
+            <span class="timestamp">${formatNumber(logs.length)} entries</span>
+          </div>
+          <div class="debug-json-content">
+            ${logPanel}
+          </div>
+        </div>
       </div>
     `;
   }
 
-  private renderJSONPanel(title: string, data: Record<string, any>, search: string): string {
-    const filtered = filterObjectByKey(data || {}, search);
+  private renderJSONPanel(title: string, data: any, search: string): string {
+    const isObject = data && typeof data === 'object' && !Array.isArray(data);
+    const isArray = Array.isArray(data);
+    const filtered = isObject ? filterObjectByKey(data || {}, search) : data ?? {};
+    const count = countPanelPayload(filtered);
+    const unit = isArray ? 'items' : isObject ? 'keys' : 'entries';
     return `
       <section class="debug-json-panel">
         <div class="debug-json-header">
           <h3>${escapeHTML(title)}</h3>
-          <span class="debug-muted">${formatNumber(Object.keys(filtered || {}).length)} keys</span>
+          <span class="debug-muted">${formatNumber(count)} ${unit}</span>
         </div>
         <pre>${escapeHTML(formatJSON(filtered))}</pre>
       </section>
     `;
+  }
+
+  private panelCount(panel: string): number {
+    switch (panel) {
+      case 'template':
+        return countPanelPayload(this.state.template);
+      case 'session':
+        return countPanelPayload(this.state.session);
+      case 'requests':
+        return this.state.requests.length;
+      case 'sql':
+        return this.state.sql.length;
+      case 'logs':
+        return this.state.logs.length;
+      case 'config':
+        return countPanelPayload(this.state.config);
+      case 'routes':
+        return this.state.routes.length;
+      case 'custom':
+        return countPanelPayload(this.state.custom.data) + this.state.custom.logs.length;
+      default:
+        return countPanelPayload(this.state.extra[panel]);
+    }
   }
 
   private renderEmptyState(message: string): string {
@@ -860,18 +932,8 @@ export class DebugPanel {
   }
 
   private updateTabCounts(): void {
-    const counts: Record<string, number> = {
-      template: Object.keys(this.state.template || {}).length,
-      session: Object.keys(this.state.session || {}).length,
-      requests: this.state.requests.length,
-      sql: this.state.sql.length,
-      logs: this.state.logs.length,
-      config: Object.keys(this.state.config || {}).length,
-      routes: this.state.routes.length,
-      custom: Object.keys(this.state.custom.data || {}).length + this.state.custom.logs.length,
-    };
-
-    Object.entries(counts).forEach(([panel, count]) => {
+    this.panels.forEach((panel) => {
+      const count = this.panelCount(panel);
       const badge = this.tabsEl.querySelector<HTMLElement>(`[data-panel-count="${panel}"]`);
       if (badge) {
         badge.textContent = formatNumber(count);
@@ -932,6 +994,9 @@ export class DebugPanel {
         this.handleCustomEvent(event.payload);
         break;
       default:
+        if (!knownPanels.has(panel)) {
+          this.state.extra[panel] = event.payload;
+        }
         break;
     }
 
@@ -970,6 +1035,13 @@ export class DebugPanel {
       data: custom.data || {},
       logs: ensureArray<CustomLogEntry>(custom.logs),
     };
+    const extra: Record<string, any> = {};
+    this.panels.forEach((panel) => {
+      if (!knownPanels.has(panel) && panel in next) {
+        extra[panel] = next[panel];
+      }
+    });
+    this.state.extra = extra;
 
     this.updateTabCounts();
     this.renderPanel();

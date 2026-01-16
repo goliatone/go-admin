@@ -223,10 +223,11 @@ function renderSQL(queries: SQLEntry[], slowThresholdMs: number): string {
       if (q.error) rowClasses.push('error-query');
       return `
         <tr class="${rowClasses.join(' ')}">
-          <td class="query-text" title="${escapeHTML(q.query || '')}">${escapeHTML(truncate(q.query || '', 80))}</td>
           <td class="duration ${duration.isSlow ? 'slow' : ''}">${duration.text}</td>
           <td>${escapeHTML(q.row_count ?? '-')}</td>
           <td class="timestamp">${escapeHTML(formatTimestamp(q.timestamp))}</td>
+          <td>${q.error ? '<span class="badge badge-error">Error</span>' : ''}</td>
+          <td class="query-text" title="${escapeHTML(q.query || '')}">${escapeHTML(truncate(q.query || '', 80))}</td>
         </tr>
       `;
     })
@@ -236,10 +237,11 @@ function renderSQL(queries: SQLEntry[], slowThresholdMs: number): string {
     <table>
       <thead>
         <tr>
-          <th>Query</th>
           <th>Duration</th>
           <th>Rows</th>
           <th>Time</th>
+          <th>Status</th>
+          <th>Query</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
