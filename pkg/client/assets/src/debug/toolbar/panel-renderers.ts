@@ -1,6 +1,8 @@
 // Panel renderers for the debug toolbar
 // Each function returns HTML string for a specific panel type
 
+import { highlightSQL, formatSQL, highlightJSON } from '../syntax-highlight.js';
+
 export type RequestEntry = {
   id?: string;
   timestamp?: string;
@@ -216,18 +218,27 @@ function renderSQL(queries: SQLEntry[], slowThresholdMs: number): string {
   const rows = queries
     .slice(-50)
     .reverse()
-    .map((q) => {
+    .map((q, index) => {
       const duration = formatDuration(q.duration, slowThresholdMs);
-      const rowClasses = [];
+      const rowClasses = ['expandable-row'];
       if (duration.isSlow) rowClasses.push('slow-query');
       if (q.error) rowClasses.push('error-query');
+      const rowId = `sql-row-${index}`;
+      const highlightedSQL = highlightSQL(q.query || '', true);
       return `
-        <tr class="${rowClasses.join(' ')}">
+        <tr class="${rowClasses.join(' ')}" data-row-id="${rowId}">
           <td class="duration ${duration.isSlow ? 'slow' : ''}">${duration.text}</td>
           <td>${escapeHTML(q.row_count ?? '-')}</td>
           <td class="timestamp">${escapeHTML(formatTimestamp(q.timestamp))}</td>
           <td>${q.error ? '<span class="badge badge-error">Error</span>' : ''}</td>
-          <td class="query-text" title="${escapeHTML(q.query || '')}">${escapeHTML(truncate(q.query || '', 80))}</td>
+          <td class="query-text"><span class="expand-icon">&#9654;</span>${escapeHTML(q.query || '')}</td>
+        </tr>
+        <tr class="expansion-row" data-expansion-for="${rowId}">
+          <td colspan="5">
+            <div class="expanded-content">
+              <pre>${highlightedSQL}</pre>
+            </div>
+          </td>
         </tr>
       `;
     })
@@ -321,9 +332,10 @@ function renderJSON(title: string, data: Record<string, unknown>): string {
     return `<div class="empty-state">No ${title.toLowerCase()} data available</div>`;
   }
 
+  const highlighted = highlightJSON(data, true);
   return `
     <div class="json-viewer">
-      <pre>${escapeHTML(formatJSON(data))}</pre>
+      <pre>${highlighted}</pre>
     </div>
   `;
 }
@@ -339,9 +351,10 @@ function renderCustom(custom: CustomSnapshot): string {
   let content = '';
 
   if (Object.keys(data).length) {
+    const highlighted = highlightJSON(data, true);
     content += `
       <div class="json-viewer">
-        <pre>${escapeHTML(formatJSON(data))}</pre>
+        <pre>${highlighted}</pre>
       </div>
     `;
   }

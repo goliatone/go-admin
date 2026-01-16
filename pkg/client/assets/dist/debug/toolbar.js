@@ -1,4 +1,4 @@
-import { D as x } from "../chunks/debug-stream-DXYTUS6I.js";
+import { a as m, h as k, D as x } from "../chunks/syntax-highlight-Q2MTgRi9.js";
 const S = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -461,6 +461,150 @@ const S = `
     word-break: break-word;
   }
 
+  /* Prism Catppuccin Mocha Theme */
+  .token.comment,
+  .token.prolog,
+  .token.doctype,
+  .token.cdata {
+    color: #6c7086;
+    font-style: italic;
+  }
+
+  .token.punctuation {
+    color: #9399b2;
+  }
+
+  .token.namespace {
+    opacity: 0.7;
+  }
+
+  .token.property,
+  .token.tag,
+  .token.boolean,
+  .token.number,
+  .token.constant,
+  .token.symbol {
+    color: #fab387;
+  }
+
+  .token.selector,
+  .token.attr-name,
+  .token.string,
+  .token.char,
+  .token.builtin {
+    color: #a6e3a1;
+  }
+
+  .token.operator,
+  .token.entity,
+  .token.url,
+  .language-css .token.string,
+  .style .token.string,
+  .token.variable {
+    color: #89dceb;
+  }
+
+  .token.atrule,
+  .token.attr-value,
+  .token.function {
+    color: #f9e2af;
+  }
+
+  .token.keyword {
+    color: #cba6f7;
+    font-weight: 600;
+  }
+
+  .token.regex,
+  .token.important {
+    color: #fab387;
+  }
+
+  .token.important,
+  .token.bold {
+    font-weight: bold;
+  }
+
+  .token.italic {
+    font-style: italic;
+  }
+
+  .token.entity {
+    cursor: help;
+  }
+
+  .token.deleted {
+    color: #f38ba8;
+  }
+
+  .token.inserted {
+    color: #a6e3a1;
+  }
+
+  /* Expandable row styles */
+  .expandable-row {
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .expandable-row:hover {
+    background: rgba(137, 180, 250, 0.08) !important;
+  }
+
+  .expandable-row .expand-icon {
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+    margin-right: 4px;
+    transition: transform 0.2s ease;
+    opacity: 0.5;
+    font-size: 10px;
+  }
+
+  .expandable-row:hover .expand-icon {
+    opacity: 1;
+  }
+
+  .expandable-row.expanded .expand-icon {
+    transform: rotate(90deg);
+  }
+
+  .expanded-content {
+    display: none;
+    background: #181825;
+    border: 1px solid #313244;
+    border-radius: 4px;
+    margin: 4px 8px 8px 8px;
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .expanded-content pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+    font-size: 11px;
+  }
+
+  .expandable-row.expanded + tr .expanded-content {
+    display: block;
+  }
+
+  /* Row with expanded content */
+  .expansion-row {
+    background: transparent !important;
+  }
+
+  .expansion-row:hover {
+    background: transparent !important;
+  }
+
+  .expansion-row td {
+    padding: 0 !important;
+    border: none !important;
+  }
+
   /* Responsive */
   @media (max-width: 768px) {
     :host {
@@ -471,59 +615,52 @@ const S = `
       max-width: 60%;
     }
   }
-`, n = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), u = (s) => {
-  if (!s) return "";
-  if (typeof s == "number")
-    return new Date(s).toLocaleTimeString();
-  if (typeof s == "string") {
-    const t = new Date(s);
-    return Number.isNaN(t.getTime()) ? s : t.toLocaleTimeString();
+`, i = (a) => String(a ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), p = (a) => {
+  if (!a) return "";
+  if (typeof a == "number")
+    return new Date(a).toLocaleTimeString();
+  if (typeof a == "string") {
+    const t = new Date(a);
+    return Number.isNaN(t.getTime()) ? a : t.toLocaleTimeString();
   }
   return "";
-}, v = (s, t = 50) => {
-  if (s == null)
+}, v = (a, t = 50) => {
+  if (a == null)
     return { text: "0ms", isSlow: !1 };
-  const e = Number(s);
+  const e = Number(a);
   if (Number.isNaN(e))
     return { text: "0ms", isSlow: !1 };
-  const a = e / 1e6, o = a >= t;
-  return a < 1 ? { text: `${(e / 1e3).toFixed(1)}µs`, isSlow: o } : a < 1e3 ? { text: `${a.toFixed(2)}ms`, isSlow: o } : { text: `${(a / 1e3).toFixed(2)}s`, isSlow: o };
-}, w = (s) => {
-  if (s == null) return "{}";
-  try {
-    return JSON.stringify(s, null, 2);
-  } catch {
-    return String(s ?? "");
-  }
-}, g = (s, t) => s ? s.length > t ? s.substring(0, t) + "..." : s : "", C = (s) => s ? s >= 500 ? "error" : s >= 400 ? "warn" : "" : "", k = (s) => {
-  if (!s) return "info";
-  const t = s.toLowerCase();
+  const s = e / 1e6, o = s >= t;
+  return s < 1 ? { text: `${(e / 1e3).toFixed(1)}µs`, isSlow: o } : s < 1e3 ? { text: `${s.toFixed(2)}ms`, isSlow: o } : { text: `${(s / 1e3).toFixed(2)}s`, isSlow: o };
+}, w = (a, t) => a ? a.length > t ? a.substring(0, t) + "..." : a : "", C = (a) => a ? a >= 500 ? "error" : a >= 400 ? "warn" : "" : "", E = (a) => {
+  if (!a) return "info";
+  const t = a.toLowerCase();
   return t === "error" || t === "fatal" ? "error" : t === "warn" || t === "warning" ? "warn" : t === "debug" || t === "trace" ? "debug" : "info";
 };
-function p(s, t, e = 50) {
-  switch (s) {
+function u(a, t, e = 50) {
+  switch (a) {
     case "requests":
       return q(t.requests || []);
     case "sql":
-      return E(t.sql || [], e);
+      return $(t.sql || [], e);
     case "logs":
-      return $(t.logs || []);
+      return L(t.logs || []);
     case "config":
       return b("Config", t.config || {});
     case "routes":
-      return L(t.routes || []);
+      return M(t.routes || []);
     case "template":
       return b("Template Context", t.template || {});
     case "session":
       return b("Session", t.session || {});
     case "custom":
-      return M(t.custom || {});
+      return T(t.custom || {});
     default:
-      return `<div class="empty-state">Panel "${n(s)}" not available</div>`;
+      return `<div class="empty-state">Panel "${i(a)}" not available</div>`;
   }
 }
-function q(s) {
-  return s.length ? `
+function q(a) {
+  return a.length ? `
     <table>
       <thead>
         <tr>
@@ -534,23 +671,23 @@ function q(s) {
           <th>Time</th>
         </tr>
       </thead>
-      <tbody>${s.slice(-50).reverse().map((e) => {
-    const a = (e.method || "get").toLowerCase(), o = C(e.status), r = v(e.duration);
+      <tbody>${a.slice(-50).reverse().map((e) => {
+    const s = (e.method || "get").toLowerCase(), o = C(e.status), r = v(e.duration);
     return `
         <tr>
-          <td><span class="badge badge-method ${a}">${n(e.method || "GET")}</span></td>
-          <td class="path" title="${n(e.path || "")}">${n(g(e.path || "", 50))}</td>
-          <td><span class="badge badge-status ${o}">${n(e.status || "-")}</span></td>
+          <td><span class="badge badge-method ${s}">${i(e.method || "GET")}</span></td>
+          <td class="path" title="${i(e.path || "")}">${i(w(e.path || "", 50))}</td>
+          <td><span class="badge badge-status ${o}">${i(e.status || "-")}</span></td>
           <td class="duration ${r.isSlow ? "slow" : ""}">${r.text}</td>
-          <td class="timestamp">${n(u(e.timestamp))}</td>
+          <td class="timestamp">${i(p(e.timestamp))}</td>
         </tr>
       `;
   }).join("")}</tbody>
     </table>
   ` : '<div class="empty-state">No requests captured</div>';
 }
-function E(s, t) {
-  return s.length ? `
+function $(a, t) {
+  return a.length ? `
     <table>
       <thead>
         <tr>
@@ -561,23 +698,32 @@ function E(s, t) {
           <th>Query</th>
         </tr>
       </thead>
-      <tbody>${s.slice(-50).reverse().map((a) => {
-    const o = v(a.duration, t), r = [];
-    return o.isSlow && r.push("slow-query"), a.error && r.push("error-query"), `
-        <tr class="${r.join(" ")}">
-          <td class="duration ${o.isSlow ? "slow" : ""}">${o.text}</td>
-          <td>${n(a.row_count ?? "-")}</td>
-          <td class="timestamp">${n(u(a.timestamp))}</td>
-          <td>${a.error ? '<span class="badge badge-error">Error</span>' : ""}</td>
-          <td class="query-text" title="${n(a.query || "")}">${n(g(a.query || "", 80))}</td>
+      <tbody>${a.slice(-50).reverse().map((s, o) => {
+    const r = v(s.duration, t), l = ["expandable-row"];
+    r.isSlow && l.push("slow-query"), s.error && l.push("error-query");
+    const d = `sql-row-${o}`, n = k(s.query || "", !0);
+    return `
+        <tr class="${l.join(" ")}" data-row-id="${d}">
+          <td class="duration ${r.isSlow ? "slow" : ""}">${r.text}</td>
+          <td>${i(s.row_count ?? "-")}</td>
+          <td class="timestamp">${i(p(s.timestamp))}</td>
+          <td>${s.error ? '<span class="badge badge-error">Error</span>' : ""}</td>
+          <td class="query-text"><span class="expand-icon">&#9654;</span>${i(s.query || "")}</td>
+        </tr>
+        <tr class="expansion-row" data-expansion-for="${d}">
+          <td colspan="5">
+            <div class="expanded-content">
+              <pre>${n}</pre>
+            </div>
+          </td>
         </tr>
       `;
   }).join("")}</tbody>
     </table>
   ` : '<div class="empty-state">No SQL queries captured</div>';
 }
-function $(s) {
-  return s.length ? `
+function L(a) {
+  return a.length ? `
     <table>
       <thead>
         <tr>
@@ -586,18 +732,18 @@ function $(s) {
           <th>Time</th>
         </tr>
       </thead>
-      <tbody>${s.slice(-100).reverse().map((e) => `
+      <tbody>${a.slice(-100).reverse().map((e) => `
         <tr>
-          <td><span class="badge badge-level ${k(e.level)}">${n((e.level || "INFO").toUpperCase())}</span></td>
-          <td class="message" title="${n(e.message || "")}">${n(g(e.message || "", 100))}</td>
-          <td class="timestamp">${n(u(e.timestamp))}</td>
+          <td><span class="badge badge-level ${E(e.level)}">${i((e.level || "INFO").toUpperCase())}</span></td>
+          <td class="message" title="${i(e.message || "")}">${i(w(e.message || "", 100))}</td>
+          <td class="timestamp">${i(p(e.timestamp))}</td>
         </tr>
       `).join("")}</tbody>
     </table>
   ` : '<div class="empty-state">No logs captured</div>';
 }
-function L(s) {
-  return s.length ? `
+function M(a) {
+  return a.length ? `
     <table>
       <thead>
         <tr>
@@ -606,41 +752,45 @@ function L(s) {
           <th>Handler</th>
         </tr>
       </thead>
-      <tbody>${s.map((e) => `
+      <tbody>${a.map((e) => `
         <tr>
-          <td><span class="badge badge-method ${(e.method || "get").toLowerCase()}">${n(e.method || "")}</span></td>
-          <td class="path">${n(e.path || "")}</td>
-          <td>${n(e.handler || "-")}</td>
+          <td><span class="badge badge-method ${(e.method || "get").toLowerCase()}">${i(e.method || "")}</span></td>
+          <td class="path">${i(e.path || "")}</td>
+          <td>${i(e.handler || "-")}</td>
         </tr>
       `).join("")}</tbody>
     </table>
   ` : '<div class="empty-state">No routes available</div>';
 }
-function b(s, t) {
+function b(a, t) {
   return Object.keys(t || {}).length ? `
     <div class="json-viewer">
-      <pre>${n(w(t))}</pre>
+      <pre>${m(t, !0)}</pre>
     </div>
-  ` : `<div class="empty-state">No ${s.toLowerCase()} data available</div>`;
+  ` : `<div class="empty-state">No ${a.toLowerCase()} data available</div>`;
 }
-function M(s) {
-  const t = s.data || {}, e = s.logs || [];
+function T(a) {
+  const t = a.data || {}, e = a.logs || [];
   if (!Object.keys(t).length && !e.length)
     return '<div class="empty-state">No custom data captured</div>';
-  let a = "";
-  if (Object.keys(t).length && (a += `
+  let s = "";
+  if (Object.keys(t).length) {
+    const o = m(t, !0);
+    s += `
       <div class="json-viewer">
-        <pre>${n(w(t))}</pre>
+        <pre>${o}</pre>
       </div>
-    `), e.length) {
+    `;
+  }
+  if (e.length) {
     const o = e.slice(-50).reverse().map((r) => `
         <tr>
-          <td><span class="badge">${n(r.category || "custom")}</span></td>
-          <td class="message">${n(r.message || "")}</td>
-          <td class="timestamp">${n(u(r.timestamp))}</td>
+          <td><span class="badge">${i(r.category || "custom")}</span></td>
+          <td class="message">${i(r.message || "")}</td>
+          <td class="timestamp">${i(p(r.timestamp))}</td>
         </tr>
       `).join("");
-    a += `
+    s += `
       <table>
         <thead>
           <tr>
@@ -653,25 +803,25 @@ function M(s) {
       </table>
     `;
   }
-  return a;
+  return s;
 }
-function c(s) {
-  const t = s.requests?.length || 0, e = s.sql?.length || 0, a = s.logs?.length || 0, o = (s.requests || []).filter((i) => (i.status || 0) >= 400).length, r = (s.sql || []).filter((i) => i.error).length, l = (s.logs || []).filter((i) => {
-    const h = (i.level || "").toLowerCase();
-    return h === "error" || h === "fatal";
-  }).length, d = (s.sql || []).filter((i) => {
-    const h = Number(i.duration);
-    return Number.isNaN(h) ? !1 : h / 1e6 >= 50;
+function h(a) {
+  const t = a.requests?.length || 0, e = a.sql?.length || 0, s = a.logs?.length || 0, o = (a.requests || []).filter((n) => (n.status || 0) >= 400).length, r = (a.sql || []).filter((n) => n.error).length, l = (a.logs || []).filter((n) => {
+    const c = (n.level || "").toLowerCase();
+    return c === "error" || c === "fatal";
+  }).length, d = (a.sql || []).filter((n) => {
+    const c = Number(n.duration);
+    return Number.isNaN(c) ? !1 : c / 1e6 >= 50;
   }).length;
   return {
     requests: t,
     sql: e,
-    logs: a,
+    logs: s,
     errors: o + r + l,
     slowQueries: d
   };
 }
-const f = ["requests", "sql", "logs", "routes", "config"], T = {
+const g = ["requests", "sql", "logs", "routes", "config"], P = {
   template: "Template",
   session: "Session",
   requests: "Requests",
@@ -680,14 +830,14 @@ const f = ["requests", "sql", "logs", "routes", "config"], T = {
   config: "Config",
   routes: "Routes",
   custom: "Custom"
-}, P = {
+}, A = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, A = {
+}, z = {
   request: "requests",
   sql: "sql",
   log: "logs",
@@ -695,7 +845,7 @@ const f = ["requests", "sql", "logs", "routes", "config"], T = {
   session: "session",
   custom: "custom"
 };
-class z extends HTMLElement {
+class j extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
@@ -710,8 +860,8 @@ class z extends HTMLElement {
   disconnectedCallback() {
     this.stream?.close(), document.removeEventListener("keydown", this.handleKeyDown);
   }
-  attributeChangedCallback(t, e, a) {
-    e !== a && (t === "expanded" ? (this.expanded = a === "true" || a === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(a || "50", 10) || 50 : t === "use-fab" && (this.useFab = a === "true" || a === ""));
+  attributeChangedCallback(t, e, s) {
+    e !== s && (t === "expanded" ? (this.expanded = s === "true" || s === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(s || "50", 10) || 50 : t === "use-fab" && (this.useFab = s === "true" || s === ""));
   }
   // Public API for FAB integration
   setExpanded(t) {
@@ -770,10 +920,10 @@ class z extends HTMLElement {
   get panels() {
     const t = this.getAttribute("panels");
     if (t) {
-      const e = t.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : f;
+      const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+      return e.length ? e : g;
     }
-    return f;
+    return g;
   }
   get wsUrl() {
     return `${this.debugPath}/ws`;
@@ -788,7 +938,7 @@ class z extends HTMLElement {
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => P[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => A[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -810,7 +960,7 @@ class z extends HTMLElement {
       this.applySnapshot(t.payload);
       return;
     }
-    const e = A[t.type] || t.type;
+    const e = z[t.type] || t.type;
     switch (t.type) {
       case "request":
         this.snapshot.requests = this.snapshot.requests || [], this.snapshot.requests.push(t.payload), this.trimArray(this.snapshot.requests, 500);
@@ -851,8 +1001,8 @@ class z extends HTMLElement {
   }
   // Rendering
   render() {
-    const t = c(this.snapshot), e = this.panels.map((r) => {
-      const l = T[r] || r, d = this.getPanelCount(r);
+    const t = h(this.snapshot), e = this.panels.map((r) => {
+      const l = P[r] || r, d = this.getPanelCount(r);
       return `
           <button class="tab ${this.activePanel === r ? "active" : ""}" data-panel="${r}">
             ${l}
@@ -861,10 +1011,10 @@ class z extends HTMLElement {
         `;
     }).join("");
     this.useFab && this.expanded;
-    const a = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "";
+    const s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "";
     this.shadow.innerHTML = `
       <style>${S}</style>
-      <div class="toolbar ${a} ${o}">
+      <div class="toolbar ${s} ${o}">
         ${this.expanded ? `
           <div class="toolbar-header">
             <div class="toolbar-tabs">${e}</div>
@@ -897,7 +1047,7 @@ class z extends HTMLElement {
           </div>
           <div class="toolbar-content">
             <div class="panel-container" id="panel-content">
-              ${p(this.activePanel, this.snapshot, this.slowThresholdMs)}
+              ${u(this.activePanel, this.snapshot, this.slowThresholdMs)}
             </div>
           </div>
         ` : ""}
@@ -933,15 +1083,15 @@ class z extends HTMLElement {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (t.innerHTML = p(this.activePanel, this.snapshot, this.slowThresholdMs)), this.panels.forEach((e) => {
-        const a = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
-        a && (a.textContent = String(this.getPanelCount(e)));
+      t && (t.innerHTML = u(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners()), this.panels.forEach((e) => {
+        const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
+        s && (s.textContent = String(this.getPanelCount(e)));
       });
     }
     this.useFab || this.updateSummary();
   }
   updateSummary() {
-    const t = c(this.snapshot), e = this.shadow.querySelector(".toolbar-summary");
+    const t = h(this.snapshot), e = this.shadow.querySelector(".toolbar-summary");
     if (!e) return;
     e.querySelectorAll(".summary-item").forEach((o) => {
       const r = o.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), l = o.querySelector(".count");
@@ -951,8 +1101,8 @@ class z extends HTMLElement {
   updateConnectionStatus() {
     const t = this.shadow.querySelector(".connection-indicator .status-dot");
     t && (t.className = `status-dot ${this.connectionStatus}`);
-    const e = this.shadow.querySelector(".connection-status .status-dot"), a = this.shadow.querySelector(".connection-status span:last-child");
-    e && (e.className = `status-dot ${this.connectionStatus}`), a && (a.textContent = this.connectionStatus);
+    const e = this.shadow.querySelector(".connection-status .status-dot"), s = this.shadow.querySelector(".connection-status span:last-child");
+    e && (e.className = `status-dot ${this.connectionStatus}`), s && (s.textContent = this.connectionStatus);
   }
   getPanelCount(t) {
     switch (t) {
@@ -980,17 +1130,17 @@ class z extends HTMLElement {
   attachEventListeners() {
     if (this.shadow.querySelectorAll(".tab").forEach((t) => {
       t.addEventListener("click", (e) => {
-        const a = e.currentTarget.dataset.panel;
-        if (a && a !== this.activePanel) {
-          this.activePanel = a, this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
+        const s = e.currentTarget.dataset.panel;
+        if (s && s !== this.activePanel) {
+          this.activePanel = s, this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
           const o = this.shadow.getElementById("panel-content");
-          o && (o.innerHTML = p(this.activePanel, this.snapshot, this.slowThresholdMs));
+          o && (o.innerHTML = u(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners());
         }
       });
-    }), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
+    }), this.attachExpandableRowListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
       t.addEventListener("click", (e) => {
-        const a = e.currentTarget.dataset.action, o = this.getStream();
-        switch (a) {
+        const s = e.currentTarget.dataset.action, o = this.getStream();
+        switch (s) {
           case "toggle":
             this.toggleExpanded();
             break;
@@ -1012,9 +1162,17 @@ class z extends HTMLElement {
       });
     }
   }
+  attachExpandableRowListeners() {
+    this.shadow.querySelectorAll(".expandable-row").forEach((t) => {
+      t.addEventListener("click", (e) => {
+        if (e.target.closest("a, button")) return;
+        e.currentTarget.classList.toggle("expanded");
+      });
+    });
+  }
 }
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", z);
-const j = `
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", j);
+const N = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1244,15 +1402,15 @@ const j = `
       font-size: 8px;
     }
   }
-`, N = {
+`, D = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, m = ["requests", "sql", "logs", "routes", "config"];
-class D extends HTMLElement {
+}, f = ["requests", "sql", "logs", "routes", "config"];
+class R extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1265,8 +1423,8 @@ class D extends HTMLElement {
   disconnectedCallback() {
     this.stream?.close();
   }
-  attributeChangedCallback(t, e, a) {
-    e !== a && t === "toolbar-expanded" && (this.toolbarExpanded = a === "true" || a === "", this.render());
+  attributeChangedCallback(t, e, s) {
+    e !== s && t === "toolbar-expanded" && (this.toolbarExpanded = s === "true" || s === "", this.render());
   }
   // Public API
   setToolbarExpanded(t) {
@@ -1288,10 +1446,10 @@ class D extends HTMLElement {
   get panels() {
     const t = this.getAttribute("panels");
     if (t) {
-      const e = t.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : m;
+      const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+      return e.length ? e : f;
     }
-    return m;
+    return f;
   }
   // State persistence
   loadState() {
@@ -1313,7 +1471,7 @@ class D extends HTMLElement {
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => N[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => D[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1384,9 +1542,9 @@ class D extends HTMLElement {
   }
   // Rendering
   render() {
-    const t = c(this.snapshot), e = t.errors > 0, a = t.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
+    const t = h(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${j}</style>
+      <style>${N}</style>
       <div class="fab ${o}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
@@ -1401,7 +1559,7 @@ class D extends HTMLElement {
             <span class="counter-value">${t.requests}</span>
             <span class="counter-label">Req</span>
           </div>
-          <div class="fab-counter ${t.sql > 0 ? "has-items" : ""} ${a ? "has-slow" : ""}">
+          <div class="fab-counter ${t.sql > 0 ? "has-items" : ""} ${s ? "has-slow" : ""}">
             <span class="counter-value">${t.sql}</span>
             <span class="counter-label">SQL</span>
           </div>
@@ -1420,25 +1578,25 @@ class D extends HTMLElement {
     `, this.attachEventListeners();
   }
   updateCounters() {
-    const t = c(this.snapshot), e = t.errors > 0, a = t.slowQueries > 0, o = this.shadow.querySelector(".fab-counter:nth-child(1)");
+    const t = h(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.shadow.querySelector(".fab-counter:nth-child(1)");
     if (o) {
-      const i = o.querySelector(".counter-value");
-      i && (i.textContent = String(t.requests)), o.classList.toggle("has-items", t.requests > 0);
+      const n = o.querySelector(".counter-value");
+      n && (n.textContent = String(t.requests)), o.classList.toggle("has-items", t.requests > 0);
     }
     const r = this.shadow.querySelector(".fab-counter:nth-child(2)");
     if (r) {
-      const i = r.querySelector(".counter-value");
-      i && (i.textContent = String(t.sql)), r.classList.toggle("has-items", t.sql > 0), r.classList.toggle("has-slow", a);
+      const n = r.querySelector(".counter-value");
+      n && (n.textContent = String(t.sql)), r.classList.toggle("has-items", t.sql > 0), r.classList.toggle("has-slow", s);
     }
     const l = this.shadow.querySelector(".fab-counter:nth-child(3)");
     if (l) {
-      const i = l.querySelector(".counter-value");
-      i && (i.textContent = String(t.logs)), l.classList.toggle("has-items", t.logs > 0), l.classList.toggle("has-errors", e);
+      const n = l.querySelector(".counter-value");
+      n && (n.textContent = String(t.logs)), l.classList.toggle("has-items", t.logs > 0), l.classList.toggle("has-errors", e);
     }
     const d = this.shadow.querySelector(".fab-counter:nth-child(4)");
     if (e && d) {
-      const i = d.querySelector(".counter-value");
-      i && (i.textContent = String(t.errors));
+      const n = d.querySelector(".counter-value");
+      n && (n.textContent = String(t.errors));
     }
   }
   updateConnectionStatus() {
@@ -1460,7 +1618,7 @@ class D extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", D);
+customElements.get("debug-fab") || customElements.define("debug-fab", R);
 class y {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
@@ -1512,8 +1670,8 @@ class y {
       if (t.detail?.expanded && this.toolbar) {
         const e = this.fab?.getStream();
         e && this.toolbar.setStream(e);
-        const a = this.fab?.getSnapshot();
-        a && this.toolbar.setSnapshot(a);
+        const s = this.fab?.getSnapshot();
+        s && this.toolbar.setSnapshot(s);
         const o = this.fab?.getConnectionStatus();
         o && this.toolbar.setConnectionStatus(o), this.toolbar.setExpanded(!0);
       }
@@ -1527,29 +1685,29 @@ class y {
   }
 }
 function F() {
-  const s = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
+  const a = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
-  if (s ? e = {
-    debugPath: s.debugPath || s.basePath,
-    panels: s.panels,
-    slowThresholdMs: s.slowThresholdMs
+  if (a ? e = {
+    debugPath: a.debugPath || a.basePath,
+    panels: a.panels,
+    slowThresholdMs: a.slowThresholdMs
   } : t && (e = {
     debugPath: t.getAttribute("data-debug-path") || void 0,
     panels: t.getAttribute("data-panels")?.split(","),
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
-  }), !e.debugPath && !s && !t)
+  }), !e.debugPath && !a && !t)
     return null;
-  const a = new y(e);
-  return a.init(), a;
+  const s = new y(e);
+  return s.init(), s;
 }
 window.DebugManager = y;
 window.initDebugManager = F;
 export {
-  D as DebugFab,
+  R as DebugFab,
   y as DebugManager,
-  z as DebugToolbar,
-  c as getCounts,
+  j as DebugToolbar,
+  h as getCounts,
   F as initDebugManager,
-  p as renderPanel
+  u as renderPanel
 };
 //# sourceMappingURL=toolbar.js.map

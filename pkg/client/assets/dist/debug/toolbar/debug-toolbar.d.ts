@@ -45,5 +45,6 @@ export declare class DebugToolbar extends HTMLElement {
     private updateConnectionStatus;
     private getPanelCount;
     private attachEventListeners;
+    private attachExpandableRowListeners;
 }
 //# sourceMappingURL=debug-toolbar.d.ts.map

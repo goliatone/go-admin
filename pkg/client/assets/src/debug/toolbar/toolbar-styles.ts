@@ -463,6 +463,150 @@ export const toolbarStyles = `
     word-break: break-word;
   }
 
+  /* Prism Catppuccin Mocha Theme */
+  .token.comment,
+  .token.prolog,
+  .token.doctype,
+  .token.cdata {
+    color: #6c7086;
+    font-style: italic;
+  }
+
+  .token.punctuation {
+    color: #9399b2;
+  }
+
+  .token.namespace {
+    opacity: 0.7;
+  }
+
+  .token.property,
+  .token.tag,
+  .token.boolean,
+  .token.number,
+  .token.constant,
+  .token.symbol {
+    color: #fab387;
+  }
+
+  .token.selector,
+  .token.attr-name,
+  .token.string,
+  .token.char,
+  .token.builtin {
+    color: #a6e3a1;
+  }
+
+  .token.operator,
+  .token.entity,
+  .token.url,
+  .language-css .token.string,
+  .style .token.string,
+  .token.variable {
+    color: #89dceb;
+  }
+
+  .token.atrule,
+  .token.attr-value,
+  .token.function {
+    color: #f9e2af;
+  }
+
+  .token.keyword {
+    color: #cba6f7;
+    font-weight: 600;
+  }
+
+  .token.regex,
+  .token.important {
+    color: #fab387;
+  }
+
+  .token.important,
+  .token.bold {
+    font-weight: bold;
+  }
+
+  .token.italic {
+    font-style: italic;
+  }
+
+  .token.entity {
+    cursor: help;
+  }
+
+  .token.deleted {
+    color: #f38ba8;
+  }
+
+  .token.inserted {
+    color: #a6e3a1;
+  }
+
+  /* Expandable row styles */
+  .expandable-row {
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .expandable-row:hover {
+    background: rgba(137, 180, 250, 0.08) !important;
+  }
+
+  .expandable-row .expand-icon {
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+    margin-right: 4px;
+    transition: transform 0.2s ease;
+    opacity: 0.5;
+    font-size: 10px;
+  }
+
+  .expandable-row:hover .expand-icon {
+    opacity: 1;
+  }
+
+  .expandable-row.expanded .expand-icon {
+    transform: rotate(90deg);
+  }
+
+  .expanded-content {
+    display: none;
+    background: #181825;
+    border: 1px solid #313244;
+    border-radius: 4px;
+    margin: 4px 8px 8px 8px;
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .expanded-content pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+    font-size: 11px;
+  }
+
+  .expandable-row.expanded + tr .expanded-content {
+    display: block;
+  }
+
+  /* Row with expanded content */
+  .expansion-row {
+    background: transparent !important;
+  }
+
+  .expansion-row:hover {
+    background: transparent !important;
+  }
+
+  .expansion-row td {
+    padding: 0 !important;
+    border: none !important;
+  }
+
   /* Responsive */
   @media (max-width: 768px) {
     :host {

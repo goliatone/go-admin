@@ -2,6 +2,14 @@ import { type DebugReplKind } from './repl-terminal.js';
 type DebugReplPanelOptions = {
     kind: DebugReplKind;
     debugPath: string;
+    commands?: DebugReplCommand[];
+};
+export type DebugReplCommand = {
+    command: string;
+    description?: string;
+    tags?: string[];
+    readOnly?: boolean;
+    aliases?: string[];
 };
 export declare class DebugReplPanel {
     private options;
@@ -11,10 +19,14 @@ export declare class DebugReplPanel {
     private terminalEl;
     private actionsEl;
     private terminal;
+    private commands;
+    private commandsEl;
     constructor(options: DebugReplPanelOptions);
     attach(container: HTMLElement): void;
     private bindActions;
+    private bindCommandActions;
     private updateStatus;
+    private renderCommands;
     private requireElement;
 }
 export {};

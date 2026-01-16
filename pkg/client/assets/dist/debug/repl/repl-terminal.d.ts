@@ -28,6 +28,7 @@ export declare class DebugReplTerminal {
     clear(): void;
     refresh(): void;
     focus(): void;
+    paste(value: string): void;
     private bindTerminal;
     private handleKeyEvent;
     private handlePaste;
