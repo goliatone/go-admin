@@ -19,7 +19,7 @@ func (s stubSQLResult) RowsAffected() (int64, error) { return s.rows, s.err }
 func TestDebugQueryHookCapturesSQL(t *testing.T) {
 	cfg := DebugConfig{
 		CaptureSQL: true,
-		Panels:     []string{"sql"},
+		Panels:     []string{DebugPanelSQL},
 	}
 	collector := NewDebugCollector(cfg)
 	hook := NewDebugQueryHook(collector)
@@ -34,9 +34,9 @@ func TestDebugQueryHookCapturesSQL(t *testing.T) {
 	hook.AfterQuery(context.Background(), event)
 
 	snapshot := collector.Snapshot()
-	entries, ok := snapshot["sql"].([]SQLEntry)
+	entries, ok := snapshot[DebugPanelSQL].([]SQLEntry)
 	if !ok || len(entries) != 1 {
-		t.Fatalf("expected sql snapshot entry, got %+v", snapshot["sql"])
+		t.Fatalf("expected sql snapshot entry, got %+v", snapshot[DebugPanelSQL])
 	}
 	if entries[0].Query != "SELECT 1" {
 		t.Fatalf("expected sql query captured, got %+v", entries[0])

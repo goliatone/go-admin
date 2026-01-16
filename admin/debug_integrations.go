@@ -573,7 +573,7 @@ func (m *DebugModule) captureConfigSnapshot(admin *Admin) {
 	if m == nil || m.collector == nil || admin == nil {
 		return
 	}
-	if !m.collector.panelEnabled("config") {
+	if !m.collector.panelEnabled(DebugPanelConfig) {
 		return
 	}
 	snapshot := debugConfigSnapshot(admin.config)
@@ -591,7 +591,7 @@ func (m *DebugModule) captureRoutesSnapshot(admin *Admin) {
 }
 
 func captureRoutesSnapshotForCollector(collector *DebugCollector, rt any) {
-	if collector == nil || !collector.panelEnabled("routes") {
+	if collector == nil || !collector.panelEnabled(DebugPanelRoutes) {
 		return
 	}
 	routes := debugRoutesFromRouter(rt)

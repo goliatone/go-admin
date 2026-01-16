@@ -14,23 +14,34 @@ const (
 	debugDefaultSlowQueryThreshold = 50 * time.Millisecond
 )
 
+const (
+	DebugPanelTemplate = "template"
+	DebugPanelSession  = "session"
+	DebugPanelRequests = "requests"
+	DebugPanelSQL      = "sql"
+	DebugPanelLogs     = "logs"
+	DebugPanelConfig   = "config"
+	DebugPanelRoutes   = "routes"
+	DebugPanelCustom   = "custom"
+)
+
 var defaultDebugPanels = []string{
-	"template",
-	"session",
-	"requests",
-	"sql",
-	"logs",
-	"config",
-	"routes",
-	"custom",
+	DebugPanelTemplate,
+	DebugPanelSession,
+	DebugPanelRequests,
+	DebugPanelSQL,
+	DebugPanelLogs,
+	DebugPanelConfig,
+	DebugPanelRoutes,
+	DebugPanelCustom,
 }
 
 var defaultToolbarPanels = []string{
-	"requests",
-	"sql",
-	"logs",
-	"routes",
-	"config",
+	DebugPanelRequests,
+	DebugPanelSQL,
+	DebugPanelLogs,
+	DebugPanelRoutes,
+	DebugPanelConfig,
 }
 
 // DebugConfig controls the debug module behavior and feature flags.
