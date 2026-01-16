@@ -1,6 +1,6 @@
-import { D as j, h as O, a as $ } from "../chunks/syntax-highlight-Q2MTgRi9.js";
+import { D as j, h as O, a as S } from "../chunks/syntax-highlight-Q2MTgRi9.js";
 import { DebugReplPanel as M } from "./repl.js";
-const A = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], N = /* @__PURE__ */ new Set(["shell", "console"]), w = /* @__PURE__ */ new Set([...A, ...N]), C = {
+const A = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], k = /* @__PURE__ */ new Set(["shell", "console"]), $ = /* @__PURE__ */ new Set([...A, ...k]), C = {
   template: "Template",
   session: "Session",
   requests: "Requests",
@@ -33,7 +33,7 @@ const A = ["template", "session", "requests", "sql", "logs", "config", "routes",
   } catch {
     return null;
   }
-}, Q = (r) => {
+}, F = (r) => {
   if (!Array.isArray(r))
     return [];
   const t = [];
@@ -43,16 +43,16 @@ const A = ["template", "session", "requests", "sql", "logs", "config", "routes",
     const s = e, a = typeof s.command == "string" ? s.command.trim() : "";
     if (!a)
       return;
-    const n = typeof s.description == "string" ? s.description.trim() : "", o = Array.isArray(s.tags) ? s.tags.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], i = Array.isArray(s.aliases) ? s.aliases.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], d = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
+    const n = typeof s.description == "string" ? s.description.trim() : "", l = Array.isArray(s.tags) ? s.tags.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], i = Array.isArray(s.aliases) ? s.aliases.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], d = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
     t.push({
       command: a,
       description: n || void 0,
-      tags: o.length > 0 ? o : void 0,
+      tags: l.length > 0 ? l : void 0,
       aliases: i.length > 0 ? i : void 0,
       mutates: d
     });
   }), t;
-}, l = (r) => String(r ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), E = (r) => {
+}, o = (r) => String(r ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), w = (r) => {
   if (!r)
     return "";
   if (typeof r == "number")
@@ -77,7 +77,7 @@ const A = ["template", "session", "requests", "sql", "logs", "config", "routes",
     return "0";
   const t = Number(r);
   return Number.isNaN(t) ? String(r) : t.toLocaleString();
-}, S = (r) => {
+}, E = (r) => {
   if (r === void 0)
     return "{}";
   try {
@@ -85,7 +85,7 @@ const A = ["template", "session", "requests", "sql", "logs", "config", "routes",
   } catch {
     return String(r ?? "");
   }
-}, F = async (r, t) => {
+}, Q = async (r, t) => {
   try {
     await navigator.clipboard.writeText(r);
     const e = t.innerHTML;
@@ -112,8 +112,8 @@ const A = ["template", "session", "requests", "sql", "logs", "config", "routes",
     return;
   let a = r;
   for (let n = 0; n < s.length - 1; n += 1) {
-    const o = s[n];
-    (!a[o] || typeof a[o] != "object") && (a[o] = {}), a = a[o];
+    const l = s[n];
+    (!a[l] || typeof a[l] != "object") && (a[l] = {}), a = a[l];
   }
   a[s[s.length - 1]] = e;
 }, m = (r) => Array.isArray(r) ? r : [], v = (r, t) => {
@@ -126,7 +126,7 @@ class _ {
   constructor(t) {
     this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.container = t;
     const e = L(t.dataset.panels);
-    this.panels = H(e), this.activePanel = this.panels[0] || "template", this.debugPath = t.dataset.debugPath || "", this.maxLogEntries = v(t.dataset.maxLogEntries, 500), this.maxSQLQueries = v(t.dataset.maxSqlQueries, 200), this.slowThresholdMs = v(t.dataset.slowThresholdMs, 50), this.replCommands = Q(L(t.dataset.replCommands)), this.state = {
+    this.panels = H(e), this.activePanel = this.panels[0] || "template", this.debugPath = t.dataset.debugPath || "", this.maxLogEntries = v(t.dataset.maxLogEntries, 500), this.maxSQLQueries = v(t.dataset.maxSqlQueries, 200), this.slowThresholdMs = v(t.dataset.slowThresholdMs, 50), this.replCommands = F(L(t.dataset.replCommands)), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -139,11 +139,11 @@ class _ {
     }, this.filters = {
       requests: { method: "all", status: "all", search: "" },
       sql: { search: "", slowOnly: !1, errorOnly: !1 },
-      logs: { level: "all", search: "", autoScroll: !0 },
+      logs: { level: "all", search: "", autoScroll: !0, newestFirst: !0 },
       routes: { method: "all", search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), N.forEach((s) => {
+    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), k.forEach((s) => {
       this.panelRenderers.set(s, {
         render: () => this.renderReplPanel(s),
         filters: () => '<span class="timestamp">REPL controls are in the panel header.</span>'
@@ -191,9 +191,9 @@ class _ {
   }
   renderTabs() {
     const t = this.panels.map((e) => `
-          <button class="debug-tab ${e === this.activePanel ? "debug-tab--active" : ""}" data-panel="${l(e)}">
-            <span class="debug-tab__label">${l(P(e))}</span>
-            <span class="debug-tab__count" data-panel-count="${l(e)}">0</span>
+          <button class="debug-tab ${e === this.activePanel ? "debug-tab--active" : ""}" data-panel="${o(e)}">
+            <span class="debug-tab__label">${o(P(e))}</span>
+            <span class="debug-tab__count" data-panel-count="${o(e)}">0</span>
           </button>
         `).join("");
     this.tabsEl.innerHTML = t, this.updateTabCounts();
@@ -224,7 +224,7 @@ class _ {
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="/admin/users" />
+          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="/admin/users" />
         </div>
       `;
     } else if (t === "sql") {
@@ -232,7 +232,7 @@ class _ {
       e = `
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="SELECT" />
+          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="SELECT" />
         </div>
         <label class="debug-btn">
           <input type="checkbox" data-filter="slowOnly" ${a.slowOnly ? "checked" : ""} />
@@ -254,8 +254,12 @@ class _ {
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="database" />
+          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="database" />
         </div>
+        <label class="debug-btn">
+          <input type="checkbox" data-filter="newestFirst" ${a.newestFirst ? "checked" : ""} />
+          <span>Newest first</span>
+        </label>
         <label class="debug-btn">
           <input type="checkbox" data-filter="autoScroll" ${a.autoScroll ? "checked" : ""} />
           <span>Auto-scroll</span>
@@ -272,7 +276,7 @@ class _ {
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="/admin" />
+          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="/admin" />
         </div>
       `;
     } else {
@@ -280,7 +284,7 @@ class _ {
       e = `
         <div class="debug-filter debug-filter--grow">
           <label>Search keys</label>
-          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="token" />
+          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="token" />
         </div>
       `;
     }
@@ -309,7 +313,7 @@ class _ {
       const s = { ...this.filters.logs };
       e.forEach((a) => {
         const n = a.dataset.filter || "";
-        n === "autoScroll" ? s[n] = a.checked : (n === "level" || n === "search") && (s[n] = a.value);
+        n === "autoScroll" || n === "newestFirst" ? s[n] = a.checked : (n === "level" || n === "search") && (s[n] = a.value);
       }), this.filters.logs = s;
     } else if (t === "routes") {
       const s = { ...this.filters.routes };
@@ -334,7 +338,7 @@ class _ {
     }
     this.panelEl.classList.remove("debug-content--repl");
     let s = "";
-    t === "template" ? s = this.renderJSONPanel("Template Context", this.state.template, this.filters.objects.search) : t === "session" ? s = this.renderJSONPanel("Session", this.state.session, this.filters.objects.search) : t === "config" ? s = this.renderJSONPanel("Config", this.state.config, this.filters.objects.search) : t === "requests" ? s = this.renderRequests() : t === "sql" ? s = this.renderSQL() : t === "logs" ? s = this.renderLogs() : t === "routes" ? s = this.renderRoutes() : t === "custom" ? s = this.renderCustom() : s = this.renderJSONPanel(P(t), this.state.extra[t], this.filters.objects.search), this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners();
+    t === "template" ? s = this.renderJSONPanel("Template Context", this.state.template, this.filters.objects.search) : t === "session" ? s = this.renderJSONPanel("Session", this.state.session, this.filters.objects.search) : t === "config" ? s = this.renderJSONPanel("Config", this.state.config, this.filters.objects.search) : t === "requests" ? s = this.renderRequests() : t === "sql" ? s = this.renderSQL() : t === "logs" ? s = this.renderLogs() : t === "routes" ? s = this.renderRoutes() : t === "custom" ? s = this.renderCustom() : s = this.renderJSONPanel(P(t), this.state.extra[t], this.filters.objects.search), this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners();
   }
   attachExpandableRowListeners() {
     this.panelEl.querySelectorAll(".expandable-row").forEach((t) => {
@@ -351,7 +355,7 @@ class _ {
         const s = t.closest("[data-copy-content]");
         if (!s) return;
         const a = s.getAttribute("data-copy-content") || "";
-        F(a, t);
+        Q(a, t);
       });
     });
   }
@@ -378,14 +382,14 @@ class _ {
           </tr>
         </thead>
         <tbody>${n.map((i) => {
-      const d = `badge--method-${(i.method || "get").toLowerCase()}`, c = i.status || 0, h = c >= 500 ? "badge--status-error" : c >= 400 ? "badge--status-warn" : "badge--status", u = c >= 400 ? "error" : "", b = i.duration || 0, f = (typeof b == "number" ? b / 1e6 : 0) >= this.slowThresholdMs ? "duration--slow" : "";
+      const d = `badge--method-${(i.method || "get").toLowerCase()}`, c = i.status || 0, u = c >= 500 ? "badge--status-error" : c >= 400 ? "badge--status-warn" : "badge--status", h = c >= 400 ? "error" : "", b = i.duration || 0, f = (typeof b == "number" ? b / 1e6 : 0) >= this.slowThresholdMs ? "duration--slow" : "";
       return `
-          <tr class="${u}">
-            <td><span class="badge ${d}">${l(i.method || "GET")}</span></td>
-            <td><span class="path">${l(i.path || "")}</span></td>
-            <td><span class="badge ${h}">${l(c)}</span></td>
+          <tr class="${h}">
+            <td><span class="badge ${d}">${o(i.method || "GET")}</span></td>
+            <td><span class="path">${o(i.path || "")}</span></td>
+            <td><span class="badge ${u}">${o(c)}</span></td>
             <td><span class="duration ${f}">${q(i.duration)}</span></td>
-            <td><span class="timestamp">${l(E(i.timestamp))}</span></td>
+            <td><span class="timestamp">${o(w(i.timestamp))}</span></td>
           </tr>
         `;
     }).join("")}</tbody>
@@ -406,26 +410,26 @@ class _ {
           </tr>
         </thead>
         <tbody>${n.map((i, d) => {
-      const c = this.isSlowQuery(i), h = !!i.error, u = ["expandable-row"];
-      h && u.push("error"), c && u.push("slow");
-      const b = c ? "duration--slow" : "", y = `sql-row-${d}`, f = i.query || "", k = O(f, !0);
+      const c = this.isSlowQuery(i), u = !!i.error, h = ["expandable-row"];
+      u && h.push("error"), c && h.push("slow");
+      const b = c ? "duration--slow" : "", y = `sql-row-${d}`, f = i.query || "", N = O(f, !0);
       return `
-          <tr class="${u.join(" ")}" data-row-id="${y}">
+          <tr class="${h.join(" ")}" data-row-id="${y}">
             <td><span class="duration ${b}">${q(i.duration)}</span></td>
-            <td>${l(g(i.row_count || 0))}</td>
-            <td><span class="timestamp">${l(E(i.timestamp))}</span></td>
-            <td>${h ? '<span class="badge badge--status-error">Error</span>' : ""}</td>
-            <td><span class="query-text"><span class="expand-icon">&#9654;</span>${l(f)}</span></td>
+            <td>${o(g(i.row_count || 0))}</td>
+            <td><span class="timestamp">${o(w(i.timestamp))}</span></td>
+            <td>${u ? '<span class="badge badge--status-error">Error</span>' : ""}</td>
+            <td><span class="query-text"><span class="expand-icon">&#9654;</span>${o(f)}</span></td>
           </tr>
           <tr class="expansion-row" data-expansion-for="${y}">
             <td colspan="5">
-              <div class="expanded-content" data-copy-content="${l(f)}">
+              <div class="expanded-content" data-copy-content="${o(f)}">
                 <div class="expanded-content__header">
                   <button class="debug-btn debug-copy debug-copy--sm" data-copy-trigger="${y}" title="Copy SQL">
                     <i class="iconoir-copy"></i> Copy
                   </button>
                 </div>
-                <pre>${k}</pre>
+                <pre>${N}</pre>
               </div>
             </td>
           </tr>
@@ -435,13 +439,14 @@ class _ {
     `;
   }
   renderLogs() {
-    const { level: t, search: e } = this.filters.logs, s = e.toLowerCase(), a = this.state.logs.filter((o) => {
-      if (t !== "all" && (o.level || "").toLowerCase() !== t)
+    const { level: t, search: e, newestFirst: s } = this.filters.logs, a = e.toLowerCase();
+    let n = this.state.logs.filter((i) => {
+      if (t !== "all" && (i.level || "").toLowerCase() !== t)
         return !1;
-      const i = `${o.message || ""} ${o.source || ""} ${S(o.fields || {})}`.toLowerCase();
-      return !(s && !i.includes(s));
+      const d = `${i.message || ""} ${i.source || ""} ${E(i.fields || {})}`.toLowerCase();
+      return !(a && !d.includes(a));
     });
-    return a.length === 0 ? this.renderEmptyState("No logs captured yet.") : `
+    return n.length === 0 ? this.renderEmptyState("No logs captured yet.") : (s && (n = [...n].reverse()), `
       <table class="debug-table">
         <thead>
           <tr>
@@ -451,25 +456,25 @@ class _ {
             <th>Source</th>
           </tr>
         </thead>
-        <tbody>${a.map((o) => {
-      const i = (o.level || "info").toLowerCase(), d = `badge--level-${i}`;
+        <tbody>${n.map((i) => {
+      const d = (i.level || "info").toLowerCase(), c = `badge--level-${d}`;
       return `
-          <tr class="${i === "error" || i === "fatal" ? "error" : ""}">
-            <td><span class="badge ${d}">${l((o.level || "info").toUpperCase())}</span></td>
-            <td><span class="timestamp">${l(E(o.timestamp))}</span></td>
-            <td><span class="message">${l(o.message || "")}</span></td>
-            <td><span class="timestamp">${l(o.source || "")}</span></td>
+          <tr class="${d === "error" || d === "fatal" ? "error" : ""}">
+            <td><span class="badge ${c}">${o((i.level || "info").toUpperCase())}</span></td>
+            <td><span class="timestamp">${o(w(i.timestamp))}</span></td>
+            <td><span class="message">${o(i.message || "")}</span></td>
+            <td><span class="timestamp">${o(i.source || "")}</span></td>
           </tr>
         `;
     }).join("")}</tbody>
       </table>
-    `;
+    `);
   }
   renderRoutes() {
-    const { method: t, search: e } = this.filters.routes, s = e.toLowerCase(), a = this.state.routes.filter((o) => {
-      if (t !== "all" && (o.method || "").toUpperCase() !== t)
+    const { method: t, search: e } = this.filters.routes, s = e.toLowerCase(), a = this.state.routes.filter((l) => {
+      if (t !== "all" && (l.method || "").toUpperCase() !== t)
         return !1;
-      const i = `${o.path || ""} ${o.handler || ""} ${o.summary || ""}`.toLowerCase();
+      const i = `${l.path || ""} ${l.handler || ""} ${l.summary || ""}`.toLowerCase();
       return !(s && !i.includes(s));
     });
     return a.length === 0 ? this.renderEmptyState("No routes captured yet.") : `
@@ -482,23 +487,23 @@ class _ {
             <th>Name</th>
           </tr>
         </thead>
-        <tbody>${a.map((o) => `
+        <tbody>${a.map((l) => `
           <tr>
-            <td><span class="badge ${`badge--method-${(o.method || "get").toLowerCase()}`}">${l(o.method || "")}</span></td>
-            <td><span class="path">${l(o.path || "")}</span></td>
-            <td><span class="timestamp">${l(o.handler || "")}</span></td>
-            <td><span class="timestamp">${l(o.name || "")}</span></td>
+            <td><span class="badge ${`badge--method-${(l.method || "get").toLowerCase()}`}">${o(l.method || "")}</span></td>
+            <td><span class="path">${o(l.path || "")}</span></td>
+            <td><span class="timestamp">${o(l.handler || "")}</span></td>
+            <td><span class="timestamp">${o(l.name || "")}</span></td>
           </tr>
         `).join("")}</tbody>
       </table>
     `;
   }
   renderCustom() {
-    const { search: t } = this.filters.custom, e = T(this.state.custom.data, t), s = this.state.custom.logs, a = $(e, !0), n = S(e), o = s.length ? s.map((d) => `
+    const { search: t } = this.filters.custom, e = T(this.state.custom.data, t), s = this.state.custom.logs, a = S(e, !0), n = E(e), l = s.length ? s.map((d) => `
               <tr>
-                <td><span class="badge badge--custom">${l(d.category || "custom")}</span></td>
-                <td><span class="timestamp">${l(E(d.timestamp))}</span></td>
-                <td><span class="message">${l(d.message || "")}</span></td>
+                <td><span class="badge badge--custom">${o(d.category || "custom")}</span></td>
+                <td><span class="timestamp">${o(w(d.timestamp))}</span></td>
+                <td><span class="message">${o(d.message || "")}</span></td>
               </tr>
             `).join("") : "", i = s.length ? `
         <table class="debug-table">
@@ -509,12 +514,12 @@ class _ {
               <th>Message</th>
             </tr>
           </thead>
-          <tbody>${o}</tbody>
+          <tbody>${l}</tbody>
         </table>
       ` : this.renderEmptyState("No custom logs yet.");
     return `
       <div class="debug-json-grid">
-        <div class="debug-json-panel" data-copy-content="${l(n)}">
+        <div class="debug-json-panel" data-copy-content="${o(n)}">
           <div class="debug-json-header">
             <h3>Custom Data</h3>
             <div class="debug-json-actions">
@@ -541,14 +546,14 @@ class _ {
     `;
   }
   renderJSONPanel(t, e, s) {
-    const a = e && typeof e == "object" && !Array.isArray(e), n = Array.isArray(e), o = a ? T(e || {}, s) : e ?? {}, i = p(o), d = n ? "items" : a ? "keys" : "entries", c = $(o, !0), h = S(o), u = `copy-${t.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`;
+    const a = e && typeof e == "object" && !Array.isArray(e), n = Array.isArray(e), l = a ? T(e || {}, s) : e ?? {}, i = p(l), d = n ? "items" : a ? "keys" : "entries", c = S(l, !0), u = E(l), h = `copy-${t.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`;
     return `
-      <section class="debug-json-panel" data-copy-content="${l(h)}">
+      <section class="debug-json-panel" data-copy-content="${o(u)}">
         <div class="debug-json-header">
-          <h3>${l(t)}</h3>
+          <h3>${o(t)}</h3>
           <div class="debug-json-actions">
             <span class="debug-muted">${g(i)} ${d}</span>
-            <button class="debug-btn debug-copy" data-copy-trigger="${u}" title="Copy to clipboard">
+            <button class="debug-btn debug-copy" data-copy-trigger="${h}" title="Copy to clipboard">
               <i class="iconoir-copy"></i> Copy
             </button>
           </div>
@@ -582,14 +587,14 @@ class _ {
   renderEmptyState(t) {
     return `
       <div class="debug-empty">
-        <p>${l(t)}</p>
+        <p>${o(t)}</p>
       </div>
     `;
   }
   renderSelectOptions(t, e) {
     return t.map((s) => {
       const a = s.toLowerCase() === e.toLowerCase() ? "selected" : "";
-      return `<option value="${l(s)}" ${a}>${l(s)}</option>`;
+      return `<option value="${o(s)}" ${a}>${o(s)}</option>`;
     }).join("");
   }
   updateTabCounts() {
@@ -634,7 +639,7 @@ class _ {
         this.handleCustomEvent(t.payload);
         break;
       default:
-        w.has(e) || (this.state.extra[e] = t.payload);
+        $.has(e) || (this.state.extra[e] = t.payload);
         break;
     }
     this.updateTabCounts(), e === this.activePanel && this.renderPanel();
@@ -661,7 +666,7 @@ class _ {
     };
     const a = {};
     this.panels.forEach((n) => {
-      !w.has(n) && n in e && (a[n] = e[n]);
+      !$.has(n) && n in e && (a[n] = e[n]);
     }), this.state.extra = a, this.updateTabCounts(), this.renderPanel();
   }
   trim(t, e) {
