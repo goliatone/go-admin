@@ -68,7 +68,7 @@ func TestDebugDashboardRendersTemplate(t *testing.T) {
 		return viewCtx["debug_path"] == "/admin/debug"
 	})).Return(nil)
 
-	if err := mod.handleDebugDashboard(mockCtx); err != nil {
+	if err := mod.handleDebugDashboard(nil, mockCtx); err != nil {
 		t.Fatalf("handle debug dashboard: %v", err)
 	}
 	mockCtx.AssertExpectations(t)
