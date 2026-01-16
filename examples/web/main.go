@@ -102,6 +102,17 @@ func main() {
 		}
 		cfg.FeatureFlags["debug"] = true
 		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
+		if mode := strings.TrimSpace(os.Getenv("ADMIN_DEBUG_LAYOUT")); mode != "" {
+			switch strings.ToLower(mode) {
+			case "admin":
+				cfg.Debug.LayoutMode = admin.DebugLayoutAdmin
+			case "standalone":
+				cfg.Debug.LayoutMode = admin.DebugLayoutStandalone
+			}
+		}
+		cfg.Debug.ViewContextBuilder = func(adm *admin.Admin, cfg admin.DebugConfig, c router.Context, view router.ViewContext) router.ViewContext {
+			return helpers.WithNav(view, adm, cfg, "debug", c.Context())
+		}
 	}
 
 	if debugEnabled && isDev && strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL"), "true") {
