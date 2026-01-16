@@ -1,5 +1,27 @@
 # Changelog
 
+# [0.15.0](https://github.com/goliatone/go-admin/compare/v0.14.0...v0.15.0) - (2026-01-16)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.15.0 ([8cad8a8](https://github.com/goliatone/go-admin/commit/8cad8a8252bf5afe14842a9c2f967574b0140512))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Expose debug query hook provider ([99fbead](https://github.com/goliatone/go-admin/commit/99fbead005161497026a69f745c7a134c6846a4e))  - (goliatone)
+- Debug quickstart module ([5eb58d7](https://github.com/goliatone/go-admin/commit/5eb58d79bedca342a4ec08b06935b582c44b9c8f))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.14.0 ([8db5e93](https://github.com/goliatone/go-admin/commit/8db5e93977fcdb5a9139769ec7de8a9d43295429))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([fa35b9f](https://github.com/goliatone/go-admin/commit/fa35b9f3ba2751687bf8fad2546b9cadf7c4b0a8))  - (goliatone)
+- Update deps ([0b5afe0](https://github.com/goliatone/go-admin/commit/0b5afe0aa5a610adbca97d1c34cfdeda9ed0501a))  - (goliatone)
+- Udpate readme ([4b88ca7](https://github.com/goliatone/go-admin/commit/4b88ca74a46e176b8cdec8f5a240dab9a339e184))  - (goliatone)
+- Update tests ([762b5d9](https://github.com/goliatone/go-admin/commit/762b5d91474aed90f8f838c4efb098b011ff7b8f))  - (goliatone)
+
 # [0.14.0](https://github.com/goliatone/go-admin/compare/v0.13.0...v0.14.0) - (2026-01-15)
 
 ## <!-- 1 -->🐛 Bug Fixes
