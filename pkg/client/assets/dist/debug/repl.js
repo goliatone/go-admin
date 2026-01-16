@@ -6290,7 +6290,7 @@ class Oe {
     if (this.options.kind !== "console")
       return "";
     const T = this.commands, $ = T.length, j = T.map((Y) => {
-      const I = ve(Y.command), r = Y.description ? `<div class="debug-repl__command-desc">${ve(Y.description)}</div>` : "", o = Array.isArray(Y.tags) && Y.tags.length > 0 ? `<div class="debug-repl__command-tags">${Y.tags.map((n) => `<span class="debug-repl__command-tag">${ve(n)}</span>`).join("")}</div>` : "", c = Y.readOnly ? "" : "debug-repl__command-badge--exec", _ = Y.readOnly ? "read-only" : "exec";
+      const I = ve(Y.command), r = Y.description ? `<div class="debug-repl__command-desc">${ve(Y.description)}</div>` : "", o = Array.isArray(Y.tags) && Y.tags.length > 0 ? `<div class="debug-repl__command-tags">${Y.tags.map((n) => `<span class="debug-repl__command-tag">${ve(n)}</span>`).join("")}</div>` : "", c = Y.mutates ? "debug-repl__command-badge--exec" : "", _ = Y.mutates ? "exec" : "read-only";
       return `
           <button class="debug-repl__command" type="button" data-repl-command="${I}">
             <div class="debug-repl__command-title">

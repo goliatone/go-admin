@@ -43,13 +43,13 @@ const x = ["template", "session", "requests", "sql", "logs", "config", "routes",
     const s = e, a = typeof s.command == "string" ? s.command.trim() : "";
     if (!a)
       return;
-    const n = typeof s.description == "string" ? s.description.trim() : "", l = Array.isArray(s.tags) ? s.tags.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], i = Array.isArray(s.aliases) ? s.aliases.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [];
+    const n = typeof s.description == "string" ? s.description.trim() : "", l = Array.isArray(s.tags) ? s.tags.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], i = Array.isArray(s.aliases) ? s.aliases.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], h = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
     t.push({
       command: a,
       description: n || void 0,
       tags: l.length > 0 ? l : void 0,
       aliases: i.length > 0 ? i : void 0,
-      readOnly: !!s.read_only
+      mutates: h
     });
   }), t;
 }, o = (r) => String(r ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), b = (r) => {
@@ -355,13 +355,13 @@ class J {
           </tr>
         </thead>
         <tbody>${n.map((i) => {
-      const c = `badge--method-${(i.method || "get").toLowerCase()}`, h = i.status || 0, p = h >= 500 ? "badge--status-error" : h >= 400 ? "badge--status-warn" : "badge--status", f = h >= 400 ? "error" : "", g = i.duration || 0, y = (typeof g == "number" ? g / 1e6 : 0) >= this.slowThresholdMs ? "duration--slow" : "";
+      const h = `badge--method-${(i.method || "get").toLowerCase()}`, c = i.status || 0, p = c >= 500 ? "badge--status-error" : c >= 400 ? "badge--status-warn" : "badge--status", f = c >= 400 ? "error" : "", g = i.duration || 0, E = (typeof g == "number" ? g / 1e6 : 0) >= this.slowThresholdMs ? "duration--slow" : "";
       return `
           <tr class="${f}">
-            <td><span class="badge ${c}">${o(i.method || "GET")}</span></td>
+            <td><span class="badge ${h}">${o(i.method || "GET")}</span></td>
             <td><span class="path">${o(i.path || "")}</span></td>
-            <td><span class="badge ${p}">${o(h)}</span></td>
-            <td><span class="duration ${y}">${C(i.duration)}</span></td>
+            <td><span class="badge ${p}">${o(c)}</span></td>
+            <td><span class="duration ${E}">${C(i.duration)}</span></td>
             <td><span class="timestamp">${o(b(i.timestamp))}</span></td>
           </tr>
         `;
@@ -382,22 +382,22 @@ class J {
             <th>Query</th>
           </tr>
         </thead>
-        <tbody>${n.map((i, c) => {
-      const h = this.isSlowQuery(i), p = !!i.error, f = ["expandable-row"];
-      p && f.push("error"), h && f.push("slow");
-      const g = h ? "duration--slow" : "", E = `sql-row-${c}`, y = k(i.query || "", !0);
+        <tbody>${n.map((i, h) => {
+      const c = this.isSlowQuery(i), p = !!i.error, f = ["expandable-row"];
+      p && f.push("error"), c && f.push("slow");
+      const g = c ? "duration--slow" : "", y = `sql-row-${h}`, E = k(i.query || "", !0);
       return `
-          <tr class="${f.join(" ")}" data-row-id="${E}">
+          <tr class="${f.join(" ")}" data-row-id="${y}">
             <td><span class="duration ${g}">${C(i.duration)}</span></td>
             <td>${o(u(i.row_count || 0))}</td>
             <td><span class="timestamp">${o(b(i.timestamp))}</span></td>
             <td>${p ? '<span class="badge badge--status-error">Error</span>' : ""}</td>
             <td><span class="query-text"><span class="expand-icon">&#9654;</span>${o(i.query || "")}</span></td>
           </tr>
-          <tr class="expansion-row" data-expansion-for="${E}">
+          <tr class="expansion-row" data-expansion-for="${y}">
             <td colspan="5">
               <div class="expanded-content">
-                <pre>${y}</pre>
+                <pre>${E}</pre>
               </div>
             </td>
           </tr>
@@ -424,10 +424,10 @@ class J {
           </tr>
         </thead>
         <tbody>${a.map((l) => {
-      const i = (l.level || "info").toLowerCase(), c = `badge--level-${i}`;
+      const i = (l.level || "info").toLowerCase(), h = `badge--level-${i}`;
       return `
           <tr class="${i === "error" || i === "fatal" ? "error" : ""}">
-            <td><span class="badge ${c}">${o((l.level || "info").toUpperCase())}</span></td>
+            <td><span class="badge ${h}">${o((l.level || "info").toUpperCase())}</span></td>
             <td><span class="timestamp">${o(b(l.timestamp))}</span></td>
             <td><span class="message">${o(l.message || "")}</span></td>
             <td><span class="timestamp">${o(l.source || "")}</span></td>
@@ -510,14 +510,14 @@ class J {
     `;
   }
   renderJSONPanel(t, e, s) {
-    const a = e && typeof e == "object" && !Array.isArray(e), n = Array.isArray(e), l = a ? L(e || {}, s) : e ?? {}, i = d(l), c = n ? "items" : a ? "keys" : "entries", h = $(l, !0);
+    const a = e && typeof e == "object" && !Array.isArray(e), n = Array.isArray(e), l = a ? L(e || {}, s) : e ?? {}, i = d(l), h = n ? "items" : a ? "keys" : "entries", c = $(l, !0);
     return `
       <section class="debug-json-panel">
         <div class="debug-json-header">
           <h3>${o(t)}</h3>
-          <span class="debug-muted">${u(i)} ${c}</span>
+          <span class="debug-muted">${u(i)} ${h}</span>
         </div>
-        <pre>${h}</pre>
+        <pre>${c}</pre>
       </section>
     `;
   }
