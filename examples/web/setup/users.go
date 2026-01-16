@@ -39,7 +39,7 @@ func ResolveUsersDSN() string {
 }
 
 // SetupUsers wires a go-users stack against the shared SQLite DB (runs migrations).
-func SetupUsers(ctx context.Context, dsn string) (stores.UserDependencies, *userssvc.Service, *OnboardingNotifier, error) {
+func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOption) (stores.UserDependencies, *userssvc.Service, *OnboardingNotifier, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -60,7 +60,7 @@ func SetupUsers(ctx context.Context, dsn string) (stores.UserDependencies, *user
 		driver:      "sqlite3",
 		server:      dsn,
 		pingTimeout: 5 * time.Second,
-	}, sqlDB, sqlitedialect.New())
+	}, sqlDB, sqlitedialect.New(), opts...)
 	if err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
