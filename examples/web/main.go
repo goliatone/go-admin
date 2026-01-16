@@ -29,6 +29,7 @@ import (
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-export/export"
+	persistence "github.com/goliatone/go-persistence-bun"
 	"github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/activity"
 	userstypes "github.com/goliatone/go-users/pkg/types"
@@ -101,6 +102,21 @@ func main() {
 		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
 	}
 
+	var adm *admin.Admin
+	var debugHookOpts []persistence.ClientOption
+	if cfg.Debug.Enabled && cfg.Debug.CaptureSQL {
+		debugHook := admin.NewDebugQueryHookProvider(func() *admin.DebugCollector {
+			if adm == nil {
+				return nil
+			}
+			return adm.Debug()
+		})
+		debugHookOpts = append(debugHookOpts, persistence.WithQueryHooks(debugHook))
+		if cfg.Debug.StrictQueryHooks {
+			debugHookOpts = append(debugHookOpts, persistence.WithQueryHookErrorHandler(persistence.PanicQueryHookErrorHandler))
+		}
+	}
+
 	adapterHooks := quickstart.AdapterHooks{
 		PersistentCMS: func(ctx context.Context, locale string) (admin.CMSOptions, string, error) {
 			opts, err := setup.SetupPersistentCMS(ctx, locale, "")
@@ -113,7 +129,7 @@ func main() {
 		GoUsersActivity: setup.SetupActivityWithGoUsers,
 	}
 
-	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsers(context.Background(), "")
+	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsers(context.Background(), "", debugHookOpts...)
 	if err != nil {
 		log.Fatalf("failed to setup users: %v", err)
 	}
@@ -162,12 +178,6 @@ func main() {
 	settingsBackend := adapterResult.SettingsBackend
 	activityBackend := adapterResult.ActivityBackend
 
-	if usersDeps.DB != nil {
-		if hook := adm.DebugQueryHook(); hook != nil {
-			usersDeps.DB.AddQueryHook(hook)
-		}
-	}
-
 	// Initialize data stores with seed data
 	cmsContentSvc := admin.CMSContentService(admin.NewInMemoryContentService())
 	if cfg.CMS.Container != nil {
@@ -176,7 +186,10 @@ func main() {
 		}
 	}
 	repoOptions := adm.DebugQueryHookOptions()
-	dataStores, err := stores.Initialize(cmsContentSvc, defaultLocale, usersDeps, repoOptions...)
+	dataStores, err := stores.InitializeWithOptions(cmsContentSvc, defaultLocale, usersDeps, stores.InitOptions{
+		RepoOptions:        repoOptions,
+		PersistenceOptions: debugHookOpts,
+	})
 	if err != nil {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
