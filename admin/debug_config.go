@@ -23,6 +23,8 @@ const (
 	DebugPanelConfig   = "config"
 	DebugPanelRoutes   = "routes"
 	DebugPanelCustom   = "custom"
+	DebugPanelShell    = "shell"
+	DebugPanelConsole  = "console"
 )
 
 var defaultDebugPanels = []string{
@@ -60,6 +62,7 @@ type DebugConfig struct {
 	SlowQueryThreshold time.Duration
 	AllowedIPs         []string
 	PersistLayout      bool
+	Repl               DebugREPLConfig
 	// ToolbarMode injects a debug toolbar at the bottom of all admin pages.
 	// When true, the toolbar is shown in addition to the /admin/debug page.
 	ToolbarMode bool
@@ -95,6 +98,7 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	}
 	cfg.Panels = normalizePanelIDs(cfg.Panels)
 	cfg.MaskFieldTypes = normalizeMaskFieldTypes(cfg.MaskFieldTypes)
+	cfg.Repl = normalizeDebugREPLConfig(cfg.Repl)
 	if cfg.ToolbarMode && len(cfg.ToolbarPanels) == 0 {
 		cfg.ToolbarPanels = append([]string{}, defaultToolbarPanels...)
 	}
