@@ -12,6 +12,7 @@ export default defineConfig({
         'toast/init': resolve(__dirname, 'src/toast/init.ts'),
         'formgen/file_uploader': resolve(__dirname, 'src/formgen/file_uploader.ts'),
         'debug/index': resolve(__dirname, 'src/debug/index.ts'),
+        'debug/repl': resolve(__dirname, 'src/debug/repl/index.ts'),
         'debug/toolbar': resolve(__dirname, 'src/debug/toolbar/index.ts'),
       },
       formats: ['es'],

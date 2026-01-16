@@ -12,6 +12,8 @@ export declare class DebugPanel {
     private eventCount;
     private lastEventAt;
     private stream;
+    private replPanels;
+    private panelRenderers;
     private tabsEl;
     private panelEl;
     private filtersEl;
@@ -28,6 +30,7 @@ export declare class DebugPanel {
     private bindFilterInputs;
     private updateFiltersFromInputs;
     private renderPanel;
+    private renderReplPanel;
     private renderRequests;
     private renderSQL;
     private renderLogs;

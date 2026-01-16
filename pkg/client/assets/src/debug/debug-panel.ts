@@ -1,4 +1,5 @@
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from './debug-stream.js';
+import { DebugReplPanel, type DebugReplCommand } from './repl/repl-panel.js';
 
 type RequestEntry = {
   id?: string;
@@ -52,6 +53,14 @@ type CustomSnapshot = {
   logs?: CustomLogEntry[];
 };
 
+type DebugReplCommandPayload = {
+  command?: string;
+  description?: string;
+  tags?: string[];
+  aliases?: string[];
+  read_only?: boolean;
+};
+
 type DebugSnapshot = {
   template?: Record<string, any>;
   session?: Record<string, any>;
@@ -85,8 +94,14 @@ type DebugState = {
   extra: Record<string, any>;
 };
 
+type PanelRenderer = {
+  render: () => void;
+  filters?: () => string;
+};
+
 const defaultPanels = ['template', 'session', 'requests', 'sql', 'logs', 'config', 'routes', 'custom'];
-const knownPanels = new Set(defaultPanels);
+const replPanelIDs = new Set(['shell', 'console']);
+const knownPanels = new Set([...defaultPanels, ...replPanelIDs]);
 
 const panelLabels: Record<string, string> = {
   template: 'Template',
@@ -97,6 +112,8 @@ const panelLabels: Record<string, string> = {
   config: 'Config',
   routes: 'Routes',
   custom: 'Custom',
+  shell: 'Shell',
+  console: 'Console',
 };
 
 const panelEventMap: Record<string, string> = {
@@ -126,6 +143,42 @@ const parseJSON = (value: string | undefined): any => {
   } catch {
     return null;
   }
+};
+
+const normalizeReplCommands = (value: any): DebugReplCommand[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const commands: DebugReplCommand[] = [];
+  value.forEach((item) => {
+    if (!item || typeof item !== 'object') {
+      return;
+    }
+    const raw = item as DebugReplCommandPayload;
+    const command = typeof raw.command === 'string' ? raw.command.trim() : '';
+    if (!command) {
+      return;
+    }
+    const description = typeof raw.description === 'string' ? raw.description.trim() : '';
+    const tags = Array.isArray(raw.tags)
+      ? raw.tags
+          .filter((tag) => typeof tag === 'string' && tag.trim() !== '')
+          .map((tag) => tag.trim())
+      : [];
+    const aliases = Array.isArray(raw.aliases)
+      ? raw.aliases
+          .filter((alias) => typeof alias === 'string' && alias.trim() !== '')
+          .map((alias) => alias.trim())
+      : [];
+    commands.push({
+      command,
+      description: description || undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      aliases: aliases.length > 0 ? aliases : undefined,
+      readOnly: Boolean(raw.read_only),
+    });
+  });
+  return commands;
 };
 
 const escapeHTML = (value: any): string => {
@@ -294,6 +347,9 @@ export class DebugPanel {
   private eventCount = 0;
   private lastEventAt: Date | null = null;
   private stream: DebugStream;
+  private replPanels: Map<string, DebugReplPanel>;
+  private replCommands: DebugReplCommand[];
+  private panelRenderers: Map<string, PanelRenderer>;
   private tabsEl: HTMLElement;
   private panelEl: HTMLElement;
   private filtersEl: HTMLElement;
@@ -312,6 +368,7 @@ export class DebugPanel {
     this.maxLogEntries = parseNumber(container.dataset.maxLogEntries, 500);
     this.maxSQLQueries = parseNumber(container.dataset.maxSqlQueries, 200);
     this.slowThresholdMs = parseNumber(container.dataset.slowThresholdMs, 50);
+    this.replCommands = normalizeReplCommands(parseJSON(container.dataset.replCommands));
 
     this.state = {
       template: {},
@@ -333,6 +390,15 @@ export class DebugPanel {
       custom: { search: '' },
       objects: { search: '' },
     };
+
+    this.replPanels = new Map();
+    this.panelRenderers = new Map();
+    replPanelIDs.forEach((panel) => {
+      this.panelRenderers.set(panel, {
+        render: () => this.renderReplPanel(panel),
+        filters: () => '<span class="timestamp">REPL controls are in the panel header.</span>',
+      });
+    });
 
     this.tabsEl = this.requireElement('[data-debug-tabs]', document);
     this.panelEl = this.requireElement('[data-debug-panel]', document);
@@ -432,7 +498,10 @@ export class DebugPanel {
   private renderFilters(): void {
     const panel = this.activePanel;
     let content = '';
-    if (panel === 'requests') {
+    const renderer = this.panelRenderers.get(panel);
+    if (renderer?.filters) {
+      content = renderer.filters();
+    } else if (panel === 'requests') {
       const values = this.filters.requests;
       content = `
         <div class="debug-filter">
@@ -580,6 +649,13 @@ export class DebugPanel {
 
   private renderPanel(): void {
     const panel = this.activePanel;
+    const renderer = this.panelRenderers.get(panel);
+    if (renderer) {
+      renderer.render();
+      return;
+    }
+    this.panelEl.classList.remove('debug-content--repl');
+
     let content = '';
     if (panel === 'template') {
       content = this.renderJSONPanel('Template Context', this.state.template, this.filters.objects.search);
@@ -605,6 +681,20 @@ export class DebugPanel {
     if (panel === 'logs' && this.filters.logs.autoScroll) {
       this.panelEl.scrollTop = this.panelEl.scrollHeight;
     }
+  }
+
+  private renderReplPanel(panel: string): void {
+    this.panelEl.classList.add('debug-content--repl');
+    let replPanel = this.replPanels.get(panel);
+    if (!replPanel) {
+      replPanel = new DebugReplPanel({
+        kind: panel === 'shell' ? 'shell' : 'console',
+        debugPath: this.debugPath,
+        commands: panel === 'console' ? this.replCommands : [],
+      });
+      this.replPanels.set(panel, replPanel);
+    }
+    replPanel.attach(this.panelEl);
   }
 
   private renderRequests(): string {
