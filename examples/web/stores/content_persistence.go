@@ -53,7 +53,7 @@ func ResolveContentDSN() string {
 
 // SetupContentDatabase opens a SQLite connection, applies the content
 // migrations, and returns a Bun DB handle.
-func SetupContentDatabase(ctx context.Context, dsn string) (*bun.DB, error) {
+func SetupContentDatabase(ctx context.Context, dsn string, opts ...persistence.ClientOption) (*bun.DB, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -75,7 +75,7 @@ func SetupContentDatabase(ctx context.Context, dsn string) (*bun.DB, error) {
 		driver:      "sqlite3",
 		server:      resolvedDSN,
 		pingTimeout: 5 * time.Second,
-	}, sqlDB, sqlitedialect.New())
+	}, sqlDB, sqlitedialect.New(), opts...)
 	if err != nil {
 		return nil, err
 	}
