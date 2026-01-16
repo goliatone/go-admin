@@ -115,7 +115,9 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	}
 
 	if !admin.gates.Enabled(FeatureDashboard) {
-		register(basePath, m.handleDebugDashboard)
+		register(basePath, func(c router.Context) error {
+			return m.handleDebugDashboard(admin, c)
+		})
 	}
 	register(joinPath(basePath, "api/snapshot"), m.handleDebugSnapshot)
 	registerPost(joinPath(basePath, "api/clear"), m.handleDebugClear)
@@ -157,7 +159,7 @@ func (m *DebugModule) handleDebugSnapshot(c router.Context) error {
 	return writeJSON(c, m.collector.Snapshot())
 }
 
-func (m *DebugModule) handleDebugDashboard(c router.Context) error {
+func (m *DebugModule) handleDebugDashboard(admin *Admin, c router.Context) error {
 	if m == nil {
 		return ErrForbidden
 	}
@@ -174,6 +176,7 @@ func (m *DebugModule) handleDebugDashboard(c router.Context) error {
 		"base_path":               basePath,
 		"debug_path":              debugPath,
 		"panels":                  m.config.Panels,
+		"repl_commands":           debugREPLCommandsForRequest(admin, m.config, c),
 		"max_log_entries":         m.config.MaxLogEntries,
 		"max_sql_queries":         m.config.MaxSQLQueries,
 		"slow_query_threshold_ms": m.config.SlowQueryThreshold.Milliseconds(),
