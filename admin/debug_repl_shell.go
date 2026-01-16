@@ -135,7 +135,7 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 		closeReason = debugREPLShellCloseReasonError
 		return err
 	}
-	defer debugREPLStopShell(cmd, ptmx, &closeReason)
+	defer debugREPLStopShell(cmd, ptmx)
 
 	commandCh := make(chan debugREPLShellCommand, 16)
 	commandErrCh := make(chan error, 1)
@@ -289,7 +289,7 @@ func debugREPLStartShell(cfg DebugREPLConfig) (*exec.Cmd, *os.File, error) {
 	return cmd, ptmx, nil
 }
 
-func debugREPLStopShell(cmd *exec.Cmd, ptmx *os.File, _ *string) {
+func debugREPLStopShell(cmd *exec.Cmd, ptmx *os.File) {
 	if ptmx != nil {
 		_ = ptmx.Close()
 	}
