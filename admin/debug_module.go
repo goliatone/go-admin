@@ -101,6 +101,7 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	m.registerDashboardProviders(ctx.Admin)
 	m.registerDebugRoutes(ctx.Admin)
 	m.registerDebugWebSocket(ctx.Admin)
+	m.registerDebugREPLShellWebSocket(ctx.Admin)
 	return nil
 }
 
