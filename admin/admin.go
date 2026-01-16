@@ -30,6 +30,7 @@ type Admin struct {
 	debugCollector              *DebugCollector
 	replSessionStore            DebugREPLSessionStore
 	replSessionManager          *DebugREPLSessionManager
+	replCommandCatalog          *DebugREPLCommandCatalog
 	dash                        *dashboardComponents
 	nav                         *Navigation
 	search                      *SearchEngine
@@ -121,6 +122,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		replSessionStore = NewInMemoryDebugREPLSessionStore()
 	}
 	replSessionManager := NewDebugREPLSessionManager(replSessionStore, cfg.Debug.Repl)
+	replCommandCatalog := debugREPLCommandCatalog()
 
 	commandBus := deps.CommandBus
 	if commandBus == nil {
@@ -264,6 +266,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		dashboard:          dashboard,
 		replSessionStore:   replSessionStore,
 		replSessionManager: replSessionManager,
+		replCommandCatalog: replCommandCatalog,
 		nav:                NewNavigation(container.MenuService(), deps.Authorizer),
 		search:             NewSearchEngine(deps.Authorizer),
 		authorizer:         deps.Authorizer,
