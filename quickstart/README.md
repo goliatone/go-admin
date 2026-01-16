@@ -8,6 +8,8 @@ Each helper is optional and composable.
 - `NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOption) admin.Config` - Inputs: base path/title/locale plus option setters. Outputs: `admin.Config` with quickstart defaults and overrides applied.
 - `DefaultMinimalFeatures() admin.Features` - Outputs: minimal Stage 1 feature set (`Dashboard` + `CMS`).
 - `WithFeaturesExplicit(features admin.Features) AdminConfigOption` - Inputs: feature set; outputs: config option that replaces defaults and clears `FeatureFlags`.
+- `WithDebugConfig(cfg admin.DebugConfig) AdminConfigOption` - Inputs: debug config; outputs: option that applies debug config and feature flags.
+- `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_DEBUG* config/envs.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
 - `NewAdminWithGoUsersPreferences(cfg admin.Config, repo types.PreferenceRepository, opts ...PreferencesOption) (*admin.Admin, error)` - Inputs: config, go-users preference repo, options. Outputs: admin instance.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
@@ -28,6 +30,8 @@ Each helper is optional and composable.
 - `ResolveDiskAssetsDir(marker string, candidates ...string) string` - Inputs: marker file + candidate directories. Outputs: first matching directory.
 - `RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error` - Inputs: router/config/admin/auth wrapper + options. Outputs: error (registers dashboard + notifications UI routes).
 - `RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther *auth.Auther, cookieName string, opts ...AuthUIOption) error` - Inputs: router/config/go-auth auther/cookie name + options. Outputs: error (registers login/logout/reset UI routes).
+- `AttachDebugMiddleware(r router.Router[T], cfg admin.Config, adm *admin.Admin)` - Inputs: router/config/admin; outputs: none (registers debug request capture middleware).
+- `AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin)` - Inputs: config/admin; outputs: none (wires slog debug handler).
 - `ConfigureExportRenderers(bundle *ExportBundle, templatesFS fs.FS, opts ...ExportTemplateOption) error` - Inputs: export bundle + templates FS + options. Outputs: error (registers template/PDF renderers).
 - `NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Module, isDev bool, opts ...ModuleRegistrarOption) error` - Inputs: admin, config, module list, dev flag, options. Outputs: error.
 - `WithModuleFeatureGates(gates admin.FeatureGates) ModuleRegistrarOption` - Inputs: feature gates; outputs: option to filter modules/menu items.
@@ -213,6 +217,55 @@ _ = formgen
 ```
 
 `WithVanillaOption(...)` is applied last, so it can override templates/styles/registry. Use `WithComponentRegistry(...)` instead of the merge option to replace defaults entirely.
+
+## Debug quickstart
+Debug is opt-in and requires module registration plus middleware/log wiring. Call the helpers after the debug module is registered so the collector is available.
+
+Environment mapping defaults:
+- `ADMIN_DEBUG=true` enables `cfg.Debug.Enabled`, `ToolbarMode`, `CaptureSQL`, `CaptureLogs`, and sets `FeatureFlags["debug"]=true`.
+- `ADMIN_DEBUG_ALLOWED_IPS=1.2.3.4,5.6.7.8` populates `cfg.Debug.AllowedIPs`.
+- `ADMIN_DEBUG_SQL` and `ADMIN_DEBUG_LOGS` override the capture flags.
+- `ADMIN_DEBUG_TOOLBAR` and `ADMIN_DEBUG_TOOLBAR_PANELS` override toolbar behavior/panels.
+
+```go
+cfg := quickstart.NewAdminConfig(
+	"/admin",
+	"Admin",
+	"en",
+	quickstart.WithDebugFromEnv(),
+)
+
+adm, _, err := quickstart.NewAdmin(cfg, hooks, quickstart.WithAdminDependencies(deps))
+if err != nil {
+	return err
+}
+
+modules := []admin.Module{
+	// core modules...
+}
+if cfg.Debug.Enabled {
+	modules = append(modules, admin.NewDebugModule(cfg.Debug))
+}
+
+gates := quickstart.FeatureGatesFromConfig(cfg)
+if err := quickstart.NewModuleRegistrar(
+	adm,
+	cfg,
+	modules,
+	isDev,
+	quickstart.WithModuleFeatureGates(gates),
+); err != nil {
+	return err
+}
+
+if cfg.Debug.Enabled {
+	quickstart.AttachDebugMiddleware(r, cfg, adm)
+	quickstart.AttachDebugLogHandler(cfg, adm)
+}
+
+repoOptions := adm.DebugQueryHookOptions()
+repo := repository.MustNewRepositoryWithOptions[*MyModel](db, handlers, repoOptions...)
+```
 
 ## Preferences quickstart
 - `FeaturePreferences` remains opt-in: pass `EnablePreferences()` or set `cfg.Features.Preferences`/`cfg.FeatureFlags` yourself.
