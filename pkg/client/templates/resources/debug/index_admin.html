@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+
+{% block title %}Debug - {{ title|default:"Enterprise Admin" }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-admin-dark">Debug Console</h1>
+    <p class="text-sm text-gray-500">Live debug panels and realtime events.</p>
+  </div>
+  <div class="flex items-center gap-3">
+    <a class="btn btn-secondary" href="{{ debug_standalone_path|default:debug_path }}" target="_blank" rel="noopener">Open standalone</a>
+  </div>
+</header>
+
+<div class="flex-1 overflow-hidden">
+  <iframe
+    class="w-full h-full border-0"
+    src="{{ debug_standalone_path|default:debug_path }}"
+    title="Debug Console"
+    loading="lazy"></iframe>
+</div>
+{% endblock %}
