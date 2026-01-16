@@ -234,7 +234,8 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 				"max_sql_queries":         cfg.MaxSQLQueries,
 				"slow_query_threshold_ms": cfg.SlowQueryThreshold.Milliseconds(),
 			}
-			return c.Render("resources/debug/index", viewCtx)
+			viewCtx = buildDebugViewContext(a, cfg, c, viewCtx)
+			return c.Render(debugPageTemplate(cfg, c), viewCtx)
 		}
 		if access != nil {
 			a.router.Get(debugPath, handler, access)
@@ -250,6 +251,14 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 		return nil
 	}
 	captureRoutesSnapshotForCollector(a.debugCollector, a.router)
+	controller := a.dash.controller
+	if cfg.DashboardTemplate != "" && cfg.DashboardTemplate != debugDefaultDashboardTemplate && a.dash.service != nil {
+		controller = dashcmp.NewController(dashcmp.ControllerOptions{
+			Service:  a.dash.service,
+			Renderer: a.dashboardRenderer(),
+			Template: cfg.DashboardTemplate,
+		})
+	}
 	if rt, ok := a.router.(router.Router[router.Context]); ok {
 		group := rt.Group(basePath)
 		if access != nil {
@@ -257,7 +266,7 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 		}
 		if err := dashboardrouter.Register(dashboardrouter.Config[router.Context]{
 			Router:         group,
-			Controller:     a.dash.controller,
+			Controller:     controller,
 			API:            a.dash.executor,
 			Broadcast:      nil,
 			ViewerResolver: viewerResolver,
@@ -275,7 +284,7 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 		}
 		if err := dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
 			Router:         group,
-			Controller:     a.dash.controller,
+			Controller:     controller,
 			API:            a.dash.executor,
 			Broadcast:      nil,
 			ViewerResolver: viewerResolver,
