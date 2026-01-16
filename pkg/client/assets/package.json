@@ -31,6 +31,8 @@
     "vite": "^5.4.11"
   },
   "dependencies": {
-    "sortablejs": "^1.15.6"
+    "sortablejs": "^1.15.6",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
   }
 }
