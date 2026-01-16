@@ -1,5 +1,5 @@
-import { D as _ } from "../chunks/debug-stream-DXYTUS6I.js";
-const y = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], S = {
+import { D as T } from "../chunks/debug-stream-DXYTUS6I.js";
+const P = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], E = new Set(P), y = {
   template: "Template",
   session: "Session",
   requests: "Requests",
@@ -8,91 +8,91 @@ const y = ["template", "session", "requests", "sql", "logs", "config", "routes",
   config: "Config",
   routes: "Routes",
   custom: "Custom"
-}, k = {
+}, N = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, T = {
+}, k = {
   request: "requests",
   sql: "sql",
   log: "logs",
   template: "template",
   session: "session",
   custom: "custom"
-}, N = (r) => {
-  if (!r)
+}, A = (a) => {
+  if (!a)
     return null;
   try {
-    return JSON.parse(r);
+    return JSON.parse(a);
   } catch {
     return null;
   }
-}, o = (r) => String(r ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), b = (r) => {
-  if (!r)
+}, o = (a) => String(a ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), f = (a) => {
+  if (!a)
     return "";
-  if (typeof r == "number")
-    return new Date(r).toLocaleTimeString();
-  if (typeof r == "string") {
-    const e = new Date(r);
-    return Number.isNaN(e.getTime()) ? r : e.toLocaleTimeString();
+  if (typeof a == "number")
+    return new Date(a).toLocaleTimeString();
+  if (typeof a == "string") {
+    const t = new Date(a);
+    return Number.isNaN(t.getTime()) ? a : t.toLocaleTimeString();
   }
   return "";
-}, E = (r) => {
-  if (r == null)
+}, v = (a) => {
+  if (a == null)
     return "0ms";
-  if (typeof r == "string")
-    return r;
-  const e = Number(r);
-  if (Number.isNaN(e))
+  if (typeof a == "string")
+    return a;
+  const t = Number(a);
+  if (Number.isNaN(t))
     return "0ms";
-  const t = e / 1e6;
-  return t < 1 ? `${(e / 1e3).toFixed(1)}us` : t < 1e3 ? `${t.toFixed(2)}ms` : `${(t / 1e3).toFixed(2)}s`;
-}, f = (r) => {
-  if (r == null || r === "")
+  const e = t / 1e6;
+  return e < 1 ? `${(t / 1e3).toFixed(1)}us` : e < 1e3 ? `${e.toFixed(2)}ms` : `${(e / 1e3).toFixed(2)}s`;
+}, d = (a) => {
+  if (a == null || a === "")
     return "0";
-  const e = Number(r);
-  return Number.isNaN(e) ? String(r) : e.toLocaleString();
-}, c = (r) => {
-  if (r === void 0)
+  const t = Number(a);
+  return Number.isNaN(t) ? String(a) : t.toLocaleString();
+}, g = (a) => {
+  if (a === void 0)
     return "{}";
   try {
-    return JSON.stringify(r, null, 2);
+    return JSON.stringify(a, null, 2);
   } catch {
-    return String(r ?? "");
+    return String(a ?? "");
   }
-}, O = (r) => Array.isArray(r) && r.length > 0 ? r.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : [...y], q = (r) => S[r] ? S[r] : r ? r.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/i, "SQL").replace(/\b([a-z])/g, (e) => e.toUpperCase()) : "", w = (r, e) => {
-  if (!e)
-    return r;
-  const t = e.toLowerCase(), s = {};
-  for (const [a, i] of Object.entries(r || {}))
-    a.toLowerCase().includes(t) && (s[a] = i);
+}, u = (a) => a == null ? 0 : Array.isArray(a) ? a.length : typeof a == "object" ? Object.keys(a).length : 1, j = (a) => Array.isArray(a) && a.length > 0 ? a.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : [...P], q = (a) => y[a] ? y[a] : a ? a.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/i, "SQL").replace(/\b([a-z])/g, (t) => t.toUpperCase()) : "", w = (a, t) => {
+  if (!t)
+    return a;
+  const e = t.toLowerCase(), s = {};
+  for (const [n, r] of Object.entries(a || {}))
+    n.toLowerCase().includes(e) && (s[n] = r);
   return s;
-}, j = (r, e, t) => {
-  if (!r || !e)
+}, O = (a, t, e) => {
+  if (!a || !t)
     return;
-  const s = e.split(".").map((i) => i.trim()).filter(Boolean);
+  const s = t.split(".").map((r) => r.trim()).filter(Boolean);
   if (s.length === 0)
     return;
-  let a = r;
-  for (let i = 0; i < s.length - 1; i += 1) {
-    const l = s[i];
-    (!a[l] || typeof a[l] != "object") && (a[l] = {}), a = a[l];
+  let n = a;
+  for (let r = 0; r < s.length - 1; r += 1) {
+    const i = s[r];
+    (!n[i] || typeof n[i] != "object") && (n[i] = {}), n = n[i];
   }
-  a[s[s.length - 1]] = t;
-}, g = (r) => Array.isArray(r) ? r : [], v = (r, e) => {
-  if (!r)
-    return e;
-  const t = Number(r);
-  return Number.isNaN(t) ? e : t;
+  n[s[s.length - 1]] = e;
+}, p = (a) => Array.isArray(a) ? a : [], b = (a, t) => {
+  if (!a)
+    return t;
+  const e = Number(a);
+  return Number.isNaN(e) ? t : e;
 };
-class A {
-  constructor(e) {
-    this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.container = e;
-    const t = N(e.dataset.panels);
-    this.panels = O(t), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.maxLogEntries = v(e.dataset.maxLogEntries, 500), this.maxSQLQueries = v(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = v(e.dataset.slowThresholdMs, 50), this.state = {
+class x {
+  constructor(t) {
+    this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.container = t;
+    const e = A(t.dataset.panels);
+    this.panels = j(e), this.activePanel = this.panels[0] || "template", this.debugPath = t.dataset.debugPath || "", this.maxLogEntries = b(t.dataset.maxLogEntries, 500), this.maxSQLQueries = b(t.dataset.maxSqlQueries, 200), this.slowThresholdMs = b(t.dataset.slowThresholdMs, 50), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -100,7 +100,8 @@ class A {
       logs: [],
       config: {},
       routes: [],
-      custom: { data: {}, logs: [] }
+      custom: { data: {}, logs: [] },
+      extra: {}
     }, this.filters = {
       requests: { method: "all", status: "all", search: "" },
       sql: { search: "", slowOnly: !1, errorOnly: !1 },
@@ -108,31 +109,31 @@ class A {
       routes: { method: "all", search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.tabsEl = this.requireElement("[data-debug-tabs]"), this.panelEl = this.requireElement("[data-debug-panel]"), this.filtersEl = this.requireElement("[data-debug-filters]"), this.statusEl = this.requireElement("[data-debug-status]"), this.connectionEl = this.requireElement("[data-debug-connection]"), this.eventCountEl = this.requireElement("[data-debug-events]"), this.lastEventEl = this.requireElement("[data-debug-last]"), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.stream = new _({
+    }, this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.stream = new T({
       basePath: this.debugPath,
       onEvent: (s) => this.handleEvent(s),
       onStatusChange: (s) => this.updateConnectionStatus(s)
-    }), this.fetchSnapshot(), this.stream.connect(), this.stream.subscribe(this.panels.map((s) => k[s] || s));
+    }), this.fetchSnapshot(), this.stream.connect(), this.stream.subscribe(this.panels.map((s) => N[s] || s));
   }
-  requireElement(e) {
-    const t = this.container.querySelector(e);
-    if (!t)
-      throw new Error(`Missing debug element: ${e}`);
-    return t;
+  requireElement(t, e = this.container) {
+    const s = e.querySelector(t);
+    if (!s)
+      throw new Error(`Missing debug element: ${t}`);
+    return s;
   }
   bindActions() {
-    this.tabsEl.addEventListener("click", (t) => {
-      const s = t.target;
+    this.tabsEl.addEventListener("click", (e) => {
+      const s = e.target;
       if (!s)
         return;
-      const a = s.closest("[data-panel]");
-      if (!a)
+      const n = s.closest("[data-panel]");
+      if (!n)
         return;
-      const i = a.dataset.panel || "";
-      !i || i === this.activePanel || (this.activePanel = i, this.renderActivePanel());
-    }), this.container.querySelectorAll("[data-debug-action]").forEach((t) => {
-      t.addEventListener("click", () => {
-        switch (t.dataset.debugAction || "") {
+      const r = n.dataset.panel || "";
+      !r || r === this.activePanel || (this.activePanel = r, this.renderActivePanel());
+    }), this.container.querySelectorAll("[data-debug-action]").forEach((e) => {
+      e.addEventListener("click", () => {
+        switch (e.dataset.debugAction || "") {
           case "snapshot":
             this.stream.requestSnapshot();
             break;
@@ -140,7 +141,7 @@ class A {
             this.clearAll();
             break;
           case "pause":
-            this.togglePause(t);
+            this.togglePause(e);
             break;
           case "clear-panel":
             this.clearActivePanel();
@@ -150,395 +151,443 @@ class A {
     });
   }
   renderTabs() {
-    const e = this.panels.map((t) => `
-          <button class="debug-tab ${t === this.activePanel ? "debug-tab--active" : ""}" data-panel="${o(t)}">
-            <span class="debug-tab__label">${o(q(t))}</span>
-            <span class="debug-tab__count" data-panel-count="${o(t)}">0</span>
+    const t = this.panels.map((e) => `
+          <button class="debug-tab ${e === this.activePanel ? "debug-tab--active" : ""}" data-panel="${o(e)}">
+            <span class="debug-tab__label">${o(q(e))}</span>
+            <span class="debug-tab__count" data-panel-count="${o(e)}">0</span>
           </button>
         `).join("");
-    this.tabsEl.innerHTML = e, this.updateTabCounts();
+    this.tabsEl.innerHTML = t, this.updateTabCounts();
   }
   renderActivePanel() {
     this.renderTabs(), this.renderFilters(), this.renderPanel();
   }
   renderFilters() {
-    const e = this.activePanel;
-    let t = "";
-    if (e === "requests") {
+    const t = this.activePanel;
+    let e = "";
+    if (t === "requests") {
       const s = this.filters.requests;
-      t = `
-        <div class="debug-filter-group">
+      e = `
+        <div class="debug-filter">
           <label>Method</label>
           <select data-filter="method">
             ${this.renderSelectOptions(["all", "GET", "POST", "PUT", "PATCH", "DELETE"], s.method)}
           </select>
         </div>
-        <div class="debug-filter-group">
+        <div class="debug-filter">
           <label>Status</label>
           <select data-filter="status">
             ${this.renderSelectOptions(["all", "200", "201", "204", "400", "401", "403", "404", "500"], s.status)}
           </select>
         </div>
-        <div class="debug-filter-group grow">
+        <div class="debug-filter debug-filter--grow">
           <label>Search</label>
           <input type="search" data-filter="search" value="${o(s.search)}" placeholder="/admin/users" />
         </div>
       `;
-    } else if (e === "sql") {
+    } else if (t === "sql") {
       const s = this.filters.sql;
-      t = `
-        <div class="debug-filter-group grow">
+      e = `
+        <div class="debug-filter debug-filter--grow">
           <label>Search</label>
           <input type="search" data-filter="search" value="${o(s.search)}" placeholder="SELECT" />
         </div>
-        <label class="debug-toggle">
+        <label class="debug-btn">
           <input type="checkbox" data-filter="slowOnly" ${s.slowOnly ? "checked" : ""} />
           <span>Slow only</span>
         </label>
-        <label class="debug-toggle">
+        <label class="debug-btn">
           <input type="checkbox" data-filter="errorOnly" ${s.errorOnly ? "checked" : ""} />
           <span>Errors</span>
         </label>
       `;
-    } else if (e === "logs") {
+    } else if (t === "logs") {
       const s = this.filters.logs;
-      t = `
-        <div class="debug-filter-group">
+      e = `
+        <div class="debug-filter">
           <label>Level</label>
           <select data-filter="level">
             ${this.renderSelectOptions(["all", "debug", "info", "warn", "error"], s.level)}
           </select>
         </div>
-        <div class="debug-filter-group grow">
+        <div class="debug-filter debug-filter--grow">
           <label>Search</label>
           <input type="search" data-filter="search" value="${o(s.search)}" placeholder="database" />
         </div>
-        <label class="debug-toggle">
+        <label class="debug-btn">
           <input type="checkbox" data-filter="autoScroll" ${s.autoScroll ? "checked" : ""} />
           <span>Auto-scroll</span>
         </label>
       `;
-    } else if (e === "routes") {
+    } else if (t === "routes") {
       const s = this.filters.routes;
-      t = `
-        <div class="debug-filter-group">
+      e = `
+        <div class="debug-filter">
           <label>Method</label>
           <select data-filter="method">
             ${this.renderSelectOptions(["all", "GET", "POST", "PUT", "PATCH", "DELETE"], s.method)}
           </select>
         </div>
-        <div class="debug-filter-group grow">
+        <div class="debug-filter debug-filter--grow">
           <label>Search</label>
           <input type="search" data-filter="search" value="${o(s.search)}" placeholder="/admin" />
         </div>
       `;
     } else {
       const s = this.filters.objects;
-      t = `
-        <div class="debug-filter-group grow">
+      e = `
+        <div class="debug-filter debug-filter--grow">
           <label>Search keys</label>
           <input type="search" data-filter="search" value="${o(s.search)}" placeholder="token" />
         </div>
       `;
     }
-    this.filtersEl.innerHTML = t || '<span class="debug-muted">No filters</span>', this.bindFilterInputs();
+    this.filtersEl.innerHTML = e || '<span class="timestamp">No filters</span>', this.bindFilterInputs();
   }
   bindFilterInputs() {
-    this.filtersEl.querySelectorAll("input, select").forEach((t) => {
-      t.addEventListener("input", () => this.updateFiltersFromInputs()), t.addEventListener("change", () => this.updateFiltersFromInputs());
+    this.filtersEl.querySelectorAll("input, select").forEach((e) => {
+      e.addEventListener("input", () => this.updateFiltersFromInputs()), e.addEventListener("change", () => this.updateFiltersFromInputs());
     });
   }
   updateFiltersFromInputs() {
-    const e = this.activePanel, t = this.filtersEl.querySelectorAll("[data-filter]");
-    if (e === "requests") {
+    const t = this.activePanel, e = this.filtersEl.querySelectorAll("[data-filter]");
+    if (t === "requests") {
       const s = { ...this.filters.requests };
-      t.forEach((a) => {
-        const i = a.dataset.filter || "";
-        i && i in s && (s[i] = a.value);
+      e.forEach((n) => {
+        const r = n.dataset.filter || "";
+        r && r in s && (s[r] = n.value);
       }), this.filters.requests = s;
-    } else if (e === "sql") {
+    } else if (t === "sql") {
       const s = { ...this.filters.sql };
-      t.forEach((a) => {
-        const i = a.dataset.filter || "";
-        i === "slowOnly" || i === "errorOnly" ? s[i] = a.checked : i === "search" && (s[i] = a.value);
+      e.forEach((n) => {
+        const r = n.dataset.filter || "";
+        r === "slowOnly" || r === "errorOnly" ? s[r] = n.checked : r === "search" && (s[r] = n.value);
       }), this.filters.sql = s;
-    } else if (e === "logs") {
+    } else if (t === "logs") {
       const s = { ...this.filters.logs };
-      t.forEach((a) => {
-        const i = a.dataset.filter || "";
-        i === "autoScroll" ? s[i] = a.checked : (i === "level" || i === "search") && (s[i] = a.value);
+      e.forEach((n) => {
+        const r = n.dataset.filter || "";
+        r === "autoScroll" ? s[r] = n.checked : (r === "level" || r === "search") && (s[r] = n.value);
       }), this.filters.logs = s;
-    } else if (e === "routes") {
+    } else if (t === "routes") {
       const s = { ...this.filters.routes };
-      t.forEach((a) => {
-        const i = a.dataset.filter || "";
-        i && i in s && (s[i] = a.value);
+      e.forEach((n) => {
+        const r = n.dataset.filter || "";
+        r && r in s && (s[r] = n.value);
       }), this.filters.routes = s;
     } else {
       const s = { ...this.filters.objects };
-      t.forEach((a) => {
-        const i = a.dataset.filter || "";
-        i && i in s && (s[i] = a.value);
+      e.forEach((n) => {
+        const r = n.dataset.filter || "";
+        r && r in s && (s[r] = n.value);
       }), this.filters.objects = s;
     }
     this.renderPanel();
   }
   renderPanel() {
-    const e = this.activePanel;
-    let t = "";
-    e === "template" ? t = this.renderJSONPanel("Template Context", this.state.template, this.filters.objects.search) : e === "session" ? t = this.renderJSONPanel("Session", this.state.session, this.filters.objects.search) : e === "config" ? t = this.renderJSONPanel("Config", this.state.config, this.filters.objects.search) : e === "requests" ? t = this.renderRequests() : e === "sql" ? t = this.renderSQL() : e === "logs" ? t = this.renderLogs() : e === "routes" ? t = this.renderRoutes() : e === "custom" ? t = this.renderCustom() : t = this.renderJSONPanel(q(e), this.state[e] || {}, this.filters.objects.search), this.panelEl.innerHTML = t, e === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.panelEl.scrollHeight);
+    const t = this.activePanel;
+    let e = "";
+    t === "template" ? e = this.renderJSONPanel("Template Context", this.state.template, this.filters.objects.search) : t === "session" ? e = this.renderJSONPanel("Session", this.state.session, this.filters.objects.search) : t === "config" ? e = this.renderJSONPanel("Config", this.state.config, this.filters.objects.search) : t === "requests" ? e = this.renderRequests() : t === "sql" ? e = this.renderSQL() : t === "logs" ? e = this.renderLogs() : t === "routes" ? e = this.renderRoutes() : t === "custom" ? e = this.renderCustom() : e = this.renderJSONPanel(q(t), this.state.extra[t], this.filters.objects.search), this.panelEl.innerHTML = e, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.panelEl.scrollHeight);
   }
   renderRequests() {
-    const { method: e, status: t, search: s } = this.filters.requests, a = s.toLowerCase(), i = this.state.requests.filter((n) => !(e !== "all" && (n.method || "").toUpperCase() !== e || t !== "all" && String(n.status || "") !== t || a && !(n.path || "").toLowerCase().includes(a)));
-    return i.length === 0 ? this.renderEmptyState("No requests captured yet.") : `<div class="debug-stack">${i.map((n) => {
-      const d = n.headers ? c(n.headers) : "{}", u = n.query ? c(n.query) : "{}", p = `debug-badge--method-${(n.method || "get").toLowerCase()}`, h = n.status || 0, m = h >= 500 ? "debug-badge--status-error" : h >= 400 ? "debug-badge--status-warn" : "debug-badge--status", L = h >= 400 ? "debug-card--error" : "", $ = n.duration || 0, P = (typeof $ == "number" ? $ / 1e6 : 0) >= this.slowThresholdMs ? "debug-duration--slow" : "";
+    const { method: t, status: e, search: s } = this.filters.requests, n = s.toLowerCase(), r = this.state.requests.filter((l) => !(t !== "all" && (l.method || "").toUpperCase() !== t || e !== "all" && String(l.status || "") !== e || n && !(l.path || "").toLowerCase().includes(n)));
+    return r.length === 0 ? this.renderEmptyState("No requests captured yet.") : `
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Path</th>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody>${r.map((l) => {
+      const c = `badge--method-${(l.method || "get").toLowerCase()}`, h = l.status || 0, m = h >= 500 ? "badge--status-error" : h >= 400 ? "badge--status-warn" : "badge--status", S = h >= 400 ? "error" : "", $ = l.duration || 0, L = (typeof $ == "number" ? $ / 1e6 : 0) >= this.slowThresholdMs ? "duration--slow" : "";
       return `
-          <article class="debug-card ${L}">
-            <div class="debug-card__row">
-              <span class="debug-badge debug-badge--method ${p}">${o(n.method || "GET")}</span>
-              <span class="debug-card__path">${o(n.path || "")}</span>
-              <span class="debug-badge ${m}">${o(h)}</span>
-              <span class="debug-card__meta debug-duration ${P}">${E(n.duration)}</span>
-              <span class="debug-card__meta debug-timestamp">${o(b(n.timestamp))}</span>
-            </div>
-            <details class="debug-card__details">
-              <summary>Details</summary>
-              ${n.error ? `<div class="debug-card__error">${o(n.error)}</div>` : ""}
-              <div class="debug-card__grid">
-                <div>
-                  <h4>Query</h4>
-                  <pre>${o(u)}</pre>
-                </div>
-                <div>
-                  <h4>Headers</h4>
-                  <pre>${o(d)}</pre>
-                </div>
-              </div>
-            </details>
-          </article>
+          <tr class="${S}">
+            <td><span class="badge ${c}">${o(l.method || "GET")}</span></td>
+            <td><span class="path">${o(l.path || "")}</span></td>
+            <td><span class="badge ${m}">${o(h)}</span></td>
+            <td><span class="duration ${L}">${v(l.duration)}</span></td>
+            <td><span class="timestamp">${o(f(l.timestamp))}</span></td>
+          </tr>
         `;
-    }).join("")}</div>`;
+    }).join("")}</tbody>
+      </table>
+    `;
   }
   renderSQL() {
-    const { search: e, slowOnly: t, errorOnly: s } = this.filters.sql, a = e.toLowerCase(), i = this.state.sql.filter((n) => !(s && !n.error || t && !this.isSlowQuery(n) || a && !(n.query || "").toLowerCase().includes(a)));
-    return i.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : `<div class="debug-stack">${i.map((n) => {
-      const d = this.isSlowQuery(n), u = !!n.error, p = n.args ? c(n.args) : "[]", h = u ? "debug-card--error" : d ? "debug-card--slow" : "", m = d ? "debug-duration--slow" : "";
+    const { search: t, slowOnly: e, errorOnly: s } = this.filters.sql, n = t.toLowerCase(), r = this.state.sql.filter((l) => !(s && !l.error || e && !this.isSlowQuery(l) || n && !(l.query || "").toLowerCase().includes(n)));
+    return r.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : `
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th>Duration</th>
+            <th>Rows</th>
+            <th>Time</th>
+            <th>Status</th>
+            <th>Query</th>
+          </tr>
+        </thead>
+        <tbody>${r.map((l) => {
+      const c = this.isSlowQuery(l), h = !!l.error;
       return `
-          <article class="debug-card ${h}">
-            <div class="debug-card__row">
-              <span class="debug-badge debug-badge--sql">SQL</span>
-              <span class="debug-card__meta debug-timestamp">${o(b(n.timestamp))}</span>
-              <span class="debug-card__meta debug-duration ${m}">${E(n.duration)}</span>
-              <span class="debug-card__meta">Rows: ${o(f(n.row_count || 0))}</span>
-              ${u ? '<span class="debug-badge debug-badge--error">Error</span>' : ""}
-            </div>
-            <pre class="debug-code">${o(n.query || "")}</pre>
-            <div class="debug-card__grid">
-              <div>
-                <h4>Args</h4>
-                <pre>${o(p)}</pre>
-              </div>
-              ${u ? `<div><h4>Error</h4><pre>${o(n.error)}</pre></div>` : ""}
-            </div>
-          </article>
+          <tr class="${h ? "error" : c ? "slow" : ""}">
+            <td><span class="duration ${c ? "duration--slow" : ""}">${v(l.duration)}</span></td>
+            <td>${o(d(l.row_count || 0))}</td>
+            <td><span class="timestamp">${o(f(l.timestamp))}</span></td>
+            <td>${h ? '<span class="badge badge--status-error">Error</span>' : ""}</td>
+            <td><span class="query-text">${o(l.query || "")}</span></td>
+          </tr>
         `;
-    }).join("")}</div>`;
+    }).join("")}</tbody>
+      </table>
+    `;
   }
   renderLogs() {
-    const { level: e, search: t } = this.filters.logs, s = t.toLowerCase(), a = this.state.logs.filter((l) => {
-      if (e !== "all" && (l.level || "").toLowerCase() !== e)
+    const { level: t, search: e } = this.filters.logs, s = e.toLowerCase(), n = this.state.logs.filter((i) => {
+      if (t !== "all" && (i.level || "").toLowerCase() !== t)
         return !1;
-      const n = `${l.message || ""} ${l.source || ""} ${c(l.fields || {})}`.toLowerCase();
-      return !(s && !n.includes(s));
+      const l = `${i.message || ""} ${i.source || ""} ${g(i.fields || {})}`.toLowerCase();
+      return !(s && !l.includes(s));
     });
-    return a.length === 0 ? this.renderEmptyState("No logs captured yet.") : `<div class="debug-stack">${a.map((l) => {
-      const n = (l.level || "info").toLowerCase(), d = `debug-badge--level-${n}`;
+    return n.length === 0 ? this.renderEmptyState("No logs captured yet.") : `
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th>Level</th>
+            <th>Time</th>
+            <th>Message</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>${n.map((i) => {
+      const l = (i.level || "info").toLowerCase(), c = `badge--level-${l}`;
       return `
-          <article class="debug-card ${n === "error" || n === "fatal" ? "debug-card--error" : ""}">
-            <div class="debug-card__row">
-              <span class="debug-badge debug-badge--level ${d}">${o((l.level || "info").toUpperCase())}</span>
-              <span class="debug-card__meta debug-timestamp">${o(b(l.timestamp))}</span>
-              <span class="debug-card__path">${o(l.message || "")}</span>
-            </div>
-            <div class="debug-card__grid">
-              ${l.source ? `<div><h4>Source</h4><pre>${o(l.source)}</pre></div>` : ""}
-              ${l.fields ? `<div><h4>Fields</h4><pre>${o(c(l.fields))}</pre></div>` : ""}
-            </div>
-          </article>
+          <tr class="${l === "error" || l === "fatal" ? "error" : ""}">
+            <td><span class="badge ${c}">${o((i.level || "info").toUpperCase())}</span></td>
+            <td><span class="timestamp">${o(f(i.timestamp))}</span></td>
+            <td><span class="message">${o(i.message || "")}</span></td>
+            <td><span class="timestamp">${o(i.source || "")}</span></td>
+          </tr>
         `;
-    }).join("")}</div>`;
+    }).join("")}</tbody>
+      </table>
+    `;
   }
   renderRoutes() {
-    const { method: e, search: t } = this.filters.routes, s = t.toLowerCase(), a = this.state.routes.filter((l) => {
-      if (e !== "all" && (l.method || "").toUpperCase() !== e)
+    const { method: t, search: e } = this.filters.routes, s = e.toLowerCase(), n = this.state.routes.filter((i) => {
+      if (t !== "all" && (i.method || "").toUpperCase() !== t)
         return !1;
-      const n = `${l.path || ""} ${l.handler || ""} ${l.summary || ""}`.toLowerCase();
-      return !(s && !n.includes(s));
+      const l = `${i.path || ""} ${i.handler || ""} ${i.summary || ""}`.toLowerCase();
+      return !(s && !l.includes(s));
     });
-    return a.length === 0 ? this.renderEmptyState("No routes captured yet.") : `<div class="debug-stack">${a.map((l) => `
-          <article class="debug-card">
-            <div class="debug-card__row">
-              <span class="debug-badge debug-badge--method ${`debug-badge--method-${(l.method || "get").toLowerCase()}`}">${o(l.method || "")}</span>
-              <span class="debug-card__path">${o(l.path || "")}</span>
-              ${l.handler ? `<span class="debug-card__meta">${o(l.handler)}</span>` : ""}
-            </div>
-            <div class="debug-card__grid">
-              ${l.summary ? `<div><h4>Summary</h4><pre>${o(l.summary)}</pre></div>` : ""}
-              ${l.middleware && l.middleware.length > 0 ? `<div><h4>Middleware</h4><pre>${o(c(l.middleware))}</pre></div>` : ""}
-              ${l.tags && l.tags.length > 0 ? `<div><h4>Tags</h4><pre>${o(c(l.tags))}</pre></div>` : ""}
-            </div>
-          </article>
-        `).join("")}</div>`;
+    return n.length === 0 ? this.renderEmptyState("No routes captured yet.") : `
+      <table class="debug-table debug-routes-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Path</th>
+            <th>Handler</th>
+            <th>Name</th>
+          </tr>
+        </thead>
+        <tbody>${n.map((i) => `
+          <tr>
+            <td><span class="badge ${`badge--method-${(i.method || "get").toLowerCase()}`}">${o(i.method || "")}</span></td>
+            <td><span class="path">${o(i.path || "")}</span></td>
+            <td><span class="timestamp">${o(i.handler || "")}</span></td>
+            <td><span class="timestamp">${o(i.name || "")}</span></td>
+          </tr>
+        `).join("")}</tbody>
+      </table>
+    `;
   }
   renderCustom() {
-    const { search: e } = this.filters.custom, t = w(this.state.custom.data, e), s = this.renderJSONPanel("Custom Data", t, ""), a = this.state.custom.logs, i = a.length ? `
-        <div class="debug-stack">
-          ${a.map((l) => `
-                <article class="debug-card">
-                  <div class="debug-card__row">
-                    <span class="debug-badge debug-badge--custom">${o(l.category || "custom")}</span>
-                    <span class="debug-card__meta">${o(b(l.timestamp))}</span>
-                    <span class="debug-card__path">${o(l.message || "")}</span>
-                  </div>
-                  ${l.fields ? `<pre>${o(c(l.fields))}</pre>` : ""}
-                </article>
-              `).join("")}
-        </div>
+    const { search: t } = this.filters.custom, e = w(this.state.custom.data, t);
+    this.renderJSONPanel("Custom Data", e, "");
+    const s = this.state.custom.logs, n = s.length ? s.map((i) => `
+              <tr>
+                <td><span class="badge badge--custom">${o(i.category || "custom")}</span></td>
+                <td><span class="timestamp">${o(f(i.timestamp))}</span></td>
+                <td><span class="message">${o(i.message || "")}</span></td>
+              </tr>
+            `).join("") : "", r = s.length ? `
+        <table class="debug-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Time</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>${n}</tbody>
+        </table>
       ` : this.renderEmptyState("No custom logs yet.");
     return `
-      <div class="debug-grid">
-        <section>
-          <h3 class="debug-section-title">Custom Data</h3>
-          ${s}
-        </section>
-        <section>
-          <h3 class="debug-section-title">Custom Logs</h3>
-          ${i}
-        </section>
+      <div class="debug-json-grid">
+        <div class="debug-json-panel">
+          <div class="debug-json-header">
+            <h3>Custom Data</h3>
+            <span class="timestamp">${d(u(e))} keys</span>
+          </div>
+          <div class="debug-json-content">
+            <pre>${o(g(e))}</pre>
+          </div>
+        </div>
+        <div class="debug-json-panel">
+          <div class="debug-json-header">
+            <h3>Custom Logs</h3>
+            <span class="timestamp">${d(s.length)} entries</span>
+          </div>
+          <div class="debug-json-content">
+            ${r}
+          </div>
+        </div>
       </div>
     `;
   }
-  renderJSONPanel(e, t, s) {
-    const a = w(t || {}, s);
+  renderJSONPanel(t, e, s) {
+    const n = e && typeof e == "object" && !Array.isArray(e), r = Array.isArray(e), i = n ? w(e || {}, s) : e ?? {}, l = u(i), c = r ? "items" : n ? "keys" : "entries";
     return `
       <section class="debug-json-panel">
         <div class="debug-json-header">
-          <h3>${o(e)}</h3>
-          <span class="debug-muted">${f(Object.keys(a || {}).length)} keys</span>
+          <h3>${o(t)}</h3>
+          <span class="debug-muted">${d(l)} ${c}</span>
         </div>
-        <pre>${o(c(a))}</pre>
+        <pre>${o(g(i))}</pre>
       </section>
     `;
   }
-  renderEmptyState(e) {
+  panelCount(t) {
+    switch (t) {
+      case "template":
+        return u(this.state.template);
+      case "session":
+        return u(this.state.session);
+      case "requests":
+        return this.state.requests.length;
+      case "sql":
+        return this.state.sql.length;
+      case "logs":
+        return this.state.logs.length;
+      case "config":
+        return u(this.state.config);
+      case "routes":
+        return this.state.routes.length;
+      case "custom":
+        return u(this.state.custom.data) + this.state.custom.logs.length;
+      default:
+        return u(this.state.extra[t]);
+    }
+  }
+  renderEmptyState(t) {
     return `
       <div class="debug-empty">
-        <p>${o(e)}</p>
+        <p>${o(t)}</p>
       </div>
     `;
   }
-  renderSelectOptions(e, t) {
-    return e.map((s) => {
-      const a = s.toLowerCase() === t.toLowerCase() ? "selected" : "";
-      return `<option value="${o(s)}" ${a}>${o(s)}</option>`;
+  renderSelectOptions(t, e) {
+    return t.map((s) => {
+      const n = s.toLowerCase() === e.toLowerCase() ? "selected" : "";
+      return `<option value="${o(s)}" ${n}>${o(s)}</option>`;
     }).join("");
   }
   updateTabCounts() {
-    const e = {
-      template: Object.keys(this.state.template || {}).length,
-      session: Object.keys(this.state.session || {}).length,
-      requests: this.state.requests.length,
-      sql: this.state.sql.length,
-      logs: this.state.logs.length,
-      config: Object.keys(this.state.config || {}).length,
-      routes: this.state.routes.length,
-      custom: Object.keys(this.state.custom.data || {}).length + this.state.custom.logs.length
-    };
-    Object.entries(e).forEach(([t, s]) => {
-      const a = this.tabsEl.querySelector(`[data-panel-count="${t}"]`);
-      a && (a.textContent = f(s));
+    this.panels.forEach((t) => {
+      const e = this.panelCount(t), s = this.tabsEl.querySelector(`[data-panel-count="${t}"]`);
+      s && (s.textContent = d(e));
     });
   }
-  updateConnectionStatus(e) {
-    this.connectionEl.textContent = e, this.statusEl.setAttribute("data-status", e);
+  updateConnectionStatus(t) {
+    this.connectionEl.textContent = t, this.statusEl.setAttribute("data-status", t);
   }
   updateStatusMeta() {
-    this.eventCountEl.textContent = `${f(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
+    this.eventCountEl.textContent = `${d(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
   }
-  handleEvent(e) {
-    if (!e || !e.type)
+  handleEvent(t) {
+    if (!t || !t.type)
       return;
-    if (e.type === "snapshot") {
-      this.applySnapshot(e.payload);
+    if (t.type === "snapshot") {
+      this.applySnapshot(t.payload);
       return;
     }
     if (this.eventCount += 1, this.lastEventAt = /* @__PURE__ */ new Date(), this.updateStatusMeta(), this.paused)
       return;
-    const t = T[e.type] || e.type;
-    switch (e.type) {
+    const e = k[t.type] || t.type;
+    switch (t.type) {
       case "request":
-        this.state.requests.push(e.payload), this.trim(this.state.requests, this.maxLogEntries);
+        this.state.requests.push(t.payload), this.trim(this.state.requests, this.maxLogEntries);
         break;
       case "sql":
-        this.state.sql.push(e.payload), this.trim(this.state.sql, this.maxSQLQueries);
+        this.state.sql.push(t.payload), this.trim(this.state.sql, this.maxSQLQueries);
         break;
       case "log":
-        this.state.logs.push(e.payload), this.trim(this.state.logs, this.maxLogEntries);
+        this.state.logs.push(t.payload), this.trim(this.state.logs, this.maxLogEntries);
         break;
       case "template":
-        this.state.template = e.payload || {};
+        this.state.template = t.payload || {};
         break;
       case "session":
-        this.state.session = e.payload || {};
+        this.state.session = t.payload || {};
         break;
       case "custom":
-        this.handleCustomEvent(e.payload);
+        this.handleCustomEvent(t.payload);
+        break;
+      default:
+        E.has(e) || (this.state.extra[e] = t.payload);
         break;
     }
-    this.updateTabCounts(), t === this.activePanel && this.renderPanel();
+    this.updateTabCounts(), e === this.activePanel && this.renderPanel();
   }
-  handleCustomEvent(e) {
-    if (e) {
-      if (typeof e == "object" && "key" in e && "value" in e) {
-        j(this.state.custom.data, String(e.key), e.value);
+  handleCustomEvent(t) {
+    if (t) {
+      if (typeof t == "object" && "key" in t && "value" in t) {
+        O(this.state.custom.data, String(t.key), t.value);
         return;
       }
-      if (typeof e == "object" && ("category" in e || "message" in e)) {
-        this.state.custom.logs.push(e), this.trim(this.state.custom.logs, this.maxLogEntries);
+      if (typeof t == "object" && ("category" in t || "message" in t)) {
+        this.state.custom.logs.push(t), this.trim(this.state.custom.logs, this.maxLogEntries);
         return;
       }
     }
   }
-  applySnapshot(e) {
-    const t = e || {};
-    this.state.template = t.template || {}, this.state.session = t.session || {}, this.state.requests = g(t.requests), this.state.sql = g(t.sql), this.state.logs = g(t.logs), this.state.config = t.config || {}, this.state.routes = g(t.routes);
-    const s = t.custom || {};
+  applySnapshot(t) {
+    const e = t || {};
+    this.state.template = e.template || {}, this.state.session = e.session || {}, this.state.requests = p(e.requests), this.state.sql = p(e.sql), this.state.logs = p(e.logs), this.state.config = e.config || {}, this.state.routes = p(e.routes);
+    const s = e.custom || {};
     this.state.custom = {
       data: s.data || {},
-      logs: g(s.logs)
-    }, this.updateTabCounts(), this.renderPanel();
+      logs: p(s.logs)
+    };
+    const n = {};
+    this.panels.forEach((r) => {
+      !E.has(r) && r in e && (n[r] = e[r]);
+    }), this.state.extra = n, this.updateTabCounts(), this.renderPanel();
   }
-  trim(e, t) {
-    if (!(!Array.isArray(e) || t <= 0))
-      for (; e.length > t; )
-        e.shift();
+  trim(t, e) {
+    if (!(!Array.isArray(t) || e <= 0))
+      for (; t.length > e; )
+        t.shift();
   }
-  isSlowQuery(e) {
-    if (!e || e.duration === void 0 || e.duration === null)
+  isSlowQuery(t) {
+    if (!t || t.duration === void 0 || t.duration === null)
       return !1;
-    const t = Number(e.duration);
-    return Number.isNaN(t) ? !1 : t / 1e6 >= this.slowThresholdMs;
+    const e = Number(t.duration);
+    return Number.isNaN(e) ? !1 : e / 1e6 >= this.slowThresholdMs;
   }
   async fetchSnapshot() {
     if (this.debugPath)
       try {
-        const e = await fetch(`${this.debugPath}/api/snapshot`, {
+        const t = await fetch(`${this.debugPath}/api/snapshot`, {
           credentials: "same-origin"
         });
-        if (!e.ok)
+        if (!t.ok)
           return;
-        const t = await e.json();
-        this.applySnapshot(t);
+        const e = await t.json();
+        this.applySnapshot(e);
       } catch {
       }
   }
@@ -549,24 +598,24 @@ class A {
   clearActivePanel() {
     if (!this.debugPath)
       return;
-    const e = this.activePanel;
-    this.stream.clear([e]), fetch(`${this.debugPath}/api/clear/${e}`, { method: "POST", credentials: "same-origin" }).catch(() => {
+    const t = this.activePanel;
+    this.stream.clear([t]), fetch(`${this.debugPath}/api/clear/${t}`, { method: "POST", credentials: "same-origin" }).catch(() => {
     });
   }
-  togglePause(e) {
-    this.paused = !this.paused, e.textContent = this.paused ? "Resume" : "Pause", this.paused || this.stream.requestSnapshot();
+  togglePause(t) {
+    this.paused = !this.paused, t.textContent = this.paused ? "Resume" : "Pause", this.paused || this.stream.requestSnapshot();
   }
 }
-const x = (r) => {
-  const e = r || document.querySelector("[data-debug-console]");
-  return e ? new A(e) : null;
+const M = (a) => {
+  const t = a || document.querySelector("[data-debug-console]");
+  return t ? new x(t) : null;
 }, C = () => {
-  x();
+  M();
 };
 document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", C) : C();
 export {
-  A as DebugPanel,
-  _ as DebugStream,
-  x as initDebugPanel
+  x as DebugPanel,
+  T as DebugStream,
+  M as initDebugPanel
 };
 //# sourceMappingURL=index.js.map

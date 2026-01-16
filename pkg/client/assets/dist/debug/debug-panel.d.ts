@@ -34,6 +34,7 @@ export declare class DebugPanel {
     private renderRoutes;
     private renderCustom;
     private renderJSONPanel;
+    private panelCount;
     private renderEmptyState;
     private renderSelectOptions;
     private updateTabCounts;
