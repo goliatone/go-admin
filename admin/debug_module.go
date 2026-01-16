@@ -229,6 +229,7 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 				"base_path":               adminBasePath,
 				"debug_path":              debugPath,
 				"panels":                  cfg.Panels,
+				"repl_commands":           debugREPLCommandsForRequest(admin, cfg, c),
 				"max_log_entries":         cfg.MaxLogEntries,
 				"max_sql_queries":         cfg.MaxSQLQueries,
 				"slow_query_threshold_ms": cfg.SlowQueryThreshold.Milliseconds(),
