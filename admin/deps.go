@@ -20,14 +20,15 @@ type Dependencies struct {
 	CommandBus  *CommandBus
 	JobRegistry *JobRegistry
 
-	Authorizer           Authorizer
-	Authenticator        Authenticator
-	Translator           Translator
-	ActivitySink         ActivitySink
-	ActivityRepository   types.ActivityRepository
-	ActivityAccessPolicy activity.ActivityAccessPolicy
-	ActivityFeedQuery    ActivityFeedQuerier
-	ActivityService      ActivityFeedQuerier
+	Authorizer            Authorizer
+	Authenticator         Authenticator
+	Translator            Translator
+	ActivitySink          ActivitySink
+	ActivityRepository    types.ActivityRepository
+	ActivityAccessPolicy  activity.ActivityAccessPolicy
+	ActivityFeedQuery     ActivityFeedQuerier
+	ActivityService       ActivityFeedQuerier
+	DebugREPLSessionStore DebugREPLSessionStore
 
 	NotificationService NotificationService
 	ExportRegistry      ExportRegistry
