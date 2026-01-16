@@ -103,17 +103,30 @@ func main() {
 		cfg.FeatureFlags["debug"] = true
 		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
 	}
+
 	if debugEnabled && isDev && strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL"), "true") {
 		cfg.Debug.Repl.Enabled = true
 		cfg.Debug.Repl.AppEnabled = true
-		cfg.Debug.Repl.ShellEnabled = strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL_SHELL"), "true")
+		cfg.Debug.Repl.ShellEnabled = true
 		if strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL_READONLY"), "false") {
 			cfg.Debug.Repl.ReadOnly = admin.BoolPtr(false)
 		}
-		cfg.Debug.Panels = append(cfg.Debug.Panels, admin.DebugPanelConsole)
-		if cfg.Debug.Repl.ShellEnabled {
-			cfg.Debug.Panels = append(cfg.Debug.Panels, admin.DebugPanelShell)
+		if len(cfg.Debug.Panels) == 0 {
+			cfg.Debug.Panels = []string{
+				admin.DebugPanelTemplate,
+				admin.DebugPanelSession,
+				admin.DebugPanelRequests,
+				admin.DebugPanelSQL,
+				admin.DebugPanelLogs,
+				admin.DebugPanelConfig,
+				admin.DebugPanelRoutes,
+				admin.DebugPanelCustom,
+			}
 		}
+		cfg.Debug.Panels = append(cfg.Debug.Panels, admin.DebugPanelConsole)
+		cfg.Debug.Panels = append(cfg.Debug.Panels, admin.DebugPanelShell)
+		cfg.Debug.ToolbarPanels = append(cfg.Debug.ToolbarPanels, admin.DebugPanelConsole, admin.DebugPanelShell)
+		log.Printf("debug repl enabled panels=%v toolbar_panels=%v read_only=%t", cfg.Debug.Panels, cfg.Debug.ToolbarPanels, cfg.Debug.Repl.ReadOnlyEnabled())
 	}
 
 	var adm *admin.Admin
