@@ -177,6 +177,8 @@ github.com/goliatone/go-options v0.7.0 h1:LP18jaxhKyoNe1D6G8pfvmELAFM+mxGOKpO1Bw
 github.com/goliatone/go-options v0.7.0/go.mod h1:VFx7NbzUVz8QsPx/Y8Tnd9rX9RNZtUdQfqb05pO6PgE=
 github.com/goliatone/go-persistence-bun v0.9.0 h1:8oHaB+VS0izAkeb5ZBmok4FWNAlwx1+SnzX5hhTaAoM=
 github.com/goliatone/go-persistence-bun v0.9.0/go.mod h1:dkzELzb3MJJmChG9dUbP46sufaDTZ3/ola/16m6rj/s=
+github.com/goliatone/go-persistence-bun v0.10.0 h1:fHq2ZMNYKtdIWpScdD/XOc8d2XYC1hNsfQ0qdIol8n8=
+github.com/goliatone/go-persistence-bun v0.10.0/go.mod h1:dkzELzb3MJJmChG9dUbP46sufaDTZ3/ola/16m6rj/s=
 github.com/goliatone/go-print v0.4.1 h1:rRcmZOWd27gq25Ays0nRu09tAH6wgTdfshE4rPpNYNY=
 github.com/goliatone/go-print v0.4.1/go.mod h1:hx13/Im2TeOYwwBwj/ImfjneDQ0MyN0ybfrgHripAus=
 github.com/goliatone/go-repository-bun v0.12.0 h1:N5obOl75cPD4NVHblL+pizabSBUiGMLyvIlYgb2yVoQ=
