@@ -131,10 +131,10 @@ func isMachineRecord(data map[string]any, actorTypes, dataKeys []string) bool {
 		return false
 	}
 	if len(actorTypes) > 0 {
-		if raw, ok := data["actor_type"]; ok && containsNormalized(actorTypes, stringValue(raw)) {
+		if raw, ok := data[ActivityActorTypeKey]; ok && containsNormalized(actorTypes, stringValue(raw)) {
 			return true
 		}
-		if raw, ok := data["actorType"]; ok && containsNormalized(actorTypes, stringValue(raw)) {
+		if raw, ok := data[ActivityActorTypeKeyLegacy]; ok && containsNormalized(actorTypes, stringValue(raw)) {
 			return true
 		}
 		if actor, ok := data["actor"].(map[string]any); ok {
@@ -473,7 +473,7 @@ func TestActivityPolicyScopingSanitizerAndMachineFiltering(t *testing.T) {
 				Verb:       "job.run",
 				ObjectType: "job",
 				ObjectID:   "job-1",
-				Data:       map[string]any{"actor_type": "system", "token": "secret2"},
+				Data:       map[string]any{ActivityActorTypeKey: ActivityActorTypeSystem, "token": "secret2"},
 				OccurredAt: now.Add(-1 * time.Minute),
 			},
 		},

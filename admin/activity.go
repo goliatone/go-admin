@@ -46,10 +46,11 @@ type ActivityFilter struct {
 }
 
 const (
-	activityActorTypeKey    = "actor_type"
-	activityActorTypeSystem = "system"
-	activityActorTypeJob    = "job"
-	activityActorTypeTask   = "task"
+	ActivityActorTypeKey       = "actor_type"
+	ActivityActorTypeKeyLegacy = "actorType"
+	ActivityActorTypeSystem    = "system"
+	ActivityActorTypeJob       = "job"
+	ActivityActorTypeTask      = "task"
 )
 
 // ActivitySink records activity entries.
@@ -323,9 +324,9 @@ func tagActivityActorType(metadata map[string]any, actorType string) map[string]
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
-	if _, ok := metadata[activityActorTypeKey]; ok {
+	if _, ok := metadata[ActivityActorTypeKey]; ok {
 		return metadata
 	}
-	metadata[activityActorTypeKey] = actorType
+	metadata[ActivityActorTypeKey] = actorType
 	return metadata
 }

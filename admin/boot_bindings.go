@@ -639,7 +639,7 @@ func (b *bulkBinding) Start(c router.Context, body map[string]any) (map[string]a
 	b.admin.recordActivity(c.Context(), c.Header("X-User-ID"), "bulk.trigger", "bulk_job:"+job.ID, tagActivityActorType(map[string]any{
 		"name":   job.Name,
 		"action": job.Action,
-	}, activityActorTypeTask))
+	}, ActivityActorTypeTask))
 	return map[string]any{"job": job}, nil
 }
 
@@ -658,7 +658,7 @@ func (b *bulkBinding) Rollback(c router.Context, id string, body map[string]any)
 		b.admin.recordActivity(c.Context(), c.Header("X-User-ID"), "bulk.rollback", "bulk_job:"+job.ID, tagActivityActorType(map[string]any{
 			"name":   job.Name,
 			"action": job.Action,
-		}, activityActorTypeTask))
+		}, ActivityActorTypeTask))
 		return map[string]any{"job": job}, nil
 	}
 	return nil, FeatureDisabledError{Feature: string(FeatureBulk)}
