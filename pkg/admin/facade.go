@@ -208,6 +208,9 @@ const (
 
 	SettingsScopeSystem = core.SettingsScopeSystem
 	SettingsScopeSite   = core.SettingsScopeSite
+
+	DebugPanelConsole = core.DebugPanelConsole
+	DebugPanelShell   = core.DebugPanelShell
 )
 
 func New(cfg Config, deps Dependencies) (*Admin, error) {
