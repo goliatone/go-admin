@@ -387,10 +387,18 @@ func main() {
 				if cfg.BasePath != "" && !strings.HasPrefix(c.Path(), cfg.BasePath) {
 					return next(c)
 				}
-				if collector := adm.Debug(); collector != nil {
-					return admin.DebugRequestMiddleware(collector)(next)(c)
+				collector := adm.Debug()
+				if collector == nil {
+					return next(c)
 				}
-				return next(c)
+				err := admin.DebugRequestMiddleware(collector)(next)(c)
+				assetPath := path.Join(cfg.BasePath, "assets")
+				if assetPath != "" && strings.HasPrefix(c.Path(), assetPath) {
+					return err
+				}
+				session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), cfg.Features)
+				collector.CaptureSession(session.ToViewContext())
+				return err
 			}
 		})
 	}
