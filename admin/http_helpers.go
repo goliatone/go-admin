@@ -210,6 +210,11 @@ func toGoError(err error) (*goerrors.Error, int) {
 			WithCode(http.StatusForbidden).
 			WithTextCode("FORBIDDEN")
 		status = http.StatusForbidden
+	case errors.Is(err, ErrREPLSessionLimit):
+		mapped = goerrors.Wrap(err, goerrors.CategoryRateLimit, err.Error()).
+			WithCode(http.StatusTooManyRequests).
+			WithTextCode("REPL_SESSION_LIMIT")
+		status = http.StatusTooManyRequests
 	case errors.Is(err, ErrFeatureDisabled):
 		mapped = goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
 			WithCode(http.StatusNotFound).
