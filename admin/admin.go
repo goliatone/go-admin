@@ -659,10 +659,10 @@ func (a *Admin) recordActivity(ctx context.Context, actor, action, object string
 		actor = actorFromContext(ctx)
 	}
 	if actor == "" {
-		actor = activityActorTypeSystem
+		actor = ActivityActorTypeSystem
 	}
-	if actor == activityActorTypeSystem {
-		metadata = tagActivityActorType(metadata, activityActorTypeSystem)
+	if actor == ActivityActorTypeSystem {
+		metadata = tagActivityActorType(metadata, ActivityActorTypeSystem)
 	}
 	_ = a.activity.Record(ctx, ActivityEntry{
 		Actor:    actor,
