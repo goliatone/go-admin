@@ -80,7 +80,7 @@ require (
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-notifications v0.10.0 // indirect
 	github.com/goliatone/go-options v0.7.0 // indirect
-	github.com/goliatone/go-persistence-bun v0.9.0 // indirect
+	github.com/goliatone/go-persistence-bun v0.10.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.12.0 // indirect
 	github.com/goliatone/go-repository-cache v0.6.0 // indirect
