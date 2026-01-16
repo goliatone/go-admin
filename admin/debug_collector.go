@@ -27,6 +27,7 @@ type DebugCollector struct {
 	panelSet   map[string]bool
 	panels     []DebugPanel
 	panelIndex map[string]DebugPanel
+	panelData  map[string]any
 
 	templateData map[string]any
 	sessionData  map[string]any
@@ -95,12 +96,13 @@ func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 	debugMasker(cfg)
 	panelSet := map[string]bool{}
 	for _, panel := range cfg.Panels {
-		panelSet[strings.ToLower(strings.TrimSpace(panel))] = true
+		panelSet[normalizePanelID(panel)] = true
 	}
 	return &DebugCollector{
 		config:       cfg,
 		panelSet:     panelSet,
 		panelIndex:   map[string]DebugPanel{},
+		panelData:    map[string]any{},
 		templateData: map[string]any{},
 		sessionData:  map[string]any{},
 		requestLog:   NewRingBuffer[RequestEntry](cfg.MaxLogEntries),
@@ -117,7 +119,7 @@ func (c *DebugCollector) RegisterPanel(panel DebugPanel) {
 	if c == nil || panel == nil {
 		return
 	}
-	id := strings.TrimSpace(panel.ID())
+	id := normalizePanelID(panel.ID())
 	if id == "" {
 		return
 	}
@@ -128,6 +130,30 @@ func (c *DebugCollector) RegisterPanel(panel DebugPanel) {
 	}
 	c.panels = append(c.panels, panel)
 	c.panelIndex[id] = panel
+}
+
+func (c *DebugCollector) panelMeta(panelID string) (debugPanelMeta, bool) {
+	if c == nil {
+		return debugPanelMeta{}, false
+	}
+	panelID = normalizePanelID(panelID)
+	if panelID == "" {
+		return debugPanelMeta{}, false
+	}
+	c.mu.RLock()
+	panel := c.panelIndex[panelID]
+	c.mu.RUnlock()
+	if panel == nil {
+		return debugPanelMeta{}, false
+	}
+	meta := debugPanelMeta{
+		Label: strings.TrimSpace(panel.Label()),
+		Icon:  strings.TrimSpace(panel.Icon()),
+	}
+	if spanProvider, ok := panel.(interface{ Span() int }); ok {
+		meta.Span = spanProvider.Span()
+	}
+	return meta, true
 }
 
 // CaptureTemplateData stores the current template context.
@@ -230,6 +256,35 @@ func (c *DebugCollector) CaptureRoutes(routes []RouteEntry) {
 	c.mu.Lock()
 	c.routesData = cloneRouteEntries(routes)
 	c.mu.Unlock()
+}
+
+// PublishPanel stores a custom panel snapshot and publishes it to subscribers.
+func (c *DebugCollector) PublishPanel(panelID string, payload any) {
+	if c == nil {
+		return
+	}
+	panelID = normalizePanelID(panelID)
+	if panelID == "" || !c.panelEnabled(panelID) {
+		return
+	}
+	masked := debugMaskValue(c.config, payload)
+	stored := clonePanelPayload(masked)
+	c.mu.Lock()
+	if c.panelData == nil {
+		c.panelData = map[string]any{}
+	}
+	c.panelData[panelID] = stored
+	c.mu.Unlock()
+
+	eventTypes := debugPanelEventTypes(panelID)
+	if len(eventTypes) == 0 {
+		return
+	}
+	eventType := strings.TrimSpace(eventTypes[0])
+	if eventType == "" {
+		return
+	}
+	c.publish(eventType, stored)
 }
 
 // Set adds custom debug data.
@@ -337,6 +392,7 @@ func (c *DebugCollector) Snapshot() map[string]any {
 	customData := cloneAnyMap(c.customData)
 	configData := cloneAnyMap(c.configData)
 	routesData := cloneRouteEntries(c.routesData)
+	panelData := clonePanelData(c.panelData)
 	panels := append([]DebugPanel{}, c.panels...)
 	c.mu.RUnlock()
 
@@ -371,17 +427,27 @@ func (c *DebugCollector) Snapshot() map[string]any {
 	if c.panelEnabled("routes") && len(routesData) > 0 {
 		snapshot["routes"] = routesData
 	}
+	if len(panelData) > 0 {
+		for panelID, panelSnapshot := range panelData {
+			if c.panelEnabled(panelID) {
+				snapshot[panelID] = panelSnapshot
+			}
+		}
+	}
 
 	ctx := context.Background()
 	for _, panel := range panels {
 		if panel == nil {
 			continue
 		}
-		id := strings.TrimSpace(panel.ID())
+		id := normalizePanelID(panel.ID())
 		if id == "" || !c.panelEnabled(id) {
 			continue
 		}
-		snapshot[id] = panel.Collect(ctx)
+		if _, exists := snapshot[id]; exists {
+			continue
+		}
+		snapshot[id] = clonePanelPayload(debugMaskValue(c.config, panel.Collect(ctx)))
 	}
 	return snapshot
 }
@@ -397,6 +463,7 @@ func (c *DebugCollector) Clear() {
 	c.customData = map[string]any{}
 	c.configData = map[string]any{}
 	c.routesData = nil
+	c.panelData = map[string]any{}
 	c.mu.Unlock()
 
 	if c.requestLog != nil {
@@ -418,7 +485,7 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 	if c == nil {
 		return false
 	}
-	panelID = strings.ToLower(strings.TrimSpace(panelID))
+	panelID = normalizePanelID(panelID)
 	if panelID == "" || !c.panelEnabled(panelID) {
 		return false
 	}
@@ -459,6 +526,14 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 		c.routesData = nil
 		c.mu.Unlock()
 	default:
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if c.panelData != nil {
+			delete(c.panelData, panelID)
+		}
+		if _, ok := c.panelIndex[panelID]; ok {
+			return true
+		}
 		return false
 	}
 	return true
@@ -468,7 +543,7 @@ func (c *DebugCollector) panelEnabled(id string) bool {
 	if c == nil {
 		return false
 	}
-	id = strings.ToLower(strings.TrimSpace(id))
+	id = normalizePanelID(id)
 	if id == "" {
 		return false
 	}
@@ -577,6 +652,40 @@ func splitKeyPath(key string) []string {
 		}
 	}
 	return parts
+}
+
+func clonePanelData(input map[string]any) map[string]any {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(input))
+	for key, value := range input {
+		out[key] = clonePanelPayload(value)
+	}
+	return out
+}
+
+func clonePanelPayload(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneAnyMap(typed)
+	case map[string]string:
+		out := make(map[string]string, len(typed))
+		for key, val := range typed {
+			out[key] = val
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		copy(out, typed)
+		return out
+	case []string:
+		out := make([]string, len(typed))
+		copy(out, typed)
+		return out
+	default:
+		return value
+	}
 }
 
 func fieldsToMap(fields []any) map[string]any {
