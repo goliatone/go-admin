@@ -69,6 +69,7 @@ func normalizeDebugREPLConfig(cfg DebugREPLConfig) DebugREPLConfig {
 	}
 	cfg.AllowedRoles = normalizeDebugREPLList(cfg.AllowedRoles)
 	cfg.AllowedIPs = normalizeDebugREPLList(cfg.AllowedIPs)
+	cfg.AppAllowedPackages = normalizeDebugREPLList(cfg.AppAllowedPackages)
 	return cfg
 }
 
