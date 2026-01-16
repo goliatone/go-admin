@@ -8,7 +8,7 @@ export type DebugReplCommand = {
     command: string;
     description?: string;
     tags?: string[];
-    readOnly?: boolean;
+    mutates?: boolean;
     aliases?: string[];
 };
 export declare class DebugReplPanel {

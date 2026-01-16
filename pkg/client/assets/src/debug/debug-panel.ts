@@ -59,6 +59,7 @@ type DebugReplCommandPayload = {
   description?: string;
   tags?: string[];
   aliases?: string[];
+  mutates?: boolean;
   read_only?: boolean;
 };
 
@@ -171,12 +172,18 @@ const normalizeReplCommands = (value: any): DebugReplCommand[] => {
           .filter((alias) => typeof alias === 'string' && alias.trim() !== '')
           .map((alias) => alias.trim())
       : [];
+    const mutates =
+      typeof raw.mutates === 'boolean'
+        ? raw.mutates
+        : typeof raw.read_only === 'boolean'
+          ? !raw.read_only
+          : false;
     commands.push({
       command,
       description: description || undefined,
       tags: tags.length > 0 ? tags : undefined,
       aliases: aliases.length > 0 ? aliases : undefined,
-      readOnly: Boolean(raw.read_only),
+      mutates,
     });
   });
   return commands;

@@ -10,7 +10,7 @@ export type DebugReplCommand = {
   command: string;
   description?: string;
   tags?: string[];
-  readOnly?: boolean;
+  mutates?: boolean;
   aliases?: string[];
 };
 
@@ -182,8 +182,8 @@ export class DebugReplPanel {
               .map((tag) => `<span class="debug-repl__command-tag">${escapeHTML(tag)}</span>`)
               .join('')}</div>`
           : '';
-        const badgeClass = cmd.readOnly ? '' : 'debug-repl__command-badge--exec';
-        const badgeLabel = cmd.readOnly ? 'read-only' : 'exec';
+        const badgeClass = cmd.mutates ? 'debug-repl__command-badge--exec' : '';
+        const badgeLabel = cmd.mutates ? 'exec' : 'read-only';
         return `
           <button class="debug-repl__command" type="button" data-repl-command="${title}">
             <div class="debug-repl__command-title">
