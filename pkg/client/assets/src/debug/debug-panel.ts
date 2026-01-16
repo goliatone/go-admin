@@ -78,7 +78,7 @@ type DebugSnapshot = {
 type PanelFilters = {
   requests: { method: string; status: string; search: string };
   sql: { search: string; slowOnly: boolean; errorOnly: boolean };
-  logs: { level: string; search: string; autoScroll: boolean };
+  logs: { level: string; search: string; autoScroll: boolean; newestFirst: boolean };
   routes: { method: string; search: string };
   custom: { search: string };
   objects: { search: string };
@@ -411,7 +411,7 @@ export class DebugPanel {
     this.filters = {
       requests: { method: 'all', status: 'all', search: '' },
       sql: { search: '', slowOnly: false, errorOnly: false },
-      logs: { level: 'all', search: '', autoScroll: true },
+      logs: { level: 'all', search: '', autoScroll: true, newestFirst: true },
       routes: { method: 'all', search: '' },
       custom: { search: '' },
       objects: { search: '' },
@@ -577,6 +577,10 @@ export class DebugPanel {
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="database" />
         </div>
         <label class="debug-btn">
+          <input type="checkbox" data-filter="newestFirst" ${values.newestFirst ? 'checked' : ''} />
+          <span>Newest first</span>
+        </label>
+        <label class="debug-btn">
           <input type="checkbox" data-filter="autoScroll" ${values.autoScroll ? 'checked' : ''} />
           <span>Auto-scroll</span>
         </label>
@@ -644,7 +648,7 @@ export class DebugPanel {
       const next = { ...this.filters.logs };
       inputs.forEach((input) => {
         const key = input.dataset.filter || '';
-        if (key === 'autoScroll') {
+        if (key === 'autoScroll' || key === 'newestFirst') {
           next[key] = (input as HTMLInputElement).checked;
         } else if (key === 'level' || key === 'search') {
           next[key] = (input as HTMLInputElement).value;
@@ -705,7 +709,9 @@ export class DebugPanel {
 
     this.panelEl.innerHTML = content;
     if (panel === 'logs' && this.filters.logs.autoScroll) {
-      this.panelEl.scrollTop = this.panelEl.scrollHeight;
+      // When newestFirst is true, newest entries are at the top, so scroll to top
+      // When newestFirst is false, newest entries are at the bottom, so scroll to bottom
+      this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight;
     }
     this.attachExpandableRowListeners();
     this.attachCopyButtonListeners();
@@ -880,9 +886,9 @@ export class DebugPanel {
   }
 
   private renderLogs(): string {
-    const { level, search } = this.filters.logs;
+    const { level, search, newestFirst } = this.filters.logs;
     const needle = search.toLowerCase();
-    const entries = this.state.logs.filter((entry) => {
+    let entries = this.state.logs.filter((entry) => {
       if (level !== 'all' && (entry.level || '').toLowerCase() !== level) {
         return false;
       }
@@ -895,6 +901,10 @@ export class DebugPanel {
 
     if (entries.length === 0) {
       return this.renderEmptyState('No logs captured yet.');
+    }
+
+    if (newestFirst) {
+      entries = [...entries].reverse();
     }
 
     const rows = entries
