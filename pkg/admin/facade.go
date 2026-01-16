@@ -15,7 +15,8 @@ import (
 	users "github.com/goliatone/go-users/pkg/types"
 )
 
-func IntPtr(v int) *int { return &v }
+func IntPtr(v int) *int    { return &v }
+func BoolPtr(v bool) *bool { return core.BoolPtr(v) }
 
 type (
 	Action               = core.Action
@@ -60,11 +61,21 @@ type (
 	DashboardProviderSpec = core.DashboardProviderSpec
 	DashboardRenderer     = core.DashboardRenderer
 
-	DebugCollector  = core.DebugCollector
-	DebugConfig     = core.DebugConfig
-	DebugLogHandler = core.DebugLogHandler
-	DebugModule     = core.DebugModule
-	DebugQueryHook  = core.DebugQueryHook
+	DebugCollector                = core.DebugCollector
+	DebugConfig                   = core.DebugConfig
+	DebugLogHandler               = core.DebugLogHandler
+	DebugModule                   = core.DebugModule
+	DebugQueryHook                = core.DebugQueryHook
+	DebugREPLConfig               = core.DebugREPLConfig
+	DebugREPLRequest              = core.DebugREPLRequest
+	DebugREPLOverrideStrategy     = core.DebugREPLOverrideStrategy
+	DebugREPLSession              = core.DebugREPLSession
+	DebugREPLSessionManager       = core.DebugREPLSessionManager
+	DebugREPLSessionStore         = core.DebugREPLSessionStore
+	DenyAllStrategy               = core.DenyAllStrategy
+	InMemoryDebugREPLSessionStore = core.InMemoryDebugREPLSessionStore
+	SignedTokenStrategy           = core.SignedTokenStrategy
+	StaticKeyStrategy             = core.StaticKeyStrategy
 
 	FeatureGates = core.FeatureGates
 	FeatureKey   = core.FeatureKey
