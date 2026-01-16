@@ -28,6 +28,8 @@ type Admin struct {
 	commandBus                  *CommandBus
 	dashboard                   *Dashboard
 	debugCollector              *DebugCollector
+	replSessionStore            DebugREPLSessionStore
+	replSessionManager          *DebugREPLSessionManager
 	dash                        *dashboardComponents
 	nav                         *Navigation
 	search                      *SearchEngine
@@ -113,6 +115,12 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		}
 		activityFeed = query.NewActivityFeedQuery(deps.ActivityRepository, nil, opts...)
 	}
+
+	replSessionStore := deps.DebugREPLSessionStore
+	if replSessionStore == nil {
+		replSessionStore = NewInMemoryDebugREPLSessionStore()
+	}
+	replSessionManager := NewDebugREPLSessionManager(replSessionStore, cfg.Debug.Repl)
 
 	commandBus := deps.CommandBus
 	if commandBus == nil {
@@ -241,44 +249,46 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	}
 
 	adm := &Admin{
-		config:          cfg,
-		features:        cfg.Features,
-		featureFlags:    cfg.FeatureFlags,
-		gates:           gates,
-		registry:        registry,
-		cms:             container,
-		widgetSvc:       container.WidgetService(),
-		menuSvc:         container.MenuService(),
-		contentSvc:      container.ContentService(),
-		authenticator:   deps.Authenticator,
-		router:          deps.Router,
-		commandBus:      commandBus,
-		dashboard:       dashboard,
-		nav:             NewNavigation(container.MenuService(), deps.Authorizer),
-		search:          NewSearchEngine(deps.Authorizer),
-		authorizer:      deps.Authorizer,
-		notifications:   notifSvc,
-		activity:        activitySink,
-		activityFeed:    activityFeed,
-		activityPolicy:  activityPolicy,
-		jobs:            jobReg,
-		settings:        settingsSvc,
-		settingsForm:    settingsForm,
-		settingsCommand: settingsCmd,
-		preferences:     preferencesSvc,
-		profile:         profileSvc,
-		users:           userSvc,
-		tenants:         tenantSvc,
-		organizations:   orgSvc,
-		panelForm:       &PanelFormAdapter{},
-		defaultTheme:    defaultTheme,
-		exportRegistry:  exportRegistry,
-		exportRegistrar: exportRegistrar,
-		exportMetadata:  exportMetadata,
-		bulkSvc:         bulkSvc,
-		mediaLibrary:    mediaLib,
-		navMenuCode:     navMenuCode,
-		translator:      translator,
+		config:             cfg,
+		features:           cfg.Features,
+		featureFlags:       cfg.FeatureFlags,
+		gates:              gates,
+		registry:           registry,
+		cms:                container,
+		widgetSvc:          container.WidgetService(),
+		menuSvc:            container.MenuService(),
+		contentSvc:         container.ContentService(),
+		authenticator:      deps.Authenticator,
+		router:             deps.Router,
+		commandBus:         commandBus,
+		dashboard:          dashboard,
+		replSessionStore:   replSessionStore,
+		replSessionManager: replSessionManager,
+		nav:                NewNavigation(container.MenuService(), deps.Authorizer),
+		search:             NewSearchEngine(deps.Authorizer),
+		authorizer:         deps.Authorizer,
+		notifications:      notifSvc,
+		activity:           activitySink,
+		activityFeed:       activityFeed,
+		activityPolicy:     activityPolicy,
+		jobs:               jobReg,
+		settings:           settingsSvc,
+		settingsForm:       settingsForm,
+		settingsCommand:    settingsCmd,
+		preferences:        preferencesSvc,
+		profile:            profileSvc,
+		users:              userSvc,
+		tenants:            tenantSvc,
+		organizations:      orgSvc,
+		panelForm:          &PanelFormAdapter{},
+		defaultTheme:       defaultTheme,
+		exportRegistry:     exportRegistry,
+		exportRegistrar:    exportRegistrar,
+		exportMetadata:     exportMetadata,
+		bulkSvc:            bulkSvc,
+		mediaLibrary:       mediaLib,
+		navMenuCode:        navMenuCode,
+		translator:         translator,
 	}
 
 	adm.dashboard.WithWidgetService(adm.widgetSvc)
@@ -525,6 +535,16 @@ func (a *Admin) Dashboard() *Dashboard {
 // Debug exposes the debug collector when the module is enabled.
 func (a *Admin) Debug() *DebugCollector {
 	return a.debugCollector
+}
+
+// DebugREPLSessions exposes the REPL session store.
+func (a *Admin) DebugREPLSessions() DebugREPLSessionStore {
+	return a.replSessionStore
+}
+
+// DebugREPLSessionManager exposes the REPL session lifecycle manager.
+func (a *Admin) DebugREPLSessionManager() *DebugREPLSessionManager {
+	return a.replSessionManager
 }
 
 // RegisterWidgetArea registers an additional dashboard widget area.
