@@ -21,6 +21,7 @@ const (
 
 type debugPanelMeta struct {
 	Label string
+	Icon  string
 	Span  int
 }
 
@@ -150,8 +151,20 @@ func (m *DebugModule) registerDashboardProviders(admin *Admin) {
 	for _, panelID := range m.config.Panels {
 		panelID := panelID
 		meta := debugPanelMetaFor(panelID)
+		if collectorMeta, ok := m.collector.panelMeta(panelID); ok {
+			if collectorMeta.Label != "" {
+				meta.Label = collectorMeta.Label
+			}
+			if collectorMeta.Icon != "" {
+				meta.Icon = collectorMeta.Icon
+			}
+			if collectorMeta.Span > 0 {
+				meta.Span = collectorMeta.Span
+			}
+		}
 		panelLabel := meta.Label
 		panelSpan := meta.Span
+		panelIcon := meta.Icon
 		if panelSpan <= 0 {
 			panelSpan = debugPanelDefaultSpan
 		}
@@ -168,6 +181,7 @@ func (m *DebugModule) registerDashboardProviders(admin *Admin) {
 				return map[string]any{
 					"panel": panelID,
 					"label": panelLabel,
+					"icon":  panelIcon,
 					"data":  snapshot[panelID],
 				}, nil
 			},
@@ -315,7 +329,7 @@ func debugDashboardRouteConfig(adminBasePath, debugBasePath string) (string, das
 }
 
 func debugPanelMetaFor(panelID string) debugPanelMeta {
-	normalized := strings.ToLower(strings.TrimSpace(panelID))
+	normalized := normalizePanelID(panelID)
 	if meta, ok := debugPanelDefaults[normalized]; ok {
 		if meta.Span <= 0 {
 			meta.Span = debugPanelDefaultSpan
