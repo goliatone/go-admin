@@ -209,8 +209,16 @@ const (
 	SettingsScopeSystem = core.SettingsScopeSystem
 	SettingsScopeSite   = core.SettingsScopeSite
 
-	DebugPanelConsole = core.DebugPanelConsole
-	DebugPanelShell   = core.DebugPanelShell
+	DebugPanelTemplate = core.DebugPanelTemplate
+	DebugPanelSession  = core.DebugPanelSession
+	DebugPanelRequests = core.DebugPanelRequests
+	DebugPanelSQL      = core.DebugPanelSQL
+	DebugPanelLogs     = core.DebugPanelLogs
+	DebugPanelConfig   = core.DebugPanelConfig
+	DebugPanelRoutes   = core.DebugPanelRoutes
+	DebugPanelCustom   = core.DebugPanelCustom
+	DebugPanelConsole  = core.DebugPanelConsole
+	DebugPanelShell    = core.DebugPanelShell
 )
 
 func New(cfg Config, deps Dependencies) (*Admin, error) {
