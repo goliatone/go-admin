@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -296,4 +297,71 @@ func mustMaskSlice(t *testing.T, cfg DebugConfig, value []any) []any {
 		t.Fatalf("expected masked slice, got %T", masked)
 	}
 	return typed
+}
+
+type testDebugPanel struct {
+	id string
+}
+
+func (p testDebugPanel) ID() string    { return p.id }
+func (p testDebugPanel) Label() string { return "Test Panel" }
+func (p testDebugPanel) Icon() string  { return "test" }
+func (p testDebugPanel) Collect(_ context.Context) map[string]any {
+	return map[string]any{"origin": "collect"}
+}
+
+func TestDebugCollectorPublishPanelSnapshot(t *testing.T) {
+	cfg := DebugConfig{
+		Panels: []string{"activity"},
+	}
+	collector := NewDebugCollector(cfg)
+	collector.RegisterPanel(testDebugPanel{id: "activity"})
+
+	collector.PublishPanel("activity", map[string]any{
+		"token": "secret",
+		"count": 3,
+	})
+
+	snapshot := collector.Snapshot()
+	panel, ok := snapshot["activity"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected activity snapshot, got %+v", snapshot["activity"])
+	}
+	expected := mustMaskAnyMap(t, cfg, map[string]any{
+		"token": "secret",
+		"count": 3,
+	})
+	if panel["token"] != expected["token"] {
+		t.Fatalf("expected token masked, got %+v", panel["token"])
+	}
+	if panel["count"] != expected["count"] {
+		t.Fatalf("expected count preserved, got %+v", panel["count"])
+	}
+}
+
+func TestDebugCollectorPublishPanelStreaming(t *testing.T) {
+	cfg := DebugConfig{
+		Panels: []string{"activity"},
+	}
+	collector := NewDebugCollector(cfg)
+	events := collector.Subscribe("client-1")
+	if events == nil {
+		t.Fatalf("expected subscription channel")
+	}
+
+	payload := map[string]any{"status": "ok"}
+	collector.PublishPanel("activity", payload)
+
+	select {
+	case event := <-events:
+		if event.Type != "activity" {
+			t.Fatalf("expected activity event type, got %+v", event.Type)
+		}
+		eventPayload, ok := event.Payload.(map[string]any)
+		if !ok || eventPayload["status"] != "ok" {
+			t.Fatalf("expected activity payload, got %+v", event.Payload)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("expected activity event")
+	}
 }
