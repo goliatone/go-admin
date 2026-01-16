@@ -19,7 +19,7 @@ type DebugREPLCommand struct {
 	Description string   `json:"description,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 	Aliases     []string `json:"aliases,omitempty"`
-	ReadOnly    bool     `json:"read_only"`
+	Mutates     bool     `json:"mutates"`
 	Permissions []string `json:"-"`
 	Roles       []string `json:"-"`
 	MessageType string   `json:"-"`
@@ -83,7 +83,7 @@ func (c *DebugREPLCommandCatalog) commandResolver() command.Resolver {
 			Description: strings.TrimSpace(opts.Description),
 			Tags:        normalizeDebugREPLList(exposure.Tags),
 			Aliases:     normalizeDebugREPLCommandPath(opts.Aliases),
-			ReadOnly:    exposure.ReadOnly,
+			Mutates:     exposure.Mutates,
 			Permissions: normalizeDebugREPLList(exposure.Permissions),
 			Roles:       normalizeDebugREPLList(exposure.Roles),
 			MessageType: strings.TrimSpace(meta.MessageType),
@@ -152,7 +152,7 @@ func debugREPLCommandAllowed(admin *Admin, adminCtx AdminContext, cfg DebugREPLC
 			return false
 		}
 	}
-	if cmd.ReadOnly {
+	if !cmd.Mutates {
 		return true
 	}
 	if cfg.ReadOnlyEnabled() {
