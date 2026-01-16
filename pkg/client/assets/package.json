@@ -23,6 +23,7 @@
   "license": "MIT",
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.7",
+    "@types/prismjs": "^1.26.5",
     "@types/sortablejs": "^1.15.9",
     "autoprefixer": "^10.4.20",
     "concurrently": "^8.2.2",
@@ -31,6 +32,7 @@
     "vite": "^5.4.11"
   },
   "dependencies": {
+    "prismjs": "^1.30.0",
     "sortablejs": "^1.15.6",
     "xterm": "^5.3.0",
     "xterm-addon-fit": "^0.8.0"

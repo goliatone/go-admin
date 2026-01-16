@@ -407,6 +407,7 @@ export class DebugToolbar extends HTMLElement {
       const container = this.shadow.getElementById('panel-content');
       if (container) {
         container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs);
+        this.attachExpandableRowListeners();
       }
       // Update tab counts
       this.panels.forEach((panel) => {
@@ -504,10 +505,14 @@ export class DebugToolbar extends HTMLElement {
           const container = this.shadow.getElementById('panel-content');
           if (container) {
             container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs);
+            this.attachExpandableRowListeners();
           }
         }
       });
     });
+
+    // Attach expandable row listeners for initial render
+    this.attachExpandableRowListeners();
 
     // Action buttons
     this.shadow.querySelectorAll('[data-action]').forEach((btn) => {
@@ -547,6 +552,20 @@ export class DebugToolbar extends HTMLElement {
         });
       }
     }
+  }
+
+  private attachExpandableRowListeners(): void {
+    // Attach click listeners to expandable rows (SQL queries)
+    this.shadow.querySelectorAll('.expandable-row').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        // Don't toggle if clicking on a link or button
+        if (target.closest('a, button')) return;
+
+        const rowEl = e.currentTarget as HTMLElement;
+        rowEl.classList.toggle('expanded');
+      });
+    });
   }
 }
 

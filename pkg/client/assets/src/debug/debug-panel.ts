@@ -1,5 +1,6 @@
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from './debug-stream.js';
 import { DebugReplPanel, type DebugReplCommand } from './repl/repl-panel.js';
+import { highlightSQL, highlightJSON } from './syntax-highlight.js';
 
 type RequestEntry = {
   id?: string;
@@ -681,6 +682,20 @@ export class DebugPanel {
     if (panel === 'logs' && this.filters.logs.autoScroll) {
       this.panelEl.scrollTop = this.panelEl.scrollHeight;
     }
+    this.attachExpandableRowListeners();
+  }
+
+  private attachExpandableRowListeners(): void {
+    this.panelEl.querySelectorAll('.expandable-row').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        // Don't toggle if clicking on a link or button
+        if (target.closest('a, button')) return;
+
+        const rowEl = e.currentTarget as HTMLElement;
+        rowEl.classList.toggle('expanded');
+      });
+    });
   }
 
   private renderReplPanel(panel: string): void {
@@ -775,18 +790,29 @@ export class DebugPanel {
     }
 
     const rows = entries
-      .map((entry) => {
+      .map((entry, index) => {
         const isSlow = this.isSlowQuery(entry);
         const hasError = !!entry.error;
-        const rowClass = hasError ? 'error' : isSlow ? 'slow' : '';
+        const rowClasses = ['expandable-row'];
+        if (hasError) rowClasses.push('error');
+        if (isSlow) rowClasses.push('slow');
         const durationClass = isSlow ? 'duration--slow' : '';
+        const rowId = `sql-row-${index}`;
+        const highlightedSQL = highlightSQL(entry.query || '', true);
         return `
-          <tr class="${rowClass}">
+          <tr class="${rowClasses.join(' ')}" data-row-id="${rowId}">
             <td><span class="duration ${durationClass}">${formatDuration(entry.duration)}</span></td>
             <td>${escapeHTML(formatNumber(entry.row_count || 0))}</td>
             <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
             <td>${hasError ? `<span class="badge badge--status-error">Error</span>` : ''}</td>
-            <td><span class="query-text">${escapeHTML(entry.query || '')}</span></td>
+            <td><span class="query-text"><span class="expand-icon">&#9654;</span>${escapeHTML(entry.query || '')}</span></td>
+          </tr>
+          <tr class="expansion-row" data-expansion-for="${rowId}">
+            <td colspan="5">
+              <div class="expanded-content">
+                <pre>${highlightedSQL}</pre>
+              </div>
+            </td>
           </tr>
         `;
       })
@@ -910,6 +936,7 @@ export class DebugPanel {
     const data = filterObjectByKey(this.state.custom.data, search);
     const dataPanel = this.renderJSONPanel('Custom Data', data, '');
     const logs = this.state.custom.logs;
+    const highlighted = highlightJSON(data, true);
 
     const logRows = logs.length
       ? logs
@@ -948,7 +975,7 @@ export class DebugPanel {
             <span class="timestamp">${formatNumber(countPanelPayload(data))} keys</span>
           </div>
           <div class="debug-json-content">
-            <pre>${escapeHTML(formatJSON(data))}</pre>
+            <pre>${highlighted}</pre>
           </div>
         </div>
         <div class="debug-json-panel">
@@ -970,13 +997,14 @@ export class DebugPanel {
     const filtered = isObject ? filterObjectByKey(data || {}, search) : data ?? {};
     const count = countPanelPayload(filtered);
     const unit = isArray ? 'items' : isObject ? 'keys' : 'entries';
+    const highlighted = highlightJSON(filtered, true);
     return `
       <section class="debug-json-panel">
         <div class="debug-json-header">
           <h3>${escapeHTML(title)}</h3>
           <span class="debug-muted">${formatNumber(count)} ${unit}</span>
         </div>
-        <pre>${escapeHTML(formatJSON(filtered))}</pre>
+        <pre>${highlighted}</pre>
       </section>
     `;
   }

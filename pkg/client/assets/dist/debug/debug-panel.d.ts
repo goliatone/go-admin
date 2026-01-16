@@ -13,6 +13,7 @@ export declare class DebugPanel {
     private lastEventAt;
     private stream;
     private replPanels;
+    private replCommands;
     private panelRenderers;
     private tabsEl;
     private panelEl;
@@ -30,6 +31,7 @@ export declare class DebugPanel {
     private bindFilterInputs;
     private updateFiltersFromInputs;
     private renderPanel;
+    private attachExpandableRowListeners;
     private renderReplPanel;
     private renderRequests;
     private renderSQL;
