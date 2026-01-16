@@ -4,23 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Debug Console</title>
-  <link rel="stylesheet" href="{{ base_path }}/assets/output.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
   <style>
     :root {
-      /* Catppuccin Mocha palette */
+      /* Catppuccin Mocha palette - aligned with toolbar */
       --debug-bg: #1e1e2e;
       --debug-bg-secondary: #181825;
-      --debug-surface: #313244;
-      --debug-overlay: #45475a;
-      --debug-ink: #cdd6f4;
-      --debug-muted: #6c7086;
       --debug-border: #313244;
+      --debug-text: #cdd6f4;
+      --debug-text-muted: #6c7086;
       --debug-accent: #89b4fa;
       --debug-accent-hover: #b4befe;
       --debug-success: #a6e3a1;
-      --debug-danger: #f38ba8;
-      --debug-warn: #f9e2af;
+      --debug-error: #f38ba8;
+      --debug-warning: #f9e2af;
       --debug-info: #89dceb;
       --debug-mauve: #cba6f7;
       --debug-peach: #fab387;
@@ -29,153 +26,113 @@
 
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
     body {
-      background: radial-gradient(circle at top, rgba(137, 180, 250, 0.08), transparent 60%),
-        radial-gradient(circle at 20% 30%, rgba(203, 166, 247, 0.06), transparent 50%),
-        var(--debug-bg);
-      color: var(--debug-ink);
+      background: var(--debug-bg);
+      color: var(--debug-text);
       font-family: var(--debug-font);
-      margin: 0;
+      font-size: 12px;
+      line-height: 1.4;
       min-height: 100vh;
-    }
-
-    .debug-shell {
-      max-width: 1200px;
-      margin: 32px auto 48px;
-      padding: 0 24px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
     }
 
-    .debug-hero {
+    /* Sticky header bar */
+    .debug-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
       display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
       align-items: center;
       justify-content: space-between;
-      background: linear-gradient(135deg, rgba(137, 180, 250, 0.08), rgba(203, 166, 247, 0.06));
-      border: 1px solid var(--debug-border);
-      border-radius: 20px;
-      padding: 24px;
+      gap: 12px;
+      padding: 0 16px;
+      height: 40px;
+      background: var(--debug-bg-secondary);
+      border-bottom: 1px solid var(--debug-border);
     }
 
-    .debug-title h1 {
-      font-size: 28px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--debug-ink);
-    }
-
-    .debug-title p {
-      margin-top: 6px;
-      color: var(--debug-muted);
-    }
-
-    .debug-pill {
-      display: inline-flex;
+    .debug-header__left {
+      display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 12px;
+      gap: 12px;
+    }
+
+    .debug-header__title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--debug-text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .debug-header__title i {
+      color: var(--debug-accent);
+    }
+
+    .debug-live-badge {
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.08em;
+      font-weight: 600;
       color: var(--debug-success);
       background: rgba(166, 227, 161, 0.15);
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-weight: 600;
-    }
-
-    .debug-actions {
+      padding: 2px 6px;
+      border-radius: 4px;
       display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
+      align-items: center;
+      gap: 4px;
     }
 
-    .debug-button,
-    .debug-link {
-      border: 1px solid var(--debug-border);
-      background: var(--debug-surface);
-      color: var(--debug-ink);
-      padding: 8px 14px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      font-family: var(--debug-font);
-      display: inline-flex;
+    .debug-live-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--debug-success);
+      border-radius: 50%;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .debug-header__right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Connection status */
+    .debug-connection {
+      display: flex;
       align-items: center;
       gap: 6px;
-      cursor: pointer;
-      text-decoration: none;
-      transition: all 0.2s ease;
+      font-size: 11px;
+      color: var(--debug-text-muted);
+      padding: 0 8px;
     }
 
-    .debug-button:hover,
-    .debug-link:hover {
-      border-color: var(--debug-accent);
-      color: var(--debug-accent);
-      transform: translateY(-1px);
+    .debug-connection__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--debug-text-muted);
     }
 
-    .debug-button--primary {
-      background: var(--debug-danger);
-      border-color: var(--debug-danger);
-      color: var(--debug-bg);
-    }
-
-    .debug-button--primary:hover {
-      background: #eba0ac;
-      border-color: #eba0ac;
-      color: var(--debug-bg);
-    }
-
-    .debug-status {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--debug-bg-secondary);
-      border: 1px solid var(--debug-border);
-      border-radius: 16px;
-      padding: 12px 16px;
-      font-size: 13px;
-      color: var(--debug-muted);
-    }
-
-    .debug-status__left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .debug-status__left strong {
-      color: var(--debug-ink);
-    }
-
-    .debug-indicator {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: var(--debug-muted);
-      box-shadow: 0 0 0 4px rgba(108, 112, 134, 0.2);
-    }
-
-    .debug-status[data-status="connected"] .debug-indicator {
+    .debug-connection[data-status="connected"] .debug-connection__dot {
       background: var(--debug-success);
-      box-shadow: 0 0 8px var(--debug-success), 0 0 0 4px rgba(166, 227, 161, 0.2);
+      box-shadow: 0 0 6px var(--debug-success);
     }
 
-    .debug-status[data-status="error"] .debug-indicator {
-      background: var(--debug-danger);
-      box-shadow: 0 0 8px var(--debug-danger), 0 0 0 4px rgba(243, 139, 168, 0.2);
+    .debug-connection[data-status="error"] .debug-connection__dot {
+      background: var(--debug-error);
+      box-shadow: 0 0 6px var(--debug-error);
     }
 
-    .debug-status[data-status="reconnecting"] .debug-indicator {
-      background: var(--debug-warn);
+    .debug-connection[data-status="reconnecting"] .debug-connection__dot {
+      background: var(--debug-warning);
       animation: pulse 1s ease-in-out infinite;
     }
 
@@ -184,460 +141,535 @@
       50% { opacity: 0.4; }
     }
 
-    .debug-path {
-      font-family: var(--debug-font);
-      font-size: 12px;
-      background: var(--debug-surface);
-      padding: 4px 8px;
-      border-radius: 8px;
-      color: var(--debug-accent);
-    }
-
-    .debug-tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .debug-tab {
-      border: 1px solid var(--debug-border);
-      background: var(--debug-surface);
-      padding: 8px 12px;
-      border-radius: 12px;
+    /* Buttons */
+    .debug-btn {
+      background: transparent;
+      border: none;
+      color: var(--debug-text-muted);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      font-family: var(--debug-font);
-      color: var(--debug-muted);
-      cursor: pointer;
-      transition: all 0.2s ease;
+      gap: 5px;
+      transition: all 0.15s ease;
     }
 
-    .debug-tab:hover {
-      border-color: rgba(137, 180, 250, 0.4);
-      color: var(--debug-ink);
-    }
-
-    .debug-tab__count {
-      background: rgba(137, 180, 250, 0.15);
-      color: var(--debug-accent);
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-    }
-
-    .debug-tab--active {
-      border-color: var(--debug-accent);
+    .debug-btn:hover {
       background: rgba(137, 180, 250, 0.1);
-      color: var(--debug-accent);
-      box-shadow: 0 4px 16px rgba(137, 180, 250, 0.15);
+      color: var(--debug-text);
     }
 
-    .debug-tab--active .debug-tab__count {
+    .debug-btn--danger:hover {
+      background: rgba(243, 139, 168, 0.15);
+      color: var(--debug-error);
+    }
+
+    .debug-btn--primary {
       background: var(--debug-accent);
       color: var(--debug-bg);
     }
 
-    .debug-panel-toolbar {
+    .debug-btn--primary:hover {
+      background: var(--debug-accent-hover);
+      color: var(--debug-bg);
+    }
+
+    .debug-link {
+      color: var(--debug-text-muted);
+      text-decoration: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+
+    .debug-link:hover {
+      background: rgba(137, 180, 250, 0.1);
+      color: var(--debug-text);
+    }
+
+    /* Tab bar */
+    .debug-tabs {
       display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 16px;
+      background: var(--debug-bg);
+      border-bottom: 1px solid var(--debug-border);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .debug-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .debug-tab {
+      background: transparent;
+      border: none;
+      color: var(--debug-text-muted);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .debug-tab:hover {
+      background: rgba(137, 180, 250, 0.1);
+      color: var(--debug-text);
+    }
+
+    .debug-tab--active {
+      background: var(--debug-accent);
+      color: var(--debug-bg);
+    }
+
+    .debug-tab__count {
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 1px 5px;
+      border-radius: 8px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .debug-tab--active .debug-tab__count {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    /* Toolbar row */
+    .debug-toolbar {
+      display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
+      padding: 8px 16px;
       background: var(--debug-bg-secondary);
-      border: 1px solid var(--debug-border);
-      border-radius: 16px;
-      padding: 12px 16px;
+      border-bottom: 1px solid var(--debug-border);
     }
 
     .debug-filters {
       display: flex;
-      flex-wrap: wrap;
+      align-items: center;
       gap: 12px;
-      align-items: flex-end;
+      flex-wrap: wrap;
     }
 
-    .debug-filter-group {
+    .debug-filter {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      min-width: 140px;
+      gap: 2px;
     }
 
-    .debug-filter-group label {
-      font-size: 11px;
+    .debug-filter label {
+      font-size: 9px;
       text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: var(--debug-muted);
+      letter-spacing: 0.1em;
+      color: var(--debug-text-muted);
       font-weight: 600;
     }
 
-    .debug-filter-group input,
-    .debug-filter-group select {
+    .debug-filter input,
+    .debug-filter select {
+      background: var(--debug-bg);
       border: 1px solid var(--debug-border);
-      border-radius: 10px;
-      padding: 8px 10px;
-      font-size: 13px;
-      font-family: var(--debug-font);
-      background: var(--debug-surface);
-      color: var(--debug-ink);
-      transition: border-color 0.2s ease;
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-family: inherit;
+      color: var(--debug-text);
+      min-width: 120px;
     }
 
-    .debug-filter-group input:focus,
-    .debug-filter-group select:focus {
+    .debug-filter input:focus,
+    .debug-filter select:focus {
       outline: none;
       border-color: var(--debug-accent);
     }
 
-    .debug-filter-group input::placeholder {
-      color: var(--debug-muted);
+    .debug-filter input::placeholder {
+      color: var(--debug-text-muted);
     }
 
-    .debug-filter-group.grow {
-      min-width: 240px;
-      flex: 1 1 auto;
+    .debug-filter--grow {
+      flex: 1;
+      min-width: 180px;
     }
 
-    .debug-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--debug-muted);
-      font-weight: 600;
+    .debug-filter--grow input {
+      width: 100%;
     }
 
-    .debug-panel {
-      background: var(--debug-bg-secondary);
-      border: 1px solid var(--debug-border);
-      border-radius: 20px;
-      padding: 20px;
-      min-height: 320px;
-      max-height: 65vh;
+    /* Main content area */
+    .debug-content {
+      flex: 1;
       overflow: auto;
+      padding: 12px 16px;
       scrollbar-width: thin;
-      scrollbar-color: var(--debug-surface) transparent;
+      scrollbar-color: var(--debug-border) transparent;
     }
 
-    .debug-panel::-webkit-scrollbar {
+    .debug-content::-webkit-scrollbar {
       width: 8px;
     }
 
-    .debug-panel::-webkit-scrollbar-track {
+    .debug-content::-webkit-scrollbar-track {
       background: transparent;
     }
 
-    .debug-panel::-webkit-scrollbar-thumb {
-      background: var(--debug-surface);
+    .debug-content::-webkit-scrollbar-thumb {
+      background: var(--debug-border);
       border-radius: 4px;
     }
 
-    .debug-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+    /* Table styles */
+    .debug-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
     }
 
-    .debug-card {
-      border: 1px solid var(--debug-border);
-      border-radius: 16px;
-      padding: 14px;
-      background: var(--debug-surface);
-      transition: border-color 0.2s ease;
+    .debug-table th,
+    .debug-table td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--debug-border);
+      vertical-align: top;
     }
 
-    .debug-card:hover {
-      border-color: rgba(137, 180, 250, 0.3);
-    }
-
-    .debug-card--slow {
-      border-color: rgba(249, 226, 175, 0.5);
-      box-shadow: inset 0 0 0 1px rgba(249, 226, 175, 0.15);
-    }
-
-    .debug-card--error {
-      border-color: rgba(243, 139, 168, 0.5);
-      box-shadow: inset 0 0 0 1px rgba(243, 139, 168, 0.15);
-    }
-
-    .debug-card__row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .debug-card__path {
+    .debug-table th {
+      color: var(--debug-text-muted);
       font-weight: 600;
-      flex: 1 1 240px;
-      color: var(--debug-ink);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      position: sticky;
+      top: 0;
+      background: var(--debug-bg);
+      z-index: 1;
     }
 
-    .debug-card__meta {
-      font-size: 12px;
-      color: var(--debug-muted);
+    .debug-table tr:hover td {
+      background: rgba(137, 180, 250, 0.05);
     }
 
-    .debug-card__details summary {
-      cursor: pointer;
+    .debug-table tr.slow td {
+      background: rgba(249, 226, 175, 0.08);
+    }
+
+    .debug-table tr.error td {
+      background: rgba(243, 139, 168, 0.08);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
       font-weight: 600;
-      margin-top: 10px;
-      color: var(--debug-accent);
-      transition: color 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      min-width: 40px;
+      text-align: center;
     }
 
-    .debug-card__details summary:hover {
-      color: var(--debug-accent-hover);
+    .badge--method { background: rgba(137, 180, 250, 0.2); color: var(--debug-accent); }
+    .badge--method-get { background: rgba(166, 227, 161, 0.2); color: var(--debug-success); }
+    .badge--method-post { background: rgba(137, 180, 250, 0.2); color: var(--debug-accent); }
+    .badge--method-put { background: rgba(249, 226, 175, 0.2); color: var(--debug-warning); }
+    .badge--method-patch { background: rgba(249, 226, 175, 0.2); color: var(--debug-warning); }
+    .badge--method-delete { background: rgba(243, 139, 168, 0.2); color: var(--debug-error); }
+
+    .badge--status { background: rgba(166, 227, 161, 0.2); color: var(--debug-success); }
+    .badge--status-error { background: rgba(243, 139, 168, 0.2); color: var(--debug-error); }
+    .badge--status-warn { background: rgba(249, 226, 175, 0.2); color: var(--debug-warning); }
+
+    .badge--level-debug { background: rgba(108, 112, 134, 0.3); color: var(--debug-text-muted); }
+    .badge--level-info { background: rgba(137, 220, 235, 0.2); color: var(--debug-info); }
+    .badge--level-warn { background: rgba(249, 226, 175, 0.2); color: var(--debug-warning); }
+    .badge--level-error { background: rgba(243, 139, 168, 0.2); color: var(--debug-error); }
+
+    .badge--sql { background: rgba(203, 166, 247, 0.2); color: var(--debug-mauve); }
+    .badge--custom { background: rgba(250, 179, 135, 0.2); color: var(--debug-peach); }
+
+    /* Duration & timestamp */
+    .duration {
+      color: var(--debug-text-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
-    .debug-card__grid {
-      margin-top: 10px;
+    .duration--slow {
+      color: var(--debug-warning);
+      font-weight: 600;
+    }
+
+    .timestamp {
+      color: var(--debug-text-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* Path and message */
+    .path {
+      color: var(--debug-text);
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .message {
+      color: var(--debug-text);
+      max-width: 400px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .message:hover,
+    .path:hover {
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .query-text {
+      color: var(--debug-text);
+      max-width: 500px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: var(--debug-font);
+    }
+
+    .query-text:hover {
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* JSON panels (template, session, config) */
+    .debug-json-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
       gap: 12px;
     }
 
-    .debug-card__grid h4 {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--debug-muted);
-      margin-bottom: 6px;
-    }
-
-    .debug-card__error {
-      color: var(--debug-danger);
-      font-size: 12px;
-      margin-top: 8px;
-    }
-
-    .debug-code {
-      background: var(--debug-bg);
-      color: var(--debug-ink);
-      padding: 12px;
-      border-radius: 12px;
-      margin-top: 10px;
-      font-size: 12px;
-      overflow-x: auto;
-      border: 1px solid var(--debug-border);
-    }
-
-    .debug-badge {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-weight: 600;
-      padding: 4px 8px;
-      border-radius: 6px;
-      background: var(--debug-overlay);
-      color: var(--debug-ink);
-    }
-
-    .debug-badge--status {
-      background: rgba(166, 227, 161, 0.2);
-      color: var(--debug-success);
-    }
-
-    .debug-badge--status-error {
-      background: rgba(243, 139, 168, 0.2);
-      color: var(--debug-danger);
-    }
-
-    .debug-badge--status-warn {
-      background: rgba(249, 226, 175, 0.2);
-      color: var(--debug-warn);
-    }
-
-    .debug-badge--method {
-      min-width: 50px;
-      text-align: center;
-    }
-
-    .debug-badge--method-get {
-      background: rgba(166, 227, 161, 0.2);
-      color: var(--debug-success);
-    }
-
-    .debug-badge--method-post {
-      background: rgba(137, 180, 250, 0.2);
-      color: var(--debug-accent);
-    }
-
-    .debug-badge--method-put,
-    .debug-badge--method-patch {
-      background: rgba(249, 226, 175, 0.2);
-      color: var(--debug-warn);
-    }
-
-    .debug-badge--method-delete {
-      background: rgba(243, 139, 168, 0.2);
-      color: var(--debug-danger);
-    }
-
-    .debug-badge--sql {
-      background: rgba(203, 166, 247, 0.2);
-      color: var(--debug-mauve);
-    }
-
-    .debug-badge--error {
-      background: rgba(243, 139, 168, 0.2);
-      color: var(--debug-danger);
-    }
-
-    .debug-badge--level {
-      min-width: 50px;
-      text-align: center;
-    }
-
-    .debug-badge--level-debug {
-      background: rgba(108, 112, 134, 0.3);
-      color: var(--debug-muted);
-    }
-
-    .debug-badge--level-info {
-      background: rgba(137, 220, 235, 0.2);
-      color: var(--debug-info);
-    }
-
-    .debug-badge--level-warn {
-      background: rgba(249, 226, 175, 0.2);
-      color: var(--debug-warn);
-    }
-
-    .debug-badge--level-error {
-      background: rgba(243, 139, 168, 0.2);
-      color: var(--debug-danger);
-    }
-
-    .debug-badge--custom {
-      background: rgba(250, 179, 135, 0.2);
-      color: var(--debug-peach);
-    }
-
     .debug-json-panel {
+      background: var(--debug-bg-secondary);
       border: 1px solid var(--debug-border);
-      border-radius: 16px;
-      padding: 14px;
-      background: var(--debug-surface);
+      border-radius: 6px;
+      overflow: hidden;
     }
 
     .debug-json-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .debug-json-panel pre,
-    .debug-card pre {
+      padding: 8px 12px;
       background: var(--debug-bg);
-      padding: 12px;
-      border-radius: 12px;
-      overflow-x: auto;
-      font-size: 12px;
-      color: var(--debug-ink);
-      border: 1px solid var(--debug-border);
-      line-height: 1.5;
+      border-bottom: 1px solid var(--debug-border);
     }
 
-    .debug-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
-    }
-
-    .debug-section-title {
-      font-size: 14px;
+    .debug-json-header h3 {
+      font-size: 11px;
       font-weight: 700;
-      margin-bottom: 10px;
-      color: var(--debug-ink);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--debug-text);
     }
 
-    .debug-empty {
-      padding: 24px;
-      text-align: center;
-      color: var(--debug-muted);
+    .debug-json-content {
+      padding: 8px;
+      max-height: 400px;
+      overflow: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--debug-border) transparent;
     }
 
-    .debug-muted {
-      color: var(--debug-muted);
-      font-size: 12px;
+    .debug-json-content::-webkit-scrollbar {
+      width: 6px;
     }
 
-    /* Duration formatting */
-    .debug-duration {
-      font-variant-numeric: tabular-nums;
-      color: var(--debug-muted);
+    .debug-json-content::-webkit-scrollbar-track {
+      background: transparent;
     }
 
-    .debug-duration--slow {
-      color: var(--debug-warn);
-      font-weight: 600;
+    .debug-json-content::-webkit-scrollbar-thumb {
+      background: var(--debug-border);
+      border-radius: 3px;
     }
 
-    /* Timestamp */
-    .debug-timestamp {
-      font-variant-numeric: tabular-nums;
-      color: var(--debug-muted);
+    .debug-json-content pre {
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--debug-text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+    }
+
+    /* Routes table */
+    .debug-routes-table .path {
+      max-width: 400px;
+    }
+
+    .debug-routes-table .handler {
+      color: var(--debug-text-muted);
+      font-size: 10px;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
+    /* Empty state */
+    .debug-empty {
+      color: var(--debug-text-muted);
+      text-align: center;
+      padding: 40px 20px;
+      font-size: 12px;
+    }
+
+    .debug-empty i {
+      font-size: 32px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    /* Status bar */
+    .debug-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 16px;
+      background: var(--debug-bg-secondary);
+      border-top: 1px solid var(--debug-border);
+      font-size: 10px;
+      color: var(--debug-text-muted);
+    }
+
+    .debug-status-bar__left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .debug-status-bar__item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .debug-status-bar__item strong {
+      color: var(--debug-text);
+    }
+
+    .debug-path-badge {
+      font-family: var(--debug-font);
+      font-size: 10px;
+      background: var(--debug-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--debug-accent);
+    }
+
+    /* Responsive */
     @media (max-width: 768px) {
-      .debug-shell {
-        padding: 0 16px;
+      .debug-header {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 8px 12px;
+        gap: 8px;
       }
 
-      .debug-panel {
-        max-height: none;
+      .debug-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .debug-filters {
+        width: 100%;
+      }
+
+      .debug-json-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .debug-table {
+        font-size: 10px;
+      }
+
+      .debug-table th,
+      .debug-table td {
+        padding: 6px 8px;
       }
     }
   </style>
 </head>
 <body>
-  <main class="debug-shell" data-debug-console
+  <header class="debug-header">
+    <div class="debug-header__left">
+      <span class="debug-header__title">
+        <i class="iconoir-bug"></i>
+        Debug Console
+      </span>
+      <span class="debug-live-badge">Live</span>
+    </div>
+    <div class="debug-header__right">
+      <div class="debug-connection" data-debug-status="disconnected">
+        <span class="debug-connection__dot"></span>
+        <span data-debug-connection>disconnected</span>
+      </div>
+      <a class="debug-link" href="{{ base_path }}"><i class="iconoir-arrow-left"></i> Back</a>
+      <button class="debug-btn" data-debug-action="snapshot"><i class="iconoir-refresh"></i> Refresh</button>
+      <button class="debug-btn" data-debug-action="clear-panel"><i class="iconoir-erase"></i> Clear</button>
+      <button class="debug-btn debug-btn--danger" data-debug-action="clear"><i class="iconoir-trash"></i> Clear All</button>
+      <button class="debug-btn" data-debug-action="pause"><i class="iconoir-pause"></i> Pause</button>
+    </div>
+  </header>
+
+  <nav class="debug-tabs" data-debug-tabs></nav>
+
+  <section class="debug-toolbar">
+    <div class="debug-filters" data-debug-filters></div>
+  </section>
+
+  <main class="debug-content" data-debug-panel
+        data-debug-console
         data-debug-path="{{ debug_path }}"
         data-panels='{{ toJSON(panels) }}'
         data-max-log-entries="{{ max_log_entries }}"
         data-max-sql-queries="{{ max_sql_queries }}"
         data-slow-threshold-ms="{{ slow_query_threshold_ms }}">
-    <header class="debug-hero">
-      <div class="debug-title">
-        <div class="debug-pill"><i class="iconoir-flash"></i> Live</div>
-        <h1>Debug Console</h1>
-        <p>Real-time snapshots for template data, sessions, requests, SQL, and logs.</p>
-      </div>
-      <div class="debug-actions">
-        <a class="debug-link" href="{{ base_path }}"><i class="iconoir-arrow-left"></i> Back</a>
-        <button class="debug-button" data-debug-action="snapshot"><i class="iconoir-refresh"></i> Snapshot</button>
-        <button class="debug-button" data-debug-action="clear-panel"><i class="iconoir-erase"></i> Clear Panel</button>
-        <button class="debug-button debug-button--primary" data-debug-action="clear"><i class="iconoir-trash"></i> Clear All</button>
-        <button class="debug-button" data-debug-action="pause"><i class="iconoir-pause"></i> Pause</button>
-      </div>
-    </header>
-
-    <section class="debug-status" data-debug-status="disconnected">
-      <div class="debug-status__left">
-        <span class="debug-indicator"></span>
-        <strong data-debug-connection>disconnected</strong>
-        <span data-debug-events>0 events</span>
-        <span>Last: <span data-debug-last>--</span></span>
-      </div>
-      <div class="debug-status__right">
-        <span class="debug-path">{{ debug_path }}</span>
-      </div>
-    </section>
-
-    <nav class="debug-tabs" data-debug-tabs></nav>
-
-    <section class="debug-panel-toolbar">
-      <div class="debug-filters" data-debug-filters></div>
-    </section>
-
-    <section class="debug-panel" data-debug-panel></section>
   </main>
+
+  <footer class="debug-status-bar">
+    <div class="debug-status-bar__left">
+      <span class="debug-status-bar__item">
+        Events: <strong data-debug-events>0</strong>
+      </span>
+      <span class="debug-status-bar__item">
+        Last: <strong data-debug-last>--</strong>
+      </span>
+    </div>
+    <span class="debug-path-badge">{{ debug_path }}</span>
+  </footer>
 
   <script type="module" src="{{ base_path }}/assets/dist/debug/index.js"></script>
 </body>
