@@ -260,6 +260,24 @@ const formatJSON = (value: any): string => {
   }
 };
 
+const copyToClipboard = async (text: string, button: HTMLElement): Promise<void> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="iconoir-check"></i> Copied';
+    button.classList.add('debug-copy--success');
+    setTimeout(() => {
+      button.innerHTML = originalHTML;
+      button.classList.remove('debug-copy--success');
+    }, 1500);
+  } catch {
+    button.classList.add('debug-copy--error');
+    setTimeout(() => {
+      button.classList.remove('debug-copy--error');
+    }, 1500);
+  }
+};
+
 const countPanelPayload = (value: any): number => {
   if (value === null || value === undefined) {
     return 0;
@@ -690,6 +708,7 @@ export class DebugPanel {
       this.panelEl.scrollTop = this.panelEl.scrollHeight;
     }
     this.attachExpandableRowListeners();
+    this.attachCopyButtonListeners();
   }
 
   private attachExpandableRowListeners(): void {
@@ -701,6 +720,19 @@ export class DebugPanel {
 
         const rowEl = e.currentTarget as HTMLElement;
         rowEl.classList.toggle('expanded');
+      });
+    });
+  }
+
+  private attachCopyButtonListeners(): void {
+    this.panelEl.querySelectorAll<HTMLButtonElement>('[data-copy-trigger]').forEach((button) => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const container = button.closest('[data-copy-content]');
+        if (!container) return;
+        const content = container.getAttribute('data-copy-content') || '';
+        copyToClipboard(content, button);
       });
     });
   }
@@ -805,18 +837,24 @@ export class DebugPanel {
         if (isSlow) rowClasses.push('slow');
         const durationClass = isSlow ? 'duration--slow' : '';
         const rowId = `sql-row-${index}`;
-        const highlightedSQL = highlightSQL(entry.query || '', true);
+        const rawQuery = entry.query || '';
+        const highlightedSQL = highlightSQL(rawQuery, true);
         return `
           <tr class="${rowClasses.join(' ')}" data-row-id="${rowId}">
             <td><span class="duration ${durationClass}">${formatDuration(entry.duration)}</span></td>
             <td>${escapeHTML(formatNumber(entry.row_count || 0))}</td>
             <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
             <td>${hasError ? `<span class="badge badge--status-error">Error</span>` : ''}</td>
-            <td><span class="query-text"><span class="expand-icon">&#9654;</span>${escapeHTML(entry.query || '')}</span></td>
+            <td><span class="query-text"><span class="expand-icon">&#9654;</span>${escapeHTML(rawQuery)}</span></td>
           </tr>
           <tr class="expansion-row" data-expansion-for="${rowId}">
             <td colspan="5">
-              <div class="expanded-content">
+              <div class="expanded-content" data-copy-content="${escapeHTML(rawQuery)}">
+                <div class="expanded-content__header">
+                  <button class="debug-btn debug-copy debug-copy--sm" data-copy-trigger="${rowId}" title="Copy SQL">
+                    <i class="iconoir-copy"></i> Copy
+                  </button>
+                </div>
                 <pre>${highlightedSQL}</pre>
               </div>
             </td>
@@ -941,9 +979,9 @@ export class DebugPanel {
   private renderCustom(): string {
     const { search } = this.filters.custom;
     const data = filterObjectByKey(this.state.custom.data, search);
-    const dataPanel = this.renderJSONPanel('Custom Data', data, '');
     const logs = this.state.custom.logs;
     const highlighted = highlightJSON(data, true);
+    const rawJSON = formatJSON(data);
 
     const logRows = logs.length
       ? logs
@@ -976,10 +1014,15 @@ export class DebugPanel {
 
     return `
       <div class="debug-json-grid">
-        <div class="debug-json-panel">
+        <div class="debug-json-panel" data-copy-content="${escapeHTML(rawJSON)}">
           <div class="debug-json-header">
             <h3>Custom Data</h3>
-            <span class="timestamp">${formatNumber(countPanelPayload(data))} keys</span>
+            <div class="debug-json-actions">
+              <span class="timestamp">${formatNumber(countPanelPayload(data))} keys</span>
+              <button class="debug-btn debug-copy" data-copy-trigger="custom-data" title="Copy to clipboard">
+                <i class="iconoir-copy"></i> Copy
+              </button>
+            </div>
           </div>
           <div class="debug-json-content">
             <pre>${highlighted}</pre>
@@ -1005,11 +1048,18 @@ export class DebugPanel {
     const count = countPanelPayload(filtered);
     const unit = isArray ? 'items' : isObject ? 'keys' : 'entries';
     const highlighted = highlightJSON(filtered, true);
+    const rawJSON = formatJSON(filtered);
+    const copyId = `copy-${title.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
     return `
-      <section class="debug-json-panel">
+      <section class="debug-json-panel" data-copy-content="${escapeHTML(rawJSON)}">
         <div class="debug-json-header">
           <h3>${escapeHTML(title)}</h3>
-          <span class="debug-muted">${formatNumber(count)} ${unit}</span>
+          <div class="debug-json-actions">
+            <span class="debug-muted">${formatNumber(count)} ${unit}</span>
+            <button class="debug-btn debug-copy" data-copy-trigger="${copyId}" title="Copy to clipboard">
+              <i class="iconoir-copy"></i> Copy
+            </button>
+          </div>
         </div>
         <pre>${highlighted}</pre>
       </section>

@@ -10,6 +10,13 @@ export declare class DebugToolbar extends HTMLElement {
     private connectionStatus;
     private slowThresholdMs;
     private useFab;
+    private customHeight;
+    private isResizing;
+    private resizeStartY;
+    private resizeStartHeight;
+    private static readonly MIN_HEIGHT;
+    private static readonly MAX_HEIGHT_RATIO;
+    private static readonly DEFAULT_HEIGHT;
     static get observedAttributes(): string[];
     constructor();
     connectedCallback(): void;
@@ -45,6 +52,9 @@ export declare class DebugToolbar extends HTMLElement {
     private updateConnectionStatus;
     private getPanelCount;
     private attachEventListeners;
+    private attachResizeListeners;
+    private startResize;
+    private handleResize;
     private attachExpandableRowListeners;
 }
 //# sourceMappingURL=debug-toolbar.d.ts.map

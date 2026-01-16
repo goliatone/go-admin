@@ -32,6 +32,7 @@ export declare class DebugPanel {
     private updateFiltersFromInputs;
     private renderPanel;
     private attachExpandableRowListeners;
+    private attachCopyButtonListeners;
     private renderReplPanel;
     private renderRequests;
     private renderSQL;

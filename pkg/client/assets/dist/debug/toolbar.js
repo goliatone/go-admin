@@ -1,5 +1,5 @@
-import { a as m, h as k, D as x } from "../chunks/syntax-highlight-Q2MTgRi9.js";
-const S = `
+import { a as v, h as C, D as w } from "../chunks/syntax-highlight-Q2MTgRi9.js";
+const E = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -37,9 +37,48 @@ const S = `
     background: var(--toolbar-bg);
     border-top: 1px solid var(--toolbar-border);
     color: var(--toolbar-text);
-    transition: height 0.2s ease-out, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
     display: flex;
     flex-direction: column;
+  }
+
+  .toolbar:not(.resizing) {
+    transition: height 0.2s ease-out, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  }
+
+  /* Resize handle */
+  .resize-handle {
+    position: absolute;
+    top: -4px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    cursor: ns-resize;
+    z-index: 10;
+    background: transparent;
+  }
+
+  .resize-handle::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 4px;
+    background: var(--toolbar-border);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .resize-handle:hover::before,
+  .toolbar.resizing .resize-handle::before {
+    opacity: 1;
+  }
+
+  .toolbar.resizing .resize-handle::before {
+    background: var(--toolbar-accent);
   }
 
   .toolbar.collapsed {
@@ -194,7 +233,7 @@ const S = `
   .panel-container {
     flex: 1;
     overflow: auto;
-    padding: 8px 12px;
+    padding: 0 12px 8px 12px;
     scrollbar-width: thin;
     scrollbar-color: var(--toolbar-border) transparent;
   }
@@ -403,6 +442,7 @@ const S = `
     color: var(--toolbar-text-muted);
     text-align: center;
     padding: 24px;
+    padding-top: 32px;
     font-size: 12px;
   }
 
@@ -411,6 +451,7 @@ const S = `
     background: var(--toolbar-bg-secondary);
     border-radius: 4px;
     padding: 8px;
+    margin-top: 8px;
     overflow: auto;
     max-height: 100%;
   }
@@ -615,7 +656,7 @@ const S = `
       max-width: 60%;
     }
   }
-`, i = (a) => String(a ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), p = (a) => {
+`, l = (a) => String(a ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), p = (a) => {
   if (!a) return "";
   if (typeof a == "number")
     return new Date(a).toLocaleTimeString();
@@ -624,7 +665,7 @@ const S = `
     return Number.isNaN(t.getTime()) ? a : t.toLocaleTimeString();
   }
   return "";
-}, v = (a, t = 50) => {
+}, y = (a, t = 50) => {
   if (a == null)
     return { text: "0ms", isSlow: !1 };
   const e = Number(a);
@@ -632,34 +673,34 @@ const S = `
     return { text: "0ms", isSlow: !1 };
   const s = e / 1e6, o = s >= t;
   return s < 1 ? { text: `${(e / 1e3).toFixed(1)}µs`, isSlow: o } : s < 1e3 ? { text: `${s.toFixed(2)}ms`, isSlow: o } : { text: `${(s / 1e3).toFixed(2)}s`, isSlow: o };
-}, w = (a, t) => a ? a.length > t ? a.substring(0, t) + "..." : a : "", C = (a) => a ? a >= 500 ? "error" : a >= 400 ? "warn" : "" : "", E = (a) => {
+}, k = (a, t) => a ? a.length > t ? a.substring(0, t) + "..." : a : "", q = (a) => a ? a >= 500 ? "error" : a >= 400 ? "warn" : "" : "", L = (a) => {
   if (!a) return "info";
   const t = a.toLowerCase();
   return t === "error" || t === "fatal" ? "error" : t === "warn" || t === "warning" ? "warn" : t === "debug" || t === "trace" ? "debug" : "info";
 };
-function u(a, t, e = 50) {
+function b(a, t, e = 50) {
   switch (a) {
     case "requests":
-      return q(t.requests || []);
+      return $(t.requests || []);
     case "sql":
-      return $(t.sql || [], e);
+      return z(t.sql || [], e);
     case "logs":
-      return L(t.logs || []);
+      return M(t.logs || []);
     case "config":
-      return b("Config", t.config || {});
+      return g("Config", t.config || {});
     case "routes":
-      return M(t.routes || []);
+      return T(t.routes || []);
     case "template":
-      return b("Template Context", t.template || {});
+      return g("Template Context", t.template || {});
     case "session":
-      return b("Session", t.session || {});
+      return g("Session", t.session || {});
     case "custom":
-      return T(t.custom || {});
+      return H(t.custom || {});
     default:
-      return `<div class="empty-state">Panel "${i(a)}" not available</div>`;
+      return `<div class="empty-state">Panel "${l(a)}" not available</div>`;
   }
 }
-function q(a) {
+function $(a) {
   return a.length ? `
     <table>
       <thead>
@@ -672,21 +713,21 @@ function q(a) {
         </tr>
       </thead>
       <tbody>${a.slice(-50).reverse().map((e) => {
-    const s = (e.method || "get").toLowerCase(), o = C(e.status), r = v(e.duration);
+    const s = (e.method || "get").toLowerCase(), o = q(e.status), r = y(e.duration);
     return `
         <tr>
-          <td><span class="badge badge-method ${s}">${i(e.method || "GET")}</span></td>
-          <td class="path" title="${i(e.path || "")}">${i(w(e.path || "", 50))}</td>
-          <td><span class="badge badge-status ${o}">${i(e.status || "-")}</span></td>
+          <td><span class="badge badge-method ${s}">${l(e.method || "GET")}</span></td>
+          <td class="path" title="${l(e.path || "")}">${l(k(e.path || "", 50))}</td>
+          <td><span class="badge badge-status ${o}">${l(e.status || "-")}</span></td>
           <td class="duration ${r.isSlow ? "slow" : ""}">${r.text}</td>
-          <td class="timestamp">${i(p(e.timestamp))}</td>
+          <td class="timestamp">${l(p(e.timestamp))}</td>
         </tr>
       `;
   }).join("")}</tbody>
     </table>
   ` : '<div class="empty-state">No requests captured</div>';
 }
-function $(a, t) {
+function z(a, t) {
   return a.length ? `
     <table>
       <thead>
@@ -699,21 +740,21 @@ function $(a, t) {
         </tr>
       </thead>
       <tbody>${a.slice(-50).reverse().map((s, o) => {
-    const r = v(s.duration, t), l = ["expandable-row"];
-    r.isSlow && l.push("slow-query"), s.error && l.push("error-query");
-    const d = `sql-row-${o}`, n = k(s.query || "", !0);
+    const r = y(s.duration, t), n = ["expandable-row"];
+    r.isSlow && n.push("slow-query"), s.error && n.push("error-query");
+    const d = `sql-row-${o}`, i = C(s.query || "", !0);
     return `
-        <tr class="${l.join(" ")}" data-row-id="${d}">
+        <tr class="${n.join(" ")}" data-row-id="${d}">
           <td class="duration ${r.isSlow ? "slow" : ""}">${r.text}</td>
-          <td>${i(s.row_count ?? "-")}</td>
-          <td class="timestamp">${i(p(s.timestamp))}</td>
+          <td>${l(s.row_count ?? "-")}</td>
+          <td class="timestamp">${l(p(s.timestamp))}</td>
           <td>${s.error ? '<span class="badge badge-error">Error</span>' : ""}</td>
-          <td class="query-text"><span class="expand-icon">&#9654;</span>${i(s.query || "")}</td>
+          <td class="query-text"><span class="expand-icon">&#9654;</span>${l(s.query || "")}</td>
         </tr>
         <tr class="expansion-row" data-expansion-for="${d}">
           <td colspan="5">
             <div class="expanded-content">
-              <pre>${n}</pre>
+              <pre>${i}</pre>
             </div>
           </td>
         </tr>
@@ -722,7 +763,7 @@ function $(a, t) {
     </table>
   ` : '<div class="empty-state">No SQL queries captured</div>';
 }
-function L(a) {
+function M(a) {
   return a.length ? `
     <table>
       <thead>
@@ -734,15 +775,15 @@ function L(a) {
       </thead>
       <tbody>${a.slice(-100).reverse().map((e) => `
         <tr>
-          <td><span class="badge badge-level ${E(e.level)}">${i((e.level || "INFO").toUpperCase())}</span></td>
-          <td class="message" title="${i(e.message || "")}">${i(w(e.message || "", 100))}</td>
-          <td class="timestamp">${i(p(e.timestamp))}</td>
+          <td><span class="badge badge-level ${L(e.level)}">${l((e.level || "INFO").toUpperCase())}</span></td>
+          <td class="message" title="${l(e.message || "")}">${l(k(e.message || "", 100))}</td>
+          <td class="timestamp">${l(p(e.timestamp))}</td>
         </tr>
       `).join("")}</tbody>
     </table>
   ` : '<div class="empty-state">No logs captured</div>';
 }
-function M(a) {
+function T(a) {
   return a.length ? `
     <table>
       <thead>
@@ -754,28 +795,28 @@ function M(a) {
       </thead>
       <tbody>${a.map((e) => `
         <tr>
-          <td><span class="badge badge-method ${(e.method || "get").toLowerCase()}">${i(e.method || "")}</span></td>
-          <td class="path">${i(e.path || "")}</td>
-          <td>${i(e.handler || "-")}</td>
+          <td><span class="badge badge-method ${(e.method || "get").toLowerCase()}">${l(e.method || "")}</span></td>
+          <td class="path">${l(e.path || "")}</td>
+          <td>${l(e.handler || "-")}</td>
         </tr>
       `).join("")}</tbody>
     </table>
   ` : '<div class="empty-state">No routes available</div>';
 }
-function b(a, t) {
+function g(a, t) {
   return Object.keys(t || {}).length ? `
     <div class="json-viewer">
-      <pre>${m(t, !0)}</pre>
+      <pre>${v(t, !0)}</pre>
     </div>
   ` : `<div class="empty-state">No ${a.toLowerCase()} data available</div>`;
 }
-function T(a) {
+function H(a) {
   const t = a.data || {}, e = a.logs || [];
   if (!Object.keys(t).length && !e.length)
     return '<div class="empty-state">No custom data captured</div>';
   let s = "";
   if (Object.keys(t).length) {
-    const o = m(t, !0);
+    const o = v(t, !0);
     s += `
       <div class="json-viewer">
         <pre>${o}</pre>
@@ -785,9 +826,9 @@ function T(a) {
   if (e.length) {
     const o = e.slice(-50).reverse().map((r) => `
         <tr>
-          <td><span class="badge">${i(r.category || "custom")}</span></td>
-          <td class="message">${i(r.message || "")}</td>
-          <td class="timestamp">${i(p(r.timestamp))}</td>
+          <td><span class="badge">${l(r.category || "custom")}</span></td>
+          <td class="message">${l(r.message || "")}</td>
+          <td class="timestamp">${l(p(r.timestamp))}</td>
         </tr>
       `).join("");
     s += `
@@ -805,23 +846,23 @@ function T(a) {
   }
   return s;
 }
-function h(a) {
-  const t = a.requests?.length || 0, e = a.sql?.length || 0, s = a.logs?.length || 0, o = (a.requests || []).filter((n) => (n.status || 0) >= 400).length, r = (a.sql || []).filter((n) => n.error).length, l = (a.logs || []).filter((n) => {
-    const c = (n.level || "").toLowerCase();
-    return c === "error" || c === "fatal";
-  }).length, d = (a.sql || []).filter((n) => {
-    const c = Number(n.duration);
-    return Number.isNaN(c) ? !1 : c / 1e6 >= 50;
+function u(a) {
+  const t = a.requests?.length || 0, e = a.sql?.length || 0, s = a.logs?.length || 0, o = (a.requests || []).filter((i) => (i.status || 0) >= 400).length, r = (a.sql || []).filter((i) => i.error).length, n = (a.logs || []).filter((i) => {
+    const h = (i.level || "").toLowerCase();
+    return h === "error" || h === "fatal";
+  }).length, d = (a.sql || []).filter((i) => {
+    const h = Number(i.duration);
+    return Number.isNaN(h) ? !1 : h / 1e6 >= 50;
   }).length;
   return {
     requests: t,
     sql: e,
     logs: s,
-    errors: o + r + l,
+    errors: o + r + n,
     slowQueries: d
   };
 }
-const g = ["requests", "sql", "logs", "routes", "config"], P = {
+const m = ["requests", "sql", "logs", "routes", "config"], A = {
   template: "Template",
   session: "Session",
   requests: "Requests",
@@ -830,24 +871,23 @@ const g = ["requests", "sql", "logs", "routes", "config"], P = {
   config: "Config",
   routes: "Routes",
   custom: "Custom"
-}, A = {
+}, P = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, z = {
+}, R = {
   request: "requests",
   sql: "sql",
   log: "logs",
   template: "template",
   session: "session",
   custom: "custom"
-};
-class j extends HTMLElement {
+}, c = class c extends HTMLElement {
   constructor() {
-    super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.handleKeyDown = (t) => {
+    super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
     }, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -884,12 +924,17 @@ class j extends HTMLElement {
     try {
       const t = localStorage.getItem("debug-toolbar-expanded");
       t !== null && (this.expanded = t === "true");
+      const e = localStorage.getItem("debug-toolbar-height");
+      if (e !== null) {
+        const s = parseInt(e, 10);
+        !isNaN(s) && s >= c.MIN_HEIGHT && (this.customHeight = s);
+      }
     } catch {
     }
   }
   saveState() {
     try {
-      localStorage.setItem("debug-toolbar-expanded", String(this.expanded));
+      localStorage.setItem("debug-toolbar-expanded", String(this.expanded)), this.customHeight !== null && localStorage.setItem("debug-toolbar-height", String(this.customHeight));
     } catch {
     }
   }
@@ -921,9 +966,9 @@ class j extends HTMLElement {
     const t = this.getAttribute("panels");
     if (t) {
       const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : g;
+      return e.length ? e : m;
     }
-    return g;
+    return m;
   }
   get wsUrl() {
     return `${this.debugPath}/ws`;
@@ -934,11 +979,11 @@ class j extends HTMLElement {
   }
   // WebSocket initialization
   initWebSocket() {
-    this.stream = new x({
+    this.stream = new w({
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => A[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => P[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -960,7 +1005,7 @@ class j extends HTMLElement {
       this.applySnapshot(t.payload);
       return;
     }
-    const e = z[t.type] || t.type;
+    const e = R[t.type] || t.type;
     switch (t.type) {
       case "request":
         this.snapshot.requests = this.snapshot.requests || [], this.snapshot.requests.push(t.payload), this.trimArray(this.snapshot.requests, 500);
@@ -1001,21 +1046,20 @@ class j extends HTMLElement {
   }
   // Rendering
   render() {
-    const t = h(this.snapshot), e = this.panels.map((r) => {
-      const l = P[r] || r, d = this.getPanelCount(r);
+    const t = u(this.snapshot), e = this.panels.map((d) => {
+      const i = A[d] || d, h = this.getPanelCount(d);
       return `
-          <button class="tab ${this.activePanel === r ? "active" : ""}" data-panel="${r}">
-            ${l}
-            <span class="tab-count">${d}</span>
+          <button class="tab ${this.activePanel === d ? "active" : ""}" data-panel="${d}">
+            ${i}
+            <span class="tab-count">${h}</span>
           </button>
         `;
-    }).join("");
-    this.useFab && this.expanded;
-    const s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "";
+    }).join(""), s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || c.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${S}</style>
-      <div class="toolbar ${s} ${o}">
+      <style>${E}</style>
+      <div class="toolbar ${s} ${o}" style="${n}">
         ${this.expanded ? `
+          <div class="resize-handle" data-resize-handle></div>
           <div class="toolbar-header">
             <div class="toolbar-tabs">${e}</div>
             <div class="toolbar-actions">
@@ -1047,7 +1091,7 @@ class j extends HTMLElement {
           </div>
           <div class="toolbar-content">
             <div class="panel-container" id="panel-content">
-              ${u(this.activePanel, this.snapshot, this.slowThresholdMs)}
+              ${b(this.activePanel, this.snapshot, this.slowThresholdMs)}
             </div>
           </div>
         ` : ""}
@@ -1083,7 +1127,7 @@ class j extends HTMLElement {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (t.innerHTML = u(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners()), this.panels.forEach((e) => {
+      t && (t.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners()), this.panels.forEach((e) => {
         const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         s && (s.textContent = String(this.getPanelCount(e)));
       });
@@ -1091,11 +1135,11 @@ class j extends HTMLElement {
     this.useFab || this.updateSummary();
   }
   updateSummary() {
-    const t = h(this.snapshot), e = this.shadow.querySelector(".toolbar-summary");
+    const t = u(this.snapshot), e = this.shadow.querySelector(".toolbar-summary");
     if (!e) return;
     e.querySelectorAll(".summary-item").forEach((o) => {
-      const r = o.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), l = o.querySelector(".count");
-      !l || !r || (r === "requests" ? (l.textContent = String(t.requests), o.classList.toggle("has-errors", t.errors > 0)) : r === "sql" ? (l.textContent = String(t.sql), o.classList.toggle("has-slow", t.slowQueries > 0)) : r === "logs" ? l.textContent = String(t.logs) : r === "errors" && (l.textContent = String(t.errors)));
+      const r = o.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), n = o.querySelector(".count");
+      !n || !r || (r === "requests" ? (n.textContent = String(t.requests), o.classList.toggle("has-errors", t.errors > 0)) : r === "sql" ? (n.textContent = String(t.sql), o.classList.toggle("has-slow", t.slowQueries > 0)) : r === "logs" ? n.textContent = String(t.logs) : r === "errors" && (n.textContent = String(t.errors)));
     });
   }
   updateConnectionStatus() {
@@ -1134,7 +1178,7 @@ class j extends HTMLElement {
         if (s && s !== this.activePanel) {
           this.activePanel = s, this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
           const o = this.shadow.getElementById("panel-content");
-          o && (o.innerHTML = u(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners());
+          o && (o.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners());
         }
       });
     }), this.attachExpandableRowListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
@@ -1161,6 +1205,37 @@ class j extends HTMLElement {
         this.expanded || (this.expanded = !0, this.saveState(), this.render(), this.dispatchExpandEvent());
       });
     }
+    this.attachResizeListeners();
+  }
+  attachResizeListeners() {
+    const t = this.shadow.querySelector("[data-resize-handle]");
+    t && (t.addEventListener("mousedown", (e) => {
+      const s = e;
+      s.preventDefault(), this.startResize(s.clientY);
+    }), t.addEventListener("touchstart", (e) => {
+      const s = e;
+      s.touches.length === 1 && (s.preventDefault(), this.startResize(s.touches[0].clientY));
+    }, { passive: !1 }));
+  }
+  startResize(t) {
+    this.isResizing = !0, this.resizeStartY = t;
+    const e = this.shadow.querySelector(".toolbar");
+    this.resizeStartHeight = e?.offsetHeight || c.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
+    const s = (n) => {
+      this.handleResize(n.clientY);
+    }, o = (n) => {
+      n.touches.length === 1 && this.handleResize(n.touches[0].clientY);
+    }, r = () => {
+      this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", s), document.removeEventListener("mouseup", r), document.removeEventListener("touchmove", o), document.removeEventListener("touchend", r), this.saveState();
+    };
+    document.addEventListener("mousemove", s), document.addEventListener("mouseup", r), document.addEventListener("touchmove", o, { passive: !0 }), document.addEventListener("touchend", r);
+  }
+  handleResize(t) {
+    if (!this.isResizing) return;
+    const e = this.resizeStartY - t, s = window.innerHeight * c.MAX_HEIGHT_RATIO, o = Math.min(s, Math.max(c.MIN_HEIGHT, this.resizeStartHeight + e));
+    this.customHeight = o;
+    const r = this.shadow.querySelector(".toolbar");
+    r && (r.style.height = `${o}px`);
   }
   attachExpandableRowListeners() {
     this.shadow.querySelectorAll(".expandable-row").forEach((t) => {
@@ -1170,9 +1245,11 @@ class j extends HTMLElement {
       });
     });
   }
-}
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", j);
-const N = `
+};
+c.MIN_HEIGHT = 150, c.MAX_HEIGHT_RATIO = 0.8, c.DEFAULT_HEIGHT = 320;
+let f = c;
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", f);
+const I = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1402,15 +1479,15 @@ const N = `
       font-size: 8px;
     }
   }
-`, D = {
+`, N = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, f = ["requests", "sql", "logs", "routes", "config"];
-class R extends HTMLElement {
+}, x = ["requests", "sql", "logs", "routes", "config"];
+class j extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1447,9 +1524,9 @@ class R extends HTMLElement {
     const t = this.getAttribute("panels");
     if (t) {
       const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : f;
+      return e.length ? e : x;
     }
-    return f;
+    return x;
   }
   // State persistence
   loadState() {
@@ -1467,11 +1544,11 @@ class R extends HTMLElement {
   }
   // WebSocket initialization
   initWebSocket() {
-    this.stream = new x({
+    this.stream = new w({
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => D[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => N[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1542,9 +1619,9 @@ class R extends HTMLElement {
   }
   // Rendering
   render() {
-    const t = h(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
+    const t = u(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${N}</style>
+      <style>${I}</style>
       <div class="fab ${o}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
@@ -1578,25 +1655,25 @@ class R extends HTMLElement {
     `, this.attachEventListeners();
   }
   updateCounters() {
-    const t = h(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.shadow.querySelector(".fab-counter:nth-child(1)");
+    const t = u(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.shadow.querySelector(".fab-counter:nth-child(1)");
     if (o) {
-      const n = o.querySelector(".counter-value");
-      n && (n.textContent = String(t.requests)), o.classList.toggle("has-items", t.requests > 0);
+      const i = o.querySelector(".counter-value");
+      i && (i.textContent = String(t.requests)), o.classList.toggle("has-items", t.requests > 0);
     }
     const r = this.shadow.querySelector(".fab-counter:nth-child(2)");
     if (r) {
-      const n = r.querySelector(".counter-value");
-      n && (n.textContent = String(t.sql)), r.classList.toggle("has-items", t.sql > 0), r.classList.toggle("has-slow", s);
+      const i = r.querySelector(".counter-value");
+      i && (i.textContent = String(t.sql)), r.classList.toggle("has-items", t.sql > 0), r.classList.toggle("has-slow", s);
     }
-    const l = this.shadow.querySelector(".fab-counter:nth-child(3)");
-    if (l) {
-      const n = l.querySelector(".counter-value");
-      n && (n.textContent = String(t.logs)), l.classList.toggle("has-items", t.logs > 0), l.classList.toggle("has-errors", e);
+    const n = this.shadow.querySelector(".fab-counter:nth-child(3)");
+    if (n) {
+      const i = n.querySelector(".counter-value");
+      i && (i.textContent = String(t.logs)), n.classList.toggle("has-items", t.logs > 0), n.classList.toggle("has-errors", e);
     }
     const d = this.shadow.querySelector(".fab-counter:nth-child(4)");
     if (e && d) {
-      const n = d.querySelector(".counter-value");
-      n && (n.textContent = String(t.errors));
+      const i = d.querySelector(".counter-value");
+      i && (i.textContent = String(t.errors));
     }
   }
   updateConnectionStatus() {
@@ -1618,8 +1695,8 @@ class R extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", R);
-class y {
+customElements.get("debug-fab") || customElements.define("debug-fab", j);
+class S {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
       debugPath: "/admin/debug",
@@ -1684,7 +1761,7 @@ class y {
     }));
   }
 }
-function F() {
+function D() {
   const a = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (a ? e = {
@@ -1697,17 +1774,17 @@ function F() {
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
   }), !e.debugPath && !a && !t)
     return null;
-  const s = new y(e);
+  const s = new S(e);
   return s.init(), s;
 }
-window.DebugManager = y;
-window.initDebugManager = F;
+window.DebugManager = S;
+window.initDebugManager = D;
 export {
-  R as DebugFab,
-  y as DebugManager,
-  j as DebugToolbar,
-  h as getCounts,
-  F as initDebugManager,
-  u as renderPanel
+  j as DebugFab,
+  S as DebugManager,
+  f as DebugToolbar,
+  u as getCounts,
+  D as initDebugManager,
+  b as renderPanel
 };
 //# sourceMappingURL=toolbar.js.map

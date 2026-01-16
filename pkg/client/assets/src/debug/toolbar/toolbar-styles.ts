@@ -39,9 +39,48 @@ export const toolbarStyles = `
     background: var(--toolbar-bg);
     border-top: 1px solid var(--toolbar-border);
     color: var(--toolbar-text);
-    transition: height 0.2s ease-out, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
     display: flex;
     flex-direction: column;
+  }
+
+  .toolbar:not(.resizing) {
+    transition: height 0.2s ease-out, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  }
+
+  /* Resize handle */
+  .resize-handle {
+    position: absolute;
+    top: -4px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    cursor: ns-resize;
+    z-index: 10;
+    background: transparent;
+  }
+
+  .resize-handle::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 4px;
+    background: var(--toolbar-border);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .resize-handle:hover::before,
+  .toolbar.resizing .resize-handle::before {
+    opacity: 1;
+  }
+
+  .toolbar.resizing .resize-handle::before {
+    background: var(--toolbar-accent);
   }
 
   .toolbar.collapsed {
@@ -196,7 +235,7 @@ export const toolbarStyles = `
   .panel-container {
     flex: 1;
     overflow: auto;
-    padding: 8px 12px;
+    padding: 0 12px 8px 12px;
     scrollbar-width: thin;
     scrollbar-color: var(--toolbar-border) transparent;
   }
@@ -405,6 +444,7 @@ export const toolbarStyles = `
     color: var(--toolbar-text-muted);
     text-align: center;
     padding: 24px;
+    padding-top: 32px;
     font-size: 12px;
   }
 
@@ -413,6 +453,7 @@ export const toolbarStyles = `
     background: var(--toolbar-bg-secondary);
     border-radius: 4px;
     padding: 8px;
+    margin-top: 8px;
     overflow: auto;
     max-height: 100%;
   }

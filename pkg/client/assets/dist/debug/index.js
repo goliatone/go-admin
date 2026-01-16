@@ -1,6 +1,6 @@
-import { D as N, h as k, a as $ } from "../chunks/syntax-highlight-Q2MTgRi9.js";
-import { DebugReplPanel as j } from "./repl.js";
-const x = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], A = /* @__PURE__ */ new Set(["shell", "console"]), w = /* @__PURE__ */ new Set([...x, ...A]), v = {
+import { D as j, h as O, a as $ } from "../chunks/syntax-highlight-Q2MTgRi9.js";
+import { DebugReplPanel as M } from "./repl.js";
+const A = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], N = /* @__PURE__ */ new Set(["shell", "console"]), w = /* @__PURE__ */ new Set([...A, ...N]), C = {
   template: "Template",
   session: "Session",
   requests: "Requests",
@@ -11,21 +11,21 @@ const x = ["template", "session", "requests", "sql", "logs", "config", "routes",
   custom: "Custom",
   shell: "Shell",
   console: "Console"
-}, O = {
+}, R = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, M = {
+}, D = {
   request: "requests",
   sql: "sql",
   log: "logs",
   template: "template",
   session: "session",
   custom: "custom"
-}, q = (r) => {
+}, L = (r) => {
   if (!r)
     return null;
   try {
@@ -33,7 +33,7 @@ const x = ["template", "session", "requests", "sql", "logs", "config", "routes",
   } catch {
     return null;
   }
-}, R = (r) => {
+}, Q = (r) => {
   if (!Array.isArray(r))
     return [];
   const t = [];
@@ -43,16 +43,16 @@ const x = ["template", "session", "requests", "sql", "logs", "config", "routes",
     const s = e, a = typeof s.command == "string" ? s.command.trim() : "";
     if (!a)
       return;
-    const n = typeof s.description == "string" ? s.description.trim() : "", l = Array.isArray(s.tags) ? s.tags.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], i = Array.isArray(s.aliases) ? s.aliases.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], h = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
+    const n = typeof s.description == "string" ? s.description.trim() : "", o = Array.isArray(s.tags) ? s.tags.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], i = Array.isArray(s.aliases) ? s.aliases.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], d = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
     t.push({
       command: a,
       description: n || void 0,
-      tags: l.length > 0 ? l : void 0,
+      tags: o.length > 0 ? o : void 0,
       aliases: i.length > 0 ? i : void 0,
-      mutates: h
+      mutates: d
     });
   }), t;
-}, o = (r) => String(r ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), b = (r) => {
+}, l = (r) => String(r ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), E = (r) => {
   if (!r)
     return "";
   if (typeof r == "number")
@@ -62,7 +62,7 @@ const x = ["template", "session", "requests", "sql", "logs", "config", "routes",
     return Number.isNaN(t.getTime()) ? r : t.toLocaleTimeString();
   }
   return "";
-}, C = (r) => {
+}, q = (r) => {
   if (r == null)
     return "0ms";
   if (typeof r == "string")
@@ -72,12 +72,12 @@ const x = ["template", "session", "requests", "sql", "logs", "config", "routes",
     return "0ms";
   const e = t / 1e6;
   return e < 1 ? `${(t / 1e3).toFixed(1)}us` : e < 1e3 ? `${e.toFixed(2)}ms` : `${(e / 1e3).toFixed(2)}s`;
-}, u = (r) => {
+}, g = (r) => {
   if (r == null || r === "")
     return "0";
   const t = Number(r);
   return Number.isNaN(t) ? String(r) : t.toLocaleString();
-}, D = (r) => {
+}, S = (r) => {
   if (r === void 0)
     return "{}";
   try {
@@ -85,14 +85,26 @@ const x = ["template", "session", "requests", "sql", "logs", "config", "routes",
   } catch {
     return String(r ?? "");
   }
-}, d = (r) => r == null ? 0 : Array.isArray(r) ? r.length : typeof r == "object" ? Object.keys(r).length : 1, Q = (r) => Array.isArray(r) && r.length > 0 ? r.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : [...x], P = (r) => v[r] ? v[r] : r ? r.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/i, "SQL").replace(/\b([a-z])/g, (t) => t.toUpperCase()) : "", L = (r, t) => {
+}, F = async (r, t) => {
+  try {
+    await navigator.clipboard.writeText(r);
+    const e = t.innerHTML;
+    t.innerHTML = '<i class="iconoir-check"></i> Copied', t.classList.add("debug-copy--success"), setTimeout(() => {
+      t.innerHTML = e, t.classList.remove("debug-copy--success");
+    }, 1500);
+  } catch {
+    t.classList.add("debug-copy--error"), setTimeout(() => {
+      t.classList.remove("debug-copy--error");
+    }, 1500);
+  }
+}, p = (r) => r == null ? 0 : Array.isArray(r) ? r.length : typeof r == "object" ? Object.keys(r).length : 1, H = (r) => Array.isArray(r) && r.length > 0 ? r.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : [...A], P = (r) => C[r] ? C[r] : r ? r.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/i, "SQL").replace(/\b([a-z])/g, (t) => t.toUpperCase()) : "", T = (r, t) => {
   if (!t)
     return r;
   const e = t.toLowerCase(), s = {};
   for (const [a, n] of Object.entries(r || {}))
     a.toLowerCase().includes(e) && (s[a] = n);
   return s;
-}, F = (r, t, e) => {
+}, J = (r, t, e) => {
   if (!r || !t)
     return;
   const s = t.split(".").map((n) => n.trim()).filter(Boolean);
@@ -100,21 +112,21 @@ const x = ["template", "session", "requests", "sql", "logs", "config", "routes",
     return;
   let a = r;
   for (let n = 0; n < s.length - 1; n += 1) {
-    const l = s[n];
-    (!a[l] || typeof a[l] != "object") && (a[l] = {}), a = a[l];
+    const o = s[n];
+    (!a[o] || typeof a[o] != "object") && (a[o] = {}), a = a[o];
   }
   a[s[s.length - 1]] = e;
-}, m = (r) => Array.isArray(r) ? r : [], S = (r, t) => {
+}, m = (r) => Array.isArray(r) ? r : [], v = (r, t) => {
   if (!r)
     return t;
   const e = Number(r);
   return Number.isNaN(e) ? t : e;
 };
-class J {
+class _ {
   constructor(t) {
     this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.container = t;
-    const e = q(t.dataset.panels);
-    this.panels = Q(e), this.activePanel = this.panels[0] || "template", this.debugPath = t.dataset.debugPath || "", this.maxLogEntries = S(t.dataset.maxLogEntries, 500), this.maxSQLQueries = S(t.dataset.maxSqlQueries, 200), this.slowThresholdMs = S(t.dataset.slowThresholdMs, 50), this.replCommands = R(q(t.dataset.replCommands)), this.state = {
+    const e = L(t.dataset.panels);
+    this.panels = H(e), this.activePanel = this.panels[0] || "template", this.debugPath = t.dataset.debugPath || "", this.maxLogEntries = v(t.dataset.maxLogEntries, 500), this.maxSQLQueries = v(t.dataset.maxSqlQueries, 200), this.slowThresholdMs = v(t.dataset.slowThresholdMs, 50), this.replCommands = Q(L(t.dataset.replCommands)), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -131,16 +143,16 @@ class J {
       routes: { method: "all", search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), A.forEach((s) => {
+    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), N.forEach((s) => {
       this.panelRenderers.set(s, {
         render: () => this.renderReplPanel(s),
         filters: () => '<span class="timestamp">REPL controls are in the panel header.</span>'
       });
-    }), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.stream = new N({
+    }), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.stream = new j({
       basePath: this.debugPath,
       onEvent: (s) => this.handleEvent(s),
       onStatusChange: (s) => this.updateConnectionStatus(s)
-    }), this.fetchSnapshot(), this.stream.connect(), this.stream.subscribe(this.panels.map((s) => O[s] || s));
+    }), this.fetchSnapshot(), this.stream.connect(), this.stream.subscribe(this.panels.map((s) => R[s] || s));
   }
   requireElement(t, e = this.container) {
     const s = e.querySelector(t);
@@ -179,9 +191,9 @@ class J {
   }
   renderTabs() {
     const t = this.panels.map((e) => `
-          <button class="debug-tab ${e === this.activePanel ? "debug-tab--active" : ""}" data-panel="${o(e)}">
-            <span class="debug-tab__label">${o(P(e))}</span>
-            <span class="debug-tab__count" data-panel-count="${o(e)}">0</span>
+          <button class="debug-tab ${e === this.activePanel ? "debug-tab--active" : ""}" data-panel="${l(e)}">
+            <span class="debug-tab__label">${l(P(e))}</span>
+            <span class="debug-tab__count" data-panel-count="${l(e)}">0</span>
           </button>
         `).join("");
     this.tabsEl.innerHTML = t, this.updateTabCounts();
@@ -212,7 +224,7 @@ class J {
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="/admin/users" />
+          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="/admin/users" />
         </div>
       `;
     } else if (t === "sql") {
@@ -220,7 +232,7 @@ class J {
       e = `
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="SELECT" />
+          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="SELECT" />
         </div>
         <label class="debug-btn">
           <input type="checkbox" data-filter="slowOnly" ${a.slowOnly ? "checked" : ""} />
@@ -242,7 +254,7 @@ class J {
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="database" />
+          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="database" />
         </div>
         <label class="debug-btn">
           <input type="checkbox" data-filter="autoScroll" ${a.autoScroll ? "checked" : ""} />
@@ -260,7 +272,7 @@ class J {
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="/admin" />
+          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="/admin" />
         </div>
       `;
     } else {
@@ -268,7 +280,7 @@ class J {
       e = `
         <div class="debug-filter debug-filter--grow">
           <label>Search keys</label>
-          <input type="search" data-filter="search" value="${o(a.search)}" placeholder="token" />
+          <input type="search" data-filter="search" value="${l(a.search)}" placeholder="token" />
         </div>
       `;
     }
@@ -322,7 +334,7 @@ class J {
     }
     this.panelEl.classList.remove("debug-content--repl");
     let s = "";
-    t === "template" ? s = this.renderJSONPanel("Template Context", this.state.template, this.filters.objects.search) : t === "session" ? s = this.renderJSONPanel("Session", this.state.session, this.filters.objects.search) : t === "config" ? s = this.renderJSONPanel("Config", this.state.config, this.filters.objects.search) : t === "requests" ? s = this.renderRequests() : t === "sql" ? s = this.renderSQL() : t === "logs" ? s = this.renderLogs() : t === "routes" ? s = this.renderRoutes() : t === "custom" ? s = this.renderCustom() : s = this.renderJSONPanel(P(t), this.state.extra[t], this.filters.objects.search), this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.panelEl.scrollHeight), this.attachExpandableRowListeners();
+    t === "template" ? s = this.renderJSONPanel("Template Context", this.state.template, this.filters.objects.search) : t === "session" ? s = this.renderJSONPanel("Session", this.state.session, this.filters.objects.search) : t === "config" ? s = this.renderJSONPanel("Config", this.state.config, this.filters.objects.search) : t === "requests" ? s = this.renderRequests() : t === "sql" ? s = this.renderSQL() : t === "logs" ? s = this.renderLogs() : t === "routes" ? s = this.renderRoutes() : t === "custom" ? s = this.renderCustom() : s = this.renderJSONPanel(P(t), this.state.extra[t], this.filters.objects.search), this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners();
   }
   attachExpandableRowListeners() {
     this.panelEl.querySelectorAll(".expandable-row").forEach((t) => {
@@ -332,10 +344,21 @@ class J {
       });
     });
   }
+  attachCopyButtonListeners() {
+    this.panelEl.querySelectorAll("[data-copy-trigger]").forEach((t) => {
+      t.addEventListener("click", (e) => {
+        e.preventDefault(), e.stopPropagation();
+        const s = t.closest("[data-copy-content]");
+        if (!s) return;
+        const a = s.getAttribute("data-copy-content") || "";
+        F(a, t);
+      });
+    });
+  }
   renderReplPanel(t) {
     this.panelEl.classList.add("debug-content--repl");
     let e = this.replPanels.get(t);
-    e || (e = new j({
+    e || (e = new M({
       kind: t === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: t === "console" ? this.replCommands : []
@@ -355,14 +378,14 @@ class J {
           </tr>
         </thead>
         <tbody>${n.map((i) => {
-      const h = `badge--method-${(i.method || "get").toLowerCase()}`, c = i.status || 0, p = c >= 500 ? "badge--status-error" : c >= 400 ? "badge--status-warn" : "badge--status", f = c >= 400 ? "error" : "", g = i.duration || 0, E = (typeof g == "number" ? g / 1e6 : 0) >= this.slowThresholdMs ? "duration--slow" : "";
+      const d = `badge--method-${(i.method || "get").toLowerCase()}`, c = i.status || 0, h = c >= 500 ? "badge--status-error" : c >= 400 ? "badge--status-warn" : "badge--status", u = c >= 400 ? "error" : "", b = i.duration || 0, f = (typeof b == "number" ? b / 1e6 : 0) >= this.slowThresholdMs ? "duration--slow" : "";
       return `
-          <tr class="${f}">
-            <td><span class="badge ${h}">${o(i.method || "GET")}</span></td>
-            <td><span class="path">${o(i.path || "")}</span></td>
-            <td><span class="badge ${p}">${o(c)}</span></td>
-            <td><span class="duration ${E}">${C(i.duration)}</span></td>
-            <td><span class="timestamp">${o(b(i.timestamp))}</span></td>
+          <tr class="${u}">
+            <td><span class="badge ${d}">${l(i.method || "GET")}</span></td>
+            <td><span class="path">${l(i.path || "")}</span></td>
+            <td><span class="badge ${h}">${l(c)}</span></td>
+            <td><span class="duration ${f}">${q(i.duration)}</span></td>
+            <td><span class="timestamp">${l(E(i.timestamp))}</span></td>
           </tr>
         `;
     }).join("")}</tbody>
@@ -382,22 +405,27 @@ class J {
             <th>Query</th>
           </tr>
         </thead>
-        <tbody>${n.map((i, h) => {
-      const c = this.isSlowQuery(i), p = !!i.error, f = ["expandable-row"];
-      p && f.push("error"), c && f.push("slow");
-      const g = c ? "duration--slow" : "", y = `sql-row-${h}`, E = k(i.query || "", !0);
+        <tbody>${n.map((i, d) => {
+      const c = this.isSlowQuery(i), h = !!i.error, u = ["expandable-row"];
+      h && u.push("error"), c && u.push("slow");
+      const b = c ? "duration--slow" : "", y = `sql-row-${d}`, f = i.query || "", k = O(f, !0);
       return `
-          <tr class="${f.join(" ")}" data-row-id="${y}">
-            <td><span class="duration ${g}">${C(i.duration)}</span></td>
-            <td>${o(u(i.row_count || 0))}</td>
-            <td><span class="timestamp">${o(b(i.timestamp))}</span></td>
-            <td>${p ? '<span class="badge badge--status-error">Error</span>' : ""}</td>
-            <td><span class="query-text"><span class="expand-icon">&#9654;</span>${o(i.query || "")}</span></td>
+          <tr class="${u.join(" ")}" data-row-id="${y}">
+            <td><span class="duration ${b}">${q(i.duration)}</span></td>
+            <td>${l(g(i.row_count || 0))}</td>
+            <td><span class="timestamp">${l(E(i.timestamp))}</span></td>
+            <td>${h ? '<span class="badge badge--status-error">Error</span>' : ""}</td>
+            <td><span class="query-text"><span class="expand-icon">&#9654;</span>${l(f)}</span></td>
           </tr>
           <tr class="expansion-row" data-expansion-for="${y}">
             <td colspan="5">
-              <div class="expanded-content">
-                <pre>${E}</pre>
+              <div class="expanded-content" data-copy-content="${l(f)}">
+                <div class="expanded-content__header">
+                  <button class="debug-btn debug-copy debug-copy--sm" data-copy-trigger="${y}" title="Copy SQL">
+                    <i class="iconoir-copy"></i> Copy
+                  </button>
+                </div>
+                <pre>${k}</pre>
               </div>
             </td>
           </tr>
@@ -407,10 +435,10 @@ class J {
     `;
   }
   renderLogs() {
-    const { level: t, search: e } = this.filters.logs, s = e.toLowerCase(), a = this.state.logs.filter((l) => {
-      if (t !== "all" && (l.level || "").toLowerCase() !== t)
+    const { level: t, search: e } = this.filters.logs, s = e.toLowerCase(), a = this.state.logs.filter((o) => {
+      if (t !== "all" && (o.level || "").toLowerCase() !== t)
         return !1;
-      const i = `${l.message || ""} ${l.source || ""} ${D(l.fields || {})}`.toLowerCase();
+      const i = `${o.message || ""} ${o.source || ""} ${S(o.fields || {})}`.toLowerCase();
       return !(s && !i.includes(s));
     });
     return a.length === 0 ? this.renderEmptyState("No logs captured yet.") : `
@@ -423,14 +451,14 @@ class J {
             <th>Source</th>
           </tr>
         </thead>
-        <tbody>${a.map((l) => {
-      const i = (l.level || "info").toLowerCase(), h = `badge--level-${i}`;
+        <tbody>${a.map((o) => {
+      const i = (o.level || "info").toLowerCase(), d = `badge--level-${i}`;
       return `
           <tr class="${i === "error" || i === "fatal" ? "error" : ""}">
-            <td><span class="badge ${h}">${o((l.level || "info").toUpperCase())}</span></td>
-            <td><span class="timestamp">${o(b(l.timestamp))}</span></td>
-            <td><span class="message">${o(l.message || "")}</span></td>
-            <td><span class="timestamp">${o(l.source || "")}</span></td>
+            <td><span class="badge ${d}">${l((o.level || "info").toUpperCase())}</span></td>
+            <td><span class="timestamp">${l(E(o.timestamp))}</span></td>
+            <td><span class="message">${l(o.message || "")}</span></td>
+            <td><span class="timestamp">${l(o.source || "")}</span></td>
           </tr>
         `;
     }).join("")}</tbody>
@@ -438,10 +466,10 @@ class J {
     `;
   }
   renderRoutes() {
-    const { method: t, search: e } = this.filters.routes, s = e.toLowerCase(), a = this.state.routes.filter((l) => {
-      if (t !== "all" && (l.method || "").toUpperCase() !== t)
+    const { method: t, search: e } = this.filters.routes, s = e.toLowerCase(), a = this.state.routes.filter((o) => {
+      if (t !== "all" && (o.method || "").toUpperCase() !== t)
         return !1;
-      const i = `${l.path || ""} ${l.handler || ""} ${l.summary || ""}`.toLowerCase();
+      const i = `${o.path || ""} ${o.handler || ""} ${o.summary || ""}`.toLowerCase();
       return !(s && !i.includes(s));
     });
     return a.length === 0 ? this.renderEmptyState("No routes captured yet.") : `
@@ -454,27 +482,25 @@ class J {
             <th>Name</th>
           </tr>
         </thead>
-        <tbody>${a.map((l) => `
+        <tbody>${a.map((o) => `
           <tr>
-            <td><span class="badge ${`badge--method-${(l.method || "get").toLowerCase()}`}">${o(l.method || "")}</span></td>
-            <td><span class="path">${o(l.path || "")}</span></td>
-            <td><span class="timestamp">${o(l.handler || "")}</span></td>
-            <td><span class="timestamp">${o(l.name || "")}</span></td>
+            <td><span class="badge ${`badge--method-${(o.method || "get").toLowerCase()}`}">${l(o.method || "")}</span></td>
+            <td><span class="path">${l(o.path || "")}</span></td>
+            <td><span class="timestamp">${l(o.handler || "")}</span></td>
+            <td><span class="timestamp">${l(o.name || "")}</span></td>
           </tr>
         `).join("")}</tbody>
       </table>
     `;
   }
   renderCustom() {
-    const { search: t } = this.filters.custom, e = L(this.state.custom.data, t);
-    this.renderJSONPanel("Custom Data", e, "");
-    const s = this.state.custom.logs, a = $(e, !0), n = s.length ? s.map((i) => `
+    const { search: t } = this.filters.custom, e = T(this.state.custom.data, t), s = this.state.custom.logs, a = $(e, !0), n = S(e), o = s.length ? s.map((d) => `
               <tr>
-                <td><span class="badge badge--custom">${o(i.category || "custom")}</span></td>
-                <td><span class="timestamp">${o(b(i.timestamp))}</span></td>
-                <td><span class="message">${o(i.message || "")}</span></td>
+                <td><span class="badge badge--custom">${l(d.category || "custom")}</span></td>
+                <td><span class="timestamp">${l(E(d.timestamp))}</span></td>
+                <td><span class="message">${l(d.message || "")}</span></td>
               </tr>
-            `).join("") : "", l = s.length ? `
+            `).join("") : "", i = s.length ? `
         <table class="debug-table">
           <thead>
             <tr>
@@ -483,15 +509,20 @@ class J {
               <th>Message</th>
             </tr>
           </thead>
-          <tbody>${n}</tbody>
+          <tbody>${o}</tbody>
         </table>
       ` : this.renderEmptyState("No custom logs yet.");
     return `
       <div class="debug-json-grid">
-        <div class="debug-json-panel">
+        <div class="debug-json-panel" data-copy-content="${l(n)}">
           <div class="debug-json-header">
             <h3>Custom Data</h3>
-            <span class="timestamp">${u(d(e))} keys</span>
+            <div class="debug-json-actions">
+              <span class="timestamp">${g(p(e))} keys</span>
+              <button class="debug-btn debug-copy" data-copy-trigger="custom-data" title="Copy to clipboard">
+                <i class="iconoir-copy"></i> Copy
+              </button>
+            </div>
           </div>
           <div class="debug-json-content">
             <pre>${a}</pre>
@@ -500,22 +531,27 @@ class J {
         <div class="debug-json-panel">
           <div class="debug-json-header">
             <h3>Custom Logs</h3>
-            <span class="timestamp">${u(s.length)} entries</span>
+            <span class="timestamp">${g(s.length)} entries</span>
           </div>
           <div class="debug-json-content">
-            ${l}
+            ${i}
           </div>
         </div>
       </div>
     `;
   }
   renderJSONPanel(t, e, s) {
-    const a = e && typeof e == "object" && !Array.isArray(e), n = Array.isArray(e), l = a ? L(e || {}, s) : e ?? {}, i = d(l), h = n ? "items" : a ? "keys" : "entries", c = $(l, !0);
+    const a = e && typeof e == "object" && !Array.isArray(e), n = Array.isArray(e), o = a ? T(e || {}, s) : e ?? {}, i = p(o), d = n ? "items" : a ? "keys" : "entries", c = $(o, !0), h = S(o), u = `copy-${t.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`;
     return `
-      <section class="debug-json-panel">
+      <section class="debug-json-panel" data-copy-content="${l(h)}">
         <div class="debug-json-header">
-          <h3>${o(t)}</h3>
-          <span class="debug-muted">${u(i)} ${h}</span>
+          <h3>${l(t)}</h3>
+          <div class="debug-json-actions">
+            <span class="debug-muted">${g(i)} ${d}</span>
+            <button class="debug-btn debug-copy" data-copy-trigger="${u}" title="Copy to clipboard">
+              <i class="iconoir-copy"></i> Copy
+            </button>
+          </div>
         </div>
         <pre>${c}</pre>
       </section>
@@ -524,9 +560,9 @@ class J {
   panelCount(t) {
     switch (t) {
       case "template":
-        return d(this.state.template);
+        return p(this.state.template);
       case "session":
-        return d(this.state.session);
+        return p(this.state.session);
       case "requests":
         return this.state.requests.length;
       case "sql":
@@ -534,39 +570,39 @@ class J {
       case "logs":
         return this.state.logs.length;
       case "config":
-        return d(this.state.config);
+        return p(this.state.config);
       case "routes":
         return this.state.routes.length;
       case "custom":
-        return d(this.state.custom.data) + this.state.custom.logs.length;
+        return p(this.state.custom.data) + this.state.custom.logs.length;
       default:
-        return d(this.state.extra[t]);
+        return p(this.state.extra[t]);
     }
   }
   renderEmptyState(t) {
     return `
       <div class="debug-empty">
-        <p>${o(t)}</p>
+        <p>${l(t)}</p>
       </div>
     `;
   }
   renderSelectOptions(t, e) {
     return t.map((s) => {
       const a = s.toLowerCase() === e.toLowerCase() ? "selected" : "";
-      return `<option value="${o(s)}" ${a}>${o(s)}</option>`;
+      return `<option value="${l(s)}" ${a}>${l(s)}</option>`;
     }).join("");
   }
   updateTabCounts() {
     this.panels.forEach((t) => {
       const e = this.panelCount(t), s = this.tabsEl.querySelector(`[data-panel-count="${t}"]`);
-      s && (s.textContent = u(e));
+      s && (s.textContent = g(e));
     });
   }
   updateConnectionStatus(t) {
     this.connectionEl.textContent = t, this.statusEl.setAttribute("data-status", t);
   }
   updateStatusMeta() {
-    this.eventCountEl.textContent = `${u(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
+    this.eventCountEl.textContent = `${g(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
   }
   handleEvent(t) {
     if (!t || !t.type)
@@ -577,7 +613,7 @@ class J {
     }
     if (this.eventCount += 1, this.lastEventAt = /* @__PURE__ */ new Date(), this.updateStatusMeta(), this.paused)
       return;
-    const e = M[t.type] || t.type;
+    const e = D[t.type] || t.type;
     switch (t.type) {
       case "request":
         this.state.requests.push(t.payload), this.trim(this.state.requests, this.maxLogEntries);
@@ -606,7 +642,7 @@ class J {
   handleCustomEvent(t) {
     if (t) {
       if (typeof t == "object" && "key" in t && "value" in t) {
-        F(this.state.custom.data, String(t.key), t.value);
+        J(this.state.custom.data, String(t.key), t.value);
         return;
       }
       if (typeof t == "object" && ("category" in t || "message" in t)) {
@@ -667,16 +703,16 @@ class J {
     this.paused = !this.paused, t.textContent = this.paused ? "Resume" : "Pause", this.paused || this.stream.requestSnapshot();
   }
 }
-const H = (r) => {
+const I = (r) => {
   const t = r || document.querySelector("[data-debug-console]");
-  return t ? new J(t) : null;
-}, T = () => {
-  H();
+  return t ? new _(t) : null;
+}, x = () => {
+  I();
 };
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", T) : T();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", x) : x();
 export {
-  J as DebugPanel,
-  N as DebugStream,
-  H as initDebugPanel
+  _ as DebugPanel,
+  j as DebugStream,
+  I as initDebugPanel
 };
 //# sourceMappingURL=index.js.map

@@ -48,6 +48,14 @@ export class DebugToolbar extends HTMLElement {
   private connectionStatus: DebugStreamStatus = 'disconnected';
   private slowThresholdMs = 50;
   private useFab = false;
+  private customHeight: number | null = null;
+  private isResizing = false;
+  private resizeStartY = 0;
+  private resizeStartHeight = 0;
+
+  private static readonly MIN_HEIGHT = 150;
+  private static readonly MAX_HEIGHT_RATIO = 0.8;
+  private static readonly DEFAULT_HEIGHT = 320;
 
   static get observedAttributes(): string[] {
     return ['base-path', 'debug-path', 'panels', 'expanded', 'slow-threshold-ms', 'use-fab'];
@@ -120,6 +128,13 @@ export class DebugToolbar extends HTMLElement {
       if (stored !== null) {
         this.expanded = stored === 'true';
       }
+      const storedHeight = localStorage.getItem('debug-toolbar-height');
+      if (storedHeight !== null) {
+        const height = parseInt(storedHeight, 10);
+        if (!isNaN(height) && height >= DebugToolbar.MIN_HEIGHT) {
+          this.customHeight = height;
+        }
+      }
     } catch {
       // Ignore localStorage errors
     }
@@ -128,6 +143,9 @@ export class DebugToolbar extends HTMLElement {
   private saveState(): void {
     try {
       localStorage.setItem('debug-toolbar-expanded', String(this.expanded));
+      if (this.customHeight !== null) {
+        localStorage.setItem('debug-toolbar-height', String(this.customHeight));
+      }
     } catch {
       // Ignore localStorage errors
     }
@@ -326,14 +344,18 @@ export class DebugToolbar extends HTMLElement {
 
     // When using FAB, toolbar is either expanded (visible) or collapsed (hidden)
     // When not using FAB, show the summary bar in collapsed state
-    const showToolbar = this.useFab ? this.expanded : true;
     const expandedClass = this.expanded ? 'expanded' : 'collapsed';
     const hiddenClass = this.useFab && !this.expanded ? 'hidden' : '';
+    const toolbarHeight = this.expanded
+      ? (this.customHeight || DebugToolbar.DEFAULT_HEIGHT)
+      : 36;
+    const heightStyle = this.expanded ? `height: ${toolbarHeight}px;` : '';
 
     this.shadow.innerHTML = `
       <style>${toolbarStyles}</style>
-      <div class="toolbar ${expandedClass} ${hiddenClass}">
+      <div class="toolbar ${expandedClass} ${hiddenClass}" style="${heightStyle}">
         ${this.expanded ? `
+          <div class="resize-handle" data-resize-handle></div>
           <div class="toolbar-header">
             <div class="toolbar-tabs">${panelTabs}</div>
             <div class="toolbar-actions">
@@ -551,6 +573,81 @@ export class DebugToolbar extends HTMLElement {
           }
         });
       }
+    }
+
+    // Resize handle
+    this.attachResizeListeners();
+  }
+
+  private attachResizeListeners(): void {
+    const resizeHandle = this.shadow.querySelector('[data-resize-handle]');
+    if (!resizeHandle) return;
+
+    resizeHandle.addEventListener('mousedown', (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      mouseEvent.preventDefault();
+      this.startResize(mouseEvent.clientY);
+    });
+
+    resizeHandle.addEventListener('touchstart', (e: Event) => {
+      const touchEvent = e as TouchEvent;
+      if (touchEvent.touches.length === 1) {
+        touchEvent.preventDefault();
+        this.startResize(touchEvent.touches[0].clientY);
+      }
+    }, { passive: false });
+  }
+
+  private startResize(startY: number): void {
+    this.isResizing = true;
+    this.resizeStartY = startY;
+    const toolbar = this.shadow.querySelector('.toolbar') as HTMLElement;
+    this.resizeStartHeight = toolbar?.offsetHeight || DebugToolbar.DEFAULT_HEIGHT;
+
+    toolbar?.classList.add('resizing');
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (e: MouseEvent) => {
+      this.handleResize(e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        this.handleResize(e.touches[0].clientY);
+      }
+    };
+
+    const handleEnd = () => {
+      this.isResizing = false;
+      toolbar?.classList.remove('resizing');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleEnd);
+      this.saveState();
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchend', handleEnd);
+  }
+
+  private handleResize(currentY: number): void {
+    if (!this.isResizing) return;
+
+    const delta = this.resizeStartY - currentY;
+    const maxHeight = window.innerHeight * DebugToolbar.MAX_HEIGHT_RATIO;
+    const newHeight = Math.min(maxHeight, Math.max(DebugToolbar.MIN_HEIGHT, this.resizeStartHeight + delta));
+
+    this.customHeight = newHeight;
+
+    const toolbar = this.shadow.querySelector('.toolbar') as HTMLElement;
+    if (toolbar) {
+      toolbar.style.height = `${newHeight}px`;
     }
   }
 
