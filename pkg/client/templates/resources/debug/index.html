@@ -337,6 +337,247 @@
       border-radius: 4px;
     }
 
+    /* REPL panels */
+    .debug-content--repl {
+      padding: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .debug-repl {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+      min-height: 420px;
+    }
+
+    .debug-repl__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      background: var(--debug-bg-secondary);
+      border: 1px solid var(--debug-border);
+      border-radius: 8px;
+    }
+
+    .debug-repl__title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .debug-repl__label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--debug-text);
+    }
+
+    .debug-repl__status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--debug-text-muted);
+    }
+
+    .debug-repl__status[data-repl-status="connected"] {
+      color: var(--debug-success);
+    }
+
+    .debug-repl__status[data-repl-status="reconnecting"] {
+      color: var(--debug-warning);
+    }
+
+    .debug-repl__status[data-repl-status="error"] {
+      color: var(--debug-error);
+    }
+
+    .debug-repl__dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--debug-text-muted);
+      box-shadow: 0 0 6px transparent;
+    }
+
+    .debug-repl__status[data-repl-status="connected"] .debug-repl__dot {
+      background: var(--debug-success);
+      box-shadow: 0 0 6px var(--debug-success);
+    }
+
+    .debug-repl__status[data-repl-status="reconnecting"] .debug-repl__dot {
+      background: var(--debug-warning);
+      box-shadow: 0 0 6px var(--debug-warning);
+    }
+
+    .debug-repl__status[data-repl-status="error"] .debug-repl__dot {
+      background: var(--debug-error);
+      box-shadow: 0 0 6px var(--debug-error);
+    }
+
+    .debug-repl__actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .debug-repl__body {
+      flex: 1;
+      display: flex;
+      min-height: 320px;
+    }
+
+    .debug-repl__terminal {
+      flex: 1;
+      border-radius: 10px;
+      border: 1px solid var(--debug-border);
+      background: var(--debug-bg-secondary);
+      overflow: hidden;
+    }
+
+    .debug-repl__terminal .xterm,
+    .debug-repl__terminal .xterm-screen {
+      height: 100%;
+    }
+
+    .debug-repl__terminal .xterm-viewport {
+      scrollbar-color: var(--debug-border) transparent;
+      scrollbar-width: thin;
+    }
+
+    .debug-repl__commands {
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--debug-border);
+      border-radius: 10px;
+      background: var(--debug-bg-secondary);
+      overflow: hidden;
+    }
+
+    .debug-repl__commands-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--debug-text-muted);
+    }
+
+    .debug-repl__commands-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--debug-text);
+      background: rgba(137, 180, 250, 0.2);
+    }
+
+    .debug-repl__commands-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .debug-repl__command {
+      border: 1px solid var(--debug-border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: left;
+      background: rgba(30, 30, 46, 0.6);
+      color: var(--debug-text);
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .debug-repl__command:hover {
+      border-color: var(--debug-accent);
+      background: rgba(137, 180, 250, 0.1);
+    }
+
+    .debug-repl__command-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .debug-repl__command-name {
+      color: var(--debug-text);
+    }
+
+    .debug-repl__command-badge {
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--debug-success);
+      background: rgba(166, 227, 161, 0.18);
+    }
+
+    .debug-repl__command-badge--exec {
+      color: var(--debug-warning);
+      background: rgba(249, 226, 175, 0.18);
+    }
+
+    .debug-repl__command-desc {
+      margin-top: 4px;
+      font-size: 10px;
+      color: var(--debug-text-muted);
+    }
+
+    .debug-repl__command-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .debug-repl__command-tag {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--debug-accent);
+      background: rgba(137, 180, 250, 0.15);
+    }
+
+    .debug-repl__commands-empty {
+      font-size: 10px;
+      color: var(--debug-text-muted);
+    }
+
+    .debug-repl__footer {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--debug-text-muted);
+    }
+
     /* Table styles */
     .debug-table {
       width: 100%;
@@ -619,6 +860,24 @@
       .debug-table td {
         padding: 6px 8px;
       }
+
+      .debug-repl__header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .debug-repl__body {
+        flex-direction: column;
+      }
+
+      .debug-repl__actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .debug-repl__commands {
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -654,6 +913,7 @@
         data-debug-console
         data-debug-path="{{ debug_path }}"
         data-panels='{{ toJSON(panels) }}'
+        data-repl-commands='{{ toJSON(repl_commands) }}'
         data-max-log-entries="{{ max_log_entries }}"
         data-max-sql-queries="{{ max_sql_queries }}"
         data-slow-threshold-ms="{{ slow_query_threshold_ms }}">
