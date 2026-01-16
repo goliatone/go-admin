@@ -181,7 +181,8 @@ func (m *DebugModule) handleDebugDashboard(admin *Admin, c router.Context) error
 		"max_sql_queries":         m.config.MaxSQLQueries,
 		"slow_query_threshold_ms": m.config.SlowQueryThreshold.Milliseconds(),
 	}
-	return c.Render("resources/debug/index", viewCtx)
+	viewCtx = buildDebugViewContext(admin, m.config, c, viewCtx)
+	return c.Render(debugPageTemplate(m.config, c), viewCtx)
 }
 
 func (m *DebugModule) handleDebugClear(c router.Context) error {
