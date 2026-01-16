@@ -227,6 +227,10 @@ func NewDebugQueryHook(collector *DebugCollector) *DebugQueryHook {
 	return core.NewDebugQueryHook(collector)
 }
 
+func NewDebugQueryHookProvider(provider func() *DebugCollector) *DebugQueryHook {
+	return core.NewDebugQueryHookProvider(provider)
+}
+
 func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payload map[string]any, ids []string) (T, error)) error {
 	return core.RegisterMessageFactory(bus, name, build)
 }
