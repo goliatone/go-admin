@@ -88,6 +88,8 @@ func main() {
 		registrationCfg.Allowlist = splitAndTrimCSV(allowlist)
 	}
 
+	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
+
 	debugEnabled := strings.EqualFold(os.Getenv("ADMIN_DEBUG"), "true")
 	cfg.Debug.Enabled = debugEnabled
 	cfg.Debug.ToolbarMode = debugEnabled
@@ -100,6 +102,18 @@ func main() {
 		}
 		cfg.FeatureFlags["debug"] = true
 		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
+	}
+	if debugEnabled && isDev && strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL"), "true") {
+		cfg.Debug.Repl.Enabled = true
+		cfg.Debug.Repl.AppEnabled = true
+		cfg.Debug.Repl.ShellEnabled = strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL_SHELL"), "true")
+		if strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL_READONLY"), "false") {
+			cfg.Debug.Repl.ReadOnly = admin.BoolPtr(false)
+		}
+		cfg.Debug.Panels = append(cfg.Debug.Panels, admin.DebugPanelConsole)
+		if cfg.Debug.Repl.ShellEnabled {
+			cfg.Debug.Panels = append(cfg.Debug.Panels, admin.DebugPanelShell)
+		}
 	}
 
 	var adm *admin.Admin
@@ -343,7 +357,6 @@ func main() {
 	}
 
 	// Initialize Fiber server
-	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
 	server, r := quickstart.NewFiberServer(viewEngine, cfg, adm, isDev)
 
 	// Static assets
