@@ -3,12 +3,17 @@ package admin
 import (
 	"strings"
 	"time"
+
+	router "github.com/goliatone/go-router"
 )
 
 const (
 	debugDefaultFeatureKey         = "debug"
 	debugDefaultPermission         = "admin.debug.view"
 	debugDefaultPathSuffix         = "debug"
+	debugDefaultPageTemplate       = "resources/debug/index"
+	debugDefaultAdminPageTemplate  = "resources/debug/index_admin"
+	debugDefaultDashboardTemplate  = "dashboard_ssr.html"
 	debugDefaultMaxLogEntries      = 500
 	debugDefaultMaxSQLQueries      = 200
 	debugDefaultSlowQueryThreshold = 50 * time.Millisecond
@@ -26,6 +31,17 @@ const (
 	DebugPanelShell    = "shell"
 	DebugPanelConsole  = "console"
 )
+
+// DebugLayoutMode controls how the debug UI is rendered.
+type DebugLayoutMode string
+
+const (
+	DebugLayoutStandalone DebugLayoutMode = "standalone"
+	DebugLayoutAdmin      DebugLayoutMode = "admin"
+)
+
+// DebugViewContextBuilder can augment the view context for debug templates.
+type DebugViewContextBuilder func(adm *Admin, cfg DebugConfig, c router.Context, view router.ViewContext) router.ViewContext
 
 var defaultDebugPanels = []string{
 	DebugPanelTemplate,
@@ -59,6 +75,16 @@ type DebugConfig struct {
 	FeatureKey         string
 	Permission         string
 	BasePath           string
+	// LayoutMode controls which debug template is rendered for the HTML route.
+	LayoutMode DebugLayoutMode
+	// PageTemplate is the primary debug template used for HTML rendering.
+	PageTemplate string
+	// StandaloneTemplate is used when forcing a standalone render via query param.
+	StandaloneTemplate string
+	// DashboardTemplate overrides the go-dashboard HTML template for debug routes.
+	DashboardTemplate string
+	// ViewContextBuilder can inject navigation/session data for admin-layout templates.
+	ViewContextBuilder DebugViewContextBuilder
 	SlowQueryThreshold time.Duration
 	AllowedIPs         []string
 	PersistLayout      bool
@@ -72,6 +98,13 @@ type DebugConfig struct {
 }
 
 func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
+	layoutMode := DebugLayoutMode(strings.ToLower(strings.TrimSpace(string(cfg.LayoutMode))))
+	switch layoutMode {
+	case DebugLayoutAdmin, DebugLayoutStandalone:
+	default:
+		layoutMode = DebugLayoutStandalone
+	}
+	cfg.LayoutMode = layoutMode
 	cfg.FeatureKey = strings.TrimSpace(cfg.FeatureKey)
 	if cfg.FeatureKey == "" {
 		cfg.FeatureKey = debugDefaultFeatureKey
@@ -83,6 +116,22 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	cfg.BasePath = strings.TrimSpace(cfg.BasePath)
 	if cfg.BasePath == "" {
 		cfg.BasePath = joinPath(basePath, debugDefaultPathSuffix)
+	}
+	cfg.StandaloneTemplate = strings.TrimSpace(cfg.StandaloneTemplate)
+	if cfg.StandaloneTemplate == "" {
+		cfg.StandaloneTemplate = debugDefaultPageTemplate
+	}
+	cfg.PageTemplate = strings.TrimSpace(cfg.PageTemplate)
+	if cfg.PageTemplate == "" {
+		if cfg.LayoutMode == DebugLayoutAdmin {
+			cfg.PageTemplate = debugDefaultAdminPageTemplate
+		} else {
+			cfg.PageTemplate = cfg.StandaloneTemplate
+		}
+	}
+	cfg.DashboardTemplate = strings.TrimSpace(cfg.DashboardTemplate)
+	if cfg.DashboardTemplate == "" {
+		cfg.DashboardTemplate = debugDefaultDashboardTemplate
 	}
 	if cfg.MaxLogEntries <= 0 {
 		cfg.MaxLogEntries = debugDefaultMaxLogEntries
