@@ -104,10 +104,10 @@ func (a *Admin) DebugQueryHookOptions() []repository.Option {
 }
 
 func debugSQLPanelEnabled(cfg DebugConfig) bool {
-	if panelIDEnabled(cfg.Panels, "sql") {
+	if panelIDEnabled(cfg.Panels, DebugPanelSQL) {
 		return true
 	}
-	return panelIDEnabled(cfg.ToolbarPanels, "sql")
+	return panelIDEnabled(cfg.ToolbarPanels, DebugPanelSQL)
 }
 
 func panelIDEnabled(panels []string, panelID string) bool {

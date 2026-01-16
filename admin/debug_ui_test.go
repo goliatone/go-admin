@@ -52,7 +52,7 @@ func TestDebugDashboardRendersTemplate(t *testing.T) {
 		Enabled:       true,
 		MaxLogEntries: 10,
 		MaxSQLQueries: 5,
-		Panels:        []string{"requests"},
+		Panels:        []string{DebugPanelRequests},
 	}
 	mod := NewDebugModule(cfg)
 	mod.config = normalizeDebugConfig(cfg, "/admin")
@@ -78,7 +78,7 @@ func TestDebugWebSocketWritesSnapshot(t *testing.T) {
 	cfg := DebugConfig{
 		CaptureSQL:  true,
 		CaptureLogs: true,
-		Panels:      []string{"template", "custom"},
+		Panels:      []string{DebugPanelTemplate, DebugPanelCustom},
 	}
 	mod := NewDebugModule(cfg)
 	mod.collector = NewDebugCollector(cfg)

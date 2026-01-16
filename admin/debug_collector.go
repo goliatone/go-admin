@@ -158,31 +158,31 @@ func (c *DebugCollector) panelMeta(panelID string) (debugPanelMeta, bool) {
 
 // CaptureTemplateData stores the current template context.
 func (c *DebugCollector) CaptureTemplateData(viewCtx router.ViewContext) {
-	if c == nil || !c.panelEnabled("template") {
+	if c == nil || !c.panelEnabled(DebugPanelTemplate) {
 		return
 	}
 	data := debugMaskMap(c.config, cloneAnyMap(map[string]any(viewCtx)))
 	c.mu.Lock()
 	c.templateData = data
 	c.mu.Unlock()
-	c.publish("template", data)
+	c.publish(DebugPanelTemplate, data)
 }
 
 // CaptureSession stores session information.
 func (c *DebugCollector) CaptureSession(session map[string]any) {
-	if c == nil || !c.panelEnabled("session") {
+	if c == nil || !c.panelEnabled(DebugPanelSession) {
 		return
 	}
 	data := debugMaskMap(c.config, cloneAnyMap(session))
 	c.mu.Lock()
 	c.sessionData = data
 	c.mu.Unlock()
-	c.publish("session", data)
+	c.publish(DebugPanelSession, data)
 }
 
 // CaptureRequest logs an HTTP request.
 func (c *DebugCollector) CaptureRequest(entry RequestEntry) {
-	if c == nil || !c.panelEnabled("requests") {
+	if c == nil || !c.panelEnabled(DebugPanelRequests) {
 		return
 	}
 	if entry.Timestamp.IsZero() {
@@ -203,7 +203,7 @@ func (c *DebugCollector) CaptureRequest(entry RequestEntry) {
 
 // CaptureSQL logs a database query.
 func (c *DebugCollector) CaptureSQL(entry SQLEntry) {
-	if c == nil || !c.config.CaptureSQL || !c.panelEnabled("sql") {
+	if c == nil || !c.config.CaptureSQL || !c.panelEnabled(DebugPanelSQL) {
 		return
 	}
 	if entry.Timestamp.IsZero() {
@@ -216,12 +216,12 @@ func (c *DebugCollector) CaptureSQL(entry SQLEntry) {
 	if log != nil {
 		log.Add(entry)
 	}
-	c.publish("sql", entry)
+	c.publish(DebugPanelSQL, entry)
 }
 
 // CaptureLog adds a log entry.
 func (c *DebugCollector) CaptureLog(entry LogEntry) {
-	if c == nil || !c.config.CaptureLogs || !c.panelEnabled("logs") {
+	if c == nil || !c.config.CaptureLogs || !c.panelEnabled(DebugPanelLogs) {
 		return
 	}
 	if entry.Timestamp.IsZero() {
@@ -239,7 +239,7 @@ func (c *DebugCollector) CaptureLog(entry LogEntry) {
 
 // CaptureConfigSnapshot stores a config snapshot for the config panel.
 func (c *DebugCollector) CaptureConfigSnapshot(snapshot map[string]any) {
-	if c == nil || !c.panelEnabled("config") {
+	if c == nil || !c.panelEnabled(DebugPanelConfig) {
 		return
 	}
 	snapshot = debugMaskMap(c.config, snapshot)
@@ -250,7 +250,7 @@ func (c *DebugCollector) CaptureConfigSnapshot(snapshot map[string]any) {
 
 // CaptureRoutes stores a routes snapshot for the routes panel.
 func (c *DebugCollector) CaptureRoutes(routes []RouteEntry) {
-	if c == nil || !c.panelEnabled("routes") {
+	if c == nil || !c.panelEnabled(DebugPanelRoutes) {
 		return
 	}
 	c.mu.Lock()
@@ -289,7 +289,7 @@ func (c *DebugCollector) PublishPanel(panelID string, payload any) {
 
 // Set adds custom debug data.
 func (c *DebugCollector) Set(key string, value any) {
-	if c == nil || !c.panelEnabled("custom") {
+	if c == nil || !c.panelEnabled(DebugPanelCustom) {
 		return
 	}
 	key = strings.TrimSpace(key)
@@ -303,7 +303,7 @@ func (c *DebugCollector) Set(key string, value any) {
 	}
 	setNestedValue(c.customData, key, value)
 	c.mu.Unlock()
-	c.publish("custom", map[string]any{"key": key, "value": value})
+	c.publish(DebugPanelCustom, map[string]any{"key": key, "value": value})
 }
 
 // Get retrieves custom debug data.
@@ -322,7 +322,7 @@ func (c *DebugCollector) Get(key string) (any, bool) {
 
 // Log adds a custom debug message.
 func (c *DebugCollector) Log(category, message string, fields ...any) {
-	if c == nil || !c.panelEnabled("custom") {
+	if c == nil || !c.panelEnabled(DebugPanelCustom) {
 		return
 	}
 	payload := fieldsToMap(fields)
@@ -338,7 +338,7 @@ func (c *DebugCollector) Log(category, message string, fields ...any) {
 	if c.customLog != nil {
 		c.customLog.Add(entry)
 	}
-	c.publish("custom", entry)
+	c.publish(DebugPanelCustom, entry)
 }
 
 // Subscribe creates a WebSocket subscriber channel.
@@ -397,35 +397,35 @@ func (c *DebugCollector) Snapshot() map[string]any {
 	c.mu.RUnlock()
 
 	snapshot := map[string]any{}
-	if c.panelEnabled("template") {
-		snapshot["template"] = templateData
+	if c.panelEnabled(DebugPanelTemplate) {
+		snapshot[DebugPanelTemplate] = templateData
 	}
-	if c.panelEnabled("session") {
-		snapshot["session"] = sessionData
+	if c.panelEnabled(DebugPanelSession) {
+		snapshot[DebugPanelSession] = sessionData
 	}
-	if c.panelEnabled("requests") && c.requestLog != nil {
-		snapshot["requests"] = c.requestLog.Values()
+	if c.panelEnabled(DebugPanelRequests) && c.requestLog != nil {
+		snapshot[DebugPanelRequests] = c.requestLog.Values()
 	}
-	if c.panelEnabled("sql") && c.sqlLog != nil {
-		snapshot["sql"] = c.sqlLog.Values()
+	if c.panelEnabled(DebugPanelSQL) && c.sqlLog != nil {
+		snapshot[DebugPanelSQL] = c.sqlLog.Values()
 	}
-	if c.panelEnabled("logs") && c.serverLog != nil {
-		snapshot["logs"] = c.serverLog.Values()
+	if c.panelEnabled(DebugPanelLogs) && c.serverLog != nil {
+		snapshot[DebugPanelLogs] = c.serverLog.Values()
 	}
-	if c.panelEnabled("custom") {
+	if c.panelEnabled(DebugPanelCustom) {
 		customSnapshot := map[string]any{
 			"data": customData,
 		}
 		if c.customLog != nil {
 			customSnapshot["logs"] = c.customLog.Values()
 		}
-		snapshot["custom"] = customSnapshot
+		snapshot[DebugPanelCustom] = customSnapshot
 	}
-	if c.panelEnabled("config") && len(configData) > 0 {
-		snapshot["config"] = debugMaskMap(c.config, configData)
+	if c.panelEnabled(DebugPanelConfig) && len(configData) > 0 {
+		snapshot[DebugPanelConfig] = debugMaskMap(c.config, configData)
 	}
-	if c.panelEnabled("routes") && len(routesData) > 0 {
-		snapshot["routes"] = routesData
+	if c.panelEnabled(DebugPanelRoutes) && len(routesData) > 0 {
+		snapshot[DebugPanelRoutes] = routesData
 	}
 	if len(panelData) > 0 {
 		for panelID, panelSnapshot := range panelData {
@@ -490,38 +490,38 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 		return false
 	}
 	switch panelID {
-	case "template":
+	case DebugPanelTemplate:
 		c.mu.Lock()
 		c.templateData = map[string]any{}
 		c.mu.Unlock()
-	case "session":
+	case DebugPanelSession:
 		c.mu.Lock()
 		c.sessionData = map[string]any{}
 		c.mu.Unlock()
-	case "requests":
+	case DebugPanelRequests:
 		if c.requestLog != nil {
 			c.requestLog.Clear()
 		}
-	case "sql":
+	case DebugPanelSQL:
 		if c.sqlLog != nil {
 			c.sqlLog.Clear()
 		}
-	case "logs":
+	case DebugPanelLogs:
 		if c.serverLog != nil {
 			c.serverLog.Clear()
 		}
-	case "custom":
+	case DebugPanelCustom:
 		c.mu.Lock()
 		c.customData = map[string]any{}
 		c.mu.Unlock()
 		if c.customLog != nil {
 			c.customLog.Clear()
 		}
-	case "config":
+	case DebugPanelConfig:
 		c.mu.Lock()
 		c.configData = map[string]any{}
 		c.mu.Unlock()
-	case "routes":
+	case DebugPanelRoutes:
 		c.mu.Lock()
 		c.routesData = nil
 		c.mu.Unlock()

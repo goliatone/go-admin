@@ -13,14 +13,14 @@ func TestDebugCollectorSnapshot(t *testing.T) {
 		CaptureSQL:  true,
 		CaptureLogs: true,
 		Panels: []string{
-			"template",
-			"session",
-			"requests",
-			"sql",
-			"logs",
-			"custom",
-			"config",
-			"routes",
+			DebugPanelTemplate,
+			DebugPanelSession,
+			DebugPanelRequests,
+			DebugPanelSQL,
+			DebugPanelLogs,
+			DebugPanelCustom,
+			DebugPanelConfig,
+			DebugPanelRoutes,
 		},
 	}
 	collector := NewDebugCollector(cfg)
@@ -54,27 +54,27 @@ func TestDebugCollectorSnapshot(t *testing.T) {
 	collector.CaptureRoutes([]RouteEntry{{Method: "GET", Path: "/test"}})
 
 	snapshot := collector.Snapshot()
-	if snapshot["template"] == nil {
+	if snapshot[DebugPanelTemplate] == nil {
 		t.Fatalf("expected template snapshot")
 	}
-	if snapshot["session"] == nil {
+	if snapshot[DebugPanelSession] == nil {
 		t.Fatalf("expected session snapshot")
 	}
-	requests, ok := snapshot["requests"].([]RequestEntry)
+	requests, ok := snapshot[DebugPanelRequests].([]RequestEntry)
 	if !ok || len(requests) != 1 || requests[0].Method != "GET" {
-		t.Fatalf("expected request snapshot, got %+v", snapshot["requests"])
+		t.Fatalf("expected request snapshot, got %+v", snapshot[DebugPanelRequests])
 	}
-	sqlEntries, ok := snapshot["sql"].([]SQLEntry)
+	sqlEntries, ok := snapshot[DebugPanelSQL].([]SQLEntry)
 	if !ok || len(sqlEntries) != 1 || sqlEntries[0].Query != "SELECT 1" {
-		t.Fatalf("expected sql snapshot, got %+v", snapshot["sql"])
+		t.Fatalf("expected sql snapshot, got %+v", snapshot[DebugPanelSQL])
 	}
-	logEntries, ok := snapshot["logs"].([]LogEntry)
+	logEntries, ok := snapshot[DebugPanelLogs].([]LogEntry)
 	if !ok || len(logEntries) != 1 || logEntries[0].Message != "hello" {
-		t.Fatalf("expected log snapshot, got %+v", snapshot["logs"])
+		t.Fatalf("expected log snapshot, got %+v", snapshot[DebugPanelLogs])
 	}
-	custom, ok := snapshot["custom"].(map[string]any)
+	custom, ok := snapshot[DebugPanelCustom].(map[string]any)
 	if !ok || custom == nil {
-		t.Fatalf("expected custom snapshot, got %+v", snapshot["custom"])
+		t.Fatalf("expected custom snapshot, got %+v", snapshot[DebugPanelCustom])
 	}
 	customData, ok := custom["data"].(map[string]any)
 	if !ok || customData == nil {
@@ -88,13 +88,13 @@ func TestDebugCollectorSnapshot(t *testing.T) {
 	if !ok || len(customLogs) != 1 || customLogs[0].Category != "custom" {
 		t.Fatalf("expected custom logs, got %+v", custom["logs"])
 	}
-	config, ok := snapshot["config"].(map[string]any)
+	config, ok := snapshot[DebugPanelConfig].(map[string]any)
 	if !ok || config["admin"] == nil {
-		t.Fatalf("expected config snapshot, got %+v", snapshot["config"])
+		t.Fatalf("expected config snapshot, got %+v", snapshot[DebugPanelConfig])
 	}
-	routes, ok := snapshot["routes"].([]RouteEntry)
+	routes, ok := snapshot[DebugPanelRoutes].([]RouteEntry)
 	if !ok || len(routes) != 1 || routes[0].Path != "/test" {
-		t.Fatalf("expected routes snapshot, got %+v", snapshot["routes"])
+		t.Fatalf("expected routes snapshot, got %+v", snapshot[DebugPanelRoutes])
 	}
 }
 
@@ -103,13 +103,13 @@ func TestDebugCollectorRedaction(t *testing.T) {
 		CaptureSQL:  true,
 		CaptureLogs: true,
 		Panels: []string{
-			"template",
-			"session",
-			"requests",
-			"sql",
-			"logs",
-			"custom",
-			"config",
+			DebugPanelTemplate,
+			DebugPanelSession,
+			DebugPanelRequests,
+			DebugPanelSQL,
+			DebugPanelLogs,
+			DebugPanelCustom,
+			DebugPanelConfig,
 		},
 	}
 	collector := NewDebugCollector(cfg)
@@ -174,9 +174,9 @@ func TestDebugCollectorRedaction(t *testing.T) {
 
 	snapshot := collector.Snapshot()
 	expectedTemplate := mustMaskAnyMap(t, cfg, map[string]any(templateInput))
-	template, ok := snapshot["template"].(map[string]any)
+	template, ok := snapshot[DebugPanelTemplate].(map[string]any)
 	if !ok || template["password"] != expectedTemplate["password"] {
-		t.Fatalf("expected template password redacted, got %+v", snapshot["template"])
+		t.Fatalf("expected template password redacted, got %+v", snapshot[DebugPanelTemplate])
 	}
 	expectedTemplateNested, _ := expectedTemplate["nested"].(map[string]any)
 	nested, ok := template["nested"].(map[string]any)
@@ -184,7 +184,7 @@ func TestDebugCollectorRedaction(t *testing.T) {
 		t.Fatalf("expected nested api_key redacted, got %+v", template["nested"])
 	}
 	expectedSession := mustMaskAnyMap(t, cfg, sessionInput)
-	session, ok := snapshot["session"].(map[string]any)
+	session, ok := snapshot[DebugPanelSession].(map[string]any)
 	if !ok {
 		t.Fatalf("expected session snapshot")
 	}
@@ -193,9 +193,9 @@ func TestDebugCollectorRedaction(t *testing.T) {
 	if !ok || sessionAuth["token"] != expectedSessionAuth["token"] {
 		t.Fatalf("expected session token redacted, got %+v", session["auth"])
 	}
-	requests, ok := snapshot["requests"].([]RequestEntry)
+	requests, ok := snapshot[DebugPanelRequests].([]RequestEntry)
 	if !ok || len(requests) != 1 {
-		t.Fatalf("expected request snapshot, got %+v", snapshot["requests"])
+		t.Fatalf("expected request snapshot, got %+v", snapshot[DebugPanelRequests])
 	}
 	expectedHeaders := mustMaskStringMap(t, cfg, normalizeHeaderMap(requestHeaders))
 	if requests[0].Headers["Authorization"] != expectedHeaders["Authorization"] {
@@ -205,9 +205,9 @@ func TestDebugCollectorRedaction(t *testing.T) {
 	if requests[0].Query["token"] != expectedQuery["token"] {
 		t.Fatalf("expected query token redacted, got %+v", requests[0].Query)
 	}
-	sqlEntries, ok := snapshot["sql"].([]SQLEntry)
+	sqlEntries, ok := snapshot[DebugPanelSQL].([]SQLEntry)
 	if !ok || len(sqlEntries) != 1 {
-		t.Fatalf("expected sql snapshot, got %+v", snapshot["sql"])
+		t.Fatalf("expected sql snapshot, got %+v", snapshot[DebugPanelSQL])
 	}
 	if len(sqlEntries[0].Args) != 1 {
 		t.Fatalf("expected sql args preserved, got %+v", sqlEntries[0].Args)
@@ -218,9 +218,9 @@ func TestDebugCollectorRedaction(t *testing.T) {
 	if !ok || sqlArgMap["password"] != expectedArgMap["password"] {
 		t.Fatalf("expected sql args redacted, got %+v", sqlEntries[0].Args)
 	}
-	logEntries, ok := snapshot["logs"].([]LogEntry)
+	logEntries, ok := snapshot[DebugPanelLogs].([]LogEntry)
 	if !ok || len(logEntries) != 1 {
-		t.Fatalf("expected log snapshot, got %+v", snapshot["logs"])
+		t.Fatalf("expected log snapshot, got %+v", snapshot[DebugPanelLogs])
 	}
 	expectedLogFields := mustMaskAnyMap(t, cfg, logFields)
 	if logEntries[0].Fields["token"] != expectedLogFields["token"] {
@@ -231,7 +231,7 @@ func TestDebugCollectorRedaction(t *testing.T) {
 	if !ok || logNested["secret"] != expectedLogNested["secret"] {
 		t.Fatalf("expected nested log field redacted, got %+v", logEntries[0].Fields)
 	}
-	custom, ok := snapshot["custom"].(map[string]any)
+	custom, ok := snapshot[DebugPanelCustom].(map[string]any)
 	if !ok || custom == nil {
 		t.Fatalf("expected custom snapshot")
 	}
@@ -249,7 +249,7 @@ func TestDebugCollectorRedaction(t *testing.T) {
 		t.Fatalf("expected custom log jwt redacted, got %+v", customLogs[0].Fields)
 	}
 	expectedConfig := mustMaskAnyMap(t, cfg, configInput)
-	config, ok := snapshot["config"].(map[string]any)
+	config, ok := snapshot[DebugPanelConfig].(map[string]any)
 	if !ok || config == nil {
 		t.Fatalf("expected config snapshot")
 	}

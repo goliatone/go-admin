@@ -72,18 +72,18 @@ func (s *debugSubscription) allows(eventType string) bool {
 func debugPanelEventTypes(panel string) []string {
 	normalized := strings.ToLower(strings.TrimSpace(panel))
 	switch normalized {
-	case "request", "requests":
+	case "request", DebugPanelRequests:
 		return []string{"request"}
-	case "log", "logs":
+	case "log", DebugPanelLogs:
 		return []string{"log"}
-	case "sql":
-		return []string{"sql"}
-	case "template":
-		return []string{"template"}
-	case "session":
-		return []string{"session"}
-	case "custom":
-		return []string{"custom"}
+	case DebugPanelSQL:
+		return []string{DebugPanelSQL}
+	case DebugPanelTemplate:
+		return []string{DebugPanelTemplate}
+	case DebugPanelSession:
+		return []string{DebugPanelSession}
+	case DebugPanelCustom:
+		return []string{DebugPanelCustom}
 	default:
 		return []string{normalized}
 	}

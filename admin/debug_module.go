@@ -26,14 +26,14 @@ type debugPanelMeta struct {
 }
 
 var debugPanelDefaults = map[string]debugPanelMeta{
-	"template": {Label: "Template Context", Span: debugPanelDefaultSpan},
-	"session":  {Label: "Session", Span: debugPanelDefaultSpan},
-	"requests": {Label: "Requests", Span: debugPanelDefaultSpan},
-	"sql":      {Label: "SQL Queries", Span: debugPanelDefaultSpan},
-	"logs":     {Label: "Logs", Span: debugPanelDefaultSpan},
-	"config":   {Label: "Config", Span: debugPanelDefaultSpan},
-	"routes":   {Label: "Routes", Span: debugPanelDefaultSpan},
-	"custom":   {Label: "Custom", Span: debugPanelDefaultSpan},
+	DebugPanelTemplate: {Label: "Template Context", Span: debugPanelDefaultSpan},
+	DebugPanelSession:  {Label: "Session", Span: debugPanelDefaultSpan},
+	DebugPanelRequests: {Label: "Requests", Span: debugPanelDefaultSpan},
+	DebugPanelSQL:      {Label: "SQL Queries", Span: debugPanelDefaultSpan},
+	DebugPanelLogs:     {Label: "Logs", Span: debugPanelDefaultSpan},
+	DebugPanelConfig:   {Label: "Config", Span: debugPanelDefaultSpan},
+	DebugPanelRoutes:   {Label: "Routes", Span: debugPanelDefaultSpan},
+	DebugPanelCustom:   {Label: "Custom", Span: debugPanelDefaultSpan},
 }
 
 // DebugModule registers the debug dashboard integration and menu entry.
