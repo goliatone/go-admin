@@ -112,7 +112,7 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 	}
 	basePath := m.basePath
 	if basePath == "" {
-		basePath = normalizeDebugConfig(m.config, "").BasePath
+		basePath = normalizeDebugConfig(m.config, m.adminBasePath).BasePath
 	}
 	if locale == "" {
 		locale = m.locale
