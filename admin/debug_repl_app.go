@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/parser"
 	"io"
+	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -131,8 +132,16 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 
 	interpreter, err := debugREPLAppInterpreter(admin, adminCtx, replCfg)
 	if err != nil {
-		closeReason = debugREPLAppCloseReasonError
-		return err
+		log.Printf("[debug.repl] app console init failed: %v", err)
+		initErr := err
+		fallback, fallbackErr := debugREPLAppFallbackInterpreter(replCfg)
+		if fallbackErr != nil {
+			log.Printf("[debug.repl] app console fallback failed: %v", fallbackErr)
+			_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", fmt.Errorf("app console unavailable: %w", initErr))
+		} else {
+			interpreter = fallback
+			_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", fmt.Errorf("app console started without admin helpers: %w", initErr))
+		}
 	}
 
 	commandCh := make(chan debugREPLAppCommand, 16)
@@ -197,8 +206,12 @@ var errDebugREPLAppClose = errors.New("app repl close requested")
 var errDebugREPLAppTimeout = errors.New("app repl eval timeout")
 
 func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, cfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, cmd debugREPLAppCommand) error {
-	if admin == nil || interpreter == nil || c == nil {
+	if admin == nil || c == nil {
 		return ErrForbidden
+	}
+	if interpreter == nil {
+		_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", errors.New("app console unavailable"))
+		return nil
 	}
 	switch strings.ToLower(strings.TrimSpace(cmd.Type)) {
 	case debugREPLAppCommandEval:
@@ -259,13 +272,21 @@ var services = repl.Services
 	return i, nil
 }
 
+func debugREPLAppFallbackInterpreter(cfg DebugREPLConfig) (*interp.Interpreter, error) {
+	i := interp.New(interp.Options{})
+	if err := i.Use(debugREPLAppSymbolTable(cfg)); err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
 func debugREPLAppHelperSymbols(admin *Admin, adminCtx AdminContext) interp.Exports {
 	ctx := adminCtx.Context
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	return interp.Exports{
-		"repl": map[string]reflect.Value{
+		"repl/repl": map[string]reflect.Value{
 			"Adm":      reflect.ValueOf(admin),
 			"Cfg":      reflect.ValueOf(admin.config),
 			"Ctx":      reflect.ValueOf(ctx),
