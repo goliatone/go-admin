@@ -17,23 +17,23 @@ type UIViewContextBuilder func(ctx router.ViewContext, active string, c router.C
 type UIRouteOption func(*uiRouteOptions)
 
 type uiRouteOptions struct {
-	basePath             string
-	dashboardPath        string
-	notificationsPath    string
-	activityPath         string
-	dashboardTemplate    string
+	basePath              string
+	dashboardPath         string
+	notificationsPath     string
+	activityPath          string
+	dashboardTemplate     string
 	notificationsTemplate string
-	activityTemplate     string
-	dashboardTitle       string
-	notificationsTitle   string
-	activityTitle        string
-	dashboardActive      string
-	notificationsActive  string
-	activityActive       string
-	registerDashboard    bool
+	activityTemplate      string
+	dashboardTitle        string
+	notificationsTitle    string
+	activityTitle         string
+	dashboardActive       string
+	notificationsActive   string
+	activityActive        string
+	registerDashboard     bool
 	registerNotifications bool
-	registerActivity     bool
-	viewContext          UIViewContextBuilder
+	registerActivity      bool
+	viewContext           UIViewContextBuilder
 }
 
 // WithUIBasePath overrides the base path used to build default routes.
