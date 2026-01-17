@@ -79,12 +79,19 @@ export function filterObjectBySearch(
   }
 
   // Detect search mode
-  if (isJsonPathExpression(search)) {
-    return filterByJsonPath(data, search);
+  const isJPath = isJsonPathExpression(search);
+  console.log('[jsonpath-search] search:', search, 'isJsonPath:', isJPath);
+
+  if (isJPath) {
+    const result = filterByJsonPath(data, search);
+    console.log('[jsonpath-search] JSONPath result:', result);
+    return result;
   }
 
   // Simple key matching (original behavior)
-  return filterByKeyMatch(data, search);
+  const result = filterByKeyMatch(data, search);
+  console.log('[jsonpath-search] key match result:', result);
+  return result;
 }
 
 /**
