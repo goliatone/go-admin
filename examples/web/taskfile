@@ -52,12 +52,14 @@ function dev:serve {
     fi
 
     export ENV=development;
-    export ADMIN_ASSETS_DEBUG=1;
-    export NAV_DEBUG=false;
-    export ADMIN_DEBUG=true;
     export RESET_NAV_MENU=true;
     export USE_PERSISTENT_CMS=true;
+    export NAV_DEBUG=false;
+    export ADMIN_DEBUG=true;
+    export ADMIN_ASSETS_DEBUG=1;
     export ADMIN_DEBUG_REPL=true;
+    export ADMIN_DEBUG_LAYOUT=admin;
+    export ADMIN_DEBUG_REPL_READONLY=false;
     export ADMIN_ASSETS_DIR="${root_dir}/pkg/client/assets"
 
     go run .
