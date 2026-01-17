@@ -14,6 +14,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	userstypes "github.com/goliatone/go-users/pkg/types"
+	"github.com/google/uuid"
 )
 
 // SetupAuth wires go-auth middleware and authorizer with the admin orchestrator.
@@ -35,7 +36,7 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 	auther := auth.NewAuthenticator(provider, cfg)
 	auther.WithResourceRoleProvider(provider).
 		WithClaimsDecorator(auth.ClaimsDecoratorFunc(func(ctx context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
-			return applySessionClaimsMetadata(ctx, identity, claims, options)
+			return applySessionClaimsMetadata(ctx, identity, claims, options, deps.RoleRegistry)
 		}))
 	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
 	if err != nil {
@@ -120,6 +121,9 @@ func (p *demoIdentityProvider) FindResourceRoles(ctx context.Context, identity a
 	roles["admin.media"] = string(resource)
 	roles["admin.profile"] = string(auth.RoleOwner)
 	roles["admin.preferences"] = string(auth.RoleOwner)
+	if global == auth.RoleOwner || global == auth.RoleAdmin {
+		roles["admin.debug"] = string(resource)
+	}
 
 	return roles, nil
 }
@@ -337,7 +341,7 @@ func logDemoTokens(ctx context.Context, auther *auth.Auther, provider *demoIdent
 	}
 }
 
-func applySessionClaimsMetadata(_ context.Context, identity auth.Identity, claims *auth.JWTClaims, defaults authOptions) error {
+func applySessionClaimsMetadata(ctx context.Context, identity auth.Identity, claims *auth.JWTClaims, defaults authOptions, registry userstypes.RoleRegistry) error {
 	if identity == nil || claims == nil {
 		return nil
 	}
@@ -383,8 +387,79 @@ func applySessionClaimsMetadata(_ context.Context, identity auth.Identity, claim
 			claims.Metadata["scopes"] = scopes
 		}
 	}
+	if registry != nil {
+		perms, err := resolveRolePermissions(ctx, registry, identity)
+		if err != nil {
+			log.Printf("DEBUG: applySessionClaimsMetadata - permissions lookup failed: %v", err)
+		} else if len(perms) > 0 {
+			claims.Metadata["permissions"] = perms
+		}
+	}
 
 	return nil
+}
+
+func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistry, identity auth.Identity) ([]string, error) {
+	if registry == nil || identity == nil {
+		return nil, nil
+	}
+	userID := strings.TrimSpace(identity.ID())
+	if userID == "" {
+		return nil, nil
+	}
+	uid, err := uuid.Parse(userID)
+	if err != nil || uid == uuid.Nil {
+		return nil, nil
+	}
+	actor := userstypes.ActorRef{ID: uid, Type: "user"}
+	assignments, err := registry.ListAssignments(ctx, userstypes.RoleAssignmentFilter{
+		Actor:  actor,
+		Scope:  userstypes.ScopeFilter{},
+		UserID: uid,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(assignments) == 0 {
+		return nil, nil
+	}
+	roleIDs := make([]uuid.UUID, 0, len(assignments))
+	for _, assignment := range assignments {
+		if assignment.RoleID == uuid.Nil {
+			continue
+		}
+		roleIDs = append(roleIDs, assignment.RoleID)
+	}
+	if len(roleIDs) == 0 {
+		return nil, nil
+	}
+	roles, err := registry.ListRoles(ctx, userstypes.RoleFilter{
+		Actor:         actor,
+		Scope:         userstypes.ScopeFilter{},
+		RoleIDs:       roleIDs,
+		IncludeSystem: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	out := []string{}
+	for _, role := range roles.Roles {
+		for _, perm := range role.Permissions {
+			perm = strings.TrimSpace(perm)
+			if perm == "" {
+				continue
+			}
+			key := strings.ToLower(perm)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			out = append(out, perm)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func statusFromIdentity(identity auth.Identity) auth.UserStatus {
