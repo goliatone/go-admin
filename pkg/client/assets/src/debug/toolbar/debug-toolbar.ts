@@ -5,7 +5,7 @@
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from '../debug-stream.js';
 import { DebugReplPanel, type DebugReplCommand } from '../repl/repl-panel.js';
 import { toolbarStyles } from './toolbar-styles.js';
-import { renderPanel, getCounts, type DebugSnapshot } from './panel-renderers.js';
+import { renderPanel, getCounts, type DebugSnapshot, type PanelOptions } from './panel-renderers.js';
 
 // Panel configuration
 const defaultPanels = ['requests', 'sql', 'logs', 'routes', 'config'];
@@ -105,6 +105,11 @@ export class DebugToolbar extends HTMLElement {
   private isResizing = false;
   private resizeStartY = 0;
   private resizeStartHeight = 0;
+  // Sort order state per panel (true = newest first, which is default)
+  private panelSortOrder: Map<string, boolean> = new Map([
+    ['requests', true],
+    ['sql', true],
+  ]);
 
   private static readonly MIN_HEIGHT = 150;
   private static readonly MAX_HEIGHT_RATIO = 0.8;
@@ -187,6 +192,18 @@ export class DebugToolbar extends HTMLElement {
           this.customHeight = height;
         }
       }
+      // Load sort order preferences
+      const storedSortOrder = localStorage.getItem('debug-toolbar-sort-order');
+      if (storedSortOrder) {
+        try {
+          const parsed = JSON.parse(storedSortOrder) as Record<string, boolean>;
+          Object.entries(parsed).forEach(([panel, newestFirst]) => {
+            this.panelSortOrder.set(panel, newestFirst);
+          });
+        } catch {
+          // Ignore parse errors
+        }
+      }
     } catch {
       // Ignore localStorage errors
     }
@@ -198,6 +215,12 @@ export class DebugToolbar extends HTMLElement {
       if (this.customHeight !== null) {
         localStorage.setItem('debug-toolbar-height', String(this.customHeight));
       }
+      // Save sort order preferences
+      const sortOrderObj: Record<string, boolean> = {};
+      this.panelSortOrder.forEach((value, key) => {
+        sortOrderObj[key] = value;
+      });
+      localStorage.setItem('debug-toolbar-sort-order', JSON.stringify(sortOrderObj));
     } catch {
       // Ignore localStorage errors
     }
@@ -440,7 +463,7 @@ export class DebugToolbar extends HTMLElement {
           </div>
           <div class="toolbar-content">
             <div class="panel-container" id="panel-content">
-              ${renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs)}
+              ${renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
             </div>
           </div>
         ` : ''}
@@ -484,9 +507,10 @@ export class DebugToolbar extends HTMLElement {
         if (replPanelIDs.has(this.activePanel)) {
           this.renderReplPanel(container, this.activePanel);
         } else {
-          container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs);
+          container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions());
           this.attachExpandableRowListeners();
           this.attachCopyListeners();
+          this.attachSortToggleListeners();
         }
       }
       // Update tab counts
@@ -569,6 +593,13 @@ export class DebugToolbar extends HTMLElement {
       default:
         return 0;
     }
+  }
+
+  private getPanelOptions(): PanelOptions {
+    return {
+      slowThresholdMs: this.slowThresholdMs,
+      newestFirst: this.panelSortOrder.get(this.activePanel) ?? true,
+    };
   }
 
   private attachEventListeners(): void {

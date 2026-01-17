@@ -143,17 +143,39 @@ const getLevelClass = (level: string | undefined): string => {
   return 'info';
 };
 
+// Panel options for configurable rendering
+export type PanelOptions = {
+  slowThresholdMs?: number;
+  newestFirst?: boolean;
+};
+
+// Render sort toggle for panels that support it
+function renderSortToggle(panelId: string, newestFirst: boolean): string {
+  return `
+    <div class="panel-controls">
+      <label class="sort-toggle">
+        <input type="checkbox" data-sort-toggle="${panelId}" ${newestFirst ? 'checked' : ''}>
+        <span>Newest first</span>
+      </label>
+    </div>
+  `;
+}
+
 // Panel render functions
 export function renderPanel(
   panel: string,
   snapshot: DebugSnapshot,
-  slowThresholdMs = 50
+  slowThresholdMs = 50,
+  options?: PanelOptions
 ): string {
+  const newestFirst = options?.newestFirst ?? true;
+  const threshold = options?.slowThresholdMs ?? slowThresholdMs;
+
   switch (panel) {
     case 'requests':
-      return renderRequests(snapshot.requests || []);
+      return renderRequests(snapshot.requests || [], newestFirst);
     case 'sql':
-      return renderSQL(snapshot.sql || [], slowThresholdMs);
+      return renderSQL(snapshot.sql || [], threshold, newestFirst);
     case 'logs':
       return renderLogs(snapshot.logs || []);
     case 'config':
@@ -171,14 +193,17 @@ export function renderPanel(
   }
 }
 
-function renderRequests(requests: RequestEntry[]): string {
+function renderRequests(requests: RequestEntry[], newestFirst: boolean): string {
   if (!requests.length) {
-    return '<div class="empty-state">No requests captured</div>';
+    return renderSortToggle('requests', newestFirst) + '<div class="empty-state">No requests captured</div>';
   }
 
-  const rows = requests
-    .slice(-50)
-    .reverse()
+  let items = requests.slice(-50);
+  if (newestFirst) {
+    items = items.reverse();
+  }
+
+  const rows = items
     .map((req) => {
       const methodClass = (req.method || 'get').toLowerCase();
       const statusClass = getStatusClass(req.status);
@@ -196,6 +221,7 @@ function renderRequests(requests: RequestEntry[]): string {
     .join('');
 
   return `
+    ${renderSortToggle('requests', newestFirst)}
     <table>
       <thead>
         <tr>
@@ -211,14 +237,17 @@ function renderRequests(requests: RequestEntry[]): string {
   `;
 }
 
-function renderSQL(queries: SQLEntry[], slowThresholdMs: number): string {
+function renderSQL(queries: SQLEntry[], slowThresholdMs: number, newestFirst: boolean): string {
   if (!queries.length) {
-    return '<div class="empty-state">No SQL queries captured</div>';
+    return renderSortToggle('sql', newestFirst) + '<div class="empty-state">No SQL queries captured</div>';
   }
 
-  const rows = queries
-    .slice(-50)
-    .reverse()
+  let items = queries.slice(-50);
+  if (newestFirst) {
+    items = items.reverse();
+  }
+
+  const rows = items
     .map((q, index) => {
       const duration = formatDuration(q.duration, slowThresholdMs);
       const rowClasses = ['expandable-row'];
@@ -256,6 +285,7 @@ function renderSQL(queries: SQLEntry[], slowThresholdMs: number): string {
     .join('');
 
   return `
+    ${renderSortToggle('sql', newestFirst)}
     <table>
       <thead>
         <tr>
