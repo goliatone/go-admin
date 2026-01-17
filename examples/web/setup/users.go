@@ -146,6 +146,7 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 	}
 	usersRepo := deps.RepoManager.Users()
 	now := time.Now().UTC()
+	seededUsers := map[string]*auth.User{}
 	seeds := []struct {
 		Username  string
 		Email     string
@@ -153,6 +154,7 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 		Status    auth.UserStatus
 		LastLogin time.Time
 	}{
+		{"superadmin", "superadmin@example.com", auth.RoleOwner, auth.UserStatusActive, now.Add(-1 * time.Hour)},
 		{"admin", "admin@example.com", auth.RoleAdmin, auth.UserStatusActive, now.Add(-2 * time.Hour)},
 		{"jane.smith", "jane@example.com", auth.RoleMember, auth.UserStatusActive, now.Add(-5 * time.Hour)},
 		{"john.doe", "john@example.com", auth.RoleMember, auth.UserStatusActive, now.Add(-24 * time.Hour)},
@@ -187,6 +189,10 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 			_, _ = usersRepo.Update(ctx, user)
 		}
 
+		if user != nil {
+			seededUsers[seed.Username] = user
+		}
+
 		if deps.ProfileRepo != nil {
 			if err := seedUserProfile(ctx, deps.ProfileRepo, user); err != nil {
 				return err
@@ -198,6 +204,9 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 		if err := seedUserPreferences(ctx, preferenceRepo, deps.RepoManager.Users()); err != nil {
 			return err
 		}
+	}
+	if err := seedDebugRoles(ctx, deps.RoleRegistry, seededUsers); err != nil {
+		return err
 	}
 	return nil
 }
@@ -337,6 +346,140 @@ func seedUserPreferences(ctx context.Context, repo *preferences.Repository, user
 		})
 	}
 	return nil
+}
+
+func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[string]*auth.User) error {
+	if registry == nil {
+		return nil
+	}
+	roleSeeds := []struct {
+		Key         string
+		Name        string
+		Permissions []string
+	}{
+		{
+			Key:         "superadmin",
+			Name:        "Super Admin",
+			Permissions: []string{"admin.debug.repl", "admin.debug.repl.exec"},
+		},
+		{
+			Key:         "admin",
+			Name:        "Admin",
+			Permissions: []string{"admin.debug.repl"},
+		},
+	}
+	roles := map[string]*types.RoleDefinition{}
+	for _, seed := range roleSeeds {
+		role, err := ensureSeedRole(ctx, registry, seed.Key, seed.Name, seed.Permissions)
+		if err != nil {
+			return err
+		}
+		if role != nil {
+			roles[seed.Key] = role
+		}
+	}
+
+	assignments := map[string]string{
+		"superadmin": "superadmin",
+		"admin":      "admin",
+	}
+	for username, roleKey := range assignments {
+		user := users[username]
+		if user == nil || user.ID == uuid.Nil {
+			continue
+		}
+		role := roles[roleKey]
+		if role == nil || role.ID == uuid.Nil {
+			continue
+		}
+		if err := registry.AssignRole(ctx, user.ID, role.ID, role.Scope, user.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureSeedRole(ctx context.Context, registry types.RoleRegistry, key, name string, permissions []string) (*types.RoleDefinition, error) {
+	key = strings.TrimSpace(key)
+	if key == "" || registry == nil {
+		return nil, nil
+	}
+	page, err := registry.ListRoles(ctx, types.RoleFilter{
+		RoleKey:       key,
+		IncludeSystem: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(page.Roles) == 0 {
+		return registry.CreateRole(ctx, types.RoleMutation{
+			Name:        name,
+			RoleKey:     key,
+			Permissions: cloneRolePermissions(permissions),
+			Scope:       types.ScopeFilter{},
+		})
+	}
+
+	role := page.Roles[0]
+	merged, changed := mergeRolePermissions(role.Permissions, permissions)
+	if changed || (strings.TrimSpace(name) != "" && strings.TrimSpace(name) != strings.TrimSpace(role.Name)) {
+		updated, err := registry.UpdateRole(ctx, role.ID, types.RoleMutation{
+			Name:        name,
+			RoleKey:     key,
+			Permissions: merged,
+			Scope:       role.Scope,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return updated, nil
+	}
+	return &role, nil
+}
+
+func mergeRolePermissions(existing, required []string) ([]string, bool) {
+	out := append([]string(nil), existing...)
+	seen := map[string]bool{}
+	for _, perm := range existing {
+		perm = strings.TrimSpace(perm)
+		if perm == "" {
+			continue
+		}
+		seen[strings.ToLower(perm)] = true
+	}
+	changed := false
+	for _, perm := range required {
+		perm = strings.TrimSpace(perm)
+		if perm == "" {
+			continue
+		}
+		key := strings.ToLower(perm)
+		if seen[key] {
+			continue
+		}
+		out = append(out, perm)
+		seen[key] = true
+		changed = true
+	}
+	return out, changed
+}
+
+func cloneRolePermissions(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func setDefaultPassword(ctx context.Context, repo types.AuthRepository, id uuid.UUID, username string) error {

@@ -110,7 +110,7 @@ func main() {
 				cfg.Debug.LayoutMode = admin.DebugLayoutStandalone
 			}
 		}
-		cfg.Debug.ViewContextBuilder = func(adm *admin.Admin, cfg admin.DebugConfig, c router.Context, view router.ViewContext) router.ViewContext {
+		cfg.Debug.ViewContextBuilder = func(adm *admin.Admin, _ admin.DebugConfig, c router.Context, view router.ViewContext) router.ViewContext {
 			return helpers.WithNav(view, adm, cfg, "debug", c.Context())
 		}
 	}
