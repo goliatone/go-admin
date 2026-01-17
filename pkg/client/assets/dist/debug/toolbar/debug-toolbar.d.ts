@@ -16,6 +16,7 @@ export declare class DebugToolbar extends HTMLElement {
     private isResizing;
     private resizeStartY;
     private resizeStartHeight;
+    private panelSortOrder;
     private static readonly MIN_HEIGHT;
     private static readonly MAX_HEIGHT_RATIO;
     private static readonly DEFAULT_HEIGHT;
@@ -53,6 +54,7 @@ export declare class DebugToolbar extends HTMLElement {
     private updateSummary;
     private updateConnectionStatus;
     private getPanelCount;
+    private getPanelOptions;
     private attachEventListeners;
     private renderReplPanel;
     private attachResizeListeners;
@@ -60,5 +62,6 @@ export declare class DebugToolbar extends HTMLElement {
     private handleResize;
     private attachExpandableRowListeners;
     private attachCopyListeners;
+    private attachSortToggleListeners;
 }
 //# sourceMappingURL=debug-toolbar.d.ts.map

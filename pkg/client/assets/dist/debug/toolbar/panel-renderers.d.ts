@@ -55,7 +55,11 @@ export type DebugSnapshot = {
     custom?: CustomSnapshot;
     repl_commands?: unknown;
 };
-export declare function renderPanel(panel: string, snapshot: DebugSnapshot, slowThresholdMs?: number): string;
+export type PanelOptions = {
+    slowThresholdMs?: number;
+    newestFirst?: boolean;
+};
+export declare function renderPanel(panel: string, snapshot: DebugSnapshot, slowThresholdMs?: number, options?: PanelOptions): string;
 export declare function getCounts(snapshot: DebugSnapshot): {
     requests: number;
     sql: number;
