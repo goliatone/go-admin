@@ -705,6 +705,64 @@ export const toolbarStyles = `
     border: none !important;
   }
 
+  /* Panel controls (sort toggle) */
+  .panel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 8px 0 4px 0;
+    border-bottom: 1px solid var(--toolbar-border);
+    margin-bottom: 4px;
+  }
+
+  .sort-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--toolbar-text-muted);
+    user-select: none;
+    transition: color 0.15s ease;
+  }
+
+  .sort-toggle:hover {
+    color: var(--toolbar-text);
+  }
+
+  .sort-toggle input[type="checkbox"] {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--toolbar-border);
+    border-radius: 3px;
+    background: var(--toolbar-bg-secondary);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s ease;
+  }
+
+  .sort-toggle input[type="checkbox"]:hover {
+    border-color: var(--toolbar-accent);
+  }
+
+  .sort-toggle input[type="checkbox"]:checked {
+    background: var(--toolbar-accent);
+    border-color: var(--toolbar-accent);
+  }
+
+  .sort-toggle input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--toolbar-bg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
   /* Responsive */
   @media (max-width: 768px) {
     :host {
