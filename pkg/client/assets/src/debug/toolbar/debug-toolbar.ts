@@ -615,9 +615,10 @@ export class DebugToolbar extends HTMLElement {
           // Render panel content
           const container = this.shadow.getElementById('panel-content');
           if (container) {
-            container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs);
+            container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions());
             this.attachExpandableRowListeners();
             this.attachCopyListeners();
+            this.attachSortToggleListeners();
           }
         }
       });
@@ -626,6 +627,7 @@ export class DebugToolbar extends HTMLElement {
     // Attach expandable row listeners for initial render
     this.attachExpandableRowListeners();
     this.attachCopyListeners();
+    this.attachSortToggleListeners();
 
     // Action buttons
     this.shadow.querySelectorAll('[data-action]').forEach((btn) => {
@@ -799,6 +801,20 @@ export class DebugToolbar extends HTMLElement {
         } catch {
           // Fallback or silent fail
         }
+      });
+    });
+  }
+
+  private attachSortToggleListeners(): void {
+    this.shadow.querySelectorAll<HTMLInputElement>('[data-sort-toggle]').forEach((checkbox) => {
+      checkbox.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        const panelId = target.dataset.sortToggle;
+        if (!panelId) return;
+
+        this.panelSortOrder.set(panelId, target.checked);
+        this.saveState();
+        this.updateContent();
       });
     });
   }
