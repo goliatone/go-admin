@@ -1,6 +1,7 @@
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from './debug-stream.js';
 import { DebugReplPanel, type DebugReplCommand } from './repl/repl-panel.js';
 import { highlightSQL, highlightJSON } from './syntax-highlight.js';
+import { filterObjectBySearch, isJsonPathExpression } from './shared/jsonpath-search.js';
 
 type RequestEntry = {
   id?: string;
@@ -314,17 +315,7 @@ const panelLabel = (panelId: string): string => {
 };
 
 const filterObjectByKey = (data: Record<string, any>, search: string): Record<string, any> => {
-  if (!search) {
-    return data;
-  }
-  const needle = search.toLowerCase();
-  const out: Record<string, any> = {};
-  for (const [key, value] of Object.entries(data || {})) {
-    if (key.toLowerCase().includes(needle)) {
-      out[key] = value;
-    }
-  }
-  return out;
+  return filterObjectBySearch(data, search) as Record<string, any>;
 };
 
 const setNestedValue = (dest: Record<string, any>, key: string, value: any): void => {
@@ -611,8 +602,8 @@ export class DebugPanel {
       const values = this.filters.objects;
       content = `
         <div class="debug-filter debug-filter--grow">
-          <label>Search keys</label>
-          <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="token" />
+          <label>Search (JSONPath supported)</label>
+          <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="user.roles[0].name" />
         </div>
       `;
     }

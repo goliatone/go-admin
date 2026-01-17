@@ -32,6 +32,7 @@
     "vite": "^5.4.11"
   },
   "dependencies": {
+    "jsonpath-plus": "^10.3.0",
     "prismjs": "^1.30.0",
     "sortablejs": "^1.15.6",
     "sql-formatter": "^15.4.10",
