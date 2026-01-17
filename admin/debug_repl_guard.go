@@ -2,10 +2,12 @@ package admin
 
 import (
 	"context"
+	"log"
 	"strings"
 	"time"
 
 	auth "github.com/goliatone/go-auth"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
@@ -20,6 +22,19 @@ const (
 	debugReplOverrideTokenHeader = "X-Admin-REPL-Token"
 	debugReplOverrideKeyQuery    = "repl_key"
 	debugReplOverrideTokenQuery  = "repl_token"
+)
+
+const (
+	debugReplTextCodeDebugDisabled  = "REPL_DEBUG_DISABLED"
+	debugReplTextCodeShellDisabled  = "REPL_SHELL_DISABLED"
+	debugReplTextCodeAppDisabled    = "REPL_APP_DISABLED"
+	debugReplTextCodeDisabled       = "REPL_DISABLED"
+	debugReplTextCodeOverrideDenied = "REPL_OVERRIDE_DENIED"
+	debugReplTextCodeRoleDenied     = "REPL_ROLE_DENIED"
+	debugReplTextCodePermission     = "REPL_PERMISSION_DENIED"
+	debugReplTextCodeExecPermission = "REPL_EXEC_PERMISSION_DENIED"
+	debugReplTextCodeReadOnly       = "REPL_READ_ONLY"
+	debugReplTextCodeIPDenied       = "REPL_IP_DENIED"
 )
 
 func debugREPLAccessMiddleware(admin *Admin, cfg DebugConfig, kind string, requireExec bool) router.MiddlewareFunc {
@@ -53,17 +68,19 @@ func debugREPLAuthorizeRequest(admin *Admin, cfg DebugConfig, kind string, requi
 		return AdminContext{}, ErrForbidden
 	}
 	if !debugConfigEnabled(cfg) {
-		return AdminContext{}, ErrForbidden
+		return AdminContext{}, debugREPLDeny(c.Context(), c, kind, requireExec, "debug module disabled", debugReplTextCodeDebugDisabled, nil)
 	}
 	replCfg := normalizeDebugREPLConfig(cfg.Repl)
 	if err := debugCheckIP(debugREPLAllowedIPs(cfg.AllowedIPs, replCfg.AllowedIPs), c.IP()); err != nil {
-		return AdminContext{}, err
+		return AdminContext{}, debugREPLDeny(c.Context(), c, kind, requireExec, "repl access denied by ip policy", debugReplTextCodeIPDenied, map[string]any{
+			"ip": strings.TrimSpace(c.IP()),
+		})
 	}
 	if kind == DebugREPLKindShell && !replCfg.ShellEnabled {
-		return AdminContext{}, ErrForbidden
+		return AdminContext{}, debugREPLDeny(c.Context(), c, kind, requireExec, "shell repl disabled", debugReplTextCodeShellDisabled, nil)
 	}
 	if kind == DebugREPLKindApp && !replCfg.AppEnabled {
-		return AdminContext{}, ErrForbidden
+		return AdminContext{}, debugREPLDeny(c.Context(), c, kind, requireExec, "app repl disabled", debugReplTextCodeAppDisabled, nil)
 	}
 	locale := strings.TrimSpace(c.Query("locale"))
 	if locale == "" {
@@ -75,21 +92,33 @@ func debugREPLAuthorizeRequest(admin *Admin, cfg DebugConfig, kind string, requi
 	if !replCfg.Enabled {
 		allowed, err := debugREPLOverrideAllowed(adminCtx.Context, replCfg, kind, c)
 		if err != nil || !allowed {
-			return adminCtx, ErrForbidden
+			meta := map[string]any{
+				"override_allowed": allowed,
+			}
+			if err != nil {
+				meta["override_error"] = err.Error()
+			}
+			textCode := debugReplTextCodeDisabled
+			if err != nil {
+				textCode = debugReplTextCodeOverrideDenied
+			}
+			return adminCtx, debugREPLDeny(adminCtx.Context, c, kind, requireExec, "repl disabled", textCode, meta)
 		}
 	}
 	if !debugREPLRoleAllowed(adminCtx.Context, replCfg.AllowedRoles) {
-		return adminCtx, ErrForbidden
+		return adminCtx, debugREPLDeny(adminCtx.Context, c, kind, requireExec, "repl role not allowed", debugReplTextCodeRoleDenied, map[string]any{
+			"allowed_roles": replCfg.AllowedRoles,
+		})
 	}
 	if err := admin.requirePermission(adminCtx, replCfg.Permission, debugReplResource); err != nil {
-		return adminCtx, err
+		return adminCtx, debugREPLPermissionDenied(adminCtx.Context, c, kind, requireExec, replCfg.Permission, debugReplResource, debugReplTextCodePermission, err)
 	}
 	if requireExec {
 		if replCfg.ReadOnlyEnabled() {
-			return adminCtx, ErrForbidden
+			return adminCtx, debugREPLDeny(adminCtx.Context, c, kind, requireExec, "repl exec disabled while read-only", debugReplTextCodeReadOnly, nil)
 		}
 		if err := admin.requirePermission(adminCtx, replCfg.ExecPermission, debugReplResource); err != nil {
-			return adminCtx, err
+			return adminCtx, debugREPLPermissionDenied(adminCtx.Context, c, kind, requireExec, replCfg.ExecPermission, debugReplResource, debugReplTextCodeExecPermission, err)
 		}
 	}
 	return adminCtx, nil
@@ -188,4 +217,71 @@ func debugREPLRoleMatch(role string, allowed []string) bool {
 		}
 	}
 	return false
+}
+
+func debugREPLPermissionDenied(ctx context.Context, c router.Context, kind string, requireExec bool, permission, resource, textCode string, err error) error {
+	message := "repl permission denied"
+	if err != nil {
+		message = err.Error()
+	}
+	meta := map[string]any{}
+	if strings.TrimSpace(permission) != "" {
+		meta["permission"] = permission
+	}
+	if strings.TrimSpace(resource) != "" {
+		meta["resource"] = resource
+	}
+	return debugREPLDeny(ctx, c, kind, requireExec, message, textCode, meta)
+}
+
+func debugREPLDeny(ctx context.Context, c router.Context, kind string, requireExec bool, message, textCode string, meta map[string]any) error {
+	if ctx == nil && c != nil {
+		ctx = c.Context()
+	}
+	debugREPLLogDenied(ctx, c, kind, requireExec, textCode, meta)
+	err := goerrors.Wrap(ErrForbidden, goerrors.CategoryAuthz, message).
+		WithCode(goerrors.CodeForbidden).
+		WithTextCode(textCode)
+	if len(meta) > 0 {
+		err.WithMetadata(meta)
+	}
+	return err
+}
+
+func debugREPLLogDenied(ctx context.Context, c router.Context, kind string, requireExec bool, textCode string, meta map[string]any) {
+	if ctx == nil && c != nil {
+		ctx = c.Context()
+	}
+	ip := ""
+	path := ""
+	if c != nil {
+		ip = strings.TrimSpace(c.IP())
+		path = strings.TrimSpace(c.Path())
+	}
+	userID := strings.TrimSpace(userIDFromContext(ctx))
+	role := ""
+	resourceRoles := []string{}
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		role = strings.TrimSpace(actor.Role)
+		if len(actor.ResourceRoles) > 0 {
+			for resource, role := range actor.ResourceRoles {
+				resource = strings.TrimSpace(resource)
+				role = strings.TrimSpace(role)
+				if resource == "" && role == "" {
+					continue
+				}
+				if resource == "" {
+					resourceRoles = append(resourceRoles, role)
+					continue
+				}
+				if role == "" {
+					resourceRoles = append(resourceRoles, resource)
+					continue
+				}
+				resourceRoles = append(resourceRoles, resource+":"+role)
+			}
+		}
+	}
+	log.Printf("[debug.repl] denied text_code=%s kind=%s exec=%t user_id=%s role=%s ip=%s path=%s resource_roles=%v meta=%v",
+		textCode, kind, requireExec, userID, role, ip, path, resourceRoles, meta)
 }
