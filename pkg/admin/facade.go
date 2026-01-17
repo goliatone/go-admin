@@ -63,12 +63,14 @@ type (
 
 	DebugCollector                = core.DebugCollector
 	DebugConfig                   = core.DebugConfig
+	DebugLayoutMode               = core.DebugLayoutMode
 	DebugLogHandler               = core.DebugLogHandler
 	DebugModule                   = core.DebugModule
 	DebugQueryHook                = core.DebugQueryHook
 	DebugREPLConfig               = core.DebugREPLConfig
 	DebugREPLRequest              = core.DebugREPLRequest
 	DebugREPLOverrideStrategy     = core.DebugREPLOverrideStrategy
+	DebugViewContextBuilder       = core.DebugViewContextBuilder
 	DebugREPLSession              = core.DebugREPLSession
 	DebugREPLSessionManager       = core.DebugREPLSessionManager
 	DebugREPLSessionStore         = core.DebugREPLSessionStore
@@ -209,6 +211,9 @@ const (
 	SettingsScopeSystem = core.SettingsScopeSystem
 	SettingsScopeSite   = core.SettingsScopeSite
 
+	DebugLayoutStandalone = core.DebugLayoutStandalone
+	DebugLayoutAdmin      = core.DebugLayoutAdmin
+
 	DebugPanelTemplate = core.DebugPanelTemplate
 	DebugPanelSession  = core.DebugPanelSession
 	DebugPanelRequests = core.DebugPanelRequests
@@ -231,6 +236,10 @@ func RegisterCommand[T any](bus *CommandBus, cmd command.Commander[T], runnerOpt
 
 func CaptureViewContext(collector *DebugCollector, viewCtx router.ViewContext) router.ViewContext {
 	return core.CaptureViewContext(collector, viewCtx)
+}
+
+func CaptureViewContextForRequest(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) router.ViewContext {
+	return core.CaptureViewContextForRequest(collector, c, viewCtx)
 }
 
 func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
