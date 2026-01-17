@@ -125,19 +125,6 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 		return err
 	}
 
-	if options.seed && options.seedOpts.MenuSvc != nil {
-		items := buildSeedMenuItems(menuCode, locale, ordered, options.menuItems)
-		options.seedOpts.Items = items
-		if err := SeedNavigation(options.ctx, options.seedOpts); err != nil {
-			if !errors.Is(err, ErrSeedNavigationRequiresGoCMS) {
-				return err
-			}
-			if seedErr := EnsureDefaultMenuParents(options.ctx, options.seedOpts.MenuSvc, menuCode, locale); seedErr != nil {
-				return seedErr
-			}
-		}
-	}
-
 	for _, mod := range ordered {
 		if mod == nil {
 			continue
@@ -148,6 +135,19 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 				return fmt.Errorf("register module %s: %w", manifest.ID, err)
 			}
 			return err
+		}
+	}
+
+	if options.seed && options.seedOpts.MenuSvc != nil {
+		items := buildSeedMenuItems(menuCode, locale, ordered, options.menuItems)
+		options.seedOpts.Items = items
+		if err := SeedNavigation(options.ctx, options.seedOpts); err != nil {
+			if !errors.Is(err, ErrSeedNavigationRequiresGoCMS) {
+				return err
+			}
+			if seedErr := EnsureDefaultMenuParents(options.ctx, options.seedOpts.MenuSvc, menuCode, locale); seedErr != nil {
+				return seedErr
+			}
 		}
 	}
 
