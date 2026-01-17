@@ -1,5 +1,77 @@
 # Changelog
 
+# [0.16.0](https://github.com/goliatone/go-admin/compare/v0.15.0...v0.16.0) - (2026-01-17)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Udpate session per user ([0c82864](https://github.com/goliatone/go-admin/commit/0c8286453e600f02f8a84e36d0416fe1c4f6ba65))  - (goliatone)
+- Connection and fallback for repl ([0582ae8](https://github.com/goliatone/go-admin/commit/0582ae807c3cac22ca44a64698306d13f930e33a))  - (goliatone)
+- Use admin base path in normalzie debug config ([0d182e6](https://github.com/goliatone/go-admin/commit/0d182e6e7d5feec936c4bc2cd3c10503ff1cba75))  - (goliatone)
+- Exclude floating debug button on debug page ([c8c77eb](https://github.com/goliatone/go-admin/commit/c8c77ebed73f1c0a75df436dc0adfde45a93c9a7))  - (goliatone)
+- Expose debug to facade ([63d2ce3](https://github.com/goliatone/go-admin/commit/63d2ce336afe104abb85b47d06ead434876f5c15))  - (goliatone)
+- Debug layout ([045f8d7](https://github.com/goliatone/go-admin/commit/045f8d7435d5f3ed79e400bd3c3e1456ed3ef8aa))  - (goliatone)
+- Debug console copy to clipboard buttons ([5358572](https://github.com/goliatone/go-admin/commit/5358572ac558480878956994c5ad04d52b287388))  - (goliatone)
+- Expose debug panels ([6927dda](https://github.com/goliatone/go-admin/commit/6927dda17c616602d41d68f3790a4436e57298e3))  - (goliatone)
+- Use actual go-command interface ([c135ff0](https://github.com/goliatone/go-admin/commit/c135ff0a71981303180b7279bec1252f52926800))  - (goliatone)
+- Typeo ([61d787d](https://github.com/goliatone/go-admin/commit/61d787d959d518dd1d05929ade5cf277d81a3d44))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.16.0 ([aabb177](https://github.com/goliatone/go-admin/commit/aabb17733b0e90d38be5882df3673ea45487d314))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Json path search for content ([322ea4f](https://github.com/goliatone/go-admin/commit/322ea4fdddc6656f1fc24655f6b3a647d53d361c))  - (goliatone)
+- Debug token filtering ([fee10e2](https://github.com/goliatone/go-admin/commit/fee10e2d91ea04432338d294e68b14d4ed333439))  - (goliatone)
+- Debug base path ([5b39520](https://github.com/goliatone/go-admin/commit/5b395204e6cf50ba4dc9443d6919d7c1fa90dd7a))  - (goliatone)
+- Updated placeholers ([6b831a4](https://github.com/goliatone/go-admin/commit/6b831a47be65bc333203cee8a814c9e188eb0d77))  - (goliatone)
+- Hide content header ([d0be014](https://github.com/goliatone/go-admin/commit/d0be014c6726015c3a8746e1ba1313d334183120))  - (goliatone)
+- Udpated debug panels ([d0e0600](https://github.com/goliatone/go-admin/commit/d0e0600f53d3c76a87d9956465b0fd820324907b))  - (goliatone)
+- Debug integrations ([962c91d](https://github.com/goliatone/go-admin/commit/962c91d47530152ef661d0b6e6ff0f014a51ac31))  - (goliatone)
+- Optional header rendering ([408dd89](https://github.com/goliatone/go-admin/commit/408dd89c4c422f47077b0ab4e1c99aaf015b55ae))  - (goliatone)
+- Update debug toolbar ([fb540b0](https://github.com/goliatone/go-admin/commit/fb540b07b83ebd0a36a04e6af415d4e69daf2812))  - (goliatone)
+- Update debug assets ([5afe449](https://github.com/goliatone/go-admin/commit/5afe449c2b8cf566447aaf143d4a3e8bfb232505))  - (goliatone)
+- Demo info ([77f5584](https://github.com/goliatone/go-admin/commit/77f5584f445ce8c7f6c118efc4a3c931992d2f13))  - (goliatone)
+- Debug view ([b270feb](https://github.com/goliatone/go-admin/commit/b270feba31140f556d2b406f440d75ff28695bfd))  - (goliatone)
+- Debug template to respect layout options ([f08b539](https://github.com/goliatone/go-admin/commit/f08b53954459b1fc59250a03efecbe6799f9af74))  - (goliatone)
+- Debug page should be optionally rendered in site ([08a0a14](https://github.com/goliatone/go-admin/commit/08a0a146f9f26a71061e71bf22fbece932251255))  - (goliatone)
+- Debug index admin template ([549a0d7](https://github.com/goliatone/go-admin/commit/549a0d752bb4c0ffb42e46f1a6efdd6eeeccb259))  - (goliatone)
+- Updated debug setup ([b7d3091](https://github.com/goliatone/go-admin/commit/b7d30913af926daf11b180288558ef8008d58c7d))  - (goliatone)
+- Examples shown ([d5f7ee5](https://github.com/goliatone/go-admin/commit/d5f7ee5f9ee1cf569345573047ec94d3b813bfe6))  - (goliatone)
+- Update toolbars and debugger ([bbe3668](https://github.com/goliatone/go-admin/commit/bbe3668394b5d1c1198f402eb11bcff480f2aaf3))  - (goliatone)
+- Debug panels to facade ([d5cdef8](https://github.com/goliatone/go-admin/commit/d5cdef8f85a13847e3944753de30e97673ecff85))  - (goliatone)
+- Repl update ([78d8e93](https://github.com/goliatone/go-admin/commit/78d8e9315bbbcbfacfb19feec33297dfe6e8bcb2))  - (goliatone)
+- Dist output ([ae1642b](https://github.com/goliatone/go-admin/commit/ae1642b7e6fac135e0ff9805f9d6af86d2d63c1e))  - (goliatone)
+- Styling ([0ef2b87](https://github.com/goliatone/go-admin/commit/0ef2b87eaa9166f7cb0cd6d571dfd79ee996f608))  - (goliatone)
+- Highlighting support ([117510a](https://github.com/goliatone/go-admin/commit/117510ab547fb5c6fc106b30d4c544ff61a99636))  - (goliatone)
+- RPLE catalog ([00d2db5](https://github.com/goliatone/go-admin/commit/00d2db5671b22444a7581079168d62bf9698ea46))  - (goliatone)
+- Repl debug commands ([3f0527a](https://github.com/goliatone/go-admin/commit/3f0527a48312e17026f90538256af54929ce742f))  - (goliatone)
+- Repl panels to debug ([9491729](https://github.com/goliatone/go-admin/commit/9491729f8551865fffc8e3124348b37d2d96794e))  - (goliatone)
+- Debug repl implementation ([c61b33f](https://github.com/goliatone/go-admin/commit/c61b33fb5a332901a0e3f7a5619513cd498d998b))  - (goliatone)
+- Register REPL ws routes ([e0c7992](https://github.com/goliatone/go-admin/commit/e0c7992b07e2ca831bddc28bce39920420b60f7a))  - (goliatone)
+- Repl debug app ([fd6160e](https://github.com/goliatone/go-admin/commit/fd6160e3626b8c6e8f0bf86d5ee6d46493a24ad3))  - (goliatone)
+- Debug REPL setup ([c27fc84](https://github.com/goliatone/go-admin/commit/c27fc84ab1d635314dcb136fb3813a0dd667039e))  - (goliatone)
+- REPL module registration ([2051bc2](https://github.com/goliatone/go-admin/commit/2051bc2611f9950ee22331f6d1e49f4dd82a140c))  - (goliatone)
+- Dynamic registration of debug panels ([f1a3991](https://github.com/goliatone/go-admin/commit/f1a399108a99fb0bb7fe5e2ee091f9fdb6a280d8))  - (goliatone)
+- Debug page UI ([cc277dc](https://github.com/goliatone/go-admin/commit/cc277dc355d47788697707f3b18a376c220917ae))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Expose const for types ([043bb53](https://github.com/goliatone/go-admin/commit/043bb5334decdc3192a2a5023252112ca4c9bb8b))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.15.0 ([832ffc9](https://github.com/goliatone/go-admin/commit/832ffc977cd354531af710af638d8f427e23ce94))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([cd987cf](https://github.com/goliatone/go-admin/commit/cd987cf8277407b5b18db6845a22567c1e3da867))  - (goliatone)
+- Update format ([db74d71](https://github.com/goliatone/go-admin/commit/db74d715684fcf5a32bbc821ee5170e03909b7ed))  - (goliatone)
+- Clean up templates ([0d33a34](https://github.com/goliatone/go-admin/commit/0d33a342b8a9839b53b1aeae17a7f034ea28de89))  - (goliatone)
+- Update depsc ([c65235c](https://github.com/goliatone/go-admin/commit/c65235c77ed9beb49c84f6ae731b667d5ce57a5e))  - (goliatone)
+- Update deps ([e935dc5](https://github.com/goliatone/go-admin/commit/e935dc5a802cc20ada127a4c62e0b13b706d9db2))  - (goliatone)
+- Update tests ([f28dacd](https://github.com/goliatone/go-admin/commit/f28dacd22eb830c6e268407ffb9d628518fea525))  - (goliatone)
+
 # [0.15.0](https://github.com/goliatone/go-admin/compare/v0.14.0...v0.15.0) - (2026-01-16)
 
 ## <!-- 13 -->📦 Bumps
