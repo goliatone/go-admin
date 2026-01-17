@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"os"
+	"path"
 	"strconv"
 	"strings"
 
@@ -45,6 +46,10 @@ func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOp
 		if opt != nil {
 			opt(&cfg)
 		}
+	}
+
+	if strings.TrimSpace(cfg.Debug.BasePath) == "" {
+		cfg.Debug.BasePath = path.Join("/", cfg.BasePath, "debug")
 	}
 
 	return cfg
