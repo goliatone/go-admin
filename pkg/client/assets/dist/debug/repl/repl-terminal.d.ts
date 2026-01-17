@@ -4,6 +4,7 @@ type DebugReplTerminalOptions = {
     kind: DebugReplKind;
     debugPath: string;
     container: HTMLElement;
+    autoConnect?: boolean;
     onStatusChange?: (status: DebugReplStatus) => void;
 };
 export declare class DebugReplTerminal {

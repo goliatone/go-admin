@@ -445,6 +445,21 @@
       background: var(--debug-bg-secondary);
       overflow: hidden;
       padding: 8px;
+      position: relative;
+    }
+
+    .debug-repl__overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--debug-text-muted);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      background: rgba(24, 24, 37, 0.7);
+      pointer-events: none;
     }
 
     .debug-repl__terminal .xterm,

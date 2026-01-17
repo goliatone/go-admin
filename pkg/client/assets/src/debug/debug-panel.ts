@@ -1,59 +1,35 @@
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from './debug-stream.js';
 import { DebugReplPanel, type DebugReplCommand } from './repl/repl-panel.js';
-import { highlightSQL, highlightJSON } from './syntax-highlight.js';
 import { filterObjectBySearch } from './shared/jsonpath-search.js';
-
-type RequestEntry = {
-  id?: string;
-  timestamp?: string;
-  method?: string;
-  path?: string;
-  status?: number;
-  duration?: number;
-  headers?: Record<string, string>;
-  query?: Record<string, string>;
-  error?: string;
-};
-
-type SQLEntry = {
-  id?: string;
-  timestamp?: string;
-  query?: string;
-  args?: any[];
-  duration?: number;
-  row_count?: number;
-  error?: string;
-};
-
-type LogEntry = {
-  timestamp?: string;
-  level?: string;
-  message?: string;
-  fields?: Record<string, any>;
-  source?: string;
-};
-
-type CustomLogEntry = {
-  timestamp?: string;
-  category?: string;
-  message?: string;
-  fields?: Record<string, any>;
-};
-
-type RouteEntry = {
-  method?: string;
-  path?: string;
-  name?: string;
-  handler?: string;
-  middleware?: string[];
-  summary?: string;
-  tags?: string[];
-};
-
-type CustomSnapshot = {
-  data?: Record<string, any>;
-  logs?: CustomLogEntry[];
-};
+import type {
+  RequestEntry,
+  SQLEntry,
+  LogEntry,
+  RouteEntry,
+  CustomLogEntry,
+  DebugSnapshot,
+} from './shared/types.js';
+import {
+  escapeHTML,
+  formatJSON,
+  formatNumber,
+  countPayload,
+  isSlowDuration,
+  ensureArray,
+} from './shared/utils.js';
+import {
+  attachCopyListeners,
+  attachExpandableRowListeners,
+} from './shared/interactions.js';
+import { consoleStyles } from './shared/styles.js';
+import {
+  renderRequestsPanel,
+  renderSQLPanel,
+  renderLogsPanel,
+  renderRoutesPanel,
+  renderJSONPanel as renderSharedJSONPanel,
+  renderCustomPanel,
+} from './shared/panels/index.js';
 
 type DebugReplCommandPayload = {
   command?: string;
@@ -62,18 +38,6 @@ type DebugReplCommandPayload = {
   aliases?: string[];
   mutates?: boolean;
   read_only?: boolean;
-};
-
-type DebugSnapshot = {
-  template?: Record<string, any>;
-  session?: Record<string, any>;
-  requests?: RequestEntry[];
-  sql?: SQLEntry[];
-  logs?: LogEntry[];
-  config?: Record<string, any>;
-  routes?: RouteEntry[];
-  custom?: CustomSnapshot;
-  [key: string]: any;
 };
 
 type PanelFilters = {
@@ -190,107 +154,6 @@ const normalizeReplCommands = (value: any): DebugReplCommand[] => {
   return commands;
 };
 
-const escapeHTML = (value: any): string => {
-  const str = String(value ?? '');
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-};
-
-const formatTimestamp = (value: any): string => {
-  if (!value) {
-    return '';
-  }
-  if (typeof value === 'number') {
-    return new Date(value).toLocaleTimeString();
-  }
-  if (typeof value === 'string') {
-    const date = new Date(value);
-    if (!Number.isNaN(date.getTime())) {
-      return date.toLocaleTimeString();
-    }
-    return value;
-  }
-  return '';
-};
-
-const formatDuration = (value: any): string => {
-  if (value === null || value === undefined) {
-    return '0ms';
-  }
-  if (typeof value === 'string') {
-    return value;
-  }
-  const nanos = Number(value);
-  if (Number.isNaN(nanos)) {
-    return '0ms';
-  }
-  const ms = nanos / 1e6;
-  if (ms < 1) {
-    const micros = nanos / 1e3;
-    return `${micros.toFixed(1)}us`;
-  }
-  if (ms < 1000) {
-    return `${ms.toFixed(2)}ms`;
-  }
-  return `${(ms / 1000).toFixed(2)}s`;
-};
-
-const formatNumber = (value: any): string => {
-  if (value === null || value === undefined || value === '') {
-    return '0';
-  }
-  const num = Number(value);
-  if (Number.isNaN(num)) {
-    return String(value);
-  }
-  return num.toLocaleString();
-};
-
-const formatJSON = (value: any): string => {
-  if (value === undefined) {
-    return '{}';
-  }
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value ?? '');
-  }
-};
-
-const copyToClipboard = async (text: string, button: HTMLElement): Promise<void> => {
-  try {
-    await navigator.clipboard.writeText(text);
-    const originalHTML = button.innerHTML;
-    button.innerHTML = '<i class="iconoir-check"></i> Copied';
-    button.classList.add('debug-copy--success');
-    setTimeout(() => {
-      button.innerHTML = originalHTML;
-      button.classList.remove('debug-copy--success');
-    }, 1500);
-  } catch {
-    button.classList.add('debug-copy--error');
-    setTimeout(() => {
-      button.classList.remove('debug-copy--error');
-    }, 1500);
-  }
-};
-
-const countPanelPayload = (value: any): number => {
-  if (value === null || value === undefined) {
-    return 0;
-  }
-  if (Array.isArray(value)) {
-    return value.length;
-  }
-  if (typeof value === 'object') {
-    return Object.keys(value).length;
-  }
-  return 1;
-};
 
 const normalizePanelList = (value: any): string[] => {
   if (Array.isArray(value) && value.length > 0) {
@@ -336,8 +199,6 @@ const setNestedValue = (dest: Record<string, any>, key: string, value: any): voi
   }
   current[parts[parts.length - 1]] = value;
 };
-
-const ensureArray = <T>(value: any): T[] => (Array.isArray(value) ? value : []);
 
 const parseNumber = (value: string | undefined, fallback: number): number => {
   if (!value) {
@@ -719,29 +580,13 @@ export class DebugPanel {
   }
 
   private attachExpandableRowListeners(): void {
-    this.panelEl.querySelectorAll('.expandable-row').forEach((row) => {
-      row.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        // Don't toggle if clicking on a link or button
-        if (target.closest('a, button')) return;
-
-        const rowEl = e.currentTarget as HTMLElement;
-        rowEl.classList.toggle('expanded');
-      });
-    });
+    // Use shared helper for expandable row behavior
+    attachExpandableRowListeners(this.panelEl);
   }
 
   private attachCopyButtonListeners(): void {
-    this.panelEl.querySelectorAll<HTMLButtonElement>('[data-copy-trigger]').forEach((button) => {
-      button.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const container = button.closest('[data-copy-content]');
-        if (!container) return;
-        const content = container.getAttribute('data-copy-content') || '';
-        copyToClipboard(content, button);
-      });
-    });
+    // Use shared helper for copy-to-clipboard behavior (console style with icon feedback)
+    attachCopyListeners(this.panelEl, { useIconFeedback: true });
   }
 
   private renderReplPanel(panel: string): void {
@@ -761,7 +606,9 @@ export class DebugPanel {
   private renderRequests(): string {
     const { method, status, search, newestFirst } = this.filters.requests;
     const needle = search.toLowerCase();
-    let entries = this.state.requests.filter((entry) => {
+
+    // Apply console-specific filters
+    const filtered = this.state.requests.filter((entry) => {
       if (method !== 'all' && (entry.method || '').toUpperCase() !== method) {
         return false;
       }
@@ -774,55 +621,25 @@ export class DebugPanel {
       return true;
     });
 
-    if (entries.length === 0) {
+    if (filtered.length === 0) {
       return this.renderEmptyState('No requests captured yet.');
     }
 
-    if (newestFirst) {
-      entries = [...entries].reverse();
-    }
-
-    const rows = entries
-      .map((entry) => {
-        const methodClass = `badge--method-${(entry.method || 'get').toLowerCase()}`;
-        const statusCode = entry.status || 0;
-        const statusClass = statusCode >= 500 ? 'badge--status-error' : statusCode >= 400 ? 'badge--status-warn' : 'badge--status';
-        const rowClass = statusCode >= 400 ? 'error' : '';
-        const duration = entry.duration || 0;
-        const durationMs = typeof duration === 'number' ? duration / 1e6 : 0;
-        const durationClass = durationMs >= this.slowThresholdMs ? 'duration--slow' : '';
-        return `
-          <tr class="${rowClass}">
-            <td><span class="badge ${methodClass}">${escapeHTML(entry.method || 'GET')}</span></td>
-            <td><span class="path">${escapeHTML(entry.path || '')}</span></td>
-            <td><span class="badge ${statusClass}">${escapeHTML(statusCode)}</span></td>
-            <td><span class="duration ${durationClass}">${formatDuration(entry.duration)}</span></td>
-            <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    return `
-      <table class="debug-table">
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>Path</th>
-            <th>Status</th>
-            <th>Duration</th>
-            <th>Time</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
+    // Use shared renderer with console-specific options
+    return renderRequestsPanel(filtered, consoleStyles, {
+      newestFirst,
+      slowThresholdMs: this.slowThresholdMs,
+      showSortToggle: false, // Console has filter bar, not inline toggle
+      truncatePath: false, // Console shows full paths
+    });
   }
 
   private renderSQL(): string {
     const { search, slowOnly, errorOnly, newestFirst } = this.filters.sql;
     const needle = search.toLowerCase();
-    let entries = this.state.sql.filter((entry) => {
+
+    // Apply console-specific filters
+    const filtered = this.state.sql.filter((entry) => {
       if (errorOnly && !entry.error) {
         return false;
       }
@@ -835,69 +652,26 @@ export class DebugPanel {
       return true;
     });
 
-    if (entries.length === 0) {
+    if (filtered.length === 0) {
       return this.renderEmptyState('No SQL queries captured yet.');
     }
 
-    if (newestFirst) {
-      entries = [...entries].reverse();
-    }
-
-    const rows = entries
-      .map((entry, index) => {
-        const isSlow = this.isSlowQuery(entry);
-        const hasError = !!entry.error;
-        const rowClasses = ['expandable-row'];
-        if (hasError) rowClasses.push('error');
-        if (isSlow) rowClasses.push('slow');
-        const durationClass = isSlow ? 'duration--slow' : '';
-        const rowId = `sql-row-${index}`;
-        const rawQuery = entry.query || '';
-        const highlightedSQL = highlightSQL(rawQuery, true);
-        return `
-          <tr class="${rowClasses.join(' ')}" data-row-id="${rowId}">
-            <td><span class="duration ${durationClass}">${formatDuration(entry.duration)}</span></td>
-            <td>${escapeHTML(formatNumber(entry.row_count || 0))}</td>
-            <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
-            <td>${hasError ? `<span class="badge badge--status-error">Error</span>` : ''}</td>
-            <td><span class="query-text"><span class="expand-icon">&#9654;</span>${escapeHTML(rawQuery)}</span></td>
-          </tr>
-          <tr class="expansion-row" data-expansion-for="${rowId}">
-            <td colspan="5">
-              <div class="expanded-content" data-copy-content="${escapeHTML(rawQuery)}">
-                <div class="expanded-content__header">
-                  <button class="debug-btn debug-copy debug-copy--sm" data-copy-trigger="${rowId}" title="Copy SQL">
-                    <i class="iconoir-copy"></i> Copy
-                  </button>
-                </div>
-                <pre>${highlightedSQL}</pre>
-              </div>
-            </td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    return `
-      <table class="debug-table">
-        <thead>
-          <tr>
-            <th>Duration</th>
-            <th>Rows</th>
-            <th>Time</th>
-            <th>Status</th>
-            <th>Query</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
+    // Use shared renderer with console-specific options
+    return renderSQLPanel(filtered, consoleStyles, {
+      newestFirst,
+      slowThresholdMs: this.slowThresholdMs,
+      maxEntries: this.maxSQLQueries,
+      showSortToggle: false, // Console has filter bar
+      useIconCopyButton: true, // Console uses iconoir icons
+    });
   }
 
   private renderLogs(): string {
     const { level, search, newestFirst } = this.filters.logs;
     const needle = search.toLowerCase();
-    let entries = this.state.logs.filter((entry) => {
+
+    // Apply console-specific filters
+    const filtered = this.state.logs.filter((entry) => {
       if (level !== 'all' && (entry.level || '').toLowerCase() !== level) {
         return false;
       }
@@ -908,50 +682,26 @@ export class DebugPanel {
       return true;
     });
 
-    if (entries.length === 0) {
+    if (filtered.length === 0) {
       return this.renderEmptyState('No logs captured yet.');
     }
 
-    if (newestFirst) {
-      entries = [...entries].reverse();
-    }
-
-    const rows = entries
-      .map((entry) => {
-        const logLevel = (entry.level || 'info').toLowerCase();
-        const levelClass = `badge--level-${logLevel}`;
-        const isError = logLevel === 'error' || logLevel === 'fatal';
-        const rowClass = isError ? 'error' : '';
-        return `
-          <tr class="${rowClass}">
-            <td><span class="badge ${levelClass}">${escapeHTML((entry.level || 'info').toUpperCase())}</span></td>
-            <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
-            <td><span class="message">${escapeHTML(entry.message || '')}</span></td>
-            <td><span class="timestamp">${escapeHTML(entry.source || '')}</span></td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    return `
-      <table class="debug-table">
-        <thead>
-          <tr>
-            <th>Level</th>
-            <th>Time</th>
-            <th>Message</th>
-            <th>Source</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
+    // Use shared renderer with console-specific options
+    return renderLogsPanel(filtered, consoleStyles, {
+      newestFirst,
+      maxEntries: this.maxLogEntries,
+      showSortToggle: false, // Console has filter bar
+      showSource: true, // Console shows source column
+      truncateMessage: false, // Console shows full messages
+    });
   }
 
   private renderRoutes(): string {
     const { method, search } = this.filters.routes;
     const needle = search.toLowerCase();
-    const entries = this.state.routes.filter((entry) => {
+
+    // Apply console-specific filters
+    const filtered = this.state.routes.filter((entry) => {
       if (method !== 'all' && (entry.method || '').toUpperCase() !== method) {
         return false;
       }
@@ -962,135 +712,63 @@ export class DebugPanel {
       return true;
     });
 
-    if (entries.length === 0) {
+    if (filtered.length === 0) {
       return this.renderEmptyState('No routes captured yet.');
     }
 
-    const rows = entries
-      .map((entry) => {
-        const methodClass = `badge--method-${(entry.method || 'get').toLowerCase()}`;
-        return `
-          <tr>
-            <td><span class="badge ${methodClass}">${escapeHTML(entry.method || '')}</span></td>
-            <td><span class="path">${escapeHTML(entry.path || '')}</span></td>
-            <td><span class="timestamp">${escapeHTML(entry.handler || '')}</span></td>
-            <td><span class="timestamp">${escapeHTML(entry.name || '')}</span></td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    return `
-      <table class="debug-table debug-routes-table">
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>Path</th>
-            <th>Handler</th>
-            <th>Name</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
+    // Use shared renderer with console-specific options
+    return renderRoutesPanel(filtered, consoleStyles, {
+      showName: true, // Console shows name column
+    });
   }
 
   private renderCustom(): string {
     const { search } = this.filters.custom;
-    const data = filterObjectByKey(this.state.custom.data, search);
-    const logs = this.state.custom.logs;
-    const highlighted = highlightJSON(data, true);
-    const rawJSON = formatJSON(data);
 
-    const logRows = logs.length
-      ? logs
-          .map((entry) => {
-            return `
-              <tr>
-                <td><span class="badge badge--custom">${escapeHTML(entry.category || 'custom')}</span></td>
-                <td><span class="timestamp">${escapeHTML(formatTimestamp(entry.timestamp))}</span></td>
-                <td><span class="message">${escapeHTML(entry.message || '')}</span></td>
-              </tr>
-            `;
-          })
-          .join('')
-      : '';
+    // Check if there's any data at all
+    const hasData = Object.keys(this.state.custom.data).length > 0;
+    const hasLogs = this.state.custom.logs.length > 0;
 
-    const logPanel = logs.length
-      ? `
-        <table class="debug-table">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Time</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody>${logRows}</tbody>
-        </table>
-      `
-      : this.renderEmptyState('No custom logs yet.');
+    if (!hasData && !hasLogs) {
+      return this.renderEmptyState('No custom data captured yet.');
+    }
 
-    return `
-      <div class="debug-json-grid">
-        <div class="debug-json-panel" data-copy-content="${escapeHTML(rawJSON)}">
-          <div class="debug-json-header">
-            <h3>Custom Data</h3>
-            <div class="debug-json-actions">
-              <span class="timestamp">${formatNumber(countPanelPayload(data))} keys</span>
-              <button class="debug-btn debug-copy" data-copy-trigger="custom-data" title="Copy to clipboard">
-                <i class="iconoir-copy"></i> Copy
-              </button>
-            </div>
-          </div>
-          <div class="debug-json-content">
-            <pre>${highlighted}</pre>
-          </div>
-        </div>
-        <div class="debug-json-panel">
-          <div class="debug-json-header">
-            <h3>Custom Logs</h3>
-            <span class="timestamp">${formatNumber(logs.length)} entries</span>
-          </div>
-          <div class="debug-json-content">
-            ${logPanel}
-          </div>
-        </div>
-      </div>
-    `;
+    // Use shared renderer with console-specific options
+    return renderCustomPanel(this.state.custom, consoleStyles, {
+      maxLogEntries: this.maxLogEntries,
+      useIconCopyButton: true, // Console uses iconoir icons
+      showCount: true,
+      dataFilterFn: search ? (data) => filterObjectByKey(data, search) : undefined,
+    });
   }
 
   private renderJSONPanel(title: string, data: any, search: string): string {
+    // Check for empty data
     const isObject = data && typeof data === 'object' && !Array.isArray(data);
     const isArray = Array.isArray(data);
-    const filtered = isObject ? filterObjectByKey(data || {}, search) : data ?? {};
-    const count = countPanelPayload(filtered);
-    const unit = isArray ? 'items' : isObject ? 'keys' : 'entries';
-    const highlighted = highlightJSON(filtered, true);
-    const rawJSON = formatJSON(filtered);
-    const copyId = `copy-${title.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
-    return `
-      <section class="debug-json-panel" data-copy-content="${escapeHTML(rawJSON)}">
-        <div class="debug-json-header">
-          <h3>${escapeHTML(title)}</h3>
-          <div class="debug-json-actions">
-            <span class="debug-muted">${formatNumber(count)} ${unit}</span>
-            <button class="debug-btn debug-copy" data-copy-trigger="${copyId}" title="Copy to clipboard">
-              <i class="iconoir-copy"></i> Copy
-            </button>
-          </div>
-        </div>
-        <pre>${highlighted}</pre>
-      </section>
-    `;
+    const isEmpty =
+      (isObject && Object.keys(data || {}).length === 0) ||
+      (isArray && (data || []).length === 0) ||
+      (!isObject && !isArray && !data);
+
+    if (isEmpty) {
+      return this.renderEmptyState(`No ${title.toLowerCase()} data available.`);
+    }
+
+    // Use shared renderer with console-specific options and search filter
+    return renderSharedJSONPanel(title, data, consoleStyles, {
+      useIconCopyButton: true, // Console uses iconoir icons
+      showCount: true,
+      filterFn: search ? (obj) => filterObjectByKey(obj, search) : undefined,
+    });
   }
 
   private panelCount(panel: string): number {
     switch (panel) {
       case 'template':
-        return countPanelPayload(this.state.template);
+        return countPayload(this.state.template);
       case 'session':
-        return countPanelPayload(this.state.session);
+        return countPayload(this.state.session);
       case 'requests':
         return this.state.requests.length;
       case 'sql':
@@ -1098,13 +776,13 @@ export class DebugPanel {
       case 'logs':
         return this.state.logs.length;
       case 'config':
-        return countPanelPayload(this.state.config);
+        return countPayload(this.state.config);
       case 'routes':
         return this.state.routes.length;
       case 'custom':
-        return countPanelPayload(this.state.custom.data) + this.state.custom.logs.length;
+        return countPayload(this.state.custom.data) + this.state.custom.logs.length;
       default:
-        return countPanelPayload(this.state.extra[panel]);
+        return countPayload(this.state.extra[panel]);
     }
   }
 
@@ -1251,15 +929,7 @@ export class DebugPanel {
   }
 
   private isSlowQuery(entry: SQLEntry): boolean {
-    if (!entry || entry.duration === undefined || entry.duration === null) {
-      return false;
-    }
-    const nanos = Number(entry.duration);
-    if (Number.isNaN(nanos)) {
-      return false;
-    }
-    const ms = nanos / 1e6;
-    return ms >= this.slowThresholdMs;
+    return isSlowDuration(entry?.duration, this.slowThresholdMs);
   }
 
   private async fetchSnapshot(): Promise<void> {

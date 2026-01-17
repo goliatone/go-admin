@@ -17,10 +17,12 @@ export declare class DebugReplPanel {
     private statusEl;
     private statusTextEl;
     private terminalEl;
+    private overlayEl;
     private actionsEl;
     private terminal;
     private commands;
     private commandsEl;
+    private connectButton;
     constructor(options: DebugReplPanelOptions);
     attach(container: HTMLElement): void;
     private bindActions;

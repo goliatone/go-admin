@@ -9,6 +9,7 @@ type DebugReplTerminalOptions = {
   kind: DebugReplKind;
   debugPath: string;
   container: HTMLElement;
+  autoConnect?: boolean;
   onStatusChange?: (status: DebugReplStatus) => void;
 };
 
@@ -94,7 +95,9 @@ export class DebugReplTerminal {
     this.terminal.focus();
     this.bindTerminal();
     this.observeResize(options.container);
-    this.connect();
+    if (options.autoConnect !== false) {
+      this.connect();
+    }
   }
 
   connect(): void {
