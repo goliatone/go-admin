@@ -8,7 +8,7 @@ const (
 	debugReplDefaultShellCommand       = "/bin/sh"
 	debugReplDefaultMaxSessionSeconds  = 900
 	debugReplDefaultAppEvalTimeoutMs   = 3000
-	debugReplDefaultMaxSessionsPerUser = 1
+	debugReplDefaultMaxSessionsPerUser = 2
 )
 
 // DebugREPLConfig controls shell + app console access.
