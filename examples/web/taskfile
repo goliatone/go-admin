@@ -36,11 +36,6 @@ function dev:cover {
     go test -coverprofile=coverage.out ./... && go tool cover -func coverage.out
 }
 
-function ci:test:example-users {
-    local go_bin="${GO_BIN:-/Users/goliatone/.g/go/bin/go}"
-    (cd "$(pwd)/examples/web" && "${go_bin}" test ./setup ./helpers ./stores -run '(User|Scope|Preference|Auth)' -count=1)
-}
-
 function dev:serve {
     local root_dir
     root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
