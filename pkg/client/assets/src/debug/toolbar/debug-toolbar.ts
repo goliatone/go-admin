@@ -3,11 +3,13 @@
 // Works in conjunction with DebugFab for collapsed state
 
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from '../debug-stream.js';
+import { DebugReplPanel, type DebugReplCommand } from '../repl/repl-panel.js';
 import { toolbarStyles } from './toolbar-styles.js';
 import { renderPanel, getCounts, type DebugSnapshot } from './panel-renderers.js';
 
 // Panel configuration
 const defaultPanels = ['requests', 'sql', 'logs', 'routes', 'config'];
+const replPanelIDs = new Set(['console', 'shell']);
 
 const panelLabels: Record<string, string> = {
   template: 'Template',
@@ -18,6 +20,8 @@ const panelLabels: Record<string, string> = {
   config: 'Config',
   routes: 'Routes',
   custom: 'Custom',
+  console: 'Console',
+  shell: 'Shell',
 };
 
 const panelEventMap: Record<string, string> = {
@@ -38,11 +42,60 @@ const eventToPanel: Record<string, string> = {
   custom: 'custom',
 };
 
+type DebugReplCommandPayload = {
+  command?: string;
+  description?: string;
+  tags?: string[];
+  aliases?: string[];
+  mutates?: boolean;
+  read_only?: boolean;
+};
+
+const normalizeReplCommands = (value: unknown): DebugReplCommand[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const commands: DebugReplCommand[] = [];
+  value.forEach((item) => {
+    if (!item || typeof item !== 'object') {
+      return;
+    }
+    const raw = item as DebugReplCommandPayload;
+    const command = typeof raw.command === 'string' ? raw.command.trim() : '';
+    if (!command) {
+      return;
+    }
+    const description = typeof raw.description === 'string' ? raw.description.trim() : '';
+    const tags = Array.isArray(raw.tags)
+      ? raw.tags.filter((tag) => typeof tag === 'string' && tag.trim() !== '').map((tag) => tag.trim())
+      : [];
+    const aliases = Array.isArray(raw.aliases)
+      ? raw.aliases.filter((alias) => typeof alias === 'string' && alias.trim() !== '').map((alias) => alias.trim())
+      : [];
+    const mutates =
+      typeof raw.mutates === 'boolean'
+        ? raw.mutates
+        : typeof raw.read_only === 'boolean'
+          ? !raw.read_only
+          : false;
+    commands.push({
+      command,
+      description: description || undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      aliases: aliases.length > 0 ? aliases : undefined,
+      mutates,
+    });
+  });
+  return commands;
+};
+
 export class DebugToolbar extends HTMLElement {
   private shadow: ShadowRoot;
   private stream: DebugStream | null = null;
   private externalStream: DebugStream | null = null;
   private snapshot: DebugSnapshot = {};
+  private replPanels: Map<string, DebugReplPanel> = new Map();
+  private replCommands: DebugReplCommand[] = [];
   private expanded = false;
   private activePanel = 'requests';
   private connectionStatus: DebugStreamStatus = 'disconnected';
@@ -104,8 +157,7 @@ export class DebugToolbar extends HTMLElement {
   }
 
   public setSnapshot(snapshot: DebugSnapshot): void {
-    this.snapshot = snapshot || {};
-    this.updateContent();
+    this.applySnapshot(snapshot || {});
   }
 
   public setConnectionStatus(status: DebugStreamStatus): void {
@@ -316,6 +368,7 @@ export class DebugToolbar extends HTMLElement {
 
   private applySnapshot(data: DebugSnapshot): void {
     this.snapshot = data || {};
+    this.replCommands = normalizeReplCommands(this.snapshot.repl_commands);
     this.updateContent();
   }
 
@@ -428,9 +481,13 @@ export class DebugToolbar extends HTMLElement {
     if (this.expanded) {
       const container = this.shadow.getElementById('panel-content');
       if (container) {
-        container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs);
-        this.attachExpandableRowListeners();
-        this.attachCopyListeners();
+        if (replPanelIDs.has(this.activePanel)) {
+          this.renderReplPanel(container, this.activePanel);
+        } else {
+          container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs);
+          this.attachExpandableRowListeners();
+          this.attachCopyListeners();
+        }
       }
       // Update tab counts
       this.panels.forEach((panel) => {
@@ -583,6 +640,19 @@ export class DebugToolbar extends HTMLElement {
 
     // Copy buttons
     this.attachCopyListeners();
+  }
+
+  private renderReplPanel(container: HTMLElement, panel: string): void {
+    let replPanel = this.replPanels.get(panel);
+    if (!replPanel) {
+      replPanel = new DebugReplPanel({
+        kind: panel === 'shell' ? 'shell' : 'console',
+        debugPath: this.debugPath,
+        commands: panel === 'console' ? this.replCommands : [],
+      });
+      this.replPanels.set(panel, replPanel);
+    }
+    replPanel.attach(container);
   }
 
   private attachResizeListeners(): void {

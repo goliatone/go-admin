@@ -64,6 +64,7 @@ export type DebugSnapshot = {
   config?: Record<string, unknown>;
   routes?: RouteEntry[];
   custom?: CustomSnapshot;
+  repl_commands?: unknown;
 };
 
 // Utility functions

@@ -1,7 +1,7 @@
 import 'prismjs/components/prism-sql.js';
 import 'prismjs/components/prism-json.js';
 /**
- * Pretty-print SQL query with proper indentation
+ * Pretty-print SQL query with proper indentation using sql-formatter
  */
 export declare function formatSQL(sql: string): string;
 /**

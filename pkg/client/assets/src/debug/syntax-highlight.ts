@@ -4,130 +4,27 @@
 import Prism from 'prismjs';
 import 'prismjs/components/prism-sql.js';
 import 'prismjs/components/prism-json.js';
-
-// SQL formatting/pretty-printing helper
-const SQL_KEYWORDS = new Set([
-  'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER',
-  'ON', 'AS', 'ORDER', 'BY', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'INSERT', 'INTO',
-  'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'TABLE', 'INDEX',
-  'UNIQUE', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'NOT', 'NULL', 'DEFAULT',
-  'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'IN', 'EXISTS', 'BETWEEN', 'LIKE',
-  'IS', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'UNION', 'ALL', 'ASC', 'DESC', 'WITH',
-  'RETURNING', 'COALESCE', 'NULLIF', 'CAST', 'OVER', 'PARTITION', 'ROW_NUMBER', 'RANK',
-]);
-
-const NEWLINE_BEFORE = new Set([
-  'FROM', 'WHERE', 'AND', 'OR', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER',
-  'ORDER', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'SET', 'VALUES', 'RETURNING',
-  'UNION', 'WITH',
-]);
-
-const INDENT_KEYWORDS = new Set(['AND', 'OR']);
+import { format } from 'sql-formatter';
 
 /**
- * Pretty-print SQL query with proper indentation
+ * Pretty-print SQL query with proper indentation using sql-formatter
  */
 export function formatSQL(sql: string): string {
   if (!sql || typeof sql !== 'string') {
     return '';
   }
 
-  // Normalize whitespace
-  let formatted = sql.replace(/\s+/g, ' ').trim();
-
-  // Tokenize while preserving strings and identifiers
-  const tokens: string[] = [];
-  let current = '';
-  let inString = false;
-  let stringChar = '';
-  let inIdentifier = false;
-
-  for (let i = 0; i < formatted.length; i++) {
-    const char = formatted[i];
-
-    if (inString) {
-      current += char;
-      if (char === stringChar && formatted[i - 1] !== '\\') {
-        tokens.push(current);
-        current = '';
-        inString = false;
-      }
-    } else if (inIdentifier) {
-      current += char;
-      if (char === '"') {
-        tokens.push(current);
-        current = '';
-        inIdentifier = false;
-      }
-    } else if (char === "'" || char === '"') {
-      if (current.trim()) {
-        tokens.push(current);
-        current = '';
-      }
-      current = char;
-      if (char === "'") {
-        inString = true;
-        stringChar = char;
-      } else {
-        inIdentifier = true;
-      }
-    } else if (char === ',' || char === '(' || char === ')') {
-      if (current.trim()) {
-        tokens.push(current);
-        current = '';
-      }
-      tokens.push(char);
-    } else if (char === ' ') {
-      if (current.trim()) {
-        tokens.push(current);
-        current = '';
-      }
-    } else {
-      current += char;
-    }
+  try {
+    return format(sql, {
+      language: 'postgresql',
+      tabWidth: 2,
+      keywordCase: 'upper',
+      linesBetweenQueries: 1,
+    });
+  } catch {
+    // Fallback to original SQL if formatting fails
+    return sql;
   }
-
-  if (current.trim()) {
-    tokens.push(current);
-  }
-
-  // Rebuild with proper formatting
-  const lines: string[] = [];
-  let currentLine = '';
-  let indent = 0;
-  let parenDepth = 0;
-
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    const upperToken = token.toUpperCase();
-
-    if (token === '(') {
-      parenDepth++;
-      currentLine += token;
-    } else if (token === ')') {
-      parenDepth--;
-      currentLine += token;
-    } else if (token === ',') {
-      currentLine += token;
-    } else if (parenDepth === 0 && NEWLINE_BEFORE.has(upperToken)) {
-      if (currentLine.trim()) {
-        lines.push(currentLine.trim());
-      }
-      const indentStr = INDENT_KEYWORDS.has(upperToken) ? '  ' : '';
-      currentLine = indentStr + token;
-    } else {
-      if (currentLine && !currentLine.endsWith('(') && !currentLine.endsWith(',')) {
-        currentLine += ' ';
-      }
-      currentLine += token;
-    }
-  }
-
-  if (currentLine.trim()) {
-    lines.push(currentLine.trim());
-  }
-
-  return lines.join('\n');
 }
 
 /**

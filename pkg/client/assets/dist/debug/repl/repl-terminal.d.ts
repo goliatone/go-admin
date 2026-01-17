@@ -15,6 +15,7 @@ export declare class DebugReplTerminal {
     private reconnectAttempts;
     private reconnectTimer;
     private manualClose;
+    private resetOnOpen;
     private resizeObserver;
     private lineBuffer;
     private skipEscape;
@@ -43,6 +44,7 @@ export declare class DebugReplTerminal {
     private sendCommand;
     private setStatus;
     private scheduleReconnect;
+    private resetTerminal;
     private observeResize;
 }
 export {};

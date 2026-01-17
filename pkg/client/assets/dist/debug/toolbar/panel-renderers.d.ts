@@ -53,6 +53,7 @@ export type DebugSnapshot = {
     config?: Record<string, unknown>;
     routes?: RouteEntry[];
     custom?: CustomSnapshot;
+    repl_commands?: unknown;
 };
 export declare function renderPanel(panel: string, snapshot: DebugSnapshot, slowThresholdMs?: number): string;
 export declare function getCounts(snapshot: DebugSnapshot): {

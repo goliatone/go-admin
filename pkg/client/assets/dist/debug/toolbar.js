@@ -1,5 +1,6 @@
-import { a as v, h as E, D as w } from "../chunks/syntax-highlight-Q2MTgRi9.js";
-const q = `
+import { a as v, h as E, D as w } from "../chunks/syntax-highlight-BeUtGWoX.js";
+import { DebugReplPanel as q } from "./repl.js";
+const L = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -737,7 +738,7 @@ const q = `
   } catch {
     return String(a ?? "");
   }
-}, S = (a, t) => a ? a.length > t ? a.substring(0, t) + "..." : a : "", L = (a) => a ? a >= 500 ? "error" : a >= 400 ? "warn" : "" : "", $ = (a) => {
+}, S = (a, t) => a ? a.length > t ? a.substring(0, t) + "..." : a : "", $ = (a) => a ? a >= 500 ? "error" : a >= 400 ? "warn" : "" : "", z = (a) => {
   if (!a) return "info";
   const t = a.toLowerCase();
   return t === "error" || t === "fatal" ? "error" : t === "warn" || t === "warning" ? "warn" : t === "debug" || t === "trace" ? "debug" : "info";
@@ -745,15 +746,15 @@ const q = `
 function b(a, t, e = 50) {
   switch (a) {
     case "requests":
-      return z(t.requests || []);
+      return M(t.requests || []);
     case "sql":
-      return M(t.sql || [], e);
+      return T(t.sql || [], e);
     case "logs":
-      return T(t.logs || []);
+      return H(t.logs || []);
     case "config":
       return g("Config", t.config || {});
     case "routes":
-      return H(t.routes || []);
+      return P(t.routes || []);
     case "template":
       return g("Template Context", t.template || {});
     case "session":
@@ -764,7 +765,7 @@ function b(a, t, e = 50) {
       return `<div class="empty-state">Panel "${l(a)}" not available</div>`;
   }
 }
-function z(a) {
+function M(a) {
   return a.length ? `
     <table>
       <thead>
@@ -777,7 +778,7 @@ function z(a) {
         </tr>
       </thead>
       <tbody>${a.slice(-50).reverse().map((e) => {
-    const s = (e.method || "get").toLowerCase(), o = L(e.status), r = y(e.duration);
+    const s = (e.method || "get").toLowerCase(), o = $(e.status), r = y(e.duration);
     return `
         <tr>
           <td><span class="badge badge-method ${s}">${l(e.method || "GET")}</span></td>
@@ -791,7 +792,7 @@ function z(a) {
     </table>
   ` : '<div class="empty-state">No requests captured</div>';
 }
-function M(a, t) {
+function T(a, t) {
   return a.length ? `
     <table>
       <thead>
@@ -806,16 +807,16 @@ function M(a, t) {
       <tbody>${a.slice(-50).reverse().map((s, o) => {
     const r = y(s.duration, t), i = ["expandable-row"];
     r.isSlow && i.push("slow-query"), s.error && i.push("error-query");
-    const d = `sql-row-${o}`, n = s.query || "", h = E(n, !0);
+    const c = `sql-row-${o}`, n = s.query || "", d = E(n, !0);
     return `
-        <tr class="${i.join(" ")}" data-row-id="${d}">
+        <tr class="${i.join(" ")}" data-row-id="${c}">
           <td class="duration ${r.isSlow ? "slow" : ""}">${r.text}</td>
           <td>${l(s.row_count ?? "-")}</td>
           <td class="timestamp">${l(u(s.timestamp))}</td>
           <td>${s.error ? '<span class="badge badge-error">Error</span>' : ""}</td>
           <td class="query-text"><span class="expand-icon">&#9654;</span>${l(n)}</td>
         </tr>
-        <tr class="expansion-row" data-expansion-for="${d}">
+        <tr class="expansion-row" data-expansion-for="${c}">
           <td colspan="5">
             <div class="expanded-content" data-copy-content="${l(n)}">
               <div class="expanded-content__header">
@@ -827,7 +828,7 @@ function M(a, t) {
                   Copy
                 </button>
               </div>
-              <pre>${h}</pre>
+              <pre>${d}</pre>
             </div>
           </td>
         </tr>
@@ -836,7 +837,7 @@ function M(a, t) {
     </table>
   ` : '<div class="empty-state">No SQL queries captured</div>';
 }
-function T(a) {
+function H(a) {
   return a.length ? `
     <table>
       <thead>
@@ -848,7 +849,7 @@ function T(a) {
       </thead>
       <tbody>${a.slice(-100).reverse().map((e) => `
         <tr>
-          <td><span class="badge badge-level ${$(e.level)}">${l((e.level || "INFO").toUpperCase())}</span></td>
+          <td><span class="badge badge-level ${z(e.level)}">${l((e.level || "INFO").toUpperCase())}</span></td>
           <td class="message" title="${l(e.message || "")}">${l(S(e.message || "", 100))}</td>
           <td class="timestamp">${l(u(e.timestamp))}</td>
         </tr>
@@ -856,7 +857,7 @@ function T(a) {
     </table>
   ` : '<div class="empty-state">No logs captured</div>';
 }
-function H(a) {
+function P(a) {
   return a.length ? `
     <table>
       <thead>
@@ -944,21 +945,21 @@ function A(a) {
 }
 function p(a) {
   const t = a.requests?.length || 0, e = a.sql?.length || 0, s = a.logs?.length || 0, o = (a.requests || []).filter((n) => (n.status || 0) >= 400).length, r = (a.sql || []).filter((n) => n.error).length, i = (a.logs || []).filter((n) => {
-    const h = (n.level || "").toLowerCase();
-    return h === "error" || h === "fatal";
-  }).length, d = (a.sql || []).filter((n) => {
-    const h = Number(n.duration);
-    return Number.isNaN(h) ? !1 : h / 1e6 >= 50;
+    const d = (n.level || "").toLowerCase();
+    return d === "error" || d === "fatal";
+  }).length, c = (a.sql || []).filter((n) => {
+    const d = Number(n.duration);
+    return Number.isNaN(d) ? !1 : d / 1e6 >= 50;
   }).length;
   return {
     requests: t,
     sql: e,
     logs: s,
     errors: o + r + i,
-    slowQueries: d
+    slowQueries: c
   };
 }
-const m = ["requests", "sql", "logs", "routes", "config"], P = {
+const f = ["requests", "sql", "logs", "routes", "config"], j = /* @__PURE__ */ new Set(["console", "shell"]), R = {
   template: "Template",
   session: "Session",
   requests: "Requests",
@@ -966,24 +967,45 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
   logs: "Logs",
   config: "Config",
   routes: "Routes",
-  custom: "Custom"
-}, j = {
+  custom: "Custom",
+  console: "Console",
+  shell: "Shell"
+}, N = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, N = {
+}, I = {
   request: "requests",
   sql: "sql",
   log: "logs",
   template: "template",
   session: "session",
   custom: "custom"
-}, c = class c extends HTMLElement {
+}, D = (a) => {
+  if (!Array.isArray(a))
+    return [];
+  const t = [];
+  return a.forEach((e) => {
+    if (!e || typeof e != "object")
+      return;
+    const s = e, o = typeof s.command == "string" ? s.command.trim() : "";
+    if (!o)
+      return;
+    const r = typeof s.description == "string" ? s.description.trim() : "", i = Array.isArray(s.tags) ? s.tags.filter((d) => typeof d == "string" && d.trim() !== "").map((d) => d.trim()) : [], c = Array.isArray(s.aliases) ? s.aliases.filter((d) => typeof d == "string" && d.trim() !== "").map((d) => d.trim()) : [], n = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
+    t.push({
+      command: o,
+      description: r || void 0,
+      tags: i.length > 0 ? i : void 0,
+      aliases: c.length > 0 ? c : void 0,
+      mutates: n
+    });
+  }), t;
+}, h = class h extends HTMLElement {
   constructor() {
-    super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.handleKeyDown = (t) => {
+    super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
     }, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1004,7 +1026,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
     this.expanded = t, this.saveState(), this.render();
   }
   setSnapshot(t) {
-    this.snapshot = t || {}, this.updateContent();
+    this.applySnapshot(t || {});
   }
   setConnectionStatus(t) {
     this.connectionStatus = t, this.updateConnectionStatus();
@@ -1023,7 +1045,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
       const e = localStorage.getItem("debug-toolbar-height");
       if (e !== null) {
         const s = parseInt(e, 10);
-        !isNaN(s) && s >= c.MIN_HEIGHT && (this.customHeight = s);
+        !isNaN(s) && s >= h.MIN_HEIGHT && (this.customHeight = s);
       }
     } catch {
     }
@@ -1062,9 +1084,9 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
     const t = this.getAttribute("panels");
     if (t) {
       const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : m;
+      return e.length ? e : f;
     }
-    return m;
+    return f;
   }
   get wsUrl() {
     return `${this.debugPath}/ws`;
@@ -1079,7 +1101,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => j[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => N[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1101,7 +1123,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
       this.applySnapshot(t.payload);
       return;
     }
-    const e = N[t.type] || t.type;
+    const e = I[t.type] || t.type;
     switch (t.type) {
       case "request":
         this.snapshot.requests = this.snapshot.requests || [], this.snapshot.requests.push(t.payload), this.trimArray(this.snapshot.requests, 500);
@@ -1134,7 +1156,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.updateContent();
+    this.snapshot = t || {}, this.replCommands = D(this.snapshot.repl_commands), this.updateContent();
   }
   trimArray(t, e) {
     for (; t.length > e; )
@@ -1142,17 +1164,17 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
   }
   // Rendering
   render() {
-    const t = p(this.snapshot), e = this.panels.map((d) => {
-      const n = P[d] || d, h = this.getPanelCount(d);
+    const t = p(this.snapshot), e = this.panels.map((c) => {
+      const n = R[c] || c, d = this.getPanelCount(c);
       return `
-          <button class="tab ${this.activePanel === d ? "active" : ""}" data-panel="${d}">
+          <button class="tab ${this.activePanel === c ? "active" : ""}" data-panel="${c}">
             ${n}
-            <span class="tab-count">${h}</span>
+            <span class="tab-count">${d}</span>
           </button>
         `;
-    }).join(""), s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || c.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
+    }).join(""), s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || h.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${q}</style>
+      <style>${L}</style>
       <div class="toolbar ${s} ${o}" style="${i}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
@@ -1223,7 +1245,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (t.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners(), this.attachCopyListeners()), this.panels.forEach((e) => {
+      t && (j.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners(), this.attachCopyListeners())), this.panels.forEach((e) => {
         const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         s && (s.textContent = String(this.getPanelCount(e)));
       });
@@ -1303,6 +1325,14 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
     }
     this.attachResizeListeners(), this.attachCopyListeners();
   }
+  renderReplPanel(t, e) {
+    let s = this.replPanels.get(e);
+    s || (s = new q({
+      kind: e === "shell" ? "shell" : "console",
+      debugPath: this.debugPath,
+      commands: e === "console" ? this.replCommands : []
+    }), this.replPanels.set(e, s)), s.attach(t);
+  }
   attachResizeListeners() {
     const t = this.shadow.querySelector("[data-resize-handle]");
     t && (t.addEventListener("mousedown", (e) => {
@@ -1316,7 +1346,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
   startResize(t) {
     this.isResizing = !0, this.resizeStartY = t;
     const e = this.shadow.querySelector(".toolbar");
-    this.resizeStartHeight = e?.offsetHeight || c.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
+    this.resizeStartHeight = e?.offsetHeight || h.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
     const s = (i) => {
       this.handleResize(i.clientY);
     }, o = (i) => {
@@ -1328,7 +1358,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
   }
   handleResize(t) {
     if (!this.isResizing) return;
-    const e = this.resizeStartY - t, s = window.innerHeight * c.MAX_HEIGHT_RATIO, o = Math.min(s, Math.max(c.MIN_HEIGHT, this.resizeStartHeight + e));
+    const e = this.resizeStartY - t, s = window.innerHeight * h.MAX_HEIGHT_RATIO, o = Math.min(s, Math.max(h.MIN_HEIGHT, this.resizeStartHeight + e));
     this.customHeight = o;
     const r = this.shadow.querySelector(".toolbar");
     r && (r.style.height = `${o}px`);
@@ -1365,10 +1395,10 @@ const m = ["requests", "sql", "logs", "routes", "config"], P = {
     });
   }
 };
-c.MIN_HEIGHT = 150, c.MAX_HEIGHT_RATIO = 0.8, c.DEFAULT_HEIGHT = 320;
-let f = c;
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", f);
-const R = `
+h.MIN_HEIGHT = 150, h.MAX_HEIGHT_RATIO = 0.8, h.DEFAULT_HEIGHT = 320;
+let m = h;
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", m);
+const _ = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1598,7 +1628,7 @@ const R = `
       font-size: 8px;
     }
   }
-`, I = {
+`, O = {
   template: "template",
   session: "session",
   requests: "request",
@@ -1606,7 +1636,7 @@ const R = `
   logs: "log",
   custom: "custom"
 }, x = ["requests", "sql", "logs", "routes", "config"];
-class D extends HTMLElement {
+class F extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1667,7 +1697,7 @@ class D extends HTMLElement {
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => I[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => O[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1740,7 +1770,7 @@ class D extends HTMLElement {
   render() {
     const t = p(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${R}</style>
+      <style>${_}</style>
       <div class="fab ${o}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
@@ -1789,9 +1819,9 @@ class D extends HTMLElement {
       const n = i.querySelector(".counter-value");
       n && (n.textContent = String(t.logs)), i.classList.toggle("has-items", t.logs > 0), i.classList.toggle("has-errors", e);
     }
-    const d = this.shadow.querySelector(".fab-counter:nth-child(4)");
-    if (e && d) {
-      const n = d.querySelector(".counter-value");
+    const c = this.shadow.querySelector(".fab-counter:nth-child(4)");
+    if (e && c) {
+      const n = c.querySelector(".counter-value");
       n && (n.textContent = String(t.errors));
     }
   }
@@ -1814,7 +1844,7 @@ class D extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", D);
+customElements.get("debug-fab") || customElements.define("debug-fab", F);
 class C {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
@@ -1880,7 +1910,7 @@ class C {
     }));
   }
 }
-function O() {
+function Q() {
   const a = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (a ? e = {
@@ -1897,13 +1927,13 @@ function O() {
   return s.init(), s;
 }
 window.DebugManager = C;
-window.initDebugManager = O;
+window.initDebugManager = Q;
 export {
-  D as DebugFab,
+  F as DebugFab,
   C as DebugManager,
-  f as DebugToolbar,
+  m as DebugToolbar,
   p as getCounts,
-  O as initDebugManager,
+  Q as initDebugManager,
   b as renderPanel
 };
 //# sourceMappingURL=toolbar.js.map

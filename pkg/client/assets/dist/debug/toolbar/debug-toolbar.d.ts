@@ -5,6 +5,8 @@ export declare class DebugToolbar extends HTMLElement {
     private stream;
     private externalStream;
     private snapshot;
+    private replPanels;
+    private replCommands;
     private expanded;
     private activePanel;
     private connectionStatus;
@@ -52,6 +54,7 @@ export declare class DebugToolbar extends HTMLElement {
     private updateConnectionStatus;
     private getPanelCount;
     private attachEventListeners;
+    private renderReplPanel;
     private attachResizeListeners;
     private startResize;
     private handleResize;

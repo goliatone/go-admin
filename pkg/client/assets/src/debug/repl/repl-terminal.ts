@@ -61,6 +61,7 @@ export class DebugReplTerminal {
   private reconnectAttempts = 0;
   private reconnectTimer: number | null = null;
   private manualClose = false;
+  private resetOnOpen = false;
   private resizeObserver: ResizeObserver | null = null;
   private lineBuffer = '';
   private skipEscape = false;
@@ -108,6 +109,10 @@ export class DebugReplTerminal {
 
     this.socket.onopen = () => {
       this.reconnectAttempts = 0;
+      if (this.resetOnOpen) {
+        this.resetOnOpen = false;
+        this.resetTerminal();
+      }
       this.setStatus('connected');
       this.awaitingPrompt = true;
       if (this.options.kind === 'console') {
@@ -139,6 +144,7 @@ export class DebugReplTerminal {
   }
 
   reconnect(): void {
+    this.resetOnOpen = true;
     this.manualClose = true;
     if (this.socket) {
       this.socket.close();
@@ -398,9 +404,17 @@ export class DebugReplTerminal {
     const backoff = Math.min(defaultReconnectDelayMs * Math.pow(2, attempt), defaultMaxReconnectDelayMs);
     const jitter = backoff * (0.2 + Math.random() * 0.3);
     this.reconnectAttempts += 1;
+    this.resetOnOpen = true;
     this.reconnectTimer = window.setTimeout(() => {
       this.connect();
     }, backoff + jitter);
+  }
+
+  private resetTerminal(): void {
+    this.lineBuffer = '';
+    this.skipEscape = false;
+    this.awaitingPrompt = true;
+    this.terminal.reset();
   }
 
   private observeResize(container: HTMLElement): void {
