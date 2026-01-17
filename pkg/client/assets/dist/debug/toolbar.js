@@ -1,5 +1,5 @@
-import { a as v, h as C, D as w } from "../chunks/syntax-highlight-Q2MTgRi9.js";
-const E = `
+import { a as v, h as E, D as w } from "../chunks/syntax-highlight-Q2MTgRi9.js";
+const q = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -454,11 +454,62 @@ const E = `
     margin-top: 8px;
     overflow: auto;
     max-height: 100%;
+    position: relative;
   }
 
   .json-viewer pre {
     font-size: 11px;
     line-height: 1.5;
+  }
+
+  .json-viewer__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--toolbar-border);
+  }
+
+  .json-viewer__title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--toolbar-text-muted);
+  }
+
+  /* Copy button */
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: 1px solid var(--toolbar-border);
+    color: var(--toolbar-text-muted);
+    padding: 3px 8px;
+    font-size: 10px;
+    font-family: inherit;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .copy-btn:hover {
+    background: rgba(137, 180, 250, 0.1);
+    border-color: var(--toolbar-accent);
+    color: var(--toolbar-text);
+  }
+
+  .copy-btn.copied {
+    background: rgba(166, 227, 161, 0.15);
+    border-color: var(--toolbar-success);
+    color: var(--toolbar-success);
+  }
+
+  .copy-btn svg {
+    width: 12px;
+    height: 12px;
   }
 
   /* Duration formatting */
@@ -620,6 +671,12 @@ const E = `
     overflow-x: auto;
   }
 
+  .expanded-content__header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+  }
+
   .expanded-content pre {
     margin: 0;
     white-space: pre-wrap;
@@ -656,7 +713,7 @@ const E = `
       max-width: 60%;
     }
   }
-`, l = (a) => String(a ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), p = (a) => {
+`, l = (a) => String(a ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), u = (a) => {
   if (!a) return "";
   if (typeof a == "number")
     return new Date(a).toLocaleTimeString();
@@ -673,7 +730,14 @@ const E = `
     return { text: "0ms", isSlow: !1 };
   const s = e / 1e6, o = s >= t;
   return s < 1 ? { text: `${(e / 1e3).toFixed(1)}µs`, isSlow: o } : s < 1e3 ? { text: `${s.toFixed(2)}ms`, isSlow: o } : { text: `${(s / 1e3).toFixed(2)}s`, isSlow: o };
-}, k = (a, t) => a ? a.length > t ? a.substring(0, t) + "..." : a : "", q = (a) => a ? a >= 500 ? "error" : a >= 400 ? "warn" : "" : "", L = (a) => {
+}, k = (a) => {
+  if (a == null) return "{}";
+  try {
+    return JSON.stringify(a, null, 2);
+  } catch {
+    return String(a ?? "");
+  }
+}, S = (a, t) => a ? a.length > t ? a.substring(0, t) + "..." : a : "", L = (a) => a ? a >= 500 ? "error" : a >= 400 ? "warn" : "" : "", $ = (a) => {
   if (!a) return "info";
   const t = a.toLowerCase();
   return t === "error" || t === "fatal" ? "error" : t === "warn" || t === "warning" ? "warn" : t === "debug" || t === "trace" ? "debug" : "info";
@@ -681,26 +745,26 @@ const E = `
 function b(a, t, e = 50) {
   switch (a) {
     case "requests":
-      return $(t.requests || []);
+      return z(t.requests || []);
     case "sql":
-      return z(t.sql || [], e);
+      return M(t.sql || [], e);
     case "logs":
-      return M(t.logs || []);
+      return T(t.logs || []);
     case "config":
       return g("Config", t.config || {});
     case "routes":
-      return T(t.routes || []);
+      return H(t.routes || []);
     case "template":
       return g("Template Context", t.template || {});
     case "session":
       return g("Session", t.session || {});
     case "custom":
-      return H(t.custom || {});
+      return A(t.custom || {});
     default:
       return `<div class="empty-state">Panel "${l(a)}" not available</div>`;
   }
 }
-function $(a) {
+function z(a) {
   return a.length ? `
     <table>
       <thead>
@@ -713,21 +777,21 @@ function $(a) {
         </tr>
       </thead>
       <tbody>${a.slice(-50).reverse().map((e) => {
-    const s = (e.method || "get").toLowerCase(), o = q(e.status), r = y(e.duration);
+    const s = (e.method || "get").toLowerCase(), o = L(e.status), r = y(e.duration);
     return `
         <tr>
           <td><span class="badge badge-method ${s}">${l(e.method || "GET")}</span></td>
-          <td class="path" title="${l(e.path || "")}">${l(k(e.path || "", 50))}</td>
+          <td class="path" title="${l(e.path || "")}">${l(S(e.path || "", 50))}</td>
           <td><span class="badge badge-status ${o}">${l(e.status || "-")}</span></td>
           <td class="duration ${r.isSlow ? "slow" : ""}">${r.text}</td>
-          <td class="timestamp">${l(p(e.timestamp))}</td>
+          <td class="timestamp">${l(u(e.timestamp))}</td>
         </tr>
       `;
   }).join("")}</tbody>
     </table>
   ` : '<div class="empty-state">No requests captured</div>';
 }
-function z(a, t) {
+function M(a, t) {
   return a.length ? `
     <table>
       <thead>
@@ -740,21 +804,30 @@ function z(a, t) {
         </tr>
       </thead>
       <tbody>${a.slice(-50).reverse().map((s, o) => {
-    const r = y(s.duration, t), n = ["expandable-row"];
-    r.isSlow && n.push("slow-query"), s.error && n.push("error-query");
-    const d = `sql-row-${o}`, i = C(s.query || "", !0);
+    const r = y(s.duration, t), i = ["expandable-row"];
+    r.isSlow && i.push("slow-query"), s.error && i.push("error-query");
+    const d = `sql-row-${o}`, n = s.query || "", h = E(n, !0);
     return `
-        <tr class="${n.join(" ")}" data-row-id="${d}">
+        <tr class="${i.join(" ")}" data-row-id="${d}">
           <td class="duration ${r.isSlow ? "slow" : ""}">${r.text}</td>
           <td>${l(s.row_count ?? "-")}</td>
-          <td class="timestamp">${l(p(s.timestamp))}</td>
+          <td class="timestamp">${l(u(s.timestamp))}</td>
           <td>${s.error ? '<span class="badge badge-error">Error</span>' : ""}</td>
-          <td class="query-text"><span class="expand-icon">&#9654;</span>${l(s.query || "")}</td>
+          <td class="query-text"><span class="expand-icon">&#9654;</span>${l(n)}</td>
         </tr>
         <tr class="expansion-row" data-expansion-for="${d}">
           <td colspan="5">
-            <div class="expanded-content">
-              <pre>${i}</pre>
+            <div class="expanded-content" data-copy-content="${l(n)}">
+              <div class="expanded-content__header">
+                <button class="copy-btn" data-copy-trigger title="Copy SQL">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <pre>${h}</pre>
             </div>
           </td>
         </tr>
@@ -763,7 +836,7 @@ function z(a, t) {
     </table>
   ` : '<div class="empty-state">No SQL queries captured</div>';
 }
-function M(a) {
+function T(a) {
   return a.length ? `
     <table>
       <thead>
@@ -775,15 +848,15 @@ function M(a) {
       </thead>
       <tbody>${a.slice(-100).reverse().map((e) => `
         <tr>
-          <td><span class="badge badge-level ${L(e.level)}">${l((e.level || "INFO").toUpperCase())}</span></td>
-          <td class="message" title="${l(e.message || "")}">${l(k(e.message || "", 100))}</td>
-          <td class="timestamp">${l(p(e.timestamp))}</td>
+          <td><span class="badge badge-level ${$(e.level)}">${l((e.level || "INFO").toUpperCase())}</span></td>
+          <td class="message" title="${l(e.message || "")}">${l(S(e.message || "", 100))}</td>
+          <td class="timestamp">${l(u(e.timestamp))}</td>
         </tr>
       `).join("")}</tbody>
     </table>
   ` : '<div class="empty-state">No logs captured</div>';
 }
-function T(a) {
+function H(a) {
   return a.length ? `
     <table>
       <thead>
@@ -804,22 +877,45 @@ function T(a) {
   ` : '<div class="empty-state">No routes available</div>';
 }
 function g(a, t) {
-  return Object.keys(t || {}).length ? `
-    <div class="json-viewer">
-      <pre>${v(t, !0)}</pre>
+  if (!Object.keys(t || {}).length)
+    return `<div class="empty-state">No ${a.toLowerCase()} data available</div>`;
+  const s = k(t), o = v(t, !0);
+  return `
+    <div class="json-viewer" data-copy-content="${l(s)}">
+      <div class="json-viewer__header">
+        <span class="json-viewer__title">${l(a)}</span>
+        <button class="copy-btn" data-copy-trigger title="Copy JSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copy
+        </button>
+      </div>
+      <pre>${o}</pre>
     </div>
-  ` : `<div class="empty-state">No ${a.toLowerCase()} data available</div>`;
+  `;
 }
-function H(a) {
+function A(a) {
   const t = a.data || {}, e = a.logs || [];
   if (!Object.keys(t).length && !e.length)
     return '<div class="empty-state">No custom data captured</div>';
   let s = "";
   if (Object.keys(t).length) {
-    const o = v(t, !0);
+    const o = k(t), r = v(t, !0);
     s += `
-      <div class="json-viewer">
-        <pre>${o}</pre>
+      <div class="json-viewer" data-copy-content="${l(o)}">
+        <div class="json-viewer__header">
+          <span class="json-viewer__title">Custom Data</span>
+          <button class="copy-btn" data-copy-trigger title="Copy JSON">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copy
+          </button>
+        </div>
+        <pre>${r}</pre>
       </div>
     `;
   }
@@ -828,7 +924,7 @@ function H(a) {
         <tr>
           <td><span class="badge">${l(r.category || "custom")}</span></td>
           <td class="message">${l(r.message || "")}</td>
-          <td class="timestamp">${l(p(r.timestamp))}</td>
+          <td class="timestamp">${l(u(r.timestamp))}</td>
         </tr>
       `).join("");
     s += `
@@ -846,23 +942,23 @@ function H(a) {
   }
   return s;
 }
-function u(a) {
-  const t = a.requests?.length || 0, e = a.sql?.length || 0, s = a.logs?.length || 0, o = (a.requests || []).filter((i) => (i.status || 0) >= 400).length, r = (a.sql || []).filter((i) => i.error).length, n = (a.logs || []).filter((i) => {
-    const h = (i.level || "").toLowerCase();
+function p(a) {
+  const t = a.requests?.length || 0, e = a.sql?.length || 0, s = a.logs?.length || 0, o = (a.requests || []).filter((n) => (n.status || 0) >= 400).length, r = (a.sql || []).filter((n) => n.error).length, i = (a.logs || []).filter((n) => {
+    const h = (n.level || "").toLowerCase();
     return h === "error" || h === "fatal";
-  }).length, d = (a.sql || []).filter((i) => {
-    const h = Number(i.duration);
+  }).length, d = (a.sql || []).filter((n) => {
+    const h = Number(n.duration);
     return Number.isNaN(h) ? !1 : h / 1e6 >= 50;
   }).length;
   return {
     requests: t,
     sql: e,
     logs: s,
-    errors: o + r + n,
+    errors: o + r + i,
     slowQueries: d
   };
 }
-const m = ["requests", "sql", "logs", "routes", "config"], A = {
+const m = ["requests", "sql", "logs", "routes", "config"], P = {
   template: "Template",
   session: "Session",
   requests: "Requests",
@@ -871,14 +967,14 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
   config: "Config",
   routes: "Routes",
   custom: "Custom"
-}, P = {
+}, j = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, R = {
+}, N = {
   request: "requests",
   sql: "sql",
   log: "logs",
@@ -983,7 +1079,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => P[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => j[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1005,7 +1101,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
       this.applySnapshot(t.payload);
       return;
     }
-    const e = R[t.type] || t.type;
+    const e = N[t.type] || t.type;
     switch (t.type) {
       case "request":
         this.snapshot.requests = this.snapshot.requests || [], this.snapshot.requests.push(t.payload), this.trimArray(this.snapshot.requests, 500);
@@ -1046,18 +1142,18 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
   }
   // Rendering
   render() {
-    const t = u(this.snapshot), e = this.panels.map((d) => {
-      const i = A[d] || d, h = this.getPanelCount(d);
+    const t = p(this.snapshot), e = this.panels.map((d) => {
+      const n = P[d] || d, h = this.getPanelCount(d);
       return `
           <button class="tab ${this.activePanel === d ? "active" : ""}" data-panel="${d}">
-            ${i}
+            ${n}
             <span class="tab-count">${h}</span>
           </button>
         `;
-    }).join(""), s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || c.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
+    }).join(""), s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || c.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${E}</style>
-      <div class="toolbar ${s} ${o}" style="${n}">
+      <style>${q}</style>
+      <div class="toolbar ${s} ${o}" style="${i}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
           <div class="toolbar-header">
@@ -1127,7 +1223,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (t.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners()), this.panels.forEach((e) => {
+      t && (t.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners(), this.attachCopyListeners()), this.panels.forEach((e) => {
         const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         s && (s.textContent = String(this.getPanelCount(e)));
       });
@@ -1135,11 +1231,11 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
     this.useFab || this.updateSummary();
   }
   updateSummary() {
-    const t = u(this.snapshot), e = this.shadow.querySelector(".toolbar-summary");
+    const t = p(this.snapshot), e = this.shadow.querySelector(".toolbar-summary");
     if (!e) return;
     e.querySelectorAll(".summary-item").forEach((o) => {
-      const r = o.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), n = o.querySelector(".count");
-      !n || !r || (r === "requests" ? (n.textContent = String(t.requests), o.classList.toggle("has-errors", t.errors > 0)) : r === "sql" ? (n.textContent = String(t.sql), o.classList.toggle("has-slow", t.slowQueries > 0)) : r === "logs" ? n.textContent = String(t.logs) : r === "errors" && (n.textContent = String(t.errors)));
+      const r = o.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), i = o.querySelector(".count");
+      !i || !r || (r === "requests" ? (i.textContent = String(t.requests), o.classList.toggle("has-errors", t.errors > 0)) : r === "sql" ? (i.textContent = String(t.sql), o.classList.toggle("has-slow", t.slowQueries > 0)) : r === "logs" ? i.textContent = String(t.logs) : r === "errors" && (i.textContent = String(t.errors)));
     });
   }
   updateConnectionStatus() {
@@ -1178,10 +1274,10 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
         if (s && s !== this.activePanel) {
           this.activePanel = s, this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
           const o = this.shadow.getElementById("panel-content");
-          o && (o.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners());
+          o && (o.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs), this.attachExpandableRowListeners(), this.attachCopyListeners());
         }
       });
-    }), this.attachExpandableRowListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
+    }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
       t.addEventListener("click", (e) => {
         const s = e.currentTarget.dataset.action, o = this.getStream();
         switch (s) {
@@ -1205,7 +1301,7 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
         this.expanded || (this.expanded = !0, this.saveState(), this.render(), this.dispatchExpandEvent());
       });
     }
-    this.attachResizeListeners();
+    this.attachResizeListeners(), this.attachCopyListeners();
   }
   attachResizeListeners() {
     const t = this.shadow.querySelector("[data-resize-handle]");
@@ -1221,10 +1317,10 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
     this.isResizing = !0, this.resizeStartY = t;
     const e = this.shadow.querySelector(".toolbar");
     this.resizeStartHeight = e?.offsetHeight || c.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
-    const s = (n) => {
-      this.handleResize(n.clientY);
-    }, o = (n) => {
-      n.touches.length === 1 && this.handleResize(n.touches[0].clientY);
+    const s = (i) => {
+      this.handleResize(i.clientY);
+    }, o = (i) => {
+      i.touches.length === 1 && this.handleResize(i.touches[0].clientY);
     }, r = () => {
       this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", s), document.removeEventListener("mouseup", r), document.removeEventListener("touchmove", o), document.removeEventListener("touchend", r), this.saveState();
     };
@@ -1245,11 +1341,34 @@ const m = ["requests", "sql", "logs", "routes", "config"], A = {
       });
     });
   }
+  attachCopyListeners() {
+    this.shadow.querySelectorAll("[data-copy-trigger]").forEach((t) => {
+      t.addEventListener("click", async (e) => {
+        e.preventDefault(), e.stopPropagation();
+        const s = t.closest("[data-copy-content]");
+        if (!s) return;
+        const o = s.getAttribute("data-copy-content") || "";
+        try {
+          await navigator.clipboard.writeText(o), t.classList.add("copied");
+          const r = t.innerHTML;
+          t.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Copied
+          `, setTimeout(() => {
+            t.classList.remove("copied"), t.innerHTML = r;
+          }, 1500);
+        } catch {
+        }
+      });
+    });
+  }
 };
 c.MIN_HEIGHT = 150, c.MAX_HEIGHT_RATIO = 0.8, c.DEFAULT_HEIGHT = 320;
 let f = c;
 customElements.get("debug-toolbar") || customElements.define("debug-toolbar", f);
-const I = `
+const R = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1479,7 +1598,7 @@ const I = `
       font-size: 8px;
     }
   }
-`, N = {
+`, I = {
   template: "template",
   session: "session",
   requests: "request",
@@ -1487,7 +1606,7 @@ const I = `
   logs: "log",
   custom: "custom"
 }, x = ["requests", "sql", "logs", "routes", "config"];
-class j extends HTMLElement {
+class D extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1548,7 +1667,7 @@ class j extends HTMLElement {
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => N[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => I[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1619,9 +1738,9 @@ class j extends HTMLElement {
   }
   // Rendering
   render() {
-    const t = u(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
+    const t = p(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${I}</style>
+      <style>${R}</style>
       <div class="fab ${o}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
@@ -1655,25 +1774,25 @@ class j extends HTMLElement {
     `, this.attachEventListeners();
   }
   updateCounters() {
-    const t = u(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.shadow.querySelector(".fab-counter:nth-child(1)");
+    const t = p(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, o = this.shadow.querySelector(".fab-counter:nth-child(1)");
     if (o) {
-      const i = o.querySelector(".counter-value");
-      i && (i.textContent = String(t.requests)), o.classList.toggle("has-items", t.requests > 0);
+      const n = o.querySelector(".counter-value");
+      n && (n.textContent = String(t.requests)), o.classList.toggle("has-items", t.requests > 0);
     }
     const r = this.shadow.querySelector(".fab-counter:nth-child(2)");
     if (r) {
-      const i = r.querySelector(".counter-value");
-      i && (i.textContent = String(t.sql)), r.classList.toggle("has-items", t.sql > 0), r.classList.toggle("has-slow", s);
+      const n = r.querySelector(".counter-value");
+      n && (n.textContent = String(t.sql)), r.classList.toggle("has-items", t.sql > 0), r.classList.toggle("has-slow", s);
     }
-    const n = this.shadow.querySelector(".fab-counter:nth-child(3)");
-    if (n) {
-      const i = n.querySelector(".counter-value");
-      i && (i.textContent = String(t.logs)), n.classList.toggle("has-items", t.logs > 0), n.classList.toggle("has-errors", e);
+    const i = this.shadow.querySelector(".fab-counter:nth-child(3)");
+    if (i) {
+      const n = i.querySelector(".counter-value");
+      n && (n.textContent = String(t.logs)), i.classList.toggle("has-items", t.logs > 0), i.classList.toggle("has-errors", e);
     }
     const d = this.shadow.querySelector(".fab-counter:nth-child(4)");
     if (e && d) {
-      const i = d.querySelector(".counter-value");
-      i && (i.textContent = String(t.errors));
+      const n = d.querySelector(".counter-value");
+      n && (n.textContent = String(t.errors));
     }
   }
   updateConnectionStatus() {
@@ -1695,8 +1814,8 @@ class j extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", j);
-class S {
+customElements.get("debug-fab") || customElements.define("debug-fab", D);
+class C {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
       debugPath: "/admin/debug",
@@ -1761,7 +1880,7 @@ class S {
     }));
   }
 }
-function D() {
+function O() {
   const a = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (a ? e = {
@@ -1774,17 +1893,17 @@ function D() {
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
   }), !e.debugPath && !a && !t)
     return null;
-  const s = new S(e);
+  const s = new C(e);
   return s.init(), s;
 }
-window.DebugManager = S;
-window.initDebugManager = D;
+window.DebugManager = C;
+window.initDebugManager = O;
 export {
-  j as DebugFab,
-  S as DebugManager,
+  D as DebugFab,
+  C as DebugManager,
   f as DebugToolbar,
-  u as getCounts,
-  D as initDebugManager,
+  p as getCounts,
+  O as initDebugManager,
   b as renderPanel
 };
 //# sourceMappingURL=toolbar.js.map

@@ -430,6 +430,7 @@ export class DebugToolbar extends HTMLElement {
       if (container) {
         container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs);
         this.attachExpandableRowListeners();
+        this.attachCopyListeners();
       }
       // Update tab counts
       this.panels.forEach((panel) => {
@@ -528,6 +529,7 @@ export class DebugToolbar extends HTMLElement {
           if (container) {
             container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs);
             this.attachExpandableRowListeners();
+            this.attachCopyListeners();
           }
         }
       });
@@ -535,6 +537,7 @@ export class DebugToolbar extends HTMLElement {
 
     // Attach expandable row listeners for initial render
     this.attachExpandableRowListeners();
+    this.attachCopyListeners();
 
     // Action buttons
     this.shadow.querySelectorAll('[data-action]').forEach((btn) => {
@@ -577,6 +580,9 @@ export class DebugToolbar extends HTMLElement {
 
     // Resize handle
     this.attachResizeListeners();
+
+    // Copy buttons
+    this.attachCopyListeners();
   }
 
   private attachResizeListeners(): void {
@@ -661,6 +667,37 @@ export class DebugToolbar extends HTMLElement {
 
         const rowEl = e.currentTarget as HTMLElement;
         rowEl.classList.toggle('expanded');
+      });
+    });
+  }
+
+  private attachCopyListeners(): void {
+    this.shadow.querySelectorAll<HTMLButtonElement>('[data-copy-trigger]').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const container = btn.closest('[data-copy-content]');
+        if (!container) return;
+
+        const content = container.getAttribute('data-copy-content') || '';
+        try {
+          await navigator.clipboard.writeText(content);
+          btn.classList.add('copied');
+          const originalText = btn.innerHTML;
+          btn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Copied
+          `;
+          setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = originalText;
+          }, 1500);
+        } catch {
+          // Fallback or silent fail
+        }
       });
     });
   }
