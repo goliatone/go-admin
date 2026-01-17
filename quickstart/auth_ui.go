@@ -19,19 +19,19 @@ type AuthUIViewContextBuilder func(ctx router.ViewContext, c router.Context) rou
 type AuthUIOption func(*authUIOptions)
 
 type authUIOptions struct {
-	basePath             string
-	loginPath            string
-	logoutPath           string
-	passwordResetPath    string
-	loginRedirectPath    string
-	logoutRedirectPath   string
-	loginTemplate        string
+	basePath              string
+	loginPath             string
+	logoutPath            string
+	passwordResetPath     string
+	loginRedirectPath     string
+	logoutRedirectPath    string
+	loginTemplate         string
 	passwordResetTemplate string
-	loginTitle           string
-	passwordResetTitle   string
-	cookie               router.Cookie
-	passwordResetEnabled func(admin.Config) bool
-	viewContext          AuthUIViewContextBuilder
+	loginTitle            string
+	passwordResetTitle    string
+	cookie                router.Cookie
+	passwordResetEnabled  func(admin.Config) bool
+	viewContext           AuthUIViewContextBuilder
 }
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
@@ -155,11 +155,11 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 	}
 
 	options := authUIOptions{
-		basePath:             strings.TrimSpace(cfg.BasePath),
-		loginTemplate:        "login",
+		basePath:              strings.TrimSpace(cfg.BasePath),
+		loginTemplate:         "login",
 		passwordResetTemplate: "password_reset",
-		loginTitle:           strings.TrimSpace(cfg.Title),
-		passwordResetTitle:   strings.TrimSpace(cfg.Title),
+		loginTitle:            strings.TrimSpace(cfg.Title),
+		passwordResetTitle:    strings.TrimSpace(cfg.Title),
 		cookie: router.Cookie{
 			Path:     "/",
 			HTTPOnly: true,
