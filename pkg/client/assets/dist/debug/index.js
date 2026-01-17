@@ -1,4 +1,4 @@
-import { D as j, h as O, a as S } from "../chunks/syntax-highlight-Q2MTgRi9.js";
+import { D as j, h as O, a as S } from "../chunks/syntax-highlight-BeUtGWoX.js";
 import { DebugReplPanel as M } from "./repl.js";
 const A = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], k = /* @__PURE__ */ new Set(["shell", "console"]), $ = /* @__PURE__ */ new Set([...A, ...k]), C = {
   template: "Template",

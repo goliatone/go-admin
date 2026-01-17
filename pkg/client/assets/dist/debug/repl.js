@@ -6001,7 +6001,7 @@ const ye = `/**
 })();
 class Ae {
   constructor(T) {
-    this.socket = null, this.status = "disconnected", this.reconnectAttempts = 0, this.reconnectTimer = null, this.manualClose = !1, this.resizeObserver = null, this.lineBuffer = "", this.skipEscape = !1, this.prompt = ">>> ", this.awaitingPrompt = !0, this.options = T, Re(), this.terminal = new Ce.Terminal({
+    this.socket = null, this.status = "disconnected", this.reconnectAttempts = 0, this.reconnectTimer = null, this.manualClose = !1, this.resetOnOpen = !1, this.resizeObserver = null, this.lineBuffer = "", this.skipEscape = !1, this.prompt = ">>> ", this.awaitingPrompt = !0, this.options = T, Re(), this.terminal = new Ce.Terminal({
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       fontSize: 12,
       lineHeight: 1.3,
@@ -6022,7 +6022,7 @@ class Ae {
     this.manualClose = !1, this.setStatus("connecting");
     const T = De(this.options.debugPath, this.options.kind);
     this.socket = new WebSocket(T), this.socket.onopen = () => {
-      this.reconnectAttempts = 0, this.setStatus("connected"), this.awaitingPrompt = !0, this.options.kind === "console" && this.writePrompt(), this.sendResize();
+      this.reconnectAttempts = 0, this.resetOnOpen && (this.resetOnOpen = !1, this.resetTerminal()), this.setStatus("connected"), this.awaitingPrompt = !0, this.options.kind === "console" && this.writePrompt(), this.sendResize();
     }, this.socket.onmessage = ($) => {
       !$ || typeof $.data != "string" || this.handleMessage($.data);
     }, this.socket.onclose = () => {
@@ -6036,7 +6036,7 @@ class Ae {
     };
   }
   reconnect() {
-    this.manualClose = !0, this.socket && this.socket.close(), this.manualClose = !1, this.reconnectAttempts = 0, this.connect();
+    this.resetOnOpen = !0, this.manualClose = !0, this.socket && this.socket.close(), this.manualClose = !1, this.reconnectAttempts = 0, this.connect();
   }
   disconnect() {
     this.manualClose = !0, this.reconnectTimer !== null && (window.clearTimeout(this.reconnectTimer), this.reconnectTimer = null), this.socket && this.socket.close();
@@ -6190,9 +6190,12 @@ class Ae {
       return;
     }
     const T = this.reconnectAttempts, $ = Math.min(we * Math.pow(2, T), Ee), j = $ * (0.2 + Math.random() * 0.3);
-    this.reconnectAttempts += 1, this.reconnectTimer = window.setTimeout(() => {
+    this.reconnectAttempts += 1, this.resetOnOpen = !0, this.reconnectTimer = window.setTimeout(() => {
       this.connect();
     }, $ + j);
+  }
+  resetTerminal() {
+    this.lineBuffer = "", this.skipEscape = !1, this.awaitingPrompt = !0, this.terminal.reset();
   }
   observeResize(T) {
     !T || typeof ResizeObserver > "u" || (this.resizeObserver = new ResizeObserver(() => {
