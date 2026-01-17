@@ -76,8 +76,8 @@ type DebugSnapshot = {
 };
 
 type PanelFilters = {
-  requests: { method: string; status: string; search: string };
-  sql: { search: string; slowOnly: boolean; errorOnly: boolean };
+  requests: { method: string; status: string; search: string; newestFirst: boolean };
+  sql: { search: string; slowOnly: boolean; errorOnly: boolean; newestFirst: boolean };
   logs: { level: string; search: string; autoScroll: boolean; newestFirst: boolean };
   routes: { method: string; search: string };
   custom: { search: string };
@@ -409,8 +409,8 @@ export class DebugPanel {
     };
 
     this.filters = {
-      requests: { method: 'all', status: 'all', search: '' },
-      sql: { search: '', slowOnly: false, errorOnly: false },
+      requests: { method: 'all', status: 'all', search: '', newestFirst: true },
+      sql: { search: '', slowOnly: false, errorOnly: false, newestFirst: true },
       logs: { level: 'all', search: '', autoScroll: true, newestFirst: true },
       routes: { method: 'all', search: '' },
       custom: { search: '' },
@@ -546,6 +546,10 @@ export class DebugPanel {
           <label>Search</label>
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="/admin/users" />
         </div>
+        <label class="debug-btn">
+          <input type="checkbox" data-filter="newestFirst" ${values.newestFirst ? 'checked' : ''} />
+          <span>Newest first</span>
+        </label>
       `;
     } else if (panel === 'sql') {
       const values = this.filters.sql;
@@ -561,6 +565,10 @@ export class DebugPanel {
         <label class="debug-btn">
           <input type="checkbox" data-filter="errorOnly" ${values.errorOnly ? 'checked' : ''} />
           <span>Errors</span>
+        </label>
+        <label class="debug-btn">
+          <input type="checkbox" data-filter="newestFirst" ${values.newestFirst ? 'checked' : ''} />
+          <span>Newest first</span>
         </label>
       `;
     } else if (panel === 'logs') {
@@ -628,8 +636,10 @@ export class DebugPanel {
       const next = { ...this.filters.requests };
       inputs.forEach((input) => {
         const key = input.dataset.filter || '';
-        if (key && key in next) {
-          next[key as keyof typeof next] = (input as HTMLInputElement).value;
+        if (key === 'newestFirst') {
+          next[key] = (input as HTMLInputElement).checked;
+        } else if (key && key in next) {
+          next[key as 'method' | 'status' | 'search'] = (input as HTMLInputElement).value;
         }
       });
       this.filters.requests = next;
@@ -637,7 +647,7 @@ export class DebugPanel {
       const next = { ...this.filters.sql };
       inputs.forEach((input) => {
         const key = input.dataset.filter || '';
-        if (key === 'slowOnly' || key === 'errorOnly') {
+        if (key === 'slowOnly' || key === 'errorOnly' || key === 'newestFirst') {
           next[key] = (input as HTMLInputElement).checked;
         } else if (key === 'search') {
           next[key] = (input as HTMLInputElement).value;
@@ -758,9 +768,9 @@ export class DebugPanel {
   }
 
   private renderRequests(): string {
-    const { method, status, search } = this.filters.requests;
+    const { method, status, search, newestFirst } = this.filters.requests;
     const needle = search.toLowerCase();
-    const entries = this.state.requests.filter((entry) => {
+    let entries = this.state.requests.filter((entry) => {
       if (method !== 'all' && (entry.method || '').toUpperCase() !== method) {
         return false;
       }
@@ -775,6 +785,10 @@ export class DebugPanel {
 
     if (entries.length === 0) {
       return this.renderEmptyState('No requests captured yet.');
+    }
+
+    if (newestFirst) {
+      entries = [...entries].reverse();
     }
 
     const rows = entries
@@ -815,9 +829,9 @@ export class DebugPanel {
   }
 
   private renderSQL(): string {
-    const { search, slowOnly, errorOnly } = this.filters.sql;
+    const { search, slowOnly, errorOnly, newestFirst } = this.filters.sql;
     const needle = search.toLowerCase();
-    const entries = this.state.sql.filter((entry) => {
+    let entries = this.state.sql.filter((entry) => {
       if (errorOnly && !entry.error) {
         return false;
       }
@@ -832,6 +846,10 @@ export class DebugPanel {
 
     if (entries.length === 0) {
       return this.renderEmptyState('No SQL queries captured yet.');
+    }
+
+    if (newestFirst) {
+      entries = [...entries].reverse();
     }
 
     const rows = entries
