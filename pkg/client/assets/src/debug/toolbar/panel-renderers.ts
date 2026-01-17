@@ -224,18 +224,28 @@ function renderSQL(queries: SQLEntry[], slowThresholdMs: number): string {
       if (duration.isSlow) rowClasses.push('slow-query');
       if (q.error) rowClasses.push('error-query');
       const rowId = `sql-row-${index}`;
-      const highlightedSQL = highlightSQL(q.query || '', true);
+      const rawQuery = q.query || '';
+      const highlightedSQL = highlightSQL(rawQuery, true);
       return `
         <tr class="${rowClasses.join(' ')}" data-row-id="${rowId}">
           <td class="duration ${duration.isSlow ? 'slow' : ''}">${duration.text}</td>
           <td>${escapeHTML(q.row_count ?? '-')}</td>
           <td class="timestamp">${escapeHTML(formatTimestamp(q.timestamp))}</td>
           <td>${q.error ? '<span class="badge badge-error">Error</span>' : ''}</td>
-          <td class="query-text"><span class="expand-icon">&#9654;</span>${escapeHTML(q.query || '')}</td>
+          <td class="query-text"><span class="expand-icon">&#9654;</span>${escapeHTML(rawQuery)}</td>
         </tr>
         <tr class="expansion-row" data-expansion-for="${rowId}">
           <td colspan="5">
-            <div class="expanded-content">
+            <div class="expanded-content" data-copy-content="${escapeHTML(rawQuery)}">
+              <div class="expanded-content__header">
+                <button class="copy-btn" data-copy-trigger title="Copy SQL">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
               <pre>${highlightedSQL}</pre>
             </div>
           </td>
@@ -332,9 +342,20 @@ function renderJSON(title: string, data: Record<string, unknown>): string {
     return `<div class="empty-state">No ${title.toLowerCase()} data available</div>`;
   }
 
+  const rawJSON = formatJSON(data);
   const highlighted = highlightJSON(data, true);
   return `
-    <div class="json-viewer">
+    <div class="json-viewer" data-copy-content="${escapeHTML(rawJSON)}">
+      <div class="json-viewer__header">
+        <span class="json-viewer__title">${escapeHTML(title)}</span>
+        <button class="copy-btn" data-copy-trigger title="Copy JSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copy
+        </button>
+      </div>
       <pre>${highlighted}</pre>
     </div>
   `;
@@ -351,9 +372,20 @@ function renderCustom(custom: CustomSnapshot): string {
   let content = '';
 
   if (Object.keys(data).length) {
+    const rawJSON = formatJSON(data);
     const highlighted = highlightJSON(data, true);
     content += `
-      <div class="json-viewer">
+      <div class="json-viewer" data-copy-content="${escapeHTML(rawJSON)}">
+        <div class="json-viewer__header">
+          <span class="json-viewer__title">Custom Data</span>
+          <button class="copy-btn" data-copy-trigger title="Copy JSON">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copy
+          </button>
+        </div>
         <pre>${highlighted}</pre>
       </div>
     `;

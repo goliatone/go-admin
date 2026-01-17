@@ -56,5 +56,6 @@ export declare class DebugToolbar extends HTMLElement {
     private startResize;
     private handleResize;
     private attachExpandableRowListeners;
+    private attachCopyListeners;
 }
 //# sourceMappingURL=debug-toolbar.d.ts.map

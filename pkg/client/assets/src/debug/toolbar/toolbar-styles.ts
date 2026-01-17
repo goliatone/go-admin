@@ -456,11 +456,62 @@ export const toolbarStyles = `
     margin-top: 8px;
     overflow: auto;
     max-height: 100%;
+    position: relative;
   }
 
   .json-viewer pre {
     font-size: 11px;
     line-height: 1.5;
+  }
+
+  .json-viewer__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--toolbar-border);
+  }
+
+  .json-viewer__title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--toolbar-text-muted);
+  }
+
+  /* Copy button */
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: 1px solid var(--toolbar-border);
+    color: var(--toolbar-text-muted);
+    padding: 3px 8px;
+    font-size: 10px;
+    font-family: inherit;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .copy-btn:hover {
+    background: rgba(137, 180, 250, 0.1);
+    border-color: var(--toolbar-accent);
+    color: var(--toolbar-text);
+  }
+
+  .copy-btn.copied {
+    background: rgba(166, 227, 161, 0.15);
+    border-color: var(--toolbar-success);
+    color: var(--toolbar-success);
+  }
+
+  .copy-btn svg {
+    width: 12px;
+    height: 12px;
   }
 
   /* Duration formatting */
@@ -620,6 +671,12 @@ export const toolbarStyles = `
     margin: 4px 8px 8px 8px;
     padding: 12px;
     overflow-x: auto;
+  }
+
+  .expanded-content__header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 8px;
   }
 
   .expanded-content pre {
