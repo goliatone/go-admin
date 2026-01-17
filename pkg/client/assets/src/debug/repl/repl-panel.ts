@@ -32,6 +32,8 @@ const replStatusLabels: Record<DebugReplStatus, string> = {
   error: 'error',
 };
 
+const replConnectMessage = 'Connect to start session...';
+
 const escapeHTML = (value: any): string => {
   const str = String(value ?? '');
   return str
@@ -48,10 +50,12 @@ export class DebugReplPanel {
   private statusEl: HTMLElement;
   private statusTextEl: HTMLElement;
   private terminalEl: HTMLElement;
+  private overlayEl: HTMLElement;
   private actionsEl: HTMLElement;
   private terminal: DebugReplTerminal;
   private commands: DebugReplCommand[];
   private commandsEl: HTMLElement | null = null;
+  private connectButton: HTMLButtonElement | null = null;
 
   constructor(options: DebugReplPanelOptions) {
     this.options = options;
@@ -77,7 +81,9 @@ export class DebugReplPanel {
         </div>
       </div>
       <div class="debug-repl__body">
-        <div class="debug-repl__terminal" data-repl-terminal></div>
+        <div class="debug-repl__terminal" data-repl-terminal>
+          <div class="debug-repl__overlay" data-repl-overlay>${replConnectMessage}</div>
+        </div>
         ${commandsMarkup}
       </div>
       <div class="debug-repl__footer">
@@ -88,18 +94,22 @@ export class DebugReplPanel {
     this.statusEl = this.requireElement('[data-repl-status]', this.root);
     this.statusTextEl = this.requireElement('[data-repl-status-text]', this.root);
     this.terminalEl = this.requireElement('[data-repl-terminal]', this.root);
+    this.overlayEl = this.requireElement('[data-repl-overlay]', this.root);
     this.actionsEl = this.requireElement('.debug-repl__actions', this.root);
     this.commandsEl = this.root.querySelector('[data-repl-commands]');
+    this.connectButton = this.actionsEl.querySelector<HTMLButtonElement>('[data-repl-action="reconnect"]');
 
     this.terminal = new DebugReplTerminal({
       kind: options.kind,
       debugPath: options.debugPath,
       container: this.terminalEl,
+      autoConnect: false,
       onStatusChange: (status) => this.updateStatus(status),
     });
 
     this.bindActions();
     this.bindCommandActions();
+    this.updateStatus('disconnected');
   }
 
   attach(container: HTMLElement): void {
@@ -165,6 +175,12 @@ export class DebugReplPanel {
     const label = replStatusLabels[status] || status;
     this.statusEl.dataset.replStatus = status;
     this.statusTextEl.textContent = label;
+    const showOverlay = status === 'disconnected' || status === 'error';
+    this.overlayEl.hidden = !showOverlay;
+    if (this.connectButton) {
+      const actionLabel = showOverlay ? 'Connect' : 'Reconnect';
+      this.connectButton.innerHTML = `<i class="iconoir-refresh"></i> ${actionLabel}`;
+    }
   }
 
   private renderCommands(): string {

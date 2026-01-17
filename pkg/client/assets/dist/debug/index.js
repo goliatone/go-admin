@@ -1,6 +1,6 @@
-import { D as K, h as X, a as D } from "../chunks/syntax-highlight-BeUtGWoX.js";
-import { DebugReplPanel as z } from "./repl.js";
-class Y {
+import { D as F, e as m, a as Q, b as H, r as K, c as O, d as X, f as z, g as Y, h as G, i as V, j as Z, k as S, l as _, m as P, n as W } from "../chunks/custom-DPYDzVjT.js";
+import { DebugReplPanel as J } from "./repl.js";
+class ee {
   /**
    * @callback HookCallback
    * @this {*|Jsep} this
@@ -19,13 +19,13 @@ class Y {
    * @param {?boolean} [first=false] Will add the hook to the top of the list (defaults to the bottom)
    * @public
    */
-  add(t, e, s) {
+  add(e, t, r) {
     if (typeof arguments[0] != "string")
-      for (let i in arguments[0])
-        this.add(i, arguments[0][i], arguments[1]);
+      for (let s in arguments[0])
+        this.add(s, arguments[0][s], arguments[1]);
     else
-      (Array.isArray(t) ? t : [t]).forEach(function(i) {
-        this[i] = this[i] || [], e && this[i][s ? "unshift" : "push"](e);
+      (Array.isArray(e) ? e : [e]).forEach(function(s) {
+        this[s] = this[s] || [], t && this[s][r ? "unshift" : "push"](t);
       }, this);
   }
   /**
@@ -37,15 +37,15 @@ class Y {
    * @param {Object<string, any>} env The environment variables of the hook passed to all callbacks registered.
    * @public
    */
-  run(t, e) {
-    this[t] = this[t] || [], this[t].forEach(function(s) {
-      s.call(e && e.context ? e.context : e, e);
+  run(e, t) {
+    this[e] = this[e] || [], this[e].forEach(function(r) {
+      r.call(t && t.context ? t.context : t, t);
     });
   }
 }
-class G {
-  constructor(t) {
-    this.jsep = t, this.registered = {};
+class te {
+  constructor(e) {
+    this.jsep = e, this.registered = {};
   }
   /**
    * @callback PluginSetup
@@ -61,12 +61,12 @@ class G {
    * @public
    */
   register() {
-    for (var t = arguments.length, e = new Array(t), s = 0; s < t; s++)
-      e[s] = arguments[s];
-    e.forEach((i) => {
-      if (typeof i != "object" || !i.name || !i.init)
+    for (var e = arguments.length, t = new Array(e), r = 0; r < e; r++)
+      t[r] = arguments[r];
+    t.forEach((s) => {
+      if (typeof s != "object" || !s.name || !s.init)
         throw new Error("Invalid JSEP plugin format");
-      this.registered[i.name] || (i.init(this.jsep), this.registered[i.name] = i);
+      this.registered[s.name] || (s.init(this.jsep), this.registered[s.name] = s);
     });
   }
 }
@@ -89,8 +89,8 @@ class a {
    * @param {string} op_name The name of the unary op to add
    * @returns {Jsep}
    */
-  static addUnaryOp(t) {
-    return a.max_unop_len = Math.max(t.length, a.max_unop_len), a.unary_ops[t] = 1, a;
+  static addUnaryOp(e) {
+    return a.max_unop_len = Math.max(e.length, a.max_unop_len), a.unary_ops[e] = 1, a;
   }
   /**
    * @method jsep.addBinaryOp
@@ -99,16 +99,16 @@ class a {
    * @param {boolean} [isRightAssociative=false] whether operator is right-associative
    * @returns {Jsep}
    */
-  static addBinaryOp(t, e, s) {
-    return a.max_binop_len = Math.max(t.length, a.max_binop_len), a.binary_ops[t] = e, s ? a.right_associative.add(t) : a.right_associative.delete(t), a;
+  static addBinaryOp(e, t, r) {
+    return a.max_binop_len = Math.max(e.length, a.max_binop_len), a.binary_ops[e] = t, r ? a.right_associative.add(e) : a.right_associative.delete(e), a;
   }
   /**
    * @method addIdentifierChar
    * @param {string} char The additional character to treat as a valid part of an identifier
    * @returns {Jsep}
    */
-  static addIdentifierChar(t) {
-    return a.additional_identifier_chars.add(t), a;
+  static addIdentifierChar(e) {
+    return a.additional_identifier_chars.add(e), a;
   }
   /**
    * @method addLiteral
@@ -116,16 +116,16 @@ class a {
    * @param {*} literal_value The value of the literal
    * @returns {Jsep}
    */
-  static addLiteral(t, e) {
-    return a.literals[t] = e, a;
+  static addLiteral(e, t) {
+    return a.literals[e] = t, a;
   }
   /**
    * @method removeUnaryOp
    * @param {string} op_name The name of the unary op to remove
    * @returns {Jsep}
    */
-  static removeUnaryOp(t) {
-    return delete a.unary_ops[t], t.length === a.max_unop_len && (a.max_unop_len = a.getMaxKeyLen(a.unary_ops)), a;
+  static removeUnaryOp(e) {
+    return delete a.unary_ops[e], e.length === a.max_unop_len && (a.max_unop_len = a.getMaxKeyLen(a.unary_ops)), a;
   }
   /**
    * @method removeAllUnaryOps
@@ -139,16 +139,16 @@ class a {
    * @param {string} char The additional character to stop treating as a valid part of an identifier
    * @returns {Jsep}
    */
-  static removeIdentifierChar(t) {
-    return a.additional_identifier_chars.delete(t), a;
+  static removeIdentifierChar(e) {
+    return a.additional_identifier_chars.delete(e), a;
   }
   /**
    * @method removeBinaryOp
    * @param {string} op_name The name of the binary op to remove
    * @returns {Jsep}
    */
-  static removeBinaryOp(t) {
-    return delete a.binary_ops[t], t.length === a.max_binop_len && (a.max_binop_len = a.getMaxKeyLen(a.binary_ops)), a.right_associative.delete(t), a;
+  static removeBinaryOp(e) {
+    return delete a.binary_ops[e], e.length === a.max_binop_len && (a.max_binop_len = a.getMaxKeyLen(a.binary_ops)), a.right_associative.delete(e), a;
   }
   /**
    * @method removeAllBinaryOps
@@ -162,8 +162,8 @@ class a {
    * @param {string} literal_name The name of the literal to remove
    * @returns {Jsep}
    */
-  static removeLiteral(t) {
-    return delete a.literals[t], a;
+  static removeLiteral(e) {
+    return delete a.literals[e], a;
   }
   /**
    * @method removeAllLiterals
@@ -189,66 +189,66 @@ class a {
    * @param {string} expr a string with the passed in express
    * @returns Jsep
    */
-  constructor(t) {
-    this.expr = t, this.index = 0;
+  constructor(e) {
+    this.expr = e, this.index = 0;
   }
   /**
    * static top-level parser
    * @returns {jsep.Expression}
    */
-  static parse(t) {
-    return new a(t).parse();
+  static parse(e) {
+    return new a(e).parse();
   }
   /**
    * Get the longest key length of any object
    * @param {object} obj
    * @returns {number}
    */
-  static getMaxKeyLen(t) {
-    return Math.max(0, ...Object.keys(t).map((e) => e.length));
+  static getMaxKeyLen(e) {
+    return Math.max(0, ...Object.keys(e).map((t) => t.length));
   }
   /**
    * `ch` is a character code in the next three functions
    * @param {number} ch
    * @returns {boolean}
    */
-  static isDecimalDigit(t) {
-    return t >= 48 && t <= 57;
+  static isDecimalDigit(e) {
+    return e >= 48 && e <= 57;
   }
   /**
    * Returns the precedence of a binary operator or `0` if it isn't a binary operator. Can be float.
    * @param {string} op_val
    * @returns {number}
    */
-  static binaryPrecedence(t) {
-    return a.binary_ops[t] || 0;
+  static binaryPrecedence(e) {
+    return a.binary_ops[e] || 0;
   }
   /**
    * Looks for start of identifier
    * @param {number} ch
    * @returns {boolean}
    */
-  static isIdentifierStart(t) {
-    return t >= 65 && t <= 90 || // A...Z
-    t >= 97 && t <= 122 || // a...z
-    t >= 128 && !a.binary_ops[String.fromCharCode(t)] || // any non-ASCII that is not an operator
-    a.additional_identifier_chars.has(String.fromCharCode(t));
+  static isIdentifierStart(e) {
+    return e >= 65 && e <= 90 || // A...Z
+    e >= 97 && e <= 122 || // a...z
+    e >= 128 && !a.binary_ops[String.fromCharCode(e)] || // any non-ASCII that is not an operator
+    a.additional_identifier_chars.has(String.fromCharCode(e));
   }
   /**
    * @param {number} ch
    * @returns {boolean}
    */
-  static isIdentifierPart(t) {
-    return a.isIdentifierStart(t) || a.isDecimalDigit(t);
+  static isIdentifierPart(e) {
+    return a.isIdentifierStart(e) || a.isDecimalDigit(e);
   }
   /**
    * throw error at index of the expression
    * @param {string} message
    * @throws
    */
-  throwError(t) {
-    const e = new Error(t + " at character " + this.index);
-    throw e.index = this.index, e.description = t, e;
+  throwError(e) {
+    const t = new Error(e + " at character " + this.index);
+    throw t.index = this.index, t.description = e, t;
   }
   /**
    * Run a given hook
@@ -256,38 +256,38 @@ class a {
    * @param {jsep.Expression|false} [node]
    * @returns {?jsep.Expression}
    */
-  runHook(t, e) {
-    if (a.hooks[t]) {
-      const s = {
+  runHook(e, t) {
+    if (a.hooks[e]) {
+      const r = {
         context: this,
-        node: e
+        node: t
       };
-      return a.hooks.run(t, s), s.node;
+      return a.hooks.run(e, r), r.node;
     }
-    return e;
+    return t;
   }
   /**
    * Runs a given hook until one returns a node
    * @param {string} name
    * @returns {?jsep.Expression}
    */
-  searchHook(t) {
-    if (a.hooks[t]) {
-      const e = {
+  searchHook(e) {
+    if (a.hooks[e]) {
+      const t = {
         context: this
       };
-      return a.hooks[t].find(function(s) {
-        return s.call(e.context, e), e.node;
-      }), e.node;
+      return a.hooks[e].find(function(r) {
+        return r.call(t.context, t), t.node;
+      }), t.node;
     }
   }
   /**
    * Push `index` up to the next non-space character
    */
   gobbleSpaces() {
-    let t = this.code;
-    for (; t === a.SPACE_CODE || t === a.TAB_CODE || t === a.LF_CODE || t === a.CR_CODE; )
-      t = this.expr.charCodeAt(++this.index);
+    let e = this.code;
+    for (; e === a.SPACE_CODE || e === a.TAB_CODE || e === a.LF_CODE || e === a.CR_CODE; )
+      e = this.expr.charCodeAt(++this.index);
     this.runHook("gobble-spaces");
   }
   /**
@@ -296,38 +296,38 @@ class a {
    */
   parse() {
     this.runHook("before-all");
-    const t = this.gobbleExpressions(), e = t.length === 1 ? t[0] : {
+    const e = this.gobbleExpressions(), t = e.length === 1 ? e[0] : {
       type: a.COMPOUND,
-      body: t
+      body: e
     };
-    return this.runHook("after-all", e);
+    return this.runHook("after-all", t);
   }
   /**
    * top-level parser (but can be reused within as well)
    * @param {number} [untilICode]
    * @returns {jsep.Expression[]}
    */
-  gobbleExpressions(t) {
-    let e = [], s, i;
+  gobbleExpressions(e) {
+    let t = [], r, s;
     for (; this.index < this.expr.length; )
-      if (s = this.code, s === a.SEMCOL_CODE || s === a.COMMA_CODE)
+      if (r = this.code, r === a.SEMCOL_CODE || r === a.COMMA_CODE)
         this.index++;
-      else if (i = this.gobbleExpression())
-        e.push(i);
+      else if (s = this.gobbleExpression())
+        t.push(s);
       else if (this.index < this.expr.length) {
-        if (s === t)
+        if (r === e)
           break;
         this.throwError('Unexpected "' + this.char + '"');
       }
-    return e;
+    return t;
   }
   /**
    * The main parsing function.
    * @returns {?jsep.Expression}
    */
   gobbleExpression() {
-    const t = this.searchHook("gobble-expression") || this.gobbleBinaryExpression();
-    return this.gobbleSpaces(), this.runHook("after-expression", t);
+    const e = this.searchHook("gobble-expression") || this.gobbleBinaryExpression();
+    return this.gobbleSpaces(), this.runHook("after-expression", e);
   }
   /**
    * Search for the operation portion of the string (e.g. `+`, `===`)
@@ -338,11 +338,11 @@ class a {
    */
   gobbleBinaryOp() {
     this.gobbleSpaces();
-    let t = this.expr.substr(this.index, a.max_binop_len), e = t.length;
-    for (; e > 0; ) {
-      if (a.binary_ops.hasOwnProperty(t) && (!a.isIdentifierStart(this.code) || this.index + t.length < this.expr.length && !a.isIdentifierPart(this.expr.charCodeAt(this.index + t.length))))
-        return this.index += e, t;
-      t = t.substr(0, --e);
+    let e = this.expr.substr(this.index, a.max_binop_len), t = e.length;
+    for (; t > 0; ) {
+      if (a.binary_ops.hasOwnProperty(e) && (!a.isIdentifierStart(this.code) || this.index + e.length < this.expr.length && !a.isIdentifierPart(this.expr.charCodeAt(this.index + e.length))))
+        return this.index += t, e;
+      e = e.substr(0, --t);
     }
     return !1;
   }
@@ -352,41 +352,41 @@ class a {
    * @returns {?jsep.BinaryExpression}
    */
   gobbleBinaryExpression() {
-    let t, e, s, i, n, o, h, l, c;
-    if (o = this.gobbleToken(), !o || (e = this.gobbleBinaryOp(), !e))
+    let e, t, r, s, n, o, h, c, l;
+    if (o = this.gobbleToken(), !o || (t = this.gobbleBinaryOp(), !t))
       return o;
     for (n = {
-      value: e,
-      prec: a.binaryPrecedence(e),
-      right_a: a.right_associative.has(e)
-    }, h = this.gobbleToken(), h || this.throwError("Expected expression after " + e), i = [o, n, h]; e = this.gobbleBinaryOp(); ) {
-      if (s = a.binaryPrecedence(e), s === 0) {
-        this.index -= e.length;
+      value: t,
+      prec: a.binaryPrecedence(t),
+      right_a: a.right_associative.has(t)
+    }, h = this.gobbleToken(), h || this.throwError("Expected expression after " + t), s = [o, n, h]; t = this.gobbleBinaryOp(); ) {
+      if (r = a.binaryPrecedence(t), r === 0) {
+        this.index -= t.length;
         break;
       }
       n = {
-        value: e,
-        prec: s,
-        right_a: a.right_associative.has(e)
-      }, c = e;
-      const d = (f) => n.right_a && f.right_a ? s > f.prec : s <= f.prec;
-      for (; i.length > 2 && d(i[i.length - 2]); )
-        h = i.pop(), e = i.pop().value, o = i.pop(), t = {
+        value: t,
+        prec: r,
+        right_a: a.right_associative.has(t)
+      }, l = t;
+      const f = (g) => n.right_a && g.right_a ? r > g.prec : r <= g.prec;
+      for (; s.length > 2 && f(s[s.length - 2]); )
+        h = s.pop(), t = s.pop().value, o = s.pop(), e = {
           type: a.BINARY_EXP,
-          operator: e,
+          operator: t,
           left: o,
           right: h
-        }, i.push(t);
-      t = this.gobbleToken(), t || this.throwError("Expected expression after " + c), i.push(n, t);
+        }, s.push(e);
+      e = this.gobbleToken(), e || this.throwError("Expected expression after " + l), s.push(n, e);
     }
-    for (l = i.length - 1, t = i[l]; l > 1; )
-      t = {
+    for (c = s.length - 1, e = s[c]; c > 1; )
+      e = {
         type: a.BINARY_EXP,
-        operator: i[l - 1].value,
-        left: i[l - 2],
-        right: t
-      }, l -= 2;
-    return t;
+        operator: s[c - 1].value,
+        left: s[c - 2],
+        right: e
+      }, c -= 2;
+    return e;
   }
   /**
    * An individual part of a binary expression:
@@ -394,38 +394,38 @@ class a {
    * @returns {boolean|jsep.Expression}
    */
   gobbleToken() {
-    let t, e, s, i;
-    if (this.gobbleSpaces(), i = this.searchHook("gobble-token"), i)
-      return this.runHook("after-token", i);
-    if (t = this.code, a.isDecimalDigit(t) || t === a.PERIOD_CODE)
+    let e, t, r, s;
+    if (this.gobbleSpaces(), s = this.searchHook("gobble-token"), s)
+      return this.runHook("after-token", s);
+    if (e = this.code, a.isDecimalDigit(e) || e === a.PERIOD_CODE)
       return this.gobbleNumericLiteral();
-    if (t === a.SQUOTE_CODE || t === a.DQUOTE_CODE)
-      i = this.gobbleStringLiteral();
-    else if (t === a.OBRACK_CODE)
-      i = this.gobbleArray();
+    if (e === a.SQUOTE_CODE || e === a.DQUOTE_CODE)
+      s = this.gobbleStringLiteral();
+    else if (e === a.OBRACK_CODE)
+      s = this.gobbleArray();
     else {
-      for (e = this.expr.substr(this.index, a.max_unop_len), s = e.length; s > 0; ) {
-        if (a.unary_ops.hasOwnProperty(e) && (!a.isIdentifierStart(this.code) || this.index + e.length < this.expr.length && !a.isIdentifierPart(this.expr.charCodeAt(this.index + e.length)))) {
-          this.index += s;
+      for (t = this.expr.substr(this.index, a.max_unop_len), r = t.length; r > 0; ) {
+        if (a.unary_ops.hasOwnProperty(t) && (!a.isIdentifierStart(this.code) || this.index + t.length < this.expr.length && !a.isIdentifierPart(this.expr.charCodeAt(this.index + t.length)))) {
+          this.index += r;
           const n = this.gobbleToken();
           return n || this.throwError("missing unaryOp argument"), this.runHook("after-token", {
             type: a.UNARY_EXP,
-            operator: e,
+            operator: t,
             argument: n,
             prefix: !0
           });
         }
-        e = e.substr(0, --s);
+        t = t.substr(0, --r);
       }
-      a.isIdentifierStart(t) ? (i = this.gobbleIdentifier(), a.literals.hasOwnProperty(i.name) ? i = {
+      a.isIdentifierStart(e) ? (s = this.gobbleIdentifier(), a.literals.hasOwnProperty(s.name) ? s = {
         type: a.LITERAL,
-        value: a.literals[i.name],
-        raw: i.name
-      } : i.name === a.this_str && (i = {
+        value: a.literals[s.name],
+        raw: s.name
+      } : s.name === a.this_str && (s = {
         type: a.THIS_EXP
-      })) : t === a.OPAREN_CODE && (i = this.gobbleGroup());
+      })) : e === a.OPAREN_CODE && (s = this.gobbleGroup());
     }
-    return i ? (i = this.gobbleTokenProperty(i), this.runHook("after-token", i)) : this.runHook("after-token", !1);
+    return s ? (s = this.gobbleTokenProperty(s), this.runHook("after-token", s)) : this.runHook("after-token", !1);
   }
   /**
    * Gobble properties of of identifiers/strings/arrays/groups.
@@ -435,33 +435,33 @@ class a {
    * @param {jsep.Expression} node
    * @returns {jsep.Expression}
    */
-  gobbleTokenProperty(t) {
+  gobbleTokenProperty(e) {
     this.gobbleSpaces();
-    let e = this.code;
-    for (; e === a.PERIOD_CODE || e === a.OBRACK_CODE || e === a.OPAREN_CODE || e === a.QUMARK_CODE; ) {
-      let s;
-      if (e === a.QUMARK_CODE) {
+    let t = this.code;
+    for (; t === a.PERIOD_CODE || t === a.OBRACK_CODE || t === a.OPAREN_CODE || t === a.QUMARK_CODE; ) {
+      let r;
+      if (t === a.QUMARK_CODE) {
         if (this.expr.charCodeAt(this.index + 1) !== a.PERIOD_CODE)
           break;
-        s = !0, this.index += 2, this.gobbleSpaces(), e = this.code;
+        r = !0, this.index += 2, this.gobbleSpaces(), t = this.code;
       }
-      this.index++, e === a.OBRACK_CODE ? (t = {
+      this.index++, t === a.OBRACK_CODE ? (e = {
         type: a.MEMBER_EXP,
         computed: !0,
-        object: t,
+        object: e,
         property: this.gobbleExpression()
-      }, t.property || this.throwError('Unexpected "' + this.char + '"'), this.gobbleSpaces(), e = this.code, e !== a.CBRACK_CODE && this.throwError("Unclosed ["), this.index++) : e === a.OPAREN_CODE ? t = {
+      }, e.property || this.throwError('Unexpected "' + this.char + '"'), this.gobbleSpaces(), t = this.code, t !== a.CBRACK_CODE && this.throwError("Unclosed ["), this.index++) : t === a.OPAREN_CODE ? e = {
         type: a.CALL_EXP,
         arguments: this.gobbleArguments(a.CPAREN_CODE),
-        callee: t
-      } : (e === a.PERIOD_CODE || s) && (s && this.index--, this.gobbleSpaces(), t = {
+        callee: e
+      } : (t === a.PERIOD_CODE || r) && (r && this.index--, this.gobbleSpaces(), e = {
         type: a.MEMBER_EXP,
         computed: !1,
-        object: t,
+        object: e,
         property: this.gobbleIdentifier()
-      }), s && (t.optional = !0), this.gobbleSpaces(), e = this.code;
+      }), r && (e.optional = !0), this.gobbleSpaces(), t = this.code;
     }
-    return t;
+    return e;
   }
   /**
    * Parse simple numeric literals: `12`, `3.4`, `.5`. Do this by using a string to
@@ -469,21 +469,21 @@ class a {
    * @returns {jsep.Literal}
    */
   gobbleNumericLiteral() {
-    let t = "", e, s;
+    let e = "", t, r;
     for (; a.isDecimalDigit(this.code); )
-      t += this.expr.charAt(this.index++);
+      e += this.expr.charAt(this.index++);
     if (this.code === a.PERIOD_CODE)
-      for (t += this.expr.charAt(this.index++); a.isDecimalDigit(this.code); )
-        t += this.expr.charAt(this.index++);
-    if (e = this.char, e === "e" || e === "E") {
-      for (t += this.expr.charAt(this.index++), e = this.char, (e === "+" || e === "-") && (t += this.expr.charAt(this.index++)); a.isDecimalDigit(this.code); )
-        t += this.expr.charAt(this.index++);
-      a.isDecimalDigit(this.expr.charCodeAt(this.index - 1)) || this.throwError("Expected exponent (" + t + this.char + ")");
+      for (e += this.expr.charAt(this.index++); a.isDecimalDigit(this.code); )
+        e += this.expr.charAt(this.index++);
+    if (t = this.char, t === "e" || t === "E") {
+      for (e += this.expr.charAt(this.index++), t = this.char, (t === "+" || t === "-") && (e += this.expr.charAt(this.index++)); a.isDecimalDigit(this.code); )
+        e += this.expr.charAt(this.index++);
+      a.isDecimalDigit(this.expr.charCodeAt(this.index - 1)) || this.throwError("Expected exponent (" + e + this.char + ")");
     }
-    return s = this.code, a.isIdentifierStart(s) ? this.throwError("Variable names cannot start with a number (" + t + this.char + ")") : (s === a.PERIOD_CODE || t.length === 1 && t.charCodeAt(0) === a.PERIOD_CODE) && this.throwError("Unexpected period"), {
+    return r = this.code, a.isIdentifierStart(r) ? this.throwError("Variable names cannot start with a number (" + e + this.char + ")") : (r === a.PERIOD_CODE || e.length === 1 && e.charCodeAt(0) === a.PERIOD_CODE) && this.throwError("Unexpected period"), {
       type: a.LITERAL,
-      value: parseFloat(t),
-      raw: t
+      value: parseFloat(e),
+      raw: e
     };
   }
   /**
@@ -492,45 +492,45 @@ class a {
    * @returns {jsep.Literal}
    */
   gobbleStringLiteral() {
-    let t = "";
-    const e = this.index, s = this.expr.charAt(this.index++);
-    let i = !1;
+    let e = "";
+    const t = this.index, r = this.expr.charAt(this.index++);
+    let s = !1;
     for (; this.index < this.expr.length; ) {
       let n = this.expr.charAt(this.index++);
-      if (n === s) {
-        i = !0;
+      if (n === r) {
+        s = !0;
         break;
       } else if (n === "\\")
         switch (n = this.expr.charAt(this.index++), n) {
           case "n":
-            t += `
+            e += `
 `;
             break;
           case "r":
-            t += "\r";
+            e += "\r";
             break;
           case "t":
-            t += "	";
+            e += "	";
             break;
           case "b":
-            t += "\b";
+            e += "\b";
             break;
           case "f":
-            t += "\f";
+            e += "\f";
             break;
           case "v":
-            t += "\v";
+            e += "\v";
             break;
           default:
-            t += n;
+            e += n;
         }
       else
-        t += n;
+        e += n;
     }
-    return i || this.throwError('Unclosed quote after "' + t + '"'), {
+    return s || this.throwError('Unclosed quote after "' + e + '"'), {
       type: a.LITERAL,
-      value: t,
-      raw: this.expr.substring(e, this.index)
+      value: e,
+      raw: this.expr.substring(t, this.index)
     };
   }
   /**
@@ -541,12 +541,12 @@ class a {
    * @returns {jsep.Identifier}
    */
   gobbleIdentifier() {
-    let t = this.code, e = this.index;
-    for (a.isIdentifierStart(t) ? this.index++ : this.throwError("Unexpected " + this.char); this.index < this.expr.length && (t = this.code, a.isIdentifierPart(t)); )
+    let e = this.code, t = this.index;
+    for (a.isIdentifierStart(e) ? this.index++ : this.throwError("Unexpected " + this.char); this.index < this.expr.length && (e = this.code, a.isIdentifierPart(e)); )
       this.index++;
     return {
       type: a.IDENTIFIER,
-      name: this.expr.slice(e, this.index)
+      name: this.expr.slice(t, this.index)
     };
   }
   /**
@@ -558,31 +558,31 @@ class a {
    * @param {number} termination
    * @returns {jsep.Expression[]}
    */
-  gobbleArguments(t) {
-    const e = [];
-    let s = !1, i = 0;
+  gobbleArguments(e) {
+    const t = [];
+    let r = !1, s = 0;
     for (; this.index < this.expr.length; ) {
       this.gobbleSpaces();
       let n = this.code;
-      if (n === t) {
-        s = !0, this.index++, t === a.CPAREN_CODE && i && i >= e.length && this.throwError("Unexpected token " + String.fromCharCode(t));
+      if (n === e) {
+        r = !0, this.index++, e === a.CPAREN_CODE && s && s >= t.length && this.throwError("Unexpected token " + String.fromCharCode(e));
         break;
       } else if (n === a.COMMA_CODE) {
-        if (this.index++, i++, i !== e.length) {
-          if (t === a.CPAREN_CODE)
+        if (this.index++, s++, s !== t.length) {
+          if (e === a.CPAREN_CODE)
             this.throwError("Unexpected token ,");
-          else if (t === a.CBRACK_CODE)
-            for (let o = e.length; o < i; o++)
-              e.push(null);
+          else if (e === a.CBRACK_CODE)
+            for (let o = t.length; o < s; o++)
+              t.push(null);
         }
-      } else if (e.length !== i && i !== 0)
+      } else if (t.length !== s && s !== 0)
         this.throwError("Expected comma");
       else {
         const o = this.gobbleExpression();
-        (!o || o.type === a.COMPOUND) && this.throwError("Expected comma"), e.push(o);
+        (!o || o.type === a.COMPOUND) && this.throwError("Expected comma"), t.push(o);
       }
     }
-    return s || this.throwError("Expected " + String.fromCharCode(t)), e;
+    return r || this.throwError("Expected " + String.fromCharCode(e)), t;
   }
   /**
    * Responsible for parsing a group of things within parentheses `()`
@@ -595,11 +595,11 @@ class a {
    */
   gobbleGroup() {
     this.index++;
-    let t = this.gobbleExpressions(a.CPAREN_CODE);
+    let e = this.gobbleExpressions(a.CPAREN_CODE);
     if (this.code === a.CPAREN_CODE)
-      return this.index++, t.length === 1 ? t[0] : t.length ? {
+      return this.index++, e.length === 1 ? e[0] : e.length ? {
         type: a.SEQUENCE_EXP,
-        expressions: t
+        expressions: e
       } : !1;
     this.throwError("Unclosed (");
   }
@@ -616,10 +616,10 @@ class a {
     };
   }
 }
-const V = new Y();
+const re = new ee();
 Object.assign(a, {
-  hooks: V,
-  plugins: new G(a),
+  hooks: re,
+  plugins: new te(a),
   // Node Types
   // ----------
   // This is the full set of types that any JSEP node can be.
@@ -715,33 +715,33 @@ Object.assign(a, {
 });
 a.max_unop_len = a.getMaxKeyLen(a.unary_ops);
 a.max_binop_len = a.getMaxKeyLen(a.binary_ops);
-const w = (r) => new a(r).parse(), Z = Object.getOwnPropertyNames(class {
+const x = (i) => new a(i).parse(), se = Object.getOwnPropertyNames(class {
 });
-Object.getOwnPropertyNames(a).filter((r) => !Z.includes(r) && w[r] === void 0).forEach((r) => {
-  w[r] = a[r];
+Object.getOwnPropertyNames(a).filter((i) => !se.includes(i) && x[i] === void 0).forEach((i) => {
+  x[i] = a[i];
 });
-w.Jsep = a;
-const W = "ConditionalExpression";
-var J = {
+x.Jsep = a;
+const ie = "ConditionalExpression";
+var ne = {
   name: "ternary",
-  init(r) {
-    r.hooks.add("after-expression", function(e) {
-      if (e.node && this.code === r.QUMARK_CODE) {
+  init(i) {
+    i.hooks.add("after-expression", function(t) {
+      if (t.node && this.code === i.QUMARK_CODE) {
         this.index++;
-        const s = e.node, i = this.gobbleExpression();
-        if (i || this.throwError("Expected expression"), this.gobbleSpaces(), this.code === r.COLON_CODE) {
+        const r = t.node, s = this.gobbleExpression();
+        if (s || this.throwError("Expected expression"), this.gobbleSpaces(), this.code === i.COLON_CODE) {
           this.index++;
           const n = this.gobbleExpression();
-          if (n || this.throwError("Expected expression"), e.node = {
-            type: W,
-            test: s,
-            consequent: i,
+          if (n || this.throwError("Expected expression"), t.node = {
+            type: ie,
+            test: r,
+            consequent: s,
             alternate: n
-          }, s.operator && r.binary_ops[s.operator] <= 0.9) {
-            let o = s;
-            for (; o.right.operator && r.binary_ops[o.right.operator] <= 0.9; )
+          }, r.operator && i.binary_ops[r.operator] <= 0.9) {
+            let o = r;
+            for (; o.right.operator && i.binary_ops[o.right.operator] <= 0.9; )
               o = o.right;
-            e.node.test = o.right, o.right = e.node, e.node = s;
+            t.node.test = o.right, o.right = t.node, t.node = r;
           }
         } else
           this.throwError("Expected :");
@@ -749,22 +749,22 @@ var J = {
     });
   }
 };
-w.plugins.register(J);
-const N = 47, tt = 92;
-var et = {
+x.plugins.register(ne);
+const D = 47, ae = 92;
+var oe = {
   name: "regex",
-  init(r) {
-    r.hooks.add("gobble-token", function(e) {
-      if (this.code === N) {
-        const s = ++this.index;
-        let i = !1;
+  init(i) {
+    i.hooks.add("gobble-token", function(t) {
+      if (this.code === D) {
+        const r = ++this.index;
+        let s = !1;
         for (; this.index < this.expr.length; ) {
-          if (this.code === N && !i) {
-            const n = this.expr.slice(s, this.index);
+          if (this.code === D && !s) {
+            const n = this.expr.slice(r, this.index);
             let o = "";
             for (; ++this.index < this.expr.length; ) {
-              const l = this.code;
-              if (l >= 97 && l <= 122 || l >= 65 && l <= 90 || l >= 48 && l <= 57)
+              const c = this.code;
+              if (c >= 97 && c <= 122 || c >= 65 && c <= 90 || c >= 48 && c <= 57)
                 o += this.char;
               else
                 break;
@@ -772,597 +772,597 @@ var et = {
             let h;
             try {
               h = new RegExp(n, o);
-            } catch (l) {
-              this.throwError(l.message);
+            } catch (c) {
+              this.throwError(c.message);
             }
-            return e.node = {
-              type: r.LITERAL,
+            return t.node = {
+              type: i.LITERAL,
               value: h,
-              raw: this.expr.slice(s - 1, this.index)
-            }, e.node = this.gobbleTokenProperty(e.node), e.node;
+              raw: this.expr.slice(r - 1, this.index)
+            }, t.node = this.gobbleTokenProperty(t.node), t.node;
           }
-          this.code === r.OBRACK_CODE ? i = !0 : i && this.code === r.CBRACK_CODE && (i = !1), this.index += this.code === tt ? 2 : 1;
+          this.code === i.OBRACK_CODE ? s = !0 : s && this.code === i.CBRACK_CODE && (s = !1), this.index += this.code === ae ? 2 : 1;
         }
         this.throwError("Unclosed Regex");
       }
     });
   }
 };
-const L = 43, st = 45, A = {
+const k = 43, le = 45, C = {
   name: "assignment",
   assignmentOperators: /* @__PURE__ */ new Set(["=", "*=", "**=", "/=", "%=", "+=", "-=", "<<=", ">>=", ">>>=", "&=", "^=", "|=", "||=", "&&=", "??="]),
-  updateOperators: [L, st],
+  updateOperators: [k, le],
   assignmentPrecedence: 0.9,
-  init(r) {
-    const t = [r.IDENTIFIER, r.MEMBER_EXP];
-    A.assignmentOperators.forEach((s) => r.addBinaryOp(s, A.assignmentPrecedence, !0)), r.hooks.add("gobble-token", function(i) {
+  init(i) {
+    const e = [i.IDENTIFIER, i.MEMBER_EXP];
+    C.assignmentOperators.forEach((r) => i.addBinaryOp(r, C.assignmentPrecedence, !0)), i.hooks.add("gobble-token", function(s) {
       const n = this.code;
-      A.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, i.node = {
+      C.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, s.node = {
         type: "UpdateExpression",
-        operator: n === L ? "++" : "--",
+        operator: n === k ? "++" : "--",
         argument: this.gobbleTokenProperty(this.gobbleIdentifier()),
         prefix: !0
-      }, (!i.node.argument || !t.includes(i.node.argument.type)) && this.throwError(`Unexpected ${i.node.operator}`));
-    }), r.hooks.add("after-token", function(i) {
-      if (i.node) {
+      }, (!s.node.argument || !e.includes(s.node.argument.type)) && this.throwError(`Unexpected ${s.node.operator}`));
+    }), i.hooks.add("after-token", function(s) {
+      if (s.node) {
         const n = this.code;
-        A.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (t.includes(i.node.type) || this.throwError(`Unexpected ${i.node.operator}`), this.index += 2, i.node = {
+        C.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (e.includes(s.node.type) || this.throwError(`Unexpected ${s.node.operator}`), this.index += 2, s.node = {
           type: "UpdateExpression",
-          operator: n === L ? "++" : "--",
-          argument: i.node,
+          operator: n === k ? "++" : "--",
+          argument: s.node,
           prefix: !1
         });
       }
-    }), r.hooks.add("after-expression", function(i) {
-      i.node && e(i.node);
+    }), i.hooks.add("after-expression", function(s) {
+      s.node && t(s.node);
     });
-    function e(s) {
-      A.assignmentOperators.has(s.operator) ? (s.type = "AssignmentExpression", e(s.left), e(s.right)) : s.operator || Object.values(s).forEach((i) => {
-        i && typeof i == "object" && e(i);
+    function t(r) {
+      C.assignmentOperators.has(r.operator) ? (r.type = "AssignmentExpression", t(r.left), t(r.right)) : r.operator || Object.values(r).forEach((s) => {
+        s && typeof s == "object" && t(s);
       });
     }
   }
 };
-w.plugins.register(et, A);
-w.addUnaryOp("typeof");
-w.addLiteral("null", null);
-w.addLiteral("undefined", void 0);
-const rt = /* @__PURE__ */ new Set(["constructor", "__proto__", "__defineGetter__", "__defineSetter__"]), b = {
+x.plugins.register(oe, C);
+x.addUnaryOp("typeof");
+x.addLiteral("null", null);
+x.addLiteral("undefined", void 0);
+const he = /* @__PURE__ */ new Set(["constructor", "__proto__", "__defineGetter__", "__defineSetter__"]), p = {
   /**
    * @param {jsep.Expression} ast
    * @param {Record<string, any>} subs
    */
-  evalAst(r, t) {
-    switch (r.type) {
+  evalAst(i, e) {
+    switch (i.type) {
       case "BinaryExpression":
       case "LogicalExpression":
-        return b.evalBinaryExpression(r, t);
+        return p.evalBinaryExpression(i, e);
       case "Compound":
-        return b.evalCompound(r, t);
+        return p.evalCompound(i, e);
       case "ConditionalExpression":
-        return b.evalConditionalExpression(r, t);
+        return p.evalConditionalExpression(i, e);
       case "Identifier":
-        return b.evalIdentifier(r, t);
+        return p.evalIdentifier(i, e);
       case "Literal":
-        return b.evalLiteral(r, t);
+        return p.evalLiteral(i, e);
       case "MemberExpression":
-        return b.evalMemberExpression(r, t);
+        return p.evalMemberExpression(i, e);
       case "UnaryExpression":
-        return b.evalUnaryExpression(r, t);
+        return p.evalUnaryExpression(i, e);
       case "ArrayExpression":
-        return b.evalArrayExpression(r, t);
+        return p.evalArrayExpression(i, e);
       case "CallExpression":
-        return b.evalCallExpression(r, t);
+        return p.evalCallExpression(i, e);
       case "AssignmentExpression":
-        return b.evalAssignmentExpression(r, t);
+        return p.evalAssignmentExpression(i, e);
       default:
-        throw SyntaxError("Unexpected expression", r);
+        throw SyntaxError("Unexpected expression", i);
     }
   },
-  evalBinaryExpression(r, t) {
+  evalBinaryExpression(i, e) {
     return {
-      "||": (s, i) => s || i(),
-      "&&": (s, i) => s && i(),
-      "|": (s, i) => s | i(),
-      "^": (s, i) => s ^ i(),
-      "&": (s, i) => s & i(),
+      "||": (r, s) => r || s(),
+      "&&": (r, s) => r && s(),
+      "|": (r, s) => r | s(),
+      "^": (r, s) => r ^ s(),
+      "&": (r, s) => r & s(),
       // eslint-disable-next-line eqeqeq -- API
-      "==": (s, i) => s == i(),
+      "==": (r, s) => r == s(),
       // eslint-disable-next-line eqeqeq -- API
-      "!=": (s, i) => s != i(),
-      "===": (s, i) => s === i(),
-      "!==": (s, i) => s !== i(),
-      "<": (s, i) => s < i(),
-      ">": (s, i) => s > i(),
-      "<=": (s, i) => s <= i(),
-      ">=": (s, i) => s >= i(),
-      "<<": (s, i) => s << i(),
-      ">>": (s, i) => s >> i(),
-      ">>>": (s, i) => s >>> i(),
-      "+": (s, i) => s + i(),
-      "-": (s, i) => s - i(),
-      "*": (s, i) => s * i(),
-      "/": (s, i) => s / i(),
-      "%": (s, i) => s % i()
-    }[r.operator](b.evalAst(r.left, t), () => b.evalAst(r.right, t));
+      "!=": (r, s) => r != s(),
+      "===": (r, s) => r === s(),
+      "!==": (r, s) => r !== s(),
+      "<": (r, s) => r < s(),
+      ">": (r, s) => r > s(),
+      "<=": (r, s) => r <= s(),
+      ">=": (r, s) => r >= s(),
+      "<<": (r, s) => r << s(),
+      ">>": (r, s) => r >> s(),
+      ">>>": (r, s) => r >>> s(),
+      "+": (r, s) => r + s(),
+      "-": (r, s) => r - s(),
+      "*": (r, s) => r * s(),
+      "/": (r, s) => r / s(),
+      "%": (r, s) => r % s()
+    }[i.operator](p.evalAst(i.left, e), () => p.evalAst(i.right, e));
   },
-  evalCompound(r, t) {
-    let e;
-    for (let s = 0; s < r.body.length; s++) {
-      r.body[s].type === "Identifier" && ["var", "let", "const"].includes(r.body[s].name) && r.body[s + 1] && r.body[s + 1].type === "AssignmentExpression" && (s += 1);
-      const i = r.body[s];
-      e = b.evalAst(i, t);
+  evalCompound(i, e) {
+    let t;
+    for (let r = 0; r < i.body.length; r++) {
+      i.body[r].type === "Identifier" && ["var", "let", "const"].includes(i.body[r].name) && i.body[r + 1] && i.body[r + 1].type === "AssignmentExpression" && (r += 1);
+      const s = i.body[r];
+      t = p.evalAst(s, e);
     }
-    return e;
+    return t;
   },
-  evalConditionalExpression(r, t) {
-    return b.evalAst(r.test, t) ? b.evalAst(r.consequent, t) : b.evalAst(r.alternate, t);
+  evalConditionalExpression(i, e) {
+    return p.evalAst(i.test, e) ? p.evalAst(i.consequent, e) : p.evalAst(i.alternate, e);
   },
-  evalIdentifier(r, t) {
-    if (Object.hasOwn(t, r.name))
-      return t[r.name];
-    throw ReferenceError(`${r.name} is not defined`);
+  evalIdentifier(i, e) {
+    if (Object.hasOwn(e, i.name))
+      return e[i.name];
+    throw ReferenceError(`${i.name} is not defined`);
   },
-  evalLiteral(r) {
-    return r.value;
+  evalLiteral(i) {
+    return i.value;
   },
-  evalMemberExpression(r, t) {
-    const e = String(
+  evalMemberExpression(i, e) {
+    const t = String(
       // NOTE: `String(value)` throws error when
       // value has overwritten the toString method to return non-string
       // i.e. `value = {toString: () => []}`
-      r.computed ? b.evalAst(r.property) : r.property.name
+      i.computed ? p.evalAst(i.property) : i.property.name
       // `object.property` property is Identifier
-    ), s = b.evalAst(r.object, t);
-    if (s == null)
-      throw TypeError(`Cannot read properties of ${s} (reading '${e}')`);
-    if (!Object.hasOwn(s, e) && rt.has(e))
-      throw TypeError(`Cannot read properties of ${s} (reading '${e}')`);
-    const i = s[e];
-    return typeof i == "function" ? i.bind(s) : i;
+    ), r = p.evalAst(i.object, e);
+    if (r == null)
+      throw TypeError(`Cannot read properties of ${r} (reading '${t}')`);
+    if (!Object.hasOwn(r, t) && he.has(t))
+      throw TypeError(`Cannot read properties of ${r} (reading '${t}')`);
+    const s = r[t];
+    return typeof s == "function" ? s.bind(r) : s;
   },
-  evalUnaryExpression(r, t) {
+  evalUnaryExpression(i, e) {
     return {
-      "-": (s) => -b.evalAst(s, t),
-      "!": (s) => !b.evalAst(s, t),
-      "~": (s) => ~b.evalAst(s, t),
+      "-": (r) => -p.evalAst(r, e),
+      "!": (r) => !p.evalAst(r, e),
+      "~": (r) => ~p.evalAst(r, e),
       // eslint-disable-next-line no-implicit-coercion -- API
-      "+": (s) => +b.evalAst(s, t),
-      typeof: (s) => typeof b.evalAst(s, t)
-    }[r.operator](r.argument);
+      "+": (r) => +p.evalAst(r, e),
+      typeof: (r) => typeof p.evalAst(r, e)
+    }[i.operator](i.argument);
   },
-  evalArrayExpression(r, t) {
-    return r.elements.map((e) => b.evalAst(e, t));
+  evalArrayExpression(i, e) {
+    return i.elements.map((t) => p.evalAst(t, e));
   },
-  evalCallExpression(r, t) {
-    const e = r.arguments.map((i) => b.evalAst(i, t));
-    return b.evalAst(r.callee, t)(...e);
+  evalCallExpression(i, e) {
+    const t = i.arguments.map((s) => p.evalAst(s, e));
+    return p.evalAst(i.callee, e)(...t);
   },
-  evalAssignmentExpression(r, t) {
-    if (r.left.type !== "Identifier")
+  evalAssignmentExpression(i, e) {
+    if (i.left.type !== "Identifier")
       throw SyntaxError("Invalid left-hand side in assignment");
-    const e = r.left.name, s = b.evalAst(r.right, t);
-    return t[e] = s, t[e];
+    const t = i.left.name, r = p.evalAst(i.right, e);
+    return e[t] = r, e[t];
   }
 };
-class it {
+class ce {
   /**
    * @param {string} expr Expression to evaluate
    */
-  constructor(t) {
-    this.code = t, this.ast = w(this.code);
+  constructor(e) {
+    this.code = e, this.ast = x(this.code);
   }
   /**
    * @param {object} context Object whose items will be added
    *   to evaluation
    * @returns {EvaluatedResult} Result of evaluated code
    */
-  runInNewContext(t) {
-    const e = Object.assign(/* @__PURE__ */ Object.create(null), t);
-    return b.evalAst(this.ast, e);
+  runInNewContext(e) {
+    const t = Object.assign(/* @__PURE__ */ Object.create(null), e);
+    return p.evalAst(this.ast, t);
   }
 }
-function x(r, t) {
-  return r = r.slice(), r.push(t), r;
+function w(i, e) {
+  return i = i.slice(), i.push(e), i;
 }
-function _(r, t) {
-  return t = t.slice(), t.unshift(r), t;
+function T(i, e) {
+  return e = e.slice(), e.unshift(i), e;
 }
-class nt extends Error {
+class ue extends Error {
   /**
    * @param {AnyResult} value The evaluated scalar value
    */
-  constructor(t) {
-    super('JSONPath should not be called with "new" (it prevents return of (unwrapped) scalar values)'), this.avoidNew = !0, this.value = t, this.name = "NewError";
+  constructor(e) {
+    super('JSONPath should not be called with "new" (it prevents return of (unwrapped) scalar values)'), this.avoidNew = !0, this.value = e, this.name = "NewError";
   }
 }
-function g(r, t, e, s, i) {
-  if (!(this instanceof g))
+function d(i, e, t, r, s) {
+  if (!(this instanceof d))
     try {
-      return new g(r, t, e, s, i);
+      return new d(i, e, t, r, s);
     } catch (o) {
       if (!o.avoidNew)
         throw o;
       return o.value;
     }
-  typeof r == "string" && (i = s, s = e, e = t, t = r, r = null);
-  const n = r && typeof r == "object";
-  if (r = r || {}, this.json = r.json || e, this.path = r.path || t, this.resultType = r.resultType || "value", this.flatten = r.flatten || !1, this.wrap = Object.hasOwn(r, "wrap") ? r.wrap : !0, this.sandbox = r.sandbox || {}, this.eval = r.eval === void 0 ? "safe" : r.eval, this.ignoreEvalErrors = typeof r.ignoreEvalErrors > "u" ? !1 : r.ignoreEvalErrors, this.parent = r.parent || null, this.parentProperty = r.parentProperty || null, this.callback = r.callback || s || null, this.otherTypeCallback = r.otherTypeCallback || i || function() {
+  typeof i == "string" && (s = r, r = t, t = e, e = i, i = null);
+  const n = i && typeof i == "object";
+  if (i = i || {}, this.json = i.json || t, this.path = i.path || e, this.resultType = i.resultType || "value", this.flatten = i.flatten || !1, this.wrap = Object.hasOwn(i, "wrap") ? i.wrap : !0, this.sandbox = i.sandbox || {}, this.eval = i.eval === void 0 ? "safe" : i.eval, this.ignoreEvalErrors = typeof i.ignoreEvalErrors > "u" ? !1 : i.ignoreEvalErrors, this.parent = i.parent || null, this.parentProperty = i.parentProperty || null, this.callback = i.callback || r || null, this.otherTypeCallback = i.otherTypeCallback || s || function() {
     throw new TypeError("You must supply an otherTypeCallback callback option with the @other() operator.");
-  }, r.autostart !== !1) {
+  }, i.autostart !== !1) {
     const o = {
-      path: n ? r.path : t
+      path: n ? i.path : e
     };
-    n ? "json" in r && (o.json = r.json) : o.json = e;
+    n ? "json" in i && (o.json = i.json) : o.json = t;
     const h = this.evaluate(o);
     if (!h || typeof h != "object")
-      throw new nt(h);
+      throw new ue(h);
     return h;
   }
 }
-g.prototype.evaluate = function(r, t, e, s) {
-  let i = this.parent, n = this.parentProperty, {
+d.prototype.evaluate = function(i, e, t, r) {
+  let s = this.parent, n = this.parentProperty, {
     flatten: o,
     wrap: h
   } = this;
-  if (this.currResultType = this.resultType, this.currEval = this.eval, this.currSandbox = this.sandbox, e = e || this.callback, this.currOtherTypeCallback = s || this.otherTypeCallback, t = t || this.json, r = r || this.path, r && typeof r == "object" && !Array.isArray(r)) {
-    if (!r.path && r.path !== "")
+  if (this.currResultType = this.resultType, this.currEval = this.eval, this.currSandbox = this.sandbox, t = t || this.callback, this.currOtherTypeCallback = r || this.otherTypeCallback, e = e || this.json, i = i || this.path, i && typeof i == "object" && !Array.isArray(i)) {
+    if (!i.path && i.path !== "")
       throw new TypeError('You must supply a "path" property when providing an object argument to JSONPath.evaluate().');
-    if (!Object.hasOwn(r, "json"))
+    if (!Object.hasOwn(i, "json"))
       throw new TypeError('You must supply a "json" property when providing an object argument to JSONPath.evaluate().');
     ({
-      json: t
-    } = r), o = Object.hasOwn(r, "flatten") ? r.flatten : o, this.currResultType = Object.hasOwn(r, "resultType") ? r.resultType : this.currResultType, this.currSandbox = Object.hasOwn(r, "sandbox") ? r.sandbox : this.currSandbox, h = Object.hasOwn(r, "wrap") ? r.wrap : h, this.currEval = Object.hasOwn(r, "eval") ? r.eval : this.currEval, e = Object.hasOwn(r, "callback") ? r.callback : e, this.currOtherTypeCallback = Object.hasOwn(r, "otherTypeCallback") ? r.otherTypeCallback : this.currOtherTypeCallback, i = Object.hasOwn(r, "parent") ? r.parent : i, n = Object.hasOwn(r, "parentProperty") ? r.parentProperty : n, r = r.path;
+      json: e
+    } = i), o = Object.hasOwn(i, "flatten") ? i.flatten : o, this.currResultType = Object.hasOwn(i, "resultType") ? i.resultType : this.currResultType, this.currSandbox = Object.hasOwn(i, "sandbox") ? i.sandbox : this.currSandbox, h = Object.hasOwn(i, "wrap") ? i.wrap : h, this.currEval = Object.hasOwn(i, "eval") ? i.eval : this.currEval, t = Object.hasOwn(i, "callback") ? i.callback : t, this.currOtherTypeCallback = Object.hasOwn(i, "otherTypeCallback") ? i.otherTypeCallback : this.currOtherTypeCallback, s = Object.hasOwn(i, "parent") ? i.parent : s, n = Object.hasOwn(i, "parentProperty") ? i.parentProperty : n, i = i.path;
   }
-  if (i = i || null, n = n || null, Array.isArray(r) && (r = g.toPathString(r)), !r && r !== "" || !t)
+  if (s = s || null, n = n || null, Array.isArray(i) && (i = d.toPathString(i)), !i && i !== "" || !e)
     return;
-  const l = g.toPathArray(r);
-  l[0] === "$" && l.length > 1 && l.shift(), this._hasParentSelector = null;
-  const c = this._trace(l, t, ["$"], i, n, e).filter(function(d) {
-    return d && !d.isParentSelector;
+  const c = d.toPathArray(i);
+  c[0] === "$" && c.length > 1 && c.shift(), this._hasParentSelector = null;
+  const l = this._trace(c, e, ["$"], s, n, t).filter(function(f) {
+    return f && !f.isParentSelector;
   });
-  return c.length ? !h && c.length === 1 && !c[0].hasArrExpr ? this._getPreferredOutput(c[0]) : c.reduce((d, f) => {
-    const m = this._getPreferredOutput(f);
-    return o && Array.isArray(m) ? d = d.concat(m) : d.push(m), d;
+  return l.length ? !h && l.length === 1 && !l[0].hasArrExpr ? this._getPreferredOutput(l[0]) : l.reduce((f, g) => {
+    const b = this._getPreferredOutput(g);
+    return o && Array.isArray(b) ? f = f.concat(b) : f.push(b), f;
   }, []) : h ? [] : void 0;
 };
-g.prototype._getPreferredOutput = function(r) {
-  const t = this.currResultType;
-  switch (t) {
+d.prototype._getPreferredOutput = function(i) {
+  const e = this.currResultType;
+  switch (e) {
     case "all": {
-      const e = Array.isArray(r.path) ? r.path : g.toPathArray(r.path);
-      return r.pointer = g.toPointer(e), r.path = typeof r.path == "string" ? r.path : g.toPathString(r.path), r;
+      const t = Array.isArray(i.path) ? i.path : d.toPathArray(i.path);
+      return i.pointer = d.toPointer(t), i.path = typeof i.path == "string" ? i.path : d.toPathString(i.path), i;
     }
     case "value":
     case "parent":
     case "parentProperty":
-      return r[t];
+      return i[e];
     case "path":
-      return g.toPathString(r[t]);
+      return d.toPathString(i[e]);
     case "pointer":
-      return g.toPointer(r.path);
+      return d.toPointer(i.path);
     default:
       throw new TypeError("Unknown result type");
   }
 };
-g.prototype._handleCallback = function(r, t, e) {
-  if (t) {
-    const s = this._getPreferredOutput(r);
-    r.path = typeof r.path == "string" ? r.path : g.toPathString(r.path), t(s, e, r);
+d.prototype._handleCallback = function(i, e, t) {
+  if (e) {
+    const r = this._getPreferredOutput(i);
+    i.path = typeof i.path == "string" ? i.path : d.toPathString(i.path), e(r, t, i);
   }
 };
-g.prototype._trace = function(r, t, e, s, i, n, o, h) {
-  let l;
-  if (!r.length)
-    return l = {
-      path: e,
-      value: t,
-      parent: s,
-      parentProperty: i,
+d.prototype._trace = function(i, e, t, r, s, n, o, h) {
+  let c;
+  if (!i.length)
+    return c = {
+      path: t,
+      value: e,
+      parent: r,
+      parentProperty: s,
       hasArrExpr: o
-    }, this._handleCallback(l, n, "value"), l;
-  const c = r[0], d = r.slice(1), f = [];
-  function m(u) {
+    }, this._handleCallback(c, n, "value"), c;
+  const l = i[0], f = i.slice(1), g = [];
+  function b(u) {
     Array.isArray(u) ? u.forEach((E) => {
-      f.push(E);
-    }) : f.push(u);
+      g.push(E);
+    }) : g.push(u);
   }
-  if ((typeof c != "string" || h) && t && Object.hasOwn(t, c))
-    m(this._trace(d, t[c], x(e, c), t, c, n, o));
-  else if (c === "*")
-    this._walk(t, (u) => {
-      m(this._trace(d, t[u], x(e, u), t, u, n, !0, !0));
+  if ((typeof l != "string" || h) && e && Object.hasOwn(e, l))
+    b(this._trace(f, e[l], w(t, l), e, l, n, o));
+  else if (l === "*")
+    this._walk(e, (u) => {
+      b(this._trace(f, e[u], w(t, u), e, u, n, !0, !0));
     });
-  else if (c === "..")
-    m(this._trace(d, t, e, s, i, n, o)), this._walk(t, (u) => {
-      typeof t[u] == "object" && m(this._trace(r.slice(), t[u], x(e, u), t, u, n, !0));
+  else if (l === "..")
+    b(this._trace(f, e, t, r, s, n, o)), this._walk(e, (u) => {
+      typeof e[u] == "object" && b(this._trace(i.slice(), e[u], w(t, u), e, u, n, !0));
     });
   else {
-    if (c === "^")
+    if (l === "^")
       return this._hasParentSelector = !0, {
-        path: e.slice(0, -1),
-        expr: d,
+        path: t.slice(0, -1),
+        expr: f,
         isParentSelector: !0
       };
-    if (c === "~")
-      return l = {
-        path: x(e, c),
-        value: i,
-        parent: s,
+    if (l === "~")
+      return c = {
+        path: w(t, l),
+        value: s,
+        parent: r,
         parentProperty: null
-      }, this._handleCallback(l, n, "property"), l;
-    if (c === "$")
-      m(this._trace(d, t, e, null, null, n, o));
-    else if (/^(-?\d*):(-?\d*):?(\d*)$/u.test(c))
-      m(this._slice(c, d, t, e, s, i, n));
-    else if (c.indexOf("?(") === 0) {
+      }, this._handleCallback(c, n, "property"), c;
+    if (l === "$")
+      b(this._trace(f, e, t, null, null, n, o));
+    else if (/^(-?\d*):(-?\d*):?(\d*)$/u.test(l))
+      b(this._slice(l, f, e, t, r, s, n));
+    else if (l.indexOf("?(") === 0) {
       if (this.currEval === !1)
         throw new Error("Eval [?(expr)] prevented in JSONPath expression.");
-      const u = c.replace(/^\?\((.*?)\)$/u, "$1"), E = /@.?([^?]*)[['](\??\(.*?\))(?!.\)\])[\]']/gu.exec(u);
-      E ? this._walk(t, (y) => {
-        const S = [E[2]], P = E[1] ? t[y][E[1]] : t[y];
-        this._trace(S, P, e, s, i, n, !0).length > 0 && m(this._trace(d, t[y], x(e, y), t, y, n, !0));
-      }) : this._walk(t, (y) => {
-        this._eval(u, t[y], y, e, s, i) && m(this._trace(d, t[y], x(e, y), t, y, n, !0));
+      const u = l.replace(/^\?\((.*?)\)$/u, "$1"), E = /@.?([^?]*)[['](\??\(.*?\))(?!.\)\])[\]']/gu.exec(u);
+      E ? this._walk(e, (y) => {
+        const v = [E[2]], A = E[1] ? e[y][E[1]] : e[y];
+        this._trace(v, A, t, r, s, n, !0).length > 0 && b(this._trace(f, e[y], w(t, y), e, y, n, !0));
+      }) : this._walk(e, (y) => {
+        this._eval(u, e[y], y, t, r, s) && b(this._trace(f, e[y], w(t, y), e, y, n, !0));
       });
-    } else if (c[0] === "(") {
+    } else if (l[0] === "(") {
       if (this.currEval === !1)
         throw new Error("Eval [(expr)] prevented in JSONPath expression.");
-      m(this._trace(_(this._eval(c, t, e.at(-1), e.slice(0, -1), s, i), d), t, e, s, i, n, o));
-    } else if (c[0] === "@") {
+      b(this._trace(T(this._eval(l, e, t.at(-1), t.slice(0, -1), r, s), f), e, t, r, s, n, o));
+    } else if (l[0] === "@") {
       let u = !1;
-      const E = c.slice(1, -2);
+      const E = l.slice(1, -2);
       switch (E) {
         case "scalar":
-          (!t || !["object", "function"].includes(typeof t)) && (u = !0);
+          (!e || !["object", "function"].includes(typeof e)) && (u = !0);
           break;
         case "boolean":
         case "string":
         case "undefined":
         case "function":
-          typeof t === E && (u = !0);
+          typeof e === E && (u = !0);
           break;
         case "integer":
-          Number.isFinite(t) && !(t % 1) && (u = !0);
+          Number.isFinite(e) && !(e % 1) && (u = !0);
           break;
         case "number":
-          Number.isFinite(t) && (u = !0);
+          Number.isFinite(e) && (u = !0);
           break;
         case "nonFinite":
-          typeof t == "number" && !Number.isFinite(t) && (u = !0);
+          typeof e == "number" && !Number.isFinite(e) && (u = !0);
           break;
         case "object":
-          t && typeof t === E && (u = !0);
+          e && typeof e === E && (u = !0);
           break;
         case "array":
-          Array.isArray(t) && (u = !0);
+          Array.isArray(e) && (u = !0);
           break;
         case "other":
-          u = this.currOtherTypeCallback(t, e, s, i);
+          u = this.currOtherTypeCallback(e, t, r, s);
           break;
         case "null":
-          t === null && (u = !0);
+          e === null && (u = !0);
           break;
         default:
           throw new TypeError("Unknown value type " + E);
       }
       if (u)
-        return l = {
-          path: e,
-          value: t,
-          parent: s,
-          parentProperty: i
-        }, this._handleCallback(l, n, "value"), l;
-    } else if (c[0] === "`" && t && Object.hasOwn(t, c.slice(1))) {
-      const u = c.slice(1);
-      m(this._trace(d, t[u], x(e, u), t, u, n, o, !0));
-    } else if (c.includes(",")) {
-      const u = c.split(",");
+        return c = {
+          path: t,
+          value: e,
+          parent: r,
+          parentProperty: s
+        }, this._handleCallback(c, n, "value"), c;
+    } else if (l[0] === "`" && e && Object.hasOwn(e, l.slice(1))) {
+      const u = l.slice(1);
+      b(this._trace(f, e[u], w(t, u), e, u, n, o, !0));
+    } else if (l.includes(",")) {
+      const u = l.split(",");
       for (const E of u)
-        m(this._trace(_(E, d), t, e, s, i, n, !0));
-    } else !h && t && Object.hasOwn(t, c) && m(this._trace(d, t[c], x(e, c), t, c, n, o, !0));
+        b(this._trace(T(E, f), e, t, r, s, n, !0));
+    } else !h && e && Object.hasOwn(e, l) && b(this._trace(f, e[l], w(t, l), e, l, n, o, !0));
   }
   if (this._hasParentSelector)
-    for (let u = 0; u < f.length; u++) {
-      const E = f[u];
+    for (let u = 0; u < g.length; u++) {
+      const E = g[u];
       if (E && E.isParentSelector) {
-        const y = this._trace(E.expr, t, E.path, s, i, n, o);
+        const y = this._trace(E.expr, e, E.path, r, s, n, o);
         if (Array.isArray(y)) {
-          f[u] = y[0];
-          const S = y.length;
-          for (let P = 1; P < S; P++)
-            u++, f.splice(u, 0, y[P]);
+          g[u] = y[0];
+          const v = y.length;
+          for (let A = 1; A < v; A++)
+            u++, g.splice(u, 0, y[A]);
         } else
-          f[u] = y;
+          g[u] = y;
       }
     }
-  return f;
+  return g;
 };
-g.prototype._walk = function(r, t) {
-  if (Array.isArray(r)) {
-    const e = r.length;
-    for (let s = 0; s < e; s++)
-      t(s);
-  } else r && typeof r == "object" && Object.keys(r).forEach((e) => {
-    t(e);
+d.prototype._walk = function(i, e) {
+  if (Array.isArray(i)) {
+    const t = i.length;
+    for (let r = 0; r < t; r++)
+      e(r);
+  } else i && typeof i == "object" && Object.keys(i).forEach((t) => {
+    e(t);
   });
 };
-g.prototype._slice = function(r, t, e, s, i, n, o) {
-  if (!Array.isArray(e))
+d.prototype._slice = function(i, e, t, r, s, n, o) {
+  if (!Array.isArray(t))
     return;
-  const h = e.length, l = r.split(":"), c = l[2] && Number.parseInt(l[2]) || 1;
-  let d = l[0] && Number.parseInt(l[0]) || 0, f = l[1] && Number.parseInt(l[1]) || h;
-  d = d < 0 ? Math.max(0, d + h) : Math.min(h, d), f = f < 0 ? Math.max(0, f + h) : Math.min(h, f);
-  const m = [];
-  for (let u = d; u < f; u += c)
-    this._trace(_(u, t), e, s, i, n, o, !0).forEach((y) => {
-      m.push(y);
+  const h = t.length, c = i.split(":"), l = c[2] && Number.parseInt(c[2]) || 1;
+  let f = c[0] && Number.parseInt(c[0]) || 0, g = c[1] && Number.parseInt(c[1]) || h;
+  f = f < 0 ? Math.max(0, f + h) : Math.min(h, f), g = g < 0 ? Math.max(0, g + h) : Math.min(h, g);
+  const b = [];
+  for (let u = f; u < g; u += l)
+    this._trace(T(u, e), t, r, s, n, o, !0).forEach((y) => {
+      b.push(y);
     });
-  return m;
+  return b;
 };
-g.prototype._eval = function(r, t, e, s, i, n) {
-  this.currSandbox._$_parentProperty = n, this.currSandbox._$_parent = i, this.currSandbox._$_property = e, this.currSandbox._$_root = this.json, this.currSandbox._$_v = t;
-  const o = r.includes("@path");
-  o && (this.currSandbox._$_path = g.toPathString(s.concat([e])));
-  const h = this.currEval + "Script:" + r;
-  if (!g.cache[h]) {
-    let l = r.replaceAll("@parentProperty", "_$_parentProperty").replaceAll("@parent", "_$_parent").replaceAll("@property", "_$_property").replaceAll("@root", "_$_root").replaceAll(/@([.\s)[])/gu, "_$_v$1");
-    if (o && (l = l.replaceAll("@path", "_$_path")), this.currEval === "safe" || this.currEval === !0 || this.currEval === void 0)
-      g.cache[h] = new this.safeVm.Script(l);
+d.prototype._eval = function(i, e, t, r, s, n) {
+  this.currSandbox._$_parentProperty = n, this.currSandbox._$_parent = s, this.currSandbox._$_property = t, this.currSandbox._$_root = this.json, this.currSandbox._$_v = e;
+  const o = i.includes("@path");
+  o && (this.currSandbox._$_path = d.toPathString(r.concat([t])));
+  const h = this.currEval + "Script:" + i;
+  if (!d.cache[h]) {
+    let c = i.replaceAll("@parentProperty", "_$_parentProperty").replaceAll("@parent", "_$_parent").replaceAll("@property", "_$_property").replaceAll("@root", "_$_root").replaceAll(/@([.\s)[])/gu, "_$_v$1");
+    if (o && (c = c.replaceAll("@path", "_$_path")), this.currEval === "safe" || this.currEval === !0 || this.currEval === void 0)
+      d.cache[h] = new this.safeVm.Script(c);
     else if (this.currEval === "native")
-      g.cache[h] = new this.vm.Script(l);
+      d.cache[h] = new this.vm.Script(c);
     else if (typeof this.currEval == "function" && this.currEval.prototype && Object.hasOwn(this.currEval.prototype, "runInNewContext")) {
-      const c = this.currEval;
-      g.cache[h] = new c(l);
+      const l = this.currEval;
+      d.cache[h] = new l(c);
     } else if (typeof this.currEval == "function")
-      g.cache[h] = {
-        runInNewContext: (c) => this.currEval(l, c)
+      d.cache[h] = {
+        runInNewContext: (l) => this.currEval(c, l)
       };
     else
       throw new TypeError(`Unknown "eval" property "${this.currEval}"`);
   }
   try {
-    return g.cache[h].runInNewContext(this.currSandbox);
-  } catch (l) {
+    return d.cache[h].runInNewContext(this.currSandbox);
+  } catch (c) {
     if (this.ignoreEvalErrors)
       return !1;
-    throw new Error("jsonPath: " + l.message + ": " + r);
+    throw new Error("jsonPath: " + c.message + ": " + i);
   }
 };
-g.cache = {};
-g.toPathString = function(r) {
-  const t = r, e = t.length;
-  let s = "$";
-  for (let i = 1; i < e; i++)
-    /^(~|\^|@.*?\(\))$/u.test(t[i]) || (s += /^[0-9*]+$/u.test(t[i]) ? "[" + t[i] + "]" : "['" + t[i] + "']");
-  return s;
+d.cache = {};
+d.toPathString = function(i) {
+  const e = i, t = e.length;
+  let r = "$";
+  for (let s = 1; s < t; s++)
+    /^(~|\^|@.*?\(\))$/u.test(e[s]) || (r += /^[0-9*]+$/u.test(e[s]) ? "[" + e[s] + "]" : "['" + e[s] + "']");
+  return r;
 };
-g.toPointer = function(r) {
-  const t = r, e = t.length;
-  let s = "";
-  for (let i = 1; i < e; i++)
-    /^(~|\^|@.*?\(\))$/u.test(t[i]) || (s += "/" + t[i].toString().replaceAll("~", "~0").replaceAll("/", "~1"));
-  return s;
+d.toPointer = function(i) {
+  const e = i, t = e.length;
+  let r = "";
+  for (let s = 1; s < t; s++)
+    /^(~|\^|@.*?\(\))$/u.test(e[s]) || (r += "/" + e[s].toString().replaceAll("~", "~0").replaceAll("/", "~1"));
+  return r;
 };
-g.toPathArray = function(r) {
+d.toPathArray = function(i) {
   const {
-    cache: t
-  } = g;
-  if (t[r])
-    return t[r].concat();
-  const e = [], i = r.replaceAll(/@(?:null|boolean|number|string|integer|undefined|nonFinite|scalar|array|object|function|other)\(\)/gu, ";$&;").replaceAll(/[['](\??\(.*?\))[\]'](?!.\])/gu, function(n, o) {
-    return "[#" + (e.push(o) - 1) + "]";
+    cache: e
+  } = d;
+  if (e[i])
+    return e[i].concat();
+  const t = [], s = i.replaceAll(/@(?:null|boolean|number|string|integer|undefined|nonFinite|scalar|array|object|function|other)\(\)/gu, ";$&;").replaceAll(/[['](\??\(.*?\))[\]'](?!.\])/gu, function(n, o) {
+    return "[#" + (t.push(o) - 1) + "]";
   }).replaceAll(/\[['"]([^'\]]*)['"]\]/gu, function(n, o) {
     return "['" + o.replaceAll(".", "%@%").replaceAll("~", "%%@@%%") + "']";
   }).replaceAll("~", ";~;").replaceAll(/['"]?\.['"]?(?![^[]*\])|\[['"]?/gu, ";").replaceAll("%@%", ".").replaceAll("%%@@%%", "~").replaceAll(/(?:;)?(\^+)(?:;)?/gu, function(n, o) {
     return ";" + o.split("").join(";") + ";";
   }).replaceAll(/;;;|;;/gu, ";..;").replaceAll(/;$|'?\]|'$/gu, "").split(";").map(function(n) {
     const o = n.match(/#(\d+)/u);
-    return !o || !o[1] ? n : e[o[1]];
+    return !o || !o[1] ? n : t[o[1]];
   });
-  return t[r] = i, t[r].concat();
+  return e[i] = s, e[i].concat();
 };
-g.prototype.safeVm = {
-  Script: it
+d.prototype.safeVm = {
+  Script: ce
 };
-const at = function(r, t, e) {
-  const s = r.length;
-  for (let i = 0; i < s; i++) {
-    const n = r[i];
-    e(n) && t.push(r.splice(i--, 1)[0]);
+const de = function(i, e, t) {
+  const r = i.length;
+  for (let s = 0; s < r; s++) {
+    const n = i[s];
+    t(n) && e.push(i.splice(s--, 1)[0]);
   }
 };
-class ot {
+class fe {
   /**
    * @param {string} expr Expression to evaluate
    */
-  constructor(t) {
-    this.code = t;
+  constructor(e) {
+    this.code = e;
   }
   /**
    * @param {object} context Object whose items will be added
    *   to evaluation
    * @returns {EvaluatedResult} Result of evaluated code
    */
-  runInNewContext(t) {
-    let e = this.code;
-    const s = Object.keys(t), i = [];
-    at(s, i, (c) => typeof t[c] == "function");
-    const n = s.map((c) => t[c]);
-    e = i.reduce((c, d) => {
-      let f = t[d].toString();
-      return /function/u.test(f) || (f = "function " + f), "var " + d + "=" + f + ";" + c;
-    }, "") + e, !/(['"])use strict\1/u.test(e) && !s.includes("arguments") && (e = "var arguments = undefined;" + e), e = e.replace(/;\s*$/u, "");
-    const h = e.lastIndexOf(";"), l = h !== -1 ? e.slice(0, h + 1) + " return " + e.slice(h + 1) : " return " + e;
-    return new Function(...s, l)(...n);
+  runInNewContext(e) {
+    let t = this.code;
+    const r = Object.keys(e), s = [];
+    de(r, s, (l) => typeof e[l] == "function");
+    const n = r.map((l) => e[l]);
+    t = s.reduce((l, f) => {
+      let g = e[f].toString();
+      return /function/u.test(g) || (g = "function " + g), "var " + f + "=" + g + ";" + l;
+    }, "") + t, !/(['"])use strict\1/u.test(t) && !r.includes("arguments") && (t = "var arguments = undefined;" + t), t = t.replace(/;\s*$/u, "");
+    const h = t.lastIndexOf(";"), c = h !== -1 ? t.slice(0, h + 1) + " return " + t.slice(h + 1) : " return " + t;
+    return new Function(...r, c)(...n);
   }
 }
-g.prototype.vm = {
-  Script: ot
+d.prototype.vm = {
+  Script: fe
 };
-function lt(r) {
-  return r ? !!(r.startsWith("$") || /\[\d+\]/.test(r) || /\[['"]/.test(r) || /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(r) || r.includes("..") || r.includes("*")) : !1;
+function pe(i) {
+  return i ? !!(i.startsWith("$") || /\[\d+\]/.test(i) || /\[['"]/.test(i) || /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(i) || i.includes("..") || i.includes("*")) : !1;
 }
-function ct(r) {
-  return r ? r.startsWith("$") ? r : `$.${r}` : "$";
+function ge(i) {
+  return i ? i.startsWith("$") ? i : `$.${i}` : "$";
 }
-function ht(r, t) {
-  if (!r || !t) return [];
+function be(i, e) {
+  if (!i || !e) return [];
   try {
-    const e = ct(t);
-    return (g({
-      path: e,
-      json: r,
+    const t = ge(e);
+    return (d({
+      path: t,
+      json: i,
       resultType: "all"
-    }) || []).map((i) => ({
-      path: i.path || "",
-      value: i.value
+    }) || []).map((s) => ({
+      path: s.path || "",
+      value: s.value
     }));
   } catch {
     return [];
   }
 }
-function ut(r, t) {
-  if (!t || !r)
-    return r || {};
-  const e = lt(t);
-  if (console.log("[jsonpath-search] search:", t, "isJsonPath:", e), e) {
-    const i = ft(r, t);
-    return console.log("[jsonpath-search] JSONPath result:", i), i;
+function Ee(i, e) {
+  if (!e || !i)
+    return i || {};
+  const t = pe(e);
+  if (console.log("[jsonpath-search] search:", e, "isJsonPath:", t), t) {
+    const s = me(i, e);
+    return console.log("[jsonpath-search] JSONPath result:", s), s;
   }
-  const s = dt(r, t);
-  return console.log("[jsonpath-search] key match result:", s), s;
+  const r = ye(i, e);
+  return console.log("[jsonpath-search] key match result:", r), r;
 }
-function dt(r, t) {
-  const e = t.toLowerCase(), s = {};
-  for (const [i, n] of Object.entries(r || {}))
-    i.toLowerCase().includes(e) && (s[i] = n);
-  return s;
+function ye(i, e) {
+  const t = e.toLowerCase(), r = {};
+  for (const [s, n] of Object.entries(i || {}))
+    s.toLowerCase().includes(t) && (r[s] = n);
+  return r;
 }
-function ft(r, t) {
-  const e = ht(r, t);
-  if (e.length === 0)
+function me(i, e) {
+  const t = be(i, e);
+  if (t.length === 0)
     return {};
-  if (e.length === 1) {
-    const { path: i, value: n } = e[0];
-    return i === "$" && typeof n == "object" && n !== null || typeof n == "object" && n !== null && !Array.isArray(n) ? n : { [R(i)]: n };
+  if (t.length === 1) {
+    const { path: s, value: n } = t[0];
+    return s === "$" && typeof n == "object" && n !== null || typeof n == "object" && n !== null && !Array.isArray(n) ? n : { [$(s)]: n };
   }
-  const s = {};
-  for (const { path: i, value: n } of e) {
-    const o = R(i) || `result_${Object.keys(s).length}`;
-    o in s ? s[`${o}_${Object.keys(s).length}`] = n : s[o] = n;
+  const r = {};
+  for (const { path: s, value: n } of t) {
+    const o = $(s) || `result_${Object.keys(r).length}`;
+    o in r ? r[`${o}_${Object.keys(r).length}`] = n : r[o] = n;
   }
-  return s;
+  return r;
 }
-function R(r) {
-  if (!r) return "";
-  const t = r.match(/\[['"]?([^'"[\]]+)['"]?\]$/);
-  if (t)
-    return t[1];
-  const e = r.match(/\.([^.[\]]+)$/);
-  return e ? e[1] : r.replace(/^\$\.?/, "");
+function $(i) {
+  if (!i) return "";
+  const e = i.match(/\[['"]?([^'"[\]]+)['"]?\]$/);
+  if (e)
+    return e[1];
+  const t = i.match(/\.([^.[\]]+)$/);
+  return t ? t[1] : i.replace(/^\$\.?/, "");
 }
-const H = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], Q = /* @__PURE__ */ new Set(["shell", "console"]), j = /* @__PURE__ */ new Set([...H, ...Q]), q = {
+const U = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], B = /* @__PURE__ */ new Set(["shell", "console"]), R = /* @__PURE__ */ new Set([...U, ...B]), q = {
   template: "Template",
   session: "Session",
   requests: "Requests",
@@ -1373,115 +1373,70 @@ const H = ["template", "session", "requests", "sql", "logs", "config", "routes",
   custom: "Custom",
   shell: "Shell",
   console: "Console"
-}, pt = {
+}, xe = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, gt = {
+}, we = {
   request: "requests",
   sql: "sql",
   log: "logs",
   template: "template",
   session: "session",
   custom: "custom"
-}, I = (r) => {
-  if (!r)
+}, I = (i) => {
+  if (!i)
     return null;
   try {
-    return JSON.parse(r);
+    return JSON.parse(i);
   } catch {
     return null;
   }
-}, bt = (r) => {
-  if (!Array.isArray(r))
+}, Oe = (i) => {
+  if (!Array.isArray(i))
     return [];
-  const t = [];
-  return r.forEach((e) => {
-    if (!e || typeof e != "object")
+  const e = [];
+  return i.forEach((t) => {
+    if (!t || typeof t != "object")
       return;
-    const s = e, i = typeof s.command == "string" ? s.command.trim() : "";
-    if (!i)
+    const r = t, s = typeof r.command == "string" ? r.command.trim() : "";
+    if (!s)
       return;
-    const n = typeof s.description == "string" ? s.description.trim() : "", o = Array.isArray(s.tags) ? s.tags.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], h = Array.isArray(s.aliases) ? s.aliases.filter((c) => typeof c == "string" && c.trim() !== "").map((c) => c.trim()) : [], l = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
-    t.push({
-      command: i,
+    const n = typeof r.description == "string" ? r.description.trim() : "", o = Array.isArray(r.tags) ? r.tags.filter((l) => typeof l == "string" && l.trim() !== "").map((l) => l.trim()) : [], h = Array.isArray(r.aliases) ? r.aliases.filter((l) => typeof l == "string" && l.trim() !== "").map((l) => l.trim()) : [], c = typeof r.mutates == "boolean" ? r.mutates : typeof r.read_only == "boolean" ? !r.read_only : !1;
+    e.push({
+      command: s,
       description: n || void 0,
       tags: o.length > 0 ? o : void 0,
       aliases: h.length > 0 ? h : void 0,
-      mutates: l
+      mutates: c
     });
-  }), t;
-}, p = (r) => String(r ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"), $ = (r) => {
-  if (!r)
-    return "";
-  if (typeof r == "number")
-    return new Date(r).toLocaleTimeString();
-  if (typeof r == "string") {
-    const t = new Date(r);
-    return Number.isNaN(t.getTime()) ? r : t.toLocaleTimeString();
-  }
-  return "";
-}, M = (r) => {
-  if (r == null)
-    return "0ms";
-  if (typeof r == "string")
-    return r;
-  const t = Number(r);
-  if (Number.isNaN(t))
-    return "0ms";
-  const e = t / 1e6;
-  return e < 1 ? `${(t / 1e3).toFixed(1)}us` : e < 1e3 ? `${e.toFixed(2)}ms` : `${(e / 1e3).toFixed(2)}s`;
-}, O = (r) => {
-  if (r == null || r === "")
-    return "0";
-  const t = Number(r);
-  return Number.isNaN(t) ? String(r) : t.toLocaleString();
-}, k = (r) => {
-  if (r === void 0)
-    return "{}";
-  try {
-    return JSON.stringify(r, null, 2);
-  } catch {
-    return String(r ?? "");
-  }
-}, mt = async (r, t) => {
-  try {
-    await navigator.clipboard.writeText(r);
-    const e = t.innerHTML;
-    t.innerHTML = '<i class="iconoir-check"></i> Copied', t.classList.add("debug-copy--success"), setTimeout(() => {
-      t.innerHTML = e, t.classList.remove("debug-copy--success");
-    }, 1500);
-  } catch {
-    t.classList.add("debug-copy--error"), setTimeout(() => {
-      t.classList.remove("debug-copy--error");
-    }, 1500);
-  }
-}, C = (r) => r == null ? 0 : Array.isArray(r) ? r.length : typeof r == "object" ? Object.keys(r).length : 1, yt = (r) => Array.isArray(r) && r.length > 0 ? r.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : [...H], U = (r) => q[r] ? q[r] : r ? r.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/i, "SQL").replace(/\b([a-z])/g, (t) => t.toUpperCase()) : "", B = (r, t) => ut(r, t), Et = (r, t, e) => {
-  if (!r || !t)
+  }), e;
+}, Ce = (i) => Array.isArray(i) && i.length > 0 ? i.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : [...U], N = (i) => q[i] ? q[i] : i ? i.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/i, "SQL").replace(/\b([a-z])/g, (e) => e.toUpperCase()) : "", j = (i, e) => Ee(i, e), Ae = (i, e, t) => {
+  if (!i || !e)
     return;
-  const s = t.split(".").map((n) => n.trim()).filter(Boolean);
-  if (s.length === 0)
+  const r = e.split(".").map((n) => n.trim()).filter(Boolean);
+  if (r.length === 0)
     return;
-  let i = r;
-  for (let n = 0; n < s.length - 1; n += 1) {
-    const o = s[n];
-    (!i[o] || typeof i[o] != "object") && (i[o] = {}), i = i[o];
+  let s = i;
+  for (let n = 0; n < r.length - 1; n += 1) {
+    const o = r[n];
+    (!s[o] || typeof s[o] != "object") && (s[o] = {}), s = s[o];
   }
-  i[s[s.length - 1]] = e;
-}, v = (r) => Array.isArray(r) ? r : [], T = (r, t) => {
-  if (!r)
-    return t;
-  const e = Number(r);
-  return Number.isNaN(e) ? t : e;
+  s[r[r.length - 1]] = t;
+}, L = (i, e) => {
+  if (!i)
+    return e;
+  const t = Number(i);
+  return Number.isNaN(t) ? e : t;
 };
-class wt {
-  constructor(t) {
-    this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.container = t;
-    const e = I(t.dataset.panels);
-    this.panels = yt(e), this.activePanel = this.panels[0] || "template", this.debugPath = t.dataset.debugPath || "", this.maxLogEntries = T(t.dataset.maxLogEntries, 500), this.maxSQLQueries = T(t.dataset.maxSqlQueries, 200), this.slowThresholdMs = T(t.dataset.slowThresholdMs, 50), this.replCommands = bt(I(t.dataset.replCommands)), this.state = {
+class Se {
+  constructor(e) {
+    this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.container = e;
+    const t = I(e.dataset.panels);
+    this.panels = Ce(t), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.maxLogEntries = L(e.dataset.maxLogEntries, 500), this.maxSQLQueries = L(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = L(e.dataset.slowThresholdMs, 50), this.replCommands = Oe(I(e.dataset.replCommands)), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -1498,36 +1453,36 @@ class wt {
       routes: { method: "all", search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), Q.forEach((s) => {
-      this.panelRenderers.set(s, {
-        render: () => this.renderReplPanel(s),
+    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), B.forEach((r) => {
+      this.panelRenderers.set(r, {
+        render: () => this.renderReplPanel(r),
         filters: () => '<span class="timestamp">REPL controls are in the panel header.</span>'
       });
-    }), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.stream = new K({
+    }), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.stream = new F({
       basePath: this.debugPath,
-      onEvent: (s) => this.handleEvent(s),
-      onStatusChange: (s) => this.updateConnectionStatus(s)
-    }), this.fetchSnapshot(), this.stream.connect(), this.stream.subscribe(this.panels.map((s) => pt[s] || s));
+      onEvent: (r) => this.handleEvent(r),
+      onStatusChange: (r) => this.updateConnectionStatus(r)
+    }), this.fetchSnapshot(), this.stream.connect(), this.stream.subscribe(this.panels.map((r) => xe[r] || r));
   }
-  requireElement(t, e = this.container) {
-    const s = e.querySelector(t);
-    if (!s)
-      throw new Error(`Missing debug element: ${t}`);
-    return s;
+  requireElement(e, t = this.container) {
+    const r = t.querySelector(e);
+    if (!r)
+      throw new Error(`Missing debug element: ${e}`);
+    return r;
   }
   bindActions() {
-    this.tabsEl.addEventListener("click", (e) => {
-      const s = e.target;
+    this.tabsEl.addEventListener("click", (t) => {
+      const r = t.target;
+      if (!r)
+        return;
+      const s = r.closest("[data-panel]");
       if (!s)
         return;
-      const i = s.closest("[data-panel]");
-      if (!i)
-        return;
-      const n = i.dataset.panel || "";
+      const n = s.dataset.panel || "";
       !n || n === this.activePanel || (this.activePanel = n, this.renderActivePanel());
-    }), this.container.querySelectorAll("[data-debug-action]").forEach((e) => {
-      e.addEventListener("click", () => {
-        switch (e.dataset.debugAction || "") {
+    }), this.container.querySelectorAll("[data-debug-action]").forEach((t) => {
+      t.addEventListener("click", () => {
+        switch (t.dataset.debugAction || "") {
           case "snapshot":
             this.stream.requestSnapshot();
             break;
@@ -1535,7 +1490,7 @@ class wt {
             this.clearAll();
             break;
           case "pause":
-            this.togglePause(e);
+            this.togglePause(t);
             break;
           case "clear-panel":
             this.clearActivePanel();
@@ -1545,394 +1500,257 @@ class wt {
     });
   }
   renderTabs() {
-    const t = this.panels.map((e) => `
-          <button class="debug-tab ${e === this.activePanel ? "debug-tab--active" : ""}" data-panel="${p(e)}">
-            <span class="debug-tab__label">${p(U(e))}</span>
-            <span class="debug-tab__count" data-panel-count="${p(e)}">0</span>
+    const e = this.panels.map((t) => `
+          <button class="debug-tab ${t === this.activePanel ? "debug-tab--active" : ""}" data-panel="${m(t)}">
+            <span class="debug-tab__label">${m(N(t))}</span>
+            <span class="debug-tab__count" data-panel-count="${m(t)}">0</span>
           </button>
         `).join("");
-    this.tabsEl.innerHTML = t, this.updateTabCounts();
+    this.tabsEl.innerHTML = e, this.updateTabCounts();
   }
   renderActivePanel() {
     this.renderTabs(), this.renderFilters(), this.renderPanel();
   }
   renderFilters() {
-    const t = this.activePanel;
-    let e = "";
-    const s = this.panelRenderers.get(t);
-    if (s?.filters)
-      e = s.filters();
-    else if (t === "requests") {
-      const i = this.filters.requests;
-      e = `
+    const e = this.activePanel;
+    let t = "";
+    const r = this.panelRenderers.get(e);
+    if (r?.filters)
+      t = r.filters();
+    else if (e === "requests") {
+      const s = this.filters.requests;
+      t = `
         <div class="debug-filter">
           <label>Method</label>
           <select data-filter="method">
-            ${this.renderSelectOptions(["all", "GET", "POST", "PUT", "PATCH", "DELETE"], i.method)}
+            ${this.renderSelectOptions(["all", "GET", "POST", "PUT", "PATCH", "DELETE"], s.method)}
           </select>
         </div>
         <div class="debug-filter">
           <label>Status</label>
           <select data-filter="status">
-            ${this.renderSelectOptions(["all", "200", "201", "204", "400", "401", "403", "404", "500"], i.status)}
+            ${this.renderSelectOptions(["all", "200", "201", "204", "400", "401", "403", "404", "500"], s.status)}
           </select>
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${p(i.search)}" placeholder="/admin/users" />
+          <input type="search" data-filter="search" value="${m(s.search)}" placeholder="/admin/users" />
         </div>
         <label class="debug-btn">
-          <input type="checkbox" data-filter="newestFirst" ${i.newestFirst ? "checked" : ""} />
+          <input type="checkbox" data-filter="newestFirst" ${s.newestFirst ? "checked" : ""} />
           <span>Newest first</span>
         </label>
       `;
-    } else if (t === "sql") {
-      const i = this.filters.sql;
-      e = `
+    } else if (e === "sql") {
+      const s = this.filters.sql;
+      t = `
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${p(i.search)}" placeholder="SELECT" />
+          <input type="search" data-filter="search" value="${m(s.search)}" placeholder="SELECT" />
         </div>
         <label class="debug-btn">
-          <input type="checkbox" data-filter="slowOnly" ${i.slowOnly ? "checked" : ""} />
+          <input type="checkbox" data-filter="slowOnly" ${s.slowOnly ? "checked" : ""} />
           <span>Slow only</span>
         </label>
         <label class="debug-btn">
-          <input type="checkbox" data-filter="errorOnly" ${i.errorOnly ? "checked" : ""} />
+          <input type="checkbox" data-filter="errorOnly" ${s.errorOnly ? "checked" : ""} />
           <span>Errors</span>
         </label>
         <label class="debug-btn">
-          <input type="checkbox" data-filter="newestFirst" ${i.newestFirst ? "checked" : ""} />
+          <input type="checkbox" data-filter="newestFirst" ${s.newestFirst ? "checked" : ""} />
           <span>Newest first</span>
         </label>
       `;
-    } else if (t === "logs") {
-      const i = this.filters.logs;
-      e = `
+    } else if (e === "logs") {
+      const s = this.filters.logs;
+      t = `
         <div class="debug-filter">
           <label>Level</label>
           <select data-filter="level">
-            ${this.renderSelectOptions(["all", "debug", "info", "warn", "error"], i.level)}
+            ${this.renderSelectOptions(["all", "debug", "info", "warn", "error"], s.level)}
           </select>
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${p(i.search)}" placeholder="database" />
+          <input type="search" data-filter="search" value="${m(s.search)}" placeholder="database" />
         </div>
         <label class="debug-btn">
-          <input type="checkbox" data-filter="newestFirst" ${i.newestFirst ? "checked" : ""} />
+          <input type="checkbox" data-filter="newestFirst" ${s.newestFirst ? "checked" : ""} />
           <span>Newest first</span>
         </label>
         <label class="debug-btn">
-          <input type="checkbox" data-filter="autoScroll" ${i.autoScroll ? "checked" : ""} />
+          <input type="checkbox" data-filter="autoScroll" ${s.autoScroll ? "checked" : ""} />
           <span>Auto-scroll</span>
         </label>
       `;
-    } else if (t === "routes") {
-      const i = this.filters.routes;
-      e = `
+    } else if (e === "routes") {
+      const s = this.filters.routes;
+      t = `
         <div class="debug-filter">
           <label>Method</label>
           <select data-filter="method">
-            ${this.renderSelectOptions(["all", "GET", "POST", "PUT", "PATCH", "DELETE"], i.method)}
+            ${this.renderSelectOptions(["all", "GET", "POST", "PUT", "PATCH", "DELETE"], s.method)}
           </select>
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${p(i.search)}" placeholder="/admin" />
+          <input type="search" data-filter="search" value="${m(s.search)}" placeholder="/admin" />
         </div>
       `;
     } else {
-      const i = this.filters.objects;
-      e = `
+      const s = this.filters.objects;
+      t = `
         <div class="debug-filter debug-filter--grow">
           <label>Search (JSONPath supported)</label>
-          <input type="search" data-filter="search" value="${p(i.search)}" placeholder="user.roles[0].name" />
+          <input type="search" data-filter="search" value="${m(s.search)}" placeholder="user.roles[0].name" />
         </div>
       `;
     }
-    this.filtersEl.innerHTML = e || '<span class="timestamp">No filters</span>', this.bindFilterInputs();
+    this.filtersEl.innerHTML = t || '<span class="timestamp">No filters</span>', this.bindFilterInputs();
   }
   bindFilterInputs() {
-    this.filtersEl.querySelectorAll("input, select").forEach((e) => {
-      e.addEventListener("input", () => this.updateFiltersFromInputs()), e.addEventListener("change", () => this.updateFiltersFromInputs());
+    this.filtersEl.querySelectorAll("input, select").forEach((t) => {
+      t.addEventListener("input", () => this.updateFiltersFromInputs()), t.addEventListener("change", () => this.updateFiltersFromInputs());
     });
   }
   updateFiltersFromInputs() {
-    const t = this.activePanel, e = this.filtersEl.querySelectorAll("[data-filter]");
-    if (t === "requests") {
-      const s = { ...this.filters.requests };
-      e.forEach((i) => {
-        const n = i.dataset.filter || "";
-        n === "newestFirst" ? s[n] = i.checked : n && n in s && (s[n] = i.value);
-      }), this.filters.requests = s;
-    } else if (t === "sql") {
-      const s = { ...this.filters.sql };
-      e.forEach((i) => {
-        const n = i.dataset.filter || "";
-        n === "slowOnly" || n === "errorOnly" || n === "newestFirst" ? s[n] = i.checked : n === "search" && (s[n] = i.value);
-      }), this.filters.sql = s;
-    } else if (t === "logs") {
-      const s = { ...this.filters.logs };
-      e.forEach((i) => {
-        const n = i.dataset.filter || "";
-        n === "autoScroll" || n === "newestFirst" ? s[n] = i.checked : (n === "level" || n === "search") && (s[n] = i.value);
-      }), this.filters.logs = s;
-    } else if (t === "routes") {
-      const s = { ...this.filters.routes };
-      e.forEach((i) => {
-        const n = i.dataset.filter || "";
-        n && n in s && (s[n] = i.value);
-      }), this.filters.routes = s;
+    const e = this.activePanel, t = this.filtersEl.querySelectorAll("[data-filter]");
+    if (e === "requests") {
+      const r = { ...this.filters.requests };
+      t.forEach((s) => {
+        const n = s.dataset.filter || "";
+        n === "newestFirst" ? r[n] = s.checked : n && n in r && (r[n] = s.value);
+      }), this.filters.requests = r;
+    } else if (e === "sql") {
+      const r = { ...this.filters.sql };
+      t.forEach((s) => {
+        const n = s.dataset.filter || "";
+        n === "slowOnly" || n === "errorOnly" || n === "newestFirst" ? r[n] = s.checked : n === "search" && (r[n] = s.value);
+      }), this.filters.sql = r;
+    } else if (e === "logs") {
+      const r = { ...this.filters.logs };
+      t.forEach((s) => {
+        const n = s.dataset.filter || "";
+        n === "autoScroll" || n === "newestFirst" ? r[n] = s.checked : (n === "level" || n === "search") && (r[n] = s.value);
+      }), this.filters.logs = r;
+    } else if (e === "routes") {
+      const r = { ...this.filters.routes };
+      t.forEach((s) => {
+        const n = s.dataset.filter || "";
+        n && n in r && (r[n] = s.value);
+      }), this.filters.routes = r;
     } else {
-      const s = { ...this.filters.objects };
-      e.forEach((i) => {
-        const n = i.dataset.filter || "";
-        n && n in s && (s[n] = i.value);
-      }), this.filters.objects = s;
+      const r = { ...this.filters.objects };
+      t.forEach((s) => {
+        const n = s.dataset.filter || "";
+        n && n in r && (r[n] = s.value);
+      }), this.filters.objects = r;
     }
     this.renderPanel();
   }
   renderPanel() {
-    const t = this.activePanel, e = this.panelRenderers.get(t);
-    if (e) {
-      e.render();
+    const e = this.activePanel, t = this.panelRenderers.get(e);
+    if (t) {
+      t.render();
       return;
     }
     this.panelEl.classList.remove("debug-content--repl");
-    let s = "";
-    t === "template" ? s = this.renderJSONPanel("Template Context", this.state.template, this.filters.objects.search) : t === "session" ? s = this.renderJSONPanel("Session", this.state.session, this.filters.objects.search) : t === "config" ? s = this.renderJSONPanel("Config", this.state.config, this.filters.objects.search) : t === "requests" ? s = this.renderRequests() : t === "sql" ? s = this.renderSQL() : t === "logs" ? s = this.renderLogs() : t === "routes" ? s = this.renderRoutes() : t === "custom" ? s = this.renderCustom() : s = this.renderJSONPanel(U(t), this.state.extra[t], this.filters.objects.search), this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners();
+    let r = "";
+    e === "template" ? r = this.renderJSONPanel("Template Context", this.state.template, this.filters.objects.search) : e === "session" ? r = this.renderJSONPanel("Session", this.state.session, this.filters.objects.search) : e === "config" ? r = this.renderJSONPanel("Config", this.state.config, this.filters.objects.search) : e === "requests" ? r = this.renderRequests() : e === "sql" ? r = this.renderSQL() : e === "logs" ? r = this.renderLogs() : e === "routes" ? r = this.renderRoutes() : e === "custom" ? r = this.renderCustom() : r = this.renderJSONPanel(N(e), this.state.extra[e], this.filters.objects.search), this.panelEl.innerHTML = r, e === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners();
   }
   attachExpandableRowListeners() {
-    this.panelEl.querySelectorAll(".expandable-row").forEach((t) => {
-      t.addEventListener("click", (e) => {
-        if (e.target.closest("a, button")) return;
-        e.currentTarget.classList.toggle("expanded");
-      });
-    });
+    Q(this.panelEl);
   }
   attachCopyButtonListeners() {
-    this.panelEl.querySelectorAll("[data-copy-trigger]").forEach((t) => {
-      t.addEventListener("click", (e) => {
-        e.preventDefault(), e.stopPropagation();
-        const s = t.closest("[data-copy-content]");
-        if (!s) return;
-        const i = s.getAttribute("data-copy-content") || "";
-        mt(i, t);
-      });
-    });
+    H(this.panelEl, { useIconFeedback: !0 });
   }
-  renderReplPanel(t) {
+  renderReplPanel(e) {
     this.panelEl.classList.add("debug-content--repl");
-    let e = this.replPanels.get(t);
-    e || (e = new z({
-      kind: t === "shell" ? "shell" : "console",
+    let t = this.replPanels.get(e);
+    t || (t = new J({
+      kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
-      commands: t === "console" ? this.replCommands : []
-    }), this.replPanels.set(t, e)), e.attach(this.panelEl);
+      commands: e === "console" ? this.replCommands : []
+    }), this.replPanels.set(e, t)), t.attach(this.panelEl);
   }
   renderRequests() {
-    const { method: t, status: e, search: s, newestFirst: i } = this.filters.requests, n = s.toLowerCase();
-    let o = this.state.requests.filter((l) => !(t !== "all" && (l.method || "").toUpperCase() !== t || e !== "all" && String(l.status || "") !== e || n && !(l.path || "").toLowerCase().includes(n)));
-    return o.length === 0 ? this.renderEmptyState("No requests captured yet.") : (i && (o = [...o].reverse()), `
-      <table class="debug-table">
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>Path</th>
-            <th>Status</th>
-            <th>Duration</th>
-            <th>Time</th>
-          </tr>
-        </thead>
-        <tbody>${o.map((l) => {
-      const c = `badge--method-${(l.method || "get").toLowerCase()}`, d = l.status || 0, f = d >= 500 ? "badge--status-error" : d >= 400 ? "badge--status-warn" : "badge--status", m = d >= 400 ? "error" : "", u = l.duration || 0, y = (typeof u == "number" ? u / 1e6 : 0) >= this.slowThresholdMs ? "duration--slow" : "";
-      return `
-          <tr class="${m}">
-            <td><span class="badge ${c}">${p(l.method || "GET")}</span></td>
-            <td><span class="path">${p(l.path || "")}</span></td>
-            <td><span class="badge ${f}">${p(d)}</span></td>
-            <td><span class="duration ${y}">${M(l.duration)}</span></td>
-            <td><span class="timestamp">${p($(l.timestamp))}</span></td>
-          </tr>
-        `;
-    }).join("")}</tbody>
-      </table>
-    `);
+    const { method: e, status: t, search: r, newestFirst: s } = this.filters.requests, n = r.toLowerCase(), o = this.state.requests.filter((h) => !(e !== "all" && (h.method || "").toUpperCase() !== e || t !== "all" && String(h.status || "") !== t || n && !(h.path || "").toLowerCase().includes(n)));
+    return o.length === 0 ? this.renderEmptyState("No requests captured yet.") : K(o, O, {
+      newestFirst: s,
+      slowThresholdMs: this.slowThresholdMs,
+      showSortToggle: !1,
+      // Console has filter bar, not inline toggle
+      truncatePath: !1
+      // Console shows full paths
+    });
   }
   renderSQL() {
-    const { search: t, slowOnly: e, errorOnly: s, newestFirst: i } = this.filters.sql, n = t.toLowerCase();
-    let o = this.state.sql.filter((l) => !(s && !l.error || e && !this.isSlowQuery(l) || n && !(l.query || "").toLowerCase().includes(n)));
-    return o.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : (i && (o = [...o].reverse()), `
-      <table class="debug-table">
-        <thead>
-          <tr>
-            <th>Duration</th>
-            <th>Rows</th>
-            <th>Time</th>
-            <th>Status</th>
-            <th>Query</th>
-          </tr>
-        </thead>
-        <tbody>${o.map((l, c) => {
-      const d = this.isSlowQuery(l), f = !!l.error, m = ["expandable-row"];
-      f && m.push("error"), d && m.push("slow");
-      const u = d ? "duration--slow" : "", E = `sql-row-${c}`, y = l.query || "", S = X(y, !0);
-      return `
-          <tr class="${m.join(" ")}" data-row-id="${E}">
-            <td><span class="duration ${u}">${M(l.duration)}</span></td>
-            <td>${p(O(l.row_count || 0))}</td>
-            <td><span class="timestamp">${p($(l.timestamp))}</span></td>
-            <td>${f ? '<span class="badge badge--status-error">Error</span>' : ""}</td>
-            <td><span class="query-text"><span class="expand-icon">&#9654;</span>${p(y)}</span></td>
-          </tr>
-          <tr class="expansion-row" data-expansion-for="${E}">
-            <td colspan="5">
-              <div class="expanded-content" data-copy-content="${p(y)}">
-                <div class="expanded-content__header">
-                  <button class="debug-btn debug-copy debug-copy--sm" data-copy-trigger="${E}" title="Copy SQL">
-                    <i class="iconoir-copy"></i> Copy
-                  </button>
-                </div>
-                <pre>${S}</pre>
-              </div>
-            </td>
-          </tr>
-        `;
-    }).join("")}</tbody>
-      </table>
-    `);
+    const { search: e, slowOnly: t, errorOnly: r, newestFirst: s } = this.filters.sql, n = e.toLowerCase(), o = this.state.sql.filter((h) => !(r && !h.error || t && !this.isSlowQuery(h) || n && !(h.query || "").toLowerCase().includes(n)));
+    return o.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : X(o, O, {
+      newestFirst: s,
+      slowThresholdMs: this.slowThresholdMs,
+      maxEntries: this.maxSQLQueries,
+      showSortToggle: !1,
+      // Console has filter bar
+      useIconCopyButton: !0
+      // Console uses iconoir icons
+    });
   }
   renderLogs() {
-    const { level: t, search: e, newestFirst: s } = this.filters.logs, i = e.toLowerCase();
-    let n = this.state.logs.filter((h) => {
-      if (t !== "all" && (h.level || "").toLowerCase() !== t)
+    const { level: e, search: t, newestFirst: r } = this.filters.logs, s = t.toLowerCase(), n = this.state.logs.filter((o) => {
+      if (e !== "all" && (o.level || "").toLowerCase() !== e)
         return !1;
-      const l = `${h.message || ""} ${h.source || ""} ${k(h.fields || {})}`.toLowerCase();
-      return !(i && !l.includes(i));
-    });
-    return n.length === 0 ? this.renderEmptyState("No logs captured yet.") : (s && (n = [...n].reverse()), `
-      <table class="debug-table">
-        <thead>
-          <tr>
-            <th>Level</th>
-            <th>Time</th>
-            <th>Message</th>
-            <th>Source</th>
-          </tr>
-        </thead>
-        <tbody>${n.map((h) => {
-      const l = (h.level || "info").toLowerCase(), c = `badge--level-${l}`;
-      return `
-          <tr class="${l === "error" || l === "fatal" ? "error" : ""}">
-            <td><span class="badge ${c}">${p((h.level || "info").toUpperCase())}</span></td>
-            <td><span class="timestamp">${p($(h.timestamp))}</span></td>
-            <td><span class="message">${p(h.message || "")}</span></td>
-            <td><span class="timestamp">${p(h.source || "")}</span></td>
-          </tr>
-        `;
-    }).join("")}</tbody>
-      </table>
-    `);
-  }
-  renderRoutes() {
-    const { method: t, search: e } = this.filters.routes, s = e.toLowerCase(), i = this.state.routes.filter((o) => {
-      if (t !== "all" && (o.method || "").toUpperCase() !== t)
-        return !1;
-      const h = `${o.path || ""} ${o.handler || ""} ${o.summary || ""}`.toLowerCase();
+      const h = `${o.message || ""} ${o.source || ""} ${z(o.fields || {})}`.toLowerCase();
       return !(s && !h.includes(s));
     });
-    return i.length === 0 ? this.renderEmptyState("No routes captured yet.") : `
-      <table class="debug-table debug-routes-table">
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>Path</th>
-            <th>Handler</th>
-            <th>Name</th>
-          </tr>
-        </thead>
-        <tbody>${i.map((o) => `
-          <tr>
-            <td><span class="badge ${`badge--method-${(o.method || "get").toLowerCase()}`}">${p(o.method || "")}</span></td>
-            <td><span class="path">${p(o.path || "")}</span></td>
-            <td><span class="timestamp">${p(o.handler || "")}</span></td>
-            <td><span class="timestamp">${p(o.name || "")}</span></td>
-          </tr>
-        `).join("")}</tbody>
-      </table>
-    `;
+    return n.length === 0 ? this.renderEmptyState("No logs captured yet.") : Y(n, O, {
+      newestFirst: r,
+      maxEntries: this.maxLogEntries,
+      showSortToggle: !1,
+      // Console has filter bar
+      showSource: !0,
+      // Console shows source column
+      truncateMessage: !1
+      // Console shows full messages
+    });
+  }
+  renderRoutes() {
+    const { method: e, search: t } = this.filters.routes, r = t.toLowerCase(), s = this.state.routes.filter((n) => {
+      if (e !== "all" && (n.method || "").toUpperCase() !== e)
+        return !1;
+      const o = `${n.path || ""} ${n.handler || ""} ${n.summary || ""}`.toLowerCase();
+      return !(r && !o.includes(r));
+    });
+    return s.length === 0 ? this.renderEmptyState("No routes captured yet.") : G(s, O, {
+      showName: !0
+      // Console shows name column
+    });
   }
   renderCustom() {
-    const { search: t } = this.filters.custom, e = B(this.state.custom.data, t), s = this.state.custom.logs, i = D(e, !0), n = k(e), o = s.length ? s.map((l) => `
-              <tr>
-                <td><span class="badge badge--custom">${p(l.category || "custom")}</span></td>
-                <td><span class="timestamp">${p($(l.timestamp))}</span></td>
-                <td><span class="message">${p(l.message || "")}</span></td>
-              </tr>
-            `).join("") : "", h = s.length ? `
-        <table class="debug-table">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Time</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody>${o}</tbody>
-        </table>
-      ` : this.renderEmptyState("No custom logs yet.");
-    return `
-      <div class="debug-json-grid">
-        <div class="debug-json-panel" data-copy-content="${p(n)}">
-          <div class="debug-json-header">
-            <h3>Custom Data</h3>
-            <div class="debug-json-actions">
-              <span class="timestamp">${O(C(e))} keys</span>
-              <button class="debug-btn debug-copy" data-copy-trigger="custom-data" title="Copy to clipboard">
-                <i class="iconoir-copy"></i> Copy
-              </button>
-            </div>
-          </div>
-          <div class="debug-json-content">
-            <pre>${i}</pre>
-          </div>
-        </div>
-        <div class="debug-json-panel">
-          <div class="debug-json-header">
-            <h3>Custom Logs</h3>
-            <span class="timestamp">${O(s.length)} entries</span>
-          </div>
-          <div class="debug-json-content">
-            ${h}
-          </div>
-        </div>
-      </div>
-    `;
+    const { search: e } = this.filters.custom, t = Object.keys(this.state.custom.data).length > 0, r = this.state.custom.logs.length > 0;
+    return !t && !r ? this.renderEmptyState("No custom data captured yet.") : V(this.state.custom, O, {
+      maxLogEntries: this.maxLogEntries,
+      useIconCopyButton: !0,
+      // Console uses iconoir icons
+      showCount: !0,
+      dataFilterFn: e ? (s) => j(s, e) : void 0
+    });
   }
-  renderJSONPanel(t, e, s) {
-    const i = e && typeof e == "object" && !Array.isArray(e), n = Array.isArray(e), o = i ? B(e || {}, s) : e ?? {}, h = C(o), l = n ? "items" : i ? "keys" : "entries", c = D(o, !0), d = k(o), f = `copy-${t.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`;
-    return `
-      <section class="debug-json-panel" data-copy-content="${p(d)}">
-        <div class="debug-json-header">
-          <h3>${p(t)}</h3>
-          <div class="debug-json-actions">
-            <span class="debug-muted">${O(h)} ${l}</span>
-            <button class="debug-btn debug-copy" data-copy-trigger="${f}" title="Copy to clipboard">
-              <i class="iconoir-copy"></i> Copy
-            </button>
-          </div>
-        </div>
-        <pre>${c}</pre>
-      </section>
-    `;
+  renderJSONPanel(e, t, r) {
+    const s = t && typeof t == "object" && !Array.isArray(t), n = Array.isArray(t);
+    return s && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !s && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : Z(e, t, O, {
+      useIconCopyButton: !0,
+      // Console uses iconoir icons
+      showCount: !0,
+      filterFn: r ? (h) => j(h, r) : void 0
+    });
   }
-  panelCount(t) {
-    switch (t) {
+  panelCount(e) {
+    switch (e) {
       case "template":
-        return C(this.state.template);
+        return S(this.state.template);
       case "session":
-        return C(this.state.session);
+        return S(this.state.session);
       case "requests":
         return this.state.requests.length;
       case "sql":
@@ -1940,121 +1758,118 @@ class wt {
       case "logs":
         return this.state.logs.length;
       case "config":
-        return C(this.state.config);
+        return S(this.state.config);
       case "routes":
         return this.state.routes.length;
       case "custom":
-        return C(this.state.custom.data) + this.state.custom.logs.length;
+        return S(this.state.custom.data) + this.state.custom.logs.length;
       default:
-        return C(this.state.extra[t]);
+        return S(this.state.extra[e]);
     }
   }
-  renderEmptyState(t) {
+  renderEmptyState(e) {
     return `
       <div class="debug-empty">
-        <p>${p(t)}</p>
+        <p>${m(e)}</p>
       </div>
     `;
   }
-  renderSelectOptions(t, e) {
-    return t.map((s) => {
-      const i = s.toLowerCase() === e.toLowerCase() ? "selected" : "";
-      return `<option value="${p(s)}" ${i}>${p(s)}</option>`;
+  renderSelectOptions(e, t) {
+    return e.map((r) => {
+      const s = r.toLowerCase() === t.toLowerCase() ? "selected" : "";
+      return `<option value="${m(r)}" ${s}>${m(r)}</option>`;
     }).join("");
   }
   updateTabCounts() {
-    this.panels.forEach((t) => {
-      const e = this.panelCount(t), s = this.tabsEl.querySelector(`[data-panel-count="${t}"]`);
-      s && (s.textContent = O(e));
+    this.panels.forEach((e) => {
+      const t = this.panelCount(e), r = this.tabsEl.querySelector(`[data-panel-count="${e}"]`);
+      r && (r.textContent = _(t));
     });
   }
-  updateConnectionStatus(t) {
-    this.connectionEl.textContent = t, this.statusEl.setAttribute("data-status", t);
+  updateConnectionStatus(e) {
+    this.connectionEl.textContent = e, this.statusEl.setAttribute("data-status", e);
   }
   updateStatusMeta() {
-    this.eventCountEl.textContent = `${O(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
+    this.eventCountEl.textContent = `${_(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
   }
-  handleEvent(t) {
-    if (!t || !t.type)
+  handleEvent(e) {
+    if (!e || !e.type)
       return;
-    if (t.type === "snapshot") {
-      this.applySnapshot(t.payload);
+    if (e.type === "snapshot") {
+      this.applySnapshot(e.payload);
       return;
     }
     if (this.eventCount += 1, this.lastEventAt = /* @__PURE__ */ new Date(), this.updateStatusMeta(), this.paused)
       return;
-    const e = gt[t.type] || t.type;
-    switch (t.type) {
+    const t = we[e.type] || e.type;
+    switch (e.type) {
       case "request":
-        this.state.requests.push(t.payload), this.trim(this.state.requests, this.maxLogEntries);
+        this.state.requests.push(e.payload), this.trim(this.state.requests, this.maxLogEntries);
         break;
       case "sql":
-        this.state.sql.push(t.payload), this.trim(this.state.sql, this.maxSQLQueries);
+        this.state.sql.push(e.payload), this.trim(this.state.sql, this.maxSQLQueries);
         break;
       case "log":
-        this.state.logs.push(t.payload), this.trim(this.state.logs, this.maxLogEntries);
+        this.state.logs.push(e.payload), this.trim(this.state.logs, this.maxLogEntries);
         break;
       case "template":
-        this.state.template = t.payload || {};
+        this.state.template = e.payload || {};
         break;
       case "session":
-        this.state.session = t.payload || {};
+        this.state.session = e.payload || {};
         break;
       case "custom":
-        this.handleCustomEvent(t.payload);
+        this.handleCustomEvent(e.payload);
         break;
       default:
-        j.has(e) || (this.state.extra[e] = t.payload);
+        R.has(t) || (this.state.extra[t] = e.payload);
         break;
     }
-    this.updateTabCounts(), e === this.activePanel && this.renderPanel();
+    this.updateTabCounts(), t === this.activePanel && this.renderPanel();
   }
-  handleCustomEvent(t) {
-    if (t) {
-      if (typeof t == "object" && "key" in t && "value" in t) {
-        Et(this.state.custom.data, String(t.key), t.value);
+  handleCustomEvent(e) {
+    if (e) {
+      if (typeof e == "object" && "key" in e && "value" in e) {
+        Ae(this.state.custom.data, String(e.key), e.value);
         return;
       }
-      if (typeof t == "object" && ("category" in t || "message" in t)) {
-        this.state.custom.logs.push(t), this.trim(this.state.custom.logs, this.maxLogEntries);
+      if (typeof e == "object" && ("category" in e || "message" in e)) {
+        this.state.custom.logs.push(e), this.trim(this.state.custom.logs, this.maxLogEntries);
         return;
       }
     }
   }
-  applySnapshot(t) {
-    const e = t || {};
-    this.state.template = e.template || {}, this.state.session = e.session || {}, this.state.requests = v(e.requests), this.state.sql = v(e.sql), this.state.logs = v(e.logs), this.state.config = e.config || {}, this.state.routes = v(e.routes);
-    const s = e.custom || {};
+  applySnapshot(e) {
+    const t = e || {};
+    this.state.template = t.template || {}, this.state.session = t.session || {}, this.state.requests = P(t.requests), this.state.sql = P(t.sql), this.state.logs = P(t.logs), this.state.config = t.config || {}, this.state.routes = P(t.routes);
+    const r = t.custom || {};
     this.state.custom = {
-      data: s.data || {},
-      logs: v(s.logs)
+      data: r.data || {},
+      logs: P(r.logs)
     };
-    const i = {};
+    const s = {};
     this.panels.forEach((n) => {
-      !j.has(n) && n in e && (i[n] = e[n]);
-    }), this.state.extra = i, this.updateTabCounts(), this.renderPanel();
+      !R.has(n) && n in t && (s[n] = t[n]);
+    }), this.state.extra = s, this.updateTabCounts(), this.renderPanel();
   }
-  trim(t, e) {
-    if (!(!Array.isArray(t) || e <= 0))
-      for (; t.length > e; )
-        t.shift();
+  trim(e, t) {
+    if (!(!Array.isArray(e) || t <= 0))
+      for (; e.length > t; )
+        e.shift();
   }
-  isSlowQuery(t) {
-    if (!t || t.duration === void 0 || t.duration === null)
-      return !1;
-    const e = Number(t.duration);
-    return Number.isNaN(e) ? !1 : e / 1e6 >= this.slowThresholdMs;
+  isSlowQuery(e) {
+    return W(e?.duration, this.slowThresholdMs);
   }
   async fetchSnapshot() {
     if (this.debugPath)
       try {
-        const t = await fetch(`${this.debugPath}/api/snapshot`, {
+        const e = await fetch(`${this.debugPath}/api/snapshot`, {
           credentials: "same-origin"
         });
-        if (!t.ok)
+        if (!e.ok)
           return;
-        const e = await t.json();
-        this.applySnapshot(e);
+        const t = await e.json();
+        this.applySnapshot(t);
       } catch {
       }
   }
@@ -2065,24 +1880,24 @@ class wt {
   clearActivePanel() {
     if (!this.debugPath)
       return;
-    const t = this.activePanel;
-    this.stream.clear([t]), fetch(`${this.debugPath}/api/clear/${t}`, { method: "POST", credentials: "same-origin" }).catch(() => {
+    const e = this.activePanel;
+    this.stream.clear([e]), fetch(`${this.debugPath}/api/clear/${e}`, { method: "POST", credentials: "same-origin" }).catch(() => {
     });
   }
-  togglePause(t) {
-    this.paused = !this.paused, t.textContent = this.paused ? "Resume" : "Pause", this.paused || this.stream.requestSnapshot();
+  togglePause(e) {
+    this.paused = !this.paused, e.textContent = this.paused ? "Resume" : "Pause", this.paused || this.stream.requestSnapshot();
   }
 }
-const xt = (r) => {
-  const t = r || document.querySelector("[data-debug-console]");
-  return t ? new wt(t) : null;
-}, F = () => {
-  xt();
+const Pe = (i) => {
+  const e = i || document.querySelector("[data-debug-console]");
+  return e ? new Se(e) : null;
+}, M = () => {
+  Pe();
 };
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", F) : F();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", M) : M();
 export {
-  wt as DebugPanel,
-  K as DebugStream,
-  xt as initDebugPanel
+  Se as DebugPanel,
+  F as DebugStream,
+  Pe as initDebugPanel
 };
 //# sourceMappingURL=index.js.map

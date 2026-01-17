@@ -6,6 +6,11 @@ import { DebugStream, type DebugEvent, type DebugStreamStatus } from '../debug-s
 import { DebugReplPanel, type DebugReplCommand } from '../repl/repl-panel.js';
 import { toolbarStyles } from './toolbar-styles.js';
 import { renderPanel, getCounts, type DebugSnapshot, type PanelOptions } from './panel-renderers.js';
+import {
+  attachCopyListeners,
+  attachExpandableRowListeners,
+  attachSortToggleListeners,
+} from '../shared/interactions.js';
 
 // Panel configuration
 const defaultPanels = ['requests', 'sql', 'logs', 'routes', 'config'];
@@ -761,61 +766,21 @@ export class DebugToolbar extends HTMLElement {
   }
 
   private attachExpandableRowListeners(): void {
-    // Attach click listeners to expandable rows (SQL queries)
-    this.shadow.querySelectorAll('.expandable-row').forEach((row) => {
-      row.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        // Don't toggle if clicking on a link or button
-        if (target.closest('a, button')) return;
-
-        const rowEl = e.currentTarget as HTMLElement;
-        rowEl.classList.toggle('expanded');
-      });
-    });
+    // Use shared helper for expandable row behavior
+    attachExpandableRowListeners(this.shadow);
   }
 
   private attachCopyListeners(): void {
-    this.shadow.querySelectorAll<HTMLButtonElement>('[data-copy-trigger]').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const container = btn.closest('[data-copy-content]');
-        if (!container) return;
-
-        const content = container.getAttribute('data-copy-content') || '';
-        try {
-          await navigator.clipboard.writeText(content);
-          btn.classList.add('copied');
-          const originalText = btn.innerHTML;
-          btn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            Copied
-          `;
-          setTimeout(() => {
-            btn.classList.remove('copied');
-            btn.innerHTML = originalText;
-          }, 1500);
-        } catch {
-          // Fallback or silent fail
-        }
-      });
-    });
+    // Use shared helper for copy-to-clipboard behavior (toolbar style with SVG feedback)
+    attachCopyListeners(this.shadow, { useIconFeedback: false });
   }
 
   private attachSortToggleListeners(): void {
-    this.shadow.querySelectorAll<HTMLInputElement>('[data-sort-toggle]').forEach((checkbox) => {
-      checkbox.addEventListener('change', (e) => {
-        const target = e.target as HTMLInputElement;
-        const panelId = target.dataset.sortToggle;
-        if (!panelId) return;
-
-        this.panelSortOrder.set(panelId, target.checked);
-        this.saveState();
-        this.updateContent();
-      });
+    // Use shared helper for sort toggle behavior
+    attachSortToggleListeners(this.shadow, (panelId, newestFirst) => {
+      this.panelSortOrder.set(panelId, newestFirst);
+      this.saveState();
+      this.updateContent();
     });
   }
 }
