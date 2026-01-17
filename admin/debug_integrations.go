@@ -22,14 +22,31 @@ import (
 // - debug_toolbar_panels: comma-separated list of panels for the toolbar
 // - debug_slow_threshold_ms: slow query threshold in milliseconds
 func CaptureViewContext(collector *DebugCollector, viewCtx router.ViewContext) router.ViewContext {
+	return captureViewContext(collector, "", viewCtx)
+}
+
+// CaptureViewContextForRequest is like CaptureViewContext but honors ToolbarExcludePaths.
+func CaptureViewContextForRequest(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) router.ViewContext {
+	path := ""
+	if c != nil {
+		path = c.Path()
+	}
+	return captureViewContext(collector, path, viewCtx)
+}
+
+func captureViewContext(collector *DebugCollector, requestPath string, viewCtx router.ViewContext) router.ViewContext {
 	if collector == nil {
 		return viewCtx
 	}
 	collector.CaptureTemplateData(viewCtx)
 
-	// Inject toolbar variables when ToolbarMode is enabled
+	// Inject toolbar variables when ToolbarMode is enabled.
 	cfg := collector.config
 	if cfg.ToolbarMode && debugConfigEnabled(cfg) {
+		if requestPath != "" && debugToolbarExcluded(cfg, requestPath) {
+			viewCtx["debug_toolbar_enabled"] = false
+			return viewCtx
+		}
 		viewCtx["debug_toolbar_enabled"] = true
 		viewCtx["debug_path"] = cfg.BasePath
 		viewCtx["debug_toolbar_panels"] = strings.Join(cfg.ToolbarPanels, ",")
@@ -440,7 +457,9 @@ func debugConfigSnapshot(cfg Config) map[string]any {
 		snapshot["feature_flags"] = flags
 	}
 	snapshot["features"] = cfg.Features
-	snapshot["debug"] = cfg.Debug
+	if debug := debugDebugConfigSnapshot(cfg.Debug); len(debug) > 0 {
+		snapshot["debug"] = debug
+	}
 	if auth := debugAuthConfigSnapshot(cfg.AuthConfig); len(auth) > 0 {
 		snapshot["auth"] = auth
 	}
@@ -448,6 +467,165 @@ func debugConfigSnapshot(cfg Config) map[string]any {
 		snapshot["permissions"] = permissions
 	}
 	return snapshot
+}
+
+func debugToolbarPathListed(paths []string, candidate string) bool {
+	if len(paths) == 0 {
+		return false
+	}
+	candidate = normalizeDebugToolbarPath(candidate)
+	for _, path := range paths {
+		if normalizeDebugToolbarPath(path) == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func debugToolbarExcluded(cfg DebugConfig, path string) bool {
+	if len(cfg.ToolbarExcludePaths) == 0 {
+		return false
+	}
+	path = normalizeDebugToolbarPath(path)
+	if path == "" {
+		return false
+	}
+	for _, entry := range cfg.ToolbarExcludePaths {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if entry == path {
+			return true
+		}
+		if strings.HasSuffix(entry, "/*") {
+			prefix := normalizeDebugToolbarPath(strings.TrimSuffix(entry, "/*"))
+			if prefix == "" {
+				return true
+			}
+			if path == prefix || strings.HasPrefix(path, prefix+"/") {
+				return true
+			}
+		}
+		if strings.HasSuffix(entry, "*") {
+			prefix := normalizeDebugToolbarPath(strings.TrimSuffix(entry, "*"))
+			if prefix == "" || strings.HasPrefix(path, prefix) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func normalizeDebugToolbarPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	if path != "/" {
+		path = strings.TrimSuffix(path, "/")
+	}
+	return path
+}
+
+func debugDebugConfigSnapshot(cfg DebugConfig) map[string]any {
+	out := map[string]any{
+		"Enabled":            cfg.Enabled,
+		"CaptureSQL":         cfg.CaptureSQL,
+		"CaptureLogs":        cfg.CaptureLogs,
+		"StrictQueryHooks":   cfg.StrictQueryHooks,
+		"MaxLogEntries":      cfg.MaxLogEntries,
+		"MaxSQLQueries":      cfg.MaxSQLQueries,
+		"FeatureKey":         cfg.FeatureKey,
+		"Permission":         cfg.Permission,
+		"BasePath":           cfg.BasePath,
+		"LayoutMode":         cfg.LayoutMode,
+		"PageTemplate":       cfg.PageTemplate,
+		"StandaloneTemplate": cfg.StandaloneTemplate,
+		"DashboardTemplate":  cfg.DashboardTemplate,
+		"SlowQueryThreshold": cfg.SlowQueryThreshold,
+		"PersistLayout":      cfg.PersistLayout,
+		"ToolbarMode":        cfg.ToolbarMode,
+	}
+	if panels := cloneStringSlice(cfg.Panels); len(panels) > 0 {
+		out["Panels"] = panels
+	}
+	if toolbar := cloneStringSlice(cfg.ToolbarPanels); len(toolbar) > 0 {
+		out["ToolbarPanels"] = toolbar
+	}
+	if excludes := cloneStringSlice(cfg.ToolbarExcludePaths); len(excludes) > 0 {
+		out["ToolbarExcludePaths"] = excludes
+	}
+	if ips := cloneStringSlice(cfg.AllowedIPs); len(ips) > 0 {
+		out["AllowedIPs"] = ips
+	}
+	if mask := cloneStringMap(cfg.MaskFieldTypes); len(mask) > 0 {
+		out["MaskFieldTypes"] = mask
+	}
+	if repl := debugReplConfigSnapshot(cfg.Repl); len(repl) > 0 {
+		out["Repl"] = repl
+	}
+	return out
+}
+
+func debugReplConfigSnapshot(cfg DebugREPLConfig) map[string]any {
+	out := map[string]any{
+		"Enabled":            cfg.Enabled,
+		"ShellEnabled":       cfg.ShellEnabled,
+		"AppEnabled":         cfg.AppEnabled,
+		"Permission":         cfg.Permission,
+		"ExecPermission":     cfg.ExecPermission,
+		"ReadOnly":           cfg.ReadOnly,
+		"ShellCommand":       cfg.ShellCommand,
+		"WorkingDir":         cfg.WorkingDir,
+		"MaxSessionSeconds":  cfg.MaxSessionSeconds,
+		"AppEvalTimeoutMs":   cfg.AppEvalTimeoutMs,
+		"MaxSessionsPerUser": cfg.MaxSessionsPerUser,
+		"OverrideStrategy":   debugReplStrategySnapshot(cfg.OverrideStrategy),
+	}
+	if roles := cloneStringSlice(cfg.AllowedRoles); len(roles) > 0 {
+		out["AllowedRoles"] = roles
+	}
+	if ips := cloneStringSlice(cfg.AllowedIPs); len(ips) > 0 {
+		out["AllowedIPs"] = ips
+	}
+	if args := cloneStringSlice(cfg.ShellArgs); len(args) > 0 {
+		out["ShellArgs"] = args
+	}
+	if env := cloneStringSlice(cfg.Environment); len(env) > 0 {
+		out["Environment"] = env
+	}
+	if pkgs := cloneStringSlice(cfg.AppAllowedPackages); len(pkgs) > 0 {
+		out["AppAllowedPackages"] = pkgs
+	}
+	return out
+}
+
+func debugReplStrategySnapshot(strategy DebugREPLOverrideStrategy) any {
+	if strategy == nil {
+		return nil
+	}
+	switch typed := strategy.(type) {
+	case DenyAllStrategy:
+		return "DenyAllStrategy"
+	case StaticKeyStrategy:
+		out := map[string]any{"type": "StaticKeyStrategy"}
+		if !typed.ExpiresAt.IsZero() {
+			out["expires_at"] = typed.ExpiresAt
+		}
+		return out
+	case SignedTokenStrategy:
+		out := map[string]any{"type": "SignedTokenStrategy"}
+		if typed.Audience != "" {
+			out["audience"] = typed.Audience
+		}
+		if typed.Issuer != "" {
+			out["issuer"] = typed.Issuer
+		}
+		return out
+	default:
+		return fmt.Sprintf("%T", strategy)
+	}
 }
 
 func debugAdminConfigSnapshot(cfg Config) map[string]any {
