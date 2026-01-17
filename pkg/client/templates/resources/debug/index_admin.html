@@ -3,6 +3,7 @@
 {% block title %}Debug - {{ title|default:"Enterprise Admin" }}{% endblock %}
 
 {% block content %}
+{% if not hide_content_header %}
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex items-center justify-between">
   <div>
     <h1 class="text-2xl font-bold text-admin-dark">Debug Console</h1>
@@ -12,6 +13,7 @@
     <a class="btn btn-secondary" href="{{ debug_standalone_path|default:debug_path }}" target="_blank" rel="noopener">Open standalone</a>
   </div>
 </header>
+{% endif %}
 
 <div class="flex-1 overflow-hidden">
   <iframe
