@@ -1,7 +1,7 @@
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from './debug-stream.js';
 import { DebugReplPanel, type DebugReplCommand } from './repl/repl-panel.js';
 import { highlightSQL, highlightJSON } from './syntax-highlight.js';
-import { filterObjectBySearch, isJsonPathExpression } from './shared/jsonpath-search.js';
+import { filterObjectBySearch } from './shared/jsonpath-search.js';
 
 type RequestEntry = {
   id?: string;
