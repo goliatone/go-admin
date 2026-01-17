@@ -182,8 +182,13 @@ func (a *GoAuthAuthorizer) Can(ctx context.Context, permission string, resource 
 	case "delete":
 		result = claims.CanDelete(target)
 	default:
-		// For other actions, fall back to the standard auth.Can check
-		result = auth.Can(ctx, target, action)
+		result = permissionAllowed(ctx, permission, target, action)
+		reason := ""
+		if !result {
+			reason = "permission not found"
+		}
+		a.logDecision(permission, target, action, result, reason)
+		return result
 	}
 
 	a.logDecision(permission, target, action, result, "")
@@ -244,6 +249,105 @@ func resourceFromPermission(permission string) string {
 		return strings.TrimSpace(permission)
 	}
 	return strings.Join(parts[:len(parts)-1], ".")
+}
+
+func permissionAllowed(ctx context.Context, permission, target, action string) bool {
+	perms := permissionsFromContext(ctx)
+	if len(perms) == 0 {
+		return false
+	}
+	if permissionListed(perms, permission) {
+		return true
+	}
+	if target != "" && action != "" {
+		alt := target + "." + action
+		if alt != permission && permissionListed(perms, alt) {
+			return true
+		}
+	}
+	return false
+}
+
+func permissionsFromContext(ctx context.Context) []string {
+	if ctx == nil {
+		return nil
+	}
+	if claims, ok := auth.GetClaims(ctx); ok && claims != nil {
+		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok && carrier != nil {
+			if perms := normalizePermissionList(carrier.ClaimsMetadata()["permissions"]); len(perms) > 0 {
+				return perms
+			}
+		}
+	}
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		if perms := normalizePermissionList(actor.Metadata["permissions"]); len(perms) > 0 {
+			return perms
+		}
+	}
+	return nil
+}
+
+func normalizePermissionList(value any) []string {
+	switch v := value.(type) {
+	case []string:
+		return dedupePermissions(v)
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if str, ok := item.(string); ok && strings.TrimSpace(str) != "" {
+				out = append(out, strings.TrimSpace(str))
+			}
+		}
+		return dedupePermissions(out)
+	case string:
+		raw := strings.TrimSpace(v)
+		if raw == "" {
+			return nil
+		}
+		parts := strings.FieldsFunc(raw, func(r rune) bool {
+			return r == ',' || r == ';' || r == ' '
+		})
+		return dedupePermissions(parts)
+	default:
+		return nil
+	}
+}
+
+func dedupePermissions(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		key := strings.ToLower(value)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func permissionListed(values []string, permission string) bool {
+	permission = strings.TrimSpace(permission)
+	if permission == "" {
+		return false
+	}
+	for _, value := range values {
+		if strings.EqualFold(value, permission) {
+			return true
+		}
+	}
+	return false
 }
 
 // DashboardHandle and MenuHandle are kept for API compatibility and now alias real services.
