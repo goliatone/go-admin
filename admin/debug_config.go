@@ -64,17 +64,17 @@ var defaultToolbarPanels = []string{
 
 // DebugConfig controls the debug module behavior and feature flags.
 type DebugConfig struct {
-	Enabled            bool
-	CaptureSQL         bool
-	CaptureLogs        bool
-	StrictQueryHooks   bool
-	MaxLogEntries      int
-	MaxSQLQueries      int
-	MaskFieldTypes     map[string]string
-	Panels             []string
-	FeatureKey         string
-	Permission         string
-	BasePath           string
+	Enabled          bool
+	CaptureSQL       bool
+	CaptureLogs      bool
+	StrictQueryHooks bool
+	MaxLogEntries    int
+	MaxSQLQueries    int
+	MaskFieldTypes   map[string]string
+	Panels           []string
+	FeatureKey       string
+	Permission       string
+	BasePath         string
 	// LayoutMode controls which debug template is rendered for the HTML route.
 	LayoutMode DebugLayoutMode
 	// PageTemplate is the primary debug template used for HTML rendering.
@@ -95,6 +95,9 @@ type DebugConfig struct {
 	// ToolbarPanels specifies which panels appear in the toolbar.
 	// Defaults to ["requests", "sql", "logs", "routes", "config"] if empty.
 	ToolbarPanels []string
+	// ToolbarExcludePaths disables the toolbar on matching paths.
+	// Use exact paths ("/admin/debug") or prefix wildcards ("/admin/debug/*").
+	ToolbarExcludePaths []string
 }
 
 func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
@@ -152,7 +155,32 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 		cfg.ToolbarPanels = append([]string{}, defaultToolbarPanels...)
 	}
 	cfg.ToolbarPanels = normalizePanelIDs(cfg.ToolbarPanels)
+	cfg.ToolbarExcludePaths = normalizeDebugToolbarExcludePaths(cfg.ToolbarExcludePaths, cfg.BasePath)
 	return cfg
+}
+
+func normalizeDebugToolbarExcludePaths(paths []string, debugBasePath string) []string {
+	if paths == nil {
+		if strings.TrimSpace(debugBasePath) == "" {
+			return nil
+		}
+		return []string{strings.TrimSpace(debugBasePath)}
+	}
+	out := make([]string, 0, len(paths))
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		out = append(out, path)
+	}
+	if strings.TrimSpace(debugBasePath) != "" && !debugToolbarPathListed(out, debugBasePath) {
+		out = append(out, strings.TrimSpace(debugBasePath))
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func debugConfigEnabled(cfg DebugConfig) bool {
