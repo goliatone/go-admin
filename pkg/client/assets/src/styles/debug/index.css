@@ -1,0 +1,8 @@
+/**
+ * Debug Console - Combined Styles
+ * Import this file to get all debug console styles.
+ */
+
+@import './console.css';
+@import './prism-catppuccin.css';
+@import './expandable-rows.css';

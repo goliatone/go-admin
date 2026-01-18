@@ -1,0 +1,75 @@
+/**
+ * Expandable Row Styles
+ * Styles for expandable table rows in the debug console.
+ * Extracted from resources/debug/index.html.
+ */
+
+/* Expandable row styles */
+.expandable-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.expandable-row:hover {
+  background: rgba(137, 180, 250, 0.08) !important;
+}
+
+.expandable-row .expand-icon {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  margin-right: 6px;
+  transition: transform 0.2s ease;
+  opacity: 0.5;
+  font-size: 10px;
+}
+
+.expandable-row:hover .expand-icon {
+  opacity: 1;
+}
+
+.expandable-row.expanded .expand-icon {
+  transform: rotate(90deg);
+}
+
+.expanded-content {
+  display: none;
+  background: var(--debug-bg);
+  border: 1px solid var(--debug-border);
+  border-radius: 6px;
+  margin: 8px 12px 12px 12px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.expanded-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.7;
+  font-size: 12px;
+}
+
+.expandable-row.expanded + tr .expanded-content {
+  display: block;
+}
+
+.expanded-content__header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+/* Row with expanded content */
+.expansion-row {
+  background: transparent !important;
+}
+
+.expansion-row:hover {
+  background: transparent !important;
+}
+
+.expansion-row td {
+  padding: 0 !important;
+  border: none !important;
+}

@@ -3,49 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>{% if title %}{{ title }}{% else %}{{ definition }}{% endif %} Export</title>
-  <style>
-    body {
-      font-family: "Helvetica Neue", Arial, sans-serif;
-      color: #111827;
-      margin: 32px;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-    header {
-      margin-bottom: 24px;
-    }
-    h1 {
-      margin: 0 0 4px;
-      font-size: 20px;
-    }
-    .meta {
-      color: #6b7280;
-      font-size: 12px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-    }
-    th, td {
-      border: 1px solid #e5e7eb;
-      padding: 6px 8px;
-      text-align: left;
-      vertical-align: top;
-    }
-    th {
-      background: #f9fafb;
-      font-weight: 600;
-    }
-    tbody tr:nth-child(even) {
-      background: #f8fafc;
-    }
-    footer {
-      margin-top: 16px;
-      color: #6b7280;
-      font-size: 11px;
-    }
-  </style>
+  <link rel="stylesheet" href="{{ base_path|default:"/admin" }}/assets/dist/styles/export.css">
 </head>
 <body>
   <header>
