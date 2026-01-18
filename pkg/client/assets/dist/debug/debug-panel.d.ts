@@ -1,3 +1,4 @@
+import './shared/builtin-panels.js';
 export declare class DebugPanel {
     private container;
     private debugPath;
@@ -22,7 +23,17 @@ export declare class DebugPanel {
     private connectionEl;
     private eventCountEl;
     private lastEventEl;
+    private eventToPanel;
+    private unsubscribeRegistry;
     constructor(container: HTMLElement);
+    /**
+     * Subscribe to WebSocket events for all panels based on registry
+     */
+    private subscribeToEvents;
+    /**
+     * Handle registry changes (panel registered/unregistered)
+     */
+    private handleRegistryChange;
     private requireElement;
     private bindActions;
     private renderTabs;
@@ -48,6 +59,14 @@ export declare class DebugPanel {
     private updateStatusMeta;
     private handleEvent;
     private handleCustomEvent;
+    /**
+     * Get state data for a snapshot key (used by registry-based event handling)
+     */
+    private getStateForKey;
+    /**
+     * Set state data for a snapshot key (used by registry-based event handling)
+     */
+    private setStateForKey;
     private applySnapshot;
     private trim;
     private isSlowQuery;

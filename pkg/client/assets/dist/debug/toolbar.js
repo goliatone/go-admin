@@ -1,6 +1,6 @@
-import { n as w, t as y, e as k, i as S, j as u, h as C, g as E, d as q, r as L, D as x, a as z, b as M, o as P } from "../chunks/custom-DPYDzVjT.js";
-import { DebugReplPanel as T } from "./repl.js";
-const $ = `
+import { q, x as L, e as z, i as P, j as g, h as T, g as M, d as H, r as A, p, D as S, m as $, n as R, a as I, b as j, J as O, s as C } from "../chunks/builtin-panels-CN3q4Moe.js";
+import { DebugReplPanel as D } from "./repl.js";
+const F = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -772,30 +772,30 @@ const $ = `
       max-width: 60%;
     }
   }
-`, h = y;
-function b(i, t, e = 50, s) {
-  const a = s?.newestFirst ?? !0, o = s?.slowThresholdMs ?? e;
-  switch (i) {
+`, d = L;
+function f(o, t, e = 50, s) {
+  const a = s?.newestFirst ?? !0, r = s?.slowThresholdMs ?? e;
+  switch (o) {
     case "requests":
-      return L(t.requests || [], h, {
+      return A(t.requests || [], d, {
         newestFirst: a,
-        slowThresholdMs: o,
+        slowThresholdMs: r,
         maxEntries: 50,
         showSortToggle: !0,
         truncatePath: !0,
         maxPathLength: 50
       });
     case "sql":
-      return q(t.sql || [], h, {
+      return H(t.sql || [], d, {
         newestFirst: a,
-        slowThresholdMs: o,
+        slowThresholdMs: r,
         maxEntries: 50,
         showSortToggle: !0,
         useIconCopyButton: !1
         // Toolbar uses SVG icons
       });
     case "logs":
-      return E(t.logs || [], h, {
+      return M(t.logs || [], d, {
         newestFirst: !0,
         // Logs always show newest first in toolbar
         maxEntries: 100,
@@ -807,98 +807,93 @@ function b(i, t, e = 50, s) {
         maxMessageLength: 100
       });
     case "config":
-      return u("Config", t.config || {}, h, {
+      return g("Config", t.config || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "routes":
-      return C(t.routes || [], h, {
+      return T(t.routes || [], d, {
         showName: !1
         // Toolbar doesn't show name column
       });
     case "template":
-      return u("Template Context", t.template || {}, h, {
+      return g("Template Context", t.template || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "session":
-      return u("Session", t.session || {}, h, {
+      return g("Session", t.session || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "custom":
-      return S(t.custom || {}, h, {
+      return P(t.custom || {}, d, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
       });
     default:
-      return `<div class="${h.emptyState}">Panel "${k(i)}" not available</div>`;
+      return `<div class="${d.emptyState}">Panel "${z(o)}" not available</div>`;
   }
 }
-function p(i) {
-  const t = i.requests?.length || 0, e = i.sql?.length || 0, s = i.logs?.length || 0, a = (i.requests || []).filter((n) => (n.status || 0) >= 400).length, o = (i.sql || []).filter((n) => n.error).length, r = (i.logs || []).filter((n) => {
-    const l = (n.level || "").toLowerCase();
-    return l === "error" || l === "fatal";
-  }).length, c = (i.sql || []).filter((n) => w(n.duration, 50)).length;
+function u(o, t = 50) {
+  const e = o.requests?.length || 0, s = o.sql?.length || 0, a = o.logs?.length || 0, r = (o.requests || []).filter((i) => (i.status || 0) >= 400).length, n = (o.sql || []).filter((i) => i.error).length, c = (o.logs || []).filter((i) => {
+    const b = (i.level || "").toLowerCase();
+    return b === "error" || b === "fatal";
+  }).length, l = (o.sql || []).filter((i) => q(i.duration, t)).length;
   return {
-    requests: t,
-    sql: e,
-    logs: s,
-    errors: a + o + r,
-    slowQueries: c
+    requests: e,
+    sql: s,
+    logs: a,
+    errors: r + n + c,
+    slowQueries: l
   };
 }
-const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ new Set(["console", "shell"]), A = {
-  template: "Template",
-  session: "Session",
-  requests: "Requests",
-  sql: "SQL",
-  logs: "Logs",
-  config: "Config",
-  routes: "Routes",
-  custom: "Custom",
+const B = /* @__PURE__ */ new Set(["console", "shell"]), x = {
   console: "Console",
   shell: "Shell"
-}, I = {
-  template: "template",
-  session: "session",
-  requests: "request",
-  sql: "sql",
-  logs: "log",
-  custom: "custom"
-}, R = {
-  request: "requests",
-  sql: "sql",
-  log: "logs",
-  template: "template",
-  session: "session",
-  custom: "custom"
-}, j = (i) => {
-  if (!Array.isArray(i))
+}, v = () => {
+  const o = p.getToolbarPanels();
+  return o.length > 0 ? o.filter((t) => t.category === "core" || t.category === "system").map((t) => t.id) : ["requests", "sql", "logs", "routes", "config"];
+}, N = (o) => {
+  if (x[o])
+    return x[o];
+  const t = p.get(o);
+  return t ? t.label : o.charAt(0).toUpperCase() + o.slice(1);
+}, y = (o) => {
+  const t = p.get(o);
+  return t ? C(t) : [o];
+}, w = () => {
+  const o = {};
+  for (const t of p.list())
+    for (const e of C(t))
+      o[e] = t.id;
+  return o;
+}, _ = (o) => {
+  if (!Array.isArray(o))
     return [];
   const t = [];
-  return i.forEach((e) => {
+  return o.forEach((e) => {
     if (!e || typeof e != "object")
       return;
     const s = e, a = typeof s.command == "string" ? s.command.trim() : "";
     if (!a)
       return;
-    const o = typeof s.description == "string" ? s.description.trim() : "", r = Array.isArray(s.tags) ? s.tags.filter((l) => typeof l == "string" && l.trim() !== "").map((l) => l.trim()) : [], c = Array.isArray(s.aliases) ? s.aliases.filter((l) => typeof l == "string" && l.trim() !== "").map((l) => l.trim()) : [], n = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
+    const r = typeof s.description == "string" ? s.description.trim() : "", n = Array.isArray(s.tags) ? s.tags.filter((i) => typeof i == "string" && i.trim() !== "").map((i) => i.trim()) : [], c = Array.isArray(s.aliases) ? s.aliases.filter((i) => typeof i == "string" && i.trim() !== "").map((i) => i.trim()) : [], l = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
     t.push({
       command: a,
-      description: o || void 0,
-      tags: r.length > 0 ? r : void 0,
+      description: r || void 0,
+      tags: n.length > 0 ? n : void 0,
       aliases: c.length > 0 ? c : void 0,
-      mutates: n
+      mutates: l
     });
   }), t;
-}, d = class d extends HTMLElement {
+}, h = class h extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([
       ["requests", !0],
       ["sql", !0]
-    ]), this.handleKeyDown = (t) => {
+    ]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
     }, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -906,10 +901,28 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
     return ["base-path", "debug-path", "panels", "expanded", "slow-threshold-ms", "use-fab"];
   }
   connectedCallback() {
-    this.loadState(), this.render(), this.useFab || (this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
+    this.eventToPanel = w(), this.unsubscribeRegistry = p.subscribe((t) => this.handleRegistryChange(t)), this.loadState(), this.render(), this.useFab || (this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
   }
   disconnectedCallback() {
-    this.stream?.close(), document.removeEventListener("keydown", this.handleKeyDown);
+    this.stream?.close(), this.unsubscribeRegistry?.(), document.removeEventListener("keydown", this.handleKeyDown);
+  }
+  /**
+   * Handle registry changes (panel registered/unregistered)
+   */
+  handleRegistryChange(t) {
+    this.eventToPanel = w(), this.updateSubscriptions(), this.expanded && this.render();
+  }
+  /**
+   * Update WebSocket subscriptions based on current panels
+   */
+  updateSubscriptions() {
+    const t = this.getStream();
+    if (!t) return;
+    const e = /* @__PURE__ */ new Set();
+    for (const s of this.panels)
+      for (const a of y(s))
+        e.add(a);
+    t.subscribe(Array.from(e));
   }
   attributeChangedCallback(t, e, s) {
     e !== s && (t === "expanded" ? (this.expanded = s === "true" || s === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(s || "50", 10) || 50 : t === "use-fab" && (this.useFab = s === "true" || s === ""));
@@ -938,14 +951,14 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
       const e = localStorage.getItem("debug-toolbar-height");
       if (e !== null) {
         const a = parseInt(e, 10);
-        !isNaN(a) && a >= d.MIN_HEIGHT && (this.customHeight = a);
+        !isNaN(a) && a >= h.MIN_HEIGHT && (this.customHeight = a);
       }
       const s = localStorage.getItem("debug-toolbar-sort-order");
       if (s)
         try {
           const a = JSON.parse(s);
-          Object.entries(a).forEach(([o, r]) => {
-            this.panelSortOrder.set(o, r);
+          Object.entries(a).forEach(([r, n]) => {
+            this.panelSortOrder.set(r, n);
           });
         } catch {
         }
@@ -990,9 +1003,9 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
     const t = this.getAttribute("panels");
     if (t) {
       const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : f;
+      return e.length ? e : v();
     }
-    return f;
+    return v();
   }
   get wsUrl() {
     return `${this.debugPath}/ws`;
@@ -1003,11 +1016,16 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
   }
   // WebSocket initialization
   initWebSocket() {
-    this.stream = new x({
+    this.stream = new S({
       basePath: this.debugPath,
-      onEvent: (t) => this.handleEvent(t),
-      onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => I[t] || t));
+      onEvent: (e) => this.handleEvent(e),
+      onStatusChange: (e) => this.handleStatusChange(e)
+    }), this.stream.connect();
+    const t = /* @__PURE__ */ new Set();
+    for (const e of this.panels)
+      for (const s of y(e))
+        t.add(s);
+    this.stream.subscribe(Array.from(t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1029,27 +1047,31 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
       this.applySnapshot(t.payload);
       return;
     }
-    const e = R[t.type] || t.type;
-    switch (t.type) {
-      case "request":
-        this.snapshot.requests = this.snapshot.requests || [], this.snapshot.requests.push(t.payload), this.trimArray(this.snapshot.requests, 500);
-        break;
-      case "sql":
-        this.snapshot.sql = this.snapshot.sql || [], this.snapshot.sql.push(t.payload), this.trimArray(this.snapshot.sql, 200);
-        break;
-      case "log":
-        this.snapshot.logs = this.snapshot.logs || [], this.snapshot.logs.push(t.payload), this.trimArray(this.snapshot.logs, 500);
-        break;
-      case "template":
-        this.snapshot.template = t.payload || {};
-        break;
-      case "session":
-        this.snapshot.session = t.payload || {};
-        break;
-      case "custom":
-        this.handleCustomEvent(t.payload);
-        break;
-    }
+    const e = this.eventToPanel[t.type] || t.type, s = p.get(e);
+    if (s) {
+      const a = $(s), r = this.snapshot[a], c = (s.handleEvent || ((l, i) => R(l, i, 500)))(r, t.payload);
+      this.snapshot[a] = c;
+    } else
+      switch (t.type) {
+        case "request":
+          this.snapshot.requests = this.snapshot.requests || [], this.snapshot.requests.push(t.payload), this.trimArray(this.snapshot.requests, 500);
+          break;
+        case "sql":
+          this.snapshot.sql = this.snapshot.sql || [], this.snapshot.sql.push(t.payload), this.trimArray(this.snapshot.sql, 200);
+          break;
+        case "log":
+          this.snapshot.logs = this.snapshot.logs || [], this.snapshot.logs.push(t.payload), this.trimArray(this.snapshot.logs, 500);
+          break;
+        case "template":
+          this.snapshot.template = t.payload || {};
+          break;
+        case "session":
+          this.snapshot.session = t.payload || {};
+          break;
+        case "custom":
+          this.handleCustomEvent(t.payload);
+          break;
+      }
     e === this.activePanel && this.expanded && this.updateContent();
   }
   handleCustomEvent(t) {
@@ -1062,7 +1084,7 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.replCommands = j(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = t || {}, this.replCommands = _(this.snapshot.repl_commands), this.updateContent();
   }
   trimArray(t, e) {
     for (; t.length > e; )
@@ -1070,18 +1092,18 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
   }
   // Rendering
   render() {
-    const t = p(this.snapshot), e = this.panels.map((c) => {
-      const n = A[c] || c, l = this.getPanelCount(c);
+    const t = u(this.snapshot, this.slowThresholdMs), e = this.panels.map((c) => {
+      const l = N(c), i = this.getPanelCount(c);
       return `
           <button class="tab ${this.activePanel === c ? "active" : ""}" data-panel="${c}">
-            ${n}
-            <span class="tab-count">${l}</span>
+            ${l}
+            <span class="tab-count">${i}</span>
           </button>
         `;
-    }).join(""), s = this.expanded ? "expanded" : "collapsed", a = this.useFab && !this.expanded ? "hidden" : "", o = this.expanded ? this.customHeight || d.DEFAULT_HEIGHT : 36, r = this.expanded ? `height: ${o}px;` : "";
+    }).join(""), s = this.expanded ? "expanded" : "collapsed", a = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || h.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${$}</style>
-      <div class="toolbar ${s} ${a}" style="${r}">
+      <style>${F}</style>
+      <div class="toolbar ${s} ${a}" style="${n}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
           <div class="toolbar-header">
@@ -1115,7 +1137,7 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
           </div>
           <div class="toolbar-content">
             <div class="panel-container" id="panel-content">
-              ${b(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
+              ${f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
             </div>
           </div>
         ` : ""}
@@ -1151,7 +1173,7 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (H.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners())), this.panels.forEach((e) => {
+      t && (B.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners())), this.panels.forEach((e) => {
         const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         s && (s.textContent = String(this.getPanelCount(e)));
       });
@@ -1159,11 +1181,11 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
     this.useFab || this.updateSummary();
   }
   updateSummary() {
-    const t = p(this.snapshot), e = this.shadow.querySelector(".toolbar-summary");
+    const t = u(this.snapshot, this.slowThresholdMs), e = this.shadow.querySelector(".toolbar-summary");
     if (!e) return;
     e.querySelectorAll(".summary-item").forEach((a) => {
-      const o = a.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), r = a.querySelector(".count");
-      !r || !o || (o === "requests" ? (r.textContent = String(t.requests), a.classList.toggle("has-errors", t.errors > 0)) : o === "sql" ? (r.textContent = String(t.sql), a.classList.toggle("has-slow", t.slowQueries > 0)) : o === "logs" ? r.textContent = String(t.logs) : o === "errors" && (r.textContent = String(t.errors)));
+      const r = a.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), n = a.querySelector(".count");
+      !n || !r || (r === "requests" ? (n.textContent = String(t.requests), a.classList.toggle("has-errors", t.errors > 0)) : r === "sql" ? (n.textContent = String(t.sql), a.classList.toggle("has-slow", t.slowQueries > 0)) : r === "logs" ? n.textContent = String(t.logs) : r === "errors" && (n.textContent = String(t.errors)));
     });
   }
   updateConnectionStatus() {
@@ -1206,9 +1228,9 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
       t.addEventListener("click", (e) => {
         const s = e.currentTarget.dataset.panel;
         if (s && s !== this.activePanel) {
-          this.activePanel = s, this.shadow.querySelectorAll(".tab").forEach((o) => o.classList.remove("active")), e.currentTarget.classList.add("active");
+          this.activePanel = s, this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
           const a = this.shadow.getElementById("panel-content");
-          a && (a.innerHTML = b(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners());
+          a && (a.innerHTML = f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners());
         }
       });
     }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
@@ -1239,7 +1261,7 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
   }
   renderReplPanel(t, e) {
     let s = this.replPanels.get(e);
-    s || (s = new T({
+    s || (s = new D({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -1258,39 +1280,39 @@ const f = ["requests", "sql", "logs", "routes", "config"], H = /* @__PURE__ */ n
   startResize(t) {
     this.isResizing = !0, this.resizeStartY = t;
     const e = this.shadow.querySelector(".toolbar");
-    this.resizeStartHeight = e?.offsetHeight || d.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
-    const s = (r) => {
-      this.handleResize(r.clientY);
-    }, a = (r) => {
-      r.touches.length === 1 && this.handleResize(r.touches[0].clientY);
-    }, o = () => {
-      this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", s), document.removeEventListener("mouseup", o), document.removeEventListener("touchmove", a), document.removeEventListener("touchend", o), this.saveState();
+    this.resizeStartHeight = e?.offsetHeight || h.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
+    const s = (n) => {
+      this.handleResize(n.clientY);
+    }, a = (n) => {
+      n.touches.length === 1 && this.handleResize(n.touches[0].clientY);
+    }, r = () => {
+      this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", s), document.removeEventListener("mouseup", r), document.removeEventListener("touchmove", a), document.removeEventListener("touchend", r), this.saveState();
     };
-    document.addEventListener("mousemove", s), document.addEventListener("mouseup", o), document.addEventListener("touchmove", a, { passive: !0 }), document.addEventListener("touchend", o);
+    document.addEventListener("mousemove", s), document.addEventListener("mouseup", r), document.addEventListener("touchmove", a, { passive: !0 }), document.addEventListener("touchend", r);
   }
   handleResize(t) {
     if (!this.isResizing) return;
-    const e = this.resizeStartY - t, s = window.innerHeight * d.MAX_HEIGHT_RATIO, a = Math.min(s, Math.max(d.MIN_HEIGHT, this.resizeStartHeight + e));
+    const e = this.resizeStartY - t, s = window.innerHeight * h.MAX_HEIGHT_RATIO, a = Math.min(s, Math.max(h.MIN_HEIGHT, this.resizeStartHeight + e));
     this.customHeight = a;
-    const o = this.shadow.querySelector(".toolbar");
-    o && (o.style.height = `${a}px`);
+    const r = this.shadow.querySelector(".toolbar");
+    r && (r.style.height = `${a}px`);
   }
   attachExpandableRowListeners() {
-    z(this.shadow);
+    I(this.shadow);
   }
   attachCopyListeners() {
-    M(this.shadow, { useIconFeedback: !1 });
+    j(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    P(this.shadow, (t, e) => {
+    O(this.shadow, (t, e) => {
       this.panelSortOrder.set(t, e), this.saveState(), this.updateContent();
     });
   }
 };
-d.MIN_HEIGHT = 150, d.MAX_HEIGHT_RATIO = 0.8, d.DEFAULT_HEIGHT = 320;
-let g = d;
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", g);
-const O = `
+h.MIN_HEIGHT = 150, h.MAX_HEIGHT_RATIO = 0.8, h.DEFAULT_HEIGHT = 320;
+let m = h;
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", m);
+const Q = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1520,15 +1542,15 @@ const O = `
       font-size: 8px;
     }
   }
-`, F = {
+`, G = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, m = ["requests", "sql", "logs", "routes", "config"];
-class D extends HTMLElement {
+}, k = ["requests", "sql", "logs", "routes", "config"];
+class K extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1565,9 +1587,9 @@ class D extends HTMLElement {
     const t = this.getAttribute("panels");
     if (t) {
       const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : m;
+      return e.length ? e : k;
     }
-    return m;
+    return k;
   }
   // State persistence
   loadState() {
@@ -1585,11 +1607,11 @@ class D extends HTMLElement {
   }
   // WebSocket initialization
   initWebSocket() {
-    this.stream = new x({
+    this.stream = new S({
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => F[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => G[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1660,9 +1682,9 @@ class D extends HTMLElement {
   }
   // Rendering
   render() {
-    const t = p(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, a = this.toolbarExpanded ? "hidden" : "";
+    const t = u(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, a = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${O}</style>
+      <style>${Q}</style>
       <div class="fab ${a}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
@@ -1696,25 +1718,25 @@ class D extends HTMLElement {
     `, this.attachEventListeners();
   }
   updateCounters() {
-    const t = p(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, a = this.shadow.querySelector(".fab-counter:nth-child(1)");
+    const t = u(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, a = this.shadow.querySelector(".fab-counter:nth-child(1)");
     if (a) {
-      const n = a.querySelector(".counter-value");
-      n && (n.textContent = String(t.requests)), a.classList.toggle("has-items", t.requests > 0);
+      const l = a.querySelector(".counter-value");
+      l && (l.textContent = String(t.requests)), a.classList.toggle("has-items", t.requests > 0);
     }
-    const o = this.shadow.querySelector(".fab-counter:nth-child(2)");
-    if (o) {
-      const n = o.querySelector(".counter-value");
-      n && (n.textContent = String(t.sql)), o.classList.toggle("has-items", t.sql > 0), o.classList.toggle("has-slow", s);
-    }
-    const r = this.shadow.querySelector(".fab-counter:nth-child(3)");
+    const r = this.shadow.querySelector(".fab-counter:nth-child(2)");
     if (r) {
-      const n = r.querySelector(".counter-value");
-      n && (n.textContent = String(t.logs)), r.classList.toggle("has-items", t.logs > 0), r.classList.toggle("has-errors", e);
+      const l = r.querySelector(".counter-value");
+      l && (l.textContent = String(t.sql)), r.classList.toggle("has-items", t.sql > 0), r.classList.toggle("has-slow", s);
+    }
+    const n = this.shadow.querySelector(".fab-counter:nth-child(3)");
+    if (n) {
+      const l = n.querySelector(".counter-value");
+      l && (l.textContent = String(t.logs)), n.classList.toggle("has-items", t.logs > 0), n.classList.toggle("has-errors", e);
     }
     const c = this.shadow.querySelector(".fab-counter:nth-child(4)");
     if (e && c) {
-      const n = c.querySelector(".counter-value");
-      n && (n.textContent = String(t.errors));
+      const l = c.querySelector(".counter-value");
+      l && (l.textContent = String(t.errors));
     }
   }
   updateConnectionStatus() {
@@ -1736,8 +1758,8 @@ class D extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", D);
-class v {
+customElements.get("debug-fab") || customElements.define("debug-fab", K);
+class E {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
       debugPath: "/admin/debug",
@@ -1802,30 +1824,30 @@ class v {
     }));
   }
 }
-function B() {
-  const i = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
+function Y() {
+  const o = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
-  if (i ? e = {
-    debugPath: i.debugPath || i.basePath,
-    panels: i.panels,
-    slowThresholdMs: i.slowThresholdMs
+  if (o ? e = {
+    debugPath: o.debugPath || o.basePath,
+    panels: o.panels,
+    slowThresholdMs: o.slowThresholdMs
   } : t && (e = {
     debugPath: t.getAttribute("data-debug-path") || void 0,
     panels: t.getAttribute("data-panels")?.split(","),
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
-  }), !e.debugPath && !i && !t)
+  }), !e.debugPath && !o && !t)
     return null;
-  const s = new v(e);
+  const s = new E(e);
   return s.init(), s;
 }
-window.DebugManager = v;
-window.initDebugManager = B;
+window.DebugManager = E;
+window.initDebugManager = Y;
 export {
-  D as DebugFab,
-  v as DebugManager,
-  g as DebugToolbar,
-  p as getCounts,
-  B as initDebugManager,
-  b as renderPanel
+  K as DebugFab,
+  E as DebugManager,
+  m as DebugToolbar,
+  u as getCounts,
+  Y as initDebugManager,
+  f as renderPanel
 };
 //# sourceMappingURL=toolbar.js.map

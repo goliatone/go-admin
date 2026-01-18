@@ -11,40 +11,68 @@ import {
   attachExpandableRowListeners,
   attachSortToggleListeners,
 } from '../shared/interactions.js';
+import {
+  panelRegistry,
+  normalizeEventTypes,
+  defaultHandleEvent,
+  getSnapshotKey,
+  type RegistryChangeEvent,
+} from '../shared/panel-registry.js';
+// Import to ensure built-in panels are registered
+import '../shared/builtin-panels.js';
 
 // Panel configuration
-const defaultPanels = ['requests', 'sql', 'logs', 'routes', 'config'];
 const replPanelIDs = new Set(['console', 'shell']);
 
-const panelLabels: Record<string, string> = {
-  template: 'Template',
-  session: 'Session',
-  requests: 'Requests',
-  sql: 'SQL',
-  logs: 'Logs',
-  config: 'Config',
-  routes: 'Routes',
-  custom: 'Custom',
+// REPL panel labels (not in registry)
+const replPanelLabels: Record<string, string> = {
   console: 'Console',
   shell: 'Shell',
 };
 
-const panelEventMap: Record<string, string> = {
-  template: 'template',
-  session: 'session',
-  requests: 'request',
-  sql: 'sql',
-  logs: 'log',
-  custom: 'custom',
+// Get default toolbar panels from registry (filter to toolbar-compatible)
+const getDefaultToolbarPanels = (): string[] => {
+  const toolbarPanels = panelRegistry.getToolbarPanels();
+  if (toolbarPanels.length > 0) {
+    // Filter to core panels for toolbar default
+    return toolbarPanels
+      .filter((p) => p.category === 'core' || p.category === 'system')
+      .map((p) => p.id);
+  }
+  return ['requests', 'sql', 'logs', 'routes', 'config'];
 };
 
-const eventToPanel: Record<string, string> = {
-  request: 'requests',
-  sql: 'sql',
-  log: 'logs',
-  template: 'template',
-  session: 'session',
-  custom: 'custom',
+// Get panel label from registry or fallback
+const getPanelLabel = (panelId: string): string => {
+  if (replPanelLabels[panelId]) {
+    return replPanelLabels[panelId];
+  }
+  const def = panelRegistry.get(panelId);
+  if (def) {
+    return def.label;
+  }
+  // Fallback: capitalize
+  return panelId.charAt(0).toUpperCase() + panelId.slice(1);
+};
+
+// Get event types for a panel
+const getPanelEventTypes = (panelId: string): string[] => {
+  const def = panelRegistry.get(panelId);
+  if (def) {
+    return normalizeEventTypes(def);
+  }
+  return [panelId];
+};
+
+// Build event-to-panel mapping from registry
+const buildEventToPanel = (): Record<string, string> => {
+  const mapping: Record<string, string> = {};
+  for (const def of panelRegistry.list()) {
+    for (const eventType of normalizeEventTypes(def)) {
+      mapping[eventType] = def.id;
+    }
+  }
+  return mapping;
 };
 
 type DebugReplCommandPayload = {
@@ -115,6 +143,10 @@ export class DebugToolbar extends HTMLElement {
     ['requests', true],
     ['sql', true],
   ]);
+  // Event-to-panel mapping (built from registry)
+  private eventToPanel: Record<string, string> = {};
+  // Registry subscription cleanup
+  private unsubscribeRegistry: (() => void) | null = null;
 
   private static readonly MIN_HEIGHT = 150;
   private static readonly MAX_HEIGHT_RATIO = 0.8;
@@ -130,6 +162,12 @@ export class DebugToolbar extends HTMLElement {
   }
 
   connectedCallback(): void {
+    // Build event-to-panel mapping from registry
+    this.eventToPanel = buildEventToPanel();
+
+    // Subscribe to registry changes
+    this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
+
     this.loadState();
     this.render();
     // Only init WebSocket if not using FAB (FAB manages its own connection)
@@ -142,7 +180,40 @@ export class DebugToolbar extends HTMLElement {
 
   disconnectedCallback(): void {
     this.stream?.close();
+    this.unsubscribeRegistry?.();
     document.removeEventListener('keydown', this.handleKeyDown);
+  }
+
+  /**
+   * Handle registry changes (panel registered/unregistered)
+   */
+  private handleRegistryChange(event: RegistryChangeEvent): void {
+    // Rebuild event-to-panel mapping
+    this.eventToPanel = buildEventToPanel();
+
+    // Update subscriptions if we have a stream
+    this.updateSubscriptions();
+
+    // Re-render to update tabs
+    if (this.expanded) {
+      this.render();
+    }
+  }
+
+  /**
+   * Update WebSocket subscriptions based on current panels
+   */
+  private updateSubscriptions(): void {
+    const stream = this.getStream();
+    if (!stream) return;
+
+    const eventTypes = new Set<string>();
+    for (const panel of this.panels) {
+      for (const eventType of getPanelEventTypes(panel)) {
+        eventTypes.add(eventType);
+      }
+    }
+    stream.subscribe(Array.from(eventTypes));
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -289,9 +360,9 @@ export class DebugToolbar extends HTMLElement {
         .split(',')
         .map((p) => p.trim().toLowerCase())
         .filter(Boolean);
-      return parsed.length ? parsed : defaultPanels;
+      return parsed.length ? parsed : getDefaultToolbarPanels();
     }
-    return defaultPanels;
+    return getDefaultToolbarPanels();
   }
 
   private get wsUrl(): string {
@@ -312,7 +383,14 @@ export class DebugToolbar extends HTMLElement {
     });
 
     this.stream.connect();
-    this.stream.subscribe(this.panels.map((panel) => panelEventMap[panel] || panel));
+    // Subscribe to event types for all panels
+    const eventTypes = new Set<string>();
+    for (const panel of this.panels) {
+      for (const eventType of getPanelEventTypes(panel)) {
+        eventTypes.add(eventType);
+      }
+    }
+    this.stream.subscribe(Array.from(eventTypes));
   }
 
   // Fetch initial snapshot via HTTP
@@ -339,33 +417,46 @@ export class DebugToolbar extends HTMLElement {
       return;
     }
 
-    // Apply incremental updates
-    const panel = eventToPanel[event.type] || event.type;
-    switch (event.type) {
-      case 'request':
-        this.snapshot.requests = this.snapshot.requests || [];
-        this.snapshot.requests.push(event.payload);
-        this.trimArray(this.snapshot.requests, 500);
-        break;
-      case 'sql':
-        this.snapshot.sql = this.snapshot.sql || [];
-        this.snapshot.sql.push(event.payload);
-        this.trimArray(this.snapshot.sql, 200);
-        break;
-      case 'log':
-        this.snapshot.logs = this.snapshot.logs || [];
-        this.snapshot.logs.push(event.payload);
-        this.trimArray(this.snapshot.logs, 500);
-        break;
-      case 'template':
-        this.snapshot.template = event.payload || {};
-        break;
-      case 'session':
-        this.snapshot.session = event.payload || {};
-        break;
-      case 'custom':
-        this.handleCustomEvent(event.payload);
-        break;
+    // Find panel for this event type
+    const panel = this.eventToPanel[event.type] || event.type;
+
+    // Check if we have a registry definition
+    const def = panelRegistry.get(panel);
+    if (def) {
+      // Use registry's handleEvent or default
+      const snapshotKey = getSnapshotKey(def);
+      const currentData = (this.snapshot as Record<string, unknown>)[snapshotKey];
+      const handler = def.handleEvent || ((current, payload) => defaultHandleEvent(current, payload, 500));
+      const newData = handler(currentData, event.payload);
+      (this.snapshot as Record<string, unknown>)[snapshotKey] = newData;
+    } else {
+      // Fallback for non-registry events
+      switch (event.type) {
+        case 'request':
+          this.snapshot.requests = this.snapshot.requests || [];
+          this.snapshot.requests.push(event.payload);
+          this.trimArray(this.snapshot.requests, 500);
+          break;
+        case 'sql':
+          this.snapshot.sql = this.snapshot.sql || [];
+          this.snapshot.sql.push(event.payload);
+          this.trimArray(this.snapshot.sql, 200);
+          break;
+        case 'log':
+          this.snapshot.logs = this.snapshot.logs || [];
+          this.snapshot.logs.push(event.payload);
+          this.trimArray(this.snapshot.logs, 500);
+          break;
+        case 'template':
+          this.snapshot.template = event.payload || {};
+          break;
+        case 'session':
+          this.snapshot.session = event.payload || {};
+          break;
+        case 'custom':
+          this.handleCustomEvent(event.payload);
+          break;
+      }
     }
 
     // Update UI if showing affected panel
@@ -411,7 +502,7 @@ export class DebugToolbar extends HTMLElement {
     const counts = getCounts(this.snapshot, this.slowThresholdMs);
     const panelTabs = this.panels
       .map((panel) => {
-        const label = panelLabels[panel] || panel;
+        const label = getPanelLabel(panel);
         const count = this.getPanelCount(panel);
         const active = this.activePanel === panel ? 'active' : '';
         return `
