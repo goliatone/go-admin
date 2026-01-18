@@ -1,5 +1,15 @@
 # Changelog
 
+# [0.18.0](https://github.com/goliatone/go-admin/compare/v0.17.0...v0.18.0) - (2026-01-18)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.18.0 ([1687a02](https://github.com/goliatone/go-admin/commit/1687a02b9b22e7aad03462468a2acd00892bbee6))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.17.0 ([b8262db](https://github.com/goliatone/go-admin/commit/b8262db6f1697904d37bfe0c2f92ca5dfe2961ec))  - (goliatone)
+
 # [0.17.0](https://github.com/goliatone/go-admin/compare/v0.16.0...v0.17.0) - (2026-01-18)
 
 ## <!-- 1 -->🐛 Bug Fixes
