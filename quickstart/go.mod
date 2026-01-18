@@ -7,7 +7,7 @@ replace github.com/goliatone/go-admin => ..
 require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/goliatone/go-admin v0.17.0
+	github.com/goliatone/go-admin v0.18.0
 	github.com/goliatone/go-auth v0.23.0
 	github.com/goliatone/go-cms v0.18.0
 	github.com/goliatone/go-dashboard v0.6.0
@@ -15,7 +15,7 @@ require (
 	github.com/goliatone/go-export v0.5.1
 	github.com/goliatone/go-export/adapters/template/go-template v0.5.1
 	github.com/goliatone/go-formgen v0.14.0
-	github.com/goliatone/go-router v0.41.0
+	github.com/goliatone/go-router v0.42.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-users v0.10.0
@@ -73,7 +73,7 @@ require (
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/goliatone/go-command v0.13.0 // indirect
-	github.com/goliatone/go-composite-fs v0.0.1 // indirect
+	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.8.0 // indirect
 	github.com/goliatone/go-crud v0.17.0 // indirect
 	github.com/goliatone/go-i18n v0.2.0 // indirect
