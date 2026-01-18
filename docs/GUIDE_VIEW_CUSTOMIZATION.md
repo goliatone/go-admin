@@ -49,6 +49,18 @@ Using `client.Assets()` as `baseFS`, or disabling embeds without providing templ
 such as `resources/debug/index` (e.g., `/admin/debug`). If you enable the admin layout
 debug mode, it also looks for `resources/debug/index_admin`.
 
+Also ensure every filesystem in the template stack shares the same root. If your
+base is already rooted at templates (like `client.Templates()`), make sure any
+custom FS is also rooted at `templates/`:
+
+```go
+customTemplates, _ := fs.Sub(os.DirFS("./web"), "templates")
+views, err := quickstart.NewViewEngine(
+	client.Templates(),
+	quickstart.WithViewTemplatesFS(customTemplates),
+)
+```
+
 ## Overriding or extending templates
 
 To override a template, copy it from `pkg/client/templates/...` into your own `templates/` directory, preserving the same relative path.
