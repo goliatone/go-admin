@@ -21,23 +21,23 @@ type stubWebSocketRouter struct {
 
 func (s *stubWebSocketRouter) WebSocket(path string, config router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo {
 	s.routes = append(s.routes, stubWebSocketRoute{path: path, config: config, handler: handler})
-	return router.RouteInfo{}
+	return nil
 }
 
 func (s *stubWebSocketRouter) Get(_ string, _ router.HandlerFunc, _ ...router.MiddlewareFunc) router.RouteInfo {
-	return router.RouteInfo{}
+	return nil
 }
 
 func (s *stubWebSocketRouter) Post(_ string, _ router.HandlerFunc, _ ...router.MiddlewareFunc) router.RouteInfo {
-	return router.RouteInfo{}
+	return nil
 }
 
 func (s *stubWebSocketRouter) Put(_ string, _ router.HandlerFunc, _ ...router.MiddlewareFunc) router.RouteInfo {
-	return router.RouteInfo{}
+	return nil
 }
 
 func (s *stubWebSocketRouter) Delete(_ string, _ router.HandlerFunc, _ ...router.MiddlewareFunc) router.RouteInfo {
-	return router.RouteInfo{}
+	return nil
 }
 
 func (s *stubWebSocketRouter) routeForSuffix(suffix string) *stubWebSocketRoute {
