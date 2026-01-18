@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	debugregistry "github.com/goliatone/go-admin/debug"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
@@ -20,6 +21,11 @@ var errDebugPanelRequired = goerrors.New("panel is required", goerrors.CategoryV
 type debugCommand struct {
 	Type   string   `json:"type"`
 	Panels []string `json:"panels,omitempty"`
+}
+
+type debugPanelsResponse struct {
+	Panels  []debugregistry.PanelDefinition `json:"panels"`
+	Version string                          `json:"version,omitempty"`
 }
 
 type debugSubscription struct {
@@ -71,6 +77,13 @@ func (s *debugSubscription) allows(eventType string) bool {
 
 func debugPanelEventTypes(panel string) []string {
 	normalized := strings.ToLower(strings.TrimSpace(panel))
+	if normalized == "" {
+		return nil
+	}
+	ensureDebugBuiltinPanels()
+	if def, ok := debugregistry.PanelDefinitionFor(normalized); ok && len(def.EventTypes) > 0 {
+		return def.EventTypes
+	}
 	switch normalized {
 	case "request", DebugPanelRequests:
 		return []string{"request"}
@@ -119,6 +132,7 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 			return m.handleDebugDashboard(admin, c)
 		})
 	}
+	register(joinPath(basePath, "api/panels"), m.handleDebugPanels)
 	register(joinPath(basePath, "api/snapshot"), m.handleDebugSnapshot)
 	registerPost(joinPath(basePath, "api/clear"), m.handleDebugClear)
 	registerPost(joinPath(basePath, "api/clear/:panel"), m.handleDebugClearPanel)
@@ -150,6 +164,17 @@ func (m *DebugModule) registerDebugWebSocket(admin *Admin) {
 	ws.WebSocket(joinPath(basePath, "ws"), cfg, func(c router.WebSocketContext) error {
 		return m.handleDebugWebSocket(c)
 	})
+}
+
+func (m *DebugModule) handleDebugPanels(c router.Context) error {
+	if m == nil || m.collector == nil {
+		return writeJSON(c, debugPanelsResponse{Panels: []debugregistry.PanelDefinition{}})
+	}
+	response := debugPanelsResponse{Panels: m.collector.PanelDefinitions()}
+	if version := debugregistry.RegistryVersion(); version != "" {
+		response.Version = version
+	}
+	return writeJSON(c, response)
 }
 
 func (m *DebugModule) handleDebugSnapshot(c router.Context) error {
