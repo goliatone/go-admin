@@ -11,10 +11,14 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	coreadmin "github.com/goliatone/go-admin/admin"
+	debugregistry "github.com/goliatone/go-admin/debug"
 	"github.com/goliatone/go-admin/examples/web/handlers"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/jobs"
@@ -37,6 +41,12 @@ import (
 
 //go:embed openapi/*
 var webFS embed.FS
+
+const (
+	exportPipelinePanelID         = "export_pipeline"
+	exportPipelineSnapshotLimit   = 25
+	exportPipelinePublishInterval = 750 * time.Millisecond
+)
 
 func main() {
 	defaultLocale := "en"
@@ -115,6 +125,11 @@ func main() {
 		}
 	}
 
+	if debugEnabled && cfg.Features.Export {
+		cfg.Debug.Panels = ensureDefaultDebugPanels(cfg.Debug.Panels)
+		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, exportPipelinePanelID)
+	}
+
 	if debugEnabled && isDev && strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL"), "true") {
 		cfg.Debug.Repl.Enabled = true
 		cfg.Debug.Repl.AppEnabled = true
@@ -141,6 +156,7 @@ func main() {
 	}
 
 	var adm *admin.Admin
+	var exportBundle *quickstart.ExportBundle
 	var debugHookOpts []persistence.ClientOption
 	if cfg.Debug.Enabled && cfg.Debug.CaptureSQL {
 		debugHook := admin.NewDebugQueryHookProvider(func() *admin.DebugCollector {
@@ -177,11 +193,22 @@ func main() {
 		}
 	}
 
-	exportBundle := quickstart.NewExportBundle(
+	exportTracker := newExportPipelineTracker(
+		export.NewMemoryTracker(),
+		func() *quickstart.ExportBundle { return exportBundle },
+		func() *admin.DebugCollector {
+			if adm == nil {
+				return nil
+			}
+			return adm.Debug()
+		},
+	)
+	exportBundle = quickstart.NewExportBundle(
 		quickstart.WithExportActorProvider(exportActorProvider{}),
 		quickstart.WithExportGuard(exportGuard{}),
 		quickstart.WithExportHistoryPath("exports-history"),
 		quickstart.WithExportAsyncInProcess(10*time.Minute),
+		quickstart.WithExportTracker(exportTracker),
 	)
 	if cfg.Features.Export {
 		exportTemplatesFS := client.Templates()
@@ -192,6 +219,9 @@ func main() {
 		); err != nil {
 			log.Fatalf("failed to configure export renderers: %v", err)
 		}
+	}
+	if debugEnabled && cfg.Features.Export {
+		registerExportPipelinePanel(exportBundle)
 	}
 	adminDeps := admin.Dependencies{
 		ExportRegistry:  exportBundle.Registry,
@@ -1155,6 +1185,370 @@ func (exportActorProvider) FromContext(ctx context.Context) (export.Actor, error
 	}
 
 	return actor, nil
+}
+
+type exportPipelineTracker struct {
+	next              export.ProgressTracker
+	bundleProvider    func() *quickstart.ExportBundle
+	collectorProvider func() *admin.DebugCollector
+	panelID           string
+	publishInterval   time.Duration
+	mu                sync.Mutex
+	lastPublish       time.Time
+}
+
+func newExportPipelineTracker(
+	next export.ProgressTracker,
+	bundleProvider func() *quickstart.ExportBundle,
+	collectorProvider func() *admin.DebugCollector,
+) *exportPipelineTracker {
+	return &exportPipelineTracker{
+		next:              next,
+		bundleProvider:    bundleProvider,
+		collectorProvider: collectorProvider,
+		panelID:           exportPipelinePanelID,
+		publishInterval:   exportPipelinePublishInterval,
+	}
+}
+
+func (t *exportPipelineTracker) Start(ctx context.Context, record export.ExportRecord) (string, error) {
+	id, err := t.next.Start(ctx, record)
+	if err == nil {
+		t.publishSnapshot(ctx, true)
+	}
+	return id, err
+}
+
+func (t *exportPipelineTracker) Advance(ctx context.Context, id string, delta export.ProgressDelta, meta map[string]any) error {
+	err := t.next.Advance(ctx, id, delta, meta)
+	if err == nil {
+		t.publishSnapshot(ctx, false)
+	}
+	return err
+}
+
+func (t *exportPipelineTracker) SetState(ctx context.Context, id string, state export.ExportState, meta map[string]any) error {
+	err := t.next.SetState(ctx, id, state, meta)
+	if err == nil {
+		t.publishSnapshot(ctx, true)
+	}
+	return err
+}
+
+func (t *exportPipelineTracker) Fail(ctx context.Context, id string, err error, meta map[string]any) error {
+	failErr := t.next.Fail(ctx, id, err, meta)
+	if failErr == nil {
+		t.publishSnapshot(ctx, true)
+	}
+	return failErr
+}
+
+func (t *exportPipelineTracker) Complete(ctx context.Context, id string, meta map[string]any) error {
+	err := t.next.Complete(ctx, id, meta)
+	if err == nil {
+		t.publishSnapshot(ctx, true)
+	}
+	return err
+}
+
+func (t *exportPipelineTracker) Status(ctx context.Context, id string) (export.ExportRecord, error) {
+	return t.next.Status(ctx, id)
+}
+
+func (t *exportPipelineTracker) List(ctx context.Context, filter export.ProgressFilter) ([]export.ExportRecord, error) {
+	return t.next.List(ctx, filter)
+}
+
+func (t *exportPipelineTracker) SetArtifact(ctx context.Context, id string, ref export.ArtifactRef) error {
+	tracker, ok := t.next.(export.ArtifactTracker)
+	if !ok {
+		return nil
+	}
+	err := tracker.SetArtifact(ctx, id, ref)
+	if err == nil {
+		t.publishSnapshot(ctx, true)
+	}
+	return err
+}
+
+func (t *exportPipelineTracker) Update(ctx context.Context, record export.ExportRecord) error {
+	updater, ok := t.next.(export.RecordUpdater)
+	if !ok {
+		return nil
+	}
+	err := updater.Update(ctx, record)
+	if err == nil {
+		t.publishSnapshot(ctx, true)
+	}
+	return err
+}
+
+func (t *exportPipelineTracker) Delete(ctx context.Context, id string) error {
+	deleter, ok := t.next.(export.RecordDeleter)
+	if !ok {
+		return nil
+	}
+	err := deleter.Delete(ctx, id)
+	if err == nil {
+		t.publishSnapshot(ctx, true)
+	}
+	return err
+}
+
+func (t *exportPipelineTracker) publishSnapshot(ctx context.Context, force bool) {
+	if t == nil || t.next == nil {
+		return
+	}
+	collector := t.collectorProvider()
+	if collector == nil {
+		return
+	}
+	bundle := t.bundleProvider()
+	if bundle == nil {
+		return
+	}
+	now := time.Now()
+	if !force && t.publishInterval > 0 {
+		t.mu.Lock()
+		if !t.lastPublish.IsZero() && now.Sub(t.lastPublish) < t.publishInterval {
+			t.mu.Unlock()
+			return
+		}
+		t.lastPublish = now
+		t.mu.Unlock()
+	} else {
+		t.mu.Lock()
+		t.lastPublish = now
+		t.mu.Unlock()
+	}
+	snapshot := buildExportPipelineSnapshot(ctx, bundle, t.next)
+	collector.PublishPanel(t.panelID, snapshot)
+}
+
+type exportPipelineDefinition struct {
+	Name         string   `json:"name"`
+	Label        string   `json:"label"`
+	Variants     []string `json:"variants,omitempty"`
+	Formats      []string `json:"formats,omitempty"`
+	ColumnCount  int      `json:"column_count,omitempty"`
+	ColumnSample []string `json:"column_sample,omitempty"`
+}
+
+type exportPipelineRecord struct {
+	ID           string              `json:"id"`
+	Definition   string              `json:"definition"`
+	Format       string              `json:"format"`
+	State        export.ExportState  `json:"state"`
+	RequestedBy  string              `json:"requested_by,omitempty"`
+	Scope        export.Scope        `json:"scope,omitempty"`
+	Counts       export.ExportCounts `json:"counts,omitempty"`
+	BytesWritten int64               `json:"bytes_written,omitempty"`
+	ArtifactKey  string              `json:"artifact_key,omitempty"`
+	CreatedAt    time.Time           `json:"created_at"`
+	StartedAt    time.Time           `json:"started_at,omitempty"`
+	CompletedAt  time.Time           `json:"completed_at,omitempty"`
+	ExpiresAt    time.Time           `json:"expires_at,omitempty"`
+	DurationMs   int64               `json:"duration_ms,omitempty"`
+	ProgressPct  float64             `json:"progress_pct,omitempty"`
+}
+
+type exportPipelineSnapshot struct {
+	UpdatedAt      time.Time                  `json:"updated_at"`
+	LatestExportAt time.Time                  `json:"latest_export_at,omitempty"`
+	Summary        map[string]int             `json:"summary"`
+	Definitions    []exportPipelineDefinition `json:"definitions,omitempty"`
+	Recent         []exportPipelineRecord     `json:"recent,omitempty"`
+}
+
+func registerExportPipelinePanel(bundle *quickstart.ExportBundle) {
+	if bundle == nil {
+		return
+	}
+	_ = debugregistry.RegisterPanel(exportPipelinePanelID, debugregistry.PanelConfig{
+		Label:           "Export Pipeline",
+		Icon:            "download",
+		SnapshotKey:     exportPipelinePanelID,
+		EventType:       exportPipelinePanelID,
+		SupportsToolbar: admin.BoolPtr(false),
+		Category:        "data",
+		Order:           80,
+		Snapshot: func(ctx context.Context) any {
+			tracker := bundle.Runner
+			if tracker == nil || tracker.Tracker == nil {
+				return exportPipelineSnapshot{
+					UpdatedAt: time.Now(),
+					Summary:   exportPipelineSummary(),
+				}
+			}
+			return buildExportPipelineSnapshot(ctx, bundle, tracker.Tracker)
+		},
+	})
+}
+
+func buildExportPipelineSnapshot(
+	ctx context.Context,
+	bundle *quickstart.ExportBundle,
+	tracker export.ProgressTracker,
+) exportPipelineSnapshot {
+	snapshot := exportPipelineSnapshot{
+		UpdatedAt: time.Now(),
+		Summary:   exportPipelineSummary(),
+	}
+	if bundle == nil {
+		return snapshot
+	}
+	if defs, err := bundle.Registry.ListDefinitions(ctx); err == nil {
+		snapshot.Definitions = buildExportPipelineDefinitions(ctx, bundle, defs)
+	}
+	if tracker == nil {
+		return snapshot
+	}
+	records, err := tracker.List(ctx, export.ProgressFilter{})
+	if err != nil || len(records) == 0 {
+		return snapshot
+	}
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].CreatedAt.After(records[j].CreatedAt)
+	})
+	snapshot.Summary["total"] = len(records)
+	for _, record := range records {
+		snapshot.Summary[string(record.State)]++
+	}
+	snapshot.Summary["active"] = snapshot.Summary["queued"] + snapshot.Summary["running"] + snapshot.Summary["publishing"]
+	snapshot.LatestExportAt = records[0].CreatedAt
+	limit := exportPipelineSnapshotLimit
+	if len(records) < limit {
+		limit = len(records)
+	}
+	now := snapshot.UpdatedAt
+	snapshot.Recent = make([]exportPipelineRecord, 0, limit)
+	for i := 0; i < limit; i++ {
+		snapshot.Recent = append(snapshot.Recent, buildExportPipelineRecord(records[i], now))
+	}
+	return snapshot
+}
+
+func buildExportPipelineDefinitions(
+	ctx context.Context,
+	bundle *quickstart.ExportBundle,
+	defs []coreadmin.ExportDefinition,
+) []exportPipelineDefinition {
+	if bundle == nil || len(defs) == 0 {
+		return nil
+	}
+	definitions := make([]exportPipelineDefinition, 0, len(defs))
+	for _, def := range defs {
+		label := strings.TrimSpace(def.Label)
+		if label == "" {
+			label = def.Name
+		}
+		definition := exportPipelineDefinition{
+			Name:     def.Name,
+			Label:    label,
+			Variants: def.Variants,
+		}
+		if bundle.Metadata != nil {
+			meta, err := bundle.Metadata.ExportMetadata(ctx, def.Name, "")
+			if err == nil {
+				definition.Formats = meta.Formats
+				definition.ColumnCount = len(meta.Columns)
+				definition.ColumnSample = exportPipelineColumnSample(meta.Columns, 8)
+			}
+		}
+		definitions = append(definitions, definition)
+	}
+	return definitions
+}
+
+func exportPipelineColumnSample(columns []coreadmin.ExportColumn, max int) []string {
+	if len(columns) == 0 || max <= 0 {
+		return nil
+	}
+	count := len(columns)
+	if count > max {
+		count = max
+	}
+	out := make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		key := strings.TrimSpace(columns[i].Key)
+		if key == "" {
+			continue
+		}
+		out = append(out, key)
+	}
+	return out
+}
+
+func buildExportPipelineRecord(record export.ExportRecord, now time.Time) exportPipelineRecord {
+	entry := exportPipelineRecord{
+		ID:           record.ID,
+		Definition:   record.Definition,
+		Format:       string(record.Format),
+		State:        record.State,
+		RequestedBy:  strings.TrimSpace(record.RequestedBy.ID),
+		Scope:        record.Scope,
+		Counts:       record.Counts,
+		BytesWritten: record.BytesWritten,
+		ArtifactKey:  strings.TrimSpace(record.Artifact.Key),
+		CreatedAt:    record.CreatedAt,
+		StartedAt:    record.StartedAt,
+		CompletedAt:  record.CompletedAt,
+		ExpiresAt:    record.ExpiresAt,
+	}
+	if record.Counts.Total > 0 {
+		entry.ProgressPct = (float64(record.Counts.Processed) / float64(record.Counts.Total)) * 100
+	}
+	if !record.StartedAt.IsZero() {
+		end := record.CompletedAt
+		if end.IsZero() {
+			end = now
+		}
+		entry.DurationMs = end.Sub(record.StartedAt).Milliseconds()
+	}
+	return entry
+}
+
+func exportPipelineSummary() map[string]int {
+	return map[string]int{
+		"total":      0,
+		"queued":     0,
+		"running":    0,
+		"publishing": 0,
+		"completed":  0,
+		"failed":     0,
+		"canceled":   0,
+		"deleted":    0,
+		"active":     0,
+	}
+}
+
+func ensureDefaultDebugPanels(panels []string) []string {
+	if len(panels) > 0 {
+		return panels
+	}
+	return []string{
+		admin.DebugPanelTemplate,
+		admin.DebugPanelSession,
+		admin.DebugPanelRequests,
+		admin.DebugPanelSQL,
+		admin.DebugPanelLogs,
+		admin.DebugPanelConfig,
+		admin.DebugPanelRoutes,
+		admin.DebugPanelCustom,
+	}
+}
+
+func appendUniquePanel(panels []string, panel string) []string {
+	normalized := strings.ToLower(strings.TrimSpace(panel))
+	if normalized == "" {
+		return panels
+	}
+	for _, existing := range panels {
+		if strings.ToLower(strings.TrimSpace(existing)) == normalized {
+			return panels
+		}
+	}
+	return append(panels, normalized)
 }
 
 type exportGuard struct{}
