@@ -3,7 +3,7 @@
 
 import type { LogEntry, PanelOptions } from '../types.js';
 import type { StyleConfig } from '../styles.js';
-import { escapeHTML, formatTimestamp, truncate } from '../utils.js';
+import { escapeHTML, formatTimestamp, getLevelClass, truncate } from '../utils.js';
 
 /**
  * Options for rendering the logs panel
@@ -43,13 +43,14 @@ function renderLogRow(
   styles: StyleConfig,
   options: LogsPanelOptions
 ): string {
-  const level = (entry.level || 'INFO').toUpperCase();
-  const levelLower = level.toLowerCase();
+  const rawLevel = entry.level || 'INFO';
+  const level = String(rawLevel).toUpperCase();
+  const levelClassName = getLevelClass(String(rawLevel));
   const message = entry.message || '';
   const source = entry.source || '';
 
-  const levelClass = styles.badgeLevel(levelLower);
-  const isError = levelLower === 'error' || levelLower === 'fatal';
+  const levelClass = styles.badgeLevel(levelClassName);
+  const isError = levelClassName === 'error';
   const rowClass = isError ? styles.rowError : '';
 
   const displayMessage = options.truncateMessage

@@ -408,7 +408,7 @@ export class DebugToolbar extends HTMLElement {
 
   // Rendering
   private render(): void {
-    const counts = getCounts(this.snapshot);
+    const counts = getCounts(this.snapshot, this.slowThresholdMs);
     const panelTabs = this.panels
       .map((panel) => {
         const label = panelLabels[panel] || panel;
@@ -534,7 +534,7 @@ export class DebugToolbar extends HTMLElement {
   }
 
   private updateSummary(): void {
-    const counts = getCounts(this.snapshot);
+    const counts = getCounts(this.snapshot, this.slowThresholdMs);
     const summary = this.shadow.querySelector('.toolbar-summary');
     if (!summary) return;
 

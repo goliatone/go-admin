@@ -197,7 +197,7 @@ export const toolbarStyles: StyleConfig = {
     const levelClass = getLevelClass(level);
     return `badge badge-level ${levelClass}`;
   },
-  badgeError: 'badge badge-error',
+  badgeError: 'badge badge-status error',
   badgeCustom: 'badge',
 
   // Duration styling
