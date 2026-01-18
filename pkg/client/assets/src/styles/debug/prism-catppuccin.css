@@ -1,0 +1,84 @@
+/**
+ * Prism Catppuccin Mocha Theme
+ * Syntax highlighting theme for the debug console.
+ * Extracted from resources/debug/index.html.
+ */
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6c7086;
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: #9399b2;
+}
+
+.token.namespace {
+  opacity: 0.7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol {
+  color: #fab387;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin {
+  color: #a6e3a1;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string,
+.token.variable {
+  color: #89dceb;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.function {
+  color: #f9e2af;
+}
+
+.token.keyword {
+  color: #cba6f7;
+  font-weight: 600;
+}
+
+.token.regex,
+.token.important {
+  color: #fab387;
+}
+
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+.token.entity {
+  cursor: help;
+}
+
+.token.deleted {
+  color: #f38ba8;
+}
+
+.token.inserted {
+  color: #a6e3a1;
+}
