@@ -108,7 +108,10 @@ export function renderPanel(
 }
 
 // Get counts for summary display
-export function getCounts(snapshot: DebugSnapshot): {
+export function getCounts(
+  snapshot: DebugSnapshot,
+  slowThresholdMs = 50
+): {
   requests: number;
   sql: number;
   logs: number;
@@ -128,7 +131,7 @@ export function getCounts(snapshot: DebugSnapshot): {
   }).length;
 
   // Count slow queries (using default 50ms threshold)
-  const slowQueries = (snapshot.sql || []).filter((q) => isSlowDuration(q.duration, 50)).length;
+  const slowQueries = (snapshot.sql || []).filter((q) => isSlowDuration(q.duration, slowThresholdMs)).length;
 
   return {
     requests,
