@@ -60,3 +60,7 @@ node_modules
 examples/web/assets/uploads/users/profile-pictures
 .cache
 .codex_tmp/
+
+
+docs/
+!docs/GUIDES_*.md
