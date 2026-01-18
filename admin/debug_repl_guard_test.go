@@ -24,6 +24,7 @@ func newDebugREPLMockContext(t *testing.T, ctx context.Context, ip string) *rout
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(ctx)
 	mockCtx.On("IP").Return(ip)
+	mockCtx.On("Path").Return("/admin/debug/repl")
 	mockCtx.On("SetContext", mock.Anything).Return()
 	return mockCtx
 }
