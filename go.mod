@@ -99,8 +99,8 @@ require (
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/goliatone/go-composite-fs v0.0.1 // indirect
 	github.com/goliatone/go-config v0.8.0 // indirect
-	github.com/goliatone/go-export/adapters/template/go-template v0.0.0-20260107043437-42444165f3bf // indirect
-	github.com/goliatone/go-logger v0.4.0 // indirect
+	github.com/goliatone/go-export/adapters/template/go-template v0.5.1 // indirect
+	github.com/goliatone/go-logger v0.6.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.6.0 // indirect
 	github.com/goliatone/go-urlkit v0.3.0 // indirect
