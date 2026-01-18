@@ -144,12 +144,8 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 		options.templateFuncs = DefaultTemplateFuncs()
 	}
 
-	templateFS := baseFS
-	dirFS := "templates"
-	if sub, err := fs.Sub(baseFS, "templates"); err == nil {
-		templateFS = sub
-		dirFS = "."
-	}
+	templateFS := normalizeTemplatesFS(baseFS)
+	dirFS := "."
 
 	assetsFS := baseFS
 	assetsDir := "assets"
@@ -159,7 +155,9 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 	}
 
 	templateStack := []fs.FS{templateFS}
-	templateStack = append(templateStack, options.templateFS...)
+	for _, fsys := range options.templateFS {
+		templateStack = append(templateStack, normalizeTemplatesFS(fsys))
+	}
 	if qsTemplates := SidebarTemplatesFS(); qsTemplates != nil {
 		templateStack = append(templateStack, qsTemplates)
 	}
@@ -210,3 +208,18 @@ func (c *viewEngineConfig) GetTemplatesFS() []fs.FS {
 	return c.templateFS
 }
 func (c *viewEngineConfig) GetDevDir() string { return "" }
+
+func normalizeTemplatesFS(fsys fs.FS) fs.FS {
+	if fsys == nil {
+		return nil
+	}
+	info, err := fs.Stat(fsys, "templates")
+	if err != nil || !info.IsDir() {
+		return fsys
+	}
+	sub, err := fs.Sub(fsys, "templates")
+	if err != nil {
+		return fsys
+	}
+	return sub
+}
