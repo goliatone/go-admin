@@ -7,13 +7,13 @@ replace github.com/goliatone/go-admin => ..
 require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/goliatone/go-admin v0.16.0
+	github.com/goliatone/go-admin v0.17.0
 	github.com/goliatone/go-auth v0.23.0
 	github.com/goliatone/go-cms v0.18.0
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.9.0
-	github.com/goliatone/go-export v0.3.0
-	github.com/goliatone/go-export/adapters/template/go-template v0.0.0-20260107043437-42444165f3bf
+	github.com/goliatone/go-export v0.5.1
+	github.com/goliatone/go-export/adapters/template/go-template v0.5.1
 	github.com/goliatone/go-formgen v0.14.0
 	github.com/goliatone/go-router v0.41.0
 	github.com/goliatone/go-template v0.3.1
@@ -35,9 +35,9 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/chromedp/cdproto v0.0.0-20240801214329-3f85d328b335 // indirect
-	github.com/chromedp/chromedp v0.10.0 // indirect
-	github.com/chromedp/sysutil v1.0.0 // indirect
+	github.com/chromedp/cdproto v0.0.0-20250803210736-d308e07a266d // indirect
+	github.com/chromedp/chromedp v0.14.2 // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/creack/pty v1.1.20 // indirect
@@ -55,6 +55,7 @@ require (
 	github.com/gertd/go-pluralize v0.2.1 // indirect
 	github.com/getkin/kin-openapi v0.133.0 // indirect
 	github.com/go-echarts/go-echarts/v2 v2.5.0 // indirect
+	github.com/go-json-experiment/json v0.0.0-20250725192818-e39067aee2d2 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
@@ -77,7 +78,7 @@ require (
 	github.com/goliatone/go-crud v0.17.0 // indirect
 	github.com/goliatone/go-i18n v0.2.0 // indirect
 	github.com/goliatone/go-job v0.14.0 // indirect
-	github.com/goliatone/go-logger v0.4.0 // indirect
+	github.com/goliatone/go-logger v0.6.0 // indirect
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-notifications v0.10.0 // indirect
 	github.com/goliatone/go-options v0.7.0 // indirect
