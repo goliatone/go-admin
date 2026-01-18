@@ -1,5 +1,40 @@
 # Changelog
 
+# [0.17.0](https://github.com/goliatone/go-admin/compare/v0.16.0...v0.17.0) - (2026-01-18)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Fs setup ([f69b77e](https://github.com/goliatone/go-admin/commit/f69b77eafb33d9c034aea2161b87808baab944ef))  - (goliatone)
+- Keep selve out of update ([642e30b](https://github.com/goliatone/go-admin/commit/642e30b1a8b83ec305713497a8a2903e1c8d3977))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.17.0 ([df08ed6](https://github.com/goliatone/go-admin/commit/df08ed693235acab4831505793e32398674566ff))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Facade for export meta ([21c7d40](https://github.com/goliatone/go-admin/commit/21c7d403c7646442543e6f8567ba93ecb1c28307))  - (goliatone)
+- Assets for admin ([cf97add](https://github.com/goliatone/go-admin/commit/cf97add80a0c5be2899d89883361ee8de282b08d))  - (goliatone)
+- Debug panel collector and registry ([ea7faa2](https://github.com/goliatone/go-admin/commit/ea7faa207f32c9cddcf8917a11dc4f55853f5ae5))  - (goliatone)
+- Updated debug panels ([c47969c](https://github.com/goliatone/go-admin/commit/c47969c1a8dfd4433df8c2d48823efb3b3d3db26))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Use CSS outside templates ([a29afca](https://github.com/goliatone/go-admin/commit/a29afcac348e7fe3671c066ad2959413e4547690))  - (goliatone)
+- Debug client setup ([ae8e423](https://github.com/goliatone/go-admin/commit/ae8e4231eb929e8d7f9e768ad445d64336a53b89))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.16.0 ([f8c8ff1](https://github.com/goliatone/go-admin/commit/f8c8ff1e957fe351e384d187309c93f893e57664))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([80f415f](https://github.com/goliatone/go-admin/commit/80f415f47d79bef365e64782a5c2c7edbfbb3d93))  - (goliatone)
+- Update examples ([66c2caf](https://github.com/goliatone/go-admin/commit/66c2caf3db0ddb937a05f4059135ee290a830651))  - (goliatone)
+- Update gitignore ([ac3e5ed](https://github.com/goliatone/go-admin/commit/ac3e5ed2933ba44c93fca9cbc2dd5f9a56f245e8))  - (goliatone)
+- Update deps ([bc23044](https://github.com/goliatone/go-admin/commit/bc230449489554aed43ff39248702875055a32bd))  - (goliatone)
+- Update tests ([1dc5fd5](https://github.com/goliatone/go-admin/commit/1dc5fd57dec3d11b5557d7b542ee9b1cbe9b7a9d))  - (goliatone)
+
 # [0.16.0](https://github.com/goliatone/go-admin/compare/v0.15.0...v0.16.0) - (2026-01-17)
 
 ## <!-- 1 -->🐛 Bug Fixes
