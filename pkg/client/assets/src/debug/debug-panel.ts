@@ -30,6 +30,17 @@ import {
   renderJSONPanel as renderSharedJSONPanel,
   renderCustomPanel,
 } from './shared/panels/index.js';
+import {
+  panelRegistry,
+  getSnapshotKey,
+  normalizeEventTypes,
+  defaultHandleEvent,
+  getPanelCount,
+  type PanelDefinition,
+  type RegistryChangeEvent,
+} from './shared/panel-registry.js';
+// Import to ensure built-in panels are registered
+import './shared/builtin-panels.js';
 
 type DebugReplCommandPayload = {
   command?: string;
@@ -66,39 +77,72 @@ type PanelRenderer = {
   filters?: () => string;
 };
 
-const defaultPanels = ['template', 'session', 'requests', 'sql', 'logs', 'config', 'routes', 'custom'];
-const replPanelIDs = new Set(['shell', 'console']);
-const knownPanels = new Set([...defaultPanels, ...replPanelIDs]);
+// Default panels come from registry, with REPL panels added if needed
+const getDefaultPanels = (): string[] => {
+  // Get built-in panels from registry, sorted by category/order
+  const registryPanels = panelRegistry.getSortedIds();
+  // Default console order: data panels first, then core, then system
+  // This matches the original order: template, session, requests, sql, logs, config, routes, custom
+  return registryPanels.length > 0
+    ? registryPanels
+    : ['template', 'session', 'requests', 'sql', 'logs', 'config', 'routes', 'custom'];
+};
 
-const panelLabels: Record<string, string> = {
-  template: 'Template',
-  session: 'Session',
-  requests: 'Requests',
-  sql: 'SQL Queries',
-  logs: 'Logs',
-  config: 'Config',
-  routes: 'Routes',
-  custom: 'Custom',
+const replPanelIDs = new Set(['shell', 'console']);
+
+// Helper to check if a panel is known (in registry or is a REPL panel)
+const isKnownPanel = (panel: string): boolean => {
+  return panelRegistry.has(panel) || replPanelIDs.has(panel);
+};
+
+// REPL panel labels (not in registry)
+const replPanelLabels: Record<string, string> = {
   shell: 'Shell',
   console: 'Console',
 };
 
-const panelEventMap: Record<string, string> = {
-  template: 'template',
-  session: 'session',
-  requests: 'request',
-  sql: 'sql',
-  logs: 'log',
-  custom: 'custom',
+// Get panel label - from registry or fallback
+const getPanelLabel = (panelId: string): string => {
+  // Check REPL panels first
+  if (replPanelLabels[panelId]) {
+    return replPanelLabels[panelId];
+  }
+  // Check registry
+  const def = panelRegistry.get(panelId);
+  if (def) {
+    return def.label;
+  }
+  // Fallback: format the panel ID
+  if (!panelId) {
+    return '';
+  }
+  return panelId
+    .replace(/[-_.]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\bsql\b/i, 'SQL')
+    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
 };
 
-const eventToPanel: Record<string, string> = {
-  request: 'requests',
-  sql: 'sql',
-  log: 'logs',
-  template: 'template',
-  session: 'session',
-  custom: 'custom',
+// Get event types for a panel from registry
+const getPanelEventTypes = (panelId: string): string[] => {
+  const def = panelRegistry.get(panelId);
+  if (def) {
+    return normalizeEventTypes(def);
+  }
+  // Fallback for unknown panels
+  return [panelId];
+};
+
+// Build event-to-panel mapping from registry
+const buildEventToPanel = (): Record<string, string> => {
+  const mapping: Record<string, string> = {};
+  for (const def of panelRegistry.list()) {
+    for (const eventType of normalizeEventTypes(def)) {
+      mapping[eventType] = def.id;
+    }
+  }
+  return mapping;
 };
 
 const parseJSON = (value: string | undefined): any => {
@@ -159,22 +203,7 @@ const normalizePanelList = (value: any): string[] => {
   if (Array.isArray(value) && value.length > 0) {
     return value.filter((panel) => typeof panel === 'string' && panel.trim()).map((panel) => panel.trim());
   }
-  return [...defaultPanels];
-};
-
-const panelLabel = (panelId: string): string => {
-  if (panelLabels[panelId]) {
-    return panelLabels[panelId];
-  }
-  if (!panelId) {
-    return '';
-  }
-  return panelId
-    .replace(/[-_.]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\bsql\b/i, 'SQL')
-    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
+  return getDefaultPanels();
 };
 
 const filterObjectByKey = (data: Record<string, any>, search: string): Record<string, any> => {
@@ -235,6 +264,8 @@ export class DebugPanel {
   private connectionEl: HTMLElement;
   private eventCountEl: HTMLElement;
   private lastEventEl: HTMLElement;
+  private eventToPanel: Record<string, string>;
+  private unsubscribeRegistry: (() => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -278,6 +309,9 @@ export class DebugPanel {
       });
     });
 
+    // Build event-to-panel mapping from registry
+    this.eventToPanel = buildEventToPanel();
+
     this.tabsEl = this.requireElement('[data-debug-tabs]', document);
     this.panelEl = this.requireElement('[data-debug-panel]', document);
     this.filtersEl = this.requireElement('[data-debug-filters]', document);
@@ -296,9 +330,50 @@ export class DebugPanel {
       onStatusChange: (status) => this.updateConnectionStatus(status),
     });
 
+    // Subscribe to registry changes for dynamic panel updates
+    this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
+
     this.fetchSnapshot();
     this.stream.connect();
-    this.stream.subscribe(this.panels.map((panel) => panelEventMap[panel] || panel));
+    this.subscribeToEvents();
+  }
+
+  /**
+   * Subscribe to WebSocket events for all panels based on registry
+   */
+  private subscribeToEvents(): void {
+    const eventTypes = new Set<string>();
+    for (const panel of this.panels) {
+      for (const eventType of getPanelEventTypes(panel)) {
+        eventTypes.add(eventType);
+      }
+    }
+    this.stream.subscribe(Array.from(eventTypes));
+  }
+
+  /**
+   * Handle registry changes (panel registered/unregistered)
+   */
+  private handleRegistryChange(event: RegistryChangeEvent): void {
+    // Rebuild event-to-panel mapping
+    this.eventToPanel = buildEventToPanel();
+
+    // If a new panel was registered and it's in our panel list, update UI
+    if (event.type === 'register') {
+      // Add to panels if not already present and not explicitly filtered
+      if (!this.panels.includes(event.panelId)) {
+        this.panels.push(event.panelId);
+      }
+    }
+
+    // Update subscriptions
+    this.subscribeToEvents();
+
+    // Rebuild tabs and re-render if needed
+    this.renderTabs();
+    if (event.panelId === this.activePanel) {
+      this.renderActivePanel();
+    }
   }
 
   private requireElement(selector: string, parent: ParentNode = this.container): HTMLElement {
@@ -357,7 +432,7 @@ export class DebugPanel {
         const active = panel === this.activePanel ? 'debug-tab--active' : '';
         return `
           <button class="debug-tab ${active}" data-panel="${escapeHTML(panel)}">
-            <span class="debug-tab__label">${escapeHTML(panelLabel(panel))}</span>
+            <span class="debug-tab__label">${escapeHTML(getPanelLabel(panel))}</span>
             <span class="debug-tab__count" data-panel-count="${escapeHTML(panel)}">0</span>
           </button>
         `;
@@ -566,7 +641,7 @@ export class DebugPanel {
     } else if (panel === 'custom') {
       content = this.renderCustom();
     } else {
-      content = this.renderJSONPanel(panelLabel(panel), this.state.extra[panel], this.filters.objects.search);
+      content = this.renderJSONPanel(getPanelLabel(panel), this.state.extra[panel], this.filters.objects.search);
     }
 
     this.panelEl.innerHTML = content;
@@ -842,34 +917,49 @@ export class DebugPanel {
       return;
     }
 
-    const panel = eventToPanel[event.type] || event.type;
-    switch (event.type) {
-      case 'request':
-        this.state.requests.push(event.payload as RequestEntry);
-        this.trim(this.state.requests, this.maxLogEntries);
-        break;
-      case 'sql':
-        this.state.sql.push(event.payload as SQLEntry);
-        this.trim(this.state.sql, this.maxSQLQueries);
-        break;
-      case 'log':
-        this.state.logs.push(event.payload as LogEntry);
-        this.trim(this.state.logs, this.maxLogEntries);
-        break;
-      case 'template':
-        this.state.template = (event.payload as Record<string, any>) || {};
-        break;
-      case 'session':
-        this.state.session = (event.payload as Record<string, any>) || {};
-        break;
-      case 'custom':
-        this.handleCustomEvent(event.payload);
-        break;
-      default:
-        if (!knownPanels.has(panel)) {
-          this.state.extra[panel] = event.payload;
-        }
-        break;
+    // Find panel for this event type
+    const panel = this.eventToPanel[event.type] || event.type;
+
+    // Check if we have a registry definition for this panel
+    const def = panelRegistry.get(panel);
+    if (def) {
+      // Use registry's handleEvent or default
+      const snapshotKey = getSnapshotKey(def);
+      const currentData = this.getStateForKey(snapshotKey);
+      const handler = def.handleEvent || ((current, payload) => defaultHandleEvent(current, payload, this.maxLogEntries));
+      const newData = handler(currentData, event.payload);
+      this.setStateForKey(snapshotKey, newData);
+    } else {
+      // Legacy handling for built-in panels (backward compatibility)
+      switch (event.type) {
+        case 'request':
+          this.state.requests.push(event.payload as RequestEntry);
+          this.trim(this.state.requests, this.maxLogEntries);
+          break;
+        case 'sql':
+          this.state.sql.push(event.payload as SQLEntry);
+          this.trim(this.state.sql, this.maxSQLQueries);
+          break;
+        case 'log':
+          this.state.logs.push(event.payload as LogEntry);
+          this.trim(this.state.logs, this.maxLogEntries);
+          break;
+        case 'template':
+          this.state.template = (event.payload as Record<string, any>) || {};
+          break;
+        case 'session':
+          this.state.session = (event.payload as Record<string, any>) || {};
+          break;
+        case 'custom':
+          this.handleCustomEvent(event.payload);
+          break;
+        default:
+          // Store unknown events in extra
+          if (!isKnownPanel(panel)) {
+            this.state.extra[panel] = event.payload;
+          }
+          break;
+      }
     }
 
     this.updateTabCounts();
@@ -893,6 +983,58 @@ export class DebugPanel {
     }
   }
 
+  /**
+   * Get state data for a snapshot key (used by registry-based event handling)
+   */
+  private getStateForKey(key: string): unknown {
+    switch (key) {
+      case 'template': return this.state.template;
+      case 'session': return this.state.session;
+      case 'requests': return this.state.requests;
+      case 'sql': return this.state.sql;
+      case 'logs': return this.state.logs;
+      case 'config': return this.state.config;
+      case 'routes': return this.state.routes;
+      case 'custom': return this.state.custom;
+      default: return this.state.extra[key];
+    }
+  }
+
+  /**
+   * Set state data for a snapshot key (used by registry-based event handling)
+   */
+  private setStateForKey(key: string, data: unknown): void {
+    switch (key) {
+      case 'template':
+        this.state.template = (data as Record<string, any>) || {};
+        break;
+      case 'session':
+        this.state.session = (data as Record<string, any>) || {};
+        break;
+      case 'requests':
+        this.state.requests = (data as RequestEntry[]) || [];
+        break;
+      case 'sql':
+        this.state.sql = (data as SQLEntry[]) || [];
+        break;
+      case 'logs':
+        this.state.logs = (data as LogEntry[]) || [];
+        break;
+      case 'config':
+        this.state.config = (data as Record<string, any>) || {};
+        break;
+      case 'routes':
+        this.state.routes = (data as RouteEntry[]) || [];
+        break;
+      case 'custom':
+        this.state.custom = (data as { data: Record<string, any>; logs: CustomLogEntry[] }) || { data: {}, logs: [] };
+        break;
+      default:
+        this.state.extra[key] = data;
+        break;
+    }
+  }
+
   private applySnapshot(snapshot: DebugSnapshot): void {
     const next = snapshot || {};
     this.state.template = next.template || {};
@@ -909,7 +1051,7 @@ export class DebugPanel {
     };
     const extra: Record<string, any> = {};
     this.panels.forEach((panel) => {
-      if (!knownPanels.has(panel) && panel in next) {
+      if (!isKnownPanel(panel) && panel in next) {
         extra[panel] = next[panel];
       }
     });

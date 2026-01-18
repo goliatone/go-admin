@@ -1,5 +1,6 @@
 import { DebugStream, type DebugStreamStatus } from '../debug-stream.js';
 import { type DebugSnapshot } from './panel-renderers.js';
+import '../shared/builtin-panels.js';
 export declare class DebugToolbar extends HTMLElement {
     private shadow;
     private stream;
@@ -17,6 +18,8 @@ export declare class DebugToolbar extends HTMLElement {
     private resizeStartY;
     private resizeStartHeight;
     private panelSortOrder;
+    private eventToPanel;
+    private unsubscribeRegistry;
     private static readonly MIN_HEIGHT;
     private static readonly MAX_HEIGHT_RATIO;
     private static readonly DEFAULT_HEIGHT;
@@ -24,6 +27,14 @@ export declare class DebugToolbar extends HTMLElement {
     constructor();
     connectedCallback(): void;
     disconnectedCallback(): void;
+    /**
+     * Handle registry changes (panel registered/unregistered)
+     */
+    private handleRegistryChange;
+    /**
+     * Update WebSocket subscriptions based on current panels
+     */
+    private updateSubscriptions;
     attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void;
     setExpanded(expanded: boolean): void;
     setSnapshot(snapshot: DebugSnapshot): void;

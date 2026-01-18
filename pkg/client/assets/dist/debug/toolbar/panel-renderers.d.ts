@@ -5,7 +5,7 @@ export type { RequestEntry, SQLEntry, LogEntry, RouteEntry, CustomLogEntry, Cust
  * Delegates to shared panel components with toolbar-specific defaults.
  */
 export declare function renderPanel(panel: string, snapshot: DebugSnapshot, slowThresholdMs?: number, options?: PanelOptions): string;
-export declare function getCounts(snapshot: DebugSnapshot): {
+export declare function getCounts(snapshot: DebugSnapshot, slowThresholdMs?: number): {
     requests: number;
     sql: number;
     logs: number;
