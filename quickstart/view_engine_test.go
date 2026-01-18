@@ -53,3 +53,30 @@ func TestNewViewEngineBuildsWithHostFS(t *testing.T) {
 		t.Fatalf("expected view engine")
 	}
 }
+
+func TestViewEngineTemplateStackAlignsRoots(t *testing.T) {
+	baseFS := fstest.MapFS{
+		"layout.html": {
+			Data: []byte("base layout"),
+		},
+	}
+	fallbackFS := fstest.MapFS{
+		"templates/partials/debug-toolbar.html": {
+			Data: []byte("toolbar"),
+		},
+	}
+
+	cfg, err := newViewEngineConfig(baseFS, WithViewTemplatesFS(fallbackFS))
+	if err != nil {
+		t.Fatalf("newViewEngineConfig error: %v", err)
+	}
+
+	stack := WithFallbackFS(cfg.templateFS[0], cfg.templateFS[1:]...)
+	data, err := fs.ReadFile(stack, "partials/debug-toolbar.html")
+	if err != nil {
+		t.Fatalf("read debug toolbar: %v", err)
+	}
+	if string(data) != "toolbar" {
+		t.Fatalf("expected toolbar template, got %q", string(data))
+	}
+}
