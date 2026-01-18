@@ -56,6 +56,15 @@ type (
 	Config       = core.Config
 	Dependencies = core.Dependencies
 
+	ExportColumn           = core.ExportColumn
+	ExportDefinition       = core.ExportDefinition
+	ExportHTTPRegistrar    = core.ExportHTTPRegistrar
+	ExportMetadata         = core.ExportMetadata
+	ExportMetadataProvider = core.ExportMetadataProvider
+	ExportRegistry         = core.ExportRegistry
+	ExportRouteOptions     = core.ExportRouteOptions
+	ExportRouteWrapper     = core.ExportRouteWrapper
+
 	Dashboard             = core.Dashboard
 	DashboardLayout       = core.DashboardLayout
 	DashboardProviderSpec = core.DashboardProviderSpec
