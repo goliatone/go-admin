@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	debugregistry "github.com/goliatone/go-admin/debug"
 	router "github.com/goliatone/go-router"
 )
 
@@ -27,7 +28,7 @@ type DebugCollector struct {
 	panelSet   map[string]bool
 	panels     []DebugPanel
 	panelIndex map[string]DebugPanel
-	panelData  map[string]any
+	panelData  map[string]debugPanelSnapshot
 
 	templateData map[string]any
 	sessionData  map[string]any
@@ -40,6 +41,11 @@ type DebugCollector struct {
 	routesData   []RouteEntry
 
 	subscribers map[string]chan DebugEvent
+}
+
+type debugPanelSnapshot struct {
+	snapshotKey string
+	payload     any
 }
 
 // RequestEntry captures HTTP request details.
@@ -92,6 +98,7 @@ type DebugEvent struct {
 
 // NewDebugCollector initializes a collector with the provided configuration.
 func NewDebugCollector(cfg DebugConfig) *DebugCollector {
+	ensureDebugBuiltinPanels()
 	cfg = normalizeDebugConfig(cfg, "")
 	debugMasker(cfg)
 	panelSet := map[string]bool{}
@@ -102,7 +109,7 @@ func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 		config:       cfg,
 		panelSet:     panelSet,
 		panelIndex:   map[string]DebugPanel{},
-		panelData:    map[string]any{},
+		panelData:    map[string]debugPanelSnapshot{},
 		templateData: map[string]any{},
 		sessionData:  map[string]any{},
 		requestLog:   NewRingBuffer[RequestEntry](cfg.MaxLogEntries),
@@ -124,12 +131,14 @@ func (c *DebugCollector) RegisterPanel(panel DebugPanel) {
 		return
 	}
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if _, exists := c.panelIndex[id]; exists {
+		c.mu.Unlock()
 		return
 	}
 	c.panels = append(c.panels, panel)
 	c.panelIndex[id] = panel
+	c.mu.Unlock()
+	registerDebugPanelFromInterface(panel)
 }
 
 func (c *DebugCollector) panelMeta(panelID string) (debugPanelMeta, bool) {
@@ -139,6 +148,21 @@ func (c *DebugCollector) panelMeta(panelID string) (debugPanelMeta, bool) {
 	panelID = normalizePanelID(panelID)
 	if panelID == "" {
 		return debugPanelMeta{}, false
+	}
+	ensureDebugBuiltinPanels()
+	if def, ok := debugregistry.PanelDefinitionFor(panelID); ok {
+		meta := debugPanelMeta{
+			Label: strings.TrimSpace(def.Label),
+			Icon:  strings.TrimSpace(def.Icon),
+			Span:  def.Span,
+		}
+		if meta.Label == "" {
+			meta.Label = debugPanelLabel(panelID)
+		}
+		if meta.Span <= 0 {
+			meta.Span = debugPanelDefaultSpan
+		}
+		return meta, true
 	}
 	c.mu.RLock()
 	panel := c.panelIndex[panelID]
@@ -267,13 +291,20 @@ func (c *DebugCollector) PublishPanel(panelID string, payload any) {
 	if panelID == "" || !c.panelEnabled(panelID) {
 		return
 	}
+	snapshotKey := debugPanelSnapshotKey(panelID)
+	if snapshotKey == "" {
+		return
+	}
 	masked := debugMaskValue(c.config, payload)
 	stored := clonePanelPayload(masked)
 	c.mu.Lock()
 	if c.panelData == nil {
-		c.panelData = map[string]any{}
+		c.panelData = map[string]debugPanelSnapshot{}
 	}
-	c.panelData[panelID] = stored
+	c.panelData[panelID] = debugPanelSnapshot{
+		snapshotKey: snapshotKey,
+		payload:     stored,
+	}
 	c.mu.Unlock()
 
 	eventTypes := debugPanelEventTypes(panelID)
@@ -284,6 +315,20 @@ func (c *DebugCollector) PublishPanel(panelID string, payload any) {
 	if eventType == "" {
 		return
 	}
+	c.publish(eventType, stored)
+}
+
+// PublishEvent emits a custom debug event by event type.
+func (c *DebugCollector) PublishEvent(eventType string, payload any) {
+	if c == nil {
+		return
+	}
+	eventType = normalizePanelID(eventType)
+	if eventType == "" || !c.eventTypeEnabled(eventType) {
+		return
+	}
+	masked := debugMaskValue(c.config, payload)
+	stored := clonePanelPayload(masked)
 	c.publish(eventType, stored)
 }
 
@@ -430,12 +475,33 @@ func (c *DebugCollector) Snapshot() map[string]any {
 	if len(panelData) > 0 {
 		for panelID, panelSnapshot := range panelData {
 			if c.panelEnabled(panelID) {
-				snapshot[panelID] = panelSnapshot
+				key := strings.TrimSpace(panelSnapshot.snapshotKey)
+				if key == "" {
+					key = panelID
+				}
+				snapshot[key] = panelSnapshot.payload
 			}
 		}
 	}
 
 	ctx := context.Background()
+	for _, registration := range debugregistry.PanelRegistrations() {
+		id := normalizePanelID(registration.Definition.ID)
+		if id == "" || !c.panelEnabled(id) {
+			continue
+		}
+		key := strings.TrimSpace(registration.Definition.SnapshotKey)
+		if key == "" {
+			key = id
+		}
+		if _, exists := snapshot[key]; exists {
+			continue
+		}
+		if registration.Snapshot == nil {
+			continue
+		}
+		snapshot[key] = clonePanelPayload(debugMaskValue(c.config, registration.Snapshot(ctx)))
+	}
 	for _, panel := range panels {
 		if panel == nil {
 			continue
@@ -452,6 +518,26 @@ func (c *DebugCollector) Snapshot() map[string]any {
 	return snapshot
 }
 
+// PanelDefinitions returns metadata for enabled panels.
+func (c *DebugCollector) PanelDefinitions() []debugregistry.PanelDefinition {
+	if c == nil {
+		return nil
+	}
+	if len(c.config.Panels) == 0 {
+		return nil
+	}
+	ensureDebugBuiltinPanels()
+	defs := make([]debugregistry.PanelDefinition, 0, len(c.config.Panels))
+	for _, panelID := range c.config.Panels {
+		def := debugPanelDefinitionFor(panelID)
+		if def.ID == "" {
+			continue
+		}
+		defs = append(defs, def)
+	}
+	return defs
+}
+
 // Clear removes all stored debug data across panels.
 func (c *DebugCollector) Clear() {
 	if c == nil {
@@ -463,7 +549,7 @@ func (c *DebugCollector) Clear() {
 	c.customData = map[string]any{}
 	c.configData = map[string]any{}
 	c.routesData = nil
-	c.panelData = map[string]any{}
+	c.panelData = map[string]debugPanelSnapshot{}
 	c.mu.Unlock()
 
 	if c.requestLog != nil {
@@ -477,6 +563,16 @@ func (c *DebugCollector) Clear() {
 	}
 	if c.customLog != nil {
 		c.customLog.Clear()
+	}
+	ctx := context.Background()
+	for _, registration := range debugregistry.PanelRegistrations() {
+		id := normalizePanelID(registration.Definition.ID)
+		if id == "" || !c.panelEnabled(id) {
+			continue
+		}
+		if registration.Clear != nil {
+			_ = registration.Clear(ctx)
+		}
 	}
 }
 
@@ -526,12 +622,21 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 		c.routesData = nil
 		c.mu.Unlock()
 	default:
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		if c.panelData != nil {
-			delete(c.panelData, panelID)
+		reg, regOk := debugregistry.Panel(panelID)
+		if regOk && reg.Clear != nil {
+			_ = reg.Clear(context.Background())
 		}
-		if _, ok := c.panelIndex[panelID]; ok {
+		c.mu.Lock()
+		hadData := false
+		if c.panelData != nil {
+			if _, ok := c.panelData[panelID]; ok {
+				delete(c.panelData, panelID)
+				hadData = true
+			}
+		}
+		_, legacy := c.panelIndex[panelID]
+		c.mu.Unlock()
+		if regOk || legacy || hadData {
 			return true
 		}
 		return false
@@ -551,6 +656,27 @@ func (c *DebugCollector) panelEnabled(id string) bool {
 		return false
 	}
 	return c.panelSet[id]
+}
+
+func (c *DebugCollector) eventTypeEnabled(eventType string) bool {
+	if c == nil {
+		return false
+	}
+	eventType = normalizePanelID(eventType)
+	if eventType == "" {
+		return false
+	}
+	ensureDebugBuiltinPanels()
+	panels := debugregistry.PanelsForEventType(eventType)
+	if len(panels) == 0 {
+		return true
+	}
+	for _, panelID := range panels {
+		if c.panelEnabled(panelID) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *DebugCollector) publish(eventType string, payload any) {
@@ -654,13 +780,16 @@ func splitKeyPath(key string) []string {
 	return parts
 }
 
-func clonePanelData(input map[string]any) map[string]any {
+func clonePanelData(input map[string]debugPanelSnapshot) map[string]debugPanelSnapshot {
 	if len(input) == 0 {
 		return nil
 	}
-	out := make(map[string]any, len(input))
+	out := make(map[string]debugPanelSnapshot, len(input))
 	for key, value := range input {
-		out[key] = clonePanelPayload(value)
+		out[key] = debugPanelSnapshot{
+			snapshotKey: value.snapshotKey,
+			payload:     clonePanelPayload(value.payload),
+		}
 	}
 	return out
 }
