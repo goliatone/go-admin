@@ -105,13 +105,17 @@ function go:mod:update {
     local latest
     local root_latest
     local resolved
+    local current_mod
 
     if ! command -v rg >/dev/null 2>&1; then
         lgr ERR "rg is required to list goliatone modules"
         return 1
     fi
 
-    modules=$(rg -o 'github.com/goliatone/[^[:space:]]+' go.mod | sort -u)
+    # Get current module name to exclude from updates (avoid self-update and submodules)
+    current_mod=$(go list -m)
+
+    modules=$(rg -o 'github.com/goliatone/[^[:space:]]+' go.mod | sort -u | grep -v "^${current_mod}")
     if [ -z "$modules" ]; then
         lgr ERR "no goliatone modules found in go.mod"
         return 1
