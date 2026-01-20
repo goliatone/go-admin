@@ -61,7 +61,7 @@
               onclick="togglePassword()"
               class="absolute inset-y-0 right-0 pr-3 flex items-center"
             >
-              <i id="password-icon" class="iconoir-eye-off text-zinc-400 text-lg hover:text-zinc-600"></i>
+              <i id="password-icon" class="iconoir-eye-closed text-zinc-400 text-lg hover:text-zinc-600"></i>
             </button>
           </div>
         </div>
@@ -72,7 +72,9 @@
             <input type="checkbox" name="remember" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
             Remember me
           </label>
-          <a class="text-sm text-admin-dark hover:text-admin-light font-medium" href="{{ base_path }}/password-reset">Forgot password</a>
+          {% if password_reset_enabled %}
+          <a class="text-sm text-admin-dark hover:text-admin-light font-medium" href="{{ password_reset_path }}">Forgot password</a>
+          {% endif %}
         </div>
 
         <!-- Sign In Button -->
@@ -110,12 +112,14 @@
         </button>
       </div>
 
+      {% if self_registration_enabled and register_path %}
       <!-- Sign Up Link -->
       <div class="text-center">
         <p class="text-sm text-zinc-600">
-          Don't have an account? <a href="#" class="text-admin-dark hover:text-admin-light font-medium no-underline">Create an account</a>
+          Don't have an account? <a href="{{ register_path }}" class="text-admin-dark hover:text-admin-light font-medium no-underline">Create an account</a>
         </p>
       </div>
+      {% endif %}
     </div>
 
     <!-- Footer Links -->
@@ -142,12 +146,12 @@
 
     if (passwordInput.type === 'password') {
       passwordInput.type = 'text';
-      passwordIcon.classList.remove('iconoir-eye-off');
-      passwordIcon.classList.add('iconoir-eye');
+      passwordIcon.classList.remove('iconoir-eye-closed');
+      passwordIcon.classList.add('iconoir-eye-solid');
     } else {
       passwordInput.type = 'password';
-      passwordIcon.classList.remove('iconoir-eye');
-      passwordIcon.classList.add('iconoir-eye-off');
+      passwordIcon.classList.remove('iconoir-eye-solid');
+      passwordIcon.classList.add('iconoir-eye-closed');
     }
   }
 </script>
