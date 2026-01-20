@@ -26,6 +26,8 @@ type registrationUIOptions struct {
 	registrationEnabled func(admin.Config) bool
 	registrationMode    func(admin.Config) string
 	viewContext         RegistrationUIViewContextBuilder
+	themeAssets         map[string]string
+	themeAssetPrefix    string
 }
 
 // WithRegistrationUIBasePath overrides the base path used by registration UI routes.
@@ -108,6 +110,18 @@ func WithRegistrationUIViewContextBuilder(builder RegistrationUIViewContextBuild
 	}
 }
 
+// WithRegistrationUIThemeAssets sets theme assets (logo, favicon, etc.) for registration UI templates.
+// The prefix is prepended to each asset filename to form the full URL path.
+// Assets are exposed in templates as theme.assets.logo, theme.assets.favicon, etc.
+func WithRegistrationUIThemeAssets(prefix string, assets map[string]string) RegistrationUIOption {
+	return func(opts *registrationUIOptions) {
+		if opts != nil {
+			opts.themeAssetPrefix = prefix
+			opts.themeAssets = assets
+		}
+	}
+}
+
 // RegisterRegistrationUIRoutes registers the registration UI route.
 func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config, opts ...RegistrationUIOption) error {
 	if r == nil {
@@ -168,6 +182,7 @@ func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config,
 		})
 		viewCtx["title"] = options.title
 		viewCtx["registration_mode"] = registrationMode
+		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
 		viewCtx = options.viewContext(viewCtx, c)
 		return c.Render(options.template, viewCtx)
 	})
