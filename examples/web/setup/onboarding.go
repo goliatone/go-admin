@@ -5,7 +5,7 @@ import "strings"
 const (
 	FeatureUserInvites      = "users.invite"
 	FeaturePasswordReset    = "users.password_reset"
-	FeatureSelfRegistration = "users.self_registration"
+	FeatureSelfRegistration = "users.signup"
 )
 
 // RegistrationMode governs whether self-registration is open, restricted, or disabled.
