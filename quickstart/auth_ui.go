@@ -19,21 +19,21 @@ type AuthUIViewContextBuilder func(ctx router.ViewContext, c router.Context) rou
 type AuthUIOption func(*authUIOptions)
 
 type authUIOptions struct {
-	basePath              string
-	loginPath             string
-	logoutPath            string
-	passwordResetPath     string
-	registerPath          string
-	loginRedirectPath     string
-	logoutRedirectPath    string
-	loginTemplate         string
-	passwordResetTemplate string
-	loginTitle            string
-	passwordResetTitle    string
-	cookie                router.Cookie
-	passwordResetEnabled  func(admin.Config) bool
+	basePath                string
+	loginPath               string
+	logoutPath              string
+	passwordResetPath       string
+	registerPath            string
+	loginRedirectPath       string
+	logoutRedirectPath      string
+	loginTemplate           string
+	passwordResetTemplate   string
+	loginTitle              string
+	passwordResetTitle      string
+	cookie                  router.Cookie
+	passwordResetEnabled    func(admin.Config) bool
 	selfRegistrationEnabled func(admin.Config) bool
-	viewContext           AuthUIViewContextBuilder
+	viewContext             AuthUIViewContextBuilder
 }
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
@@ -210,6 +210,9 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 	if options.passwordResetPath == "" {
 		options.passwordResetPath = path.Join(options.basePath, "password-reset")
 	}
+	if options.registerPath == "" {
+		options.registerPath = path.Join(options.basePath, "register")
+	}
 	if options.loginRedirectPath == "" {
 		options.loginRedirectPath = options.basePath
 	}
@@ -238,14 +241,15 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 	}
 
 	r.Get(options.loginPath, func(c router.Context) error {
-		viewCtx := router.ViewContext{
-			"title":                     options.loginTitle,
-			"base_path":                 options.basePath,
-			"password_reset_enabled":    passwordResetEnabled,
-			"self_registration_enabled": selfRegistrationEnabled,
-			"password_reset_path":       options.passwordResetPath,
-			"register_path":             options.registerPath,
-		}
+		viewCtx := AuthUIViewContext(cfg, AuthUIState{
+			PasswordResetEnabled:    passwordResetEnabled,
+			SelfRegistrationEnabled: selfRegistrationEnabled,
+		}, AuthUIPaths{
+			BasePath:          options.basePath,
+			PasswordResetPath: options.passwordResetPath,
+			RegisterPath:      options.registerPath,
+		})
+		viewCtx["title"] = options.loginTitle
 		viewCtx = options.viewContext(viewCtx, c)
 		return c.Render(options.loginTemplate, viewCtx)
 	})
@@ -276,14 +280,15 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		viewCtx := router.ViewContext{
-			"title":                     options.passwordResetTitle,
-			"base_path":                 options.basePath,
-			"password_reset_enabled":    passwordResetEnabled,
-			"self_registration_enabled": selfRegistrationEnabled,
-			"password_reset_path":       options.passwordResetPath,
-			"register_path":             options.registerPath,
-		}
+		viewCtx := AuthUIViewContext(cfg, AuthUIState{
+			PasswordResetEnabled:    passwordResetEnabled,
+			SelfRegistrationEnabled: selfRegistrationEnabled,
+		}, AuthUIPaths{
+			BasePath:          options.basePath,
+			PasswordResetPath: options.passwordResetPath,
+			RegisterPath:      options.registerPath,
+		})
+		viewCtx["title"] = options.passwordResetTitle
 		viewCtx = options.viewContext(viewCtx, c)
 		return c.Render(options.passwordResetTemplate, viewCtx)
 	})
