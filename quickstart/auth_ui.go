@@ -23,6 +23,7 @@ type authUIOptions struct {
 	loginPath             string
 	logoutPath            string
 	passwordResetPath     string
+	registerPath          string
 	loginRedirectPath     string
 	logoutRedirectPath    string
 	loginTemplate         string
@@ -31,6 +32,7 @@ type authUIOptions struct {
 	passwordResetTitle    string
 	cookie                router.Cookie
 	passwordResetEnabled  func(admin.Config) bool
+	selfRegistrationEnabled func(admin.Config) bool
 	viewContext           AuthUIViewContextBuilder
 }
 
@@ -136,6 +138,24 @@ func WithAuthUIPasswordResetEnabled(fn func(admin.Config) bool) AuthUIOption {
 	}
 }
 
+// WithAuthUISelfRegistrationEnabled overrides the self-registration feature guard.
+func WithAuthUISelfRegistrationEnabled(fn func(admin.Config) bool) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil && fn != nil {
+			opts.selfRegistrationEnabled = fn
+		}
+	}
+}
+
+// WithAuthUIRegisterPath overrides the self-registration route path.
+func WithAuthUIRegisterPath(route string) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil {
+			opts.registerPath = strings.TrimSpace(route)
+		}
+	}
+}
+
 // WithAuthUIViewContextBuilder overrides the default view context builder.
 func WithAuthUIViewContextBuilder(builder AuthUIViewContextBuilder) AuthUIOption {
 	return func(opts *authUIOptions) {
@@ -168,6 +188,9 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 		passwordResetEnabled: func(cfg admin.Config) bool {
 			return cfg.FeatureFlags["users.password_reset"]
 		},
+		selfRegistrationEnabled: func(cfg admin.Config) bool {
+			return cfg.FeatureFlags["users.signup"]
+		},
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -197,6 +220,15 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 		options.viewContext = func(ctx router.ViewContext, _ router.Context) router.ViewContext { return ctx }
 	}
 
+	passwordResetEnabled := true
+	if options.passwordResetEnabled != nil {
+		passwordResetEnabled = options.passwordResetEnabled(cfg)
+	}
+	selfRegistrationEnabled := false
+	if options.selfRegistrationEnabled != nil {
+		selfRegistrationEnabled = options.selfRegistrationEnabled(cfg)
+	}
+
 	loginCookieName := strings.TrimSpace(cookieName)
 	if loginCookieName == "" {
 		loginCookieName = strings.TrimSpace(options.cookie.Name)
@@ -207,8 +239,12 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 
 	r.Get(options.loginPath, func(c router.Context) error {
 		viewCtx := router.ViewContext{
-			"title":     options.loginTitle,
-			"base_path": options.basePath,
+			"title":                     options.loginTitle,
+			"base_path":                 options.basePath,
+			"password_reset_enabled":    passwordResetEnabled,
+			"self_registration_enabled": selfRegistrationEnabled,
+			"password_reset_path":       options.passwordResetPath,
+			"register_path":             options.registerPath,
 		}
 		viewCtx = options.viewContext(viewCtx, c)
 		return c.Render(options.loginTemplate, viewCtx)
@@ -235,14 +271,18 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 	})
 
 	r.Get(options.passwordResetPath, func(c router.Context) error {
-		if options.passwordResetEnabled != nil && !options.passwordResetEnabled(cfg) {
+		if !passwordResetEnabled {
 			return goerrors.New("password reset disabled", goerrors.CategoryAuthz).
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
 		viewCtx := router.ViewContext{
-			"title":     options.passwordResetTitle,
-			"base_path": options.basePath,
+			"title":                     options.passwordResetTitle,
+			"base_path":                 options.basePath,
+			"password_reset_enabled":    passwordResetEnabled,
+			"self_registration_enabled": selfRegistrationEnabled,
+			"password_reset_path":       options.passwordResetPath,
+			"register_path":             options.registerPath,
 		}
 		viewCtx = options.viewContext(viewCtx, c)
 		return c.Render(options.passwordResetTemplate, viewCtx)
