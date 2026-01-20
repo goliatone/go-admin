@@ -178,6 +178,7 @@ func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config,
 		viewCtx := AuthUIViewContext(cfg, state, AuthUIPaths{
 			BasePath:          options.basePath,
 			PasswordResetPath: options.passwordResetPath,
+			PasswordResetConfirmPath: path.Join(options.passwordResetPath, "confirm"),
 			RegisterPath:      options.registerPath,
 		})
 		viewCtx["title"] = options.title
