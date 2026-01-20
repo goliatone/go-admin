@@ -18,7 +18,7 @@ require (
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
 	github.com/goliatone/go-masker v0.1.0
-	github.com/goliatone/go-notifications v0.10.0
+	github.com/goliatone/go-notifications v0.11.0
 	github.com/goliatone/go-options v0.7.0
 	github.com/goliatone/go-persistence-bun v0.10.0
 	github.com/goliatone/go-repository-bun v0.12.0
@@ -26,7 +26,7 @@ require (
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-uploader v0.3.0
-	github.com/goliatone/go-users v0.11.0
+	github.com/goliatone/go-users v0.12.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.32
