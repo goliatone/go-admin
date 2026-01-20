@@ -34,6 +34,8 @@ type authUIOptions struct {
 	passwordResetEnabled    func(admin.Config) bool
 	selfRegistrationEnabled func(admin.Config) bool
 	viewContext             AuthUIViewContextBuilder
+	themeAssets             map[string]string
+	themeAssetPrefix        string
 }
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
@@ -165,6 +167,18 @@ func WithAuthUIViewContextBuilder(builder AuthUIViewContextBuilder) AuthUIOption
 	}
 }
 
+// WithAuthUIThemeAssets sets theme assets (logo, favicon, etc.) for auth UI templates.
+// The prefix is prepended to each asset filename to form the full URL path.
+// Assets are exposed in templates as theme.assets.logo, theme.assets.favicon, etc.
+func WithAuthUIThemeAssets(prefix string, assets map[string]string) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil {
+			opts.themeAssetPrefix = prefix
+			opts.themeAssets = assets
+		}
+	}
+}
+
 // RegisterAuthUIRoutes registers login, logout, and password reset UI routes.
 func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther *auth.Auther, cookieName string, opts ...AuthUIOption) error {
 	if r == nil {
@@ -250,6 +264,7 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 			RegisterPath:      options.registerPath,
 		})
 		viewCtx["title"] = options.loginTitle
+		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
 		viewCtx = options.viewContext(viewCtx, c)
 		return c.Render(options.loginTemplate, viewCtx)
 	})
@@ -289,6 +304,7 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 			RegisterPath:      options.registerPath,
 		})
 		viewCtx["title"] = options.passwordResetTitle
+		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
 		viewCtx = options.viewContext(viewCtx, c)
 		return c.Render(options.passwordResetTemplate, viewCtx)
 	})
