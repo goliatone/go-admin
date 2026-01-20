@@ -112,6 +112,32 @@ if err := quickstart.RegisterRegistrationUIRoutes(
 }
 ```
 
+## Onboarding + secure links
+
+Quickstart wires onboarding routes and securelink helpers so hosts can opt in with minimal setup.
+
+Feature flags (set on `admin.Config.FeatureFlags`):
+
+- `users.invite`
+- `users.password_reset`
+- `users.signup`
+
+Securelink env defaults:
+
+- `ADMIN_SECURELINK_KEY` (required to enable manager in quickstart)
+- `ADMIN_SECURELINK_BASE_URL` (default `http://localhost:8080`)
+- `ADMIN_SECURELINK_QUERY_KEY` (default `token`)
+- `ADMIN_SECURELINK_AS_QUERY` (default `true`)
+- `ADMIN_SECURELINK_EXPIRATION` (default `72h`)
+
+Route helpers:
+
+- `RegisterOnboardingRoutes` (API endpoints under `/admin/api/onboarding` by default)
+- `RegisterAuthUIRoutes` + `RegisterRegistrationUIRoutes` (UI pages)
+
+See `docs/GUIDE_ONBOARDING.md` for token lifecycle details, error response shape, and
+override hook examples.
+
 ## Static assets (opt-in disk fallback)
 ```go
 diskAssetsDir := quickstart.ResolveDiskAssetsDir(
