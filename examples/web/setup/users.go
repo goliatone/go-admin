@@ -20,11 +20,13 @@ import (
 	users "github.com/goliatone/go-users"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/command"
+	"github.com/goliatone/go-users/passwordreset"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/goliatone/go-users/preferences"
 	"github.com/goliatone/go-users/profile"
 	"github.com/goliatone/go-users/registry"
 	userssvc "github.com/goliatone/go-users/service"
+	"github.com/goliatone/go-users/tokens"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
@@ -96,6 +98,18 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 	if err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
+	secureLinks, err := NewSecureLinkManager()
+	if err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+	tokenRepo, err := tokens.NewRepository(tokens.RepositoryConfig{DB: client.DB()})
+	if err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+	resetRepo, err := passwordreset.NewRepository(passwordreset.RepositoryConfig{DB: client.DB()})
+	if err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
 	notifier := &OnboardingNotifier{}
 
 	inventoryRepo := &inventoryRepositoryAdapter{users: authRepoManager.Users()}
@@ -103,16 +117,22 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 	scopeResolver := helpers.NewScopeResolver()
 
 	service := userssvc.New(userssvc.Config{
-		AuthRepository:       authRepo,
-		InventoryRepository:  inventoryRepo,
-		ActivityRepository:   activityRepo,
-		ActivitySink:         activityRepo,
-		ProfileRepository:    profileRepo,
-		PreferenceRepository: preferenceRepo,
-		RoleRegistry:         roleRegistry,
-		ScopeResolver:        scopeResolver,
-		AuthorizationPolicy:  helpers.NewScopeAuthorizationPolicy(),
-		Logger:               types.NopLogger{},
+		AuthRepository:          authRepo,
+		InventoryRepository:     inventoryRepo,
+		ActivityRepository:      activityRepo,
+		ActivitySink:            activityRepo,
+		ProfileRepository:       profileRepo,
+		PreferenceRepository:    preferenceRepo,
+		RoleRegistry:            roleRegistry,
+		ScopeResolver:           scopeResolver,
+		AuthorizationPolicy:     helpers.NewScopeAuthorizationPolicy(),
+		Logger:                  types.NopLogger{},
+		SecureLinkManager:       secureLinks,
+		UserTokenRepository:     tokenRepo,
+		PasswordResetRepository: resetRepo,
+		InviteLinkRoute:         command.SecureLinkRouteInviteAccept,
+		RegistrationLinkRoute:   command.SecureLinkRouteRegister,
+		PasswordResetLinkRoute:  command.SecureLinkRoutePasswordReset,
 		Hooks: types.Hooks{
 			AfterActivity: notifier.HandleActivity,
 		},
@@ -128,6 +148,9 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 		ActivityRepo:   activityRepo,
 		ProfileRepo:    profileRepo,
 		PreferenceRepo: preferenceRepo,
+		SecureLinks:    secureLinks,
+		UserTokenRepo:  tokenRepo,
+		ResetRepo:      resetRepo,
 	}
 
 	if err := SeedUsers(ctx, deps, preferenceRepo); err != nil {
@@ -1279,6 +1302,27 @@ func (n *OnboardingNotifier) HandleActivity(ctx context.Context, record types.Ac
 			Message: fmt.Sprintf("Invite sent to %s (expires %v)", email, record.Data["expires_at"]),
 			Read:    false,
 		})
+	case "user.invite.consumed":
+		email := fmt.Sprint(record.Data["email"])
+		n.Notifications.Add(ctx, admin.Notification{
+			Title:   "Invite accepted",
+			Message: fmt.Sprintf("Invite accepted by %s", email),
+			Read:    false,
+		})
+	case "user.registration.requested":
+		email := fmt.Sprint(record.Data["email"])
+		n.Notifications.Add(ctx, admin.Notification{
+			Title:   "Registration requested",
+			Message: fmt.Sprintf("Registration link requested for %s (expires %v)", email, record.Data["expires_at"]),
+			Read:    false,
+		})
+	case "user.registration.completed":
+		email := fmt.Sprint(record.Data["email"])
+		n.Notifications.Add(ctx, admin.Notification{
+			Title:   "Registration completed",
+			Message: fmt.Sprintf("Registration completed for %s", email),
+			Read:    false,
+		})
 	case "user.password.reset":
 		email := fmt.Sprint(record.Data["user_email"])
 		n.Notifications.Add(ctx, admin.Notification{
@@ -1286,11 +1330,11 @@ func (n *OnboardingNotifier) HandleActivity(ctx context.Context, record types.Ac
 			Message: fmt.Sprintf("Password reset completed for %s", email),
 			Read:    false,
 		})
-	case "user.password.reset.request":
+	case "user.password.reset.requested":
 		email := fmt.Sprint(record.Data["user_email"])
 		n.Notifications.Add(ctx, admin.Notification{
 			Title:   "Password reset requested",
-			Message: fmt.Sprintf("Reset link requested for %s", email),
+			Message: fmt.Sprintf("Reset link requested for %s (expires %v)", email, record.Data["expires_at"]),
 			Read:    false,
 		})
 	}
