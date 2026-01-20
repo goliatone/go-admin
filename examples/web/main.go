@@ -39,7 +39,7 @@ import (
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
-//go:embed openapi/*
+//go:embed openapi/* templates/**
 var webFS embed.FS
 
 const (
@@ -405,6 +405,7 @@ func main() {
 	viewEngine, err := quickstart.NewViewEngine(
 		client.FS(),
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
+		quickstart.WithViewTemplatesFS(webFS),
 	)
 	if err != nil {
 		log.Fatalf("failed to initialize view engine: %v", err)
@@ -758,6 +759,7 @@ func main() {
 		auther,
 		authCookieName,
 		quickstart.WithAuthUITitles("Login", "Password Reset"),
+		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
 	); err != nil {
 		log.Fatalf("failed to register auth UI routes: %v", err)
 	}
