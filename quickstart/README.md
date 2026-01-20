@@ -112,6 +112,57 @@ if err := quickstart.RegisterRegistrationUIRoutes(
 }
 ```
 
+### Theme assets for auth UI
+Auth and registration UI routes support theme assets (logo, favicon) via dedicated options. Assets are exposed in templates as `theme.assets.logo`, `theme.assets.favicon`, etc.
+
+```go
+authThemeAssets := map[string]string{
+	"logo":    "logo.svg",
+	"favicon": "favicon.svg",
+}
+authThemeAssetPrefix := path.Join(cfg.BasePath, "assets")
+
+if err := quickstart.RegisterAuthUIRoutes(
+	router,
+	cfg,
+	auther,
+	authCookieName,
+	quickstart.WithAuthUITitles("Login", "Password Reset"),
+	quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
+); err != nil {
+	return err
+}
+
+if err := quickstart.RegisterRegistrationUIRoutes(
+	router,
+	cfg,
+	quickstart.WithRegistrationUITitle("Register"),
+	quickstart.WithRegistrationUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
+); err != nil {
+	return err
+}
+```
+
+For manual route handlers, use `WithAuthUIViewThemeAssets` to merge theme assets into the view context:
+
+```go
+viewCtx := router.ViewContext{
+	"title":     cfg.Title,
+	"base_path": cfg.BasePath,
+}
+viewCtx = quickstart.WithAuthUIViewThemeAssets(viewCtx, authThemeAssets, authThemeAssetPrefix)
+return c.Render("register", viewCtx)
+```
+
+Templates use a conditional fallback pattern:
+```html
+{% if theme and theme.assets and theme.assets.logo %}
+<img src="{{ theme.assets.logo }}" alt="Logo" class="w-10 h-10" />
+{% else %}
+<!-- inline SVG fallback -->
+{% endif %}
+```
+
 ## Onboarding + secure links
 
 Quickstart wires onboarding routes and securelink helpers so hosts can opt in with minimal setup.
