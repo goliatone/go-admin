@@ -40,6 +40,7 @@ func AuthUIStateFromConfig(cfg admin.Config) AuthUIState {
 type AuthUIPaths struct {
 	BasePath          string
 	PasswordResetPath string
+	PasswordResetConfirmPath string
 	RegisterPath      string
 }
 
@@ -61,6 +62,7 @@ func WithAuthUIViewContext(ctx router.ViewContext, cfg admin.Config, state AuthU
 	ctx["password_reset_enabled"] = state.PasswordResetEnabled
 	ctx["self_registration_enabled"] = state.SelfRegistrationEnabled
 	ctx["password_reset_path"] = paths.PasswordResetPath
+	ctx["password_reset_confirm_path"] = paths.PasswordResetConfirmPath
 	ctx["register_path"] = paths.RegisterPath
 	return ctx
 }
