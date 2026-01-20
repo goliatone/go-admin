@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -109,7 +110,7 @@ func (h *OnboardingHandlers) VerifyInvite(c router.Context) error {
 			WithTextCode("SERVICE_UNAVAILABLE")
 	}
 
-	token := strings.TrimSpace(c.Query("token"))
+	token := normalizeSecureLinkToken(c.Query("token"))
 	if token == "" {
 		return goerrors.New("token required", goerrors.CategoryBadInput).
 			WithCode(fiber.StatusBadRequest).
@@ -190,7 +191,7 @@ func (h *OnboardingHandlers) AcceptInvite(c router.Context) error {
 			WithCode(fiber.StatusBadRequest).
 			WithTextCode("INVALID_PAYLOAD")
 	}
-	payload.Token = strings.TrimSpace(payload.Token)
+	payload.Token = normalizeSecureLinkToken(payload.Token)
 	password := strings.TrimSpace(payload.Password)
 	if payload.Token == "" || password == "" {
 		return goerrors.New("token and password required", goerrors.CategoryValidation).
@@ -351,7 +352,7 @@ func (h *OnboardingHandlers) ConfirmRegistration(c router.Context) error {
 			WithCode(fiber.StatusBadRequest).
 			WithTextCode("INVALID_PAYLOAD")
 	}
-	payload.Token = strings.TrimSpace(payload.Token)
+	payload.Token = normalizeSecureLinkToken(payload.Token)
 	password := strings.TrimSpace(payload.Password)
 	if payload.Token == "" || password == "" {
 		return goerrors.New("token and password required", goerrors.CategoryValidation).
@@ -497,7 +498,7 @@ func (h *OnboardingHandlers) ConfirmPasswordReset(c router.Context) error {
 			WithCode(fiber.StatusBadRequest).
 			WithTextCode("INVALID_PAYLOAD")
 	}
-	token := strings.TrimSpace(payload.Token)
+	token := normalizeSecureLinkToken(payload.Token)
 	password := strings.TrimSpace(payload.Password)
 	if token == "" || password == "" {
 		return goerrors.New("token and password required", goerrors.CategoryValidation).
@@ -533,7 +534,7 @@ func (h *OnboardingHandlers) ConfirmPasswordReset(c router.Context) error {
 
 // TokenMetadata returns expiration/usage data for securelink tokens.
 func (h *OnboardingHandlers) TokenMetadata(c router.Context) error {
-	token := strings.TrimSpace(c.Query("token"))
+	token := normalizeSecureLinkToken(c.Query("token"))
 	if token == "" {
 		return goerrors.New("token required", goerrors.CategoryBadInput).
 			WithCode(fiber.StatusBadRequest).
@@ -757,4 +758,40 @@ func scopeFromPayload(payload userstypes.SecureLinkPayload) userstypes.ScopeFilt
 		TenantID: payloadUUID(payload, "tenant_id"),
 		OrgID:    payloadUUID(payload, "org_id"),
 	}
+}
+
+func normalizeSecureLinkToken(raw string) string {
+	token := strings.TrimSpace(raw)
+	if token == "" {
+		return ""
+	}
+	if !strings.Contains(token, "://") {
+		return token
+	}
+	parsed, err := url.Parse(token)
+	if err != nil {
+		return token
+	}
+	cfg := setup.SecureLinkUIConfigFromEnv()
+	queryKey := strings.TrimSpace(cfg.QueryKey)
+	if queryKey == "" {
+		queryKey = "token"
+	}
+	if value := strings.TrimSpace(parsed.Query().Get(queryKey)); value != "" {
+		return value
+	}
+	if queryKey != "token" {
+		if value := strings.TrimSpace(parsed.Query().Get("token")); value != "" {
+			return value
+		}
+	}
+	if path := strings.Trim(parsed.Path, "/"); path != "" {
+		parts := strings.Split(path, "/")
+		if len(parts) > 0 {
+			if last := strings.TrimSpace(parts[len(parts)-1]); last != "" {
+				return last
+			}
+		}
+	}
+	return token
 }
