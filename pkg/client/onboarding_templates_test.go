@@ -9,12 +9,15 @@ import (
 func TestPasswordResetTemplateFeedbackMessages(t *testing.T) {
 	t.Helper()
 
-	content := readTemplate(t, "password_reset.html")
-	requireTemplateContains(t, "password_reset.html", content, "password_policy_hints")
-	requireTemplateContains(t, "password_reset.html", content, "RESET_RATE_LIMIT")
-	requireTemplateContains(t, "password_reset.html", content, "TOKEN_EXPIRED")
-	requireTemplateContains(t, "password_reset.html", content, "token_type=password_reset")
-	requireTemplateContains(t, "password_reset.html", content, "token_metadata_path")
+	requestContent := readTemplate(t, "password_reset.html")
+	requireTemplateContains(t, "password_reset.html", requestContent, "RESET_RATE_LIMIT")
+	requireTemplateContains(t, "password_reset.html", requestContent, "RESET_NOT_ALLOWED")
+
+	confirmContent := readTemplate(t, "password_reset_confirm.html")
+	requireTemplateContains(t, "password_reset_confirm.html", confirmContent, "password_policy_hints")
+	requireTemplateContains(t, "password_reset_confirm.html", confirmContent, "TOKEN_EXPIRED")
+	requireTemplateContains(t, "password_reset_confirm.html", confirmContent, "token_type=password_reset")
+	requireTemplateContains(t, "password_reset_confirm.html", confirmContent, "token_metadata_path")
 }
 
 func TestRegisterTemplateFeedbackMessages(t *testing.T) {
