@@ -761,6 +761,7 @@ func main() {
 	passwordPolicyHints := setup.PasswordPolicyHints()
 	registerPath := path.Join(cfg.BasePath, "register")
 	passwordResetPath := path.Join(cfg.BasePath, "password-reset")
+	passwordResetConfirmPath := path.Join(passwordResetPath, "confirm")
 	tokenMetadataPath := path.Join(cfg.BasePath, "api", "onboarding", "token", "metadata")
 	authUIViewContext := func(ctx router.ViewContext, _ router.Context) router.ViewContext {
 		ctx["password_policy_hints"] = passwordPolicyHints
@@ -768,6 +769,7 @@ func main() {
 		ctx["token_query_key"] = secureLinkUI.QueryKey
 		ctx["token_as_query"] = secureLinkUI.AsQuery
 		ctx["register_path"] = registerPath
+		ctx["password_reset_confirm_path"] = passwordResetConfirmPath
 		return ctx
 	}
 	registerTemplate := strings.TrimSpace(os.Getenv("ADMIN_REGISTER_TEMPLATE"))
@@ -788,6 +790,7 @@ func main() {
 		authCookieName,
 		quickstart.WithAuthUITitles("Login", "Password Reset"),
 		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
+		quickstart.WithAuthUIPasswordResetConfirmPath(passwordResetConfirmPath),
 		quickstart.WithAuthUIRegisterPath(registerPath),
 		quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
 		quickstart.WithAuthUIViewContextBuilder(authUIViewContext),
@@ -802,13 +805,14 @@ func main() {
 				WithTextCode("FEATURE_DISABLED")
 		}
 		viewCtx := router.ViewContext{
-			"title":                     cfg.Title,
-			"base_path":                 cfg.BasePath,
-			"password_reset_enabled":    cfg.FeatureFlags[setup.FeaturePasswordReset],
-			"self_registration_enabled": cfg.FeatureFlags[setup.FeatureSelfRegistration],
-			"password_reset_path":       passwordResetPath,
-			"register_path":             registerPath,
-			"registration_mode":         registrationCfg.Mode,
+			"title":                       cfg.Title,
+			"base_path":                   cfg.BasePath,
+			"password_reset_enabled":      cfg.FeatureFlags[setup.FeaturePasswordReset],
+			"self_registration_enabled":   cfg.FeatureFlags[setup.FeatureSelfRegistration],
+			"password_reset_path":         passwordResetPath,
+			"password_reset_confirm_path": passwordResetConfirmPath,
+			"register_path":               registerPath,
+			"registration_mode":           registrationCfg.Mode,
 		}
 		viewCtx = quickstart.WithAuthUIViewThemeAssets(viewCtx, authThemeAssets, authThemeAssetPrefix)
 		viewCtx = authUIViewContext(viewCtx, c)
