@@ -1,6 +1,9 @@
 package setup
 
-import "strings"
+import (
+	"os"
+	"strings"
+)
 
 const (
 	FeatureUserInvites      = "users.invite"
@@ -47,4 +50,31 @@ func (c RegistrationConfig) AllowsEmail(email string) bool {
 		}
 	}
 	return false
+}
+
+// PasswordPolicyHints returns UI hints for password requirements.
+func PasswordPolicyHints() []string {
+	defaultHints := []string{
+		"Use at least 8 characters",
+		"Mix letters, numbers, and symbols",
+		"Avoid reused passwords",
+	}
+
+	raw := strings.TrimSpace(os.Getenv("ADMIN_PASSWORD_POLICY_HINTS"))
+	if raw == "" {
+		return defaultHints
+	}
+
+	parts := strings.Split(raw, ",")
+	hints := make([]string, 0, len(parts))
+	for _, item := range parts {
+		trimmed := strings.TrimSpace(item)
+		if trimmed != "" {
+			hints = append(hints, trimmed)
+		}
+	}
+	if len(hints) == 0 {
+		return defaultHints
+	}
+	return hints
 }
