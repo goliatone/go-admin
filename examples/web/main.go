@@ -775,6 +775,12 @@ func main() {
 		registerTemplate = "register"
 	}
 
+	authThemeAssets := map[string]string{
+		"logo":    "logo.svg",
+		"favicon": "favicon.svg",
+	}
+	authThemeAssetPrefix := path.Join(cfg.BasePath, "assets")
+
 	if err := quickstart.RegisterAuthUIRoutes(
 		r,
 		cfg,
@@ -783,6 +789,7 @@ func main() {
 		quickstart.WithAuthUITitles("Login", "Password Reset"),
 		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
 		quickstart.WithAuthUIRegisterPath(registerPath),
+		quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
 		quickstart.WithAuthUIViewContextBuilder(authUIViewContext),
 	); err != nil {
 		log.Fatalf("failed to register auth UI routes: %v", err)
@@ -803,6 +810,7 @@ func main() {
 			"register_path":             registerPath,
 			"registration_mode":         registrationCfg.Mode,
 		}
+		viewCtx = quickstart.WithAuthUIViewThemeAssets(viewCtx, authThemeAssets, authThemeAssetPrefix)
 		viewCtx = authUIViewContext(viewCtx, c)
 		return c.Render(registerTemplate, viewCtx)
 	})
