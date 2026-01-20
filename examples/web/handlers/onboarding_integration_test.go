@@ -58,11 +58,12 @@ func TestOnboardingInviteAcceptFlow(t *testing.T) {
 		t.Fatalf("expected invite status 201, got %d", status)
 	}
 
-	token := payloadString(inviteResp, "token")
+	token := payloadStringAny(inviteResp, "token")
 	if token == "" {
 		t.Fatalf("expected invite token")
 	}
-	userID := payloadString(inviteResp, "user_id")
+	rawToken := normalizeSecureLinkToken(token)
+	userID := payloadStringAny(inviteResp, "user_id")
 	if userID == "" {
 		t.Fatalf("expected invite user id")
 	}
@@ -74,7 +75,7 @@ func TestOnboardingInviteAcceptFlow(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("expected invite accept status 200, got %d", status)
 	}
-	if payloadString(acceptResp, "status") != "active" {
+	if payloadStringAny(acceptResp, "status") != "active" {
 		t.Fatalf("expected invite accept status active, got %v", acceptResp["status"])
 	}
 
@@ -90,7 +91,7 @@ func TestOnboardingInviteAcceptFlow(t *testing.T) {
 		t.Fatalf("expected invited user to be active, got %#v", user)
 	}
 
-	payloadMap, err := env.deps.SecureLinks.Validate(token)
+	payloadMap, err := env.deps.SecureLinks.Validate(rawToken)
 	if err != nil {
 		t.Fatalf("validate invite token: %v", err)
 	}
@@ -130,7 +131,7 @@ func TestOnboardingPasswordResetRequestConfirmFlow(t *testing.T) {
 	if status != http.StatusAccepted {
 		t.Fatalf("expected reset request status 202, got %d", status)
 	}
-	if payloadString(resetResp, "expires_at") == "" {
+	if payloadStringAny(resetResp, "expires_at") == "" {
 		t.Fatalf("expected reset request expires_at")
 	}
 
@@ -163,7 +164,7 @@ func TestOnboardingPasswordResetRequestConfirmFlow(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("expected reset confirm status 200, got %d", status)
 	}
-	if payloadString(confirmResp, "status") != "reset" {
+	if payloadStringAny(confirmResp, "status") != "reset" {
 		t.Fatalf("expected reset status reset, got %v", confirmResp["status"])
 	}
 
@@ -207,10 +208,10 @@ func TestOnboardingSelfRegistrationToggle(t *testing.T) {
 	if status != http.StatusCreated {
 		t.Fatalf("expected registration enabled status 201, got %d", status)
 	}
-	if payloadString(resp, "token") == "" {
+	if payloadStringAny(resp, "token") == "" {
 		t.Fatalf("expected registration token")
 	}
-	if payloadString(resp, "mode") != string(setup.RegistrationOpen) {
+	if payloadStringAny(resp, "mode") != string(setup.RegistrationOpen) {
 		t.Fatalf("expected registration mode open, got %v", resp["mode"])
 	}
 }
@@ -319,7 +320,7 @@ func doOnboardingJSONRequest(t *testing.T, app *fiber.App, method, url string, b
 	return payload, resp.StatusCode
 }
 
-func payloadString(payload map[string]any, key string) string {
+func payloadStringAny(payload map[string]any, key string) string {
 	if payload == nil {
 		return ""
 	}
