@@ -82,7 +82,7 @@ views, err := quickstart.NewViewEngine(
 )
 ```
 
-The embedded resource CRUD templates under `pkg/client/templates/resources/*` are reusable defaults and can be overridden the same way. Auth and shell templates live at `pkg/client/templates/login.html`, `pkg/client/templates/password_reset.html`, `pkg/client/templates/admin.html`, and `pkg/client/templates/notifications.html`.
+The embedded resource CRUD templates under `pkg/client/templates/resources/*` are reusable defaults and can be overridden the same way. Auth and shell templates live at `pkg/client/templates/login.html`, `pkg/client/templates/password_reset.html`, `pkg/client/templates/password_reset_confirm.html`, `pkg/client/templates/admin.html`, and `pkg/client/templates/notifications.html`.
 
 ## Auth UI slots (login extra)
 
@@ -122,6 +122,7 @@ if err := quickstart.RegisterAuthUIRoutes(
 	auther,
 	authCookieName,
 	quickstart.WithAuthUITemplates("login-demo", "password_reset"),
+	quickstart.WithAuthUIPasswordResetConfirmTemplate("password_reset_confirm"),
 ); err != nil {
 	return err
 }
@@ -160,7 +161,7 @@ views, err := quickstart.NewViewEngine(
 Quickstart can register common UI routes for you:
 
 - Admin shell (`/admin`) and notifications (`/admin/notifications`).
-- Auth UI (`/admin/login`, `/admin/logout`, `/admin/password-reset`).
+- Auth UI (`/admin/login`, `/admin/logout`, `/admin/password-reset`, `/admin/password-reset/confirm`).
 
 ```go
 if err := quickstart.RegisterAdminUIRoutes(r, cfg, adm, authn); err != nil {
