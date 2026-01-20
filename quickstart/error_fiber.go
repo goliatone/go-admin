@@ -13,9 +13,35 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+// FiberErrorHandlerOption customizes the quickstart Fiber error handler.
+type FiberErrorHandlerOption func(*fiberErrorHandlerOptions)
+
+type fiberErrorHandlerOptions struct {
+	errorMappers []goerrors.ErrorMapper
+}
+
+// WithFiberErrorMappers appends custom error mappers to the defaults.
+func WithFiberErrorMappers(mappers ...goerrors.ErrorMapper) FiberErrorHandlerOption {
+	return func(opts *fiberErrorHandlerOptions) {
+		if opts == nil || len(mappers) == 0 {
+			return
+		}
+		opts.errorMappers = append(opts.errorMappers, mappers...)
+	}
+}
+
 // NewFiberErrorHandler returns a default error handler that renders JSON for API paths
 // and an HTML error page (with nav + theme) for non-API paths.
-func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool) fiber.ErrorHandler {
+func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts ...FiberErrorHandlerOption) fiber.ErrorHandler {
+	options := fiberErrorHandlerOptions{
+		errorMappers: goerrors.DefaultErrorMappers(),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
+
 	return func(c *fiber.Ctx, err error) error {
 		code := fiber.StatusInternalServerError
 		message := "internal server error"
@@ -51,7 +77,7 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool) fiber.
 		isAPI := strings.HasPrefix(c.Path(), apiPrefix) || strings.HasPrefix(c.Path(), crudPrefix)
 
 		if isAPI {
-			mapped := goerrors.MapToError(err, goerrors.DefaultErrorMappers())
+			mapped := goerrors.MapToError(err, options.errorMappers)
 			if mapped == nil {
 				mapped = goerrors.New(message, goerrors.CategoryInternal).
 					WithCode(code).
