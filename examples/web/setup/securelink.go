@@ -84,7 +84,7 @@ func loadSecureLinkConfig() secureLinkConfig {
 		routes: map[string]string{
 			command.SecureLinkRouteInviteAccept:  path.Join(basePath, "invite"),
 			command.SecureLinkRouteRegister:      path.Join(basePath, "register"),
-			command.SecureLinkRoutePasswordReset: path.Join(basePath, "password-reset"),
+			command.SecureLinkRoutePasswordReset: path.Join(basePath, "password-reset", "confirm"),
 		},
 	}
 }
