@@ -222,7 +222,8 @@ curl -H "Authorization: Bearer <token>" http://localhost:8080/admin/api/dashboar
 
 - Securelink env vars: `ADMIN_SECURELINK_KEY`, `ADMIN_SECURELINK_BASE_URL`, `ADMIN_SECURELINK_QUERY_KEY`, `ADMIN_SECURELINK_AS_QUERY`, `ADMIN_SECURELINK_EXPIRATION`.
 - The example falls back to a demo signing key when `ADMIN_SECURELINK_KEY` is unset (see `examples/web/setup/securelink.go`).
-- Default securelink paths: `/admin/invite`, `/admin/register`, `/admin/password-reset` (base path mirrors `ADMIN_BASE_PATH`).
+- Default securelink paths: `/admin/invite`, `/admin/register`, `/admin/password-reset/confirm` (base path mirrors `ADMIN_BASE_PATH`).
+- UI routes: `/admin/password-reset` (request) and `/admin/password-reset/confirm` (apply token). Securelink reset URLs land on the confirm page.
 - API endpoints remain under `/admin/api/onboarding/*`; UI routes are registered in `examples/web/main.go` with custom view context for token parsing and policy hints.
 - Errors follow the go-errors response shape with `error.text_code` (see `docs/GUIDE_ONBOARDING.md` for the canonical list).
 
