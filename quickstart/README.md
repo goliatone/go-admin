@@ -112,6 +112,14 @@ if err := quickstart.RegisterRegistrationUIRoutes(
 }
 ```
 
+Password reset UI defaults to two pages:
+
+- Request: `/admin/password-reset` (template `password_reset`)
+- Confirm: `/admin/password-reset/confirm` (template `password_reset_confirm`)
+
+Override the confirm route or template with `WithAuthUIPasswordResetConfirmPath` and
+`WithAuthUIPasswordResetConfirmTemplate`.
+
 ### Theme assets for auth UI
 Auth and registration UI routes support theme assets (logo, favicon) via dedicated options. Assets are exposed in templates as `theme.assets.logo`, `theme.assets.favicon`, etc.
 
