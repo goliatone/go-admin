@@ -23,13 +23,16 @@ type authUIOptions struct {
 	loginPath               string
 	logoutPath              string
 	passwordResetPath       string
+	passwordResetConfirmPath string
 	registerPath            string
 	loginRedirectPath       string
 	logoutRedirectPath      string
 	loginTemplate           string
 	passwordResetTemplate   string
+	passwordResetConfirmTemplate string
 	loginTitle              string
 	passwordResetTitle      string
+	passwordResetConfirmTitle string
 	cookie                  router.Cookie
 	passwordResetEnabled    func(admin.Config) bool
 	selfRegistrationEnabled func(admin.Config) bool
@@ -74,6 +77,15 @@ func WithAuthUIPasswordResetPath(route string) AuthUIOption {
 	}
 }
 
+// WithAuthUIPasswordResetConfirmPath overrides the password reset confirm route path.
+func WithAuthUIPasswordResetConfirmPath(route string) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil {
+			opts.passwordResetConfirmPath = strings.TrimSpace(route)
+		}
+	}
+}
+
 // WithAuthUILoginRedirect overrides the redirect path after login.
 func WithAuthUILoginRedirect(route string) AuthUIOption {
 	return func(opts *authUIOptions) {
@@ -107,6 +119,19 @@ func WithAuthUITemplates(loginTemplate, passwordResetTemplate string) AuthUIOpti
 	}
 }
 
+// WithAuthUIPasswordResetConfirmTemplate overrides the password reset confirm template name.
+func WithAuthUIPasswordResetConfirmTemplate(name string) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts == nil {
+			return
+		}
+		name = strings.TrimSpace(name)
+		if name != "" {
+			opts.passwordResetConfirmTemplate = name
+		}
+	}
+}
+
 // WithAuthUITitles overrides the view titles for login and password reset.
 func WithAuthUITitles(loginTitle, passwordResetTitle string) AuthUIOption {
 	return func(opts *authUIOptions) {
@@ -118,6 +143,19 @@ func WithAuthUITitles(loginTitle, passwordResetTitle string) AuthUIOption {
 		}
 		if strings.TrimSpace(passwordResetTitle) != "" {
 			opts.passwordResetTitle = strings.TrimSpace(passwordResetTitle)
+		}
+	}
+}
+
+// WithAuthUIPasswordResetConfirmTitle overrides the view title for the confirm reset page.
+func WithAuthUIPasswordResetConfirmTitle(title string) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts == nil {
+			return
+		}
+		title = strings.TrimSpace(title)
+		if title != "" {
+			opts.passwordResetConfirmTitle = title
 		}
 	}
 }
@@ -192,8 +230,10 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 		basePath:              strings.TrimSpace(cfg.BasePath),
 		loginTemplate:         "login",
 		passwordResetTemplate: "password_reset",
+		passwordResetConfirmTemplate: "password_reset_confirm",
 		loginTitle:            strings.TrimSpace(cfg.Title),
 		passwordResetTitle:    strings.TrimSpace(cfg.Title),
+		passwordResetConfirmTitle: strings.TrimSpace(cfg.Title),
 		cookie: router.Cookie{
 			Path:     "/",
 			HTTPOnly: true,
@@ -223,6 +263,19 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 	}
 	if options.passwordResetPath == "" {
 		options.passwordResetPath = path.Join(options.basePath, "password-reset")
+	}
+	if options.passwordResetConfirmPath == "" {
+		options.passwordResetConfirmPath = path.Join(options.passwordResetPath, "confirm")
+	}
+	confirmBasePath := ""
+	confirmLinkPath := options.passwordResetConfirmPath
+	if strings.Contains(options.passwordResetConfirmPath, ":") {
+		confirmBasePath = stripRouteParams(options.passwordResetConfirmPath)
+		if confirmBasePath != "" {
+			confirmLinkPath = confirmBasePath
+		} else {
+			confirmLinkPath = ""
+		}
 	}
 	if options.registerPath == "" {
 		options.registerPath = path.Join(options.basePath, "register")
@@ -261,6 +314,7 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 		}, AuthUIPaths{
 			BasePath:          options.basePath,
 			PasswordResetPath: options.passwordResetPath,
+			PasswordResetConfirmPath: confirmLinkPath,
 			RegisterPath:      options.registerPath,
 		})
 		viewCtx["title"] = options.loginTitle
@@ -301,6 +355,7 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 		}, AuthUIPaths{
 			BasePath:          options.basePath,
 			PasswordResetPath: options.passwordResetPath,
+			PasswordResetConfirmPath: confirmLinkPath,
 			RegisterPath:      options.registerPath,
 		})
 		viewCtx["title"] = options.passwordResetTitle
@@ -308,6 +363,40 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 		viewCtx = options.viewContext(viewCtx, c)
 		return c.Render(options.passwordResetTemplate, viewCtx)
 	})
+
+	confirmHandler := func(c router.Context) error {
+		if !passwordResetEnabled {
+			return goerrors.New("password reset disabled", goerrors.CategoryAuthz).
+				WithCode(fiber.StatusForbidden).
+				WithTextCode("FEATURE_DISABLED")
+		}
+		viewCtx := AuthUIViewContext(cfg, AuthUIState{
+			PasswordResetEnabled:    passwordResetEnabled,
+			SelfRegistrationEnabled: selfRegistrationEnabled,
+		}, AuthUIPaths{
+			BasePath:          options.basePath,
+			PasswordResetPath: options.passwordResetPath,
+			PasswordResetConfirmPath: confirmLinkPath,
+			RegisterPath:      options.registerPath,
+		})
+		if token := strings.TrimSpace(c.Param("token")); token != "" {
+			viewCtx["password_reset_token"] = token
+		}
+		viewCtx["title"] = options.passwordResetConfirmTitle
+		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
+		viewCtx = options.viewContext(viewCtx, c)
+		return c.Render(options.passwordResetConfirmTemplate, viewCtx)
+	}
+
+	r.Get(options.passwordResetConfirmPath, confirmHandler)
+	if strings.Contains(options.passwordResetConfirmPath, ":") {
+		if confirmBasePath != "" && confirmBasePath != options.passwordResetConfirmPath {
+			r.Get(confirmBasePath, confirmHandler)
+		}
+	} else {
+		confirmTokenPath := strings.TrimRight(options.passwordResetConfirmPath, "/") + "/:token"
+		r.Get(confirmTokenPath, confirmHandler)
+	}
 
 	r.Get(options.logoutPath, func(c router.Context) error {
 		cookie := options.cookie
@@ -328,4 +417,26 @@ type loginPayload struct {
 	Identifier string `form:"identifier" json:"identifier"`
 	Password   string `form:"password" json:"password"`
 	Remember   bool   `form:"remember" json:"remember"`
+}
+
+func stripRouteParams(route string) string {
+	trimmed := strings.TrimSpace(route)
+	if trimmed == "" {
+		return ""
+	}
+	parts := strings.Split(trimmed, "/")
+	filtered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		if strings.HasPrefix(part, ":") || strings.HasPrefix(part, "*") {
+			continue
+		}
+		filtered = append(filtered, part)
+	}
+	if len(filtered) == 0 {
+		return ""
+	}
+	return "/" + strings.Join(filtered, "/")
 }
