@@ -218,6 +218,14 @@ curl -H "Authorization: Bearer <token>" http://localhost:8080/admin/api/dashboar
 - Lifecycle actions (activate/suspend/disable/archive) and role assignment emit activity to the `users` channel and surface in the dashboard activity widget; preferences persist via go-users `PreferenceRepository`.
 - Quick wiring/seed notes live in `docs/prds/EXAMPLE_USERS_TDD.md`; the smoke checklist is in `docs/prds/EXAMPLE_SMOKE.md`.
 
+### Onboarding + Secure Links
+
+- Securelink env vars: `ADMIN_SECURELINK_KEY`, `ADMIN_SECURELINK_BASE_URL`, `ADMIN_SECURELINK_QUERY_KEY`, `ADMIN_SECURELINK_AS_QUERY`, `ADMIN_SECURELINK_EXPIRATION`.
+- The example falls back to a demo signing key when `ADMIN_SECURELINK_KEY` is unset (see `examples/web/setup/securelink.go`).
+- Default securelink paths: `/admin/invite`, `/admin/register`, `/admin/password-reset` (base path mirrors `ADMIN_BASE_PATH`).
+- API endpoints remain under `/admin/api/onboarding/*`; UI routes are registered in `examples/web/main.go` with custom view context for token parsing and policy hints.
+- Errors follow the go-errors response shape with `error.text_code` (see `docs/GUIDE_ONBOARDING.md` for the canonical list).
+
 ### JSON CRUD Smoke (Users)
 
 Use the demo tokens to exercise the go-crud JSON endpoints (snake_case payloads) backed by the same go-users SQLite store:
