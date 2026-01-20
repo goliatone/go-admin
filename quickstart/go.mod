@@ -8,10 +8,10 @@ require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/goliatone/go-admin v0.18.0
-	github.com/goliatone/go-auth v0.23.0
+	github.com/goliatone/go-auth v0.25.0
 	github.com/goliatone/go-cms v0.18.0
 	github.com/goliatone/go-dashboard v0.6.0
-	github.com/goliatone/go-errors v0.9.0
+	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.5.1
 	github.com/goliatone/go-export/adapters/template/go-template v0.5.1
 	github.com/goliatone/go-formgen v0.14.0
@@ -19,7 +19,7 @@ require (
 	github.com/goliatone/go-router v0.42.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
-	github.com/goliatone/go-users v0.10.0
+	github.com/goliatone/go-users v0.11.0
 	github.com/google/uuid v1.6.0
 )
 
