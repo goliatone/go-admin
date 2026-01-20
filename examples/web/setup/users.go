@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"os"
 	"sort"
@@ -17,7 +16,6 @@ import (
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	persistence "github.com/goliatone/go-persistence-bun"
-	users "github.com/goliatone/go-users"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/command"
 	"github.com/goliatone/go-users/passwordreset"
@@ -58,24 +56,37 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 
-	client, err := persistence.New(persistentConfig{
+	pcfg := persistentConfig{
 		driver:      "sqlite3",
 		server:      dsn,
 		pingTimeout: 5 * time.Second,
-	}, sqlDB, sqlitedialect.New(), opts...)
+	}
+	newClient := func() (*persistence.Client, error) {
+		return persistence.New(pcfg, sqlDB, sqlitedialect.New(), opts...)
+	}
+
+	client, err := newClient()
 	if err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
 
-	migrationsFS, err := fs.Sub(users.MigrationsFS, "data/sql/migrations")
+	if err := registerGoAuthMigrations(client); err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+	if err := client.Migrate(ctx); err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+	if err := ensureUsersExternalID(ctx, sqlDB); err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+
+	client, err = newClient()
 	if err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
-	client.RegisterDialectMigrations(
-		migrationsFS,
-		persistence.WithDialectSourceLabel("."),
-		persistence.WithValidationTargets("postgres", "sqlite"),
-	)
+	if err := registerGoUsersMigrations(client); err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
 	if err := client.Migrate(ctx); err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
@@ -231,6 +242,76 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 	if err := seedDebugRoles(ctx, deps.RoleRegistry, seededUsers); err != nil {
 		return err
 	}
+	return nil
+}
+
+func ensureUsersExternalID(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return nil
+	}
+
+	var hasUsers bool
+	if err := db.QueryRowContext(ctx, "SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'").
+		Scan(&hasUsers); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("users table missing before go-auth migrations")
+		}
+		return err
+	}
+
+	rows, err := db.QueryContext(ctx, "PRAGMA table_info(users)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var hasExternalID bool
+	var hasExternalIDProvider bool
+	for rows.Next() {
+		var cid int
+		var name string
+		var colType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+		if scanErr := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); scanErr != nil {
+			return scanErr
+		}
+		switch strings.ToLower(strings.TrimSpace(name)) {
+		case "external_id":
+			hasExternalID = true
+		case "external_id_provider":
+			hasExternalIDProvider = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if !hasExternalID {
+		if _, err := db.ExecContext(ctx, "ALTER TABLE users ADD COLUMN external_id TEXT"); err != nil {
+			return err
+		}
+		hasExternalID = true
+	}
+	if !hasExternalIDProvider {
+		if _, err := db.ExecContext(ctx, "ALTER TABLE users ADD COLUMN external_id_provider TEXT"); err != nil {
+			return err
+		}
+		hasExternalIDProvider = true
+	}
+	if hasExternalID && hasExternalIDProvider {
+		if _, err := db.ExecContext(ctx, "DROP INDEX IF EXISTS users_external_id_unique"); err != nil {
+			return err
+		}
+		if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS users_external_id_unique
+ON users (external_id_provider, external_id)
+WHERE external_id IS NOT NULL AND external_id != ''
+AND external_id_provider IS NOT NULL AND external_id_provider != ''`); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
