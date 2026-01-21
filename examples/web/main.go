@@ -183,7 +183,12 @@ func main() {
 		GoUsersActivity: setup.SetupActivityWithGoUsers,
 	}
 
-	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsers(context.Background(), "", debugHookOpts...)
+	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsersWithMigrations(
+		context.Background(),
+		"",
+		setup.QuickstartUserMigrations(),
+		debugHookOpts...,
+	)
 	if err != nil {
 		log.Fatalf("failed to setup users: %v", err)
 	}
