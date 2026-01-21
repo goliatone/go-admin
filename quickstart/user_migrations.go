@@ -192,7 +192,7 @@ func registerDialectMigrations(client *persistence.Client, migrationsFS fs.FS, l
 	if client == nil || migrationsFS == nil {
 		return nil
 	}
-	options := []persistence.MigrationOption{
+	options := []persistence.DialectMigrationOption{
 		persistence.WithDialectSourceLabel(label),
 	}
 	if len(targets) > 0 {
