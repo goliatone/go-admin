@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/examples/web/helpers"
@@ -138,6 +137,9 @@ func (h *UserActionHandlers) ResetPassword(c router.Context) error {
 			WithCode(fiber.StatusInternalServerError).
 			WithTextCode("SERVICE_UNAVAILABLE")
 	}
+	if h.Service.Commands().UserPasswordResetRequest == nil {
+		return serviceUnavailableError()
+	}
 
 	userID, err := h.parseUserID(c.Param("id"))
 	if err != nil {
@@ -153,34 +155,25 @@ func (h *UserActionHandlers) ResetPassword(c router.Context) error {
 			WithTextCode("RESET_NOT_ALLOWED")
 	}
 
+	actor := helpers.ActorRefFromContext(c.Context())
+	if actor.ID == uuid.Nil {
+		return unauthorizedError()
+	}
 	scope := helpers.ScopeFromContext(c.Context())
-	envelope := parseTokenEnvelope(user.Metadata, "password_reset")
-	now := time.Now().UTC()
-	if !envelope.IssuedAt.IsZero() && now.Sub(envelope.IssuedAt) < 5*time.Minute {
-		return goerrors.New("reset already requested", goerrors.CategoryRateLimit).
-			WithCode(goerrors.CodeTooManyRequests).
-			WithTextCode("RESET_RATE_LIMIT")
-	}
-
-	envelope = tokenEnvelope{
-		Token:     uuid.NewString(),
-		IssuedAt:  now,
-		ExpiresAt: now.Add(1 * time.Hour),
-		Scope:     scope,
-	}
-	setTokenEnvelope(user, "password_reset", envelope)
-	if _, err := h.AuthRepo.Update(c.Context(), user); err != nil {
+	result := &command.UserPasswordResetRequestResult{}
+	if err := h.Service.Commands().UserPasswordResetRequest.Execute(c.Context(), command.UserPasswordResetRequestInput{
+		UserID:   user.ID,
+		Actor:    actor,
+		Scope:    scope,
+		Metadata: map[string]any{"source": "admin.users"},
+		Result:   result,
+	}); err != nil {
 		return err
 	}
-	h.logActivity(c.Context(), "user.password.reset.request", user.ID, map[string]any{
-		"user_email": user.Email,
-		"scope":      scope,
-	})
 
 	return c.JSON(fiber.StatusAccepted, map[string]any{
 		"user_id":    user.ID.String(),
-		"token":      envelope.Token,
-		"expires_at": envelope.ExpiresAt,
+		"expires_at": result.ExpiresAt,
 	})
 }
 
@@ -237,12 +230,6 @@ func (h *UserActionHandlers) InviteByID(c router.Context) error {
 	if err := h.Service.Commands().UserInvite.Execute(c.Context(), input); err != nil {
 		return err
 	}
-
-	h.logActivity(c.Context(), "user.invite", userID, map[string]any{
-		"email": user.Email,
-		"role":  role,
-		"scope": scope,
-	})
 
 	return c.JSON(fiber.StatusCreated, map[string]any{
 		"user_id":    user.ID.String(),

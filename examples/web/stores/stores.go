@@ -43,6 +43,9 @@ type UserDependencies struct {
 	ActivityRepo   types.ActivityRepository
 	ProfileRepo    types.ProfileRepository
 	PreferenceRepo types.PreferenceRepository
+	SecureLinks    types.SecureLinkManager
+	UserTokenRepo  types.UserTokenRepository
+	ResetRepo      types.PasswordResetRepository
 }
 
 // Initialize creates and seeds all data stores backed by the CMS content service (pages/posts)

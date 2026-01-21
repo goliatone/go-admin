@@ -82,7 +82,53 @@ views, err := quickstart.NewViewEngine(
 )
 ```
 
-The embedded resource CRUD templates under `pkg/client/templates/resources/*` are reusable defaults and can be overridden the same way. Auth and shell templates live at `pkg/client/templates/login.html`, `pkg/client/templates/password_reset.html`, `pkg/client/templates/admin.html`, and `pkg/client/templates/notifications.html`.
+The embedded resource CRUD templates under `pkg/client/templates/resources/*` are reusable defaults and can be overridden the same way. Auth and shell templates live at `pkg/client/templates/login.html`, `pkg/client/templates/password_reset.html`, `pkg/client/templates/password_reset_confirm.html`, `pkg/client/templates/admin.html`, and `pkg/client/templates/notifications.html`.
+
+## Auth UI slots (login extra)
+
+The login template now exposes a slot block you can extend without modifying the base template:
+
+```ejs
+{% block login_extra %}{% endblock %}
+```
+
+Use it to inject demo-only content (credentials, disclaimers) by creating a new template that extends the base login template and fills the block:
+
+```ejs
+{% extends "login.html" %}
+
+{% block login_extra %}
+  {% include "partials/demo-credentials.html" %}
+{% endblock %}
+```
+
+Wire the view engine to include your custom templates FS and point the auth UI to the new template:
+
+```go
+//go:embed templates/**
+var webTemplates embed.FS
+
+views, err := quickstart.NewViewEngine(
+	client.FS(),
+	quickstart.WithViewTemplatesFS(webTemplates),
+)
+if err != nil {
+	return err
+}
+
+if err := quickstart.RegisterAuthUIRoutes(
+	r,
+	cfg,
+	auther,
+	authCookieName,
+	quickstart.WithAuthUITemplates("login-demo", "password_reset"),
+	quickstart.WithAuthUIPasswordResetConfirmTemplate("password_reset_confirm"),
+); err != nil {
+	return err
+}
+```
+
+If the block is empty, the login page renders normally with no extra content.
 
 ## Template helpers (functions)
 
@@ -115,7 +161,7 @@ views, err := quickstart.NewViewEngine(
 Quickstart can register common UI routes for you:
 
 - Admin shell (`/admin`) and notifications (`/admin/notifications`).
-- Auth UI (`/admin/login`, `/admin/logout`, `/admin/password-reset`).
+- Auth UI (`/admin/login`, `/admin/logout`, `/admin/password-reset`, `/admin/password-reset/confirm`).
 
 ```go
 if err := quickstart.RegisterAdminUIRoutes(r, cfg, adm, authn); err != nil {
