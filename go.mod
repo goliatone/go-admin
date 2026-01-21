@@ -13,7 +13,7 @@ require (
 	github.com/goliatone/go-crud v0.17.0
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.10.0
-	github.com/goliatone/go-export v0.5.1
+	github.com/goliatone/go-export v0.6.0
 	github.com/goliatone/go-formgen v0.14.0
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
@@ -99,7 +99,7 @@ require (
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.8.0 // indirect
-	github.com/goliatone/go-export/adapters/template/go-template v0.5.1 // indirect
+	github.com/goliatone/go-export/adapters/template/go-template v0.6.0 // indirect
 	github.com/goliatone/go-logger v0.6.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.6.0 // indirect

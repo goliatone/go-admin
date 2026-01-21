@@ -159,10 +159,12 @@ github.com/goliatone/go-dashboard v0.6.0 h1:nOiVgZwDI4NIbqiV7MfJrjbSRVlwdPARmnXg
 github.com/goliatone/go-dashboard v0.6.0/go.mod h1:tR/P9F2LI84FaJIyBdz2dPPZWOb8Q5oi7QV4mzNdZlA=
 github.com/goliatone/go-errors v0.10.0 h1:qVmOXKq6aa3cHbygI5VHGCosuA0CLAXso0BlinboYJE=
 github.com/goliatone/go-errors v0.10.0/go.mod h1:FiZEC2z5a8SBdRyljC9wFt+IzqZDfrst2dPoqWARbr4=
-github.com/goliatone/go-export v0.5.1 h1:N0bMd/cqTFZyfMRw0LGFQrHsamcdKdfoIOR1xibDNFY=
-github.com/goliatone/go-export v0.5.1/go.mod h1:PVPLmOABod8Twjw0WNEONX/rRlrnUtuqsjUO4Vfbedw=
+github.com/goliatone/go-export v0.6.0 h1:tvCEnoH6VqiltIOhZeQh/uQUG3N1lKp3Al0pikMUfpE=
+github.com/goliatone/go-export v0.6.0/go.mod h1:PVPLmOABod8Twjw0WNEONX/rRlrnUtuqsjUO4Vfbedw=
 github.com/goliatone/go-export/adapters/template/go-template v0.5.1 h1:bR2GqJrMDq8kwDjJi+WLL5ECQI8qsevlOP6GTklGddc=
 github.com/goliatone/go-export/adapters/template/go-template v0.5.1/go.mod h1:zCoGAQjLMujY6WZZ0FZBzEDNplo454SLy8rhP/Wgn+Q=
+github.com/goliatone/go-export/adapters/template/go-template v0.6.0 h1:23M+mc5PdFLgdK3Fc/PFanf9CZXCtfJaaPjEDI2BauM=
+github.com/goliatone/go-export/adapters/template/go-template v0.6.0/go.mod h1:RurATCPBejHIqI80M3nCIOja7CsF9bTWIeVy0CGksd0=
 github.com/goliatone/go-formgen v0.14.0 h1:H2znJBKMRqhnGJRQ4uhbpyFjkMXgHLkS3nxUQFjwcr4=
 github.com/goliatone/go-formgen v0.14.0/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
 github.com/goliatone/go-i18n v0.2.0 h1:TDKJYZgJQq5koQ5aybM8+9NbhhlKNTPeGug4MrH/HNc=
