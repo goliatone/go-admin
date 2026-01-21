@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"os"
 	"sort"
@@ -14,21 +13,34 @@ import (
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	persistence "github.com/goliatone/go-persistence-bun"
-	users "github.com/goliatone/go-users"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/command"
+	"github.com/goliatone/go-users/passwordreset"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/goliatone/go-users/preferences"
 	"github.com/goliatone/go-users/profile"
 	"github.com/goliatone/go-users/registry"
 	userssvc "github.com/goliatone/go-users/service"
+	"github.com/goliatone/go-users/tokens"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
+
+// UserMigrationsPhase identifies which migrations should be registered.
+type UserMigrationsPhase int
+
+const (
+	UserMigrationsAuth UserMigrationsPhase = iota
+	UserMigrationsCore
+)
+
+// UserMigrationsRegistrar registers migrations for the given phase.
+type UserMigrationsRegistrar func(*persistence.Client, UserMigrationsPhase) error
 
 // ResolveUsersDSN returns the SQLite DSN shared with the rest of the example (CMS).
 func ResolveUsersDSN() string {
@@ -40,6 +52,11 @@ func ResolveUsersDSN() string {
 
 // SetupUsers wires a go-users stack against the shared SQLite DB (runs migrations).
 func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOption) (stores.UserDependencies, *userssvc.Service, *OnboardingNotifier, error) {
+	return SetupUsersWithMigrations(ctx, dsn, nil, opts...)
+}
+
+// SetupUsersWithMigrations wires a go-users stack with a custom migrations registrar.
+func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMigrationsRegistrar, opts ...persistence.ClientOption) (stores.UserDependencies, *userssvc.Service, *OnboardingNotifier, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -56,24 +73,40 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 
-	client, err := persistence.New(persistentConfig{
+	pcfg := persistentConfig{
 		driver:      "sqlite3",
 		server:      dsn,
 		pingTimeout: 5 * time.Second,
-	}, sqlDB, sqlitedialect.New(), opts...)
+	}
+	newClient := func() (*persistence.Client, error) {
+		return persistence.New(pcfg, sqlDB, sqlitedialect.New(), opts...)
+	}
+
+	client, err := newClient()
 	if err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
 
-	migrationsFS, err := fs.Sub(users.MigrationsFS, "data/sql/migrations")
+	if registrar == nil {
+		registrar = QuickstartUserMigrations()
+	}
+	if err := registrar(client, UserMigrationsAuth); err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+	if err := client.Migrate(ctx); err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+	if err := ensureUsersExternalID(ctx, sqlDB); err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+
+	client, err = newClient()
 	if err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
-	client.RegisterDialectMigrations(
-		migrationsFS,
-		persistence.WithDialectSourceLabel("."),
-		persistence.WithValidationTargets("postgres", "sqlite"),
-	)
+	if err := registrar(client, UserMigrationsCore); err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
 	if err := client.Migrate(ctx); err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
@@ -96,6 +129,18 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 	if err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
+	secureLinks, err := NewSecureLinkManager()
+	if err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+	tokenRepo, err := tokens.NewRepository(tokens.RepositoryConfig{DB: client.DB()})
+	if err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
+	resetRepo, err := passwordreset.NewRepository(passwordreset.RepositoryConfig{DB: client.DB()})
+	if err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
 	notifier := &OnboardingNotifier{}
 
 	inventoryRepo := &inventoryRepositoryAdapter{users: authRepoManager.Users()}
@@ -103,16 +148,22 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 	scopeResolver := helpers.NewScopeResolver()
 
 	service := userssvc.New(userssvc.Config{
-		AuthRepository:       authRepo,
-		InventoryRepository:  inventoryRepo,
-		ActivityRepository:   activityRepo,
-		ActivitySink:         activityRepo,
-		ProfileRepository:    profileRepo,
-		PreferenceRepository: preferenceRepo,
-		RoleRegistry:         roleRegistry,
-		ScopeResolver:        scopeResolver,
-		AuthorizationPolicy:  helpers.NewScopeAuthorizationPolicy(),
-		Logger:               types.NopLogger{},
+		AuthRepository:          authRepo,
+		InventoryRepository:     inventoryRepo,
+		ActivityRepository:      activityRepo,
+		ActivitySink:            activityRepo,
+		ProfileRepository:       profileRepo,
+		PreferenceRepository:    preferenceRepo,
+		RoleRegistry:            roleRegistry,
+		ScopeResolver:           scopeResolver,
+		AuthorizationPolicy:     helpers.NewScopeAuthorizationPolicy(),
+		Logger:                  types.NopLogger{},
+		SecureLinkManager:       secureLinks,
+		UserTokenRepository:     tokenRepo,
+		PasswordResetRepository: resetRepo,
+		InviteLinkRoute:         command.SecureLinkRouteInviteAccept,
+		RegistrationLinkRoute:   command.SecureLinkRouteRegister,
+		PasswordResetLinkRoute:  command.SecureLinkRoutePasswordReset,
 		Hooks: types.Hooks{
 			AfterActivity: notifier.HandleActivity,
 		},
@@ -128,6 +179,9 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 		ActivityRepo:   activityRepo,
 		ProfileRepo:    profileRepo,
 		PreferenceRepo: preferenceRepo,
+		SecureLinks:    secureLinks,
+		UserTokenRepo:  tokenRepo,
+		ResetRepo:      resetRepo,
 	}
 
 	if err := SeedUsers(ctx, deps, preferenceRepo); err != nil {
@@ -137,6 +191,30 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 	notifier.Activity = activityRepo
 
 	return deps, service, notifier, nil
+}
+
+// QuickstartUserMigrations returns a registrar that uses quickstart defaults.
+func QuickstartUserMigrations() UserMigrationsRegistrar {
+	return quickstartUserMigrations
+}
+
+func quickstartUserMigrations(client *persistence.Client, phase UserMigrationsPhase) error {
+	switch phase {
+	case UserMigrationsAuth:
+		return quickstart.RegisterUserMigrations(
+			client,
+			quickstart.WithUserMigrationsCoreEnabled(false),
+			quickstart.WithUserMigrationsAuthBootstrapEnabled(false),
+			quickstart.WithUserMigrationsAuthExtrasEnabled(false),
+		)
+	case UserMigrationsCore:
+		return quickstart.RegisterUserMigrations(
+			client,
+			quickstart.WithUserMigrationsAuthEnabled(false),
+		)
+	default:
+		return nil
+	}
 }
 
 // SeedUsers inserts the demo users into SQLite and seeds preferences.
@@ -208,6 +286,76 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 	if err := seedDebugRoles(ctx, deps.RoleRegistry, seededUsers); err != nil {
 		return err
 	}
+	return nil
+}
+
+func ensureUsersExternalID(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return nil
+	}
+
+	var hasUsers bool
+	if err := db.QueryRowContext(ctx, "SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'").
+		Scan(&hasUsers); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("users table missing before go-auth migrations")
+		}
+		return err
+	}
+
+	rows, err := db.QueryContext(ctx, "PRAGMA table_info(users)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var hasExternalID bool
+	var hasExternalIDProvider bool
+	for rows.Next() {
+		var cid int
+		var name string
+		var colType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+		if scanErr := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); scanErr != nil {
+			return scanErr
+		}
+		switch strings.ToLower(strings.TrimSpace(name)) {
+		case "external_id":
+			hasExternalID = true
+		case "external_id_provider":
+			hasExternalIDProvider = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if !hasExternalID {
+		if _, err := db.ExecContext(ctx, "ALTER TABLE users ADD COLUMN external_id TEXT"); err != nil {
+			return err
+		}
+		hasExternalID = true
+	}
+	if !hasExternalIDProvider {
+		if _, err := db.ExecContext(ctx, "ALTER TABLE users ADD COLUMN external_id_provider TEXT"); err != nil {
+			return err
+		}
+		hasExternalIDProvider = true
+	}
+	if hasExternalID && hasExternalIDProvider {
+		if _, err := db.ExecContext(ctx, "DROP INDEX IF EXISTS users_external_id_unique"); err != nil {
+			return err
+		}
+		if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS users_external_id_unique
+ON users (external_id_provider, external_id)
+WHERE external_id IS NOT NULL AND external_id != ''
+AND external_id_provider IS NOT NULL AND external_id_provider != ''`); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -1279,6 +1427,27 @@ func (n *OnboardingNotifier) HandleActivity(ctx context.Context, record types.Ac
 			Message: fmt.Sprintf("Invite sent to %s (expires %v)", email, record.Data["expires_at"]),
 			Read:    false,
 		})
+	case "user.invite.consumed":
+		email := fmt.Sprint(record.Data["email"])
+		n.Notifications.Add(ctx, admin.Notification{
+			Title:   "Invite accepted",
+			Message: fmt.Sprintf("Invite accepted by %s", email),
+			Read:    false,
+		})
+	case "user.registration.requested":
+		email := fmt.Sprint(record.Data["email"])
+		n.Notifications.Add(ctx, admin.Notification{
+			Title:   "Registration requested",
+			Message: fmt.Sprintf("Registration link requested for %s (expires %v)", email, record.Data["expires_at"]),
+			Read:    false,
+		})
+	case "user.registration.completed":
+		email := fmt.Sprint(record.Data["email"])
+		n.Notifications.Add(ctx, admin.Notification{
+			Title:   "Registration completed",
+			Message: fmt.Sprintf("Registration completed for %s", email),
+			Read:    false,
+		})
 	case "user.password.reset":
 		email := fmt.Sprint(record.Data["user_email"])
 		n.Notifications.Add(ctx, admin.Notification{
@@ -1286,11 +1455,11 @@ func (n *OnboardingNotifier) HandleActivity(ctx context.Context, record types.Ac
 			Message: fmt.Sprintf("Password reset completed for %s", email),
 			Read:    false,
 		})
-	case "user.password.reset.request":
+	case "user.password.reset.requested":
 		email := fmt.Sprint(record.Data["user_email"])
 		n.Notifications.Add(ctx, admin.Notification{
 			Title:   "Password reset requested",
-			Message: fmt.Sprintf("Reset link requested for %s", email),
+			Message: fmt.Sprintf("Reset link requested for %s (expires %v)", email, record.Data["expires_at"]),
 			Read:    false,
 		})
 	}

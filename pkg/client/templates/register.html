@@ -1,0 +1,311 @@
+{% extends "login-layout.html" %}
+
+{% block title %}Register - {{ title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
+  <div
+    id="register-root"
+    class="w-full max-w-2xl space-y-6"
+    data-token-metadata-path="{{ token_metadata_path }}"
+    data-token-query-key="{{ token_query_key }}"
+    data-token-as-query="{{ token_as_query }}"
+  >
+    <!-- Logo -->
+    <div class="flex justify-center">
+      <div class="w-16 h-16 bg-admin-dark rounded-2xl flex items-center justify-center shadow-lg">
+        {% if theme and theme.assets and theme.assets.logo %}
+        <img src="{{ theme.assets.logo }}" alt="Logo" class="w-10 h-10" />
+        {% else %}
+        <svg class="w-10 h-10" viewBox="0 0 89 83" xmlns="http://www.w3.org/2000/svg">
+          <g fill="#ffffff">
+            <path d="m88.57 58.94c0-3.55-2.74-6.43-6.31-6.71 0 0-.74-.03-.94-.04-5.16-.3-9.27-4.36-9.45-9.42v-.64c.18-5.05 4.3-9.12 9.45-9.42.21-.01.95-.05.95-.05 3.57-.29 6.31-3.16 6.31-6.71 0-4.45-4.43-7.9-9.25-6.4-2.81.88-4.64 3.53-4.64 6.4-.03 5.2-4.24 9.45-9.52 9.71l-.74.07c-3.63.42-6.44 3.08-6.44 6.67v.07c0 3.59 2.63 6.18 6.42 6.68l.75.06c5.28.26 9.49 4.51 9.52 9.71 0 2.87 1.83 5.52 4.64 6.4 4.81 1.51 9.25-1.95 9.25-6.4zm-82.09-32.99c0 3.55 2.74 6.43 6.31 6.71 0 0 .74.03.94.04 5.16.3 9.27 4.36 9.45 9.42v.64c-.18 5.05-4.3 9.12-9.45 9.42-.21.01-.95.05-.95.05-3.57.29-6.31 3.16-6.31 6.71 0 4.45 4.43 7.9 9.25 6.4 2.81-.88 4.64-3.53 4.64-6.4.03-5.2 4.24-9.45 9.52-9.71l.74-.07c3.63-.42 6.44-3.08 6.44-6.67v-.07c0-3.59-2.63-6.18-6.42-6.68l-.75-.06c-5.28-.26-9.49-4.51-9.52-9.71 0-2.87-1.83-5.52-4.64-6.4-4.81-1.51-9.25 1.95-9.25 6.4zm57.85-23.58c-3.64 0-6.6 2.67-6.89 6.15 0 0-.03.72-.05.92-.3 5.02-4.48 9.02-9.67 9.2h-.66c-5.19-.18-9.37-4.18-9.67-9.2l-.05-.92c-.29-3.47-3.25-6.14-6.89-6.14-4.57 0-8.12 4.32-6.57 9 .9 2.74 3.62 4.52 6.57 4.52 5.34.03 9.7 4.13 9.97 9.27l.08.72c.43 3.54 3.17 6.27 6.85 6.27h.08c3.69 0 6.35-2.56 6.86-6.26l.07-.73c.27-5.14 4.63-9.24 9.97-9.27 2.95 0 5.67-1.78 6.57-4.52 1.55-4.69-2-9-6.57-9zm-33.78 80c3.64 0 6.6-2.67 6.89-6.15 0 0 .03-.72.05-.92.3-5.02 4.48-9.02 9.67-9.2h.66c5.19.18 9.37 4.18 9.67 9.2l.05.92c.29 3.47 3.25 6.14 6.89 6.14 4.57 0 8.12-4.32 6.57-9-.9-2.74-3.62-4.52-6.57-4.52-5.34-.03-9.7-4.13-9.97-9.27l-.08-.72c-.43-3.54-3.17-6.27-6.85-6.27h-.08c-3.69 0-6.35 2.56-6.86 6.26l-.07.73c-.27 5.14-4.63 9.24-9.97 9.27-2.95 0-5.67 1.78-6.57 4.52-1.55 4.69 2 9 6.57 9z"/>
+          </g>
+        </svg>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-zinc-500 font-semibold mb-1">Registration</p>
+        <h1 class="text-xl font-semibold text-admin-dark">Request an account</h1>
+        <p class="text-sm text-zinc-500">Submit your details and we'll send a secure registration link.</p>
+      </div>
+      {% if registration_mode == "allowlist" %}
+      <div class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        Registration is limited to approved email domains.
+      </div>
+      {% endif %}
+      <form id="register-request-form" class="space-y-3" action="{{ base_path }}/api/onboarding/register" method="post">
+        <input
+          type="email"
+          name="email"
+          placeholder="Work email"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <input
+            type="text"
+            name="first_name"
+            placeholder="First name"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="text"
+            name="last_name"
+            placeholder="Last name"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <button type="submit" class="btn btn-primary w-full justify-center">Request registration link</button>
+      </form>
+      <div id="register-request-result" class="hidden text-xs text-zinc-500"></div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-zinc-500 font-semibold mb-1">Complete setup</p>
+        <h2 class="text-lg font-semibold text-admin-dark">Finish registration</h2>
+        <p class="text-sm text-zinc-500">Paste the token from your email to set a password.</p>
+      </div>
+      <form id="register-confirm-form" class="space-y-3" action="{{ base_path }}/api/onboarding/register/confirm" method="post">
+        <input
+          id="register-token"
+          type="text"
+          name="token"
+          placeholder="Registration token"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+        <input
+          id="register-password"
+          type="password"
+          name="password"
+          placeholder="Create a password"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+        {% if password_policy_hints %}
+        <ul class="text-xs text-zinc-500 space-y-1">
+          {% for hint in password_policy_hints %}
+          <li>• {{ hint }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        <button type="submit" class="btn btn-secondary w-full justify-center">Activate account</button>
+      </form>
+      <div id="register-token-status" class="hidden text-xs rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"></div>
+    </div>
+
+    <!-- Sign In Link -->
+    <div class="text-center">
+      <p class="text-sm text-zinc-600">
+        Already have an account? <a href="{{ base_path }}/login" class="text-admin-dark hover:text-admin-light font-medium no-underline">Sign in</a>
+      </p>
+    </div>
+
+    <!-- Footer Links -->
+    <div class="text-center">
+      <div class="flex flex-wrap items-center justify-center gap-3 text-xs text-zinc-500">
+        <a href="{{ base_path }}/login" class="hover:text-admin-dark no-underline">Back to Login</a>
+      </div>
+
+      {% block register_extra %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const registerRoot = document.getElementById('register-root');
+  const registerRequestForm = document.getElementById('register-request-form');
+  const registerConfirmForm = document.getElementById('register-confirm-form');
+  const registerRequestResult = document.getElementById('register-request-result');
+  const tokenInput = document.getElementById('register-token');
+  const tokenStatus = document.getElementById('register-token-status');
+
+  const tokenMetadataPath = registerRoot?.dataset.tokenMetadataPath || '';
+  const tokenQueryKey = registerRoot?.dataset.tokenQueryKey || 'token';
+  const tokenAsQuery = (registerRoot?.dataset.tokenAsQuery || 'true') === 'true';
+
+  const textCodeMessages = {
+    FEATURE_DISABLED: 'Registration is currently disabled.',
+    EMAIL_REQUIRED: 'Please enter a valid email.',
+    INVALID_PAYLOAD: 'Please check the form fields and try again.',
+    TOKEN_EXPIRED: 'This registration link has expired. Request a new one.',
+    TOKEN_ALREADY_USED: 'This registration link has already been used.',
+    TOKEN_MALFORMED: 'This registration link is invalid. Request a new one.',
+    INVITE_EXPIRED: 'This invite has expired.',
+    INVITE_USED: 'This invite has already been used.',
+    ACCOUNT_LOCKED: 'Your account is locked. Try again later.',
+    ACCOUNT_DISABLED: 'Your account is disabled.',
+    ACCOUNT_SUSPENDED: 'Your account is suspended.',
+    ACCOUNT_ARCHIVED: 'Your account is archived.',
+    ACCOUNT_PENDING: 'Your account is pending verification.',
+    VERIFICATION_REQUIRED: 'Please verify your account before continuing.',
+    VERIFICATION_EXPIRED: 'Your verification link has expired. Request a new one.'
+  };
+
+  async function readErrorPayload(response) {
+    try {
+      return await response.clone().json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function resolveErrorMessage(response) {
+    const payload = await readErrorPayload(response);
+    const err = payload && payload.error ? payload.error : null;
+    const textCode = err && err.text_code ? err.text_code : '';
+    if (textCode && textCodeMessages[textCode]) {
+      return textCodeMessages[textCode];
+    }
+    if (err && err.message) {
+      return err.message;
+    }
+    if (window.extractErrorMessage) {
+      return window.extractErrorMessage(response);
+    }
+    return 'Something went wrong. Please try again.';
+  }
+
+  function formatTimestamp(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString();
+  }
+
+  function setTokenStatus(message, tone) {
+    if (!tokenStatus) return;
+    tokenStatus.textContent = message;
+    tokenStatus.classList.remove('hidden', 'text-emerald-700', 'text-amber-700', 'text-rose-600');
+    tokenStatus.classList.add('text-sm');
+
+    if (tone === 'ok') {
+      tokenStatus.classList.add('text-emerald-700');
+    } else if (tone === 'warn') {
+      tokenStatus.classList.add('text-amber-700');
+    } else {
+      tokenStatus.classList.add('text-rose-600');
+    }
+  }
+
+  function resolveTokenFromLocation() {
+    const url = new URL(window.location.href);
+    if (tokenAsQuery) {
+      return url.searchParams.get(tokenQueryKey) || '';
+    }
+    const segments = url.pathname.split('/').filter(Boolean);
+    return segments.length > 0 ? segments[segments.length - 1] : '';
+  }
+
+  async function fetchTokenMetadata(token) {
+    if (!tokenMetadataPath || !token) return;
+    try {
+      const response = await fetch(`${tokenMetadataPath}?token=${encodeURIComponent(token)}&token_type=register`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) {
+        const message = await resolveErrorMessage(response);
+        setTokenStatus(message, 'error');
+        return;
+      }
+      const data = await response.json();
+      if (!data || typeof data !== 'object') return;
+
+      if (data.valid === false) {
+        setTokenStatus('This registration link is no longer valid. Request a new one.', 'warn');
+        return;
+      }
+
+      const expiresAt = formatTimestamp(data.expires_at);
+      if (expiresAt) {
+        setTokenStatus(`Registration link expires on ${expiresAt}.`, 'ok');
+      }
+    } catch (error) {
+      console.error('Failed to fetch token metadata', error);
+    }
+  }
+
+  if (tokenInput) {
+    const tokenFromURL = resolveTokenFromLocation();
+    if (tokenFromURL) {
+      tokenInput.value = tokenFromURL;
+      fetchTokenMetadata(tokenFromURL);
+    }
+  }
+
+  if (registerRequestForm) {
+    registerRequestForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(registerRequestForm);
+      const payload = Object.fromEntries(formData.entries());
+
+      try {
+        const response = await fetch(registerRequestForm.action, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const message = await resolveErrorMessage(response);
+          window.toastManager?.error(message);
+          return;
+        }
+
+        const data = await response.json();
+        const expiresAt = formatTimestamp(data.expires_at);
+        if (registerRequestResult) {
+          registerRequestResult.textContent = expiresAt
+            ? `Registration link requested. It expires on ${expiresAt}.`
+            : 'Registration link requested. Check your email for the next step.';
+          registerRequestResult.classList.remove('hidden');
+        }
+        window.toastManager?.success('Registration link sent. Check your email.');
+      } catch (error) {
+        console.error('Registration request failed', error);
+        window.toastManager?.error('Unable to request registration.');
+      }
+    });
+  }
+
+  if (registerConfirmForm) {
+    registerConfirmForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(registerConfirmForm);
+      const payload = Object.fromEntries(formData.entries());
+
+      try {
+        const response = await fetch(registerConfirmForm.action, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const message = await resolveErrorMessage(response);
+          window.toastManager?.error(message);
+          return;
+        }
+
+        window.toastManager?.success('Account activated. You can sign in now.');
+      } catch (error) {
+        console.error('Registration confirmation failed', error);
+        window.toastManager?.error('Unable to complete registration.');
+      }
+    });
+  }
+</script>
+{% endblock %}

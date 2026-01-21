@@ -39,7 +39,7 @@ import (
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
-//go:embed openapi/*
+//go:embed openapi/* templates/**
 var webFS embed.FS
 
 const (
@@ -183,7 +183,12 @@ func main() {
 		GoUsersActivity: setup.SetupActivityWithGoUsers,
 	}
 
-	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsers(context.Background(), "", debugHookOpts...)
+	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsersWithMigrations(
+		context.Background(),
+		"",
+		setup.QuickstartUserMigrations(),
+		debugHookOpts...,
+	)
 	if err != nil {
 		log.Fatalf("failed to setup users: %v", err)
 	}
@@ -405,6 +410,7 @@ func main() {
 	viewEngine, err := quickstart.NewViewEngine(
 		client.FS(),
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
+		quickstart.WithViewTemplatesFS(webFS),
 	)
 	if err != nil {
 		log.Fatalf("failed to initialize view engine: %v", err)
@@ -685,11 +691,13 @@ func main() {
 	onboardingHandlers := handlers.OnboardingHandlers{
 		UsersService: usersService,
 		AuthRepo:     usersDeps.AuthRepo,
-		UserRepo:     usersDeps.RepoManager.Users(),
 		FeatureFlags: cfg.FeatureFlags,
 		Registration: registrationCfg,
 		Notifier:     onboardingNotifier,
 		Config:       cfg,
+		SecureLinks:  usersDeps.SecureLinks,
+		TokenRepo:    usersDeps.UserTokenRepo,
+		ResetRepo:    usersDeps.ResetRepo,
 	}
 
 	onboardingBase := path.Join(cfg.BasePath, "api", "onboarding")
@@ -697,8 +705,10 @@ func main() {
 	r.Get(path.Join(onboardingBase, "invite", "verify"), onboardingHandlers.VerifyInvite)
 	r.Post(path.Join(onboardingBase, "invite", "accept"), onboardingHandlers.AcceptInvite)
 	r.Post(path.Join(onboardingBase, "register"), onboardingHandlers.SelfRegister)
+	r.Post(path.Join(onboardingBase, "register", "confirm"), onboardingHandlers.ConfirmRegistration)
 	r.Post(path.Join(onboardingBase, "password", "reset", "request"), onboardingHandlers.RequestPasswordReset)
 	r.Post(path.Join(onboardingBase, "password", "reset", "confirm"), onboardingHandlers.ConfirmPasswordReset)
+	r.Get(path.Join(onboardingBase, "token", "metadata"), onboardingHandlers.TokenMetadata)
 
 	uploadsBase := path.Join(cfg.BasePath, "api", "uploads", "users")
 	r.Post(path.Join(uploadsBase, "profile-picture"), authn.WrapHandler(handlers.ProfilePictureUploadHandler(cfg.BasePath, diskAssetsDir)))
@@ -752,15 +762,67 @@ func main() {
 		log.Fatalf("failed to register admin UI routes: %v", err)
 	}
 
+	secureLinkUI := setup.SecureLinkUIConfigFromEnv()
+	passwordPolicyHints := setup.PasswordPolicyHints()
+	registerPath := path.Join(cfg.BasePath, "register")
+	passwordResetPath := path.Join(cfg.BasePath, "password-reset")
+	passwordResetConfirmPath := path.Join(passwordResetPath, "confirm")
+	tokenMetadataPath := path.Join(cfg.BasePath, "api", "onboarding", "token", "metadata")
+	authUIViewContext := func(ctx router.ViewContext, _ router.Context) router.ViewContext {
+		ctx["password_policy_hints"] = passwordPolicyHints
+		ctx["token_metadata_path"] = tokenMetadataPath
+		ctx["token_query_key"] = secureLinkUI.QueryKey
+		ctx["token_as_query"] = secureLinkUI.AsQuery
+		ctx["register_path"] = registerPath
+		ctx["password_reset_confirm_path"] = passwordResetConfirmPath
+		return ctx
+	}
+	registerTemplate := strings.TrimSpace(os.Getenv("ADMIN_REGISTER_TEMPLATE"))
+	if registerTemplate == "" {
+		registerTemplate = "register"
+	}
+
+	authThemeAssets := map[string]string{
+		"logo":    "logo.svg",
+		"favicon": "favicon.svg",
+	}
+	authThemeAssetPrefix := path.Join(cfg.BasePath, "assets")
+
 	if err := quickstart.RegisterAuthUIRoutes(
 		r,
 		cfg,
 		auther,
 		authCookieName,
 		quickstart.WithAuthUITitles("Login", "Password Reset"),
+		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
+		quickstart.WithAuthUIPasswordResetConfirmPath(passwordResetConfirmPath),
+		quickstart.WithAuthUIRegisterPath(registerPath),
+		quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
+		quickstart.WithAuthUIViewContextBuilder(authUIViewContext),
 	); err != nil {
 		log.Fatalf("failed to register auth UI routes: %v", err)
 	}
+
+	r.Get(registerPath, func(c router.Context) error {
+		if !cfg.FeatureFlags[setup.FeatureSelfRegistration] {
+			return goerrors.New("registration disabled", goerrors.CategoryAuthz).
+				WithCode(fiber.StatusForbidden).
+				WithTextCode("FEATURE_DISABLED")
+		}
+		viewCtx := router.ViewContext{
+			"title":                       cfg.Title,
+			"base_path":                   cfg.BasePath,
+			"password_reset_enabled":      cfg.FeatureFlags[setup.FeaturePasswordReset],
+			"self_registration_enabled":   cfg.FeatureFlags[setup.FeatureSelfRegistration],
+			"password_reset_path":         passwordResetPath,
+			"password_reset_confirm_path": passwordResetConfirmPath,
+			"register_path":               registerPath,
+			"registration_mode":           registrationCfg.Mode,
+		}
+		viewCtx = quickstart.WithAuthUIViewThemeAssets(viewCtx, authThemeAssets, authThemeAssetPrefix)
+		viewCtx = authUIViewContext(viewCtx, c)
+		return c.Render(registerTemplate, viewCtx)
+	})
 
 	// Profile routes (self-service HTML)
 	r.Get(path.Join(cfg.BasePath, "profile"), authn.WrapHandler(profileHandlers.Show))

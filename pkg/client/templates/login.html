@@ -8,11 +8,15 @@
     <!-- Logo -->
     <div class="flex justify-center">
       <div class="w-16 h-16 bg-admin-dark rounded-2xl flex items-center justify-center shadow-lg">
-        <svg class="w-10 h-10" viewBox="0 0 473.14 150.72" xmlns="http://www.w3.org/2000/svg">
+        {% if theme and theme.assets and theme.assets.logo %}
+        <img src="{{ theme.assets.logo }}" alt="Logo" class="w-10 h-10" />
+        {% else %}
+        <svg class="w-10 h-10" viewBox="0 0 89 83" xmlns="http://www.w3.org/2000/svg">
           <g fill="#ffffff">
             <path d="m88.57 58.94c0-3.55-2.74-6.43-6.31-6.71 0 0-.74-.03-.94-.04-5.16-.3-9.27-4.36-9.45-9.42v-.64c.18-5.05 4.3-9.12 9.45-9.42.21-.01.95-.05.95-.05 3.57-.29 6.31-3.16 6.31-6.71 0-4.45-4.43-7.9-9.25-6.4-2.81.88-4.64 3.53-4.64 6.4-.03 5.2-4.24 9.45-9.52 9.71l-.74.07c-3.63.42-6.44 3.08-6.44 6.67v.07c0 3.59 2.63 6.18 6.42 6.68l.75.06c5.28.26 9.49 4.51 9.52 9.71 0 2.87 1.83 5.52 4.64 6.4 4.81 1.51 9.25-1.95 9.25-6.4zm-82.09-32.99c0 3.55 2.74 6.43 6.31 6.71 0 0 .74.03.94.04 5.16.3 9.27 4.36 9.45 9.42v.64c-.18 5.05-4.3 9.12-9.45 9.42-.21.01-.95.05-.95.05-3.57.29-6.31 3.16-6.31 6.71 0 4.45 4.43 7.9 9.25 6.4 2.81-.88 4.64-3.53 4.64-6.4.03-5.2 4.24-9.45 9.52-9.71l.74-.07c3.63-.42 6.44-3.08 6.44-6.67v-.07c0-3.59-2.63-6.18-6.42-6.68l-.75-.06c-5.28-.26-9.49-4.51-9.52-9.71 0-2.87-1.83-5.52-4.64-6.4-4.81-1.51-9.25 1.95-9.25 6.4zm57.85-23.58c-3.64 0-6.6 2.67-6.89 6.15 0 0-.03.72-.05.92-.3 5.02-4.48 9.02-9.67 9.2h-.66c-5.19-.18-9.37-4.18-9.67-9.2l-.05-.92c-.29-3.47-3.25-6.14-6.89-6.14-4.57 0-8.12 4.32-6.57 9 .9 2.74 3.62 4.52 6.57 4.52 5.34.03 9.7 4.13 9.97 9.27l.08.72c.43 3.54 3.17 6.27 6.85 6.27h.08c3.69 0 6.35-2.56 6.86-6.26l.07-.73c.27-5.14 4.63-9.24 9.97-9.27 2.95 0 5.67-1.78 6.57-4.52 1.55-4.69-2-9-6.57-9zm-33.78 80c3.64 0 6.6-2.67 6.89-6.15 0 0 .03-.72.05-.92.3-5.02 4.48-9.02 9.67-9.2h.66c5.19.18 9.37 4.18 9.67 9.2l.05.92c.29 3.47 3.25 6.14 6.89 6.14 4.57 0 8.12-4.32 6.57-9-.9-2.74-3.62-4.52-6.57-4.52-5.34-.03-9.7-4.13-9.97-9.27l-.08-.72c-.43-3.54-3.17-6.27-6.85-6.27h-.08c-3.69 0-6.35 2.56-6.86 6.26l-.07.73c-.27 5.14-4.63 9.24-9.97 9.27-2.95 0-5.67 1.78-6.57 4.52-1.55 4.69 2 9 6.57 9z"/>
           </g>
         </svg>
+        {% endif %}
       </div>
     </div>
 
@@ -61,7 +65,7 @@
               onclick="togglePassword()"
               class="absolute inset-y-0 right-0 pr-3 flex items-center"
             >
-              <i id="password-icon" class="iconoir-eye-off text-zinc-400 text-lg hover:text-zinc-600"></i>
+              <i id="password-icon" class="iconoir-eye-closed text-zinc-400 text-lg hover:text-zinc-600"></i>
             </button>
           </div>
         </div>
@@ -72,7 +76,9 @@
             <input type="checkbox" name="remember" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
             Remember me
           </label>
-          <a class="text-sm text-admin-dark hover:text-admin-light font-medium" href="{{ base_path }}/password-reset">Forgot password</a>
+          {% if password_reset_enabled %}
+          <a class="text-sm text-admin-dark hover:text-admin-light font-medium" href="{{ password_reset_path }}">Forgot password</a>
+          {% endif %}
         </div>
 
         <!-- Sign In Button -->
@@ -110,12 +116,14 @@
         </button>
       </div>
 
+      {% if self_registration_enabled and register_path %}
       <!-- Sign Up Link -->
       <div class="text-center">
         <p class="text-sm text-zinc-600">
-          Don't have an account? <a href="#" class="text-admin-dark hover:text-admin-light font-medium no-underline">Create an account</a>
+          Don't have an account? <a href="{{ register_path }}" class="text-admin-dark hover:text-admin-light font-medium no-underline">Create an account</a>
         </p>
       </div>
+      {% endif %}
     </div>
 
     <!-- Footer Links -->
@@ -128,17 +136,7 @@
         <a href="#" class="hover:text-admin-dark no-underline">Terms & Conditions</a>
       </div>
 
-      <!-- Demo Credentials (for development) -->
-      <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg text-left">
-        <p class="text-xs font-semibold text-admin-dark mb-2">Demo Credentials:</p>
-        <div class="text-xs text-zinc-600 space-y-1">
-          <p>• <strong>superadmin</strong> / <code class="bg-white px-1.5 py-0.5 rounded text-xs">superadmin.pwd</code></p>
-          <p>• <strong>admin</strong> / <code class="bg-white px-1.5 py-0.5 rounded text-xs">admin.pwd</code></p>
-          <p>• <strong>jane.smith</strong> / <code class="bg-white px-1.5 py-0.5 rounded text-xs">jane.smith.pwd</code></p>
-          <p>• <strong>john.doe</strong> / <code class="bg-white px-1.5 py-0.5 rounded text-xs">john.doe.pwd</code></p>
-          <p>• <strong>viewer</strong> / <code class="bg-white px-1.5 py-0.5 rounded text-xs">viewer.pwd</code></p>
-        </div>
-      </div>
+      {% block login_extra %}{% endblock %}
     </div>
   </div>
 </div>
@@ -152,12 +150,12 @@
 
     if (passwordInput.type === 'password') {
       passwordInput.type = 'text';
-      passwordIcon.classList.remove('iconoir-eye-off');
-      passwordIcon.classList.add('iconoir-eye');
+      passwordIcon.classList.remove('iconoir-eye-closed');
+      passwordIcon.classList.add('iconoir-eye-solid');
     } else {
       passwordInput.type = 'password';
-      passwordIcon.classList.remove('iconoir-eye');
-      passwordIcon.classList.add('iconoir-eye-off');
+      passwordIcon.classList.remove('iconoir-eye-solid');
+      passwordIcon.classList.add('iconoir-eye-closed');
     }
   }
 </script>
