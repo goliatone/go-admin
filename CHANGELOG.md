@@ -1,5 +1,56 @@
 # Changelog
 
+# [0.19.0](https://github.com/goliatone/go-admin/compare/v0.18.0...v0.19.0) - (2026-01-21)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- User migrations use dialect migration option ([e930e31](https://github.com/goliatone/go-admin/commit/e930e31b9b711f3cc6de5d0b932cab12e8f82b7c))  - (goliatone)
+- Use new migration setup from go-users ([92ebb64](https://github.com/goliatone/go-admin/commit/92ebb64a4bf3aab60daf4d1d54816e8025f6d876))  - (goliatone)
+- Normalize templates ([e696194](https://github.com/goliatone/go-admin/commit/e6961947df5233328412ac99c7fc229008189386))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.19.0 ([5fea01c](https://github.com/goliatone/go-admin/commit/5fea01c4fe0c8fdd8284c64bec8e9181f03f3047))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Quickstart migrations ([26c70be](https://github.com/goliatone/go-admin/commit/26c70beff2b64828472887ac2b54099e34f4f5e8))  - (goliatone)
+- Update client style ([249fe6f](https://github.com/goliatone/go-admin/commit/249fe6ff6d1bcd975e6b7ffa61cfe4866a4a9c95))  - (goliatone)
+- Templates updated for auth flow ([ee0c54e](https://github.com/goliatone/go-admin/commit/ee0c54e323dd5fc0c1d8d01465cf645035e23c95))  - (goliatone)
+- Auth ui flow handler ([a886b9a](https://github.com/goliatone/go-admin/commit/a886b9a254f86cc81aea503e9aa5bda7088103df))  - (goliatone)
+- Context for template in auth ([627067d](https://github.com/goliatone/go-admin/commit/627067ddef700d21dc05b5ef03fa5bad054a955c))  - (goliatone)
+- Password reset confirmation path option ([71293dd](https://github.com/goliatone/go-admin/commit/71293dd6b167c8cddb95170f7f805a6c10c960b1))  - (goliatone)
+- Secure link to quickstart ([3c438a0](https://github.com/goliatone/go-admin/commit/3c438a084b2e192d88c5ca1b30d86e0174f82988))  - (goliatone)
+- Password reset confirm ([ae97ca6](https://github.com/goliatone/go-admin/commit/ae97ca6011f4de45fe7b5e841e9ea0d28c408933))  - (goliatone)
+- Updated template setup for logo ([40c135e](https://github.com/goliatone/go-admin/commit/40c135ec5f88f97ef8f4b285fe8989adea7f7a09))  - (goliatone)
+- Better theme support ([2847144](https://github.com/goliatone/go-admin/commit/2847144fbf4c3f4b69b49e11b921c20cb29c7480))  - (goliatone)
+- Updated registration UI ([ebd5c0a](https://github.com/goliatone/go-admin/commit/ebd5c0a1b0a3aaf590b40e7523ff8460875f64f4))  - (goliatone)
+- Udpated template setup ([98c5de9](https://github.com/goliatone/go-admin/commit/98c5de959fa3fea1cc4ea3eade957c89135c101f))  - (goliatone)
+- Auth ui and onboarding setup ([04fac97](https://github.com/goliatone/go-admin/commit/04fac97dd825e328bfcac428783c1f850c8f58b5))  - (goliatone)
+- Pwd reset template ([5300db9](https://github.com/goliatone/go-admin/commit/5300db91bab7a595ed40cad182c67a40ed20f9ab))  - (goliatone)
+- Register template ([9f9569b](https://github.com/goliatone/go-admin/commit/9f9569b62b153b4d8e30cd5955e06736ed679686))  - (goliatone)
+- Secure link example ([debe8ec](https://github.com/goliatone/go-admin/commit/debe8ec52ae96c23e28c80c878c040535ee0af7c))  - (goliatone)
+- Client assets for login ([ce8c6e0](https://github.com/goliatone/go-admin/commit/ce8c6e0b513e2d2f983fdea27bda7280788e0c45))  - (goliatone)
+- Optional auth ui flags ([71a8f94](https://github.com/goliatone/go-admin/commit/71a8f9437823e680c1fd2261a62701e91135eb2f))  - (goliatone)
+- Refactor templates login to be able to have partials ([5c793a4](https://github.com/goliatone/go-admin/commit/5c793a42c9212803fe37256fb8c1ad0fad035e3e))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.18.0 ([2cdb250](https://github.com/goliatone/go-admin/commit/2cdb250796280c3d06d534fd4e1b2c435a58cbe5))  - (goliatone)
+
+## <!-- 30 -->📝 Other
+
+- PR [#3](https://github.com/goliatone/go-admin/pull/3): login tpl ([f76d985](https://github.com/goliatone/go-admin/commit/f76d9859286db2f4ff45c98b1c3633d947427a38))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([d0d8b58](https://github.com/goliatone/go-admin/commit/d0d8b581a60e0a6a5627e10a545e0664f73eb770))  - (goliatone)
+- Udpate example ([709d75d](https://github.com/goliatone/go-admin/commit/709d75d3ab08e60fde4d5e40c76ab574509674e3))  - (goliatone)
+- Update readme ([b499a11](https://github.com/goliatone/go-admin/commit/b499a11d566a41ed5e8947717df5c77d1e94ad44))  - (goliatone)
+- Update tests ([e9618b2](https://github.com/goliatone/go-admin/commit/e9618b2c9fee51bbfd9f4145f0c193a5a2cab28e))  - (goliatone)
+- Update examples ([6a7a922](https://github.com/goliatone/go-admin/commit/6a7a92242b1d7ebf3647955940e29ff85c6883a6))  - (goliatone)
+- Update guides ([18e7c70](https://github.com/goliatone/go-admin/commit/18e7c70556aeabbe3f3db65134344aa40ea00f03))  - (goliatone)
+
 # [0.18.0](https://github.com/goliatone/go-admin/compare/v0.17.0...v0.18.0) - (2026-01-18)
 
 ## <!-- 13 -->📦 Bumps
