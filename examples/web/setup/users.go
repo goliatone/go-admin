@@ -13,6 +13,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	persistence "github.com/goliatone/go-persistence-bun"
@@ -30,6 +31,17 @@ import (
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
+// UserMigrationsPhase identifies which migrations should be registered.
+type UserMigrationsPhase int
+
+const (
+	UserMigrationsAuth UserMigrationsPhase = iota
+	UserMigrationsCore
+)
+
+// UserMigrationsRegistrar registers migrations for the given phase.
+type UserMigrationsRegistrar func(*persistence.Client, UserMigrationsPhase) error
+
 // ResolveUsersDSN returns the SQLite DSN shared with the rest of the example (CMS).
 func ResolveUsersDSN() string {
 	if env := strings.TrimSpace(os.Getenv("CMS_DATABASE_DSN")); env != "" {
@@ -40,6 +52,11 @@ func ResolveUsersDSN() string {
 
 // SetupUsers wires a go-users stack against the shared SQLite DB (runs migrations).
 func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOption) (stores.UserDependencies, *userssvc.Service, *OnboardingNotifier, error) {
+	return SetupUsersWithMigrations(ctx, dsn, nil, opts...)
+}
+
+// SetupUsersWithMigrations wires a go-users stack with a custom migrations registrar.
+func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMigrationsRegistrar, opts ...persistence.ClientOption) (stores.UserDependencies, *userssvc.Service, *OnboardingNotifier, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -70,7 +87,10 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 		return stores.UserDependencies{}, nil, nil, err
 	}
 
-	if err := registerGoAuthMigrations(client); err != nil {
+	if registrar == nil {
+		registrar = QuickstartUserMigrations()
+	}
+	if err := registrar(client, UserMigrationsAuth); err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
 	if err := client.Migrate(ctx); err != nil {
@@ -84,7 +104,7 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 	if err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
-	if err := registerGoUsersMigrations(client); err != nil {
+	if err := registrar(client, UserMigrationsCore); err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
 	if err := client.Migrate(ctx); err != nil {
@@ -171,6 +191,30 @@ func SetupUsers(ctx context.Context, dsn string, opts ...persistence.ClientOptio
 	notifier.Activity = activityRepo
 
 	return deps, service, notifier, nil
+}
+
+// QuickstartUserMigrations returns a registrar that uses quickstart defaults.
+func QuickstartUserMigrations() UserMigrationsRegistrar {
+	return quickstartUserMigrations
+}
+
+func quickstartUserMigrations(client *persistence.Client, phase UserMigrationsPhase) error {
+	switch phase {
+	case UserMigrationsAuth:
+		return quickstart.RegisterUserMigrations(
+			client,
+			quickstart.WithUserMigrationsCoreEnabled(false),
+			quickstart.WithUserMigrationsAuthBootstrapEnabled(false),
+			quickstart.WithUserMigrationsAuthExtrasEnabled(false),
+		)
+	case UserMigrationsCore:
+		return quickstart.RegisterUserMigrations(
+			client,
+			quickstart.WithUserMigrationsAuthEnabled(false),
+		)
+	default:
+		return nil
+	}
 }
 
 // SeedUsers inserts the demo users into SQLite and seeds preferences.
