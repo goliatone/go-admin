@@ -59,6 +59,7 @@ Each helper is optional and composable.
 - `ApplySecureLinkManager(cfg *userssvc.Config, manager types.SecureLinkManager, opts ...SecureLinkUsersOption)` - Inputs: go-users config + manager; outputs: config mutated with securelink routes/manager.
 - `NewSecureLinkNotificationBuilder(manager links.SecureLinkManager, opts ...linksecure.Option) links.LinkBuilder` - Inputs: notification manager + options; outputs: notification link builder.
 - `RegisterOnboardingRoutes(r router.Router[*fiber.App], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error` - Inputs: router/config/handlers; outputs: error (registers onboarding API routes).
+- `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth + go-users migrations).
 
 ## Template functions
 `NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
@@ -196,6 +197,29 @@ Route helpers:
 
 See `docs/GUIDE_ONBOARDING.md` for token lifecycle details, error response shape, and
 override hook examples.
+
+## User migrations
+
+Quickstart registers go-auth + go-users core migrations out of the box:
+
+```go
+if err := quickstart.RegisterUserMigrations(client); err != nil {
+	return err
+}
+```
+
+If you run without go-auth, disable auth migrations and enable go-users auth bootstrap/extras:
+
+```go
+if err := quickstart.RegisterUserMigrations(
+	client,
+	quickstart.WithUserMigrationsAuthEnabled(false),
+	quickstart.WithUserMigrationsAuthBootstrapEnabled(true),
+	quickstart.WithUserMigrationsAuthExtrasEnabled(true),
+); err != nil {
+	return err
+}
+```
 
 ## Static assets (opt-in disk fallback)
 ```go
