@@ -16,3 +16,16 @@ export type {
   ActionMenuOption,
   ToastNotifier,
 } from './types.js';
+
+// Scope Search exports
+export { ScopeSearchBox, createScopeSearchBox, createDefaultScopeConfigs } from './scope-search/index.js';
+
+export type {
+  ScopeType,
+  ScopeConfig,
+  ScopeSearchBoxConfig,
+  SystemScopeResult,
+  TenantScopeResult,
+  OrgScopeResult,
+  UserScopeResult,
+} from './scope-search/types.js';

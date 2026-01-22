@@ -12,6 +12,11 @@ import type {
   ActionMenuOption,
   ToastNotifier,
 } from './types.js';
+import type { ScopeType, ScopeConfig } from './scope-search/types.js';
+import { ScopeSearchBox } from './scope-search/scope-search-box.js';
+import { createCrudResolver } from '../searchbox/resolvers/api-resolver.js';
+import { UserRenderer } from '../searchbox/renderers/user-renderer.js';
+import { EntityRenderer } from '../searchbox/renderers/entity-renderer.js';
 
 const DEFAULT_SELECTORS: FeatureFlagsSelectors = {
   scopeSelect: '#flag-scope',
@@ -54,6 +59,7 @@ export class FeatureFlagsManager {
   private allFlags: Flag[] = [];
   private isMutable = false;
   private documentClickHandler: (() => void) | null = null;
+  private scopeSearchBox: ScopeSearchBox | null = null;
 
   constructor(
     config: FeatureFlagsConfig,
@@ -71,6 +77,7 @@ export class FeatureFlagsManager {
   init(): void {
     this.cacheElements();
     this.bindEvents();
+    this.initScopeSearch();
     this.syncFromQuery();
     this.loadFlags();
   }
@@ -82,6 +89,10 @@ export class FeatureFlagsManager {
     if (this.documentClickHandler) {
       document.removeEventListener('click', this.documentClickHandler);
       this.documentClickHandler = null;
+    }
+    if (this.scopeSearchBox) {
+      this.scopeSearchBox.destroy();
+      this.scopeSearchBox = null;
     }
   }
 
@@ -108,16 +119,109 @@ export class FeatureFlagsManager {
     document.addEventListener('click', this.documentClickHandler);
   }
 
+  private initScopeSearch(): void {
+    if (!this.scopeSelect || !this.scopeIdInput) return;
+
+    // Build scope configs for tenant, org, user
+    const scopeConfigs = this.buildScopeConfigs();
+
+    // Create container for the searchbox dropdown
+    const container = this.scopeIdInput.parentElement;
+    if (!container) return;
+
+    // Ensure container has relative positioning for dropdown
+    container.style.position = 'relative';
+
+    this.scopeSearchBox = new ScopeSearchBox({
+      input: this.scopeIdInput,
+      scopeSelect: this.scopeSelect,
+      container,
+      scopeConfigs,
+      onSelect: (scope, result) => {
+        // When a result is selected, use its ID
+        if (this.scopeIdInput) {
+          this.scopeIdInput.value = result.id;
+        }
+      },
+      onScopeChange: (scope) => {
+        // When scope changes, clear the ID and reload
+        if (scope === 'system') {
+          this.loadFlags();
+        }
+      },
+      onClear: () => {
+        // Nothing to do on clear
+      },
+    });
+
+    this.scopeSearchBox.init();
+  }
+
+  private buildScopeConfigs(): ScopeConfig[] {
+    const basePath = this.config.basePath;
+
+    return [
+      {
+        scope: 'tenant' as ScopeType,
+        resolver: createCrudResolver<Record<string, unknown>>(`${basePath}/crud/tenants`, {
+          labelField: (item) => String(item.name || ''),
+          descriptionField: (item) => String(item.slug || ''),
+          searchParam: 'q',
+        }),
+        renderer: new EntityRenderer({
+          badgeField: 'status',
+        }),
+        placeholder: 'Search tenants...',
+        minChars: 1,
+      },
+      {
+        scope: 'org' as ScopeType,
+        resolver: createCrudResolver<Record<string, unknown>>(`${basePath}/crud/organizations`, {
+          labelField: (item) => String(item.name || ''),
+          searchParam: 'q',
+        }),
+        renderer: new EntityRenderer({
+          badgeField: 'status',
+        }),
+        placeholder: 'Search organizations...',
+        minChars: 1,
+      },
+      {
+        scope: 'user' as ScopeType,
+        resolver: createCrudResolver<Record<string, unknown>>(`${basePath}/crud/users`, {
+          labelField: (item) => String(item.display_name || item.username || item.email || 'Unknown'),
+          descriptionField: (item) => String(item.email || ''),
+          searchParam: 'q',
+        }),
+        renderer: new UserRenderer({
+          avatarField: 'avatar',
+          emailField: 'email',
+          roleField: 'role',
+        }),
+        placeholder: 'Search users...',
+        minChars: 1,
+      },
+    ];
+  }
+
   private syncFromQuery(): void {
     const params = new URLSearchParams(window.location.search);
-    const scope = params.get('scope');
+    const scope = params.get('scope') as ScopeType | null;
     const scopeId = params.get('scope_id');
 
-    if (scope && this.scopeSelect) {
-      this.scopeSelect.value = scope;
-    }
-    if (scopeId && this.scopeIdInput) {
-      this.scopeIdInput.value = scopeId;
+    if (scope && this.scopeSearchBox) {
+      this.scopeSearchBox.setScope(scope);
+      if (scopeId) {
+        this.scopeSearchBox.setScopeId(scopeId);
+      }
+    } else {
+      // Fallback for when scope search isn't enabled
+      if (scope && this.scopeSelect) {
+        this.scopeSelect.value = scope;
+      }
+      if (scopeId && this.scopeIdInput) {
+        this.scopeIdInput.value = scopeId;
+      }
     }
   }
 
@@ -136,8 +240,9 @@ export class FeatureFlagsManager {
   }
 
   private buildScopeParams(): { scope: string; scopeId: string; params: URLSearchParams } {
-    const scope = this.scopeSelect?.value || 'system';
-    const scopeId = this.scopeIdInput?.value.trim() || '';
+    // Use scopeSearchBox if available, otherwise fall back to direct element access
+    const scope = this.scopeSearchBox?.getScope() || this.scopeSelect?.value || 'system';
+    const scopeId = this.scopeSearchBox?.getScopeId() || this.scopeIdInput?.value.trim() || '';
     const params = new URLSearchParams();
     params.set('scope', scope);
 

@@ -18,6 +18,7 @@ export declare class FeatureFlagsManager {
     private allFlags;
     private isMutable;
     private documentClickHandler;
+    private scopeSearchBox;
     constructor(config: FeatureFlagsConfig, selectors?: Partial<FeatureFlagsSelectors>, toast?: ToastNotifier);
     /**
      * Initialize the feature flags manager
@@ -29,6 +30,8 @@ export declare class FeatureFlagsManager {
     destroy(): void;
     private cacheElements;
     private bindEvents;
+    private initScopeSearch;
+    private buildScopeConfigs;
     private syncFromQuery;
     private syncUrl;
     private buildScopeParams;
