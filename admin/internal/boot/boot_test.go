@@ -34,6 +34,7 @@ type stubCtx struct {
 	dashboard  DashboardBinding
 	navigation NavigationBinding
 	settings   SettingsBinding
+	overrides  FeatureOverridesBinding
 	gates      FeatureGates
 	defaultLoc string
 	navCode    string
@@ -63,9 +64,12 @@ func (s *stubCtx) BootMedia() MediaBinding           { return nil }
 func (s *stubCtx) BootNotifications() NotificationsBinding {
 	return nil
 }
-func (s *stubCtx) BootActivity() ActivityBinding     { return nil }
-func (s *stubCtx) BootJobs() JobsBinding             { return nil }
-func (s *stubCtx) BootSettings() SettingsBinding     { return s.settings }
+func (s *stubCtx) BootActivity() ActivityBinding { return nil }
+func (s *stubCtx) BootJobs() JobsBinding         { return nil }
+func (s *stubCtx) BootSettings() SettingsBinding { return s.settings }
+func (s *stubCtx) BootFeatureOverrides() FeatureOverridesBinding {
+	return s.overrides
+}
 func (s *stubCtx) SettingsWidget() error             { return nil }
 func (s *stubCtx) ActivityWidget() error             { return nil }
 func (s *stubCtx) NotificationsWidget() error        { return nil }
