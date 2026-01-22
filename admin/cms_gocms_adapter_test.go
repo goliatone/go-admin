@@ -130,8 +130,8 @@ func TestUseCMSWrapsGoCMSMenuService(t *testing.T) {
 		widgets: NewInMemoryWidgetService(),
 	}
 
-	cfg := Config{DefaultLocale: "en", Features: Features{CMS: true}}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	cfg := Config{DefaultLocale: "en"}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
 	adm.UseCMS(container)
 	if err := adm.Initialize(nilRouter{}); err != nil {
 		t.Fatalf("initialize: %v", err)

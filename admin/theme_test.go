@@ -16,17 +16,14 @@ func TestDashboardRouteReturnsTheme(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Dashboard: true,
-		},
-		Theme:        "ocean",
-		ThemeVariant: "dark",
+		Theme:         "ocean",
+		ThemeVariant:  "dark",
 		ThemeTokens: map[string]string{
 			"primary": "#111",
 		},
 		ThemeAssetPrefix: "https://cdn.example.com",
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard)})
 	server := router.NewHTTPServer()
 	r := server.Router()
 
@@ -186,12 +183,8 @@ func TestThemeOverrideViaGoThemeSelector(t *testing.T) {
 		DefaultLocale: "en",
 		Theme:         "brand",
 		ThemeVariant:  "light",
-		Features: Features{
-			Dashboard: true,
-			Settings:  true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureSettings)})
 	adm.WithGoTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
 
 	repo := NewMemoryRepository()

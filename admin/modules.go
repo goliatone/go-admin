@@ -23,35 +23,35 @@ func (a *Admin) registerDefaultModules() error {
 	if a.registry == nil {
 		return nil
 	}
-	if a.gates.Enabled(FeatureUsers) {
+	if featureEnabled(a.featureGate, FeatureUsers) {
 		if _, exists := a.registry.Module(usersModuleID); !exists {
 			if err := a.registry.RegisterModule(NewUserManagementModule()); err != nil {
 				return err
 			}
 		}
 	}
-	if a.gates.Enabled(FeaturePreferences) {
+	if featureEnabled(a.featureGate, FeaturePreferences) {
 		if _, exists := a.registry.Module(preferencesModuleID); !exists {
 			if err := a.registry.RegisterModule(NewPreferencesModule()); err != nil {
 				return err
 			}
 		}
 	}
-	if a.gates.Enabled(FeatureProfile) {
+	if featureEnabled(a.featureGate, FeatureProfile) {
 		if _, exists := a.registry.Module(profileModuleID); !exists {
 			if err := a.registry.RegisterModule(NewProfileModule()); err != nil {
 				return err
 			}
 		}
 	}
-	if a.gates.Enabled(FeatureTenants) {
+	if featureEnabled(a.featureGate, FeatureTenants) {
 		if _, exists := a.registry.Module(tenantsModuleID); !exists {
 			if err := a.registry.RegisterModule(NewTenantsModule()); err != nil {
 				return err
 			}
 		}
 	}
-	if a.gates.Enabled(FeatureOrganizations) {
+	if featureEnabled(a.featureGate, FeatureOrganizations) {
 		if _, exists := a.registry.Module(organizationsModuleID); !exists {
 			if err := a.registry.RegisterModule(NewOrganizationsModule()); err != nil {
 				return err
@@ -83,13 +83,13 @@ func (a *Admin) loadModules(ctx context.Context) error {
 
 	err := modules.Load(ctx, modules.LoadOptions{
 		Modules:       modulesToLoad,
-		Gates:         a.gates,
+		Gates:         a.featureGate,
 		DefaultLocale: a.config.DefaultLocale,
 		Translator:    a.translator,
 		DisabledError: func(feature, moduleID string) error {
 			return FeatureDisabledError{
 				Feature: feature,
-				Reason:  fmt.Sprintf("required by module %s; set via Config.Features or FeatureFlags", moduleID),
+				Reason:  fmt.Sprintf("required by module %s; enable via FeatureGate defaults", moduleID),
 			}
 		},
 		Register: func(mod modules.Module) error {
@@ -119,7 +119,7 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 	if len(items) == 0 {
 		return nil
 	}
-	cmsEnabled := a.gates.Enabled(FeatureCMS)
+	cmsEnabled := featureEnabled(a.featureGate, FeatureCMS)
 	// Track canonical keys per menu code to avoid inserting duplicates into persistent stores.
 	menuKeys := map[string]map[string]bool{}
 	fallbackItems := []MenuItem{}

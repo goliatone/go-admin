@@ -20,6 +20,9 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.SettingsUpdatePermission != "admin.settings.edit" {
 		t.Fatalf("expected settings update permission default, got %q", adm.config.SettingsUpdatePermission)
 	}
+	if adm.config.FeatureFlagsUpdatePermission != "admin.feature_flags.update" {
+		t.Fatalf("expected feature flags update permission default, got %q", adm.config.FeatureFlagsUpdatePermission)
+	}
 	if adm.config.PreferencesPermission != "admin.preferences.view" {
 		t.Fatalf("expected preferences permission default, got %q", adm.config.PreferencesPermission)
 	}
@@ -48,12 +51,11 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 		t.Fatalf("expected theme token maps to be initialized")
 	}
 
-	withLegacy := Config{FeatureFlags: map[string]bool{"commands": true}}
-	adm2, err := New(withLegacy, Dependencies{})
+	adm2, err := New(Config{}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
 	if err != nil {
 		t.Fatalf("admin.New: %v", err)
 	}
-	if !adm2.features.Commands || !adm2.gates.Enabled(FeatureCommands) {
-		t.Fatalf("expected legacy feature flag to enable commands")
+	if !featureEnabled(adm2.featureGate, FeatureCommands) {
+		t.Fatalf("expected feature gate to enable commands")
 	}
 }

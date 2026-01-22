@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/pkg/types"
 )
@@ -47,7 +48,7 @@ type Dependencies struct {
 
 	SettingsService *SettingsService
 
-	Gates *FeatureGates
+	FeatureGate fggate.FeatureGate
 }
 
 type dependencyIssue struct {

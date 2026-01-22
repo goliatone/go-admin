@@ -11,12 +11,11 @@ func TestDebugRoutesRequirePermission(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		FeatureFlags:  map[string]bool{"debug": true},
 		Debug: DebugConfig{
 			Enabled: true,
 		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
 	adm.WithAuthorizer(denyAllAuthz{})
 	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
 		t.Fatalf("register debug module: %v", err)
@@ -39,12 +38,11 @@ func TestDebugRoutesUseAuthenticator(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		FeatureFlags:  map[string]bool{"debug": true},
 		Debug: DebugConfig{
 			Enabled: true,
 		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
 	authn := &recordingAuthenticator{}
 	adm.WithAuth(authn, nil)
 	adm.WithAuthorizer(allowAuthorizer{})

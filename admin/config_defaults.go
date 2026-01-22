@@ -1,9 +1,10 @@
 package admin
 
-// applyConfigDefaults normalizes feature flags and fills deterministic defaults.
+// applyConfigDefaults fills deterministic defaults.
 func applyConfigDefaults(cfg Config) Config {
-	cfg.normalizeFeatures()
-
+	if cfg.CMS.GoCMSConfig == nil && cfg.CMSConfig != nil {
+		cfg.CMS.GoCMSConfig = cfg.CMSConfig
+	}
 	if cfg.DefaultLocale == "" {
 		cfg.DefaultLocale = "en"
 	}
@@ -16,6 +17,9 @@ func applyConfigDefaults(cfg Config) Config {
 	}
 	if cfg.SettingsUpdatePermission == "" {
 		cfg.SettingsUpdatePermission = "admin.settings.edit"
+	}
+	if cfg.FeatureFlagsUpdatePermission == "" {
+		cfg.FeatureFlagsUpdatePermission = "admin.feature_flags.update"
 	}
 	if cfg.NotificationsPermission == "" {
 		cfg.NotificationsPermission = "admin.notifications.view"

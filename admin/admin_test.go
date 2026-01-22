@@ -141,13 +141,8 @@ func TestBootstrapSeedsWidgetsAndMenu(t *testing.T) {
 		Title:         "cms admin",
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			CMS:       true,
-			Dashboard: true,
-			Settings:  true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS, FeatureDashboard, FeatureSettings)})
 
 	if err := adm.Bootstrap(context.Background()); err != nil {
 		t.Fatalf("bootstrap: %v", err)
@@ -181,8 +176,8 @@ func (fakeAuth) Wrap(ctx router.Context) error {
 
 func TestCommandBusRegistersHandlers(t *testing.T) {
 	registry.WithTestRegistry(func() {
-		cfg := Config{Features: Features{Commands: true}}
-		adm := mustNewAdmin(t, cfg, Dependencies{})
+		cfg := Config{}
+		adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
 		defer adm.Commands().Reset()
 
 		cmd := &stubCommand{name: "demo"}
@@ -208,15 +203,8 @@ func TestCommandBusRegistersHandlers(t *testing.T) {
 
 func TestBulkCommandsExposeCLI(t *testing.T) {
 	registry.WithTestRegistry(func() {
-		cfg := Config{
-			Features: Features{
-				Commands: true,
-				Bulk:     true,
-				Jobs:     true,
-				CMS:      true,
-			},
-		}
-		adm := mustNewAdmin(t, cfg, Dependencies{})
+		cfg := Config{}
+		adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands, FeatureBulk, FeatureJobs, FeatureCMS)})
 		defer adm.Commands().Reset()
 		if err := registry.Start(context.Background()); err != nil {
 			t.Fatalf("registry initialize: %v", err)
@@ -287,11 +275,8 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 		cfg := Config{
 			BasePath:      "/admin",
 			DefaultLocale: "en",
-			Features: Features{
-				Commands: true,
-			},
 		}
-		adm := mustNewAdmin(t, cfg, Dependencies{})
+		adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
 		defer adm.Commands().Reset()
 		server := router.NewHTTPServer()
 		r := server.Router()
@@ -399,12 +384,8 @@ func TestNotificationsRoutes(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Notifications: true,
-			Dashboard:     true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureNotifications, FeatureDashboard)})
 	userCtx := context.WithValue(context.Background(), userIDContextKey, "tester")
 	_, err := adm.NotificationService().Add(userCtx, Notification{Title: "Hello", Message: "world", UserID: "tester"})
 	if err != nil {
@@ -488,9 +469,6 @@ func TestActivityRouteAndWidget(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Dashboard: true,
-		},
 	}
 	actorID := uuid.New()
 	feed := stubActivityFeedQuery{
@@ -514,6 +492,7 @@ func TestActivityRouteAndWidget(t *testing.T) {
 	adm := mustNewAdmin(t, cfg, Dependencies{
 		Authorizer:        allowAuthorizer{},
 		ActivityFeedQuery: feed,
+		FeatureGate:       featureGateFromKeys(FeatureDashboard),
 	})
 	_ = adm.activity.Record(context.Background(), ActivityEntry{Actor: actorID.String(), Action: "created", Object: "item"})
 
@@ -550,11 +529,8 @@ func TestPanelActivityEmission(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Dashboard: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard)})
 	repo := NewMemoryRepository()
 	builder := (&PanelBuilder{}).
 		WithRepository(repo).
@@ -594,14 +570,8 @@ func TestBulkRoute(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Bulk:     true,
-			Commands: true,
-			Jobs:     true,
-			CMS:      true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureBulk, FeatureCommands, FeatureJobs, FeatureCMS)})
 	server := router.NewHTTPServer()
 	r := server.Router()
 	if err := adm.Initialize(r); err != nil {
@@ -664,12 +634,8 @@ func TestMediaLibraryRoute(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Media: true,
-			CMS:   true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureMedia, FeatureCMS)})
 	server := router.NewHTTPServer()
 	r := server.Router()
 	if err := adm.Initialize(r); err != nil {
@@ -698,16 +664,8 @@ func TestPanelSchemaIncludesFeatureMetadata(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Export:   true,
-			Bulk:     true,
-			Media:    true,
-			CMS:      true,
-			Commands: true,
-			Jobs:     true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureExport, FeatureBulk, FeatureMedia, FeatureCMS, FeatureCommands, FeatureJobs)})
 	repo := NewMemoryRepository()
 	builder := (&PanelBuilder{}).
 		WithRepository(repo).
@@ -785,12 +743,8 @@ func TestJobsRouteAndTrigger(t *testing.T) {
 		cfg := Config{
 			BasePath:      "/admin",
 			DefaultLocale: "en",
-			Features: Features{
-				Jobs:     true,
-				Commands: true,
-			},
 		}
-		adm := mustNewAdmin(t, cfg, Dependencies{})
+		adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureJobs, FeatureCommands)})
 		defer adm.Commands().Reset()
 		cmd := &cronCommand{}
 		if _, err := RegisterCommand(adm.Commands(), cmd); err != nil {
@@ -861,11 +815,8 @@ func TestSearchRouteReturnsResults(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Search: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSearch)})
 	adm.search.Register("items", &stubSearchAdapter{
 		results: []SearchResult{{ID: "1", Title: "Alpha"}},
 	})

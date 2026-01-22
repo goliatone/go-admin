@@ -48,7 +48,7 @@ func (a *Admin) NavMenuCode() string {
 
 // Gates exposes feature gates.
 func (a *Admin) Gates() boot.FeatureGates {
-	return featureGatesAdapter{gates: a.gates}
+	return featureGatesAdapter{gate: a.featureGate}
 }
 
 // Responder exposes response helpers.
@@ -114,6 +114,11 @@ func (a *Admin) BootJobs() boot.JobsBinding {
 // BootSettings exposes the settings binding.
 func (a *Admin) BootSettings() boot.SettingsBinding {
 	return newSettingsBinding(a)
+}
+
+// BootFeatureOverrides exposes the feature overrides binding.
+func (a *Admin) BootFeatureOverrides() boot.FeatureOverridesBinding {
+	return newFeatureOverridesBinding(a)
 }
 
 // SettingsWidget registers the settings widget provider.

@@ -12,9 +12,9 @@ func (a *Admin) registerWidgetAreas() error {
 		return nil
 	}
 	features := dashinternal.FeatureFlags{
-		CMS:       a.gates.Enabled(FeatureCMS),
-		Dashboard: a.gates.Enabled(FeatureDashboard),
-		Settings:  a.gates.Enabled(FeatureSettings),
+		CMS:       featureEnabled(a.featureGate, FeatureCMS),
+		Dashboard: featureEnabled(a.featureGate, FeatureDashboard),
+		Settings:  featureEnabled(a.featureGate, FeatureSettings),
 	}
 	return dashinternal.RegisterWidgetAreas(
 		a.dashboardAreaAdapter(),
@@ -28,9 +28,9 @@ func (a *Admin) registerDefaultWidgets() error {
 		return nil
 	}
 	features := dashinternal.FeatureFlags{
-		CMS:       a.gates.Enabled(FeatureCMS),
-		Dashboard: a.gates.Enabled(FeatureDashboard),
-		Settings:  a.gates.Enabled(FeatureSettings),
+		CMS:       featureEnabled(a.featureGate, FeatureCMS),
+		Dashboard: featureEnabled(a.featureGate, FeatureDashboard),
+		Settings:  featureEnabled(a.featureGate, FeatureSettings),
 	}
 	return dashinternal.RegisterDefaultWidgets(
 		a.widgetServiceAdapter(),
@@ -47,9 +47,9 @@ func (a *Admin) registerDashboardProviders() error {
 		a.dashboard.WithCommandBus(a.commandBus)
 	}
 	features := dashinternal.FeatureFlags{
-		CMS:       a.gates.Enabled(FeatureCMS),
-		Dashboard: a.gates.Enabled(FeatureDashboard),
-		Settings:  a.gates.Enabled(FeatureSettings),
+		CMS:       featureEnabled(a.featureGate, FeatureCMS),
+		Dashboard: featureEnabled(a.featureGate, FeatureDashboard),
+		Settings:  featureEnabled(a.featureGate, FeatureSettings),
 	}
 	return dashinternal.RegisterProviders(
 		a.providerHostAdapter(),
@@ -151,7 +151,7 @@ func (a *Admin) registerDashboardProviders() error {
 }
 
 func (a *Admin) registerSettingsWidget() error {
-	if a == nil || a.dashboard == nil || a.settings == nil || !a.gates.Enabled(FeatureSettings) {
+	if a == nil || a.dashboard == nil || a.settings == nil || !featureEnabled(a.featureGate, FeatureSettings) {
 		return nil
 	}
 	handler := func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
@@ -207,7 +207,7 @@ func (a *Admin) registerSettingsWidget() error {
 }
 
 func (a *Admin) registerNotificationsWidget() error {
-	if a == nil || a.dashboard == nil || a.notifications == nil || !a.gates.Enabled(FeatureDashboard) || !a.gates.Enabled(FeatureNotifications) {
+	if a == nil || a.dashboard == nil || a.notifications == nil || !featureEnabled(a.featureGate, FeatureDashboard) || !featureEnabled(a.featureGate, FeatureNotifications) {
 		return nil
 	}
 	handler := func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
@@ -246,7 +246,7 @@ func (a *Admin) registerNotificationsWidget() error {
 }
 
 func (a *Admin) registerActivityWidget() error {
-	if a == nil || a.dashboard == nil || a.activity == nil || !a.gates.Enabled(FeatureDashboard) {
+	if a == nil || a.dashboard == nil || a.activity == nil || !featureEnabled(a.featureGate, FeatureDashboard) {
 		return nil
 	}
 	handler := func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {

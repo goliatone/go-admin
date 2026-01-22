@@ -89,13 +89,8 @@ func TestDashboardConfigRoutePersistsLayoutPerUser(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Dashboard:   true,
-			CMS:         true,
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS, FeaturePreferences)})
 	server := router.NewHTTPServer()
 	r := server.Router()
 	if err := adm.Initialize(r); err != nil {

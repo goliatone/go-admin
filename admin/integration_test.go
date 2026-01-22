@@ -90,15 +90,8 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			DefaultLocale: "en",
 			Title:         "Integration Admin",
 			Theme:         "admin",
-			Features: Features{
-				Dashboard: true,
-				Search:    true,
-				Settings:  true,
-				Commands:  true,
-				Jobs:      true,
-			},
 		}
-		adm := mustNewAdmin(t, cfg, Dependencies{})
+		adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureSearch, FeatureSettings, FeatureCommands, FeatureJobs)})
 		defer adm.Commands().Reset()
 		authn := &recordingAuthenticator{}
 		adm.WithAuth(authn, nil)

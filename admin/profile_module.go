@@ -56,7 +56,7 @@ func (m *ProfileModule) Register(ctx ModuleContext) error {
 	}
 
 	repo := NewProfileRepository(ctx.Admin.profile, m.defaultLocale)
-	avatarHidden := !ctx.Admin.gates.Enabled(FeatureMedia)
+	avatarHidden := !featureEnabled(ctx.Admin.featureGate, FeatureMedia)
 	builder := ctx.Admin.Panel(profileModuleID).
 		WithRepository(repo).
 		ListFields(

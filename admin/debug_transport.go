@@ -127,7 +127,7 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 		admin.router.Post(path, handler)
 	}
 
-	if !admin.gates.Enabled(FeatureDashboard) {
+	if !featureEnabled(admin.featureGate, FeatureDashboard) {
 		register(basePath, func(c router.Context) error {
 			return m.handleDebugDashboard(admin, c)
 		})

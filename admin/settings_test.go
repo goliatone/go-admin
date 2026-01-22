@@ -195,11 +195,8 @@ func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Settings: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSettings)})
 	server := router.NewHTTPServer()
 	r := server.Router()
 
@@ -238,13 +235,9 @@ func TestSettingsWidgetResolvesValues(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Settings:  true,
-			Dashboard: true,
-		},
-		Title: "test admin",
+		Title:         "test admin",
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSettings, FeatureDashboard)})
 	server := router.NewHTTPServer()
 	r := server.Router()
 
@@ -283,11 +276,8 @@ func TestSettingsNavigationRespectsPermission(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Settings: true,
-		},
 	}
-	denyAdmin := mustNewAdmin(t, cfg, Dependencies{})
+	denyAdmin := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSettings)})
 	denyAdmin.WithAuthorizer(stubAuthorizer{allow: false})
 	server := router.NewHTTPServer()
 	if err := denyAdmin.Initialize(server.Router()); err != nil {
@@ -297,7 +287,7 @@ func TestSettingsNavigationRespectsPermission(t *testing.T) {
 		t.Fatalf("expected navigation to be filtered by permission, got %d items", len(items))
 	}
 
-	allowAdmin := mustNewAdmin(t, cfg, Dependencies{})
+	allowAdmin := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSettings)})
 	allowAdmin.WithAuthorizer(stubAuthorizer{allow: true})
 	server = router.NewHTTPServer()
 	if err := allowAdmin.Initialize(server.Router()); err != nil {

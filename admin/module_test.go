@@ -133,8 +133,7 @@ func TestModuleMenuItemsAppearInNavigation(t *testing.T) {
 func TestModuleDependenciesAndFeatureFlags(t *testing.T) {
 	adm := mustNewAdmin(t, Config{
 		DefaultLocale: "en",
-		FeatureFlags:  map[string]bool{"feature.a": true},
-	}, Dependencies{})
+	}, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"feature.a": true})})
 	child := &stubModule{id: "child"}
 	parent := &stubModule{id: "parent"}
 	parentManifest := ModuleManifest{ID: "parent", Dependencies: []string{"child"}, FeatureFlags: []string{"feature.a"}}
@@ -170,7 +169,7 @@ func TestModuleDependencyMissingFails(t *testing.T) {
 }
 
 func TestModuleFeatureFlagMissingFails(t *testing.T) {
-	adm := mustNewAdmin(t, Config{DefaultLocale: "en", FeatureFlags: map[string]bool{}}, Dependencies{})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 	mod := &stubModule{id: "needs.flag"}
 	mod.manifestFn = func() ModuleManifest { return ModuleManifest{ID: "needs.flag", FeatureFlags: []string{"flag.missing"}} }
 	if err := adm.RegisterModule(mod); err != nil {
@@ -203,10 +202,7 @@ func TestModuleTranslatorInjection(t *testing.T) {
 func TestModuleFeatureFlagsHonorTypedFeatures(t *testing.T) {
 	adm := mustNewAdmin(t, Config{
 		DefaultLocale: "en",
-		Features: Features{
-			Search: true,
-		},
-	}, Dependencies{})
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureSearch)})
 	mod := &stubModule{id: "needs.search"}
 	mod.manifestFn = func() ModuleManifest {
 		return ModuleManifest{

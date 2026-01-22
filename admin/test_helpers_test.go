@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-command/registry"
+	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
 func mustNewAdmin(t *testing.T, cfg Config, deps Dependencies) *Admin {
@@ -20,4 +21,22 @@ func mustNewAdmin(t *testing.T, cfg Config, deps Dependencies) *Admin {
 		})
 	}
 	return adm
+}
+
+func featureGateFromFlags(flags map[string]bool) fggate.FeatureGate {
+	return newFeatureGateFromFlags(flags)
+}
+
+func featureGateFromKeys(keys ...FeatureKey) fggate.FeatureGate {
+	if len(keys) == 0 {
+		return newFeatureGateFromFlags(nil)
+	}
+	flags := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		flags[string(key)] = true
+	}
+	return newFeatureGateFromFlags(flags)
 }

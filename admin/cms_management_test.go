@@ -32,9 +32,8 @@ func TestRegisterCMSDemoPanelsRoutesAndLocale(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features:      Features{CMS: true, Dashboard: true},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS, FeatureDashboard)})
 	routerCapture := &captureRouter{}
 	adm.router = routerCapture
 
