@@ -88,9 +88,7 @@ type (
 	SignedTokenStrategy           = core.SignedTokenStrategy
 	StaticKeyStrategy             = core.StaticKeyStrategy
 
-	FeatureGates = core.FeatureGates
-	FeatureKey   = core.FeatureKey
-	Features     = core.Features
+	FeatureKey = core.FeatureKey
 
 	Field  = core.Field
 	Filter = core.Filter
