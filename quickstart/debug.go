@@ -19,14 +19,13 @@ type DebugEnvOption struct {
 	ToolbarPanelsKey string
 }
 
-// WithDebugConfig merges a debug config into the admin config and updates feature flags.
+// WithDebugConfig merges a debug config into the admin config.
 func WithDebugConfig(debugCfg admin.DebugConfig) AdminConfigOption {
 	return func(cfg *admin.Config) {
 		if cfg == nil {
 			return
 		}
 		cfg.Debug = debugCfg
-		setDebugFeatureFlags(cfg, debugCfg.Enabled)
 	}
 }
 
@@ -66,11 +65,6 @@ func WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption {
 		}
 
 		cfg.Debug = debugCfg
-		if enabledOK {
-			setDebugFeatureFlags(cfg, enabled)
-		} else if debugCfg.Enabled {
-			setDebugFeatureFlags(cfg, true)
-		}
 	}
 }
 
@@ -146,19 +140,6 @@ func mergeDebugEnvOptions(opts ...DebugEnvOption) DebugEnvOption {
 		}
 	}
 	return out
-}
-
-func setDebugFeatureFlags(cfg *admin.Config, enabled bool) {
-	if cfg == nil {
-		return
-	}
-	if cfg.FeatureFlags == nil {
-		cfg.FeatureFlags = map[string]bool{}
-	}
-	cfg.FeatureFlags["debug"] = enabled
-	if key := strings.TrimSpace(cfg.Debug.FeatureKey); key != "" && key != "debug" {
-		cfg.FeatureFlags[key] = enabled
-	}
 }
 
 func envBoolKey(key string) (bool, bool) {

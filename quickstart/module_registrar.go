@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
 // ModuleRegistrarOption customizes module registration behavior.
@@ -18,7 +19,7 @@ type moduleRegistrarOptions struct {
 	menuItems  []admin.MenuItem
 	seed       bool
 	seedOpts   SeedNavigationOptions
-	gates      *admin.FeatureGates
+	gates      fggate.FeatureGate
 	onDisabled func(feature, moduleID string) error
 }
 
@@ -65,13 +66,12 @@ func WithSeedNavigationOptions(mutator func(*SeedNavigationOptions)) ModuleRegis
 }
 
 // WithModuleFeatureGates enables feature-gated module filtering.
-func WithModuleFeatureGates(gates admin.FeatureGates) ModuleRegistrarOption {
+func WithModuleFeatureGates(gates fggate.FeatureGate) ModuleRegistrarOption {
 	return func(opts *moduleRegistrarOptions) {
 		if opts == nil {
 			return
 		}
-		copied := gates
-		opts.gates = &copied
+		opts.gates = gates
 	}
 }
 
@@ -116,6 +116,9 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 		}
 	}
 
+	if options.gates == nil && adm != nil {
+		options.gates = adm.FeatureGate()
+	}
 	filtered, err := filterModulesForRegistrar(modules, options.gates, options.onDisabled)
 	if err != nil {
 		return err
@@ -213,7 +216,7 @@ func orderModules(mods []admin.Module) ([]admin.Module, error) {
 	return result, nil
 }
 
-func filterModulesForRegistrar(mods []admin.Module, gates *admin.FeatureGates, onDisabled func(feature, moduleID string) error) ([]admin.Module, error) {
+func filterModulesForRegistrar(mods []admin.Module, gates fggate.FeatureGate, onDisabled func(feature, moduleID string) error) ([]admin.Module, error) {
 	if gates == nil {
 		return mods, nil
 	}
@@ -236,7 +239,11 @@ func filterModulesForRegistrar(mods []admin.Module, gates *admin.FeatureGates, o
 		}
 		disabled := false
 		for _, flag := range manifest.FeatureFlags {
-			if gates.EnabledKey(flag) {
+			enabled, err := gates.Enabled(context.Background(), flag, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+			if err != nil {
+				return nil, err
+			}
+			if enabled {
 				continue
 			}
 			disabled = true

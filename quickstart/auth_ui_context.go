@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 )
 
@@ -28,11 +29,18 @@ type AuthUIState struct {
 	SelfRegistrationEnabled bool
 }
 
-// AuthUIStateFromConfig derives auth UI flags from the admin config.
-func AuthUIStateFromConfig(cfg admin.Config) AuthUIState {
+// AuthUIStateFromGate derives auth UI flags from the feature gate.
+func AuthUIStateFromGate(gate fggate.FeatureGate) AuthUIState {
 	return AuthUIState{
-		PasswordResetEnabled:    cfg.FeatureFlags["users.password_reset"],
-		SelfRegistrationEnabled: cfg.FeatureFlags["users.signup"],
+		PasswordResetEnabled:    featureEnabled(gate, "users.password_reset"),
+		SelfRegistrationEnabled: featureEnabled(gate, "users.signup"),
+	}
+}
+
+func authUISnapshot(state AuthUIState) map[string]bool {
+	return map[string]bool{
+		"users.password_reset": state.PasswordResetEnabled,
+		"users.signup":         state.SelfRegistrationEnabled,
 	}
 }
 

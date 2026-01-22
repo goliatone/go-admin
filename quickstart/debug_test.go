@@ -1,12 +1,14 @@
 package quickstart
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 )
 
@@ -86,7 +88,7 @@ func (r *debugRouter) WithLogger(logger router.Logger) router.Router[*fiber.App]
 	return r
 }
 
-func TestWithDebugConfigSetsFeatureFlags(t *testing.T) {
+func TestWithDebugConfigSetsFeatureDefaults(t *testing.T) {
 	cfg := NewAdminConfig(
 		"/admin",
 		"Admin",
@@ -100,12 +102,9 @@ func TestWithDebugConfigSetsFeatureFlags(t *testing.T) {
 	if !cfg.Debug.Enabled {
 		t.Fatalf("expected debug enabled")
 	}
-	if !cfg.FeatureFlags["debug"] {
-		t.Fatalf("expected debug flag enabled")
-	}
-	if !cfg.FeatureFlags["custom.debug"] {
-		t.Fatalf("expected custom debug flag enabled")
-	}
+	gate := buildFeatureGate(cfg, DefaultAdminFeatures(), nil)
+	assertFeatureEnabled(t, gate, "debug")
+	assertFeatureEnabled(t, gate, "custom.debug")
 }
 
 func TestWithDebugFromEnvMapping(t *testing.T) {
@@ -136,9 +135,8 @@ func TestWithDebugFromEnvMapping(t *testing.T) {
 	if len(cfg.Debug.ToolbarPanels) != 2 {
 		t.Fatalf("expected toolbar panels parsed, got %v", cfg.Debug.ToolbarPanels)
 	}
-	if !cfg.FeatureFlags["debug"] {
-		t.Fatalf("expected debug feature flag enabled")
-	}
+	gate := buildFeatureGate(cfg, DefaultAdminFeatures(), nil)
+	assertFeatureEnabled(t, gate, "debug")
 }
 
 func TestAttachDebugMiddlewareNoopWhenDisabled(t *testing.T) {
@@ -212,5 +210,13 @@ func TestAttachDebugLogHandlerWiresSlog(t *testing.T) {
 
 	if _, ok := slog.Default().Handler().(*admin.DebugLogHandler); !ok {
 		t.Fatalf("expected debug log handler installed")
+	}
+}
+
+func assertFeatureEnabled(t *testing.T, gate fggate.FeatureGate, feature string) {
+	t.Helper()
+	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+	if err != nil || !enabled {
+		t.Fatalf("expected feature %s enabled, err=%v", feature, err)
 	}
 }

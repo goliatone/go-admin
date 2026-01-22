@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	goerrors "github.com/goliatone/go-errors"
+	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 )
 
@@ -28,6 +29,7 @@ type registrationUIOptions struct {
 	viewContext         RegistrationUIViewContextBuilder
 	themeAssets         map[string]string
 	themeAssetPrefix    string
+	featureGate         fggate.FeatureGate
 }
 
 // WithRegistrationUIBasePath overrides the base path used by registration UI routes.
@@ -92,6 +94,15 @@ func WithRegistrationUIEnabled(fn func(admin.Config) bool) RegistrationUIOption 
 	}
 }
 
+// WithRegistrationUIFeatureGate sets the feature gate used for default guards.
+func WithRegistrationUIFeatureGate(gate fggate.FeatureGate) RegistrationUIOption {
+	return func(opts *registrationUIOptions) {
+		if opts != nil {
+			opts.featureGate = gate
+		}
+	}
+}
+
 // WithRegistrationUIMode overrides the registration mode label in the view context.
 func WithRegistrationUIMode(fn func(admin.Config) string) RegistrationUIOption {
 	return func(opts *registrationUIOptions) {
@@ -132,9 +143,6 @@ func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config,
 		basePath: strings.TrimSpace(cfg.BasePath),
 		template: "register",
 		title:    strings.TrimSpace(cfg.Title),
-		registrationEnabled: func(cfg admin.Config) bool {
-			return cfg.FeatureFlags["users.signup"]
-		},
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -161,11 +169,17 @@ func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config,
 	registrationEnabled := false
 	if options.registrationEnabled != nil {
 		registrationEnabled = options.registrationEnabled(cfg)
+	} else {
+		registrationEnabled = featureEnabled(options.featureGate, "users.signup")
 	}
 	registrationMode := ""
 	if options.registrationMode != nil {
 		registrationMode = strings.TrimSpace(options.registrationMode(cfg))
 	}
+	authState := AuthUIStateFromGate(options.featureGate)
+	authState.SelfRegistrationEnabled = registrationEnabled
+	authSnapshot := authUISnapshot(authState)
+	authScope := fggate.ScopeSet{System: true}
 
 	r.Get(options.registerPath, func(c router.Context) error {
 		if !registrationEnabled {
@@ -173,9 +187,7 @@ func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config,
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		state := AuthUIStateFromConfig(cfg)
-		state.SelfRegistrationEnabled = registrationEnabled
-		viewCtx := AuthUIViewContext(cfg, state, AuthUIPaths{
+		viewCtx := AuthUIViewContext(cfg, authState, AuthUIPaths{
 			BasePath:          options.basePath,
 			PasswordResetPath: options.passwordResetPath,
 			PasswordResetConfirmPath: path.Join(options.passwordResetPath, "confirm"),
@@ -184,6 +196,7 @@ func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config,
 		viewCtx["title"] = options.title
 		viewCtx["registration_mode"] = registrationMode
 		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
+		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
 		return c.Render(options.template, viewCtx)
 	})

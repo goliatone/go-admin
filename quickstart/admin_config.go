@@ -15,12 +15,6 @@ const DefaultNavMenuCode = "admin_main"
 // AdminConfigOption mutates the base admin config.
 type AdminConfigOption func(*admin.Config)
 
-// EnvFlagOverride maps an environment variable to a config FeatureFlags key.
-type EnvFlagOverride struct {
-	Env string
-	Key string
-}
-
 // NewAdminConfig builds a baseline admin config with quickstart defaults.
 func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOption) admin.Config {
 	cfg := admin.Config{
@@ -31,8 +25,6 @@ func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOp
 		ThemeVariant:  "light",
 		NavMenuCode:   DefaultNavMenuCode,
 		ThemeTokens:   DefaultThemeTokens(),
-		Features:      DefaultAdminFeatures(),
-		FeatureFlags:  map[string]bool{},
 	}
 
 	if cfg.Title == "" {
@@ -55,32 +47,32 @@ func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOp
 	return cfg
 }
 
-// DefaultAdminFeatures returns the baseline feature set for quickstart.
-func DefaultAdminFeatures() admin.Features {
-	return admin.Features{
-		Dashboard:     true,
-		CMS:           true,
-		Commands:      true,
-		Settings:      true,
-		Search:        true,
-		Notifications: true,
-		Jobs:          true,
-		Media:         true,
-		Export:        true,
-		Bulk:          true,
-		Preferences:   true,
-		Profile:       true,
-		Users:         true,
-		Tenants:       true,
-		Organizations: true,
+// DefaultAdminFeatures returns the baseline feature defaults for quickstart.
+func DefaultAdminFeatures() map[string]bool {
+	return map[string]bool{
+		string(admin.FeatureDashboard):     true,
+		string(admin.FeatureCMS):           true,
+		string(admin.FeatureCommands):      true,
+		string(admin.FeatureSettings):      true,
+		string(admin.FeatureSearch):        true,
+		string(admin.FeatureNotifications): true,
+		string(admin.FeatureJobs):          true,
+		string(admin.FeatureMedia):         true,
+		string(admin.FeatureExport):        true,
+		string(admin.FeatureBulk):          true,
+		string(admin.FeaturePreferences):   true,
+		string(admin.FeatureProfile):       true,
+		string(admin.FeatureUsers):         true,
+		string(admin.FeatureTenants):       true,
+		string(admin.FeatureOrganizations): true,
 	}
 }
 
-// DefaultMinimalFeatures returns a Stage 1 friendly feature set.
-func DefaultMinimalFeatures() admin.Features {
-	return admin.Features{
-		Dashboard: true,
-		CMS:       true,
+// DefaultMinimalFeatures returns a Stage 1 friendly feature default set.
+func DefaultMinimalFeatures() map[string]bool {
+	return map[string]bool{
+		string(admin.FeatureDashboard): true,
+		string(admin.FeatureCMS):       true,
 	}
 }
 
@@ -89,67 +81,6 @@ func DefaultThemeTokens() map[string]string {
 	return map[string]string{
 		"primary": "#2563eb",
 		"accent":  "#f59e0b",
-	}
-}
-
-// WithFeatures replaces the default feature set.
-func WithFeatures(features admin.Features) AdminConfigOption {
-	return func(cfg *admin.Config) {
-		if cfg == nil {
-			return
-		}
-		cfg.Features = features
-	}
-}
-
-// WithFeaturesExplicit replaces the defaults and clears existing feature flags.
-func WithFeaturesExplicit(features admin.Features) AdminConfigOption {
-	return func(cfg *admin.Config) {
-		if cfg == nil {
-			return
-		}
-		cfg.Features = features
-		cfg.FeatureFlags = map[string]bool{}
-	}
-}
-
-// WithFeatureFlags merges the provided flag overrides.
-func WithFeatureFlags(flags map[string]bool) AdminConfigOption {
-	return func(cfg *admin.Config) {
-		if cfg == nil || len(flags) == 0 {
-			return
-		}
-		if cfg.FeatureFlags == nil {
-			cfg.FeatureFlags = map[string]bool{}
-		}
-		for key, value := range flags {
-			cfg.FeatureFlags[key] = value
-		}
-	}
-}
-
-// WithFeatureFlag sets a single feature flag.
-func WithFeatureFlag(key string, enabled bool) AdminConfigOption {
-	return WithFeatureFlags(map[string]bool{key: enabled})
-}
-
-// WithFeatureFlagsFromEnv overrides feature flags when env vars are present.
-func WithFeatureFlagsFromEnv(overrides ...EnvFlagOverride) AdminConfigOption {
-	return func(cfg *admin.Config) {
-		if cfg == nil || len(overrides) == 0 {
-			return
-		}
-		if cfg.FeatureFlags == nil {
-			cfg.FeatureFlags = map[string]bool{}
-		}
-		for _, override := range overrides {
-			if strings.TrimSpace(override.Env) == "" || strings.TrimSpace(override.Key) == "" {
-				continue
-			}
-			if value, ok := envBool(override.Env); ok {
-				cfg.FeatureFlags[override.Key] = value
-			}
-		}
 	}
 }
 
