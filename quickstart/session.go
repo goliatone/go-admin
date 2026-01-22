@@ -9,6 +9,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	authlib "github.com/goliatone/go-auth"
+	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
 var (
@@ -124,12 +125,12 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 }
 
 // FilterSessionUser hides tenant/org data when those features are disabled.
-func FilterSessionUser(session SessionUser, features admin.Features) SessionUser {
-	if !features.Tenants {
+func FilterSessionUser(session SessionUser, gate fggate.FeatureGate) SessionUser {
+	if !featureEnabled(gate, string(admin.FeatureTenants)) {
 		session.TenantID = ""
 		session.Metadata = pruneSessionMetadata(session.Metadata, sessionTenantMetadataKeys)
 	}
-	if !features.Organizations {
+	if !featureEnabled(gate, string(admin.FeatureOrganizations)) {
 		session.OrganizationID = ""
 		session.Metadata = pruneSessionMetadata(session.Metadata, sessionOrganizationMetadataKeys)
 	}

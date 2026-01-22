@@ -6,15 +6,15 @@ The quickstart package (module `github.com/goliatone/go-admin/quickstart`) bundl
 Each helper is optional and composable.
 
 - `NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOption) admin.Config` - Inputs: base path/title/locale plus option setters. Outputs: `admin.Config` with quickstart defaults and overrides applied.
-- `DefaultMinimalFeatures() admin.Features` - Outputs: minimal Stage 1 feature set (`Dashboard` + `CMS`).
-- `WithFeaturesExplicit(features admin.Features) AdminConfigOption` - Inputs: feature set; outputs: config option that replaces defaults and clears `FeatureFlags`.
-- `WithDebugConfig(cfg admin.DebugConfig) AdminConfigOption` - Inputs: debug config; outputs: option that applies debug config and feature flags.
-- `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_DEBUG* config/envs.
+- `DefaultMinimalFeatures() map[string]bool` - Outputs: minimal Stage 1 feature set (`dashboard` + `cms`).
+- `WithDebugConfig(cfg admin.DebugConfig) AdminConfigOption` - Inputs: debug config; outputs: option that applies debug config (used to derive debug gate defaults).
+- `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_DEBUG* config/envs to debug config.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
 - `NewAdminWithGoUsersPreferences(cfg admin.Config, repo types.PreferenceRepository, opts ...PreferencesOption) (*admin.Admin, error)` - Inputs: config, go-users preference repo, options. Outputs: admin instance.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
+- `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
 - `EnablePreferences() PreferencesOption` - Inputs: none; outputs: option to enable `FeaturePreferences`.
-- `EnableFeature(feature admin.FeatureKey) PreferencesOption` - Inputs: feature key; outputs: option to enable a single feature flag.
+- `EnableFeature(feature admin.FeatureKey) PreferencesOption` - Inputs: feature key; outputs: option to enable a single feature gate key.
 - `WithPreferencesAdapterHooks(hooks AdapterHooks) PreferencesOption` - Inputs: adapter hooks; outputs: option to apply quickstart adapter wiring.
 - `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
 - `PreferencesPermissions() []PermissionDefinition` - Outputs: default preferences permission definitions.
@@ -37,9 +37,8 @@ Each helper is optional and composable.
 - `AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin)` - Inputs: config/admin; outputs: none (wires slog debug handler).
 - `ConfigureExportRenderers(bundle *ExportBundle, templatesFS fs.FS, opts ...ExportTemplateOption) error` - Inputs: export bundle + templates FS + options. Outputs: error (registers template/PDF renderers).
 - `NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Module, isDev bool, opts ...ModuleRegistrarOption) error` - Inputs: admin, config, module list, dev flag, options. Outputs: error.
-- `WithModuleFeatureGates(gates admin.FeatureGates) ModuleRegistrarOption` - Inputs: feature gates; outputs: option to filter modules/menu items.
+- `WithModuleFeatureGates(gates gate.FeatureGate) ModuleRegistrarOption` - Inputs: feature gate; outputs: option to filter modules/menu items.
 - `WithModuleFeatureDisabledHandler(handler func(feature, moduleID string) error) ModuleRegistrarOption` - Inputs: handler; outputs: option for disabled modules.
-- `FeatureGatesFromConfig(cfg admin.Config) admin.FeatureGates` - Outputs: gates built from typed features + feature flags.
 - `WithGoAuth(adm *admin.Admin, routeAuth *auth.RouteAuthenticator, cfg auth.Config, authz admin.GoAuthAuthorizerConfig, authCfg *admin.AuthConfig, opts ...admin.GoAuthAuthenticatorOption) (*admin.GoAuthAuthenticator, *admin.GoAuthAuthorizer)` - Inputs: admin, route auth, auth config, authz config, admin auth config, options. Outputs: adapters.
 - `WithDefaultDashboardRenderer(adm *admin.Admin, viewEngine fiber.Views, cfg admin.Config, opts ...DashboardRendererOption) error` - Inputs: admin, view engine, config, renderer options. Outputs: error.
 - `WithDashboardTemplatesFS(fsys fs.FS) DashboardRendererOption` - Inputs: template FS; outputs: renderer option for overrides.
@@ -176,11 +175,14 @@ Templates use a conditional fallback pattern:
 
 Quickstart wires onboarding routes and securelink helpers so hosts can opt in with minimal setup.
 
-Feature flags (set on `admin.Config.FeatureFlags`):
+Feature gate keys (system scope) used by onboarding flows:
 
 - `users.invite`
 - `users.password_reset`
 - `users.signup`
+
+Enable these via gate defaults (for example `WithFeatureDefaults`) or runtime overrides.
+Alias policy: `users.self_registration` is not supported; use `users.signup`.
 
 Securelink env defaults:
 
@@ -270,13 +272,17 @@ cfg := quickstart.NewAdminConfig(
 	"/admin",
 	"Admin",
 	"en",
-	quickstart.WithFeaturesExplicit(quickstart.DefaultMinimalFeatures()),
 )
 ```
 
 ```go
 flags := config.Admin.AdapterFlags
-adm, adapters, err := quickstart.NewAdmin(cfg, hooks, quickstart.WithAdapterFlags(flags))
+adm, adapters, err := quickstart.NewAdmin(
+	cfg,
+	hooks,
+	quickstart.WithAdapterFlags(flags),
+	quickstart.WithFeatureDefaults(quickstart.DefaultMinimalFeatures()),
+)
 if err != nil {
 	return err
 }
@@ -285,13 +291,11 @@ _ = adm
 ```
 
 ```go
-gates := quickstart.FeatureGatesFromConfig(cfg)
 err = quickstart.NewModuleRegistrar(
 	adm,
 	cfg,
 	modules,
 	isDev,
-	quickstart.WithModuleFeatureGates(gates),
 )
 if err != nil {
 	return err
@@ -352,7 +356,7 @@ _ = formgen
 Debug is opt-in and requires module registration plus middleware/log wiring. Call the helpers after the debug module is registered so the collector is available.
 
 Environment mapping defaults:
-- `ADMIN_DEBUG=true` enables `cfg.Debug.Enabled`, `ToolbarMode`, `CaptureSQL`, `CaptureLogs`, and sets `FeatureFlags["debug"]=true`.
+- `ADMIN_DEBUG=true` enables `cfg.Debug.Enabled`, `ToolbarMode`, `CaptureSQL`, `CaptureLogs`, and sets the `debug` feature gate default.
 - `ADMIN_DEBUG_ALLOWED_IPS=1.2.3.4,5.6.7.8` populates `cfg.Debug.AllowedIPs`.
 - `ADMIN_DEBUG_SQL` and `ADMIN_DEBUG_LOGS` override the capture flags.
 - `ADMIN_DEBUG_TOOLBAR` and `ADMIN_DEBUG_TOOLBAR_PANELS` override toolbar behavior/panels.
@@ -377,13 +381,11 @@ if cfg.Debug.Enabled {
 	modules = append(modules, admin.NewDebugModule(cfg.Debug))
 }
 
-gates := quickstart.FeatureGatesFromConfig(cfg)
 if err := quickstart.NewModuleRegistrar(
 	adm,
 	cfg,
 	modules,
 	isDev,
-	quickstart.WithModuleFeatureGates(gates),
 ); err != nil {
 	return err
 }
@@ -398,7 +400,7 @@ repo := repository.MustNewRepositoryWithOptions[*MyModel](db, handlers, repoOpti
 ```
 
 ## Preferences quickstart
-- `FeaturePreferences` remains opt-in: pass `EnablePreferences()` or set `cfg.Features.Preferences`/`cfg.FeatureFlags` yourself.
+- `FeaturePreferences` remains opt-in: pass `EnablePreferences()` or supply `WithFeatureDefaults(map[string]bool{"preferences": true})` when building the admin gate.
 - A 403 on `/admin/api/preferences` usually means the default permissions are missing (`admin.preferences.view`, `admin.preferences.edit`).
 - Read query params: `levels`, `keys`, `include_traces`, `include_versions`, `tenant_id`, `org_id`.
 - Clear/delete semantics: send `clear`/`clear_keys` or empty values for known keys to delete user-level overrides.
@@ -442,9 +444,9 @@ if err != nil {
 ```
 
 ## Stage 1 minimal flow
-- Build config with `WithFeaturesExplicit(DefaultMinimalFeatures())`.
+- Build config with `NewAdminConfig(...)` and pass `WithFeatureDefaults(DefaultMinimalFeatures())` to `NewAdmin`.
 - Resolve adapter flags from config and pass via `WithAdapterFlags(...)`.
-- Build module gates with `FeatureGatesFromConfig(cfg)` and pass via `WithModuleFeatureGates(...)`.
+- Register modules with `NewModuleRegistrar` (uses `adm.FeatureGate()` by default).
 - Wire auth with `WithGoAuth(...)` (include `*admin.AuthConfig` when needed).
 - Enable dashboard SSR with `WithDefaultDashboardRenderer(...)` (override templates as needed).
 
@@ -473,6 +475,6 @@ If you previously imported quickstart as part of the root module, keep the same 
 ## Overrides
 - Templates/Assets: prepend your own FS via `WithViewTemplatesFS`/`WithViewAssetsFS` to override the embedded sidebar.
 - Navigation seed: pass custom items to `SeedNavigation`; module menu contributions are deduped by ID.
-- Module gating: `WithModuleFeatureGates(FeatureGatesFromConfig(cfg))` with optional `WithModuleFeatureDisabledHandler`.
+- Module gating: `WithModuleFeatureGates(customGate)` with optional `WithModuleFeatureDisabledHandler`.
 - Dashboard SSR: provide `WithDashboardTemplatesFS` and/or disable embedded templates via `WithDashboardEmbeddedTemplates(false)`.
 - Error handler: swap `quickstart.NewFiberErrorHandler` with your own if needed.

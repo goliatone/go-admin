@@ -13,6 +13,7 @@ type adminOptions struct {
 	ctx   context.Context
 	deps  admin.Dependencies
 	flags *AdapterFlags
+	featureDefaults map[string]bool
 }
 
 // WithAdminContext sets the context used when resolving adapter hooks.
@@ -47,6 +48,16 @@ func WithAdapterFlags(flags AdapterFlags) AdminOption {
 	}
 }
 
+// WithFeatureDefaults overrides or extends the feature defaults used to build the gate.
+func WithFeatureDefaults(defaults map[string]bool) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil || len(defaults) == 0 {
+			return
+		}
+		opts.featureDefaults = cloneFeatureDefaults(defaults)
+	}
+}
+
 // NewAdmin constructs an admin instance with adapter wiring applied.
 func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error) {
 	options := adminOptions{
@@ -63,6 +74,16 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		cfg, result = ConfigureAdaptersWithFlags(options.ctx, cfg, hooks, *options.flags)
 	} else {
 		cfg, result = ConfigureAdapters(options.ctx, cfg, hooks)
+	}
+	if options.deps.PreferencesStore == nil {
+		options.deps.PreferencesStore = admin.NewInMemoryPreferencesStore()
+	}
+	if options.deps.FeatureGate == nil {
+		defaults := DefaultAdminFeatures()
+		if len(options.featureDefaults) > 0 {
+			defaults = mergeFeatureDefaults(defaults, options.featureDefaults)
+		}
+		options.deps.FeatureGate = buildFeatureGate(cfg, defaults, options.deps.PreferencesStore)
 	}
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {

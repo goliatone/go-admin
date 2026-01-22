@@ -1,9 +1,8 @@
 package quickstart
 
 import (
+	"reflect"
 	"testing"
-
-	"github.com/goliatone/go-admin/admin"
 )
 
 func TestNewAdminConfigDefaults(t *testing.T) {
@@ -27,17 +26,12 @@ func TestNewAdminConfigDefaults(t *testing.T) {
 	if cfg.NavMenuCode != DefaultNavMenuCode {
 		t.Fatalf("expected default nav menu code %q, got %q", DefaultNavMenuCode, cfg.NavMenuCode)
 	}
-	if !cfg.Features.Dashboard || !cfg.Features.Settings || !cfg.Features.Users {
-		t.Fatalf("expected default features enabled, got %+v", cfg.Features)
-	}
 	if cfg.ThemeTokens["primary"] == "" || cfg.ThemeTokens["accent"] == "" {
 		t.Fatalf("expected default theme tokens, got %+v", cfg.ThemeTokens)
 	}
 }
 
 func TestNewAdminConfigOverrides(t *testing.T) {
-	t.Setenv("QS_DEBUG", "true")
-
 	cfg := NewAdminConfig(
 		"/root",
 		"My Admin",
@@ -45,9 +39,6 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 		WithTheme("custom", "dark"),
 		WithThemeTokens(map[string]string{"primary": "#000000"}),
 		WithNavMenuCode("custom_menu"),
-		WithFeatures(admin.Features{Dashboard: true}),
-		WithFeatureFlag("custom_flag", true),
-		WithFeatureFlagsFromEnv(EnvFlagOverride{Env: "QS_DEBUG", Key: "debug"}),
 	)
 
 	if cfg.BasePath != "/root" {
@@ -59,37 +50,42 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 	if cfg.NavMenuCode != "custom_menu" {
 		t.Fatalf("expected nav menu override, got %q", cfg.NavMenuCode)
 	}
-	if !cfg.Features.Dashboard || cfg.Features.CMS {
-		t.Fatalf("expected features override, got %+v", cfg.Features)
-	}
 	if cfg.ThemeTokens["primary"] != "#000000" {
 		t.Fatalf("expected theme token override, got %+v", cfg.ThemeTokens)
 	}
-	if !cfg.FeatureFlags["custom_flag"] || !cfg.FeatureFlags["debug"] {
-		t.Fatalf("expected feature flags override, got %+v", cfg.FeatureFlags)
+}
+
+func TestDefaultAdminFeatures(t *testing.T) {
+	got := DefaultAdminFeatures()
+	expected := map[string]bool{
+		"dashboard":     true,
+		"cms":           true,
+		"commands":      true,
+		"settings":      true,
+		"search":        true,
+		"notifications": true,
+		"jobs":          true,
+		"media":         true,
+		"export":        true,
+		"bulk":          true,
+		"preferences":   true,
+		"profile":       true,
+		"users":         true,
+		"tenants":       true,
+		"organizations": true,
+	}
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatalf("expected default features %+v, got %+v", expected, got)
 	}
 }
 
 func TestDefaultMinimalFeatures(t *testing.T) {
 	got := DefaultMinimalFeatures()
-	expected := admin.Features{Dashboard: true, CMS: true}
-	if got != expected {
+	expected := map[string]bool{
+		"dashboard": true,
+		"cms":       true,
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Fatalf("expected minimal features %+v, got %+v", expected, got)
-	}
-}
-
-func TestWithFeaturesExplicitClearsFlags(t *testing.T) {
-	cfg := NewAdminConfig(
-		"",
-		"",
-		"",
-		WithFeatureFlags(map[string]bool{"users": true}),
-		WithFeaturesExplicit(DefaultMinimalFeatures()),
-	)
-	if !cfg.Features.Dashboard || !cfg.Features.CMS || cfg.Features.Users {
-		t.Fatalf("expected minimal features, got %+v", cfg.Features)
-	}
-	if len(cfg.FeatureFlags) != 0 {
-		t.Fatalf("expected feature flags cleared, got %+v", cfg.FeatureFlags)
 	}
 }

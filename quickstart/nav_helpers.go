@@ -80,12 +80,15 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	if reqCtx == nil {
 		reqCtx = context.Background()
 	}
-	session := FilterSessionUser(BuildSessionUser(reqCtx), cfg.Features)
+	rawSession := BuildSessionUser(reqCtx)
+	scopeData := featureScopeFromSession(rawSession)
+	session := FilterSessionUser(rawSession, adm.FeatureGate())
 	sessionView := session.ToViewContext()
 	if sessionView["avatar_url"] == "" {
 		sessionView["avatar_url"] = path.Join(cfg.BasePath, "assets", "avatar-default.svg")
 	}
 	ctx["session_user"] = sessionView
+	ctx = WithFeatureTemplateContext(ctx, reqCtx, scopeData, map[string]bool{})
 	ctx["nav_items"] = BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
 	ctx["theme"] = adm.ThemePayload(reqCtx)
 	if active != "" {

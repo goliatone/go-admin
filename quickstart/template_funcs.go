@@ -7,14 +7,18 @@ import (
 	"strings"
 
 	"github.com/gobuffalo/flect"
+	fggate "github.com/goliatone/go-featuregate/gate"
+	fgtemplates "github.com/goliatone/go-featuregate/templates"
 )
 
 // TemplateFuncOption customizes default template functions.
 type TemplateFuncOption func(*templateFuncOptions)
 
 type templateFuncOptions struct {
-	widgetTitles  map[string]string
-	widgetTitleFn func(string) string
+	widgetTitles         map[string]string
+	widgetTitleFn        func(string) string
+	featureGate          fggate.FeatureGate
+	featureHelperOptions []fgtemplates.HelperOption
 }
 
 // DefaultTemplateFuncs returns shared template functions for view rendering.
@@ -41,7 +45,7 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		}
 	}
 
-	return map[string]any{
+	funcs := map[string]any{
 		"toJSON": func(v any) string {
 			b, _ := json.Marshal(v)
 			return string(b)
@@ -75,6 +79,10 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 			return dict, nil
 		},
 	}
+	for key, value := range fgtemplates.TemplateHelpers(options.featureGate, options.featureHelperOptions...) {
+		funcs[key] = value
+	}
+	return funcs
 }
 
 // MergeTemplateFuncs combines default functions with caller overrides.
@@ -122,6 +130,19 @@ func WithWidgetTitleFunc(fn func(string) string) TemplateFuncOption {
 			return
 		}
 		opts.widgetTitleFn = fn
+	}
+}
+
+// WithTemplateFeatureGate registers feature template helpers using the provided gate.
+func WithTemplateFeatureGate(gate fggate.FeatureGate, opts ...fgtemplates.HelperOption) TemplateFuncOption {
+	return func(options *templateFuncOptions) {
+		if options == nil {
+			return
+		}
+		options.featureGate = gate
+		if len(opts) > 0 {
+			options.featureHelperOptions = append(options.featureHelperOptions, opts...)
+		}
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"io/fs"
 
 	"github.com/gofiber/fiber/v2"
+	fggate "github.com/goliatone/go-featuregate/gate"
+	fgtemplates "github.com/goliatone/go-featuregate/templates"
 	router "github.com/goliatone/go-router"
 )
 
@@ -12,14 +14,16 @@ import (
 type ViewEngineOption func(*viewEngineOptions)
 
 type viewEngineOptions struct {
-	templateFS    []fs.FS
-	assetsFS      []fs.FS
-	templateFuncs map[string]any
-	reload        bool
-	debug         bool
-	embed         bool
-	ext           string
-	urlPrefix     string
+	templateFS           []fs.FS
+	assetsFS             []fs.FS
+	templateFuncs        map[string]any
+	featureGate          fggate.FeatureGate
+	featureHelperOptions []fgtemplates.HelperOption
+	reload               bool
+	debug                bool
+	embed                bool
+	ext                  string
+	urlPrefix            string
 }
 
 // WithViewTemplatesFS appends template fallbacks.
@@ -49,6 +53,19 @@ func WithViewTemplateFuncs(funcs map[string]any) ViewEngineOption {
 			return
 		}
 		opts.templateFuncs = funcs
+	}
+}
+
+// WithViewFeatureGate registers feature template helpers using the provided gate.
+func WithViewFeatureGate(gate fggate.FeatureGate, helperOpts ...fgtemplates.HelperOption) ViewEngineOption {
+	return func(opts *viewEngineOptions) {
+		if opts == nil {
+			return
+		}
+		opts.featureGate = gate
+		if len(helperOpts) > 0 {
+			opts.featureHelperOptions = append(opts.featureHelperOptions, helperOpts...)
+		}
 	}
 }
 
@@ -141,7 +158,7 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 		}
 	}
 	if options.templateFuncs == nil {
-		options.templateFuncs = DefaultTemplateFuncs()
+		options.templateFuncs = DefaultTemplateFuncs(WithTemplateFeatureGate(options.featureGate, options.featureHelperOptions...))
 	}
 
 	templateFS := normalizeTemplatesFS(baseFS)

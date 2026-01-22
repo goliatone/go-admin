@@ -10,9 +10,6 @@ import (
 func TestBuildNavItemsOrdering(t *testing.T) {
 	cfg := admin.Config{
 		DefaultLocale: "en",
-		Features: admin.Features{
-			CMS: true,
-		},
 	}
 	adm, err := admin.New(cfg, admin.Dependencies{})
 	if err != nil {

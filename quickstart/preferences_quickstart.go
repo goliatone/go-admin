@@ -53,35 +53,28 @@ func NewAdminWithGoUsersPreferences(cfg admin.Config, repo types.PreferenceRepos
 			opt(&options)
 		}
 	}
-	cfg = applyPreferencesOptions(cfg, options)
-	adm, _, err := NewAdmin(cfg, options.hooks, WithAdminDependencies(admin.Dependencies{PreferencesStore: store}))
+	featureDefaults := applyPreferencesOptions(options)
+	adminOpts := []AdminOption{WithAdminDependencies(admin.Dependencies{PreferencesStore: store})}
+	if len(featureDefaults) > 0 {
+		adminOpts = append(adminOpts, WithFeatureDefaults(featureDefaults))
+	}
+	adm, _, err := NewAdmin(cfg, options.hooks, adminOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return adm, nil
 }
 
-func applyPreferencesOptions(cfg admin.Config, options preferencesOptions) admin.Config {
+func applyPreferencesOptions(options preferencesOptions) map[string]bool {
 	if len(options.enabledFeatures) == 0 {
-		return cfg
+		return nil
 	}
-	cfg.FeatureFlags = cloneFeatureFlags(cfg.FeatureFlags)
+	defaults := map[string]bool{}
 	for feature := range options.enabledFeatures {
 		if feature == "" {
 			continue
 		}
-		cfg.FeatureFlags[string(feature)] = true
+		defaults[string(feature)] = true
 	}
-	return cfg
-}
-
-func cloneFeatureFlags(flags map[string]bool) map[string]bool {
-	if len(flags) == 0 {
-		return map[string]bool{}
-	}
-	out := make(map[string]bool, len(flags))
-	for key, value := range flags {
-		out[key] = value
-	}
-	return out
+	return defaults
 }

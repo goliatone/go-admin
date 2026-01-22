@@ -1,10 +1,13 @@
 package quickstart
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
 type stubModule struct {
@@ -86,7 +89,7 @@ func TestNewModuleRegistrarFeatureGatesSkipModules(t *testing.T) {
 	}
 	modA := stubModule{id: "alpha", featureFlags: []string{"feature.a"}}
 	modB := stubModule{id: "bravo", featureFlags: []string{"feature.b"}}
-	gates := admin.NewFeatureGates(map[string]bool{"feature.a": true})
+	gates := stubFeatureGate{flags: map[string]bool{"feature.a": true}}
 	disabled := []string{}
 
 	err = NewModuleRegistrar(
@@ -118,12 +121,12 @@ func TestNewModuleRegistrarFeatureGatesSkipModules(t *testing.T) {
 func TestFilterModulesSkipsMissingDependencies(t *testing.T) {
 	modA := stubModule{id: "alpha", featureFlags: []string{"feature.a"}}
 	modB := stubModule{id: "bravo", deps: []string{"alpha"}}
-	gates := admin.NewFeatureGates(map[string]bool{})
+	gates := stubFeatureGate{flags: map[string]bool{}}
 	disabled := []string{}
 
 	filtered, err := filterModulesForRegistrar(
 		[]admin.Module{modA, modB},
-		&gates,
+		gates,
 		func(feature, moduleID string) error {
 			disabled = append(disabled, feature+":"+moduleID)
 			return nil
@@ -148,11 +151,11 @@ func TestBuildSeedMenuItemsRespectsGates(t *testing.T) {
 	menuB := admin.MenuItem{ID: "menu-b"}
 	modA := stubModule{id: "alpha", featureFlags: []string{"feature.a"}, menuItems: []admin.MenuItem{menuA}}
 	modB := stubModule{id: "bravo", featureFlags: []string{"feature.b"}, menuItems: []admin.MenuItem{menuB}}
-	gates := admin.NewFeatureGates(map[string]bool{"feature.a": true})
+	gates := stubFeatureGate{flags: map[string]bool{"feature.a": true}}
 
 	filtered, err := filterModulesForRegistrar(
 		[]admin.Module{modA, modB},
-		&gates,
+		gates,
 		func(feature, moduleID string) error { return nil },
 	)
 	if err != nil {
@@ -177,25 +180,19 @@ func TestBuildSeedMenuItemsRespectsGates(t *testing.T) {
 	}
 }
 
-func TestFeatureGatesFromConfigMergesFlags(t *testing.T) {
-	cfg := admin.Config{
-		Features: admin.Features{
-			Search: true,
-		},
-		FeatureFlags: map[string]bool{
-			string(admin.FeatureDashboard): true,
-			string(admin.FeatureSearch):    false,
-			"custom.flag":                  true,
-		},
+type stubFeatureGate struct {
+	flags map[string]bool
+}
+
+func (s stubFeatureGate) Enabled(_ context.Context, key string, opts ...fggate.ResolveOption) (bool, error) {
+	req := &fggate.ResolveRequest{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(req)
+		}
 	}
-	gates := FeatureGatesFromConfig(cfg)
-	if !gates.Enabled(admin.FeatureDashboard) {
-		t.Fatalf("expected dashboard enabled")
+	if req.ScopeSet == nil || !req.ScopeSet.System {
+		return false, errors.New("feature gate scope required")
 	}
-	if !gates.Enabled(admin.FeatureSearch) {
-		t.Fatalf("expected search enabled")
-	}
-	if !gates.EnabledKey("custom.flag") {
-		t.Fatalf("expected custom flag enabled")
-	}
+	return s.flags[key], nil
 }
