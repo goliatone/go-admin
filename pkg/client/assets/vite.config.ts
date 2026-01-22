@@ -9,6 +9,7 @@ export default defineConfig({
       entry: {
         'datatable/index': resolve(__dirname, 'src/datatable/index.ts'),
         'dashboard/index': resolve(__dirname, 'src/dashboard/index.ts'),
+        'feature-flags/index': resolve(__dirname, 'src/feature-flags/index.ts'),
         'toast/init': resolve(__dirname, 'src/toast/init.ts'),
         'formgen/file_uploader': resolve(__dirname, 'src/formgen/file_uploader.ts'),
         'debug/index': resolve(__dirname, 'src/debug/index.ts'),
