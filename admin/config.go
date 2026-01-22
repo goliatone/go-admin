@@ -22,6 +22,7 @@ type Config struct {
 
 	SettingsPermission                string
 	SettingsUpdatePermission          string
+	FeatureFlagsViewPermission        string
 	FeatureFlagsUpdatePermission      string
 	SettingsThemeTokens               map[string]string
 	NotificationsPermission           string
@@ -56,6 +57,8 @@ type Config struct {
 	AuthConfig *AuthConfig
 
 	NavMenuCode string
+
+	FeatureFlagKeys []string
 }
 
 // CMSOptions configures how the CMS container is resolved (in-memory, go-cms, or host-provided).
