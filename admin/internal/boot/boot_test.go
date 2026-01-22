@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 type stubResponder struct {
@@ -28,6 +29,7 @@ type stubCtx struct {
 	router     Router
 	wrapper    HandlerWrapper
 	basePath   string
+	urls       urlkit.Resolver
 	responder  Responder
 	parseBody  func(router.Context) (map[string]any, error)
 	panels     []PanelBinding
@@ -44,6 +46,7 @@ type stubCtx struct {
 func (s *stubCtx) Router() Router              { return s.router }
 func (s *stubCtx) AuthWrapper() HandlerWrapper { return s.wrapper }
 func (s *stubCtx) BasePath() string            { return s.basePath }
+func (s *stubCtx) URLs() urlkit.Resolver       { return s.urls }
 func (s *stubCtx) DefaultLocale() string       { return s.defaultLoc }
 func (s *stubCtx) NavMenuCode() string         { return s.navCode }
 func (s *stubCtx) Gates() FeatureGates         { return s.gates }
