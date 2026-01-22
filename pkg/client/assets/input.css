@@ -196,7 +196,7 @@
 
   /* Status Badge Base */
   .status-badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border lowercase;
   }
 
   /* Status Colors */
