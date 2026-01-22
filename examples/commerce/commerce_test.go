@@ -25,15 +25,15 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		cfg := admin.Config{
 			BasePath:      "/admin",
 			DefaultLocale: "en",
-			Features: admin.Features{
-				Dashboard: true,
-				Search:    true,
-				CMS:       true,
-				Commands:  true,
-				Jobs:      true,
-			},
 		}
-		adm, err := admin.New(cfg, admin.Dependencies{})
+		featureDefaults := map[string]bool{
+			"dashboard": true,
+			"search":    true,
+			"cms":       true,
+			"commands":  true,
+			"jobs":      true,
+		}
+		adm, err := admin.New(cfg, admin.Dependencies{FeatureGate: featureGateFromDefaults(featureDefaults)})
 		if err != nil {
 			t.Fatalf("admin.New: %v", err)
 		}

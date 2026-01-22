@@ -11,6 +11,9 @@ import (
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-featuregate/adapters/configadapter"
+	fggate "github.com/goliatone/go-featuregate/gate"
+	"github.com/goliatone/go-featuregate/resolver"
 	"github.com/goliatone/go-router"
 )
 
@@ -20,6 +23,10 @@ func staticRoot() string {
 		return "./static"
 	}
 	return filepath.Join(filepath.Dir(filename), "static")
+}
+
+func featureGateFromDefaults(defaults map[string]bool) fggate.FeatureGate {
+	return resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(defaults)))
 }
 
 func main() {
@@ -35,16 +42,16 @@ func main() {
 		DefaultLocale: "en",
 		Theme:         "admin",
 		ThemeVariant:  "light",
-		Features: admin.Features{
-			Dashboard: true,
-			Search:    true,
-			CMS:       true,
-			Commands:  true,
-			Jobs:      true,
-		},
 	}
 
-	adm, err := admin.New(cfg, admin.Dependencies{})
+	featureDefaults := map[string]bool{
+		"dashboard": true,
+		"search":    true,
+		"cms":       true,
+		"commands":  true,
+		"jobs":      true,
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{FeatureGate: featureGateFromDefaults(featureDefaults)})
 	if err != nil {
 		log.Fatalf("failed to construct admin: %v", err)
 	}
