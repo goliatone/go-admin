@@ -5,6 +5,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin/internal/helpers"
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
+	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
 // Manifest captures identifying metadata and dependencies for a module.
@@ -35,9 +36,7 @@ type MenuContributor interface {
 }
 
 // FeatureGates evaluates feature enablement.
-type FeatureGates interface {
-	EnabledKey(feature string) bool
-}
+type FeatureGates = fggate.FeatureGate
 
 // DisabledErrorFactory builds feature-disabled errors for modules.
 type DisabledErrorFactory func(feature, moduleID string) error

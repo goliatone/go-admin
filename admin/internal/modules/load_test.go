@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
+	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
 func TestOrderResolvesDependencies(t *testing.T) {
@@ -43,7 +44,7 @@ func TestLoadAppliesCallbacksAndGates(t *testing.T) {
 		manifest: Manifest{ID: "nav", FeatureFlags: []string{"enabled"}},
 		menu:     []navinternal.MenuItem{{Label: "One"}},
 	}
-	gates := featureGatesStub{flags: map[string]bool{"enabled": true}}
+	gates := featureGateStub{flags: map[string]bool{"enabled": true}}
 	registered := []string{}
 	menuSeen := 0
 	defaultsCalled := false
@@ -88,7 +89,7 @@ func TestLoadReturnsFeatureDisabledError(t *testing.T) {
 	sentinel := errors.New("sentinel")
 	err := Load(ctx, LoadOptions{
 		Modules:       []Module{mod},
-		Gates:         featureGatesStub{flags: map[string]bool{}},
+		Gates:         featureGateStub{flags: map[string]bool{}},
 		DisabledError: func(feature, moduleID string) error { return sentinel },
 	})
 	if !errors.Is(err, sentinel) {
@@ -119,12 +120,12 @@ func (m *stubModule) MenuItems(locale string) []navinternal.MenuItem {
 	return out
 }
 
-type featureGatesStub struct {
+type featureGateStub struct {
 	flags map[string]bool
 }
 
-func (f featureGatesStub) EnabledKey(feature string) bool {
-	return f.flags[feature]
+func (f featureGateStub) Enabled(_ context.Context, key string, _ ...fggate.ResolveOption) (bool, error) {
+	return f.flags[key], nil
 }
 
 type noopTranslator struct{}
