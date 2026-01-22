@@ -11,6 +11,7 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.ThemeVariant == "" {
 		cfg.ThemeVariant = "default"
 	}
+	cfg.URLs = normalizeURLConfig(cfg.URLs)
 
 	if cfg.SettingsPermission == "" {
 		cfg.SettingsPermission = "admin.settings.view"
