@@ -54,7 +54,7 @@ func (a activityRecorderAdapter) RecordWidgetEvent(ctx context.Context, action s
 }
 
 func (a *Admin) ensureDashboard(ctx context.Context) error {
-	if !a.gates.Enabled(FeatureDashboard) {
+	if !featureEnabled(a.featureGate, FeatureDashboard) {
 		return nil
 	}
 	store := dashinternal.NewCMSWidgetStoreWithActivity(a.widgetServiceAdapter(), activityRecorderAdapter{sink: a.activity})

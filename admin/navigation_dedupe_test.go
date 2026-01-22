@@ -14,8 +14,7 @@ func TestAddMenuItemsDedupesMenusByPath(t *testing.T) {
 	adm := mustNewAdmin(t, Config{
 		DefaultLocale: "en",
 		NavMenuCode:   "admin_main",
-		Features:      Features{CMS: true},
-	}, Dependencies{})
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
 	adm.UseCMS(container)
 
 	items := []MenuItem{

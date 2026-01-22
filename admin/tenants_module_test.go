@@ -14,13 +14,8 @@ func TestTenantAndOrganizationModulesRegister(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Tenants:       true,
-			Organizations: true,
-			Search:        true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureTenants, FeatureOrganizations, FeatureSearch)})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
@@ -48,11 +43,8 @@ func TestTenantModuleEnforcesPermissions(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Tenants: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureTenants)})
 	adm.WithAuthorizer(stubAuthorizer{allow: false})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -72,13 +64,8 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Tenants:       true,
-			Organizations: true,
-			Search:        true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureTenants, FeatureOrganizations, FeatureSearch)})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {

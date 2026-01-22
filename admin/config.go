@@ -13,7 +13,6 @@ type Config struct {
 	ThemeAssetPrefix string
 	CMSConfig        any
 	CMS              CMSOptions
-	Features         Features
 	Debug            DebugConfig
 
 	LogoURL    string
@@ -23,6 +22,7 @@ type Config struct {
 
 	SettingsPermission                string
 	SettingsUpdatePermission          string
+	FeatureFlagsUpdatePermission      string
 	SettingsThemeTokens               map[string]string
 	NotificationsPermission           string
 	NotificationsUpdatePermission     string
@@ -56,8 +56,6 @@ type Config struct {
 	AuthConfig *AuthConfig
 
 	NavMenuCode string
-
-	FeatureFlags map[string]bool
 }
 
 // CMSOptions configures how the CMS container is resolved (in-memory, go-cms, or host-provided).
@@ -75,20 +73,4 @@ type AuthConfig struct {
 	LoginPath    string
 	LogoutPath   string
 	RedirectPath string
-}
-
-func (cfg *Config) normalizeFeatures() {
-	if cfg == nil {
-		return
-	}
-	if cfg.CMS.GoCMSConfig == nil && cfg.CMSConfig != nil {
-		cfg.CMS.GoCMSConfig = cfg.CMSConfig
-	}
-	merged := cfg.Features.applyLegacy(*cfg)
-	cfg.Features = merged
-
-	if cfg.FeatureFlags == nil {
-		cfg.FeatureFlags = map[string]bool{}
-	}
-	cfg.FeatureFlags = merged.mergedFlags(cfg.FeatureFlags)
 }

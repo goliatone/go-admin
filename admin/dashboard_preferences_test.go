@@ -71,13 +71,8 @@ func TestDashboardPreferencesEndpointPersistsLayout(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Dashboard:   true,
-			CMS:         true,
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS, FeaturePreferences)})
 	adm.PreferencesService().WithStore(store)
 
 	server := router.NewHTTPServer()

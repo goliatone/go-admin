@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/query"
@@ -15,9 +16,7 @@ import (
 // Admin orchestrates CMS-backed admin features and adapters.
 type Admin struct {
 	config                      Config
-	features                    Features
-	featureFlags                map[string]bool
-	gates                       FeatureGates
+	featureGate                 fggate.FeatureGate
 	registry                    *Registry
 	cms                         CMSContainer
 	widgetSvc                   CMSWidgetService
@@ -96,6 +95,11 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		translator = NoopTranslator{}
 	}
 
+	featureGate := deps.FeatureGate
+	if featureGate == nil {
+		featureGate = newFeatureGateFromFlags(nil)
+	}
+
 	activitySink := deps.ActivitySink
 	if activitySink == nil {
 		activitySink = NewActivityFeed()
@@ -126,7 +130,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 
 	commandBus := deps.CommandBus
 	if commandBus == nil {
-		enableCommands := cfg.Features.Commands || cfg.Features.Settings || cfg.Features.Jobs || cfg.Features.Bulk || cfg.Features.Dashboard || cfg.Features.Notifications
+		enableCommands := featureEnabled(featureGate, FeatureCommands) || featureEnabled(featureGate, FeatureSettings) || featureEnabled(featureGate, FeatureJobs) || featureEnabled(featureGate, FeatureBulk) || featureEnabled(featureGate, FeatureDashboard) || featureEnabled(featureGate, FeatureNotifications)
 		commandBus = NewCommandBus(enableCommands)
 	}
 	if err := RegisterCoreCommandFactories(commandBus); err != nil {
@@ -138,7 +142,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		settingsSvc = NewSettingsService()
 	}
 	settingsSvc.WithRegistry(registry)
-	if cfg.Features.Settings {
+	if featureEnabled(featureGate, FeatureSettings) {
 		if db, err := newSettingsDB(); err == nil {
 			if adapter, err := NewBunSettingsAdapter(db); err == nil {
 				settingsSvc.UseAdapter(adapter)
@@ -147,7 +151,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	}
 	settingsForm := NewSettingsFormAdapter(settingsSvc, cfg.Theme, cfg.ThemeTokens)
 	settingsCmd := &SettingsUpdateCommand{Service: settingsSvc, Permission: cfg.SettingsUpdatePermission}
-	if cfg.Features.Settings {
+	if featureEnabled(featureGate, FeatureSettings) {
 		if _, err := RegisterCommand(commandBus, settingsCmd); err != nil {
 			return nil, err
 		}
@@ -156,7 +160,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	notifSvc := deps.NotificationService
 	if notifSvc == nil {
 		notifSvc = DisabledNotificationService{}
-		if cfg.Features.Notifications {
+		if featureEnabled(featureGate, FeatureNotifications) {
 			if svc, err := newGoNotificationsService(cfg.DefaultLocale, translator, activitySink); err == nil {
 				notifSvc = svc
 			} else {
@@ -174,7 +178,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	bulkSvc := deps.BulkService
 	if bulkSvc == nil {
 		bulkSvc = DisabledBulkService{}
-		if cfg.Features.Bulk {
+		if featureEnabled(featureGate, FeatureBulk) {
 			bulkSvc = NewInMemoryBulkService()
 		}
 	}
@@ -182,7 +186,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	mediaLib := deps.MediaLibrary
 	if mediaLib == nil {
 		mediaLib = DisabledMediaLibrary{}
-		if cfg.Features.Media {
+		if featureEnabled(featureGate, FeatureMedia) {
 			mediaBase := cfg.BasePath
 			if mediaBase == "" {
 				mediaBase = "/admin"
@@ -207,16 +211,16 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		jobReg = NewJobRegistry()
 	}
 	jobReg.WithActivitySink(activitySink)
-	if !cfg.Features.Jobs {
+	if !featureEnabled(featureGate, FeatureJobs) {
 		jobReg.Enable(false)
 	}
 
-	if cfg.Features.Notifications {
+	if featureEnabled(featureGate, FeatureNotifications) {
 		if _, err := RegisterCommand(commandBus, &NotificationMarkCommand{Service: notifSvc}); err != nil {
 			return nil, err
 		}
 	}
-	if cfg.Features.Bulk {
+	if featureEnabled(featureGate, FeatureBulk) {
 		if _, err := RegisterCommand(commandBus, &BulkCommand{Service: bulkSvc}); err != nil {
 			return nil, err
 		}
@@ -245,16 +249,9 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	dashboard := NewDashboard()
 	dashboard.WithRegistry(registry)
 
-	gates := NewFeatureGates(cfg.FeatureFlags)
-	if deps.Gates != nil {
-		gates = *deps.Gates
-	}
-
 	adm := &Admin{
 		config:             cfg,
-		features:           cfg.Features,
-		featureFlags:       cfg.FeatureFlags,
-		gates:              gates,
+		featureGate:        featureGate,
 		registry:           registry,
 		cms:                container,
 		widgetSvc:          container.WidgetService(),
@@ -306,14 +303,14 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 
 	if adm.nav != nil {
 		adm.nav.SetDefaultMenuCode(navMenuCode)
-		adm.nav.UseCMS(adm.gates.Enabled(FeatureCMS))
+		adm.nav.UseCMS(featureEnabled(adm.featureGate, FeatureCMS))
 		adm.nav.SetTranslator(translator)
 	}
 	if adm.search != nil {
-		adm.search.Enable(adm.gates.Enabled(FeatureSearch))
+		adm.search.Enable(featureEnabled(adm.featureGate, FeatureSearch))
 	}
 	if adm.settings != nil {
-		adm.settings.Enable(adm.gates.Enabled(FeatureSettings))
+		adm.settings.Enable(featureEnabled(adm.featureGate, FeatureSettings))
 	}
 	adm.applyActivitySink(activitySink)
 
@@ -442,7 +439,7 @@ func (a *Admin) applyActivitySink(sink ActivitySink) {
 
 func (a *Admin) resolveTheme(ctx context.Context) *ThemeSelection {
 	selector := ThemeSelector{Name: a.config.Theme, Variant: a.config.ThemeVariant}
-	if a.gates.Enabled(FeaturePreferences) && a.preferences != nil {
+	if featureEnabled(a.featureGate, FeaturePreferences) && a.preferences != nil {
 		if userID := userIDFromContext(ctx); userID != "" {
 			selector = mergeSelector(selector, a.preferences.ThemeSelectorForUser(ctx, userID))
 		}
@@ -775,19 +772,19 @@ func (a *Admin) decorateSchema(schema *Schema, panelName string) {
 	if schema == nil {
 		return
 	}
-	if a.gates.Enabled(FeatureExport) {
+	if featureEnabled(a.featureGate, FeatureExport) {
 		schema.Export = &ExportConfig{
 			Definition: panelName,
 			Endpoint:   joinPath(a.config.BasePath, "exports"),
 		}
 	}
-	if a.gates.Enabled(FeatureBulk) && a.bulkSvc != nil {
+	if featureEnabled(a.featureGate, FeatureBulk) && a.bulkSvc != nil {
 		schema.Bulk = &BulkConfig{
 			Endpoint:         joinPath(a.config.BasePath, "api/bulk"),
 			SupportsRollback: supportsBulkRollback(a.bulkSvc),
 		}
 	}
-	if a.gates.Enabled(FeatureMedia) && a.mediaLibrary != nil {
+	if featureEnabled(a.featureGate, FeatureMedia) && a.mediaLibrary != nil {
 		libraryPath := joinPath(a.config.BasePath, "api/media/library")
 		schema.Media = &MediaConfig{LibraryPath: libraryPath}
 		applyMediaHints(schema, libraryPath)

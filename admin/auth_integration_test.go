@@ -123,13 +123,8 @@ func TestJobsAndNotificationsRoutesRequirePermission(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Jobs:          true,
-			Commands:      true,
-			Notifications: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureJobs, FeatureCommands, FeatureNotifications)})
 	adm.WithAuthorizer(denyAllAuthz{})
 
 	server := router.NewHTTPServer()

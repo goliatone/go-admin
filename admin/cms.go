@@ -110,7 +110,7 @@ func (a *Admin) UseCMS(container CMSContainer) *Admin {
 	}
 	if a.nav != nil {
 		a.nav.SetMenuService(a.menuSvc)
-		a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
+		a.nav.UseCMS(featureEnabled(a.featureGate, FeatureCMS))
 	}
 	if a.dashboard != nil {
 		a.dashboard.WithWidgetService(a.widgetSvc)
@@ -125,7 +125,7 @@ func (a *Admin) MenuService() CMSMenuService {
 }
 
 func (a *Admin) ensureCMS(ctx context.Context) error {
-	requireCMS := a.gates.Enabled(FeatureCMS) || a.gates.Enabled(FeatureDashboard)
+	requireCMS := featureEnabled(a.featureGate, FeatureCMS) || featureEnabled(a.featureGate, FeatureDashboard)
 	if !requireCMS {
 		return nil
 	}
@@ -159,14 +159,14 @@ func (a *Admin) ensureCMS(ctx context.Context) error {
 			a.menuSvc = resolved.MenuService
 			if a.nav != nil {
 				a.nav.SetMenuService(a.menuSvc)
-				a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
+				a.nav.UseCMS(featureEnabled(a.featureGate, FeatureCMS))
 			}
 		}
 		if resolved.ContentService != nil {
 			a.contentSvc = resolved.ContentService
 		}
 	}
-	if a.gates.Enabled(FeatureDashboard) && a.widgetSvc == nil {
+	if featureEnabled(a.featureGate, FeatureDashboard) && a.widgetSvc == nil {
 		return fmt.Errorf("dashboard requires a CMS widget service")
 	}
 	return nil

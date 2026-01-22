@@ -107,7 +107,7 @@ func (m *TenantsModule) Register(ctx ModuleContext) error {
 	if _, err := ctx.Admin.RegisterPanel(tenantsModuleID, builder); err != nil {
 		return err
 	}
-	if ctx.Admin.SearchService() != nil && ctx.Admin.gates.Enabled(FeatureSearch) {
+	if ctx.Admin.SearchService() != nil && featureEnabled(ctx.Admin.featureGate, FeatureSearch) {
 		ctx.Admin.SearchService().Register(tenantsModuleID, &tenantSearchAdapter{
 			service:    ctx.Admin.tenants,
 			permission: m.viewPerm,
@@ -233,7 +233,7 @@ func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 	if _, err := ctx.Admin.RegisterPanel(organizationsModuleID, builder); err != nil {
 		return err
 	}
-	if ctx.Admin.SearchService() != nil && ctx.Admin.gates.Enabled(FeatureSearch) {
+	if ctx.Admin.SearchService() != nil && featureEnabled(ctx.Admin.featureGate, FeatureSearch) {
 		ctx.Admin.SearchService().Register(organizationsModuleID, &organizationSearchAdapter{
 			service:    ctx.Admin.organizations,
 			permission: m.viewPerm,

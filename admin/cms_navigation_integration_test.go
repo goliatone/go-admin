@@ -20,9 +20,8 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 	adm := mustNewAdmin(t, Config{
 		DefaultLocale: "en",
 		NavMenuCode:   "admin_main",
-		Features:      Features{CMS: true},
 		CMS:           CMSOptions{Container: NewGoCMSContainerAdapter(module)},
-	}, Dependencies{})
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
 	if err := adm.Initialize(nilRouter{}); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}

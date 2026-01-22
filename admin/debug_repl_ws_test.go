@@ -61,7 +61,6 @@ func TestDebugREPLShellWebSocketAuthRequiresExec(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		FeatureFlags:  map[string]bool{"debug": true},
 		Debug: DebugConfig{
 			Enabled: true,
 			Panels:  []string{DebugPanelShell, DebugPanelConsole},
@@ -73,7 +72,7 @@ func TestDebugREPLShellWebSocketAuthRequiresExec(t *testing.T) {
 			},
 		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
 	authn := &recordingAuthenticator{}
 	adm.WithAuth(authn, nil)
 	adm.WithAuthorizer(allowAuthorizer{})
@@ -101,7 +100,6 @@ func TestDebugREPLAppWebSocketAllowsReadOnly(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		FeatureFlags:  map[string]bool{"debug": true},
 		Debug: DebugConfig{
 			Enabled: true,
 			Panels:  []string{DebugPanelConsole},
@@ -112,7 +110,7 @@ func TestDebugREPLAppWebSocketAllowsReadOnly(t *testing.T) {
 			},
 		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
 	adm.WithAuthorizer(allowAuthorizer{})
 	stubRouter := &stubWebSocketRouter{}
 	adm.router = stubRouter
@@ -135,7 +133,6 @@ func TestDebugREPLShellWebSocketExecPermissionDenied(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		FeatureFlags:  map[string]bool{"debug": true},
 		Debug: DebugConfig{
 			Enabled: true,
 			Panels:  []string{DebugPanelShell},
@@ -146,7 +143,7 @@ func TestDebugREPLShellWebSocketExecPermissionDenied(t *testing.T) {
 			},
 		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
 	adm.WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
 		debugReplDefaultPermission:     true,
 		debugReplDefaultExecPermission: false,

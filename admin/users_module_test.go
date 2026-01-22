@@ -18,12 +18,8 @@ func TestUserModuleRegistersPanelsAndNavigation(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Users:  true,
-			Search: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers, FeatureSearch)})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
@@ -58,11 +54,8 @@ func TestUserModuleEnforcesPermissions(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Users: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
 	adm.WithAuthorizer(stubAuthorizer{allow: false})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -82,12 +75,8 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Users:  true,
-			Search: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers, FeatureSearch)})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize: %v", err)
@@ -174,11 +163,8 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Users: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
 	adm.WithRoleAssignmentLookup(UUIDRoleAssignmentLookup{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -309,11 +295,8 @@ func TestRoleOptionsUsesSyntheticActorContext(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Users: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
 	guarded := &guardedRoleRepo{}
 	adm.users.roles = guarded
 

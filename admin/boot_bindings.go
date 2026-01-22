@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
+	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/pkg/authctx"
 	usertypes "github.com/goliatone/go-users/pkg/types"
@@ -16,21 +18,30 @@ import (
 )
 
 type featureGatesAdapter struct {
-	gates FeatureGates
+	gate fggate.FeatureGate
 }
 
 func (f featureGatesAdapter) Enabled(key string) bool {
-	if f.gates.flags == nil {
-		return false
-	}
-	return f.gates.EnabledKey(key)
+	enabled, err := f.enabled(context.Background(), key)
+	return err == nil && enabled
 }
 
 func (f featureGatesAdapter) Require(key string) error {
-	if f.gates.flags == nil {
-		return FeatureDisabledError{Feature: key}
+	enabled, err := f.enabled(context.Background(), key)
+	if err != nil {
+		return err
 	}
-	return f.gates.RequireKey(key)
+	if enabled {
+		return nil
+	}
+	return FeatureDisabledError{Feature: key}
+}
+
+func (f featureGatesAdapter) enabled(ctx context.Context, key string) (bool, error) {
+	if f.gate == nil {
+		return false, nil
+	}
+	return f.gate.Enabled(ctx, key, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
 }
 
 type responderAdapter struct{}
@@ -172,7 +183,7 @@ func newDashboardBinding(a *Admin) boot.DashboardBinding {
 }
 
 func (d *dashboardBinding) Enabled() bool {
-	return d.admin != nil && d.admin.gates.Enabled(FeatureDashboard)
+	return d.admin != nil && featureEnabled(d.admin.featureGate, FeatureDashboard)
 }
 
 func (d *dashboardBinding) HasRenderer() bool {
@@ -360,7 +371,7 @@ type dashboardGoBinding struct {
 }
 
 func (d *dashboardGoBinding) Enabled() bool {
-	return d.admin != nil && d.admin.gates.Enabled(FeatureDashboard)
+	return d.admin != nil && featureEnabled(d.admin.featureGate, FeatureDashboard)
 }
 
 func (d *dashboardGoBinding) HasRenderer() bool {

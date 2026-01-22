@@ -114,11 +114,8 @@ func (denySettingsNav) Can(ctx context.Context, action string, resource string) 
 func TestSettingsNavigationPermissionFilters(t *testing.T) {
 	cfg := Config{
 		DefaultLocale: "en",
-		Features: Features{
-			Settings: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSettings)})
 	adm.WithAuthorizer(denySettingsNav{})
 
 	if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {

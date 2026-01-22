@@ -12,7 +12,7 @@ import (
 
 // Bootstrap initializes CMS seed data (CMS container, admin menu, settings defaults).
 func (a *Admin) Bootstrap(ctx context.Context) error {
-	if a.gates.Enabled(FeatureCMS) || a.gates.Enabled(FeatureDashboard) {
+	if featureEnabled(a.featureGate, FeatureCMS) || featureEnabled(a.featureGate, FeatureDashboard) {
 		if err := a.ensureCMS(ctx); err != nil {
 			return err
 		}
@@ -28,14 +28,14 @@ func (a *Admin) Bootstrap(ctx context.Context) error {
 		return err
 	}
 
-	if a.gates.Enabled(FeatureSettings) {
+	if featureEnabled(a.featureGate, FeatureSettings) {
 		if err := a.bootstrapSettingsDefaults(ctx); err != nil {
 			return err
 		}
 	}
 
 	// TODO: Configurable
-	if a.gates.Enabled(FeatureNotifications) && a.notifications != nil {
+	if featureEnabled(a.featureGate, FeatureNotifications) && a.notifications != nil {
 		_, _ = a.notifications.Add(ctx, Notification{Title: "Welcome to go-admin", Message: "Notifications are wired", Read: false})
 	}
 
@@ -58,16 +58,16 @@ func (a *Admin) Prepare(ctx context.Context) error {
 	}
 	if a.nav != nil {
 		a.nav.SetDefaultMenuCode(a.navMenuCode)
-		a.nav.UseCMS(a.gates.Enabled(FeatureCMS))
+		a.nav.UseCMS(featureEnabled(a.featureGate, FeatureCMS))
 	}
 	if a.search == nil {
 		a.search = NewSearchEngine(a.authorizer)
 	}
 	if a.search != nil {
-		a.search.Enable(a.gates.Enabled(FeatureSearch))
+		a.search.Enable(featureEnabled(a.featureGate, FeatureSearch))
 	}
 	if a.settings != nil {
-		a.settings.Enable(a.gates.Enabled(FeatureSettings))
+		a.settings.Enable(featureEnabled(a.featureGate, FeatureSettings))
 	}
 	if err := a.validateConfig(); err != nil {
 		return err
@@ -115,12 +115,12 @@ func (a *Admin) initializeCommandRegistry(ctx context.Context) error {
 func (a *Admin) validateConfig() error {
 	issues := []FeatureDependencyError{}
 	require := func(feature FeatureKey, deps ...FeatureKey) {
-		if !a.gates.Enabled(feature) {
+		if !featureEnabled(a.featureGate, feature) {
 			return
 		}
 		missing := []string{}
 		for _, dep := range deps {
-			if !a.gates.Enabled(dep) {
+			if !featureEnabled(a.featureGate, dep) {
 				missing = append(missing, string(dep))
 			}
 		}
@@ -133,7 +133,7 @@ func (a *Admin) validateConfig() error {
 	require(FeatureBulk, FeatureCommands, FeatureJobs)
 
 	for _, feature := range []FeatureKey{FeatureMedia, FeatureExport, FeatureBulk} {
-		if a.gates.Enabled(feature) && !a.gates.Enabled(FeatureCMS) {
+		if featureEnabled(a.featureGate, feature) && !featureEnabled(a.featureGate, FeatureCMS) {
 			issues = append(issues, FeatureDependencyError{
 				Feature: string(feature),
 				Missing: []string{string(FeatureCMS)},
@@ -147,7 +147,7 @@ func (a *Admin) validateConfig() error {
 }
 
 func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
-	if a.nav == nil || !a.gates.Enabled(FeatureSettings) {
+	if a.nav == nil || !featureEnabled(a.featureGate, FeatureSettings) {
 		return nil
 	}
 	settingsPath := joinPath(a.config.BasePath, "settings")
@@ -195,8 +195,8 @@ func (a *Admin) bootstrapSettingsDefaults(ctx context.Context) error {
 		Title:            a.config.Title,
 		DefaultLocale:    a.config.DefaultLocale,
 		Theme:            a.config.Theme,
-		DashboardEnabled: a.gates.Enabled(FeatureDashboard),
-		SearchEnabled:    a.gates.Enabled(FeatureSearch),
+		DashboardEnabled: featureEnabled(a.featureGate, FeatureDashboard),
+		SearchEnabled:    featureEnabled(a.featureGate, FeatureSearch),
 	}
 	return settingsinternal.BootstrapDefaults(
 		ctx,

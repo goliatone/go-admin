@@ -95,9 +95,8 @@ func TestSearchRouteAggregatesAndFiltersByPermission(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features:      Features{Search: true},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSearch)})
 	adm.WithAuthorizer(searchAuthorizer{allowed: map[string]bool{"search.users": true}})
 
 	adm.SearchService().Register("users", &stubSearchAdapter{

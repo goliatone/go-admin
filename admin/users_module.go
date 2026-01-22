@@ -154,7 +154,7 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 		return err
 	}
 
-	if ctx.Admin.SearchService() != nil && ctx.Admin.gates.Enabled(FeatureSearch) {
+	if ctx.Admin.SearchService() != nil && featureEnabled(ctx.Admin.featureGate, FeatureSearch) {
 		ctx.Admin.SearchService().Register(usersModuleID, &userSearchAdapter{
 			service:    ctx.Admin.users,
 			permission: ctx.Admin.config.UsersPermission,

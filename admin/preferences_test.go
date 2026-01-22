@@ -180,11 +180,8 @@ func TestPreferencesModuleRegistersPanelAndNavigation(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
@@ -212,11 +209,8 @@ func TestPreferencesPanelRequiresPermissions(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	adm.WithAuthorizer(stubAuthorizer{allow: false})
 	server := router.NewHTTPServer()
 
@@ -252,11 +246,8 @@ func TestPreferencesInfluenceThemeResolution(t *testing.T) {
 		DefaultLocale: "en",
 		Theme:         "base",
 		ThemeVariant:  "light",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	if _, err := adm.preferences.Save(context.Background(), "user-1", UserPreferences{
 		Theme:        "custom",
 		ThemeVariant: "night",
@@ -280,11 +271,8 @@ func TestPreferencesUpdateRoundTripViaAPI(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -324,11 +312,8 @@ func TestPreferencesUpdateRoundTripViaAPIStoresRawUIKeysAndStripsReserved(t *tes
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -428,11 +413,8 @@ func TestPreferencesClearKeysViaAPI(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 		Theme:         "base",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -491,11 +473,8 @@ func TestPreferencesQueryParamsIncludeTracesAndVersions(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -565,11 +544,8 @@ func TestPreferencesQueryParamsRejectInvalidLevels(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -598,11 +574,8 @@ func TestPreferencesQueryBaseOverridesDefaults(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 		Theme:         "default",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -634,11 +607,8 @@ func TestPreferencesEmptyThemeClearsToInheritedValue(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -693,11 +663,8 @@ func TestPreferencesTenantWriteRequiresPermission(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	adm.WithAuthorizer(permissionAuthorizer{allowed: map[string]bool{
 		adm.config.PreferencesUpdatePermission: true,
 	}})
@@ -734,11 +701,8 @@ func TestPreferencesTenantWriteHonorsPermission(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Features: Features{
-			Preferences: true,
-		},
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
 	adm.WithAuthorizer(permissionAuthorizer{allowed: map[string]bool{
 		adm.config.PreferencesUpdatePermission:       true,
 		adm.config.PreferencesManageTenantPermission: true,

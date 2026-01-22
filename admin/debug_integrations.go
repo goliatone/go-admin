@@ -453,10 +453,6 @@ func debugConfigSnapshot(cfg Config) map[string]any {
 	if theme := debugThemeSnapshot(cfg); len(theme) > 0 {
 		snapshot["theme"] = theme
 	}
-	if flags := cloneBoolMap(cfg.FeatureFlags); len(flags) > 0 {
-		snapshot["feature_flags"] = flags
-	}
-	snapshot["features"] = cfg.Features
 	if debug := debugDebugConfigSnapshot(cfg.Debug); len(debug) > 0 {
 		snapshot["debug"] = debug
 	}
@@ -695,6 +691,7 @@ func debugPermissionSnapshot(cfg Config) map[string]any {
 	out := map[string]any{}
 	debugSetPermission(out, "settings", cfg.SettingsPermission)
 	debugSetPermission(out, "settings_update", cfg.SettingsUpdatePermission)
+	debugSetPermission(out, "feature_flags_update", cfg.FeatureFlagsUpdatePermission)
 	debugSetPermission(out, "notifications", cfg.NotificationsPermission)
 	debugSetPermission(out, "notifications_update", cfg.NotificationsUpdatePermission)
 	debugSetPermission(out, "jobs", cfg.JobsPermission)
@@ -734,17 +731,6 @@ func debugSetPermission(dest map[string]any, key, value string) {
 		return
 	}
 	dest[key] = value
-}
-
-func cloneBoolMap(in map[string]bool) map[string]bool {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]bool, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
-	return out
 }
 
 func (m *DebugModule) captureConfigSnapshot(admin *Admin) {
