@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	fggate "github.com/goliatone/go-featuregate/gate"
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/pkg/types"
 )
@@ -20,6 +21,7 @@ type Dependencies struct {
 	Registry    *Registry
 	CommandBus  *CommandBus
 	JobRegistry *JobRegistry
+	URLManager  *urlkit.RouteManager
 
 	Authorizer            Authorizer
 	Authenticator         Authenticator
