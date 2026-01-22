@@ -21,7 +21,7 @@
       <div class="mt-4 space-y-4">
         <div>
           <label class="text-xs font-medium text-gray-600">Scope</label>
-          <select id="flag-scope" class="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+          <select id="flag-scope" class="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-gray-300">
             <option value="system" selected>System</option>
             <option value="tenant">Tenant</option>
             <option value="org">Organization</option>
@@ -30,7 +30,7 @@
         </div>
         <div>
           <label class="text-xs font-medium text-gray-600">Scope ID</label>
-          <input id="flag-scope-id" type="text" class="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="tenant/org/user id">
+          <input id="flag-scope-id" type="text" class="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-gray-300" placeholder="tenant/org/user id">
           <p class="text-xs text-gray-400 mt-2">Required for tenant, org, or user scopes.</p>
         </div>
         <button id="apply-scope" class="btn btn-primary w-full justify-center">Apply Scope</button>
@@ -41,201 +41,296 @@
           <span id="mutable-state" class="font-semibold text-gray-800">—</span>
         </div>
       </div>
-      <div id="flags-status" class="mt-4 text-xs text-gray-500"></div>
     </section>
 
     <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">Flags</h2>
           <p class="text-xs text-gray-500">Effective values and override state.</p>
         </div>
+        <div class="flex-1 max-w-xs">
+          <input id="flag-search" type="text" placeholder="Filter by key..."
+                 class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+        </div>
       </div>
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
+        <table class="min-w-full text-sm text-left text-gray-700">
+          <thead class="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
             <tr>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Key</th>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Effective</th>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Source</th>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Default</th>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Override</th>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Update</th>
+              <th class="px-5 py-3">Key</th>
+              <th class="px-5 py-3">Effective</th>
+              <th class="px-5 py-3">Source</th>
+              <th class="px-5 py-3">Default</th>
+              <th class="px-5 py-3">Override</th>
+              <th class="px-5 py-3">Update</th>
             </tr>
           </thead>
           <tbody id="flags-table" class="divide-y divide-gray-100 bg-white"></tbody>
         </table>
       </div>
-      <div id="flags-empty" class="hidden px-5 py-6 text-sm text-gray-500">No flags found.</div>
+      <div id="flags-empty" class="hidden px-5 py-12 text-center">
+        <div class="text-4xl mb-3">🚩</div>
+        <p class="text-sm text-gray-500">No flags found.</p>
+      </div>
     </section>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-  const apiPath = '{{ feature_flags_api_path|default:"" }}' || (('{{ base_path }}' || '').replace(/\/$/, '') + '/api/feature-flags');
-  const scopeSelect = document.getElementById('flag-scope');
-  const scopeIdInput = document.getElementById('flag-scope-id');
-  const applyScope = document.getElementById('apply-scope');
-  const refreshButton = document.getElementById('refresh-flags');
-  const statusEl = document.getElementById('flags-status');
-  const mutableEl = document.getElementById('mutable-state');
-  const tableBody = document.getElementById('flags-table');
-  const emptyState = document.getElementById('flags-empty');
+<script type="module">
+const basePath = '{{ base_path }}';
+const apiPath = '{{ feature_flags_api_path|default:"" }}' || `${basePath}/api/feature-flags`;
+const scopeSelect = document.getElementById('flag-scope');
+const scopeIdInput = document.getElementById('flag-scope-id');
+const applyScope = document.getElementById('apply-scope');
+const refreshButton = document.getElementById('refresh-flags');
+const searchInput = document.getElementById('flag-search');
+const mutableEl = document.getElementById('mutable-state');
+const tableBody = document.getElementById('flags-table');
+const emptyState = document.getElementById('flags-empty');
 
-  function setStatus(message, tone) {
-    statusEl.textContent = message || '';
-    statusEl.className = 'mt-4 text-xs';
-    if (!message) {
-      return;
-    }
-    if (tone === 'error') {
-      statusEl.classList.add('text-red-600');
-    } else if (tone === 'success') {
-      statusEl.classList.add('text-green-600');
-    } else {
-      statusEl.classList.add('text-gray-500');
-    }
+let allFlags = [];
+let isMutable = false;
+
+function syncFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const scope = params.get('scope');
+  const scopeId = params.get('scope_id');
+  if (scope) {
+    scopeSelect.value = scope;
   }
-
-  function badge(label, intent) {
-    const base = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold';
-    if (intent === 'on') {
-      return `<span class="${base} bg-green-100 text-green-700">${label}</span>`;
-    }
-    if (intent === 'off') {
-      return `<span class="${base} bg-red-100 text-red-700">${label}</span>`;
-    }
-    return `<span class="${base} bg-gray-100 text-gray-600">${label}</span>`;
+  if (scopeId) {
+    scopeIdInput.value = scopeId;
   }
+}
 
-  function normalizeOverrideState(flag) {
-    const state = flag && flag.override && flag.override.state ? String(flag.override.state) : 'missing';
-    return state.toLowerCase();
+function syncUrl() {
+  const params = new URLSearchParams();
+  const scope = scopeSelect.value || 'system';
+  params.set('scope', scope);
+  if (scope !== 'system' && scopeIdInput.value.trim()) {
+    params.set('scope_id', scopeIdInput.value.trim());
   }
+  const query = params.toString();
+  const next = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+  window.history.replaceState({}, '', next);
+}
 
-  function overrideSelectValue(flag) {
-    const state = normalizeOverrideState(flag);
-    if (state === 'enabled') return 'enabled';
-    if (state === 'disabled') return 'disabled';
-    return 'unset';
+function badge(label, intent) {
+  // Use consistent status-badge pattern from input.css
+  const base = 'status-badge';
+  if (intent === 'on') {
+    return `<span class="${base} status-active">${label}</span>`;
   }
-
-  function renderFlags(flags, mutable) {
-    tableBody.innerHTML = '';
-    if (!Array.isArray(flags) || flags.length === 0) {
-      emptyState.classList.remove('hidden');
-      return;
-    }
-    emptyState.classList.add('hidden');
-    flags.forEach(flag => {
-      const effective = flag && flag.effective ? 'Enabled' : 'Disabled';
-      const effectiveBadge = badge(effective, flag && flag.effective ? 'on' : 'off');
-      const source = flag && flag.source ? String(flag.source) : 'unknown';
-      const defaultValue = flag && flag.default && flag.default.set ? (flag.default.value ? 'Enabled' : 'Disabled') : '—';
-      const overrideState = normalizeOverrideState(flag);
-      const overrideValue = flag && flag.override && flag.override.value !== undefined ? (flag.override.value ? 'Enabled' : 'Disabled') : '—';
-      const overrideLabel = overrideState === 'enabled' || overrideState === 'disabled' ? `${overrideValue}` : 'Default';
-      const overrideBadge = badge(overrideLabel, overrideState === 'enabled' ? 'on' : (overrideState === 'disabled' ? 'off' : 'neutral'));
-      const selectValue = overrideSelectValue(flag);
-      const disabledAttr = mutable ? '' : 'disabled';
-      const key = flag && flag.key ? String(flag.key) : '';
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td class="px-5 py-4 text-sm text-gray-900 font-mono">${key}</td>
-        <td class="px-5 py-4 text-sm">${effectiveBadge}</td>
-        <td class="px-5 py-4 text-sm text-gray-600 capitalize">${source}</td>
-        <td class="px-5 py-4 text-sm text-gray-600">${defaultValue}</td>
-        <td class="px-5 py-4 text-sm">${overrideBadge}</td>
-        <td class="px-5 py-4 text-sm">
-          <select data-flag-key="${key}" class="border border-gray-200 rounded-lg px-2 py-1 text-sm" ${disabledAttr}>
-            <option value="unset">Default</option>
-            <option value="enabled">Enabled</option>
-            <option value="disabled">Disabled</option>
-          </select>
-        </td>
-      `;
-      const select = row.querySelector('select');
-      if (select) {
-        select.value = selectValue;
-        select.addEventListener('change', () => updateFlag(key, select.value));
-      }
-      tableBody.appendChild(row);
-    });
+  if (intent === 'off') {
+    return `<span class="${base} status-disabled">${label}</span>`;
   }
+  return `<span class="${base} status-draft">${label}</span>`;
+}
 
-  function buildScopeParams() {
-    const scope = scopeSelect.value || 'system';
-    const scopeId = scopeIdInput.value.trim();
-    const params = new URLSearchParams();
-    params.set('scope', scope);
-    if (scope !== 'system' && scopeId) {
-      params.set('scope_id', scopeId);
-    }
-    return { scope, scopeId, params };
+function normalizeOverrideState(flag) {
+  const state = flag && flag.override && flag.override.state ? String(flag.override.state) : 'missing';
+  return state.toLowerCase();
+}
+
+function currentOverrideValue(flag) {
+  const state = normalizeOverrideState(flag);
+  if (state === 'enabled') return 'enabled';
+  if (state === 'disabled') return 'disabled';
+  return 'unset';
+}
+
+function renderActionMenu(key, currentValue, disabled) {
+  const options = [
+    { value: 'unset', label: 'Default', icon: 'minus' },
+    { value: 'enabled', label: 'Enabled', icon: 'check' },
+    { value: 'disabled', label: 'Disabled', icon: 'x' }
+  ];
+
+  const disabledClass = disabled ? 'opacity-50 pointer-events-none' : '';
+
+  return `
+    <div class="relative action-menu ${disabledClass}" data-flag-key="${key}">
+      <button type="button" class="action-menu-trigger inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-0" ${disabled ? 'disabled' : ''}>
+        <span class="action-menu-label">${options.find(o => o.value === currentValue)?.label || 'Default'}</span>
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="action-menu-dropdown hidden absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+        ${options.map(opt => `
+          <button type="button" data-value="${opt.value}" class="action-menu-item w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${opt.value === currentValue ? 'bg-gray-50 font-medium' : ''}">
+            ${getIcon(opt.icon)}
+            ${opt.label}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function getIcon(name) {
+  const icons = {
+    check: '<svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>',
+    x: '<svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
+    minus: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>'
+  };
+  return icons[name] || '';
+}
+
+function renderFlags(flags, mutable) {
+  tableBody.innerHTML = '';
+  const searchTerm = (searchInput.value || '').toLowerCase().trim();
+  const filtered = searchTerm
+    ? flags.filter(f => f.key && f.key.toLowerCase().includes(searchTerm))
+    : flags;
+
+  if (filtered.length === 0) {
+    emptyState.classList.remove('hidden');
+    return;
   }
+  emptyState.classList.add('hidden');
 
-  async function loadFlags() {
-    setStatus('Loading flags...', 'info');
-    const { params } = buildScopeParams();
-    const url = `${apiPath}?${params.toString()}`;
-    try {
-      const response = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!response.ok) {
-        const text = await response.text();
-        setStatus(text || 'Failed to load flags.', 'error');
-        return;
-      }
-      const payload = await response.json();
-      const mutable = !!payload.mutable;
-      mutableEl.textContent = mutable ? 'Yes' : 'No';
-      renderFlags(payload.flags || [], mutable);
-      setStatus('');
-    } catch (err) {
-      setStatus('Failed to load flags.', 'error');
-    }
-  }
+  filtered.forEach(flag => {
+    const effective = flag && flag.effective ? 'Enabled' : 'Disabled';
+    const effectiveBadge = badge(effective, flag && flag.effective ? 'on' : 'off');
+    const source = flag && flag.source ? String(flag.source) : 'unknown';
+    const defaultValue = flag && flag.default && flag.default.set ? (flag.default.value ? 'Enabled' : 'Disabled') : '—';
+    const overrideState = normalizeOverrideState(flag);
+    const overrideValue = flag && flag.override && flag.override.value !== undefined ? (flag.override.value ? 'Enabled' : 'Disabled') : '—';
+    const overrideLabel = overrideState === 'enabled' || overrideState === 'disabled' ? overrideValue : 'Default';
+    const overrideBadge = badge(overrideLabel, overrideState === 'enabled' ? 'on' : (overrideState === 'disabled' ? 'off' : 'neutral'));
+    const currentVal = currentOverrideValue(flag);
+    const key = flag && flag.key ? String(flag.key) : '';
 
-  async function updateFlag(key, state) {
-    const { scope, scopeId } = buildScopeParams();
-    if (scope !== 'system' && !scopeId) {
-      setStatus('Scope ID required for tenant/org/user scopes.', 'error');
-      await loadFlags();
-      return;
-    }
-    const payload = { key, scope };
-    if (scopeId) {
-      payload.scope_id = scopeId;
-    }
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="px-5 py-4 text-sm text-gray-900 font-mono">${key}</td>
+      <td class="px-5 py-4 text-sm">${effectiveBadge}</td>
+      <td class="px-5 py-4 text-sm text-gray-600 capitalize">${source}</td>
+      <td class="px-5 py-4 text-sm text-gray-600">${defaultValue}</td>
+      <td class="px-5 py-4 text-sm">${overrideBadge}</td>
+      <td class="px-5 py-4 text-sm">${renderActionMenu(key, currentVal, !mutable)}</td>
+    `;
+    tableBody.appendChild(row);
+  });
 
-    let method = 'POST';
-    if (state === 'unset') {
-      method = 'DELETE';
-    } else {
-      payload.enabled = state === 'enabled';
-    }
+  // Wire up action menu dropdowns
+  wireActionMenus();
+}
 
-    try {
-      const response = await fetch(apiPath, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+function wireActionMenus() {
+  document.querySelectorAll('.action-menu').forEach(menu => {
+    const trigger = menu.querySelector('.action-menu-trigger');
+    const dropdown = menu.querySelector('.action-menu-dropdown');
+    const items = menu.querySelectorAll('.action-menu-item');
+    const key = menu.dataset.flagKey;
+
+    if (!trigger || !dropdown) return;
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Close other open menus
+      document.querySelectorAll('.action-menu-dropdown').forEach(d => {
+        if (d !== dropdown) d.classList.add('hidden');
       });
-      if (!response.ok) {
-        const text = await response.text();
-        setStatus(text || 'Failed to update flag.', 'error');
-      } else {
-        setStatus('Flag updated.', 'success');
-      }
-    } catch (err) {
-      setStatus('Failed to update flag.', 'error');
+      dropdown.classList.toggle('hidden');
+    });
+
+    items.forEach(item => {
+      item.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const value = item.dataset.value;
+        dropdown.classList.add('hidden');
+        await updateFlag(key, value);
+      });
+    });
+  });
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.action-menu-dropdown').forEach(d => d.classList.add('hidden'));
+  });
+}
+
+function buildScopeParams() {
+  const scope = scopeSelect.value || 'system';
+  const scopeId = scopeIdInput.value.trim();
+  const params = new URLSearchParams();
+  params.set('scope', scope);
+  if (scope !== 'system' && scopeId) {
+    params.set('scope_id', scopeId);
+  }
+  return { scope, scopeId, params };
+}
+
+async function loadFlags() {
+  const { params } = buildScopeParams();
+  syncUrl();
+  const url = `${apiPath}?${params.toString()}`;
+  try {
+    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!response.ok) {
+      const text = await response.text();
+      window.toastManager?.error(text || 'Failed to load flags.');
+      return;
     }
+    const payload = await response.json();
+    isMutable = !!payload.mutable;
+    mutableEl.textContent = isMutable ? 'Yes' : 'No';
+    allFlags = payload.flags || [];
+    renderFlags(allFlags, isMutable);
+  } catch (err) {
+    window.toastManager?.error('Failed to load flags.');
+  }
+}
+
+async function updateFlag(key, state) {
+  const { scope, scopeId } = buildScopeParams();
+  if (scope !== 'system' && !scopeId) {
+    window.toastManager?.error('Scope ID required for tenant/org/user scopes.');
     await loadFlags();
+    return;
+  }
+  const payload = { key, scope };
+  if (scopeId) {
+    payload.scope_id = scopeId;
   }
 
-  applyScope.addEventListener('click', () => loadFlags());
-  refreshButton.addEventListener('click', () => loadFlags());
-  loadFlags();
+  let method = 'POST';
+  if (state === 'unset') {
+    method = 'DELETE';
+  } else {
+    payload.enabled = state === 'enabled';
+  }
+
+  try {
+    const response = await fetch(apiPath, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      window.toastManager?.error(text || 'Failed to update flag.');
+    } else {
+      window.toastManager?.success('Flag updated.');
+    }
+  } catch (err) {
+    window.toastManager?.error('Failed to update flag.');
+  }
+  await loadFlags();
+}
+
+// Event listeners
+applyScope.addEventListener('click', () => loadFlags());
+refreshButton.addEventListener('click', () => loadFlags());
+searchInput.addEventListener('input', () => renderFlags(allFlags, isMutable));
+
+// Initialize
+syncFromQuery();
+loadFlags();
 </script>
 {% endblock %}
