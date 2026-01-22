@@ -1,6 +1,9 @@
 package boot
 
-import router "github.com/goliatone/go-router"
+import (
+	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
+)
 
 const (
 	FeatureDashboard     = "dashboard"
@@ -147,6 +150,7 @@ type BootCtx interface {
 	Router() Router
 	AuthWrapper() HandlerWrapper
 	BasePath() string
+	URLs() urlkit.Resolver
 	DefaultLocale() string
 	NavMenuCode() string
 	Gates() FeatureGates
