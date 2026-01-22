@@ -8,6 +8,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	goerrors "github.com/goliatone/go-errors"
+	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
@@ -17,10 +18,10 @@ import (
 
 // UserActionHandlers exposes lifecycle/role/invite/reset endpoints for admin users.
 type UserActionHandlers struct {
-	Service      *userssvc.Service
-	Roles        userstypes.RoleRegistry
-	AuthRepo     userstypes.AuthRepository
-	FeatureFlags map[string]bool
+	Service     *userssvc.Service
+	Roles       userstypes.RoleRegistry
+	AuthRepo    userstypes.AuthRepository
+	FeatureGate fggate.FeatureGate
 }
 
 // Lifecycle transitions a single user to the target state.
@@ -343,10 +344,10 @@ func (h *UserActionHandlers) parseUserID(raw string) (uuid.UUID, error) {
 }
 
 func (h *UserActionHandlers) isFeatureEnabled(flag string) bool {
-	if h == nil || h.FeatureFlags == nil {
+	if h == nil {
 		return false
 	}
-	return h.FeatureFlags[flag]
+	return featureEnabled(h.FeatureGate, flag)
 }
 
 func (h *UserActionHandlers) logActivity(ctx context.Context, verb string, userID uuid.UUID, data map[string]any) {

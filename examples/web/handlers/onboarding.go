@@ -13,6 +13,7 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
+	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
@@ -24,7 +25,7 @@ import (
 type OnboardingHandlers struct {
 	UsersService *userssvc.Service
 	AuthRepo     userstypes.AuthRepository
-	FeatureFlags map[string]bool
+	FeatureGate  fggate.FeatureGate
 	Registration setup.RegistrationConfig
 	Notifier     *setup.OnboardingNotifier
 	Config       admin.Config
@@ -644,12 +645,12 @@ func (h *OnboardingHandlers) TokenMetadata(c router.Context) error {
 }
 
 func (h *OnboardingHandlers) requireFeature(flag string) error {
-	if h == nil || h.FeatureFlags == nil {
-		return goerrors.New("feature flags unavailable", goerrors.CategoryInternal).
-			WithCode(goerrors.CodeInternal).
-			WithTextCode("FEATURES_MISSING")
+	if h == nil {
+		return goerrors.New("feature disabled", goerrors.CategoryAuthz).
+			WithCode(goerrors.CodeForbidden).
+			WithTextCode("FEATURE_DISABLED")
 	}
-	if h.FeatureFlags[flag] {
+	if featureEnabled(h.FeatureGate, flag) {
 		return nil
 	}
 	return goerrors.New("feature disabled", goerrors.CategoryAuthz).

@@ -46,7 +46,7 @@ func (h *ProfileHandlers) Show(c router.Context) error {
 			WithTextCode("PROFILE_SERVICE_MISSING")
 	}
 
-	session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), h.Config.Features)
+	session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), h.Admin.FeatureGate())
 	if strings.TrimSpace(session.ID) == "" {
 		return goerrors.New("missing or invalid token", goerrors.CategoryAuth).
 			WithCode(goerrors.CodeUnauthorized).
@@ -93,7 +93,7 @@ func (h *ProfileHandlers) Save(c router.Context) error {
 			WithTextCode("PROFILE_SERVICE_MISSING")
 	}
 
-	session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), h.Config.Features)
+	session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), h.Admin.FeatureGate())
 	if strings.TrimSpace(session.ID) == "" {
 		return goerrors.New("missing or invalid token", goerrors.CategoryAuth).
 			WithCode(goerrors.CodeUnauthorized).

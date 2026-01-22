@@ -8,8 +8,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/goliatone/go-admin/pkg/admin"
 	authlib "github.com/goliatone/go-auth"
+	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
 // SessionUser captures session metadata to expose in templates and APIs.
@@ -119,16 +119,24 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 }
 
 // FilterSessionUser hides tenant/org data when those features are disabled.
-func FilterSessionUser(session SessionUser, features admin.Features) SessionUser {
-	if !features.Tenants {
+func FilterSessionUser(session SessionUser, gate fggate.FeatureGate) SessionUser {
+	if !featureEnabled(gate, "tenants") {
 		session.TenantID = ""
 		session.Metadata = pruneSessionMetadata(session.Metadata, tenantMetadataKeys)
 	}
-	if !features.Organizations {
+	if !featureEnabled(gate, "organizations") {
 		session.OrganizationID = ""
 		session.Metadata = pruneSessionMetadata(session.Metadata, organizationMetadataKeys)
 	}
 	return session
+}
+
+func featureEnabled(gate fggate.FeatureGate, feature string) bool {
+	if gate == nil || strings.TrimSpace(feature) == "" {
+		return false
+	}
+	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+	return err == nil && enabled
 }
 
 // ToViewContext converts the session into snake_case keys for templates.

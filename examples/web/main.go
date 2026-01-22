@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-export/export"
+	fggate "github.com/goliatone/go-featuregate/gate"
 	persistence "github.com/goliatone/go-persistence-bun"
 	"github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/activity"
@@ -57,40 +59,36 @@ func main() {
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
 		}),
-		quickstart.WithFeatures(admin.Features{
-			Dashboard:     true,
-			CMS:           true,
-			Commands:      true,
-			Settings:      true,
-			Search:        true,
-			Notifications: true,
-			Jobs:          true,
-			Media:         true,
-			Export:        true,
-			Bulk:          true,
-			Preferences:   true,
-			Profile:       true,
-			Users:         false,
-			Tenants:       true,
-			Organizations: true,
-		}),
-		quickstart.WithFeatureFlags(map[string]bool{
-			setup.FeatureUserInvites:      true,
-			setup.FeaturePasswordReset:    true,
-			setup.FeatureSelfRegistration: false,
-		}),
-		quickstart.WithFeatureFlagsFromEnv(
-			quickstart.EnvFlagOverride{Env: "USE_USER_INVITES", Key: setup.FeatureUserInvites},
-			quickstart.EnvFlagOverride{Env: "USE_PASSWORD_RESET", Key: setup.FeaturePasswordReset},
-			quickstart.EnvFlagOverride{Env: "USE_SELF_REGISTRATION", Key: setup.FeatureSelfRegistration},
-		),
 	)
+	featureDefaults := map[string]bool{
+		"dashboard":                   true,
+		"cms":                         true,
+		"commands":                    true,
+		"settings":                    true,
+		"search":                      true,
+		"notifications":               true,
+		"jobs":                        true,
+		"media":                       true,
+		"export":                      true,
+		"bulk":                        true,
+		"preferences":                 true,
+		"profile":                     true,
+		"users":                       false,
+		"tenants":                     true,
+		"organizations":               true,
+		setup.FeatureUserInvites:      true,
+		setup.FeaturePasswordReset:    true,
+		setup.FeatureSelfRegistration: false,
+	}
+	applyFeatureFlagFromEnv(featureDefaults, "USE_USER_INVITES", setup.FeatureUserInvites)
+	applyFeatureFlagFromEnv(featureDefaults, "USE_PASSWORD_RESET", setup.FeaturePasswordReset)
+	applyFeatureFlagFromEnv(featureDefaults, "USE_SELF_REGISTRATION", setup.FeatureSelfRegistration)
 	registrationCfg := setup.DefaultRegistrationConfig()
 	if mode := strings.TrimSpace(os.Getenv("REGISTRATION_MODE")); mode != "" {
 		if parsed := parseRegistrationMode(mode, registrationCfg.Mode); parsed != "" {
 			registrationCfg.Mode = parsed
 			if parsed == setup.RegistrationOpen || parsed == setup.RegistrationAllowlist {
-				cfg.FeatureFlags[setup.FeatureSelfRegistration] = true
+				featureDefaults[setup.FeatureSelfRegistration] = true
 			}
 		}
 	}
@@ -107,10 +105,6 @@ func main() {
 	cfg.Debug.CaptureSQL = debugEnabled
 	cfg.Debug.CaptureLogs = debugEnabled
 	if debugEnabled {
-		if cfg.FeatureFlags == nil {
-			cfg.FeatureFlags = map[string]bool{}
-		}
-		cfg.FeatureFlags["debug"] = true
 		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
 		if mode := strings.TrimSpace(os.Getenv("ADMIN_DEBUG_LAYOUT")); mode != "" {
 			switch strings.ToLower(mode) {
@@ -125,7 +119,7 @@ func main() {
 		}
 	}
 
-	if debugEnabled && cfg.Features.Export {
+	if debugEnabled && featureDefaults["export"] {
 		cfg.Debug.Panels = ensureDefaultDebugPanels(cfg.Debug.Panels)
 		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, exportPipelinePanelID)
 	}
@@ -215,7 +209,7 @@ func main() {
 		quickstart.WithExportAsyncInProcess(10*time.Minute),
 		quickstart.WithExportTracker(exportTracker),
 	)
-	if cfg.Features.Export {
+	if featureDefaults["export"] {
 		exportTemplatesFS := client.Templates()
 		if err := quickstart.ConfigureExportRenderers(
 			exportBundle,
@@ -225,7 +219,7 @@ func main() {
 			log.Fatalf("failed to configure export renderers: %v", err)
 		}
 	}
-	if debugEnabled && cfg.Features.Export {
+	if debugEnabled && featureDefaults["export"] {
 		registerExportPipelinePanel(exportBundle)
 	}
 	adminDeps := admin.Dependencies{
@@ -242,6 +236,7 @@ func main() {
 		adapterHooks,
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
+		quickstart.WithFeatureDefaults(featureDefaults),
 	)
 	if err != nil {
 		log.Fatalf("failed to construct admin: %v", err)
@@ -266,7 +261,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
-	if cfg.Features.Export {
+	if featureEnabled(adm.FeatureGate(), "export") {
 		if err := registerExampleExports(exportBundle, dataStores, adm.TenantService()); err != nil {
 			log.Fatalf("failed to register exports: %v", err)
 		}
@@ -327,7 +322,7 @@ func main() {
 	var defaultTenantID string
 	var defaultOrgID string
 	// Seed demo tenants/orgs for navigation/search coverage
-	if svc := adm.TenantService(); svc != nil && cfg.Features.Tenants {
+	if svc := adm.TenantService(); svc != nil && featureEnabled(adm.FeatureGate(), "tenants") {
 		tenant, err := svc.SaveTenant(context.Background(), admin.TenantRecord{
 			Name:   "Acme Corp",
 			Slug:   "acme",
@@ -339,7 +334,7 @@ func main() {
 		})
 		if err == nil {
 			defaultTenantID = tenant.ID
-			if orgSvc := adm.OrganizationService(); orgSvc != nil && cfg.Features.Organizations {
+			if orgSvc := adm.OrganizationService(); orgSvc != nil && featureEnabled(adm.FeatureGate(), "organizations") {
 				org, err := orgSvc.SaveOrganization(context.Background(), admin.OrganizationRecord{
 					Name:     "Acme Engineering",
 					Slug:     "acme-eng",
@@ -409,7 +404,9 @@ func main() {
 	// Initialize view engine
 	viewEngine, err := quickstart.NewViewEngine(
 		client.FS(),
-		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
+		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
+			append(helpers.TemplateFuncOptions(), quickstart.WithTemplateFeatureGate(adm.FeatureGate()))...,
+		)),
 		quickstart.WithViewTemplatesFS(webFS),
 	)
 	if err != nil {
@@ -469,7 +466,7 @@ func main() {
 				if assetPath != "" && strings.HasPrefix(c.Path(), assetPath) {
 					return err
 				}
-				session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), cfg.Features)
+				session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), adm.FeatureGate())
 				collector.CaptureSession(session.ToViewContext())
 				return err
 			}
@@ -682,7 +679,7 @@ func main() {
 	registerCrudAliases(crudAdapter, mediaController, "media")
 
 	r.Get(path.Join(cfg.BasePath, "api/session"), authn.WrapHandler(func(c router.Context) error {
-		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), cfg.Features)
+		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), adm.FeatureGate())
 		return c.JSON(fiber.StatusOK, session)
 	}))
 
@@ -691,7 +688,7 @@ func main() {
 	onboardingHandlers := handlers.OnboardingHandlers{
 		UsersService: usersService,
 		AuthRepo:     usersDeps.AuthRepo,
-		FeatureFlags: cfg.FeatureFlags,
+		FeatureGate:  adm.FeatureGate(),
 		Registration: registrationCfg,
 		Notifier:     onboardingNotifier,
 		Config:       cfg,
@@ -714,10 +711,10 @@ func main() {
 	r.Post(path.Join(uploadsBase, "profile-picture"), authn.WrapHandler(handlers.ProfilePictureUploadHandler(cfg.BasePath, diskAssetsDir)))
 
 	userActions := &handlers.UserActionHandlers{
-		Service:      usersService,
-		Roles:        usersDeps.RoleRegistry,
-		AuthRepo:     usersDeps.AuthRepo,
-		FeatureFlags: cfg.FeatureFlags,
+		Service:     usersService,
+		Roles:       usersDeps.RoleRegistry,
+		AuthRepo:    usersDeps.AuthRepo,
+		FeatureGate: adm.FeatureGate(),
 	}
 	for _, base := range []string{path.Join(cfg.BasePath, "api", "users"), path.Join(cfg.BasePath, "crud", "users")} {
 		r.Post(path.Join(base, ":id", "activate"), authn.WrapHandler(userActions.Lifecycle(userstypes.LifecycleStateActive)))
@@ -797,6 +794,7 @@ func main() {
 		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
 		quickstart.WithAuthUIPasswordResetConfirmPath(passwordResetConfirmPath),
 		quickstart.WithAuthUIRegisterPath(registerPath),
+		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),
 		quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
 		quickstart.WithAuthUIViewContextBuilder(authUIViewContext),
 	); err != nil {
@@ -804,22 +802,25 @@ func main() {
 	}
 
 	r.Get(registerPath, func(c router.Context) error {
-		if !cfg.FeatureFlags[setup.FeatureSelfRegistration] {
+		if !featureEnabled(adm.FeatureGate(), setup.FeatureSelfRegistration) {
 			return goerrors.New("registration disabled", goerrors.CategoryAuthz).
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
+		featureSnapshot := map[string]bool{
+			setup.FeaturePasswordReset:    featureEnabled(adm.FeatureGate(), setup.FeaturePasswordReset),
+			setup.FeatureSelfRegistration: featureEnabled(adm.FeatureGate(), setup.FeatureSelfRegistration),
+		}
 		viewCtx := router.ViewContext{
 			"title":                       cfg.Title,
 			"base_path":                   cfg.BasePath,
-			"password_reset_enabled":      cfg.FeatureFlags[setup.FeaturePasswordReset],
-			"self_registration_enabled":   cfg.FeatureFlags[setup.FeatureSelfRegistration],
 			"password_reset_path":         passwordResetPath,
 			"password_reset_confirm_path": passwordResetConfirmPath,
 			"register_path":               registerPath,
 			"registration_mode":           registrationCfg.Mode,
 		}
 		viewCtx = quickstart.WithAuthUIViewThemeAssets(viewCtx, authThemeAssets, authThemeAssetPrefix)
+		viewCtx = quickstart.WithFeatureTemplateContext(viewCtx, c.Context(), fggate.ScopeSet{System: true}, featureSnapshot)
 		viewCtx = authUIViewContext(viewCtx, c)
 		return c.Render(registerTemplate, viewCtx)
 	})
@@ -898,7 +899,7 @@ func main() {
 		MenuCode:      setup.SiteNavigationMenuCode,
 		AssetBasePath: cfg.BasePath,
 		AdminBasePath: cfg.BasePath,
-		CMSEnabled:    cfg.Features.CMS && adm.MenuService() != nil,
+		CMSEnabled:    featureEnabled(adm.FeatureGate(), "cms") && adm.MenuService() != nil,
 	})
 	r.Get("/", siteHandlers.Page)
 	r.Get("/posts", siteHandlers.PostsIndex)
@@ -1065,6 +1066,42 @@ func contentCRUDScopeGuard[T any](resource string) crud.ScopeGuardFunc[T] {
 
 		return actor, scopeFilter, nil
 	}
+}
+
+func featureEnabled(gate fggate.FeatureGate, feature string) bool {
+	if gate == nil || strings.TrimSpace(feature) == "" {
+		return false
+	}
+	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+	return err == nil && enabled
+}
+
+func applyFeatureFlagFromEnv(flags map[string]bool, envKey, featureKey string) {
+	if flags == nil {
+		return
+	}
+	envKey = strings.TrimSpace(envKey)
+	featureKey = strings.TrimSpace(featureKey)
+	if envKey == "" || featureKey == "" {
+		return
+	}
+	value, ok := envBool(envKey)
+	if !ok {
+		return
+	}
+	flags[featureKey] = value
+}
+
+func envBool(key string) (bool, bool) {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		return false, false
+	}
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return false, false
+	}
+	return parsed, true
 }
 
 func parseRegistrationMode(raw string, fallback setup.RegistrationMode) setup.RegistrationMode {
