@@ -16,7 +16,8 @@ This guide explains how the Preferences module works in go-admin, what it provid
 
 Enable the module and permissions before initialization:
 
-- Feature gate: set `cfg.Features.Preferences = true` or `cfg.FeatureFlags["preferences"] = true`.
+- Feature gate: enable `preferences` in the FeatureGate defaults or runtime overrides
+  (quickstart: `EnablePreferences()` or `WithFeatureDefaults(map[string]bool{"preferences": true})`).
 - Default permissions:
   - `admin.preferences.view`
   - `admin.preferences.edit`
@@ -182,9 +183,13 @@ if err != nil {
 	return err
 }
 
-cfg.Features.Preferences = true
+featureDefaults := map[string]bool{
+	string(admin.FeaturePreferences): true,
+}
+gate := resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(featureDefaults)))
 adm, err := admin.New(cfg, admin.Dependencies{
 	PreferencesStore: prefsStore,
+	FeatureGate:      gate,
 })
 if err != nil {
 	return err
