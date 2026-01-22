@@ -79,9 +79,9 @@ module resolves it via either:
 ## Stage 1 quickstart helpers
 
 If you want a minimal Stage 1 admin (login + dashboard only), the quickstart helpers provide a smaller wiring surface:
-- `WithFeaturesExplicit(DefaultMinimalFeatures())` for typed feature flags.
+- `WithFeatureDefaults(DefaultMinimalFeatures())` to keep a minimal gate default set.
 - `WithAdapterFlags(config.Admin.AdapterFlags)` to drive adapter wiring from config (env fallback still available).
-- `FeatureGatesFromConfig(cfg)` with `WithModuleFeatureGates(...)` to filter modules/menu items.
+- `NewModuleRegistrar` uses `adm.FeatureGate()` by default (pass `WithModuleFeatureGates(customGate)` to override).
 - `WithGoAuth(...)` to wire auth + authorizer in one call.
 - `WithDefaultDashboardRenderer(...)` for a basic SSR dashboard (override templates via `WithDashboardTemplatesFS`).
 

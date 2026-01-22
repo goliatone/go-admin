@@ -18,6 +18,9 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
+	"github.com/goliatone/go-featuregate/adapters/configadapter"
+	fggate "github.com/goliatone/go-featuregate/gate"
+	"github.com/goliatone/go-featuregate/resolver"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
@@ -225,17 +228,18 @@ func setupOnboardingTestEnv(t *testing.T, flags map[string]bool, registration se
 		t.Fatalf("setup users: %v", err)
 	}
 	cfg := admin.Config{BasePath: "/admin", DefaultLocale: "en", Title: "Admin"}
-	app := setupOnboardingTestApp(t, cfg, deps, svc, flags, registration)
+	gate := featureGateFromFlags(flags)
+	app := setupOnboardingTestApp(t, cfg, deps, svc, gate, registration)
 	return onboardingTestEnv{app: app, deps: deps}
 }
 
-func setupOnboardingTestApp(t *testing.T, cfg admin.Config, deps stores.UserDependencies, svc *userssvc.Service, flags map[string]bool, registration setup.RegistrationConfig) *fiber.App {
+func setupOnboardingTestApp(t *testing.T, cfg admin.Config, deps stores.UserDependencies, svc *userssvc.Service, gate fggate.FeatureGate, registration setup.RegistrationConfig) *fiber.App {
 	t.Helper()
 
 	onboardingHandlers := &OnboardingHandlers{
 		UsersService: svc,
 		AuthRepo:     deps.AuthRepo,
-		FeatureFlags: flags,
+		FeatureGate:  gate,
 		Registration: registration,
 		Config:       cfg,
 		SecureLinks:  deps.SecureLinks,
@@ -353,4 +357,11 @@ func loadLatestResetRow(ctx context.Context, db *bun.DB, userID uuid.UUID) (pass
 		Limit(1).
 		Scan(ctx, &row)
 	return row, err
+}
+
+func featureGateFromFlags(flags map[string]bool) fggate.FeatureGate {
+	if flags == nil {
+		flags = map[string]bool{}
+	}
+	return resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(flags)))
 }
