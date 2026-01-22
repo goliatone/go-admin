@@ -76,7 +76,7 @@
             <input type="checkbox" name="remember" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
             Remember me
           </label>
-          {% if password_reset_enabled %}
+          {% if feature("users.password_reset") %}
           <a class="text-sm text-admin-dark hover:text-admin-light font-medium" href="{{ password_reset_path }}">Forgot password</a>
           {% endif %}
         </div>
@@ -116,7 +116,7 @@
         </button>
       </div>
 
-      {% if self_registration_enabled and register_path %}
+      {% if feature("users.signup") and register_path %}
       <!-- Sign Up Link -->
       <div class="text-center">
         <p class="text-sm text-zinc-600">
