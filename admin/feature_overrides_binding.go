@@ -17,6 +17,7 @@ const (
 	featureOverrideScopeTenant = "tenant"
 	featureOverrideScopeOrg    = "org"
 	featureOverrideScopeUser   = "user"
+	featureOverrideAliasSignup = "users.self_registration"
 )
 
 type featureOverridesBinding struct {
@@ -114,6 +115,11 @@ func parseFeatureOverrideKey(body map[string]any) (string, error) {
 		return "", goerrors.New("feature key required", goerrors.CategoryBadInput).
 			WithCode(http.StatusBadRequest).
 			WithTextCode(ferrors.TextCodeInvalidKey)
+	}
+	if strings.EqualFold(strings.TrimSpace(key), featureOverrideAliasSignup) {
+		return "", goerrors.New("feature alias not supported", goerrors.CategoryBadInput).
+			WithCode(http.StatusBadRequest).
+			WithTextCode("FEATURE_ALIAS_DISABLED")
 	}
 	if fggate.IsAlias(key) {
 		return "", goerrors.New("feature alias not supported", goerrors.CategoryBadInput).
