@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"context"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -30,10 +31,10 @@ type AuthUIState struct {
 }
 
 // AuthUIStateFromGate derives auth UI flags from the feature gate.
-func AuthUIStateFromGate(gate fggate.FeatureGate) AuthUIState {
+func AuthUIStateFromGate(ctx context.Context, gate fggate.FeatureGate, scope fggate.ScopeSet) AuthUIState {
 	return AuthUIState{
-		PasswordResetEnabled:    featureEnabled(gate, "users.password_reset"),
-		SelfRegistrationEnabled: featureEnabled(gate, "users.signup"),
+		PasswordResetEnabled:    featureEnabledWithContext(ctx, gate, "users.password_reset", scope),
+		SelfRegistrationEnabled: featureEnabledWithContext(ctx, gate, "users.signup", scope),
 	}
 }
 
@@ -46,10 +47,10 @@ func authUISnapshot(state AuthUIState) map[string]bool {
 
 // AuthUIPaths captures common auth-related route paths for templates.
 type AuthUIPaths struct {
-	BasePath          string
-	PasswordResetPath string
+	BasePath                 string
+	PasswordResetPath        string
 	PasswordResetConfirmPath string
-	RegisterPath      string
+	RegisterPath             string
 }
 
 // AuthUIViewContext builds a view context with auth flags + paths.
@@ -67,8 +68,6 @@ func WithAuthUIViewContext(ctx router.ViewContext, cfg admin.Config, state AuthU
 		basePath = strings.TrimSpace(cfg.BasePath)
 	}
 	ctx["base_path"] = basePath
-	ctx["password_reset_enabled"] = state.PasswordResetEnabled
-	ctx["self_registration_enabled"] = state.SelfRegistrationEnabled
 	ctx["password_reset_path"] = paths.PasswordResetPath
 	ctx["password_reset_confirm_path"] = paths.PasswordResetConfirmPath
 	ctx["register_path"] = paths.RegisterPath
