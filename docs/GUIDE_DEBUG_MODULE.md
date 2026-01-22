@@ -117,12 +117,9 @@ func main() {
     // Configure admin with debug settings
     cfg := admin.Config{
         BasePath: "/admin",
-        FeatureFlags: map[string]bool{
-            "debug": debugEnabled,
-        },
         Debug: admin.DebugConfig{
-            Enabled:    debugEnabled,
-            CaptureSQL: debugEnabled,
+            Enabled:     debugEnabled,
+            CaptureSQL:  debugEnabled,
             CaptureLogs: debugEnabled,
         },
     }
@@ -369,7 +366,7 @@ cfg.Debug.Panels = append(cfg.Debug.Panels, "shell", "console")
 
 ### Prerequisites
 
-1. **Feature Flag**: Set `FeatureFlags["debug"] = true` in admin config
+1. **Feature gate**: enable `debug` (or `DebugConfig.FeatureKey`) in FeatureGate defaults/overrides. Quickstart derives the default from `DebugConfig` when building the gate.
 2. **DebugConfig.Enabled**: Set to `true`
 3. **Panels**: At least one panel must be enabled
 
@@ -378,10 +375,16 @@ cfg.Debug.Panels = append(cfg.Debug.Panels, "shell", "console")
 #### Method 1: Direct Registration
 
 ```go
-adm, _ := admin.New(cfg, deps)
+featureDefaults := map[string]bool{
+    "debug": cfg.Debug.Enabled,
+}
+gate := resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(featureDefaults)))
+adm, _ := admin.New(cfg, admin.Dependencies{
+    FeatureGate: gate,
+})
 
 // Register debug module before Initialize
-if cfg.FeatureFlags["debug"] && cfg.Debug.Enabled {
+if cfg.Debug.Enabled {
     adm.RegisterModule(admin.NewDebugModule(cfg.Debug))
 }
 
@@ -397,7 +400,7 @@ import "github.com/goliatone/go-admin/quickstart"
 adm, _, _ := quickstart.NewAdmin(cfg, hooks,
     quickstart.WithAdminDependencies(deps),
 )
-if cfg.FeatureFlags["debug"] && cfg.Debug.Enabled {
+if cfg.Debug.Enabled {
     adm.RegisterModule(admin.NewDebugModule(cfg.Debug))
 }
 ```
@@ -408,15 +411,17 @@ if cfg.FeatureFlags["debug"] && cfg.Debug.Enabled {
 debugEnabled := os.Getenv("ADMIN_DEBUG") == "true"
 
 cfg := admin.Config{
-    FeatureFlags: map[string]bool{
-        "debug": debugEnabled,
-    },
     Debug: admin.DebugConfig{
         Enabled:     debugEnabled,
         CaptureSQL:  os.Getenv("ADMIN_DEBUG_SQL") != "false",
         CaptureLogs: os.Getenv("ADMIN_DEBUG_LOGS") != "false",
     },
 }
+featureDefaults := map[string]bool{
+    "debug": debugEnabled,
+}
+gate := resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(featureDefaults)))
+adm, _ := admin.New(cfg, admin.Dependencies{FeatureGate: gate})
 ```
 
 ### Disabling the Module
@@ -424,7 +429,7 @@ cfg := admin.Config{
 The module is disabled when any of these conditions are true:
 
 - `DebugConfig.Enabled = false`
-- `FeatureFlags["debug"] = false`
+- Feature gate key disabled
 - `Panels` is empty
 - Feature gate check fails
 
@@ -1503,14 +1508,15 @@ cfg.Debug.AllowedIPs = []string{} // Empty = allow all authenticated
 **Symptom**: Debug routes not available.
 
 **Causes**:
-1. Feature flag not set
+1. Feature gate key disabled
 2. `Enabled` is `false`
 3. Module registered after `Initialize()`
 
 **Solution**:
 ```go
-// Check feature flag
-cfg.FeatureFlags["debug"] = true
+featureDefaults := map[string]bool{"debug": true}
+gate := resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(featureDefaults)))
+deps.FeatureGate = gate
 
 // Check enabled
 cfg.Debug.Enabled = true

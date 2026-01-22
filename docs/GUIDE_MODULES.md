@@ -66,7 +66,7 @@ type ModuleManifest struct {
     ID             string   // Unique identifier (e.g., "profile", "users")
     NameKey        string   // i18n key for display name
     DescriptionKey string   // i18n key for description
-    FeatureFlags   []string // Required feature flags (from Config.Features or FeatureFlags)
+    FeatureFlags   []string // Required feature gate keys (evaluated by FeatureGate)
     Dependencies   []string // Other module IDs this depends on
 }
 
@@ -581,7 +581,7 @@ func (a *Admin) loadModules(ctx context.Context) error {
         DisabledError: func(feature, moduleID string) error {
             return FeatureDisabledError{
                 Feature: feature,
-                Reason:  fmt.Sprintf("required by module %s; set via Config.Features or FeatureFlags", moduleID),
+                Reason:  fmt.Sprintf("required by module %s; enable via FeatureGate defaults or overrides", moduleID),
             }
         },
         Register: func(mod modules.Module) error {
@@ -635,37 +635,36 @@ if err := adm.RegisterModule(&stubModule{id: "mod"}); err == nil {
 
 ---
 
-## 6. Configuration and Feature Flags
+## 6. Configuration and Feature Gates
 
-### Feature Flag Integration
+### Feature Gate Integration
 
-Modules declare required feature flags in their manifest:
+Modules declare required feature gate keys in their manifest:
 
 ```go
 func (m *DebugModule) Manifest() ModuleManifest {
     return ModuleManifest{
         ID:           "debug",
-        FeatureFlags: []string{"debug"}, // Requires FeatureFlags["debug"] = true
+        FeatureFlags: []string{"debug"}, // Requires feature gate key "debug" to be enabled
     }
 }
 ```
 
-### Config-Driven Enablement
+### FeatureGate Defaults
 
 ```go
-// In admin config
-type Config struct {
-    // ...
-    FeatureFlags map[string]bool // Custom feature toggles
+featureDefaults := map[string]bool{
+    "debug": os.Getenv("ADMIN_DEBUG") == "true",
 }
+gate := resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(featureDefaults)))
 
-// Usage
-cfg := admin.Config{
-    FeatureFlags: map[string]bool{
-        "debug": os.Getenv("ADMIN_DEBUG") == "true",
-    },
-}
+adm, err := admin.New(cfg, admin.Dependencies{
+    FeatureGate: gate,
+})
 ```
+
+Quickstart builds a FeatureGate automatically; override defaults via
+`quickstart.WithFeatureDefaults(...)`.
 
 ### Environment Variables
 
@@ -1751,7 +1750,7 @@ Default panel IDs:
 ### Enable/Disable Guidance
 
 - The module is disabled by default; set `DebugConfig.Enabled=true` to opt in.
-- The module also requires the feature flag in `Config.FeatureFlags` (default key is `debug`).
+- The module also requires the feature gate key (default key is `debug`; override with `DebugConfig.FeatureKey`).
 - When enabled, ensure the dashboard feature and CMS widget service are available.
 - Disable by setting `Enabled=false` or providing an empty `Panels` list.
 
@@ -1762,18 +1761,21 @@ Default panel IDs:
 func main() {
     cfg := admin.Config{
         BasePath: "/admin",
-        FeatureFlags: map[string]bool{
-            "debug": os.Getenv("ADMIN_DEBUG") == "true",
-        },
     }
 
-    adm, _ := admin.New(cfg, deps)
+    debugEnabled := os.Getenv("ADMIN_DEBUG") == "true"
+    cfg.Debug.Enabled = debugEnabled
+    cfg.Debug.CaptureSQL = debugEnabled
+    cfg.Debug.CaptureLogs = debugEnabled
+
+    featureDefaults := map[string]bool{
+        "debug": debugEnabled,
+    }
+    gate := resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(featureDefaults)))
+    adm, _ := admin.New(cfg, admin.Dependencies{FeatureGate: gate})
 
     // Register debug module
-    if cfg.FeatureFlags["debug"] {
-        cfg.Debug.Enabled = true
-        cfg.Debug.CaptureSQL = true
-        cfg.Debug.CaptureLogs = true
+    if debugEnabled {
         adm.RegisterModule(admin.NewDebugModule(cfg.Debug))
     }
 
@@ -1850,9 +1852,6 @@ The quickstart package provides helpers for streamlined module registration with
 ```go
 import "github.com/goliatone/go-admin/quickstart"
 
-// Build feature gates from config
-gates := quickstart.FeatureGatesFromConfig(cfg)
-
 // Register modules with feature gating
 err := quickstart.NewModuleRegistrar(
     adm,
@@ -1862,7 +1861,6 @@ err := quickstart.NewModuleRegistrar(
         anotherModule,
     },
     isDev, // development mode flag
-    quickstart.WithModuleFeatureGates(gates),
     quickstart.WithSeedNavigation(true),
 )
 if err != nil {
@@ -1881,16 +1879,11 @@ if err != nil {
 | `WithModuleFeatureGates(gates)`        | Enable feature-gated module filtering |
 | `WithModuleFeatureDisabledHandler(fn)` | Custom handler for disabled modules   |
 
-### Feature Gates from Config
+### Feature Gates in Quickstart
 
-```go
-// FeatureGatesFromConfig builds gates from typed features + feature flags
-gates := quickstart.FeatureGatesFromConfig(cfg)
-
-// Gates check both:
-// - cfg.Features.Profile, cfg.Features.Users, etc.
-// - cfg.FeatureFlags["custom_feature"]
-```
+Quickstart builds a FeatureGate when you call `quickstart.NewAdmin(...)`. You can
+pass a custom gate via `WithModuleFeatureGates(...)` if you need to override it
+for module filtering.
 
 ### Handling Disabled Modules
 
