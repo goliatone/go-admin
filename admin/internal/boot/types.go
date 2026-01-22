@@ -135,6 +135,12 @@ type SettingsBinding interface {
 	Save(router.Context, map[string]any) (map[string]any, error)
 }
 
+// FeatureOverridesBinding exposes feature override mutations.
+type FeatureOverridesBinding interface {
+	Set(router.Context, map[string]any) (map[string]any, error)
+	Unset(router.Context, map[string]any) (map[string]any, error)
+}
+
 // BootCtx exposes the surface needed by boot steps.
 type BootCtx interface {
 	Router() Router
@@ -157,6 +163,7 @@ type BootCtx interface {
 	BootActivity() ActivityBinding
 	BootJobs() JobsBinding
 	BootSettings() SettingsBinding
+	BootFeatureOverrides() FeatureOverridesBinding
 
 	SettingsWidget() error
 	ActivityWidget() error
