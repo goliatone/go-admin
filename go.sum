@@ -145,6 +145,8 @@ github.com/golang-jwt/jwt/v5 v5.3.0 h1:pv4AsKCKKZuqlgs5sUmn4x8UlGa0kEVt/puTpKx9v
 github.com/golang-jwt/jwt/v5 v5.3.0/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/goliatone/go-auth v0.25.0 h1:IYoLJq1zeJqV+CHNuB9cBgDtD6KRSG1yxYJ/CbuznMQ=
 github.com/goliatone/go-auth v0.25.0/go.mod h1:nCGkv5+Ykw1fm7oIhtV+fPI5CyJ/q36YlKnV2TrhlB4=
+github.com/goliatone/go-auth v0.26.0 h1:+X8mS1PiuHfxeR+GMz7XPzJxpWYghp7Dh7JVjvZrbrE=
+github.com/goliatone/go-auth v0.26.0/go.mod h1:OTwvp8lmgYtQMsshfTywU5d/FZgGWO637jRLBiKMXMw=
 github.com/goliatone/go-cms v0.18.0 h1:VRCbBTPnSjUfR/tChyNckSPl0f47MEEpbkn/Y3GB4Po=
 github.com/goliatone/go-cms v0.18.0/go.mod h1:q9qjbWeexdB6IRs3Td4y9hnwSVn/AHkxvwghsEvOMlg=
 github.com/goliatone/go-command v0.13.0 h1:AQ8LHwkkt7BCDcAFdbkY/XAjnwGqBFPNfXSsWUfhh9g=
@@ -163,6 +165,12 @@ github.com/goliatone/go-export v0.6.0 h1:tvCEnoH6VqiltIOhZeQh/uQUG3N1lKp3Al0pikM
 github.com/goliatone/go-export v0.6.0/go.mod h1:PVPLmOABod8Twjw0WNEONX/rRlrnUtuqsjUO4Vfbedw=
 github.com/goliatone/go-export/adapters/template/go-template v0.6.0 h1:23M+mc5PdFLgdK3Fc/PFanf9CZXCtfJaaPjEDI2BauM=
 github.com/goliatone/go-export/adapters/template/go-template v0.6.0/go.mod h1:RurATCPBejHIqI80M3nCIOja7CsF9bTWIeVy0CGksd0=
+github.com/goliatone/go-featuregate v0.1.0 h1:KDZ13NsNVvPONGywRWDxpCdhD0upoOQKlNKz4ahxPsc=
+github.com/goliatone/go-featuregate v0.1.0/go.mod h1:XambOsch2DLTme7BQCoxSv4aWL8K4C5zxlGxxnA1XLI=
+github.com/goliatone/go-featuregate v0.2.0 h1:Z4C7/ONtOuKvcOcgiRWpAykrK0TFEJQXilMDgmLSoGs=
+github.com/goliatone/go-featuregate v0.2.0/go.mod h1:aWXvK37wpBQZajU/BBlONuLEcCBWs9PYnAiqBvG1vlc=
+github.com/goliatone/go-featuregate v0.3.0 h1:UDwXZ97u8XmLOSctl29CpY1KwHIg2U/AKDWAK0HlfJk=
+github.com/goliatone/go-featuregate v0.3.0/go.mod h1:VYc0O3RXNTqa0TuI9biHOt2WSFbilnUkiSljcvMU4XA=
 github.com/goliatone/go-formgen v0.14.0 h1:H2znJBKMRqhnGJRQ4uhbpyFjkMXgHLkS3nxUQFjwcr4=
 github.com/goliatone/go-formgen v0.14.0/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
 github.com/goliatone/go-i18n v0.2.0 h1:TDKJYZgJQq5koQ5aybM8+9NbhhlKNTPeGug4MrH/HNc=
