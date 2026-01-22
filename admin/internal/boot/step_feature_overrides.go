@@ -19,6 +19,17 @@ func FeatureOverridesRouteStep(ctx BootCtx) error {
 	base := joinPath(ctx.BasePath(), "api/feature-flags")
 	routes := []RouteSpec{
 		{
+			Method: "GET",
+			Path:   base,
+			Handler: func(c router.Context) error {
+				payload, err := binding.List(c)
+				if err != nil {
+					return responder.WriteError(c, err)
+				}
+				return responder.WriteJSON(c, payload)
+			},
+		},
+		{
 			Method: "POST",
 			Path:   base,
 			Handler: func(c router.Context) error {
