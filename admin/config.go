@@ -1,11 +1,16 @@
 package admin
 
-import "context"
+import (
+	"context"
+
+	urlkit "github.com/goliatone/go-urlkit"
+)
 
 // Config holds core admin settings and feature flags.
 type Config struct {
 	Title            string
 	BasePath         string
+	URLs             URLConfig
 	DefaultLocale    string
 	Theme            string
 	ThemeVariant     string
@@ -59,6 +64,13 @@ type Config struct {
 	NavMenuCode string
 
 	FeatureFlagKeys []string
+}
+
+// URLConfig controls admin URL generation defaults.
+type URLConfig struct {
+	APIPrefix  string
+	APIVersion string
+	URLKit     *urlkit.Config
 }
 
 // CMSOptions configures how the CMS container is resolved (in-memory, go-cms, or host-provided).
