@@ -137,6 +137,7 @@ type SettingsBinding interface {
 
 // FeatureOverridesBinding exposes feature override mutations.
 type FeatureOverridesBinding interface {
+	List(router.Context) (map[string]any, error)
 	Set(router.Context, map[string]any) (map[string]any, error)
 	Unset(router.Context, map[string]any) (map[string]any, error)
 }
