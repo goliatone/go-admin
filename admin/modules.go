@@ -37,6 +37,11 @@ func (a *Admin) registerDefaultModules() error {
 			}
 		}
 	}
+	if _, exists := a.registry.Module(featureFlagsModuleID); !exists {
+		if err := a.registry.RegisterModule(NewFeatureFlagsModule()); err != nil {
+			return err
+		}
+	}
 	if featureEnabled(a.featureGate, FeatureProfile) {
 		if _, exists := a.registry.Module(profileModuleID); !exists {
 			if err := a.registry.RegisterModule(NewProfileModule()); err != nil {
