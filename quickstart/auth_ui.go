@@ -20,27 +20,27 @@ type AuthUIViewContextBuilder func(ctx router.ViewContext, c router.Context) rou
 type AuthUIOption func(*authUIOptions)
 
 type authUIOptions struct {
-	basePath                string
-	loginPath               string
-	logoutPath              string
-	passwordResetPath       string
-	passwordResetConfirmPath string
-	registerPath            string
-	loginRedirectPath       string
-	logoutRedirectPath      string
-	loginTemplate           string
-	passwordResetTemplate   string
+	basePath                     string
+	loginPath                    string
+	logoutPath                   string
+	passwordResetPath            string
+	passwordResetConfirmPath     string
+	registerPath                 string
+	loginRedirectPath            string
+	logoutRedirectPath           string
+	loginTemplate                string
+	passwordResetTemplate        string
 	passwordResetConfirmTemplate string
-	loginTitle              string
-	passwordResetTitle      string
-	passwordResetConfirmTitle string
-	cookie                  router.Cookie
-	passwordResetEnabled    func(admin.Config) bool
-	selfRegistrationEnabled func(admin.Config) bool
-	viewContext             AuthUIViewContextBuilder
-	themeAssets             map[string]string
-	themeAssetPrefix        string
-	featureGate             fggate.FeatureGate
+	loginTitle                   string
+	passwordResetTitle           string
+	passwordResetConfirmTitle    string
+	cookie                       router.Cookie
+	passwordResetEnabled         func(admin.Config) bool
+	selfRegistrationEnabled      func(admin.Config) bool
+	viewContext                  AuthUIViewContextBuilder
+	themeAssets                  map[string]string
+	themeAssetPrefix             string
+	featureGate                  fggate.FeatureGate
 }
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
@@ -238,13 +238,13 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 	}
 
 	options := authUIOptions{
-		basePath:              strings.TrimSpace(cfg.BasePath),
-		loginTemplate:         "login",
-		passwordResetTemplate: "password_reset",
+		basePath:                     strings.TrimSpace(cfg.BasePath),
+		loginTemplate:                "login",
+		passwordResetTemplate:        "password_reset",
 		passwordResetConfirmTemplate: "password_reset_confirm",
-		loginTitle:            strings.TrimSpace(cfg.Title),
-		passwordResetTitle:    strings.TrimSpace(cfg.Title),
-		passwordResetConfirmTitle: strings.TrimSpace(cfg.Title),
+		loginTitle:                   strings.TrimSpace(cfg.Title),
+		passwordResetTitle:           strings.TrimSpace(cfg.Title),
+		passwordResetConfirmTitle:    strings.TrimSpace(cfg.Title),
 		cookie: router.Cookie{
 			Path:     "/",
 			HTTPOnly: true,
@@ -295,24 +295,19 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 		options.viewContext = func(ctx router.ViewContext, _ router.Context) router.ViewContext { return ctx }
 	}
 
-	passwordResetEnabled := false
-	if options.passwordResetEnabled != nil {
-		passwordResetEnabled = options.passwordResetEnabled(cfg)
-	} else {
-		passwordResetEnabled = featureEnabled(options.featureGate, "users.password_reset")
-	}
-	selfRegistrationEnabled := false
-	if options.selfRegistrationEnabled != nil {
-		selfRegistrationEnabled = options.selfRegistrationEnabled(cfg)
-	} else {
-		selfRegistrationEnabled = featureEnabled(options.featureGate, "users.signup")
-	}
-	authState := AuthUIState{
-		PasswordResetEnabled:    passwordResetEnabled,
-		SelfRegistrationEnabled: selfRegistrationEnabled,
-	}
-	authSnapshot := authUISnapshot(authState)
 	authScope := fggate.ScopeSet{System: true}
+	resolvePasswordReset := func(c router.Context) bool {
+		if options.passwordResetEnabled != nil {
+			return options.passwordResetEnabled(cfg)
+		}
+		return featureEnabledWithContext(c.Context(), options.featureGate, "users.password_reset", authScope)
+	}
+	resolveSelfRegistration := func(c router.Context) bool {
+		if options.selfRegistrationEnabled != nil {
+			return options.selfRegistrationEnabled(cfg)
+		}
+		return featureEnabledWithContext(c.Context(), options.featureGate, "users.signup", authScope)
+	}
 
 	loginCookieName := strings.TrimSpace(cookieName)
 	if loginCookieName == "" {
@@ -323,11 +318,16 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 	}
 
 	r.Get(options.loginPath, func(c router.Context) error {
+		authState := AuthUIState{
+			PasswordResetEnabled:    resolvePasswordReset(c),
+			SelfRegistrationEnabled: resolveSelfRegistration(c),
+		}
+		authSnapshot := authUISnapshot(authState)
 		viewCtx := AuthUIViewContext(cfg, authState, AuthUIPaths{
-			BasePath:          options.basePath,
-			PasswordResetPath: options.passwordResetPath,
+			BasePath:                 options.basePath,
+			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: confirmLinkPath,
-			RegisterPath:      options.registerPath,
+			RegisterPath:             options.registerPath,
 		})
 		viewCtx["title"] = options.loginTitle
 		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
@@ -357,16 +357,22 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 	})
 
 	r.Get(options.passwordResetPath, func(c router.Context) error {
+		authState := AuthUIState{
+			PasswordResetEnabled:    resolvePasswordReset(c),
+			SelfRegistrationEnabled: resolveSelfRegistration(c),
+		}
+		authSnapshot := authUISnapshot(authState)
+		passwordResetEnabled := authState.PasswordResetEnabled
 		if !passwordResetEnabled {
 			return goerrors.New("password reset disabled", goerrors.CategoryAuthz).
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
 		viewCtx := AuthUIViewContext(cfg, authState, AuthUIPaths{
-			BasePath:          options.basePath,
-			PasswordResetPath: options.passwordResetPath,
+			BasePath:                 options.basePath,
+			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: confirmLinkPath,
-			RegisterPath:      options.registerPath,
+			RegisterPath:             options.registerPath,
 		})
 		viewCtx["title"] = options.passwordResetTitle
 		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
@@ -376,16 +382,22 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 	})
 
 	confirmHandler := func(c router.Context) error {
+		authState := AuthUIState{
+			PasswordResetEnabled:    resolvePasswordReset(c),
+			SelfRegistrationEnabled: resolveSelfRegistration(c),
+		}
+		authSnapshot := authUISnapshot(authState)
+		passwordResetEnabled := authState.PasswordResetEnabled
 		if !passwordResetEnabled {
 			return goerrors.New("password reset disabled", goerrors.CategoryAuthz).
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
 		viewCtx := AuthUIViewContext(cfg, authState, AuthUIPaths{
-			BasePath:          options.basePath,
-			PasswordResetPath: options.passwordResetPath,
+			BasePath:                 options.basePath,
+			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: confirmLinkPath,
-			RegisterPath:      options.registerPath,
+			RegisterPath:             options.registerPath,
 		})
 		if token := strings.TrimSpace(c.Param("token")); token != "" {
 			viewCtx["password_reset_token"] = token
