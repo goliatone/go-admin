@@ -1,0 +1,241 @@
+{% extends "layout.html" %}
+
+{% block title %}Feature Flags - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-admin-dark">Feature Flags</h1>
+    <p class="text-sm text-gray-500 mt-1">Review defaults, overrides, and update runtime flags.</p>
+  </div>
+  <div class="flex items-center gap-3">
+    <button id="refresh-flags" class="btn btn-secondary">Refresh</button>
+  </div>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  <div class="grid gap-6 lg:grid-cols-[320px,1fr]">
+    <section class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Scope</h2>
+      <p class="text-xs text-gray-500 mt-2">Choose which scope to resolve and update.</p>
+      <div class="mt-4 space-y-4">
+        <div>
+          <label class="text-xs font-medium text-gray-600">Scope</label>
+          <select id="flag-scope" class="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+            <option value="system" selected>System</option>
+            <option value="tenant">Tenant</option>
+            <option value="org">Organization</option>
+            <option value="user">User</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600">Scope ID</label>
+          <input id="flag-scope-id" type="text" class="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="tenant/org/user id">
+          <p class="text-xs text-gray-400 mt-2">Required for tenant, org, or user scopes.</p>
+        </div>
+        <button id="apply-scope" class="btn btn-primary w-full justify-center">Apply Scope</button>
+      </div>
+      <div class="mt-6 rounded-lg border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-600">
+        <div class="flex items-center justify-between">
+          <span>Mutable gate</span>
+          <span id="mutable-state" class="font-semibold text-gray-800">—</span>
+        </div>
+      </div>
+      <div id="flags-status" class="mt-4 text-xs text-gray-500"></div>
+    </section>
+
+    <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">Flags</h2>
+          <p class="text-xs text-gray-500">Effective values and override state.</p>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Key</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Effective</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Source</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Default</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Override</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Update</th>
+            </tr>
+          </thead>
+          <tbody id="flags-table" class="divide-y divide-gray-100 bg-white"></tbody>
+        </table>
+      </div>
+      <div id="flags-empty" class="hidden px-5 py-6 text-sm text-gray-500">No flags found.</div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const apiPath = '{{ feature_flags_api_path|default:"" }}' || (('{{ base_path }}' || '').replace(/\/$/, '') + '/api/feature-flags');
+  const scopeSelect = document.getElementById('flag-scope');
+  const scopeIdInput = document.getElementById('flag-scope-id');
+  const applyScope = document.getElementById('apply-scope');
+  const refreshButton = document.getElementById('refresh-flags');
+  const statusEl = document.getElementById('flags-status');
+  const mutableEl = document.getElementById('mutable-state');
+  const tableBody = document.getElementById('flags-table');
+  const emptyState = document.getElementById('flags-empty');
+
+  function setStatus(message, tone) {
+    statusEl.textContent = message || '';
+    statusEl.className = 'mt-4 text-xs';
+    if (!message) {
+      return;
+    }
+    if (tone === 'error') {
+      statusEl.classList.add('text-red-600');
+    } else if (tone === 'success') {
+      statusEl.classList.add('text-green-600');
+    } else {
+      statusEl.classList.add('text-gray-500');
+    }
+  }
+
+  function badge(label, intent) {
+    const base = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold';
+    if (intent === 'on') {
+      return `<span class="${base} bg-green-100 text-green-700">${label}</span>`;
+    }
+    if (intent === 'off') {
+      return `<span class="${base} bg-red-100 text-red-700">${label}</span>`;
+    }
+    return `<span class="${base} bg-gray-100 text-gray-600">${label}</span>`;
+  }
+
+  function normalizeOverrideState(flag) {
+    const state = flag && flag.override && flag.override.state ? String(flag.override.state) : 'missing';
+    return state.toLowerCase();
+  }
+
+  function overrideSelectValue(flag) {
+    const state = normalizeOverrideState(flag);
+    if (state === 'enabled') return 'enabled';
+    if (state === 'disabled') return 'disabled';
+    return 'unset';
+  }
+
+  function renderFlags(flags, mutable) {
+    tableBody.innerHTML = '';
+    if (!Array.isArray(flags) || flags.length === 0) {
+      emptyState.classList.remove('hidden');
+      return;
+    }
+    emptyState.classList.add('hidden');
+    flags.forEach(flag => {
+      const effective = flag && flag.effective ? 'Enabled' : 'Disabled';
+      const effectiveBadge = badge(effective, flag && flag.effective ? 'on' : 'off');
+      const source = flag && flag.source ? String(flag.source) : 'unknown';
+      const defaultValue = flag && flag.default && flag.default.set ? (flag.default.value ? 'Enabled' : 'Disabled') : '—';
+      const overrideState = normalizeOverrideState(flag);
+      const overrideValue = flag && flag.override && flag.override.value !== undefined ? (flag.override.value ? 'Enabled' : 'Disabled') : '—';
+      const overrideLabel = overrideState === 'enabled' || overrideState === 'disabled' ? `${overrideValue}` : 'Default';
+      const overrideBadge = badge(overrideLabel, overrideState === 'enabled' ? 'on' : (overrideState === 'disabled' ? 'off' : 'neutral'));
+      const selectValue = overrideSelectValue(flag);
+      const disabledAttr = mutable ? '' : 'disabled';
+      const key = flag && flag.key ? String(flag.key) : '';
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="px-5 py-4 text-sm text-gray-900 font-mono">${key}</td>
+        <td class="px-5 py-4 text-sm">${effectiveBadge}</td>
+        <td class="px-5 py-4 text-sm text-gray-600 capitalize">${source}</td>
+        <td class="px-5 py-4 text-sm text-gray-600">${defaultValue}</td>
+        <td class="px-5 py-4 text-sm">${overrideBadge}</td>
+        <td class="px-5 py-4 text-sm">
+          <select data-flag-key="${key}" class="border border-gray-200 rounded-lg px-2 py-1 text-sm" ${disabledAttr}>
+            <option value="unset">Default</option>
+            <option value="enabled">Enabled</option>
+            <option value="disabled">Disabled</option>
+          </select>
+        </td>
+      `;
+      const select = row.querySelector('select');
+      if (select) {
+        select.value = selectValue;
+        select.addEventListener('change', () => updateFlag(key, select.value));
+      }
+      tableBody.appendChild(row);
+    });
+  }
+
+  function buildScopeParams() {
+    const scope = scopeSelect.value || 'system';
+    const scopeId = scopeIdInput.value.trim();
+    const params = new URLSearchParams();
+    params.set('scope', scope);
+    if (scope !== 'system' && scopeId) {
+      params.set('scope_id', scopeId);
+    }
+    return { scope, scopeId, params };
+  }
+
+  async function loadFlags() {
+    setStatus('Loading flags...', 'info');
+    const { params } = buildScopeParams();
+    const url = `${apiPath}?${params.toString()}`;
+    try {
+      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!response.ok) {
+        const text = await response.text();
+        setStatus(text || 'Failed to load flags.', 'error');
+        return;
+      }
+      const payload = await response.json();
+      const mutable = !!payload.mutable;
+      mutableEl.textContent = mutable ? 'Yes' : 'No';
+      renderFlags(payload.flags || [], mutable);
+      setStatus('');
+    } catch (err) {
+      setStatus('Failed to load flags.', 'error');
+    }
+  }
+
+  async function updateFlag(key, state) {
+    const { scope, scopeId } = buildScopeParams();
+    if (scope !== 'system' && !scopeId) {
+      setStatus('Scope ID required for tenant/org/user scopes.', 'error');
+      await loadFlags();
+      return;
+    }
+    const payload = { key, scope };
+    if (scopeId) {
+      payload.scope_id = scopeId;
+    }
+
+    let method = 'POST';
+    if (state === 'unset') {
+      method = 'DELETE';
+    } else {
+      payload.enabled = state === 'enabled';
+    }
+
+    try {
+      const response = await fetch(apiPath, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        setStatus(text || 'Failed to update flag.', 'error');
+      } else {
+        setStatus('Flag updated.', 'success');
+      }
+    } catch (err) {
+      setStatus('Failed to update flag.', 'error');
+    }
+    await loadFlags();
+  }
+
+  applyScope.addEventListener('click', () => loadFlags());
+  refreshButton.addEventListener('click', () => loadFlags());
+  loadFlags();
+</script>
+{% endblock %}
