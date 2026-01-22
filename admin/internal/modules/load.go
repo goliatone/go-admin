@@ -3,6 +3,8 @@ package modules
 import (
 	"context"
 	"fmt"
+
+	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
 // Load registers modules after validating dependencies, feature flags, and ordering.
@@ -23,7 +25,11 @@ func Load(ctx context.Context, opts LoadOptions) error {
 		manifest := mod.Manifest()
 		if len(manifest.FeatureFlags) > 0 && opts.Gates != nil {
 			for _, flag := range manifest.FeatureFlags {
-				if opts.Gates.EnabledKey(flag) {
+				enabled, err := opts.Gates.Enabled(ctx, flag, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+				if err != nil {
+					return err
+				}
+				if enabled {
 					continue
 				}
 				if opts.DisabledError != nil {
