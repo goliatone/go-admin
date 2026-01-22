@@ -166,32 +166,32 @@ func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config,
 		options.viewContext = func(ctx router.ViewContext, _ router.Context) router.ViewContext { return ctx }
 	}
 
-	registrationEnabled := false
-	if options.registrationEnabled != nil {
-		registrationEnabled = options.registrationEnabled(cfg)
-	} else {
-		registrationEnabled = featureEnabled(options.featureGate, "users.signup")
-	}
 	registrationMode := ""
 	if options.registrationMode != nil {
 		registrationMode = strings.TrimSpace(options.registrationMode(cfg))
 	}
-	authState := AuthUIStateFromGate(options.featureGate)
-	authState.SelfRegistrationEnabled = registrationEnabled
-	authSnapshot := authUISnapshot(authState)
 	authScope := fggate.ScopeSet{System: true}
 
 	r.Get(options.registerPath, func(c router.Context) error {
+		registrationEnabled := false
+		if options.registrationEnabled != nil {
+			registrationEnabled = options.registrationEnabled(cfg)
+		} else {
+			registrationEnabled = featureEnabledWithContext(c.Context(), options.featureGate, "users.signup", authScope)
+		}
+		authState := AuthUIStateFromGate(c.Context(), options.featureGate, authScope)
+		authState.SelfRegistrationEnabled = registrationEnabled
+		authSnapshot := authUISnapshot(authState)
 		if !registrationEnabled {
 			return goerrors.New("registration disabled", goerrors.CategoryAuthz).
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
 		viewCtx := AuthUIViewContext(cfg, authState, AuthUIPaths{
-			BasePath:          options.basePath,
-			PasswordResetPath: options.passwordResetPath,
+			BasePath:                 options.basePath,
+			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: path.Join(options.passwordResetPath, "confirm"),
-			RegisterPath:      options.registerPath,
+			RegisterPath:             options.registerPath,
 		})
 		viewCtx["title"] = options.title
 		viewCtx["registration_mode"] = registrationMode
