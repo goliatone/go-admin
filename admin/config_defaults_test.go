@@ -20,6 +20,9 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.SettingsUpdatePermission != "admin.settings.edit" {
 		t.Fatalf("expected settings update permission default, got %q", adm.config.SettingsUpdatePermission)
 	}
+	if adm.config.FeatureFlagsViewPermission != "admin.feature_flags.view" {
+		t.Fatalf("expected feature flags view permission default, got %q", adm.config.FeatureFlagsViewPermission)
+	}
 	if adm.config.FeatureFlagsUpdatePermission != "admin.feature_flags.update" {
 		t.Fatalf("expected feature flags update permission default, got %q", adm.config.FeatureFlagsUpdatePermission)
 	}

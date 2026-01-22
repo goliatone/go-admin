@@ -158,8 +158,12 @@ func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 		t.Fatalf("password reset handler error: %v", err)
 	}
 	viewCtx, ok := rendered.(router.ViewContext)
-	if !ok || viewCtx["password_reset_enabled"] != true {
-		t.Fatalf("expected password_reset_enabled true, got %v", rendered)
+	if !ok {
+		t.Fatalf("expected view context, got %v", rendered)
+	}
+	snapshot, ok := viewCtx["feature_snapshot"].(map[string]bool)
+	if !ok || snapshot["users.password_reset"] != true {
+		t.Fatalf("expected feature snapshot to include users.password_reset true, got %v", viewCtx["feature_snapshot"])
 	}
 }
 
@@ -203,7 +207,11 @@ func TestRegistrationUIRoutesRespectUsersSignupGate(t *testing.T) {
 		t.Fatalf("register handler error: %v", err)
 	}
 	viewCtx, ok := rendered.(router.ViewContext)
-	if !ok || viewCtx["self_registration_enabled"] != true {
-		t.Fatalf("expected self_registration_enabled true, got %v", rendered)
+	if !ok {
+		t.Fatalf("expected view context, got %v", rendered)
+	}
+	snapshot, ok := viewCtx["feature_snapshot"].(map[string]bool)
+	if !ok || snapshot["users.signup"] != true {
+		t.Fatalf("expected feature snapshot to include users.signup true, got %v", viewCtx["feature_snapshot"])
 	}
 }
