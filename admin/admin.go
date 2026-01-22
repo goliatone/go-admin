@@ -9,6 +9,7 @@ import (
 
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/query"
 )
@@ -17,6 +18,7 @@ import (
 type Admin struct {
 	config                      Config
 	featureGate                 fggate.FeatureGate
+	urlManager                  *urlkit.RouteManager
 	registry                    *Registry
 	cms                         CMSContainer
 	widgetSvc                   CMSWidgetService
@@ -249,9 +251,19 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	dashboard := NewDashboard()
 	dashboard.WithRegistry(registry)
 
+	urlManager := deps.URLManager
+	if urlManager == nil {
+		var err error
+		urlManager, err = newURLManager(cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	adm := &Admin{
 		config:             cfg,
 		featureGate:        featureGate,
+		urlManager:         urlManager,
 		registry:           registry,
 		cms:                container,
 		widgetSvc:          container.WidgetService(),
