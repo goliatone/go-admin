@@ -1,5 +1,38 @@
 # Changelog
 
+# [0.20.0](https://github.com/goliatone/go-admin/compare/v0.19.0...v0.20.0) - (2026-01-22)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Error messages ([42e5b13](https://github.com/goliatone/go-admin/commit/42e5b1365aa210bf97c25a85ea5365313dc64363))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.20.0 ([d138066](https://github.com/goliatone/go-admin/commit/d138066cd8a07cd8bbbeee9434cb0cd00781f47f))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Admin feature gate integration ([81b8902](https://github.com/goliatone/go-admin/commit/81b8902ecf3125b3821b9efa04a3882c76509b78))  - (goliatone)
+- Runtime feature overrides ([18b0485](https://github.com/goliatone/go-admin/commit/18b04855fd0598fe4c4467bc0adcf04091d203f3))  - (goliatone)
+- Quickstart use feature gate package ([11bc320](https://github.com/goliatone/go-admin/commit/11bc32016fd057895c30f97ec2e6939ee8fa6d77))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Admin feature gate management ([d416397](https://github.com/goliatone/go-admin/commit/d416397c8384f48f4bef4518985098ed06b187ec))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.19.0 ([944f076](https://github.com/goliatone/go-admin/commit/944f0767a9c41d351e3918aad3eb9cb2894cd1a2))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([6eaa536](https://github.com/goliatone/go-admin/commit/6eaa5362d9ad06ba9757b3bd9ee633db8b178ad8))  - (goliatone)
+- Update deps ([a825ef0](https://github.com/goliatone/go-admin/commit/a825ef003d010d848b7ede946aade3170384a1a9))  - (goliatone)
+- Update guides ([01a2ce5](https://github.com/goliatone/go-admin/commit/01a2ce5aac8ad5e875147c0d45cfaf6a9b6d8086))  - (goliatone)
+- Update examples ([54ff2ad](https://github.com/goliatone/go-admin/commit/54ff2ad07cfd3e5e90c02b8435adb3e7447aa318))  - (goliatone)
+- Udpate deps ([62345ea](https://github.com/goliatone/go-admin/commit/62345ea75bfa74b572e3bc2e76b4c4d997b2c9d2))  - (goliatone)
+- Udpate example ([f64f1e5](https://github.com/goliatone/go-admin/commit/f64f1e5057167a7322cc481eb1ac9ac900960ca8))  - (goliatone)
+
 # [0.19.0](https://github.com/goliatone/go-admin/compare/v0.18.0...v0.19.0) - (2026-01-21)
 
 ## <!-- 1 -->🐛 Bug Fixes
