@@ -21,6 +21,7 @@ import (
 	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-featuregate/resolver"
+	"github.com/goliatone/go-featuregate/store"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
@@ -32,6 +33,7 @@ import (
 type onboardingTestEnv struct {
 	app  *fiber.App
 	deps stores.UserDependencies
+	gate fggate.MutableFeatureGate
 }
 
 type passwordResetRow struct {
@@ -206,7 +208,9 @@ func TestOnboardingSelfRegistrationToggle(t *testing.T) {
 		t.Fatalf("expected FEATURE_DISABLED text_code, got %q", textCode)
 	}
 
-	flags[setup.FeatureSelfRegistration] = true
+	if err := env.gate.Set(context.Background(), setup.FeatureSelfRegistration, fggate.ScopeSet{System: true}, true, fggate.ActorRef{}); err != nil {
+		t.Fatalf("enable self registration: %v", err)
+	}
 	resp, status = doOnboardingJSONRequest(t, env.app, http.MethodPost, "/admin/api/onboarding/register", registerPayload)
 	if status != http.StatusCreated {
 		t.Fatalf("expected registration enabled status 201, got %d", status)
@@ -230,7 +234,7 @@ func setupOnboardingTestEnv(t *testing.T, flags map[string]bool, registration se
 	cfg := admin.Config{BasePath: "/admin", DefaultLocale: "en", Title: "Admin"}
 	gate := featureGateFromFlags(flags)
 	app := setupOnboardingTestApp(t, cfg, deps, svc, gate, registration)
-	return onboardingTestEnv{app: app, deps: deps}
+	return onboardingTestEnv{app: app, deps: deps, gate: gate}
 }
 
 func setupOnboardingTestApp(t *testing.T, cfg admin.Config, deps stores.UserDependencies, svc *userssvc.Service, gate fggate.FeatureGate, registration setup.RegistrationConfig) *fiber.App {
@@ -359,9 +363,14 @@ func loadLatestResetRow(ctx context.Context, db *bun.DB, userID uuid.UUID) (pass
 	return row, err
 }
 
-func featureGateFromFlags(flags map[string]bool) fggate.FeatureGate {
+func featureGateFromFlags(flags map[string]bool) fggate.MutableFeatureGate {
 	if flags == nil {
 		flags = map[string]bool{}
 	}
-	return resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(flags)))
+	defaults := configadapter.NewDefaultsFromBools(flags)
+	overrides := store.NewMemoryStore()
+	return resolver.New(
+		resolver.WithDefaults(defaults),
+		resolver.WithOverrideStore(overrides),
+	)
 }
