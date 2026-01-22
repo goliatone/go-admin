@@ -21,18 +21,23 @@ type uiRouteOptions struct {
 	dashboardPath         string
 	notificationsPath     string
 	activityPath          string
+	featureFlagsPath      string
 	dashboardTemplate     string
 	notificationsTemplate string
 	activityTemplate      string
+	featureFlagsTemplate  string
 	dashboardTitle        string
 	notificationsTitle    string
 	activityTitle         string
+	featureFlagsTitle     string
 	dashboardActive       string
 	notificationsActive   string
 	activityActive        string
+	featureFlagsActive    string
 	registerDashboard     bool
 	registerNotifications bool
 	registerActivity      bool
+	registerFeatureFlags  bool
 	viewContext           UIViewContextBuilder
 }
 
@@ -73,6 +78,15 @@ func WithUIActivityRoute(enabled bool) UIRouteOption {
 	}
 }
 
+// WithUIFeatureFlagsRoute toggles the feature flags route registration.
+func WithUIFeatureFlagsRoute(enabled bool) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.registerFeatureFlags = enabled
+		}
+	}
+}
+
 // WithUIDashboardPath overrides the dashboard route path.
 func WithUIDashboardPath(route string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
@@ -96,6 +110,15 @@ func WithUIActivityPath(route string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
 		if opts != nil {
 			opts.activityPath = strings.TrimSpace(route)
+		}
+	}
+}
+
+// WithUIFeatureFlagsPath overrides the feature flags route path.
+func WithUIFeatureFlagsPath(route string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.featureFlagsPath = strings.TrimSpace(route)
 		}
 	}
 }
@@ -127,6 +150,15 @@ func WithUIActivityTemplate(name string) UIRouteOption {
 	}
 }
 
+// WithUIFeatureFlagsTemplate overrides the feature flags template name.
+func WithUIFeatureFlagsTemplate(name string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.featureFlagsTemplate = strings.TrimSpace(name)
+		}
+	}
+}
+
 // WithUIDashboardTitle overrides the dashboard view title.
 func WithUIDashboardTitle(title string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
@@ -150,6 +182,15 @@ func WithUIActivityTitle(title string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
 		if opts != nil {
 			opts.activityTitle = strings.TrimSpace(title)
+		}
+	}
+}
+
+// WithUIFeatureFlagsTitle overrides the feature flags view title.
+func WithUIFeatureFlagsTitle(title string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.featureFlagsTitle = strings.TrimSpace(title)
 		}
 	}
 }
@@ -181,6 +222,15 @@ func WithUIActivityActive(active string) UIRouteOption {
 	}
 }
 
+// WithUIFeatureFlagsActive sets the active menu key for the feature flags route.
+func WithUIFeatureFlagsActive(active string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.featureFlagsActive = strings.TrimSpace(active)
+		}
+	}
+}
+
 // WithUIViewContextBuilder overrides the default view context builder.
 func WithUIViewContextBuilder(builder UIViewContextBuilder) UIRouteOption {
 	return func(opts *uiRouteOptions) {
@@ -201,15 +251,19 @@ func RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 		dashboardTemplate:     "admin",
 		notificationsTemplate: "notifications",
 		activityTemplate:      "resources/activity/list",
+		featureFlagsTemplate:  "resources/feature-flags/index",
 		dashboardTitle:        strings.TrimSpace(cfg.Title),
 		notificationsTitle:    strings.TrimSpace(cfg.Title),
 		activityTitle:         "Activity",
+		featureFlagsTitle:     "Feature Flags",
 		dashboardActive:       "dashboard",
 		notificationsActive:   "notifications",
 		activityActive:        "activity",
+		featureFlagsActive:    "feature_flags",
 		registerDashboard:     true,
 		registerNotifications: true,
 		registerActivity:      true,
+		registerFeatureFlags:  true,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -228,6 +282,9 @@ func RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 	}
 	if options.activityPath == "" {
 		options.activityPath = path.Join(options.basePath, "activity")
+	}
+	if options.featureFlagsPath == "" {
+		options.featureFlagsPath = path.Join(options.basePath, "feature-flags")
 	}
 	if options.viewContext == nil {
 		options.viewContext = defaultUIViewContextBuilder(adm, cfg)
@@ -271,6 +328,18 @@ func RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 			}
 			viewCtx = options.viewContext(viewCtx, options.activityActive, c)
 			return c.Render(options.activityTemplate, viewCtx)
+		}))
+	}
+
+	if options.registerFeatureFlags {
+		r.Get(options.featureFlagsPath, wrap(func(c router.Context) error {
+			viewCtx := router.ViewContext{
+				"title":                  options.featureFlagsTitle,
+				"base_path":              options.basePath,
+				"feature_flags_api_path": path.Join(options.basePath, "api", "feature-flags"),
+			}
+			viewCtx = options.viewContext(viewCtx, options.featureFlagsActive, c)
+			return c.Render(options.featureFlagsTemplate, viewCtx)
 		}))
 	}
 
