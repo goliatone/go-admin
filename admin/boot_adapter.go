@@ -3,6 +3,7 @@ package admin
 import (
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // Boot runs the admin boot pipeline with the given steps or the defaults.
@@ -34,6 +35,11 @@ func (a *Admin) AuthWrapper() boot.HandlerWrapper {
 // BasePath exposes the configured base path.
 func (a *Admin) BasePath() string {
 	return a.config.BasePath
+}
+
+// URLs exposes the URL manager.
+func (a *Admin) URLs() urlkit.Resolver {
+	return a.urlManager
 }
 
 // DefaultLocale exposes the configured default locale.
