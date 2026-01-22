@@ -11,10 +11,17 @@ import (
 )
 
 func featureEnabled(gate fggate.FeatureGate, feature string) bool {
+	return featureEnabledWithContext(context.Background(), gate, feature, fggate.ScopeSet{System: true})
+}
+
+func featureEnabledWithContext(ctx context.Context, gate fggate.FeatureGate, feature string, scope fggate.ScopeSet) bool {
 	if gate == nil || strings.TrimSpace(feature) == "" {
 		return false
 	}
-	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	enabled, err := gate.Enabled(ctx, feature, fggate.WithScopeSet(scope))
 	return err == nil && enabled
 }
 
