@@ -691,6 +691,7 @@ func debugPermissionSnapshot(cfg Config) map[string]any {
 	out := map[string]any{}
 	debugSetPermission(out, "settings", cfg.SettingsPermission)
 	debugSetPermission(out, "settings_update", cfg.SettingsUpdatePermission)
+	debugSetPermission(out, "feature_flags_view", cfg.FeatureFlagsViewPermission)
 	debugSetPermission(out, "feature_flags_update", cfg.FeatureFlagsUpdatePermission)
 	debugSetPermission(out, "notifications", cfg.NotificationsPermission)
 	debugSetPermission(out, "notifications_update", cfg.NotificationsUpdatePermission)
