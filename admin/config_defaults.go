@@ -18,6 +18,9 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.SettingsUpdatePermission == "" {
 		cfg.SettingsUpdatePermission = "admin.settings.edit"
 	}
+	if cfg.FeatureFlagsViewPermission == "" {
+		cfg.FeatureFlagsViewPermission = "admin.feature_flags.view"
+	}
 	if cfg.FeatureFlagsUpdatePermission == "" {
 		cfg.FeatureFlagsUpdatePermission = "admin.feature_flags.update"
 	}
