@@ -60,6 +60,13 @@ func main() {
 			"accent":  "#f59e0b",
 		}),
 	)
+	cfg.URLs.APIVersion = "v0"
+	if value, ok := os.LookupEnv("ADMIN_API_VERSION"); ok {
+		cfg.URLs.APIVersion = strings.TrimSpace(value)
+	}
+	if value, ok := os.LookupEnv("ADMIN_API_PREFIX"); ok {
+		cfg.URLs.APIPrefix = strings.TrimSpace(value)
+	}
 	featureDefaults := map[string]bool{
 		"dashboard":                   true,
 		"cms":                         true,
