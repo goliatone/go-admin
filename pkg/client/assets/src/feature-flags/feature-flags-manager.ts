@@ -371,10 +371,17 @@ export class FeatureFlagsManager {
 
     const currentVal = this.currentOverrideValue(flag);
     const key = flag.key || '';
+    const description = flag.description ? this.escapeHtml(flag.description) : '';
+    const descriptionMarkup = description
+      ? `<div class="mt-1 text-xs text-gray-500">${description}</div>`
+      : '';
 
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td class="px-5 py-4 text-sm text-gray-900 font-mono">${this.escapeHtml(key)}</td>
+      <td class="px-5 py-4 text-sm">
+        <div class="text-gray-900 font-mono">${this.escapeHtml(key)}</div>
+        ${descriptionMarkup}
+      </td>
       <td class="px-5 py-4 text-sm">${effectiveBadge}</td>
       <td class="px-5 py-4 text-sm text-gray-600 capitalize">${this.escapeHtml(source)}</td>
       <td class="px-5 py-4 text-sm text-gray-600">${defaultValue}</td>
