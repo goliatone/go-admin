@@ -63,7 +63,8 @@ type Config struct {
 
 	NavMenuCode string
 
-	FeatureFlagKeys []string
+	FeatureFlagKeys    []string
+	FeatureCatalogPath string
 }
 
 // URLConfig controls admin URL generation defaults.
