@@ -1,5 +1,5 @@
-import { S as b, E as c, c as l, U as h } from "../chunks/entity-renderer-Ck4g7jIm.js";
-class g {
+import { S as x, E as l, c, U as h } from "../chunks/entity-renderer-Ck4g7jIm.js";
+class f {
   constructor(e) {
     if (this.searchBox = null, this.scopeConfigs = /* @__PURE__ */ new Map(), this.currentScope = "system", this.selectedResult = null, this.config = e, typeof e.input == "string") {
       const t = document.querySelector(e.input);
@@ -86,7 +86,7 @@ class g {
     }
     this.input.disabled = !1, this.input.value = "";
     const t = this.scopeConfigs.get(e);
-    t ? (this.searchBox = new b({
+    t ? (this.searchBox = new x({
       input: this.input,
       container: this.container,
       resolver: t.resolver,
@@ -111,34 +111,34 @@ class g {
     return this.config.defaultPlaceholder || t[e] || "Enter ID...";
   }
 }
-function F(n) {
+function C(n) {
   return [
     {
       scope: "tenant",
-      resolver: l(`${n}/api/tenants`, {
+      resolver: c(`${n}/api/tenants`, {
         labelField: (e) => String(e.name || ""),
         descriptionField: (e) => String(e.slug || ""),
         searchParam: "q"
       }),
-      renderer: new c({
+      renderer: new l({
         badgeField: "status"
       }),
       placeholder: "Search tenants by name..."
     },
     {
       scope: "org",
-      resolver: l(`${n}/api/organizations`, {
+      resolver: c(`${n}/api/organizations`, {
         labelField: (e) => String(e.name || ""),
         searchParam: "q"
       }),
-      renderer: new c({
+      renderer: new l({
         badgeField: "status"
       }),
       placeholder: "Search organizations..."
     },
     {
       scope: "user",
-      resolver: l(`${n}/api/users`, {
+      resolver: c(`${n}/api/users`, {
         labelField: (e) => String(e.displayName || e.username || e.email || ""),
         descriptionField: (e) => String(e.email || ""),
         searchParam: "q"
@@ -152,34 +152,34 @@ function F(n) {
     }
   ];
 }
-function B(n) {
+function I(n) {
   const t = [
     {
       scope: "tenant",
-      resolver: l(`${n.basePath}/crud/tenants`, {
+      resolver: c(`${n.basePath}/crud/tenants`, {
         labelField: (s) => String(s.name || ""),
         descriptionField: (s) => String(s.slug || ""),
         searchParam: "q"
       }),
-      renderer: new c({
+      renderer: new l({
         badgeField: "status"
       }),
       placeholder: "Search tenants..."
     },
     {
       scope: "org",
-      resolver: l(`${n.basePath}/crud/organizations`, {
+      resolver: c(`${n.basePath}/crud/organizations`, {
         labelField: (s) => String(s.name || ""),
         searchParam: "q"
       }),
-      renderer: new c({
+      renderer: new l({
         badgeField: "status"
       }),
       placeholder: "Search organizations..."
     },
     {
       scope: "user",
-      resolver: l(`${n.basePath}/crud/users`, {
+      resolver: c(`${n.basePath}/crud/users`, {
         labelField: (s) => String(s.display_name || s.username || s.email || ""),
         descriptionField: (s) => String(s.email || ""),
         searchParam: "q"
@@ -195,7 +195,7 @@ function B(n) {
     const r = n.customConfigs?.[s.scope];
     return r ? { ...s, ...r } : s;
   });
-  return new g({
+  return new f({
     input: n.inputSelector,
     scopeSelect: n.scopeSelectSelector,
     container: n.containerSelector,
@@ -204,7 +204,7 @@ function B(n) {
     onScopeChange: n.onScopeChange
   });
 }
-const w = {
+const F = {
   scopeSelect: "#flag-scope",
   scopeIdInput: "#flag-scope-id",
   applyScopeBtn: "#apply-scope",
@@ -213,19 +213,19 @@ const w = {
   mutableState: "#mutable-state",
   tableBody: "#flags-table",
   emptyState: "#flags-empty"
-}, S = [
+}, m = [
   { value: "unset", label: "Default", icon: "minus" },
   { value: "enabled", label: "Enabled", icon: "check" },
   { value: "disabled", label: "Disabled", icon: "x" }
-], m = {
+], g = {
   check: '<svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>',
   x: '<svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
   minus: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>',
   chevronDown: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>'
 };
-class C {
+class k {
   constructor(e, t = {}, s) {
-    this.scopeSelect = null, this.scopeIdInput = null, this.applyScopeBtn = null, this.refreshBtn = null, this.searchInput = null, this.mutableStateEl = null, this.tableBody = null, this.emptyState = null, this.allFlags = [], this.isMutable = !1, this.documentClickHandler = null, this.scopeSearchBox = null, this.config = e, this.selectors = { ...w, ...t }, this.toast = s || window.toastManager || null;
+    this.scopeSelect = null, this.scopeIdInput = null, this.applyScopeBtn = null, this.refreshBtn = null, this.searchInput = null, this.mutableStateEl = null, this.tableBody = null, this.emptyState = null, this.allFlags = [], this.isMutable = !1, this.documentClickHandler = null, this.scopeSearchBox = null, this.config = e, this.selectors = { ...F, ...t }, this.toast = s || window.toastManager || null;
   }
   /**
    * Initialize the feature flags manager
@@ -250,7 +250,7 @@ class C {
   initScopeSearch() {
     if (!this.scopeSelect || !this.scopeIdInput) return;
     const e = this.buildScopeConfigs(), t = this.scopeIdInput.parentElement;
-    t && (t.style.position = "relative", this.scopeSearchBox = new g({
+    t && (t.style.position = "relative", this.scopeSearchBox = new f({
       input: this.scopeIdInput,
       scopeSelect: this.scopeSelect,
       container: t,
@@ -270,12 +270,12 @@ class C {
     return [
       {
         scope: "tenant",
-        resolver: l(`${e}/crud/tenants`, {
+        resolver: c(`${e}/crud/tenants`, {
           labelField: (t) => String(t.name || ""),
           descriptionField: (t) => String(t.slug || ""),
           searchParam: "q"
         }),
-        renderer: new c({
+        renderer: new l({
           badgeField: "status"
         }),
         placeholder: "Search tenants...",
@@ -283,11 +283,11 @@ class C {
       },
       {
         scope: "org",
-        resolver: l(`${e}/crud/organizations`, {
+        resolver: c(`${e}/crud/organizations`, {
           labelField: (t) => String(t.name || ""),
           searchParam: "q"
         }),
-        renderer: new c({
+        renderer: new l({
           badgeField: "status"
         }),
         placeholder: "Search organizations...",
@@ -295,7 +295,7 @@ class C {
       },
       {
         scope: "user",
-        resolver: l(`${e}/crud/users`, {
+        resolver: c(`${e}/crud/users`, {
           labelField: (t) => String(t.display_name || t.username || t.email || "Unknown"),
           descriptionField: (t) => String(t.email || ""),
           searchParam: "q"
@@ -382,18 +382,21 @@ class C {
     }), this.wireActionMenus();
   }
   createFlagRow(e, t) {
-    const s = e.effective ? "Enabled" : "Disabled", r = this.badge(s, e.effective ? "on" : "off"), o = e.source || "unknown", a = e.default && e.default.set ? e.default.value ? "Enabled" : "Disabled" : "—", i = this.normalizeOverrideState(e), d = e.override && e.override.value !== void 0 ? e.override.value ? "Enabled" : "Disabled" : "—", f = i === "enabled" || i === "disabled" ? d : "Default", y = this.badge(
-      f,
+    const s = e.effective ? "Enabled" : "Disabled", r = this.badge(s, e.effective ? "on" : "off"), o = e.source || "unknown", a = e.default && e.default.set ? e.default.value ? "Enabled" : "Disabled" : "—", i = this.normalizeOverrideState(e), d = e.override && e.override.value !== void 0 ? e.override.value ? "Enabled" : "Disabled" : "—", y = i === "enabled" || i === "disabled" ? d : "Default", v = this.badge(
+      y,
       i === "enabled" ? "on" : i === "disabled" ? "off" : "neutral"
-    ), v = this.currentOverrideValue(e), u = e.key || "", p = document.createElement("tr");
-    return p.innerHTML = `
-      <td class="px-5 py-4 text-sm text-gray-900 font-mono">${this.escapeHtml(u)}</td>
+    ), b = this.currentOverrideValue(e), u = e.key || "", p = e.description ? this.escapeHtml(e.description) : "", w = p ? `<div class="mt-1 text-xs text-gray-500">${p}</div>` : "", S = document.createElement("tr");
+    return S.innerHTML = `
+      <td class="px-5 py-4 text-sm">
+        <div class="text-gray-900 font-mono">${this.escapeHtml(u)}</div>
+        ${w}
+      </td>
       <td class="px-5 py-4 text-sm">${r}</td>
       <td class="px-5 py-4 text-sm text-gray-600 capitalize">${this.escapeHtml(o)}</td>
       <td class="px-5 py-4 text-sm text-gray-600">${a}</td>
-      <td class="px-5 py-4 text-sm">${y}</td>
-      <td class="px-5 py-4 text-sm">${this.renderActionMenu(u, v, !t)}</td>
-    `, p;
+      <td class="px-5 py-4 text-sm">${v}</td>
+      <td class="px-5 py-4 text-sm">${this.renderActionMenu(u, b, !t)}</td>
+    `, S;
   }
   badge(e, t) {
     const s = "status-badge";
@@ -407,18 +410,18 @@ class C {
     return t === "enabled" ? "enabled" : t === "disabled" ? "disabled" : "unset";
   }
   renderActionMenu(e, t, s) {
-    const r = s ? "opacity-50 pointer-events-none" : "", o = S.find((a) => a.value === t);
+    const r = s ? "opacity-50 pointer-events-none" : "", o = m.find((a) => a.value === t);
     return `
       <div class="relative action-menu ${r}" data-flag-key="${this.escapeHtml(e)}">
         <button type="button" class="action-menu-trigger inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-0" ${s ? "disabled" : ""}>
           <span class="action-menu-label">${o?.label || "Default"}</span>
-          ${m.chevronDown}
+          ${g.chevronDown}
         </button>
         <div class="action-menu-dropdown hidden absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-          ${S.map(
+          ${m.map(
       (a) => `
             <button type="button" data-value="${a.value}" class="action-menu-item w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${a.value === t ? "bg-gray-50 font-medium" : ""}">
-              ${m[a.icon] || ""}
+              ${g[a.icon] || ""}
               ${a.label}
             </button>
           `
@@ -449,9 +452,9 @@ class C {
   }
 }
 export {
-  C as FeatureFlagsManager,
-  g as ScopeSearchBox,
-  F as createDefaultScopeConfigs,
-  B as createScopeSearchBox
+  k as FeatureFlagsManager,
+  f as ScopeSearchBox,
+  C as createDefaultScopeConfigs,
+  I as createScopeSearchBox
 };
 //# sourceMappingURL=index.js.map

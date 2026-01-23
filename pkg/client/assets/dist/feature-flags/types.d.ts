@@ -11,6 +11,7 @@ export interface FlagOverride {
 }
 export interface Flag {
     key: string;
+    description?: string;
     effective: boolean;
     source: string;
     default?: FlagDefault;
