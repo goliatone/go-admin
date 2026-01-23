@@ -85,7 +85,6 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 	}
 
 	mainGroup := menuCode + ".nav-group-main"
-	othersGroup := menuCode + ".nav-group-others"
 	contentParent := mainGroup + ".content"
 
 	out := []admin.MenuItem{
@@ -95,14 +94,6 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			GroupTitle:    "Main Menu",
 			GroupTitleKey: "menu.group.main",
 			Position:      admin.IntPtr(0),
-			Menu:          menuCode,
-		},
-		{
-			ID:            othersGroup,
-			Type:          admin.MenuItemTypeGroup,
-			GroupTitle:    "Others",
-			GroupTitleKey: "menu.group.others",
-			Position:      admin.IntPtr(90),
 			Menu:          menuCode,
 		},
 		{
@@ -122,95 +113,6 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			Menu:        menuCode,
 			ParentID:    mainGroup,
 			Permissions: []string{"admin.pages.view", "admin.posts.view"},
-		},
-		{
-			ID:       mainGroup + ".shop",
-			Type:     admin.MenuItemTypeItem,
-			Label:    "My Shop",
-			LabelKey: "menu.shop",
-			Icon:     "shop",
-			Position: admin.IntPtr(40),
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(basePath, "shop"),
-				"key":  "shop",
-			},
-			Menu:        menuCode,
-			ParentID:    mainGroup,
-			Collapsible: true,
-		},
-		{
-			ID:       mainGroup + ".shop.products",
-			Label:    "Products",
-			LabelKey: "menu.shop.products",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(basePath, "products"),
-				"key":  "products",
-			},
-			Position: admin.IntPtr(1),
-			Menu:     menuCode,
-			ParentID: mainGroup + ".shop",
-		},
-		{
-			ID:       mainGroup + ".shop.orders",
-			Label:    "Orders",
-			LabelKey: "menu.shop.orders",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(basePath, "orders"),
-				"key":  "orders",
-			},
-			Position: admin.IntPtr(2),
-			Menu:     menuCode,
-			ParentID: mainGroup + ".shop",
-		},
-		{
-			ID:       mainGroup + ".shop.customers",
-			Label:    "Customers",
-			LabelKey: "menu.shop.customers",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(basePath, "customers"),
-				"key":  "customers",
-			},
-			Position: admin.IntPtr(3),
-			Menu:     menuCode,
-			ParentID: mainGroup + ".shop",
-		},
-		{
-			ID:       mainGroup + ".analytics",
-			Label:    "Analytics",
-			LabelKey: "menu.analytics",
-			Icon:     "stats-report",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(basePath, "analytics"),
-				"key":  "analytics",
-			},
-			Position: admin.IntPtr(60),
-			Menu:     menuCode,
-			ParentID: mainGroup,
-		},
-		{
-			ID:       mainGroup + ".separator",
-			Type:     admin.MenuItemTypeSeparator,
-			Position: admin.IntPtr(80),
-			Menu:     menuCode,
-		},
-		{
-			ID:       othersGroup + ".help",
-			Label:    "Help & Support",
-			LabelKey: "menu.help",
-			Icon:     "question-mark",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(basePath, "help"),
-				"key":  "help",
-			},
-			Position: admin.IntPtr(10),
-			Menu:     menuCode,
-			ParentID: othersGroup,
 		},
 	}
 
