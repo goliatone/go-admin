@@ -5,7 +5,7 @@ import (
 	"io/fs"
 )
 
-//go:embed assets templates
+//go:embed assets templates openapi
 var embeddedClient embed.FS
 
 // FS returns the embedded client filesystem (assets + templates).
@@ -25,6 +25,15 @@ func Assets() fs.FS {
 // Templates returns the embedded admin client templates filesystem.
 func Templates() fs.FS {
 	sub, err := fs.Sub(embeddedClient, "templates")
+	if err != nil {
+		return embeddedClient
+	}
+	return sub
+}
+
+// OpenAPI returns the embedded OpenAPI filesystem (OpenAPI specs + UI schema).
+func OpenAPI() fs.FS {
+	sub, err := fs.Sub(embeddedClient, "openapi")
 	if err != nil {
 		return embeddedClient
 	}

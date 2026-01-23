@@ -1,0 +1,150 @@
+operations:
+  createRole:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/roles
+        - kind: primary
+          label: Create Role
+          type: submit
+    fields:
+      name:
+        order: 0
+        grid:
+          span: 12
+      role_key:
+        order: 1
+        grid:
+          span: 6
+      is_system:
+        order: 2
+        grid:
+          span: 6
+      description:
+        order: 3
+        grid:
+          span: 12
+        widget: textarea
+      permissions:
+        order: 4
+        grid:
+          span: 12
+        component: permission-matrix
+        componentOptions:
+          resources:
+            - admin.dashboard
+            - admin.settings
+            - admin.users
+            - admin.roles
+            - admin.activity
+            - admin.jobs
+            - admin.search
+            - admin.preferences
+            - admin.profile
+            - admin.debug
+          actions:
+            - view
+            - create
+            - edit
+            - delete
+          extraIgnorePrefixes:
+            - admin.debug.
+      permissions_debug:
+        order: 5
+        grid:
+          span: 12
+        component: permission-matrix
+        componentOptions:
+          label: Debug REPL Permissions
+          showExtra: false
+          resources:
+            - admin.debug
+          actions:
+            - repl
+            - exec
+      metadata:
+        order: 6
+        grid:
+          span: 12
+        component: json_editor
+        componentOptions:
+          mode: gui
+          schemaHint: Additional role metadata as JSON
+
+  updateRole:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/roles
+        - kind: primary
+          label: Update Role
+          type: submit
+    fields:
+      name:
+        order: 0
+        grid:
+          span: 12
+      role_key:
+        order: 1
+        grid:
+          span: 6
+      is_system:
+        order: 2
+        grid:
+          span: 6
+      description:
+        order: 3
+        grid:
+          span: 12
+        widget: textarea
+      permissions:
+        order: 4
+        grid:
+          span: 12
+        component: permission-matrix
+        componentOptions:
+          resources:
+            - admin.dashboard
+            - admin.settings
+            - admin.users
+            - admin.roles
+            - admin.activity
+            - admin.jobs
+            - admin.search
+            - admin.preferences
+            - admin.profile
+            - admin.debug
+          actions:
+            - view
+            - create
+            - edit
+            - delete
+          extraIgnorePrefixes:
+            - admin.debug.
+      permissions_debug:
+        order: 5
+        grid:
+          span: 12
+        component: permission-matrix
+        componentOptions:
+          label: Debug REPL Permissions
+          showExtra: false
+          resources:
+            - admin.debug
+          actions:
+            - repl
+            - exec
+      metadata:
+        order: 6
+        grid:
+          span: 12
+        component: json_editor
+        componentOptions:
+          mode: gui
+          schemaHint: Additional role metadata as JSON

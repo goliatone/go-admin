@@ -35,6 +35,23 @@
        data-active-tab="{{ active_tab }}"
        data-default-tab="details">
     {% include "partials/tab-panel.html" with tab_panel=tab_panel fields=fields resource_item=resource_item resource_label=resource_label %}
+    {% if assigned_roles and assigned_roles|length > 0 %}
+    <div class="mt-6 max-w-3xl bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div class="p-6">
+        <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Assigned Roles</div>
+        <div class="flex flex-wrap gap-2">
+          {% for role in assigned_roles %}
+          <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-50 border border-gray-200 text-sm">
+            <span class="font-semibold text-gray-800">{{ role.name|default:role.id }}</span>
+            {% if role.role_key %}
+            <span class="text-xs text-gray-500">{{ role.role_key }}</span>
+            {% endif %}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 {% endblock %}
 
