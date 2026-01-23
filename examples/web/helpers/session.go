@@ -135,7 +135,7 @@ func featureEnabled(gate fggate.FeatureGate, feature string) bool {
 	if gate == nil || strings.TrimSpace(feature) == "" {
 		return false
 	}
-	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
 	return err == nil && enabled
 }
 
