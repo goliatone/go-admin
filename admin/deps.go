@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/activity"
@@ -50,7 +51,9 @@ type Dependencies struct {
 
 	SettingsService *SettingsService
 
-	FeatureGate fggate.FeatureGate
+	FeatureGate            fggate.FeatureGate
+	FeatureCatalog         catalog.Catalog
+	FeatureCatalogResolver catalog.MessageResolver
 }
 
 type dependencyIssue struct {
