@@ -214,6 +214,7 @@ func (h *UserHandlers) Detail(c router.Context) error {
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
 	fields := userDetailFields(user)
 	user["actions"] = routes.ActionsMap(id)
+	assignedRoles := roleViewItems(fetchAssignedRoles(ctx, h.Admin, id))
 
 	viewCtx := h.WithNav(router.ViewContext{
 		"title":          h.Config.Title,
@@ -223,6 +224,7 @@ func (h *UserHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  user,
 		"fields":         fields,
+		"assigned_roles": assignedRoles,
 		"tabs":           tabViews,
 		"active_tab":     activeTab,
 		"tab_panel":      tabPanel,
@@ -528,6 +530,36 @@ func (h *UserHandlers) buildTabPanel(c router.Context, user map[string]any, tabI
 		}
 	}
 	return tabPanel
+}
+
+func fetchAssignedRoles(ctx context.Context, adm *admin.Admin, userID string) []admin.RoleRecord {
+	if adm == nil || strings.TrimSpace(userID) == "" {
+		return nil
+	}
+	service := adm.UserService()
+	if service == nil {
+		return nil
+	}
+	roles, err := service.RolesForUser(ctx, userID)
+	if err != nil {
+		return nil
+	}
+	return roles
+}
+
+func roleViewItems(roles []admin.RoleRecord) []map[string]any {
+	if len(roles) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(roles))
+	for _, role := range roles {
+		out = append(out, map[string]any{
+			"id":       role.ID,
+			"name":     role.Name,
+			"role_key": role.RoleKey,
+		})
+	}
+	return out
 }
 
 func userDetailFields(user map[string]any) []map[string]any {
