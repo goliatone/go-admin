@@ -11,7 +11,7 @@ func UserImportRouteStep(ctx BootCtx) error {
 	if binding == nil {
 		return nil
 	}
-	base := joinPath(ctx.BasePath(), "api/users/import")
+	base := joinPath(ctx.BasePath(), "api/users-import")
 	routes := []RouteSpec{
 		{
 			Method: "POST",
