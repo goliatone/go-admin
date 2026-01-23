@@ -239,7 +239,7 @@ func filterModulesForRegistrar(mods []admin.Module, gates fggate.FeatureGate, on
 		}
 		disabled := false
 		for _, flag := range manifest.FeatureFlags {
-			enabled, err := gates.Enabled(context.Background(), flag, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+			enabled, err := gates.Enabled(context.Background(), flag, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
 			if err != nil {
 				return nil, err
 			}
