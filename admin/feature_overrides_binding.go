@@ -41,10 +41,11 @@ func (b *featureOverridesBinding) List(c router.Context) (map[string]any, error)
 		return nil, err
 	}
 
-	scopeName, scopeSet, scopeID, err := parseFeatureOverrideScope(adminCtx, featureOverrideBodyFromQuery(c))
+	scopeName, scopeRef, scopeID, err := parseFeatureOverrideScope(adminCtx, featureOverrideBodyFromQuery(c))
 	if err != nil {
 		return nil, err
 	}
+	scopeChain := scopeChainForOverride(scopeRef)
 
 	keys := parseFeatureOverrideKeys(c)
 	if len(keys) == 0 {
@@ -53,7 +54,7 @@ func (b *featureOverridesBinding) List(c router.Context) (map[string]any, error)
 	flags := make([]map[string]any, 0, len(keys))
 	includeTrace := parseFeatureOverrideTrace(c)
 	for _, key := range keys {
-		record, err := b.resolveFeatureFlag(adminCtx.Context, key, scopeSet, includeTrace)
+		record, err := b.resolveFeatureFlag(adminCtx.Context, key, scopeChain, includeTrace)
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +100,7 @@ func (b *featureOverridesBinding) applyOverride(c router.Context, body map[strin
 		return nil, err
 	}
 
-	scopeName, scopeSet, scopeID, err := parseFeatureOverrideScope(adminCtx, body)
+	scopeName, scopeRef, scopeID, err := parseFeatureOverrideScope(adminCtx, body)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +110,7 @@ func (b *featureOverridesBinding) applyOverride(c router.Context, body map[strin
 		return nil, ferrors.WrapSentinel(ferrors.ErrStoreUnavailable, "feature overrides require a mutable feature gate", nil)
 	}
 
-	actor, _ := goauthadapter.ActorRefFromContext(adminCtx.Context)
+	actor, _ := actorRefFromContext(adminCtx.Context)
 	if set {
 		enabled, ok := parseOverrideEnabled(body)
 		if !ok {
@@ -117,7 +118,7 @@ func (b *featureOverridesBinding) applyOverride(c router.Context, body map[strin
 				WithCode(http.StatusBadRequest).
 				WithTextCode("FEATURE_ENABLED_REQUIRED")
 		}
-		if err := mutable.Set(adminCtx.Context, key, scopeSet, enabled, actor); err != nil {
+		if err := mutable.Set(adminCtx.Context, key, scopeRef, enabled, actor); err != nil {
 			return nil, err
 		}
 		response := map[string]any{
@@ -132,7 +133,7 @@ func (b *featureOverridesBinding) applyOverride(c router.Context, body map[strin
 		return response, nil
 	}
 
-	if err := mutable.Unset(adminCtx.Context, key, scopeSet, actor); err != nil {
+	if err := mutable.Unset(adminCtx.Context, key, scopeRef, actor); err != nil {
 		return nil, err
 	}
 	response := map[string]any{
@@ -146,7 +147,7 @@ func (b *featureOverridesBinding) applyOverride(c router.Context, body map[strin
 	return response, nil
 }
 
-func (b *featureOverridesBinding) resolveFeatureFlag(ctx context.Context, key string, scopeSet fggate.ScopeSet, includeTrace bool) (map[string]any, error) {
+func (b *featureOverridesBinding) resolveFeatureFlag(ctx context.Context, key string, scopeChain fggate.ScopeChain, includeTrace bool) (map[string]any, error) {
 	if b == nil || b.admin == nil || b.admin.featureGate == nil {
 		return nil, ferrors.WrapSentinel(ferrors.ErrGateRequired, "feature gate required", nil)
 	}
@@ -159,7 +160,7 @@ func (b *featureOverridesBinding) resolveFeatureFlag(ctx context.Context, key st
 		return nil, nil
 	}
 	if traceable, ok := b.admin.featureGate.(fggate.TraceableFeatureGate); ok {
-		value, trace, err := traceable.ResolveWithTrace(ctx, key, fggate.WithScopeSet(scopeSet))
+		value, trace, err := traceable.ResolveWithTrace(ctx, key, fggate.WithScopeChain(scopeChain))
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +196,7 @@ func (b *featureOverridesBinding) resolveFeatureFlag(ctx context.Context, key st
 		return record, nil
 	}
 
-	value, err := b.admin.featureGate.Enabled(ctx, key, fggate.WithScopeSet(scopeSet))
+	value, err := b.admin.featureGate.Enabled(ctx, key, fggate.WithScopeChain(scopeChain))
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +234,7 @@ func parseFeatureOverrideKey(body map[string]any) (string, error) {
 	return fggate.NormalizeKey(key), nil
 }
 
-func parseFeatureOverrideScope(ctx AdminContext, body map[string]any) (string, fggate.ScopeSet, string, error) {
+func parseFeatureOverrideScope(ctx AdminContext, body map[string]any) (string, fggate.ScopeRef, string, error) {
 	scopeName := strings.ToLower(strings.TrimSpace(toString(body["scope"])))
 	if scopeName == "" {
 		scopeName = featureOverrideScopeSystem
@@ -245,36 +246,50 @@ func parseFeatureOverrideScope(ctx AdminContext, body map[string]any) (string, f
 
 	switch scopeName {
 	case featureOverrideScopeSystem:
-		return scopeName, fggate.ScopeSet{System: true}, "", nil
+		return scopeName, fggate.ScopeRef{Kind: fggate.ScopeSystem}, "", nil
 	case featureOverrideScopeTenant:
 		id := firstNonEmpty(tenantID, scopeID, ctx.TenantID)
 		if id == "" {
-			return "", fggate.ScopeSet{}, "", goerrors.New("tenant scope requires tenant_id", goerrors.CategoryBadInput).
+			return "", fggate.ScopeRef{}, "", goerrors.New("tenant scope requires tenant_id", goerrors.CategoryBadInput).
 				WithCode(http.StatusBadRequest).
 				WithTextCode(ferrors.TextCodeScopeMetadataMissing)
 		}
-		return scopeName, fggate.ScopeSet{TenantID: id}, id, nil
+		return scopeName, fggate.ScopeRef{Kind: fggate.ScopeTenant, ID: id}, id, nil
 	case featureOverrideScopeOrg:
 		id := firstNonEmpty(orgID, scopeID, ctx.OrgID)
 		if id == "" {
-			return "", fggate.ScopeSet{}, "", goerrors.New("org scope requires org_id", goerrors.CategoryBadInput).
+			return "", fggate.ScopeRef{}, "", goerrors.New("org scope requires org_id", goerrors.CategoryBadInput).
 				WithCode(http.StatusBadRequest).
 				WithTextCode(ferrors.TextCodeScopeMetadataMissing)
 		}
-		return scopeName, fggate.ScopeSet{OrgID: id}, id, nil
+		return scopeName, fggate.ScopeRef{Kind: fggate.ScopeOrg, ID: id}, id, nil
 	case featureOverrideScopeUser:
 		id := firstNonEmpty(userID, scopeID, ctx.UserID)
 		if id == "" {
-			return "", fggate.ScopeSet{}, "", goerrors.New("user scope requires user_id", goerrors.CategoryBadInput).
+			return "", fggate.ScopeRef{}, "", goerrors.New("user scope requires user_id", goerrors.CategoryBadInput).
 				WithCode(http.StatusBadRequest).
 				WithTextCode(ferrors.TextCodeScopeMetadataMissing)
 		}
-		return scopeName, fggate.ScopeSet{UserID: id}, id, nil
+		return scopeName, fggate.ScopeRef{Kind: fggate.ScopeUser, ID: id}, id, nil
 	default:
-		return "", fggate.ScopeSet{}, "", goerrors.New("invalid scope", goerrors.CategoryBadInput).
+		return "", fggate.ScopeRef{}, "", goerrors.New("invalid scope", goerrors.CategoryBadInput).
 			WithCode(http.StatusBadRequest).
 			WithTextCode(ferrors.TextCodeScopeInvalid)
 	}
+}
+
+func scopeChainForOverride(scopeRef fggate.ScopeRef) fggate.ScopeChain {
+	if scopeRef.Kind == fggate.ScopeSystem {
+		return fggate.ScopeChain{scopeRef}
+	}
+	return fggate.ScopeChain{
+		scopeRef,
+		{Kind: fggate.ScopeSystem},
+	}
+}
+
+func actorRefFromContext(ctx context.Context) (fggate.ActorRef, bool) {
+	return goauthadapter.ActorRefFromContext(ctx)
 }
 
 func parseOverrideEnabled(body map[string]any) (bool, bool) {
