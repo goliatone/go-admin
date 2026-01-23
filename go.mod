@@ -15,7 +15,7 @@ require (
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.6.0
-	github.com/goliatone/go-featuregate v0.4.0
+	github.com/goliatone/go-featuregate v0.5.0
 	github.com/goliatone/go-formgen v0.14.0
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
@@ -197,3 +197,4 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
+replace github.com/goliatone/go-users => ../go-users
