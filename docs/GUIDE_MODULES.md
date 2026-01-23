@@ -184,7 +184,7 @@ User and role management with CRUD operations.
 | ID           | `users`                              |
 | Feature Flag | `FeatureUsers`                       |
 | Panel Routes | `/admin/users`, `/admin/roles`       |
-| Permissions  | `UsersPermission`, `RolesPermission` |
+| Permissions  | `UsersPermission`, `UsersCreatePermission`, `UsersImportPermission`, `UsersUpdatePermission`, `UsersDeletePermission`, `RolesPermission` |
 
 Features:
 
