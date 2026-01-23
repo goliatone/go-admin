@@ -25,7 +25,7 @@ func Load(ctx context.Context, opts LoadOptions) error {
 		manifest := mod.Manifest()
 		if len(manifest.FeatureFlags) > 0 && opts.Gates != nil {
 			for _, flag := range manifest.FeatureFlags {
-				enabled, err := opts.Gates.Enabled(ctx, flag, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+				enabled, err := opts.Gates.Enabled(ctx, flag, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
 				if err != nil {
 					return err
 				}
