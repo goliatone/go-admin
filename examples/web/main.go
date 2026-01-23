@@ -68,6 +68,7 @@ func main() {
 	if value, ok := os.LookupEnv("ADMIN_API_PREFIX"); ok {
 		cfg.URLs.APIPrefix = strings.TrimSpace(value)
 	}
+	cfg.FeatureCatalogPath = resolveFeatureCatalogPath()
 	featureDefaults := map[string]bool{
 		"dashboard":                   true,
 		"cms":                         true,
@@ -1128,6 +1129,24 @@ func applyFeatureFlagFromEnv(flags map[string]bool, envKey, featureKey string) {
 		return
 	}
 	flags[featureKey] = value
+}
+
+func resolveFeatureCatalogPath() string {
+	if value := strings.TrimSpace(os.Getenv("ADMIN_FEATURE_CATALOG")); value != "" {
+		return value
+	}
+	candidates := []string{
+		"feature_catalog.yaml",
+		filepath.Join("examples", "web", "feature_catalog.yaml"),
+		"feature_catalog.yml",
+		filepath.Join("examples", "web", "feature_catalog.yml"),
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
 }
 
 func envBool(key string) (bool, bool) {
