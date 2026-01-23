@@ -114,6 +114,12 @@ type MediaBinding interface {
 	Add(router.Context, map[string]any) (any, error)
 }
 
+// UserImportBinding exposes user import operations.
+type UserImportBinding interface {
+	ImportUsers(router.Context) error
+	ImportTemplate(router.Context) error
+}
+
 // NotificationsBinding exposes notifications operations.
 type NotificationsBinding interface {
 	List(router.Context) (map[string]any, error)
@@ -164,6 +170,7 @@ type BootCtx interface {
 	ExportRegistrar() ExportRegistrar
 	BootBulk() BulkBinding
 	BootMedia() MediaBinding
+	BootUserImport() UserImportBinding
 	BootNotifications() NotificationsBinding
 	BootActivity() ActivityBinding
 	BootJobs() JobsBinding
