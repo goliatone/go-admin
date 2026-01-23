@@ -17,6 +17,7 @@ func DefaultBootSteps() []Step {
 		SearchStep,
 		ExportRegistrarStep,
 		BulkStep,
+		UserImportRouteStep,
 		MediaStep,
 		NotificationsRouteStep,
 		ActivityRouteStep,
