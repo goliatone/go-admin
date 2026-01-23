@@ -171,7 +171,16 @@ func (a *ActivitySinkAdapter) Record(ctx context.Context, entry ActivityEntry) e
 		return nil
 	}
 	if a.logger != nil {
-		if err := a.logger.Log(ctx, recordFromEntry(entry)); err != nil {
+		record := recordFromEntry(entry)
+		if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+			if record.TenantID == "" {
+				record.TenantID = strings.TrimSpace(actor.TenantID)
+			}
+			if record.OrgID == "" {
+				record.OrgID = strings.TrimSpace(actor.OrganizationID)
+			}
+		}
+		if err := a.logger.Log(ctx, record); err != nil {
 			return err
 		}
 	}
