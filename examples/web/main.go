@@ -37,6 +37,7 @@ import (
 	fggate "github.com/goliatone/go-featuregate/gate"
 	persistence "github.com/goliatone/go-persistence-bun"
 	"github.com/goliatone/go-router"
+	gotheme "github.com/goliatone/go-theme"
 	"github.com/goliatone/go-users/activity"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
@@ -386,10 +387,38 @@ func main() {
 	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps, setup.WithDefaultScope(defaultTenantID, defaultOrgID))
 
 	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme.
+	// Assets support light/dark variants: icon.light.svg, icon.dark.svg, logo.light.svg, logo.dark.svg
+	themeAssetPrefix := path.Join(cfg.BasePath, "assets")
 	themeSelector, _, err := quickstart.NewThemeSelector(cfg.Theme, cfg.ThemeVariant, cfg.ThemeTokens,
-		quickstart.WithThemeAssets(path.Join(cfg.BasePath, "assets"), map[string]string{
-			"logo":    "logo.svg",
+		quickstart.WithThemeAssets(themeAssetPrefix, map[string]string{
+			"logo":    "logo.light.svg", // Default to light variant
+			"icon":    "icon.light.svg",
 			"favicon": "logo.svg",
+		}),
+		quickstart.WithThemeVariants(map[string]gotheme.Variant{
+			"light": {
+				Assets: gotheme.Assets{
+					Prefix: themeAssetPrefix,
+					Files: map[string]string{
+						"logo": "logo.light.svg",
+						"icon": "icon.light.svg",
+					},
+				},
+			},
+			"dark": {
+				Tokens: map[string]string{
+					"primary": "#0ea5e9",
+					"accent":  "#fbbf24",
+					"surface": "#0b1221",
+				},
+				Assets: gotheme.Assets{
+					Prefix: themeAssetPrefix,
+					Files: map[string]string{
+						"logo": "logo.dark.svg",
+						"icon": "icon.dark.svg",
+					},
+				},
+			},
 		}),
 	)
 	if err != nil {
@@ -786,9 +815,11 @@ func main() {
 		registerTemplate = "register"
 	}
 
+	// Auth pages use light variant icons (white fill) for the dark container background
 	authThemeAssets := map[string]string{
-		"logo":    "logo.svg",
-		"favicon": "favicon.svg",
+		"logo":    "logo.light.svg", // Rectangular logo with brand name (white fill for dark bg)
+		"icon":    "icon.light.svg", // Square icon only (white fill for dark bg)
+		"favicon": "logo.svg",
 	}
 	authThemeAssetPrefix := path.Join(cfg.BasePath, "assets")
 
