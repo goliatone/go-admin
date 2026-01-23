@@ -706,6 +706,7 @@ func debugPermissionSnapshot(cfg Config) map[string]any {
 	debugSetPermission(out, "profile_update", cfg.ProfileUpdatePermission)
 	debugSetPermission(out, "users", cfg.UsersPermission)
 	debugSetPermission(out, "users_create", cfg.UsersCreatePermission)
+	debugSetPermission(out, "users_import", cfg.UsersImportPermission)
 	debugSetPermission(out, "users_update", cfg.UsersUpdatePermission)
 	debugSetPermission(out, "users_delete", cfg.UsersDeletePermission)
 	debugSetPermission(out, "roles", cfg.RolesPermission)
