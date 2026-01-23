@@ -8,6 +8,7 @@ import (
 	fggate "github.com/goliatone/go-featuregate/gate"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/activity"
+	"github.com/goliatone/go-users/command"
 	"github.com/goliatone/go-users/pkg/types"
 )
 
@@ -48,6 +49,7 @@ type Dependencies struct {
 	RoleRepository         RoleRepository
 	TenantRepository       TenantRepository
 	OrganizationRepository OrganizationRepository
+	BulkUserImport         *command.BulkUserImportCommand
 
 	SettingsService *SettingsService
 
