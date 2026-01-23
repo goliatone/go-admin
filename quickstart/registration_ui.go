@@ -170,7 +170,7 @@ func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config,
 	if options.registrationMode != nil {
 		registrationMode = strings.TrimSpace(options.registrationMode(cfg))
 	}
-	authScope := fggate.ScopeSet{System: true}
+	authScope := fggate.ScopeChain{{Kind: fggate.ScopeSystem}}
 
 	r.Get(options.registerPath, func(c router.Context) error {
 		registrationEnabled := false
