@@ -186,6 +186,9 @@ func (b *featureOverridesBinding) resolveFeatureFlag(ctx context.Context, key st
 			"override":  override,
 			"default":   defaultInfo,
 		}
+		if description := b.admin.featureFlagDescription(ctx, trace.NormalizedKey); description != "" {
+			record["description"] = description
+		}
 		if includeTrace {
 			record["trace"] = trace
 		}
@@ -196,11 +199,15 @@ func (b *featureOverridesBinding) resolveFeatureFlag(ctx context.Context, key st
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{
+	record := map[string]any{
 		"key":       key,
 		"effective": value,
 		"source":    "unknown",
-	}, nil
+	}
+	if description := b.admin.featureFlagDescription(ctx, key); description != "" {
+		record["description"] = description
+	}
+	return record, nil
 }
 
 func parseFeatureOverrideKey(body map[string]any) (string, error) {
