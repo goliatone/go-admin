@@ -64,6 +64,7 @@ func (s *stubCtx) BootSearch() SearchBinding         { return nil }
 func (s *stubCtx) ExportRegistrar() ExportRegistrar  { return nil }
 func (s *stubCtx) BootBulk() BulkBinding             { return nil }
 func (s *stubCtx) BootMedia() MediaBinding           { return nil }
+func (s *stubCtx) BootUserImport() UserImportBinding { return nil }
 func (s *stubCtx) BootNotifications() NotificationsBinding {
 	return nil
 }

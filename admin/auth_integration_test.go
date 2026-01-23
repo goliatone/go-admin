@@ -67,7 +67,12 @@ func TestGoAuthAuthorizerMapsPermissions(t *testing.T) {
 	claims := &auth.JWTClaims{
 		UID:       "actor-1",
 		UserRole:  string(auth.RoleAdmin),
-		Resources: map[string]string{"settings": string(auth.RoleMember), "admin.notifications": string(auth.RoleAdmin), "jobs": string(auth.RoleAdmin)},
+		Resources: map[string]string{
+			"settings":            string(auth.RoleMember),
+			"admin.notifications": string(auth.RoleAdmin),
+			"jobs":                string(auth.RoleAdmin),
+			"users":               string(auth.RoleAdmin),
+		},
 	}
 	ctx := auth.WithClaimsContext(context.Background(), claims)
 	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{DefaultResource: "admin"})
@@ -83,6 +88,9 @@ func TestGoAuthAuthorizerMapsPermissions(t *testing.T) {
 	}
 	if !authz.Can(ctx, "admin.jobs.trigger", "jobs") {
 		t.Fatalf("expected jobs trigger to map to edit and be allowed")
+	}
+	if !authz.Can(ctx, "admin.users.import", "users") {
+		t.Fatalf("expected users import to map to create and be allowed")
 	}
 }
 
