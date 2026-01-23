@@ -137,6 +137,16 @@ func WithThemeAssetPrefix(prefix string) AdminConfigOption {
 	}
 }
 
+// WithFeatureCatalogPath sets the feature catalog config file path.
+func WithFeatureCatalogPath(path string) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.FeatureCatalogPath = strings.TrimSpace(path)
+	}
+}
+
 func normalizeBasePath(basePath string) string {
 	trimmed := strings.TrimSpace(basePath)
 	if trimmed == "" {
