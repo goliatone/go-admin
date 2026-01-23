@@ -5,7 +5,6 @@ import (
 	"io/fs"
 
 	"github.com/goliatone/go-admin/pkg/client"
-	"github.com/goliatone/go-admin/quickstart"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
 	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
 )
@@ -34,11 +33,7 @@ func NewRoleFormGenerator(cfg Config) (*formgenorchestrator.Orchestrator, error)
 	componentRegistry := components.New()
 	componentRegistry.MustRegister("permission-matrix", PermissionMatrixDescriptor(cfg.BasePath))
 
-	formGen, err := quickstart.NewFormGenerator(
-		openapiFS,
-		formTemplatesFS,
-		quickstart.WithComponentRegistryMergeDefaults(componentRegistry),
-	)
+	formGen, err := newFormGenerator(openapiFS, formTemplatesFS, componentRegistry)
 	if err != nil {
 		return nil, err
 	}
