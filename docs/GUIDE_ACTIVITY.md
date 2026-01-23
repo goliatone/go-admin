@@ -6,9 +6,9 @@ This guide documents the Activity read API, query parameters, pagination contrac
 
 `GET /admin/api/activity` (registered by `Admin.Boot` under `Config.BasePath`)
 
-- Requires actor context (go-auth middleware). Missing actor returns 401/403.
+- Requires actor context (go-auth middleware). Missing actor returns 401.
 - Requires `admin.activity.view` (configurable via `Config.ActivityPermission`).
-- Requires an Activity repository or query service; otherwise the API returns a feature-disabled error.
+- Requires an Activity feed query or repository; otherwise the API returns a feature-disabled error (404 + `FEATURE_DISABLED`).
 
 ## Query parameters
 
@@ -62,18 +62,24 @@ Notes:
 
 ## Pagination and ordering
 
-- Entries are ordered by the underlying activity query (go-users defaults to `OccurredAt` descending).
-- `next_offset` is computed as `offset + len(entries)`.
-- `has_more` is derived from the total: `(offset + len(entries)) < total`.
+- Entries are ordered by the underlying activity query (go-users defaults to `OccurredAt`/`created_at` descending).
+- `next_offset` and `has_more` are returned by the Activity feed query implementation.
 
 ## Policy behavior
 
-go-admin delegates filtering to the go-users `ActivityAccessPolicy`:
+When go-admin builds the feed query from a repository, it applies the go-users `ActivityAccessPolicy`:
 - Scopes results using the actor context (tenant/org/user).
 - Non-admin roles only see their own activity.
 - Machine/system activity is hidden for non-superadmins when policy options disable it.
 - Metadata is sanitized via go-masker (IP redaction by default).
 - Channel allow/deny lists are enforced.
+
+If you supply a custom `ActivityFeedQuery`/`ActivityService`, you must apply policy + sanitization yourself.
+
+## Read vs write paths
+
+- **Write path:** `ActivitySink.Record(...)` writes activity entries. go-admin uses this sink for internal actions (users, settings, jobs, notifications, CMS, debug REPL, dashboard layout, etc.). The dashboard “Recent Activity” widget reads from `ActivitySink.List(...)`.
+- **Read path:** `/admin/api/activity` uses `ActivityFeedQuery` or an `ActivityRepository` to return paginated results.
 
 ## Wiring (go-users repository + policy)
 
@@ -131,6 +137,20 @@ if err := quickstart.RegisterAdminUIRoutes(router, cfg, adm, authn); err != nil 
 }
 // Default UI route: {basePath}/activity with activity_api_path in the view context.
 ```
+
+Note: the UI route is wrapped by your auth middleware but does not enforce `admin.activity.view`; the API does. Missing permissions results in 403 responses and an empty UI.
+
+## Activity module UI integration
+
+The Activity module is registered by default and contributes:
+- A navigation item for `{basePath}/activity` gated by `Config.ActivityPermission`.
+- A “User Activity” tab on user detail pages that links to the activity page with `user_id` populated.
+
+If you disable module loading or override modules, ensure `NewActivityModule()` is registered if you want these UI integrations.
+
+## Permissions and roles
+
+Ensure the active role has `admin.activity.view`. The Activity API enforces this permission even if the UI renders. If roles are seeded, include it in the role permissions and reissue tokens after updates.
 
 ## Migration notes (breaking change)
 
