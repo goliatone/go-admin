@@ -1,0 +1,249 @@
+/**
+ * Activity Feed Styles
+ * Color coding, icons, and expandable metadata
+ */
+
+/* CSS Variables for action colors */
+:root {
+  --activity-created: #10b981;
+  --activity-created-bg: #ecfdf5;
+  --activity-created-border: #a7f3d0;
+
+  --activity-updated: #3b82f6;
+  --activity-updated-bg: #eff6ff;
+  --activity-updated-border: #bfdbfe;
+
+  --activity-deleted: #ef4444;
+  --activity-deleted-bg: #fef2f2;
+  --activity-deleted-border: #fecaca;
+
+  --activity-auth: #f59e0b;
+  --activity-auth-bg: #fffbeb;
+  --activity-auth-border: #fde68a;
+
+  --activity-viewed: #8b5cf6;
+  --activity-viewed-bg: #f5f3ff;
+  --activity-viewed-border: #ddd6fe;
+
+  --activity-system: #6b7280;
+  --activity-system-bg: #f9fafb;
+  --activity-system-border: #e5e7eb;
+}
+
+/* Action row styles with left border indicator */
+.activity-row {
+  position: relative;
+  transition: background-color 0.15s ease;
+}
+
+.activity-row:hover {
+  background-color: #f9fafb;
+}
+
+.activity-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: var(--activity-system);
+}
+
+.activity-row--created::before {
+  background-color: var(--activity-created);
+}
+
+.activity-row--updated::before {
+  background-color: var(--activity-updated);
+}
+
+.activity-row--deleted::before {
+  background-color: var(--activity-deleted);
+}
+
+.activity-row--auth::before {
+  background-color: var(--activity-auth);
+}
+
+.activity-row--viewed::before {
+  background-color: var(--activity-viewed);
+}
+
+.activity-row--system::before {
+  background-color: var(--activity-system);
+}
+
+/* Action badges */
+.activity-action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.activity-action-badge--created {
+  background-color: var(--activity-created-bg);
+  color: var(--activity-created);
+  border: 1px solid var(--activity-created-border);
+}
+
+.activity-action-badge--updated {
+  background-color: var(--activity-updated-bg);
+  color: var(--activity-updated);
+  border: 1px solid var(--activity-updated-border);
+}
+
+.activity-action-badge--deleted {
+  background-color: var(--activity-deleted-bg);
+  color: var(--activity-deleted);
+  border: 1px solid var(--activity-deleted-border);
+}
+
+.activity-action-badge--auth {
+  background-color: var(--activity-auth-bg);
+  color: var(--activity-auth);
+  border: 1px solid var(--activity-auth-border);
+}
+
+.activity-action-badge--viewed {
+  background-color: var(--activity-viewed-bg);
+  color: var(--activity-viewed);
+  border: 1px solid var(--activity-viewed-border);
+}
+
+.activity-action-badge--system {
+  background-color: var(--activity-system-bg);
+  color: var(--activity-system);
+  border: 1px solid var(--activity-system-border);
+}
+
+/* Action icons */
+.activity-action-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Activity sentence styling */
+.activity-sentence {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.activity-sentence strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Expandable metadata */
+.activity-metadata {
+  position: relative;
+}
+
+.activity-metadata-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.activity-metadata-toggle:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.activity-metadata-toggle[aria-expanded="true"] {
+  background: #e5e7eb;
+}
+
+.activity-metadata-toggle[aria-expanded="true"] .activity-metadata-chevron {
+  transform: rotate(180deg);
+}
+
+.activity-metadata-chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.15s ease;
+}
+
+.activity-metadata-content {
+  display: none;
+  margin-top: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  max-width: 320px;
+}
+
+.activity-metadata-content[data-expanded="true"] {
+  display: block;
+}
+
+.activity-metadata-empty {
+  color: #9ca3af;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Timestamp styling */
+.activity-timestamp {
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.activity-timestamp-relative {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* Channel badge */
+.activity-channel {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 4px;
+  text-transform: lowercase;
+}
+
+/* Table enhancements */
+.activity-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.activity-table tbody tr {
+  border-left: 3px solid transparent;
+}
+
+.activity-table tbody tr td:first-child {
+  padding-left: 16px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .activity-metadata-content {
+    max-width: 100%;
+  }
+
+  .activity-action-badge {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+}
