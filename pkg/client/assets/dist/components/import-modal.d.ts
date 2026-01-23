@@ -10,7 +10,7 @@
  *
  *   const importModal = new ImportModal({
  *     modalId: 'import-users-modal',
- *     endpoint: '/admin/api/users/import',
+ *     endpoint: '/admin/api/users-import',
  *     onSuccess: (summary) => grid.refresh(),
  *     notifier: window.toastManager
  *   });
