@@ -145,11 +145,13 @@ func buildNavEntry(item admin.NavigationItem, cfg admin.Config, active string) (
 	}
 
 	href, derivedKey, position := resolveNavTarget(item.Target, cfg.BasePath)
-	key := strings.TrimSpace(item.ID)
+	// Prefer target key for active matching since IDs may include parent prefixes
+	key := derivedKey
 	if key == "" {
-		key = derivedKey
+		key = strings.TrimSpace(item.ID)
 	}
-	isActive := active != "" && key != "" && key == active
+	// Match against target key, item ID, or the last segment of ID for nested items
+	isActive := active != "" && key != "" && (key == active || strings.TrimSpace(item.ID) == active || strings.HasSuffix(item.ID, "."+active))
 	collapsible := item.Collapsible && len(children) > 0
 	collapsed := collapsible && item.Collapsed
 	if isActive || childActive {
