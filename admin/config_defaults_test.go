@@ -56,6 +56,21 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.ProfileUpdatePermission != "admin.profile.edit" {
 		t.Fatalf("expected profile update permission default, got %q", adm.config.ProfileUpdatePermission)
 	}
+	if adm.config.UsersPermission != "admin.users.view" {
+		t.Fatalf("expected users view permission default, got %q", adm.config.UsersPermission)
+	}
+	if adm.config.UsersCreatePermission != "admin.users.create" {
+		t.Fatalf("expected users create permission default, got %q", adm.config.UsersCreatePermission)
+	}
+	if adm.config.UsersImportPermission != "admin.users.import" {
+		t.Fatalf("expected users import permission default, got %q", adm.config.UsersImportPermission)
+	}
+	if adm.config.UsersUpdatePermission != "admin.users.edit" {
+		t.Fatalf("expected users update permission default, got %q", adm.config.UsersUpdatePermission)
+	}
+	if adm.config.UsersDeletePermission != "admin.users.delete" {
+		t.Fatalf("expected users delete permission default, got %q", adm.config.UsersDeletePermission)
+	}
 	if adm.config.ThemeTokens == nil || adm.config.SettingsThemeTokens == nil {
 		t.Fatalf("expected theme token maps to be initialized")
 	}

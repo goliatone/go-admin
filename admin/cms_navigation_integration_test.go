@@ -87,7 +87,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("menu fetch failed: %v", err)
 	}
-	menuItems := filterMenuItems(menu.Items, isActivityMenuItem)
+	menuItems := filterMenuItems(menu.Items, isSystemMenuItem)
 	if len(menuItems) != 1 {
 		t.Fatalf("expected single root group after dedupe, got %d", len(menuItems))
 	}
@@ -106,7 +106,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 		t.Fatalf("expected 2 children under Content, got %d", len(section.Children))
 	}
 
-	nav := filterNavigation(adm.Navigation().Resolve(ctx, "en"), isActivityNavItem)
+	nav := filterNavigation(adm.Navigation().Resolve(ctx, "en"), isSystemNavItem)
 	if len(nav) != 1 {
 		t.Fatalf("expected navigation to have 1 root, got %d", len(nav))
 	}
@@ -143,21 +143,33 @@ func filterNavigation(items []NavigationItem, skip func(NavigationItem) bool) []
 	return out
 }
 
-func isActivityMenuItem(item MenuItem) bool {
+func isSystemMenuItem(item MenuItem) bool {
 	if item.LabelKey == "menu.activity" || item.Label == "Activity" {
 		return true
 	}
 	if toString(item.Target["key"]) == activityModuleID {
+		return true
+	}
+	if item.LabelKey == "menu.feature_flags" || item.Label == "Feature Flags" {
+		return true
+	}
+	if toString(item.Target["key"]) == featureFlagsModuleID {
 		return true
 	}
 	return false
 }
 
-func isActivityNavItem(item NavigationItem) bool {
+func isSystemNavItem(item NavigationItem) bool {
 	if item.LabelKey == "menu.activity" || item.Label == "Activity" {
 		return true
 	}
 	if toString(item.Target["key"]) == activityModuleID {
+		return true
+	}
+	if item.LabelKey == "menu.feature_flags" || item.Label == "Feature Flags" {
+		return true
+	}
+	if toString(item.Target["key"]) == featureFlagsModuleID {
 		return true
 	}
 	return false
