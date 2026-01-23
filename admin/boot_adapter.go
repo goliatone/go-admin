@@ -102,6 +102,11 @@ func (a *Admin) BootMedia() boot.MediaBinding {
 	return newMediaBinding(a)
 }
 
+// BootUserImport exposes the user import binding.
+func (a *Admin) BootUserImport() boot.UserImportBinding {
+	return newUserImportBinding(a)
+}
+
 // BootNotifications exposes the notifications binding.
 func (a *Admin) BootNotifications() boot.NotificationsBinding {
 	return newNotificationsBinding(a)
