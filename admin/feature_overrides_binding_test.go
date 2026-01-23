@@ -18,14 +18,14 @@ type stubMutableGate struct {
 
 type gateSetCall struct {
 	key     string
-	scope   fggate.ScopeSet
+	scope   fggate.ScopeRef
 	enabled bool
 	actor   fggate.ActorRef
 }
 
 type gateUnsetCall struct {
 	key   string
-	scope fggate.ScopeSet
+	scope fggate.ScopeRef
 	actor fggate.ActorRef
 }
 
@@ -33,7 +33,7 @@ func (s *stubMutableGate) Enabled(context.Context, string, ...fggate.ResolveOpti
 	return false, nil
 }
 
-func (s *stubMutableGate) Set(_ context.Context, key string, scope fggate.ScopeSet, enabled bool, actor fggate.ActorRef) error {
+func (s *stubMutableGate) Set(_ context.Context, key string, scope fggate.ScopeRef, enabled bool, actor fggate.ActorRef) error {
 	s.setCalls = append(s.setCalls, gateSetCall{
 		key:     key,
 		scope:   scope,
@@ -43,7 +43,7 @@ func (s *stubMutableGate) Set(_ context.Context, key string, scope fggate.ScopeS
 	return nil
 }
 
-func (s *stubMutableGate) Unset(_ context.Context, key string, scope fggate.ScopeSet, actor fggate.ActorRef) error {
+func (s *stubMutableGate) Unset(_ context.Context, key string, scope fggate.ScopeRef, actor fggate.ActorRef) error {
 	s.unsetCalls = append(s.unsetCalls, gateUnsetCall{
 		key:   key,
 		scope: scope,
@@ -70,15 +70,15 @@ func TestFeatureOverridesBindingSetCapturesScope(t *testing.T) {
 		body        map[string]any
 		scopeName   string
 		scopeID     string
-		scopeTarget fggate.ScopeSet
+		scopeTarget fggate.ScopeRef
 	}{
 		{
 			name:      "system",
 			body:      map[string]any{"key": "users.signup", "enabled": true, "scope": "system"},
 			scopeName: "system",
 			scopeID:   "",
-			scopeTarget: fggate.ScopeSet{
-				System: true,
+			scopeTarget: fggate.ScopeRef{
+				Kind: fggate.ScopeSystem,
 			},
 		},
 		{
@@ -86,8 +86,9 @@ func TestFeatureOverridesBindingSetCapturesScope(t *testing.T) {
 			body:      map[string]any{"key": "users.signup", "enabled": true, "scope": "tenant", "tenant_id": "tenant-1"},
 			scopeName: "tenant",
 			scopeID:   "tenant-1",
-			scopeTarget: fggate.ScopeSet{
-				TenantID: "tenant-1",
+			scopeTarget: fggate.ScopeRef{
+				Kind: fggate.ScopeTenant,
+				ID:   "tenant-1",
 			},
 		},
 		{
@@ -95,8 +96,9 @@ func TestFeatureOverridesBindingSetCapturesScope(t *testing.T) {
 			body:      map[string]any{"key": "users.signup", "enabled": true, "scope": "org", "org_id": "org-1"},
 			scopeName: "org",
 			scopeID:   "org-1",
-			scopeTarget: fggate.ScopeSet{
-				OrgID: "org-1",
+			scopeTarget: fggate.ScopeRef{
+				Kind: fggate.ScopeOrg,
+				ID:   "org-1",
 			},
 		},
 		{
@@ -104,8 +106,9 @@ func TestFeatureOverridesBindingSetCapturesScope(t *testing.T) {
 			body:      map[string]any{"key": "users.signup", "enabled": true, "scope": "user", "user_id": "user-1"},
 			scopeName: "user",
 			scopeID:   "user-1",
-			scopeTarget: fggate.ScopeSet{
-				UserID: "user-1",
+			scopeTarget: fggate.ScopeRef{
+				Kind: fggate.ScopeUser,
+				ID:   "user-1",
 			},
 		},
 	}
@@ -158,7 +161,7 @@ func TestFeatureOverridesBindingUnsetCallsGate(t *testing.T) {
 
 	call := gate.unsetCalls[0]
 	require.Equal(t, "users.signup", call.key)
-	require.Equal(t, fggate.ScopeSet{TenantID: "tenant-2"}, call.scope)
+	require.Equal(t, fggate.ScopeRef{Kind: fggate.ScopeTenant, ID: "tenant-2"}, call.scope)
 	require.Equal(t, "tenant", payload["scope"])
 	require.Equal(t, "tenant-2", payload["scope_id"])
 }

@@ -215,7 +215,7 @@ func TestAttachDebugLogHandlerWiresSlog(t *testing.T) {
 
 func assertFeatureEnabled(t *testing.T, gate fggate.FeatureGate, feature string) {
 	t.Helper()
-	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
 	if err != nil || !enabled {
 		t.Fatalf("expected feature %s enabled, err=%v", feature, err)
 	}

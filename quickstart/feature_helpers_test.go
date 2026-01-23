@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -11,7 +12,7 @@ import (
 
 func TestWithFeatureTemplateContextInjectsMissingKeys(t *testing.T) {
 	reqCtx := context.Background()
-	scope := fggate.ScopeSet{System: true}
+	scope := fggate.ScopeChain{{Kind: fggate.ScopeSystem}}
 	snapshot := map[string]bool{"users.signup": true}
 
 	viewCtx := WithFeatureTemplateContext(nil, reqCtx, scope, snapshot)
@@ -21,10 +22,12 @@ func TestWithFeatureTemplateContextInjectsMissingKeys(t *testing.T) {
 	if viewCtx[fgtemplates.TemplateContextKey] != reqCtx {
 		t.Fatalf("expected feature_ctx to be set")
 	}
-	if viewCtx[fgtemplates.TemplateScopeKey] != scope {
+	scopeValue, ok := viewCtx[fgtemplates.TemplateScopeKey].(fggate.ScopeChain)
+	if !ok || !reflect.DeepEqual(scopeValue, scope) {
 		t.Fatalf("expected feature_scope to be set")
 	}
-	if viewCtx[fgtemplates.TemplateSnapshotKey] != snapshot {
+	snapshotValue, ok := viewCtx[fgtemplates.TemplateSnapshotKey].(map[string]bool)
+	if !ok || !reflect.DeepEqual(snapshotValue, snapshot) {
 		t.Fatalf("expected feature_snapshot to be set")
 	}
 }
@@ -35,7 +38,7 @@ func TestWithFeatureTemplateContextDoesNotOverrideExistingKeys(t *testing.T) {
 		fgtemplates.TemplateScopeKey:    "scope",
 		fgtemplates.TemplateSnapshotKey: "snapshot",
 	}
-	out := WithFeatureTemplateContext(existing, context.Background(), fggate.ScopeSet{System: true}, map[string]bool{"users.signup": true})
+	out := WithFeatureTemplateContext(existing, context.Background(), fggate.ScopeChain{{Kind: fggate.ScopeSystem}}, map[string]bool{"users.signup": true})
 	if out[fgtemplates.TemplateContextKey] != "ctx" {
 		t.Fatalf("expected existing feature_ctx preserved")
 	}
