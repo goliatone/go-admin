@@ -31,7 +31,7 @@ type AuthUIState struct {
 }
 
 // AuthUIStateFromGate derives auth UI flags from the feature gate.
-func AuthUIStateFromGate(ctx context.Context, gate fggate.FeatureGate, scope fggate.ScopeSet) AuthUIState {
+func AuthUIStateFromGate(ctx context.Context, gate fggate.FeatureGate, scope fggate.ScopeChain) AuthUIState {
 	return AuthUIState{
 		PasswordResetEnabled:    featureEnabledWithContext(ctx, gate, "users.password_reset", scope),
 		SelfRegistrationEnabled: featureEnabledWithContext(ctx, gate, "users.signup", scope),
