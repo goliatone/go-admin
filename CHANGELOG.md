@@ -1,5 +1,57 @@
 # Changelog
 
+# [0.21.0](https://github.com/goliatone/go-admin/compare/v0.20.0...v0.21.0) - (2026-01-23)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Debug console styling ([b56f3b8](https://github.com/goliatone/go-admin/commit/b56f3b89a0b5efe792b81a615c18112df310e7a5))  - (goliatone)
+- Dedup scopes ([7d9cc45](https://github.com/goliatone/go-admin/commit/7d9cc45235fc615b1353c480fc55f1c0f16547da))  - (goliatone)
+- Admin activity enrich with tenant/org before logging ([9c6613b](https://github.com/goliatone/go-admin/commit/9c6613bdd35bf59b9ba38652d7432c0a6b4d547e))  - (goliatone)
+- Icon for feature flags module ([d388681](https://github.com/goliatone/go-admin/commit/d388681ccb9082eab7176f9fbd54d538edbe3121))  - (goliatone)
+- Nav helper handle active menu item ([45a97a4](https://github.com/goliatone/go-admin/commit/45a97a44a1c66c74f8d65b8ce1186a04238c3b78))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.21.0 ([ae57020](https://github.com/goliatone/go-admin/commit/ae5702020b35ad64b32ff3b6e5ab085fca9bb80e))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Updated shell and console panels ([3281438](https://github.com/goliatone/go-admin/commit/3281438bd8db534354288394e2e082af964e3114))  - (goliatone)
+- New assets for icon and logo with support for variants ([9935f77](https://github.com/goliatone/go-admin/commit/9935f771d3ba6a0fc2e079fb0c3ad31bbadeadef))  - (goliatone)
+- Version to api ([bd7d46b](https://github.com/goliatone/go-admin/commit/bd7d46b91d9ef2efa700d1eeaee3ef2811b54ed4))  - (goliatone)
+- New search box component ([dde861a](https://github.com/goliatone/go-admin/commit/dde861aa68992c24351acc4ebf94135af74a2e7a))  - (goliatone)
+- Updated UI components ([d35d385](https://github.com/goliatone/go-admin/commit/d35d38521c9763f9c8ff79b1ace5eac3f9fd4a8e))  - (goliatone)
+- Feature flag client ([93d9b1b](https://github.com/goliatone/go-admin/commit/93d9b1b3e78983a666e8bce0aa326ddcf2f05e2c))  - (goliatone)
+- Routes with feature gates ([04cc70e](https://github.com/goliatone/go-admin/commit/04cc70e00e63c5fedb8681191eeb7427d1286d6d))  - (goliatone)
+- Feature enabled use gate ([b749a37](https://github.com/goliatone/go-admin/commit/b749a37ef9bcbc58848a8795015d1dd208639ba7))  - (goliatone)
+- Feature flags in auth ui ([d1a65b4](https://github.com/goliatone/go-admin/commit/d1a65b4aac364577731e1ee849938dd0b34d4a6e))  - (goliatone)
+- Feature flag UI manager component ([d8c6b57](https://github.com/goliatone/go-admin/commit/d8c6b570664997f391de756a84e1975be563b9f1))  - (goliatone)
+- URL resolver to boot ([3aace86](https://github.com/goliatone/go-admin/commit/3aace868cb98f4c6870cf5620b5915e147fa1c33))  - (goliatone)
+- Updated style for feature flag UI ([80904e3](https://github.com/goliatone/go-admin/commit/80904e32a461f27d1da04f6af0c1b4005f3888b9))  - (goliatone)
+- Feature flags UI ([2463f79](https://github.com/goliatone/go-admin/commit/2463f7936b59872db3a2684bf9f87baa3fa61a0e))  - (goliatone)
+- URL manager to DI container ([49adf1a](https://github.com/goliatone/go-admin/commit/49adf1aa571271f293b3918312182d5f1b8ada10))  - (goliatone)
+- URL config ([91f709d](https://github.com/goliatone/go-admin/commit/91f709d427b4ebb272222a67a64fb1934815939d))  - (goliatone)
+- URL config defaults ([dfe21e2](https://github.com/goliatone/go-admin/commit/dfe21e27633ec60ff300ac57baf3ca0140a2e5ce))  - (goliatone)
+- URL manager ([a0ece34](https://github.com/goliatone/go-admin/commit/a0ece34536607f57d610ddc0d478e51e79975fd0))  - (goliatone)
+- Feature flags module ([c9f63a5](https://github.com/goliatone/go-admin/commit/c9f63a54438a8f8864449f8b07d35a19727f8677))  - (goliatone)
+- List method to feature override ([f2a3bb2](https://github.com/goliatone/go-admin/commit/f2a3bb2965375630ce2b0c6b908d9a8035a71832))  - (goliatone)
+- ROuteSpec for api/feature-flags ([f196bfb](https://github.com/goliatone/go-admin/commit/f196bfba34221c216bbc8f91d2c1aeb15a6c5b28))  - (goliatone)
+- List feature flags ([f70698e](https://github.com/goliatone/go-admin/commit/f70698eae3570375a1b02f4774e9447d5566d5a7))  - (goliatone)
+- Debug feature flag ([a01fc18](https://github.com/goliatone/go-admin/commit/a01fc187cb3e24b1ed66ed8a29b7dd07f3c92511))  - (goliatone)
+- Support feature flag keys ([0bea097](https://github.com/goliatone/go-admin/commit/0bea09724377f08688bf65c117a03d0ddb6a06e5))  - (goliatone)
+- Feature flags management ([79a01b8](https://github.com/goliatone/go-admin/commit/79a01b8693773d4f9db5addebf347790d6db278c))  - (goliatone)
+- Feature flags ([5988e21](https://github.com/goliatone/go-admin/commit/5988e216010255878c400f4af91cf0b9663668f6))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.20.0 ([6be7ff8](https://github.com/goliatone/go-admin/commit/6be7ff807ec959a0c2b4ace84bb204f4b104ab2c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([23cb13c](https://github.com/goliatone/go-admin/commit/23cb13c1e3c76c945eff31510c39f07784f1e459))  - (goliatone)
+- Update guides ([ac1f6c4](https://github.com/goliatone/go-admin/commit/ac1f6c4db2676039eca7797ccdf4bbcf55c77ff1))  - (goliatone)
+- Update tests ([da779d1](https://github.com/goliatone/go-admin/commit/da779d199314d2851f5d71a00662202d38032b04))  - (goliatone)
+
 # [0.20.0](https://github.com/goliatone/go-admin/compare/v0.19.0...v0.20.0) - (2026-01-22)
 
 ## <!-- 1 -->🐛 Bug Fixes
