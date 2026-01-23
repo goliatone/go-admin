@@ -7,6 +7,7 @@ export default defineConfig({
     lib: {
       // Multiple entry points
       entry: {
+        'activity/index': resolve(__dirname, 'src/activity/index.ts'),
         'datatable/index': resolve(__dirname, 'src/datatable/index.ts'),
         'dashboard/index': resolve(__dirname, 'src/dashboard/index.ts'),
         'feature-flags/index': resolve(__dirname, 'src/feature-flags/index.ts'),
