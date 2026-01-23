@@ -508,12 +508,12 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 		{
 			Key:         "superadmin",
 			Name:        "Super Admin",
-			Permissions: []string{"admin.debug.repl", "admin.debug.repl.exec"},
+			Permissions: []string{"admin.debug.repl", "admin.debug.repl.exec", "admin.activity.view"},
 		},
 		{
 			Key:         "admin",
 			Name:        "Admin",
-			Permissions: []string{"admin.debug.repl"},
+			Permissions: []string{"admin.debug.repl", "admin.activity.view"},
 		},
 	}
 	roles := map[string]*types.RoleDefinition{}
