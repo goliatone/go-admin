@@ -32,8 +32,10 @@ type UserRecord struct {
 type RoleRecord struct {
 	ID          string
 	Name        string
+	RoleKey     string
 	Description string
 	Permissions []string
+	Metadata    map[string]any
 	IsSystem    bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -259,6 +261,14 @@ func (s *UserManagementService) ListRoles(ctx context.Context, opts ListOptions)
 	return s.roles.List(ctx, opts)
 }
 
+// GetRole fetches a role by ID.
+func (s *UserManagementService) GetRole(ctx context.Context, id string) (RoleRecord, error) {
+	if s == nil || s.roles == nil {
+		return RoleRecord{}, errors.New("role service not configured")
+	}
+	return s.roles.Get(ctx, id)
+}
+
 // SaveRole creates or updates a role.
 func (s *UserManagementService) SaveRole(ctx context.Context, role RoleRecord) (RoleRecord, error) {
 	if s == nil || s.roles == nil {
@@ -307,6 +317,44 @@ func (s *UserManagementService) DeleteRole(ctx context.Context, id string) error
 	}
 	s.recordActivity(ctx, "role.delete", "role:"+id, map[string]any{
 		"role_id": id,
+	})
+	return nil
+}
+
+// RolesForUser returns assigned roles for the given user.
+func (s *UserManagementService) RolesForUser(ctx context.Context, userID string) ([]RoleRecord, error) {
+	if s == nil || s.roles == nil {
+		return nil, errors.New("role service not configured")
+	}
+	return s.roles.RolesForUser(ctx, userID)
+}
+
+// AssignRole assigns a role to a user.
+func (s *UserManagementService) AssignRole(ctx context.Context, userID, roleID string) error {
+	if s == nil || s.roles == nil {
+		return errors.New("role service not configured")
+	}
+	if err := s.roles.Assign(ctx, userID, roleID); err != nil {
+		return err
+	}
+	s.recordActivity(ctx, "role.assign", "user:"+userID, map[string]any{
+		"user_id": userID,
+		"role_id": roleID,
+	})
+	return nil
+}
+
+// UnassignRole removes a role assignment from a user.
+func (s *UserManagementService) UnassignRole(ctx context.Context, userID, roleID string) error {
+	if s == nil || s.roles == nil {
+		return errors.New("role service not configured")
+	}
+	if err := s.roles.Unassign(ctx, userID, roleID); err != nil {
+		return err
+	}
+	s.recordActivity(ctx, "role.unassign", "user:"+userID, map[string]any{
+		"user_id": userID,
+		"role_id": roleID,
 	})
 	return nil
 }
@@ -995,6 +1043,9 @@ func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]R
 		Keyword:    opts.Search,
 		Pagination: users.Pagination{Limit: limit, Offset: offset},
 	}
+	if roleKey := strings.TrimSpace(toString(opts.Filters["role_key"])); roleKey != "" {
+		filter.RoleKey = roleKey
+	}
 	page, err := r.registry.ListRoles(ctx, filter)
 	if err != nil {
 		return nil, 0, err
@@ -1033,8 +1084,10 @@ func (r *GoUsersRoleRepository) Create(ctx context.Context, role RoleRecord) (Ro
 	}
 	input := users.RoleMutation{
 		Name:        role.Name,
+		RoleKey:     role.RoleKey,
 		Description: role.Description,
 		Permissions: role.Permissions,
+		Metadata:    cloneAnyMap(role.Metadata),
 		IsSystem:    role.IsSystem,
 		Scope:       r.scope(ctx),
 		ActorID:     actor,
@@ -1061,8 +1114,10 @@ func (r *GoUsersRoleRepository) Update(ctx context.Context, role RoleRecord) (Ro
 	}
 	input := users.RoleMutation{
 		Name:        role.Name,
+		RoleKey:     role.RoleKey,
 		Description: role.Description,
 		Permissions: role.Permissions,
+		Metadata:    cloneAnyMap(role.Metadata),
 		IsSystem:    role.IsSystem,
 		Scope:       r.scope(ctx),
 		ActorID:     actor,
@@ -1279,8 +1334,10 @@ func fromUsersRole(role users.RoleDefinition) RoleRecord {
 	return RoleRecord{
 		ID:          role.ID.String(),
 		Name:        role.Name,
+		RoleKey:     role.RoleKey,
 		Description: role.Description,
 		Permissions: append([]string{}, role.Permissions...),
+		Metadata:    cloneAnyMap(role.Metadata),
 		IsSystem:    role.IsSystem,
 		CreatedAt:   role.CreatedAt,
 		UpdatedAt:   role.UpdatedAt,
@@ -1316,8 +1373,10 @@ func cloneRole(r RoleRecord) RoleRecord {
 	return RoleRecord{
 		ID:          r.ID,
 		Name:        r.Name,
+		RoleKey:     r.RoleKey,
 		Description: r.Description,
 		Permissions: append([]string{}, r.Permissions...),
+		Metadata:    cloneAnyMap(r.Metadata),
 		IsSystem:    r.IsSystem,
 		CreatedAt:   r.CreatedAt,
 		UpdatedAt:   r.UpdatedAt,
