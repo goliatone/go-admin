@@ -222,27 +222,49 @@ func pruneSessionMetadata(metadata map[string]any, keys []string) map[string]any
 }
 
 func collectScopes(meta map[string]any, roles map[string]string) []string {
-	out := []string{}
-	if len(roles) > 0 {
-		for k, v := range roles {
-			if strings.TrimSpace(k) != "" && strings.TrimSpace(v) != "" {
-				out = append(out, k+":"+v)
-			}
+	scopes := map[string]struct{}{}
+
+	for resource, role := range roles {
+		resource = strings.TrimSpace(resource)
+		role = strings.TrimSpace(role)
+		if resource == "" || role == "" {
+			continue
 		}
+		scopes[resource+":"+role] = struct{}{}
 	}
-	if len(meta) > 0 {
-		if sc, ok := meta["scopes"].([]string); ok {
-			out = append(out, sc...)
-		}
-		if raw, ok := meta["scopes"]; ok {
-			if list, ok := raw.([]any); ok {
-				for _, item := range list {
-					if str, ok := item.(string); ok && strings.TrimSpace(str) != "" {
-						out = append(out, strings.TrimSpace(str))
+
+	if raw, ok := meta["scopes"]; ok {
+		switch vals := raw.(type) {
+		case []string:
+			for _, v := range vals {
+				if trimmed := strings.TrimSpace(v); trimmed != "" {
+					scopes[trimmed] = struct{}{}
+				}
+			}
+		case []any:
+			for _, v := range vals {
+				if str, ok := v.(string); ok {
+					if trimmed := strings.TrimSpace(str); trimmed != "" {
+						scopes[trimmed] = struct{}{}
 					}
 				}
 			}
+		case string:
+			for _, v := range strings.Fields(vals) {
+				if trimmed := strings.TrimSpace(v); trimmed != "" {
+					scopes[trimmed] = struct{}{}
+				}
+			}
 		}
+	}
+
+	if len(scopes) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(scopes))
+	for scope := range scopes {
+		out = append(out, scope)
 	}
 	sort.Strings(out)
 	return out
