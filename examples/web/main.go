@@ -525,99 +525,7 @@ func main() {
 		modules = append(modules, admin.NewDebugModule(cfg.Debug))
 	}
 
-	extraMenuItems := []admin.MenuItem{
-		{
-			ID:       setup.NavigationSectionShop,
-			Type:     admin.MenuItemTypeItem,
-			Label:    "My Shop",
-			LabelKey: "menu.shop",
-			Icon:     "shop",
-			Position: admin.IntPtr(40),
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(cfg.BasePath, "shop"),
-				"key":  "shop",
-			},
-			Menu:        cfg.NavMenuCode,
-			ParentID:    setup.NavigationGroupMain,
-			Collapsible: true,
-		},
-		{
-			ID:       setup.NavigationSectionShop + ".products",
-			Label:    "Products",
-			LabelKey: "menu.shop.products",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(cfg.BasePath, "products"),
-				"key":  "products",
-			},
-			Position: admin.IntPtr(1),
-			Menu:     cfg.NavMenuCode,
-			ParentID: setup.NavigationSectionShop,
-		},
-		{
-			ID:       setup.NavigationSectionShop + ".orders",
-			Label:    "Orders",
-			LabelKey: "menu.shop.orders",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(cfg.BasePath, "orders"),
-				"key":  "orders",
-			},
-			Position: admin.IntPtr(2),
-			Menu:     cfg.NavMenuCode,
-			ParentID: setup.NavigationSectionShop,
-		},
-		{
-			ID:       setup.NavigationSectionShop + ".customers",
-			Label:    "Customers",
-			LabelKey: "menu.shop.customers",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(cfg.BasePath, "customers"),
-				"key":  "customers",
-			},
-			Position: admin.IntPtr(3),
-			Menu:     cfg.NavMenuCode,
-			ParentID: setup.NavigationSectionShop,
-		},
-		{
-			ID:       setup.NavigationGroupMain + ".analytics",
-			Label:    "Analytics",
-			LabelKey: "menu.analytics",
-			Icon:     "stats-report",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(cfg.BasePath, "analytics"),
-				"key":  "analytics",
-			},
-			Position: admin.IntPtr(60),
-			Menu:     cfg.NavMenuCode,
-			ParentID: setup.NavigationGroupMain,
-		},
-		{
-			ID:       setup.NavigationGroupMain + ".separator",
-			Type:     admin.MenuItemTypeSeparator,
-			Position: admin.IntPtr(80),
-			Menu:     cfg.NavMenuCode,
-		},
-		{
-			ID:       setup.NavigationGroupOthers + ".help",
-			Label:    "Help & Support",
-			LabelKey: "menu.help",
-			Icon:     "question-mark",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(cfg.BasePath, "help"),
-				"key":  "help",
-			},
-			Position: admin.IntPtr(10),
-			Menu:     cfg.NavMenuCode,
-			ParentID: setup.NavigationGroupOthers,
-		},
-	}
-
-	if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev, quickstart.WithModuleMenuItems(extraMenuItems...)); err != nil {
+	if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev); err != nil {
 		log.Fatalf("failed to register modules: %v", err)
 	}
 
@@ -795,6 +703,18 @@ func main() {
 	); err != nil {
 		log.Fatalf("failed to register admin UI routes: %v", err)
 	}
+	if err := quickstart.RegisterRolesUIRoutes(
+		r,
+		cfg,
+		adm,
+		quickstart.WithRolesUIViewContext(func(ctx router.ViewContext, active string, c router.Context) router.ViewContext {
+			viewCtx := helpers.WithNav(ctx, adm, cfg, active, c.Context())
+			viewCtx = helpers.WithTheme(viewCtx, adm, c)
+			return viewCtx
+		}),
+	); err != nil {
+		log.Fatalf("failed to register roles UI routes: %v", err)
+	}
 
 	secureLinkUI := setup.SecureLinkUIConfigFromEnv()
 	passwordPolicyHints := setup.PasswordPolicyHints()
@@ -859,7 +779,7 @@ func main() {
 			"registration_mode":           registrationCfg.Mode,
 		}
 		viewCtx = quickstart.WithAuthUIViewThemeAssets(viewCtx, authThemeAssets, authThemeAssetPrefix)
-		viewCtx = quickstart.WithFeatureTemplateContext(viewCtx, c.Context(), fggate.ScopeSet{System: true}, featureSnapshot)
+		viewCtx = quickstart.WithFeatureTemplateContext(viewCtx, c.Context(), fggate.ScopeChain{{Kind: fggate.ScopeSystem}}, featureSnapshot)
 		viewCtx = authUIViewContext(viewCtx, c)
 		return c.Render(registerTemplate, viewCtx)
 	})
@@ -1111,7 +1031,7 @@ func featureEnabled(gate fggate.FeatureGate, feature string) bool {
 	if gate == nil || strings.TrimSpace(feature) == "" {
 		return false
 	}
-	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
 	return err == nil && enabled
 }
 
