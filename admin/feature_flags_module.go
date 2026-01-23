@@ -58,7 +58,7 @@ func (m *FeatureFlagsModule) MenuItems(locale string) []MenuItem {
 		{
 			Label:       "Feature Flags",
 			LabelKey:    "menu.feature_flags",
-			Icon:        "toggle-on",
+			Icon:        "switch-on",
 			Target:      map[string]any{"type": "url", "path": path, "key": featureFlagsModuleID},
 			Permissions: permissions,
 			Menu:        m.menuCode,
