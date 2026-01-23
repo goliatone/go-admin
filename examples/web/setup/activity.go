@@ -175,6 +175,9 @@ func toUsersRecord(record admin.ActivityRecord) types.ActivityRecord {
 		occurred = time.Now().UTC()
 	}
 
+	tenantID := parseUUID(record.TenantID)
+	orgID := parseUUID(record.OrgID)
+
 	return types.ActivityRecord{
 		ID:         parseUUID(record.ID),
 		UserID:     userID,
@@ -184,6 +187,8 @@ func toUsersRecord(record admin.ActivityRecord) types.ActivityRecord {
 		ObjectID:   record.ObjectID,
 		Channel:    defaultChannel(record.Channel),
 		IP:         record.IP,
+		TenantID:   tenantID,
+		OrgID:      orgID,
 		Data:       data,
 		OccurredAt: occurred,
 	}
@@ -204,6 +209,16 @@ func fromUsersRecord(record types.ActivityRecord) admin.ActivityRecord {
 		userID = record.UserID.String()
 	}
 
+	tenantID := ""
+	if record.TenantID != uuid.Nil {
+		tenantID = record.TenantID.String()
+	}
+
+	orgID := ""
+	if record.OrgID != uuid.Nil {
+		orgID = record.OrgID.String()
+	}
+
 	return admin.ActivityRecord{
 		ID:         safeUUIDString(record.ID),
 		UserID:     userID,
@@ -213,6 +228,8 @@ func fromUsersRecord(record types.ActivityRecord) admin.ActivityRecord {
 		ObjectID:   record.ObjectID,
 		Channel:    defaultChannel(record.Channel),
 		IP:         record.IP,
+		TenantID:   tenantID,
+		OrgID:      orgID,
 		Data:       data,
 		OccurredAt: record.OccurredAt,
 	}
