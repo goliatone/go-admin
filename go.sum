@@ -169,6 +169,8 @@ github.com/goliatone/go-featuregate v0.3.0 h1:UDwXZ97u8XmLOSctl29CpY1KwHIg2U/AKD
 github.com/goliatone/go-featuregate v0.3.0/go.mod h1:VYc0O3RXNTqa0TuI9biHOt2WSFbilnUkiSljcvMU4XA=
 github.com/goliatone/go-featuregate v0.4.0 h1:ebrVKUKzmHWUBzaNdG2fD67mMxNBQwLCFeuR/rKH52k=
 github.com/goliatone/go-featuregate v0.4.0/go.mod h1:VYc0O3RXNTqa0TuI9biHOt2WSFbilnUkiSljcvMU4XA=
+github.com/goliatone/go-featuregate v0.5.0 h1:Lpm9IdAapzdCih6RYsQY241YSSGQ4tEQxIVNjrZuvRs=
+github.com/goliatone/go-featuregate v0.5.0/go.mod h1:VYc0O3RXNTqa0TuI9biHOt2WSFbilnUkiSljcvMU4XA=
 github.com/goliatone/go-formgen v0.14.0 h1:H2znJBKMRqhnGJRQ4uhbpyFjkMXgHLkS3nxUQFjwcr4=
 github.com/goliatone/go-formgen v0.14.0/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
 github.com/goliatone/go-i18n v0.2.0 h1:TDKJYZgJQq5koQ5aybM8+9NbhhlKNTPeGug4MrH/HNc=
