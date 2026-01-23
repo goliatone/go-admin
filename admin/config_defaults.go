@@ -61,6 +61,9 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.UsersCreatePermission == "" {
 		cfg.UsersCreatePermission = "admin.users.create"
 	}
+	if cfg.UsersImportPermission == "" {
+		cfg.UsersImportPermission = "admin.users.import"
+	}
 	if cfg.UsersUpdatePermission == "" {
 		cfg.UsersUpdatePermission = "admin.users.edit"
 	}
