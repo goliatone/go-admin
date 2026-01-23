@@ -7,8 +7,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
-	github.com/goliatone/go-auth v0.27.5
-	github.com/goliatone/go-auth/adapters/featuregate v0.27.5
+	github.com/goliatone/go-auth v0.28.0
 	github.com/goliatone/go-cms v0.18.0
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-crud v0.17.0
@@ -38,6 +37,7 @@ require (
 	github.com/uptrace/bun v1.2.16
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
 	github.com/uptrace/bun/driver/sqliteshim v1.2.16
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -102,6 +102,7 @@ require (
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
+	github.com/goliatone/go-auth/adapters/featuregate v0.28.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.8.0 // indirect
 	github.com/goliatone/go-export/adapters/template/go-template v0.6.0 // indirect
@@ -189,7 +190,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251213004720-97cd9d5aeac2 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.67.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
@@ -197,4 +197,5 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
+
 replace github.com/goliatone/go-users => ../go-users
