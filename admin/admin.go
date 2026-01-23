@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -18,6 +19,8 @@ import (
 type Admin struct {
 	config                      Config
 	featureGate                 fggate.FeatureGate
+	featureCatalog              catalog.Catalog
+	featureCatalogResolver      catalog.MessageResolver
 	urlManager                  *urlkit.RouteManager
 	registry                    *Registry
 	cms                         CMSContainer
@@ -100,6 +103,22 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	featureGate := deps.FeatureGate
 	if featureGate == nil {
 		featureGate = newFeatureGateFromFlags(nil)
+	}
+
+	featureCatalog := deps.FeatureCatalog
+	if featureCatalog == nil {
+		catalogPath := strings.TrimSpace(cfg.FeatureCatalogPath)
+		if catalogPath != "" {
+			loaded, err := loadFeatureCatalogFile(catalogPath)
+			if err != nil {
+				return nil, err
+			}
+			featureCatalog = loaded
+		}
+	}
+	featureCatalogResolver := deps.FeatureCatalogResolver
+	if featureCatalogResolver == nil {
+		featureCatalogResolver = catalog.PlainResolver{}
 	}
 
 	activitySink := deps.ActivitySink
@@ -261,46 +280,48 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	}
 
 	adm := &Admin{
-		config:             cfg,
-		featureGate:        featureGate,
-		urlManager:         urlManager,
-		registry:           registry,
-		cms:                container,
-		widgetSvc:          container.WidgetService(),
-		menuSvc:            container.MenuService(),
-		contentSvc:         container.ContentService(),
-		authenticator:      deps.Authenticator,
-		router:             deps.Router,
-		commandBus:         commandBus,
-		dashboard:          dashboard,
-		replSessionStore:   replSessionStore,
-		replSessionManager: replSessionManager,
-		replCommandCatalog: replCommandCatalog,
-		nav:                NewNavigation(container.MenuService(), deps.Authorizer),
-		search:             NewSearchEngine(deps.Authorizer),
-		authorizer:         deps.Authorizer,
-		notifications:      notifSvc,
-		activity:           activitySink,
-		activityFeed:       activityFeed,
-		activityPolicy:     activityPolicy,
-		jobs:               jobReg,
-		settings:           settingsSvc,
-		settingsForm:       settingsForm,
-		settingsCommand:    settingsCmd,
-		preferences:        preferencesSvc,
-		profile:            profileSvc,
-		users:              userSvc,
-		tenants:            tenantSvc,
-		organizations:      orgSvc,
-		panelForm:          &PanelFormAdapter{},
-		defaultTheme:       defaultTheme,
-		exportRegistry:     exportRegistry,
-		exportRegistrar:    exportRegistrar,
-		exportMetadata:     exportMetadata,
-		bulkSvc:            bulkSvc,
-		mediaLibrary:       mediaLib,
-		navMenuCode:        navMenuCode,
-		translator:         translator,
+		config:                 cfg,
+		featureGate:            featureGate,
+		featureCatalog:         featureCatalog,
+		featureCatalogResolver: featureCatalogResolver,
+		urlManager:             urlManager,
+		registry:               registry,
+		cms:                    container,
+		widgetSvc:              container.WidgetService(),
+		menuSvc:                container.MenuService(),
+		contentSvc:             container.ContentService(),
+		authenticator:          deps.Authenticator,
+		router:                 deps.Router,
+		commandBus:             commandBus,
+		dashboard:              dashboard,
+		replSessionStore:       replSessionStore,
+		replSessionManager:     replSessionManager,
+		replCommandCatalog:     replCommandCatalog,
+		nav:                    NewNavigation(container.MenuService(), deps.Authorizer),
+		search:                 NewSearchEngine(deps.Authorizer),
+		authorizer:             deps.Authorizer,
+		notifications:          notifSvc,
+		activity:               activitySink,
+		activityFeed:           activityFeed,
+		activityPolicy:         activityPolicy,
+		jobs:                   jobReg,
+		settings:               settingsSvc,
+		settingsForm:           settingsForm,
+		settingsCommand:        settingsCmd,
+		preferences:            preferencesSvc,
+		profile:                profileSvc,
+		users:                  userSvc,
+		tenants:                tenantSvc,
+		organizations:          orgSvc,
+		panelForm:              &PanelFormAdapter{},
+		defaultTheme:           defaultTheme,
+		exportRegistry:         exportRegistry,
+		exportRegistrar:        exportRegistrar,
+		exportMetadata:         exportMetadata,
+		bulkSvc:                bulkSvc,
+		mediaLibrary:           mediaLib,
+		navMenuCode:            navMenuCode,
+		translator:             translator,
 	}
 
 	adm.dashboard.WithWidgetService(adm.widgetSvc)
