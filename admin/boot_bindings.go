@@ -41,7 +41,7 @@ func (f featureGatesAdapter) enabled(ctx context.Context, key string) (bool, err
 	if f.gate == nil {
 		return false, nil
 	}
-	return f.gate.Enabled(ctx, key, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+	return f.gate.Enabled(ctx, key, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
 }
 
 type responderAdapter struct{}
