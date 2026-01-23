@@ -50,7 +50,7 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding: 0 16px;
-  height: 60px;
+  height: 62px;
   background: var(--debug-bg-secondary);
   border-bottom: 1px solid var(--debug-border);
 }
@@ -62,7 +62,7 @@ body {
 }
 
 .debug-header__title {
-  font-size: 16x;
+  font-size: 16px;
   font-weight: 700;
   color: var(--debug-text);
   display: flex;
