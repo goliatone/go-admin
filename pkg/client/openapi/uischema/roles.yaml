@@ -48,6 +48,7 @@ operations:
           actions:
             - view
             - create
+            - import
             - edit
             - delete
           extraIgnorePrefixes:
@@ -123,6 +124,7 @@ operations:
           actions:
             - view
             - create
+            - import
             - edit
             - delete
           extraIgnorePrefixes:
