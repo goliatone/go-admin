@@ -24,7 +24,7 @@ var defaultAdminResources = []string{
 	"admin.debug",
 }
 
-var defaultActions = []string{"view", "create", "edit", "delete"}
+var defaultActions = []string{"view", "create", "import", "edit", "delete"}
 
 const (
 	permissionMatrixTemplate = "templates/components/permission_matrix.tmpl"
