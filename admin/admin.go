@@ -12,6 +12,7 @@ import (
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/activity"
+	"github.com/goliatone/go-users/command"
 	"github.com/goliatone/go-users/query"
 )
 
@@ -52,6 +53,7 @@ type Admin struct {
 	users                       *UserManagementService
 	tenants                     *TenantService
 	organizations               *OrganizationService
+	bulkUserImport              *command.BulkUserImportCommand
 	panelForm                   *PanelFormAdapter
 	themeProvider               ThemeProvider
 	defaultTheme                *ThemeSelection
@@ -313,6 +315,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		users:                  userSvc,
 		tenants:                tenantSvc,
 		organizations:          orgSvc,
+		bulkUserImport:         deps.BulkUserImport,
 		panelForm:              &PanelFormAdapter{},
 		defaultTheme:           defaultTheme,
 		exportRegistry:         exportRegistry,
@@ -389,6 +392,14 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 		a.dashboard.WithAuthorizer(authz)
 	}
 	return a
+}
+
+// Authorizer exposes the configured authorizer (if any).
+func (a *Admin) Authorizer() Authorizer {
+	if a == nil {
+		return nil
+	}
+	return a.authorizer
 }
 
 // WithActivitySink injects a shared activity sink (go-users compatible via adapter).
