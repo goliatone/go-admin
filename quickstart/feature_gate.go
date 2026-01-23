@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
-	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	goauthadapter "github.com/goliatone/go-auth/adapters/featuregate"
+	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	"github.com/goliatone/go-featuregate/adapters/optionsadapter"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-featuregate/resolver"
@@ -17,7 +17,7 @@ func buildFeatureGate(cfg admin.Config, defaults map[string]bool, store admin.Pr
 	defaultsConfig := configadapter.NewDefaultsFromBools(merged)
 	options := []resolver.Option{
 		resolver.WithDefaults(defaultsConfig),
-		resolver.WithScopeResolver(goauthadapter.NewScopeResolver()),
+		resolver.WithClaimsProvider(goauthadapter.NewClaimsProvider()),
 	}
 	if store != nil {
 		stateStore := admin.NewPreferencesStoreAdapter(store)
