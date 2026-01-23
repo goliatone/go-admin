@@ -295,7 +295,7 @@ func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther 
 		options.viewContext = func(ctx router.ViewContext, _ router.Context) router.ViewContext { return ctx }
 	}
 
-	authScope := fggate.ScopeSet{System: true}
+	authScope := fggate.ScopeChain{{Kind: fggate.ScopeSystem}}
 	resolvePasswordReset := func(c router.Context) bool {
 		if options.passwordResetEnabled != nil {
 			return options.passwordResetEnabled(cfg)
