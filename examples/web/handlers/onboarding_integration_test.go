@@ -208,7 +208,7 @@ func TestOnboardingSelfRegistrationToggle(t *testing.T) {
 		t.Fatalf("expected FEATURE_DISABLED text_code, got %q", textCode)
 	}
 
-	if err := env.gate.Set(context.Background(), setup.FeatureSelfRegistration, fggate.ScopeSet{System: true}, true, fggate.ActorRef{}); err != nil {
+	if err := env.gate.Set(context.Background(), setup.FeatureSelfRegistration, fggate.ScopeRef{Kind: fggate.ScopeSystem}, true, fggate.ActorRef{}); err != nil {
 		t.Fatalf("enable self registration: %v", err)
 	}
 	resp, status = doOnboardingJSONRequest(t, env.app, http.MethodPost, "/admin/api/onboarding/register", registerPayload)

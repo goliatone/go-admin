@@ -191,8 +191,17 @@ func (s stubFeatureGate) Enabled(_ context.Context, key string, opts ...fggate.R
 			opt(req)
 		}
 	}
-	if req.ScopeSet == nil || !req.ScopeSet.System {
+	if req.ScopeChain == nil || !hasScopeKind(*req.ScopeChain, fggate.ScopeSystem) {
 		return false, errors.New("feature gate scope required")
 	}
 	return s.flags[key], nil
+}
+
+func hasScopeKind(chain fggate.ScopeChain, kind fggate.ScopeKind) bool {
+	for _, ref := range chain {
+		if ref.Kind == kind {
+			return true
+		}
+	}
+	return false
 }

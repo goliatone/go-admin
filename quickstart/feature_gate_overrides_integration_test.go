@@ -28,7 +28,7 @@ func TestRuntimeOverridesAffectBootAndModules(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected mutable feature gate")
 	}
-	scope := fggate.ScopeSet{System: true}
+	scope := fggate.ScopeRef{Kind: fggate.ScopeSystem}
 	if err := mutable.Set(context.Background(), "users", scope, false, fggate.ActorRef{}); err != nil {
 		t.Fatalf("set users override: %v", err)
 	}
