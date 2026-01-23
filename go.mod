@@ -15,7 +15,7 @@ require (
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.6.0
-	github.com/goliatone/go-featuregate v0.3.0
+	github.com/goliatone/go-featuregate v0.4.0
 	github.com/goliatone/go-formgen v0.14.0
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
@@ -28,6 +28,7 @@ require (
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-uploader v0.3.0
+	github.com/goliatone/go-urlkit v0.3.0
 	github.com/goliatone/go-users v0.13.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -107,7 +108,6 @@ require (
 	github.com/goliatone/go-logger v0.7.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.6.0 // indirect
-	github.com/goliatone/go-urlkit v0.3.0 // indirect
 	github.com/goliatone/hashid v0.1.1 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
