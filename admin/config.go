@@ -44,6 +44,7 @@ type Config struct {
 	ProfileUpdatePermission           string
 	UsersPermission                   string
 	UsersCreatePermission             string
+	UsersImportPermission             string
 	UsersUpdatePermission             string
 	UsersDeletePermission             string
 	RolesPermission                   string
