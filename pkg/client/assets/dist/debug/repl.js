@@ -1,5 +1,5 @@
 var pe = { exports: {} };
-(function(Z, B) {
+(function(Z, A) {
   (function($, j) {
     Z.exports = j();
   })(self, () => (() => {
@@ -450,24 +450,24 @@ WARNING: This link could potentially be dangerous`)) {
         }
         _handleColorEvent(S) {
           if (this._themeService) for (const D of S) {
-            let T, A = "";
+            let T, B = "";
             switch (D.index) {
               case 256:
-                T = "foreground", A = "10";
+                T = "foreground", B = "10";
                 break;
               case 257:
-                T = "background", A = "11";
+                T = "background", B = "11";
                 break;
               case 258:
-                T = "cursor", A = "12";
+                T = "cursor", B = "12";
                 break;
               default:
-                T = "ansi", A = "4;" + D.index;
+                T = "ansi", B = "4;" + D.index;
             }
             switch (D.type) {
               case 0:
                 const z = L.color.toColorRGB(T === "ansi" ? this._themeService.colors.ansi[D.index] : this._themeService.colors[T]);
-                this.coreService.triggerDataEvent(`${O.C0.ESC}]${A};${(0, w.toRgbString)(z)}${O.C1_ESCAPED.ST}`);
+                this.coreService.triggerDataEvent(`${O.C0.ESC}]${B};${(0, w.toRgbString)(z)}${O.C1_ESCAPED.ST}`);
                 break;
               case 1:
                 if (T === "ansi") this._themeService.modifyColors((W) => W.ansi[D.index] = L.rgba.toColor(...D.color));
@@ -507,8 +507,8 @@ WARNING: This link could potentially be dangerous`)) {
           if (!this.textarea || !this.buffer.isCursorInViewport || this._compositionHelper.isComposing || !this._renderService) return;
           const S = this.buffer.ybase + this.buffer.y, D = this.buffer.lines.get(S);
           if (!D) return;
-          const T = Math.min(this.buffer.x, this.cols - 1), A = this._renderService.dimensions.css.cell.height, z = D.getWidth(T), W = this._renderService.dimensions.css.cell.width * z, V = this.buffer.y * this._renderService.dimensions.css.cell.height, J = T * this._renderService.dimensions.css.cell.width;
-          this.textarea.style.left = J + "px", this.textarea.style.top = V + "px", this.textarea.style.width = W + "px", this.textarea.style.height = A + "px", this.textarea.style.lineHeight = A + "px", this.textarea.style.zIndex = "-5";
+          const T = Math.min(this.buffer.x, this.cols - 1), B = this._renderService.dimensions.css.cell.height, z = D.getWidth(T), W = this._renderService.dimensions.css.cell.width * z, V = this.buffer.y * this._renderService.dimensions.css.cell.height, J = T * this._renderService.dimensions.css.cell.width;
+          this.textarea.style.left = J + "px", this.textarea.style.top = V + "px", this.textarea.style.width = W + "px", this.textarea.style.height = B + "px", this.textarea.style.lineHeight = B + "px", this.textarea.style.zIndex = "-5";
         }
         _initGlobal() {
           this._bindKeys(), this.register((0, _.addDisposableDomListener)(this.element, "copy", (D) => {
@@ -531,19 +531,19 @@ WARNING: This link could potentially be dangerous`)) {
           if (!S) throw new Error("Terminal requires a parent element.");
           S.isConnected || this._logService.debug("Terminal.open was called on an element that was not attached to the DOM"), this._document = S.ownerDocument, this.element = this._document.createElement("div"), this.element.dir = "ltr", this.element.classList.add("terminal"), this.element.classList.add("xterm"), S.appendChild(this.element);
           const T = U.createDocumentFragment();
-          this._viewportElement = U.createElement("div"), this._viewportElement.classList.add("xterm-viewport"), T.appendChild(this._viewportElement), this._viewportScrollArea = U.createElement("div"), this._viewportScrollArea.classList.add("xterm-scroll-area"), this._viewportElement.appendChild(this._viewportScrollArea), this.screenElement = U.createElement("div"), this.screenElement.classList.add("xterm-screen"), this._helperContainer = U.createElement("div"), this._helperContainer.classList.add("xterm-helpers"), this.screenElement.appendChild(this._helperContainer), T.appendChild(this.screenElement), this.textarea = U.createElement("textarea"), this.textarea.classList.add("xterm-helper-textarea"), this.textarea.setAttribute("aria-label", d.promptLabel), M.isChromeOS || this.textarea.setAttribute("aria-multiline", "false"), this.textarea.setAttribute("autocorrect", "off"), this.textarea.setAttribute("autocapitalize", "off"), this.textarea.setAttribute("spellcheck", "false"), this.textarea.tabIndex = 0, this._coreBrowserService = this._instantiationService.createInstance(l.CoreBrowserService, this.textarea, (D = this._document.defaultView) !== null && D !== void 0 ? D : window), this._instantiationService.setService(p.ICoreBrowserService, this._coreBrowserService), this.register((0, _.addDisposableDomListener)(this.textarea, "focus", (A) => this._handleTextAreaFocus(A))), this.register((0, _.addDisposableDomListener)(this.textarea, "blur", () => this._handleTextAreaBlur())), this._helperContainer.appendChild(this.textarea), this._charSizeService = this._instantiationService.createInstance(i.CharSizeService, this._document, this._helperContainer), this._instantiationService.setService(p.ICharSizeService, this._charSizeService), this._themeService = this._instantiationService.createInstance(b.ThemeService), this._instantiationService.setService(p.IThemeService, this._themeService), this._characterJoinerService = this._instantiationService.createInstance(a.CharacterJoinerService), this._instantiationService.setService(p.ICharacterJoinerService, this._characterJoinerService), this._renderService = this.register(this._instantiationService.createInstance(m.RenderService, this.rows, this.screenElement)), this._instantiationService.setService(p.IRenderService, this._renderService), this.register(this._renderService.onRenderedViewportChange((A) => this._onRender.fire(A))), this.onResize((A) => this._renderService.resize(A.cols, A.rows)), this._compositionView = U.createElement("div"), this._compositionView.classList.add("composition-view"), this._compositionHelper = this._instantiationService.createInstance(s.CompositionHelper, this.textarea, this._compositionView), this._helperContainer.appendChild(this._compositionView), this.element.appendChild(T);
+          this._viewportElement = U.createElement("div"), this._viewportElement.classList.add("xterm-viewport"), T.appendChild(this._viewportElement), this._viewportScrollArea = U.createElement("div"), this._viewportScrollArea.classList.add("xterm-scroll-area"), this._viewportElement.appendChild(this._viewportScrollArea), this.screenElement = U.createElement("div"), this.screenElement.classList.add("xterm-screen"), this._helperContainer = U.createElement("div"), this._helperContainer.classList.add("xterm-helpers"), this.screenElement.appendChild(this._helperContainer), T.appendChild(this.screenElement), this.textarea = U.createElement("textarea"), this.textarea.classList.add("xterm-helper-textarea"), this.textarea.setAttribute("aria-label", d.promptLabel), M.isChromeOS || this.textarea.setAttribute("aria-multiline", "false"), this.textarea.setAttribute("autocorrect", "off"), this.textarea.setAttribute("autocapitalize", "off"), this.textarea.setAttribute("spellcheck", "false"), this.textarea.tabIndex = 0, this._coreBrowserService = this._instantiationService.createInstance(l.CoreBrowserService, this.textarea, (D = this._document.defaultView) !== null && D !== void 0 ? D : window), this._instantiationService.setService(p.ICoreBrowserService, this._coreBrowserService), this.register((0, _.addDisposableDomListener)(this.textarea, "focus", (B) => this._handleTextAreaFocus(B))), this.register((0, _.addDisposableDomListener)(this.textarea, "blur", () => this._handleTextAreaBlur())), this._helperContainer.appendChild(this.textarea), this._charSizeService = this._instantiationService.createInstance(i.CharSizeService, this._document, this._helperContainer), this._instantiationService.setService(p.ICharSizeService, this._charSizeService), this._themeService = this._instantiationService.createInstance(b.ThemeService), this._instantiationService.setService(p.IThemeService, this._themeService), this._characterJoinerService = this._instantiationService.createInstance(a.CharacterJoinerService), this._instantiationService.setService(p.ICharacterJoinerService, this._characterJoinerService), this._renderService = this.register(this._instantiationService.createInstance(m.RenderService, this.rows, this.screenElement)), this._instantiationService.setService(p.IRenderService, this._renderService), this.register(this._renderService.onRenderedViewportChange((B) => this._onRender.fire(B))), this.onResize((B) => this._renderService.resize(B.cols, B.rows)), this._compositionView = U.createElement("div"), this._compositionView.classList.add("composition-view"), this._compositionHelper = this._instantiationService.createInstance(s.CompositionHelper, this.textarea, this._compositionView), this._helperContainer.appendChild(this._compositionView), this.element.appendChild(T);
           try {
             this._onWillOpen.fire(this.element);
           } catch {
           }
-          this._renderService.hasRenderer() || this._renderService.setRenderer(this._createRenderer()), this._mouseService = this._instantiationService.createInstance(v.MouseService), this._instantiationService.setService(p.IMouseService, this._mouseService), this.viewport = this._instantiationService.createInstance(g.Viewport, this._viewportElement, this._viewportScrollArea), this.viewport.onRequestScrollLines((A) => this.scrollLines(A.amount, A.suppressScrollEvent, 1)), this.register(this._inputHandler.onRequestSyncScrollBar(() => this.viewport.syncScrollArea())), this.register(this.viewport), this.register(this.onCursorMove(() => {
+          this._renderService.hasRenderer() || this._renderService.setRenderer(this._createRenderer()), this._mouseService = this._instantiationService.createInstance(v.MouseService), this._instantiationService.setService(p.IMouseService, this._mouseService), this.viewport = this._instantiationService.createInstance(g.Viewport, this._viewportElement, this._viewportScrollArea), this.viewport.onRequestScrollLines((B) => this.scrollLines(B.amount, B.suppressScrollEvent, 1)), this.register(this._inputHandler.onRequestSyncScrollBar(() => this.viewport.syncScrollArea())), this.register(this.viewport), this.register(this.onCursorMove(() => {
             this._renderService.handleCursorMove(), this._syncTextArea();
-          })), this.register(this.onResize(() => this._renderService.handleResize(this.cols, this.rows))), this.register(this.onBlur(() => this._renderService.handleBlur())), this.register(this.onFocus(() => this._renderService.handleFocus())), this.register(this._renderService.onDimensionsChange(() => this.viewport.syncScrollArea())), this._selectionService = this.register(this._instantiationService.createInstance(h.SelectionService, this.element, this.screenElement, this.linkifier2)), this._instantiationService.setService(p.ISelectionService, this._selectionService), this.register(this._selectionService.onRequestScrollLines((A) => this.scrollLines(A.amount, A.suppressScrollEvent))), this.register(this._selectionService.onSelectionChange(() => this._onSelectionChange.fire())), this.register(this._selectionService.onRequestRedraw((A) => this._renderService.handleSelectionChanged(A.start, A.end, A.columnSelectMode))), this.register(this._selectionService.onLinuxMouseSelection((A) => {
-            this.textarea.value = A, this.textarea.focus(), this.textarea.select();
-          })), this.register(this._onScroll.event((A) => {
+          })), this.register(this.onResize(() => this._renderService.handleResize(this.cols, this.rows))), this.register(this.onBlur(() => this._renderService.handleBlur())), this.register(this.onFocus(() => this._renderService.handleFocus())), this.register(this._renderService.onDimensionsChange(() => this.viewport.syncScrollArea())), this._selectionService = this.register(this._instantiationService.createInstance(h.SelectionService, this.element, this.screenElement, this.linkifier2)), this._instantiationService.setService(p.ISelectionService, this._selectionService), this.register(this._selectionService.onRequestScrollLines((B) => this.scrollLines(B.amount, B.suppressScrollEvent))), this.register(this._selectionService.onSelectionChange(() => this._onSelectionChange.fire())), this.register(this._selectionService.onRequestRedraw((B) => this._renderService.handleSelectionChanged(B.start, B.end, B.columnSelectMode))), this.register(this._selectionService.onLinuxMouseSelection((B) => {
+            this.textarea.value = B, this.textarea.focus(), this.textarea.select();
+          })), this.register(this._onScroll.event((B) => {
             this.viewport.syncScrollArea(), this._selectionService.refresh();
-          })), this.register((0, _.addDisposableDomListener)(this._viewportElement, "scroll", () => this._selectionService.refresh())), this.linkifier2.attachToDom(this.screenElement, this._mouseService, this._renderService), this.register(this._instantiationService.createInstance(u.BufferDecorationRenderer, this.screenElement)), this.register((0, _.addDisposableDomListener)(this.element, "mousedown", (A) => this._selectionService.handleMouseDown(A))), this.coreMouseService.areMouseEventsActive ? (this._selectionService.disable(), this.element.classList.add("enable-mouse-events")) : this._selectionService.enable(), this.options.screenReaderMode && (this._accessibilityManager.value = this._instantiationService.createInstance(F.AccessibilityManager, this)), this.register(this.optionsService.onSpecificOptionChange("screenReaderMode", (A) => this._handleScreenReaderModeOptionChange(A))), this.options.overviewRulerWidth && (this._overviewRulerRenderer = this.register(this._instantiationService.createInstance(e.OverviewRulerRenderer, this._viewportElement, this.screenElement))), this.optionsService.onSpecificOptionChange("overviewRulerWidth", (A) => {
-            !this._overviewRulerRenderer && A && this._viewportElement && this.screenElement && (this._overviewRulerRenderer = this.register(this._instantiationService.createInstance(e.OverviewRulerRenderer, this._viewportElement, this.screenElement)));
+          })), this.register((0, _.addDisposableDomListener)(this._viewportElement, "scroll", () => this._selectionService.refresh())), this.linkifier2.attachToDom(this.screenElement, this._mouseService, this._renderService), this.register(this._instantiationService.createInstance(u.BufferDecorationRenderer, this.screenElement)), this.register((0, _.addDisposableDomListener)(this.element, "mousedown", (B) => this._selectionService.handleMouseDown(B))), this.coreMouseService.areMouseEventsActive ? (this._selectionService.disable(), this.element.classList.add("enable-mouse-events")) : this._selectionService.enable(), this.options.screenReaderMode && (this._accessibilityManager.value = this._instantiationService.createInstance(F.AccessibilityManager, this)), this.register(this.optionsService.onSpecificOptionChange("screenReaderMode", (B) => this._handleScreenReaderModeOptionChange(B))), this.options.overviewRulerWidth && (this._overviewRulerRenderer = this.register(this._instantiationService.createInstance(e.OverviewRulerRenderer, this._viewportElement, this.screenElement))), this.optionsService.onSpecificOptionChange("overviewRulerWidth", (B) => {
+            !this._overviewRulerRenderer && B && this._viewportElement && this.screenElement && (this._overviewRulerRenderer = this.register(this._instantiationService.createInstance(e.OverviewRulerRenderer, this._viewportElement, this.screenElement)));
           }), this._charSizeService.measure(), this.refresh(0, this.rows - 1), this._initGlobal(), this.bindMouse();
         }
         _createRenderer() {
@@ -574,17 +574,17 @@ WARNING: This link could potentially be dangerous`)) {
             }
             return !(Q === void 0 || J === void 0 || J > 4) && S.coreMouseService.triggerMouseEvent({ col: V.col, row: V.row, x: V.x, y: V.y, button: J, action: Q, ctrl: W.ctrlKey, alt: W.altKey, shift: W.shiftKey });
           }
-          const A = { mouseup: null, wheel: null, mousedrag: null, mousemove: null }, z = { mouseup: (W) => (T(W), W.buttons || (this._document.removeEventListener("mouseup", A.mouseup), A.mousedrag && this._document.removeEventListener("mousemove", A.mousedrag)), this.cancel(W)), wheel: (W) => (T(W), this.cancel(W, !0)), mousedrag: (W) => {
+          const B = { mouseup: null, wheel: null, mousedrag: null, mousemove: null }, z = { mouseup: (W) => (T(W), W.buttons || (this._document.removeEventListener("mouseup", B.mouseup), B.mousedrag && this._document.removeEventListener("mousemove", B.mousedrag)), this.cancel(W)), wheel: (W) => (T(W), this.cancel(W, !0)), mousedrag: (W) => {
             W.buttons && T(W);
           }, mousemove: (W) => {
             W.buttons || T(W);
           } };
           this.register(this.coreMouseService.onProtocolChange((W) => {
-            W ? (this.optionsService.rawOptions.logLevel === "debug" && this._logService.debug("Binding to mouse events:", this.coreMouseService.explainEvents(W)), this.element.classList.add("enable-mouse-events"), this._selectionService.disable()) : (this._logService.debug("Unbinding from mouse events."), this.element.classList.remove("enable-mouse-events"), this._selectionService.enable()), 8 & W ? A.mousemove || (D.addEventListener("mousemove", z.mousemove), A.mousemove = z.mousemove) : (D.removeEventListener("mousemove", A.mousemove), A.mousemove = null), 16 & W ? A.wheel || (D.addEventListener("wheel", z.wheel, { passive: !1 }), A.wheel = z.wheel) : (D.removeEventListener("wheel", A.wheel), A.wheel = null), 2 & W ? A.mouseup || (D.addEventListener("mouseup", z.mouseup), A.mouseup = z.mouseup) : (this._document.removeEventListener("mouseup", A.mouseup), D.removeEventListener("mouseup", A.mouseup), A.mouseup = null), 4 & W ? A.mousedrag || (A.mousedrag = z.mousedrag) : (this._document.removeEventListener("mousemove", A.mousedrag), A.mousedrag = null);
+            W ? (this.optionsService.rawOptions.logLevel === "debug" && this._logService.debug("Binding to mouse events:", this.coreMouseService.explainEvents(W)), this.element.classList.add("enable-mouse-events"), this._selectionService.disable()) : (this._logService.debug("Unbinding from mouse events."), this.element.classList.remove("enable-mouse-events"), this._selectionService.enable()), 8 & W ? B.mousemove || (D.addEventListener("mousemove", z.mousemove), B.mousemove = z.mousemove) : (D.removeEventListener("mousemove", B.mousemove), B.mousemove = null), 16 & W ? B.wheel || (D.addEventListener("wheel", z.wheel, { passive: !1 }), B.wheel = z.wheel) : (D.removeEventListener("wheel", B.wheel), B.wheel = null), 2 & W ? B.mouseup || (D.addEventListener("mouseup", z.mouseup), B.mouseup = z.mouseup) : (this._document.removeEventListener("mouseup", B.mouseup), D.removeEventListener("mouseup", B.mouseup), B.mouseup = null), 4 & W ? B.mousedrag || (B.mousedrag = z.mousedrag) : (this._document.removeEventListener("mousemove", B.mousedrag), B.mousedrag = null);
           })), this.coreMouseService.activeProtocol = this.coreMouseService.activeProtocol, this.register((0, _.addDisposableDomListener)(D, "mousedown", (W) => {
-            if (W.preventDefault(), this.focus(), this.coreMouseService.areMouseEventsActive && !this._selectionService.shouldForceSelection(W)) return T(W), A.mouseup && this._document.addEventListener("mouseup", A.mouseup), A.mousedrag && this._document.addEventListener("mousemove", A.mousedrag), this.cancel(W);
+            if (W.preventDefault(), this.focus(), this.coreMouseService.areMouseEventsActive && !this._selectionService.shouldForceSelection(W)) return T(W), B.mouseup && this._document.addEventListener("mouseup", B.mouseup), B.mousedrag && this._document.addEventListener("mousemove", B.mousedrag), this.cancel(W);
           })), this.register((0, _.addDisposableDomListener)(D, "wheel", (W) => {
-            if (!A.wheel) {
+            if (!B.wheel) {
               if (!this.buffer.hasScrollback) {
                 const V = this.viewport.getLinesScrolled(W);
                 if (V === 0) return;
@@ -613,8 +613,8 @@ WARNING: This link could potentially be dangerous`)) {
           this.coreService.isCursorInitialized || (this.coreService.isCursorInitialized = !0, this.refresh(this.buffer.y, this.buffer.y));
         }
         scrollLines(S, D, T = 0) {
-          var A;
-          T === 1 ? (super.scrollLines(S, D, T), this.refresh(0, this.rows - 1)) : (A = this.viewport) === null || A === void 0 || A.scrollLines(S);
+          var B;
+          T === 1 ? (super.scrollLines(S, D, T), this.refresh(0, this.rows - 1)) : (B = this.viewport) === null || B === void 0 || B.scrollLines(S);
         }
         paste(S) {
           (0, c.paste)(S, this.textarea, this.coreService, this.optionsService);
@@ -674,8 +674,8 @@ WARNING: This link could potentially be dangerous`)) {
           D || S.key !== "Dead" && S.key !== "AltGraph" || (this._unprocessedDeadKey = !0);
           const T = (0, C.evaluateKeyboardEvent)(S, this.coreService.decPrivateModes.applicationCursorKeys, this.browser.isMac, this.options.macOptionIsMeta);
           if (this.updateCursorStyle(S), T.type === 3 || T.type === 2) {
-            const A = this.rows - 1;
-            return this.scrollLines(T.type === 2 ? -A : A), this.cancel(S, !0);
+            const B = this.rows - 1;
+            return this.scrollLines(T.type === 2 ? -B : B), this.cancel(S, !0);
           }
           return T.type === 1 && this.selectAll(), !!this._isThirdLevelShift(this.browser, S) || (T.cancel && this.cancel(S, !0), !T.key || !!(S.key && !S.ctrlKey && !S.altKey && !S.metaKey && S.key.length === 1 && S.key.charCodeAt(0) >= 65 && S.key.charCodeAt(0) <= 90) || (this._unprocessedDeadKey ? (this._unprocessedDeadKey = !1, !0) : (T.key !== O.C0.ETX && T.key !== O.C0.CR || (this.textarea.value = ""), this._onKey.fire({ key: T.key, domEvent: S }), this._showCursor(), this.coreService.triggerDataEvent(T.key, !0), !this.optionsService.rawOptions.screenReaderMode || S.altKey || S.ctrlKey ? this.cancel(S, !0) : void (this._keyDownHandled = !0))));
         }
@@ -712,8 +712,8 @@ WARNING: This link could potentially be dangerous`)) {
           S !== this.cols || D !== this.rows ? super.resize(S, D) : this._charSizeService && !this._charSizeService.hasValidSize && this._charSizeService.measure();
         }
         _afterResize(S, D) {
-          var T, A;
-          (T = this._charSizeService) === null || T === void 0 || T.measure(), (A = this.viewport) === null || A === void 0 || A.syncScrollArea(!0);
+          var T, B;
+          (T = this._charSizeService) === null || T === void 0 || T.measure(), (B = this.viewport) === null || B === void 0 || B.syncScrollArea(!0);
         }
         clear() {
           var S;
@@ -744,8 +744,8 @@ WARNING: This link could potentially be dangerous`)) {
               this.coreService.triggerDataEvent(`${O.C0.ESC}[4;${T};${D}t`);
               break;
             case H.WindowsOptionsReportType.GET_CELL_SIZE_PIXELS:
-              const A = this._renderService.dimensions.css.cell.width.toFixed(0), z = this._renderService.dimensions.css.cell.height.toFixed(0);
-              this.coreService.triggerDataEvent(`${O.C0.ESC}[6;${z};${A}t`);
+              const B = this._renderService.dimensions.css.cell.width.toFixed(0), z = this._renderService.dimensions.css.cell.height.toFixed(0);
+              this.coreService.triggerDataEvent(`${O.C0.ESC}[6;${z};${B}t`);
           }
         }
         cancel(S, D) {
@@ -1350,7 +1350,7 @@ WARNING: This link could potentially be dangerous`)) {
           const O = [], C = this._characterJoinerService.getJoinedCharacters(m), w = this._themeService.colors;
           let E, x = v.getNoBgTrimmedLength();
           h && x < L + 1 && (x = L + 1);
-          let H = 0, F = "", U = 0, N = 0, G = 0, S = !1, D = 0, T = !1, A = 0;
+          let H = 0, F = "", U = 0, N = 0, G = 0, S = !1, D = 0, T = !1, B = 0;
           const z = [], W = M !== -1 && P !== -1;
           for (let V = 0; V < x; V++) {
             v.loadCell(V, this._workCell);
@@ -1368,14 +1368,14 @@ WARNING: This link could potentially be dangerous`)) {
               ue = !0;
             });
             let le = K.getChars() || d.WHITESPACE_CELL_CHAR;
-            if (le === " " && (K.isUnderline() || K.isOverline()) && (le = " "), A = J * k - R.get(le, K.isBold(), K.isItalic()), E) {
-              if (H && (ne && T || !ne && !T && K.bg === U) && (ne && T && w.selectionForeground || K.fg === N) && K.extended.ext === G && de === S && A === D && !ce && !Q && !ue) {
+            if (le === " " && (K.isUnderline() || K.isOverline()) && (le = " "), B = J * k - R.get(le, K.isBold(), K.isItalic()), E) {
+              if (H && (ne && T || !ne && !T && K.bg === U) && (ne && T && w.selectionForeground || K.fg === N) && K.extended.ext === G && de === S && B === D && !ce && !Q && !ue) {
                 F += le, H++;
                 continue;
               }
               H && (E.textContent = F), E = this._document.createElement("span"), H = 0, F = "";
             } else E = this._document.createElement("span");
-            if (U = K.bg, N = K.fg, G = K.extended.ext, S = de, D = A, T = ne, Q && L >= V && L <= re && (L = V), !this._coreService.isCursorHidden && ce) {
+            if (U = K.bg, N = K.fg, G = K.extended.ext, S = de, D = B, T = ne, Q && L >= V && L <= re && (L = V), !this._coreService.isCursorHidden && ce) {
               if (z.push("xterm-cursor"), this._coreBrowserService.isFocused) y && z.push("xterm-cursor-blink"), z.push(p === "bar" ? "xterm-cursor-bar" : p === "underline" ? "xterm-cursor-underline" : "xterm-cursor-block");
               else if (b) switch (b) {
                 case "outline":
@@ -1431,7 +1431,7 @@ WARNING: This link could potentially be dangerous`)) {
               default:
                 this._applyMinimumContrast(E, se, w.foreground, K, ie, void 0) || _e && z.push(`xterm-fg-${n.INVERTED_DEFAULT_COLOR}`);
             }
-            z.length && (E.className = z.join(" "), z.length = 0), ce || Q || ue ? E.textContent = F : H++, A !== this.defaultSpacing && (E.style.letterSpacing = `${A}px`), O.push(E), V = re;
+            z.length && (E.className = z.join(" "), z.length = 0), ce || Q || ue ? E.textContent = F : H++, B !== this.defaultSpacing && (E.style.letterSpacing = `${B}px`), O.push(E), V = re;
           }
           return E && H && (E.textContent = F), O;
         }
@@ -2627,8 +2627,8 @@ WARNING: This link could potentially be dangerous`)) {
           const F = this._charsetService.charset, U = this._optionsService.rawOptions.screenReaderMode, N = this._bufferService.cols, G = this._coreService.decPrivateModes.wraparound, S = this._coreService.modes.insertMode, D = this._curAttrData;
           let T = this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y);
           this._dirtyRowTracker.markDirty(this._activeBuffer.y), this._activeBuffer.x && E - w > 0 && T.getWidth(this._activeBuffer.x - 1) === 2 && T.setCellFromCodePoint(this._activeBuffer.x - 1, 0, 1, D.fg, D.bg, D.extended);
-          for (let A = w; A < E; ++A) {
-            if (x = C[A], H = this._unicodeService.wcwidth(x), x < 127 && F) {
+          for (let B = w; B < E; ++B) {
+            if (x = C[B], H = this._unicodeService.wcwidth(x), x < 127 && F) {
               const z = F[String.fromCharCode(x)];
               z && (x = z.charCodeAt(0));
             }
@@ -3041,8 +3041,8 @@ WARNING: This link could potentially be dangerous`)) {
           return !0;
         }
         requestMode(C, w) {
-          const E = this._coreService.decPrivateModes, { activeProtocol: x, activeEncoding: H } = this._coreMouseService, F = this._coreService, { buffers: U, cols: N } = this._bufferService, { active: G, alt: S } = U, D = this._optionsService.rawOptions, T = (V) => V ? 1 : 2, A = C.params[0];
-          return z = A, W = w ? A === 2 ? 4 : A === 4 ? T(F.modes.insertMode) : A === 12 ? 3 : A === 20 ? T(D.convertEol) : 0 : A === 1 ? T(E.applicationCursorKeys) : A === 3 ? D.windowOptions.setWinLines ? N === 80 ? 2 : N === 132 ? 1 : 0 : 0 : A === 6 ? T(E.origin) : A === 7 ? T(E.wraparound) : A === 8 ? 3 : A === 9 ? T(x === "X10") : A === 12 ? T(D.cursorBlink) : A === 25 ? T(!F.isCursorHidden) : A === 45 ? T(E.reverseWraparound) : A === 66 ? T(E.applicationKeypad) : A === 67 ? 4 : A === 1e3 ? T(x === "VT200") : A === 1002 ? T(x === "DRAG") : A === 1003 ? T(x === "ANY") : A === 1004 ? T(E.sendFocus) : A === 1005 ? 4 : A === 1006 ? T(H === "SGR") : A === 1015 ? 4 : A === 1016 ? T(H === "SGR_PIXELS") : A === 1048 ? 1 : A === 47 || A === 1047 || A === 1049 ? T(G === S) : A === 2004 ? T(E.bracketedPasteMode) : 0, F.triggerDataEvent(`${n.C0.ESC}[${w ? "" : "?"}${z};${W}$y`), !0;
+          const E = this._coreService.decPrivateModes, { activeProtocol: x, activeEncoding: H } = this._coreMouseService, F = this._coreService, { buffers: U, cols: N } = this._bufferService, { active: G, alt: S } = U, D = this._optionsService.rawOptions, T = (V) => V ? 1 : 2, B = C.params[0];
+          return z = B, W = w ? B === 2 ? 4 : B === 4 ? T(F.modes.insertMode) : B === 12 ? 3 : B === 20 ? T(D.convertEol) : 0 : B === 1 ? T(E.applicationCursorKeys) : B === 3 ? D.windowOptions.setWinLines ? N === 80 ? 2 : N === 132 ? 1 : 0 : 0 : B === 6 ? T(E.origin) : B === 7 ? T(E.wraparound) : B === 8 ? 3 : B === 9 ? T(x === "X10") : B === 12 ? T(D.cursorBlink) : B === 25 ? T(!F.isCursorHidden) : B === 45 ? T(E.reverseWraparound) : B === 66 ? T(E.applicationKeypad) : B === 67 ? 4 : B === 1e3 ? T(x === "VT200") : B === 1002 ? T(x === "DRAG") : B === 1003 ? T(x === "ANY") : B === 1004 ? T(E.sendFocus) : B === 1005 ? 4 : B === 1006 ? T(H === "SGR") : B === 1015 ? 4 : B === 1016 ? T(H === "SGR_PIXELS") : B === 1048 ? 1 : B === 47 || B === 1047 || B === 1049 ? T(G === S) : B === 2004 ? T(E.bracketedPasteMode) : 0, F.triggerDataEvent(`${n.C0.ESC}[${w ? "" : "?"}${z};${W}$y`), !0;
           var z, W;
         }
         _updateAttrColor(C, w, E, x, H) {
@@ -5922,7 +5922,7 @@ WARNING: This link could potentially be dangerous`)) {
   })());
 })(pe);
 var Ce = pe.exports, me = { exports: {} };
-(function(Z, B) {
+(function(Z, A) {
   (function($, j) {
     Z.exports = j();
   })(self, () => (() => {
@@ -5985,23 +5985,23 @@ const ye = `/**
  *   has been extended to include xterm CSI codes, among
  *   other features.
  */.xterm{cursor:text;position:relative;-moz-user-select:none;user-select:none;-ms-user-select:none;-webkit-user-select:none}.xterm.focus,.xterm:focus{outline:none}.xterm .xterm-helpers{position:absolute;top:0;z-index:5}.xterm .xterm-helper-textarea{padding:0;border:0;margin:0;position:absolute;opacity:0;left:-9999em;top:0;width:0;height:0;z-index:-5;white-space:nowrap;overflow:hidden;resize:none}.xterm .composition-view{background:#000;color:#fff;display:none;position:absolute;white-space:nowrap;z-index:1}.xterm .composition-view.active{display:block}.xterm .xterm-viewport{background-color:#000;overflow-y:scroll;cursor:default;position:absolute;inset:0}.xterm .xterm-screen{position:relative}.xterm .xterm-screen canvas{position:absolute;left:0;top:0}.xterm .xterm-scroll-area{visibility:hidden}.xterm-char-measure-element{display:inline-block;visibility:hidden;position:absolute;top:0;left:-9999em;line-height:normal}.xterm.enable-mouse-events{cursor:default}.xterm.xterm-cursor-pointer,.xterm .xterm-cursor-pointer{cursor:pointer}.xterm.column-select.focus{cursor:crosshair}.xterm .xterm-accessibility,.xterm .xterm-message{position:absolute;inset:0;z-index:10;color:transparent;pointer-events:none}.xterm .live-region{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}.xterm-dim{opacity:1!important}.xterm-underline-1{text-decoration:underline}.xterm-underline-2{-webkit-text-decoration:double underline;text-decoration:double underline}.xterm-underline-3{-webkit-text-decoration:wavy underline;text-decoration:wavy underline}.xterm-underline-4{-webkit-text-decoration:dotted underline;text-decoration:dotted underline}.xterm-underline-5{-webkit-text-decoration:dashed underline;text-decoration:dashed underline}.xterm-overline{text-decoration:overline}.xterm-overline.xterm-underline-1{text-decoration:overline underline}.xterm-overline.xterm-underline-2{-webkit-text-decoration:overline double underline;text-decoration:overline double underline}.xterm-overline.xterm-underline-3{-webkit-text-decoration:overline wavy underline;text-decoration:overline wavy underline}.xterm-overline.xterm-underline-4{-webkit-text-decoration:overline dotted underline;text-decoration:overline dotted underline}.xterm-overline.xterm-underline-5{-webkit-text-decoration:overline dashed underline;text-decoration:overline dashed underline}.xterm-strikethrough{text-decoration:line-through}.xterm-screen .xterm-decoration-container .xterm-decoration{z-index:6;position:absolute}.xterm-screen .xterm-decoration-container .xterm-decoration.xterm-decoration-top-layer{z-index:7}.xterm-decoration-overview-ruler{z-index:8;position:absolute;top:0;right:0;pointer-events:none}.xterm-decoration-top{z-index:2;position:relative}`, we = 1e3, Ee = 12e3, ke = 8, Le = (Z) => {
-  const B = (Z || "").trim();
-  return B ? B.startsWith("/") ? B.replace(/\/+$/, "") : `/${B.replace(/\/+$/, "")}` : "";
-}, xe = (Z) => Z === "shell" ? "repl/shell/ws" : "repl/app/ws", De = (Z, B) => {
-  const $ = window.location.protocol === "https:" ? "wss:" : "ws:", j = Le(Z), q = xe(B);
+  const A = (Z || "").trim();
+  return A ? A.startsWith("/") ? A.replace(/\/+$/, "") : `/${A.replace(/\/+$/, "")}` : "";
+}, xe = (Z) => Z === "shell" ? "repl/shell/ws" : "repl/app/ws", De = (Z, A) => {
+  const $ = window.location.protocol === "https:" ? "wss:" : "ws:", j = Le(Z), q = xe(A);
   return `${$}//${window.location.host}${j}/${q}`;
 }, Re = /* @__PURE__ */ (() => {
   let Z = !1;
   return () => {
     if (Z)
       return;
-    const B = document.createElement("style");
-    B.setAttribute("data-debug-repl-xterm", "true"), B.textContent = ye, document.head.appendChild(B), Z = !0;
+    const A = document.createElement("style");
+    A.setAttribute("data-debug-repl-xterm", "true"), A.textContent = ye, document.head.appendChild(A), Z = !0;
   };
 })();
 class Ae {
-  constructor(B) {
-    this.socket = null, this.status = "disconnected", this.reconnectAttempts = 0, this.reconnectTimer = null, this.manualClose = !1, this.resetOnOpen = !1, this.resizeObserver = null, this.lineBuffer = "", this.skipEscape = !1, this.prompt = ">>> ", this.awaitingPrompt = !0, this.options = B, Re(), this.terminal = new Ce.Terminal({
+  constructor(A) {
+    this.socket = null, this.status = "disconnected", this.reconnectAttempts = 0, this.reconnectTimer = null, this.manualClose = !1, this.resetOnOpen = !1, this.resizeObserver = null, this.lineBuffer = "", this.skipEscape = !1, this.prompt = ">>> ", this.awaitingPrompt = !0, this.options = A, Re(), this.terminal = new Ce.Terminal({
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       fontSize: 12,
       lineHeight: 1.3,
@@ -6014,14 +6014,14 @@ class Ae {
         cursor: "#f5e0dc",
         selectionBackground: "rgba(137, 180, 250, 0.35)"
       }
-    }), this.fitAddon = new be.FitAddon(), this.terminal.loadAddon(this.fitAddon), this.terminal.open(B.container), this.fitAddon.fit(), this.terminal.focus(), this.bindTerminal(), this.observeResize(B.container), B.autoConnect !== !1 && this.connect();
+    }), this.fitAddon = new be.FitAddon(), this.terminal.loadAddon(this.fitAddon), this.terminal.open(A.container), this.fitAddon.fit(), this.terminal.focus(), this.bindTerminal(), this.observeResize(A.container), A.autoConnect !== !1 && this.connect();
   }
   connect() {
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING))
       return;
     this.manualClose = !1, this.setStatus("connecting");
-    const B = De(this.options.debugPath, this.options.kind);
-    this.socket = new WebSocket(B), this.socket.onopen = () => {
+    const A = De(this.options.debugPath, this.options.kind);
+    this.socket = new WebSocket(A), this.socket.onopen = () => {
       this.reconnectAttempts = 0, this.resetOnOpen && (this.resetOnOpen = !1, this.resetTerminal()), this.setStatus("connected"), this.awaitingPrompt = !0, this.options.kind === "console" && this.writePrompt(), this.sendResize();
     }, this.socket.onmessage = ($) => {
       !$ || typeof $.data != "string" || this.handleMessage($.data);
@@ -6053,43 +6053,43 @@ class Ae {
   focus() {
     this.terminal.focus();
   }
-  paste(B) {
-    B && (this.handlePaste(B), this.terminal.focus());
+  paste(A) {
+    A && (this.handlePaste(A), this.terminal.focus());
   }
   bindTerminal() {
-    if (this.terminal.attachCustomKeyEventHandler((B) => this.handleKeyEvent(B)), this.options.kind === "shell") {
-      this.terminal.onData((B) => {
-        this.sendCommand({ type: "input", data: B });
+    if (this.terminal.attachCustomKeyEventHandler((A) => this.handleKeyEvent(A)), this.options.kind === "shell") {
+      this.terminal.onData((A) => {
+        this.sendCommand({ type: "input", data: A });
       });
       return;
     }
-    this.terminal.onData((B) => this.handleConsoleInput(B));
+    this.terminal.onData((A) => this.handleConsoleInput(A));
   }
-  handleKeyEvent(B) {
-    if (!B)
+  handleKeyEvent(A) {
+    if (!A)
       return !0;
-    const $ = B.metaKey || B.ctrlKey;
-    if ($ && B.shiftKey && B.code === "KeyC") {
+    const $ = A.metaKey || A.ctrlKey;
+    if ($ && A.shiftKey && A.code === "KeyC") {
       const j = this.terminal.getSelection();
       return j ? (navigator.clipboard?.writeText(j).catch(() => null), !1) : !0;
     }
-    return $ && B.shiftKey && B.code === "KeyV" ? (navigator.clipboard?.readText().then((j) => {
+    return $ && A.shiftKey && A.code === "KeyV" ? (navigator.clipboard?.readText().then((j) => {
       j && this.handlePaste(j);
     }).catch(() => null), !1) : !0;
   }
-  handlePaste(B) {
-    if (B) {
+  handlePaste(A) {
+    if (A) {
       if (this.options.kind === "shell") {
-        this.sendCommand({ type: "input", data: B });
+        this.sendCommand({ type: "input", data: A });
         return;
       }
-      this.handleConsoleInput(B);
+      this.handleConsoleInput(A);
     }
   }
-  handleConsoleInput(B) {
-    if (!B)
+  handleConsoleInput(A) {
+    if (!A)
       return;
-    const $ = B.replace(/\r\n/g, `
+    const $ = A.replace(/\r\n/g, `
 `);
     for (const j of $) {
       if (this.skipEscape) {
@@ -6118,9 +6118,9 @@ class Ae {
     }
   }
   submitLine() {
-    const B = this.lineBuffer.trim();
+    const A = this.lineBuffer.trim();
     if (this.lineBuffer = "", this.terminal.write(`\r
-`), !B) {
+`), !A) {
       this.writePrompt(!0);
       return;
     }
@@ -6129,58 +6129,58 @@ class Ae {
 `), this.writePrompt(!0);
       return;
     }
-    this.sendCommand({ type: "eval", code: B }), this.awaitingPrompt = !0;
+    this.sendCommand({ type: "eval", code: A }), this.awaitingPrompt = !0;
   }
-  handleMessage(B) {
+  handleMessage(A) {
     let $;
     try {
-      $ = JSON.parse(B);
+      $ = JSON.parse(A);
     } catch {
       return;
     }
     !$ || !$.type || (this.options.kind === "shell" ? this.handleShellEvent($) : this.handleConsoleEvent($));
   }
-  handleShellEvent(B) {
-    if (B.type === "output" && typeof B.data == "string") {
-      this.terminal.write(B.data);
+  handleShellEvent(A) {
+    if (A.type === "output" && typeof A.data == "string") {
+      this.terminal.write(A.data);
       return;
     }
-    if (B.type === "exit") {
-      const $ = Number(B.code ?? 0);
+    if (A.type === "exit") {
+      const $ = Number(A.code ?? 0);
       this.terminal.write(`\r
 [session closed: ${$}]\r
 `);
     }
   }
-  handleConsoleEvent(B) {
-    if (B.type === "result") {
-      const $ = typeof B.output == "string" ? B.output : String(B.output ?? "");
+  handleConsoleEvent(A) {
+    if (A.type === "result") {
+      const $ = typeof A.output == "string" ? A.output : String(A.output ?? "");
       $ && this.writeLine($), this.writePrompt();
       return;
     }
-    if (B.type === "error") {
-      const $ = typeof B.output == "string" ? B.output : String(B.output ?? "");
+    if (A.type === "error") {
+      const $ = typeof A.output == "string" ? A.output : String(A.output ?? "");
       $ && this.terminal.write(`\x1B[31m${$}\x1B[0m\r
 `), this.writePrompt();
     }
   }
-  writeLine(B) {
-    const $ = B.replace(/\r?\n/g, `\r
+  writeLine(A) {
+    const $ = A.replace(/\r?\n/g, `\r
 `);
     this.terminal.write(`${$}\r
 `);
   }
-  writePrompt(B = !1) {
-    this.options.kind === "console" && (!B && !this.awaitingPrompt || (this.awaitingPrompt = !1, this.terminal.write(this.prompt)));
+  writePrompt(A = !1) {
+    this.options.kind === "console" && (!A && !this.awaitingPrompt || (this.awaitingPrompt = !1, this.terminal.write(this.prompt)));
   }
   sendResize() {
     this.options.kind === "shell" && (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.terminal.cols || !this.terminal.rows || this.sendCommand({ type: "resize", cols: this.terminal.cols, rows: this.terminal.rows }));
   }
-  sendCommand(B) {
-    !B || !B.type || !this.socket || this.socket.readyState !== WebSocket.OPEN || this.socket.send(JSON.stringify(B));
+  sendCommand(A) {
+    !A || !A.type || !this.socket || this.socket.readyState !== WebSocket.OPEN || this.socket.send(JSON.stringify(A));
   }
-  setStatus(B) {
-    this.status !== B && (this.status = B, this.options.onStatusChange?.(B));
+  setStatus(A) {
+    this.status !== A && (this.status = A, this.options.onStatusChange?.(A));
   }
   scheduleReconnect() {
     if (this.manualClose)
@@ -6189,7 +6189,7 @@ class Ae {
       this.setStatus("disconnected");
       return;
     }
-    const B = this.reconnectAttempts, $ = Math.min(we * Math.pow(2, B), Ee), j = $ * (0.2 + Math.random() * 0.3);
+    const A = this.reconnectAttempts, $ = Math.min(we * Math.pow(2, A), Ee), j = $ * (0.2 + Math.random() * 0.3);
     this.reconnectAttempts += 1, this.resetOnOpen = !0, this.reconnectTimer = window.setTimeout(() => {
       this.connect();
     }, $ + j);
@@ -6197,10 +6197,10 @@ class Ae {
   resetTerminal() {
     this.lineBuffer = "", this.skipEscape = !1, this.awaitingPrompt = !0, this.terminal.reset();
   }
-  observeResize(B) {
-    !B || typeof ResizeObserver > "u" || (this.resizeObserver = new ResizeObserver(() => {
+  observeResize(A) {
+    !A || typeof ResizeObserver > "u" || (this.resizeObserver = new ResizeObserver(() => {
       this.fitAddon.fit(), this.sendResize();
-    }), this.resizeObserver.observe(B));
+    }), this.resizeObserver.observe(A));
   }
 }
 const Be = {
@@ -6215,15 +6215,15 @@ const Be = {
   connected: "connected",
   reconnecting: "reconnecting",
   error: "error"
-}, Oe = "Connect to start session...", ve = (Z) => String(Z ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-class Pe {
-  constructor(B) {
-    this.commandsEl = null, this.connectButton = null, this.options = B, this.commands = Array.isArray(B.commands) ? B.commands : [], this.root = document.createElement("section"), this.root.className = "debug-repl", this.root.dataset.replKind = B.kind;
-    const $ = B.kind === "console" ? this.renderCommands() : "";
+}, Oe = '<i class="iconoir-terminal debug-repl__overlay-icon"></i>', Pe = '<span class="debug-repl__overlay-text">Session not connected. Click the button below to start a terminal session.</span>', Ie = '<button class="debug-repl__overlay-btn" data-overlay-connect><i class="iconoir-play"></i> Connect</button>', ve = (Z) => String(Z ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+class He {
+  constructor(A) {
+    this.commandsEl = null, this.connectButton = null, this.options = A, this.commands = Array.isArray(A.commands) ? A.commands : [], this.root = document.createElement("section"), this.root.className = "debug-repl", this.root.dataset.replKind = A.kind;
+    const $ = A.kind === "console" ? this.renderCommands() : "";
     this.root.innerHTML = `
       <div class="debug-repl__header">
         <div class="debug-repl__title">
-          <span class="debug-repl__label">${Be[B.kind]}</span>
+          <span class="debug-repl__label">${Be[A.kind]}</span>
           <div class="debug-repl__status" data-repl-status="disconnected">
             <span class="debug-repl__dot"></span>
             <span data-repl-status-text>disconnected</span>
@@ -6236,28 +6236,32 @@ class Pe {
         </div>
       </div>
       <div class="debug-repl__body">
-        <div class="debug-repl__terminal" data-repl-terminal>
-          <div class="debug-repl__overlay" data-repl-overlay>${Oe}</div>
+        <div class="debug-repl__terminal" data-repl-terminal data-terminal-disconnected="true">
+          <div class="debug-repl__overlay" data-repl-overlay>
+            ${Oe}
+            ${Pe}
+            ${Ie}
+          </div>
         </div>
         ${$}
       </div>
       <div class="debug-repl__footer">
-        <span class="debug-repl__hint">${Te[B.kind]}</span>
+        <span class="debug-repl__hint">${Te[A.kind]}</span>
       </div>
     `, this.statusEl = this.requireElement("[data-repl-status]", this.root), this.statusTextEl = this.requireElement("[data-repl-status-text]", this.root), this.terminalEl = this.requireElement("[data-repl-terminal]", this.root), this.overlayEl = this.requireElement("[data-repl-overlay]", this.root), this.actionsEl = this.requireElement(".debug-repl__actions", this.root), this.commandsEl = this.root.querySelector("[data-repl-commands]"), this.connectButton = this.actionsEl.querySelector('[data-repl-action="reconnect"]'), this.terminal = new Ae({
-      kind: B.kind,
-      debugPath: B.debugPath,
+      kind: A.kind,
+      debugPath: A.debugPath,
       container: this.terminalEl,
       autoConnect: !1,
       onStatusChange: (j) => this.updateStatus(j)
-    }), this.bindActions(), this.bindCommandActions(), this.updateStatus("disconnected");
+    }), this.bindActions(), this.bindCommandActions(), this.bindOverlayConnect(), this.updateStatus("disconnected");
   }
-  attach(B) {
-    B && (B.innerHTML = "", B.appendChild(this.root), this.terminal.refresh(), this.terminal.focus());
+  attach(A) {
+    A && (A.innerHTML = "", A.appendChild(this.root), this.terminal.refresh(), this.terminal.focus());
   }
   bindActions() {
-    this.actionsEl.addEventListener("click", (B) => {
-      const $ = B.target;
+    this.actionsEl.addEventListener("click", (A) => {
+      const $ = A.target;
       if (!$)
         return;
       const j = $.closest("[data-repl-action]");
@@ -6277,8 +6281,8 @@ class Pe {
     });
   }
   bindCommandActions() {
-    !this.commandsEl || this.options.kind !== "console" || this.commandsEl.addEventListener("click", (B) => {
-      const $ = B.target;
+    !this.commandsEl || this.options.kind !== "console" || this.commandsEl.addEventListener("click", (A) => {
+      const $ = A.target;
       if (!$)
         return;
       const j = $.closest("[data-repl-command]");
@@ -6288,11 +6292,17 @@ class Pe {
       q && (this.terminal.paste(`${q} `), this.terminal.focus());
     });
   }
-  updateStatus(B) {
-    const $ = Me[B] || B;
-    this.statusEl.dataset.replStatus = B, this.statusTextEl.textContent = $;
-    const j = B === "disconnected" || B === "error";
-    if (this.overlayEl.hidden = !j, this.connectButton) {
+  bindOverlayConnect() {
+    const A = this.overlayEl.querySelector("[data-overlay-connect]");
+    A && A.addEventListener("click", () => {
+      this.terminal.connect();
+    });
+  }
+  updateStatus(A) {
+    const $ = Me[A] || A;
+    this.statusEl.dataset.replStatus = A, this.statusTextEl.textContent = $;
+    const j = A === "disconnected" || A === "error";
+    if (this.overlayEl.hidden = !j, this.terminalEl.dataset.terminalDisconnected = j ? "true" : "false", this.connectButton) {
       const q = j ? "Connect" : "Reconnect";
       this.connectButton.innerHTML = `<i class="iconoir-refresh"></i> ${q}`;
     }
@@ -6300,7 +6310,7 @@ class Pe {
   renderCommands() {
     if (this.options.kind !== "console")
       return "";
-    const B = this.commands, $ = B.length, j = B.map((Y) => {
+    const A = this.commands, $ = A.length, j = A.map((Y) => {
       const I = ve(Y.command), r = Y.description ? `<div class="debug-repl__command-desc">${ve(Y.description)}</div>` : "", o = Array.isArray(Y.tags) && Y.tags.length > 0 ? `<div class="debug-repl__command-tags">${Y.tags.map((n) => `<span class="debug-repl__command-tag">${ve(n)}</span>`).join("")}</div>` : "", c = Y.mutates ? "debug-repl__command-badge--exec" : "", _ = Y.mutates ? "exec" : "read-only";
       return `
           <button class="debug-repl__command" type="button" data-repl-command="${I}">
@@ -6325,15 +6335,15 @@ class Pe {
       </aside>
     `;
   }
-  requireElement(B, $) {
-    const j = $.querySelector(B);
+  requireElement(A, $) {
+    const j = $.querySelector(A);
     if (!j)
-      throw new Error(`Missing debug repl element: ${B}`);
+      throw new Error(`Missing debug repl element: ${A}`);
     return j;
   }
 }
 export {
-  Pe as DebugReplPanel,
+  He as DebugReplPanel,
   Ae as DebugReplTerminal
 };
 //# sourceMappingURL=repl.js.map

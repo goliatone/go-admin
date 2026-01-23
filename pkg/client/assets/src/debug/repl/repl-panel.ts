@@ -32,7 +32,9 @@ const replStatusLabels: Record<DebugReplStatus, string> = {
   error: 'error',
 };
 
-const replConnectMessage = 'Connect to start session...';
+const replOverlayIcon = '<i class="iconoir-terminal debug-repl__overlay-icon"></i>';
+const replOverlayText = '<span class="debug-repl__overlay-text">Session not connected. Click the button below to start a terminal session.</span>';
+const replOverlayButton = '<button class="debug-repl__overlay-btn" data-overlay-connect><i class="iconoir-play"></i> Connect</button>';
 
 const escapeHTML = (value: any): string => {
   const str = String(value ?? '');
@@ -81,8 +83,12 @@ export class DebugReplPanel {
         </div>
       </div>
       <div class="debug-repl__body">
-        <div class="debug-repl__terminal" data-repl-terminal>
-          <div class="debug-repl__overlay" data-repl-overlay>${replConnectMessage}</div>
+        <div class="debug-repl__terminal" data-repl-terminal data-terminal-disconnected="true">
+          <div class="debug-repl__overlay" data-repl-overlay>
+            ${replOverlayIcon}
+            ${replOverlayText}
+            ${replOverlayButton}
+          </div>
         </div>
         ${commandsMarkup}
       </div>
@@ -109,6 +115,7 @@ export class DebugReplPanel {
 
     this.bindActions();
     this.bindCommandActions();
+    this.bindOverlayConnect();
     this.updateStatus('disconnected');
   }
 
@@ -171,14 +178,25 @@ export class DebugReplPanel {
     });
   }
 
+  private bindOverlayConnect(): void {
+    const overlayBtn = this.overlayEl.querySelector<HTMLButtonElement>('[data-overlay-connect]');
+    if (!overlayBtn) {
+      return;
+    }
+    overlayBtn.addEventListener('click', () => {
+      this.terminal.connect();
+    });
+  }
+
   private updateStatus(status: DebugReplStatus): void {
     const label = replStatusLabels[status] || status;
     this.statusEl.dataset.replStatus = status;
     this.statusTextEl.textContent = label;
-    const showOverlay = status === 'disconnected' || status === 'error';
-    this.overlayEl.hidden = !showOverlay;
+    const isDisconnected = status === 'disconnected' || status === 'error';
+    this.overlayEl.hidden = !isDisconnected;
+    this.terminalEl.dataset.terminalDisconnected = isDisconnected ? 'true' : 'false';
     if (this.connectButton) {
-      const actionLabel = showOverlay ? 'Connect' : 'Reconnect';
+      const actionLabel = isDisconnected ? 'Connect' : 'Reconnect';
       this.connectButton.innerHTML = `<i class="iconoir-refresh"></i> ${actionLabel}`;
     }
   }

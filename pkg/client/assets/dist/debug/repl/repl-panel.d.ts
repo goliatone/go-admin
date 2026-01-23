@@ -27,6 +27,7 @@ export declare class DebugReplPanel {
     attach(container: HTMLElement): void;
     private bindActions;
     private bindCommandActions;
+    private bindOverlayConnect;
     private updateStatus;
     private renderCommands;
     private requireElement;

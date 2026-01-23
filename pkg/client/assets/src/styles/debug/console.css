@@ -350,6 +350,8 @@ body {
   gap: 10px;
   flex: 1;
   min-height: 420px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .debug-repl__header {
@@ -434,6 +436,8 @@ body {
   flex: 1;
   display: flex;
   min-height: 320px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .debug-repl__terminal {
@@ -444,34 +448,90 @@ body {
   overflow: hidden;
   padding: 8px;
   position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .debug-repl__overlay {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
   color: var(--debug-text-muted);
   font-size: 12px;
   letter-spacing: 0.02em;
-  background: rgba(24, 24, 37, 0.7);
-  pointer-events: none;
+  background: rgba(24, 24, 37, 0.92);
+  z-index: 10;
+  gap: 16px;
+  pointer-events: auto;
+}
+
+.debug-repl__overlay[hidden] {
+  display: none;
+}
+
+.debug-repl__overlay-icon {
+  font-size: 48px;
+  color: var(--debug-accent);
+  opacity: 0.6;
+}
+
+.debug-repl__overlay-text {
+  font-size: 13px;
+  color: var(--debug-text-muted);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.debug-repl__overlay-btn {
+  background: var(--debug-accent);
+  color: var(--debug-bg);
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.debug-repl__overlay-btn:hover {
+  background: var(--debug-accent-hover);
+  transform: translateY(-1px);
+}
+
+.debug-repl__overlay-btn i {
+  font-size: 14px;
+}
+
+/* Hide cursor when terminal is disconnected */
+.debug-repl__terminal[data-terminal-disconnected="true"] .xterm-cursor-layer {
+  display: none !important;
 }
 
 .debug-repl__terminal .xterm,
 .debug-repl__terminal .xterm-screen {
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .debug-repl__terminal .xterm {
   padding: 0;
+  flex: 1;
+  min-height: 0;
 }
 
 .debug-repl__terminal .xterm-viewport {
   scrollbar-color: var(--debug-border) transparent;
   scrollbar-width: thin;
+  width: 100% !important;
 }
 
 .debug-repl__commands {
