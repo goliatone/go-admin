@@ -227,7 +227,7 @@ func normalizeAuthAction(permission string) string {
 		return "read"
 	case "edit", "update", "patch", "manage":
 		return "edit"
-	case "create", "add", "new":
+	case "create", "add", "new", "import":
 		return "create"
 	case "delete", "remove", "destroy":
 		return "delete"
