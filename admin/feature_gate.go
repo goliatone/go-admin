@@ -25,6 +25,6 @@ func featureEnabledKey(featureGate fggate.FeatureGate, feature string) bool {
 	if featureGate == nil || strings.TrimSpace(feature) == "" {
 		return false
 	}
-	enabled, err := featureGate.Enabled(context.Background(), feature, fggate.WithScopeSet(fggate.ScopeSet{System: true}))
+	enabled, err := featureGate.Enabled(context.Background(), feature, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
 	return err == nil && enabled
 }
