@@ -6,6 +6,12 @@
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
   <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
   <div class="flex gap-3">
+    <button type="button" id="import-users-btn" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+      </svg>
+      Import Users
+    </button>
     <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ singularize(resource_label|default:resource)|title }}</a>
   </div>
 </header>
@@ -331,12 +337,179 @@
       </div>
     </div>
   </div>
+
+  <div id="import-users-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="import-users-title">
+    <div id="import-users-backdrop" class="absolute inset-0 bg-black/50 transition-opacity"></div>
+    <div id="import-users-container" class="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl transform transition-all max-h-[90vh] flex flex-col">
+      <!-- Header -->
+      <div class="flex items-start justify-between gap-4 p-6 border-b border-gray-200">
+        <div>
+          <h2 id="import-users-title" class="text-xl font-semibold text-gray-900">Import Users</h2>
+          <p class="text-sm text-gray-500 mt-1">Upload a CSV or JSON file to bulk create user accounts.</p>
+        </div>
+        <div class="flex items-center gap-1">
+          <!-- Fullscreen toggle button -->
+          <button type="button" id="import-users-fullscreen" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Toggle fullscreen">
+            <i id="import-users-expand-icon" class="iconoir-expand text-xl"></i>
+            <i id="import-users-collapse-icon" class="iconoir-collapse text-xl hidden"></i>
+          </button>
+          <button type="button" id="import-users-close" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Close import modal">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <form id="import-users-form" class="space-y-5">
+          <!-- Dropzone -->
+          <div id="import-users-dropzone" class="relative border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/50 transition-colors cursor-pointer">
+            <input id="import-users-file" name="file" type="file" accept=".csv,.json" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            <div id="import-users-dropzone-empty" class="space-y-3">
+              <div class="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-gray-700">Drag and drop your file here</p>
+                <p class="text-xs text-gray-500 mt-1">or click to browse</p>
+              </div>
+              <p class="text-xs text-gray-400">Accepts .csv and .json files</p>
+            </div>
+            <div id="import-users-dropzone-selected" class="hidden">
+              <div class="inline-flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
+                <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <div class="text-left">
+                  <p id="import-users-file-name" class="text-sm font-medium text-gray-900">filename.csv</p>
+                  <p id="import-users-file-size" class="text-xs text-gray-500">2.4 KB</p>
+                </div>
+                <button type="button" id="import-users-file-remove" class="ml-2 p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Template Downloads -->
+          <div class="flex items-center justify-center gap-4 text-xs">
+            <span class="text-gray-500">Download template:</span>
+            <a href="{{ base_path }}/api/users/import/template?format=csv" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              CSV
+            </a>
+            <a href="{{ base_path }}/api/users/import/template?format=json" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              JSON
+            </a>
+          </div>
+
+          <!-- Field Reference -->
+          <details class="text-xs text-gray-500">
+            <summary class="cursor-pointer hover:text-gray-700">Required and optional fields</summary>
+            <div class="mt-2 p-3 bg-gray-50 rounded-lg space-y-1">
+              <p><span class="font-medium text-gray-700">email</span> (required) — User email address</p>
+              <p><span class="font-medium text-gray-700">username</span> — Display username</p>
+              <p><span class="font-medium text-gray-700">role</span> — Base role (admin, editor, member, viewer, guest)</p>
+              <p><span class="font-medium text-gray-700">app_role</span> — Application role</p>
+              <p><span class="font-medium text-gray-700">status</span> — Account status (active, inactive, disabled)</p>
+              <p><span class="font-medium text-gray-700">metadata</span> — JSON object with custom fields</p>
+            </div>
+          </details>
+        </form>
+
+        <!-- Results Section -->
+        <div id="import-users-results" class="hidden mt-6 space-y-4 flex flex-col">
+          <!-- Error Banner -->
+          <div id="import-users-error-banner" class="hidden p-4 bg-red-50 border border-red-200 rounded-lg flex-shrink-0">
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <p id="import-users-error" class="text-sm text-red-700"></p>
+            </div>
+          </div>
+
+          <!-- Summary Cards - using flex for reliable horizontal layout -->
+          <div class="flex flex-row gap-3 flex-shrink-0">
+            <div class="flex-1 bg-gray-50 rounded-lg px-4 py-3 text-center border border-gray-200">
+              <p class="text-xl font-bold text-gray-900" id="import-users-stat-processed">0</p>
+              <p class="text-xs text-gray-500 uppercase tracking-wide">Processed</p>
+            </div>
+            <div class="flex-1 bg-green-50 rounded-lg px-4 py-3 text-center border border-green-200">
+              <p class="text-xl font-bold text-green-600" id="import-users-stat-succeeded">0</p>
+              <p class="text-xs text-green-600 uppercase tracking-wide">Succeeded</p>
+            </div>
+            <div class="flex-1 bg-red-50 rounded-lg px-4 py-3 text-center border border-red-200">
+              <p class="text-xl font-bold text-red-600" id="import-users-stat-failed">0</p>
+              <p class="text-xs text-red-600 uppercase tracking-wide">Failed</p>
+            </div>
+          </div>
+
+          <!-- Result Filters -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <button type="button" class="import-filter-btn active px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700" data-filter="all">All</button>
+              <button type="button" class="import-filter-btn px-3 py-1.5 text-xs font-medium rounded-full text-gray-500 hover:bg-gray-100" data-filter="succeeded">Succeeded</button>
+              <button type="button" class="import-filter-btn px-3 py-1.5 text-xs font-medium rounded-full text-gray-500 hover:bg-gray-100" data-filter="failed">Failed</button>
+            </div>
+            <div class="text-xs text-gray-500">
+              Showing <span id="import-users-visible-count">0</span> of <span id="import-users-total-count">0</span>
+            </div>
+          </div>
+
+          <!-- Results Table -->
+          <div id="import-users-table-scroll" class="overflow-x-auto border border-gray-200 rounded-lg max-h-[40vh] overflow-y-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+              <thead class="bg-gray-50 sticky top-0 z-10">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User ID</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Error</th>
+                </tr>
+              </thead>
+              <tbody id="import-users-results-body" class="divide-y divide-gray-200">
+                <!-- Results are dynamically inserted here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div>
+          <button type="button" id="import-users-cancel" class="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
+        </div>
+        <div class="flex items-center gap-3">
+          <button type="button" id="import-users-another" class="hidden text-sm text-gray-600 hover:text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">Import Another</button>
+          <button type="button" id="import-users-submit" form="import-users-form" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:pointer-events-none" disabled>
+            <div id="import-users-spinner" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            Import Users
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script type="module">
 import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, ServerColumnVisibilityBehavior, CommonRenderers } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { ImportModal } from '{{ base_path }}/assets/dist/components/import-modal.js';
 
 // Template variables
 const actionBasePath = '{{ routes.index }}';
@@ -586,6 +759,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         refreshBtn.classList.remove('opacity-50');
       }
     });
+  }
+
+  // Initialize Import Modal component
+  const importModal = new ImportModal({
+    modalId: 'import-users-modal',
+    endpoint: '{{ base_path }}/api/users/import',
+    resourceName: 'Users',
+    onSuccess: () => grid.refresh(),
+    notifier: window.toastManager
+  });
+
+  // Bind open button
+  const importOpenBtn = document.getElementById('import-users-btn');
+  if (importOpenBtn) {
+    importOpenBtn.addEventListener('click', () => importModal.open());
   }
 
   // Initialize FilterBuilder

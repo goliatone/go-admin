@@ -1,0 +1,260 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ resource_label|default:resource|title }} - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
+  <div class="flex gap-3">
+    <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ resource_label|default:resource|title }}</a>
+  </div>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  {% if items %}
+  <div class="bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm">
+    <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+      <div class="relative max-w-2xl w-full">
+        <label for="table-search" class="sr-only">Search</label>
+        <div class="relative h-10">
+          <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3">
+            <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+          </div>
+          <input type="text"
+                 id="table-search"
+                 class="w-full h-full ps-9 pe-8 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-0 focus:border-gray-200"
+                 placeholder="Search">
+          <button type="button"
+                  id="clear-search-btn"
+                  class="hidden absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 hover:text-gray-600"
+                  aria-label="Clear search">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-x-3">
+        <div class="relative">
+          <button id="column-toggle-btn" type="button"
+                  data-dropdown-toggle="column-toggle-menu"
+                  class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none">
+            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            Columns
+          </button>
+          <div id="column-toggle-menu"
+               class="hidden absolute right-0 z-10 mt-2 w-64 max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-2"
+               role="listbox"
+               aria-label="Column visibility and order">
+          </div>
+        </div>
+
+        <button id="refresh-btn" type="button"
+                class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
+                aria-label="Refresh table">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+    <div class="overflow-x-auto">
+      <table id="roles-datatable" class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" data-role="selection" data-fixed="left" class="px-6 py-3 text-start">
+              <label class="flex">
+                <input type="checkbox"
+                       id="table-checkbox-all"
+                       class="shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none">
+                <span class="sr-only">Select all</span>
+              </label>
+            </th>
+            {% for col in columns %}
+            <th scope="col"
+                data-column="{{ col.field }}"
+                class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div class="flex items-center gap-2">
+                <span>{{ col.label }}</span>
+              </div>
+            </th>
+            {% endfor %}
+            <th scope="col" data-role="actions" data-fixed="right" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+          <tr class="bg-gray-100" id="filter-row">
+            <th data-role="selection" data-fixed="left"></th>
+            {% for col in columns %}
+            <th data-column="{{ col.field }}" class="px-6 py-2">
+              {% if col.filterable %}
+              <input type="text"
+                     data-filter-column="{{ col.field }}"
+                     placeholder="Filter..."
+                     class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+              {% endif %}
+            </th>
+            {% endfor %}
+            <th data-role="actions" data-fixed="right"></th>
+          </tr>
+        </thead>
+        <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex-shrink-0">
+        <p class="text-sm text-gray-600">
+          Showing <span class="font-medium" id="table-info-start">1</span> to
+          <span class="font-medium" id="table-info-end">10</span> of
+          <span class="font-medium" id="table-info-total">{{ total|default:"0" }}</span> results
+        </p>
+      </div>
+
+      <div class="flex-1 flex justify-center">
+        <nav id="table-pagination" class="flex items-center gap-x-1"></nav>
+      </div>
+
+      <div class="flex items-center gap-x-2 flex-shrink-0">
+        <span class="text-sm text-gray-600 whitespace-nowrap">Per page:</span>
+        <select id="table-per-page"
+                class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="text-center py-16">
+    <div class="text-6xl mb-4">📄</div>
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">No {{ resource_label|default:resource|lower }} yet</h3>
+    <p class="text-gray-500 mb-6">Get started by creating your first {{ resource_label|default:resource|lower }}</p>
+    <a href="{{ routes.new }}" class="btn btn-primary">Create</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+import { DataGrid, DefaultColumnVisibilityBehavior, CommonRenderers } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { permissionPillsRenderer } from '{{ base_path }}/assets/dist/components/permission-pills.js';
+
+const actionBasePath = '{{ routes.index }}';
+const columns = {{ toJSON(columns)|safe }};
+const columnFields = columns.map(c => c.field);
+const gridColumns = columns.map(col => ({
+  ...col,
+  hidden: col.default === false
+}));
+
+class PanelSearchBehavior {
+  buildQuery(term) {
+    return { search: term };
+  }
+
+  async onSearch(term, grid) {
+    grid.resetPagination();
+    await grid.refresh();
+  }
+}
+
+class PanelPaginationBehavior {
+  buildQuery(page, perPage) {
+    return { page: page, per_page: perPage };
+  }
+
+  async onPageChange(page, grid) {
+    await grid.refresh();
+  }
+}
+
+class PanelFilterBehavior {
+  buildFilters(filters) {
+    const params = {};
+    filters.forEach((filter) => {
+      if (filter.value === null || filter.value === undefined || filter.value === '') {
+        return;
+      }
+      params[`filter_${filter.column}`] = filter.value;
+    });
+    return params;
+  }
+
+  async onFilterChange(column, value, grid) {
+    grid.resetPagination();
+    await grid.refresh();
+  }
+}
+
+const columnVisibility = new DefaultColumnVisibilityBehavior(columnFields, 'roles_datatable_columns');
+
+{% verbatim %}
+document.addEventListener('DOMContentLoaded', async function() {
+  const grid = new DataGrid({
+    tableId: 'roles-datatable',
+    apiEndpoint: '{{ base_path }}/api/roles',
+    actionBasePath: actionBasePath,
+    columns: gridColumns,
+    perPage: 10,
+    searchDelay: 300,
+    cellRenderers: {
+      'permissions': permissionPillsRenderer,
+      'is_system': CommonRenderers.booleanChip()
+    },
+    behaviors: {
+      search: new PanelSearchBehavior(),
+      filter: new PanelFilterBehavior(),
+      pagination: new PanelPaginationBehavior(),
+      columnVisibility: columnVisibility
+    },
+    selectors: {
+      searchInput: '#table-search',
+      perPageSelect: '#table-per-page',
+      filterRow: '[data-filter-column]',
+      columnToggleBtn: '#column-toggle-btn',
+      columnToggleMenu: '#column-toggle-menu',
+      paginationContainer: '#table-pagination',
+      tableInfoStart: '#table-info-start',
+      tableInfoEnd: '#table-info-end',
+      tableInfoTotal: '#table-info-total',
+      selectAllCheckbox: '#table-checkbox-all',
+      rowCheckboxes: '.table-checkbox'
+    },
+    notifier: window.toastManager
+  });
+
+  grid.init();
+
+  const refreshBtn = document.getElementById('refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.classList.add('opacity-50');
+      try {
+        await grid.refresh();
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.classList.remove('opacity-50');
+      }
+    });
+  }
+});
+{% endverbatim %}
+</script>
+{% endblock %}

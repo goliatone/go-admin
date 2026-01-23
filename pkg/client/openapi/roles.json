@@ -1,0 +1,102 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Admin Roles",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/admin/roles": {
+      "post": {
+        "operationId": "createRole",
+        "summary": "Create role",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/admin/roles/{id}": {
+      "post": {
+        "operationId": "updateRole",
+        "summary": "Update role",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RolePayload": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role_key": {
+            "type": "string",
+            "title": "Role key"
+          },
+          "is_system": {
+            "type": "boolean",
+            "title": "System role"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "permissions": {
+            "type": "string",
+            "title": "Permissions"
+          },
+          "permissions_debug": {
+            "type": "string",
+            "title": "Debug permissions"
+          },
+          "metadata": {
+            "type": "object",
+            "title": "Metadata",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}
