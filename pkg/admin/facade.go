@@ -108,6 +108,9 @@ type (
 	InMemoryContentService = core.InMemoryContentService
 	InMemoryMenuService    = core.InMemoryMenuService
 
+	UserRecord = core.UserRecord
+	RoleRecord = core.RoleRecord
+
 	ListOptions = core.ListOptions
 
 	MediaItem = core.MediaItem
