@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path"
@@ -124,20 +125,25 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 		WithRepository(roleRepo).
 		ListFields(
 			Field{Name: "name", Label: "Name", Type: "text"},
+			Field{Name: "role_key", Label: "Role Key", Type: "text"},
 			Field{Name: "description", Label: "Description", Type: "text"},
 			Field{Name: "permissions", Label: "Permissions", Type: "text"},
 			Field{Name: "is_system", Label: "System Role", Type: "boolean"},
 		).
 		FormFields(
 			Field{Name: "name", Label: "Name", Type: "text", Required: true},
+			Field{Name: "role_key", Label: "Role Key", Type: "text"},
 			Field{Name: "description", Label: "Description", Type: "textarea"},
 			Field{Name: "permissions", Label: "Permissions", Type: "textarea"},
+			Field{Name: "metadata", Label: "Metadata", Type: "textarea"},
 			Field{Name: "is_system", Label: "System Role", Type: "boolean"},
 		).
 		DetailFields(
 			Field{Name: "name", Label: "Name", Type: "text"},
+			Field{Name: "role_key", Label: "Role Key", Type: "text"},
 			Field{Name: "description", Label: "Description", Type: "text"},
 			Field{Name: "permissions", Label: "Permissions", Type: "text"},
+			Field{Name: "metadata", Label: "Metadata", Type: "text"},
 			Field{Name: "is_system", Label: "System Role", Type: "boolean"},
 		).
 		Permissions(PanelPermissions{
@@ -476,8 +482,10 @@ func roleToRecord(role RoleRecord) map[string]any {
 	record := map[string]any{
 		"id":          role.ID,
 		"name":        role.Name,
+		"role_key":    role.RoleKey,
 		"description": role.Description,
 		"permissions": append([]string{}, role.Permissions...),
+		"metadata":    cloneAnyMap(role.Metadata),
 		"is_system":   role.IsSystem,
 	}
 	if !role.CreatedAt.IsZero() {
@@ -510,10 +518,38 @@ func recordToRole(record map[string]any, id string) RoleRecord {
 	return RoleRecord{
 		ID:          id,
 		Name:        toString(record["name"]),
+		RoleKey:     toString(record["role_key"]),
 		Description: toString(record["description"]),
 		Permissions: perms,
+		Metadata:    roleMetadata(record["metadata"]),
 		IsSystem:    toBool(record["is_system"]),
 	}
+}
+
+func roleMetadata(value any) map[string]any {
+	if value == nil {
+		return nil
+	}
+	switch v := value.(type) {
+	case map[string]any:
+		return cloneAnyMap(v)
+	case map[string]string:
+		out := map[string]any{}
+		for key, val := range v {
+			out[key] = val
+		}
+		return out
+	case string:
+		raw := strings.TrimSpace(v)
+		if raw == "" {
+			return nil
+		}
+		out := map[string]any{}
+		if err := json.Unmarshal([]byte(raw), &out); err == nil {
+			return out
+		}
+	}
+	return nil
 }
 
 func toBool(val any) bool {
