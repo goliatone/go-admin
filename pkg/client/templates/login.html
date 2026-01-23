@@ -5,19 +5,28 @@
 {% block content %}
 <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
   <div class="w-full max-w-md space-y-8">
-    <!-- Logo -->
+    <!-- Logo/Icon -->
     <div class="flex justify-center">
+      {% if theme and theme.assets and theme.assets.icon %}
+      {# Square icon - display in rounded container #}
       <div class="w-16 h-16 bg-admin-dark rounded-2xl flex items-center justify-center shadow-lg">
-        {% if theme and theme.assets and theme.assets.logo %}
-        <img src="{{ theme.assets.logo }}" alt="Logo" class="w-10 h-10" />
-        {% else %}
+        <img src="{{ theme.assets.icon }}" alt="Logo" class="w-10 h-10 object-contain" />
+      </div>
+      {% elif theme and theme.assets and theme.assets.logo %}
+      {# Rectangular logo - display without container, auto-size #}
+      <div class="flex items-center justify-center">
+        <img src="{{ theme.assets.logo }}" alt="Logo" class="h-12 max-w-[200px] object-contain" />
+      </div>
+      {% else %}
+      {# Default fallback icon #}
+      <div class="w-16 h-16 bg-admin-dark rounded-2xl flex items-center justify-center shadow-lg">
         <svg class="w-10 h-10" viewBox="0 0 89 83" xmlns="http://www.w3.org/2000/svg">
           <g fill="#ffffff">
             <path d="m88.57 58.94c0-3.55-2.74-6.43-6.31-6.71 0 0-.74-.03-.94-.04-5.16-.3-9.27-4.36-9.45-9.42v-.64c.18-5.05 4.3-9.12 9.45-9.42.21-.01.95-.05.95-.05 3.57-.29 6.31-3.16 6.31-6.71 0-4.45-4.43-7.9-9.25-6.4-2.81.88-4.64 3.53-4.64 6.4-.03 5.2-4.24 9.45-9.52 9.71l-.74.07c-3.63.42-6.44 3.08-6.44 6.67v.07c0 3.59 2.63 6.18 6.42 6.68l.75.06c5.28.26 9.49 4.51 9.52 9.71 0 2.87 1.83 5.52 4.64 6.4 4.81 1.51 9.25-1.95 9.25-6.4zm-82.09-32.99c0 3.55 2.74 6.43 6.31 6.71 0 0 .74.03.94.04 5.16.3 9.27 4.36 9.45 9.42v.64c-.18 5.05-4.3 9.12-9.45 9.42-.21.01-.95.05-.95.05-3.57.29-6.31 3.16-6.31 6.71 0 4.45 4.43 7.9 9.25 6.4 2.81-.88 4.64-3.53 4.64-6.4.03-5.2 4.24-9.45 9.52-9.71l.74-.07c3.63-.42 6.44-3.08 6.44-6.67v-.07c0-3.59-2.63-6.18-6.42-6.68l-.75-.06c-5.28-.26-9.49-4.51-9.52-9.71 0-2.87-1.83-5.52-4.64-6.4-4.81-1.51-9.25 1.95-9.25 6.4zm57.85-23.58c-3.64 0-6.6 2.67-6.89 6.15 0 0-.03.72-.05.92-.3 5.02-4.48 9.02-9.67 9.2h-.66c-5.19-.18-9.37-4.18-9.67-9.2l-.05-.92c-.29-3.47-3.25-6.14-6.89-6.14-4.57 0-8.12 4.32-6.57 9 .9 2.74 3.62 4.52 6.57 4.52 5.34.03 9.7 4.13 9.97 9.27l.08.72c.43 3.54 3.17 6.27 6.85 6.27h.08c3.69 0 6.35-2.56 6.86-6.26l.07-.73c.27-5.14 4.63-9.24 9.97-9.27 2.95 0 5.67-1.78 6.57-4.52 1.55-4.69-2-9-6.57-9zm-33.78 80c3.64 0 6.6-2.67 6.89-6.15 0 0 .03-.72.05-.92.3-5.02 4.48-9.02 9.67-9.2h.66c5.19.18 9.37 4.18 9.67 9.2l.05.92c.29 3.47 3.25 6.14 6.89 6.14 4.57 0 8.12-4.32 6.57-9-.9-2.74-3.62-4.52-6.57-4.52-5.34-.03-9.7-4.13-9.97-9.27l-.08-.72c-.43-3.54-3.17-6.27-6.85-6.27h-.08c-3.69 0-6.35 2.56-6.86 6.26l-.07.73c-.27 5.14-4.63 9.24-9.97 9.27-2.95 0-5.67 1.78-6.57 4.52-1.55 4.69 2 9 6.57 9z"/>
           </g>
         </svg>
-        {% endif %}
       </div>
+      {% endif %}
     </div>
 
     <!-- Login Card -->
