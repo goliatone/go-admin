@@ -65,8 +65,8 @@ func TestGoAuthAuthenticatorWrapHandlerInjectsActor(t *testing.T) {
 
 func TestGoAuthAuthorizerMapsPermissions(t *testing.T) {
 	claims := &auth.JWTClaims{
-		UID:       "actor-1",
-		UserRole:  string(auth.RoleAdmin),
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
 		Resources: map[string]string{
 			"settings":            string(auth.RoleMember),
 			"admin.notifications": string(auth.RoleAdmin),
