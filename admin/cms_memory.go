@@ -182,14 +182,16 @@ type menuState struct {
 	insertSeq      int
 	slug           string
 	id             string
+	location       string
 }
 
 // InMemoryMenuService stores menus in memory.
 type InMemoryMenuService struct {
-	mu        sync.Mutex
-	menus     map[string]*menuState
-	slugIndex map[string]string
-	activity  ActivitySink
+	mu            sync.Mutex
+	menus         map[string]*menuState
+	slugIndex     map[string]string
+	locationIndex map[string]string
+	activity      ActivitySink
 }
 
 func maxInt(a, b int) int {
@@ -213,8 +215,9 @@ func intFromPtr(v *int) int {
 // NewInMemoryMenuService constructs a memory-backed menu service.
 func NewInMemoryMenuService() *InMemoryMenuService {
 	return &InMemoryMenuService{
-		menus:     make(map[string]*menuState),
-		slugIndex: make(map[string]string),
+		menus:         make(map[string]*menuState),
+		slugIndex:     make(map[string]string),
+		locationIndex: make(map[string]string),
 	}
 }
 
@@ -274,14 +277,16 @@ func (s *InMemoryMenuService) CreateMenu(ctx context.Context, code string) (*Men
 		insertSeq:      0,
 		slug:           slug,
 		id:             MenuUUIDFromSlug(slug),
+		location:       slug,
 	}
 	s.menus[slug] = state
 	s.slugIndex[slug] = slug
+	s.locationIndex[slug] = slug
 	recordCMSActivity(ctx, s.activity, "cms.menu.create", "menu:"+slug, map[string]any{
 		"id":   state.id,
 		"slug": state.slug,
 	})
-	return &Menu{Code: slug, Slug: slug, ID: state.id}, nil
+	return &Menu{Code: slug, Slug: slug, ID: state.id, Location: state.location}, nil
 }
 
 // ResetMenu removes all items for the given menu code (debug/reset helper).
@@ -289,6 +294,9 @@ func (s *InMemoryMenuService) ResetMenu(code string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	slug := s.canonicalMenuSlug(code)
+	if existing, ok := s.menus[slug]; ok {
+		delete(s.locationIndex, existing.location)
+	}
 	delete(s.menus, slug)
 	delete(s.slugIndex, slug)
 }
@@ -453,7 +461,7 @@ func (s *InMemoryMenuService) Menu(_ context.Context, code, locale string) (*Men
 		if slug == "" {
 			return &Menu{}, nil
 		}
-		return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug)}, nil
+		return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug), Location: slug}, nil
 	}
 	items := []MenuItem{}
 	for _, item := range state.items {
@@ -465,7 +473,20 @@ func (s *InMemoryMenuService) Menu(_ context.Context, code, locale string) (*Men
 	}
 	tree := buildMenuTree(items)
 	sortMenuChildren(&tree)
-	return &Menu{Code: state.slug, Slug: state.slug, ID: state.id, Items: tree}, nil
+	return &Menu{Code: state.slug, Slug: state.slug, ID: state.id, Location: state.location, Items: tree}, nil
+}
+
+// MenuByLocation returns a menu resolved by location.
+func (s *InMemoryMenuService) MenuByLocation(ctx context.Context, location, locale string) (*Menu, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if location == "" {
+		return &Menu{}, nil
+	}
+	if slug, ok := s.locationIndex[location]; ok {
+		return s.Menu(ctx, slug, locale)
+	}
+	return s.Menu(ctx, location, locale)
 }
 
 func sortMenuChildren(children *[]MenuItem) {
