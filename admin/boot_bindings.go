@@ -244,8 +244,8 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 							Metadata:     body,
 						})
 						if err == nil {
-							// Successfully transitioned, now update the record status
-							_, _ = p.panel.Update(ctx, ids[0], map[string]any{"status": t.To})
+							// Successfully transitioned, now update the record status without re-evaluating workflow.
+							_, _ = p.panel.Update(ctx, ids[0], map[string]any{"status": t.To, "_workflow_skip": true})
 						}
 						return err
 					}
@@ -267,13 +267,27 @@ func (p *panelBinding) Preview(c router.Context, locale, id string) (map[string]
 	if p.admin.preview == nil {
 		return nil, FeatureDisabledError{Feature: "preview"}
 	}
-	token, err := p.admin.preview.Generate(p.name, id, 1*time.Hour)
+	format := strings.ToLower(strings.TrimSpace(c.Query("format")))
+	if format == "" {
+		format = strings.ToLower(strings.TrimSpace(c.Query("token_type")))
+	}
+	var (
+		token string
+		err   error
+	)
+	if format == "jwt" {
+		token, err = p.admin.preview.GenerateJWT(p.name, id, 1*time.Hour)
+	} else {
+		token, err = p.admin.preview.Generate(p.name, id, 1*time.Hour)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return map[string]any{
-		"token": token,
-		"url":   fmt.Sprintf("/api/v1/preview/%s", token),
+		"token":     token,
+		"url":       fmt.Sprintf("/api/v1/preview/%s", token),
+		"admin_url": joinPath(p.admin.config.BasePath, fmt.Sprintf("api/preview/%s", token)),
+		"format":    format,
 	}, nil
 }
 
