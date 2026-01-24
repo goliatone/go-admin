@@ -126,13 +126,13 @@ type PanelPermissions struct {
 
 // PanelHooks contains lifecycle callbacks.
 type PanelHooks struct {
-	BeforeCreate func(ctx AdminContext, record map[string]any) error
-	AfterCreate  func(ctx AdminContext, record map[string]any) error
-	BeforeUpdate func(ctx AdminContext, record map[string]any) error
+	BeforeCreate       func(ctx AdminContext, record map[string]any) error
+	AfterCreate        func(ctx AdminContext, record map[string]any) error
+	BeforeUpdate       func(ctx AdminContext, record map[string]any) error
 	BeforeUpdateWithID func(ctx AdminContext, id string, record map[string]any) error
-	AfterUpdate  func(ctx AdminContext, record map[string]any) error
-	BeforeDelete func(ctx AdminContext, id string) error
-	AfterDelete  func(ctx AdminContext, id string) error
+	AfterUpdate        func(ctx AdminContext, record map[string]any) error
+	BeforeDelete       func(ctx AdminContext, id string) error
+	AfterDelete        func(ctx AdminContext, id string) error
 }
 
 // WorkflowAuthorizer optionally guards workflow transitions.
@@ -644,6 +644,9 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 		if record == nil {
 			return nil
 		}
+		if shouldSkipWorkflow(record) {
+			return nil
+		}
 		targetState := strings.TrimSpace(toString(record["status"]))
 		if targetState == "" {
 			return nil
@@ -677,4 +680,17 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 		}
 		return nil
 	}
+}
+
+func shouldSkipWorkflow(record map[string]any) bool {
+	if record == nil {
+		return false
+	}
+	if raw, ok := record["workflow_skip"]; ok && toBool(raw) {
+		return true
+	}
+	if raw, ok := record["_workflow_skip"]; ok && toBool(raw) {
+		return true
+	}
+	return false
 }
