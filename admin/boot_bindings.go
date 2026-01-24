@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin/internal/boot"
@@ -132,16 +133,31 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 	}
 	var form PanelFormRequest
 	if p.admin.panelForm != nil {
-		form = p.admin.panelForm.Build(p.panel, ctx, nil, nil)
+		form = p.admin.panelForm.Build(p.panel, ctx, record, nil)
 		if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
 			return nil, err
 		}
 	}
-	return map[string]any{
+
+	res := map[string]any{
 		"data":   record,
 		"schema": schema,
 		"form":   form,
-	}, nil
+	}
+
+	if p.panel.workflow != nil {
+		state := ""
+		if s, ok := record["status"].(string); ok {
+			state = s
+		}
+		if transitions, err := p.panel.workflow.AvailableTransitions(ctx.Context, p.name, state); err == nil {
+			res["workflow"] = map[string]any{
+				"transitions": transitions,
+			}
+		}
+	}
+
+	return res, nil
 }
 
 func (p *panelBinding) Create(c router.Context, locale string, body map[string]any) (map[string]any, error) {
@@ -162,6 +178,45 @@ func (p *panelBinding) Delete(c router.Context, locale string, id string) error 
 func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) error {
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
+
+	if p.panel.workflow != nil && len(ids) == 1 {
+		record, err := p.panel.Get(ctx, ids[0])
+		if err == nil {
+			state := ""
+			if s, ok := record["status"].(string); ok {
+				state = s
+			}
+			transitions, err := p.panel.workflow.AvailableTransitions(ctx.Context, p.name, state)
+			if err == nil {
+				for _, t := range transitions {
+					if t.Name == action {
+						for _, a := range p.panel.actions {
+							if a.Name == action && a.Permission != "" && p.panel.authorizer != nil {
+								if !p.panel.authorizer.Can(ctx.Context, a.Permission, p.name) {
+									return permissionDenied(a.Permission, p.name)
+								}
+							}
+						}
+						_, err := p.panel.workflow.Transition(ctx.Context, TransitionInput{
+							EntityID:     ids[0],
+							EntityType:   p.name,
+							CurrentState: state,
+							Transition:   action,
+							TargetState:  t.To,
+							ActorID:      ctx.UserID,
+							Metadata:     body,
+						})
+						if err == nil {
+							// Successfully transitioned, now update the record status
+							_, _ = p.panel.Update(ctx, ids[0], map[string]any{"status": t.To})
+						}
+						return err
+					}
+				}
+			}
+		}
+	}
+
 	return p.panel.RunAction(ctx, action, body, ids)
 }
 
@@ -169,6 +224,20 @@ func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[st
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
 	return p.panel.RunBulkAction(ctx, action, body, ids)
+}
+
+func (p *panelBinding) Preview(c router.Context, locale, id string) (map[string]any, error) {
+	if p.admin.preview == nil {
+		return nil, FeatureDisabledError{Feature: "preview"}
+	}
+	token, err := p.admin.preview.Generate(p.name, id, 1*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"token": token,
+		"url":   fmt.Sprintf("/api/v1/preview/%s", token),
+	}, nil
 }
 
 type dashboardBinding struct {
