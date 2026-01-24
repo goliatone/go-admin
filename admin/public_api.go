@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"context"
 	"errors"
+	"strings"
 
 	router "github.com/goliatone/go-router"
 )
@@ -85,9 +87,12 @@ func (a *Admin) handlePublicMenu(c router.Context) error {
 		return writeError(c, errors.New("menu service not available"))
 	}
 
-	menu, err := a.menuSvc.Menu(c.Context(), location, locale)
+	menu, err := a.menuSvc.MenuByLocation(c.Context(), location, locale)
 	if err != nil {
 		return writeError(c, err)
+	}
+	if menu != nil && a.contentSvc != nil {
+		a.resolveMenuTargets(c.Context(), menu.Items, locale)
 	}
 
 	return writeJSON(c, menu)
@@ -130,4 +135,70 @@ func (a *Admin) handlePublicPreview(c router.Context) error {
 	}
 
 	return writeError(c, ErrNotFound)
+}
+
+func (a *Admin) resolveMenuTargets(ctx context.Context, items []MenuItem, locale string) {
+	for i := range items {
+		item := &items[i]
+		if item.Target != nil {
+			if rawURL, ok := item.Target["url"].(string); !ok || strings.TrimSpace(rawURL) == "" {
+				if pageID, ok := item.Target["page_id"].(string); ok && pageID != "" {
+					if page, err := a.contentSvc.Page(ctx, pageID, locale); err == nil && page != nil {
+						path := extractPathFromData(page.Data, page.Slug)
+						if path != "" {
+							item.Target["url"] = ensureLeadingSlash(path)
+						}
+					}
+				}
+				if contentID, ok := item.Target["content_id"].(string); ok && contentID != "" {
+					if content, err := a.contentSvc.Content(ctx, contentID, locale); err == nil && content != nil {
+						if url := buildContentURL(content); url != "" {
+							item.Target["url"] = url
+						}
+					}
+				}
+			}
+		}
+		if len(item.Children) > 0 {
+			a.resolveMenuTargets(ctx, item.Children, locale)
+		}
+	}
+}
+
+func extractPathFromData(data map[string]any, fallback string) string {
+	if data == nil {
+		return strings.TrimSpace(fallback)
+	}
+	if raw, ok := data["path"]; ok {
+		if path := strings.TrimSpace(toString(raw)); path != "" {
+			return path
+		}
+	}
+	return strings.TrimSpace(fallback)
+}
+
+func buildContentURL(content *CMSContent) string {
+	if content == nil {
+		return ""
+	}
+	slug := strings.TrimSpace(content.Slug)
+	if slug == "" {
+		return ""
+	}
+	segment := strings.Trim(content.ContentType, "/")
+	if segment == "" {
+		segment = "content"
+	}
+	return ensureLeadingSlash(segment + "/" + strings.TrimLeft(slug, "/"))
+}
+
+func ensureLeadingSlash(path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "/") {
+		return trimmed
+	}
+	return "/" + trimmed
 }
