@@ -186,6 +186,7 @@ type (
 	TransitionResult   = core.TransitionResult
 	WorkflowDefinition = core.WorkflowDefinition
 	WorkflowEngine     = core.WorkflowEngine
+	WorkflowAuthorizer = core.WorkflowAuthorizer
 	WorkflowTransition = core.WorkflowTransition
 
 	UserActivateMsg = core.UserActivateMsg
