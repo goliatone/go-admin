@@ -179,6 +179,43 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
 
+	if action == "create_translation" {
+		if len(ids) == 0 {
+			if raw := toString(body["id"]); raw != "" {
+				ids = []string{raw}
+			}
+		}
+		if len(ids) != 1 {
+			return errors.New("translation requires a single id")
+		}
+		targetLocale := strings.TrimSpace(toString(body["locale"]))
+		if targetLocale == "" {
+			return errors.New("translation locale required")
+		}
+		record, err := p.panel.Get(ctx, ids[0])
+		if err != nil {
+			return err
+		}
+		clone := map[string]any{}
+		for k, v := range record {
+			clone[k] = v
+		}
+		delete(clone, "id")
+		delete(clone, "ID")
+		delete(clone, "created_at")
+		delete(clone, "updated_at")
+		delete(clone, "published_at")
+		clone["locale"] = targetLocale
+		groupID := strings.TrimSpace(toString(record["translation_group_id"]))
+		if groupID == "" {
+			groupID = ids[0]
+		}
+		clone["translation_group_id"] = groupID
+		clone["status"] = "draft"
+		_, err = p.panel.Create(ctx, clone)
+		return err
+	}
+
 	if p.panel.workflow != nil && len(ids) == 1 {
 		record, err := p.panel.Get(ctx, ids[0])
 		if err == nil {
