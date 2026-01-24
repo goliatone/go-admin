@@ -65,6 +65,8 @@ type Admin struct {
 	modulesLoaded               bool
 	navMenuCode                 string
 	translator                  Translator
+	workflow                    WorkflowEngine
+	preview                     *PreviewService
 	panelTabPermissionEvaluator PanelTabPermissionEvaluator
 	panelTabCollisionHandler    PanelTabCollisionHandler
 }
@@ -325,6 +327,8 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		mediaLibrary:           mediaLib,
 		navMenuCode:            navMenuCode,
 		translator:             translator,
+		workflow:               deps.Workflow,
+		preview:                NewPreviewService(cfg.PreviewSecret),
 	}
 
 	adm.dashboard.WithWidgetService(adm.widgetSvc)
@@ -391,6 +395,12 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 	if a.dashboard != nil {
 		a.dashboard.WithAuthorizer(authz)
 	}
+	return a
+}
+
+// WithWorkflow attaches a workflow engine to the admin orchestrator.
+func (a *Admin) WithWorkflow(w WorkflowEngine) *Admin {
+	a.workflow = w
 	return a
 }
 
@@ -537,6 +547,7 @@ func (a *Admin) withTheme(ctx AdminContext) AdminContext {
 
 func (a *Admin) adminContextFromRequest(c router.Context, locale string) AdminContext {
 	ctx := newAdminContextFromRouter(c, locale)
+	ctx.Translator = a.translator
 	selector := selectorFromRequest(c)
 	if selector.Name != "" || selector.Variant != "" {
 		ctx.Context = WithThemeSelection(ctx.Context, selector)
@@ -690,6 +701,11 @@ func (a *Admin) MediaLibrary() MediaLibrary {
 	return a.mediaLibrary
 }
 
+// Preview returns the preview service.
+func (a *Admin) Preview() *PreviewService {
+	return a.preview
+}
+
 // PreferencesService exposes the user preferences service.
 func (a *Admin) PreferencesService() *PreferencesService {
 	return a.preferences
@@ -753,6 +769,9 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 	}
 	if builder.authorizer == nil {
 		builder.authorizer = a.authorizer
+	}
+	if builder.workflow == nil {
+		builder.workflow = a.workflow
 	}
 	panel, err := builder.Build()
 	if err != nil {
@@ -849,7 +868,57 @@ func (a *Admin) decorateSchemaFor(ctx AdminContext, schema *Schema, panelName st
 	} else {
 		schema.Tabs = nil
 	}
+
+	if ctx.Translator != nil && ctx.Locale != "" {
+		a.translateSchema(ctx, schema)
+	}
+
 	return nil
+}
+
+func (a *Admin) translateSchema(ctx AdminContext, schema *Schema) {
+	t := ctx.Translator
+	locale := ctx.Locale
+
+	translate := func(label, key string) string {
+		if key == "" {
+			return label
+		}
+		res, err := t.Translate(locale, key)
+		if err != nil || res == "" || res == key {
+			return label
+		}
+		return res
+	}
+
+	translateField := func(f *Field) {
+		f.Label = translate(f.Label, f.LabelKey)
+		for i := range f.Options {
+			f.Options[i].Label = translate(f.Options[i].Label, f.Options[i].LabelKey)
+		}
+	}
+
+	for i := range schema.ListFields {
+		translateField(&schema.ListFields[i])
+	}
+	for i := range schema.FormFields {
+		translateField(&schema.FormFields[i])
+	}
+	for i := range schema.DetailFields {
+		translateField(&schema.DetailFields[i])
+	}
+	for i := range schema.Filters {
+		schema.Filters[i].Label = translate(schema.Filters[i].Label, schema.Filters[i].LabelKey)
+	}
+	for i := range schema.Actions {
+		schema.Actions[i].Label = translate(schema.Actions[i].Label, schema.Actions[i].LabelKey)
+	}
+	for i := range schema.BulkActions {
+		schema.BulkActions[i].Label = translate(schema.BulkActions[i].Label, schema.BulkActions[i].LabelKey)
+	}
+	for i := range schema.Tabs {
+		schema.Tabs[i].Label = translate(schema.Tabs[i].Label, schema.Tabs[i].LabelKey)
+	}
 }
 
 func (a *Admin) resolvePanelTabs(ctx AdminContext, panelName string) ([]PanelTab, error) {
