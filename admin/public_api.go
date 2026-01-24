@@ -18,6 +18,14 @@ func (a *Admin) RegisterPublicAPI(r router.Router[router.Context]) {
 	r.Get(joinPath(base, "preview/:token"), a.handlePublicPreview)
 }
 
+func (a *Admin) registerPreviewRoutes() {
+	if a == nil || a.preview == nil || a.router == nil {
+		return
+	}
+	path := joinPath(a.config.BasePath, "api/preview/:token")
+	a.router.Get(path, a.handlePublicPreview)
+}
+
 func (a *Admin) handlePublicPage(c router.Context) error {
 	slug := c.Param("slug", "")
 	locale := c.Query("locale")
