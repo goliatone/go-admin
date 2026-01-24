@@ -697,14 +697,14 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 		payload := buildSeedContentPayload(seed)
 		summary := strings.TrimSpace(seed.Summary)
 		contentTranslation := &contentTranslationRow{
-			ID:        uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":"+code)),
-			ContentID: contentID,
-			LocaleID:  loc.ID,
+			ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":"+code)),
+			ContentID:          contentID,
+			LocaleID:           loc.ID,
 			TranslationGroupID: &contentID,
-			Title:     seed.Title,
-			Content:   payload,
-			CreatedAt: now,
-			UpdatedAt: now,
+			Title:              seed.Title,
+			Content:            payload,
+			CreatedAt:          now,
+			UpdatedAt:          now,
 		}
 		if summary != "" {
 			contentTranslation.Summary = &summary
@@ -742,15 +742,15 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 		seoTitle, seoDescription := seedSEO(seed)
 		path := normalizePath(seed.Path, seed.Slug)
 		pageTranslation := &pageTranslationRow{
-			ID:            uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":page:"+code)),
-			PageID:        pageID,
-			LocaleID:      loc.ID,
+			ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":page:"+code)),
+			PageID:             pageID,
+			LocaleID:           loc.ID,
 			TranslationGroupID: &pageID,
-			Title:         seed.Title,
-			Path:          path,
-			MediaBindings: map[string]any{},
-			CreatedAt:     now,
-			UpdatedAt:     now,
+			Title:              seed.Title,
+			Path:               path,
+			MediaBindings:      map[string]any{},
+			CreatedAt:          now,
+			UpdatedAt:          now,
 		}
 		if summary != "" {
 			pageTranslation.Summary = &summary
