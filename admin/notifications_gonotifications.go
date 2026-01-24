@@ -327,7 +327,7 @@ func (t translatorAdapter) Translate(locale, key string, args ...any) (string, e
 	if locale == "" {
 		locale = t.defaultLocale
 	}
-	return t.translator.Translate(key, locale), nil
+	return t.translator.Translate(locale, key, args...)
 }
 
 func mapInboxItem(item domain.InboxItem) Notification {
