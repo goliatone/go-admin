@@ -63,7 +63,9 @@ func main() {
 		}),
 	)
 	cfg.ActivityActionLabels = map[string]string{
-		"debug.repl.eval": "Execute REPL",
+		"debug.repl.eval":  "Execute REPL",
+		"debug.repl.open":  "Opened REPL",
+		"debug.repl.close": "Closed REPL",
 	}
 	cfg.EnablePublicAPI = true
 	if value, ok := os.LookupEnv("ADMIN_PUBLIC_API"); ok {
