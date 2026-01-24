@@ -165,12 +165,14 @@ func (s *stubGoCMSContainer) ContentService() CMSContentService { return nil }
 func (s *stubGoCMSContainer) GoCMSMenuService() any             { return s.menu }
 
 type stubCMSMenuService struct {
-	menus map[string]*stubCMSMenu
+	menus     map[string]*stubCMSMenu
+	locations map[string]string
 }
 
 type stubCMSMenu struct {
-	code  string
-	items map[string]*stubCMSMenuItem
+	code     string
+	location string
+	items    map[string]*stubCMSMenuItem
 }
 
 type stubCMSMenuItem struct {
@@ -191,25 +193,54 @@ type stubCMSMenuItem struct {
 }
 
 func newStubCMSMenuService() *stubCMSMenuService {
-	return &stubCMSMenuService{menus: map[string]*stubCMSMenu{}}
+	return &stubCMSMenuService{
+		menus:     map[string]*stubCMSMenu{},
+		locations: map[string]string{},
+	}
 }
 
 func (s *stubCMSMenuService) GetOrCreateMenu(ctx context.Context, code string, description *string, actor uuid.UUID) (*cms.MenuInfo, error) {
 	return s.UpsertMenu(ctx, code, description, actor)
 }
 
+func (s *stubCMSMenuService) GetOrCreateMenuWithLocation(ctx context.Context, code string, location string, description *string, actor uuid.UUID) (*cms.MenuInfo, error) {
+	return s.UpsertMenuWithLocation(ctx, code, location, description, actor)
+}
+
 func (s *stubCMSMenuService) UpsertMenu(_ context.Context, code string, _ *string, _ uuid.UUID) (*cms.MenuInfo, error) {
+	return s.UpsertMenuWithLocation(context.Background(), code, "", nil, uuid.Nil)
+}
+
+func (s *stubCMSMenuService) UpsertMenuWithLocation(_ context.Context, code string, location string, _ *string, _ uuid.UUID) (*cms.MenuInfo, error) {
 	if s.menus[code] == nil {
 		s.menus[code] = &stubCMSMenu{code: code, items: map[string]*stubCMSMenuItem{}}
 	}
-	return &cms.MenuInfo{Code: code}, nil
+	menu := s.menus[code]
+	if location == "" {
+		location = code
+	}
+	menu.location = location
+	s.locations[location] = code
+	return &cms.MenuInfo{Code: code, Location: location}, nil
 }
 
 func (s *stubCMSMenuService) GetMenuByCode(_ context.Context, code string) (*cms.MenuInfo, error) {
 	if s.menus[code] == nil {
 		return nil, cms.ErrMenuNotFound
 	}
-	return &cms.MenuInfo{Code: code}, nil
+	location := s.menus[code].location
+	if location == "" {
+		location = code
+	}
+	return &cms.MenuInfo{Code: code, Location: location}, nil
+}
+
+func (s *stubCMSMenuService) GetMenuByLocation(_ context.Context, location string) (*cms.MenuInfo, error) {
+	code, ok := s.locations[location]
+	if !ok {
+		return nil, cms.ErrMenuNotFound
+	}
+	return &cms.MenuInfo{Code: code, Location: location}, nil
 }
 
 func (s *stubCMSMenuService) ListMenuItemsByCode(_ context.Context, menuCode string) ([]*cms.MenuItemInfo, error) {
@@ -265,6 +296,14 @@ func (s *stubCMSMenuService) ResolveNavigation(_ context.Context, menuCode strin
 		out = append(out, buildNode(menu, root, menuCode, locale))
 	}
 	return out, nil
+}
+
+func (s *stubCMSMenuService) ResolveNavigationByLocation(ctx context.Context, location string, locale string) ([]cms.NavigationNode, error) {
+	code, ok := s.locations[location]
+	if !ok {
+		return nil, cms.ErrMenuNotFound
+	}
+	return s.ResolveNavigation(ctx, code, locale)
 }
 
 func (s *stubCMSMenuService) ResetMenuByCode(_ context.Context, code string, _ uuid.UUID, _ bool) error {
