@@ -26,6 +26,7 @@ type PanelBuilder struct {
 	authorizer   Authorizer
 	commandBus   *CommandBus
 	activity     ActivitySink
+	workflow     WorkflowEngine
 }
 
 // Panel represents a registered panel.
@@ -47,6 +48,7 @@ type Panel struct {
 	authorizer   Authorizer
 	commandBus   *CommandBus
 	activity     ActivitySink
+	workflow     WorkflowEngine
 }
 
 // Repository provides CRUD operations for panel data.
@@ -78,6 +80,7 @@ type ListOptions struct {
 type Field struct {
 	Name       string   `json:"name"`
 	Label      string   `json:"label"`
+	LabelKey   string   `json:"label_key,omitempty"`
 	Type       string   `json:"type"`
 	Required   bool     `json:"required"`
 	ReadOnly   bool     `json:"read_only"`
@@ -88,21 +91,26 @@ type Field struct {
 
 // Option is a select/choice option.
 type Option struct {
-	Value any    `json:"value"`
-	Label string `json:"label"`
+	Value    any    `json:"value"`
+	Label    string `json:"label"`
+	LabelKey string `json:"label_key,omitempty"`
 }
 
 // Filter defines a filter input.
 type Filter struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name     string `json:"name"`
+	Label    string `json:"label,omitempty"`
+	LabelKey string `json:"label_key,omitempty"`
+	Type     string `json:"type"`
 }
 
 // Action describes an action or bulk action linked to a command handler.
 type Action struct {
-	Name        string
-	CommandName string
-	Permission  string
+	Name        string `json:"name"`
+	Label       string `json:"label,omitempty"`
+	LabelKey    string `json:"label_key,omitempty"`
+	CommandName string `json:"command_name"`
+	Permission  string `json:"permission,omitempty"`
 }
 
 // PanelPermissions declares resource actions.
@@ -265,6 +273,12 @@ func (b *PanelBuilder) WithActivitySink(sink ActivitySink) *PanelBuilder {
 	return b
 }
 
+// WithWorkflow attaches a workflow engine to the panel.
+func (b *PanelBuilder) WithWorkflow(w WorkflowEngine) *PanelBuilder {
+	b.workflow = w
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
@@ -288,6 +302,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		authorizer:   b.authorizer,
 		commandBus:   b.commandBus,
 		activity:     b.activity,
+		workflow:     b.workflow,
 	}, nil
 }
 
