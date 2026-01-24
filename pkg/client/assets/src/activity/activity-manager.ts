@@ -13,14 +13,14 @@ import type {
 } from './types.js';
 
 import {
-  getActionCategory,
+  parseActionString,
   formatActivitySentence,
   formatTimestamp,
   formatRelativeTime,
   getMetadataSummary,
   formatMetadataExpanded,
   escapeHtml,
-  getActionIconHtml,
+  formatChannel,
 } from './formatters.js';
 
 const DEFAULT_SELECTORS: ActivitySelectors = {
@@ -300,23 +300,51 @@ export class ActivityManager {
   }
 
   private createRow(entry: ActivityEntry): HTMLTableRowElement {
-    const category = getActionCategory(entry.action);
+    const parsedAction = parseActionString(entry.action);
     const sentence = formatActivitySentence(entry);
     const timestamp = formatTimestamp(entry.created_at);
     const relativeTime = formatRelativeTime(entry.created_at);
     const metadataSummary = getMetadataSummary(entry.metadata);
     const metadataContent = formatMetadataExpanded(entry.metadata);
+    const shortChannel = formatChannel(entry.channel);
+
+    // Color scheme for action categories
+    const categoryColors: Record<string, { bg: string; color: string; border: string }> = {
+      created: { bg: '#ecfdf5', color: '#10b981', border: '#a7f3d0' },
+      updated: { bg: '#eff6ff', color: '#3b82f6', border: '#bfdbfe' },
+      deleted: { bg: '#fef2f2', color: '#ef4444', border: '#fecaca' },
+      auth: { bg: '#fffbeb', color: '#f59e0b', border: '#fde68a' },
+      viewed: { bg: '#f5f3ff', color: '#8b5cf6', border: '#ddd6fe' },
+      system: { bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
+    };
+    const colors = categoryColors[parsedAction.category] || categoryColors.system;
 
     const row = document.createElement('tr');
-    row.className = `activity-row activity-row--${category}`;
+    row.className = `activity-row activity-row--${parsedAction.category}`;
 
-    // Build action badge HTML
-    const actionBadgeHtml = `
-      <span class="activity-action-badge activity-action-badge--${category}">
-        ${getActionIconHtml(category)}
-        <span>${escapeHtml(entry.action || '-')}</span>
-      </span>
-    `;
+    // Build action cell with namespace icon and action badge
+    let actionCellHtml = '';
+    if (parsedAction.namespace) {
+      // Dotted action like "debug.repl.close" - show namespace icon + action badge
+      actionCellHtml = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f3f4f6; border-radius: 6px; color: #6b7280;" title="${escapeHtml(parsedAction.namespace)}">
+            <i class="iconoir-${parsedAction.icon}" style="font-size: 14px;"></i>
+          </span>
+          <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${colors.bg}; color: ${colors.color}; border: 1px solid ${colors.border};">
+            ${escapeHtml(parsedAction.action)}
+          </span>
+        </div>
+      `;
+    } else {
+      // Simple action - show as colored badge with icon
+      actionCellHtml = `
+        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${colors.bg}; color: ${colors.color}; border: 1px solid ${colors.border};">
+          <i class="iconoir-${parsedAction.icon}" style="font-size: 14px;"></i>
+          <span>${escapeHtml(parsedAction.action || '-')}</span>
+        </span>
+      `;
+    }
 
     // Build metadata cell HTML
     let metadataCellHtml = '';
@@ -326,16 +354,18 @@ export class ActivityManager {
         <div class="activity-metadata">
           <button type="button"
                   class="activity-metadata-toggle"
+                  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;"
                   aria-expanded="false"
                   aria-controls="${entryId}"
                   data-metadata-toggle="${entry.id}">
             <span>${metadataSummary}</span>
-            <svg class="activity-metadata-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </button>
           <div id="${entryId}"
                class="activity-metadata-content"
+               style="display: none; margin-top: 8px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; max-width: 320px;"
                data-expanded="false"
                data-metadata-content="${entry.id}">
             ${metadataContent}
@@ -343,25 +373,32 @@ export class ActivityManager {
         </div>
       `;
     } else {
-      metadataCellHtml = '<span class="activity-metadata-empty">-</span>';
+      metadataCellHtml = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
     }
 
-    // Build channel cell
-    const channelHtml = entry.channel
-      ? `<span class="activity-channel">${escapeHtml(entry.channel)}</span>`
-      : '<span class="text-gray-400">-</span>';
+    // Build channel cell with shortened ID and copy tooltip
+    let channelHtml = '';
+    if (entry.channel) {
+      channelHtml = `
+        <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 11px; font-weight: 500; font-family: ui-monospace, monospace; color: #6b7280; background: #f3f4f6; border-radius: 4px; cursor: default;" title="${escapeHtml(entry.channel)}">
+          ${escapeHtml(shortChannel)}
+        </span>
+      `;
+    } else {
+      channelHtml = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
+    }
 
     row.innerHTML = `
-      <td class="px-4 py-3">
-        <div class="activity-timestamp">${timestamp}</div>
-        <div class="activity-timestamp-relative">${relativeTime}</div>
+      <td style="padding: 12px 16px; vertical-align: middle; border-left: 3px solid ${colors.color};">
+        <div style="font-size: 13px; color: #374151; white-space: nowrap;">${timestamp}</div>
+        <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">${relativeTime}</div>
       </td>
-      <td class="px-4 py-3">${actionBadgeHtml}</td>
-      <td class="px-4 py-3">
-        <div class="activity-sentence">${sentence}</div>
+      <td style="padding: 12px 16px; vertical-align: middle;">${actionCellHtml}</td>
+      <td style="padding: 12px 16px; vertical-align: middle;">
+        <div style="font-size: 13px; line-height: 1.5; color: #374151;">${sentence}</div>
       </td>
-      <td class="px-4 py-3">${channelHtml}</td>
-      <td class="px-4 py-3">${metadataCellHtml}</td>
+      <td style="padding: 12px 16px; vertical-align: middle; text-align: center;">${channelHtml}</td>
+      <td style="padding: 12px 16px; vertical-align: middle;">${metadataCellHtml}</td>
     `;
 
     return row;
@@ -378,8 +415,16 @@ export class ActivityManager {
         if (!content) return;
 
         const isExpanded = content.dataset.expanded === 'true';
-        content.dataset.expanded = isExpanded ? 'false' : 'true';
-        toggle.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+        const newExpanded = !isExpanded;
+        content.dataset.expanded = newExpanded ? 'true' : 'false';
+        content.style.display = newExpanded ? 'block' : 'none';
+        toggle.setAttribute('aria-expanded', newExpanded ? 'true' : 'false');
+
+        // Rotate chevron
+        const chevron = toggle.querySelector<SVGElement>('.activity-metadata-chevron');
+        if (chevron) {
+          chevron.style.transform = newExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
       });
     });
   }
