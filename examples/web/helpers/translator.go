@@ -14,20 +14,20 @@ func NewSimpleTranslator() *SimpleTranslator {
 
 // Translate translates a key to the specified locale
 // Falls back to English if the locale is not found, or returns the key if no translation exists
-func (t *SimpleTranslator) Translate(key, locale string) string {
+func (t *SimpleTranslator) Translate(locale, key string, args ...any) (string, error) {
 	if t.translations == nil {
-		return key
+		return key, nil
 	}
 	if localeMap, ok := t.translations[locale]; ok {
 		if translation, ok := localeMap[key]; ok {
-			return translation
+			return translation, nil
 		}
 	}
 	// Fallback to English
 	if localeMap, ok := t.translations["en"]; ok {
 		if translation, ok := localeMap[key]; ok {
-			return translation
+			return translation, nil
 		}
 	}
-	return key
+	return key, nil
 }

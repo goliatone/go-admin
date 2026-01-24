@@ -124,6 +124,7 @@ SELECT
     pt.title               AS title,
     COALESCE(l.code, '')   AS locale,
     pt.locale_id           AS locale_id,
+    pt.translation_group_id AS translation_group_id,
     COALESCE(
         pt.seo_title,
         json_extract(ct.content, '$.markdown.frontmatter.seo.title'),
@@ -187,6 +188,7 @@ SELECT
     c.status                                            AS status,
     ct.title                                            AS title,
     l.code                                              AS locale,
+    ct.translation_group_id                             AS translation_group_id,
     ct.summary                                          AS excerpt,
     COALESCE(
         json_extract(ct.content, '$.markdown.body'),

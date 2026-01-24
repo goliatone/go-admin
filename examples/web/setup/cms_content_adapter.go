@@ -549,6 +549,9 @@ func (b *goCMSContentBridge) buildTranslation(field reflect.Value, content admin
 	tr := reflect.New(elemType).Elem()
 	setStringField(tr, "Locale", content.Locale)
 	setStringField(tr, "Title", content.Title)
+	if groupID := uuidOrNil(content.TranslationGroupID); groupID != uuid.Nil {
+		setUUIDPtr(tr, "TranslationGroupID", groupID)
+	}
 	if summary := strings.TrimSpace(asString(content.Data["excerpt"], "")); summary != "" {
 		setStringPtr(tr, "Summary", summary)
 	}
@@ -569,6 +572,9 @@ func (b *goCMSContentBridge) buildPageTranslation(field reflect.Value, page admi
 	setStringField(tr, "Locale", locale)
 	setStringField(tr, "Title", page.Title)
 	setStringField(tr, "Path", path)
+	if groupID := uuidOrNil(page.TranslationGroupID); groupID != uuid.Nil {
+		setUUIDPtr(tr, "TranslationGroupID", groupID)
+	}
 	if summary := asString(page.Data["summary"], ""); summary != "" {
 		setStringPtr(tr, "Summary", summary)
 	}
@@ -598,6 +604,9 @@ func (b *goCMSContentBridge) ensurePageTranslation(ctx context.Context, pageVal 
 	setStringField(req, "Locale", locale)
 	setStringField(req, "Title", page.Title)
 	setStringField(req, "Path", path)
+	if groupID := uuidOrNil(page.TranslationGroupID); groupID != uuid.Nil {
+		setUUIDPtr(req, "TranslationGroupID", groupID)
+	}
 	if summary := asString(page.Data["summary"], ""); summary != "" {
 		setStringPtr(req, "Summary", summary)
 	}
@@ -676,6 +685,9 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string) 
 		}
 	}
 	if chosen.IsValid() {
+		if groupID := uuidStringField(chosen, "TranslationGroupID"); groupID != "" {
+			out.TranslationGroupID = groupID
+		}
 		out.Locale = stringField(chosen, "Locale")
 		out.Title = stringField(chosen, "Title")
 		if summary := stringField(chosen, "Summary"); summary != "" {
@@ -730,6 +742,9 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 		}
 	}
 	if chosen.IsValid() {
+		if groupID := uuidStringField(chosen, "TranslationGroupID"); groupID != "" {
+			out.TranslationGroupID = groupID
+		}
 		out.Locale = stringField(chosen, "Locale")
 		out.Title = stringField(chosen, "Title")
 		if path := stringField(chosen, "Path"); path != "" {
@@ -877,4 +892,25 @@ func uuidOrNil(id string) uuid.UUID {
 		return parsed
 	}
 	return uuid.Nil
+}
+
+func uuidStringField(val reflect.Value, name string) string {
+	field := val.FieldByName(name)
+	if !field.IsValid() {
+		return ""
+	}
+	if field.CanInterface() {
+		switch v := field.Interface().(type) {
+		case uuid.UUID:
+			if v != uuid.Nil {
+				return v.String()
+			}
+		}
+	}
+	if field.Kind() == reflect.Ptr && !field.IsNil() && field.Elem().CanInterface() {
+		if v, ok := field.Elem().Interface().(uuid.UUID); ok && v != uuid.Nil {
+			return v.String()
+		}
+	}
+	return ""
 }

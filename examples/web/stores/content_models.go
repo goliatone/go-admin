@@ -27,6 +27,7 @@ type PageRecord struct {
 
 	ID              uuid.UUID  `json:"id" bun:"id,pk,type:uuid"`
 	ContentID       uuid.UUID  `json:"content_id" bun:"content_id,type:uuid"`
+	TranslationGroupID *uuid.UUID `json:"translation_group_id,omitempty" bun:"translation_group_id,type:uuid"`
 	TemplateID      uuid.UUID  `json:"template_id" bun:"template_id,type:uuid"`
 	Title           string     `json:"title" bun:"title"`
 	Slug            string     `json:"slug" bun:"slug"`
@@ -53,6 +54,7 @@ type PostRecord struct {
 	Slug            string     `json:"slug" bun:"slug"`
 	Status          string     `json:"status" bun:"status"`
 	Locale          string     `json:"locale" bun:"locale"`
+	TranslationGroupID *uuid.UUID `json:"translation_group_id,omitempty" bun:"translation_group_id,type:uuid"`
 	Path            string     `json:"path" bun:"path"`
 	Author          string     `json:"author,omitempty" bun:"author"`
 	Excerpt         string     `json:"excerpt,omitempty" bun:"excerpt"`
@@ -99,6 +101,10 @@ func pageRecordFromMap(record map[string]any) *PageRecord {
 	}
 	if cid := stringID(record["content_id"]); cid != "" {
 		rec.ContentID = parseSeededUUID(cid, cid)
+	}
+	if gid := stringID(record["translation_group_id"]); gid != "" {
+		groupID := parseSeededUUID(gid, "translation-group:"+gid)
+		rec.TranslationGroupID = &groupID
 	}
 	if tid := stringID(record["template_id"]); tid != "" {
 		rec.TemplateID = parseSeededUUID(tid, tid)
@@ -148,6 +154,9 @@ func pageRecordToMap(record *PageRecord) map[string]any {
 	if record.ContentID != uuid.Nil {
 		out["content_id"] = record.ContentID.String()
 	}
+	if record.TranslationGroupID != nil && *record.TranslationGroupID != uuid.Nil {
+		out["translation_group_id"] = record.TranslationGroupID.String()
+	}
 	if record.TemplateID != uuid.Nil {
 		out["template_id"] = record.TemplateID.String()
 	}
@@ -187,6 +196,10 @@ func postRecordFromMap(record map[string]any) *PostRecord {
 		MetaTitle:       asString(record["meta_title"], ""),
 		MetaDescription: asString(record["meta_description"], ""),
 	}
+	if gid := stringID(record["translation_group_id"]); gid != "" {
+		groupID := parseSeededUUID(gid, "translation-group:"+gid)
+		rec.TranslationGroupID = &groupID
+	}
 	if rec.Slug == "" && rec.Title != "" {
 		rec.Slug = sanitizeSlug(rec.Title)
 	}
@@ -222,6 +235,9 @@ func postRecordToMap(record *PostRecord) map[string]any {
 		"content":        record.Content,
 		"category":       record.Category,
 		"featured_image": record.FeaturedImage,
+	}
+	if record.TranslationGroupID != nil && *record.TranslationGroupID != uuid.Nil {
+		out["translation_group_id"] = record.TranslationGroupID.String()
 	}
 	if len(record.Tags) > 0 {
 		out["tags"] = record.Tags
