@@ -9,9 +9,10 @@ import (
 // NoopTranslator returns the key unchanged.
 type NoopTranslator struct{}
 
-func (NoopTranslator) Translate(key, locale string) string {
+func (NoopTranslator) Translate(locale, key string, args ...any) (string, error) {
 	_ = locale
-	return key
+	_ = args
+	return key, nil
 }
 
 // Navigation resolves menus from CMS or in-memory sources.
@@ -288,9 +289,12 @@ func translateValue(raw, key string, t Translator, locale string) string {
 		return key
 	}
 	if key != "" {
-		translated := strings.TrimSpace(t.Translate(key, locale))
-		if translated != "" && translated != key {
-			return translated
+		translated, err := t.Translate(locale, key)
+		if err == nil {
+			translated = strings.TrimSpace(translated)
+			if translated != "" && translated != key {
+				return translated
+			}
 		}
 	}
 	if val != "" {
