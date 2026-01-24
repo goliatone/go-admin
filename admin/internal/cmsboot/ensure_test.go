@@ -50,6 +50,9 @@ func (*stubMenuService) UpdateMenuItem(context.Context, string, MenuItem) error 
 func (*stubMenuService) DeleteMenuItem(context.Context, string, string) error   { return nil }
 func (*stubMenuService) ReorderMenu(context.Context, string, []string) error    { return nil }
 func (*stubMenuService) Menu(context.Context, string, string) (*Menu, error)    { return &Menu{}, nil }
+func (*stubMenuService) MenuByLocation(context.Context, string, string) (*Menu, error) {
+	return &Menu{}, nil
+}
 
 type stubContentService struct{}
 
@@ -88,6 +91,7 @@ func (stubContentService) DeleteBlock(context.Context, string) error            
 func TestEnsureSkipsWhenDisabled(t *testing.T) {
 	widget := stubWidgetService{}
 	menu := &stubMenuService{}
+	menuSvc := CMSMenuService(menu)
 	content := stubContentService{}
 	container := stubContainer{widget: widget, menu: menu, content: content}
 	builderCalled := 0
@@ -96,7 +100,7 @@ func TestEnsureSkipsWhenDisabled(t *testing.T) {
 	res, err := Ensure(context.Background(), EnsureOptions{
 		Container:      container,
 		WidgetService:  widget,
-		MenuService:    menu,
+		MenuService:    menuSvc,
 		ContentService: content,
 		RequireCMS:     false,
 		BuildContainer: func(ctx context.Context) (CMSContainer, error) {

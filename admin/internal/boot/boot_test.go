@@ -208,6 +208,10 @@ func (s *stubPanelBinding) Bulk(_ router.Context, locale, action string, body ma
 	return nil
 }
 
+func (s *stubPanelBinding) Preview(router.Context, string, string) (map[string]any, error) {
+	return map[string]any{"token": "preview-token"}, nil
+}
+
 func TestPanelStepRegistersHandlers(t *testing.T) {
 	rr := &recordRouter{}
 	resp := &stubResponder{}
@@ -225,7 +229,7 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 
 	err := PanelStep(ctx)
 	require.NoError(t, err)
-	require.Len(t, rr.calls, 8)
+	require.Len(t, rr.calls, 9)
 
 	actionCtx := router.NewMockContext()
 	actionCtx.ParamsM["action"] = "run"
