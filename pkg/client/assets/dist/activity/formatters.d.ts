@@ -8,6 +8,20 @@ import type { ActivityEntry, ActionCategory, ParsedObject } from './types.js';
  */
 export declare const ACTION_ICONS: Record<ActionCategory, string>;
 /**
+ * Icons for action namespaces (first segment of dotted action strings)
+ */
+export declare const NAMESPACE_ICONS: Record<string, string>;
+/**
+ * Parse a dotted action string like "debug.repl.close" into namespace and action
+ */
+export interface ParsedAction {
+    namespace: string;
+    action: string;
+    icon: string;
+    category: ActionCategory;
+}
+export declare function parseActionString(actionStr: string): ParsedAction;
+/**
  * Get the action category for a verb
  */
 export declare function getActionCategory(verb: string): ActionCategory;
@@ -15,6 +29,14 @@ export declare function getActionCategory(verb: string): ActionCategory;
  * Parse an object string (format: "type:id") into its components
  */
 export declare function parseObject(object: string): ParsedObject;
+/**
+ * Escape HTML to prevent XSS
+ */
+export declare function escapeHtml(text: string): string;
+/**
+ * Shorten a UUID or long string to first N characters (like git short hash)
+ */
+export declare function shortenId(id: string, length?: number): string;
 /**
  * Format an activity entry into a human-readable sentence
  */
@@ -40,9 +62,9 @@ export declare function getMetadataSummary(metadata: Record<string, unknown> | u
  */
 export declare function formatMetadataExpanded(metadata: Record<string, unknown> | undefined): string;
 /**
- * Escape HTML to prevent XSS
+ * Format channel for display (shorten UUIDs)
  */
-export declare function escapeHtml(text: string): string;
+export declare function formatChannel(channel: string | undefined): string;
 /**
  * Get CSS class for action category
  */

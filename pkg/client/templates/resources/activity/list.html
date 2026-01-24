@@ -2,7 +2,7 @@
 
 {% block title %}Activity - {{ title }}{% endblock %}
 
-{% block styles %}
+{% block head_extra %}
 <link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/activity.css">
 {% endblock %}
 
@@ -79,22 +79,32 @@
 
   <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="activity-table min-w-full text-sm text-left text-gray-700">
+      <table class="activity-table w-full text-sm text-left text-gray-700" style="table-layout: fixed;">
+        <colgroup>
+          <col style="width: 140px;">
+          <col style="width: 180px;">
+          <col style="width: auto; min-width: 200px;">
+          <col style="width: 80px;">
+          <col style="width: 120px;">
+        </colgroup>
         <thead class="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
           <tr>
-            <th class="px-4 py-3 w-40">When</th>
-            <th class="px-4 py-3 w-32">Action</th>
-            <th class="px-4 py-3">Activity</th>
-            <th class="px-4 py-3 w-24">Channel</th>
-            <th class="px-4 py-3 w-48">Details</th>
+            <th style="padding: 12px 16px; font-weight: 600;">When</th>
+            <th style="padding: 12px 16px; font-weight: 600;">Action</th>
+            <th style="padding: 12px 16px; font-weight: 600;">Activity</th>
+            <th style="padding: 12px 16px; font-weight: 600; text-align: center;">Channel</th>
+            <th style="padding: 12px 16px; font-weight: 600;">Details</th>
           </tr>
         </thead>
         <tbody id="activity-table-body" class="divide-y divide-gray-100 bg-white"></tbody>
       </table>
     </div>
-    <div id="activity-empty" class="hidden p-6 text-sm text-gray-500 text-center">
-      <div class="text-4xl mb-3">📋</div>
-      <p>No activity found.</p>
+    <div id="activity-empty" class="hidden p-8 text-sm text-gray-500 text-center">
+      <div class="text-5xl mb-4 opacity-50">
+        <i class="iconoir-clipboard-check"></i>
+      </div>
+      <p class="font-medium text-gray-600">No activity found</p>
+      <p class="text-xs text-gray-400 mt-1">Activity entries will appear here when actions are logged.</p>
     </div>
   </div>
 

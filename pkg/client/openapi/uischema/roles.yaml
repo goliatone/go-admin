@@ -65,7 +65,7 @@ operations:
             - admin.debug
           actions:
             - repl
-            - exec
+            - repl.exec
       metadata:
         order: 6
         grid:
@@ -141,7 +141,7 @@ operations:
             - admin.debug
           actions:
             - repl
-            - exec
+            - repl.exec
       metadata:
         order: 6
         grid:

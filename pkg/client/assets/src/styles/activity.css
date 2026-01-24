@@ -1,4 +1,4 @@
-/**
+/*
  * Activity Feed Styles
  * Color coding, icons, and expandable metadata
  */
@@ -30,9 +30,24 @@
   --activity-system-border: #e5e7eb;
 }
 
-/* Action row styles with left border indicator */
+/* Table base styles */
+.activity-table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.activity-table thead th {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Row styles */
 .activity-row {
-  position: relative;
   transition: background-color 0.15s ease;
 }
 
@@ -40,52 +55,122 @@
   background-color: #f9fafb;
 }
 
-.activity-row::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background-color: var(--activity-system);
+/* Left border indicator is now applied inline via JS */
+
+/* Activity sentence styling */
+.activity-sentence {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #374151;
 }
 
-.activity-row--created::before {
-  background-color: var(--activity-created);
+.activity-sentence strong {
+  font-weight: 600;
+  color: #111827;
 }
 
-.activity-row--updated::before {
-  background-color: var(--activity-updated);
+/* Expandable metadata */
+.activity-metadata {
+  position: relative;
 }
 
-.activity-row--deleted::before {
-  background-color: var(--activity-deleted);
+.activity-metadata-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.activity-row--auth::before {
-  background-color: var(--activity-auth);
+.activity-metadata-toggle:hover {
+  background: #e5e7eb;
+  color: #374151;
 }
 
-.activity-row--viewed::before {
-  background-color: var(--activity-viewed);
+.activity-metadata-toggle[aria-expanded="true"] {
+  background: #e5e7eb;
 }
 
-.activity-row--system::before {
-  background-color: var(--activity-system);
+.activity-metadata-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
 }
 
-/* Action badges */
+.activity-metadata-content {
+  display: none;
+  margin-top: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  max-width: 320px;
+}
+
+.activity-metadata-content[data-expanded="true"] {
+  display: block;
+}
+
+/* Timestamp styling */
+.activity-timestamp {
+  font-size: 13px;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.activity-timestamp-relative {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+/* Channel badge */
+.activity-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+/* Namespace icon box */
+.activity-namespace-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  color: #6b7280;
+}
+
+.activity-namespace-icon i {
+  font-size: 14px;
+}
+
+/* Action badge base */
 .activity-action-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 9999px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
 }
 
+/* Action badge colors */
 .activity-action-badge--created {
   background-color: var(--activity-created-bg);
   color: var(--activity-created);
@@ -122,118 +207,29 @@
   border: 1px solid var(--activity-system-border);
 }
 
-/* Action icons */
-.activity-action-icon {
-  font-size: 14px;
-  flex-shrink: 0;
+/* Row category left border (applied via inline styles, but CSS fallback) */
+.activity-row--created td:first-child {
+  border-left: 3px solid var(--activity-created);
 }
 
-/* Activity sentence styling */
-.activity-sentence {
-  font-size: 14px;
-  line-height: 1.5;
-  color: #374151;
+.activity-row--updated td:first-child {
+  border-left: 3px solid var(--activity-updated);
 }
 
-.activity-sentence strong {
-  font-weight: 600;
-  color: #111827;
+.activity-row--deleted td:first-child {
+  border-left: 3px solid var(--activity-deleted);
 }
 
-/* Expandable metadata */
-.activity-metadata {
-  position: relative;
+.activity-row--auth td:first-child {
+  border-left: 3px solid var(--activity-auth);
 }
 
-.activity-metadata-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: #6b7280;
-  background: #f3f4f6;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+.activity-row--viewed td:first-child {
+  border-left: 3px solid var(--activity-viewed);
 }
 
-.activity-metadata-toggle:hover {
-  background: #e5e7eb;
-  color: #374151;
-}
-
-.activity-metadata-toggle[aria-expanded="true"] {
-  background: #e5e7eb;
-}
-
-.activity-metadata-toggle[aria-expanded="true"] .activity-metadata-chevron {
-  transform: rotate(180deg);
-}
-
-.activity-metadata-chevron {
-  width: 12px;
-  height: 12px;
-  transition: transform 0.15s ease;
-}
-
-.activity-metadata-content {
-  display: none;
-  margin-top: 8px;
-  padding: 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  max-width: 320px;
-}
-
-.activity-metadata-content[data-expanded="true"] {
-  display: block;
-}
-
-.activity-metadata-empty {
-  color: #9ca3af;
-  font-size: 12px;
-  font-style: italic;
-}
-
-/* Timestamp styling */
-.activity-timestamp {
-  font-size: 13px;
-  color: #6b7280;
-  white-space: nowrap;
-}
-
-.activity-timestamp-relative {
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-/* Channel badge */
-.activity-channel {
-  display: inline-block;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #6b7280;
-  background: #f3f4f6;
-  border-radius: 4px;
-  text-transform: lowercase;
-}
-
-/* Table enhancements */
-.activity-table {
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.activity-table tbody tr {
-  border-left: 3px solid transparent;
-}
-
-.activity-table tbody tr td:first-child {
-  padding-left: 16px;
+.activity-row--system td:first-child {
+  border-left: 3px solid var(--activity-system);
 }
 
 /* Responsive adjustments */
@@ -245,5 +241,9 @@
   .activity-action-badge {
     padding: 3px 8px;
     font-size: 11px;
+  }
+
+  .activity-table {
+    font-size: 12px;
   }
 }

@@ -67,6 +67,78 @@ export const ACTION_ICONS: Record<ActionCategory, string> = {
 };
 
 /**
+ * Icons for action namespaces (first segment of dotted action strings)
+ */
+export const NAMESPACE_ICONS: Record<string, string> = {
+  debug: 'terminal',
+  user: 'user',
+  users: 'group',
+  auth: 'key',
+  admin: 'settings',
+  system: 'cpu',
+  api: 'cloud',
+  db: 'database',
+  cache: 'archive',
+  file: 'folder',
+  email: 'mail',
+  notification: 'bell',
+  webhook: 'link',
+  job: 'clock',
+  queue: 'list',
+  export: 'download',
+  import: 'upload',
+  report: 'page',
+  log: 'clipboard',
+  config: 'adjustments',
+  settings: 'settings',
+  security: 'shield',
+  tenant: 'building',
+  org: 'community',
+  media: 'media-image',
+  content: 'page-edit',
+  repl: 'terminal',
+};
+
+/**
+ * Parse a dotted action string like "debug.repl.close" into namespace and action
+ */
+export interface ParsedAction {
+  namespace: string;
+  action: string;
+  icon: string;
+  category: ActionCategory;
+}
+
+export function parseActionString(actionStr: string): ParsedAction {
+  if (!actionStr) {
+    return { namespace: '', action: '', icon: 'activity', category: 'system' };
+  }
+
+  // Check if it's a dotted notation action
+  if (actionStr.includes('.')) {
+    const parts = actionStr.split('.');
+    const namespace = parts[0].toLowerCase();
+    const action = parts.slice(1).join('.');
+    const icon = NAMESPACE_ICONS[namespace] || 'activity';
+
+    // Determine category from the last part (the verb)
+    const verb = parts[parts.length - 1];
+    const category = getActionCategory(verb);
+
+    return { namespace, action, icon, category };
+  }
+
+  // Standard single-word action
+  const category = getActionCategory(actionStr);
+  return {
+    namespace: '',
+    action: actionStr,
+    icon: ACTION_ICONS[category],
+    category,
+  };
+}
+
+/**
  * Get the action category for a verb
  */
 export function getActionCategory(verb: string): ActionCategory {
@@ -112,6 +184,56 @@ function formatObjectType(type: string): string {
 }
 
 /**
+ * Escape HTML to prevent XSS
+ */
+export function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Shorten a UUID or long string to first N characters (like git short hash)
+ */
+export function shortenId(id: string, length: number = 7): string {
+  if (!id) return '';
+  // Remove dashes for UUID detection
+  const clean = id.replace(/-/g, '');
+  // If it looks like a UUID (32 hex chars without dashes), shorten it
+  if (/^[0-9a-f]{32}$/i.test(clean)) {
+    return id.substring(0, length);
+  }
+  // For other long strings, also shorten
+  if (id.length > length + 3) {
+    return id.substring(0, length);
+  }
+  return id;
+}
+
+/**
+ * Check if a string looks like a UUID
+ */
+function isUuidLike(str: string): boolean {
+  if (!str) return false;
+  const clean = str.replace(/-/g, '');
+  return /^[0-9a-f]{32}$/i.test(clean);
+}
+
+/**
+ * Format an ID for display with optional tooltip for full value
+ * Returns HTML with shortened ID and title attribute for full ID
+ */
+function formatIdWithTooltip(id: string, length: number = 8): string {
+  if (!id) return '';
+  const shortened = shortenId(id, length);
+  if (shortened === id) {
+    return escapeHtml(id);
+  }
+  // Return span with tooltip showing full ID
+  return `<span class="activity-id-short" title="${escapeHtml(id)}" style="cursor: help; border-bottom: 1px dotted #9ca3af;">${escapeHtml(shortened)}</span>`;
+}
+
+/**
  * Format an activity entry into a human-readable sentence
  */
 export function formatActivitySentence(entry: ActivityEntry): string {
@@ -119,14 +241,20 @@ export function formatActivitySentence(entry: ActivityEntry): string {
   const verb = entry.action || 'performed action on';
   const { type, id } = parseObject(entry.object);
 
-  // Build object reference
+  // Format actor - shorten if UUID
+  const actorDisplay = isUuidLike(actor)
+    ? formatIdWithTooltip(actor, 8)
+    : `<strong>${escapeHtml(actor)}</strong>`;
+
+  // Build object reference with shortened ID
   let objectRef = '';
   if (type && id) {
-    objectRef = `${formatObjectType(type)} #${id}`;
+    const shortId = formatIdWithTooltip(id, 8);
+    objectRef = `${formatObjectType(type)} #${shortId}`;
   } else if (type) {
     objectRef = formatObjectType(type);
   } else if (id) {
-    objectRef = `#${id}`;
+    objectRef = `#${formatIdWithTooltip(id, 8)}`;
   }
 
   // Build sentence based on action category
@@ -136,17 +264,17 @@ export function formatActivitySentence(entry: ActivityEntry): string {
   if (category === 'auth') {
     const ip = entry.metadata?.ip || entry.metadata?.IP;
     if (ip) {
-      return `<strong>${escapeHtml(actor)}</strong> ${escapeHtml(verb)} from ${escapeHtml(String(ip))}`;
+      return `${actorDisplay} ${escapeHtml(verb)} from ${escapeHtml(String(ip))}`;
     }
-    return `<strong>${escapeHtml(actor)}</strong> ${escapeHtml(verb)}`;
+    return `${actorDisplay} ${escapeHtml(verb)}`;
   }
 
   // Standard sentence
   if (objectRef) {
-    return `<strong>${escapeHtml(actor)}</strong> ${escapeHtml(verb)} <strong>${escapeHtml(objectRef)}</strong>`;
+    return `${actorDisplay} ${escapeHtml(verb)} <strong>${objectRef}</strong>`;
   }
 
-  return `<strong>${escapeHtml(actor)}</strong> ${escapeHtml(verb)}`;
+  return `${actorDisplay} ${escapeHtml(verb)}`;
 }
 
 /**
@@ -220,15 +348,18 @@ export function formatMetadataExpanded(metadata: Record<string, unknown> | undef
     if (key.endsWith('_old') || key.endsWith('_new')) {
       formattedValue = escapeHtml(formatValue(value));
     } else if (typeof value === 'object' && value !== null) {
-      formattedValue = `<code class="text-xs">${escapeHtml(JSON.stringify(value))}</code>`;
+      // Truncate JSON strings
+      const jsonStr = JSON.stringify(value);
+      const truncated = jsonStr.length > 50 ? jsonStr.substring(0, 50) + '...' : jsonStr;
+      formattedValue = `<code style="font-size: 10px; background: #e5e7eb; padding: 2px 4px; border-radius: 3px; word-break: break-all;">${escapeHtml(truncated)}</code>`;
     } else {
       formattedValue = escapeHtml(formatValue(value));
     }
 
     return `
-      <div class="flex items-start justify-between gap-2 py-1">
-        <span class="text-gray-500 text-xs">${formattedKey}</span>
-        <span class="text-gray-900 text-xs font-medium text-right">${formattedValue}</span>
+      <div style="display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f3f4f6;">
+        <span style="color: #6b7280; font-size: 11px; flex-shrink: 0; max-width: 80px; overflow: hidden; text-overflow: ellipsis;">${formattedKey}</span>
+        <span style="color: #111827; font-size: 11px; font-weight: 500; text-align: right; word-break: break-word; max-width: 180px; overflow: hidden; text-overflow: ellipsis;">${formattedValue}</span>
       </div>
     `;
   });
@@ -254,12 +385,11 @@ function formatValue(value: unknown): string {
 }
 
 /**
- * Escape HTML to prevent XSS
+ * Format channel for display (shorten UUIDs)
  */
-export function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+export function formatChannel(channel: string | undefined): string {
+  if (!channel) return '';
+  return shortenId(channel, 7);
 }
 
 /**
