@@ -8,7 +8,7 @@ import (
 
 // Translator resolves i18n keys into localized strings.
 type Translator interface {
-	Translate(key, locale string) string
+	Translate(locale, key string, args ...any) (string, error)
 }
 
 // JoinPath prefixes a suffix with the base admin path, ensuring a single leading slash.
