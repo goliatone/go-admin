@@ -10,12 +10,13 @@ import (
 
 // AdminContext carries request-scoped information into panel operations.
 type AdminContext struct {
-	Context  context.Context
-	UserID   string
-	TenantID string
-	OrgID    string
-	Locale   string
-	Theme    *ThemeSelection
+	Context    context.Context
+	UserID     string
+	TenantID   string
+	OrgID      string
+	Locale     string
+	Theme      *ThemeSelection
+	Translator Translator
 }
 
 type adminContextKey string
