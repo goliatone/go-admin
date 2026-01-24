@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	cms "github.com/goliatone/go-cms"
@@ -268,6 +269,7 @@ func (a *GoCMSMenuAdapter) MenuByLocation(ctx context.Context, location, locale 
 	trimmed := strings.TrimSpace(location)
 	menuCode := cms.CanonicalMenuCode(trimmed)
 	resolvedLocation := trimmed
+	foundLocation := false
 
 	if locator, ok := a.service.(interface {
 		GetMenuByLocation(ctx context.Context, location string) (*cms.MenuInfo, error)
@@ -277,6 +279,9 @@ func (a *GoCMSMenuAdapter) MenuByLocation(ctx context.Context, location, locale 
 			if info.Location != "" {
 				resolvedLocation = info.Location
 			}
+			foundLocation = true
+		} else if err != nil && !errors.Is(err, cms.ErrMenuNotFound) {
+			return nil, err
 		}
 	}
 
@@ -284,10 +289,14 @@ func (a *GoCMSMenuAdapter) MenuByLocation(ctx context.Context, location, locale 
 		nodes []cms.NavigationNode
 		err   error
 	)
-	if resolver, ok := a.service.(interface {
-		ResolveNavigationByLocation(ctx context.Context, location string, locale string) ([]cms.NavigationNode, error)
-	}); ok {
-		nodes, err = resolver.ResolveNavigationByLocation(ctx, resolvedLocation, locale)
+	if foundLocation {
+		if resolver, ok := a.service.(interface {
+			ResolveNavigationByLocation(ctx context.Context, location string, locale string) ([]cms.NavigationNode, error)
+		}); ok {
+			nodes, err = resolver.ResolveNavigationByLocation(ctx, resolvedLocation, locale)
+		} else {
+			nodes, err = a.service.ResolveNavigation(ctx, menuCode, locale)
+		}
 	} else {
 		nodes, err = a.service.ResolveNavigation(ctx, menuCode, locale)
 	}
