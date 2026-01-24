@@ -1,0 +1,178 @@
+operations:
+  createPost:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/posts
+        - kind: primary
+          label: Create Post
+          type: submit
+    fields:
+      title:
+        order: 0
+        grid:
+          span: 8
+      slug:
+        order: 1
+        grid:
+          span: 4
+        behaviors:
+          autoSlug:
+            source: title
+      locale:
+        order: 2
+        grid:
+          span: 4
+      status:
+        order: 3
+        grid:
+          span: 4
+      category:
+        order: 4
+        grid:
+          span: 4
+      translation_group_id:
+        order: 5
+        grid:
+          span: 4
+      path:
+        order: 6
+        grid:
+          span: 8
+      published_at:
+        order: 7
+        grid:
+          span: 4
+      author:
+        order: 8
+        grid:
+          span: 6
+      excerpt:
+        order: 9
+        grid:
+          span: 6
+        widget: textarea
+      content:
+        order: 10
+        grid:
+          span: 12
+        component: wysiwyg
+      featured_image:
+        order: 11
+        grid:
+          span: 12
+        component: file_uploader
+        componentOptions:
+          preview: true
+          allowedTypes:
+            - image/jpeg
+            - image/png
+            - image/webp
+          maxSize: 5242880
+          uploadEndpoint: /admin/api/uploads/media/featured-image
+          variant: image
+      tags:
+        order: 12
+        grid:
+          span: 12
+      meta_title:
+        order: 13
+        grid:
+          span: 6
+      meta_description:
+        order: 14
+        grid:
+          span: 6
+        widget: textarea
+
+  updatePost:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/posts
+        - kind: primary
+          label: Update Post
+          type: submit
+    fields:
+      title:
+        order: 0
+        grid:
+          span: 8
+      slug:
+        order: 1
+        grid:
+          span: 4
+        behaviors:
+          autoSlug:
+            source: title
+      locale:
+        order: 2
+        grid:
+          span: 4
+      status:
+        order: 3
+        grid:
+          span: 4
+      category:
+        order: 4
+        grid:
+          span: 4
+      translation_group_id:
+        order: 5
+        grid:
+          span: 4
+      path:
+        order: 6
+        grid:
+          span: 8
+      published_at:
+        order: 7
+        grid:
+          span: 4
+      author:
+        order: 8
+        grid:
+          span: 6
+      excerpt:
+        order: 9
+        grid:
+          span: 6
+        widget: textarea
+      content:
+        order: 10
+        grid:
+          span: 12
+        component: wysiwyg
+      featured_image:
+        order: 11
+        grid:
+          span: 12
+        component: file_uploader
+        componentOptions:
+          preview: true
+          allowedTypes:
+            - image/jpeg
+            - image/png
+            - image/webp
+          maxSize: 5242880
+          uploadEndpoint: /admin/api/uploads/media/featured-image
+          variant: image
+      tags:
+        order: 12
+        grid:
+          span: 12
+      meta_title:
+        order: 13
+        grid:
+          span: 6
+      meta_description:
+        order: 14
+        grid:
+          span: 6
+        widget: textarea

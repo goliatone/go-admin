@@ -1,0 +1,150 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Admin Posts",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/admin/posts": {
+      "post": {
+        "operationId": "createPost",
+        "summary": "Create post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/admin/posts/{id}": {
+      "post": {
+        "operationId": "updatePost",
+        "summary": "Update post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PostPayload": {
+        "type": "object",
+        "required": [
+          "title",
+          "slug",
+          "status",
+          "content"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt"
+          },
+          "author": {
+            "type": "string",
+            "title": "Author"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "enum": [
+              "news",
+              "blog",
+              "tutorial"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "enum": [
+              "published",
+              "draft",
+              "pending_approval",
+              "scheduled",
+              "archived"
+            ]
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Publish Date"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "featured_image": {
+            "type": "string",
+            "title": "Featured Image",
+            "format": "uri"
+          },
+          "tags": {
+            "type": "string",
+            "title": "Tags"
+          },
+          "meta_title": {
+            "type": "string",
+            "title": "SEO Title"
+          },
+          "meta_description": {
+            "type": "string",
+            "title": "SEO Description"
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale"
+          },
+          "translation_group_id": {
+            "type": "string",
+            "title": "Translation Group"
+          }
+        }
+      }
+    }
+  }
+}
