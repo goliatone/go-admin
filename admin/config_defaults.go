@@ -11,6 +11,9 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.ThemeVariant == "" {
 		cfg.ThemeVariant = "default"
 	}
+	if cfg.PreviewSecret == "" {
+		cfg.PreviewSecret = "admin-preview-secret-change-me"
+	}
 	cfg.URLs = normalizeURLConfig(cfg.URLs)
 
 	if cfg.SettingsPermission == "" {
@@ -113,6 +116,9 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.JobsTriggerPermission = "admin.jobs.trigger"
 	}
 
+	if cfg.ActivityActionLabels == nil {
+		cfg.ActivityActionLabels = map[string]string{}
+	}
 	if cfg.SettingsThemeTokens == nil {
 		cfg.SettingsThemeTokens = map[string]string{}
 	}
