@@ -1,0 +1,126 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Admin Pages",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/admin/pages": {
+      "post": {
+        "operationId": "createPage",
+        "summary": "Create page",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/admin/pages/{id}": {
+      "post": {
+        "operationId": "updatePage",
+        "summary": "Update page",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PagePayload": {
+        "type": "object",
+        "required": [
+          "title",
+          "slug",
+          "status",
+          "path"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "enum": [
+              "published",
+              "draft",
+              "pending_approval",
+              "scheduled"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "meta_title": {
+            "type": "string",
+            "title": "SEO Title"
+          },
+          "meta_description": {
+            "type": "string",
+            "title": "SEO Description"
+          },
+          "template_id": {
+            "type": "string",
+            "title": "Template"
+          },
+          "parent_id": {
+            "type": "string",
+            "title": "Parent Page"
+          },
+          "translation_group_id": {
+            "type": "string",
+            "title": "Translation Group"
+          }
+        }
+      }
+    }
+  }
+}

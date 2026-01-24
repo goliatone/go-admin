@@ -1,0 +1,124 @@
+operations:
+  createPage:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/pages
+        - kind: primary
+          label: Create Page
+          type: submit
+    fields:
+      title:
+        order: 0
+        grid:
+          span: 8
+      slug:
+        order: 1
+        grid:
+          span: 4
+        behaviors:
+          autoSlug:
+            source: title
+      path:
+        order: 2
+        grid:
+          span: 12
+      locale:
+        order: 3
+        grid:
+          span: 4
+      status:
+        order: 4
+        grid:
+          span: 4
+      translation_group_id:
+        order: 5
+        grid:
+          span: 4
+      parent_id:
+        order: 6
+        grid:
+          span: 6
+      template_id:
+        order: 7
+        grid:
+          span: 6
+      content:
+        order: 8
+        grid:
+          span: 12
+        component: wysiwyg
+      meta_title:
+        order: 9
+        grid:
+          span: 6
+      meta_description:
+        order: 10
+        grid:
+          span: 6
+        widget: textarea
+
+  updatePage:
+    form:
+      layout:
+        gridColumns: 12
+      actions:
+        - kind: secondary
+          label: Cancel
+          href: /admin/pages
+        - kind: primary
+          label: Update Page
+          type: submit
+    fields:
+      title:
+        order: 0
+        grid:
+          span: 8
+      slug:
+        order: 1
+        grid:
+          span: 4
+        behaviors:
+          autoSlug:
+            source: title
+      path:
+        order: 2
+        grid:
+          span: 12
+      locale:
+        order: 3
+        grid:
+          span: 4
+      status:
+        order: 4
+        grid:
+          span: 4
+      translation_group_id:
+        order: 5
+        grid:
+          span: 4
+      parent_id:
+        order: 6
+        grid:
+          span: 6
+      template_id:
+        order: 7
+        grid:
+          span: 6
+      content:
+        order: 8
+        grid:
+          span: 12
+        component: wysiwyg
+      meta_title:
+        order: 9
+        grid:
+          span: 6
+      meta_description:
+        order: 10
+        grid:
+          span: 6
+        widget: textarea
