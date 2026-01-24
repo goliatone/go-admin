@@ -217,6 +217,26 @@ func PanelStep(ctx BootCtx) error {
 				return responder.WriteJSON(c, map[string]string{"status": "ok"})
 			},
 		})
+
+		routes = append(routes, RouteSpec{
+			Method: "GET",
+			Path:   joinPath(base, ":id/preview"),
+			Handler: func(c router.Context) error {
+				locale := c.Query("locale")
+				if locale == "" {
+					locale = defaultLocale
+				}
+				id := c.Param("id", "")
+				if id == "" {
+					return responder.WriteError(c, errMissingID)
+				}
+				res, err := b.Preview(c, locale, id)
+				if err != nil {
+					return responder.WriteError(c, err)
+				}
+				return responder.WriteJSON(c, res)
+			},
+		})
 	}
 	return applyRoutes(ctx, routes)
 }
