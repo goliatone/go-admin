@@ -144,6 +144,9 @@ type (
 	PanelTabScope               = core.PanelTabScope
 	PanelTabTarget              = core.PanelTabTarget
 
+	PreviewService = core.PreviewService
+	PreviewToken   = core.PreviewToken
+
 	PreferenceLevel         = core.PreferenceLevel
 	PreferenceScope         = core.PreferenceScope
 	PreferenceSnapshot      = core.PreferenceSnapshot
@@ -178,6 +181,12 @@ type (
 
 	ThemeSelector = core.ThemeSelector
 	Translator    = core.Translator
+
+	TransitionInput    = core.TransitionInput
+	TransitionResult   = core.TransitionResult
+	WorkflowDefinition = core.WorkflowDefinition
+	WorkflowEngine     = core.WorkflowEngine
+	WorkflowTransition = core.WorkflowTransition
 
 	UserActivateMsg = core.UserActivateMsg
 	UserSuspendMsg  = core.UserSuspendMsg
