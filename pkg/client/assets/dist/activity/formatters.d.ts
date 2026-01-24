@@ -20,7 +20,8 @@ export interface ParsedAction {
     icon: string;
     category: ActionCategory;
 }
-export declare function parseActionString(actionStr: string): ParsedAction;
+export declare function resolveActionLabel(actionStr: string, labels?: Record<string, string>): string;
+export declare function parseActionString(actionStr: string, labels?: Record<string, string>): ParsedAction;
 /**
  * Get the action category for a verb
  */
@@ -40,7 +41,7 @@ export declare function shortenId(id: string, length?: number): string;
 /**
  * Format an activity entry into a human-readable sentence
  */
-export declare function formatActivitySentence(entry: ActivityEntry): string;
+export declare function formatActivitySentence(entry: ActivityEntry, labels?: Record<string, string>): string;
 /**
  * Format a timestamp for display
  */
