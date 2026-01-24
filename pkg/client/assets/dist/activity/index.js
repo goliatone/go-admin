@@ -1,4 +1,4 @@
-const I = {
+const B = {
   // Created
   created: "created",
   added: "created",
@@ -38,14 +38,14 @@ const I = {
   read: "viewed",
   downloaded: "viewed",
   exported: "viewed"
-}, $ = {
+}, E = {
   created: "plus",
   updated: "edit-pencil",
   deleted: "trash",
   auth: "key",
   viewed: "eye",
   system: "settings"
-}, B = {
+}, L = {
   debug: "terminal",
   user: "user",
   users: "group",
@@ -74,27 +74,36 @@ const I = {
   content: "page-edit",
   repl: "terminal"
 };
-function A(e) {
+function I(e, t) {
+  if (!e) return "";
+  if (!t) return e;
+  const i = e.trim();
+  if (!i) return e;
+  const s = t[i];
+  return typeof s == "string" && s.trim() !== "" ? s : e;
+}
+function _(e, t) {
   if (!e)
     return { namespace: "", action: "", icon: "activity", category: "system" };
+  const i = I(e, t);
   if (e.includes(".")) {
-    const i = e.split("."), s = i[0].toLowerCase(), n = i.slice(1).join("."), o = B[s] || "activity", a = i[i.length - 1], d = b(a);
-    return { namespace: s, action: n, icon: o, category: d };
+    const o = e.split("."), a = o[0].toLowerCase(), r = o.slice(1).join("."), d = L[a] || "activity", u = o[o.length - 1], l = v(u);
+    return { namespace: a, action: i !== e ? i : r, icon: d, category: l };
   }
-  const t = b(e);
+  const s = v(e);
   return {
     namespace: "",
-    action: e,
-    icon: $[t],
-    category: t
+    action: i !== e ? i : e,
+    icon: E[s],
+    category: s
   };
 }
-function b(e) {
+function v(e) {
   if (!e) return "system";
   const t = e.toLowerCase().trim().replace(/-/g, "_");
-  return I[t] || "system";
+  return B[t] || "system";
 }
-function _(e) {
+function k(e) {
   if (!e) return { type: "", id: "" };
   if (!e.includes(":"))
     return { type: e, id: "" };
@@ -104,75 +113,75 @@ function _(e) {
     id: e.substring(t + 1)
   };
 }
-function k(e) {
+function N(e) {
   return e ? e.charAt(0).toUpperCase() + e.slice(1) : "";
 }
-function w(e) {
-  return e ? e.split(/[_-]/).map(k).join(" ") : "";
+function $(e) {
+  return e ? e.split(/[_-]/).map(N).join(" ") : "";
 }
-function r(e) {
+function c(e) {
   const t = document.createElement("div");
   return t.textContent = e, t.innerHTML;
 }
-function E(e, t = 7) {
+function A(e, t = 7) {
   if (!e) return "";
   const i = e.replace(/-/g, "");
   return /^[0-9a-f]{32}$/i.test(i) || e.length > t + 3 ? e.substring(0, t) : e;
 }
-function L(e) {
+function C(e) {
   const t = e.replace(/-/g, "");
   return /^[0-9a-f]{32}$/i.test(t);
 }
-function m(e, t = 8) {
+function y(e, t = 8) {
   if (!e) return "";
-  const i = E(e, t);
-  return i === e ? r(e) : `<span class="activity-id-short" title="${r(e)}" style="cursor: help; border-bottom: 1px dotted #9ca3af;">${r(i)}</span>`;
+  const i = A(e, t);
+  return i === e ? c(e) : `<span class="activity-id-short" title="${c(e)}" style="cursor: help; border-bottom: 1px dotted #9ca3af;">${c(i)}</span>`;
 }
-function N(e) {
-  const t = e.actor || "Unknown", i = e.action || "performed action on", { type: s, id: n } = _(e.object), o = L(t) ? m(t, 8) : `<strong>${r(t)}</strong>`;
-  let a = "";
-  if (s && n) {
-    const c = m(n, 8);
-    a = `${w(s)} #${c}`;
-  } else s ? a = w(s) : n && (a = `#${m(n, 8)}`);
-  if (b(i) === "auth") {
-    const c = e.metadata?.ip || e.metadata?.IP;
-    return c ? `${o} ${r(i)} from ${r(String(c))}` : `${o} ${r(i)}`;
+function T(e, t) {
+  const i = e.actor || "Unknown", s = e.action || "performed action on", n = I(s, t), { type: o, id: a } = k(e.object), r = C(i) ? y(i, 8) : `<strong>${c(i)}</strong>`;
+  let d = "";
+  if (o && a) {
+    const l = y(a, 8);
+    d = `${$(o)} #${l}`;
+  } else o ? d = $(o) : a && (d = `#${y(a, 8)}`);
+  if (v(s) === "auth") {
+    const l = e.metadata?.ip || e.metadata?.IP;
+    return l ? `${r} ${c(n)} from ${c(String(l))}` : `${r} ${c(n)}`;
   }
-  return a ? `${o} ${r(i)} <strong>${a}</strong>` : `${o} ${r(i)}`;
+  return d ? `${r} ${c(n)} <strong>${d}</strong>` : `${r} ${c(n)}`;
 }
-function C(e) {
+function M(e) {
   if (!e) return "-";
   const t = new Date(e);
   return Number.isNaN(t.getTime()) ? e : t.toLocaleString();
 }
-function T(e) {
+function O(e) {
   if (!e) return "";
   const t = new Date(e);
   if (Number.isNaN(t.getTime())) return e;
-  const s = (/* @__PURE__ */ new Date()).getTime() - t.getTime(), n = Math.floor(s / 1e3), o = Math.floor(n / 60), a = Math.floor(o / 60), d = Math.floor(a / 24);
-  return n < 60 ? "just now" : o < 60 ? `${o}m ago` : a < 24 ? `${a}h ago` : d < 7 ? `${d}d ago` : t.toLocaleDateString();
-}
-function M(e) {
-  return !e || typeof e != "object" ? 0 : Object.keys(e).length;
-}
-function O(e) {
-  const t = M(e);
-  return t === 0 ? "" : t === 1 ? "1 field" : `${t} fields`;
+  const s = (/* @__PURE__ */ new Date()).getTime() - t.getTime(), n = Math.floor(s / 1e3), o = Math.floor(n / 60), a = Math.floor(o / 60), r = Math.floor(a / 24);
+  return n < 60 ? "just now" : o < 60 ? `${o}m ago` : a < 24 ? `${a}h ago` : r < 7 ? `${r}d ago` : t.toLocaleDateString();
 }
 function j(e) {
+  return !e || typeof e != "object" ? 0 : Object.keys(e).length;
+}
+function D(e) {
+  const t = j(e);
+  return t === 0 ? "" : t === 1 ? "1 field" : `${t} fields`;
+}
+function q(e) {
   if (!e || typeof e != "object") return "";
   const t = Object.entries(e);
   return t.length === 0 ? "" : t.map(([s, n]) => {
-    const o = r(s);
+    const o = c(s);
     let a;
     if (s.endsWith("_old") || s.endsWith("_new"))
-      a = r(S(n));
+      a = c(S(n));
     else if (typeof n == "object" && n !== null) {
-      const d = JSON.stringify(n), c = d.length > 50 ? d.substring(0, 50) + "..." : d;
-      a = `<code style="font-size: 10px; background: #e5e7eb; padding: 2px 4px; border-radius: 3px; word-break: break-all;">${r(c)}</code>`;
+      const r = JSON.stringify(n), d = r.length > 50 ? r.substring(0, 50) + "..." : r;
+      a = `<code style="font-size: 10px; background: #e5e7eb; padding: 2px 4px; border-radius: 3px; word-break: break-all;">${c(d)}</code>`;
     } else
-      a = r(S(n));
+      a = c(S(n));
     return `
       <div style="display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f3f4f6;">
         <span style="color: #6b7280; font-size: 11px; flex-shrink: 0; max-width: 80px; overflow: hidden; text-overflow: ellipsis;">${o}</span>
@@ -184,16 +193,16 @@ function j(e) {
 function S(e) {
   return e == null ? "-" : typeof e == "boolean" ? e ? "Yes" : "No" : typeof e == "number" ? String(e) : typeof e == "string" ? e.length > 100 ? e.substring(0, 100) + "..." : e : JSON.stringify(e);
 }
-function D(e) {
-  return e ? E(e, 7) : "";
+function z(e) {
+  return e ? A(e, 7) : "";
 }
-function P(e) {
+function F(e) {
   return `activity-action--${e}`;
 }
-function R(e) {
-  return `<i class="iconoir-${$[e]} activity-action-icon"></i>`;
+function H(e) {
+  return `<i class="iconoir-${E[e]} activity-action-icon"></i>`;
 }
-const q = {
+const P = {
   form: "#activity-filters",
   tableBody: "#activity-table-body",
   emptyState: "#activity-empty",
@@ -205,8 +214,8 @@ const q = {
   refreshBtn: "#activity-refresh",
   clearBtn: "#activity-clear",
   limitInput: "#filter-limit"
-}, g = ["q", "verb", "channels", "object_type", "object_id"], y = ["since", "until"], z = ["user_id", "actor_id"];
-class F {
+}, b = ["q", "verb", "channels", "object_type", "object_id"], x = ["since", "until"], R = ["user_id", "actor_id"];
+class V {
   constructor(t, i = {}, s) {
     this.form = null, this.tableBody = null, this.emptyState = null, this.disabledState = null, this.errorState = null, this.countEl = null, this.prevBtn = null, this.nextBtn = null, this.refreshBtn = null, this.clearBtn = null, this.limitInput = null, this.state = {
       limit: 50,
@@ -215,7 +224,7 @@ class F {
       nextOffset: 0,
       hasMore: !1,
       extraParams: {}
-    }, this.config = t, this.selectors = { ...q, ...i }, this.toast = s || window.toastManager || null;
+    }, this.config = t, this.selectors = { ...P, ...i }, this.toast = s || window.toastManager || null;
   }
   /**
    * Initialize the activity manager
@@ -230,7 +239,7 @@ class F {
     this.form?.addEventListener("submit", (t) => {
       t.preventDefault(), this.state.limit = parseInt(this.limitInput?.value || "50", 10) || 50, this.state.offset = 0, this.loadActivity();
     }), this.clearBtn?.addEventListener("click", () => {
-      g.forEach((t) => this.setInputValue(t, "")), y.forEach((t) => this.setInputValue(t, "")), this.state.offset = 0, this.loadActivity();
+      b.forEach((t) => this.setInputValue(t, "")), x.forEach((t) => this.setInputValue(t, "")), this.state.offset = 0, this.loadActivity();
     }), this.prevBtn?.addEventListener("click", () => {
       this.state.offset = Math.max(0, this.state.offset - this.state.limit), this.loadActivity();
     }), this.nextBtn?.addEventListener("click", () => {
@@ -261,17 +270,17 @@ class F {
   }
   syncFromQuery() {
     const t = new URLSearchParams(window.location.search), i = parseInt(t.get("limit") || "", 10), s = parseInt(t.get("offset") || "", 10);
-    !Number.isNaN(i) && i > 0 && (this.state.limit = i), !Number.isNaN(s) && s >= 0 && (this.state.offset = s), this.limitInput && (this.limitInput.value = String(this.state.limit)), g.forEach((n) => this.setInputValue(n, t.get(n) || "")), y.forEach((n) => this.setInputValue(n, this.toLocalInput(t.get(n) || ""))), z.forEach((n) => {
+    !Number.isNaN(i) && i > 0 && (this.state.limit = i), !Number.isNaN(s) && s >= 0 && (this.state.offset = s), this.limitInput && (this.limitInput.value = String(this.state.limit)), b.forEach((n) => this.setInputValue(n, t.get(n) || "")), x.forEach((n) => this.setInputValue(n, this.toLocalInput(t.get(n) || ""))), R.forEach((n) => {
       const o = t.get(n);
       o && (this.state.extraParams[n] = o);
     });
   }
   buildParams() {
     const t = new URLSearchParams();
-    return t.set("limit", String(this.state.limit)), t.set("offset", String(this.state.offset)), g.forEach((i) => {
+    return t.set("limit", String(this.state.limit)), t.set("offset", String(this.state.offset)), b.forEach((i) => {
       const s = this.getInputValue(i);
       s && t.set(i, s);
-    }), y.forEach((i) => {
+    }), x.forEach((i) => {
       const s = this.toRFC3339(this.getInputValue(i));
       s && t.set(i, s);
     }), Object.entries(this.state.extraParams).forEach(([i, s]) => {
@@ -331,48 +340,48 @@ class F {
     }
   }
   createRow(t) {
-    const i = A(t.action), s = N(t), n = C(t.created_at), o = T(t.created_at), a = O(t.metadata), d = j(t.metadata), c = D(t.channel), x = {
+    const i = this.config.actionLabels || {}, s = _(t.action, i), n = T(t, i), o = M(t.created_at), a = O(t.created_at), r = D(t.metadata), d = q(t.metadata), u = z(t.channel), l = {
       created: { bg: "#ecfdf5", color: "#10b981", border: "#a7f3d0" },
       updated: { bg: "#eff6ff", color: "#3b82f6", border: "#bfdbfe" },
       deleted: { bg: "#fef2f2", color: "#ef4444", border: "#fecaca" },
       auth: { bg: "#fffbeb", color: "#f59e0b", border: "#fde68a" },
       viewed: { bg: "#f5f3ff", color: "#8b5cf6", border: "#ddd6fe" },
       system: { bg: "#f9fafb", color: "#6b7280", border: "#e5e7eb" }
-    }, l = x[i.category] || x.system, f = document.createElement("tr");
-    f.className = `activity-row activity-row--${i.category}`;
-    let u = "";
-    i.namespace ? u = `
+    }, f = l[s.category] || l.system, p = document.createElement("tr");
+    p.className = `activity-row activity-row--${s.category}`;
+    let h = "";
+    s.namespace ? h = `
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f3f4f6; border-radius: 6px; color: #6b7280;" title="${r(i.namespace)}">
-            <i class="iconoir-${i.icon}" style="font-size: 14px;"></i>
+          <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f3f4f6; border-radius: 6px; color: #6b7280;" title="${c(s.namespace)}">
+            <i class="iconoir-${s.icon}" style="font-size: 14px;"></i>
           </span>
-          <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${l.bg}; color: ${l.color}; border: 1px solid ${l.border};">
-            ${r(i.action)}
+          <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${f.bg}; color: ${f.color}; border: 1px solid ${f.border};">
+            ${c(s.action)}
           </span>
         </div>
-      ` : u = `
-        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${l.bg}; color: ${l.color}; border: 1px solid ${l.border};">
-          <i class="iconoir-${i.icon}" style="font-size: 14px;"></i>
-          <span>${r(i.action || "-")}</span>
+      ` : h = `
+        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${f.bg}; color: ${f.color}; border: 1px solid ${f.border};">
+          <i class="iconoir-${s.icon}" style="font-size: 14px;"></i>
+          <span>${c(s.action || "-")}</span>
         </span>
       `;
-    let p = "";
-    if (a) {
-      const v = `metadata-${t.id}`;
-      p = `
+    let m = "";
+    if (r) {
+      const w = `metadata-${t.id}`;
+      m = `
         <div class="activity-metadata">
           <button type="button"
                   class="activity-metadata-toggle"
                   style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;"
                   aria-expanded="false"
-                  aria-controls="${v}"
+                  aria-controls="${w}"
                   data-metadata-toggle="${t.id}">
-            <span>${a}</span>
+            <span>${r}</span>
             <svg style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </button>
-          <div id="${v}"
+          <div id="${w}"
                class="activity-metadata-content"
                style="display: none; margin-top: 8px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; max-width: 320px;"
                data-expanded="false"
@@ -382,24 +391,24 @@ class F {
         </div>
       `;
     } else
-      p = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
-    let h = "";
-    return t.channel ? h = `
-        <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 11px; font-weight: 500; font-family: ui-monospace, monospace; color: #6b7280; background: #f3f4f6; border-radius: 4px; cursor: default;" title="${r(t.channel)}">
-          ${r(c)}
+      m = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
+    let g = "";
+    return t.channel ? g = `
+        <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 11px; font-weight: 500; font-family: ui-monospace, monospace; color: #6b7280; background: #f3f4f6; border-radius: 4px; cursor: default;" title="${c(t.channel)}">
+          ${c(u)}
         </span>
-      ` : h = '<span style="color: #9ca3af; font-size: 12px;">-</span>', f.innerHTML = `
-      <td style="padding: 12px 16px; vertical-align: middle; border-left: 3px solid ${l.color};">
-        <div style="font-size: 13px; color: #374151; white-space: nowrap;">${n}</div>
-        <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">${o}</div>
+      ` : g = '<span style="color: #9ca3af; font-size: 12px;">-</span>', p.innerHTML = `
+      <td style="padding: 12px 16px; vertical-align: middle; border-left: 3px solid ${f.color};">
+        <div style="font-size: 13px; color: #374151; white-space: nowrap;">${o}</div>
+        <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">${a}</div>
       </td>
-      <td style="padding: 12px 16px; vertical-align: middle;">${u}</td>
+      <td style="padding: 12px 16px; vertical-align: middle;">${h}</td>
       <td style="padding: 12px 16px; vertical-align: middle;">
-        <div style="font-size: 13px; line-height: 1.5; color: #374151;">${s}</div>
+        <div style="font-size: 13px; line-height: 1.5; color: #374151;">${n}</div>
       </td>
-      <td style="padding: 12px 16px; vertical-align: middle; text-align: center;">${h}</td>
-      <td style="padding: 12px 16px; vertical-align: middle;">${p}</td>
-    `, f;
+      <td style="padding: 12px 16px; vertical-align: middle; text-align: center;">${g}</td>
+      <td style="padding: 12px 16px; vertical-align: middle;">${m}</td>
+    `, p;
   }
   wireMetadataToggles() {
     document.querySelectorAll("[data-metadata-toggle]").forEach((i) => {
@@ -408,8 +417,8 @@ class F {
         if (!n) return;
         const a = !(n.dataset.expanded === "true");
         n.dataset.expanded = a ? "true" : "false", n.style.display = a ? "block" : "none", i.setAttribute("aria-expanded", a ? "true" : "false");
-        const d = i.querySelector(".activity-metadata-chevron");
-        d && (d.style.transform = a ? "rotate(180deg)" : "rotate(0deg)");
+        const r = i.querySelector(".activity-metadata-chevron");
+        r && (r.style.transform = a ? "rotate(180deg)" : "rotate(0deg)");
       });
     });
   }
@@ -419,22 +428,23 @@ class F {
   }
 }
 export {
-  $ as ACTION_ICONS,
-  F as ActivityManager,
-  B as NAMESPACE_ICONS,
-  M as countMetadataFields,
-  r as escapeHtml,
-  N as formatActivitySentence,
-  D as formatChannel,
-  j as formatMetadataExpanded,
-  T as formatRelativeTime,
-  C as formatTimestamp,
-  b as getActionCategory,
-  P as getActionClass,
-  R as getActionIconHtml,
-  O as getMetadataSummary,
-  A as parseActionString,
-  _ as parseObject,
-  E as shortenId
+  E as ACTION_ICONS,
+  V as ActivityManager,
+  L as NAMESPACE_ICONS,
+  j as countMetadataFields,
+  c as escapeHtml,
+  T as formatActivitySentence,
+  z as formatChannel,
+  q as formatMetadataExpanded,
+  O as formatRelativeTime,
+  M as formatTimestamp,
+  v as getActionCategory,
+  F as getActionClass,
+  H as getActionIconHtml,
+  D as getMetadataSummary,
+  _ as parseActionString,
+  k as parseObject,
+  I as resolveActionLabel,
+  A as shortenId
 };
 //# sourceMappingURL=index.js.map
