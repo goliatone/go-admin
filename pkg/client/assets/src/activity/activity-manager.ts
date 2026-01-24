@@ -291,15 +291,18 @@ export class ActivityManager {
     this.emptyState?.classList.add('hidden');
 
     entries.forEach((entry) => {
-      const row = this.createRow(entry);
-      this.tableBody!.appendChild(row);
+      const { mainRow, detailsRow } = this.createRowPair(entry);
+      this.tableBody!.appendChild(mainRow);
+      if (detailsRow) {
+        this.tableBody!.appendChild(detailsRow);
+      }
     });
 
     // Wire up metadata toggles
     this.wireMetadataToggles();
   }
 
-  private createRow(entry: ActivityEntry): HTMLTableRowElement {
+  private createRowPair(entry: ActivityEntry): { mainRow: HTMLTableRowElement; detailsRow: HTMLTableRowElement | null } {
     const actionLabels = this.config.actionLabels || {};
     const parsedAction = parseActionString(entry.action, actionLabels);
     const sentence = formatActivitySentence(entry, actionLabels);
@@ -320,8 +323,8 @@ export class ActivityManager {
     };
     const colors = categoryColors[parsedAction.category] || categoryColors.system;
 
-    const row = document.createElement('tr');
-    row.className = `activity-row activity-row--${parsedAction.category}`;
+    const mainRow = document.createElement('tr');
+    mainRow.className = `activity-row activity-row--${parsedAction.category}`;
 
     // Build action cell with namespace icon and action badge
     let actionCellHtml = '';
@@ -347,36 +350,6 @@ export class ActivityManager {
       `;
     }
 
-    // Build metadata cell HTML
-    let metadataCellHtml = '';
-    if (metadataSummary) {
-      const entryId = `metadata-${entry.id}`;
-      metadataCellHtml = `
-        <div class="activity-metadata">
-          <button type="button"
-                  class="activity-metadata-toggle"
-                  style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;"
-                  aria-expanded="false"
-                  aria-controls="${entryId}"
-                  data-metadata-toggle="${entry.id}">
-            <span>${metadataSummary}</span>
-            <svg style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div id="${entryId}"
-               class="activity-metadata-content"
-               style="display: none; margin-top: 8px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; max-width: 320px;"
-               data-expanded="false"
-               data-metadata-content="${entry.id}">
-            ${metadataContent}
-          </div>
-        </div>
-      `;
-    } else {
-      metadataCellHtml = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
-    }
-
     // Build channel cell with shortened ID and copy tooltip
     let channelHtml = '';
     if (entry.channel) {
@@ -389,7 +362,26 @@ export class ActivityManager {
       channelHtml = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
     }
 
-    row.innerHTML = `
+    // Build metadata toggle button (if there's metadata)
+    let metadataCellHtml = '';
+    if (metadataSummary) {
+      metadataCellHtml = `
+        <button type="button"
+                class="activity-metadata-toggle"
+                style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;"
+                aria-expanded="false"
+                data-metadata-toggle="${entry.id}">
+          <span>${metadataSummary}</span>
+          <svg class="activity-metadata-chevron" style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+      `;
+    } else {
+      metadataCellHtml = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
+    }
+
+    mainRow.innerHTML = `
       <td style="padding: 12px 16px; vertical-align: middle; border-left: 3px solid ${colors.color};">
         <div style="font-size: 13px; color: #374151; white-space: nowrap;">${timestamp}</div>
         <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">${relativeTime}</div>
@@ -402,7 +394,25 @@ export class ActivityManager {
       <td style="padding: 12px 16px; vertical-align: middle;">${metadataCellHtml}</td>
     `;
 
-    return row;
+    // Create details row (hidden by default) if there's metadata
+    let detailsRow: HTMLTableRowElement | null = null;
+    if (metadataSummary) {
+      detailsRow = document.createElement('tr');
+      detailsRow.className = 'activity-details-row';
+      detailsRow.style.display = 'none';
+      detailsRow.dataset.metadataContent = entry.id;
+      detailsRow.innerHTML = `
+        <td colspan="5" style="padding: 0; background: #f9fafb; border-left: 3px solid ${colors.color};">
+          <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px;">
+              ${metadataContent}
+            </div>
+          </div>
+        </td>
+      `;
+    }
+
+    return { mainRow, detailsRow };
   }
 
   private wireMetadataToggles(): void {
@@ -411,15 +421,20 @@ export class ActivityManager {
     toggles.forEach((toggle) => {
       toggle.addEventListener('click', () => {
         const entryId = toggle.dataset.metadataToggle;
-        const content = document.querySelector<HTMLElement>(`[data-metadata-content="${entryId}"]`);
+        // Find the details row (separate tr element)
+        const detailsRow = document.querySelector<HTMLTableRowElement>(`tr[data-metadata-content="${entryId}"]`);
 
-        if (!content) return;
+        if (!detailsRow) return;
 
-        const isExpanded = content.dataset.expanded === 'true';
+        const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
         const newExpanded = !isExpanded;
-        content.dataset.expanded = newExpanded ? 'true' : 'false';
-        content.style.display = newExpanded ? 'block' : 'none';
+
+        // Toggle the details row visibility
+        detailsRow.style.display = newExpanded ? 'table-row' : 'none';
         toggle.setAttribute('aria-expanded', newExpanded ? 'true' : 'false');
+
+        // Update toggle button appearance
+        toggle.style.background = newExpanded ? '#e5e7eb' : '#f3f4f6';
 
         // Rotate chevron
         const chevron = toggle.querySelector<SVGElement>('.activity-metadata-chevron');

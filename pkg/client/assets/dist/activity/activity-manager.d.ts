@@ -38,7 +38,7 @@ export declare class ActivityManager {
     private showDisabled;
     loadActivity(): Promise<void>;
     private renderRows;
-    private createRow;
+    private createRowPair;
     private wireMetadataToggles;
     private updatePagination;
 }
