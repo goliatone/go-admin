@@ -25,48 +25,48 @@ func seedContentUUID(seed string) uuid.UUID {
 type PageRecord struct {
 	bun.BaseModel `bun:"table:admin_page_records,alias:pr" crud:"resource:page"`
 
-	ID              uuid.UUID  `json:"id" bun:"id,pk,type:uuid"`
-	ContentID       uuid.UUID  `json:"content_id" bun:"content_id,type:uuid"`
+	ID                 uuid.UUID  `json:"id" bun:"id,pk,type:uuid"`
+	ContentID          uuid.UUID  `json:"content_id" bun:"content_id,type:uuid"`
 	TranslationGroupID *uuid.UUID `json:"translation_group_id,omitempty" bun:"translation_group_id,type:uuid"`
-	TemplateID      uuid.UUID  `json:"template_id" bun:"template_id,type:uuid"`
-	Title           string     `json:"title" bun:"title"`
-	Slug            string     `json:"slug" bun:"slug"`
-	Path            string     `json:"path" bun:"path"`
-	Locale          string     `json:"locale" bun:"locale"`
-	Status          string     `json:"status" bun:"status"`
-	ParentID        *uuid.UUID `json:"parent_id,omitempty" bun:"parent_id"`
-	MetaTitle       string     `json:"meta_title,omitempty" bun:"meta_title"`
-	MetaDescription string     `json:"meta_description,omitempty" bun:"meta_description"`
-	Content         string     `json:"content,omitempty" bun:"content"`
-	Tags            []string   `json:"tags,omitempty" bun:"tags,type:jsonb"`
-	PreviewURL      string     `json:"preview_url,omitempty" bun:"preview_url"`
-	PublishedAt     *time.Time `json:"published_at,omitempty" bun:"published_at,nullzero"`
-	CreatedAt       *time.Time `json:"created_at,omitempty" bun:"created_at,nullzero,default:current_timestamp"`
-	UpdatedAt       *time.Time `json:"updated_at,omitempty" bun:"updated_at,nullzero,default:current_timestamp"`
+	TemplateID         uuid.UUID  `json:"template_id" bun:"template_id,type:uuid"`
+	Title              string     `json:"title" bun:"title"`
+	Slug               string     `json:"slug" bun:"slug"`
+	Path               string     `json:"path" bun:"path"`
+	Locale             string     `json:"locale" bun:"locale"`
+	Status             string     `json:"status" bun:"status"`
+	ParentID           *uuid.UUID `json:"parent_id,omitempty" bun:"parent_id"`
+	MetaTitle          string     `json:"meta_title,omitempty" bun:"meta_title"`
+	MetaDescription    string     `json:"meta_description,omitempty" bun:"meta_description"`
+	Content            string     `json:"content,omitempty" bun:"content"`
+	Tags               []string   `json:"tags,omitempty" bun:"tags,type:jsonb"`
+	PreviewURL         string     `json:"preview_url,omitempty" bun:"preview_url"`
+	PublishedAt        *time.Time `json:"published_at,omitempty" bun:"published_at,nullzero"`
+	CreatedAt          *time.Time `json:"created_at,omitempty" bun:"created_at,nullzero,default:current_timestamp"`
+	UpdatedAt          *time.Time `json:"updated_at,omitempty" bun:"updated_at,nullzero,default:current_timestamp"`
 }
 
 // PostRecord represents posts exposed via go-crud.
 type PostRecord struct {
 	bun.BaseModel `bun:"table:admin_post_records,alias:apr" crud:"resource:post"`
 
-	ID              uuid.UUID  `json:"id" bun:"id,pk,type:uuid"`
-	Title           string     `json:"title" bun:"title"`
-	Slug            string     `json:"slug" bun:"slug"`
-	Status          string     `json:"status" bun:"status"`
-	Locale          string     `json:"locale" bun:"locale"`
+	ID                 uuid.UUID  `json:"id" bun:"id,pk,type:uuid"`
+	Title              string     `json:"title" bun:"title"`
+	Slug               string     `json:"slug" bun:"slug"`
+	Status             string     `json:"status" bun:"status"`
+	Locale             string     `json:"locale" bun:"locale"`
 	TranslationGroupID *uuid.UUID `json:"translation_group_id,omitempty" bun:"translation_group_id,type:uuid"`
-	Path            string     `json:"path" bun:"path"`
-	Author          string     `json:"author,omitempty" bun:"author"`
-	Excerpt         string     `json:"excerpt,omitempty" bun:"excerpt"`
-	Content         string     `json:"content,omitempty" bun:"content"`
-	Category        string     `json:"category,omitempty" bun:"category"`
-	FeaturedImage   string     `json:"featured_image,omitempty" bun:"featured_image"`
-	Tags            []string   `json:"tags,omitempty" bun:"tags,type:jsonb"`
-	MetaTitle       string     `json:"meta_title,omitempty" bun:"meta_title"`
-	MetaDescription string     `json:"meta_description,omitempty" bun:"meta_description"`
-	PublishedAt     *time.Time `json:"published_at,omitempty" bun:"published_at,nullzero"`
-	CreatedAt       *time.Time `json:"created_at,omitempty" bun:"created_at,nullzero,default:current_timestamp"`
-	UpdatedAt       *time.Time `json:"updated_at,omitempty" bun:"updated_at,nullzero,default:current_timestamp"`
+	Path               string     `json:"path" bun:"path"`
+	Author             string     `json:"author,omitempty" bun:"author"`
+	Excerpt            string     `json:"excerpt,omitempty" bun:"excerpt"`
+	Content            string     `json:"content,omitempty" bun:"content"`
+	Category           string     `json:"category,omitempty" bun:"category"`
+	FeaturedImage      string     `json:"featured_image,omitempty" bun:"featured_image"`
+	Tags               []string   `json:"tags,omitempty" bun:"tags,type:jsonb"`
+	MetaTitle          string     `json:"meta_title,omitempty" bun:"meta_title"`
+	MetaDescription    string     `json:"meta_description,omitempty" bun:"meta_description"`
+	PublishedAt        *time.Time `json:"published_at,omitempty" bun:"published_at,nullzero"`
+	CreatedAt          *time.Time `json:"created_at,omitempty" bun:"created_at,nullzero,default:current_timestamp"`
+	UpdatedAt          *time.Time `json:"updated_at,omitempty" bun:"updated_at,nullzero,default:current_timestamp"`
 }
 
 // MediaRecord represents media assets in go-crud responses.
