@@ -16,6 +16,7 @@ type Config struct {
 	ThemeVariant     string
 	ThemeTokens      map[string]string
 	ThemeAssetPrefix string
+	PreviewSecret    string
 	CMSConfig        any
 	CMS              CMSOptions
 	Debug            DebugConfig
@@ -33,6 +34,7 @@ type Config struct {
 	NotificationsPermission           string
 	NotificationsUpdatePermission     string
 	ActivityPermission                string
+	ActivityActionLabels              map[string]string
 	JobsPermission                    string
 	JobsTriggerPermission             string
 	PreferencesPermission             string
@@ -66,6 +68,7 @@ type Config struct {
 
 	FeatureFlagKeys    []string
 	FeatureCatalogPath string
+	EnablePublicAPI    bool
 }
 
 // URLConfig controls admin URL generation defaults.
