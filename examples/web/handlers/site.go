@@ -109,12 +109,38 @@ func (h *SiteHandlers) Page(c router.Context) error {
 			WithCode(goerrors.CodeInternal).
 			WithTextCode("CMS_UNAVAILABLE")
 	}
+
+	// Handle preview token if present
+	previewToken := c.Query("preview_token")
+	var previewData *admin.PreviewToken
+	if previewToken != "" && h.Admin != nil {
+		if previewSvc := h.Admin.Preview(); previewSvc != nil {
+			if token, err := previewSvc.Validate(previewToken); err == nil {
+				previewData = token
+			}
+		}
+	}
+
 	path := normalizeSitePath(c.Path())
 	if h.shouldSkip(path) {
 		return goerrors.New("not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
 	}
 	locale := h.localeFromRequest(c)
-	page, err := h.resolvePage(c.Context(), path, locale)
+
+	var page *sitePage
+	var err error
+
+	if previewData != nil && previewData.EntityType == "pages" {
+		record, _ := h.Pages.Get(c.Context(), previewData.ContentID)
+		if record != nil {
+			page = mapToSitePage(record)
+		}
+	}
+
+	if page == nil {
+		page, err = h.resolvePage(c.Context(), path, locale)
+	}
+
 	if err != nil {
 		if errors.Is(err, admin.ErrNotFound) {
 			return goerrors.New("page not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
@@ -129,6 +155,7 @@ func (h *SiteHandlers) Page(c router.Context) error {
 		"base_path":      h.AssetBasePath,
 		"active_path":    path,
 		"default_locale": h.DefaultLocale,
+		"is_preview":     previewData != nil,
 	}
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("site/page", viewCtx)

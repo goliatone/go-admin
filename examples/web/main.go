@@ -35,6 +35,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-export/export"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	"github.com/goliatone/go-i18n"
 	persistence "github.com/goliatone/go-persistence-bun"
 	"github.com/goliatone/go-router"
 	gotheme "github.com/goliatone/go-theme"
@@ -61,6 +62,15 @@ func main() {
 			"accent":  "#f59e0b",
 		}),
 	)
+	cfg.EnablePublicAPI = true
+	if value, ok := os.LookupEnv("ADMIN_PUBLIC_API"); ok {
+		if parsed, err := strconv.ParseBool(strings.TrimSpace(value)); err == nil {
+			cfg.EnablePublicAPI = parsed
+		}
+	}
+	if value := strings.TrimSpace(os.Getenv("ADMIN_PREVIEW_SECRET")); value != "" {
+		cfg.PreviewSecret = value
+	}
 	cfg.URLs.APIVersion = "v0"
 	if value, ok := os.LookupEnv("ADMIN_API_VERSION"); ok {
 		cfg.URLs.APIVersion = strings.TrimSpace(value)
@@ -376,8 +386,43 @@ func main() {
 	}
 
 	// Setup translator
-	translator := helpers.NewSimpleTranslator()
+	i18nStore := i18n.NewStaticStore(map[string]map[string]string{
+		"en": {
+			"menu.content":       "Content",
+			"menu.content.pages": "Pages",
+			"menu.content.posts": "Posts",
+			"menu.media":         "Media",
+			"menu.users":         "Users",
+			"menu.roles":         "Roles",
+			"menu.dashboard":     "Dashboard",
+		},
+	})
+	translator, _ := i18n.NewSimpleTranslator(i18nStore, i18n.WithTranslatorDefaultLocale(defaultLocale))
 	adm.WithTranslator(translator)
+
+	// Setup workflow engine
+	workflow := coreadmin.NewSimpleWorkflowEngine()
+	workflow.RegisterWorkflow("pages", coreadmin.WorkflowDefinition{
+		EntityType:   "pages",
+		InitialState: "draft",
+		Transitions: []coreadmin.WorkflowTransition{
+			{Name: "request_approval", Description: "Submit for review", From: "draft", To: "pending_approval"},
+			{Name: "approve", Description: "Approve content", From: "pending_approval", To: "published"},
+			{Name: "reject", Description: "Reject content", From: "pending_approval", To: "draft"},
+			{Name: "unpublish", Description: "Move back to draft", From: "published", To: "draft"},
+		},
+	})
+	workflow.RegisterWorkflow("posts", coreadmin.WorkflowDefinition{
+		EntityType:   "posts",
+		InitialState: "draft",
+		Transitions: []coreadmin.WorkflowTransition{
+			{Name: "request_approval", Description: "Submit for review", From: "draft", To: "pending_approval"},
+			{Name: "approve", Description: "Approve content", From: "pending_approval", To: "published"},
+			{Name: "reject", Description: "Reject content", From: "pending_approval", To: "draft"},
+			{Name: "archive", Description: "Archive post", From: "published", To: "archived"},
+		},
+	})
+	adm.WithWorkflow(workflow)
 
 	// Allow dev workflows to fully rebuild navigation even when we're not running the
 	// explicit seed path. Navigation is seeded once modules are assembled so we can

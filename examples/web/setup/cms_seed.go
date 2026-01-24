@@ -99,30 +99,32 @@ type pageRow struct {
 type contentTranslationRow struct {
 	bun.BaseModel `bun:"table:content_translations,alias:ct"`
 
-	ID        uuid.UUID      `bun:",pk,type:uuid"`
-	ContentID uuid.UUID      `bun:"content_id,notnull,type:uuid"`
-	LocaleID  uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
-	Title     string         `bun:"title,notnull"`
-	Summary   *string        `bun:"summary"`
-	Content   map[string]any `bun:"content,type:jsonb,notnull"`
-	CreatedAt time.Time      `bun:"created_at"`
-	UpdatedAt time.Time      `bun:"updated_at"`
+	ID                 uuid.UUID      `bun:",pk,type:uuid"`
+	ContentID          uuid.UUID      `bun:"content_id,notnull,type:uuid"`
+	LocaleID           uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
+	TranslationGroupID *uuid.UUID     `bun:"translation_group_id,type:uuid"`
+	Title              string         `bun:"title,notnull"`
+	Summary            *string        `bun:"summary"`
+	Content            map[string]any `bun:"content,type:jsonb,notnull"`
+	CreatedAt          time.Time      `bun:"created_at"`
+	UpdatedAt          time.Time      `bun:"updated_at"`
 }
 
 type pageTranslationRow struct {
 	bun.BaseModel `bun:"table:page_translations,alias:pt"`
 
-	ID             uuid.UUID      `bun:",pk,type:uuid"`
-	PageID         uuid.UUID      `bun:"page_id,notnull,type:uuid"`
-	LocaleID       uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
-	Title          string         `bun:"title,notnull"`
-	Path           string         `bun:"path,notnull"`
-	SEOTitle       *string        `bun:"seo_title"`
-	SEODescription *string        `bun:"seo_description"`
-	Summary        *string        `bun:"summary"`
-	MediaBindings  map[string]any `bun:"media_bindings,type:jsonb"`
-	CreatedAt      time.Time      `bun:"created_at"`
-	UpdatedAt      time.Time      `bun:"updated_at"`
+	ID                 uuid.UUID      `bun:",pk,type:uuid"`
+	PageID             uuid.UUID      `bun:"page_id,notnull,type:uuid"`
+	LocaleID           uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
+	TranslationGroupID *uuid.UUID     `bun:"translation_group_id,type:uuid"`
+	Title              string         `bun:"title,notnull"`
+	Path               string         `bun:"path,notnull"`
+	SEOTitle           *string        `bun:"seo_title"`
+	SEODescription     *string        `bun:"seo_description"`
+	Summary            *string        `bun:"summary"`
+	MediaBindings      map[string]any `bun:"media_bindings,type:jsonb"`
+	CreatedAt          time.Time      `bun:"created_at"`
+	UpdatedAt          time.Time      `bun:"updated_at"`
 }
 
 type contentSeed struct {
@@ -698,6 +700,7 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 			ID:        uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":"+code)),
 			ContentID: contentID,
 			LocaleID:  loc.ID,
+			TranslationGroupID: &contentID,
 			Title:     seed.Title,
 			Content:   payload,
 			CreatedAt: now,
@@ -713,6 +716,7 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 			Set("title = EXCLUDED.title").
 			Set("summary = EXCLUDED.summary").
 			Set("content = EXCLUDED.content").
+			Set("translation_group_id = EXCLUDED.translation_group_id").
 			Set("updated_at = EXCLUDED.updated_at").
 			Exec(ctx); err != nil {
 			return fmt.Errorf("seed content translation %s: %w", seed.Slug, err)
@@ -741,6 +745,7 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 			ID:            uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":page:"+code)),
 			PageID:        pageID,
 			LocaleID:      loc.ID,
+			TranslationGroupID: &pageID,
 			Title:         seed.Title,
 			Path:          path,
 			MediaBindings: map[string]any{},
@@ -766,6 +771,7 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 			Set("seo_title = EXCLUDED.seo_title").
 			Set("seo_description = EXCLUDED.seo_description").
 			Set("media_bindings = EXCLUDED.media_bindings").
+			Set("translation_group_id = EXCLUDED.translation_group_id").
 			Set("updated_at = EXCLUDED.updated_at").
 			Exec(ctx); err != nil {
 			return fmt.Errorf("seed page translation %s: %w", seed.Slug, err)
