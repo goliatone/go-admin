@@ -130,6 +130,6 @@ func (f featureGateStub) Enabled(_ context.Context, key string, _ ...fggate.Reso
 
 type noopTranslator struct{}
 
-func (noopTranslator) Translate(key, locale string) string {
-	return key + ":" + locale
+func (noopTranslator) Translate(locale, key string, args ...any) (string, error) {
+	return key + ":" + locale, nil
 }

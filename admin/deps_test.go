@@ -44,7 +44,8 @@ func TestNewAppliesDependencyDefaults(t *testing.T) {
 	if adm.activity == nil {
 		t.Fatalf("expected activity sink default")
 	}
-	if adm.translator == nil || adm.translator.Translate("key", "en") != "key" {
+	res, _ := adm.translator.Translate("en", "key")
+	if adm.translator == nil || res != "key" {
 		t.Fatalf("expected noop translator default")
 	}
 }
