@@ -62,6 +62,9 @@ func main() {
 			"accent":  "#f59e0b",
 		}),
 	)
+	cfg.ActivityActionLabels = map[string]string{
+		"debug.repl.eval": "Execute REPL",
+	}
 	cfg.EnablePublicAPI = true
 	if value, ok := os.LookupEnv("ADMIN_PUBLIC_API"); ok {
 		if parsed, err := strconv.ParseBool(strings.TrimSpace(value)); err == nil {
@@ -386,15 +389,29 @@ func main() {
 	}
 
 	// Setup translator
-	i18nStore := i18n.NewStaticStore(map[string]map[string]string{
+	makeMessage := func(locale, id, template string) i18n.Message {
+		return i18n.Message{
+			MessageMetadata: i18n.MessageMetadata{
+				ID:     id,
+				Locale: locale,
+			},
+			Variants: map[i18n.PluralCategory]i18n.MessageVariant{
+				i18n.PluralOther: {Template: template},
+			},
+		}
+	}
+	i18nStore := i18n.NewStaticStore(i18n.Translations{
 		"en": {
-			"menu.content":       "Content",
-			"menu.content.pages": "Pages",
-			"menu.content.posts": "Posts",
-			"menu.media":         "Media",
-			"menu.users":         "Users",
-			"menu.roles":         "Roles",
-			"menu.dashboard":     "Dashboard",
+			Locale: i18n.Locale{Code: "en"},
+			Messages: map[string]i18n.Message{
+				"menu.content":       makeMessage("en", "menu.content", "Content"),
+				"menu.content.pages": makeMessage("en", "menu.content.pages", "Pages"),
+				"menu.content.posts": makeMessage("en", "menu.content.posts", "Posts"),
+				"menu.media":         makeMessage("en", "menu.media", "Media"),
+				"menu.users":         makeMessage("en", "menu.users", "Users"),
+				"menu.roles":         makeMessage("en", "menu.roles", "Roles"),
+				"menu.dashboard":     makeMessage("en", "menu.dashboard", "Dashboard"),
+			},
 		},
 	})
 	translator, _ := i18n.NewSimpleTranslator(i18nStore, i18n.WithTranslatorDefaultLocale(defaultLocale))
