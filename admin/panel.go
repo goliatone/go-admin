@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"strings"
 
 	crud "github.com/goliatone/go-crud"
 )
@@ -27,6 +28,7 @@ type PanelBuilder struct {
 	commandBus   *CommandBus
 	activity     ActivitySink
 	workflow     WorkflowEngine
+	workflowAuth WorkflowAuthorizer
 }
 
 // Panel represents a registered panel.
@@ -49,6 +51,7 @@ type Panel struct {
 	commandBus   *CommandBus
 	activity     ActivitySink
 	workflow     WorkflowEngine
+	workflowAuth WorkflowAuthorizer
 }
 
 // Repository provides CRUD operations for panel data.
@@ -126,9 +129,15 @@ type PanelHooks struct {
 	BeforeCreate func(ctx AdminContext, record map[string]any) error
 	AfterCreate  func(ctx AdminContext, record map[string]any) error
 	BeforeUpdate func(ctx AdminContext, record map[string]any) error
+	BeforeUpdateWithID func(ctx AdminContext, id string, record map[string]any) error
 	AfterUpdate  func(ctx AdminContext, record map[string]any) error
 	BeforeDelete func(ctx AdminContext, id string) error
 	AfterDelete  func(ctx AdminContext, id string) error
+}
+
+// WorkflowAuthorizer optionally guards workflow transitions.
+type WorkflowAuthorizer interface {
+	CanTransition(ctx context.Context, input TransitionInput) bool
 }
 
 // Schema renders list/form/detail schema descriptions.
@@ -279,10 +288,20 @@ func (b *PanelBuilder) WithWorkflow(w WorkflowEngine) *PanelBuilder {
 	return b
 }
 
+// WithWorkflowAuthorizer attaches a workflow authorizer to the panel.
+func (b *PanelBuilder) WithWorkflowAuthorizer(auth WorkflowAuthorizer) *PanelBuilder {
+	b.workflowAuth = auth
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
 		return nil, errors.New("repository required")
+	}
+	if b.workflow != nil {
+		workflowHook := buildWorkflowUpdateHook(b.repo, b.workflow, b.workflowAuth, b.name)
+		b.hooks.BeforeUpdateWithID = chainBeforeUpdateWithID(b.hooks.BeforeUpdateWithID, workflowHook)
 	}
 	return &Panel{
 		name:         b.name,
@@ -303,6 +322,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		commandBus:   b.commandBus,
 		activity:     b.activity,
 		workflow:     b.workflow,
+		workflowAuth: b.workflowAuth,
 	}, nil
 }
 
@@ -472,6 +492,11 @@ func (p *Panel) Update(ctx AdminContext, id string, record map[string]any) (map[
 			return nil, permissionDenied(p.permissions.Edit, p.name)
 		}
 	}
+	if p.hooks.BeforeUpdateWithID != nil {
+		if err := p.hooks.BeforeUpdateWithID(ctx, id, record); err != nil {
+			return nil, err
+		}
+	}
 	if p.hooks.BeforeUpdate != nil {
 		if err := p.hooks.BeforeUpdate(ctx, record); err != nil {
 			return nil, err
@@ -594,4 +619,62 @@ func extractRecordID(values ...any) string {
 		}
 	}
 	return ""
+}
+
+func chainBeforeUpdateWithID(existing func(AdminContext, string, map[string]any) error, next func(AdminContext, string, map[string]any) error) func(AdminContext, string, map[string]any) error {
+	if existing == nil {
+		return next
+	}
+	if next == nil {
+		return existing
+	}
+	return func(ctx AdminContext, id string, record map[string]any) error {
+		if err := existing(ctx, id, record); err != nil {
+			return err
+		}
+		return next(ctx, id, record)
+	}
+}
+
+func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth WorkflowAuthorizer, panelName string) func(AdminContext, string, map[string]any) error {
+	if repo == nil || workflow == nil {
+		return nil
+	}
+	return func(ctx AdminContext, id string, record map[string]any) error {
+		if record == nil {
+			return nil
+		}
+		targetState := strings.TrimSpace(toString(record["status"]))
+		if targetState == "" {
+			return nil
+		}
+		existing, err := repo.Get(ctx.Context, id)
+		if err != nil {
+			return err
+		}
+		currentState := strings.TrimSpace(toString(existing["status"]))
+		if currentState == "" || currentState == targetState {
+			return nil
+		}
+		input := TransitionInput{
+			EntityID:     id,
+			EntityType:   panelName,
+			CurrentState: currentState,
+			TargetState:  targetState,
+		}
+		if transition := strings.TrimSpace(toString(record["transition"])); transition != "" {
+			input.Transition = transition
+		}
+		if auth != nil && !auth.CanTransition(ctx.Context, input) {
+			return permissionDenied("workflow.transition", panelName)
+		}
+		result, err := workflow.Transition(ctx.Context, input)
+		if err != nil {
+			return err
+		}
+		if result != nil && strings.TrimSpace(result.ToState) != "" {
+			record["status"] = result.ToState
+		}
+		return nil
+	}
 }
