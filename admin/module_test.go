@@ -277,8 +277,8 @@ func (allowAuthorizer) Can(ctx context.Context, action string, resource string) 
 
 type captureTranslator struct{}
 
-func (captureTranslator) Translate(key, locale string) string {
-	return key + ":" + locale
+func (captureTranslator) Translate(locale, key string, args ...any) (string, error) {
+	return key + ":" + locale, nil
 }
 
 type translatorModule struct {

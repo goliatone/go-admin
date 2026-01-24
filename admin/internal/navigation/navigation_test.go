@@ -7,8 +7,8 @@ import (
 
 type translatorStub struct{}
 
-func (translatorStub) Translate(key, locale string) string {
-	return key + ":" + locale
+func (translatorStub) Translate(locale, key string, args ...any) (string, error) {
+	return key + ":" + locale, nil
 }
 
 type allowAllAuthorizer struct{}
