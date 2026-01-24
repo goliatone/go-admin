@@ -9,7 +9,8 @@ type Translator = helpers.Translator
 // NoopTranslator returns the key unchanged.
 type NoopTranslator struct{}
 
-func (NoopTranslator) Translate(key, locale string) string {
+func (NoopTranslator) Translate(locale, key string, args ...any) (string, error) {
 	_ = locale
-	return key
+	_ = args
+	return key, nil
 }
