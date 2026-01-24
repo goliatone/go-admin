@@ -2,6 +2,7 @@ package cmsboot
 
 import (
 	"context"
+	"time"
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
@@ -62,6 +63,46 @@ type CMSContentService interface {
 	DeleteBlock(ctx context.Context, id string) error
 }
 
+// WorkflowEngine coordinates lifecycle transitions for domain entities.
+type WorkflowEngine interface {
+	// Transition applies the named transition (or explicit state change) to the entity.
+	Transition(ctx context.Context, input TransitionInput) (*TransitionResult, error)
+	// AvailableTransitions lists the possible transitions from the supplied state.
+	AvailableTransitions(ctx context.Context, entityType, state string) ([]WorkflowTransition, error)
+}
+
+// TransitionInput captures the data required to run a workflow transition.
+type TransitionInput struct {
+	EntityID     string
+	EntityType   string
+	CurrentState string
+	Transition   string
+	TargetState  string
+	ActorID      string
+	Metadata     map[string]any
+}
+
+// TransitionResult describes the outcome of a workflow transition.
+type TransitionResult struct {
+	EntityID    string
+	EntityType  string
+	Transition  string
+	FromState   string
+	ToState     string
+	CompletedAt time.Time
+	ActorID     string
+	Metadata    map[string]any
+}
+
+// WorkflowTransition declares an allowed transition between two states.
+type WorkflowTransition struct {
+	Name        string
+	Description string
+	From        string
+	To          string
+	Guard       string
+}
+
 // WidgetAreaDefinition captures CMS widget area metadata.
 type WidgetAreaDefinition = dashinternal.WidgetAreaDefinition
 
@@ -82,29 +123,31 @@ type MenuItem = navinternal.MenuItem
 
 // CMSPage represents a page managed by the CMS.
 type CMSPage struct {
-	ID         string
-	Title      string
-	Slug       string
-	TemplateID string
-	Locale     string
-	ParentID   string
-	Blocks     []string
-	SEO        map[string]any
-	Status     string
-	Data       map[string]any
-	PreviewURL string
+	ID                 string
+	Title              string
+	Slug               string
+	TemplateID         string
+	Locale             string
+	TranslationGroupID string
+	ParentID           string
+	Blocks             []string
+	SEO                map[string]any
+	Status             string
+	Data               map[string]any
+	PreviewURL         string
 }
 
 // CMSContent represents structured content managed by the CMS.
 type CMSContent struct {
-	ID          string
-	Title       string
-	Slug        string
-	Locale      string
-	ContentType string
-	Status      string
-	Blocks      []string
-	Data        map[string]any
+	ID                 string
+	Title              string
+	Slug               string
+	Locale             string
+	TranslationGroupID string
+	ContentType        string
+	Status             string
+	Blocks             []string
+	Data               map[string]any
 }
 
 // CMSBlockDefinition describes a reusable block schema.
