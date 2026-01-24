@@ -28,6 +28,7 @@ type Dependencies struct {
 	Authorizer            Authorizer
 	Authenticator         Authenticator
 	Translator            Translator
+	Workflow              WorkflowEngine
 	ActivitySink          ActivitySink
 	ActivityRepository    types.ActivityRepository
 	ActivityAccessPolicy  activity.ActivityAccessPolicy
