@@ -20,6 +20,7 @@ func (a *Admin) Boot(steps ...boot.Step) error {
 			a.RegisterPublicAPI(r)
 		}
 	}
+	a.registerPreviewRoutes()
 
 	return a.registerDebugDashboardRoutes()
 }
