@@ -14,6 +14,13 @@ func (a *Admin) Boot(steps ...boot.Step) error {
 	if err := boot.Run(a, steps...); err != nil {
 		return err
 	}
+
+	if a.config.EnablePublicAPI {
+		if r, ok := a.router.(router.Router[router.Context]); ok {
+			a.RegisterPublicAPI(r)
+		}
+	}
+
 	return a.registerDebugDashboardRoutes()
 }
 
