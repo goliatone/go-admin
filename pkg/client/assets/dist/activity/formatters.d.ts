@@ -59,7 +59,7 @@ export declare function countMetadataFields(metadata: Record<string, unknown> | 
  */
 export declare function getMetadataSummary(metadata: Record<string, unknown> | undefined): string;
 /**
- * Format metadata for expanded display
+ * Format metadata for expanded display (grid-friendly items)
  */
 export declare function formatMetadataExpanded(metadata: Record<string, unknown> | undefined): string;
 /**

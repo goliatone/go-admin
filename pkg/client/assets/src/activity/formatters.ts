@@ -358,7 +358,7 @@ export function getMetadataSummary(metadata: Record<string, unknown> | undefined
 }
 
 /**
- * Format metadata for expanded display
+ * Format metadata for expanded display (grid-friendly items)
  */
 export function formatMetadataExpanded(metadata: Record<string, unknown> | undefined): string {
   if (!metadata || typeof metadata !== 'object') return '';
@@ -376,16 +376,16 @@ export function formatMetadataExpanded(metadata: Record<string, unknown> | undef
     } else if (typeof value === 'object' && value !== null) {
       // Truncate JSON strings
       const jsonStr = JSON.stringify(value);
-      const truncated = jsonStr.length > 50 ? jsonStr.substring(0, 50) + '...' : jsonStr;
-      formattedValue = `<code style="font-size: 10px; background: #e5e7eb; padding: 2px 4px; border-radius: 3px; word-break: break-all;">${escapeHtml(truncated)}</code>`;
+      const truncated = jsonStr.length > 100 ? jsonStr.substring(0, 100) + '...' : jsonStr;
+      formattedValue = `<code style="font-size: 11px; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; word-break: break-all;">${escapeHtml(truncated)}</code>`;
     } else {
       formattedValue = escapeHtml(formatValue(value));
     }
 
     return `
-      <div style="display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f3f4f6;">
-        <span style="color: #6b7280; font-size: 11px; flex-shrink: 0; max-width: 80px; overflow: hidden; text-overflow: ellipsis;">${formattedKey}</span>
-        <span style="color: #111827; font-size: 11px; font-weight: 500; text-align: right; word-break: break-word; max-width: 180px; overflow: hidden; text-overflow: ellipsis;">${formattedValue}</span>
+      <div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+        <span style="color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${formattedKey}</span>
+        <span style="color: #111827; font-size: 12px; font-weight: 500; word-break: break-word;">${formattedValue}</span>
       </div>
     `;
   });
