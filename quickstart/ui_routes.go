@@ -351,6 +351,12 @@ func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewConte
 		reqCtx := c.Context()
 		ctx = WithNav(ctx, adm, cfg, active, reqCtx)
 		ctx = WithThemeContext(ctx, adm, c)
+		ctx = withAssignedRoles(ctx, adm, reqCtx)
+		labels := cfg.ActivityActionLabels
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		ctx["activity_action_labels"] = labels
 		return admin.CaptureViewContext(adm.Debug(), ctx)
 	}
 }
