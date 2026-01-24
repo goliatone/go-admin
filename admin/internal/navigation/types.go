@@ -9,10 +9,11 @@ import (
 
 // Menu represents a simple CMS menu tree.
 type Menu struct {
-	ID    string
-	Code  string
-	Slug  string
-	Items []MenuItem
+	ID       string
+	Code     string
+	Slug     string
+	Location string
+	Items    []MenuItem
 }
 
 const (
@@ -77,7 +78,7 @@ type Authorizer interface {
 
 // Translator resolves i18n keys into localized strings.
 type Translator interface {
-	Translate(key, locale string) string
+	Translate(locale, key string, args ...any) (string, error)
 }
 
 // MenuService manages CMS-backed menus.
