@@ -257,7 +257,45 @@ func (a *GoCMSMenuAdapter) Menu(ctx context.Context, code, locale string) (*Menu
 		return nil, err
 	}
 	items := convertPublicNavigationNodes(nodes, menuCode, "")
-	return &Menu{ID: menuCode, Code: menuCode, Slug: menuCode, Items: items}, nil
+	return &Menu{ID: menuCode, Code: menuCode, Slug: menuCode, Location: code, Items: items}, nil
+}
+
+// MenuByLocation resolves a localized navigation tree using menu locations.
+func (a *GoCMSMenuAdapter) MenuByLocation(ctx context.Context, location, locale string) (*Menu, error) {
+	if a == nil || a.service == nil {
+		return nil, ErrNotFound
+	}
+	trimmed := strings.TrimSpace(location)
+	menuCode := cms.CanonicalMenuCode(trimmed)
+	resolvedLocation := trimmed
+
+	if locator, ok := a.service.(interface {
+		GetMenuByLocation(ctx context.Context, location string) (*cms.MenuInfo, error)
+	}); ok {
+		if info, err := locator.GetMenuByLocation(ctx, trimmed); err == nil && info != nil {
+			menuCode = info.Code
+			if info.Location != "" {
+				resolvedLocation = info.Location
+			}
+		}
+	}
+
+	var (
+		nodes []cms.NavigationNode
+		err   error
+	)
+	if resolver, ok := a.service.(interface {
+		ResolveNavigationByLocation(ctx context.Context, location string, locale string) ([]cms.NavigationNode, error)
+	}); ok {
+		nodes, err = resolver.ResolveNavigationByLocation(ctx, resolvedLocation, locale)
+	} else {
+		nodes, err = a.service.ResolveNavigation(ctx, menuCode, locale)
+	}
+	if err != nil {
+		return nil, err
+	}
+	items := convertPublicNavigationNodes(nodes, menuCode, "")
+	return &Menu{ID: menuCode, Code: menuCode, Slug: menuCode, Location: resolvedLocation, Items: items}, nil
 }
 
 // ResetMenuContext resets the menu contents.
