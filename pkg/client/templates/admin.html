@@ -55,6 +55,8 @@
 <script type="module">
 import { WidgetGrid } from '{{ base_path }}/assets/dist/dashboard/index.js';
 
+const activityActionLabels = {{ toJSON(activity_action_labels)|safe }};
+
 // Widget rendering helpers
 function renderWidgetContent(widget) {
   const def = widget.definition || '';
@@ -115,7 +117,7 @@ function renderWidgetContent(widget) {
         ${entries.map(entry => `
           <li class="py-3 border-b border-gray-100 last:border-b-0">
             <div class="font-semibold text-gray-900 text-sm">${entry.actor}</div>
-            <div class="text-gray-600 text-sm mt-1">${entry.action} ${entry.object}</div>
+            <div class="text-gray-600 text-sm mt-1">${activityActionLabels?.[entry.action] || entry.action} ${entry.object}</div>
           </li>
         `).join('')}
       </ul>
