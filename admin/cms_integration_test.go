@@ -72,6 +72,10 @@ func (s *stubMenuService) Menu(_ context.Context, code, locale string) (*Menu, e
 	return &Menu{Code: slug, Slug: slug, ID: MenuUUIDFromSlug(slug), Items: out}, nil
 }
 
+func (s *stubMenuService) MenuByLocation(ctx context.Context, location, locale string) (*Menu, error) {
+	return s.Menu(ctx, location, locale)
+}
+
 type stubWidgetService struct{}
 
 func (stubWidgetService) RegisterAreaDefinition(ctx context.Context, def WidgetAreaDefinition) error {
