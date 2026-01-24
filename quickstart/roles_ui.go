@@ -306,18 +306,14 @@ func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdi
 		return err
 	}
 
+	formID := ""
 	if isEdit {
-		id := strings.TrimSpace(fmt.Sprint(record["id"]))
-		if id == "" {
-			id = strings.TrimSpace(c.Param("id"))
-		}
-		if id != "" {
-			action := routes.show(id)
-			rendered := strings.ReplaceAll(string(html), path.Join(h.cfg.BasePath, "roles", "{id}"), action)
-			rendered = strings.ReplaceAll(rendered, "{id}", id)
-			html = []byte(rendered)
+		formID = strings.TrimSpace(fmt.Sprint(record["id"]))
+		if formID == "" {
+			formID = strings.TrimSpace(c.Param("id"))
 		}
 	}
+	html = rewriteRolesFormHTML(html, h.cfg.BasePath, formID)
 
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
@@ -333,6 +329,29 @@ func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdi
 		viewCtx = h.viewContext(viewCtx, "roles", c)
 	}
 	return c.Render(template, viewCtx)
+}
+
+func rewriteRolesFormHTML(raw []byte, basePath string, id string) []byte {
+	if len(raw) == 0 {
+		return raw
+	}
+	basePath = strings.TrimSpace(basePath)
+	if basePath == "" {
+		basePath = "/"
+	}
+	rolesRoot := path.Join(basePath, "roles")
+	if !strings.HasPrefix(rolesRoot, "/") {
+		rolesRoot = "/" + rolesRoot
+	}
+
+	rendered := strings.ReplaceAll(string(raw), "/admin/roles", rolesRoot)
+	if id != "" {
+		action := path.Join(rolesRoot, id)
+		rendered = strings.ReplaceAll(rendered, path.Join(rolesRoot, "{id}"), action)
+		rendered = strings.ReplaceAll(rendered, "/admin/roles/{id}", action)
+		rendered = strings.ReplaceAll(rendered, "{id}", id)
+	}
+	return []byte(rendered)
 }
 
 func (h *roleHandlers) getRoleRecord(c router.Context) (map[string]any, error) {
@@ -664,4 +683,3 @@ func parseBool(value any) bool {
 func timeLayout() string {
 	return time.RFC3339
 }
-
