@@ -68,6 +68,7 @@ type PanelBinding interface {
 	Delete(router.Context, string, string) error
 	Action(router.Context, string, string, map[string]any) error
 	Bulk(router.Context, string, string, map[string]any) error
+	Preview(router.Context, string, string) (map[string]any, error)
 }
 
 // DashboardBinding exposes dashboard handlers.
