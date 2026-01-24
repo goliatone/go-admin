@@ -52,6 +52,18 @@ type CMSBlockDefinition = cmsboot.CMSBlockDefinition
 // CMSBlock represents a block instance attached to content/pages.
 type CMSBlock = cmsboot.CMSBlock
 
+// WorkflowEngine coordinates lifecycle transitions for domain entities.
+type WorkflowEngine = cmsboot.WorkflowEngine
+
+// TransitionInput captures the data required to run a workflow transition.
+type TransitionInput = cmsboot.TransitionInput
+
+// TransitionResult describes the outcome of a workflow transition.
+type TransitionResult = cmsboot.TransitionResult
+
+// WorkflowTransition declares an allowed transition between two states.
+type WorkflowTransition = cmsboot.WorkflowTransition
+
 // NoopCMSContainer returns in-memory services that satisfy the CMS contracts.
 type NoopCMSContainer struct {
 	widgets *InMemoryWidgetService
