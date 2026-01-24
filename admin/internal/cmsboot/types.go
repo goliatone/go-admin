@@ -40,6 +40,7 @@ type CMSMenuService interface {
 	DeleteMenuItem(ctx context.Context, menuCode, id string) error
 	ReorderMenu(ctx context.Context, menuCode string, orderedIDs []string) error
 	Menu(ctx context.Context, code, locale string) (*Menu, error)
+	MenuByLocation(ctx context.Context, location, locale string) (*Menu, error)
 }
 
 // CMSContentService manages pages/blocks backed by the CMS.
