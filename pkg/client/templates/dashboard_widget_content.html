@@ -29,7 +29,8 @@
       {% for entry in entries %}
         <li class="py-3 border-b border-gray-100 last:border-b-0">
           <div class="font-semibold text-gray-900 text-sm">{{ entry.actor }}</div>
-          <div class="text-gray-600 text-sm mt-1">{{ entry.action }} {{ entry.object }}</div>
+          {% set action_label = default(entry.action, activity_action_labels[entry.action]) %}
+          <div class="text-gray-600 text-sm mt-1">{{ action_label }} {{ entry.object }}</div>
         </li>
       {% endfor %}
     </ul>

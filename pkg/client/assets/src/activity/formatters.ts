@@ -109,10 +109,30 @@ export interface ParsedAction {
   category: ActionCategory;
 }
 
-export function parseActionString(actionStr: string): ParsedAction {
+export function resolveActionLabel(
+  actionStr: string,
+  labels?: Record<string, string>
+): string {
+  if (!actionStr) return '';
+  if (!labels) return actionStr;
+  const trimmed = actionStr.trim();
+  if (!trimmed) return actionStr;
+  const label = labels[trimmed];
+  if (typeof label === 'string' && label.trim() !== '') {
+    return label;
+  }
+  return actionStr;
+}
+
+export function parseActionString(
+  actionStr: string,
+  labels?: Record<string, string>
+): ParsedAction {
   if (!actionStr) {
     return { namespace: '', action: '', icon: 'activity', category: 'system' };
   }
+
+  const actionLabel = resolveActionLabel(actionStr, labels);
 
   // Check if it's a dotted notation action
   if (actionStr.includes('.')) {
@@ -125,14 +145,16 @@ export function parseActionString(actionStr: string): ParsedAction {
     const verb = parts[parts.length - 1];
     const category = getActionCategory(verb);
 
-    return { namespace, action, icon, category };
+    const displayAction = actionLabel !== actionStr ? actionLabel : action;
+    return { namespace, action: displayAction, icon, category };
   }
 
   // Standard single-word action
   const category = getActionCategory(actionStr);
+  const displayAction = actionLabel !== actionStr ? actionLabel : actionStr;
   return {
     namespace: '',
-    action: actionStr,
+    action: displayAction,
     icon: ACTION_ICONS[category],
     category,
   };
@@ -236,9 +258,13 @@ function formatIdWithTooltip(id: string, length: number = 8): string {
 /**
  * Format an activity entry into a human-readable sentence
  */
-export function formatActivitySentence(entry: ActivityEntry): string {
+export function formatActivitySentence(
+  entry: ActivityEntry,
+  labels?: Record<string, string>
+): string {
   const actor = entry.actor || 'Unknown';
-  const verb = entry.action || 'performed action on';
+  const rawVerb = entry.action || 'performed action on';
+  const verb = resolveActionLabel(rawVerb, labels);
   const { type, id } = parseObject(entry.object);
 
   // Format actor - shorten if UUID
@@ -258,7 +284,7 @@ export function formatActivitySentence(entry: ActivityEntry): string {
   }
 
   // Build sentence based on action category
-  const category = getActionCategory(verb);
+  const category = getActionCategory(rawVerb);
 
   // Special handling for auth events
   if (category === 'auth') {

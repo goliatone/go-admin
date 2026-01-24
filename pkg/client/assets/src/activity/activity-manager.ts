@@ -300,8 +300,9 @@ export class ActivityManager {
   }
 
   private createRow(entry: ActivityEntry): HTMLTableRowElement {
-    const parsedAction = parseActionString(entry.action);
-    const sentence = formatActivitySentence(entry);
+    const actionLabels = this.config.actionLabels || {};
+    const parsedAction = parseActionString(entry.action, actionLabels);
+    const sentence = formatActivitySentence(entry, actionLabels);
     const timestamp = formatTimestamp(entry.created_at);
     const relativeTime = formatRelativeTime(entry.created_at);
     const metadataSummary = getMetadataSummary(entry.metadata);

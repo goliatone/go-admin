@@ -130,10 +130,12 @@ import { ActivityManager } from '{{ base_path }}/assets/dist/activity/index.js';
 
 const basePath = '{{ base_path }}';
 const apiPath = '{{ activity_api_path|default:"" }}' || `${basePath}/api/activity`;
+const actionLabels = {{ toJSON(activity_action_labels)|safe }};
 
 const manager = new ActivityManager({
   apiPath,
   basePath,
+  actionLabels,
 });
 
 manager.init();

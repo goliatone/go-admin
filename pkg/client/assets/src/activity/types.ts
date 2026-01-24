@@ -22,6 +22,7 @@ export interface ActivityPayload {
 export interface ActivityConfig {
   apiPath: string;
   basePath: string;
+  actionLabels?: Record<string, string>;
 }
 
 export interface ActivitySelectors {
