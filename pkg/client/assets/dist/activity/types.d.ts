@@ -52,4 +52,54 @@ export interface ToastNotifier {
     error(message: string): void;
     info(message: string): void;
 }
+/**
+ * View modes for activity display
+ */
+export type ActivityViewMode = 'table' | 'timeline';
+/**
+ * Extended configuration with view and timeline options
+ */
+export interface ActivityConfigExtended extends ActivityConfig {
+    /** Default view mode */
+    defaultView?: ActivityViewMode;
+    /** Custom relative time formatter */
+    relativeTimeFormatter?: (dateString: string) => string;
+}
+/**
+ * Date group for timeline view
+ */
+export interface TimelineDateGroup {
+    /** Date object for the group (start of day) */
+    date: Date;
+    /** Display label ("Today", "Yesterday", or formatted date) */
+    label: string;
+    /** Entries belonging to this date group */
+    entries: ActivityEntry[];
+    /** Whether this group is collapsed */
+    collapsed: boolean;
+}
+/**
+ * Timeline state management
+ */
+export interface TimelineState {
+    /** Current view mode */
+    view: ActivityViewMode;
+    /** Collapsed date groups (date strings) */
+    collapsedGroups: Set<string>;
+    /** Whether infinite scroll is loading */
+    isLoadingMore: boolean;
+    /** Whether all entries have been loaded */
+    allLoaded: boolean;
+}
+/**
+ * View switcher selectors
+ */
+export interface ViewSwitcherSelectors {
+    container: string;
+    tableTab: string;
+    timelineTab: string;
+    tableView: string;
+    timelineView: string;
+    paginationContainer: string;
+}
 //# sourceMappingURL=types.d.ts.map

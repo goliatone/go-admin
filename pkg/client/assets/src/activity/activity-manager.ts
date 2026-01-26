@@ -67,6 +67,18 @@ export class ActivityManager {
   private clearBtn: HTMLButtonElement | null = null;
   private limitInput: HTMLSelectElement | null = null;
 
+  // Timeline-related properties
+  private viewSwitcher: ActivityViewSwitcher | null = null;
+  private timelineRenderer: TimelineRenderer | null = null;
+  private timelineContainer: HTMLElement | null = null;
+  private timelineSentinel: HTMLElement | null = null;
+  private infiniteScrollObserver: IntersectionObserver | null = null;
+  private isLoadingMore: boolean = false;
+  private allEntriesLoaded: boolean = false;
+
+  // Cache entries for view switching
+  private cachedEntries: ActivityEntry[] = [];
+
   private state: ActivityState = {
     limit: 50,
     offset: 0,
@@ -91,9 +103,171 @@ export class ActivityManager {
    */
   init(): void {
     this.cacheElements();
+    this.initViewSwitcher();
+    this.initTimeline();
     this.bindEvents();
     this.syncFromQuery();
     this.loadActivity();
+  }
+
+  /**
+   * Initialize the view switcher
+   */
+  private initViewSwitcher(): void {
+    this.viewSwitcher = new ActivityViewSwitcher(
+      {
+        container: '#activity-view-switcher',
+        tableTab: '[data-view-tab="table"]',
+        timelineTab: '[data-view-tab="timeline"]',
+        tableView: '#activity-table-container',
+        timelineView: '#activity-timeline-container',
+        paginationContainer: '#activity-pagination',
+      },
+      (view) => this.handleViewChange(view)
+    );
+    this.viewSwitcher.init();
+  }
+
+  /**
+   * Initialize the timeline renderer
+   */
+  private initTimeline(): void {
+    this.timelineContainer = document.querySelector<HTMLElement>(TIMELINE_SELECTORS.container);
+    this.timelineSentinel = document.querySelector<HTMLElement>(TIMELINE_SELECTORS.sentinel);
+
+    if (this.timelineContainer) {
+      this.timelineRenderer = new TimelineRenderer(
+        this.timelineContainer,
+        this.config.actionLabels
+      );
+    }
+
+    // Set up infinite scroll observer
+    this.setupInfiniteScroll();
+  }
+
+  /**
+   * Handle view change from switcher
+   */
+  private handleViewChange(view: ActivityViewMode): void {
+    if (view === 'timeline') {
+      // Reset infinite scroll state when switching to timeline
+      this.allEntriesLoaded = false;
+      this.isLoadingMore = false;
+
+      // Re-render timeline with cached entries
+      if (this.timelineRenderer && this.cachedEntries.length > 0) {
+        this.timelineRenderer.render(this.cachedEntries);
+      }
+
+      // Enable infinite scroll observer
+      this.enableInfiniteScroll();
+    } else {
+      // Disable infinite scroll when switching to table view
+      this.disableInfiniteScroll();
+    }
+  }
+
+  /**
+   * Set up infinite scroll for timeline view
+   */
+  private setupInfiniteScroll(): void {
+    if (!this.timelineSentinel) return;
+
+    this.infiniteScrollObserver = new IntersectionObserver(
+      (entries) => {
+        const sentinel = entries[0];
+        if (sentinel.isIntersecting && !this.isLoadingMore && !this.allEntriesLoaded) {
+          this.loadMoreEntries();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px',
+        threshold: 0,
+      }
+    );
+  }
+
+  /**
+   * Enable infinite scroll observation
+   */
+  private enableInfiniteScroll(): void {
+    if (this.infiniteScrollObserver && this.timelineSentinel) {
+      this.infiniteScrollObserver.observe(this.timelineSentinel);
+    }
+  }
+
+  /**
+   * Disable infinite scroll observation
+   */
+  private disableInfiniteScroll(): void {
+    if (this.infiniteScrollObserver && this.timelineSentinel) {
+      this.infiniteScrollObserver.unobserve(this.timelineSentinel);
+    }
+  }
+
+  /**
+   * Load more entries for infinite scroll
+   */
+  private async loadMoreEntries(): Promise<void> {
+    if (this.isLoadingMore || this.allEntriesLoaded || !this.state.hasMore) {
+      return;
+    }
+
+    this.isLoadingMore = true;
+
+    // Show loading indicator
+    const loadingIndicator = createLoadingIndicator();
+    this.timelineSentinel?.parentElement?.insertBefore(loadingIndicator, this.timelineSentinel);
+
+    try {
+      // Update offset for next page
+      this.state.offset = this.state.nextOffset;
+      const params = this.buildParams();
+
+      const url = `${this.config.apiPath}?${params.toString()}`;
+      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load more entries (${response.status})`);
+      }
+
+      const payload: ActivityPayload = await response.json();
+      const entries = Array.isArray(payload.entries) ? payload.entries : [];
+
+      // Update state
+      this.state.hasMore = Boolean(payload.has_more);
+      this.state.nextOffset =
+        typeof payload.next_offset === 'number'
+          ? payload.next_offset
+          : this.state.offset + entries.length;
+
+      if (entries.length === 0) {
+        this.allEntriesLoaded = true;
+      } else {
+        // Add to cached entries
+        this.cachedEntries = [...this.cachedEntries, ...entries];
+
+        // Append to timeline
+        if (this.timelineRenderer) {
+          this.timelineRenderer.appendEntries(entries);
+        }
+      }
+
+      // Check if all entries loaded
+      if (!this.state.hasMore) {
+        this.allEntriesLoaded = true;
+        const endIndicator = createEndIndicator();
+        this.timelineSentinel?.parentElement?.insertBefore(endIndicator, this.timelineSentinel);
+      }
+    } catch (err) {
+      console.error('Failed to load more entries:', err);
+    } finally {
+      // Remove loading indicator
+      loadingIndicator.remove();
+      this.isLoadingMore = false;
+    }
   }
 
   private cacheElements(): void {
@@ -192,6 +366,8 @@ export class ActivityManager {
         this.state.extraParams[name] = val;
       }
     });
+
+    // View param is handled by ActivityViewSwitcher
   }
 
   private buildParams(): URLSearchParams {
@@ -217,6 +393,11 @@ export class ActivityManager {
   }
 
   private syncUrl(params: URLSearchParams): void {
+    // Preserve view param
+    if (this.viewSwitcher) {
+      ActivityViewSwitcher.addViewToParams(params, this.viewSwitcher.getView());
+    }
+
     const query = params.toString();
     const next = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.replaceState({}, '', next);
@@ -280,11 +461,40 @@ export class ActivityManager {
           ? payload.next_offset
           : this.state.offset + entries.length;
 
-      this.renderRows(entries);
+      // Cache entries for view switching
+      this.cachedEntries = entries;
+
+      // Reset infinite scroll state
+      this.allEntriesLoaded = !this.state.hasMore;
+      this.isLoadingMore = false;
+
+      // Render based on current view
+      const currentView = this.viewSwitcher?.getView() || 'table';
+      if (currentView === 'timeline') {
+        this.renderTimeline(entries);
+      } else {
+        this.renderRows(entries);
+      }
       this.updatePagination(entries.length);
     } catch (err) {
       this.showError('Failed to load activity.');
     }
+  }
+
+  /**
+   * Render entries in timeline view
+   */
+  private renderTimeline(entries: ActivityEntry[]): void {
+    if (!this.timelineRenderer) return;
+
+    // Clear any existing end indicators
+    const existingEnd = this.timelineContainer?.parentElement?.querySelector('.timeline-end');
+    existingEnd?.remove();
+
+    this.timelineRenderer.render(entries);
+
+    // Enable infinite scroll
+    this.enableInfiniteScroll();
   }
 
   private renderRows(entries: ActivityEntry[]): void {
