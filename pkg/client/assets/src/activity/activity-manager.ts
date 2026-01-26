@@ -20,9 +20,11 @@ import {
   formatRelativeTime,
   getMetadataSummary,
   formatMetadataExpanded,
+  formatEnrichmentDebugInfo,
   escapeHtml,
   formatChannel,
   shortenId,
+  getSessionId,
 } from './formatters.js';
 
 import { ActivityViewSwitcher } from './activity-view-switcher.js';
@@ -50,15 +52,6 @@ const TIMELINE_SELECTORS = {
 const FIELD_IDS = ['q', 'verb', 'channels', 'object_type', 'object_id'];
 const DATE_FIELDS = ['since', 'until'];
 const PASSTHROUGH_FIELDS = ['user_id', 'actor_id'];
-
-function getSessionId(entry: ActivityEntry): string {
-  const metadata = entry.metadata;
-  if (!metadata || typeof metadata !== 'object') return '';
-  const value = metadata['session_id'];
-  if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  return '';
-}
 
 export class ActivityManager {
   private config: ActivityConfig;
@@ -542,12 +535,21 @@ export class ActivityManager {
   private createRowPair(entry: ActivityEntry): { mainRow: HTMLTableRowElement; detailsRow: HTMLTableRowElement | null } {
     const actionLabels = this.config.actionLabels || {};
     const parsedAction = parseActionString(entry.action, actionLabels);
-    const sentence = formatActivitySentence(entry, actionLabels);
+    // Use showActorTypeBadge option to embed actor type badge in sentence
+    const sentence = formatActivitySentence(entry, actionLabels, { showActorTypeBadge: true });
     const timestamp = formatTimestamp(entry.created_at);
     const relativeTime = formatRelativeTime(entry.created_at);
     const metadataSummary = getMetadataSummary(entry.metadata);
     const metadataContent = formatMetadataExpanded(entry.metadata);
+    const enrichmentDebug = formatEnrichmentDebugInfo(entry);
     const shortChannel = formatChannel(entry.channel);
+
+    // Determine if we should show a details row:
+    // - metadataSummary is non-empty (includes 'hidden' for hidden metadata)
+    // - OR enrichmentDebug is non-empty
+    const hasMetadata = Boolean(metadataSummary);
+    const hasDebugInfo = Boolean(enrichmentDebug);
+    const showDetailsRow = hasMetadata || hasDebugInfo;
 
     // Color scheme for action categories
     const categoryColors: Record<string, { bg: string; color: string; border: string }> = {
@@ -599,16 +601,29 @@ export class ActivityManager {
       channelHtml = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
     }
 
-    // Build metadata toggle button (if there's metadata)
+    // Build metadata toggle button
     let metadataCellHtml = '';
-    if (metadataSummary) {
+    if (showDetailsRow) {
+      // Determine button label and style
+      let buttonLabel = metadataSummary || '';
+      let buttonClass = 'activity-metadata-toggle';
+      let buttonStyle = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;';
+
+      if (!hasMetadata && hasDebugInfo) {
+        // Only debug info, no metadata
+        buttonLabel = 'Debug';
+        buttonClass += ' activity-metadata-toggle--debug';
+        buttonStyle = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;';
+      }
+
       metadataCellHtml = `
         <button type="button"
-                class="activity-metadata-toggle"
-                style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;"
+                class="${buttonClass}"
+                style="${buttonStyle}"
                 aria-expanded="false"
                 data-metadata-toggle="${entry.id}">
-          <span>${metadataSummary}</span>
+          ${!hasMetadata && hasDebugInfo ? '<i class="iconoir-info-circle" style="font-size: 12px;"></i>' : ''}
+          <span>${buttonLabel}</span>
           <svg class="activity-metadata-chevron" style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
           </svg>
@@ -631,19 +646,31 @@ export class ActivityManager {
       <td style="padding: 12px 16px; vertical-align: middle;">${metadataCellHtml}</td>
     `;
 
-    // Create details row (hidden by default) if there's metadata
+    // Create details row (hidden by default) if there's metadata or debug info
     let detailsRow: HTMLTableRowElement | null = null;
-    if (metadataSummary) {
+    if (showDetailsRow) {
       detailsRow = document.createElement('tr');
       detailsRow.className = 'activity-details-row';
       detailsRow.style.display = 'none';
       detailsRow.dataset.metadataContent = entry.id;
+
+      // Build content: metadata grid (if any) + debug info (if any)
+      let detailsContent = '';
+      if (hasMetadata) {
+        detailsContent += `
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px;">
+            ${metadataContent}
+          </div>
+        `;
+      }
+      if (hasDebugInfo) {
+        detailsContent += enrichmentDebug;
+      }
+
       detailsRow.innerHTML = `
         <td colspan="5" style="padding: 0; background: #f9fafb; border-left: 3px solid ${colors.color};">
           <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px;">
-              ${metadataContent}
-            </div>
+            ${detailsContent}
           </div>
         </td>
       `;

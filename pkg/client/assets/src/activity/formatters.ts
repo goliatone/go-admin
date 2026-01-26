@@ -3,7 +3,7 @@
  * Handles action categorization, sentence formatting, and metadata display
  */
 
-import type { ActivityEntry, ActionCategory, ParsedObject } from './types.js';
+import type { ActivityEntry, ActionCategory, ParsedObject, ActorType } from './types.js';
 
 /**
  * Mapping of verbs to action categories
@@ -56,6 +56,90 @@ const ACTION_CATEGORY_MAP: Record<string, ActionCategory> = {
 
 const METADATA_KEY_ACTOR_DISPLAY = 'actor_display';
 const METADATA_KEY_OBJECT_DISPLAY = 'object_display';
+const METADATA_KEY_OBJECT_DELETED = 'object_deleted';
+const METADATA_KEY_ACTOR_TYPE = 'actor_type';
+const METADATA_KEY_ACTOR_EMAIL = 'actor_email';
+const METADATA_KEY_SESSION_ID = 'session_id';
+const METADATA_KEY_ENRICHED_AT = 'enriched_at';
+const METADATA_KEY_ENRICHER_VERSION = 'enricher_version';
+
+/**
+ * Icons for actor types (using iconoir icon names)
+ */
+export const ACTOR_TYPE_ICONS: Record<ActorType, string> = {
+  user: 'user',
+  system: 'settings',
+  job: 'clock',
+  api: 'cloud',
+  unknown: 'help-circle',
+};
+
+/**
+ * Labels for actor types
+ */
+export const ACTOR_TYPE_LABELS: Record<ActorType, string> = {
+  user: 'User',
+  system: 'System',
+  job: 'Job',
+  api: 'API',
+  unknown: 'Unknown',
+};
+
+/**
+ * Check if a value looks like it's been masked (hashed or partially hidden)
+ */
+export function isMaskedValue(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  if (!value) return false;
+
+  // Check for common masking patterns:
+  // - All asterisks: ****
+  // - Partial masking: abc***xyz
+  // - Hash-like strings (long hex strings that aren't UUIDs)
+  // - [REDACTED], [HIDDEN], [MASKED] placeholders
+
+  const trimmed = value.trim();
+
+  // Check for placeholder patterns
+  if (/^\[(REDACTED|HIDDEN|MASKED|REMOVED)\]$/i.test(trimmed)) {
+    return true;
+  }
+
+  // Check for all asterisks
+  if (/^\*+$/.test(trimmed)) {
+    return true;
+  }
+
+  // Check for partial masking with asterisks in the middle
+  if (/^[^*]+\*{3,}[^*]+$/.test(trimmed)) {
+    return true;
+  }
+
+  // Check for hash-like strings (64+ hex chars, not a UUID)
+  const clean = trimmed.replace(/-/g, '');
+  if (/^[0-9a-f]{64,}$/i.test(clean)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if metadata is empty or hidden (support role scenario)
+ */
+export function isMetadataHidden(metadata: Record<string, unknown> | undefined): boolean {
+  if (!metadata) return true;
+  if (typeof metadata !== 'object') return true;
+
+  const keys = Object.keys(metadata);
+  if (keys.length === 0) return true;
+
+  // Check if all values are null, undefined, or empty strings
+  return keys.every(key => {
+    const value = metadata[key];
+    return value === null || value === undefined || value === '';
+  });
+}
 
 /**
  * Icons for each action category (using iconoir icon names)
@@ -219,6 +303,55 @@ export function resolveObjectDisplay(entry: ActivityEntry): string {
 }
 
 /**
+ * Check if the object has been deleted
+ */
+export function isObjectDeleted(entry: ActivityEntry): boolean {
+  if (!entry.metadata || typeof entry.metadata !== 'object') return false;
+  return entry.metadata[METADATA_KEY_OBJECT_DELETED] === true;
+}
+
+/**
+ * Get the actor type from metadata
+ */
+export function getActorType(entry: ActivityEntry): ActorType {
+  if (!entry.metadata || typeof entry.metadata !== 'object') return 'unknown';
+  const value = entry.metadata[METADATA_KEY_ACTOR_TYPE];
+  if (typeof value === 'string') {
+    const normalized = value.toLowerCase() as ActorType;
+    if (normalized in ACTOR_TYPE_ICONS) {
+      return normalized;
+    }
+  }
+  return 'unknown';
+}
+
+/**
+ * Get the actor email from metadata (may be masked)
+ */
+export function getActorEmail(entry: ActivityEntry): string {
+  return getMetadataString(entry.metadata, METADATA_KEY_ACTOR_EMAIL);
+}
+
+/**
+ * Get the session ID from metadata
+ */
+export function getSessionId(entry: ActivityEntry): string {
+  return getMetadataString(entry.metadata, METADATA_KEY_SESSION_ID);
+}
+
+/**
+ * Get enrichment info (enriched_at and enricher_version)
+ */
+export function getEnrichmentInfo(entry: ActivityEntry): { enrichedAt: string; enricherVersion: string } | null {
+  const enrichedAt = getMetadataString(entry.metadata, METADATA_KEY_ENRICHED_AT);
+  const enricherVersion = getMetadataString(entry.metadata, METADATA_KEY_ENRICHER_VERSION);
+
+  if (!enrichedAt && !enricherVersion) return null;
+
+  return { enrichedAt, enricherVersion };
+}
+
+/**
  * Capitalize the first letter of a string
  */
 function capitalize(str: string): string {
@@ -288,35 +421,60 @@ function formatIdWithTooltip(id: string, length: number = 8): string {
 }
 
 /**
+ * Options for formatting activity sentences
+ */
+export interface FormatActivitySentenceOptions {
+  /** Include actor type badge before the actor name (for table view) */
+  showActorTypeBadge?: boolean;
+}
+
+/**
  * Format an activity entry into a human-readable sentence
  */
 export function formatActivitySentence(
   entry: ActivityEntry,
-  labels?: Record<string, string>
+  labels?: Record<string, string>,
+  options?: FormatActivitySentenceOptions
 ): string {
+  const { showActorTypeBadge = false } = options || {};
   const actor = resolveActorLabel(entry) || 'Unknown';
   const rawVerb = entry.action || 'performed action on';
   const verb = resolveActionLabel(rawVerb, labels);
 
+  // Get actor type badge if requested (only for non-user types)
+  let actorTypeBadge = '';
+  if (showActorTypeBadge) {
+    const actorType = getActorType(entry);
+    if (actorType !== 'user' && actorType !== 'unknown') {
+      actorTypeBadge = getActorTypeIconHtml(actorType, { badge: true, size: 'sm' }) + ' ';
+    }
+  }
+
   // Format actor - shorten if UUID
   const actorDisplay = isUuidLike(actor)
-    ? formatIdWithTooltip(actor, 8)
-    : `<strong>${escapeHtml(actor)}</strong>`;
+    ? `${actorTypeBadge}${formatIdWithTooltip(actor, 8)}`
+    : `${actorTypeBadge}<strong>${escapeHtml(actor)}</strong>`;
+
+  // Check if object has been deleted
+  const objectDeleted = isObjectDeleted(entry);
+  const deletedMarker = objectDeleted
+    ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>'
+    : '';
 
   // Build object reference with shortened ID
   let objectRef = '';
   const objectDisplay = resolveObjectDisplay(entry);
   if (objectDisplay) {
-    objectRef = escapeHtml(objectDisplay);
+    objectRef = escapeHtml(objectDisplay) + deletedMarker;
   } else {
     const { type, id } = parseObject(entry.object);
     if (type && id) {
       const shortId = formatIdWithTooltip(id, 8);
-      objectRef = `${formatObjectType(type)} #${shortId}`;
+      objectRef = `${escapeHtml(formatObjectType(type))} #${shortId}${deletedMarker}`;
     } else if (type) {
-      objectRef = formatObjectType(type);
+      objectRef = escapeHtml(formatObjectType(type)) + deletedMarker;
     } else if (id) {
-      objectRef = `#${formatIdWithTooltip(id, 8)}`;
+      objectRef = `#${formatIdWithTooltip(id, 8)}${deletedMarker}`;
     }
   }
 
@@ -460,10 +618,19 @@ export function countMetadataFields(metadata: Record<string, unknown> | undefine
 
 /**
  * Get a summary of metadata changes
+ * Returns a summary string, or 'hidden' for support role scenario, or empty for no metadata
  */
 export function getMetadataSummary(metadata: Record<string, unknown> | undefined): string {
+  if (!metadata || typeof metadata !== 'object') return '';
+
   const count = countMetadataFields(metadata);
   if (count === 0) return '';
+
+  // Check if metadata is hidden (all values are empty/null)
+  if (isMetadataHidden(metadata)) {
+    return 'hidden';
+  }
+
   if (count === 1) return '1 field';
   return `${count} fields`;
 }
@@ -474,15 +641,29 @@ export function getMetadataSummary(metadata: Record<string, unknown> | undefined
 export function formatMetadataExpanded(metadata: Record<string, unknown> | undefined): string {
   if (!metadata || typeof metadata !== 'object') return '';
 
+  // Check if metadata is hidden (support role scenario)
+  if (isMetadataHidden(metadata)) {
+    return `
+      <div class="activity-metadata-hidden" style="padding: 12px; background: #f9fafb; border-radius: 6px; border: 1px dashed #d1d5db; text-align: center;">
+        <span style="color: #9ca3af; font-size: 12px; font-style: italic;">Metadata hidden</span>
+      </div>
+    `;
+  }
+
   const entries = Object.entries(metadata);
   if (entries.length === 0) return '';
 
   const items = entries.map(([key, value]) => {
     const formattedKey = escapeHtml(key);
     let formattedValue: string;
+    let isMasked = false;
 
-    // Check for change diff pattern (old_value -> new_value)
-    if (key.endsWith('_old') || key.endsWith('_new')) {
+    // Check if this value is masked
+    if (isMaskedValue(value)) {
+      isMasked = true;
+      formattedValue = `<span class="activity-masked-value" title="This value is masked">${escapeHtml(String(value))}</span>`;
+    } else if (key.endsWith('_old') || key.endsWith('_new')) {
+      // Check for change diff pattern (old_value -> new_value)
       formattedValue = escapeHtml(formatValue(value));
     } else if (typeof value === 'object' && value !== null) {
       // Truncate JSON strings
@@ -493,8 +674,10 @@ export function formatMetadataExpanded(metadata: Record<string, unknown> | undef
       formattedValue = escapeHtml(formatValue(value));
     }
 
+    const maskedClass = isMasked ? ' activity-metadata-item--masked' : '';
+
     return `
-      <div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+      <div class="activity-metadata-item${maskedClass}" style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
         <span style="color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${formattedKey}</span>
         <span style="color: #111827; font-size: 12px; font-weight: 500; word-break: break-word;">${formattedValue}</span>
       </div>
@@ -502,6 +685,48 @@ export function formatMetadataExpanded(metadata: Record<string, unknown> | undef
   });
 
   return items.join('');
+}
+
+/**
+ * Format enrichment debug info for display (collapsible diagnostics panel)
+ */
+export function formatEnrichmentDebugInfo(entry: ActivityEntry): string {
+  const info = getEnrichmentInfo(entry);
+  if (!info) return '';
+
+  const items: string[] = [];
+
+  if (info.enrichedAt) {
+    const date = new Date(info.enrichedAt);
+    const formatted = Number.isNaN(date.getTime()) ? info.enrichedAt : date.toLocaleString();
+    items.push(`
+      <div style="display: flex; justify-content: space-between; gap: 8px;">
+        <span style="color: #9ca3af; font-size: 11px;">Enriched at:</span>
+        <span style="color: #6b7280; font-size: 11px; font-family: ui-monospace, monospace;">${escapeHtml(formatted)}</span>
+      </div>
+    `);
+  }
+
+  if (info.enricherVersion) {
+    items.push(`
+      <div style="display: flex; justify-content: space-between; gap: 8px;">
+        <span style="color: #9ca3af; font-size: 11px;">Enricher version:</span>
+        <span style="color: #6b7280; font-size: 11px; font-family: ui-monospace, monospace;">${escapeHtml(info.enricherVersion)}</span>
+      </div>
+    `);
+  }
+
+  if (items.length === 0) return '';
+
+  return `
+    <div class="activity-enrichment-debug" style="margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 4px; border: 1px dashed #e5e7eb;">
+      <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 6px;">
+        <i class="iconoir-info-circle" style="font-size: 12px; color: #9ca3af;"></i>
+        <span style="color: #9ca3af; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Debug Info</span>
+      </div>
+      ${items.join('')}
+    </div>
+  `;
 }
 
 /**
@@ -542,4 +767,66 @@ export function getActionClass(category: ActionCategory): string {
 export function getActionIconHtml(category: ActionCategory): string {
   const icon = ACTION_ICONS[category];
   return `<i class="iconoir-${icon} activity-action-icon"></i>`;
+}
+
+/**
+ * Get actor type icon HTML with optional badge styling
+ */
+export function getActorTypeIconHtml(actorType: ActorType, options?: { badge?: boolean; size?: 'sm' | 'md' | 'lg' }): string {
+  const { badge = false, size = 'md' } = options || {};
+  const icon = ACTOR_TYPE_ICONS[actorType];
+  const label = ACTOR_TYPE_LABELS[actorType];
+
+  const sizeStyles: Record<string, string> = {
+    sm: 'font-size: 12px;',
+    md: 'font-size: 14px;',
+    lg: 'font-size: 16px;',
+  };
+
+  if (badge) {
+    return `
+      <span class="activity-actor-type-badge activity-actor-type-badge--${actorType}" title="${escapeHtml(label)}">
+        <i class="iconoir-${icon}" style="${sizeStyles[size]}"></i>
+      </span>
+    `;
+  }
+
+  return `<i class="iconoir-${icon} activity-actor-type-icon activity-actor-type-icon--${actorType}" style="${sizeStyles[size]}" title="${escapeHtml(label)}"></i>`;
+}
+
+/**
+ * Format actor display with type icon
+ */
+export function formatActorWithType(entry: ActivityEntry): string {
+  const actor = resolveActorLabel(entry) || 'Unknown';
+  const actorType = getActorType(entry);
+
+  // Format actor - shorten if UUID
+  const actorDisplay = isUuidLike(actor)
+    ? formatIdWithTooltip(actor, 8)
+    : escapeHtml(actor);
+
+  // Only show icon for non-user types (user is the default/expected)
+  const typeIcon = actorType !== 'user' && actorType !== 'unknown'
+    ? getActorTypeIconHtml(actorType, { badge: true, size: 'sm' }) + ' '
+    : '';
+
+  return `${typeIcon}<strong>${actorDisplay}</strong>`;
+}
+
+/**
+ * Shorten a session ID for display
+ */
+export function formatSessionId(sessionId: string, length: number = 10): string {
+  if (!sessionId) return '';
+  return shortenId(sessionId, length);
+}
+
+/**
+ * Get session group label for timeline display
+ */
+export function getSessionGroupLabel(sessionId: string): string {
+  if (!sessionId) return 'No session';
+  if (isMaskedValue(sessionId)) return 'Session (masked)';
+  return `Session ${formatSessionId(sessionId, 8)}`;
 }
