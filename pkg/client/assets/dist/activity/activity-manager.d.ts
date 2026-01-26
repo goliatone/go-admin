@@ -79,6 +79,7 @@ export declare class ActivityManager {
     private renderTimeline;
     private renderRows;
     private createRowPair;
+    private createSessionRow;
     private wireMetadataToggles;
     private updatePagination;
 }
