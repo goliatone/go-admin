@@ -53,35 +53,41 @@ func (s *InMemoryWidgetService) WithActivitySink(sink ActivitySink) {
 // RegisterAreaDefinition saves/overwrites a widget area.
 func (s *InMemoryWidgetService) RegisterAreaDefinition(ctx context.Context, def WidgetAreaDefinition) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.areas[def.Code] = def
-	recordCMSActivity(ctx, s.activity, "cms.widget_area.register", "widget_area:"+def.Code, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"name":  def.Name,
 		"scope": def.Scope,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.widget_area.register", "widget_area:"+def.Code, meta)
 	return nil
 }
 
 // RegisterDefinition saves/overwrites a widget definition.
 func (s *InMemoryWidgetService) RegisterDefinition(ctx context.Context, def WidgetDefinition) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.definitions[def.Code] = def
-	recordCMSActivity(ctx, s.activity, "cms.widget_definition.register", "widget_def:"+def.Code, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"name": def.Name,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.widget_definition.register", "widget_def:"+def.Code, meta)
 	return nil
 }
 
 // DeleteDefinition removes a widget definition.
 func (s *InMemoryWidgetService) DeleteDefinition(ctx context.Context, code string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, ok := s.definitions[code]; !ok {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	delete(s.definitions, code)
-	recordCMSActivity(ctx, s.activity, "cms.widget_definition.delete", "widget_def:"+code, nil)
+	activity := s.activity
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.widget_definition.delete", "widget_def:"+code, nil)
 	return nil
 }
 
@@ -110,7 +116,6 @@ func (s *InMemoryWidgetService) Definitions() []WidgetDefinition {
 // SaveInstance stores or updates a widget instance.
 func (s *InMemoryWidgetService) SaveInstance(ctx context.Context, instance WidgetInstance) (*WidgetInstance, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if instance.ID == "" {
 		instance.ID = strconv.Itoa(s.next)
 		s.next++
@@ -121,25 +126,30 @@ func (s *InMemoryWidgetService) SaveInstance(ctx context.Context, instance Widge
 	instance.Config = cloneAnyMap(instance.Config)
 	s.instances[instance.ID] = instance
 	cp := cloneWidgetInstance(instance)
-	recordCMSActivity(ctx, s.activity, "cms.widget_instance.save", "widget_instance:"+cp.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"area":       cp.Area,
 		"definition": cp.DefinitionCode,
 		"page_id":    cp.PageID,
 		"locale":     cp.Locale,
 		"position":   cp.Position,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.widget_instance.save", "widget_instance:"+cp.ID, meta)
 	return &cp, nil
 }
 
 // DeleteInstance removes a widget instance.
 func (s *InMemoryWidgetService) DeleteInstance(ctx context.Context, id string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, ok := s.instances[id]; !ok {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	delete(s.instances, id)
-	recordCMSActivity(ctx, s.activity, "cms.widget_instance.delete", "widget_instance:"+id, nil)
+	activity := s.activity
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.widget_instance.delete", "widget_instance:"+id, nil)
 	return nil
 }
 
@@ -258,17 +268,21 @@ func (s *InMemoryMenuService) resolveMenuState(code string) (*menuState, string)
 // CreateMenu makes a menu entry if it does not exist.
 func (s *InMemoryMenuService) CreateMenu(ctx context.Context, code string) (*Menu, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	slug := s.canonicalMenuSlug(code)
 	if slug == "" {
+		s.mu.Unlock()
 		return nil, fmt.Errorf("menu code required")
 	}
 	if state, ok := s.menus[slug]; ok {
-		recordCMSActivity(ctx, s.activity, "cms.menu.create", "menu:"+slug, map[string]any{
+		menu := &Menu{Code: state.slug, Slug: state.slug, ID: state.id}
+		activity := s.activity
+		meta := map[string]any{
 			"id":   state.id,
 			"slug": state.slug,
-		})
-		return &Menu{Code: state.slug, Slug: state.slug, ID: state.id}, nil
+		}
+		s.mu.Unlock()
+		recordCMSActivity(ctx, activity, "cms.menu.create", "menu:"+slug, meta)
+		return menu, nil
 	}
 	state := &menuState{
 		items:          map[string]MenuItem{},
@@ -282,11 +296,15 @@ func (s *InMemoryMenuService) CreateMenu(ctx context.Context, code string) (*Men
 	s.menus[slug] = state
 	s.slugIndex[slug] = slug
 	s.locationIndex[slug] = slug
-	recordCMSActivity(ctx, s.activity, "cms.menu.create", "menu:"+slug, map[string]any{
+	menu := &Menu{Code: slug, Slug: slug, ID: state.id, Location: state.location}
+	activity := s.activity
+	meta := map[string]any{
 		"id":   state.id,
 		"slug": state.slug,
-	})
-	return &Menu{Code: slug, Slug: slug, ID: state.id, Location: state.location}, nil
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.menu.create", "menu:"+slug, meta)
+	return menu, nil
 }
 
 // ResetMenu removes all items for the given menu code (debug/reset helper).
@@ -311,9 +329,9 @@ func (s *InMemoryMenuService) ResetMenuContext(ctx context.Context, code string)
 // AddMenuItem appends an item to a menu identified by code.
 func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, item MenuItem) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	state, slug := s.resolveMenuState(menuCode)
 	if slug == "" {
+		s.mu.Unlock()
 		return fmt.Errorf("menu code required")
 	}
 	if state == nil {
@@ -328,9 +346,9 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 		s.menus[slug] = state
 		s.slugIndex[slug] = slug
 	}
-	if existing, ok := state.items[item.ID]; ok && strings.TrimSpace(item.ID) != "" {
+	if _, ok := state.items[item.ID]; ok && strings.TrimSpace(item.ID) != "" {
 		// Idempotent add-if-missing: skip when ID already present.
-		_ = existing
+		s.mu.Unlock()
 		return nil
 	}
 	if item.ID == "" {
@@ -355,24 +373,28 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 	navinternal.SetMenuItemOrder(&item, state.insertSeq)
 	item.Menu = state.slug
 	state.items[item.ID] = item
-	recordCMSActivity(ctx, s.activity, "cms.menu_item.create", "menu_item:"+item.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"menu":   state.slug,
 		"label":  item.Label,
 		"locale": item.Locale,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.menu_item.create", "menu_item:"+item.ID, meta)
 	return nil
 }
 
 // UpdateMenuItem updates an existing menu item.
 func (s *InMemoryMenuService) UpdateMenuItem(ctx context.Context, menuCode string, item MenuItem) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	state, _ := s.resolveMenuState(menuCode)
 	if state == nil {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	existing, ok := state.items[item.ID]
 	if !ok || item.ID == "" {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	if item.Position == nil {
@@ -394,30 +416,37 @@ func (s *InMemoryMenuService) UpdateMenuItem(ctx context.Context, menuCode strin
 	navinternal.SetMenuItemOrder(&item, navinternal.MenuItemOrder(existing))
 	item.Menu = state.slug
 	state.items[item.ID] = item
-	recordCMSActivity(ctx, s.activity, "cms.menu_item.update", "menu_item:"+item.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"menu":   state.slug,
 		"label":  item.Label,
 		"locale": item.Locale,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.menu_item.update", "menu_item:"+item.ID, meta)
 	return nil
 }
 
 // DeleteMenuItem deletes an item and its children.
 func (s *InMemoryMenuService) DeleteMenuItem(ctx context.Context, menuCode, id string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	state, _ := s.resolveMenuState(menuCode)
 	if state == nil {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	if _, ok := state.items[id]; !ok {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	s.deleteChildren(state, id)
 	delete(state.items, id)
-	recordCMSActivity(ctx, s.activity, "cms.menu_item.delete", "menu_item:"+id, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"menu": state.slug,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.menu_item.delete", "menu_item:"+id, meta)
 	return nil
 }
 
@@ -433,9 +462,9 @@ func (s *InMemoryMenuService) deleteChildren(state *menuState, id string) {
 // ReorderMenu applies a positional ordering to menu items.
 func (s *InMemoryMenuService) ReorderMenu(ctx context.Context, menuCode string, orderedIDs []string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	state, _ := s.resolveMenuState(menuCode)
 	if state == nil {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	for idx, id := range orderedIDs {
@@ -446,8 +475,12 @@ func (s *InMemoryMenuService) ReorderMenu(ctx context.Context, menuCode string, 
 		item.Position = intPtr(idx + 1)
 		state.items[id] = item
 	}
-	recordCMSActivity(ctx, s.activity, "cms.menu.reorder", "menu:"+state.slug, map[string]any{
-		"ordered_ids": append([]string{}, orderedIDs...),
+	activity := s.activity
+	slug := state.slug
+	orderedCopy := append([]string{}, orderedIDs...)
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.menu.reorder", "menu:"+slug, map[string]any{
+		"ordered_ids": orderedCopy,
 	})
 	return nil
 }
@@ -581,7 +614,6 @@ func (s *InMemoryContentService) Page(_ context.Context, id, locale string) (*CM
 // CreatePage inserts a page.
 func (s *InMemoryContentService) CreatePage(ctx context.Context, page CMSPage) (*CMSPage, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if page.ID == "" {
 		page.ID = strconv.Itoa(s.nextPage)
 		s.nextPage++
@@ -591,20 +623,23 @@ func (s *InMemoryContentService) CreatePage(ctx context.Context, page CMSPage) (
 	}
 	s.pages[page.ID] = cloneCMSPage(page)
 	cp := cloneCMSPage(page)
-	recordCMSActivity(ctx, s.activity, "cms.page.create", "page:"+cp.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"title":     cp.Title,
 		"slug":      cp.Slug,
 		"locale":    cp.Locale,
 		"parent_id": cp.ParentID,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.page.create", "page:"+cp.ID, meta)
 	return &cp, nil
 }
 
 // UpdatePage updates an existing page.
 func (s *InMemoryContentService) UpdatePage(ctx context.Context, page CMSPage) (*CMSPage, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if page.ID == "" {
+		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
 	if existing, ok := s.pages[page.ID]; ok {
@@ -612,28 +647,34 @@ func (s *InMemoryContentService) UpdatePage(ctx context.Context, page CMSPage) (
 			page.PreviewURL = existing.PreviewURL
 		}
 	} else {
+		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
 	s.pages[page.ID] = cloneCMSPage(page)
 	cp := cloneCMSPage(page)
-	recordCMSActivity(ctx, s.activity, "cms.page.update", "page:"+cp.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"title":     cp.Title,
 		"slug":      cp.Slug,
 		"locale":    cp.Locale,
 		"parent_id": cp.ParentID,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.page.update", "page:"+cp.ID, meta)
 	return &cp, nil
 }
 
 // DeletePage removes a page.
 func (s *InMemoryContentService) DeletePage(ctx context.Context, id string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, ok := s.pages[id]; !ok {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	delete(s.pages, id)
-	recordCMSActivity(ctx, s.activity, "cms.page.delete", "page:"+id, nil)
+	activity := s.activity
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.page.delete", "page:"+id, nil)
 	return nil
 }
 
@@ -669,7 +710,6 @@ func (s *InMemoryContentService) Content(_ context.Context, id, locale string) (
 // CreateContent inserts a content entry.
 func (s *InMemoryContentService) CreateContent(ctx context.Context, content CMSContent) (*CMSContent, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if content.ID == "" {
 		content.ID = strconv.Itoa(s.nextCont)
 		s.nextCont++
@@ -679,47 +719,56 @@ func (s *InMemoryContentService) CreateContent(ctx context.Context, content CMSC
 	}
 	s.contents[content.ID] = cloneCMSContent(content)
 	cp := cloneCMSContent(content)
-	recordCMSActivity(ctx, s.activity, "cms.content.create", "content:"+cp.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"title":        cp.Title,
 		"slug":         cp.Slug,
 		"locale":       cp.Locale,
 		"content_type": cp.ContentType,
 		"status":       cp.Status,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.content.create", "content:"+cp.ID, meta)
 	return &cp, nil
 }
 
 // UpdateContent updates an existing content entry.
 func (s *InMemoryContentService) UpdateContent(ctx context.Context, content CMSContent) (*CMSContent, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if content.ID == "" {
+		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
 	if _, ok := s.contents[content.ID]; !ok {
+		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
 	s.contents[content.ID] = cloneCMSContent(content)
 	cp := cloneCMSContent(content)
-	recordCMSActivity(ctx, s.activity, "cms.content.update", "content:"+cp.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"title":        cp.Title,
 		"slug":         cp.Slug,
 		"locale":       cp.Locale,
 		"content_type": cp.ContentType,
 		"status":       cp.Status,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.content.update", "content:"+cp.ID, meta)
 	return &cp, nil
 }
 
 // DeleteContent removes a content entry.
 func (s *InMemoryContentService) DeleteContent(ctx context.Context, id string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, ok := s.contents[id]; !ok {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	delete(s.contents, id)
-	recordCMSActivity(ctx, s.activity, "cms.content.delete", "content:"+id, nil)
+	activity := s.activity
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.content.delete", "content:"+id, nil)
 	return nil
 }
 
@@ -737,50 +786,58 @@ func (s *InMemoryContentService) BlockDefinitions(_ context.Context) ([]CMSBlock
 // CreateBlockDefinition adds a block definition.
 func (s *InMemoryContentService) CreateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if def.ID == "" {
 		def.ID = fmt.Sprintf("block-%d", s.nextBlockD)
 		s.nextBlockD++
 	}
 	s.blockDefs[def.ID] = cloneCMSBlockDefinition(def)
 	cp := cloneCMSBlockDefinition(def)
-	recordCMSActivity(ctx, s.activity, "cms.block_definition.create", "block_def:"+cp.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"name":   cp.Name,
 		"type":   cp.Type,
 		"locale": cp.Locale,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.block_definition.create", "block_def:"+cp.ID, meta)
 	return &cp, nil
 }
 
 // UpdateBlockDefinition updates an existing block definition.
 func (s *InMemoryContentService) UpdateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if def.ID == "" {
+		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
 	if _, ok := s.blockDefs[def.ID]; !ok {
+		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
 	s.blockDefs[def.ID] = cloneCMSBlockDefinition(def)
 	cp := cloneCMSBlockDefinition(def)
-	recordCMSActivity(ctx, s.activity, "cms.block_definition.update", "block_def:"+cp.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"name":   cp.Name,
 		"type":   cp.Type,
 		"locale": cp.Locale,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.block_definition.update", "block_def:"+cp.ID, meta)
 	return &cp, nil
 }
 
 // DeleteBlockDefinition removes a block definition.
 func (s *InMemoryContentService) DeleteBlockDefinition(ctx context.Context, id string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, ok := s.blockDefs[id]; !ok {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	delete(s.blockDefs, id)
-	recordCMSActivity(ctx, s.activity, "cms.block_definition.delete", "block_def:"+id, nil)
+	activity := s.activity
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.block_definition.delete", "block_def:"+id, nil)
 	return nil
 }
 
@@ -810,7 +867,6 @@ func (s *InMemoryContentService) BlocksForContent(_ context.Context, contentID, 
 // SaveBlock creates or updates a block.
 func (s *InMemoryContentService) SaveBlock(ctx context.Context, block CMSBlock) (*CMSBlock, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if block.ID == "" {
 		block.ID = fmt.Sprintf("blk-%d", s.nextBlock)
 		s.nextBlock++
@@ -820,24 +876,29 @@ func (s *InMemoryContentService) SaveBlock(ctx context.Context, block CMSBlock) 
 	}
 	s.blocks[block.ID] = cloneCMSBlock(block)
 	cp := cloneCMSBlock(block)
-	recordCMSActivity(ctx, s.activity, "cms.block.save", "block:"+cp.ID, map[string]any{
+	activity := s.activity
+	meta := map[string]any{
 		"content_id": cp.ContentID,
 		"locale":     cp.Locale,
 		"region":     cp.Region,
 		"position":   cp.Position,
-	})
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.block.save", "block:"+cp.ID, meta)
 	return &cp, nil
 }
 
 // DeleteBlock removes a block.
 func (s *InMemoryContentService) DeleteBlock(ctx context.Context, id string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, ok := s.blocks[id]; !ok {
+		s.mu.Unlock()
 		return ErrNotFound
 	}
 	delete(s.blocks, id)
-	recordCMSActivity(ctx, s.activity, "cms.block.delete", "block:"+id, nil)
+	activity := s.activity
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.block.delete", "block:"+id, nil)
 	return nil
 }
 
