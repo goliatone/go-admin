@@ -316,7 +316,7 @@ export function formatTimestamp(value: string): string {
 }
 
 /**
- * Format relative time (e.g., "2 hours ago")
+ * Format relative time in short format (e.g., "2h ago")
  */
 export function formatRelativeTime(value: string): string {
   if (!value) return '';
@@ -337,6 +337,80 @@ export function formatRelativeTime(value: string): string {
   if (diffDays < 7) return `${diffDays}d ago`;
 
   return date.toLocaleDateString();
+}
+
+/**
+ * Format relative time using Intl.RelativeTimeFormat for natural language output
+ * (e.g., "2 hours ago", "yesterday", "3 days ago")
+ */
+export function formatRelativeTimeIntl(value: string): string {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+  if (diffSecs < 60) return 'just now';
+  if (diffMins < 60) return rtf.format(-diffMins, 'minute');
+  if (diffHours < 24) return rtf.format(-diffHours, 'hour');
+  if (diffDays < 7) return rtf.format(-diffDays, 'day');
+  if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return rtf.format(-weeks, 'week');
+  }
+
+  return date.toLocaleDateString();
+}
+
+/**
+ * Get date label for timeline grouping ("Today", "Yesterday", or formatted date)
+ */
+export function getDateGroupLabel(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (targetDate.getTime() === today.getTime()) {
+    return 'Today';
+  }
+  if (targetDate.getTime() === yesterday.getTime()) {
+    return 'Yesterday';
+  }
+
+  // Use Intl.DateTimeFormat for consistent formatting
+  return new Intl.DateTimeFormat('en', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: targetDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+  }).format(date);
+}
+
+/**
+ * Get the start of day for a given date (midnight in local timezone)
+ */
+export function getStartOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/**
+ * Get a stable date key for grouping (YYYY-MM-DD format)
+ */
+export function getDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**

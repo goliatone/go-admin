@@ -12,10 +12,22 @@
     <h1 class="text-3xl font-bold text-admin-dark">Activity</h1>
     <p class="text-sm text-gray-500 mt-1">Track actions and changes across your system.</p>
   </div>
-  <button type="button" id="activity-refresh" class="btn btn-secondary">
-    <i class="iconoir-refresh"></i>
-    <span>Refresh</span>
-  </button>
+  <div class="flex items-center gap-4">
+    <div id="activity-view-switcher" class="activity-view-switcher">
+      <button type="button" class="activity-view-tab active" data-view-tab="table" aria-selected="true">
+        <i class="iconoir-table-rows"></i>
+        <span>Table</span>
+      </button>
+      <button type="button" class="activity-view-tab" data-view-tab="timeline" aria-selected="false">
+        <i class="iconoir-timeline"></i>
+        <span>Timeline</span>
+      </button>
+    </div>
+    <button type="button" id="activity-refresh" class="btn btn-secondary">
+      <i class="iconoir-refresh"></i>
+      <span>Refresh</span>
+    </button>
+  </div>
 </header>
 
 <div class="flex-1 p-8 overflow-y-auto">
@@ -77,7 +89,8 @@
     </form>
   </div>
 
-  <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+  <!-- Table View -->
+  <div id="activity-table-container" class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
       <table class="activity-table w-full text-sm text-left text-gray-700" style="table-layout: fixed;">
         <colgroup>
@@ -108,7 +121,14 @@
     </div>
   </div>
 
-  <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <!-- Timeline View -->
+  <div id="activity-timeline-container" class="hidden bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div id="activity-timeline" class="p-4"></div>
+    <div id="activity-timeline-sentinel" class="timeline-sentinel"></div>
+  </div>
+
+  <!-- Pagination (Table view only) -->
+  <div id="activity-pagination" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div id="activity-count" class="text-sm text-gray-600"></div>
     <div class="flex gap-2">
       <button type="button" id="activity-prev" class="btn btn-secondary" disabled>
@@ -139,5 +159,7 @@ const manager = new ActivityManager({
 });
 
 manager.init();
+
+// View switcher is now integrated into ActivityManager
 </script>
 {% endblock %}
