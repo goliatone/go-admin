@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 	usersactivity "github.com/goliatone/go-users/activity"
@@ -530,6 +531,61 @@ func TestActivityPolicyScopingSanitizerAndMachineFiltering(t *testing.T) {
 	}
 }
 
+func TestActivityPolicyMasksActorEmailAndSessionID(t *testing.T) {
+	actorID := uuid.New()
+	now := time.Now().UTC()
+
+	repo := &stubActivityRepository{
+		records: []usertypes.ActivityRecord{
+			{
+				ID:         uuid.New(),
+				ActorID:    actorID,
+				UserID:     actorID,
+				Verb:       "login",
+				ObjectType: "user",
+				ObjectID:   "user-1",
+				Data: map[string]any{
+					usersactivity.DataKeyActorEmail: "admin@example.com",
+					usersactivity.DataKeySessionID:  "session-12345",
+				},
+				OccurredAt: now,
+			},
+		},
+	}
+
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:         allowAuthorizer{},
+		ActivityRepository: repo,
+	})
+
+	req := httptest.NewRequest("GET", "/admin/api/activity", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID: actorID.String(),
+		Role:    "member",
+	}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("activity status: %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	body := decodeActivityResponse(t, rr)
+	if len(body.Entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(body.Entries))
+	}
+
+	meta := body.Entries[0].Metadata
+	email, _ := meta[usersactivity.DataKeyActorEmail].(string)
+	if email == "admin@example.com" || strings.TrimSpace(email) == "" {
+		t.Fatalf("expected actor_email to be masked, got %q", email)
+	}
+	sessionID, _ := meta[usersactivity.DataKeySessionID].(string)
+	if sessionID == "session-12345" || strings.TrimSpace(sessionID) == "" {
+		t.Fatalf("expected session_id to be masked, got %q", sessionID)
+	}
+}
+
 func TestSessionIDFromContextUsesActorMetadata(t *testing.T) {
 	sessionID := "session-456"
 	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
@@ -543,5 +599,46 @@ func TestSessionIDFromContextUsesActorMetadata(t *testing.T) {
 	}
 	if got != sessionID {
 		t.Fatalf("expected session id %q, got %q", sessionID, got)
+	}
+}
+
+func TestSessionIDFromContextPrefersJWTID(t *testing.T) {
+	jti := "jwt-123"
+	claims := &auth.JWTClaims{
+		RegisteredClaims: jwt.RegisteredClaims{ID: jti},
+		Metadata:         map[string]any{"session_id": "meta-1"},
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	ctx = auth.WithActorContext(ctx, &auth.ActorContext{
+		ActorID:  uuid.NewString(),
+		Metadata: map[string]any{"session_id": "actor-1"},
+	})
+
+	got, ok := sessionIDFromContext(ctx)
+	if !ok {
+		t.Fatalf("expected session id from jwt id")
+	}
+	if got != jti {
+		t.Fatalf("expected session id %q, got %q", jti, got)
+	}
+}
+
+func TestSessionIDFromContextPrefersClaimsMetadata(t *testing.T) {
+	metaID := "meta-123"
+	claims := &auth.JWTClaims{
+		Metadata: map[string]any{"session_id": metaID},
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	ctx = auth.WithActorContext(ctx, &auth.ActorContext{
+		ActorID:  uuid.NewString(),
+		Metadata: map[string]any{"session_id": "actor-1"},
+	})
+
+	got, ok := sessionIDFromContext(ctx)
+	if !ok {
+		t.Fatalf("expected session id from claims metadata")
+	}
+	if got != metaID {
+		t.Fatalf("expected session id %q, got %q", metaID, got)
 	}
 }
