@@ -123,11 +123,11 @@ export declare function countMetadataFields(metadata: Record<string, unknown> | 
  * Get a summary of metadata changes
  * Returns a summary string, or 'hidden' for support role scenario, or empty for no metadata
  */
-export declare function getMetadataSummary(metadata: Record<string, unknown> | undefined): string;
+export declare function getMetadataSummary(metadata: Record<string, unknown> | undefined | null): string;
 /**
  * Format metadata for expanded display (grid-friendly items)
  */
-export declare function formatMetadataExpanded(metadata: Record<string, unknown> | undefined): string;
+export declare function formatMetadataExpanded(metadata: Record<string, unknown> | undefined | null): string;
 /**
  * Format enrichment debug info for display (collapsible diagnostics panel)
  */

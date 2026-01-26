@@ -608,12 +608,20 @@ export class ActivityManager {
       let buttonLabel = metadataSummary || '';
       let buttonClass = 'activity-metadata-toggle';
       let buttonStyle = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;';
+      let buttonIcon = '';
 
-      if (!hasMetadata && hasDebugInfo) {
+      // Handle hidden metadata case (support role scenario)
+      if (metadataSummary === 'hidden') {
+        buttonLabel = 'Hidden';
+        buttonClass += ' activity-metadata-toggle--hidden';
+        buttonStyle = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;';
+        buttonIcon = '<i class="iconoir-eye-off" style="font-size: 12px;"></i>';
+      } else if (!hasMetadata && hasDebugInfo) {
         // Only debug info, no metadata
         buttonLabel = 'Debug';
         buttonClass += ' activity-metadata-toggle--debug';
         buttonStyle = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;';
+        buttonIcon = '<i class="iconoir-info-circle" style="font-size: 12px;"></i>';
       }
 
       metadataCellHtml = `
@@ -622,7 +630,7 @@ export class ActivityManager {
                 style="${buttonStyle}"
                 aria-expanded="false"
                 data-metadata-toggle="${entry.id}">
-          ${!hasMetadata && hasDebugInfo ? '<i class="iconoir-info-circle" style="font-size: 12px;"></i>' : ''}
+          ${buttonIcon}
           <span>${buttonLabel}</span>
           <svg class="activity-metadata-chevron" style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>

@@ -220,7 +220,29 @@ export function renderTimelineEntry(
 
   // Build metadata section if present
   let metadataHtml = '';
-  if (metadataSummary) {
+  if (metadataSummary === 'hidden') {
+    // Hidden metadata (support role scenario)
+    metadataHtml = `
+      <div class="timeline-entry-metadata">
+        <button type="button"
+                class="timeline-metadata-toggle timeline-metadata-toggle--hidden"
+                aria-expanded="false"
+                data-timeline-metadata="${entry.id}">
+          <i class="iconoir-eye-off" style="font-size: 12px;"></i>
+          <span>Hidden</span>
+          <svg class="timeline-metadata-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="timeline-metadata-content" data-timeline-metadata-content="${entry.id}">
+          <div class="timeline-metadata-grid">
+            ${metadataContent}
+          </div>
+          ${enrichmentDebug}
+        </div>
+      </div>
+    `;
+  } else if (metadataSummary) {
     metadataHtml = `
       <div class="timeline-entry-metadata">
         <button type="button"
