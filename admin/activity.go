@@ -404,7 +404,8 @@ func attachSessionIDToRecord(ctx context.Context, record ActivityRecord, provide
 	if sessionID == "" {
 		return record
 	}
-	if strings.TrimSpace(key) == "" {
+	key = strings.TrimSpace(key)
+	if key == "" {
 		key = usersactivity.DataKeySessionID
 	}
 	out := record
