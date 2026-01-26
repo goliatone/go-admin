@@ -197,12 +197,36 @@ func (h *SiteHandlers) PostDetail(c router.Context) error {
 			WithCode(goerrors.CodeInternal).
 			WithTextCode("CMS_UNAVAILABLE")
 	}
+
+	previewToken := c.Query("preview_token")
+	var previewData *admin.PreviewToken
+	if previewToken != "" && h.Admin != nil {
+		if previewSvc := h.Admin.Preview(); previewSvc != nil {
+			if token, err := previewSvc.Validate(previewToken); err == nil {
+				previewData = token
+			}
+		}
+	}
+
 	path := normalizeSitePath(c.Path())
 	if h.shouldSkip(path) {
 		return goerrors.New("not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
 	}
 	locale := h.localeFromRequest(c)
-	post, err := h.resolvePost(c.Context(), path, locale, c.Param("slug"))
+	var post *sitePost
+	var err error
+
+	if previewData != nil && previewData.EntityType == "posts" {
+		record, _ := h.Posts.Get(c.Context(), previewData.ContentID)
+		if record != nil {
+			previewPost := mapToSitePost(record)
+			post = &previewPost
+		}
+	}
+
+	if post == nil {
+		post, err = h.resolvePost(c.Context(), path, locale, c.Param("slug"))
+	}
 	if err != nil {
 		if errors.Is(err, admin.ErrNotFound) {
 			return goerrors.New("post not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
@@ -217,6 +241,7 @@ func (h *SiteHandlers) PostDetail(c router.Context) error {
 		"base_path":      h.AssetBasePath,
 		"active_path":    path,
 		"default_locale": h.DefaultLocale,
+		"is_preview":     previewData != nil,
 	}
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("site/post", viewCtx)
