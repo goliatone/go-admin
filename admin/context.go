@@ -6,6 +6,7 @@ import (
 
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
+	usersactivity "github.com/goliatone/go-users/activity"
 )
 
 // AdminContext carries request-scoped information into panel operations.
@@ -133,6 +134,36 @@ func orgIDFromContext(ctx context.Context) string {
 		}
 	}
 	return ""
+}
+
+func defaultSessionIDProvider() usersactivity.SessionIDProvider {
+	return usersactivity.SessionIDProviderFunc(sessionIDFromContext)
+}
+
+func sessionIDFromContext(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
+	if claims, ok := auth.GetClaims(ctx); ok && claims != nil {
+		if jwtClaims, ok := claims.(*auth.JWTClaims); ok {
+			if id := strings.TrimSpace(jwtClaims.ID); id != "" {
+				return id, true
+			}
+		}
+		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok && carrier != nil {
+			if metadata := carrier.ClaimsMetadata(); len(metadata) > 0 {
+				if sessionID := strings.TrimSpace(toString(metadata["session_id"])); sessionID != "" {
+					return sessionID, true
+				}
+			}
+		}
+	}
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		if sessionID := strings.TrimSpace(toString(actor.Metadata["session_id"])); sessionID != "" {
+			return sessionID, true
+		}
+	}
+	return "", false
 }
 
 func withQueryParams(ctx context.Context, params map[string]string) context.Context {
