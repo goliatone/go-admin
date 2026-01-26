@@ -207,6 +207,14 @@ function firstNonEmpty(...values: string[]): string {
   return '';
 }
 
+export function resolveActorLabel(entry: ActivityEntry): string {
+  return firstNonEmpty(getMetadataString(entry.metadata, 'actor_display'), entry.actor);
+}
+
+export function resolveObjectDisplay(entry: ActivityEntry): string {
+  return getMetadataString(entry.metadata, 'object_display');
+}
+
 /**
  * Capitalize the first letter of a string
  */
@@ -283,11 +291,7 @@ export function formatActivitySentence(
   entry: ActivityEntry,
   labels?: Record<string, string>
 ): string {
-  const actorLabel = firstNonEmpty(
-    getMetadataString(entry.metadata, 'actor_display'),
-    entry.actor
-  );
-  const actor = actorLabel || 'Unknown';
+  const actor = resolveActorLabel(entry) || 'Unknown';
   const rawVerb = entry.action || 'performed action on';
   const verb = resolveActionLabel(rawVerb, labels);
 
@@ -298,7 +302,7 @@ export function formatActivitySentence(
 
   // Build object reference with shortened ID
   let objectRef = '';
-  const objectDisplay = getMetadataString(entry.metadata, 'object_display');
+  const objectDisplay = resolveObjectDisplay(entry);
   if (objectDisplay) {
     objectRef = escapeHtml(objectDisplay);
   } else {
