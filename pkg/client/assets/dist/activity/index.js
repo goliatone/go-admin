@@ -1,4 +1,4 @@
-const ne = {
+const se = {
   // Created
   created: "created",
   added: "created",
@@ -38,20 +38,20 @@ const ne = {
   read: "viewed",
   downloaded: "viewed",
   exported: "viewed"
-}, se = "actor_display", ae = "object_display", re = "object_deleted", oe = "actor_type", le = "actor_email", ce = "session_id", de = "enriched_at", fe = "enricher_version", P = {
+}, ae = "actor_display", re = "object_display", oe = "object_deleted", le = "actor_type", ce = "actor_email", de = "session_id", fe = "enriched_at", ue = "enricher_version", P = {
   user: "user",
   system: "settings",
   job: "clock",
   api: "cloud",
   unknown: "help-circle"
-}, ue = {
+}, pe = {
   user: "User",
   system: "System",
   job: "Job",
   api: "API",
   unknown: "Unknown"
 };
-function H(e) {
+function U(e) {
   if (typeof e != "string" || !e) return !1;
   const t = e.trim();
   if (/^\[(REDACTED|HIDDEN|MASKED|REMOVED)\]$/i.test(t) || /^\*+$/.test(t) || /^[^*]+\*{3,}[^*]+$/.test(t))
@@ -59,7 +59,7 @@ function H(e) {
   const i = t.replace(/-/g, "");
   return !!/^[0-9a-f]{64,}$/i.test(i);
 }
-function U(e) {
+function F(e) {
   if (!e || typeof e != "object") return !0;
   const t = Object.keys(e);
   return t.length === 0 ? !0 : t.every((i) => {
@@ -67,7 +67,7 @@ function U(e) {
     return n == null || n === "";
   });
 }
-const F = {
+const Y = {
   created: "plus",
   updated: "edit-pencil",
   deleted: "trash",
@@ -103,7 +103,7 @@ const F = {
   content: "page-edit",
   repl: "terminal"
 };
-function Y(e, t) {
+function K(e, t) {
   if (!e) return "";
   if (!t) return e;
   const i = e.trim();
@@ -111,28 +111,28 @@ function Y(e, t) {
   const n = t[i];
   return typeof n == "string" && n.trim() !== "" ? n : e;
 }
-function K(e, t) {
+function G(e, t) {
   if (!e)
     return { namespace: "", action: "", icon: "activity", category: "system" };
-  const i = Y(e, t);
+  const i = K(e, t);
   if (e.includes(".")) {
-    const a = e.split("."), r = a[0].toLowerCase(), o = a.slice(1).join("."), c = he[r] || "activity", f = a[a.length - 1], h = k(f);
+    const a = e.split("."), r = a[0].toLowerCase(), o = a.slice(1).join("."), c = he[r] || "activity", f = a[a.length - 1], h = V(f);
     return { namespace: r, action: i !== e ? i : o, icon: c, category: h };
   }
-  const n = k(e);
+  const n = V(e);
   return {
     namespace: "",
     action: i !== e ? i : e,
-    icon: F[n],
+    icon: Y[n],
     category: n
   };
 }
-function k(e) {
+function V(e) {
   if (!e) return "system";
   const t = e.toLowerCase().trim().replace(/-/g, "_");
-  return ne[t] || "system";
+  return se[t] || "system";
 }
-function pe(e) {
+function me(e) {
   if (!e) return { type: "", id: "" };
   if (!e.includes(":"))
     return { type: e, id: "" };
@@ -142,12 +142,12 @@ function pe(e) {
     id: e.substring(t + 1)
   };
 }
-function S(e, t) {
+function E(e, t) {
   if (!e || typeof e != "object") return "";
   const i = e[t];
   return i == null ? "" : typeof i == "string" ? i.trim() : typeof i == "number" || typeof i == "boolean" ? String(i) : "";
 }
-function me(...e) {
+function ge(...e) {
   for (const t of e) {
     if (!t) continue;
     const i = t.trim();
@@ -155,18 +155,18 @@ function me(...e) {
   }
   return "";
 }
-function G(e) {
-  return me(S(e.metadata, se), e.actor);
-}
-function ge(e) {
-  return S(e.metadata, ae);
+function J(e) {
+  return ge(E(e.metadata, ae), e.actor);
 }
 function be(e) {
-  return !e.metadata || typeof e.metadata != "object" ? !1 : e.metadata[re] === !0;
+  return E(e.metadata, re);
 }
-function D(e) {
+function ye(e) {
+  return !e.metadata || typeof e.metadata != "object" ? !1 : e.metadata[oe] === !0;
+}
+function N(e) {
   if (!e.metadata || typeof e.metadata != "object") return "unknown";
-  const t = e.metadata[oe];
+  const t = e.metadata[le];
   if (typeof t == "string") {
     const i = t.toLowerCase();
     if (i in P)
@@ -174,20 +174,20 @@ function D(e) {
   }
   return "unknown";
 }
-function ze(e) {
-  return S(e.metadata, le);
+function qe(e) {
+  return E(e.metadata, ce);
 }
-function J(e) {
-  return S(e.metadata, ce);
+function W(e) {
+  return E(e.metadata, de);
 }
-function ye(e) {
-  const t = S(e.metadata, de), i = S(e.metadata, fe);
+function ve(e) {
+  const t = E(e.metadata, fe), i = E(e.metadata, ue);
   return !t && !i ? null : { enrichedAt: t, enricherVersion: i };
 }
 function we(e) {
   return e ? e.charAt(0).toUpperCase() + e.slice(1) : "";
 }
-function B(e) {
+function R(e) {
   return e ? e.split(/[_-]/).map(we).join(" ") : "";
 }
 function l(e) {
@@ -199,7 +199,7 @@ function I(e, t = 7) {
   const i = e.replace(/-/g, "");
   return /^[0-9a-f]{32}$/i.test(i) || e.length > t + 3 ? e.substring(0, t) : e;
 }
-function W(e) {
+function Q(e) {
   if (!e) return !1;
   const t = e.replace(/-/g, "");
   return /^[0-9a-f]{32}$/i.test(t);
@@ -209,32 +209,32 @@ function A(e, t = 8) {
   const i = I(e, t);
   return i === e ? l(e) : `<span class="activity-id-short" title="${l(e)}" style="cursor: help; border-bottom: 1px dotted #9ca3af;">${l(i)}</span>`;
 }
-function Q(e, t, i) {
-  const { showActorTypeBadge: n = !1 } = i || {}, s = G(e) || "Unknown", a = e.action || "performed action on", r = Y(a, t);
+function X(e, t, i) {
+  const { showActorTypeBadge: n = !1 } = i || {}, s = J(e) || "Unknown", a = e.action || "performed action on", r = K(a, t);
   let o = "";
   if (n) {
-    const d = D(e);
-    d !== "user" && d !== "unknown" && (o = M(d, { badge: !0, size: "sm" }) + " ");
+    const d = N(e);
+    d !== "user" && d !== "unknown" && (o = B(d, { badge: !0, size: "sm" }) + " ");
   }
-  const c = W(s) ? `${o}${A(s, 8)}` : `${o}<strong>${l(s)}</strong>`, h = be(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
+  const c = Q(s) ? `${o}${A(s, 8)}` : `${o}<strong>${l(s)}</strong>`, h = ye(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
   let u = "";
-  const m = ge(e);
+  const m = be(e);
   if (m)
     u = l(m) + h;
   else {
-    const { type: d, id: p } = pe(e.object);
+    const { type: d, id: p } = me(e.object);
     if (d && p) {
       const g = A(p, 8);
-      u = `${l(B(d))} #${g}${h}`;
-    } else d ? u = l(B(d)) + h : p && (u = `#${A(p, 8)}${h}`);
+      u = `${l(R(d))} #${g}${h}`;
+    } else d ? u = l(R(d)) + h : p && (u = `#${A(p, 8)}${h}`);
   }
-  if (k(a) === "auth") {
+  if (V(a) === "auth") {
     const d = e.metadata?.ip || e.metadata?.IP;
     return d ? `${c} ${l(r)} from ${l(String(d))}` : `${c} ${l(r)}`;
   }
   return u ? `${c} ${l(r)} <strong>${u}</strong>` : `${c} ${l(r)}`;
 }
-function ve(e) {
+function xe(e) {
   if (!e) return "-";
   const t = new Date(e);
   return Number.isNaN(t.getTime()) ? e : t.toLocaleString();
@@ -261,7 +261,7 @@ function Se(e) {
   }
   return t.toLocaleDateString();
 }
-function X(e) {
+function Z(e) {
   const t = /* @__PURE__ */ new Date(), i = new Date(t.getFullYear(), t.getMonth(), t.getDate()), n = new Date(i);
   n.setDate(n.getDate() - 1);
   const s = new Date(e.getFullYear(), e.getMonth(), e.getDate());
@@ -272,42 +272,47 @@ function X(e) {
     year: s.getFullYear() !== t.getFullYear() ? "numeric" : void 0
   }).format(e);
 }
-function Z(e) {
+function ee(e) {
   return new Date(e.getFullYear(), e.getMonth(), e.getDate());
 }
-function x(e) {
+function S(e) {
   const t = e.getFullYear(), i = String(e.getMonth() + 1).padStart(2, "0"), n = String(e.getDate()).padStart(2, "0");
   return `${t}-${i}-${n}`;
 }
-function xe(e) {
+function Te(e) {
   return !e || typeof e != "object" ? 0 : Object.keys(e).length;
 }
-function ee(e) {
-  if (!e || typeof e != "object") return "";
-  const t = xe(e);
-  return t === 0 ? "" : U(e) ? "hidden" : t === 1 ? "1 field" : `${t} fields`;
-}
 function te(e) {
-  if (!e || typeof e != "object") return "";
-  if (U(e))
+  if (e === null) return "hidden";
+  if (e === void 0 || typeof e != "object") return "";
+  const t = Te(e);
+  return t === 0 || F(e) ? "hidden" : t === 1 ? "1 field" : `${t} fields`;
+}
+function ie(e) {
+  if (e === null)
     return `
       <div class="activity-metadata-hidden" style="padding: 12px; background: #f9fafb; border-radius: 6px; border: 1px dashed #d1d5db; text-align: center;">
         <span style="color: #9ca3af; font-size: 12px; font-style: italic;">Metadata hidden</span>
       </div>
     `;
+  if (e === void 0 || typeof e != "object") return "";
   const t = Object.entries(e);
-  return t.length === 0 ? "" : t.map(([n, s]) => {
+  return t.length === 0 || F(e) ? `
+      <div class="activity-metadata-hidden" style="padding: 12px; background: #f9fafb; border-radius: 6px; border: 1px dashed #d1d5db; text-align: center;">
+        <span style="color: #9ca3af; font-size: 12px; font-style: italic;">Metadata hidden</span>
+      </div>
+    ` : t.map(([n, s]) => {
     const a = l(n);
     let r, o = !1;
-    if (H(s))
+    if (U(s))
       o = !0, r = `<span class="activity-masked-value" title="This value is masked">${l(String(s))}</span>`;
     else if (n.endsWith("_old") || n.endsWith("_new"))
-      r = l(R(s));
+      r = l(O(s));
     else if (typeof s == "object" && s !== null) {
       const f = JSON.stringify(s), h = f.length > 100 ? f.substring(0, 100) + "..." : f;
       r = `<code style="font-size: 11px; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; word-break: break-all;">${l(h)}</code>`;
     } else
-      r = l(R(s));
+      r = l(O(s));
     return `
       <div class="activity-metadata-item${o ? " activity-metadata-item--masked" : ""}" style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
         <span style="color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${a}</span>
@@ -316,8 +321,8 @@ function te(e) {
     `;
   }).join("");
 }
-function ie(e) {
-  const t = ye(e);
+function ne(e) {
+  const t = ve(e);
   if (!t) return "";
   const i = [];
   if (t.enrichedAt) {
@@ -344,20 +349,20 @@ function ie(e) {
     </div>
   `;
 }
-function R(e) {
+function O(e) {
   return e == null ? "-" : typeof e == "boolean" ? e ? "Yes" : "No" : typeof e == "number" ? String(e) : typeof e == "string" ? e.length > 100 ? e.substring(0, 100) + "..." : e : JSON.stringify(e);
 }
-function Te(e) {
+function $e(e) {
   return e ? I(e, 7) : "";
 }
-function qe(e) {
+function He(e) {
   return `activity-action--${e}`;
 }
 function Pe(e) {
-  return `<i class="iconoir-${F[e]} activity-action-icon"></i>`;
+  return `<i class="iconoir-${Y[e]} activity-action-icon"></i>`;
 }
-function M(e, t) {
-  const { badge: i = !1, size: n = "md" } = t || {}, s = P[e], a = ue[e], r = {
+function B(e, t) {
+  const { badge: i = !1, size: n = "md" } = t || {}, s = P[e], a = pe[e], r = {
     sm: "font-size: 12px;",
     md: "font-size: 14px;",
     lg: "font-size: 16px;"
@@ -368,31 +373,31 @@ function M(e, t) {
       </span>
     ` : `<i class="iconoir-${s} activity-actor-type-icon activity-actor-type-icon--${e}" style="${r[n]}" title="${l(a)}"></i>`;
 }
-function He(e) {
-  const t = G(e) || "Unknown", i = D(e), n = W(t) ? A(t, 8) : l(t);
-  return `${i !== "user" && i !== "unknown" ? M(i, { badge: !0, size: "sm" }) + " " : ""}<strong>${n}</strong>`;
+function Ue(e) {
+  const t = J(e) || "Unknown", i = N(e), n = Q(t) ? A(t, 8) : l(t);
+  return `${i !== "user" && i !== "unknown" ? B(i, { badge: !0, size: "sm" }) + " " : ""}<strong>${n}</strong>`;
 }
-function $e(e, t = 10) {
+function Ae(e, t = 10) {
   return e ? I(e, t) : "";
 }
-function Ae(e) {
-  return e ? H(e) ? "Session (masked)" : `Session ${$e(e, 8)}` : "No session";
+function Ie(e) {
+  return e ? U(e) ? "Session (masked)" : `Session ${Ae(e, 8)}` : "No session";
 }
-const Ie = {
+const ke = {
   container: "#activity-view-switcher",
   tableTab: '[data-view-tab="table"]',
   timelineTab: '[data-view-tab="timeline"]',
   tableView: "#activity-table-container",
   timelineView: "#activity-timeline-container",
   paginationContainer: "#activity-pagination"
-}, O = "activity-view-preference", E = "view";
-class j {
+}, j = "activity-view-preference", x = "view";
+class z {
   constructor(t = {}, i) {
     this.currentView = "table", this.container = null, this.tableTab = null, this.timelineTab = null, this.tableView = null, this.timelineView = null, this.paginationContainer = null, this.handleTableClick = () => {
       this.setView("table");
     }, this.handleTimelineClick = () => {
       this.setView("timeline");
-    }, this.selectors = { ...Ie, ...t }, this.onViewChange = i;
+    }, this.selectors = { ...ke, ...t }, this.onViewChange = i;
   }
   /**
    * Initialize the view switcher
@@ -429,12 +434,12 @@ class j {
    * Restore view from URL param or localStorage
    */
   restoreView() {
-    const i = new URLSearchParams(window.location.search).get(E);
+    const i = new URLSearchParams(window.location.search).get(x);
     if (i === "table" || i === "timeline") {
       this.setView(i, { persist: !0, updateUrl: !1 });
       return;
     }
-    const n = localStorage.getItem(O);
+    const n = localStorage.getItem(j);
     if (n === "table" || n === "timeline") {
       this.setView(n, { persist: !1, updateUrl: !0 });
       return;
@@ -453,7 +458,7 @@ class j {
    */
   persistView() {
     try {
-      localStorage.setItem(O, this.currentView);
+      localStorage.setItem(j, this.currentView);
     } catch {
     }
   }
@@ -462,7 +467,7 @@ class j {
    */
   updateUrlParam() {
     const t = new URLSearchParams(window.location.search);
-    this.currentView === "table" ? t.delete(E) : t.set(E, this.currentView);
+    this.currentView === "table" ? t.delete(x) : t.set(x, this.currentView);
     const i = t.toString(), n = i ? `${window.location.pathname}?${i}` : window.location.pathname;
     window.history.replaceState({}, "", n);
   }
@@ -481,16 +486,16 @@ class j {
    * Get view param for inclusion in API requests
    */
   static getViewFromUrl() {
-    return new URLSearchParams(window.location.search).get(E) === "timeline" ? "timeline" : "table";
+    return new URLSearchParams(window.location.search).get(x) === "timeline" ? "timeline" : "table";
   }
   /**
    * Add view param to existing URLSearchParams (for query sync)
    */
   static addViewToParams(t, i) {
-    i === "timeline" ? t.set(E, i) : t.delete(E);
+    i === "timeline" ? t.set(x, i) : t.delete(x);
   }
 }
-const z = {
+const q = {
   created: { bg: "#ecfdf5", color: "#10b981", border: "#a7f3d0" },
   updated: { bg: "#eff6ff", color: "#3b82f6", border: "#bfdbfe" },
   deleted: { bg: "#fef2f2", color: "#ef4444", border: "#fecaca" },
@@ -498,17 +503,17 @@ const z = {
   viewed: { bg: "#f5f3ff", color: "#8b5cf6", border: "#ddd6fe" },
   system: { bg: "#f9fafb", color: "#6b7280", border: "#e5e7eb" }
 };
-function Le(e) {
+function Ce(e) {
   if (!e || e.length === 0)
     return [];
   const t = /* @__PURE__ */ new Map();
   return e.forEach((i) => {
     const n = new Date(i.created_at);
     if (Number.isNaN(n.getTime())) return;
-    const s = x(n), a = Z(n);
+    const s = S(n), a = ee(n);
     t.has(s) || t.set(s, {
       date: a,
-      label: X(n),
+      label: Z(n),
       entries: [],
       collapsed: !1
     }), t.get(s).entries.push(i);
@@ -516,15 +521,15 @@ function Le(e) {
     (i, n) => n.date.getTime() - i.date.getTime()
   );
 }
-function Ce(e) {
+function Le(e) {
   if (!e || e.length === 0)
     return [];
   const t = /* @__PURE__ */ new Map();
   e.forEach((n) => {
-    const s = J(n) || "", a = s || "__no_session__";
+    const s = W(n) || "", a = s || "__no_session__";
     t.has(a) || t.set(a, {
       sessionId: s,
-      label: Ae(s),
+      label: Ie(s),
       entries: [],
       collapsed: !1
     }), t.get(a).entries.push(n);
@@ -541,19 +546,19 @@ function Ce(e) {
     return (s.entries[0] ? new Date(s.entries[0].created_at).getTime() : 0) - a;
   });
 }
-function _e(e, t) {
+function Me(e, t) {
   if (!t || t.length === 0)
     return e;
   const i = /* @__PURE__ */ new Map();
   e.forEach((s) => {
-    i.set(x(s.date), { ...s, entries: [...s.entries] });
+    i.set(S(s.date), { ...s, entries: [...s.entries] });
   }), t.forEach((s) => {
     const a = new Date(s.created_at);
     if (Number.isNaN(a.getTime())) return;
-    const r = x(a), o = Z(a);
+    const r = S(a), o = ee(a);
     i.has(r) || i.set(r, {
       date: o,
-      label: X(a),
+      label: Z(a),
       entries: [],
       collapsed: !1
     });
@@ -569,7 +574,7 @@ function _e(e, t) {
     );
   }), n;
 }
-function ke(e) {
+function _e(e) {
   if (!e) return "?";
   const t = e.replace(/-/g, "");
   if (/^[0-9a-f]{32}$/i.test(t))
@@ -577,11 +582,30 @@ function ke(e) {
   const i = e.split(/[\s._-]+/).filter(Boolean);
   return i.length >= 2 ? (i[0][0] + i[1][0]).toUpperCase() : e.substring(0, 2).toUpperCase();
 }
-function L(e, t, i) {
-  const { showDebugInfo: n = !1 } = i || {}, s = K(e.action, t), a = Q(e, t), r = Se(e.created_at), o = ee(e.metadata), c = te(e.metadata), f = n ? ie(e) : "", h = z[s.category] || z.system, u = ke(e.actor), m = D(e), y = m !== "user" && m !== "unknown" ? M(m, { badge: !0, size: "sm" }) : "", d = document.createElement("div");
+function M(e, t, i) {
+  const { showDebugInfo: n = !1 } = i || {}, s = G(e.action, t), a = X(e, t), r = Se(e.created_at), o = te(e.metadata), c = ie(e.metadata), f = n ? ne(e) : "", h = q[s.category] || q.system, u = _e(e.actor), m = N(e), y = m !== "user" && m !== "unknown" ? B(m, { badge: !0, size: "sm" }) : "", d = document.createElement("div");
   d.className = `timeline-entry timeline-entry--${s.category}`, d.dataset.entryId = e.id;
   let p = "";
-  o ? p = `
+  o === "hidden" ? p = `
+      <div class="timeline-entry-metadata">
+        <button type="button"
+                class="timeline-metadata-toggle timeline-metadata-toggle--hidden"
+                aria-expanded="false"
+                data-timeline-metadata="${e.id}">
+          <i class="iconoir-eye-off" style="font-size: 12px;"></i>
+          <span>Hidden</span>
+          <svg class="timeline-metadata-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="timeline-metadata-content" data-timeline-metadata-content="${e.id}">
+          <div class="timeline-metadata-grid">
+            ${c}
+          </div>
+          ${f}
+        </div>
+      </div>
+    ` : o ? p = `
       <div class="timeline-entry-metadata">
         <button type="button"
                 class="timeline-metadata-toggle"
@@ -662,8 +686,8 @@ function De(e, t, i) {
     e.collapsed = c, o.setAttribute("aria-expanded", (!c).toString()), i(n, c);
   }), s;
 }
-function Me(e, t) {
-  const i = x(e.date), n = document.createElement("div");
+function Ve(e, t) {
+  const i = S(e.date), n = document.createElement("div");
   n.className = "timeline-date-header", n.dataset.dateGroup = i, n.innerHTML = `
     <button type="button" class="timeline-date-toggle" aria-expanded="${!e.collapsed}">
       <span class="timeline-date-label">${l(e.label)}</span>
@@ -679,19 +703,19 @@ function Me(e, t) {
     e.collapsed = a, s.setAttribute("aria-expanded", (!a).toString()), t(i, a);
   }), n;
 }
-function Ve(e, t, i, n) {
+function Ne(e, t, i, n) {
   const {
     groupBySession: s = !0,
     showDebugInfo: a = !1,
     onSessionToggle: r,
     collapsedSessions: o = /* @__PURE__ */ new Set()
-  } = n || {}, c = x(e.date), f = document.createElement("div");
+  } = n || {}, c = S(e.date), f = document.createElement("div");
   f.className = "timeline-group", f.dataset.dateGroup = c;
-  const h = Me(e, i);
+  const h = Ve(e, i);
   f.appendChild(h);
   const u = document.createElement("div");
   if (u.className = "timeline-entries", e.collapsed && u.classList.add("collapsed"), s) {
-    const m = Ce(e.entries), y = m.length > 1 || m.length === 1 && m[0].sessionId;
+    const m = Le(e.entries), y = m.length > 1 || m.length === 1 && m[0].sessionId;
     m.forEach((d) => {
       const p = `${c}__${d.sessionId || "no-session"}`;
       if (d.collapsed = o.has(p), y) {
@@ -699,23 +723,23 @@ function Ve(e, t, i, n) {
         u.appendChild(g);
         const b = document.createElement("div");
         b.className = "timeline-session-entries", b.dataset.sessionEntries = p, d.collapsed && b.classList.add("collapsed"), d.entries.forEach((T) => {
-          const $ = L(T, t, { showDebugInfo: a });
+          const $ = M(T, t, { showDebugInfo: a });
           b.appendChild($);
         }), u.appendChild(b);
       } else
         d.entries.forEach((g) => {
-          const b = L(g, t, { showDebugInfo: a });
+          const b = M(g, t, { showDebugInfo: a });
           u.appendChild(b);
         });
     });
   } else
     e.entries.forEach((m) => {
-      const y = L(m, t, { showDebugInfo: a });
+      const y = M(m, t, { showDebugInfo: a });
       u.appendChild(y);
     });
   return f.appendChild(u), f;
 }
-class Ne {
+class Be {
   constructor(t, i, n) {
     this.collapsedGroups = /* @__PURE__ */ new Set(), this.collapsedSessions = /* @__PURE__ */ new Set(), this.groups = [], this.container = t, this.actionLabels = i, this.options = {
       groupBySession: !0,
@@ -733,15 +757,15 @@ class Ne {
    * Render the full timeline
    */
   render(t) {
-    if (this.groups = Le(t), this.container.innerHTML = "", this.groups.length === 0) {
+    if (this.groups = Ce(t), this.container.innerHTML = "", this.groups.length === 0) {
       this.renderEmptyState();
       return;
     }
     const i = document.createElement("div");
     i.className = "timeline", this.groups.forEach((n) => {
-      const s = x(n.date);
+      const s = S(n.date);
       n.collapsed = this.collapsedGroups.has(s);
-      const a = Ve(
+      const a = Ne(
         n,
         this.actionLabels,
         (r, o) => {
@@ -763,7 +787,7 @@ class Ne {
    * Append more entries (for infinite scroll)
    */
   appendEntries(t) {
-    this.groups = _e(this.groups, t);
+    this.groups = Me(this.groups, t);
     const i = this.groups.flatMap((n) => n.entries);
     this.render(i);
   }
@@ -816,24 +840,24 @@ class Ne {
     });
   }
 }
-function Be() {
+function Re() {
   const e = document.createElement("div");
   return e.className = "timeline-loading", e.innerHTML = `
     <div class="timeline-loading-spinner"></div>
     <span>Loading more entries...</span>
   `, e;
 }
-function Re() {
+function Oe() {
   const e = document.createElement("div");
   return e.className = "timeline-end", e.innerHTML = `
     <span>No more entries</span>
   `, e;
 }
-function Ue() {
+function Fe() {
   const e = document.createElement("div");
   return e.className = "timeline-sentinel", e.setAttribute("aria-hidden", "true"), e;
 }
-const Oe = {
+const je = {
   form: "#activity-filters",
   tableBody: "#activity-table-body",
   emptyState: "#activity-empty",
@@ -845,11 +869,11 @@ const Oe = {
   refreshBtn: "#activity-refresh",
   clearBtn: "#activity-clear",
   limitInput: "#filter-limit"
-}, q = {
+}, H = {
   container: "#activity-timeline",
   sentinel: "#activity-timeline-sentinel"
-}, C = ["q", "verb", "channels", "object_type", "object_id"], _ = ["since", "until"], je = ["user_id", "actor_id"];
-class Fe {
+}, _ = ["q", "verb", "channels", "object_type", "object_id"], D = ["since", "until"], ze = ["user_id", "actor_id"];
+class Ye {
   constructor(t, i = {}, n) {
     this.form = null, this.tableBody = null, this.emptyState = null, this.disabledState = null, this.errorState = null, this.countEl = null, this.prevBtn = null, this.nextBtn = null, this.refreshBtn = null, this.clearBtn = null, this.limitInput = null, this.viewSwitcher = null, this.timelineRenderer = null, this.timelineContainer = null, this.timelineSentinel = null, this.infiniteScrollObserver = null, this.isLoadingMore = !1, this.allEntriesLoaded = !1, this.cachedEntries = [], this.state = {
       limit: 50,
@@ -858,7 +882,7 @@ class Fe {
       nextOffset: 0,
       hasMore: !1,
       extraParams: {}
-    }, this.config = t, this.selectors = { ...Oe, ...i }, this.toast = n || window.toastManager || null;
+    }, this.config = t, this.selectors = { ...je, ...i }, this.toast = n || window.toastManager || null;
   }
   /**
    * Initialize the activity manager
@@ -870,7 +894,7 @@ class Fe {
    * Initialize the view switcher
    */
   initViewSwitcher() {
-    this.viewSwitcher = new j(
+    this.viewSwitcher = new z(
       {
         container: "#activity-view-switcher",
         tableTab: '[data-view-tab="table"]',
@@ -886,7 +910,7 @@ class Fe {
    * Initialize the timeline renderer
    */
   initTimeline() {
-    this.timelineContainer = document.querySelector(q.container), this.timelineSentinel = document.querySelector(q.sentinel), this.timelineContainer && (this.timelineRenderer = new Ne(
+    this.timelineContainer = document.querySelector(H.container), this.timelineSentinel = document.querySelector(H.sentinel), this.timelineContainer && (this.timelineRenderer = new Be(
       this.timelineContainer,
       this.config.actionLabels
     )), this.setupInfiniteScroll();
@@ -931,7 +955,7 @@ class Fe {
     if (this.isLoadingMore || this.allEntriesLoaded || !this.state.hasMore)
       return;
     this.isLoadingMore = !0;
-    const t = Be();
+    const t = Re();
     this.timelineSentinel?.parentElement?.insertBefore(t, this.timelineSentinel);
     try {
       this.state.offset = this.state.nextOffset;
@@ -941,7 +965,7 @@ class Fe {
       const a = await s.json(), r = Array.isArray(a.entries) ? a.entries : [];
       if (this.state.hasMore = !!a.has_more, this.state.nextOffset = typeof a.next_offset == "number" ? a.next_offset : this.state.offset + r.length, r.length === 0 ? this.allEntriesLoaded = !0 : (this.cachedEntries = [...this.cachedEntries, ...r], this.timelineRenderer && this.timelineRenderer.appendEntries(r)), !this.state.hasMore) {
         this.allEntriesLoaded = !0;
-        const o = Re();
+        const o = Oe();
         this.timelineSentinel?.parentElement?.insertBefore(o, this.timelineSentinel);
       }
     } catch (i) {
@@ -957,7 +981,7 @@ class Fe {
     this.form?.addEventListener("submit", (t) => {
       t.preventDefault(), this.state.limit = parseInt(this.limitInput?.value || "50", 10) || 50, this.state.offset = 0, this.loadActivity();
     }), this.clearBtn?.addEventListener("click", () => {
-      C.forEach((t) => this.setInputValue(t, "")), _.forEach((t) => this.setInputValue(t, "")), this.state.offset = 0, this.loadActivity();
+      _.forEach((t) => this.setInputValue(t, "")), D.forEach((t) => this.setInputValue(t, "")), this.state.offset = 0, this.loadActivity();
     }), this.prevBtn?.addEventListener("click", () => {
       this.state.offset = Math.max(0, this.state.offset - this.state.limit), this.loadActivity();
     }), this.nextBtn?.addEventListener("click", () => {
@@ -988,17 +1012,17 @@ class Fe {
   }
   syncFromQuery() {
     const t = new URLSearchParams(window.location.search), i = parseInt(t.get("limit") || "", 10), n = parseInt(t.get("offset") || "", 10);
-    !Number.isNaN(i) && i > 0 && (this.state.limit = i), !Number.isNaN(n) && n >= 0 && (this.state.offset = n), this.limitInput && (this.limitInput.value = String(this.state.limit)), C.forEach((s) => this.setInputValue(s, t.get(s) || "")), _.forEach((s) => this.setInputValue(s, this.toLocalInput(t.get(s) || ""))), je.forEach((s) => {
+    !Number.isNaN(i) && i > 0 && (this.state.limit = i), !Number.isNaN(n) && n >= 0 && (this.state.offset = n), this.limitInput && (this.limitInput.value = String(this.state.limit)), _.forEach((s) => this.setInputValue(s, t.get(s) || "")), D.forEach((s) => this.setInputValue(s, this.toLocalInput(t.get(s) || ""))), ze.forEach((s) => {
       const a = t.get(s);
       a && (this.state.extraParams[s] = a);
     });
   }
   buildParams() {
     const t = new URLSearchParams();
-    return t.set("limit", String(this.state.limit)), t.set("offset", String(this.state.offset)), C.forEach((i) => {
+    return t.set("limit", String(this.state.limit)), t.set("offset", String(this.state.offset)), _.forEach((i) => {
       const n = this.getInputValue(i);
       n && t.set(i, n);
-    }), _.forEach((i) => {
+    }), D.forEach((i) => {
       const n = this.toRFC3339(this.getInputValue(i));
       n && t.set(i, n);
     }), Object.entries(this.state.extraParams).forEach(([i, n]) => {
@@ -1006,7 +1030,7 @@ class Fe {
     }), t;
   }
   syncUrl(t) {
-    this.viewSwitcher && j.addViewToParams(t, this.viewSwitcher.getView());
+    this.viewSwitcher && z.addViewToParams(t, this.viewSwitcher.getView());
     const i = t.toString(), n = i ? `${window.location.pathname}?${i}` : window.location.pathname;
     window.history.replaceState({}, "", n);
   }
@@ -1062,14 +1086,14 @@ class Fe {
     this.emptyState?.classList.add("hidden");
     let i = "";
     t.forEach((n) => {
-      const s = J(n);
+      const s = W(n);
       s && s !== i ? (this.tableBody.appendChild(this.createSessionRow(s)), i = s) : s || (i = "");
       const { mainRow: a, detailsRow: r } = this.createRowPair(n);
       this.tableBody.appendChild(a), r && this.tableBody.appendChild(r);
     }), this.wireMetadataToggles();
   }
   createRowPair(t) {
-    const i = this.config.actionLabels || {}, n = K(t.action, i), s = Q(t, i, { showActorTypeBadge: !0 }), a = ve(t.created_at), r = Ee(t.created_at), o = ee(t.metadata), c = te(t.metadata), f = ie(t), h = Te(t.channel), u = !!o, m = !!f, y = u || m, d = {
+    const i = this.config.actionLabels || {}, n = G(t.action, i), s = X(t, i, { showActorTypeBadge: !0 }), a = xe(t.created_at), r = Ee(t.created_at), o = te(t.metadata), c = ie(t.metadata), f = ne(t), h = $e(t.channel), u = !!o, m = !!f, y = u || m, d = {
       created: { bg: "#ecfdf5", color: "#10b981", border: "#a7f3d0" },
       updated: { bg: "#eff6ff", color: "#3b82f6", border: "#bfdbfe" },
       deleted: { bg: "#fef2f2", color: "#ef4444", border: "#fecaca" },
@@ -1102,14 +1126,14 @@ class Fe {
       ` : T = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
     let $ = "";
     if (y) {
-      let v = o || "", V = "activity-metadata-toggle", N = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;";
-      !u && m && (v = "Debug", V += " activity-metadata-toggle--debug", N = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;"), $ = `
+      let v = o || "", k = "activity-metadata-toggle", C = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;", L = "";
+      o === "hidden" ? (v = "Hidden", k += " activity-metadata-toggle--hidden", C = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", L = '<i class="iconoir-eye-off" style="font-size: 12px;"></i>') : !u && m && (v = "Debug", k += " activity-metadata-toggle--debug", C = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", L = '<i class="iconoir-info-circle" style="font-size: 12px;"></i>'), $ = `
         <button type="button"
-                class="${V}"
-                style="${N}"
+                class="${k}"
+                style="${C}"
                 aria-expanded="false"
                 data-metadata-toggle="${t.id}">
-          ${!u && m ? '<i class="iconoir-info-circle" style="font-size: 12px;"></i>' : ""}
+          ${L}
           <span>${v}</span>
           <svg class="activity-metadata-chevron" style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -1179,55 +1203,55 @@ class Fe {
   }
 }
 export {
-  F as ACTION_ICONS,
+  Y as ACTION_ICONS,
   P as ACTOR_TYPE_ICONS,
-  ue as ACTOR_TYPE_LABELS,
-  Fe as ActivityManager,
-  j as ActivityViewSwitcher,
+  pe as ACTOR_TYPE_LABELS,
+  Ye as ActivityManager,
+  z as ActivityViewSwitcher,
   he as NAMESPACE_ICONS,
-  Ne as TimelineRenderer,
-  xe as countMetadataFields,
-  Re as createEndIndicator,
-  Be as createLoadingIndicator,
-  Ue as createScrollSentinel,
+  Be as TimelineRenderer,
+  Te as countMetadataFields,
+  Oe as createEndIndicator,
+  Re as createLoadingIndicator,
+  Fe as createScrollSentinel,
   l as escapeHtml,
-  Q as formatActivitySentence,
-  He as formatActorWithType,
-  Te as formatChannel,
-  ie as formatEnrichmentDebugInfo,
-  te as formatMetadataExpanded,
+  X as formatActivitySentence,
+  Ue as formatActorWithType,
+  $e as formatChannel,
+  ne as formatEnrichmentDebugInfo,
+  ie as formatMetadataExpanded,
   Ee as formatRelativeTime,
   Se as formatRelativeTimeIntl,
-  $e as formatSessionId,
-  ve as formatTimestamp,
-  k as getActionCategory,
-  qe as getActionClass,
+  Ae as formatSessionId,
+  xe as formatTimestamp,
+  V as getActionCategory,
+  He as getActionClass,
   Pe as getActionIconHtml,
-  ze as getActorEmail,
-  D as getActorType,
-  M as getActorTypeIconHtml,
-  X as getDateGroupLabel,
-  x as getDateKey,
-  ye as getEnrichmentInfo,
-  ee as getMetadataSummary,
-  Ae as getSessionGroupLabel,
-  J as getSessionId,
-  Z as getStartOfDay,
-  Le as groupEntriesByDate,
-  Ce as groupEntriesBySession,
-  H as isMaskedValue,
-  U as isMetadataHidden,
-  be as isObjectDeleted,
-  _e as mergeEntriesIntoGroups,
-  K as parseActionString,
-  pe as parseObject,
-  Ve as renderDateGroup,
-  Me as renderDateGroupHeader,
+  qe as getActorEmail,
+  N as getActorType,
+  B as getActorTypeIconHtml,
+  Z as getDateGroupLabel,
+  S as getDateKey,
+  ve as getEnrichmentInfo,
+  te as getMetadataSummary,
+  Ie as getSessionGroupLabel,
+  W as getSessionId,
+  ee as getStartOfDay,
+  Ce as groupEntriesByDate,
+  Le as groupEntriesBySession,
+  U as isMaskedValue,
+  F as isMetadataHidden,
+  ye as isObjectDeleted,
+  Me as mergeEntriesIntoGroups,
+  G as parseActionString,
+  me as parseObject,
+  Ne as renderDateGroup,
+  Ve as renderDateGroupHeader,
   De as renderSessionGroupHeader,
-  L as renderTimelineEntry,
-  Y as resolveActionLabel,
-  G as resolveActorLabel,
-  ge as resolveObjectDisplay,
+  M as renderTimelineEntry,
+  K as resolveActionLabel,
+  J as resolveActorLabel,
+  be as resolveObjectDisplay,
   I as shortenId
 };
 //# sourceMappingURL=index.js.map

@@ -620,13 +620,18 @@ export function countMetadataFields(metadata: Record<string, unknown> | undefine
  * Get a summary of metadata changes
  * Returns a summary string, or 'hidden' for support role scenario, or empty for no metadata
  */
-export function getMetadataSummary(metadata: Record<string, unknown> | undefined): string {
-  if (!metadata || typeof metadata !== 'object') return '';
+export function getMetadataSummary(metadata: Record<string, unknown> | undefined | null): string {
+  // Handle null/undefined metadata as hidden (support role scenario where backend omits metadata)
+  if (metadata === null) return 'hidden';
+  if (metadata === undefined) return '';
+  if (typeof metadata !== 'object') return '';
 
   const count = countMetadataFields(metadata);
-  if (count === 0) return '';
 
-  // Check if metadata is hidden (all values are empty/null)
+  // Empty object {} is treated as hidden (support role scenario)
+  if (count === 0) return 'hidden';
+
+  // Check if metadata has keys but all values are empty/null (another hidden scenario)
   if (isMetadataHidden(metadata)) {
     return 'hidden';
   }
@@ -638,11 +643,9 @@ export function getMetadataSummary(metadata: Record<string, unknown> | undefined
 /**
  * Format metadata for expanded display (grid-friendly items)
  */
-export function formatMetadataExpanded(metadata: Record<string, unknown> | undefined): string {
-  if (!metadata || typeof metadata !== 'object') return '';
-
-  // Check if metadata is hidden (support role scenario)
-  if (isMetadataHidden(metadata)) {
+export function formatMetadataExpanded(metadata: Record<string, unknown> | undefined | null): string {
+  // Handle null metadata as hidden (support role scenario)
+  if (metadata === null) {
     return `
       <div class="activity-metadata-hidden" style="padding: 12px; background: #f9fafb; border-radius: 6px; border: 1px dashed #d1d5db; text-align: center;">
         <span style="color: #9ca3af; font-size: 12px; font-style: italic;">Metadata hidden</span>
@@ -650,8 +653,18 @@ export function formatMetadataExpanded(metadata: Record<string, unknown> | undef
     `;
   }
 
+  if (metadata === undefined || typeof metadata !== 'object') return '';
+
   const entries = Object.entries(metadata);
-  if (entries.length === 0) return '';
+
+  // Empty object {} or all-null values = hidden
+  if (entries.length === 0 || isMetadataHidden(metadata)) {
+    return `
+      <div class="activity-metadata-hidden" style="padding: 12px; background: #f9fafb; border-radius: 6px; border: 1px dashed #d1d5db; text-align: center;">
+        <span style="color: #9ca3af; font-size: 12px; font-style: italic;">Metadata hidden</span>
+      </div>
+    `;
+  }
 
   const items = entries.map(([key, value]) => {
     const formattedKey = escapeHtml(key);
