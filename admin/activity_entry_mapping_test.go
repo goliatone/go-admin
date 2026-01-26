@@ -62,6 +62,27 @@ func TestActivityEntryFromUsersRecordFallsBackToUserID(t *testing.T) {
 	}
 }
 
+func TestActivityEntryFromUsersRecordPrefersDisplayFields(t *testing.T) {
+	record := usertypes.ActivityRecord{
+		ID:         uuid.New(),
+		ActorID:    uuid.New(),
+		ObjectType: "role",
+		ObjectID:   "role-1",
+		Data: map[string]any{
+			"actor_display":  "Ada Lovelace",
+			"object_display": "Role: Admin",
+		},
+	}
+
+	entry := entryFromUsersRecord(record)
+	if entry.Actor != "Ada Lovelace" {
+		t.Fatalf("expected actor display Ada Lovelace, got %s", entry.Actor)
+	}
+	if entry.Object != "Role: Admin" {
+		t.Fatalf("expected object display Role: Admin, got %s", entry.Object)
+	}
+}
+
 func TestActivityEntriesFromUsersRecordsPreservesOrder(t *testing.T) {
 	firstID := uuid.New()
 	secondID := uuid.New()
