@@ -1,5 +1,110 @@
 # Changelog
 
+# [0.22.0](https://github.com/goliatone/go-admin/compare/v0.21.1...v0.22.0) - (2026-01-26)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Deadlock ([f8abe09](https://github.com/goliatone/go-admin/commit/f8abe0938d0de8360aecd34c150a5b3540cb9ac4))  - (goliatone)
+- Updated activity formatter to use new actor id ([cd30966](https://github.com/goliatone/go-admin/commit/cd3096634dd25e532ca27a73dc9f3ee59cded866))  - (goliatone)
+- Resolve route precedence ([d860b54](https://github.com/goliatone/go-admin/commit/d860b544489e70d356254e5757f257627b92146e))  - (goliatone)
+- Style. add: descriptions to feature flags ([37866d8](https://github.com/goliatone/go-admin/commit/37866d8f21842533b94e078a5cc9e94b1949028f))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.22.0 ([79b498d](https://github.com/goliatone/go-admin/commit/79b498dced9541182aec6b1687f586a77c315631))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Activity enrichment implementation ([578db86](https://github.com/goliatone/go-admin/commit/578db8639810e54f25dcb03d8c4b5d1ef46de8c1))  - (goliatone)
+- Format group ID ([8c97196](https://github.com/goliatone/go-admin/commit/8c97196357192042c7bbb175a58e71a9d93f6148))  - (goliatone)
+- Update formatting for UI dates ([c536071](https://github.com/goliatone/go-admin/commit/c536071326fa7e67defa2aa37ed2094e45956bdd))  - (goliatone)
+- Activity resolvers ([1bb19bf](https://github.com/goliatone/go-admin/commit/1bb19bf52d8294cbc2f7a9593a595dd514e09353))  - (goliatone)
+- Activity timeline implementation ([067a90f](https://github.com/goliatone/go-admin/commit/067a90f3408d4abf290fd7b533d97387d7234b08))  - (goliatone)
+- Implement activity timeline view ([4a120a9](https://github.com/goliatone/go-admin/commit/4a120a9a602123974d366ed96bb53c25649c1859))  - (goliatone)
+- Updated page resources ([96771ba](https://github.com/goliatone/go-admin/commit/96771ba656f68959c830f3bbc6a06f3bce9420f3))  - (goliatone)
+- Example definition for content ([4ef4ac5](https://github.com/goliatone/go-admin/commit/4ef4ac540f86c338d996da009ec012621523bbfd))  - (goliatone)
+- Updated activity preview ([9365984](https://github.com/goliatone/go-admin/commit/93659841d2c409b95806ac69ce21fb56b9c0a8c2))  - (goliatone)
+- Wire workflows ([c460e8c](https://github.com/goliatone/go-admin/commit/c460e8c2911f6e691890e29d1d86fe60c9957c9b))  - (goliatone)
+- Register preview routes ([c066bde](https://github.com/goliatone/go-admin/commit/c066bde7b9c447d8090ded107029bf60303d2c94))  - (goliatone)
+- Generate preview ([8cb6888](https://github.com/goliatone/go-admin/commit/8cb688843d5bfcedbfd101466049016c4e67e19b))  - (goliatone)
+- Worfklow integration with panel ([5237256](https://github.com/goliatone/go-admin/commit/52372564b8542422cbeead960637b299ad19f24a))  - (goliatone)
+- Workflow auth to facade ([7ffbcc7](https://github.com/goliatone/go-admin/commit/7ffbcc793ba673162ecee4fe7396633cd2362328))  - (goliatone)
+- Panel workflow setup ([8f35ab9](https://github.com/goliatone/go-admin/commit/8f35ab960ad87d23e66ceffe94db64b8275e1066))  - (goliatone)
+- MenuByLocation to cms service ([c3a7f13](https://github.com/goliatone/go-admin/commit/c3a7f1335740dbfeb8f97b68270f01733690b115))  - (goliatone)
+- Cms menu management ([1e5b1d2](https://github.com/goliatone/go-admin/commit/1e5b1d2813aa8bcb2c4cb5d71463b2e986ef0a7b))  - (goliatone)
+- Integrate menu management ([90cacc5](https://github.com/goliatone/go-admin/commit/90cacc5c82bb3934fb0075d69447540df606bf10))  - (goliatone)
+- Public menu get by location ([fac6ec7](https://github.com/goliatone/go-admin/commit/fac6ec7f120a5d9edfdf6434c031200565ed013e))  - (goliatone)
+- Activity frontend code ([9a057cd](https://github.com/goliatone/go-admin/commit/9a057cdbce9b2165b42e5de2f814a88af53c7eb8))  - (goliatone)
+- Preview panel binding ([c7d025c](https://github.com/goliatone/go-admin/commit/c7d025c0d9b34962e4a54c22e3a08d6a9f94b61a))  - (goliatone)
+- Update step for routes ([5fb9ae6](https://github.com/goliatone/go-admin/commit/5fb9ae601e8389980abc20066e27d5c309ca79e8))  - (goliatone)
+- Udpate translate interface ([4bf2468](https://github.com/goliatone/go-admin/commit/4bf2468cfbd6c9910705ee032467b1c4b15d3240))  - (goliatone)
+- Update workflow ([4f265fd](https://github.com/goliatone/go-admin/commit/4f265fd2a3d952c005b07a90c7270493e88a5074))  - (goliatone)
+- Udpated translate interface ([a558a68](https://github.com/goliatone/go-admin/commit/a558a6812a3182bccba40ed5b84267b1bca4d007))  - (goliatone)
+- Workflows in deps ([4c67e32](https://github.com/goliatone/go-admin/commit/4c67e322a4bcbcbfe632d0e3355a5bb8537ea57c))  - (goliatone)
+- Activity labels ([9c2fed4](https://github.com/goliatone/go-admin/commit/9c2fed42d96888c8e3dedb2f6886a8b86d6b56a8))  - (goliatone)
+- Expose preview and transition to facade ([1b44f38](https://github.com/goliatone/go-admin/commit/1b44f388f3f15548b9ca44b14c9cd4d73d794d03))  - (goliatone)
+- Public api ([494b440](https://github.com/goliatone/go-admin/commit/494b440dc31f2ecd25813cfba93153518fa02e9e))  - (goliatone)
+- Simple workflow ([2f4c41b](https://github.com/goliatone/go-admin/commit/2f4c41b6ace0e54407501a96e57cd7ac98eba405))  - (goliatone)
+- User roles context ([c141bdf](https://github.com/goliatone/go-admin/commit/c141bdf8961a1a7ba0f8809904171972d7ddc788))  - (goliatone)
+- Activity action labels ([573b494](https://github.com/goliatone/go-admin/commit/573b494bd16ae2b11ea4f80b47249f2becdedeb9))  - (goliatone)
+- Rewrite roles for HTML ([5b0156d](https://github.com/goliatone/go-admin/commit/5b0156d936bb44a77da91b3a39cc0699e3ed02e6))  - (goliatone)
+- Templates for activity ([6c6bc20](https://github.com/goliatone/go-admin/commit/6c6bc20e9405f6845c4afb6e0622060bdbb2609e))  - (goliatone)
+- Admin context include translator ([8bcc473](https://github.com/goliatone/go-admin/commit/8bcc4736bcc028e3916e98b998a4350c3fa587ac))  - (goliatone)
+- Cms workflow types ([daa6e31](https://github.com/goliatone/go-admin/commit/daa6e31bc52b83703e2eef1f91e4d36f07f0e1ba))  - (goliatone)
+- Boot workflow ([fd58566](https://github.com/goliatone/go-admin/commit/fd58566c560faa89e4181e473ba85a08d0c450f2))  - (goliatone)
+- Enable public api ([4d3ffba](https://github.com/goliatone/go-admin/commit/4d3ffbaeb9b88a4f258f23df35de5c8194671607))  - (goliatone)
+- Workflow integration for content ([3c63a54](https://github.com/goliatone/go-admin/commit/3c63a540ac1c643f1f70fa8a3f07a11c8ec18990))  - (goliatone)
+- Activity frontend display ([e6c4ef6](https://github.com/goliatone/go-admin/commit/e6c4ef6e2dd8cff4f0ae21b510411d0109d56048))  - (goliatone)
+- Activity widget ([6b0565a](https://github.com/goliatone/go-admin/commit/6b0565a563049ebdf0ead2a98864b3f5586ed7bc))  - (goliatone)
+- Feature gate scope RBAC support ([c5585b0](https://github.com/goliatone/go-admin/commit/c5585b032ea8152c1cc0bf40830b399e7a190a19))  - (goliatone)
+- Updated permission matrix ([cdf49ba](https://github.com/goliatone/go-admin/commit/cdf49ba41e51054dee0e33a1a41aabf5dedfddb9))  - (goliatone)
+- Resource list for user ([a8c2af2](https://github.com/goliatone/go-admin/commit/a8c2af2746825a433b3285cc260757b7716e8584))  - (goliatone)
+- Import role ([5afc1e8](https://github.com/goliatone/go-admin/commit/5afc1e84087f1c0ff2953a9cc404a9ae4dbdb345))  - (goliatone)
+- Expose bulk user import ([68a2a74](https://github.com/goliatone/go-admin/commit/68a2a74b3c7e71af831f12e62c45b25e1da07d12))  - (goliatone)
+- User import debug integration ([1bf3573](https://github.com/goliatone/go-admin/commit/1bf35730238921c2bec8c90fff1af43432dea6ce))  - (goliatone)
+- User import step to boot ([d06de43](https://github.com/goliatone/go-admin/commit/d06de4307e088ec0417f0e4af0f1890fbf5570db))  - (goliatone)
+- User import perms ([be0a940](https://github.com/goliatone/go-admin/commit/be0a9404fc7773b07bb0d8f28d24bf1ef59b9d53))  - (goliatone)
+- Import for auth action ([c26b204](https://github.com/goliatone/go-admin/commit/c26b204dc4e3ed38e796ecfdd4a6d56c934830bd))  - (goliatone)
+- New form generator ([801bb97](https://github.com/goliatone/go-admin/commit/801bb97d22cc501ad476719dcb5d472d25a81a26))  - (goliatone)
+- Role meta to user module ([f4332e2](https://github.com/goliatone/go-admin/commit/f4332e21959e5f5c93d5d5eb5e634067258275d5))  - (goliatone)
+- Integrate roles with user ([78477b7](https://github.com/goliatone/go-admin/commit/78477b7d883e10a371e182cdc18e89ac592b7270))  - (goliatone)
+- Boot user import setup ([93672e5](https://github.com/goliatone/go-admin/commit/93672e5e1ca2c66e3ef647c8adaadccb9cf18a26))  - (goliatone)
+- Formgen helpers ([15b6f58](https://github.com/goliatone/go-admin/commit/15b6f58a6619553581caadcd08c1235f747bba86))  - (goliatone)
+- Bulk user import ([f483952](https://github.com/goliatone/go-admin/commit/f483952c028a48c4951a07d961a535581c9e88f0))  - (goliatone)
+- User record and role records ([f6c0d1b](https://github.com/goliatone/go-admin/commit/f6c0d1b736aa0ba9a64593fb0b498ba20828877e))  - (goliatone)
+- Permission matrix; ([ead4525](https://github.com/goliatone/go-admin/commit/ead4525b924c6bbd0b026ca34cd649085fd33a62))  - (goliatone)
+- User import setup ([36beae4](https://github.com/goliatone/go-admin/commit/36beae427847591e0d1f5b13da34f99a0e14afaf))  - (goliatone)
+- Roles formgen setup ([056db23](https://github.com/goliatone/go-admin/commit/056db23fddf9f9fb0fcbed2ddcdbf8518b43739c))  - (goliatone)
+- Users import setup ([3da5594](https://github.com/goliatone/go-admin/commit/3da55946b12a6be6e753a39b83911fae961d543c))  - (goliatone)
+- Roles UI setup ([6ad390b](https://github.com/goliatone/go-admin/commit/6ad390bbdc6cdf7a08970bac074244e7e4df6f60))  - (goliatone)
+- User role routes ([e85de96](https://github.com/goliatone/go-admin/commit/e85de96c1b4ba8abef46ceb6f6639583750e0a07))  - (goliatone)
+- Role management and user import ([e21c19f](https://github.com/goliatone/go-admin/commit/e21c19f693f65c9d2d0d5c68015e5308cc837157))  - (goliatone)
+- Feature descriptions ([03bbfc9](https://github.com/goliatone/go-admin/commit/03bbfc91ad0b49bd4908f1ebfe88b12762c82beb))  - (goliatone)
+- Feature catalog setup ([498df45](https://github.com/goliatone/go-admin/commit/498df45e45a0e42ef08ced7db5df7fb4bc127bb4))  - (goliatone)
+- Feature catalog option ([2b6ba27](https://github.com/goliatone/go-admin/commit/2b6ba2763bac102d1f918eb98eaf7e2fb2ab00a0))  - (goliatone)
+- Feature catalog ([c8961a2](https://github.com/goliatone/go-admin/commit/c8961a203b70b1dc7d23b57ade93ead3b4199ce1))  - (goliatone)
+- Feature flags manager ([239fac1](https://github.com/goliatone/go-admin/commit/239fac10ea42de9f5ada8290040ab1c2c8326536))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Use new go-auth adapter for feature flags ([2da0be6](https://github.com/goliatone/go-admin/commit/2da0be6fd30f824b40fd1c2578a93cea79f48ade))  - (goliatone)
+- Use scope chain for feat gate ([85651f2](https://github.com/goliatone/go-admin/commit/85651f215ad4351e434ad34499e1f267fdac7f7c))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.21.1 ([5b2b98f](https://github.com/goliatone/go-admin/commit/5b2b98f772cd8b79d1fea5588599ab6b68f2d5ea))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([90c82bb](https://github.com/goliatone/go-admin/commit/90c82bb7069aa7d05460e7c60d86877865a77028))  - (goliatone)
+- Update tests ([769c0a4](https://github.com/goliatone/go-admin/commit/769c0a493c33d278be4178ed9ecee8debf35115a))  - (goliatone)
+- Update format ([30d06ad](https://github.com/goliatone/go-admin/commit/30d06ad22d46e0daf9537719bd191854d9632722))  - (goliatone)
+- Update assets ([0a8fb8e](https://github.com/goliatone/go-admin/commit/0a8fb8e93b4adcbfe9777f9d07c0db7344c14164))  - (goliatone)
+- Update examples ([0300e40](https://github.com/goliatone/go-admin/commit/0300e409e5f81a765223da8f36860bb972b3bd38))  - (goliatone)
+- Udpate deps ([16508a8](https://github.com/goliatone/go-admin/commit/16508a86c3d6dbe0654aa246e75a58a12210a926))  - (goliatone)
+- Udpate test ([4c275ad](https://github.com/goliatone/go-admin/commit/4c275adfb144565de6b57d73736f92949bb7871b))  - (goliatone)
+- Update guides ([acb6a0d](https://github.com/goliatone/go-admin/commit/acb6a0d28720877a14d9b8730326771ba5a22dc9))  - (goliatone)
+
 # [0.21.1](https://github.com/goliatone/go-admin/compare/v0.21.0...v0.21.1) - (2026-01-23)
 
 ## <!-- 13 -->📦 Bumps
