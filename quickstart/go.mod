@@ -19,11 +19,11 @@ require (
 	github.com/goliatone/go-formgen v0.14.0
 	github.com/goliatone/go-notifications v0.11.0
 	github.com/goliatone/go-persistence-bun v0.10.0
-	github.com/goliatone/go-router v0.42.0
+	github.com/goliatone/go-router v0.43.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-urlkit v0.3.0
-	github.com/goliatone/go-users v0.13.0
+	github.com/goliatone/go-users v0.14.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
 )
