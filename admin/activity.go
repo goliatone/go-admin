@@ -8,6 +8,9 @@ import (
 	"time"
 
 	auth "github.com/goliatone/go-auth"
+	usersactivity "github.com/goliatone/go-users/activity"
+	userstypes "github.com/goliatone/go-users/pkg/types"
+	"github.com/google/uuid"
 )
 
 // ActivityEntry represents an activity feed entry.
@@ -208,6 +211,55 @@ func (a *ActivitySinkAdapter) List(ctx context.Context, limit int, filters ...Ac
 	return a.fallback.List(ctx, limit, filters...)
 }
 
+type enrichedActivitySink struct {
+	sink              ActivitySink
+	enricher          usersactivity.ActivityEnricher
+	errorHandler      usersactivity.EnrichmentErrorHandler
+	sessionIDProvider usersactivity.SessionIDProvider
+	sessionIDKey      string
+}
+
+func newEnrichedActivitySink(sink ActivitySink, enricher usersactivity.ActivityEnricher, handler usersactivity.EnrichmentErrorHandler, provider usersactivity.SessionIDProvider, key string) ActivitySink {
+	if sink == nil {
+		return nil
+	}
+	if enricher == nil && provider == nil {
+		return sink
+	}
+	return &enrichedActivitySink{
+		sink:              sink,
+		enricher:          enricher,
+		errorHandler:      handler,
+		sessionIDProvider: provider,
+		sessionIDKey:      key,
+	}
+}
+
+func (s *enrichedActivitySink) Record(ctx context.Context, entry ActivityEntry) error {
+	if s == nil || s.sink == nil {
+		return nil
+	}
+	record := recordFromEntry(entry)
+	record = attachSessionIDToRecord(ctx, record, s.sessionIDProvider, s.sessionIDKey)
+	if s.enricher != nil {
+		usersRecord := toUsersActivityRecord(record)
+		enriched, err := applyUsersEnricher(ctx, usersRecord, s.enricher, s.errorHandler)
+		if err != nil {
+			return err
+		}
+		record = fromUsersActivityRecord(enriched)
+	}
+	entry = entryFromRecord(record)
+	return s.sink.Record(ctx, entry)
+}
+
+func (s *enrichedActivitySink) List(ctx context.Context, limit int, filters ...ActivityFilter) ([]ActivityEntry, error) {
+	if s == nil || s.sink == nil {
+		return nil, nil
+	}
+	return s.sink.List(ctx, limit, filters...)
+}
+
 func filterEntries(entries []ActivityEntry, filters []ActivityFilter) []ActivityEntry {
 	if len(filters) == 0 {
 		return entries
@@ -338,4 +390,139 @@ func tagActivityActorType(metadata map[string]any, actorType string) map[string]
 	}
 	metadata[ActivityActorTypeKey] = actorType
 	return metadata
+}
+
+func attachSessionIDToRecord(ctx context.Context, record ActivityRecord, provider usersactivity.SessionIDProvider, key string) ActivityRecord {
+	if provider == nil {
+		return record
+	}
+	sessionID, ok := provider.SessionID(ctx)
+	if !ok {
+		return record
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return record
+	}
+	if strings.TrimSpace(key) == "" {
+		key = usersactivity.DataKeySessionID
+	}
+	out := record
+	out.Data = cloneAnyMap(record.Data)
+	if out.Data == nil {
+		out.Data = map[string]any{}
+	}
+	if _, exists := out.Data[key]; exists {
+		return out
+	}
+	out.Data[key] = sessionID
+	return out
+}
+
+type usersRecordCapture struct {
+	record userstypes.ActivityRecord
+}
+
+func (c *usersRecordCapture) Log(_ context.Context, record userstypes.ActivityRecord) error {
+	c.record = record
+	return nil
+}
+
+func applyUsersEnricher(ctx context.Context, record userstypes.ActivityRecord, enricher usersactivity.ActivityEnricher, handler usersactivity.EnrichmentErrorHandler) (userstypes.ActivityRecord, error) {
+	if enricher == nil {
+		return record, nil
+	}
+	capture := &usersRecordCapture{}
+	sink := &usersactivity.EnrichedSink{
+		Sink:         capture,
+		Enricher:     enricher,
+		ErrorHandler: handler,
+	}
+	if err := sink.Log(ctx, record); err != nil {
+		return record, err
+	}
+	return capture.record, nil
+}
+
+func toUsersActivityRecord(record ActivityRecord) userstypes.ActivityRecord {
+	data := cloneAnyMap(record.Data)
+	if data == nil {
+		data = map[string]any{}
+	}
+
+	actor := strings.TrimSpace(record.ActorID)
+	actorID := parseUUIDValue(actor)
+	if actorID == uuid.Nil && actor != "" && data["actor"] == nil {
+		data["actor"] = actor
+	}
+
+	userID := parseUUIDValue(record.UserID)
+	if userID == uuid.Nil && actorID != uuid.Nil {
+		userID = actorID
+	}
+
+	occurred := record.OccurredAt
+	if occurred.IsZero() {
+		occurred = time.Now().UTC()
+	}
+
+	return userstypes.ActivityRecord{
+		ID:         parseUUIDValue(record.ID),
+		UserID:     userID,
+		ActorID:    actorID,
+		Verb:       strings.TrimSpace(record.Verb),
+		ObjectType: strings.TrimSpace(record.ObjectType),
+		ObjectID:   strings.TrimSpace(record.ObjectID),
+		Channel:    strings.TrimSpace(record.Channel),
+		IP:         record.IP,
+		TenantID:   parseUUIDValue(record.TenantID),
+		OrgID:      parseUUIDValue(record.OrgID),
+		Data:       data,
+		OccurredAt: occurred,
+	}
+}
+
+func fromUsersActivityRecord(record userstypes.ActivityRecord) ActivityRecord {
+	data := cloneAnyMap(record.Data)
+	if data == nil {
+		data = map[string]any{}
+	}
+
+	actor := ""
+	if record.ActorID != uuid.Nil {
+		actor = record.ActorID.String()
+	} else if val, ok := data["actor"].(string); ok {
+		actor = strings.TrimSpace(val)
+	}
+
+	userID := safeUUIDString(record.UserID)
+	tenantID := safeUUIDString(record.TenantID)
+	orgID := safeUUIDString(record.OrgID)
+
+	return ActivityRecord{
+		ID:         safeUUIDString(record.ID),
+		UserID:     userID,
+		ActorID:    actor,
+		Verb:       strings.TrimSpace(record.Verb),
+		ObjectType: strings.TrimSpace(record.ObjectType),
+		ObjectID:   strings.TrimSpace(record.ObjectID),
+		Channel:    strings.TrimSpace(record.Channel),
+		IP:         record.IP,
+		TenantID:   tenantID,
+		OrgID:      orgID,
+		Data:       data,
+		OccurredAt: record.OccurredAt,
+	}
+}
+
+func parseUUIDValue(value string) uuid.UUID {
+	id, _ := uuid.Parse(strings.TrimSpace(value))
+	return id
+}
+
+func safeUUIDString(value uuid.UUID) string {
+	if value == uuid.Nil {
+		return ""
+	}
+	return value.String()
 }
