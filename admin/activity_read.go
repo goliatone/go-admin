@@ -8,6 +8,7 @@ import (
 
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
+	usersactivity "github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
 )
@@ -181,8 +182,8 @@ func entriesFromUsersRecords(records []types.ActivityRecord) []ActivityEntry {
 
 func entryFromUsersRecord(record types.ActivityRecord) ActivityEntry {
 	metadata := cloneAnyMap(record.Data)
-	actorDisplay := strings.TrimSpace(toString(metadata["actor_display"]))
-	objectDisplay := strings.TrimSpace(toString(metadata["object_display"]))
+	actorDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyActorDisplay]))
+	objectDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyObjectDisplay]))
 	actorID := firstNonEmpty(uuidString(record.ActorID), uuidString(record.UserID))
 	objectRef := joinObject(strings.TrimSpace(record.ObjectType), strings.TrimSpace(record.ObjectID))
 	return ActivityEntry{
