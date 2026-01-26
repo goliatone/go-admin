@@ -331,6 +331,47 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		preview:                NewPreviewService(cfg.PreviewSecret),
 	}
 
+	enrichmentMode := deps.ActivityEnrichmentWriteMode
+	if enrichmentMode == "" {
+		enrichmentMode = activity.EnrichmentWriteModeWrapper
+	}
+	sessionIDProvider := deps.ActivitySessionIDProvider
+	if sessionIDProvider == nil {
+		sessionIDProvider = defaultSessionIDProvider()
+	}
+	sessionIDKey := strings.TrimSpace(deps.ActivitySessionIDKey)
+
+	activityEnricher := deps.ActivityEnricher
+	if activityEnricher == nil && enrichmentMode == activity.EnrichmentWriteModeWrapper {
+		activityEnricher = NewAdminActivityEnricher(AdminActivityEnricherConfig{
+			ActorResolver: AdminActorResolver{
+				Users:    deps.UserRepository,
+				Profiles: deps.ProfileStore,
+			},
+			ObjectResolver: NewAdminObjectResolver(AdminObjectResolverConfig{
+				Users:         deps.UserRepository,
+				Roles:         deps.RoleRepository,
+				Tenants:       deps.TenantRepository,
+				Organizations: deps.OrganizationRepository,
+				Profiles:      deps.ProfileStore,
+				Settings:      settingsSvc,
+				Jobs:          jobReg,
+				Widgets:       adm.widgetSvc,
+				Menus:         adm.menuSvc,
+				Content:       adm.contentSvc,
+			}),
+		})
+	}
+
+	switch enrichmentMode {
+	case activity.EnrichmentWriteModeWrapper:
+		activitySink = newEnrichedActivitySink(activitySink, activityEnricher, deps.ActivityEnrichmentErrorHandler, sessionIDProvider, sessionIDKey)
+	case activity.EnrichmentWriteModeHybrid:
+		activitySink = newEnrichedActivitySink(activitySink, nil, nil, sessionIDProvider, sessionIDKey)
+	}
+
+	adm.activity = activitySink
+
 	adm.dashboard.WithWidgetService(adm.widgetSvc)
 	adm.dashboard.WithPreferences(NewDashboardPreferencesAdapter(preferencesSvc))
 	adm.dashboard.WithPreferenceService(preferencesSvc)
