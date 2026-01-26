@@ -367,7 +367,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	case activity.EnrichmentWriteModeWrapper:
 		activitySink = newEnrichedActivitySink(activitySink, activityEnricher, deps.ActivityEnrichmentErrorHandler, sessionIDProvider, sessionIDKey)
 	case activity.EnrichmentWriteModeHybrid:
-		activitySink = newEnrichedActivitySink(activitySink, nil, nil, sessionIDProvider, sessionIDKey)
+		activitySink = newEnrichedActivitySink(activitySink, activityEnricher, deps.ActivityEnrichmentErrorHandler, sessionIDProvider, sessionIDKey)
 	}
 
 	adm.activity = activitySink
