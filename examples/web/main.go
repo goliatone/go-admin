@@ -63,9 +63,13 @@ func main() {
 		}),
 	)
 	cfg.ActivityActionLabels = map[string]string{
-		"debug.repl.eval":  "Execute REPL",
-		"debug.repl.open":  "Opened REPL",
-		"debug.repl.close": "Closed REPL",
+		"debug.repl.eval":       "Execute REPL",
+		"debug.repl.open":       "Opened REPL",
+		"debug.repl.close":      "Closed REPL",
+		"created":               "Created",
+		"tenant.create":         "Created",
+		"dashboard.layout.save": "Saved",
+		"preferences.update":    "Updated",
 	}
 	cfg.EnablePublicAPI = true
 	if value, ok := os.LookupEnv("ADMIN_PUBLIC_API"); ok {
@@ -718,6 +722,8 @@ func main() {
 
 	uploadsBase := path.Join(cfg.BasePath, "api", "uploads", "users")
 	r.Post(path.Join(uploadsBase, "profile-picture"), authn.WrapHandler(handlers.ProfilePictureUploadHandler(cfg.BasePath, diskAssetsDir)))
+	uploadsMediaBase := path.Join(cfg.BasePath, "api", "uploads", "media")
+	r.Post(path.Join(uploadsMediaBase, "featured-image"), authn.WrapHandler(handlers.FeaturedImageUploadHandler(cfg.BasePath, diskAssetsDir)))
 
 	userActions := &handlers.UserActionHandlers{
 		Service:     usersService,
@@ -744,8 +750,8 @@ func main() {
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
 	userProfileHandlers := handlers.NewUserProfileHandlers(dataStores.UserProfiles, formGenerator, adm, cfg, helpers.WithNav)
-	pageHandlers := handlers.NewPageHandlers(dataStores.Pages, adm, cfg, helpers.WithNav)
-	postHandlers := handlers.NewPostHandlers(dataStores.Posts, adm, cfg, helpers.WithNav)
+	pageHandlers := handlers.NewPageHandlers(dataStores.Pages, formGenerator, adm, cfg, helpers.WithNav)
+	postHandlers := handlers.NewPostHandlers(dataStores.Posts, formGenerator, adm, cfg, helpers.WithNav)
 	mediaHandlers := handlers.NewMediaHandlers(dataStores.Media, adm, cfg, helpers.WithNav)
 	profileHandlers := handlers.NewProfileHandlers(adm, cfg, helpers.WithNav)
 	var tenantHandlers *handlers.TenantHandlers
