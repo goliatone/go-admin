@@ -1,6 +1,6 @@
 /**
  * Activity Manager
- * Manages activity feed display with enhanced formatting
+ * Manages activity feed display with enhanced formatting and view switching
  */
 
 import type {
@@ -9,6 +9,7 @@ import type {
   ActivityConfig,
   ActivitySelectors,
   ActivityState,
+  ActivityViewMode,
   ToastNotifier,
 } from './types.js';
 
@@ -23,6 +24,9 @@ import {
   formatChannel,
 } from './formatters.js';
 
+import { ActivityViewSwitcher } from './activity-view-switcher.js';
+import { TimelineRenderer, createLoadingIndicator, createEndIndicator, createScrollSentinel } from './activity-timeline.js';
+
 const DEFAULT_SELECTORS: ActivitySelectors = {
   form: '#activity-filters',
   tableBody: '#activity-table-body',
@@ -35,6 +39,11 @@ const DEFAULT_SELECTORS: ActivitySelectors = {
   refreshBtn: '#activity-refresh',
   clearBtn: '#activity-clear',
   limitInput: '#filter-limit',
+};
+
+const TIMELINE_SELECTORS = {
+  container: '#activity-timeline',
+  sentinel: '#activity-timeline-sentinel',
 };
 
 const FIELD_IDS = ['q', 'verb', 'channels', 'object_type', 'object_id'];
