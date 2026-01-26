@@ -2,10 +2,16 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
+	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-command/registry"
+	usersactivity "github.com/goliatone/go-users/activity"
+	userstypes "github.com/goliatone/go-users/pkg/types"
+	"github.com/google/uuid"
 )
 
 type recordingSink struct {
@@ -35,6 +41,35 @@ func (f *fakeActivityLogger) Log(_ context.Context, record ActivityRecord) error
 	return nil
 }
 
+type staticUsersEnricher struct {
+	actorDisplay  string
+	objectDisplay string
+	version       string
+}
+
+func (e staticUsersEnricher) Enrich(_ context.Context, record userstypes.ActivityRecord) (userstypes.ActivityRecord, error) {
+	data := cloneAnyMap(record.Data)
+	if data == nil {
+		data = map[string]any{}
+	}
+	if e.actorDisplay != "" {
+		if _, ok := data[usersactivity.DataKeyActorDisplay]; !ok {
+			data[usersactivity.DataKeyActorDisplay] = e.actorDisplay
+		}
+	}
+	if e.objectDisplay != "" {
+		if _, ok := data[usersactivity.DataKeyObjectDisplay]; !ok {
+			data[usersactivity.DataKeyObjectDisplay] = e.objectDisplay
+		}
+	}
+	record.Data = data
+	version := e.version
+	if version == "" {
+		version = "test"
+	}
+	return usersactivity.StampEnrichment(record, time.Now().UTC(), version), nil
+}
+
 func TestActivitySinkAdapterBridgesGoUsersLogger(t *testing.T) {
 	logger := &fakeActivityLogger{}
 	adapter := NewActivitySinkAdapter(logger, nil)
@@ -62,6 +97,70 @@ func TestActivitySinkAdapterBridgesGoUsersLogger(t *testing.T) {
 	record := logger.records[0]
 	if record.Verb != entry.Action || record.ObjectType != "panel" || record.ObjectID != "posts" {
 		t.Fatalf("unexpected record mapping: %+v", record)
+	}
+}
+
+func TestEnrichedActivitySinkAddsMetadata(t *testing.T) {
+	actorID := uuid.New()
+	objectID := uuid.NewString()
+	sink := &recordingSink{}
+	enricher := staticUsersEnricher{
+		actorDisplay:  "Ada Lovelace",
+		objectDisplay: "User: " + objectID,
+		version:       "test-v1",
+	}
+	activitySink := newEnrichedActivitySink(sink, enricher, nil, nil, "")
+
+	entry := ActivityEntry{
+		Actor:  actorID.String(),
+		Action: "user.invite",
+		Object: "user:" + objectID,
+	}
+	if err := activitySink.Record(context.Background(), entry); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if len(sink.entries) != 1 {
+		t.Fatalf("expected one enriched entry, got %d", len(sink.entries))
+	}
+	meta := sink.entries[0].Metadata
+	if meta[usersactivity.DataKeyActorDisplay] != "Ada Lovelace" {
+		t.Fatalf("expected actor_display metadata, got %+v", meta[usersactivity.DataKeyActorDisplay])
+	}
+	if meta[usersactivity.DataKeyObjectDisplay] != "User: "+objectID {
+		t.Fatalf("expected object_display metadata, got %+v", meta[usersactivity.DataKeyObjectDisplay])
+	}
+	enrichedAt, ok := meta[usersactivity.DataKeyEnrichedAt].(string)
+	if !ok || strings.TrimSpace(enrichedAt) == "" {
+		t.Fatalf("expected enriched_at metadata, got %+v", meta[usersactivity.DataKeyEnrichedAt])
+	}
+	if meta[usersactivity.DataKeyEnricherVersion] != "test-v1" {
+		t.Fatalf("expected enricher_version test-v1, got %+v", meta[usersactivity.DataKeyEnricherVersion])
+	}
+}
+
+func TestEnrichedActivitySinkAttachesSessionIDFromJWT(t *testing.T) {
+	sessionID := "session-123"
+	claims := &auth.JWTClaims{
+		RegisteredClaims: jwt.RegisteredClaims{ID: sessionID},
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	sink := &recordingSink{}
+	activitySink := newEnrichedActivitySink(sink, nil, nil, defaultSessionIDProvider(), "")
+
+	entry := ActivityEntry{
+		Actor:  uuid.NewString(),
+		Action: "settings.update",
+		Object: "settings",
+	}
+	if err := activitySink.Record(ctx, entry); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if len(sink.entries) != 1 {
+		t.Fatalf("expected one entry, got %d", len(sink.entries))
+	}
+	meta := sink.entries[0].Metadata
+	if meta[usersactivity.DataKeySessionID] != sessionID {
+		t.Fatalf("expected session_id %q, got %+v", sessionID, meta[usersactivity.DataKeySessionID])
 	}
 }
 

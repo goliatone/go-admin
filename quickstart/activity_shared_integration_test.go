@@ -10,10 +10,35 @@ import (
 	"github.com/goliatone/go-admin/examples/web/setup"
 	auth "github.com/goliatone/go-auth"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
+	usersactivity "github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
 )
+
+type staticActivityEnricher struct {
+	actorDisplay  string
+	objectDisplay string
+}
+
+func (e staticActivityEnricher) Enrich(_ context.Context, record userstypes.ActivityRecord) (userstypes.ActivityRecord, error) {
+	data := map[string]any{}
+	for key, value := range record.Data {
+		data[key] = value
+	}
+	if e.actorDisplay != "" {
+		if _, ok := data[usersactivity.DataKeyActorDisplay]; !ok {
+			data[usersactivity.DataKeyActorDisplay] = e.actorDisplay
+		}
+	}
+	if e.objectDisplay != "" {
+		if _, ok := data[usersactivity.DataKeyObjectDisplay]; !ok {
+			data[usersactivity.DataKeyObjectDisplay] = e.objectDisplay
+		}
+	}
+	record.Data = data
+	return usersactivity.StampEnrichment(record, time.Now().UTC(), "test"), nil
+}
 
 func TestSharedActivitySinksIncludeAuthAndOnboarding(t *testing.T) {
 	t.Helper()
@@ -25,7 +50,14 @@ func TestSharedActivitySinksIncludeAuthAndOnboarding(t *testing.T) {
 		t.Fatalf("setup users: %v", err)
 	}
 
-	adminSink := setup.NewGoUsersActivityAdapter(deps.ActivitySink, deps.ActivityRepo)
+	enrichedSink := &usersactivity.EnrichedSink{
+		Sink: deps.ActivitySink,
+		Enricher: staticActivityEnricher{
+			actorDisplay:  "Activity User",
+			objectDisplay: "Activity Object",
+		},
+	}
+	adminSink := setup.NewGoUsersActivityAdapter(enrichedSink, deps.ActivityRepo)
 	if adminSink == nil {
 		t.Fatalf("expected admin activity sink adapter")
 	}
@@ -66,6 +98,13 @@ func TestSharedActivitySinksIncludeAuthAndOnboarding(t *testing.T) {
 
 	if entry := findActivityEntry(entries, "user.invite"); entry == nil {
 		t.Fatalf("expected invite activity entry")
+	} else {
+		if entry.Metadata[usersactivity.DataKeyActorDisplay] != "Activity User" {
+			t.Fatalf("expected invite actor_display metadata, got %+v", entry.Metadata[usersactivity.DataKeyActorDisplay])
+		}
+		if entry.Metadata[usersactivity.DataKeyObjectDisplay] != "Activity Object" {
+			t.Fatalf("expected invite object_display metadata, got %+v", entry.Metadata[usersactivity.DataKeyObjectDisplay])
+		}
 	}
 	authEntry := findActivityEntry(entries, string(auth.ActivityEventLoginSuccess))
 	if authEntry == nil {
@@ -73,6 +112,12 @@ func TestSharedActivitySinksIncludeAuthAndOnboarding(t *testing.T) {
 	}
 	if authEntry.Channel != "auth" {
 		t.Fatalf("expected auth entry channel auth, got %q", authEntry.Channel)
+	}
+	if authEntry.Metadata[usersactivity.DataKeyActorDisplay] != "Activity User" {
+		t.Fatalf("expected auth actor_display metadata, got %+v", authEntry.Metadata[usersactivity.DataKeyActorDisplay])
+	}
+	if authEntry.Metadata[usersactivity.DataKeyObjectDisplay] != "Activity Object" {
+		t.Fatalf("expected auth object_display metadata, got %+v", authEntry.Metadata[usersactivity.DataKeyObjectDisplay])
 	}
 }
 
