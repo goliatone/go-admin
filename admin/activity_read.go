@@ -180,13 +180,18 @@ func entriesFromUsersRecords(records []types.ActivityRecord) []ActivityEntry {
 }
 
 func entryFromUsersRecord(record types.ActivityRecord) ActivityEntry {
+	metadata := cloneAnyMap(record.Data)
+	actorDisplay := strings.TrimSpace(toString(metadata["actor_display"]))
+	objectDisplay := strings.TrimSpace(toString(metadata["object_display"]))
+	actorID := firstNonEmpty(uuidString(record.ActorID), uuidString(record.UserID))
+	objectRef := joinObject(strings.TrimSpace(record.ObjectType), strings.TrimSpace(record.ObjectID))
 	return ActivityEntry{
 		ID:        uuidString(record.ID),
-		Actor:     firstNonEmpty(uuidString(record.ActorID), uuidString(record.UserID)),
+		Actor:     firstNonEmpty(actorDisplay, actorID),
 		Action:    strings.TrimSpace(record.Verb),
-		Object:    joinObject(strings.TrimSpace(record.ObjectType), strings.TrimSpace(record.ObjectID)),
+		Object:    firstNonEmpty(objectDisplay, objectRef),
 		Channel:   strings.TrimSpace(record.Channel),
-		Metadata:  cloneAnyMap(record.Data),
+		Metadata:  metadata,
 		CreatedAt: record.OccurredAt,
 	}
 }
