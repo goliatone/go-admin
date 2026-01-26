@@ -54,6 +54,9 @@ const ACTION_CATEGORY_MAP: Record<string, ActionCategory> = {
   exported: 'viewed',
 };
 
+const METADATA_KEY_ACTOR_DISPLAY = 'actor_display';
+const METADATA_KEY_OBJECT_DISPLAY = 'object_display';
+
 /**
  * Icons for each action category (using iconoir icon names)
  */
@@ -208,11 +211,11 @@ function firstNonEmpty(...values: string[]): string {
 }
 
 export function resolveActorLabel(entry: ActivityEntry): string {
-  return firstNonEmpty(getMetadataString(entry.metadata, 'actor_display'), entry.actor);
+  return firstNonEmpty(getMetadataString(entry.metadata, METADATA_KEY_ACTOR_DISPLAY), entry.actor);
 }
 
 export function resolveObjectDisplay(entry: ActivityEntry): string {
-  return getMetadataString(entry.metadata, 'object_display');
+  return getMetadataString(entry.metadata, METADATA_KEY_OBJECT_DISPLAY);
 }
 
 /**
