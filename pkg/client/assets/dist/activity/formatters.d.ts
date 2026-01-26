@@ -47,9 +47,26 @@ export declare function formatActivitySentence(entry: ActivityEntry, labels?: Re
  */
 export declare function formatTimestamp(value: string): string;
 /**
- * Format relative time (e.g., "2 hours ago")
+ * Format relative time in short format (e.g., "2h ago")
  */
 export declare function formatRelativeTime(value: string): string;
+/**
+ * Format relative time using Intl.RelativeTimeFormat for natural language output
+ * (e.g., "2 hours ago", "yesterday", "3 days ago")
+ */
+export declare function formatRelativeTimeIntl(value: string): string;
+/**
+ * Get date label for timeline grouping ("Today", "Yesterday", or formatted date)
+ */
+export declare function getDateGroupLabel(date: Date): string;
+/**
+ * Get the start of day for a given date (midnight in local timezone)
+ */
+export declare function getStartOfDay(date: Date): Date;
+/**
+ * Get a stable date key for grouping (YYYY-MM-DD format)
+ */
+export declare function getDateKey(date: Date): string;
 /**
  * Count the number of fields in metadata
  */
