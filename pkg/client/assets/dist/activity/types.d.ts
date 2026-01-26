@@ -1,13 +1,38 @@
 /**
  * Activity Feed Types
  */
+/**
+ * Actor type for icon/badge display
+ */
+export type ActorType = 'user' | 'system' | 'job' | 'api' | 'unknown';
+/**
+ * Enrichment metadata fields added by backend enrichers
+ */
+export interface EnrichmentMetadata {
+    /** Display name for the actor */
+    actor_display?: string;
+    /** Display name for the object */
+    object_display?: string;
+    /** Whether the object has been deleted */
+    object_deleted?: boolean;
+    /** Type of actor (user, system, job, api) */
+    actor_type?: ActorType;
+    /** Actor email (may be masked) */
+    actor_email?: string;
+    /** Session ID for grouping related activities */
+    session_id?: string;
+    /** Timestamp when the entry was enriched */
+    enriched_at?: string;
+    /** Version of the enricher that processed this entry */
+    enricher_version?: string;
+}
 export interface ActivityEntry {
     id: string;
     actor: string;
     action: string;
     object: string;
     channel?: string;
-    metadata?: Record<string, unknown>;
+    metadata?: Record<string, unknown> & Partial<EnrichmentMetadata>;
     created_at: string;
 }
 export interface ActivityPayload {
@@ -90,6 +115,19 @@ export interface TimelineState {
     isLoadingMore: boolean;
     /** Whether all entries have been loaded */
     allLoaded: boolean;
+}
+/**
+ * Session group for timeline view (groups entries by session_id within a date)
+ */
+export interface TimelineSessionGroup {
+    /** Session ID (or empty string for "No session") */
+    sessionId: string;
+    /** Display label for the session */
+    label: string;
+    /** Entries belonging to this session group */
+    entries: ActivityEntry[];
+    /** Whether this group is collapsed */
+    collapsed: boolean;
 }
 /**
  * View switcher selectors
