@@ -25,16 +25,21 @@ type Dependencies struct {
 	JobRegistry *JobRegistry
 	URLManager  *urlkit.RouteManager
 
-	Authorizer            Authorizer
-	Authenticator         Authenticator
-	Translator            Translator
-	Workflow              WorkflowEngine
-	ActivitySink          ActivitySink
-	ActivityRepository    types.ActivityRepository
-	ActivityAccessPolicy  activity.ActivityAccessPolicy
-	ActivityFeedQuery     ActivityFeedQuerier
-	ActivityService       ActivityFeedQuerier
-	DebugREPLSessionStore DebugREPLSessionStore
+	Authorizer                     Authorizer
+	Authenticator                  Authenticator
+	Translator                     Translator
+	Workflow                       WorkflowEngine
+	ActivitySink                   ActivitySink
+	ActivityRepository             types.ActivityRepository
+	ActivityAccessPolicy           activity.ActivityAccessPolicy
+	ActivityFeedQuery              ActivityFeedQuerier
+	ActivityService                ActivityFeedQuerier
+	ActivityEnricher               activity.ActivityEnricher
+	ActivityEnrichmentErrorHandler activity.EnrichmentErrorHandler
+	ActivityEnrichmentWriteMode    activity.EnrichmentWriteMode
+	ActivitySessionIDProvider      activity.SessionIDProvider
+	ActivitySessionIDKey           string
+	DebugREPLSessionStore          DebugREPLSessionStore
 
 	NotificationService NotificationService
 	ExportRegistry      ExportRegistry
