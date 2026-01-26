@@ -186,6 +186,27 @@ export function parseObject(object: string): ParsedObject {
   };
 }
 
+function getMetadataString(
+  metadata: Record<string, unknown> | undefined,
+  key: string
+): string {
+  if (!metadata || typeof metadata !== 'object') return '';
+  const value = metadata[key];
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
+}
+
+function firstNonEmpty(...values: string[]): string {
+  for (const value of values) {
+    if (!value) continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
 /**
  * Capitalize the first letter of a string
  */
@@ -262,10 +283,13 @@ export function formatActivitySentence(
   entry: ActivityEntry,
   labels?: Record<string, string>
 ): string {
-  const actor = entry.actor || 'Unknown';
+  const actorLabel = firstNonEmpty(
+    getMetadataString(entry.metadata, 'actor_display'),
+    entry.actor
+  );
+  const actor = actorLabel || 'Unknown';
   const rawVerb = entry.action || 'performed action on';
   const verb = resolveActionLabel(rawVerb, labels);
-  const { type, id } = parseObject(entry.object);
 
   // Format actor - shorten if UUID
   const actorDisplay = isUuidLike(actor)
@@ -274,13 +298,19 @@ export function formatActivitySentence(
 
   // Build object reference with shortened ID
   let objectRef = '';
-  if (type && id) {
-    const shortId = formatIdWithTooltip(id, 8);
-    objectRef = `${formatObjectType(type)} #${shortId}`;
-  } else if (type) {
-    objectRef = formatObjectType(type);
-  } else if (id) {
-    objectRef = `#${formatIdWithTooltip(id, 8)}`;
+  const objectDisplay = getMetadataString(entry.metadata, 'object_display');
+  if (objectDisplay) {
+    objectRef = escapeHtml(objectDisplay);
+  } else {
+    const { type, id } = parseObject(entry.object);
+    if (type && id) {
+      const shortId = formatIdWithTooltip(id, 8);
+      objectRef = `${formatObjectType(type)} #${shortId}`;
+    } else if (type) {
+      objectRef = formatObjectType(type);
+    } else if (id) {
+      objectRef = `#${formatIdWithTooltip(id, 8)}`;
+    }
   }
 
   // Build sentence based on action category

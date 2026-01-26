@@ -22,6 +22,7 @@ import {
   formatMetadataExpanded,
   escapeHtml,
   formatChannel,
+  shortenId,
 } from './formatters.js';
 
 import { ActivityViewSwitcher } from './activity-view-switcher.js';
@@ -49,6 +50,15 @@ const TIMELINE_SELECTORS = {
 const FIELD_IDS = ['q', 'verb', 'channels', 'object_type', 'object_id'];
 const DATE_FIELDS = ['since', 'until'];
 const PASSTHROUGH_FIELDS = ['user_id', 'actor_id'];
+
+function getSessionId(entry: ActivityEntry): string {
+  const metadata = entry.metadata;
+  if (!metadata || typeof metadata !== 'object') return '';
+  const value = metadata['session_id'];
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
+}
 
 export class ActivityManager {
   private config: ActivityConfig;
@@ -509,7 +519,15 @@ export class ActivityManager {
 
     this.emptyState?.classList.add('hidden');
 
+    let lastSessionId = '';
     entries.forEach((entry) => {
+      const sessionId = getSessionId(entry);
+      if (sessionId && sessionId !== lastSessionId) {
+        this.tableBody!.appendChild(this.createSessionRow(sessionId));
+        lastSessionId = sessionId;
+      } else if (!sessionId) {
+        lastSessionId = '';
+      }
       const { mainRow, detailsRow } = this.createRowPair(entry);
       this.tableBody!.appendChild(mainRow);
       if (detailsRow) {
@@ -632,6 +650,23 @@ export class ActivityManager {
     }
 
     return { mainRow, detailsRow };
+  }
+
+  private createSessionRow(sessionId: string): HTMLTableRowElement {
+    const row = document.createElement('tr');
+    row.className = 'activity-session-row';
+
+    const shortSessionId = shortenId(sessionId, 10);
+    row.innerHTML = `
+      <td colspan="5" style="padding: 8px 16px; background: #f8fafc; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em;">
+          <span>Session</span>
+          <span style="font-family: ui-monospace, monospace; font-weight: 600; color: #374151;" title="${escapeHtml(sessionId)}">${escapeHtml(shortSessionId)}</span>
+        </div>
+      </td>
+    `;
+
+    return row;
   }
 
   private wireMetadataToggles(): void {
