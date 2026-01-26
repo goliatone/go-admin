@@ -30,6 +30,8 @@ export declare function getActionCategory(verb: string): ActionCategory;
  * Parse an object string (format: "type:id") into its components
  */
 export declare function parseObject(object: string): ParsedObject;
+export declare function resolveActorLabel(entry: ActivityEntry): string;
+export declare function resolveObjectDisplay(entry: ActivityEntry): string;
 /**
  * Escape HTML to prevent XSS
  */
