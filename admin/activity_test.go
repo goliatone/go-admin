@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -68,6 +69,27 @@ func (e staticUsersEnricher) Enrich(_ context.Context, record userstypes.Activit
 		version = "test"
 	}
 	return usersactivity.StampEnrichment(record, time.Now().UTC(), version), nil
+}
+
+type failingUsersEnricher struct {
+	actorDisplay string
+	err          error
+}
+
+func (e failingUsersEnricher) Enrich(_ context.Context, record userstypes.ActivityRecord) (userstypes.ActivityRecord, error) {
+	data := cloneAnyMap(record.Data)
+	if data == nil {
+		data = map[string]any{}
+	}
+	if e.actorDisplay != "" {
+		data[usersactivity.DataKeyActorDisplay] = e.actorDisplay
+	}
+	record.Data = data
+	err := e.err
+	if err == nil {
+		err = errors.New("enricher failed")
+	}
+	return record, err
 }
 
 func TestActivitySinkAdapterBridgesGoUsersLogger(t *testing.T) {
@@ -161,6 +183,70 @@ func TestEnrichedActivitySinkAttachesSessionIDFromJWT(t *testing.T) {
 	meta := sink.entries[0].Metadata
 	if meta[usersactivity.DataKeySessionID] != sessionID {
 		t.Fatalf("expected session_id %q, got %+v", sessionID, meta[usersactivity.DataKeySessionID])
+	}
+}
+
+func TestEnrichedActivitySinkUsesErrorHandler(t *testing.T) {
+	sink := &recordingSink{}
+	errBoom := errors.New("boom")
+	enricher := failingUsersEnricher{
+		actorDisplay: "Ada Lovelace",
+		err:          errBoom,
+	}
+	handled := false
+	handler := func(_ context.Context, err error, _ usersactivity.ActivityEnricher, current userstypes.ActivityRecord, _ userstypes.ActivityRecord) (userstypes.ActivityRecord, error) {
+		handled = true
+		if !errors.Is(err, errBoom) {
+			t.Fatalf("expected handler error %v, got %v", errBoom, err)
+		}
+		return current, nil
+	}
+	activitySink := newEnrichedActivitySink(sink, enricher, handler, nil, "")
+
+	entry := ActivityEntry{
+		Actor:  uuid.NewString(),
+		Action: "user.invite",
+		Object: "user:" + uuid.NewString(),
+	}
+	if err := activitySink.Record(context.Background(), entry); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if !handled {
+		t.Fatalf("expected enrichment error handler to run")
+	}
+	if len(sink.entries) != 1 {
+		t.Fatalf("expected one entry, got %d", len(sink.entries))
+	}
+	if sink.entries[0].Metadata[usersactivity.DataKeyActorDisplay] != "Ada Lovelace" {
+		t.Fatalf("expected handler to allow enriched metadata")
+	}
+}
+
+func TestEnrichedActivitySinkUsesSessionIDKeyOverride(t *testing.T) {
+	sessionID := "session-999"
+	sink := &recordingSink{}
+	provider := usersactivity.SessionIDProviderFunc(func(context.Context) (string, bool) {
+		return sessionID, true
+	})
+	activitySink := newEnrichedActivitySink(sink, nil, nil, provider, " sid ")
+
+	entry := ActivityEntry{
+		Actor:  uuid.NewString(),
+		Action: "settings.update",
+		Object: "settings",
+	}
+	if err := activitySink.Record(context.Background(), entry); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if len(sink.entries) != 1 {
+		t.Fatalf("expected one entry, got %d", len(sink.entries))
+	}
+	meta := sink.entries[0].Metadata
+	if meta["sid"] != sessionID {
+		t.Fatalf("expected session id under sid, got %+v", meta["sid"])
+	}
+	if _, ok := meta[usersactivity.DataKeySessionID]; ok {
+		t.Fatalf("expected session_id to remain unset when using override")
 	}
 }
 
