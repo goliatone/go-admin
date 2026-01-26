@@ -27,6 +27,7 @@ This guide documents the Activity read API, query parameters, pagination contrac
 - `offset`: start offset. Default `0` (negative values return 400).
 
 Validation rules:
+
 - `channel` and `channels` cannot be used together.
 - Invalid timestamp formats return 400.
 - Invalid UUID formats return 400.
@@ -55,6 +56,7 @@ Validation rules:
 ```
 
 Notes:
+
 - `action` maps to go-users `verb`.
 - `object` joins `object_type` and `object_id` as `type:id`.
 - `actor` uses `actor_id` when present (falls back to `user_id`).
@@ -68,10 +70,11 @@ Notes:
 ## Policy behavior
 
 When go-admin builds the feed query from a repository, it applies the go-users `ActivityAccessPolicy`:
+
 - Scopes results using the actor context (tenant/org/user).
 - Non-admin roles only see their own activity.
 - Machine/system activity is hidden for non-superadmins when policy options disable it.
-- Metadata is sanitized via go-masker (IP redaction by default).
+- Metadata is sanitized via go-masker (IP redaction by default). The default policy masks `actor_email` and `session_id`.
 - Channel allow/deny lists are enforced.
 
 If you supply a custom `ActivityFeedQuery`/`ActivityService`, you must apply policy + sanitization yourself.
@@ -80,6 +83,37 @@ If you supply a custom `ActivityFeedQuery`/`ActivityService`, you must apply pol
 
 - **Write path:** `ActivitySink.Record(...)` writes activity entries. go-admin uses this sink for internal actions (users, settings, jobs, notifications, CMS, debug REPL, dashboard layout, etc.). The dashboard “Recent Activity” widget reads from `ActivitySink.List(...)`.
 - **Read path:** `/admin/api/activity` uses `ActivityFeedQuery` or an `ActivityRepository` to return paginated results.
+
+## Write time enrichment (go-users + go-admin)
+
+go-admin can enrich activity records before they are persisted by wiring an enricher into the write path. The wrapper always attaches `session_id` (when available) and can optionally enrich actor/object display fields.
+
+Dependencies wiring (default mode is `wrapper`):
+
+```go
+deps := admin.Dependencies{
+    ActivityEnricher:               admin.NewAdminActivityEnricher(admin.AdminActivityEnricherConfig{ /* resolvers */ }),
+    ActivityEnrichmentErrorHandler: usersactivity.DefaultEnrichmentErrorHandler(usersactivity.EnrichmentBestEffort),
+    ActivityEnrichmentWriteMode:    usersactivity.EnrichmentWriteModeWrapper, // or Hybrid
+    ActivitySessionIDProvider:      usersactivity.SessionIDProviderFunc(func(ctx context.Context) (string, bool) { return "", false }), // optional override
+    ActivitySessionIDKey:           "session_id", // optional override
+}
+```
+
+Notes:
+
+- `EnrichmentWriteModeWrapper` enriches before persistence; `EnrichmentWriteModeHybrid` also enriches via wrapper while allowing a repository hook to run later.
+- `ActivityEnrichmentErrorHandler` controls fail-fast vs best-effort behavior; best-effort keeps partial enrichment and still writes the record.
+- `ActivitySessionIDKey` overrides the metadata key for session IDs (default is `session_id`).
+- If no enricher is provided in wrapper mode, go-admin builds an admin-specific enricher using its user/profile/object sources.
+
+## Session ID extraction order
+
+When the default session ID provider is used, go-admin extracts `session_id` in this order:
+
+1. JWT `jti` (claims ID).
+2. `claims.Metadata["session_id"]` (if the claims implement metadata access).
+3. `auth.ActorContext.Metadata["session_id"]` (from the request context).
 
 ## Wiring (go-users repository + policy)
 
@@ -143,6 +177,7 @@ Note: the UI route is wrapped by your auth middleware but does not enforce `admi
 ## Activity module UI integration
 
 The Activity module is registered by default and contributes:
+
 - A navigation item for `{basePath}/activity` gated by `Config.ActivityPermission`.
 - A “User Activity” tab on user detail pages that links to the activity page with `user_id` populated.
 
@@ -155,6 +190,7 @@ Ensure the active role has `admin.activity.view`. The Activity API enforces this
 ## Migration notes (breaking change)
 
 Legacy query params are removed and not bridged:
+
 - `actor` -> `actor_id`
 - `action` -> `verb`
 - `object` -> `object_type` + `object_id`
