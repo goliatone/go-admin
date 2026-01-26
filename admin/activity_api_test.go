@@ -529,3 +529,19 @@ func TestActivityPolicyScopingSanitizerAndMachineFiltering(t *testing.T) {
 		t.Fatalf("expected machine actor types to include system, got %v", filter.MachineActorTypes)
 	}
 }
+
+func TestSessionIDFromContextUsesActorMetadata(t *testing.T) {
+	sessionID := "session-456"
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID:  uuid.NewString(),
+		Metadata: map[string]any{"session_id": sessionID},
+	})
+
+	got, ok := sessionIDFromContext(ctx)
+	if !ok {
+		t.Fatalf("expected session id from actor metadata")
+	}
+	if got != sessionID {
+		t.Fatalf("expected session id %q, got %q", sessionID, got)
+	}
+}

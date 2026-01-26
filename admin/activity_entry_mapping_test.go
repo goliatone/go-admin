@@ -81,6 +81,12 @@ func TestActivityEntryFromUsersRecordPrefersDisplayFields(t *testing.T) {
 	if entry.Object != "Role: Admin" {
 		t.Fatalf("expected object display Role: Admin, got %s", entry.Object)
 	}
+	if entry.Metadata["actor_display"] != "Ada Lovelace" {
+		t.Fatalf("expected actor_display metadata Ada Lovelace, got %v", entry.Metadata["actor_display"])
+	}
+	if entry.Metadata["object_display"] != "Role: Admin" {
+		t.Fatalf("expected object_display metadata Role: Admin, got %v", entry.Metadata["object_display"])
+	}
 }
 
 func TestActivityEntriesFromUsersRecordsPreservesOrder(t *testing.T) {
