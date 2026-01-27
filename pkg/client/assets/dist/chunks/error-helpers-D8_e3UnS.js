@@ -1,4 +1,4 @@
-class f {
+class u {
   constructor(t = {}) {
     this.toasts = /* @__PURE__ */ new Map(), this.position = t.position || "top-right", this.container = this.getOrCreateContainer(), this.applyContainerClasses(this.container);
   }
@@ -22,8 +22,8 @@ class f {
     this.container.appendChild(s), this.toasts.set(e, s), requestAnimationFrame(() => {
       s.classList.add("toast-enter-active");
     });
-    const a = t.duration !== void 0 ? t.duration : 5e3;
-    a > 0 && setTimeout(() => this.dismiss(e), a);
+    const r = t.duration !== void 0 ? t.duration : 5e3;
+    r > 0 && setTimeout(() => this.dismiss(e), r);
   }
   success(t, e) {
     this.show({ message: t, type: "success", duration: e, dismissible: !0 });
@@ -39,21 +39,21 @@ class f {
   }
   async confirm(t, e = {}) {
     return new Promise((s) => {
-      const a = this.createConfirmModal(t, e, s);
-      document.body.appendChild(a), requestAnimationFrame(() => {
-        a.classList.add("confirm-modal-active");
+      const r = this.createConfirmModal(t, e, s);
+      document.body.appendChild(r), requestAnimationFrame(() => {
+        r.classList.add("confirm-modal-active");
       });
     });
   }
   createToastElement(t, e) {
     const s = document.createElement("div");
     s.className = `toast toast-${e.type}`, s.setAttribute("data-toast-id", t);
-    const a = this.getIconForType(e.type);
+    const r = this.getIconForType(e.type);
     if (s.innerHTML = `
       <div class="toast-header">
         <div class="toast-header-left">
           <div class="toast-icon toast-icon-${e.type}">
-            ${a}
+            ${r}
           </div>
           <svg class="toast-pin-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
@@ -78,8 +78,8 @@ class f {
     return s;
   }
   createConfirmModal(t, e, s) {
-    const a = document.createElement("div");
-    a.className = "confirm-modal-overlay";
+    const r = document.createElement("div");
+    r.className = "confirm-modal-overlay";
     const i = document.createElement("div");
     i.className = "confirm-modal", i.innerHTML = `
       <div class="confirm-modal-header">
@@ -96,24 +96,24 @@ class f {
           ${this.escapeHtml(e.confirmText || "Confirm")}
         </button>
       </div>
-    `, a.appendChild(i);
+    `, r.appendChild(i);
     let c = !1;
-    const u = () => {
-      a.classList.add("confirm-modal-leaving"), setTimeout(() => {
-        a.remove();
+    const d = () => {
+      r.classList.add("confirm-modal-leaving"), setTimeout(() => {
+        r.remove();
       }, 200);
-    }, l = (r) => {
-      r.key === "Escape" && o(!1);
-    }, o = (r) => {
-      c || (c = !0, document.removeEventListener("keydown", l), u(), s(r));
-    }, d = i.querySelector(".confirm-modal-btn-cancel"), m = i.querySelector(".confirm-modal-btn-confirm");
-    return d && d.addEventListener("click", () => {
-      o(!1);
-    }), m && m.addEventListener("click", () => {
-      o(!0);
-    }), a.addEventListener("click", (r) => {
-      r.target === a && o(!1);
-    }), document.addEventListener("keydown", l), a;
+    }, m = (a) => {
+      a.key === "Escape" && l(!1);
+    }, l = (a) => {
+      c || (c = !0, document.removeEventListener("keydown", m), d(), s(a));
+    }, o = i.querySelector(".confirm-modal-btn-cancel"), f = i.querySelector(".confirm-modal-btn-confirm");
+    return o && o.addEventListener("click", () => {
+      l(!1);
+    }), f && f.addEventListener("click", () => {
+      l(!0);
+    }), r.addEventListener("click", (a) => {
+      a.target === r && l(!1);
+    }), document.addEventListener("keydown", m), r;
   }
   dismiss(t) {
     const e = this.toasts.get(t);
@@ -182,6 +182,25 @@ async function h(n) {
       try {
         const i = JSON.parse(s);
         if (typeof i.error == "string" && i.error.trim()) return i.error.trim();
+        if (i.error && typeof i.error == "object") {
+          const c = i.error, d = typeof c.message == "string" ? c.message.trim() : "", m = [];
+          if (Array.isArray(c.validation_errors))
+            for (const o of c.validation_errors) {
+              if (!o || typeof o != "object") continue;
+              const f = o.field, a = o.message;
+              typeof f == "string" && typeof a == "string" && m.push(`${f}: ${a}`);
+            }
+          const l = c.metadata;
+          if (l && typeof l == "object") {
+            const o = l.fields;
+            if (o && typeof o == "object" && !Array.isArray(o))
+              for (const [f, a] of Object.entries(o))
+                typeof a == "string" && m.push(`${f}: ${a}`);
+          }
+          if (m.length > 0)
+            return `${d && d.toLowerCase() !== "validation failed" ? `${d}: ` : "Validation failed: "}${m.join("; ")}`;
+          if (d) return d;
+        }
         if (typeof i.detail == "string" && i.detail.trim()) return i.detail.trim();
         if (typeof i.title == "string" && i.title.trim()) return i.title.trim();
         if (typeof i.message == "string" && i.message.trim()) return i.message.trim();
@@ -191,8 +210,8 @@ async function h(n) {
       const i = s.match(/go-users:\s*([^|]+)/);
       if (i) return i[1].trim();
     }
-    const a = s.match(/\|\s*([^|]+)$/);
-    if (a) return a[1].trim();
+    const r = s.match(/\|\s*([^|]+)$/);
+    if (r) return r[1].trim();
     if (s.trim().length > 0 && s.length < 200) return s.trim();
   }
   return `Request failed (${n.status})`;
@@ -202,8 +221,8 @@ function g(n) {
 }
 export {
   v as F,
-  f as T,
+  u as T,
   h as e,
   g
 };
-//# sourceMappingURL=error-helpers-CECqNnwO.js.map
+//# sourceMappingURL=error-helpers-D8_e3UnS.js.map
