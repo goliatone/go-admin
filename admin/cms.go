@@ -22,6 +22,9 @@ type CMSMenuService = cmsboot.CMSMenuService
 // CMSContentService manages pages/blocks backed by the CMS.
 type CMSContentService = cmsboot.CMSContentService
 
+// CMSContentTypeService manages content type definitions.
+type CMSContentTypeService = cmsboot.CMSContentTypeService
+
 // WidgetAreaDefinition captures CMS widget area metadata.
 type WidgetAreaDefinition = cmsboot.WidgetAreaDefinition
 
@@ -45,6 +48,9 @@ type CMSPage = cmsboot.CMSPage
 
 // CMSContent represents structured content managed by the CMS.
 type CMSContent = cmsboot.CMSContent
+
+// CMSContentType represents a content type definition.
+type CMSContentType = cmsboot.CMSContentType
 
 // CMSBlockDefinition describes a reusable block schema.
 type CMSBlockDefinition = cmsboot.CMSBlockDefinition
@@ -92,6 +98,10 @@ func (c *NoopCMSContainer) ContentService() CMSContentService {
 	return c.content
 }
 
+func (c *NoopCMSContainer) ContentTypeService() CMSContentTypeService {
+	return c.content
+}
+
 // UseCMS overrides the default CMS container (menu/widget services).
 // Call before Initialize to wire a real go-cms container.
 func (a *Admin) UseCMS(container CMSContainer) *Admin {
@@ -102,6 +112,7 @@ func (a *Admin) UseCMS(container CMSContainer) *Admin {
 	prevWidget := a.widgetSvc
 	prevMenu := a.menuSvc
 	prevContent := a.contentSvc
+	prevContentTypes := a.contentTypeSvc
 	a.widgetSvc = container.WidgetService()
 	if a.widgetSvc == nil {
 		a.widgetSvc = prevWidget
@@ -119,6 +130,14 @@ func (a *Admin) UseCMS(container CMSContainer) *Admin {
 	a.contentSvc = container.ContentService()
 	if a.contentSvc == nil {
 		a.contentSvc = prevContent
+	}
+	a.contentTypeSvc = container.ContentTypeService()
+	if a.contentTypeSvc == nil {
+		if svc, ok := a.contentSvc.(CMSContentTypeService); ok && svc != nil {
+			a.contentTypeSvc = svc
+		} else {
+			a.contentTypeSvc = prevContentTypes
+		}
 	}
 	if a.nav != nil {
 		a.nav.SetMenuService(a.menuSvc)
@@ -148,12 +167,13 @@ func (a *Admin) ensureCMS(ctx context.Context) error {
 		}
 	}
 	resolved, err := cmsboot.Ensure(ctx, cmsboot.EnsureOptions{
-		Container:         a.cms,
-		WidgetService:     a.widgetSvc,
-		MenuService:       a.menuSvc,
-		ContentService:    a.contentSvc,
-		RequireCMS:        requireCMS,
-		FallbackContainer: func() cmsboot.CMSContainer { return NewNoopCMSContainer() },
+		Container:          a.cms,
+		WidgetService:      a.widgetSvc,
+		MenuService:        a.menuSvc,
+		ContentService:     a.contentSvc,
+		ContentTypeService: a.contentTypeSvc,
+		RequireCMS:         requireCMS,
+		FallbackContainer:  func() cmsboot.CMSContainer { return NewNoopCMSContainer() },
 		BuildContainer: func(ctx context.Context) (cmsboot.CMSContainer, error) {
 			return builder(ctx, a.config)
 		},
@@ -176,6 +196,13 @@ func (a *Admin) ensureCMS(ctx context.Context) error {
 		}
 		if resolved.ContentService != nil {
 			a.contentSvc = resolved.ContentService
+		}
+		if resolved.ContentTypeService != nil {
+			a.contentTypeSvc = resolved.ContentTypeService
+		} else if a.contentTypeSvc == nil {
+			if svc, ok := a.contentSvc.(CMSContentTypeService); ok && svc != nil {
+				a.contentTypeSvc = svc
+			}
 		}
 	}
 	if featureEnabled(a.featureGate, FeatureDashboard) && a.widgetSvc == nil {
