@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	router "github.com/goliatone/go-router"
+	"github.com/julienschmidt/httprouter"
 )
 
 func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
@@ -146,7 +147,7 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 	}
 }
 
-func fetchFirstPageID(t *testing.T, server *router.HTTPServer) string {
+func fetchFirstPageID(t *testing.T, server router.Server[*httprouter.Router]) string {
 	t.Helper()
 	listReq := httptest.NewRequest("GET", "/admin/api/pages", nil)
 	listRes := httptest.NewRecorder()
