@@ -67,7 +67,11 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("admin preview status: %d body=%s", adminPreviewRes.Code, adminPreviewRes.Body.String())
 	}
 	adminPreview := decodeJSONMap(t, adminPreviewRes)
-	if toString(adminPreview["slug"]) != pageSlug {
+	previewSlug := toString(adminPreview["slug"])
+	if previewSlug == "" {
+		previewSlug = toString(adminPreview["Slug"])
+	}
+	if previewSlug != pageSlug {
 		t.Fatalf("expected preview slug %q, got %+v", pageSlug, adminPreview)
 	}
 

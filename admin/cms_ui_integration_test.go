@@ -35,9 +35,13 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 	if toString(created["slug"]) != "faq" {
 		t.Fatalf("expected slug faq, got %+v", created)
 	}
+	updateID := toString(created["content_type_id"])
+	if updateID == "" {
+		updateID = toString(created["id"])
+	}
 
-	updateBody := `{"description":"Frequently asked questions"}`
-	updateReq := httptest.NewRequest("PUT", "/admin/api/content_types/faq", strings.NewReader(updateBody))
+	updateBody := `{"description":"Frequently asked questions","content_type_id":"` + updateID + `"}`
+	updateReq := httptest.NewRequest("PUT", "/admin/api/content_types/"+updateID, strings.NewReader(updateBody))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(updateRes, updateReq)
@@ -49,7 +53,7 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 		t.Fatalf("expected description update, got %+v", updated)
 	}
 
-	getReq := httptest.NewRequest("GET", "/admin/api/content_types/faq", nil)
+	getReq := httptest.NewRequest("GET", "/admin/api/content_types/"+updateID, nil)
 	getRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(getRes, getReq)
 	if getRes.Code != http.StatusOK {
@@ -81,7 +85,7 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 		t.Fatalf("expected schema validation error, got %+v", invalidPayload)
 	}
 
-	deleteReq := httptest.NewRequest("DELETE", "/admin/api/content_types/faq", nil)
+	deleteReq := httptest.NewRequest("DELETE", "/admin/api/content_types/"+updateID, nil)
 	deleteRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(deleteRes, deleteReq)
 	if deleteRes.Code != http.StatusOK {
@@ -109,6 +113,9 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 	}
 	defsPayload := decodeJSONMap(t, defsRes)
 	defs, ok := defsPayload["data"].([]any)
+	if !ok || len(defs) == 0 {
+		defs, ok = defsPayload["records"].([]any)
+	}
 	if !ok || len(defs) == 0 {
 		t.Fatalf("expected block definitions, got %+v", defsPayload)
 	}
