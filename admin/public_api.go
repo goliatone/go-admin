@@ -12,6 +12,12 @@ import (
 func (a *Admin) RegisterPublicAPI(r router.Router[router.Context]) {
 	base := "/api/v1"
 
+	r.Get(joinPath(base, "pages"), a.handlePublicPages)
+	r.Get(joinPath(base, "pages/:slug"), a.handlePublicPage)
+	r.Get(joinPath(base, "content"), a.handlePublicContentList)
+	r.Get(joinPath(base, "content/:type"), a.handlePublicContentList)
+	r.Get(joinPath(base, "content/:type/:slug"), a.handlePublicContent)
+	// Legacy CMS demo routes.
 	r.Get(joinPath(base, "content/pages/:slug"), a.handlePublicPage)
 	r.Get(joinPath(base, "content/posts"), a.handlePublicPosts)
 	r.Get(joinPath(base, "menus/:location"), a.handlePublicMenu)
@@ -28,68 +34,115 @@ func (a *Admin) registerPreviewRoutes() {
 
 func (a *Admin) handlePublicPage(c router.Context) error {
 	slug := c.Param("slug", "")
-	locale := c.Query("locale")
-	if locale == "" {
-		locale = a.config.DefaultLocale
+	path := c.Query("path")
+	if slug == "" {
+		slug = c.Query("slug")
 	}
 
 	if a.contentSvc == nil {
 		return writeError(c, errors.New("content service not available"))
 	}
 
-	// This is a simplified implementation. A real one would query by slug and locale.
-	pages, err := a.contentSvc.Pages(c.Context(), locale)
+	locale := publicLocale(a, c)
+	page, err := a.findPublicPage(c.Context(), locale, slug, path, false)
 	if err != nil {
 		return writeError(c, err)
 	}
-
-	for _, p := range pages {
-		if p.Slug == slug && p.Status == "published" {
-			return writeJSON(c, p)
-		}
+	if page != nil {
+		return writeJSON(c, page)
 	}
 
 	return writeError(c, ErrNotFound)
 }
 
-func (a *Admin) handlePublicPosts(c router.Context) error {
-	category := c.Query("category")
-	locale := c.Query("locale")
-	if locale == "" {
-		locale = a.config.DefaultLocale
+func (a *Admin) handlePublicPages(c router.Context) error {
+	if a.contentSvc == nil {
+		return writeError(c, errors.New("content service not available"))
 	}
+	locale := publicLocale(a, c)
+	slug := c.Query("slug")
+	path := c.Query("path")
 
+	pages, err := a.listPublicPages(c.Context(), locale, false)
+	if err != nil {
+		return writeError(c, err)
+	}
+	if slug != "" || path != "" {
+		for i := range pages {
+			if matchesPageQuery(&pages[i], slug, path) {
+				return writeJSON(c, pages[i])
+			}
+		}
+		return writeError(c, ErrNotFound)
+	}
+	return writeJSON(c, pages)
+}
+
+func (a *Admin) handlePublicContent(c router.Context) error {
+	if a.contentSvc == nil {
+		return writeError(c, errors.New("content service not available"))
+	}
+	locale := publicLocale(a, c)
+	contentType := publicContentType(c)
+	slug := c.Param("slug", "")
+	if slug == "" {
+		slug = c.Query("slug")
+	}
+	if slug == "" {
+		return writeError(c, errors.New("content slug required"))
+	}
+	content, err := a.findPublicContent(c.Context(), locale, contentType, slug, "", false)
+	if err != nil {
+		return writeError(c, err)
+	}
+	if content != nil {
+		return writeJSON(c, content)
+	}
+	return writeError(c, ErrNotFound)
+}
+
+func (a *Admin) handlePublicContentList(c router.Context) error {
 	if a.contentSvc == nil {
 		return writeError(c, errors.New("content service not available"))
 	}
 
-	contents, err := a.contentSvc.Contents(c.Context(), locale)
+	locale := publicLocale(a, c)
+	contentType := publicContentType(c)
+	category := c.Query("category")
+	slug := c.Query("slug")
+
+	contents, err := a.listPublicContents(c.Context(), locale, contentType, category, false)
 	if err != nil {
 		return writeError(c, err)
 	}
 
-	out := []CMSContent{}
-	for _, cnt := range contents {
-		if cnt.Status != "published" {
-			continue
-		}
-		if category != "" {
-			if cat, ok := cnt.Data["category"].(string); !ok || cat != category {
-				continue
+	if slug != "" {
+		for i := range contents {
+			if matchesSlug(contents[i].Slug, slug) {
+				return writeJSON(c, contents[i])
 			}
 		}
-		out = append(out, cnt)
+		return writeError(c, ErrNotFound)
 	}
+	return writeJSON(c, contents)
+}
 
-	return writeJSON(c, out)
+func (a *Admin) handlePublicPosts(c router.Context) error {
+	if a.contentSvc == nil {
+		return writeError(c, errors.New("content service not available"))
+	}
+	locale := publicLocale(a, c)
+	category := c.Query("category")
+	contents, err := a.listPublicContents(c.Context(), locale, "posts", category, false)
+	if err != nil {
+		return writeError(c, err)
+	}
+	return writeJSON(c, contents)
 }
 
 func (a *Admin) handlePublicMenu(c router.Context) error {
 	location := c.Param("location", "")
-	locale := c.Query("locale")
-	if locale == "" {
-		locale = a.config.DefaultLocale
-	}
+	locale := publicLocale(a, c)
 
 	if a.menuSvc == nil {
 		return writeError(c, errors.New("menu service not available"))
@@ -121,12 +174,10 @@ func (a *Admin) handlePublicPreview(c router.Context) error {
 		return writeError(c, errors.New("content service not available"))
 	}
 
-	locale := c.Query("locale")
-	if locale == "" {
-		locale = a.config.DefaultLocale
-	}
+	locale := publicLocale(a, c)
+	entityType := strings.ToLower(strings.TrimSpace(token.EntityType))
 
-	if token.EntityType == "pages" {
+	if entityType == "pages" || entityType == "page" {
 		page, err := a.contentSvc.Page(c.Context(), token.ContentID, locale)
 		if err != nil {
 			return writeError(c, err)
@@ -134,7 +185,7 @@ func (a *Admin) handlePublicPreview(c router.Context) error {
 		return writeJSON(c, page)
 	}
 
-	if token.EntityType == "posts" {
+	if entityType == "content" || entityType == "post" || entityType == "posts" {
 		content, err := a.contentSvc.Content(c.Context(), token.ContentID, locale)
 		if err != nil {
 			return writeError(c, err)
@@ -209,4 +260,176 @@ func ensureLeadingSlash(path string) string {
 		return trimmed
 	}
 	return "/" + trimmed
+}
+
+func publicLocale(a *Admin, c router.Context) string {
+	if a == nil {
+		return ""
+	}
+	locale := strings.TrimSpace(c.Query("locale"))
+	if locale == "" {
+		locale = a.config.DefaultLocale
+	}
+	return locale
+}
+
+func publicContentType(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(firstNonEmpty(
+		c.Param("type", ""),
+		c.Query("type"),
+		c.Query("content_type"),
+	))
+}
+
+func (a *Admin) listPublicContents(ctx context.Context, locale, contentType, category string, includeDrafts bool) ([]CMSContent, error) {
+	contents, err := a.contentSvc.Contents(ctx, locale)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]CMSContent, 0, len(contents))
+	for _, cnt := range contents {
+		if !allowPublicStatus(cnt.Status, includeDrafts) {
+			continue
+		}
+		if contentType != "" && !matchesContentType(cnt, contentType) {
+			continue
+		}
+		if category != "" {
+			if cat, ok := cnt.Data["category"].(string); !ok || cat != category {
+				continue
+			}
+		}
+		out = append(out, cnt)
+	}
+	return out, nil
+}
+
+func (a *Admin) findPublicContent(ctx context.Context, locale, contentType, slug, category string, includeDrafts bool) (*CMSContent, error) {
+	contents, err := a.listPublicContents(ctx, locale, contentType, category, includeDrafts)
+	if err != nil {
+		return nil, err
+	}
+	for i := range contents {
+		if matchesSlug(contents[i].Slug, slug) {
+			return &contents[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func (a *Admin) listPublicPages(ctx context.Context, locale string, includeDrafts bool) ([]CMSPage, error) {
+	pages, err := a.contentSvc.Pages(ctx, locale)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]CMSPage, 0, len(pages))
+	for _, page := range pages {
+		if !allowPublicStatus(page.Status, includeDrafts) {
+			continue
+		}
+		out = append(out, page)
+	}
+	return out, nil
+}
+
+func (a *Admin) findPublicPage(ctx context.Context, locale, slug, path string, includeDrafts bool) (*CMSPage, error) {
+	pages, err := a.listPublicPages(ctx, locale, includeDrafts)
+	if err != nil {
+		return nil, err
+	}
+	for i := range pages {
+		if matchesPageQuery(&pages[i], slug, path) {
+			return &pages[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func allowPublicStatus(status string, includeDrafts bool) bool {
+	if includeDrafts {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(status), "published")
+}
+
+func matchesContentType(content CMSContent, contentType string) bool {
+	filter := strings.TrimSpace(contentType)
+	if filter == "" {
+		return true
+	}
+	if strings.EqualFold(content.ContentTypeSlug, filter) || strings.EqualFold(content.ContentType, filter) {
+		return true
+	}
+	if strings.HasSuffix(filter, "s") {
+		filter = strings.TrimSuffix(filter, "s")
+		if strings.EqualFold(content.ContentTypeSlug, filter) || strings.EqualFold(content.ContentType, filter) {
+			return true
+		}
+	}
+	if strings.HasSuffix(content.ContentTypeSlug, "s") && strings.EqualFold(strings.TrimSuffix(content.ContentTypeSlug, "s"), filter) {
+		return true
+	}
+	if strings.HasSuffix(content.ContentType, "s") && strings.EqualFold(strings.TrimSuffix(content.ContentType, "s"), filter) {
+		return true
+	}
+	return false
+}
+
+func matchesPageQuery(page *CMSPage, slug, path string) bool {
+	if page == nil {
+		return false
+	}
+	slug = strings.TrimSpace(slug)
+	path = strings.TrimSpace(path)
+	if slug != "" && matchesSlug(page.Slug, slug) {
+		return true
+	}
+	if slug != "" && strings.Contains(slug, "/") && matchesPath(page, slug) {
+		return true
+	}
+	if path != "" && matchesPath(page, path) {
+		return true
+	}
+	return false
+}
+
+func matchesPath(page *CMSPage, path string) bool {
+	if page == nil {
+		return false
+	}
+	normalized := normalizePath(path)
+	if normalized == "" {
+		return false
+	}
+	pagePath := normalizePath(extractPathFromData(page.Data, page.Slug))
+	return pagePath != "" && strings.EqualFold(pagePath, normalized)
+}
+
+func matchesSlug(value, slug string) bool {
+	value = strings.TrimSpace(value)
+	slug = strings.TrimSpace(slug)
+	if value == "" || slug == "" {
+		return false
+	}
+	if strings.EqualFold(value, slug) {
+		return true
+	}
+	return strings.EqualFold(strings.Trim(value, "/"), strings.Trim(slug, "/"))
+}
+
+func normalizePath(path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return ""
+	}
+	if trimmed != "/" {
+		trimmed = strings.TrimRight(trimmed, "/")
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		trimmed = "/" + trimmed
+	}
+	return trimmed
 }
