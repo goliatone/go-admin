@@ -157,6 +157,8 @@ github.com/goliatone/go-config v0.8.0 h1:LSrN3TFNNrFyR+7ZAMRrJratoY6+aIfYVAMsMc2
 github.com/goliatone/go-config v0.8.0/go.mod h1:iTzuUXjWS+m/IvCPsBQOKGkPl9RQsEm8E2HKlOkwEfc=
 github.com/goliatone/go-crud v0.17.0 h1:IH23V7baFss4vL8uP6AXgK1oRtQSIMYN7K0K4TY1WE0=
 github.com/goliatone/go-crud v0.17.0/go.mod h1:5ccW6GGO3FVE8lKalkVcoPYCd+VqrMXhSw2o0BQgIqA=
+github.com/goliatone/go-crud/gql v0.17.0 h1:ongSL5w5C547kBkam6rOdIQogPfFXsJzP/s0b4mQo+w=
+github.com/goliatone/go-crud/gql v0.17.0/go.mod h1:yGhFPMxnDMjBM4nWVNVKQ2LMeaVEyqv/aRFgh8Zr3Vc=
 github.com/goliatone/go-dashboard v0.6.0 h1:nOiVgZwDI4NIbqiV7MfJrjbSRVlwdPARmnXgiGp3YRg=
 github.com/goliatone/go-dashboard v0.6.0/go.mod h1:tR/P9F2LI84FaJIyBdz2dPPZWOb8Q5oi7QV4mzNdZlA=
 github.com/goliatone/go-errors v0.10.0 h1:qVmOXKq6aa3cHbygI5VHGCosuA0CLAXso0BlinboYJE=
