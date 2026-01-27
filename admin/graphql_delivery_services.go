@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strings"
 
+	delivery "github.com/goliatone/go-admin/admin/graphql"
 	crud "github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
-	delivery "github.com/goliatone/go-admin/admin/graphql"
 )
 
 var errDeliveryReadOnly = errors.New("delivery service is read-only")

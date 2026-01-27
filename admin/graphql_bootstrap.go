@@ -1,8 +1,8 @@
 package admin
 
 import (
-	"github.com/goliatone/go-crud/gql/registrar"
 	"github.com/goliatone/go-admin/admin/internal/graphql"
+	"github.com/goliatone/go-crud/gql/registrar"
 )
 
 // DeliveryGraphQLControllers exposes delivery schema controllers for go-crud/gql registration.
