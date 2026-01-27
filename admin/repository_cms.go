@@ -182,6 +182,149 @@ func (r *CMSPageRepository) ensureUniqueSlug(ctx context.Context, slug, skipID, 
 	return nil
 }
 
+// CMSContentTypeRepository adapts CMSContentTypeService for content type definitions.
+type CMSContentTypeRepository struct {
+	types CMSContentTypeService
+}
+
+// NewCMSContentTypeRepository builds a repository backed by a CMSContentTypeService.
+func NewCMSContentTypeRepository(types CMSContentTypeService) *CMSContentTypeRepository {
+	return &CMSContentTypeRepository{types: types}
+}
+
+// List returns content types filtered by search query.
+func (r *CMSContentTypeRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
+	if r.types == nil {
+		return nil, 0, ErrNotFound
+	}
+	types, err := r.types.ContentTypes(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	search := strings.ToLower(extractSearch(opts))
+	filtered := make([]CMSContentType, 0, len(types))
+	for _, ct := range types {
+		if search != "" && !strings.Contains(strings.ToLower(ct.Name), search) &&
+			!strings.Contains(strings.ToLower(ct.Slug), search) &&
+			!strings.Contains(strings.ToLower(ct.Description), search) {
+			continue
+		}
+		filtered = append(filtered, ct)
+	}
+	sliced, total := paginateCMS(filtered, opts)
+	out := make([]map[string]any, 0, len(sliced))
+	for _, ct := range sliced {
+		out = append(out, mapFromCMSContentType(ct))
+	}
+	return out, total, nil
+}
+
+// Get returns a single content type by slug (preferred) or id.
+func (r *CMSContentTypeRepository) Get(ctx context.Context, id string) (map[string]any, error) {
+	ct, err := r.resolveContentType(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return mapFromCMSContentType(*ct), nil
+}
+
+// Create inserts a content type.
+func (r *CMSContentTypeRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
+	if r.types == nil {
+		return nil, ErrNotFound
+	}
+	ct := mapToCMSContentType(record)
+	if ct.Slug == "" {
+		ct.Slug = strings.TrimSpace(ct.ID)
+	}
+	created, err := r.types.CreateContentType(ctx, ct)
+	if err != nil {
+		return nil, err
+	}
+	return mapFromCMSContentType(*created), nil
+}
+
+// Update modifies a content type (slug preferred, id fallback).
+func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
+	if r.types == nil {
+		return nil, ErrNotFound
+	}
+	ct := mapToCMSContentType(record)
+	if ct.Slug == "" {
+		ct.Slug = strings.TrimSpace(ct.ID)
+	}
+	if ct.ID == "" {
+		ct.ID = id
+	}
+	if existing, err := r.resolveContentType(ctx, id); err == nil && existing != nil {
+		if ct.ID == "" {
+			ct.ID = existing.ID
+		}
+		if ct.Slug == "" {
+			ct.Slug = existing.Slug
+		}
+	}
+	updated, err := r.types.UpdateContentType(ctx, ct)
+	if err != nil {
+		return nil, err
+	}
+	return mapFromCMSContentType(*updated), nil
+}
+
+// Delete removes a content type.
+func (r *CMSContentTypeRepository) Delete(ctx context.Context, id string) error {
+	if r.types == nil {
+		return ErrNotFound
+	}
+	if existing, err := r.resolveContentType(ctx, id); err == nil && existing != nil && existing.ID != "" {
+		return r.types.DeleteContentType(ctx, existing.ID)
+	}
+	return r.types.DeleteContentType(ctx, id)
+}
+
+func (r *CMSContentTypeRepository) resolveContentType(ctx context.Context, id string) (*CMSContentType, error) {
+	if r.types == nil {
+		return nil, ErrNotFound
+	}
+	slug := strings.TrimSpace(id)
+	if slug != "" {
+		ct, err := r.types.ContentTypeBySlug(ctx, slug)
+		if err == nil && ct != nil {
+			return ct, nil
+		}
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return nil, err
+		}
+	}
+	return r.types.ContentType(ctx, id)
+}
+
+func mapFromCMSContentType(ct CMSContentType) map[string]any {
+	id := strings.TrimSpace(ct.Slug)
+	if id == "" {
+		id = strings.TrimSpace(ct.ID)
+	}
+	out := map[string]any{
+		"id":           id,
+		"name":         ct.Name,
+		"slug":         ct.Slug,
+		"description":  ct.Description,
+		"schema":       cloneAnyMap(ct.Schema),
+		"capabilities": cloneAnyMap(ct.Capabilities),
+		"icon":         ct.Icon,
+	}
+	if ct.ID != "" && ct.ID != id {
+		out["content_type_id"] = ct.ID
+	}
+	if !ct.CreatedAt.IsZero() {
+		out["created_at"] = ct.CreatedAt
+	}
+	if !ct.UpdatedAt.IsZero() {
+		out["updated_at"] = ct.UpdatedAt
+	}
+	return out
+}
+
 // CMSContentRepository adapts CMSContentService for structured content entities.
 type CMSContentRepository struct {
 	content CMSContentService
@@ -205,7 +348,10 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 	search := strings.ToLower(extractSearch(opts))
 	filtered := []CMSContent{}
 	for _, item := range contents {
-		if search != "" && !strings.Contains(strings.ToLower(item.Title), search) && !strings.Contains(strings.ToLower(item.Slug), search) && !strings.Contains(strings.ToLower(item.ContentType), search) {
+		contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
+		if search != "" && !strings.Contains(strings.ToLower(item.Title), search) &&
+			!strings.Contains(strings.ToLower(item.Slug), search) &&
+			!strings.Contains(strings.ToLower(contentType), search) {
 			continue
 		}
 		filtered = append(filtered, item)
@@ -213,12 +359,13 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 	sliced, total := paginateCMS(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, item := range sliced {
+		contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
 		out = append(out, map[string]any{
 			"id":           item.ID,
 			"title":        item.Title,
 			"slug":         item.Slug,
 			"locale":       item.Locale,
-			"content_type": item.ContentType,
+			"content_type": contentType,
 			"status":       item.Status,
 			"blocks":       append([]string{}, item.Blocks...),
 			"data":         cloneAnyMap(item.Data),
@@ -241,12 +388,13 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 	if err != nil {
 		return nil, err
 	}
+	contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
 	return map[string]any{
 		"id":           item.ID,
 		"title":        item.Title,
 		"slug":         item.Slug,
 		"locale":       item.Locale,
-		"content_type": item.ContentType,
+		"content_type": contentType,
 		"status":       item.Status,
 		"blocks":       append([]string{}, item.Blocks...),
 		"data":         cloneAnyMap(item.Data),
@@ -263,12 +411,13 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 	if err != nil {
 		return nil, err
 	}
+	contentType := firstNonEmpty(created.ContentTypeSlug, created.ContentType)
 	return map[string]any{
 		"id":           created.ID,
 		"title":        created.Title,
 		"slug":         created.Slug,
 		"locale":       created.Locale,
-		"content_type": created.ContentType,
+		"content_type": contentType,
 		"status":       created.Status,
 		"blocks":       append([]string{}, created.Blocks...),
 		"data":         cloneAnyMap(created.Data),
@@ -294,12 +443,13 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 	if err != nil {
 		return nil, err
 	}
+	contentType := firstNonEmpty(updated.ContentTypeSlug, updated.ContentType)
 	return map[string]any{
 		"id":           updated.ID,
 		"title":        updated.Title,
 		"slug":         updated.Slug,
 		"locale":       updated.Locale,
-		"content_type": updated.ContentType,
+		"content_type": contentType,
 		"status":       updated.Status,
 		"blocks":       append([]string{}, updated.Blocks...),
 		"data":         cloneAnyMap(updated.Data),
@@ -952,7 +1102,21 @@ func mapToCMSContent(record map[string]any) CMSContent {
 		content.Status = status
 	}
 	if ctype, ok := record["content_type"].(string); ok {
+		if content.ContentTypeSlug == "" {
+			content.ContentTypeSlug = ctype
+		}
+		if content.ContentType == "" {
+			content.ContentType = ctype
+		}
+	}
+	if ctype, ok := record["content_type_slug"].(string); ok {
+		content.ContentTypeSlug = ctype
+	}
+	if ctype, ok := record["content_type_id"].(string); ok && ctype != "" {
 		content.ContentType = ctype
+	}
+	if content.ContentType == "" && content.ContentTypeSlug != "" {
+		content.ContentType = content.ContentTypeSlug
 	}
 	if blocks, ok := record["blocks"].([]string); ok {
 		content.Blocks = append([]string{}, blocks...)
@@ -967,6 +1131,53 @@ func mapToCMSContent(record map[string]any) CMSContent {
 		content.Data = cloneAnyMap(data)
 	}
 	return content
+}
+
+func mapToCMSContentType(record map[string]any) CMSContentType {
+	ct := CMSContentType{}
+	if record == nil {
+		return ct
+	}
+	if id, ok := record["content_type_id"].(string); ok {
+		ct.ID = id
+	}
+	if id, ok := record["type_id"].(string); ok && ct.ID == "" {
+		ct.ID = id
+	}
+	if id, ok := record["id"].(string); ok && ct.ID == "" {
+		ct.ID = id
+	}
+	if name, ok := record["name"].(string); ok {
+		ct.Name = name
+	}
+	if slug, ok := record["slug"].(string); ok {
+		ct.Slug = slug
+	} else if slug, ok := record["content_type_slug"].(string); ok && ct.Slug == "" {
+		ct.Slug = slug
+	}
+	if desc, ok := record["description"].(string); ok {
+		ct.Description = desc
+	}
+	if icon, ok := record["icon"].(string); ok {
+		ct.Icon = icon
+	}
+	if schema, ok := record["schema"].(map[string]any); ok {
+		ct.Schema = cloneAnyMap(schema)
+	} else if raw, ok := record["schema"].(string); ok && raw != "" {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(raw), &m); err == nil {
+			ct.Schema = m
+		}
+	}
+	if caps, ok := record["capabilities"].(map[string]any); ok {
+		ct.Capabilities = cloneAnyMap(caps)
+	} else if raw, ok := record["capabilities"].(string); ok && raw != "" {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(raw), &m); err == nil {
+			ct.Capabilities = m
+		}
+	}
+	return ct
 }
 
 func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
