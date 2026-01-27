@@ -13,6 +13,7 @@ type CMSContainer interface {
 	WidgetService() CMSWidgetService
 	MenuService() CMSMenuService
 	ContentService() CMSContentService
+	ContentTypeService() CMSContentTypeService
 }
 
 // GoCMSMenuProvider exposes a raw go-cms menu service for adapter wiring.
@@ -41,6 +42,16 @@ type CMSMenuService interface {
 	ReorderMenu(ctx context.Context, menuCode string, orderedIDs []string) error
 	Menu(ctx context.Context, code, locale string) (*Menu, error)
 	MenuByLocation(ctx context.Context, location, locale string) (*Menu, error)
+}
+
+// CMSContentTypeService manages content type definitions.
+type CMSContentTypeService interface {
+	ContentTypes(ctx context.Context) ([]CMSContentType, error)
+	ContentType(ctx context.Context, id string) (*CMSContentType, error)
+	ContentTypeBySlug(ctx context.Context, slug string) (*CMSContentType, error)
+	CreateContentType(ctx context.Context, contentType CMSContentType) (*CMSContentType, error)
+	UpdateContentType(ctx context.Context, contentType CMSContentType) (*CMSContentType, error)
+	DeleteContentType(ctx context.Context, id string) error
 }
 
 // CMSContentService manages pages/blocks backed by the CMS.
@@ -146,9 +157,23 @@ type CMSContent struct {
 	Locale             string
 	TranslationGroupID string
 	ContentType        string
+	ContentTypeSlug    string
 	Status             string
 	Blocks             []string
 	Data               map[string]any
+}
+
+// CMSContentType describes a content type definition.
+type CMSContentType struct {
+	ID           string
+	Name         string
+	Slug         string
+	Description  string
+	Schema       map[string]any
+	Capabilities map[string]any
+	Icon         string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // CMSBlockDefinition describes a reusable block schema.
