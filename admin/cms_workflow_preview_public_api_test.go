@@ -67,12 +67,20 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("admin preview status: %d body=%s", adminPreviewRes.Code, adminPreviewRes.Body.String())
 	}
 	adminPreview := decodeJSONMap(t, adminPreviewRes)
-	previewSlug := toString(adminPreview["slug"])
-	if previewSlug == "" {
-		previewSlug = toString(adminPreview["Slug"])
+	previewID := toString(adminPreview["id"])
+	if previewID == "" {
+		previewID = toString(adminPreview["ID"])
 	}
-	if previewSlug != pageSlug {
-		t.Fatalf("expected preview slug %q, got %+v", pageSlug, adminPreview)
+	if previewID == "" {
+		if data, ok := adminPreview["data"].(map[string]any); ok {
+			previewID = toString(data["id"])
+			if previewID == "" {
+				previewID = toString(data["ID"])
+			}
+		}
+	}
+	if previewID != pageID {
+		t.Fatalf("expected preview id %q, got %+v", pageID, adminPreview)
 	}
 
 	publicPreviewReq := httptest.NewRequest("GET", "/api/v1/preview/"+token, nil)
