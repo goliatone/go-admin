@@ -37,3 +37,16 @@ type Menu struct {
 	Location string     `json:"location"`
 	Items    []MenuItem `json:"items"`
 }
+
+// ContentType represents a CMS content type definition.
+type ContentType struct {
+	ID           string         `json:"id"`
+	Name         string         `json:"name"`
+	Slug         string         `json:"slug"`
+	Description  string         `json:"description"`
+	Schema       map[string]any `json:"schema"`
+	Capabilities map[string]any `json:"capabilities"`
+	Icon         string         `json:"icon"`
+	CreatedAt    string         `json:"created_at"`
+	UpdatedAt    string         `json:"updated_at"`
+}
