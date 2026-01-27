@@ -424,7 +424,7 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 		return nil, err
 	}
 	contentType := firstNonEmpty(created.ContentTypeSlug, created.ContentType)
-	record := map[string]any{
+	createdRecord := map[string]any{
 		"id":           created.ID,
 		"title":        created.Title,
 		"slug":         created.Slug,
@@ -434,8 +434,8 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 		"blocks":       append([]string{}, created.Blocks...),
 		"data":         cloneAnyMap(created.Data),
 	}
-	mergeCMSRecordData(record, created.Data, cmsContentReservedKeys)
-	return record, nil
+	mergeCMSRecordData(createdRecord, created.Data, cmsContentReservedKeys)
+	return createdRecord, nil
 }
 
 // Update modifies content.
@@ -458,7 +458,7 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 		return nil, err
 	}
 	contentType := firstNonEmpty(updated.ContentTypeSlug, updated.ContentType)
-	record := map[string]any{
+	updatedRecord := map[string]any{
 		"id":           updated.ID,
 		"title":        updated.Title,
 		"slug":         updated.Slug,
@@ -468,8 +468,8 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 		"blocks":       append([]string{}, updated.Blocks...),
 		"data":         cloneAnyMap(updated.Data),
 	}
-	mergeCMSRecordData(record, updated.Data, cmsContentReservedKeys)
-	return record, nil
+	mergeCMSRecordData(updatedRecord, updated.Data, cmsContentReservedKeys)
+	return updatedRecord, nil
 }
 
 // Delete removes a content item.
