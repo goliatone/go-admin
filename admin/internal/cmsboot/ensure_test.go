@@ -7,14 +7,18 @@ import (
 )
 
 type stubContainer struct {
-	widget  CMSWidgetService
-	menu    CMSMenuService
-	content CMSContentService
+	widget       CMSWidgetService
+	menu         CMSMenuService
+	content      CMSContentService
+	contentTypes CMSContentTypeService
 }
 
 func (s stubContainer) WidgetService() CMSWidgetService   { return s.widget }
 func (s stubContainer) MenuService() CMSMenuService       { return s.menu }
 func (s stubContainer) ContentService() CMSContentService { return s.content }
+func (s stubContainer) ContentTypeService() CMSContentTypeService {
+	return s.contentTypes
+}
 
 type stubWidgetService struct{}
 
@@ -87,13 +91,27 @@ func (stubContentService) BlocksForContent(context.Context, string, string) ([]C
 }
 func (stubContentService) SaveBlock(context.Context, CMSBlock) (*CMSBlock, error) { return nil, nil }
 func (stubContentService) DeleteBlock(context.Context, string) error              { return nil }
+func (stubContentService) ContentTypes(context.Context) ([]CMSContentType, error) { return nil, nil }
+func (stubContentService) ContentType(context.Context, string) (*CMSContentType, error) {
+	return nil, nil
+}
+func (stubContentService) ContentTypeBySlug(context.Context, string) (*CMSContentType, error) {
+	return nil, nil
+}
+func (stubContentService) CreateContentType(context.Context, CMSContentType) (*CMSContentType, error) {
+	return nil, nil
+}
+func (stubContentService) UpdateContentType(context.Context, CMSContentType) (*CMSContentType, error) {
+	return nil, nil
+}
+func (stubContentService) DeleteContentType(context.Context, string) error { return nil }
 
 func TestEnsureSkipsWhenDisabled(t *testing.T) {
 	widget := stubWidgetService{}
 	menu := &stubMenuService{}
 	menuSvc := CMSMenuService(menu)
 	content := stubContentService{}
-	container := stubContainer{widget: widget, menu: menu, content: content}
+	container := stubContainer{widget: widget, menu: menu, content: content, contentTypes: content}
 	builderCalled := 0
 	fallbackCalled := 0
 
@@ -118,7 +136,7 @@ func TestEnsureSkipsWhenDisabled(t *testing.T) {
 	if builderCalled != 0 || fallbackCalled != 0 {
 		t.Fatalf("expected no builder or fallback when CMS not required")
 	}
-	if res.Container == nil || res.MenuService == nil || res.WidgetService == nil || res.ContentService == nil {
+	if res.Container == nil || res.MenuService == nil || res.WidgetService == nil || res.ContentService == nil || res.ContentTypeService == nil {
 		t.Fatalf("expected existing services to be preserved")
 	}
 }
@@ -127,7 +145,7 @@ func TestEnsureUsesBuilderWhenMissing(t *testing.T) {
 	widget := stubWidgetService{}
 	menu := &stubMenuService{}
 	content := stubContentService{}
-	built := stubContainer{widget: widget, menu: menu, content: content}
+	built := stubContainer{widget: widget, menu: menu, content: content, contentTypes: content}
 	res, err := Ensure(context.Background(), EnsureOptions{
 		RequireCMS: true,
 		BuildContainer: func(ctx context.Context) (CMSContainer, error) {
@@ -140,13 +158,13 @@ func TestEnsureUsesBuilderWhenMissing(t *testing.T) {
 	if res.Container != built {
 		t.Fatalf("expected builder container to be used")
 	}
-	if res.MenuService != menu || res.WidgetService != widget || res.ContentService != content {
+	if res.MenuService != menu || res.WidgetService != widget || res.ContentService != content || res.ContentTypeService != content {
 		t.Fatalf("expected services from builder to be used")
 	}
 }
 
 func TestEnsureFallsBackWhenBuilderUnavailable(t *testing.T) {
-	fallback := stubContainer{widget: stubWidgetService{}, menu: &stubMenuService{}, content: stubContentService{}}
+	fallback := stubContainer{widget: stubWidgetService{}, menu: &stubMenuService{}, content: stubContentService{}, contentTypes: stubContentService{}}
 	res, err := Ensure(context.Background(), EnsureOptions{
 		RequireCMS: true,
 		FallbackContainer: func() CMSContainer {
@@ -159,7 +177,7 @@ func TestEnsureFallsBackWhenBuilderUnavailable(t *testing.T) {
 	if res.Container != fallback {
 		t.Fatalf("expected fallback container to be used")
 	}
-	if res.MenuService == nil || res.WidgetService == nil || res.ContentService == nil {
+	if res.MenuService == nil || res.WidgetService == nil || res.ContentService == nil || res.ContentTypeService == nil {
 		t.Fatalf("expected services from fallback to be set")
 	}
 }
