@@ -160,10 +160,21 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		})
 	}
 
+	contentTypeSvc := admin.CMSContentTypeService(nil)
+	if adapter != nil {
+		contentTypeSvc = adapter.ContentTypeService()
+	}
+	if contentTypeSvc == nil {
+		if svc, ok := contentSvc.(admin.CMSContentTypeService); ok {
+			contentTypeSvc = svc
+		}
+	}
+
 	container := &cmsContainerAdapter{
-		widgetSvc:  widgetSvc,
-		menuSvc:    menuSvc,
-		contentSvc: contentSvc,
+		widgetSvc:      widgetSvc,
+		menuSvc:        menuSvc,
+		contentSvc:     contentSvc,
+		contentTypeSvc: contentTypeSvc,
 	}
 
 	return admin.CMSOptions{Container: container}, nil
@@ -234,9 +245,10 @@ func resolveCMSMigrationsFS() fs.FS {
 }
 
 type cmsContainerAdapter struct {
-	widgetSvc  admin.CMSWidgetService
-	menuSvc    admin.CMSMenuService
-	contentSvc admin.CMSContentService
+	widgetSvc      admin.CMSWidgetService
+	menuSvc        admin.CMSMenuService
+	contentSvc     admin.CMSContentService
+	contentTypeSvc admin.CMSContentTypeService
 }
 
 func (c *cmsContainerAdapter) WidgetService() admin.CMSWidgetService {
@@ -249,4 +261,8 @@ func (c *cmsContainerAdapter) MenuService() admin.CMSMenuService {
 
 func (c *cmsContainerAdapter) ContentService() admin.CMSContentService {
 	return c.contentSvc
+}
+
+func (c *cmsContainerAdapter) ContentTypeService() admin.CMSContentTypeService {
+	return c.contentTypeSvc
 }
