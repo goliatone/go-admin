@@ -43,10 +43,12 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 	sliced, total := paginateCMS(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, page := range sliced {
+		path := resolveCMSPagePath(page)
 		out = append(out, map[string]any{
 			"id":          page.ID,
 			"title":       page.Title,
 			"slug":        page.Slug,
+			"path":        path,
 			"template_id": page.TemplateID,
 			"locale":      page.Locale,
 			"parent_id":   page.ParentID,
@@ -74,10 +76,12 @@ func (r *CMSPageRepository) Get(ctx context.Context, id string) (map[string]any,
 	if err != nil {
 		return nil, err
 	}
+	path := resolveCMSPagePath(*page)
 	return map[string]any{
 		"id":          page.ID,
 		"title":       page.Title,
 		"slug":        page.Slug,
+		"path":        path,
 		"template_id": page.TemplateID,
 		"locale":      page.Locale,
 		"parent_id":   page.ParentID,
@@ -105,10 +109,12 @@ func (r *CMSPageRepository) Create(ctx context.Context, record map[string]any) (
 	if err != nil {
 		return nil, err
 	}
+	path := resolveCMSPagePath(*created)
 	return map[string]any{
 		"id":          created.ID,
 		"title":       created.Title,
 		"slug":        created.Slug,
+		"path":        path,
 		"locale":      created.Locale,
 		"parent_id":   created.ParentID,
 		"blocks":      append([]string{}, created.Blocks...),
@@ -144,10 +150,12 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 	if err != nil {
 		return nil, err
 	}
+	path := resolveCMSPagePath(*updated)
 	return map[string]any{
 		"id":          updated.ID,
 		"title":       updated.Title,
 		"slug":        updated.Slug,
+		"path":        path,
 		"locale":      updated.Locale,
 		"parent_id":   updated.ParentID,
 		"blocks":      append([]string{}, updated.Blocks...),
@@ -360,7 +368,7 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 	out := make([]map[string]any, 0, len(sliced))
 	for _, item := range sliced {
 		contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
-		out = append(out, map[string]any{
+		record := map[string]any{
 			"id":           item.ID,
 			"title":        item.Title,
 			"slug":         item.Slug,
@@ -369,7 +377,9 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 			"status":       item.Status,
 			"blocks":       append([]string{}, item.Blocks...),
 			"data":         cloneAnyMap(item.Data),
-		})
+		}
+		mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
+		out = append(out, record)
 	}
 	return out, total, nil
 }
@@ -389,7 +399,7 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 		return nil, err
 	}
 	contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
-	return map[string]any{
+	record := map[string]any{
 		"id":           item.ID,
 		"title":        item.Title,
 		"slug":         item.Slug,
@@ -398,7 +408,9 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 		"status":       item.Status,
 		"blocks":       append([]string{}, item.Blocks...),
 		"data":         cloneAnyMap(item.Data),
-	}, nil
+	}
+	mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
+	return record, nil
 }
 
 // Create inserts new content.
@@ -412,7 +424,7 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 		return nil, err
 	}
 	contentType := firstNonEmpty(created.ContentTypeSlug, created.ContentType)
-	return map[string]any{
+	record := map[string]any{
 		"id":           created.ID,
 		"title":        created.Title,
 		"slug":         created.Slug,
@@ -421,7 +433,9 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 		"status":       created.Status,
 		"blocks":       append([]string{}, created.Blocks...),
 		"data":         cloneAnyMap(created.Data),
-	}, nil
+	}
+	mergeCMSRecordData(record, created.Data, cmsContentReservedKeys)
+	return record, nil
 }
 
 // Update modifies content.
@@ -444,7 +458,7 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 		return nil, err
 	}
 	contentType := firstNonEmpty(updated.ContentTypeSlug, updated.ContentType)
-	return map[string]any{
+	record := map[string]any{
 		"id":           updated.ID,
 		"title":        updated.Title,
 		"slug":         updated.Slug,
@@ -453,7 +467,9 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 		"status":       updated.Status,
 		"blocks":       append([]string{}, updated.Blocks...),
 		"data":         cloneAnyMap(updated.Data),
-	}, nil
+	}
+	mergeCMSRecordData(record, updated.Data, cmsContentReservedKeys)
+	return record, nil
 }
 
 // Delete removes a content item.
@@ -1037,6 +1053,9 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	if id, ok := record["id"].(string); ok {
 		page.ID = id
 	}
+	if groupID, ok := record["translation_group_id"].(string); ok {
+		page.TranslationGroupID = groupID
+	}
 	if title, ok := record["title"].(string); ok {
 		page.Title = title
 	}
@@ -1067,6 +1086,15 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	if data, ok := record["data"].(map[string]any); ok {
 		page.Data = cloneAnyMap(data)
 	}
+	if path, ok := record["path"].(string); ok && strings.TrimSpace(path) != "" {
+		page.Data["path"] = path
+		if page.PreviewURL == "" {
+			page.PreviewURL = path
+		}
+		if page.Slug == "" {
+			page.Slug = path
+		}
+	}
 	if preview, ok := record["preview_url"].(string); ok {
 		page.PreviewURL = preview
 	}
@@ -1079,6 +1107,21 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	return page
 }
 
+var cmsContentReservedKeys = map[string]struct{}{
+	"id":                  {},
+	"title":               {},
+	"slug":                {},
+	"locale":              {},
+	"status":              {},
+	"content_type":        {},
+	"content_type_slug":   {},
+	"content_type_id":     {},
+	"translation_group_id": {},
+	"blocks":              {},
+	"data":                {},
+	"schema":              {},
+}
+
 func mapToCMSContent(record map[string]any) CMSContent {
 	content := CMSContent{
 		Data: map[string]any{},
@@ -1088,6 +1131,9 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	}
 	if id, ok := record["id"].(string); ok {
 		content.ID = id
+	}
+	if groupID, ok := record["translation_group_id"].(string); ok {
+		content.TranslationGroupID = groupID
 	}
 	if title, ok := record["title"].(string); ok {
 		content.Title = title
@@ -1130,7 +1176,43 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	if data, ok := record["data"].(map[string]any); ok {
 		content.Data = cloneAnyMap(data)
 	}
+	for key, val := range record {
+		if _, skip := cmsContentReservedKeys[key]; skip {
+			continue
+		}
+		if strings.HasPrefix(key, "_") {
+			continue
+		}
+		content.Data[key] = val
+	}
 	return content
+}
+
+func mergeCMSRecordData(record map[string]any, data map[string]any, reserved map[string]struct{}) {
+	if record == nil || len(data) == 0 {
+		return
+	}
+	for key, val := range data {
+		if _, skip := reserved[key]; skip {
+			continue
+		}
+		if _, exists := record[key]; exists {
+			continue
+		}
+		record[key] = val
+	}
+}
+
+func resolveCMSPagePath(page CMSPage) string {
+	if page.Data != nil {
+		if path := strings.TrimSpace(toString(page.Data["path"])); path != "" {
+			return path
+		}
+	}
+	if strings.TrimSpace(page.PreviewURL) != "" {
+		return page.PreviewURL
+	}
+	return page.Slug
 }
 
 func mapToCMSContentType(record map[string]any) CMSContentType {
