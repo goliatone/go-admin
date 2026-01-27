@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strings"
 
+	admingraphql "github.com/goliatone/go-admin/admin/graphql"
 	crud "github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
-	admingraphql "github.com/goliatone/go-admin/admin/graphql"
 )
 
 var errManagementReadOnly = errors.New("management service is read-only")
