@@ -108,12 +108,18 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		return nil, 0, nil, nil, err
 	}
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
+	if p.admin != nil {
+		p.admin.applyContentTypeSchemaFromContext(ctx, &schema, p.name)
+	}
 	if err := p.admin.decorateSchemaFor(ctx, &schema, p.name); err != nil {
 		return nil, 0, nil, nil, err
 	}
 	var form PanelFormRequest
 	if p.admin.panelForm != nil {
 		form = p.admin.panelForm.Build(p.panel, ctx, nil, nil)
+		if p.admin != nil {
+			p.admin.applyContentTypeSchemaFromContext(ctx, &form.Schema, p.name)
+		}
 		if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
 			return nil, 0, nil, nil, err
 		}
@@ -128,12 +134,26 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 		return nil, err
 	}
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
+	contentTypeKey := ""
+	if p.name == "content" && record != nil {
+		contentTypeKey = firstNonEmpty(
+			toString(record["content_type_slug"]),
+			toString(record["content_type"]),
+			toString(record["content_type_id"]),
+		)
+	}
+	if p.admin != nil && contentTypeKey != "" {
+		p.admin.applyContentTypeSchema(ctx, &schema, contentTypeKey)
+	}
 	if err := p.admin.decorateSchemaFor(ctx, &schema, p.name); err != nil {
 		return nil, err
 	}
 	var form PanelFormRequest
 	if p.admin.panelForm != nil {
 		form = p.admin.panelForm.Build(p.panel, ctx, record, nil)
+		if p.admin != nil && contentTypeKey != "" {
+			p.admin.applyContentTypeSchema(ctx, &form.Schema, contentTypeKey)
+		}
 		if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
 			return nil, err
 		}
