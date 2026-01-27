@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
+	hashid "github.com/goliatone/hashid/pkg/hashid"
 	"github.com/google/uuid"
 )
 
@@ -14,20 +15,26 @@ import (
 type goCMSContentBridge struct {
 	content any
 	page    any
+	blocks  any
 	types   map[string]uuid.UUID
 
 	defaultTemplate uuid.UUID
+	blockDefs       map[string]uuid.UUID
+	blockDefNames   map[uuid.UUID]string
 }
 
-func newGoCMSContentBridge(contentSvc any, pageSvc any, defaultTemplate uuid.UUID, typeIDs map[string]uuid.UUID) admin.CMSContentService {
+func newGoCMSContentBridge(contentSvc any, pageSvc any, blockSvc any, defaultTemplate uuid.UUID, typeIDs map[string]uuid.UUID) admin.CMSContentService {
 	if contentSvc == nil {
 		return nil
 	}
 	return &goCMSContentBridge{
 		content:         contentSvc,
 		page:            pageSvc,
+		blocks:          blockSvc,
 		types:           typeIDs,
 		defaultTemplate: defaultTemplate,
+		blockDefs:       map[string]uuid.UUID{},
+		blockDefNames:   map[uuid.UUID]string{},
 	}
 }
 
@@ -512,32 +519,176 @@ func (b *goCMSContentBridge) DeleteContent(ctx context.Context, id string) error
 	return reflectError(results)
 }
 
-func (b *goCMSContentBridge) BlockDefinitions(context.Context) ([]admin.CMSBlockDefinition, error) {
-	return nil, admin.ErrNotFound
+func (b *goCMSContentBridge) BlockDefinitions(ctx context.Context) ([]admin.CMSBlockDefinition, error) {
+	if b == nil || b.blocks == nil {
+		return nil, admin.ErrNotFound
+	}
+	method := reflect.ValueOf(b.blocks).MethodByName("ListDefinitions")
+	if !method.IsValid() {
+		return nil, admin.ErrNotFound
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+	if err := reflectError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() {
+		return nil, nil
+	}
+	slice := deref(results[0])
+	out := make([]admin.CMSBlockDefinition, 0, slice.Len())
+	for i := 0; i < slice.Len(); i++ {
+		out = append(out, b.convertBlockDefinition(slice.Index(i)))
+	}
+	return out, nil
 }
 
-func (b *goCMSContentBridge) CreateBlockDefinition(context.Context, admin.CMSBlockDefinition) (*admin.CMSBlockDefinition, error) {
-	return nil, admin.ErrNotFound
+func (b *goCMSContentBridge) CreateBlockDefinition(ctx context.Context, def admin.CMSBlockDefinition) (*admin.CMSBlockDefinition, error) {
+	if b == nil || b.blocks == nil {
+		return nil, admin.ErrNotFound
+	}
+	method := reflect.ValueOf(b.blocks).MethodByName("RegisterDefinition")
+	if !method.IsValid() {
+		return nil, admin.ErrNotFound
+	}
+	input := reflect.New(method.Type().In(1)).Elem()
+	name := strings.TrimSpace(def.ID)
+	if name == "" {
+		name = strings.TrimSpace(def.Name)
+	}
+	if name == "" {
+		return nil, admin.ErrNotFound
+	}
+	setStringField(input, "Name", name)
+	if len(def.Schema) > 0 {
+		setMapField(input, "Schema", cloneAnyMap(def.Schema))
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
+	if err := reflectError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+		return nil, admin.ErrNotFound
+	}
+	created := b.convertBlockDefinition(results[0])
+	return &created, nil
 }
 
-func (b *goCMSContentBridge) UpdateBlockDefinition(context.Context, admin.CMSBlockDefinition) (*admin.CMSBlockDefinition, error) {
-	return nil, admin.ErrNotFound
+func (b *goCMSContentBridge) UpdateBlockDefinition(ctx context.Context, def admin.CMSBlockDefinition) (*admin.CMSBlockDefinition, error) {
+	if b == nil || b.blocks == nil {
+		return nil, admin.ErrNotFound
+	}
+	method := reflect.ValueOf(b.blocks).MethodByName("UpdateDefinition")
+	if !method.IsValid() {
+		return nil, admin.ErrNotFound
+	}
+	defID := b.resolveBlockDefinitionID(ctx, def.ID)
+	if defID == uuid.Nil {
+		return nil, admin.ErrNotFound
+	}
+	input := reflect.New(method.Type().In(1)).Elem()
+	setUUIDField(input, "ID", defID)
+	if name := strings.TrimSpace(def.Name); name != "" {
+		setStringPtr(input, "Name", name)
+	}
+	if len(def.Schema) > 0 {
+		setMapField(input, "Schema", cloneAnyMap(def.Schema))
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
+	if err := reflectError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+		return nil, admin.ErrNotFound
+	}
+	updated := b.convertBlockDefinition(results[0])
+	return &updated, nil
 }
 
-func (b *goCMSContentBridge) DeleteBlockDefinition(context.Context, string) error {
-	return admin.ErrNotFound
+func (b *goCMSContentBridge) DeleteBlockDefinition(ctx context.Context, id string) error {
+	if b == nil || b.blocks == nil {
+		return admin.ErrNotFound
+	}
+	method := reflect.ValueOf(b.blocks).MethodByName("DeleteDefinition")
+	if !method.IsValid() {
+		return admin.ErrNotFound
+	}
+	defID := b.resolveBlockDefinitionID(ctx, id)
+	if defID == uuid.Nil {
+		return admin.ErrNotFound
+	}
+	req := reflect.New(method.Type().In(1)).Elem()
+	setUUIDField(req, "ID", defID)
+	if f := req.FieldByName("HardDelete"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Bool {
+		f.SetBool(true)
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
+	return reflectError(results)
 }
 
-func (b *goCMSContentBridge) BlocksForContent(context.Context, string, string) ([]admin.CMSBlock, error) {
-	return nil, admin.ErrNotFound
+func (b *goCMSContentBridge) BlocksForContent(ctx context.Context, contentID, locale string) ([]admin.CMSBlock, error) {
+	if b == nil || b.blocks == nil {
+		return nil, admin.ErrNotFound
+	}
+	pageID := b.resolvePageID(ctx, contentID)
+	if pageID == uuid.Nil {
+		return nil, nil
+	}
+	method := reflect.ValueOf(b.blocks).MethodByName("ListPageInstances")
+	if !method.IsValid() {
+		return nil, admin.ErrNotFound
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(pageID)})
+	if err := reflectError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() {
+		return nil, nil
+	}
+	slice := deref(results[0])
+	out := make([]admin.CMSBlock, 0, slice.Len())
+	for i := 0; i < slice.Len(); i++ {
+		out = append(out, b.convertBlockInstance(slice.Index(i), locale))
+	}
+	return out, nil
 }
 
-func (b *goCMSContentBridge) SaveBlock(context.Context, admin.CMSBlock) (*admin.CMSBlock, error) {
-	return nil, admin.ErrNotFound
+func (b *goCMSContentBridge) SaveBlock(ctx context.Context, block admin.CMSBlock) (*admin.CMSBlock, error) {
+	if b == nil || b.blocks == nil {
+		return nil, admin.ErrNotFound
+	}
+	defID := b.resolveBlockDefinitionID(ctx, block.DefinitionID)
+	if defID == uuid.Nil {
+		return nil, admin.ErrNotFound
+	}
+	pageID := b.resolvePageID(ctx, block.ContentID)
+	if pageID == uuid.Nil {
+		return nil, admin.ErrNotFound
+	}
+	if strings.TrimSpace(block.ID) == "" {
+		return b.createBlockInstance(ctx, defID, pageID, block)
+	}
+	return b.updateBlockInstance(ctx, defID, pageID, block)
 }
 
-func (b *goCMSContentBridge) DeleteBlock(context.Context, string) error {
-	return admin.ErrNotFound
+func (b *goCMSContentBridge) DeleteBlock(ctx context.Context, id string) error {
+	if b == nil || b.blocks == nil {
+		return admin.ErrNotFound
+	}
+	method := reflect.ValueOf(b.blocks).MethodByName("DeleteInstance")
+	if !method.IsValid() {
+		return admin.ErrNotFound
+	}
+	uid := uuidOrNil(id)
+	if uid == uuid.Nil {
+		return admin.ErrNotFound
+	}
+	req := reflect.New(method.Type().In(1)).Elem()
+	setUUIDField(req, "ID", uid)
+	if f := req.FieldByName("HardDelete"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Bool {
+		f.SetBool(true)
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
+	return reflectError(results)
 }
 
 func (b *goCMSContentBridge) buildTranslation(field reflect.Value, content admin.CMSContent) reflect.Value {
@@ -913,4 +1064,342 @@ func uuidStringField(val reflect.Value, name string) string {
 		}
 	}
 	return ""
+}
+
+func (b *goCMSContentBridge) resolvePageID(ctx context.Context, contentID string) uuid.UUID {
+	parsed := uuidOrNil(contentID)
+	if parsed == uuid.Nil {
+		return uuid.Nil
+	}
+	if b.hasPageService() {
+		getMethod := reflect.ValueOf(b.page).MethodByName("Get")
+		if getMethod.IsValid() {
+			results := getMethod.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(parsed)})
+			if reflectError(results) == nil && len(results) > 0 && results[0].IsValid() && !results[0].IsNil() {
+				return parsed
+			}
+		}
+		listMethod := reflect.ValueOf(b.page).MethodByName("List")
+		if listMethod.IsValid() {
+			results := listMethod.Call([]reflect.Value{reflect.ValueOf(ctx)})
+			if reflectError(results) == nil && len(results) > 0 && results[0].IsValid() {
+				slice := deref(results[0])
+				for i := 0; i < slice.Len(); i++ {
+					pageVal := deref(slice.Index(i))
+					if cid, ok := extractUUID(pageVal, "ContentID"); ok && cid == parsed {
+						if pageID, ok := extractUUID(pageVal, "ID"); ok {
+							return pageID
+						}
+					}
+				}
+			}
+		}
+	}
+	return parsed
+}
+
+func (b *goCMSContentBridge) convertBlockDefinition(val reflect.Value) admin.CMSBlockDefinition {
+	val = deref(val)
+	def := admin.CMSBlockDefinition{}
+	name := strings.TrimSpace(stringField(val, "Name"))
+	if name != "" {
+		def.ID = name
+		def.Name = name
+	}
+	if def.ID == "" {
+		if id, ok := extractUUID(val, "ID"); ok {
+			def.ID = id.String()
+		}
+	}
+	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
+		if schema, ok := schemaField.Interface().(map[string]any); ok {
+			def.Schema = cloneAnyMap(schema)
+			if def.Type == "" {
+				def.Type = strings.TrimSpace(asString(schema["x-block-type"], ""))
+			}
+		}
+	}
+	if id, ok := extractUUID(val, "ID"); ok && def.ID != "" {
+		b.blockDefs[strings.ToLower(def.ID)] = id
+		b.blockDefNames[id] = def.ID
+	}
+	return def
+}
+
+func (b *goCMSContentBridge) resolveBlockDefinitionID(ctx context.Context, key string) uuid.UUID {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return uuid.Nil
+	}
+	if parsed := uuidOrNil(key); parsed != uuid.Nil {
+		return parsed
+	}
+	b.refreshBlockDefinitions(ctx)
+	if id, ok := b.blockDefs[strings.ToLower(key)]; ok {
+		return id
+	}
+	return uuid.Nil
+}
+
+func (b *goCMSContentBridge) refreshBlockDefinitions(ctx context.Context) {
+	if b == nil || b.blocks == nil {
+		return
+	}
+	method := reflect.ValueOf(b.blocks).MethodByName("ListDefinitions")
+	if !method.IsValid() {
+		return
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+	if reflectError(results) != nil || len(results) == 0 || !results[0].IsValid() {
+		return
+	}
+	value := deref(results[0])
+	if value.Kind() != reflect.Slice {
+		return
+	}
+	for i := 0; i < value.Len(); i++ {
+		item := deref(value.Index(i))
+		name := strings.TrimSpace(stringField(item, "Name"))
+		id, ok := extractUUID(item, "ID")
+		if !ok || id == uuid.Nil || name == "" {
+			continue
+		}
+		lower := strings.ToLower(name)
+		b.blockDefs[lower] = id
+		b.blockDefNames[id] = name
+	}
+}
+
+func (b *goCMSContentBridge) blockDefinitionName(id uuid.UUID) string {
+	if id == uuid.Nil {
+		return ""
+	}
+	if name, ok := b.blockDefNames[id]; ok {
+		return name
+	}
+	return ""
+}
+
+func (b *goCMSContentBridge) convertBlockInstance(val reflect.Value, locale string) admin.CMSBlock {
+	val = deref(val)
+	block := admin.CMSBlock{Data: map[string]any{}}
+	if id, ok := extractUUID(val, "ID"); ok {
+		block.ID = id.String()
+	}
+	if defID, ok := extractUUID(val, "DefinitionID"); ok {
+		if name := b.blockDefinitionName(defID); name != "" {
+			block.DefinitionID = name
+			block.BlockType = name
+			block.BlockSchemaKey = name
+		} else {
+			block.DefinitionID = defID.String()
+		}
+	}
+	if pageID, ok := extractUUID(val, "PageID"); ok {
+		block.ContentID = pageID.String()
+	}
+	block.Region = stringField(val, "Region")
+	if pos, ok := intField(val, "Position"); ok {
+		block.Position = pos
+	}
+	if pub := val.FieldByName("PublishedVersion"); pub.IsValid() && pub.Kind() == reflect.Ptr && !pub.IsNil() {
+		block.Status = "published"
+	} else if block.Status == "" {
+		block.Status = "draft"
+	}
+
+	translations := deref(val.FieldByName("Translations"))
+	var chosen reflect.Value
+	localeID := localeUUID(locale)
+	for i := 0; translations.IsValid() && i < translations.Len(); i++ {
+		current := deref(translations.Index(i))
+		if !chosen.IsValid() {
+			chosen = current
+		}
+		if localeID == uuid.Nil {
+			continue
+		}
+		if trID, ok := extractUUID(current, "LocaleID"); ok && trID == localeID {
+			chosen = current
+			break
+		}
+	}
+	if chosen.IsValid() {
+		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
+			if m, ok := contentField.Interface().(map[string]any); ok {
+				block.Data = cloneAnyMap(m)
+			}
+		}
+	}
+	if block.Locale == "" {
+		block.Locale = locale
+	}
+	return block
+}
+
+func (b *goCMSContentBridge) createBlockInstance(ctx context.Context, defID, pageID uuid.UUID, block admin.CMSBlock) (*admin.CMSBlock, error) {
+	method := reflect.ValueOf(b.blocks).MethodByName("CreateInstance")
+	if !method.IsValid() {
+		return nil, admin.ErrNotFound
+	}
+	input := reflect.New(method.Type().In(1)).Elem()
+	setUUIDField(input, "DefinitionID", defID)
+	if pageID != uuid.Nil {
+		setUUIDPtr(input, "PageID", pageID)
+	}
+	if region := strings.TrimSpace(block.Region); region != "" {
+		setStringField(input, "Region", region)
+	}
+	if block.Position > 0 {
+		setIntField(input, "Position", block.Position)
+	}
+	if len(block.Data) > 0 {
+		setMapField(input, "Configuration", cloneAnyMap(block.Data))
+	}
+	setUUIDField(input, "CreatedBy", uuid.Nil)
+	setUUIDField(input, "UpdatedBy", uuid.Nil)
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
+	if err := reflectError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+		return nil, admin.ErrNotFound
+	}
+	inst := results[0]
+	if err := b.upsertBlockTranslation(ctx, inst, block, false); err != nil {
+		return nil, err
+	}
+	converted := b.convertBlockInstance(inst, block.Locale)
+	if len(converted.Data) == 0 && len(block.Data) > 0 {
+		converted.Data = cloneAnyMap(block.Data)
+	}
+	if converted.Locale == "" {
+		converted.Locale = block.Locale
+	}
+	return &converted, nil
+}
+
+func (b *goCMSContentBridge) updateBlockInstance(ctx context.Context, defID, pageID uuid.UUID, block admin.CMSBlock) (*admin.CMSBlock, error) {
+	method := reflect.ValueOf(b.blocks).MethodByName("UpdateInstance")
+	if !method.IsValid() {
+		return nil, admin.ErrNotFound
+	}
+	instanceID := uuidOrNil(block.ID)
+	if instanceID == uuid.Nil {
+		return nil, admin.ErrNotFound
+	}
+	input := reflect.New(method.Type().In(1)).Elem()
+	setUUIDField(input, "InstanceID", instanceID)
+	if pageID != uuid.Nil {
+		setUUIDPtr(input, "PageID", pageID)
+	}
+	if region := strings.TrimSpace(block.Region); region != "" {
+		setStringPtr(input, "Region", region)
+	}
+	if block.Position > 0 {
+		setIntPtr(input, "Position", block.Position)
+	}
+	if len(block.Data) > 0 {
+		setMapField(input, "Configuration", cloneAnyMap(block.Data))
+	}
+	setUUIDField(input, "UpdatedBy", uuid.Nil)
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
+	if err := reflectError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+		return nil, admin.ErrNotFound
+	}
+	inst := results[0]
+	if err := b.upsertBlockTranslation(ctx, inst, block, true); err != nil {
+		return nil, err
+	}
+	converted := b.convertBlockInstance(inst, block.Locale)
+	if len(converted.Data) == 0 && len(block.Data) > 0 {
+		converted.Data = cloneAnyMap(block.Data)
+	}
+	if converted.Locale == "" {
+		converted.Locale = block.Locale
+	}
+	return &converted, nil
+}
+
+func (b *goCMSContentBridge) upsertBlockTranslation(ctx context.Context, instance reflect.Value, block admin.CMSBlock, allowCreate bool) error {
+	instance = deref(instance)
+	instID, ok := extractUUID(instance, "ID")
+	if !ok || instID == uuid.Nil {
+		return nil
+	}
+	locale := strings.TrimSpace(block.Locale)
+	if locale == "" {
+		return nil
+	}
+	payload := cloneAnyMap(block.Data)
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	localeID := localeUUID(locale)
+	if localeID == uuid.Nil {
+		return nil
+	}
+	updateMethod := reflect.ValueOf(b.blocks).MethodByName("UpdateTranslation")
+	if updateMethod.IsValid() {
+		req := reflect.New(updateMethod.Type().In(1)).Elem()
+		setUUIDField(req, "BlockInstanceID", instID)
+		setUUIDField(req, "LocaleID", localeID)
+		setMapField(req, "Content", payload)
+		setUUIDField(req, "UpdatedBy", uuid.Nil)
+		results := updateMethod.Call([]reflect.Value{reflect.ValueOf(ctx), req})
+		if err := reflectError(results); err == nil {
+			return nil
+		} else if !allowCreate {
+			return err
+		}
+	}
+	createMethod := reflect.ValueOf(b.blocks).MethodByName("AddTranslation")
+	if !createMethod.IsValid() {
+		return nil
+	}
+	req := reflect.New(createMethod.Type().In(1)).Elem()
+	setUUIDField(req, "BlockInstanceID", instID)
+	setUUIDField(req, "LocaleID", localeID)
+	setMapField(req, "Content", payload)
+	results := createMethod.Call([]reflect.Value{reflect.ValueOf(ctx), req})
+	return reflectError(results)
+}
+
+func intField(val reflect.Value, name string) (int, bool) {
+	field := val.FieldByName(name)
+	if field.IsValid() && field.Kind() == reflect.Int {
+		return int(field.Int()), true
+	}
+	return 0, false
+}
+
+func setIntField(val reflect.Value, name string, value int) {
+	field := val.FieldByName(name)
+	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Int {
+		field.SetInt(int64(value))
+	}
+}
+
+func setIntPtr(val reflect.Value, name string, value int) {
+	field := val.FieldByName(name)
+	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Ptr {
+		ptr := reflect.New(field.Type().Elem())
+		ptr.Elem().SetInt(int64(value))
+		field.Set(ptr)
+	}
+}
+
+func localeUUID(localeCode string) uuid.UUID {
+	trimmed := strings.ToLower(strings.TrimSpace(localeCode))
+	if trimmed == "" {
+		return uuid.Nil
+	}
+	key := "go-cms:locale:" + trimmed
+	if uid, err := hashid.NewUUID(key, hashid.WithHashAlgorithm(hashid.SHA256), hashid.WithNormalization(true)); err == nil && uid != uuid.Nil {
+		return uid
+	}
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(key))
 }
