@@ -70,6 +70,7 @@ type Admin struct {
 	preview                     *PreviewService
 	panelTabPermissionEvaluator PanelTabPermissionEvaluator
 	panelTabCollisionHandler    PanelTabCollisionHandler
+	cmsRoutesRegistered         bool
 }
 
 type activityAware interface {
