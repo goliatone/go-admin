@@ -285,11 +285,12 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 }
 
 func (a *Admin) registerCMSRoutesFromService() {
-	if a.router == nil || a.contentSvc == nil {
+	if a == nil || a.router == nil || a.contentSvc == nil || a.cmsRoutesRegistered {
 		return
 	}
+	a.cmsRoutesRegistered = true
 	// Page tree endpoint
-	a.router.Get(joinPath(a.config.BasePath, "api/pages/tree"), func(c router.Context) error {
+	a.router.Get(joinPath(a.config.BasePath, "api/pages-tree"), func(c router.Context) error {
 		locale := c.Query("locale")
 		pages, _ := a.contentSvc.Pages(a.ctx(), locale)
 		tree := buildPageTree(pages)
