@@ -668,6 +668,16 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 		if transition := strings.TrimSpace(toString(record["transition"])); transition != "" {
 			input.Transition = transition
 		}
+		if input.Transition == "" {
+			if transitions, err := workflow.AvailableTransitions(ctx.Context, panelName, currentState); err == nil {
+				for _, t := range transitions {
+					if strings.EqualFold(strings.TrimSpace(t.To), targetState) {
+						input.Transition = t.Name
+						break
+					}
+				}
+			}
+		}
 		if auth != nil && !auth.CanTransition(ctx.Context, input) {
 			return permissionDenied("workflow.transition", panelName)
 		}
