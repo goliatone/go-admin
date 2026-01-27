@@ -80,6 +80,7 @@ type contentTypeRow struct {
 
 	ID           uuid.UUID      `bun:",pk,type:uuid"`
 	Name         string         `bun:"name,notnull"`
+	Slug         string         `bun:"slug"`
 	Description  *string        `bun:"description"`
 	Schema       map[string]any `bun:"schema,type:jsonb,notnull"`
 	Capabilities map[string]any `bun:"capabilities,type:jsonb"`
@@ -315,6 +316,18 @@ func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, desc
 		if existing.ID != id {
 			return fmt.Errorf("content type %s already exists with id %s (expected %s)", name, existing.ID, id)
 		}
+		if strings.TrimSpace(existing.Slug) == "" {
+			slug := contentTypeSlug(name)
+			if slug != "" {
+				if _, updateErr := db.NewUpdate().
+					Model(&contentTypeRow{Slug: slug, UpdatedAt: time.Now().UTC()}).
+					Column("slug", "updated_at").
+					Where("id = ?", existing.ID).
+					Exec(ctx); updateErr != nil {
+					return updateErr
+				}
+			}
+		}
 		return nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -327,10 +340,12 @@ func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, desc
 	if desc != "" {
 		descPtr = &desc
 	}
+	slug := contentTypeSlug(name)
 	_, execErr := db.NewInsert().
 		Model(&contentTypeRow{
 			ID:           id,
 			Name:         name,
+			Slug:         slug,
 			Description:  descPtr,
 			Schema:       schema,
 			Capabilities: map[string]any{"translations": true},
@@ -340,6 +355,14 @@ func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, desc
 		On("CONFLICT (id) DO NOTHING").
 		Exec(ctx)
 	return execErr
+}
+
+func contentTypeSlug(name string) string {
+	slug := strings.ToLower(strings.TrimSpace(name))
+	if slug == "" {
+		return ""
+	}
+	return strings.ReplaceAll(slug, " ", "-")
 }
 
 func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownService, menuSvc admin.CMSMenuService, refs cmsSeedRefs, defaultLocale string) error {
