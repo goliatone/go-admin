@@ -3,12 +3,15 @@ package admin
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
+	goerrors "github.com/goliatone/go-errors"
 )
 
 func recordCMSActivity(ctx context.Context, sink ActivitySink, action, object string, meta map[string]any) {
@@ -554,10 +557,13 @@ type InMemoryContentService struct {
 	contents   map[string]CMSContent
 	blocks     map[string]CMSBlock
 	blockDefs  map[string]CMSBlockDefinition
+	types      map[string]CMSContentType
+	typeSlugs  map[string]string
 	nextPage   int
 	nextCont   int
 	nextBlock  int
 	nextBlockD int
+	nextType   int
 	activity   ActivitySink
 }
 
@@ -568,10 +574,13 @@ func NewInMemoryContentService() *InMemoryContentService {
 		contents:   make(map[string]CMSContent),
 		blocks:     make(map[string]CMSBlock),
 		blockDefs:  make(map[string]CMSBlockDefinition),
+		types:      make(map[string]CMSContentType),
+		typeSlugs:  make(map[string]string),
 		nextPage:   1,
 		nextCont:   1,
 		nextBlock:  1,
 		nextBlockD: 1,
+		nextType:   1,
 	}
 }
 
@@ -678,6 +687,196 @@ func (s *InMemoryContentService) DeletePage(ctx context.Context, id string) erro
 	return nil
 }
 
+// ContentTypes returns all content type definitions.
+func (s *InMemoryContentService) ContentTypes(_ context.Context) ([]CMSContentType, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]CMSContentType, 0, len(s.types))
+	for _, ct := range s.types {
+		out = append(out, cloneCMSContentType(ct))
+	}
+	return out, nil
+}
+
+// ContentType returns a content type by id.
+func (s *InMemoryContentService) ContentType(_ context.Context, id string) (*CMSContentType, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ct, ok := s.types[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	cp := cloneCMSContentType(ct)
+	return &cp, nil
+}
+
+// ContentTypeBySlug returns a content type by slug.
+func (s *InMemoryContentService) ContentTypeBySlug(_ context.Context, slug string) (*CMSContentType, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return nil, ErrNotFound
+	}
+	if id, ok := s.typeSlugs[slug]; ok {
+		if ct, found := s.types[id]; found {
+			cp := cloneCMSContentType(ct)
+			return &cp, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+// CreateContentType inserts a content type definition.
+func (s *InMemoryContentService) CreateContentType(ctx context.Context, contentType CMSContentType) (*CMSContentType, error) {
+	s.mu.Lock()
+	name := strings.TrimSpace(contentType.Name)
+	slug := normalizeContentTypeSlug(name, contentType.Slug)
+	fields := map[string]string{}
+	if name == "" {
+		fields["name"] = "required"
+	}
+	if contentType.Schema == nil || len(contentType.Schema) == 0 {
+		fields["schema"] = "required"
+	}
+	if slug == "" {
+		fields["slug"] = "required"
+	} else if !isValidContentTypeSlug(slug) {
+		fields["slug"] = "invalid"
+	} else if existing, ok := s.typeSlugs[slug]; ok && existing != "" {
+		fields["slug"] = "already exists"
+	}
+	if len(fields) > 0 {
+		s.mu.Unlock()
+		return nil, contentTypeValidationError(fields)
+	}
+	if contentType.ID == "" {
+		contentType.ID = fmt.Sprintf("ctype-%d", s.nextType)
+		s.nextType++
+	}
+	contentType.Name = name
+	contentType.Slug = slug
+	contentType.Description = strings.TrimSpace(contentType.Description)
+	contentType.Icon = strings.TrimSpace(contentType.Icon)
+	contentType.Schema = cloneAnyMap(contentType.Schema)
+	contentType.Capabilities = cloneAnyMap(contentType.Capabilities)
+	contentType.UpdatedAt = time.Now().UTC()
+	if contentType.CreatedAt.IsZero() {
+		contentType.CreatedAt = contentType.UpdatedAt
+	}
+	s.types[contentType.ID] = cloneCMSContentType(contentType)
+	s.typeSlugs[contentType.Slug] = contentType.ID
+	cp := cloneCMSContentType(contentType)
+	activity := s.activity
+	meta := map[string]any{
+		"name": contentType.Name,
+		"slug": contentType.Slug,
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.content_type.create", "content_type:"+contentType.ID, meta)
+	return &cp, nil
+}
+
+// UpdateContentType updates an existing content type definition.
+func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentType CMSContentType) (*CMSContentType, error) {
+	s.mu.Lock()
+	id := strings.TrimSpace(contentType.ID)
+	if id == "" {
+		if slug := strings.TrimSpace(contentType.Slug); slug != "" {
+			if existingID, ok := s.typeSlugs[slug]; ok {
+				id = existingID
+			}
+		}
+	}
+	if id == "" {
+		s.mu.Unlock()
+		return nil, ErrNotFound
+	}
+	existing, ok := s.types[id]
+	if !ok {
+		s.mu.Unlock()
+		return nil, ErrNotFound
+	}
+	name := strings.TrimSpace(contentType.Name)
+	if name != "" {
+		existing.Name = name
+	}
+	if contentType.Schema != nil {
+		existing.Schema = cloneAnyMap(contentType.Schema)
+	}
+	if contentType.Capabilities != nil {
+		existing.Capabilities = cloneAnyMap(contentType.Capabilities)
+	}
+	if desc := strings.TrimSpace(contentType.Description); desc != "" {
+		existing.Description = desc
+	}
+	if icon := strings.TrimSpace(contentType.Icon); icon != "" {
+		existing.Icon = icon
+	}
+	if existing.Name == "" {
+		s.mu.Unlock()
+		return nil, contentTypeValidationError(map[string]string{"name": "required"})
+	}
+	if existing.Schema == nil || len(existing.Schema) == 0 {
+		s.mu.Unlock()
+		return nil, contentTypeValidationError(map[string]string{"schema": "required"})
+	}
+	newSlug := existing.Slug
+	if slugInput := strings.TrimSpace(contentType.Slug); slugInput != "" {
+		newSlug = normalizeContentTypeSlug(existing.Name, slugInput)
+	}
+	if newSlug == "" {
+		s.mu.Unlock()
+		return nil, contentTypeValidationError(map[string]string{"slug": "required"})
+	}
+	if !isValidContentTypeSlug(newSlug) {
+		s.mu.Unlock()
+		return nil, contentTypeValidationError(map[string]string{"slug": "invalid"})
+	}
+	if existingID, ok := s.typeSlugs[newSlug]; ok && existingID != "" && existingID != id {
+		s.mu.Unlock()
+		return nil, contentTypeValidationError(map[string]string{"slug": "already exists"})
+	}
+	if existing.Slug != newSlug {
+		delete(s.typeSlugs, existing.Slug)
+		s.typeSlugs[newSlug] = id
+		existing.Slug = newSlug
+	}
+	existing.UpdatedAt = time.Now().UTC()
+	s.types[id] = cloneCMSContentType(existing)
+	cp := cloneCMSContentType(existing)
+	activity := s.activity
+	meta := map[string]any{
+		"name": existing.Name,
+		"slug": existing.Slug,
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.content_type.update", "content_type:"+id, meta)
+	return &cp, nil
+}
+
+// DeleteContentType removes a content type definition.
+func (s *InMemoryContentService) DeleteContentType(ctx context.Context, id string) error {
+	s.mu.Lock()
+	ct, ok := s.types[id]
+	if !ok {
+		s.mu.Unlock()
+		return ErrNotFound
+	}
+	delete(s.types, id)
+	if ct.Slug != "" {
+		delete(s.typeSlugs, ct.Slug)
+	}
+	activity := s.activity
+	meta := map[string]any{
+		"name": ct.Name,
+		"slug": ct.Slug,
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.content_type.delete", "content_type:"+id, meta)
+	return nil
+}
+
 // Contents returns structured content filtered by locale.
 func (s *InMemoryContentService) Contents(_ context.Context, locale string) ([]CMSContent, error) {
 	s.mu.Lock()
@@ -717,6 +916,12 @@ func (s *InMemoryContentService) CreateContent(ctx context.Context, content CMSC
 	if content.Status == "" {
 		content.Status = "draft"
 	}
+	if content.ContentTypeSlug == "" {
+		content.ContentTypeSlug = strings.TrimSpace(content.ContentType)
+	}
+	if content.ContentType == "" {
+		content.ContentType = content.ContentTypeSlug
+	}
 	s.contents[content.ID] = cloneCMSContent(content)
 	cp := cloneCMSContent(content)
 	activity := s.activity
@@ -724,7 +929,7 @@ func (s *InMemoryContentService) CreateContent(ctx context.Context, content CMSC
 		"title":        cp.Title,
 		"slug":         cp.Slug,
 		"locale":       cp.Locale,
-		"content_type": cp.ContentType,
+		"content_type": firstNonEmpty(cp.ContentTypeSlug, cp.ContentType),
 		"status":       cp.Status,
 	}
 	s.mu.Unlock()
@@ -743,6 +948,12 @@ func (s *InMemoryContentService) UpdateContent(ctx context.Context, content CMSC
 		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
+	if content.ContentTypeSlug == "" {
+		content.ContentTypeSlug = strings.TrimSpace(content.ContentType)
+	}
+	if content.ContentType == "" {
+		content.ContentType = content.ContentTypeSlug
+	}
 	s.contents[content.ID] = cloneCMSContent(content)
 	cp := cloneCMSContent(content)
 	activity := s.activity
@@ -750,7 +961,7 @@ func (s *InMemoryContentService) UpdateContent(ctx context.Context, content CMSC
 		"title":        cp.Title,
 		"slug":         cp.Slug,
 		"locale":       cp.Locale,
-		"content_type": cp.ContentType,
+		"content_type": firstNonEmpty(cp.ContentTypeSlug, cp.ContentType),
 		"status":       cp.Status,
 	}
 	s.mu.Unlock()
@@ -936,6 +1147,17 @@ func cloneCMSContent(in CMSContent) CMSContent {
 	return out
 }
 
+func cloneCMSContentType(in CMSContentType) CMSContentType {
+	out := in
+	if in.Schema != nil {
+		out.Schema = cloneAnyMap(in.Schema)
+	}
+	if in.Capabilities != nil {
+		out.Capabilities = cloneAnyMap(in.Capabilities)
+	}
+	return out
+}
+
 func cloneCMSBlockDefinition(in CMSBlockDefinition) CMSBlockDefinition {
 	out := in
 	if in.Schema != nil {
@@ -950,4 +1172,45 @@ func cloneCMSBlock(in CMSBlock) CMSBlock {
 		out.Data = cloneAnyMap(in.Data)
 	}
 	return out
+}
+
+func normalizeContentTypeSlug(name, slug string) string {
+	candidate := strings.TrimSpace(slug)
+	if candidate == "" {
+		candidate = strings.TrimSpace(name)
+	}
+	candidate = strings.ToLower(candidate)
+	candidate = strings.ReplaceAll(candidate, " ", "-")
+	candidate = strings.ReplaceAll(candidate, "_", "-")
+	return strings.Trim(candidate, "-")
+}
+
+func isValidContentTypeSlug(slug string) bool {
+	if slug == "" {
+		return false
+	}
+	for _, r := range slug {
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		if r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func contentTypeValidationError(fields map[string]string) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	err := goerrors.NewValidationFromMap("validation failed", fields).
+		WithCode(http.StatusBadRequest).
+		WithTextCode("VALIDATION_ERROR")
+	err.Metadata = map[string]any{"fields": fields}
+	return err
 }
