@@ -9,7 +9,10 @@ import (
 )
 
 // RegisterPublicAPI registers read-only endpoints for content delivery.
-func (a *Admin) RegisterPublicAPI(r router.Router[router.Context]) {
+func (a *Admin) RegisterPublicAPI(r AdminRouter) {
+	if r == nil {
+		return
+	}
 	base := "/api/v1"
 
 	r.Get(joinPath(base, "pages"), a.handlePublicPages)
@@ -18,8 +21,6 @@ func (a *Admin) RegisterPublicAPI(r router.Router[router.Context]) {
 	r.Get(joinPath(base, "content/:type"), a.handlePublicContentList)
 	r.Get(joinPath(base, "content/:type/:slug"), a.handlePublicContent)
 	// Legacy CMS demo routes.
-	r.Get(joinPath(base, "content/pages/:slug"), a.handlePublicPage)
-	r.Get(joinPath(base, "content/posts"), a.handlePublicPosts)
 	r.Get(joinPath(base, "menus/:location"), a.handlePublicMenu)
 	r.Get(joinPath(base, "preview/:token"), a.handlePublicPreview)
 }
