@@ -7,30 +7,33 @@ import (
 
 // EnsureOptions configure CMS container resolution.
 type EnsureOptions struct {
-	Container         CMSContainer
-	WidgetService     CMSWidgetService
-	MenuService       CMSMenuService
-	ContentService    CMSContentService
-	RequireCMS        bool
-	BuildContainer    func(context.Context) (CMSContainer, error)
-	FallbackContainer func() CMSContainer
+	Container          CMSContainer
+	WidgetService      CMSWidgetService
+	MenuService        CMSMenuService
+	ContentService     CMSContentService
+	ContentTypeService CMSContentTypeService
+	RequireCMS         bool
+	BuildContainer     func(context.Context) (CMSContainer, error)
+	FallbackContainer  func() CMSContainer
 }
 
 // EnsureResult returns resolved CMS container/services.
 type EnsureResult struct {
-	Container      CMSContainer
-	WidgetService  CMSWidgetService
-	MenuService    CMSMenuService
-	ContentService CMSContentService
+	Container          CMSContainer
+	WidgetService      CMSWidgetService
+	MenuService        CMSMenuService
+	ContentService     CMSContentService
+	ContentTypeService CMSContentTypeService
 }
 
 // Ensure resolves a CMS container and required services, using builders or fallbacks when enabled.
 func Ensure(ctx context.Context, opts EnsureOptions) (EnsureResult, error) {
 	res := EnsureResult{
-		Container:      opts.Container,
-		WidgetService:  opts.WidgetService,
-		MenuService:    opts.MenuService,
-		ContentService: opts.ContentService,
+		Container:          opts.Container,
+		WidgetService:      opts.WidgetService,
+		MenuService:        opts.MenuService,
+		ContentService:     opts.ContentService,
+		ContentTypeService: opts.ContentTypeService,
 	}
 	if !opts.RequireCMS {
 		return res, nil
@@ -59,6 +62,14 @@ func Ensure(ctx context.Context, opts EnsureOptions) (EnsureResult, error) {
 		}
 		if res.ContentService == nil {
 			res.ContentService = container.ContentService()
+		}
+		if res.ContentTypeService == nil {
+			res.ContentTypeService = container.ContentTypeService()
+		}
+	}
+	if res.ContentTypeService == nil && res.ContentService != nil {
+		if svc, ok := res.ContentService.(CMSContentTypeService); ok {
+			res.ContentTypeService = svc
 		}
 	}
 	return res, nil
