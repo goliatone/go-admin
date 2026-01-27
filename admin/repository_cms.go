@@ -140,6 +140,23 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 			page.Locale = locale
 		}
 	}
+	var existing *CMSPage
+	if page.Locale != "" {
+		if current, err := r.content.Page(ctx, id, page.Locale); err == nil {
+			existing = current
+		}
+	}
+	if existing == nil {
+		if locale := r.resolvePageLocale(ctx, id); locale != "" {
+			page.Locale = locale
+			if current, err := r.content.Page(ctx, id, locale); err == nil {
+				existing = current
+			}
+		}
+	}
+	if existing != nil {
+		page = mergeCMSPageUpdate(*existing, page, record)
+	}
 	if err := r.ensureUniqueSlug(ctx, page.Slug, id, page.Locale); err != nil {
 		return nil, err
 	}
@@ -452,6 +469,23 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 		if locale := r.resolveContentLocale(ctx, id); locale != "" {
 			content.Locale = locale
 		}
+	}
+	var existing *CMSContent
+	if content.Locale != "" {
+		if current, err := r.content.Content(ctx, id, content.Locale); err == nil {
+			existing = current
+		}
+	}
+	if existing == nil {
+		if locale := r.resolveContentLocale(ctx, id); locale != "" {
+			content.Locale = locale
+			if current, err := r.content.Content(ctx, id, locale); err == nil {
+				existing = current
+			}
+		}
+	}
+	if existing != nil {
+		content = mergeCMSContentUpdate(*existing, content, record)
 	}
 	updated, err := r.content.UpdateContent(ctx, content)
 	if err != nil {
@@ -1107,6 +1141,50 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	return page
 }
 
+func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) CMSPage {
+	if record == nil {
+		return existing
+	}
+	if !recordHasKey(record, "title") {
+		page.Title = existing.Title
+	}
+	if !recordHasKey(record, "slug") {
+		page.Slug = existing.Slug
+	}
+	if !recordHasKey(record, "locale") {
+		page.Locale = existing.Locale
+	}
+	if !recordHasKey(record, "parent_id") {
+		page.ParentID = existing.ParentID
+	}
+	if !recordHasKey(record, "translation_group_id") {
+		page.TranslationGroupID = existing.TranslationGroupID
+	}
+	if !recordHasKey(record, "status") {
+		page.Status = existing.Status
+	}
+	if !recordHasKey(record, "preview_url") {
+		page.PreviewURL = existing.PreviewURL
+	}
+	if !recordHasKey(record, "blocks") {
+		page.Blocks = append([]string{}, existing.Blocks...)
+	}
+	if !recordHasKey(record, "template_id") && !recordHasKey(record, "template") {
+		page.TemplateID = existing.TemplateID
+	}
+	if recordHasKey(record, "seo") {
+		page.SEO = mergeAnyMap(existing.SEO, page.SEO)
+	} else {
+		page.SEO = cloneAnyMap(existing.SEO)
+	}
+	if recordHasKey(record, "data") || recordHasKey(record, "path") {
+		page.Data = mergeAnyMap(existing.Data, page.Data)
+	} else {
+		page.Data = cloneAnyMap(existing.Data)
+	}
+	return page
+}
+
 var cmsContentReservedKeys = map[string]struct{}{
 	"id":                   {},
 	"title":                {},
@@ -1186,6 +1264,93 @@ func mapToCMSContent(record map[string]any) CMSContent {
 		content.Data[key] = val
 	}
 	return content
+}
+
+func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[string]any) CMSContent {
+	if record == nil {
+		return existing
+	}
+	if !recordHasKey(record, "title") {
+		content.Title = existing.Title
+	}
+	if !recordHasKey(record, "slug") {
+		content.Slug = existing.Slug
+	}
+	if !recordHasKey(record, "locale") {
+		content.Locale = existing.Locale
+	}
+	if !recordHasKey(record, "translation_group_id") {
+		content.TranslationGroupID = existing.TranslationGroupID
+	}
+	if !recordHasKey(record, "status") {
+		content.Status = existing.Status
+	}
+	if !recordHasKey(record, "blocks") {
+		content.Blocks = append([]string{}, existing.Blocks...)
+	}
+	if !recordHasKey(record, "content_type") && !recordHasKey(record, "content_type_slug") && !recordHasKey(record, "content_type_id") {
+		content.ContentType = existing.ContentType
+		content.ContentTypeSlug = existing.ContentTypeSlug
+	}
+	if cmsContentDataUpdated(record) {
+		content.Data = mergeAnyMap(existing.Data, content.Data)
+	} else {
+		content.Data = cloneAnyMap(existing.Data)
+	}
+	content.Data = pruneNilMapValues(content.Data)
+	return content
+}
+
+func recordHasKey(record map[string]any, key string) bool {
+	if record == nil {
+		return false
+	}
+	_, ok := record[key]
+	return ok
+}
+
+func cmsContentDataUpdated(record map[string]any) bool {
+	if record == nil {
+		return false
+	}
+	if _, ok := record["data"]; ok {
+		return true
+	}
+	for key := range record {
+		if _, skip := cmsContentReservedKeys[key]; skip {
+			continue
+		}
+		if strings.HasPrefix(key, "_") {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func mergeAnyMap(base map[string]any, updates map[string]any) map[string]any {
+	merged := map[string]any{}
+	for key, val := range base {
+		merged[key] = val
+	}
+	for key, val := range updates {
+		merged[key] = val
+	}
+	return merged
+}
+
+func pruneNilMapValues(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	clean := map[string]any{}
+	for key, val := range input {
+		if val == nil {
+			continue
+		}
+		clean[key] = val
+	}
+	return clean
 }
 
 func mergeCMSRecordData(record map[string]any, data map[string]any, reserved map[string]struct{}) {
