@@ -4,12 +4,13 @@ go 1.24.10
 
 require (
 	github.com/creack/pty v1.1.20
+	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-auth v0.28.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.28.0
-	github.com/goliatone/go-cms v0.19.0
+	github.com/goliatone/go-cms v0.20.0
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-crud v0.17.0
 	github.com/goliatone/go-dashboard v0.6.0
@@ -29,10 +30,11 @@ require (
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-uploader v0.3.0
 	github.com/goliatone/go-urlkit v0.3.0
-	github.com/goliatone/go-users v0.14.0
+	github.com/goliatone/go-users v0.15.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.32
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/traefik/yaegi v0.16.1
 	github.com/uptrace/bun v1.2.16
@@ -91,7 +93,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
-	github.com/go-ozzo/ozzo-validation/v4 v4.3.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gobuffalo/flect v1.0.3 // indirect
@@ -109,6 +110,7 @@ require (
 	github.com/goliatone/go-logger v0.7.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.6.0 // indirect
+	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.1.1 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
@@ -149,7 +151,6 @@ require (
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.3 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
 	github.com/showa-93/go-mask v0.6.2 // indirect
 	github.com/soongo/path-to-regexp v1.6.4 // indirect
@@ -172,6 +173,9 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
+	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
+	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xuri/efp v0.0.0-20231025114914-d1ff6096ae53 // indirect
 	github.com/xuri/excelize/v2 v2.8.1 // indirect
 	github.com/xuri/nfp v0.0.0-20230919160717-d98342af3f05 // indirect
