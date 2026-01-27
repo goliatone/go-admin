@@ -270,24 +270,32 @@ func ensureTemplate(ctx context.Context, db *bun.DB) error {
 
 func ensureContentTypes(ctx context.Context, db *bun.DB) error {
 	pageSchema := map[string]any{
-		"fields": []map[string]any{
-			{"name": "title", "type": "string", "required": true},
-			{"name": "summary", "type": "text", "required": false},
-			{"name": "body", "type": "richtext", "required": true},
-			{"name": "featured_image", "type": "string", "required": false},
-			{"name": "seo", "type": "object", "required": false},
-			{"name": "meta", "type": "object", "required": false},
+		"type":                 "object",
+		"additionalProperties": true,
+		"properties": map[string]any{
+			"title":          map[string]any{"type": "string"},
+			"summary":        map[string]any{"type": "string"},
+			"body":           map[string]any{"type": "string"},
+			"featured_image": map[string]any{"type": "string"},
+			"seo":            map[string]any{"type": "object"},
+			"meta":           map[string]any{"type": "object"},
+			"markdown":       map[string]any{"type": "object"},
+			"locale":         map[string]any{"type": "string"},
 		},
 	}
 	postSchema := map[string]any{
-		"fields": []map[string]any{
-			{"name": "title", "type": "string", "required": true},
-			{"name": "summary", "type": "text", "required": false},
-			{"name": "body", "type": "richtext", "required": true},
-			{"name": "featured_image", "type": "string", "required": false},
-			{"name": "tags", "type": "array", "required": false},
-			{"name": "meta", "type": "object", "required": false},
-			{"name": "seo", "type": "object", "required": false},
+		"type":                 "object",
+		"additionalProperties": true,
+		"properties": map[string]any{
+			"title":          map[string]any{"type": "string"},
+			"summary":        map[string]any{"type": "string"},
+			"body":           map[string]any{"type": "string"},
+			"featured_image": map[string]any{"type": "string"},
+			"tags":           map[string]any{"type": "array"},
+			"meta":           map[string]any{"type": "object"},
+			"seo":            map[string]any{"type": "object"},
+			"markdown":       map[string]any{"type": "object"},
+			"locale":         map[string]any{"type": "string"},
 		},
 	}
 
