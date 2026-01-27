@@ -157,12 +157,16 @@ func TestUseCMSWrapsGoCMSMenuService(t *testing.T) {
 type stubGoCMSContainer struct {
 	menu    *stubCMSMenuService
 	widgets CMSWidgetService
+	types   CMSContentTypeService
 }
 
 func (s *stubGoCMSContainer) WidgetService() CMSWidgetService   { return s.widgets }
 func (s *stubGoCMSContainer) MenuService() CMSMenuService       { return nil }
 func (s *stubGoCMSContainer) ContentService() CMSContentService { return nil }
-func (s *stubGoCMSContainer) GoCMSMenuService() any             { return s.menu }
+func (s *stubGoCMSContainer) ContentTypeService() CMSContentTypeService {
+	return s.types
+}
+func (s *stubGoCMSContainer) GoCMSMenuService() any { return s.menu }
 
 type stubCMSMenuService struct {
 	menus     map[string]*stubCMSMenu

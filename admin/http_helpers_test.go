@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	router "github.com/goliatone/go-router"
+	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 func TestWriteErrorReturnsStructuredPayload(t *testing.T) {
@@ -113,5 +114,33 @@ func TestWriteErrorMapsFeatureConfigIssues(t *testing.T) {
 	}
 	if meta["path"] != "/features" {
 		t.Fatalf("expected path metadata, got %v", meta["path"])
+	}
+}
+
+func TestWriteErrorMapsSchemaValidationErrors(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/schema", func(c router.Context) error {
+		return writeError(c, &jsonschema.ValidationError{
+			InstanceLocation: "/title",
+			Message:          "is required",
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/schema", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	fields, _ := meta["fields"].(map[string]any)
+	if fields["title"] != "is required" {
+		t.Fatalf("expected schema field mapped, got %v", fields)
 	}
 }

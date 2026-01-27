@@ -17,6 +17,9 @@ func (s *stubCMSContainer) MenuService() CMSMenuService     { return s.menu }
 func (s *stubCMSContainer) ContentService() CMSContentService {
 	return nil
 }
+func (s *stubCMSContainer) ContentTypeService() CMSContentTypeService {
+	return nil
+}
 
 type stubMenuService struct {
 	items []MenuItem
