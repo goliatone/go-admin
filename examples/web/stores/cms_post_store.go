@@ -363,6 +363,12 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	}
 
 	tags := parseTags(record["tags"])
+	if len(tags) == 0 {
+		tags = parseTags(existing["tags"])
+	}
+	if tags == nil {
+		tags = []string{}
+	}
 	category := asString(record["category"], asString(existing["category"], ""))
 	featuredImage := asString(record["featured_image"], asString(existing["featured_image"], ""))
 	if metaTitle != "" {
