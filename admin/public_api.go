@@ -193,7 +193,7 @@ func buildContentURL(content *CMSContent) string {
 	if slug == "" {
 		return ""
 	}
-	segment := strings.Trim(content.ContentType, "/")
+	segment := strings.Trim(firstNonEmpty(content.ContentTypeSlug, content.ContentType), "/")
 	if segment == "" {
 		segment = "content"
 	}
