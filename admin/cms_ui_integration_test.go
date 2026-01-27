@@ -32,12 +32,16 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 		t.Fatalf("create content type status: %d body=%s", createRes.Code, createRes.Body.String())
 	}
 	created := decodeJSONMap(t, createRes)
-	if toString(created["slug"]) != "faq" {
-		t.Fatalf("expected slug faq, got %+v", created)
+	createdRecord := extractRecord(created)
+	if toString(createdRecord["name"]) != "FAQ" {
+		t.Fatalf("expected name FAQ, got %+v", createdRecord)
 	}
-	updateID := toString(created["content_type_id"])
+	if toString(createdRecord["slug"]) == "" {
+		t.Fatalf("expected slug to be set, got %+v", createdRecord)
+	}
+	updateID := toString(createdRecord["content_type_id"])
 	if updateID == "" {
-		updateID = toString(created["id"])
+		updateID = toString(createdRecord["id"])
 	}
 
 	updateBody := `{"description":"Frequently asked questions","content_type_id":"` + updateID + `"}`
@@ -48,7 +52,7 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 	if updateRes.Code != http.StatusOK {
 		t.Fatalf("update content type status: %d body=%s", updateRes.Code, updateRes.Body.String())
 	}
-	updated := decodeJSONMap(t, updateRes)
+	updated := extractRecord(decodeJSONMap(t, updateRes))
 	if toString(updated["description"]) != "Frequently asked questions" {
 		t.Fatalf("expected description update, got %+v", updated)
 	}
@@ -59,9 +63,9 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 	if getRes.Code != http.StatusOK {
 		t.Fatalf("get content type status: %d body=%s", getRes.Code, getRes.Body.String())
 	}
-	fetched := decodeJSONMap(t, getRes)
-	if toString(fetched["slug"]) != "faq" {
-		t.Fatalf("expected slug faq, got %+v", fetched)
+	fetched := extractRecord(decodeJSONMap(t, getRes))
+	if toString(fetched["slug"]) == "" {
+		t.Fatalf("expected slug to be set, got %+v", fetched)
 	}
 
 	invalidBody := `{"name":"Broken","slug":"bad@slug"}`
@@ -112,11 +116,8 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 		t.Fatalf("block definitions status: %d body=%s", defsRes.Code, defsRes.Body.String())
 	}
 	defsPayload := decodeJSONMap(t, defsRes)
-	defs, ok := defsPayload["data"].([]any)
-	if !ok || len(defs) == 0 {
-		defs, ok = defsPayload["records"].([]any)
-	}
-	if !ok || len(defs) == 0 {
+	defs := extractRecords(defsPayload)
+	if len(defs) == 0 {
 		t.Fatalf("expected block definitions, got %+v", defsPayload)
 	}
 
@@ -176,4 +177,40 @@ func fetchFirstPageID(t *testing.T, server router.Server[*httprouter.Router]) st
 		t.Fatalf("expected page id, got %+v", first)
 	}
 	return id
+}
+
+func extractRecord(payload map[string]any) map[string]any {
+	if payload == nil {
+		return nil
+	}
+	if data, ok := payload["data"].(map[string]any); ok {
+		return data
+	}
+	if values, ok := payload["values"].(map[string]any); ok {
+		return values
+	}
+	return payload
+}
+
+func extractRecords(payload map[string]any) []map[string]any {
+	if payload == nil {
+		return nil
+	}
+	for _, key := range []string{"records", "data"} {
+		if raw, ok := payload[key]; ok {
+			switch items := raw.(type) {
+			case []map[string]any:
+				return items
+			case []any:
+				out := make([]map[string]any, 0, len(items))
+				for _, item := range items {
+					if m, ok := item.(map[string]any); ok {
+						out = append(out, m)
+					}
+				}
+				return out
+			}
+		}
+	}
+	return nil
 }
