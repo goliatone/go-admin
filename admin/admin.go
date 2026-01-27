@@ -28,6 +28,7 @@ type Admin struct {
 	widgetSvc                   CMSWidgetService
 	menuSvc                     CMSMenuService
 	contentSvc                  CMSContentService
+	contentTypeSvc              CMSContentTypeService
 	authenticator               Authenticator
 	router                      AdminRouter
 	commandBus                  *CommandBus
@@ -294,6 +295,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		widgetSvc:              container.WidgetService(),
 		menuSvc:                container.MenuService(),
 		contentSvc:             container.ContentService(),
+		contentTypeSvc:         nil,
 		authenticator:          deps.Authenticator,
 		router:                 deps.Router,
 		commandBus:             commandBus,
@@ -329,6 +331,15 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		translator:             translator,
 		workflow:               deps.Workflow,
 		preview:                NewPreviewService(cfg.PreviewSecret),
+	}
+
+	if adm.contentTypeSvc == nil {
+		adm.contentTypeSvc = container.ContentTypeService()
+	}
+	if adm.contentTypeSvc == nil {
+		if svc, ok := adm.contentSvc.(CMSContentTypeService); ok && svc != nil {
+			adm.contentTypeSvc = svc
+		}
 	}
 
 	enrichmentMode := deps.ActivityEnrichmentWriteMode
