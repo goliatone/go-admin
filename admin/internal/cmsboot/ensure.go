@@ -35,6 +35,11 @@ func Ensure(ctx context.Context, opts EnsureOptions) (EnsureResult, error) {
 		ContentService:     opts.ContentService,
 		ContentTypeService: opts.ContentTypeService,
 	}
+	if res.ContentTypeService == nil && res.ContentService != nil {
+		if svc, ok := res.ContentService.(CMSContentTypeService); ok {
+			res.ContentTypeService = svc
+		}
+	}
 	if !opts.RequireCMS {
 		return res, nil
 	}
@@ -65,11 +70,6 @@ func Ensure(ctx context.Context, opts EnsureOptions) (EnsureResult, error) {
 		}
 		if res.ContentTypeService == nil {
 			res.ContentTypeService = container.ContentTypeService()
-		}
-	}
-	if res.ContentTypeService == nil && res.ContentService != nil {
-		if svc, ok := res.ContentService.(CMSContentTypeService); ok {
-			res.ContentTypeService = svc
 		}
 	}
 	return res, nil
