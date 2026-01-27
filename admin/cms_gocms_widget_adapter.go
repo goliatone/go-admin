@@ -181,10 +181,25 @@ func (a *GoCMSWidgetAdapter) SaveInstance(ctx context.Context, instance WidgetIn
 	if strings.TrimSpace(instance.Area) != "" {
 		_ = a.RegisterAreaDefinition(ctx, WidgetAreaDefinition{Code: instance.Area, Name: instance.Area, Scope: "global"})
 	}
+	var updated *WidgetInstance
+	var err error
 	if strings.TrimSpace(instance.ID) == "" {
-		return a.createInstance(ctx, defID, instance)
+		updated, err = a.createInstance(ctx, defID, instance)
+	} else {
+		updated, err = a.updateInstance(ctx, instance)
 	}
-	return a.updateInstance(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
+	if updated != nil {
+		updated.Area = firstNonEmpty(instance.Area, updated.Area)
+		updated.PageID = firstNonEmpty(instance.PageID, updated.PageID)
+		updated.Locale = firstNonEmpty(instance.Locale, updated.Locale)
+		if err := a.assignWidgetPlacement(ctx, updated, instance); err != nil {
+			return nil, err
+		}
+	}
+	return updated, nil
 }
 
 func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID, instance WidgetInstance) (*WidgetInstance, error) {
@@ -208,6 +223,9 @@ func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID
 	}
 	setBoolField(input, "Hidden", instance.Hidden)
 	setMapField(input, "Configuration", cloneAnyMap(instance.Config))
+	if placement := widgetPlacementMetadata(instance); len(placement) > 0 {
+		setMapField(input, "Placement", placement)
+	}
 	actor := actorUUID(ctx)
 	setUUIDField(input, "CreatedBy", actor)
 	setUUIDField(input, "UpdatedBy", actor)
@@ -244,6 +262,9 @@ func (a *GoCMSWidgetAdapter) updateInstance(ctx context.Context, instance Widget
 	setBoolPtr(input.FieldByName("Hidden"), instance.Hidden)
 	if strings.TrimSpace(instance.Area) != "" {
 		setStringPtr(input.FieldByName("AreaCode"), instance.Area)
+	}
+	if placement := widgetPlacementMetadata(instance); len(placement) > 0 {
+		setMapField(input, "Placement", placement)
 	}
 	actor := actorUUID(ctx)
 	setUUIDField(input, "UpdatedBy", actor)
@@ -284,6 +305,11 @@ func (a *GoCMSWidgetAdapter) ListInstances(ctx context.Context, filter WidgetIns
 		return nil, ErrNotFound
 	}
 	a.refreshDefinitions(ctx)
+	if resolved, err := a.resolveAreaInstances(ctx, filter); err == nil && resolved != nil {
+		return filterWidgetInstances(resolved, filter), nil
+	} else if err != nil && err != ErrNotFound {
+		return nil, err
+	}
 	var method reflect.Value
 	if filter.Area != "" {
 		method = reflect.ValueOf(a.service).MethodByName("ListInstancesByArea")
@@ -318,7 +344,7 @@ func (a *GoCMSWidgetAdapter) ListInstances(ctx context.Context, filter WidgetIns
 			out = append(out, inst)
 		}
 	}
-	return out, nil
+	return filterWidgetInstances(out, filter), nil
 }
 
 func (a *GoCMSWidgetAdapter) refreshDefinitions(ctx context.Context) {
@@ -363,6 +389,212 @@ func (a *GoCMSWidgetAdapter) refreshDefinitions(ctx context.Context) {
 		a.definitions[code] = id
 		a.idToCode[id] = code
 	}
+}
+
+func (a *GoCMSWidgetAdapter) resolveAreaInstances(ctx context.Context, filter WidgetInstanceFilter) ([]WidgetInstance, error) {
+	if a == nil || a.service == nil || strings.TrimSpace(filter.Area) == "" {
+		return nil, ErrNotFound
+	}
+	method := reflect.ValueOf(a.service).MethodByName("ResolveArea")
+	if !method.IsValid() {
+		return nil, ErrNotFound
+	}
+	input := reflect.New(method.Type().In(1)).Elem()
+	setStringField(input, "AreaCode", filter.Area)
+	if localeID := localeUUID(filter.Locale); localeID != uuid.Nil {
+		setUUIDPtr(input.FieldByName("LocaleID"), &localeID)
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
+	if err := extractError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() {
+		return nil, nil
+	}
+	value := deref(results[0])
+	out := []WidgetInstance{}
+	if value.Kind() == reflect.Slice {
+		for i := 0; i < value.Len(); i++ {
+			inst := a.convertResolvedWidget(value.Index(i))
+			out = append(out, inst)
+		}
+	}
+	return out, nil
+}
+
+func (a *GoCMSWidgetAdapter) convertResolvedWidget(value reflect.Value) WidgetInstance {
+	resolved := deref(value)
+	instanceVal := deref(resolved.FieldByName("Instance"))
+	placementVal := deref(resolved.FieldByName("Placement"))
+
+	inst := convertWidgetInstance(instanceVal)
+	if defID, ok := extractUUID(instanceVal, "DefinitionID"); ok {
+		if code, ok := a.idToCode[defID]; ok {
+			inst.DefinitionCode = code
+		}
+	}
+
+	if placementVal.IsValid() {
+		if area, ok := getStringField(placementVal, "AreaCode"); ok {
+			inst.Area = area
+		}
+		if pos, ok := getIntField(placementVal, "Position"); ok {
+			inst.Position = pos
+		}
+		if meta := placementMetadata(placementVal); len(meta) > 0 {
+			if inst.PageID == "" {
+				if pageID, ok := meta["page_id"].(string); ok {
+					inst.PageID = pageID
+				}
+			}
+			if inst.Locale == "" {
+				if locale, ok := meta["locale"].(string); ok {
+					inst.Locale = locale
+				}
+			}
+		}
+	}
+	if inst.PageID == "" || inst.Locale == "" {
+		if meta := widgetInstancePlacement(instanceVal); len(meta) > 0 {
+			if inst.PageID == "" {
+				if pageID, ok := meta["page_id"].(string); ok {
+					inst.PageID = pageID
+				}
+			}
+			if inst.Locale == "" {
+				if locale, ok := meta["locale"].(string); ok {
+					inst.Locale = locale
+				}
+			}
+		}
+	}
+
+	return inst
+}
+
+func filterWidgetInstances(instances []WidgetInstance, filter WidgetInstanceFilter) []WidgetInstance {
+	if len(instances) == 0 {
+		return instances
+	}
+	pageID := strings.TrimSpace(filter.PageID)
+	locale := strings.TrimSpace(filter.Locale)
+	if pageID == "" && locale == "" {
+		return instances
+	}
+	out := make([]WidgetInstance, 0, len(instances))
+	for _, inst := range instances {
+		if pageID != "" && inst.PageID != pageID {
+			continue
+		}
+		if locale != "" && !strings.EqualFold(inst.Locale, locale) {
+			continue
+		}
+		out = append(out, inst)
+	}
+	return out
+}
+
+func (a *GoCMSWidgetAdapter) assignWidgetPlacement(ctx context.Context, updated *WidgetInstance, source WidgetInstance) error {
+	if a == nil || a.service == nil || updated == nil {
+		return nil
+	}
+	area := strings.TrimSpace(source.Area)
+	if area == "" {
+		return nil
+	}
+	method := reflect.ValueOf(a.service).MethodByName("AssignWidgetToArea")
+	if !method.IsValid() {
+		return nil
+	}
+	uid, err := uuid.Parse(strings.TrimSpace(updated.ID))
+	if err != nil {
+		return err
+	}
+	input := reflect.New(method.Type().In(1)).Elem()
+	setStringField(input, "AreaCode", area)
+	setUUIDField(input, "InstanceID", uid)
+	if source.Position > 0 {
+		setIntPtr(input.FieldByName("Position"), source.Position)
+	}
+	if localeID := localeUUID(source.Locale); localeID != uuid.Nil {
+		setUUIDPtr(input.FieldByName("LocaleID"), &localeID)
+	}
+	if meta := widgetPlacementMetadata(source); len(meta) > 0 {
+		setMapField(input, "Metadata", meta)
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
+	if err := extractError(results); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "already assigned") {
+			return nil
+		}
+		return err
+	}
+	if updated != nil && len(results) > 0 && results[0].IsValid() {
+		if pos := placementPositionForInstance(results[0], uid); pos >= 0 {
+			updated.Position = pos
+		}
+	}
+	return nil
+}
+
+func widgetPlacementMetadata(instance WidgetInstance) map[string]any {
+	meta := map[string]any{}
+	if pageID := strings.TrimSpace(instance.PageID); pageID != "" {
+		meta["page_id"] = pageID
+	}
+	if locale := strings.TrimSpace(instance.Locale); locale != "" {
+		meta["locale"] = locale
+	}
+	if len(meta) == 0 {
+		return nil
+	}
+	return meta
+}
+
+func widgetInstancePlacement(value reflect.Value) map[string]any {
+	value = deref(value)
+	if !value.IsValid() {
+		return nil
+	}
+	field := value.FieldByName("Placement")
+	if !field.IsValid() {
+		return nil
+	}
+	if data, ok := field.Interface().(map[string]any); ok {
+		return cloneAnyMap(data)
+	}
+	return nil
+}
+
+func placementMetadata(value reflect.Value) map[string]any {
+	value = deref(value)
+	if !value.IsValid() {
+		return nil
+	}
+	field := value.FieldByName("Metadata")
+	if !field.IsValid() {
+		return nil
+	}
+	if data, ok := field.Interface().(map[string]any); ok {
+		return cloneAnyMap(data)
+	}
+	return nil
+}
+
+func placementPositionForInstance(value reflect.Value, instanceID uuid.UUID) int {
+	value = deref(value)
+	if !value.IsValid() || value.Kind() != reflect.Slice {
+		return -1
+	}
+	for i := 0; i < value.Len(); i++ {
+		placement := deref(value.Index(i))
+		if pid, ok := extractUUID(placement, "InstanceID"); ok && pid == instanceID {
+			if pos, ok := getIntField(placement, "Position"); ok {
+				return pos
+			}
+		}
+	}
+	return -1
 }
 
 func convertAreaDefinition(val reflect.Value) WidgetAreaDefinition {
@@ -414,6 +646,16 @@ func convertWidgetInstance(val reflect.Value) WidgetInstance {
 	if config := val.FieldByName("Configuration"); config.IsValid() {
 		if data, ok := config.Interface().(map[string]any); ok {
 			inst.Config = cloneAnyMap(data)
+		}
+	}
+	if placement := val.FieldByName("Placement"); placement.IsValid() {
+		if data, ok := placement.Interface().(map[string]any); ok {
+			if pageID, ok := data["page_id"].(string); ok {
+				inst.PageID = pageID
+			}
+			if locale, ok := data["locale"].(string); ok {
+				inst.Locale = locale
+			}
 		}
 	}
 	if pos, ok := getIntField(val, "Position"); ok {

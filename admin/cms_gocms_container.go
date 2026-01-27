@@ -133,11 +133,29 @@ func resolveGoCMSContentService(container any) CMSContentService {
 	if container == nil {
 		return nil
 	}
+	if svc, ok := container.(CMSContentService); ok && svc != nil {
+		return svc
+	}
 	if svc, ok := callMethod(container, "ContentService").(CMSContentService); ok && svc != nil {
 		return svc
 	}
 	if svc, ok := callMethod(container, "Content").(CMSContentService); ok && svc != nil {
 		return svc
+	}
+	contentSvc := callMethod(container, "ContentService")
+	if contentSvc == nil {
+		contentSvc = callMethod(container, "Content")
+	}
+	pageSvc := callMethod(container, "Pages")
+	if pageSvc == nil {
+		pageSvc = callMethod(container, "PageService")
+	}
+	blockSvc := callMethod(container, "Blocks")
+	if blockSvc == nil {
+		blockSvc = callMethod(container, "BlockService")
+	}
+	if adapted := NewGoCMSContentAdapter(contentSvc, pageSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
+		return adapted
 	}
 	return nil
 }
