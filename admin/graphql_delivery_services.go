@@ -329,14 +329,3 @@ func mapDeliveryMenuItems(items []MenuItem) []delivery.MenuItem {
 	}
 	return out
 }
-
-func cloneAnyMap(src map[string]any) map[string]any {
-	if len(src) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(src))
-	for k, v := range src {
-		out[k] = v
-	}
-	return out
-}
