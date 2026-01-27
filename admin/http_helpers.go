@@ -8,8 +8,10 @@ import (
 	"strings"
 	"time"
 
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
+	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 func writeJSON(c router.Context, payload any) error {
@@ -161,19 +163,56 @@ func toGoError(err error) (*goerrors.Error, int) {
 	}
 
 	var mapped *goerrors.Error
-	var validation SettingsValidationErrors
+	var settingsValidation SettingsValidationErrors
+	var ozzoErrors validation.Errors
+	var schemaErr *jsonschema.ValidationError
 	var invalid InvalidFeatureConfigError
 	var permission PermissionDeniedError
 
 	switch {
-	case errors.As(err, &validation):
+	case errors.As(err, &settingsValidation):
 		mapped = goerrors.New("validation failed", goerrors.CategoryValidation).
 			WithCode(http.StatusBadRequest).
 			WithTextCode("VALIDATION_ERROR").
 			WithMetadata(map[string]any{
-				"fields": validation.Fields,
-				"scope":  validation.Scope,
+				"fields": settingsValidation.Fields,
+				"scope":  settingsValidation.Scope,
 			})
+		status = http.StatusBadRequest
+	case errors.As(err, &ozzoErrors):
+		mapped = goerrors.FromOzzoValidation(err, "validation failed").
+			WithCode(http.StatusBadRequest).
+			WithTextCode("VALIDATION_ERROR")
+		if mapped != nil {
+			if mapped.Metadata == nil {
+				mapped.Metadata = map[string]any{}
+			}
+			if len(mapped.ValidationErrors) > 0 {
+				mapped.Metadata["fields"] = mapped.ValidationMap()
+			}
+		}
+		status = http.StatusBadRequest
+	case errors.As(err, &schemaErr):
+		fields := map[string]string{}
+		collectJSONSchemaFields(schemaErr, fields)
+		if len(fields) == 0 {
+			fields["schema"] = strings.TrimSpace(schemaErr.Error())
+		}
+		mapped = goerrors.NewValidationFromMap("validation failed", fields).
+			WithCode(http.StatusBadRequest).
+			WithTextCode("VALIDATION_ERROR")
+		if mapped != nil {
+			mapped.Metadata = map[string]any{"fields": fields}
+		}
+		status = http.StatusBadRequest
+	case isSchemaValidationMessage(err):
+		fields := map[string]string{"schema": strings.TrimSpace(err.Error())}
+		mapped = goerrors.NewValidationFromMap("validation failed", fields).
+			WithCode(http.StatusBadRequest).
+			WithTextCode("VALIDATION_ERROR")
+		if mapped != nil {
+			mapped.Metadata = map[string]any{"fields": fields}
+		}
 		status = http.StatusBadRequest
 	case errors.As(err, &invalid):
 		mapped = goerrors.Wrap(err, goerrors.CategoryValidation, err.Error()).
@@ -254,4 +293,48 @@ func toGoError(err error) (*goerrors.Error, int) {
 		mapped.Category = goerrors.CategoryInternal
 	}
 	return mapped, status
+}
+
+func collectJSONSchemaFields(err *jsonschema.ValidationError, fields map[string]string) {
+	if err == nil || fields == nil {
+		return
+	}
+	if len(err.Causes) == 0 {
+		field := jsonSchemaFieldName(err.InstanceLocation)
+		message := strings.TrimSpace(err.Message)
+		if message == "" {
+			message = strings.TrimSpace(err.Error())
+		}
+		if existing, ok := fields[field]; ok && existing != "" {
+			fields[field] = existing + "; " + message
+		} else {
+			fields[field] = message
+		}
+		return
+	}
+	for _, cause := range err.Causes {
+		collectJSONSchemaFields(cause, fields)
+	}
+}
+
+func jsonSchemaFieldName(location string) string {
+	trimmed := strings.TrimSpace(location)
+	trimmed = strings.TrimPrefix(trimmed, "/")
+	trimmed = strings.TrimPrefix(trimmed, "#")
+	trimmed = strings.TrimPrefix(trimmed, "/")
+	trimmed = strings.ReplaceAll(trimmed, "/", ".")
+	if trimmed == "" {
+		return "schema"
+	}
+	return trimmed
+}
+
+func isSchemaValidationMessage(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "schema validation failed") ||
+		strings.Contains(msg, "schema invalid") ||
+		strings.Contains(msg, "schema does not validate")
 }
