@@ -1108,18 +1108,18 @@ func mapToCMSPage(record map[string]any) CMSPage {
 }
 
 var cmsContentReservedKeys = map[string]struct{}{
-	"id":                  {},
-	"title":               {},
-	"slug":                {},
-	"locale":              {},
-	"status":              {},
-	"content_type":        {},
-	"content_type_slug":   {},
-	"content_type_id":     {},
+	"id":                   {},
+	"title":                {},
+	"slug":                 {},
+	"locale":               {},
+	"status":               {},
+	"content_type":         {},
+	"content_type_slug":    {},
+	"content_type_id":      {},
 	"translation_group_id": {},
-	"blocks":              {},
-	"data":                {},
-	"schema":              {},
+	"blocks":               {},
+	"data":                 {},
+	"schema":               {},
 }
 
 func mapToCMSContent(record map[string]any) CMSContent {
