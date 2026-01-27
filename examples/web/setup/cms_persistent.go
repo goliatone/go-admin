@@ -150,14 +150,18 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		widgetSvc = adapter.WidgetService()
 		menuSvc = adapter.MenuService()
 	}
-	contentSvc := admin.CMSContentService(admin.NewInMemoryContentService())
-	if adapter != nil && adapter.ContentService() != nil {
-		contentSvc = adapter.ContentService()
-	} else if module != nil && module.Content() != nil {
+	contentSvc := admin.CMSContentService(nil)
+	if module != nil && module.Content() != nil {
 		contentSvc = newGoCMSContentBridge(module.Content(), module.Pages(), module.Blocks(), seedRefs.TemplateID, map[string]uuid.UUID{
 			"page": seedRefs.PageContentTypeID,
 			"post": seedRefs.PostContentTypeID,
 		})
+	}
+	if contentSvc == nil && adapter != nil && adapter.ContentService() != nil {
+		contentSvc = adapter.ContentService()
+	}
+	if contentSvc == nil {
+		contentSvc = admin.NewInMemoryContentService()
 	}
 
 	contentTypeSvc := admin.CMSContentTypeService(nil)
