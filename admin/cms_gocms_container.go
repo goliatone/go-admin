@@ -56,9 +56,10 @@ func BuildGoCMSContainer(ctx context.Context, cfg Config) (CMSContainer, error) 
 
 // GoCMSContainerAdapter maps go-cms containers/modules into the admin CMSContainer contract.
 type GoCMSContainerAdapter struct {
-	menuSvc    CMSMenuService
-	widgetSvc  CMSWidgetService
-	contentSvc CMSContentService
+	menuSvc        CMSMenuService
+	widgetSvc      CMSWidgetService
+	contentSvc     CMSContentService
+	contentTypeSvc CMSContentTypeService
 }
 
 // NewGoCMSContainerAdapter inspects a go-cms module or container and wraps available services.
@@ -66,15 +67,24 @@ func NewGoCMSContainerAdapter(container any) *GoCMSContainerAdapter {
 	menuSvc := resolveGoCMSMenuService(container)
 	widgetSvc := resolveGoCMSWidgetService(container)
 	contentSvc := resolveGoCMSContentService(container)
-	if menuSvc == nil && widgetSvc == nil && contentSvc == nil {
+	contentTypeSvc := resolveGoCMSContentTypeService(container)
+	if menuSvc == nil && widgetSvc == nil && contentSvc == nil && contentTypeSvc == nil {
 		return nil
 	}
-	return &GoCMSContainerAdapter{menuSvc: menuSvc, widgetSvc: widgetSvc, contentSvc: contentSvc}
+	return &GoCMSContainerAdapter{
+		menuSvc:        menuSvc,
+		widgetSvc:      widgetSvc,
+		contentSvc:     contentSvc,
+		contentTypeSvc: contentTypeSvc,
+	}
 }
 
 func (c *GoCMSContainerAdapter) WidgetService() CMSWidgetService   { return c.widgetSvc }
 func (c *GoCMSContainerAdapter) MenuService() CMSMenuService       { return c.menuSvc }
 func (c *GoCMSContainerAdapter) ContentService() CMSContentService { return c.contentSvc }
+func (c *GoCMSContainerAdapter) ContentTypeService() CMSContentTypeService {
+	return c.contentTypeSvc
+}
 
 func resolveGoCMSMenuService(container any) CMSMenuService {
 	if container == nil {
@@ -128,6 +138,30 @@ func resolveGoCMSContentService(container any) CMSContentService {
 	}
 	if svc, ok := callMethod(container, "Content").(CMSContentService); ok && svc != nil {
 		return svc
+	}
+	return nil
+}
+
+func resolveGoCMSContentTypeService(container any) CMSContentTypeService {
+	if container == nil {
+		return nil
+	}
+	if svc, ok := container.(CMSContentTypeService); ok && svc != nil {
+		return svc
+	}
+	if adapted := NewGoCMSContentTypeAdapter(callMethod(container, "ContentTypeService")); adapted != nil {
+		return adapted
+	}
+	if inner := callMethod(container, "Container"); inner != nil {
+		if adapted := NewGoCMSContentTypeAdapter(callMethod(inner, "ContentTypeService")); adapted != nil {
+			return adapted
+		}
+	}
+	if adapted := NewGoCMSContentTypeAdapter(callMethod(container, "ContentService")); adapted != nil {
+		return adapted
+	}
+	if adapted := NewGoCMSContentTypeAdapter(callMethod(container, "Content")); adapted != nil {
+		return adapted
 	}
 	return nil
 }
