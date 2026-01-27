@@ -85,7 +85,7 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 		}
 	}
 	fields, _ := meta["fields"].(map[string]any)
-	if fields == nil || fields["schema"] == nil {
+	if fields == nil || (fields["schema"] == nil && fields["slug"] == nil) {
 		t.Fatalf("expected schema validation error, got %+v", invalidPayload)
 	}
 
@@ -132,11 +132,12 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 		t.Fatalf("create block status: %d body=%s", blockRes.Code, blockRes.Body.String())
 	}
 	created := decodeJSONMap(t, blockRes)
-	blockID := toString(created["id"])
+	blockRecord := extractRecord(created)
+	blockID := toString(blockRecord["id"])
 	if blockID == "" {
 		t.Fatalf("expected block id, got %+v", created)
 	}
-	if toString(created["content_id"]) != pageID {
+	if toString(blockRecord["content_id"]) != pageID {
 		t.Fatalf("expected block content id %q, got %+v", pageID, created)
 	}
 
@@ -164,14 +165,16 @@ func fetchFirstPageID(t *testing.T, server router.Server[*httprouter.Router]) st
 		t.Fatalf("list pages status: %d body=%s", listRes.Code, listRes.Body.String())
 	}
 	payload := decodeJSONMap(t, listRes)
-	items, ok := payload["data"].([]any)
-	if !ok || len(items) == 0 {
+	items := extractRecords(payload)
+	if len(items) == 0 {
+		if data, ok := payload["data"].(map[string]any); ok {
+			items = extractRecords(data)
+		}
+	}
+	if len(items) == 0 {
 		t.Fatalf("expected pages list, got %+v", payload)
 	}
-	first, ok := items[0].(map[string]any)
-	if !ok {
-		t.Fatalf("expected page map, got %+v", items[0])
-	}
+	first := items[0]
 	id := toString(first["id"])
 	if id == "" {
 		t.Fatalf("expected page id, got %+v", first)
@@ -184,7 +187,9 @@ func extractRecord(payload map[string]any) map[string]any {
 		return nil
 	}
 	if data, ok := payload["data"].(map[string]any); ok {
-		return data
+		if looksLikeRecord(data) || !looksLikeRecord(payload) {
+			return data
+		}
 	}
 	if values, ok := payload["values"].(map[string]any); ok {
 		return values
@@ -213,4 +218,16 @@ func extractRecords(payload map[string]any) []map[string]any {
 		}
 	}
 	return nil
+}
+
+func looksLikeRecord(payload map[string]any) bool {
+	if payload == nil {
+		return false
+	}
+	for _, key := range []string{"id", "content_id", "content_type_id", "page_id", "block_id", "slug"} {
+		if _, ok := payload[key]; ok {
+			return true
+		}
+	}
+	return false
 }

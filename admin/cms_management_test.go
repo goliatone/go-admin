@@ -44,7 +44,7 @@ func TestRegisterCMSDemoPanelsRoutesAndLocale(t *testing.T) {
 	if _, ok := routerCapture.routes["/admin/api/content/:id/blocks"]; !ok {
 		t.Fatalf("expected content blocks route to be registered")
 	}
-	if _, ok := routerCapture.routes["/admin/api/pages/tree"]; !ok {
+	if _, ok := routerCapture.routes["/admin/api/pages-tree"]; !ok {
 		t.Fatalf("expected page tree route to be registered")
 	}
 	panel, ok := adm.Registry().Panel("content")
