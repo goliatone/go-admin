@@ -26,6 +26,44 @@ export async function extractErrorMessage(response: Response): Promise<string> {
 
         // Priority 1: /admin/api/* format (quickstart/error_fiber.go:18)
         if (typeof data.error === 'string' && data.error.trim()) return data.error.trim();
+        if (data.error && typeof data.error === 'object') {
+          const errObj = data.error as Record<string, unknown>;
+          const message =
+            typeof errObj.message === 'string' ? errObj.message.trim() : '';
+          const fieldMessages: string[] = [];
+
+          if (Array.isArray(errObj.validation_errors)) {
+            for (const entry of errObj.validation_errors) {
+              if (!entry || typeof entry !== 'object') continue;
+              const field = (entry as Record<string, unknown>).field;
+              const msg = (entry as Record<string, unknown>).message;
+              if (typeof field === 'string' && typeof msg === 'string') {
+                fieldMessages.push(`${field}: ${msg}`);
+              }
+            }
+          }
+
+          const metadata = errObj.metadata;
+          if (metadata && typeof metadata === 'object') {
+            const fields = (metadata as Record<string, unknown>).fields;
+            if (fields && typeof fields === 'object' && !Array.isArray(fields)) {
+              for (const [field, msg] of Object.entries(fields)) {
+                if (typeof msg === 'string') {
+                  fieldMessages.push(`${field}: ${msg}`);
+                }
+              }
+            }
+          }
+
+          if (fieldMessages.length > 0) {
+            const prefix =
+              message && message.toLowerCase() !== 'validation failed'
+                ? `${message}: `
+                : 'Validation failed: ';
+            return `${prefix}${fieldMessages.join('; ')}`;
+          }
+          if (message) return message;
+        }
 
         // Priority 2: Problem+JSON (go-crud)
         if (typeof data.detail === 'string' && data.detail.trim()) return data.detail.trim();
