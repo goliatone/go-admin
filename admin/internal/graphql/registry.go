@@ -1,9 +1,9 @@
 package graphql
 
 import (
+	delivery "github.com/goliatone/go-admin/admin/graphql"
 	crud "github.com/goliatone/go-crud"
 	"github.com/goliatone/go-crud/gql/registrar"
-	delivery "github.com/goliatone/go-admin/admin/graphql"
 )
 
 // RegisterDeliverySchemas registers delivery schema controllers into the go-crud registry.

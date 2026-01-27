@@ -20,7 +20,9 @@ func newSchemaRepo[T any](handlers repository.ModelHandlers[T]) *schemaRepo[T] {
 	return &schemaRepo[T]{handlers: handlers}
 }
 
-func (r *schemaRepo[T]) Raw(context.Context, string, ...any) ([]T, error) { return nil, errSchemaRepository }
+func (r *schemaRepo[T]) Raw(context.Context, string, ...any) ([]T, error) {
+	return nil, errSchemaRepository
+}
 func (r *schemaRepo[T]) RawTx(context.Context, bun.IDB, string, ...any) ([]T, error) {
 	return nil, errSchemaRepository
 }
@@ -110,9 +112,11 @@ func (r *schemaRepo[T]) UpsertMany(context.Context, []T, ...repository.UpdateCri
 func (r *schemaRepo[T]) UpsertManyTx(context.Context, bun.IDB, []T, ...repository.UpdateCriteria) ([]T, error) {
 	return nil, errSchemaRepository
 }
-func (r *schemaRepo[T]) Delete(context.Context, T) error { return errSchemaRepository }
+func (r *schemaRepo[T]) Delete(context.Context, T) error            { return errSchemaRepository }
 func (r *schemaRepo[T]) DeleteTx(context.Context, bun.IDB, T) error { return errSchemaRepository }
-func (r *schemaRepo[T]) DeleteMany(context.Context, ...repository.DeleteCriteria) error { return errSchemaRepository }
+func (r *schemaRepo[T]) DeleteMany(context.Context, ...repository.DeleteCriteria) error {
+	return errSchemaRepository
+}
 func (r *schemaRepo[T]) DeleteManyTx(context.Context, bun.IDB, ...repository.DeleteCriteria) error {
 	return errSchemaRepository
 }
@@ -122,10 +126,10 @@ func (r *schemaRepo[T]) DeleteWhere(context.Context, ...repository.DeleteCriteri
 func (r *schemaRepo[T]) DeleteWhereTx(context.Context, bun.IDB, ...repository.DeleteCriteria) error {
 	return errSchemaRepository
 }
-func (r *schemaRepo[T]) ForceDelete(context.Context, T) error { return errSchemaRepository }
+func (r *schemaRepo[T]) ForceDelete(context.Context, T) error            { return errSchemaRepository }
 func (r *schemaRepo[T]) ForceDeleteTx(context.Context, bun.IDB, T) error { return errSchemaRepository }
 
-func (r *schemaRepo[T]) Handlers() repository.ModelHandlers[T] { return r.handlers }
+func (r *schemaRepo[T]) Handlers() repository.ModelHandlers[T]            { return r.handlers }
 func (r *schemaRepo[T]) RegisterScope(string, repository.ScopeDefinition) {}
 func (r *schemaRepo[T]) SetScopeDefaults(defaults repository.ScopeDefaults) error {
 	r.scopeDefaults = defaults
