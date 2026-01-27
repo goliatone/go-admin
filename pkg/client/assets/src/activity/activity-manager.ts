@@ -158,16 +158,21 @@ export class ActivityManager {
       this.allEntriesLoaded = false;
       this.isLoadingMore = false;
 
-      // Re-render timeline with cached entries
-      if (this.timelineRenderer && this.cachedEntries.length > 0) {
-        this.timelineRenderer.render(this.cachedEntries);
-      }
+      // Reset offset to load fresh data from the beginning
+      this.state.offset = 0;
+
+      // Fetch fresh data when switching to timeline
+      this.loadActivity();
 
       // Enable infinite scroll observer
       this.enableInfiniteScroll();
     } else {
       // Disable infinite scroll when switching to table view
       this.disableInfiniteScroll();
+
+      // Reset offset and fetch fresh data when switching to table view
+      this.state.offset = 0;
+      this.loadActivity();
     }
   }
 
