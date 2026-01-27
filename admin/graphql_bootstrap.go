@@ -14,3 +14,13 @@ func DeliveryGraphQLControllers() []registrar.Controller {
 func RegisterDeliveryGraphQLSchemas() {
 	graphql.RegisterDeliverySchemas()
 }
+
+// ManagementGraphQLControllers exposes management schema controllers for go-crud/gql registration.
+func ManagementGraphQLControllers() []registrar.Controller {
+	return graphql.ManagementControllers()
+}
+
+// RegisterManagementGraphQLSchemas registers management schemas into the go-crud registry.
+func RegisterManagementGraphQLSchemas() {
+	graphql.RegisterManagementSchemas()
+}
