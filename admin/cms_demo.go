@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strings"
 
 	router "github.com/goliatone/go-router"
 )
@@ -11,11 +12,47 @@ import (
 // RegisterCMSDemoPanels seeds CMS-backed panels (content/pages/blocks/widgets/menus) using the configured CMS services.
 // It provides tree/blocks/SEO metadata needed for the CMS management UI and demo block editor routes.
 func (a *Admin) RegisterCMSDemoPanels() error {
-	if a.contentSvc == nil || a.menuSvc == nil || a.widgetSvc == nil {
+	if a.contentSvc == nil || a.menuSvc == nil || a.widgetSvc == nil || a.contentTypeSvc == nil {
 		return errors.New("cms services not configured")
 	}
 	ctx := a.ctx()
 	a.seedCMSDemoData(ctx)
+	contentTypeOptions, err := a.contentTypeOptions(ctx)
+	if err != nil {
+		return err
+	}
+	workflow := resolveCMSWorkflowEngine(a)
+	workflowActions := []Action{}
+	if workflow != nil {
+		workflowActions = cmsWorkflowActions()
+	}
+
+	contentTypesPanel := (&PanelBuilder{}).
+		WithRepository(NewCMSContentTypeRepository(a.contentTypeSvc)).
+		ListFields(
+			Field{Name: "id", Label: "ID", Type: "text"},
+			Field{Name: "name", Label: "Name", Type: "text"},
+			Field{Name: "slug", Label: "Slug", Type: "text"},
+			Field{Name: "icon", Label: "Icon", Type: "text"},
+		).
+		FormFields(
+			Field{Name: "name", Label: "Name", Type: "text", Required: true},
+			Field{Name: "slug", Label: "Slug", Type: "text", Required: true},
+			Field{Name: "description", Label: "Description", Type: "textarea"},
+			Field{Name: "icon", Label: "Icon", Type: "text"},
+			Field{Name: "schema", Label: "Schema", Type: "textarea", Required: true},
+			Field{Name: "capabilities", Label: "Capabilities", Type: "textarea"},
+		).
+		DetailFields(
+			Field{Name: "id", Label: "ID", Type: "text"},
+			Field{Name: "name", Label: "Name", Type: "text"},
+			Field{Name: "slug", Label: "Slug", Type: "text"},
+			Field{Name: "description", Label: "Description", Type: "text"},
+			Field{Name: "icon", Label: "Icon", Type: "text"},
+		)
+	if _, err := a.RegisterPanel("content_types", contentTypesPanel); err != nil {
+		return err
+	}
 
 	contentPanel := (&PanelBuilder{}).
 		WithRepository(NewCMSContentRepository(a.contentSvc)).
@@ -29,12 +66,10 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 		FormFields(
 			Field{Name: "title", Label: "Title", Type: "text", Required: true},
 			Field{Name: "slug", Label: "Slug", Type: "text", Required: true},
-			Field{Name: "content_type", Label: "Type", Type: "select", Required: true, Options: []Option{
-				{Value: "article", Label: "Article"},
-				{Value: "page", Label: "Page"},
-			}},
+			Field{Name: "content_type", Label: "Type", Type: "select", Required: true, Options: contentTypeOptions},
 			Field{Name: "status", Label: "Status", Type: "select", Required: true, Options: []Option{
 				{Value: "draft", Label: "Draft"},
+				{Value: "approval", Label: "Approval"},
 				{Value: "published", Label: "Published"},
 			}},
 			Field{Name: "locale", Label: "Locale", Type: "text", Required: true},
@@ -52,6 +87,9 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Filter{Name: "status", Type: "select"},
 		).
 		UseBlocks(true)
+	if workflow != nil {
+		contentPanel.WithWorkflow(workflow).Actions(workflowActions...)
+	}
 	if _, err := a.RegisterPanel("content", contentPanel); err != nil {
 		return err
 	}
@@ -61,16 +99,19 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
 			Field{Name: "title", Label: "Title", Type: "text"},
-			Field{Name: "slug", Label: "Path", Type: "text"},
+			Field{Name: "path", Label: "Path", Type: "text"},
 			Field{Name: "status", Label: "Status", Type: "select"},
 			Field{Name: "locale", Label: "Locale", Type: "text"},
 			Field{Name: "preview_url", Label: "Preview", Type: "text"},
 		).
 		FormFields(
 			Field{Name: "title", Label: "Title", Type: "text", Required: true},
-			Field{Name: "slug", Label: "Path", Type: "text", Required: true},
+			Field{Name: "slug", Label: "Slug", Type: "text"},
+			Field{Name: "path", Label: "Path", Type: "text", Required: true},
+			Field{Name: "template_id", Label: "Template", Type: "text"},
 			Field{Name: "status", Label: "Status", Type: "select", Required: true, Options: []Option{
 				{Value: "draft", Label: "Draft"},
+				{Value: "approval", Label: "Approval"},
 				{Value: "published", Label: "Published"},
 			}},
 			Field{Name: "locale", Label: "Locale", Type: "text", Required: true},
@@ -80,7 +121,9 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 		DetailFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
 			Field{Name: "title", Label: "Title", Type: "text"},
-			Field{Name: "slug", Label: "Path", Type: "text"},
+			Field{Name: "slug", Label: "Slug", Type: "text"},
+			Field{Name: "path", Label: "Path", Type: "text"},
+			Field{Name: "template_id", Label: "Template", Type: "text"},
 			Field{Name: "status", Label: "Status", Type: "text"},
 			Field{Name: "locale", Label: "Locale", Type: "text"},
 			Field{Name: "preview_url", Label: "Preview URL", Type: "text"},
@@ -93,6 +136,9 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 		UseBlocks(true).
 		UseSEO(true).
 		TreeView(true)
+	if workflow != nil {
+		pagePanel.WithWorkflow(workflow).Actions(workflowActions...)
+	}
 	if _, err := a.RegisterPanel("pages", pagePanel); err != nil {
 		return err
 	}
@@ -302,10 +348,34 @@ func buildPageTree(records []CMSPage) []map[string]any {
 
 // seedCMSDemoData primes the in-memory CMS services with translatable content/pages/menus/widgets.
 func (a *Admin) seedCMSDemoData(ctx context.Context) {
+	if svc, ok := a.contentTypeSvc.(*InMemoryContentService); ok {
+		if len(svc.types) == 0 {
+			_, _ = svc.CreateContentType(ctx, CMSContentType{
+				Name: "Article",
+				Slug: "article",
+				Schema: map[string]any{
+					"fields": []map[string]any{
+						{"name": "title", "type": "string", "required": true},
+						{"name": "body", "type": "text"},
+					},
+				},
+			})
+			_, _ = svc.CreateContentType(ctx, CMSContentType{
+				Name: "Page",
+				Slug: "page",
+				Schema: map[string]any{
+					"fields": []map[string]any{
+						{"name": "title", "type": "string", "required": true},
+						{"name": "body", "type": "text"},
+					},
+				},
+			})
+		}
+	}
 	if svc, ok := a.contentSvc.(*InMemoryContentService); ok {
 		if len(svc.contents) == 0 {
-			_, _ = svc.CreateContent(ctx, CMSContent{Title: "Welcome", Slug: "welcome", Locale: "en", Status: "published", ContentType: "article"})
-			_, _ = svc.CreateContent(ctx, CMSContent{Title: "Bienvenido", Slug: "bienvenido", Locale: "es", Status: "draft", ContentType: "article"})
+			_, _ = svc.CreateContent(ctx, CMSContent{Title: "Welcome", Slug: "welcome", Locale: "en", Status: "published", ContentType: "article", ContentTypeSlug: "article"})
+			_, _ = svc.CreateContent(ctx, CMSContent{Title: "Bienvenido", Slug: "bienvenido", Locale: "es", Status: "draft", ContentType: "article", ContentTypeSlug: "article"})
 		}
 		if len(svc.pages) == 0 {
 			home, _ := svc.CreatePage(ctx, CMSPage{Title: "Home", Slug: "/",
@@ -390,4 +460,29 @@ func (a *Admin) registerDemoSearchAdapters(contentRepo, pageRepo Repository) {
 
 func (a *Admin) ctx() context.Context {
 	return context.Background()
+}
+
+func (a *Admin) contentTypeOptions(ctx context.Context) ([]Option, error) {
+	if a == nil || a.contentTypeSvc == nil {
+		return nil, nil
+	}
+	types, err := a.contentTypeSvc.ContentTypes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	options := make([]Option, 0, len(types))
+	seen := map[string]bool{}
+	for _, ct := range types {
+		value := strings.TrimSpace(firstNonEmpty(ct.Slug, ct.Name, ct.ID))
+		if value == "" || seen[value] {
+			continue
+		}
+		label := strings.TrimSpace(firstNonEmpty(ct.Name, ct.Slug, value))
+		options = append(options, Option{Value: value, Label: label})
+		seen[value] = true
+	}
+	sort.SliceStable(options, func(i, j int) bool {
+		return strings.ToLower(options[i].Label) < strings.ToLower(options[j].Label)
+	})
+	return options, nil
 }
