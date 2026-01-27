@@ -154,7 +154,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	if adapter != nil && adapter.ContentService() != nil {
 		contentSvc = adapter.ContentService()
 	} else if module != nil && module.Content() != nil {
-		contentSvc = newGoCMSContentBridge(module.Content(), module.Pages(), seedRefs.TemplateID, map[string]uuid.UUID{
+		contentSvc = newGoCMSContentBridge(module.Content(), module.Pages(), module.Blocks(), seedRefs.TemplateID, map[string]uuid.UUID{
 			"page": seedRefs.PageContentTypeID,
 			"post": seedRefs.PostContentTypeID,
 		})
