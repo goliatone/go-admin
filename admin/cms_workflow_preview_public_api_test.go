@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	router "github.com/goliatone/go-router"
+	"github.com/julienschmidt/httprouter"
 )
 
 func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
@@ -120,7 +121,7 @@ func decodeJSONMap(t *testing.T, rr *httptest.ResponseRecorder) map[string]any {
 	return payload
 }
 
-func fetchPageStatus(t *testing.T, server *router.HTTPServer, id string) string {
+func fetchPageStatus(t *testing.T, server router.Server[*httprouter.Router], id string) string {
 	t.Helper()
 	getReq := httptest.NewRequest("GET", "/admin/api/pages/"+id, nil)
 	getRes := httptest.NewRecorder()
