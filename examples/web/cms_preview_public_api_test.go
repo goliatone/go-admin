@@ -75,7 +75,12 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(adminPreviewRes, adminPreviewReq)
 	require.Equal(t, http.StatusOK, adminPreviewRes.Code)
 	adminPreview := decodeTestJSON(t, adminPreviewRes)
-	require.Equal(t, "example-draft", fmt.Sprint(adminPreview["slug"]))
+	adminRecord := extractTestRecord(adminPreview)
+	slug := fmt.Sprint(adminRecord["slug"])
+	if slug == "" || slug == "<nil>" {
+		slug = fmt.Sprint(adminRecord["Slug"])
+	}
+	require.Equal(t, "example-draft", slug)
 
 	publicReq := httptest.NewRequest(http.MethodGet, "/api/v1/content/post/example-draft", nil)
 	publicRes := httptest.NewRecorder()
@@ -98,5 +103,18 @@ func decodeTestJSON(t *testing.T, rr *httptest.ResponseRecorder) map[string]any 
 	t.Helper()
 	payload := map[string]any{}
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &payload))
+	return payload
+}
+
+func extractTestRecord(payload map[string]any) map[string]any {
+	if payload == nil {
+		return nil
+	}
+	if data, ok := payload["data"].(map[string]any); ok {
+		return data
+	}
+	if values, ok := payload["values"].(map[string]any); ok {
+		return values
+	}
 	return payload
 }

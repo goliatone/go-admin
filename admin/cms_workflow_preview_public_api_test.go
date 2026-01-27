@@ -32,8 +32,9 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("create page status: %d body=%s", createRes.Code, createRes.Body.String())
 	}
 	created := decodeJSONMap(t, createRes)
-	pageID := toString(created["id"])
-	pageSlug := toString(created["slug"])
+	createdRecord := extractRecord(created)
+	pageID := toString(createdRecord["id"])
+	pageSlug := toString(createdRecord["slug"])
 	if pageID == "" {
 		t.Fatalf("expected page id, got %+v", created)
 	}
@@ -67,18 +68,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("admin preview status: %d body=%s", adminPreviewRes.Code, adminPreviewRes.Body.String())
 	}
 	adminPreview := decodeJSONMap(t, adminPreviewRes)
-	previewID := toString(adminPreview["id"])
-	if previewID == "" {
-		previewID = toString(adminPreview["ID"])
-	}
-	if previewID == "" {
-		if data, ok := adminPreview["data"].(map[string]any); ok {
-			previewID = toString(data["id"])
-			if previewID == "" {
-				previewID = toString(data["ID"])
-			}
-		}
-	}
+	previewID := extractPreviewID(adminPreview)
 	if previewID != pageID {
 		t.Fatalf("expected preview id %q, got %+v", pageID, adminPreview)
 	}
@@ -88,6 +78,10 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(publicPreviewRes, publicPreviewReq)
 	if publicPreviewRes.Code != http.StatusOK {
 		t.Fatalf("public preview status: %d body=%s", publicPreviewRes.Code, publicPreviewRes.Body.String())
+	}
+	publicPreview := decodeJSONMap(t, publicPreviewRes)
+	if previewID := extractPreviewID(publicPreview); previewID != pageID {
+		t.Fatalf("expected public preview id %q, got %+v", pageID, publicPreview)
 	}
 
 	workflowReq := httptest.NewRequest("POST", "/admin/api/pages/actions/submit_for_approval", strings.NewReader(`{"id":"`+pageID+`"}`))
@@ -142,5 +136,30 @@ func fetchPageStatus(t *testing.T, server router.Server[*httprouter.Router], id 
 		t.Fatalf("fetch page status: %d body=%s", getRes.Code, getRes.Body.String())
 	}
 	page := decodeJSONMap(t, getRes)
-	return strings.ToLower(strings.TrimSpace(toString(page["status"])))
+	record := extractRecord(page)
+	return strings.ToLower(strings.TrimSpace(toString(record["status"])))
+}
+
+func extractPreviewID(payload map[string]any) string {
+	record := extractRecord(payload)
+	if record != nil {
+		if id := toString(record["id"]); id != "" {
+			return id
+		}
+		if id := toString(record["ID"]); id != "" {
+			return id
+		}
+	}
+	if data, ok := payload["data"].(map[string]any); ok {
+		if id := toString(data["id"]); id != "" {
+			return id
+		}
+		if id := toString(data["ID"]); id != "" {
+			return id
+		}
+	}
+	if id := toString(payload["id"]); id != "" {
+		return id
+	}
+	return toString(payload["ID"])
 }
