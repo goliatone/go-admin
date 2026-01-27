@@ -15,10 +15,10 @@ func (a *Admin) Boot(steps ...boot.Step) error {
 		return err
 	}
 
+	a.registerCMSRoutesFromService()
+
 	if a.config.EnablePublicAPI {
-		if r, ok := a.router.(router.Router[router.Context]); ok {
-			a.RegisterPublicAPI(r)
-		}
+		a.RegisterPublicAPI(a.router)
 	}
 	a.registerPreviewRoutes()
 
