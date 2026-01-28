@@ -1,0 +1,308 @@
+/* =============================================================================
+   BLOCK EDITOR STYLES
+   ============================================================================= */
+
+/* =============================================================================
+   BASE BLOCK ITEM STYLES
+   ============================================================================= */
+
+[data-block-item] {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+[data-block-header] {
+  cursor: default;
+  user-select: none;
+}
+
+[data-block-header]:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+[data-block-header]:focus:not(:focus-visible) {
+  outline: none;
+}
+
+[data-block-drag-handle] {
+  cursor: grab;
+}
+
+[data-block-drag-handle]:active {
+  cursor: grabbing;
+}
+
+/* =============================================================================
+   DRAG STATES
+   ============================================================================= */
+
+/* Block being dragged (HTML5 drag) */
+.block-item--dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Placeholder for touch drag */
+.block-item--placeholder {
+  opacity: 0.3;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(0, 0, 0, 0.03) 10px,
+    rgba(0, 0, 0, 0.03) 20px
+  );
+}
+
+/* Touch drag clone */
+.block-item--touch-dragging {
+  border-radius: 8px;
+  background: white;
+}
+
+@media (prefers-color-scheme: dark) {
+  .block-item--touch-dragging {
+    background: #1e293b;
+  }
+}
+
+/* =============================================================================
+   DROP INDICATOR
+   ============================================================================= */
+
+.block-drop-indicator {
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  border-radius: 2px;
+  margin: 4px 0;
+  position: relative;
+  animation: block-drop-pulse 1s ease-in-out infinite;
+}
+
+.block-drop-indicator::before,
+.block-drop-indicator::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: #3b82f6;
+  border-radius: 50%;
+}
+
+.block-drop-indicator::before {
+  left: -4px;
+}
+
+.block-drop-indicator::after {
+  right: -4px;
+}
+
+@keyframes block-drop-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* =============================================================================
+   DRAG PLACEHOLDER
+   ============================================================================= */
+
+.block-drag-placeholder {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  transition: height 0.2s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  .block-drag-placeholder {
+    border-color: #4b5563;
+    background: #1f2937;
+  }
+}
+
+/* =============================================================================
+   VALIDATION STATES
+   ============================================================================= */
+
+.block-item--invalid {
+  border-color: #ef4444;
+}
+
+.block-item--invalid [data-block-header] {
+  background: #fef2f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  .block-item--invalid [data-block-header] {
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+
+.block-error-badge {
+  animation: block-error-shake 0.4s ease-in-out;
+}
+
+@keyframes block-error-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+.block-field-error {
+  animation: block-error-fade-in 0.2s ease-out;
+}
+
+@keyframes block-error-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =============================================================================
+   CONFLICT REPORT
+   ============================================================================= */
+
+.block-conflict-report {
+  animation: block-conflict-slide-in 0.3s ease-out;
+}
+
+@keyframes block-conflict-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =============================================================================
+   SORTABLE HEADER STYLES
+   ============================================================================= */
+
+[data-block-sortable="true"] [data-block-header] {
+  cursor: grab;
+}
+
+[data-block-sortable="true"] [data-block-header]:active {
+  cursor: grabbing;
+}
+
+[data-block-sortable="true"] [data-block-item]:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* =============================================================================
+   EMPTY STATE
+   ============================================================================= */
+
+[data-block-empty] {
+  padding: 24px;
+  text-align: center;
+  border: 2px dashed #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+[data-block-empty].hidden {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-block-empty] {
+    border-color: #374151;
+    background: #1f2937;
+  }
+}
+
+/* Drag over empty state */
+[data-block-editor]:has(.block-drop-indicator) [data-block-empty] {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-block-editor]:has(.block-drop-indicator) [data-block-empty] {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+  }
+}
+
+/* =============================================================================
+   SCREEN READER ONLY
+   ============================================================================= */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* =============================================================================
+   FOCUS VISIBLE IMPROVEMENTS
+   ============================================================================= */
+
+[data-block-move-up]:focus-visible,
+[data-block-move-down]:focus-visible,
+[data-block-collapse]:focus-visible,
+[data-block-remove]:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* =============================================================================
+   ANIMATIONS
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-block-item],
+  .block-drop-indicator,
+  .block-error-badge,
+  .block-field-error,
+  .block-conflict-report {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* =============================================================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  [data-block-header] {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  [data-block-header] > div:last-child {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .block-item--touch-dragging {
+    margin: 0 8px;
+  }
+}

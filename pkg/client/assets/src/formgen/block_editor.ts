@@ -3,6 +3,14 @@ type BlockEditorConfig = {
   addLabel?: string;
   emptyLabel?: string;
   allowDrag?: boolean;
+  /** Allow dragging from entire header, not just drag handle */
+  dragFromHeader?: boolean;
+  /** Enable touch/mobile drag support */
+  enableTouch?: boolean;
+  /** Enable smooth reorder animations */
+  enableAnimations?: boolean;
+  /** Enable cross-editor drag/drop */
+  enableCrossEditor?: boolean;
   /** Default schema version pattern: {type}@v1.0.0 */
   schemaVersionPattern?: string;
   /** Required fields per block type */
@@ -13,6 +21,15 @@ type BlockEditorConfig = {
   legacyBlocks?: any[];
   /** Show conflict detection UI when conflicts exist */
   showConflicts?: boolean;
+};
+
+type DragState = {
+  dragging: HTMLElement | null;
+  placeholder: HTMLElement | null;
+  touchStartY: number;
+  touchCurrentY: number;
+  scrollInterval: number | null;
+  originalIndex: number;
 };
 
 type BlockTemplate = {
@@ -496,6 +513,233 @@ function showConflictReport(root: HTMLElement, report: ConflictReport): void {
   }
 }
 
+// =============================================================================
+// DRAG & DROP HELPERS
+// =============================================================================
+
+/**
+ * Create a drop indicator element
+ */
+function createDropIndicator(): HTMLElement {
+  const indicator = document.createElement('div');
+  indicator.className = 'block-drop-indicator';
+  indicator.setAttribute('data-block-drop-indicator', 'true');
+  indicator.setAttribute('aria-hidden', 'true');
+  return indicator;
+}
+
+/**
+ * Show drop indicator at a specific position
+ */
+function showDropIndicator(
+  list: HTMLElement,
+  target: HTMLElement | null,
+  position: 'before' | 'after'
+): HTMLElement {
+  hideDropIndicators(list);
+  const indicator = createDropIndicator();
+
+  if (!target) {
+    list.appendChild(indicator);
+  } else if (position === 'before') {
+    target.parentElement?.insertBefore(indicator, target);
+  } else {
+    target.parentElement?.insertBefore(indicator, target.nextSibling);
+  }
+
+  return indicator;
+}
+
+/**
+ * Hide all drop indicators in the list
+ */
+function hideDropIndicators(list: HTMLElement): void {
+  list.querySelectorAll('[data-block-drop-indicator]').forEach((el) => el.remove());
+}
+
+/**
+ * Create a drag placeholder element
+ */
+function createDragPlaceholder(item: HTMLElement): HTMLElement {
+  const placeholder = document.createElement('div');
+  placeholder.className = 'block-drag-placeholder';
+  placeholder.setAttribute('data-block-placeholder', 'true');
+  placeholder.style.height = `${item.offsetHeight}px`;
+  return placeholder;
+}
+
+/**
+ * Get the block item at a specific Y coordinate
+ */
+function getBlockAtY(list: HTMLElement, y: number, exclude?: HTMLElement): { item: HTMLElement; position: 'before' | 'after' } | null {
+  const items = Array.from(list.querySelectorAll<HTMLElement>('[data-block-item]'));
+  for (const item of items) {
+    if (item === exclude) continue;
+    const rect = item.getBoundingClientRect();
+    if (y >= rect.top && y <= rect.bottom) {
+      const position = y < rect.top + rect.height / 2 ? 'before' : 'after';
+      return { item, position };
+    }
+  }
+  // Check if below all items
+  if (items.length > 0) {
+    const lastItem = items[items.length - 1];
+    if (lastItem !== exclude) {
+      const rect = lastItem.getBoundingClientRect();
+      if (y > rect.bottom) {
+        return { item: lastItem, position: 'after' };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Animate reorder using FLIP technique
+ */
+function animateReorder(list: HTMLElement, movedItem: HTMLElement): void {
+  const items = Array.from(list.querySelectorAll<HTMLElement>('[data-block-item]'));
+
+  // Record initial positions
+  const rects = new Map<HTMLElement, DOMRect>();
+  items.forEach((item) => {
+    rects.set(item, item.getBoundingClientRect());
+  });
+
+  // Force layout recalculation
+  void list.offsetHeight;
+
+  // Animate from old to new positions
+  items.forEach((item) => {
+    const oldRect = rects.get(item);
+    if (!oldRect) return;
+
+    const newRect = item.getBoundingClientRect();
+    const deltaY = oldRect.top - newRect.top;
+
+    if (Math.abs(deltaY) < 1) return;
+
+    item.animate(
+      [
+        { transform: `translateY(${deltaY}px)` },
+        { transform: 'translateY(0)' },
+      ],
+      {
+        duration: 200,
+        easing: 'ease-out',
+      }
+    );
+  });
+
+  // Special animation for the moved item
+  movedItem.animate(
+    [
+      { transform: 'scale(1.02)', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' },
+      { transform: 'scale(1)', boxShadow: 'none' },
+    ],
+    {
+      duration: 200,
+      easing: 'ease-out',
+    }
+  );
+}
+
+/**
+ * Create live region for screen reader announcements
+ */
+function createLiveRegion(): HTMLElement {
+  const existing = document.getElementById('block-editor-live-region');
+  if (existing) return existing;
+
+  const region = document.createElement('div');
+  region.id = 'block-editor-live-region';
+  region.setAttribute('aria-live', 'polite');
+  region.setAttribute('aria-atomic', 'true');
+  region.className = 'sr-only';
+  region.style.cssText = 'position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;';
+  document.body.appendChild(region);
+  return region;
+}
+
+/**
+ * Announce a message to screen readers
+ */
+function announce(message: string): void {
+  const region = createLiveRegion();
+  region.textContent = '';
+  // Force announcement by clearing and setting
+  requestAnimationFrame(() => {
+    region.textContent = message;
+  });
+}
+
+/**
+ * Get block position info for announcements
+ */
+function getBlockPositionInfo(list: HTMLElement, item: HTMLElement): { label: string; position: number; total: number } {
+  const items = Array.from(list.querySelectorAll<HTMLElement>('[data-block-item]'));
+  const position = items.indexOf(item) + 1;
+  const total = items.length;
+  const label = item.querySelector('[data-block-header] span')?.textContent || item.dataset.blockType || 'Block';
+  return { label, position, total };
+}
+
+/**
+ * Collect block data for cross-editor drag
+ */
+function collectBlockData(item: HTMLElement): Record<string, any> {
+  const data: Record<string, any> = {};
+  item.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea').forEach((field) => {
+    const key = field.getAttribute('data-block-field-name') || field.name;
+    if (!key || field.dataset.blockIgnore === 'true') return;
+    if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+      data[key] = field.checked;
+    } else if (field instanceof HTMLSelectElement && field.multiple) {
+      data[key] = Array.from(field.selectedOptions).map((opt) => opt.value);
+    } else {
+      data[key] = field.value;
+    }
+  });
+  data._type = item.dataset.blockType || '';
+  data._schema = item.dataset.blockSchema || '';
+  return data;
+}
+
+/**
+ * Auto-scroll during drag when near edges
+ */
+function setupAutoScroll(
+  list: HTMLElement,
+  dragState: DragState,
+  scrollThreshold: number = 50,
+  scrollSpeed: number = 10
+): void {
+  const doScroll = () => {
+    if (!dragState.dragging) {
+      if (dragState.scrollInterval) {
+        clearInterval(dragState.scrollInterval);
+        dragState.scrollInterval = null;
+      }
+      return;
+    }
+
+    const listRect = list.getBoundingClientRect();
+    const y = dragState.touchCurrentY;
+
+    if (y < listRect.top + scrollThreshold) {
+      // Scroll up
+      list.scrollTop -= scrollSpeed;
+    } else if (y > listRect.bottom - scrollThreshold) {
+      // Scroll down
+      list.scrollTop += scrollSpeed;
+    }
+  };
+
+  if (!dragState.scrollInterval) {
+    dragState.scrollInterval = window.setInterval(doScroll, 16);
+  }
+}
+
 function ensureTypeField(item: HTMLElement, type: string): void {
   const inputs = item.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[name="_type"], [data-block-type-input]');
   if (inputs.length === 0) {
@@ -849,37 +1093,328 @@ function initBlockEditor(root: HTMLElement): void {
     syncAll();
   });
 
+  // =============================================================================
+  // DRAG & DROP IMPLEMENTATION
+  // =============================================================================
   if (sortable && allowDrag) {
-    let dragging: HTMLElement | null = null;
+    const dragFromHeader = config.dragFromHeader ?? true;
+    const enableTouch = config.enableTouch ?? true;
+    const enableAnimations = config.enableAnimations ?? true;
+    const enableCrossEditor = config.enableCrossEditor ?? false;
+
+    const dragState: DragState = {
+      dragging: null,
+      placeholder: null,
+      touchStartY: 0,
+      touchCurrentY: 0,
+      scrollInterval: null,
+      originalIndex: -1,
+    };
+
+    // Helper to check if drag should start
+    const canStartDrag = (target: HTMLElement): boolean => {
+      // Always allow from drag handle
+      if (target.closest('[data-block-drag-handle]')) return true;
+      // Allow from header if configured
+      if (dragFromHeader && target.closest('[data-block-header]')) {
+        // But not from buttons or inputs
+        if (target.closest('button, input, select, textarea')) return false;
+        return true;
+      }
+      return false;
+    };
+
+    // Get original index before drag
+    const getItemIndex = (item: HTMLElement): number => {
+      const items = Array.from(list.querySelectorAll<HTMLElement>('[data-block-item]'));
+      return items.indexOf(item);
+    };
+
+    // HTML5 Drag Events
     list.addEventListener('dragstart', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
-      const handle = target.closest('[data-block-drag-handle]');
-      if (!handle) {
+
+      if (!canStartDrag(target)) {
         event.preventDefault();
         return;
       }
+
       const item = target.closest<HTMLElement>('[data-block-item]');
       if (!item) return;
-      dragging = item;
-      item.classList.add('opacity-70');
-      event.dataTransfer?.setData('text/plain', 'block');
+
+      dragState.dragging = item;
+      dragState.originalIndex = getItemIndex(item);
+
+      item.classList.add('block-item--dragging');
+
+      // Set drag data for cross-editor support
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', 'block');
+
+        if (enableCrossEditor) {
+          const blockData = collectBlockData(item);
+          event.dataTransfer.setData('application/x-block', JSON.stringify(blockData));
+        }
+
+        // Create custom drag image
+        const dragImage = item.cloneNode(true) as HTMLElement;
+        dragImage.style.cssText = 'position: absolute; top: -9999px; left: -9999px; opacity: 0.8; transform: rotate(2deg);';
+        document.body.appendChild(dragImage);
+        event.dataTransfer.setDragImage(dragImage, 20, 20);
+        requestAnimationFrame(() => dragImage.remove());
+      }
+
+      const info = getBlockPositionInfo(list, item);
+      announce(`Dragging ${info.label} from position ${info.position} of ${info.total}. Use arrow keys to move.`);
     });
+
     list.addEventListener('dragover', (event) => {
-      if (!dragging) return;
       event.preventDefault();
-      const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-block-item]') : null;
-      if (!target || target === dragging) return;
-      const rect = target.getBoundingClientRect();
-      const shouldInsertAfter = event.clientY > rect.top + rect.height / 2;
-      list.insertBefore(dragging, shouldInsertAfter ? target.nextSibling : target);
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+
+      const y = event.clientY;
+      const result = getBlockAtY(list, y, dragState.dragging || undefined);
+
+      if (result) {
+        showDropIndicator(list, result.item, result.position);
+      } else {
+        hideDropIndicators(list);
+      }
     });
+
+    list.addEventListener('dragenter', (event) => {
+      event.preventDefault();
+    });
+
+    list.addEventListener('dragleave', (event) => {
+      // Only hide if leaving the list entirely
+      const relatedTarget = event.relatedTarget as HTMLElement | null;
+      if (!relatedTarget || !list.contains(relatedTarget)) {
+        hideDropIndicators(list);
+      }
+    });
+
+    list.addEventListener('drop', (event) => {
+      event.preventDefault();
+      hideDropIndicators(list);
+
+      const y = event.clientY;
+      const result = getBlockAtY(list, y, dragState.dragging || undefined);
+
+      // Handle cross-editor drop
+      if (!dragState.dragging && enableCrossEditor && event.dataTransfer) {
+        const blockDataStr = event.dataTransfer.getData('application/x-block');
+        if (blockDataStr) {
+          try {
+            const blockData = JSON.parse(blockDataStr);
+            const type = blockData._type;
+            if (type && templates.has(type)) {
+              const template = templates.get(type)!;
+              const newItem = createBlockItem(template, blockData);
+              if (result) {
+                if (result.position === 'before') {
+                  list.insertBefore(newItem, result.item);
+                } else {
+                  list.insertBefore(newItem, result.item.nextSibling);
+                }
+              } else {
+                list.appendChild(newItem);
+              }
+              syncAll();
+              announce(`Block ${type} added from another editor`);
+            }
+          } catch {
+            // Ignore invalid data
+          }
+        }
+        return;
+      }
+
+      if (!dragState.dragging) return;
+
+      if (result) {
+        if (result.position === 'before') {
+          list.insertBefore(dragState.dragging, result.item);
+        } else {
+          list.insertBefore(dragState.dragging, result.item.nextSibling);
+        }
+      }
+
+      if (enableAnimations) {
+        animateReorder(list, dragState.dragging);
+      }
+
+      const newIndex = getItemIndex(dragState.dragging);
+      if (newIndex !== dragState.originalIndex) {
+        const info = getBlockPositionInfo(list, dragState.dragging);
+        announce(`${info.label} moved to position ${info.position} of ${info.total}`);
+      }
+    });
+
     list.addEventListener('dragend', () => {
-      if (!dragging) return;
-      dragging.classList.remove('opacity-70');
-      dragging = null;
+      hideDropIndicators(list);
+
+      if (dragState.dragging) {
+        dragState.dragging.classList.remove('block-item--dragging');
+        dragState.dragging = null;
+      }
+
+      dragState.originalIndex = -1;
       syncAll();
     });
+
+    // =============================================================================
+    // TOUCH SUPPORT
+    // =============================================================================
+    if (enableTouch) {
+      let touchItem: HTMLElement | null = null;
+      let touchClone: HTMLElement | null = null;
+      let touchStarted = false;
+      const TOUCH_THRESHOLD = 10; // Minimum movement before drag starts
+
+      list.addEventListener('touchstart', (event) => {
+        const touch = event.touches[0];
+        const target = touch.target as HTMLElement;
+
+        if (!canStartDrag(target)) return;
+
+        const item = target.closest<HTMLElement>('[data-block-item]');
+        if (!item) return;
+
+        dragState.touchStartY = touch.clientY;
+        dragState.touchCurrentY = touch.clientY;
+        touchItem = item;
+        touchStarted = false;
+      }, { passive: true });
+
+      list.addEventListener('touchmove', (event) => {
+        if (!touchItem) return;
+
+        const touch = event.touches[0];
+        dragState.touchCurrentY = touch.clientY;
+
+        // Check if we've moved enough to start dragging
+        if (!touchStarted) {
+          const delta = Math.abs(touch.clientY - dragState.touchStartY);
+          if (delta < TOUCH_THRESHOLD) return;
+          touchStarted = true;
+
+          // Create visual clone for dragging
+          touchClone = touchItem.cloneNode(true) as HTMLElement;
+          touchClone.className = 'block-item--touch-dragging';
+          touchClone.style.cssText = `
+            position: fixed;
+            left: 0;
+            right: 0;
+            margin: 0 16px;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.9;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            transform: scale(1.02);
+          `;
+          document.body.appendChild(touchClone);
+
+          // Mark original as placeholder
+          touchItem.classList.add('block-item--placeholder');
+          dragState.dragging = touchItem;
+          dragState.originalIndex = getItemIndex(touchItem);
+
+          const info = getBlockPositionInfo(list, touchItem);
+          announce(`Dragging ${info.label}. Move finger to reposition.`);
+        }
+
+        event.preventDefault();
+
+        // Position clone at touch point
+        if (touchClone) {
+          touchClone.style.top = `${touch.clientY - touchClone.offsetHeight / 2}px`;
+        }
+
+        // Find drop target and show indicator
+        const result = getBlockAtY(list, touch.clientY, touchItem || undefined);
+        if (result) {
+          showDropIndicator(list, result.item, result.position);
+        } else {
+          hideDropIndicators(list);
+        }
+
+        // Auto-scroll
+        setupAutoScroll(list, dragState);
+      }, { passive: false });
+
+      list.addEventListener('touchend', () => {
+        if (dragState.scrollInterval) {
+          clearInterval(dragState.scrollInterval);
+          dragState.scrollInterval = null;
+        }
+
+        hideDropIndicators(list);
+
+        if (touchClone) {
+          touchClone.remove();
+          touchClone = null;
+        }
+
+        if (touchItem && touchStarted) {
+          touchItem.classList.remove('block-item--placeholder');
+
+          // Find final position
+          const result = getBlockAtY(list, dragState.touchCurrentY, touchItem);
+          if (result) {
+            if (result.position === 'before') {
+              list.insertBefore(touchItem, result.item);
+            } else {
+              list.insertBefore(touchItem, result.item.nextSibling);
+            }
+          }
+
+          if (enableAnimations) {
+            animateReorder(list, touchItem);
+          }
+
+          const newIndex = getItemIndex(touchItem);
+          if (newIndex !== dragState.originalIndex) {
+            const info = getBlockPositionInfo(list, touchItem);
+            announce(`${info.label} moved to position ${info.position} of ${info.total}`);
+          }
+
+          syncAll();
+        }
+
+        touchItem = null;
+        touchStarted = false;
+        dragState.dragging = null;
+        dragState.originalIndex = -1;
+      });
+
+      list.addEventListener('touchcancel', () => {
+        if (dragState.scrollInterval) {
+          clearInterval(dragState.scrollInterval);
+          dragState.scrollInterval = null;
+        }
+
+        hideDropIndicators(list);
+
+        if (touchClone) {
+          touchClone.remove();
+          touchClone = null;
+        }
+
+        if (touchItem) {
+          touchItem.classList.remove('block-item--placeholder');
+        }
+
+        touchItem = null;
+        touchStarted = false;
+        dragState.dragging = null;
+        dragState.originalIndex = -1;
+      });
+    }
   }
 
   if (elements.addSelect) {
@@ -926,12 +1461,20 @@ function initBlockEditor(root: HTMLElement): void {
             list.insertBefore(item, prev);
             syncAll();
             (item.querySelector('[data-block-header]') as HTMLElement)?.focus();
+            const info = getBlockPositionInfo(list, item);
+            announce(`${info.label} moved to position ${info.position} of ${info.total}`);
+          } else {
+            announce('Already at the top');
           }
         } else if (!event.altKey) {
           event.preventDefault();
           const prevItem = item.previousElementSibling as HTMLElement;
           const prevHeader = prevItem?.querySelector<HTMLElement>('[data-block-header]');
-          prevHeader?.focus();
+          if (prevHeader) {
+            prevHeader.focus();
+          } else {
+            announce('At the first block');
+          }
         }
         break;
       case 'ArrowDown':
@@ -942,12 +1485,20 @@ function initBlockEditor(root: HTMLElement): void {
             list.insertBefore(next, item);
             syncAll();
             (item.querySelector('[data-block-header]') as HTMLElement)?.focus();
+            const info = getBlockPositionInfo(list, item);
+            announce(`${info.label} moved to position ${info.position} of ${info.total}`);
+          } else {
+            announce('Already at the bottom');
           }
         } else if (!event.altKey) {
           event.preventDefault();
           const nextItem = item.nextElementSibling as HTMLElement;
           const nextHeader = nextItem?.querySelector<HTMLElement>('[data-block-header]');
-          nextHeader?.focus();
+          if (nextHeader) {
+            nextHeader.focus();
+          } else {
+            announce('At the last block');
+          }
         }
         break;
       case 'Enter':
