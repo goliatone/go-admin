@@ -143,6 +143,8 @@ type CMSPage struct {
 	TranslationGroupID string
 	ParentID           string
 	Blocks             []string
+	EmbeddedBlocks     []map[string]any
+	SchemaVersion      string
 	SEO                map[string]any
 	Status             string
 	Data               map[string]any
@@ -160,6 +162,8 @@ type CMSContent struct {
 	ContentTypeSlug    string
 	Status             string
 	Blocks             []string
+	EmbeddedBlocks     []map[string]any
+	SchemaVersion      string
 	Data               map[string]any
 }
 
@@ -178,11 +182,13 @@ type CMSContentType struct {
 
 // CMSBlockDefinition describes a reusable block schema.
 type CMSBlockDefinition struct {
-	ID     string
-	Name   string
-	Type   string
-	Schema map[string]any
-	Locale string
+	ID              string
+	Name            string
+	Type            string
+	Schema          map[string]any
+	SchemaVersion   string
+	MigrationStatus string
+	Locale          string
 }
 
 // CMSBlock represents a block instance attached to content/pages.
