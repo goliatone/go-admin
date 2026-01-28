@@ -36,6 +36,7 @@ type stubCtx struct {
 	dashboard  DashboardBinding
 	navigation NavigationBinding
 	settings   SettingsBinding
+	registry   SchemaRegistryBinding
 	overrides  FeatureOverridesBinding
 	gates      FeatureGates
 	defaultLoc string
@@ -71,6 +72,9 @@ func (s *stubCtx) BootNotifications() NotificationsBinding {
 func (s *stubCtx) BootActivity() ActivityBinding { return nil }
 func (s *stubCtx) BootJobs() JobsBinding         { return nil }
 func (s *stubCtx) BootSettings() SettingsBinding { return s.settings }
+func (s *stubCtx) BootSchemaRegistry() SchemaRegistryBinding {
+	return s.registry
+}
 func (s *stubCtx) BootFeatureOverrides() FeatureOverridesBinding {
 	return s.overrides
 }
@@ -477,4 +481,55 @@ func TestSettingsRouteStepRegistersRoutesAndParsesBody(t *testing.T) {
 	require.Equal(t, 1, binding.saveCalled)
 	require.NotNil(t, binding.lastBody)
 	require.NotEmpty(t, gates.required)
+}
+
+type stubSchemaRegistryBinding struct {
+	listCalled   int
+	getCalled    int
+	lastResource string
+}
+
+func (s *stubSchemaRegistryBinding) List(_ router.Context) (any, error) {
+	s.listCalled++
+	return map[string]any{"schemas": []map[string]any{{"resource": "content"}}}, nil
+}
+
+func (s *stubSchemaRegistryBinding) Get(_ router.Context, resource string) (any, error) {
+	s.getCalled++
+	s.lastResource = resource
+	return map[string]any{"resource": resource}, nil
+}
+
+func TestSchemaRegistryStepRegistersRoutes(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubSchemaRegistryBinding{}
+	ctx := &stubCtx{
+		router:    rr,
+		responder: resp,
+		basePath:  "/admin",
+		registry:  binding,
+	}
+
+	require.NoError(t, SchemaRegistryStep(ctx))
+	require.Len(t, rr.calls, 2)
+
+	methodPaths := map[string]bool{}
+	for _, call := range rr.calls {
+		methodPaths[call.method+" "+call.path] = true
+	}
+	require.True(t, methodPaths["GET /admin/api/schemas"])
+	require.True(t, methodPaths["GET /admin/api/schemas/:resource"])
+
+	var listHandler router.HandlerFunc
+	for _, call := range rr.calls {
+		if call.method == "GET" && call.path == "/admin/api/schemas" {
+			listHandler = call.handler
+			break
+		}
+	}
+	require.NotNil(t, listHandler)
+	require.NoError(t, listHandler(router.NewMockContext()))
+	require.Equal(t, 1, binding.listCalled)
+	require.Equal(t, 1, resp.jsonCalled)
 }

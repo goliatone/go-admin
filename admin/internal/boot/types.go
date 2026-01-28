@@ -145,6 +145,12 @@ type SettingsBinding interface {
 	Save(router.Context, map[string]any) (map[string]any, error)
 }
 
+// SchemaRegistryBinding exposes schema registry payloads for UI consumers.
+type SchemaRegistryBinding interface {
+	List(router.Context) (any, error)
+	Get(router.Context, string) (any, error)
+}
+
 // FeatureOverridesBinding exposes feature override mutations.
 type FeatureOverridesBinding interface {
 	List(router.Context) (map[string]any, error)
@@ -176,6 +182,7 @@ type BootCtx interface {
 	BootActivity() ActivityBinding
 	BootJobs() JobsBinding
 	BootSettings() SettingsBinding
+	BootSchemaRegistry() SchemaRegistryBinding
 	BootFeatureOverrides() FeatureOverridesBinding
 
 	SettingsWidget() error
