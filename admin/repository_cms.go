@@ -44,7 +44,9 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 	out := make([]map[string]any, 0, len(sliced))
 	for _, page := range sliced {
 		path := resolveCMSPagePath(page)
-		out = append(out, map[string]any{
+		blocksPayload := blocksPayloadFromPage(page)
+		schema := strings.TrimSpace(firstNonEmpty(page.SchemaVersion, toString(page.Data["_schema"])))
+		record := map[string]any{
 			"id":          page.ID,
 			"title":       page.Title,
 			"slug":        page.Slug,
@@ -52,12 +54,16 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 			"template_id": page.TemplateID,
 			"locale":      page.Locale,
 			"parent_id":   page.ParentID,
-			"blocks":      append([]string{}, page.Blocks...),
+			"blocks":      blocksPayload,
 			"seo":         cloneAnyMap(page.SEO),
 			"status":      page.Status,
 			"data":        cloneAnyMap(page.Data),
 			"preview_url": page.PreviewURL,
-		})
+		}
+		if schema != "" {
+			record["_schema"] = schema
+		}
+		out = append(out, record)
 	}
 	return out, total, nil
 }
@@ -77,7 +83,9 @@ func (r *CMSPageRepository) Get(ctx context.Context, id string) (map[string]any,
 		return nil, err
 	}
 	path := resolveCMSPagePath(*page)
-	return map[string]any{
+	blocksPayload := blocksPayloadFromPage(*page)
+	schema := strings.TrimSpace(firstNonEmpty(page.SchemaVersion, toString(page.Data["_schema"])))
+	record := map[string]any{
 		"id":          page.ID,
 		"title":       page.Title,
 		"slug":        page.Slug,
@@ -85,12 +93,16 @@ func (r *CMSPageRepository) Get(ctx context.Context, id string) (map[string]any,
 		"template_id": page.TemplateID,
 		"locale":      page.Locale,
 		"parent_id":   page.ParentID,
-		"blocks":      append([]string{}, page.Blocks...),
+		"blocks":      blocksPayload,
 		"seo":         cloneAnyMap(page.SEO),
 		"status":      page.Status,
 		"data":        cloneAnyMap(page.Data),
 		"preview_url": page.PreviewURL,
-	}, nil
+	}
+	if schema != "" {
+		record["_schema"] = schema
+	}
+	return record, nil
 }
 
 // Create inserts a page with path collision checks.
@@ -110,19 +122,25 @@ func (r *CMSPageRepository) Create(ctx context.Context, record map[string]any) (
 		return nil, err
 	}
 	path := resolveCMSPagePath(*created)
-	return map[string]any{
+	blocksPayload := blocksPayloadFromPage(*created)
+	schema := strings.TrimSpace(firstNonEmpty(created.SchemaVersion, toString(created.Data["_schema"])))
+	out := map[string]any{
 		"id":          created.ID,
 		"title":       created.Title,
 		"slug":        created.Slug,
 		"path":        path,
 		"locale":      created.Locale,
 		"parent_id":   created.ParentID,
-		"blocks":      append([]string{}, created.Blocks...),
+		"blocks":      blocksPayload,
 		"seo":         cloneAnyMap(created.SEO),
 		"status":      created.Status,
 		"data":        cloneAnyMap(created.Data),
 		"preview_url": created.PreviewURL,
-	}, nil
+	}
+	if schema != "" {
+		out["_schema"] = schema
+	}
+	return out, nil
 }
 
 // Update modifies a page while preventing slug/path collisions.
@@ -168,19 +186,25 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 		return nil, err
 	}
 	path := resolveCMSPagePath(*updated)
-	return map[string]any{
+	blocksPayload := blocksPayloadFromPage(*updated)
+	schema := strings.TrimSpace(firstNonEmpty(updated.SchemaVersion, toString(updated.Data["_schema"])))
+	out := map[string]any{
 		"id":          updated.ID,
 		"title":       updated.Title,
 		"slug":        updated.Slug,
 		"path":        path,
 		"locale":      updated.Locale,
 		"parent_id":   updated.ParentID,
-		"blocks":      append([]string{}, updated.Blocks...),
+		"blocks":      blocksPayload,
 		"seo":         cloneAnyMap(updated.SEO),
 		"status":      updated.Status,
 		"data":        cloneAnyMap(updated.Data),
 		"preview_url": updated.PreviewURL,
-	}, nil
+	}
+	if schema != "" {
+		out["_schema"] = schema
+	}
+	return out, nil
 }
 
 // Delete removes a page.
@@ -385,6 +409,8 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 	out := make([]map[string]any, 0, len(sliced))
 	for _, item := range sliced {
 		contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
+		blocksPayload := blocksPayloadFromContent(item)
+		schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
 		record := map[string]any{
 			"id":           item.ID,
 			"title":        item.Title,
@@ -392,8 +418,11 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 			"locale":       item.Locale,
 			"content_type": contentType,
 			"status":       item.Status,
-			"blocks":       append([]string{}, item.Blocks...),
+			"blocks":       blocksPayload,
 			"data":         cloneAnyMap(item.Data),
+		}
+		if schema != "" {
+			record["_schema"] = schema
 		}
 		mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
 		out = append(out, record)
@@ -416,6 +445,8 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 		return nil, err
 	}
 	contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
+	blocksPayload := blocksPayloadFromContent(*item)
+	schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
 	record := map[string]any{
 		"id":           item.ID,
 		"title":        item.Title,
@@ -423,8 +454,11 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 		"locale":       item.Locale,
 		"content_type": contentType,
 		"status":       item.Status,
-		"blocks":       append([]string{}, item.Blocks...),
+		"blocks":       blocksPayload,
 		"data":         cloneAnyMap(item.Data),
+	}
+	if schema != "" {
+		record["_schema"] = schema
 	}
 	mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
 	return record, nil
@@ -441,6 +475,8 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 		return nil, err
 	}
 	contentType := firstNonEmpty(created.ContentTypeSlug, created.ContentType)
+	blocksPayload := blocksPayloadFromContent(*created)
+	schema := strings.TrimSpace(firstNonEmpty(created.SchemaVersion, toString(created.Data["_schema"])))
 	createdRecord := map[string]any{
 		"id":           created.ID,
 		"title":        created.Title,
@@ -448,8 +484,11 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 		"locale":       created.Locale,
 		"content_type": contentType,
 		"status":       created.Status,
-		"blocks":       append([]string{}, created.Blocks...),
+		"blocks":       blocksPayload,
 		"data":         cloneAnyMap(created.Data),
+	}
+	if schema != "" {
+		createdRecord["_schema"] = schema
 	}
 	mergeCMSRecordData(createdRecord, created.Data, cmsContentReservedKeys)
 	return createdRecord, nil
@@ -492,6 +531,8 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 		return nil, err
 	}
 	contentType := firstNonEmpty(updated.ContentTypeSlug, updated.ContentType)
+	blocksPayload := blocksPayloadFromContent(*updated)
+	schema := strings.TrimSpace(firstNonEmpty(updated.SchemaVersion, toString(updated.Data["_schema"])))
 	updatedRecord := map[string]any{
 		"id":           updated.ID,
 		"title":        updated.Title,
@@ -499,8 +540,11 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 		"locale":       updated.Locale,
 		"content_type": contentType,
 		"status":       updated.Status,
-		"blocks":       append([]string{}, updated.Blocks...),
+		"blocks":       blocksPayload,
 		"data":         cloneAnyMap(updated.Data),
+	}
+	if schema != "" {
+		updatedRecord["_schema"] = schema
 	}
 	mergeCMSRecordData(updatedRecord, updated.Data, cmsContentReservedKeys)
 	return updatedRecord, nil
@@ -517,11 +561,12 @@ func (r *CMSContentRepository) Delete(ctx context.Context, id string) error {
 // CMSBlockDefinitionRepository manages block definitions through CMSContentService.
 type CMSBlockDefinitionRepository struct {
 	content CMSContentService
+	types   CMSContentTypeService
 }
 
 // NewCMSBlockDefinitionRepository builds a block definition repository.
-func NewCMSBlockDefinitionRepository(content CMSContentService) *CMSBlockDefinitionRepository {
-	return &CMSBlockDefinitionRepository{content: content}
+func NewCMSBlockDefinitionRepository(content CMSContentService, types CMSContentTypeService) *CMSBlockDefinitionRepository {
+	return &CMSBlockDefinitionRepository{content: content, types: types}
 }
 
 // List returns block definitions.
@@ -541,15 +586,56 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 		}
 		filtered = append(filtered, def)
 	}
+	allowedTypes := map[string]struct{}{}
+	restricted := false
+	if opts.Filters != nil && r.types != nil {
+		contentTypeKey := strings.TrimSpace(toString(opts.Filters["content_type"]))
+		if contentTypeKey == "" {
+			contentTypeKey = strings.TrimSpace(toString(opts.Filters["content_type_slug"]))
+		}
+		if contentTypeKey == "" {
+			contentTypeKey = strings.TrimSpace(toString(opts.Filters["content_type_id"]))
+		}
+		if contentTypeKey != "" {
+			if ct := r.resolveContentType(ctx, contentTypeKey); ct != nil {
+				if types, ok := blockTypesFromContentType(*ct); ok {
+					restricted = true
+					for _, t := range types {
+						if trimmed := strings.ToLower(strings.TrimSpace(t)); trimmed != "" {
+							allowedTypes[trimmed] = struct{}{}
+						}
+					}
+				}
+			}
+		}
+	}
+	if restricted {
+		filteredDefs := make([]CMSBlockDefinition, 0, len(filtered))
+		for _, def := range filtered {
+			if len(allowedTypes) == 0 {
+				break
+			}
+			if defType := strings.ToLower(strings.TrimSpace(blockDefinitionType(def))); defType != "" {
+				if _, ok := allowedTypes[defType]; ok {
+					filteredDefs = append(filteredDefs, def)
+				}
+			}
+		}
+		filtered = filteredDefs
+	}
 	sliced, total := paginateCMS(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, def := range sliced {
+		schemaVersion := blockDefinitionSchemaVersion(def)
+		migrationStatus := blockDefinitionMigrationStatus(def)
 		out = append(out, map[string]any{
-			"id":     def.ID,
-			"name":   def.Name,
-			"type":   def.Type,
-			"schema": cloneAnyMap(def.Schema),
-			"locale": def.Locale,
+			"id":               def.ID,
+			"name":             def.Name,
+			"type":             def.Type,
+			"schema":           cloneAnyMap(def.Schema),
+			"schema_version":   schemaVersion,
+			"migration_status": migrationStatus,
+			"locale":           def.Locale,
 		})
 	}
 	return out, total, nil
@@ -579,12 +665,16 @@ func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[st
 	if err != nil {
 		return nil, err
 	}
+	schemaVersion := blockDefinitionSchemaVersion(*created)
+	migrationStatus := blockDefinitionMigrationStatus(*created)
 	return map[string]any{
-		"id":     created.ID,
-		"name":   created.Name,
-		"type":   created.Type,
-		"schema": cloneAnyMap(created.Schema),
-		"locale": created.Locale,
+		"id":               created.ID,
+		"name":             created.Name,
+		"type":             created.Type,
+		"schema":           cloneAnyMap(created.Schema),
+		"schema_version":   schemaVersion,
+		"migration_status": migrationStatus,
+		"locale":           created.Locale,
 	}, nil
 }
 
@@ -599,12 +689,16 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 	if err != nil {
 		return nil, err
 	}
+	schemaVersion := blockDefinitionSchemaVersion(*updated)
+	migrationStatus := blockDefinitionMigrationStatus(*updated)
 	return map[string]any{
-		"id":     updated.ID,
-		"name":   updated.Name,
-		"type":   updated.Type,
-		"schema": cloneAnyMap(updated.Schema),
-		"locale": updated.Locale,
+		"id":               updated.ID,
+		"name":             updated.Name,
+		"type":             updated.Type,
+		"schema":           cloneAnyMap(updated.Schema),
+		"schema_version":   schemaVersion,
+		"migration_status": migrationStatus,
+		"locale":           updated.Locale,
 	}, nil
 }
 
@@ -614,6 +708,31 @@ func (r *CMSBlockDefinitionRepository) Delete(ctx context.Context, id string) er
 		return ErrNotFound
 	}
 	return r.content.DeleteBlockDefinition(ctx, id)
+}
+
+func (r *CMSBlockDefinitionRepository) resolveContentType(ctx context.Context, key string) *CMSContentType {
+	if r == nil || r.types == nil || strings.TrimSpace(key) == "" {
+		return nil
+	}
+	key = strings.TrimSpace(key)
+	if ct, err := r.types.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
+		return ct
+	}
+	if ct, err := r.types.ContentType(ctx, key); err == nil && ct != nil {
+		return ct
+	}
+	types, err := r.types.ContentTypes(ctx)
+	if err != nil {
+		return nil
+	}
+	needle := strings.ToLower(key)
+	for _, ct := range types {
+		if strings.ToLower(ct.Slug) == needle || strings.ToLower(ct.Name) == needle || strings.ToLower(ct.ID) == needle {
+			copy := ct
+			return &copy
+		}
+	}
+	return nil
 }
 
 // CMSBlockRepository manages blocks assigned to content/pages.
@@ -1105,13 +1224,16 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	if status, ok := record["status"].(string); ok {
 		page.Status = status
 	}
-	if blocks, ok := record["blocks"].([]string); ok {
-		page.Blocks = append([]string{}, blocks...)
-	} else if blocksAny, ok := record["blocks"].([]any); ok {
-		for _, b := range blocksAny {
-			if bs, ok := b.(string); ok {
-				page.Blocks = append(page.Blocks, bs)
+	if rawBlocks, ok := record["blocks"]; ok {
+		legacy, embedded, embeddedPresent := parseBlocksPayload(rawBlocks)
+		if embeddedPresent {
+			page.EmbeddedBlocks = embedded
+			if page.Data == nil {
+				page.Data = map[string]any{}
 			}
+			page.Data["blocks"] = embedded
+		} else if len(legacy) > 0 {
+			page.Blocks = legacy
 		}
 	}
 	if seo, ok := record["seo"].(map[string]any); ok {
@@ -1119,6 +1241,24 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	}
 	if data, ok := record["data"].(map[string]any); ok {
 		page.Data = cloneAnyMap(data)
+	}
+	if page.EmbeddedBlocks == nil {
+		if embedded, present := embeddedBlocksFromData(page.Data); present {
+			page.EmbeddedBlocks = embedded
+		}
+	}
+	if page.EmbeddedBlocks != nil {
+		if page.Data == nil {
+			page.Data = map[string]any{}
+		}
+		page.Data["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
+	}
+	if schema := schemaVersionFromRecord(record, page.Data); schema != "" {
+		page.SchemaVersion = schema
+		if page.Data == nil {
+			page.Data = map[string]any{}
+		}
+		page.Data["_schema"] = schema
 	}
 	if path, ok := record["path"].(string); ok && strings.TrimSpace(path) != "" {
 		page.Data["path"] = path
@@ -1168,6 +1308,9 @@ func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) C
 	}
 	if !recordHasKey(record, "blocks") {
 		page.Blocks = append([]string{}, existing.Blocks...)
+		if page.EmbeddedBlocks == nil && existing.EmbeddedBlocks != nil {
+			page.EmbeddedBlocks = cloneEmbeddedBlocks(existing.EmbeddedBlocks)
+		}
 	}
 	if !recordHasKey(record, "template_id") && !recordHasKey(record, "template") {
 		page.TemplateID = existing.TemplateID
@@ -1177,10 +1320,33 @@ func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) C
 	} else {
 		page.SEO = cloneAnyMap(existing.SEO)
 	}
-	if recordHasKey(record, "data") || recordHasKey(record, "path") {
+	if recordHasKey(record, "data") || recordHasKey(record, "path") || recordHasKey(record, "blocks") || recordHasKey(record, "_schema") {
 		page.Data = mergeAnyMap(existing.Data, page.Data)
 	} else {
 		page.Data = cloneAnyMap(existing.Data)
+	}
+	if page.SchemaVersion == "" && !recordHasKey(record, "_schema") {
+		page.SchemaVersion = existing.SchemaVersion
+	}
+	if page.SchemaVersion == "" {
+		page.SchemaVersion = strings.TrimSpace(toString(page.Data["_schema"]))
+	}
+	if page.SchemaVersion != "" {
+		if page.Data == nil {
+			page.Data = map[string]any{}
+		}
+		page.Data["_schema"] = page.SchemaVersion
+	}
+	if page.EmbeddedBlocks == nil && page.Data != nil {
+		if embedded, present := embeddedBlocksFromData(page.Data); present {
+			page.EmbeddedBlocks = embedded
+		}
+	}
+	if page.EmbeddedBlocks != nil {
+		if page.Data == nil {
+			page.Data = map[string]any{}
+		}
+		page.Data["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
 	}
 	return page
 }
@@ -1198,6 +1364,7 @@ var cmsContentReservedKeys = map[string]struct{}{
 	"blocks":               {},
 	"data":                 {},
 	"schema":               {},
+	"_schema":              {},
 }
 
 func mapToCMSContent(record map[string]any) CMSContent {
@@ -1242,17 +1409,38 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	if content.ContentType == "" && content.ContentTypeSlug != "" {
 		content.ContentType = content.ContentTypeSlug
 	}
-	if blocks, ok := record["blocks"].([]string); ok {
-		content.Blocks = append([]string{}, blocks...)
-	} else if blocksAny, ok := record["blocks"].([]any); ok {
-		for _, b := range blocksAny {
-			if bs, ok := b.(string); ok {
-				content.Blocks = append(content.Blocks, bs)
+	if rawBlocks, ok := record["blocks"]; ok {
+		legacy, embedded, embeddedPresent := parseBlocksPayload(rawBlocks)
+		if embeddedPresent {
+			content.EmbeddedBlocks = embedded
+			if content.Data == nil {
+				content.Data = map[string]any{}
 			}
+			content.Data["blocks"] = embedded
+		} else if len(legacy) > 0 {
+			content.Blocks = legacy
 		}
 	}
 	if data, ok := record["data"].(map[string]any); ok {
 		content.Data = cloneAnyMap(data)
+	}
+	if content.EmbeddedBlocks == nil {
+		if embedded, present := embeddedBlocksFromData(content.Data); present {
+			content.EmbeddedBlocks = embedded
+		}
+	}
+	if content.EmbeddedBlocks != nil {
+		if content.Data == nil {
+			content.Data = map[string]any{}
+		}
+		content.Data["blocks"] = cloneEmbeddedBlocks(content.EmbeddedBlocks)
+	}
+	if schema := schemaVersionFromRecord(record, content.Data); schema != "" {
+		content.SchemaVersion = schema
+		if content.Data == nil {
+			content.Data = map[string]any{}
+		}
+		content.Data["_schema"] = schema
 	}
 	for key, val := range record {
 		if _, skip := cmsContentReservedKeys[key]; skip {
@@ -1287,6 +1475,9 @@ func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[s
 	}
 	if !recordHasKey(record, "blocks") {
 		content.Blocks = append([]string{}, existing.Blocks...)
+		if content.EmbeddedBlocks == nil && existing.EmbeddedBlocks != nil {
+			content.EmbeddedBlocks = cloneEmbeddedBlocks(existing.EmbeddedBlocks)
+		}
 	}
 	if !recordHasKey(record, "content_type") && !recordHasKey(record, "content_type_slug") && !recordHasKey(record, "content_type_id") {
 		content.ContentType = existing.ContentType
@@ -1296,6 +1487,29 @@ func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[s
 		content.Data = mergeAnyMap(existing.Data, content.Data)
 	} else {
 		content.Data = cloneAnyMap(existing.Data)
+	}
+	if content.SchemaVersion == "" && !recordHasKey(record, "_schema") {
+		content.SchemaVersion = existing.SchemaVersion
+	}
+	if content.SchemaVersion == "" {
+		content.SchemaVersion = strings.TrimSpace(toString(content.Data["_schema"]))
+	}
+	if content.SchemaVersion != "" {
+		if content.Data == nil {
+			content.Data = map[string]any{}
+		}
+		content.Data["_schema"] = content.SchemaVersion
+	}
+	if content.EmbeddedBlocks == nil && content.Data != nil {
+		if embedded, present := embeddedBlocksFromData(content.Data); present {
+			content.EmbeddedBlocks = embedded
+		}
+	}
+	if content.EmbeddedBlocks != nil {
+		if content.Data == nil {
+			content.Data = map[string]any{}
+		}
+		content.Data["blocks"] = cloneEmbeddedBlocks(content.EmbeddedBlocks)
 	}
 	content.Data = pruneNilMapValues(content.Data)
 	return content
@@ -1312,6 +1526,12 @@ func recordHasKey(record map[string]any, key string) bool {
 func cmsContentDataUpdated(record map[string]any) bool {
 	if record == nil {
 		return false
+	}
+	if _, ok := record["_schema"]; ok {
+		return true
+	}
+	if _, ok := record["blocks"]; ok {
+		return true
 	}
 	if _, ok := record["data"]; ok {
 		return true
@@ -1366,6 +1586,46 @@ func mergeCMSRecordData(record map[string]any, data map[string]any, reserved map
 		}
 		record[key] = val
 	}
+}
+
+func schemaVersionFromRecord(record map[string]any, data map[string]any) string {
+	if record != nil {
+		if schema := strings.TrimSpace(toString(record["_schema"])); schema != "" {
+			return schema
+		}
+	}
+	if data != nil {
+		if schema := strings.TrimSpace(toString(data["_schema"])); schema != "" {
+			return schema
+		}
+	}
+	return ""
+}
+
+func blocksPayloadFromContent(content CMSContent) any {
+	if content.EmbeddedBlocks != nil {
+		return cloneEmbeddedBlocks(content.EmbeddedBlocks)
+	}
+	if embedded, present := embeddedBlocksFromData(content.Data); present {
+		return embedded
+	}
+	if content.Blocks != nil {
+		return append([]string{}, content.Blocks...)
+	}
+	return nil
+}
+
+func blocksPayloadFromPage(page CMSPage) any {
+	if page.EmbeddedBlocks != nil {
+		return cloneEmbeddedBlocks(page.EmbeddedBlocks)
+	}
+	if embedded, present := embeddedBlocksFromData(page.Data); present {
+		return embedded
+	}
+	if page.Blocks != nil {
+		return append([]string{}, page.Blocks...)
+	}
+	return nil
 }
 
 func resolveCMSPagePath(page CMSPage) string {
@@ -1448,6 +1708,12 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 		if err := json.Unmarshal([]byte(raw), &m); err == nil {
 			def.Schema = m
 		}
+	}
+	if version, ok := record["schema_version"].(string); ok {
+		def.SchemaVersion = version
+	}
+	if status, ok := record["migration_status"].(string); ok {
+		def.MigrationStatus = status
 	}
 	if locale, ok := record["locale"].(string); ok {
 		def.Locale = locale
