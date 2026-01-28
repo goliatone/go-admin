@@ -21,6 +21,7 @@ type blockDefinition struct {
 	Label     string
 	Icon      string
 	Collapsed bool
+	Schema    string
 	HTML      string
 }
 
@@ -162,6 +163,8 @@ func blockDefinitionsFromField(field model.Field, renderChild func(any) (string,
 			collapsed = parseHintBool(candidate.UIHints["collapsed"])
 		}
 
+		schemaVersion := blockSchemaVersionFromField(candidate)
+
 		html, err := renderBlockFields(candidate, renderChild)
 		if err != nil {
 			return nil, err
@@ -172,6 +175,7 @@ func blockDefinitionsFromField(field model.Field, renderChild func(any) (string,
 			Label:     label,
 			Icon:      icon,
 			Collapsed: collapsed,
+			Schema:    schemaVersion,
 			HTML:      html,
 		})
 	}
@@ -250,6 +254,57 @@ func blockTypeFromField(field model.Field) string {
 func blockTypeFromNested(fields []model.Field) string {
 	for _, nested := range fields {
 		if nested.Name != "_type" {
+			continue
+		}
+		if value, ok := nested.Default.(string); ok {
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				return trimmed
+			}
+		}
+		if len(nested.Enum) == 1 {
+			if value, ok := nested.Enum[0].(string); ok {
+				if trimmed := strings.TrimSpace(value); trimmed != "" {
+					return trimmed
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func blockSchemaVersionFromField(field model.Field) string {
+	if field.Metadata != nil {
+		for _, key := range []string{
+			"schema_version",
+			"schema.version",
+			"schemaVersion",
+			"metadata.schema_version",
+			"metadata.schemaVersion",
+		} {
+			if value := strings.TrimSpace(field.Metadata[key]); value != "" {
+				return value
+			}
+		}
+	}
+	if field.UIHints != nil {
+		for _, key := range []string{
+			"schemaVersion",
+			"schema_version",
+		} {
+			if value := strings.TrimSpace(field.UIHints[key]); value != "" {
+				return value
+			}
+		}
+	}
+	if nested := schemaVersionFromNested(field.Nested); nested != "" {
+		return nested
+	}
+	return ""
+}
+
+func schemaVersionFromNested(fields []model.Field) string {
+	for _, nested := range fields {
+		if nested.Name != "_schema" {
 			continue
 		}
 		if value, ok := nested.Default.(string); ok {
