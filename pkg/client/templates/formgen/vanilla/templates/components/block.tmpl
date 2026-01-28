@@ -18,7 +18,7 @@
 
     {% if blocks and blocks|length > 0 %}
         {% for block in blocks %}
-        <template data-block-template="true" data-block-type="{{ block.type }}"{% if block.label %} data-block-label="{{ block.label }}"{% endif %}{% if block.icon %} data-block-icon="{{ block.icon }}"{% endif %}{% if block.collapsed %} data-block-collapsed="true"{% endif %}>
+        <template data-block-template="true" data-block-type="{{ block.type }}"{% if block.label %} data-block-label="{{ block.label }}"{% endif %}{% if block.icon %} data-block-icon="{{ block.icon }}"{% endif %}{% if block.collapsed %} data-block-collapsed="true"{% endif %}{% if block.schema %} data-block-schema-version="{{ block.schema }}"{% endif %}>
             <div class="space-y-4" data-block-fields="true">
                 {{ block.html|safe }}
             </div>

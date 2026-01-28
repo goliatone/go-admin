@@ -28,6 +28,10 @@ function setGlobals(win) {
   globalThis.HTMLTemplateElement = win.HTMLTemplateElement;
   globalThis.Event = win.Event;
   globalThis.MouseEvent = win.MouseEvent;
+  globalThis.MutationObserver = win.MutationObserver;
+  globalThis.requestAnimationFrame = win.requestAnimationFrame
+    ? win.requestAnimationFrame.bind(win)
+    : (cb) => setTimeout(cb, 0);
 }
 
 function setupEditor(html) {
@@ -140,4 +144,23 @@ test('block editor reorders blocks with move controls', () => {
   const payload = getOutputPayload(doc);
   assert.equal(payload[0]._type, 'gallery');
   assert.equal(payload[1]._type, 'hero');
+});
+
+test('block editor preserves existing _schema on edits', () => {
+  const initial = JSON.stringify([
+    { _type: 'hero', _schema: 'hero@v2.0.0', title: 'Old' },
+  ]);
+  const dom = setupEditor(editorMarkup(initial));
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const item = doc.querySelector('[data-block-item]');
+  const titleInput = item.querySelector('[data-block-field-name="title"], input[name="title"], input[name^="blocks"]');
+  titleInput.value = 'Updated';
+  input(titleInput);
+
+  const payload = getOutputPayload(doc);
+  assert.equal(payload.length, 1);
+  assert.equal(payload[0]._schema, 'hero@v2.0.0');
+  assert.equal(payload[0].title, 'Updated');
 });
