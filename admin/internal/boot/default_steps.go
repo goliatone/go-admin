@@ -6,6 +6,7 @@ func DefaultBootSteps() []Step {
 		PrepareStep,
 		HealthStep,
 		PanelStep,
+		SchemaRegistryStep,
 		WidgetAreasStep,
 		WidgetDefinitionsStep,
 		DashboardProvidersStep,
