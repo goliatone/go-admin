@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -239,7 +240,31 @@ func blocksConflict(embedded []map[string]any, legacy []CMSBlock, embeddedTypes 
 			return true
 		}
 	}
+	for idx := range embedded {
+		embeddedPayload := normalizeBlockPayload(embedded[idx])
+		var legacyPayload map[string]any
+		if idx < len(legacy) {
+			legacyPayload = normalizeBlockPayload(legacy[idx].Data)
+		}
+		if !reflect.DeepEqual(embeddedPayload, legacyPayload) {
+			return true
+		}
+	}
 	return false
+}
+
+func normalizeBlockPayload(payload map[string]any) map[string]any {
+	if payload == nil {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(payload))
+	for key, value := range payload {
+		if strings.HasPrefix(key, "_") {
+			continue
+		}
+		out[key] = value
+	}
+	return out
 }
 
 func (r *CMSBlockConflictRepository) legacyBlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
