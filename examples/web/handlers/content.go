@@ -105,6 +105,9 @@ func (h *PageHandlers) Create(c router.Context) error {
 		"parent_id":            c.FormValue("parent_id"),
 		"translation_group_id": c.FormValue("translation_group_id"),
 	}
+	if blocks := strings.TrimSpace(c.FormValue("blocks")); blocks != "" {
+		record["blocks"] = blocks
+	}
 	panel, err := resolvePanel(h.Admin, "pages")
 	if err != nil {
 		return err
@@ -201,6 +204,9 @@ func (h *PageHandlers) Update(c router.Context) error {
 		"template_id":          c.FormValue("template_id"),
 		"parent_id":            c.FormValue("parent_id"),
 		"translation_group_id": c.FormValue("translation_group_id"),
+	}
+	if blocks := strings.TrimSpace(c.FormValue("blocks")); blocks != "" {
+		updated["blocks"] = blocks
 	}
 	applyWorkflowTransition(updated, strings.ToLower(anyToString(existing["status"])), targetStatus)
 	panel, err := resolvePanel(h.Admin, "pages")
@@ -357,6 +363,9 @@ func (h *PostHandlers) Create(c router.Context) error {
 		"locale":               locale,
 		"translation_group_id": c.FormValue("translation_group_id"),
 	}
+	if blocks := strings.TrimSpace(c.FormValue("blocks")); blocks != "" {
+		record["blocks"] = blocks
+	}
 	panel, err := resolvePanel(h.Admin, "posts")
 	if err != nil {
 		return err
@@ -463,6 +472,9 @@ func (h *PostHandlers) Update(c router.Context) error {
 		"meta_description":     c.FormValue("meta_description"),
 		"locale":               locale,
 		"translation_group_id": c.FormValue("translation_group_id"),
+	}
+	if blocks := strings.TrimSpace(c.FormValue("blocks")); blocks != "" {
+		updated["blocks"] = blocks
 	}
 	applyWorkflowTransition(updated, strings.ToLower(anyToString(existing["status"])), targetStatus)
 	panel, err := resolvePanel(h.Admin, "posts")

@@ -427,6 +427,16 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	if publishedAt != nil {
 		payloadData["published_at"] = publishedAt
 	}
+
+	if legacy, embedded, embeddedPresent := parseBlocksPayload(record["blocks"]); embeddedPresent {
+		payloadData["blocks"] = embedded
+	} else if len(legacy) > 0 {
+		payload["blocks"] = legacy
+	} else if embedded, ok := extractEmbeddedBlocks(existing["blocks"]); ok {
+		payloadData["blocks"] = embedded
+	} else if existingBlocks, ok := existing["blocks"].([]string); ok && len(existingBlocks) > 0 {
+		payload["blocks"] = append([]string{}, existingBlocks...)
+	}
 	return payload
 }
 
@@ -468,6 +478,14 @@ func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
 		record["path"] = path
 	} else if slug := strings.TrimPrefix(content.Slug, "/"); slug != "" {
 		record["path"] = "/posts/" + slug
+	}
+
+	if embedded, ok := extractEmbeddedBlocks(data["blocks"]); ok {
+		record["blocks"] = embedded
+	} else if len(content.EmbeddedBlocks) > 0 {
+		record["blocks"] = cloneEmbeddedBlocks(content.EmbeddedBlocks)
+	} else if len(content.Blocks) > 0 {
+		record["blocks"] = append([]string{}, content.Blocks...)
 	}
 
 	if created := parseTimeValue(data["created_at"]); !created.IsZero() {

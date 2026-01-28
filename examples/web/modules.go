@@ -268,6 +268,11 @@ func (m *pagesModule) Register(ctx admin.ModuleContext) error {
 		return err
 	}
 
+	if reg := ctx.Admin.Registry(); reg != nil {
+		if _, exists := reg.Panel("pages"); exists {
+			return nil
+		}
+	}
 	_, err := ctx.Admin.RegisterPanel("pages", setup.NewPagesPanelBuilder(m.store))
 	return err
 }
@@ -368,6 +373,11 @@ func (m *postsModule) Register(ctx admin.ModuleContext) error {
 		return err
 	}
 
+	if reg := ctx.Admin.Registry(); reg != nil {
+		if _, exists := reg.Panel("posts"); exists {
+			return nil
+		}
+	}
 	_, err := ctx.Admin.RegisterPanel("posts", setup.NewPostsPanelBuilder(m.store))
 	return err
 }
