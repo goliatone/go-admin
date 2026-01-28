@@ -183,6 +183,9 @@ func (a *Admin) handlePublicPreview(c router.Context) error {
 		if err != nil {
 			return writeError(c, err)
 		}
+		if page != nil {
+			applyEmbeddedBlocksToPage(page)
+		}
 		return writeJSON(c, page)
 	}
 
@@ -190,6 +193,9 @@ func (a *Admin) handlePublicPreview(c router.Context) error {
 		content, err := a.contentSvc.Content(c.Context(), token.ContentID, locale)
 		if err != nil {
 			return writeError(c, err)
+		}
+		if content != nil {
+			applyEmbeddedBlocksToContent(content)
 		}
 		return writeJSON(c, content)
 	}
@@ -303,6 +309,7 @@ func (a *Admin) listPublicContents(ctx context.Context, locale, contentType, cat
 				continue
 			}
 		}
+		applyEmbeddedBlocksToContent(&cnt)
 		out = append(out, cnt)
 	}
 	return out, nil
@@ -331,6 +338,7 @@ func (a *Admin) listPublicPages(ctx context.Context, locale string, includeDraft
 		if !allowPublicStatus(page.Status, includeDrafts) {
 			continue
 		}
+		applyEmbeddedBlocksToPage(&page)
 		out = append(out, page)
 	}
 	return out, nil
