@@ -23,7 +23,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	pageBody := `{"title":"Draft Page","slug":"draft-page","path":"/draft-page","status":"draft","locale":"en"}`
+	pageBody := `{"title":"Draft Page","slug":"draft-page","path":"/draft-page","status":"draft","locale":"en","blocks":[{"_type":"hero","title":"Hello"}]}`
 	createReq := httptest.NewRequest("POST", "/admin/api/pages", strings.NewReader(pageBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRes := httptest.NewRecorder()
@@ -40,6 +40,23 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 	if pageSlug == "" {
 		pageSlug = "draft-page"
+	}
+	if blocks := extractBlocks(created); len(blocks) != 1 {
+		t.Fatalf("expected embedded blocks on create, got %+v", created)
+	}
+
+	updateBody := `{"blocks":[{"_type":"hero","title":"Updated"}]}`
+	updateReq := httptest.NewRequest("PUT", "/admin/api/pages/"+pageID, strings.NewReader(updateBody))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(updateRes, updateReq)
+	if updateRes.Code != http.StatusOK {
+		t.Fatalf("update page status: %d body=%s", updateRes.Code, updateRes.Body.String())
+	}
+	updated := decodeJSONMap(t, updateRes)
+	updatedBlocks := extractBlocks(updated)
+	if len(updatedBlocks) != 1 || toString(updatedBlocks[0]["title"]) != "Updated" {
+		t.Fatalf("expected updated embedded blocks, got %+v", updatedBlocks)
 	}
 
 	publicReq := httptest.NewRequest("GET", "/api/v1/pages/"+pageSlug, nil)
@@ -72,6 +89,10 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	if previewID != pageID {
 		t.Fatalf("expected preview id %q, got %+v", pageID, adminPreview)
 	}
+	adminBlocks := extractBlocks(adminPreview)
+	if len(adminBlocks) != 1 || toString(adminBlocks[0]["title"]) != "Updated" {
+		t.Fatalf("expected preview blocks to include updated payload, got %+v", adminBlocks)
+	}
 
 	publicPreviewReq := httptest.NewRequest("GET", "/api/v1/preview/"+token, nil)
 	publicPreviewRes := httptest.NewRecorder()
@@ -82,6 +103,10 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	publicPreview := decodeJSONMap(t, publicPreviewRes)
 	if previewID := extractPreviewID(publicPreview); previewID != pageID {
 		t.Fatalf("expected public preview id %q, got %+v", pageID, publicPreview)
+	}
+	publicBlocks := extractBlocks(publicPreview)
+	if len(publicBlocks) != 1 || toString(publicBlocks[0]["title"]) != "Updated" {
+		t.Fatalf("expected public preview blocks to include updated payload, got %+v", publicBlocks)
 	}
 
 	workflowReq := httptest.NewRequest("POST", "/admin/api/pages/actions/submit_for_approval", strings.NewReader(`{"id":"`+pageID+`"}`))
@@ -115,6 +140,11 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	if publicRes.Code != http.StatusOK {
 		t.Fatalf("expected published page, got %d body=%s", publicRes.Code, publicRes.Body.String())
+	}
+	publicPage := decodeJSONMap(t, publicRes)
+	publishedBlocks := extractBlocks(publicPage)
+	if len(publishedBlocks) != 1 || toString(publishedBlocks[0]["title"]) != "Updated" {
+		t.Fatalf("expected published blocks to include updated payload, got %+v", publishedBlocks)
 	}
 }
 
@@ -162,4 +192,45 @@ func extractPreviewID(payload map[string]any) string {
 		return id
 	}
 	return toString(payload["ID"])
+}
+
+func extractBlocks(payload map[string]any) []map[string]any {
+	if payload == nil {
+		return nil
+	}
+	if data, ok := payload["data"].(map[string]any); ok {
+		if blocks := extractBlocksFromAny(data["blocks"]); len(blocks) > 0 {
+			return blocks
+		}
+		if blocks := extractBlocksFromAny(data["EmbeddedBlocks"]); len(blocks) > 0 {
+			return blocks
+		}
+		if blocks := extractBlocksFromAny(data["embedded_blocks"]); len(blocks) > 0 {
+			return blocks
+		}
+	}
+	if blocks := extractBlocksFromAny(payload["blocks"]); len(blocks) > 0 {
+		return blocks
+	}
+	if blocks := extractBlocksFromAny(payload["EmbeddedBlocks"]); len(blocks) > 0 {
+		return blocks
+	}
+	return extractBlocksFromAny(payload["embedded_blocks"])
+}
+
+func extractBlocksFromAny(raw any) []map[string]any {
+	switch typed := raw.(type) {
+	case []map[string]any:
+		return typed
+	case []any:
+		out := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			if block, ok := item.(map[string]any); ok {
+				out = append(out, block)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }

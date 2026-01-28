@@ -1055,6 +1055,51 @@ func (s *InMemoryContentService) DeleteBlockDefinition(ctx context.Context, id s
 // BlocksForContent returns blocks attached to a content/page.
 func (s *InMemoryContentService) BlocksForContent(_ context.Context, contentID, locale string) ([]CMSBlock, error) {
 	s.mu.Lock()
+	if page, ok := s.pages[contentID]; ok {
+		embedded, present := embeddedBlocksFromData(page.Data)
+		if !present && page.EmbeddedBlocks != nil {
+			embedded = cloneEmbeddedBlocks(page.EmbeddedBlocks)
+			present = true
+		}
+		if present {
+			s.mu.Unlock()
+			return embeddedBlocksToCMSBlocks(contentID, locale, embedded), nil
+		}
+	}
+	if content, ok := s.contents[contentID]; ok {
+		embedded, present := embeddedBlocksFromData(content.Data)
+		if !present && content.EmbeddedBlocks != nil {
+			embedded = cloneEmbeddedBlocks(content.EmbeddedBlocks)
+			present = true
+		}
+		if present {
+			s.mu.Unlock()
+			return embeddedBlocksToCMSBlocks(contentID, locale, embedded), nil
+		}
+	}
+	out := []CMSBlock{}
+	for _, block := range s.blocks {
+		if block.ContentID != contentID {
+			continue
+		}
+		if locale != "" && block.Locale != "" && block.Locale != locale {
+			continue
+		}
+		out = append(out, cloneCMSBlock(block))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Position == out[j].Position {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].Position < out[j].Position
+	})
+	s.mu.Unlock()
+	return out, nil
+}
+
+// LegacyBlocksForContent returns legacy block instances without embedded fallback.
+func (s *InMemoryContentService) LegacyBlocksForContent(_ context.Context, contentID, locale string) ([]CMSBlock, error) {
+	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := []CMSBlock{}
 	for _, block := range s.blocks {
@@ -1118,6 +1163,9 @@ func cloneCMSPage(in CMSPage) CMSPage {
 	if in.Blocks != nil {
 		out.Blocks = append([]string{}, in.Blocks...)
 	}
+	if in.EmbeddedBlocks != nil {
+		out.EmbeddedBlocks = cloneEmbeddedBlocks(in.EmbeddedBlocks)
+	}
 	if in.SEO != nil {
 		out.SEO = make(map[string]any, len(in.SEO))
 		for k, v := range in.SEO {
@@ -1137,6 +1185,9 @@ func cloneCMSContent(in CMSContent) CMSContent {
 	out := in
 	if in.Blocks != nil {
 		out.Blocks = append([]string{}, in.Blocks...)
+	}
+	if in.EmbeddedBlocks != nil {
+		out.EmbeddedBlocks = cloneEmbeddedBlocks(in.EmbeddedBlocks)
 	}
 	if in.Data != nil {
 		out.Data = make(map[string]any, len(in.Data))
