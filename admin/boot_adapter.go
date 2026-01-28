@@ -135,6 +135,11 @@ func (a *Admin) BootSettings() boot.SettingsBinding {
 	return newSettingsBinding(a)
 }
 
+// BootSchemaRegistry exposes schema registry bindings.
+func (a *Admin) BootSchemaRegistry() boot.SchemaRegistryBinding {
+	return newSchemaRegistryBinding(a)
+}
+
 // BootFeatureOverrides exposes the feature overrides binding.
 func (a *Admin) BootFeatureOverrides() boot.FeatureOverridesBinding {
 	return newFeatureOverridesBinding(a)
