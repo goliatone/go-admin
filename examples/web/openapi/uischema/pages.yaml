@@ -60,6 +60,11 @@ operations:
         grid:
           span: 6
         widget: textarea
+      blocks:
+        order: 11
+        grid:
+          span: 12
+        widget: block
 
   updatePage:
     form:
@@ -122,3 +127,8 @@ operations:
         grid:
           span: 6
         widget: textarea
+      blocks:
+        order: 11
+        grid:
+          span: 12
+        widget: block

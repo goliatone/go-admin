@@ -60,8 +60,13 @@ operations:
         grid:
           span: 12
         component: wysiwyg
-      featured_image:
+      blocks:
         order: 11
+        grid:
+          span: 12
+        widget: block
+      featured_image:
+        order: 12
         grid:
           span: 12
         component: file_uploader
@@ -75,15 +80,15 @@ operations:
           uploadEndpoint: /admin/api/uploads/media/featured-image
           variant: image
       tags:
-        order: 12
+        order: 13
         grid:
           span: 12
       meta_title:
-        order: 13
+        order: 14
         grid:
           span: 6
       meta_description:
-        order: 14
+        order: 15
         grid:
           span: 6
         widget: textarea
@@ -149,8 +154,13 @@ operations:
         grid:
           span: 12
         component: wysiwyg
-      featured_image:
+      blocks:
         order: 11
+        grid:
+          span: 12
+        widget: block
+      featured_image:
+        order: 12
         grid:
           span: 12
         component: file_uploader
@@ -164,15 +174,15 @@ operations:
           uploadEndpoint: /admin/api/uploads/media/featured-image
           variant: image
       tags:
-        order: 12
+        order: 13
         grid:
           span: 12
       meta_title:
-        order: 13
+        order: 14
         grid:
           span: 6
       meta_description:
-        order: 14
+        order: 15
         grid:
           span: 6
         widget: textarea
