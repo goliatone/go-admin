@@ -1,106 +1,67 @@
-/**
- * Schema editor component.
- * Adds JSON formatting, validation, and metadata helpers for schema payloads.
- */
 (() => {
-  const slugify = (value) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "block";
-  const guessSchemaVersion = (root) => {
-    const form = root.closest("form");
-    if (!form) {
+  const u = (e) => e.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "block", l = (e) => {
+    const t = e.closest("form");
+    if (!t)
       return "block@v1.0.0";
-    }
-    const candidates = ["input[name=\"name\"]", "input[name=\"type\"]", "input[name=\"slug\"]"];
-    for (const selector of candidates) {
-      const input = form.querySelector(selector);
-      const value = input?.value?.trim();
-      if (value) {
-        return `${slugify(value)}@v1.0.0`;
-      }
+    const a = [
+      'input[name="name"]',
+      'input[name="type"]',
+      'input[name="slug"]'
+    ];
+    for (const r of a) {
+      const n = t.querySelector(r)?.value?.trim();
+      if (n)
+        return `${u(n)}@v1.0.0`;
     }
     return "block@v1.0.0";
-  };
-  const parsePayload = (raw) => {
-    const trimmed = raw.trim();
-    if (!trimmed) {
+  }, c = (e) => {
+    const t = e.trim();
+    if (!t)
       return { value: {} };
-    }
     try {
-      return { value: JSON.parse(trimmed) };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Invalid JSON";
-      return { value: null, error: msg };
+      return { value: JSON.parse(t) };
+    } catch (a) {
+      return { value: null, error: a instanceof Error ? a.message : "Invalid JSON" };
     }
-  };
-  const formatPayload = (payload) => JSON.stringify(payload, null, 2);
-  const ensureMetadata = (payload, version) => {
-    const root = payload && typeof payload === "object" ? payload : {};
-    const meta = root.metadata && typeof root.metadata === "object" && !Array.isArray(root.metadata) ? root.metadata : {};
-    if (!meta.schema_version) {
-      meta.schema_version = version;
-    }
-    root.metadata = meta;
-    return root;
-  };
-  const setStatus = (root, message, state) => {
-    const status = root.querySelector("[data-schema-status]");
-    if (!status) {
-      return;
-    }
-    status.textContent = message;
-    status.dataset.state = state;
-    status.classList.remove("text-green-600", "text-red-600");
-    if (state === "ok") {
-      status.classList.add("text-green-600");
-    } else if (state === "error") {
-      status.classList.add("text-red-600");
-    }
-  };
-  const initSchemaEditor = () => {
-    document.querySelectorAll("[data-schema-editor]").forEach((root) => {
-      const textarea = root.querySelector("[data-schema-input]");
-      if (!textarea) {
+  }, o = (e) => JSON.stringify(e, null, 2), m = (e, t) => {
+    const a = e && typeof e == "object" ? e : {}, r = a.metadata && typeof a.metadata == "object" && !Array.isArray(a.metadata) ? a.metadata : {};
+    return r.schema_version || (r.schema_version = t), a.metadata = r, a;
+  }, s = (e, t, a) => {
+    const r = e.querySelector("[data-schema-status]");
+    r && (r.textContent = t, r.dataset.state = a, r.classList.remove("text-green-600", "text-red-600"), a === "ok" ? r.classList.add("text-green-600") : a === "error" && r.classList.add("text-red-600"));
+  }, d = () => {
+    document.querySelectorAll("[data-schema-editor]").forEach((e) => {
+      const t = e.querySelector("[data-schema-input]");
+      if (!t)
         return;
-      }
-      const formatBtn = root.querySelector("[data-schema-format]");
-      const validateBtn = root.querySelector("[data-schema-validate]");
-      const metadataBtn = root.querySelector("[data-schema-metadata]");
-      formatBtn?.addEventListener("click", () => {
-        const parsed = parsePayload(textarea.value);
-        if (parsed.error) {
-          setStatus(root, parsed.error, "error");
+      const a = e.querySelector("[data-schema-format]"), r = e.querySelector("[data-schema-validate]"), i = e.querySelector("[data-schema-metadata]");
+      a?.addEventListener("click", () => {
+        const n = c(t.value);
+        if (n.error) {
+          s(e, n.error, "error");
           return;
         }
-        textarea.value = formatPayload(parsed.value);
-        setStatus(root, "Formatted", "ok");
-      });
-      validateBtn?.addEventListener("click", () => {
-        const parsed = parsePayload(textarea.value);
-        if (parsed.error) {
-          setStatus(root, parsed.error, "error");
+        t.value = o(n.value), s(e, "Formatted", "ok");
+      }), r?.addEventListener("click", () => {
+        const n = c(t.value);
+        if (n.error) {
+          s(e, n.error, "error");
           return;
         }
-        setStatus(root, "Valid JSON", "ok");
-      });
-      metadataBtn?.addEventListener("click", () => {
-        const parsed = parsePayload(textarea.value);
-        if (parsed.error) {
-          setStatus(root, parsed.error, "error");
+        s(e, "Valid JSON", "ok");
+      }), i?.addEventListener("click", () => {
+        const n = c(t.value);
+        if (n.error) {
+          s(e, n.error, "error");
           return;
         }
-        const version = guessSchemaVersion(root);
-        const updated = ensureMetadata(parsed.value, version);
-        textarea.value = formatPayload(updated);
-        setStatus(root, "Metadata inserted", "ok");
-      });
-      textarea.addEventListener("input", () => {
-        setStatus(root, "", "");
+        const v = l(e), f = m(n.value, v);
+        t.value = o(f), s(e, "Metadata inserted", "ok");
+      }), t.addEventListener("input", () => {
+        s(e, "", "");
       });
     });
   };
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initSchemaEditor);
-  } else {
-    initSchemaEditor();
-  }
+  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", d) : d();
 })();
 //# sourceMappingURL=schema_editor.js.map
