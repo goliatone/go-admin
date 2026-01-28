@@ -1,534 +1,730 @@
-function G(e) {
-  if (!e) return {};
+function ne(t) {
+  if (!t) return {};
   try {
-    const t = JSON.parse(e);
-    if (t && typeof t == "object")
-      return t;
+    const e = JSON.parse(t);
+    if (e && typeof e == "object")
+      return e;
   } catch {
   }
   return {};
 }
-function Y(e) {
-  const t = e.closest("[data-component-config]");
-  return G(t?.getAttribute("data-component-config") ?? null);
+function oe(t) {
+  const e = t.closest("[data-component-config]");
+  return ne(e?.getAttribute("data-component-config") ?? null);
 }
-function R(e) {
-  if (e == null) return;
-  const t = e.trim().toLowerCase();
-  if (t === "true") return !0;
-  if (t === "false") return !1;
+function Q(t) {
+  if (t == null) return;
+  const e = t.trim().toLowerCase();
+  if (e === "true") return !0;
+  if (e === "false") return !1;
 }
-function Q(e) {
-  const t = e.querySelector("[data-block-list]"), n = e.querySelector("input[data-block-output]");
-  if (!t || !n) return null;
-  const a = e.querySelector("[data-block-add-select]"), s = e.querySelector("[data-block-add]"), l = e.querySelector("[data-block-empty]");
-  return { root: e, list: t, output: n, addSelect: a ?? void 0, addButton: s ?? void 0, emptyState: l ?? void 0 };
+function re(t) {
+  const e = t.querySelector("[data-block-list]"), o = t.querySelector("input[data-block-output]");
+  if (!e || !o) return null;
+  const n = t.querySelector("[data-block-add-select]"), r = t.querySelector("[data-block-add]"), d = t.querySelector("[data-block-empty]");
+  return { root: t, list: e, output: o, addSelect: n ?? void 0, addButton: r ?? void 0, emptyState: d ?? void 0 };
 }
-function T(e) {
-  return e.replace(/\]/g, "").split(/\.|\[/).map((n) => n.trim()).filter((n) => n.length > 0);
+function V(t) {
+  return t.replace(/\]/g, "").split(/\.|\[/).map((o) => o.trim()).filter((o) => o.length > 0);
 }
-function X(e, t, n) {
-  if (!e) return n;
-  const a = T(n);
-  let s = `${e}[${t}]`;
-  for (const l of a)
-    s += `[${l}]`;
-  return s;
+function ae(t, e, o) {
+  if (!t) return o;
+  const n = V(o);
+  let r = `${t}[${e}]`;
+  for (const d of n)
+    r += `[${d}]`;
+  return r;
 }
-function Z(e, t) {
-  if (!e || !t) return;
-  const n = T(t);
-  let a = e;
-  for (const s of n) {
-    if (a == null) return;
-    a = a[s];
-  }
-  return a;
-}
-function ee(e, t, n) {
-  if (!t) return;
-  const a = T(t);
-  if (a.length === 0) return;
-  let s = e;
-  a.forEach((l, u) => {
-    const h = u === a.length - 1, k = a[u + 1], y = k !== void 0 && /^\d+$/.test(k);
-    if (h) {
-      if (l === "") return;
-      s[l] = n;
-      return;
-    }
-    (s[l] == null || typeof s[l] != "object") && (s[l] = y ? [] : {}), s = s[l];
-  });
-}
-function te(e) {
-  if (e.length === 0) return;
-  const t = e[0];
-  if (t instanceof HTMLSelectElement && t.multiple)
-    return Array.from(t.selectedOptions).map((n) => n.value);
-  if (t instanceof HTMLInputElement) {
-    if (t.type === "radio") {
-      const n = e.find((a) => a.checked);
-      return n ? n.value : void 0;
-    }
-    if (t.type === "checkbox")
-      return e.length > 1 ? e.filter((n) => n.checked).map((n) => n.value) : t.checked;
-  }
-  return t.value;
-}
-function ae(e, t) {
-  if (t != null) {
-    if (e instanceof HTMLInputElement) {
-      if (e.type === "checkbox") {
-        Array.isArray(t) ? e.checked = t.map(String).includes(e.value) : typeof t == "boolean" ? e.checked = t : e.checked = String(t) === e.value || t === !0;
-        return;
-      }
-      if (e.type === "radio") {
-        e.checked = String(t) === e.value;
-        return;
-      }
-    }
-    if (e instanceof HTMLSelectElement && e.multiple) {
-      const n = Array.isArray(t) ? t.map(String) : [String(t)];
-      Array.from(e.options).forEach((a) => {
-        a.selected = n.includes(a.value);
-      });
-      return;
-    }
-    e.value = String(t);
-  }
-}
-function re(e, t) {
-  const n = /* @__PURE__ */ new Map();
-  return e.querySelectorAll("template[data-block-template]").forEach((a) => {
-    const s = a.dataset.blockType?.trim();
-    if (!s) return;
-    const l = a.dataset.blockLabel?.trim() || s, u = a.dataset.blockIcon?.trim(), h = R(a.dataset.blockCollapsed), k = a.dataset.blockSchemaVersion?.trim() || w(s, t.schemaVersionPattern), y = a.dataset.blockRequiredFields?.trim(), g = y ? y.split(",").map((f) => f.trim()).filter(Boolean) : t.requiredFields?.[s] || [];
-    n.set(s, {
-      type: s,
-      label: l,
-      icon: u || void 0,
-      collapsed: h,
-      schemaVersion: k,
-      requiredFields: g,
-      template: a
-    });
-  }), n;
-}
-function w(e, t) {
-  return t ? t.replace("{type}", e) : `${e}@v1.0.0`;
-}
-function ne(e, t) {
-  const n = [], a = t.requiredFields || [];
-  for (const s of a) {
-    const l = e.querySelector(
-      `[name="${s}"], [data-block-field-name="${s}"]`
-    );
-    if (!l) continue;
-    let u = !1;
-    if (l instanceof HTMLInputElement)
-      if (l.type === "checkbox")
-        u = !l.checked;
-      else if (l.type === "radio") {
-        const h = e.querySelectorAll(`[name="${l.name}"]`);
-        u = !Array.from(h).some((k) => k.checked);
-      } else
-        u = !l.value.trim();
-    else l instanceof HTMLSelectElement ? u = !l.value || l.value === "" : u = !l.value.trim();
-    u && n.push({
-      field: s,
-      message: `${s} is required`
-    });
+function ce(t, e) {
+  if (!t || !e) return;
+  const o = V(e);
+  let n = t;
+  for (const r of o) {
+    if (n == null) return;
+    n = n[r];
   }
   return n;
 }
-function oe(e, t) {
-  if (ce(e), t.length === 0) return;
-  e.classList.add("block-item--invalid"), e.dataset.blockValid = "false";
-  const n = e.querySelector("[data-block-header]");
-  if (n) {
-    const a = document.createElement("span");
-    a.className = "block-error-badge text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full dark:bg-red-900/20 dark:text-red-400", a.textContent = `${t.length} error${t.length > 1 ? "s" : ""}`, a.setAttribute("data-block-error-badge", "true"), n.querySelector(".flex")?.appendChild(a);
+function le(t, e, o) {
+  if (!e) return;
+  const n = V(e);
+  if (n.length === 0) return;
+  let r = t;
+  n.forEach((d, p) => {
+    const y = p === n.length - 1, A = n[p + 1], C = A !== void 0 && /^\d+$/.test(A);
+    if (y) {
+      if (d === "") return;
+      r[d] = o;
+      return;
+    }
+    (r[d] == null || typeof r[d] != "object") && (r[d] = C ? [] : {}), r = r[d];
+  });
+}
+function se(t) {
+  if (t.length === 0) return;
+  const e = t[0];
+  if (e instanceof HTMLSelectElement && e.multiple)
+    return Array.from(e.selectedOptions).map((o) => o.value);
+  if (e instanceof HTMLInputElement) {
+    if (e.type === "radio") {
+      const o = t.find((n) => n.checked);
+      return o ? o.value : void 0;
+    }
+    if (e.type === "checkbox")
+      return t.length > 1 ? t.filter((o) => o.checked).map((o) => o.value) : e.checked;
   }
-  for (const a of t) {
-    const s = e.querySelector(
-      `[name="${a.field}"], [data-block-field-name="${a.field}"]`
+  return e.value;
+}
+function ie(t, e) {
+  if (e != null) {
+    if (t instanceof HTMLInputElement) {
+      if (t.type === "checkbox") {
+        Array.isArray(e) ? t.checked = e.map(String).includes(t.value) : typeof e == "boolean" ? t.checked = e : t.checked = String(e) === t.value || e === !0;
+        return;
+      }
+      if (t.type === "radio") {
+        t.checked = String(e) === t.value;
+        return;
+      }
+    }
+    if (t instanceof HTMLSelectElement && t.multiple) {
+      const o = Array.isArray(e) ? e.map(String) : [String(e)];
+      Array.from(t.options).forEach((n) => {
+        n.selected = o.includes(n.value);
+      });
+      return;
+    }
+    t.value = String(e);
+  }
+}
+function de(t, e) {
+  const o = /* @__PURE__ */ new Map();
+  return t.querySelectorAll("template[data-block-template]").forEach((n) => {
+    const r = n.dataset.blockType?.trim();
+    if (!r) return;
+    const d = n.dataset.blockLabel?.trim() || r, p = n.dataset.blockIcon?.trim(), y = Q(n.dataset.blockCollapsed), A = n.dataset.blockSchemaVersion?.trim() || M(r, e.schemaVersionPattern), C = n.dataset.blockRequiredFields?.trim(), B = C ? C.split(",").map((c) => c.trim()).filter(Boolean) : e.requiredFields?.[r] || [];
+    o.set(r, {
+      type: r,
+      label: d,
+      icon: p || void 0,
+      collapsed: y,
+      schemaVersion: A,
+      requiredFields: B,
+      template: n
+    });
+  }), o;
+}
+function M(t, e) {
+  return e ? e.replace("{type}", t) : `${t}@v1.0.0`;
+}
+function ue(t, e) {
+  const o = [], n = e.requiredFields || [];
+  for (const r of n) {
+    const d = t.querySelector(
+      `[name="${r}"], [data-block-field-name="${r}"]`
     );
-    if (s) {
-      s.classList.add("border-red-500", "focus:ring-red-500");
-      const l = s.closest("[data-component]");
-      if (l) {
-        const u = document.createElement("p");
-        u.className = "block-field-error text-xs text-red-600 mt-1 dark:text-red-400", u.textContent = a.message, u.setAttribute("data-block-field-error", "true"), l.appendChild(u);
+    if (!d) continue;
+    let p = !1;
+    if (d instanceof HTMLInputElement)
+      if (d.type === "checkbox")
+        p = !d.checked;
+      else if (d.type === "radio") {
+        const y = t.querySelectorAll(`[name="${d.name}"]`);
+        p = !Array.from(y).some((A) => A.checked);
+      } else
+        p = !d.value.trim();
+    else d instanceof HTMLSelectElement ? p = !d.value || d.value === "" : p = !d.value.trim();
+    p && o.push({
+      field: r,
+      message: `${r} is required`
+    });
+  }
+  return o;
+}
+function fe(t, e) {
+  if (me(t), e.length === 0) return;
+  t.classList.add("block-item--invalid"), t.dataset.blockValid = "false";
+  const o = t.querySelector("[data-block-header]");
+  if (o) {
+    const n = document.createElement("span");
+    n.className = "block-error-badge text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full dark:bg-red-900/20 dark:text-red-400", n.textContent = `${e.length} error${e.length > 1 ? "s" : ""}`, n.setAttribute("data-block-error-badge", "true"), o.querySelector(".flex")?.appendChild(n);
+  }
+  for (const n of e) {
+    const r = t.querySelector(
+      `[name="${n.field}"], [data-block-field-name="${n.field}"]`
+    );
+    if (r) {
+      r.classList.add("border-red-500", "focus:ring-red-500");
+      const d = r.closest("[data-component]");
+      if (d) {
+        const p = document.createElement("p");
+        p.className = "block-field-error text-xs text-red-600 mt-1 dark:text-red-400", p.textContent = n.message, p.setAttribute("data-block-field-error", "true"), d.appendChild(p);
       }
     }
   }
 }
-function ce(e) {
-  e.classList.remove("block-item--invalid"), e.dataset.blockValid = "true", e.querySelectorAll("[data-block-error-badge]").forEach((t) => t.remove()), e.querySelectorAll("[data-block-field-error]").forEach((t) => t.remove()), e.querySelectorAll(".border-red-500").forEach((t) => {
-    t.classList.remove("border-red-500", "focus:ring-red-500");
+function me(t) {
+  t.classList.remove("block-item--invalid"), t.dataset.blockValid = "true", t.querySelectorAll("[data-block-error-badge]").forEach((e) => e.remove()), t.querySelectorAll("[data-block-field-error]").forEach((e) => e.remove()), t.querySelectorAll(".border-red-500").forEach((e) => {
+    e.classList.remove("border-red-500", "focus:ring-red-500");
   });
 }
-function F(e, t) {
-  const n = [];
-  if (!Array.isArray(e) || !Array.isArray(t))
+function P(t, e) {
+  const o = [];
+  if (!Array.isArray(t) || !Array.isArray(e))
     return {
       hasConflicts: !1,
       conflicts: [],
-      embeddedCount: Array.isArray(e) ? e.length : 0,
-      legacyCount: Array.isArray(t) ? t.length : 0
+      embeddedCount: Array.isArray(t) ? t.length : 0,
+      legacyCount: Array.isArray(e) ? e.length : 0
     };
-  e.length, t.length;
-  const a = Math.max(e.length, t.length);
-  for (let s = 0; s < a; s++) {
-    const l = e[s] || {}, u = t[s] || {}, h = l._type || u._type || `block_${s}`, k = /* @__PURE__ */ new Set([...Object.keys(l), ...Object.keys(u)]);
-    for (const y of k) {
-      if (y.startsWith("_")) continue;
-      const g = l[y], f = u[y];
-      D(g, f) || n.push({
-        blockIndex: s,
-        blockType: h,
-        field: y,
-        embeddedValue: g,
-        legacyValue: f
+  t.length, e.length;
+  const n = Math.max(t.length, e.length);
+  for (let r = 0; r < n; r++) {
+    const d = t[r] || {}, p = e[r] || {}, y = d._type || p._type || `block_${r}`, A = /* @__PURE__ */ new Set([...Object.keys(d), ...Object.keys(p)]);
+    for (const C of A) {
+      if (C.startsWith("_")) continue;
+      const B = d[C], c = p[C];
+      O(B, c) || o.push({
+        blockIndex: r,
+        blockType: y,
+        field: C,
+        embeddedValue: B,
+        legacyValue: c
       });
     }
   }
   return {
-    hasConflicts: n.length > 0 || e.length !== t.length,
-    conflicts: n,
-    embeddedCount: e.length,
-    legacyCount: t.length
+    hasConflicts: o.length > 0 || t.length !== e.length,
+    conflicts: o,
+    embeddedCount: t.length,
+    legacyCount: e.length
   };
 }
-function D(e, t) {
-  if (e === t) return !0;
-  if (e == null || t == null) return e === t;
-  if (typeof e != typeof t) return !1;
-  if (Array.isArray(e) && Array.isArray(t))
-    return e.length !== t.length ? !1 : e.every((n, a) => D(n, t[a]));
-  if (typeof e == "object") {
-    const n = Object.keys(e), a = Object.keys(t);
-    return n.length !== a.length ? !1 : n.every((s) => D(e[s], t[s]));
+function O(t, e) {
+  if (t === e) return !0;
+  if (t == null || e == null) return t === e;
+  if (typeof t != typeof e) return !1;
+  if (Array.isArray(t) && Array.isArray(e))
+    return t.length !== e.length ? !1 : t.every((o, n) => O(o, e[n]));
+  if (typeof t == "object") {
+    const o = Object.keys(t), n = Object.keys(e);
+    return o.length !== n.length ? !1 : o.every((r) => O(t[r], e[r]));
   }
   return !1;
 }
-function se(e) {
+function pe(t) {
+  const e = document.createElement("div");
+  e.className = "block-conflict-report border border-amber-200 bg-amber-50 rounded-lg p-4 mb-4 dark:bg-amber-900/20 dark:border-amber-700", e.setAttribute("data-block-conflict-report", "true");
+  const o = document.createElement("div");
+  o.className = "flex items-center gap-2 mb-3";
+  const n = document.createElement("span");
+  n.className = "text-amber-600 dark:text-amber-400", n.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+  const r = document.createElement("span");
+  r.className = "font-medium text-amber-800 dark:text-amber-200", r.textContent = "Block Conflicts Detected", o.appendChild(n), o.appendChild(r), e.appendChild(o);
+  const d = document.createElement("p");
+  if (d.className = "text-sm text-amber-700 dark:text-amber-300 mb-3", d.textContent = `Embedded blocks (${t.embeddedCount}) differ from legacy blocks (${t.legacyCount}). Embedded blocks are authoritative.`, e.appendChild(d), t.conflicts.length > 0) {
+    const A = document.createElement("details");
+    A.className = "text-sm";
+    const C = document.createElement("summary");
+    C.className = "cursor-pointer text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium", C.textContent = `View ${t.conflicts.length} field conflict${t.conflicts.length > 1 ? "s" : ""}`, A.appendChild(C);
+    const B = document.createElement("ul");
+    B.className = "mt-2 space-y-1 pl-4";
+    for (const c of t.conflicts.slice(0, 10)) {
+      const T = document.createElement("li");
+      T.className = "text-amber-700 dark:text-amber-300", T.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, B.appendChild(T);
+    }
+    if (t.conflicts.length > 10) {
+      const c = document.createElement("li");
+      c.className = "text-amber-600 dark:text-amber-400 italic", c.textContent = `...and ${t.conflicts.length - 10} more`, B.appendChild(c);
+    }
+    A.appendChild(B), e.appendChild(A);
+  }
+  const p = document.createElement("div");
+  p.className = "mt-3 flex gap-2";
+  const y = document.createElement("button");
+  return y.type = "button", y.className = "text-xs px-3 py-1 rounded border border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/40", y.textContent = "Dismiss", y.addEventListener("click", () => e.remove()), p.appendChild(y), e.appendChild(p), e;
+}
+function z(t, e) {
+  if (t.querySelector("[data-block-conflict-report]")?.remove(), !e.hasConflicts) return;
+  const o = pe(e), n = t.querySelector("[data-block-list]");
+  n ? n.parentElement?.insertBefore(o, n) : t.insertBefore(o, t.firstChild);
+}
+function be() {
   const t = document.createElement("div");
-  t.className = "block-conflict-report border border-amber-200 bg-amber-50 rounded-lg p-4 mb-4 dark:bg-amber-900/20 dark:border-amber-700", t.setAttribute("data-block-conflict-report", "true");
-  const n = document.createElement("div");
-  n.className = "flex items-center gap-2 mb-3";
-  const a = document.createElement("span");
-  a.className = "text-amber-600 dark:text-amber-400", a.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
-  const s = document.createElement("span");
-  s.className = "font-medium text-amber-800 dark:text-amber-200", s.textContent = "Block Conflicts Detected", n.appendChild(a), n.appendChild(s), t.appendChild(n);
-  const l = document.createElement("p");
-  if (l.className = "text-sm text-amber-700 dark:text-amber-300 mb-3", l.textContent = `Embedded blocks (${e.embeddedCount}) differ from legacy blocks (${e.legacyCount}). Embedded blocks are authoritative.`, t.appendChild(l), e.conflicts.length > 0) {
-    const k = document.createElement("details");
-    k.className = "text-sm";
-    const y = document.createElement("summary");
-    y.className = "cursor-pointer text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium", y.textContent = `View ${e.conflicts.length} field conflict${e.conflicts.length > 1 ? "s" : ""}`, k.appendChild(y);
-    const g = document.createElement("ul");
-    g.className = "mt-2 space-y-1 pl-4";
-    for (const f of e.conflicts.slice(0, 10)) {
-      const A = document.createElement("li");
-      A.className = "text-amber-700 dark:text-amber-300", A.innerHTML = `<span class="font-mono text-xs">${f.blockType}[${f.blockIndex}].${f.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, g.appendChild(A);
-    }
-    if (e.conflicts.length > 10) {
-      const f = document.createElement("li");
-      f.className = "text-amber-600 dark:text-amber-400 italic", f.textContent = `...and ${e.conflicts.length - 10} more`, g.appendChild(f);
-    }
-    k.appendChild(g), t.appendChild(k);
-  }
-  const u = document.createElement("div");
-  u.className = "mt-3 flex gap-2";
-  const h = document.createElement("button");
-  return h.type = "button", h.className = "text-xs px-3 py-1 rounded border border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/40", h.textContent = "Dismiss", h.addEventListener("click", () => t.remove()), u.appendChild(h), t.appendChild(u), t;
+  return t.className = "block-drop-indicator", t.setAttribute("data-block-drop-indicator", "true"), t.setAttribute("aria-hidden", "true"), t;
 }
-function j(e, t) {
-  if (e.querySelector("[data-block-conflict-report]")?.remove(), !t.hasConflicts) return;
-  const n = se(t), a = e.querySelector("[data-block-list]");
-  a ? a.parentElement?.insertBefore(n, a) : e.insertBefore(n, e.firstChild);
+function W(t, e, o) {
+  q(t);
+  const n = be();
+  return e ? o === "before" ? e.parentElement?.insertBefore(n, e) : e.parentElement?.insertBefore(n, e.nextSibling) : t.appendChild(n), n;
 }
-function le(e, t) {
-  const n = e.querySelectorAll('[name="_type"], [data-block-type-input]');
-  if (n.length === 0) {
-    const a = document.createElement("input");
-    a.type = "hidden", a.name = "_type", a.value = t, a.setAttribute("data-block-type-input", "true"), a.setAttribute("data-block-ignore", "true"), e.appendChild(a);
-    return;
+function q(t) {
+  t.querySelectorAll("[data-block-drop-indicator]").forEach((e) => e.remove());
+}
+function D(t, e, o) {
+  const n = Array.from(t.querySelectorAll("[data-block-item]"));
+  for (const r of n) {
+    if (r === o) continue;
+    const d = r.getBoundingClientRect();
+    if (e >= d.top && e <= d.bottom) {
+      const p = e < d.top + d.height / 2 ? "before" : "after";
+      return { item: r, position: p };
+    }
   }
-  n.forEach((a) => {
-    a.setAttribute("data-block-type-input", "true"), a.setAttribute("data-block-ignore", "true"), a instanceof HTMLInputElement ? (a.value = t, a.readOnly = !0) : a instanceof HTMLSelectElement ? (Array.from(a.options).forEach((l) => {
-      l.selected = l.value === t;
-    }), a.disabled = !0) : (a.value = t, a.readOnly = !0);
-    const s = a.closest("[data-component]");
-    s && s.classList.add("hidden");
+  if (n.length > 0) {
+    const r = n[n.length - 1];
+    if (r !== o) {
+      const d = r.getBoundingClientRect();
+      if (e > d.bottom)
+        return { item: r, position: "after" };
+    }
+  }
+  return null;
+}
+function G(t, e) {
+  const o = Array.from(t.querySelectorAll("[data-block-item]")), n = /* @__PURE__ */ new Map();
+  o.forEach((r) => {
+    n.set(r, r.getBoundingClientRect());
+  }), t.offsetHeight, o.forEach((r) => {
+    const d = n.get(r);
+    if (!d) return;
+    const p = r.getBoundingClientRect(), y = d.top - p.top;
+    Math.abs(y) < 1 || r.animate(
+      [
+        { transform: `translateY(${y}px)` },
+        { transform: "translateY(0)" }
+      ],
+      {
+        duration: 200,
+        easing: "ease-out"
+      }
+    );
+  }), e.animate(
+    [
+      { transform: "scale(1.02)", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)" },
+      { transform: "scale(1)", boxShadow: "none" }
+    ],
+    {
+      duration: 200,
+      easing: "ease-out"
+    }
+  );
+}
+function ge() {
+  const t = document.getElementById("block-editor-live-region");
+  if (t) return t;
+  const e = document.createElement("div");
+  return e.id = "block-editor-live-region", e.setAttribute("aria-live", "polite"), e.setAttribute("aria-atomic", "true"), e.className = "sr-only", e.style.cssText = "position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;", document.body.appendChild(e), e;
+}
+function w(t) {
+  const e = ge();
+  e.textContent = "", requestAnimationFrame(() => {
+    e.textContent = t;
   });
 }
-function ie(e, t) {
-  const n = e.querySelectorAll('[name="_schema"], [data-block-schema-input]');
-  if (n.length === 0) {
-    const a = document.createElement("input");
-    a.type = "hidden", a.name = "_schema", a.value = t, a.setAttribute("data-block-schema-input", "true"), a.setAttribute("data-block-ignore", "true"), e.appendChild(a);
+function N(t, e) {
+  const o = Array.from(t.querySelectorAll("[data-block-item]")), n = o.indexOf(e) + 1, r = o.length;
+  return { label: e.querySelector("[data-block-header] span")?.textContent || e.dataset.blockType || "Block", position: n, total: r };
+}
+function he(t) {
+  const e = {};
+  return t.querySelectorAll("input, select, textarea").forEach((o) => {
+    const n = o.getAttribute("data-block-field-name") || o.name;
+    !n || o.dataset.blockIgnore === "true" || (o instanceof HTMLInputElement && o.type === "checkbox" ? e[n] = o.checked : o instanceof HTMLSelectElement && o.multiple ? e[n] = Array.from(o.selectedOptions).map((r) => r.value) : e[n] = o.value);
+  }), e._type = t.dataset.blockType || "", e._schema = t.dataset.blockSchema || "", e;
+}
+function ke(t, e, o = 50, n = 10) {
+  const r = () => {
+    if (!e.dragging) {
+      e.scrollInterval && (clearInterval(e.scrollInterval), e.scrollInterval = null);
+      return;
+    }
+    const d = t.getBoundingClientRect(), p = e.touchCurrentY;
+    p < d.top + o ? t.scrollTop -= n : p > d.bottom - o && (t.scrollTop += n);
+  };
+  e.scrollInterval || (e.scrollInterval = window.setInterval(r, 16));
+}
+function ye(t, e) {
+  const o = t.querySelectorAll('[name="_type"], [data-block-type-input]');
+  if (o.length === 0) {
+    const n = document.createElement("input");
+    n.type = "hidden", n.name = "_type", n.value = e, n.setAttribute("data-block-type-input", "true"), n.setAttribute("data-block-ignore", "true"), t.appendChild(n);
     return;
   }
-  n.forEach((a) => {
-    a.setAttribute("data-block-schema-input", "true"), a.setAttribute("data-block-ignore", "true"), a.value = t, a.readOnly = !0;
-    const s = a.closest("[data-component]");
-    s && s.classList.add("hidden");
+  o.forEach((n) => {
+    n.setAttribute("data-block-type-input", "true"), n.setAttribute("data-block-ignore", "true"), n instanceof HTMLInputElement ? (n.value = e, n.readOnly = !0) : n instanceof HTMLSelectElement ? (Array.from(n.options).forEach((d) => {
+      d.selected = d.value === e;
+    }), n.disabled = !0) : (n.value = e, n.readOnly = !0);
+    const r = n.closest("[data-component]");
+    r && r.classList.add("hidden");
   });
 }
-function de(e) {
-  const t = Q(e);
-  if (!t) return;
-  const n = Y(e), a = re(e, n), s = e.dataset.blockField || t.output.name, l = R(e.dataset.blockSortable), u = n.sortable ?? l ?? !1, h = n.allowDrag ?? u, k = n.addLabel || t.addButton?.dataset.blockAddLabel || "Add block", y = n.emptyLabel || t.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", g = n.validateOnInput ?? !0;
-  t.addButton && (t.addButton.textContent = k), t.emptyState && (t.emptyState.textContent = y);
-  const f = t.list, A = t.output, H = () => {
-    const r = Array.from(f.querySelectorAll("[data-block-item]"));
-    let c = !1;
-    const o = r.map((i) => {
-      const d = {}, m = /* @__PURE__ */ new Map();
-      i.querySelectorAll("input, select, textarea").forEach((p) => {
-        if (p.dataset.blockIgnore === "true" || p.hasAttribute("data-block-ignore")) return;
-        const b = p.getAttribute("data-block-field-name") || p.name || "";
-        b && (m.has(b) || m.set(b, []), m.get(b).push(p));
-      }), m.forEach((p, b) => {
-        const C = te(p);
-        C !== void 0 && ee(d, b, C);
+function xe(t, e) {
+  const o = t.querySelectorAll('[name="_schema"], [data-block-schema-input]');
+  if (o.length === 0) {
+    const n = document.createElement("input");
+    n.type = "hidden", n.name = "_schema", n.value = e, n.setAttribute("data-block-schema-input", "true"), n.setAttribute("data-block-ignore", "true"), t.appendChild(n);
+    return;
+  }
+  o.forEach((n) => {
+    n.setAttribute("data-block-schema-input", "true"), n.setAttribute("data-block-ignore", "true"), n.value = e, n.readOnly = !0;
+    const r = n.closest("[data-component]");
+    r && r.classList.add("hidden");
+  });
+}
+function ve(t) {
+  const e = re(t);
+  if (!e) return;
+  const o = oe(t), n = de(t, o), r = t.dataset.blockField || e.output.name, d = Q(t.dataset.blockSortable), p = o.sortable ?? d ?? !1, y = o.allowDrag ?? p, A = o.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", C = o.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", B = o.validateOnInput ?? !0;
+  e.addButton && (e.addButton.textContent = A), e.emptyState && (e.emptyState.textContent = C);
+  const c = e.list, T = e.output, Y = () => {
+    const a = Array.from(c.querySelectorAll("[data-block-item]"));
+    let u = !1;
+    const s = a.map((b) => {
+      const l = {}, g = /* @__PURE__ */ new Map();
+      b.querySelectorAll("input, select, textarea").forEach((f) => {
+        if (f.dataset.blockIgnore === "true" || f.hasAttribute("data-block-ignore")) return;
+        const m = f.getAttribute("data-block-field-name") || f.name || "";
+        m && (g.has(m) || g.set(m, []), g.get(m).push(f));
+      }), g.forEach((f, m) => {
+        const S = se(f);
+        S !== void 0 && le(l, m, S);
       });
-      const E = i.dataset.blockType || d._type || "";
-      E && (d._type = E);
-      const S = i.dataset.blockSchema || d._schema;
-      if (S)
-        d._schema = S;
+      const k = b.dataset.blockType || l._type || "";
+      k && (l._type = k);
+      const i = b.dataset.blockSchema || l._schema;
+      if (i)
+        l._schema = i;
       else {
-        const p = a.get(E);
-        p?.schemaVersion && (d._schema = p.schemaVersion);
+        const f = n.get(k);
+        f?.schemaVersion && (l._schema = f.schemaVersion);
       }
-      if (g) {
-        const p = a.get(E);
-        if (p) {
-          const b = ne(i, p);
-          oe(i, b), b.length > 0 && (c = !0);
+      if (B) {
+        const f = n.get(k);
+        if (f) {
+          const m = ue(b, f);
+          fe(b, m), m.length > 0 && (u = !0);
         }
       }
-      return d;
+      return l;
     });
-    A.value = JSON.stringify(o), e.dataset.blockEditorValid = c ? "false" : "true";
-  }, K = () => {
-    Array.from(f.querySelectorAll("[data-block-item]")).forEach((c, o) => {
-      c.querySelectorAll("input, select, textarea").forEach((i) => {
-        if (i.dataset.blockIgnore === "true" || i.hasAttribute("data-block-ignore")) return;
-        const d = i.getAttribute("data-block-field-name") || i.name;
-        d && (i.hasAttribute("data-block-field-name") || i.setAttribute("data-block-field-name", d), i.name = X(s, o, d));
+    T.value = JSON.stringify(s), t.dataset.blockEditorValid = u ? "false" : "true";
+  }, X = () => {
+    Array.from(c.querySelectorAll("[data-block-item]")).forEach((u, s) => {
+      u.querySelectorAll("input, select, textarea").forEach((b) => {
+        if (b.dataset.blockIgnore === "true" || b.hasAttribute("data-block-ignore")) return;
+        const l = b.getAttribute("data-block-field-name") || b.name;
+        l && (b.hasAttribute("data-block-field-name") || b.setAttribute("data-block-field-name", l), b.name = ae(r, s, l));
       });
     });
-  }, U = () => {
-    if (!t.emptyState) return;
-    const r = f.querySelector("[data-block-item]");
-    t.emptyState.classList.toggle("hidden", !!r);
-  }, x = () => {
-    K(), H(), U();
-  }, I = e.closest("form");
-  I && I.addEventListener("submit", () => {
-    H();
+  }, Z = () => {
+    if (!e.emptyState) return;
+    const a = c.querySelector("[data-block-item]");
+    e.emptyState.classList.toggle("hidden", !!a);
+  }, L = () => {
+    X(), Y(), Z();
+  }, R = t.closest("form");
+  R && R.addEventListener("submit", () => {
+    Y();
   });
-  const P = (r, c) => {
-    r.querySelectorAll("input, select, textarea").forEach((o) => {
-      const i = o.getAttribute("data-block-field-name") || o.name;
-      if (!i) return;
-      const d = Z(c, i);
-      d !== void 0 && ae(o, d);
+  const ee = (a, u) => {
+    a.querySelectorAll("input, select, textarea").forEach((s) => {
+      const b = s.getAttribute("data-block-field-name") || s.name;
+      if (!b) return;
+      const l = ce(u, b);
+      l !== void 0 && ie(s, l);
     });
-  }, J = (r, c) => {
-    const o = document.createElement("div");
-    o.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", o.setAttribute("data-block-item", "true"), o.dataset.blockType = r.type, u && o.setAttribute("draggable", "true");
-    const i = document.createElement("div");
-    i.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700", i.setAttribute("data-block-header", "true");
-    const d = document.createElement("div");
-    d.className = "flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white";
-    const m = document.createElement("span");
-    m.className = "inline-flex items-center justify-center h-6 min-w-[1.5rem] px-2 text-xs font-semibold uppercase rounded-full bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200", m.textContent = r.icon || r.label.slice(0, 1).toUpperCase();
-    const E = document.createElement("span");
-    E.textContent = r.label;
-    const S = document.createElement("span");
-    S.className = "text-xs text-gray-500 dark:text-gray-400", S.textContent = r.type, d.appendChild(m), d.appendChild(E), d.appendChild(S);
-    const p = document.createElement("div");
-    if (p.className = "flex items-center gap-2", u) {
-      const v = document.createElement("button");
-      v.type = "button", v.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", v.textContent = "Up", v.setAttribute("data-block-move-up", "true");
-      const B = document.createElement("button");
-      B.type = "button", B.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", B.textContent = "Down", B.setAttribute("data-block-move-down", "true"), p.appendChild(v), p.appendChild(B);
+  }, _ = (a, u) => {
+    const s = document.createElement("div");
+    s.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", s.setAttribute("data-block-item", "true"), s.dataset.blockType = a.type, p && s.setAttribute("draggable", "true");
+    const b = document.createElement("div");
+    b.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700", b.setAttribute("data-block-header", "true");
+    const l = document.createElement("div");
+    l.className = "flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white";
+    const g = document.createElement("span");
+    g.className = "inline-flex items-center justify-center h-6 min-w-[1.5rem] px-2 text-xs font-semibold uppercase rounded-full bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200", g.textContent = a.icon || a.label.slice(0, 1).toUpperCase();
+    const k = document.createElement("span");
+    k.textContent = a.label;
+    const i = document.createElement("span");
+    i.className = "text-xs text-gray-500 dark:text-gray-400", i.textContent = a.type, l.appendChild(g), l.appendChild(k), l.appendChild(i);
+    const f = document.createElement("div");
+    if (f.className = "flex items-center gap-2", p) {
+      const E = document.createElement("button");
+      E.type = "button", E.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", E.textContent = "Up", E.setAttribute("data-block-move-up", "true");
+      const I = document.createElement("button");
+      I.type = "button", I.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", I.textContent = "Down", I.setAttribute("data-block-move-down", "true"), f.appendChild(E), f.appendChild(I);
     }
-    const b = document.createElement("button");
-    b.type = "button", b.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", b.textContent = "Collapse", b.setAttribute("data-block-collapse", "true");
-    const C = document.createElement("button");
-    if (C.type = "button", C.className = "text-xs text-red-600 hover:text-red-700", C.textContent = "Remove", C.setAttribute("data-block-remove", "true"), p.appendChild(b), p.appendChild(C), u) {
-      const v = document.createElement("span");
-      v.className = "text-xs text-gray-400 cursor-move", v.textContent = "Drag", v.setAttribute("data-block-drag-handle", "true"), p.appendChild(v);
+    const m = document.createElement("button");
+    m.type = "button", m.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", m.textContent = "Collapse", m.setAttribute("data-block-collapse", "true");
+    const S = document.createElement("button");
+    if (S.type = "button", S.className = "text-xs text-red-600 hover:text-red-700", S.textContent = "Remove", S.setAttribute("data-block-remove", "true"), f.appendChild(m), f.appendChild(S), p) {
+      const E = document.createElement("span");
+      E.className = "text-xs text-gray-400 cursor-move", E.textContent = "Drag", E.setAttribute("data-block-drag-handle", "true"), f.appendChild(E);
     }
-    i.appendChild(d), i.appendChild(p);
-    const L = document.createElement("div");
-    L.className = "p-4 space-y-4", L.setAttribute("data-block-body", "true");
-    const W = r.template.content.cloneNode(!0);
-    return L.appendChild(W), o.appendChild(i), o.appendChild(L), le(o, r.type), ie(o, r.schemaVersion || w(r.type)), o.dataset.blockSchema = r.schemaVersion || w(r.type), c && P(o, c), (r.collapsed ?? !1) && (L.classList.add("hidden"), o.dataset.blockCollapsed = "true", b.textContent = "Expand"), o;
-  }, M = (r, c) => {
-    const o = a.get(r);
-    if (!o) return;
-    const i = J(o, c);
-    f.appendChild(i), x();
-  }, $ = t.addButton, q = t.addSelect;
-  if ($ && q && $.addEventListener("click", () => {
-    const r = q.value.trim();
-    r && (M(r), q.value = "");
-  }), e.addEventListener("click", (r) => {
-    const c = r.target;
-    if (!(c instanceof HTMLElement)) return;
-    const o = c.closest("[data-block-item]");
-    if (o) {
-      if (c.closest("[data-block-remove]")) {
-        o.remove(), x();
+    b.appendChild(l), b.appendChild(f);
+    const h = document.createElement("div");
+    h.className = "p-4 space-y-4", h.setAttribute("data-block-body", "true");
+    const x = a.template.content.cloneNode(!0);
+    return h.appendChild(x), s.appendChild(b), s.appendChild(h), ye(s, a.type), xe(s, a.schemaVersion || M(a.type)), s.dataset.blockSchema = a.schemaVersion || M(a.type), u && ee(s, u), (a.collapsed ?? !1) && (h.classList.add("hidden"), s.dataset.blockCollapsed = "true", m.textContent = "Expand"), s;
+  }, F = (a, u) => {
+    const s = n.get(a);
+    if (!s) return;
+    const b = _(s, u);
+    c.appendChild(b), L();
+  }, j = e.addButton, $ = e.addSelect;
+  if (j && $ && j.addEventListener("click", () => {
+    const a = $.value.trim();
+    a && (F(a), $.value = "");
+  }), t.addEventListener("click", (a) => {
+    const u = a.target;
+    if (!(u instanceof HTMLElement)) return;
+    const s = u.closest("[data-block-item]");
+    if (s) {
+      if (u.closest("[data-block-remove]")) {
+        s.remove(), L();
         return;
       }
-      if (c.closest("[data-block-collapse]")) {
-        const i = o.querySelector("[data-block-body]");
-        if (i) {
-          const d = i.classList.toggle("hidden");
-          o.dataset.blockCollapsed = d ? "true" : "false";
-          const m = c.closest("[data-block-collapse]");
-          m && (m.textContent = d ? "Expand" : "Collapse");
+      if (u.closest("[data-block-collapse]")) {
+        const b = s.querySelector("[data-block-body]");
+        if (b) {
+          const l = b.classList.toggle("hidden");
+          s.dataset.blockCollapsed = l ? "true" : "false";
+          const g = u.closest("[data-block-collapse]");
+          g && (g.textContent = l ? "Expand" : "Collapse");
         }
         return;
       }
-      if (c.closest("[data-block-move-up]")) {
-        const i = o.previousElementSibling;
-        i && f.insertBefore(o, i), x();
+      if (u.closest("[data-block-move-up]")) {
+        const b = s.previousElementSibling;
+        b && c.insertBefore(s, b), L();
         return;
       }
-      if (c.closest("[data-block-move-down]")) {
-        const i = o.nextElementSibling;
-        i && f.insertBefore(i, o), x();
+      if (u.closest("[data-block-move-down]")) {
+        const b = s.nextElementSibling;
+        b && c.insertBefore(b, s), L();
         return;
       }
     }
-  }), e.addEventListener("input", (r) => {
-    const c = r.target;
-    !(c instanceof HTMLElement) || !c.closest("[data-block-item]") || x();
-  }), e.addEventListener("change", (r) => {
-    const c = r.target;
-    !(c instanceof HTMLElement) || !c.closest("[data-block-item]") || x();
-  }), u && h) {
-    let r = null;
-    f.addEventListener("dragstart", (c) => {
-      const o = c.target;
-      if (!(o instanceof HTMLElement)) return;
-      if (!o.closest("[data-block-drag-handle]")) {
-        c.preventDefault();
+  }), t.addEventListener("input", (a) => {
+    const u = a.target;
+    !(u instanceof HTMLElement) || !u.closest("[data-block-item]") || L();
+  }), t.addEventListener("change", (a) => {
+    const u = a.target;
+    !(u instanceof HTMLElement) || !u.closest("[data-block-item]") || L();
+  }), p && y) {
+    const a = o.dragFromHeader ?? !0, u = o.enableTouch ?? !0, s = o.enableAnimations ?? !0, b = o.enableCrossEditor ?? !1, l = {
+      dragging: null,
+      touchStartY: 0,
+      touchCurrentY: 0,
+      scrollInterval: null,
+      originalIndex: -1
+    }, g = (i) => i.closest("[data-block-drag-handle]") ? !0 : a && i.closest("[data-block-header]") ? !i.closest("button, input, select, textarea") : !1, k = (i) => Array.from(c.querySelectorAll("[data-block-item]")).indexOf(i);
+    if (c.addEventListener("dragstart", (i) => {
+      const f = i.target;
+      if (!(f instanceof HTMLElement)) return;
+      if (!g(f)) {
+        i.preventDefault();
         return;
       }
-      const d = o.closest("[data-block-item]");
-      d && (r = d, d.classList.add("opacity-70"), c.dataTransfer?.setData("text/plain", "block"));
-    }), f.addEventListener("dragover", (c) => {
-      if (!r) return;
-      c.preventDefault();
-      const o = c.target instanceof HTMLElement ? c.target.closest("[data-block-item]") : null;
-      if (!o || o === r) return;
-      const i = o.getBoundingClientRect(), d = c.clientY > i.top + i.height / 2;
-      f.insertBefore(r, d ? o.nextSibling : o);
-    }), f.addEventListener("dragend", () => {
-      r && (r.classList.remove("opacity-70"), r = null, x());
-    });
+      const m = f.closest("[data-block-item]");
+      if (!m) return;
+      if (l.dragging = m, l.originalIndex = k(m), m.classList.add("block-item--dragging"), i.dataTransfer) {
+        if (i.dataTransfer.effectAllowed = "move", i.dataTransfer.setData("text/plain", "block"), b) {
+          const x = he(m);
+          i.dataTransfer.setData("application/x-block", JSON.stringify(x));
+        }
+        const h = m.cloneNode(!0);
+        h.style.cssText = "position: absolute; top: -9999px; left: -9999px; opacity: 0.8; transform: rotate(2deg);", document.body.appendChild(h), i.dataTransfer.setDragImage(h, 20, 20), requestAnimationFrame(() => h.remove());
+      }
+      const S = N(c, m);
+      w(`Dragging ${S.label} from position ${S.position} of ${S.total}. Use arrow keys to move.`);
+    }), c.addEventListener("dragover", (i) => {
+      i.preventDefault(), i.dataTransfer && (i.dataTransfer.dropEffect = "move");
+      const f = i.clientY, m = D(c, f, l.dragging || void 0);
+      m ? W(c, m.item, m.position) : q(c);
+    }), c.addEventListener("dragenter", (i) => {
+      i.preventDefault();
+    }), c.addEventListener("dragleave", (i) => {
+      const f = i.relatedTarget;
+      (!f || !c.contains(f)) && q(c);
+    }), c.addEventListener("drop", (i) => {
+      i.preventDefault(), q(c);
+      const f = i.clientY, m = D(c, f, l.dragging || void 0);
+      if (!l.dragging && b && i.dataTransfer) {
+        const h = i.dataTransfer.getData("application/x-block");
+        if (h)
+          try {
+            const x = JSON.parse(h), v = x._type;
+            if (v && n.has(v)) {
+              const E = n.get(v), I = _(E, x);
+              m ? m.position === "before" ? c.insertBefore(I, m.item) : c.insertBefore(I, m.item.nextSibling) : c.appendChild(I), L(), w(`Block ${v} added from another editor`);
+            }
+          } catch {
+          }
+        return;
+      }
+      if (!l.dragging) return;
+      if (m && (m.position === "before" ? c.insertBefore(l.dragging, m.item) : c.insertBefore(l.dragging, m.item.nextSibling)), s && G(c, l.dragging), k(l.dragging) !== l.originalIndex) {
+        const h = N(c, l.dragging);
+        w(`${h.label} moved to position ${h.position} of ${h.total}`);
+      }
+    }), c.addEventListener("dragend", () => {
+      q(c), l.dragging && (l.dragging.classList.remove("block-item--dragging"), l.dragging = null), l.originalIndex = -1, L();
+    }), u) {
+      let i = null, f = null, m = !1;
+      const S = 10;
+      c.addEventListener("touchstart", (h) => {
+        const x = h.touches[0], v = x.target;
+        if (!g(v)) return;
+        const E = v.closest("[data-block-item]");
+        E && (l.touchStartY = x.clientY, l.touchCurrentY = x.clientY, i = E, m = !1);
+      }, { passive: !0 }), c.addEventListener("touchmove", (h) => {
+        if (!i) return;
+        const x = h.touches[0];
+        if (l.touchCurrentY = x.clientY, !m) {
+          if (Math.abs(x.clientY - l.touchStartY) < S) return;
+          m = !0, f = i.cloneNode(!0), f.className = "block-item--touch-dragging", f.style.cssText = `
+            position: fixed;
+            left: 0;
+            right: 0;
+            margin: 0 16px;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.9;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            transform: scale(1.02);
+          `, document.body.appendChild(f), i.classList.add("block-item--placeholder"), l.dragging = i, l.originalIndex = k(i);
+          const I = N(c, i);
+          w(`Dragging ${I.label}. Move finger to reposition.`);
+        }
+        h.preventDefault(), f && (f.style.top = `${x.clientY - f.offsetHeight / 2}px`);
+        const v = D(c, x.clientY, i || void 0);
+        v ? W(c, v.item, v.position) : q(c), ke(c, l);
+      }, { passive: !1 }), c.addEventListener("touchend", () => {
+        if (l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), q(c), f && (f.remove(), f = null), i && m) {
+          i.classList.remove("block-item--placeholder");
+          const h = D(c, l.touchCurrentY, i);
+          if (h && (h.position === "before" ? c.insertBefore(i, h.item) : c.insertBefore(i, h.item.nextSibling)), s && G(c, i), k(i) !== l.originalIndex) {
+            const v = N(c, i);
+            w(`${v.label} moved to position ${v.position} of ${v.total}`);
+          }
+          L();
+        }
+        i = null, m = !1, l.dragging = null, l.originalIndex = -1;
+      }), c.addEventListener("touchcancel", () => {
+        l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), q(c), f && (f.remove(), f = null), i && i.classList.remove("block-item--placeholder"), i = null, m = !1, l.dragging = null, l.originalIndex = -1;
+      });
+    }
   }
-  if (t.addSelect) {
-    const r = document.createElement("option");
-    r.value = "", r.textContent = "Select block type", t.addSelect.appendChild(r), a.forEach((c) => {
-      const o = document.createElement("option");
-      o.value = c.type, o.textContent = c.label, t.addSelect?.appendChild(o);
-    }), t.addSelect.value = "";
+  if (e.addSelect) {
+    const a = document.createElement("option");
+    a.value = "", a.textContent = "Select block type", e.addSelect.appendChild(a), n.forEach((u) => {
+      const s = document.createElement("option");
+      s.value = u.type, s.textContent = u.label, e.addSelect?.appendChild(s);
+    }), e.addSelect.value = "";
   }
-  e.addEventListener("keydown", (r) => {
-    const c = r.target;
-    if (!(c instanceof HTMLElement)) return;
-    const o = c.closest("[data-block-item]");
-    if (!o) return;
-    const i = c.closest("[data-block-header]");
-    if (i)
-      switch (r.key) {
+  t.addEventListener("keydown", (a) => {
+    const u = a.target;
+    if (!(u instanceof HTMLElement)) return;
+    const s = u.closest("[data-block-item]");
+    if (!s) return;
+    const b = u.closest("[data-block-header]");
+    if (b)
+      switch (a.key) {
         case "Delete":
         case "Backspace":
-          r.shiftKey && (r.preventDefault(), o.remove(), x(), f.querySelector("[data-block-item] [data-block-header]")?.focus());
+          a.shiftKey && (a.preventDefault(), s.remove(), L(), c.querySelector("[data-block-item] [data-block-header]")?.focus());
           break;
         case "ArrowUp":
-          if (r.altKey && u) {
-            r.preventDefault();
-            const m = o.previousElementSibling;
-            m && (f.insertBefore(o, m), x(), o.querySelector("[data-block-header]")?.focus());
-          } else r.altKey || (r.preventDefault(), o.previousElementSibling?.querySelector("[data-block-header]")?.focus());
+          if (a.altKey && p) {
+            a.preventDefault();
+            const g = s.previousElementSibling;
+            if (g) {
+              c.insertBefore(s, g), L(), s.querySelector("[data-block-header]")?.focus();
+              const k = N(c, s);
+              w(`${k.label} moved to position ${k.position} of ${k.total}`);
+            } else
+              w("Already at the top");
+          } else if (!a.altKey) {
+            a.preventDefault();
+            const k = s.previousElementSibling?.querySelector("[data-block-header]");
+            k ? k.focus() : w("At the first block");
+          }
           break;
         case "ArrowDown":
-          if (r.altKey && u) {
-            r.preventDefault();
-            const m = o.nextElementSibling;
-            m && (f.insertBefore(m, o), x(), o.querySelector("[data-block-header]")?.focus());
-          } else r.altKey || (r.preventDefault(), o.nextElementSibling?.querySelector("[data-block-header]")?.focus());
+          if (a.altKey && p) {
+            a.preventDefault();
+            const g = s.nextElementSibling;
+            if (g) {
+              c.insertBefore(g, s), L(), s.querySelector("[data-block-header]")?.focus();
+              const k = N(c, s);
+              w(`${k.label} moved to position ${k.position} of ${k.total}`);
+            } else
+              w("Already at the bottom");
+          } else if (!a.altKey) {
+            a.preventDefault();
+            const k = s.nextElementSibling?.querySelector("[data-block-header]");
+            k ? k.focus() : w("At the last block");
+          }
           break;
         case "Enter":
         case " ":
-          c.matches("[data-block-collapse]") || c.matches("[data-block-remove]") || c.matches("[data-block-move-up]") || c.matches("[data-block-move-down]") ? (r.preventDefault(), c.click()) : i && !c.matches("button") && (r.preventDefault(), o.querySelector("[data-block-collapse]")?.click());
+          u.matches("[data-block-collapse]") || u.matches("[data-block-remove]") || u.matches("[data-block-move-up]") || u.matches("[data-block-move-down]") ? (a.preventDefault(), u.click()) : b && !u.matches("button") && (a.preventDefault(), s.querySelector("[data-block-collapse]")?.click());
           break;
         case "Escape":
-          const d = o.querySelector("[data-block-body]");
-          if (d && !d.classList.contains("hidden")) {
-            r.preventDefault(), d.classList.add("hidden"), o.dataset.blockCollapsed = "true";
-            const m = o.querySelector("[data-block-collapse]");
-            m && (m.textContent = "Expand");
+          const l = s.querySelector("[data-block-body]");
+          if (l && !l.classList.contains("hidden")) {
+            a.preventDefault(), l.classList.add("hidden"), s.dataset.blockCollapsed = "true";
+            const g = s.querySelector("[data-block-collapse]");
+            g && (g.textContent = "Expand");
           }
           break;
       }
   });
-  const z = () => {
-    f.querySelectorAll("[data-block-header]").forEach((r) => {
-      r.hasAttribute("tabindex") || (r.setAttribute("tabindex", "0"), r.setAttribute("role", "button"), r.setAttribute("aria-label", "Block header - Press Enter to collapse/expand, Shift+Delete to remove"));
+  const te = () => {
+    c.querySelectorAll("[data-block-header]").forEach((a) => {
+      a.hasAttribute("tabindex") || (a.setAttribute("tabindex", "0"), a.setAttribute("role", "button"), a.setAttribute("aria-label", "Block header - Press Enter to collapse/expand, Shift+Delete to remove"));
     });
   };
   new MutationObserver(() => {
-    z();
-  }).observe(f, { childList: !0, subtree: !0 });
-  const V = A.value?.trim();
-  let N = [];
-  if (V)
+    te();
+  }).observe(c, { childList: !0, subtree: !0 });
+  const U = T.value?.trim();
+  let H = [];
+  if (U)
     try {
-      const r = JSON.parse(V);
-      Array.isArray(r) && (N = r, r.forEach((c) => {
-        const o = typeof c == "object" && c ? c._type : "";
-        o && a.has(o) && M(o, c);
+      const a = JSON.parse(U);
+      Array.isArray(a) && (H = a, a.forEach((u) => {
+        const s = typeof u == "object" && u ? u._type : "";
+        s && n.has(s) && F(s, u);
       }));
     } catch {
     }
-  const O = n.showConflicts ?? !0;
-  if (O && n.legacyBlocks && Array.isArray(n.legacyBlocks)) {
-    const r = F(N, n.legacyBlocks);
-    r.hasConflicts && j(e, r);
+  const J = o.showConflicts ?? !0;
+  if (J && o.legacyBlocks && Array.isArray(o.legacyBlocks)) {
+    const a = P(H, o.legacyBlocks);
+    a.hasConflicts && z(t, a);
   }
-  const _ = e.dataset.blockLegacy;
-  if (O && _)
+  const K = t.dataset.blockLegacy;
+  if (J && K)
     try {
-      const r = JSON.parse(_);
-      if (Array.isArray(r)) {
-        const c = F(N, r);
-        c.hasConflicts && j(e, c);
+      const a = JSON.parse(K);
+      if (Array.isArray(a)) {
+        const u = P(H, a);
+        u.hasConflicts && z(t, u);
       }
     } catch {
     }
-  x();
+  L();
 }
-function ue(e = document) {
-  Array.from(e.querySelectorAll('[data-component="block"], [data-block-editor]')).forEach((n) => de(n));
+function Ee(t = document) {
+  Array.from(t.querySelectorAll('[data-component="block"], [data-block-editor]')).forEach((o) => ve(o));
 }
-function fe(e) {
-  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", e, { once: !0 }) : e();
+function Ae(t) {
+  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", t, { once: !0 }) : t();
 }
-fe(() => ue());
+Ae(() => Ee());
 export {
-  ue as initBlockEditors
+  Ee as initBlockEditors
 };
 //# sourceMappingURL=block_editor.js.map
