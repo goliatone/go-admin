@@ -6,9 +6,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-cms/pkg/interfaces"
@@ -270,9 +272,56 @@ func ensureTemplate(ctx context.Context, db *bun.DB) error {
 }
 
 func ensureContentTypes(ctx context.Context, db *bun.DB) error {
+	blockDefs := map[string]any{
+		"hero": map[string]any{
+			"type":     "object",
+			"required": []string{"_type", "headline"},
+			"x-formgen": map[string]any{
+				"label":     "Hero",
+				"icon":      "star",
+				"collapsed": true,
+			},
+			"properties": map[string]any{
+				"_type": map[string]any{
+					"const": "hero",
+					"x-formgen": map[string]any{
+						"readonly": true,
+					},
+				},
+				"headline":    map[string]any{"type": "string"},
+				"subheadline": map[string]any{"type": "string"},
+				"cta_label":   map[string]any{"type": "string"},
+				"cta_url":     map[string]any{"type": "string"},
+			},
+		},
+		"rich_text": map[string]any{
+			"type":     "object",
+			"required": []string{"_type", "body"},
+			"x-formgen": map[string]any{
+				"label": "Rich Text",
+				"icon":  "text",
+			},
+			"properties": map[string]any{
+				"_type": map[string]any{
+					"const": "rich_text",
+					"x-formgen": map[string]any{
+						"readonly": true,
+					},
+				},
+				"body": map[string]any{
+					"type": "string",
+					"x-formgen": map[string]any{
+						"widget": "wysiwyg",
+					},
+				},
+			},
+		},
+	}
 	pageSchema := map[string]any{
+		"$schema":              "https://json-schema.org/draft/2020-12/schema",
 		"type":                 "object",
 		"additionalProperties": true,
+		"$defs":                blockDefs,
 		"properties": map[string]any{
 			"title":          map[string]any{"type": "string"},
 			"summary":        map[string]any{"type": "string"},
@@ -282,11 +331,27 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) error {
 			"meta":           map[string]any{"type": "object"},
 			"markdown":       map[string]any{"type": "object"},
 			"locale":         map[string]any{"type": "string"},
+			"blocks": map[string]any{
+				"type": "array",
+				"x-formgen": map[string]any{
+					"widget":   "block",
+					"label":    "Page Sections",
+					"sortable": true,
+				},
+				"items": map[string]any{
+					"oneOf": []any{
+						map[string]any{"$ref": "#/$defs/hero"},
+						map[string]any{"$ref": "#/$defs/rich_text"},
+					},
+				},
+			},
 		},
 	}
 	postSchema := map[string]any{
+		"$schema":              "https://json-schema.org/draft/2020-12/schema",
 		"type":                 "object",
 		"additionalProperties": true,
+		"$defs":                blockDefs,
 		"properties": map[string]any{
 			"title":          map[string]any{"type": "string"},
 			"summary":        map[string]any{"type": "string"},
@@ -297,6 +362,20 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) error {
 			"seo":            map[string]any{"type": "object"},
 			"markdown":       map[string]any{"type": "object"},
 			"locale":         map[string]any{"type": "string"},
+			"blocks": map[string]any{
+				"type": "array",
+				"x-formgen": map[string]any{
+					"widget":   "block",
+					"label":    "Post Blocks",
+					"sortable": true,
+				},
+				"items": map[string]any{
+					"oneOf": []any{
+						map[string]any{"$ref": "#/$defs/hero"},
+						map[string]any{"$ref": "#/$defs/rich_text"},
+					},
+				},
+			},
 		},
 	}
 
@@ -326,6 +405,15 @@ func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, desc
 					Exec(ctx); updateErr != nil {
 					return updateErr
 				}
+			}
+		}
+		if !reflect.DeepEqual(existing.Schema, schema) {
+			if _, updateErr := db.NewUpdate().
+				Model(&contentTypeRow{Schema: schema, UpdatedAt: time.Now().UTC()}).
+				Column("schema", "updated_at").
+				Where("id = ?", existing.ID).
+				Exec(ctx); updateErr != nil {
+				return updateErr
 			}
 		}
 		return nil
@@ -365,12 +453,39 @@ func contentTypeSlug(name string) string {
 	return strings.ReplaceAll(slug, " ", "-")
 }
 
-func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownService, menuSvc admin.CMSMenuService, refs cmsSeedRefs, defaultLocale string) error {
-	if md == nil {
+func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownService, contentSvc admin.CMSContentService, menuSvc admin.CMSMenuService, refs cmsSeedRefs, defaultLocale string) error {
+	if md == nil && contentSvc == nil {
 		return fmt.Errorf("markdown service unavailable")
 	}
 	if menuSvc == nil {
 		return fmt.Errorf("menu service unavailable")
+	}
+	useContentFallback := contentSvc != nil
+	if _, ok := contentSvc.(*admin.InMemoryContentService); ok {
+		useContentFallback = false
+	}
+
+	heroBlock := func(headline, subheadline, ctaLabel, ctaURL string) map[string]any {
+		block := map[string]any{
+			"_type":    "hero",
+			"headline": headline,
+		}
+		if subheadline != "" {
+			block["subheadline"] = subheadline
+		}
+		if ctaLabel != "" {
+			block["cta_label"] = ctaLabel
+		}
+		if ctaURL != "" {
+			block["cta_url"] = ctaURL
+		}
+		return block
+	}
+	richTextBlock := func(body string) map[string]any {
+		return map[string]any{
+			"_type": "rich_text",
+			"body":  body,
+		}
 	}
 
 	pageSeeds := []contentSeed{
@@ -383,6 +498,10 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 			Path:    "/",
 			Custom: map[string]any{
 				"seo": map[string]any{"title": "Home - Enterprise Admin", "description": "Welcome to Enterprise Admin"},
+				"blocks": []map[string]any{
+					heroBlock("Enterprise Admin", "Build modular admin experiences with go-cms.", "Explore", "/admin"),
+					richTextBlock("The CMS panel now supports schema-driven blocks for pages and posts."),
+				},
 			},
 		},
 		{
@@ -394,6 +513,9 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 			Path:    "/about",
 			Custom: map[string]any{
 				"seo": map[string]any{"title": "About Us", "description": "Learn more about our company"},
+				"blocks": []map[string]any{
+					richTextBlock("We build modular admin experiences on top of go-cms and go-formgen."),
+				},
 			},
 		},
 		{
@@ -442,6 +564,9 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 			Tags:    []string{"go", "programming", "tutorial"},
 			Custom: map[string]any{
 				"seo": map[string]any{"title": "Getting Started with Go", "description": "A beginner's guide to Go"},
+				"blocks": []map[string]any{
+					richTextBlock("Start with packages, modules, and fast feedback loops."),
+				},
 			},
 		},
 		{
@@ -454,6 +579,9 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 			Tags:    []string{"go", "api", "rest"},
 			Custom: map[string]any{
 				"seo": map[string]any{"title": "Building REST APIs", "description": "REST API development guide"},
+				"blocks": []map[string]any{
+					richTextBlock("Plan your handlers, use middleware, and add structured logs."),
+				},
 			},
 		},
 		{
@@ -502,9 +630,11 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 		ContentAllowMissingTranslations: true,
 		PageAllowMissingTranslations:    true,
 	}
-	for _, seed := range pageSeeds {
-		if err := importSeed(ctx, md, seed, pageOpts, defaultLocale); err != nil {
-			return err
+	if md != nil {
+		for _, seed := range pageSeeds {
+			if err := importSeed(ctx, md, seed, pageOpts, defaultLocale); err != nil && !useContentFallback {
+				return err
+			}
 		}
 	}
 
@@ -516,8 +646,16 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 		ContentAllowMissingTranslations: true,
 		PageAllowMissingTranslations:    true,
 	}
-	for _, seed := range postSeeds {
-		if err := importSeed(ctx, md, seed, postOpts, defaultLocale); err != nil {
+	if md != nil {
+		for _, seed := range postSeeds {
+			if err := importSeed(ctx, md, seed, postOpts, defaultLocale); err != nil && !useContentFallback {
+				return err
+			}
+		}
+	}
+
+	if useContentFallback {
+		if err := ensureSeedContent(ctx, contentSvc, refs, defaultLocale, pageSeeds, postSeeds); err != nil {
 			return err
 		}
 	}
@@ -531,6 +669,114 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 	}
 
 	return seedSiteMenu(ctx, menuSvc, defaultLocale)
+}
+
+func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, refs cmsSeedRefs, defaultLocale string, pageSeeds, postSeeds []contentSeed) error {
+	if contentSvc == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	locale := strings.TrimSpace(defaultLocale)
+	if locale == "" {
+		locale = "en"
+	}
+
+	pageStore := stores.NewCMSPageStore(contentSvc, locale)
+	postStore := stores.NewCMSPostStore(contentSvc, locale)
+	if pageStore == nil || postStore == nil {
+		return fmt.Errorf("content service unavailable")
+	}
+
+	pageRows, _, err := pageStore.List(ctx, admin.ListOptions{Filters: map[string]any{"locale": locale}})
+	if err != nil {
+		return err
+	}
+	pageSlugs := map[string]struct{}{}
+	for _, row := range pageRows {
+		slug := strings.TrimSpace(fmt.Sprint(row["slug"]))
+		if slug == "" || slug == "<nil>" {
+			continue
+		}
+		pageSlugs[strings.ToLower(slug)] = struct{}{}
+	}
+
+	postRows, _, err := postStore.List(ctx, admin.ListOptions{Filters: map[string]any{"locale": locale}})
+	if err != nil {
+		return err
+	}
+	postSlugs := map[string]struct{}{}
+	for _, row := range postRows {
+		slug := strings.TrimSpace(fmt.Sprint(row["slug"]))
+		if slug == "" || slug == "<nil>" {
+			continue
+		}
+		postSlugs[strings.ToLower(slug)] = struct{}{}
+	}
+
+	for _, seed := range pageSeeds {
+		slug := strings.ToLower(strings.TrimSpace(seed.Slug))
+		if slug == "" {
+			continue
+		}
+		if _, exists := pageSlugs[slug]; exists {
+			continue
+		}
+		seoTitle, seoDescription := seedSEO(seed)
+		record := map[string]any{
+			"title":            seed.Title,
+			"slug":             seed.Slug,
+			"content":          seed.Body,
+			"status":           seed.Status,
+			"locale":           locale,
+			"path":             normalizePath(seed.Path, seed.Slug),
+			"meta_title":       seoTitle,
+			"meta_description": seoDescription,
+			"template_id":      refs.TemplateID.String(),
+		}
+		if seed.Custom != nil {
+			if blocks, ok := seed.Custom["blocks"]; ok {
+				record["blocks"] = blocks
+			}
+		}
+		if _, err := pageStore.Create(ctx, record); err != nil {
+			return fmt.Errorf("seed page %s: %w", seed.Slug, err)
+		}
+	}
+
+	for _, seed := range postSeeds {
+		slug := strings.ToLower(strings.TrimSpace(seed.Slug))
+		if slug == "" {
+			continue
+		}
+		if _, exists := postSlugs[slug]; exists {
+			continue
+		}
+		seoTitle, seoDescription := seedSEO(seed)
+		record := map[string]any{
+			"title":            seed.Title,
+			"slug":             seed.Slug,
+			"content":          seed.Body,
+			"excerpt":          seed.Summary,
+			"status":           seed.Status,
+			"locale":           locale,
+			"path":             normalizePath(seed.Path, seed.Slug),
+			"meta_title":       seoTitle,
+			"meta_description": seoDescription,
+			"tags":             append([]string{}, seed.Tags...),
+		}
+		if seed.Custom != nil {
+			if blocks, ok := seed.Custom["blocks"]; ok {
+				record["blocks"] = blocks
+			}
+		}
+		if _, err := postStore.Create(ctx, record); err != nil {
+			return fmt.Errorf("seed post %s: %w", seed.Slug, err)
+		}
+	}
+
+	return nil
 }
 
 func importSeed(ctx context.Context, md interfaces.MarkdownService, seed contentSeed, opts interfaces.ImportOptions, locale string) error {

@@ -134,22 +134,12 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		return admin.CMSOptions{}, err
 	}
 
-	menuAdapter := admin.CMSMenuService(nil)
-	if adapted := admin.NewGoCMSContainerAdapter(module); adapted != nil {
-		menuAdapter = adapted.MenuService()
-	}
-
-	if err := seedCMSDemoContent(ctx, client.DB(), module.Markdown(), menuAdapter, seedRefs, defaultLocale); err != nil {
-		return admin.CMSOptions{}, fmt.Errorf("seed cms content: %w", err)
-	}
-
 	adapter := admin.NewGoCMSContainerAdapter(module)
-	widgetSvc := admin.CMSWidgetService(nil)
-	menuSvc := admin.CMSMenuService(nil)
+	menuAdapter := admin.CMSMenuService(nil)
 	if adapter != nil {
-		widgetSvc = adapter.WidgetService()
-		menuSvc = adapter.MenuService()
+		menuAdapter = adapter.MenuService()
 	}
+
 	contentSvc := admin.CMSContentService(nil)
 	if module != nil && module.Content() != nil {
 		contentSvc = newGoCMSContentBridge(module.Content(), module.Pages(), module.Blocks(), seedRefs.TemplateID, map[string]uuid.UUID{
@@ -160,8 +150,23 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	if contentSvc == nil && adapter != nil && adapter.ContentService() != nil {
 		contentSvc = adapter.ContentService()
 	}
+
+	if err := seedCMSBlockDefinitions(ctx, contentSvc, defaultLocale); err != nil {
+		return admin.CMSOptions{}, err
+	}
+	if err := seedCMSDemoContent(ctx, client.DB(), module.Markdown(), contentSvc, menuAdapter, seedRefs, defaultLocale); err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("seed cms content: %w", err)
+	}
+
 	if contentSvc == nil {
 		contentSvc = admin.NewInMemoryContentService()
+	}
+
+	widgetSvc := admin.CMSWidgetService(nil)
+	menuSvc := admin.CMSMenuService(nil)
+	if adapter != nil {
+		widgetSvc = adapter.WidgetService()
+		menuSvc = adapter.MenuService()
 	}
 
 	contentTypeSvc := admin.CMSContentTypeService(nil)
@@ -230,6 +235,90 @@ func resolveCMSDSN(input string) string {
 		return env
 	}
 	return defaultCMSDSN()
+}
+
+func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, locale string) error {
+	if svc == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	locale = strings.TrimSpace(locale)
+	if locale == "" {
+		locale = "en"
+	}
+
+	defs := []admin.CMSBlockDefinition{
+		{
+			ID:   "hero",
+			Name: "Hero",
+			Type: "hero",
+			Schema: map[string]any{
+				"$schema":  "https://json-schema.org/draft/2020-12/schema",
+				"type":     "object",
+				"required": []string{"_type", "headline"},
+				"x-formgen": map[string]any{
+					"label":     "Hero",
+					"icon":      "star",
+					"collapsed": true,
+				},
+				"properties": map[string]any{
+					"_type": map[string]any{
+						"const": "hero",
+						"x-formgen": map[string]any{
+							"readonly": true,
+						},
+					},
+					"headline":    map[string]any{"type": "string"},
+					"subheadline": map[string]any{"type": "string"},
+					"cta_label":   map[string]any{"type": "string"},
+					"cta_url":     map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			ID:   "rich_text",
+			Name: "Rich Text",
+			Type: "rich_text",
+			Schema: map[string]any{
+				"$schema":  "https://json-schema.org/draft/2020-12/schema",
+				"type":     "object",
+				"required": []string{"_type", "body"},
+				"x-formgen": map[string]any{
+					"label": "Rich Text",
+					"icon":  "text",
+				},
+				"properties": map[string]any{
+					"_type": map[string]any{
+						"const": "rich_text",
+						"x-formgen": map[string]any{
+							"readonly": true,
+						},
+					},
+					"body": map[string]any{
+						"type": "string",
+						"x-formgen": map[string]any{
+							"widget": "wysiwyg",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, def := range defs {
+		def.Locale = locale
+		if _, err := svc.CreateBlockDefinition(ctx, def); err != nil {
+			lower := strings.ToLower(err.Error())
+			if strings.Contains(lower, "already") || strings.Contains(lower, "exists") {
+				continue
+			}
+			return err
+		}
+	}
+
+	return nil
 }
 
 func resolveCMSMigrationsFS() fs.FS {

@@ -2,7 +2,7 @@ package stores
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -362,18 +362,11 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	if templateID != "" {
 		payload["template_id"] = templateID
 	}
-	if blocks, ok := record["blocks"].([]string); ok && len(blocks) > 0 {
-		payload["blocks"] = append([]string{}, blocks...)
-	} else if blocksAny, ok := record["blocks"].([]any); ok && len(blocksAny) > 0 {
-		extracted := []string{}
-		for _, b := range blocksAny {
-			if str := strings.TrimSpace(fmt.Sprint(b)); str != "" {
-				extracted = append(extracted, str)
-			}
-		}
-		if len(extracted) > 0 {
-			payload["blocks"] = extracted
-		}
+	if legacy, embedded, embeddedPresent := parseBlocksPayload(record["blocks"]); embeddedPresent {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["blocks"] = embedded
+	} else if len(legacy) > 0 {
+		payload["blocks"] = legacy
 	} else if existingBlocks, ok := existing["blocks"].([]string); ok && len(existingBlocks) > 0 {
 		payload["blocks"] = append([]string{}, existingBlocks...)
 	}
@@ -395,12 +388,15 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 		"locale":      page.Locale,
 		"preview_url": page.PreviewURL,
 	}
-	if len(page.Blocks) > 0 {
-		record["blocks"] = append([]string{}, page.Blocks...)
-	}
 
 	data := cloneRecord(page.Data)
 	seo := cloneRecord(page.SEO)
+
+	if embedded, ok := extractEmbeddedBlocks(data["blocks"]); ok {
+		record["blocks"] = embedded
+	} else if len(page.Blocks) > 0 {
+		record["blocks"] = append([]string{}, page.Blocks...)
+	}
 
 	record["content"] = asString(data["content"], "")
 	record["meta_title"] = asString(seo["title"], asString(data["meta_title"], ""))
@@ -493,7 +489,18 @@ func cmsPageFromMap(record map[string]any) admin.CMSPage {
 	if tpl, ok := record["template_id"].(string); ok {
 		page.TemplateID = tpl
 	}
-	if blocks, ok := record["blocks"].([]string); ok {
+	if data, ok := record["data"].(map[string]any); ok {
+		page.Data = cloneRecord(data)
+	}
+	if seo, ok := record["seo"].(map[string]any); ok {
+		page.SEO = cloneRecord(seo)
+	}
+	if embedded, ok := extractEmbeddedBlocks(record["blocks"]); ok {
+		if page.Data == nil {
+			page.Data = cloneRecord(nil)
+		}
+		page.Data["blocks"] = embedded
+	} else if blocks, ok := record["blocks"].([]string); ok {
 		page.Blocks = append([]string{}, blocks...)
 	} else if blocksAny, ok := record["blocks"].([]any); ok {
 		for _, blk := range blocksAny {
@@ -501,12 +508,6 @@ func cmsPageFromMap(record map[string]any) admin.CMSPage {
 				page.Blocks = append(page.Blocks, b)
 			}
 		}
-	}
-	if data, ok := record["data"].(map[string]any); ok {
-		page.Data = cloneRecord(data)
-	}
-	if seo, ok := record["seo"].(map[string]any); ok {
-		page.SEO = cloneRecord(seo)
 	}
 	return page
 }
@@ -521,4 +522,109 @@ func extractSearchFromOptions(opts admin.ListOptions) string {
 		}
 	}
 	return ""
+}
+
+func parseBlocksPayload(raw any) (legacy []string, embedded []map[string]any, embeddedPresent bool) {
+	if raw == nil {
+		return nil, nil, false
+	}
+	switch v := raw.(type) {
+	case []map[string]any:
+		return nil, cloneEmbeddedBlocks(v), true
+	case []string:
+		return append([]string{}, v...), nil, false
+	case []any:
+		if len(v) == 0 {
+			return nil, []map[string]any{}, true
+		}
+		if embedded := embeddedBlocksFromAnySlice(v); embedded != nil {
+			return nil, embedded, true
+		}
+		if legacy := stringSliceFromAny(v); len(legacy) > 0 {
+			return legacy, nil, false
+		}
+		return nil, nil, false
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return nil, nil, false
+		}
+		var decoded any
+		if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+			return nil, nil, false
+		}
+		return parseBlocksPayload(decoded)
+	default:
+		return nil, nil, false
+	}
+}
+
+func extractEmbeddedBlocks(raw any) ([]map[string]any, bool) {
+	if raw == nil {
+		return nil, false
+	}
+	switch v := raw.(type) {
+	case []map[string]any:
+		return cloneEmbeddedBlocks(v), true
+	case []any:
+		if len(v) == 0 {
+			return []map[string]any{}, true
+		}
+		if embedded := embeddedBlocksFromAnySlice(v); embedded != nil {
+			return embedded, true
+		}
+		return nil, false
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return nil, false
+		}
+		var decoded any
+		if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+			return nil, false
+		}
+		return extractEmbeddedBlocks(decoded)
+	default:
+		return nil, false
+	}
+}
+
+func embeddedBlocksFromAnySlice(values []any) []map[string]any {
+	if len(values) == 0 {
+		return []map[string]any{}
+	}
+	out := []map[string]any{}
+	found := false
+	for _, item := range values {
+		switch v := item.(type) {
+		case map[string]any:
+			out = append(out, cloneRecord(v))
+			found = true
+		}
+	}
+	if !found {
+		return nil
+	}
+	return out
+}
+
+func cloneEmbeddedBlocks(blocks []map[string]any) []map[string]any {
+	if blocks == nil {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(blocks))
+	for _, block := range blocks {
+		out = append(out, cloneRecord(block))
+	}
+	return out
+}
+
+func stringSliceFromAny(value []any) []string {
+	out := []string{}
+	for _, item := range value {
+		if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }

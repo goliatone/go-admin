@@ -274,6 +274,12 @@ func main() {
 	settingsBackend := adapterResult.SettingsBackend
 	activityBackend := adapterResult.ActivityBackend
 
+	if featureEnabled(adm.FeatureGate(), "cms") {
+		if err := adm.RegisterCMSDemoPanels(); err != nil {
+			log.Fatalf("failed to register CMS panels: %v", err)
+		}
+	}
+
 	// Initialize data stores with seed data
 	cmsContentSvc := admin.CMSContentService(admin.NewInMemoryContentService())
 	if cfg.CMS.Container != nil {
