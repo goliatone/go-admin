@@ -404,12 +404,14 @@ function initBlockEditor(root: HTMLElement): void {
     syncAll();
   };
 
-  if (elements.addButton && elements.addSelect) {
-    elements.addButton.addEventListener('click', () => {
-      const type = elements.addSelect?.value?.trim();
+  const addButton = elements.addButton;
+  const addSelect = elements.addSelect;
+  if (addButton && addSelect) {
+    addButton.addEventListener('click', () => {
+      const type = addSelect.value.trim();
       if (type) {
         addBlock(type);
-        elements.addSelect.value = '';
+        addSelect.value = '';
       }
     });
   }

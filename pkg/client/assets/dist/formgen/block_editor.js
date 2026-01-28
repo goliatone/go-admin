@@ -1,475 +1,297 @@
-function parseConfig(raw) {
-  if (!raw) return {};
+function R(e) {
+  if (!e) return {};
   try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") {
-      return parsed;
-    }
+    const t = JSON.parse(e);
+    if (t && typeof t == "object")
+      return t;
   } catch {
-    // ignore
   }
   return {};
 }
-function resolveConfig(root) {
-  const configRoot = root.closest("[data-component-config]");
-  return parseConfig(configRoot?.getAttribute("data-component-config") ?? null);
+function V(e) {
+  const t = e.closest("[data-component-config]");
+  return R(t?.getAttribute("data-component-config") ?? null);
 }
-function parseBoolean(value) {
-  if (value == null) return void 0;
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "true") return true;
-  if (normalized === "false") return false;
-  return void 0;
+function I(e) {
+  if (e == null) return;
+  const t = e.trim().toLowerCase();
+  if (t === "true") return !0;
+  if (t === "false") return !1;
 }
-function resolveElements(root) {
-  const list = root.querySelector("[data-block-list]");
-  const output = root.querySelector("input[data-block-output]");
-  if (!list || !output) return null;
-  const addSelect = root.querySelector("[data-block-add-select]");
-  const addButton = root.querySelector("[data-block-add]");
-  const emptyState = root.querySelector("[data-block-empty]");
-  return {
-    root,
-    list,
-    output,
-    addSelect: addSelect ?? void 0,
-    addButton: addButton ?? void 0,
-    emptyState: emptyState ?? void 0
-  };
+function $(e) {
+  const t = e.querySelector("[data-block-list]"), r = e.querySelector("input[data-block-output]");
+  if (!t || !r) return null;
+  const a = e.querySelector("[data-block-add-select]"), d = e.querySelector("[data-block-add]"), i = e.querySelector("[data-block-empty]");
+  return { root: e, list: t, output: r, addSelect: a ?? void 0, addButton: d ?? void 0, emptyState: i ?? void 0 };
 }
-function toPathParts(raw) {
-  const cleaned = raw.replace(/\]/g, "");
-  return cleaned.split(/\.|\[/).map((part) => part.trim()).filter((part) => part.length > 0);
+function B(e) {
+  return e.replace(/\]/g, "").split(/\.|\[/).map((r) => r.trim()).filter((r) => r.length > 0);
 }
-function buildInputName(base, index, raw) {
-  if (!base) return raw;
-  const parts = toPathParts(raw);
-  let result = `${base}[${index}]`;
-  for (const part of parts) {
-    result += `[${part}]`;
+function J(e, t, r) {
+  if (!e) return r;
+  const a = B(r);
+  let d = `${e}[${t}]`;
+  for (const i of a)
+    d += `[${i}]`;
+  return d;
+}
+function P(e, t) {
+  if (!e || !t) return;
+  const r = B(t);
+  let a = e;
+  for (const d of r) {
+    if (a == null) return;
+    a = a[d];
   }
-  return result;
+  return a;
 }
-function getByPath(data, rawPath) {
-  if (!data || !rawPath) return void 0;
-  const parts = toPathParts(rawPath);
-  let current = data;
-  for (const part of parts) {
-    if (current == null) return void 0;
-    current = current[part];
-  }
-  return current;
-}
-function setByPath(target, rawPath, value) {
-  if (!rawPath) return;
-  const parts = toPathParts(rawPath);
-  if (parts.length === 0) return;
-  let current = target;
-  parts.forEach((part, idx) => {
-    const isLast = idx === parts.length - 1;
-    const nextPart = parts[idx + 1];
-    const nextIsIndex = nextPart !== void 0 && /^\d+$/.test(nextPart);
-    if (isLast) {
-      if (part === "") return;
-      current[part] = value;
+function U(e, t, r) {
+  if (!t) return;
+  const a = B(t);
+  if (a.length === 0) return;
+  let d = e;
+  a.forEach((i, u) => {
+    const A = u === a.length - 1, S = a[u + 1], C = S !== void 0 && /^\d+$/.test(S);
+    if (A) {
+      if (i === "") return;
+      d[i] = r;
       return;
     }
-    if (current[part] == null || typeof current[part] !== "object") {
-      current[part] = nextIsIndex ? [] : {};
-    }
-    current = current[part];
+    (d[i] == null || typeof d[i] != "object") && (d[i] = C ? [] : {}), d = d[i];
   });
 }
-function readFieldValue(elements) {
-  if (elements.length === 0) return void 0;
-  const first = elements[0];
-  if (first instanceof HTMLSelectElement && first.multiple) {
-    return Array.from(first.selectedOptions).map((opt) => opt.value);
-  }
-  if (first instanceof HTMLInputElement) {
-    if (first.type === "radio") {
-      const checked = elements.find((el) => el.checked);
-      return checked ? checked.value : void 0;
+function z(e) {
+  if (e.length === 0) return;
+  const t = e[0];
+  if (t instanceof HTMLSelectElement && t.multiple)
+    return Array.from(t.selectedOptions).map((r) => r.value);
+  if (t instanceof HTMLInputElement) {
+    if (t.type === "radio") {
+      const r = e.find((a) => a.checked);
+      return r ? r.value : void 0;
     }
-    if (first.type === "checkbox") {
-      if (elements.length > 1) {
-        return elements.filter((el) => el.checked).map((el) => el.value);
-      }
-      return first.checked;
-    }
+    if (t.type === "checkbox")
+      return e.length > 1 ? e.filter((r) => r.checked).map((r) => r.value) : t.checked;
   }
-  return first.value;
+  return t.value;
 }
-function setFieldValue(element, value) {
-  if (value == null) return;
-  if (element instanceof HTMLInputElement) {
-    if (element.type === "checkbox") {
-      if (Array.isArray(value)) {
-        element.checked = value.map(String).includes(element.value);
-      } else if (typeof value === "boolean") {
-        element.checked = value;
-      } else {
-        element.checked = String(value) === element.value || value === true;
-      }
-      return;
-    }
-    if (element.type === "radio") {
-      element.checked = String(value) === element.value;
-      return;
-    }
-  }
-  if (element instanceof HTMLSelectElement && element.multiple) {
-    const values = Array.isArray(value) ? value.map(String) : [String(value)];
-    Array.from(element.options).forEach((opt) => {
-      opt.selected = values.includes(opt.value);
-    });
-    return;
-  }
-  element.value = String(value);
-}
-function collectTemplates(root) {
-  const templates = new Map();
-  root.querySelectorAll("template[data-block-template]").forEach((template) => {
-    const type = template.dataset.blockType?.trim();
-    if (!type) return;
-    const label = template.dataset.blockLabel?.trim() || type;
-    const icon = template.dataset.blockIcon?.trim();
-    const collapsed = parseBoolean(template.dataset.blockCollapsed);
-    templates.set(type, { type, label, icon: icon || void 0, collapsed, template });
-  });
-  return templates;
-}
-function ensureTypeField(item, type) {
-  const inputs = item.querySelectorAll('[name="_type"], [data-block-type-input]');
-  if (inputs.length === 0) {
-    const hidden = document.createElement("input");
-    hidden.type = "hidden";
-    hidden.name = "_type";
-    hidden.value = type;
-    hidden.setAttribute("data-block-type-input", "true");
-    hidden.setAttribute("data-block-ignore", "true");
-    item.appendChild(hidden);
-    return;
-  }
-  inputs.forEach((input) => {
-    input.setAttribute("data-block-type-input", "true");
-    input.setAttribute("data-block-ignore", "true");
-    if (input instanceof HTMLInputElement) {
-      input.value = type;
-      input.readOnly = true;
-    } else if (input instanceof HTMLSelectElement) {
-      Array.from(input.options).forEach((opt) => {
-        opt.selected = opt.value === type;
-      });
-      input.disabled = true;
-    } else {
-      input.value = type;
-      input.readOnly = true;
-    }
-    const wrapper = input.closest("[data-component]");
-    if (wrapper) {
-      wrapper.classList.add("hidden");
-    }
-  });
-}
-function initBlockEditor(root) {
-  const elements = resolveElements(root);
-  if (!elements) return;
-  const config = resolveConfig(root);
-  const templates = collectTemplates(root);
-  const baseName = root.dataset.blockField || elements.output.name;
-  const sortableHint = parseBoolean(root.dataset.blockSortable);
-  const sortable = config.sortable ?? sortableHint ?? false;
-  const allowDrag = config.allowDrag ?? sortable;
-  const addLabel = config.addLabel || elements.addButton?.dataset.blockAddLabel || "Add block";
-  const emptyLabel = config.emptyLabel || elements.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.";
-  if (elements.addButton) {
-    elements.addButton.textContent = addLabel;
-  }
-  if (elements.emptyState) {
-    elements.emptyState.textContent = emptyLabel;
-  }
-  const list = elements.list;
-  const output = elements.output;
-  const syncOutput = () => {
-    const items = Array.from(list.querySelectorAll("[data-block-item]"));
-    const payload = items.map((item) => {
-      const data = {};
-      const groups = new Map();
-      item.querySelectorAll("input, select, textarea").forEach((field) => {
-        if (field.dataset.blockIgnore === "true" || field.hasAttribute("data-block-ignore")) return;
-        const key = field.getAttribute("data-block-field-name") || field.name || "";
-        if (!key) return;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(field);
-      });
-      groups.forEach((group, key) => {
-        const value = readFieldValue(group);
-        if (value !== void 0) {
-          setByPath(data, key, value);
-        }
-      });
-      const blockType = item.dataset.blockType || data._type || "";
-      if (blockType) data._type = blockType;
-      return data;
-    });
-    output.value = JSON.stringify(payload);
-  };
-  const updateNames = () => {
-    const items = Array.from(list.querySelectorAll("[data-block-item]"));
-    items.forEach((item, index) => {
-      item.querySelectorAll("input, select, textarea").forEach((field) => {
-        if (field.dataset.blockIgnore === "true" || field.hasAttribute("data-block-ignore")) return;
-        const original = field.getAttribute("data-block-field-name") || field.name;
-        if (!original) return;
-        if (!field.hasAttribute("data-block-field-name")) {
-          field.setAttribute("data-block-field-name", original);
-        }
-        field.name = buildInputName(baseName, index, original);
-      });
-    });
-  };
-  const updateEmptyState = () => {
-    if (!elements.emptyState) return;
-    const hasItems = list.querySelector("[data-block-item]");
-    elements.emptyState.classList.toggle("hidden", Boolean(hasItems));
-  };
-  const syncAll = () => {
-    updateNames();
-    syncOutput();
-    updateEmptyState();
-  };
-  const form = root.closest("form");
-  if (form) {
-    form.addEventListener("submit", () => {
-      syncOutput();
-    });
-  }
-  const fillValues = (item, values) => {
-    item.querySelectorAll("input, select, textarea").forEach((field) => {
-      const key = field.getAttribute("data-block-field-name") || field.name;
-      if (!key) return;
-      const value = getByPath(values, key);
-      if (value !== void 0) {
-        setFieldValue(field, value);
-      }
-    });
-  };
-  const createBlockItem = (template, values) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700";
-    wrapper.setAttribute("data-block-item", "true");
-    wrapper.dataset.blockType = template.type;
-    if (sortable) {
-      wrapper.setAttribute("draggable", "true");
-    }
-    const header = document.createElement("div");
-    header.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700";
-    header.setAttribute("data-block-header", "true");
-    const titleWrap = document.createElement("div");
-    titleWrap.className = "flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white";
-    const icon = document.createElement("span");
-    icon.className = "inline-flex items-center justify-center h-6 min-w-[1.5rem] px-2 text-xs font-semibold uppercase rounded-full bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200";
-    icon.textContent = template.icon || template.label.slice(0, 1).toUpperCase();
-    const label = document.createElement("span");
-    label.textContent = template.label;
-    const typeBadge = document.createElement("span");
-    typeBadge.className = "text-xs text-gray-500 dark:text-gray-400";
-    typeBadge.textContent = template.type;
-    titleWrap.appendChild(icon);
-    titleWrap.appendChild(label);
-    titleWrap.appendChild(typeBadge);
-    const actions = document.createElement("div");
-    actions.className = "flex items-center gap-2";
-    if (sortable) {
-      const moveUp = document.createElement("button");
-      moveUp.type = "button";
-      moveUp.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white";
-      moveUp.textContent = "Up";
-      moveUp.setAttribute("data-block-move-up", "true");
-      const moveDown = document.createElement("button");
-      moveDown.type = "button";
-      moveDown.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white";
-      moveDown.textContent = "Down";
-      moveDown.setAttribute("data-block-move-down", "true");
-      actions.appendChild(moveUp);
-      actions.appendChild(moveDown);
-    }
-    const collapseBtn = document.createElement("button");
-    collapseBtn.type = "button";
-    collapseBtn.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white";
-    collapseBtn.textContent = "Collapse";
-    collapseBtn.setAttribute("data-block-collapse", "true");
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.className = "text-xs text-red-600 hover:text-red-700";
-    removeBtn.textContent = "Remove";
-    removeBtn.setAttribute("data-block-remove", "true");
-    actions.appendChild(collapseBtn);
-    actions.appendChild(removeBtn);
-    if (sortable) {
-      const dragHandle = document.createElement("span");
-      dragHandle.className = "text-xs text-gray-400 cursor-move";
-      dragHandle.textContent = "Drag";
-      dragHandle.setAttribute("data-block-drag-handle", "true");
-      actions.appendChild(dragHandle);
-    }
-    header.appendChild(titleWrap);
-    header.appendChild(actions);
-    const body = document.createElement("div");
-    body.className = "p-4 space-y-4";
-    body.setAttribute("data-block-body", "true");
-    const fragment = template.template.content.cloneNode(true);
-    body.appendChild(fragment);
-    wrapper.appendChild(header);
-    wrapper.appendChild(body);
-    ensureTypeField(wrapper, template.type);
-    if (values) {
-      fillValues(wrapper, values);
-    }
-    const shouldCollapse = template.collapsed ?? false;
-    if (shouldCollapse) {
-      body.classList.add("hidden");
-      wrapper.dataset.blockCollapsed = "true";
-      collapseBtn.textContent = "Expand";
-    }
-    return wrapper;
-  };
-  const addBlock = (type, values) => {
-    const template = templates.get(type);
-    if (!template) return;
-    const item = createBlockItem(template, values);
-    list.appendChild(item);
-    syncAll();
-  };
-  if (elements.addButton && elements.addSelect) {
-    elements.addButton.addEventListener("click", () => {
-      const type = elements.addSelect?.value?.trim();
-      if (type) {
-        addBlock(type);
-        elements.addSelect.value = "";
-      }
-    });
-  }
-  root.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const item = target.closest("[data-block-item]");
-    if (!item) return;
-    if (target.closest("[data-block-remove]")) {
-      item.remove();
-      syncAll();
-      return;
-    }
-    if (target.closest("[data-block-collapse]")) {
-      const body = item.querySelector("[data-block-body]");
-      if (body) {
-        const isCollapsed = body.classList.toggle("hidden");
-        item.dataset.blockCollapsed = isCollapsed ? "true" : "false";
-        const button = target.closest("[data-block-collapse]");
-        if (button) button.textContent = isCollapsed ? "Expand" : "Collapse";
-      }
-      return;
-    }
-    if (target.closest("[data-block-move-up]")) {
-      const prev = item.previousElementSibling;
-      if (prev) list.insertBefore(item, prev);
-      syncAll();
-      return;
-    }
-    if (target.closest("[data-block-move-down]")) {
-      const next = item.nextElementSibling;
-      if (next) list.insertBefore(next, item);
-      syncAll();
-      return;
-    }
-  });
-  root.addEventListener("input", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement) || !target.closest("[data-block-item]")) return;
-    syncAll();
-  });
-  root.addEventListener("change", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement) || !target.closest("[data-block-item]")) return;
-    syncAll();
-  });
-  if (sortable && allowDrag) {
-    let dragging = null;
-    list.addEventListener("dragstart", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const handle = target.closest("[data-block-drag-handle]");
-      if (!handle) {
-        event.preventDefault();
+function W(e, t) {
+  if (t != null) {
+    if (e instanceof HTMLInputElement) {
+      if (e.type === "checkbox") {
+        Array.isArray(t) ? e.checked = t.map(String).includes(e.value) : typeof t == "boolean" ? e.checked = t : e.checked = String(t) === e.value || t === !0;
         return;
       }
-      const item = target.closest("[data-block-item]");
-      if (!item) return;
-      dragging = item;
-      item.classList.add("opacity-70");
-      event.dataTransfer?.setData("text/plain", "block");
-    });
-    list.addEventListener("dragover", (event) => {
-      if (!dragging) return;
-      event.preventDefault();
-      const target = event.target instanceof HTMLElement ? event.target.closest("[data-block-item]") : null;
-      if (!target || target === dragging) return;
-      const rect = target.getBoundingClientRect();
-      const shouldInsertAfter = event.clientY > rect.top + rect.height / 2;
-      list.insertBefore(dragging, shouldInsertAfter ? target.nextSibling : target);
-    });
-    list.addEventListener("dragend", () => {
-      if (!dragging) return;
-      dragging.classList.remove("opacity-70");
-      dragging = null;
-      syncAll();
-    });
-  }
-  if (elements.addSelect) {
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = "Select block type";
-    elements.addSelect.appendChild(placeholder);
-    templates.forEach((template) => {
-      const option = document.createElement("option");
-      option.value = template.type;
-      option.textContent = template.label;
-      elements.addSelect.appendChild(option);
-    });
-    elements.addSelect.value = "";
-  }
-  const initialValue = output.value?.trim();
-  if (initialValue) {
-    try {
-      const parsed = JSON.parse(initialValue);
-      if (Array.isArray(parsed)) {
-        parsed.forEach((entry) => {
-          const type = typeof entry === "object" && entry ? entry._type : "";
-          if (type && templates.has(type)) {
-            addBlock(type, entry);
-          }
-        });
+      if (e.type === "radio") {
+        e.checked = String(t) === e.value;
+        return;
       }
-    } catch {
-      // ignore malformed data
     }
-  }
-  syncAll();
-}
-function initBlockEditors(scope = document) {
-  const roots = Array.from(scope.querySelectorAll('[data-component="block"], [data-block-editor]'));
-  roots.forEach((root) => initBlockEditor(root));
-}
-function onReady(fn) {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", fn, { once: true });
-  } else {
-    fn();
+    if (e instanceof HTMLSelectElement && e.multiple) {
+      const r = Array.isArray(t) ? t.map(String) : [String(t)];
+      Array.from(e.options).forEach((a) => {
+        a.selected = r.includes(a.value);
+      });
+      return;
+    }
+    e.value = String(t);
   }
 }
-onReady(() => initBlockEditors());
+function Y(e) {
+  const t = /* @__PURE__ */ new Map();
+  return e.querySelectorAll("template[data-block-template]").forEach((r) => {
+    const a = r.dataset.blockType?.trim();
+    if (!a) return;
+    const d = r.dataset.blockLabel?.trim() || a, i = r.dataset.blockIcon?.trim(), u = I(r.dataset.blockCollapsed);
+    t.set(a, { type: a, label: d, icon: i || void 0, collapsed: u, template: r });
+  }), t;
+}
+function G(e, t) {
+  const r = e.querySelectorAll('[name="_type"], [data-block-type-input]');
+  if (r.length === 0) {
+    const a = document.createElement("input");
+    a.type = "hidden", a.name = "_type", a.value = t, a.setAttribute("data-block-type-input", "true"), a.setAttribute("data-block-ignore", "true"), e.appendChild(a);
+    return;
+  }
+  r.forEach((a) => {
+    a.setAttribute("data-block-type-input", "true"), a.setAttribute("data-block-ignore", "true"), a instanceof HTMLInputElement ? (a.value = t, a.readOnly = !0) : a instanceof HTMLSelectElement ? (Array.from(a.options).forEach((i) => {
+      i.selected = i.value === t;
+    }), a.disabled = !0) : (a.value = t, a.readOnly = !0);
+    const d = a.closest("[data-component]");
+    d && d.classList.add("hidden");
+  });
+}
+function K(e) {
+  const t = $(e);
+  if (!t) return;
+  const r = V(e), a = Y(e), d = e.dataset.blockField || t.output.name, i = I(e.dataset.blockSortable), u = r.sortable ?? i ?? !1, A = r.allowDrag ?? u, S = r.addLabel || t.addButton?.dataset.blockAddLabel || "Add block", C = r.emptyLabel || t.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.";
+  t.addButton && (t.addButton.textContent = S), t.emptyState && (t.emptyState.textContent = C);
+  const p = t.list, N = t.output, T = () => {
+    const o = Array.from(p.querySelectorAll("[data-block-item]")).map((n) => {
+      const s = {}, l = /* @__PURE__ */ new Map();
+      n.querySelectorAll("input, select, textarea").forEach((f) => {
+        if (f.dataset.blockIgnore === "true" || f.hasAttribute("data-block-ignore")) return;
+        const b = f.getAttribute("data-block-field-name") || f.name || "";
+        b && (l.has(b) || l.set(b, []), l.get(b).push(f));
+      }), l.forEach((f, b) => {
+        const m = z(f);
+        m !== void 0 && U(s, b, m);
+      });
+      const g = n.dataset.blockType || s._type || "";
+      return g && (s._type = g), s;
+    });
+    N.value = JSON.stringify(o);
+  }, D = () => {
+    Array.from(p.querySelectorAll("[data-block-item]")).forEach((o, n) => {
+      o.querySelectorAll("input, select, textarea").forEach((s) => {
+        if (s.dataset.blockIgnore === "true" || s.hasAttribute("data-block-ignore")) return;
+        const l = s.getAttribute("data-block-field-name") || s.name;
+        l && (s.hasAttribute("data-block-field-name") || s.setAttribute("data-block-field-name", l), s.name = J(d, n, l));
+      });
+    });
+  }, O = () => {
+    if (!t.emptyState) return;
+    const c = p.querySelector("[data-block-item]");
+    t.emptyState.classList.toggle("hidden", !!c);
+  }, k = () => {
+    D(), T(), O();
+  }, w = e.closest("form");
+  w && w.addEventListener("submit", () => {
+    T();
+  });
+  const j = (c, o) => {
+    c.querySelectorAll("input, select, textarea").forEach((n) => {
+      const s = n.getAttribute("data-block-field-name") || n.name;
+      if (!s) return;
+      const l = P(o, s);
+      l !== void 0 && W(n, l);
+    });
+  }, _ = (c, o) => {
+    const n = document.createElement("div");
+    n.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", n.setAttribute("data-block-item", "true"), n.dataset.blockType = c.type, u && n.setAttribute("draggable", "true");
+    const s = document.createElement("div");
+    s.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700", s.setAttribute("data-block-header", "true");
+    const l = document.createElement("div");
+    l.className = "flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white";
+    const g = document.createElement("span");
+    g.className = "inline-flex items-center justify-center h-6 min-w-[1.5rem] px-2 text-xs font-semibold uppercase rounded-full bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200", g.textContent = c.icon || c.label.slice(0, 1).toUpperCase();
+    const f = document.createElement("span");
+    f.textContent = c.label;
+    const b = document.createElement("span");
+    b.className = "text-xs text-gray-500 dark:text-gray-400", b.textContent = c.type, l.appendChild(g), l.appendChild(f), l.appendChild(b);
+    const m = document.createElement("div");
+    if (m.className = "flex items-center gap-2", u) {
+      const y = document.createElement("button");
+      y.type = "button", y.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", y.textContent = "Up", y.setAttribute("data-block-move-up", "true");
+      const E = document.createElement("button");
+      E.type = "button", E.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", E.textContent = "Down", E.setAttribute("data-block-move-down", "true"), m.appendChild(y), m.appendChild(E);
+    }
+    const h = document.createElement("button");
+    h.type = "button", h.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", h.textContent = "Collapse", h.setAttribute("data-block-collapse", "true");
+    const x = document.createElement("button");
+    if (x.type = "button", x.className = "text-xs text-red-600 hover:text-red-700", x.textContent = "Remove", x.setAttribute("data-block-remove", "true"), m.appendChild(h), m.appendChild(x), u) {
+      const y = document.createElement("span");
+      y.className = "text-xs text-gray-400 cursor-move", y.textContent = "Drag", y.setAttribute("data-block-drag-handle", "true"), m.appendChild(y);
+    }
+    s.appendChild(l), s.appendChild(m);
+    const v = document.createElement("div");
+    v.className = "p-4 space-y-4", v.setAttribute("data-block-body", "true");
+    const F = c.template.content.cloneNode(!0);
+    return v.appendChild(F), n.appendChild(s), n.appendChild(v), G(n, c.type), o && j(n, o), (c.collapsed ?? !1) && (v.classList.add("hidden"), n.dataset.blockCollapsed = "true", h.textContent = "Expand"), n;
+  }, q = (c, o) => {
+    const n = a.get(c);
+    if (!n) return;
+    const s = _(n, o);
+    p.appendChild(s), k();
+  }, M = t.addButton, L = t.addSelect;
+  if (M && L && M.addEventListener("click", () => {
+    const c = L.value.trim();
+    c && (q(c), L.value = "");
+  }), e.addEventListener("click", (c) => {
+    const o = c.target;
+    if (!(o instanceof HTMLElement)) return;
+    const n = o.closest("[data-block-item]");
+    if (n) {
+      if (o.closest("[data-block-remove]")) {
+        n.remove(), k();
+        return;
+      }
+      if (o.closest("[data-block-collapse]")) {
+        const s = n.querySelector("[data-block-body]");
+        if (s) {
+          const l = s.classList.toggle("hidden");
+          n.dataset.blockCollapsed = l ? "true" : "false";
+          const g = o.closest("[data-block-collapse]");
+          g && (g.textContent = l ? "Expand" : "Collapse");
+        }
+        return;
+      }
+      if (o.closest("[data-block-move-up]")) {
+        const s = n.previousElementSibling;
+        s && p.insertBefore(n, s), k();
+        return;
+      }
+      if (o.closest("[data-block-move-down]")) {
+        const s = n.nextElementSibling;
+        s && p.insertBefore(s, n), k();
+        return;
+      }
+    }
+  }), e.addEventListener("input", (c) => {
+    const o = c.target;
+    !(o instanceof HTMLElement) || !o.closest("[data-block-item]") || k();
+  }), e.addEventListener("change", (c) => {
+    const o = c.target;
+    !(o instanceof HTMLElement) || !o.closest("[data-block-item]") || k();
+  }), u && A) {
+    let c = null;
+    p.addEventListener("dragstart", (o) => {
+      const n = o.target;
+      if (!(n instanceof HTMLElement)) return;
+      if (!n.closest("[data-block-drag-handle]")) {
+        o.preventDefault();
+        return;
+      }
+      const l = n.closest("[data-block-item]");
+      l && (c = l, l.classList.add("opacity-70"), o.dataTransfer?.setData("text/plain", "block"));
+    }), p.addEventListener("dragover", (o) => {
+      if (!c) return;
+      o.preventDefault();
+      const n = o.target instanceof HTMLElement ? o.target.closest("[data-block-item]") : null;
+      if (!n || n === c) return;
+      const s = n.getBoundingClientRect(), l = o.clientY > s.top + s.height / 2;
+      p.insertBefore(c, l ? n.nextSibling : n);
+    }), p.addEventListener("dragend", () => {
+      c && (c.classList.remove("opacity-70"), c = null, k());
+    });
+  }
+  if (t.addSelect) {
+    const c = document.createElement("option");
+    c.value = "", c.textContent = "Select block type", t.addSelect.appendChild(c), a.forEach((o) => {
+      const n = document.createElement("option");
+      n.value = o.type, n.textContent = o.label, t.addSelect?.appendChild(n);
+    }), t.addSelect.value = "";
+  }
+  const H = N.value?.trim();
+  if (H)
+    try {
+      const c = JSON.parse(H);
+      Array.isArray(c) && c.forEach((o) => {
+        const n = typeof o == "object" && o ? o._type : "";
+        n && a.has(n) && q(n, o);
+      });
+    } catch {
+    }
+  k();
+}
+function Q(e = document) {
+  Array.from(e.querySelectorAll('[data-component="block"], [data-block-editor]')).forEach((r) => K(r));
+}
+function X(e) {
+  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", e, { once: !0 }) : e();
+}
+X(() => Q());
 export {
-  initBlockEditors
+  Q as initBlockEditors
 };
 //# sourceMappingURL=block_editor.js.map
