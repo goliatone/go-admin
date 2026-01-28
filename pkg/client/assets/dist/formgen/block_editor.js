@@ -1,4 +1,4 @@
-function ne(t) {
+function oe(t) {
   if (!t) return {};
   try {
     const e = JSON.parse(t);
@@ -8,9 +8,9 @@ function ne(t) {
   }
   return {};
 }
-function oe(t) {
+function re(t) {
   const e = t.closest("[data-component-config]");
-  return ne(e?.getAttribute("data-component-config") ?? null);
+  return oe(e?.getAttribute("data-component-config") ?? null);
 }
 function Q(t) {
   if (t == null) return;
@@ -18,7 +18,7 @@ function Q(t) {
   if (e === "true") return !0;
   if (e === "false") return !1;
 }
-function re(t) {
+function ae(t) {
   const e = t.querySelector("[data-block-list]"), o = t.querySelector("input[data-block-output]");
   if (!e || !o) return null;
   const n = t.querySelector("[data-block-add-select]"), r = t.querySelector("[data-block-add]"), d = t.querySelector("[data-block-empty]");
@@ -27,7 +27,7 @@ function re(t) {
 function V(t) {
   return t.replace(/\]/g, "").split(/\.|\[/).map((o) => o.trim()).filter((o) => o.length > 0);
 }
-function ae(t, e, o) {
+function ce(t, e, o) {
   if (!t) return o;
   const n = V(o);
   let r = `${t}[${e}]`;
@@ -35,7 +35,7 @@ function ae(t, e, o) {
     r += `[${d}]`;
   return r;
 }
-function ce(t, e) {
+function le(t, e) {
   if (!t || !e) return;
   const o = V(e);
   let n = t;
@@ -45,7 +45,7 @@ function ce(t, e) {
   }
   return n;
 }
-function le(t, e, o) {
+function se(t, e, o) {
   if (!e) return;
   const n = V(e);
   if (n.length === 0) return;
@@ -60,7 +60,7 @@ function le(t, e, o) {
     (r[d] == null || typeof r[d] != "object") && (r[d] = C ? [] : {}), r = r[d];
   });
 }
-function se(t) {
+function ie(t) {
   if (t.length === 0) return;
   const e = t[0];
   if (e instanceof HTMLSelectElement && e.multiple)
@@ -75,7 +75,7 @@ function se(t) {
   }
   return e.value;
 }
-function ie(t, e) {
+function de(t, e) {
   if (e != null) {
     if (t instanceof HTMLInputElement) {
       if (t.type === "checkbox") {
@@ -97,12 +97,12 @@ function ie(t, e) {
     t.value = String(e);
   }
 }
-function de(t, e) {
+function ue(t, e) {
   const o = /* @__PURE__ */ new Map();
   return t.querySelectorAll("template[data-block-template]").forEach((n) => {
     const r = n.dataset.blockType?.trim();
     if (!r) return;
-    const d = n.dataset.blockLabel?.trim() || r, p = n.dataset.blockIcon?.trim(), y = Q(n.dataset.blockCollapsed), A = n.dataset.blockSchemaVersion?.trim() || M(r, e.schemaVersionPattern), C = n.dataset.blockRequiredFields?.trim(), B = C ? C.split(",").map((c) => c.trim()).filter(Boolean) : e.requiredFields?.[r] || [];
+    const d = n.dataset.blockLabel?.trim() || r, p = n.dataset.blockIcon?.trim(), y = Q(n.dataset.blockCollapsed), A = n.dataset.blockSchemaVersion?.trim() || X(r, e.schemaVersionPattern), C = n.dataset.blockRequiredFields?.trim(), B = C ? C.split(",").map((c) => c.trim()).filter(Boolean) : e.requiredFields?.[r] || [];
     o.set(r, {
       type: r,
       label: d,
@@ -114,10 +114,14 @@ function de(t, e) {
     });
   }), o;
 }
-function M(t, e) {
+function X(t, e) {
   return e ? e.replace("{type}", t) : `${t}@v1.0.0`;
 }
-function ue(t, e) {
+function fe(t, e, o) {
+  const n = e && typeof e._schema == "string" ? e._schema.trim() : "";
+  return n || (t.schemaVersion ? t.schemaVersion : X(t.type, o));
+}
+function me(t, e) {
   const o = [], n = e.requiredFields || [];
   for (const r of n) {
     const d = t.querySelector(
@@ -141,8 +145,8 @@ function ue(t, e) {
   }
   return o;
 }
-function fe(t, e) {
-  if (me(t), e.length === 0) return;
+function pe(t, e) {
+  if (be(t), e.length === 0) return;
   t.classList.add("block-item--invalid"), t.dataset.blockValid = "false";
   const o = t.querySelector("[data-block-header]");
   if (o) {
@@ -163,12 +167,12 @@ function fe(t, e) {
     }
   }
 }
-function me(t) {
+function be(t) {
   t.classList.remove("block-item--invalid"), t.dataset.blockValid = "true", t.querySelectorAll("[data-block-error-badge]").forEach((e) => e.remove()), t.querySelectorAll("[data-block-field-error]").forEach((e) => e.remove()), t.querySelectorAll(".border-red-500").forEach((e) => {
     e.classList.remove("border-red-500", "focus:ring-red-500");
   });
 }
-function P(t, e) {
+function K(t, e) {
   const o = [];
   if (!Array.isArray(t) || !Array.isArray(e))
     return {
@@ -212,7 +216,7 @@ function O(t, e) {
   }
   return !1;
 }
-function pe(t) {
+function ge(t) {
   const e = document.createElement("div");
   e.className = "block-conflict-report border border-amber-200 bg-amber-50 rounded-lg p-4 mb-4 dark:bg-amber-900/20 dark:border-amber-700", e.setAttribute("data-block-conflict-report", "true");
   const o = document.createElement("div");
@@ -230,8 +234,8 @@ function pe(t) {
     const B = document.createElement("ul");
     B.className = "mt-2 space-y-1 pl-4";
     for (const c of t.conflicts.slice(0, 10)) {
-      const T = document.createElement("li");
-      T.className = "text-amber-700 dark:text-amber-300", T.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, B.appendChild(T);
+      const q = document.createElement("li");
+      q.className = "text-amber-700 dark:text-amber-300", q.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, B.appendChild(q);
     }
     if (t.conflicts.length > 10) {
       const c = document.createElement("li");
@@ -246,22 +250,22 @@ function pe(t) {
 }
 function z(t, e) {
   if (t.querySelector("[data-block-conflict-report]")?.remove(), !e.hasConflicts) return;
-  const o = pe(e), n = t.querySelector("[data-block-list]");
+  const o = ge(e), n = t.querySelector("[data-block-list]");
   n ? n.parentElement?.insertBefore(o, n) : t.insertBefore(o, t.firstChild);
 }
-function be() {
+function he() {
   const t = document.createElement("div");
   return t.className = "block-drop-indicator", t.setAttribute("data-block-drop-indicator", "true"), t.setAttribute("aria-hidden", "true"), t;
 }
 function W(t, e, o) {
-  q(t);
-  const n = be();
+  w(t);
+  const n = he();
   return e ? o === "before" ? e.parentElement?.insertBefore(n, e) : e.parentElement?.insertBefore(n, e.nextSibling) : t.appendChild(n), n;
 }
-function q(t) {
+function w(t) {
   t.querySelectorAll("[data-block-drop-indicator]").forEach((e) => e.remove());
 }
-function D(t, e, o) {
+function $(t, e, o) {
   const n = Array.from(t.querySelectorAll("[data-block-item]"));
   for (const r of n) {
     if (r === o) continue;
@@ -310,14 +314,14 @@ function G(t, e) {
     }
   );
 }
-function ge() {
+function ke() {
   const t = document.getElementById("block-editor-live-region");
   if (t) return t;
   const e = document.createElement("div");
   return e.id = "block-editor-live-region", e.setAttribute("aria-live", "polite"), e.setAttribute("aria-atomic", "true"), e.className = "sr-only", e.style.cssText = "position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;", document.body.appendChild(e), e;
 }
-function w(t) {
-  const e = ge();
+function I(t) {
+  const e = ke();
   e.textContent = "", requestAnimationFrame(() => {
     e.textContent = t;
   });
@@ -326,14 +330,14 @@ function N(t, e) {
   const o = Array.from(t.querySelectorAll("[data-block-item]")), n = o.indexOf(e) + 1, r = o.length;
   return { label: e.querySelector("[data-block-header] span")?.textContent || e.dataset.blockType || "Block", position: n, total: r };
 }
-function he(t) {
+function ye(t) {
   const e = {};
   return t.querySelectorAll("input, select, textarea").forEach((o) => {
     const n = o.getAttribute("data-block-field-name") || o.name;
     !n || o.dataset.blockIgnore === "true" || (o instanceof HTMLInputElement && o.type === "checkbox" ? e[n] = o.checked : o instanceof HTMLSelectElement && o.multiple ? e[n] = Array.from(o.selectedOptions).map((r) => r.value) : e[n] = o.value);
   }), e._type = t.dataset.blockType || "", e._schema = t.dataset.blockSchema || "", e;
 }
-function ke(t, e, o = 50, n = 10) {
+function xe(t, e, o = 50, n = 10) {
   const r = () => {
     if (!e.dragging) {
       e.scrollInterval && (clearInterval(e.scrollInterval), e.scrollInterval = null);
@@ -344,11 +348,11 @@ function ke(t, e, o = 50, n = 10) {
   };
   e.scrollInterval || (e.scrollInterval = window.setInterval(r, 16));
 }
-function ye(t, e) {
+function ve(t, e) {
   const o = t.querySelectorAll('[name="_type"], [data-block-type-input]');
   if (o.length === 0) {
     const n = document.createElement("input");
-    n.type = "hidden", n.name = "_type", n.value = e, n.setAttribute("data-block-type-input", "true"), n.setAttribute("data-block-ignore", "true"), t.appendChild(n);
+    n.type = "hidden", n.name = "_type", n.value = e, n.readOnly = !0, n.setAttribute("data-block-type-input", "true"), n.setAttribute("data-block-ignore", "true"), t.appendChild(n);
     return;
   }
   o.forEach((n) => {
@@ -359,7 +363,7 @@ function ye(t, e) {
     r && r.classList.add("hidden");
   });
 }
-function xe(t, e) {
+function Ee(t, e) {
   const o = t.querySelectorAll('[name="_schema"], [data-block-schema-input]');
   if (o.length === 0) {
     const n = document.createElement("input");
@@ -372,12 +376,12 @@ function xe(t, e) {
     r && r.classList.add("hidden");
   });
 }
-function ve(t) {
-  const e = re(t);
+function Ae(t) {
+  const e = ae(t);
   if (!e) return;
-  const o = oe(t), n = de(t, o), r = t.dataset.blockField || e.output.name, d = Q(t.dataset.blockSortable), p = o.sortable ?? d ?? !1, y = o.allowDrag ?? p, A = o.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", C = o.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", B = o.validateOnInput ?? !0;
+  const o = re(t), n = ue(t, o), r = t.dataset.blockField || e.output.name, d = Q(t.dataset.blockSortable), p = o.sortable ?? d ?? !1, y = o.allowDrag ?? p, A = o.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", C = o.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", B = o.validateOnInput ?? !0;
   e.addButton && (e.addButton.textContent = A), e.emptyState && (e.emptyState.textContent = C);
-  const c = e.list, T = e.output, Y = () => {
+  const c = e.list, q = e.output, Y = () => {
     const a = Array.from(c.querySelectorAll("[data-block-item]"));
     let u = !1;
     const s = a.map((b) => {
@@ -387,8 +391,8 @@ function ve(t) {
         const m = f.getAttribute("data-block-field-name") || f.name || "";
         m && (g.has(m) || g.set(m, []), g.get(m).push(f));
       }), g.forEach((f, m) => {
-        const S = se(f);
-        S !== void 0 && le(l, m, S);
+        const S = ie(f);
+        S !== void 0 && se(l, m, S);
       });
       const k = b.dataset.blockType || l._type || "";
       k && (l._type = k);
@@ -402,39 +406,39 @@ function ve(t) {
       if (B) {
         const f = n.get(k);
         if (f) {
-          const m = ue(b, f);
-          fe(b, m), m.length > 0 && (u = !0);
+          const m = me(b, f);
+          pe(b, m), m.length > 0 && (u = !0);
         }
       }
       return l;
     });
-    T.value = JSON.stringify(s), t.dataset.blockEditorValid = u ? "false" : "true";
-  }, X = () => {
+    q.value = JSON.stringify(s), t.dataset.blockEditorValid = u ? "false" : "true";
+  }, Z = () => {
     Array.from(c.querySelectorAll("[data-block-item]")).forEach((u, s) => {
       u.querySelectorAll("input, select, textarea").forEach((b) => {
         if (b.dataset.blockIgnore === "true" || b.hasAttribute("data-block-ignore")) return;
         const l = b.getAttribute("data-block-field-name") || b.name;
-        l && (b.hasAttribute("data-block-field-name") || b.setAttribute("data-block-field-name", l), b.name = ae(r, s, l));
+        l && (b.hasAttribute("data-block-field-name") || b.setAttribute("data-block-field-name", l), b.name = ce(r, s, l));
       });
     });
-  }, Z = () => {
+  }, ee = () => {
     if (!e.emptyState) return;
     const a = c.querySelector("[data-block-item]");
     e.emptyState.classList.toggle("hidden", !!a);
   }, L = () => {
-    X(), Y(), Z();
-  }, R = t.closest("form");
-  R && R.addEventListener("submit", () => {
+    Z(), Y(), ee();
+  }, _ = t.closest("form");
+  _ && _.addEventListener("submit", () => {
     Y();
   });
-  const ee = (a, u) => {
+  const te = (a, u) => {
     a.querySelectorAll("input, select, textarea").forEach((s) => {
       const b = s.getAttribute("data-block-field-name") || s.name;
       if (!b) return;
-      const l = ce(u, b);
-      l !== void 0 && ie(s, l);
+      const l = le(u, b);
+      l !== void 0 && de(s, l);
     });
-  }, _ = (a, u) => {
+  }, R = (a, u) => {
     const s = document.createElement("div");
     s.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", s.setAttribute("data-block-item", "true"), s.dataset.blockType = a.type, p && s.setAttribute("draggable", "true");
     const b = document.createElement("div");
@@ -451,8 +455,8 @@ function ve(t) {
     if (f.className = "flex items-center gap-2", p) {
       const E = document.createElement("button");
       E.type = "button", E.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", E.textContent = "Up", E.setAttribute("data-block-move-up", "true");
-      const I = document.createElement("button");
-      I.type = "button", I.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", I.textContent = "Down", I.setAttribute("data-block-move-down", "true"), f.appendChild(E), f.appendChild(I);
+      const D = document.createElement("button");
+      D.type = "button", D.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", D.textContent = "Down", D.setAttribute("data-block-move-down", "true"), f.appendChild(E), f.appendChild(D);
     }
     const m = document.createElement("button");
     m.type = "button", m.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", m.textContent = "Collapse", m.setAttribute("data-block-collapse", "true");
@@ -464,17 +468,19 @@ function ve(t) {
     b.appendChild(l), b.appendChild(f);
     const h = document.createElement("div");
     h.className = "p-4 space-y-4", h.setAttribute("data-block-body", "true");
-    const x = a.template.content.cloneNode(!0);
-    return h.appendChild(x), s.appendChild(b), s.appendChild(h), ye(s, a.type), xe(s, a.schemaVersion || M(a.type)), s.dataset.blockSchema = a.schemaVersion || M(a.type), u && ee(s, u), (a.collapsed ?? !1) && (h.classList.add("hidden"), s.dataset.blockCollapsed = "true", m.textContent = "Expand"), s;
+    const v = a.template.content.cloneNode(!0);
+    h.appendChild(v), s.appendChild(b), s.appendChild(h), ve(s, a.type);
+    const x = fe(a, u, o.schemaVersionPattern);
+    return Ee(s, x), s.dataset.blockSchema = x, u && te(s, u), (a.collapsed ?? !1) && (h.classList.add("hidden"), s.dataset.blockCollapsed = "true", m.textContent = "Expand"), s;
   }, F = (a, u) => {
     const s = n.get(a);
     if (!s) return;
-    const b = _(s, u);
+    const b = R(s, u);
     c.appendChild(b), L();
-  }, j = e.addButton, $ = e.addSelect;
-  if (j && $ && j.addEventListener("click", () => {
-    const a = $.value.trim();
-    a && (F(a), $.value = "");
+  }, j = e.addButton, H = e.addSelect;
+  if (j && H && j.addEventListener("click", () => {
+    const a = H.value.trim();
+    a && (F(a), H.value = "");
   }), t.addEventListener("click", (a) => {
     const u = a.target;
     if (!(u instanceof HTMLElement)) return;
@@ -530,34 +536,34 @@ function ve(t) {
       if (!m) return;
       if (l.dragging = m, l.originalIndex = k(m), m.classList.add("block-item--dragging"), i.dataTransfer) {
         if (i.dataTransfer.effectAllowed = "move", i.dataTransfer.setData("text/plain", "block"), b) {
-          const x = he(m);
-          i.dataTransfer.setData("application/x-block", JSON.stringify(x));
+          const v = ye(m);
+          i.dataTransfer.setData("application/x-block", JSON.stringify(v));
         }
         const h = m.cloneNode(!0);
         h.style.cssText = "position: absolute; top: -9999px; left: -9999px; opacity: 0.8; transform: rotate(2deg);", document.body.appendChild(h), i.dataTransfer.setDragImage(h, 20, 20), requestAnimationFrame(() => h.remove());
       }
       const S = N(c, m);
-      w(`Dragging ${S.label} from position ${S.position} of ${S.total}. Use arrow keys to move.`);
+      I(`Dragging ${S.label} from position ${S.position} of ${S.total}. Use arrow keys to move.`);
     }), c.addEventListener("dragover", (i) => {
       i.preventDefault(), i.dataTransfer && (i.dataTransfer.dropEffect = "move");
-      const f = i.clientY, m = D(c, f, l.dragging || void 0);
-      m ? W(c, m.item, m.position) : q(c);
+      const f = i.clientY, m = $(c, f, l.dragging || void 0);
+      m ? W(c, m.item, m.position) : w(c);
     }), c.addEventListener("dragenter", (i) => {
       i.preventDefault();
     }), c.addEventListener("dragleave", (i) => {
       const f = i.relatedTarget;
-      (!f || !c.contains(f)) && q(c);
+      (!f || !c.contains(f)) && w(c);
     }), c.addEventListener("drop", (i) => {
-      i.preventDefault(), q(c);
-      const f = i.clientY, m = D(c, f, l.dragging || void 0);
+      i.preventDefault(), w(c);
+      const f = i.clientY, m = $(c, f, l.dragging || void 0);
       if (!l.dragging && b && i.dataTransfer) {
         const h = i.dataTransfer.getData("application/x-block");
         if (h)
           try {
-            const x = JSON.parse(h), v = x._type;
-            if (v && n.has(v)) {
-              const E = n.get(v), I = _(E, x);
-              m ? m.position === "before" ? c.insertBefore(I, m.item) : c.insertBefore(I, m.item.nextSibling) : c.appendChild(I), L(), w(`Block ${v} added from another editor`);
+            const v = JSON.parse(h), x = v._type;
+            if (x && n.has(x)) {
+              const T = n.get(x), E = R(T, v);
+              m ? m.position === "before" ? c.insertBefore(E, m.item) : c.insertBefore(E, m.item.nextSibling) : c.appendChild(E), L(), I(`Block ${x} added from another editor`);
             }
           } catch {
           }
@@ -566,23 +572,23 @@ function ve(t) {
       if (!l.dragging) return;
       if (m && (m.position === "before" ? c.insertBefore(l.dragging, m.item) : c.insertBefore(l.dragging, m.item.nextSibling)), s && G(c, l.dragging), k(l.dragging) !== l.originalIndex) {
         const h = N(c, l.dragging);
-        w(`${h.label} moved to position ${h.position} of ${h.total}`);
+        I(`${h.label} moved to position ${h.position} of ${h.total}`);
       }
     }), c.addEventListener("dragend", () => {
-      q(c), l.dragging && (l.dragging.classList.remove("block-item--dragging"), l.dragging = null), l.originalIndex = -1, L();
+      w(c), l.dragging && (l.dragging.classList.remove("block-item--dragging"), l.dragging = null), l.originalIndex = -1, L();
     }), u) {
       let i = null, f = null, m = !1;
       const S = 10;
       c.addEventListener("touchstart", (h) => {
-        const x = h.touches[0], v = x.target;
-        if (!g(v)) return;
-        const E = v.closest("[data-block-item]");
-        E && (l.touchStartY = x.clientY, l.touchCurrentY = x.clientY, i = E, m = !1);
+        const v = h.touches[0], x = v.target;
+        if (!g(x)) return;
+        const T = x.closest("[data-block-item]");
+        T && (l.touchStartY = v.clientY, l.touchCurrentY = v.clientY, i = T, m = !1);
       }, { passive: !0 }), c.addEventListener("touchmove", (h) => {
         if (!i) return;
-        const x = h.touches[0];
-        if (l.touchCurrentY = x.clientY, !m) {
-          if (Math.abs(x.clientY - l.touchStartY) < S) return;
+        const v = h.touches[0];
+        if (l.touchCurrentY = v.clientY, !m) {
+          if (Math.abs(v.clientY - l.touchStartY) < S) return;
           m = !0, f = i.cloneNode(!0), f.className = "block-item--touch-dragging", f.style.cssText = `
             position: fixed;
             left: 0;
@@ -594,25 +600,25 @@ function ve(t) {
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             transform: scale(1.02);
           `, document.body.appendChild(f), i.classList.add("block-item--placeholder"), l.dragging = i, l.originalIndex = k(i);
-          const I = N(c, i);
-          w(`Dragging ${I.label}. Move finger to reposition.`);
+          const E = N(c, i);
+          I(`Dragging ${E.label}. Move finger to reposition.`);
         }
-        h.preventDefault(), f && (f.style.top = `${x.clientY - f.offsetHeight / 2}px`);
-        const v = D(c, x.clientY, i || void 0);
-        v ? W(c, v.item, v.position) : q(c), ke(c, l);
+        h.preventDefault(), f && (f.style.top = `${v.clientY - f.offsetHeight / 2}px`);
+        const x = $(c, v.clientY, i || void 0);
+        x ? W(c, x.item, x.position) : w(c), xe(c, l);
       }, { passive: !1 }), c.addEventListener("touchend", () => {
-        if (l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), q(c), f && (f.remove(), f = null), i && m) {
+        if (l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), w(c), f && (f.remove(), f = null), i && m) {
           i.classList.remove("block-item--placeholder");
-          const h = D(c, l.touchCurrentY, i);
+          const h = $(c, l.touchCurrentY, i);
           if (h && (h.position === "before" ? c.insertBefore(i, h.item) : c.insertBefore(i, h.item.nextSibling)), s && G(c, i), k(i) !== l.originalIndex) {
-            const v = N(c, i);
-            w(`${v.label} moved to position ${v.position} of ${v.total}`);
+            const x = N(c, i);
+            I(`${x.label} moved to position ${x.position} of ${x.total}`);
           }
           L();
         }
         i = null, m = !1, l.dragging = null, l.originalIndex = -1;
       }), c.addEventListener("touchcancel", () => {
-        l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), q(c), f && (f.remove(), f = null), i && i.classList.remove("block-item--placeholder"), i = null, m = !1, l.dragging = null, l.originalIndex = -1;
+        l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), w(c), f && (f.remove(), f = null), i && i.classList.remove("block-item--placeholder"), i = null, m = !1, l.dragging = null, l.originalIndex = -1;
       });
     }
   }
@@ -642,13 +648,13 @@ function ve(t) {
             if (g) {
               c.insertBefore(s, g), L(), s.querySelector("[data-block-header]")?.focus();
               const k = N(c, s);
-              w(`${k.label} moved to position ${k.position} of ${k.total}`);
+              I(`${k.label} moved to position ${k.position} of ${k.total}`);
             } else
-              w("Already at the top");
+              I("Already at the top");
           } else if (!a.altKey) {
             a.preventDefault();
             const k = s.previousElementSibling?.querySelector("[data-block-header]");
-            k ? k.focus() : w("At the first block");
+            k ? k.focus() : I("At the first block");
           }
           break;
         case "ArrowDown":
@@ -658,13 +664,13 @@ function ve(t) {
             if (g) {
               c.insertBefore(g, s), L(), s.querySelector("[data-block-header]")?.focus();
               const k = N(c, s);
-              w(`${k.label} moved to position ${k.position} of ${k.total}`);
+              I(`${k.label} moved to position ${k.position} of ${k.total}`);
             } else
-              w("Already at the bottom");
+              I("Already at the bottom");
           } else if (!a.altKey) {
             a.preventDefault();
             const k = s.nextElementSibling?.querySelector("[data-block-header]");
-            k ? k.focus() : w("At the last block");
+            k ? k.focus() : I("At the last block");
           }
           break;
         case "Enter":
@@ -681,50 +687,50 @@ function ve(t) {
           break;
       }
   });
-  const te = () => {
+  const ne = () => {
     c.querySelectorAll("[data-block-header]").forEach((a) => {
       a.hasAttribute("tabindex") || (a.setAttribute("tabindex", "0"), a.setAttribute("role", "button"), a.setAttribute("aria-label", "Block header - Press Enter to collapse/expand, Shift+Delete to remove"));
     });
   };
   new MutationObserver(() => {
-    te();
+    ne();
   }).observe(c, { childList: !0, subtree: !0 });
-  const U = T.value?.trim();
-  let H = [];
+  const U = q.value?.trim();
+  let M = [];
   if (U)
     try {
       const a = JSON.parse(U);
-      Array.isArray(a) && (H = a, a.forEach((u) => {
+      Array.isArray(a) && (M = a, a.forEach((u) => {
         const s = typeof u == "object" && u ? u._type : "";
         s && n.has(s) && F(s, u);
       }));
     } catch {
     }
-  const J = o.showConflicts ?? !0;
-  if (J && o.legacyBlocks && Array.isArray(o.legacyBlocks)) {
-    const a = P(H, o.legacyBlocks);
+  const P = o.showConflicts ?? !0;
+  if (P && o.legacyBlocks && Array.isArray(o.legacyBlocks)) {
+    const a = K(M, o.legacyBlocks);
     a.hasConflicts && z(t, a);
   }
-  const K = t.dataset.blockLegacy;
-  if (J && K)
+  const J = t.dataset.blockLegacy;
+  if (P && J)
     try {
-      const a = JSON.parse(K);
+      const a = JSON.parse(J);
       if (Array.isArray(a)) {
-        const u = P(H, a);
+        const u = K(M, a);
         u.hasConflicts && z(t, u);
       }
     } catch {
     }
   L();
 }
-function Ee(t = document) {
-  Array.from(t.querySelectorAll('[data-component="block"], [data-block-editor]')).forEach((o) => ve(o));
+function Ce(t = document) {
+  Array.from(t.querySelectorAll('[data-component="block"], [data-block-editor]')).forEach((o) => Ae(o));
 }
-function Ae(t) {
+function Se(t) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", t, { once: !0 }) : t();
 }
-Ae(() => Ee());
+Se(() => Ce());
 export {
-  Ee as initBlockEditors
+  Ce as initBlockEditors
 };
 //# sourceMappingURL=block_editor.js.map

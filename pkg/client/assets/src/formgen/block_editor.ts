@@ -239,6 +239,17 @@ function generateSchemaVersion(type: string, pattern?: string): string {
   return `${type}@v1.0.0`;
 }
 
+function resolveSchemaVersion(
+  template: BlockTemplate,
+  values?: Record<string, any>,
+  pattern?: string
+): string {
+  const fromValues = values && typeof values._schema === 'string' ? values._schema.trim() : '';
+  if (fromValues) return fromValues;
+  if (template.schemaVersion) return template.schemaVersion;
+  return generateSchemaVersion(template.type, pattern);
+}
+
 /**
  * Validate a block's required fields
  */
@@ -747,6 +758,7 @@ function ensureTypeField(item: HTMLElement, type: string): void {
     hidden.type = 'hidden';
     hidden.name = '_type';
     hidden.value = type;
+    hidden.readOnly = true;
     hidden.setAttribute('data-block-type-input', 'true');
     hidden.setAttribute('data-block-ignore', 'true');
     item.appendChild(hidden);
@@ -1011,8 +1023,9 @@ function initBlockEditor(root: HTMLElement): void {
     wrapper.appendChild(body);
 
     ensureTypeField(wrapper, template.type);
-    ensureSchemaField(wrapper, template.schemaVersion || generateSchemaVersion(template.type));
-    wrapper.dataset.blockSchema = template.schemaVersion || generateSchemaVersion(template.type);
+    const resolvedSchema = resolveSchemaVersion(template, values, config.schemaVersionPattern);
+    ensureSchemaField(wrapper, resolvedSchema);
+    wrapper.dataset.blockSchema = resolvedSchema;
 
     if (values) {
       fillValues(wrapper, values);
