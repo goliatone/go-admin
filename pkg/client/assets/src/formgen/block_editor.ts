@@ -3,6 +3,16 @@ type BlockEditorConfig = {
   addLabel?: string;
   emptyLabel?: string;
   allowDrag?: boolean;
+  /** Default schema version pattern: {type}@v1.0.0 */
+  schemaVersionPattern?: string;
+  /** Required fields per block type */
+  requiredFields?: Record<string, string[]>;
+  /** Enable validation on input */
+  validateOnInput?: boolean;
+  /** Legacy blocks for conflict detection */
+  legacyBlocks?: any[];
+  /** Show conflict detection UI when conflicts exist */
+  showConflicts?: boolean;
 };
 
 type BlockTemplate = {
@@ -10,7 +20,29 @@ type BlockTemplate = {
   label: string;
   icon?: string;
   collapsed?: boolean;
+  schemaVersion?: string;
+  requiredFields?: string[];
   template: HTMLTemplateElement;
+};
+
+type ValidationError = {
+  field: string;
+  message: string;
+};
+
+type BlockConflict = {
+  blockIndex: number;
+  blockType: string;
+  field: string;
+  embeddedValue: any;
+  legacyValue: any;
+};
+
+type ConflictReport = {
+  hasConflicts: boolean;
+  conflicts: BlockConflict[];
+  embeddedCount: number;
+  legacyCount: number;
 };
 
 type BlockEditorElements = {
@@ -154,7 +186,7 @@ function setFieldValue(element: HTMLInputElement | HTMLSelectElement | HTMLTextA
   element.value = String(value);
 }
 
-function collectTemplates(root: HTMLElement): Map<string, BlockTemplate> {
+function collectTemplates(root: HTMLElement, config: BlockEditorConfig): Map<string, BlockTemplate> {
   const templates = new Map<string, BlockTemplate>();
   root.querySelectorAll<HTMLTemplateElement>('template[data-block-template]').forEach((template) => {
     const type = template.dataset.blockType?.trim();
@@ -162,9 +194,306 @@ function collectTemplates(root: HTMLElement): Map<string, BlockTemplate> {
     const label = template.dataset.blockLabel?.trim() || type;
     const icon = template.dataset.blockIcon?.trim();
     const collapsed = parseBoolean(template.dataset.blockCollapsed);
-    templates.set(type, { type, label, icon: icon || undefined, collapsed, template });
+    const schemaVersion = template.dataset.blockSchemaVersion?.trim() || generateSchemaVersion(type, config.schemaVersionPattern);
+    const requiredFieldsRaw = template.dataset.blockRequiredFields?.trim();
+    const requiredFields = requiredFieldsRaw
+      ? requiredFieldsRaw.split(',').map((f) => f.trim()).filter(Boolean)
+      : config.requiredFields?.[type] || [];
+    templates.set(type, {
+      type,
+      label,
+      icon: icon || undefined,
+      collapsed,
+      schemaVersion,
+      requiredFields,
+      template,
+    });
   });
   return templates;
+}
+
+/**
+ * Generate a schema version string for a block type
+ */
+function generateSchemaVersion(type: string, pattern?: string): string {
+  if (pattern) {
+    return pattern.replace('{type}', type);
+  }
+  return `${type}@v1.0.0`;
+}
+
+/**
+ * Validate a block's required fields
+ */
+function validateBlock(
+  item: HTMLElement,
+  template: BlockTemplate
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const requiredFields = template.requiredFields || [];
+
+  for (const fieldName of requiredFields) {
+    const field = item.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      `[name="${fieldName}"], [data-block-field-name="${fieldName}"]`
+    );
+
+    if (!field) continue;
+
+    let isEmpty = false;
+    if (field instanceof HTMLInputElement) {
+      if (field.type === 'checkbox') {
+        isEmpty = !field.checked;
+      } else if (field.type === 'radio') {
+        const radioGroup = item.querySelectorAll<HTMLInputElement>(`[name="${field.name}"]`);
+        isEmpty = !Array.from(radioGroup).some((r) => r.checked);
+      } else {
+        isEmpty = !field.value.trim();
+      }
+    } else if (field instanceof HTMLSelectElement) {
+      isEmpty = !field.value || field.value === '';
+    } else {
+      isEmpty = !field.value.trim();
+    }
+
+    if (isEmpty) {
+      errors.push({
+        field: fieldName,
+        message: `${fieldName} is required`,
+      });
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Show validation errors on a block item
+ */
+function showBlockErrors(item: HTMLElement, errors: ValidationError[]): void {
+  // Clear previous errors
+  clearBlockErrors(item);
+
+  if (errors.length === 0) return;
+
+  // Mark block as invalid
+  item.classList.add('block-item--invalid');
+  item.dataset.blockValid = 'false';
+
+  // Add error indicator to header
+  const header = item.querySelector('[data-block-header]');
+  if (header) {
+    const errorBadge = document.createElement('span');
+    errorBadge.className = 'block-error-badge text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full dark:bg-red-900/20 dark:text-red-400';
+    errorBadge.textContent = `${errors.length} error${errors.length > 1 ? 's' : ''}`;
+    errorBadge.setAttribute('data-block-error-badge', 'true');
+    header.querySelector('.flex')?.appendChild(errorBadge);
+  }
+
+  // Mark individual fields
+  for (const error of errors) {
+    const field = item.querySelector<HTMLElement>(
+      `[name="${error.field}"], [data-block-field-name="${error.field}"]`
+    );
+    if (field) {
+      field.classList.add('border-red-500', 'focus:ring-red-500');
+      const wrapper = field.closest('[data-component]');
+      if (wrapper) {
+        const errorMsg = document.createElement('p');
+        errorMsg.className = 'block-field-error text-xs text-red-600 mt-1 dark:text-red-400';
+        errorMsg.textContent = error.message;
+        errorMsg.setAttribute('data-block-field-error', 'true');
+        wrapper.appendChild(errorMsg);
+      }
+    }
+  }
+}
+
+/**
+ * Clear validation errors from a block item
+ */
+function clearBlockErrors(item: HTMLElement): void {
+  item.classList.remove('block-item--invalid');
+  item.dataset.blockValid = 'true';
+
+  // Remove error badge
+  item.querySelectorAll('[data-block-error-badge]').forEach((el) => el.remove());
+
+  // Remove field error messages
+  item.querySelectorAll('[data-block-field-error]').forEach((el) => el.remove());
+
+  // Remove error styling from fields
+  item.querySelectorAll('.border-red-500').forEach((el) => {
+    el.classList.remove('border-red-500', 'focus:ring-red-500');
+  });
+}
+
+/**
+ * Compare embedded blocks with legacy blocks to detect conflicts
+ */
+function detectBlockConflicts(embedded: any[], legacy: any[]): ConflictReport {
+  const conflicts: BlockConflict[] = [];
+
+  if (!Array.isArray(embedded) || !Array.isArray(legacy)) {
+    return {
+      hasConflicts: false,
+      conflicts: [],
+      embeddedCount: Array.isArray(embedded) ? embedded.length : 0,
+      legacyCount: Array.isArray(legacy) ? legacy.length : 0,
+    };
+  }
+
+  // Count mismatch is a conflict
+  if (embedded.length !== legacy.length) {
+    // Still compare what we can
+  }
+
+  const maxLen = Math.max(embedded.length, legacy.length);
+  for (let i = 0; i < maxLen; i++) {
+    const embBlock = embedded[i] || {};
+    const legBlock = legacy[i] || {};
+    const blockType = embBlock._type || legBlock._type || `block_${i}`;
+
+    // Compare all fields
+    const allKeys = new Set([...Object.keys(embBlock), ...Object.keys(legBlock)]);
+    for (const key of allKeys) {
+      if (key.startsWith('_')) continue; // Skip metadata fields for comparison
+      const embVal = embBlock[key];
+      const legVal = legBlock[key];
+
+      if (!deepEqual(embVal, legVal)) {
+        conflicts.push({
+          blockIndex: i,
+          blockType,
+          field: key,
+          embeddedValue: embVal,
+          legacyValue: legVal,
+        });
+      }
+    }
+  }
+
+  return {
+    hasConflicts: conflicts.length > 0 || embedded.length !== legacy.length,
+    conflicts,
+    embeddedCount: embedded.length,
+    legacyCount: legacy.length,
+  };
+}
+
+/**
+ * Deep equality check for conflict detection
+ */
+function deepEqual(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return a === b;
+  if (typeof a !== typeof b) return false;
+
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    return a.every((val, idx) => deepEqual(val, b[idx]));
+  }
+
+  if (typeof a === 'object') {
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    return keysA.every((key) => deepEqual(a[key], b[key]));
+  }
+
+  return false;
+}
+
+/**
+ * Create conflict report UI element
+ */
+function createConflictReportUI(report: ConflictReport): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'block-conflict-report border border-amber-200 bg-amber-50 rounded-lg p-4 mb-4 dark:bg-amber-900/20 dark:border-amber-700';
+  container.setAttribute('data-block-conflict-report', 'true');
+
+  const header = document.createElement('div');
+  header.className = 'flex items-center gap-2 mb-3';
+
+  const icon = document.createElement('span');
+  icon.className = 'text-amber-600 dark:text-amber-400';
+  icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+
+  const title = document.createElement('span');
+  title.className = 'font-medium text-amber-800 dark:text-amber-200';
+  title.textContent = 'Block Conflicts Detected';
+
+  header.appendChild(icon);
+  header.appendChild(title);
+  container.appendChild(header);
+
+  // Summary
+  const summary = document.createElement('p');
+  summary.className = 'text-sm text-amber-700 dark:text-amber-300 mb-3';
+  summary.textContent = `Embedded blocks (${report.embeddedCount}) differ from legacy blocks (${report.legacyCount}). Embedded blocks are authoritative.`;
+  container.appendChild(summary);
+
+  if (report.conflicts.length > 0) {
+    const details = document.createElement('details');
+    details.className = 'text-sm';
+
+    const summaryEl = document.createElement('summary');
+    summaryEl.className = 'cursor-pointer text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium';
+    summaryEl.textContent = `View ${report.conflicts.length} field conflict${report.conflicts.length > 1 ? 's' : ''}`;
+    details.appendChild(summaryEl);
+
+    const list = document.createElement('ul');
+    list.className = 'mt-2 space-y-1 pl-4';
+
+    for (const conflict of report.conflicts.slice(0, 10)) {
+      const item = document.createElement('li');
+      item.className = 'text-amber-700 dark:text-amber-300';
+      item.innerHTML = `<span class="font-mono text-xs">${conflict.blockType}[${conflict.blockIndex}].${conflict.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`;
+      list.appendChild(item);
+    }
+
+    if (report.conflicts.length > 10) {
+      const more = document.createElement('li');
+      more.className = 'text-amber-600 dark:text-amber-400 italic';
+      more.textContent = `...and ${report.conflicts.length - 10} more`;
+      list.appendChild(more);
+    }
+
+    details.appendChild(list);
+    container.appendChild(details);
+  }
+
+  // Actions
+  const actions = document.createElement('div');
+  actions.className = 'mt-3 flex gap-2';
+
+  const dismissBtn = document.createElement('button');
+  dismissBtn.type = 'button';
+  dismissBtn.className = 'text-xs px-3 py-1 rounded border border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/40';
+  dismissBtn.textContent = 'Dismiss';
+  dismissBtn.addEventListener('click', () => container.remove());
+
+  actions.appendChild(dismissBtn);
+  container.appendChild(actions);
+
+  return container;
+}
+
+/**
+ * Show conflict report in the block editor
+ */
+function showConflictReport(root: HTMLElement, report: ConflictReport): void {
+  // Remove any existing report
+  root.querySelector('[data-block-conflict-report]')?.remove();
+
+  if (!report.hasConflicts) return;
+
+  const reportUI = createConflictReportUI(report);
+  const list = root.querySelector('[data-block-list]');
+  if (list) {
+    list.parentElement?.insertBefore(reportUI, list);
+  } else {
+    root.insertBefore(reportUI, root.firstChild);
+  }
 }
 
 function ensureTypeField(item: HTMLElement, type: string): void {
@@ -201,17 +530,45 @@ function ensureTypeField(item: HTMLElement, type: string): void {
   });
 }
 
+/**
+ * Ensure _schema field exists on the block item
+ */
+function ensureSchemaField(item: HTMLElement, schemaVersion: string): void {
+  const inputs = item.querySelectorAll<HTMLInputElement>('[name="_schema"], [data-block-schema-input]');
+  if (inputs.length === 0) {
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = '_schema';
+    hidden.value = schemaVersion;
+    hidden.setAttribute('data-block-schema-input', 'true');
+    hidden.setAttribute('data-block-ignore', 'true');
+    item.appendChild(hidden);
+    return;
+  }
+  inputs.forEach((input) => {
+    input.setAttribute('data-block-schema-input', 'true');
+    input.setAttribute('data-block-ignore', 'true');
+    input.value = schemaVersion;
+    input.readOnly = true;
+    const wrapper = input.closest<HTMLElement>('[data-component]');
+    if (wrapper) {
+      wrapper.classList.add('hidden');
+    }
+  });
+}
+
 function initBlockEditor(root: HTMLElement): void {
   const elements = resolveElements(root);
   if (!elements) return;
   const config = resolveConfig(root);
-  const templates = collectTemplates(root);
+  const templates = collectTemplates(root, config);
   const baseName = root.dataset.blockField || elements.output.name;
   const sortableHint = parseBoolean(root.dataset.blockSortable);
   const sortable = config.sortable ?? sortableHint ?? false;
   const allowDrag = config.allowDrag ?? sortable;
   const addLabel = config.addLabel || elements.addButton?.dataset.blockAddLabel || 'Add block';
   const emptyLabel = config.emptyLabel || elements.emptyState?.dataset.blockEmptyLabel || 'No blocks added yet.';
+  const validateOnInput = config.validateOnInput ?? true;
 
   if (elements.addButton) {
     elements.addButton.textContent = addLabel;
@@ -225,6 +582,8 @@ function initBlockEditor(root: HTMLElement): void {
 
   const syncOutput = () => {
     const items = Array.from(list.querySelectorAll<HTMLElement>('[data-block-item]'));
+    let hasValidationErrors = false;
+
     const payload = items.map((item) => {
       const data: Record<string, any> = {};
       const groups = new Map<string, Array<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>>();
@@ -243,9 +602,36 @@ function initBlockEditor(root: HTMLElement): void {
       });
       const blockType = item.dataset.blockType || data._type || '';
       if (blockType) data._type = blockType;
+
+      // Add _schema version from template or item
+      const schemaVersion = item.dataset.blockSchema || data._schema;
+      if (schemaVersion) {
+        data._schema = schemaVersion;
+      } else {
+        const template = templates.get(blockType);
+        if (template?.schemaVersion) {
+          data._schema = template.schemaVersion;
+        }
+      }
+
+      // Validate block if enabled
+      if (validateOnInput) {
+        const template = templates.get(blockType);
+        if (template) {
+          const errors = validateBlock(item, template);
+          showBlockErrors(item, errors);
+          if (errors.length > 0) {
+            hasValidationErrors = true;
+          }
+        }
+      }
+
       return data;
     });
     output.value = JSON.stringify(payload);
+
+    // Update root element validation state
+    root.dataset.blockEditorValid = hasValidationErrors ? 'false' : 'true';
   };
 
   const updateNames = () => {
@@ -381,6 +767,8 @@ function initBlockEditor(root: HTMLElement): void {
     wrapper.appendChild(body);
 
     ensureTypeField(wrapper, template.type);
+    ensureSchemaField(wrapper, template.schemaVersion || generateSchemaVersion(template.type));
+    wrapper.dataset.blockSchema = template.schemaVersion || generateSchemaVersion(template.type);
 
     if (values) {
       fillValues(wrapper, values);
@@ -508,11 +896,119 @@ function initBlockEditor(root: HTMLElement): void {
     elements.addSelect.value = '';
   }
 
+  // Keyboard accessibility
+  root.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const item = target.closest<HTMLElement>('[data-block-item]');
+    if (!item) return;
+
+    const isHeader = target.closest('[data-block-header]');
+    if (!isHeader) return;
+
+    switch (event.key) {
+      case 'Delete':
+      case 'Backspace':
+        if (event.shiftKey) {
+          event.preventDefault();
+          item.remove();
+          syncAll();
+          // Focus next or previous item
+          const next = list.querySelector<HTMLElement>('[data-block-item] [data-block-header]');
+          next?.focus();
+        }
+        break;
+      case 'ArrowUp':
+        if (event.altKey && sortable) {
+          event.preventDefault();
+          const prev = item.previousElementSibling;
+          if (prev) {
+            list.insertBefore(item, prev);
+            syncAll();
+            (item.querySelector('[data-block-header]') as HTMLElement)?.focus();
+          }
+        } else if (!event.altKey) {
+          event.preventDefault();
+          const prevItem = item.previousElementSibling as HTMLElement;
+          const prevHeader = prevItem?.querySelector<HTMLElement>('[data-block-header]');
+          prevHeader?.focus();
+        }
+        break;
+      case 'ArrowDown':
+        if (event.altKey && sortable) {
+          event.preventDefault();
+          const next = item.nextElementSibling;
+          if (next) {
+            list.insertBefore(next, item);
+            syncAll();
+            (item.querySelector('[data-block-header]') as HTMLElement)?.focus();
+          }
+        } else if (!event.altKey) {
+          event.preventDefault();
+          const nextItem = item.nextElementSibling as HTMLElement;
+          const nextHeader = nextItem?.querySelector<HTMLElement>('[data-block-header]');
+          nextHeader?.focus();
+        }
+        break;
+      case 'Enter':
+      case ' ':
+        if (target.matches('[data-block-collapse]')) {
+          event.preventDefault();
+          target.click();
+        } else if (target.matches('[data-block-remove]')) {
+          event.preventDefault();
+          target.click();
+        } else if (target.matches('[data-block-move-up]')) {
+          event.preventDefault();
+          target.click();
+        } else if (target.matches('[data-block-move-down]')) {
+          event.preventDefault();
+          target.click();
+        } else if (isHeader && !target.matches('button')) {
+          // Toggle collapse when pressing Enter on header
+          event.preventDefault();
+          const collapseBtn = item.querySelector<HTMLButtonElement>('[data-block-collapse]');
+          collapseBtn?.click();
+        }
+        break;
+      case 'Escape':
+        // Collapse the block
+        const body = item.querySelector<HTMLElement>('[data-block-body]');
+        if (body && !body.classList.contains('hidden')) {
+          event.preventDefault();
+          body.classList.add('hidden');
+          item.dataset.blockCollapsed = 'true';
+          const collapseBtn = item.querySelector<HTMLButtonElement>('[data-block-collapse]');
+          if (collapseBtn) collapseBtn.textContent = 'Expand';
+        }
+        break;
+    }
+  });
+
+  // Make block headers focusable for keyboard navigation
+  const makeHeadersFocusable = () => {
+    list.querySelectorAll<HTMLElement>('[data-block-header]').forEach((header) => {
+      if (!header.hasAttribute('tabindex')) {
+        header.setAttribute('tabindex', '0');
+        header.setAttribute('role', 'button');
+        header.setAttribute('aria-label', 'Block header - Press Enter to collapse/expand, Shift+Delete to remove');
+      }
+    });
+  };
+
+  // Observe for new blocks to make their headers focusable
+  const observer = new MutationObserver(() => {
+    makeHeadersFocusable();
+  });
+  observer.observe(list, { childList: true, subtree: true });
+
   const initialValue = output.value?.trim();
+  let embeddedBlocks: any[] = [];
   if (initialValue) {
     try {
       const parsed = JSON.parse(initialValue) as any;
       if (Array.isArray(parsed)) {
+        embeddedBlocks = parsed;
         parsed.forEach((entry) => {
           const type = typeof entry === 'object' && entry ? (entry._type as string) : '';
           if (type && templates.has(type)) {
@@ -522,6 +1018,31 @@ function initBlockEditor(root: HTMLElement): void {
       }
     } catch {
       // ignore malformed data
+    }
+  }
+
+  // Conflict detection
+  const showConflicts = config.showConflicts ?? true;
+  if (showConflicts && config.legacyBlocks && Array.isArray(config.legacyBlocks)) {
+    const report = detectBlockConflicts(embeddedBlocks, config.legacyBlocks);
+    if (report.hasConflicts) {
+      showConflictReport(root, report);
+    }
+  }
+
+  // Also check for legacy blocks from data attribute
+  const legacyBlocksAttr = root.dataset.blockLegacy;
+  if (showConflicts && legacyBlocksAttr) {
+    try {
+      const legacyBlocks = JSON.parse(legacyBlocksAttr);
+      if (Array.isArray(legacyBlocks)) {
+        const report = detectBlockConflicts(embeddedBlocks, legacyBlocks);
+        if (report.hasConflicts) {
+          showConflictReport(root, report);
+        }
+      }
+    } catch {
+      // ignore malformed legacy data
     }
   }
 
