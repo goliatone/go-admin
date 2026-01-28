@@ -402,6 +402,8 @@ func mapWidget(t string) string {
 	switch t {
 	case "textarea":
 		return "textarea"
+	case "jsonschema", "json_schema", "schema":
+		return "schema-editor"
 	case "media", "media_picker":
 		return "media-picker"
 	default:
