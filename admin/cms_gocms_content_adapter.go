@@ -97,7 +97,10 @@ func (a *GoCMSContentAdapter) Pages(ctx context.Context, locale string) ([]CMSPa
 		slice := deref(results[0])
 		out := make([]CMSPage, 0, slice.Len())
 		for i := 0; i < slice.Len(); i++ {
-			out = append(out, a.convertPage(slice.Index(i), locale))
+			item := a.convertPage(slice.Index(i), locale)
+			applySchemaVersionToPage(&item)
+			applyEmbeddedBlocksToPage(&item)
+			out = append(out, item)
 		}
 		return out, nil
 	}
@@ -134,6 +137,15 @@ func (a *GoCMSContentAdapter) Page(ctx context.Context, id, locale string) (*CMS
 			return nil, ErrNotFound
 		}
 		rec := a.convertPage(results[0], locale)
+		applySchemaVersionToPage(&rec)
+		applyEmbeddedBlocksToPage(&rec)
+		if contentID, ok := extractUUID(deref(results[0]), "ContentID"); ok && contentID != uuid.Nil {
+			if content, err := a.fetchContent(ctx, contentID.String(), rec.Locale, true); err == nil && content != nil {
+				mergePageContentData(&rec, content)
+				applySchemaVersionToPage(&rec)
+				applyEmbeddedBlocksToPage(&rec)
+			}
+		}
 		return &rec, nil
 	}
 
@@ -175,6 +187,16 @@ func (a *GoCMSContentAdapter) CreatePage(ctx context.Context, page CMSPage) (*CM
 		path = "/" + strings.TrimPrefix(page.Slug, "/")
 	}
 	contentData["path"] = path
+	if schema := strings.TrimSpace(page.SchemaVersion); schema != "" {
+		contentData["_schema"] = schema
+	} else if schema := strings.TrimSpace(toString(contentData["_schema"])); schema != "" {
+		contentData["_schema"] = schema
+	}
+	if page.EmbeddedBlocks != nil {
+		contentData["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
+	} else if embedded, present := embeddedBlocksFromData(contentData); present {
+		contentData["blocks"] = embedded
+	}
 
 	createdContent, err := a.CreateContent(ctx, CMSContent{
 		Title:           page.Title,
@@ -223,9 +245,11 @@ func (a *GoCMSContentAdapter) CreatePage(ctx context.Context, page CMSPage) (*CM
 		return nil, err
 	}
 	rec := a.convertPage(results[0], locale)
-	if rec.Data == nil {
-		rec.Data = cloneAnyMap(createdContent.Data)
+	if createdContent != nil {
+		mergePageContentData(&rec, createdContent)
 	}
+	applySchemaVersionToPage(&rec)
+	applyEmbeddedBlocksToPage(&rec)
 	return &rec, nil
 }
 
@@ -256,6 +280,10 @@ func (a *GoCMSContentAdapter) UpdatePage(ctx context.Context, page CMSPage) (*CM
 	if path == "" {
 		path = "/" + strings.TrimPrefix(page.Slug, "/")
 	}
+	if page.Data == nil {
+		page.Data = map[string]any{}
+	}
+	page.Data["path"] = path
 	if tr := a.buildPageTranslation(req.FieldByName("Translations"), page, path, page.Locale); tr.IsValid() {
 		req.FieldByName("Translations").Set(tr)
 	}
@@ -270,7 +298,16 @@ func (a *GoCMSContentAdapter) UpdatePage(ctx context.Context, page CMSPage) (*CM
 	if err := a.ensurePageTranslation(ctx, results[0], page, path, page.Locale); err != nil {
 		return nil, err
 	}
+	updatedContent, err := a.updatePageContentData(ctx, page, path)
+	if err != nil {
+		return nil, err
+	}
 	rec := a.convertPage(results[0], page.Locale)
+	if updatedContent != nil {
+		mergePageContentData(&rec, updatedContent)
+	}
+	applySchemaVersionToPage(&rec)
+	applyEmbeddedBlocksToPage(&rec)
 	return &rec, nil
 }
 
@@ -313,12 +350,19 @@ func (a *GoCMSContentAdapter) Contents(ctx context.Context, locale string) ([]CM
 	slice := deref(results[0])
 	out := make([]CMSContent, 0, slice.Len())
 	for i := 0; i < slice.Len(); i++ {
-		out = append(out, a.convertContent(ctx, slice.Index(i), locale))
+		item := a.convertContent(ctx, slice.Index(i), locale)
+		applySchemaVersionToContent(&item)
+		applyEmbeddedBlocksToContent(&item)
+		out = append(out, item)
 	}
 	return out, nil
 }
 
 func (a *GoCMSContentAdapter) Content(ctx context.Context, id, locale string) (*CMSContent, error) {
+	return a.fetchContent(ctx, id, locale, true)
+}
+
+func (a *GoCMSContentAdapter) fetchContent(ctx context.Context, id, locale string, allowLegacy bool) (*CMSContent, error) {
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
@@ -338,6 +382,20 @@ func (a *GoCMSContentAdapter) Content(ctx context.Context, id, locale string) (*
 		return nil, ErrNotFound
 	}
 	rec := a.convertContent(ctx, results[0], locale)
+	applySchemaVersionToContent(&rec)
+	embeddedPresent := applyEmbeddedBlocksToContent(&rec)
+	if !embeddedPresent && allowLegacy && a.blocks != nil {
+		if legacy, err := a.legacyBlocksForContent(ctx, rec.ID, rec.Locale); err == nil && len(legacy) > 0 {
+			rec.Blocks = blockTypesFromLegacy(legacy)
+			rec.EmbeddedBlocks = embeddedBlocksFromLegacy(legacy)
+			if rec.Data == nil {
+				rec.Data = map[string]any{}
+			}
+			if rec.EmbeddedBlocks != nil {
+				rec.Data["blocks"] = cloneEmbeddedBlocks(rec.EmbeddedBlocks)
+			}
+		}
+	}
 	return &rec, nil
 }
 
@@ -360,6 +418,8 @@ func (a *GoCMSContentAdapter) CreateContent(ctx context.Context, content CMSCont
 	actor := actorUUID(ctx)
 	setUUIDField(req, "CreatedBy", actor)
 	setUUIDField(req, "UpdatedBy", actor)
+	applySchemaVersionToContent(&content)
+	applyEmbeddedBlocksToContent(&content)
 	if tr := a.buildContentTranslation(req.FieldByName("Translations"), content); tr.IsValid() {
 		req.FieldByName("Translations").Set(tr)
 	}
@@ -389,6 +449,8 @@ func (a *GoCMSContentAdapter) UpdateContent(ctx context.Context, content CMSCont
 	setUUIDField(req, "ID", uuidFromString(content.ID))
 	setStringField(req, "Status", content.Status)
 	setUUIDField(req, "UpdatedBy", actorUUID(ctx))
+	applySchemaVersionToContent(&content)
+	applyEmbeddedBlocksToContent(&content)
 	if tr := a.buildContentTranslation(req.FieldByName("Translations"), content); tr.IsValid() {
 		req.FieldByName("Translations").Set(tr)
 	}
@@ -534,6 +596,32 @@ func (a *GoCMSContentAdapter) DeleteBlockDefinition(ctx context.Context, id stri
 }
 
 func (a *GoCMSContentAdapter) BlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
+	if a == nil || a.content == nil {
+		return nil, ErrNotFound
+	}
+	if content, err := a.fetchContent(ctx, contentID, locale, false); err == nil && content != nil {
+		if content.EmbeddedBlocks != nil {
+			loc := locale
+			if strings.TrimSpace(loc) == "" {
+				loc = content.Locale
+			}
+			return embeddedBlocksToCMSBlocks(contentID, loc, content.EmbeddedBlocks), nil
+		}
+	}
+	if embedded, ok := a.embeddedBlocksForPage(ctx, contentID, locale); ok {
+		return embeddedBlocksToCMSBlocks(contentID, locale, embedded), nil
+	}
+	if a.blocks == nil {
+		return nil, ErrNotFound
+	}
+	return a.legacyBlocksForContent(ctx, contentID, locale)
+}
+
+func (a *GoCMSContentAdapter) LegacyBlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
+	return a.legacyBlocksForContent(ctx, contentID, locale)
+}
+
+func (a *GoCMSContentAdapter) legacyBlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
 	if a == nil || a.blocks == nil {
 		return nil, ErrNotFound
 	}
@@ -852,6 +940,175 @@ func (a *GoCMSContentAdapter) resolvePageID(ctx context.Context, contentID strin
 	return parsed
 }
 
+func (a *GoCMSContentAdapter) resolveContentIDForPage(ctx context.Context, pageID string) uuid.UUID {
+	if a == nil || a.pages == nil {
+		return uuid.Nil
+	}
+	method := reflect.ValueOf(a.pages).MethodByName("Get")
+	if !method.IsValid() {
+		return uuid.Nil
+	}
+	arg, err := valueForIDType(method.Type().In(1), pageID)
+	if err != nil {
+		return uuid.Nil
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), arg})
+	if extractError(results) != nil {
+		return uuid.Nil
+	}
+	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+		return uuid.Nil
+	}
+	val := deref(results[0])
+	if contentID, ok := extractUUID(val, "ContentID"); ok && contentID != uuid.Nil {
+		return contentID
+	}
+	return uuid.Nil
+}
+
+func applySchemaVersionToContent(content *CMSContent) {
+	if content == nil {
+		return
+	}
+	schema := strings.TrimSpace(content.SchemaVersion)
+	if schema == "" && content.Data != nil {
+		schema = strings.TrimSpace(toString(content.Data["_schema"]))
+		content.SchemaVersion = schema
+	}
+	if schema == "" {
+		return
+	}
+	if content.Data == nil {
+		content.Data = map[string]any{}
+	}
+	content.Data["_schema"] = schema
+	content.SchemaVersion = schema
+}
+
+func applySchemaVersionToPage(page *CMSPage) {
+	if page == nil {
+		return
+	}
+	schema := strings.TrimSpace(page.SchemaVersion)
+	if schema == "" && page.Data != nil {
+		schema = strings.TrimSpace(toString(page.Data["_schema"]))
+		page.SchemaVersion = schema
+	}
+	if schema == "" {
+		return
+	}
+	if page.Data == nil {
+		page.Data = map[string]any{}
+	}
+	page.Data["_schema"] = schema
+	page.SchemaVersion = schema
+}
+
+func applyEmbeddedBlocksToContent(content *CMSContent) bool {
+	if content == nil {
+		return false
+	}
+	embedded, present := embeddedBlocksFromData(content.Data)
+	if !present && content.EmbeddedBlocks != nil {
+		embedded = cloneEmbeddedBlocks(content.EmbeddedBlocks)
+		present = true
+	}
+	if !present {
+		return false
+	}
+	if content.Data == nil {
+		content.Data = map[string]any{}
+	}
+	content.Data["blocks"] = embedded
+	content.EmbeddedBlocks = embedded
+	return true
+}
+
+func applyEmbeddedBlocksToPage(page *CMSPage) bool {
+	if page == nil {
+		return false
+	}
+	embedded, present := embeddedBlocksFromData(page.Data)
+	if !present && page.EmbeddedBlocks != nil {
+		embedded = cloneEmbeddedBlocks(page.EmbeddedBlocks)
+		present = true
+	}
+	if !present {
+		return false
+	}
+	if page.Data == nil {
+		page.Data = map[string]any{}
+	}
+	page.Data["blocks"] = embedded
+	page.EmbeddedBlocks = embedded
+	return true
+}
+
+func mergePageContentData(page *CMSPage, content *CMSContent) {
+	if page == nil || content == nil {
+		return
+	}
+	merged := cloneAnyMap(content.Data)
+	if merged == nil {
+		merged = map[string]any{}
+	}
+	if page.Data != nil {
+		for key, value := range page.Data {
+			merged[key] = value
+		}
+	}
+	page.Data = merged
+	if page.SchemaVersion == "" {
+		page.SchemaVersion = content.SchemaVersion
+	}
+	if page.EmbeddedBlocks == nil && content.EmbeddedBlocks != nil {
+		page.EmbeddedBlocks = cloneEmbeddedBlocks(content.EmbeddedBlocks)
+	}
+}
+
+func (a *GoCMSContentAdapter) embeddedBlocksForContent(ctx context.Context, contentID, locale string) ([]map[string]any, bool) {
+	content, err := a.fetchContent(ctx, contentID, locale, false)
+	if err != nil || content == nil {
+		return nil, false
+	}
+	if content.EmbeddedBlocks != nil {
+		return cloneEmbeddedBlocks(content.EmbeddedBlocks), true
+	}
+	if embedded, present := embeddedBlocksFromData(content.Data); present {
+		return embedded, true
+	}
+	return nil, false
+}
+
+func (a *GoCMSContentAdapter) embeddedBlocksForPage(ctx context.Context, pageID, locale string) ([]map[string]any, bool) {
+	if !a.hasPageService() {
+		return nil, false
+	}
+	method := reflect.ValueOf(a.pages).MethodByName("Get")
+	if !method.IsValid() {
+		return nil, false
+	}
+	arg, err := valueForIDType(method.Type().In(1), pageID)
+	if err != nil {
+		return nil, false
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), arg})
+	if extractError(results) != nil {
+		return nil, false
+	}
+	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+		return nil, false
+	}
+	rec := a.convertPage(results[0], locale)
+	if !applyEmbeddedBlocksToPage(&rec) {
+		return nil, false
+	}
+	if rec.EmbeddedBlocks == nil {
+		return nil, false
+	}
+	return cloneEmbeddedBlocks(rec.EmbeddedBlocks), true
+}
+
 func (a *GoCMSContentAdapter) buildContentTranslation(field reflect.Value, content CMSContent) reflect.Value {
 	field = deref(field)
 	if !field.IsValid() || field.Kind() != reflect.Slice {
@@ -974,6 +1231,16 @@ func (a *GoCMSContentAdapter) createPageFromContent(ctx context.Context, page CM
 		path = "/" + strings.TrimPrefix(page.Slug, "/")
 	}
 	data["path"] = path
+	if schema := strings.TrimSpace(page.SchemaVersion); schema != "" {
+		data["_schema"] = schema
+	} else if schema := strings.TrimSpace(toString(data["_schema"])); schema != "" {
+		data["_schema"] = schema
+	}
+	if page.EmbeddedBlocks != nil {
+		data["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
+	} else if embedded, present := embeddedBlocksFromData(data); present {
+		data["blocks"] = embedded
+	}
 
 	created, err := a.CreateContent(ctx, CMSContent{
 		Title:       page.Title,
@@ -1025,6 +1292,16 @@ func (a *GoCMSContentAdapter) updatePageFromContent(ctx context.Context, page CM
 		path = "/" + strings.TrimPrefix(asString(page.Slug, existing.Slug), "/")
 	}
 	data["path"] = path
+	if schema := strings.TrimSpace(page.SchemaVersion); schema != "" {
+		data["_schema"] = schema
+	} else if schema := strings.TrimSpace(toString(data["_schema"])); schema != "" {
+		data["_schema"] = schema
+	}
+	if page.EmbeddedBlocks != nil {
+		data["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
+	} else if embedded, present := embeddedBlocksFromData(data); present {
+		data["blocks"] = embedded
+	}
 
 	title := strings.TrimSpace(page.Title)
 	if title == "" {
@@ -1052,12 +1329,101 @@ func (a *GoCMSContentAdapter) updatePageFromContent(ctx context.Context, page CM
 		ContentType: "page",
 		Blocks:      blocks,
 		Data:        data,
+		EmbeddedBlocks: func() []map[string]any {
+			if page.EmbeddedBlocks != nil {
+				return cloneEmbeddedBlocks(page.EmbeddedBlocks)
+			}
+			if embedded, present := embeddedBlocksFromData(data); present {
+				return embedded
+			}
+			return nil
+		}(),
+		SchemaVersion: strings.TrimSpace(toString(data["_schema"])),
 	})
 	if err != nil {
 		return nil, err
 	}
 	rec := pageFromContent(*updated)
 	return &rec, nil
+}
+
+func (a *GoCMSContentAdapter) updatePageContentData(ctx context.Context, page CMSPage, path string) (*CMSContent, error) {
+	if a == nil || a.content == nil || !a.hasPageService() {
+		return nil, nil
+	}
+	contentID := a.resolveContentIDForPage(ctx, page.ID)
+	if contentID == uuid.Nil {
+		return nil, nil
+	}
+	locale := strings.TrimSpace(page.Locale)
+	existing, _ := a.fetchContent(ctx, contentID.String(), locale, true)
+	data := cloneAnyMap(page.Data)
+	if existing != nil {
+		data = mergeAnyMap(existing.Data, data)
+		if locale == "" {
+			locale = existing.Locale
+		}
+	}
+	if data == nil {
+		data = map[string]any{}
+	}
+	if path != "" {
+		data["path"] = path
+	}
+	if mt := asString(page.SEO["title"], asString(data["meta_title"], "")); strings.TrimSpace(mt) != "" {
+		data["meta_title"] = mt
+	}
+	if md := asString(page.SEO["description"], asString(data["meta_description"], "")); strings.TrimSpace(md) != "" {
+		data["meta_description"] = md
+	}
+	if strings.TrimSpace(page.ParentID) != "" {
+		data["parent_id"] = page.ParentID
+	}
+	if strings.TrimSpace(page.TemplateID) != "" {
+		data["template_id"] = page.TemplateID
+	}
+	schema := strings.TrimSpace(page.SchemaVersion)
+	if schema == "" {
+		schema = strings.TrimSpace(toString(data["_schema"]))
+	}
+	if schema != "" {
+		data["_schema"] = schema
+	}
+	if page.EmbeddedBlocks != nil {
+		data["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
+	} else if embedded, present := embeddedBlocksFromData(data); present {
+		data["blocks"] = embedded
+	}
+
+	title := strings.TrimSpace(page.Title)
+	if title == "" && existing != nil {
+		title = existing.Title
+	}
+	slug := strings.TrimSpace(page.Slug)
+	if slug == "" && existing != nil {
+		slug = existing.Slug
+	}
+	status := strings.TrimSpace(page.Status)
+	if status == "" && existing != nil {
+		status = existing.Status
+	}
+
+	updated, err := a.UpdateContent(ctx, CMSContent{
+		ID:              contentID.String(),
+		Title:           title,
+		Slug:            slug,
+		Status:          status,
+		Locale:          locale,
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            data,
+		EmbeddedBlocks:  page.EmbeddedBlocks,
+		SchemaVersion:   schema,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return updated, nil
 }
 
 func (a *GoCMSContentAdapter) deletePageFromContent(ctx context.Context, id string) error {
@@ -1144,6 +1510,9 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 	if out.Locale == "" {
 		out.Locale = locale
 	}
+	if schema := strings.TrimSpace(toString(out.Data["_schema"])); schema != "" {
+		out.SchemaVersion = schema
+	}
 	return out
 }
 
@@ -1200,9 +1569,24 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 		if summary := stringField(chosen, "Summary"); summary != "" {
 			out.Data["summary"] = summary
 		}
+		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
+			if m, ok := contentField.Interface().(map[string]any); ok {
+				merged := cloneAnyMap(m)
+				if merged == nil {
+					merged = map[string]any{}
+				}
+				for key, value := range out.Data {
+					merged[key] = value
+				}
+				out.Data = merged
+			}
+		}
 	}
 	if out.Locale == "" {
 		out.Locale = locale
+	}
+	if schema := strings.TrimSpace(toString(out.Data["_schema"])); schema != "" {
+		out.SchemaVersion = schema
 	}
 	return out
 }
@@ -1307,6 +1691,18 @@ func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
 			}
 		}
 	}
+	if version := strings.TrimSpace(stringField(val, "SchemaVersion")); version != "" {
+		def.SchemaVersion = version
+	}
+	if def.SchemaVersion == "" {
+		def.SchemaVersion = schemaVersionFromSchema(def.Schema)
+	}
+	if status := strings.TrimSpace(stringField(val, "MigrationStatus")); status != "" {
+		def.MigrationStatus = status
+	}
+	if def.MigrationStatus == "" {
+		def.MigrationStatus = schemaMigrationStatusFromSchema(def.Schema)
+	}
 	return def
 }
 
@@ -1325,17 +1721,27 @@ func pageFromContent(content CMSContent) CMSPage {
 	}
 
 	out := CMSPage{
-		ID:         content.ID,
-		Title:      content.Title,
-		Slug:       content.Slug,
-		TemplateID: templateID,
-		Locale:     content.Locale,
-		ParentID:   parentID,
-		Blocks:     append([]string{}, content.Blocks...),
-		SEO:        seo,
-		Status:     content.Status,
-		Data:       data,
-		PreviewURL: path,
+		ID:             content.ID,
+		Title:          content.Title,
+		Slug:           content.Slug,
+		TemplateID:     templateID,
+		Locale:         content.Locale,
+		ParentID:       parentID,
+		Blocks:         append([]string{}, content.Blocks...),
+		EmbeddedBlocks: nil,
+		SchemaVersion:  strings.TrimSpace(content.SchemaVersion),
+		SEO:            seo,
+		Status:         content.Status,
+		Data:           data,
+		PreviewURL:     path,
+	}
+	if out.SchemaVersion == "" {
+		out.SchemaVersion = strings.TrimSpace(toString(data["_schema"]))
+	}
+	if content.EmbeddedBlocks != nil {
+		out.EmbeddedBlocks = cloneEmbeddedBlocks(content.EmbeddedBlocks)
+	} else if embedded, present := embeddedBlocksFromData(data); present {
+		out.EmbeddedBlocks = embedded
 	}
 	if out.PreviewURL == "" && strings.TrimSpace(out.Slug) != "" {
 		out.PreviewURL = "/" + strings.TrimPrefix(out.Slug, "/")

@@ -144,27 +144,66 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 	}
 
 	blockDefinitions := (&PanelBuilder{}).
-		WithRepository(NewCMSBlockDefinitionRepository(a.contentSvc)).
+		WithRepository(NewCMSBlockDefinitionRepository(a.contentSvc, a.contentTypeSvc)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
 			Field{Name: "name", Label: "Name", Type: "text"},
 			Field{Name: "type", Label: "Type", Type: "text"},
+			Field{Name: "schema_version", Label: "Schema Version", Type: "text"},
+			Field{Name: "migration_status", Label: "Migration Status", Type: "text"},
 			Field{Name: "locale", Label: "Locale", Type: "text"},
 		).
 		FormFields(
 			Field{Name: "name", Label: "Name", Type: "text", Required: true},
 			Field{Name: "type", Label: "Type", Type: "text", Required: true},
 			Field{Name: "locale", Label: "Locale", Type: "text"},
-			Field{Name: "schema", Label: "Schema", Type: "textarea"},
+			Field{Name: "schema", Label: "Schema", Type: "jsonschema"},
 		).
 		DetailFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
 			Field{Name: "name", Label: "Name", Type: "text"},
 			Field{Name: "type", Label: "Type", Type: "text"},
+			Field{Name: "schema_version", Label: "Schema Version", Type: "text"},
+			Field{Name: "migration_status", Label: "Migration Status", Type: "text"},
 			Field{Name: "locale", Label: "Locale", Type: "text"},
 		).
-		Filters(Filter{Name: "locale", Type: "text"})
+		Filters(
+			Filter{Name: "locale", Type: "text"},
+			Filter{Name: "content_type", Type: "text"},
+		)
 	if _, err := a.RegisterPanel("block_definitions", blockDefinitions); err != nil {
+		return err
+	}
+
+	blockConflicts := (&PanelBuilder{}).
+		WithRepository(NewCMSBlockConflictRepository(a.contentSvc)).
+		ListFields(
+			Field{Name: "id", Label: "ID", Type: "text"},
+			Field{Name: "entity_type", Label: "Type", Type: "text"},
+			Field{Name: "title", Label: "Title", Type: "text"},
+			Field{Name: "content_type", Label: "Content Type", Type: "text"},
+			Field{Name: "locale", Label: "Locale", Type: "text"},
+			Field{Name: "embedded_count", Label: "Embedded Count", Type: "number"},
+			Field{Name: "legacy_count", Label: "Legacy Count", Type: "number"},
+		).
+		DetailFields(
+			Field{Name: "id", Label: "ID", Type: "text"},
+			Field{Name: "entity_type", Label: "Type", Type: "text"},
+			Field{Name: "entity_id", Label: "Entity ID", Type: "text"},
+			Field{Name: "title", Label: "Title", Type: "text"},
+			Field{Name: "content_type", Label: "Content Type", Type: "text"},
+			Field{Name: "locale", Label: "Locale", Type: "text"},
+			Field{Name: "embedded_types", Label: "Embedded Types", Type: "text"},
+			Field{Name: "legacy_types", Label: "Legacy Types", Type: "text"},
+			Field{Name: "embedded_blocks", Label: "Embedded Blocks", Type: "textarea"},
+			Field{Name: "legacy_blocks", Label: "Legacy Blocks", Type: "textarea"},
+		).
+		Filters(
+			Filter{Name: "locale", Type: "text"},
+			Filter{Name: "content_type", Type: "text"},
+			Filter{Name: "entity_type", Type: "text"},
+		)
+	if _, err := a.RegisterPanel("block_conflicts", blockConflicts); err != nil {
 		return err
 	}
 
@@ -405,11 +444,14 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 			dashboardTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "")}
 			contentTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "content")}
 			pagesTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "pages")}
+			conflictsTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "block_conflicts")}
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: intPtr(1), Locale: "en", Target: dashboardTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: intPtr(2), Locale: "en", Target: contentTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Pages", Icon: "file-text", Position: intPtr(3), Locale: "en", Target: pagesTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Block Conflicts", Icon: "alert-triangle", Position: intPtr(4), Locale: "en", Target: conflictsTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Contenido", Icon: "file", Position: intPtr(2), Locale: "es", Target: contentTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Paginas", Icon: "file-text", Position: intPtr(3), Locale: "es", Target: pagesTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Conflictos de Bloques", Icon: "alert-triangle", Position: intPtr(4), Locale: "es", Target: conflictsTarget})
 		}
 	}
 }
