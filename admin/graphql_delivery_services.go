@@ -273,6 +273,7 @@ func deliveryPublished(status string) bool {
 }
 
 func mapDeliveryContent(record CMSContent) delivery.Content {
+	applyEmbeddedBlocksToContent(&record)
 	contentType := strings.TrimSpace(record.ContentTypeSlug)
 	if contentType == "" {
 		contentType = strings.TrimSpace(record.ContentType)
@@ -288,6 +289,7 @@ func mapDeliveryContent(record CMSContent) delivery.Content {
 }
 
 func mapDeliveryPage(record CMSPage) delivery.Page {
+	applyEmbeddedBlocksToPage(&record)
 	return delivery.Page{
 		ID:     record.ID,
 		Title:  record.Title,
