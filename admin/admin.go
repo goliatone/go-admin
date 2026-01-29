@@ -334,6 +334,10 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		preview:                NewPreviewService(cfg.PreviewSecret),
 	}
 
+	if _, err := RegisterQuery(commandBus, &dashboardDiagnosticsQuery{admin: adm}); err != nil {
+		return nil, err
+	}
+
 	if adm.contentTypeSvc == nil {
 		adm.contentTypeSvc = container.ContentTypeService()
 	}
