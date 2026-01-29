@@ -1,4 +1,4 @@
-package quickstart
+package quickstart_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/setup"
+	quickstart "github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	usersactivity "github.com/goliatone/go-users/activity"
@@ -62,7 +63,7 @@ func TestSharedActivitySinksIncludeAuthAndOnboarding(t *testing.T) {
 		t.Fatalf("expected admin activity sink adapter")
 	}
 
-	sinks := NewSharedActivitySinks(adminSink, dashboardactivity.Hooks{}, dashboardactivity.Config{})
+	sinks := quickstart.NewSharedActivitySinks(adminSink, dashboardactivity.Hooks{}, dashboardactivity.Config{})
 	actorID := uuid.New()
 
 	inviteResult := &command.UserInviteResult{}
