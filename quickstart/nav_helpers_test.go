@@ -17,22 +17,23 @@ func TestBuildNavItemsOrdering(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	menu := adm.MenuService()
-	_, _ = menu.CreateMenu(ctx, "admin.main")
-
-	// Add out-of-order items; positions and insertion order should stabilize output.
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "Second", Position: intPtr(2)})
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "First", Position: intPtr(1)})
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{
-		ID:          "parent",
-		Label:       "Parent",
-		Collapsible: true,
-		Position:    intPtr(5),
-	})
-	// Children with mixed positions and auto order.
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "ChildB", ParentID: "parent", Position: intPtr(2)})
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "ChildA", ParentID: "parent", Position: intPtr(1)})
-	_ = menu.AddMenuItem(ctx, "admin.main", admin.MenuItem{Label: "ChildAuto", ParentID: "parent"})
+	nav := adm.Navigation()
+	nav.UseCMS(false)
+	nav.AddFallback(
+		admin.NavigationItem{Label: "Second", Position: intPtr(2)},
+		admin.NavigationItem{Label: "First", Position: intPtr(1)},
+		admin.NavigationItem{
+			ID:          "parent",
+			Label:       "Parent",
+			Collapsible: true,
+			Position:    intPtr(5),
+			Children: []admin.NavigationItem{
+				{Label: "ChildB", Position: intPtr(2)},
+				{Label: "ChildA", Position: intPtr(1)},
+				{Label: "ChildAuto"},
+			},
+		},
+	)
 
 	items := BuildNavItems(adm, cfg, ctx, "")
 	if len(items) != 3 {

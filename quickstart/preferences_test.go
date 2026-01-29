@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
@@ -415,50 +416,52 @@ func TestGoUsersPreferencesStoreUpsertSurfacesErrors(t *testing.T) {
 }
 
 func TestNewAdminWithGoUsersPreferencesRegistersRoutes(t *testing.T) {
-	repo := newStubPreferenceRepo()
-	cfg := admin.Config{
-		BasePath:      "/admin",
-		DefaultLocale: "en",
-	}
+	registry.WithTestRegistry(func() {
+		repo := newStubPreferenceRepo()
+		cfg := admin.Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		}
 
-	adm, err := NewAdminWithGoUsersPreferences(cfg, repo, EnablePreferences())
-	if err != nil {
-		t.Fatalf("new admin: %v", err)
-	}
+		adm, err := NewAdminWithGoUsersPreferences(cfg, repo, EnablePreferences())
+		if err != nil {
+			t.Fatalf("new admin: %v", err)
+		}
 
-	server := router.NewHTTPServer()
-	if err := adm.Initialize(server.Router()); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
+		server := router.NewHTTPServer()
+		if err := adm.Initialize(server.Router()); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
 
-	userID := uuid.New().String()
-	payload := map[string]any{"theme": "teal"}
-	body, _ := json.Marshal(payload)
+		userID := uuid.New().String()
+		payload := map[string]any{"theme": "teal"}
+		body, _ := json.Marshal(payload)
 
-	tests := []struct {
-		name   string
-		method string
-		path   string
-	}{
-		{name: "POST", method: "POST", path: "/admin/api/preferences"},
-		{name: "PUT", method: "PUT", path: "/admin/api/preferences/" + userID},
-	}
+		tests := []struct {
+			name   string
+			method string
+			path   string
+		}{
+			{name: "POST", method: "POST", path: "/admin/api/preferences"},
+			{name: "PUT", method: "PUT", path: "/admin/api/preferences/" + userID},
+		}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, tc.path, bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("X-User-ID", userID)
-			rr := httptest.NewRecorder()
-			server.WrappedRouter().ServeHTTP(rr, req)
-			if rr.Code != 200 {
-				t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
-			}
-		})
-	}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				req := httptest.NewRequest(tc.method, tc.path, bytes.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-User-ID", userID)
+				rr := httptest.NewRecorder()
+				server.WrappedRouter().ServeHTTP(rr, req)
+				if rr.Code != 200 {
+					t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+				}
+			})
+		}
 
-	uid, _ := uuid.Parse(userID)
-	if _, ok := repo.getRecord(uid, types.PreferenceLevelUser, "theme"); !ok {
-		t.Fatalf("expected preference record to be stored")
-	}
+		uid, _ := uuid.Parse(userID)
+		if _, ok := repo.getRecord(uid, types.PreferenceLevelUser, "theme"); !ok {
+			t.Fatalf("expected preference record to be stored")
+		}
+	})
 }
