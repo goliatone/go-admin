@@ -115,5 +115,27 @@ func DashboardStep(ctx BootCtx) error {
 	registerPref(prefPath)
 	registerPref(configAlias)
 
+	// TODO: make configurable
+	routes = append(routes, RouteSpec{
+		Method: "GET",
+		Path:   joinPath(basePath, "api/dashboard/debug"),
+		Handler: func(c router.Context) error {
+			if gates != nil {
+				if err := gates.Require(FeatureDashboard); err != nil {
+					return responder.WriteError(c, err)
+				}
+			}
+			locale := c.Query("locale")
+			if locale == "" {
+				locale = defaultLocale
+			}
+			payload, err := binding.Diagnostics(c, locale)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return responder.WriteJSON(c, payload)
+		},
+	})
+
 	return applyRoutes(ctx, routes)
 }
