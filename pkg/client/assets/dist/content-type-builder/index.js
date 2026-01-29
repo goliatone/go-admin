@@ -1,9 +1,9 @@
-class M extends Error {
+class T extends Error {
   constructor(e, t, r, a) {
     super(e), this.name = "ContentTypeAPIError", this.status = t, this.textCode = r, this.fields = a;
   }
 }
-class b {
+class f {
   constructor(e) {
     this.config = {
       basePath: e.basePath.replace(/\/$/, ""),
@@ -265,13 +265,13 @@ class b {
     } catch {
     }
     const r = t?.error ?? e.statusText ?? "Request failed";
-    throw new M(r, e.status, t?.text_code, t?.fields);
+    throw new T(r, e.status, t?.text_code, t?.fields);
   }
 }
-function y(o, e) {
+function b(o, e) {
   const t = {}, r = [];
   for (const i of o)
-    t[i.name] = j(i), i.required && r.push(i.name);
+    t[i.name] = q(i), i.required && r.push(i.name);
   const a = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -279,7 +279,7 @@ function y(o, e) {
   };
   return e && (a.$id = e), r.length > 0 && (a.required = r), a;
 }
-function j(o) {
+function q(o) {
   const e = {}, r = {
     text: { type: "string" },
     textarea: { type: "string" },
@@ -314,7 +314,7 @@ function j(o) {
     location: { type: "object" }
   }[o.type] ?? { type: "string" };
   e.type = r.type, r.format && (e.format = r.format), o.label && (e.title = o.label), o.description && (e.description = o.description), o.defaultValue !== void 0 && (e.default = o.defaultValue), o.validation && (o.validation.minLength !== void 0 && (e.minLength = o.validation.minLength), o.validation.maxLength !== void 0 && (e.maxLength = o.validation.maxLength), o.validation.min !== void 0 && (e.minimum = o.validation.min), o.validation.max !== void 0 && (e.maximum = o.validation.max), o.validation.pattern && (e.pattern = o.validation.pattern));
-  const a = {}, i = q(o.type);
+  const a = {}, i = A(o.type);
   switch (i && (a.widget = i), o.placeholder && (a.placeholder = o.placeholder), o.helpText && (a.helpText = o.helpText), o.section && (a.section = o.section), o.order !== void 0 && (a.order = o.order), o.gridSpan !== void 0 && (a.grid = { span: o.gridSpan }), o.readonly && (a.readonly = !0), o.hidden && (a.hidden = !0), Object.keys(a).length > 0 && (e["x-formgen"] = a), o.type) {
     case "select":
     case "radio":
@@ -328,7 +328,7 @@ function j(o) {
       e.items = { type: "string", format: "uri" };
       break;
     case "repeater":
-      o.config && "fields" in o.config && o.config.fields && (e.items = y(o.config.fields));
+      o.config && "fields" in o.config && o.config.fields && (e.items = b(o.config.fields));
       break;
     case "blocks": {
       const s = o.config, d = {
@@ -345,10 +345,10 @@ function j(o) {
         },
         required: ["_type"]
       };
-      s?.allowedBlocks && s.allowedBlocks.length > 0 && (d.oneOf = s.allowedBlocks.map((c) => ({
+      s?.allowedBlocks && s.allowedBlocks.length > 0 && (d.oneOf = s.allowedBlocks.map((u) => ({
         type: "object",
         properties: {
-          _type: { const: c }
+          _type: { const: u }
         },
         required: ["_type"]
       })), d["x-discriminator"] = "_type"), e.items = d, s?.minBlocks !== void 0 && (e.minItems = s.minBlocks), s?.maxBlocks !== void 0 && (e.maxItems = s.maxBlocks);
@@ -363,7 +363,7 @@ function j(o) {
   }
   return e;
 }
-function q(o) {
+function A(o) {
   return {
     textarea: "textarea",
     "rich-text": "rich-text",
@@ -380,7 +380,7 @@ function q(o) {
     color: "color"
   }[o];
 }
-function B(o) {
+function M(o) {
   if (!o.properties)
     return [];
   const e = new Set(o.required ?? []), t = [];
@@ -390,10 +390,10 @@ function B(o) {
 }
 function F(o, e, t) {
   const r = e["x-formgen"], a = {
-    id: m(),
+    id: x(),
     name: o,
-    type: A(e),
-    label: e.title ?? C(o),
+    type: I(e),
+    label: e.title ?? E(o),
     description: e.description,
     placeholder: r?.placeholder,
     helpText: r?.helpText,
@@ -408,7 +408,7 @@ function F(o, e, t) {
   if (e.minLength !== void 0 && (i.minLength = e.minLength), e.maxLength !== void 0 && (i.maxLength = e.maxLength), e.minimum !== void 0 && (i.min = e.minimum), e.maximum !== void 0 && (i.max = e.maximum), e.pattern && (i.pattern = e.pattern), Object.keys(i).length > 0 && (a.validation = i), e.enum && Array.isArray(e.enum) && (a.config = {
     options: e.enum.map((s) => ({
       value: String(s),
-      label: C(String(s))
+      label: E(String(s))
     }))
   }), a.type === "blocks" && e.type === "array") {
     const s = {};
@@ -417,7 +417,7 @@ function F(o, e, t) {
     else if (e.items) {
       const d = e.items;
       if (d.oneOf && Array.isArray(d.oneOf)) {
-        const n = d.oneOf.map((c) => c.properties?._type?.const).filter((c) => !!c);
+        const n = d.oneOf.map((u) => u.properties?._type?.const).filter((u) => !!u);
         n.length > 0 && (s.allowedBlocks = n);
       }
     }
@@ -425,7 +425,7 @@ function F(o, e, t) {
   }
   return a;
 }
-function A(o) {
+function I(o) {
   const e = o["x-formgen"];
   if (e?.widget) {
     const r = {
@@ -467,11 +467,63 @@ function A(o) {
       return "text";
   }
 }
-function m() {
+function x() {
   return `field_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
-function C(o) {
+function E(o) {
   return o.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ").replace(/\s+/g, " ").trim().split(" ").map((e) => e.charAt(0).toUpperCase() + e.slice(1).toLowerCase()).join(" ");
+}
+const P = {
+  // Text
+  text: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8"></path></svg>',
+  textarea: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10M4 18h6"></path></svg>',
+  "rich-text": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>',
+  markdown: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>',
+  code: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>',
+  // Number
+  number: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path></svg>',
+  integer: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m-3-3v18"></path></svg>',
+  currency: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+  percentage: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 5L5 19M9 7a2 2 0 11-4 0 2 2 0 014 0zm10 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>',
+  // Selection
+  select: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>',
+  radio: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>',
+  checkbox: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+  chips: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>',
+  toggle: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="1" y="6" width="22" height="12" rx="6" stroke-width="2"/><circle cx="8" cy="12" r="3" fill="currentColor"/></svg>',
+  // Date/Time
+  date: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>',
+  time: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+  datetime: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13l-2 2-1-1"></path></svg>',
+  // Media
+  "media-picker": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>',
+  "media-gallery": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>',
+  "file-upload": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>',
+  // Reference
+  reference: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>',
+  references: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 8h2m2 0h-2m0 0V6m0 2v2"></path></svg>',
+  user: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>',
+  // Structural
+  group: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>',
+  repeater: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>',
+  blocks: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm10 0a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z"></path></svg>',
+  // Advanced
+  json: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>',
+  slug: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 18h8"></path></svg>',
+  color: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>',
+  location: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>',
+  // Category icons
+  "cat-text": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8"></path></svg>',
+  "cat-number": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path></svg>',
+  "cat-selection": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>',
+  "cat-datetime": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>',
+  "cat-media": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>',
+  "cat-reference": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>',
+  "cat-structural": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>',
+  "cat-advanced": '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>'
+};
+function l(o) {
+  return P[o] ?? "";
 }
 const L = [
   // Text Fields
@@ -479,7 +531,7 @@ const L = [
     type: "text",
     label: "Text",
     description: "Single line text input",
-    icon: "T",
+    icon: l("text"),
     category: "text",
     defaultConfig: { validation: { maxLength: 255 } }
   },
@@ -487,7 +539,7 @@ const L = [
     type: "textarea",
     label: "Textarea",
     description: "Multi-line text input",
-    icon: "¶",
+    icon: l("textarea"),
     category: "text",
     defaultConfig: { config: { multiline: !0, rows: 4 } }
   },
@@ -495,21 +547,21 @@ const L = [
     type: "rich-text",
     label: "Rich Text",
     description: "WYSIWYG editor with formatting",
-    icon: "Aa",
+    icon: l("rich-text"),
     category: "text"
   },
   {
     type: "markdown",
     label: "Markdown",
     description: "Markdown text editor",
-    icon: "Md",
+    icon: l("markdown"),
     category: "text"
   },
   {
     type: "code",
     label: "Code",
     description: "Code editor with syntax highlighting",
-    icon: "<>",
+    icon: l("code"),
     category: "text",
     defaultConfig: { config: { language: "json", lineNumbers: !0 } }
   },
@@ -518,21 +570,21 @@ const L = [
     type: "number",
     label: "Number",
     description: "Decimal number input",
-    icon: "#",
+    icon: l("number"),
     category: "number"
   },
   {
     type: "integer",
     label: "Integer",
     description: "Whole number input",
-    icon: "1",
+    icon: l("integer"),
     category: "number"
   },
   {
     type: "currency",
     label: "Currency",
     description: "Money amount with currency symbol",
-    icon: "$",
+    icon: l("currency"),
     category: "number",
     defaultConfig: { config: { precision: 2, prefix: "$" } }
   },
@@ -540,7 +592,7 @@ const L = [
     type: "percentage",
     label: "Percentage",
     description: "Percentage value (0-100)",
-    icon: "%",
+    icon: l("percentage"),
     category: "number",
     defaultConfig: { validation: { min: 0, max: 100 }, config: { suffix: "%" } }
   },
@@ -549,7 +601,7 @@ const L = [
     type: "select",
     label: "Select",
     description: "Dropdown selection",
-    icon: "▼",
+    icon: l("select"),
     category: "selection",
     defaultConfig: { config: { options: [] } }
   },
@@ -557,7 +609,7 @@ const L = [
     type: "radio",
     label: "Radio",
     description: "Radio button selection",
-    icon: "◉",
+    icon: l("radio"),
     category: "selection",
     defaultConfig: { config: { options: [] } }
   },
@@ -565,14 +617,14 @@ const L = [
     type: "checkbox",
     label: "Checkbox",
     description: "Single checkbox (true/false)",
-    icon: "☑",
+    icon: l("checkbox"),
     category: "selection"
   },
   {
     type: "chips",
     label: "Chips",
     description: "Tag-style multi-select",
-    icon: "⚪",
+    icon: l("chips"),
     category: "selection",
     defaultConfig: { config: { options: [], multiple: !0 } }
   },
@@ -580,7 +632,7 @@ const L = [
     type: "toggle",
     label: "Toggle",
     description: "Boolean switch",
-    icon: "◐",
+    icon: l("toggle"),
     category: "selection"
   },
   // Date/Time Fields
@@ -588,21 +640,21 @@ const L = [
     type: "date",
     label: "Date",
     description: "Date picker",
-    icon: "📅",
+    icon: l("date"),
     category: "datetime"
   },
   {
     type: "time",
     label: "Time",
     description: "Time picker",
-    icon: "🕐",
+    icon: l("time"),
     category: "datetime"
   },
   {
     type: "datetime",
     label: "Date & Time",
     description: "Date and time picker",
-    icon: "📆",
+    icon: l("datetime"),
     category: "datetime"
   },
   // Media Fields
@@ -610,7 +662,7 @@ const L = [
     type: "media-picker",
     label: "Media",
     description: "Single media asset picker",
-    icon: "🖼",
+    icon: l("media-picker"),
     category: "media",
     defaultConfig: { config: { accept: "image/*" } }
   },
@@ -618,7 +670,7 @@ const L = [
     type: "media-gallery",
     label: "Gallery",
     description: "Multiple media assets",
-    icon: "🎞",
+    icon: l("media-gallery"),
     category: "media",
     defaultConfig: { config: { accept: "image/*", multiple: !0 } }
   },
@@ -626,7 +678,7 @@ const L = [
     type: "file-upload",
     label: "File",
     description: "File attachment",
-    icon: "📎",
+    icon: l("file-upload"),
     category: "media"
   },
   // Reference Fields
@@ -634,7 +686,7 @@ const L = [
     type: "reference",
     label: "Reference",
     description: "Link to another content type",
-    icon: "🔗",
+    icon: l("reference"),
     category: "reference",
     defaultConfig: { config: { target: "", displayField: "name" } }
   },
@@ -642,7 +694,7 @@ const L = [
     type: "references",
     label: "References",
     description: "Multiple links to another content type",
-    icon: "⛓",
+    icon: l("references"),
     category: "reference",
     defaultConfig: { config: { target: "", displayField: "name", multiple: !0 } }
   },
@@ -650,7 +702,7 @@ const L = [
     type: "user",
     label: "User",
     description: "User reference",
-    icon: "👤",
+    icon: l("user"),
     category: "reference"
   },
   // Structural Fields
@@ -658,14 +710,14 @@ const L = [
     type: "group",
     label: "Group",
     description: "Collapsible field group",
-    icon: "📁",
+    icon: l("group"),
     category: "structural"
   },
   {
     type: "repeater",
     label: "Repeater",
     description: "Repeatable field group",
-    icon: "🔄",
+    icon: l("repeater"),
     category: "structural",
     defaultConfig: { config: { fields: [], minItems: 0, maxItems: 10 } }
   },
@@ -673,7 +725,7 @@ const L = [
     type: "blocks",
     label: "Blocks",
     description: "Modular content blocks",
-    icon: "🧩",
+    icon: l("blocks"),
     category: "structural",
     defaultConfig: { config: { allowedBlocks: [] } }
   },
@@ -682,14 +734,14 @@ const L = [
     type: "json",
     label: "JSON",
     description: "Raw JSON editor",
-    icon: "{}",
+    icon: l("json"),
     category: "advanced"
   },
   {
     type: "slug",
     label: "Slug",
     description: "URL-friendly identifier",
-    icon: "🔖",
+    icon: l("slug"),
     category: "advanced",
     defaultConfig: { validation: { pattern: "^[a-z0-9-]+$" } }
   },
@@ -697,33 +749,33 @@ const L = [
     type: "color",
     label: "Color",
     description: "Color picker",
-    icon: "🎨",
+    icon: l("color"),
     category: "advanced"
   },
   {
     type: "location",
     label: "Location",
     description: "Geographic coordinates",
-    icon: "📍",
+    icon: l("location"),
     category: "advanced"
   }
-], I = [
-  { id: "text", label: "Text", icon: "T" },
-  { id: "number", label: "Numbers", icon: "#" },
-  { id: "selection", label: "Selection", icon: "▼" },
-  { id: "datetime", label: "Date & Time", icon: "📅" },
-  { id: "media", label: "Media", icon: "🖼" },
-  { id: "reference", label: "References", icon: "🔗" },
-  { id: "structural", label: "Structural", icon: "📁" },
-  { id: "advanced", label: "Advanced", icon: "⚙" }
+], _ = [
+  { id: "text", label: "Text", icon: l("cat-text") },
+  { id: "number", label: "Numbers", icon: l("cat-number") },
+  { id: "selection", label: "Selection", icon: l("cat-selection") },
+  { id: "datetime", label: "Date & Time", icon: l("cat-datetime") },
+  { id: "media", label: "Media", icon: l("cat-media") },
+  { id: "reference", label: "References", icon: l("cat-reference") },
+  { id: "structural", label: "Structural", icon: l("cat-structural") },
+  { id: "advanced", label: "Advanced", icon: l("cat-advanced") }
 ];
-function w(o) {
+function S(o) {
   return L.find((e) => e.type === o);
 }
-function ee(o) {
+function re(o) {
   return L.filter((e) => e.category === o);
 }
-class T {
+class j {
   constructor(e) {
     this.container = null, this.backdrop = null, this.selectedCategory = "text", this.searchQuery = "", this.config = e;
   }
@@ -780,14 +832,14 @@ class T {
     });
   }
   renderCategories() {
-    return I.map(
+    return _.map(
       (e) => `
       <button
         type="button"
         data-field-category="${e.id}"
         class="w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors ${e.id === this.selectedCategory ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"}"
       >
-        <span class="flex-shrink-0 w-6 text-center">${e.icon}</span>
+        <span class="flex-shrink-0 w-6 flex items-center justify-center">${e.icon}</span>
         <span>${e.label}</span>
       </button>
     `
@@ -823,7 +875,7 @@ class T {
         data-field-type-select="${e.type}"
         class="flex items-start gap-3 p-4 text-left border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group"
       >
-        <span class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 group-hover:text-blue-600 dark:group-hover:text-blue-400 text-lg font-medium">
+        <span class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 group-hover:text-blue-600 dark:group-hover:text-blue-400">
           ${e.icon}
         </span>
         <div class="flex-1 min-w-0">
@@ -873,7 +925,7 @@ class T {
     t && (t.innerHTML = this.renderFieldTypes());
   }
 }
-class S {
+class $ {
   constructor(e) {
     this.container = null, this.backdrop = null, this.config = e, this.field = { ...e.field }, this.isNewField = !e.field.id || e.field.id.startsWith("new_");
   }
@@ -894,7 +946,7 @@ class S {
     }, 150));
   }
   render() {
-    const e = w(this.field.type);
+    const e = S(this.field.type);
     this.backdrop = document.createElement("div"), this.backdrop.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-150", this.backdrop.setAttribute("data-field-config-backdrop", "true"), this.container = document.createElement("div"), this.container.className = "bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden", this.container.setAttribute("data-field-config-form", "true"), this.container.innerHTML = `
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center gap-3">
@@ -957,7 +1009,7 @@ class S {
             <input
               type="text"
               name="name"
-              value="${l(this.field.name)}"
+              value="${c(this.field.name)}"
               placeholder="field_name"
               pattern="^[a-z][a-z0-9_]*$"
               required
@@ -973,7 +1025,7 @@ class S {
             <input
               type="text"
               name="label"
-              value="${l(this.field.label)}"
+              value="${c(this.field.label)}"
               placeholder="Field Label"
               required
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -990,7 +1042,7 @@ class S {
             rows="2"
             placeholder="Help text for editors"
             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          >${l(this.field.description ?? "")}</textarea>
+          >${c(this.field.description ?? "")}</textarea>
         </div>
 
         <div>
@@ -1000,7 +1052,7 @@ class S {
           <input
             type="text"
             name="placeholder"
-            value="${l(this.field.placeholder ?? "")}"
+            value="${c(this.field.placeholder ?? "")}"
             placeholder="Placeholder text"
             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -1112,7 +1164,7 @@ class S {
             <input
               type="text"
               name="pattern"
-              value="${l(e.pattern ?? "")}"
+              value="${c(e.pattern ?? "")}"
               placeholder="^[a-z]+$"
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
             />
@@ -1134,7 +1186,7 @@ class S {
             <input
               type="text"
               name="section"
-              value="${l(this.field.section ?? "")}"
+              value="${c(this.field.section ?? "")}"
               placeholder="main"
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -1182,14 +1234,14 @@ class S {
                 <input
                   type="text"
                   name="option_value_${i}"
-                  value="${l(String(a.value))}"
+                  value="${c(String(a.value))}"
                   placeholder="value"
                   class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                   type="text"
                   name="option_label_${i}"
-                  value="${l(a.label)}"
+                  value="${c(a.label)}"
                   placeholder="label"
                   class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -1223,7 +1275,7 @@ class S {
               <input
                 type="text"
                 name="target"
-                value="${l(t?.target ?? "")}"
+                value="${c(t?.target ?? "")}"
                 placeholder="users"
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -1235,7 +1287,7 @@ class S {
               <input
                 type="text"
                 name="displayField"
-                value="${l(t?.displayField ?? "")}"
+                value="${c(t?.displayField ?? "")}"
                 placeholder="name"
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -1258,7 +1310,7 @@ class S {
               <input
                 type="text"
                 name="accept"
-                value="${l(t?.accept ?? "")}"
+                value="${c(t?.accept ?? "")}"
                 placeholder="image/*"
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -1342,7 +1394,7 @@ class S {
             <input
               type="text"
               name="sourceField"
-              value="${l(t?.sourceField ?? "")}"
+              value="${c(t?.sourceField ?? "")}"
               placeholder="title"
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -1357,7 +1409,7 @@ class S {
               <input
                 type="text"
                 name="slugPrefix"
-                value="${l(t?.prefix ?? "")}"
+                value="${c(t?.prefix ?? "")}"
                 placeholder=""
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -1369,7 +1421,7 @@ class S {
               <input
                 type="text"
                 name="slugSuffix"
-                value="${l(t?.suffix ?? "")}"
+                value="${c(t?.suffix ?? "")}"
                 placeholder=""
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -1430,7 +1482,7 @@ class S {
             <input
               type="text"
               name="colorPresets"
-              value="${l(t?.presets?.join(", ") ?? "")}"
+              value="${c(t?.presets?.join(", ") ?? "")}"
               placeholder="#ff0000, #00ff00, #0000ff"
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -1513,7 +1565,7 @@ class S {
               <input
                 type="date"
                 name="minDate"
-                value="${l(t?.minDate ?? "")}"
+                value="${c(t?.minDate ?? "")}"
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -1524,7 +1576,7 @@ class S {
               <input
                 type="date"
                 name="maxDate"
-                value="${l(t?.maxDate ?? "")}"
+                value="${c(t?.maxDate ?? "")}"
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -1649,11 +1701,11 @@ class S {
             >
               <div data-allowed-blocks-chips class="flex flex-wrap gap-2">
                 ${t?.allowedBlocks?.length ? t.allowedBlocks.map(
-        (i) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" data-block-chip="${l(i)}">${l(i)}<button type="button" data-remove-allowed="${l(i)}" class="hover:text-blue-900 dark:hover:text-blue-200">&times;</button></span>`
+        (i) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" data-block-chip="${c(i)}">${c(i)}<button type="button" data-remove-allowed="${c(i)}" class="hover:text-blue-900 dark:hover:text-blue-200">&times;</button></span>`
       ).join("") : '<span class="text-xs text-gray-400 dark:text-gray-500">All blocks allowed (no restrictions)</span>'}
               </div>
             </div>
-            <input type="hidden" name="allowedBlocks" value='${l(r)}' />
+            <input type="hidden" name="allowedBlocks" value='${c(r)}' />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to allow all block types</p>
           </div>
 
@@ -1676,11 +1728,11 @@ class S {
             >
               <div data-denied-blocks-chips class="flex flex-wrap gap-2">
                 ${t?.deniedBlocks?.length ? t.deniedBlocks.map(
-        (i) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" data-block-chip="${l(i)}">${l(i)}<button type="button" data-remove-denied="${l(i)}" class="hover:text-red-900 dark:hover:text-red-200">&times;</button></span>`
+        (i) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" data-block-chip="${c(i)}">${c(i)}<button type="button" data-remove-denied="${c(i)}" class="hover:text-red-900 dark:hover:text-red-200">&times;</button></span>`
       ).join("") : '<span class="text-xs text-gray-400 dark:text-gray-500">No blocks denied</span>'}
               </div>
             </div>
-            <input type="hidden" name="deniedBlocks" value='${l(a)}' />
+            <input type="hidden" name="deniedBlocks" value='${c(a)}' />
           </div>
         </div>
       `);
@@ -1704,7 +1756,7 @@ class S {
     });
     const e = this.container.querySelector('input[name="name"]'), t = this.container.querySelector('input[name="label"]');
     e && t && this.isNewField && (t.addEventListener("input", () => {
-      e.dataset.userModified || (e.value = _(t.value));
+      e.dataset.userModified || (e.value = H(t.value));
     }), e.addEventListener("input", () => {
       e.dataset.userModified = "true";
     })), this.bindOptionsEvents(), this.bindBlockPickerEvents();
@@ -1766,7 +1818,7 @@ class S {
   }
   async showBlockPicker(e) {
     const t = this.container?.querySelector(`input[name="${e}Blocks"]`), r = t?.value ? JSON.parse(t.value) : [];
-    new P({
+    new z({
       apiBasePath: this.config.apiBasePath ?? "/admin",
       selectedBlocks: r,
       title: e === "allowed" ? "Select Allowed Blocks" : "Select Denied Blocks",
@@ -1784,7 +1836,7 @@ class S {
       } else {
         const i = e === "allowed" ? "blue" : "red";
         a.innerHTML = t.map(
-          (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-${i}-100 text-${i}-700 dark:bg-${i}-900/30 dark:text-${i}-400" data-block-chip="${l(s)}">${l(s)}<button type="button" data-remove-${e}="${l(s)}" class="hover:text-${i}-900 dark:hover:text-${i}-200">&times;</button></span>`
+          (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-${i}-100 text-${i}-700 dark:bg-${i}-900/30 dark:text-${i}-400" data-block-chip="${c(s)}">${c(s)}<button type="button" data-remove-${e}="${c(s)}" class="hover:text-${i}-900 dark:hover:text-${i}-200">&times;</button></span>`
         ).join(""), a.querySelectorAll(`[data-remove-${e}]`).forEach((s) => {
           s.addEventListener("click", (d) => {
             d.preventDefault();
@@ -1823,7 +1875,7 @@ class S {
       return;
     }
     const d = {
-      id: this.field.id || m(),
+      id: this.field.id || x(),
       name: r,
       type: this.field.type,
       label: s,
@@ -1834,18 +1886,18 @@ class S {
       hidden: t.get("hidden") === "on",
       section: t.get("section")?.trim() || void 0,
       gridSpan: t.get("gridSpan") ? parseInt(t.get("gridSpan"), 10) : void 0
-    }, n = {}, c = t.get("minLength");
-    c !== null && c !== "" && (n.minLength = parseInt(c, 10));
-    const u = t.get("maxLength");
-    u !== null && u !== "" && (n.maxLength = parseInt(u, 10));
-    const h = t.get("min");
-    h !== null && h !== "" && (n.min = parseFloat(h));
-    const x = t.get("max");
-    x !== null && x !== "" && (n.max = parseFloat(x));
-    const k = t.get("pattern");
-    k && k.trim() && (n.pattern = k.trim()), Object.keys(n).length > 0 && (d.validation = n);
-    const v = this.buildTypeSpecificConfig(t);
-    v && Object.keys(v).length > 0 && (d.config = v), this.config.onSave(d), this.hide();
+    }, n = {}, u = t.get("minLength");
+    u !== null && u !== "" && (n.minLength = parseInt(u, 10));
+    const h = t.get("maxLength");
+    h !== null && h !== "" && (n.maxLength = parseInt(h, 10));
+    const y = t.get("min");
+    y !== null && y !== "" && (n.min = parseFloat(y));
+    const k = t.get("max");
+    k !== null && k !== "" && (n.max = parseFloat(k));
+    const v = t.get("pattern");
+    v && v.trim() && (n.pattern = v.trim()), Object.keys(n).length > 0 && (d.validation = n);
+    const w = this.buildTypeSpecificConfig(t);
+    w && Object.keys(w).length > 0 && (d.config = w), this.config.onSave(d), this.hide();
   }
   buildTypeSpecificConfig(e) {
     switch (this.field.type) {
@@ -1961,16 +2013,16 @@ class S {
     r.addEventListener("input", s);
   }
 }
-function l(o) {
+function c(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
-function _(o) {
+function H(o) {
   return o.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").replace(/^[0-9]/, "_$&");
 }
-class P {
+class z {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.availableBlocks = [], this.config = e, this.api = new b({ basePath: e.apiBasePath }), this.selectedBlocks = new Set(e.selectedBlocks);
+    this.container = null, this.backdrop = null, this.availableBlocks = [], this.config = e, this.api = new f({ basePath: e.apiBasePath }), this.selectedBlocks = new Set(e.selectedBlocks);
   }
   async show() {
     this.render(), this.bindEvents(), await this.loadBlocks();
@@ -1983,7 +2035,7 @@ class P {
   render() {
     this.backdrop = document.createElement("div"), this.backdrop.className = "fixed inset-0 z-[70] flex items-center justify-center bg-black/50 transition-opacity duration-150 opacity-0", this.container = document.createElement("div"), this.container.className = "bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg max-h-[70vh] flex flex-col overflow-hidden", this.container.innerHTML = `
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">${l(this.config.title)}</h3>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">${c(this.config.title)}</h3>
         <button type="button" data-picker-close class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -2050,7 +2102,7 @@ class P {
           <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${r ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}">
             <input
               type="checkbox"
-              value="${l(t.type)}"
+              value="${c(t.type)}"
               ${r ? "checked" : ""}
               class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
             />
@@ -2058,10 +2110,10 @@ class P {
               ${t.icon || t.type.charAt(0).toUpperCase()}
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium text-gray-900 dark:text-white">${l(t.name)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${l(t.type)}</div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white">${c(t.name)}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${c(t.type)}</div>
             </div>
-            ${t.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${l(t.schema_version)}</span>` : ""}
+            ${t.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${c(t.schema_version)}</span>` : ""}
           </label>
         `;
     }).join(""), e.querySelectorAll('input[type="checkbox"]').forEach((t) => {
@@ -2079,7 +2131,7 @@ class P {
     }
   }
 }
-class H {
+class N {
   constructor(e) {
     this.container = null, this.backdrop = null, this.dragState = null, this.config = e, this.layout = JSON.parse(JSON.stringify(e.layout ?? { type: "flat", gridColumns: 12 })), this.layout.tabs || (this.layout.tabs = []);
   }
@@ -2264,21 +2316,21 @@ class H {
             type="text"
             data-tab-id="${e.id}"
             name="tab_id_${t}"
-            value="${f(e.id)}"
+            value="${m(e.id)}"
             placeholder="section_id"
             class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
           />
           <input
             type="text"
             name="tab_label_${t}"
-            value="${f(e.label)}"
+            value="${m(e.label)}"
             placeholder="Tab Label"
             class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <input
             type="text"
             name="tab_icon_${t}"
-            value="${f(e.icon ?? "")}"
+            value="${m(e.icon ?? "")}"
             placeholder="icon-name"
             class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -2322,7 +2374,7 @@ class H {
                 ${a || "(Unassigned)"}
               </div>
               <div class="space-y-1">
-                ${i.length === 0 ? '<div class="text-xs text-gray-400">No fields</div>' : i.map((s) => `<div class="text-xs text-gray-500 dark:text-gray-400 truncate">${f(s.label)} <span class="font-mono">(${f(s.name)})</span></div>`).join("")}
+                ${i.length === 0 ? '<div class="text-xs text-gray-400">No fields</div>' : i.map((s) => `<div class="text-xs text-gray-500 dark:text-gray-400 truncate">${m(s.label)} <span class="font-mono">(${m(s.name)})</span></div>`).join("")}
               </div>
             </div>
           `
@@ -2449,13 +2501,13 @@ class H {
     this.config.onSave(this.layout), this.hide();
   }
 }
-function f(o) {
+function m(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
-class N {
+class V {
   constructor(e, t) {
-    this.dragState = null, this.container = e, this.config = t, this.api = new b({ basePath: t.apiBasePath }), this.state = {
+    this.dragState = null, this.container = e, this.config = t, this.api = new f({ basePath: t.apiBasePath }), this.state = {
       contentType: null,
       fields: [],
       isDirty: !1,
@@ -2465,6 +2517,7 @@ class N {
       validationErrors: [],
       selectedFieldId: null,
       previewHtml: null,
+      previewError: null,
       layout: { type: "flat", gridColumns: 12, tabs: [] }
     };
   }
@@ -2481,7 +2534,7 @@ class N {
     this.state.isLoading = !0, this.updateLoadingState();
     try {
       const t = await this.api.get(e);
-      this.state.contentType = t, this.state.fields = B(t.schema), t.ui_schema?.layout && (this.state.layout = {
+      this.state.contentType = t, this.state.fields = M(t.schema), t.ui_schema?.layout && (this.state.layout = {
         type: t.ui_schema.layout.type ?? "flat",
         tabs: t.ui_schema.layout.tabs ?? [],
         gridColumns: t.ui_schema.layout.gridColumns ?? 12
@@ -2502,7 +2555,7 @@ class N {
       this.showToast("Name is required", "error"), e?.focus();
       return;
     }
-    const r = y(this.state.fields, this.getSlug()), a = {
+    const r = b(this.state.fields, this.getSlug()), a = {
       name: t,
       slug: this.getSlug(),
       description: this.getDescription(),
@@ -2527,8 +2580,8 @@ class N {
    * Add a new field
    */
   addField(e) {
-    const t = w(e), r = {
-      id: m(),
+    const t = S(e), r = {
+      id: x(),
       name: `new_${e}_${this.state.fields.length + 1}`,
       type: e,
       label: t?.label ?? e,
@@ -2536,7 +2589,7 @@ class N {
       order: this.state.fields.length,
       ...t?.defaultConfig ?? {}
     };
-    new S({
+    new $({
       field: r,
       existingFieldNames: this.state.fields.map((i) => i.name),
       onSave: (i) => {
@@ -2552,7 +2605,7 @@ class N {
   editField(e) {
     const t = this.state.fields.find((a) => a.id === e);
     if (!t) return;
-    new S({
+    new $({
       field: t,
       existingFieldNames: this.state.fields.filter((a) => a.id !== e).map((a) => a.name),
       onSave: (a) => {
@@ -2587,7 +2640,7 @@ class N {
    * Validate the schema
    */
   async validateSchema() {
-    const e = y(this.state.fields, this.getSlug());
+    const e = b(this.state.fields, this.getSlug());
     try {
       const t = await this.api.validateSchema({
         schema: e,
@@ -2607,7 +2660,20 @@ class N {
    */
   async previewSchema() {
     if (this.state.isPreviewing) return;
-    const e = y(this.state.fields, this.getSlug());
+    if (this.state.fields.length === 0) {
+      this.state.previewHtml = null, this.state.previewError = null;
+      const t = this.container.querySelector("[data-ct-preview-container]");
+      t && (t.innerHTML = `
+          <div class="flex flex-col items-center justify-center h-40 text-gray-400">
+            <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+            <p class="text-sm">Add fields to preview the form</p>
+          </div>
+        `);
+      return;
+    }
+    const e = b(this.state.fields, this.getSlug());
     this.state.isPreviewing = !0, this.updatePreviewState();
     try {
       const t = await this.api.previewSchema({
@@ -2615,11 +2681,11 @@ class N {
         slug: this.getSlug(),
         ui_schema: this.buildUISchema()
       });
-      this.state.previewHtml = t.html, this.renderPreview();
+      this.state.previewHtml = t.html, this.state.previewError = null, this.renderPreview();
     } catch (t) {
       console.error("Preview failed:", t);
       const r = t instanceof Error ? t.message : "Preview failed";
-      this.showToast(r, "error");
+      this.state.previewHtml = null, this.state.previewError = r, this.renderPreview();
     } finally {
       this.state.isPreviewing = !1, this.updatePreviewState();
     }
@@ -2815,7 +2881,7 @@ class N {
     return this.renderFieldListContent();
   }
   renderFieldCard(e, t) {
-    const r = w(e.type), a = this.state.selectedFieldId === e.id, i = this.state.validationErrors.filter(
+    const r = S(e.type), a = this.state.selectedFieldId === e.id, i = this.state.validationErrors.filter(
       (n) => n.path.includes(`/${e.name}`) || n.path.includes(`properties.${e.name}`)
     ), s = i.length > 0, d = [];
     return e.validation?.minLength && d.push(`min: ${e.validation.minLength}`), e.validation?.maxLength && d.push(`max: ${e.validation.maxLength}`), e.validation?.min !== void 0 && d.push(`>= ${e.validation.min}`), e.validation?.max !== void 0 && d.push(`<= ${e.validation.max}`), e.validation?.pattern && d.push("pattern"), `
@@ -2836,8 +2902,8 @@ class N {
         </div>
 
         <!-- Field Type Icon -->
-        <div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg ${s ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"} text-sm font-medium">
-          ${s ? "!" : r?.icon ?? "?"}
+        <div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg ${s ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"}">
+          ${s ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' : r?.icon ?? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'}
         </div>
 
         <!-- Field Info -->
@@ -3077,7 +3143,7 @@ class N {
    */
   async publishContentType() {
     if (!this.state.contentType?.id) return;
-    const e = y(this.state.fields, this.getSlug());
+    const e = b(this.state.fields, this.getSlug());
     let t = null;
     try {
       t = await this.api.checkCompatibility(
@@ -3087,7 +3153,7 @@ class N {
       );
     } catch {
     }
-    new V({
+    new R({
       contentType: this.state.contentType,
       compatibilityResult: t,
       onConfirm: async (a) => {
@@ -3123,7 +3189,7 @@ Deprecated content types can still be used but are hidden from new content creat
    */
   async cloneContentType() {
     if (!this.state.contentType?.id) return;
-    new O({
+    new U({
       contentType: this.state.contentType,
       onConfirm: async (t, r) => {
         try {
@@ -3143,7 +3209,7 @@ Deprecated content types can still be used but are hidden from new content creat
    */
   showVersionHistory() {
     if (!this.state.contentType?.id) return;
-    new R({
+    new J({
       apiBasePath: this.config.apiBasePath,
       contentType: this.state.contentType
     }).show();
@@ -3179,7 +3245,7 @@ Deprecated content types can still be used but are hidden from new content creat
     });
     const e = this.container.querySelector("[data-ct-name]"), t = this.container.querySelector("[data-ct-slug]");
     e && t && (e.addEventListener("input", () => {
-      !t.dataset.userModified && !this.state.contentType?.slug && (t.value = E(e.value));
+      !t.dataset.userModified && !this.state.contentType?.slug && (t.value = B(e.value));
     }), t.addEventListener("input", () => {
       t.dataset.userModified = "true";
     })), this.bindDragEvents();
@@ -3202,11 +3268,11 @@ Deprecated content types can still be used but are hidden from new content creat
       const i = r.target.closest("[data-field-card]");
       if (!i || i.getAttribute("data-field-card") === this.dragState.fieldId) return;
       const s = i.getBoundingClientRect(), d = s.top + s.height / 2, n = r.clientY < d;
-      e.querySelectorAll(".drop-indicator").forEach((h) => h.remove());
-      const c = document.createElement("div");
-      c.className = "drop-indicator h-0.5 bg-blue-500 rounded-full my-1 transition-opacity", n ? i.parentElement?.insertBefore(c, i) : i.parentElement?.insertBefore(c, i.nextSibling);
-      const u = parseInt(i.getAttribute("data-field-index") ?? "0", 10);
-      this.dragState.currentIndex = n ? u : u + 1;
+      e.querySelectorAll(".drop-indicator").forEach((y) => y.remove());
+      const u = document.createElement("div");
+      u.className = "drop-indicator h-0.5 bg-blue-500 rounded-full my-1 transition-opacity", n ? i.parentElement?.insertBefore(u, i) : i.parentElement?.insertBefore(u, i.nextSibling);
+      const h = parseInt(i.getAttribute("data-field-index") ?? "0", 10);
+      this.dragState.currentIndex = n ? h : h + 1;
     }), e.addEventListener("dragleave", () => {
       e.querySelectorAll(".drop-indicator").forEach((t) => t.remove());
     }), e.addEventListener("drop", (t) => {
@@ -3240,14 +3306,14 @@ Deprecated content types can still be used but are hidden from new content creat
     });
   }
   showFieldTypePicker() {
-    new T({
+    new j({
       onSelect: (t) => this.addField(t),
       onCancel: () => {
       }
     }).show();
   }
   showLayoutEditor() {
-    new H({
+    new N({
       layout: this.state.layout,
       fields: this.state.fields,
       onSave: (t) => {
@@ -3270,7 +3336,7 @@ Deprecated content types can still be used but are hidden from new content creat
   // ===========================================================================
   getSlug() {
     const e = this.container.querySelector("[data-ct-slug]"), t = this.container.querySelector("[data-ct-name]"), r = e?.value?.trim();
-    return r || E(t?.value ?? "");
+    return r || B(t?.value ?? "");
   }
   getDescription() {
     return this.container.querySelector("[data-ct-description]")?.value?.trim() || void 0;
@@ -3328,6 +3394,16 @@ Deprecated content types can still be used but are hidden from new content creat
     e && (e.disabled = this.state.isPreviewing, e.textContent = this.state.isPreviewing ? "Loading..." : "Preview");
   }
   updateDirtyState() {
+    const e = this.container.querySelector("[data-ct-save]");
+    if (e) {
+      let r = e.querySelector("[data-dirty-dot]");
+      this.state.isDirty ? r || (r = document.createElement("span"), r.setAttribute("data-dirty-dot", ""), r.className = "inline-block w-2 h-2 rounded-full bg-orange-400 ml-1.5 align-middle", r.setAttribute("title", "Unsaved changes"), e.appendChild(r)) : r?.remove();
+    }
+    const t = this.container.querySelector("[data-content-type-editor] h1");
+    if (t) {
+      let r = t.parentElement?.querySelector("[data-dirty-badge]");
+      this.state.isDirty ? r || (r = document.createElement("span"), r.setAttribute("data-dirty-badge", ""), r.className = "px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", r.textContent = "Modified", t.parentElement?.appendChild(r)) : r?.remove();
+    }
   }
   renderFieldList() {
     const e = this.container.querySelector("[data-ct-field-list]");
@@ -3356,7 +3432,15 @@ Deprecated content types can still be used but are hidden from new content creat
   }
   renderPreview() {
     const e = this.container.querySelector("[data-ct-preview-container]");
-    e && this.state.previewHtml && (e.innerHTML = this.state.previewHtml);
+    e && (this.state.previewError ? e.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-40 text-red-400">
+          <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          <p class="text-sm font-medium">Preview failed</p>
+          <p class="text-xs text-red-300 mt-1 max-w-xs text-center">${this.state.previewError}</p>
+        </div>
+      ` : this.state.previewHtml && (e.innerHTML = this.state.previewHtml));
   }
   renderValidationErrors() {
     const e = this.container.querySelector("[data-ct-validation-errors]");
@@ -3432,20 +3516,20 @@ function g(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
-function E(o) {
+function B(o) {
   return o.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 function D(o) {
   return o.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ").replace(/\s+/g, " ").trim().split(" ").map((e) => e.charAt(0).toUpperCase() + e.slice(1).toLowerCase()).join(" ");
 }
-function z(o) {
+function O(o) {
   try {
     return new Date(o).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" });
   } catch {
     return o;
   }
 }
-class V {
+class R {
   constructor(e) {
     this.container = null, this.backdrop = null, this.config = e;
   }
@@ -3575,7 +3659,7 @@ class V {
     });
   }
 }
-class O {
+class U {
   constructor(e) {
     this.container = null, this.backdrop = null, this.config = e;
   }
@@ -3674,9 +3758,9 @@ class O {
     });
   }
 }
-class R {
+class J {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = e, this.api = new b({ basePath: e.apiBasePath });
+    this.container = null, this.backdrop = null, this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = e, this.api = new f({ basePath: e.apiBasePath });
   }
   async show() {
     this.render(), this.bindEvents(), await this.loadVersions();
@@ -3766,7 +3850,7 @@ class R {
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="text-xs text-gray-500 dark:text-gray-400">${z(e.created_at)}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">${O(e.created_at)}</span>
             ${a ? `
               <button
                 type="button"
@@ -3846,9 +3930,9 @@ class R {
     }
   }
 }
-class U {
+class G {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.categories = [], this.config = e, this.api = new b({ basePath: e.apiBasePath }), this.state = {
+    this.container = null, this.backdrop = null, this.categories = [], this.config = e, this.api = new f({ basePath: e.apiBasePath }), this.state = {
       blocks: [],
       selectedBlockId: null,
       isLoading: !1,
@@ -3978,7 +4062,7 @@ class U {
     }), this.container.querySelector("[data-block-list]")?.addEventListener("click", (a) => {
       const i = a.target, s = i.closest("[data-block-id]");
       if (s && this.config.mode === "picker") {
-        const d = s.getAttribute("data-block-id"), n = this.state.blocks.find((c) => c.id === d);
+        const d = s.getAttribute("data-block-id"), n = this.state.blocks.find((u) => u.id === d);
         n && this.isBlockAllowed(n) && (this.config.onSelect?.({
           id: n.id,
           name: n.name,
@@ -3992,28 +4076,28 @@ class U {
         return;
       }
       if (i.closest("[data-block-edit]")) {
-        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), c = this.state.blocks.find((u) => u.id === n);
-        c && this.showBlockEditor(c);
+        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), u = this.state.blocks.find((h) => h.id === n);
+        u && this.showBlockEditor(u);
         return;
       }
       if (i.closest("[data-block-delete]")) {
-        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), c = this.state.blocks.find((u) => u.id === n);
-        c && this.confirmDeleteBlock(c);
+        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), u = this.state.blocks.find((h) => h.id === n);
+        u && this.confirmDeleteBlock(u);
         return;
       }
       if (i.closest("[data-block-clone]")) {
-        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), c = this.state.blocks.find((u) => u.id === n);
-        c && this.cloneBlock(c);
+        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), u = this.state.blocks.find((h) => h.id === n);
+        u && this.cloneBlock(u);
         return;
       }
       if (i.closest("[data-block-publish]")) {
-        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), c = this.state.blocks.find((u) => u.id === n);
-        c && this.publishBlock(c);
+        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), u = this.state.blocks.find((h) => h.id === n);
+        u && this.publishBlock(u);
         return;
       }
       if (i.closest("[data-block-versions]")) {
-        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), c = this.state.blocks.find((u) => u.id === n);
-        c && this.showVersionHistory(c);
+        const n = i.closest("[data-block-id]")?.getAttribute("data-block-id"), u = this.state.blocks.find((h) => h.id === n);
+        u && this.showVersionHistory(u);
         return;
       }
     });
@@ -4042,7 +4126,7 @@ class U {
       e.innerHTML = '<option value="">All Categories</option>';
       for (const t of this.categories) {
         const r = document.createElement("option");
-        r.value = t, r.textContent = $(t), e.appendChild(r);
+        r.value = t, r.textContent = C(t), e.appendChild(r);
       }
     }
   }
@@ -4091,7 +4175,7 @@ class U {
     for (const [i, s] of r)
       a += `
         <div class="mb-6">
-          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">${$(i)}</h3>
+          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">${C(i)}</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${s.map((d) => this.renderBlockCard(d)).join("")}
           </div>
@@ -4208,7 +4292,7 @@ class U {
     return r && r.includes(e.type) ? !1 : t && t.length > 0 ? t.includes(e.type) : !0;
   }
   showBlockEditor(e) {
-    new J({
+    new Q({
       apiBasePath: this.config.apiBasePath,
       block: e,
       categories: this.categories,
@@ -4244,7 +4328,7 @@ class U {
     }
   }
   async showVersionHistory(e) {
-    new G({
+    new W({
       apiBasePath: this.config.apiBasePath,
       block: e
     }).show();
@@ -4259,9 +4343,9 @@ class U {
     }, 5e3);
   }
 }
-class J {
+class Q {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.fields = [], this.config = e, this.api = new b({ basePath: e.apiBasePath }), this.isNew = !e.block, e.block?.schema && (this.fields = B(e.block.schema));
+    this.container = null, this.backdrop = null, this.fields = [], this.config = e, this.api = new f({ basePath: e.apiBasePath }), this.isNew = !e.block, e.block?.schema && (this.fields = M(e.block.schema));
   }
   show() {
     this.render(), this.bindEvents();
@@ -4340,7 +4424,7 @@ class J {
                 name="category"
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                ${this.config.categories.map((t) => `<option value="${t}" ${e?.category === t ? "selected" : ""}>${$(t)}</option>`).join("")}
+                ${this.config.categories.map((t) => `<option value="${t}" ${e?.category === t ? "selected" : ""}>${C(t)}</option>`).join("")}
               </select>
             </div>
             <div>
@@ -4456,10 +4540,10 @@ class J {
     }));
   }
   showFieldTypePicker() {
-    new T({
+    new j({
       onSelect: (t) => {
         const r = {
-          id: m(),
+          id: x(),
           name: "",
           type: t,
           label: "",
@@ -4474,7 +4558,7 @@ class J {
     }).show();
   }
   showFieldConfigForm(e, t) {
-    new S({
+    new $({
       field: e,
       existingFieldNames: this.fields.filter((a, i) => i !== t).map((a) => a.name),
       onSave: (a) => {
@@ -4500,7 +4584,7 @@ class J {
       alert("Invalid type format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter.");
       return;
     }
-    const i = y(this.fields, a), s = {
+    const i = b(this.fields, a), s = {
       name: r,
       type: a,
       description: t.get("description")?.trim() || void 0,
@@ -4517,9 +4601,9 @@ class J {
     }
   }
 }
-class G {
+class W {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.versions = [], this.config = e, this.api = new b({ basePath: e.apiBasePath });
+    this.container = null, this.backdrop = null, this.versions = [], this.config = e, this.api = new f({ basePath: e.apiBasePath });
   }
   async show() {
     this.render(), this.bindEvents(), await this.loadVersions();
@@ -4592,7 +4676,7 @@ class G {
                 ${t.is_breaking ? '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Breaking</span>' : ""}
                 ${this.getMigrationBadge(t.migration_status)}
               </div>
-              <span class="text-xs text-gray-500 dark:text-gray-400">${Q(t.created_at)}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">${Z(t.created_at)}</span>
             </div>
             ${t.migration_status && t.total_count ? `
               <div class="mt-2">
@@ -4631,17 +4715,17 @@ function p(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
-function $(o) {
+function C(o) {
   return o.charAt(0).toUpperCase() + o.slice(1).toLowerCase();
 }
-function Q(o) {
+function Z(o) {
   try {
     return new Date(o).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" });
   } catch {
     return o;
   }
 }
-function W(o = document) {
+function Y(o = document) {
   Array.from(o.querySelectorAll("[data-block-library-trigger]")).forEach((t) => {
     if (t.dataset.initialized === "true") return;
     const r = {
@@ -4649,26 +4733,53 @@ function W(o = document) {
       mode: t.dataset.mode ?? "manage"
     };
     t.addEventListener("click", () => {
-      new U(r).show();
+      new G(r).show();
     }), t.dataset.initialized = "true";
   });
 }
-function Z(o) {
+function X(o) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", o, { once: !0 }) : o();
 }
-Z(() => W());
-function Y(o = document) {
+X(() => Y());
+function K(o = document) {
   Array.from(o.querySelectorAll("[data-content-type-editor-root]")).forEach((t) => {
     if (t.dataset.initialized === "true") return;
-    const r = X(t);
+    const r = ee(t);
     if (!r.apiBasePath) {
       console.warn("Content type editor missing apiBasePath", t);
       return;
     }
-    new N(t, r).init(), t.dataset.initialized = "true";
+    r.onCancel || (r.onCancel = () => {
+      window.location.href = `${r.apiBasePath}/content_types`;
+    }), r.onSave || (r.onSave = (a) => {
+      const i = a.slug ?? a.id;
+      i && (window.location.href = `${r.apiBasePath}/content_types?slug=${encodeURIComponent(i)}`);
+    });
+    try {
+      new V(t, r).init(), t.dataset.initialized = "true";
+    } catch (a) {
+      console.error("Content type editor failed to initialize:", a), t.innerHTML = `
+        <div class="flex flex-col items-center justify-center min-h-[300px] p-8 text-center">
+          <svg class="w-12 h-12 mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Editor failed to load</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 max-w-md">
+            ${a instanceof Error ? a.message : "An unexpected error occurred while initializing the editor."}
+          </p>
+          <button
+            type="button"
+            onclick="window.location.reload()"
+            class="mt-4 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50"
+          >
+            Reload page
+          </button>
+        </div>
+      `;
+    }
   });
 }
-function X(o) {
+function ee(o) {
   const e = o.getAttribute("data-content-type-editor-config");
   if (e)
     try {
@@ -4681,26 +4792,26 @@ function X(o) {
     locale: o.dataset.locale
   };
 }
-function K(o) {
+function te(o) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", o, { once: !0 }) : o();
 }
-K(() => Y());
+te(() => K());
 export {
-  U as BlockLibraryManager,
-  b as ContentTypeAPIClient,
-  M as ContentTypeAPIError,
-  N as ContentTypeEditor,
-  I as FIELD_CATEGORIES,
+  G as BlockLibraryManager,
+  f as ContentTypeAPIClient,
+  T as ContentTypeAPIError,
+  V as ContentTypeEditor,
+  _ as FIELD_CATEGORIES,
   L as FIELD_TYPES,
-  S as FieldConfigForm,
-  T as FieldTypePicker,
-  H as LayoutEditor,
-  y as fieldsToSchema,
-  m as generateFieldId,
-  w as getFieldTypeMetadata,
-  ee as getFieldTypesByCategory,
-  W as initBlockLibraryManagers,
-  Y as initContentTypeEditors,
-  B as schemaToFields
+  $ as FieldConfigForm,
+  j as FieldTypePicker,
+  N as LayoutEditor,
+  b as fieldsToSchema,
+  x as generateFieldId,
+  S as getFieldTypeMetadata,
+  re as getFieldTypesByCategory,
+  Y as initBlockLibraryManagers,
+  K as initContentTypeEditors,
+  M as schemaToFields
 };
 //# sourceMappingURL=index.js.map
