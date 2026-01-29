@@ -355,7 +355,10 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) error {
 			"summary":        map[string]any{"type": "string"},
 			"body":           map[string]any{"type": "string"},
 			"featured_image": map[string]any{"type": "string"},
-			"tags":           map[string]any{"type": "array"},
+			"tags": map[string]any{
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
+			},
 			"meta":           map[string]any{"type": "object"},
 			"seo":            map[string]any{"type": "object"},
 			"markdown":       map[string]any{"type": "object"},
