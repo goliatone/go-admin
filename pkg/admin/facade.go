@@ -53,6 +53,7 @@ type (
 	CMSPage               = core.CMSPage
 	CMSPageRepository     = core.CMSPageRepository
 	CMSWidgetService      = core.CMSWidgetService
+	WidgetDefinition      = core.WidgetDefinition
 
 	Config       = core.Config
 	Dependencies = core.Dependencies
