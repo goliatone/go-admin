@@ -135,6 +135,11 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	}
 
 	adapter := admin.NewGoCMSContainerAdapter(module)
+	if adapter != nil {
+		if err := migrateDashboardWidgetDefinitions(ctx, client.DB(), adapter.WidgetService()); err != nil {
+			return admin.CMSOptions{}, err
+		}
+	}
 	menuAdapter := admin.CMSMenuService(nil)
 	if adapter != nil {
 		menuAdapter = adapter.MenuService()
