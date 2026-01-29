@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -447,4 +448,485 @@ func labelizeFieldName(name string) string {
 		parts[i] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
 	}
 	return strings.Join(parts, " ")
+}
+
+// SchemaToFieldsConverter maps JSON Schema properties into panel field definitions.
+type SchemaToFieldsConverter struct {
+	widgetMapping map[string]string
+	typeMapping   map[string]string
+}
+
+// ConvertedFields captures the derived list/form/detail fields and filters.
+type ConvertedFields struct {
+	List    []Field
+	Form    []Field
+	Detail  []Field
+	Filters []Filter
+}
+
+// NewSchemaToFieldsConverter builds a converter with default mappings.
+func NewSchemaToFieldsConverter() *SchemaToFieldsConverter {
+	return &SchemaToFieldsConverter{
+		widgetMapping: map[string]string{},
+		typeMapping:   map[string]string{},
+	}
+}
+
+// Convert maps a JSON schema + UI overlay into panel fields.
+func (c *SchemaToFieldsConverter) Convert(schema map[string]any, uiSchema map[string]any) ConvertedFields {
+	result := ConvertedFields{}
+	props := extractSchemaProperties(schema)
+	if len(props) == 0 {
+		return result
+	}
+	required := extractSchemaRequired(schema)
+	overrides := uiSchemaOverrides(uiSchema)
+
+	keys := make([]string, 0, len(props))
+	for key := range props {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	listFields := []Field{}
+	formFields := []Field{}
+	detailFields := []Field{}
+	filterFields := []Filter{}
+	orderByName := map[string]int{}
+
+	for idx, name := range keys {
+		prop := props[name]
+		field := c.convertProperty(name, prop, required)
+		override := overrides[name]
+		if override != nil {
+			field = c.applyUIOverride(field, override)
+		}
+		orderByName[name] = fieldOrder(prop, override, idx)
+
+		if !isHiddenInList(prop, override) {
+			listFields = append(listFields, c.toListField(field))
+		}
+		formFields = append(formFields, field)
+		detailFields = append(detailFields, c.toDetailField(field))
+
+		if isFilterable(prop, override) {
+			if filter := c.toFilter(field); filter.Name != "" {
+				filterFields = append(filterFields, filter)
+			}
+		}
+	}
+
+	result.List = sortFieldsByOrder(listFields, orderByName)
+	result.Form = sortFieldsByOrder(formFields, orderByName)
+	result.Detail = sortFieldsByOrder(detailFields, orderByName)
+	result.Filters = sortFiltersByOrder(filterFields, orderByName)
+
+	return result
+}
+
+func (c *SchemaToFieldsConverter) convertProperty(name string, prop map[string]any, required map[string]bool) Field {
+	field := Field{
+		Name:     name,
+		Label:    extractTitle(prop, name),
+		Required: required[name],
+	}
+
+	if prop != nil {
+		field.ReadOnly = toBool(prop["readOnly"]) || toBool(prop["read_only"])
+		field.Hidden = toBool(prop["x-hidden"])
+	}
+
+	field.Options = schemaFieldOptions(prop)
+	field.Type = c.inferFieldType(prop, field.Options)
+	return field
+}
+
+func (c *SchemaToFieldsConverter) inferFieldType(prop map[string]any, options []Option) string {
+	if widget := extractWidget(prop); widget != "" {
+		if mapped := c.widgetMapping[widget]; mapped != "" {
+			return mapped
+		}
+		return widget
+	}
+	if hasBlockUnion(prop) {
+		return "block"
+	}
+	if len(options) > 0 || hasEnum(prop) {
+		return "select"
+	}
+	rawType := strings.ToLower(strings.TrimSpace(schemaFieldType(prop)))
+	format := strings.ToLower(strings.TrimSpace(toString(prop["format"])))
+
+	switch rawType {
+	case "boolean":
+		return "boolean"
+	case "integer", "number":
+		return "number"
+	case "array":
+		return "array"
+	case "object":
+		return "json"
+	}
+
+	switch format {
+	case "date":
+		return "date"
+	case "date-time", "datetime":
+		return "datetime"
+	case "time":
+		return "time"
+	}
+
+	if mapped := c.typeMapping[rawType]; mapped != "" {
+		return mapped
+	}
+	return "text"
+}
+
+func (c *SchemaToFieldsConverter) applyUIOverride(field Field, override map[string]any) Field {
+	if override == nil {
+		return field
+	}
+	if label := strings.TrimSpace(toString(override["label"])); label != "" {
+		field.Label = label
+	}
+	if widget := strings.TrimSpace(toString(override["widget"])); widget != "" {
+		field.Type = widget
+	}
+	if value := override["hidden"]; value != nil {
+		field.Hidden = toBool(value)
+	}
+	if value := override["readonly"]; value != nil {
+		field.ReadOnly = toBool(value)
+	}
+	if value := override["readOnly"]; value != nil {
+		field.ReadOnly = toBool(value)
+	}
+	return field
+}
+
+func (c *SchemaToFieldsConverter) toListField(field Field) Field {
+	return field
+}
+
+func (c *SchemaToFieldsConverter) toDetailField(field Field) Field {
+	return field
+}
+
+func (c *SchemaToFieldsConverter) toFilter(field Field) Filter {
+	filterType := field.Type
+	switch filterType {
+	case "integer", "number":
+		filterType = "number"
+	case "boolean":
+		filterType = "boolean"
+	case "select":
+		filterType = "select"
+	default:
+		filterType = "text"
+	}
+	return Filter{Name: field.Name, Label: field.Label, Type: filterType}
+}
+
+func extractSchemaProperties(schema map[string]any) map[string]map[string]any {
+	if schema == nil {
+		return nil
+	}
+	raw, ok := schema["properties"].(map[string]any)
+	if !ok || len(raw) == 0 {
+		return nil
+	}
+	out := map[string]map[string]any{}
+	for key, value := range raw {
+		if prop, ok := value.(map[string]any); ok {
+			out[key] = prop
+		}
+	}
+	return out
+}
+
+func extractSchemaRequired(schema map[string]any) map[string]bool {
+	out := map[string]bool{}
+	for _, key := range requiredFieldList(schema["required"]) {
+		out[key] = true
+	}
+	return out
+}
+
+func extractTitle(prop map[string]any, fallback string) string {
+	if prop != nil {
+		if title := strings.TrimSpace(toString(prop["title"])); title != "" {
+			return title
+		}
+	}
+	return labelizeFieldName(fallback)
+}
+
+func extractWidget(prop map[string]any) string {
+	if prop == nil {
+		return ""
+	}
+	if meta := extractXFormgen(prop); meta != nil {
+		if widget := strings.TrimSpace(toString(meta["widget"])); widget != "" {
+			return widget
+		}
+	}
+	if meta := extractXAdmin(prop); meta != nil {
+		if widget := strings.TrimSpace(toString(meta["widget"])); widget != "" {
+			return widget
+		}
+	}
+	return ""
+}
+
+func extractXFormgen(prop map[string]any) map[string]any {
+	if prop == nil {
+		return nil
+	}
+	if raw, ok := prop["x-formgen"].(map[string]any); ok {
+		return raw
+	}
+	if raw, ok := prop["x_formgen"].(map[string]any); ok {
+		return raw
+	}
+	if raw, ok := prop["x-formgen"].(map[string]interface{}); ok {
+		return map[string]any(raw)
+	}
+	return nil
+}
+
+func extractXAdmin(prop map[string]any) map[string]any {
+	if prop == nil {
+		return nil
+	}
+	if raw, ok := prop["x-admin"].(map[string]any); ok {
+		return raw
+	}
+	if raw, ok := prop["x_admin"].(map[string]any); ok {
+		return raw
+	}
+	if raw, ok := prop["x-admin"].(map[string]interface{}); ok {
+		return map[string]any(raw)
+	}
+	return nil
+}
+
+func hasEnum(prop map[string]any) bool {
+	if prop == nil {
+		return false
+	}
+	switch prop["enum"].(type) {
+	case []any, []string:
+		return true
+	default:
+		return false
+	}
+}
+
+func hasBlockUnion(prop map[string]any) bool {
+	if prop == nil {
+		return false
+	}
+	if meta := extractXFormgen(prop); meta != nil {
+		if widget := strings.TrimSpace(toString(meta["widget"])); widget == "block" || widget == "blocks" {
+			return true
+		}
+	}
+	if schemaFieldType(prop) != "array" {
+		return false
+	}
+	items, ok := prop["items"].(map[string]any)
+	if !ok || items == nil {
+		return false
+	}
+	if _, ok := items["oneOf"].([]any); ok {
+		return true
+	}
+	return false
+}
+
+func uiSchemaOverrides(uiSchema map[string]any) map[string]map[string]any {
+	out := map[string]map[string]any{}
+	if uiSchema == nil {
+		return out
+	}
+	raw, ok := uiSchema["overrides"].([]any)
+	if !ok {
+		return out
+	}
+	for _, item := range raw {
+		override, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		fieldName := overrideFieldName(override)
+		if fieldName == "" {
+			continue
+		}
+		if meta, ok := override["x-formgen"].(map[string]any); ok {
+			out[fieldName] = meta
+			continue
+		}
+		if meta, ok := override["x_formgen"].(map[string]any); ok {
+			out[fieldName] = meta
+		}
+	}
+	return out
+}
+
+func overrideFieldName(override map[string]any) string {
+	if override == nil {
+		return ""
+	}
+	if name := strings.TrimSpace(toString(override["field"])); name != "" {
+		return name
+	}
+	if name := strings.TrimSpace(toString(override["name"])); name != "" {
+		return name
+	}
+	path := strings.TrimSpace(toString(override["path"]))
+	if path == "" {
+		return ""
+	}
+	path = strings.TrimPrefix(path, "#")
+	path = strings.TrimPrefix(path, "/")
+	parts := strings.Split(path, "/")
+	for i := 0; i < len(parts)-1; i++ {
+		if parts[i] == "properties" && i+1 < len(parts) {
+			return parts[i+1]
+		}
+	}
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
+	return ""
+}
+
+func fieldOrder(prop map[string]any, override map[string]any, fallback int) int {
+	if override != nil {
+		if order, ok := numericOrder(override["order"]); ok {
+			return order
+		}
+	}
+	if prop != nil {
+		if meta := extractXFormgen(prop); meta != nil {
+			if order, ok := numericOrder(meta["order"]); ok {
+				return order
+			}
+		}
+		if meta := extractXAdmin(prop); meta != nil {
+			if order, ok := numericOrder(meta["order"]); ok {
+				return order
+			}
+		}
+	}
+	return fallback
+}
+
+func numericOrder(value any) (int, bool) {
+	switch v := value.(type) {
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case float64:
+		return int(v), true
+	case string:
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			if parsed, err := strconv.Atoi(trimmed); err == nil {
+				return parsed, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func isHiddenInList(prop map[string]any, override map[string]any) bool {
+	if override != nil {
+		if value, ok := override["hideInList"]; ok {
+			return toBool(value)
+		}
+		if value, ok := override["listHidden"]; ok {
+			return toBool(value)
+		}
+	}
+	if prop == nil {
+		return false
+	}
+	if meta := extractXFormgen(prop); meta != nil {
+		if value, ok := meta["hideInList"]; ok {
+			return toBool(value)
+		}
+		if value, ok := meta["listHidden"]; ok {
+			return toBool(value)
+		}
+	}
+	if meta := extractXAdmin(prop); meta != nil {
+		if value, ok := meta["hideInList"]; ok {
+			return toBool(value)
+		}
+	}
+	return false
+}
+
+func isFilterable(prop map[string]any, override map[string]any) bool {
+	if override != nil {
+		if value, ok := override["filterable"]; ok {
+			return toBool(value)
+		}
+	}
+	if prop == nil {
+		return false
+	}
+	if meta := extractXFormgen(prop); meta != nil {
+		if value, ok := meta["filterable"]; ok {
+			return toBool(value)
+		}
+	}
+	if meta := extractXAdmin(prop); meta != nil {
+		if value, ok := meta["filterable"]; ok {
+			return toBool(value)
+		}
+	}
+	return false
+}
+
+func sortFieldsByOrder(fields []Field, order map[string]int) []Field {
+	if len(fields) == 0 {
+		return fields
+	}
+	sort.SliceStable(fields, func(i, j int) bool {
+		left := fields[i].Name
+		right := fields[j].Name
+		leftOrder, okLeft := order[left]
+		rightOrder, okRight := order[right]
+		if okLeft && okRight && leftOrder != rightOrder {
+			return leftOrder < rightOrder
+		}
+		if okLeft != okRight {
+			return okLeft
+		}
+		return left < right
+	})
+	return fields
+}
+
+func sortFiltersByOrder(filters []Filter, order map[string]int) []Filter {
+	if len(filters) == 0 {
+		return filters
+	}
+	sort.SliceStable(filters, func(i, j int) bool {
+		left := filters[i].Name
+		right := filters[j].Name
+		leftOrder, okLeft := order[left]
+		rightOrder, okRight := order[right]
+		if okLeft && okRight && leftOrder != rightOrder {
+			return leftOrder < rightOrder
+		}
+		if okLeft != okRight {
+			return okLeft
+		}
+		return left < right
+	})
+	return filters
 }
