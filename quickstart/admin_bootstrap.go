@@ -10,9 +10,9 @@ import (
 type AdminOption func(*adminOptions)
 
 type adminOptions struct {
-	ctx   context.Context
-	deps  admin.Dependencies
-	flags *AdapterFlags
+	ctx             context.Context
+	deps            admin.Dependencies
+	flags           *AdapterFlags
 	featureDefaults map[string]bool
 }
 
