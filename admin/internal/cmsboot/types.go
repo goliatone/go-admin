@@ -174,8 +174,10 @@ type CMSContentType struct {
 	Slug         string
 	Description  string
 	Schema       map[string]any
+	UISchema     map[string]any
 	Capabilities map[string]any
 	Icon         string
+	Status       string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
