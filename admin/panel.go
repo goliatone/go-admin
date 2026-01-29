@@ -14,6 +14,7 @@ type PanelBuilder struct {
 	repo         Repository
 	listFields   []Field
 	formFields   []Field
+	formSchema   map[string]any
 	detailFields []Field
 	filters      []Filter
 	actions      []Action
@@ -37,6 +38,7 @@ type Panel struct {
 	repo         Repository
 	listFields   []Field
 	formFields   []Field
+	formSchema   map[string]any
 	detailFields []Field
 	filters      []Filter
 	actions      []Action
@@ -204,6 +206,12 @@ func (b *PanelBuilder) FormFields(fields ...Field) *PanelBuilder {
 	return b
 }
 
+// FormSchema overrides the generated form schema for the panel.
+func (b *PanelBuilder) FormSchema(schema map[string]any) *PanelBuilder {
+	b.formSchema = cloneAnyMap(schema)
+	return b
+}
+
 // DetailFields configures detail fields.
 func (b *PanelBuilder) DetailFields(fields ...Field) *PanelBuilder {
 	b.detailFields = append([]Field{}, fields...)
@@ -308,6 +316,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		repo:         b.repo,
 		listFields:   b.listFields,
 		formFields:   b.formFields,
+		formSchema:   cloneAnyMap(b.formSchema),
 		detailFields: b.detailFields,
 		filters:      b.filters,
 		actions:      b.actions,
@@ -328,6 +337,10 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 
 // Schema returns a basic schema description.
 func (p *Panel) Schema() Schema {
+	formSchema := buildFormSchema(p.formFields)
+	if len(p.formSchema) > 0 {
+		formSchema = cloneAnyMap(p.formSchema)
+	}
 	return Schema{
 		ListFields:   p.listFields,
 		FormFields:   p.formFields,
@@ -336,7 +349,7 @@ func (p *Panel) Schema() Schema {
 		Actions:      p.actions,
 		BulkActions:  p.bulkActions,
 		Tabs:         append([]PanelTab{}, p.tabs...),
-		FormSchema:   buildFormSchema(p.formFields),
+		FormSchema:   formSchema,
 		UseBlocks:    p.useBlocks,
 		UseSEO:       p.useSEO,
 		TreeView:     p.treeView,
@@ -393,6 +406,10 @@ func mapFieldType(t string) string {
 		return "number"
 	case "boolean":
 		return "boolean"
+	case "array", "blocks", "block", "repeater":
+		return "array"
+	case "object", "json":
+		return "object"
 	default:
 		return "string"
 	}
@@ -406,6 +423,8 @@ func mapWidget(t string) string {
 		return "schema-editor"
 	case "media", "media_picker":
 		return "media-picker"
+	case "block", "blocks":
+		return "block"
 	default:
 		return ""
 	}
