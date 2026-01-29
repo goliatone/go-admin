@@ -9,11 +9,11 @@ import (
 
 	linknotifications "github.com/goliatone/go-notifications/adapters/securelink"
 	"github.com/goliatone/go-notifications/pkg/links"
+	urlsecurelink "github.com/goliatone/go-urlkit/securelink"
 	linkusers "github.com/goliatone/go-users/adapter/securelink"
 	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 	userssvc "github.com/goliatone/go-users/service"
-	urlsecurelink "github.com/goliatone/go-urlkit/securelink"
 )
 
 const (
