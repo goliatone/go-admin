@@ -1,5 +1,99 @@
 # Changelog
 
+# [0.23.0](https://github.com/goliatone/go-admin/compare/v0.22.0...v0.23.0) - (2026-01-29)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Clone ui schema in cms records in memory ([075d403](https://github.com/goliatone/go-admin/commit/075d403e81aa97531c7cbc683698a3bb0c16ac81))  - (goliatone)
+- Block schema version in editor ([33c7a39](https://github.com/goliatone/go-admin/commit/33c7a3920b57d898244930e2961d326c29140ddf))  - (goliatone)
+- Repository cms block normalize ids ([2e9cd6c](https://github.com/goliatone/go-admin/commit/2e9cd6cca46dad9597c9d0bcdeb302c973019e23))  - (goliatone)
+- Block editor animation use requestAnimationFrame ([23faa58](https://github.com/goliatone/go-admin/commit/23faa58937276e8cb27bd84a501de4c27e94d249))  - (goliatone)
+- Block editor TS scope issues ([fa56f36](https://github.com/goliatone/go-admin/commit/fa56f3639995655fbc960bf083dd794083cd26af))  - (goliatone)
+- Function signature ([afa2b0c](https://github.com/goliatone/go-admin/commit/afa2b0c9348179af3ee17b54f611e9c895a6fe19))  - (goliatone)
+- Address timeline UX issues ([e5ce88a](https://github.com/goliatone/go-admin/commit/e5ce88a62da3d2b25461214262671e94368fa55c))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.23.0 ([014f54c](https://github.com/goliatone/go-admin/commit/014f54c8f1e8986642d75bfd27178cd0efaf6570))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Ui schema and status ([22ff0cf](https://github.com/goliatone/go-admin/commit/22ff0cf1999ac072c15b658a2468b671d5e151a1))  - (goliatone)
+- Content type repository ([2a96884](https://github.com/goliatone/go-admin/commit/2a96884bc12f9c498d25eb60b2f0a946540b222b))  - (goliatone)
+- Unregsiter panel support ([bb726c0](https://github.com/goliatone/go-admin/commit/bb726c07dc08e295df1232a4c979da92f50f6658))  - (goliatone)
+- Schema fitler ([58b5deb](https://github.com/goliatone/go-admin/commit/58b5deb196b382fc8c98b3f8f43b79bf07a73ae9))  - (goliatone)
+- Form schema to panel def ([b81d0fa](https://github.com/goliatone/go-admin/commit/b81d0fa77707821e282ee910355308299ca0aa29))  - (goliatone)
+- CMS content type adapter ([cab1831](https://github.com/goliatone/go-admin/commit/cab1831005685d2b9d169b5642cb5b92642753a2))  - (goliatone)
+- Unregister panel ([e317cb4](https://github.com/goliatone/go-admin/commit/e317cb496224aef87c98cbd64865e025d7367f38))  - (goliatone)
+- Dynamic panel factory ([fbc5a73](https://github.com/goliatone/go-admin/commit/fbc5a73374f3a13b520c3f1f744131e3020ff850))  - (goliatone)
+- Cms schema guardrails ([9b5c310](https://github.com/goliatone/go-admin/commit/9b5c3104dec21a0360b506110cb9a5136cf8f409))  - (goliatone)
+- Content type builder ([5ee3f01](https://github.com/goliatone/go-admin/commit/5ee3f01fe10be48f5206cdb0b2d854c5a67c0baf))  - (goliatone)
+- Block editor updates ([c0b99e2](https://github.com/goliatone/go-admin/commit/c0b99e26f3e9f2a783113c9b5fcadfdd44e9cb89))  - (goliatone)
+- Refactor block editor ([724409f](https://github.com/goliatone/go-admin/commit/724409f3eb4179a4c6b845924b6b64b461773739))  - (goliatone)
+- Support embedded blocks ([5284caf](https://github.com/goliatone/go-admin/commit/5284caf7c52106b5642173f85ffe13d8abb9ca43))  - (goliatone)
+- Repository cms ([403f6f1](https://github.com/goliatone/go-admin/commit/403f6f14019024c20edb84072f9090520ac305ed))  - (goliatone)
+- Expose public api methods ([d90b35a](https://github.com/goliatone/go-admin/commit/d90b35aba26333f724e1377a870ab2c0d062b859))  - (goliatone)
+- Json schema editor ([161546c](https://github.com/goliatone/go-admin/commit/161546c15cb8f763e5fab51b048a6b2a9e3a58d3))  - (goliatone)
+- Graphql schem deliver setup ([1eb082e](https://github.com/goliatone/go-admin/commit/1eb082e9644254147c185949fe888fdeb9504118))  - (goliatone)
+- Expose boot schema registry ([491a78f](https://github.com/goliatone/go-admin/commit/491a78f2190584c28f46c9f19e5c00b18fcc9219))  - (goliatone)
+- Block editor ([75abb37](https://github.com/goliatone/go-admin/commit/75abb373fd5a2a29880288691fc0db21c159caac))  - (goliatone)
+- Boot schema registry wiring ([1b77d5f](https://github.com/goliatone/go-admin/commit/1b77d5f7b75a065df2a5901892341d633eafe66c))  - (goliatone)
+- Admin schema registry ([57a9e81](https://github.com/goliatone/go-admin/commit/57a9e810fdd642319b66283e7ca6f0dd1232df34))  - (goliatone)
+- Block conflict resolution ([67df577](https://github.com/goliatone/go-admin/commit/67df57707a4151c4f5741cf37c9d03ad05cc080b))  - (goliatone)
+- Support for block editor ([cd10a9b](https://github.com/goliatone/go-admin/commit/cd10a9b863852767c98c797ed7216059d6a6801f))  - (goliatone)
+- Error handling for frontend ([f37775c](https://github.com/goliatone/go-admin/commit/f37775cc2fc13d6789a26de09dbccc22585bdb90))  - (goliatone)
+- Admin repository cms ([b8eed6f](https://github.com/goliatone/go-admin/commit/b8eed6fe96382413089db884f659bdc69306a10c))  - (goliatone)
+- Cms demo updated ([910b8a8](https://github.com/goliatone/go-admin/commit/910b8a8645148365e762fd15acc90fae0f17ad75))  - (goliatone)
+- Register cms routes from service ([cb8651b](https://github.com/goliatone/go-admin/commit/cb8651b3b9666891c30b52c0f8527c5b9d98ad05))  - (goliatone)
+- Cms routes registered ([7d32680](https://github.com/goliatone/go-admin/commit/7d3268051b77457a13e5c9ca2c9da96596611d40))  - (goliatone)
+- Expose CMS types to facade ([ac2c5f5](https://github.com/goliatone/go-admin/commit/ac2c5f532616a83254c8aa2d8a42995db4c98776))  - (goliatone)
+- Wire create to cms repo ([44af078](https://github.com/goliatone/go-admin/commit/44af0789bfdcd77231996d1204e1652cbd77392e))  - (goliatone)
+- Update routing for public API ([902b63b](https://github.com/goliatone/go-admin/commit/902b63b26445c622b75aa853b63c010ea93d8d9a))  - (goliatone)
+- Admin cms workflow ([be21332](https://github.com/goliatone/go-admin/commit/be21332271afa38416dd0daa4d074933d80f3c49))  - (goliatone)
+- Transition mangement ([d1b94d4](https://github.com/goliatone/go-admin/commit/d1b94d44cee55676ce5a613901fdebd000594ac0))  - (goliatone)
+- Bootstrap gql ([0f3b30c](https://github.com/goliatone/go-admin/commit/0f3b30ca4ca2bc07539982a5850be59c7f3d5056))  - (goliatone)
+- Content type model ([8580205](https://github.com/goliatone/go-admin/commit/8580205bcbb75442bc6ece8db5e2ee6faf239193))  - (goliatone)
+- Updated cms demo ([5b8f9d6](https://github.com/goliatone/go-admin/commit/5b8f9d681f36ddf022883e6c9f9b37776e789407))  - (goliatone)
+- Boot bindings include cms setup ([6dc373e](https://github.com/goliatone/go-admin/commit/6dc373eea5152695509c5c58ddf76c1c8e0b183d))  - (goliatone)
+- Graphql management registry ([9244e1c](https://github.com/goliatone/go-admin/commit/9244e1c07676242bfd92cec2783c9acc0a7c0697))  - (goliatone)
+- Graphql management services ([1cbacec](https://github.com/goliatone/go-admin/commit/1cbaceccdf093d126e51c7f3baf6a3c134d3a1bf))  - (goliatone)
+- Go-cms integration ([79166bc](https://github.com/goliatone/go-admin/commit/79166bc27505bb234e9594918e9d18dadeca598c))  - (goliatone)
+- Cms schema helpers ([989c6bf](https://github.com/goliatone/go-admin/commit/989c6bfadc8c7985619b62a0efc91f3956ecca55))  - (goliatone)
+- Cms repository ([3d03ab1](https://github.com/goliatone/go-admin/commit/3d03ab1fd45cd557130e5df8780606a2594a9089))  - (goliatone)
+- Context public ([ec81a2c](https://github.com/goliatone/go-admin/commit/ec81a2c81ecd706eda2d4bcff71b2a98cefe7981))  - (goliatone)
+- Graphql support ([3bff062](https://github.com/goliatone/go-admin/commit/3bff0628762d05e5531c5979f5ca6ed23ef713c9))  - (goliatone)
+- Content URL for cms content type ([e9976c1](https://github.com/goliatone/go-admin/commit/e9976c110af95b9eeea8909092d7c15a6a1c1188))  - (goliatone)
+- Validation helper ([a8c9496](https://github.com/goliatone/go-admin/commit/a8c94961a55b1bdbd38edcacb8f6c3e9f5b956ee))  - (goliatone)
+- CMS repository update to handle content type ([8c537f8](https://github.com/goliatone/go-admin/commit/8c537f8c90c64ef442d65d9145c821e47ef31dd6))  - (goliatone)
+- Updated CMS container ([cd38c72](https://github.com/goliatone/go-admin/commit/cd38c7266eed4b39653b105fa675265f34ce8c31))  - (goliatone)
+- Error helpers ([9c4c2c2](https://github.com/goliatone/go-admin/commit/9c4c2c2f0924f2832ffdef0d1f690b92e0ac4529))  - (goliatone)
+- Cms memory store ([62b2ae8](https://github.com/goliatone/go-admin/commit/62b2ae85dc11a9e607e86ecfab2229f744db9496))  - (goliatone)
+- Cms types ([5393ef8](https://github.com/goliatone/go-admin/commit/5393ef8efd369eda2f686cad358dd704c43f66b4))  - (goliatone)
+- Content type support ([01a181e](https://github.com/goliatone/go-admin/commit/01a181eddaa34ea4d72fecbc66c6ab3ad8175120))  - (goliatone)
+- Client code for activity display ([277e420](https://github.com/goliatone/go-admin/commit/277e420d872ccb6464b97c243c5078e5fd2b1704))  - (goliatone)
+- Updated activity preview ([4d3a382](https://github.com/goliatone/go-admin/commit/4d3a382519338bd7e58cc8faaf02528f8f0d77d7))  - (goliatone)
+- Include activity enricher to activity flow ([e7508c6](https://github.com/goliatone/go-admin/commit/e7508c662ca152a773c4f6fbdbaf5b38fe116c36))  - (goliatone)
+- Include metadata key in formatter ([8d0b788](https://github.com/goliatone/go-admin/commit/8d0b788fed0dc98bf3fe93fa0bba80e08100426c))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.22.0 ([fb27852](https://github.com/goliatone/go-admin/commit/fb278528f20fe6f8cd0179a7648a846ef871ab20))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([68fa93c](https://github.com/goliatone/go-admin/commit/68fa93cacac50ebc31e2241984db1f352f82b658))  - (goliatone)
+- Format ([be9a1dc](https://github.com/goliatone/go-admin/commit/be9a1dc29736335118c7074280bb8a404d7df8b2))  - (goliatone)
+- Update test ([ed7f669](https://github.com/goliatone/go-admin/commit/ed7f6690ce32a004fcaa466752cc009a09f691c6))  - (goliatone)
+- Update examples ([675dd8e](https://github.com/goliatone/go-admin/commit/675dd8eca36912c21e69b21dda28c8400bc11992))  - (goliatone)
+- Udpate deps ([3235466](https://github.com/goliatone/go-admin/commit/3235466fefbe4fc46cb8f30df89438682402df7d))  - (goliatone)
+- Udpate test ([125dee4](https://github.com/goliatone/go-admin/commit/125dee4c2532109e2c1202a5c32196fb51521522))  - (goliatone)
+- Udpate testc ([0dcf602](https://github.com/goliatone/go-admin/commit/0dcf602ae74be9fc6b135a3239b0fa0fd6d77a68))  - (goliatone)
+- Update depsc ([909d9a8](https://github.com/goliatone/go-admin/commit/909d9a8ced60f820906ba497c4a4ef41dc8ac406))  - (goliatone)
+- Clean up ([1819e97](https://github.com/goliatone/go-admin/commit/1819e9701d9c0e30c540d1970e54eed873edf636))  - (goliatone)
+- Update format ([8591cc6](https://github.com/goliatone/go-admin/commit/8591cc6743a9f1a308bba8fda6fb9691d354b4db))  - (goliatone)
+- Update guides ([e1b6efb](https://github.com/goliatone/go-admin/commit/e1b6efbac6373d957824fbc91e91ff47bd49ee41))  - (goliatone)
+- Update tests ([7ae5f5c](https://github.com/goliatone/go-admin/commit/7ae5f5cd4704ce6b9b597dee04683d7deefd7cf2))  - (goliatone)
+
 # [0.22.0](https://github.com/goliatone/go-admin/compare/v0.21.1...v0.22.0) - (2026-01-26)
 
 ## <!-- 1 -->🐛 Bug Fixes
