@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin/internal/boot"
+	"github.com/goliatone/go-command/dispatcher"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -1046,5 +1047,34 @@ func (s *settingsBinding) Save(c router.Context, body map[string]any) (map[strin
 	return map[string]any{
 		"status": "ok",
 		"values": s.admin.settings.ResolveAll(ctx.UserID),
+	}, nil
+}
+
+func (d *dashboardBinding) Diagnostics(c router.Context, locale string) (map[string]any, error) {
+	if d.admin == nil || d.admin.dashboard == nil {
+		return nil, nil
+	}
+	ctx := d.admin.adminContextFromRequest(c, locale)
+	msg := DashboardDiagnosticsMsg{Locale: locale}
+	report, err := dispatcher.Query[DashboardDiagnosticsMsg, DashboardDiagnosticsReport](ctx.Context, msg)
+	if err != nil {
+		// Fallback to direct diagnostics when the command bus/query registry isn't available.
+		if fallback, ferr := (&dashboardDiagnosticsQuery{admin: d.admin}).Query(ctx.Context, msg); ferr == nil {
+			report = fallback
+		} else {
+			return nil, err
+		}
+	}
+	return map[string]any{
+		"locale":             report.Locale,
+		"areas":              report.Areas,
+		"providers":          report.Providers,
+		"definitions":        report.Definitions,
+		"instances":          report.Instances,
+		"instances_by_area":  report.InstancesByArea,
+		"resolved_by_area":   report.ResolvedByArea,
+		"resolve_errors":     report.ResolveErrors,
+		"widget_service":     report.WidgetService,
+		"has_widget_service": report.HasWidgetService,
 	}, nil
 }
