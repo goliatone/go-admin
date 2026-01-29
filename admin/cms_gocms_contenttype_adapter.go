@@ -299,11 +299,17 @@ func buildContentTypeInput(argType reflect.Type, contentType CMSContentType, isU
 	if contentType.Schema != nil {
 		setMapField(input, "Schema", cloneAnyMap(contentType.Schema))
 	}
+	if contentType.UISchema != nil {
+		setMapField(input, "UISchema", cloneAnyMap(contentType.UISchema))
+	}
 	if contentType.Capabilities != nil {
 		setMapField(input, "Capabilities", cloneAnyMap(contentType.Capabilities))
 	}
 	if icon := strings.TrimSpace(contentType.Icon); icon != "" {
 		setStringPtr(input.FieldByName("Icon"), icon)
+	}
+	if status := strings.TrimSpace(contentType.Status); status != "" {
+		setStringPtr(input.FieldByName("Status"), status)
 	}
 
 	if ptr {
@@ -443,6 +449,7 @@ func convertContentTypeValue(value reflect.Value) CMSContentType {
 	}
 	contentType := CMSContentType{
 		Schema:       map[string]any{},
+		UISchema:     map[string]any{},
 		Capabilities: map[string]any{},
 	}
 
@@ -456,8 +463,10 @@ func convertContentTypeValue(value reflect.Value) CMSContentType {
 	contentType.Slug = extractStringField(value, "Slug")
 	contentType.Description = extractStringField(value, "Description")
 	contentType.Schema = extractMapField(value, "Schema")
+	contentType.UISchema = extractMapField(value, "UISchema")
 	contentType.Capabilities = extractMapField(value, "Capabilities")
 	contentType.Icon = extractStringField(value, "Icon")
+	contentType.Status = extractStringField(value, "Status")
 
 	if created, ok := extractTimeField(value, "CreatedAt"); ok {
 		contentType.CreatedAt = created
