@@ -88,6 +88,7 @@ export { BlockLibraryManager, initBlockLibraryManagers } from './block-library-m
 // =============================================================================
 
 import { ContentTypeEditor } from './content-type-editor';
+import type { ContentTypeEditorConfig } from './types';
 
 /**
  * Initialize content type editors on elements matching [data-content-type-editor]
@@ -105,18 +106,52 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
       return;
     }
 
-    const editor = new ContentTypeEditor(root, config);
-    editor.init();
+    // Wire default onCancel: navigate back to the content types list
+    if (!config.onCancel) {
+      config.onCancel = () => {
+        window.location.href = `${config.apiBasePath}/content_types`;
+      };
+    }
 
-    root.dataset.initialized = 'true';
+    // Wire default onSave: navigate to the saved content type's slug
+    if (!config.onSave) {
+      config.onSave = (saved) => {
+        const slug = saved.slug ?? saved.id;
+        if (slug) {
+          window.location.href = `${config.apiBasePath}/content_types?slug=${encodeURIComponent(slug)}`;
+        }
+      };
+    }
+
+    try {
+      const editor = new ContentTypeEditor(root, config);
+      editor.init();
+      root.dataset.initialized = 'true';
+    } catch (error) {
+      console.error('Content type editor failed to initialize:', error);
+      root.innerHTML = `
+        <div class="flex flex-col items-center justify-center min-h-[300px] p-8 text-center">
+          <svg class="w-12 h-12 mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Editor failed to load</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 max-w-md">
+            ${error instanceof Error ? error.message : 'An unexpected error occurred while initializing the editor.'}
+          </p>
+          <button
+            type="button"
+            onclick="window.location.reload()"
+            class="mt-4 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50"
+          >
+            Reload page
+          </button>
+        </div>
+      `;
+    }
   });
 }
 
-function parseConfig(root: HTMLElement): {
-  apiBasePath: string;
-  contentTypeId?: string;
-  locale?: string;
-} {
+function parseConfig(root: HTMLElement): ContentTypeEditorConfig {
   const configAttr = root.getAttribute('data-content-type-editor-config');
   if (configAttr) {
     try {

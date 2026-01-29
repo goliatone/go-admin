@@ -35,6 +35,7 @@ import { LayoutEditor } from './layout-editor';
 // Extended state with layout
 interface ExtendedBuilderState extends ContentTypeBuilderState {
   layout: UILayoutConfig;
+  previewError: string | null;
 }
 
 export class ContentTypeEditor {
@@ -58,6 +59,7 @@ export class ContentTypeEditor {
       validationErrors: [],
       selectedFieldId: null,
       previewHtml: null,
+      previewError: null,
       layout: { type: 'flat', gridColumns: 12, tabs: [] },
     };
   }
@@ -282,6 +284,24 @@ export class ContentTypeEditor {
   async previewSchema(): Promise<void> {
     if (this.state.isPreviewing) return;
 
+    // Guard: skip API call when there are no fields
+    if (this.state.fields.length === 0) {
+      this.state.previewHtml = null;
+      this.state.previewError = null;
+      const previewContainer = this.container.querySelector('[data-ct-preview-container]');
+      if (previewContainer) {
+        previewContainer.innerHTML = `
+          <div class="flex flex-col items-center justify-center h-40 text-gray-400">
+            <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+            <p class="text-sm">Add fields to preview the form</p>
+          </div>
+        `;
+      }
+      return;
+    }
+
     const schema = fieldsToSchema(this.state.fields, this.getSlug());
 
     this.state.isPreviewing = true;
@@ -295,11 +315,14 @@ export class ContentTypeEditor {
       });
 
       this.state.previewHtml = result.html;
+      this.state.previewError = null;
       this.renderPreview();
     } catch (error) {
       console.error('Preview failed:', error);
       const message = error instanceof Error ? error.message : 'Preview failed';
-      this.showToast(message, 'error');
+      this.state.previewHtml = null;
+      this.state.previewError = message;
+      this.renderPreview();
     } finally {
       this.state.isPreviewing = false;
       this.updatePreviewState();
@@ -550,8 +573,8 @@ export class ContentTypeEditor {
         <!-- Field Type Icon -->
         <div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg ${
           hasErrors ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
-        } text-sm font-medium">
-          ${hasErrors ? '!' : (metadata?.icon ?? '?')}
+        }">
+          ${hasErrors ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' : (metadata?.icon ?? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>')}
         </div>
 
         <!-- Field Info -->
@@ -1292,7 +1315,39 @@ export class ContentTypeEditor {
   }
 
   private updateDirtyState(): void {
-    // Could add visual indicator for unsaved changes
+    // Dirty dot on Save button
+    const saveBtn = this.container.querySelector<HTMLButtonElement>('[data-ct-save]');
+    if (saveBtn) {
+      let dot = saveBtn.querySelector('[data-dirty-dot]');
+      if (this.state.isDirty) {
+        if (!dot) {
+          dot = document.createElement('span');
+          dot.setAttribute('data-dirty-dot', '');
+          dot.className = 'inline-block w-2 h-2 rounded-full bg-orange-400 ml-1.5 align-middle';
+          dot.setAttribute('title', 'Unsaved changes');
+          saveBtn.appendChild(dot);
+        }
+      } else {
+        dot?.remove();
+      }
+    }
+
+    // "Unsaved changes" badge in header
+    const headerEl = this.container.querySelector('[data-content-type-editor] h1');
+    if (headerEl) {
+      let badge = headerEl.parentElement?.querySelector('[data-dirty-badge]');
+      if (this.state.isDirty) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.setAttribute('data-dirty-badge', '');
+          badge.className = 'px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
+          badge.textContent = 'Modified';
+          headerEl.parentElement?.appendChild(badge);
+        }
+      } else {
+        badge?.remove();
+      }
+    }
   }
 
   private renderFieldList(): void {
@@ -1331,7 +1386,19 @@ export class ContentTypeEditor {
 
   private renderPreview(): void {
     const previewContainer = this.container.querySelector('[data-ct-preview-container]');
-    if (previewContainer && this.state.previewHtml) {
+    if (!previewContainer) return;
+
+    if (this.state.previewError) {
+      previewContainer.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-40 text-red-400">
+          <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          <p class="text-sm font-medium">Preview failed</p>
+          <p class="text-xs text-red-300 mt-1 max-w-xs text-center">${this.state.previewError}</p>
+        </div>
+      `;
+    } else if (this.state.previewHtml) {
       previewContainer.innerHTML = this.state.previewHtml;
     }
   }
