@@ -564,12 +564,6 @@ func normalizeSchemaValue(value any) map[string]any {
 	switch v := value.(type) {
 	case map[string]any:
 		return v
-	case map[string]interface{}:
-		out := map[string]any{}
-		for key, val := range v {
-			out[key] = val
-		}
-		return out
 	case string:
 		var out map[string]any
 		if err := json.Unmarshal([]byte(v), &out); err == nil {
@@ -649,12 +643,6 @@ func extractProperties(schema map[string]any) map[string]any {
 	switch props := propsRaw.(type) {
 	case map[string]any:
 		return props
-	case map[string]interface{}:
-		out := map[string]any{}
-		for k, v := range props {
-			out[k] = v
-		}
-		return out
 	default:
 		return map[string]any{}
 	}
