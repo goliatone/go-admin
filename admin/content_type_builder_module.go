@@ -236,7 +236,6 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 		ID:          contentTypeBuilderMenuGroupID,
 		Type:        MenuItemTypeGroup,
 		Label:       "Content Modeling",
-		Icon:        "puzzle",
 		Position:    intPtr(10),
 		Menu:        m.menuCode,
 		Locale:      locale,
@@ -856,14 +855,18 @@ func NewFormgenSchemaValidator(basePath string) (*FormgenSchemaValidator, error)
 	if err != nil {
 		return nil, fmt.Errorf("init form templates: %w", err)
 	}
-	componentRegistry := components.New()
+	templateBundle := formgenvanilla.TemplatesFS()
+	if templatesFS != nil {
+		templateBundle = withFallbackFS(templatesFS, templateBundle)
+	}
+	componentRegistry := components.NewDefaultRegistry()
 	componentRegistry.MustRegister("schema-editor", SchemaEditorDescriptor(basePath))
 	componentRegistry.MustRegister("block", BlockEditorDescriptor(basePath))
 
 	registry := formgenrender.NewRegistry()
 	renderer, err := formgenvanilla.New(
 		formgenvanilla.WithoutStyles(),
-		formgenvanilla.WithTemplatesFS(templatesFS),
+		formgenvanilla.WithTemplatesFS(templateBundle),
 		formgenvanilla.WithComponentRegistry(componentRegistry),
 	)
 	if err != nil {
@@ -906,7 +909,7 @@ func (v *FormgenSchemaValidator) generate(ctx context.Context, schema map[string
 	if err != nil {
 		return nil, err
 	}
-	doc, err := schemaDocumentFromMap(schema)
+	doc, err := schemaDocumentFromMap(stripUnsupportedSchemaKeywords(schema))
 	if err != nil {
 		return nil, err
 	}
@@ -961,6 +964,39 @@ func schemaDocumentFromMap(schema map[string]any) (formgenschema.Document, error
 	}
 	source := formgenschema.SourceFromFile("inline.schema.json")
 	return formgenschema.NewDocument(source, raw)
+}
+
+func stripUnsupportedSchemaKeywords(schema map[string]any) map[string]any {
+	if schema == nil {
+		return nil
+	}
+	value := stripUnsupportedSchemaValue(schema)
+	if out, ok := value.(map[string]any); ok {
+		return out
+	}
+	return schema
+}
+
+func stripUnsupportedSchemaValue(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for k, item := range v {
+			if k == "additionalProperties" {
+				continue
+			}
+			out[k] = stripUnsupportedSchemaValue(item)
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(v))
+		for _, item := range v {
+			out = append(out, stripUnsupportedSchemaValue(item))
+		}
+		return out
+	default:
+		return value
+	}
 }
 
 func schemaValidationError(err error) error {
