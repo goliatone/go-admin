@@ -49,6 +49,24 @@ func (r *Registry) RegisterPanel(name string, panel *Panel) error {
 	return nil
 }
 
+// UnregisterPanel removes a panel by name and clears associated tab registrations.
+func (r *Registry) UnregisterPanel(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("panel name cannot be empty")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, exists := r.panels[name]; !exists {
+		return ErrNotFound
+	}
+	delete(r.panels, name)
+	if r.panelTabs != nil {
+		delete(r.panelTabs, name)
+	}
+	return nil
+}
+
 // Panels returns a copy of registered panels keyed by name.
 func (r *Registry) Panels() map[string]*Panel {
 	r.mu.RLock()
