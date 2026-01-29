@@ -504,6 +504,11 @@ func (m *ContentTypeBuilderModule) registerSchemaRoutes(admin *Admin) {
 			return writeError(c, err)
 		}
 		opts.UISchema = uiSchema
+		if !schemaHasPreviewableFields(schema) {
+			return writeJSON(c, map[string]any{
+				"html": `<p class="text-sm text-gray-500">Add fields to preview the form.</p>`,
+			})
+		}
 		previewer, ok := m.schemaValidator.(SchemaPreviewer)
 		if !ok {
 			return writeError(c, errors.New("schema preview not configured"))
@@ -956,6 +961,17 @@ func schemaDocumentFromMap(schema map[string]any) (formgenschema.Document, error
 	}
 	source := formgenschema.SourceFromFile("inline.schema.json")
 	return formgenschema.NewDocument(source, raw)
+}
+
+func schemaHasPreviewableFields(schema map[string]any) bool {
+	if schema == nil {
+		return false
+	}
+	props, ok := schema["properties"].(map[string]any)
+	if !ok || len(props) == 0 {
+		return false
+	}
+	return true
 }
 
 func stripUnsupportedSchemaKeywords(schema map[string]any) map[string]any {
