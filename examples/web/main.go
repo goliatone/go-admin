@@ -584,10 +584,7 @@ func main() {
 		&usersModule{store: dataStores.Users, service: usersService, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
 		&pagesModule{store: dataStores.Pages, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		&postsModule{store: dataStores.Posts, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
-		coreadmin.NewContentTypeBuilderModule(
-			coreadmin.WithContentTypeBuilderBasePath(cfg.BasePath),
-			coreadmin.WithContentTypeBuilderMenu(cfg.NavMenuCode, setup.NavigationSectionContent),
-		),
+		quickstart.NewContentTypeBuilderModule(cfg, setup.NavigationSectionContent),
 		&notificationsModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupOthers},
 		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		admin.NewProfileModule().WithMenuParent(setup.NavigationGroupOthers),
@@ -758,7 +755,6 @@ func main() {
 	postHandlers := handlers.NewPostHandlers(dataStores.Posts, formGenerator, adm, cfg, helpers.WithNav)
 	mediaHandlers := handlers.NewMediaHandlers(dataStores.Media, adm, cfg, helpers.WithNav)
 	profileHandlers := handlers.NewProfileHandlers(adm, cfg, helpers.WithNav)
-	contentTypeHandlers := handlers.NewContentTypeBuilderHandlers(adm, cfg, helpers.WithNav)
 	var tenantHandlers *handlers.TenantHandlers
 	if svc := adm.TenantService(); svc != nil {
 		tenantHandlers = handlers.NewTenantHandlers(svc, formGenerator, adm, cfg, helpers.WithNav)
@@ -767,19 +763,6 @@ func main() {
 	// Optional metadata endpoint for frontend DataGrid column definitions.
 	r.Get(path.Join(cfg.BasePath, "api", "users", "columns"), authn.WrapHandler(userHandlers.Columns))
 	r.Get(path.Join(cfg.BasePath, "api", "user-profiles", "columns"), authn.WrapHandler(userProfileHandlers.Columns))
-
-	// Content type builder API helpers (publish/clone/versions/compatibility).
-	apiBase := path.Join(cfg.BasePath, "api")
-	r.Post(path.Join(apiBase, "content_types", ":id", "publish"), authn.WrapHandler(contentTypeHandlers.PublishContentType))
-	r.Post(path.Join(apiBase, "content_types", ":id", "deprecate"), authn.WrapHandler(contentTypeHandlers.DeprecateContentType))
-	r.Post(path.Join(apiBase, "content_types", ":id", "clone"), authn.WrapHandler(contentTypeHandlers.CloneContentType))
-	r.Post(path.Join(apiBase, "content_types", ":id", "compatibility"), authn.WrapHandler(contentTypeHandlers.ContentTypeCompatibility))
-	r.Get(path.Join(apiBase, "content_types", ":id", "versions"), authn.WrapHandler(contentTypeHandlers.ContentTypeVersions))
-	r.Post(path.Join(apiBase, "block_definitions", ":id", "publish"), authn.WrapHandler(contentTypeHandlers.PublishBlockDefinition))
-	r.Post(path.Join(apiBase, "block_definitions", ":id", "deprecate"), authn.WrapHandler(contentTypeHandlers.DeprecateBlockDefinition))
-	r.Post(path.Join(apiBase, "block_definitions", ":id", "clone"), authn.WrapHandler(contentTypeHandlers.CloneBlockDefinition))
-	r.Get(path.Join(apiBase, "block_definitions", ":id", "versions"), authn.WrapHandler(contentTypeHandlers.BlockDefinitionVersions))
-	r.Get(path.Join(apiBase, "block_definitions", "categories"), authn.WrapHandler(contentTypeHandlers.BlockDefinitionCategories))
 
 	if err := quickstart.RegisterAdminUIRoutes(
 		r,
@@ -802,6 +785,12 @@ func main() {
 		}),
 	); err != nil {
 		log.Fatalf("failed to register roles UI routes: %v", err)
+	}
+	if err := quickstart.RegisterContentTypeBuilderUIRoutes(r, cfg, adm, authn); err != nil {
+		log.Fatalf("failed to register content type builder UI routes: %v", err)
+	}
+	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(r, cfg, adm, authn); err != nil {
+		log.Fatalf("failed to register content type builder API routes: %v", err)
 	}
 
 	secureLinkUI := setup.SecureLinkUIConfigFromEnv()
@@ -917,10 +906,6 @@ func main() {
 	r.Post(path.Join(cfg.BasePath, "posts/:id/delete"), authn.WrapHandler(postHandlers.Delete))
 	r.Post(path.Join(cfg.BasePath, "posts/:id/publish"), authn.WrapHandler(postHandlers.Publish))
 	r.Post(path.Join(cfg.BasePath, "posts/:id/archive"), authn.WrapHandler(postHandlers.Archive))
-
-	// Content type builder routes
-	r.Get(path.Join(cfg.BasePath, "content_types"), authn.WrapHandler(contentTypeHandlers.ContentTypes))
-	r.Get(path.Join(cfg.BasePath, "block_definitions"), authn.WrapHandler(contentTypeHandlers.BlockDefinitions))
 
 	// Media routes
 	r.Get(path.Join(cfg.BasePath, "media"), authn.WrapHandler(mediaHandlers.List))
