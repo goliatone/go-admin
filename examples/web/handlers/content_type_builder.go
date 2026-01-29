@@ -20,6 +20,12 @@ type ContentTypeBuilderHandlers struct {
 	WithNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
 }
 
+type panelReader interface {
+	Get(ctx admin.AdminContext, id string) (map[string]any, error)
+	Create(ctx admin.AdminContext, record map[string]any) (map[string]any, error)
+	Update(ctx admin.AdminContext, id string, record map[string]any) (map[string]any, error)
+}
+
 func NewContentTypeBuilderHandlers(
 	adm *admin.Admin,
 	cfg admin.Config,
@@ -263,7 +269,7 @@ func (h *ContentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 	return panel.List(adminCtx, opts)
 }
 
-func (h *ContentTypeBuilderHandlers) panelFor(name string) (*admin.Panel, error) {
+func (h *ContentTypeBuilderHandlers) panelFor(name string) (panelReader, error) {
 	if h.Admin == nil || h.Admin.Registry() == nil {
 		return nil, goerrors.New("admin not configured", goerrors.CategoryInternal).
 			WithCode(http.StatusInternalServerError).

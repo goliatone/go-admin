@@ -36,7 +36,7 @@
         {% set is_active = selected_content_type_id and (selected_content_type_id == ct_id or selected_content_type_id == ct_slug) %}
         <li>
           <a href="{{ base_path }}/content_types?slug={{ ct_slug|urlencode }}"
-             class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors {{ 'border-blue-200 bg-blue-50 text-blue-700' if is_active else 'border-gray-200 hover:border-gray-300 text-gray-700' }}">
+             class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors {% if is_active %}border-blue-200 bg-blue-50 text-blue-700{% else %}border-gray-200 hover:border-gray-300 text-gray-700{% endif %}">
             <span class="font-medium truncate">{{ ct.name|default:ct.slug|default:"Untitled" }}</span>
             <span class="text-xs uppercase tracking-wide text-gray-400">{{ ct.status|default:"draft" }}</span>
           </a>
