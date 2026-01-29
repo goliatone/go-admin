@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+
+{% block title %}Content Types - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-admin-dark">Content Types</h1>
+    <p class="text-sm text-gray-500 mt-1">Design schemas, layout, and capabilities for structured content.</p>
+  </div>
+  <div class="flex items-center gap-3">
+    <button type="button"
+            class="btn btn-secondary"
+            data-block-library-trigger
+            data-api-base-path="{{ base_path }}"
+            data-mode="manage">
+      Manage Blocks
+    </button>
+    <a class="btn btn-primary" href="{{ base_path }}/content_types">New Content Type</a>
+  </div>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  <div class="grid gap-6 lg:grid-cols-[320px,1fr]">
+    <aside class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm self-start">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Library</h2>
+        <span class="text-xs text-gray-400">{{ content_types|length }} total</span>
+      </div>
+
+      {% if content_types and content_types|length > 0 %}
+      <ul class="mt-4 space-y-2">
+        {% for ct in content_types %}
+        {% set ct_id = ct.id|default:"" %}
+        {% set ct_slug = ct.slug|default:ct_id %}
+        {% set is_active = selected_content_type_id and (selected_content_type_id == ct_id or selected_content_type_id == ct_slug) %}
+        <li>
+          <a href="{{ base_path }}/content_types?slug={{ ct_slug|urlencode }}"
+             class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors {{ 'border-blue-200 bg-blue-50 text-blue-700' if is_active else 'border-gray-200 hover:border-gray-300 text-gray-700' }}">
+            <span class="font-medium truncate">{{ ct.name|default:ct.slug|default:"Untitled" }}</span>
+            <span class="text-xs uppercase tracking-wide text-gray-400">{{ ct.status|default:"draft" }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="mt-4 rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
+        No content types yet. Create one to get started.
+      </div>
+      {% endif %}
+    </aside>
+
+    <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="p-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">Builder</h2>
+          <p class="text-xs text-gray-500">Define fields, layout, and preview the generated form.</p>
+        </div>
+        {% if selected_content_type_id %}
+        <span class="text-xs text-gray-400">Editing: {{ selected_content_type_id }}</span>
+        {% endif %}
+      </div>
+      <div
+        class="min-h-[640px]"
+        data-content-type-editor-root
+        data-api-base-path="{{ base_path }}"
+        {% if selected_content_type_id %}data-content-type-id="{{ selected_content_type_id }}"{% endif %}
+      ></div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ base_path }}/assets/dist/content-type-builder/index.js"></script>
+{% endblock %}
