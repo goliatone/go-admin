@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
@@ -118,6 +119,18 @@ func (r *captureRouter) WithLogger(logger router.Logger) router.Router[*fiber.Ap
 	return r
 }
 
+type stubIdentityProvider struct{}
+
+func (stubIdentityProvider) VerifyIdentity(ctx context.Context, identifier, password string) (auth.Identity, error) {
+	_, _, _ = ctx, identifier, password
+	return nil, nil
+}
+
+func (stubIdentityProvider) FindIdentityByIdentifier(ctx context.Context, identifier string) (auth.Identity, error) {
+	_, _ = ctx, identifier
+	return nil, nil
+}
+
 func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	gate := stubFeatureGate{
@@ -127,8 +140,9 @@ func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 		},
 	}
 	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
 
-	if err := RegisterAuthUIRoutes(r, cfg, stubAuther{}, "auth", WithAuthUIFeatureGate(gate)); err != nil {
+	if err := RegisterAuthUIRoutes(r, cfg, auther, "auth", WithAuthUIFeatureGate(gate)); err != nil {
 		t.Fatalf("register auth routes: %v", err)
 	}
 	handler := r.getHandlers["/admin/password-reset"]
