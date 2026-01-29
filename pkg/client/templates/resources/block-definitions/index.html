@@ -1,0 +1,65 @@
+{% extends "layout.html" %}
+
+{% block title %}Block Library - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-admin-dark">Block Library</h1>
+    <p class="text-sm text-gray-500 mt-1">Create reusable blocks to assemble rich content experiences.</p>
+  </div>
+  <div class="flex items-center gap-3">
+    <button type="button"
+            class="btn btn-primary"
+            data-block-library-trigger
+            data-api-base-path="{{ base_path }}"
+            data-mode="manage">
+      Open Block Manager
+    </button>
+  </div>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+      <div>
+        <h2 class="text-lg font-semibold text-gray-900">Existing Blocks</h2>
+        <p class="text-xs text-gray-500">Use the manager to edit or publish blocks.</p>
+      </div>
+      <a class="btn btn-secondary" href="{{ base_path }}/content_types">Back to Content Types</a>
+    </div>
+    {% if block_definitions and block_definitions|length > 0 %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm text-left text-gray-700">
+        <thead class="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="px-5 py-3">Name</th>
+            <th class="px-5 py-3">Type</th>
+            <th class="px-5 py-3">Schema Version</th>
+            <th class="px-5 py-3">Locale</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 bg-white">
+          {% for block in block_definitions %}
+          <tr>
+            <td class="px-5 py-3 font-medium text-gray-900">{{ block.name|default:"Untitled" }}</td>
+            <td class="px-5 py-3 font-mono text-gray-500">{{ block.type|default:"" }}</td>
+            <td class="px-5 py-3 text-gray-500">{{ block.schema_version|default:"—" }}</td>
+            <td class="px-5 py-3 text-gray-500">{{ block.locale|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-6 py-12 text-center text-sm text-gray-500">
+      No blocks defined yet. Use the block manager to create your first block.
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ base_path }}/assets/dist/content-type-builder/index.js"></script>
+{% endblock %}
