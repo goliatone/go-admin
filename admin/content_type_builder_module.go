@@ -218,6 +218,7 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 }
 
 // MenuItems contributes navigation for content modeling.
+// TODO: we should be able to configure menu icons
 func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
@@ -226,37 +227,28 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 	if basePath == "" {
 		basePath = "/admin"
 	}
-	groupID := m.menuGroupID
-	if groupID == "" {
-		groupID = m.resolveMenuGroupID()
-	}
 	contentTypesPath := joinPath(basePath, contentTypePanelID)
 	blocksPath := joinPath(basePath, blockDefinitionsPanelID)
-	group := MenuItem{
-		ID:          contentTypeBuilderMenuGroupID,
-		Type:        MenuItemTypeGroup,
-		Label:       "Content Modeling",
-		Position:    intPtr(10),
-		Menu:        m.menuCode,
-		Locale:      locale,
-		ParentID:    m.menuParent,
-		Collapsible: true,
-	}
-	contentTypes := MenuItem{
-		Label:    "Content Types",
+	contentModeling := MenuItem{
+		ID:       contentTypeBuilderMenuGroupID,
+		Label:    "Content Modeling",
+		Icon:     "cube",
 		Target:   map[string]any{"type": "url", "path": contentTypesPath, "key": contentTypePanelID},
 		Locale:   locale,
 		Menu:     m.menuCode,
-		ParentID: groupID,
+		ParentID: m.menuParent,
+		Position: intPtr(4),
 	}
 	blocks := MenuItem{
 		Label:    "Block Library",
+		Icon:     "view-grid",
 		Target:   map[string]any{"type": "url", "path": blocksPath, "key": blockDefinitionsPanelID},
 		Locale:   locale,
 		Menu:     m.menuCode,
-		ParentID: groupID,
+		ParentID: m.menuParent,
+		Position: intPtr(5),
 	}
-	return []MenuItem{group, contentTypes, blocks}
+	return []MenuItem{contentModeling, blocks}
 }
 
 func (m *ContentTypeBuilderModule) resolveMenuGroupID() string {
