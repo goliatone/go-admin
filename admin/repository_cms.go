@@ -359,8 +359,10 @@ func mapFromCMSContentType(ct CMSContentType) map[string]any {
 		"slug":         ct.Slug,
 		"description":  ct.Description,
 		"schema":       cloneAnyMap(ct.Schema),
+		"ui_schema":    cloneAnyMap(ct.UISchema),
 		"capabilities": cloneAnyMap(ct.Capabilities),
 		"icon":         ct.Icon,
+		"status":       ct.Status,
 	}
 	if ct.ID != "" && ct.ID != id {
 		out["content_type_id"] = ct.ID
@@ -553,6 +555,141 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 // Delete removes a content item.
 func (r *CMSContentRepository) Delete(ctx context.Context, id string) error {
 	if r.content == nil {
+		return ErrNotFound
+	}
+	return r.content.DeleteContent(ctx, id)
+}
+
+// CMSContentTypeEntryRepository scopes content CRUD to a specific content type.
+type CMSContentTypeEntryRepository struct {
+	content     CMSContentService
+	contentType CMSContentType
+}
+
+// NewCMSContentTypeEntryRepository builds a content repository scoped to the supplied content type.
+func NewCMSContentTypeEntryRepository(content CMSContentService, contentType CMSContentType) *CMSContentTypeEntryRepository {
+	return &CMSContentTypeEntryRepository{content: content, contentType: contentType}
+}
+
+// List returns content filtered by the bound content type.
+func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
+	if r.content == nil {
+		return nil, 0, ErrNotFound
+	}
+	locale := extractLocale(opts, "")
+	contents, err := r.content.Contents(ctx, locale)
+	if err != nil {
+		return nil, 0, err
+	}
+	search := strings.ToLower(extractSearch(opts))
+	typeKey := strings.ToLower(strings.TrimSpace(firstNonEmpty(r.contentType.Slug, r.contentType.Name, r.contentType.ID)))
+	filtered := make([]CMSContent, 0, len(contents))
+	for _, item := range contents {
+		contentType := strings.ToLower(strings.TrimSpace(firstNonEmpty(item.ContentTypeSlug, item.ContentType)))
+		if typeKey != "" && contentType != typeKey {
+			continue
+		}
+		if search != "" && !strings.Contains(strings.ToLower(item.Title), search) &&
+			!strings.Contains(strings.ToLower(item.Slug), search) &&
+			!strings.Contains(strings.ToLower(contentType), search) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	sliced, total := paginateCMS(filtered, opts)
+	out := make([]map[string]any, 0, len(sliced))
+	for _, item := range sliced {
+		contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
+		blocksPayload := blocksPayloadFromContent(item)
+		schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
+		record := map[string]any{
+			"id":           item.ID,
+			"title":        item.Title,
+			"slug":         item.Slug,
+			"locale":       item.Locale,
+			"content_type": contentType,
+			"status":       item.Status,
+			"blocks":       blocksPayload,
+			"data":         cloneAnyMap(item.Data),
+		}
+		if schema != "" {
+			record["_schema"] = schema
+		}
+		mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
+		out = append(out, record)
+	}
+	return out, total, nil
+}
+
+// Get retrieves content by id, enforcing content type membership.
+func (r *CMSContentTypeEntryRepository) Get(ctx context.Context, id string) (map[string]any, error) {
+	if r.content == nil {
+		return nil, ErrNotFound
+	}
+	base := NewCMSContentRepository(r.content)
+	record, err := base.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	typeKey := strings.ToLower(strings.TrimSpace(firstNonEmpty(r.contentType.Slug, r.contentType.Name, r.contentType.ID)))
+	if typeKey == "" {
+		return record, nil
+	}
+	recordType := strings.ToLower(strings.TrimSpace(firstNonEmpty(toString(record["content_type_slug"]), toString(record["content_type"]))))
+	if recordType != typeKey {
+		return nil, ErrNotFound
+	}
+	return record, nil
+}
+
+// Create inserts new content with the bound content type.
+func (r *CMSContentTypeEntryRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
+	if r.content == nil {
+		return nil, ErrNotFound
+	}
+	base := NewCMSContentRepository(r.content)
+	if record == nil {
+		record = map[string]any{}
+	}
+	typeKey := strings.TrimSpace(firstNonEmpty(r.contentType.Slug, r.contentType.Name, r.contentType.ID))
+	if typeKey != "" {
+		record["content_type"] = typeKey
+		record["content_type_slug"] = typeKey
+	}
+	return base.Create(ctx, record)
+}
+
+// Update modifies content with the bound content type.
+func (r *CMSContentTypeEntryRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
+	if r.content == nil {
+		return nil, ErrNotFound
+	}
+	base := NewCMSContentRepository(r.content)
+	if record == nil {
+		record = map[string]any{}
+	}
+	typeKey := strings.TrimSpace(firstNonEmpty(r.contentType.Slug, r.contentType.Name, r.contentType.ID))
+	if typeKey != "" {
+		record["content_type"] = typeKey
+		record["content_type_slug"] = typeKey
+	}
+	updated, err := base.Update(ctx, id, record)
+	if err != nil {
+		return nil, err
+	}
+	return updated, nil
+}
+
+// Delete removes a content item after validating its type.
+func (r *CMSContentTypeEntryRepository) Delete(ctx context.Context, id string) error {
+	if r.content == nil {
+		return ErrNotFound
+	}
+	record, err := r.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if toString(record["id"]) == "" {
 		return ErrNotFound
 	}
 	return r.content.DeleteContent(ctx, id)
@@ -1668,12 +1805,25 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 	if icon, ok := record["icon"].(string); ok {
 		ct.Icon = icon
 	}
+	if status, ok := record["status"].(string); ok {
+		ct.Status = status
+	}
 	if schema, ok := record["schema"].(map[string]any); ok {
 		ct.Schema = cloneAnyMap(schema)
 	} else if raw, ok := record["schema"].(string); ok && raw != "" {
 		var m map[string]any
 		if err := json.Unmarshal([]byte(raw), &m); err == nil {
 			ct.Schema = m
+		}
+	}
+	if uiSchema, ok := record["ui_schema"].(map[string]any); ok {
+		ct.UISchema = cloneAnyMap(uiSchema)
+	} else if uiSchema, ok := record["uiSchema"].(map[string]any); ok && ct.UISchema == nil {
+		ct.UISchema = cloneAnyMap(uiSchema)
+	} else if raw, ok := record["ui_schema"].(string); ok && raw != "" {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(raw), &m); err == nil {
+			ct.UISchema = m
 		}
 	}
 	if caps, ok := record["capabilities"].(map[string]any); ok {
