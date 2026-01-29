@@ -51,6 +51,9 @@ type SchemaPreviewer interface {
 	Preview(ctx context.Context, schema map[string]any, opts SchemaValidationOptions) ([]byte, error)
 }
 
+// SchemaPreviewFallback renders preview HTML when preview generation fails.
+type SchemaPreviewFallback func(ctx AdminContext, schema map[string]any, opts SchemaValidationOptions, err error) (html string, handled bool)
+
 // ContentTypeBuilderModule wires the content type builder UI and dynamic panels.
 type ContentTypeBuilderModule struct {
 	basePath         string
@@ -65,6 +68,7 @@ type ContentTypeBuilderModule struct {
 	schemaValidator  SchemaValidator
 	schemaGuardrails *SchemaGuardrails
 	rateLimiter      *RateLimiter
+	previewFallback  SchemaPreviewFallback
 	activity         ActivitySink
 }
 
@@ -129,6 +133,13 @@ func WithContentTypeBuilderGuardrails(guardrails *SchemaGuardrails) ContentTypeB
 func WithContentTypeBuilderRateLimiter(limiter *RateLimiter) ContentTypeBuilderOption {
 	return func(module *ContentTypeBuilderModule) {
 		module.rateLimiter = limiter
+	}
+}
+
+// WithContentTypeBuilderPreviewFallback sets a fallback renderer for preview errors.
+func WithContentTypeBuilderPreviewFallback(fallback SchemaPreviewFallback) ContentTypeBuilderOption {
+	return func(module *ContentTypeBuilderModule) {
+		module.previewFallback = fallback
 	}
 }
 
@@ -515,6 +526,11 @@ func (m *ContentTypeBuilderModule) registerSchemaRoutes(admin *Admin) {
 		}
 		html, err := previewer.Preview(adminCtx.Context, schema, opts)
 		if err != nil {
+			if m.previewFallback != nil {
+				if fallback, handled := m.previewFallback(adminCtx, schema, opts, err); handled {
+					return writeJSON(c, map[string]any{"html": fallback})
+				}
+			}
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]any{"html": string(html)})
