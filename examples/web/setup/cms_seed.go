@@ -318,10 +318,9 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) error {
 		},
 	}
 	pageSchema := map[string]any{
-		"$schema":              "https://json-schema.org/draft/2020-12/schema",
-		"type":                 "object",
-		"additionalProperties": true,
-		"$defs":                blockDefs,
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"$defs":   blockDefs,
 		"properties": map[string]any{
 			"title":          map[string]any{"type": "string"},
 			"summary":        map[string]any{"type": "string"},
@@ -348,10 +347,9 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) error {
 		},
 	}
 	postSchema := map[string]any{
-		"$schema":              "https://json-schema.org/draft/2020-12/schema",
-		"type":                 "object",
-		"additionalProperties": true,
-		"$defs":                blockDefs,
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"$defs":   blockDefs,
 		"properties": map[string]any{
 			"title":          map[string]any{"type": "string"},
 			"summary":        map[string]any{"type": "string"},
