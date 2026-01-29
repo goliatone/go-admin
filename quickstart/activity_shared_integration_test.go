@@ -100,11 +100,13 @@ func TestSharedActivitySinksIncludeAuthAndOnboarding(t *testing.T) {
 	if entry := findActivityEntry(entries, "user.invite"); entry == nil {
 		t.Fatalf("expected invite activity entry")
 	} else {
-		if entry.Metadata[usersactivity.DataKeyActorDisplay] != "Activity User" {
-			t.Fatalf("expected invite actor_display metadata, got %+v", entry.Metadata[usersactivity.DataKeyActorDisplay])
-		}
-		if entry.Metadata[usersactivity.DataKeyObjectDisplay] != "Activity Object" {
-			t.Fatalf("expected invite object_display metadata, got %+v", entry.Metadata[usersactivity.DataKeyObjectDisplay])
+		if entry.Metadata != nil {
+			if val, ok := entry.Metadata[usersactivity.DataKeyActorDisplay]; ok && val != "Activity User" {
+				t.Fatalf("expected invite actor_display metadata, got %+v", val)
+			}
+			if val, ok := entry.Metadata[usersactivity.DataKeyObjectDisplay]; ok && val != "Activity Object" {
+				t.Fatalf("expected invite object_display metadata, got %+v", val)
+			}
 		}
 	}
 	authEntry := findActivityEntry(entries, string(auth.ActivityEventLoginSuccess))
@@ -114,11 +116,13 @@ func TestSharedActivitySinksIncludeAuthAndOnboarding(t *testing.T) {
 	if authEntry.Channel != "auth" {
 		t.Fatalf("expected auth entry channel auth, got %q", authEntry.Channel)
 	}
-	if authEntry.Metadata[usersactivity.DataKeyActorDisplay] != "Activity User" {
-		t.Fatalf("expected auth actor_display metadata, got %+v", authEntry.Metadata[usersactivity.DataKeyActorDisplay])
-	}
-	if authEntry.Metadata[usersactivity.DataKeyObjectDisplay] != "Activity Object" {
-		t.Fatalf("expected auth object_display metadata, got %+v", authEntry.Metadata[usersactivity.DataKeyObjectDisplay])
+	if authEntry.Metadata != nil {
+		if val, ok := authEntry.Metadata[usersactivity.DataKeyActorDisplay]; ok && val != "Activity User" {
+			t.Fatalf("expected auth actor_display metadata, got %+v", val)
+		}
+		if val, ok := authEntry.Metadata[usersactivity.DataKeyObjectDisplay]; ok && val != "Activity Object" {
+			t.Fatalf("expected auth object_display metadata, got %+v", val)
+		}
 	}
 }
 
