@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
@@ -93,7 +94,7 @@ func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
 	}
 }
 
-func getFeatureFlags(t *testing.T, server *router.FiberAdapter, path string) []any {
+func getFeatureFlags(t *testing.T, server router.Server[*fiber.App], path string) []any {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	resp, err := server.WrappedRouter().Test(req)
