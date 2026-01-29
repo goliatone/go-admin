@@ -20,12 +20,12 @@ import (
 type RolesUIOption func(*rolesUIOptions)
 
 type rolesUIOptions struct {
-	basePath      string
-	listTemplate  string
-	formTemplate  string
+	basePath       string
+	listTemplate   string
+	formTemplate   string
 	detailTemplate string
-	viewContext   UIViewContextBuilder
-	formGenerator *formgenorchestrator.Orchestrator
+	viewContext    UIViewContextBuilder
+	formGenerator  *formgenorchestrator.Orchestrator
 }
 
 // WithRolesBasePath overrides the base path used to build role routes.
@@ -83,11 +83,11 @@ func RegisterRolesUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 	}
 
 	options := rolesUIOptions{
-		basePath:      strings.TrimSpace(cfg.BasePath),
-		listTemplate:  "resources/roles/list",
-		formTemplate:  "resources/roles/form",
+		basePath:       strings.TrimSpace(cfg.BasePath),
+		listTemplate:   "resources/roles/list",
+		formTemplate:   "resources/roles/form",
 		detailTemplate: "resources/roles/detail",
-		viewContext:   defaultUIViewContextBuilder(adm, cfg),
+		viewContext:    defaultUIViewContextBuilder(adm, cfg),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -126,23 +126,23 @@ func RegisterRolesUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 }
 
 type roleHandlers struct {
-	admin         *admin.Admin
-	cfg           admin.Config
-	formGenerator *formgenorchestrator.Orchestrator
-	viewContext   UIViewContextBuilder
-	listTemplate  string
-	formTemplate  string
+	admin          *admin.Admin
+	cfg            admin.Config
+	formGenerator  *formgenorchestrator.Orchestrator
+	viewContext    UIViewContextBuilder
+	listTemplate   string
+	formTemplate   string
 	detailTemplate string
 }
 
 func newRoleHandlers(adm *admin.Admin, cfg admin.Config, formGen *formgenorchestrator.Orchestrator, viewCtx UIViewContextBuilder, formTemplate string, listTemplate string, detailTemplate string) *roleHandlers {
 	return &roleHandlers{
-		admin:         adm,
-		cfg:           cfg,
-		formGenerator: formGen,
-		viewContext:   viewCtx,
-		formTemplate:  formTemplate,
-		listTemplate:  listTemplate,
+		admin:          adm,
+		cfg:            cfg,
+		formGenerator:  formGen,
+		viewContext:    viewCtx,
+		formTemplate:   formTemplate,
+		listTemplate:   listTemplate,
 		detailTemplate: detailTemplate,
 	}
 }
@@ -393,8 +393,8 @@ func newResourceRoutes(basePath, resource string) resourceRoutes {
 	return resourceRoutes{basePath: strings.TrimSpace(basePath), resource: resource}
 }
 
-func (r resourceRoutes) index() string  { return path.Join(r.basePath, r.resource) }
-func (r resourceRoutes) new() string    { return path.Join(r.basePath, r.resource, "new") }
+func (r resourceRoutes) index() string { return path.Join(r.basePath, r.resource) }
+func (r resourceRoutes) new() string   { return path.Join(r.basePath, r.resource, "new") }
 func (r resourceRoutes) show(id string) string {
 	return path.Join(r.basePath, r.resource, id)
 }
