@@ -30,7 +30,7 @@ func TestDiffSchemasDetectsBreakingChanges(t *testing.T) {
 				"type": "string",
 			},
 		},
-		"required": []any{"title", "subtitle"},
+		"required": []any{"title", "count"},
 	}
 
 	breaking, warnings := diffSchemas(oldSchema, newSchema)
