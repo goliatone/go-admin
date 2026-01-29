@@ -758,7 +758,13 @@ func (s *InMemoryContentService) CreateContentType(ctx context.Context, contentT
 	contentType.Slug = slug
 	contentType.Description = strings.TrimSpace(contentType.Description)
 	contentType.Icon = strings.TrimSpace(contentType.Icon)
+	if status := strings.TrimSpace(contentType.Status); status != "" {
+		contentType.Status = status
+	} else if contentType.Status == "" {
+		contentType.Status = "draft"
+	}
 	contentType.Schema = cloneAnyMap(contentType.Schema)
+	contentType.UISchema = cloneAnyMap(contentType.UISchema)
 	contentType.Capabilities = cloneAnyMap(contentType.Capabilities)
 	contentType.UpdatedAt = time.Now().UTC()
 	if contentType.CreatedAt.IsZero() {
@@ -804,6 +810,9 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 	if contentType.Schema != nil {
 		existing.Schema = cloneAnyMap(contentType.Schema)
 	}
+	if contentType.UISchema != nil {
+		existing.UISchema = cloneAnyMap(contentType.UISchema)
+	}
 	if contentType.Capabilities != nil {
 		existing.Capabilities = cloneAnyMap(contentType.Capabilities)
 	}
@@ -812,6 +821,9 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 	}
 	if icon := strings.TrimSpace(contentType.Icon); icon != "" {
 		existing.Icon = icon
+	}
+	if status := strings.TrimSpace(contentType.Status); status != "" {
+		existing.Status = status
 	}
 	if existing.Name == "" {
 		s.mu.Unlock()
@@ -1202,6 +1214,9 @@ func cloneCMSContentType(in CMSContentType) CMSContentType {
 	out := in
 	if in.Schema != nil {
 		out.Schema = cloneAnyMap(in.Schema)
+	}
+	if in.UISchema != nil {
+		out.UISchema = cloneAnyMap(in.UISchema)
 	}
 	if in.Capabilities != nil {
 		out.Capabilities = cloneAnyMap(in.Capabilities)
