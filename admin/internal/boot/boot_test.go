@@ -351,6 +351,10 @@ func (s *stubDashboardBinding) SavePreferences(_ router.Context, _ map[string]an
 	return map[string]any{"ok": true}, nil
 }
 
+func (s *stubDashboardBinding) Diagnostics(_ router.Context, _ string) (map[string]any, error) {
+	return map[string]any{"diag": true}, nil
+}
+
 func TestDashboardStepRegistersRoutesAndWrapsHandlers(t *testing.T) {
 	rr := &recordRouter{}
 	resp := &stubResponder{}
@@ -376,7 +380,7 @@ func TestDashboardStepRegistersRoutesAndWrapsHandlers(t *testing.T) {
 	}
 
 	require.NoError(t, DashboardStep(ctx))
-	require.Len(t, rr.calls, 5)
+	require.Len(t, rr.calls, 6)
 
 	paths := map[string]bool{}
 	methodPaths := map[string]bool{}
@@ -387,11 +391,13 @@ func TestDashboardStepRegistersRoutesAndWrapsHandlers(t *testing.T) {
 	require.True(t, paths["/admin/api/dashboard"])
 	require.True(t, paths["/admin/api/dashboard/preferences"])
 	require.True(t, paths["/admin/api/dashboard/config"])
+	require.True(t, paths["/admin/api/dashboard/debug"])
 	require.True(t, methodPaths["GET /admin/api/dashboard/preferences"])
 	require.False(t, methodPaths["POST /admin/api/dashboard.preferences"]) // sanity: no typo route
 	require.True(t, methodPaths["POST /admin/api/dashboard/preferences"])
 	require.True(t, methodPaths["GET /admin/api/dashboard/config"])
 	require.True(t, methodPaths["POST /admin/api/dashboard/config"])
+	require.True(t, methodPaths["GET /admin/api/dashboard/debug"])
 
 	// Execute one handler to ensure wrapper and gate are applied.
 	mockCtx := router.NewMockContext()

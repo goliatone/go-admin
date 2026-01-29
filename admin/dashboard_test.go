@@ -61,6 +61,57 @@ func TestDashboardProviderRegistersCommandAndResolvesInstances(t *testing.T) {
 	})
 }
 
+func TestDashboardLateProviderRegistrationUpdatesComponents(t *testing.T) {
+	widgetSvc := NewInMemoryWidgetService()
+	dash := NewDashboard()
+	dash.WithWidgetService(widgetSvc)
+	dash.RegisterArea(WidgetAreaDefinition{Code: "admin.dashboard.main"})
+
+	widgets, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"})
+	if err != nil {
+		t.Fatalf("initial resolve failed: %v", err)
+	}
+	if len(widgets) != 0 {
+		t.Fatalf("expected no widgets before late registration, got %d", len(widgets))
+	}
+
+	dash.RegisterProvider(DashboardProviderSpec{
+		Code:        "late.widget",
+		Name:        "Late Widget",
+		DefaultArea: "admin.dashboard.main",
+		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			_ = ctx
+			_ = cfg
+			return map[string]any{"ok": true}, nil
+		},
+	})
+
+	widgets, err = dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"})
+	if err != nil {
+		t.Fatalf("resolve after late registration failed: %v", err)
+	}
+	if len(widgets) != 1 {
+		t.Fatalf("expected one widget after late registration, got %d", len(widgets))
+	}
+	found := false
+	for _, widget := range widgets {
+		if widget["definition"] != "late.widget" {
+			continue
+		}
+		found = true
+		data, ok := widget["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected widget data map, got %T", widget["data"])
+		}
+		if data["ok"] != true {
+			t.Fatalf("expected widget data ok=true, got %+v", data)
+		}
+	}
+	if !found {
+		t.Fatalf("expected late.widget in results, got %+v", widgets)
+	}
+}
+
 func TestDashboardVisibilityPermissionFilters(t *testing.T) {
 	dash := NewDashboard()
 	dash.WithWidgetService(NewInMemoryWidgetService())
