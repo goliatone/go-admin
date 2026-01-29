@@ -45,6 +45,7 @@ func PanelStep(ctx BootCtx) error {
 				return responder.WriteJSON(c, map[string]any{
 					"total":   total,
 					"records": records,
+					"items":   records,
 					"schema":  schema,
 					"form":    form,
 				})
