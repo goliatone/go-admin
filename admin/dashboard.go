@@ -236,6 +236,10 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	if d.registry != nil {
 		d.registry.RegisterDashboardProvider(spec)
 	}
+	if d.components != nil {
+		log.Printf("[dashboard] provider %s registered after initialization; updating live registry", spec.Code)
+		d.registerProviderInComponents(spec, spec.Handler)
+	}
 
 	// Register widget definition with CMS widget service when available.
 	// Some CMS backends require a non-empty schema, so default to an empty schema
@@ -271,7 +275,36 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	if spec.DefaultArea != "" && !hasPersistedInstance {
 		d.AddDefaultInstance(spec.DefaultArea, spec.Code, spec.DefaultConfig, spec.DefaultSpan, "")
 	}
-	d.components = nil
+}
+
+func (d *Dashboard) registerProviderInComponents(spec DashboardProviderSpec, handler WidgetProvider) {
+	if d == nil || d.components == nil || d.components.providers == nil || handler == nil {
+		return
+	}
+	def := dashcmp.WidgetDefinition{
+		Code:   spec.Code,
+		Name:   spec.Name,
+		Schema: spec.Schema,
+	}
+	_ = d.components.providers.RegisterDefinition(def)
+	_ = d.components.providers.RegisterProvider(spec.Code, dashcmp.ProviderFunc(func(ctx context.Context, meta dashcmp.WidgetContext) (dashcmp.WidgetData, error) {
+		cfg := cloneAny(spec.DefaultConfig)
+		if cfg == nil {
+			cfg = map[string]any{}
+		}
+		for k, v := range meta.Instance.Configuration {
+			cfg[k] = v
+		}
+		adminCtx := AdminContext{Context: ctx, UserID: meta.Viewer.UserID, Locale: meta.Viewer.Locale}
+		data, err := handler(adminCtx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		return dashcmp.WidgetData(data), nil
+	}))
+	if d.components.specs != nil {
+		d.components.specs[spec.Code] = spec
+	}
 }
 
 // RegisterManifest bulk registers providers (lightweight manifest discovery hook).
@@ -299,6 +332,7 @@ func (d *Dashboard) AddDefaultInstance(area, defCode string, cfg map[string]any,
 		Locale:         locale,
 	})
 	if d.widgetSvc != nil {
+		_ = d.widgetSvc.Definitions()
 		if _, err := d.widgetSvc.SaveInstance(context.Background(), WidgetInstance{
 			DefinitionCode: defCode,
 			Area:           area,
