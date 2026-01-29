@@ -47,23 +47,23 @@ var reservedFieldNames = map[string]bool{
 
 // SchemaGuardrails provides validation and security checks for content type schemas
 type SchemaGuardrails struct {
-	MaxSizeBytes           int
-	MaxFields              int
-	MaxDepth               int
-	UISchemaMaxSizeBytes   int
+	MaxSizeBytes            int
+	MaxFields               int
+	MaxDepth                int
+	UISchemaMaxSizeBytes    int
 	PreviewHTMLMaxSizeBytes int
-	ReservedFields         map[string]bool
+	ReservedFields          map[string]bool
 }
 
 // NewSchemaGuardrails creates guardrails with default limits
 func NewSchemaGuardrails() *SchemaGuardrails {
 	return &SchemaGuardrails{
-		MaxSizeBytes:           DefaultSchemaMaxSizeBytes,
-		MaxFields:              DefaultSchemaMaxFields,
-		MaxDepth:               DefaultSchemaMaxDepth,
-		UISchemaMaxSizeBytes:   DefaultUISchemaMaxSizeBytes,
+		MaxSizeBytes:            DefaultSchemaMaxSizeBytes,
+		MaxFields:               DefaultSchemaMaxFields,
+		MaxDepth:                DefaultSchemaMaxDepth,
+		UISchemaMaxSizeBytes:    DefaultUISchemaMaxSizeBytes,
 		PreviewHTMLMaxSizeBytes: DefaultPreviewHTMLMaxSizeBytes,
-		ReservedFields:         reservedFieldNames,
+		ReservedFields:          reservedFieldNames,
 	}
 }
 
