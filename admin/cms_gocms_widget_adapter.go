@@ -486,7 +486,9 @@ func filterWidgetInstances(instances []WidgetInstance, filter WidgetInstanceFilt
 		if pageID != "" && inst.PageID != pageID {
 			continue
 		}
-		if locale != "" && !strings.EqualFold(inst.Locale, locale) {
+		// NOTE: Keep this locale filter in the adapter for now; refactor into a shared helper
+		// once/if we add more widget service adapters.
+		if locale != "" && inst.Locale != "" && !strings.EqualFold(inst.Locale, locale) {
 			continue
 		}
 		out = append(out, inst)
