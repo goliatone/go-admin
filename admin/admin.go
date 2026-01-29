@@ -838,6 +838,14 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 	return panel, nil
 }
 
+// UnregisterPanel removes a previously registered panel.
+func (a *Admin) UnregisterPanel(name string) error {
+	if a.registry == nil {
+		return errors.New("registry is nil")
+	}
+	return a.registry.UnregisterPanel(name)
+}
+
 // RegisterPanelTab attaches a tab to an existing or future panel.
 func (a *Admin) RegisterPanelTab(panelName string, tab PanelTab) error {
 	if a.registry == nil {
