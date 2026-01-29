@@ -219,12 +219,14 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	}
 	d.defaultInstances = filtered
 
-	// Also clear persisted CMS widget instances for this definition when using a widget service.
+	// Track whether a persisted instance already exists for this definition.
+	hasPersistedInstance := false
 	if d.widgetSvc != nil {
 		if instances, err := d.widgetSvc.ListInstances(context.Background(), WidgetInstanceFilter{}); err == nil {
 			for _, inst := range instances {
 				if inst.DefinitionCode == spec.Code {
-					_ = d.widgetSvc.DeleteInstance(context.Background(), inst.ID)
+					hasPersistedInstance = true
+					break
 				}
 			}
 		}
@@ -265,8 +267,8 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 		}
 	}
 
-	// Seed a default instance if provided.
-	if spec.DefaultArea != "" {
+	// Seed a default instance if provided and no persisted instance already exists.
+	if spec.DefaultArea != "" && !hasPersistedInstance {
 		d.AddDefaultInstance(spec.DefaultArea, spec.Code, spec.DefaultConfig, spec.DefaultSpan, "")
 	}
 	d.components = nil
