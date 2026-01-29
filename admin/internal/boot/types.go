@@ -79,6 +79,7 @@ type DashboardBinding interface {
 	Widgets(router.Context, string) (map[string]any, error)
 	Preferences(router.Context, string) (map[string]any, error)
 	SavePreferences(router.Context, map[string]any) (map[string]any, error)
+	Diagnostics(router.Context, string) (map[string]any, error)
 }
 
 // NavigationBinding exposes navigation resolution.
