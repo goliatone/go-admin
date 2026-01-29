@@ -7,23 +7,23 @@ replace github.com/goliatone/go-admin => ..
 require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/goliatone/go-admin v0.22.0
+	github.com/goliatone/go-admin v0.23.0
 	github.com/goliatone/go-auth v0.28.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.28.0
-	github.com/goliatone/go-cms v0.19.0
+	github.com/goliatone/go-cms v0.23.0
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.6.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.6.0
 	github.com/goliatone/go-featuregate v0.5.0
-	github.com/goliatone/go-formgen v0.14.0
+	github.com/goliatone/go-formgen v0.16.0
 	github.com/goliatone/go-notifications v0.11.0
 	github.com/goliatone/go-persistence-bun v0.10.0
 	github.com/goliatone/go-router v0.43.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-urlkit v0.3.0
-	github.com/goliatone/go-users v0.14.0
+	github.com/goliatone/go-users v0.15.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
 )
@@ -83,7 +83,8 @@ require (
 	github.com/goliatone/go-command v0.13.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.8.0 // indirect
-	github.com/goliatone/go-crud v0.17.0 // indirect
+	github.com/goliatone/go-crud v0.19.0 // indirect
+	github.com/goliatone/go-crud/gql v0.19.0 // indirect
 	github.com/goliatone/go-i18n v0.2.0 // indirect
 	github.com/goliatone/go-job v0.14.0 // indirect
 	github.com/goliatone/go-logger v0.7.0 // indirect
@@ -92,7 +93,8 @@ require (
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.12.0 // indirect
 	github.com/goliatone/go-repository-cache v0.6.0 // indirect
-	github.com/goliatone/hashid v0.1.1 // indirect
+	github.com/goliatone/go-slug v0.1.0 // indirect
+	github.com/goliatone/hashid v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/pprof v0.0.0-20251208000136-3d256cb9ff16 // indirect
