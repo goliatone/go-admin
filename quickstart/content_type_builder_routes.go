@@ -16,6 +16,8 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+const environmentCookieName = "admin_env"
+
 // ContentTypeBuilderUIOption customizes content type builder UI routes.
 type ContentTypeBuilderUIOption func(*contentTypeBuilderUIOptions)
 
@@ -202,6 +204,7 @@ func RegisterContentTypeBuilderAPIRoutes(
 	r.Post(path.Join(apiBase, "content_types", ":id", "clone"), wrap(handlers.CloneContentType))
 	r.Post(path.Join(apiBase, "content_types", ":id", "compatibility"), wrap(handlers.ContentTypeCompatibility))
 	r.Get(path.Join(apiBase, "content_types", ":id", "versions"), wrap(handlers.ContentTypeVersions))
+	r.Post(path.Join(apiBase, "session", "environment"), wrap(handlers.UpdateEnvironment))
 	r.Post(path.Join(apiBase, "block_definitions", ":id", "publish"), wrap(handlers.PublishBlockDefinition))
 	r.Post(path.Join(apiBase, "block_definitions", ":id", "deprecate"), wrap(handlers.DeprecateBlockDefinition))
 	r.Post(path.Join(apiBase, "block_definitions", ":id", "clone"), wrap(handlers.CloneBlockDefinition))
@@ -670,6 +673,37 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionFieldTypes(c router.Context)
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"categories": admin.BlockFieldTypeGroups(),
+	})
+}
+
+func (h *contentTypeBuilderHandlers) UpdateEnvironment(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
+	req := struct {
+		Environment string `json:"environment"`
+	}{}
+	if err := parseJSONBody(c, &req); err != nil {
+		return err
+	}
+	env := strings.TrimSpace(req.Environment)
+	path := strings.TrimSpace(h.cfg.BasePath)
+	if path == "" {
+		path = "/"
+	}
+	cookie := router.Cookie{
+		Name:     environmentCookieName,
+		Value:    env,
+		Path:     path,
+		HTTPOnly: true,
+		SameSite: router.CookieSameSiteLaxMode,
+	}
+	if env == "" {
+		cookie.MaxAge = -1
+	}
+	c.Cookie(&cookie)
+	return c.JSON(http.StatusOK, map[string]any{
+		"environment": env,
 	})
 }
 
@@ -1203,6 +1237,9 @@ func resolveEnvironment(c router.Context) string {
 		return env
 	}
 	if env := strings.TrimSpace(c.Query("environment")); env != "" {
+		return env
+	}
+	if env := strings.TrimSpace(c.Cookies(environmentCookieName)); env != "" {
 		return env
 	}
 	session := BuildSessionUser(c.Context())
