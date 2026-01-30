@@ -601,11 +601,12 @@ export class BlockLibraryManager {
   }
 
   private async cloneBlock(block: BlockDefinition): Promise<void> {
-    const newType = prompt('Enter a unique type for the cloned block:', `${block.type}_copy`);
-    if (!newType) return;
+    const base = (block.slug || block.type || 'block').trim();
+    const newSlug = prompt('Enter a unique slug for the cloned block:', `${base}_copy`);
+    if (!newSlug) return;
 
     try {
-      await this.api.cloneBlockDefinition(block.id, newType);
+      await this.api.cloneBlockDefinition(block.id, newSlug, newSlug);
       await this.loadBlocks();
     } catch (err) {
       this.showError(err instanceof Error ? err.message : 'Failed to clone block');

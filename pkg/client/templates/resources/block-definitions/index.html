@@ -71,7 +71,7 @@
           <li>
             <button type="button"
                     data-block-ide-select="{{ block.id|default:'' }}"
-                    data-block-type="{{ block.type|default:'' }}"
+                    data-block-type="{% if block.slug %}{{ block.slug }}{% else %}{{ block.type|default:'' }}{% endif %}"
                     class="w-full text-left group px-3 py-2 text-sm rounded-lg hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors flex items-center gap-2.5">
               <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
                 {% if block.icon %}
@@ -84,7 +84,7 @@
               </span>
               <span class="flex-1 min-w-0">
                 <span class="block font-medium text-gray-800 truncate text-[13px]">{{ block.name|default:"Untitled" }}</span>
-                <span class="block text-[11px] text-gray-400 font-mono truncate">{{ block.type|default:"" }}</span>
+                <span class="block text-[11px] text-gray-400 font-mono truncate">{% if block.slug %}{{ block.slug }}{% else %}{{ block.type|default:"" }}{% endif %}</span>
               </span>
               {% if block.status == "draft" %}
               <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-yellow-400" title="Draft"></span>

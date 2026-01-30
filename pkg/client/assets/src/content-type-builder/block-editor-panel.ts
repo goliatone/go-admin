@@ -10,10 +10,10 @@
  * The panel is rendered inside [data-block-ide-editor] when a block is selected.
  */
 
-import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType } from './types';
+import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType, FieldTypeMetadata } from './types';
 import { schemaToFields, fieldsToSchema, ContentTypeAPIClient } from './api-client';
-import { getFieldTypeMetadata } from './field-type-picker';
-import { PALETTE_DRAG_MIME } from './field-palette-panel';
+import { getFieldTypeMetadata, normalizeFieldType } from './field-type-picker';
+import { PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel';
 
 // =============================================================================
 // Types
@@ -27,7 +27,7 @@ export interface BlockEditorPanelConfig {
   onMetadataChange: (blockId: string, patch: Partial<BlockDefinition>) => void;
   onSchemaChange: (blockId: string, fields: FieldDefinition[]) => void;
   /** Called when a field type is dropped from the palette (Phase 9) */
-  onFieldDrop?: (fieldType: FieldType) => void;
+  onFieldDrop?: (meta: FieldTypeMetadata) => void;
   /** Called when status is changed via the editor dropdown (Phase 11 — Task 11.3) */
   onStatusChange?: (blockId: string, newStatus: BlockDefinitionStatus) => void;
   /** Called when the user triggers a manual save (Phase 11 — Task 11.1) */
@@ -114,11 +114,12 @@ export class BlockEditorPanel {
   // ===========================================================================
 
   private renderHeader(): string {
+    const slugOrType = this.block.slug || this.block.type || '';
     return `
       <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between shrink-0">
         <div class="min-w-0 flex-1">
           <h2 class="text-sm font-semibold text-gray-900 truncate" data-editor-block-name>${esc(this.block.name || 'Untitled')}</h2>
-          <p class="text-[11px] text-gray-400 font-mono truncate">${esc(this.block.type)}</p>
+          <p class="text-[11px] text-gray-400 font-mono truncate">${esc(slugOrType)}</p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <span data-editor-save-indicator>${this.renderSaveState()}</span>
@@ -199,6 +200,11 @@ export class BlockEditorPanel {
 
   private renderMetadataSection(): string {
     const b = this.block;
+    const slugValue = b.slug || b.type || '';
+    const typeHint =
+      b.slug && b.type && b.slug !== b.type
+        ? `<p class="mt-0.5 text-[10px] text-gray-400">Internal type: ${esc(b.type)}</p>`
+        : '';
     return `
       <div class="border-b border-gray-100" data-editor-metadata>
         <button type="button" data-toggle-metadata
@@ -216,9 +222,10 @@ export class BlockEditorPanel {
                      class="${inputClasses()}" />
             </div>
             <div>
-              <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Slug / Type</label>
-              <input type="text" data-meta-field="type" value="${esc(b.type)}" readonly
-                     class="${inputClasses()} bg-gray-50 text-gray-500 cursor-not-allowed font-mono" />
+              <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Slug</label>
+              <input type="text" data-meta-field="slug" value="${esc(slugValue)}" pattern="^[a-z][a-z0-9_-]*$"
+                     class="${inputClasses()} font-mono" />
+              ${typeHint}
             </div>
           </div>
           <div>
@@ -397,8 +404,9 @@ export class BlockEditorPanel {
 
   private renderFieldProperties(field: FieldDefinition, allSections: string[]): string {
     const validation = field.validation ?? {};
-    const showStringVal = ['text', 'textarea', 'rich-text', 'markdown', 'code', 'slug'].includes(field.type);
-    const showNumberVal = ['number', 'integer', 'currency', 'percentage'].includes(field.type);
+    const normalizedType = normalizeFieldType(field.type);
+    const showStringVal = ['text', 'textarea', 'rich-text', 'markdown', 'code', 'slug'].includes(normalizedType);
+    const showNumberVal = ['number', 'integer', 'currency', 'percentage'].includes(normalizedType);
     const currentSection = field.section || DEFAULT_SECTION;
 
     return `
@@ -674,9 +682,33 @@ export class BlockEditorPanel {
         zone.classList.remove('border-blue-400', 'bg-blue-50/50');
         zone.classList.add('border-gray-200', 'hover:border-gray-300');
 
-        const fieldType = e.dataTransfer?.getData(PALETTE_DRAG_MIME);
-        if (fieldType && this.config.onFieldDrop) {
-          this.config.onFieldDrop(fieldType as FieldType);
+        if (this.config.onFieldDrop) {
+          const metaRaw = e.dataTransfer?.getData(PALETTE_DRAG_META_MIME);
+          if (metaRaw) {
+            try {
+              const parsed = JSON.parse(metaRaw) as FieldTypeMetadata;
+              if (parsed && parsed.type) {
+                this.config.onFieldDrop(parsed);
+                return;
+              }
+            } catch {
+              // fall through to type-only handling
+            }
+          }
+          const fieldType = e.dataTransfer?.getData(PALETTE_DRAG_MIME);
+          if (fieldType) {
+            const normalized = normalizeFieldType(fieldType);
+            const meta =
+              getFieldTypeMetadata(normalized) ??
+              ({
+                type: normalized,
+                label: titleCase(normalized),
+                description: '',
+                icon: '',
+                category: 'advanced',
+              } as FieldTypeMetadata);
+            this.config.onFieldDrop(meta);
+          }
         }
       });
     });
@@ -823,6 +855,16 @@ export class BlockEditorPanel {
         patch.name = value;
         self.name = value;
         break;
+      case 'slug': {
+        const prevSlug = (this.block.slug || this.block.type || '').toString();
+        patch.slug = value;
+        self.slug = value;
+        if (!self.type || self.type === prevSlug) {
+          patch.type = value;
+          self.type = value;
+        }
+        break;
+      }
       case 'description':
         patch.description = value;
         self.description = value;
