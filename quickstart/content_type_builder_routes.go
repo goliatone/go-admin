@@ -335,11 +335,15 @@ func (s *contentTypeVersionStore) listVersions(key string) []contentTypeSchemaVe
 }
 
 func newContentTypeBuilderHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewContextBuilder, permission string, authResource string) *contentTypeBuilderHandlers {
+	var contentSvc admin.CMSContentService
+	if adm != nil {
+		contentSvc = adm.ContentService()
+	}
 	return &contentTypeBuilderHandlers{
 		admin:        adm,
 		cfg:          cfg,
 		viewContext:  viewCtx,
-		contentSvc:   adm.ContentService(),
+		contentSvc:   contentSvc,
 		versions:     newContentTypeVersionStore(),
 		permission:   strings.TrimSpace(permission),
 		authResource: strings.TrimSpace(authResource),
@@ -700,6 +704,9 @@ func (h *contentTypeBuilderHandlers) UpdateEnvironment(c router.Context) error {
 	}
 	if env == "" {
 		cookie.MaxAge = -1
+		cookie.Expires = time.Unix(0, 0)
+	} else {
+		cookie.Expires = time.Now().Add(365 * 24 * time.Hour)
 	}
 	c.Cookie(&cookie)
 	return c.JSON(http.StatusOK, map[string]any{
