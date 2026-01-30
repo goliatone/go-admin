@@ -58,6 +58,9 @@ type CMSBlockDefinition = cmsboot.CMSBlockDefinition
 // CMSBlock represents a block instance attached to content/pages.
 type CMSBlock = cmsboot.CMSBlock
 
+// CMSBlockDefinitionVersion captures a block definition schema version.
+type CMSBlockDefinitionVersion = cmsboot.CMSBlockDefinitionVersion
+
 // WorkflowEngine coordinates lifecycle transitions for domain entities.
 type WorkflowEngine = cmsboot.WorkflowEngine
 
@@ -153,6 +156,11 @@ func (a *Admin) UseCMS(container CMSContainer) *Admin {
 // MenuService exposes the configured CMS menu service for host seeding.
 func (a *Admin) MenuService() CMSMenuService {
 	return a.menuSvc
+}
+
+// ContentService exposes the configured CMS content service.
+func (a *Admin) ContentService() CMSContentService {
+	return a.contentSvc
 }
 
 func (a *Admin) ensureCMS(ctx context.Context) error {
