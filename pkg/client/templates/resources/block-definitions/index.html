@@ -5,6 +5,14 @@
 {% block content %}
 <header class="px-6 py-4 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
   <div class="flex items-center gap-3">
+    <button type="button"
+            data-block-ide-sidebar-toggle
+            class="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            title="Toggle sidebar">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+      </svg>
+    </button>
     <span class="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
@@ -16,15 +24,22 @@
     </div>
   </div>
   <div class="flex items-center gap-3">
+    <div class="flex items-center gap-1.5" data-block-ide-env-wrapper>
+      <label class="text-xs text-gray-500 font-medium whitespace-nowrap">Env:</label>
+      <select data-block-ide-env
+              class="px-2 py-1 text-xs border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <option value="">Default</option>
+      </select>
+    </div>
     <a class="btn btn-secondary text-sm" href="{{ base_path }}/content_types">Back to Content Types</a>
   </div>
 </header>
 
 <div class="flex-1 overflow-hidden" data-block-library-ide data-api-base-path="{{ base_path }}">
-  <div class="grid h-full grid-cols-1 lg:grid-cols-[240px,1fr,260px]">
+  <div class="grid h-full grid-cols-1 md:grid-cols-[240px,1fr] lg:grid-cols-[240px,1fr,260px]" data-block-ide-grid>
 
     <!-- Left Column: Block List -->
-    <aside class="border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+    <aside class="border-r border-gray-200 bg-white flex flex-col overflow-hidden max-h-[40vh] md:max-h-none" data-block-ide-sidebar>
       <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Blocks</h2>
         <span class="text-xs text-gray-400" data-block-ide-count>{{ block_definitions|length }}</span>
@@ -105,10 +120,21 @@
           <p class="text-xs text-gray-300 mt-1">or create a new block to get started</p>
         </div>
       </div>
+      <!-- Add Field bar for narrow screens (Phase 12 — Task 12.1) -->
+      <div class="lg:hidden border-t border-gray-200 bg-white px-4 py-2 shrink-0 hidden" data-block-ide-add-field-bar>
+        <button type="button"
+                data-block-ide-palette-trigger
+                class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          + Add Field
+        </button>
+      </div>
     </section>
 
-    <!-- Right Column: Field Palette -->
-    <aside class="border-l border-gray-200 bg-white flex flex-col overflow-hidden">
+    <!-- Right Column: Field Palette (hidden on < lg, visible on lg+) -->
+    <aside class="border-l border-gray-200 bg-white flex-col overflow-hidden hidden lg:flex" data-block-ide-palette-aside>
       <div class="px-4 py-3 border-b border-gray-100">
         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Field Palette</h2>
       </div>

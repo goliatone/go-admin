@@ -9,7 +9,7 @@
  *
  * The panel is rendered inside [data-block-ide-editor] when a block is selected.
  */
-import type { BlockDefinition, FieldDefinition, FieldType } from './types';
+import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType } from './types';
 import { ContentTypeAPIClient } from './api-client';
 export interface BlockEditorPanelConfig {
     container: HTMLElement;
@@ -20,6 +20,10 @@ export interface BlockEditorPanelConfig {
     onSchemaChange: (blockId: string, fields: FieldDefinition[]) => void;
     /** Called when a field type is dropped from the palette (Phase 9) */
     onFieldDrop?: (fieldType: FieldType) => void;
+    /** Called when status is changed via the editor dropdown (Phase 11 — Task 11.3) */
+    onStatusChange?: (blockId: string, newStatus: BlockDefinitionStatus) => void;
+    /** Called when the user triggers a manual save (Phase 11 — Task 11.1) */
+    onSave?: (blockId: string) => void;
 }
 export declare class BlockEditorPanel {
     private config;
@@ -33,6 +37,10 @@ export declare class BlockEditorPanel {
     private dragReorder;
     /** Field id currently showing a drop-before indicator */
     private dropTargetFieldId;
+    /** Save state tracking (Phase 11 — Task 11.2) */
+    private saveState;
+    private saveMessage;
+    private saveDisplayTimer;
     constructor(config: BlockEditorPanelConfig);
     render(): void;
     /** Refresh the panel for a new block without a full re-mount */
@@ -41,6 +49,11 @@ export declare class BlockEditorPanel {
     /** Add a field to the end of the fields list (Phase 9 — palette insert) */
     addField(field: FieldDefinition): void;
     private renderHeader;
+    private renderSaveState;
+    /** Update the save state indicator without a full re-render (Phase 11 — Task 11.2) */
+    updateSaveState(state: 'idle' | 'saving' | 'saved' | 'error', message?: string): void;
+    /** Revert the status dropdown to a previous value (used on status change failure) */
+    revertStatus(status?: BlockDefinitionStatus | string): void;
     private renderMetadataSection;
     private renderFieldsSection;
     private renderFieldCard;
