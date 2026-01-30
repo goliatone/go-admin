@@ -86,6 +86,9 @@ func (stubContentService) UpdateBlockDefinition(context.Context, CMSBlockDefinit
 	return nil, nil
 }
 func (stubContentService) DeleteBlockDefinition(context.Context, string) error { return nil }
+func (stubContentService) BlockDefinitionVersions(context.Context, string) ([]CMSBlockDefinitionVersion, error) {
+	return nil, nil
+}
 func (stubContentService) BlocksForContent(context.Context, string, string) ([]CMSBlock, error) {
 	return nil, nil
 }

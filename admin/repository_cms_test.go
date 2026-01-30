@@ -218,3 +218,42 @@ func TestCMSBlockDefinitionRepositoryFiltersByContentType(t *testing.T) {
 		t.Fatalf("expected filtered defs, got %+v", defs)
 	}
 }
+
+func TestCMSBlockDefinitionRepositoryFiltersByCategoryAndStatus(t *testing.T) {
+	content := NewInMemoryContentService()
+	ctx := context.Background()
+	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ID: "hero", Name: "Hero", Category: "layout", Status: "active"})
+	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ID: "gallery", Name: "Gallery", Category: "media", Status: "draft"})
+	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ID: "cta", Name: "CTA", Category: "layout", Status: "deprecated"})
+
+	repo := NewCMSBlockDefinitionRepository(content, content)
+	defs, total, err := repo.List(ctx, ListOptions{Filters: map[string]any{"category": "layout"}, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 2 || len(defs) != 2 {
+		t.Fatalf("expected 2 defs for category filter, got total=%d len=%d", total, len(defs))
+	}
+
+	defs, total, err = repo.List(ctx, ListOptions{Filters: map[string]any{"status": "draft"}, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(defs) != 1 {
+		t.Fatalf("expected 1 def for status filter, got total=%d len=%d", total, len(defs))
+	}
+	if toString(defs[0]["id"]) != "gallery" {
+		t.Fatalf("expected draft def 'gallery', got %+v", defs[0])
+	}
+
+	defs, total, err = repo.List(ctx, ListOptions{Filters: map[string]any{"category": "layout", "status": "active"}, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(defs) != 1 {
+		t.Fatalf("expected 1 def for combined filters, got total=%d len=%d", total, len(defs))
+	}
+	if toString(defs[0]["id"]) != "hero" {
+		t.Fatalf("expected active layout def 'hero', got %+v", defs[0])
+	}
+}
