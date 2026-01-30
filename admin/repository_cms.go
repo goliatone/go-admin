@@ -835,13 +835,47 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 
 // Get returns a single block definition.
 func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[string]any, error) {
-	list, _, err := r.List(ctx, ListOptions{PerPage: 1000})
+	if r.content == nil {
+		return nil, ErrNotFound
+	}
+	target := strings.TrimSpace(id)
+	if target == "" {
+		return nil, ErrNotFound
+	}
+	defs, err := r.content.BlockDefinitions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for _, def := range list {
-		if def["id"] == id {
-			return def, nil
+	environment := strings.TrimSpace(environmentFromContext(ctx))
+	for _, def := range defs {
+		if environment != "" {
+			if !strings.EqualFold(strings.TrimSpace(def.Environment), environment) {
+				continue
+			}
+		} else if strings.TrimSpace(def.Environment) != "" {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
+			strings.EqualFold(strings.TrimSpace(def.Slug), target) ||
+			strings.EqualFold(strings.TrimSpace(def.Type), target) {
+			schemaVersion := blockDefinitionSchemaVersion(def)
+			migrationStatus := blockDefinitionMigrationStatus(def)
+			return map[string]any{
+				"id":               def.ID,
+				"name":             def.Name,
+				"slug":             def.Slug,
+				"type":             def.Type,
+				"description":      def.Description,
+				"icon":             def.Icon,
+				"category":         def.Category,
+				"status":           def.Status,
+				"environment":      def.Environment,
+				"schema":           cloneAnyMap(def.Schema),
+				"ui_schema":        cloneAnyMap(def.UISchema),
+				"schema_version":   schemaVersion,
+				"migration_status": migrationStatus,
+				"locale":           def.Locale,
+			}, nil
 		}
 	}
 	return nil, ErrNotFound
