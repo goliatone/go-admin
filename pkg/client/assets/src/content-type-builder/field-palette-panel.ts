@@ -10,7 +10,7 @@
  * The panel renders inside [data-block-ide-palette] in the three-column IDE layout.
  */
 
-import type { FieldTypeMetadata, FieldTypeCategory, FieldType } from './types';
+import type { FieldTypeMetadata, FieldTypeCategory } from './types';
 import { ContentTypeAPIClient } from './api-client';
 import { BLOCK_FIELD_TYPE_REGISTRY_FALLBACK, buildRegistryFromGroups } from './block-field-type-registry';
 
@@ -47,6 +47,8 @@ export const PALETTE_DRAG_META_MIME = 'application/x-field-palette-meta';
 export class FieldPalettePanel {
   private config: FieldPalettePanelConfig;
   private fieldTypes: FieldTypeMetadata[] = [];
+  private fieldTypeByKey: Map<string, FieldTypeMetadata> = new Map();
+  private fieldTypeKeyByRef: Map<FieldTypeMetadata, string> = new Map();
   private categoryOrder: { id: FieldTypeCategory; label: string; icon: string; collapsed?: boolean }[] = [];
   private searchQuery: string = '';
   private categoryStates: Map<FieldTypeCategory, CategoryGroupState> = new Map();
@@ -120,6 +122,7 @@ export class FieldPalettePanel {
 
     // Initialize collapse states for any new categories
     this.initCategoryStates();
+    this.buildFieldTypeKeyMap();
   }
 
   private initCategoryStates(): void {
@@ -141,6 +144,16 @@ export class FieldPalettePanel {
       }
       this.categoryStates.set(cat.id, state);
     }
+  }
+
+  private buildFieldTypeKeyMap(): void {
+    this.fieldTypeByKey.clear();
+    this.fieldTypeKeyByRef.clear();
+    this.fieldTypes.forEach((fieldType, index) => {
+      const key = `${fieldType.type}:${index}`;
+      this.fieldTypeByKey.set(key, fieldType);
+      this.fieldTypeKeyByRef.set(fieldType, key);
+    });
   }
 
   // ===========================================================================
@@ -283,8 +296,9 @@ export class FieldPalettePanel {
   // ===========================================================================
 
   private renderPaletteItem(fieldType: FieldTypeMetadata): string {
+    const key = this.fieldTypeKeyByRef.get(fieldType) ?? fieldType.type;
     return `
-      <div data-palette-item="${esc(fieldType.type)}"
+      <div data-palette-item="${esc(key)}"
            draggable="true"
            class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-grab hover:bg-blue-50 active:cursor-grabbing transition-colors group select-none"
            title="${esc(fieldType.description)}">
@@ -348,8 +362,8 @@ export class FieldPalettePanel {
       item.addEventListener('click', (e) => {
         // Don't fire click when drag is happening
         if ((e as MouseEvent).detail === 0) return;
-        const fieldType = item.dataset.paletteItem as FieldType;
-        const meta = this.fieldTypes.find((ft) => ft.type === fieldType);
+        const fieldTypeKey = item.dataset.paletteItem as string;
+        const meta = this.fieldTypeByKey.get(fieldTypeKey) ?? this.fieldTypes.find((ft) => ft.type === fieldTypeKey);
         if (meta) {
           this.config.onAddField(meta);
         }
@@ -359,14 +373,16 @@ export class FieldPalettePanel {
     // Palette item: drag start (Task 9.3)
     list.querySelectorAll<HTMLElement>('[data-palette-item]').forEach((item) => {
       item.addEventListener('dragstart', (e) => {
-        const fieldType = item.dataset.paletteItem!;
+        const fieldTypeKey = item.dataset.paletteItem!;
         e.dataTransfer!.effectAllowed = 'copy';
-        e.dataTransfer!.setData(PALETTE_DRAG_MIME, fieldType);
-        const meta = this.fieldTypes.find((ft) => ft.type === fieldType);
+        const meta = this.fieldTypeByKey.get(fieldTypeKey) ?? this.fieldTypes.find((ft) => ft.type === fieldTypeKey);
         if (meta) {
+          e.dataTransfer!.setData(PALETTE_DRAG_MIME, meta.type);
           e.dataTransfer!.setData(PALETTE_DRAG_META_MIME, JSON.stringify(meta));
+        } else {
+          e.dataTransfer!.setData(PALETTE_DRAG_MIME, fieldTypeKey);
         }
-        e.dataTransfer!.setData('text/plain', fieldType);
+        e.dataTransfer!.setData('text/plain', meta?.type ?? fieldTypeKey);
         item.classList.add('opacity-50');
       });
 

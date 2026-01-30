@@ -9,19 +9,22 @@
  *
  * The panel renders inside [data-block-ide-palette] in the three-column IDE layout.
  */
-import type { FieldType } from './types';
+import type { FieldTypeMetadata } from './types';
 import { ContentTypeAPIClient } from './api-client';
 export interface FieldPalettePanelConfig {
     container: HTMLElement;
     api: ContentTypeAPIClient;
     /** Called when user clicks (non-drag) a palette item to add a field */
-    onAddField: (fieldType: FieldType, defaultConfig?: Partial<Record<string, unknown>>) => void;
+    onAddField: (meta: FieldTypeMetadata) => void;
 }
 /** MIME type used for drag-and-drop data transfer */
 export declare const PALETTE_DRAG_MIME = "application/x-field-palette-type";
+export declare const PALETTE_DRAG_META_MIME = "application/x-field-palette-meta";
 export declare class FieldPalettePanel {
     private config;
     private fieldTypes;
+    private fieldTypeByKey;
+    private fieldTypeKeyByRef;
     private categoryOrder;
     private searchQuery;
     private categoryStates;
@@ -38,6 +41,7 @@ export declare class FieldPalettePanel {
     refresh(): Promise<void>;
     private loadFieldTypes;
     private initCategoryStates;
+    private buildFieldTypeKeyMap;
     private render;
     private renderCategoryGroups;
     private renderSearchResults;

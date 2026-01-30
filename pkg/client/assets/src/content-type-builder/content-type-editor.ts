@@ -449,7 +449,7 @@ export class ContentTypeEditor {
               data-ct-slug
               value="${escapeHtml(ct?.slug ?? '')}"
               placeholder="blog-post"
-              pattern="^[a-z][a-z0-9_-]*$"
+              pattern="^[a-z][a-z0-9_\\-]*$"
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Auto-generated from name if empty</p>
@@ -1812,7 +1812,7 @@ class CloneContentTypeModal {
             data-clone-slug
             value="${escapeHtml(suggestedSlug)}"
             placeholder="my-content-type"
-            pattern="^[a-z][a-z0-9_-]*$"
+            pattern="^[a-z][a-z0-9_\\-]*$"
             required
             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -1889,7 +1889,7 @@ class CloneContentTypeModal {
         return;
       }
 
-      if (!/^[a-z][a-z0-9_-]*$/.test(newSlug)) {
+      if (!/^[a-z][a-z0-9_\-]*$/.test(newSlug)) {
         alert('Invalid slug format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter.');
         slugInput?.focus();
         return;

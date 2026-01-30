@@ -4,6 +4,8 @@
  * Modal/drawer UI for selecting a field type when adding new fields.
  */
 import type { FieldType, FieldTypeMetadata, FieldTypeCategory, FieldTypePickerConfig } from './types';
+export declare function iconForKey(key: string): string;
+export declare function normalizeFieldType(type: string): FieldType;
 export declare const FIELD_TYPES: FieldTypeMetadata[];
 export declare const FIELD_CATEGORIES: {
     id: FieldTypeCategory;

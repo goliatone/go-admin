@@ -9,7 +9,7 @@
  *
  * The panel is rendered inside [data-block-ide-editor] when a block is selected.
  */
-import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType } from './types';
+import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldTypeMetadata } from './types';
 import { ContentTypeAPIClient } from './api-client';
 export interface BlockEditorPanelConfig {
     container: HTMLElement;
@@ -19,7 +19,7 @@ export interface BlockEditorPanelConfig {
     onMetadataChange: (blockId: string, patch: Partial<BlockDefinition>) => void;
     onSchemaChange: (blockId: string, fields: FieldDefinition[]) => void;
     /** Called when a field type is dropped from the palette (Phase 9) */
-    onFieldDrop?: (fieldType: FieldType) => void;
+    onFieldDrop?: (meta: FieldTypeMetadata) => void;
     /** Called when status is changed via the editor dropdown (Phase 11 — Task 11.3) */
     onStatusChange?: (blockId: string, newStatus: BlockDefinitionStatus) => void;
     /** Called when the user triggers a manual save (Phase 11 — Task 11.1) */

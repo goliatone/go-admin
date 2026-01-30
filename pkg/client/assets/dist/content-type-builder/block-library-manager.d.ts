@@ -30,6 +30,8 @@ export declare class BlockLibraryManager {
     private renderBlockCard;
     private getStatusBadge;
     private getFilteredBlocks;
+    private blockKey;
+    private blockInList;
     private isBlockAllowed;
     private showBlockEditor;
     private confirmDeleteBlock;

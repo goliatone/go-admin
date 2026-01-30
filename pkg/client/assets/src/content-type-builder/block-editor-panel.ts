@@ -223,7 +223,7 @@ export class BlockEditorPanel {
             </div>
             <div>
               <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Slug</label>
-              <input type="text" data-meta-field="slug" value="${esc(slugValue)}" pattern="^[a-z][a-z0-9_-]*$"
+              <input type="text" data-meta-field="slug" value="${esc(slugValue)}" pattern="^[a-z][a-z0-9_\\-]*$"
                      class="${inputClasses()} font-mono" />
               ${typeHint}
             </div>

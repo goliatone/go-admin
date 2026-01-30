@@ -73,6 +73,8 @@ export declare class BlockLibraryIDE {
     private setEnvironment;
     /** Update the ?env= query parameter in the URL without a page reload */
     private updateUrlEnvironment;
+    /** Ensure the environment select contains a specific option */
+    private ensureEnvironmentOption;
     getSelectedBlock(): BlockDefinition | null;
     selectBlock(blockId: string | null): void;
     markDirty(blockId: string): void;
