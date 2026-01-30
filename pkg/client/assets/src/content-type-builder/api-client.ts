@@ -66,6 +66,15 @@ export class ContentTypeAPIClient {
     return this.environment;
   }
 
+  /** Persist environment selection to the server session (Phase 12) */
+  async setEnvironmentSession(env: string): Promise<void> {
+    const url = `${this.config.basePath}/api/session/environment`;
+    await this.fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ environment: env }),
+    });
+  }
+
   // ===========================================================================
   // Content Type CRUD
   // ===========================================================================
