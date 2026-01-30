@@ -113,6 +113,7 @@ func (r *captureRouter) WebSocket(path string, config router.WebSocketConfig, ha
 }
 
 func (r *captureRouter) Routes() []router.RouteDefinition { return nil }
+func (r *captureRouter) ValidateRoutes() []error         { return nil }
 func (r *captureRouter) PrintRoutes()                     {}
 func (r *captureRouter) WithLogger(logger router.Logger) router.Router[*fiber.App] {
 	_ = logger
