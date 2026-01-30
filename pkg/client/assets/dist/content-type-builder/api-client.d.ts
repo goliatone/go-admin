@@ -24,6 +24,8 @@ export declare class ContentTypeAPIClient {
     setEnvironment(env: string): void;
     /** Get the current environment */
     getEnvironment(): string;
+    /** Persist environment selection to the server session (Phase 12) */
+    setEnvironmentSession(env: string): Promise<void>;
     /**
      * List all content types
      */

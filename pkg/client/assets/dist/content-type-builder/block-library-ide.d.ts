@@ -114,6 +114,7 @@ export declare class BlockLibraryIDE {
     private deprecateBlock;
     private deleteBlock;
     private updateBlockInState;
+    private mergeSchemaExtras;
     private showToast;
 }
 export declare function initBlockLibraryIDE(scope?: ParentNode): void;
