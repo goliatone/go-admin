@@ -12,6 +12,9 @@ export { LayoutEditor } from './layout-editor';
 export type { LayoutEditorConfig } from './layout-editor';
 export { ContentTypeEditor } from './content-type-editor';
 export { BlockLibraryManager, initBlockLibraryManagers } from './block-library-manager';
+export { BlockLibraryIDE, initBlockLibraryIDE } from './block-library-ide';
+export { BlockEditorPanel } from './block-editor-panel';
+export { FieldPalettePanel, PALETTE_DRAG_MIME } from './field-palette-panel';
 /**
  * Initialize content type editors on elements matching [data-content-type-editor]
  */
