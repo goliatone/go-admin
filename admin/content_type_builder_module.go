@@ -357,8 +357,10 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionsPanel(ctx ModuleConte
 	builder := ctx.Admin.Panel(blockDefinitionsPanelID).
 		WithRepository(NewCMSBlockDefinitionRepository(m.contentSvc, m.contentTypeSvc)).
 		ListFields(
-			Field{Name: "id", Label: "ID", Type: "text"},
 			Field{Name: "name", Label: "Name", Type: "text"},
+			Field{Name: "slug", Label: "Slug", Type: "text"},
+			Field{Name: "category", Label: "Category", Type: "text"},
+			Field{Name: "status", Label: "Status", Type: "text"},
 			Field{Name: "type", Label: "Type", Type: "text"},
 			Field{Name: "schema_version", Label: "Schema Version", Type: "text"},
 			Field{Name: "migration_status", Label: "Migration Status", Type: "text"},
@@ -366,13 +368,24 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionsPanel(ctx ModuleConte
 		).
 		FormFields(
 			Field{Name: "name", Label: "Name", Type: "text", Required: true},
-			Field{Name: "type", Label: "Type", Type: "text", Required: true},
+			Field{Name: "slug", Label: "Slug", Type: "text"},
+			Field{Name: "description", Label: "Description", Type: "textarea"},
+			Field{Name: "icon", Label: "Icon", Type: "text"},
+			Field{Name: "category", Label: "Category", Type: "text"},
+			Field{Name: "status", Label: "Status", Type: "text"},
+			Field{Name: "type", Label: "Type", Type: "text"},
 			Field{Name: "locale", Label: "Locale", Type: "text"},
 			Field{Name: "schema", Label: "Schema", Type: "jsonschema"},
+			Field{Name: "ui_schema", Label: "UI Schema", Type: "jsonschema"},
 		).
 		DetailFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
 			Field{Name: "name", Label: "Name", Type: "text"},
+			Field{Name: "slug", Label: "Slug", Type: "text"},
+			Field{Name: "description", Label: "Description", Type: "text"},
+			Field{Name: "icon", Label: "Icon", Type: "text"},
+			Field{Name: "category", Label: "Category", Type: "text"},
+			Field{Name: "status", Label: "Status", Type: "text"},
 			Field{Name: "type", Label: "Type", Type: "text"},
 			Field{Name: "schema_version", Label: "Schema Version", Type: "text"},
 			Field{Name: "migration_status", Label: "Migration Status", Type: "text"},
