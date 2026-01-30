@@ -557,6 +557,7 @@ type InMemoryContentService struct {
 	contents   map[string]CMSContent
 	blocks     map[string]CMSBlock
 	blockDefs  map[string]CMSBlockDefinition
+	blockDefVersions map[string][]CMSBlockDefinitionVersion
 	types      map[string]CMSContentType
 	typeSlugs  map[string]string
 	nextPage   int
@@ -574,6 +575,7 @@ func NewInMemoryContentService() *InMemoryContentService {
 		contents:   make(map[string]CMSContent),
 		blocks:     make(map[string]CMSBlock),
 		blockDefs:  make(map[string]CMSBlockDefinition),
+		blockDefVersions: make(map[string][]CMSBlockDefinitionVersion),
 		types:      make(map[string]CMSContentType),
 		typeSlugs:  make(map[string]string),
 		nextPage:   1,
@@ -1013,6 +1015,22 @@ func (s *InMemoryContentService) CreateBlockDefinition(ctx context.Context, def 
 		def.ID = fmt.Sprintf("block-%d", s.nextBlockD)
 		s.nextBlockD++
 	}
+	if def.Name == "" {
+		def.Name = def.ID
+	}
+	if def.Slug == "" {
+		def.Slug = normalizeContentTypeSlug(def.Name, def.Slug)
+	}
+	if def.Status == "" {
+		def.Status = "draft"
+	}
+	if def.SchemaVersion == "" {
+		def.SchemaVersion = schemaVersionFromSchema(def.Schema)
+	}
+	if def.MigrationStatus == "" {
+		def.MigrationStatus = blockDefinitionMigrationStatus(def)
+	}
+	s.upsertBlockDefinitionVersionLocked(def)
 	s.blockDefs[def.ID] = cloneCMSBlockDefinition(def)
 	cp := cloneCMSBlockDefinition(def)
 	activity := s.activity
@@ -1033,10 +1051,46 @@ func (s *InMemoryContentService) UpdateBlockDefinition(ctx context.Context, def 
 		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
-	if _, ok := s.blockDefs[def.ID]; !ok {
+	existing, ok := s.blockDefs[def.ID]
+	if !ok {
 		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
+	if def.Name == "" {
+		def.Name = existing.Name
+	}
+	if def.Slug == "" {
+		def.Slug = existing.Slug
+		if def.Slug == "" {
+			def.Slug = normalizeContentTypeSlug(def.Name, def.Slug)
+		}
+	}
+	if def.Status == "" {
+		if existing.Status != "" {
+			def.Status = existing.Status
+		} else {
+			def.Status = "draft"
+		}
+	}
+	if def.Schema == nil {
+		def.Schema = existing.Schema
+	}
+	if def.UISchema == nil {
+		def.UISchema = existing.UISchema
+	}
+	if def.SchemaVersion == "" {
+		def.SchemaVersion = existing.SchemaVersion
+	}
+	if def.SchemaVersion == "" {
+		def.SchemaVersion = schemaVersionFromSchema(def.Schema)
+	}
+	if def.MigrationStatus == "" {
+		def.MigrationStatus = existing.MigrationStatus
+	}
+	if def.MigrationStatus == "" {
+		def.MigrationStatus = blockDefinitionMigrationStatus(def)
+	}
+	s.upsertBlockDefinitionVersionLocked(def)
 	s.blockDefs[def.ID] = cloneCMSBlockDefinition(def)
 	cp := cloneCMSBlockDefinition(def)
 	activity := s.activity
@@ -1058,10 +1112,63 @@ func (s *InMemoryContentService) DeleteBlockDefinition(ctx context.Context, id s
 		return ErrNotFound
 	}
 	delete(s.blockDefs, id)
+	delete(s.blockDefVersions, id)
 	activity := s.activity
 	s.mu.Unlock()
 	recordCMSActivity(ctx, activity, "cms.block_definition.delete", "block_def:"+id, nil)
 	return nil
+}
+
+// BlockDefinitionVersions returns the schema versions for a definition.
+func (s *InMemoryContentService) BlockDefinitionVersions(_ context.Context, id string) ([]CMSBlockDefinitionVersion, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	versions := s.blockDefVersions[id]
+	if len(versions) == 0 {
+		return nil, nil
+	}
+	out := make([]CMSBlockDefinitionVersion, 0, len(versions))
+	for _, entry := range versions {
+		out = append(out, cloneCMSBlockDefinitionVersion(entry))
+	}
+	return out, nil
+}
+
+func (s *InMemoryContentService) upsertBlockDefinitionVersionLocked(def CMSBlockDefinition) {
+	if def.ID == "" {
+		return
+	}
+	version := strings.TrimSpace(def.SchemaVersion)
+	if version == "" {
+		version = schemaVersionFromSchema(def.Schema)
+	}
+	if version == "" {
+		return
+	}
+	entries := s.blockDefVersions[def.ID]
+	now := time.Now().UTC()
+	for i, entry := range entries {
+		if entry.SchemaVersion != version {
+			continue
+		}
+		entry.Schema = cloneAnyMap(def.Schema)
+		entry.MigrationStatus = def.MigrationStatus
+		entry.UpdatedAt = now
+		entries[i] = entry
+		s.blockDefVersions[def.ID] = entries
+		return
+	}
+	entry := CMSBlockDefinitionVersion{
+		ID:              fmt.Sprintf("%s@%s", def.ID, version),
+		DefinitionID:    def.ID,
+		SchemaVersion:   version,
+		Schema:          cloneAnyMap(def.Schema),
+		Defaults:        nil,
+		MigrationStatus: def.MigrationStatus,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	s.blockDefVersions[def.ID] = append(entries, entry)
 }
 
 // BlocksForContent returns blocks attached to a content/page.
@@ -1228,6 +1335,20 @@ func cloneCMSBlockDefinition(in CMSBlockDefinition) CMSBlockDefinition {
 	out := in
 	if in.Schema != nil {
 		out.Schema = cloneAnyMap(in.Schema)
+	}
+	if in.UISchema != nil {
+		out.UISchema = cloneAnyMap(in.UISchema)
+	}
+	return out
+}
+
+func cloneCMSBlockDefinitionVersion(in CMSBlockDefinitionVersion) CMSBlockDefinitionVersion {
+	out := in
+	if in.Schema != nil {
+		out.Schema = cloneAnyMap(in.Schema)
+	}
+	if in.Defaults != nil {
+		out.Defaults = cloneAnyMap(in.Defaults)
 	}
 	return out
 }
