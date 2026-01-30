@@ -10,7 +10,8 @@ require (
 	github.com/goliatone/go-admin v0.23.0
 	github.com/goliatone/go-auth v0.28.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.28.0
-	github.com/goliatone/go-cms v0.23.0
+	github.com/goliatone/go-cms v0.24.0
+	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.6.0
@@ -19,7 +20,7 @@ require (
 	github.com/goliatone/go-formgen v0.16.1
 	github.com/goliatone/go-notifications v0.11.0
 	github.com/goliatone/go-persistence-bun v0.10.0
-	github.com/goliatone/go-router v0.43.0
+	github.com/goliatone/go-router v0.44.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-urlkit v0.3.0
@@ -80,7 +81,6 @@ require (
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
-	github.com/goliatone/go-command v0.13.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.8.0 // indirect
 	github.com/goliatone/go-crud v0.19.0 // indirect
