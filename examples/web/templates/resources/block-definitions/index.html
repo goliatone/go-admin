@@ -3,60 +3,126 @@
 {% block title %}Block Library - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
-  <div>
-    <h1 class="text-3xl font-bold text-admin-dark">Block Library</h1>
-    <p class="text-sm text-gray-500 mt-1">Create reusable blocks to assemble rich content experiences.</p>
+<header class="px-6 py-4 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
+  <div class="flex items-center gap-3">
+    <span class="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+      </svg>
+    </span>
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Block Library</h1>
+      <p class="text-xs text-gray-500">Create and manage reusable block definitions.</p>
+    </div>
   </div>
   <div class="flex items-center gap-3">
-    <button type="button"
-            class="btn btn-primary"
-            data-block-library-trigger
-            data-api-base-path="{{ base_path }}"
-            data-mode="manage">
-      Open Block Manager
-    </button>
+    <a class="btn btn-secondary text-sm" href="{{ base_path }}/content_types">Back to Content Types</a>
   </div>
 </header>
 
-<div class="flex-1 p-8 overflow-y-auto">
-  <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
-      <div>
-        <h2 class="text-lg font-semibold text-gray-900">Existing Blocks</h2>
-        <p class="text-xs text-gray-500">Use the manager to edit or publish blocks.</p>
+<div class="flex-1 overflow-hidden" data-block-library-ide data-api-base-path="{{ base_path }}">
+  <div class="grid h-full grid-cols-1 lg:grid-cols-[240px,1fr,260px]">
+
+    <!-- Left Column: Block List -->
+    <aside class="border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Blocks</h2>
+        <span class="text-xs text-gray-400" data-block-ide-count>{{ block_definitions|length }}</span>
       </div>
-      <a class="btn btn-secondary" href="{{ base_path }}/content_types">Back to Content Types</a>
-    </div>
-    {% if block_definitions and block_definitions|length > 0 %}
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm text-left text-gray-700">
-        <thead class="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th class="px-5 py-3">Name</th>
-            <th class="px-5 py-3">Type</th>
-            <th class="px-5 py-3">Schema Version</th>
-            <th class="px-5 py-3">Locale</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100 bg-white">
+      <div class="px-3 py-2 border-b border-gray-100 space-y-2">
+        <input type="text"
+               data-block-ide-search
+               placeholder="Search blocks..."
+               class="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        <select data-block-ide-category-filter
+                class="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <option value="">All Categories</option>
+        </select>
+      </div>
+      <div class="px-3 py-2 border-b border-gray-100">
+        <button type="button"
+                data-block-ide-create
+                class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          New Block
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto" data-block-ide-list>
+        {% if block_definitions and block_definitions|length > 0 %}
+        <ul class="p-2 space-y-0.5">
           {% for block in block_definitions %}
-          <tr>
-            <td class="px-5 py-3 font-medium text-gray-900">{{ block.name|default:"Untitled" }}</td>
-            <td class="px-5 py-3 font-mono text-gray-500">{{ block.type|default:"" }}</td>
-            <td class="px-5 py-3 text-gray-500">{{ block.schema_version|default:"—" }}</td>
-            <td class="px-5 py-3 text-gray-500">{{ block.locale|default:"—" }}</td>
-          </tr>
+          <li>
+            <button type="button"
+                    data-block-ide-select="{{ block.id|default:'' }}"
+                    data-block-type="{{ block.type|default:'' }}"
+                    class="w-full text-left group px-3 py-2 text-sm rounded-lg hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors flex items-center gap-2.5">
+              <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                {% if block.icon %}
+                <span class="text-xs font-medium">{{ block.icon }}</span>
+                {% else %}
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path>
+                </svg>
+                {% endif %}
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="block font-medium text-gray-800 truncate text-[13px]">{{ block.name|default:"Untitled" }}</span>
+                <span class="block text-[11px] text-gray-400 font-mono truncate">{{ block.type|default:"" }}</span>
+              </span>
+              {% if block.status == "draft" %}
+              <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-yellow-400" title="Draft"></span>
+              {% elif block.status == "deprecated" %}
+              <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-red-400" title="Deprecated"></span>
+              {% else %}
+              <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-green-400" title="Active"></span>
+              {% endif %}
+            </button>
+          </li>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <div class="px-6 py-12 text-center text-sm text-gray-500">
-      No blocks defined yet. Use the block manager to create your first block.
-    </div>
-    {% endif %}
-  </section>
+        </ul>
+        {% else %}
+        <div class="px-4 py-8 text-center">
+          <svg class="w-10 h-10 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z"></path>
+          </svg>
+          <p class="text-sm text-gray-500">No blocks yet.</p>
+          <p class="text-xs text-gray-400 mt-1">Click "New Block" to create your first block definition.</p>
+        </div>
+        {% endif %}
+      </div>
+    </aside>
+
+    <!-- Center Column: Block Editor -->
+    <section class="flex flex-col overflow-hidden bg-gray-50">
+      <div data-block-ide-editor class="flex-1 overflow-y-auto">
+        <div class="flex flex-col items-center justify-center h-full p-8 text-center">
+          <svg class="w-16 h-16 text-gray-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+          </svg>
+          <p class="text-sm text-gray-400">Select a block from the list to edit</p>
+          <p class="text-xs text-gray-300 mt-1">or create a new block to get started</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Field Palette -->
+    <aside class="border-l border-gray-200 bg-white flex flex-col overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-100">
+        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Field Palette</h2>
+      </div>
+      <div class="flex-1 overflow-y-auto" data-block-ide-palette>
+        <div class="px-4 py-8 text-center">
+          <svg class="w-10 h-10 mx-auto text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+          </svg>
+          <p class="text-xs text-gray-400">Select a block to see available field types</p>
+        </div>
+      </div>
+    </aside>
+
+  </div>
 </div>
 {% endblock %}
 
