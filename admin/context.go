@@ -11,13 +11,14 @@ import (
 
 // AdminContext carries request-scoped information into panel operations.
 type AdminContext struct {
-	Context    context.Context
-	UserID     string
-	TenantID   string
-	OrgID      string
-	Locale     string
-	Theme      *ThemeSelection
-	Translator Translator
+	Context     context.Context
+	UserID      string
+	TenantID    string
+	OrgID       string
+	Environment string
+	Locale      string
+	Theme       *ThemeSelection
+	Translator  Translator
 }
 
 type adminContextKey string
@@ -26,6 +27,7 @@ const userIDContextKey adminContextKey = "admin.user_id"
 const localeContextKey adminContextKey = "admin.locale"
 const tenantIDContextKey adminContextKey = "admin.tenant_id"
 const orgIDContextKey adminContextKey = "admin.org_id"
+const environmentContextKey adminContextKey = "admin.environment"
 const queryParamsContextKey adminContextKey = "admin.query_params"
 
 // Authorizer determines whether a subject can perform an action on a resource.
@@ -39,6 +41,10 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	userID := c.Header("X-User-ID")
 	tenantID := ""
 	orgID := ""
+	environment := strings.TrimSpace(c.Query("env"))
+	if environment == "" {
+		environment = strings.TrimSpace(c.Query("environment"))
+	}
 	if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
 		if actor.ActorID != "" {
 			userID = actor.ActorID
@@ -68,6 +74,9 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	if orgID != "" {
 		ctx = context.WithValue(ctx, orgIDContextKey, orgID)
 	}
+	if environment != "" {
+		ctx = WithEnvironment(ctx, environment)
+	}
 	if locale != "" {
 		ctx = context.WithValue(ctx, localeContextKey, locale)
 	}
@@ -75,11 +84,12 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 		ctx = withQueryParams(ctx, queries)
 	}
 	return AdminContext{
-		Context:  ctx,
-		UserID:   userID,
-		TenantID: tenantID,
-		OrgID:    orgID,
-		Locale:   locale,
+		Context:     ctx,
+		UserID:      userID,
+		TenantID:    tenantID,
+		OrgID:       orgID,
+		Environment: environment,
+		Locale:      locale,
 	}
 }
 
@@ -132,6 +142,33 @@ func orgIDFromContext(ctx context.Context) string {
 		if actor.OrganizationID != "" {
 			return actor.OrganizationID
 		}
+	}
+	return ""
+}
+
+// WithEnvironment stores the active environment on the context.
+func WithEnvironment(ctx context.Context, environment string) context.Context {
+	if ctx == nil {
+		return ctx
+	}
+	environment = strings.TrimSpace(environment)
+	if environment == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, environmentContextKey, environment)
+}
+
+// EnvironmentFromContext returns the active environment stored on the context.
+func EnvironmentFromContext(ctx context.Context) string {
+	return environmentFromContext(ctx)
+}
+
+func environmentFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if env, ok := ctx.Value(environmentContextKey).(string); ok && env != "" {
+		return env
 	}
 	return ""
 }
