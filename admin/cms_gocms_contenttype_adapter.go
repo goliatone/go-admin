@@ -311,6 +311,10 @@ func buildContentTypeInput(argType reflect.Type, contentType CMSContentType, isU
 	if status := strings.TrimSpace(contentType.Status); status != "" {
 		setStringPtr(input.FieldByName("Status"), status)
 	}
+	if env := strings.TrimSpace(contentType.Environment); env != "" {
+		setStringPtr(input.FieldByName("Environment"), env)
+		setStringPtr(input.FieldByName("Env"), env)
+	}
 
 	if ptr {
 		return input.Addr(), nil
@@ -467,6 +471,10 @@ func convertContentTypeValue(value reflect.Value) CMSContentType {
 	contentType.Capabilities = extractMapField(value, "Capabilities")
 	contentType.Icon = extractStringField(value, "Icon")
 	contentType.Status = extractStringField(value, "Status")
+	contentType.Environment = extractStringField(value, "Environment")
+	if contentType.Environment == "" {
+		contentType.Environment = extractStringField(value, "Env")
+	}
 
 	if created, ok := extractTimeField(value, "CreatedAt"); ok {
 		contentType.CreatedAt = created
