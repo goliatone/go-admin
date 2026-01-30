@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -510,8 +511,17 @@ func (a *GoCMSContentAdapter) BlockDefinitions(ctx context.Context) ([]CMSBlockD
 		def := convertBlockDefinition(value.Index(i))
 		if def.ID != "" {
 			if id, ok := extractUUID(deref(value.Index(i)), "ID"); ok {
-				a.blockDefinitions[strings.ToLower(def.ID)] = id
-				a.blockDefinitionBy[id] = def.ID
+				primary := strings.TrimSpace(firstNonEmpty(def.Slug, def.ID, def.Name))
+				if primary != "" {
+					a.blockDefinitions[strings.ToLower(primary)] = id
+					a.blockDefinitionBy[id] = primary
+				}
+				if def.Name != "" {
+					a.blockDefinitions[strings.ToLower(def.Name)] = id
+				}
+				if def.Slug != "" {
+					a.blockDefinitions[strings.ToLower(def.Slug)] = id
+				}
 			}
 		}
 		defs = append(defs, def)
@@ -533,7 +543,25 @@ func (a *GoCMSContentAdapter) CreateBlockDefinition(ctx context.Context, def CMS
 	}
 	input := reflect.New(method.Type().In(1)).Elem()
 	setStringField(input, "Name", name)
+	if slug := strings.TrimSpace(def.Slug); slug != "" {
+		setStringField(input, "Slug", slug)
+	}
+	if desc := strings.TrimSpace(def.Description); desc != "" {
+		setStringPtr(input.FieldByName("Description"), desc)
+	}
+	if icon := strings.TrimSpace(def.Icon); icon != "" {
+		setStringPtr(input.FieldByName("Icon"), icon)
+	}
+	if category := strings.TrimSpace(def.Category); category != "" {
+		setStringPtr(input.FieldByName("Category"), category)
+	}
+	if status := strings.TrimSpace(def.Status); status != "" {
+		setStringField(input, "Status", status)
+	}
 	setMapField(input, "Schema", cloneAnyMap(def.Schema))
+	if def.UISchema != nil {
+		setMapField(input, "UISchema", cloneAnyMap(def.UISchema))
+	}
 	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
 	if err := extractError(results); err != nil {
 		return nil, err
@@ -562,8 +590,26 @@ func (a *GoCMSContentAdapter) UpdateBlockDefinition(ctx context.Context, def CMS
 	if name := strings.TrimSpace(def.Name); name != "" {
 		setStringPtr(input.FieldByName("Name"), name)
 	}
+	if slug := strings.TrimSpace(def.Slug); slug != "" {
+		setStringPtr(input.FieldByName("Slug"), slug)
+	}
+	if desc := strings.TrimSpace(def.Description); desc != "" {
+		setStringPtr(input.FieldByName("Description"), desc)
+	}
+	if icon := strings.TrimSpace(def.Icon); icon != "" {
+		setStringPtr(input.FieldByName("Icon"), icon)
+	}
+	if category := strings.TrimSpace(def.Category); category != "" {
+		setStringPtr(input.FieldByName("Category"), category)
+	}
+	if status := strings.TrimSpace(def.Status); status != "" {
+		setStringPtr(input.FieldByName("Status"), status)
+	}
 	if len(def.Schema) > 0 {
 		setMapField(input, "Schema", cloneAnyMap(def.Schema))
+	}
+	if def.UISchema != nil {
+		setMapField(input, "UISchema", cloneAnyMap(def.UISchema))
 	}
 	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
 	if err := extractError(results); err != nil {
@@ -593,6 +639,37 @@ func (a *GoCMSContentAdapter) DeleteBlockDefinition(ctx context.Context, id stri
 	setBoolField(req, "HardDelete", true)
 	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
 	return extractError(results)
+}
+
+// BlockDefinitionVersions returns the schema version history for a block definition.
+func (a *GoCMSContentAdapter) BlockDefinitionVersions(ctx context.Context, id string) ([]CMSBlockDefinitionVersion, error) {
+	if a == nil || a.blocks == nil {
+		return nil, ErrNotFound
+	}
+	method := reflect.ValueOf(a.blocks).MethodByName("ListDefinitionVersions")
+	if !method.IsValid() {
+		return nil, ErrNotFound
+	}
+	defID, err := a.resolveBlockDefinitionID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(defID)})
+	if err := extractError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() {
+		return nil, nil
+	}
+	value := deref(results[0])
+	if value.Kind() != reflect.Slice {
+		return nil, nil
+	}
+	out := make([]CMSBlockDefinitionVersion, 0, value.Len())
+	for i := 0; i < value.Len(); i++ {
+		out = append(out, convertBlockDefinitionVersion(value.Index(i)))
+	}
+	return out, nil
 }
 
 func (a *GoCMSContentAdapter) BlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
@@ -898,13 +975,22 @@ func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
 	for i := 0; i < value.Len(); i++ {
 		item := deref(value.Index(i))
 		name := strings.TrimSpace(stringField(item, "Name"))
+		slug := strings.TrimSpace(stringField(item, "Slug"))
 		id, ok := extractUUID(item, "ID")
-		if !ok || id == uuid.Nil || name == "" {
+		if !ok || id == uuid.Nil || (name == "" && slug == "") {
 			continue
 		}
-		lower := strings.ToLower(name)
-		a.blockDefinitions[lower] = id
-		a.blockDefinitionBy[id] = name
+		primary := strings.TrimSpace(firstNonEmpty(slug, name))
+		if primary != "" {
+			a.blockDefinitions[strings.ToLower(primary)] = id
+			a.blockDefinitionBy[id] = primary
+		}
+		if name != "" {
+			a.blockDefinitions[strings.ToLower(name)] = id
+		}
+		if slug != "" {
+			a.blockDefinitions[strings.ToLower(slug)] = id
+		}
 	}
 }
 
@@ -1673,13 +1759,28 @@ func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
 	val := deref(value)
 	def := CMSBlockDefinition{}
 	if name := strings.TrimSpace(stringField(val, "Name")); name != "" {
-		def.ID = name
 		def.Name = name
 	}
+	if slug := strings.TrimSpace(stringField(val, "Slug")); slug != "" {
+		def.Slug = slug
+	}
+	def.ID = strings.TrimSpace(firstNonEmpty(def.Slug, def.Name))
 	if def.ID == "" {
 		if id, ok := extractUUID(val, "ID"); ok {
 			def.ID = id.String()
 		}
+	}
+	if desc := strings.TrimSpace(stringField(val, "Description")); desc != "" {
+		def.Description = desc
+	}
+	if icon := strings.TrimSpace(stringField(val, "Icon")); icon != "" {
+		def.Icon = icon
+	}
+	if category := strings.TrimSpace(stringField(val, "Category")); category != "" {
+		def.Category = category
+	}
+	if status := strings.TrimSpace(stringField(val, "Status")); status != "" {
+		def.Status = status
 	}
 	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
 		if schema, ok := schemaField.Interface().(map[string]any); ok {
@@ -1689,6 +1790,11 @@ func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
 					def.Type = t
 				}
 			}
+		}
+	}
+	if uiSchemaField := val.FieldByName("UISchema"); uiSchemaField.IsValid() {
+		if uiSchema, ok := uiSchemaField.Interface().(map[string]any); ok {
+			def.UISchema = cloneAnyMap(uiSchema)
 		}
 	}
 	if version := strings.TrimSpace(stringField(val, "SchemaVersion")); version != "" {
@@ -1703,7 +1809,46 @@ func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
 	if def.MigrationStatus == "" {
 		def.MigrationStatus = schemaMigrationStatusFromSchema(def.Schema)
 	}
+	if def.Type == "" {
+		def.Type = strings.TrimSpace(firstNonEmpty(def.Slug, def.Name, def.ID))
+	}
 	return def
+}
+
+func convertBlockDefinitionVersion(value reflect.Value) CMSBlockDefinitionVersion {
+	val := deref(value)
+	out := CMSBlockDefinitionVersion{}
+	if id, ok := extractUUID(val, "ID"); ok && id != uuid.Nil {
+		out.ID = id.String()
+	}
+	if defID, ok := extractUUID(val, "DefinitionID"); ok && defID != uuid.Nil {
+		out.DefinitionID = defID.String()
+	}
+	if out.ID == "" {
+		out.ID = strings.TrimSpace(stringField(val, "ID"))
+	}
+	if out.DefinitionID == "" {
+		out.DefinitionID = strings.TrimSpace(stringField(val, "DefinitionID"))
+	}
+	if version := strings.TrimSpace(stringField(val, "SchemaVersion")); version != "" {
+		out.SchemaVersion = version
+	}
+	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
+		if schema, ok := schemaField.Interface().(map[string]any); ok {
+			out.Schema = cloneAnyMap(schema)
+		}
+	}
+	if defaultsField := val.FieldByName("Defaults"); defaultsField.IsValid() {
+		if defaults, ok := defaultsField.Interface().(map[string]any); ok {
+			out.Defaults = cloneAnyMap(defaults)
+		}
+	}
+	if out.MigrationStatus == "" {
+		out.MigrationStatus = schemaMigrationStatusFromSchema(out.Schema)
+	}
+	out.CreatedAt = timeField(val, "CreatedAt")
+	out.UpdatedAt = timeField(val, "UpdatedAt")
+	return out
 }
 
 func pageFromContent(content CMSContent) CMSPage {
@@ -1806,6 +1951,21 @@ func stringField(val reflect.Value, field string) string {
 		}
 	}
 	return ""
+}
+
+func timeField(val reflect.Value, field string) time.Time {
+	f := val.FieldByName(field)
+	if f.IsValid() && f.CanInterface() {
+		if t, ok := f.Interface().(time.Time); ok {
+			return t
+		}
+	}
+	if f.IsValid() && f.Kind() == reflect.Ptr && !f.IsNil() && f.Elem().CanInterface() {
+		if t, ok := f.Elem().Interface().(time.Time); ok {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 func asString(val any, fallback string) string {
