@@ -644,6 +644,13 @@ func (f *filteredContentService) DeleteBlockDefinition(ctx context.Context, id s
 	return f.inner.DeleteBlockDefinition(ctx, id)
 }
 
+func (f *filteredContentService) BlockDefinitionVersions(ctx context.Context, id string) ([]admin.CMSBlockDefinitionVersion, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	return f.inner.BlockDefinitionVersions(ctx, id)
+}
+
 func (f *filteredContentService) BlocksForContent(ctx context.Context, contentID, locale string) ([]admin.CMSBlock, error) {
 	if f.inner == nil {
 		return nil, admin.ErrNotFound
