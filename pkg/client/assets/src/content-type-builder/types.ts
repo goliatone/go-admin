@@ -442,6 +442,7 @@ export type ContentTypeBuilderEvent =
 export interface BlockDefinition {
   id: string;
   name: string;
+  slug?: string;
   type: string; // Unique block type identifier (e.g., "hero", "text", "gallery")
   description?: string;
   icon?: string;
@@ -466,6 +467,7 @@ export interface BlockDefinitionListResponse {
 export interface BlockDefinitionSummary {
   id: string;
   name: string;
+  slug?: string;
   type: string;
   description?: string;
   icon?: string;

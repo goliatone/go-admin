@@ -1206,15 +1206,26 @@ export function initBlockLibraryManagers(scope: ParentNode = document): void {
   triggers.forEach((trigger) => {
     if (trigger.dataset.initialized === 'true') return;
 
-    const config: BlockLibraryManagerConfig = {
-      apiBasePath: trigger.dataset.apiBasePath ?? '/admin',
-      mode: (trigger.dataset.mode as 'manage' | 'picker') ?? 'manage',
-    };
+    const apiBasePath = trigger.dataset.apiBasePath ?? '/admin';
+    const mode = (trigger.dataset.mode as 'manage' | 'picker') ?? 'manage';
 
-    trigger.addEventListener('click', () => {
-      const manager = new BlockLibraryManager(config);
-      manager.show();
-    });
+    if (mode === 'manage') {
+      // Manage mode navigates to the Block Library IDE page
+      trigger.addEventListener('click', () => {
+        window.location.href = `${apiBasePath}/block_definitions`;
+      });
+    } else {
+      // Picker mode opens the modal for block selection
+      const config: BlockLibraryManagerConfig = {
+        apiBasePath,
+        mode,
+      };
+
+      trigger.addEventListener('click', () => {
+        const manager = new BlockLibraryManager(config);
+        manager.show();
+      });
+    }
 
     trigger.dataset.initialized = 'true';
   });

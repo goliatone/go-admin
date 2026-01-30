@@ -326,6 +326,7 @@ export type ContentTypeBuilderEvent = {
 export interface BlockDefinition {
     id: string;
     name: string;
+    slug?: string;
     type: string;
     description?: string;
     icon?: string;
@@ -347,6 +348,7 @@ export interface BlockDefinitionListResponse {
 export interface BlockDefinitionSummary {
     id: string;
     name: string;
+    slug?: string;
     type: string;
     description?: string;
     icon?: string;

@@ -83,11 +83,21 @@ export { ContentTypeEditor } from './content-type-editor';
 // Re-export block library manager
 export { BlockLibraryManager, initBlockLibraryManagers } from './block-library-manager';
 
+// Re-export block library IDE
+export { BlockLibraryIDE, initBlockLibraryIDE } from './block-library-ide';
+
+// Re-export block editor panel
+export { BlockEditorPanel } from './block-editor-panel';
+
+// Re-export field palette panel (Phase 9)
+export { FieldPalettePanel, PALETTE_DRAG_MIME } from './field-palette-panel';
+
 // =============================================================================
 // Auto-initialization
 // =============================================================================
 
 import { ContentTypeEditor } from './content-type-editor';
+import { initBlockLibraryIDE } from './block-library-ide';
 import type { ContentTypeEditorConfig } from './types';
 
 /**
@@ -177,4 +187,7 @@ function onReady(fn: () => void): void {
 }
 
 // Auto-initialize on DOM ready
-onReady(() => initContentTypeEditors());
+onReady(() => {
+  initContentTypeEditors();
+  initBlockLibraryIDE();
+});

@@ -20,6 +20,7 @@ import type {
   BlockSchemaVersion,
   ContentTypeSchemaVersion,
   CompatibilityCheckResult,
+  FieldTypeMetadata,
 } from './types';
 
 export interface ContentTypeAPIConfig {
@@ -396,6 +397,29 @@ export class ContentTypeAPIClient {
       return Array.isArray(data) ? data : data.categories ?? [];
     } catch {
       return ['content', 'media', 'layout', 'interactive', 'custom'];
+    }
+  }
+
+  // ===========================================================================
+  // Field Types Registry (Phase 9)
+  // ===========================================================================
+
+  /**
+   * Fetch field types from the backend registry.
+   * Falls back to null if the endpoint is not available (Phase 3 not deployed).
+   */
+  async getFieldTypes(): Promise<FieldTypeMetadata[] | null> {
+    const url = `${this.config.basePath}/api/block_definitions/field_types`;
+    try {
+      const response = await this.fetch(url, { method: 'GET' });
+      const data = await response.json();
+      if (Array.isArray(data)) return data;
+      if (data.items && Array.isArray(data.items)) return data.items;
+      if (data.field_types && Array.isArray(data.field_types)) return data.field_types;
+      return null;
+    } catch {
+      // Endpoint may not exist yet (Phase 3); caller should fall back to local registry
+      return null;
     }
   }
 
