@@ -74,6 +74,13 @@ func parseListOptions(c router.Context) ListOptions {
 			filters[key[7:]] = val[0]
 		}
 	}
+	if _, ok := filters["environment"]; !ok {
+		if env := strings.TrimSpace(c.Query("env")); env != "" {
+			filters["environment"] = env
+		} else if env := strings.TrimSpace(c.Query("environment")); env != "" {
+			filters["environment"] = env
+		}
+	}
 
 	return ListOptions{
 		Page:     page,
