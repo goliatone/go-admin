@@ -1576,6 +1576,7 @@ class BlockPickerModal {
     try {
       const blocks = await this.api.listBlockDefinitionsSummary();
       this.availableBlocks = blocks;
+      this.normalizeSelectedBlocks();
 
       loadingEl?.classList.add('hidden');
 
@@ -1593,13 +1594,47 @@ class BlockPickerModal {
     }
   }
 
+  private blockKey(block: BlockDefinitionSummary): string {
+    return (block.slug || block.type || '').trim();
+  }
+
+  private normalizeSelectedBlocks(): void {
+    if (this.selectedBlocks.size === 0 || this.availableBlocks.length === 0) return;
+
+    const normalized = new Set<string>();
+    const mappedLegacy = new Set<string>();
+
+    for (const block of this.availableBlocks) {
+      const key = this.blockKey(block);
+      if (!key) continue;
+      const hasKey = this.selectedBlocks.has(key);
+      const hasType = this.selectedBlocks.has(block.type);
+      if (hasKey || hasType) {
+        normalized.add(key);
+        if (hasType && block.slug && block.slug !== block.type) {
+          mappedLegacy.add(block.type);
+        }
+      }
+    }
+
+    for (const value of this.selectedBlocks) {
+      if (mappedLegacy.has(value)) continue;
+      if (!normalized.has(value)) {
+        normalized.add(value);
+      }
+    }
+
+    this.selectedBlocks = normalized;
+  }
+
   private renderBlocksList(): void {
     const listEl = this.container?.querySelector('[data-blocks-list]');
     if (!listEl) return;
 
     listEl.innerHTML = this.availableBlocks
       .map((block) => {
-        const isSelected = this.selectedBlocks.has(block.type);
+        const blockKey = this.blockKey(block);
+        const isSelected = this.selectedBlocks.has(blockKey) || this.selectedBlocks.has(block.type);
         return `
           <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
             isSelected
@@ -1608,16 +1643,17 @@ class BlockPickerModal {
           }">
             <input
               type="checkbox"
-              value="${escapeHtml(block.type)}"
+              value="${escapeHtml(blockKey)}"
+              data-block-type="${escapeHtml(block.type)}"
               ${isSelected ? 'checked' : ''}
               class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
             />
             <div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium">
-              ${block.icon || block.type.charAt(0).toUpperCase()}
+              ${block.icon || blockKey.charAt(0).toUpperCase()}
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(block.name)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${escapeHtml(block.type)}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${escapeHtml(blockKey)}</div>
             </div>
             ${block.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${escapeHtml(block.schema_version)}</span>` : ''}
           </label>
@@ -1629,10 +1665,17 @@ class BlockPickerModal {
     listEl.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((checkbox) => {
       checkbox.addEventListener('change', () => {
         const blockType = checkbox.value;
+        const legacyType = checkbox.dataset.blockType;
         if (checkbox.checked) {
           this.selectedBlocks.add(blockType);
+          if (legacyType && legacyType !== blockType) {
+            this.selectedBlocks.delete(legacyType);
+          }
         } else {
           this.selectedBlocks.delete(blockType);
+          if (legacyType) {
+            this.selectedBlocks.delete(legacyType);
+          }
         }
         this.updateSelectionCount();
         this.renderBlocksList(); // Re-render to update styles

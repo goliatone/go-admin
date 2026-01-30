@@ -238,10 +238,12 @@ export class BlockLibraryManager {
         const blockId = blockCard.getAttribute('data-block-id');
         const block = this.state.blocks.find((b) => b.id === blockId);
         if (block && this.isBlockAllowed(block)) {
+          const blockKey = this.blockKey(block);
           this.config.onSelect?.({
             id: block.id,
             name: block.name,
-            type: block.type,
+            slug: block.slug,
+            type: blockKey || block.type,
             description: block.description,
             icon: block.icon,
             category: block.category,
@@ -424,6 +426,7 @@ export class BlockLibraryManager {
     const isManageMode = this.config.mode !== 'picker';
     const isAllowed = this.isBlockAllowed(block);
     const statusBadge = this.getStatusBadge(block.status);
+    const blockKey = this.blockKey(block);
 
     return `
       <div
@@ -436,14 +439,14 @@ export class BlockLibraryManager {
       >
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-lg font-medium">
-            ${block.icon || block.type.charAt(0).toUpperCase()}
+            ${block.icon || blockKey.charAt(0).toUpperCase()}
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">${escapeHtml(block.name)}</h4>
               ${statusBadge}
             </div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">${escapeHtml(block.type)}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">${escapeHtml(blockKey)}</p>
             ${
               block.description
                 ? `<p class="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">${escapeHtml(block.description)}</p>`
@@ -549,6 +552,7 @@ export class BlockLibraryManager {
         (b) =>
           b.name.toLowerCase().includes(searchLower) ||
           b.type.toLowerCase().includes(searchLower) ||
+          (b.slug?.toLowerCase().includes(searchLower) ?? false) ||
           (b.description?.toLowerCase().includes(searchLower) ?? false)
       );
     }
@@ -561,15 +565,27 @@ export class BlockLibraryManager {
     return blocks;
   }
 
+  private blockKey(block: BlockDefinition): string {
+    return (block.slug || block.type || '').trim();
+  }
+
+  private blockInList(list: string[] | undefined, block: BlockDefinition): boolean {
+    if (!list || list.length === 0) return false;
+    const key = this.blockKey(block);
+    if (key && list.includes(key)) return true;
+    if (block.slug && list.includes(block.type)) return true;
+    return false;
+  }
+
   private isBlockAllowed(block: BlockDefinition): boolean {
     const { allowedBlocks, deniedBlocks } = this.config;
 
-    if (deniedBlocks && deniedBlocks.includes(block.type)) {
+    if (this.blockInList(deniedBlocks, block)) {
       return false;
     }
 
     if (allowedBlocks && allowedBlocks.length > 0) {
-      return allowedBlocks.includes(block.type);
+      return this.blockInList(allowedBlocks, block);
     }
 
     return true;
@@ -738,7 +754,7 @@ class BlockDefinitionEditor {
                 name="type"
                 value="${escapeHtml(block?.type ?? '')}"
                 placeholder="hero"
-                pattern="^[a-z][a-z0-9_-]*$"
+                pattern="^[a-z][a-z0-9_\\-]*$"
                 required
                 ${block ? 'readonly' : ''}
                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${block ? 'bg-gray-50 dark:bg-gray-800 cursor-not-allowed' : ''}"
@@ -978,7 +994,7 @@ class BlockDefinitionEditor {
       return;
     }
 
-    if (!/^[a-z][a-z0-9_-]*$/.test(type)) {
+    if (!/^[a-z][a-z0-9_\-]*$/.test(type)) {
       alert('Invalid type format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter.');
       return;
     }
@@ -1061,7 +1077,7 @@ class BlockVersionHistoryViewer {
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Version History</h2>
-          <p class="text-sm text-gray-500 dark:text-gray-400">${escapeHtml(this.config.block.name)} (${escapeHtml(this.config.block.type)})</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">${escapeHtml(this.config.block.name)} (${escapeHtml(this.config.block.slug || this.config.block.type)})</p>
         </div>
         <button type="button" data-viewer-close class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

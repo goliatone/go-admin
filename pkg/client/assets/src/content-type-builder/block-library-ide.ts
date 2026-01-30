@@ -726,10 +726,21 @@ export class BlockLibraryIDE {
 
     this.listEl.innerHTML = html;
 
-    // Focus create form name input if just opened
+    // Focus create form name input if just opened + auto-slug generation
     if (this.state.isCreating) {
       const nameInput = this.listEl.querySelector<HTMLInputElement>('[data-create-name]');
+      const slugInput = this.listEl.querySelector<HTMLInputElement>('[data-create-slug]');
       nameInput?.focus();
+      if (nameInput && slugInput) {
+        nameInput.addEventListener('input', () => {
+          if (!slugInput.dataset.userModified) {
+            slugInput.value = nameToSlug(nameInput.value);
+          }
+        });
+        slugInput.addEventListener('input', () => {
+          slugInput.dataset.userModified = 'true';
+        });
+      }
     }
 
     // Focus rename input if renaming
@@ -804,7 +815,7 @@ export class BlockLibraryIDE {
           </div>
           <div>
             <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Slug</label>
-            <input type="text" data-create-slug placeholder="e.g. hero_section" pattern="^[a-z][a-z0-9_-]*$"
+            <input type="text" data-create-slug placeholder="e.g. hero_section" pattern="^[a-z][a-z0-9_\\-]*$"
                    class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
             <p class="mt-0.5 text-[10px] text-gray-400">Lowercase, numbers, hyphens, underscores.</p>
           </div>
@@ -1156,7 +1167,7 @@ export class BlockLibraryIDE {
       slugInput?.focus();
       return;
     }
-    if (!/^[a-z][a-z0-9_-]*$/.test(slug)) {
+    if (!/^[a-z][a-z0-9_\-]*$/.test(slug)) {
       this.showCreateError(errorEl, 'Slug must start with a letter and contain only lowercase, numbers, hyphens, underscores.');
       slugInput?.focus();
       return;
@@ -1410,6 +1421,13 @@ function esc(str: string): string {
 
 function titleCase(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function nameToSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 function statusDot(status?: string): string {

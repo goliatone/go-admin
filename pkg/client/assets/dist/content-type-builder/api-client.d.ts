@@ -4,6 +4,7 @@
  * Handles all API communication for content type management.
  */
 import type { ContentType, ContentTypeListResponse, SchemaValidationRequest, SchemaValidationResponse, SchemaPreviewRequest, SchemaPreviewResponse, JSONSchema, UISchemaOverlay, BlockDefinition, BlockDefinitionListResponse, BlockDefinitionSummary, BlockSchemaVersion, ContentTypeSchemaVersion, CompatibilityCheckResult, FieldTypeMetadata } from './types';
+import type { BackendFieldTypeCategoryGroup } from './block-field-type-registry';
 export interface ContentTypeAPIConfig {
     basePath: string;
     headers?: Record<string, string>;
@@ -118,7 +119,7 @@ export declare class ContentTypeAPIClient {
     /**
      * Clone a block definition
      */
-    cloneBlockDefinition(idOrType: string, newType: string): Promise<BlockDefinition>;
+    cloneBlockDefinition(idOrType: string, newType: string, newSlug?: string): Promise<BlockDefinition>;
     /**
      * Get block definition schema version history
      */
@@ -134,6 +135,11 @@ export declare class ContentTypeAPIClient {
      * Falls back to null if the endpoint is not available (Phase 3 not deployed).
      */
     getFieldTypes(): Promise<FieldTypeMetadata[] | null>;
+    /**
+     * Fetch grouped field types from the backend registry.
+     * Returns null when the endpoint does not expose grouped categories.
+     */
+    getBlockFieldTypeGroups(): Promise<BackendFieldTypeCategoryGroup[] | null>;
     private fetch;
     private handleError;
 }
