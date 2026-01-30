@@ -70,6 +70,7 @@ type CMSContentService interface {
 	CreateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error)
 	UpdateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error)
 	DeleteBlockDefinition(ctx context.Context, id string) error
+	BlockDefinitionVersions(ctx context.Context, id string) ([]CMSBlockDefinitionVersion, error)
 	BlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error)
 	SaveBlock(ctx context.Context, block CMSBlock) (*CMSBlock, error)
 	DeleteBlock(ctx context.Context, id string) error
@@ -186,11 +187,29 @@ type CMSContentType struct {
 type CMSBlockDefinition struct {
 	ID              string
 	Name            string
+	Slug            string
 	Type            string
+	Description     string
+	Icon            string
+	Category        string
+	Status          string
 	Schema          map[string]any
+	UISchema        map[string]any
 	SchemaVersion   string
 	MigrationStatus string
 	Locale          string
+}
+
+// CMSBlockDefinitionVersion captures a specific block definition schema version.
+type CMSBlockDefinitionVersion struct {
+	ID              string
+	DefinitionID    string
+	SchemaVersion   string
+	Schema          map[string]any
+	Defaults        map[string]any
+	MigrationStatus string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // CMSBlock represents a block instance attached to content/pages.
