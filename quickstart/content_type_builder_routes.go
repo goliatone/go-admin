@@ -207,6 +207,7 @@ func RegisterContentTypeBuilderAPIRoutes(
 	r.Post(path.Join(apiBase, "block_definitions", ":id", "clone"), wrap(handlers.CloneBlockDefinition))
 	r.Get(path.Join(apiBase, "block_definitions", ":id", "versions"), wrap(handlers.BlockDefinitionVersions))
 	r.Get(path.Join(apiBase, "block_definitions", "categories"), wrap(handlers.BlockDefinitionCategories))
+	r.Get(path.Join(apiBase, "block_definitions", "field_types"), wrap(handlers.BlockDefinitionFieldTypes))
 	return nil
 }
 
@@ -217,6 +218,7 @@ type contentTypeBuilderHandlers struct {
 	viewContext              UIViewContextBuilder
 	contentTypesTemplate     string
 	blockDefinitionsTemplate string
+	contentSvc               admin.CMSContentService
 	versions                 *contentTypeVersionStore
 	permission               string
 	authResource             string
@@ -247,6 +249,17 @@ type contentTypeSchemaVersion struct {
 	MigratedCount   *int           `json:"migrated_count,omitempty"`
 	TotalCount      *int           `json:"total_count,omitempty"`
 	Changes         []schemaChange `json:"changes,omitempty"`
+}
+
+type blockSchemaVersion struct {
+	Version         string         `json:"version"`
+	Schema          map[string]any `json:"schema"`
+	CreatedAt       string         `json:"created_at"`
+	CreatedBy       string         `json:"created_by,omitempty"`
+	IsBreaking      bool           `json:"is_breaking,omitempty"`
+	MigrationStatus string         `json:"migration_status,omitempty"`
+	MigratedCount   *int           `json:"migrated_count,omitempty"`
+	TotalCount      *int           `json:"total_count,omitempty"`
 }
 
 type contentTypeVersionStore struct {
@@ -323,6 +336,7 @@ func newContentTypeBuilderHandlers(adm *admin.Admin, cfg admin.Config, viewCtx U
 		admin:        adm,
 		cfg:          cfg,
 		viewContext:  viewCtx,
+		contentSvc:   adm.ContentService(),
 		versions:     newContentTypeVersionStore(),
 		permission:   strings.TrimSpace(permission),
 		authResource: strings.TrimSpace(authResource),
@@ -598,7 +612,42 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionVersions(c router.Context) e
 	if err := h.guard(c, "read"); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, map[string]any{"versions": []map[string]any{}})
+	panel, err := h.panelFor("block_definitions")
+	if err != nil {
+		return err
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		return goerrors.New("block id required", goerrors.CategoryValidation).
+			WithCode(http.StatusBadRequest).
+			WithTextCode("ID_REQUIRED")
+	}
+	if h.contentSvc == nil {
+		return goerrors.New("content service unavailable", goerrors.CategoryInternal).
+			WithCode(http.StatusInternalServerError).
+			WithTextCode("CONTENT_SERVICE_UNAVAILABLE")
+	}
+	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	record, err := panel.Get(adminCtx, id)
+	if err != nil {
+		return err
+	}
+	definitionID := strings.TrimSpace(anyToString(record["id"]))
+	if definitionID == "" {
+		definitionID = id
+	}
+	versions, err := h.contentSvc.BlockDefinitionVersions(c.Context(), definitionID)
+	if err != nil {
+		return err
+	}
+	output := buildBlockSchemaVersions(versions)
+	if len(output) == 0 {
+		entry := buildBlockVersionFromRecord(record)
+		if entry.Schema != nil && len(entry.Schema) > 0 {
+			output = append(output, entry)
+		}
+	}
+	return c.JSON(http.StatusOK, map[string]any{"versions": output})
 }
 
 func (h *contentTypeBuilderHandlers) BlockDefinitionCategories(c router.Context) error {
@@ -607,6 +656,15 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionCategories(c router.Context)
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"categories": []string{"content", "media", "layout", "interactive", "custom"},
+	})
+}
+
+func (h *contentTypeBuilderHandlers) BlockDefinitionFieldTypes(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"categories": admin.BlockFieldTypeGroups(),
 	})
 }
 
@@ -619,9 +677,19 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 		return nil, 0, nil
 	}
 	search := strings.TrimSpace(c.Query("search"))
+	filters := map[string]any{}
+	if category := strings.TrimSpace(c.Query("category")); category != "" {
+		filters["category"] = category
+	}
+	if status := strings.TrimSpace(c.Query("status")); status != "" {
+		filters["status"] = status
+	}
 	opts := admin.ListOptions{
 		PerPage: 200,
 		Search:  search,
+	}
+	if len(filters) > 0 {
+		opts.Filters = filters
 	}
 	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
 	return panel.List(adminCtx, opts)
@@ -776,6 +844,91 @@ func buildVersionFromRecord(record map[string]any) contentTypeSchemaVersion {
 		entry.CreatedAt = time.Now().UTC().Format(time.RFC3339)
 	}
 	return entry
+}
+
+func buildBlockSchemaVersions(items []admin.CMSBlockDefinitionVersion) []blockSchemaVersion {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]blockSchemaVersion, 0, len(items))
+	for i := len(items) - 1; i >= 0; i-- {
+		out = append(out, blockSchemaVersionFromCMS(items[i]))
+	}
+	return out
+}
+
+func blockSchemaVersionFromCMS(item admin.CMSBlockDefinitionVersion) blockSchemaVersion {
+	version := strings.TrimSpace(item.SchemaVersion)
+	schema := item.Schema
+	if schema == nil {
+		schema = map[string]any{}
+	}
+	createdAt := item.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = item.UpdatedAt
+	}
+	created := createdAt.UTC().Format(time.RFC3339)
+	if createdAt.IsZero() {
+		created = time.Now().UTC().Format(time.RFC3339)
+	}
+	status := strings.TrimSpace(item.MigrationStatus)
+	if status == "" {
+		status = schemaMigrationStatusFromSchema(schema)
+	}
+	return blockSchemaVersion{
+		Version:         version,
+		Schema:          schema,
+		CreatedAt:       created,
+		MigrationStatus: status,
+	}
+}
+
+func buildBlockVersionFromRecord(record map[string]any) blockSchemaVersion {
+	schema := normalizeSchemaValue(record["schema"])
+	if schema == nil || len(schema) == 0 {
+		return blockSchemaVersion{}
+	}
+	entry := blockSchemaVersion{
+		Schema: schema,
+	}
+	if version := strings.TrimSpace(anyToString(record["schema_version"])); version != "" {
+		entry.Version = version
+	}
+	if status := strings.TrimSpace(anyToString(record["migration_status"])); status != "" {
+		entry.MigrationStatus = status
+	} else {
+		entry.MigrationStatus = schemaMigrationStatusFromSchema(schema)
+	}
+	if created := strings.TrimSpace(anyToString(record["updated_at"])); created != "" {
+		entry.CreatedAt = created
+	} else if created := strings.TrimSpace(anyToString(record["created_at"])); created != "" {
+		entry.CreatedAt = created
+	} else {
+		entry.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	return entry
+}
+
+func schemaMigrationStatusFromSchema(schema map[string]any) string {
+	if schema == nil {
+		return ""
+	}
+	if meta, ok := schema["metadata"].(map[string]any); ok {
+		if status, ok := meta["migration_status"].(string); ok {
+			return strings.TrimSpace(status)
+		}
+	}
+	if meta, ok := schema["x-cms"].(map[string]any); ok {
+		if status, ok := meta["migration_status"].(string); ok {
+			return strings.TrimSpace(status)
+		}
+	}
+	if meta, ok := schema["x-admin"].(map[string]any); ok {
+		if status, ok := meta["migration_status"].(string); ok {
+			return strings.TrimSpace(status)
+		}
+	}
+	return ""
 }
 
 func normalizeSchemaValue(value any) map[string]any {
