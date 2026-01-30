@@ -82,6 +82,7 @@ func (r *debugRouter) WebSocket(path string, config router.WebSocketConfig, hand
 	return nil
 }
 func (r *debugRouter) Routes() []router.RouteDefinition { return nil }
+func (r *debugRouter) ValidateRoutes() []error         { return nil }
 func (r *debugRouter) PrintRoutes()                     {}
 func (r *debugRouter) WithLogger(logger router.Logger) router.Router[*fiber.App] {
 	_ = logger
