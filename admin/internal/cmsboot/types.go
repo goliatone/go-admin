@@ -174,6 +174,7 @@ type CMSContentType struct {
 	Name         string
 	Slug         string
 	Description  string
+	Environment  string
 	Schema       map[string]any
 	UISchema     map[string]any
 	Capabilities map[string]any
@@ -193,6 +194,7 @@ type CMSBlockDefinition struct {
 	Icon            string
 	Category        string
 	Status          string
+	Environment     string
 	Schema          map[string]any
 	UISchema        map[string]any
 	SchemaVersion   string
