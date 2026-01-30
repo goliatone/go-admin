@@ -26,6 +26,7 @@ type SessionUser struct {
 	Role            string            `json:"role,omitempty"`
 	TenantID        string            `json:"tenant_id,omitempty"`
 	OrganizationID  string            `json:"organization_id,omitempty"`
+	Environment     string            `json:"environment,omitempty"`
 	ResourceRoles   map[string]string `json:"resource_roles,omitempty"`
 	Metadata        map[string]any    `json:"metadata,omitempty"`
 	Scopes          []string          `json:"scopes,omitempty"`
@@ -99,6 +100,9 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 	session.OrganizationID = firstNonEmpty(session.OrganizationID,
 		stringFromMetadata(session.Metadata, "organization_id", "org_id", "org"),
 	)
+	session.Environment = firstNonEmpty(session.Environment,
+		stringFromMetadata(session.Metadata, "environment", "env"),
+	)
 	session.AvatarURL = firstNonEmpty(session.AvatarURL,
 		stringFromMetadata(session.Metadata, "avatar", "avatar_url", "picture", "image_url"),
 	)
@@ -147,6 +151,7 @@ func (s SessionUser) ToViewContext() map[string]any {
 		"role":             s.Role,
 		"tenant_id":        s.TenantID,
 		"organization_id":  s.OrganizationID,
+		"environment":      s.Environment,
 		"resource_roles":   s.ResourceRoles,
 		"metadata":         s.Metadata,
 		"scopes":           s.Scopes,
