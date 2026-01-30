@@ -10,7 +10,7 @@
  * The panel is rendered inside [data-block-ide-editor] when a block is selected.
  */
 
-import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType, FieldTypeMetadata } from './types';
+import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldTypeMetadata } from './types';
 import { schemaToFields, fieldsToSchema, ContentTypeAPIClient } from './api-client';
 import { getFieldTypeMetadata, normalizeFieldType } from './field-type-picker';
 import { PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel';
