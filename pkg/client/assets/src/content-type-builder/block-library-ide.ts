@@ -6,11 +6,10 @@
  * Phase 8: Block Editor Panel (center column) — metadata, field cards, sections
  */
 
-import type { BlockDefinition, BlockDefinitionStatus, FieldType, FieldDefinition } from './types';
+import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldTypeMetadata } from './types';
 import { ContentTypeAPIClient, ContentTypeAPIError, fieldsToSchema, generateFieldId } from './api-client';
 import { BlockEditorPanel } from './block-editor-panel';
 import { FieldPalettePanel } from './field-palette-panel';
-import { getFieldTypeMetadata } from './field-type-picker';
 
 // =============================================================================
 // Types
@@ -115,7 +114,7 @@ export class BlockLibraryIDE {
     this.palettePanel = new FieldPalettePanel({
       container: this.paletteEl,
       api: this.api,
-      onAddField: (fieldType, defaultConfig) => this.handlePaletteAddField(fieldType, defaultConfig),
+      onAddField: (meta) => this.handlePaletteAddField(meta),
     });
     this.palettePanel.init();
   }
@@ -166,6 +165,8 @@ export class BlockLibraryIDE {
     try {
       const updated = await this.api.updateBlockDefinition(blockId, {
         name: block.name,
+        slug: block.slug,
+        type: block.type,
         description: block.description,
         category: block.category,
         icon: block.icon,
@@ -385,8 +386,8 @@ export class BlockLibraryIDE {
       this.popoverPalettePanel = new FieldPalettePanel({
         container: content,
         api: this.api,
-        onAddField: (fieldType, defaultConfig) => {
-          this.handlePaletteAddField(fieldType, defaultConfig);
+        onAddField: (meta) => {
+          this.handlePaletteAddField(meta);
           this.closePalettePopover();
         },
       });
@@ -431,9 +432,24 @@ export class BlockLibraryIDE {
 
     // Update selector
     if (this.envSelectEl) {
+      this.ensureEnvironmentOption(this.currentEnvironment);
+      this.ensureEnvironmentOption('__add__', 'Add environment...');
       this.envSelectEl.value = this.currentEnvironment;
       this.envSelectEl.addEventListener('change', () => {
-        this.setEnvironment(this.envSelectEl!.value);
+        const value = this.envSelectEl!.value;
+        if (value === '__add__') {
+          const custom = prompt('Environment name:');
+          if (custom && custom.trim()) {
+            const env = custom.trim();
+            this.ensureEnvironmentOption(env);
+            this.envSelectEl!.value = env;
+            this.setEnvironment(env);
+          } else {
+            this.envSelectEl!.value = this.currentEnvironment;
+          }
+          return;
+        }
+        this.setEnvironment(value);
       });
     }
 
@@ -447,6 +463,11 @@ export class BlockLibraryIDE {
   private async setEnvironment(env: string): Promise<void> {
     this.currentEnvironment = env;
     this.api.setEnvironment(env);
+
+    if (this.envSelectEl) {
+      this.ensureEnvironmentOption(env);
+      this.envSelectEl.value = env;
+    }
 
     // Persist to session
     if (env) {
@@ -478,6 +499,19 @@ export class BlockLibraryIDE {
       url.searchParams.delete('env');
     }
     window.history.replaceState({}, '', url.toString());
+  }
+
+  /** Ensure the environment select contains a specific option */
+  private ensureEnvironmentOption(value: string, label?: string): void {
+    if (!this.envSelectEl) return;
+    const val = value ?? '';
+    if (val === '' || Array.from(this.envSelectEl.options).some((opt) => opt.value === val)) {
+      return;
+    }
+    const option = document.createElement('option');
+    option.value = val;
+    option.textContent = label ?? val;
+    this.envSelectEl.appendChild(option);
   }
 
   // ===========================================================================
@@ -712,6 +746,7 @@ export class BlockLibraryIDE {
     const isDirty = this.state.dirtyBlocks.has(block.id);
     const isSaving = this.state.savingBlocks.has(block.id);
     const saveError = this.state.saveErrors.get(block.id);
+    const slugOrType = block.slug || block.type || '';
 
     const selectedClass = isSelected
       ? 'bg-blue-50 border-blue-200 text-blue-800'
@@ -744,7 +779,7 @@ export class BlockLibraryIDE {
           </span>
           <span class="flex-1 min-w-0">
             ${nameHtml}
-            <span class="block text-[11px] text-gray-400 font-mono truncate">${esc(block.type)}</span>
+            <span class="block text-[11px] text-gray-400 font-mono truncate">${esc(slugOrType)}</span>
           </span>
           ${indicatorHtml}
           <button type="button" data-block-actions="${esc(block.id)}"
@@ -768,8 +803,8 @@ export class BlockLibraryIDE {
                    class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
           </div>
           <div>
-            <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Type</label>
-            <input type="text" data-create-type placeholder="e.g. hero_section" pattern="^[a-z][a-z0-9_-]*$"
+            <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Slug</label>
+            <input type="text" data-create-slug placeholder="e.g. hero_section" pattern="^[a-z][a-z0-9_-]*$"
                    class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
             <p class="mt-0.5 text-[10px] text-gray-400">Lowercase, numbers, hyphens, underscores.</p>
           </div>
@@ -926,7 +961,7 @@ export class BlockLibraryIDE {
         api: this.api,
         onMetadataChange: (blockId, patch) => this.handleEditorMetadataChange(blockId, patch),
         onSchemaChange: (blockId, fields) => this.handleEditorSchemaChange(blockId, fields),
-        onFieldDrop: (fieldType) => this.handlePaletteAddField(fieldType),
+        onFieldDrop: (meta) => this.handlePaletteAddField(meta),
         onStatusChange: (blockId, newStatus) => this.handleEditorStatusChange(blockId, newStatus),
         onSave: (blockId) => this.saveBlock(blockId),
       });
@@ -944,7 +979,7 @@ export class BlockLibraryIDE {
     this.state.blocks[idx] = { ...this.state.blocks[idx], ...patch };
     this.markDirty(blockId);
     // Update the block name in the list if it changed
-    if (patch.name !== undefined || patch.status !== undefined) {
+    if (patch.name !== undefined || patch.status !== undefined || patch.slug !== undefined || patch.type !== undefined) {
       this.renderBlockList();
     }
     // Schedule autosave (Phase 11)
@@ -956,7 +991,7 @@ export class BlockLibraryIDE {
     if (idx < 0) return;
     this.state.blocks[idx] = {
       ...this.state.blocks[idx],
-      schema: fieldsToSchema(fields, this.state.blocks[idx].type),
+      schema: fieldsToSchema(fields, this.state.blocks[idx].slug || this.state.blocks[idx].type),
     };
     this.markDirty(blockId);
     // Schedule autosave (Phase 11)
@@ -964,12 +999,11 @@ export class BlockLibraryIDE {
   }
 
   /** Handle adding a field from the palette (Phase 9 — click or drop) */
-  private handlePaletteAddField(fieldType: FieldType, defaultConfig?: Partial<Record<string, unknown>>): void {
+  private handlePaletteAddField(meta: FieldTypeMetadata): void {
     if (!this.editorPanel || !this.state.selectedBlockId) return;
 
-    const meta = getFieldTypeMetadata(fieldType);
-    const label = meta?.label ?? titleCase(fieldType);
-    const baseName = fieldType.replace(/-/g, '_');
+    const label = meta?.label ?? titleCase(meta.type);
+    const baseName = meta.type.replace(/-/g, '_');
 
     // Ensure unique field name
     const existingNames = new Set(this.editorPanel.getFields().map((f) => f.name));
@@ -982,10 +1016,10 @@ export class BlockLibraryIDE {
     const newField: FieldDefinition = {
       id: generateFieldId(),
       name,
-      type: fieldType,
+      type: meta.type,
       label,
       required: false,
-      ...(defaultConfig ?? {}),
+      ...(meta.defaultConfig ?? {}),
     };
 
     this.editorPanel.addField(newField);
@@ -1005,6 +1039,7 @@ export class BlockLibraryIDE {
         (b) =>
           b.name.toLowerCase().includes(q) ||
           b.type.toLowerCase().includes(q) ||
+          (b.slug?.toLowerCase().includes(q) ?? false) ||
           (b.description?.toLowerCase().includes(q) ?? false)
       );
     }
@@ -1103,12 +1138,12 @@ export class BlockLibraryIDE {
 
   private async handleCreateSave(): Promise<void> {
     const nameInput = this.listEl?.querySelector<HTMLInputElement>('[data-create-name]');
-    const typeInput = this.listEl?.querySelector<HTMLInputElement>('[data-create-type]');
+    const slugInput = this.listEl?.querySelector<HTMLInputElement>('[data-create-slug]');
     const categorySelect = this.listEl?.querySelector<HTMLSelectElement>('[data-create-category]');
     const errorEl = this.listEl?.querySelector<HTMLElement>('[data-create-error]');
 
     const name = nameInput?.value.trim() ?? '';
-    const type = typeInput?.value.trim() ?? '';
+    const slug = slugInput?.value.trim() ?? '';
     const category = categorySelect?.value ?? 'custom';
 
     if (!name) {
@@ -1116,14 +1151,14 @@ export class BlockLibraryIDE {
       nameInput?.focus();
       return;
     }
-    if (!type) {
-      this.showCreateError(errorEl, 'Type is required.');
-      typeInput?.focus();
+    if (!slug) {
+      this.showCreateError(errorEl, 'Slug is required.');
+      slugInput?.focus();
       return;
     }
-    if (!/^[a-z][a-z0-9_-]*$/.test(type)) {
-      this.showCreateError(errorEl, 'Type must start with a letter and contain only lowercase, numbers, hyphens, underscores.');
-      typeInput?.focus();
+    if (!/^[a-z][a-z0-9_-]*$/.test(slug)) {
+      this.showCreateError(errorEl, 'Slug must start with a letter and contain only lowercase, numbers, hyphens, underscores.');
+      slugInput?.focus();
       return;
     }
 
@@ -1137,7 +1172,8 @@ export class BlockLibraryIDE {
     try {
       const newBlock = await this.api.createBlockDefinition({
         name,
-        type,
+        slug,
+        type: slug,
         category,
         status: 'draft',
         schema: { $schema: 'https://json-schema.org/draft/2020-12/schema', type: 'object', properties: {} },
@@ -1238,10 +1274,12 @@ export class BlockLibraryIDE {
     const block = this.state.blocks.find((b) => b.id === blockId);
     if (!block) return;
 
-    const newType = `${block.type}_copy`;
+    const base = (block.slug || block.type || 'block').trim();
+    const newSlug = `${base}_copy`;
+    const newType = newSlug;
 
     try {
-      const cloned = await this.api.cloneBlockDefinition(blockId, newType);
+      const cloned = await this.api.cloneBlockDefinition(blockId, newType, newSlug);
       this.state.blocks.unshift(cloned);
       this.state.selectedBlockId = cloned.id;
       this.updateCount();

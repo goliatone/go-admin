@@ -22,6 +22,7 @@ import type {
   CompatibilityCheckResult,
   FieldTypeMetadata,
 } from './types';
+import type { BackendFieldTypeCategoryGroup } from './block-field-type-registry';
 
 export interface ContentTypeAPIConfig {
   basePath: string;
@@ -373,11 +374,11 @@ export class ContentTypeAPIClient {
   /**
    * Clone a block definition
    */
-  async cloneBlockDefinition(idOrType: string, newType: string): Promise<BlockDefinition> {
+  async cloneBlockDefinition(idOrType: string, newType: string, newSlug?: string): Promise<BlockDefinition> {
     const url = `${this.config.basePath}/api/block_definitions/${encodeURIComponent(idOrType)}/clone`;
     const response = await this.fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ type: newType }),
+      body: JSON.stringify({ type: newType, slug: newSlug }),
     });
     const data = await response.json();
     return data.item ?? data.data ?? data;
@@ -430,6 +431,24 @@ export class ContentTypeAPIClient {
       return null;
     } catch {
       // Endpoint may not exist yet (Phase 3); caller should fall back to local registry
+      return null;
+    }
+  }
+
+  /**
+   * Fetch grouped field types from the backend registry.
+   * Returns null when the endpoint does not expose grouped categories.
+   */
+  async getBlockFieldTypeGroups(): Promise<BackendFieldTypeCategoryGroup[] | null> {
+    const url = `${this.config.basePath}/api/block_definitions/field_types`;
+    try {
+      const response = await this.fetch(url, { method: 'GET' });
+      const data = await response.json();
+      if (data && Array.isArray(data.categories)) {
+        return data.categories as BackendFieldTypeCategoryGroup[];
+      }
+      return null;
+    } catch {
       return null;
     }
   }

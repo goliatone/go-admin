@@ -10,9 +10,9 @@
  * The panel renders inside [data-block-ide-palette] in the three-column IDE layout.
  */
 
-import type { FieldType, FieldTypeMetadata, FieldTypeCategory } from './types';
+import type { FieldTypeMetadata, FieldTypeCategory, FieldType } from './types';
 import { ContentTypeAPIClient } from './api-client';
-import { FIELD_TYPES, FIELD_CATEGORIES } from './field-type-picker';
+import { BLOCK_FIELD_TYPE_REGISTRY_FALLBACK, buildRegistryFromGroups } from './block-field-type-registry';
 
 // =============================================================================
 // Types
@@ -22,7 +22,7 @@ export interface FieldPalettePanelConfig {
   container: HTMLElement;
   api: ContentTypeAPIClient;
   /** Called when user clicks (non-drag) a palette item to add a field */
-  onAddField: (fieldType: FieldType, defaultConfig?: Partial<Record<string, unknown>>) => void;
+  onAddField: (meta: FieldTypeMetadata) => void;
 }
 
 interface CategoryGroupState {
@@ -38,6 +38,7 @@ const COLLAPSED_BY_DEFAULT: Set<FieldTypeCategory> = new Set(['advanced']);
 
 /** MIME type used for drag-and-drop data transfer */
 export const PALETTE_DRAG_MIME = 'application/x-field-palette-type';
+export const PALETTE_DRAG_META_MIME = 'application/x-field-palette-meta';
 
 // =============================================================================
 // Field Palette Panel
@@ -46,7 +47,7 @@ export const PALETTE_DRAG_MIME = 'application/x-field-palette-type';
 export class FieldPalettePanel {
   private config: FieldPalettePanelConfig;
   private fieldTypes: FieldTypeMetadata[] = [];
-  private categoryOrder: { id: FieldTypeCategory; label: string; icon: string }[] = [];
+  private categoryOrder: { id: FieldTypeCategory; label: string; icon: string; collapsed?: boolean }[] = [];
   private searchQuery: string = '';
   private categoryStates: Map<FieldTypeCategory, CategoryGroupState> = new Map();
   private isLoading: boolean = true;
@@ -54,8 +55,8 @@ export class FieldPalettePanel {
 
   constructor(config: FieldPalettePanelConfig) {
     this.config = config;
-    // Initialize category order from the local registry
-    this.categoryOrder = [...FIELD_CATEGORIES];
+    // Initialize category order from the fallback registry
+    this.categoryOrder = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.categories];
   }
 
   // ===========================================================================
@@ -95,16 +96,26 @@ export class FieldPalettePanel {
 
   private async loadFieldTypes(): Promise<void> {
     try {
-      const apiTypes = await this.config.api.getFieldTypes();
-      if (apiTypes && apiTypes.length > 0) {
-        this.fieldTypes = apiTypes;
+      const groups = await this.config.api.getBlockFieldTypeGroups();
+      if (groups && groups.length > 0) {
+        const registry = buildRegistryFromGroups(groups);
+        this.fieldTypes = registry.fieldTypes;
+        this.categoryOrder = registry.categories;
       } else {
-        // Fall back to the local registry
-        this.fieldTypes = [...FIELD_TYPES];
+        const apiTypes = await this.config.api.getFieldTypes();
+        if (apiTypes && apiTypes.length > 0) {
+          this.fieldTypes = apiTypes;
+          this.categoryOrder = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.categories];
+        } else {
+          // Fall back to the local registry
+          this.fieldTypes = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.fieldTypes];
+          this.categoryOrder = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.categories];
+        }
       }
     } catch {
       // Fall back to local registry on any error
-      this.fieldTypes = [...FIELD_TYPES];
+      this.fieldTypes = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.fieldTypes];
+      this.categoryOrder = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.categories];
     }
 
     // Initialize collapse states for any new categories
@@ -113,8 +124,8 @@ export class FieldPalettePanel {
 
   private initCategoryStates(): void {
     const seenCategories = new Set<FieldTypeCategory>();
-    for (const ft of this.fieldTypes) {
-      seenCategories.add(ft.category);
+    for (const cat of this.categoryOrder) {
+      seenCategories.add(cat.id);
     }
     for (const cat of seenCategories) {
       if (!this.categoryStates.has(cat)) {
@@ -122,6 +133,13 @@ export class FieldPalettePanel {
           collapsed: COLLAPSED_BY_DEFAULT.has(cat),
         });
       }
+    }
+    for (const cat of this.categoryOrder) {
+      const state = this.categoryStates.get(cat.id) ?? { collapsed: false };
+      if (cat.collapsed !== undefined) {
+        state.collapsed = cat.collapsed;
+      }
+      this.categoryStates.set(cat.id, state);
     }
   }
 
@@ -239,7 +257,7 @@ export class FieldPalettePanel {
     const matched = this.fieldTypes.filter(
       (ft) =>
         ft.label.toLowerCase().includes(query) ||
-        ft.description.toLowerCase().includes(query) ||
+        (ft.description ?? '').toLowerCase().includes(query) ||
         ft.type.toLowerCase().includes(query)
     );
 
@@ -332,7 +350,9 @@ export class FieldPalettePanel {
         if ((e as MouseEvent).detail === 0) return;
         const fieldType = item.dataset.paletteItem as FieldType;
         const meta = this.fieldTypes.find((ft) => ft.type === fieldType);
-        this.config.onAddField(fieldType, meta?.defaultConfig as Partial<Record<string, unknown>>);
+        if (meta) {
+          this.config.onAddField(meta);
+        }
       });
     });
 
@@ -342,6 +362,10 @@ export class FieldPalettePanel {
         const fieldType = item.dataset.paletteItem!;
         e.dataTransfer!.effectAllowed = 'copy';
         e.dataTransfer!.setData(PALETTE_DRAG_MIME, fieldType);
+        const meta = this.fieldTypes.find((ft) => ft.type === fieldType);
+        if (meta) {
+          e.dataTransfer!.setData(PALETTE_DRAG_META_MIME, JSON.stringify(meta));
+        }
         e.dataTransfer!.setData('text/plain', fieldType);
         item.classList.add('opacity-50');
       });
