@@ -251,8 +251,22 @@ func (r *CMSContentTypeRepository) List(ctx context.Context, opts ListOptions) (
 		return nil, 0, err
 	}
 	search := strings.ToLower(extractSearch(opts))
+	environment := ""
+	if opts.Filters != nil {
+		environment = strings.TrimSpace(toString(opts.Filters["environment"]))
+	}
+	if environment == "" {
+		environment = strings.TrimSpace(environmentFromContext(ctx))
+	}
 	filtered := make([]CMSContentType, 0, len(types))
 	for _, ct := range types {
+		if environment != "" {
+			if !strings.EqualFold(strings.TrimSpace(ct.Environment), environment) {
+				continue
+			}
+		} else if strings.TrimSpace(ct.Environment) != "" {
+			continue
+		}
 		if search != "" && !strings.Contains(strings.ToLower(ct.Name), search) &&
 			!strings.Contains(strings.ToLower(ct.Slug), search) &&
 			!strings.Contains(strings.ToLower(ct.Description), search) {
@@ -283,6 +297,9 @@ func (r *CMSContentTypeRepository) Create(ctx context.Context, record map[string
 		return nil, ErrNotFound
 	}
 	ct := mapToCMSContentType(record)
+	if ct.Environment == "" {
+		ct.Environment = strings.TrimSpace(environmentFromContext(ctx))
+	}
 	if ct.Slug == "" {
 		ct.Slug = strings.TrimSpace(ct.ID)
 	}
@@ -299,6 +316,9 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 		return nil, ErrNotFound
 	}
 	ct := mapToCMSContentType(record)
+	if ct.Environment == "" {
+		ct.Environment = strings.TrimSpace(environmentFromContext(ctx))
+	}
 	if ct.Slug == "" {
 		ct.Slug = strings.TrimSpace(ct.ID)
 	}
@@ -358,6 +378,7 @@ func mapFromCMSContentType(ct CMSContentType) map[string]any {
 		"name":         ct.Name,
 		"slug":         ct.Slug,
 		"description":  ct.Description,
+		"environment":  ct.Environment,
 		"schema":       cloneAnyMap(ct.Schema),
 		"ui_schema":    cloneAnyMap(ct.UISchema),
 		"capabilities": cloneAnyMap(ct.Capabilities),
@@ -718,12 +739,24 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 	search := strings.ToLower(extractSearch(opts))
 	categoryFilter := ""
 	statusFilter := ""
+	environment := ""
 	if opts.Filters != nil {
 		categoryFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["category"])))
 		statusFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["status"])))
+		environment = strings.TrimSpace(toString(opts.Filters["environment"]))
+	}
+	if environment == "" {
+		environment = strings.TrimSpace(environmentFromContext(ctx))
 	}
 	filtered := []CMSBlockDefinition{}
 	for _, def := range defs {
+		if environment != "" {
+			if !strings.EqualFold(strings.TrimSpace(def.Environment), environment) {
+				continue
+			}
+		} else if strings.TrimSpace(def.Environment) != "" {
+			continue
+		}
 		if search != "" &&
 			!strings.Contains(strings.ToLower(def.Name), search) &&
 			!strings.Contains(strings.ToLower(def.Type), search) &&
@@ -789,6 +822,7 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 			"icon":             def.Icon,
 			"category":         def.Category,
 			"status":           def.Status,
+			"environment":      def.Environment,
 			"schema":           cloneAnyMap(def.Schema),
 			"ui_schema":        cloneAnyMap(def.UISchema),
 			"schema_version":   schemaVersion,
@@ -819,6 +853,9 @@ func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[st
 		return nil, ErrNotFound
 	}
 	def := mapToCMSBlockDefinition(record)
+	if def.Environment == "" {
+		def.Environment = strings.TrimSpace(environmentFromContext(ctx))
+	}
 	created, err := r.content.CreateBlockDefinition(ctx, def)
 	if err != nil {
 		return nil, err
@@ -834,6 +871,7 @@ func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[st
 		"icon":             created.Icon,
 		"category":         created.Category,
 		"status":           created.Status,
+		"environment":      created.Environment,
 		"schema":           cloneAnyMap(created.Schema),
 		"ui_schema":        cloneAnyMap(created.UISchema),
 		"schema_version":   schemaVersion,
@@ -848,6 +886,9 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 		return nil, ErrNotFound
 	}
 	def := mapToCMSBlockDefinition(record)
+	if def.Environment == "" {
+		def.Environment = strings.TrimSpace(environmentFromContext(ctx))
+	}
 	def.ID = id
 	updated, err := r.content.UpdateBlockDefinition(ctx, def)
 	if err != nil {
@@ -864,6 +905,7 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 		"icon":             updated.Icon,
 		"category":         updated.Category,
 		"status":           updated.Status,
+		"environment":      updated.Environment,
 		"schema":           cloneAnyMap(updated.Schema),
 		"ui_schema":        cloneAnyMap(updated.UISchema),
 		"schema_version":   schemaVersion,
@@ -1841,6 +1883,11 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 	if status, ok := record["status"].(string); ok {
 		ct.Status = status
 	}
+	if env, ok := record["environment"].(string); ok {
+		ct.Environment = env
+	} else if env, ok := record["env"].(string); ok && ct.Environment == "" {
+		ct.Environment = env
+	}
 	if schema, ok := record["schema"].(map[string]any); ok {
 		ct.Schema = cloneAnyMap(schema)
 	} else if raw, ok := record["schema"].(string); ok && raw != "" {
@@ -1898,6 +1945,11 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 	}
 	if status, ok := record["status"].(string); ok {
 		def.Status = status
+	}
+	if env, ok := record["environment"].(string); ok {
+		def.Environment = env
+	} else if env, ok := record["env"].(string); ok && def.Environment == "" {
+		def.Environment = env
 	}
 	if schema, ok := record["schema"].(map[string]any); ok {
 		def.Schema = cloneAnyMap(schema)
