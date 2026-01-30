@@ -171,6 +171,7 @@ export class BlockLibraryIDE {
         category: block.category,
         icon: block.icon,
         schema: block.schema,
+        ui_schema: block.ui_schema,
       });
       this.updateBlockInState(blockId, updated);
       this.markClean(blockId);
@@ -457,6 +458,12 @@ export class BlockLibraryIDE {
     if (this.currentEnvironment && !envFromUrl) {
       this.updateUrlEnvironment(this.currentEnvironment);
     }
+
+    if (this.currentEnvironment) {
+      this.api.setEnvironmentSession(this.currentEnvironment).catch(() => {
+        // Ignore session persistence errors
+      });
+    }
   }
 
   /** Change the active environment and reload data */
@@ -474,6 +481,13 @@ export class BlockLibraryIDE {
       sessionStorage.setItem('block-library-env', env);
     } else {
       sessionStorage.removeItem('block-library-env');
+    }
+
+    // Persist to server session (best-effort)
+    try {
+      await this.api.setEnvironmentSession(env);
+    } catch {
+      // Ignore session persistence errors
     }
 
     // Update URL
@@ -987,7 +1001,21 @@ export class BlockLibraryIDE {
   private handleEditorMetadataChange(blockId: string, patch: Partial<BlockDefinition>): void {
     const idx = this.state.blocks.findIndex((b) => b.id === blockId);
     if (idx < 0) return;
-    this.state.blocks[idx] = { ...this.state.blocks[idx], ...patch };
+    const prev = this.state.blocks[idx];
+    const next = { ...prev, ...patch };
+    if (patch.slug !== undefined && patch.slug !== prev.slug) {
+      const newSlug = (patch.slug ?? '').trim();
+      if (newSlug) {
+        if (!patch.type && (!prev.type || prev.type === prev.slug)) {
+          next.type = newSlug;
+          patch.type = newSlug;
+        }
+        if (next.schema && typeof next.schema === 'object') {
+          next.schema = { ...next.schema, $id: newSlug };
+        }
+      }
+    }
+    this.state.blocks[idx] = next;
     this.markDirty(blockId);
     // Update the block name in the list if it changed
     if (patch.name !== undefined || patch.status !== undefined || patch.slug !== undefined || patch.type !== undefined) {
@@ -1000,9 +1028,13 @@ export class BlockLibraryIDE {
   private handleEditorSchemaChange(blockId: string, fields: import('./types').FieldDefinition[]): void {
     const idx = this.state.blocks.findIndex((b) => b.id === blockId);
     if (idx < 0) return;
+    const currentSchema = this.state.blocks[idx].schema;
+    const slug = this.state.blocks[idx].slug || this.state.blocks[idx].type;
+    let nextSchema = fieldsToSchema(fields, slug);
+    nextSchema = this.mergeSchemaExtras(currentSchema, nextSchema);
     this.state.blocks[idx] = {
       ...this.state.blocks[idx],
-      schema: fieldsToSchema(fields, this.state.blocks[idx].slug || this.state.blocks[idx].type),
+      schema: nextSchema,
     };
     this.markDirty(blockId);
     // Schedule autosave (Phase 11)
@@ -1396,6 +1428,25 @@ export class BlockLibraryIDE {
     if (idx >= 0) {
       this.state.blocks[idx] = { ...this.state.blocks[idx], ...updated };
     }
+  }
+
+  private mergeSchemaExtras(current: BlockDefinition['schema'], next: BlockDefinition['schema']): BlockDefinition['schema'] {
+    if (!current || typeof current !== 'object') {
+      return next;
+    }
+    const merged = { ...next } as Record<string, unknown>;
+    const skip = new Set(['properties', 'required', 'type', '$schema']);
+    for (const [key, value] of Object.entries(current)) {
+      if (skip.has(key)) continue;
+      if (key === '$id') {
+        if (!merged['$id'] && value) merged['$id'] = value;
+        continue;
+      }
+      if (!(key in merged)) {
+        merged[key] = value;
+      }
+    }
+    return merged as BlockDefinition['schema'];
   }
 
   private showToast(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
