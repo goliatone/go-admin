@@ -3,7 +3,7 @@ package admin
 import "strings"
 
 func blockDefinitionType(def CMSBlockDefinition) string {
-	return strings.TrimSpace(firstNonEmpty(def.Type, def.Slug, def.ID, def.Name))
+	return strings.TrimSpace(firstNonEmpty(def.Slug, def.Type, def.ID, def.Name))
 }
 
 func blockTypesFromContentType(ct CMSContentType) ([]string, bool) {
