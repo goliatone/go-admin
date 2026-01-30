@@ -333,13 +333,26 @@ func resolveCMSMigrationsFS() fs.FS {
 	}
 	for _, candidate := range candidates {
 		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			if sqliteDir := filepath.Join(candidate, "sqlite"); dirExists(sqliteDir) {
+				return os.DirFS(sqliteDir)
+			}
 			return os.DirFS(candidate)
 		}
+	}
+	if sub, err := fs.Sub(cms.GetMigrationsFS(), "data/sql/migrations/sqlite"); err == nil {
+		return sub
 	}
 	if sub, err := fs.Sub(cms.GetMigrationsFS(), "data/sql/migrations"); err == nil {
 		return sub
 	}
 	return cms.GetMigrationsFS()
+}
+
+func dirExists(path string) bool {
+	if info, err := os.Stat(path); err == nil {
+		return info.IsDir()
+	}
+	return false
 }
 
 type cmsContainerAdapter struct {
