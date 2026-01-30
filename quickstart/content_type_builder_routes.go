@@ -569,6 +569,7 @@ func (h *contentTypeBuilderHandlers) CloneBlockDefinition(c router.Context) erro
 	}
 	req := struct {
 		Type string `json:"type"`
+		Slug string `json:"slug"`
 	}{}
 	if err := parseJSONBody(c, &req); err != nil {
 		return err
@@ -579,6 +580,7 @@ func (h *contentTypeBuilderHandlers) CloneBlockDefinition(c router.Context) erro
 			WithCode(http.StatusBadRequest).
 			WithTextCode("TYPE_REQUIRED")
 	}
+	newSlug := strings.TrimSpace(req.Slug)
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
 		return goerrors.New("block id required", goerrors.CategoryValidation).
@@ -598,6 +600,9 @@ func (h *contentTypeBuilderHandlers) CloneBlockDefinition(c router.Context) erro
 	delete(clone, "created_at")
 	delete(clone, "updated_at")
 	clone["type"] = newType
+	if newSlug != "" {
+		clone["slug"] = newSlug
+	}
 	if strings.TrimSpace(anyToString(clone["name"])) == "" {
 		clone["name"] = fmt.Sprintf("%s Copy", strings.TrimSpace(anyToString(record["name"])))
 	}
@@ -636,7 +641,7 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionVersions(c router.Context) e
 	if definitionID == "" {
 		definitionID = id
 	}
-	versions, err := h.contentSvc.BlockDefinitionVersions(c.Context(), definitionID)
+	versions, err := h.contentSvc.BlockDefinitionVersions(adminCtx.Context, definitionID)
 	if err != nil {
 		return err
 	}
@@ -684,6 +689,10 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 	if status := strings.TrimSpace(c.Query("status")); status != "" {
 		filters["status"] = status
 	}
+	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	if env := strings.TrimSpace(adminCtx.Environment); env != "" {
+		filters["environment"] = env
+	}
 	opts := admin.ListOptions{
 		PerPage: 200,
 		Search:  search,
@@ -691,7 +700,6 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 	if len(filters) > 0 {
 		opts.Filters = filters
 	}
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
 	return panel.List(adminCtx, opts)
 }
 
@@ -1187,6 +1195,23 @@ func anyToString(value any) string {
 	return fmt.Sprint(value)
 }
 
+func resolveEnvironment(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	if env := strings.TrimSpace(c.Query("env")); env != "" {
+		return env
+	}
+	if env := strings.TrimSpace(c.Query("environment")); env != "" {
+		return env
+	}
+	session := BuildSessionUser(c.Context())
+	if env := strings.TrimSpace(session.Environment); env != "" {
+		return env
+	}
+	return stringFromMetadata(session.Metadata, "environment", "env")
+}
+
 func adminContextFromRequest(c router.Context, locale string) admin.AdminContext {
 	if c == nil {
 		return admin.AdminContext{Locale: locale}
@@ -1209,11 +1234,16 @@ func adminContextFromRequest(c router.Context, locale string) admin.AdminContext
 		}
 		ctx = authlib.WithActorContext(ctx, actor)
 	}
+	environment := resolveEnvironment(c)
+	if environment != "" {
+		ctx = admin.WithEnvironment(ctx, environment)
+	}
 	return admin.AdminContext{
-		Context:  ctx,
-		UserID:   userID,
-		TenantID: tenantID,
-		OrgID:    orgID,
-		Locale:   locale,
+		Context:     ctx,
+		UserID:      userID,
+		TenantID:    tenantID,
+		OrgID:       orgID,
+		Environment: environment,
+		Locale:      locale,
 	}
 }
