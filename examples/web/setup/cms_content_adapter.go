@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/pkg/admin"
 	hashid "github.com/goliatone/hashid/pkg/hashid"
@@ -625,6 +626,36 @@ func (b *goCMSContentBridge) DeleteBlockDefinition(ctx context.Context, id strin
 	return reflectError(results)
 }
 
+func (b *goCMSContentBridge) BlockDefinitionVersions(ctx context.Context, id string) ([]admin.CMSBlockDefinitionVersion, error) {
+	if b == nil || b.blocks == nil {
+		return nil, admin.ErrNotFound
+	}
+	method := reflect.ValueOf(b.blocks).MethodByName("ListDefinitionVersions")
+	if !method.IsValid() {
+		return nil, admin.ErrNotFound
+	}
+	defID := b.resolveBlockDefinitionID(ctx, id)
+	if defID == uuid.Nil {
+		return nil, admin.ErrNotFound
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(defID)})
+	if err := reflectError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() {
+		return nil, nil
+	}
+	slice := deref(results[0])
+	if slice.Kind() != reflect.Slice {
+		return nil, nil
+	}
+	out := make([]admin.CMSBlockDefinitionVersion, 0, slice.Len())
+	for i := 0; i < slice.Len(); i++ {
+		out = append(out, b.convertBlockDefinitionVersion(slice.Index(i)))
+	}
+	return out, nil
+}
+
 func (b *goCMSContentBridge) BlocksForContent(ctx context.Context, contentID, locale string) ([]admin.CMSBlock, error) {
 	if b == nil || b.blocks == nil {
 		return nil, admin.ErrNotFound
@@ -1022,6 +1053,21 @@ func stringField(val reflect.Value, field string) string {
 	return ""
 }
 
+func timeField(val reflect.Value, field string) time.Time {
+	f := val.FieldByName(field)
+	if f.IsValid() && f.CanInterface() {
+		if t, ok := f.Interface().(time.Time); ok {
+			return t
+		}
+	}
+	if f.IsValid() && f.Kind() == reflect.Ptr && !f.IsNil() && f.Elem().CanInterface() {
+		if t, ok := f.Elem().Interface().(time.Time); ok {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
 func asString(val any, fallback string) string {
 	if val == nil {
 		return fallback
@@ -1036,6 +1082,28 @@ func asString(val any, fallback string) string {
 		return string(b)
 	}
 	return fallback
+}
+
+func schemaMigrationStatusFromSchema(schema map[string]any) string {
+	if schema == nil {
+		return ""
+	}
+	if meta, ok := schema["metadata"].(map[string]any); ok {
+		if status, ok := meta["migration_status"].(string); ok {
+			return strings.TrimSpace(status)
+		}
+	}
+	if meta, ok := schema["x-cms"].(map[string]any); ok {
+		if status, ok := meta["migration_status"].(string); ok {
+			return strings.TrimSpace(status)
+		}
+	}
+	if meta, ok := schema["x-admin"].(map[string]any); ok {
+		if status, ok := meta["migration_status"].(string); ok {
+			return strings.TrimSpace(status)
+		}
+	}
+	return ""
 }
 
 func uuidOrNil(id string) uuid.UUID {
@@ -1124,6 +1192,46 @@ func (b *goCMSContentBridge) convertBlockDefinition(val reflect.Value) admin.CMS
 		b.blockDefNames[id] = def.ID
 	}
 	return def
+}
+
+func (b *goCMSContentBridge) convertBlockDefinitionVersion(val reflect.Value) admin.CMSBlockDefinitionVersion {
+	val = deref(val)
+	version := admin.CMSBlockDefinitionVersion{}
+	if id, ok := extractUUID(val, "ID"); ok && id != uuid.Nil {
+		version.ID = id.String()
+	}
+	if defID, ok := extractUUID(val, "DefinitionID"); ok && defID != uuid.Nil {
+		if name := b.blockDefinitionName(defID); name != "" {
+			version.DefinitionID = name
+		} else {
+			version.DefinitionID = defID.String()
+		}
+	}
+	if version.ID == "" {
+		version.ID = strings.TrimSpace(stringField(val, "ID"))
+	}
+	if version.DefinitionID == "" {
+		version.DefinitionID = strings.TrimSpace(stringField(val, "DefinitionID"))
+	}
+	if schemaVersion := strings.TrimSpace(stringField(val, "SchemaVersion")); schemaVersion != "" {
+		version.SchemaVersion = schemaVersion
+	}
+	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
+		if schema, ok := schemaField.Interface().(map[string]any); ok {
+			version.Schema = cloneAnyMap(schema)
+		}
+	}
+	if defaultsField := val.FieldByName("Defaults"); defaultsField.IsValid() {
+		if defaults, ok := defaultsField.Interface().(map[string]any); ok {
+			version.Defaults = cloneAnyMap(defaults)
+		}
+	}
+	if version.MigrationStatus == "" {
+		version.MigrationStatus = schemaMigrationStatusFromSchema(version.Schema)
+	}
+	version.CreatedAt = timeField(val, "CreatedAt")
+	version.UpdatedAt = timeField(val, "UpdatedAt")
+	return version
 }
 
 func (b *goCMSContentBridge) resolveBlockDefinitionID(ctx context.Context, key string) uuid.UUID {
