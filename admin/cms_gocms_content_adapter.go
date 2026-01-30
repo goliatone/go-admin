@@ -511,16 +511,17 @@ func (a *GoCMSContentAdapter) BlockDefinitions(ctx context.Context) ([]CMSBlockD
 		def := convertBlockDefinition(value.Index(i))
 		if def.ID != "" {
 			if id, ok := extractUUID(deref(value.Index(i)), "ID"); ok {
+				env := blockDefinitionCacheEnv(ctx, def)
 				primary := strings.TrimSpace(firstNonEmpty(def.Slug, def.ID, def.Name))
 				if primary != "" {
-					a.blockDefinitions[strings.ToLower(primary)] = id
+					a.blockDefinitions[blockDefinitionCacheKey(env, primary)] = id
 					a.blockDefinitionBy[id] = primary
 				}
 				if def.Name != "" {
-					a.blockDefinitions[strings.ToLower(def.Name)] = id
+					a.blockDefinitions[blockDefinitionCacheKey(env, def.Name)] = id
 				}
 				if def.Slug != "" {
-					a.blockDefinitions[strings.ToLower(def.Slug)] = id
+					a.blockDefinitions[blockDefinitionCacheKey(env, def.Slug)] = id
 				}
 			}
 		}
@@ -557,6 +558,10 @@ func (a *GoCMSContentAdapter) CreateBlockDefinition(ctx context.Context, def CMS
 	}
 	if status := strings.TrimSpace(def.Status); status != "" {
 		setStringField(input, "Status", status)
+	}
+	if env := strings.TrimSpace(def.Environment); env != "" {
+		setStringPtr(input.FieldByName("Environment"), env)
+		setStringPtr(input.FieldByName("Env"), env)
 	}
 	setMapField(input, "Schema", cloneAnyMap(def.Schema))
 	if def.UISchema != nil {
@@ -604,6 +609,10 @@ func (a *GoCMSContentAdapter) UpdateBlockDefinition(ctx context.Context, def CMS
 	}
 	if status := strings.TrimSpace(def.Status); status != "" {
 		setStringPtr(input.FieldByName("Status"), status)
+	}
+	if env := strings.TrimSpace(def.Environment); env != "" {
+		setStringPtr(input.FieldByName("Environment"), env)
+		setStringPtr(input.FieldByName("Env"), env)
 	}
 	if len(def.Schema) > 0 {
 		setMapField(input, "Schema", cloneAnyMap(def.Schema))
@@ -937,7 +946,10 @@ func (a *GoCMSContentAdapter) resolveBlockDefinitionID(ctx context.Context, id s
 		return parsed, nil
 	}
 	a.refreshBlockDefinitions(ctx)
-	if defID, ok := a.blockDefinitions[strings.ToLower(id)]; ok {
+	if defID, ok := a.blockDefinitions[blockDefinitionCacheKey(EnvironmentFromContext(ctx), id)]; ok {
+		return defID, nil
+	}
+	if defID, ok := a.blockDefinitions[blockDefinitionCacheKey("", id)]; ok {
 		return defID, nil
 	}
 	return uuid.Nil, ErrNotFound
@@ -976,20 +988,27 @@ func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
 		item := deref(value.Index(i))
 		name := strings.TrimSpace(stringField(item, "Name"))
 		slug := strings.TrimSpace(stringField(item, "Slug"))
+		env := strings.TrimSpace(stringField(item, "Environment"))
+		if env == "" {
+			env = strings.TrimSpace(stringField(item, "Env"))
+		}
+		if env == "" {
+			env = EnvironmentFromContext(ctx)
+		}
 		id, ok := extractUUID(item, "ID")
 		if !ok || id == uuid.Nil || (name == "" && slug == "") {
 			continue
 		}
 		primary := strings.TrimSpace(firstNonEmpty(slug, name))
 		if primary != "" {
-			a.blockDefinitions[strings.ToLower(primary)] = id
+			a.blockDefinitions[blockDefinitionCacheKey(env, primary)] = id
 			a.blockDefinitionBy[id] = primary
 		}
 		if name != "" {
-			a.blockDefinitions[strings.ToLower(name)] = id
+			a.blockDefinitions[blockDefinitionCacheKey(env, name)] = id
 		}
 		if slug != "" {
-			a.blockDefinitions[strings.ToLower(slug)] = id
+			a.blockDefinitions[blockDefinitionCacheKey(env, slug)] = id
 		}
 	}
 }
@@ -1806,6 +1825,11 @@ func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
 	if status := strings.TrimSpace(stringField(val, "MigrationStatus")); status != "" {
 		def.MigrationStatus = status
 	}
+	if env := strings.TrimSpace(stringField(val, "Environment")); env != "" {
+		def.Environment = env
+	} else if env := strings.TrimSpace(stringField(val, "Env")); env != "" {
+		def.Environment = env
+	}
 	if def.MigrationStatus == "" {
 		def.MigrationStatus = schemaMigrationStatusFromSchema(def.Schema)
 	}
@@ -1849,6 +1873,25 @@ func convertBlockDefinitionVersion(value reflect.Value) CMSBlockDefinitionVersio
 	out.CreatedAt = timeField(val, "CreatedAt")
 	out.UpdatedAt = timeField(val, "UpdatedAt")
 	return out
+}
+
+func blockDefinitionCacheKey(env, key string) string {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	if normalized == "" {
+		return ""
+	}
+	env = strings.TrimSpace(env)
+	if env == "" {
+		return normalized
+	}
+	return env + "::" + normalized
+}
+
+func blockDefinitionCacheEnv(ctx context.Context, def CMSBlockDefinition) string {
+	if env := strings.TrimSpace(def.Environment); env != "" {
+		return env
+	}
+	return strings.TrimSpace(EnvironmentFromContext(ctx))
 }
 
 func pageFromContent(content CMSContent) CMSPage {
