@@ -42,18 +42,19 @@ type (
 
 	CommandBus = core.CommandBus
 
-	CMSBlock              = core.CMSBlock
-	CMSBlockDefinition    = core.CMSBlockDefinition
-	CMSContent            = core.CMSContent
-	CMSContentRepository  = core.CMSContentRepository
-	CMSContentService     = core.CMSContentService
-	CMSContentTypeService = core.CMSContentTypeService
-	CMSMenuService        = core.CMSMenuService
-	CMSOptions            = core.CMSOptions
-	CMSPage               = core.CMSPage
-	CMSPageRepository     = core.CMSPageRepository
-	CMSWidgetService      = core.CMSWidgetService
-	WidgetDefinition      = core.WidgetDefinition
+	CMSBlock                  = core.CMSBlock
+	CMSBlockDefinition        = core.CMSBlockDefinition
+	CMSBlockDefinitionVersion = core.CMSBlockDefinitionVersion
+	CMSContent                = core.CMSContent
+	CMSContentRepository      = core.CMSContentRepository
+	CMSContentService         = core.CMSContentService
+	CMSContentTypeService     = core.CMSContentTypeService
+	CMSMenuService            = core.CMSMenuService
+	CMSOptions                = core.CMSOptions
+	CMSPage                   = core.CMSPage
+	CMSPageRepository         = core.CMSPageRepository
+	CMSWidgetService          = core.CMSWidgetService
+	WidgetDefinition          = core.WidgetDefinition
 
 	Config       = core.Config
 	Dependencies = core.Dependencies
