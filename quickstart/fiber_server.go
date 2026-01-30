@@ -12,6 +12,7 @@ type FiberServerOption func(*fiberServerOptions)
 
 type fiberServerOptions struct {
 	config       fiber.Config
+	routerConfig router.FiberAdapterConfig
 	errorHandler fiber.ErrorHandler
 	middleware   []fiber.Handler
 	enableLogger bool
@@ -57,6 +58,16 @@ func WithFiberLogger(enabled bool) FiberServerOption {
 	}
 }
 
+// WithFiberAdapterConfig overrides the go-router adapter configuration.
+func WithFiberAdapterConfig(mutator func(*router.FiberAdapterConfig)) FiberServerOption {
+	return func(opts *fiberServerOptions) {
+		if opts == nil || mutator == nil {
+			return
+		}
+		mutator(&opts.routerConfig)
+	}
+}
+
 // NewFiberServer constructs a Fiber-backed router adapter with quickstart defaults.
 func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App]) {
 	options := fiberServerOptions{
@@ -66,6 +77,9 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 			StrictRouting:     false,
 			PassLocalsToViews: true,
 			Views:             viewEngine,
+		},
+		routerConfig: router.FiberAdapterConfig{
+			OrderRoutesBySpecificity: true,
 		},
 		enableLogger: true,
 	}
@@ -81,7 +95,7 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 	}
 	options.config.ErrorHandler = options.errorHandler
 
-	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+	adapter := router.NewFiberAdapterWithConfig(options.routerConfig, func(_ *fiber.App) *fiber.App {
 		app := fiber.New(options.config)
 		if options.enableLogger {
 			app.Use(fiberlogger.New())
