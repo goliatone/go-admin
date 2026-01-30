@@ -17,7 +17,12 @@ export declare class ContentTypeAPIError extends Error {
 }
 export declare class ContentTypeAPIClient {
     private config;
+    private environment;
     constructor(config: ContentTypeAPIConfig);
+    /** Set the active environment for all subsequent API requests (Phase 12 — Task 12.3) */
+    setEnvironment(env: string): void;
+    /** Get the current environment */
+    getEnvironment(): string;
     /**
      * List all content types
      */

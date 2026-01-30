@@ -58,6 +58,27 @@ export class BlockLibraryIDE {
   // Field palette panel (Phase 9)
   private palettePanel: FieldPalettePanel | null = null;
 
+  // Autosave system (Phase 11)
+  private autosaveTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private static readonly AUTOSAVE_DELAY = 1500;
+  private boundVisibilityChange: (() => void) | null = null;
+  private boundBeforeUnload: ((e: BeforeUnloadEvent) => void) | null = null;
+
+  // Responsive layout (Phase 12 — Task 12.1)
+  private sidebarEl: HTMLElement | null = null;
+  private paletteAsideEl: HTMLElement | null = null;
+  private sidebarToggleBtn: HTMLElement | null = null;
+  private gridEl: HTMLElement | null = null;
+  private addFieldBar: HTMLElement | null = null;
+  private paletteTriggerBtn: HTMLElement | null = null;
+  private sidebarCollapsed: boolean = false;
+  private mediaQueryLg: MediaQueryList | null = null;
+  private popoverPalettePanel: FieldPalettePanel | null = null;
+
+  // Environment (Phase 12 — Tasks 12.2 + 12.3)
+  private envSelectEl: HTMLSelectElement | null = null;
+  private currentEnvironment: string = '';
+
   constructor(root: HTMLElement) {
     const apiBasePath = root.dataset.apiBasePath ?? '/admin';
     this.root = root;
@@ -82,6 +103,9 @@ export class BlockLibraryIDE {
     this.bindDOM();
     this.bindEvents();
     this.initPalette();
+    this.bindAutosaveListeners();
+    this.bindResponsive();
+    this.initEnvironment();
     await Promise.all([this.loadBlocks(), this.loadCategories()]);
   }
 
@@ -97,6 +121,366 @@ export class BlockLibraryIDE {
   }
 
   // ===========================================================================
+  // Autosave system (Phase 11 — Task 11.1)
+  // ===========================================================================
+
+  /** Set up global listeners for autosave: Ctrl+S, visibility change, beforeunload */
+  private bindAutosaveListeners(): void {
+    // Ctrl+S / Cmd+S manual save
+    this.root.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        this.saveCurrentBlock();
+      }
+    });
+
+    // Save on page visibility change (tab switch, minimize)
+    this.boundVisibilityChange = () => {
+      if (document.hidden) {
+        this.saveAllDirty();
+      }
+    };
+    document.addEventListener('visibilitychange', this.boundVisibilityChange);
+
+    // Warn before leaving with unsaved changes
+    this.boundBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (this.state.dirtyBlocks.size > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', this.boundBeforeUnload);
+  }
+
+  /** Persist a dirty block to the backend */
+  async saveBlock(blockId: string): Promise<boolean> {
+    if (!this.state.dirtyBlocks.has(blockId)) return true;
+
+    const block = this.state.blocks.find((b) => b.id === blockId);
+    if (!block) return false;
+
+    this.cancelScheduledSave(blockId);
+    this.markSaving(blockId);
+    this.notifySaveState(blockId, 'saving');
+
+    try {
+      const updated = await this.api.updateBlockDefinition(blockId, {
+        name: block.name,
+        description: block.description,
+        category: block.category,
+        icon: block.icon,
+        schema: block.schema,
+      });
+      this.updateBlockInState(blockId, updated);
+      this.markClean(blockId);
+      this.notifySaveState(blockId, 'saved');
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Save failed';
+      this.markSaveError(blockId, msg);
+      this.notifySaveState(blockId, 'error', msg);
+      return false;
+    }
+  }
+
+  /** Schedule an autosave after the debounce delay */
+  private scheduleSave(blockId: string): void {
+    this.cancelScheduledSave(blockId);
+    const timer = setTimeout(() => {
+      this.autosaveTimers.delete(blockId);
+      this.saveBlock(blockId);
+    }, BlockLibraryIDE.AUTOSAVE_DELAY);
+    this.autosaveTimers.set(blockId, timer);
+  }
+
+  /** Cancel a pending autosave for a block */
+  private cancelScheduledSave(blockId: string): void {
+    const timer = this.autosaveTimers.get(blockId);
+    if (timer) {
+      clearTimeout(timer);
+      this.autosaveTimers.delete(blockId);
+    }
+  }
+
+  /** Save the currently selected block immediately */
+  private async saveCurrentBlock(): Promise<void> {
+    if (!this.state.selectedBlockId) return;
+    await this.saveBlock(this.state.selectedBlockId);
+  }
+
+  /** Save all dirty blocks (used on visibility change) */
+  private async saveAllDirty(): Promise<void> {
+    const dirtyIds = [...this.state.dirtyBlocks];
+    await Promise.all(dirtyIds.map((id) => this.saveBlock(id)));
+  }
+
+  /** Notify the editor panel of a save state change */
+  private notifySaveState(blockId: string, state: 'saving' | 'saved' | 'error', message?: string): void {
+    if (this.editorPanel && this.state.selectedBlockId === blockId) {
+      this.editorPanel.updateSaveState(state, message);
+    }
+  }
+
+  // ===========================================================================
+  // Status lifecycle (Phase 11 — Task 11.3)
+  // ===========================================================================
+
+  /** Handle status changes from the editor dropdown (publish/deprecate flow) */
+  private async handleEditorStatusChange(blockId: string, newStatus: BlockDefinitionStatus): Promise<void> {
+    const block = this.state.blocks.find((b) => b.id === blockId);
+    if (!block) return;
+
+    const oldStatus = block.status;
+    if (oldStatus === newStatus) return;
+
+    // Save any pending changes first
+    if (this.state.dirtyBlocks.has(blockId)) {
+      const saved = await this.saveBlock(blockId);
+      if (!saved) {
+        this.showToast('Please fix save errors before changing status.', 'error');
+        this.editorPanel?.revertStatus(oldStatus);
+        return;
+      }
+    }
+
+    // Call the appropriate lifecycle API
+    try {
+      let updated: BlockDefinition;
+      if (newStatus === 'active') {
+        updated = await this.api.publishBlockDefinition(blockId);
+        this.showToast('Block published.', 'success');
+      } else if (newStatus === 'deprecated') {
+        updated = await this.api.deprecateBlockDefinition(blockId);
+        this.showToast('Block deprecated.', 'info');
+      } else {
+        // Revert to draft via regular update
+        updated = await this.api.updateBlockDefinition(blockId, { status: 'draft' });
+        this.showToast('Block reverted to draft.', 'info');
+      }
+      this.updateBlockInState(blockId, updated);
+      this.renderBlockList();
+      // Refresh editor to reflect new status
+      if (this.editorPanel && this.state.selectedBlockId === blockId) {
+        const refreshed = this.state.blocks.find((b) => b.id === blockId);
+        if (refreshed) this.editorPanel.update(refreshed);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Status change failed';
+      this.showToast(msg, 'error');
+      this.editorPanel?.revertStatus(oldStatus);
+    }
+  }
+
+  // ===========================================================================
+  // Responsive layout (Phase 12 — Task 12.1)
+  // ===========================================================================
+
+  /** Set up media query listeners and responsive behaviors */
+  private bindResponsive(): void {
+    // Sidebar toggle
+    this.sidebarToggleBtn?.addEventListener('click', () => this.toggleSidebar());
+
+    // Palette popover trigger (visible on < lg screens)
+    this.paletteTriggerBtn?.addEventListener('click', () => {
+      if (this.paletteTriggerBtn) {
+        this.openPalettePopover(this.paletteTriggerBtn);
+      }
+    });
+
+    // Media query for lg breakpoint — auto-close popover when returning to desktop
+    this.mediaQueryLg = window.matchMedia('(min-width: 1024px)');
+    this.mediaQueryLg.addEventListener('change', () => this.handleBreakpointChange());
+  }
+
+  /** React to viewport breakpoint changes */
+  private handleBreakpointChange(): void {
+    const isLg = this.mediaQueryLg?.matches ?? true;
+    if (isLg) {
+      this.closePalettePopover();
+    }
+  }
+
+  /** Toggle the left sidebar collapsed state */
+  private toggleSidebar(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+
+    if (this.sidebarEl) {
+      this.sidebarEl.classList.toggle('hidden', this.sidebarCollapsed);
+    }
+
+    if (this.gridEl) {
+      if (this.sidebarCollapsed) {
+        this.gridEl.classList.remove('md:grid-cols-[240px,1fr]', 'lg:grid-cols-[240px,1fr,260px]');
+        this.gridEl.classList.add('md:grid-cols-[1fr]', 'lg:grid-cols-[1fr,260px]');
+      } else {
+        this.gridEl.classList.remove('md:grid-cols-[1fr]', 'lg:grid-cols-[1fr,260px]');
+        this.gridEl.classList.add('md:grid-cols-[240px,1fr]', 'lg:grid-cols-[240px,1fr,260px]');
+      }
+    }
+
+    if (this.sidebarToggleBtn) {
+      this.sidebarToggleBtn.setAttribute('title', this.sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar');
+    }
+  }
+
+  /** Open the field palette as a popover overlay (< lg screens) */
+  private openPalettePopover(anchor: HTMLElement): void {
+    this.closePalettePopover();
+
+    // Backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'fixed inset-0 z-40';
+    backdrop.dataset.paletteBackdrop = '';
+    backdrop.addEventListener('click', () => this.closePalettePopover());
+
+    // Popover container
+    const popover = document.createElement('div');
+    popover.className = 'fixed z-50 w-72 max-h-[60vh] bg-white border border-gray-200 rounded-xl shadow-2xl flex flex-col overflow-hidden';
+    popover.dataset.palettePopover = '';
+
+    popover.innerHTML = `
+      <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Add Field</h3>
+        <button type="button" data-palette-popover-close
+                class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto" data-palette-popover-content></div>
+    `;
+
+    popover.querySelector('[data-palette-popover-close]')?.addEventListener('click', () => this.closePalettePopover());
+
+    // Position near anchor
+    const rect = anchor.getBoundingClientRect();
+    const popoverWidth = 288;
+    let left = rect.left;
+    let top = rect.top - 8; // Above the button
+
+    // Ensure stays on screen
+    if (left + popoverWidth > window.innerWidth - 16) {
+      left = window.innerWidth - popoverWidth - 16;
+    }
+    if (left < 16) left = 16;
+
+    // Prefer showing above the button; if not enough space, show below
+    const estimatedHeight = Math.min(window.innerHeight * 0.6, 480);
+    if (top - estimatedHeight < 16) {
+      top = rect.bottom + 8;
+    } else {
+      top = top - estimatedHeight;
+    }
+
+    popover.style.top = `${top}px`;
+    popover.style.left = `${left}px`;
+
+    document.body.appendChild(backdrop);
+    document.body.appendChild(popover);
+
+    // Initialize a palette panel inside the popover
+    const content = popover.querySelector<HTMLElement>('[data-palette-popover-content]');
+    if (content) {
+      this.popoverPalettePanel = new FieldPalettePanel({
+        container: content,
+        api: this.api,
+        onAddField: (fieldType, defaultConfig) => {
+          this.handlePaletteAddField(fieldType, defaultConfig);
+          this.closePalettePopover();
+        },
+      });
+      this.popoverPalettePanel.init();
+      if (this.state.selectedBlockId) {
+        this.popoverPalettePanel.enable();
+      }
+    }
+  }
+
+  /** Close the palette popover if open */
+  private closePalettePopover(): void {
+    document.querySelector('[data-palette-backdrop]')?.remove();
+    document.querySelector('[data-palette-popover]')?.remove();
+    this.popoverPalettePanel = null;
+  }
+
+  /** Show or hide the "Add Field" bar based on whether a block is selected */
+  private updateAddFieldBar(): void {
+    if (this.addFieldBar) {
+      this.addFieldBar.classList.toggle('hidden', !this.state.selectedBlockId);
+    }
+  }
+
+  // ===========================================================================
+  // Environment management (Phase 12 — Tasks 12.2 + 12.3)
+  // ===========================================================================
+
+  /** Initialize environment from URL param and session, bind selector */
+  private initEnvironment(): void {
+    // Read from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const envFromUrl = urlParams.get('env') ?? '';
+
+    // Fall back to session storage
+    const envFromSession = sessionStorage.getItem('block-library-env') ?? '';
+
+    this.currentEnvironment = envFromUrl || envFromSession;
+
+    // Set on API client
+    this.api.setEnvironment(this.currentEnvironment);
+
+    // Update selector
+    if (this.envSelectEl) {
+      this.envSelectEl.value = this.currentEnvironment;
+      this.envSelectEl.addEventListener('change', () => {
+        this.setEnvironment(this.envSelectEl!.value);
+      });
+    }
+
+    // Sync URL if env came from session but not URL
+    if (this.currentEnvironment && !envFromUrl) {
+      this.updateUrlEnvironment(this.currentEnvironment);
+    }
+  }
+
+  /** Change the active environment and reload data */
+  private async setEnvironment(env: string): Promise<void> {
+    this.currentEnvironment = env;
+    this.api.setEnvironment(env);
+
+    // Persist to session
+    if (env) {
+      sessionStorage.setItem('block-library-env', env);
+    } else {
+      sessionStorage.removeItem('block-library-env');
+    }
+
+    // Update URL
+    this.updateUrlEnvironment(env);
+
+    // Reset state and reload
+    this.state.selectedBlockId = null;
+    this.state.dirtyBlocks.clear();
+    this.state.savingBlocks.clear();
+    this.state.saveErrors.clear();
+    this.editorPanel = null;
+    this.renderEditor();
+
+    await Promise.all([this.loadBlocks(), this.loadCategories()]);
+  }
+
+  /** Update the ?env= query parameter in the URL without a page reload */
+  private updateUrlEnvironment(env: string): void {
+    const url = new URL(window.location.href);
+    if (env) {
+      url.searchParams.set('env', env);
+    } else {
+      url.searchParams.delete('env');
+    }
+    window.history.replaceState({}, '', url.toString());
+  }
+
+  // ===========================================================================
   // Public API (for cross-panel communication in later phases)
   // ===========================================================================
 
@@ -106,7 +490,20 @@ export class BlockLibraryIDE {
   }
 
   selectBlock(blockId: string | null): void {
+    // Save-on-blur: flush any pending autosave for the previous block (Phase 11)
+    const prevId = this.state.selectedBlockId;
+    if (prevId && prevId !== blockId && this.state.dirtyBlocks.has(prevId)) {
+      this.cancelScheduledSave(prevId);
+      this.saveBlock(prevId);
+    }
+
     this.state.selectedBlockId = blockId;
+
+    // Reset save indicator when switching blocks
+    if (this.editorPanel && prevId !== blockId) {
+      this.editorPanel.updateSaveState('idle');
+    }
+
     this.renderBlockList();
     this.renderEditor();
   }
@@ -150,6 +547,15 @@ export class BlockLibraryIDE {
     this.createBtn = this.root.querySelector('[data-block-ide-create]');
     this.editorEl = this.root.querySelector('[data-block-ide-editor]');
     this.paletteEl = this.root.querySelector('[data-block-ide-palette]');
+    // Phase 12: responsive + environment elements
+    this.sidebarEl = this.root.querySelector('[data-block-ide-sidebar]');
+    this.paletteAsideEl = this.root.querySelector('[data-block-ide-palette-aside]');
+    this.gridEl = this.root.querySelector('[data-block-ide-grid]');
+    this.addFieldBar = this.root.querySelector('[data-block-ide-add-field-bar]');
+    this.paletteTriggerBtn = this.root.querySelector('[data-block-ide-palette-trigger]');
+    // Sidebar toggle and env selector may be outside root (in the header)
+    this.sidebarToggleBtn = document.querySelector('[data-block-ide-sidebar-toggle]');
+    this.envSelectEl = document.querySelector('[data-block-ide-env]');
   }
 
   private bindEvents(): void {
@@ -505,6 +911,7 @@ export class BlockLibraryIDE {
         </div>`;
       // Disable palette when no block is selected (Phase 9)
       this.palettePanel?.disable();
+      this.updateAddFieldBar();
       return;
     }
 
@@ -520,12 +927,15 @@ export class BlockLibraryIDE {
         onMetadataChange: (blockId, patch) => this.handleEditorMetadataChange(blockId, patch),
         onSchemaChange: (blockId, fields) => this.handleEditorSchemaChange(blockId, fields),
         onFieldDrop: (fieldType) => this.handlePaletteAddField(fieldType),
+        onStatusChange: (blockId, newStatus) => this.handleEditorStatusChange(blockId, newStatus),
+        onSave: (blockId) => this.saveBlock(blockId),
       });
       this.editorPanel.render();
     }
 
     // Enable palette when a block is selected (Phase 9)
     this.palettePanel?.enable();
+    this.updateAddFieldBar();
   }
 
   private handleEditorMetadataChange(blockId: string, patch: Partial<BlockDefinition>): void {
@@ -537,6 +947,8 @@ export class BlockLibraryIDE {
     if (patch.name !== undefined || patch.status !== undefined) {
       this.renderBlockList();
     }
+    // Schedule autosave (Phase 11)
+    this.scheduleSave(blockId);
   }
 
   private handleEditorSchemaChange(blockId: string, fields: import('./types').FieldDefinition[]): void {
@@ -547,6 +959,8 @@ export class BlockLibraryIDE {
       schema: fieldsToSchema(fields, this.state.blocks[idx].type),
     };
     this.markDirty(blockId);
+    // Schedule autosave (Phase 11)
+    this.scheduleSave(blockId);
   }
 
   /** Handle adding a field from the palette (Phase 9 — click or drop) */
@@ -844,10 +1258,24 @@ export class BlockLibraryIDE {
   // ===========================================================================
 
   private async publishBlock(blockId: string): Promise<void> {
+    // Save pending changes before publishing (Phase 11)
+    if (this.state.dirtyBlocks.has(blockId)) {
+      const saved = await this.saveBlock(blockId);
+      if (!saved) {
+        this.showToast('Please fix save errors before publishing.', 'error');
+        return;
+      }
+    }
     try {
       const updated = await this.api.publishBlockDefinition(blockId);
       this.updateBlockInState(blockId, updated);
       this.renderBlockList();
+      this.showToast('Block published.', 'success');
+      // Refresh editor if this block is selected
+      if (this.state.selectedBlockId === blockId && this.editorPanel) {
+        const refreshed = this.state.blocks.find((b) => b.id === blockId);
+        if (refreshed) this.editorPanel.update(refreshed);
+      }
     } catch (err) {
       console.error('Publish failed:', err);
       this.showToast(err instanceof Error ? err.message : 'Failed to publish block.', 'error');
@@ -855,10 +1283,24 @@ export class BlockLibraryIDE {
   }
 
   private async deprecateBlock(blockId: string): Promise<void> {
+    // Save pending changes before deprecating (Phase 11)
+    if (this.state.dirtyBlocks.has(blockId)) {
+      const saved = await this.saveBlock(blockId);
+      if (!saved) {
+        this.showToast('Please fix save errors before deprecating.', 'error');
+        return;
+      }
+    }
     try {
       const updated = await this.api.deprecateBlockDefinition(blockId);
       this.updateBlockInState(blockId, updated);
       this.renderBlockList();
+      this.showToast('Block deprecated.', 'info');
+      // Refresh editor if this block is selected
+      if (this.state.selectedBlockId === blockId && this.editorPanel) {
+        const refreshed = this.state.blocks.find((b) => b.id === blockId);
+        if (refreshed) this.editorPanel.update(refreshed);
+      }
     } catch (err) {
       console.error('Deprecate failed:', err);
       this.showToast(err instanceof Error ? err.message : 'Failed to deprecate block.', 'error');

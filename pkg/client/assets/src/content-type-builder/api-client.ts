@@ -45,6 +45,7 @@ export class ContentTypeAPIError extends Error {
 
 export class ContentTypeAPIClient {
   private config: ContentTypeAPIConfig;
+  private environment: string = '';
 
   constructor(config: ContentTypeAPIConfig) {
     this.config = {
@@ -52,6 +53,16 @@ export class ContentTypeAPIClient {
       headers: config.headers ?? {},
       credentials: config.credentials ?? 'same-origin',
     };
+  }
+
+  /** Set the active environment for all subsequent API requests (Phase 12 — Task 12.3) */
+  setEnvironment(env: string): void {
+    this.environment = env;
+  }
+
+  /** Get the current environment */
+  getEnvironment(): string {
+    return this.environment;
   }
 
   // ===========================================================================
@@ -433,6 +444,13 @@ export class ContentTypeAPIClient {
       Accept: 'application/json',
       ...this.config.headers,
     };
+
+    // Include environment context (Phase 12 — Task 12.3)
+    if (this.environment) {
+      headers['X-Admin-Environment'] = this.environment;
+      const separator = url.includes('?') ? '&' : '?';
+      url = `${url}${separator}env=${encodeURIComponent(this.environment)}`;
+    }
 
     const response = await fetch(url, {
       ...options,

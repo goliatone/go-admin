@@ -10,7 +10,7 @@
  * The panel is rendered inside [data-block-ide-editor] when a block is selected.
  */
 
-import type { BlockDefinition, FieldDefinition, FieldType } from './types';
+import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType } from './types';
 import { schemaToFields, fieldsToSchema, ContentTypeAPIClient } from './api-client';
 import { getFieldTypeMetadata } from './field-type-picker';
 import { PALETTE_DRAG_MIME } from './field-palette-panel';
@@ -28,6 +28,10 @@ export interface BlockEditorPanelConfig {
   onSchemaChange: (blockId: string, fields: FieldDefinition[]) => void;
   /** Called when a field type is dropped from the palette (Phase 9) */
   onFieldDrop?: (fieldType: FieldType) => void;
+  /** Called when status is changed via the editor dropdown (Phase 11 — Task 11.3) */
+  onStatusChange?: (blockId: string, newStatus: BlockDefinitionStatus) => void;
+  /** Called when the user triggers a manual save (Phase 11 — Task 11.1) */
+  onSave?: (blockId: string) => void;
 }
 
 interface SectionState {
@@ -55,6 +59,10 @@ export class BlockEditorPanel {
   private dragReorder: { fieldId: string; sectionName: string } | null = null;
   /** Field id currently showing a drop-before indicator */
   private dropTargetFieldId: string | null = null;
+  /** Save state tracking (Phase 11 — Task 11.2) */
+  private saveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+  private saveMessage: string = '';
+  private saveDisplayTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: BlockEditorPanelConfig) {
     this.config = config;
@@ -108,12 +116,81 @@ export class BlockEditorPanel {
   private renderHeader(): string {
     return `
       <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between shrink-0">
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
           <h2 class="text-sm font-semibold text-gray-900 truncate" data-editor-block-name>${esc(this.block.name || 'Untitled')}</h2>
           <p class="text-[11px] text-gray-400 font-mono truncate">${esc(this.block.type)}</p>
         </div>
-        <span class="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full ${statusClasses(this.block.status)}">${esc(this.block.status || 'draft')}</span>
+        <div class="flex items-center gap-2 shrink-0">
+          <span data-editor-save-indicator>${this.renderSaveState()}</span>
+          <span class="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full ${statusClasses(this.block.status)}" data-editor-status-badge>${esc(this.block.status || 'draft')}</span>
+        </div>
       </div>`;
+  }
+
+  // ===========================================================================
+  // Save state indicator (Phase 11 — Task 11.2)
+  // ===========================================================================
+
+  private renderSaveState(): string {
+    switch (this.saveState) {
+      case 'saving':
+        return `<span data-save-state class="flex items-center gap-1 text-[11px] text-blue-600">
+          <span class="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin"></span>
+          Saving\u2026
+        </span>`;
+      case 'saved':
+        return `<span data-save-state class="flex items-center gap-1 text-[11px] text-green-600">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          Saved
+        </span>`;
+      case 'error':
+        return `<span data-save-state class="flex items-center gap-1 text-[11px] text-red-500" title="${esc(this.saveMessage)}">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+          Save failed
+        </span>`;
+      default:
+        return '';
+    }
+  }
+
+  /** Update the save state indicator without a full re-render (Phase 11 — Task 11.2) */
+  updateSaveState(state: 'idle' | 'saving' | 'saved' | 'error', message?: string): void {
+    if (this.saveDisplayTimer) {
+      clearTimeout(this.saveDisplayTimer);
+      this.saveDisplayTimer = null;
+    }
+
+    this.saveState = state;
+    this.saveMessage = message ?? '';
+
+    // Update the indicator in-place
+    const container = this.config.container.querySelector('[data-editor-save-indicator]');
+    if (container) {
+      container.innerHTML = this.renderSaveState();
+    }
+
+    // Auto-clear "saved" state after a delay
+    if (state === 'saved') {
+      this.saveDisplayTimer = setTimeout(() => {
+        this.saveState = 'idle';
+        this.saveMessage = '';
+        const el = this.config.container.querySelector('[data-editor-save-indicator]');
+        if (el) el.innerHTML = '';
+      }, 2000);
+    }
+  }
+
+  /** Revert the status dropdown to a previous value (used on status change failure) */
+  revertStatus(status?: BlockDefinitionStatus | string): void {
+    const select = this.config.container.querySelector<HTMLSelectElement>('[data-meta-field="status"]');
+    if (select) {
+      select.value = status ?? 'draft';
+    }
+    (this.block as unknown as Record<string, unknown>).status = status ?? 'draft';
   }
 
   // ===========================================================================
@@ -733,6 +810,12 @@ export class BlockEditorPanel {
   // ===========================================================================
 
   private handleMetadataChange(key: string, value: string): void {
+    // Route status changes through the dedicated lifecycle handler (Phase 11 — Task 11.3)
+    if (key === 'status' && this.config.onStatusChange) {
+      this.config.onStatusChange(this.block.id, value as BlockDefinitionStatus);
+      return;
+    }
+
     const patch: Partial<BlockDefinition> = {};
     const self = this.block as unknown as Record<string, unknown>;
     switch (key) {
