@@ -716,9 +716,24 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 		return nil, 0, err
 	}
 	search := strings.ToLower(extractSearch(opts))
+	categoryFilter := ""
+	statusFilter := ""
+	if opts.Filters != nil {
+		categoryFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["category"])))
+		statusFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["status"])))
+	}
 	filtered := []CMSBlockDefinition{}
 	for _, def := range defs {
-		if search != "" && !strings.Contains(strings.ToLower(def.Name), search) && !strings.Contains(strings.ToLower(def.Type), search) {
+		if search != "" &&
+			!strings.Contains(strings.ToLower(def.Name), search) &&
+			!strings.Contains(strings.ToLower(def.Type), search) &&
+			!strings.Contains(strings.ToLower(def.Slug), search) {
+			continue
+		}
+		if categoryFilter != "" && strings.ToLower(strings.TrimSpace(def.Category)) != categoryFilter {
+			continue
+		}
+		if statusFilter != "" && strings.ToLower(strings.TrimSpace(def.Status)) != statusFilter {
 			continue
 		}
 		filtered = append(filtered, def)
@@ -768,8 +783,14 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 		out = append(out, map[string]any{
 			"id":               def.ID,
 			"name":             def.Name,
+			"slug":             def.Slug,
 			"type":             def.Type,
+			"description":      def.Description,
+			"icon":             def.Icon,
+			"category":         def.Category,
+			"status":           def.Status,
 			"schema":           cloneAnyMap(def.Schema),
+			"ui_schema":        cloneAnyMap(def.UISchema),
 			"schema_version":   schemaVersion,
 			"migration_status": migrationStatus,
 			"locale":           def.Locale,
@@ -807,8 +828,14 @@ func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[st
 	return map[string]any{
 		"id":               created.ID,
 		"name":             created.Name,
+		"slug":             created.Slug,
 		"type":             created.Type,
+		"description":      created.Description,
+		"icon":             created.Icon,
+		"category":         created.Category,
+		"status":           created.Status,
 		"schema":           cloneAnyMap(created.Schema),
+		"ui_schema":        cloneAnyMap(created.UISchema),
 		"schema_version":   schemaVersion,
 		"migration_status": migrationStatus,
 		"locale":           created.Locale,
@@ -831,8 +858,14 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 	return map[string]any{
 		"id":               updated.ID,
 		"name":             updated.Name,
+		"slug":             updated.Slug,
 		"type":             updated.Type,
+		"description":      updated.Description,
+		"icon":             updated.Icon,
+		"category":         updated.Category,
+		"status":           updated.Status,
 		"schema":           cloneAnyMap(updated.Schema),
+		"ui_schema":        cloneAnyMap(updated.UISchema),
 		"schema_version":   schemaVersion,
 		"migration_status": migrationStatus,
 		"locale":           updated.Locale,
@@ -1848,8 +1881,23 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 	if name, ok := record["name"].(string); ok {
 		def.Name = name
 	}
+	if slug, ok := record["slug"].(string); ok {
+		def.Slug = slug
+	}
 	if typ, ok := record["type"].(string); ok {
 		def.Type = typ
+	}
+	if desc, ok := record["description"].(string); ok {
+		def.Description = desc
+	}
+	if icon, ok := record["icon"].(string); ok {
+		def.Icon = icon
+	}
+	if category, ok := record["category"].(string); ok {
+		def.Category = category
+	}
+	if status, ok := record["status"].(string); ok {
+		def.Status = status
 	}
 	if schema, ok := record["schema"].(map[string]any); ok {
 		def.Schema = cloneAnyMap(schema)
@@ -1857,6 +1905,16 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 		var m map[string]any
 		if err := json.Unmarshal([]byte(raw), &m); err == nil {
 			def.Schema = m
+		}
+	}
+	if uiSchema, ok := record["ui_schema"].(map[string]any); ok {
+		def.UISchema = cloneAnyMap(uiSchema)
+	} else if uiSchema, ok := record["uiSchema"].(map[string]any); ok && def.UISchema == nil {
+		def.UISchema = cloneAnyMap(uiSchema)
+	} else if raw, ok := record["ui_schema"].(string); ok && raw != "" {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(raw), &m); err == nil {
+			def.UISchema = m
 		}
 	}
 	if version, ok := record["schema_version"].(string); ok {
