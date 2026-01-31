@@ -213,9 +213,11 @@ export class BlockEditorPanel {
             <span class="w-1 h-4 rounded-full bg-indigo-400"></span>
             <span>Block Metadata</span>
           </div>
-          <svg class="w-4 h-4 text-gray-400 transition-transform" data-metadata-chevron fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-          </svg>
+          <span data-metadata-chevron class="w-4 h-4 text-gray-400 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </span>
         </button>
         <div class="px-5 pb-4 space-y-3" data-metadata-body>
           <div class="grid grid-cols-2 gap-3">
@@ -309,10 +311,12 @@ export class BlockEditorPanel {
         <div data-section="${esc(sectionName)}" class="border-b border-gray-100">
           <button type="button" data-toggle-section="${esc(sectionName)}"
                   class="w-full flex items-center gap-2 px-5 py-2.5 text-left hover:bg-gray-50 transition-colors group">
-            <svg class="w-3.5 h-3.5 text-gray-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}"
-                 data-section-chevron="${esc(sectionName)}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
+            <span class="w-3.5 h-3.5 text-gray-400 flex items-center justify-center" data-section-chevron="${esc(sectionName)}">
+              ${isCollapsed
+                ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
+                : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'
+              }
+            </span>
             <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider">${esc(titleCase(sectionName))}</span>
             <span class="text-[10px] text-gray-400 ml-auto">${fields.length}</span>
           </button>
@@ -370,36 +374,43 @@ export class BlockEditorPanel {
             <span class="block text-[13px] font-medium text-gray-800 truncate">${esc(field.label || field.name)}</span>
             <span class="block text-[10px] text-gray-400 font-mono truncate">${esc(field.name)} &middot; ${esc(field.type)}</span>
           </span>
-          ${field.required ? '<span class="flex-shrink-0 text-[10px] font-medium text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded uppercase leading-none">req</span>' : ''}
-          <!-- Up/Down buttons (Phase 10 — Task 10.2) -->
-          <button type="button" data-field-move-up="${esc(field.id)}"
-                  class="flex-shrink-0 p-0.5 rounded ${isFirst ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'} transition-colors"
-                  title="Move up" ${isFirst ? 'disabled' : ''}>
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-            </svg>
-          </button>
-          <button type="button" data-field-move-down="${esc(field.id)}"
-                  class="flex-shrink-0 p-0.5 rounded ${isLast ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'} transition-colors"
-                  title="Move down" ${isLast ? 'disabled' : ''}>
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-          </button>
+          ${field.required ? '<span class="flex-shrink-0 text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full uppercase tracking-wide leading-none">req</span>' : ''}
+          <!-- Up/Down reorder group (Phase 10 — Task 10.2) -->
+          <span class="flex-shrink-0 inline-flex flex-col border border-gray-200 rounded-md overflow-hidden">
+            <button type="button" data-field-move-up="${esc(field.id)}"
+                    class="px-0.5 py-px ${isFirst ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'} transition-colors"
+                    title="Move up" ${isFirst ? 'disabled' : ''}>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+              </svg>
+            </button>
+            <span class="block h-px bg-gray-200"></span>
+            <button type="button" data-field-move-down="${esc(field.id)}"
+                    class="px-0.5 py-px ${isLast ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'} transition-colors"
+                    title="Move down" ${isLast ? 'disabled' : ''}>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+          </span>
           <!-- Actions: move to section (Task 8.4) -->
           <div class="relative flex-shrink-0">
             <button type="button" data-field-actions="${esc(field.id)}"
-                    class="p-0.5 rounded text-gray-300 hover:text-gray-500 transition-colors"
-                    title="Field actions" style="opacity:1;">
-              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    title="Field actions">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
               </svg>
             </button>
             ${this.moveMenuFieldId === field.id ? this.renderMoveToSectionMenu(field, allSections, sectionName) : ''}
           </div>
-          <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform cursor-pointer ${isExpanded ? '' : '-rotate-90'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-          </svg>
+          <!-- Expand/collapse toggle (distinct from reorder) -->
+          <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 cursor-pointer transition-colors">
+            ${isExpanded
+              ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>'
+              : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>'
+            }
+          </span>
         </div>
 
         <!-- Expanded properties (Task 8.2) -->
@@ -617,7 +628,11 @@ export class BlockEditorPanel {
       const chevron = root.querySelector<HTMLElement>('[data-metadata-chevron]');
       if (body) {
         const hidden = body.classList.toggle('hidden');
-        chevron?.classList.toggle('-rotate-90', hidden);
+        if (chevron) {
+          chevron.innerHTML = hidden
+            ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
+            : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+        }
       }
     });
 
@@ -737,7 +752,11 @@ export class BlockEditorPanel {
       const body = root.querySelector<HTMLElement>(`[data-section-body="${section}"]`);
       const chevron = root.querySelector<HTMLElement>(`[data-section-chevron="${section}"]`);
       if (body) body.classList.toggle('hidden', state.collapsed);
-      if (chevron) chevron.classList.toggle('-rotate-90', state.collapsed);
+      if (chevron) {
+        chevron.innerHTML = state.collapsed
+          ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
+          : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+      }
       return;
     }
 

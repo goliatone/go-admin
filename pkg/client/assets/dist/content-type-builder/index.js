@@ -3,7 +3,7 @@ class K extends Error {
     super(e), this.name = "ContentTypeAPIError", this.status = t, this.textCode = r, this.fields = a;
   }
 }
-class C {
+class $ {
   constructor(e) {
     this.environment = "", this.config = {
       basePath: e.basePath.replace(/\/$/, ""),
@@ -319,7 +319,7 @@ class C {
     throw new K(r, e.status, t?.text_code, t?.fields);
   }
 }
-function $(o, e) {
+function C(o, e) {
   const t = {}, r = [];
   for (const s of o)
     t[s.name] = Z(s), s.required && r.push(s.name);
@@ -379,7 +379,7 @@ function Z(o) {
       e.items = { type: "string", format: "uri" };
       break;
     case "repeater":
-      o.config && "fields" in o.config && o.config.fields && (e.items = $(o.config.fields));
+      o.config && "fields" in o.config && o.config.fields && (e.items = C(o.config.fields));
       break;
     case "blocks": {
       const i = o.config, l = {
@@ -431,7 +431,7 @@ function X(o) {
     color: "color"
   }[o];
 }
-function j(o) {
+function F(o) {
   if (!o.properties)
     return [];
   const e = new Set(o.required ?? []), t = [];
@@ -441,7 +441,7 @@ function j(o) {
 }
 function ee(o, e, t) {
   const r = e["x-formgen"], a = {
-    id: F(),
+    id: j(),
     name: o,
     type: te(e),
     label: e.title ?? V(o),
@@ -518,7 +518,7 @@ function te(o) {
       return "text";
   }
 }
-function F() {
+function j() {
   return `field_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 function V(o) {
@@ -576,7 +576,7 @@ const re = {
 function A(o) {
   return re[o] ?? "";
 }
-function P(o) {
+function q(o) {
   const e = o.trim().toLowerCase();
   return {
     string: "text",
@@ -839,10 +839,10 @@ const N = [
   { id: "advanced", label: "Advanced", icon: u("cat-advanced") }
 ];
 function T(o) {
-  const e = P(String(o));
+  const e = q(String(o));
   return N.find((t) => t.type === e);
 }
-function qe(o) {
+function Pe(o) {
   return N.filter((e) => e.category === o);
 }
 class J {
@@ -1945,7 +1945,7 @@ class _ {
       return;
     }
     const l = {
-      id: this.field.id || F(),
+      id: this.field.id || j(),
       name: r,
       type: this.field.type,
       label: i,
@@ -1960,10 +1960,10 @@ class _ {
     d !== null && d !== "" && (n.minLength = parseInt(d, 10));
     const h = t.get("maxLength");
     h !== null && h !== "" && (n.maxLength = parseInt(h, 10));
-    const k = t.get("min");
-    k !== null && k !== "" && (n.min = parseFloat(k));
-    const y = t.get("max");
-    y !== null && y !== "" && (n.max = parseFloat(y));
+    const v = t.get("min");
+    v !== null && v !== "" && (n.min = parseFloat(v));
+    const g = t.get("max");
+    g !== null && g !== "" && (n.max = parseFloat(g));
     const b = t.get("pattern");
     b && b.trim() && (n.pattern = b.trim()), Object.keys(n).length > 0 && (l.validation = n);
     const w = this.buildTypeSpecificConfig(t);
@@ -2092,7 +2092,7 @@ function se(o) {
 }
 class ie {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.availableBlocks = [], this.config = e, this.api = new C({ basePath: e.apiBasePath }), this.selectedBlocks = new Set(e.selectedBlocks);
+    this.container = null, this.backdrop = null, this.availableBlocks = [], this.config = e, this.api = new $({ basePath: e.apiBasePath }), this.selectedBlocks = new Set(e.selectedBlocks);
   }
   async show() {
     this.render(), this.bindEvents(), await this.loadBlocks();
@@ -2594,7 +2594,7 @@ function L(o) {
 }
 class ne {
   constructor(e, t) {
-    this.dragState = null, this.container = e, this.config = t, this.api = new C({ basePath: t.apiBasePath }), this.state = {
+    this.dragState = null, this.container = e, this.config = t, this.api = new $({ basePath: t.apiBasePath }), this.state = {
       contentType: null,
       fields: [],
       isDirty: !1,
@@ -2621,7 +2621,7 @@ class ne {
     this.state.isLoading = !0, this.updateLoadingState();
     try {
       const t = await this.api.get(e);
-      this.state.contentType = t, this.state.fields = j(t.schema), t.ui_schema?.layout && (this.state.layout = {
+      this.state.contentType = t, this.state.fields = F(t.schema), t.ui_schema?.layout && (this.state.layout = {
         type: t.ui_schema.layout.type ?? "flat",
         tabs: t.ui_schema.layout.tabs ?? [],
         gridColumns: t.ui_schema.layout.gridColumns ?? 12
@@ -2642,7 +2642,7 @@ class ne {
       this.showToast("Name is required", "error"), e?.focus();
       return;
     }
-    const r = $(this.state.fields, this.getSlug()), a = {
+    const r = C(this.state.fields, this.getSlug()), a = {
       name: t,
       slug: this.getSlug(),
       description: this.getDescription(),
@@ -2668,7 +2668,7 @@ class ne {
    */
   addField(e) {
     const t = T(e), r = {
-      id: F(),
+      id: j(),
       name: `new_${e}_${this.state.fields.length + 1}`,
       type: e,
       label: t?.label ?? e,
@@ -2727,7 +2727,7 @@ class ne {
    * Validate the schema
    */
   async validateSchema() {
-    const e = $(this.state.fields, this.getSlug());
+    const e = C(this.state.fields, this.getSlug());
     try {
       const t = await this.api.validateSchema({
         schema: e,
@@ -2760,7 +2760,7 @@ class ne {
         `);
       return;
     }
-    const e = $(this.state.fields, this.getSlug());
+    const e = C(this.state.fields, this.getSlug());
     this.state.isPreviewing = !0, this.updatePreviewState();
     try {
       const t = await this.api.previewSchema({
@@ -2792,7 +2792,7 @@ class ne {
                 ${e ? "Edit Content Type" : "Create Content Type"}
               </h1>
               ${e ? t : ""}
-              ${e?.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${g(e.schema_version)}</span>` : ""}
+              ${e?.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${y(e.schema_version)}</span>` : ""}
             </div>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
               ${e ? `Editing: ${e.name}` : "Define fields and configure your content type"}
@@ -2876,7 +2876,7 @@ class ne {
             <input
               type="text"
               data-ct-name
-              value="${g(e?.name ?? "")}"
+              value="${y(e?.name ?? "")}"
               placeholder="Blog Post"
               required
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2890,7 +2890,7 @@ class ne {
             <input
               type="text"
               data-ct-slug
-              value="${g(e?.slug ?? "")}"
+              value="${y(e?.slug ?? "")}"
               placeholder="blog-post"
               pattern="^[a-z][a-z0-9_\\-]*$"
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2908,7 +2908,7 @@ class ne {
             rows="2"
             placeholder="Describe this content type"
             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          >${g(e?.description ?? "")}</textarea>
+          >${y(e?.description ?? "")}</textarea>
         </div>
 
         <div class="mt-4">
@@ -2918,7 +2918,7 @@ class ne {
           <input
             type="text"
             data-ct-icon
-            value="${g(e?.icon ?? "")}"
+            value="${y(e?.icon ?? "")}"
             placeholder="file-text"
             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -2996,26 +2996,26 @@ class ne {
         <!-- Field Info -->
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
-            <span class="font-medium text-gray-900 dark:text-white truncate">${g(e.label)}</span>
+            <span class="font-medium text-gray-900 dark:text-white truncate">${y(e.label)}</span>
             ${e.required ? '<span class="text-xs text-red-500">Required</span>' : ""}
             ${e.readonly ? '<span class="text-xs text-gray-400">Read-only</span>' : ""}
             ${e.hidden ? '<span class="text-xs text-gray-400">Hidden</span>' : ""}
           </div>
           <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span class="font-mono">${g(e.name)}</span>
+            <span class="font-mono">${y(e.name)}</span>
             <span>•</span>
             <span>${r?.label ?? e.type}</span>
-            ${e.section ? `<span>• ${g(e.section)}</span>` : ""}
+            ${e.section ? `<span>• ${y(e.section)}</span>` : ""}
             ${e.gridSpan ? `<span>• ${e.gridSpan} cols</span>` : ""}
           </div>
           ${l.length > 0 ? `
             <div class="flex items-center gap-1 mt-1">
-              ${l.map((n) => `<span class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400">${g(n)}</span>`).join("")}
+              ${l.map((n) => `<span class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400">${y(n)}</span>`).join("")}
             </div>
           ` : ""}
           ${i ? `
             <div class="mt-1 text-xs text-red-600 dark:text-red-400">
-              ${s.map((n) => g(n.message)).join(", ")}
+              ${s.map((n) => y(n.message)).join(", ")}
             </div>
           ` : ""}
         </div>
@@ -3230,7 +3230,7 @@ class ne {
    */
   async publishContentType() {
     if (!this.state.contentType?.id) return;
-    const e = $(this.state.fields, this.getSlug());
+    const e = C(this.state.fields, this.getSlug());
     let t = null;
     try {
       t = await this.api.checkCompatibility(
@@ -3355,7 +3355,7 @@ Deprecated content types can still be used but are hidden from new content creat
       const s = r.target.closest("[data-field-card]");
       if (!s || s.getAttribute("data-field-card") === this.dragState.fieldId) return;
       const i = s.getBoundingClientRect(), l = i.top + i.height / 2, n = r.clientY < l;
-      e.querySelectorAll(".drop-indicator").forEach((k) => k.remove());
+      e.querySelectorAll(".drop-indicator").forEach((v) => v.remove());
       const d = document.createElement("div");
       d.className = "drop-indicator h-0.5 bg-blue-500 rounded-full my-1 transition-opacity", n ? s.parentElement?.insertBefore(d, s) : s.parentElement?.insertBefore(d, s.nextSibling);
       const h = parseInt(s.getAttribute("data-field-index") ?? "0", 10);
@@ -3567,7 +3567,7 @@ Deprecated content types can still be used but are hidden from new content creat
             <div class="mb-3">
               <div class="text-xs font-medium text-red-700 dark:text-red-300 uppercase mb-1">Schema</div>
               <ul class="text-sm text-red-600 dark:text-red-400 space-y-1">
-                ${r.map((a) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${g(a.message)}</li>`).join("")}
+                ${r.map((a) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${y(a.message)}</li>`).join("")}
               </ul>
             </div>
           ` : ""}
@@ -3576,10 +3576,10 @@ Deprecated content types can still be used but are hidden from new content creat
       return `
               <div class="mb-3 last:mb-0">
                 <div class="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
-                  ${g(i?.label ?? a)} <span class="font-mono">(${g(a)})</span>
+                  ${y(i?.label ?? a)} <span class="font-mono">(${y(a)})</span>
                 </div>
                 <ul class="text-sm text-red-600 dark:text-red-400 space-y-1">
-                  ${s.map((l) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${g(l.message)}</li>`).join("")}
+                  ${s.map((l) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${y(l.message)}</li>`).join("")}
                 </ul>
               </div>
             `;
@@ -3599,7 +3599,7 @@ Deprecated content types can still be used but are hidden from new content creat
     t === "error" ? console.error(e) : console.log(e);
   }
 }
-function g(o) {
+function y(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
@@ -3639,7 +3639,7 @@ class ce {
 
       <div class="px-6 py-4 space-y-4">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          You are about to publish <strong class="text-gray-900 dark:text-white">${g(e.name)}</strong>.
+          You are about to publish <strong class="text-gray-900 dark:text-white">${y(e.name)}</strong>.
           ${e.status === "draft" ? "This will make it available for content creation." : "This will create a new version of the schema."}
         </p>
 
@@ -3653,7 +3653,7 @@ class ce {
             </div>
             <ul class="text-sm text-red-700 dark:text-red-300 space-y-1 ml-7">
               ${t.breaking_changes.map((i) => `
-                <li>• ${g(i.description || `${i.type}: ${i.path}`)}</li>
+                <li>• ${y(i.description || `${i.type}: ${i.path}`)}</li>
               `).join("")}
             </ul>
             ${s > 0 ? `
@@ -3674,7 +3674,7 @@ class ce {
             </div>
             <ul class="text-sm text-yellow-700 dark:text-yellow-300 space-y-1 ml-7">
               ${t.warnings.map((i) => `
-                <li>• ${g(i.description || `${i.type}: ${i.path}`)}</li>
+                <li>• ${y(i.description || `${i.type}: ${i.path}`)}</li>
               `).join("")}
             </ul>
           </div>
@@ -3769,7 +3769,7 @@ class he {
 
       <div class="px-6 py-4 space-y-4">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          Create a copy of <strong class="text-gray-900 dark:text-white">${g(e.name)}</strong> with a new slug and name.
+          Create a copy of <strong class="text-gray-900 dark:text-white">${y(e.name)}</strong> with a new slug and name.
         </p>
 
         <div>
@@ -3779,7 +3779,7 @@ class he {
           <input
             type="text"
             data-clone-slug
-            value="${g(t)}"
+            value="${y(t)}"
             placeholder="my-content-type"
             pattern="^[a-z][a-z0-9_\\-]*$"
             required
@@ -3795,7 +3795,7 @@ class he {
           <input
             type="text"
             data-clone-name
-            value="${g(r)}"
+            value="${y(r)}"
             placeholder="My Content Type"
             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -3847,7 +3847,7 @@ class he {
 }
 class ue {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = e, this.api = new C({ basePath: e.apiBasePath });
+    this.container = null, this.backdrop = null, this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = e, this.api = new $({ basePath: e.apiBasePath });
   }
   async show() {
     this.render(), this.bindEvents(), await this.loadVersions();
@@ -3862,7 +3862,7 @@ class ue {
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Version History</h2>
-          <p class="text-sm text-gray-500 dark:text-gray-400">${g(this.config.contentType.name)} (${g(this.config.contentType.slug)})</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">${y(this.config.contentType.name)} (${y(this.config.contentType.slug)})</p>
         </div>
         <button type="button" data-viewer-close class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3906,7 +3906,7 @@ class ue {
         e.innerHTML = `
         <div class="text-center py-8 text-gray-500 dark:text-gray-400">
           <p class="text-sm">No version history available.</p>
-          <p class="text-xs mt-2">Current version: ${g(this.config.contentType.schema_version ?? "1.0.0")}</p>
+          <p class="text-xs mt-2">Current version: ${y(this.config.contentType.schema_version ?? "1.0.0")}</p>
         </div>
       `;
         return;
@@ -3930,7 +3930,7 @@ class ue {
         <div class="p-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900 dark:text-white">v${g(e.version)}</span>
+              <span class="text-sm font-medium text-gray-900 dark:text-white">v${y(e.version)}</span>
               ${t ? '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Current</span>' : ""}
               ${s ? '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Breaking</span>' : ""}
               ${this.getMigrationBadge(e.migration_status)}
@@ -3941,7 +3941,7 @@ class ue {
             ${a ? `
               <button
                 type="button"
-                data-toggle-version="${g(e.version)}"
+                data-toggle-version="${y(e.version)}"
                 class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded"
               >
                 <svg class="w-4 h-4 transition-transform ${r ? "rotate-180" : ""}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3994,9 +3994,9 @@ class ue {
           ${e.type}
         </span>
         <div class="flex-1">
-          <span class="font-mono text-xs text-gray-600 dark:text-gray-400">${g(e.path)}</span>
-          ${e.field ? `<span class="text-gray-500 dark:text-gray-400"> (${g(e.field)})</span>` : ""}
-          ${e.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${g(e.description)}</p>` : ""}
+          <span class="font-mono text-xs text-gray-600 dark:text-gray-400">${y(e.path)}</span>
+          ${e.field ? `<span class="text-gray-500 dark:text-gray-400"> (${y(e.field)})</span>` : ""}
+          ${e.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${y(e.description)}</p>` : ""}
           ${e.is_breaking ? '<span class="ml-1 text-xs text-red-500 dark:text-red-400">Breaking</span>' : ""}
         </div>
       </li>
@@ -4019,7 +4019,7 @@ class ue {
 }
 class pe {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.categories = [], this.config = e, this.api = new C({ basePath: e.apiBasePath }), this.state = {
+    this.container = null, this.backdrop = null, this.categories = [], this.config = e, this.api = new $({ basePath: e.apiBasePath }), this.state = {
       blocks: [],
       selectedBlockId: null,
       isLoading: !1,
@@ -4444,7 +4444,7 @@ class pe {
 }
 class ge {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.fields = [], this.config = e, this.api = new C({ basePath: e.apiBasePath }), this.isNew = !e.block, e.block?.schema && (this.fields = j(e.block.schema));
+    this.container = null, this.backdrop = null, this.fields = [], this.config = e, this.api = new $({ basePath: e.apiBasePath }), this.isNew = !e.block, e.block?.schema && (this.fields = F(e.block.schema));
   }
   show() {
     this.render(), this.bindEvents();
@@ -4642,7 +4642,7 @@ class ge {
     new J({
       onSelect: (t) => {
         const r = {
-          id: F(),
+          id: j(),
           name: "",
           type: t,
           label: "",
@@ -4683,7 +4683,7 @@ class ge {
       alert("Invalid type format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter.");
       return;
     }
-    const s = $(this.fields, a), i = {
+    const s = C(this.fields, a), i = {
       name: r,
       type: a,
       description: t.get("description")?.trim() || void 0,
@@ -4702,7 +4702,7 @@ class ge {
 }
 class ye {
   constructor(e) {
-    this.container = null, this.backdrop = null, this.versions = [], this.config = e, this.api = new C({ basePath: e.apiBasePath });
+    this.container = null, this.backdrop = null, this.versions = [], this.config = e, this.api = new $({ basePath: e.apiBasePath });
   }
   async show() {
     this.render(), this.bindEvents(), await this.loadVersions();
@@ -4875,18 +4875,18 @@ function we(o, e) {
   const t = (o ?? "").trim();
   if (t) return t;
   const r = (e ?? "").trim();
-  return r ? Y(r) : "Advanced";
+  return r ? W(r) : "Advanced";
 }
 function Se(o) {
   const e = (o ?? "").trim().toLowerCase(), t = xe[e] ?? "cat-advanced";
   return A(t);
 }
-function $e(o) {
+function Ce(o) {
   const e = o.defaults;
   return !e || typeof e != "object" ? void 0 : e;
 }
-function Ce(o, e) {
-  const t = (o.type ?? "text").trim().toLowerCase(), r = t === "text" ? "textarea" : P(t), a = (o.label ?? "").trim() || Y(o.type ?? r), s = (o.description ?? "").trim(), i = A(o.icon ?? "") || A(r) || "", l = $e(o), n = {
+function $e(o, e) {
+  const t = (o.type ?? "text").trim().toLowerCase(), r = t === "text" ? "textarea" : q(t), a = (o.label ?? "").trim() || W(o.type ?? r), s = (o.description ?? "").trim(), i = A(o.icon ?? "") || A(r) || "", l = Ce(o), n = {
     type: r,
     label: a,
     description: s,
@@ -4911,7 +4911,7 @@ function Q(o) {
     });
     const l = Array.isArray(r.field_types) ? r.field_types : [];
     for (const n of l)
-      t.push(Ce(n, i));
+      t.push($e(n, i));
   }
   return { categories: e, fieldTypes: t };
 }
@@ -5116,10 +5116,10 @@ const E = Q([
     ]
   }
 ]);
-function Y(o) {
+function W(o) {
   return o.replace(/_/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
-const Ee = /* @__PURE__ */ new Set(["advanced"]), H = "application/x-field-palette-type", W = "application/x-field-palette-meta";
+const Ee = /* @__PURE__ */ new Set(["advanced"]), H = "application/x-field-palette-type", Y = "application/x-field-palette-meta";
 class U {
   constructor(e) {
     this.fieldTypes = [], this.fieldTypeByKey = /* @__PURE__ */ new Map(), this.fieldTypeKeyByRef = /* @__PURE__ */ new Map(), this.categoryOrder = [], this.searchQuery = "", this.categoryStates = /* @__PURE__ */ new Map(), this.isLoading = !0, this.enabled = !1, this.config = e, this.categoryOrder = [...E.categories];
@@ -5203,9 +5203,9 @@ class U {
         </div>`;
       return;
     }
-    e.innerHTML = "";
+    e.innerHTML = "", e.classList.add("flex", "flex-col", "min-h-0");
     const t = document.createElement("div");
-    t.className = "px-3 py-2 border-b border-gray-100", t.innerHTML = `
+    t.className = "px-3 py-2 border-b border-gray-100 shrink-0", t.innerHTML = `
       <div class="relative">
         <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -5217,7 +5217,7 @@ class U {
                class="w-full pl-9 pr-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors" />
       </div>`, e.appendChild(t);
     const r = document.createElement("div");
-    r.className = "overflow-y-auto flex-1", r.setAttribute("data-palette-list", ""), this.searchQuery ? r.innerHTML = this.renderSearchResults() : r.innerHTML = this.renderCategoryGroups(), e.appendChild(r), this.bindEvents(e);
+    r.className = "overflow-y-auto flex-1 min-h-0", r.setAttribute("data-palette-list", ""), this.searchQuery ? r.innerHTML = this.renderSearchResults() : r.innerHTML = this.renderCategoryGroups(), e.appendChild(r), this.bindEvents(e);
   }
   // ===========================================================================
   // Rendering – Category Groups (Task 9.2)
@@ -5232,13 +5232,12 @@ class U {
         <div data-palette-category="${S(t.id)}" class="border-b border-gray-50">
           <button type="button" data-palette-toggle="${S(t.id)}"
                   class="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors group">
-            <svg class="w-3 h-3 text-gray-400 transition-transform ${s ? "-rotate-90" : ""}"
-                 data-palette-chevron="${S(t.id)}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
+            <span class="w-3 h-3 text-gray-400 flex items-center justify-center" data-palette-chevron="${S(t.id)}">
+              ${s ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'}
+            </span>
             <span class="flex-shrink-0 w-4 h-4 flex items-center justify-center text-gray-400">${t.icon}</span>
-            <span class="text-[11px] font-semibold text-gray-600 uppercase tracking-wider flex-1">${S(t.label)}</span>
-            <span class="text-[10px] text-gray-400">${r.length}</span>
+            <span class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider flex-1">${S(t.label)}</span>
+            <span class="text-[9px] text-gray-400">${r.length}</span>
           </button>
           <div class="${s ? "hidden" : ""}" data-palette-category-body="${S(t.id)}">
             <div class="px-2 pb-2 space-y-0.5">
@@ -5292,7 +5291,7 @@ class U {
           ${e.icon}
         </span>
         <span class="flex-1 min-w-0">
-          <span class="block text-[12px] font-medium text-gray-700 group-hover:text-blue-700 truncate">${S(e.label)}</span>
+          <span class="block text-[11px] font-medium text-gray-700 group-hover:text-blue-700 truncate">${S(e.label)}</span>
         </span>
       </div>`;
   }
@@ -5315,7 +5314,7 @@ class U {
         const r = t.dataset.paletteToggle, a = this.categoryStates.get(r) ?? { collapsed: !1 };
         a.collapsed = !a.collapsed, this.categoryStates.set(r, a);
         const s = e.querySelector(`[data-palette-category-body="${r}"]`), i = e.querySelector(`[data-palette-chevron="${r}"]`);
-        s && s.classList.toggle("hidden", a.collapsed), i && i.classList.toggle("-rotate-90", a.collapsed);
+        s && s.classList.toggle("hidden", a.collapsed), i && (i.innerHTML = a.collapsed ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
       });
     }), e.querySelectorAll("[data-palette-item]").forEach((t) => {
       t.addEventListener("click", (r) => {
@@ -5328,7 +5327,7 @@ class U {
         const a = t.dataset.paletteItem;
         r.dataTransfer.effectAllowed = "copy";
         const s = this.fieldTypeByKey.get(a) ?? this.fieldTypes.find((i) => i.type === a);
-        s ? (r.dataTransfer.setData(H, s.type), r.dataTransfer.setData(W, JSON.stringify(s))) : r.dataTransfer.setData(H, a), r.dataTransfer.setData("text/plain", s?.type ?? a), t.classList.add("opacity-50");
+        s ? (r.dataTransfer.setData(H, s.type), r.dataTransfer.setData(Y, JSON.stringify(s))) : r.dataTransfer.setData(H, a), r.dataTransfer.setData("text/plain", s?.type ?? a), t.classList.add("opacity-50");
       }), t.addEventListener("dragend", () => {
         t.classList.remove("opacity-50");
       });
@@ -5339,10 +5338,10 @@ function S(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
-const v = "main", G = "application/x-field-reorder";
+const x = "main", G = "application/x-field-reorder";
 class Le {
   constructor(e) {
-    this.expandedFieldId = null, this.sectionStates = /* @__PURE__ */ new Map(), this.moveMenuFieldId = null, this.dropHighlight = !1, this.dragReorder = null, this.dropTargetFieldId = null, this.saveState = "idle", this.saveMessage = "", this.saveDisplayTimer = null, this.config = e, this.block = { ...e.block }, this.fields = e.block.schema ? j(e.block.schema) : [];
+    this.expandedFieldId = null, this.sectionStates = /* @__PURE__ */ new Map(), this.moveMenuFieldId = null, this.dropHighlight = !1, this.dragReorder = null, this.dropTargetFieldId = null, this.saveState = "idle", this.saveMessage = "", this.saveDisplayTimer = null, this.config = e, this.block = { ...e.block }, this.fields = e.block.schema ? F(e.block.schema) : [];
   }
   render() {
     this.config.container.innerHTML = "";
@@ -5357,7 +5356,7 @@ class Le {
   }
   /** Refresh the panel for a new block without a full re-mount */
   update(e) {
-    this.block = { ...e }, this.fields = e.schema ? j(e.schema) : [], this.expandedFieldId = null, this.moveMenuFieldId = null, this.render();
+    this.block = { ...e }, this.fields = e.schema ? F(e.schema) : [], this.expandedFieldId = null, this.moveMenuFieldId = null, this.render();
   }
   getFields() {
     return [...this.fields];
@@ -5439,9 +5438,11 @@ class Le {
             <span class="w-1 h-4 rounded-full bg-indigo-400"></span>
             <span>Block Metadata</span>
           </div>
-          <svg class="w-4 h-4 text-gray-400 transition-transform" data-metadata-chevron fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-          </svg>
+          <span data-metadata-chevron class="w-4 h-4 text-gray-400 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </span>
         </button>
         <div class="px-5 pb-4 space-y-3" data-metadata-body>
           <div class="grid grid-cols-2 gap-3">
@@ -5525,10 +5526,9 @@ class Le {
         <div data-section="${c(a)}" class="border-b border-gray-100">
           <button type="button" data-toggle-section="${c(a)}"
                   class="w-full flex items-center gap-2 px-5 py-2.5 text-left hover:bg-gray-50 transition-colors group">
-            <svg class="w-3.5 h-3.5 text-gray-400 transition-transform ${l ? "-rotate-90" : ""}"
-                 data-section-chevron="${c(a)}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
+            <span class="w-3.5 h-3.5 text-gray-400 flex items-center justify-center" data-section-chevron="${c(a)}">
+              ${l ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'}
+            </span>
             <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider">${c(B(a))}</span>
             <span class="text-[10px] text-gray-400 ml-auto">${s.length}</span>
           </button>
@@ -5550,7 +5550,7 @@ class Le {
   // Rendering – Single field card (Task 8.2)
   // ===========================================================================
   renderFieldCard(e, t, r) {
-    const a = e.id === this.expandedFieldId, s = T(e.type), i = e.section || v, l = r.indexOf(e), n = l === 0, d = l === r.length - 1, h = this.dropTargetFieldId === e.id;
+    const a = e.id === this.expandedFieldId, s = T(e.type), i = e.section || x, l = r.indexOf(e), n = l === 0, d = l === r.length - 1, h = this.dropTargetFieldId === e.id;
     return `
       <div data-field-card="${c(e.id)}"
            data-field-section="${c(i)}"
@@ -5573,36 +5573,40 @@ class Le {
             <span class="block text-[13px] font-medium text-gray-800 truncate">${c(e.label || e.name)}</span>
             <span class="block text-[10px] text-gray-400 font-mono truncate">${c(e.name)} &middot; ${c(e.type)}</span>
           </span>
-          ${e.required ? '<span class="flex-shrink-0 text-[10px] font-medium text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded uppercase leading-none">req</span>' : ""}
-          <!-- Up/Down buttons (Phase 10 — Task 10.2) -->
-          <button type="button" data-field-move-up="${c(e.id)}"
-                  class="flex-shrink-0 p-0.5 rounded ${n ? "text-gray-200 cursor-not-allowed" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"} transition-colors"
-                  title="Move up" ${n ? "disabled" : ""}>
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-            </svg>
-          </button>
-          <button type="button" data-field-move-down="${c(e.id)}"
-                  class="flex-shrink-0 p-0.5 rounded ${d ? "text-gray-200 cursor-not-allowed" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"} transition-colors"
-                  title="Move down" ${d ? "disabled" : ""}>
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-          </button>
+          ${e.required ? '<span class="flex-shrink-0 text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full uppercase tracking-wide leading-none">req</span>' : ""}
+          <!-- Up/Down reorder group (Phase 10 — Task 10.2) -->
+          <span class="flex-shrink-0 inline-flex flex-col border border-gray-200 rounded-md overflow-hidden">
+            <button type="button" data-field-move-up="${c(e.id)}"
+                    class="px-0.5 py-px ${n ? "text-gray-200 cursor-not-allowed" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"} transition-colors"
+                    title="Move up" ${n ? "disabled" : ""}>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+              </svg>
+            </button>
+            <span class="block h-px bg-gray-200"></span>
+            <button type="button" data-field-move-down="${c(e.id)}"
+                    class="px-0.5 py-px ${d ? "text-gray-200 cursor-not-allowed" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"} transition-colors"
+                    title="Move down" ${d ? "disabled" : ""}>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+          </span>
           <!-- Actions: move to section (Task 8.4) -->
           <div class="relative flex-shrink-0">
             <button type="button" data-field-actions="${c(e.id)}"
-                    class="p-0.5 rounded text-gray-300 hover:text-gray-500 transition-colors"
-                    title="Field actions" style="opacity:1;">
-              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    title="Field actions">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
               </svg>
             </button>
             ${this.moveMenuFieldId === e.id ? this.renderMoveToSectionMenu(e, t, i) : ""}
           </div>
-          <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform cursor-pointer ${a ? "" : "-rotate-90"}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-          </svg>
+          <!-- Expand/collapse toggle (distinct from reorder) -->
+          <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 cursor-pointer transition-colors">
+            ${a ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>'}
+          </span>
         </div>
 
         <!-- Expanded properties (Task 8.2) -->
@@ -5613,7 +5617,7 @@ class Le {
   // Rendering – Inline field property editor (Task 8.2)
   // ===========================================================================
   renderFieldProperties(e, t) {
-    const r = e.validation ?? {}, a = P(e.type), s = ["text", "textarea", "rich-text", "markdown", "code", "slug"].includes(a), i = ["number", "integer", "currency", "percentage"].includes(a), l = e.section || v;
+    const r = e.validation ?? {}, a = q(e.type), s = ["text", "textarea", "rich-text", "markdown", "code", "slug"].includes(a), i = ["number", "integer", "currency", "percentage"].includes(a), l = e.section || x;
     return `
       <div class="px-3 pb-3 space-y-3 border-t border-gray-100 mt-1 pt-3" data-field-props="${c(e.id)}">
         <!-- General -->
@@ -5771,14 +5775,14 @@ class Le {
   groupFieldsBySection() {
     const e = /* @__PURE__ */ new Map();
     for (const t of this.fields) {
-      const r = t.section || v;
+      const r = t.section || x;
       e.has(r) || e.set(r, []), e.get(r).push(t);
     }
-    if (e.has(v)) {
-      const t = e.get(v);
-      e.delete(v);
+    if (e.has(x)) {
+      const t = e.get(x);
+      e.delete(x);
       const r = /* @__PURE__ */ new Map();
-      r.set(v, t);
+      r.set(x, t);
       for (const [a, s] of e) r.set(a, s);
       return r;
     }
@@ -5795,7 +5799,7 @@ class Le {
       const t = e.querySelector("[data-metadata-body]"), r = e.querySelector("[data-metadata-chevron]");
       if (t) {
         const a = t.classList.toggle("hidden");
-        r?.classList.toggle("-rotate-90", a);
+        r && (r.innerHTML = a ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
       }
     }), e.querySelectorAll("[data-meta-field]").forEach((t) => {
       const r = t.dataset.metaField;
@@ -5816,7 +5820,7 @@ class Le {
         r.contains(a.relatedTarget) || (this.dropHighlight = !1, r.classList.remove("border-blue-400", "bg-blue-50/50"), r.classList.add("border-gray-200", "hover:border-gray-300"));
       }), r.addEventListener("drop", (a) => {
         if (a.preventDefault(), this.dropHighlight = !1, r.classList.remove("border-blue-400", "bg-blue-50/50"), r.classList.add("border-gray-200", "hover:border-gray-300"), this.config.onFieldDrop) {
-          const s = a.dataTransfer?.getData(W);
+          const s = a.dataTransfer?.getData(Y);
           if (s)
             try {
               const l = JSON.parse(s);
@@ -5828,7 +5832,7 @@ class Le {
             }
           const i = a.dataTransfer?.getData(H);
           if (i) {
-            const l = P(i), n = T(l) ?? {
+            const l = q(i), n = T(l) ?? {
               type: l,
               label: B(l),
               description: "",
@@ -5844,57 +5848,57 @@ class Le {
   handleClick(e, t) {
     const r = e.target, a = r.closest("[data-toggle-section]");
     if (a) {
-      const y = a.dataset.toggleSection, b = this.getSectionState(y);
-      b.collapsed = !b.collapsed, this.sectionStates.set(y, b);
-      const w = t.querySelector(`[data-section-body="${y}"]`), R = t.querySelector(`[data-section-chevron="${y}"]`);
-      w && w.classList.toggle("hidden", b.collapsed), R && R.classList.toggle("-rotate-90", b.collapsed);
+      const g = a.dataset.toggleSection, b = this.getSectionState(g);
+      b.collapsed = !b.collapsed, this.sectionStates.set(g, b);
+      const w = t.querySelector(`[data-section-body="${g}"]`), R = t.querySelector(`[data-section-chevron="${g}"]`);
+      w && w.classList.toggle("hidden", b.collapsed), R && (R.innerHTML = b.collapsed ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
       return;
     }
     const s = r.closest("[data-field-actions]");
     if (s) {
       e.stopPropagation();
-      const y = s.dataset.fieldActions;
-      this.moveMenuFieldId = this.moveMenuFieldId === y ? null : y, this.render();
+      const g = s.dataset.fieldActions;
+      this.moveMenuFieldId = this.moveMenuFieldId === g ? null : g, this.render();
       return;
     }
     const i = r.closest("[data-move-to]");
     if (i) {
       e.stopPropagation();
-      const y = i.dataset.moveTo, b = i.dataset.moveField;
-      this.moveFieldToSection(b, y);
+      const g = i.dataset.moveTo, b = i.dataset.moveField;
+      this.moveFieldToSection(b, g);
       return;
     }
     const l = r.closest("[data-move-new-section]");
     if (l) {
       e.stopPropagation();
-      const y = l.dataset.moveNewSection, b = prompt("Section name:");
-      b && b.trim() && this.moveFieldToSection(y, b.trim().toLowerCase().replace(/\s+/g, "_"));
+      const g = l.dataset.moveNewSection, b = prompt("Section name:");
+      b && b.trim() && this.moveFieldToSection(g, b.trim().toLowerCase().replace(/\s+/g, "_"));
       return;
     }
     const n = r.closest("[data-field-move-up]");
     if (n) {
       e.stopPropagation();
-      const y = n.dataset.fieldMoveUp;
-      n.hasAttribute("disabled") || this.moveFieldInSection(y, -1);
+      const g = n.dataset.fieldMoveUp;
+      n.hasAttribute("disabled") || this.moveFieldInSection(g, -1);
       return;
     }
     const d = r.closest("[data-field-move-down]");
     if (d) {
       e.stopPropagation();
-      const y = d.dataset.fieldMoveDown;
-      d.hasAttribute("disabled") || this.moveFieldInSection(y, 1);
+      const g = d.dataset.fieldMoveDown;
+      d.hasAttribute("disabled") || this.moveFieldInSection(g, 1);
       return;
     }
     const h = r.closest("[data-field-remove]");
     if (h) {
-      const y = h.dataset.fieldRemove, b = this.fields.find((w) => w.id === y);
-      b && confirm(`Remove field "${b.label || b.name}"?`) && (this.fields = this.fields.filter((w) => w.id !== y), this.expandedFieldId === y && (this.expandedFieldId = null), this.notifySchemaChange(), this.render());
+      const g = h.dataset.fieldRemove, b = this.fields.find((w) => w.id === g);
+      b && confirm(`Remove field "${b.label || b.name}"?`) && (this.fields = this.fields.filter((w) => w.id !== g), this.expandedFieldId === g && (this.expandedFieldId = null), this.notifySchemaChange(), this.render());
       return;
     }
-    const k = r.closest("[data-field-toggle]");
-    if (k) {
-      const y = k.dataset.fieldToggle;
-      this.expandedFieldId = this.expandedFieldId === y ? null : y, this.render();
+    const v = r.closest("[data-field-toggle]");
+    if (v) {
+      const g = v.dataset.fieldToggle;
+      this.expandedFieldId = this.expandedFieldId === g ? null : g, this.render();
       return;
     }
   }
@@ -5963,7 +5967,7 @@ class Le {
   }
   moveFieldToSection(e, t) {
     const r = this.fields.find((a) => a.id === e);
-    r && (r.section = t === v ? void 0 : t, this.moveMenuFieldId = null, this.notifySchemaChange(), this.render());
+    r && (r.section = t === x ? void 0 : t, this.moveMenuFieldId = null, this.notifySchemaChange(), this.render());
   }
   // ===========================================================================
   // Field Reorder (Phase 10 — Task 10.1 drag, Task 10.2 keyboard)
@@ -5972,7 +5976,7 @@ class Le {
   moveFieldInSection(e, t) {
     const r = this.fields.find((h) => h.id === e);
     if (!r) return;
-    const a = r.section || v, s = this.fields.filter((h) => (h.section || v) === a), i = s.findIndex((h) => h.id === e), l = i + t;
+    const a = r.section || x, s = this.fields.filter((h) => (h.section || x) === a), i = s.findIndex((h) => h.id === e), l = i + t;
     if (l < 0 || l >= s.length) return;
     const n = this.fields.indexOf(s[i]), d = this.fields.indexOf(s[l]);
     [this.fields[n], this.fields[d]] = [this.fields[d], this.fields[n]], this.notifySchemaChange(), this.render();
@@ -5982,7 +5986,7 @@ class Le {
     if (e === t) return;
     const r = this.fields.find((d) => d.id === e), a = this.fields.find((d) => d.id === t);
     if (!r || !a) return;
-    const s = r.section || v, i = a.section || v;
+    const s = r.section || x, i = a.section || x;
     if (s !== i) return;
     const l = this.fields.indexOf(r);
     this.fields.splice(l, 1);
@@ -6031,7 +6035,7 @@ class Le {
             a = s.trim().toLowerCase().replace(/\s+/g, "_");
           else {
             const i = this.fields.find((l) => l.id === r);
-            t.value = i?.section || v;
+            t.value = i?.section || x;
             return;
           }
         }
@@ -6065,11 +6069,11 @@ function f(o = "sm") {
   const e = "w-full border border-gray-200 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
   return o === "xs" ? `${e} px-2 py-1 text-[12px]` : `${e} px-2.5 py-1.5 text-sm`;
 }
-const q = class q {
+const P = class P {
   constructor(e) {
     this.listEl = null, this.searchInput = null, this.categorySelect = null, this.countEl = null, this.createBtn = null, this.editorEl = null, this.paletteEl = null, this.activeMenu = null, this.editorPanel = null, this.palettePanel = null, this.autosaveTimers = /* @__PURE__ */ new Map(), this.boundVisibilityChange = null, this.boundBeforeUnload = null, this.sidebarEl = null, this.paletteAsideEl = null, this.sidebarToggleBtn = null, this.gridEl = null, this.addFieldBar = null, this.paletteTriggerBtn = null, this.sidebarCollapsed = !1, this.mediaQueryLg = null, this.popoverPalettePanel = null, this.envSelectEl = null, this.currentEnvironment = "";
     const t = e.dataset.apiBasePath ?? "/admin";
-    this.root = e, this.api = new C({ basePath: t }), this.state = {
+    this.root = e, this.api = new $({ basePath: t }), this.state = {
       blocks: [],
       selectedBlockId: null,
       isLoading: !1,
@@ -6136,7 +6140,7 @@ const q = class q {
     this.cancelScheduledSave(e);
     const t = setTimeout(() => {
       this.autosaveTimers.delete(e), this.saveBlock(e);
-    }, q.AUTOSAVE_DELAY);
+    }, P.AUTOSAVE_DELAY);
     this.autosaveTimers.set(e, t);
   }
   /** Cancel a pending autosave for a block */
@@ -6178,7 +6182,7 @@ const q = class q {
         }
       } catch (s) {
         const i = s instanceof Error ? s.message : "Status change failed";
-        this.showToast(i, "error"), this.editorPanel?.revertStatus(a);
+        console.error("Status change failed:", s), this.showToast(i, "error"), this.editorPanel?.revertStatus(a);
       }
     }
   }
@@ -6369,7 +6373,7 @@ const q = class q {
     if (this.state.error) {
       this.listEl.innerHTML = `
         <div class="px-4 py-6 text-center">
-          <p class="text-sm text-red-500">${x(this.state.error)}</p>
+          <p class="text-sm text-red-500">${k(this.state.error)}</p>
           <button type="button" data-block-ide-retry
                   class="mt-2 text-xs text-blue-600 hover:text-blue-700">
             Retry
@@ -6409,23 +6413,23 @@ const q = class q {
     }
   }
   renderBlockItem(e) {
-    const t = e.id === this.state.selectedBlockId, r = e.id === this.state.renamingBlockId, a = this.state.dirtyBlocks.has(e.id), s = this.state.savingBlocks.has(e.id), i = this.state.saveErrors.get(e.id), l = e.slug || e.type || "", n = t ? "bg-blue-50 border-blue-200 text-blue-800" : "hover:bg-gray-50 border-transparent", d = r ? `<input type="text" data-rename-input data-rename-block-id="${x(e.id)}"
-               value="${x(e.name)}"
-               class="block w-full text-[13px] font-medium text-gray-800 bg-white border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500" />` : `<span class="block font-medium text-gray-800 truncate text-[13px]">${x(e.name || "Untitled")}</span>`;
+    const t = e.id === this.state.selectedBlockId, r = e.id === this.state.renamingBlockId, a = this.state.dirtyBlocks.has(e.id), s = this.state.savingBlocks.has(e.id), i = this.state.saveErrors.get(e.id), l = e.slug || e.type || "", n = t ? "bg-blue-50 border-blue-200 text-blue-800" : "hover:bg-gray-50 border-transparent", d = r ? `<input type="text" data-rename-input data-rename-block-id="${k(e.id)}"
+               value="${k(e.name)}"
+               class="block w-full text-[13px] font-medium text-gray-800 bg-white border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500" />` : `<span class="block font-medium text-gray-800 truncate text-[13px]">${k(e.name || "Untitled")}</span>`;
     let h = "";
-    return i ? h = `<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-red-500" title="Save failed: ${x(i)}"></span>` : s ? h = '<span class="flex-shrink-0 w-2 h-2 rounded-full border border-blue-400 border-t-transparent animate-spin" title="Saving..."></span>' : a ? h = '<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-orange-400" title="Unsaved changes"></span>' : h = Te(e.status), `
+    return i ? h = `<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-red-500" title="Save failed: ${k(i)}"></span>` : s ? h = '<span class="flex-shrink-0 w-2 h-2 rounded-full border border-blue-400 border-t-transparent animate-spin" title="Saving..."></span>' : a ? h = '<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-orange-400" title="Unsaved changes"></span>' : h = Te(e.status), `
       <li>
-        <div data-block-id="${x(e.id)}"
+        <div data-block-id="${k(e.id)}"
              class="relative group w-full text-left px-3 py-2 text-sm rounded-lg border ${n} transition-colors flex items-center gap-2.5 cursor-pointer">
           <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-            ${e.icon ? `<span class="text-xs font-medium">${x(e.icon)}</span>` : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path></svg>'}
+            ${e.icon ? `<span class="text-xs font-medium">${k(e.icon)}</span>` : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path></svg>'}
           </span>
           <span class="flex-1 min-w-0">
             ${d}
-            <span class="block text-[11px] text-gray-400 font-mono truncate">${x(l)}</span>
+            <span class="block text-[11px] text-gray-400 font-mono truncate">${k(l)}</span>
           </span>
           ${h}
-          <button type="button" data-block-actions="${x(e.id)}"
+          <button type="button" data-block-actions="${k(e.id)}"
                   class="flex-shrink-0 p-0.5 rounded text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                   title="Actions">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -6454,7 +6458,7 @@ const q = class q {
             <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Category</label>
             <select data-create-category
                     class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              ${this.state.categories.map((e) => `<option value="${x(e)}">${x(I(e))}</option>`).join("")}
+              ${this.state.categories.map((e) => `<option value="${k(e)}">${k(I(e))}</option>`).join("")}
             </select>
           </div>
           <div data-create-error class="hidden text-xs text-red-600"></div>
@@ -6473,7 +6477,7 @@ const q = class q {
   }
   renderContextMenu(e, t) {
     this.closeContextMenu();
-    const r = this.state.blocks.find((n) => n.id === e);
+    const r = this.state.blocks.find((h) => h.id === e);
     if (!r) return;
     const a = document.createElement("div");
     a.setAttribute("data-block-context-menu", e), a.className = "absolute z-50 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-sm text-gray-700";
@@ -6482,21 +6486,23 @@ const q = class q {
       { label: "Duplicate", action: "duplicate", icon: M.duplicate }
     ];
     r.status === "draft" ? s.push({ label: "Publish", action: "publish", icon: M.publish }) : r.status === "active" && s.push({ label: "Deprecate", action: "deprecate", icon: M.deprecate }), s.push({ label: "Delete", action: "delete", icon: M.delete, danger: !0 }), a.innerHTML = s.map(
-      (n) => `
-        <button type="button" data-menu-action="${n.action}" data-menu-block-id="${x(e)}"
-                class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-gray-50 ${n.danger ? "text-red-600 hover:bg-red-50" : ""}">
-          ${n.icon}
-          <span>${n.label}</span>
+      (h) => `
+        <button type="button" data-menu-action="${h.action}" data-menu-block-id="${k(e)}"
+                class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-gray-50 ${h.danger ? "text-red-600 hover:bg-red-50" : ""}">
+          ${h.icon}
+          <span>${h.label}</span>
         </button>`
     ).join("");
-    const i = t.getBoundingClientRect();
-    this.root.getBoundingClientRect(), a.style.position = "fixed", a.style.top = `${i.bottom + 4}px`, a.style.left = `${i.right - 176}px`, document.body.appendChild(a);
-    const l = a.getBoundingClientRect();
-    l.bottom > window.innerHeight && (a.style.top = `${i.top - l.height - 4}px`), l.left < 0 && (a.style.left = "4px"), a.addEventListener("click", (n) => {
-      const d = n.target.closest("[data-menu-action]");
-      if (!d) return;
-      const h = d.dataset.menuAction, k = d.dataset.menuBlockId;
-      this.closeContextMenu(), this.handleAction(h, k);
+    const i = t.getBoundingClientRect(), l = 176;
+    a.style.position = "fixed", a.style.top = `${i.bottom + 4}px`;
+    let n = i.left;
+    n + l > window.innerWidth - 8 && (n = window.innerWidth - l - 8), n < 8 && (n = 8), a.style.left = `${n}px`, document.body.appendChild(a);
+    const d = a.getBoundingClientRect();
+    d.bottom > window.innerHeight - 8 && (a.style.top = `${i.top - d.height - 4}px`), a.addEventListener("click", (h) => {
+      const v = h.target.closest("[data-menu-action]");
+      if (!v) return;
+      const g = v.dataset.menuAction, b = v.dataset.menuBlockId;
+      this.closeContextMenu(), this.handleAction(g, b);
     }), this.activeMenu = () => {
       a.remove(), this.activeMenu = null;
     };
@@ -6554,13 +6560,13 @@ const q = class q {
       const i = (t.slug ?? "").trim();
       i && (!t.type && (!a.type || a.type === a.slug) && (s.type = i, t.type = i), s.schema && typeof s.schema == "object" && (s.schema = { ...s.schema, $id: i }));
     }
-    this.state.blocks[r] = s, this.markDirty(e), (t.name !== void 0 || t.status !== void 0 || t.slug !== void 0 || t.type !== void 0) && this.renderBlockList(), this.scheduleSave(e);
+    this.state.blocks[r] = s, this.markDirty(e), (t.name !== void 0 || t.status !== void 0 || t.slug !== void 0 || t.type !== void 0) && this.updateBlockItemDOM(e, s), this.scheduleSave(e);
   }
   handleEditorSchemaChange(e, t) {
     const r = this.state.blocks.findIndex((l) => l.id === e);
     if (r < 0) return;
     const a = this.state.blocks[r].schema, s = this.state.blocks[r].slug || this.state.blocks[r].type;
-    let i = $(t, s);
+    let i = C(t, s);
     i = this.mergeSchemaExtras(a, i), this.state.blocks[r] = {
       ...this.state.blocks[r],
       schema: i
@@ -6574,7 +6580,7 @@ const q = class q {
     for (; a.has(s); )
       s = `${r}_${i++}`;
     const l = {
-      id: F(),
+      id: j(),
       name: s,
       type: e.type,
       label: t,
@@ -6594,7 +6600,7 @@ const q = class q {
         (r) => r.name.toLowerCase().includes(t) || r.type.toLowerCase().includes(t) || (r.slug?.toLowerCase().includes(t) ?? !1) || (r.description?.toLowerCase().includes(t) ?? !1)
       );
     }
-    return this.state.categoryFilter && (e = e.filter((t) => (t.category ?? "custom") === this.state.categoryFilter)), e;
+    return this.state.categoryFilter && (e = e.filter((t) => (t.category || "custom") === this.state.categoryFilter)), e;
   }
   // ===========================================================================
   // Event Handling
@@ -6684,7 +6690,7 @@ const q = class q {
         status: "draft",
         schema: { $schema: "https://json-schema.org/draft/2020-12/schema", type: "object", properties: {} }
       });
-      this.state.isCreating = !1, this.state.blocks.unshift(d), this.state.selectedBlockId = d.id, this.updateCount(), this.renderBlockList(), this.renderEditor();
+      d.slug || (d.slug = i), d.type || (d.type = d.slug || i), this.state.isCreating = !1, this.state.blocks.unshift(d), this.state.selectedBlockId = d.id, this.updateCount(), this.renderBlockList(), this.renderEditor();
     } catch (d) {
       const h = d instanceof K ? d.message : "Failed to create block.";
       this.showCreateError(a, h), n && (n.disabled = !1, n.textContent = "Create");
@@ -6790,6 +6796,15 @@ const q = class q {
   // ===========================================================================
   // Helpers
   // ===========================================================================
+  /** Update a single block item in the sidebar DOM without re-rendering the entire list */
+  updateBlockItemDOM(e, t) {
+    const r = this.listEl?.querySelector(`[data-block-id="${e}"]`);
+    if (!r) return;
+    const a = r.querySelector(".flex-1.min-w-0");
+    if (!a) return;
+    const s = a.querySelectorAll(":scope > span");
+    s.length >= 1 && !this.state.renamingBlockId && (s[0].textContent = t.name || "Untitled"), s.length >= 2 && (s[1].textContent = t.slug || t.type || "");
+  }
   updateBlockInState(e, t) {
     const r = this.state.blocks.findIndex((a) => a.id === e);
     r >= 0 && (this.state.blocks[r] = { ...this.state.blocks[r], ...t });
@@ -6810,12 +6825,21 @@ const q = class q {
   }
   showToast(e, t = "info") {
     const r = window.__toastManager;
-    r?.show && r.show(e, { type: t });
+    if (r?.show) {
+      r.show(e, { type: t });
+      return;
+    }
+    const a = this.root.querySelector("[data-ide-toast]");
+    a && a.remove();
+    const s = t === "error" ? "bg-red-50 text-red-700 border-red-200" : t === "success" ? "bg-green-50 text-green-700 border-green-200" : "bg-blue-50 text-blue-700 border-blue-200", i = document.createElement("div");
+    i.setAttribute("data-ide-toast", ""), i.className = `fixed top-4 right-4 z-[100] px-4 py-2.5 rounded-lg border text-sm font-medium shadow-lg ${s} transition-opacity`, i.textContent = e, document.body.appendChild(i), setTimeout(() => {
+      i.style.opacity = "0", setTimeout(() => i.remove(), 300);
+    }, 3e3);
   }
 };
-q.AUTOSAVE_DELAY = 1500;
-let z = q;
-function x(o) {
+P.AUTOSAVE_DELAY = 1500;
+let z = P;
+function k(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
@@ -6843,7 +6867,7 @@ const M = {
   deprecate: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>',
   delete: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>'
 };
-function Fe(o = document) {
+function je(o = document) {
   Array.from(o.querySelectorAll("[data-block-library-ide]")).forEach((t) => {
     if (t.dataset.ideInitialized !== "true")
       try {
@@ -6853,7 +6877,7 @@ function Fe(o = document) {
       }
   });
 }
-function je(o = document) {
+function Fe(o = document) {
   Array.from(o.querySelectorAll("[data-content-type-editor-root]")).forEach((t) => {
     if (t.dataset.initialized === "true") return;
     const r = Ae(t);
@@ -6904,17 +6928,17 @@ function Ae(o) {
     locale: o.dataset.locale
   };
 }
-function Pe(o) {
+function qe(o) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", o, { once: !0 }) : o();
 }
-Pe(() => {
-  je(), Fe();
+qe(() => {
+  Fe(), je();
 });
 export {
   Le as BlockEditorPanel,
   z as BlockLibraryIDE,
   pe as BlockLibraryManager,
-  C as ContentTypeAPIClient,
+  $ as ContentTypeAPIClient,
   K as ContentTypeAPIError,
   ne as ContentTypeEditor,
   ae as FIELD_CATEGORIES,
@@ -6924,13 +6948,13 @@ export {
   J as FieldTypePicker,
   oe as LayoutEditor,
   H as PALETTE_DRAG_MIME,
-  $ as fieldsToSchema,
-  F as generateFieldId,
+  C as fieldsToSchema,
+  j as generateFieldId,
   T as getFieldTypeMetadata,
-  qe as getFieldTypesByCategory,
-  Fe as initBlockLibraryIDE,
+  Pe as getFieldTypesByCategory,
+  je as initBlockLibraryIDE,
   fe as initBlockLibraryManagers,
-  je as initContentTypeEditors,
-  j as schemaToFields
+  Fe as initContentTypeEditors,
+  F as schemaToFields
 };
 //# sourceMappingURL=index.js.map

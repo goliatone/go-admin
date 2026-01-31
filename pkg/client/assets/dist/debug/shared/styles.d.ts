@@ -40,6 +40,9 @@ export type StyleConfig = {
     expandedContent: string;
     expandedContentHeader: string;
     muted: string;
+    selectCell: string;
+    sqlToolbar: string;
+    sqlToolbarBtn: string;
 };
 /**
  * Per-panel column configuration for consistent layouts across console/toolbar.

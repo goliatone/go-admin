@@ -268,6 +268,7 @@ export class BlockLibraryIDE {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Status change failed';
+      console.error('Status change failed:', err);
       this.showToast(msg, 'error');
       this.editorPanel?.revertStatus(oldStatus);
     }
@@ -892,19 +893,23 @@ export class BlockLibraryIDE {
 
     // Position relative to anchor
     const rect = anchorEl.getBoundingClientRect();
-    const parentRect = this.root.getBoundingClientRect();
+    const menuWidth = 176; // w-44
     menu.style.position = 'fixed';
     menu.style.top = `${rect.bottom + 4}px`;
-    menu.style.left = `${rect.right - 176}px`; // 176 = w-44
 
-    // Prevent off-screen
+    // Prefer left-aligning with the button; shift left if it would overflow the viewport
+    let left = rect.left;
+    if (left + menuWidth > window.innerWidth - 8) {
+      left = window.innerWidth - menuWidth - 8;
+    }
+    if (left < 8) left = 8;
+    menu.style.left = `${left}px`;
+
+    // Prevent vertical off-screen
     document.body.appendChild(menu);
     const menuRect = menu.getBoundingClientRect();
-    if (menuRect.bottom > window.innerHeight) {
+    if (menuRect.bottom > window.innerHeight - 8) {
       menu.style.top = `${rect.top - menuRect.height - 4}px`;
-    }
-    if (menuRect.left < 0) {
-      menu.style.left = '4px';
     }
 
     // Menu click handler
@@ -1017,9 +1022,9 @@ export class BlockLibraryIDE {
     }
     this.state.blocks[idx] = next;
     this.markDirty(blockId);
-    // Update the block name in the list if it changed
+    // Update the block name/slug in the sidebar without a full list re-render
     if (patch.name !== undefined || patch.status !== undefined || patch.slug !== undefined || patch.type !== undefined) {
-      this.renderBlockList();
+      this.updateBlockItemDOM(blockId, next);
     }
     // Schedule autosave (Phase 11)
     this.scheduleSave(blockId);
@@ -1088,7 +1093,7 @@ export class BlockLibraryIDE {
     }
 
     if (this.state.categoryFilter) {
-      blocks = blocks.filter((b) => (b.category ?? 'custom') === this.state.categoryFilter);
+      blocks = blocks.filter((b) => (b.category || 'custom') === this.state.categoryFilter);
     }
 
     return blocks;
@@ -1221,6 +1226,14 @@ export class BlockLibraryIDE {
         status: 'draft',
         schema: { $schema: 'https://json-schema.org/draft/2020-12/schema', type: 'object', properties: {} },
       });
+
+      // Ensure slug is populated from the create form if the API didn't return it
+      if (!newBlock.slug) {
+        newBlock.slug = slug;
+      }
+      if (!newBlock.type) {
+        newBlock.type = newBlock.slug || slug;
+      }
 
       this.state.isCreating = false;
       this.state.blocks.unshift(newBlock);
@@ -1423,6 +1436,25 @@ export class BlockLibraryIDE {
   // Helpers
   // ===========================================================================
 
+  /** Update a single block item in the sidebar DOM without re-rendering the entire list */
+  private updateBlockItemDOM(blockId: string, block: BlockDefinition): void {
+    const itemEl = this.listEl?.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
+    if (!itemEl) return;
+
+    // The text container is the <span class="flex-1 min-w-0"> with two child spans
+    const textContainer = itemEl.querySelector<HTMLElement>('.flex-1.min-w-0');
+    if (!textContainer) return;
+
+    const spans = textContainer.querySelectorAll<HTMLElement>(':scope > span');
+    // First span = name, second span = slug
+    if (spans.length >= 1 && !this.state.renamingBlockId) {
+      spans[0].textContent = block.name || 'Untitled';
+    }
+    if (spans.length >= 2) {
+      spans[1].textContent = block.slug || block.type || '';
+    }
+  }
+
   private updateBlockInState(blockId: string, updated: BlockDefinition): void {
     const idx = this.state.blocks.findIndex((b) => b.id === blockId);
     if (idx >= 0) {
@@ -1456,7 +1488,29 @@ export class BlockLibraryIDE {
       | undefined;
     if (toastManager?.show) {
       toastManager.show(message, { type });
+      return;
     }
+
+    // Fallback: show an inline toast notification
+    const existing = this.root.querySelector('[data-ide-toast]');
+    if (existing) existing.remove();
+
+    const colors = type === 'error'
+      ? 'bg-red-50 text-red-700 border-red-200'
+      : type === 'success'
+        ? 'bg-green-50 text-green-700 border-green-200'
+        : 'bg-blue-50 text-blue-700 border-blue-200';
+
+    const toast = document.createElement('div');
+    toast.setAttribute('data-ide-toast', '');
+    toast.className = `fixed top-4 right-4 z-[100] px-4 py-2.5 rounded-lg border text-sm font-medium shadow-lg ${colors} transition-opacity`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
   }
 }
 

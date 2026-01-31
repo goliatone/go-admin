@@ -1,4 +1,4 @@
-import { q, x as L, e as z, i as P, j as g, h as T, g as M, d as H, r as A, p, D as S, m as $, n as R, a as I, b as j, J as O, s as C } from "../chunks/builtin-panels-CN3q4Moe.js";
+import { q, x as L, e as z, i as P, j as g, h as T, g as M, d as H, r as A, p, D as S, m as $, n as R, a as I, b as j, J as O, s as C } from "../chunks/builtin-panels-Br4qwXqH.js";
 import { DebugReplPanel as D } from "./repl.js";
 const F = `
   :host {
