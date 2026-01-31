@@ -184,10 +184,12 @@ export class FieldPalettePanel {
     }
 
     container.innerHTML = '';
+    // Ensure the container is a flex column so the list can scroll
+    container.classList.add('flex', 'flex-col', 'min-h-0');
 
     // Search bar
     const searchWrapper = document.createElement('div');
-    searchWrapper.className = 'px-3 py-2 border-b border-gray-100';
+    searchWrapper.className = 'px-3 py-2 border-b border-gray-100 shrink-0';
     searchWrapper.innerHTML = `
       <div class="relative">
         <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -203,7 +205,7 @@ export class FieldPalettePanel {
 
     // Field types grouped by category
     const listWrapper = document.createElement('div');
-    listWrapper.className = 'overflow-y-auto flex-1';
+    listWrapper.className = 'overflow-y-auto flex-1 min-h-0';
     listWrapper.setAttribute('data-palette-list', '');
 
     if (this.searchQuery) {
@@ -235,13 +237,15 @@ export class FieldPalettePanel {
         <div data-palette-category="${esc(cat.id)}" class="border-b border-gray-50">
           <button type="button" data-palette-toggle="${esc(cat.id)}"
                   class="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors group">
-            <svg class="w-3 h-3 text-gray-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}"
-                 data-palette-chevron="${esc(cat.id)}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
+            <span class="w-3 h-3 text-gray-400 flex items-center justify-center" data-palette-chevron="${esc(cat.id)}">
+              ${isCollapsed
+                ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
+                : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'
+              }
+            </span>
             <span class="flex-shrink-0 w-4 h-4 flex items-center justify-center text-gray-400">${cat.icon}</span>
-            <span class="text-[11px] font-semibold text-gray-600 uppercase tracking-wider flex-1">${esc(cat.label)}</span>
-            <span class="text-[10px] text-gray-400">${types.length}</span>
+            <span class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider flex-1">${esc(cat.label)}</span>
+            <span class="text-[9px] text-gray-400">${types.length}</span>
           </button>
           <div class="${isCollapsed ? 'hidden' : ''}" data-palette-category-body="${esc(cat.id)}">
             <div class="px-2 pb-2 space-y-0.5">
@@ -313,7 +317,7 @@ export class FieldPalettePanel {
           ${fieldType.icon}
         </span>
         <span class="flex-1 min-w-0">
-          <span class="block text-[12px] font-medium text-gray-700 group-hover:text-blue-700 truncate">${esc(fieldType.label)}</span>
+          <span class="block text-[11px] font-medium text-gray-700 group-hover:text-blue-700 truncate">${esc(fieldType.label)}</span>
         </span>
       </div>`;
   }
@@ -353,7 +357,11 @@ export class FieldPalettePanel {
         const body = list.querySelector<HTMLElement>(`[data-palette-category-body="${catId}"]`);
         const chevron = list.querySelector<HTMLElement>(`[data-palette-chevron="${catId}"]`);
         if (body) body.classList.toggle('hidden', state.collapsed);
-        if (chevron) chevron.classList.toggle('-rotate-90', state.collapsed);
+        if (chevron) {
+          chevron.innerHTML = state.collapsed
+            ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
+            : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+        }
       });
     });
 

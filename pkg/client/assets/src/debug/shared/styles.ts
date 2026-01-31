@@ -68,6 +68,11 @@ export type StyleConfig = {
 
   // Muted text
   muted: string;
+
+  // SQL selection
+  selectCell: string;
+  sqlToolbar: string;
+  sqlToolbarBtn: string;
 };
 
 /**
@@ -175,6 +180,11 @@ export const consoleStyles: StyleConfig = {
 
   // Muted text
   muted: 'debug-muted',
+
+  // SQL selection
+  selectCell: 'debug-sql-select',
+  sqlToolbar: 'debug-sql-toolbar',
+  sqlToolbarBtn: 'debug-btn',
 };
 
 /**
@@ -248,6 +258,11 @@ export const toolbarStyles: StyleConfig = {
 
   // Muted text
   muted: 'timestamp',
+
+  // SQL selection
+  selectCell: 'sql-select',
+  sqlToolbar: 'sql-toolbar',
+  sqlToolbarBtn: 'copy-btn',
 };
 
 /**

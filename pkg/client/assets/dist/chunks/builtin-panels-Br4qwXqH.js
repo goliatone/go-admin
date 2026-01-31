@@ -286,7 +286,11 @@ const bO = {
   expandedContent: "expanded-content",
   expandedContentHeader: "expanded-content__header",
   // Muted text
-  muted: "debug-muted"
+  muted: "debug-muted",
+  // SQL selection
+  selectCell: "debug-sql-select",
+  sqlToolbar: "debug-sql-toolbar",
+  sqlToolbarBtn: "debug-btn"
 }, aR = {
   // Table styling
   table: "",
@@ -339,7 +343,11 @@ const bO = {
   expandedContent: "expanded-content",
   expandedContentHeader: "expanded-content__header",
   // Muted text
-  muted: "timestamp"
+  muted: "timestamp",
+  // SQL selection
+  selectCell: "sql-select",
+  sqlToolbar: "sql-toolbar",
+  sqlToolbarBtn: "copy-btn"
 };
 function vO(E) {
   return E === "console" ? CR : aR;
@@ -22255,4 +22263,4 @@ export {
   vO as y,
   rE as z
 };
-//# sourceMappingURL=builtin-panels-CN3q4Moe.js.map
+//# sourceMappingURL=builtin-panels-Br4qwXqH.js.map

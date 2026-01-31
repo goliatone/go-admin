@@ -113,6 +113,8 @@ export declare class BlockLibraryIDE {
     private publishBlock;
     private deprecateBlock;
     private deleteBlock;
+    /** Update a single block item in the sidebar DOM without re-rendering the entire list */
+    private updateBlockItemDOM;
     private updateBlockInState;
     private mergeSchemaExtras;
     private showToast;
