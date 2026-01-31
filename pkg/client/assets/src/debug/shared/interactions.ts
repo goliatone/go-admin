@@ -1,6 +1,9 @@
 // Shared interaction helpers for debug panels
-// Provides copy-to-clipboard, expand/collapse, and visual feedback utilities
+// Provides copy-to-clipboard, expand/collapse, selection, and visual feedback utilities
 // Used by both the full debug console and the debug toolbar
+
+import type { SQLEntry } from './types.js';
+import { formatDuration } from './utils.js';
 
 /**
  * Copy text to clipboard and provide visual feedback on the button.
@@ -105,8 +108,8 @@ export function attachExpandableRowListeners(root: ParentNode): void {
   root.querySelectorAll('.expandable-row').forEach((row) => {
     row.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
-      // Don't toggle if clicking on a link or button
-      if (target.closest('a, button')) return;
+      // Don't toggle if clicking on a link, button, or input (e.g. checkbox)
+      if (target.closest('a, button, input')) return;
 
       const rowEl = e.currentTarget as HTMLElement;
       rowEl.classList.toggle('expanded');
@@ -235,6 +238,139 @@ function escapeAttr(value: string): string {
 }
 
 /**
+ * Build export text from selected SQL entries.
+ * Each query is preceded by a comment with metadata (duration, row count, error).
+ */
+export function buildSQLExportText(queries: SQLEntry[], selected: Set<number>): string {
+  return [...selected]
+    .sort((a, b) => a - b)
+    .map((i) => queries[i])
+    .filter(Boolean)
+    .map((q) => {
+      const dur = formatDuration(q.duration);
+      let header = `-- Duration: ${dur.text} | Rows: ${q.row_count ?? 0}`;
+      if (q.error) header += ` | Error: ${q.error}`;
+      if (q.timestamp) header += ` | Time: ${q.timestamp}`;
+      return `${header}\n${q.query || ''};`;
+    })
+    .join('\n\n');
+}
+
+/**
+ * Trigger a browser file download with the given content.
+ */
+export function downloadAsFile(content: string, filename: string, mimeType = 'text/sql'): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Attach selection listeners for the SQL panel.
+ * Manages checkbox selection, toolbar visibility, copy-to-clipboard, and download.
+ *
+ * @param root - The root element to search for SQL selection controls
+ * @param queries - The SQL entries array (in the same order as rendered)
+ * @param copyOptions - Feedback options for the clipboard copy button
+ */
+export function attachSQLSelectionListeners(
+  root: ParentNode,
+  queries: SQLEntry[],
+  copyOptions: CopyFeedbackOptions = {}
+): void {
+  const selected = new Set<number>();
+  const toolbar = root.querySelector<HTMLElement>('[data-sql-toolbar]');
+  const countEl = root.querySelector('[data-sql-selected-count]');
+  const selectAll = root.querySelector<HTMLInputElement>('.sql-select-all');
+  const rowCheckboxes = root.querySelectorAll<HTMLInputElement>('.sql-select-row');
+
+  if (!toolbar || rowCheckboxes.length === 0) return;
+
+  function updateToolbar(): void {
+    if (!toolbar) return;
+    const count = selected.size;
+    toolbar.dataset.visible = count > 0 ? 'true' : 'false';
+    if (countEl) {
+      countEl.textContent = `${count} selected`;
+    }
+    // Sync select-all checkbox state
+    if (selectAll) {
+      selectAll.checked = count > 0 && count === rowCheckboxes.length;
+      selectAll.indeterminate = count > 0 && count < rowCheckboxes.length;
+    }
+  }
+
+  // Individual row checkboxes
+  rowCheckboxes.forEach((cb) => {
+    cb.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent row expand/collapse
+    });
+    cb.addEventListener('change', () => {
+      const idx = parseInt(cb.dataset.sqlIndex || '', 10);
+      if (Number.isNaN(idx)) return;
+      if (cb.checked) {
+        selected.add(idx);
+      } else {
+        selected.delete(idx);
+      }
+      updateToolbar();
+    });
+  });
+
+  // Select all checkbox
+  if (selectAll) {
+    selectAll.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    selectAll.addEventListener('change', () => {
+      rowCheckboxes.forEach((cb) => {
+        cb.checked = selectAll.checked;
+        const idx = parseInt(cb.dataset.sqlIndex || '', 10);
+        if (Number.isNaN(idx)) return;
+        if (selectAll.checked) {
+          selected.add(idx);
+        } else {
+          selected.delete(idx);
+        }
+      });
+      updateToolbar();
+    });
+  }
+
+  // Copy to clipboard
+  root.querySelector('[data-sql-export="clipboard"]')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (selected.size === 0) return;
+    const text = buildSQLExportText(queries, selected);
+    const btn = e.currentTarget as HTMLElement;
+    await copyToClipboard(text, btn, copyOptions);
+  });
+
+  // Download as .sql file
+  root.querySelector('[data-sql-export="download"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (selected.size === 0) return;
+    const text = buildSQLExportText(queries, selected);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    downloadAsFile(text, `sql-queries-${ts}.sql`);
+  });
+
+  // Clear selection
+  root.querySelector('[data-sql-clear-selection]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    selected.clear();
+    rowCheckboxes.forEach((cb) => {
+      cb.checked = false;
+    });
+    updateToolbar();
+  });
+}
+
+/**
  * Initialize all interaction listeners on a root element.
  * This is a convenience function that attaches all listeners at once.
  *
@@ -246,11 +382,15 @@ export function initInteractions(
   options: {
     copyOptions?: CopyFeedbackOptions;
     onSortToggle?: (panelId: string, newestFirst: boolean) => void;
+    sqlQueries?: SQLEntry[];
   } = {}
 ): void {
   attachCopyListeners(root, options.copyOptions);
   attachExpandableRowListeners(root);
   if (options.onSortToggle) {
     attachSortToggleListeners(root, options.onSortToggle);
+  }
+  if (options.sqlQueries) {
+    attachSQLSelectionListeners(root, options.sqlQueries, options.copyOptions);
   }
 }

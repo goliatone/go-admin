@@ -86,6 +86,7 @@ export declare class BlockLibraryIDE {
     private bindEvents;
     private loadBlocks;
     private loadCategories;
+    private refreshCategoriesFromBlocks;
     private renderBlockList;
     private renderBlockItem;
     private renderCreateForm;
@@ -116,6 +117,8 @@ export declare class BlockLibraryIDE {
     /** Update a single block item in the sidebar DOM without re-rendering the entire list */
     private updateBlockItemDOM;
     private updateBlockInState;
+    private normalizeBlockDefinition;
+    private mergeBlockDefinition;
     private mergeSchemaExtras;
     private showToast;
 }

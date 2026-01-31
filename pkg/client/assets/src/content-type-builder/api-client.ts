@@ -290,8 +290,8 @@ export class ContentTypeAPIClient {
     if (params?.page) queryParams.set('page', String(params.page));
     if (params?.per_page) queryParams.set('per_page', String(params.per_page));
     if (params?.search) queryParams.set('search', params.search);
-    if (params?.category) queryParams.set('category', params.category);
-    if (params?.status) queryParams.set('status', params.status);
+    if (params?.category) queryParams.set('filter_category', params.category);
+    if (params?.status) queryParams.set('filter_status', params.status);
 
     const query = queryParams.toString();
     const url = `${this.config.basePath}/api/block_definitions${query ? `?${query}` : ''}`;

@@ -267,6 +267,23 @@ export class BlockLibraryIDE {
         if (refreshed) this.editorPanel.update(refreshed);
       }
     } catch (err) {
+      const fallbackMessage =
+        newStatus === 'active' ? 'Block published.' : newStatus === 'deprecated' ? 'Block deprecated.' : 'Block reverted to draft.';
+      if (err instanceof ContentTypeAPIError && [404, 405, 501].includes(err.status)) {
+        try {
+          const updated = await this.api.updateBlockDefinition(blockId, { status: newStatus });
+          this.updateBlockInState(blockId, updated);
+          this.renderBlockList();
+          if (this.editorPanel && this.state.selectedBlockId === blockId) {
+            const refreshed = this.state.blocks.find((b) => b.id === blockId);
+            if (refreshed) this.editorPanel.update(refreshed);
+          }
+          this.showToast(fallbackMessage, newStatus === 'active' ? 'success' : 'info');
+          return;
+        } catch (fallbackErr) {
+          console.error('Status change fallback failed:', fallbackErr);
+        }
+      }
       const msg = err instanceof Error ? err.message : 'Status change failed';
       console.error('Status change failed:', err);
       this.showToast(msg, 'error');
@@ -665,11 +682,12 @@ export class BlockLibraryIDE {
 
     try {
       const response = await this.api.listBlockDefinitions();
-      this.state.blocks = response.items;
+      this.state.blocks = response.items.map((block) => this.normalizeBlockDefinition(block));
     } catch (err) {
       this.state.error = err instanceof Error ? err.message : 'Failed to load blocks';
     } finally {
       this.state.isLoading = false;
+      this.refreshCategoriesFromBlocks();
       this.renderBlockList();
       this.updateCount();
     }
@@ -677,9 +695,29 @@ export class BlockLibraryIDE {
 
   private async loadCategories(): Promise<void> {
     try {
-      this.state.categories = await this.api.getBlockCategories();
+      const apiCategories = await this.api.getBlockCategories();
+      if (apiCategories.length > 0) {
+        this.state.categories = Array.from(
+          new Set(
+            apiCategories.map((cat) => cat.trim().toLowerCase()).filter((cat) => cat.length > 0)
+          )
+        );
+      }
     } catch {
-      this.state.categories = ['content', 'media', 'layout', 'interactive', 'custom'];
+      // Categories will be derived from loaded blocks in refreshCategoriesFromBlocks
+    }
+    this.renderCategoryOptions();
+  }
+
+  private refreshCategoriesFromBlocks(): void {
+    const seen = new Set<string>(this.state.categories.map((cat) => cat.trim().toLowerCase()));
+    this.state.categories = Array.from(seen);
+    for (const block of this.state.blocks) {
+      const cat = (block.category || '').trim().toLowerCase();
+      if (cat && !seen.has(cat)) {
+        seen.add(cat);
+        this.state.categories.push(cat);
+      }
     }
     this.renderCategoryOptions();
   }
@@ -1093,7 +1131,8 @@ export class BlockLibraryIDE {
     }
 
     if (this.state.categoryFilter) {
-      blocks = blocks.filter((b) => (b.category || 'custom') === this.state.categoryFilter);
+      const filter = this.state.categoryFilter.toLowerCase().trim();
+      blocks = blocks.filter((b) => (b.category || 'custom').toLowerCase().trim() === filter);
     }
 
     return blocks;
@@ -1234,10 +1273,11 @@ export class BlockLibraryIDE {
       if (!newBlock.type) {
         newBlock.type = newBlock.slug || slug;
       }
+      const normalized = this.normalizeBlockDefinition(newBlock);
 
       this.state.isCreating = false;
-      this.state.blocks.unshift(newBlock);
-      this.state.selectedBlockId = newBlock.id;
+      this.state.blocks.unshift(normalized);
+      this.state.selectedBlockId = normalized.id;
       this.updateCount();
       this.renderBlockList();
       this.renderEditor();
@@ -1304,10 +1344,7 @@ export class BlockLibraryIDE {
 
     try {
       const updated = await this.api.updateBlockDefinition(blockId, { name: newName });
-      const idx = this.state.blocks.findIndex((b) => b.id === blockId);
-      if (idx >= 0) {
-        this.state.blocks[idx] = { ...this.state.blocks[idx], ...updated };
-      }
+      this.updateBlockInState(blockId, updated);
     } catch (err) {
       // Silently revert on error
       console.error('Rename failed:', err);
@@ -1336,8 +1373,9 @@ export class BlockLibraryIDE {
 
     try {
       const cloned = await this.api.cloneBlockDefinition(blockId, newType, newSlug);
-      this.state.blocks.unshift(cloned);
-      this.state.selectedBlockId = cloned.id;
+      const normalized = this.normalizeBlockDefinition(cloned);
+      this.state.blocks.unshift(normalized);
+      this.state.selectedBlockId = normalized.id;
       this.updateCount();
       this.renderBlockList();
       this.renderEditor();
@@ -1458,8 +1496,32 @@ export class BlockLibraryIDE {
   private updateBlockInState(blockId: string, updated: BlockDefinition): void {
     const idx = this.state.blocks.findIndex((b) => b.id === blockId);
     if (idx >= 0) {
-      this.state.blocks[idx] = { ...this.state.blocks[idx], ...updated };
+      const current = this.state.blocks[idx];
+      const merged = this.mergeBlockDefinition(current, updated);
+      this.state.blocks[idx] = merged;
     }
+  }
+
+  private normalizeBlockDefinition(block: BlockDefinition): BlockDefinition {
+    const normalized = { ...block };
+    const slug = (normalized.slug ?? '').trim();
+    const typ = (normalized.type ?? '').trim();
+    if (!slug && typ) normalized.slug = typ;
+    if (!typ && slug) normalized.type = slug;
+    return normalized;
+  }
+
+  private mergeBlockDefinition(current: BlockDefinition, updated: BlockDefinition): BlockDefinition {
+    const merged = { ...current, ...updated };
+    const updatedSlug = (updated.slug ?? '').trim();
+    const updatedType = (updated.type ?? '').trim();
+    if (!updatedSlug && current.slug) merged.slug = current.slug;
+    if (!updatedType && current.type) merged.type = current.type;
+    const mergedSlug = (merged.slug ?? '').trim();
+    const mergedType = (merged.type ?? '').trim();
+    if (!mergedSlug && mergedType) merged.slug = mergedType;
+    if (!mergedType && mergedSlug) merged.type = mergedSlug;
+    return merged;
   }
 
   private mergeSchemaExtras(current: BlockDefinition['schema'], next: BlockDefinition['schema']): BlockDefinition['schema'] {

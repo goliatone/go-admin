@@ -514,6 +514,111 @@ export const toolbarStyles = `
     height: 12px;
   }
 
+  /* SQL selection */
+  .sql-select {
+    width: 28px;
+    text-align: center;
+    padding-left: 6px !important;
+    padding-right: 2px !important;
+  }
+
+  .sql-select input[type="checkbox"] {
+    cursor: pointer;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--toolbar-text-muted);
+    border-radius: 3px;
+    background: transparent;
+    position: relative;
+    transition: all 0.15s ease;
+  }
+
+  .sql-select input[type="checkbox"]:hover {
+    border-color: var(--toolbar-accent);
+  }
+
+  .sql-select input[type="checkbox"]:checked {
+    background: var(--toolbar-accent);
+    border-color: var(--toolbar-accent);
+  }
+
+  .sql-select input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--toolbar-bg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .sql-select input[type="checkbox"]:indeterminate {
+    border-color: var(--toolbar-accent);
+  }
+
+  .sql-select input[type="checkbox"]:indeterminate::after {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 5px;
+    width: 8px;
+    height: 2px;
+    background: var(--toolbar-accent);
+  }
+
+  .sql-toolbar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(137, 180, 250, 0.08);
+    border: 1px solid rgba(137, 180, 250, 0.2);
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: var(--toolbar-text-muted);
+  }
+
+  .sql-toolbar[data-visible="true"] {
+    display: flex;
+  }
+
+  .sql-toolbar span {
+    font-weight: 600;
+    color: var(--toolbar-accent);
+    margin-right: 4px;
+  }
+
+  .sql-toolbar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid rgba(137, 180, 250, 0.3);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--toolbar-text-muted);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .sql-toolbar button:hover {
+    background: rgba(137, 180, 250, 0.1);
+    border-color: var(--toolbar-accent);
+    color: var(--toolbar-text);
+  }
+
+  .sql-toolbar button svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+
   /* Duration formatting */
   .duration {
     color: var(--toolbar-text-muted);
