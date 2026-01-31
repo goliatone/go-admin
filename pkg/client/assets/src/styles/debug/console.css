@@ -784,6 +784,71 @@ body {
   word-break: break-all;
 }
 
+/* SQL selection */
+.debug-sql-select {
+  width: 28px;
+  text-align: center;
+  padding-left: 6px !important;
+  padding-right: 2px !important;
+}
+
+.debug-sql-select input[type="checkbox"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--debug-accent);
+}
+
+.debug-sql-toolbar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(137, 180, 250, 0.08);
+  border: 1px solid rgba(137, 180, 250, 0.2);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--debug-text-muted);
+}
+
+.debug-sql-toolbar[data-visible="true"] {
+  display: flex;
+}
+
+.debug-sql-toolbar span {
+  font-weight: 600;
+  color: var(--debug-accent);
+  margin-right: 4px;
+}
+
+.debug-sql-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--debug-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--debug-text-muted);
+  font-size: 11px;
+  font-family: var(--debug-font);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.debug-sql-toolbar button:hover {
+  background: rgba(137, 180, 250, 0.1);
+  border-color: var(--debug-accent);
+  color: var(--debug-text);
+}
+
+.debug-sql-toolbar button svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
 /* JSON panels (template, session, config) */
 .debug-json-grid {
   display: grid;

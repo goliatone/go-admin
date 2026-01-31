@@ -74,5 +74,6 @@ export declare class DebugToolbar extends HTMLElement {
     private attachExpandableRowListeners;
     private attachCopyListeners;
     private attachSortToggleListeners;
+    private attachSQLSelectionListeners;
 }
 //# sourceMappingURL=debug-toolbar.d.ts.map

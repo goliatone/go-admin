@@ -38,6 +38,35 @@ function renderSortToggle(panelId: string, newestFirst: boolean, styles: StyleCo
 }
 
 /**
+ * Render the selection toolbar (hidden by default, shown when rows are selected)
+ */
+function renderSelectionToolbar(styles: StyleConfig): string {
+  return `
+    <div class="${styles.sqlToolbar}" data-sql-toolbar>
+      <span data-sql-selected-count>0 selected</span>
+      <button class="${styles.sqlToolbarBtn}" data-sql-export="clipboard" title="Copy selected queries to clipboard">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        Copy
+      </button>
+      <button class="${styles.sqlToolbarBtn}" data-sql-export="download" title="Download selected queries as .sql file">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Download .sql
+      </button>
+      <button class="${styles.sqlToolbarBtn}" data-sql-clear-selection title="Clear selection">
+        Clear
+      </button>
+    </div>
+  `;
+}
+
+/**
  * Render the copy button based on style (icon vs SVG)
  */
 function renderCopyButton(styles: StyleConfig, useIcon: boolean, rowId: string): string {
@@ -85,6 +114,7 @@ function renderSQLRow(
 
   return `
     <tr class="${rowClasses.join(' ')}" data-row-id="${rowId}">
+      <td class="${styles.selectCell}"><input type="checkbox" class="sql-select-row" data-sql-index="${index}"></td>
       <td class="${styles.duration} ${durationClass}">${duration.text}</td>
       <td>${escapeHTML(formatNumber(entry.row_count ?? '-'))}</td>
       <td class="${styles.timestamp}">${escapeHTML(formatTimestamp(entry.timestamp))}</td>
@@ -92,7 +122,7 @@ function renderSQLRow(
       <td class="${styles.queryText}"><span class="${styles.expandIcon}">&#9654;</span>${escapeHTML(rawQuery)}</td>
     </tr>
     <tr class="${styles.expansionRow}" data-expansion-for="${rowId}">
-      <td colspan="5">
+      <td colspan="6">
         <div class="${styles.expandedContent}" data-copy-content="${escapeHTML(rawQuery)}">
           <div class="${styles.expandedContentHeader}">
             ${copyButton}
@@ -126,6 +156,7 @@ export function renderSQLPanel(
   } = options;
 
   const sortToggle = showSortToggle ? renderSortToggle('sql', newestFirst, styles) : '';
+  const selectionToolbar = renderSelectionToolbar(styles);
 
   if (!queries.length) {
     return sortToggle + `<div class="${styles.emptyState}">No SQL queries captured</div>`;
@@ -151,9 +182,11 @@ export function renderSQLPanel(
 
   return `
     ${sortToggle}
+    ${selectionToolbar}
     <table class="${styles.table}">
       <thead>
         <tr>
+          <th class="${styles.selectCell}"><input type="checkbox" class="sql-select-all"></th>
           <th>Duration</th>
           <th>Rows</th>
           <th>Time</th>

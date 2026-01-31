@@ -25,6 +25,7 @@ export declare class BlockLibraryManager {
     private bindEvents;
     private loadBlocks;
     private loadCategories;
+    private refreshCategoriesFromBlocks;
     private renderCategoryOptions;
     private renderBlockList;
     private renderBlockCard;

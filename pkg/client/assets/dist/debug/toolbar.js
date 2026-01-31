@@ -1,6 +1,6 @@
-import { q, x as L, e as z, i as P, j as g, h as T, g as M, d as H, r as A, p, D as S, m as $, n as R, a as I, b as j, J as O, s as C } from "../chunks/builtin-panels-Br4qwXqH.js";
-import { DebugReplPanel as D } from "./repl.js";
-const F = `
+import { s as q, y as L, e as z, j as P, k as g, i as T, h as M, f as H, r as A, p, D as S, n as $, o as R, a as I, b as j, K as O, c as D, t as C } from "../chunks/builtin-panels-rlH6z4Rw.js";
+import { DebugReplPanel as F } from "./repl.js";
+const Q = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -513,6 +513,111 @@ const F = `
     height: 12px;
   }
 
+  /* SQL selection */
+  .sql-select {
+    width: 28px;
+    text-align: center;
+    padding-left: 6px !important;
+    padding-right: 2px !important;
+  }
+
+  .sql-select input[type="checkbox"] {
+    cursor: pointer;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--toolbar-text-muted);
+    border-radius: 3px;
+    background: transparent;
+    position: relative;
+    transition: all 0.15s ease;
+  }
+
+  .sql-select input[type="checkbox"]:hover {
+    border-color: var(--toolbar-accent);
+  }
+
+  .sql-select input[type="checkbox"]:checked {
+    background: var(--toolbar-accent);
+    border-color: var(--toolbar-accent);
+  }
+
+  .sql-select input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--toolbar-bg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .sql-select input[type="checkbox"]:indeterminate {
+    border-color: var(--toolbar-accent);
+  }
+
+  .sql-select input[type="checkbox"]:indeterminate::after {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 5px;
+    width: 8px;
+    height: 2px;
+    background: var(--toolbar-accent);
+  }
+
+  .sql-toolbar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(137, 180, 250, 0.08);
+    border: 1px solid rgba(137, 180, 250, 0.2);
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: var(--toolbar-text-muted);
+  }
+
+  .sql-toolbar[data-visible="true"] {
+    display: flex;
+  }
+
+  .sql-toolbar span {
+    font-weight: 600;
+    color: var(--toolbar-accent);
+    margin-right: 4px;
+  }
+
+  .sql-toolbar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid rgba(137, 180, 250, 0.3);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--toolbar-text-muted);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .sql-toolbar button:hover {
+    background: rgba(137, 180, 250, 0.1);
+    border-color: var(--toolbar-accent);
+    color: var(--toolbar-text);
+  }
+
+  .sql-toolbar button svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+
   /* Duration formatting */
   .duration {
     color: var(--toolbar-text-muted);
@@ -849,15 +954,15 @@ function u(o, t = 50) {
     slowQueries: l
   };
 }
-const B = /* @__PURE__ */ new Set(["console", "shell"]), x = {
+const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
   console: "Console",
   shell: "Shell"
 }, v = () => {
   const o = p.getToolbarPanels();
   return o.length > 0 ? o.filter((t) => t.category === "core" || t.category === "system").map((t) => t.id) : ["requests", "sql", "logs", "routes", "config"];
 }, N = (o) => {
-  if (x[o])
-    return x[o];
+  if (m[o])
+    return m[o];
   const t = p.get(o);
   return t ? t.label : o.charAt(0).toUpperCase() + o.slice(1);
 }, y = (o) => {
@@ -1102,7 +1207,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), x = {
         `;
     }).join(""), s = this.expanded ? "expanded" : "collapsed", a = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || h.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${F}</style>
+      <style>${Q}</style>
       <div class="toolbar ${s} ${a}" style="${n}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
@@ -1173,7 +1278,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), x = {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (B.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners())), this.panels.forEach((e) => {
+      t && (B.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners())), this.panels.forEach((e) => {
         const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         s && (s.textContent = String(this.getPanelCount(e)));
       });
@@ -1230,10 +1335,10 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), x = {
         if (s && s !== this.activePanel) {
           this.activePanel = s, this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
           const a = this.shadow.getElementById("panel-content");
-          a && (a.innerHTML = f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners());
+          a && (a.innerHTML = f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners());
         }
       });
-    }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
+    }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
       t.addEventListener("click", (e) => {
         const s = e.currentTarget.dataset.action, a = this.getStream();
         switch (s) {
@@ -1261,7 +1366,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), x = {
   }
   renderReplPanel(t, e) {
     let s = this.replPanels.get(e);
-    s || (s = new D({
+    s || (s = new F({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -1308,11 +1413,14 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), x = {
       this.panelSortOrder.set(t, e), this.saveState(), this.updateContent();
     });
   }
+  attachSQLSelectionListeners() {
+    this.activePanel === "sql" && D(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
+  }
 };
 h.MIN_HEIGHT = 150, h.MAX_HEIGHT_RATIO = 0.8, h.DEFAULT_HEIGHT = 320;
-let m = h;
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", m);
-const Q = `
+let x = h;
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", x);
+const K = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1550,7 +1658,7 @@ const Q = `
   logs: "log",
   custom: "custom"
 }, k = ["requests", "sql", "logs", "routes", "config"];
-class K extends HTMLElement {
+class Y extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1684,7 +1792,7 @@ class K extends HTMLElement {
   render() {
     const t = u(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, a = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${Q}</style>
+      <style>${K}</style>
       <div class="fab ${a}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
@@ -1758,7 +1866,7 @@ class K extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", K);
+customElements.get("debug-fab") || customElements.define("debug-fab", Y);
 class E {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
@@ -1824,7 +1932,7 @@ class E {
     }));
   }
 }
-function Y() {
+function U() {
   const o = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (o ? e = {
@@ -1841,13 +1949,13 @@ function Y() {
   return s.init(), s;
 }
 window.DebugManager = E;
-window.initDebugManager = Y;
+window.initDebugManager = U;
 export {
-  K as DebugFab,
+  Y as DebugFab,
   E as DebugManager,
-  m as DebugToolbar,
+  x as DebugToolbar,
   u as getCounts,
-  Y as initDebugManager,
+  U as initDebugManager,
   f as renderPanel
 };
 //# sourceMappingURL=toolbar.js.map

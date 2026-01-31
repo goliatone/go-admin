@@ -10,6 +10,7 @@ import {
   attachCopyListeners,
   attachExpandableRowListeners,
   attachSortToggleListeners,
+  attachSQLSelectionListeners,
 } from '../shared/interactions.js';
 import {
   panelRegistry,
@@ -607,6 +608,7 @@ export class DebugToolbar extends HTMLElement {
           this.attachExpandableRowListeners();
           this.attachCopyListeners();
           this.attachSortToggleListeners();
+          this.attachSQLSelectionListeners();
         }
       }
       // Update tab counts
@@ -715,6 +717,7 @@ export class DebugToolbar extends HTMLElement {
             this.attachExpandableRowListeners();
             this.attachCopyListeners();
             this.attachSortToggleListeners();
+            this.attachSQLSelectionListeners();
           }
         }
       });
@@ -724,6 +727,7 @@ export class DebugToolbar extends HTMLElement {
     this.attachExpandableRowListeners();
     this.attachCopyListeners();
     this.attachSortToggleListeners();
+    this.attachSQLSelectionListeners();
 
     // Action buttons
     this.shadow.querySelectorAll('[data-action]').forEach((btn) => {
@@ -873,6 +877,12 @@ export class DebugToolbar extends HTMLElement {
       this.saveState();
       this.updateContent();
     });
+  }
+
+  private attachSQLSelectionListeners(): void {
+    if (this.activePanel !== 'sql') return;
+    // Use shared helper for SQL row selection (toolbar style with SVG feedback)
+    attachSQLSelectionListeners(this.shadow, this.snapshot.sql || [], { useIconFeedback: false });
   }
 }
 

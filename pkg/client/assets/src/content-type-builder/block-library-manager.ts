@@ -324,18 +324,33 @@ export class BlockLibraryManager {
       this.state.error = err instanceof Error ? err.message : 'Failed to load blocks';
     } finally {
       this.state.isLoading = false;
+      this.refreshCategoriesFromBlocks();
       this.renderBlockList();
     }
   }
 
   private async loadCategories(): Promise<void> {
     try {
-      this.categories = await this.api.getBlockCategories();
-      this.renderCategoryOptions();
+      const apiCategories = await this.api.getBlockCategories();
+      if (apiCategories.length > 0) {
+        this.categories = apiCategories;
+      }
     } catch {
-      this.categories = ['content', 'media', 'layout', 'interactive', 'custom'];
-      this.renderCategoryOptions();
+      // Categories will be derived from loaded blocks in refreshCategoriesFromBlocks
     }
+    this.renderCategoryOptions();
+  }
+
+  private refreshCategoriesFromBlocks(): void {
+    const seen = new Set<string>(this.categories);
+    for (const block of this.state.blocks) {
+      const cat = (block.category || '').trim().toLowerCase();
+      if (cat && !seen.has(cat)) {
+        seen.add(cat);
+        this.categories.push(cat);
+      }
+    }
+    this.renderCategoryOptions();
   }
 
   private renderCategoryOptions(): void {

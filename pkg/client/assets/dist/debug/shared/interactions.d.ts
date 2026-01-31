@@ -1,3 +1,4 @@
+import type { SQLEntry } from './types.js';
 /**
  * Copy text to clipboard and provide visual feedback on the button.
  *
@@ -113,6 +114,24 @@ export declare function expansionForAttr(forRowId: string): string;
  */
 export declare function sortToggleAttr(panelId: string): string;
 /**
+ * Build export text from selected SQL entries.
+ * Each query is preceded by a comment with metadata (duration, row count, error).
+ */
+export declare function buildSQLExportText(queries: SQLEntry[], selected: Set<number>): string;
+/**
+ * Trigger a browser file download with the given content.
+ */
+export declare function downloadAsFile(content: string, filename: string, mimeType?: string): void;
+/**
+ * Attach selection listeners for the SQL panel.
+ * Manages checkbox selection, toolbar visibility, copy-to-clipboard, and download.
+ *
+ * @param root - The root element to search for SQL selection controls
+ * @param queries - The SQL entries array (in the same order as rendered)
+ * @param copyOptions - Feedback options for the clipboard copy button
+ */
+export declare function attachSQLSelectionListeners(root: ParentNode, queries: SQLEntry[], copyOptions?: CopyFeedbackOptions): void;
+/**
  * Initialize all interaction listeners on a root element.
  * This is a convenience function that attaches all listeners at once.
  *
@@ -122,5 +141,6 @@ export declare function sortToggleAttr(panelId: string): string;
 export declare function initInteractions(root: ParentNode, options?: {
     copyOptions?: CopyFeedbackOptions;
     onSortToggle?: (panelId: string, newestFirst: boolean) => void;
+    sqlQueries?: SQLEntry[];
 }): void;
 //# sourceMappingURL=interactions.d.ts.map

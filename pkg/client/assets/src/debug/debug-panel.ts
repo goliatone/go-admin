@@ -20,6 +20,7 @@ import {
 import {
   attachCopyListeners,
   attachExpandableRowListeners,
+  attachSQLSelectionListeners,
 } from './shared/interactions.js';
 import { consoleStyles } from './shared/styles.js';
 import {
@@ -652,6 +653,9 @@ export class DebugPanel {
     }
     this.attachExpandableRowListeners();
     this.attachCopyButtonListeners();
+    if (panel === 'sql') {
+      this.attachSQLSelectionListeners();
+    }
   }
 
   private attachExpandableRowListeners(): void {
@@ -662,6 +666,11 @@ export class DebugPanel {
   private attachCopyButtonListeners(): void {
     // Use shared helper for copy-to-clipboard behavior (console style with icon feedback)
     attachCopyListeners(this.panelEl, { useIconFeedback: true });
+  }
+
+  private attachSQLSelectionListeners(): void {
+    // Use shared helper for SQL row selection, clipboard copy, and download
+    attachSQLSelectionListeners(this.panelEl, this.state.sql, { useIconFeedback: true });
   }
 
   private renderReplPanel(panel: string): void {
