@@ -1469,7 +1469,7 @@ func contentTypeValidationError(fields map[string]string) error {
 	}
 	err := goerrors.NewValidationFromMap("validation failed", fields).
 		WithCode(http.StatusBadRequest).
-		WithTextCode("VALIDATION_ERROR")
+		WithTextCode(TextCodeValidationError)
 	err.Metadata = map[string]any{"fields": fields}
 	return err
 }
