@@ -102,6 +102,15 @@ _ = adm
 
 If `/admin/api/preferences` returns 403, grant `admin.preferences.view` and `admin.preferences.edit`.
 
+Preferences UI extras in the web example:
+- `ADMIN_PREFERENCES_SCHEMA` sets a custom form schema path (file or directory containing `schema.json`).
+- `ADMIN_PREFERENCES_JSON_STRICT=true` enables client-side JSON validation for `raw_ui`.
+
+Error handling env toggles (wired via `quickstart.WithErrorsFromEnv()`):
+- `ADMIN_DEV=true` enables dev-mode error output (stack traces + internal messages).
+- `ADMIN_ERROR_STACKTRACE=true` forces stack traces outside dev.
+- `ADMIN_ERROR_EXPOSE_INTERNAL=true` exposes internal error messages in responses.
+
 ### Content UI (Pages, Posts, Media)
 
 - HTML CRUD screens live at `/admin/pages`, `/admin/posts`, `/admin/media` (auth + permissions enforced: `admin.pages.*`, `admin.posts.*`, `admin.media.*`).
