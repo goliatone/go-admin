@@ -21,10 +21,10 @@ import (
 var (
 	cmsSeedNamespace      = uuid.MustParse("4e7b7b9f-24c0-4d6a-9e2f-6e5a0cc3d7b7")
 	seedAuthorID          = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
-	pageContentTypeID     = uuid.MustParse("00000000-0000-0000-0000-000000000210")
-	postContentTypeID     = uuid.MustParse("00000000-0000-0000-0000-000000000211")
-	seedThemeID           = uuid.MustParse("00000000-0000-0000-0000-000000000310")
-	seedTemplateID        = uuid.MustParse("00000000-0000-0000-0000-000000000311")
+	pageContentTypeID     = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:page"))
+	postContentTypeID     = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:post"))
+	seedThemeID           = uuid.NewSHA1(cmsSeedNamespace, []byte("theme:admin-demo"))
+	seedTemplateID        = uuid.NewSHA1(cmsSeedNamespace, []byte("template:page-default"))
 	siteMenuLocaleDefault = ""
 )
 
@@ -149,20 +149,23 @@ func seedCMSPrereqs(ctx context.Context, db *bun.DB, defaultLocale string) (cmsS
 	if err := ensureLocale(ctx, db, defaultLocale); err != nil {
 		return cmsSeedRefs{}, err
 	}
-	if err := ensureTheme(ctx, db); err != nil {
+	themeID, err := ensureTheme(ctx, db)
+	if err != nil {
 		return cmsSeedRefs{}, err
 	}
-	if err := ensureTemplate(ctx, db); err != nil {
+	templateID, err := ensureTemplate(ctx, db, themeID)
+	if err != nil {
 		return cmsSeedRefs{}, err
 	}
-	if err := ensureContentTypes(ctx, db); err != nil {
+	pageID, postID, err := ensureContentTypes(ctx, db)
+	if err != nil {
 		return cmsSeedRefs{}, err
 	}
 
 	return cmsSeedRefs{
-		PageContentTypeID: pageContentTypeID,
-		PostContentTypeID: postContentTypeID,
-		TemplateID:        seedTemplateID,
+		PageContentTypeID: pageID,
+		PostContentTypeID: postID,
+		TemplateID:        templateID,
 	}, nil
 }
 
@@ -198,20 +201,17 @@ func ensureLocale(ctx context.Context, db *bun.DB, code string) error {
 	}
 }
 
-func ensureTheme(ctx context.Context, db *bun.DB) error {
+func ensureTheme(ctx context.Context, db *bun.DB) (uuid.UUID, error) {
 	var existing themeRow
 	err := db.NewSelect().
 		Model(&existing).
 		Where("name = ?", "admin-demo").
 		Scan(ctx)
 	if err == nil {
-		if existing.ID != seedThemeID {
-			return fmt.Errorf("theme admin-demo already exists with id %s (expected %s)", existing.ID, seedThemeID)
-		}
-		return nil
+		return existing.ID, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return err
+		return uuid.Nil, err
 	}
 	now := time.Now().UTC()
 	_, execErr := db.NewInsert().
@@ -227,23 +227,23 @@ func ensureTheme(ctx context.Context, db *bun.DB) error {
 		}).
 		On("CONFLICT (id) DO NOTHING").
 		Exec(ctx)
-	return execErr
+	if execErr != nil {
+		return uuid.Nil, execErr
+	}
+	return seedThemeID, nil
 }
 
-func ensureTemplate(ctx context.Context, db *bun.DB) error {
+func ensureTemplate(ctx context.Context, db *bun.DB, themeID uuid.UUID) (uuid.UUID, error) {
 	var existing templateRow
 	err := db.NewSelect().
 		Model(&existing).
-		Where("slug = ? AND theme_id = ?", "page-default", seedThemeID).
+		Where("slug = ? AND theme_id = ?", "page-default", themeID).
 		Scan(ctx)
 	if err == nil {
-		if existing.ID != seedTemplateID {
-			return fmt.Errorf("template page-default already exists with id %s (expected %s)", existing.ID, seedTemplateID)
-		}
-		return nil
+		return existing.ID, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return err
+		return uuid.Nil, err
 	}
 
 	now := time.Now().UTC()
@@ -257,7 +257,7 @@ func ensureTemplate(ctx context.Context, db *bun.DB) error {
 	_, execErr := db.NewInsert().
 		Model(&templateRow{
 			ID:           seedTemplateID,
-			ThemeID:      seedThemeID,
+			ThemeID:      themeID,
 			Name:         "Default Page",
 			Slug:         "page-default",
 			TemplatePath: "templates/page.html",
@@ -268,10 +268,13 @@ func ensureTemplate(ctx context.Context, db *bun.DB) error {
 		}).
 		On("CONFLICT (id) DO NOTHING").
 		Exec(ctx)
-	return execErr
+	if execErr != nil {
+		return uuid.Nil, execErr
+	}
+	return seedTemplateID, nil
 }
 
-func ensureContentTypes(ctx context.Context, db *bun.DB) error {
+func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, error) {
 	blockDefs := map[string]any{
 		"hero": map[string]any{
 			"type":     "object",
@@ -380,22 +383,25 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) error {
 		},
 	}
 
-	if err := ensureContentType(ctx, db, pageContentTypeID, "page", "Pages managed through go-cms", pageSchema); err != nil {
-		return err
+	pageID, err := ensureContentType(ctx, db, pageContentTypeID, "page", "Pages managed through go-cms", pageSchema)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
 	}
-	return ensureContentType(ctx, db, postContentTypeID, "post", "Posts managed through go-cms", postSchema)
+	postID, err := ensureContentType(ctx, db, postContentTypeID, "post", "Posts managed through go-cms", postSchema)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	return pageID, postID, nil
 }
 
-func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, description string, schema map[string]any) error {
+func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, description string, schema map[string]any) (uuid.UUID, error) {
 	var existing contentTypeRow
 	err := db.NewSelect().
 		Model(&existing).
 		Where("name = ?", name).
 		Scan(ctx)
 	if err == nil {
-		if existing.ID != id {
-			return fmt.Errorf("content type %s already exists with id %s (expected %s)", name, existing.ID, id)
-		}
+		actualID := existing.ID
 		if strings.TrimSpace(existing.Slug) == "" {
 			slug := contentTypeSlug(name)
 			if slug != "" {
@@ -404,7 +410,7 @@ func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, desc
 					Column("slug", "updated_at").
 					Where("id = ?", existing.ID).
 					Exec(ctx); updateErr != nil {
-					return updateErr
+					return uuid.Nil, updateErr
 				}
 			}
 		}
@@ -414,13 +420,13 @@ func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, desc
 				Column("schema", "updated_at").
 				Where("id = ?", existing.ID).
 				Exec(ctx); updateErr != nil {
-				return updateErr
+				return uuid.Nil, updateErr
 			}
 		}
-		return nil
+		return actualID, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return err
+		return uuid.Nil, err
 	}
 
 	now := time.Now().UTC()
@@ -443,7 +449,10 @@ func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, desc
 		}).
 		On("CONFLICT (id) DO NOTHING").
 		Exec(ctx)
-	return execErr
+	if execErr != nil {
+		return uuid.Nil, execErr
+	}
+	return id, nil
 }
 
 func contentTypeSlug(name string) string {
