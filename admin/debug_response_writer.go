@@ -143,7 +143,7 @@ func debugWrapResponseWriter(c router.Context, maxBytes int64) (*debugResponseWr
 	wrapped := newDebugResponseWriter(base, maxBytes)
 	restore := debugSwapResponseWriter(c, base, wrapped)
 	if restore == nil {
-		restore = func() {}
+		return nil, nil
 	}
 	return wrapped, restore
 }
