@@ -734,6 +734,8 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
     case 'repeater':
       if (field.config && 'fields' in field.config && field.config.fields) {
         schema.items = fieldsToSchema(field.config.fields);
+      } else {
+        schema.items = { type: 'string' };
       }
       break;
 
@@ -941,7 +943,28 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
 function schemaToFieldType(schema: JSONSchema): FieldType {
   const formgen = schema['x-formgen'] as FormgenExtension | undefined;
 
-  // Check explicit widget
+  // Infer from type + format
+  const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+
+  switch (type) {
+    case 'array': {
+      if (schema.items) {
+        const itemsSchema = schema.items as JSONSchema;
+        if (itemsSchema.oneOf) return 'blocks';
+        if (itemsSchema.enum) return 'chips';
+        if (formgen?.widget === 'block') return 'blocks';
+        if (formgen?.widget === 'chips') return 'chips';
+        if (formgen?.widget === 'media-picker') return 'media-gallery';
+        if (itemsSchema.format === 'uuid' || itemsSchema.format === 'uri') return 'references';
+      }
+      return 'repeater';
+    }
+
+    default:
+      break;
+  }
+
+  // Check explicit widget (non-array)
   if (formgen?.widget) {
     const widgetToType: Record<string, FieldType> = {
       textarea: 'textarea',
@@ -962,9 +985,6 @@ function schemaToFieldType(schema: JSONSchema): FieldType {
     }
   }
 
-  // Infer from type + format
-  const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
-
   switch (type) {
     case 'string':
       if (schema.format === 'date-time') return 'datetime';
@@ -983,14 +1003,6 @@ function schemaToFieldType(schema: JSONSchema): FieldType {
 
     case 'boolean':
       return 'toggle';
-
-    case 'array':
-      if (schema.items) {
-        const itemsSchema = schema.items as JSONSchema;
-        if (itemsSchema.oneOf) return 'blocks';
-        if (itemsSchema.enum) return 'chips';
-      }
-      return 'repeater';
 
     case 'object':
       return 'json';

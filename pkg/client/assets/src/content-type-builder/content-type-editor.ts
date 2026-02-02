@@ -833,6 +833,9 @@ export class ContentTypeEditor {
   }
 
   private renderLifecycleActions(ct: ContentType): string {
+    const status = (ct.status ?? '').toLowerCase();
+    const isDraft = status === '' || status === 'draft';
+    const isActive = status === 'active' || status === 'published';
     return `
       <div class="relative" data-ct-lifecycle-menu>
         <button
@@ -853,7 +856,7 @@ export class ContentTypeEditor {
           class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
         >
           <div class="py-1">
-            ${ct.status === 'draft' ? `
+            ${isDraft ? `
               <button
                 type="button"
                 data-ct-publish
@@ -864,7 +867,7 @@ export class ContentTypeEditor {
                 </svg>
                 Publish
               </button>
-            ` : ct.status === 'active' ? `
+            ` : isActive ? `
               <button
                 type="button"
                 data-ct-deprecate

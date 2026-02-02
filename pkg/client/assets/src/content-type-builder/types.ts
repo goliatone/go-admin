@@ -23,7 +23,7 @@ export interface ContentType {
   updated_at?: string;
 }
 
-export type ContentTypeStatus = 'draft' | 'active' | 'deprecated';
+export type ContentTypeStatus = 'draft' | 'active' | 'deprecated' | 'published';
 
 export interface ContentTypeCapabilities {
   versioning?: boolean;
