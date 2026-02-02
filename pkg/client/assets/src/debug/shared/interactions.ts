@@ -406,6 +406,16 @@ export function attachRequestDetailListeners(
         return;
       }
 
+      // Lazy-mount detail content from template to avoid table parser side effects
+      const detailTemplate = detailRow.querySelector<HTMLTemplateElement>('[data-request-detail-template]');
+      if (detailTemplate) {
+        const cell = detailRow.querySelector('td');
+        if (cell) {
+          cell.appendChild(detailTemplate.content.cloneNode(true));
+          detailTemplate.remove();
+        }
+      }
+
       // Find the expand icon in this row
       const icon = row.querySelector<HTMLElement>('[data-expand-icon]');
 

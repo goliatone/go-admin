@@ -1094,7 +1094,7 @@ func stripUnsupportedSchemaValue(value any) any {
 	case map[string]any:
 		out := make(map[string]any, len(v))
 		for k, item := range v {
-			if k == "additionalProperties" {
+			if k == "additionalProperties" || k == "metadata" {
 				continue
 			}
 			out[k] = stripUnsupportedSchemaValue(item)

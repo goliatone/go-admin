@@ -12,6 +12,8 @@ export declare class ContentTypeEditor {
     private api;
     private state;
     private dragState;
+    private dropIndicator;
+    private dragOverRAF;
     private staticEventsBound;
     private previewDebounceTimer;
     private palettePanel;
@@ -88,6 +90,8 @@ export declare class ContentTypeEditor {
     private bindEvents;
     private bindStaticEvents;
     private bindDynamicEvents;
+    private removeDropIndicator;
+    private getOrCreateDropIndicator;
     private bindDragEvents;
     private bindLifecycleMenuEvents;
     private togglePalette;
