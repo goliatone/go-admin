@@ -169,7 +169,7 @@ The quickstart package provides a bridge to go-users preferences:
 - `quickstart.NewGoUsersPreferencesStore(repo)` implements `PreferencesStore`.
 - `Resolve` uses the go-users resolver to return effective values and optional traces/versions.
 - `Upsert`/`Delete` map to go-users preference commands so clears fall back to lower scopes.
-- `quickstart.NewAdminWithGoUsersPreferences(cfg, repo, quickstart.EnablePreferences())` wires the store and enables the feature.
+- Use `quickstart.WithGoUsersPreferencesRepository` (or the factory variant) with `quickstart.NewAdmin` to wire the store.
 
 Reference: go-users guide `../../go-users/docs/GUIDE_PROFILES_PREFERENCES.md` (profiles, scoped preference levels, resolver behavior, and delete semantics).
 
@@ -200,9 +200,15 @@ _ = adm
 Quickstart helper (enables the feature automatically):
 
 ```go
-adm, err := quickstart.NewAdminWithGoUsersPreferences(
+adm, _, err := quickstart.NewAdmin(
 	cfg,
-	preferenceRepo,
+	adapterHooks,
+	quickstart.WithGoUsersPreferencesRepositoryFactory(func() (types.PreferenceRepository, error) {
+		return preferences.NewRepository(
+			preferences.RepositoryConfig{DB: client.DB()},
+			preferences.WithCache(true),
+		)
+	}),
 	quickstart.EnablePreferences(),
 )
 if err != nil {
