@@ -332,6 +332,27 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 		if ct.Slug == "" {
 			ct.Slug = existing.Slug
 		}
+		if strings.TrimSpace(ct.Name) == "" {
+			ct.Name = existing.Name
+		}
+		if !ct.DescriptionSet {
+			ct.Description = existing.Description
+		}
+		if !ct.IconSet {
+			ct.Icon = existing.Icon
+		}
+		if strings.TrimSpace(ct.Status) == "" {
+			ct.Status = existing.Status
+		}
+		if ct.Schema == nil {
+			ct.Schema = existing.Schema
+		}
+		if ct.UISchema == nil {
+			ct.UISchema = existing.UISchema
+		}
+		if ct.Capabilities == nil {
+			ct.Capabilities = existing.Capabilities
+		}
 	}
 	updated, err := r.types.UpdateContentType(ctx, ct)
 	if err != nil {
@@ -937,6 +958,37 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 	return nil, ErrNotFound
 }
 
+func (r *CMSBlockDefinitionRepository) findBlockDefinition(ctx context.Context, id, environment string) (*CMSBlockDefinition, error) {
+	if r.content == nil {
+		return nil, ErrNotFound
+	}
+	target := strings.TrimSpace(id)
+	if target == "" {
+		return nil, ErrNotFound
+	}
+	defs, err := r.content.BlockDefinitions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	env := strings.TrimSpace(environment)
+	for _, def := range defs {
+		if env != "" {
+			if !strings.EqualFold(strings.TrimSpace(def.Environment), env) {
+				continue
+			}
+		} else if strings.TrimSpace(def.Environment) != "" {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
+			strings.EqualFold(strings.TrimSpace(def.Slug), target) ||
+			strings.EqualFold(strings.TrimSpace(def.Type), target) {
+			copy := def
+			return &copy, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
 // Create adds a block definition.
 func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
 	if r.content == nil {
@@ -980,6 +1032,35 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 		def.Environment = strings.TrimSpace(environmentFromContext(ctx))
 	}
 	def.ID = id
+	if existing, err := r.findBlockDefinition(ctx, id, def.Environment); err == nil && existing != nil {
+		if strings.TrimSpace(def.Name) == "" {
+			def.Name = existing.Name
+		}
+		if strings.TrimSpace(def.Slug) == "" {
+			def.Slug = existing.Slug
+		}
+		if strings.TrimSpace(def.Type) == "" {
+			def.Type = existing.Type
+		}
+		if strings.TrimSpace(def.Status) == "" {
+			def.Status = existing.Status
+		}
+		if !def.DescriptionSet {
+			def.Description = existing.Description
+		}
+		if !def.IconSet {
+			def.Icon = existing.Icon
+		}
+		if !def.CategorySet {
+			def.Category = existing.Category
+		}
+		if def.Schema == nil {
+			def.Schema = existing.Schema
+		}
+		if def.UISchema == nil {
+			def.UISchema = existing.UISchema
+		}
+	}
 	updated, err := r.content.UpdateBlockDefinition(ctx, def)
 	if err != nil {
 		return nil, err
@@ -1967,8 +2048,14 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 	if desc, ok := record["description"].(string); ok {
 		ct.Description = desc
 	}
+	if _, ok := record["description"]; ok {
+		ct.DescriptionSet = true
+	}
 	if icon, ok := record["icon"].(string); ok {
 		ct.Icon = icon
+	}
+	if _, ok := record["icon"]; ok {
+		ct.IconSet = true
 	}
 	if status, ok := record["status"].(string); ok {
 		ct.Status = status
@@ -2027,11 +2114,20 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 	if desc, ok := record["description"].(string); ok {
 		def.Description = desc
 	}
+	if _, ok := record["description"]; ok {
+		def.DescriptionSet = true
+	}
 	if icon, ok := record["icon"].(string); ok {
 		def.Icon = icon
 	}
+	if _, ok := record["icon"]; ok {
+		def.IconSet = true
+	}
 	if category, ok := record["category"].(string); ok {
 		def.Category = category
+	}
+	if _, ok := record["category"]; ok {
+		def.CategorySet = true
 	}
 	if status, ok := record["status"].(string); ok {
 		def.Status = status
