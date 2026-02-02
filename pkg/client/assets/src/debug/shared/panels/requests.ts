@@ -22,7 +22,22 @@ export type RequestsPanelOptions = PanelOptions & {
   truncatePath?: boolean;
   /** Maximum path length before truncation. Defaults to 50. */
   maxPathLength?: number;
+  /** Set of expanded request IDs (preserved across re-renders). */
+  expandedRequestIds?: Set<string>;
+  /** Placeholder string used for masked values. Defaults to '***'. */
+  maskPlaceholder?: string;
+  /** Maximum length for header/query values in the detail pane (toolbar truncation). */
+  maxDetailLength?: number;
 };
+
+/**
+ * Generate a stable key for a request entry.
+ * Uses entry.id if available, otherwise falls back to timestamp + index.
+ */
+export function getRequestKey(entry: RequestEntry, index: number): string {
+  if (entry.id) return entry.id;
+  return `${entry.timestamp || ''}-${index}`;
+}
 
 /**
  * Render the sort toggle control for the requests panel
@@ -39,10 +54,92 @@ function renderSortToggle(panelId: string, newestFirst: boolean, styles: StyleCo
 }
 
 /**
- * Render a single request row
+ * Render the detail pane content for a single request entry.
+ * Shows Request ID, Headers, Query Parameters, and Error sections.
+ * Sections are omitted when data is absent.
+ */
+export function renderRequestDetail(
+  entry: RequestEntry,
+  styles: StyleConfig,
+  options: { maskPlaceholder?: string; maxDetailLength?: number } = {}
+): string {
+  const { maskPlaceholder = '***', maxDetailLength } = options;
+  const sections: string[] = [];
+
+  // Request ID
+  if (entry.id) {
+    sections.push(`
+      <div class="${styles.detailSection}">
+        <span class="${styles.detailLabel}">Request ID</span>
+        <code class="${styles.detailValue}">${escapeHTML(entry.id)}</code>
+      </div>
+    `);
+  }
+
+  // Headers
+  if (entry.headers && Object.keys(entry.headers).length > 0) {
+    const items = Object.entries(entry.headers)
+      .map(([key, value]) => {
+        const displayValue =
+          maxDetailLength && value.length > maxDetailLength
+            ? truncate(value, maxDetailLength)
+            : value;
+        const maskedIndicator =
+          value === maskPlaceholder
+            ? ` <span class="${styles.detailMasked}">(masked)</span>`
+            : '';
+        return `<dt>${escapeHTML(key)}</dt><dd>${escapeHTML(displayValue)}${maskedIndicator}</dd>`;
+      })
+      .join('');
+    sections.push(`
+      <div class="${styles.detailSection}">
+        <span class="${styles.detailLabel}">Headers</span>
+        <dl class="${styles.detailKeyValueTable}">${items}</dl>
+      </div>
+    `);
+  }
+
+  // Query Parameters
+  if (entry.query && Object.keys(entry.query).length > 0) {
+    const items = Object.entries(entry.query)
+      .map(([key, value]) => {
+        const maskedIndicator =
+          value === maskPlaceholder
+            ? ` <span class="${styles.detailMasked}">(masked)</span>`
+            : '';
+        return `<dt>${escapeHTML(key)}</dt><dd>${escapeHTML(value)}${maskedIndicator}</dd>`;
+      })
+      .join('');
+    sections.push(`
+      <div class="${styles.detailSection}">
+        <span class="${styles.detailLabel}">Query Parameters</span>
+        <dl class="${styles.detailKeyValueTable}">${items}</dl>
+      </div>
+    `);
+  }
+
+  // Error
+  if (entry.error) {
+    sections.push(`
+      <div class="${styles.detailSection}">
+        <div class="${styles.detailError}">${escapeHTML(entry.error)}</div>
+      </div>
+    `);
+  }
+
+  if (sections.length === 0) {
+    return `<div class="${styles.detailPane}"><span class="${styles.muted}">No additional details available</span></div>`;
+  }
+
+  return `<div class="${styles.detailPane}">${sections.join('')}</div>`;
+}
+
+/**
+ * Render a single request row with its hidden detail row
  */
 function renderRequestRow(
   entry: RequestEntry,
+  index: number,
   styles: StyleConfig,
   options: RequestsPanelOptions
 ): string {
@@ -50,6 +147,8 @@ function renderRequestRow(
   const path = entry.path || '';
   const statusCode = entry.status || 0;
   const duration = formatDuration(entry.duration, options.slowThresholdMs);
+  const requestKey = getRequestKey(entry, index);
+  const isExpanded = options.expandedRequestIds?.has(requestKey) || false;
 
   const methodClass = styles.badgeMethod(method);
   const statusClass = styles.badgeStatus(statusCode);
@@ -60,13 +159,41 @@ function renderRequestRow(
     ? truncate(path, options.maxPathLength || 50)
     : path;
 
+  // Content-Type badge for POST/PUT/PATCH
+  let contentTypeBadge = '';
+  const methodUpper = method.toUpperCase();
+  if (
+    (methodUpper === 'POST' || methodUpper === 'PUT' || methodUpper === 'PATCH') &&
+    entry.headers
+  ) {
+    const contentType =
+      entry.headers['Content-Type'] || entry.headers['content-type'] || '';
+    const shortType = contentType.split(';')[0].trim();
+    if (shortType) {
+      contentTypeBadge = ` <span class="${styles.badgeContentType}">${escapeHTML(shortType)}</span>`;
+    }
+  }
+
+  // Expand chevron indicator
+  const expandIcon = `<span class="${styles.expandIcon}" data-expand-icon>${isExpanded ? '\u25BC' : '\u25B6'}</span>`;
+
+  // Detail row
+  const detailDisplay = isExpanded ? 'table-row' : 'none';
+  const detailHTML = renderRequestDetail(entry, styles, {
+    maskPlaceholder: options.maskPlaceholder,
+    maxDetailLength: options.maxDetailLength,
+  });
+
   return `
-    <tr class="${rowClass}">
-      <td><span class="${methodClass}">${escapeHTML(method)}</span></td>
+    <tr class="${rowClass}" data-request-id="${escapeHTML(requestKey)}" style="cursor:pointer">
+      <td>${expandIcon}<span class="${methodClass}">${escapeHTML(method)}</span>${contentTypeBadge}</td>
       <td class="${styles.path}" title="${escapeHTML(path)}">${escapeHTML(displayPath)}</td>
       <td><span class="${statusClass}">${escapeHTML(statusCode || '-')}</span></td>
       <td class="${styles.duration} ${durationClass}">${duration.text}</td>
       <td class="${styles.timestamp}">${escapeHTML(formatTimestamp(entry.timestamp))}</td>
+    </tr>
+    <tr class="${styles.detailRow}" data-detail-for="${escapeHTML(requestKey)}" style="display:${detailDisplay}">
+      <td colspan="5">${detailHTML}</td>
     </tr>
   `;
 }
@@ -100,16 +227,20 @@ export function renderRequestsPanel(
   }
 
   // Apply max entries limit if specified
+  const startIndex = maxEntries ? Math.max(0, requests.length - maxEntries) : 0;
   let items = maxEntries ? requests.slice(-maxEntries) : requests;
+
+  // Map entries with their original indices for stable keys
+  let indexed = items.map((entry, i) => ({ entry, originalIndex: startIndex + i }));
 
   // Apply sort order
   if (newestFirst) {
-    items = [...items].reverse();
+    indexed = [...indexed].reverse();
   }
 
-  const rows = items
-    .map((entry) =>
-      renderRequestRow(entry, styles, {
+  const rows = indexed
+    .map(({ entry, originalIndex }) =>
+      renderRequestRow(entry, originalIndex, styles, {
         ...options,
         slowThresholdMs,
         truncatePath,
@@ -120,7 +251,7 @@ export function renderRequestsPanel(
 
   return `
     ${sortToggle}
-    <table class="${styles.table}">
+    <table class="${styles.table}" data-request-table>
       <thead>
         <tr>
           <th>Method</th>

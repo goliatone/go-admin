@@ -21,6 +21,7 @@ import {
   attachCopyListeners,
   attachExpandableRowListeners,
   attachSQLSelectionListeners,
+  attachRequestDetailListeners,
 } from './shared/interactions.js';
 import { consoleStyles } from './shared/styles.js';
 import {
@@ -267,6 +268,7 @@ export class DebugPanel {
   private lastEventEl: HTMLElement;
   private eventToPanel: Record<string, string>;
   private unsubscribeRegistry: (() => void) | null = null;
+  private expandedRequests: Set<string> = new Set();
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -653,6 +655,9 @@ export class DebugPanel {
     }
     this.attachExpandableRowListeners();
     this.attachCopyButtonListeners();
+    if (panel === 'requests') {
+      attachRequestDetailListeners(this.panelEl, this.expandedRequests);
+    }
     if (panel === 'sql') {
       this.attachSQLSelectionListeners();
     }
@@ -715,6 +720,7 @@ export class DebugPanel {
       slowThresholdMs: this.slowThresholdMs,
       showSortToggle: false, // Console has filter bar, not inline toggle
       truncatePath: false, // Console shows full paths
+      expandedRequestIds: this.expandedRequests,
     });
   }
 

@@ -371,6 +371,59 @@ export function attachSQLSelectionListeners(
 }
 
 /**
+ * Attach expand/collapse listeners for request detail rows.
+ * Uses delegated click handling on the table element.
+ * Tracks expanded state in the provided Set so re-renders preserve state.
+ *
+ * @param root - The root element to search for request tables
+ * @param expandedIds - Set of expanded request IDs (mutated in place)
+ */
+export function attachRequestDetailListeners(
+  root: ParentNode,
+  expandedIds: Set<string>
+): void {
+  root.querySelectorAll<HTMLTableElement>('[data-request-table]').forEach((table) => {
+    table.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+
+      // Ignore clicks on interactive elements or inside the detail pane
+      if (target.closest('button, a, input, [data-detail-for]')) return;
+
+      // Find the closest summary row with data-request-id
+      const row = target.closest<HTMLElement>('[data-request-id]');
+      if (!row) return;
+
+      const requestId = row.dataset.requestId;
+      if (!requestId) return;
+
+      // The detail row is always the next sibling
+      const detailRow = row.nextElementSibling as HTMLElement | null;
+      if (
+        !detailRow ||
+        !detailRow.hasAttribute('data-detail-for') ||
+        detailRow.dataset.detailFor !== requestId
+      ) {
+        return;
+      }
+
+      // Find the expand icon in this row
+      const icon = row.querySelector<HTMLElement>('[data-expand-icon]');
+
+      // Toggle expanded state
+      if (expandedIds.has(requestId)) {
+        expandedIds.delete(requestId);
+        detailRow.style.display = 'none';
+        if (icon) icon.textContent = '\u25B6'; // ▶
+      } else {
+        expandedIds.add(requestId);
+        detailRow.style.display = 'table-row';
+        if (icon) icon.textContent = '\u25BC'; // ▼
+      }
+    });
+  });
+}
+
+/**
  * Initialize all interaction listeners on a root element.
  * This is a convenience function that attaches all listeners at once.
  *

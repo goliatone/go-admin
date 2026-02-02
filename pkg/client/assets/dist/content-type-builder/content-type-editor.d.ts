@@ -18,6 +18,9 @@ export declare class ContentTypeEditor {
     private paletteVisible;
     private sectionStates;
     private lifecycleOutsideClickHandler;
+    private cachedBlocks;
+    private blocksLoading;
+    private blockPickerModes;
     constructor(container: HTMLElement, config: ContentTypeEditorConfig);
     /**
      * Initialize the editor
@@ -44,9 +47,9 @@ export declare class ContentTypeEditor {
      */
     removeField(fieldId: string): void;
     /**
-     * Move a field to a new position
+     * Move a field to a new position (optionally across sections)
      */
-    moveField(fieldId: string, newIndex: number): void;
+    moveField(fieldId: string, targetSection: string, targetIndex: number): void;
     /**
      * Validate the schema
      */
@@ -60,6 +63,7 @@ export declare class ContentTypeEditor {
     private renderFieldsSection;
     private renderFieldListHTML;
     private renderFieldCard;
+    private renderBlocksInlineContent;
     private renderCapabilitiesSection;
     private renderPreviewPanel;
     private renderHeader;
@@ -106,6 +110,10 @@ export declare class ContentTypeEditor {
     private groupFieldsBySection;
     private getSectionState;
     private toggleSection;
+    private getBlocksPickerMode;
+    private loadBlocksForField;
+    private renderInlineBlockPickerForField;
+    private applyBlockSelection;
     private renderPreview;
     private renderValidationErrors;
     private showToast;

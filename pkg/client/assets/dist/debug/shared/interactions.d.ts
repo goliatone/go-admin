@@ -132,6 +132,15 @@ export declare function downloadAsFile(content: string, filename: string, mimeTy
  */
 export declare function attachSQLSelectionListeners(root: ParentNode, queries: SQLEntry[], copyOptions?: CopyFeedbackOptions): void;
 /**
+ * Attach expand/collapse listeners for request detail rows.
+ * Uses delegated click handling on the table element.
+ * Tracks expanded state in the provided Set so re-renders preserve state.
+ *
+ * @param root - The root element to search for request tables
+ * @param expandedIds - Set of expanded request IDs (mutated in place)
+ */
+export declare function attachRequestDetailListeners(root: ParentNode, expandedIds: Set<string>): void;
+/**
  * Initialize all interaction listeners on a root element.
  * This is a convenience function that attaches all listeners at once.
  *

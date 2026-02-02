@@ -11,6 +11,7 @@ import {
   attachExpandableRowListeners,
   attachSortToggleListeners,
   attachSQLSelectionListeners,
+  attachRequestDetailListeners,
 } from '../shared/interactions.js';
 import {
   panelRegistry,
@@ -148,6 +149,8 @@ export class DebugToolbar extends HTMLElement {
   private eventToPanel: Record<string, string> = {};
   // Registry subscription cleanup
   private unsubscribeRegistry: (() => void) | null = null;
+  // Expanded request detail state (preserved across re-renders)
+  private expandedRequests: Set<string> = new Set();
 
   private static readonly MIN_HEIGHT = 150;
   private static readonly MAX_HEIGHT_RATIO = 0.8;
@@ -609,6 +612,9 @@ export class DebugToolbar extends HTMLElement {
           this.attachCopyListeners();
           this.attachSortToggleListeners();
           this.attachSQLSelectionListeners();
+          if (this.activePanel === 'requests') {
+            attachRequestDetailListeners(this.shadow, this.expandedRequests);
+          }
         }
       }
       // Update tab counts
@@ -693,10 +699,11 @@ export class DebugToolbar extends HTMLElement {
     }
   }
 
-  private getPanelOptions(): PanelOptions {
+  private getPanelOptions(): PanelOptions & { expandedRequestIds?: Set<string> } {
     return {
       slowThresholdMs: this.slowThresholdMs,
       newestFirst: this.panelSortOrder.get(this.activePanel) ?? true,
+      expandedRequestIds: this.expandedRequests,
     };
   }
 
@@ -718,6 +725,9 @@ export class DebugToolbar extends HTMLElement {
             this.attachCopyListeners();
             this.attachSortToggleListeners();
             this.attachSQLSelectionListeners();
+            if (this.activePanel === 'requests') {
+              attachRequestDetailListeners(this.shadow, this.expandedRequests);
+            }
           }
         }
       });
@@ -728,6 +738,9 @@ export class DebugToolbar extends HTMLElement {
     this.attachCopyListeners();
     this.attachSortToggleListeners();
     this.attachSQLSelectionListeners();
+    if (this.activePanel === 'requests') {
+      attachRequestDetailListeners(this.shadow, this.expandedRequests);
+    }
 
     // Action buttons
     this.shadow.querySelectorAll('[data-action]').forEach((btn) => {

@@ -45,6 +45,7 @@ export declare class BlockEditorPanel {
     /** Cached block definitions for inline block picker (Phase 4) */
     private cachedBlocks;
     private blocksLoading;
+    private blockPickerModes;
     constructor(config: BlockEditorPanelConfig);
     render(): void;
     /** Refresh the panel for a new block without a full re-mount */
@@ -68,6 +69,8 @@ export declare class BlockEditorPanel {
     private renderMoveToSectionMenu;
     private groupFieldsBySection;
     private getSectionState;
+    private getBlocksPickerMode;
+    private ensureInlineBlocksPicker;
     private bindEvents;
     /** Bind drag-and-drop events on all [data-field-drop-zone] elements */
     private bindDropZoneEvents;
@@ -80,6 +83,7 @@ export declare class BlockEditorPanel {
     private loadBlocksForField;
     /** Render and bind inline block picker into the DOM container */
     private renderInlineBlockPickerForField;
+    private openFieldConfigModal;
     private moveFieldToSection;
     /** Move a field up (-1) or down (+1) within its section */
     private moveFieldInSection;

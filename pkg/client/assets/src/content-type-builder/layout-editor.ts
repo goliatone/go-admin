@@ -6,6 +6,7 @@
 
 import type { UISchemaOverlay, UILayoutConfig, UITab, FieldDefinition } from './types';
 import { Modal } from '../shared/modal';
+import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 
 export interface LayoutEditorConfig {
   layout: UILayoutConfig;
@@ -236,13 +237,7 @@ export class LayoutEditor extends Modal {
             placeholder="Tab Label"
             class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <input
-            type="text"
-            name="tab_icon_${index}"
-            value="${escapeHtml(tab.icon ?? '')}"
-            placeholder="icon-name"
-            class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          ${renderIconTrigger(tab.icon ?? '', `name="tab_icon_${index}"`)}
         </div>
 
         <button
@@ -374,6 +369,16 @@ export class LayoutEditor extends Modal {
       });
     });
 
+    // Icon picker triggers
+    bindIconTriggerEvents(this.container, '[data-icon-trigger]', (trigger) => {
+      const hiddenInput = trigger.querySelector<HTMLInputElement>('input[name^="tab_icon_"]');
+      return {
+        value: hiddenInput?.value ?? '',
+        onSelect: (v: string) => { if (hiddenInput) hiddenInput.value = v; },
+        onClear: () => { if (hiddenInput) hiddenInput.value = ''; },
+      };
+    });
+
     // Tab drag and drop
     const tabsList = this.container.querySelector('[data-tabs-list]');
     if (tabsList) {
@@ -467,6 +472,7 @@ export class LayoutEditor extends Modal {
 
   private updateView(): void {
     if (!this.container) return;
+    closeIconPicker();
 
     // Re-render the whole container content (but not the header/footer)
     const content = this.container.querySelector('.overflow-y-auto');

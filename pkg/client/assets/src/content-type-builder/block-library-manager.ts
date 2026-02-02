@@ -20,6 +20,7 @@ import { fieldsToBlockSchema, schemaToFields, generateFieldId } from './api-clie
 import { badge } from '../shared/badge';
 import { Modal } from '../shared/modal.js';
 import { inputClasses, selectClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
+import { renderIconTrigger, bindIconTriggerEvents, resolveIcon } from './shared/icon-picker';
 
 // =============================================================================
 // Block Library Manager Component
@@ -406,7 +407,7 @@ export class BlockLibraryManager extends Modal {
       >
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-lg font-medium">
-            ${block.icon || blockKey.charAt(0).toUpperCase()}
+            ${block.icon ? resolveIcon(block.icon) : blockKey.charAt(0).toUpperCase()}
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
@@ -732,14 +733,7 @@ class BlockDefinitionEditor extends Modal {
               <label class="${labelClasses()}">
                 Icon
               </label>
-              <input
-                type="text"
-                name="icon"
-                value="${escapeHtml(block?.icon ?? '')}"
-                placeholder="emoji or text"
-                maxlength="2"
-                class="${inputClasses()}"
-              />
+              ${renderIconTrigger(block?.icon ?? '', 'name="icon"')}
             </div>
           </div>
 
@@ -837,6 +831,18 @@ class BlockDefinitionEditor extends Modal {
       this.showFieldTypePicker();
     });
 
+    // Icon picker trigger
+    if (this.container) {
+      bindIconTriggerEvents(this.container, '[data-icon-trigger]', (trigger) => {
+        const hiddenInput = trigger.querySelector<HTMLInputElement>('[name="icon"]');
+        return {
+          value: hiddenInput?.value ?? '',
+          onSelect: (v: string) => { if (hiddenInput) hiddenInput.value = v; },
+          onClear: () => { if (hiddenInput) hiddenInput.value = ''; },
+        };
+      });
+    }
+
     // Delegate field events
     this.container?.querySelector('[data-fields-list]')?.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -924,12 +930,14 @@ class BlockDefinitionEditor extends Modal {
 
     const schema = fieldsToBlockSchema(this.fields, type);
 
+    const descriptionValue = formData.get('description');
+    const iconValue = formData.get('icon');
     const blockData: Partial<BlockDefinition> = {
       name,
       type,
-      description: (formData.get('description') as string)?.trim() || undefined,
+      description: typeof descriptionValue === 'string' ? descriptionValue.trim() : undefined,
       category: (formData.get('category') as string) || 'custom',
-      icon: (formData.get('icon') as string)?.trim() || undefined,
+      icon: typeof iconValue === 'string' ? iconValue.trim() : undefined,
       schema,
       status: this.config.block?.status ?? 'draft',
     };
