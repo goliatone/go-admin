@@ -10,7 +10,7 @@ require (
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-auth v0.28.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.28.0
-	github.com/goliatone/go-cms v0.23.0
+	github.com/goliatone/go-cms v0.24.0
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-crud v0.19.0
 	github.com/goliatone/go-crud/gql v0.19.0
@@ -26,7 +26,7 @@ require (
 	github.com/goliatone/go-options v0.7.0
 	github.com/goliatone/go-persistence-bun v0.10.0
 	github.com/goliatone/go-repository-bun v0.12.0
-	github.com/goliatone/go-router v0.43.0
+	github.com/goliatone/go-router v0.44.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-uploader v0.3.0
@@ -199,7 +199,3 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
-
-replace github.com/goliatone/go-users => ../go-users
-
-replace github.com/goliatone/go-formgen => ../go-formgen
