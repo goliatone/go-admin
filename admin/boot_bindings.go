@@ -71,7 +71,11 @@ func newPanelBindings(a *Admin) []boot.PanelBinding {
 		return nil
 	}
 	out := []boot.PanelBinding{}
+	preferencesEnabled := featureEnabled(a.featureGate, FeaturePreferences)
 	for name, panel := range a.registry.Panels() {
+		if name == preferencesModuleID && !preferencesEnabled {
+			continue
+		}
 		out = append(out, &panelBinding{admin: a, name: name, panel: panel})
 	}
 	return out
@@ -367,8 +371,8 @@ func (d *dashboardBinding) Preferences(c router.Context, locale string) (map[str
 	if d.admin == nil || d.admin.dashboard == nil {
 		return nil, nil
 	}
-	ctx := d.admin.adminContextFromRequest(c, locale)
-	layout := d.admin.dashboard.resolvedInstances(ctx)
+	adminCtx := d.admin.adminContextFromRequest(c, locale)
+	layout := d.admin.dashboard.resolvedInstances(adminCtx)
 	areas := d.admin.dashboard.Areas()
 	if len(areas) == 0 && d.admin.widgetSvc != nil {
 		areas = d.admin.widgetSvc.Areas()
@@ -384,11 +388,11 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 	if d.admin == nil || d.admin.dashboard == nil {
 		return nil, nil
 	}
-	ctx := d.admin.adminContextFromRequest(c, d.admin.config.DefaultLocale)
+	adminCtx := d.admin.adminContextFromRequest(c, d.admin.config.DefaultLocale)
 
-	if ctx.UserID != "" && d.admin.preferences != nil {
+	if adminCtx.UserID != "" && d.admin.preferences != nil {
 		overrides := expandDashboardOverrides(body)
-		if _, err := d.admin.preferences.SaveDashboardOverrides(ctx.Context, ctx.UserID, overrides); err != nil {
+		if _, err := d.admin.preferences.SaveDashboardOverrides(adminCtx.Context, adminCtx.UserID, overrides); err != nil {
 			return nil, err
 		}
 	}
@@ -434,7 +438,7 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 			}
 		}
 
-		currentLayout := d.admin.dashboard.resolvedInstances(ctx)
+		currentLayout := d.admin.dashboard.resolvedInstances(adminCtx)
 		byID := map[string]DashboardWidgetInstance{}
 		for _, inst := range currentLayout {
 			byID[inst.ID] = inst
@@ -476,7 +480,7 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 		}
 
 		if len(newLayout) > 0 {
-			d.admin.dashboard.SetUserLayoutWithContext(ctx, newLayout)
+			d.admin.dashboard.SetUserLayoutWithContext(adminCtx, newLayout)
 		}
 		return map[string]any{"status": "ok", "layout": newLayout}, nil
 	}
@@ -502,9 +506,25 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 		})
 	}
 	if len(layout) > 0 {
-		d.admin.dashboard.SetUserLayoutWithContext(ctx, layout)
+		d.admin.dashboard.SetUserLayoutWithContext(adminCtx, layout)
 	}
 	return map[string]any{"layout": layout}, nil
+}
+
+func (d *dashboardBinding) RequirePreferencesPermission(c router.Context, locale string) error {
+	if d.admin == nil {
+		return nil
+	}
+	adminCtx := d.admin.adminContextFromRequest(c, locale)
+	return d.admin.requirePermission(adminCtx, d.admin.config.DashboardPreferencesPermission, preferencesModuleID)
+}
+
+func (d *dashboardBinding) RequirePreferencesUpdatePermission(c router.Context, locale string) error {
+	if d.admin == nil {
+		return nil
+	}
+	adminCtx := d.admin.adminContextFromRequest(c, locale)
+	return d.admin.requirePermission(adminCtx, d.admin.config.DashboardPreferencesUpdatePermission, preferencesModuleID)
 }
 
 type dashboardGoBinding struct {
@@ -572,6 +592,28 @@ func (d *dashboardGoBinding) SavePreferences(c router.Context, _ map[string]any)
 		return nil, err
 	}
 	return map[string]any{"status": "ok"}, nil
+}
+
+func (d *dashboardGoBinding) RequirePreferencesPermission(c router.Context, locale string) error {
+	if d.admin == nil {
+		return nil
+	}
+	if locale == "" {
+		locale = d.admin.config.DefaultLocale
+	}
+	adminCtx := d.admin.adminContextFromRequest(c, locale)
+	return d.admin.requirePermission(adminCtx, d.admin.config.DashboardPreferencesPermission, preferencesModuleID)
+}
+
+func (d *dashboardGoBinding) RequirePreferencesUpdatePermission(c router.Context, locale string) error {
+	if d.admin == nil {
+		return nil
+	}
+	if locale == "" {
+		locale = d.admin.config.DefaultLocale
+	}
+	adminCtx := d.admin.adminContextFromRequest(c, locale)
+	return d.admin.requirePermission(adminCtx, d.admin.config.DashboardPreferencesUpdatePermission, preferencesModuleID)
 }
 
 func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
