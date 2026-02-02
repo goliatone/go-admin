@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/julienschmidt/httprouter"
 	router "github.com/goliatone/go-router"
+	"github.com/julienschmidt/httprouter"
 )
 
 func TestDebugIsTextContentType(t *testing.T) {

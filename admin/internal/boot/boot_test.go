@@ -355,6 +355,24 @@ func (s *stubDashboardBinding) Diagnostics(_ router.Context, _ string) (map[stri
 	return map[string]any{"diag": true}, nil
 }
 
+type stubDashboardPermissionBinding struct {
+	stubDashboardBinding
+	prefPermCalled   int
+	updatePermCalled int
+	prefPermErr      error
+	updatePermErr    error
+}
+
+func (s *stubDashboardPermissionBinding) RequirePreferencesPermission(_ router.Context, _ string) error {
+	s.prefPermCalled++
+	return s.prefPermErr
+}
+
+func (s *stubDashboardPermissionBinding) RequirePreferencesUpdatePermission(_ router.Context, _ string) error {
+	s.updatePermCalled++
+	return s.updatePermErr
+}
+
 func TestDashboardStepRegistersRoutesAndWrapsHandlers(t *testing.T) {
 	rr := &recordRouter{}
 	resp := &stubResponder{}
@@ -425,6 +443,122 @@ func TestDashboardStepHonorsGateErrors(t *testing.T) {
 	require.NoError(t, rr.calls[0].handler(router.NewMockContext()))
 	require.Equal(t, 1, resp.errCalled)
 	require.Equal(t, 0, binding.widgetsCalled)
+}
+
+func TestDashboardStepEnforcesPreferencesPermissions(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubDashboardPermissionBinding{
+		stubDashboardBinding: stubDashboardBinding{enabled: true},
+	}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		dashboard:  binding,
+		parseBody: func(router.Context) (map[string]any, error) {
+			return map[string]any{"layout": map[string]any{}}, nil
+		},
+	}
+
+	require.NoError(t, DashboardStep(ctx))
+
+	var getHandler router.HandlerFunc
+	var postHandler router.HandlerFunc
+	for _, call := range rr.calls {
+		if call.path == "/admin/api/dashboard/preferences" {
+			if call.method == "GET" {
+				getHandler = call.handler
+			}
+			if call.method == "POST" {
+				postHandler = call.handler
+			}
+		}
+	}
+
+	require.NotNil(t, getHandler)
+	require.NoError(t, getHandler(router.NewMockContext()))
+	require.Equal(t, 1, binding.prefPermCalled)
+	require.Equal(t, 1, binding.prefsCalled)
+
+	require.NotNil(t, postHandler)
+	require.NoError(t, postHandler(router.NewMockContext()))
+	require.Equal(t, 1, binding.updatePermCalled)
+	require.Equal(t, 1, binding.saveCalled)
+}
+
+func TestDashboardStepStopsOnPreferencesPermissionError(t *testing.T) {
+	tests := []struct {
+		name           string
+		prefErr        error
+		updateErr      error
+		method         string
+		expectedErrs   int
+		expectPrefs    int
+		expectSave     int
+		expectPrefCall int
+		expectUpdCall  int
+	}{
+		{
+			name:           "get denied",
+			prefErr:        errors.New("nope"),
+			method:         "GET",
+			expectedErrs:   1,
+			expectPrefs:    0,
+			expectSave:     0,
+			expectPrefCall: 1,
+			expectUpdCall:  0,
+		},
+		{
+			name:           "post denied",
+			updateErr:      errors.New("nope"),
+			method:         "POST",
+			expectedErrs:   1,
+			expectPrefs:    0,
+			expectSave:     0,
+			expectPrefCall: 0,
+			expectUpdCall:  1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rr := &recordRouter{}
+			resp := &stubResponder{}
+			binding := &stubDashboardPermissionBinding{
+				stubDashboardBinding: stubDashboardBinding{enabled: true},
+				prefPermErr:          tc.prefErr,
+				updatePermErr:        tc.updateErr,
+			}
+			ctx := &stubCtx{
+				router:     rr,
+				responder:  resp,
+				basePath:   "/admin",
+				defaultLoc: "en",
+				dashboard:  binding,
+				parseBody: func(router.Context) (map[string]any, error) {
+					return map[string]any{"layout": map[string]any{}}, nil
+				},
+			}
+
+			require.NoError(t, DashboardStep(ctx))
+
+			var handler router.HandlerFunc
+			for _, call := range rr.calls {
+				if call.path == "/admin/api/dashboard/preferences" && call.method == tc.method {
+					handler = call.handler
+				}
+			}
+			require.NotNil(t, handler)
+			require.NoError(t, handler(router.NewMockContext()))
+			require.Equal(t, tc.expectedErrs, resp.errCalled)
+			require.Equal(t, tc.expectPrefs, binding.prefsCalled)
+			require.Equal(t, tc.expectSave, binding.saveCalled)
+			require.Equal(t, tc.expectPrefCall, binding.prefPermCalled)
+			require.Equal(t, tc.expectUpdCall, binding.updatePermCalled)
+		})
+	}
 }
 
 type stubSettingsBinding struct {
