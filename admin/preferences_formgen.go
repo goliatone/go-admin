@@ -15,16 +15,16 @@ import (
 	formgenjsonschema "github.com/goliatone/go-formgen/pkg/jsonschema"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
-	formgenschema "github.com/goliatone/go-formgen/pkg/schema"
 	formgenvanilla "github.com/goliatone/go-formgen/pkg/renderers/vanilla"
+	formgenschema "github.com/goliatone/go-formgen/pkg/schema"
 )
 
 const (
-	preferencesSchemaSlug         = "preferences"
-	preferencesSchemaFileName     = "schema.json"
-	preferencesSchemaDefaultPath  = preferencesSchemaSlug + "/" + preferencesSchemaFileName
-	preferencesSchemaSourceFile   = "file"
-	preferencesSchemaSourceEmbed  = "embedded"
+	preferencesSchemaSlug        = "preferences"
+	preferencesSchemaFileName    = "schema.json"
+	preferencesSchemaDefaultPath = preferencesSchemaSlug + "/" + preferencesSchemaFileName
+	preferencesSchemaSourceFile  = "file"
+	preferencesSchemaSourceEmbed = "embedded"
 )
 
 type preferencesSchemaInfo struct {

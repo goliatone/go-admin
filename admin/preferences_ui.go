@@ -98,14 +98,14 @@ func (m *PreferencesModule) renderPreferencesForm(admin *Admin, c router.Context
 			"raw_ui":              preferencesRawUIJSON(prefs.Raw),
 			"clear_ui_keys":       "",
 		},
-		"theme_options": preferencesOptionsToView(themeOptions),
+		"theme_options":   preferencesOptionsToView(themeOptions),
 		"variant_options": preferencesOptionsToView(variantOptions),
 		"form_html":       formHTML,
 		"preferences_schema": map[string]any{
-			"source": schemaInfo.Source,
-			"path":   schemaInfo.Path,
+			"source":  schemaInfo.Source,
+			"path":    schemaInfo.Path,
 			"form_id": schemaInfo.FormID,
-			"schema": schemaInfo.Schema,
+			"schema":  schemaInfo.Schema,
 		},
 		"json_editor_strict": m.jsonEditorStrict,
 	}
