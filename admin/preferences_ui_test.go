@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	router "github.com/goliatone/go-router"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestPreferencesFormSaveMergesRawUIAndClearKeys(t *testing.T) {
@@ -151,5 +152,61 @@ func TestPreferencesFormSaveRejectsInvalidClearUIKeys(t *testing.T) {
 		t.Fatalf("expected non-ui key preserved, got %v", prefs.Raw)
 	}
 
+	mockCtx.AssertExpectations(t)
+}
+
+func TestPreferencesViewContextIncludesSchemaMetadata(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
+
+	mod := NewPreferencesModule()
+	mod.WithJSONEditorStrict(true)
+
+	prefPath := joinPath(cfg.BasePath, preferencesModuleID)
+	mockCtx := router.NewMockContext()
+	mockCtx.HeadersM["X-User-ID"] = "user-1"
+	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("Render", preferencesFormTemplate, mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		strict, ok := viewCtx["json_editor_strict"].(bool)
+		if !ok || !strict {
+			return false
+		}
+		schemaVal, ok := viewCtx["preferences_schema"]
+		if !ok {
+			return false
+		}
+		schema, ok := schemaVal.(map[string]any)
+		if !ok {
+			return false
+		}
+		source, ok := schema["source"].(string)
+		if !ok || source == "" {
+			return false
+		}
+		path, ok := schema["path"].(string)
+		if !ok || path == "" {
+			return false
+		}
+		formID, ok := schema["form_id"].(string)
+		if !ok || formID == "" {
+			return false
+		}
+		if schema["schema"] == nil {
+			return false
+		}
+		return true
+	})).Return(nil)
+
+	if err := mod.renderPreferencesForm(adm, mockCtx, prefPath); err != nil {
+		t.Fatalf("render preferences form: %v", err)
+	}
 	mockCtx.AssertExpectations(t)
 }
