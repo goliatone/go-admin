@@ -7,7 +7,7 @@
  */
 
 import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldTypeMetadata } from './types';
-import { ContentTypeAPIClient, ContentTypeAPIError, fieldsToSchema, generateFieldId } from './api-client';
+import { ContentTypeAPIClient, ContentTypeAPIError, fieldsToBlockSchema, generateFieldId } from './api-client';
 import { BlockEditorPanel } from './block-editor-panel';
 import { FieldPalettePanel } from './field-palette-panel';
 import { Modal } from '../shared/modal';
@@ -1195,7 +1195,7 @@ export class BlockLibraryIDE {
     if (idx < 0) return;
     const currentSchema = this.state.blocks[idx].schema;
     const slug = this.state.blocks[idx].slug || this.state.blocks[idx].type;
-    let nextSchema = fieldsToSchema(fields, slug);
+    let nextSchema = fieldsToBlockSchema(fields, slug);
     nextSchema = this.mergeSchemaExtras(currentSchema, nextSchema);
     this.state.blocks[idx] = {
       ...this.state.blocks[idx],
