@@ -25,6 +25,7 @@ Each helper is optional and composable.
 - `DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any` - Outputs: default template helpers (JSON, dict, singularize/pluralize, widget titles, etc.).
 - `MergeTemplateFuncs(overrides map[string]any, opts ...TemplateFuncOption) map[string]any` - Inputs: overrides + optional template options. Outputs: merged map for `WithViewTemplateFuncs`.
 - `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection.
+- `WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption` - Inputs: go-theme selector + manifest; outputs: option that wires theme selection + manifest into `NewAdmin` (including Preferences variant options).
 - `NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App])` - Inputs: views, config, admin, dev flag, server options. Outputs: go-router server adapter and router.
 - `NewThemeSelector(name, variant string, tokenOverrides map[string]string, opts ...ThemeOption) (theme.Selector, *theme.Manifest, error)` - Inputs: theme name/variant, token overrides, theme options. Outputs: selector, manifest, error.
 - `NewStaticAssets(r router.Router[*fiber.App], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption)` - Inputs: router, config, host assets FS, asset options. Outputs: none (registers static routes).
@@ -170,6 +171,32 @@ Templates use a conditional fallback pattern:
 <!-- inline SVG fallback -->
 {% endif %}
 ```
+
+### Theme selector + manifest
+When using go-theme, pass the selector + manifest into quickstart so the Preferences UI can list available variants:
+
+```go
+selector, manifest, err := quickstart.NewThemeSelector(
+	cfg.Theme,
+	cfg.ThemeVariant,
+	cfg.ThemeTokens,
+)
+if err != nil {
+	return err
+}
+
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	hooks,
+	quickstart.WithThemeSelector(selector, manifest),
+)
+if err != nil {
+	return err
+}
+_ = adm
+```
+
+If you build the admin manually, call `adm.WithGoTheme(selector)` and `adm.WithThemeManifest(manifest)` after initialization.
 
 ## Onboarding + secure links
 
@@ -403,8 +430,9 @@ repo := repository.MustNewRepositoryWithOptions[*MyModel](db, handlers, repoOpti
 - `FeaturePreferences` remains opt-in: pass `EnablePreferences()` or supply `WithFeatureDefaults(map[string]bool{"preferences": true})` when building the admin gate.
 - A 403 on `/admin/api/preferences` usually means the default permissions are missing (`admin.preferences.view`, `admin.preferences.edit`).
 - Read query params: `levels`, `keys`, `include_traces`, `include_versions`, `tenant_id`, `org_id`.
-- Clear/delete semantics: send `clear`/`clear_keys` or empty values for known keys to delete user-level overrides.
+- Clear/delete semantics: send `clear_raw_keys` or `clear: true` (for all raw keys), plus empty values for known keys to delete user-level overrides.
 - Non-user writes (tenant/org/system) require `admin.preferences.manage_tenant`, `admin.preferences.manage_org`, `admin.preferences.manage_system`.
+- Dashboard preferences endpoints default to preferences permissions; override with `cfg.DashboardPreferencesPermission` / `cfg.DashboardPreferencesUpdatePermission` if needed.
 - See `../docs/GUIDE_MOD_PREFERENCES.md` for module behavior, traces, and clear semantics.
 - If you want quickstart to build the repo (for example, to enable caching), pass `WithGoUsersPreferencesRepositoryFactory` to `NewAdmin`.
 
