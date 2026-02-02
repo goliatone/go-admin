@@ -268,6 +268,100 @@ func schemaVersionFromSchema(schema map[string]any) string {
 	return ""
 }
 
+func schemaSlugFromSchema(schema map[string]any) string {
+	if schema == nil {
+		return ""
+	}
+	if meta, ok := schema["metadata"].(map[string]any); ok {
+		if slug := strings.TrimSpace(toString(meta["slug"])); slug != "" {
+			return slug
+		}
+	}
+	if slug := strings.TrimSpace(toString(schema["slug"])); slug != "" {
+		return slug
+	}
+	if slug := strings.TrimSpace(toString(schema["$id"])); slug != "" {
+		return slug
+	}
+	return ""
+}
+
+func schemaBlockTypeFromSchema(schema map[string]any) string {
+	if schema == nil {
+		return ""
+	}
+	if t := strings.TrimSpace(blockTypeFromSchemaDef(schema)); t != "" {
+		return t
+	}
+	if meta, ok := schema["metadata"].(map[string]any); ok {
+		if t := strings.TrimSpace(toString(meta["block_type"])); t != "" {
+			return t
+		}
+		if t := strings.TrimSpace(toString(meta["type"])); t != "" {
+			return t
+		}
+	}
+	if t := strings.TrimSpace(toString(schema["$id"])); t != "" {
+		return t
+	}
+	return ""
+}
+
+func schemaCategoryFromSchema(schema map[string]any) string {
+	if schema == nil {
+		return ""
+	}
+	if meta, ok := schema["metadata"].(map[string]any); ok {
+		if cat := strings.TrimSpace(toString(meta["category"])); cat != "" {
+			return cat
+		}
+	}
+	if meta, ok := schema["x-cms"].(map[string]any); ok {
+		if cat := strings.TrimSpace(toString(meta["category"])); cat != "" {
+			return cat
+		}
+	}
+	if meta, ok := schema["x-admin"].(map[string]any); ok {
+		if cat := strings.TrimSpace(toString(meta["category"])); cat != "" {
+			return cat
+		}
+	}
+	if meta, ok := schema["x-formgen"].(map[string]any); ok {
+		if cat := strings.TrimSpace(toString(meta["category"])); cat != "" {
+			return cat
+		}
+	}
+	if cat := strings.TrimSpace(toString(schema["category"])); cat != "" {
+		return cat
+	}
+	return ""
+}
+
+func schemaStatusFromSchema(schema map[string]any) string {
+	if schema == nil {
+		return ""
+	}
+	if meta, ok := schema["metadata"].(map[string]any); ok {
+		if status := strings.TrimSpace(toString(meta["status"])); status != "" {
+			return status
+		}
+	}
+	if meta, ok := schema["x-cms"].(map[string]any); ok {
+		if status := strings.TrimSpace(toString(meta["status"])); status != "" {
+			return status
+		}
+	}
+	if meta, ok := schema["x-admin"].(map[string]any); ok {
+		if status := strings.TrimSpace(toString(meta["status"])); status != "" {
+			return status
+		}
+	}
+	if status := strings.TrimSpace(toString(schema["status"])); status != "" {
+		return status
+	}
+	return ""
+}
+
 func schemaMigrationStatusFromSchema(schema map[string]any) string {
 	if schema == nil {
 		return ""
