@@ -149,6 +149,7 @@ func applyConfigDefaults(cfg Config) Config {
 	}
 
 	cfg.Debug = normalizeDebugConfig(cfg.Debug, cfg.BasePath)
+	cfg.Errors = normalizeErrorConfig(cfg.Errors, cfg.Debug)
 
 	return cfg
 }
