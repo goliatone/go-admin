@@ -1,6 +1,6 @@
 import { F as Ue } from "../chunks/toast-manager-D1apHHCN.js";
 import { e as Dt } from "../chunks/error-helpers-Cqk77Doi.js";
-import { b as tt, c as Ht } from "../chunks/badge-DimNmen5.js";
+import { b as tt, a as Ht } from "../chunks/badge-CqKzZ9y5.js";
 class Ut {
   constructor(e = {}) {
     this.actionBasePath = e.actionBasePath || "", this.mode = e.mode || "dropdown", this.notifier = e.notifier || new Ue();

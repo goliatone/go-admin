@@ -19,6 +19,7 @@ import { FieldConfigForm } from './field-config-form';
 import { fieldsToBlockSchema, schemaToFields, generateFieldId } from './api-client';
 import { badge } from '../shared/badge';
 import { Modal } from '../shared/modal.js';
+import { inputClasses, selectClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
 
 // =============================================================================
 // Block Library Manager Component
@@ -96,7 +97,7 @@ export class BlockLibraryManager extends Modal {
         </div>
         <select
           data-block-category-filter
-          class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="${selectClasses()}"
         >
           <option value="">All Categories</option>
         </select>
@@ -673,7 +674,7 @@ class BlockDefinitionEditor extends Modal {
         <form data-block-form class="space-y-6">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Name <span class="text-red-500">*</span>
               </label>
               <input
@@ -682,11 +683,11 @@ class BlockDefinitionEditor extends Modal {
                 value="${escapeHtml(block?.name ?? '')}"
                 placeholder="Hero Section"
                 required
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Type <span class="text-red-500">*</span>
               </label>
               <input
@@ -697,38 +698,38 @@ class BlockDefinitionEditor extends Modal {
                 pattern="^[a-z][a-z0-9_\\-]*$"
                 required
                 ${block ? 'readonly' : ''}
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${block ? 'bg-gray-50 dark:bg-gray-800 cursor-not-allowed' : ''}"
+                class="${inputClasses()} ${block ? 'bg-gray-50 dark:bg-gray-800 cursor-not-allowed' : ''}"
               />
               <p class="mt-1 text-xs text-gray-500">Unique identifier. Lowercase, numbers, hyphens, underscores.</p>
             </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Description
             </label>
             <textarea
               name="description"
               rows="2"
               placeholder="A description of this block type"
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              class="${textareaClasses()}"
             >${escapeHtml(block?.description ?? '')}</textarea>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Category
               </label>
               <select
                 name="category"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${selectClasses()}"
               >
                 ${this.config.categories.map((cat) => `<option value="${cat}" ${block?.category === cat ? 'selected' : ''}>${titleCase(cat)}</option>`).join('')}
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Icon
               </label>
               <input
@@ -737,7 +738,7 @@ class BlockDefinitionEditor extends Modal {
                 value="${escapeHtml(block?.icon ?? '')}"
                 placeholder="emoji or text"
                 maxlength="2"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
           </div>

@@ -12,7 +12,7 @@
 
 import type { FieldTypeMetadata, FieldTypeCategory } from './types';
 import { ContentTypeAPIClient } from './api-client';
-import { BLOCK_FIELD_TYPE_REGISTRY_FALLBACK, buildRegistryFromGroups } from './block-field-type-registry';
+import { loadFieldTypeRegistry, FIELD_TYPE_REGISTRY_FALLBACK } from './shared/field-type-registry';
 
 // =============================================================================
 // Types
@@ -58,7 +58,7 @@ export class FieldPalettePanel {
   constructor(config: FieldPalettePanelConfig) {
     this.config = config;
     // Initialize category order from the fallback registry
-    this.categoryOrder = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.categories];
+    this.categoryOrder = [...FIELD_TYPE_REGISTRY_FALLBACK.categories];
   }
 
   // ===========================================================================
@@ -97,28 +97,9 @@ export class FieldPalettePanel {
   // ===========================================================================
 
   private async loadFieldTypes(): Promise<void> {
-    try {
-      const groups = await this.config.api.getBlockFieldTypeGroups();
-      if (groups && groups.length > 0) {
-        const registry = buildRegistryFromGroups(groups);
-        this.fieldTypes = registry.fieldTypes;
-        this.categoryOrder = registry.categories;
-      } else {
-        const apiTypes = await this.config.api.getFieldTypes();
-        if (apiTypes && apiTypes.length > 0) {
-          this.fieldTypes = apiTypes;
-          this.categoryOrder = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.categories];
-        } else {
-          // Fall back to the local registry
-          this.fieldTypes = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.fieldTypes];
-          this.categoryOrder = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.categories];
-        }
-      }
-    } catch {
-      // Fall back to local registry on any error
-      this.fieldTypes = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.fieldTypes];
-      this.categoryOrder = [...BLOCK_FIELD_TYPE_REGISTRY_FALLBACK.categories];
-    }
+    const registry = await loadFieldTypeRegistry(this.config.api);
+    this.fieldTypes = registry.fieldTypes;
+    this.categoryOrder = registry.categories;
 
     // Initialize collapse states for any new categories
     this.initCategoryStates();
@@ -174,11 +155,11 @@ export class FieldPalettePanel {
     if (!this.enabled) {
       container.innerHTML = `
         <div class="px-4 py-8 text-center">
-          <svg class="w-10 h-10 mx-auto text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-10 h-10 mx-auto text-gray-200 dark:text-gray-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
           </svg>
-          <p class="text-xs text-gray-400">Select a block to see available field types</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500">Select a block to see available field types</p>
         </div>`;
       return;
     }
@@ -189,7 +170,7 @@ export class FieldPalettePanel {
 
     // Search bar
     const searchWrapper = document.createElement('div');
-    searchWrapper.className = 'px-3 py-2 border-b border-gray-100 shrink-0';
+    searchWrapper.className = 'px-3 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0';
     searchWrapper.innerHTML = `
       <div class="relative">
         <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,7 +180,7 @@ export class FieldPalettePanel {
                data-palette-search
                placeholder="Search fields..."
                value="${esc(this.searchQuery)}"
-               class="w-full pl-9 pr-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-colors" />
+               class="w-full pl-9 pr-3 py-2 text-[13px] border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white dark:focus:bg-slate-700 transition-colors" />
       </div>`;
     container.appendChild(searchWrapper);
 
@@ -234,18 +215,18 @@ export class FieldPalettePanel {
       const isCollapsed = state?.collapsed ?? false;
 
       html += `
-        <div data-palette-category="${esc(cat.id)}" class="border-b border-gray-50">
+        <div data-palette-category="${esc(cat.id)}" class="border-b border-gray-50 dark:border-gray-800">
           <button type="button" data-palette-toggle="${esc(cat.id)}"
-                  class="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors group">
-            <span class="w-3 h-3 text-gray-400 flex items-center justify-center" data-palette-chevron="${esc(cat.id)}">
+                  class="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
+            <span class="w-3 h-3 text-gray-400 dark:text-gray-500 flex items-center justify-center" data-palette-chevron="${esc(cat.id)}">
               ${isCollapsed
                 ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
                 : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'
               }
             </span>
-            <span class="flex-shrink-0 w-4 h-4 flex items-center justify-center text-gray-400">${cat.icon}</span>
-            <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider flex-1">${esc(cat.label)}</span>
-            <span class="text-[11px] text-gray-400">${types.length}</span>
+            <span class="flex-shrink-0 w-4 h-4 flex items-center justify-center text-gray-400 dark:text-gray-500">${cat.icon}</span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider flex-1">${esc(cat.label)}</span>
+            <span class="text-[11px] text-gray-400 dark:text-gray-500">${types.length}</span>
           </button>
           <div class="${isCollapsed ? 'hidden' : ''}" data-palette-category-body="${esc(cat.id)}">
             <div class="px-2 pb-2 space-y-0.5">
@@ -258,7 +239,7 @@ export class FieldPalettePanel {
     if (!html) {
       html = `
         <div class="px-4 py-8 text-center">
-          <p class="text-xs text-gray-400">No field types available.</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500">No field types available.</p>
         </div>`;
     }
 
@@ -281,11 +262,11 @@ export class FieldPalettePanel {
     if (matched.length === 0) {
       return `
         <div class="px-4 py-8 text-center">
-          <svg class="w-8 h-8 mx-auto text-gray-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-8 h-8 mx-auto text-gray-200 dark:text-gray-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <p class="text-xs text-gray-400">No fields match "${esc(this.searchQuery)}"</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500">No fields match "${esc(this.searchQuery)}"</p>
         </div>`;
     }
 
@@ -304,20 +285,20 @@ export class FieldPalettePanel {
     return `
       <div data-palette-item="${esc(key)}"
            draggable="true"
-           class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-grab hover:bg-blue-50 active:cursor-grabbing transition-colors group select-none"
+           class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-grab hover:bg-blue-50 dark:hover:bg-blue-900/20 active:cursor-grabbing transition-colors group select-none"
            title="${esc(fieldType.description)}">
-        <span class="flex-shrink-0 text-gray-300 group-hover:text-gray-400 cursor-grab" data-palette-grip>
+        <span class="flex-shrink-0 text-gray-300 dark:text-gray-600 group-hover:text-gray-400 dark:group-hover:text-gray-500 cursor-grab" data-palette-grip>
           <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="8" cy="4" r="2"/><circle cx="16" cy="4" r="2"/>
             <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
             <circle cx="8" cy="20" r="2"/><circle cx="16" cy="20" r="2"/>
           </svg>
         </span>
-        <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+        <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
           ${fieldType.icon}
         </span>
         <span class="flex-1 min-w-0">
-          <span class="block text-[12px] font-medium text-gray-700 group-hover:text-blue-700 truncate">${esc(fieldType.label)}</span>
+          <span class="block text-[12px] font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-400 truncate">${esc(fieldType.label)}</span>
         </span>
       </div>`;
   }

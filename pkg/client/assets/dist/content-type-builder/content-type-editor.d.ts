@@ -14,6 +14,9 @@ export declare class ContentTypeEditor {
     private dragState;
     private staticEventsBound;
     private previewDebounceTimer;
+    private palettePanel;
+    private paletteVisible;
+    private sectionStates;
     private lifecycleOutsideClickHandler;
     constructor(container: HTMLElement, config: ContentTypeEditorConfig);
     /**
@@ -59,7 +62,8 @@ export declare class ContentTypeEditor {
     private renderFieldCard;
     private renderCapabilitiesSection;
     private renderPreviewPanel;
-    private getStatusBadge;
+    private renderHeader;
+    private renderHeaderActions;
     private renderLifecycleActions;
     /**
      * Publish the content type
@@ -82,9 +86,12 @@ export declare class ContentTypeEditor {
     private bindDynamicEvents;
     private bindDragEvents;
     private bindLifecycleMenuEvents;
+    private togglePalette;
+    private initPaletteIfNeeded;
     private showFieldTypePicker;
     private showLayoutEditor;
     private bindFieldsEvents;
+    private bindSectionToggleEvents;
     private getSlug;
     private getDescription;
     private getIcon;
@@ -96,6 +103,9 @@ export declare class ContentTypeEditor {
     private updateDirtyState;
     private renderFieldList;
     private renderFieldListContent;
+    private groupFieldsBySection;
+    private getSectionState;
+    private toggleSection;
     private renderPreview;
     private renderValidationErrors;
     private showToast;

@@ -18,7 +18,6 @@ import type {
   ContentTypeBuilderState,
   SchemaValidationError,
   ContentTypeCapabilities,
-  ContentTypeStatus,
   ContentTypeSchemaVersion,
   CompatibilityCheckResult,
   SchemaChange,
@@ -26,13 +25,18 @@ import type {
 import { ContentTypeAPIClient, fieldsToSchema, schemaToFields, generateFieldId } from './api-client';
 import { FieldTypePicker, getFieldTypeMetadata, FIELD_TYPES } from './field-type-picker';
 import { FieldConfigForm } from './field-config-form';
+import { FieldPalettePanel } from './field-palette-panel';
 import { LayoutEditor } from './layout-editor';
-import { badge } from '../shared/badge';
 import { Modal } from '../shared/modal';
+import { inputClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
+import { renderEntityHeader } from './shared/entity-header';
+import { renderFieldCard as renderFieldCardShared } from './shared/field-card';
 
 // =============================================================================
 // Content Type Editor Component
 // =============================================================================
+
+const DEFAULT_SECTION = 'main';
 
 // Extended state with layout
 interface ExtendedBuilderState extends ContentTypeBuilderState {
@@ -48,6 +52,9 @@ export class ContentTypeEditor {
   private dragState: DragState | null = null;
   private staticEventsBound = false;
   private previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private palettePanel: FieldPalettePanel | null = null;
+  private paletteVisible = false;
+  private sectionStates: Map<string, { collapsed: boolean }> = new Map();
   private lifecycleOutsideClickHandler: ((e: MouseEvent) => void) | null = null;
 
   constructor(container: HTMLElement, config: ContentTypeEditorConfig) {
@@ -171,6 +178,36 @@ export class ContentTypeEditor {
    */
   addField(type: FieldType): void {
     const metadata = getFieldTypeMetadata(type);
+
+    // Auto-generate defaults for blocks fields (Phase 4 — Task 4.2)
+    if (type === 'blocks') {
+      const existingNames = new Set(this.state.fields.map((f) => f.name));
+      let name = 'content_blocks';
+      let label = 'Content Blocks';
+      let counter = 1;
+      while (existingNames.has(name)) {
+        name = `content_blocks_${counter}`;
+        label = `Content Blocks ${counter}`;
+        counter++;
+      }
+      const field: FieldDefinition = {
+        id: generateFieldId(),
+        name,
+        type,
+        label,
+        required: false,
+        order: this.state.fields.length,
+        ...(metadata?.defaultConfig ?? {}),
+      };
+      this.state.fields.push(field);
+      this.state.selectedFieldId = field.id;
+      this.state.isDirty = true;
+      this.renderFieldList();
+      this.updateDirtyState();
+      this.schedulePreview();
+      return;
+    }
+
     const field: FieldDefinition = {
       id: generateFieldId(),
       name: `new_${type}_${this.state.fields.length + 1}`,
@@ -345,68 +382,10 @@ export class ContentTypeEditor {
   // ===========================================================================
 
   private render(): void {
-    const ct = this.state.contentType;
-    const statusBadge = this.getStatusBadge(ct?.status);
-
     this.container.innerHTML = `
       <div class="content-type-editor flex flex-col h-full" data-content-type-editor>
         <!-- Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900">
-          <div>
-            <div class="flex items-center gap-3">
-              <h1 class="text-xl font-semibold text-gray-900 dark:text-white">
-                ${ct ? 'Edit Content Type' : 'Create Content Type'}
-              </h1>
-              ${ct ? statusBadge : ''}
-              ${ct?.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${escapeHtml(ct.schema_version)}</span>` : ''}
-            </div>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              ${ct ? `Editing: ${ct.name}` : 'Define fields and configure your content type'}
-            </p>
-          </div>
-          <div class="flex items-center gap-3">
-            ${this.state.validationErrors.length > 0 ? `
-              <span class="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                ${this.state.validationErrors.length} error${this.state.validationErrors.length > 1 ? 's' : ''}
-              </span>
-            ` : ''}
-
-            <!-- Lifecycle Actions (only for existing content types) -->
-            ${ct ? this.renderLifecycleActions(ct) : ''}
-
-            <button
-              type="button"
-              data-ct-validate
-              class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Validate
-            </button>
-            <button
-              type="button"
-              data-ct-preview
-              class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Preview
-            </button>
-            <button
-              type="button"
-              data-ct-cancel
-              class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              data-ct-save
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              ${ct ? 'Save Changes' : 'Create Content Type'}
-            </button>
-          </div>
-        </div>
+        ${this.renderHeader()}
 
         <!-- Main Content -->
         <div class="flex-1 flex overflow-hidden">
@@ -438,7 +417,7 @@ export class ContentTypeEditor {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Name <span class="text-red-500">*</span>
             </label>
             <input
@@ -447,12 +426,12 @@ export class ContentTypeEditor {
               value="${escapeHtml(ct?.name ?? '')}"
               placeholder="Blog Post"
               required
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="${inputClasses()}"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Slug
             </label>
             <input
@@ -461,26 +440,26 @@ export class ContentTypeEditor {
               value="${escapeHtml(ct?.slug ?? '')}"
               placeholder="blog-post"
               pattern="^[a-z][a-z0-9_\\-]*$"
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="${inputClasses()}"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Auto-generated from name if empty</p>
           </div>
         </div>
 
         <div class="mt-4">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label class="${labelClasses()}">
             Description
           </label>
           <textarea
             data-ct-description
             rows="2"
             placeholder="Describe this content type"
-            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            class="${textareaClasses()}"
           >${escapeHtml(ct?.description ?? '')}</textarea>
         </div>
 
         <div class="mt-4">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label class="${labelClasses()}">
             Icon
           </label>
           <input
@@ -488,7 +467,7 @@ export class ContentTypeEditor {
             data-ct-icon
             value="${escapeHtml(ct?.icon ?? '')}"
             placeholder="file-text"
-            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="${inputClasses()}"
           />
         </div>
       </div>
@@ -517,16 +496,32 @@ export class ContentTypeEditor {
               Layout: ${layoutLabel}
             </button>
           </div>
-          <button
-            type="button"
-            data-ct-add-field
-            class="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Add Field
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              data-ct-toggle-palette
+              class="flex items-center gap-1 px-2 py-1 text-xs ${this.paletteVisible ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800'} rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16"></path>
+              </svg>
+              Palette
+            </button>
+            <button
+              type="button"
+              data-ct-add-field
+              class="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              Add Field
+            </button>
+          </div>
+        </div>
+
+        <div data-ct-palette class="${this.paletteVisible ? '' : 'hidden'} border-b border-gray-200 dark:border-gray-700">
+          <div data-ct-palette-container class="h-[300px] overflow-y-auto"></div>
         </div>
 
         <div data-ct-field-list class="p-4">
@@ -541,9 +536,6 @@ export class ContentTypeEditor {
   }
 
   private renderFieldCard(field: FieldDefinition, index: number): string {
-    const metadata = getFieldTypeMetadata(field.type);
-    const isSelected = this.state.selectedFieldId === field.id;
-
     // Check for validation errors for this field
     const fieldErrors = this.state.validationErrors.filter(
       (err) => err.path.includes(`/${field.name}`) || err.path.includes(`properties.${field.name}`)
@@ -558,88 +550,35 @@ export class ContentTypeEditor {
     if (field.validation?.max !== undefined) constraints.push(`<= ${field.validation.max}`);
     if (field.validation?.pattern) constraints.push('pattern');
 
-    return `
-      <div
-        class="field-card flex items-center gap-3 p-3 border rounded-lg transition-colors ${
-          hasErrors
-            ? 'border-red-400 bg-red-50 dark:bg-red-900/10'
-            : isSelected
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:border-gray-300 dark:hover:border-gray-600'
-        }"
-        data-field-card="${field.id}"
-        data-field-index="${index}"
-        draggable="true"
-      >
-        <!-- Drag Handle -->
-        <div
-          class="flex-shrink-0 cursor-move text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          data-field-drag-handle
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
-          </svg>
-        </div>
+    // Build actions HTML (edit + remove buttons)
+    const actionsHtml = `
+          <div class="flex items-center gap-1">
+            <button type="button" data-field-edit="${escapeHtml(field.id)}"
+                    class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                    title="Edit field">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+              </svg>
+            </button>
+            <button type="button" data-field-remove="${escapeHtml(field.id)}"
+                    class="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                    title="Remove field">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </button>
+          </div>`;
 
-        <!-- Field Type Icon -->
-        <div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg ${
-          hasErrors ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
-        }">
-          ${hasErrors ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' : (metadata?.icon ?? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>')}
-        </div>
-
-        <!-- Field Info -->
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="font-medium text-gray-900 dark:text-white truncate">${escapeHtml(field.label)}</span>
-            ${field.required ? '<span class="text-xs text-red-500">Required</span>' : ''}
-            ${field.readonly ? '<span class="text-xs text-gray-400">Read-only</span>' : ''}
-            ${field.hidden ? '<span class="text-xs text-gray-400">Hidden</span>' : ''}
-          </div>
-          <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span class="font-mono">${escapeHtml(field.name)}</span>
-            <span>•</span>
-            <span>${metadata?.label ?? field.type}</span>
-            ${field.section ? `<span>• ${escapeHtml(field.section)}</span>` : ''}
-            ${field.gridSpan ? `<span>• ${field.gridSpan} cols</span>` : ''}
-          </div>
-          ${constraints.length > 0 ? `
-            <div class="flex items-center gap-1 mt-1">
-              ${constraints.map(c => `<span class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400">${escapeHtml(c)}</span>`).join('')}
-            </div>
-          ` : ''}
-          ${hasErrors ? `
-            <div class="mt-1 text-xs text-red-600 dark:text-red-400">
-              ${fieldErrors.map(err => escapeHtml(err.message)).join(', ')}
-            </div>
-          ` : ''}
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="flex items-center gap-1">
-          <button
-            type="button"
-            data-field-edit="${field.id}"
-            class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="Edit field"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-            </svg>
-          </button>
-          <button
-            type="button"
-            data-field-remove="${field.id}"
-            class="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="Remove field"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-    `;
+    return renderFieldCardShared({
+      field,
+      isSelected: this.state.selectedFieldId === field.id,
+      hasErrors,
+      errorMessages: fieldErrors.map(err => err.message),
+      constraintBadges: constraints,
+      index,
+      actionsHtml,
+      compact: false,
+    });
   }
 
   private renderCapabilitiesSection(): string {
@@ -744,10 +683,37 @@ export class ContentTypeEditor {
   // Status Badges & Lifecycle Actions
   // ===========================================================================
 
-  private getStatusBadge(status?: ContentTypeStatus): string {
-    const variant = status || 'unknown';
-    const label = variant.charAt(0).toUpperCase() + variant.slice(1);
-    return badge(label, 'status', variant);
+  private renderHeader(): string {
+    const ct = this.state.contentType;
+    return renderEntityHeader({
+      name: ct ? 'Edit Content Type' : 'Create Content Type',
+      subtitle: ct ? `Editing: ${ct.name}` : 'Define fields and configure your content type',
+      status: ct?.status,
+      version: ct?.schema_version,
+      actions: this.renderHeaderActions(),
+    });
+  }
+
+  private renderHeaderActions(): string {
+    const ct = this.state.contentType;
+    const btnClass = 'px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700';
+    return `
+      ${this.state.validationErrors.length > 0 ? `
+        <span class="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          ${this.state.validationErrors.length} error${this.state.validationErrors.length > 1 ? 's' : ''}
+        </span>
+      ` : ''}
+      ${ct ? this.renderLifecycleActions(ct) : ''}
+      <button type="button" data-ct-validate class="${btnClass}">Validate</button>
+      <button type="button" data-ct-preview class="${btnClass}">Preview</button>
+      <button type="button" data-ct-cancel class="${btnClass}">Cancel</button>
+      <button type="button" data-ct-save class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+        ${ct ? 'Save Changes' : 'Create Content Type'}
+      </button>
+    `;
   }
 
   private renderLifecycleActions(ct: ContentType): string {
@@ -1020,11 +986,20 @@ export class ContentTypeEditor {
       this.showFieldTypePicker()
     );
 
+    // Palette toggle
+    this.container.querySelector('[data-ct-toggle-palette]')?.addEventListener('click', () => this.togglePalette());
+
+    // Initialize palette if visible
+    this.initPaletteIfNeeded();
+
     // Layout button
     this.container.querySelector('[data-ct-layout]')?.addEventListener('click', () => this.showLayoutEditor());
 
     // Preview refresh
     this.container.querySelector('[data-ct-refresh-preview]')?.addEventListener('click', () => this.previewSchema());
+
+    // Section toggles
+    this.bindSectionToggleEvents();
 
     // Drag and drop
     this.bindDragEvents();
@@ -1168,6 +1143,32 @@ export class ContentTypeEditor {
     });
   }
 
+  private togglePalette(): void {
+    this.paletteVisible = !this.paletteVisible;
+    const wrapper = this.container.querySelector<HTMLElement>('[data-ct-palette]');
+    if (wrapper) {
+      wrapper.classList.toggle('hidden', !this.paletteVisible);
+    }
+    const btn = this.container.querySelector<HTMLElement>('[data-ct-toggle-palette]');
+    if (btn) {
+      btn.setAttribute('aria-expanded', String(this.paletteVisible));
+    }
+    this.initPaletteIfNeeded();
+  }
+
+  private initPaletteIfNeeded(): void {
+    if (!this.paletteVisible || this.palettePanel) return;
+    const el = this.container.querySelector<HTMLElement>('[data-ct-palette-container]');
+    if (!el) return;
+    this.palettePanel = new FieldPalettePanel({
+      container: el,
+      api: this.api,
+      onAddField: (meta) => this.addField(meta.type as FieldType),
+    });
+    this.palettePanel.init();
+    this.palettePanel.enable();
+  }
+
   private showFieldTypePicker(): void {
     const picker = new FieldTypePicker({
       onSelect: (type) => this.addField(type),
@@ -1205,7 +1206,17 @@ export class ContentTypeEditor {
     this.container.querySelector('[data-ct-add-field]')?.addEventListener('click', () => this.showFieldTypePicker());
     this.container.querySelector('[data-ct-add-field-empty]')?.addEventListener('click', () => this.showFieldTypePicker());
     this.container.querySelector('[data-ct-layout]')?.addEventListener('click', () => this.showLayoutEditor());
+    this.bindSectionToggleEvents();
     this.bindDragEvents();
+  }
+
+  private bindSectionToggleEvents(): void {
+    this.container.querySelectorAll<HTMLElement>('[data-ct-toggle-section]').forEach((btn) => {
+      const sectionName = btn.getAttribute('data-ct-toggle-section');
+      if (sectionName) {
+        btn.addEventListener('click', () => this.toggleSection(sectionName));
+      }
+    });
   }
 
   // ===========================================================================
@@ -1405,11 +1416,100 @@ export class ContentTypeEditor {
       `;
     }
 
-    return `
-      <div class="space-y-2">
-        ${this.state.fields.map((field, index) => this.renderFieldCard(field, index)).join('')}
-      </div>
-    `;
+    const sections = this.groupFieldsBySection();
+    const sectionNames = Array.from(sections.keys());
+
+    // Single section — render flat (no section headers)
+    if (sectionNames.length <= 1) {
+      return `
+        <div class="space-y-2">
+          ${this.state.fields.map((field, index) => this.renderFieldCard(field, index)).join('')}
+        </div>
+      `;
+    }
+
+    // Multiple sections — render grouped with collapsible headers
+    let globalIndex = 0;
+    let html = '';
+
+    for (const sectionName of sectionNames) {
+      const fields = sections.get(sectionName)!;
+      const state = this.getSectionState(sectionName);
+      const isCollapsed = state.collapsed;
+
+      html += `
+        <div data-ct-section="${escapeHtml(sectionName)}" class="border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+          <button type="button" data-ct-toggle-section="${escapeHtml(sectionName)}"
+                  class="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+            <span class="w-4 h-4 text-gray-400 dark:text-gray-500 flex items-center justify-center">
+              ${isCollapsed
+                ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
+                : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'
+              }
+            </span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${escapeHtml(titleCase(sectionName))}</span>
+            <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">${fields.length}</span>
+          </button>
+
+          <div class="${isCollapsed ? 'hidden' : ''}" data-ct-section-body="${escapeHtml(sectionName)}">
+            <div class="space-y-2 px-1 pb-2">
+              ${fields.map((field) => {
+                const card = this.renderFieldCard(field, globalIndex);
+                globalIndex++;
+                return card;
+              }).join('')}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    return html;
+  }
+
+  // ===========================================================================
+  // Section Grouping
+  // ===========================================================================
+
+  private groupFieldsBySection(): Map<string, FieldDefinition[]> {
+    const map = new Map<string, FieldDefinition[]>();
+    for (const field of this.state.fields) {
+      const section = field.section || DEFAULT_SECTION;
+      if (!map.has(section)) map.set(section, []);
+      map.get(section)!.push(field);
+    }
+    // Ensure default section is always first
+    if (map.has(DEFAULT_SECTION)) {
+      const mainFields = map.get(DEFAULT_SECTION)!;
+      map.delete(DEFAULT_SECTION);
+      const ordered = new Map<string, FieldDefinition[]>();
+      ordered.set(DEFAULT_SECTION, mainFields);
+      for (const [k, v] of map) ordered.set(k, v);
+      return ordered;
+    }
+    return map;
+  }
+
+  private getSectionState(sectionName: string): { collapsed: boolean } {
+    if (!this.sectionStates.has(sectionName)) {
+      this.sectionStates.set(sectionName, { collapsed: false });
+    }
+    return this.sectionStates.get(sectionName)!;
+  }
+
+  private toggleSection(sectionName: string): void {
+    const state = this.getSectionState(sectionName);
+    state.collapsed = !state.collapsed;
+    const body = this.container.querySelector<HTMLElement>(`[data-ct-section-body="${sectionName}"]`);
+    if (body) {
+      body.classList.toggle('hidden', state.collapsed);
+    }
+    const btn = this.container.querySelector<HTMLElement>(`[data-ct-toggle-section="${sectionName}"]`);
+    const chevron = btn?.querySelector('span:first-child');
+    if (chevron) {
+      chevron.innerHTML = state.collapsed
+        ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
+        : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+    }
   }
 
   private renderPreview(): void {
@@ -1783,7 +1883,7 @@ class CloneContentTypeModal extends Modal {
         </p>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label class="${labelClasses()}">
             New Slug <span class="text-red-500">*</span>
           </label>
           <input
@@ -1793,13 +1893,13 @@ class CloneContentTypeModal extends Modal {
             placeholder="my-content-type"
             pattern="^[a-z][a-z0-9_\\-]*$"
             required
-            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="${inputClasses()}"
           />
           <p class="mt-1 text-xs text-gray-500">Lowercase letters, numbers, hyphens, underscores</p>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label class="${labelClasses()}">
             New Name
           </label>
           <input
@@ -1807,7 +1907,7 @@ class CloneContentTypeModal extends Modal {
             data-clone-name
             value="${escapeHtml(suggestedName)}"
             placeholder="My Content Type"
-            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="${inputClasses()}"
           />
         </div>
       </div>

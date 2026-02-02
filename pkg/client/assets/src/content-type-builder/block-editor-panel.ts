@@ -10,11 +10,15 @@
  * The panel is rendered inside [data-block-ide-editor] when a block is selected.
  */
 
-import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldTypeMetadata } from './types';
+import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldTypeMetadata, BlockDefinitionSummary, BlocksFieldConfig } from './types';
 import { schemaToFields, fieldsToSchema, ContentTypeAPIClient } from './api-client';
 import { getFieldTypeMetadata, normalizeFieldType } from './field-type-picker';
 import { PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel';
-import { badgeClasses, badge } from '../shared/badge';
+import { inputClasses, selectClasses } from './shared/field-input-classes';
+import { renderEntityHeader, renderSaveIndicator } from './shared/entity-header';
+import type { SaveState } from './shared/entity-header';
+import { renderFieldCard as renderFieldCardShared } from './shared/field-card';
+import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
 
 // =============================================================================
 // Types
@@ -61,9 +65,12 @@ export class BlockEditorPanel {
   /** Field id currently showing a drop-before indicator */
   private dropTargetFieldId: string | null = null;
   /** Save state tracking (Phase 11 — Task 11.2) */
-  private saveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+  private saveState: SaveState = 'idle';
   private saveMessage: string = '';
   private saveDisplayTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Cached block definitions for inline block picker (Phase 4) */
+  private cachedBlocks: BlockDefinitionSummary[] | null = null;
+  private blocksLoading = false;
 
   constructor(config: BlockEditorPanelConfig) {
     this.config = config;
@@ -115,52 +122,23 @@ export class BlockEditorPanel {
   // ===========================================================================
 
   private renderHeader(): string {
-    const slugOrType = this.block.slug || this.block.type || '';
-    return `
-      <div class="px-5 py-4 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
-        <div class="min-w-0 flex-1">
-          <h2 class="text-lg font-semibold text-gray-900 truncate leading-snug" data-editor-block-name>${esc(this.block.name || 'Untitled')}</h2>
-          <p class="text-[11px] text-gray-400 font-mono truncate mt-0.5">${esc(slugOrType)}</p>
-        </div>
-        <div class="flex items-center gap-2.5 shrink-0">
-          <span data-editor-save-indicator>${this.renderSaveState()}</span>
-          <span class="${badgeClasses('status', this.block.status || 'draft')} badge--uppercase" data-editor-status-badge>${esc(this.block.status || 'draft')}</span>
-        </div>
-      </div>`;
+    return renderEntityHeader({
+      name: this.block.name || 'Untitled',
+      subtitle: this.block.slug || this.block.type || '',
+      subtitleMono: true,
+      status: this.block.status || 'draft',
+      saveState: this.saveState,
+      saveMessage: this.saveMessage,
+      compact: true,
+    });
   }
 
   // ===========================================================================
   // Save state indicator (Phase 11 — Task 11.2)
   // ===========================================================================
 
-  private renderSaveState(): string {
-    switch (this.saveState) {
-      case 'saving':
-        return `<span data-save-state class="inline-flex items-center gap-1.5 text-[11px] font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">
-          <span class="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
-          Saving\u2026
-        </span>`;
-      case 'saved':
-        return `<span data-save-state class="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 px-2.5 py-1 rounded-md">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-          Saved
-        </span>`;
-      case 'error':
-        return `<span data-save-state class="inline-flex items-center gap-1.5 text-[11px] font-medium text-red-700 bg-red-50 px-2.5 py-1 rounded-md" title="${esc(this.saveMessage)}">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-          Save failed
-        </span>`;
-      default:
-        return '';
-    }
-  }
-
-  /** Update the save state indicator without a full re-render (Phase 11 — Task 11.2) */
-  updateSaveState(state: 'idle' | 'saving' | 'saved' | 'error', message?: string): void {
+  /** Update the save state indicator without a full re-render */
+  updateSaveState(state: SaveState, message?: string): void {
     if (this.saveDisplayTimer) {
       clearTimeout(this.saveDisplayTimer);
       this.saveDisplayTimer = null;
@@ -170,9 +148,9 @@ export class BlockEditorPanel {
     this.saveMessage = message ?? '';
 
     // Update the indicator in-place
-    const container = this.config.container.querySelector('[data-editor-save-indicator]');
+    const container = this.config.container.querySelector('[data-entity-save-indicator]');
     if (container) {
-      container.innerHTML = this.renderSaveState();
+      container.innerHTML = renderSaveIndicator(this.saveState, this.saveMessage);
     }
 
     // Auto-clear "saved" state after a delay
@@ -180,7 +158,7 @@ export class BlockEditorPanel {
       this.saveDisplayTimer = setTimeout(() => {
         this.saveState = 'idle';
         this.saveMessage = '';
-        const el = this.config.container.querySelector('[data-editor-save-indicator]');
+        const el = this.config.container.querySelector('[data-entity-save-indicator]');
         if (el) el.innerHTML = '';
       }, 2000);
     }
@@ -204,17 +182,17 @@ export class BlockEditorPanel {
     const slugValue = b.slug || b.type || '';
     const typeHint =
       b.slug && b.type && b.slug !== b.type
-        ? `<p class="mt-0.5 text-[10px] text-gray-400">Internal type: ${esc(b.type)}</p>`
+        ? `<p class="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Internal type: ${esc(b.type)}</p>`
         : '';
     return `
-      <div class="border-b border-gray-200" data-editor-metadata>
+      <div class="border-b border-gray-200 dark:border-gray-700" data-editor-metadata>
         <button type="button" data-toggle-metadata
-                class="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:bg-gray-50/80 transition-colors">
+                class="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors">
           <div class="flex items-center gap-2">
             <span class="w-1 h-4 rounded-full bg-indigo-400"></span>
             <span>Block Metadata</span>
           </div>
-          <span data-metadata-chevron class="w-4 h-4 text-gray-400 flex items-center justify-center">
+          <span data-metadata-chevron class="w-4 h-4 text-gray-400 dark:text-gray-500 flex items-center justify-center">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
@@ -223,39 +201,39 @@ export class BlockEditorPanel {
         <div class="px-5 pb-4 space-y-3" data-metadata-body>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Name</label>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Name</label>
               <input type="text" data-meta-field="name" value="${esc(b.name)}"
                      class="${inputClasses()}" />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Slug</label>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Slug</label>
               <input type="text" data-meta-field="slug" value="${esc(slugValue)}" pattern="^[a-z][a-z0-9_\\-]*$"
                      class="${inputClasses()} font-mono" />
               ${typeHint}
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Description</label>
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Description</label>
             <textarea data-meta-field="description" rows="2"
                       placeholder="Short description for other editors..."
                       class="${inputClasses()} resize-none">${esc(b.description ?? '')}</textarea>
           </div>
           <div class="grid grid-cols-3 gap-3">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Category</label>
-              <select data-meta-field="category" class="${inputClasses()}">
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Category</label>
+              <select data-meta-field="category" class="${selectClasses()}">
                 ${this.config.categories.map((c) => `<option value="${esc(c)}" ${c === (b.category ?? '') ? 'selected' : ''}>${esc(titleCase(c))}</option>`).join('')}
               </select>
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Icon</label>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Icon</label>
               <input type="text" data-meta-field="icon" value="${esc(b.icon ?? '')}"
                      placeholder="emoji or key"
                      class="${inputClasses()}" />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
-              <select data-meta-field="status" class="${inputClasses()}">
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Status</label>
+              <select data-meta-field="status" class="${selectClasses()}">
                 <option value="draft" ${b.status === 'draft' ? 'selected' : ''}>Draft</option>
                 <option value="active" ${b.status === 'active' ? 'selected' : ''}>Active</option>
                 <option value="deprecated" ${b.status === 'deprecated' ? 'selected' : ''}>Deprecated</option>
@@ -276,21 +254,21 @@ export class BlockEditorPanel {
 
     if (this.fields.length === 0) {
       return `
-        <div class="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+        <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="w-1 h-4 rounded-full bg-emerald-400"></span>
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Fields</span>
+            <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fields</span>
           </div>
-          <span class="text-[11px] text-gray-400">0 fields</span>
+          <span class="text-[11px] text-gray-400 dark:text-gray-500">0 fields</span>
         </div>
         <div data-field-drop-zone
              class="flex flex-col items-center justify-center py-16 px-5 text-center border-2 border-dashed ${this.dropHighlight ? 'border-blue-400 bg-blue-50/50' : 'border-transparent'} rounded-lg mx-3 my-2 transition-colors">
-          <svg class="w-12 h-12 text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-12 h-12 text-gray-200 dark:text-gray-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z"></path>
           </svg>
-          <p class="text-sm text-gray-400">No fields defined.</p>
-          <p class="text-xs text-gray-300 mt-1">Drag fields from the palette or click a field type to add.</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500">No fields defined.</p>
+          <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Drag fields from the palette or click a field type to add.</p>
         </div>`;
     }
 
@@ -300,7 +278,7 @@ export class BlockEditorPanel {
           <span class="w-1 h-4 rounded-full bg-emerald-400"></span>
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Fields</span>
         </div>
-        <span class="text-[11px] text-gray-400">${this.fields.length} field${this.fields.length !== 1 ? 's' : ''}</span>
+        <span class="text-[11px] text-gray-400 dark:text-gray-500">${this.fields.length} field${this.fields.length !== 1 ? 's' : ''}</span>
       </div>`;
 
     for (const sectionName of sectionNames) {
@@ -309,17 +287,17 @@ export class BlockEditorPanel {
       const isCollapsed = state.collapsed;
 
       html += `
-        <div data-section="${esc(sectionName)}" class="border-b border-gray-100">
+        <div data-section="${esc(sectionName)}" class="border-b border-gray-100 dark:border-gray-800">
           <button type="button" data-toggle-section="${esc(sectionName)}"
-                  class="w-full flex items-center gap-2 px-5 py-2.5 text-left hover:bg-gray-50 transition-colors group">
-            <span class="w-3.5 h-3.5 text-gray-400 flex items-center justify-center" data-section-chevron="${esc(sectionName)}">
+                  class="w-full flex items-center gap-2 px-5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
+            <span class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex items-center justify-center" data-section-chevron="${esc(sectionName)}">
               ${isCollapsed
                 ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
                 : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'
               }
             </span>
-            <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider">${esc(titleCase(sectionName))}</span>
-            <span class="text-[10px] text-gray-400 ml-auto">${fields.length}</span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${esc(titleCase(sectionName))}</span>
+            <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">${fields.length}</span>
           </button>
 
           <div class="${isCollapsed ? 'hidden' : ''}" data-section-body="${esc(sectionName)}">
@@ -333,8 +311,8 @@ export class BlockEditorPanel {
     // Drop zone at the bottom (Phase 9 — Task 9.3)
     html += `
       <div data-field-drop-zone
-           class="mx-3 my-2 py-3 border-2 border-dashed rounded-lg text-center transition-colors ${this.dropHighlight ? 'border-blue-400 bg-blue-50/50' : 'border-gray-200 hover:border-gray-300'}">
-        <p class="text-[11px] text-gray-400">Drop a field here or click a field type in the palette</p>
+           class="mx-3 my-2 py-3 border-2 border-dashed rounded-lg text-center transition-colors ${this.dropHighlight ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}">
+        <p class="text-[11px] text-gray-400 dark:text-gray-500">Drop a field here or click a field type in the palette</p>
       </div>`;
 
     return html;
@@ -345,78 +323,34 @@ export class BlockEditorPanel {
   // ===========================================================================
 
   private renderFieldCard(field: FieldDefinition, allSections: string[], sectionFields: FieldDefinition[]): string {
-    const isExpanded = field.id === this.expandedFieldId;
-    const meta = getFieldTypeMetadata(field.type);
     const sectionName = field.section || DEFAULT_SECTION;
     const indexInSection = sectionFields.indexOf(field);
-    const isFirst = indexInSection === 0;
-    const isLast = indexInSection === sectionFields.length - 1;
-    const isDropTarget = this.dropTargetFieldId === field.id;
 
-    return `
-      <div data-field-card="${esc(field.id)}"
-           data-field-section="${esc(sectionName)}"
-           draggable="true"
-           class="rounded-lg border ${isDropTarget ? 'border-t-2 border-t-blue-400' : ''} ${isExpanded ? 'border-blue-200 bg-blue-50/30' : 'border-gray-200 bg-white hover:border-gray-300'} transition-colors">
-        <!-- Collapsed header -->
-        <div class="flex items-center gap-1.5 px-2 py-2 select-none" data-field-toggle="${esc(field.id)}">
-          <!-- Drag handle (Phase 10 — Task 10.1) -->
-          <span class="flex-shrink-0 text-gray-300 hover:text-gray-400 cursor-grab active:cursor-grabbing" data-field-grip="${esc(field.id)}">
-            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="8" cy="4" r="2"/><circle cx="16" cy="4" r="2"/>
-              <circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>
-              <circle cx="8" cy="20" r="2"/><circle cx="16" cy="20" r="2"/>
-            </svg>
-          </span>
-          <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-md bg-gray-100 text-gray-500 text-[11px]">
-            ${meta?.icon ?? '?'}
-          </span>
-          <span class="flex-1 min-w-0 cursor-pointer">
-            <span class="block text-[13px] font-medium text-gray-800 truncate">${esc(field.label || field.name)}</span>
-            <span class="block text-[10px] text-gray-400 font-mono truncate">${esc(field.name)} &middot; ${esc(field.type)}</span>
-          </span>
-          ${field.required ? badge('req', 'status', 'required', { size: 'sm', uppercase: true, extraClass: 'flex-shrink-0' }) : ''}
-          <!-- Up/Down reorder group (Phase 10 — Task 10.2) -->
-          <span class="flex-shrink-0 inline-flex flex-col border border-gray-200 rounded-md overflow-hidden">
-            <button type="button" data-field-move-up="${esc(field.id)}"
-                    class="px-0.5 py-px ${isFirst ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'} transition-colors"
-                    title="Move up" ${isFirst ? 'disabled' : ''}>
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-              </svg>
-            </button>
-            <span class="block h-px bg-gray-200"></span>
-            <button type="button" data-field-move-down="${esc(field.id)}"
-                    class="px-0.5 py-px ${isLast ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'} transition-colors"
-                    title="Move down" ${isLast ? 'disabled' : ''}>
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </button>
-          </span>
-          <!-- Actions: move to section (Task 8.4) -->
+    // Build actions HTML (3-dot menu + move-to-section dropdown)
+    const actionsHtml = `
           <div class="relative flex-shrink-0">
             <button type="button" data-field-actions="${esc(field.id)}"
-                    class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    class="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     title="Field actions">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
               </svg>
             </button>
             ${this.moveMenuFieldId === field.id ? this.renderMoveToSectionMenu(field, allSections, sectionName) : ''}
-          </div>
-          <!-- Expand/collapse toggle (distinct from reorder) -->
-          <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 cursor-pointer transition-colors">
-            ${isExpanded
-              ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>'
-              : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>'
-            }
-          </span>
-        </div>
+          </div>`;
 
-        <!-- Expanded properties (Task 8.2) -->
-        ${isExpanded ? this.renderFieldProperties(field, allSections) : ''}
-      </div>`;
+    return renderFieldCardShared({
+      field,
+      isExpanded: field.id === this.expandedFieldId,
+      isDropTarget: this.dropTargetFieldId === field.id,
+      showReorderButtons: true,
+      isFirst: indexInSection === 0,
+      isLast: indexInSection === sectionFields.length - 1,
+      compact: true,
+      sectionName,
+      actionsHtml,
+      renderExpandedContent: () => this.renderFieldProperties(field, allSections),
+    });
   }
 
   // ===========================================================================
@@ -424,6 +358,19 @@ export class BlockEditorPanel {
   // ===========================================================================
 
   private renderFieldProperties(field: FieldDefinition, allSections: string[]): string {
+    const normalizedType = normalizeFieldType(field.type);
+    const isBlocks = normalizedType === 'blocks';
+
+    // For blocks fields, show block picker as primary, field settings as secondary
+    if (isBlocks) {
+      return this.renderBlocksFieldProperties(field, allSections);
+    }
+
+    return this.renderStandardFieldProperties(field, allSections);
+  }
+
+  /** Standard field properties (non-blocks) */
+  private renderStandardFieldProperties(field: FieldDefinition, allSections: string[]): string {
     const validation = field.validation ?? {};
     const normalizedType = normalizeFieldType(field.type);
     const showStringVal = ['text', 'textarea', 'rich-text', 'markdown', 'code', 'slug'].includes(normalizedType);
@@ -431,17 +378,17 @@ export class BlockEditorPanel {
     const currentSection = field.section || DEFAULT_SECTION;
 
     return `
-      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 mt-1 pt-3" data-field-props="${esc(field.id)}">
+      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${esc(field.id)}">
         <!-- General -->
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Field Name</label>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Field Name</label>
             <input type="text" data-field-prop="${esc(field.id)}" data-prop-key="name"
                    value="${esc(field.name)}" pattern="^[a-z][a-z0-9_]*$"
                    class="${inputClasses('xs')}" />
           </div>
           <div>
-            <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Label</label>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Label</label>
             <input type="text" data-field-prop="${esc(field.id)}" data-prop-key="label"
                    value="${esc(field.label)}"
                    class="${inputClasses('xs')}" />
@@ -449,14 +396,14 @@ export class BlockEditorPanel {
         </div>
 
         <div>
-          <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Description</label>
+          <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Description</label>
           <input type="text" data-field-prop="${esc(field.id)}" data-prop-key="description"
                  value="${esc(field.description ?? '')}" placeholder="Help text for editors"
                  class="${inputClasses('xs')}" />
         </div>
 
         <div>
-          <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Placeholder</label>
+          <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Placeholder</label>
           <input type="text" data-field-prop="${esc(field.id)}" data-prop-key="placeholder"
                  value="${esc(field.placeholder ?? '')}"
                  class="${inputClasses('xs')}" />
@@ -467,20 +414,20 @@ export class BlockEditorPanel {
           <label class="flex items-center gap-1.5 cursor-pointer">
             <input type="checkbox" data-field-check="${esc(field.id)}" data-check-key="required"
                    ${field.required ? 'checked' : ''}
-                   class="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-            <span class="text-[11px] text-gray-600">Required</span>
+                   class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
+            <span class="text-[11px] text-gray-600 dark:text-gray-400">Required</span>
           </label>
           <label class="flex items-center gap-1.5 cursor-pointer">
             <input type="checkbox" data-field-check="${esc(field.id)}" data-check-key="readonly"
                    ${field.readonly ? 'checked' : ''}
-                   class="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-            <span class="text-[11px] text-gray-600">Read-only</span>
+                   class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
+            <span class="text-[11px] text-gray-600 dark:text-gray-400">Read-only</span>
           </label>
           <label class="flex items-center gap-1.5 cursor-pointer">
             <input type="checkbox" data-field-check="${esc(field.id)}" data-check-key="hidden"
                    ${field.hidden ? 'checked' : ''}
-                   class="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-            <span class="text-[11px] text-gray-600">Hidden</span>
+                   class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
+            <span class="text-[11px] text-gray-600 dark:text-gray-400">Hidden</span>
           </label>
         </div>
 
@@ -488,20 +435,20 @@ export class BlockEditorPanel {
         ${showStringVal ? `
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Min Length</label>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Min Length</label>
             <input type="number" data-field-prop="${esc(field.id)}" data-prop-key="validation.minLength"
                    value="${validation.minLength ?? ''}" min="0"
                    class="${inputClasses('xs')}" />
           </div>
           <div>
-            <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Max Length</label>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Max Length</label>
             <input type="number" data-field-prop="${esc(field.id)}" data-prop-key="validation.maxLength"
                    value="${validation.maxLength ?? ''}" min="0"
                    class="${inputClasses('xs')}" />
           </div>
         </div>
         <div>
-          <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Pattern (RegEx)</label>
+          <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Pattern (RegEx)</label>
           <input type="text" data-field-prop="${esc(field.id)}" data-prop-key="validation.pattern"
                  value="${esc(validation.pattern ?? '')}" placeholder="^[a-z]+$"
                  class="${inputClasses('xs')} font-mono" />
@@ -510,13 +457,13 @@ export class BlockEditorPanel {
         ${showNumberVal ? `
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Minimum</label>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Minimum</label>
             <input type="number" data-field-prop="${esc(field.id)}" data-prop-key="validation.min"
                    value="${validation.min ?? ''}" step="any"
                    class="${inputClasses('xs')}" />
           </div>
           <div>
-            <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Maximum</label>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Maximum</label>
             <input type="number" data-field-prop="${esc(field.id)}" data-prop-key="validation.max"
                    value="${validation.max ?? ''}" step="any"
                    class="${inputClasses('xs')}" />
@@ -526,15 +473,15 @@ export class BlockEditorPanel {
         <!-- Appearance (Phase 10 — Task 10.3: section dropdown) -->
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Section</label>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
             <select data-field-section-select="${esc(field.id)}"
-                    class="${inputClasses('xs')}">
+                    class="${selectClasses('xs')}">
               ${allSections.map((s) => `<option value="${esc(s)}" ${s === currentSection ? 'selected' : ''}>${esc(titleCase(s))}</option>`).join('')}
               <option value="__new__">+ New section...</option>
             </select>
           </div>
           <div>
-            <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Grid Span (1-12)</label>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Grid Span (1-12)</label>
             <input type="number" data-field-prop="${esc(field.id)}" data-prop-key="gridSpan"
                    value="${field.gridSpan ?? ''}" min="1" max="12" placeholder="12"
                    class="${inputClasses('xs')}" />
@@ -542,7 +489,135 @@ export class BlockEditorPanel {
         </div>
 
         <!-- Remove field -->
-        <div class="pt-2 border-t border-gray-100">
+        <div class="pt-2 border-t border-gray-100 dark:border-gray-800">
+          <button type="button" data-field-remove="${esc(field.id)}"
+                  class="text-[11px] text-red-500 hover:text-red-700 font-medium transition-colors">
+            Remove field
+          </button>
+        </div>
+      </div>`;
+  }
+
+  /** Blocks field properties: block picker primary, field settings secondary */
+  private renderBlocksFieldProperties(field: FieldDefinition, allSections: string[]): string {
+    const config = (field.config ?? {}) as BlocksFieldConfig;
+    const currentSection = field.section || DEFAULT_SECTION;
+    const selectedBlocks = new Set(config.allowedBlocks ?? []);
+
+    // Block picker section (primary — always visible)
+    let pickerHtml: string;
+    if (this.cachedBlocks) {
+      const normalized = normalizeBlockSelection(selectedBlocks, this.cachedBlocks);
+      pickerHtml = renderInlineBlockPicker({
+        availableBlocks: this.cachedBlocks,
+        selectedBlocks: normalized,
+        onSelectionChange: () => {},
+        label: 'Allowed Blocks',
+        accent: 'blue',
+      });
+    } else {
+      pickerHtml = `
+        <div class="flex items-center justify-center py-6" data-blocks-loading="${esc(field.id)}">
+          <div class="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+          <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">Loading blocks...</span>
+        </div>`;
+    }
+
+    return `
+      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${esc(field.id)}">
+        <!-- Block Selection (primary) -->
+        <div data-blocks-picker-container="${esc(field.id)}">
+          ${pickerHtml}
+        </div>
+
+        <!-- Min/Max Blocks -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Min Blocks</label>
+            <input type="number" data-field-prop="${esc(field.id)}" data-prop-key="config.minBlocks"
+                   value="${config.minBlocks ?? ''}" min="0" placeholder="0"
+                   class="${inputClasses('xs')}" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Max Blocks</label>
+            <input type="number" data-field-prop="${esc(field.id)}" data-prop-key="config.maxBlocks"
+                   value="${config.maxBlocks ?? ''}" min="1" placeholder="No limit"
+                   class="${inputClasses('xs')}" />
+          </div>
+        </div>
+
+        <!-- Field Settings (secondary — collapsed by default) -->
+        <div class="border-t border-gray-100 dark:border-gray-800 pt-2">
+          <button type="button" data-blocks-settings-toggle="${esc(field.id)}"
+                  class="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium">
+            <span data-blocks-settings-chevron="${esc(field.id)}">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </span>
+            Field Settings
+          </button>
+
+          <div class="hidden mt-2 space-y-3" data-blocks-settings-body="${esc(field.id)}">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Field Name</label>
+                <input type="text" data-field-prop="${esc(field.id)}" data-prop-key="name"
+                       value="${esc(field.name)}" pattern="^[a-z][a-z0-9_]*$"
+                       class="${inputClasses('xs')}" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Label</label>
+                <input type="text" data-field-prop="${esc(field.id)}" data-prop-key="label"
+                       value="${esc(field.label)}"
+                       class="${inputClasses('xs')}" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Description</label>
+              <input type="text" data-field-prop="${esc(field.id)}" data-prop-key="description"
+                     value="${esc(field.description ?? '')}" placeholder="Help text for editors"
+                     class="${inputClasses('xs')}" />
+            </div>
+            <div class="flex items-center gap-4">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" data-field-check="${esc(field.id)}" data-check-key="required"
+                       ${field.required ? 'checked' : ''}
+                       class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
+                <span class="text-[11px] text-gray-600 dark:text-gray-400">Required</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" data-field-check="${esc(field.id)}" data-check-key="readonly"
+                       ${field.readonly ? 'checked' : ''}
+                       class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
+                <span class="text-[11px] text-gray-600 dark:text-gray-400">Read-only</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" data-field-check="${esc(field.id)}" data-check-key="hidden"
+                       ${field.hidden ? 'checked' : ''}
+                       class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
+                <span class="text-[11px] text-gray-600 dark:text-gray-400">Hidden</span>
+              </label>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
+                <select data-field-section-select="${esc(field.id)}"
+                        class="${selectClasses('xs')}">
+                  ${allSections.map((s) => `<option value="${esc(s)}" ${s === currentSection ? 'selected' : ''}>${esc(titleCase(s))}</option>`).join('')}
+                  <option value="__new__">+ New section...</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Grid Span (1-12)</label>
+                <input type="number" data-field-prop="${esc(field.id)}" data-prop-key="gridSpan"
+                       value="${field.gridSpan ?? ''}" min="1" max="12" placeholder="12"
+                       class="${inputClasses('xs')}" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Remove field -->
+        <div class="pt-2 border-t border-gray-100 dark:border-gray-800">
           <button type="button" data-field-remove="${esc(field.id)}"
                   class="text-[11px] text-red-500 hover:text-red-700 font-medium transition-colors">
             Remove field
@@ -559,29 +634,29 @@ export class BlockEditorPanel {
     const otherSections = allSections.filter((s) => s !== currentSection);
     if (otherSections.length === 0) {
       return `
-        <div data-move-menu class="absolute right-0 top-full mt-1 z-30 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-sm">
-          <div class="px-3 py-1.5 text-xs text-gray-400">Only one section exists.</div>
+        <div data-move-menu class="absolute right-0 top-full mt-1 z-30 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm">
+          <div class="px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500">Only one section exists.</div>
           <button type="button" data-move-new-section="${esc(field.id)}"
-                  class="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50">
+                  class="w-full text-left px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
             + Create new section
           </button>
         </div>`;
     }
 
     return `
-      <div data-move-menu class="absolute right-0 top-full mt-1 z-30 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-sm">
-        <div class="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Move to section</div>
+      <div data-move-menu class="absolute right-0 top-full mt-1 z-30 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm">
+        <div class="px-3 py-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Move to section</div>
         ${otherSections.map((s) => `
           <button type="button" data-move-to="${esc(s)}" data-move-field="${esc(field.id)}"
-                  class="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-            <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  class="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+            <svg class="w-3 h-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
             ${esc(titleCase(s))}
           </button>`).join('')}
-        <div class="border-t border-gray-100 mt-1 pt-1">
+        <div class="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
           <button type="button" data-move-new-section="${esc(field.id)}"
-                  class="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50">
+                  class="w-full text-left px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
             + Create new section
           </button>
         </div>
@@ -829,13 +904,39 @@ export class BlockEditorPanel {
       return;
     }
 
+    // Blocks field settings toggle (Phase 4)
+    const blocksToggle = target.closest<HTMLElement>('[data-blocks-settings-toggle]');
+    if (blocksToggle) {
+      const fieldId = blocksToggle.dataset.blocksSettingsToggle!;
+      const body = root.querySelector<HTMLElement>(`[data-blocks-settings-body="${fieldId}"]`);
+      const chevron = root.querySelector<HTMLElement>(`[data-blocks-settings-chevron="${fieldId}"]`);
+      if (body) {
+        const isHidden = body.classList.toggle('hidden');
+        if (chevron) {
+          chevron.innerHTML = isHidden
+            ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
+            : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+        }
+      }
+      return;
+    }
+
     // Field toggle (expand/collapse — Task 8.2 accordion)
     const fieldToggle = target.closest<HTMLElement>('[data-field-toggle]');
     if (fieldToggle) {
+      if (target.closest('[data-field-grip]')) return;
       const fieldId = fieldToggle.dataset.fieldToggle!;
       // Accordion: close current if same, otherwise switch
       this.expandedFieldId = this.expandedFieldId === fieldId ? null : fieldId;
       this.render();
+
+      // Trigger block loading for blocks fields (Phase 4)
+      if (this.expandedFieldId) {
+        const field = this.fields.find((f) => f.id === this.expandedFieldId);
+        if (field && normalizeFieldType(field.type) === 'blocks') {
+          this.loadBlocksForField(field);
+        }
+      }
       return;
     }
   }
@@ -930,6 +1031,23 @@ export class BlockEditorPanel {
       } else {
         rec[key] = value || undefined;
       }
+    } else if (parts[0] === 'config') {
+      // Nested config prop (e.g., config.minBlocks, config.maxBlocks)
+      if (!field.config) field.config = {};
+      const cKey = parts[1] as string;
+      const configRec = field.config as Record<string, unknown>;
+      if (typeof value === 'string') {
+        if (value === '') {
+          delete configRec[cKey];
+        } else if (['minBlocks', 'maxBlocks'].includes(cKey)) {
+          configRec[cKey] = parseInt(value, 10);
+        } else {
+          configRec[cKey] = value;
+        }
+      }
+      if (Object.keys(field.config).length === 0) {
+        field.config = undefined;
+      }
     } else if (parts[0] === 'validation') {
       // Nested validation prop
       if (!field.validation) field.validation = {};
@@ -952,6 +1070,64 @@ export class BlockEditorPanel {
     }
 
     this.notifySchemaChange();
+  }
+
+  /** Load blocks and render inline picker for a blocks field (Phase 4) */
+  private async loadBlocksForField(field: FieldDefinition): Promise<void> {
+    if (this.cachedBlocks) {
+      this.renderInlineBlockPickerForField(field);
+      return;
+    }
+    if (this.blocksLoading) return;
+    this.blocksLoading = true;
+    this.cachedBlocks = await loadAvailableBlocks(this.config.api);
+    this.blocksLoading = false;
+    // Only render if this field is still expanded
+    if (this.expandedFieldId === field.id) {
+      this.renderInlineBlockPickerForField(field);
+    }
+  }
+
+  /** Render and bind inline block picker into the DOM container */
+  private renderInlineBlockPickerForField(field: FieldDefinition): void {
+    const container = this.config.container.querySelector<HTMLElement>(
+      `[data-blocks-picker-container="${field.id}"]`
+    );
+    if (!container || !this.cachedBlocks) return;
+
+    const config = (field.config ?? {}) as BlocksFieldConfig;
+    const selected = normalizeBlockSelection(
+      new Set(config.allowedBlocks ?? []),
+      this.cachedBlocks,
+    );
+
+    container.innerHTML = renderInlineBlockPicker({
+      availableBlocks: this.cachedBlocks,
+      selectedBlocks: selected,
+      onSelectionChange: (sel) => {
+        if (!field.config) field.config = {};
+        const cfgRec = field.config as Record<string, unknown>;
+        cfgRec.allowedBlocks = sel.size > 0 ? Array.from(sel) : undefined;
+        if (Object.keys(field.config).length === 0) field.config = undefined;
+        this.notifySchemaChange();
+      },
+      label: 'Allowed Blocks',
+      accent: 'blue',
+    });
+
+    bindInlineBlockPickerEvents(container, {
+      availableBlocks: this.cachedBlocks,
+      selectedBlocks: selected,
+      onSelectionChange: (sel) => {
+        if (!field.config) field.config = {};
+        const cfgRec = field.config as Record<string, unknown>;
+        cfgRec.allowedBlocks = sel.size > 0 ? Array.from(sel) : undefined;
+        if (Object.keys(field.config).length === 0) field.config = undefined;
+        this.notifySchemaChange();
+      },
+      label: 'Allowed Blocks',
+      accent: 'blue',
+    });
   }
 
   private moveFieldToSection(fieldId: string, targetSection: string): void {
@@ -1133,12 +1309,4 @@ function titleCase(str: string): string {
   return str
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-
-function inputClasses(size: 'sm' | 'xs' = 'sm'): string {
-  const base = 'w-full border border-gray-200 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
-  return size === 'xs'
-    ? `${base} px-2 py-1 text-[12px]`
-    : `${base} px-2.5 py-1.5 text-sm`;
 }

@@ -20,8 +20,7 @@ function b(e) {
   return e.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 export {
-  u as a,
-  g as b,
-  f as c
+  f as a,
+  g as b
 };
-//# sourceMappingURL=badge-DimNmen5.js.map
+//# sourceMappingURL=badge-CqKzZ9y5.js.map
