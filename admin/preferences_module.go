@@ -18,13 +18,13 @@ const preferencesRawNamespacePrefix = "ui."
 // PreferencesModule registers a user preferences panel and navigation entry.
 // It is feature-gated via FeaturePreferences and backed by PreferencesService.
 type PreferencesModule struct {
-	basePath      string
-	menuCode      string
-	defaultLocale string
-	permission    string
-	menuParent    string
-	viewBuilder   PreferencesViewContextBuilder
-	schemaPath    string
+	basePath         string
+	menuCode         string
+	defaultLocale    string
+	permission       string
+	menuParent       string
+	viewBuilder      PreferencesViewContextBuilder
+	schemaPath       string
 	jsonEditorStrict bool
 }
 
