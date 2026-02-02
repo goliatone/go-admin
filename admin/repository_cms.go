@@ -2066,11 +2066,11 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 		ct.Environment = env
 	}
 	if schema, ok := record["schema"].(map[string]any); ok {
-		ct.Schema = cloneAnyMap(schema)
+		ct.Schema = stripUnsupportedSchemaKeywords(cloneAnyMap(schema))
 	} else if raw, ok := record["schema"].(string); ok && raw != "" {
 		var m map[string]any
 		if err := json.Unmarshal([]byte(raw), &m); err == nil {
-			ct.Schema = m
+			ct.Schema = stripUnsupportedSchemaKeywords(m)
 		}
 	}
 	if uiSchema, ok := record["ui_schema"].(map[string]any); ok {
