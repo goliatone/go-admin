@@ -24,6 +24,8 @@ type PreferencesModule struct {
 	permission    string
 	menuParent    string
 	viewBuilder   PreferencesViewContextBuilder
+	schemaPath    string
+	jsonEditorStrict bool
 }
 
 // NewPreferencesModule constructs the default preferences module.
@@ -126,6 +128,24 @@ func (m *PreferencesModule) WithMenuParent(parent string) *PreferencesModule {
 // WithBasePath sets the base path used for menu item targets (e.g., /admin).
 func (m *PreferencesModule) WithBasePath(basePath string) *PreferencesModule {
 	m.basePath = strings.TrimSpace(basePath)
+	return m
+}
+
+// WithSchemaPath overrides the default preferences form schema path.
+func (m *PreferencesModule) WithSchemaPath(path string) *PreferencesModule {
+	if m == nil {
+		return m
+	}
+	m.schemaPath = strings.TrimSpace(path)
+	return m
+}
+
+// WithJSONEditorStrict toggles client-side JSON editor strictness.
+func (m *PreferencesModule) WithJSONEditorStrict(strict bool) *PreferencesModule {
+	if m == nil {
+		return m
+	}
+	m.jsonEditorStrict = strict
 	return m
 }
 
