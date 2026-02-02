@@ -2,6 +2,11 @@ package boot
 
 import router "github.com/goliatone/go-router"
 
+type dashboardPreferencesPermissioner interface {
+	RequirePreferencesPermission(router.Context, string) error
+	RequirePreferencesUpdatePermission(router.Context, string) error
+}
+
 // DashboardStep registers dashboard routes.
 func DashboardStep(ctx BootCtx) error {
 	if ctx == nil || ctx.Router() == nil {
@@ -82,6 +87,11 @@ func DashboardStep(ctx BootCtx) error {
 				if locale == "" {
 					locale = defaultLocale
 				}
+				if guard, ok := binding.(dashboardPreferencesPermissioner); ok {
+					if err := guard.RequirePreferencesPermission(c, locale); err != nil {
+						return responder.WriteError(c, err)
+					}
+				}
 				payload, err := binding.Preferences(c, locale)
 				if err != nil {
 					return responder.WriteError(c, err)
@@ -96,6 +106,15 @@ func DashboardStep(ctx BootCtx) error {
 			Handler: func(c router.Context) error {
 				if gates != nil {
 					if err := gates.Require(FeatureDashboard); err != nil {
+						return responder.WriteError(c, err)
+					}
+				}
+				locale := c.Query("locale")
+				if locale == "" {
+					locale = defaultLocale
+				}
+				if guard, ok := binding.(dashboardPreferencesPermissioner); ok {
+					if err := guard.RequirePreferencesUpdatePermission(c, locale); err != nil {
 						return responder.WriteError(c, err)
 					}
 				}
