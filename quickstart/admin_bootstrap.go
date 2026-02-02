@@ -4,16 +4,19 @@ import (
 	"context"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-users/pkg/types"
 )
 
 // AdminOption customizes NewAdmin behavior.
 type AdminOption func(*adminOptions)
 
 type adminOptions struct {
-	ctx             context.Context
-	deps            admin.Dependencies
-	flags           *AdapterFlags
-	featureDefaults map[string]bool
+	ctx                    context.Context
+	deps                   admin.Dependencies
+	flags                  *AdapterFlags
+	featureDefaults        map[string]bool
+	preferencesRepo        types.PreferenceRepository
+	preferencesRepoFactory func() (types.PreferenceRepository, error)
 }
 
 // WithAdminContext sets the context used when resolving adapter hooks.
@@ -74,6 +77,23 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		cfg, result = ConfigureAdaptersWithFlags(options.ctx, cfg, hooks, *options.flags)
 	} else {
 		cfg, result = ConfigureAdapters(options.ctx, cfg, hooks)
+	}
+	if options.deps.PreferencesStore == nil {
+		repo := options.preferencesRepo
+		if repo == nil && options.preferencesRepoFactory != nil {
+			var err error
+			repo, err = options.preferencesRepoFactory()
+			if err != nil {
+				return nil, result, err
+			}
+		}
+		if repo != nil {
+			store, err := NewGoUsersPreferencesStore(repo)
+			if err != nil {
+				return nil, result, err
+			}
+			options.deps.PreferencesStore = store
+		}
 	}
 	if options.deps.PreferencesStore == nil {
 		options.deps.PreferencesStore = admin.NewInMemoryPreferencesStore()
