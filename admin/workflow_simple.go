@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 )
@@ -34,7 +33,7 @@ func (e *SimpleWorkflowEngine) Transition(ctx context.Context, input TransitionI
 	e.mu.RUnlock()
 
 	if !ok {
-		return nil, errors.New("workflow not found for entity type")
+		return nil, WithStack(ErrWorkflowNotFound)
 	}
 
 	for _, t := range def.Transitions {
@@ -52,7 +51,7 @@ func (e *SimpleWorkflowEngine) Transition(ctx context.Context, input TransitionI
 		}
 	}
 
-	return nil, errors.New("invalid transition")
+	return nil, WithStack(ErrWorkflowInvalidTransition)
 }
 
 // AvailableTransitions lists the possible transitions from a given state.
