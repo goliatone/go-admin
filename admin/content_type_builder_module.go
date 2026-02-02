@@ -220,6 +220,8 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	m.registerCommands(ctx.Admin)
 	m.registerSearchAdapter(ctx.Admin)
 	m.registerSchemaRoutes(ctx.Admin)
+	m.registerBlockDefinitionCategoriesRoute(ctx.Admin)
+	m.registerBlockDefinitionFieldTypesRoute(ctx.Admin)
 
 	if err := m.loadExistingContentTypes(ctx.Admin); err != nil {
 		return err
@@ -556,6 +558,73 @@ func (m *ContentTypeBuilderModule) registerSchemaRoutes(admin *Admin) {
 	}
 	admin.router.Post(validatePath, validateHandler)
 	admin.router.Post(previewPath, previewHandler)
+}
+
+func (m *ContentTypeBuilderModule) registerBlockDefinitionCategoriesRoute(admin *Admin) {
+	if admin == nil || admin.router == nil || m.contentSvc == nil {
+		return
+	}
+	categoriesPath := joinPath(m.basePath, "api/"+blockDefinitionsPanelID+"/categories")
+
+	handler := func(c router.Context) error {
+		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
+		if err := m.authorize(adminCtx, admin.authorizer); err != nil {
+			return writeError(c, err)
+		}
+		defs, err := m.contentSvc.BlockDefinitions(adminCtx.Context)
+		if err != nil {
+			return writeJSON(c, map[string]any{"categories": []string{}})
+		}
+		seen := map[string]struct{}{}
+		categories := []string{}
+		for _, def := range defs {
+			cat := strings.ToLower(strings.TrimSpace(def.Category))
+			if cat == "" {
+				cat = strings.ToLower(strings.TrimSpace(schemaCategoryFromSchema(def.Schema)))
+			}
+			if cat == "" {
+				cat = "custom"
+			}
+			if cat == "" {
+				continue
+			}
+			if _, ok := seen[cat]; ok {
+				continue
+			}
+			seen[cat] = struct{}{}
+			categories = append(categories, cat)
+		}
+		return writeJSON(c, map[string]any{"categories": categories})
+	}
+
+	if authWrap := admin.authWrapper(); authWrap != nil {
+		handler = authWrap(handler)
+	}
+	admin.router.Get(categoriesPath, handler)
+}
+
+func (m *ContentTypeBuilderModule) registerBlockDefinitionFieldTypesRoute(admin *Admin) {
+	if admin == nil || admin.router == nil {
+		return
+	}
+	fieldTypesPath := joinPath(m.basePath, "api/"+blockDefinitionsPanelID+"/field_types")
+
+	handler := func(c router.Context) error {
+		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
+		if err := m.authorize(adminCtx, admin.authorizer); err != nil {
+			return writeError(c, err)
+		}
+		reg := DefaultBlockFieldTypeRegistry()
+		return writeJSON(c, map[string]any{
+			"categories":  reg.Groups(),
+			"field_types": reg.FieldTypes(),
+		})
+	}
+
+	if authWrap := admin.authWrapper(); authWrap != nil {
+		handler = authWrap(handler)
+	}
+	admin.router.Get(fieldTypesPath, handler)
 }
 
 func (m *ContentTypeBuilderModule) authorize(ctx AdminContext, authorizer Authorizer) error {
@@ -945,7 +1014,13 @@ func (v *FormgenSchemaValidator) generate(ctx context.Context, schema map[string
 		FormID:            formID,
 	}
 	if len(opts.UISchema) > 0 {
-		if overlay, err := json.Marshal(opts.UISchema); err == nil {
+		overlayDoc := cloneAnyMap(opts.UISchema)
+		if overlayDoc != nil {
+			if _, ok := overlayDoc["$schema"]; !ok {
+				overlayDoc["$schema"] = "x-ui-overlay/v1"
+			}
+		}
+		if overlay, err := json.Marshal(overlayDoc); err == nil {
 			normalizeOptions.Overlay = overlay
 		}
 	}
