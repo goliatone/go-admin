@@ -14,6 +14,7 @@ import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType
 import { schemaToFields, fieldsToSchema, ContentTypeAPIClient } from './api-client';
 import { getFieldTypeMetadata, normalizeFieldType } from './field-type-picker';
 import { PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel';
+import { badgeClasses, badge } from '../shared/badge';
 
 // =============================================================================
 // Types
@@ -123,7 +124,7 @@ export class BlockEditorPanel {
         </div>
         <div class="flex items-center gap-2.5 shrink-0">
           <span data-editor-save-indicator>${this.renderSaveState()}</span>
-          <span class="text-[11px] uppercase tracking-wide font-semibold px-2.5 py-1 rounded-md ${statusClasses(this.block.status)}" data-editor-status-badge>${esc(this.block.status || 'draft')}</span>
+          <span class="${badgeClasses('status', this.block.status || 'draft')} badge--uppercase" data-editor-status-badge>${esc(this.block.status || 'draft')}</span>
         </div>
       </div>`;
   }
@@ -374,7 +375,7 @@ export class BlockEditorPanel {
             <span class="block text-[13px] font-medium text-gray-800 truncate">${esc(field.label || field.name)}</span>
             <span class="block text-[10px] text-gray-400 font-mono truncate">${esc(field.name)} &middot; ${esc(field.type)}</span>
           </span>
-          ${field.required ? '<span class="flex-shrink-0 text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full uppercase tracking-wide leading-none">req</span>' : ''}
+          ${field.required ? badge('req', 'status', 'required', { size: 'sm', uppercase: true, extraClass: 'flex-shrink-0' }) : ''}
           <!-- Up/Down reorder group (Phase 10 — Task 10.2) -->
           <span class="flex-shrink-0 inline-flex flex-col border border-gray-200 rounded-md overflow-hidden">
             <button type="button" data-field-move-up="${esc(field.id)}"
@@ -1134,17 +1135,6 @@ function titleCase(str: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function statusClasses(status?: string): string {
-  switch (status) {
-    case 'active':
-      return 'bg-green-50 text-green-700 border border-green-200';
-    case 'deprecated':
-      return 'bg-red-50 text-red-700 border border-red-200';
-    case 'draft':
-    default:
-      return 'bg-amber-50 text-amber-700 border border-amber-200';
-  }
-}
 
 function inputClasses(size: 'sm' | 'xs' = 'sm'): string {
   const base = 'w-full border border-gray-200 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';

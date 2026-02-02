@@ -10,6 +10,7 @@ import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType
 import { ContentTypeAPIClient, ContentTypeAPIError, fieldsToSchema, generateFieldId } from './api-client';
 import { BlockEditorPanel } from './block-editor-panel';
 import { FieldPalettePanel } from './field-palette-panel';
+import { Modal } from '../shared/modal';
 
 // =============================================================================
 // Types
@@ -29,6 +30,12 @@ interface BlockLibraryIDEState {
   savingBlocks: Set<string>;
   saveErrors: Map<string, string>;
 }
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+const DEFAULT_BLOCK_CATEGORIES = ['content', 'media', 'layout', 'interactive', 'custom'];
 
 // =============================================================================
 // Block Library IDE
@@ -457,15 +464,7 @@ export class BlockLibraryIDE {
       this.envSelectEl.addEventListener('change', () => {
         const value = this.envSelectEl!.value;
         if (value === '__add__') {
-          const custom = prompt('Environment name:');
-          if (custom && custom.trim()) {
-            const env = custom.trim();
-            this.ensureEnvironmentOption(env);
-            this.envSelectEl!.value = env;
-            this.setEnvironment(env);
-          } else {
-            this.envSelectEl!.value = this.currentEnvironment;
-          }
+          this.promptForEnvironment();
           return;
         }
         this.setEnvironment(value);
@@ -544,6 +543,28 @@ export class BlockLibraryIDE {
     option.value = val;
     option.textContent = label ?? val;
     this.envSelectEl.appendChild(option);
+  }
+
+  private promptForEnvironment(): void {
+    if (!this.envSelectEl) return;
+    const previous = this.currentEnvironment;
+    const modal = new TextPromptModal({
+      title: 'Add Environment',
+      label: 'Environment name',
+      placeholder: 'e.g. staging',
+      confirmLabel: 'Add',
+      onConfirm: (value) => {
+        const env = value.trim();
+        if (!env) return;
+        this.ensureEnvironmentOption(env);
+        this.envSelectEl!.value = env;
+        this.setEnvironment(env);
+      },
+      onCancel: () => {
+        this.envSelectEl!.value = previous;
+      },
+    });
+    modal.show();
   }
 
   // ===========================================================================
@@ -694,32 +715,119 @@ export class BlockLibraryIDE {
   }
 
   private async loadCategories(): Promise<void> {
+    this.state.categories = [];
+    this.mergeCategories(DEFAULT_BLOCK_CATEGORIES);
+    this.mergeCategories(this.loadUserCategories());
     try {
       const apiCategories = await this.api.getBlockCategories();
-      if (apiCategories.length > 0) {
-        this.state.categories = Array.from(
-          new Set(
-            apiCategories.map((cat) => cat.trim().toLowerCase()).filter((cat) => cat.length > 0)
-          )
-        );
-      }
+      this.mergeCategories(apiCategories);
     } catch {
       // Categories will be derived from loaded blocks in refreshCategoriesFromBlocks
     }
     this.renderCategoryOptions();
+    this.updateCreateCategorySelect();
   }
 
   private refreshCategoriesFromBlocks(): void {
-    const seen = new Set<string>(this.state.categories.map((cat) => cat.trim().toLowerCase()));
+    if (this.state.categories.length === 0) {
+      this.mergeCategories(DEFAULT_BLOCK_CATEGORIES);
+      this.mergeCategories(this.loadUserCategories());
+    }
+    const seen = new Set<string>(this.state.categories.map((cat) => this.normalizeCategory(cat)));
     this.state.categories = Array.from(seen);
     for (const block of this.state.blocks) {
-      const cat = (block.category || '').trim().toLowerCase();
+      const cat = this.normalizeCategory(block.category || '');
       if (cat && !seen.has(cat)) {
         seen.add(cat);
         this.state.categories.push(cat);
       }
     }
     this.renderCategoryOptions();
+    this.updateCreateCategorySelect();
+  }
+
+  private normalizeCategory(value: string): string {
+    return value.trim().toLowerCase();
+  }
+
+  private mergeCategories(categories: string[]): void {
+    for (const raw of categories) {
+      const cat = this.normalizeCategory(raw);
+      if (!cat) continue;
+      if (!this.state.categories.includes(cat)) {
+        this.state.categories.push(cat);
+      }
+    }
+  }
+
+  private loadUserCategories(): string[] {
+    try {
+      const raw = sessionStorage.getItem('block-library-user-categories');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as string[];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((cat) => this.normalizeCategory(cat)).filter((cat) => cat.length > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  private persistUserCategories(): void {
+    const userCats = this.state.categories.filter((cat) => !DEFAULT_BLOCK_CATEGORIES.includes(cat));
+    try {
+      sessionStorage.setItem('block-library-user-categories', JSON.stringify(userCats));
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  private addCategory(category: string): string | null {
+    const normalized = this.normalizeCategory(category);
+    if (!normalized) return null;
+    if (!this.state.categories.includes(normalized)) {
+      this.state.categories.push(normalized);
+      this.persistUserCategories();
+      this.renderCategoryOptions();
+      this.updateCreateCategorySelect(normalized);
+      this.renderEditor();
+    }
+    return normalized;
+  }
+
+  private updateCreateCategorySelect(selected?: string): void {
+    const select = this.listEl?.querySelector<HTMLSelectElement>('[data-create-category]');
+    if (!select) return;
+    const current = selected ?? select.value;
+    select.innerHTML = this.state.categories
+      .map((c) => `<option value="${esc(c)}">${esc(titleCase(c))}</option>`)
+      .join('');
+    select.innerHTML += '<option value="__add__">Add category...</option>';
+    if (current && this.state.categories.includes(current)) {
+      select.value = current;
+    }
+  }
+
+  private promptForCategory(select: HTMLSelectElement, previousValue: string): void {
+    const modal = new TextPromptModal({
+      title: 'Add Category',
+      label: 'Category name',
+      placeholder: 'e.g. marketing',
+      confirmLabel: 'Add',
+      onConfirm: (value) => {
+        const added = this.addCategory(value);
+        if (added) {
+          this.updateCreateCategorySelect(added);
+          select.value = added;
+          select.dataset.prevValue = added;
+          return;
+        }
+        select.value = previousValue;
+      },
+      onCancel: () => {
+        select.value = previousValue;
+      },
+    });
+    modal.show();
   }
 
   // ===========================================================================
@@ -783,6 +891,7 @@ export class BlockLibraryIDE {
     if (this.state.isCreating) {
       const nameInput = this.listEl.querySelector<HTMLInputElement>('[data-create-name]');
       const slugInput = this.listEl.querySelector<HTMLInputElement>('[data-create-slug]');
+      const categorySelect = this.listEl.querySelector<HTMLSelectElement>('[data-create-category]');
       nameInput?.focus();
       if (nameInput && slugInput) {
         nameInput.addEventListener('input', () => {
@@ -792,6 +901,18 @@ export class BlockLibraryIDE {
         });
         slugInput.addEventListener('input', () => {
           slugInput.dataset.userModified = 'true';
+        });
+      }
+      if (categorySelect) {
+        categorySelect.dataset.prevValue = categorySelect.value;
+        categorySelect.addEventListener('change', () => {
+          const value = categorySelect.value;
+          if (value === '__add__') {
+            const previous = categorySelect.dataset.prevValue ?? '';
+            this.promptForCategory(categorySelect, previous);
+            return;
+          }
+          categorySelect.dataset.prevValue = value;
         });
       }
     }
@@ -877,6 +998,7 @@ export class BlockLibraryIDE {
             <select data-create-category
                     class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
               ${this.state.categories.map((c) => `<option value="${esc(c)}">${esc(titleCase(c))}</option>`).join('')}
+              <option value="__add__">Add category...</option>
             </select>
           </div>
           <div data-create-error class="hidden text-xs text-red-600"></div>
@@ -1231,7 +1353,10 @@ export class BlockLibraryIDE {
 
     const name = nameInput?.value.trim() ?? '';
     const slug = slugInput?.value.trim() ?? '';
-    const category = categorySelect?.value ?? 'custom';
+    let category = categorySelect?.value ?? 'custom';
+    if (category === '__add__') {
+      category = 'custom';
+    }
 
     if (!name) {
       this.showCreateError(errorEl, 'Name is required.');
@@ -1544,12 +1669,13 @@ export class BlockLibraryIDE {
   }
 
   private showToast(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
-    // Use the global toast manager if available
-    const toastManager = (window as unknown as Record<string, unknown>).__toastManager as
-      | { show?: (msg: string, opts?: Record<string, unknown>) => void }
+    // Prefer global notify helper
+    const notify = (window as any).notify as
+      | { success?: (msg: string) => void; error?: (msg: string) => void; info?: (msg: string) => void }
       | undefined;
-    if (toastManager?.show) {
-      toastManager.show(message, { type });
+    const notifyFn = notify?.[type];
+    if (typeof notifyFn === 'function') {
+      notifyFn(message);
       return;
     }
 
@@ -1573,6 +1699,91 @@ export class BlockLibraryIDE {
       toast.style.opacity = '0';
       setTimeout(() => toast.remove(), 300);
     }, 3000);
+  }
+}
+
+// =============================================================================
+// Modals
+// =============================================================================
+
+interface TextPromptModalConfig {
+  title: string;
+  label: string;
+  placeholder?: string;
+  initialValue?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onConfirm: (value: string) => void;
+  onCancel?: () => void;
+}
+
+class TextPromptModal extends Modal {
+  private config: TextPromptModalConfig;
+
+  constructor(config: TextPromptModalConfig) {
+    super({ size: 'sm', initialFocus: '[data-prompt-input]' });
+    this.config = config;
+  }
+
+  protected renderContent(): string {
+    return `
+      <div class="p-5">
+        <div class="text-base font-semibold text-gray-900">${esc(this.config.title)}</div>
+        <label class="block text-xs font-medium text-gray-600 mt-3 mb-1">${esc(this.config.label)}</label>
+        <input type="text"
+               data-prompt-input
+               value="${esc(this.config.initialValue ?? '')}"
+               placeholder="${esc(this.config.placeholder ?? '')}"
+               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        <div data-prompt-error class="hidden text-xs text-red-600 mt-1"></div>
+        <div class="flex items-center justify-end gap-2 mt-4">
+          <button type="button" data-prompt-cancel
+                  class="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            ${esc(this.config.cancelLabel ?? 'Cancel')}
+          </button>
+          <button type="button" data-prompt-confirm
+                  class="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+            ${esc(this.config.confirmLabel ?? 'Save')}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  protected bindContentEvents(): void {
+    const input = this.container?.querySelector<HTMLInputElement>('[data-prompt-input]');
+    const errorEl = this.container?.querySelector<HTMLElement>('[data-prompt-error]');
+    const confirmBtn = this.container?.querySelector<HTMLButtonElement>('[data-prompt-confirm]');
+    const cancelBtn = this.container?.querySelector<HTMLButtonElement>('[data-prompt-cancel]');
+
+    const showError = (message: string): void => {
+      if (!errorEl) return;
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    };
+
+    const handleConfirm = (): void => {
+      const value = input?.value.trim() ?? '';
+      if (!value) {
+        showError('Value is required.');
+        input?.focus();
+        return;
+      }
+      this.config.onConfirm(value);
+      this.hide();
+    };
+
+    confirmBtn?.addEventListener('click', handleConfirm);
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleConfirm();
+      }
+    });
+    cancelBtn?.addEventListener('click', () => {
+      this.config.onCancel?.();
+      this.hide();
+    });
   }
 }
 

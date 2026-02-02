@@ -5,6 +5,7 @@
  */
 
 import type { FieldType, FieldTypeMetadata, FieldTypeCategory, FieldTypePickerConfig } from './types';
+import { Modal } from '../shared/modal';
 
 // =============================================================================
 // SVG Icon Map
@@ -364,56 +365,28 @@ export function getFieldTypesByCategory(category: FieldTypeCategory): FieldTypeM
 // Field Type Picker Component
 // =============================================================================
 
-export class FieldTypePicker {
+export class FieldTypePicker extends Modal {
   private config: FieldTypePickerConfig;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
   private selectedCategory: FieldTypeCategory = 'text';
   private searchQuery: string = '';
 
   constructor(config: FieldTypePickerConfig) {
+    super({
+      size: '3xl',
+      maxHeight: 'h-[80vh]',
+      initialFocus: '[data-field-type-search]',
+      backdropDataAttr: 'data-field-type-picker-backdrop',
+    });
     this.config = config;
   }
 
-  /**
-   * Show the field type picker modal
-   */
-  show(): void {
-    this.render();
-    this.bindEvents();
-    // Focus search input
-    const searchInput = this.container?.querySelector<HTMLInputElement>('[data-field-type-search]');
-    searchInput?.focus();
+  protected onBeforeHide(): boolean {
+    this.config.onCancel();
+    return true;
   }
 
-  /**
-   * Hide the field type picker modal
-   */
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
-    // Create backdrop
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-150';
-    this.backdrop.setAttribute('data-field-type-picker-backdrop', 'true');
-
-    // Create modal container
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col overflow-hidden';
-    this.container.setAttribute('data-field-type-picker', 'true');
-
-    this.container.innerHTML = `
+  protected renderContent(): string {
+    return `
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Add Field</h2>
         <button type="button" data-field-type-close class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -447,14 +420,6 @@ export class FieldTypePicker {
         </div>
       </div>
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    // Trigger animation
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-    });
   }
 
   private renderCategories(): string {
@@ -530,16 +495,8 @@ export class FieldTypePicker {
     `;
   }
 
-  private bindEvents(): void {
-    if (!this.container || !this.backdrop) return;
-
-    // Close on backdrop click
-    this.backdrop.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) {
-        this.config.onCancel();
-        this.hide();
-      }
-    });
+  protected bindContentEvents(): void {
+    if (!this.container) return;
 
     // Close button
     this.container.querySelector('[data-field-type-close]')?.addEventListener('click', () => {
@@ -573,14 +530,6 @@ export class FieldTypePicker {
     searchInput?.addEventListener('input', () => {
       this.searchQuery = searchInput.value;
       this.updateView();
-    });
-
-    // Keyboard navigation
-    this.container.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.config.onCancel();
-        this.hide();
-      }
     });
   }
 

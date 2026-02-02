@@ -244,8 +244,8 @@ export class FieldPalettePanel {
               }
             </span>
             <span class="flex-shrink-0 w-4 h-4 flex items-center justify-center text-gray-400">${cat.icon}</span>
-            <span class="text-[10px] font-semibold text-gray-600 uppercase tracking-wider flex-1">${esc(cat.label)}</span>
-            <span class="text-[9px] text-gray-400">${types.length}</span>
+            <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider flex-1">${esc(cat.label)}</span>
+            <span class="text-[11px] text-gray-400">${types.length}</span>
           </button>
           <div class="${isCollapsed ? 'hidden' : ''}" data-palette-category-body="${esc(cat.id)}">
             <div class="px-2 pb-2 space-y-0.5">
@@ -317,7 +317,7 @@ export class FieldPalettePanel {
           ${fieldType.icon}
         </span>
         <span class="flex-1 min-w-0">
-          <span class="block text-[11px] font-medium text-gray-700 group-hover:text-blue-700 truncate">${esc(fieldType.label)}</span>
+          <span class="block text-[12px] font-medium text-gray-700 group-hover:text-blue-700 truncate">${esc(fieldType.label)}</span>
         </span>
       </div>`;
   }

@@ -4,27 +4,19 @@
  * Modal/drawer UI for configuring a field's properties.
  */
 import type { FieldConfigFormConfig } from './types';
-export declare class FieldConfigForm {
+import { Modal } from '../shared/modal';
+export declare class FieldConfigForm extends Modal {
     private config;
-    private container;
-    private backdrop;
     private field;
     private isNewField;
     constructor(config: FieldConfigFormConfig);
-    /**
-     * Show the field config form modal
-     */
-    show(): void;
-    /**
-     * Hide the field config form modal
-     */
-    hide(): void;
-    private render;
+    protected onBeforeHide(): boolean;
+    protected renderContent(): string;
     private renderGeneralSection;
     private renderValidationSection;
     private renderAppearanceSection;
     private renderTypeSpecificSection;
-    private bindEvents;
+    protected bindContentEvents(): void;
     private bindOptionsEvents;
     private bindBlockPickerEvents;
     private showBlockPicker;

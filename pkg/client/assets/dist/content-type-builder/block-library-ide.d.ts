@@ -75,6 +75,7 @@ export declare class BlockLibraryIDE {
     private updateUrlEnvironment;
     /** Ensure the environment select contains a specific option */
     private ensureEnvironmentOption;
+    private promptForEnvironment;
     getSelectedBlock(): BlockDefinition | null;
     selectBlock(blockId: string | null): void;
     markDirty(blockId: string): void;
@@ -87,6 +88,13 @@ export declare class BlockLibraryIDE {
     private loadBlocks;
     private loadCategories;
     private refreshCategoriesFromBlocks;
+    private normalizeCategory;
+    private mergeCategories;
+    private loadUserCategories;
+    private persistUserCategories;
+    private addCategory;
+    private updateCreateCategorySelect;
+    private promptForCategory;
     private renderBlockList;
     private renderBlockItem;
     private renderCreateForm;

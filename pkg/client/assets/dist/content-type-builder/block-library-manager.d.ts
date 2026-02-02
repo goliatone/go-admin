@@ -5,24 +5,17 @@
  * Supports both management mode (full CRUD) and picker mode (selection only).
  */
 import type { BlockLibraryManagerConfig } from './types';
-export declare class BlockLibraryManager {
+import { Modal } from '../shared/modal.js';
+export declare class BlockLibraryManager extends Modal {
     private config;
     private api;
     private state;
-    private container;
-    private backdrop;
     private categories;
     constructor(config: BlockLibraryManagerConfig);
-    /**
-     * Show the block library manager
-     */
-    show(): Promise<void>;
-    /**
-     * Hide the block library manager
-     */
-    hide(): void;
-    private render;
-    private bindEvents;
+    protected onBeforeHide(): boolean;
+    protected onAfterShow(): Promise<void>;
+    protected renderContent(): string;
+    protected bindContentEvents(): void;
     private loadBlocks;
     private loadCategories;
     private refreshCategoriesFromBlocks;

@@ -27,6 +27,8 @@ import { ContentTypeAPIClient, fieldsToSchema, schemaToFields, generateFieldId }
 import { FieldTypePicker, getFieldTypeMetadata, FIELD_TYPES } from './field-type-picker';
 import { FieldConfigForm } from './field-config-form';
 import { LayoutEditor } from './layout-editor';
+import { badge } from '../shared/badge';
+import { Modal } from '../shared/modal';
 
 // =============================================================================
 // Content Type Editor Component
@@ -44,6 +46,9 @@ export class ContentTypeEditor {
   private api: ContentTypeAPIClient;
   private state: ExtendedBuilderState;
   private dragState: DragState | null = null;
+  private staticEventsBound = false;
+  private previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private lifecycleOutsideClickHandler: ((e: MouseEvent) => void) | null = null;
 
   constructor(container: HTMLElement, config: ContentTypeEditorConfig) {
     this.container = container;
@@ -98,6 +103,8 @@ export class ContentTypeEditor {
       }
       this.state.isDirty = false;
       this.render();
+      this.bindEvents();
+      this.schedulePreview();
     } catch (error) {
       console.error('Failed to load content type:', error);
       this.showToast('Failed to load content type', 'error');
@@ -183,6 +190,7 @@ export class ContentTypeEditor {
         this.state.isDirty = true;
         this.renderFieldList();
         this.updateDirtyState();
+        this.schedulePreview();
       },
       onCancel: () => {},
     });
@@ -206,6 +214,7 @@ export class ContentTypeEditor {
           this.state.isDirty = true;
           this.renderFieldList();
           this.updateDirtyState();
+          this.schedulePreview();
         }
       },
       onCancel: () => {},
@@ -227,6 +236,7 @@ export class ContentTypeEditor {
     this.state.isDirty = true;
     this.renderFieldList();
     this.updateDirtyState();
+    this.schedulePreview();
   }
 
   /**
@@ -247,6 +257,7 @@ export class ContentTypeEditor {
     this.state.isDirty = true;
     this.renderFieldList();
     this.updateDirtyState();
+    this.schedulePreview();
   }
 
   /**
@@ -734,16 +745,9 @@ export class ContentTypeEditor {
   // ===========================================================================
 
   private getStatusBadge(status?: ContentTypeStatus): string {
-    switch (status) {
-      case 'draft':
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Draft</span>';
-      case 'deprecated':
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Deprecated</span>';
-      case 'active':
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Active</span>';
-      default:
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">Unknown</span>';
-    }
+    const variant = status || 'unknown';
+    const label = variant.charAt(0).toUpperCase() + variant.slice(1);
+    return badge(label, 'status', variant);
   }
 
   private renderLifecycleActions(ct: ContentType): string {
@@ -931,27 +935,14 @@ export class ContentTypeEditor {
   // ===========================================================================
 
   private bindEvents(): void {
-    // Header actions
-    this.container.querySelector('[data-ct-save]')?.addEventListener('click', () => this.save());
-    this.container.querySelector('[data-ct-validate]')?.addEventListener('click', () => this.validateSchema());
-    this.container.querySelector('[data-ct-preview]')?.addEventListener('click', () => this.previewSchema());
-    this.container.querySelector('[data-ct-cancel]')?.addEventListener('click', () => this.config.onCancel?.());
+    if (!this.staticEventsBound) {
+      this.bindStaticEvents();
+      this.staticEventsBound = true;
+    }
+    this.bindDynamicEvents();
+  }
 
-    // Lifecycle actions dropdown
-    this.bindLifecycleMenuEvents();
-
-    // Add field buttons
-    this.container.querySelector('[data-ct-add-field]')?.addEventListener('click', () => this.showFieldTypePicker());
-    this.container.querySelector('[data-ct-add-field-empty]')?.addEventListener('click', () =>
-      this.showFieldTypePicker()
-    );
-
-    // Layout button
-    this.container.querySelector('[data-ct-layout]')?.addEventListener('click', () => this.showLayoutEditor());
-
-    // Preview refresh
-    this.container.querySelector('[data-ct-refresh-preview]')?.addEventListener('click', () => this.previewSchema());
-
+  private bindStaticEvents(): void {
     // Field actions (delegated)
     this.container.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -983,7 +974,7 @@ export class ContentTypeEditor {
       }
     });
 
-    // Mark dirty on input changes
+    // Mark dirty on input changes + auto-slug
     this.container.addEventListener('input', (e) => {
       const target = e.target as HTMLElement;
       if (
@@ -993,21 +984,47 @@ export class ContentTypeEditor {
         this.state.isDirty = true;
         this.updateDirtyState();
       }
-    });
 
-    // Auto-generate slug from name
-    const nameInput = this.container.querySelector<HTMLInputElement>('[data-ct-name]');
-    const slugInput = this.container.querySelector<HTMLInputElement>('[data-ct-slug]');
-    if (nameInput && slugInput) {
-      nameInput.addEventListener('input', () => {
-        if (!slugInput.dataset.userModified && !this.state.contentType?.slug) {
+      if (target.matches('[data-ct-name]')) {
+        const nameInput = target as HTMLInputElement;
+        const slugInput = this.container.querySelector<HTMLInputElement>('[data-ct-slug]');
+        if (slugInput && !slugInput.dataset.userModified && !this.state.contentType?.slug) {
           slugInput.value = nameToSlug(nameInput.value);
         }
-      });
-      slugInput.addEventListener('input', () => {
+        this.schedulePreview();
+        return;
+      }
+
+      if (target.matches('[data-ct-slug]')) {
+        const slugInput = target as HTMLInputElement;
         slugInput.dataset.userModified = 'true';
-      });
-    }
+        this.schedulePreview();
+        return;
+      }
+    });
+  }
+
+  private bindDynamicEvents(): void {
+    // Header actions
+    this.container.querySelector('[data-ct-save]')?.addEventListener('click', () => this.save());
+    this.container.querySelector('[data-ct-validate]')?.addEventListener('click', () => this.validateSchema());
+    this.container.querySelector('[data-ct-preview]')?.addEventListener('click', () => this.previewSchema());
+    this.container.querySelector('[data-ct-cancel]')?.addEventListener('click', () => this.config.onCancel?.());
+
+    // Lifecycle actions dropdown
+    this.bindLifecycleMenuEvents();
+
+    // Add field buttons
+    this.container.querySelector('[data-ct-add-field]')?.addEventListener('click', () => this.showFieldTypePicker());
+    this.container.querySelector('[data-ct-add-field-empty]')?.addEventListener('click', () =>
+      this.showFieldTypePicker()
+    );
+
+    // Layout button
+    this.container.querySelector('[data-ct-layout]')?.addEventListener('click', () => this.showLayoutEditor());
+
+    // Preview refresh
+    this.container.querySelector('[data-ct-refresh-preview]')?.addEventListener('click', () => this.previewSchema());
 
     // Drag and drop
     this.bindDragEvents();
@@ -1099,7 +1116,13 @@ export class ContentTypeEditor {
 
   private bindLifecycleMenuEvents(): void {
     const menuContainer = this.container.querySelector('[data-ct-lifecycle-menu]');
-    if (!menuContainer) return;
+    if (!menuContainer) {
+      if (this.lifecycleOutsideClickHandler) {
+        document.removeEventListener('click', this.lifecycleOutsideClickHandler);
+        this.lifecycleOutsideClickHandler = null;
+      }
+      return;
+    }
 
     const trigger = menuContainer.querySelector('[data-ct-lifecycle-trigger]');
     const dropdown = menuContainer.querySelector('[data-ct-lifecycle-dropdown]');
@@ -1112,11 +1135,15 @@ export class ContentTypeEditor {
       });
 
       // Close dropdown when clicking outside
-      document.addEventListener('click', (e) => {
+      if (this.lifecycleOutsideClickHandler) {
+        document.removeEventListener('click', this.lifecycleOutsideClickHandler);
+      }
+      this.lifecycleOutsideClickHandler = (e) => {
         if (!menuContainer.contains(e.target as Node)) {
           dropdown.classList.add('hidden');
         }
-      });
+      };
+      document.addEventListener('click', this.lifecycleOutsideClickHandler);
     }
 
     // Lifecycle action buttons
@@ -1158,6 +1185,7 @@ export class ContentTypeEditor {
         this.state.isDirty = true;
         this.renderFieldList();
         this.updateDirtyState();
+        this.schedulePreview();
         // Re-render fields section to update layout badge
         const fieldsSection = this.container.querySelector('[data-ct-field-list]')?.closest('.rounded-lg');
         if (fieldsSection) {
@@ -1486,10 +1514,13 @@ export class ContentTypeEditor {
   }
 
   private showToast(message: string, type: 'success' | 'error' | 'info'): void {
-    // Try to use global toast if available
-    const toastFn = (window as any).showToast;
-    if (typeof toastFn === 'function') {
-      toastFn(message, type);
+    // Prefer global notify helper
+    const notify = (window as any).notify as
+      | { success?: (msg: string) => void; error?: (msg: string) => void; info?: (msg: string) => void }
+      | undefined;
+    const notifyFn = notify?.[type];
+    if (typeof notifyFn === 'function') {
+      notifyFn(message);
       return;
     }
 
@@ -1499,6 +1530,16 @@ export class ContentTypeEditor {
     } else {
       console.log(message);
     }
+  }
+
+  private schedulePreview(delayMs: number = 400): void {
+    if (this.previewDebounceTimer) {
+      clearTimeout(this.previewDebounceTimer);
+    }
+    this.previewDebounceTimer = setTimeout(() => {
+      this.previewDebounceTimer = null;
+      this.previewSchema();
+    }, delayMs);
   }
 }
 
@@ -1560,46 +1601,26 @@ interface PublishConfirmationModalConfig {
   onCancel: () => void;
 }
 
-class PublishConfirmationModal {
+class PublishConfirmationModal extends Modal {
   private config: PublishConfirmationModalConfig;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
 
   constructor(config: PublishConfirmationModalConfig) {
+    super({ size: 'lg', flexColumn: false });
     this.config = config;
   }
 
-  show(): void {
-    this.render();
-    this.bindEvents();
+  protected onBeforeHide(): boolean {
+    this.config.onCancel();
+    return true;
   }
 
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
+  protected renderContent(): string {
     const { contentType, compatibilityResult } = this.config;
     const hasBreakingChanges = (compatibilityResult?.breaking_changes?.length ?? 0) > 0;
     const hasWarnings = (compatibilityResult?.warnings?.length ?? 0) > 0;
     const affectedCount = compatibilityResult?.affected_entries_count ?? 0;
 
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-[70] flex items-center justify-center bg-black/50 transition-opacity duration-150 opacity-0';
-
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden';
-
-    this.container.innerHTML = `
+    return `
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
           Publish Content Type
@@ -1695,23 +1716,9 @@ class PublishConfirmationModal {
         </button>
       </div>
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-    });
   }
 
-  private bindEvents(): void {
-    this.backdrop?.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) {
-        this.config.onCancel();
-        this.hide();
-      }
-    });
-
+  protected bindContentEvents(): void {
     this.container?.querySelector('[data-publish-cancel]')?.addEventListener('click', () => {
       this.config.onCancel();
       this.hide();
@@ -1732,14 +1739,6 @@ class PublishConfirmationModal {
       this.config.onConfirm(force);
       this.hide();
     });
-
-    // Escape key
-    this.container?.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.config.onCancel();
-        this.hide();
-      }
-    });
   }
 }
 
@@ -1753,45 +1752,25 @@ interface CloneContentTypeModalConfig {
   onCancel: () => void;
 }
 
-class CloneContentTypeModal {
+class CloneContentTypeModal extends Modal {
   private config: CloneContentTypeModalConfig;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
 
   constructor(config: CloneContentTypeModalConfig) {
+    super({ size: 'md', initialFocus: '[data-clone-slug]' });
     this.config = config;
   }
 
-  show(): void {
-    this.render();
-    this.bindEvents();
+  protected onBeforeHide(): boolean {
+    this.config.onCancel();
+    return true;
   }
 
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
+  protected renderContent(): string {
     const { contentType } = this.config;
     const suggestedSlug = `${contentType.slug}-copy`;
     const suggestedName = `${contentType.name} (Copy)`;
 
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-[70] flex items-center justify-center bg-black/50 transition-opacity duration-150 opacity-0';
-
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-md overflow-hidden';
-
-    this.container.innerHTML = `
+    return `
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
           Clone Content Type
@@ -1850,27 +1829,9 @@ class CloneContentTypeModal {
         </button>
       </div>
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-      // Focus the slug input
-      const slugInput = this.container?.querySelector<HTMLInputElement>('[data-clone-slug]');
-      slugInput?.focus();
-      slugInput?.select();
-    });
   }
 
-  private bindEvents(): void {
-    this.backdrop?.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) {
-        this.config.onCancel();
-        this.hide();
-      }
-    });
-
+  protected bindContentEvents(): void {
     this.container?.querySelector('[data-clone-cancel]')?.addEventListener('click', () => {
       this.config.onCancel();
       this.hide();
@@ -1904,9 +1865,6 @@ class CloneContentTypeModal {
       if (e.key === 'Enter') {
         e.preventDefault();
         this.container?.querySelector<HTMLButtonElement>('[data-clone-confirm]')?.click();
-      } else if (e.key === 'Escape') {
-        this.config.onCancel();
-        this.hide();
       }
     });
   }
@@ -1921,46 +1879,24 @@ interface ContentTypeVersionHistoryViewerConfig {
   contentType: ContentType;
 }
 
-class ContentTypeVersionHistoryViewer {
+class ContentTypeVersionHistoryViewer extends Modal {
   private config: ContentTypeVersionHistoryViewerConfig;
   private api: ContentTypeAPIClient;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
   private versions: ContentTypeSchemaVersion[] = [];
   private expandedVersions: Set<string> = new Set();
 
   constructor(config: ContentTypeVersionHistoryViewerConfig) {
+    super({ size: '2xl', maxHeight: 'max-h-[80vh]' });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
   }
 
-  async show(): Promise<void> {
-    this.render();
-    this.bindEvents();
+  protected async onAfterShow(): Promise<void> {
     await this.loadVersions();
   }
 
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-[60] flex items-center justify-center bg-black/50 transition-opacity duration-150 opacity-0';
-
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden';
-
-    this.container.innerHTML = `
+  protected renderContent(): string {
+    return `
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Version History</h2>
@@ -1981,26 +1917,11 @@ class ContentTypeVersionHistoryViewer {
         </div>
       </div>
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-    });
   }
 
-  private bindEvents(): void {
-    this.backdrop?.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) this.hide();
-    });
-
+  protected bindContentEvents(): void {
     this.container?.querySelector('[data-viewer-close]')?.addEventListener('click', () => {
       this.hide();
-    });
-
-    this.container?.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') this.hide();
     });
   }
 

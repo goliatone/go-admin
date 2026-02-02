@@ -23,6 +23,7 @@ import type {
   FieldTypeMetadata,
 } from './types';
 import type { BackendFieldTypeCategoryGroup } from './block-field-type-registry';
+import { extractErrorMessage } from '../toast/error-helpers';
 
 export interface ContentTypeAPIConfig {
   basePath: string;
@@ -497,13 +498,43 @@ export class ContentTypeAPIClient {
     let errorData: APIErrorResponse | null = null;
 
     try {
-      errorData = await response.json();
+      errorData = await response.clone().json();
     } catch {
       // Response may not be JSON
     }
 
-    const message = errorData?.error ?? response.statusText ?? 'Request failed';
-    throw new ContentTypeAPIError(message, response.status, errorData?.text_code, errorData?.fields);
+    const message = await extractErrorMessage(response);
+    let textCode: string | undefined = errorData?.text_code;
+    let fields: Record<string, string> | undefined = errorData?.fields;
+
+    if (errorData && typeof errorData.error === 'object' && errorData.error) {
+      const errObj = errorData.error as Record<string, unknown>;
+      if (!textCode && typeof errObj.text_code === 'string') {
+        textCode = errObj.text_code;
+      }
+      if (!fields) {
+        const meta = errObj.metadata as Record<string, unknown> | undefined;
+        const metaFields = meta?.fields as Record<string, string> | undefined;
+        if (metaFields && typeof metaFields === 'object') {
+          fields = metaFields;
+        }
+      }
+      if (!fields && Array.isArray(errObj.validation_errors)) {
+        const out: Record<string, string> = {};
+        for (const entry of errObj.validation_errors as Array<Record<string, unknown>>) {
+          const field = typeof entry.field === 'string' ? entry.field : '';
+          const msg = typeof entry.message === 'string' ? entry.message : '';
+          if (field && msg) {
+            out[field] = msg;
+          }
+        }
+        if (Object.keys(out).length > 0) {
+          fields = out;
+        }
+      }
+    }
+
+    throw new ContentTypeAPIError(message, response.status, textCode, fields);
   }
 }
 

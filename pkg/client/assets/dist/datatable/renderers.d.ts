@@ -34,11 +34,11 @@ export declare const CommonRenderers: {
     /**
      * Status badge renderer with custom colors
      */
-    statusBadge: (colorMap?: Record<string, string>) => CellRenderer;
+    statusBadge: (_colorMap?: Record<string, string>) => CellRenderer;
     /**
      * Role badge renderer with color mapping
      */
-    roleBadge: (colorMap?: Record<string, string>) => CellRenderer;
+    roleBadge: (_colorMap?: Record<string, string>) => CellRenderer;
     /**
      * Combined name+email renderer
      */

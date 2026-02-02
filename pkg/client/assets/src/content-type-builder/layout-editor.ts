@@ -5,6 +5,7 @@
  */
 
 import type { UISchemaOverlay, UILayoutConfig, UITab, FieldDefinition } from './types';
+import { Modal } from '../shared/modal';
 
 export interface LayoutEditorConfig {
   layout: UILayoutConfig;
@@ -17,14 +18,13 @@ export interface LayoutEditorConfig {
 // Layout Editor Component
 // =============================================================================
 
-export class LayoutEditor {
+export class LayoutEditor extends Modal {
   private config: LayoutEditorConfig;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
   private layout: UILayoutConfig;
   private dragState: { tabId: string; startIndex: number } | null = null;
 
   constructor(config: LayoutEditorConfig) {
+    super({ size: '3xl', backdropDataAttr: 'data-layout-editor-backdrop' });
     this.config = config;
     this.layout = JSON.parse(JSON.stringify(config.layout ?? { type: 'flat', gridColumns: 12 }));
     if (!this.layout.tabs) {
@@ -32,42 +32,13 @@ export class LayoutEditor {
     }
   }
 
-  /**
-   * Show the layout editor modal
-   */
-  show(): void {
-    this.render();
-    this.bindEvents();
+  protected onBeforeHide(): boolean {
+    this.config.onCancel();
+    return true;
   }
 
-  /**
-   * Hide the layout editor modal
-   */
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
-    // Create backdrop
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-150';
-    this.backdrop.setAttribute('data-layout-editor-backdrop', 'true');
-
-    // Create modal container
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden';
-    this.container.setAttribute('data-layout-editor', 'true');
-
-    this.container.innerHTML = `
+  protected renderContent(): string {
+    return `
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Layout Settings</h2>
@@ -104,14 +75,6 @@ export class LayoutEditor {
         </button>
       </div>
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    // Trigger animation
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-    });
   }
 
   private renderLayoutTypeSection(): string {
@@ -349,16 +312,8 @@ export class LayoutEditor {
     `;
   }
 
-  private bindEvents(): void {
-    if (!this.container || !this.backdrop) return;
-
-    // Close on backdrop click
-    this.backdrop.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) {
-        this.config.onCancel();
-        this.hide();
-      }
-    });
+  protected bindContentEvents(): void {
+    if (!this.container) return;
 
     // Close button
     this.container.querySelector('[data-layout-close]')?.addEventListener('click', () => {
@@ -399,14 +354,6 @@ export class LayoutEditor {
 
     // Bind tab events
     this.bindTabEvents();
-
-    // Keyboard shortcuts
-    this.container.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.config.onCancel();
-        this.hide();
-      }
-    });
   }
 
   private bindTabEvents(): void {

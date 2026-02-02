@@ -1,4 +1,5 @@
 import type { ToastNotifier, ToastOptions, ConfirmOptions } from './types.js';
+import { ConfirmModal } from '../shared/modal.js';
 
 type ToastPosition = 'top-right' | 'top-center' | 'bottom-right' | 'bottom-center';
 
@@ -80,14 +81,10 @@ export class ToastManager implements ToastNotifier {
   }
 
   async confirm(message: string, options: ConfirmOptions = {}): Promise<boolean> {
-    return new Promise((resolve) => {
-      const modal = this.createConfirmModal(message, options, resolve);
-      document.body.appendChild(modal);
-
-      // Animate in
-      requestAnimationFrame(() => {
-        modal.classList.add('confirm-modal-active');
-      });
+    return ConfirmModal.confirm(message, {
+      title: options.title,
+      confirmText: options.confirmText,
+      cancelText: options.cancelText,
     });
   }
 
@@ -131,84 +128,6 @@ export class ToastManager implements ToastNotifier {
     }
 
     return toast;
-  }
-
-  private createConfirmModal(message: string, options: ConfirmOptions, resolve: (value: boolean) => void): HTMLElement {
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-modal-overlay';
-
-    const modal = document.createElement('div');
-    modal.className = 'confirm-modal';
-
-    modal.innerHTML = `
-      <div class="confirm-modal-header">
-        <h3 class="confirm-modal-title">${this.escapeHtml(options.title || 'Confirm')}</h3>
-      </div>
-      <div class="confirm-modal-body">
-        <p class="confirm-modal-message">${this.escapeHtml(message)}</p>
-      </div>
-      <div class="confirm-modal-footer">
-        <button class="confirm-modal-btn confirm-modal-btn-cancel">
-          ${this.escapeHtml(options.cancelText || 'Cancel')}
-        </button>
-        <button class="confirm-modal-btn confirm-modal-btn-confirm">
-          ${this.escapeHtml(options.confirmText || 'Confirm')}
-        </button>
-      </div>
-    `;
-
-    overlay.appendChild(modal);
-
-    let isDone = false;
-
-    const cleanup = () => {
-      overlay.classList.add('confirm-modal-leaving');
-      setTimeout(() => {
-        overlay.remove();
-      }, 200);
-    };
-
-    const escHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        finish(false);
-      }
-    };
-
-    const finish = (confirmed: boolean) => {
-      if (isDone) return;
-      isDone = true;
-      document.removeEventListener('keydown', escHandler);
-      cleanup();
-      resolve(confirmed);
-    };
-
-    // Bind buttons
-    const cancelBtn = modal.querySelector('.confirm-modal-btn-cancel');
-    const confirmBtn = modal.querySelector('.confirm-modal-btn-confirm');
-
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', () => {
-        finish(false);
-      });
-    }
-
-    if (confirmBtn) {
-      confirmBtn.addEventListener('click', () => {
-        finish(true);
-      });
-    }
-
-    // Click overlay to cancel
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        finish(false);
-      }
-    });
-
-    // ESC key to cancel
-    document.addEventListener('keydown', escHandler);
-
-    return overlay;
   }
 
   private dismiss(id: string): void {

@@ -253,7 +253,17 @@ export interface SchemaPreviewResponse {
     html: string;
 }
 export interface APIErrorResponse {
-    error: string;
+    error: string | {
+        message?: string;
+        text_code?: string;
+        validation_errors?: Array<{
+            field?: string;
+            message?: string;
+        }>;
+        metadata?: {
+            fields?: Record<string, string>;
+        };
+    };
     text_code?: string;
     fields?: Record<string, string>;
 }
