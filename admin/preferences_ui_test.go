@@ -1,0 +1,155 @@
+package admin
+
+import (
+	"context"
+	"testing"
+
+	router "github.com/goliatone/go-router"
+)
+
+func TestPreferencesFormSaveMergesRawUIAndClearKeys(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
+
+	if _, err := adm.preferences.Save(context.Background(), "user-1", UserPreferences{
+		Raw: map[string]any{
+			"ui.keep":     map[string]any{"ok": true},
+			"system.flag": true,
+		},
+	}); err != nil {
+		t.Fatalf("seed preferences: %v", err)
+	}
+
+	prefPath := joinPath(cfg.BasePath, preferencesModuleID)
+	mockCtx := router.NewMockContext()
+	mockCtx.HeadersM["X-User-ID"] = "user-1"
+	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("FormValue", preferencesKeyTheme).Return("")
+	mockCtx.On("FormValue", preferencesKeyThemeVariant).Return("")
+	mockCtx.On("FormValue", "raw_ui").Return(`{"ui.new":{"value":1}}`)
+	mockCtx.On("FormValue", "clear_ui_keys").Return("ui.keep")
+	mockCtx.On("Redirect", prefPath).Return(nil)
+
+	mod := NewPreferencesModule()
+	if err := mod.savePreferencesForm(adm, mockCtx, prefPath); err != nil {
+		t.Fatalf("save preferences form: %v", err)
+	}
+
+	prefs, err := adm.preferences.Get(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("load preferences: %v", err)
+	}
+	if _, ok := prefs.Raw["ui.keep"]; ok {
+		t.Fatalf("expected cleared ui key removed, got %v", prefs.Raw)
+	}
+	if _, ok := prefs.Raw["ui.new"]; !ok {
+		t.Fatalf("expected new ui key merged, got %v", prefs.Raw)
+	}
+	if _, ok := prefs.Raw["system.flag"]; !ok {
+		t.Fatalf("expected non-ui key preserved, got %v", prefs.Raw)
+	}
+
+	mockCtx.AssertExpectations(t)
+}
+
+func TestPreferencesFormSaveRejectsInvalidRawUI(t *testing.T) {
+	tests := []struct {
+		name  string
+		rawUI string
+	}{
+		{name: "invalid json", rawUI: "{invalid"},
+		{name: "invalid key", rawUI: `{"not.allowed":true}`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				BasePath:      "/admin",
+				DefaultLocale: "en",
+			}
+			adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+			adm.WithAuthorizer(allowAll{})
+			if _, err := adm.preferences.Save(context.Background(), "user-1", UserPreferences{
+				Raw: map[string]any{
+					"ui.keep":     map[string]any{"ok": true},
+					"system.flag": true,
+				},
+			}); err != nil {
+				t.Fatalf("seed preferences: %v", err)
+			}
+
+			mockCtx := router.NewMockContext()
+			mockCtx.HeadersM["X-User-ID"] = "user-1"
+			mockCtx.On("Context").Return(context.Background())
+			mockCtx.On("FormValue", preferencesKeyTheme).Return("")
+			mockCtx.On("FormValue", preferencesKeyThemeVariant).Return("")
+			mockCtx.On("FormValue", "raw_ui").Return(tc.rawUI)
+			mockCtx.On("FormValue", "clear_ui_keys").Return("")
+
+			mod := NewPreferencesModule()
+			if err := mod.savePreferencesForm(adm, mockCtx, joinPath(cfg.BasePath, preferencesModuleID)); err == nil {
+				t.Fatalf("expected raw_ui validation error")
+			}
+
+			prefs, err := adm.preferences.Get(context.Background(), "user-1")
+			if err != nil {
+				t.Fatalf("load preferences: %v", err)
+			}
+			if _, ok := prefs.Raw["ui.keep"]; !ok {
+				t.Fatalf("expected existing ui key preserved, got %v", prefs.Raw)
+			}
+			if _, ok := prefs.Raw["system.flag"]; !ok {
+				t.Fatalf("expected non-ui key preserved, got %v", prefs.Raw)
+			}
+
+			mockCtx.AssertExpectations(t)
+		})
+	}
+}
+
+func TestPreferencesFormSaveRejectsInvalidClearUIKeys(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
+	if _, err := adm.preferences.Save(context.Background(), "user-1", UserPreferences{
+		Raw: map[string]any{
+			"ui.keep":     map[string]any{"ok": true},
+			"system.flag": true,
+		},
+	}); err != nil {
+		t.Fatalf("seed preferences: %v", err)
+	}
+
+	mockCtx := router.NewMockContext()
+	mockCtx.HeadersM["X-User-ID"] = "user-1"
+	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("FormValue", preferencesKeyTheme).Return("")
+	mockCtx.On("FormValue", preferencesKeyThemeVariant).Return("")
+	mockCtx.On("FormValue", "raw_ui").Return(`{"ui.new":true}`)
+	mockCtx.On("FormValue", "clear_ui_keys").Return("not.allowed")
+
+	mod := NewPreferencesModule()
+	if err := mod.savePreferencesForm(adm, mockCtx, joinPath(cfg.BasePath, preferencesModuleID)); err == nil {
+		t.Fatalf("expected clear_ui_keys validation error")
+	}
+
+	prefs, err := adm.preferences.Get(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("load preferences: %v", err)
+	}
+	if _, ok := prefs.Raw["ui.keep"]; !ok {
+		t.Fatalf("expected existing ui key preserved, got %v", prefs.Raw)
+	}
+	if _, ok := prefs.Raw["system.flag"]; !ok {
+		t.Fatalf("expected non-ui key preserved, got %v", prefs.Raw)
+	}
+
+	mockCtx.AssertExpectations(t)
+}

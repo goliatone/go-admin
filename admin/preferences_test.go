@@ -432,7 +432,8 @@ func TestPreferencesClearKeysViaAPI(t *testing.T) {
 	}
 
 	payload := map[string]any{
-		"clear": []any{"theme", "ui.datagrid.users.columns"},
+		"theme":          "",
+		"clear_raw_keys": []any{"ui.datagrid.users.columns"},
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest("PUT", "/admin/api/preferences/user-1", bytes.NewReader(body))
@@ -466,6 +467,130 @@ func TestPreferencesClearKeysViaAPI(t *testing.T) {
 	}
 	if _, ok := snapshot.Effective["ui.datagrid.users.columns"]; ok {
 		t.Fatalf("expected ui key removed from store, got %v", snapshot.Effective)
+	}
+}
+
+func TestPreferencesClearAllRawViaAPI(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	server := router.NewHTTPServer()
+
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	_, err := adm.preferences.Save(context.Background(), "user-1", UserPreferences{
+		Theme: "teal",
+		Raw: map[string]any{
+			"ui.one":      true,
+			"system.keep": "ok",
+		},
+	})
+	if err != nil {
+		t.Fatalf("seed preferences: %v", err)
+	}
+
+	payload := map[string]any{"clear": true}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest("PUT", "/admin/api/preferences/user-1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 on clear, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	snapshot, err := adm.preferences.Store().Resolve(context.Background(), PreferencesResolveInput{
+		Scope:  PreferenceScope{UserID: "user-1"},
+		Levels: []PreferenceLevel{PreferenceLevelUser},
+	})
+	if err != nil {
+		t.Fatalf("get stored preferences: %v", err)
+	}
+	if _, ok := snapshot.Effective["ui.one"]; ok {
+		t.Fatalf("expected ui key removed from store, got %v", snapshot.Effective)
+	}
+	if _, ok := snapshot.Effective["system.keep"]; !ok {
+		t.Fatalf("expected non-ui key preserved, got %v", snapshot.Effective)
+	}
+	if toString(snapshot.Effective["theme"]) != "teal" {
+		t.Fatalf("expected theme preserved, got %v", snapshot.Effective["theme"])
+	}
+}
+
+func TestPreferencesRejectsRawUIInAPI(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	server := router.NewHTTPServer()
+
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	payload := map[string]any{
+		"raw_ui": map[string]any{"ui.bad": true},
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest("PUT", "/admin/api/preferences/user-1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400 on raw_ui, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	errPayload, ok := resp["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", resp)
+	}
+	if text := toString(errPayload["text_code"]); text != "RAW_UI_NOT_SUPPORTED" {
+		t.Fatalf("expected RAW_UI_NOT_SUPPORTED, got %v", errPayload["text_code"])
+	}
+}
+
+func TestPreferencesRejectsClearKeysInAPI(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	server := router.NewHTTPServer()
+
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	payload := map[string]any{
+		"clear_keys": []any{"ui.one"},
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest("PUT", "/admin/api/preferences/user-1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400 on clear_keys, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	errPayload, ok := resp["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", resp)
+	}
+	if text := toString(errPayload["text_code"]); text != "CLEAR_KEYS_NOT_SUPPORTED" {
+		t.Fatalf("expected CLEAR_KEYS_NOT_SUPPORTED, got %v", errPayload["text_code"])
 	}
 }
 
@@ -743,6 +868,27 @@ func TestPreferencesTenantWriteHonorsPermission(t *testing.T) {
 	}
 	if toString(snapshot.Effective["theme"]) != "teal" {
 		t.Fatalf("expected tenant theme to persist, got %v", snapshot.Effective["theme"])
+	}
+}
+
+func TestPreferencesAPIRoutesFeatureGated(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys()})
+	server := router.NewHTTPServer()
+
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/admin/api/preferences", nil)
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 when preferences feature disabled, got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
 

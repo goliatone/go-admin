@@ -257,3 +257,132 @@ func TestCMSBlockDefinitionRepositoryFiltersByCategoryAndStatus(t *testing.T) {
 		t.Fatalf("expected active layout def 'hero', got %+v", defs[0])
 	}
 }
+
+func TestCMSBlockDefinitionRepositoryUpdateClearsOptionalFields(t *testing.T) {
+	content := NewInMemoryContentService()
+	repo := NewCMSBlockDefinitionRepository(content, content)
+	ctx := context.Background()
+	schema := map[string]any{"fields": []map[string]any{{"name": "title", "type": "string"}}}
+	created, err := repo.Create(ctx, map[string]any{
+		"name":        "Hero",
+		"type":        "hero",
+		"description": "Lead block",
+		"icon":        "star",
+		"category":    "layout",
+		"schema":      schema,
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	id := toString(created["id"])
+	updated, err := repo.Update(ctx, id, map[string]any{
+		"description": "",
+		"icon":        "",
+		"category":    "",
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if updated["description"] != "" {
+		t.Fatalf("expected description cleared, got %+v", updated["description"])
+	}
+	if updated["icon"] != "" {
+		t.Fatalf("expected icon cleared, got %+v", updated["icon"])
+	}
+	if updated["category"] != "" {
+		t.Fatalf("expected category cleared, got %+v", updated["category"])
+	}
+}
+
+func TestCMSBlockDefinitionRepositoryUpdatePreservesOptionalFieldsWhenOmitted(t *testing.T) {
+	content := NewInMemoryContentService()
+	repo := NewCMSBlockDefinitionRepository(content, content)
+	ctx := context.Background()
+	created, err := repo.Create(ctx, map[string]any{
+		"name":        "Hero",
+		"type":        "hero",
+		"description": "Lead block",
+		"icon":        "star",
+		"category":    "layout",
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	id := toString(created["id"])
+	updated, err := repo.Update(ctx, id, map[string]any{
+		"name": "Hero Updated",
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if updated["description"] != "Lead block" {
+		t.Fatalf("expected description preserved, got %+v", updated["description"])
+	}
+	if updated["icon"] != "star" {
+		t.Fatalf("expected icon preserved, got %+v", updated["icon"])
+	}
+	if updated["category"] != "layout" {
+		t.Fatalf("expected category preserved, got %+v", updated["category"])
+	}
+}
+
+func TestCMSContentTypeRepositoryUpdateClearsOptionalFields(t *testing.T) {
+	content := NewInMemoryContentService()
+	repo := NewCMSContentTypeRepository(content)
+	ctx := context.Background()
+	schema := map[string]any{"fields": []map[string]any{{"name": "title", "type": "string"}}}
+	created, err := repo.Create(ctx, map[string]any{
+		"name":        "Article",
+		"slug":        "article",
+		"description": "Long form",
+		"icon":        "doc",
+		"schema":      schema,
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	id := toString(created["id"])
+	updated, err := repo.Update(ctx, id, map[string]any{
+		"description": "",
+		"icon":        "",
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if updated["description"] != "" {
+		t.Fatalf("expected description cleared, got %+v", updated["description"])
+	}
+	if updated["icon"] != "" {
+		t.Fatalf("expected icon cleared, got %+v", updated["icon"])
+	}
+}
+
+func TestCMSContentTypeRepositoryUpdatePreservesOptionalFieldsWhenOmitted(t *testing.T) {
+	content := NewInMemoryContentService()
+	repo := NewCMSContentTypeRepository(content)
+	ctx := context.Background()
+	schema := map[string]any{"fields": []map[string]any{{"name": "title", "type": "string"}}}
+	created, err := repo.Create(ctx, map[string]any{
+		"name":        "Article",
+		"slug":        "article",
+		"description": "Long form",
+		"icon":        "doc",
+		"schema":      schema,
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	id := toString(created["id"])
+	updated, err := repo.Update(ctx, id, map[string]any{
+		"name": "Article Updated",
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if updated["description"] != "Long form" {
+		t.Fatalf("expected description preserved, got %+v", updated["description"])
+	}
+	if updated["icon"] != "doc" {
+		t.Fatalf("expected icon preserved, got %+v", updated["icon"])
+	}
+}

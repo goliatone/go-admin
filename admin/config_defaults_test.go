@@ -41,6 +41,12 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.PreferencesUpdatePermission != "admin.preferences.edit" {
 		t.Fatalf("expected preferences update permission default, got %q", adm.config.PreferencesUpdatePermission)
 	}
+	if adm.config.DashboardPreferencesPermission != "admin.preferences.view" {
+		t.Fatalf("expected dashboard preferences permission default, got %q", adm.config.DashboardPreferencesPermission)
+	}
+	if adm.config.DashboardPreferencesUpdatePermission != "admin.preferences.edit" {
+		t.Fatalf("expected dashboard preferences update permission default, got %q", adm.config.DashboardPreferencesUpdatePermission)
+	}
 	if adm.config.PreferencesManageTenantPermission != "admin.preferences.manage_tenant" {
 		t.Fatalf("expected preferences manage tenant permission default, got %q", adm.config.PreferencesManageTenantPermission)
 	}
