@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	router "github.com/goliatone/go-router"
 	"github.com/google/uuid"
 )
+
+const debugMaxBodyBytes = 64 * 1024
 
 // CaptureViewContext stores template data in the debug collector and returns the view context.
 // When the debug collector has ToolbarMode enabled, it also injects toolbar template variables:
@@ -65,25 +68,214 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 	return func(next router.HandlerFunc) router.HandlerFunc {
 		return func(c router.Context) error {
 			start := time.Now()
+
+			cfg := collector.config
+			contentType := debugContentType(c)
+			remoteIP := debugRemoteIP(c)
+			requestSize := debugRequestSize(c)
+			var requestBody string
+			var bodyTruncated bool
+			if cfg.CaptureRequestBody && debugIsTextContentType(contentType) && !debugSkipBodyCapture(requestSize, debugMaxBodyBytes) {
+				if raw := c.Body(); len(raw) > 0 {
+					requestBody, bodyTruncated = debugCaptureBody(raw, debugMaxBodyBytes)
+				}
+			}
+
+			var respWriter *debugResponseWriter
+			var restoreWriter func()
+			if cfg.CaptureRequestBody {
+				respWriter, restoreWriter = debugWrapResponseWriter(c, debugMaxBodyBytes)
+			}
+
 			err := next(c)
 
 			entry := RequestEntry{
-				ID:        uuid.NewString(),
-				Timestamp: start,
-				Method:    c.Method(),
-				Path:      c.Path(),
-				Duration:  time.Since(start),
-				Headers:   debugRequestHeaders(c),
-				Query:     debugRequestQueries(c),
+				ID:            uuid.NewString(),
+				Timestamp:     start,
+				Method:        c.Method(),
+				Path:          c.Path(),
+				Duration:      time.Since(start),
+				Headers:       debugRequestHeaders(c),
+				Query:         debugRequestQueries(c),
+				ContentType:   contentType,
+				RequestBody:   requestBody,
+				RequestSize:   requestSize,
+				BodyTruncated: bodyTruncated,
+				RemoteIP:      remoteIP,
+			}
+			responseContentType := ""
+			if httpCtx, ok := c.(router.HTTPContext); ok {
+				if respWriter != nil {
+					entry.ResponseHeaders = debugResponseHeaders(respWriter)
+					entry.ResponseSize = respWriter.BodySize()
+					if entry.ResponseSize == 0 {
+						entry.ResponseSize = debugResponseSize(httpCtx)
+					}
+					responseContentType = debugNormalizeContentType(respWriter.Header().Get("Content-Type"))
+				} else {
+					entry.ResponseHeaders = debugResponseHeaders(httpCtx.Response())
+					entry.ResponseSize = debugResponseSize(httpCtx)
+					if entry.ResponseHeaders != nil {
+						responseContentType = debugNormalizeContentType(entry.ResponseHeaders["Content-Type"])
+					}
+				}
+			}
+			if cfg.CaptureRequestBody && respWriter != nil && responseContentType != "" && debugIsTextContentType(responseContentType) {
+				entry.ResponseBody = respWriter.Body()
 			}
 			entry.Status = debugRequestStatus(c, err)
 			if err != nil {
 				entry.Error = err.Error()
 			}
+			if restoreWriter != nil {
+				restoreWriter()
+			}
 			collector.CaptureRequest(entry)
 			return err
 		}
 	}
+}
+
+func debugNormalizeContentType(contentType string) string {
+	contentType = strings.ToLower(strings.TrimSpace(contentType))
+	if contentType == "" {
+		return ""
+	}
+	if idx := strings.Index(contentType, ";"); idx >= 0 {
+		contentType = strings.TrimSpace(contentType[:idx])
+	}
+	return contentType
+}
+
+func debugContentType(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	if httpCtx, ok := c.(router.HTTPContext); ok {
+		if req := httpCtx.Request(); req != nil {
+			return strings.TrimSpace(req.Header.Get("Content-Type"))
+		}
+	}
+	return strings.TrimSpace(c.Header("Content-Type"))
+}
+
+func debugRemoteIP(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	type ipGetter interface {
+		IP() string
+	}
+	if getter, ok := c.(ipGetter); ok {
+		if ip := strings.TrimSpace(getter.IP()); ip != "" {
+			return ip
+		}
+	}
+	if httpCtx, ok := c.(router.HTTPContext); ok {
+		if req := httpCtx.Request(); req != nil {
+			return strings.TrimSpace(req.RemoteAddr)
+		}
+	}
+	return ""
+}
+
+func debugIsTextContentType(contentType string) bool {
+	contentType = debugNormalizeContentType(contentType)
+	if contentType == "" {
+		return false
+	}
+	switch contentType {
+	case "application/json", "application/xml", "text/xml", "text/plain", "text/html", "application/x-www-form-urlencoded":
+		return true
+	}
+	if strings.HasPrefix(contentType, "text/") {
+		return true
+	}
+	if strings.HasSuffix(contentType, "+json") || strings.HasSuffix(contentType, "+xml") {
+		return true
+	}
+	return false
+}
+
+func debugCaptureBody(raw []byte, maxBytes int64) (string, bool) {
+	if len(raw) == 0 {
+		return "", false
+	}
+	if maxBytes <= 0 {
+		return "", false
+	}
+	if int64(len(raw)) <= maxBytes {
+		return string(raw), false
+	}
+	return string(raw[:maxBytes]), true
+}
+
+func debugResponseHeaders(w http.ResponseWriter) map[string]string {
+	if w == nil {
+		return nil
+	}
+	headers := map[string]string{}
+	for key, values := range w.Header() {
+		if len(values) == 0 {
+			continue
+		}
+		headers[key] = strings.Join(values, ", ")
+	}
+	if len(headers) == 0 {
+		return nil
+	}
+	return normalizeHeaderMap(headers)
+}
+
+func debugRequestSize(c router.Context) int64 {
+	if c == nil {
+		return 0
+	}
+	httpCtx, ok := c.(router.HTTPContext)
+	if !ok {
+		return 0
+	}
+	req := httpCtx.Request()
+	if req == nil {
+		return 0
+	}
+	if req.ContentLength > 0 {
+		return req.ContentLength
+	}
+	if req.ContentLength == 0 {
+		if header := strings.TrimSpace(req.Header.Get("Content-Length")); header != "" {
+			if size, err := strconv.ParseInt(header, 10, 64); err == nil && size > 0 {
+				return size
+			}
+		}
+	}
+	return 0
+}
+
+func debugResponseSize(httpCtx router.HTTPContext) int64 {
+	if httpCtx == nil {
+		return 0
+	}
+	res := httpCtx.Response()
+	if res == nil {
+		return 0
+	}
+	header := strings.TrimSpace(res.Header().Get("Content-Length"))
+	if header == "" {
+		return 0
+	}
+	size, err := strconv.ParseInt(header, 10, 64)
+	if err != nil || size < 0 {
+		return 0
+	}
+	return size
+}
+
+func debugSkipBodyCapture(size int64, maxBytes int64) bool {
+	if maxBytes <= 0 || size <= 0 {
+		return false
+	}
+	return size > maxBytes
 }
 
 func debugRequestHeaders(c router.Context) map[string]string {
@@ -145,6 +337,15 @@ func debugStatusFromContext(c router.Context) int {
 	}
 	if httpCtx, ok := c.(router.HTTPContext); ok {
 		if resp := httpCtx.Response(); resp != nil {
+			type statusCodeRaw interface {
+				StatusCodeRaw() int
+			}
+			if sc, ok := resp.(statusCodeRaw); ok {
+				if code := sc.StatusCodeRaw(); code != 0 {
+					return code
+				}
+				return 0
+			}
 			if sc, ok := resp.(statusCoder); ok {
 				if code := sc.StatusCode(); code != 0 {
 					return code
@@ -529,9 +730,11 @@ func debugDebugConfigSnapshot(cfg DebugConfig) map[string]any {
 		"Enabled":            cfg.Enabled,
 		"CaptureSQL":         cfg.CaptureSQL,
 		"CaptureLogs":        cfg.CaptureLogs,
+		"CaptureRequestBody": cfg.CaptureRequestBody,
 		"StrictQueryHooks":   cfg.StrictQueryHooks,
 		"MaxLogEntries":      cfg.MaxLogEntries,
 		"MaxSQLQueries":      cfg.MaxSQLQueries,
+		"MaskPlaceholder":    cfg.MaskPlaceholder,
 		"FeatureKey":         cfg.FeatureKey,
 		"Permission":         cfg.Permission,
 		"BasePath":           cfg.BasePath,

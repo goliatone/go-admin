@@ -50,15 +50,23 @@ type debugPanelSnapshot struct {
 
 // RequestEntry captures HTTP request details.
 type RequestEntry struct {
-	ID        string            `json:"id"`
-	Timestamp time.Time         `json:"timestamp"`
-	Method    string            `json:"method"`
-	Path      string            `json:"path"`
-	Status    int               `json:"status"`
-	Duration  time.Duration     `json:"duration"`
-	Headers   map[string]string `json:"headers,omitempty"`
-	Query     map[string]string `json:"query,omitempty"`
-	Error     string            `json:"error,omitempty"`
+	ID              string            `json:"id"`
+	Timestamp       time.Time         `json:"timestamp"`
+	Method          string            `json:"method"`
+	Path            string            `json:"path"`
+	Status          int               `json:"status"`
+	Duration        time.Duration     `json:"duration"`
+	Headers         map[string]string `json:"headers,omitempty"`
+	Query           map[string]string `json:"query,omitempty"`
+	ContentType     string            `json:"content_type,omitempty"`
+	RequestBody     string            `json:"request_body,omitempty"`
+	RequestSize     int64             `json:"request_size,omitempty"`
+	BodyTruncated   bool              `json:"body_truncated,omitempty"`
+	ResponseHeaders map[string]string `json:"response_headers,omitempty"`
+	ResponseBody    string            `json:"response_body,omitempty"`
+	ResponseSize    int64             `json:"response_size,omitempty"`
+	RemoteIP        string            `json:"remote_ip,omitempty"`
+	Error           string            `json:"error,omitempty"`
 }
 
 // SQLEntry captures database query details.
@@ -217,6 +225,22 @@ func (c *DebugCollector) CaptureRequest(entry RequestEntry) {
 	}
 	if len(entry.Query) > 0 {
 		entry.Query = debugMaskStringMap(c.config, entry.Query)
+	}
+	responseContentType := ""
+	if len(entry.ResponseHeaders) > 0 {
+		normalized := normalizeHeaderMap(entry.ResponseHeaders)
+		if normalized != nil {
+			responseContentType = normalized["Content-Type"]
+			entry.ResponseHeaders = debugMaskStringMap(c.config, normalized)
+		} else {
+			entry.ResponseHeaders = debugMaskStringMap(c.config, entry.ResponseHeaders)
+		}
+	}
+	if entry.RequestBody != "" {
+		entry.RequestBody = debugMaskBodyString(c.config, entry.ContentType, entry.RequestBody)
+	}
+	if entry.ResponseBody != "" {
+		entry.ResponseBody = debugMaskBodyString(c.config, responseContentType, entry.ResponseBody)
 	}
 	log := c.requestLog
 	if log != nil {

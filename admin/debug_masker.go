@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"sync"
@@ -146,6 +147,37 @@ func debugMaskFieldValue(cfg DebugConfig, key string, value any) any {
 		}
 	}
 	return value
+}
+
+func debugMaskBodyString(cfg DebugConfig, contentType string, body string) string {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return body
+	}
+	if !debugIsJSONContentType(contentType) {
+		return body
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		return body
+	}
+	masked := debugMaskMap(cfg, payload)
+	out, err := json.Marshal(masked)
+	if err != nil {
+		return body
+	}
+	return string(out)
+}
+
+func debugIsJSONContentType(contentType string) bool {
+	contentType = debugNormalizeContentType(contentType)
+	if contentType == "" {
+		return false
+	}
+	if contentType == "application/json" || contentType == "text/json" {
+		return true
+	}
+	return strings.HasSuffix(contentType, "+json")
 }
 
 func normalizeHeaderMap(headers map[string]string) map[string]string {
