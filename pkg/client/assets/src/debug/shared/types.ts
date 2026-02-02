@@ -11,6 +11,14 @@ export type RequestEntry = {
   headers?: Record<string, string>;
   query?: Record<string, string>;
   error?: string;
+  content_type?: string;
+  request_body?: string;
+  request_size?: number;
+  body_truncated?: boolean;
+  response_headers?: Record<string, string>;
+  response_body?: string;
+  response_size?: number;
+  remote_ip?: string;
 };
 
 export type SQLEntry = {

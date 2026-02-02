@@ -54,7 +54,7 @@ type DebugReplCommandPayload = {
 };
 
 type PanelFilters = {
-  requests: { method: string; status: string; search: string; newestFirst: boolean };
+  requests: { method: string; status: string; search: string; newestFirst: boolean; hasBody: boolean; contentType: string };
   sql: { search: string; slowOnly: boolean; errorOnly: boolean; newestFirst: boolean };
   logs: { level: string; search: string; autoScroll: boolean; newestFirst: boolean };
   routes: { method: string; search: string };
@@ -295,7 +295,7 @@ export class DebugPanel {
     };
 
     this.filters = {
-      requests: { method: 'all', status: 'all', search: '', newestFirst: true },
+      requests: { method: 'all', status: 'all', search: '', newestFirst: true, hasBody: false, contentType: 'all' },
       sql: { search: '', slowOnly: false, errorOnly: false, newestFirst: true },
       logs: { level: 'all', search: '', autoScroll: true, newestFirst: true },
       routes: { method: 'all', search: '' },
@@ -459,6 +459,7 @@ export class DebugPanel {
       content = renderer.filters();
     } else if (panel === 'requests') {
       const values = this.filters.requests;
+      const contentTypes = this.getUniqueContentTypes();
       content = `
         <div class="debug-filter">
           <label>Method</label>
@@ -472,10 +473,20 @@ export class DebugPanel {
             ${this.renderSelectOptions(['all', '200', '201', '204', '400', '401', '403', '404', '500'], values.status)}
           </select>
         </div>
+        <div class="debug-filter">
+          <label>Content-Type</label>
+          <select data-filter="contentType">
+            ${this.renderSelectOptions(['all', ...contentTypes], values.contentType)}
+          </select>
+        </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="/admin/users" />
         </div>
+        <label class="debug-btn">
+          <input type="checkbox" data-filter="hasBody" ${values.hasBody ? 'checked' : ''} />
+          <span>Has Body</span>
+        </label>
         <label class="debug-btn">
           <input type="checkbox" data-filter="newestFirst" ${values.newestFirst ? 'checked' : ''} />
           <span>Newest first</span>
@@ -566,10 +577,10 @@ export class DebugPanel {
       const next = { ...this.filters.requests };
       inputs.forEach((input) => {
         const key = input.dataset.filter || '';
-        if (key === 'newestFirst') {
+        if (key === 'newestFirst' || key === 'hasBody') {
           next[key] = (input as HTMLInputElement).checked;
         } else if (key && key in next) {
-          next[key as 'method' | 'status' | 'search'] = (input as HTMLInputElement).value;
+          next[key as 'method' | 'status' | 'search' | 'contentType'] = (input as HTMLInputElement).value;
         }
       });
       this.filters.requests = next;
@@ -692,8 +703,19 @@ export class DebugPanel {
     replPanel.attach(this.panelEl);
   }
 
+  private getUniqueContentTypes(): string[] {
+    const types = new Set<string>();
+    for (const entry of this.state.requests) {
+      const ct = entry.content_type;
+      if (ct) {
+        types.add(ct.split(';')[0].trim());
+      }
+    }
+    return [...types].sort();
+  }
+
   private renderRequests(): string {
-    const { method, status, search, newestFirst } = this.filters.requests;
+    const { method, status, search, newestFirst, hasBody, contentType } = this.filters.requests;
     const needle = search.toLowerCase();
 
     // Apply console-specific filters
@@ -706,6 +728,15 @@ export class DebugPanel {
       }
       if (needle && !(entry.path || '').toLowerCase().includes(needle)) {
         return false;
+      }
+      if (hasBody && !entry.request_body) {
+        return false;
+      }
+      if (contentType !== 'all') {
+        const entryCt = (entry.content_type || '').split(';')[0].trim();
+        if (entryCt !== contentType) {
+          return false;
+        }
       }
       return true;
     });
