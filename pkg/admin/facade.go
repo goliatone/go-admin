@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/runner"
+	goerrors "github.com/goliatone/go-errors"
 	repository "github.com/goliatone/go-repository-bun"
 	router "github.com/goliatone/go-router"
 	users "github.com/goliatone/go-users/pkg/types"
@@ -17,6 +18,59 @@ import (
 
 func IntPtr(v int) *int    { return &v }
 func BoolPtr(v bool) *bool { return core.BoolPtr(v) }
+func WithStack(err error) error {
+	return core.WithStack(err)
+}
+func AttachErrorContext(err error, mapped *goerrors.Error) *goerrors.Error {
+	return core.AttachErrorContext(err, mapped)
+}
+func NewErrorPresenter(cfg ErrorConfig, mappers ...goerrors.ErrorMapper) ErrorPresenter {
+	return core.NewErrorPresenter(cfg, mappers...)
+}
+func DefaultErrorPresenter() ErrorPresenter {
+	return core.DefaultErrorPresenter()
+}
+func SetDefaultErrorPresenter(presenter ErrorPresenter) {
+	core.SetDefaultErrorPresenter(presenter)
+}
+func DomainErrorCodes() []DomainErrorCode {
+	return core.DomainErrorCodes()
+}
+func RegisterDomainErrorCodes(codes ...DomainErrorCode) {
+	core.RegisterDomainErrorCodes(codes...)
+}
+func DomainErrorCodeFor(code string) (DomainErrorCode, bool) {
+	return core.DomainErrorCodeFor(code)
+}
+func NewDomainError(code, message string, meta map[string]any) *goerrors.Error {
+	return core.NewDomainError(code, message, meta)
+}
+
+const (
+	TextCodeValidationError           = core.TextCodeValidationError
+	TextCodeInvalidFeatureConfig      = core.TextCodeInvalidFeatureConfig
+	TextCodeForbidden                 = core.TextCodeForbidden
+	TextCodeNotFound                  = core.TextCodeNotFound
+	TextCodeFeatureDisabled           = core.TextCodeFeatureDisabled
+	TextCodeReplSessionLimit          = core.TextCodeReplSessionLimit
+	TextCodeWorkflowNotFound          = core.TextCodeWorkflowNotFound
+	TextCodeWorkflowInvalidTransition = core.TextCodeWorkflowInvalidTransition
+	TextCodeFeatureEnabledRequired    = core.TextCodeFeatureEnabledRequired
+	TextCodeFeatureAliasDisabled      = core.TextCodeFeatureAliasDisabled
+	TextCodeMissingPanel              = core.TextCodeMissingPanel
+	TextCodeRawUINotSupported         = core.TextCodeRawUINotSupported
+	TextCodeClearKeysNotSupported     = core.TextCodeClearKeysNotSupported
+	TextCodeReplDebugDisabled         = core.TextCodeReplDebugDisabled
+	TextCodeReplShellDisabled         = core.TextCodeReplShellDisabled
+	TextCodeReplAppDisabled           = core.TextCodeReplAppDisabled
+	TextCodeReplDisabled              = core.TextCodeReplDisabled
+	TextCodeReplOverrideDenied        = core.TextCodeReplOverrideDenied
+	TextCodeReplRoleDenied            = core.TextCodeReplRoleDenied
+	TextCodeReplPermissionDenied      = core.TextCodeReplPermissionDenied
+	TextCodeReplExecPermissionDenied  = core.TextCodeReplExecPermissionDenied
+	TextCodeReplReadOnly              = core.TextCodeReplReadOnly
+	TextCodeReplIPDenied              = core.TextCodeReplIPDenied
+)
 
 type (
 	Action               = core.Action
@@ -57,6 +111,7 @@ type (
 	WidgetDefinition          = core.WidgetDefinition
 
 	Config       = core.Config
+	ErrorConfig  = core.ErrorConfig
 	Dependencies = core.Dependencies
 
 	ExportColumn           = core.ExportColumn
@@ -67,6 +122,9 @@ type (
 	ExportRegistry         = core.ExportRegistry
 	ExportRouteOptions     = core.ExportRouteOptions
 	ExportRouteWrapper     = core.ExportRouteWrapper
+
+	ErrorPresenter  = core.ErrorPresenter
+	DomainErrorCode = core.DomainErrorCode
 
 	Dashboard             = core.Dashboard
 	DashboardLayout       = core.DashboardLayout
