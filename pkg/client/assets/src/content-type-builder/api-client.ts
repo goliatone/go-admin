@@ -576,6 +576,25 @@ export function fieldsToSchema(fields: FieldDefinition[], slug?: string): JSONSc
 }
 
 /**
+ * Convert field definitions to a block definition schema
+ */
+export function fieldsToBlockSchema(fields: FieldDefinition[], slug?: string): JSONSchema {
+  const schema = fieldsToSchema(fields, slug);
+  if (!slug) {
+    return schema;
+  }
+
+  schema.properties = schema.properties ?? {};
+  schema.properties._type = { type: 'string', const: slug };
+
+  const required = new Set(schema.required ?? []);
+  required.add('_type');
+  schema.required = Array.from(required);
+
+  return schema;
+}
+
+/**
  * Convert a single field to a JSON Schema property
  */
 function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
@@ -810,6 +829,9 @@ export function schemaToFields(schema: JSONSchema): FieldDefinition[] {
   const fields: FieldDefinition[] = [];
 
   for (const [name, propSchema] of Object.entries(schema.properties)) {
+    if (name === '_type' || name === '_schema') {
+      continue;
+    }
     fields.push(schemaPropertyToField(name, propSchema, required.has(name)));
   }
 

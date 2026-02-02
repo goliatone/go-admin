@@ -16,7 +16,7 @@ import type {
 import { ContentTypeAPIClient } from './api-client';
 import { FieldTypePicker, FIELD_TYPES } from './field-type-picker';
 import { FieldConfigForm } from './field-config-form';
-import { fieldsToSchema, schemaToFields, generateFieldId } from './api-client';
+import { fieldsToBlockSchema, schemaToFields, generateFieldId } from './api-client';
 import { badge } from '../shared/badge';
 import { Modal } from '../shared/modal.js';
 
@@ -921,7 +921,7 @@ class BlockDefinitionEditor extends Modal {
       return;
     }
 
-    const schema = fieldsToSchema(this.fields, type);
+    const schema = fieldsToBlockSchema(this.fields, type);
 
     const blockData: Partial<BlockDefinition> = {
       name,
