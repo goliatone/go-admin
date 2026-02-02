@@ -82,6 +82,7 @@ type activityAware interface {
 // New constructs an Admin orchestrator with explicit dependencies.
 func New(cfg Config, deps Dependencies) (*Admin, error) {
 	cfg = applyConfigDefaults(cfg)
+	SetDefaultErrorPresenter(NewErrorPresenter(cfg.Errors))
 	if err := deps.validate(cfg); err != nil {
 		return nil, err
 	}
