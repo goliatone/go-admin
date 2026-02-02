@@ -55,6 +55,15 @@ See:
 - `admin/preferences_module.go`
 - `admin/preferences.go`
 
+## UI form fields (HTML panel)
+
+The Preferences HTML form accepts UI-only inputs:
+
+- `raw_ui`: JSON object string that contains `ui.*` keys only. Parsed and merged into `raw`.
+- `clear_ui_keys`: comma- or space-separated list of `ui.*` keys to remove before merge.
+
+These fields are **not** accepted by the API. Invalid JSON or disallowed keys return a validation error and skip the save.
+
 ## Preferences data model
 
 The service stores a small set of known keys and exposes a safe `raw` namespace for UI-specific preferences.
@@ -71,6 +80,7 @@ Raw keys:
 - Only keys with the `ui.` prefix are allowed.
 - Keys `id` and `raw` are rejected.
 - Allowed characters: letters, digits, dot, dash, underscore.
+- `raw_ui` is a UI-only field; API clients must send `raw` as a map.
 
 Example request body (POST/PUT):
 
@@ -103,6 +113,17 @@ Dashboard-specific preferences endpoint (go-dashboard binding):
 - `GET /admin/api/dashboard/preferences`
 - `POST /admin/api/dashboard/preferences`
 
+### API inputs
+
+- `raw`: map of `ui.*` keys (the only supported API payload for UI settings).
+- `clear_raw_keys`: list of raw keys to remove.
+- `clear`: boolean that clears **all** raw keys for the requested scope.
+
+The API rejects UI-only fields:
+
+- `raw_ui` → `400 Bad Request` with error code `RAW_UI_NOT_SUPPORTED` (use `raw` instead).
+- `clear_keys` → `400 Bad Request` with error code `CLEAR_KEYS_NOT_SUPPORTED` (use `clear_raw_keys`).
+
 The dashboard endpoint stores layout overrides via the Preferences service.
 
 Read query params:
@@ -132,15 +153,15 @@ List responses continue to return `{"records":[record], "total":1}`; detail/upda
 
 ## Clearing preferences
 
-Use the `clear` (or `clear_keys`) field to remove stored keys (built-in keys or allowed `ui.*` keys):
+Use `clear_raw_keys` to remove stored raw keys, or `clear: true` to remove **all** raw keys:
 
 ```json
 {
-  "clear": ["theme", "ui.datagrid.users.columns"]
+  "clear_raw_keys": ["ui.datagrid.users.columns"]
 }
 ```
 
-Clear applies delete semantics in the backing store so removed keys fall back to inherited defaults. For known fields, empty string or `null` values are treated as clears at the user level.
+Clear applies delete semantics in the backing store so removed keys fall back to inherited defaults. For known fields, empty string or `null` values are treated as clears at the user level. The HTML form uses `clear_ui_keys` for UI-only keys.
 
 ## How storage works
 
