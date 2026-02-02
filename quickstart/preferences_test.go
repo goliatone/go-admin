@@ -415,7 +415,7 @@ func TestGoUsersPreferencesStoreUpsertSurfacesErrors(t *testing.T) {
 	}
 }
 
-func TestNewAdminWithGoUsersPreferencesRegistersRoutes(t *testing.T) {
+func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 	registry.WithTestRegistry(func() {
 		repo := newStubPreferenceRepo()
 		cfg := admin.Config{
@@ -423,7 +423,7 @@ func TestNewAdminWithGoUsersPreferencesRegistersRoutes(t *testing.T) {
 			DefaultLocale: "en",
 		}
 
-		adm, err := NewAdminWithGoUsersPreferences(cfg, repo, EnablePreferences())
+		adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithGoUsersPreferencesRepository(repo), EnablePreferences())
 		if err != nil {
 			t.Fatalf("new admin: %v", err)
 		}
