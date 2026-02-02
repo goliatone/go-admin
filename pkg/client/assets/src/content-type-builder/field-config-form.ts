@@ -19,66 +19,37 @@ import type {
 } from './types';
 import { getFieldTypeMetadata, FIELD_TYPES } from './field-type-picker';
 import { generateFieldId, ContentTypeAPIClient } from './api-client';
+import { Modal } from '../shared/modal';
 
 // =============================================================================
 // Field Config Form Component
 // =============================================================================
 
-export class FieldConfigForm {
+export class FieldConfigForm extends Modal {
   private config: FieldConfigFormConfig;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
   private field: FieldDefinition;
   private isNewField: boolean;
 
   constructor(config: FieldConfigFormConfig) {
+    super({
+      size: '2xl',
+      initialFocus: 'input[name="name"]',
+      backdropDataAttr: 'data-field-config-backdrop',
+    });
     this.config = config;
     this.field = { ...config.field };
     this.isNewField = !config.field.id || config.field.id.startsWith('new_');
   }
 
-  /**
-   * Show the field config form modal
-   */
-  show(): void {
-    this.render();
-    this.bindEvents();
-    // Focus first input
-    const firstInput = this.container?.querySelector<HTMLInputElement>('input[name="name"]');
-    firstInput?.focus();
-    firstInput?.select();
+  protected onBeforeHide(): boolean {
+    this.config.onCancel();
+    return true;
   }
 
-  /**
-   * Hide the field config form modal
-   */
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
+  protected renderContent(): string {
     const fieldMeta = getFieldTypeMetadata(this.field.type);
 
-    // Create backdrop
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-150';
-    this.backdrop.setAttribute('data-field-config-backdrop', 'true');
-
-    // Create modal container
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden';
-    this.container.setAttribute('data-field-config-form', 'true');
-
-    this.container.innerHTML = `
+    return `
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center gap-3">
           <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-lg font-medium">
@@ -124,14 +95,6 @@ export class FieldConfigForm {
         </button>
       </div>
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    // Trigger animation
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-    });
   }
 
   private renderGeneralSection(): string {
@@ -954,16 +917,8 @@ export class FieldConfigForm {
     return sections.join('');
   }
 
-  private bindEvents(): void {
-    if (!this.container || !this.backdrop) return;
-
-    // Close on backdrop click
-    this.backdrop.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) {
-        this.config.onCancel();
-        this.hide();
-      }
-    });
+  protected bindContentEvents(): void {
+    if (!this.container) return;
 
     // Close button
     this.container.querySelector('[data-field-config-close]')?.addEventListener('click', () => {
@@ -986,14 +941,6 @@ export class FieldConfigForm {
     this.container.querySelector('[data-field-config-form-element]')?.addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleSave();
-    });
-
-    // Keyboard shortcuts
-    this.container.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.config.onCancel();
-        this.hide();
-      }
     });
 
     // Auto-generate name from label
@@ -1463,47 +1410,25 @@ interface BlockPickerModalConfig {
   onSelect: (blocks: string[]) => void;
 }
 
-class BlockPickerModal {
+class BlockPickerModal extends Modal {
   private config: BlockPickerModalConfig;
   private api: ContentTypeAPIClient;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
   private availableBlocks: BlockDefinitionSummary[] = [];
   private selectedBlocks: Set<string>;
 
   constructor(config: BlockPickerModalConfig) {
+    super({ size: 'lg', maxHeight: 'max-h-[70vh]' });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
     this.selectedBlocks = new Set(config.selectedBlocks);
   }
 
-  async show(): Promise<void> {
-    this.render();
-    this.bindEvents();
+  protected async onAfterShow(): Promise<void> {
     await this.loadBlocks();
   }
 
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-[70] flex items-center justify-center bg-black/50 transition-opacity duration-150 opacity-0';
-
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg max-h-[70vh] flex flex-col overflow-hidden';
-
-    this.container.innerHTML = `
+  protected renderContent(): string {
+    return `
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">${escapeHtml(this.config.title)}</h3>
         <button type="button" data-picker-close class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded">
@@ -1543,21 +1468,10 @@ class BlockPickerModal {
         </div>
       </div>
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-    });
   }
 
-  private bindEvents(): void {
-    if (!this.container || !this.backdrop) return;
-
-    this.backdrop.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) this.hide();
-    });
+  protected bindContentEvents(): void {
+    if (!this.container) return;
 
     this.container.querySelector('[data-picker-close]')?.addEventListener('click', () => this.hide());
     this.container.querySelector('[data-picker-cancel]')?.addEventListener('click', () => this.hide());

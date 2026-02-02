@@ -1,4 +1,5 @@
-class u {
+import { C as r } from "./error-helpers-Cqk77Doi.js";
+class l {
   constructor(t = {}) {
     this.toasts = /* @__PURE__ */ new Map(), this.position = t.position || "top-right", this.container = this.getOrCreateContainer(), this.applyContainerClasses(this.container);
   }
@@ -22,8 +23,8 @@ class u {
     this.container.appendChild(s), this.toasts.set(e, s), requestAnimationFrame(() => {
       s.classList.add("toast-enter-active");
     });
-    const r = t.duration !== void 0 ? t.duration : 5e3;
-    r > 0 && setTimeout(() => this.dismiss(e), r);
+    const i = t.duration !== void 0 ? t.duration : 5e3;
+    i > 0 && setTimeout(() => this.dismiss(e), i);
   }
   success(t, e) {
     this.show({ message: t, type: "success", duration: e, dismissible: !0 });
@@ -38,22 +39,21 @@ class u {
     this.show({ message: t, type: "info", duration: e, dismissible: !0 });
   }
   async confirm(t, e = {}) {
-    return new Promise((s) => {
-      const r = this.createConfirmModal(t, e, s);
-      document.body.appendChild(r), requestAnimationFrame(() => {
-        r.classList.add("confirm-modal-active");
-      });
+    return r.confirm(t, {
+      title: e.title,
+      confirmText: e.confirmText,
+      cancelText: e.cancelText
     });
   }
   createToastElement(t, e) {
     const s = document.createElement("div");
     s.className = `toast toast-${e.type}`, s.setAttribute("data-toast-id", t);
-    const r = this.getIconForType(e.type);
+    const i = this.getIconForType(e.type);
     if (s.innerHTML = `
       <div class="toast-header">
         <div class="toast-header-left">
           <div class="toast-icon toast-icon-${e.type}">
-            ${r}
+            ${i}
           </div>
           <svg class="toast-pin-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
@@ -72,48 +72,10 @@ class u {
         <div class="toast-message">${this.escapeHtml(e.message)}</div>
       </div>
     `, e.dismissible !== !1) {
-      const i = s.querySelector(".toast-dismiss");
-      i && i.addEventListener("click", () => this.dismiss(t));
+      const a = s.querySelector(".toast-dismiss");
+      a && a.addEventListener("click", () => this.dismiss(t));
     }
     return s;
-  }
-  createConfirmModal(t, e, s) {
-    const r = document.createElement("div");
-    r.className = "confirm-modal-overlay";
-    const i = document.createElement("div");
-    i.className = "confirm-modal", i.innerHTML = `
-      <div class="confirm-modal-header">
-        <h3 class="confirm-modal-title">${this.escapeHtml(e.title || "Confirm")}</h3>
-      </div>
-      <div class="confirm-modal-body">
-        <p class="confirm-modal-message">${this.escapeHtml(t)}</p>
-      </div>
-      <div class="confirm-modal-footer">
-        <button class="confirm-modal-btn confirm-modal-btn-cancel">
-          ${this.escapeHtml(e.cancelText || "Cancel")}
-        </button>
-        <button class="confirm-modal-btn confirm-modal-btn-confirm">
-          ${this.escapeHtml(e.confirmText || "Confirm")}
-        </button>
-      </div>
-    `, r.appendChild(i);
-    let c = !1;
-    const d = () => {
-      r.classList.add("confirm-modal-leaving"), setTimeout(() => {
-        r.remove();
-      }, 200);
-    }, m = (a) => {
-      a.key === "Escape" && l(!1);
-    }, l = (a) => {
-      c || (c = !0, document.removeEventListener("keydown", m), d(), s(a));
-    }, o = i.querySelector(".confirm-modal-btn-cancel"), f = i.querySelector(".confirm-modal-btn-confirm");
-    return o && o.addEventListener("click", () => {
-      l(!1);
-    }), f && f.addEventListener("click", () => {
-      l(!0);
-    }), r.addEventListener("click", (a) => {
-      a.target === r && l(!1);
-    }), document.addEventListener("keydown", m), r;
   }
   dismiss(t) {
     const e = this.toasts.get(t);
@@ -151,7 +113,7 @@ class u {
     return e.textContent = t, e.innerHTML;
   }
 }
-class v {
+class c {
   show(t) {
     const e = t.title ? `${t.title}: ` : "";
     alert(e + t.message);
@@ -175,54 +137,8 @@ class v {
     return Promise.resolve(confirm(s + t));
   }
 }
-async function h(n) {
-  const t = n.headers.get("content-type") || "", e = t.includes("application/json") || t.includes("application/problem+json"), s = await n.clone().text().catch(() => "");
-  if (s) {
-    if (e || s.trim().startsWith("{"))
-      try {
-        const i = JSON.parse(s);
-        if (typeof i.error == "string" && i.error.trim()) return i.error.trim();
-        if (i.error && typeof i.error == "object") {
-          const c = i.error, d = typeof c.message == "string" ? c.message.trim() : "", m = [];
-          if (Array.isArray(c.validation_errors))
-            for (const o of c.validation_errors) {
-              if (!o || typeof o != "object") continue;
-              const f = o.field, a = o.message;
-              typeof f == "string" && typeof a == "string" && m.push(`${f}: ${a}`);
-            }
-          const l = c.metadata;
-          if (l && typeof l == "object") {
-            const o = l.fields;
-            if (o && typeof o == "object" && !Array.isArray(o))
-              for (const [f, a] of Object.entries(o))
-                typeof a == "string" && m.push(`${f}: ${a}`);
-          }
-          if (m.length > 0)
-            return `${d && d.toLowerCase() !== "validation failed" ? `${d}: ` : "Validation failed: "}${m.join("; ")}`;
-          if (d) return d;
-        }
-        if (typeof i.detail == "string" && i.detail.trim()) return i.detail.trim();
-        if (typeof i.title == "string" && i.title.trim()) return i.title.trim();
-        if (typeof i.message == "string" && i.message.trim()) return i.message.trim();
-      } catch {
-      }
-    if (s.includes("go-users:")) {
-      const i = s.match(/go-users:\s*([^|]+)/);
-      if (i) return i[1].trim();
-    }
-    const r = s.match(/\|\s*([^|]+)$/);
-    if (r) return r[1].trim();
-    if (s.trim().length > 0 && s.length < 200) return s.trim();
-  }
-  return `Request failed (${n.status})`;
-}
-function g(n) {
-  return n instanceof Error ? n.message : typeof n == "string" ? n : "An unexpected error occurred";
-}
 export {
-  v as F,
-  u as T,
-  h as e,
-  g
+  c as F,
+  l as T
 };
-//# sourceMappingURL=error-helpers-D8_e3UnS.js.map
+//# sourceMappingURL=toast-manager-D1apHHCN.js.map

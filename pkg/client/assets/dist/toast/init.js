@@ -1,6 +1,7 @@
-import { T as t, e as s, g as i } from "../chunks/error-helpers-D8_e3UnS.js";
-function n(a) {
-  const o = new t({ position: a || "top-right" });
+import { T as a } from "../chunks/toast-manager-D1apHHCN.js";
+import { e as s, g as i } from "../chunks/error-helpers-Cqk77Doi.js";
+function n(t) {
+  const o = new a({ position: t || "top-right" });
   return window.toastManager = o, window.notify = {
     success: (r, e) => o.success(r, e),
     error: (r, e) => o.error(r, e),
@@ -11,7 +12,7 @@ function n(a) {
 }
 document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", () => n()) : n();
 export {
-  t as ToastManager,
+  a as ToastManager,
   s as extractErrorMessage,
   i as getErrorMessage,
   n as initGlobalToastManager

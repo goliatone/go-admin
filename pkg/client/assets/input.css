@@ -194,6 +194,11 @@
     @apply px-3 py-2 text-xs;
   }
 
+  /* ================================================================
+     Badge System — shared across datatable, content-type-builder, etc.
+     Imported by src/shared/badge.ts for HTML generation.
+     ================================================================ */
+
   /* Status Badge Base */
   .status-badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border lowercase;
@@ -202,34 +207,77 @@
   /* Status Colors */
   .status-active {
     @apply bg-green-100 text-green-800 border-green-200;
+    @apply dark:bg-green-900/30 dark:text-green-400 dark:border-green-800;
   }
 
   .status-inactive {
     @apply bg-gray-100 text-gray-800 border-gray-200;
+    @apply dark:bg-gray-800/50 dark:text-gray-400 dark:border-gray-700;
   }
 
   .status-suspended {
     @apply bg-orange-100 text-orange-800 border-orange-200;
+    @apply dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800;
   }
 
   .status-disabled {
     @apply bg-red-100 text-red-800 border-red-200;
+    @apply dark:bg-red-900/30 dark:text-red-400 dark:border-red-800;
   }
 
   .status-pending {
     @apply bg-yellow-100 text-yellow-800 border-yellow-200;
+    @apply dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800;
   }
 
   .status-published {
     @apply bg-green-100 text-green-800 border-green-200;
+    @apply dark:bg-green-900/30 dark:text-green-400 dark:border-green-800;
   }
 
   .status-draft {
     @apply bg-gray-100 text-gray-800 border-gray-200;
+    @apply dark:bg-gray-800/50 dark:text-gray-400 dark:border-gray-700;
   }
 
   .status-archived {
     @apply bg-purple-100 text-purple-800 border-purple-200;
+    @apply dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800;
+  }
+
+  .status-deprecated {
+    @apply bg-red-100 text-red-800 border-red-200;
+    @apply dark:bg-red-900/30 dark:text-red-400 dark:border-red-800;
+  }
+
+  .status-breaking {
+    @apply bg-red-100 text-red-800 border-red-200;
+    @apply dark:bg-red-900/30 dark:text-red-400 dark:border-red-800;
+  }
+
+  .status-migrating {
+    @apply bg-blue-100 text-blue-800 border-blue-200;
+    @apply dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800;
+  }
+
+  .status-migrated {
+    @apply bg-green-100 text-green-800 border-green-200;
+    @apply dark:bg-green-900/30 dark:text-green-400 dark:border-green-800;
+  }
+
+  .status-failed {
+    @apply bg-red-100 text-red-800 border-red-200;
+    @apply dark:bg-red-900/30 dark:text-red-400 dark:border-red-800;
+  }
+
+  .status-required {
+    @apply bg-amber-50 text-amber-700 border-amber-200;
+    @apply dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800;
+  }
+
+  .status-unknown {
+    @apply bg-gray-100 text-gray-700 border-gray-200;
+    @apply dark:bg-gray-800/50 dark:text-gray-400 dark:border-gray-700;
   }
 
   /* Role Badge Base */
@@ -240,27 +288,61 @@
   /* Role Colors */
   .role-admin {
     @apply bg-red-100 text-red-900 border-red-200;
+    @apply dark:bg-red-900/30 dark:text-red-400 dark:border-red-800;
   }
 
   .role-editor {
     @apply bg-blue-100 text-blue-900 border-blue-200;
+    @apply dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800;
   }
 
   .role-member {
     @apply bg-purple-100 text-purple-900 border-purple-200;
+    @apply dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800;
   }
 
   .role-viewer {
     @apply bg-gray-100 text-gray-900 border-gray-200;
+    @apply dark:bg-gray-800/50 dark:text-gray-400 dark:border-gray-700;
   }
 
   .role-guest {
     @apply bg-yellow-100 text-yellow-900 border-yellow-200;
+    @apply dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800;
   }
 
   /* Generic Badge (fallback) */
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border;
+  }
+
+  .badge-blue {
+    @apply bg-blue-100 text-blue-800 border-blue-200;
+    @apply dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800;
+  }
+
+  /* Badge Size Modifiers */
+  .status-badge--sm,
+  .role-badge--sm,
+  .badge--sm {
+    @apply px-1.5 py-0.5 text-[10px] leading-none;
+  }
+
+  /* Badge Text Modifiers */
+  .badge--uppercase {
+    @apply uppercase tracking-wide;
+    text-transform: uppercase;
+  }
+
+  /* Boolean Chip Variants */
+  .badge-boolean-true {
+    @apply bg-green-100 text-green-800 border-green-200 gap-1;
+    @apply dark:bg-green-900/30 dark:text-green-400 dark:border-green-800;
+  }
+
+  .badge-boolean-false {
+    @apply bg-gray-100 text-gray-600 border-gray-200 gap-1;
+    @apply dark:bg-gray-800/50 dark:text-gray-400 dark:border-gray-700;
   }
 
   /* Sidebar search input - override @tailwindcss/forms defaults */
@@ -498,75 +580,6 @@
   @apply flex-shrink-0 text-gray-400 hover:text-white;
   @apply transition-colors cursor-pointer;
   @apply bg-transparent border-none p-0;
-}
-
-/* ============================================================================
-   Confirmation Modal
-   ============================================================================ */
-
-.confirm-modal-overlay {
-  @apply fixed inset-0 z-[10000];
-  @apply bg-black bg-opacity-50;
-  @apply flex items-center justify-center;
-  @apply opacity-0 transition-opacity duration-200;
-  pointer-events: all;
-}
-
-.confirm-modal-active {
-  @apply opacity-100;
-}
-
-.confirm-modal-leaving {
-  @apply opacity-0;
-}
-
-.confirm-modal {
-  @apply bg-sidebar-bg border border-sidebar-border;
-  @apply rounded-lg shadow-2xl;
-  @apply max-w-md w-full mx-4;
-  @apply transform scale-95 transition-transform duration-200;
-}
-
-.confirm-modal-active .confirm-modal {
-  @apply scale-100;
-}
-
-.confirm-modal-header {
-  @apply px-6 py-4 border-b border-sidebar-border;
-}
-
-.confirm-modal-title {
-  @apply text-lg font-semibold text-sidebar-text;
-}
-
-.confirm-modal-body {
-  @apply px-6 py-4;
-}
-
-.confirm-modal-message {
-  @apply text-sidebar-text-muted;
-}
-
-.confirm-modal-footer {
-  @apply px-6 py-4 border-t border-sidebar-border;
-  @apply flex items-center justify-end gap-3;
-}
-
-.confirm-modal-btn {
-  @apply px-4 py-2 rounded-lg;
-  @apply font-medium text-sm;
-  @apply transition-colors;
-  @apply cursor-pointer;
-}
-
-.confirm-modal-btn-cancel {
-  @apply bg-transparent border border-sidebar-border;
-  @apply text-sidebar-text hover:bg-sidebar-bg-hover;
-}
-
-.confirm-modal-btn-confirm {
-  @apply bg-blue-600 hover:bg-blue-700;
-  @apply text-white border-none;
 }
 
 /* ============================================================================

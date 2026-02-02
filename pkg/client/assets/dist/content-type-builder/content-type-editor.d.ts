@@ -12,6 +12,9 @@ export declare class ContentTypeEditor {
     private api;
     private state;
     private dragState;
+    private staticEventsBound;
+    private previewDebounceTimer;
+    private lifecycleOutsideClickHandler;
     constructor(container: HTMLElement, config: ContentTypeEditorConfig);
     /**
      * Initialize the editor
@@ -75,6 +78,8 @@ export declare class ContentTypeEditor {
      */
     showVersionHistory(): void;
     private bindEvents;
+    private bindStaticEvents;
+    private bindDynamicEvents;
     private bindDragEvents;
     private bindLifecycleMenuEvents;
     private showFieldTypePicker;
@@ -94,5 +99,6 @@ export declare class ContentTypeEditor {
     private renderPreview;
     private renderValidationErrors;
     private showToast;
+    private schedulePreview;
 }
 //# sourceMappingURL=content-type-editor.d.ts.map

@@ -3,6 +3,8 @@
  * Provides extensible cell rendering capabilities
  */
 
+import { badge, booleanChip as sharedBooleanChip } from '../shared/badge.js';
+
 export type CellRenderer = (value: any, record: any, column: string) => string;
 
 export class CellRendererRegistry {
@@ -52,18 +54,8 @@ export class CellRendererRegistry {
   private registerDefaultRenderers(): void {
     // Status badge renderer
     this.renderers.set('_badge', (value: any): string => {
-      const colors: Record<string, string> = {
-        active: 'green',
-        inactive: 'gray',
-        suspended: 'red',
-        disabled: 'gray',
-        pending: 'yellow',
-        published: 'green',
-        draft: 'gray',
-        archived: 'orange',
-      };
-      const color = colors[String(value).toLowerCase()] || 'blue';
-      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${color}-100 text-${color}-800">${value}</span>`;
+      const variant = String(value).toLowerCase();
+      return badge(String(value), 'status', variant);
     });
 
     // Date/time renderer
@@ -204,49 +196,20 @@ export const CommonRenderers = {
   /**
    * Status badge renderer with custom colors
    */
-  statusBadge: (colorMap?: Record<string, string>): CellRenderer => {
-    const defaultColors: Record<string, string> = {
-      active: 'green',
-      inactive: 'gray',
-      suspended: 'red',
-      disabled: 'gray',
-      pending: 'yellow',
-      published: 'green',
-      draft: 'gray',
-      archived: 'orange',
-    };
-    const colors = { ...defaultColors, ...colorMap };
-
+  statusBadge: (_colorMap?: Record<string, string>): CellRenderer => {
     return (value: any): string => {
-      const color = colors[String(value).toLowerCase()] || 'blue';
-      return `<span class="status-badge status-${value}">${value}</span>`;
+      const variant = String(value).toLowerCase();
+      return badge(String(value), 'status', variant);
     };
   },
 
   /**
    * Role badge renderer with color mapping
    */
-  roleBadge: (colorMap?: Record<string, string>): CellRenderer => {
-    const defaultColors: Record<string, string> = {
-      admin: 'red',
-      editor: 'blue',
-      member: 'purple',
-      viewer: 'gray',
-      guest: 'yellow',
-    };
-    const colors = { ...defaultColors, ...colorMap };
-
+  roleBadge: (_colorMap?: Record<string, string>): CellRenderer => {
     return (value: any): string => {
       const role = String(value).toLowerCase();
-      const color = colors[role];
-
-      // If color is defined, use role-specific CSS class
-      if (color) {
-        return `<span class="role-badge role-${role}">${value}</span>`;
-      }
-
-      // Fallback to generic badge
-      return `<span class="badge bg-blue-100 text-blue-900 border-blue-200">${value}</span>`;
+      return badge(String(value), 'role', role);
     };
   },
 
@@ -266,22 +229,8 @@ export const CommonRenderers = {
    * Boolean chip renderer with icon + label (e.g., [✓ Yes] or [✕ No])
    */
   booleanChip: (options?: { trueLabel?: string; falseLabel?: string }): CellRenderer => {
-    const trueLabel = options?.trueLabel || 'Yes';
-    const falseLabel = options?.falseLabel || 'No';
-
-    // Heroicons: check-circle (solid)
-    const checkIcon = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd"/></svg>';
-    // Heroicons: x-circle (solid)
-    const xIcon = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clip-rule="evenodd"/></svg>';
-
     return (value: any): string => {
-      const isTrue = Boolean(value);
-
-      if (isTrue) {
-        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">${checkIcon}${trueLabel}</span>`;
-      }
-
-      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">${xIcon}${falseLabel}</span>`;
+      return sharedBooleanChip(Boolean(value), options);
     };
   },
 

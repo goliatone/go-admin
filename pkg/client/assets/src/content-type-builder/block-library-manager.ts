@@ -17,20 +17,21 @@ import { ContentTypeAPIClient } from './api-client';
 import { FieldTypePicker, FIELD_TYPES } from './field-type-picker';
 import { FieldConfigForm } from './field-config-form';
 import { fieldsToSchema, schemaToFields, generateFieldId } from './api-client';
+import { badge } from '../shared/badge';
+import { Modal } from '../shared/modal.js';
 
 // =============================================================================
 // Block Library Manager Component
 // =============================================================================
 
-export class BlockLibraryManager {
+export class BlockLibraryManager extends Modal {
   private config: BlockLibraryManagerConfig;
   private api: ContentTypeAPIClient;
   private state: BlockLibraryManagerState;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
   private categories: string[] = [];
 
   constructor(config: BlockLibraryManagerConfig) {
+    super({ size: '4xl', backdropDataAttr: 'data-block-library-backdrop' });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
     this.state = {
@@ -44,45 +45,22 @@ export class BlockLibraryManager {
     };
   }
 
-  /**
-   * Show the block library manager
-   */
-  async show(): Promise<void> {
-    this.render();
-    this.bindEvents();
+  protected onBeforeHide(): boolean {
+    this.config.onClose?.();
+    return true;
+  }
+
+  protected async onAfterShow(): Promise<void> {
+    this.container?.setAttribute('data-block-library-manager', 'true');
     await this.loadBlocks();
     await this.loadCategories();
   }
 
-  /**
-   * Hide the block library manager
-   */
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
+  protected renderContent(): string {
     const isManageMode = this.config.mode !== 'picker';
     const title = isManageMode ? 'Block Library' : 'Select Block Type';
 
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity duration-150 opacity-0';
-    this.backdrop.setAttribute('data-block-library-backdrop', 'true');
-
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden';
-    this.container.setAttribute('data-block-library-manager', 'true');
-
-    this.container.innerHTML = `
+    return `
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center gap-3">
           <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
@@ -168,67 +146,40 @@ export class BlockLibraryManager {
           : ''
       }
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-    });
   }
 
-  private bindEvents(): void {
-    if (!this.container || !this.backdrop) return;
-
-    // Close on backdrop click
-    this.backdrop.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) {
-        this.config.onClose?.();
-        this.hide();
-      }
-    });
-
+  protected bindContentEvents(): void {
     // Close button
-    this.container.querySelector('[data-block-library-close]')?.addEventListener('click', () => {
-      this.config.onClose?.();
-      this.hide();
+    this.container?.querySelector('[data-block-library-close]')?.addEventListener('click', () => {
+      this.requestHide();
     });
 
     // Cancel button (picker mode)
-    this.container.querySelector('[data-block-library-cancel]')?.addEventListener('click', () => {
-      this.config.onClose?.();
-      this.hide();
+    this.container?.querySelector('[data-block-library-cancel]')?.addEventListener('click', () => {
+      this.requestHide();
     });
 
     // Filter input
-    const filterInput = this.container.querySelector<HTMLInputElement>('[data-block-filter]');
+    const filterInput = this.container?.querySelector<HTMLInputElement>('[data-block-filter]');
     filterInput?.addEventListener('input', () => {
       this.state.filter = filterInput.value;
       this.renderBlockList();
     });
 
     // Category filter
-    const categoryFilter = this.container.querySelector<HTMLSelectElement>('[data-block-category-filter]');
+    const categoryFilter = this.container?.querySelector<HTMLSelectElement>('[data-block-category-filter]');
     categoryFilter?.addEventListener('change', () => {
       this.state.categoryFilter = categoryFilter.value || null;
       this.renderBlockList();
     });
 
     // Create new block
-    this.container.querySelector('[data-block-create]')?.addEventListener('click', () => {
+    this.container?.querySelector('[data-block-create]')?.addEventListener('click', () => {
       this.showBlockEditor(null);
     });
 
-    // Keyboard shortcuts
-    this.container.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.config.onClose?.();
-        this.hide();
-      }
-    });
-
     // Delegate click events on block list
-    const blockList = this.container.querySelector('[data-block-list]');
+    const blockList = this.container?.querySelector('[data-block-list]');
     blockList?.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
 
@@ -546,15 +497,9 @@ export class BlockLibraryManager {
   }
 
   private getStatusBadge(status?: string): string {
-    switch (status) {
-      case 'draft':
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Draft</span>';
-      case 'deprecated':
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Deprecated</span>';
-      case 'active':
-      default:
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Active</span>';
-    }
+    const variant = status || 'active';
+    const label = variant.charAt(0).toUpperCase() + variant.slice(1);
+    return badge(label, 'status', variant);
   }
 
   private getFilteredBlocks(): BlockDefinition[] {
@@ -687,15 +632,14 @@ interface BlockDefinitionEditorConfig {
   onCancel: () => void;
 }
 
-class BlockDefinitionEditor {
+class BlockDefinitionEditor extends Modal {
   private config: BlockDefinitionEditorConfig;
   private api: ContentTypeAPIClient;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
   private fields: import('./types').FieldDefinition[] = [];
   private isNew: boolean;
 
   constructor(config: BlockDefinitionEditorConfig) {
+    super({ size: '3xl' });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
     this.isNew = !config.block;
@@ -705,34 +649,15 @@ class BlockDefinitionEditor {
     }
   }
 
-  show(): void {
-    this.render();
-    this.bindEvents();
+  protected onBeforeHide(): boolean {
+    this.config.onCancel();
+    return true;
   }
 
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
+  protected renderContent(): string {
     const block = this.config.block;
 
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-[60] flex items-center justify-center bg-black/50 transition-opacity duration-150 opacity-0';
-
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden';
-
-    this.container.innerHTML = `
+    return `
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
           ${this.isNew ? 'Create Block Definition' : 'Edit Block Definition'}
@@ -855,13 +780,6 @@ class BlockDefinitionEditor {
         </button>
       </div>
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-    });
   }
 
   private renderFieldsList(): string {
@@ -901,36 +819,25 @@ class BlockDefinitionEditor {
       .join('');
   }
 
-  private bindEvents(): void {
-    if (!this.container || !this.backdrop) return;
-
-    this.backdrop.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) {
-        this.config.onCancel();
-        this.hide();
-      }
+  protected bindContentEvents(): void {
+    this.container?.querySelector('[data-editor-close]')?.addEventListener('click', () => {
+      this.requestHide();
     });
 
-    this.container.querySelector('[data-editor-close]')?.addEventListener('click', () => {
-      this.config.onCancel();
-      this.hide();
+    this.container?.querySelector('[data-editor-cancel]')?.addEventListener('click', () => {
+      this.requestHide();
     });
 
-    this.container.querySelector('[data-editor-cancel]')?.addEventListener('click', () => {
-      this.config.onCancel();
-      this.hide();
-    });
-
-    this.container.querySelector('[data-editor-save]')?.addEventListener('click', () => {
+    this.container?.querySelector('[data-editor-save]')?.addEventListener('click', () => {
       this.handleSave();
     });
 
-    this.container.querySelector('[data-add-field]')?.addEventListener('click', () => {
+    this.container?.querySelector('[data-add-field]')?.addEventListener('click', () => {
       this.showFieldTypePicker();
     });
 
     // Delegate field events
-    this.container.querySelector('[data-fields-list]')?.addEventListener('click', (e) => {
+    this.container?.querySelector('[data-fields-list]')?.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
 
       const editBtn = target.closest('[data-edit-field]');
@@ -1050,45 +957,23 @@ interface BlockVersionHistoryViewerConfig {
   block: BlockDefinition;
 }
 
-class BlockVersionHistoryViewer {
+class BlockVersionHistoryViewer extends Modal {
   private config: BlockVersionHistoryViewerConfig;
   private api: ContentTypeAPIClient;
-  private container: HTMLElement | null = null;
-  private backdrop: HTMLElement | null = null;
   private versions: BlockSchemaVersion[] = [];
 
   constructor(config: BlockVersionHistoryViewerConfig) {
+    super({ size: '2xl', maxHeight: 'max-h-[80vh]' });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
   }
 
-  async show(): Promise<void> {
-    this.render();
-    this.bindEvents();
+  protected async onAfterShow(): Promise<void> {
     await this.loadVersions();
   }
 
-  hide(): void {
-    if (this.backdrop) {
-      this.backdrop.classList.add('opacity-0');
-      setTimeout(() => {
-        this.backdrop?.remove();
-        this.backdrop = null;
-        this.container = null;
-      }, 150);
-    }
-  }
-
-  private render(): void {
-    this.backdrop = document.createElement('div');
-    this.backdrop.className =
-      'fixed inset-0 z-[60] flex items-center justify-center bg-black/50 transition-opacity duration-150 opacity-0';
-
-    this.container = document.createElement('div');
-    this.container.className =
-      'bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden';
-
-    this.container.innerHTML = `
+  protected renderContent(): string {
+    return `
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Version History</h2>
@@ -1109,20 +994,9 @@ class BlockVersionHistoryViewer {
         </div>
       </div>
     `;
-
-    this.backdrop.appendChild(this.container);
-    document.body.appendChild(this.backdrop);
-
-    requestAnimationFrame(() => {
-      this.backdrop?.classList.remove('opacity-0');
-    });
   }
 
-  private bindEvents(): void {
-    this.backdrop?.addEventListener('click', (e) => {
-      if (e.target === this.backdrop) this.hide();
-    });
-
+  protected bindContentEvents(): void {
     this.container?.querySelector('[data-viewer-close]')?.addEventListener('click', () => {
       this.hide();
     });
@@ -1161,7 +1035,7 @@ class BlockVersionHistoryViewer {
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center gap-2">
                 <span class="text-sm font-medium text-gray-900 dark:text-white">v${escapeHtml(version.version)}</span>
-                ${version.is_breaking ? '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Breaking</span>' : ''}
+                ${version.is_breaking ? badge('Breaking', 'status', 'breaking') : ''}
                 ${this.getMigrationBadge(version.migration_status)}
               </div>
               <span class="text-xs text-gray-500 dark:text-gray-400">${formatDate(version.created_at)}</span>
@@ -1190,18 +1064,15 @@ class BlockVersionHistoryViewer {
   }
 
   private getMigrationBadge(status?: string): string {
-    switch (status) {
-      case 'pending':
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pending</span>';
-      case 'in_progress':
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Migrating</span>';
-      case 'completed':
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Migrated</span>';
-      case 'failed':
-        return '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Failed</span>';
-      default:
-        return '';
-    }
+    const map: Record<string, [string, string]> = {
+      pending:     ['Pending', 'pending'],
+      in_progress: ['Migrating', 'migrating'],
+      completed:   ['Migrated', 'migrated'],
+      failed:      ['Failed', 'failed'],
+    };
+    const entry = status ? map[status] : undefined;
+    if (!entry) return '';
+    return badge(entry[0], 'status', entry[1]);
   }
 }
 

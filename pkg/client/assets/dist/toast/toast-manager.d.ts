@@ -21,7 +21,6 @@ export declare class ToastManager implements ToastNotifier {
     info(message: string, duration?: number): void;
     confirm(message: string, options?: ConfirmOptions): Promise<boolean>;
     private createToastElement;
-    private createConfirmModal;
     private dismiss;
     private getDefaultTitle;
     private getIconForType;
