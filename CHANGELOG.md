@@ -1,5 +1,20 @@
 # Changelog
 
+# [Unreleased]
+
+## ⚠️ Breaking Changes
+
+- Centralized error handling: API error responses now go through a shared presenter that sets `location`, `stack_trace`, and consistent `text_code`/`category` defaults.
+- Stack traces are included by default in dev mode; production stack traces are opt-in.
+
+## 🛠 Upgrade Guide
+
+- Set `Config.Errors.DevMode = true` (or enable `Config.Debug.Enabled`) to include stack traces and internal messages in dev.
+- To temporarily enable stack traces in non-dev environments, set `Config.Errors.IncludeStackTrace = true` (or `ADMIN_ERROR_STACKTRACE=true` with `quickstart.WithErrorsFromEnv()`).
+- Use `admin.NewErrorPresenter(cfg.Errors, ...)` for custom handlers and call `Present` / `PresentWithContext` to produce API responses.
+- Wrap origin errors with `admin.WithStack(err)` when you want precise `location` and stack capture at the source.
+- Domain error codes are documented in `docs/ERROR_CODES.md` and exposed via `admin.DomainErrorCodes()`.
+
 # [0.23.0](https://github.com/goliatone/go-admin/compare/v0.22.0...v0.23.0) - (2026-01-29)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -1014,5 +1029,4 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
 
