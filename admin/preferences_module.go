@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	goerrors "github.com/goliatone/go-errors"
+	router "github.com/goliatone/go-router"
+	theme "github.com/goliatone/go-theme"
 )
 
 const preferencesModuleID = "preferences"
@@ -21,6 +23,7 @@ type PreferencesModule struct {
 	defaultLocale string
 	permission    string
 	menuParent    string
+	viewBuilder   PreferencesViewContextBuilder
 }
 
 // NewPreferencesModule constructs the default preferences module.
@@ -82,6 +85,7 @@ func (m *PreferencesModule) Register(ctx ModuleContext) error {
 	if _, err := ctx.Admin.RegisterPanel("preferences", builder); err != nil {
 		return err
 	}
+	m.registerPreferencesRoutes(ctx.Admin)
 	return nil
 }
 
@@ -89,13 +93,21 @@ func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := joinPath(m.basePath, "preferences")
+	basePath := strings.TrimSpace(m.basePath)
+	target := map[string]any{
+		"type": "url",
+		"key":  preferencesModuleID,
+		"name": "admin." + preferencesModuleID,
+	}
+	if basePath != "" {
+		target["path"] = joinPath(basePath, "preferences")
+	}
 	return []MenuItem{
 		{
 			Label:       "Preferences",
 			LabelKey:    "menu.preferences",
 			Icon:        "user-circle",
-			Target:      map[string]any{"type": "url", "path": path, "key": preferencesModuleID},
+			Target:      target,
 			Permissions: []string{m.permission},
 			Menu:        m.menuCode,
 			Locale:      locale,
@@ -108,6 +120,21 @@ func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 // WithMenuParent nests the preferences navigation under a parent menu item ID.
 func (m *PreferencesModule) WithMenuParent(parent string) *PreferencesModule {
 	m.menuParent = parent
+	return m
+}
+
+// WithBasePath sets the base path used for menu item targets (e.g., /admin).
+func (m *PreferencesModule) WithBasePath(basePath string) *PreferencesModule {
+	m.basePath = strings.TrimSpace(basePath)
+	return m
+}
+
+// PreferencesViewContextBuilder augments the view context for the preferences UI.
+type PreferencesViewContextBuilder func(adm *Admin, c router.Context, view router.ViewContext, active string) router.ViewContext
+
+// WithViewContextBuilder injects navigation/session/theme data for the preferences UI.
+func (m *PreferencesModule) WithViewContextBuilder(builder PreferencesViewContextBuilder) *PreferencesModule {
+	m.viewBuilder = builder
 	return m
 }
 
@@ -134,6 +161,14 @@ func (m *PreferencesModule) variantOptions(admin *Admin) []Option {
 	if admin == nil {
 		return options
 	}
+	if manifestOptions := manifestVariantOptions(admin.themeManifest); len(manifestOptions) > 0 {
+		options = append(options, manifestOptions...)
+		sort.Slice(options, func(i, j int) bool {
+			return strings.ToLower(options[i].Label) < strings.ToLower(options[j].Label)
+		})
+		return options
+	}
+
 	variantSet := map[string]bool{"": true}
 	if admin.config.ThemeVariant != "" {
 		options = append(options, Option{Value: admin.config.ThemeVariant, Label: titleCase(admin.config.ThemeVariant)})
@@ -142,6 +177,35 @@ func (m *PreferencesModule) variantOptions(admin *Admin) []Option {
 	if admin.defaultTheme != nil && admin.defaultTheme.ChartTheme != "" && !variantSet[admin.defaultTheme.ChartTheme] {
 		options = append(options, Option{Value: admin.defaultTheme.ChartTheme, Label: titleCase(admin.defaultTheme.ChartTheme)})
 		variantSet[admin.defaultTheme.ChartTheme] = true
+	}
+	sort.Slice(options, func(i, j int) bool {
+		return strings.ToLower(options[i].Label) < strings.ToLower(options[j].Label)
+	})
+	return options
+}
+
+func manifestVariantOptions(manifest *theme.Manifest) []Option {
+	if manifest == nil {
+		return nil
+	}
+	if strings.TrimSpace(manifest.Name) == "" {
+		return nil
+	}
+	if len(manifest.Variants) == 0 {
+		return nil
+	}
+	options := []Option{}
+	seen := map[string]bool{}
+	for name := range manifest.Variants {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" || seen[trimmed] {
+			continue
+		}
+		seen[trimmed] = true
+		options = append(options, Option{Value: trimmed, Label: titleCase(trimmed)})
+	}
+	if len(options) == 0 {
+		return nil
 	}
 	sort.Slice(options, func(i, j int) bool {
 		return strings.ToLower(options[i].Label) < strings.ToLower(options[j].Label)
@@ -235,6 +299,12 @@ func (r *PreferencesRepository) Update(ctx context.Context, id string, record ma
 	if userID == "" || (id != "" && id != userID) {
 		return nil, ErrForbidden
 	}
+	if _, ok := record["raw_ui"]; ok {
+		return nil, preferencesRawUINotSupportedError()
+	}
+	if _, ok := record["clear_keys"]; ok {
+		return nil, preferencesClearKeysNotSupportedError()
+	}
 	queryOpts, err := preferenceQueryOptionsFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -247,6 +317,14 @@ func (r *PreferencesRepository) Update(ctx context.Context, id string, record ma
 		return nil, err
 	}
 	prefs, clearKeys := r.preferencesFromRecord(record, level)
+	if toBool(record["clear"]) {
+		rawKeys, err := r.rawPreferenceKeysForLevel(ctx, scope, level)
+		if err != nil {
+			return nil, err
+		}
+		clearKeys = append(clearKeys, rawKeys...)
+	}
+	clearKeys = filterClearPreferenceKeys(clearKeys)
 	if len(clearKeys) > 0 {
 		if level == PreferenceLevelUser {
 			if _, err := r.service.Clear(ctx, userID, clearKeys); err != nil {
@@ -356,10 +434,7 @@ func (r *PreferencesRepository) preferencesFromRecord(record map[string]any, lev
 	if rawVal, ok := record["raw"]; ok {
 		prefs.Raw = filterAllowedRawPreferences(extractMap(rawVal))
 	}
-	clearKeys := filterClearPreferenceKeys(toStringSlice(record["clear"]))
-	if len(clearKeys) == 0 {
-		clearKeys = filterClearPreferenceKeys(toStringSlice(record["clear_keys"]))
-	}
+	clearKeys := filterRawPreferenceKeys(toStringSlice(record["clear_raw_keys"]))
 	if level == PreferenceLevelUser {
 		if val, ok := record["theme"]; ok && isEmptyPreferenceValue(val) {
 			clearKeys = append(clearKeys, preferencesKeyTheme)
@@ -415,14 +490,19 @@ func filterAllowedRawPreferences(raw map[string]any) map[string]any {
 }
 
 func isAllowedRawPreferenceKey(key string) bool {
-	key = strings.TrimSpace(key)
-	if key == "" {
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" || trimmed != key {
 		return false
 	}
 	if key == "id" || key == "raw" {
 		return false
 	}
 	if !strings.HasPrefix(key, preferencesRawNamespacePrefix) {
+		return false
+	}
+	if key == preferencesRawNamespacePrefix ||
+		key == preferencesRawNamespacePrefix+"id" ||
+		key == preferencesRawNamespacePrefix+"raw" {
 		return false
 	}
 	for i := 0; i < len(key); i++ {
@@ -456,6 +536,65 @@ func filterClearPreferenceKeys(keys []string) []string {
 		}
 	}
 	return out
+}
+
+func filterRawPreferenceKeys(keys []string) []string {
+	if len(keys) == 0 {
+		return nil
+	}
+	out := []string{}
+	seen := map[string]bool{}
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" || seen[key] {
+			continue
+		}
+		if isAllowedRawPreferenceKey(key) {
+			out = append(out, key)
+			seen[key] = true
+		}
+	}
+	return out
+}
+
+func (r *PreferencesRepository) rawPreferenceKeysForLevel(ctx context.Context, scope PreferenceScope, level PreferenceLevel) ([]string, error) {
+	if r == nil || r.service == nil || r.service.Store() == nil {
+		return nil, preferencesConfigError("preferences store not configured")
+	}
+	snapshot, err := r.service.Store().Resolve(ctx, PreferencesResolveInput{
+		Scope:  scope,
+		Levels: []PreferenceLevel{level},
+	})
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(snapshot.Effective))
+	for key := range snapshot.Effective {
+		if isAllowedRawPreferenceKey(key) {
+			keys = append(keys, key)
+		}
+	}
+	return keys, nil
+}
+
+func preferencesRawUINotSupportedError() error {
+	return goerrors.New("raw_ui not supported; use raw", goerrors.CategoryBadInput).
+		WithCode(http.StatusBadRequest).
+		WithTextCode("RAW_UI_NOT_SUPPORTED").
+		WithMetadata(map[string]any{
+			"field": "raw_ui",
+			"hint":  "use raw instead",
+		})
+}
+
+func preferencesClearKeysNotSupportedError() error {
+	return goerrors.New("clear_keys not supported; use clear_raw_keys", goerrors.CategoryBadInput).
+		WithCode(http.StatusBadRequest).
+		WithTextCode("CLEAR_KEYS_NOT_SUPPORTED").
+		WithMetadata(map[string]any{
+			"field": "clear_keys",
+			"hint":  "use clear_raw_keys",
+		})
 }
 
 func isClearablePreferenceKey(key string) bool {
