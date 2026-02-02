@@ -20,6 +20,7 @@ type Config struct {
 	CMSConfig        any
 	CMS              CMSOptions
 	Debug            DebugConfig
+	Errors           ErrorConfig
 
 	LogoURL    string
 	FaviconURL string
