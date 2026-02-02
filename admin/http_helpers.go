@@ -2,13 +2,9 @@ package admin
 
 import (
 	"encoding/json"
-	"errors"
-	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
-	validation "github.com/go-ozzo/ozzo-validation/v4"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
@@ -25,12 +21,14 @@ func writeHTML(c router.Context, html string) error {
 }
 
 func writeError(c router.Context, err error) error {
-	mapped, status := mapErrorForResponse(c, err)
+	presenter := DefaultErrorPresenter()
+	mapped, status := presenter.PresentWithContext(c, err)
 	if mapped == nil {
 		mapped = goerrors.New("unknown error", goerrors.CategoryInternal).WithCode(status)
 	}
 	c.Status(status)
-	return c.JSON(status, mapped.ToErrorResponse(false, nil))
+	includeStack := presenter.IncludeStackTrace()
+	return c.JSON(status, mapped.ToErrorResponse(includeStack, mapped.StackTrace))
 }
 
 func parseJSONBody(c router.Context) (map[string]any, error) {
@@ -142,164 +140,6 @@ func extractMap(val any) map[string]any {
 		return m
 	}
 	return map[string]any{}
-}
-
-func mapErrorForResponse(c router.Context, err error) (*goerrors.Error, int) {
-	mapped, status := toGoError(err)
-	if mapped == nil {
-		mapped = goerrors.New("internal error", goerrors.CategoryInternal).WithCode(http.StatusInternalServerError)
-		status = http.StatusInternalServerError
-	}
-	if mapped.Metadata == nil {
-		mapped.Metadata = map[string]any{}
-	}
-	if c != nil {
-		mapped.Metadata["path"] = c.Path()
-		mapped.Metadata["method"] = c.Method()
-	}
-	if mapped.Timestamp.IsZero() {
-		mapped.Timestamp = time.Now()
-	}
-	return mapped, status
-}
-
-func toGoError(err error) (*goerrors.Error, int) {
-	status := http.StatusInternalServerError
-	if err == nil {
-		return goerrors.New("unknown error", goerrors.CategoryInternal).WithCode(status), status
-	}
-
-	var mapped *goerrors.Error
-	var settingsValidation SettingsValidationErrors
-	var ozzoErrors validation.Errors
-	var schemaErr *jsonschema.ValidationError
-	var invalid InvalidFeatureConfigError
-	var permission PermissionDeniedError
-
-	switch {
-	case errors.As(err, &settingsValidation):
-		mapped = goerrors.New("validation failed", goerrors.CategoryValidation).
-			WithCode(http.StatusBadRequest).
-			WithTextCode("VALIDATION_ERROR").
-			WithMetadata(map[string]any{
-				"fields": settingsValidation.Fields,
-				"scope":  settingsValidation.Scope,
-			})
-		status = http.StatusBadRequest
-	case errors.As(err, &ozzoErrors):
-		mapped = goerrors.FromOzzoValidation(err, "validation failed").
-			WithCode(http.StatusBadRequest).
-			WithTextCode("VALIDATION_ERROR")
-		if mapped != nil {
-			if mapped.Metadata == nil {
-				mapped.Metadata = map[string]any{}
-			}
-			if len(mapped.ValidationErrors) > 0 {
-				mapped.Metadata["fields"] = mapped.ValidationMap()
-			}
-		}
-		status = http.StatusBadRequest
-	case errors.As(err, &schemaErr):
-		fields := map[string]string{}
-		collectJSONSchemaFields(schemaErr, fields)
-		if len(fields) == 0 {
-			fields["schema"] = strings.TrimSpace(schemaErr.Error())
-		}
-		mapped = goerrors.NewValidationFromMap("validation failed", fields).
-			WithCode(http.StatusBadRequest).
-			WithTextCode("VALIDATION_ERROR")
-		if mapped != nil {
-			mapped.Metadata = map[string]any{"fields": fields}
-		}
-		status = http.StatusBadRequest
-	case isSchemaValidationMessage(err):
-		fields := map[string]string{"schema": strings.TrimSpace(err.Error())}
-		mapped = goerrors.NewValidationFromMap("validation failed", fields).
-			WithCode(http.StatusBadRequest).
-			WithTextCode("VALIDATION_ERROR")
-		if mapped != nil {
-			mapped.Metadata = map[string]any{"fields": fields}
-		}
-		status = http.StatusBadRequest
-	case errors.As(err, &invalid):
-		mapped = goerrors.Wrap(err, goerrors.CategoryValidation, err.Error()).
-			WithCode(http.StatusBadRequest).
-			WithTextCode("INVALID_FEATURE_CONFIG")
-		issues := []map[string]any{}
-		for _, issue := range invalid.Issues {
-			issues = append(issues, map[string]any{
-				"feature": issue.Feature,
-				"missing": issue.Missing,
-			})
-		}
-		mapped.Metadata = map[string]any{
-			"issues": issues,
-		}
-		status = http.StatusBadRequest
-	case errors.As(err, &permission):
-		mapped = goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
-			WithCode(http.StatusForbidden).
-			WithTextCode("FORBIDDEN")
-		meta := map[string]any{}
-		if permission.Permission != "" {
-			meta["permission"] = permission.Permission
-		}
-		if permission.Resource != "" {
-			meta["resource"] = permission.Resource
-		}
-		if len(meta) > 0 {
-			mapped.Metadata = meta
-		}
-		status = http.StatusForbidden
-	case errors.Is(err, ErrForbidden):
-		mapped = goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
-			WithCode(http.StatusForbidden).
-			WithTextCode("FORBIDDEN")
-		status = http.StatusForbidden
-	case errors.Is(err, ErrREPLSessionLimit):
-		mapped = goerrors.Wrap(err, goerrors.CategoryRateLimit, err.Error()).
-			WithCode(http.StatusTooManyRequests).
-			WithTextCode("REPL_SESSION_LIMIT")
-		status = http.StatusTooManyRequests
-	case errors.Is(err, ErrFeatureDisabled):
-		mapped = goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
-			WithCode(http.StatusNotFound).
-			WithTextCode("FEATURE_DISABLED")
-		status = http.StatusNotFound
-	case errors.Is(err, ErrNotFound):
-		mapped = goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
-			WithCode(http.StatusNotFound).
-			WithTextCode("NOT_FOUND")
-		status = http.StatusNotFound
-	}
-
-	if mapped == nil {
-		if errors.As(err, &mapped) && mapped != nil {
-			if mapped.Code != 0 {
-				status = mapped.Code
-			}
-		} else {
-			mapped = goerrors.MapToError(err, goerrors.DefaultErrorMappers())
-			if mapped != nil && mapped.Code != 0 {
-				status = mapped.Code
-			}
-		}
-	}
-
-	if mapped == nil {
-		return goerrors.New(err.Error(), goerrors.CategoryInternal).WithCode(status), status
-	}
-
-	if mapped.Code == 0 {
-		mapped.Code = status
-	}
-	if mapped.TextCode == "" {
-		mapped.TextCode = goerrors.HTTPStatusToTextCode(mapped.Code)
-	}
-	if mapped.Category == "" {
-		mapped.Category = goerrors.CategoryInternal
-	}
-	return mapped, status
 }
 
 func collectJSONSchemaFields(err *jsonschema.ValidationError, fields map[string]string) {
