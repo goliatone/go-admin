@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/goliatone/go-admin/admin"
+	theme "github.com/goliatone/go-theme"
 	"github.com/goliatone/go-users/pkg/types"
 )
 
@@ -17,6 +18,8 @@ type adminOptions struct {
 	featureDefaults        map[string]bool
 	preferencesRepo        types.PreferenceRepository
 	preferencesRepoFactory func() (types.PreferenceRepository, error)
+	themeSelector          theme.ThemeSelector
+	themeManifest          *theme.Manifest
 }
 
 // WithAdminContext sets the context used when resolving adapter hooks.
@@ -58,6 +61,17 @@ func WithFeatureDefaults(defaults map[string]bool) AdminOption {
 			return
 		}
 		opts.featureDefaults = cloneFeatureDefaults(defaults)
+	}
+}
+
+// WithThemeSelector wires a go-theme selector + manifest into admin.
+func WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.themeSelector = selector
+		opts.themeManifest = manifest
 	}
 }
 
@@ -108,6 +122,12 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {
 		return nil, result, err
+	}
+	if options.themeSelector != nil {
+		adm.WithGoTheme(options.themeSelector)
+	}
+	if options.themeManifest != nil {
+		adm.WithThemeManifest(options.themeManifest)
 	}
 	ApplyAdapterIntegrations(adm, &result, hooks)
 	return adm, result, nil
