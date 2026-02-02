@@ -63,6 +63,20 @@ func findMethod(target any, names ...string) reflect.Value {
 	return reflect.Value{}
 }
 
+func appendZeroArgs(args []reflect.Value, method reflect.Value, start int) []reflect.Value {
+	if !method.IsValid() {
+		return args
+	}
+	numIn := method.Type().NumIn()
+	if method.Type().IsVariadic() && numIn > 0 {
+		numIn--
+	}
+	for i := start; i < numIn; i++ {
+		args = append(args, reflect.Zero(method.Type().In(i)))
+	}
+	return args
+}
+
 func (a *GoCMSContentTypeAdapter) ContentTypes(ctx context.Context) ([]CMSContentType, error) {
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
@@ -72,14 +86,7 @@ func (a *GoCMSContentTypeAdapter) ContentTypes(ctx context.Context) ([]CMSConten
 		return nil, ErrNotFound
 	}
 	args := []reflect.Value{reflect.ValueOf(ctx)}
-	for i := 1; i < method.Type().NumIn(); i++ {
-		arg := method.Type().In(i)
-		if arg.Kind() == reflect.String {
-			args = append(args, reflect.ValueOf(""))
-		} else {
-			args = append(args, reflect.Zero(arg))
-		}
-	}
+	args = appendZeroArgs(args, method, 1)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
 		return nil, err
@@ -107,9 +114,7 @@ func (a *GoCMSContentTypeAdapter) ContentType(ctx context.Context, id string) (*
 		return nil, err
 	}
 	args = append(args, arg)
-	for i := 2; i < method.Type().NumIn(); i++ {
-		args = append(args, reflect.Zero(method.Type().In(i)))
-	}
+	args = appendZeroArgs(args, method, 2)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
 		return nil, err
@@ -141,9 +146,7 @@ func (a *GoCMSContentTypeAdapter) ContentTypeBySlug(ctx context.Context, slug st
 		return nil, err
 	}
 	args = append(args, arg)
-	for i := 2; i < method.Type().NumIn(); i++ {
-		args = append(args, reflect.Zero(method.Type().In(i)))
-	}
+	args = appendZeroArgs(args, method, 2)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
 		return nil, err
@@ -174,9 +177,7 @@ func (a *GoCMSContentTypeAdapter) CreateContentType(ctx context.Context, content
 		return nil, err
 	}
 	args := []reflect.Value{reflect.ValueOf(ctx), input}
-	for i := 2; i < method.Type().NumIn(); i++ {
-		args = append(args, reflect.Zero(method.Type().In(i)))
-	}
+	args = appendZeroArgs(args, method, 2)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
 		return nil, err
@@ -204,9 +205,7 @@ func (a *GoCMSContentTypeAdapter) UpdateContentType(ctx context.Context, content
 		return nil, err
 	}
 	args := []reflect.Value{reflect.ValueOf(ctx), input}
-	for i := 2; i < method.Type().NumIn(); i++ {
-		args = append(args, reflect.Zero(method.Type().In(i)))
-	}
+	args = appendZeroArgs(args, method, 2)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
 		return nil, err
@@ -227,7 +226,11 @@ func (a *GoCMSContentTypeAdapter) DeleteContentType(ctx context.Context, id stri
 		return ErrNotFound
 	}
 	args := []reflect.Value{reflect.ValueOf(ctx)}
-	switch method.Type().NumIn() {
+	numIn := method.Type().NumIn()
+	if method.Type().IsVariadic() && numIn > 0 {
+		numIn--
+	}
+	switch numIn {
 	case 1:
 		// ctx only (unlikely)
 	case 2:
