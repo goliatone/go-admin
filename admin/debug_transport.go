@@ -16,7 +16,7 @@ const debugEventSnapshot = "snapshot"
 
 var errDebugPanelRequired = goerrors.New("panel is required", goerrors.CategoryValidation).
 	WithCode(http.StatusBadRequest).
-	WithTextCode("MISSING_PANEL")
+	WithTextCode(TextCodeMissingPanel)
 
 type debugCommand struct {
 	Type   string   `json:"type"`
