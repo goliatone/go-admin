@@ -775,8 +775,8 @@ func (h *contentTypeBuilderHandlers) updateContentTypeStatus(c router.Context, s
 	}
 	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
 	if record, err := panel.Get(adminCtx, id); err == nil && record != nil {
-		if actualID := strings.TrimSpace(anyToString(record["content_type_id"])); actualID != "" {
-			id = actualID
+		if resolvedID := resolveContentTypeUpdateID(id, record); resolvedID != "" {
+			id = resolvedID
 		}
 	}
 	updated, err := panel.Update(adminCtx, id, map[string]any{
@@ -860,10 +860,10 @@ func parseJSONBody(c router.Context, target any) error {
 
 func contentTypeKey(id string, record map[string]any) string {
 	if record != nil {
-		if val := strings.TrimSpace(anyToString(record["content_type_id"])); val != "" {
+		if val := strings.TrimSpace(anyToString(record["id"])); val != "" {
 			return val
 		}
-		if val := strings.TrimSpace(anyToString(record["id"])); val != "" {
+		if val := strings.TrimSpace(anyToString(record["content_type_id"])); val != "" {
 			return val
 		}
 		if val := strings.TrimSpace(anyToString(record["slug"])); val != "" {
@@ -871,6 +871,22 @@ func contentTypeKey(id string, record map[string]any) string {
 		}
 	}
 	return strings.TrimSpace(id)
+}
+
+func resolveContentTypeUpdateID(fallback string, record map[string]any) string {
+	if record == nil {
+		return strings.TrimSpace(fallback)
+	}
+	if val := strings.TrimSpace(anyToString(record["slug"])); val != "" {
+		return val
+	}
+	if val := strings.TrimSpace(anyToString(record["id"])); val != "" {
+		return val
+	}
+	if val := strings.TrimSpace(anyToString(record["content_type_id"])); val != "" {
+		return val
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func buildVersionFromRecord(record map[string]any) contentTypeSchemaVersion {
