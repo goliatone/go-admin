@@ -851,10 +851,14 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 	if contentType.Capabilities != nil {
 		existing.Capabilities = cloneAnyMap(contentType.Capabilities)
 	}
-	if desc := strings.TrimSpace(contentType.Description); desc != "" {
+	if contentType.DescriptionSet {
+		existing.Description = contentType.Description
+	} else if desc := strings.TrimSpace(contentType.Description); desc != "" {
 		existing.Description = desc
 	}
-	if icon := strings.TrimSpace(contentType.Icon); icon != "" {
+	if contentType.IconSet {
+		existing.Icon = contentType.Icon
+	} else if icon := strings.TrimSpace(contentType.Icon); icon != "" {
 		existing.Icon = icon
 	}
 	if status := strings.TrimSpace(contentType.Status); status != "" {
@@ -1112,6 +1116,18 @@ func (s *InMemoryContentService) UpdateBlockDefinition(ctx context.Context, def 
 		if def.Slug == "" {
 			def.Slug = normalizeContentTypeSlug(def.Name, def.Slug)
 		}
+	}
+	if def.Type == "" {
+		def.Type = existing.Type
+	}
+	if !def.DescriptionSet {
+		def.Description = existing.Description
+	}
+	if !def.IconSet {
+		def.Icon = existing.Icon
+	}
+	if !def.CategorySet {
+		def.Category = existing.Category
 	}
 	if def.Status == "" {
 		if existing.Status != "" {
