@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -499,7 +500,8 @@ func makeAuthErrorHandler(cfg demoAuthConfig) func(router.Context, error) error 
 	return func(c router.Context, err error) error {
 		lowerMsg := strings.ToLower(err.Error())
 
-		mapped := goerrors.MapToError(err, goerrors.DefaultErrorMappers())
+		presenter := admin.DefaultErrorPresenter()
+		mapped, _ := presenter.Present(err)
 
 		// Normalize missing/malformed token to 401
 		if mapped == nil ||
@@ -513,6 +515,10 @@ func makeAuthErrorHandler(cfg demoAuthConfig) func(router.Context, error) error 
 		if mapped == nil {
 			mapped = goerrors.New("unauthorized", goerrors.CategoryAuth).WithCode(goerrors.CodeUnauthorized)
 		}
+		mapped = admin.AttachErrorContext(err, mapped)
+		if mapped.Timestamp.IsZero() {
+			mapped.Timestamp = time.Now()
+		}
 
 		status := mapped.Code
 		if status == 0 {
@@ -522,7 +528,8 @@ func makeAuthErrorHandler(cfg demoAuthConfig) func(router.Context, error) error 
 		// API routes: return JSON so fetch requests don’t turn into template errors
 		if strings.Contains(c.Path(), "/api/") || strings.Contains(c.Path(), "/crud/") {
 			c.Status(status)
-			return c.JSON(status, mapped.ToErrorResponse(false, nil))
+			includeStack := presenter.IncludeStackTrace()
+			return c.JSON(status, mapped.ToErrorResponse(includeStack, mapped.StackTrace))
 		}
 
 		// HTML routes: redirect to the configured login path
