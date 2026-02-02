@@ -296,7 +296,9 @@ func buildContentTypeInput(argType reflect.Type, contentType CMSContentType, isU
 	if slug := strings.TrimSpace(contentType.Slug); slug != "" || !isUpdate {
 		setStringPtr(input.FieldByName("Slug"), slug)
 	}
-	if desc := strings.TrimSpace(contentType.Description); desc != "" {
+	if isUpdate && contentType.DescriptionSet {
+		setStringPtr(input.FieldByName("Description"), contentType.Description)
+	} else if desc := strings.TrimSpace(contentType.Description); desc != "" {
 		setStringPtr(input.FieldByName("Description"), desc)
 	}
 	if contentType.Schema != nil {
@@ -308,7 +310,9 @@ func buildContentTypeInput(argType reflect.Type, contentType CMSContentType, isU
 	if contentType.Capabilities != nil {
 		setMapField(input, "Capabilities", cloneAnyMap(contentType.Capabilities))
 	}
-	if icon := strings.TrimSpace(contentType.Icon); icon != "" {
+	if isUpdate && contentType.IconSet {
+		setStringPtr(input.FieldByName("Icon"), contentType.Icon)
+	} else if icon := strings.TrimSpace(contentType.Icon); icon != "" {
 		setStringPtr(input.FieldByName("Icon"), icon)
 	}
 	if status := strings.TrimSpace(contentType.Status); status != "" {
