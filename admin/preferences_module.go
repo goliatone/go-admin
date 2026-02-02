@@ -600,7 +600,7 @@ func (r *PreferencesRepository) rawPreferenceKeysForLevel(ctx context.Context, s
 func preferencesRawUINotSupportedError() error {
 	return goerrors.New("raw_ui not supported; use raw", goerrors.CategoryBadInput).
 		WithCode(http.StatusBadRequest).
-		WithTextCode("RAW_UI_NOT_SUPPORTED").
+		WithTextCode(TextCodeRawUINotSupported).
 		WithMetadata(map[string]any{
 			"field": "raw_ui",
 			"hint":  "use raw instead",
@@ -610,7 +610,7 @@ func preferencesRawUINotSupportedError() error {
 func preferencesClearKeysNotSupportedError() error {
 	return goerrors.New("clear_keys not supported; use clear_raw_keys", goerrors.CategoryBadInput).
 		WithCode(http.StatusBadRequest).
-		WithTextCode("CLEAR_KEYS_NOT_SUPPORTED").
+		WithTextCode(TextCodeClearKeysNotSupported).
 		WithMetadata(map[string]any{
 			"field": "clear_keys",
 			"hint":  "use clear_raw_keys",
