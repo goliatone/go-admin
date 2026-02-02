@@ -20,6 +20,7 @@ export declare class DebugToolbar extends HTMLElement {
     private panelSortOrder;
     private eventToPanel;
     private unsubscribeRegistry;
+    private expandedRequests;
     private static readonly MIN_HEIGHT;
     private static readonly MAX_HEIGHT_RATIO;
     private static readonly DEFAULT_HEIGHT;

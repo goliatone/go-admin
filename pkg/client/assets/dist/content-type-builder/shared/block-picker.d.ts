@@ -21,6 +21,8 @@ export interface InlineBlockPickerConfig {
     label?: string;
     /** Color accent: 'blue' for allowed, 'red' for denied */
     accent?: 'blue' | 'red';
+    /** Optional label when selection is empty (e.g., "All blocks allowed") */
+    emptySelectionText?: string;
 }
 /**
  * Load available block definitions from the API.

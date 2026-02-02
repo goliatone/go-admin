@@ -1,6 +1,6 @@
-import { s as q, y as L, e as z, j as P, k as g, i as T, h as M, f as H, r as A, p, D as S, n as $, o as R, a as I, b as j, K as O, c as D, t as C } from "../chunks/builtin-panels-rlH6z4Rw.js";
-import { DebugReplPanel as F } from "./repl.js";
-const Q = `
+import { t as L, z, e as P, k as T, l as g, j as M, i as R, g as H, r as A, p, D as q, o as $, q as I, a as f, b as j, c as D, L as O, d as F, u as C } from "../chunks/builtin-panels-Dl-8u-rd.js";
+import { DebugReplPanel as Q } from "./repl.js";
+const B = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -867,6 +867,124 @@ const Q = `
     transform: rotate(45deg);
   }
 
+  /* Request detail rows */
+  .request-detail-row {
+    background: transparent !important;
+  }
+
+  .request-detail-row:hover {
+    background: transparent !important;
+  }
+
+  .request-detail-row td {
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .request-detail-pane {
+    background: var(--toolbar-bg-secondary);
+    border: 1px solid var(--toolbar-border);
+    border-radius: 4px;
+    margin: 4px 8px 8px 8px;
+    padding: 10px 12px;
+  }
+
+  .request-detail-section {
+    margin-bottom: 8px;
+  }
+
+  .request-detail-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .request-detail-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--toolbar-text-muted);
+    margin-bottom: 3px;
+  }
+
+  .request-detail-value {
+    font-family: var(--toolbar-font);
+    font-size: 11px;
+    color: var(--toolbar-text);
+    word-break: break-all;
+  }
+
+  .request-detail-kv {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+    font-size: 11px;
+    margin: 0;
+  }
+
+  .request-detail-kv dt {
+    color: var(--toolbar-accent);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .request-detail-kv dd {
+    color: var(--toolbar-text);
+    margin: 0;
+    word-break: break-all;
+  }
+
+  .request-detail-masked {
+    color: var(--toolbar-text-muted);
+    font-style: italic;
+    font-size: 10px;
+  }
+
+  .request-detail-error {
+    background: rgba(243, 139, 168, 0.1);
+    border: 1px solid rgba(243, 139, 168, 0.3);
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: var(--toolbar-error);
+    font-size: 11px;
+    word-break: break-word;
+  }
+
+  /* Content-Type badge */
+  .badge-content-type {
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: none;
+    padding: 1px 5px;
+    margin-left: 4px;
+    background: rgba(108, 112, 134, 0.2);
+    color: var(--toolbar-text-muted);
+    vertical-align: middle;
+  }
+
+  /* Request row cursor */
+  [data-request-id] {
+    cursor: pointer;
+  }
+
+  [data-request-id]:hover {
+    background: rgba(137, 180, 250, 0.08) !important;
+  }
+
+  [data-request-id] [data-expand-icon] {
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+    margin-right: 4px;
+    opacity: 0.5;
+    font-size: 10px;
+    transition: opacity 0.15s ease;
+  }
+
+  [data-request-id]:hover [data-expand-icon] {
+    opacity: 1;
+  }
+
   /* Responsive */
   @media (max-width: 768px) {
     :host {
@@ -877,21 +995,23 @@ const Q = `
       max-width: 60%;
     }
   }
-`, d = L;
-function f(o, t, e = 50, s) {
+`, h = z;
+function x(o, t, e = 50, s) {
   const a = s?.newestFirst ?? !0, r = s?.slowThresholdMs ?? e;
   switch (o) {
     case "requests":
-      return A(t.requests || [], d, {
+      return A(t.requests || [], h, {
         newestFirst: a,
         slowThresholdMs: r,
         maxEntries: 50,
         showSortToggle: !0,
         truncatePath: !0,
-        maxPathLength: 50
+        maxPathLength: 50,
+        expandedRequestIds: s?.expandedRequestIds,
+        maxDetailLength: 80
       });
     case "sql":
-      return H(t.sql || [], d, {
+      return H(t.sql || [], h, {
         newestFirst: a,
         slowThresholdMs: r,
         maxEntries: 50,
@@ -900,7 +1020,7 @@ function f(o, t, e = 50, s) {
         // Toolbar uses SVG icons
       });
     case "logs":
-      return M(t.logs || [], d, {
+      return R(t.logs || [], h, {
         newestFirst: !0,
         // Logs always show newest first in toolbar
         maxEntries: 100,
@@ -912,69 +1032,69 @@ function f(o, t, e = 50, s) {
         maxMessageLength: 100
       });
     case "config":
-      return g("Config", t.config || {}, d, {
+      return g("Config", t.config || {}, h, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "routes":
-      return T(t.routes || [], d, {
+      return M(t.routes || [], h, {
         showName: !1
         // Toolbar doesn't show name column
       });
     case "template":
-      return g("Template Context", t.template || {}, d, {
+      return g("Template Context", t.template || {}, h, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "session":
-      return g("Session", t.session || {}, d, {
+      return g("Session", t.session || {}, h, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "custom":
-      return P(t.custom || {}, d, {
+      return T(t.custom || {}, h, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
       });
     default:
-      return `<div class="${d.emptyState}">Panel "${z(o)}" not available</div>`;
+      return `<div class="${h.emptyState}">Panel "${P(o)}" not available</div>`;
   }
 }
 function u(o, t = 50) {
-  const e = o.requests?.length || 0, s = o.sql?.length || 0, a = o.logs?.length || 0, r = (o.requests || []).filter((i) => (i.status || 0) >= 400).length, n = (o.sql || []).filter((i) => i.error).length, c = (o.logs || []).filter((i) => {
+  const e = o.requests?.length || 0, s = o.sql?.length || 0, a = o.logs?.length || 0, r = (o.requests || []).filter((i) => (i.status || 0) >= 400).length, n = (o.sql || []).filter((i) => i.error).length, d = (o.logs || []).filter((i) => {
     const b = (i.level || "").toLowerCase();
     return b === "error" || b === "fatal";
-  }).length, l = (o.sql || []).filter((i) => q(i.duration, t)).length;
+  }).length, l = (o.sql || []).filter((i) => L(i.duration, t)).length;
   return {
     requests: e,
     sql: s,
     logs: a,
-    errors: r + n + c,
+    errors: r + n + d,
     slowQueries: l
   };
 }
-const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
+const N = /* @__PURE__ */ new Set(["console", "shell"]), v = {
   console: "Console",
   shell: "Shell"
-}, v = () => {
+}, w = () => {
   const o = p.getToolbarPanels();
   return o.length > 0 ? o.filter((t) => t.category === "core" || t.category === "system").map((t) => t.id) : ["requests", "sql", "logs", "routes", "config"];
-}, N = (o) => {
-  if (m[o])
-    return m[o];
+}, _ = (o) => {
+  if (v[o])
+    return v[o];
   const t = p.get(o);
   return t ? t.label : o.charAt(0).toUpperCase() + o.slice(1);
 }, y = (o) => {
   const t = p.get(o);
   return t ? C(t) : [o];
-}, w = () => {
+}, k = () => {
   const o = {};
   for (const t of p.list())
     for (const e of C(t))
       o[e] = t.id;
   return o;
-}, _ = (o) => {
+}, G = (o) => {
   if (!Array.isArray(o))
     return [];
   const t = [];
@@ -984,21 +1104,21 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
     const s = e, a = typeof s.command == "string" ? s.command.trim() : "";
     if (!a)
       return;
-    const r = typeof s.description == "string" ? s.description.trim() : "", n = Array.isArray(s.tags) ? s.tags.filter((i) => typeof i == "string" && i.trim() !== "").map((i) => i.trim()) : [], c = Array.isArray(s.aliases) ? s.aliases.filter((i) => typeof i == "string" && i.trim() !== "").map((i) => i.trim()) : [], l = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
+    const r = typeof s.description == "string" ? s.description.trim() : "", n = Array.isArray(s.tags) ? s.tags.filter((i) => typeof i == "string" && i.trim() !== "").map((i) => i.trim()) : [], d = Array.isArray(s.aliases) ? s.aliases.filter((i) => typeof i == "string" && i.trim() !== "").map((i) => i.trim()) : [], l = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
     t.push({
       command: a,
       description: r || void 0,
       tags: n.length > 0 ? n : void 0,
-      aliases: c.length > 0 ? c : void 0,
+      aliases: d.length > 0 ? d : void 0,
       mutates: l
     });
   }), t;
-}, h = class h extends HTMLElement {
+}, c = class c extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([
       ["requests", !0],
       ["sql", !0]
-    ]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.handleKeyDown = (t) => {
+    ]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
     }, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1006,7 +1126,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
     return ["base-path", "debug-path", "panels", "expanded", "slow-threshold-ms", "use-fab"];
   }
   connectedCallback() {
-    this.eventToPanel = w(), this.unsubscribeRegistry = p.subscribe((t) => this.handleRegistryChange(t)), this.loadState(), this.render(), this.useFab || (this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
+    this.eventToPanel = k(), this.unsubscribeRegistry = p.subscribe((t) => this.handleRegistryChange(t)), this.loadState(), this.render(), this.useFab || (this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
   }
   disconnectedCallback() {
     this.stream?.close(), this.unsubscribeRegistry?.(), document.removeEventListener("keydown", this.handleKeyDown);
@@ -1015,7 +1135,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
    * Handle registry changes (panel registered/unregistered)
    */
   handleRegistryChange(t) {
-    this.eventToPanel = w(), this.updateSubscriptions(), this.expanded && this.render();
+    this.eventToPanel = k(), this.updateSubscriptions(), this.expanded && this.render();
   }
   /**
    * Update WebSocket subscriptions based on current panels
@@ -1056,7 +1176,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
       const e = localStorage.getItem("debug-toolbar-height");
       if (e !== null) {
         const a = parseInt(e, 10);
-        !isNaN(a) && a >= h.MIN_HEIGHT && (this.customHeight = a);
+        !isNaN(a) && a >= c.MIN_HEIGHT && (this.customHeight = a);
       }
       const s = localStorage.getItem("debug-toolbar-sort-order");
       if (s)
@@ -1108,9 +1228,9 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
     const t = this.getAttribute("panels");
     if (t) {
       const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : v();
+      return e.length ? e : w();
     }
-    return v();
+    return w();
   }
   get wsUrl() {
     return `${this.debugPath}/ws`;
@@ -1121,7 +1241,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
   }
   // WebSocket initialization
   initWebSocket() {
-    this.stream = new S({
+    this.stream = new q({
       basePath: this.debugPath,
       onEvent: (e) => this.handleEvent(e),
       onStatusChange: (e) => this.handleStatusChange(e)
@@ -1154,8 +1274,8 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
     }
     const e = this.eventToPanel[t.type] || t.type, s = p.get(e);
     if (s) {
-      const a = $(s), r = this.snapshot[a], c = (s.handleEvent || ((l, i) => R(l, i, 500)))(r, t.payload);
-      this.snapshot[a] = c;
+      const a = $(s), r = this.snapshot[a], d = (s.handleEvent || ((l, i) => I(l, i, 500)))(r, t.payload);
+      this.snapshot[a] = d;
     } else
       switch (t.type) {
         case "request":
@@ -1189,7 +1309,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.replCommands = _(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = t || {}, this.replCommands = G(this.snapshot.repl_commands), this.updateContent();
   }
   trimArray(t, e) {
     for (; t.length > e; )
@@ -1197,17 +1317,17 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
   }
   // Rendering
   render() {
-    const t = u(this.snapshot, this.slowThresholdMs), e = this.panels.map((c) => {
-      const l = N(c), i = this.getPanelCount(c);
+    const t = u(this.snapshot, this.slowThresholdMs), e = this.panels.map((d) => {
+      const l = _(d), i = this.getPanelCount(d);
       return `
-          <button class="tab ${this.activePanel === c ? "active" : ""}" data-panel="${c}">
+          <button class="tab ${this.activePanel === d ? "active" : ""}" data-panel="${d}">
             ${l}
             <span class="tab-count">${i}</span>
           </button>
         `;
-    }).join(""), s = this.expanded ? "expanded" : "collapsed", a = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || h.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
+    }).join(""), s = this.expanded ? "expanded" : "collapsed", a = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || c.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${Q}</style>
+      <style>${B}</style>
       <div class="toolbar ${s} ${a}" style="${n}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
@@ -1242,7 +1362,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
           </div>
           <div class="toolbar-content">
             <div class="panel-container" id="panel-content">
-              ${f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
+              ${x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
             </div>
           </div>
         ` : ""}
@@ -1278,7 +1398,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (B.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners())), this.panels.forEach((e) => {
+      t && (N.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests))), this.panels.forEach((e) => {
         const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         s && (s.textContent = String(this.getPanelCount(e)));
       });
@@ -1325,7 +1445,8 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
   getPanelOptions() {
     return {
       slowThresholdMs: this.slowThresholdMs,
-      newestFirst: this.panelSortOrder.get(this.activePanel) ?? !0
+      newestFirst: this.panelSortOrder.get(this.activePanel) ?? !0,
+      expandedRequestIds: this.expandedRequests
     };
   }
   attachEventListeners() {
@@ -1335,10 +1456,10 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
         if (s && s !== this.activePanel) {
           this.activePanel = s, this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
           const a = this.shadow.getElementById("panel-content");
-          a && (a.innerHTML = f(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners());
+          a && (a.innerHTML = x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests));
         }
       });
-    }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
+    }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
       t.addEventListener("click", (e) => {
         const s = e.currentTarget.dataset.action, a = this.getStream();
         switch (s) {
@@ -1366,7 +1487,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
   }
   renderReplPanel(t, e) {
     let s = this.replPanels.get(e);
-    s || (s = new F({
+    s || (s = new Q({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -1385,7 +1506,7 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
   startResize(t) {
     this.isResizing = !0, this.resizeStartY = t;
     const e = this.shadow.querySelector(".toolbar");
-    this.resizeStartHeight = e?.offsetHeight || h.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
+    this.resizeStartHeight = e?.offsetHeight || c.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
     const s = (n) => {
       this.handleResize(n.clientY);
     }, a = (n) => {
@@ -1397,16 +1518,16 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
   }
   handleResize(t) {
     if (!this.isResizing) return;
-    const e = this.resizeStartY - t, s = window.innerHeight * h.MAX_HEIGHT_RATIO, a = Math.min(s, Math.max(h.MIN_HEIGHT, this.resizeStartHeight + e));
+    const e = this.resizeStartY - t, s = window.innerHeight * c.MAX_HEIGHT_RATIO, a = Math.min(s, Math.max(c.MIN_HEIGHT, this.resizeStartHeight + e));
     this.customHeight = a;
     const r = this.shadow.querySelector(".toolbar");
     r && (r.style.height = `${a}px`);
   }
   attachExpandableRowListeners() {
-    I(this.shadow);
+    j(this.shadow);
   }
   attachCopyListeners() {
-    j(this.shadow, { useIconFeedback: !1 });
+    D(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
     O(this.shadow, (t, e) => {
@@ -1414,12 +1535,12 @@ const B = /* @__PURE__ */ new Set(["console", "shell"]), m = {
     });
   }
   attachSQLSelectionListeners() {
-    this.activePanel === "sql" && D(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
+    this.activePanel === "sql" && F(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
   }
 };
-h.MIN_HEIGHT = 150, h.MAX_HEIGHT_RATIO = 0.8, h.DEFAULT_HEIGHT = 320;
-let x = h;
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", x);
+c.MIN_HEIGHT = 150, c.MAX_HEIGHT_RATIO = 0.8, c.DEFAULT_HEIGHT = 320;
+let m = c;
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", m);
 const K = `
   :host {
     --fab-bg: #1e1e2e;
@@ -1650,15 +1771,15 @@ const K = `
       font-size: 8px;
     }
   }
-`, G = {
+`, Y = {
   template: "template",
   session: "session",
   requests: "request",
   sql: "sql",
   logs: "log",
   custom: "custom"
-}, k = ["requests", "sql", "logs", "routes", "config"];
-class Y extends HTMLElement {
+}, S = ["requests", "sql", "logs", "routes", "config"];
+class U extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1695,9 +1816,9 @@ class Y extends HTMLElement {
     const t = this.getAttribute("panels");
     if (t) {
       const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : k;
+      return e.length ? e : S;
     }
-    return k;
+    return S;
   }
   // State persistence
   loadState() {
@@ -1715,11 +1836,11 @@ class Y extends HTMLElement {
   }
   // WebSocket initialization
   initWebSocket() {
-    this.stream = new S({
+    this.stream = new q({
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => G[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => Y[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1841,9 +1962,9 @@ class Y extends HTMLElement {
       const l = n.querySelector(".counter-value");
       l && (l.textContent = String(t.logs)), n.classList.toggle("has-items", t.logs > 0), n.classList.toggle("has-errors", e);
     }
-    const c = this.shadow.querySelector(".fab-counter:nth-child(4)");
-    if (e && c) {
-      const l = c.querySelector(".counter-value");
+    const d = this.shadow.querySelector(".fab-counter:nth-child(4)");
+    if (e && d) {
+      const l = d.querySelector(".counter-value");
       l && (l.textContent = String(t.errors));
     }
   }
@@ -1866,7 +1987,7 @@ class Y extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", Y);
+customElements.get("debug-fab") || customElements.define("debug-fab", U);
 class E {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
@@ -1932,7 +2053,7 @@ class E {
     }));
   }
 }
-function U() {
+function J() {
   const o = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (o ? e = {
@@ -1949,13 +2070,13 @@ function U() {
   return s.init(), s;
 }
 window.DebugManager = E;
-window.initDebugManager = U;
+window.initDebugManager = J;
 export {
-  Y as DebugFab,
+  U as DebugFab,
   E as DebugManager,
-  x as DebugToolbar,
+  m as DebugToolbar,
   u as getCounts,
-  U as initDebugManager,
-  f as renderPanel
+  J as initDebugManager,
+  x as renderPanel
 };
 //# sourceMappingURL=toolbar.js.map

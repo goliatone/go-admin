@@ -12,6 +12,7 @@ import { BlockEditorPanel } from './block-editor-panel';
 import { FieldPalettePanel } from './field-palette-panel';
 import { Modal } from '../shared/modal';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
+import { resolveIcon } from './shared/icon-picker';
 
 // =============================================================================
 // Types
@@ -961,7 +962,7 @@ export class BlockLibraryIDE {
         <div data-block-id="${esc(block.id)}"
              class="relative group w-full text-left px-3 py-2 text-sm rounded-lg border ${selectedClass} transition-colors flex items-center gap-2.5 cursor-pointer">
           <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-            ${block.icon ? `<span class="text-xs font-medium">${esc(block.icon)}</span>` : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path></svg>`}
+            ${block.icon ? resolveIcon(block.icon) : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path></svg>`}
           </span>
           <span class="flex-1 min-w-0">
             ${nameHtml}
@@ -1641,6 +1642,15 @@ export class BlockLibraryIDE {
 
   private mergeBlockDefinition(current: BlockDefinition, updated: BlockDefinition): BlockDefinition {
     const merged = { ...current, ...updated };
+    if (updated.icon == null && current.icon) {
+      merged.icon = current.icon;
+    }
+    if (updated.description == null && current.description) {
+      merged.description = current.description;
+    }
+    if (updated.category == null && current.category) {
+      merged.category = current.category;
+    }
     const updatedSlug = (updated.slug ?? '').trim();
     const updatedType = (updated.type ?? '').trim();
     if (!updatedSlug && current.slug) merged.slug = current.slug;

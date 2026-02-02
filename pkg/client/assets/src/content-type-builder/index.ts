@@ -92,6 +92,10 @@ export { BlockEditorPanel } from './block-editor-panel';
 // Re-export field palette panel (Phase 9)
 export { FieldPalettePanel, PALETTE_DRAG_MIME } from './field-palette-panel';
 
+// Re-export icon picker (shared)
+export { registerIconTab, unregisterIconTab, getIconTabs, resolveIcon } from './shared/icon-picker';
+export type { IconTab, IconEntry, IconPickerConfig } from './shared/icon-picker';
+
 // =============================================================================
 // Auto-initialization
 // =============================================================================

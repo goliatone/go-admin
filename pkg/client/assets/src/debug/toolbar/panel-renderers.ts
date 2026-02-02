@@ -45,7 +45,7 @@ export function renderPanel(
   panel: string,
   snapshot: DebugSnapshot,
   slowThresholdMs = 50,
-  options?: PanelOptions
+  options?: PanelOptions & { expandedRequestIds?: Set<string> }
 ): string {
   const newestFirst = options?.newestFirst ?? true;
   const threshold = options?.slowThresholdMs ?? slowThresholdMs;
@@ -59,6 +59,8 @@ export function renderPanel(
         showSortToggle: true,
         truncatePath: true,
         maxPathLength: 50,
+        expandedRequestIds: options?.expandedRequestIds,
+        maxDetailLength: 80,
       });
     case 'sql':
       return renderSQLPanel(snapshot.sql || [], styles, {

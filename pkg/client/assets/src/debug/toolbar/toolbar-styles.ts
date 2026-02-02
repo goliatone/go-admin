@@ -868,6 +868,124 @@ export const toolbarStyles = `
     transform: rotate(45deg);
   }
 
+  /* Request detail rows */
+  .request-detail-row {
+    background: transparent !important;
+  }
+
+  .request-detail-row:hover {
+    background: transparent !important;
+  }
+
+  .request-detail-row td {
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .request-detail-pane {
+    background: var(--toolbar-bg-secondary);
+    border: 1px solid var(--toolbar-border);
+    border-radius: 4px;
+    margin: 4px 8px 8px 8px;
+    padding: 10px 12px;
+  }
+
+  .request-detail-section {
+    margin-bottom: 8px;
+  }
+
+  .request-detail-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .request-detail-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--toolbar-text-muted);
+    margin-bottom: 3px;
+  }
+
+  .request-detail-value {
+    font-family: var(--toolbar-font);
+    font-size: 11px;
+    color: var(--toolbar-text);
+    word-break: break-all;
+  }
+
+  .request-detail-kv {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+    font-size: 11px;
+    margin: 0;
+  }
+
+  .request-detail-kv dt {
+    color: var(--toolbar-accent);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .request-detail-kv dd {
+    color: var(--toolbar-text);
+    margin: 0;
+    word-break: break-all;
+  }
+
+  .request-detail-masked {
+    color: var(--toolbar-text-muted);
+    font-style: italic;
+    font-size: 10px;
+  }
+
+  .request-detail-error {
+    background: rgba(243, 139, 168, 0.1);
+    border: 1px solid rgba(243, 139, 168, 0.3);
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: var(--toolbar-error);
+    font-size: 11px;
+    word-break: break-word;
+  }
+
+  /* Content-Type badge */
+  .badge-content-type {
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: none;
+    padding: 1px 5px;
+    margin-left: 4px;
+    background: rgba(108, 112, 134, 0.2);
+    color: var(--toolbar-text-muted);
+    vertical-align: middle;
+  }
+
+  /* Request row cursor */
+  [data-request-id] {
+    cursor: pointer;
+  }
+
+  [data-request-id]:hover {
+    background: rgba(137, 180, 250, 0.08) !important;
+  }
+
+  [data-request-id] [data-expand-icon] {
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+    margin-right: 4px;
+    opacity: 0.5;
+    font-size: 10px;
+    transition: opacity 0.15s ease;
+  }
+
+  [data-request-id]:hover [data-expand-icon] {
+    opacity: 1;
+  }
+
   /* Responsive */
   @media (max-width: 768px) {
     :host {

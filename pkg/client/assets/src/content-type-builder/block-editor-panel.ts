@@ -14,7 +14,9 @@ import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType
 import { schemaToFields, fieldsToSchema, ContentTypeAPIClient } from './api-client';
 import { getFieldTypeMetadata, normalizeFieldType } from './field-type-picker';
 import { PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel';
+import { FieldConfigForm } from './field-config-form';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
+import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { renderEntityHeader, renderSaveIndicator } from './shared/entity-header';
 import type { SaveState } from './shared/entity-header';
 import { renderFieldCard as renderFieldCardShared } from './shared/field-card';
@@ -71,6 +73,7 @@ export class BlockEditorPanel {
   /** Cached block definitions for inline block picker (Phase 4) */
   private cachedBlocks: BlockDefinitionSummary[] | null = null;
   private blocksLoading = false;
+  private blockPickerModes: Map<string, 'allowed' | 'denied'> = new Map();
 
   constructor(config: BlockEditorPanelConfig) {
     this.config = config;
@@ -79,6 +82,7 @@ export class BlockEditorPanel {
   }
 
   render(): void {
+    closeIconPicker();
     this.config.container.innerHTML = '';
 
     const wrapper = document.createElement('div');
@@ -95,6 +99,7 @@ export class BlockEditorPanel {
 
     this.config.container.appendChild(wrapper);
     this.bindEvents(wrapper);
+    this.ensureInlineBlocksPicker();
   }
 
   /** Refresh the panel for a new block without a full re-mount */
@@ -227,9 +232,7 @@ export class BlockEditorPanel {
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Icon</label>
-              <input type="text" data-meta-field="icon" value="${esc(b.icon ?? '')}"
-                     placeholder="emoji or key"
-                     class="${inputClasses()}" />
+              ${renderIconTrigger(b.icon ?? '', 'data-meta-field="icon"', true)}
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Status</label>
@@ -502,7 +505,21 @@ export class BlockEditorPanel {
   private renderBlocksFieldProperties(field: FieldDefinition, allSections: string[]): string {
     const config = (field.config ?? {}) as BlocksFieldConfig;
     const currentSection = field.section || DEFAULT_SECTION;
-    const selectedBlocks = new Set(config.allowedBlocks ?? []);
+    const mode = this.getBlocksPickerMode(field.id);
+    const isAllowed = mode === 'allowed';
+    const selectedBlocks = new Set(
+      isAllowed ? (config.allowedBlocks ?? []) : (config.deniedBlocks ?? []),
+    );
+    const toggleBase = 'px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded';
+    const allowedClass = isAllowed
+      ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300'
+      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800';
+    const deniedClass = !isAllowed
+      ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300'
+      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800';
+    const pickerLabel = isAllowed ? 'Allowed Blocks' : 'Denied Blocks';
+    const pickerAccent = isAllowed ? 'blue' : 'red';
+    const emptySelectionText = isAllowed ? 'All blocks allowed (no restrictions)' : 'No blocks denied';
 
     // Block picker section (primary — always visible)
     let pickerHtml: string;
@@ -512,8 +529,9 @@ export class BlockEditorPanel {
         availableBlocks: this.cachedBlocks,
         selectedBlocks: normalized,
         onSelectionChange: () => {},
-        label: 'Allowed Blocks',
-        accent: 'blue',
+        label: pickerLabel,
+        accent: pickerAccent,
+        emptySelectionText,
       });
     } else {
       pickerHtml = `
@@ -526,8 +544,30 @@ export class BlockEditorPanel {
     return `
       <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${esc(field.id)}">
         <!-- Block Selection (primary) -->
+        <div class="flex items-center justify-between">
+          <div class="inline-flex items-center gap-1 p-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <button type="button" data-blocks-mode-toggle="${esc(field.id)}" data-blocks-mode="allowed"
+                    class="${toggleBase} ${allowedClass}">
+              Allowed
+            </button>
+            <button type="button" data-blocks-mode-toggle="${esc(field.id)}" data-blocks-mode="denied"
+                    class="${toggleBase} ${deniedClass}">
+              Denied
+            </button>
+          </div>
+          <button type="button" data-blocks-open-library="${esc(field.id)}"
+                  class="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+            Open Block Library
+          </button>
+        </div>
         <div data-blocks-picker-container="${esc(field.id)}">
           ${pickerHtml}
+        </div>
+        <div class="flex items-center justify-between">
+          <button type="button" data-blocks-advanced="${esc(field.id)}"
+                  class="text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium">
+            Advanced settings...
+          </button>
         </div>
 
         <!-- Min/Max Blocks -->
@@ -693,6 +733,18 @@ export class BlockEditorPanel {
     return this.sectionStates.get(name)!;
   }
 
+  private getBlocksPickerMode(fieldId: string): 'allowed' | 'denied' {
+    return this.blockPickerModes.get(fieldId) ?? 'allowed';
+  }
+
+  private ensureInlineBlocksPicker(): void {
+    if (!this.expandedFieldId) return;
+    const field = this.fields.find((f) => f.id === this.expandedFieldId);
+    if (field && normalizeFieldType(field.type) === 'blocks') {
+      void this.loadBlocksForField(field);
+    }
+  }
+
   // ===========================================================================
   // Event Binding
   // ===========================================================================
@@ -720,6 +772,27 @@ export class BlockEditorPanel {
       } else if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
         el.addEventListener('input', () => this.handleMetadataChange(key, (el as HTMLInputElement).value));
       }
+    });
+
+    // Icon picker trigger
+    bindIconTriggerEvents(root, '[data-icon-trigger]', (trigger) => {
+      const hiddenInput = trigger.querySelector<HTMLInputElement>('[data-meta-field="icon"]');
+      return {
+        value: hiddenInput?.value ?? '',
+        onSelect: (v: string) => {
+          if (hiddenInput) {
+            hiddenInput.value = v;
+            hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        },
+        onClear: () => {
+          if (hiddenInput) {
+            hiddenInput.value = '';
+            hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        },
+        compact: true,
+      };
     });
 
     // Delegate: section toggle, field toggle, field actions, move-to, field prop changes, field remove
@@ -921,6 +994,36 @@ export class BlockEditorPanel {
       return;
     }
 
+    // Blocks picker mode toggle (allowed/denied)
+    const blocksMode = target.closest<HTMLElement>('[data-blocks-mode-toggle]');
+    if (blocksMode) {
+      e.stopPropagation();
+      const fieldId = blocksMode.dataset.blocksModeToggle!;
+      const mode = (blocksMode.dataset.blocksMode as 'allowed' | 'denied') ?? 'allowed';
+      this.blockPickerModes.set(fieldId, mode);
+      this.render();
+      return;
+    }
+
+    // Open Block Library
+    const blocksOpenLibrary = target.closest<HTMLElement>('[data-blocks-open-library]');
+    if (blocksOpenLibrary) {
+      e.stopPropagation();
+      const basePath = this.config.api.getBasePath();
+      window.location.href = `${basePath}/block_definitions`;
+      return;
+    }
+
+    // Advanced settings modal
+    const blocksAdvanced = target.closest<HTMLElement>('[data-blocks-advanced]');
+    if (blocksAdvanced) {
+      e.stopPropagation();
+      const fieldId = blocksAdvanced.dataset.blocksAdvanced!;
+      const field = this.fields.find((f) => f.id === fieldId);
+      if (field) this.openFieldConfigModal(field);
+      return;
+    }
+
     // Field toggle (expand/collapse — Task 8.2 accordion)
     const fieldToggle = target.closest<HTMLElement>('[data-field-toggle]');
     if (fieldToggle) {
@@ -1096,10 +1199,15 @@ export class BlockEditorPanel {
     if (!container || !this.cachedBlocks) return;
 
     const config = (field.config ?? {}) as BlocksFieldConfig;
+    const mode = this.getBlocksPickerMode(field.id);
+    const isAllowed = mode === 'allowed';
     const selected = normalizeBlockSelection(
-      new Set(config.allowedBlocks ?? []),
+      new Set(isAllowed ? (config.allowedBlocks ?? []) : (config.deniedBlocks ?? [])),
       this.cachedBlocks,
     );
+    const pickerLabel = isAllowed ? 'Allowed Blocks' : 'Denied Blocks';
+    const pickerAccent = isAllowed ? 'blue' : 'red';
+    const emptySelectionText = isAllowed ? 'All blocks allowed (no restrictions)' : 'No blocks denied';
 
     container.innerHTML = renderInlineBlockPicker({
       availableBlocks: this.cachedBlocks,
@@ -1107,12 +1215,25 @@ export class BlockEditorPanel {
       onSelectionChange: (sel) => {
         if (!field.config) field.config = {};
         const cfgRec = field.config as Record<string, unknown>;
-        cfgRec.allowedBlocks = sel.size > 0 ? Array.from(sel) : undefined;
+        if (isAllowed) {
+          if (sel.size > 0) {
+            cfgRec.allowedBlocks = Array.from(sel);
+          } else {
+            delete cfgRec.allowedBlocks;
+          }
+        } else {
+          if (sel.size > 0) {
+            cfgRec.deniedBlocks = Array.from(sel);
+          } else {
+            delete cfgRec.deniedBlocks;
+          }
+        }
         if (Object.keys(field.config).length === 0) field.config = undefined;
         this.notifySchemaChange();
       },
-      label: 'Allowed Blocks',
-      accent: 'blue',
+      label: pickerLabel,
+      accent: pickerAccent,
+      emptySelectionText,
     });
 
     bindInlineBlockPickerEvents(container, {
@@ -1121,13 +1242,44 @@ export class BlockEditorPanel {
       onSelectionChange: (sel) => {
         if (!field.config) field.config = {};
         const cfgRec = field.config as Record<string, unknown>;
-        cfgRec.allowedBlocks = sel.size > 0 ? Array.from(sel) : undefined;
+        if (isAllowed) {
+          if (sel.size > 0) {
+            cfgRec.allowedBlocks = Array.from(sel);
+          } else {
+            delete cfgRec.allowedBlocks;
+          }
+        } else {
+          if (sel.size > 0) {
+            cfgRec.deniedBlocks = Array.from(sel);
+          } else {
+            delete cfgRec.deniedBlocks;
+          }
+        }
         if (Object.keys(field.config).length === 0) field.config = undefined;
         this.notifySchemaChange();
       },
-      label: 'Allowed Blocks',
-      accent: 'blue',
+      label: pickerLabel,
+      accent: pickerAccent,
+      emptySelectionText,
     });
+  }
+
+  private openFieldConfigModal(field: FieldDefinition): void {
+    const configForm = new FieldConfigForm({
+      field,
+      existingFieldNames: this.fields.filter((f) => f.id !== field.id).map((f) => f.name),
+      apiBasePath: this.config.api.getBasePath(),
+      onSave: (updatedField) => {
+        const index = this.fields.findIndex((f) => f.id === field.id);
+        if (index !== -1) {
+          this.fields[index] = updatedField;
+          this.notifySchemaChange();
+          this.render();
+        }
+      },
+      onCancel: () => {},
+    });
+    configForm.show();
   }
 
   private moveFieldToSection(fieldId: string, targetSection: string): void {

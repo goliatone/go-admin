@@ -25,6 +25,7 @@ export declare class DebugPanel {
     private lastEventEl;
     private eventToPanel;
     private unsubscribeRegistry;
+    private expandedRequests;
     constructor(container: HTMLElement);
     /**
      * Subscribe to WebSocket events for all panels based on registry

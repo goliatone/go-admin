@@ -15,6 +15,8 @@ export { BlockLibraryManager, initBlockLibraryManagers } from './block-library-m
 export { BlockLibraryIDE, initBlockLibraryIDE } from './block-library-ide';
 export { BlockEditorPanel } from './block-editor-panel';
 export { FieldPalettePanel, PALETTE_DRAG_MIME } from './field-palette-panel';
+export { registerIconTab, unregisterIconTab, getIconTabs, resolveIcon } from './shared/icon-picker';
+export type { IconTab, IconEntry, IconPickerConfig } from './shared/icon-picker';
 /**
  * Initialize content type editors on elements matching [data-content-type-editor]
  */

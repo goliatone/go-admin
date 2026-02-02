@@ -67,6 +67,11 @@ export class ContentTypeAPIClient {
     return this.environment;
   }
 
+  /** Get the configured base path */
+  getBasePath(): string {
+    return this.config.basePath;
+  }
+
   /** Persist environment selection to the server session (Phase 12) */
   async setEnvironmentSession(env: string): Promise<void> {
     const url = `${this.config.basePath}/api/session/environment`;

@@ -10,6 +10,7 @@
 import type { BlockDefinitionSummary } from '../types';
 import type { ContentTypeAPIClient } from '../api-client';
 import { checkboxClasses } from './field-input-classes';
+import { resolveIcon } from './icon-picker';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,6 +29,8 @@ export interface InlineBlockPickerConfig {
   label?: string;
   /** Color accent: 'blue' for allowed, 'red' for denied */
   accent?: 'blue' | 'red';
+  /** Optional label when selection is empty (e.g., "All blocks allowed") */
+  emptySelectionText?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +107,7 @@ export function renderInlineBlockPicker(config: InlineBlockPickerConfig): string
   const { availableBlocks, selectedBlocks, searchQuery } = config;
   const accent = config.accent ?? 'blue';
   const label = config.label ?? 'Allowed Blocks';
+  const emptySelectionText = config.emptySelectionText;
 
   if (availableBlocks.length === 0) {
     return `
@@ -130,17 +134,22 @@ export function renderInlineBlockPicker(config: InlineBlockPickerConfig): string
   }
 
   const count = selectedBlocks.size;
+  const countText = count === 0 && emptySelectionText ? emptySelectionText : `${count} selected`;
+  const focusRing = accent === 'red' ? 'focus:ring-red-500' : 'focus:ring-blue-500';
+  const selectedClass = accent === 'red'
+    ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700'
+    : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700';
   let html = `
     <div class="space-y-2" data-block-picker-inline>
       <div class="flex items-center justify-between">
         <span class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">${escapeHtml(label)}</span>
-        <span class="text-[10px] text-gray-400 dark:text-gray-500">${count} selected</span>
+        <span class="text-[10px] text-gray-400 dark:text-gray-500">${escapeHtml(countText)}</span>
       </div>
       <div class="relative">
         <input type="text" data-block-picker-search
                placeholder="Search blocks..."
                value="${escapeHtml(searchQuery ?? '')}"
-               class="w-full px-2 py-1 text-[12px] border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-${accent}-500" />
+               class="w-full px-2 py-1 text-[12px] border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 ${focusRing}" />
       </div>
       <div class="max-h-[200px] overflow-y-auto space-y-1" data-block-picker-list>`;
 
@@ -159,14 +168,14 @@ export function renderInlineBlockPicker(config: InlineBlockPickerConfig): string
         html += `
         <label class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
           isSelected
-            ? `bg-${accent}-50 dark:bg-${accent}-900/20 border border-${accent}-200 dark:border-${accent}-700`
+            ? selectedClass
             : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'
         }">
           <input type="checkbox" value="${escapeHtml(key)}" data-block-type="${escapeHtml(block.type)}"
                  ${isSelected ? 'checked' : ''}
                  class="${checkboxClasses()}" />
           <div class="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-medium">
-            ${block.icon || key.charAt(0).toUpperCase()}
+            ${block.icon ? resolveIcon(block.icon) : key.charAt(0).toUpperCase()}
           </div>
           <div class="flex-1 min-w-0">
             <span class="text-[12px] font-medium text-gray-800 dark:text-gray-200">${escapeHtml(block.name)}</span>
@@ -202,23 +211,7 @@ export function bindInlineBlockPickerEvents(
   const searchInput = pickerRoot.querySelector<HTMLInputElement>('[data-block-picker-search]');
   searchInput?.addEventListener('input', () => {
     config.searchQuery = searchInput.value;
-    const listEl = pickerRoot.querySelector<HTMLElement>('[data-block-picker-list]');
-    if (listEl) {
-      // Re-render list portion
-      const tempConfig = { ...config, searchQuery: searchInput.value };
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = renderInlineBlockPicker(tempConfig);
-      const newList = tempDiv.querySelector('[data-block-picker-list]');
-      const newCount = tempDiv.querySelector('[data-block-picker-inline] > div > span:last-child');
-      if (newList) {
-        listEl.innerHTML = newList.innerHTML;
-        // Re-bind checkbox events on new elements
-        bindCheckboxEvents(listEl, config);
-      }
-      // Update count
-      const countEl = pickerRoot.querySelector(':scope > div > span:last-child');
-      if (countEl && newCount) countEl.textContent = newCount.textContent;
-    }
+    refreshInlineBlockPickerList(pickerRoot, config);
   });
 
   // Checkboxes
@@ -246,8 +239,32 @@ function bindCheckboxEvents(
         }
       }
       config.onSelectionChange(config.selectedBlocks);
+      const pickerRoot = listEl.closest<HTMLElement>('[data-block-picker-inline]');
+      if (pickerRoot) {
+        refreshInlineBlockPickerList(pickerRoot, config);
+      }
     });
   });
+}
+
+function refreshInlineBlockPickerList(
+  pickerRoot: HTMLElement,
+  config: InlineBlockPickerConfig,
+): void {
+  const listEl = pickerRoot.querySelector<HTMLElement>('[data-block-picker-list]');
+  if (!listEl) return;
+  const scrollTop = listEl.scrollTop;
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = renderInlineBlockPicker(config);
+  const newList = tempDiv.querySelector('[data-block-picker-list]');
+  const newCount = tempDiv.querySelector('[data-block-picker-inline] > div > span:last-child');
+  if (newList) {
+    listEl.innerHTML = newList.innerHTML;
+    listEl.scrollTop = scrollTop;
+    bindCheckboxEvents(listEl, config);
+  }
+  const countEl = pickerRoot.querySelector(':scope > div > span:last-child');
+  if (countEl && newCount) countEl.textContent = newCount.textContent;
 }
 
 // ---------------------------------------------------------------------------

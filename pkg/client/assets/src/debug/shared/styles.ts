@@ -73,6 +73,17 @@ export type StyleConfig = {
   selectCell: string;
   sqlToolbar: string;
   sqlToolbarBtn: string;
+
+  // Request detail
+  detailRow: string;
+  detailPane: string;
+  detailSection: string;
+  detailLabel: string;
+  detailValue: string;
+  detailKeyValueTable: string;
+  detailError: string;
+  detailMasked: string;
+  badgeContentType: string;
 };
 
 /**
@@ -185,6 +196,17 @@ export const consoleStyles: StyleConfig = {
   selectCell: 'debug-sql-select',
   sqlToolbar: 'debug-sql-toolbar',
   sqlToolbarBtn: 'debug-btn',
+
+  // Request detail
+  detailRow: 'request-detail-row',
+  detailPane: 'request-detail-pane',
+  detailSection: 'request-detail-section',
+  detailLabel: 'request-detail-label',
+  detailValue: 'request-detail-value',
+  detailKeyValueTable: 'request-detail-kv',
+  detailError: 'request-detail-error',
+  detailMasked: 'request-detail-masked',
+  badgeContentType: 'badge badge--content-type',
 };
 
 /**
@@ -263,6 +285,17 @@ export const toolbarStyles: StyleConfig = {
   selectCell: 'sql-select',
   sqlToolbar: 'sql-toolbar',
   sqlToolbarBtn: 'copy-btn',
+
+  // Request detail
+  detailRow: 'request-detail-row',
+  detailPane: 'request-detail-pane',
+  detailSection: 'request-detail-section',
+  detailLabel: 'request-detail-label',
+  detailValue: 'request-detail-value',
+  detailKeyValueTable: 'request-detail-kv',
+  detailError: 'request-detail-error',
+  detailMasked: 'request-detail-masked',
+  badgeContentType: 'badge badge-content-type',
 };
 
 /**

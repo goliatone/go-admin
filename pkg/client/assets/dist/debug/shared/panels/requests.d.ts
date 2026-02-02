@@ -12,7 +12,27 @@ export type RequestsPanelOptions = PanelOptions & {
     truncatePath?: boolean;
     /** Maximum path length before truncation. Defaults to 50. */
     maxPathLength?: number;
+    /** Set of expanded request IDs (preserved across re-renders). */
+    expandedRequestIds?: Set<string>;
+    /** Placeholder string used for masked values. Defaults to '***'. */
+    maskPlaceholder?: string;
+    /** Maximum length for header/query values in the detail pane (toolbar truncation). */
+    maxDetailLength?: number;
 };
+/**
+ * Generate a stable key for a request entry.
+ * Uses entry.id if available, otherwise falls back to timestamp + index.
+ */
+export declare function getRequestKey(entry: RequestEntry, index: number): string;
+/**
+ * Render the detail pane content for a single request entry.
+ * Shows Request ID, Headers, Query Parameters, and Error sections.
+ * Sections are omitted when data is absent.
+ */
+export declare function renderRequestDetail(entry: RequestEntry, styles: StyleConfig, options?: {
+    maskPlaceholder?: string;
+    maxDetailLength?: number;
+}): string;
 /**
  * Render the requests panel table
  *

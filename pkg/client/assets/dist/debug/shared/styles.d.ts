@@ -43,6 +43,15 @@ export type StyleConfig = {
     selectCell: string;
     sqlToolbar: string;
     sqlToolbarBtn: string;
+    detailRow: string;
+    detailPane: string;
+    detailSection: string;
+    detailLabel: string;
+    detailValue: string;
+    detailKeyValueTable: string;
+    detailError: string;
+    detailMasked: string;
+    badgeContentType: string;
 };
 /**
  * Per-panel column configuration for consistent layouts across console/toolbar.

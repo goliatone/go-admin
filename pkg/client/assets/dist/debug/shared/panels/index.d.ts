@@ -1,4 +1,4 @@
-export { renderRequestsPanel, type RequestsPanelOptions } from './requests.js';
+export { renderRequestsPanel, renderRequestDetail, getRequestKey, type RequestsPanelOptions } from './requests.js';
 export { renderSQLPanel, type SQLPanelOptions } from './sql.js';
 export { renderLogsPanel, type LogsPanelOptions } from './logs.js';
 export { renderRoutesPanel, type RoutesPanelOptions } from './routes.js';

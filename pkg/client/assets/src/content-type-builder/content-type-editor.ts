@@ -21,16 +21,20 @@ import type {
   ContentTypeSchemaVersion,
   CompatibilityCheckResult,
   SchemaChange,
+  BlocksFieldConfig,
+  BlockDefinitionSummary,
 } from './types';
 import { ContentTypeAPIClient, fieldsToSchema, schemaToFields, generateFieldId } from './api-client';
-import { FieldTypePicker, getFieldTypeMetadata, FIELD_TYPES } from './field-type-picker';
+import { FieldTypePicker, getFieldTypeMetadata, FIELD_TYPES, normalizeFieldType } from './field-type-picker';
 import { FieldConfigForm } from './field-config-form';
 import { FieldPalettePanel } from './field-palette-panel';
 import { LayoutEditor } from './layout-editor';
 import { Modal } from '../shared/modal';
 import { inputClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
+import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { renderEntityHeader } from './shared/entity-header';
 import { renderFieldCard as renderFieldCardShared } from './shared/field-card';
+import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
 
 // =============================================================================
 // Content Type Editor Component
@@ -56,6 +60,9 @@ export class ContentTypeEditor {
   private paletteVisible = false;
   private sectionStates: Map<string, { collapsed: boolean }> = new Map();
   private lifecycleOutsideClickHandler: ((e: MouseEvent) => void) | null = null;
+  private cachedBlocks: BlockDefinitionSummary[] | null = null;
+  private blocksLoading = false;
+  private blockPickerModes: Map<string, 'allowed' | 'denied'> = new Map();
 
   constructor(container: HTMLElement, config: ContentTypeEditorConfig) {
     this.container = container;
@@ -205,6 +212,7 @@ export class ContentTypeEditor {
       this.renderFieldList();
       this.updateDirtyState();
       this.schedulePreview();
+      this.loadBlocksForField(field);
       return;
     }
 
@@ -222,6 +230,7 @@ export class ContentTypeEditor {
     const configForm = new FieldConfigForm({
       field,
       existingFieldNames: this.state.fields.map((f) => f.name),
+      apiBasePath: this.config.apiBasePath,
       onSave: (updatedField) => {
         this.state.fields.push(updatedField);
         this.state.isDirty = true;
@@ -244,6 +253,7 @@ export class ContentTypeEditor {
     const configForm = new FieldConfigForm({
       field,
       existingFieldNames: this.state.fields.filter((f) => f.id !== fieldId).map((f) => f.name),
+      apiBasePath: this.config.apiBasePath,
       onSave: (updatedField) => {
         const index = this.state.fields.findIndex((f) => f.id === fieldId);
         if (index !== -1) {
@@ -277,14 +287,50 @@ export class ContentTypeEditor {
   }
 
   /**
-   * Move a field to a new position
+   * Move a field to a new position (optionally across sections)
    */
-  moveField(fieldId: string, newIndex: number): void {
+  moveField(fieldId: string, targetSection: string, targetIndex: number): void {
     const currentIndex = this.state.fields.findIndex((f) => f.id === fieldId);
-    if (currentIndex === -1 || currentIndex === newIndex) return;
+    if (currentIndex === -1) return;
 
-    const field = this.state.fields.splice(currentIndex, 1)[0];
-    this.state.fields.splice(newIndex, 0, field);
+    const field = this.state.fields[currentIndex];
+    const sourceSection = field.section || DEFAULT_SECTION;
+    const normalizedTarget = targetSection || DEFAULT_SECTION;
+
+    const sections = this.groupFieldsBySection();
+    const sourceList = sections.get(sourceSection);
+    if (!sourceList) return;
+
+    const fromIndex = sourceList.findIndex((f) => f.id === fieldId);
+    if (fromIndex === -1) return;
+
+    sourceList.splice(fromIndex, 1);
+    if (sourceList.length === 0) {
+      sections.delete(sourceSection);
+    }
+
+    if (!sections.has(normalizedTarget)) {
+      sections.set(normalizedTarget, []);
+    }
+
+    const targetList = sections.get(normalizedTarget)!;
+    let insertIndex = Math.max(0, Math.min(targetIndex, targetList.length));
+    if (sourceSection === normalizedTarget && fromIndex < insertIndex) {
+      insertIndex -= 1;
+    }
+    targetList.splice(insertIndex, 0, field);
+
+    field.section = normalizedTarget === DEFAULT_SECTION ? undefined : normalizedTarget;
+
+    const ordered = new Map<string, FieldDefinition[]>();
+    if (sections.has(DEFAULT_SECTION)) {
+      ordered.set(DEFAULT_SECTION, sections.get(DEFAULT_SECTION)!);
+    }
+    for (const [key, list] of sections) {
+      if (key === DEFAULT_SECTION) continue;
+      ordered.set(key, list);
+    }
+    this.state.fields = Array.from(ordered.values()).flat();
 
     // Update order values
     this.state.fields.forEach((f, i) => {
@@ -382,6 +428,9 @@ export class ContentTypeEditor {
   // ===========================================================================
 
   private render(): void {
+    closeIconPicker();
+    // Recreate palette after full re-render to avoid stale DOM references
+    this.palettePanel = null;
     this.container.innerHTML = `
       <div class="content-type-editor flex flex-col h-full" data-content-type-editor>
         <!-- Header -->
@@ -462,13 +511,7 @@ export class ContentTypeEditor {
           <label class="${labelClasses()}">
             Icon
           </label>
-          <input
-            type="text"
-            data-ct-icon
-            value="${escapeHtml(ct?.icon ?? '')}"
-            placeholder="file-text"
-            class="${inputClasses()}"
-          />
+          ${renderIconTrigger(ct?.icon ?? '', 'data-ct-icon')}
         </div>
       </div>
     `;
@@ -536,6 +579,9 @@ export class ContentTypeEditor {
   }
 
   private renderFieldCard(field: FieldDefinition, index: number): string {
+    const isBlocks = normalizeFieldType(field.type) === 'blocks';
+    const isExpanded = isBlocks && this.state.selectedFieldId === field.id;
+
     // Check for validation errors for this field
     const fieldErrors = this.state.validationErrors.filter(
       (err) => err.path.includes(`/${field.name}`) || err.path.includes(`properties.${field.name}`)
@@ -544,8 +590,8 @@ export class ContentTypeEditor {
 
     // Build constraints summary
     const constraints: string[] = [];
-    if (field.validation?.minLength) constraints.push(`min: ${field.validation.minLength}`);
-    if (field.validation?.maxLength) constraints.push(`max: ${field.validation.maxLength}`);
+    if (field.validation?.minLength !== undefined) constraints.push(`min: ${field.validation.minLength}`);
+    if (field.validation?.maxLength !== undefined) constraints.push(`max: ${field.validation.maxLength}`);
     if (field.validation?.min !== undefined) constraints.push(`>= ${field.validation.min}`);
     if (field.validation?.max !== undefined) constraints.push(`<= ${field.validation.max}`);
     if (field.validation?.pattern) constraints.push('pattern');
@@ -571,14 +617,84 @@ export class ContentTypeEditor {
 
     return renderFieldCardShared({
       field,
+      sectionName: field.section || DEFAULT_SECTION,
       isSelected: this.state.selectedFieldId === field.id,
+      isExpanded,
       hasErrors,
       errorMessages: fieldErrors.map(err => err.message),
       constraintBadges: constraints,
       index,
       actionsHtml,
       compact: false,
+      renderExpandedContent: isBlocks ? () => this.renderBlocksInlineContent(field) : undefined,
     });
+  }
+
+  private renderBlocksInlineContent(field: FieldDefinition): string {
+    const config = (field.config ?? {}) as BlocksFieldConfig;
+    const mode = this.getBlocksPickerMode(field.id);
+    const isAllowed = mode === 'allowed';
+    const selectedBlocks = new Set(
+      isAllowed ? (config.allowedBlocks ?? []) : (config.deniedBlocks ?? []),
+    );
+    const toggleBase = 'px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded';
+    const allowedClass = isAllowed
+      ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300'
+      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800';
+    const deniedClass = !isAllowed
+      ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300'
+      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800';
+    const pickerLabel = isAllowed ? 'Allowed Blocks' : 'Denied Blocks';
+    const pickerAccent = isAllowed ? 'blue' : 'red';
+    const emptySelectionText = isAllowed ? 'All blocks allowed (no restrictions)' : 'No blocks denied';
+
+    let pickerHtml: string;
+    if (this.cachedBlocks) {
+      const normalized = normalizeBlockSelection(selectedBlocks, this.cachedBlocks);
+      pickerHtml = renderInlineBlockPicker({
+        availableBlocks: this.cachedBlocks,
+        selectedBlocks: normalized,
+        onSelectionChange: () => {},
+        label: pickerLabel,
+        accent: pickerAccent,
+        emptySelectionText,
+      });
+    } else {
+      pickerHtml = `
+        <div class="flex items-center justify-center py-6" data-ct-blocks-loading="${escapeHtml(field.id)}">
+          <div class="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+          <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">Loading blocks...</span>
+        </div>`;
+    }
+
+    return `
+      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${escapeHtml(field.id)}">
+        <div class="flex items-center justify-between">
+          <div class="inline-flex items-center gap-1 p-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <button type="button" data-ct-blocks-mode-toggle="${escapeHtml(field.id)}" data-ct-blocks-mode="allowed"
+                    class="${toggleBase} ${allowedClass}">
+              Allowed
+            </button>
+            <button type="button" data-ct-blocks-mode-toggle="${escapeHtml(field.id)}" data-ct-blocks-mode="denied"
+                    class="${toggleBase} ${deniedClass}">
+              Denied
+            </button>
+          </div>
+          <button type="button" data-ct-blocks-open-library="${escapeHtml(field.id)}"
+                  class="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+            Open Block Library
+          </button>
+        </div>
+        <div data-ct-blocks-picker-container="${escapeHtml(field.id)}">
+          ${pickerHtml}
+        </div>
+        <div class="flex items-center justify-between">
+          <button type="button" data-ct-blocks-advanced="${escapeHtml(field.id)}"
+                  class="text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium">
+            Advanced settings...
+          </button>
+        </div>
+      </div>`;
   }
 
   private renderCapabilitiesSection(): string {
@@ -929,9 +1045,54 @@ export class ContentTypeEditor {
         return;
       }
 
+      // Blocks picker mode toggle (allowed/denied)
+      const blocksMode = target.closest<HTMLElement>('[data-ct-blocks-mode-toggle]');
+      if (blocksMode) {
+        const fieldId = blocksMode.dataset.ctBlocksModeToggle!;
+        const mode = (blocksMode.dataset.ctBlocksMode as 'allowed' | 'denied') ?? 'allowed';
+        this.blockPickerModes.set(fieldId, mode);
+        this.renderFieldList();
+        const field = this.state.fields.find((f) => f.id === fieldId);
+        if (field && normalizeFieldType(field.type) === 'blocks') {
+          this.loadBlocksForField(field);
+        }
+        return;
+      }
+
+      // Open Block Library
+      const blocksOpenLibrary = target.closest<HTMLElement>('[data-ct-blocks-open-library]');
+      if (blocksOpenLibrary) {
+        const basePath = this.api.getBasePath();
+        window.location.href = `${basePath}/block_definitions`;
+        return;
+      }
+
+      // Advanced settings modal
+      const blocksAdvanced = target.closest<HTMLElement>('[data-ct-blocks-advanced]');
+      if (blocksAdvanced) {
+        const fieldId = blocksAdvanced.dataset.ctBlocksAdvanced!;
+        if (fieldId) this.editField(fieldId);
+        return;
+      }
+
+      // Field toggle (expand/collapse for inline blocks)
+      const fieldToggle = target.closest<HTMLElement>('[data-field-toggle]');
+      if (fieldToggle && !target.closest('button')) {
+        const fieldId = fieldToggle.dataset.fieldToggle!;
+        this.state.selectedFieldId = this.state.selectedFieldId === fieldId ? null : fieldId;
+        this.renderFieldList();
+        if (this.state.selectedFieldId) {
+          const field = this.state.fields.find((f) => f.id === this.state.selectedFieldId);
+          if (field && normalizeFieldType(field.type) === 'blocks') {
+            this.loadBlocksForField(field);
+          }
+        }
+        return;
+      }
+
       // Select field card
       const fieldCard = target.closest('[data-field-card]');
-      if (fieldCard && !target.closest('button')) {
+      if (fieldCard && !target.closest('button') && !target.closest('[data-field-props]')) {
         const fieldId = fieldCard.getAttribute('data-field-card');
         if (fieldId) {
           this.state.selectedFieldId = this.state.selectedFieldId === fieldId ? null : fieldId;
@@ -998,6 +1159,28 @@ export class ContentTypeEditor {
     // Preview refresh
     this.container.querySelector('[data-ct-refresh-preview]')?.addEventListener('click', () => this.previewSchema());
 
+    // Icon picker trigger
+    bindIconTriggerEvents(this.container, '[data-icon-trigger]', (trigger) => {
+      const hiddenInput = trigger.querySelector<HTMLInputElement>('[data-ct-icon]');
+      return {
+        value: hiddenInput?.value ?? '',
+        onSelect: (v: string) => {
+          if (hiddenInput) {
+            hiddenInput.value = v;
+            this.state.isDirty = true;
+            this.updateDirtyState();
+          }
+        },
+        onClear: () => {
+          if (hiddenInput) {
+            hiddenInput.value = '';
+            this.state.isDirty = true;
+            this.updateDirtyState();
+          }
+        },
+      };
+    });
+
     // Section toggles
     this.bindSectionToggleEvents();
 
@@ -1018,9 +1201,12 @@ export class ContentTypeEditor {
 
       const fieldId = card.getAttribute('data-field-card');
       const index = parseInt(card.getAttribute('data-field-index') ?? '0', 10);
+      const sectionName = card.getAttribute('data-field-section') ?? DEFAULT_SECTION;
 
       this.dragState = {
         fieldId: fieldId ?? '',
+        startSection: sectionName,
+        currentSection: sectionName,
         startIndex: index,
         currentIndex: index,
       };
@@ -1057,6 +1243,8 @@ export class ContentTypeEditor {
 
       // Update current index
       const targetIndex = parseInt(card.getAttribute('data-field-index') ?? '0', 10);
+      const targetSection = card.getAttribute('data-field-section') ?? DEFAULT_SECTION;
+      this.dragState.currentSection = targetSection;
       this.dragState.currentIndex = insertBefore ? targetIndex : targetIndex + 1;
     });
 
@@ -1072,10 +1260,9 @@ export class ContentTypeEditor {
 
       if (!this.dragState) return;
 
-      const { fieldId, startIndex, currentIndex } = this.dragState;
-      if (startIndex !== currentIndex) {
-        const adjustedIndex = currentIndex > startIndex ? currentIndex - 1 : currentIndex;
-        this.moveField(fieldId, adjustedIndex);
+      const { fieldId, startIndex, currentIndex, startSection, currentSection } = this.dragState;
+      if (startIndex !== currentIndex || startSection !== currentSection) {
+        this.moveField(fieldId, currentSection, currentIndex);
       }
 
       this.dragState = null;
@@ -1206,6 +1393,9 @@ export class ContentTypeEditor {
     this.container.querySelector('[data-ct-add-field]')?.addEventListener('click', () => this.showFieldTypePicker());
     this.container.querySelector('[data-ct-add-field-empty]')?.addEventListener('click', () => this.showFieldTypePicker());
     this.container.querySelector('[data-ct-layout]')?.addEventListener('click', () => this.showLayoutEditor());
+    this.container.querySelector('[data-ct-toggle-palette]')?.addEventListener('click', () => this.togglePalette());
+    this.palettePanel = null;
+    this.initPaletteIfNeeded();
     this.bindSectionToggleEvents();
     this.bindDragEvents();
   }
@@ -1233,14 +1423,14 @@ export class ContentTypeEditor {
 
   private getDescription(): string | undefined {
     const input = this.container.querySelector<HTMLTextAreaElement>('[data-ct-description]');
-    const value = input?.value?.trim();
-    return value || undefined;
+    if (!input) return undefined;
+    return input.value.trim();
   }
 
   private getIcon(): string | undefined {
     const input = this.container.querySelector<HTMLInputElement>('[data-ct-icon]');
-    const value = input?.value?.trim();
-    return value || undefined;
+    if (!input) return undefined;
+    return input.value.trim();
   }
 
   private getCapabilities(): ContentTypeCapabilities {
@@ -1393,7 +1583,12 @@ export class ContentTypeEditor {
     const fieldListContainer = this.container.querySelector('[data-ct-field-list]');
     if (fieldListContainer) {
       fieldListContainer.innerHTML = this.renderFieldListContent();
+      this.bindSectionToggleEvents();
       this.bindDragEvents();
+      const selected = this.state.fields.find((f) => f.id === this.state.selectedFieldId);
+      if (selected && normalizeFieldType(selected.type) === 'blocks' && this.cachedBlocks) {
+        this.renderInlineBlockPickerForField(selected);
+      }
     }
   }
 
@@ -1429,7 +1624,6 @@ export class ContentTypeEditor {
     }
 
     // Multiple sections — render grouped with collapsible headers
-    let globalIndex = 0;
     let html = '';
 
     for (const sectionName of sectionNames) {
@@ -1453,11 +1647,7 @@ export class ContentTypeEditor {
 
           <div class="${isCollapsed ? 'hidden' : ''}" data-ct-section-body="${escapeHtml(sectionName)}">
             <div class="space-y-2 px-1 pb-2">
-              ${fields.map((field) => {
-                const card = this.renderFieldCard(field, globalIndex);
-                globalIndex++;
-                return card;
-              }).join('')}
+              ${fields.map((field, index) => this.renderFieldCard(field, index)).join('')}
             </div>
           </div>
         </div>`;
@@ -1510,6 +1700,86 @@ export class ContentTypeEditor {
         ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
         : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
     }
+  }
+
+  private getBlocksPickerMode(fieldId: string): 'allowed' | 'denied' {
+    return this.blockPickerModes.get(fieldId) ?? 'allowed';
+  }
+
+  private async loadBlocksForField(field: FieldDefinition): Promise<void> {
+    if (this.cachedBlocks) {
+      this.renderInlineBlockPickerForField(field);
+      return;
+    }
+    if (this.blocksLoading) return;
+    this.blocksLoading = true;
+    this.cachedBlocks = await loadAvailableBlocks(this.api);
+    this.blocksLoading = false;
+    if (this.state.selectedFieldId === field.id) {
+      this.renderInlineBlockPickerForField(field);
+    }
+  }
+
+  private renderInlineBlockPickerForField(field: FieldDefinition): void {
+    const container = this.container.querySelector<HTMLElement>(
+      `[data-ct-blocks-picker-container="${field.id}"]`
+    );
+    if (!container || !this.cachedBlocks) return;
+
+    const config = (field.config ?? {}) as BlocksFieldConfig;
+    const mode = this.getBlocksPickerMode(field.id);
+    const isAllowed = mode === 'allowed';
+    const selected = normalizeBlockSelection(
+      new Set(isAllowed ? (config.allowedBlocks ?? []) : (config.deniedBlocks ?? [])),
+      this.cachedBlocks,
+    );
+    const pickerLabel = isAllowed ? 'Allowed Blocks' : 'Denied Blocks';
+    const pickerAccent = isAllowed ? 'blue' : 'red';
+    const emptySelectionText = isAllowed ? 'All blocks allowed (no restrictions)' : 'No blocks denied';
+
+    container.innerHTML = renderInlineBlockPicker({
+      availableBlocks: this.cachedBlocks,
+      selectedBlocks: selected,
+      onSelectionChange: (sel) => this.applyBlockSelection(field, mode, sel),
+      label: pickerLabel,
+      accent: pickerAccent,
+      emptySelectionText,
+    });
+
+    bindInlineBlockPickerEvents(container, {
+      availableBlocks: this.cachedBlocks,
+      selectedBlocks: selected,
+      onSelectionChange: (sel) => this.applyBlockSelection(field, mode, sel),
+      label: pickerLabel,
+      accent: pickerAccent,
+      emptySelectionText,
+    });
+  }
+
+  private applyBlockSelection(
+    field: FieldDefinition,
+    mode: 'allowed' | 'denied',
+    selected: Set<string>,
+  ): void {
+    if (!field.config) field.config = {};
+    const cfgRec = field.config as Record<string, unknown>;
+    if (mode === 'allowed') {
+      if (selected.size > 0) {
+        cfgRec.allowedBlocks = Array.from(selected);
+      } else {
+        delete cfgRec.allowedBlocks;
+      }
+    } else {
+      if (selected.size > 0) {
+        cfgRec.deniedBlocks = Array.from(selected);
+      } else {
+        delete cfgRec.deniedBlocks;
+      }
+    }
+    if (Object.keys(field.config).length === 0) field.config = undefined;
+    this.state.isDirty = true;
+    this.updateDirtyState();
+    this.schedulePreview();
   }
 
   private renderPreview(): void {
@@ -1649,6 +1919,8 @@ export class ContentTypeEditor {
 
 interface DragState {
   fieldId: string;
+  startSection: string;
+  currentSection: string;
   startIndex: number;
   currentIndex: number;
 }
