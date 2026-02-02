@@ -41,6 +41,7 @@ import (
 	gotheme "github.com/goliatone/go-theme"
 	"github.com/goliatone/go-users/activity"
 	userstypes "github.com/goliatone/go-users/pkg/types"
+	"github.com/goliatone/go-users/preferences"
 )
 
 //go:embed openapi/* templates/**
@@ -264,6 +265,15 @@ func main() {
 		adapterHooks,
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
+		quickstart.WithGoUsersPreferencesRepositoryFactory(func() (userstypes.PreferenceRepository, error) {
+			if usersDeps.DB == nil {
+				return nil, fmt.Errorf("preferences repository db not configured")
+			}
+			return preferences.NewRepository(
+				preferences.RepositoryConfig{DB: usersDeps.DB},
+				preferences.WithCache(true),
+			)
+		}),
 		quickstart.WithFeatureDefaults(featureDefaults),
 	)
 	if err != nil {
@@ -340,9 +350,6 @@ func main() {
 		admin.NewGoUsersRoleRepository(usersDeps.RoleRegistry, scopeResolver),
 	)
 	adm.WithRoleAssignmentLookup(admin.UUIDRoleAssignmentLookup{})
-	if prefStore, err := setup.NewGoUsersPreferencesStore(usersDeps.PreferenceRepo); err == nil && adm.PreferencesService() != nil {
-		adm.PreferencesService().WithStore(prefStore)
-	}
 	if usersDeps.ProfileRepo != nil && adm.ProfileService() != nil {
 		adm.ProfileService().WithStore(admin.NewGoUsersProfileStore(usersDeps.ProfileRepo, scopeResolver))
 	}
