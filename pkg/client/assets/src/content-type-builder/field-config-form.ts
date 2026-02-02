@@ -20,6 +20,8 @@ import type {
 import { getFieldTypeMetadata, FIELD_TYPES } from './field-type-picker';
 import { generateFieldId, ContentTypeAPIClient } from './api-client';
 import { Modal } from '../shared/modal';
+import { inputClasses, selectClasses, textareaClasses, checkboxClasses, labelClasses } from './shared/field-input-classes';
+import { loadAvailableBlocks, blockKey as sharedBlockKey, normalizeBlockSelection } from './shared/block-picker';
 
 // =============================================================================
 // Field Config Form Component
@@ -104,7 +106,7 @@ export class FieldConfigForm extends Modal {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Field Name <span class="text-red-500">*</span>
             </label>
             <input
@@ -114,13 +116,13 @@ export class FieldConfigForm extends Modal {
               placeholder="field_name"
               pattern="^[a-z][a-z0-9_]*$"
               required
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="${inputClasses()}"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Lowercase letters, numbers, underscores. Starts with letter.</p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Label <span class="text-red-500">*</span>
             </label>
             <input
@@ -129,25 +131,25 @@ export class FieldConfigForm extends Modal {
               value="${escapeHtml(this.field.label)}"
               placeholder="Field Label"
               required
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="${inputClasses()}"
             />
           </div>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label class="${labelClasses()}">
             Description
           </label>
           <textarea
             name="description"
             rows="2"
             placeholder="Help text for editors"
-            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            class="${textareaClasses()}"
           >${escapeHtml(this.field.description ?? '')}</textarea>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label class="${labelClasses()}">
             Placeholder
           </label>
           <input
@@ -155,7 +157,7 @@ export class FieldConfigForm extends Modal {
             name="placeholder"
             value="${escapeHtml(this.field.placeholder ?? '')}"
             placeholder="Placeholder text"
-            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="${inputClasses()}"
           />
         </div>
 
@@ -165,7 +167,7 @@ export class FieldConfigForm extends Modal {
               type="checkbox"
               name="required"
               ${this.field.required ? 'checked' : ''}
-              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              class="${checkboxClasses()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Required</span>
           </label>
@@ -175,7 +177,7 @@ export class FieldConfigForm extends Modal {
               type="checkbox"
               name="readonly"
               ${this.field.readonly ? 'checked' : ''}
-              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              class="${checkboxClasses()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Read-only</span>
           </label>
@@ -185,7 +187,7 @@ export class FieldConfigForm extends Modal {
               type="checkbox"
               name="hidden"
               ${this.field.hidden ? 'checked' : ''}
-              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              class="${checkboxClasses()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Hidden</span>
           </label>
@@ -214,7 +216,7 @@ export class FieldConfigForm extends Modal {
             showStringValidation
               ? `
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Min Length
               </label>
               <input
@@ -222,11 +224,11 @@ export class FieldConfigForm extends Modal {
                 name="minLength"
                 value="${validation.minLength ?? ''}"
                 min="0"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Max Length
               </label>
               <input
@@ -234,7 +236,7 @@ export class FieldConfigForm extends Modal {
                 name="maxLength"
                 value="${validation.maxLength ?? ''}"
                 min="0"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
           `
@@ -245,7 +247,7 @@ export class FieldConfigForm extends Modal {
             showNumberValidation
               ? `
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Minimum
               </label>
               <input
@@ -253,11 +255,11 @@ export class FieldConfigForm extends Modal {
                 name="min"
                 value="${validation.min ?? ''}"
                 step="any"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Maximum
               </label>
               <input
@@ -265,7 +267,7 @@ export class FieldConfigForm extends Modal {
                 name="max"
                 value="${validation.max ?? ''}"
                 step="any"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
           `
@@ -277,7 +279,7 @@ export class FieldConfigForm extends Modal {
           showStringValidation
             ? `
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Pattern (RegEx)
             </label>
             <input
@@ -302,7 +304,7 @@ export class FieldConfigForm extends Modal {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Section/Tab
             </label>
             <input
@@ -310,12 +312,12 @@ export class FieldConfigForm extends Modal {
               name="section"
               value="${escapeHtml(this.field.section ?? '')}"
               placeholder="main"
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="${inputClasses()}"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Grid Span (1-12)
             </label>
             <input
@@ -325,7 +327,7 @@ export class FieldConfigForm extends Modal {
               min="1"
               max="12"
               placeholder="12"
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="${inputClasses()}"
             />
           </div>
         </div>
@@ -401,7 +403,7 @@ export class FieldConfigForm extends Modal {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Target Content Type
               </label>
               <input
@@ -409,11 +411,11 @@ export class FieldConfigForm extends Modal {
                 name="target"
                 value="${escapeHtml(config?.target ?? '')}"
                 placeholder="users"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Display Field
               </label>
               <input
@@ -421,7 +423,7 @@ export class FieldConfigForm extends Modal {
                 name="displayField"
                 value="${escapeHtml(config?.displayField ?? '')}"
                 placeholder="name"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
           </div>
@@ -439,7 +441,7 @@ export class FieldConfigForm extends Modal {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Accept Types
               </label>
               <input
@@ -447,11 +449,11 @@ export class FieldConfigForm extends Modal {
                 name="accept"
                 value="${escapeHtml(config?.accept ?? '')}"
                 placeholder="image/*"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Max Size (MB)
               </label>
               <input
@@ -460,7 +462,7 @@ export class FieldConfigForm extends Modal {
                 value="${config?.maxSize ?? ''}"
                 min="0"
                 placeholder="10"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
           </div>
@@ -473,7 +475,7 @@ export class FieldConfigForm extends Modal {
                 type="checkbox"
                 name="multiple"
                 ${config?.multiple !== false ? 'checked' : ''}
-                class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+                class="${checkboxClasses()}"
               />
               <span class="text-sm text-gray-700 dark:text-gray-300">Allow multiple files</span>
             </label>
@@ -493,12 +495,12 @@ export class FieldConfigForm extends Modal {
           <h3 class="text-sm font-medium text-gray-900 dark:text-white">Code Editor Settings</h3>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Language
             </label>
             <select
               name="language"
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="${selectClasses()}"
             >
               <option value="json" ${config?.language === 'json' ? 'selected' : ''}>JSON</option>
               <option value="javascript" ${config?.language === 'javascript' ? 'selected' : ''}>JavaScript</option>
@@ -516,7 +518,7 @@ export class FieldConfigForm extends Modal {
               type="checkbox"
               name="lineNumbers"
               ${config?.lineNumbers !== false ? 'checked' : ''}
-              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              class="${checkboxClasses()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Show line numbers</span>
           </label>
@@ -533,7 +535,7 @@ export class FieldConfigForm extends Modal {
           <h3 class="text-sm font-medium text-gray-900 dark:text-white">Slug Settings</h3>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Source Field
             </label>
             <input
@@ -541,14 +543,14 @@ export class FieldConfigForm extends Modal {
               name="sourceField"
               value="${escapeHtml(config?.sourceField ?? '')}"
               placeholder="title"
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="${inputClasses()}"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Field name to generate slug from (e.g., title)</p>
           </div>
 
           <div class="grid grid-cols-3 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Prefix
               </label>
               <input
@@ -556,11 +558,11 @@ export class FieldConfigForm extends Modal {
                 name="slugPrefix"
                 value="${escapeHtml(config?.prefix ?? '')}"
                 placeholder=""
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Suffix
               </label>
               <input
@@ -568,16 +570,16 @@ export class FieldConfigForm extends Modal {
                 name="slugSuffix"
                 value="${escapeHtml(config?.suffix ?? '')}"
                 placeholder=""
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Separator
               </label>
               <select
                 name="slugSeparator"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${selectClasses()}"
               >
                 <option value="-" ${config?.separator === '-' || !config?.separator ? 'selected' : ''}>Hyphen (-)</option>
                 <option value="_" ${config?.separator === '_' ? 'selected' : ''}>Underscore (_)</option>
@@ -598,12 +600,12 @@ export class FieldConfigForm extends Modal {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Format
               </label>
               <select
                 name="colorFormat"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${selectClasses()}"
               >
                 <option value="hex" ${config?.format === 'hex' || !config?.format ? 'selected' : ''}>HEX (#ff0000)</option>
                 <option value="rgb" ${config?.format === 'rgb' ? 'selected' : ''}>RGB (rgb(255,0,0))</option>
@@ -616,7 +618,7 @@ export class FieldConfigForm extends Modal {
                   type="checkbox"
                   name="allowAlpha"
                   ${config?.allowAlpha ? 'checked' : ''}
-                  class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+                  class="${checkboxClasses()}"
                 />
                 <span class="text-sm text-gray-700 dark:text-gray-300">Allow transparency (alpha)</span>
               </label>
@@ -624,7 +626,7 @@ export class FieldConfigForm extends Modal {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="${labelClasses()}">
               Color Presets (comma-separated)
             </label>
             <input
@@ -632,7 +634,7 @@ export class FieldConfigForm extends Modal {
               name="colorPresets"
               value="${escapeHtml(config?.presets?.join(', ') ?? '')}"
               placeholder="#ff0000, #00ff00, #0000ff"
-              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="${inputClasses()}"
             />
           </div>
         </div>
@@ -649,7 +651,7 @@ export class FieldConfigForm extends Modal {
 
           <div class="grid grid-cols-3 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Default Latitude
               </label>
               <input
@@ -658,11 +660,11 @@ export class FieldConfigForm extends Modal {
                 value="${config?.defaultCenter?.lat ?? ''}"
                 step="any"
                 placeholder="40.7128"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Default Longitude
               </label>
               <input
@@ -671,11 +673,11 @@ export class FieldConfigForm extends Modal {
                 value="${config?.defaultCenter?.lng ?? ''}"
                 step="any"
                 placeholder="-74.0060"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Default Zoom
               </label>
               <input
@@ -685,7 +687,7 @@ export class FieldConfigForm extends Modal {
                 min="1"
                 max="20"
                 placeholder="12"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
           </div>
@@ -695,7 +697,7 @@ export class FieldConfigForm extends Modal {
               type="checkbox"
               name="searchEnabled"
               ${config?.searchEnabled !== false ? 'checked' : ''}
-              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              class="${checkboxClasses()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Enable location search</span>
           </label>
@@ -713,25 +715,25 @@ export class FieldConfigForm extends Modal {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Min Date
               </label>
               <input
                 type="date"
                 name="minDate"
                 value="${escapeHtml(config?.minDate ?? '')}"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Max Date
               </label>
               <input
                 type="date"
                 name="maxDate"
                 value="${escapeHtml(config?.maxDate ?? '')}"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
           </div>
@@ -741,7 +743,7 @@ export class FieldConfigForm extends Modal {
               type="checkbox"
               name="allowSameDay"
               ${config?.allowSameDay !== false ? 'checked' : ''}
-              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              class="${checkboxClasses()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Allow same start and end date</span>
           </label>
@@ -759,7 +761,7 @@ export class FieldConfigForm extends Modal {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Min Items
               </label>
               <input
@@ -768,11 +770,11 @@ export class FieldConfigForm extends Modal {
                 value="${config?.minItems ?? ''}"
                 min="0"
                 placeholder="0"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Max Items
               </label>
               <input
@@ -781,7 +783,7 @@ export class FieldConfigForm extends Modal {
                 value="${config?.maxItems ?? ''}"
                 min="1"
                 placeholder="10"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
           </div>
@@ -791,7 +793,7 @@ export class FieldConfigForm extends Modal {
               type="checkbox"
               name="collapsed"
               ${config?.collapsed ? 'checked' : ''}
-              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              class="${checkboxClasses()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Start collapsed</span>
           </label>
@@ -817,7 +819,7 @@ export class FieldConfigForm extends Modal {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Min Blocks
               </label>
               <input
@@ -826,11 +828,11 @@ export class FieldConfigForm extends Modal {
                 value="${config?.minBlocks ?? ''}"
                 min="0"
                 placeholder="0"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label class="${labelClasses()}">
                 Max Blocks
               </label>
               <input
@@ -839,7 +841,7 @@ export class FieldConfigForm extends Modal {
                 value="${config?.maxBlocks ?? ''}"
                 min="1"
                 placeholder="No limit"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="${inputClasses()}"
               />
             </div>
           </div>
@@ -1488,13 +1490,12 @@ class BlockPickerModal extends Modal {
     const emptyEl = this.container?.querySelector('[data-blocks-empty]');
 
     try {
-      const blocks = await this.api.listBlockDefinitionsSummary();
-      this.availableBlocks = blocks;
-      this.normalizeSelectedBlocks();
+      this.availableBlocks = await loadAvailableBlocks(this.api);
+      this.selectedBlocks = normalizeBlockSelection(this.selectedBlocks, this.availableBlocks);
 
       loadingEl?.classList.add('hidden');
 
-      if (blocks.length === 0) {
+      if (this.availableBlocks.length === 0) {
         emptyEl?.classList.remove('hidden');
       } else {
         listEl?.classList.remove('hidden');
@@ -1508,47 +1509,14 @@ class BlockPickerModal extends Modal {
     }
   }
 
-  private blockKey(block: BlockDefinitionSummary): string {
-    return (block.slug || block.type || '').trim();
-  }
-
-  private normalizeSelectedBlocks(): void {
-    if (this.selectedBlocks.size === 0 || this.availableBlocks.length === 0) return;
-
-    const normalized = new Set<string>();
-    const mappedLegacy = new Set<string>();
-
-    for (const block of this.availableBlocks) {
-      const key = this.blockKey(block);
-      if (!key) continue;
-      const hasKey = this.selectedBlocks.has(key);
-      const hasType = this.selectedBlocks.has(block.type);
-      if (hasKey || hasType) {
-        normalized.add(key);
-        if (hasType && block.slug && block.slug !== block.type) {
-          mappedLegacy.add(block.type);
-        }
-      }
-    }
-
-    for (const value of this.selectedBlocks) {
-      if (mappedLegacy.has(value)) continue;
-      if (!normalized.has(value)) {
-        normalized.add(value);
-      }
-    }
-
-    this.selectedBlocks = normalized;
-  }
-
   private renderBlocksList(): void {
     const listEl = this.container?.querySelector('[data-blocks-list]');
     if (!listEl) return;
 
     listEl.innerHTML = this.availableBlocks
       .map((block) => {
-        const blockKey = this.blockKey(block);
-        const isSelected = this.selectedBlocks.has(blockKey) || this.selectedBlocks.has(block.type);
+        const bk = sharedBlockKey(block);
+        const isSelected = this.selectedBlocks.has(bk) || this.selectedBlocks.has(block.type);
         return `
           <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
             isSelected
@@ -1557,17 +1525,17 @@ class BlockPickerModal extends Modal {
           }">
             <input
               type="checkbox"
-              value="${escapeHtml(blockKey)}"
+              value="${escapeHtml(bk)}"
               data-block-type="${escapeHtml(block.type)}"
               ${isSelected ? 'checked' : ''}
-              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              class="${checkboxClasses()}"
             />
             <div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium">
-              ${block.icon || blockKey.charAt(0).toUpperCase()}
+              ${block.icon || bk.charAt(0).toUpperCase()}
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(block.name)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${escapeHtml(blockKey)}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${escapeHtml(bk)}</div>
             </div>
             ${block.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${escapeHtml(block.schema_version)}</span>` : ''}
           </label>

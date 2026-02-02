@@ -1,0 +1,100 @@
+{% extends "layout.html" %}
+
+{% block title %}Preferences - {{ title }}{% endblock %}
+
+{% block content %}
+  <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+    <h1 class="text-3xl font-bold text-admin-dark">Preferences</h1>
+  </header>
+
+  <div class="flex-1 p-8 overflow-y-auto">
+    <form method="POST" action="{{ routes.save }}" class="max-w-3xl space-y-6">
+      <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-5">
+        <div>
+          <label for="pref-theme" class="block text-sm font-medium text-gray-700">Theme</label>
+          <select
+            id="pref-theme"
+            name="theme"
+            class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-300 focus:outline-none"
+          >
+            {% for opt in theme_options %}
+              <option value="{{ opt.value }}" {% if opt.value == preferences.theme %}selected{% endif %}>
+                {{ opt.label }}
+              </option>
+            {% endfor %}
+          </select>
+          <p class="mt-2 text-xs text-gray-500">Leave blank to use the system default theme.</p>
+        </div>
+
+        <div>
+          <label for="pref-theme-variant" class="block text-sm font-medium text-gray-700">Theme Variant</label>
+          <select
+            id="pref-theme-variant"
+            name="theme_variant"
+            class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-300 focus:outline-none"
+          >
+            {% for opt in variant_options %}
+              <option value="{{ opt.value }}" {% if opt.value == preferences.theme_variant %}selected{% endif %}>
+                {{ opt.label }}
+              </option>
+            {% endfor %}
+          </select>
+          <p class="mt-2 text-xs text-gray-500">Leave blank to use the system default variant.</p>
+        </div>
+
+        <div>
+          <label for="pref-raw-ui" class="block text-sm font-medium text-gray-700">UI Preferences (JSON)</label>
+          <textarea
+            id="pref-raw-ui"
+            name="raw_ui"
+            rows="8"
+            placeholder='{"ui.datagrid.users.columns": {"order": ["email", "username"]}}'
+            class="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 font-mono focus:border-gray-300 focus:outline-none"
+          >{{ preferences.raw_ui|default:'' }}</textarea>
+          <p class="mt-2 text-xs text-gray-500">Only keys with the <code>ui.</code> prefix are stored. Use Clear UI Keys to remove values.</p>
+        </div>
+
+        <div>
+          <label for="pref-clear-ui-keys" class="block text-sm font-medium text-gray-700">Clear UI Keys</label>
+          <input
+            type="text"
+            id="pref-clear-ui-keys"
+            name="clear_ui_keys"
+            value="{{ preferences.clear_ui_keys|default:'' }}"
+            placeholder="ui.datagrid.users.columns ui.datagrid.users.order"
+            class="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-gray-300 focus:outline-none"
+          >
+          <p class="mt-2 text-xs text-gray-500">Comma or whitespace-separated <code>ui.*</code> keys to remove.</p>
+        </div>
+      </div>
+
+      {% if preferences.dashboard_layout %}
+      <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <label for="pref-dashboard-layout" class="block text-sm font-medium text-gray-700">Dashboard Layout (read-only)</label>
+        <textarea
+          id="pref-dashboard-layout"
+          rows="6"
+          readonly
+          class="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 font-mono focus:outline-none"
+        >{{ preferences.dashboard_layout }}</textarea>
+      </div>
+      {% endif %}
+
+      {% if preferences.dashboard_overrides %}
+      <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <label for="pref-dashboard-overrides" class="block text-sm font-medium text-gray-700">Dashboard Overrides (read-only)</label>
+        <textarea
+          id="pref-dashboard-overrides"
+          rows="6"
+          readonly
+          class="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 font-mono focus:outline-none"
+        >{{ preferences.dashboard_overrides }}</textarea>
+      </div>
+      {% endif %}
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn btn-primary">Save Preferences</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

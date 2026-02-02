@@ -11,6 +11,7 @@ import { ContentTypeAPIClient, ContentTypeAPIError, fieldsToBlockSchema, generat
 import { BlockEditorPanel } from './block-editor-panel';
 import { FieldPalettePanel } from './field-palette-panel';
 import { Modal } from '../shared/modal';
+import { inputClasses, selectClasses } from './shared/field-input-classes';
 
 // =============================================================================
 // Types
@@ -362,14 +363,14 @@ export class BlockLibraryIDE {
 
     // Popover container
     const popover = document.createElement('div');
-    popover.className = 'fixed z-50 w-72 max-h-[60vh] bg-white border border-gray-200 rounded-xl shadow-2xl flex flex-col overflow-hidden';
+    popover.className = 'fixed z-50 w-72 max-h-[60vh] bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden';
     popover.dataset.palettePopover = '';
 
     popover.innerHTML = `
-      <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
-        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Add Field</h3>
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between shrink-0">
+        <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Add Field</h3>
         <button type="button" data-palette-popover-close
-                class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                class="p-1 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
@@ -863,12 +864,12 @@ export class BlockLibraryIDE {
       const hasFilters = this.state.search || this.state.categoryFilter;
       this.listEl.innerHTML = `
         <div class="px-4 py-8 text-center">
-          <svg class="w-10 h-10 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z"></path>
           </svg>
-          <p class="text-sm text-gray-500">${hasFilters ? 'No blocks match your filters.' : 'No blocks yet.'}</p>
-          ${!hasFilters ? '<p class="text-xs text-gray-400 mt-1">Click "New Block" to create your first block definition.</p>' : ''}
+          <p class="text-sm text-gray-500 dark:text-gray-400">${hasFilters ? 'No blocks match your filters.' : 'No blocks yet.'}</p>
+          ${!hasFilters ? '<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "New Block" to create your first block definition.</p>' : ''}
         </div>`;
       return;
     }
@@ -934,14 +935,14 @@ export class BlockLibraryIDE {
     const slugOrType = block.slug || block.type || '';
 
     const selectedClass = isSelected
-      ? 'bg-blue-50 border-blue-200 text-blue-800'
-      : 'hover:bg-gray-50 border-transparent';
+      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
+      : 'hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent';
 
     const nameHtml = isRenaming
       ? `<input type="text" data-rename-input data-rename-block-id="${esc(block.id)}"
                value="${esc(block.name)}"
-               class="block w-full text-[13px] font-medium text-gray-800 bg-white border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500" />`
-      : `<span class="block font-medium text-gray-800 truncate text-[13px]">${esc(block.name || 'Untitled')}</span>`;
+               class="block w-full text-[13px] font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-slate-800 border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500" />`
+      : `<span class="block font-medium text-gray-800 dark:text-gray-100 truncate text-[13px]">${esc(block.name || 'Untitled')}</span>`;
 
     // Unsaved indicator (Task 7.4)
     let indicatorHtml = '';
@@ -959,16 +960,16 @@ export class BlockLibraryIDE {
       <li>
         <div data-block-id="${esc(block.id)}"
              class="relative group w-full text-left px-3 py-2 text-sm rounded-lg border ${selectedClass} transition-colors flex items-center gap-2.5 cursor-pointer">
-          <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+          <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
             ${block.icon ? `<span class="text-xs font-medium">${esc(block.icon)}</span>` : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path></svg>`}
           </span>
           <span class="flex-1 min-w-0">
             ${nameHtml}
-            <span class="block text-[11px] text-gray-400 font-mono truncate">${esc(slugOrType)}</span>
+            <span class="block text-[11px] text-gray-400 dark:text-gray-500 font-mono truncate">${esc(slugOrType)}</span>
           </span>
           ${indicatorHtml}
           <button type="button" data-block-actions="${esc(block.id)}"
-                  class="flex-shrink-0 p-0.5 rounded text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  class="flex-shrink-0 p-0.5 rounded text-gray-300 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                   title="Actions">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
@@ -981,34 +982,34 @@ export class BlockLibraryIDE {
   private renderCreateForm(): string {
     return `
       <div class="p-2 mb-1" data-block-create-form>
-        <div class="p-3 border border-blue-200 rounded-lg bg-blue-50/50 space-y-2">
+        <div class="p-3 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50/50 dark:bg-blue-900/20 space-y-2">
           <div>
-            <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Name</label>
+            <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">Name</label>
             <input type="text" data-create-name placeholder="e.g. Hero Section"
-                   class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                   class="${inputClasses()}" />
           </div>
           <div>
-            <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Slug</label>
+            <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">Slug</label>
             <input type="text" data-create-slug placeholder="e.g. hero_section" pattern="^[a-z][a-z0-9_\\-]*$"
-                   class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-            <p class="mt-0.5 text-[10px] text-gray-400">Lowercase, numbers, hyphens, underscores.</p>
+                   class="${inputClasses()} font-mono" />
+            <p class="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Lowercase, numbers, hyphens, underscores.</p>
           </div>
           <div>
-            <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Category</label>
+            <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">Category</label>
             <select data-create-category
-                    class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    class="${selectClasses()}">
               ${this.state.categories.map((c) => `<option value="${esc(c)}">${esc(titleCase(c))}</option>`).join('')}
               <option value="__add__">Add category...</option>
             </select>
           </div>
-          <div data-create-error class="hidden text-xs text-red-600"></div>
+          <div data-create-error class="hidden text-xs text-red-600 dark:text-red-400"></div>
           <div class="flex items-center gap-2 pt-1">
             <button type="button" data-create-save
                     class="flex-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
               Create
             </button>
             <button type="button" data-create-cancel
-                    class="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    class="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               Cancel
             </button>
           </div>
@@ -1025,7 +1026,7 @@ export class BlockLibraryIDE {
     const menu = document.createElement('div');
     menu.setAttribute('data-block-context-menu', blockId);
     menu.className =
-      'absolute z-50 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 text-sm text-gray-700';
+      'absolute z-50 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm text-gray-700 dark:text-gray-300';
 
     const items: { label: string; action: string; icon: string; danger?: boolean }[] = [
       { label: 'Rename', action: 'rename', icon: ICONS.rename },
@@ -1044,7 +1045,7 @@ export class BlockLibraryIDE {
       .map(
         (item) => `
         <button type="button" data-menu-action="${item.action}" data-menu-block-id="${esc(blockId)}"
-                class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-gray-50 ${item.danger ? 'text-red-600 hover:bg-red-50' : ''}">
+                class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 ${item.danger ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20' : ''}">
           ${item.icon}
           <span>${item.label}</span>
         </button>`
@@ -1127,12 +1128,12 @@ export class BlockLibraryIDE {
       this.editorPanel = null;
       this.editorEl.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full p-8 text-center">
-          <svg class="w-16 h-16 text-gray-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-16 h-16 text-gray-200 dark:text-gray-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
           </svg>
-          <p class="text-sm text-gray-400">Select a block from the list to edit</p>
-          <p class="text-xs text-gray-300 mt-1">or create a new block to get started</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500">Select a block from the list to edit</p>
+          <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">or create a new block to get started</p>
         </div>`;
       // Disable palette when no block is selected (Phase 9)
       this.palettePanel?.disable();
@@ -1210,22 +1211,24 @@ export class BlockLibraryIDE {
   private handlePaletteAddField(meta: FieldTypeMetadata): void {
     if (!this.editorPanel || !this.state.selectedBlockId) return;
 
-    const label = meta?.label ?? titleCase(meta.type);
-    const baseName = meta.type.replace(/-/g, '_');
+    // Auto-generate defaults for blocks fields (Phase 4 — Task 4.2)
+    const isBlocks = meta.type === 'blocks';
+    const label = isBlocks ? 'Content Blocks' : (meta?.label ?? titleCase(meta.type));
+    const baseName = isBlocks ? 'content_blocks' : meta.type.replace(/-/g, '_');
 
     // Ensure unique field name
     const existingNames = new Set(this.editorPanel.getFields().map((f) => f.name));
     let name = baseName;
     let counter = 1;
     while (existingNames.has(name)) {
-      name = `${baseName}_${counter++}`;
+      name = isBlocks ? `content_blocks_${counter++}` : `${baseName}_${counter++}`;
     }
 
     const newField: FieldDefinition = {
       id: generateFieldId(),
       name,
       type: meta.type,
-      label,
+      label: counter > 1 && isBlocks ? `Content Blocks ${counter - 1}` : label,
       required: false,
       ...(meta.defaultConfig ?? {}),
     };
@@ -1683,11 +1686,11 @@ export class BlockLibraryIDE {
     const existing = this.root.querySelector('[data-ide-toast]');
     if (existing) existing.remove();
 
-    const colors = type === 'error'
-      ? 'bg-red-50 text-red-700 border-red-200'
+      const colors = type === 'error'
+      ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800'
       : type === 'success'
-        ? 'bg-green-50 text-green-700 border-green-200'
-        : 'bg-blue-50 text-blue-700 border-blue-200';
+        ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800'
+        : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800';
 
     const toast = document.createElement('div');
     toast.setAttribute('data-ide-toast', '');
@@ -1728,17 +1731,17 @@ class TextPromptModal extends Modal {
   protected renderContent(): string {
     return `
       <div class="p-5">
-        <div class="text-base font-semibold text-gray-900">${esc(this.config.title)}</div>
-        <label class="block text-xs font-medium text-gray-600 mt-3 mb-1">${esc(this.config.label)}</label>
+        <div class="text-base font-semibold text-gray-900 dark:text-white">${esc(this.config.title)}</div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mt-3 mb-1">${esc(this.config.label)}</label>
         <input type="text"
                data-prompt-input
                value="${esc(this.config.initialValue ?? '')}"
                placeholder="${esc(this.config.placeholder ?? '')}"
-               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        <div data-prompt-error class="hidden text-xs text-red-600 mt-1"></div>
+               class="${inputClasses()}" />
+        <div data-prompt-error class="hidden text-xs text-red-600 dark:text-red-400 mt-1"></div>
         <div class="flex items-center justify-end gap-2 mt-4">
           <button type="button" data-prompt-cancel
-                  class="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                  class="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             ${esc(this.config.cancelLabel ?? 'Cancel')}
           </button>
           <button type="button" data-prompt-confirm

@@ -11,6 +11,7 @@
  */
 import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldTypeMetadata } from './types';
 import { ContentTypeAPIClient } from './api-client';
+import type { SaveState } from './shared/entity-header';
 export interface BlockEditorPanelConfig {
     container: HTMLElement;
     block: BlockDefinition;
@@ -41,6 +42,9 @@ export declare class BlockEditorPanel {
     private saveState;
     private saveMessage;
     private saveDisplayTimer;
+    /** Cached block definitions for inline block picker (Phase 4) */
+    private cachedBlocks;
+    private blocksLoading;
     constructor(config: BlockEditorPanelConfig);
     render(): void;
     /** Refresh the panel for a new block without a full re-mount */
@@ -49,15 +53,18 @@ export declare class BlockEditorPanel {
     /** Add a field to the end of the fields list (Phase 9 — palette insert) */
     addField(field: FieldDefinition): void;
     private renderHeader;
-    private renderSaveState;
-    /** Update the save state indicator without a full re-render (Phase 11 — Task 11.2) */
-    updateSaveState(state: 'idle' | 'saving' | 'saved' | 'error', message?: string): void;
+    /** Update the save state indicator without a full re-render */
+    updateSaveState(state: SaveState, message?: string): void;
     /** Revert the status dropdown to a previous value (used on status change failure) */
     revertStatus(status?: BlockDefinitionStatus | string): void;
     private renderMetadataSection;
     private renderFieldsSection;
     private renderFieldCard;
     private renderFieldProperties;
+    /** Standard field properties (non-blocks) */
+    private renderStandardFieldProperties;
+    /** Blocks field properties: block picker primary, field settings secondary */
+    private renderBlocksFieldProperties;
     private renderMoveToSectionMenu;
     private groupFieldsBySection;
     private getSectionState;
@@ -69,6 +76,10 @@ export declare class BlockEditorPanel {
     private handleChange;
     private handleMetadataChange;
     private updateFieldProp;
+    /** Load blocks and render inline picker for a blocks field (Phase 4) */
+    private loadBlocksForField;
+    /** Render and bind inline block picker into the DOM container */
+    private renderInlineBlockPickerForField;
     private moveFieldToSection;
     /** Move a field up (-1) or down (+1) within its section */
     private moveFieldInSection;

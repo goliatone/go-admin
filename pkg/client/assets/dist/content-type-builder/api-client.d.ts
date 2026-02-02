@@ -151,6 +151,10 @@ import type { FieldDefinition } from './types';
  */
 export declare function fieldsToSchema(fields: FieldDefinition[], slug?: string): JSONSchema;
 /**
+ * Convert field definitions to a block definition schema
+ */
+export declare function fieldsToBlockSchema(fields: FieldDefinition[], slug?: string): JSONSchema;
+/**
  * Convert JSON Schema to field definitions
  */
 export declare function schemaToFields(schema: JSONSchema): FieldDefinition[];
