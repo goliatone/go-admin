@@ -43,6 +43,12 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.PreferencesUpdatePermission == "" {
 		cfg.PreferencesUpdatePermission = "admin.preferences.edit"
 	}
+	if cfg.DashboardPreferencesPermission == "" {
+		cfg.DashboardPreferencesPermission = cfg.PreferencesPermission
+	}
+	if cfg.DashboardPreferencesUpdatePermission == "" {
+		cfg.DashboardPreferencesUpdatePermission = cfg.PreferencesUpdatePermission
+	}
 	if cfg.PreferencesManageTenantPermission == "" {
 		cfg.PreferencesManageTenantPermission = "admin.preferences.manage_tenant"
 	}
