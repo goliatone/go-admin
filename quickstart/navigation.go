@@ -151,7 +151,7 @@ func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) 
 		Target:      target,
 		Icon:        strings.TrimSpace(item.Icon),
 		Badge:       cloneAnyMap(item.Badge),
-		Permissions: append([]string{}, item.Permissions...),
+		Permissions: normalizeSeedPermissions(item.Permissions),
 		Classes:     append([]string{}, item.Classes...),
 		Styles:      cloneStringMap(item.Styles),
 		Collapsible: item.Collapsible,
@@ -183,6 +183,26 @@ func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) 
 		GroupTitleKey: groupTitleKey,
 	}}
 	return seed, nil
+}
+
+func normalizeSeedPermissions(perms []string) []string {
+	if len(perms) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(perms))
+	for _, perm := range perms {
+		trimmed := strings.TrimSpace(perm)
+		if trimmed == "" || seen[trimmed] {
+			continue
+		}
+		seen[trimmed] = true
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func normalizeMenuItemType(raw string) string {
