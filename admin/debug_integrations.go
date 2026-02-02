@@ -163,17 +163,19 @@ func debugRemoteIP(c router.Context) string {
 	if c == nil {
 		return ""
 	}
+	if httpCtx, ok := c.(router.HTTPContext); ok {
+		if req := httpCtx.Request(); req != nil {
+			if addr := strings.TrimSpace(req.RemoteAddr); addr != "" {
+				return addr
+			}
+		}
+	}
 	type ipGetter interface {
 		IP() string
 	}
 	if getter, ok := c.(ipGetter); ok {
 		if ip := strings.TrimSpace(getter.IP()); ip != "" {
 			return ip
-		}
-	}
-	if httpCtx, ok := c.(router.HTTPContext); ok {
-		if req := httpCtx.Request(); req != nil {
-			return strings.TrimSpace(req.RemoteAddr)
 		}
 	}
 	return ""
