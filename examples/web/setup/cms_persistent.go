@@ -164,7 +164,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	}
 
 	if contentSvc == nil {
-		contentSvc = admin.NewInMemoryContentService()
+		return admin.CMSOptions{}, fmt.Errorf("go-cms content service unavailable")
 	}
 
 	widgetSvc := admin.CMSWidgetService(nil)

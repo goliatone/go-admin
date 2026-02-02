@@ -205,6 +205,10 @@ func main() {
 		},
 		GoUsersActivity: setup.SetupActivityWithGoUsers,
 	}
+	adapterFlags := quickstart.ResolveAdapterFlags()
+	if _, ok := os.LookupEnv("USE_PERSISTENT_CMS"); !ok {
+		adapterFlags.UsePersistentCMS = true
+	}
 
 	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsersWithMigrations(
 		context.Background(),
@@ -265,6 +269,7 @@ func main() {
 		adapterHooks,
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
+		quickstart.WithAdapterFlags(adapterFlags),
 		quickstart.WithGoUsersPreferencesRepositoryFactory(func() (userstypes.PreferenceRepository, error) {
 			if usersDeps.DB == nil {
 				return nil, fmt.Errorf("preferences repository db not configured")
