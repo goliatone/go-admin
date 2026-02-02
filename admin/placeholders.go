@@ -84,9 +84,10 @@ func (a *GoAuthAuthenticator) resolveErrorHandler() func(router.Context, error) 
 		if handler == nil {
 			return err
 		}
+		presenter := DefaultErrorPresenter()
 		if err == nil {
 			err = goerrors.New("unauthorized", goerrors.CategoryAuth).WithCode(goerrors.CodeUnauthorized)
-		} else if mapped := goerrors.MapToError(err, goerrors.DefaultErrorMappers()); mapped != nil {
+		} else if mapped, _ := presenter.Present(err); mapped != nil {
 			err = mapped
 		} else {
 			err = goerrors.New(err.Error(), goerrors.CategoryAuth).WithCode(goerrors.CodeUnauthorized)
