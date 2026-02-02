@@ -140,6 +140,7 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 				code = a.navMenuCode
 			}
 			item = normalizeMenuItem(item, code)
+			item.Permissions = normalizeMenuPermissions(item.Permissions)
 			keySet, ok := menuKeys[code]
 			if !ok {
 				keySet = map[string]bool{}
@@ -150,6 +151,11 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 			}
 			keys := canonicalMenuKeys(item)
 			if hasAnyKey(keySet, keys) {
+				if item.ID != "" && keySet["path:"+strings.TrimSpace(item.ID)] {
+					if err := a.menuSvc.UpdateMenuItem(ctx, code, item); err != nil && !errors.Is(err, ErrNotFound) {
+						return err
+					}
+				}
 				continue
 			}
 			if !menuCodes[code] {
@@ -185,4 +191,24 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 		}
 	}
 	return nil
+}
+
+func normalizeMenuPermissions(perms []string) []string {
+	if len(perms) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(perms))
+	for _, perm := range perms {
+		trimmed := strings.TrimSpace(perm)
+		if trimmed == "" || seen[trimmed] {
+			continue
+		}
+		seen[trimmed] = true
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
