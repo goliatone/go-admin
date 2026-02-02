@@ -92,8 +92,8 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 			entry := RequestEntry{
 				ID:            uuid.NewString(),
 				Timestamp:     start,
-				Method:        c.Method(),
-				Path:          c.Path(),
+				Method:        strings.Clone(c.Method()),
+				Path:          strings.Clone(c.Path()),
 				Duration:      time.Since(start),
 				Headers:       debugRequestHeaders(c),
 				Query:         debugRequestQueries(c),
