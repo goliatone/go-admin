@@ -47,6 +47,7 @@ export declare class DebugPanel {
     private attachCopyButtonListeners;
     private attachSQLSelectionListeners;
     private renderReplPanel;
+    private getUniqueContentTypes;
     private renderRequests;
     private renderSQL;
     private renderLogs;

@@ -26,7 +26,8 @@ export type RequestsPanelOptions = PanelOptions & {
 export declare function getRequestKey(entry: RequestEntry, index: number): string;
 /**
  * Render the detail pane content for a single request entry.
- * Shows Request ID, Headers, Query Parameters, and Error sections.
+ * Shows: Metadata line, Request Headers, Query Parameters,
+ * Request Body, Response Headers, Response Body, and Error.
  * Sections are omitted when data is absent.
  */
 export declare function renderRequestDetail(entry: RequestEntry, styles: StyleConfig, options?: {

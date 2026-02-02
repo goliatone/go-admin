@@ -51,6 +51,8 @@ export type StyleConfig = {
     detailKeyValueTable: string;
     detailError: string;
     detailMasked: string;
+    detailBody: string;
+    detailMetadataLine: string;
     badgeContentType: string;
 };
 /**

@@ -1,6 +1,6 @@
-import { t as L, z, e as P, k as T, l as g, j as M, i as R, g as H, r as A, p, D as q, o as $, q as I, a as f, b as j, c as D, L as O, d as F, u as C } from "../chunks/builtin-panels-Dl-8u-rd.js";
-import { DebugReplPanel as Q } from "./repl.js";
-const B = `
+import { t as L, z, e as P, k as M, l as g, j as T, i as R, g as H, r as A, p, D as q, o as $, q as I, a as f, b as j, c as D, L as O, d as F, u as C } from "../chunks/builtin-panels-DyVqnjvq.js";
+import { DebugReplPanel as N } from "./repl.js";
+const Q = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -950,6 +950,46 @@ const B = `
     word-break: break-word;
   }
 
+  .request-detail-body {
+    background: rgba(30, 30, 46, 0.6);
+    border: 1px solid var(--toolbar-border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-top: 4px;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .request-detail-body pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+    font-size: 11px;
+    color: var(--toolbar-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+
+  .request-detail-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 11px;
+    color: var(--toolbar-text-muted);
+    margin-bottom: 6px;
+  }
+
+  .request-detail-metadata code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    color: var(--toolbar-text);
+    font-size: 11px;
+  }
+
+  .request-detail-metadata span {
+    white-space: nowrap;
+  }
+
   /* Content-Type badge */
   .badge-content-type {
     font-size: 9px;
@@ -1037,7 +1077,7 @@ function x(o, t, e = 50, s) {
         showCount: !1
       });
     case "routes":
-      return M(t.routes || [], h, {
+      return T(t.routes || [], h, {
         showName: !1
         // Toolbar doesn't show name column
       });
@@ -1052,7 +1092,7 @@ function x(o, t, e = 50, s) {
         showCount: !1
       });
     case "custom":
-      return T(t.custom || {}, h, {
+      return M(t.custom || {}, h, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
@@ -1074,7 +1114,7 @@ function u(o, t = 50) {
     slowQueries: l
   };
 }
-const N = /* @__PURE__ */ new Set(["console", "shell"]), v = {
+const B = /* @__PURE__ */ new Set(["console", "shell"]), v = {
   console: "Console",
   shell: "Shell"
 }, w = () => {
@@ -1327,7 +1367,7 @@ const N = /* @__PURE__ */ new Set(["console", "shell"]), v = {
         `;
     }).join(""), s = this.expanded ? "expanded" : "collapsed", a = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || c.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${B}</style>
+      <style>${Q}</style>
       <div class="toolbar ${s} ${a}" style="${n}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
@@ -1398,7 +1438,7 @@ const N = /* @__PURE__ */ new Set(["console", "shell"]), v = {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (N.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests))), this.panels.forEach((e) => {
+      t && (B.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests))), this.panels.forEach((e) => {
         const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         s && (s.textContent = String(this.getPanelCount(e)));
       });
@@ -1487,7 +1527,7 @@ const N = /* @__PURE__ */ new Set(["console", "shell"]), v = {
   }
   renderReplPanel(t, e) {
     let s = this.replPanels.get(e);
-    s || (s = new Q({
+    s || (s = new N({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []

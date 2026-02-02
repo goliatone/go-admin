@@ -951,6 +951,46 @@ export const toolbarStyles = `
     word-break: break-word;
   }
 
+  .request-detail-body {
+    background: rgba(30, 30, 46, 0.6);
+    border: 1px solid var(--toolbar-border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-top: 4px;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .request-detail-body pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+    font-size: 11px;
+    color: var(--toolbar-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+
+  .request-detail-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 11px;
+    color: var(--toolbar-text-muted);
+    margin-bottom: 6px;
+  }
+
+  .request-detail-metadata code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    color: var(--toolbar-text);
+    font-size: 11px;
+  }
+
+  .request-detail-metadata span {
+    white-space: nowrap;
+  }
+
   /* Content-Type badge */
   .badge-content-type {
     font-size: 9px;

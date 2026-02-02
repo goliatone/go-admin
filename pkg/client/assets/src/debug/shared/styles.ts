@@ -83,6 +83,8 @@ export type StyleConfig = {
   detailKeyValueTable: string;
   detailError: string;
   detailMasked: string;
+  detailBody: string;
+  detailMetadataLine: string;
   badgeContentType: string;
 };
 
@@ -206,6 +208,8 @@ export const consoleStyles: StyleConfig = {
   detailKeyValueTable: 'request-detail-kv',
   detailError: 'request-detail-error',
   detailMasked: 'request-detail-masked',
+  detailBody: 'request-detail-body',
+  detailMetadataLine: 'request-detail-metadata',
   badgeContentType: 'badge badge--content-type',
 };
 
@@ -295,6 +299,8 @@ export const toolbarStyles: StyleConfig = {
   detailKeyValueTable: 'request-detail-kv',
   detailError: 'request-detail-error',
   detailMasked: 'request-detail-masked',
+  detailBody: 'request-detail-body',
+  detailMetadataLine: 'request-detail-metadata',
   badgeContentType: 'badge badge-content-type',
 };
 

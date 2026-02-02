@@ -7,8 +7,10 @@ import {
   escapeHTML,
   formatTimestamp,
   formatDuration,
+  formatBytes,
   truncate,
 } from '../utils.js';
+import { highlightJSON } from '../../syntax-highlight.js';
 
 /**
  * Options for rendering the requests panel
@@ -55,7 +57,8 @@ function renderSortToggle(panelId: string, newestFirst: boolean, styles: StyleCo
 
 /**
  * Render the detail pane content for a single request entry.
- * Shows Request ID, Headers, Query Parameters, and Error sections.
+ * Shows: Metadata line, Request Headers, Query Parameters,
+ * Request Body, Response Headers, Response Body, and Error.
  * Sections are omitted when data is absent.
  */
 export function renderRequestDetail(
@@ -66,17 +69,22 @@ export function renderRequestDetail(
   const { maskPlaceholder = '***', maxDetailLength } = options;
   const sections: string[] = [];
 
-  // Request ID
+  // 1. Metadata line (Request ID + Remote IP + Content-Type)
+  const metaParts: string[] = [];
   if (entry.id) {
-    sections.push(`
-      <div class="${styles.detailSection}">
-        <span class="${styles.detailLabel}">Request ID</span>
-        <code class="${styles.detailValue}">${escapeHTML(entry.id)}</code>
-      </div>
-    `);
+    metaParts.push(`<span>ID: <code>${escapeHTML(entry.id)}</code></span>`);
+  }
+  if (entry.remote_ip) {
+    metaParts.push(`<span>IP: <code>${escapeHTML(entry.remote_ip)}</code></span>`);
+  }
+  if (entry.content_type) {
+    metaParts.push(`<span>Content-Type: <code>${escapeHTML(entry.content_type)}</code></span>`);
+  }
+  if (metaParts.length > 0) {
+    sections.push(`<div class="${styles.detailMetadataLine}">${metaParts.join('')}</div>`);
   }
 
-  // Headers
+  // 2. Request Headers
   if (entry.headers && Object.keys(entry.headers).length > 0) {
     const items = Object.entries(entry.headers)
       .map(([key, value]) => {
@@ -93,13 +101,13 @@ export function renderRequestDetail(
       .join('');
     sections.push(`
       <div class="${styles.detailSection}">
-        <span class="${styles.detailLabel}">Headers</span>
+        <span class="${styles.detailLabel}">Request Headers</span>
         <dl class="${styles.detailKeyValueTable}">${items}</dl>
       </div>
     `);
   }
 
-  // Query Parameters
+  // 3. Query Parameters
   if (entry.query && Object.keys(entry.query).length > 0) {
     const items = Object.entries(entry.query)
       .map(([key, value]) => {
@@ -118,7 +126,69 @@ export function renderRequestDetail(
     `);
   }
 
-  // Error
+  // 4. Request Body
+  if (entry.request_body) {
+    const sizeLabel = entry.request_size ? ` (${formatBytes(entry.request_size)})` : '';
+    const truncatedLabel = entry.body_truncated ? ' <span class="' + styles.detailMasked + '">(truncated)</span>' : '';
+    let bodyContent: string;
+    try {
+      const parsed = JSON.parse(entry.request_body);
+      bodyContent = highlightJSON(parsed, true);
+    } catch {
+      bodyContent = escapeHTML(entry.request_body);
+    }
+    sections.push(`
+      <div class="${styles.detailSection}">
+        <span class="${styles.detailLabel}">Request Body${sizeLabel}${truncatedLabel}</span>
+        <div class="${styles.detailBody}">
+          <pre>${bodyContent}</pre>
+        </div>
+        <button class="${styles.copyBtnSm}" data-copy-trigger="${escapeHTML(entry.request_body)}">Copy</button>
+      </div>
+    `);
+  }
+
+  // 5. Response Headers
+  if (entry.response_headers && Object.keys(entry.response_headers).length > 0) {
+    const items = Object.entries(entry.response_headers)
+      .map(([key, value]) => {
+        const displayValue =
+          maxDetailLength && value.length > maxDetailLength
+            ? truncate(value, maxDetailLength)
+            : value;
+        return `<dt>${escapeHTML(key)}</dt><dd>${escapeHTML(displayValue)}</dd>`;
+      })
+      .join('');
+    sections.push(`
+      <div class="${styles.detailSection}">
+        <span class="${styles.detailLabel}">Response Headers</span>
+        <dl class="${styles.detailKeyValueTable}">${items}</dl>
+      </div>
+    `);
+  }
+
+  // 6. Response Body
+  if (entry.response_body) {
+    const sizeLabel = entry.response_size ? ` (${formatBytes(entry.response_size)})` : '';
+    let bodyContent: string;
+    try {
+      const parsed = JSON.parse(entry.response_body);
+      bodyContent = highlightJSON(parsed, true);
+    } catch {
+      bodyContent = escapeHTML(entry.response_body);
+    }
+    sections.push(`
+      <div class="${styles.detailSection}">
+        <span class="${styles.detailLabel}">Response Body${sizeLabel}</span>
+        <div class="${styles.detailBody}">
+          <pre>${bodyContent}</pre>
+        </div>
+        <button class="${styles.copyBtnSm}" data-copy-trigger="${escapeHTML(entry.response_body)}">Copy</button>
+      </div>
+    `);
+  }
+
+  // 7. Error
   if (entry.error) {
     sections.push(`
       <div class="${styles.detailSection}">
@@ -162,12 +232,12 @@ function renderRequestRow(
   // Content-Type badge for POST/PUT/PATCH
   let contentTypeBadge = '';
   const methodUpper = method.toUpperCase();
-  if (
-    (methodUpper === 'POST' || methodUpper === 'PUT' || methodUpper === 'PATCH') &&
-    entry.headers
-  ) {
+  if (methodUpper === 'POST' || methodUpper === 'PUT' || methodUpper === 'PATCH') {
     const contentType =
-      entry.headers['Content-Type'] || entry.headers['content-type'] || '';
+      entry.content_type ||
+      entry.headers?.['Content-Type'] ||
+      entry.headers?.['content-type'] ||
+      '';
     const shortType = contentType.split(';')[0].trim();
     if (shortType) {
       contentTypeBadge = ` <span class="${styles.badgeContentType}">${escapeHTML(shortType)}</span>`;

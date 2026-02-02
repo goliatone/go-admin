@@ -57,6 +57,10 @@ export declare const getStatusClass: (status: number | undefined) => string;
  */
 export declare const getLevelClass: (level: string | undefined) => string;
 /**
+ * Format a byte count as a human-readable string (e.g., "1.2 KB", "3.5 MB")
+ */
+export declare const formatBytes: (bytes: number | undefined) => string;
+/**
  * Ensure a value is an array (returns empty array if not)
  */
 export declare const ensureArray: <T>(value: unknown) => T[];
