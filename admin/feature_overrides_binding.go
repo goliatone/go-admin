@@ -116,7 +116,7 @@ func (b *featureOverridesBinding) applyOverride(c router.Context, body map[strin
 		if !ok {
 			return nil, goerrors.New("enabled must be a boolean", goerrors.CategoryBadInput).
 				WithCode(http.StatusBadRequest).
-				WithTextCode("FEATURE_ENABLED_REQUIRED")
+				WithTextCode(TextCodeFeatureEnabledRequired)
 		}
 		if err := mutable.Set(adminCtx.Context, key, scopeRef, enabled, actor); err != nil {
 			return nil, err
@@ -224,12 +224,12 @@ func parseFeatureOverrideKey(body map[string]any) (string, error) {
 	if strings.EqualFold(strings.TrimSpace(key), featureOverrideAliasSignup) {
 		return "", goerrors.New("feature alias not supported", goerrors.CategoryBadInput).
 			WithCode(http.StatusBadRequest).
-			WithTextCode("FEATURE_ALIAS_DISABLED")
+			WithTextCode(TextCodeFeatureAliasDisabled)
 	}
 	if fggate.IsAlias(key) {
 		return "", goerrors.New("feature alias not supported", goerrors.CategoryBadInput).
 			WithCode(http.StatusBadRequest).
-			WithTextCode("FEATURE_ALIAS_DISABLED")
+			WithTextCode(TextCodeFeatureAliasDisabled)
 	}
 	return fggate.NormalizeKey(key), nil
 }
