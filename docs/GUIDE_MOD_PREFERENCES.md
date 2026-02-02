@@ -64,6 +64,32 @@ The Preferences HTML form accepts UI-only inputs:
 
 These fields are **not** accepted by the API. Invalid JSON or disallowed keys return a validation error and skip the save.
 
+## Schema overrides and JSON editor strictness
+
+The Preferences form is generated from a JSON schema. By default, go-admin loads the embedded schema at
+`data/uischemas/preferences/schema.json`. To override it, point the Preferences module at a file path or a
+directory containing `schema.json`:
+
+```go
+mod := admin.NewPreferencesModule().
+	WithSchemaPath("./configs/preferences/schema.json").
+	WithJSONEditorStrict(true)
+```
+
+Quickstart helper:
+
+```go
+mod := quickstart.NewPreferencesModule(
+	cfg,
+	"",
+	quickstart.WithPreferencesSchemaPath("./configs/preferences"),
+	quickstart.WithPreferencesJSONEditorStrict(true),
+)
+```
+
+`WithJSONEditorStrict(true)` enables client-side validation for the `raw_ui` JSON editor (must be valid JSON
+object before submit). When strict mode is off, the UI is lenient but the server still validates `raw_ui`.
+
 ## Preferences data model
 
 The service stores a small set of known keys and exposes a safe `raw` namespace for UI-specific preferences.
