@@ -30,6 +30,9 @@ func CaptureViewContext(collector *DebugCollector, viewCtx router.ViewContext) r
 
 // CaptureViewContextForRequest is like CaptureViewContext but honors ToolbarExcludePaths.
 func CaptureViewContextForRequest(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) router.ViewContext {
+	if collector == nil {
+		return viewCtx
+	}
 	path := ""
 	if c != nil {
 		path = c.Path()
