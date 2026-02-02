@@ -133,6 +133,7 @@ func main() {
 	cfg.Debug.ToolbarPanels = []string{"requests", "sql", "logs", "routes", "config", "template", "session"}
 	cfg.Debug.CaptureSQL = debugEnabled
 	cfg.Debug.CaptureLogs = debugEnabled
+	cfg.Debug.CaptureRequestBody = debugEnabled
 	if debugEnabled {
 		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
 		if mode := strings.TrimSpace(os.Getenv("ADMIN_DEBUG_LAYOUT")); mode != "" {
@@ -600,7 +601,14 @@ func main() {
 		&notificationsModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupOthers},
 		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		admin.NewProfileModule().WithMenuParent(setup.NavigationGroupOthers),
-		admin.NewPreferencesModule().WithMenuParent(setup.NavigationGroupOthers),
+		admin.NewPreferencesModule().
+			WithBasePath(cfg.BasePath).
+			WithMenuParent(setup.NavigationGroupOthers).
+			WithViewContextBuilder(func(adm *admin.Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
+				view = helpers.WithNav(view, adm, cfg, active, c.Context())
+				view = helpers.WithTheme(view, adm, c)
+				return view
+			}),
 	}
 	if debugEnabled {
 		modules = append(modules, admin.NewDebugModule(cfg.Debug))
