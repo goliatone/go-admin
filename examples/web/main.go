@@ -62,6 +62,7 @@ func main() {
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
 		}),
+		quickstart.WithErrorsFromEnv(),
 	)
 	cfg.ActivityActionLabels = map[string]string{
 		"debug.repl.eval":       "Execute REPL",
@@ -591,6 +592,9 @@ func main() {
 		})
 	}
 
+	preferencesSchemaPath := strings.TrimSpace(os.Getenv("ADMIN_PREFERENCES_SCHEMA"))
+	preferencesJSONStrict := strings.EqualFold(strings.TrimSpace(os.Getenv("ADMIN_PREFERENCES_JSON_STRICT")), "true")
+
 	// Register modules
 	modules := []admin.Module{
 		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
@@ -601,14 +605,19 @@ func main() {
 		&notificationsModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupOthers},
 		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		admin.NewProfileModule().WithMenuParent(setup.NavigationGroupOthers),
-		admin.NewPreferencesModule().
-			WithBasePath(cfg.BasePath).
-			WithMenuParent(setup.NavigationGroupOthers).
-			WithViewContextBuilder(func(adm *admin.Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
-				view = helpers.WithNav(view, adm, cfg, active, c.Context())
-				view = helpers.WithTheme(view, adm, c)
-				return view
-			}),
+		quickstart.NewPreferencesModule(
+			cfg,
+			setup.NavigationGroupOthers,
+			quickstart.WithPreferencesSchemaPath(preferencesSchemaPath),
+			quickstart.WithPreferencesJSONEditorStrict(preferencesJSONStrict),
+			func(mod *admin.PreferencesModule) {
+				mod.WithViewContextBuilder(func(adm *admin.Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
+					view = helpers.WithNav(view, adm, cfg, active, c.Context())
+					view = helpers.WithTheme(view, adm, c)
+					return view
+				})
+			},
+		),
 	}
 	if debugEnabled {
 		modules = append(modules, admin.NewDebugModule(cfg.Debug))
