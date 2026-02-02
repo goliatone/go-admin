@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "preferences",
+  "type": "object",
+  "x-formgen": {
+    "forms": [
+      {
+        "id": "preferences",
+        "title": "Preferences"
+      }
+    ],
+    "actions": [
+      {
+        "label": "Save Preferences",
+        "type": "submit",
+        "kind": "primary"
+      }
+    ]
+  },
+  "properties": {
+    "theme": {
+      "type": "string",
+      "x-formgen": {
+        "widget": "select",
+        "placeholder": "System Default",
+        "helpText": "Leave blank to use the system default theme."
+      }
+    },
+    "theme_variant": {
+      "type": "string",
+      "x-formgen": {
+        "widget": "select",
+        "placeholder": "System Default",
+        "helpText": "Leave blank to use the system default variant."
+      }
+    },
+    "raw_ui": {
+      "type": "string",
+      "description": "Only keys with the ui. prefix are stored. Use Clear UI Keys to remove values.",
+      "x-formgen": {
+        "widget": "json-editor",
+        "schema.example": "{\"ui.datagrid.users.columns\": {\"order\": [\"email\", \"username\"]}}"
+      }
+    },
+    "clear_ui_keys": {
+      "type": "string",
+      "x-formgen": {
+        "placeholder": "ui.datagrid.users.columns ui.datagrid.users.order",
+        "helpText": "Comma or whitespace-separated ui.* keys to remove."
+      }
+    }
+  }
+}
