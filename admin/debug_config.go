@@ -64,19 +64,19 @@ var defaultToolbarPanels = []string{
 
 // DebugConfig controls the debug module behavior and feature flags.
 type DebugConfig struct {
-	Enabled          bool
-	CaptureSQL       bool
-	CaptureLogs      bool
+	Enabled            bool
+	CaptureSQL         bool
+	CaptureLogs        bool
 	CaptureRequestBody bool
-	StrictQueryHooks bool
-	MaxLogEntries    int
-	MaxSQLQueries    int
-	MaskFieldTypes   map[string]string
-	MaskPlaceholder string
-	Panels           []string
-	FeatureKey       string
-	Permission       string
-	BasePath         string
+	StrictQueryHooks   bool
+	MaxLogEntries      int
+	MaxSQLQueries      int
+	MaskFieldTypes     map[string]string
+	MaskPlaceholder    string
+	Panels             []string
+	FeatureKey         string
+	Permission         string
+	BasePath           string
 	// LayoutMode controls which debug template is rendered for the HTML route.
 	LayoutMode DebugLayoutMode
 	// PageTemplate is the primary debug template used for HTML rendering.

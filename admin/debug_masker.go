@@ -150,8 +150,7 @@ func debugMaskFieldValue(cfg DebugConfig, key string, value any) any {
 }
 
 func debugMaskBodyString(cfg DebugConfig, contentType string, body string) string {
-	body = strings.TrimSpace(body)
-	if body == "" {
+	if strings.TrimSpace(body) == "" {
 		return body
 	}
 	if !debugIsJSONContentType(contentType) {
