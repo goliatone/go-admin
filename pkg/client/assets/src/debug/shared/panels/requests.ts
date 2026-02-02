@@ -12,6 +12,18 @@ import {
 } from '../utils.js';
 import { highlightJSON } from '../../syntax-highlight.js';
 
+type NormalizedMethod = {
+  display: string;
+  classToken: string;
+};
+
+function normalizeMethod(value?: string): NormalizedMethod {
+  const raw = String(value ?? 'GET').trim().toUpperCase();
+  const display = raw || 'GET';
+  const classToken = (raw.replace(/[^A-Z]/g, '') || 'GET');
+  return { display, classToken };
+}
+
 /**
  * Options for rendering the requests panel
  */
@@ -213,14 +225,14 @@ function renderRequestRow(
   styles: StyleConfig,
   options: RequestsPanelOptions
 ): string {
-  const method = entry.method || 'GET';
+  const { display: methodDisplay, classToken: methodClassToken } = normalizeMethod(entry.method);
   const path = entry.path || '';
   const statusCode = entry.status || 0;
   const duration = formatDuration(entry.duration, options.slowThresholdMs);
   const requestKey = getRequestKey(entry, index);
   const isExpanded = options.expandedRequestIds?.has(requestKey) || false;
 
-  const methodClass = styles.badgeMethod(method);
+  const methodClass = styles.badgeMethod(methodClassToken);
   const statusClass = styles.badgeStatus(statusCode);
   const durationClass = duration.isSlow ? styles.durationSlow : '';
   const rowClass = statusCode >= 400 ? styles.rowError : '';
@@ -231,7 +243,7 @@ function renderRequestRow(
 
   // Content-Type badge for POST/PUT/PATCH
   let contentTypeBadge = '';
-  const methodUpper = method.toUpperCase();
+  const methodUpper = methodDisplay;
   if (methodUpper === 'POST' || methodUpper === 'PUT' || methodUpper === 'PATCH') {
     const contentType =
       entry.content_type ||
@@ -253,17 +265,20 @@ function renderRequestRow(
     maskPlaceholder: options.maskPlaceholder,
     maxDetailLength: options.maxDetailLength,
   });
+  const detailCellContent = isExpanded
+    ? detailHTML
+    : `<template data-request-detail-template>${detailHTML}</template>`;
 
   return `
     <tr class="${rowClass}" data-request-id="${escapeHTML(requestKey)}" style="cursor:pointer">
-      <td>${expandIcon}<span class="${methodClass}">${escapeHTML(method)}</span>${contentTypeBadge}</td>
+      <td>${expandIcon}<span class="${methodClass}">${escapeHTML(methodDisplay)}</span>${contentTypeBadge}</td>
       <td class="${styles.path}" title="${escapeHTML(path)}">${escapeHTML(displayPath)}</td>
       <td><span class="${statusClass}">${escapeHTML(statusCode || '-')}</span></td>
       <td class="${styles.duration} ${durationClass}">${duration.text}</td>
       <td class="${styles.timestamp}">${escapeHTML(formatTimestamp(entry.timestamp))}</td>
     </tr>
     <tr class="${styles.detailRow}" data-detail-for="${escapeHTML(requestKey)}" style="display:${detailDisplay}">
-      <td colspan="5">${detailHTML}</td>
+      <td colspan="5">${detailCellContent}</td>
     </tr>
   `;
 }

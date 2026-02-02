@@ -54,6 +54,8 @@ export class ContentTypeEditor {
   private api: ContentTypeAPIClient;
   private state: ExtendedBuilderState;
   private dragState: DragState | null = null;
+  private dropIndicator: HTMLElement | null = null;
+  private dragOverRAF: number | null = null;
   private staticEventsBound = false;
   private previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private palettePanel: FieldPalettePanel | null = null;
@@ -1191,6 +1193,22 @@ export class ContentTypeEditor {
     this.bindDragEvents();
   }
 
+  private removeDropIndicator(): void {
+    if (this.dropIndicator && this.dropIndicator.parentNode) {
+      this.dropIndicator.parentNode.removeChild(this.dropIndicator);
+    }
+    this.dropIndicator = null;
+  }
+
+  private getOrCreateDropIndicator(): HTMLElement {
+    if (!this.dropIndicator) {
+      this.dropIndicator = document.createElement('div');
+      this.dropIndicator.className =
+        'drop-indicator h-0.5 bg-blue-500 rounded-full my-1 pointer-events-none';
+    }
+    return this.dropIndicator;
+  }
+
   private bindDragEvents(): void {
     const fieldList = this.container.querySelector('[data-ct-field-list]');
     if (!fieldList) return;
@@ -1219,47 +1237,60 @@ export class ContentTypeEditor {
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
     });
 
-    // Drag over
+    // Drag enter — mark container as valid drop zone
+    fieldList.addEventListener('dragenter', (evt) => {
+      evt.preventDefault();
+    });
+
+    // Drag over — throttled via rAF, reuses cached indicator
     fieldList.addEventListener('dragover', (evt) => {
       evt.preventDefault();
       const e = evt as DragEvent;
       if (!this.dragState) return;
 
+      const clientY = e.clientY;
       const target = e.target as HTMLElement;
-      const card = target.closest<HTMLElement>('[data-field-card]');
-      if (!card || card.getAttribute('data-field-card') === this.dragState.fieldId) return;
 
-      const rect = card.getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      const insertBefore = e.clientY < midY;
+      if (this.dragOverRAF) return;
+      this.dragOverRAF = requestAnimationFrame(() => {
+        this.dragOverRAF = null;
+        if (!this.dragState) return;
 
-      // Visual feedback
-      fieldList.querySelectorAll('.drop-indicator').forEach((el) => el.remove());
-      const indicator = document.createElement('div');
-      indicator.className =
-        'drop-indicator h-0.5 bg-blue-500 rounded-full my-1 transition-opacity';
-      if (insertBefore) {
-        card.parentElement?.insertBefore(indicator, card);
-      } else {
-        card.parentElement?.insertBefore(indicator, card.nextSibling);
-      }
+        const card = target.closest<HTMLElement>('[data-field-card]');
+        if (!card || card.getAttribute('data-field-card') === this.dragState.fieldId) return;
 
-      // Update current index
-      const targetIndex = parseInt(card.getAttribute('data-field-index') ?? '0', 10);
-      const targetSection = card.getAttribute('data-field-section') ?? DEFAULT_SECTION;
-      this.dragState.currentSection = targetSection;
-      this.dragState.currentIndex = insertBefore ? targetIndex : targetIndex + 1;
+        const rect = card.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const insertBefore = clientY < midY;
+
+        // Reuse cached indicator — just move it in the DOM
+        const indicator = this.getOrCreateDropIndicator();
+        const anchor = insertBefore ? card : card.nextSibling;
+        if (indicator.nextSibling !== anchor || indicator.parentNode !== card.parentElement) {
+          card.parentElement?.insertBefore(indicator, anchor);
+        }
+
+        // Update current index
+        const targetIndex = parseInt(card.getAttribute('data-field-index') ?? '0', 10);
+        const targetSection = card.getAttribute('data-field-section') ?? DEFAULT_SECTION;
+        this.dragState.currentSection = targetSection;
+        this.dragState.currentIndex = insertBefore ? targetIndex : targetIndex + 1;
+      });
     });
 
-    // Drag leave
-    fieldList.addEventListener('dragleave', () => {
-      fieldList.querySelectorAll('.drop-indicator').forEach((el) => el.remove());
+    // Drag leave — only remove indicator when cursor truly leaves the field list
+    fieldList.addEventListener('dragleave', (evt) => {
+      const e = evt as DragEvent;
+      const related = e.relatedTarget as Node | null;
+      if (!related || !fieldList.contains(related)) {
+        this.removeDropIndicator();
+      }
     });
 
     // Drop
     fieldList.addEventListener('drop', (e) => {
       e.preventDefault();
-      fieldList.querySelectorAll('.drop-indicator').forEach((el) => el.remove());
+      this.removeDropIndicator();
 
       if (!this.dragState) return;
 
@@ -1274,7 +1305,11 @@ export class ContentTypeEditor {
     // Drag end
     fieldList.addEventListener('dragend', () => {
       fieldList.querySelectorAll('.opacity-50').forEach((el) => el.classList.remove('opacity-50'));
-      fieldList.querySelectorAll('.drop-indicator').forEach((el) => el.remove());
+      this.removeDropIndicator();
+      if (this.dragOverRAF) {
+        cancelAnimationFrame(this.dragOverRAF);
+        this.dragOverRAF = null;
+      }
       this.dragState = null;
     });
   }
