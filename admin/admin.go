@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
+	theme "github.com/goliatone/go-theme"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/command"
@@ -57,6 +58,7 @@ type Admin struct {
 	bulkUserImport              *command.BulkUserImportCommand
 	panelForm                   *PanelFormAdapter
 	themeProvider               ThemeProvider
+	themeManifest               *theme.Manifest
 	defaultTheme                *ThemeSelection
 	exportRegistry              ExportRegistry
 	exportRegistrar             ExportHTTPRegistrar
