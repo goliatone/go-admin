@@ -9,6 +9,8 @@ Each helper is optional and composable.
 - `DefaultMinimalFeatures() map[string]bool` - Outputs: minimal Stage 1 feature set (`dashboard` + `cms`).
 - `WithDebugConfig(cfg admin.DebugConfig) AdminConfigOption` - Inputs: debug config; outputs: option that applies debug config (used to derive debug gate defaults).
 - `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_DEBUG* config/envs to debug config.
+- `WithErrorConfig(cfg admin.ErrorConfig) AdminConfigOption` - Inputs: error config; outputs: option that applies error presentation defaults.
+- `WithErrorsFromEnv(opts ...ErrorEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_ERROR* config/envs to error config.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
@@ -19,6 +21,9 @@ Each helper is optional and composable.
 - `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
 - `PreferencesPermissions() []PermissionDefinition` - Outputs: default preferences permission definitions.
 - `RegisterPreferencesPermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers default preferences permissions).
+- `NewPreferencesModule(cfg admin.Config, menuParent string, opts ...PreferencesModuleOption) admin.Module` - Inputs: admin config, optional menu parent, preferences module options. Outputs: configured Preferences module.
+- `WithPreferencesSchemaPath(path string) PreferencesModuleOption` - Inputs: schema path (file or directory); outputs: option that overrides the Preferences form schema.
+- `WithPreferencesJSONEditorStrict(strict bool) PreferencesModuleOption` - Inputs: strict toggle; outputs: option that enforces client-side JSON validation for `raw_ui`.
 - `NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts ...FiberErrorHandlerOption) fiber.ErrorHandler` - Inputs: admin, config, dev flag + options. Outputs: Fiber error handler.
 - `WithFiberErrorMappers(mappers ...goerrors.ErrorMapper) FiberErrorHandlerOption` - Inputs: extra mappers; outputs: error handler option (appended to defaults).
 - `NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error)` - Inputs: base FS and view options. Outputs: Fiber views engine and error.
@@ -387,6 +392,9 @@ Environment mapping defaults:
 - `ADMIN_DEBUG_ALLOWED_IPS=1.2.3.4,5.6.7.8` populates `cfg.Debug.AllowedIPs`.
 - `ADMIN_DEBUG_SQL` and `ADMIN_DEBUG_LOGS` override the capture flags.
 - `ADMIN_DEBUG_TOOLBAR` and `ADMIN_DEBUG_TOOLBAR_PANELS` override toolbar behavior/panels.
+- `ADMIN_DEV=true` enables `cfg.Errors.DevMode` (stack traces + internal messages by default).
+- `ADMIN_ERROR_STACKTRACE=true` forces stack traces in non-dev environments.
+- `ADMIN_ERROR_EXPOSE_INTERNAL=true` exposes internal error messages in responses.
 
 ```go
 cfg := quickstart.NewAdminConfig(
@@ -435,6 +443,8 @@ repo := repository.MustNewRepositoryWithOptions[*MyModel](db, handlers, repoOpti
 - Dashboard preferences endpoints default to preferences permissions; override with `cfg.DashboardPreferencesPermission` / `cfg.DashboardPreferencesUpdatePermission` if needed.
 - See `../docs/GUIDE_MOD_PREFERENCES.md` for module behavior, traces, and clear semantics.
 - If you want quickstart to build the repo (for example, to enable caching), pass `WithGoUsersPreferencesRepositoryFactory` to `NewAdmin`.
+- Use `NewPreferencesModule` with `WithPreferencesSchemaPath` to override the form schema (file path or a directory containing `schema.json`).
+- Use `WithPreferencesJSONEditorStrict(true)` to enforce client-side JSON validation of `raw_ui` (default is lenient; server-side validation still applies).
 
 ```go
 prefsStore, err := quickstart.NewGoUsersPreferencesStore(preferenceRepo)
@@ -474,6 +484,20 @@ err := quickstart.RegisterPreferencesPermissions(func(def quickstart.PermissionD
 	return permissions.Register(def.Key, def.Description)
 })
 if err != nil {
+	return err
+}
+```
+
+```go
+modules := []admin.Module{
+	quickstart.NewPreferencesModule(
+		cfg,
+		"",
+		quickstart.WithPreferencesSchemaPath("./configs/preferences"),
+		quickstart.WithPreferencesJSONEditorStrict(true),
+	),
+}
+if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev); err != nil {
 	return err
 }
 ```
