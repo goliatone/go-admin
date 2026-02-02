@@ -311,17 +311,17 @@ ALTER TABLE menu_item_translations ADD COLUMN group_title TEXT;
 ALTER TABLE menu_item_translations ADD COLUMN group_title_key TEXT;
 `
 		}
-	if strings.Contains(path, "20250301000000_menu_item_canonical_dedupe.up.sql") {
-		content = `
+		if strings.Contains(path, "20250301000000_menu_item_canonical_dedupe.up.sql") {
+			content = `
 ALTER TABLE menu_items ADD COLUMN canonical_key TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_items_menu_canonical_key
     ON menu_items(menu_id, canonical_key)
     WHERE canonical_key IS NOT NULL;
 `
-	}
-	if strings.Contains(path, "20260415000000_environments.up.sql") {
-		content = `
+		}
+		if strings.Contains(path, "20260415000000_environments.up.sql") {
+			content = `
 -- Environments: core scoping for content, pages, menus, and blocks
 CREATE TABLE IF NOT EXISTS environments (
     id TEXT PRIMARY KEY,
@@ -466,7 +466,7 @@ BEGIN
     END;
 END;
 `
-	}
+		}
 		content = strings.ReplaceAll(content, "::jsonb", "")
 		content = strings.ReplaceAll(content, "JSONB", "JSON")
 		content = strings.ReplaceAll(content, "TEXT[]", "TEXT")
