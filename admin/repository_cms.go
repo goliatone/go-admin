@@ -811,17 +811,45 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 	sliced, total := paginateCMS(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, def := range sliced {
+		slug := strings.TrimSpace(def.Slug)
+		if slug == "" {
+			slug = strings.TrimSpace(schemaSlugFromSchema(def.Schema))
+		}
+		typ := strings.TrimSpace(def.Type)
+		if typ == "" {
+			typ = strings.TrimSpace(schemaBlockTypeFromSchema(def.Schema))
+		}
+		if typ == "" {
+			typ = strings.TrimSpace(firstNonEmpty(slug, def.ID, def.Name))
+		}
+		if slug == "" {
+			slug = typ
+		}
+		category := strings.TrimSpace(def.Category)
+		if category == "" {
+			category = strings.TrimSpace(schemaCategoryFromSchema(def.Schema))
+		}
+		if category == "" {
+			category = "custom"
+		}
+		status := strings.TrimSpace(def.Status)
+		if status == "" {
+			status = strings.TrimSpace(schemaStatusFromSchema(def.Schema))
+		}
+		if status == "" {
+			status = "draft"
+		}
 		schemaVersion := blockDefinitionSchemaVersion(def)
 		migrationStatus := blockDefinitionMigrationStatus(def)
 		out = append(out, map[string]any{
 			"id":               def.ID,
 			"name":             def.Name,
-			"slug":             def.Slug,
-			"type":             def.Type,
+			"slug":             slug,
+			"type":             typ,
 			"description":      def.Description,
 			"icon":             def.Icon,
-			"category":         def.Category,
-			"status":           def.Status,
+			"category":         category,
+			"status":           status,
 			"environment":      def.Environment,
 			"schema":           cloneAnyMap(def.Schema),
 			"ui_schema":        cloneAnyMap(def.UISchema),
@@ -858,17 +886,45 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
 			strings.EqualFold(strings.TrimSpace(def.Slug), target) ||
 			strings.EqualFold(strings.TrimSpace(def.Type), target) {
+			slug := strings.TrimSpace(def.Slug)
+			if slug == "" {
+				slug = strings.TrimSpace(schemaSlugFromSchema(def.Schema))
+			}
+			typ := strings.TrimSpace(def.Type)
+			if typ == "" {
+				typ = strings.TrimSpace(schemaBlockTypeFromSchema(def.Schema))
+			}
+			if typ == "" {
+				typ = strings.TrimSpace(firstNonEmpty(slug, def.ID, def.Name))
+			}
+			if slug == "" {
+				slug = typ
+			}
+			category := strings.TrimSpace(def.Category)
+			if category == "" {
+				category = strings.TrimSpace(schemaCategoryFromSchema(def.Schema))
+			}
+			if category == "" {
+				category = "custom"
+			}
+			status := strings.TrimSpace(def.Status)
+			if status == "" {
+				status = strings.TrimSpace(schemaStatusFromSchema(def.Schema))
+			}
+			if status == "" {
+				status = "draft"
+			}
 			schemaVersion := blockDefinitionSchemaVersion(def)
 			migrationStatus := blockDefinitionMigrationStatus(def)
 			return map[string]any{
 				"id":               def.ID,
 				"name":             def.Name,
-				"slug":             def.Slug,
-				"type":             def.Type,
+				"slug":             slug,
+				"type":             typ,
 				"description":      def.Description,
 				"icon":             def.Icon,
-				"category":         def.Category,
-				"status":           def.Status,
+				"category":         category,
+				"status":           status,
 				"environment":      def.Environment,
 				"schema":           cloneAnyMap(def.Schema),
 				"ui_schema":        cloneAnyMap(def.UISchema),
