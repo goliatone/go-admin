@@ -319,18 +319,35 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 	if ct.Environment == "" {
 		ct.Environment = strings.TrimSpace(environmentFromContext(ctx))
 	}
-	if ct.Slug == "" {
-		ct.Slug = strings.TrimSpace(ct.ID)
-	}
 	if ct.ID == "" {
 		ct.ID = id
 	}
-	if existing, err := r.resolveContentType(ctx, id); err == nil && existing != nil {
-		if ct.ID == "" {
+	existing, err := r.resolveContentType(ctx, id)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	if (existing == nil || errors.Is(err, ErrNotFound)) && record != nil {
+		slug := strings.TrimSpace(toString(record["slug"]))
+		if slug == "" {
+			slug = strings.TrimSpace(toString(record["content_type_slug"]))
+		}
+		if slug != "" && slug != id {
+			if resolved, resolveErr := r.resolveContentType(ctx, slug); resolveErr == nil && resolved != nil {
+				existing = resolved
+			} else if resolveErr != nil && !errors.Is(resolveErr, ErrNotFound) {
+				return nil, resolveErr
+			}
+		}
+	}
+	if existing != nil {
+		if existing.ID != "" {
 			ct.ID = existing.ID
 		}
 		if ct.Slug == "" {
 			ct.Slug = existing.Slug
+		}
+		if ct.Environment == "" {
+			ct.Environment = existing.Environment
 		}
 		if strings.TrimSpace(ct.Name) == "" {
 			ct.Name = existing.Name
@@ -390,9 +407,9 @@ func (r *CMSContentTypeRepository) resolveContentType(ctx context.Context, id st
 }
 
 func mapFromCMSContentType(ct CMSContentType) map[string]any {
-	id := strings.TrimSpace(ct.Slug)
+	id := strings.TrimSpace(ct.ID)
 	if id == "" {
-		id = strings.TrimSpace(ct.ID)
+		id = strings.TrimSpace(ct.Slug)
 	}
 	out := map[string]any{
 		"id":           id,
@@ -406,7 +423,7 @@ func mapFromCMSContentType(ct CMSContentType) map[string]any {
 		"icon":         ct.Icon,
 		"status":       ct.Status,
 	}
-	if ct.ID != "" && ct.ID != id {
+	if ct.ID != "" {
 		out["content_type_id"] = ct.ID
 	}
 	if !ct.CreatedAt.IsZero() {
