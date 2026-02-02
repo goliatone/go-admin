@@ -67,10 +67,12 @@ type DebugConfig struct {
 	Enabled          bool
 	CaptureSQL       bool
 	CaptureLogs      bool
+	CaptureRequestBody bool
 	StrictQueryHooks bool
 	MaxLogEntries    int
 	MaxSQLQueries    int
 	MaskFieldTypes   map[string]string
+	MaskPlaceholder string
 	Panels           []string
 	FeatureKey       string
 	Permission       string
@@ -150,6 +152,10 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	}
 	cfg.Panels = normalizePanelIDs(cfg.Panels)
 	cfg.MaskFieldTypes = normalizeMaskFieldTypes(cfg.MaskFieldTypes)
+	cfg.MaskPlaceholder = strings.TrimSpace(cfg.MaskPlaceholder)
+	if cfg.MaskPlaceholder == "" {
+		cfg.MaskPlaceholder = "***"
+	}
 	cfg.Repl = normalizeDebugREPLConfig(cfg.Repl)
 	if cfg.ToolbarMode && len(cfg.ToolbarPanels) == 0 {
 		cfg.ToolbarPanels = append([]string{}, defaultToolbarPanels...)

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -363,5 +364,68 @@ func TestDebugCollectorPublishPanelStreaming(t *testing.T) {
 		}
 	case <-time.After(200 * time.Millisecond):
 		t.Fatalf("expected activity event")
+	}
+}
+
+func TestDebugCollectorRequestBodyMasking(t *testing.T) {
+	cfg := DebugConfig{
+		Panels: []string{DebugPanelRequests},
+	}
+	collector := NewDebugCollector(cfg)
+
+	requestBody := `{"password":"secret","nested":{"token":"token"}}`
+	responseBody := `{"token":"secret"}`
+	entry := RequestEntry{
+		ID:          "req-1",
+		Method:      "POST",
+		Path:        "/test",
+		Status:      200,
+		Duration:    time.Millisecond,
+		ContentType: "application/json",
+		RequestBody: requestBody,
+		ResponseHeaders: map[string]string{
+			"Content-Type": "application/json",
+			"Set-Cookie":   "secret",
+		},
+		ResponseBody: responseBody,
+	}
+
+	collector.CaptureRequest(entry)
+
+	requests := collector.requestLog.Values()
+	if len(requests) != 1 {
+		t.Fatalf("expected request snapshot, got %d", len(requests))
+	}
+	masked := requests[0]
+
+	var requestPayload map[string]any
+	if err := json.Unmarshal([]byte(requestBody), &requestPayload); err != nil {
+		t.Fatalf("expected request body to unmarshal: %v", err)
+	}
+	expectedRequest := debugMaskMap(cfg, requestPayload)
+	expectedRequestJSON, err := json.Marshal(expectedRequest)
+	if err != nil {
+		t.Fatalf("expected request body to marshal: %v", err)
+	}
+	if masked.RequestBody != string(expectedRequestJSON) {
+		t.Fatalf("expected masked request body, got %q", masked.RequestBody)
+	}
+
+	var responsePayload map[string]any
+	if err := json.Unmarshal([]byte(responseBody), &responsePayload); err != nil {
+		t.Fatalf("expected response body to unmarshal: %v", err)
+	}
+	expectedResponse := debugMaskMap(cfg, responsePayload)
+	expectedResponseJSON, err := json.Marshal(expectedResponse)
+	if err != nil {
+		t.Fatalf("expected response body to marshal: %v", err)
+	}
+	if masked.ResponseBody != string(expectedResponseJSON) {
+		t.Fatalf("expected masked response body, got %q", masked.ResponseBody)
+	}
+
+	expectedHeaders := debugMaskStringMap(cfg, normalizeHeaderMap(entry.ResponseHeaders))
+	if masked.ResponseHeaders["Set-Cookie"] != expectedHeaders["Set-Cookie"] {
+		t.Fatalf("expected masked response headers, got %q", masked.ResponseHeaders["Set-Cookie"])
 	}
 }
