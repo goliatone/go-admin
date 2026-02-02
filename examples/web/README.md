@@ -88,9 +88,10 @@ If you want a minimal Stage 1 admin (login + dashboard only), the quickstart hel
 ### Preferences quickstart
 
 ```go
-adm, err := quickstart.NewAdminWithGoUsersPreferences(
+adm, _, err := quickstart.NewAdmin(
 	cfg,
-	deps.PreferenceRepo,
+	adapterHooks,
+	quickstart.WithGoUsersPreferencesRepository(deps.PreferenceRepo),
 	quickstart.EnablePreferences(),
 )
 if err != nil {
