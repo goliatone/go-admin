@@ -42,6 +42,18 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 		}
 	}
 
+	errorCfg := cfg.Errors
+	if isDev {
+		errorCfg.DevMode = true
+		if !errorCfg.ExposeInternalMessages {
+			errorCfg.ExposeInternalMessages = true
+		}
+	}
+	if errorCfg.InternalMessage == "" {
+		errorCfg.InternalMessage = "An unexpected error occurred"
+	}
+	presenter := admin.NewErrorPresenter(errorCfg, options.errorMappers...)
+
 	return func(c *fiber.Ctx, err error) error {
 		code := fiber.StatusInternalServerError
 		message := "internal server error"
@@ -77,21 +89,26 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 		isAPI := strings.HasPrefix(c.Path(), apiPrefix) || strings.HasPrefix(c.Path(), crudPrefix)
 
 		if isAPI {
-			mapped := goerrors.MapToError(err, options.errorMappers)
+			mapped, status := presenter.Present(err)
 			if mapped == nil {
 				mapped = goerrors.New(message, goerrors.CategoryInternal).
 					WithCode(code).
 					WithTextCode(goerrors.HTTPStatusToTextCode(code))
+				status = code
 			}
+			if mapped.Metadata == nil {
+				mapped.Metadata = map[string]any{}
+			}
+			mapped.Metadata["path"] = c.Path()
+			mapped.Metadata["method"] = c.Method()
 			if mapped.Code != 0 {
 				code = mapped.Code
 			} else {
+				code = status
 				mapped.Code = code
 			}
-			if isDev && mapped.Category == goerrors.CategoryInternal {
-				mapped.Message = err.Error()
-			}
-			return c.Status(code).JSON(mapped.ToErrorResponse(false, nil))
+			includeStack := presenter.IncludeStackTrace()
+			return c.Status(code).JSON(mapped.ToErrorResponse(includeStack, mapped.StackTrace))
 		}
 
 		headline, userMessage := errorContext(code)
