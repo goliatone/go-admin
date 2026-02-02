@@ -10,12 +10,12 @@ Each helper is optional and composable.
 - `WithDebugConfig(cfg admin.DebugConfig) AdminConfigOption` - Inputs: debug config; outputs: option that applies debug config (used to derive debug gate defaults).
 - `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_DEBUG* config/envs to debug config.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
-- `NewAdminWithGoUsersPreferences(cfg admin.Config, repo types.PreferenceRepository, opts ...PreferencesOption) (*admin.Admin, error)` - Inputs: config, go-users preference repo, options. Outputs: admin instance.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
-- `EnablePreferences() PreferencesOption` - Inputs: none; outputs: option to enable `FeaturePreferences`.
-- `EnableFeature(feature admin.FeatureKey) PreferencesOption` - Inputs: feature key; outputs: option to enable a single feature gate key.
-- `WithPreferencesAdapterHooks(hooks AdapterHooks) PreferencesOption` - Inputs: adapter hooks; outputs: option to apply quickstart adapter wiring.
+- `EnablePreferences() AdminOption` - Inputs: none; outputs: option to enable `FeaturePreferences`.
+- `EnableFeature(feature admin.FeatureKey) AdminOption` - Inputs: feature key; outputs: option to enable a single feature gate key.
+- `WithGoUsersPreferencesRepository(repo types.PreferenceRepository) AdminOption` - Inputs: go-users preferences repo; outputs: option that wires a PreferencesStore via the adapter when one is not already set.
+- `WithGoUsersPreferencesRepositoryFactory(factory func() (types.PreferenceRepository, error)) AdminOption` - Inputs: repo builder; outputs: option to lazily construct a preferences repo (used when dependencies do not already supply a PreferencesStore).
 - `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
 - `PreferencesPermissions() []PermissionDefinition` - Outputs: default preferences permission definitions.
 - `RegisterPreferencesPermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers default preferences permissions).
@@ -406,6 +406,7 @@ repo := repository.MustNewRepositoryWithOptions[*MyModel](db, handlers, repoOpti
 - Clear/delete semantics: send `clear`/`clear_keys` or empty values for known keys to delete user-level overrides.
 - Non-user writes (tenant/org/system) require `admin.preferences.manage_tenant`, `admin.preferences.manage_org`, `admin.preferences.manage_system`.
 - See `../docs/GUIDE_MOD_PREFERENCES.md` for module behavior, traces, and clear semantics.
+- If you want quickstart to build the repo (for example, to enable caching), pass `WithGoUsersPreferencesRepositoryFactory` to `NewAdmin`.
 
 ```go
 prefsStore, err := quickstart.NewGoUsersPreferencesStore(preferenceRepo)
@@ -423,9 +424,15 @@ _ = adm
 ```
 
 ```go
-adm, err := quickstart.NewAdminWithGoUsersPreferences(
+adm, _, err := quickstart.NewAdmin(
 	cfg,
-	preferenceRepo,
+	adapterHooks,
+	quickstart.WithGoUsersPreferencesRepositoryFactory(func() (types.PreferenceRepository, error) {
+		return preferences.NewRepository(
+			preferences.RepositoryConfig{DB: client.DB()},
+			preferences.WithCache(true),
+		)
+	}),
 	quickstart.EnablePreferences(),
 )
 if err != nil {
