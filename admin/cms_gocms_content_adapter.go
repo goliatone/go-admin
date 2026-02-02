@@ -547,13 +547,19 @@ func (a *GoCMSContentAdapter) CreateBlockDefinition(ctx context.Context, def CMS
 	if slug := strings.TrimSpace(def.Slug); slug != "" {
 		setStringField(input, "Slug", slug)
 	}
-	if desc := strings.TrimSpace(def.Description); desc != "" {
+	if def.DescriptionSet {
+		setStringPtr(input.FieldByName("Description"), def.Description)
+	} else if desc := strings.TrimSpace(def.Description); desc != "" {
 		setStringPtr(input.FieldByName("Description"), desc)
 	}
-	if icon := strings.TrimSpace(def.Icon); icon != "" {
+	if def.IconSet {
+		setStringPtr(input.FieldByName("Icon"), def.Icon)
+	} else if icon := strings.TrimSpace(def.Icon); icon != "" {
 		setStringPtr(input.FieldByName("Icon"), icon)
 	}
-	if category := strings.TrimSpace(def.Category); category != "" {
+	if def.CategorySet {
+		setStringPtr(input.FieldByName("Category"), def.Category)
+	} else if category := strings.TrimSpace(def.Category); category != "" {
 		setStringPtr(input.FieldByName("Category"), category)
 	}
 	if status := strings.TrimSpace(def.Status); status != "" {
