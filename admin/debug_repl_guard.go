@@ -25,16 +25,16 @@ const (
 )
 
 const (
-	debugReplTextCodeDebugDisabled  = "REPL_DEBUG_DISABLED"
-	debugReplTextCodeShellDisabled  = "REPL_SHELL_DISABLED"
-	debugReplTextCodeAppDisabled    = "REPL_APP_DISABLED"
-	debugReplTextCodeDisabled       = "REPL_DISABLED"
-	debugReplTextCodeOverrideDenied = "REPL_OVERRIDE_DENIED"
-	debugReplTextCodeRoleDenied     = "REPL_ROLE_DENIED"
-	debugReplTextCodePermission     = "REPL_PERMISSION_DENIED"
-	debugReplTextCodeExecPermission = "REPL_EXEC_PERMISSION_DENIED"
-	debugReplTextCodeReadOnly       = "REPL_READ_ONLY"
-	debugReplTextCodeIPDenied       = "REPL_IP_DENIED"
+	debugReplTextCodeDebugDisabled  = TextCodeReplDebugDisabled
+	debugReplTextCodeShellDisabled  = TextCodeReplShellDisabled
+	debugReplTextCodeAppDisabled    = TextCodeReplAppDisabled
+	debugReplTextCodeDisabled       = TextCodeReplDisabled
+	debugReplTextCodeOverrideDenied = TextCodeReplOverrideDenied
+	debugReplTextCodeRoleDenied     = TextCodeReplRoleDenied
+	debugReplTextCodePermission     = TextCodeReplPermissionDenied
+	debugReplTextCodeExecPermission = TextCodeReplExecPermissionDenied
+	debugReplTextCodeReadOnly       = TextCodeReplReadOnly
+	debugReplTextCodeIPDenied       = TextCodeReplIPDenied
 )
 
 func debugREPLAccessMiddleware(admin *Admin, cfg DebugConfig, kind string, requireExec bool) router.MiddlewareFunc {
