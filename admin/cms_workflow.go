@@ -1,22 +1,62 @@
 package admin
 
+// WorkflowRegistrar registers workflow definitions for entity types.
+type WorkflowRegistrar interface {
+	RegisterWorkflow(entityType string, definition WorkflowDefinition)
+}
+
+// WorkflowDefinitionChecker reports whether a workflow exists for an entity type.
+type WorkflowDefinitionChecker interface {
+	HasWorkflow(entityType string) bool
+}
+
 func resolveCMSWorkflowEngine(a *Admin) WorkflowEngine {
 	if a == nil {
 		return nil
 	}
 	if a.workflow != nil {
+		applyCMSWorkflowDefaults(a)
 		return a.workflow
 	}
 	engine := NewSimpleWorkflowEngine()
-	registerCMSWorkflow(engine)
+	RegisterDefaultCMSWorkflows(engine)
 	return engine
 }
 
-func registerCMSWorkflow(engine *SimpleWorkflowEngine) {
-	if engine == nil {
+func applyCMSWorkflowDefaults(a *Admin) {
+	if a == nil || !a.cmsWorkflowDefaults || a.workflow == nil {
 		return
 	}
-	definition := WorkflowDefinition{
+	registrar, ok := a.workflow.(WorkflowRegistrar)
+	if !ok {
+		return
+	}
+	if _, ok := registrar.(WorkflowDefinitionChecker); !ok {
+		return
+	}
+	RegisterDefaultCMSWorkflows(registrar)
+}
+
+// RegisterDefaultCMSWorkflows registers the default CMS workflow definitions.
+// If the registrar supports WorkflowDefinitionChecker, existing definitions are preserved.
+func RegisterDefaultCMSWorkflows(registrar WorkflowRegistrar) {
+	if registrar == nil {
+		return
+	}
+	var checker WorkflowDefinitionChecker
+	if typed, ok := registrar.(WorkflowDefinitionChecker); ok {
+		checker = typed
+	}
+	for _, definition := range defaultCMSWorkflowDefinitions() {
+		if checker != nil && checker.HasWorkflow(definition.EntityType) {
+			continue
+		}
+		registrar.RegisterWorkflow(definition.EntityType, definition)
+	}
+}
+
+func defaultCMSWorkflowDefinitions() []WorkflowDefinition {
+	contentWorkflow := WorkflowDefinition{
 		EntityType:   "content",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -34,11 +74,10 @@ func registerCMSWorkflow(engine *SimpleWorkflowEngine) {
 			},
 		},
 	}
-	engine.RegisterWorkflow("content", definition)
-	definition.EntityType = "pages"
-	engine.RegisterWorkflow("pages", definition)
+	pagesWorkflow := contentWorkflow
+	pagesWorkflow.EntityType = "pages"
 
-	engine.RegisterWorkflow("block_definitions", WorkflowDefinition{
+	blockDefinitionsWorkflow := WorkflowDefinition{
 		EntityType:   "block_definitions",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -61,9 +100,9 @@ func registerCMSWorkflow(engine *SimpleWorkflowEngine) {
 				To:          "active",
 			},
 		},
-	})
+	}
 
-	engine.RegisterWorkflow("content_types", WorkflowDefinition{
+	contentTypesWorkflow := WorkflowDefinition{
 		EntityType:   "content_types",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -86,12 +125,30 @@ func registerCMSWorkflow(engine *SimpleWorkflowEngine) {
 				To:          "active",
 			},
 		},
-	})
+	}
+
+	return []WorkflowDefinition{
+		contentWorkflow,
+		pagesWorkflow,
+		blockDefinitionsWorkflow,
+		contentTypesWorkflow,
+	}
 }
 
-func cmsWorkflowActions() []Action {
+// DefaultCMSWorkflowActions returns the default workflow actions for CMS demo panels.
+func DefaultCMSWorkflowActions() []Action {
 	return []Action{
 		{Name: "submit_for_approval", Label: "Submit for approval"},
 		{Name: "publish", Label: "Publish"},
 	}
+}
+
+func resolveCMSWorkflowActions(a *Admin) []Action {
+	if a == nil {
+		return nil
+	}
+	if a.cmsWorkflowActionsSet {
+		return append([]Action{}, a.cmsWorkflowActions...)
+	}
+	return DefaultCMSWorkflowActions()
 }
