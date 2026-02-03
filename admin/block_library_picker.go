@@ -86,6 +86,11 @@ func blockDefinitionsFromLibrary(
 
 		// 1.3: Strip unsupported JSON Schema keywords.
 		stripped := stripUnsupportedSchemaKeywords(schema)
+		if stripped != nil {
+			if _, ok := stripped["$schema"]; !ok {
+				stripped["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+			}
+		}
 
 		// 1.4: Prepare UI overlay bytes using the overlay mechanism
 		// (same pattern as content_type_builder_module.go:1050-1059).
@@ -274,6 +279,7 @@ func blockDefinitionsToResponse(defs []blockDefinition) []blockDefinitionTemplat
 		if reqFields == nil {
 			reqFields = []string{}
 		}
+		status := strings.TrimSpace(d.Status)
 		items = append(items, blockDefinitionTemplateItem{
 			Slug:           d.Type,
 			Label:          d.Label,
@@ -281,7 +287,7 @@ func blockDefinitionsToResponse(defs []blockDefinition) []blockDefinitionTemplat
 			Category:       d.Category,
 			SchemaVersion:  d.Schema,
 			Status:         d.Status,
-			Disabled:       d.Status != "active",
+			Disabled:       !strings.EqualFold(status, "active"),
 			RequiredFields: reqFields,
 			HTML:           d.HTML,
 		})
@@ -305,7 +311,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 	repo := NewCMSBlockDefinitionRepository(m.contentSvc, m.contentTypeSvc)
 
 	// Task 2.1: Single-template endpoint.
-	singlePath := joinPath(m.basePath, "api/"+blockDefinitionsPanelID+"/:slug/template")
+	singlePath := joinPath(m.basePath, "api/"+blockDefinitionsAPIBase+"/templates/:slug")
 
 	singleHandler := func(c router.Context) error {
 		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
@@ -326,7 +332,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 			return writeError(c, ErrNotFound)
 		}
 		status := strings.TrimSpace(toString(record["status"]))
-		if !includeInactive && status != "active" {
+		if !includeInactive && !strings.EqualFold(status, "active") {
 			return writeError(c, ErrNotFound)
 		}
 
@@ -340,7 +346,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 	}
 
 	// Task 2.2: Batch-templates endpoint.
-	batchPath := joinPath(m.basePath, "api/"+blockDefinitionsPanelID+"/templates")
+	batchPath := joinPath(m.basePath, "api/"+blockDefinitionsAPIBase+"/templates")
 
 	batchHandler := func(c router.Context) error {
 		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
@@ -376,7 +382,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 		batchHandler = authWrap(batchHandler)
 	}
 
-	// Register batch route before single to avoid param matching "templates".
+	// Register routes.
 	admin.router.Get(batchPath, batchHandler)
 	admin.router.Get(singlePath, singleHandler)
 }
@@ -430,14 +436,7 @@ func blockLibraryPickerRenderer(buf *bytes.Buffer, field model.Field, data compo
 
 	// Pre-rendered templates (optional optimization — typically nil because
 	// the picker loads templates from the API).
-	var preRendered []blockDefinition
-	if data.Config != nil {
-		if raw, ok := data.Config["preRenderedTemplates"]; ok {
-			if items, ok := raw.([]blockDefinition); ok {
-				preRendered = items
-			}
-		}
-	}
+	preRendered := coercePreRenderedTemplates(data.Config)
 
 	payload := map[string]any{
 		"field":                  field,
@@ -468,7 +467,7 @@ func blockLibraryPickerRenderer(buf *bytes.Buffer, field model.Field, data compo
 // BlockLibraryPickerDescriptor returns the component descriptor for registration.
 func BlockLibraryPickerDescriptor(basePath string) components.Descriptor {
 	return components.Descriptor{
-		Renderer: blockLibraryPickerRenderer,
+		Renderer: blockLibraryPickerRendererWithBasePath(basePath),
 		Scripts: []components.Script{
 			{Src: blockLibraryPickerScript(basePath), Defer: true, Module: true},
 		},
@@ -509,6 +508,114 @@ func pickerAllowedBlocks(config map[string]any) []string {
 		return out
 	}
 	return nil
+}
+
+func blockLibraryPickerRendererWithBasePath(basePath string) func(*bytes.Buffer, model.Field, components.ComponentData) error {
+	defaultAPIBase := joinPath(basePath, "api/"+blockDefinitionsAPIBase)
+	return func(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
+		data = withDefaultPickerAPIBase(data, defaultAPIBase)
+		return blockLibraryPickerRenderer(buf, field, data)
+	}
+}
+
+func withDefaultPickerAPIBase(data components.ComponentData, defaultAPIBase string) components.ComponentData {
+	if strings.TrimSpace(defaultAPIBase) == "" {
+		return data
+	}
+	if data.Config != nil {
+		if raw, ok := data.Config["apiBase"]; ok {
+			if v, ok := raw.(string); ok && strings.TrimSpace(v) != "" {
+				return data
+			}
+		}
+		cfg := make(map[string]any, len(data.Config)+1)
+		for key, val := range data.Config {
+			cfg[key] = val
+		}
+		cfg["apiBase"] = defaultAPIBase
+		data.Config = cfg
+		return data
+	}
+	data.Config = map[string]any{"apiBase": defaultAPIBase}
+	return data
+}
+
+func coercePreRenderedTemplates(config map[string]any) []blockDefinition {
+	if config == nil {
+		return nil
+	}
+	raw, ok := config["preRenderedTemplates"]
+	if !ok || raw == nil {
+		return nil
+	}
+	switch v := raw.(type) {
+	case []blockDefinition:
+		return v
+	case []any:
+		out := make([]blockDefinition, 0, len(v))
+		for _, item := range v {
+			if def, ok := coerceBlockDefinition(item); ok {
+				out = append(out, def)
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	case []map[string]any:
+		out := make([]blockDefinition, 0, len(v))
+		for _, item := range v {
+			if def, ok := coerceBlockDefinition(item); ok {
+				out = append(out, def)
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
+	return nil
+}
+
+func coerceBlockDefinition(raw any) (blockDefinition, bool) {
+	switch v := raw.(type) {
+	case blockDefinition:
+		if strings.TrimSpace(v.Type) == "" {
+			return blockDefinition{}, false
+		}
+		return v, true
+	case map[string]any:
+		return coerceBlockDefinitionFromMap(v)
+	case map[string]string:
+		out := map[string]any{}
+		for key, val := range v {
+			out[key] = val
+		}
+		return coerceBlockDefinitionFromMap(out)
+	}
+	return blockDefinition{}, false
+}
+
+func coerceBlockDefinitionFromMap(raw map[string]any) (blockDefinition, bool) {
+	if raw == nil {
+		return blockDefinition{}, false
+	}
+	typ := strings.TrimSpace(toString(raw["type"]))
+	if typ == "" {
+		return blockDefinition{}, false
+	}
+	schema := strings.TrimSpace(toString(raw["schema"]))
+	if schema == "" {
+		schema = strings.TrimSpace(toString(raw["schema_version"]))
+	}
+	return blockDefinition{
+		Type:      typ,
+		Label:     strings.TrimSpace(toString(raw["label"])),
+		Icon:      strings.TrimSpace(toString(raw["icon"])),
+		Collapsed: toBool(raw["collapsed"]),
+		Schema:    schema,
+		HTML:      toString(raw["html"]),
+	}, true
 }
 
 func pickerStringFromConfig(config map[string]any, key string) string {
