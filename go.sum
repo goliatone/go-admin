@@ -147,8 +147,8 @@ github.com/goliatone/go-auth v0.28.0 h1:D2vTEPEa1wxLETz03HV7o2DBRQ8tc46w5wGhGM6Z
 github.com/goliatone/go-auth v0.28.0/go.mod h1:OTwvp8lmgYtQMsshfTywU5d/FZgGWO637jRLBiKMXMw=
 github.com/goliatone/go-auth/adapters/featuregate v0.28.0 h1:G84hJwg8Q/JqppVhjz8nRLLEpua4u+PH+jEBweLMr6g=
 github.com/goliatone/go-auth/adapters/featuregate v0.28.0/go.mod h1:i8FXXld/5eJFVbhMdtKMT/I75hx8uJ6Ah8+VsfBpWTs=
-github.com/goliatone/go-cms v0.24.0 h1:te0eSou/bf7mC/B/i40ZQVTOOBwEgP9ga0Wchu2mnNU=
-github.com/goliatone/go-cms v0.24.0/go.mod h1:EXJ+aVyWXido08mvV24ta6IaQhIGpt4ZJopsjzwqyZs=
+github.com/goliatone/go-cms v0.25.0 h1:Kh2Ui+eovcGkiVEOvAqvKo/m9uCjY/RFEOhzKlNtBtc=
+github.com/goliatone/go-cms v0.25.0/go.mod h1:EXJ+aVyWXido08mvV24ta6IaQhIGpt4ZJopsjzwqyZs=
 github.com/goliatone/go-command v0.13.0 h1:AQ8LHwkkt7BCDcAFdbkY/XAjnwGqBFPNfXSsWUfhh9g=
 github.com/goliatone/go-command v0.13.0/go.mod h1:E9/Yki61QfTWSdA4Mxh6XV+4ox84in0VSQz+ycVFr2E=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
@@ -169,10 +169,8 @@ github.com/goliatone/go-export/adapters/template/go-template v0.6.0 h1:23M+mc5Pd
 github.com/goliatone/go-export/adapters/template/go-template v0.6.0/go.mod h1:RurATCPBejHIqI80M3nCIOja7CsF9bTWIeVy0CGksd0=
 github.com/goliatone/go-featuregate v0.5.0 h1:Lpm9IdAapzdCih6RYsQY241YSSGQ4tEQxIVNjrZuvRs=
 github.com/goliatone/go-featuregate v0.5.0/go.mod h1:VYc0O3RXNTqa0TuI9biHOt2WSFbilnUkiSljcvMU4XA=
-github.com/goliatone/go-formgen v0.17.0 h1:CBlMo0z9PzfvvUfWbpIHLc/6wGmY2Wp9g/SzYwANsJk=
-github.com/goliatone/go-formgen v0.17.0/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
-github.com/goliatone/go-formgen v0.17.1 h1:0y5cOe/FNStLdtKlrI63q6O8IiVh7hCJdvl1BZZIBG0=
-github.com/goliatone/go-formgen v0.17.1/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
+github.com/goliatone/go-formgen v0.18.0 h1:Vz89qLJzqNAEseId654jHnmvCgrddlNE9NZ+iDYzPf8=
+github.com/goliatone/go-formgen v0.18.0/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
 github.com/goliatone/go-i18n v0.2.0 h1:TDKJYZgJQq5koQ5aybM8+9NbhhlKNTPeGug4MrH/HNc=
 github.com/goliatone/go-i18n v0.2.0/go.mod h1:lg0zlUwItVZAXUJPWywuFKtgL75eGSJFBfyIfhDekoU=
 github.com/goliatone/go-job v0.14.0 h1:K7bnNh3BJU5yaLkwsXJad7+K9R3H5P3tWMPszjXTVME=
