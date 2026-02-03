@@ -1,0 +1,226 @@
+- model: User
+  rows:
+    - id: '{{ hashid "user:superadmin" }}'
+      user_role: "owner"
+      status: "active"
+      first_name: "Super"
+      last_name: "Admin"
+      username: "superadmin"
+      email: "superadmin@example.com"
+      password_hash: '{{ hashpwd "superadmin.pwd" }}'
+      metadata: {}
+      is_email_verified: true
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "user:admin" }}'
+      user_role: "admin"
+      status: "active"
+      first_name: "Admin"
+      last_name: "User"
+      username: "admin"
+      email: "admin@example.com"
+      password_hash: '{{ hashpwd "admin.pwd" }}'
+      metadata: {}
+      is_email_verified: true
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "user:jane.smith" }}'
+      user_role: "member"
+      status: "active"
+      first_name: "Jane"
+      last_name: "Smith"
+      username: "jane.smith"
+      email: "jane@example.com"
+      password_hash: '{{ hashpwd "jane.smith.pwd" }}'
+      metadata: {}
+      is_email_verified: true
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "user:john.doe" }}'
+      user_role: "member"
+      status: "active"
+      first_name: "John"
+      last_name: "Doe"
+      username: "john.doe"
+      email: "john@example.com"
+      password_hash: '{{ hashpwd "john.doe.pwd" }}'
+      metadata: {}
+      is_email_verified: true
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "user:viewer" }}'
+      user_role: "guest"
+      status: "active"
+      first_name: "View"
+      last_name: "Only"
+      username: "viewer"
+      email: "viewer@example.com"
+      password_hash: '{{ hashpwd "viewer.pwd" }}'
+      metadata: {}
+      is_email_verified: true
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "user:inactive.user" }}'
+      user_role: "guest"
+      status: "suspended"
+      first_name: "Inactive"
+      last_name: "User"
+      username: "inactive.user"
+      email: "inactive@example.com"
+      password_hash: '{{ hashpwd "inactive.user.pwd" }}'
+      metadata: {}
+      is_email_verified: false
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+
+- model: CustomRole
+  rows:
+    - id: '{{ hashid "role:superadmin" }}'
+      name: "Super Admin"
+      description: "Full access to admin resources."
+      order: 0
+      role_key: "superadmin"
+      permissions:
+        - "admin.debug.repl"
+        - "admin.debug.repl.exec"
+        - "admin.activity.view"
+      metadata:
+        source: "seed"
+      is_system: true
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+      created_by: '{{ hashid "user:superadmin" }}'
+      updated_by: '{{ hashid "user:superadmin" }}'
+    - id: '{{ hashid "role:admin" }}'
+      name: "Admin"
+      description: "Admin access to manage users and roles."
+      order: 10
+      role_key: "admin"
+      permissions:
+        - "admin.debug.repl"
+        - "admin.activity.view"
+      metadata:
+        source: "seed"
+      is_system: true
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+      created_by: '{{ hashid "user:superadmin" }}'
+      updated_by: '{{ hashid "user:superadmin" }}'
+
+- model: RoleAssignment
+  rows:
+    - user_id: '{{ hashid "user:superadmin" }}'
+      role_id: '{{ hashid "role:superadmin" }}'
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      assigned_at: '{{ now }}'
+      assigned_by: '{{ hashid "user:superadmin" }}'
+    - user_id: '{{ hashid "user:admin" }}'
+      role_id: '{{ hashid "role:admin" }}'
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      assigned_at: '{{ now }}'
+      assigned_by: '{{ hashid "user:superadmin" }}'
+
+- model: SeedUserProfile
+  rows:
+    - user_id: '{{ hashid "user:superadmin" }}'
+      display_name: "Super Admin"
+      avatar_url: ""
+      locale: "en"
+      timezone: "UTC"
+      bio: "System owner account."
+      contact:
+        email: "superadmin@example.com"
+      metadata:
+        username: "superadmin"
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      created_at: '{{ now }}'
+      created_by: '{{ hashid "user:superadmin" }}'
+      updated_at: '{{ now }}'
+      updated_by: '{{ hashid "user:superadmin" }}'
+    - user_id: '{{ hashid "user:admin" }}'
+      display_name: "Admin User"
+      avatar_url: ""
+      locale: "en"
+      timezone: "UTC"
+      bio: "Demo admin account."
+      contact:
+        email: "admin@example.com"
+      metadata:
+        username: "admin"
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      created_at: '{{ now }}'
+      created_by: '{{ hashid "user:admin" }}'
+      updated_at: '{{ now }}'
+      updated_by: '{{ hashid "user:admin" }}'
+    - user_id: '{{ hashid "user:jane.smith" }}'
+      display_name: "Jane Smith"
+      avatar_url: ""
+      locale: "en"
+      timezone: "UTC"
+      bio: "Demo editor account."
+      contact:
+        email: "jane@example.com"
+      metadata:
+        username: "jane.smith"
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      created_at: '{{ now }}'
+      created_by: '{{ hashid "user:jane.smith" }}'
+      updated_at: '{{ now }}'
+      updated_by: '{{ hashid "user:jane.smith" }}'
+    - user_id: '{{ hashid "user:john.doe" }}'
+      display_name: "John Doe"
+      avatar_url: ""
+      locale: "en"
+      timezone: "UTC"
+      bio: "Demo member account."
+      contact:
+        email: "john@example.com"
+      metadata:
+        username: "john.doe"
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      created_at: '{{ now }}'
+      created_by: '{{ hashid "user:john.doe" }}'
+      updated_at: '{{ now }}'
+      updated_by: '{{ hashid "user:john.doe" }}'
+    - user_id: '{{ hashid "user:viewer" }}'
+      display_name: "Viewer"
+      avatar_url: ""
+      locale: "en"
+      timezone: "UTC"
+      bio: "Demo viewer account with limited permissions."
+      contact:
+        email: "viewer@example.com"
+      metadata:
+        username: "viewer"
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      created_at: '{{ now }}'
+      created_by: '{{ hashid "user:viewer" }}'
+      updated_at: '{{ now }}'
+      updated_by: '{{ hashid "user:viewer" }}'
+    - user_id: '{{ hashid "user:inactive.user" }}'
+      display_name: "Inactive User"
+      avatar_url: ""
+      locale: "en"
+      timezone: "UTC"
+      bio: "Suspended demo account."
+      contact:
+        email: "inactive@example.com"
+      metadata:
+        username: "inactive.user"
+      tenant_id: "00000000-0000-0000-0000-000000000000"
+      org_id: "00000000-0000-0000-0000-000000000000"
+      created_at: '{{ now }}'
+      created_by: '{{ hashid "user:inactive.user" }}'
+      updated_at: '{{ now }}'
+      updated_by: '{{ hashid "user:inactive.user" }}'
