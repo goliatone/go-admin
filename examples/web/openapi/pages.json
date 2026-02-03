@@ -14,7 +14,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PagePayload"
+                "$ref": "#/components/schemas/PageCreatePayload"
               }
             }
           }
@@ -45,7 +45,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PagePayload"
+                "$ref": "#/components/schemas/PageUpdatePayload"
               }
             }
           }
@@ -60,7 +60,7 @@
   },
   "components": {
     "schemas": {
-      "PagePayload": {
+      "PageCreatePayload": {
         "type": "object",
         "required": [
           "title",
@@ -109,11 +109,52 @@
           },
           "template_id": {
             "type": "string",
-            "title": "Template"
+            "title": "Template",
+            "x-relationships": {
+              "type": "belongsTo",
+              "target": "#/components/schemas/Template",
+              "foreignKey": "template_id",
+              "cardinality": "one"
+            },
+            "x-endpoint": {
+              "url": "/admin/api/templates",
+              "resultsPath": "data",
+              "mode": "search",
+              "searchParam": "q",
+              "mapping": {
+                "value": "id",
+                "label": "label"
+              },
+              "params": {
+                "limit": "25"
+              }
+            }
           },
           "parent_id": {
             "type": "string",
-            "title": "Parent Page"
+            "title": "Parent Page",
+            "x-relationships": {
+              "type": "belongsTo",
+              "target": "#/components/schemas/Page",
+              "foreignKey": "parent_id",
+              "cardinality": "one"
+            },
+            "x-endpoint": {
+              "url": "/admin/crud/pages",
+              "resultsPath": "data",
+              "mode": "search",
+              "mapping": {
+                "value": "id",
+                "label": "title"
+              },
+              "params": {
+                "order": "title asc",
+                "limit": "25"
+              },
+              "dynamicParams": {
+                "title__ilike": "%{{self}}%"
+              }
+            }
           },
           "translation_group_id": {
             "type": "string",
@@ -123,7 +164,7 @@
             "type": "array",
             "title": "Blocks",
             "x-formgen": {
-              "widget": "block",
+              "widget": "block-library-picker",
               "label": "Page Sections",
               "sortable": true
             },
@@ -133,6 +174,165 @@
                 { "$ref": "#/components/schemas/BlockRichText" }
               ]
             }
+          }
+        }
+      },
+      "PageUpdatePayload": {
+        "type": "object",
+        "required": [
+          "title",
+          "slug",
+          "status",
+          "path"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "enum": [
+              "published",
+              "draft",
+              "pending_approval",
+              "scheduled"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "meta_title": {
+            "type": "string",
+            "title": "SEO Title"
+          },
+          "meta_description": {
+            "type": "string",
+            "title": "SEO Description"
+          },
+          "template_id": {
+            "type": "string",
+            "title": "Template",
+            "x-relationships": {
+              "type": "belongsTo",
+              "target": "#/components/schemas/Template",
+              "foreignKey": "template_id",
+              "cardinality": "one"
+            },
+            "x-endpoint": {
+              "url": "/admin/api/templates",
+              "resultsPath": "data",
+              "mode": "default",
+              "mapping": {
+                "value": "id",
+                "label": "label"
+              },
+              "params": {
+                "limit": "1"
+              },
+              "dynamicParams": {
+                "id": "{{self}}"
+              }
+            }
+          },
+          "parent_id": {
+            "type": "string",
+            "title": "Parent Page",
+            "x-relationships": {
+              "type": "belongsTo",
+              "target": "#/components/schemas/Page",
+              "foreignKey": "parent_id",
+              "cardinality": "one"
+            },
+            "x-endpoint": {
+              "url": "/admin/crud/pages",
+              "resultsPath": "data",
+              "mode": "default",
+              "mapping": {
+                "value": "id",
+                "label": "title"
+              },
+              "params": {
+                "limit": "1"
+              },
+              "dynamicParams": {
+                "id": "{{self}}"
+              }
+            }
+          },
+          "translation_group_id": {
+            "type": "string",
+            "title": "Translation Group"
+          },
+          "blocks": {
+            "type": "array",
+            "title": "Blocks",
+            "x-formgen": {
+              "widget": "block-library-picker",
+              "label": "Page Sections",
+              "sortable": true
+            },
+            "items": {
+              "oneOf": [
+                { "$ref": "#/components/schemas/BlockHero" },
+                { "$ref": "#/components/schemas/BlockRichText" }
+              ]
+            }
+          }
+        }
+      },
+      "Page": {
+        "type": "object",
+        "x-formgen-label-field": "title",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "Template": {
+        "type": "object",
+        "x-formgen-label-field": "label",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "template_path": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
           }
         }
       },

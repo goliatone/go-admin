@@ -64,7 +64,7 @@ operations:
         order: 11
         grid:
           span: 12
-        widget: block
+        widget: block-library-picker
 
   updatePage:
     form:
@@ -131,4 +131,4 @@ operations:
         order: 11
         grid:
           span: 12
-        widget: block
+        widget: block-library-picker
