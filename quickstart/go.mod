@@ -17,7 +17,7 @@ require (
 	github.com/goliatone/go-export v0.6.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.6.0
 	github.com/goliatone/go-featuregate v0.5.0
-	github.com/goliatone/go-formgen v0.16.1
+	github.com/goliatone/go-formgen v0.17.1
 	github.com/goliatone/go-notifications v0.11.0
 	github.com/goliatone/go-persistence-bun v0.10.0
 	github.com/goliatone/go-router v0.44.0
