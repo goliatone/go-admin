@@ -1,0 +1,24 @@
+- model: MediaRecord
+  rows:
+    - id: '{{ hashid "media:logo.png" }}'
+      filename: "logo.png"
+      url: "/static/media/logo.png"
+      type: "image"
+      mime_type: "image/png"
+      size: 24512
+      metadata:
+        alt: "Logo"
+      uploaded_by: "admin"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "media:banner.jpg" }}'
+      filename: "banner.jpg"
+      url: "/static/media/banner.jpg"
+      type: "image"
+      mime_type: "image/jpeg"
+      size: 98213
+      metadata:
+        alt: "Banner"
+      uploaded_by: "admin"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'

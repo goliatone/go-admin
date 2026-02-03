@@ -1,0 +1,350 @@
+- model: Locale
+  rows:
+    - id: "e5540cdd-38f9-5149-828a-de16f7ad2476"
+      code: "en"
+      display_name: "EN"
+      native_name: "English"
+      is_active: true
+      is_default: true
+      metadata: {}
+      created_at: '{{ now }}'
+
+- model: Theme
+  rows:
+    - id: "018f038f-30d5-5d6f-9fd9-60bec85e0184"
+      name: "admin-demo"
+      description: "Admin demo theme"
+      version: "1.0.0"
+      author: "go-admin"
+      is_active: true
+      theme_path: "themes/admin-demo"
+      config: {}
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+
+- model: Template
+  rows:
+    - id: "182904ad-002f-5f99-a1c7-6269a051d55a"
+      theme_id: "018f038f-30d5-5d6f-9fd9-60bec85e0184"
+      name: "Default Page"
+      slug: "page-default"
+      description: "Default page template"
+      template_path: "templates/page.html"
+      regions:
+        main:
+          name: "Main"
+          accepts_blocks: true
+          accepts_widgets: true
+      metadata: {}
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+
+- model: ContentType
+  rows:
+    - id: "bc388575-e370-5ec6-90a2-b03decb22bd9"
+      name: "page"
+      slug: "page"
+      description: "Pages managed through go-cms"
+      schema:
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+        type: "object"
+        "$defs":
+          hero:
+            type: "object"
+            required:
+              - "_type"
+              - "headline"
+            x-formgen:
+              label: "Hero"
+              icon: "star"
+              collapsed: true
+            properties:
+              _type:
+                const: "hero"
+                x-formgen:
+                  readonly: true
+              headline:
+                type: "string"
+              subheadline:
+                type: "string"
+              cta_label:
+                type: "string"
+              cta_url:
+                type: "string"
+          rich_text:
+            type: "object"
+            required:
+              - "_type"
+              - "body"
+            x-formgen:
+              label: "Rich Text"
+              icon: "text"
+            properties:
+              _type:
+                const: "rich_text"
+                x-formgen:
+                  readonly: true
+              body:
+                type: "string"
+                x-formgen:
+                  widget: "wysiwyg"
+        properties:
+          title:
+            type: "string"
+          summary:
+            type: "string"
+          body:
+            type: "string"
+          featured_image:
+            type: "string"
+          seo:
+            type: "object"
+          meta:
+            type: "object"
+          markdown:
+            type: "object"
+          locale:
+            type: "string"
+          blocks:
+            type: "array"
+            x-formgen:
+              widget: "block"
+              label: "Page Sections"
+              sortable: true
+            items:
+              oneOf:
+                - "$ref": "#/$defs/hero"
+                - "$ref": "#/$defs/rich_text"
+      capabilities:
+        translations: true
+      environment_id: "00000000-0000-0000-0000-000000000001"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: "56910c05-e49b-5748-bf98-c15ab29f13a3"
+      name: "post"
+      slug: "post"
+      description: "Posts managed through go-cms"
+      schema:
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+        type: "object"
+        "$defs":
+          hero:
+            type: "object"
+            required:
+              - "_type"
+              - "headline"
+            x-formgen:
+              label: "Hero"
+              icon: "star"
+              collapsed: true
+            properties:
+              _type:
+                const: "hero"
+                x-formgen:
+                  readonly: true
+              headline:
+                type: "string"
+              subheadline:
+                type: "string"
+              cta_label:
+                type: "string"
+              cta_url:
+                type: "string"
+          rich_text:
+            type: "object"
+            required:
+              - "_type"
+              - "body"
+            x-formgen:
+              label: "Rich Text"
+              icon: "text"
+            properties:
+              _type:
+                const: "rich_text"
+                x-formgen:
+                  readonly: true
+              body:
+                type: "string"
+                x-formgen:
+                  widget: "wysiwyg"
+        properties:
+          title:
+            type: "string"
+          summary:
+            type: "string"
+          body:
+            type: "string"
+          featured_image:
+            type: "string"
+          tags:
+            type: "array"
+            items:
+              type: "string"
+          meta:
+            type: "object"
+          seo:
+            type: "object"
+          markdown:
+            type: "object"
+          locale:
+            type: "string"
+          blocks:
+            type: "array"
+            x-formgen:
+              widget: "block"
+              label: "Post Blocks"
+              sortable: true
+            items:
+              oneOf:
+                - "$ref": "#/$defs/hero"
+                - "$ref": "#/$defs/rich_text"
+      capabilities:
+        translations: true
+      environment_id: "00000000-0000-0000-0000-000000000001"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+
+- model: Content
+  rows:
+    - id: '{{ hashid "content:home" }}'
+      content_type_id: "bc388575-e370-5ec6-90a2-b03decb22bd9"
+      current_version: 1
+      published_version: 1
+      status: "published"
+      slug: "home"
+      environment_id: "00000000-0000-0000-0000-000000000001"
+      created_by: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      updated_by: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "content:welcome-post" }}'
+      content_type_id: "56910c05-e49b-5748-bf98-c15ab29f13a3"
+      current_version: 1
+      published_version: 1
+      status: "published"
+      slug: "welcome-post"
+      environment_id: "00000000-0000-0000-0000-000000000001"
+      created_by: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      updated_by: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+
+- model: ContentTranslation
+  rows:
+    - id: '{{ hashid "content_translation:home:en" }}'
+      content_id: '{{ hashid "content:home" }}'
+      locale_id: "e5540cdd-38f9-5149-828a-de16f7ad2476"
+      title: "Home"
+      summary: "Welcome to our website"
+      content:
+        path: "/"
+        meta_title: "Home - Enterprise Admin"
+        meta_description: "Welcome to Enterprise Admin"
+        content: "Welcome to our website. Explore our content and dashboards."
+        tags: []
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "content_translation:welcome-post:en" }}'
+      content_id: '{{ hashid "content:welcome-post" }}'
+      locale_id: "e5540cdd-38f9-5149-828a-de16f7ad2476"
+      title: "Welcome Post"
+      summary: "Getting started with the CMS"
+      content:
+        path: "/posts/welcome-post"
+        meta_title: "Welcome Post"
+        meta_description: "Getting started with the CMS"
+        content: "This is a sample post stored in SQLite-backed go-cms."
+        tags:
+          - "announcement"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+
+- model: ContentVersion
+  rows:
+    - id: '{{ hashid "content_version:home:1" }}'
+      content_id: '{{ hashid "content:home" }}'
+      version: 1
+      status: "published"
+      snapshot:
+        fields:
+          title: "Home"
+          summary: "Welcome to our website"
+          body: "Welcome to our website. Explore our content and dashboards."
+        translations:
+          - locale: "en"
+            title: "Home"
+            summary: "Welcome to our website"
+            content:
+              path: "/"
+              meta_title: "Home - Enterprise Admin"
+              meta_description: "Welcome to Enterprise Admin"
+              content: "Welcome to our website. Explore our content and dashboards."
+      created_by: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      created_at: '{{ now }}'
+    - id: '{{ hashid "content_version:welcome-post:1" }}'
+      content_id: '{{ hashid "content:welcome-post" }}'
+      version: 1
+      status: "published"
+      snapshot:
+        fields:
+          title: "Welcome Post"
+          summary: "Getting started with the CMS"
+          body: "This is a sample post stored in SQLite-backed go-cms."
+        translations:
+          - locale: "en"
+            title: "Welcome Post"
+            summary: "Getting started with the CMS"
+            content:
+              path: "/posts/welcome-post"
+              meta_title: "Welcome Post"
+              meta_description: "Getting started with the CMS"
+              content: "This is a sample post stored in SQLite-backed go-cms."
+              tags:
+                - "announcement"
+      created_by: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      created_at: '{{ now }}'
+
+- model: Page
+  rows:
+    - id: '{{ hashid "page:home" }}'
+      content_id: '{{ hashid "content:home" }}'
+      current_version: 1
+      published_version: 1
+      template_id: "182904ad-002f-5f99-a1c7-6269a051d55a"
+      slug: "home"
+      status: "published"
+      environment_id: "00000000-0000-0000-0000-000000000001"
+      created_by: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      updated_by: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+
+- model: PageTranslation
+  rows:
+    - id: '{{ hashid "page_translation:home:en" }}'
+      page_id: '{{ hashid "page:home" }}'
+      locale_id: "e5540cdd-38f9-5149-828a-de16f7ad2476"
+      title: "Home"
+      path: "/"
+      seo_title: "Home - Enterprise Admin"
+      seo_description: "Welcome to Enterprise Admin"
+      summary: "Welcome to our website"
+      media_bindings: {}
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+
+- model: PageVersion
+  rows:
+    - id: '{{ hashid "page_version:home:1" }}'
+      page_id: '{{ hashid "page:home" }}'
+      version: 1
+      status: "published"
+      snapshot:
+        regions:
+          main: []
+        blocks: []
+        widgets: {}
+        metadata: {}
+        media: {}
+      created_by: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      created_at: '{{ now }}'
