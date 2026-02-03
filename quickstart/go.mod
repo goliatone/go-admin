@@ -10,14 +10,14 @@ require (
 	github.com/goliatone/go-admin v0.23.0
 	github.com/goliatone/go-auth v0.28.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.28.0
-	github.com/goliatone/go-cms v0.24.0
+	github.com/goliatone/go-cms v0.25.0
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.6.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.6.0
 	github.com/goliatone/go-featuregate v0.5.0
-	github.com/goliatone/go-formgen v0.17.1
+	github.com/goliatone/go-formgen v0.18.0
 	github.com/goliatone/go-notifications v0.11.0
 	github.com/goliatone/go-persistence-bun v0.10.0
 	github.com/goliatone/go-router v0.44.0
