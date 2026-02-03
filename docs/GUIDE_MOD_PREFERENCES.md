@@ -62,6 +62,8 @@ The Preferences HTML form accepts UI-only inputs:
 - `raw_ui`: JSON object string that contains `ui.*` keys only. Parsed and merged into `raw`.
 - `clear_ui_keys`: comma- or space-separated list of `ui.*` keys to remove before merge.
 
+The `raw_ui` editor renders with the go-formgen JSON editor in **hybrid** mode (GUI + raw toggle; GUI is the default view).
+
 These fields are **not** accepted by the API. Invalid JSON or disallowed keys return a validation error and skip the save.
 
 ## Schema overrides and JSON editor strictness
@@ -89,6 +91,56 @@ mod := quickstart.NewPreferencesModule(
 
 `WithJSONEditorStrict(true)` enables client-side validation for the `raw_ui` JSON editor (must be valid JSON
 object before submit). When strict mode is off, the UI is lenient but the server still validates `raw_ui`.
+
+## Project-specific fields (per-project form extensions)
+
+To add form fields on a **per-project** basis:
+
+1. Copy the embedded schema to your project (e.g., `./configs/preferences/schema.json`).
+2. Add your fields under `properties` with `x-formgen` metadata (labels, widgets, help text, etc.).
+3. Point the Preferences module at your schema with `WithSchemaPath`.
+4. Wire persistence: the default save handler only processes `theme`, `theme_variant`, `raw_ui`, and
+   `clear_ui_keys`. New fields must be mapped into preferences (usually `raw` under a `ui.*` key) by customizing
+   the save/read path in your project.
+
+Example schema snippet:
+
+```json
+{
+  "properties": {
+    "ui_layout_density": {
+      "type": "string",
+      "x-formgen": {
+        "label": "UI Density",
+        "widget": "select",
+        "helpText": "Controls compact spacing in the admin UI."
+      },
+      "enum": ["comfortable", "compact"]
+    }
+  }
+}
+```
+
+Example wiring (project code) mapping the new field into `raw`:
+
+```go
+// In your Preferences form handling (project-specific fork/wrapper):
+if raw, ok := prefs.Raw["ui.layout.density"].(string); ok {
+	values["ui_layout_density"] = raw
+}
+
+// On save:
+density := strings.TrimSpace(c.FormValue("ui_layout_density"))
+if density != "" {
+	if prefs.Raw == nil {
+		prefs.Raw = map[string]any{}
+	}
+	prefs.Raw["ui.layout.density"] = density
+}
+```
+
+If you want **zero Go code changes**, use the existing `raw_ui` field to store `ui.*` keys instead of adding
+additional form fields.
 
 ## Preferences data model
 
