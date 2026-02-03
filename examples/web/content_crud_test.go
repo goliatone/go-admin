@@ -40,10 +40,6 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 	pageRepo := stores.NewPageRecordRepository(db)
 	postRepo := stores.NewPostRecordRepository(db)
 
-	pageStore.Seed()
-	postStore.Seed()
-	mediaStore.Seed()
-
 	if menuSvc := cmsOpts.Container.MenuService(); menuSvc != nil {
 		_ = setup.SetupNavigation(ctx, menuSvc, "/admin", setup.NavigationMenuCode, "en")
 	}
