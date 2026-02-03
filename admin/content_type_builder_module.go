@@ -25,6 +25,7 @@ const (
 	contentTypeBuilderModuleID    = "content_type_builder"
 	contentTypePanelID            = "content_types"
 	blockDefinitionsPanelID       = "block_definitions"
+	blockDefinitionsAPIBase       = "block_definitions_meta"
 	contentTypeCreateCommandName  = "content_types.create"
 	contentTypeUpdateCommandName  = "content_types.update"
 	contentTypePublishCommandName = "content_types.publish"
@@ -596,7 +597,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionCategoriesRoute(admin 
 	if admin == nil || admin.router == nil || m.contentSvc == nil {
 		return
 	}
-	categoriesPath := joinPath(m.basePath, "api/"+blockDefinitionsPanelID+"/categories")
+	categoriesPath := joinPath(m.basePath, "api/"+blockDefinitionsAPIBase+"/categories")
 
 	handler := func(c router.Context) error {
 		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
@@ -639,7 +640,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionFieldTypesRoute(admin 
 	if admin == nil || admin.router == nil {
 		return
 	}
-	fieldTypesPath := joinPath(m.basePath, "api/"+blockDefinitionsPanelID+"/field_types")
+	fieldTypesPath := joinPath(m.basePath, "api/"+blockDefinitionsAPIBase+"/field_types")
 
 	handler := func(c router.Context) error {
 		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
