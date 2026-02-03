@@ -34,21 +34,21 @@ func TenantDataGridColumns() []helpers.DataGridColumn {
 
 func pageDataGridColumns() []helpers.DataGridColumn {
 	return []helpers.DataGridColumn{
-		{Field: "title", Label: "Title"},
-		{Field: "slug", Label: "Slug"},
-		{Field: "status", Label: "Status"},
-		{Field: "published_at", Label: "Published"},
-		{Field: "created_at", Label: "Created"},
+		{Field: "title", Label: "Title", Sortable: true, Filterable: true, Default: true},
+		{Field: "slug", Label: "Slug", Sortable: true, Filterable: true, Default: true},
+		{Field: "status", Label: "Status", Sortable: true, Filterable: true, Default: true},
+		{Field: "published_at", Label: "Published", Sortable: true, Filterable: true, Default: true},
+		{Field: "created_at", Label: "Created", Sortable: true, Filterable: true, Default: true},
 	}
 }
 
 func postDataGridColumns() []helpers.DataGridColumn {
 	return []helpers.DataGridColumn{
-		{Field: "title", Label: "Title"},
-		{Field: "slug", Label: "Slug"},
-		{Field: "status", Label: "Status"},
-		{Field: "published_at", Label: "Published"},
-		{Field: "created_at", Label: "Created"},
+		{Field: "title", Label: "Title", Sortable: true, Filterable: true, Default: true},
+		{Field: "slug", Label: "Slug", Sortable: true, Filterable: true, Default: true},
+		{Field: "status", Label: "Status", Sortable: true, Filterable: true, Default: true},
+		{Field: "published_at", Label: "Published", Sortable: true, Filterable: true, Default: true},
+		{Field: "created_at", Label: "Created", Sortable: true, Filterable: true, Default: true},
 	}
 }
 

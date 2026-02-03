@@ -85,16 +85,20 @@ func (h *UserProfileHandlers) List(c router.Context) error {
 		items[i]["actions"] = routes.ActionsMap(id)
 	}
 
+	bulkCtx := helpers.BuildBulkActionContext(h.Admin, "user-profiles", h.Config.BasePath, c.Context())
 	viewCtx := h.WithNav(router.ViewContext{
-		"title":          h.Config.Title,
-		"base_path":      h.Config.BasePath,
-		"resource":       "user-profiles",
-		"resource_label": "User Profiles",
-		"routes":         routes.RoutesMap(),
-		"items":          items,
-		"columns":        columns,
-		"total":          total,
-		"export_config":  helpers.BuildExportConfig(h.Config, "user-profiles", ""),
+		"title":                 h.Config.Title,
+		"base_path":             h.Config.BasePath,
+		"resource":              "user-profiles",
+		"resource_label":        "User Profiles",
+		"routes":                routes.RoutesMap(),
+		"items":                 items,
+		"columns":               columns,
+		"total":                 total,
+		"export_config":         helpers.BuildExportConfig(h.Config, "user-profiles", ""),
+		"bulk_actions_primary":  bulkCtx.Primary,
+		"bulk_actions_overflow": bulkCtx.Overflow,
+		"bulk_base":             bulkCtx.BaseURL,
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/user-profiles/list", viewCtx)
