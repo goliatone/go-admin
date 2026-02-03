@@ -882,7 +882,7 @@ function me(o) {
 function mr(o) {
   return ye.filter((e) => e.category === o);
 }
-class Ke extends A {
+class Je extends A {
   constructor(e) {
     super({
       size: "3xl",
@@ -1020,13 +1020,13 @@ class Ke extends A {
     t && (t.innerHTML = this.renderFieldTypes());
   }
 }
-const He = "w-full border rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:placeholder-gray-500", Je = "px-3 py-2 text-sm border-gray-300", We = "px-2 py-1 text-[12px] border-gray-200";
+const He = "w-full border rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:placeholder-gray-500", Ke = "px-3 py-2 text-sm border-gray-300", We = "px-2 py-1 text-[12px] border-gray-200";
 function h(o = "sm") {
-  return o === "xs" ? `${He} ${We}` : `${He} ${Je}`;
+  return o === "xs" ? `${He} ${We}` : `${He} ${Ke}`;
 }
 function I(o = "sm") {
   const e = "w-full border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:border-gray-600 dark:bg-slate-800 dark:text-white";
-  return o === "xs" ? `${e} ${We}` : `${e} ${Je}`;
+  return o === "xs" ? `${e} ${We}` : `${e} ${Ke}`;
 }
 function Te(o = {}) {
   const e = o.size ?? "sm", t = o.resize ?? "y", r = t === "none" ? "resize-none" : t === "x" ? "resize-x" : t === "both" ? "resize" : "resize-y";
@@ -3847,7 +3847,7 @@ function it(o) {
 function E(o) {
   return o.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-const Ut = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>', Gt = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>', Kt = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>', Jt = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>', Wt = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+const Ut = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>', Gt = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>', Jt = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>', Kt = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>', Wt = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
 function ot(o) {
   const {
     field: e,
@@ -3878,12 +3878,12 @@ function ot(o) {
   if (c)
     ke = `${E(e.name)} &middot; ${E(e.type)}`;
   else {
-    const z = u?.label ?? e.type, K = [
+    const z = u?.label ?? e.type, J = [
       `<span class="font-mono">${E(e.name)}</span>`,
       "<span>&middot;</span>",
       `<span>${E(z)}</span>`
     ];
-    e.section && K.push(`<span>&middot; ${E(e.section)}</span>`), e.gridSpan && K.push(`<span>&middot; ${e.gridSpan} cols</span>`), ke = K.join(" ");
+    e.section && J.push(`<span>&middot; ${E(e.section)}</span>`), e.gridSpan && J.push(`<span>&middot; ${e.gridSpan} cols</span>`), ke = J.join(" ");
   }
   let Ae = "";
   w.length > 0 && (Ae = `
@@ -3897,7 +3897,7 @@ function ot(o) {
             </div>`);
   let Ie = "";
   if (n) {
-    const z = l, K = d, yt = z ? "text-gray-200 dark:text-gray-700 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800", mt = K ? "text-gray-200 dark:text-gray-700 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800";
+    const z = l, J = d, yt = z ? "text-gray-200 dark:text-gray-700 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800", mt = J ? "text-gray-200 dark:text-gray-700 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800";
     Ie = `
           <span class="flex-shrink-0 inline-flex flex-col border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
             <button type="button" data-field-move-up="${E(e.id)}"
@@ -3908,7 +3908,7 @@ function ot(o) {
             <span class="block h-px bg-gray-200 dark:bg-gray-700"></span>
             <button type="button" data-field-move-down="${E(e.id)}"
                     class="px-0.5 py-px ${mt} transition-colors"
-                    title="Move down" ${K ? "disabled" : ""}>
+                    title="Move down" ${J ? "disabled" : ""}>
               ${Gt}
             </button>
           </span>`;
@@ -3916,7 +3916,7 @@ function ot(o) {
   let qe = "";
   return m && (qe = `
           <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer transition-colors">
-            ${t ? Jt : Kt}
+            ${t ? Kt : Jt}
           </span>`), `
       <div ${ve}
            draggable="true"
@@ -4830,7 +4830,7 @@ Deprecated content types can still be used but are hidden from new content creat
     }), this.palettePanel.init(), this.palettePanel.enable());
   }
   showFieldTypePicker() {
-    new Ke({
+    new Je({
       onSelect: (t) => this.addField(t),
       onCancel: () => {
       }
@@ -5073,7 +5073,19 @@ Deprecated content types can still be used but are hidden from new content creat
           <p class="text-sm font-medium">Preview failed</p>
           <p class="text-xs text-red-300 mt-1 max-w-xs text-center">${this.state.previewError}</p>
         </div>
-      ` : this.state.previewHtml && (e.innerHTML = this.state.previewHtml));
+      ` : this.state.previewHtml && (e.innerHTML = this.state.previewHtml, this.initPreviewEditors()));
+  }
+  /**
+   * Initialize JSON editors inside the preview container.
+   * The formgen-behaviors bundle (loaded via script tag) exposes
+   * FormgenBehaviors.initJSONEditors() which scans the document for
+   * un-initialized [data-json-editor] elements.
+   */
+  initPreviewEditors() {
+    const e = window.FormgenBehaviors;
+    typeof e?.initJSONEditors == "function" && e.initJSONEditors(), this.root.querySelectorAll(
+      '[data-json-editor-mode="hybrid"] [data-json-editor-mode-btn="gui"]'
+    ).forEach((t) => t.click());
   }
   renderValidationErrors() {
     const e = this.container.querySelector("[data-ct-validation-errors]");
@@ -6160,7 +6172,7 @@ class rr extends A {
     });
   }
   showFieldTypePicker() {
-    new Ke({
+    new Je({
       onSelect: (t) => {
         const r = {
           id: Q(),
@@ -6457,7 +6469,7 @@ class nr {
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Category</label>
               <select data-meta-field="category" class="${I()}">
-                ${this.config.categories.map((a) => `<option value="${p(a)}" ${a === (e.category ?? "") ? "selected" : ""}>${p(J(a))}</option>`).join("")}
+                ${this.config.categories.map((a) => `<option value="${p(a)}" ${a === (e.category ?? "") ? "selected" : ""}>${p(K(a))}</option>`).join("")}
               </select>
             </div>
             <div>
@@ -6516,7 +6528,7 @@ class nr {
             <span class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex items-center justify-center" data-section-chevron="${p(a)}">
               ${n ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'}
             </span>
-            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${p(J(a))}</span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${p(K(a))}</span>
             <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">${s.length}</span>
           </button>
 
@@ -6669,7 +6681,7 @@ class nr {
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
             <select data-field-section-select="${p(e.id)}"
                     class="${I("xs")}">
-              ${t.map((l) => `<option value="${p(l)}" ${l === n ? "selected" : ""}>${p(J(l))}</option>`).join("")}
+              ${t.map((l) => `<option value="${p(l)}" ${l === n ? "selected" : ""}>${p(K(l))}</option>`).join("")}
               <option value="__new__">+ New section...</option>
             </select>
           </div>
@@ -6812,7 +6824,7 @@ class nr {
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
                 <select data-field-section-select="${p(e.id)}"
                         class="${I("xs")}">
-                  ${t.map(($) => `<option value="${p($)}" ${$ === a ? "selected" : ""}>${p(J($))}</option>`).join("")}
+                  ${t.map(($) => `<option value="${p($)}" ${$ === a ? "selected" : ""}>${p(K($))}</option>`).join("")}
                   <option value="__new__">+ New section...</option>
                 </select>
               </div>
@@ -6856,7 +6868,7 @@ class nr {
             <svg class="w-3 h-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
-            ${p(J(s))}
+            ${p(K(s))}
           </button>`).join("")}
         <div class="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
           <button type="button" data-move-new-section="${p(e.id)}"
@@ -6951,7 +6963,7 @@ class nr {
           if (i) {
             const n = F(i), l = me(n) ?? {
               type: n,
-              label: J(n),
+              label: K(n),
               description: "",
               icon: "",
               category: "advanced"
@@ -7255,7 +7267,7 @@ function p(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
-function J(o) {
+function K(o) {
   return o.replace(/_/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
 const we = ["content", "media", "layout", "interactive", "custom"], ge = class ge {
@@ -8302,7 +8314,7 @@ export {
   ye as FIELD_TYPES,
   ue as FieldConfigForm,
   Ee as FieldPalettePanel,
-  Ke as FieldTypePicker,
+  Je as FieldTypePicker,
   At as LayoutEditor,
   Le as PALETTE_DRAG_MIME,
   W as fieldsToSchema,
