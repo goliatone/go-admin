@@ -403,6 +403,7 @@
 
   /* The actual floating bar - matches sidebar colors */
   .bulk-actions-bar {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -506,10 +507,12 @@
   /* ---- Rich overflow panel (users Role Management) ---- */
   .bulk-overflow-panel {
     position: absolute;
-    bottom: calc(100% + 8px);
-    right: -12px;
-    min-width: 340px;
-    @apply bg-sidebar-bg border border-sidebar-border rounded-xl shadow-2xl;
+    bottom: 100%;
+    left: -1px;
+    right: -1px; /* span full bar width, overlap borders */
+    @apply bg-sidebar-bg border border-sidebar-border shadow-2xl;
+    border-radius: 12px 12px 0 0; /* rounded top, squared bottom to connect to bar */
+    border-bottom: none; /* share border with the bar */
     z-index: 50;
     padding: 0;
     overflow: hidden;
@@ -526,7 +529,12 @@
   .bulk-role-select {
     @apply w-full px-4 py-2.5 text-sm rounded-lg border;
     @apply bg-sidebar-bg-hover border-sidebar-border text-sidebar-text;
-    appearance: auto;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239ca3af' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 36px;
   }
 
   .bulk-role-select:focus {
@@ -566,10 +574,15 @@
     @apply bg-sidebar-bg-hover;
   }
 
-  /* Corner de-rounding: when overflow panel is open, square the bar's right corners */
+  /* When overflow panel is open, bar + panel form one rounded rectangle.
+     Square the top (connection seam) and reduce the bottom from pill to 12px
+     to match the panel's top-corner radius. */
   .bulk-actions-bar.overflow-open {
+    border-top-left-radius: 0;
     border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    border-top-color: transparent;
   }
 
   /* Responsive adjustments */

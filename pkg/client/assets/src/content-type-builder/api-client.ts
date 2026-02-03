@@ -549,6 +549,32 @@ export class ContentTypeAPIClient {
 
 import type { FieldDefinition, FieldType } from './types';
 
+function cloneSchema<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function mergeSchemaSection(base: Record<string, unknown>, next: Record<string, unknown>): Record<string, unknown> {
+  return { ...base, ...next };
+}
+
+export function mergeSchemaWithBase(base: JSONSchema | null | undefined, next: JSONSchema): JSONSchema {
+  if (!base) {
+    return cloneSchema(next);
+  }
+  const merged = cloneSchema(next);
+  const baseDefs = (base.$defs ?? {}) as Record<string, unknown>;
+  const nextDefs = (merged.$defs ?? {}) as Record<string, unknown>;
+  if (Object.keys(baseDefs).length > 0 || Object.keys(nextDefs).length > 0) {
+    merged.$defs = mergeSchemaSection(baseDefs, nextDefs) as JSONSchema['$defs'];
+  }
+  const baseMeta = (base as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+  const nextMeta = (merged as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+  if (baseMeta || nextMeta) {
+    (merged as Record<string, unknown>).metadata = mergeSchemaSection(baseMeta ?? {}, nextMeta ?? {});
+  }
+  return merged;
+}
+
 /**
  * Convert field definitions to JSON Schema
  */

@@ -148,6 +148,7 @@ export declare class ContentTypeAPIClient {
     private handleError;
 }
 import type { FieldDefinition } from './types';
+export declare function mergeSchemaWithBase(base: JSONSchema | null | undefined, next: JSONSchema): JSONSchema;
 /**
  * Convert field definitions to JSON Schema
  */

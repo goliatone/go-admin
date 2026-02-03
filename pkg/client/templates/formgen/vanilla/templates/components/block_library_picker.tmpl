@@ -1,0 +1,26 @@
+{% set sortable = sortable or false -%}
+{% set add_label = add_label or "Add block" -%}
+{% set empty_label = empty_label or "No blocks added yet." -%}
+
+<div class="space-y-3" data-block-editor="true" data-block-field="{{ field.name }}" data-block-library-picker="true" data-block-init="manual"{% if api_base %} data-api-base="{{ api_base }}"{% endif %} data-allowed-blocks='{{ allowed_blocks_json }}'{% if max_blocks %} data-max-blocks="{{ max_blocks }}"{% endif %}{% if sortable %} data-block-sortable="true"{% endif %}{% if config_json %} data-component-config='{{ config_json }}'{% endif %}>
+    <div class="flex flex-wrap items-center gap-2" style="display:none;">
+        <select class="py-2 px-3 rounded-md border border-gray-200 text-sm bg-white text-gray-900 dark:bg-slate-900 dark:border-gray-700 dark:text-white" data-block-add-select="true"></select>
+        <button type="button" class="py-2 px-3 rounded-md border border-gray-200 text-sm font-medium bg-white text-gray-900 hover:bg-gray-50 dark:bg-slate-900 dark:border-gray-700 dark:text-white dark:hover:bg-slate-800" data-block-add="true" data-block-add-label="{{ add_label }}">{{ add_label }}</button>
+    </div>
+
+    <div class="space-y-3" data-block-list="true"></div>
+
+    <p class="text-xs text-gray-500 dark:text-gray-400" data-block-empty="true" data-block-empty-label="{{ empty_label }}">{{ empty_label }}</p>
+
+    <input type="hidden" name="{{ field.name }}" data-block-output="true"{% if serialized %} value="{{ serialized }}"{% endif %}>
+
+    {% if pre_rendered_templates and pre_rendered_templates|length > 0 %}
+        {% for block in pre_rendered_templates %}
+        <template data-block-template="true" data-block-type="{{ block.type }}"{% if block.label %} data-block-label="{{ block.label }}"{% endif %}{% if block.icon %} data-block-icon="{{ block.icon }}"{% endif %}{% if block.collapsed %} data-block-collapsed="true"{% endif %}{% if block.schema %} data-block-schema-version="{{ block.schema }}"{% endif %}>
+            <div class="space-y-4" data-block-fields="true">
+                {{ block.html|safe }}
+            </div>
+        </template>
+        {% endfor %}
+    {% endif %}
+</div>

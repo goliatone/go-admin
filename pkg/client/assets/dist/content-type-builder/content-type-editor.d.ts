@@ -36,6 +36,9 @@ export declare class ContentTypeEditor {
      * Save the content type
      */
     save(): Promise<void>;
+    private buildSchemaPayload;
+    private schemaHasChanges;
+    private serializeFields;
     /**
      * Add a new field
      */

@@ -24,7 +24,7 @@ import type {
   BlocksFieldConfig,
   BlockDefinitionSummary,
 } from './types';
-import { ContentTypeAPIClient, fieldsToSchema, schemaToFields, generateFieldId } from './api-client';
+import { ContentTypeAPIClient, fieldsToSchema, schemaToFields, generateFieldId, mergeSchemaWithBase } from './api-client';
 import { FieldTypePicker, getFieldTypeMetadata, FIELD_TYPES, normalizeFieldType } from './field-type-picker';
 import { FieldConfigForm } from './field-config-form';
 import { FieldPalettePanel } from './field-palette-panel';
@@ -46,6 +46,8 @@ const DEFAULT_SECTION = 'main';
 interface ExtendedBuilderState extends ContentTypeBuilderState {
   layout: UILayoutConfig;
   previewError: string | null;
+  originalSchema: JSONSchema | null;
+  initialFieldsSignature: string;
 }
 
 export class ContentTypeEditor {
@@ -82,6 +84,8 @@ export class ContentTypeEditor {
       previewHtml: null,
       previewError: null,
       layout: { type: 'flat', gridColumns: 12, tabs: [] },
+      originalSchema: null,
+      initialFieldsSignature: '',
     };
   }
 
@@ -109,6 +113,8 @@ export class ContentTypeEditor {
       const contentType = await this.api.get(idOrSlug);
       this.state.contentType = contentType;
       this.state.fields = schemaToFields(contentType.schema);
+      this.state.originalSchema = contentType.schema ?? null;
+      this.state.initialFieldsSignature = this.serializeFields(this.state.fields);
       // Load layout from ui_schema
       if (contentType.ui_schema?.layout) {
         this.state.layout = {
@@ -146,7 +152,7 @@ export class ContentTypeEditor {
     }
 
     // Build content type data
-    const schema = fieldsToSchema(this.state.fields, this.getSlug());
+    const schema = this.buildSchemaPayload();
     const contentType: Partial<ContentType> = {
       name,
       slug: this.getSlug(),
@@ -169,6 +175,8 @@ export class ContentTypeEditor {
       }
 
       this.state.contentType = saved;
+      this.state.originalSchema = saved.schema ?? null;
+      this.state.initialFieldsSignature = this.serializeFields(this.state.fields);
       this.state.isDirty = false;
       this.showToast('Content type saved successfully', 'success');
       this.config.onSave?.(saved);
@@ -180,6 +188,42 @@ export class ContentTypeEditor {
       this.state.isSaving = false;
       this.updateSavingState();
     }
+  }
+
+  private buildSchemaPayload(): JSONSchema {
+    const generated = fieldsToSchema(this.state.fields, this.getSlug());
+    if (!this.schemaHasChanges() && this.state.originalSchema) {
+      return this.state.originalSchema;
+    }
+    return mergeSchemaWithBase(this.state.originalSchema, generated);
+  }
+
+  private schemaHasChanges(): boolean {
+    if (!this.state.initialFieldsSignature) {
+      return true;
+    }
+    return this.serializeFields(this.state.fields) !== this.state.initialFieldsSignature;
+  }
+
+  private serializeFields(fields: FieldDefinition[]): string {
+    const normalized = fields.map((field) => ({
+      name: field.name,
+      type: field.type,
+      label: field.label,
+      description: field.description,
+      placeholder: field.placeholder,
+      helpText: field.helpText,
+      required: field.required,
+      readonly: field.readonly,
+      hidden: field.hidden,
+      defaultValue: field.defaultValue,
+      section: field.section,
+      gridSpan: field.gridSpan,
+      order: field.order,
+      validation: field.validation,
+      config: field.config,
+    }));
+    return JSON.stringify(normalized);
   }
 
   /**
@@ -349,7 +393,7 @@ export class ContentTypeEditor {
    * Validate the schema
    */
   async validateSchema(): Promise<void> {
-    const schema = fieldsToSchema(this.state.fields, this.getSlug());
+    const schema = this.buildSchemaPayload();
 
     try {
       const result = await this.api.validateSchema({
@@ -919,7 +963,7 @@ export class ContentTypeEditor {
     if (!this.state.contentType?.id) return;
 
     // First check compatibility
-    const schema = fieldsToSchema(this.state.fields, this.getSlug());
+    const schema = this.buildSchemaPayload();
     let compatResult: CompatibilityCheckResult | null = null;
     let compatError: string | null = null;
 
@@ -1853,16 +1897,6 @@ export class ContentTypeEditor {
     if (typeof fb?.initJSONEditors === 'function') {
       fb.initJSONEditors();
     }
-
-    // Switch hybrid editors to GUI view by default.
-    // The upstream template defaults hybrid mode to "raw"; clicking
-    // the GUI toggle triggers setActiveView which handles visibility,
-    // button styling, and data sync.
-    this.container
-      .querySelectorAll<HTMLButtonElement>(
-        '[data-json-editor-mode="hybrid"] [data-json-editor-mode-btn="gui"]'
-      )
-      .forEach((btn: HTMLButtonElement) => btn.click());
   }
 
   private renderValidationErrors(): void {

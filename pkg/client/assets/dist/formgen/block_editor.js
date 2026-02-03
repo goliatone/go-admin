@@ -24,12 +24,12 @@ function ae(t) {
   const n = t.querySelector("[data-block-add-select]"), r = t.querySelector("[data-block-add]"), d = t.querySelector("[data-block-empty]");
   return { root: t, list: e, output: o, addSelect: n ?? void 0, addButton: r ?? void 0, emptyState: d ?? void 0 };
 }
-function V(t) {
+function O(t) {
   return t.replace(/\]/g, "").split(/\.|\[/).map((o) => o.trim()).filter((o) => o.length > 0);
 }
 function ce(t, e, o) {
   if (!t) return o;
-  const n = V(o);
+  const n = O(o);
   let r = `${t}[${e}]`;
   for (const d of n)
     r += `[${d}]`;
@@ -37,7 +37,7 @@ function ce(t, e, o) {
 }
 function le(t, e) {
   if (!t || !e) return;
-  const o = V(e);
+  const o = O(e);
   let n = t;
   for (const r of o) {
     if (n == null) return;
@@ -47,7 +47,7 @@ function le(t, e) {
 }
 function se(t, e, o) {
   if (!e) return;
-  const n = V(e);
+  const n = O(e);
   if (n.length === 0) return;
   let r = t;
   n.forEach((d, p) => {
@@ -188,7 +188,7 @@ function K(t, e) {
     for (const C of A) {
       if (C.startsWith("_")) continue;
       const B = d[C], c = p[C];
-      O(B, c) || o.push({
+      V(B, c) || o.push({
         blockIndex: r,
         blockType: y,
         field: C,
@@ -204,15 +204,15 @@ function K(t, e) {
     legacyCount: e.length
   };
 }
-function O(t, e) {
+function V(t, e) {
   if (t === e) return !0;
   if (t == null || e == null) return t === e;
   if (typeof t != typeof e) return !1;
   if (Array.isArray(t) && Array.isArray(e))
-    return t.length !== e.length ? !1 : t.every((o, n) => O(o, e[n]));
+    return t.length !== e.length ? !1 : t.every((o, n) => V(o, e[n]));
   if (typeof t == "object") {
     const o = Object.keys(t), n = Object.keys(e);
-    return o.length !== n.length ? !1 : o.every((r) => O(t[r], e[r]));
+    return o.length !== n.length ? !1 : o.every((r) => V(t[r], e[r]));
   }
   return !1;
 }
@@ -234,8 +234,8 @@ function ge(t) {
     const B = document.createElement("ul");
     B.className = "mt-2 space-y-1 pl-4";
     for (const c of t.conflicts.slice(0, 10)) {
-      const q = document.createElement("li");
-      q.className = "text-amber-700 dark:text-amber-300", q.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, B.appendChild(q);
+      const w = document.createElement("li");
+      w.className = "text-amber-700 dark:text-amber-300", w.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, B.appendChild(w);
     }
     if (t.conflicts.length > 10) {
       const c = document.createElement("li");
@@ -258,11 +258,11 @@ function he() {
   return t.className = "block-drop-indicator", t.setAttribute("data-block-drop-indicator", "true"), t.setAttribute("aria-hidden", "true"), t;
 }
 function W(t, e, o) {
-  w(t);
+  q(t);
   const n = he();
   return e ? o === "before" ? e.parentElement?.insertBefore(n, e) : e.parentElement?.insertBefore(n, e.nextSibling) : t.appendChild(n), n;
 }
-function w(t) {
+function q(t) {
   t.querySelectorAll("[data-block-drop-indicator]").forEach((e) => e.remove());
 }
 function $(t, e, o) {
@@ -381,7 +381,7 @@ function Ae(t) {
   if (!e) return;
   const o = re(t), n = ue(t, o), r = t.dataset.blockField || e.output.name, d = Q(t.dataset.blockSortable), p = o.sortable ?? d ?? !1, y = o.allowDrag ?? p, A = o.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", C = o.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", B = o.validateOnInput ?? !0;
   e.addButton && (e.addButton.textContent = A), e.emptyState && (e.emptyState.textContent = C);
-  const c = e.list, q = e.output, Y = () => {
+  const c = e.list, w = e.output, F = () => {
     const a = Array.from(c.querySelectorAll("[data-block-item]"));
     let u = !1;
     const s = a.map((b) => {
@@ -412,7 +412,7 @@ function Ae(t) {
       }
       return l;
     });
-    q.value = JSON.stringify(s), t.dataset.blockEditorValid = u ? "false" : "true";
+    w.value = JSON.stringify(s), t.dataset.blockEditorValid = u ? "false" : "true";
   }, Z = () => {
     Array.from(c.querySelectorAll("[data-block-item]")).forEach((u, s) => {
       u.querySelectorAll("input, select, textarea").forEach((b) => {
@@ -426,10 +426,10 @@ function Ae(t) {
     const a = c.querySelector("[data-block-item]");
     e.emptyState.classList.toggle("hidden", !!a);
   }, L = () => {
-    Z(), Y(), ee();
-  }, _ = t.closest("form");
-  _ && _.addEventListener("submit", () => {
-    Y();
+    Z(), F(), ee();
+  }, Y = t.closest("form");
+  Y && Y.addEventListener("submit", () => {
+    F();
   });
   const te = (a, u) => {
     a.querySelectorAll("input, select, textarea").forEach((s) => {
@@ -438,7 +438,7 @@ function Ae(t) {
       const l = le(u, b);
       l !== void 0 && de(s, l);
     });
-  }, R = (a, u) => {
+  }, _ = (a, u) => {
     const s = document.createElement("div");
     s.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", s.setAttribute("data-block-item", "true"), s.dataset.blockType = a.type, p && s.setAttribute("draggable", "true");
     const b = document.createElement("div");
@@ -472,15 +472,15 @@ function Ae(t) {
     h.appendChild(v), s.appendChild(b), s.appendChild(h), ve(s, a.type);
     const x = fe(a, u, o.schemaVersionPattern);
     return Ee(s, x), s.dataset.blockSchema = x, u && te(s, u), (a.collapsed ?? !1) && (h.classList.add("hidden"), s.dataset.blockCollapsed = "true", m.textContent = "Expand"), s;
-  }, F = (a, u) => {
+  }, R = (a, u) => {
     const s = n.get(a);
     if (!s) return;
-    const b = R(s, u);
+    const b = _(s, u);
     c.appendChild(b), L();
   }, j = e.addButton, H = e.addSelect;
   if (j && H && j.addEventListener("click", () => {
     const a = H.value.trim();
-    a && (F(a), H.value = "");
+    a && (R(a), H.value = "");
   }), t.addEventListener("click", (a) => {
     const u = a.target;
     if (!(u instanceof HTMLElement)) return;
@@ -547,14 +547,14 @@ function Ae(t) {
     }), c.addEventListener("dragover", (i) => {
       i.preventDefault(), i.dataTransfer && (i.dataTransfer.dropEffect = "move");
       const f = i.clientY, m = $(c, f, l.dragging || void 0);
-      m ? W(c, m.item, m.position) : w(c);
+      m ? W(c, m.item, m.position) : q(c);
     }), c.addEventListener("dragenter", (i) => {
       i.preventDefault();
     }), c.addEventListener("dragleave", (i) => {
       const f = i.relatedTarget;
-      (!f || !c.contains(f)) && w(c);
+      (!f || !c.contains(f)) && q(c);
     }), c.addEventListener("drop", (i) => {
-      i.preventDefault(), w(c);
+      i.preventDefault(), q(c);
       const f = i.clientY, m = $(c, f, l.dragging || void 0);
       if (!l.dragging && b && i.dataTransfer) {
         const h = i.dataTransfer.getData("application/x-block");
@@ -562,7 +562,7 @@ function Ae(t) {
           try {
             const v = JSON.parse(h), x = v._type;
             if (x && n.has(x)) {
-              const T = n.get(x), E = R(T, v);
+              const T = n.get(x), E = _(T, v);
               m ? m.position === "before" ? c.insertBefore(E, m.item) : c.insertBefore(E, m.item.nextSibling) : c.appendChild(E), L(), I(`Block ${x} added from another editor`);
             }
           } catch {
@@ -575,7 +575,7 @@ function Ae(t) {
         I(`${h.label} moved to position ${h.position} of ${h.total}`);
       }
     }), c.addEventListener("dragend", () => {
-      w(c), l.dragging && (l.dragging.classList.remove("block-item--dragging"), l.dragging = null), l.originalIndex = -1, L();
+      q(c), l.dragging && (l.dragging.classList.remove("block-item--dragging"), l.dragging = null), l.originalIndex = -1, L();
     }), u) {
       let i = null, f = null, m = !1;
       const S = 10;
@@ -605,9 +605,9 @@ function Ae(t) {
         }
         h.preventDefault(), f && (f.style.top = `${v.clientY - f.offsetHeight / 2}px`);
         const x = $(c, v.clientY, i || void 0);
-        x ? W(c, x.item, x.position) : w(c), xe(c, l);
+        x ? W(c, x.item, x.position) : q(c), xe(c, l);
       }, { passive: !1 }), c.addEventListener("touchend", () => {
-        if (l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), w(c), f && (f.remove(), f = null), i && m) {
+        if (l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), q(c), f && (f.remove(), f = null), i && m) {
           i.classList.remove("block-item--placeholder");
           const h = $(c, l.touchCurrentY, i);
           if (h && (h.position === "before" ? c.insertBefore(i, h.item) : c.insertBefore(i, h.item.nextSibling)), s && G(c, i), k(i) !== l.originalIndex) {
@@ -618,7 +618,7 @@ function Ae(t) {
         }
         i = null, m = !1, l.dragging = null, l.originalIndex = -1;
       }), c.addEventListener("touchcancel", () => {
-        l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), w(c), f && (f.remove(), f = null), i && i.classList.remove("block-item--placeholder"), i = null, m = !1, l.dragging = null, l.originalIndex = -1;
+        l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), q(c), f && (f.remove(), f = null), i && i.classList.remove("block-item--placeholder"), i = null, m = !1, l.dragging = null, l.originalIndex = -1;
       });
     }
   }
@@ -695,24 +695,24 @@ function Ae(t) {
   new MutationObserver(() => {
     ne();
   }).observe(c, { childList: !0, subtree: !0 });
-  const U = q.value?.trim();
+  const P = w.value?.trim();
   let M = [];
-  if (U)
+  if (P)
     try {
-      const a = JSON.parse(U);
+      const a = JSON.parse(P);
       Array.isArray(a) && (M = a, a.forEach((u) => {
         const s = typeof u == "object" && u ? u._type : "";
-        s && n.has(s) && F(s, u);
+        s && n.has(s) && R(s, u);
       }));
     } catch {
     }
-  const P = o.showConflicts ?? !0;
-  if (P && o.legacyBlocks && Array.isArray(o.legacyBlocks)) {
+  const U = o.showConflicts ?? !0;
+  if (U && o.legacyBlocks && Array.isArray(o.legacyBlocks)) {
     const a = K(M, o.legacyBlocks);
     a.hasConflicts && z(t, a);
   }
   const J = t.dataset.blockLegacy;
-  if (P && J)
+  if (U && J)
     try {
       const a = JSON.parse(J);
       if (Array.isArray(a)) {
@@ -723,14 +723,20 @@ function Ae(t) {
     }
   L();
 }
+function Be(t, e) {
+  const o = document.createElement("template");
+  o.setAttribute("data-block-template", ""), o.dataset.blockType = e.type, o.dataset.blockLabel = e.label, e.icon && (o.dataset.blockIcon = e.icon), e.schemaVersion && (o.dataset.blockSchemaVersion = e.schemaVersion), e.requiredFields && e.requiredFields.length > 0 && (o.dataset.blockRequiredFields = e.requiredFields.join(",")), o.innerHTML = e.html, t.appendChild(o);
+}
 function Ce(t = document) {
-  Array.from(t.querySelectorAll('[data-component="block"], [data-block-editor]')).forEach((o) => Ae(o));
+  Array.from(t.querySelectorAll('[data-component="block"], [data-block-editor]')).filter((o) => o.dataset.blockLibraryPicker !== "true" && o.dataset.blockInit !== "manual").forEach((o) => Ae(o));
 }
 function Se(t) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", t, { once: !0 }) : t();
 }
 Se(() => Ce());
 export {
-  Ce as initBlockEditors
+  Ae as initBlockEditor,
+  Ce as initBlockEditors,
+  Be as registerBlockTemplate
 };
 //# sourceMappingURL=block_editor.js.map
