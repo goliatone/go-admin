@@ -26,6 +26,14 @@ func (e *SimpleWorkflowEngine) RegisterWorkflow(entityType string, definition Wo
 	e.definitions[entityType] = definition
 }
 
+// HasWorkflow reports whether a workflow definition exists for an entity type.
+func (e *SimpleWorkflowEngine) HasWorkflow(entityType string) bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	_, ok := e.definitions[entityType]
+	return ok
+}
+
 // Transition applies a transition to an entity.
 func (e *SimpleWorkflowEngine) Transition(ctx context.Context, input TransitionInput) (*TransitionResult, error) {
 	e.mu.RLock()
