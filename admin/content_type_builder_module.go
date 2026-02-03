@@ -12,6 +12,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	formgen "github.com/goliatone/go-formgen"
 	formgenjsonschema "github.com/goliatone/go-formgen/pkg/jsonschema"
+	formgenmodel "github.com/goliatone/go-formgen/pkg/model"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 	formgenvanilla "github.com/goliatone/go-formgen/pkg/renderers/vanilla"
@@ -70,6 +71,8 @@ type ContentTypeBuilderModule struct {
 	rateLimiter      *RateLimiter
 	previewFallback  SchemaPreviewFallback
 	activity         ActivitySink
+	workflow         WorkflowEngine
+	workflowAuth     WorkflowAuthorizer
 }
 
 // ContentTypeBuilderOption configures the content type builder module.
@@ -140,6 +143,20 @@ func WithContentTypeBuilderRateLimiter(limiter *RateLimiter) ContentTypeBuilderO
 func WithContentTypeBuilderPreviewFallback(fallback SchemaPreviewFallback) ContentTypeBuilderOption {
 	return func(module *ContentTypeBuilderModule) {
 		module.previewFallback = fallback
+	}
+}
+
+// WithContentTypeBuilderWorkflow sets a workflow engine for content type builder panels.
+func WithContentTypeBuilderWorkflow(workflow WorkflowEngine) ContentTypeBuilderOption {
+	return func(module *ContentTypeBuilderModule) {
+		module.workflow = workflow
+	}
+}
+
+// WithContentTypeBuilderWorkflowAuthorizer sets a workflow authorizer for builder panels.
+func WithContentTypeBuilderWorkflowAuthorizer(authorizer WorkflowAuthorizer) ContentTypeBuilderOption {
+	return func(module *ContentTypeBuilderModule) {
+		module.workflowAuth = authorizer
 	}
 }
 
@@ -222,6 +239,7 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	m.registerSchemaRoutes(ctx.Admin)
 	m.registerBlockDefinitionCategoriesRoute(ctx.Admin)
 	m.registerBlockDefinitionFieldTypesRoute(ctx.Admin)
+	m.registerBlockDefinitionTemplateRoutes(ctx.Admin)
 
 	if err := m.loadExistingContentTypes(ctx.Admin); err != nil {
 		return err
@@ -393,6 +411,20 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionsPanel(ctx ModuleConte
 			Field{Name: "migration_status", Label: "Migration Status", Type: "text"},
 			Field{Name: "locale", Label: "Locale", Type: "text"},
 		)
+
+	workflow := m.workflow
+	if workflow == nil && ctx.Admin != nil {
+		workflow = ctx.Admin.workflow
+	}
+	if workflow == nil {
+		workflow = resolveCMSWorkflowEngine(ctx.Admin)
+	}
+	if workflow != nil {
+		builder.WithWorkflow(workflow)
+		if m.workflowAuth != nil {
+			builder.WithWorkflowAuthorizer(m.workflowAuth)
+		}
+	}
 
 	if perm := strings.TrimSpace(m.permission); perm != "" {
 		builder.Permissions(PanelPermissions{
@@ -812,7 +844,7 @@ func (c *contentTypePublishCommand) Execute(ctx context.Context, msg ContentType
 	if status == "" {
 		status = "active"
 	}
-	ct := CMSContentType{ID: id, Status: status}
+	ct := CMSContentType{ID: id, Status: status, AllowBreakingChanges: msg.AllowBreakingChanges}
 	var previousStatus string
 	if existing, err := c.service.ContentTypeBySlug(ctx, id); err == nil && existing != nil && existing.ID != "" {
 		ct.ID = existing.ID
@@ -881,8 +913,9 @@ func (m ContentTypeDeleteMsg) Validate() error {
 
 // ContentTypePublishMsg is a command payload for publishing content types.
 type ContentTypePublishMsg struct {
-	ID     string
-	Status string
+	ID                   string
+	Status               string
+	AllowBreakingChanges bool
 }
 
 func (ContentTypePublishMsg) Type() string { return contentTypePublishCommandName }
@@ -925,7 +958,8 @@ func buildContentTypePublishMsg(payload map[string]any, ids []string) (ContentTy
 		return ContentTypePublishMsg{}, errors.New("content type id required")
 	}
 	status := strings.TrimSpace(toString(payload["status"]))
-	return ContentTypePublishMsg{ID: id, Status: status}, nil
+	allowBreaking := toBool(payload["allow_breaking_changes"]) || toBool(payload["allow_breaking"]) || toBool(payload["force"])
+	return ContentTypePublishMsg{ID: id, Status: status, AllowBreakingChanges: allowBreaking}, nil
 }
 
 func buildContentTypeDeleteMsg(payload map[string]any, ids []string) (ContentTypeDeleteMsg, error) {
@@ -957,6 +991,7 @@ func NewFormgenSchemaValidator(basePath string) (*FormgenSchemaValidator, error)
 	componentRegistry := components.NewDefaultRegistry()
 	componentRegistry.MustRegister("schema-editor", SchemaEditorDescriptor(basePath))
 	componentRegistry.MustRegister("block", BlockEditorDescriptor(basePath))
+	componentRegistry.MustRegister("block-library-picker", BlockLibraryPickerDescriptor(basePath))
 
 	registry := formgenrender.NewRegistry()
 	renderer, err := formgenvanilla.New(
@@ -972,6 +1007,7 @@ func NewFormgenSchemaValidator(basePath string) (*FormgenSchemaValidator, error)
 	orch := formgen.NewOrchestrator(
 		formgenorchestrator.WithRegistry(registry),
 		formgenorchestrator.WithDefaultRenderer(renderer.Name()),
+		formgenorchestrator.WithSchemaTransformer(jsonEditorHybridTransformer()),
 	)
 	return &FormgenSchemaValidator{orchestrator: orch, renderer: renderer.Name()}, nil
 }
@@ -1030,6 +1066,16 @@ func (v *FormgenSchemaValidator) generate(ctx context.Context, schema map[string
 		OperationID:      formID,
 		NormalizeOptions: normalizeOptions,
 		Renderer:         v.renderer,
+		RenderOptions: formgenrender.RenderOptions{
+			ChromeClasses: &formgenrender.ChromeClasses{
+				Form:     "space-y-6",
+				Header:   "space-y-1",
+				Section:  "space-y-4",
+				Fieldset: "space-y-4",
+				Actions:  "hidden",
+				Grid:     "grid gap-6",
+			},
+		},
 	}
 	html, err := v.orchestrator.Generate(ctx, request)
 	if err != nil {
@@ -1082,28 +1128,32 @@ func stripUnsupportedSchemaKeywords(schema map[string]any) map[string]any {
 	if schema == nil {
 		return nil
 	}
-	value := stripUnsupportedSchemaValue(schema)
+	value := stripUnsupportedSchemaValue(schema, false)
 	if out, ok := value.(map[string]any); ok {
 		return out
 	}
 	return schema
 }
 
-func stripUnsupportedSchemaValue(value any) any {
+func stripUnsupportedSchemaValue(value any, inProperties bool) any {
 	switch v := value.(type) {
 	case map[string]any:
 		out := make(map[string]any, len(v))
 		for k, item := range v {
-			if k == "additionalProperties" || k == "metadata" {
+			if !inProperties && (k == "additionalProperties" || k == "metadata") {
 				continue
 			}
-			out[k] = stripUnsupportedSchemaValue(item)
+			if !inProperties && k == "properties" {
+				out[k] = stripUnsupportedSchemaValue(item, true)
+				continue
+			}
+			out[k] = stripUnsupportedSchemaValue(item, false)
 		}
 		return out
 	case []any:
 		out := make([]any, 0, len(v))
 		for _, item := range v {
-			out = append(out, stripUnsupportedSchemaValue(item))
+			out = append(out, stripUnsupportedSchemaValue(item, false))
 		}
 		return out
 	default:
@@ -1157,6 +1207,35 @@ func parseSchemaPayload(body map[string]any) (map[string]any, map[string]any, Sc
 		}
 	}
 	return schema, uiSchema, opts, nil
+}
+
+// jsonEditorHybridTransformer returns a transformer that sets editorMode to
+// "hybrid" on schemaless object fields so the JSON editor renders with both
+// the GUI key-value editor and the raw textarea.
+func jsonEditorHybridTransformer() formgenorchestrator.TransformerFunc {
+	return func(ctx context.Context, form *formgenmodel.FormModel) error {
+		setHybridMode(form.Fields)
+		return nil
+	}
+}
+
+func setHybridMode(fields []formgenmodel.Field) {
+	for idx := range fields {
+		field := &fields[idx]
+		if field.Type == formgenmodel.FieldTypeObject && field.Relationship == nil && len(field.Nested) == 0 {
+			if field.UIHints == nil {
+				field.UIHints = make(map[string]string)
+			}
+			field.UIHints["editorMode"] = "hybrid"
+			field.UIHints["editorActiveView"] = "gui"
+		}
+		if len(field.Nested) > 0 {
+			setHybridMode(field.Nested)
+		}
+		if field.Items != nil && len(field.Items.Nested) > 0 {
+			setHybridMode(field.Items.Nested)
+		}
+	}
 }
 
 func firstString(values ...string) string {
