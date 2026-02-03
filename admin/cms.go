@@ -163,6 +163,11 @@ func (a *Admin) ContentService() CMSContentService {
 	return a.contentSvc
 }
 
+// ContentTypeService exposes the configured CMS content type service.
+func (a *Admin) ContentTypeService() CMSContentTypeService {
+	return a.contentTypeSvc
+}
+
 func (a *Admin) ensureCMS(ctx context.Context) error {
 	requireCMS := featureEnabled(a.featureGate, FeatureCMS) || featureEnabled(a.featureGate, FeatureDashboard)
 	if !requireCMS {
