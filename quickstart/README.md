@@ -177,6 +177,43 @@ Templates use a conditional fallback pattern:
 {% endif %}
 ```
 
+## CMS workflow defaults
+Quickstart defaults wire CMS workflows for demo panels when you do not provide a custom engine. To start from defaults and override only a subset, register defaults before your overrides or opt in to default registration on a custom engine:
+
+```go
+workflow := admin.NewSimpleWorkflowEngine()
+admin.RegisterDefaultCMSWorkflows(workflow)
+workflow.RegisterWorkflow("pages", admin.WorkflowDefinition{
+    EntityType:   "pages",
+    InitialState: "draft",
+    Transitions: []admin.WorkflowTransition{
+        {Name: "submit_for_approval", From: "draft", To: "approval"},
+        {Name: "publish", From: "approval", To: "published"},
+    },
+})
+
+adm, _, err := quickstart.NewAdmin(
+    cfg,
+    hooks,
+    quickstart.WithAdminDependencies(admin.Dependencies{
+        Workflow: workflow,
+    }),
+)
+if err != nil {
+    return err
+}
+adm.WithCMSWorkflowDefaults()
+```
+
+CMS demo panels default to the `submit_for_approval` and `publish` actions. Override them with:
+
+```go
+adm.WithCMSWorkflowActions(
+    admin.Action{Name: "submit_for_approval", Label: "Submit for approval"},
+    admin.Action{Name: "publish", Label: "Publish"},
+)
+```
+
 ### Theme selector + manifest
 When using go-theme, pass the selector + manifest into quickstart so the Preferences UI can list available variants:
 
