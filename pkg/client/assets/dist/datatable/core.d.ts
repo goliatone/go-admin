@@ -245,6 +245,10 @@ export declare class DataGrid {
      */
     private bindBulkActions;
     /**
+     * Bind overflow menu toggle (three-dot "More" button)
+     */
+    private bindOverflowMenu;
+    /**
      * Update bulk actions bar visibility with animation
      */
     private updateBulkActionsBar;

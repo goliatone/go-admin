@@ -419,9 +419,10 @@
 
     pointer-events: auto;
 
-    /* Minimum width but allow growth */
-    min-width: 400px;
-    max-width: 600px;
+    /* Auto-size to content, clamp for extremes */
+    width: fit-content;
+    min-width: 280px;
+    max-width: calc(100vw - 200px);
   }
 
   /* Close button */
@@ -436,6 +437,7 @@
   /* Count text */
   .bulk-count-text {
     @apply text-sm font-medium text-sidebar-text;
+    white-space: nowrap;
   }
 
   #selected-count {
@@ -462,6 +464,43 @@
 
   .bulk-action-btn-icon:hover {
     @apply bg-sidebar-bg-active;
+  }
+
+  /* Danger variant for destructive actions */
+  .bulk-action-btn--danger {
+    @apply text-red-300 bg-red-900/30;
+  }
+
+  .bulk-action-btn--danger:hover {
+    @apply bg-red-900/50;
+  }
+
+  /* Overflow dropdown menu */
+  .bulk-overflow-menu {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    margin-bottom: 8px;
+    min-width: 160px;
+    @apply bg-sidebar-bg border border-sidebar-border rounded-lg shadow-lg;
+    z-index: 50;
+  }
+
+  .bulk-overflow-item {
+    @apply block w-full text-left px-4 py-2 text-sm text-sidebar-text;
+    transition: background-color 0.15s;
+  }
+
+  .bulk-overflow-item:hover {
+    @apply bg-sidebar-bg-hover;
+  }
+
+  .bulk-overflow-item:first-child {
+    @apply rounded-t-lg;
+  }
+
+  .bulk-overflow-item:last-child {
+    @apply rounded-b-lg;
   }
 
   /* Responsive adjustments */
