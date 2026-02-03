@@ -69,6 +69,9 @@ type Admin struct {
 	navMenuCode                 string
 	translator                  Translator
 	workflow                    WorkflowEngine
+	cmsWorkflowDefaults         bool
+	cmsWorkflowActions          []Action
+	cmsWorkflowActionsSet       bool
 	preview                     *PreviewService
 	panelTabPermissionEvaluator PanelTabPermissionEvaluator
 	panelTabCollisionHandler    PanelTabCollisionHandler
@@ -461,6 +464,28 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 // WithWorkflow attaches a workflow engine to the admin orchestrator.
 func (a *Admin) WithWorkflow(w WorkflowEngine) *Admin {
 	a.workflow = w
+	applyCMSWorkflowDefaults(a)
+	return a
+}
+
+// WithCMSWorkflowDefaults enables registering default CMS workflows on a custom engine
+// that can report existing definitions.
+func (a *Admin) WithCMSWorkflowDefaults() *Admin {
+	if a == nil {
+		return a
+	}
+	a.cmsWorkflowDefaults = true
+	applyCMSWorkflowDefaults(a)
+	return a
+}
+
+// WithCMSWorkflowActions overrides the default CMS workflow actions for demo panels.
+func (a *Admin) WithCMSWorkflowActions(actions ...Action) *Admin {
+	if a == nil {
+		return a
+	}
+	a.cmsWorkflowActions = append([]Action{}, actions...)
+	a.cmsWorkflowActionsSet = true
 	return a
 }
 
