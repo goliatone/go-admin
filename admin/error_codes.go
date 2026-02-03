@@ -17,6 +17,7 @@ const (
 	TextCodeReplSessionLimit          = "REPL_SESSION_LIMIT"
 	TextCodeWorkflowNotFound          = "WORKFLOW_NOT_FOUND"
 	TextCodeWorkflowInvalidTransition = "WORKFLOW_INVALID_TRANSITION"
+	TextCodeContentTypeSchemaBreaking = "CONTENT_TYPE_SCHEMA_BREAKING"
 	TextCodeFeatureEnabledRequired    = "FEATURE_ENABLED_REQUIRED"
 	TextCodeFeatureAliasDisabled      = "FEATURE_ALIAS_DISABLED"
 	TextCodeMissingPanel              = "MISSING_PANEL"
@@ -51,6 +52,7 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeReplSessionLimit, Description: "REPL session limit reached.", Category: goerrors.CategoryRateLimit, HTTPStatus: 429},
 	{Code: TextCodeWorkflowNotFound, Description: "Workflow definition is missing for the entity type.", Category: goerrors.CategoryNotFound, HTTPStatus: 404},
 	{Code: TextCodeWorkflowInvalidTransition, Description: "Workflow transition is invalid for the current state.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
+	{Code: TextCodeContentTypeSchemaBreaking, Description: "Content type schema changes are breaking.", Category: goerrors.CategoryBadInput, HTTPStatus: 409},
 	{Code: TextCodeFeatureEnabledRequired, Description: "Feature must be enabled to apply overrides.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeFeatureAliasDisabled, Description: "Feature alias overrides are disabled.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeMissingPanel, Description: "Required debug panel identifier is missing.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
