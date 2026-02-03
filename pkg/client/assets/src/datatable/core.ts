@@ -1518,11 +1518,14 @@ export class DataGrid {
    * Bind bulk action buttons
    */
   private bindBulkActions(): void {
+    const overlay = document.getElementById('bulk-actions-overlay');
+    const bulkBase = overlay?.dataset?.bulkBase || '';
     const bulkActionButtons = document.querySelectorAll('[data-bulk-action]');
 
     bulkActionButtons.forEach((btn) => {
       btn.addEventListener('click', async () => {
-        const actionId = (btn as HTMLElement).dataset.bulkAction;
+        const el = btn as HTMLElement;
+        const actionId = el.dataset.bulkAction;
         if (!actionId) return;
 
         const ids = Array.from(this.state.selectedRows);
@@ -1531,7 +1534,7 @@ export class DataGrid {
           return;
         }
 
-        // Try config.bulkActions first (new system)
+        // 1. Try config.bulkActions first (inline JS config)
         if (this.config.bulkActions) {
           const bulkActionConfig = this.config.bulkActions.find(ba => ba.id === actionId);
           if (bulkActionConfig) {
@@ -1548,7 +1551,29 @@ export class DataGrid {
           }
         }
 
-        // Fall back to behaviors.bulkActions (old system)
+        // 2. Try DOM data-driven config (from server-rendered data-bulk-* attributes)
+        if (bulkBase) {
+          const endpoint = `${bulkBase}/${actionId}`;
+          const confirmMsg = el.dataset.bulkConfirm;
+          const domConfig = {
+            id: actionId,
+            label: el.textContent?.trim() || actionId,
+            endpoint: endpoint,
+            confirm: confirmMsg,
+          };
+          try {
+            await this.actionRenderer.executeBulkAction(domConfig, ids);
+            this.state.selectedRows.clear();
+            this.updateBulkActionsBar();
+            await this.refresh();
+          } catch (error) {
+            console.error('Bulk action failed:', error);
+            this.showError('Bulk action failed');
+          }
+          return;
+        }
+
+        // 3. Fall back to behaviors.bulkActions (old system)
         if (this.config.behaviors?.bulkActions) {
           try {
             await this.config.behaviors.bulkActions.execute(actionId, ids, this);
@@ -1575,6 +1600,40 @@ export class DataGrid {
         if (selectAll) selectAll.checked = false;
       });
     }
+
+    // Bind overflow menu toggle
+    this.bindOverflowMenu();
+  }
+
+  /**
+   * Bind overflow menu toggle (three-dot "More" button)
+   */
+  private bindOverflowMenu(): void {
+    const moreBtn = document.getElementById('bulk-more-btn');
+    const menu = document.getElementById('bulk-overflow-menu');
+    if (!moreBtn || !menu) return;
+
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.classList.toggle('hidden');
+    });
+
+    // Close on outside click
+    document.addEventListener('click', () => {
+      menu.classList.add('hidden');
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        menu.classList.add('hidden');
+      }
+    });
+
+    // Prevent menu clicks from closing the menu
+    menu.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
   }
 
   /**

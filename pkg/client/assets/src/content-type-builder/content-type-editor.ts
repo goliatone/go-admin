@@ -921,6 +921,7 @@ export class ContentTypeEditor {
     // First check compatibility
     const schema = fieldsToSchema(this.state.fields, this.getSlug());
     let compatResult: CompatibilityCheckResult | null = null;
+    let compatError: string | null = null;
 
     try {
       compatResult = await this.api.checkCompatibility(
@@ -928,14 +929,15 @@ export class ContentTypeEditor {
         schema,
         this.buildUISchema()
       );
-    } catch {
-      // Compatibility check endpoint might not be available; proceed with warning
+    } catch (error) {
+      compatError = error instanceof Error ? error.message : 'Compatibility check failed';
     }
 
     // Show confirmation modal
     const modal = new PublishConfirmationModal({
       contentType: this.state.contentType,
       compatibilityResult: compatResult,
+      compatibilityError: compatError ?? undefined,
       onConfirm: async (force: boolean) => {
         try {
           const published = await this.api.publish(this.state.contentType!.id, force);
@@ -2007,6 +2009,7 @@ function formatDate(dateStr: string): string {
 interface PublishConfirmationModalConfig {
   contentType: ContentType;
   compatibilityResult: CompatibilityCheckResult | null;
+  compatibilityError?: string;
   onConfirm: (force: boolean) => void;
   onCancel: () => void;
 }
@@ -2025,10 +2028,17 @@ class PublishConfirmationModal extends Modal {
   }
 
   protected renderContent(): string {
-    const { contentType, compatibilityResult } = this.config;
+    const { contentType, compatibilityResult, compatibilityError } = this.config;
+    const hasCompatibilityError = Boolean(compatibilityError);
     const hasBreakingChanges = (compatibilityResult?.breaking_changes?.length ?? 0) > 0;
     const hasWarnings = (compatibilityResult?.warnings?.length ?? 0) > 0;
     const affectedCount = compatibilityResult?.affected_entries_count ?? 0;
+    const confirmDisabled = hasCompatibilityError || hasBreakingChanges;
+    const confirmClass = hasCompatibilityError
+      ? 'bg-gray-400 cursor-not-allowed'
+      : hasBreakingChanges
+        ? 'bg-red-600 hover:bg-red-700 disabled:opacity-50'
+        : 'bg-green-600 hover:bg-green-700';
 
     return `
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -2043,7 +2053,26 @@ class PublishConfirmationModal extends Modal {
           ${contentType.status === 'draft' ? 'This will make it available for content creation.' : 'This will create a new version of the schema.'}
         </p>
 
-        ${hasBreakingChanges ? `
+        ${hasCompatibilityError ? `
+          <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+              <span class="text-sm font-medium text-red-800 dark:text-red-200">Compatibility Check Failed</span>
+            </div>
+            <p class="ml-7 text-sm text-red-700 dark:text-red-300">
+              Publishing is blocked until compatibility can be verified.
+            </p>
+            ${compatibilityError ? `
+              <p class="mt-2 ml-7 text-xs text-red-600 dark:text-red-400">
+                ${escapeHtml(compatibilityError)}
+              </p>
+            ` : ''}
+          </div>
+        ` : ''}
+
+        ${!hasCompatibilityError && hasBreakingChanges ? `
           <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <div class="flex items-center gap-2 mb-2">
               <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2064,7 +2093,7 @@ class PublishConfirmationModal extends Modal {
           </div>
         ` : ''}
 
-        ${hasWarnings ? `
+        ${!hasCompatibilityError && hasWarnings ? `
           <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <div class="flex items-center gap-2 mb-2">
               <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2080,7 +2109,7 @@ class PublishConfirmationModal extends Modal {
           </div>
         ` : ''}
 
-        ${!hasBreakingChanges && !hasWarnings ? `
+        ${!hasCompatibilityError && !hasBreakingChanges && !hasWarnings ? `
           <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
             <div class="flex items-center gap-2">
               <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2094,7 +2123,7 @@ class PublishConfirmationModal extends Modal {
           </div>
         ` : ''}
 
-        ${hasBreakingChanges ? `
+        ${!hasCompatibilityError && hasBreakingChanges ? `
           <label class="flex items-start gap-2">
             <input
               type="checkbox"
@@ -2119,8 +2148,8 @@ class PublishConfirmationModal extends Modal {
         <button
           type="button"
           data-publish-confirm
-          class="px-4 py-2 text-sm font-medium text-white rounded-lg ${hasBreakingChanges ? 'bg-red-600 hover:bg-red-700 disabled:opacity-50' : 'bg-green-600 hover:bg-green-700'}"
-          ${hasBreakingChanges ? 'disabled' : ''}
+          class="px-4 py-2 text-sm font-medium text-white rounded-lg ${confirmClass}"
+          ${confirmDisabled ? 'disabled' : ''}
         >
           ${hasBreakingChanges ? 'Publish with Breaking Changes' : 'Publish'}
         </button>
@@ -2136,15 +2165,19 @@ class PublishConfirmationModal extends Modal {
 
     const confirmBtn = this.container?.querySelector<HTMLButtonElement>('[data-publish-confirm]');
     const forceCheckbox = this.container?.querySelector<HTMLInputElement>('[data-publish-force]');
+    const blockPublish = Boolean(this.config.compatibilityError);
 
     // Enable confirm button when force checkbox is checked (for breaking changes)
     forceCheckbox?.addEventListener('change', () => {
-      if (confirmBtn) {
+      if (confirmBtn && !blockPublish) {
         confirmBtn.disabled = !forceCheckbox.checked;
       }
     });
 
     confirmBtn?.addEventListener('click', () => {
+      if (blockPublish) {
+        return;
+      }
       const force = forceCheckbox?.checked ?? false;
       this.config.onConfirm(force);
       this.hide();

@@ -1,12 +1,16 @@
 {% extends "layout.html" %}
 
-{% block title %}{{ resource_label|default:resource|title }} - {{ title }}{% endblock %}
+{% block title %}{% block list_title %}{{ resource_label|default:resource|title }} - {{ title }}{% endblock %}{% endblock %}
 
 {% block content %}
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
   <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
   <div class="flex gap-3">
-    <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ singularize(resource_label|default:resource)|title }}</a>
+    {% block header_actions %}
+      {% block header_actions_prepend %}{% endblock %}
+      <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ singularize(resource_label|default:resource)|title }}</a>
+      {% block header_actions_append %}{% endblock %}
+    {% endblock %}
   </div>
 </header>
 
@@ -148,6 +152,8 @@
             </div>
           </div>
 
+          {% block toolbar_right_extra %}{% endblock %}
+
           <!-- Refresh Button -->
           <button id="refresh-btn" type="button"
                   class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
@@ -163,7 +169,7 @@
   <!-- DataTable Table -->
   <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
     <div class="overflow-x-auto">
-      <table id="user-profiles-datatable" class="min-w-full divide-y divide-gray-200">
+      <table id="{{ datatable_id|default:resource }}-datatable" class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
             <!-- Selection Column (fixed, not reorderable) -->
@@ -202,24 +208,33 @@
             </th>
           </tr>
           <!-- Filter Row - Cells have data-column to match header/body for reorder/hide alignment -->
+          {% block filter_row %}
           <tr class="bg-gray-100" id="filter-row">
             <!-- Selection filter cell (fixed, not reorderable) -->
             <th data-role="selection" data-fixed="left"></th>
             {% for col in columns %}
             <th data-column="{{ col.field }}" class="px-6 py-2">
               {% if not col.filterable %}
-              {% elif col.field == "locale" %}
-              <select data-filter-column="locale" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+              {% elif col.field == "role" %}
+              <select data-filter-column="role" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
                 <option value="">All</option>
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
+                <option value="admin">Admin</option>
+                <option value="editor">Editor</option>
+                <option value="member">Member</option>
+                <option value="viewer">Viewer</option>
+                <option value="guest">Guest</option>
+              </select>
+              {% elif col.field == "status" %}
+              <select data-filter-column="status" class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="disabled">Disabled</option>
               </select>
               {% else %}
               <input type="text"
                      data-filter-column="{{ col.field }}"
-                     placeholder="Filter..."
+                     placeholder="{% if col.field == "created_at" %}YYYY-MM-DD{% else %}Filter...{% endif %}"
                      class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
               {% endif %}
             </th>
@@ -227,9 +242,10 @@
             <!-- Actions filter cell (fixed, not reorderable) -->
             <th data-role="actions" data-fixed="right"></th>
           </tr>
+          {% endblock %}
         </thead>
         <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
-          <!-- Rows will be dynamically rendered by DataGrid -->
+          <!-- Rows will be dynamically rendered by EnhancedDataTable -->
         </tbody>
       </table>
     </div>
@@ -270,17 +286,20 @@
   </div>
 
   {% else %}
+  {% block empty_state %}
   <div class="text-center py-16">
-    <div class="text-6xl mb-4">👤</div>
+    <div class="text-6xl mb-4">📄</div>
     <h3 class="text-xl font-semibold text-gray-900 mb-2">No {{ resource_label|default:resource|lower }} yet</h3>
     <p class="text-gray-500 mb-6">Get started by creating your first {{ resource_label|default:resource|lower }}</p>
     <a href="{{ routes.new }}" class="btn btn-primary">Create</a>
   </div>
+  {% endblock %}
   {% endif %}
 
   <!-- Overlay for filter panel -->
   <div id="filter-overlay" class="hidden fixed inset-0 bg-black opacity-30 z-40"></div>
 
+  {% block bulk_actions_overlay %}
   <!-- Floating Bulk Actions Bar (data-driven from panel config) -->
   <div id="bulk-actions-overlay" class="bulk-actions-overlay hidden"{% if bulk_base %} data-bulk-base="{{ bulk_base }}"{% endif %}>
     <div class="bulk-actions-bar">
@@ -296,6 +315,7 @@
 
       <!-- Right: Action Buttons -->
       <div class="flex items-center gap-2">
+        {% block bulk_action_buttons %}
         {% if bulk_actions_primary %}
         {% for action in bulk_actions_primary %}
         <button class="bulk-action-btn{% if action.variant == 'danger' %} bulk-action-btn--danger{% endif %}"
@@ -325,179 +345,16 @@
           </div>
         </div>
         {% endif %}
+        {% endblock %}
       </div>
     </div>
   </div>
+  {% endblock %}
+
+  {% block extra_modals %}{% endblock %}
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script type="module">
-import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
-
-// Template variables
-const actionBasePath = '{{ routes.index }}';
-const columns = {{ toJSON(columns)|safe }};
-const exportConfig = {{ toJSON(export_config)|safe }};
-const columnFields = columns.map(c => c.field);
-const gridColumns = columns.map(col => ({
-  ...col,
-  hidden: col.default === false
-}));
-
-{% verbatim %}
-document.addEventListener('DOMContentLoaded', async function() {
-  // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
-  const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
-    resource: 'user-profiles',
-    localStorageKey: 'user_profiles_datatable_columns'
-  });
-  await columnVisibility.loadFromServer();
-
-  // Initialize the DataGrid component
-  const grid = new DataGrid({
-    tableId: 'user-profiles-datatable',
-    apiEndpoint: '/admin/crud/user-profiles',
-    actionBasePath: actionBasePath,
-    columns: gridColumns,
-    perPage: 10,
-    searchDelay: 300,
-
-    // Custom row actions
-    rowActions: (profile) => {
-      return [
-        {
-          label: 'View',
-          icon: 'eye',
-          action: (p) => window.location.href = `${actionBasePath}/${p.id}`,
-          variant: 'secondary'
-        },
-        {
-          label: 'Edit',
-          icon: 'edit',
-          action: (p) => window.location.href = `${actionBasePath}/${p.id}/edit`,
-          variant: 'primary'
-        }
-      ];
-    },
-
-    // Custom cell renderers
-    cellRenderers: {
-      'display_name': (value, record) => {
-        const label = value || '(unnamed)';
-        return `<a href="${actionBasePath}/${record.id}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">${label}</a>`;
-      },
-      'email': (value, record) => {
-        if (!value) return '<span class="text-gray-400">-</span>';
-        return `<a href="mailto:${value}" class="text-blue-600 hover:text-blue-800">${value}</a>`;
-      },
-      'avatar_url': (value) => {
-        if (!value) return '<span class="text-gray-400">-</span>';
-        return `<img src="${value}" alt="Avatar" class="h-8 w-8 rounded-full object-cover" />`;
-      },
-      'bio': (value) => {
-        if (!value) return '<span class="text-gray-400">-</span>';
-        const text = String(value);
-        const maxLength = 50;
-        if (text.length <= maxLength) return text;
-        return `<span title="${text}">${text.substring(0, maxLength)}...</span>`;
-      }
-    },
-
-    behaviors: {
-      search: new GoCrudSearchBehavior(['display_name', 'email']),
-      filter: new GoCrudFilterBehavior(),
-      pagination: new GoCrudPaginationBehavior(),
-      sort: new GoCrudSortBehavior(),
-      export: new GoCrudExportBehavior(exportConfig),
-      columnVisibility: columnVisibility
-    },
-    selectors: {
-      searchInput: '#table-search',
-      perPageSelect: '#table-per-page',
-      filterRow: '[data-filter-column]',
-      columnToggleBtn: '#column-toggle-btn',
-      columnToggleMenu: '#column-toggle-menu',
-      exportBtn: '#export-btn',
-      exportMenu: '#export-menu',
-      paginationContainer: '#table-pagination',
-      tableInfoStart: '#table-info-start',
-      tableInfoEnd: '#table-info-end',
-      tableInfoTotal: '#table-info-total',
-      selectAllCheckbox: '#table-checkbox-all',
-      rowCheckboxes: '.table-checkbox',
-      bulkActionsBar: '#bulk-actions-overlay',
-      selectedCount: '#selected-count'
-    },
-
-    // Wire toast notification system (initialized globally in layout.html)
-    notifier: window.toastManager
-  });
-
-  // Initialize the grid
-  grid.init();
-
-  // Bind refresh button
-  const refreshBtn = document.getElementById('refresh-btn');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', async () => {
-      refreshBtn.disabled = true;
-      refreshBtn.classList.add('opacity-50');
-      try {
-        await grid.refresh();
-      } finally {
-        refreshBtn.disabled = false;
-        refreshBtn.classList.remove('opacity-50');
-      }
-    });
-  }
-
-  // Initialize FilterBuilder
-  const filterBuilder = new FilterBuilder({
-    notifier: window.toastManager,
-    fields: [
-      { name: 'id', label: 'User ID', type: 'text' },
-      { name: 'display_name', label: 'Display Name', type: 'text' },
-      { name: 'email', label: 'Email', type: 'text' },
-      { name: 'locale', label: 'Locale', type: 'select', options: [
-        { label: 'English', value: 'en' },
-        { label: 'Spanish', value: 'es' },
-        { label: 'French', value: 'fr' },
-        { label: 'German', value: 'de' }
-      ]},
-      { name: 'timezone', label: 'Timezone', type: 'text' },
-      { name: 'bio', label: 'Bio', type: 'text' }
-    ],
-    onApply: (structure) => {
-      console.log('[FilterBuilder] Filter structure:', structure);
-
-      // Convert filter structure to grid filters
-      const filters = [];
-      structure.groups.forEach(group => {
-        group.conditions.forEach(condition => {
-          filters.push({
-            column: condition.field,
-            operator: condition.operator,
-            value: condition.value
-          });
-        });
-      });
-
-      // Update grid state with filters
-      grid.state.filters = filters;
-      grid.resetPagination();
-      grid.syncURL();
-      grid.refresh();
-    },
-    onClear: () => {
-      console.log('[FilterBuilder] Clear filters');
-      grid.state.search = '';
-      grid.state.filters = [];
-      grid.syncURL();
-      grid.refresh();
-    }
-  });
-});
-{% endverbatim %}
-</script>
+  {% block datatable_scripts %}{% endblock %}
 {% endblock %}

@@ -1620,13 +1620,13 @@ function ae(o) {
       <div class="text-center py-4 text-xs text-gray-400 dark:text-gray-500">
         No block definitions available.
       </div>`;
-  const n = r ? e.filter((v) => {
+  const n = r ? e.filter((k) => {
     const $ = r.toLowerCase();
-    return v.name.toLowerCase().includes($) || he(v).toLowerCase().includes($) || (v.category ?? "").toLowerCase().includes($);
+    return k.name.toLowerCase().includes($) || he(k).toLowerCase().includes($) || (k.category ?? "").toLowerCase().includes($);
   }) : e, l = /* @__PURE__ */ new Map();
-  for (const v of n) {
-    const $ = v.category || "uncategorized";
-    l.has($) || l.set($, []), l.get($).push(v);
+  for (const k of n) {
+    const $ = k.category || "uncategorized";
+    l.has($) || l.set($, []), l.get($).push(k);
   }
   const d = t.size, c = d === 0 && i ? i : `${d} selected`, g = a === "red" ? "focus:ring-red-500" : "focus:ring-blue-500", b = a === "red" ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700" : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700";
   let w = `
@@ -1646,9 +1646,9 @@ function ae(o) {
     w += `
         <div class="text-center py-3 text-xs text-gray-400 dark:text-gray-500">No matching blocks</div>`;
   else
-    for (const [v, $] of l) {
+    for (const [k, $] of l) {
       l.size > 1 && (w += `
-        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">${D(Mt(v))}</div>`);
+        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">${D(Mt(k))}</div>`);
       for (const u of $) {
         const m = he(u), C = t.has(m) || t.has(u.type);
         w += `
@@ -1779,7 +1779,7 @@ class ue extends A {
             <input
               type="text"
               name="name"
-              value="${k(this.field.name)}"
+              value="${x(this.field.name)}"
               placeholder="field_name"
               pattern="^[a-z][a-z0-9_]*$"
               required
@@ -1795,7 +1795,7 @@ class ue extends A {
             <input
               type="text"
               name="label"
-              value="${k(this.field.label)}"
+              value="${x(this.field.label)}"
               placeholder="Field Label"
               required
               class="${h()}"
@@ -1812,7 +1812,7 @@ class ue extends A {
             rows="2"
             placeholder="Help text for editors"
             class="${Te()}"
-          >${k(this.field.description ?? "")}</textarea>
+          >${x(this.field.description ?? "")}</textarea>
         </div>
 
         <div>
@@ -1822,7 +1822,7 @@ class ue extends A {
           <input
             type="text"
             name="placeholder"
-            value="${k(this.field.placeholder ?? "")}"
+            value="${x(this.field.placeholder ?? "")}"
             placeholder="Placeholder text"
             class="${h()}"
           />
@@ -1934,7 +1934,7 @@ class ue extends A {
             <input
               type="text"
               name="pattern"
-              value="${k(e.pattern ?? "")}"
+              value="${x(e.pattern ?? "")}"
               placeholder="^[a-z]+$"
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
             />
@@ -1956,7 +1956,7 @@ class ue extends A {
             <input
               type="text"
               name="section"
-              value="${k(this.field.section ?? "")}"
+              value="${x(this.field.section ?? "")}"
               placeholder="main"
               class="${h()}"
             />
@@ -2004,14 +2004,14 @@ class ue extends A {
                 <input
                   type="text"
                   name="option_value_${s}"
-                  value="${k(String(a.value))}"
+                  value="${x(String(a.value))}"
                   placeholder="value"
                   class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                   type="text"
                   name="option_label_${s}"
-                  value="${k(a.label)}"
+                  value="${x(a.label)}"
                   placeholder="label"
                   class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -2045,7 +2045,7 @@ class ue extends A {
               <input
                 type="text"
                 name="target"
-                value="${k(t?.target ?? "")}"
+                value="${x(t?.target ?? "")}"
                 placeholder="users"
                 class="${h()}"
               />
@@ -2057,7 +2057,7 @@ class ue extends A {
               <input
                 type="text"
                 name="displayField"
-                value="${k(t?.displayField ?? "")}"
+                value="${x(t?.displayField ?? "")}"
                 placeholder="name"
                 class="${h()}"
               />
@@ -2080,7 +2080,7 @@ class ue extends A {
               <input
                 type="text"
                 name="accept"
-                value="${k(t?.accept ?? "")}"
+                value="${x(t?.accept ?? "")}"
                 placeholder="image/*"
                 class="${h()}"
               />
@@ -2164,7 +2164,7 @@ class ue extends A {
             <input
               type="text"
               name="sourceField"
-              value="${k(t?.sourceField ?? "")}"
+              value="${x(t?.sourceField ?? "")}"
               placeholder="title"
               class="${h()}"
             />
@@ -2179,7 +2179,7 @@ class ue extends A {
               <input
                 type="text"
                 name="slugPrefix"
-                value="${k(t?.prefix ?? "")}"
+                value="${x(t?.prefix ?? "")}"
                 placeholder=""
                 class="${h()}"
               />
@@ -2191,7 +2191,7 @@ class ue extends A {
               <input
                 type="text"
                 name="slugSuffix"
-                value="${k(t?.suffix ?? "")}"
+                value="${x(t?.suffix ?? "")}"
                 placeholder=""
                 class="${h()}"
               />
@@ -2252,7 +2252,7 @@ class ue extends A {
             <input
               type="text"
               name="colorPresets"
-              value="${k(t?.presets?.join(", ") ?? "")}"
+              value="${x(t?.presets?.join(", ") ?? "")}"
               placeholder="#ff0000, #00ff00, #0000ff"
               class="${h()}"
             />
@@ -2335,7 +2335,7 @@ class ue extends A {
               <input
                 type="date"
                 name="minDate"
-                value="${k(t?.minDate ?? "")}"
+                value="${x(t?.minDate ?? "")}"
                 class="${h()}"
               />
             </div>
@@ -2346,7 +2346,7 @@ class ue extends A {
               <input
                 type="date"
                 name="maxDate"
-                value="${k(t?.maxDate ?? "")}"
+                value="${x(t?.maxDate ?? "")}"
                 class="${h()}"
               />
             </div>
@@ -2471,11 +2471,11 @@ class ue extends A {
             >
               <div data-allowed-blocks-chips class="flex flex-wrap gap-2">
                 ${t?.allowedBlocks?.length ? t.allowedBlocks.map(
-        (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" data-block-chip="${k(s)}">${k(s)}<button type="button" data-remove-allowed="${k(s)}" class="hover:text-blue-900 dark:hover:text-blue-200">&times;</button></span>`
+        (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" data-block-chip="${x(s)}">${x(s)}<button type="button" data-remove-allowed="${x(s)}" class="hover:text-blue-900 dark:hover:text-blue-200">&times;</button></span>`
       ).join("") : '<span class="text-xs text-gray-400 dark:text-gray-500">All blocks allowed (no restrictions)</span>'}
               </div>
             </div>
-            <input type="hidden" name="allowedBlocks" value='${k(r)}' />
+            <input type="hidden" name="allowedBlocks" value='${x(r)}' />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to allow all block types</p>
           </div>
 
@@ -2498,11 +2498,11 @@ class ue extends A {
             >
               <div data-denied-blocks-chips class="flex flex-wrap gap-2">
                 ${t?.deniedBlocks?.length ? t.deniedBlocks.map(
-        (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" data-block-chip="${k(s)}">${k(s)}<button type="button" data-remove-denied="${k(s)}" class="hover:text-red-900 dark:hover:text-red-200">&times;</button></span>`
+        (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" data-block-chip="${x(s)}">${x(s)}<button type="button" data-remove-denied="${x(s)}" class="hover:text-red-900 dark:hover:text-red-200">&times;</button></span>`
       ).join("") : '<span class="text-xs text-gray-400 dark:text-gray-500">No blocks denied</span>'}
               </div>
             </div>
-            <input type="hidden" name="deniedBlocks" value='${k(a)}' />
+            <input type="hidden" name="deniedBlocks" value='${x(a)}' />
           </div>
         </div>
       `);
@@ -2602,7 +2602,7 @@ class ue extends A {
       } else {
         const s = e === "allowed" ? "blue" : "red";
         a.innerHTML = t.map(
-          (i) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-${s}-100 text-${s}-700 dark:bg-${s}-900/30 dark:text-${s}-400" data-block-chip="${k(i)}">${k(i)}<button type="button" data-remove-${e}="${k(i)}" class="hover:text-${s}-900 dark:hover:text-${s}-200">&times;</button></span>`
+          (i) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-${s}-100 text-${s}-700 dark:bg-${s}-900/30 dark:text-${s}-400" data-block-chip="${x(i)}">${x(i)}<button type="button" data-remove-${e}="${x(i)}" class="hover:text-${s}-900 dark:hover:text-${s}-200">&times;</button></span>`
         ).join(""), a.querySelectorAll(`[data-remove-${e}]`).forEach((i) => {
           i.addEventListener("click", (n) => {
             n.preventDefault();
@@ -2662,8 +2662,8 @@ class ue extends A {
     b !== null && b !== "" && (l.max = parseFloat(b));
     const w = t.get("pattern");
     w && w.trim() && (l.pattern = w.trim()), Object.keys(l).length > 0 && (n.validation = l);
-    const v = this.buildTypeSpecificConfig(t);
-    v && Object.keys(v).length > 0 && (n.config = v), this.config.onSave(n), this.hide();
+    const k = this.buildTypeSpecificConfig(t);
+    k && Object.keys(k).length > 0 && (n.config = k), this.config.onSave(n), this.hide();
   }
   buildTypeSpecificConfig(e) {
     switch (this.field.type) {
@@ -2779,7 +2779,7 @@ class ue extends A {
     r.addEventListener("input", i);
   }
 }
-function k(o) {
+function x(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
@@ -2796,7 +2796,7 @@ class Ft extends A {
   renderContent() {
     return `
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">${k(this.config.title)}</h3>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">${x(this.config.title)}</h3>
         <button type="button" data-picker-close class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -2858,8 +2858,8 @@ class Ft extends A {
           <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${a ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}">
             <input
               type="checkbox"
-              value="${k(r)}"
-              data-block-type="${k(t.type)}"
+              value="${x(r)}"
+              data-block-type="${x(t.type)}"
               ${a ? "checked" : ""}
               class="${T()}"
             />
@@ -2867,10 +2867,10 @@ class Ft extends A {
               ${t.icon || r.charAt(0).toUpperCase()}
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium text-gray-900 dark:text-white">${k(t.name)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${k(r)}</div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white">${x(t.name)}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${x(r)}</div>
             </div>
-            ${t.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${k(t.schema_version)}</span>` : ""}
+            ${t.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${x(t.schema_version)}</span>` : ""}
           </label>
         `;
     }).join(""), e.querySelectorAll('input[type="checkbox"]').forEach((t) => {
@@ -3811,7 +3811,7 @@ function it(o) {
     saveMessage: n,
     actions: l,
     compact: d = !1
-  } = o, c = d ? "px-5" : "px-6", g = d ? "h2" : "h1", b = d ? "text-lg" : "text-xl", w = d ? "gap-2.5" : "gap-3", v = st(i, n), $ = a ? V(
+  } = o, c = d ? "px-5" : "px-6", g = d ? "h2" : "h1", b = d ? "text-lg" : "text-xl", w = d ? "gap-2.5" : "gap-3", k = st(i, n), $ = a ? V(
     d ? a : a.charAt(0).toUpperCase() + a.slice(1),
     "status",
     a,
@@ -3824,7 +3824,7 @@ function it(o) {
           ${m}
         </div>
         <div class="flex items-center ${w} shrink-0">
-          <span data-entity-save-indicator>${v}</span>
+          <span data-entity-save-indicator>${k}</span>
           ${$}
           ${l || ""}
         </div>
@@ -3839,7 +3839,7 @@ function it(o) {
         ${m}
       </div>
       <div class="flex items-center ${w}">
-        <span data-entity-save-indicator>${v}</span>
+        <span data-entity-save-indicator>${k}</span>
         ${l || ""}
       </div>
     </div>`;
@@ -3863,7 +3863,7 @@ function ot(o) {
     renderExpandedContent: g,
     actionsHtml: b = "",
     constraintBadges: w = [],
-    sectionName: v,
+    sectionName: k,
     index: $
   } = o, u = me(e.type), m = typeof g == "function";
   let C;
@@ -3873,7 +3873,7 @@ function ot(o) {
   const gt = oe.join(`
           `);
   let ve = `data-field-card="${E(e.id)}"`;
-  v != null && (ve += ` data-field-section="${E(v)}"`), $ != null && (ve += ` data-field-index="${$}"`);
+  k != null && (ve += ` data-field-section="${E(k)}"`), $ != null && (ve += ` data-field-index="${$}"`);
   let ke;
   if (c)
     ke = `${E(e.name)} &middot; ${E(e.type)}`;
@@ -4085,11 +4085,11 @@ class Yt {
    * Move a field to a new position (optionally across sections)
    */
   moveField(e, t, r) {
-    const a = this.state.fields.findIndex((v) => v.id === e);
+    const a = this.state.fields.findIndex((k) => k.id === e);
     if (a === -1) return;
     const s = this.state.fields[a], i = s.section || L, n = t || L, l = this.groupFieldsBySection(), d = l.get(i);
     if (!d) return;
-    const c = d.findIndex((v) => v.id === e);
+    const c = d.findIndex((k) => k.id === e);
     if (c === -1) return;
     d.splice(c, 1), d.length === 0 && l.delete(i), l.has(n) || l.set(n, []);
     const g = l.get(n);
@@ -4097,10 +4097,10 @@ class Yt {
     i === n && c < b && (b -= 1), g.splice(b, 0, s), s.section = n === L ? void 0 : n;
     const w = /* @__PURE__ */ new Map();
     l.has(L) && w.set(L, l.get(L));
-    for (const [v, $] of l)
-      v !== L && w.set(v, $);
-    this.state.fields = Array.from(w.values()).flat(), this.state.fields.forEach((v, $) => {
-      v.order = $;
+    for (const [k, $] of l)
+      k !== L && w.set(k, $);
+    this.state.fields = Array.from(w.values()).flat(), this.state.fields.forEach((k, $) => {
+      k.order = $;
     }), this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview();
   }
   /**
@@ -4200,7 +4200,7 @@ class Yt {
             <input
               type="text"
               data-ct-name
-              value="${x(e?.name ?? "")}"
+              value="${v(e?.name ?? "")}"
               placeholder="Blog Post"
               required
               class="${h()}"
@@ -4214,7 +4214,7 @@ class Yt {
             <input
               type="text"
               data-ct-slug
-              value="${x(e?.slug ?? "")}"
+              value="${v(e?.slug ?? "")}"
               placeholder="blog-post"
               pattern="^[a-z][a-z0-9_\\-]*$"
               class="${h()}"
@@ -4232,7 +4232,7 @@ class Yt {
             rows="2"
             placeholder="Describe this content type"
             class="${Te()}"
-          >${x(e?.description ?? "")}</textarea>
+          >${v(e?.description ?? "")}</textarea>
         </div>
 
         <div class="mt-4">
@@ -4308,14 +4308,14 @@ class Yt {
     e.validation?.minLength !== void 0 && n.push(`min: ${e.validation.minLength}`), e.validation?.maxLength !== void 0 && n.push(`max: ${e.validation.maxLength}`), e.validation?.min !== void 0 && n.push(`>= ${e.validation.min}`), e.validation?.max !== void 0 && n.push(`<= ${e.validation.max}`), e.validation?.pattern && n.push("pattern");
     const l = `
           <div class="flex items-center gap-1">
-            <button type="button" data-field-edit="${x(e.id)}"
+            <button type="button" data-field-edit="${v(e.id)}"
                     class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
                     title="Edit field">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
               </svg>
             </button>
-            <button type="button" data-field-remove="${x(e.id)}"
+            <button type="button" data-field-remove="${v(e.id)}"
                     class="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
                     title="Remove field">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4353,33 +4353,33 @@ class Yt {
       });
     } else
       b = `
-        <div class="flex items-center justify-center py-6" data-ct-blocks-loading="${x(e.id)}">
+        <div class="flex items-center justify-center py-6" data-ct-blocks-loading="${v(e.id)}">
           <div class="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
           <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">Loading blocks...</span>
         </div>`;
     return `
-      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${x(e.id)}">
+      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${v(e.id)}">
         <div class="flex items-center justify-between">
           <div class="inline-flex items-center gap-1 p-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <button type="button" data-ct-blocks-mode-toggle="${x(e.id)}" data-ct-blocks-mode="allowed"
+            <button type="button" data-ct-blocks-mode-toggle="${v(e.id)}" data-ct-blocks-mode="allowed"
                     class="${i} ${n}">
               Allowed
             </button>
-            <button type="button" data-ct-blocks-mode-toggle="${x(e.id)}" data-ct-blocks-mode="denied"
+            <button type="button" data-ct-blocks-mode-toggle="${v(e.id)}" data-ct-blocks-mode="denied"
                     class="${i} ${l}">
               Denied
             </button>
           </div>
-          <button type="button" data-ct-blocks-open-library="${x(e.id)}"
+          <button type="button" data-ct-blocks-open-library="${v(e.id)}"
                   class="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
             Open Block Library
           </button>
         </div>
-        <div data-ct-blocks-picker-container="${x(e.id)}">
+        <div data-ct-blocks-picker-container="${v(e.id)}">
           ${b}
         </div>
         <div class="flex items-center justify-between">
-          <button type="button" data-ct-blocks-advanced="${x(e.id)}"
+          <button type="button" data-ct-blocks-advanced="${v(e.id)}"
                   class="text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium">
             Advanced settings...
           </button>
@@ -4590,25 +4590,27 @@ class Yt {
   async publishContentType() {
     if (!this.state.contentType?.id) return;
     const e = W(this.state.fields, this.getSlug());
-    let t = null;
+    let t = null, r = null;
     try {
       t = await this.api.checkCompatibility(
         this.state.contentType.id,
         e,
         this.buildUISchema()
       );
-    } catch {
+    } catch (s) {
+      r = s instanceof Error ? s.message : "Compatibility check failed";
     }
     new Zt({
       contentType: this.state.contentType,
       compatibilityResult: t,
-      onConfirm: async (a) => {
+      compatibilityError: r ?? void 0,
+      onConfirm: async (s) => {
         try {
-          const s = await this.api.publish(this.state.contentType.id, a);
-          this.state.contentType = s, this.state.isDirty = !1, this.render(), this.bindEvents(), this.showToast("Content type published successfully", "success"), this.config.onSave?.(s);
-        } catch (s) {
-          const i = s instanceof Error ? s.message : "Failed to publish content type";
-          this.showToast(i, "error");
+          const i = await this.api.publish(this.state.contentType.id, s);
+          this.state.contentType = i, this.state.isDirty = !1, this.render(), this.bindEvents(), this.showToast("Content type published successfully", "success"), this.config.onSave?.(i);
+        } catch (i) {
+          const n = i instanceof Error ? i.message : "Failed to publish content type";
+          this.showToast(n, "error");
         }
       },
       onCancel: () => {
@@ -4973,17 +4975,17 @@ Deprecated content types can still be used but are hidden from new content creat
     for (const a of t) {
       const s = e.get(a), n = this.getSectionState(a).collapsed;
       r += `
-        <div data-ct-section="${x(a)}" class="border-b border-gray-100 dark:border-gray-800 last:border-b-0">
-          <button type="button" data-ct-toggle-section="${x(a)}"
+        <div data-ct-section="${v(a)}" class="border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+          <button type="button" data-ct-toggle-section="${v(a)}"
                   class="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
             <span class="w-4 h-4 text-gray-400 dark:text-gray-500 flex items-center justify-center">
               ${n ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'}
             </span>
-            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${x(Oe(a))}</span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${v(Oe(a))}</span>
             <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">${s.length}</span>
           </button>
 
-          <div class="${n ? "hidden" : ""}" data-ct-section-body="${x(a)}">
+          <div class="${n ? "hidden" : ""}" data-ct-section-body="${v(a)}">
             <div class="space-y-2 px-1 pb-2">
               ${s.map((l, d) => this.renderFieldCard(l, d)).join("")}
             </div>
@@ -5111,7 +5113,7 @@ Deprecated content types can still be used but are hidden from new content creat
             <div class="mb-3">
               <div class="text-xs font-medium text-red-700 dark:text-red-300 uppercase mb-1">Schema</div>
               <ul class="text-sm text-red-600 dark:text-red-400 space-y-1">
-                ${r.map((a) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${x(a.message)}</li>`).join("")}
+                ${r.map((a) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${v(a.message)}</li>`).join("")}
               </ul>
             </div>
           ` : ""}
@@ -5120,10 +5122,10 @@ Deprecated content types can still be used but are hidden from new content creat
       return `
               <div class="mb-3 last:mb-0">
                 <div class="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
-                  ${x(i?.label ?? a)} <span class="font-mono">(${x(a)})</span>
+                  ${v(i?.label ?? a)} <span class="font-mono">(${v(a)})</span>
                 </div>
                 <ul class="text-sm text-red-600 dark:text-red-400 space-y-1">
-                  ${s.map((n) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${x(n.message)}</li>`).join("")}
+                  ${s.map((n) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${v(n.message)}</li>`).join("")}
                 </ul>
               </div>
             `;
@@ -5148,7 +5150,7 @@ Deprecated content types can still be used but are hidden from new content creat
     }, e);
   }
 }
-function x(o) {
+function v(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
@@ -5173,7 +5175,7 @@ class Zt extends A {
     return this.config.onCancel(), !0;
   }
   renderContent() {
-    const { contentType: e, compatibilityResult: t } = this.config, r = (t?.breaking_changes?.length ?? 0) > 0, a = (t?.warnings?.length ?? 0) > 0, s = t?.affected_entries_count ?? 0;
+    const { contentType: e, compatibilityResult: t, compatibilityError: r } = this.config, a = !!r, s = (t?.breaking_changes?.length ?? 0) > 0, i = (t?.warnings?.length ?? 0) > 0, n = t?.affected_entries_count ?? 0, l = a || s, d = a ? "bg-gray-400 cursor-not-allowed" : s ? "bg-red-600 hover:bg-red-700 disabled:opacity-50" : "bg-green-600 hover:bg-green-700";
     return `
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -5183,11 +5185,30 @@ class Zt extends A {
 
       <div class="px-6 py-4 space-y-4">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          You are about to publish <strong class="text-gray-900 dark:text-white">${x(e.name)}</strong>.
+          You are about to publish <strong class="text-gray-900 dark:text-white">${v(e.name)}</strong>.
           ${e.status === "draft" ? "This will make it available for content creation." : "This will create a new version of the schema."}
         </p>
 
-        ${r ? `
+        ${a ? `
+          <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+              <span class="text-sm font-medium text-red-800 dark:text-red-200">Compatibility Check Failed</span>
+            </div>
+            <p class="ml-7 text-sm text-red-700 dark:text-red-300">
+              Publishing is blocked until compatibility can be verified.
+            </p>
+            ${r ? `
+              <p class="mt-2 ml-7 text-xs text-red-600 dark:text-red-400">
+                ${v(r)}
+              </p>
+            ` : ""}
+          </div>
+        ` : ""}
+
+        ${!a && s ? `
           <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <div class="flex items-center gap-2 mb-2">
               <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5196,19 +5217,19 @@ class Zt extends A {
               <span class="text-sm font-medium text-red-800 dark:text-red-200">Breaking Changes Detected</span>
             </div>
             <ul class="text-sm text-red-700 dark:text-red-300 space-y-1 ml-7">
-              ${t.breaking_changes.map((i) => `
-                <li>• ${x(i.description || `${i.type}: ${i.path}`)}</li>
+              ${t.breaking_changes.map((c) => `
+                <li>• ${v(c.description || `${c.type}: ${c.path}`)}</li>
               `).join("")}
             </ul>
-            ${s > 0 ? `
+            ${n > 0 ? `
               <p class="mt-2 ml-7 text-xs text-red-600 dark:text-red-400">
-                ${s} content ${s === 1 ? "entry" : "entries"} will require migration.
+                ${n} content ${n === 1 ? "entry" : "entries"} will require migration.
               </p>
             ` : ""}
           </div>
         ` : ""}
 
-        ${a ? `
+        ${!a && i ? `
           <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <div class="flex items-center gap-2 mb-2">
               <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5217,14 +5238,14 @@ class Zt extends A {
               <span class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Warnings</span>
             </div>
             <ul class="text-sm text-yellow-700 dark:text-yellow-300 space-y-1 ml-7">
-              ${t.warnings.map((i) => `
-                <li>• ${x(i.description || `${i.type}: ${i.path}`)}</li>
+              ${t.warnings.map((c) => `
+                <li>• ${v(c.description || `${c.type}: ${c.path}`)}</li>
               `).join("")}
             </ul>
           </div>
         ` : ""}
 
-        ${!r && !a ? `
+        ${!a && !s && !i ? `
           <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
             <div class="flex items-center gap-2">
               <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5238,7 +5259,7 @@ class Zt extends A {
           </div>
         ` : ""}
 
-        ${r ? `
+        ${!a && s ? `
           <label class="flex items-start gap-2">
             <input
               type="checkbox"
@@ -5263,10 +5284,10 @@ class Zt extends A {
         <button
           type="button"
           data-publish-confirm
-          class="px-4 py-2 text-sm font-medium text-white rounded-lg ${r ? "bg-red-600 hover:bg-red-700 disabled:opacity-50" : "bg-green-600 hover:bg-green-700"}"
-          ${r ? "disabled" : ""}
+          class="px-4 py-2 text-sm font-medium text-white rounded-lg ${d}"
+          ${l ? "disabled" : ""}
         >
-          ${r ? "Publish with Breaking Changes" : "Publish"}
+          ${s ? "Publish with Breaking Changes" : "Publish"}
         </button>
       </div>
     `;
@@ -5275,12 +5296,14 @@ class Zt extends A {
     this.container?.querySelector("[data-publish-cancel]")?.addEventListener("click", () => {
       this.config.onCancel(), this.hide();
     });
-    const e = this.container?.querySelector("[data-publish-confirm]"), t = this.container?.querySelector("[data-publish-force]");
+    const e = this.container?.querySelector("[data-publish-confirm]"), t = this.container?.querySelector("[data-publish-force]"), r = !!this.config.compatibilityError;
     t?.addEventListener("change", () => {
-      e && (e.disabled = !t.checked);
+      e && !r && (e.disabled = !t.checked);
     }), e?.addEventListener("click", () => {
-      const r = t?.checked ?? !1;
-      this.config.onConfirm(r), this.hide();
+      if (r)
+        return;
+      const a = t?.checked ?? !1;
+      this.config.onConfirm(a), this.hide();
     });
   }
 }
@@ -5302,7 +5325,7 @@ class Xt extends A {
 
       <div class="px-6 py-4 space-y-4">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          Create a copy of <strong class="text-gray-900 dark:text-white">${x(e.name)}</strong> with a new slug and name.
+          Create a copy of <strong class="text-gray-900 dark:text-white">${v(e.name)}</strong> with a new slug and name.
         </p>
 
         <div>
@@ -5312,7 +5335,7 @@ class Xt extends A {
           <input
             type="text"
             data-clone-slug
-            value="${x(t)}"
+            value="${v(t)}"
             placeholder="my-content-type"
             pattern="^[a-z][a-z0-9_\\-]*$"
             required
@@ -5328,7 +5351,7 @@ class Xt extends A {
           <input
             type="text"
             data-clone-name
-            value="${x(r)}"
+            value="${v(r)}"
             placeholder="My Content Type"
             class="${h()}"
           />
@@ -5384,7 +5407,7 @@ class er extends A {
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Version History</h2>
-          <p class="text-sm text-gray-500 dark:text-gray-400">${x(this.config.contentType.name)} (${x(this.config.contentType.slug)})</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">${v(this.config.contentType.name)} (${v(this.config.contentType.slug)})</p>
         </div>
         <button type="button" data-viewer-close class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5422,7 +5445,7 @@ class er extends A {
         e.innerHTML = `
         <div class="text-center py-8 text-gray-500 dark:text-gray-400">
           <p class="text-sm">No version history available.</p>
-          <p class="text-xs mt-2">Current version: ${x(this.config.contentType.schema_version ?? "1.0.0")}</p>
+          <p class="text-xs mt-2">Current version: ${v(this.config.contentType.schema_version ?? "1.0.0")}</p>
         </div>
       `;
         return;
@@ -5446,7 +5469,7 @@ class er extends A {
         <div class="p-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900 dark:text-white">v${x(e.version)}</span>
+              <span class="text-sm font-medium text-gray-900 dark:text-white">v${v(e.version)}</span>
               ${t ? '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Current</span>' : ""}
               ${s ? '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Breaking</span>' : ""}
               ${this.getMigrationBadge(e.migration_status)}
@@ -5457,7 +5480,7 @@ class er extends A {
             ${a ? `
               <button
                 type="button"
-                data-toggle-version="${x(e.version)}"
+                data-toggle-version="${v(e.version)}"
                 class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded"
               >
                 <svg class="w-4 h-4 transition-transform ${r ? "rotate-180" : ""}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5510,9 +5533,9 @@ class er extends A {
           ${e.type}
         </span>
         <div class="flex-1">
-          <span class="font-mono text-xs text-gray-600 dark:text-gray-400">${x(e.path)}</span>
-          ${e.field ? `<span class="text-gray-500 dark:text-gray-400"> (${x(e.field)})</span>` : ""}
-          ${e.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${x(e.description)}</p>` : ""}
+          <span class="font-mono text-xs text-gray-600 dark:text-gray-400">${v(e.path)}</span>
+          ${e.field ? `<span class="text-gray-500 dark:text-gray-400"> (${v(e.field)})</span>` : ""}
+          ${e.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${v(e.description)}</p>` : ""}
           ${e.is_breaking ? '<span class="ml-1 text-xs text-red-500 dark:text-red-400">Breaking</span>' : ""}
         </div>
       </li>
@@ -6672,10 +6695,10 @@ class nr {
     const r = e.config ?? {}, a = e.section || j, i = this.getBlocksPickerMode(e.id) === "allowed", n = new Set(
       i ? r.allowedBlocks ?? [] : r.deniedBlocks ?? []
     ), l = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", d = i ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", c = i ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", g = i ? "Allowed Blocks" : "Denied Blocks", b = i ? "blue" : "red", w = i ? "All blocks allowed (no restrictions)" : "No blocks denied";
-    let v;
+    let k;
     if (this.cachedBlocks) {
       const $ = re(n, this.cachedBlocks);
-      v = ae({
+      k = ae({
         availableBlocks: this.cachedBlocks,
         selectedBlocks: $,
         label: g,
@@ -6683,7 +6706,7 @@ class nr {
         emptySelectionText: w
       });
     } else
-      v = `
+      k = `
         <div class="flex items-center justify-center py-6" data-blocks-loading="${p(e.id)}">
           <div class="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
           <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">Loading blocks...</span>
@@ -6708,7 +6731,7 @@ class nr {
           </button>
         </div>
         <div data-blocks-picker-container="${p(e.id)}">
-          ${v}
+          ${k}
         </div>
         <div class="flex items-center justify-between">
           <button type="button" data-blocks-advanced="${p(e.id)}"
@@ -7011,10 +7034,10 @@ class nr {
       window.location.href = `${u}/block_definitions`;
       return;
     }
-    const v = r.closest("[data-blocks-advanced]");
-    if (v) {
+    const k = r.closest("[data-blocks-advanced]");
+    if (k) {
       e.stopPropagation();
-      const u = v.dataset.blocksAdvanced, m = this.fields.find((C) => C.id === u);
+      const u = k.dataset.blocksAdvanced, m = this.fields.find((C) => C.id === u);
       m && this.openFieldConfigModal(m);
       return;
     }

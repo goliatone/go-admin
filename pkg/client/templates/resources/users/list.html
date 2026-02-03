@@ -295,8 +295,8 @@
   <!-- Overlay for filter panel -->
   <div id="filter-overlay" class="hidden fixed inset-0 bg-black opacity-30 z-40"></div>
 
-  <!-- Floating Bulk Actions Bar -->
-  <div id="bulk-actions-overlay" class="bulk-actions-overlay hidden">
+  <!-- Floating Bulk Actions Bar (data-driven from panel config) -->
+  <div id="bulk-actions-overlay" class="bulk-actions-overlay hidden"{% if bulk_base %} data-bulk-base="{{ bulk_base }}"{% endif %}>
     <div class="bulk-actions-bar">
       <!-- Left: Close + Count -->
       <div class="flex items-center gap-4">
@@ -310,30 +310,35 @@
 
       <!-- Right: Action Buttons -->
       <div class="flex items-center gap-2">
-        <button class="bulk-action-btn" data-bulk-action="bulk-export">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-          </svg>
-          Export
+        {% if bulk_actions_primary %}
+        {% for action in bulk_actions_primary %}
+        <button class="bulk-action-btn{% if action.variant == 'danger' %} bulk-action-btn--danger{% endif %}"
+                data-bulk-action="{{ action.name }}"
+                {% if action.confirm %}data-bulk-confirm="{{ action.confirm }}"{% endif %}
+                {% if action.icon %}data-bulk-icon="{{ action.icon }}"{% endif %}>
+          {{ action.label }}
         </button>
-        <button class="bulk-action-btn" data-bulk-action="bulk-activate">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          Activate
-        </button>
-        <button class="bulk-action-btn" data-bulk-action="bulk-suspend">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          Suspend
-        </button>
-        <!-- More actions dropdown trigger -->
-        <button class="bulk-action-btn-icon" id="bulk-more-btn" aria-label="More actions">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
-          </svg>
-        </button>
+        {% endfor %}
+        {% endif %}
+        {% if bulk_actions_overflow %}
+        <div class="relative">
+          <button class="bulk-action-btn-icon" id="bulk-more-btn" aria-label="More actions">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+            </svg>
+          </button>
+          <div id="bulk-overflow-menu" class="bulk-overflow-menu hidden">
+            {% for action in bulk_actions_overflow %}
+            <button class="bulk-overflow-item{% if action.variant == 'danger' %} text-red-400{% endif %}"
+                    data-bulk-action="{{ action.name }}"
+                    {% if action.confirm %}data-bulk-confirm="{{ action.confirm }}"{% endif %}
+                    {% if action.icon %}data-bulk-icon="{{ action.icon }}"{% endif %}>
+              {{ action.label }}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -661,34 +666,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
       return actions;
     },
-
-    // Custom bulk actions
-    bulkActions: [
-      {
-        id: 'bulk-activate',
-        label: 'Activate Selected',
-        icon: 'check-circle',
-        endpoint: '/admin/api/users/bulk/activate',
-        confirm: 'Activate {count} user(s)?',
-        onSuccess: () => grid.refresh()
-      },
-      {
-        id: 'bulk-suspend',
-        label: 'Suspend Selected',
-        icon: 'pause',
-        endpoint: '/admin/api/users/bulk/suspend',
-        confirm: 'Suspend {count} user(s)?',
-        onSuccess: () => grid.refresh()
-      },
-      {
-        id: 'bulk-assign-role',
-        label: 'Assign Role',
-        icon: 'user-badge',
-        endpoint: '/admin/api/users/bulk/assign-role',
-        guard: (ids) => ids.length > 0,
-        onSuccess: () => grid.refresh()
-      }
-    ],
 
     // Custom cell renderers
     cellRenderers: {
