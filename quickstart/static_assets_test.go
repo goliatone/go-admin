@@ -142,7 +142,7 @@ func TestNewStaticAssetsMountsExpectedRoutes(t *testing.T) {
 
 	expected := map[string]bool{
 		"/admin/assets":             false,
-		"/runtime":                  false,
+		"/admin/runtime":             false,
 		"/admin/formgen":            false,
 		"/dashboard/assets/echarts": false,
 	}
