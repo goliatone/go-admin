@@ -17,12 +17,15 @@ const (
 )
 
 type blockDefinition struct {
-	Type      string
-	Label     string
-	Icon      string
-	Collapsed bool
-	Schema    string
-	HTML      string
+	Type           string
+	Label          string
+	Icon           string
+	Collapsed      bool
+	Schema         string
+	RequiredFields []string
+	Category       string
+	Status         string
+	HTML           string
 }
 
 func blockEditorRenderer(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
