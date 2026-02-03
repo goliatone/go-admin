@@ -18,7 +18,7 @@ import { FieldTypePicker, FIELD_TYPES } from './field-type-picker';
 import { FieldConfigForm } from './field-config-form';
 import { fieldsToBlockSchema, schemaToFields, generateFieldId } from './api-client';
 import { badge } from '../shared/badge';
-import { Modal } from '../shared/modal.js';
+import { Modal, ConfirmModal, TextPromptModal } from '../shared/modal.js';
 import { inputClasses, selectClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
 import { renderIconTrigger, bindIconTriggerEvents, resolveIcon } from './shared/icon-picker';
 
@@ -567,7 +567,10 @@ export class BlockLibraryManager extends Modal {
   }
 
   private async confirmDeleteBlock(block: BlockDefinition): Promise<void> {
-    const confirmed = confirm(`Are you sure you want to delete the block "${block.name}"? This action cannot be undone.`);
+    const confirmed = await ConfirmModal.confirm(
+      `Are you sure you want to delete the block "${block.name}"? This action cannot be undone.`,
+      { title: 'Delete Block', confirmText: 'Delete', confirmVariant: 'danger' },
+    );
     if (!confirmed) return;
 
     try {
@@ -578,17 +581,27 @@ export class BlockLibraryManager extends Modal {
     }
   }
 
-  private async cloneBlock(block: BlockDefinition): Promise<void> {
+  private cloneBlock(block: BlockDefinition): void {
     const base = (block.slug || block.type || 'block').trim();
-    const newSlug = prompt('Enter a unique slug for the cloned block:', `${base}_copy`);
-    if (!newSlug) return;
-
-    try {
-      await this.api.cloneBlockDefinition(block.id, newSlug, newSlug);
-      await this.loadBlocks();
-    } catch (err) {
-      this.showError(err instanceof Error ? err.message : 'Failed to clone block');
-    }
+    const modal = new TextPromptModal({
+      title: 'Clone Block',
+      label: 'Enter a unique slug for the cloned block',
+      placeholder: 'e.g. hero_copy',
+      initialValue: `${base}_copy`,
+      confirmLabel: 'Clone',
+      inputClass: inputClasses(),
+      onConfirm: async (value) => {
+        const newSlug = value.trim();
+        if (!newSlug) return;
+        try {
+          await this.api.cloneBlockDefinition(block.id, newSlug, newSlug);
+          await this.loadBlocks();
+        } catch (err) {
+          this.showError(err instanceof Error ? err.message : 'Failed to clone block');
+        }
+      },
+    });
+    modal.show();
   }
 
   private async publishBlock(block: BlockDefinition): Promise<void> {
@@ -758,6 +771,10 @@ class BlockDefinitionEditor extends Modal {
         </form>
       </div>
 
+      <div data-editor-error class="hidden px-6 py-3 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800">
+        <p class="text-sm text-red-600 dark:text-red-400"></p>
+      </div>
+
       <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
@@ -919,12 +936,12 @@ class BlockDefinitionEditor extends Modal {
     const type = (formData.get('type') as string)?.trim();
 
     if (!name || !type) {
-      alert('Name and Type are required');
+      this.showEditorError('Name and Type are required');
       return;
     }
 
     if (!/^[a-z][a-z0-9_\-]*$/.test(type)) {
-      alert('Invalid type format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter.');
+      this.showEditorError('Invalid type format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter.');
       return;
     }
 
@@ -952,8 +969,17 @@ class BlockDefinitionEditor extends Modal {
       this.config.onSave(savedBlock);
       this.hide();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to save block');
+      this.showEditorError(err instanceof Error ? err.message : 'Failed to save block');
     }
+  }
+
+  private showEditorError(message: string): void {
+    const errorEl = this.container?.querySelector('[data-editor-error]');
+    if (!errorEl) return;
+    errorEl.classList.remove('hidden');
+    const textEl = errorEl.querySelector('p');
+    if (textEl) textEl.textContent = message;
+    setTimeout(() => errorEl.classList.add('hidden'), 5000);
   }
 }
 

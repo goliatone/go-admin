@@ -2,7 +2,7 @@
  * Field Palette Panel
  *
  * Phase 9 implements the right-column field palette for the Block Library IDE:
- *   Task 9.1 - Data-driven palette: fetches from GET /admin/api/block_definitions/field_types,
+ *   Task 9.1 - Data-driven palette: fetches from GET /admin/api/block_definitions_meta/field_types,
  *              falls back to the local FIELD_TYPES registry when the endpoint is unavailable.
  *   Task 9.2 - Search and grouped categories with "Advanced" collapsed by default.
  *   Task 9.3 - Drag handle on each palette item; drop target integration with the block editor.

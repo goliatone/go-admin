@@ -50,7 +50,7 @@ export declare class ContentTypeEditor {
     /**
      * Remove a field
      */
-    removeField(fieldId: string): void;
+    removeField(fieldId: string): Promise<void>;
     /**
      * Move a field to a new position (optionally across sections)
      */

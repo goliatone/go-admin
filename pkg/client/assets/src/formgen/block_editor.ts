@@ -71,6 +71,8 @@ type BlockEditorElements = {
   emptyState?: HTMLElement;
 };
 
+const templateRegistry = new WeakMap<HTMLElement, Map<string, BlockTemplate>>();
+
 function parseConfig(raw: string | null): BlockEditorConfig {
   if (!raw) return {};
   try {
@@ -229,6 +231,16 @@ function collectTemplates(root: HTMLElement, config: BlockEditorConfig): Map<str
   return templates;
 }
 
+function syncTemplateRegistry(root: HTMLElement, config: BlockEditorConfig): Map<string, BlockTemplate> {
+  const existing = templateRegistry.get(root);
+  const registry = existing ?? new Map<string, BlockTemplate>();
+  const latest = collectTemplates(root, config);
+  registry.clear();
+  latest.forEach((value, key) => registry.set(key, value));
+  templateRegistry.set(root, registry);
+  return registry;
+}
+
 /**
  * Generate a schema version string for a block type
  */
@@ -353,6 +365,32 @@ function clearBlockErrors(item: HTMLElement): void {
   item.querySelectorAll('.border-red-500').forEach((el) => {
     el.classList.remove('border-red-500', 'focus:ring-red-500');
   });
+}
+
+/**
+ * Mark required fields with visual indicators (asterisk on label).
+ * Phase 7.2: Required field indicators for block instances.
+ */
+export function markRequiredFields(container: HTMLElement, requiredFields: string[]): void {
+  for (const fieldName of requiredFields) {
+    const field = container.querySelector<HTMLElement>(
+      `[name="${fieldName}"], [data-block-field-name="${fieldName}"]`
+    );
+    if (!field) continue;
+
+    field.setAttribute('data-block-required', 'true');
+
+    const wrapper = field.closest('[data-component]');
+    const label = wrapper?.querySelector('label') ?? field.closest('label');
+    if (label && !label.querySelector('[data-required-indicator]')) {
+      const indicator = document.createElement('span');
+      indicator.className = 'block-required-indicator text-red-500 ml-0.5';
+      indicator.textContent = ' *';
+      indicator.setAttribute('data-required-indicator', 'true');
+      indicator.setAttribute('aria-hidden', 'true');
+      label.appendChild(indicator);
+    }
+  }
 }
 
 /**
@@ -817,7 +855,7 @@ export function initBlockEditor(root: HTMLElement): void {
   const elements = resolveElements(root);
   if (!elements) return;
   const config = resolveConfig(root);
-  const templates = collectTemplates(root, config);
+  const templates = syncTemplateRegistry(root, config);
   const baseName = root.dataset.blockField || elements.output.name;
   const sortableHint = parseBoolean(root.dataset.blockSortable);
   const sortable = config.sortable ?? sortableHint ?? false;
@@ -936,6 +974,8 @@ export function initBlockEditor(root: HTMLElement): void {
   };
 
   const createBlockItem = (template: BlockTemplate, values?: Record<string, any>) => {
+    const resolvedSchema = resolveSchemaVersion(template, values, config.schemaVersionPattern);
+
     const wrapper = document.createElement('div');
     wrapper.className = 'border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700';
     wrapper.setAttribute('data-block-item', 'true');
@@ -962,9 +1002,16 @@ export function initBlockEditor(root: HTMLElement): void {
     typeBadge.className = 'text-xs text-gray-500 dark:text-gray-400';
     typeBadge.textContent = template.type;
 
+    // Schema version badge (Phase 7.1)
+    const schemaBadge = document.createElement('span');
+    schemaBadge.className = 'block-schema-badge inline-flex items-center text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded dark:bg-blue-900/20 dark:text-blue-400';
+    schemaBadge.textContent = resolvedSchema;
+    schemaBadge.setAttribute('data-block-schema-badge', 'true');
+
     titleWrap.appendChild(icon);
     titleWrap.appendChild(label);
     titleWrap.appendChild(typeBadge);
+    titleWrap.appendChild(schemaBadge);
 
     const actions = document.createElement('div');
     actions.className = 'flex items-center gap-2';
@@ -1023,12 +1070,17 @@ export function initBlockEditor(root: HTMLElement): void {
     wrapper.appendChild(body);
 
     ensureTypeField(wrapper, template.type);
-    const resolvedSchema = resolveSchemaVersion(template, values, config.schemaVersionPattern);
     ensureSchemaField(wrapper, resolvedSchema);
     wrapper.dataset.blockSchema = resolvedSchema;
 
     if (values) {
       fillValues(wrapper, values);
+    }
+
+    // Mark required fields with visual indicators (Phase 7.2)
+    const requiredFields = template.requiredFields || [];
+    if (requiredFields.length > 0) {
+      markRequiredFields(body, requiredFields);
     }
 
     const shouldCollapse = template.collapsed ?? false;
@@ -1641,6 +1693,12 @@ export function registerBlockTemplate(root: HTMLElement, meta: {
   }
   tpl.innerHTML = meta.html;
   root.appendChild(tpl);
+}
+
+export function refreshBlockTemplateRegistry(root: HTMLElement): void {
+  if (!root) return;
+  const config = resolveConfig(root);
+  syncTemplateRegistry(root, config);
 }
 
 export function initBlockEditors(scope: ParentNode = document): void {

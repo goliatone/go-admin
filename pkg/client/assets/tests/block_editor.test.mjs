@@ -356,6 +356,151 @@ test('registerBlockTemplate + initBlockEditor produces a working editor', () => 
   assert.equal(payload[0].heading, 'Welcome');
 });
 
+// =============================================================================
+// Phase 7: Block Instance Headers + Schema Badges
+// =============================================================================
+
+test('block header shows schema version badge (7.1)', () => {
+  const dom = setupEditor(editorMarkup());
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const select = doc.querySelector('[data-block-add-select]');
+  const addButton = doc.querySelector('[data-block-add]');
+
+  select.value = 'hero';
+  click(addButton);
+
+  const item = doc.querySelector('[data-block-item]');
+  const schemaBadge = item.querySelector('[data-block-schema-badge]');
+  assert.ok(schemaBadge, 'schema badge should exist');
+  assert.ok(schemaBadge.textContent.includes('hero@'), 'badge should show schema version');
+});
+
+test('block header preserves schema version from existing data (7.1)', () => {
+  const initial = JSON.stringify([
+    { _type: 'hero', _schema: 'hero@v2.0.0', title: 'Test' },
+  ]);
+  const dom = setupEditor(editorMarkup(initial));
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const item = doc.querySelector('[data-block-item]');
+  const schemaBadge = item.querySelector('[data-block-schema-badge]');
+  assert.ok(schemaBadge, 'schema badge should exist');
+  assert.equal(schemaBadge.textContent, 'hero@v2.0.0', 'badge should show preserved version');
+});
+
+const requiredFieldsMarkup = `
+  <form>
+    <div data-block-editor data-block-sortable="true">
+      <div data-block-empty></div>
+      <div data-block-list></div>
+      <input type="hidden" name="blocks" data-block-output value="" />
+      <select data-block-add-select></select>
+      <button type="button" data-block-add>Add</button>
+      <template data-block-template data-block-type="contact" data-block-label="Contact" data-block-required-fields="name,email">
+        <div data-component="text"><label>Name <input name="name" /></label></div>
+        <div data-component="text"><label>Email <input name="email" /></label></div>
+        <div data-component="text"><label>Phone <input name="phone" /></label></div>
+      </template>
+    </div>
+  </form>
+`;
+
+test('required fields show asterisk indicators (7.2)', () => {
+  const dom = setupEditor(requiredFieldsMarkup);
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const select = doc.querySelector('[data-block-add-select]');
+  const addButton = doc.querySelector('[data-block-add]');
+
+  select.value = 'contact';
+  click(addButton);
+
+  const item = doc.querySelector('[data-block-item]');
+  const requiredIndicators = item.querySelectorAll('[data-required-indicator]');
+  assert.equal(requiredIndicators.length, 2, 'should have 2 required indicators (name and email)');
+
+  // Phone should NOT have indicator
+  const phoneField = item.querySelector('[name="phone"], [data-block-field-name="phone"]');
+  assert.ok(phoneField, 'phone field should exist');
+  assert.ok(!phoneField.hasAttribute('data-block-required'), 'phone should not be marked as required');
+});
+
+test('required fields are marked with data-block-required attribute (7.2)', () => {
+  const dom = setupEditor(requiredFieldsMarkup);
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const select = doc.querySelector('[data-block-add-select]');
+  const addButton = doc.querySelector('[data-block-add]');
+
+  select.value = 'contact';
+  click(addButton);
+
+  const item = doc.querySelector('[data-block-item]');
+  const requiredFields = item.querySelectorAll('[data-block-required]');
+  assert.equal(requiredFields.length, 2, 'should have 2 required fields marked');
+});
+
+test('validation errors show error badge in header (7.3)', () => {
+  const dom = setupEditor(requiredFieldsMarkup);
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const select = doc.querySelector('[data-block-add-select]');
+  const addButton = doc.querySelector('[data-block-add]');
+
+  select.value = 'contact';
+  click(addButton);
+
+  // Block is added with empty required fields — should show validation errors
+  const item = doc.querySelector('[data-block-item]');
+  const errorBadge = item.querySelector('[data-block-error-badge]');
+  assert.ok(errorBadge, 'error badge should exist in header');
+  assert.ok(errorBadge.textContent.includes('2'), 'should show 2 errors');
+  assert.ok(item.classList.contains('block-item--invalid'), 'block should be marked invalid');
+});
+
+test('enhanced headers do not break drag/drop controls (7.4)', () => {
+  const initial = JSON.stringify([
+    { _type: 'hero', title: 'First' },
+    { _type: 'gallery', caption: 'Second' },
+  ]);
+  const dom = setupEditor(editorMarkup(initial));
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  let items = doc.querySelectorAll('[data-block-item]');
+  assert.equal(items.length, 2);
+
+  // Schema badges exist
+  assert.ok(items[0].querySelector('[data-block-schema-badge]'), 'first block should have schema badge');
+  assert.ok(items[1].querySelector('[data-block-schema-badge]'), 'second block should have schema badge');
+
+  // Move down still works
+  const moveDown = items[0].querySelector('[data-block-move-down]');
+  click(moveDown);
+
+  const payload = getOutputPayload(doc);
+  assert.equal(payload[0]._type, 'gallery', 'reorder should still work');
+  assert.equal(payload[1]._type, 'hero');
+
+  // Collapse still works
+  items = doc.querySelectorAll('[data-block-item]');
+  const collapseBtn = items[0].querySelector('[data-block-collapse]');
+  const body = items[0].querySelector('[data-block-body]');
+  click(collapseBtn);
+  assert.ok(body.classList.contains('hidden'), 'collapse should still work');
+
+  // Remove still works
+  const removeBtn = items[0].querySelector('[data-block-remove]');
+  click(removeBtn);
+  assert.equal(doc.querySelectorAll('[data-block-item]').length, 1, 'remove should still work');
+});
+
 test('registerBlockTemplate omits optional attributes when not provided', () => {
   const dom = setupEditor(`
     <form>

@@ -417,7 +417,7 @@ export class ContentTypeAPIClient {
    * Get block categories
    */
   async getBlockCategories(): Promise<string[]> {
-    const url = `${this.config.basePath}/api/block_definitions/categories`;
+    const url = `${this.config.basePath}/api/block_definitions_meta/categories`;
     try {
       const response = await this.fetch(url, { method: 'GET' });
       const data = await response.json();
@@ -436,7 +436,7 @@ export class ContentTypeAPIClient {
    * Falls back to null if the endpoint is not available (Phase 3 not deployed).
    */
   async getFieldTypes(): Promise<FieldTypeMetadata[] | null> {
-    const url = `${this.config.basePath}/api/block_definitions/field_types`;
+    const url = `${this.config.basePath}/api/block_definitions_meta/field_types`;
     try {
       const response = await this.fetch(url, { method: 'GET' });
       const data = await response.json();
@@ -455,7 +455,7 @@ export class ContentTypeAPIClient {
    * Returns null when the endpoint does not expose grouped categories.
    */
   async getBlockFieldTypeGroups(): Promise<BackendFieldTypeCategoryGroup[] | null> {
-    const url = `${this.config.basePath}/api/block_definitions/field_types`;
+    const url = `${this.config.basePath}/api/block_definitions_meta/field_types`;
     try {
       const response = await this.fetch(url, { method: 'GET' });
       const data = await response.json();

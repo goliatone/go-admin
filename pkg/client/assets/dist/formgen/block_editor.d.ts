@@ -1,3 +1,8 @@
+/**
+ * Mark required fields with visual indicators (asterisk on label).
+ * Phase 7.2: Required field indicators for block instances.
+ */
+export declare function markRequiredFields(container: HTMLElement, requiredFields: string[]): void;
 export declare function initBlockEditor(root: HTMLElement): void;
 /**
  * Dynamically register a block template on a block editor root element.
@@ -12,5 +17,6 @@ export declare function registerBlockTemplate(root: HTMLElement, meta: {
     requiredFields?: string[];
     html: string;
 }): void;
+export declare function refreshBlockTemplateRegistry(root: HTMLElement): void;
 export declare function initBlockEditors(scope?: ParentNode): void;
 //# sourceMappingURL=block_editor.d.ts.map

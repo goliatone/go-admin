@@ -31,5 +31,6 @@ export declare class LayoutEditor extends Modal {
     private updateTabsFromForm;
     private updateView;
     private handleSave;
+    private showLayoutError;
 }
 //# sourceMappingURL=layout-editor.d.ts.map

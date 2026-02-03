@@ -16,6 +16,7 @@ import { getFieldTypeMetadata, normalizeFieldType } from './field-type-picker';
 import { PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel';
 import { FieldConfigForm } from './field-config-form';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
+import { ConfirmModal, TextPromptModal } from '../shared/modal';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { renderEntityHeader, renderSaveIndicator } from './shared/entity-header';
 import type { SaveState } from './shared/entity-header';
@@ -934,10 +935,20 @@ export class BlockEditorPanel {
     if (moveNewBtn) {
       e.stopPropagation();
       const fieldId = moveNewBtn.dataset.moveNewSection!;
-      const newSection = prompt('Section name:');
-      if (newSection && newSection.trim()) {
-        this.moveFieldToSection(fieldId, newSection.trim().toLowerCase().replace(/\s+/g, '_'));
-      }
+      const modal = new TextPromptModal({
+        title: 'Create New Section',
+        label: 'Section name',
+        placeholder: 'e.g. sidebar',
+        confirmLabel: 'Create',
+        inputClass: inputClasses(),
+        onConfirm: (value) => {
+          const section = value.trim().toLowerCase().replace(/\s+/g, '_');
+          if (section) {
+            this.moveFieldToSection(fieldId, section);
+          }
+        },
+      });
+      modal.show();
       return;
     }
 
@@ -968,11 +979,18 @@ export class BlockEditorPanel {
     if (removeBtn) {
       const fieldId = removeBtn.dataset.fieldRemove!;
       const field = this.fields.find((f) => f.id === fieldId);
-      if (field && confirm(`Remove field "${field.label || field.name}"?`)) {
-        this.fields = this.fields.filter((f) => f.id !== fieldId);
-        if (this.expandedFieldId === fieldId) this.expandedFieldId = null;
-        this.notifySchemaChange();
-        this.render();
+      if (field) {
+        ConfirmModal.confirm(`Remove field "${field.label || field.name}"?`, {
+          title: 'Remove Field',
+          confirmText: 'Remove',
+          confirmVariant: 'danger',
+        }).then((confirmed) => {
+          if (!confirmed) return;
+          this.fields = this.fields.filter((f) => f.id !== fieldId);
+          if (this.expandedFieldId === fieldId) this.expandedFieldId = null;
+          this.notifySchemaChange();
+          this.render();
+        });
       }
       return;
     }
@@ -1423,18 +1441,29 @@ export class BlockEditorPanel {
     root.querySelectorAll<HTMLSelectElement>('[data-field-section-select]').forEach((select) => {
       select.addEventListener('change', () => {
         const fieldId = select.dataset.fieldSectionSelect!;
-        let targetSection = select.value;
+        const targetSection = select.value;
 
         if (targetSection === '__new__') {
-          const newSection = prompt('Section name:');
-          if (newSection && newSection.trim()) {
-            targetSection = newSection.trim().toLowerCase().replace(/\s+/g, '_');
-          } else {
-            // Revert selection
-            const field = this.fields.find((f) => f.id === fieldId);
-            select.value = field?.section || DEFAULT_SECTION;
-            return;
-          }
+          const field = this.fields.find((f) => f.id === fieldId);
+          const previousSection = field?.section || DEFAULT_SECTION;
+          const modal = new TextPromptModal({
+            title: 'Create New Section',
+            label: 'Section name',
+            placeholder: 'e.g. sidebar',
+            confirmLabel: 'Create',
+            inputClass: inputClasses(),
+            onConfirm: (value) => {
+              const section = value.trim().toLowerCase().replace(/\s+/g, '_');
+              if (section) {
+                this.moveFieldToSection(fieldId, section);
+              }
+            },
+            onCancel: () => {
+              select.value = previousSection;
+            },
+          });
+          modal.show();
+          return;
         }
 
         this.moveFieldToSection(fieldId, targetSection);

@@ -59,6 +59,10 @@ export class LayoutEditor extends Modal {
         ${this.renderFieldAssignment()}
       </div>
 
+      <div data-layout-error class="hidden px-6 py-3 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800">
+        <p class="text-sm text-red-600 dark:text-red-400"></p>
+      </div>
+
       <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
@@ -515,11 +519,11 @@ export class LayoutEditor extends Modal {
       const ids = new Set<string>();
       for (const tab of this.layout.tabs) {
         if (!tab.id.trim()) {
-          alert('All tabs must have an ID');
+          this.showLayoutError('All tabs must have an ID');
           return;
         }
         if (ids.has(tab.id)) {
-          alert(`Duplicate tab ID: ${tab.id}`);
+          this.showLayoutError(`Duplicate tab ID: ${tab.id}`);
           return;
         }
         ids.add(tab.id);
@@ -528,6 +532,15 @@ export class LayoutEditor extends Modal {
 
     this.config.onSave(this.layout);
     this.hide();
+  }
+
+  private showLayoutError(message: string): void {
+    const errorEl = this.container?.querySelector('[data-layout-error]');
+    if (!errorEl) return;
+    errorEl.classList.remove('hidden');
+    const textEl = errorEl.querySelector('p');
+    if (textEl) textEl.textContent = message;
+    setTimeout(() => errorEl.classList.add('hidden'), 5000);
   }
 }
 

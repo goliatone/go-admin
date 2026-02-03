@@ -10,7 +10,7 @@ import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldType
 import { ContentTypeAPIClient, ContentTypeAPIError, fieldsToBlockSchema, generateFieldId } from './api-client';
 import { BlockEditorPanel } from './block-editor-panel';
 import { FieldPalettePanel } from './field-palette-panel';
-import { Modal } from '../shared/modal';
+import { ConfirmModal, TextPromptModal } from '../shared/modal';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
 import { resolveIcon } from './shared/icon-picker';
 
@@ -555,6 +555,7 @@ export class BlockLibraryIDE {
       label: 'Environment name',
       placeholder: 'e.g. staging',
       confirmLabel: 'Add',
+      inputClass: inputClasses(),
       onConfirm: (value) => {
         const env = value.trim();
         if (!env) return;
@@ -815,6 +816,7 @@ export class BlockLibraryIDE {
       label: 'Category name',
       placeholder: 'e.g. marketing',
       confirmLabel: 'Add',
+      inputClass: inputClasses(),
       onConfirm: (value) => {
         const added = this.addCategory(value);
         if (added) {
@@ -1576,7 +1578,10 @@ export class BlockLibraryIDE {
     const block = this.state.blocks.find((b) => b.id === blockId);
     if (!block) return;
 
-    const confirmed = confirm(`Delete "${block.name}"? This cannot be undone.`);
+    const confirmed = await ConfirmModal.confirm(
+      `Delete "${block.name}"? This cannot be undone.`,
+      { title: 'Delete Block', confirmText: 'Delete', confirmVariant: 'danger' },
+    );
     if (!confirmed) return;
 
     try {
@@ -1712,91 +1717,6 @@ export class BlockLibraryIDE {
       toast.style.opacity = '0';
       setTimeout(() => toast.remove(), 300);
     }, 3000);
-  }
-}
-
-// =============================================================================
-// Modals
-// =============================================================================
-
-interface TextPromptModalConfig {
-  title: string;
-  label: string;
-  placeholder?: string;
-  initialValue?: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  onConfirm: (value: string) => void;
-  onCancel?: () => void;
-}
-
-class TextPromptModal extends Modal {
-  private config: TextPromptModalConfig;
-
-  constructor(config: TextPromptModalConfig) {
-    super({ size: 'sm', initialFocus: '[data-prompt-input]' });
-    this.config = config;
-  }
-
-  protected renderContent(): string {
-    return `
-      <div class="p-5">
-        <div class="text-base font-semibold text-gray-900 dark:text-white">${esc(this.config.title)}</div>
-        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mt-3 mb-1">${esc(this.config.label)}</label>
-        <input type="text"
-               data-prompt-input
-               value="${esc(this.config.initialValue ?? '')}"
-               placeholder="${esc(this.config.placeholder ?? '')}"
-               class="${inputClasses()}" />
-        <div data-prompt-error class="hidden text-xs text-red-600 dark:text-red-400 mt-1"></div>
-        <div class="flex items-center justify-end gap-2 mt-4">
-          <button type="button" data-prompt-cancel
-                  class="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            ${esc(this.config.cancelLabel ?? 'Cancel')}
-          </button>
-          <button type="button" data-prompt-confirm
-                  class="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
-            ${esc(this.config.confirmLabel ?? 'Save')}
-          </button>
-        </div>
-      </div>
-    `;
-  }
-
-  protected bindContentEvents(): void {
-    const input = this.container?.querySelector<HTMLInputElement>('[data-prompt-input]');
-    const errorEl = this.container?.querySelector<HTMLElement>('[data-prompt-error]');
-    const confirmBtn = this.container?.querySelector<HTMLButtonElement>('[data-prompt-confirm]');
-    const cancelBtn = this.container?.querySelector<HTMLButtonElement>('[data-prompt-cancel]');
-
-    const showError = (message: string): void => {
-      if (!errorEl) return;
-      errorEl.textContent = message;
-      errorEl.classList.remove('hidden');
-    };
-
-    const handleConfirm = (): void => {
-      const value = input?.value.trim() ?? '';
-      if (!value) {
-        showError('Value is required.');
-        input?.focus();
-        return;
-      }
-      this.config.onConfirm(value);
-      this.hide();
-    };
-
-    confirmBtn?.addEventListener('click', handleConfirm);
-    input?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleConfirm();
-      }
-    });
-    cancelBtn?.addEventListener('click', () => {
-      this.config.onCancel?.();
-      this.hide();
-    });
   }
 }
 
