@@ -169,6 +169,23 @@ func (h *PageHandlers) Edit(c router.Context) error {
 		return err
 	}
 	values := cloneRecord(page)
+	if title := strings.TrimSpace(anyToString(values["title"])); title == "" {
+		if data, ok := page["data"].(map[string]any); ok {
+			title = strings.TrimSpace(anyToString(data["title"]))
+		}
+		if title == "" {
+			title = strings.TrimSpace(anyToString(page["meta_title"]))
+		}
+		if title != "" {
+			values["title"] = title
+		}
+	}
+	if parentID := strings.TrimSpace(anyToString(page["parent_id"])); parentID != "" {
+		values["parent_id"] = parentID
+	}
+	if templateID := strings.TrimSpace(anyToString(page["template_id"])); templateID != "" {
+		values["template_id"] = templateID
+	}
 	if groupID := strings.TrimSpace(anyToString(page["translation_group_id"])); groupID != "" {
 		values["translation_group_id"] = formgenrender.ValueWithProvenance{
 			Value:    groupID,

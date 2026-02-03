@@ -79,6 +79,7 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 		pingTimeout: 5 * time.Second,
 	}
 	newClient := func() (*persistence.Client, error) {
+		RegisterSeedModels()
 		return persistence.New(pcfg, sqlDB, sqlitedialect.New(), opts...)
 	}
 
@@ -184,7 +185,8 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 		ResetRepo:      resetRepo,
 	}
 
-	if err := SeedUsers(ctx, deps, preferenceRepo); err != nil {
+	seedCfg := SeedConfigFromEnv()
+	if err := LoadSeedGroup(ctx, client, seedCfg, SeedGroupUsers); err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
 

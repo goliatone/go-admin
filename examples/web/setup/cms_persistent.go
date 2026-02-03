@@ -55,6 +55,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 
 	resolvedDSN := resolveCMSDSN(dsn)
 
+	RegisterSeedModels()
 	registerSQLiteDrivers("sqlite3", "sqlite")
 
 	sqlDB, err := sql.Open("sqlite3", resolvedDSN)
@@ -79,9 +80,18 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		return admin.CMSOptions{}, err
 	}
 
-	seedRefs, err := seedCMSPrereqs(ctx, client.DB(), defaultLocale)
-	if err != nil {
-		return admin.CMSOptions{}, fmt.Errorf("seed cms prereqs: %w", err)
+	if err := stores.EnsureContentOverlay(ctx, client.DB()); err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("apply content overlay: %w", err)
+	}
+
+	seedCfg := SeedConfigFromEnv()
+	if err := LoadSeedGroup(ctx, client, seedCfg, SeedGroupCMS); err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("load cms seeds: %w", err)
+	}
+	seedRefs := cmsSeedRefs{
+		PageContentTypeID: pageContentTypeID,
+		PostContentTypeID: postContentTypeID,
+		TemplateID:        seedTemplateID,
 	}
 
 	cmsCfg := cms.DefaultConfig()
@@ -140,11 +150,6 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 			return admin.CMSOptions{}, err
 		}
 	}
-	menuAdapter := admin.CMSMenuService(nil)
-	if adapter != nil {
-		menuAdapter = adapter.MenuService()
-	}
-
 	contentSvc := admin.CMSContentService(nil)
 	if module != nil && module.Content() != nil {
 		contentSvc = newGoCMSContentBridge(module.Content(), module.Pages(), module.Blocks(), seedRefs.TemplateID, map[string]uuid.UUID{
@@ -154,13 +159,6 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	}
 	if contentSvc == nil && adapter != nil && adapter.ContentService() != nil {
 		contentSvc = adapter.ContentService()
-	}
-
-	if err := seedCMSBlockDefinitions(ctx, contentSvc, defaultLocale); err != nil {
-		return admin.CMSOptions{}, err
-	}
-	if err := seedCMSDemoContent(ctx, client.DB(), module.Markdown(), contentSvc, menuAdapter, seedRefs, defaultLocale); err != nil {
-		return admin.CMSOptions{}, fmt.Errorf("seed cms content: %w", err)
 	}
 
 	if contentSvc == nil {
