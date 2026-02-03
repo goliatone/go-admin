@@ -764,6 +764,19 @@ func TestBlockDefinitionsToResponse_InactiveItemsDisabled(t *testing.T) {
 	}
 }
 
+func TestBlockDefinitionsToResponse_StatusCaseInsensitive(t *testing.T) {
+	defs := []blockDefinition{
+		{Type: "hero", Label: "Hero", Status: "Active"},
+	}
+	items := blockDefinitionsToResponse(defs)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if items[0].Disabled {
+		t.Error("expected disabled=false for status=Active")
+	}
+}
+
 func TestBlockDefinitionsToResponse_NilRequiredFieldsBecomesEmptySlice(t *testing.T) {
 	defs := []blockDefinition{
 		{Type: "test", Label: "Test", Status: "active", RequiredFields: nil},
