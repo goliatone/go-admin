@@ -116,6 +116,10 @@ type Action struct {
 	LabelKey    string `json:"label_key,omitempty"`
 	CommandName string `json:"command_name"`
 	Permission  string `json:"permission,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	Confirm     string `json:"confirm,omitempty"`
+	Variant     string `json:"variant,omitempty"`
+	Overflow    bool   `json:"overflow,omitempty"`
 }
 
 // PanelPermissions declares resource actions.
