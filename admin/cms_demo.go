@@ -24,7 +24,7 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 	workflow := resolveCMSWorkflowEngine(a)
 	workflowActions := []Action{}
 	if workflow != nil {
-		workflowActions = cmsWorkflowActions()
+		workflowActions = resolveCMSWorkflowActions(a)
 	}
 
 	contentTypesPanel := (&PanelBuilder{}).
