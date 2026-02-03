@@ -120,7 +120,7 @@ Error handling env toggles (wired via `quickstart.WithErrorsFromEnv()`):
 ### Content persistence (SQLite + go-repository-bun)
 
 - CRUD APIs (`/admin/crud/{pages,posts,media}`) are backed by SQLite via go-repository-bun stores; go-cms migrations from `../go-cms/data/sql/migrations` are applied on startup with a light overlay that creates `admin_pages`, `admin_posts`, and `media` demo tables for the example flows.
-- Configure the DSN with `CONTENT_DATABASE_DSN` (preferred), falling back to `CMS_DATABASE_DSN`, else `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; stores seed once when the tables are empty using the demo fixtures.
+- Configure the DSN with `CONTENT_DATABASE_DSN` (preferred), falling back to `CMS_DATABASE_DSN`, else `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; fixtures load from `examples/web/data/sql/seeds` when `ADMIN_SEEDS` is enabled (default outside production). Use `ADMIN_SEEDS_TRUNCATE=true` to reseed.
 - Controllers also register plural aliases (`/admin/crud/posts`, `/admin/crud/posts/:id`, `/admin/crud/posts/batch`, etc.) so the DataGrid and HTML flows keep using plural paths while hitting the DB.
 - Smoke: create/edit/delete a page, post, and media item via the UI or `/admin/crud/{resource}`; restart the server and confirm the records persist and still filter/sort in the lists.
 
@@ -366,7 +366,7 @@ The dashboard will automatically fall back to the JSON API endpoint.
 The dashboard uses `goliatone/go-dashboard` with CMS-backed persistent storage. Widgets and user layout preferences are stored in the database and survive server restarts.
 
 **Prerequisites:**
-- CMS persistence is enabled by default (set `USE_PERSISTENT_CMS=false` to disable)
+- CMS persistence is enabled (required for the dashboard)
 - Dashboard feature enabled (`Features.Dashboard = true`, default)
 
 **Run with persistent dashboard:**
@@ -411,7 +411,6 @@ The example demonstrates the activity hooks pattern with bidirectional flow:
 See `main.go` for the composite activity sink setup; env flags can swap the primary sink:
 
 - `USE_GO_USERS_ACTIVITY=true` enables the go-users sink when available; otherwise falls back to in-memory.
-- `USE_PERSISTENT_CMS=false` disables the persistent CMS adapter and falls back to in-memory.
 - `USE_GO_OPTIONS=true` swaps the settings backend to go-options; falls back to in-memory settings.
 
 ```go
@@ -470,20 +469,20 @@ func (c *UserActivateCommand) Execute(ctx admin.AdminContext) error {
 
 ## Persistent CMS (go-cms + Bun/SQLite)
 
-- Default: the example now boots with go-cms persistence enabled unless `USE_PERSISTENT_CMS=false` is set. The Bun storage adapter lives in `examples/web/setup/cms_persistent.go`. Default DSN is `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; override with `CMS_DATABASE_DSN`.
+- Default: the example boots with go-cms persistence enabled. The Bun storage adapter lives in `examples/web/setup/cms_persistent.go`. Default DSN is `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; override with `CMS_DATABASE_DSN`.
 - Migrations: applied automatically at startup via go-persistence-bun using the embedded go-cms SQL migrations (no manual migration step needed).
 - Requirements: SQLite driver (sqliteshim is bundled; no additional install) and write access to the DSN path.
 - Smoke:
- 1. `go run ./examples/web` → logs show `CMS backend: go-cms (sqlite)` (or set `USE_PERSISTENT_CMS=true` explicitly).
+ 1. `go run ./examples/web` → logs show `CMS backend: go-cms (sqlite)`.
   2. Call `GET /admin/api/navigation` and confirm menus load; stop the server, restart with the same DSN, and confirm the menu payload still resolves (data persisted).
   3. Optional: point `CMS_DATABASE_DSN` to a different file path and confirm a fresh database is created with the same migrations applied.
 
 ## Content (Pages + Posts)
 
-- Pages and Posts panels use the go-cms backend by default (container from `examples/web/setup/cms_persistent.go`). Set `USE_PERSISTENT_CMS=false` to fall back to the seeded in-memory stores.
+- Pages and Posts panels use the go-cms backend by default (container from `examples/web/setup/cms_persistent.go`).
 - Navigation seeds a `Content` parent guarded by `admin.pages.*`/`admin.posts.*`; the go-auth role provider now issues matching resource roles so the menu and panels hide for unauthorized tokens.
 - CMS-backed stores emit `page:<id>`/`post:<id>` activity (actor + slug/status metadata) and drive search adapters from go-cms data, keeping search and activity aligned with the persistent backend.
-- Smoke: `CMS_DATABASE_DSN=file:/tmp/go-admin-cms.db?cache=shared&_fk=1 go run ./examples/web`, create/edit/delete a page and a post via `/admin/pages` and `/admin/posts`, confirm `/admin/api/search?query=<slug>` returns them and `/admin/api/activity?limit=5` shows create/update/delete in `entries` with correct actors; set `USE_PERSISTENT_CMS=false` to fall back to the seeded in-memory content without errors.
+- Smoke: `CMS_DATABASE_DSN=file:/tmp/go-admin-cms.db?cache=shared&_fk=1 go run ./examples/web`, create/edit/delete a page and a post via `/admin/pages` and `/admin/posts`, confirm `/admin/api/search?query=<slug>` returns them and `/admin/api/activity?limit=5` shows create/update/delete in `entries` with correct actors.
 
 ## User & Role Management
 
