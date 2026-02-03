@@ -315,6 +315,9 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 	if r.types == nil {
 		return nil, ErrNotFound
 	}
+	schemaProvided := recordHasKey(record, "schema")
+	uiSchemaProvided := recordHasKey(record, "ui_schema") || recordHasKey(record, "uiSchema")
+	capsProvided := recordHasKey(record, "capabilities")
 	ct := mapToCMSContentType(record)
 	if ct.Environment == "" {
 		ct.Environment = strings.TrimSpace(environmentFromContext(ctx))
@@ -361,15 +364,18 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 		if strings.TrimSpace(ct.Status) == "" {
 			ct.Status = existing.Status
 		}
-		if ct.Schema == nil {
+		if ct.Schema == nil && schemaProvided {
 			ct.Schema = existing.Schema
 		}
-		if ct.UISchema == nil {
+		if ct.UISchema == nil && uiSchemaProvided {
 			ct.UISchema = existing.UISchema
 		}
-		if ct.Capabilities == nil {
+		if ct.Capabilities == nil && capsProvided {
 			ct.Capabilities = existing.Capabilities
 		}
+	}
+	if existing != nil && schemaProvided && ct.Schema != nil {
+		ct.Schema = mergeCMSContentTypeSchema(existing.Schema, ct.Schema)
 	}
 	updated, err := r.types.UpdateContentType(ctx, ct)
 	if err != nil {
@@ -1015,6 +1021,7 @@ func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[st
 	if def.Environment == "" {
 		def.Environment = strings.TrimSpace(environmentFromContext(ctx))
 	}
+	applyBlockDefinitionDefaults(&def)
 	created, err := r.content.CreateBlockDefinition(ctx, def)
 	if err != nil {
 		return nil, err
@@ -1078,6 +1085,7 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 			def.UISchema = existing.UISchema
 		}
 	}
+	applyBlockDefinitionDefaults(&def)
 	updated, err := r.content.UpdateBlockDefinition(ctx, def)
 	if err != nil {
 		return nil, err
@@ -2077,6 +2085,13 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 	if status, ok := record["status"].(string); ok {
 		ct.Status = status
 	}
+	if raw, ok := record["allow_breaking_changes"]; ok {
+		ct.AllowBreakingChanges = toBool(raw)
+	} else if raw, ok := record["allow_breaking"]; ok {
+		ct.AllowBreakingChanges = toBool(raw)
+	} else if raw, ok := record["force"]; ok {
+		ct.AllowBreakingChanges = toBool(raw)
+	}
 	if env, ok := record["environment"].(string); ok {
 		ct.Environment = env
 	} else if env, ok := record["env"].(string); ok && ct.Environment == "" {
@@ -2109,6 +2124,73 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 		}
 	}
 	return ct
+}
+
+func mergeCMSContentTypeSchema(base, incoming map[string]any) map[string]any {
+	if incoming == nil {
+		return base
+	}
+	if base == nil {
+		return incoming
+	}
+	merged := cloneAnyMapDeep(incoming)
+	mergeSchemaSection(merged, base, "$defs")
+	mergeSchemaSection(merged, base, "metadata")
+	return merged
+}
+
+func mergeSchemaSection(target, base map[string]any, key string) {
+	if target == nil || base == nil {
+		return
+	}
+	baseSection, ok := base[key].(map[string]any)
+	if !ok || len(baseSection) == 0 {
+		return
+	}
+	section, _ := target[key].(map[string]any)
+	if section == nil {
+		section = map[string]any{}
+	}
+	for k, v := range baseSection {
+		if _, exists := section[k]; exists {
+			continue
+		}
+		section[k] = cloneAnyValueDeep(v)
+	}
+	target[key] = section
+}
+
+func cloneAnyMapDeep(in map[string]any) map[string]any {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = cloneAnyValueDeep(v)
+	}
+	return out
+}
+
+func cloneAnySliceDeep(in []any) []any {
+	if in == nil {
+		return nil
+	}
+	out := make([]any, len(in))
+	for i, v := range in {
+		out[i] = cloneAnyValueDeep(v)
+	}
+	return out
+}
+
+func cloneAnyValueDeep(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneAnyMapDeep(typed)
+	case []any:
+		return cloneAnySliceDeep(typed)
+	default:
+		return typed
+	}
 }
 
 func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
@@ -2182,6 +2264,44 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 		def.Locale = locale
 	}
 	return def
+}
+
+func applyBlockDefinitionDefaults(def *CMSBlockDefinition) {
+	if def == nil {
+		return
+	}
+	if def.SchemaVersion == "" {
+		def.SchemaVersion = strings.TrimSpace(schemaVersionFromSchema(def.Schema))
+	}
+	if def.MigrationStatus == "" {
+		def.MigrationStatus = strings.TrimSpace(schemaMigrationStatusFromSchema(def.Schema))
+	}
+	if def.Status == "" {
+		def.Status = strings.TrimSpace(schemaStatusFromSchema(def.Schema))
+	}
+	if def.Status == "" {
+		def.Status = "draft"
+	}
+	if def.Category == "" && !def.CategorySet {
+		def.Category = strings.TrimSpace(schemaCategoryFromSchema(def.Schema))
+	}
+	if def.Slug == "" {
+		def.Slug = strings.TrimSpace(schemaSlugFromSchema(def.Schema))
+	}
+	if def.Type == "" {
+		def.Type = strings.TrimSpace(schemaBlockTypeFromSchema(def.Schema))
+	}
+	if def.Slug == "" {
+		if name := strings.TrimSpace(def.Name); name != "" {
+			def.Slug = normalizeContentTypeSlug(name, def.Slug)
+		}
+	}
+	if def.Slug == "" {
+		def.Slug = strings.TrimSpace(firstNonEmpty(def.Type, def.Name, def.ID))
+	}
+	if def.Type == "" {
+		def.Type = strings.TrimSpace(firstNonEmpty(def.Slug, def.Name, def.ID))
+	}
 }
 
 func mapToCMSBlock(record map[string]any) CMSBlock {
