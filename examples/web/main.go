@@ -29,6 +29,7 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
+	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
 	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-crud"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
@@ -208,9 +209,7 @@ func main() {
 		GoUsersActivity: setup.SetupActivityWithGoUsers,
 	}
 	adapterFlags := quickstart.ResolveAdapterFlags()
-	if _, ok := os.LookupEnv("USE_PERSISTENT_CMS"); !ok {
-		adapterFlags.UsePersistentCMS = true
-	}
+	adapterFlags.UsePersistentCMS = true
 
 	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsersWithMigrations(
 		context.Background(),
@@ -291,12 +290,13 @@ func main() {
 	settingsBackend := adapterResult.SettingsBackend
 	activityBackend := adapterResult.ActivityBackend
 
-	// Initialize data stores with seed data
-	cmsContentSvc := admin.CMSContentService(admin.NewInMemoryContentService())
+	// Initialize data stores (CMS-backed only)
+	cmsContentSvc := admin.CMSContentService(nil)
 	if cfg.CMS.Container != nil {
-		if svc := cfg.CMS.Container.ContentService(); svc != nil {
-			cmsContentSvc = svc
-		}
+		cmsContentSvc = cfg.CMS.Container.ContentService()
+	}
+	if cmsContentSvc == nil {
+		log.Fatalf("persistent CMS content service is required")
 	}
 	repoOptions := adm.DebugQueryHookOptions()
 	dataStores, err := stores.InitializeWithOptions(cmsContentSvc, defaultLocale, usersDeps, stores.InitOptions{
@@ -363,35 +363,6 @@ func main() {
 
 	var defaultTenantID string
 	var defaultOrgID string
-	// Seed demo tenants/orgs for navigation/search coverage
-	if svc := adm.TenantService(); svc != nil && featureEnabled(adm.FeatureGate(), "tenants") {
-		tenant, err := svc.SaveTenant(context.Background(), admin.TenantRecord{
-			Name:   "Acme Corp",
-			Slug:   "acme",
-			Status: "active",
-			Domain: "acme.local",
-			Members: []admin.TenantMember{
-				{UserID: "admin", Roles: []string{"owner"}},
-			},
-		})
-		if err == nil {
-			defaultTenantID = tenant.ID
-			if orgSvc := adm.OrganizationService(); orgSvc != nil && featureEnabled(adm.FeatureGate(), "organizations") {
-				org, err := orgSvc.SaveOrganization(context.Background(), admin.OrganizationRecord{
-					Name:     "Acme Engineering",
-					Slug:     "acme-eng",
-					Status:   "active",
-					TenantID: tenant.ID,
-					Members: []admin.OrganizationMember{
-						{UserID: "admin", Roles: []string{"manager"}},
-					},
-				})
-				if err == nil {
-					defaultOrgID = org.ID
-				}
-			}
-		}
-	}
 
 	if lib := adm.MediaLibrary(); lib != nil {
 		mediaItems, _, _ := dataStores.Media.List(context.Background(), admin.ListOptions{})
@@ -533,7 +504,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to access form templates: %v", err)
 	}
-	formGenerator, err := quickstart.NewFormGenerator(openapiFS, formTemplatesFS)
+	componentRegistry := components.NewRegistry()
+	componentRegistry.MustRegister("block-library-picker", coreadmin.BlockLibraryPickerDescriptor(cfg.BasePath))
+	formGenerator, err := quickstart.NewFormGenerator(
+		openapiFS,
+		formTemplatesFS,
+		quickstart.WithComponentRegistryMergeDefaults(componentRegistry),
+	)
 	if err != nil {
 		log.Fatalf("failed to initialize form generator: %v", err)
 	}
@@ -698,9 +675,6 @@ func main() {
 	setupSearch(adm, dataStores)
 	setupJobs(adm, dataStores)
 
-	// Seed notifications and activity
-	seedNotificationsAndActivity(adm)
-
 	// go-crud controller for users (JSON API)
 	crudErrorEncoder := crud.ProblemJSONErrorEncoder(
 		crud.WithProblemJSONStatusResolver(userCRUDStatusResolver),
@@ -753,6 +727,7 @@ func main() {
 	}))
 
 	r.Get(path.Join(cfg.BasePath, "api", "timezones"), authn.WrapHandler(handlers.ListTimezones))
+	r.Get(path.Join(cfg.BasePath, "api", "templates"), authn.WrapHandler(handlers.ListTemplates(dataStores.Templates)))
 
 	onboardingHandlers := handlers.OnboardingHandlers{
 		UsersService: usersService,
@@ -1824,63 +1799,6 @@ func setupJobs(adm *admin.Admin, dataStores *stores.DataStores) {
 	_, _ = admin.RegisterCommand(registry, jobs.NewCacheCleanupJob())
 	_, _ = admin.RegisterCommand(registry, jobs.NewContentExportJob(dataStores))
 	_, _ = admin.RegisterCommand(registry, jobs.NewInactiveUsersCleanupJob(dataStores.Users))
-}
-
-// seedNotificationsAndActivity adds sample data for notifications and activity feed
-func seedNotificationsAndActivity(adm *admin.Admin) {
-	ctx := context.Background()
-
-	if svc := adm.NotificationService(); svc != nil {
-		svc.Add(ctx, admin.Notification{
-			Title:   "New user registered",
-			Message: "john.doe@example.com just created an account",
-			Read:    false,
-		})
-		svc.Add(ctx, admin.Notification{
-			Title:   "Post published",
-			Message: "Getting Started with Go was published by jane.smith",
-			Read:    false,
-		})
-		svc.Add(ctx, admin.Notification{
-			Title:   "System update available",
-			Message: "Version 2.1.0 is ready to install",
-			Read:    false,
-		})
-		svc.Add(ctx, admin.Notification{
-			Title:   "Backup completed",
-			Message: "Database backup finished successfully",
-			Read:    true,
-		})
-		svc.Add(ctx, admin.Notification{
-			Title:   "Storage warning",
-			Message: "Storage usage is at 85%",
-			Read:    false,
-		})
-	}
-
-	feed := adm.ActivityFeed()
-	feed.Record(ctx, admin.ActivityEntry{Actor: "jane.smith", Action: "published", Object: "post: Getting Started with Go", Channel: "posts"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "john.doe", Action: "created", Object: "page: About Us", Channel: "pages"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "admin", Action: "updated", Object: "settings: email configuration", Channel: "settings"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "system", Action: "completed", Object: "job: database backup", Channel: "jobs"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "jane.smith", Action: "uploaded", Object: "media: logo.png", Channel: "media"})
-	feed.Record(ctx, admin.ActivityEntry{Actor: "system", Action: "cleaned", Object: "cache entries", Channel: "admin"})
-	feed.Record(ctx, admin.ActivityEntry{
-		Actor:   "admin",
-		Action:  "user.invite",
-		Object:  "user: editor",
-		Channel: "users",
-		Metadata: map[string]any{
-			"email":      "editor@example.com",
-			"expires_at": "1h",
-		},
-	})
-	feed.Record(ctx, admin.ActivityEntry{
-		Actor:   "admin",
-		Action:  "status.activated",
-		Object:  "user: viewer",
-		Channel: "users",
-	})
 }
 
 // getErrorContext maps HTTP status codes to user-friendly headlines and messages.
