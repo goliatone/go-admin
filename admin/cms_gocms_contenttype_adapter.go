@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -89,7 +90,7 @@ func (a *GoCMSContentTypeAdapter) ContentTypes(ctx context.Context) ([]CMSConten
 	args = appendZeroArgs(args, method, 1)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
-		return nil, err
+		return nil, normalizeContentTypeAdapterError(err)
 	}
 	if len(results) == 0 {
 		return nil, nil
@@ -117,7 +118,7 @@ func (a *GoCMSContentTypeAdapter) ContentType(ctx context.Context, id string) (*
 	args = appendZeroArgs(args, method, 2)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
-		return nil, err
+		return nil, normalizeContentTypeAdapterError(err)
 	}
 	if len(results) == 0 || !results[0].IsValid() {
 		return nil, ErrNotFound
@@ -149,7 +150,7 @@ func (a *GoCMSContentTypeAdapter) ContentTypeBySlug(ctx context.Context, slug st
 	args = appendZeroArgs(args, method, 2)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
-		return nil, err
+		return nil, normalizeContentTypeAdapterError(err)
 	}
 	if len(results) == 0 || !results[0].IsValid() {
 		return nil, ErrNotFound
@@ -180,7 +181,7 @@ func (a *GoCMSContentTypeAdapter) CreateContentType(ctx context.Context, content
 	args = appendZeroArgs(args, method, 2)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
-		return nil, err
+		return nil, normalizeContentTypeAdapterError(err)
 	}
 	if len(results) == 0 {
 		return nil, ErrNotFound
@@ -208,7 +209,7 @@ func (a *GoCMSContentTypeAdapter) UpdateContentType(ctx context.Context, content
 	args = appendZeroArgs(args, method, 2)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
-		return nil, err
+		return nil, normalizeContentTypeAdapterError(err)
 	}
 	if len(results) == 0 {
 		return nil, ErrNotFound
@@ -254,7 +255,7 @@ func (a *GoCMSContentTypeAdapter) DeleteContentType(ctx context.Context, id stri
 		return ErrNotFound
 	}
 	results := method.Call(args)
-	return extractError(results)
+	return normalizeContentTypeAdapterError(extractError(results))
 }
 
 func buildContentTypeIDInput(argType reflect.Type, id string) (reflect.Value, error) {
@@ -317,6 +318,10 @@ func buildContentTypeInput(argType reflect.Type, contentType CMSContentType, isU
 	}
 	if status := strings.TrimSpace(contentType.Status); status != "" {
 		setStringPtr(input.FieldByName("Status"), status)
+	}
+	if isUpdate && contentType.AllowBreakingChanges {
+		setBoolField(input, "AllowBreakingChanges", true)
+		setBoolField(input, "AllowBreaking", true)
 	}
 	if env := strings.TrimSpace(contentType.Environment); env != "" {
 		setStringPtr(input.FieldByName("Environment"), env)
@@ -561,4 +566,31 @@ func extractTimeField(value reflect.Value, fieldName string) (time.Time, bool) {
 		return t, !t.IsZero()
 	}
 	return time.Time{}, false
+}
+
+func normalizeContentTypeAdapterError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ErrNotFound) {
+		return ErrNotFound
+	}
+	if isContentTypeNotFound(err) {
+		return ErrNotFound
+	}
+	return err
+}
+
+func isContentTypeNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		message := strings.ToLower(current.Error())
+		if strings.Contains(message, "not found") &&
+			(strings.Contains(message, "content_type") || strings.Contains(message, "content type")) {
+			return true
+		}
+	}
+	return false
 }
