@@ -329,41 +329,40 @@
           Suspend
         </button>
         <!-- More actions dropdown trigger -->
-        <div class="relative">
-          <button class="bulk-action-btn-icon" id="bulk-more-btn" aria-label="More actions">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
-            </svg>
-          </button>
-          <!-- Overflow panel with Role Management + overflow actions -->
-          <div id="bulk-overflow-panel" class="bulk-overflow-panel hidden">
-            <!-- Role Management Section -->
-            <div class="bulk-overflow-section">
-              <div class="bulk-overflow-section-title">ROLE MANAGEMENT</div>
-              <select id="bulk-role-select" class="bulk-role-select">
-                <option value="">Select role</option>
-              </select>
-              <div class="flex gap-2 mt-3">
-                <button id="bulk-role-assign" class="bulk-role-btn bulk-role-btn--primary flex-1">Assign</button>
-                <button id="bulk-role-unassign" class="bulk-role-btn bulk-role-btn--secondary flex-1">Unassign</button>
-              </div>
-            </div>
-            <!-- Overflow Actions -->
-            <div class="bulk-overflow-divider"></div>
-            <button class="bulk-overflow-action" data-bulk-action="bulk-disable">
-              <svg class="w-5 h-5 mr-3 text-current opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
-              </svg>
-              Disable Selected
-            </button>
-            <button class="bulk-overflow-action" data-bulk-action="bulk-archive">
-              <svg class="w-5 h-5 mr-3 text-current opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
-              </svg>
-              Archive Selected
-            </button>
+        <button class="bulk-action-btn-icon" id="bulk-more-btn" aria-label="More actions">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Overflow panel: positioned relative to the bar -->
+      <div id="bulk-overflow-panel" class="bulk-overflow-panel hidden">
+        <!-- Role Management Section -->
+        <div class="bulk-overflow-section">
+          <div class="bulk-overflow-section-title">ROLE MANAGEMENT</div>
+          <select id="bulk-role-select" class="bulk-role-select">
+            <option value="">Select role</option>
+          </select>
+          <div class="flex gap-2 mt-3">
+            <button id="bulk-role-assign" class="bulk-role-btn bulk-role-btn--primary flex-1">Assign</button>
+            <button id="bulk-role-unassign" class="bulk-role-btn bulk-role-btn--secondary flex-1">Unassign</button>
           </div>
         </div>
+        <!-- Overflow Actions -->
+        <div class="bulk-overflow-divider"></div>
+        <button class="bulk-overflow-action" data-bulk-action="bulk-disable">
+          <svg class="w-5 h-5 mr-3 text-current opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+          </svg>
+          Disable Selected
+        </button>
+        <button class="bulk-overflow-action" data-bulk-action="bulk-archive">
+          <svg class="w-5 h-5 mr-3 text-current opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+          </svg>
+          Archive Selected
+        </button>
       </div>
     </div>
   </div>

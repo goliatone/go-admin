@@ -68,16 +68,6 @@
 {% endblock %}
 
 {% block scripts %}
-<style>
-  /* Fix white-on-white hover on active JSON editor toggle buttons.
-     The upstream template renders hover:bg-gray-50 on inactive buttons;
-     when JS toggles a button to active (bg-blue-600) the hover class
-     remains and overrides on hover due to higher specificity. */
-  [data-json-editor-mode-btn].bg-blue-600:hover {
-    background-color: rgb(29 78 216); /* blue-700 */
-    color: #fff;
-  }
-</style>
 <script src="{{ base_path }}/runtime/formgen-behaviors.min.js" defer></script>
 <script type="module" src="{{ base_path }}/assets/dist/content-type-builder/index.js"></script>
 {% endblock %}

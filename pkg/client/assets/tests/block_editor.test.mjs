@@ -16,7 +16,7 @@ const bootstrapDom = new JSDOM('<!doctype html><html><body></body></html>', { ur
 setGlobals(bootstrapDom.window);
 Object.defineProperty(globalThis.document, 'readyState', { value: 'loading', configurable: true });
 
-const { initBlockEditors } = await import('../dist/formgen/block_editor.js');
+const { initBlockEditors, initBlockEditor, registerBlockTemplate } = await import('../dist/formgen/block_editor.js');
 
 function setGlobals(win) {
   globalThis.window = win;
@@ -163,4 +163,224 @@ test('block editor preserves existing _schema on edits', () => {
   assert.equal(payload.length, 1);
   assert.equal(payload[0]._schema, 'hero@v2.0.0');
   assert.equal(payload[0].title, 'Updated');
+});
+
+// =============================================================================
+// Phase 4: Manual Init Guard + Exported Functions
+// =============================================================================
+
+const manualInitMarkup = `
+  <form>
+    <div data-block-editor data-block-init="manual" data-block-sortable="true">
+      <div data-block-empty></div>
+      <div data-block-list></div>
+      <input type="hidden" name="blocks" data-block-output value="" />
+      <select data-block-add-select></select>
+      <button type="button" data-block-add>Add</button>
+      <template data-block-template data-block-type="hero" data-block-label="Hero">
+        <label>Title <input name="title" /></label>
+      </template>
+    </div>
+  </form>
+`;
+
+const libraryPickerMarkup = `
+  <form>
+    <div data-block-editor data-block-library-picker="true" data-block-sortable="true">
+      <div data-block-empty></div>
+      <div data-block-list></div>
+      <input type="hidden" name="blocks" data-block-output value="" />
+      <select data-block-add-select></select>
+      <button type="button" data-block-add>Add</button>
+    </div>
+  </form>
+`;
+
+test('initBlockEditors skips elements with data-block-init="manual"', () => {
+  const dom = setupEditor(manualInitMarkup);
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  // The select should NOT have been populated with block type options
+  // because initBlockEditor was never called
+  const select = doc.querySelector('[data-block-add-select]');
+  assert.equal(select.options.length, 0, 'manual init editor should not be auto-initialized');
+});
+
+test('initBlockEditors skips elements with data-block-library-picker="true"', () => {
+  const dom = setupEditor(libraryPickerMarkup);
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const select = doc.querySelector('[data-block-add-select]');
+  assert.equal(select.options.length, 0, 'library picker editor should not be auto-initialized');
+});
+
+test('initBlockEditors still initializes normal editors alongside manual ones', () => {
+  const mixed = `
+    <form>
+      <div id="auto" data-block-editor data-block-sortable="true">
+        <div data-block-empty></div>
+        <div data-block-list></div>
+        <input type="hidden" name="auto_blocks" data-block-output value="" />
+        <select data-block-add-select></select>
+        <button type="button" data-block-add>Add</button>
+        <template data-block-template data-block-type="hero" data-block-label="Hero">
+          <label>Title <input name="title" /></label>
+        </template>
+      </div>
+      <div id="manual" data-block-editor data-block-init="manual">
+        <div data-block-empty></div>
+        <div data-block-list></div>
+        <input type="hidden" name="manual_blocks" data-block-output value="" />
+        <select data-block-add-select></select>
+        <button type="button" data-block-add>Add</button>
+      </div>
+    </form>
+  `;
+  const dom = setupEditor(mixed);
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const autoSelect = doc.querySelector('#auto [data-block-add-select]');
+  const manualSelect = doc.querySelector('#manual [data-block-add-select]');
+
+  // Auto editor should be initialized (select populated with placeholder + hero)
+  assert.ok(autoSelect.options.length > 0, 'auto editor should be initialized');
+  // Manual editor should NOT be initialized
+  assert.equal(manualSelect.options.length, 0, 'manual editor should not be initialized');
+});
+
+test('initBlockEditor can be called directly on a manual-init element', () => {
+  const dom = setupEditor(manualInitMarkup);
+  const doc = dom.window.document;
+
+  // Directly call initBlockEditor bypassing the guard
+  const root = doc.querySelector('[data-block-editor]');
+  initBlockEditor(root);
+
+  const select = doc.querySelector('[data-block-add-select]');
+  // Should now have placeholder + hero option
+  assert.ok(select.options.length > 0, 'direct initBlockEditor should initialize the editor');
+
+  // Verify the editor is functional: add a block
+  select.value = 'hero';
+  click(doc.querySelector('[data-block-add]'));
+  assert.equal(doc.querySelectorAll('[data-block-item]').length, 1);
+});
+
+test('registerBlockTemplate creates a template element with correct attributes', () => {
+  const dom = setupEditor(`
+    <form>
+      <div data-block-editor data-block-init="manual">
+        <div data-block-empty></div>
+        <div data-block-list></div>
+        <input type="hidden" name="blocks" data-block-output value="" />
+        <select data-block-add-select></select>
+        <button type="button" data-block-add>Add</button>
+      </div>
+    </form>
+  `);
+  const doc = dom.window.document;
+  const root = doc.querySelector('[data-block-editor]');
+
+  registerBlockTemplate(root, {
+    type: 'cta',
+    label: 'Call to Action',
+    icon: 'megaphone',
+    schemaVersion: 'cta@v1.0.0',
+    requiredFields: ['title', 'url'],
+    html: '<label>Title <input name="title" /></label><label>URL <input name="url" /></label>',
+  });
+
+  const tpl = root.querySelector('template[data-block-template][data-block-type="cta"]');
+  assert.ok(tpl, 'template element should exist');
+  assert.equal(tpl.dataset.blockLabel, 'Call to Action');
+  assert.equal(tpl.dataset.blockIcon, 'megaphone');
+  assert.equal(tpl.dataset.blockSchemaVersion, 'cta@v1.0.0');
+  assert.equal(tpl.dataset.blockRequiredFields, 'title,url');
+});
+
+test('registerBlockTemplate + initBlockEditor produces a working editor', () => {
+  const dom = setupEditor(`
+    <form>
+      <div data-block-editor data-block-init="manual">
+        <div data-block-empty></div>
+        <div data-block-list></div>
+        <input type="hidden" name="blocks" data-block-output value="" />
+        <select data-block-add-select></select>
+        <button type="button" data-block-add>Add</button>
+      </div>
+    </form>
+  `);
+  const doc = dom.window.document;
+  const root = doc.querySelector('[data-block-editor]');
+
+  // Register templates dynamically
+  registerBlockTemplate(root, {
+    type: 'banner',
+    label: 'Banner',
+    html: '<label>Heading <input name="heading" /></label>',
+  });
+
+  registerBlockTemplate(root, {
+    type: 'quote',
+    label: 'Quote',
+    icon: 'quote',
+    html: '<label>Text <textarea name="text"></textarea></label>',
+  });
+
+  // Now initialize
+  initBlockEditor(root);
+
+  const select = doc.querySelector('[data-block-add-select]');
+  // placeholder + banner + quote = 3 options
+  assert.equal(select.options.length, 3, 'select should have placeholder + 2 block types');
+
+  // Add a banner block
+  select.value = 'banner';
+  click(doc.querySelector('[data-block-add]'));
+
+  const items = doc.querySelectorAll('[data-block-item]');
+  assert.equal(items.length, 1);
+  assert.equal(items[0].dataset.blockType, 'banner');
+
+  // Fill in a value and check serialization
+  const headingInput = items[0].querySelector('[data-block-field-name="heading"], input[name="heading"], input[name^="blocks"]');
+  headingInput.value = 'Welcome';
+  input(headingInput);
+
+  const payload = getOutputPayload(doc);
+  assert.equal(payload.length, 1);
+  assert.equal(payload[0]._type, 'banner');
+  assert.equal(payload[0].heading, 'Welcome');
+});
+
+test('registerBlockTemplate omits optional attributes when not provided', () => {
+  const dom = setupEditor(`
+    <form>
+      <div data-block-editor data-block-init="manual">
+        <div data-block-empty></div>
+        <div data-block-list></div>
+        <input type="hidden" name="blocks" data-block-output value="" />
+        <select data-block-add-select></select>
+        <button type="button" data-block-add>Add</button>
+      </div>
+    </form>
+  `);
+  const doc = dom.window.document;
+  const root = doc.querySelector('[data-block-editor]');
+
+  registerBlockTemplate(root, {
+    type: 'text',
+    label: 'Text Block',
+    html: '<label>Body <textarea name="body"></textarea></label>',
+  });
+
+  const tpl = root.querySelector('template[data-block-template][data-block-type="text"]');
+  assert.ok(tpl, 'template element should exist');
+  assert.equal(tpl.dataset.blockLabel, 'Text Block');
+  assert.equal(tpl.dataset.blockIcon, undefined, 'icon should not be set');
+  assert.equal(tpl.dataset.blockSchemaVersion, undefined, 'schemaVersion should not be set');
+  assert.equal(tpl.dataset.blockRequiredFields, undefined, 'requiredFields should not be set');
 });

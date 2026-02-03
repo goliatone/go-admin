@@ -813,7 +813,7 @@ function ensureSchemaField(item: HTMLElement, schemaVersion: string): void {
   });
 }
 
-function initBlockEditor(root: HTMLElement): void {
+export function initBlockEditor(root: HTMLElement): void {
   const elements = resolveElements(root);
   if (!elements) return;
   const config = resolveConfig(root);
@@ -1613,9 +1613,41 @@ function initBlockEditor(root: HTMLElement): void {
   syncAll();
 }
 
+/**
+ * Dynamically register a block template on a block editor root element.
+ * Call this before `initBlockEditor(root)` to make the template available,
+ * or after if `collectTemplates` is re-invoked (it always queries live DOM).
+ */
+export function registerBlockTemplate(root: HTMLElement, meta: {
+  type: string;
+  label: string;
+  icon?: string;
+  schemaVersion?: string;
+  requiredFields?: string[];
+  html: string;
+}): void {
+  const tpl = document.createElement('template');
+  tpl.setAttribute('data-block-template', '');
+  tpl.dataset.blockType = meta.type;
+  tpl.dataset.blockLabel = meta.label;
+  if (meta.icon) {
+    tpl.dataset.blockIcon = meta.icon;
+  }
+  if (meta.schemaVersion) {
+    tpl.dataset.blockSchemaVersion = meta.schemaVersion;
+  }
+  if (meta.requiredFields && meta.requiredFields.length > 0) {
+    tpl.dataset.blockRequiredFields = meta.requiredFields.join(',');
+  }
+  tpl.innerHTML = meta.html;
+  root.appendChild(tpl);
+}
+
 export function initBlockEditors(scope: ParentNode = document): void {
   const roots = Array.from(scope.querySelectorAll<HTMLElement>('[data-component="block"], [data-block-editor]'));
-  roots.forEach((root) => initBlockEditor(root));
+  roots
+    .filter((root) => root.dataset.blockLibraryPicker !== 'true' && root.dataset.blockInit !== 'manual')
+    .forEach((root) => initBlockEditor(root));
 }
 
 function onReady(fn: () => void): void {
