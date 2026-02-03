@@ -18,7 +18,7 @@ require (
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.6.0
 	github.com/goliatone/go-featuregate v0.5.0
-	github.com/goliatone/go-formgen v0.16.1
+	github.com/goliatone/go-formgen v0.17.1
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
 	github.com/goliatone/go-masker v0.1.0
