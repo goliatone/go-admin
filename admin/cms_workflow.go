@@ -37,6 +37,56 @@ func registerCMSWorkflow(engine *SimpleWorkflowEngine) {
 	engine.RegisterWorkflow("content", definition)
 	definition.EntityType = "pages"
 	engine.RegisterWorkflow("pages", definition)
+
+	engine.RegisterWorkflow("block_definitions", WorkflowDefinition{
+		EntityType:   "block_definitions",
+		InitialState: "draft",
+		Transitions: []WorkflowTransition{
+			{
+				Name:        "publish",
+				Description: "Publish",
+				From:        "draft",
+				To:          "active",
+			},
+			{
+				Name:        "deprecate",
+				Description: "Deprecate",
+				From:        "active",
+				To:          "deprecated",
+			},
+			{
+				Name:        "republish",
+				Description: "Republish",
+				From:        "deprecated",
+				To:          "active",
+			},
+		},
+	})
+
+	engine.RegisterWorkflow("content_types", WorkflowDefinition{
+		EntityType:   "content_types",
+		InitialState: "draft",
+		Transitions: []WorkflowTransition{
+			{
+				Name:        "publish",
+				Description: "Publish",
+				From:        "draft",
+				To:          "active",
+			},
+			{
+				Name:        "deprecate",
+				Description: "Deprecate",
+				From:        "active",
+				To:          "deprecated",
+			},
+			{
+				Name:        "republish",
+				Description: "Republish",
+				From:        "deprecated",
+				To:          "active",
+			},
+		},
+	})
 }
 
 func cmsWorkflowActions() []Action {
