@@ -1858,11 +1858,11 @@ export class ContentTypeEditor {
     // The upstream template defaults hybrid mode to "raw"; clicking
     // the GUI toggle triggers setActiveView which handles visibility,
     // button styling, and data sync.
-    this.root
+    this.container
       .querySelectorAll<HTMLButtonElement>(
         '[data-json-editor-mode="hybrid"] [data-json-editor-mode-btn="gui"]'
       )
-      .forEach((btn) => btn.click());
+      .forEach((btn: HTMLButtonElement) => btn.click());
   }
 
   private renderValidationErrors(): void {
