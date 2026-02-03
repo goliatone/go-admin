@@ -1,0 +1,133 @@
+/**
+ * Content Type Editor
+ *
+ * Main editor component for creating/editing content types.
+ * Includes field list with drag-and-drop ordering, quick edit cards,
+ * and schema preview integration.
+ */
+import type { ContentTypeEditorConfig, FieldType } from './types';
+export declare class ContentTypeEditor {
+    private config;
+    private container;
+    private api;
+    private state;
+    private dragState;
+    private dropIndicator;
+    private dragOverRAF;
+    private staticEventsBound;
+    private previewDebounceTimer;
+    private palettePanel;
+    private paletteVisible;
+    private sectionStates;
+    private lifecycleOutsideClickHandler;
+    private cachedBlocks;
+    private blocksLoading;
+    private blockPickerModes;
+    constructor(container: HTMLElement, config: ContentTypeEditorConfig);
+    /**
+     * Initialize the editor
+     */
+    init(): Promise<void>;
+    /**
+     * Load a content type for editing
+     */
+    loadContentType(idOrSlug: string): Promise<void>;
+    /**
+     * Save the content type
+     */
+    save(): Promise<void>;
+    /**
+     * Add a new field
+     */
+    addField(type: FieldType): void;
+    /**
+     * Edit an existing field
+     */
+    editField(fieldId: string): void;
+    /**
+     * Remove a field
+     */
+    removeField(fieldId: string): void;
+    /**
+     * Move a field to a new position (optionally across sections)
+     */
+    moveField(fieldId: string, targetSection: string, targetIndex: number): void;
+    /**
+     * Validate the schema
+     */
+    validateSchema(): Promise<void>;
+    /**
+     * Preview the schema as a rendered form
+     */
+    previewSchema(): Promise<void>;
+    private render;
+    private renderBasicInfo;
+    private renderFieldsSection;
+    private renderFieldListHTML;
+    private renderFieldCard;
+    private renderBlocksInlineContent;
+    private renderCapabilitiesSection;
+    private renderPreviewPanel;
+    private renderHeader;
+    private renderHeaderActions;
+    private renderLifecycleActions;
+    /**
+     * Publish the content type
+     */
+    publishContentType(): Promise<void>;
+    /**
+     * Deprecate the content type
+     */
+    deprecateContentType(): Promise<void>;
+    /**
+     * Clone the content type
+     */
+    cloneContentType(): Promise<void>;
+    /**
+     * Show version history
+     */
+    showVersionHistory(): void;
+    private bindEvents;
+    private bindStaticEvents;
+    private bindDynamicEvents;
+    private removeDropIndicator;
+    private getOrCreateDropIndicator;
+    private bindDragEvents;
+    private bindLifecycleMenuEvents;
+    private togglePalette;
+    private initPaletteIfNeeded;
+    private showFieldTypePicker;
+    private showLayoutEditor;
+    private bindFieldsEvents;
+    private bindSectionToggleEvents;
+    private getSlug;
+    private getDescription;
+    private getIcon;
+    private getCapabilities;
+    private buildUISchema;
+    private updateLoadingState;
+    private updateSavingState;
+    private updatePreviewState;
+    private updateDirtyState;
+    private renderFieldList;
+    private renderFieldListContent;
+    private groupFieldsBySection;
+    private getSectionState;
+    private toggleSection;
+    private getBlocksPickerMode;
+    private loadBlocksForField;
+    private renderInlineBlockPickerForField;
+    private applyBlockSelection;
+    private renderPreview;
+    /**
+     * Initialize JSON editors inside the preview container.
+     * The formgen-behaviors bundle (loaded via script tag) exposes
+     * FormgenBehaviors.initJSONEditors() which scans the document for
+     * un-initialized [data-json-editor] elements.
+     */
+    private initPreviewEditors;
+    private renderValidationErrors;
+    private showToast;
+    private schedulePreview;
+}
+//# sourceMappingURL=content-type-editor.d.ts.map

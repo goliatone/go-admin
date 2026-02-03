@@ -5083,7 +5083,7 @@ Deprecated content types can still be used but are hidden from new content creat
    */
   initPreviewEditors() {
     const e = window.FormgenBehaviors;
-    typeof e?.initJSONEditors == "function" && e.initJSONEditors(), this.root.querySelectorAll(
+    typeof e?.initJSONEditors == "function" && e.initJSONEditors(), this.container.querySelectorAll(
       '[data-json-editor-mode="hybrid"] [data-json-editor-mode-btn="gui"]'
     ).forEach((t) => t.click());
   }
