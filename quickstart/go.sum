@@ -145,8 +145,8 @@ github.com/goliatone/go-export/adapters/template/go-template v0.6.0 h1:23M+mc5Pd
 github.com/goliatone/go-export/adapters/template/go-template v0.6.0/go.mod h1:RurATCPBejHIqI80M3nCIOja7CsF9bTWIeVy0CGksd0=
 github.com/goliatone/go-featuregate v0.5.0 h1:Lpm9IdAapzdCih6RYsQY241YSSGQ4tEQxIVNjrZuvRs=
 github.com/goliatone/go-featuregate v0.5.0/go.mod h1:VYc0O3RXNTqa0TuI9biHOt2WSFbilnUkiSljcvMU4XA=
-github.com/goliatone/go-formgen v0.16.1 h1:ZlbE0/fLMJVxVim80Luq8AlxtXzwDV9RSdP+9h/zlV8=
-github.com/goliatone/go-formgen v0.16.1/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
+github.com/goliatone/go-formgen v0.17.1 h1:0y5cOe/FNStLdtKlrI63q6O8IiVh7hCJdvl1BZZIBG0=
+github.com/goliatone/go-formgen v0.17.1/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
 github.com/goliatone/go-i18n v0.2.0 h1:TDKJYZgJQq5koQ5aybM8+9NbhhlKNTPeGug4MrH/HNc=
 github.com/goliatone/go-i18n v0.2.0/go.mod h1:lg0zlUwItVZAXUJPWywuFKtgL75eGSJFBfyIfhDekoU=
 github.com/goliatone/go-job v0.14.0 h1:K7bnNh3BJU5yaLkwsXJad7+K9R3H5P3tWMPszjXTVME=
@@ -167,8 +167,6 @@ github.com/goliatone/go-repository-bun v0.12.0 h1:N5obOl75cPD4NVHblL+pizabSBUiGM
 github.com/goliatone/go-repository-bun v0.12.0/go.mod h1:ZG2ZKOpbHhgi81rUtVgdtNCCApu49ihPhHpce4qjaOI=
 github.com/goliatone/go-repository-cache v0.6.0 h1:FipPsUZwlYsP+jzEI4POdy6Z7oCxYZ3D57aVvKGYW4k=
 github.com/goliatone/go-repository-cache v0.6.0/go.mod h1:SaGDxDSI2ZOmQWUo5VMHlkqroU4BkDopMDVs4nUJy7U=
-github.com/goliatone/go-router v0.43.0 h1:Cr8dLCbtPf/jsYQiK/fC7FXHleutWIrGRBRwHVDceFE=
-github.com/goliatone/go-router v0.43.0/go.mod h1:ciLLFXfcC1soO4/k5z3rH/ZIHSFT0efkLN1NlgeF4RA=
 github.com/goliatone/go-router v0.44.0 h1:CYcvxt3HgTMfferI+iTlN9M8aFgbtaUxEEfIww6eV40=
 github.com/goliatone/go-router v0.44.0/go.mod h1:D05vOXLu1oEjy/G/Z/nzFDv9PdXDRdPdQznui7csOec=
 github.com/goliatone/go-slug v0.1.0 h1:0APBcu2X9MWF2t6X3LN55XfQ47zf4FUzDmXYJ1YraAk=
