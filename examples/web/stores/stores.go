@@ -19,6 +19,7 @@ type DataStores struct {
 	UserProfiles *UserProfileStore
 	Pages        PageRepository
 	Posts        PostRepository
+	Templates    *TemplateStore
 	Media        *MediaStore
 	Stats        *StatsStore
 	PageRecords  repository.Repository[*PageRecord]
@@ -48,13 +49,13 @@ type UserDependencies struct {
 	ResetRepo      types.PasswordResetRepository
 }
 
-// Initialize creates and seeds all data stores backed by the CMS content service (pages/posts)
+// Initialize creates all data stores backed by the CMS content service (pages/posts)
 // and Bun for user/media data.
 func Initialize(contentSvc admin.CMSContentService, defaultLocale string, userDeps UserDependencies, repoOptions ...repository.Option) (*DataStores, error) {
 	return InitializeWithOptions(contentSvc, defaultLocale, userDeps, InitOptions{RepoOptions: repoOptions})
 }
 
-// InitializeWithOptions creates and seeds data stores with persistence options applied.
+// InitializeWithOptions creates data stores with persistence options applied.
 func InitializeWithOptions(contentSvc admin.CMSContentService, defaultLocale string, userDeps UserDependencies, opts InitOptions) (*DataStores, error) {
 	if strings.TrimSpace(defaultLocale) == "" {
 		defaultLocale = "en"
@@ -79,6 +80,7 @@ func InitializeWithOptions(contentSvc admin.CMSContentService, defaultLocale str
 
 	pageStore := NewCMSPageStore(contentSvc, defaultLocale)
 	postStore := NewCMSPostStore(contentSvc, defaultLocale)
+	templateStore := NewTemplateStore(contentDB)
 	mediaStore, err := NewMediaStore(contentDB, opts.RepoOptions...)
 	if err != nil {
 		return nil, err
@@ -92,17 +94,13 @@ func InitializeWithOptions(contentSvc admin.CMSContentService, defaultLocale str
 		UserProfiles: profileStore,
 		Pages:        pageStore,
 		Posts:        postStore,
+		Templates:    templateStore,
 		Media:        mediaStore,
 		Stats:        NewStatsStore(),
 		PageRecords:  pageRepo,
 		PostRecords:  postRepo,
 		MediaRecords: mediaStore.repo,
 	}
-
-	stores.Pages.Seed()
-	stores.Posts.Seed()
-	stores.Media.Seed()
-	stores.Stats.Seed()
 
 	return stores, nil
 }

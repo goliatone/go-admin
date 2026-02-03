@@ -278,6 +278,11 @@ CREATE INDEX IF NOT EXISTS media_type_idx ON media(type);
 	return err
 }
 
+// EnsureContentOverlay applies the admin content overlay (views + media table).
+func EnsureContentOverlay(ctx context.Context, db *bun.DB) error {
+	return applyContentOverlay(ctx, db)
+}
+
 func SanitizeSQLiteMigrations(src fs.FS) fs.FS {
 	if src == nil {
 		return src
