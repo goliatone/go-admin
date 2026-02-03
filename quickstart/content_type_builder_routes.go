@@ -522,7 +522,8 @@ func (h *contentTypeBuilderHandlers) ContentTypeCompatibility(c router.Context) 
 		}
 	}
 	currentSchema := normalizeSchemaValue(record["schema"])
-	breaking, warnings := compatibilityChanges(currentSchema, req.Schema)
+	mergedSchema := mergeContentTypeSchema(currentSchema, req.Schema)
+	breaking, warnings := compatibilityChanges(currentSchema, mergedSchema)
 	payload := map[string]any{
 		"compatible":             len(breaking) == 0,
 		"breaking_changes":       breaking,
@@ -537,7 +538,7 @@ func (h *contentTypeBuilderHandlers) ContentTypeCompatibility(c router.Context) 
 		changes = append(changes, breaking...)
 		changes = append(changes, warnings...)
 		entry := contentTypeSchemaVersion{
-			Schema:     req.Schema,
+			Schema:     mergedSchema,
 			UISchema:   req.UISchema,
 			CreatedAt:  time.Now().UTC().Format(time.RFC3339),
 			IsBreaking: len(breaking) > 0,
@@ -800,6 +801,14 @@ func (h *contentTypeBuilderHandlers) updateContentTypeStatus(c router.Context, s
 			WithCode(http.StatusBadRequest).
 			WithTextCode("ID_REQUIRED")
 	}
+	req := struct {
+		Force                bool `json:"force"`
+		AllowBreakingChanges bool `json:"allow_breaking_changes"`
+	}{}
+	if err := parseJSONBody(c, &req); err != nil {
+		return err
+	}
+	allowBreaking := req.Force || req.AllowBreakingChanges
 	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
 
 	record, recordErr := panel.Get(adminCtx, id)
@@ -818,9 +827,13 @@ func (h *contentTypeBuilderHandlers) updateContentTypeStatus(c router.Context, s
 			WithTextCode(admin.TextCodeNotFound)
 	}
 
-	updated, err := panel.Update(adminCtx, resolvedID, map[string]any{
+	updatePayload := map[string]any{
 		"status": status,
-	})
+	}
+	if status == "active" && allowBreaking {
+		updatePayload["allow_breaking_changes"] = true
+	}
+	updated, err := panel.Update(adminCtx, resolvedID, updatePayload)
 	if err != nil {
 		if errors.Is(err, admin.ErrNotFound) {
 			logContentTypeIDMismatch("publish", id, resolvedID, resolvedFrom, record)
@@ -1119,6 +1132,43 @@ func normalizeSchemaValue(value any) map[string]any {
 		}
 	}
 	return map[string]any{}
+}
+
+func mergeContentTypeSchema(base, incoming map[string]any) map[string]any {
+	if incoming == nil {
+		return base
+	}
+	if base == nil {
+		return incoming
+	}
+	merged := compatCloneMap(incoming)
+	if baseDefs, ok := base["$defs"].(map[string]any); ok && len(baseDefs) > 0 {
+		defs, _ := merged["$defs"].(map[string]any)
+		if defs == nil {
+			defs = map[string]any{}
+		}
+		for key, value := range baseDefs {
+			if _, exists := defs[key]; exists {
+				continue
+			}
+			defs[key] = compatCloneValue(value)
+		}
+		merged["$defs"] = defs
+	}
+	if baseMeta, ok := base["metadata"].(map[string]any); ok && len(baseMeta) > 0 {
+		meta, _ := merged["metadata"].(map[string]any)
+		if meta == nil {
+			meta = map[string]any{}
+		}
+		for key, value := range baseMeta {
+			if _, exists := meta[key]; exists {
+				continue
+			}
+			meta[key] = compatCloneValue(value)
+		}
+		merged["metadata"] = meta
+	}
+	return merged
 }
 
 func diffSchemas(oldSchema, newSchema map[string]any) ([]schemaChange, []schemaChange) {
@@ -1436,6 +1486,13 @@ func parseCompatTypeInfo(node map[string]any) compatTypeInfo {
 		return compatTypeInfo{kind: "scalar", scalars: compatToSet(types)}
 	}
 
+	if info, ok := compatTypeInfoFromConst(node["const"]); ok {
+		return info
+	}
+	if info, ok := compatTypeInfoFromEnum(node["enum"]); ok {
+		return info
+	}
+
 	if props, ok := node["properties"].(map[string]any); ok && len(props) > 0 {
 		return compatTypeInfo{kind: "object"}
 	}
@@ -1472,6 +1529,63 @@ func parseCompatTypeInfo(node map[string]any) compatTypeInfo {
 	return compatTypeInfo{kind: "unknown"}
 }
 
+func compatTypeInfoFromConst(value any) (compatTypeInfo, bool) {
+	if value == nil {
+		return compatTypeInfo{}, false
+	}
+	if kind := compatKindFromValue(value); kind != "" {
+		return compatTypeInfo{kind: "scalar", scalars: compatToSet([]string{kind})}, true
+	}
+	return compatTypeInfo{}, false
+}
+
+func compatTypeInfoFromEnum(value any) (compatTypeInfo, bool) {
+	if value == nil {
+		return compatTypeInfo{}, false
+	}
+	switch typed := value.(type) {
+	case []any:
+		types := make(map[string]struct{})
+		for _, entry := range typed {
+			if kind := compatKindFromValue(entry); kind != "" {
+				types[kind] = struct{}{}
+			}
+		}
+		if len(types) == 0 {
+			return compatTypeInfo{}, false
+		}
+		return compatTypeInfo{kind: "scalar", scalars: types}, true
+	case []string:
+		if len(typed) == 0 {
+			return compatTypeInfo{}, false
+		}
+		return compatTypeInfo{kind: "scalar", scalars: compatToSet([]string{"string"})}, true
+	}
+	return compatTypeInfo{}, false
+}
+
+func compatKindFromValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		if strings.TrimSpace(typed) == "" {
+			return ""
+		}
+		return "string"
+	case bool:
+		return "boolean"
+	case float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return "number"
+	case []any:
+		return "array"
+	case map[string]any:
+		return "object"
+	case nil:
+		return "null"
+	default:
+		return ""
+	}
+}
+
 func compareCompatTypeInfo(oldInfo, newInfo compatTypeInfo) compatTypeChange {
 	if oldInfo.kind == "" && newInfo.kind == "" {
 		return compatTypeChangeNone
@@ -1499,6 +1613,9 @@ func compareCompatTypeInfo(oldInfo, newInfo compatTypeInfo) compatTypeChange {
 	case "object":
 		return compatTypeChangeNone
 	default:
+		if oldInfo.signature == "" && newInfo.signature == "" {
+			return compatTypeChangeNone
+		}
 		if oldInfo.signature != "" || newInfo.signature != "" {
 			if oldInfo.signature == newInfo.signature {
 				return compatTypeChangeNone
@@ -1763,14 +1880,7 @@ func compatCloneMap(input map[string]any) map[string]any {
 	}
 	out := make(map[string]any, len(input))
 	for key, value := range input {
-		switch typed := value.(type) {
-		case map[string]any:
-			out[key] = compatCloneMap(typed)
-		case []any:
-			out[key] = compatCloneSlice(typed)
-		default:
-			out[key] = value
-		}
+		out[key] = compatCloneValue(value)
 	}
 	return out
 }
@@ -1781,16 +1891,20 @@ func compatCloneSlice(input []any) []any {
 	}
 	out := make([]any, len(input))
 	for i, value := range input {
-		switch typed := value.(type) {
-		case map[string]any:
-			out[i] = compatCloneMap(typed)
-		case []any:
-			out[i] = compatCloneSlice(typed)
-		default:
-			out[i] = value
-		}
+		out[i] = compatCloneValue(value)
 	}
 	return out
+}
+
+func compatCloneValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return compatCloneMap(typed)
+	case []any:
+		return compatCloneSlice(typed)
+	default:
+		return typed
+	}
 }
 
 func extractProperties(schema map[string]any) map[string]any {
