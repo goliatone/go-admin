@@ -45,6 +45,9 @@ func DomainErrorCodeFor(code string) (DomainErrorCode, bool) {
 func NewDomainError(code, message string, meta map[string]any) *goerrors.Error {
 	return core.NewDomainError(code, message, meta)
 }
+func EnvironmentFromContext(ctx context.Context) string {
+	return core.EnvironmentFromContext(ctx)
+}
 
 const (
 	TextCodeValidationError           = core.TextCodeValidationError
