@@ -118,7 +118,7 @@ func NewStaticAssets(r router.Router[*fiber.App], cfg admin.Config, assetsFS fs.
 	options := staticAssetsOptions{
 		assetsPrefix:  path.Join(cfg.BasePath, "assets"),
 		formgenPrefix: path.Join(cfg.BasePath, "formgen"),
-		runtimePrefix: "/runtime",
+		runtimePrefix: path.Join(cfg.BasePath, "runtime"),
 		echartsPrefix: strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
 		sidebarAssets: SidebarAssetsFS(),
 	}
