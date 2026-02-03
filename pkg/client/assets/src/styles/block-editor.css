@@ -171,6 +171,26 @@
 }
 
 /* =============================================================================
+   SCHEMA VERSION BADGE (Phase 7.1)
+   ============================================================================= */
+
+.block-schema-badge {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =============================================================================
+   REQUIRED FIELD INDICATORS (Phase 7.2)
+   ============================================================================= */
+
+.block-required-indicator {
+  font-weight: normal;
+  line-height: 1;
+}
+
+/* =============================================================================
    CONFLICT REPORT
    ============================================================================= */
 
@@ -280,10 +300,45 @@
   .block-drop-indicator,
   .block-error-badge,
   .block-field-error,
-  .block-conflict-report {
+  .block-conflict-report,
+  .picker-popover {
     animation: none;
     transition: none;
   }
+}
+
+/* =============================================================================
+   BLOCK LIBRARY PICKER POPOVER
+   ============================================================================= */
+
+.picker-popover {
+  animation: picker-popover-enter 0.15s ease-out;
+}
+
+@keyframes picker-popover-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+[data-picker-card]:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+[data-picker-search]:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+[data-picker-category] {
+  position: sticky;
+  top: 0;
 }
 
 /* =============================================================================
@@ -304,5 +359,10 @@
 
   .block-item--touch-dragging {
     margin: 0 8px;
+  }
+
+  /* Hide schema badge on small screens to reduce header clutter */
+  .block-schema-badge {
+    display: none;
   }
 }

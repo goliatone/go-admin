@@ -5,6 +5,7 @@
 
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
+import { TextPromptModal } from '../shared/modal.js';
 
 export interface SearchCriterion {
   field: string;
@@ -391,14 +392,19 @@ export class AdvancedSearch {
   }
 
   private savePreset(): void {
-    const name = prompt('Enter a name for this search preset:');
-    if (!name) return;
-
-    const presets = this.loadPresetsFromStorage();
-    presets[name] = this.criteria;
-
-    localStorage.setItem('search_presets', JSON.stringify(presets));
-    this.notifier.success(`Preset "${name}" saved!`);
+    const modal = new TextPromptModal({
+      title: 'Save Search Preset',
+      label: 'Preset name',
+      placeholder: 'e.g. Active users filter',
+      confirmLabel: 'Save',
+      onConfirm: (name) => {
+        const presets = this.loadPresetsFromStorage();
+        presets[name] = this.criteria;
+        localStorage.setItem('search_presets', JSON.stringify(presets));
+        this.notifier.success(`Preset "${name}" saved!`);
+      },
+    });
+    modal.show();
   }
 
   private loadPreset(): void {
@@ -410,11 +416,21 @@ export class AdvancedSearch {
       return;
     }
 
-    const name = prompt(`Available presets:\n${names.join('\n')}\n\nEnter preset name to load:`);
-    if (!name || !presets[name]) return;
-
-    this.criteria = presets[name];
-    this.renderCriteria();
+    const modal = new TextPromptModal({
+      title: 'Load Search Preset',
+      label: `Available presets: ${names.join(', ')}`,
+      placeholder: 'Enter preset name',
+      confirmLabel: 'Load',
+      onConfirm: (name) => {
+        if (!presets[name]) {
+          this.notifier.warning(`Preset "${name}" not found.`);
+          return;
+        }
+        this.criteria = presets[name];
+        this.renderCriteria();
+      },
+    });
+    modal.show();
   }
 
   private loadPresetsFromStorage(): Record<string, SearchCriterion[]> {

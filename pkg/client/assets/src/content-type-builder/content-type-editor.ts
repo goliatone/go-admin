@@ -29,7 +29,7 @@ import { FieldTypePicker, getFieldTypeMetadata, FIELD_TYPES, normalizeFieldType 
 import { FieldConfigForm } from './field-config-form';
 import { FieldPalettePanel } from './field-palette-panel';
 import { LayoutEditor } from './layout-editor';
-import { Modal } from '../shared/modal';
+import { Modal, ConfirmModal } from '../shared/modal';
 import { inputClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { renderEntityHeader } from './shared/entity-header';
@@ -318,12 +318,16 @@ export class ContentTypeEditor {
   /**
    * Remove a field
    */
-  removeField(fieldId: string): void {
+  async removeField(fieldId: string): Promise<void> {
     const index = this.state.fields.findIndex((f) => f.id === fieldId);
     if (index === -1) return;
 
     const field = this.state.fields[index];
-    if (!confirm(`Remove field "${field.label}"?`)) return;
+    const confirmed = await ConfirmModal.confirm(
+      `Remove field "${field.label}"?`,
+      { title: 'Remove Field', confirmText: 'Remove', confirmVariant: 'danger' },
+    );
+    if (!confirmed) return;
 
     this.state.fields.splice(index, 1);
     this.state.isDirty = true;
@@ -1007,9 +1011,11 @@ export class ContentTypeEditor {
   async deprecateContentType(): Promise<void> {
     if (!this.state.contentType?.id) return;
 
-    if (!confirm(`Are you sure you want to deprecate "${this.state.contentType.name}"?\n\nDeprecated content types can still be used but are hidden from new content creation.`)) {
-      return;
-    }
+    const confirmed = await ConfirmModal.confirm(
+      `Are you sure you want to deprecate "${this.state.contentType.name}"? Deprecated content types can still be used but are hidden from new content creation.`,
+      { title: 'Deprecate Content Type', confirmText: 'Deprecate', confirmVariant: 'danger' },
+    );
+    if (!confirmed) return;
 
     try {
       const deprecated = await this.api.deprecate(this.state.contentType.id);
@@ -2297,6 +2303,7 @@ class CloneContentTypeModal extends Modal {
             class="${inputClasses()}"
           />
           <p class="mt-1 text-xs text-gray-500">Lowercase letters, numbers, hyphens, underscores</p>
+          <div data-clone-error class="hidden text-xs text-red-600 dark:text-red-400 mt-1"></div>
         </div>
 
         <div>
@@ -2344,15 +2351,23 @@ class CloneContentTypeModal extends Modal {
 
       const newSlug = slugInput?.value?.trim();
       const newName = nameInput?.value?.trim();
+      const errorEl = this.container?.querySelector<HTMLElement>('[data-clone-error]');
+
+      const showError = (msg: string): void => {
+        if (errorEl) {
+          errorEl.textContent = msg;
+          errorEl.classList.remove('hidden');
+        }
+      };
 
       if (!newSlug) {
-        alert('Slug is required');
+        showError('Slug is required');
         slugInput?.focus();
         return;
       }
 
       if (!/^[a-z][a-z0-9_\-]*$/.test(newSlug)) {
-        alert('Invalid slug format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter.');
+        showError('Invalid slug format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter.');
         slugInput?.focus();
         return;
       }

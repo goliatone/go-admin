@@ -396,6 +396,100 @@ export class ConfirmModal extends Modal {
 }
 
 // ---------------------------------------------------------------------------
+// TextPromptModal (single text input)
+// ---------------------------------------------------------------------------
+
+export interface TextPromptModalConfig {
+  title: string;
+  label: string;
+  placeholder?: string;
+  initialValue?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  /** CSS class string for the text input. Falls back to a sensible default. */
+  inputClass?: string;
+  onConfirm: (value: string) => void;
+  onCancel?: () => void;
+}
+
+const DEFAULT_INPUT_CLASS =
+  'w-full border rounded-lg bg-white text-gray-900 placeholder-gray-400 ' +
+  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ' +
+  'dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:placeholder-gray-500 ' +
+  'px-3 py-2 text-sm border-gray-300';
+
+export class TextPromptModal extends Modal {
+  private config: TextPromptModalConfig;
+
+  constructor(config: TextPromptModalConfig) {
+    super({ size: 'sm', initialFocus: '[data-prompt-input]' });
+    this.config = config;
+  }
+
+  protected renderContent(): string {
+    const cls = this.config.inputClass ?? DEFAULT_INPUT_CLASS;
+    return `
+      <div class="p-5">
+        <div class="text-base font-semibold text-gray-900 dark:text-white">${escapeHtml(this.config.title)}</div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mt-3 mb-1">${escapeHtml(this.config.label)}</label>
+        <input type="text"
+               data-prompt-input
+               value="${escapeHtml(this.config.initialValue ?? '')}"
+               placeholder="${escapeHtml(this.config.placeholder ?? '')}"
+               class="${cls}" />
+        <div data-prompt-error class="hidden text-xs text-red-600 dark:text-red-400 mt-1"></div>
+        <div class="flex items-center justify-end gap-2 mt-4">
+          <button type="button" data-prompt-cancel
+                  class="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+            ${escapeHtml(this.config.cancelLabel ?? 'Cancel')}
+          </button>
+          <button type="button" data-prompt-confirm
+                  class="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
+            ${escapeHtml(this.config.confirmLabel ?? 'Save')}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  protected bindContentEvents(): void {
+    const input = this.container?.querySelector<HTMLInputElement>('[data-prompt-input]');
+    const errorEl = this.container?.querySelector<HTMLElement>('[data-prompt-error]');
+    const confirmBtn = this.container?.querySelector<HTMLButtonElement>('[data-prompt-confirm]');
+    const cancelBtn = this.container?.querySelector<HTMLButtonElement>('[data-prompt-cancel]');
+
+    const showError = (message: string): void => {
+      if (!errorEl) return;
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    };
+
+    const handleConfirm = (): void => {
+      const value = input?.value.trim() ?? '';
+      if (!value) {
+        showError('Value is required.');
+        input?.focus();
+        return;
+      }
+      this.config.onConfirm(value);
+      this.hide();
+    };
+
+    confirmBtn?.addEventListener('click', handleConfirm);
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleConfirm();
+      }
+    });
+    cancelBtn?.addEventListener('click', () => {
+      this.config.onCancel?.();
+      this.hide();
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

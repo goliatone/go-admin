@@ -1,4 +1,5 @@
-function oe(t) {
+const z = /* @__PURE__ */ new WeakMap();
+function le(t) {
   if (!t) return {};
   try {
     const e = JSON.parse(t);
@@ -8,74 +9,74 @@ function oe(t) {
   }
   return {};
 }
-function re(t) {
+function Z(t) {
   const e = t.closest("[data-component-config]");
-  return oe(e?.getAttribute("data-component-config") ?? null);
+  return le(e?.getAttribute("data-component-config") ?? null);
 }
-function Q(t) {
+function ee(t) {
   if (t == null) return;
   const e = t.trim().toLowerCase();
   if (e === "true") return !0;
   if (e === "false") return !1;
 }
-function ae(t) {
-  const e = t.querySelector("[data-block-list]"), o = t.querySelector("input[data-block-output]");
-  if (!e || !o) return null;
-  const n = t.querySelector("[data-block-add-select]"), r = t.querySelector("[data-block-add]"), d = t.querySelector("[data-block-empty]");
-  return { root: t, list: e, output: o, addSelect: n ?? void 0, addButton: r ?? void 0, emptyState: d ?? void 0 };
+function se(t) {
+  const e = t.querySelector("[data-block-list]"), r = t.querySelector("input[data-block-output]");
+  if (!e || !r) return null;
+  const n = t.querySelector("[data-block-add-select]"), o = t.querySelector("[data-block-add]"), s = t.querySelector("[data-block-empty]");
+  return { root: t, list: e, output: r, addSelect: n ?? void 0, addButton: o ?? void 0, emptyState: s ?? void 0 };
 }
-function O(t) {
-  return t.replace(/\]/g, "").split(/\.|\[/).map((o) => o.trim()).filter((o) => o.length > 0);
+function F(t) {
+  return t.replace(/\]/g, "").split(/\.|\[/).map((r) => r.trim()).filter((r) => r.length > 0);
 }
-function ce(t, e, o) {
-  if (!t) return o;
-  const n = O(o);
-  let r = `${t}[${e}]`;
-  for (const d of n)
-    r += `[${d}]`;
-  return r;
+function ie(t, e, r) {
+  if (!t) return r;
+  const n = F(r);
+  let o = `${t}[${e}]`;
+  for (const s of n)
+    o += `[${s}]`;
+  return o;
 }
-function le(t, e) {
+function de(t, e) {
   if (!t || !e) return;
-  const o = O(e);
+  const r = F(e);
   let n = t;
-  for (const r of o) {
+  for (const o of r) {
     if (n == null) return;
-    n = n[r];
+    n = n[o];
   }
   return n;
 }
-function se(t, e, o) {
+function ue(t, e, r) {
   if (!e) return;
-  const n = O(e);
+  const n = F(e);
   if (n.length === 0) return;
-  let r = t;
-  n.forEach((d, p) => {
-    const y = p === n.length - 1, A = n[p + 1], C = A !== void 0 && /^\d+$/.test(A);
-    if (y) {
-      if (d === "") return;
-      r[d] = o;
+  let o = t;
+  n.forEach((s, f) => {
+    const v = f === n.length - 1, A = n[f + 1], C = A !== void 0 && /^\d+$/.test(A);
+    if (v) {
+      if (s === "") return;
+      o[s] = r;
       return;
     }
-    (r[d] == null || typeof r[d] != "object") && (r[d] = C ? [] : {}), r = r[d];
+    (o[s] == null || typeof o[s] != "object") && (o[s] = C ? [] : {}), o = o[s];
   });
 }
-function ie(t) {
+function fe(t) {
   if (t.length === 0) return;
   const e = t[0];
   if (e instanceof HTMLSelectElement && e.multiple)
-    return Array.from(e.selectedOptions).map((o) => o.value);
+    return Array.from(e.selectedOptions).map((r) => r.value);
   if (e instanceof HTMLInputElement) {
     if (e.type === "radio") {
-      const o = t.find((n) => n.checked);
-      return o ? o.value : void 0;
+      const r = t.find((n) => n.checked);
+      return r ? r.value : void 0;
     }
     if (e.type === "checkbox")
-      return t.length > 1 ? t.filter((o) => o.checked).map((o) => o.value) : e.checked;
+      return t.length > 1 ? t.filter((r) => r.checked).map((r) => r.value) : e.checked;
   }
   return e.value;
 }
-function de(t, e) {
+function me(t, e) {
   if (e != null) {
     if (t instanceof HTMLInputElement) {
       if (t.type === "checkbox") {
@@ -88,92 +89,110 @@ function de(t, e) {
       }
     }
     if (t instanceof HTMLSelectElement && t.multiple) {
-      const o = Array.isArray(e) ? e.map(String) : [String(e)];
+      const r = Array.isArray(e) ? e.map(String) : [String(e)];
       Array.from(t.options).forEach((n) => {
-        n.selected = o.includes(n.value);
+        n.selected = r.includes(n.value);
       });
       return;
     }
     t.value = String(e);
   }
 }
-function ue(t, e) {
-  const o = /* @__PURE__ */ new Map();
+function pe(t, e) {
+  const r = /* @__PURE__ */ new Map();
   return t.querySelectorAll("template[data-block-template]").forEach((n) => {
-    const r = n.dataset.blockType?.trim();
-    if (!r) return;
-    const d = n.dataset.blockLabel?.trim() || r, p = n.dataset.blockIcon?.trim(), y = Q(n.dataset.blockCollapsed), A = n.dataset.blockSchemaVersion?.trim() || X(r, e.schemaVersionPattern), C = n.dataset.blockRequiredFields?.trim(), B = C ? C.split(",").map((c) => c.trim()).filter(Boolean) : e.requiredFields?.[r] || [];
-    o.set(r, {
-      type: r,
-      label: d,
-      icon: p || void 0,
-      collapsed: y,
+    const o = n.dataset.blockType?.trim();
+    if (!o) return;
+    const s = n.dataset.blockLabel?.trim() || o, f = n.dataset.blockIcon?.trim(), v = ee(n.dataset.blockCollapsed), A = n.dataset.blockSchemaVersion?.trim() || ne(o, e.schemaVersionPattern), C = n.dataset.blockRequiredFields?.trim(), L = C ? C.split(",").map((c) => c.trim()).filter(Boolean) : e.requiredFields?.[o] || [];
+    r.set(o, {
+      type: o,
+      label: s,
+      icon: f || void 0,
+      collapsed: v,
       schemaVersion: A,
-      requiredFields: B,
+      requiredFields: L,
       template: n
     });
-  }), o;
+  }), r;
 }
-function X(t, e) {
+function te(t, e) {
+  const n = z.get(t) ?? /* @__PURE__ */ new Map(), o = pe(t, e);
+  return n.clear(), o.forEach((s, f) => n.set(f, s)), z.set(t, n), n;
+}
+function ne(t, e) {
   return e ? e.replace("{type}", t) : `${t}@v1.0.0`;
 }
-function fe(t, e, o) {
+function be(t, e, r) {
   const n = e && typeof e._schema == "string" ? e._schema.trim() : "";
-  return n || (t.schemaVersion ? t.schemaVersion : X(t.type, o));
+  return n || (t.schemaVersion ? t.schemaVersion : ne(t.type, r));
 }
-function me(t, e) {
-  const o = [], n = e.requiredFields || [];
-  for (const r of n) {
-    const d = t.querySelector(
-      `[name="${r}"], [data-block-field-name="${r}"]`
+function ge(t, e) {
+  const r = [], n = e.requiredFields || [];
+  for (const o of n) {
+    const s = t.querySelector(
+      `[name="${o}"], [data-block-field-name="${o}"]`
     );
-    if (!d) continue;
-    let p = !1;
-    if (d instanceof HTMLInputElement)
-      if (d.type === "checkbox")
-        p = !d.checked;
-      else if (d.type === "radio") {
-        const y = t.querySelectorAll(`[name="${d.name}"]`);
-        p = !Array.from(y).some((A) => A.checked);
+    if (!s) continue;
+    let f = !1;
+    if (s instanceof HTMLInputElement)
+      if (s.type === "checkbox")
+        f = !s.checked;
+      else if (s.type === "radio") {
+        const v = t.querySelectorAll(`[name="${s.name}"]`);
+        f = !Array.from(v).some((A) => A.checked);
       } else
-        p = !d.value.trim();
-    else d instanceof HTMLSelectElement ? p = !d.value || d.value === "" : p = !d.value.trim();
-    p && o.push({
-      field: r,
-      message: `${r} is required`
+        f = !s.value.trim();
+    else s instanceof HTMLSelectElement ? f = !s.value || s.value === "" : f = !s.value.trim();
+    f && r.push({
+      field: o,
+      message: `${o} is required`
     });
   }
-  return o;
+  return r;
 }
-function pe(t, e) {
-  if (be(t), e.length === 0) return;
+function he(t, e) {
+  if (ke(t), e.length === 0) return;
   t.classList.add("block-item--invalid"), t.dataset.blockValid = "false";
-  const o = t.querySelector("[data-block-header]");
-  if (o) {
+  const r = t.querySelector("[data-block-header]");
+  if (r) {
     const n = document.createElement("span");
-    n.className = "block-error-badge text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full dark:bg-red-900/20 dark:text-red-400", n.textContent = `${e.length} error${e.length > 1 ? "s" : ""}`, n.setAttribute("data-block-error-badge", "true"), o.querySelector(".flex")?.appendChild(n);
+    n.className = "block-error-badge text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full dark:bg-red-900/20 dark:text-red-400", n.textContent = `${e.length} error${e.length > 1 ? "s" : ""}`, n.setAttribute("data-block-error-badge", "true"), r.querySelector(".flex")?.appendChild(n);
   }
   for (const n of e) {
-    const r = t.querySelector(
+    const o = t.querySelector(
       `[name="${n.field}"], [data-block-field-name="${n.field}"]`
     );
-    if (r) {
-      r.classList.add("border-red-500", "focus:ring-red-500");
-      const d = r.closest("[data-component]");
-      if (d) {
-        const p = document.createElement("p");
-        p.className = "block-field-error text-xs text-red-600 mt-1 dark:text-red-400", p.textContent = n.message, p.setAttribute("data-block-field-error", "true"), d.appendChild(p);
+    if (o) {
+      o.classList.add("border-red-500", "focus:ring-red-500");
+      const s = o.closest("[data-component]");
+      if (s) {
+        const f = document.createElement("p");
+        f.className = "block-field-error text-xs text-red-600 mt-1 dark:text-red-400", f.textContent = n.message, f.setAttribute("data-block-field-error", "true"), s.appendChild(f);
       }
     }
   }
 }
-function be(t) {
+function ke(t) {
   t.classList.remove("block-item--invalid"), t.dataset.blockValid = "true", t.querySelectorAll("[data-block-error-badge]").forEach((e) => e.remove()), t.querySelectorAll("[data-block-field-error]").forEach((e) => e.remove()), t.querySelectorAll(".border-red-500").forEach((e) => {
     e.classList.remove("border-red-500", "focus:ring-red-500");
   });
 }
-function K(t, e) {
-  const o = [];
+function ye(t, e) {
+  for (const r of e) {
+    const n = t.querySelector(
+      `[name="${r}"], [data-block-field-name="${r}"]`
+    );
+    if (!n) continue;
+    n.setAttribute("data-block-required", "true");
+    const s = n.closest("[data-component]")?.querySelector("label") ?? n.closest("label");
+    if (s && !s.querySelector("[data-required-indicator]")) {
+      const f = document.createElement("span");
+      f.className = "block-required-indicator text-red-500 ml-0.5", f.textContent = " *", f.setAttribute("data-required-indicator", "true"), f.setAttribute("aria-hidden", "true"), s.appendChild(f);
+    }
+  }
+}
+function W(t, e) {
+  const r = [];
   if (!Array.isArray(t) || !Array.isArray(e))
     return {
       hasConflicts: !1,
@@ -183,119 +202,119 @@ function K(t, e) {
     };
   t.length, e.length;
   const n = Math.max(t.length, e.length);
-  for (let r = 0; r < n; r++) {
-    const d = t[r] || {}, p = e[r] || {}, y = d._type || p._type || `block_${r}`, A = /* @__PURE__ */ new Set([...Object.keys(d), ...Object.keys(p)]);
+  for (let o = 0; o < n; o++) {
+    const s = t[o] || {}, f = e[o] || {}, v = s._type || f._type || `block_${o}`, A = /* @__PURE__ */ new Set([...Object.keys(s), ...Object.keys(f)]);
     for (const C of A) {
       if (C.startsWith("_")) continue;
-      const B = d[C], c = p[C];
-      V(B, c) || o.push({
-        blockIndex: r,
-        blockType: y,
+      const L = s[C], c = f[C];
+      O(L, c) || r.push({
+        blockIndex: o,
+        blockType: v,
         field: C,
-        embeddedValue: B,
+        embeddedValue: L,
         legacyValue: c
       });
     }
   }
   return {
-    hasConflicts: o.length > 0 || t.length !== e.length,
-    conflicts: o,
+    hasConflicts: r.length > 0 || t.length !== e.length,
+    conflicts: r,
     embeddedCount: t.length,
     legacyCount: e.length
   };
 }
-function V(t, e) {
+function O(t, e) {
   if (t === e) return !0;
   if (t == null || e == null) return t === e;
   if (typeof t != typeof e) return !1;
   if (Array.isArray(t) && Array.isArray(e))
-    return t.length !== e.length ? !1 : t.every((o, n) => V(o, e[n]));
+    return t.length !== e.length ? !1 : t.every((r, n) => O(r, e[n]));
   if (typeof t == "object") {
-    const o = Object.keys(t), n = Object.keys(e);
-    return o.length !== n.length ? !1 : o.every((r) => V(t[r], e[r]));
+    const r = Object.keys(t), n = Object.keys(e);
+    return r.length !== n.length ? !1 : r.every((o) => O(t[o], e[o]));
   }
   return !1;
 }
-function ge(t) {
+function xe(t) {
   const e = document.createElement("div");
   e.className = "block-conflict-report border border-amber-200 bg-amber-50 rounded-lg p-4 mb-4 dark:bg-amber-900/20 dark:border-amber-700", e.setAttribute("data-block-conflict-report", "true");
-  const o = document.createElement("div");
-  o.className = "flex items-center gap-2 mb-3";
+  const r = document.createElement("div");
+  r.className = "flex items-center gap-2 mb-3";
   const n = document.createElement("span");
   n.className = "text-amber-600 dark:text-amber-400", n.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
-  const r = document.createElement("span");
-  r.className = "font-medium text-amber-800 dark:text-amber-200", r.textContent = "Block Conflicts Detected", o.appendChild(n), o.appendChild(r), e.appendChild(o);
-  const d = document.createElement("p");
-  if (d.className = "text-sm text-amber-700 dark:text-amber-300 mb-3", d.textContent = `Embedded blocks (${t.embeddedCount}) differ from legacy blocks (${t.legacyCount}). Embedded blocks are authoritative.`, e.appendChild(d), t.conflicts.length > 0) {
+  const o = document.createElement("span");
+  o.className = "font-medium text-amber-800 dark:text-amber-200", o.textContent = "Block Conflicts Detected", r.appendChild(n), r.appendChild(o), e.appendChild(r);
+  const s = document.createElement("p");
+  if (s.className = "text-sm text-amber-700 dark:text-amber-300 mb-3", s.textContent = `Embedded blocks (${t.embeddedCount}) differ from legacy blocks (${t.legacyCount}). Embedded blocks are authoritative.`, e.appendChild(s), t.conflicts.length > 0) {
     const A = document.createElement("details");
     A.className = "text-sm";
     const C = document.createElement("summary");
     C.className = "cursor-pointer text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium", C.textContent = `View ${t.conflicts.length} field conflict${t.conflicts.length > 1 ? "s" : ""}`, A.appendChild(C);
-    const B = document.createElement("ul");
-    B.className = "mt-2 space-y-1 pl-4";
+    const L = document.createElement("ul");
+    L.className = "mt-2 space-y-1 pl-4";
     for (const c of t.conflicts.slice(0, 10)) {
-      const w = document.createElement("li");
-      w.className = "text-amber-700 dark:text-amber-300", w.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, B.appendChild(w);
+      const N = document.createElement("li");
+      N.className = "text-amber-700 dark:text-amber-300", N.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, L.appendChild(N);
     }
     if (t.conflicts.length > 10) {
       const c = document.createElement("li");
-      c.className = "text-amber-600 dark:text-amber-400 italic", c.textContent = `...and ${t.conflicts.length - 10} more`, B.appendChild(c);
+      c.className = "text-amber-600 dark:text-amber-400 italic", c.textContent = `...and ${t.conflicts.length - 10} more`, L.appendChild(c);
     }
-    A.appendChild(B), e.appendChild(A);
+    A.appendChild(L), e.appendChild(A);
   }
-  const p = document.createElement("div");
-  p.className = "mt-3 flex gap-2";
-  const y = document.createElement("button");
-  return y.type = "button", y.className = "text-xs px-3 py-1 rounded border border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/40", y.textContent = "Dismiss", y.addEventListener("click", () => e.remove()), p.appendChild(y), e.appendChild(p), e;
+  const f = document.createElement("div");
+  f.className = "mt-3 flex gap-2";
+  const v = document.createElement("button");
+  return v.type = "button", v.className = "text-xs px-3 py-1 rounded border border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/40", v.textContent = "Dismiss", v.addEventListener("click", () => e.remove()), f.appendChild(v), e.appendChild(f), e;
 }
-function z(t, e) {
+function G(t, e) {
   if (t.querySelector("[data-block-conflict-report]")?.remove(), !e.hasConflicts) return;
-  const o = ge(e), n = t.querySelector("[data-block-list]");
-  n ? n.parentElement?.insertBefore(o, n) : t.insertBefore(o, t.firstChild);
+  const r = xe(e), n = t.querySelector("[data-block-list]");
+  n ? n.parentElement?.insertBefore(r, n) : t.insertBefore(r, t.firstChild);
 }
-function he() {
+function ve() {
   const t = document.createElement("div");
   return t.className = "block-drop-indicator", t.setAttribute("data-block-drop-indicator", "true"), t.setAttribute("aria-hidden", "true"), t;
 }
-function W(t, e, o) {
-  q(t);
-  const n = he();
-  return e ? o === "before" ? e.parentElement?.insertBefore(n, e) : e.parentElement?.insertBefore(n, e.nextSibling) : t.appendChild(n), n;
+function Q(t, e, r) {
+  w(t);
+  const n = ve();
+  return e ? r === "before" ? e.parentElement?.insertBefore(n, e) : e.parentElement?.insertBefore(n, e.nextSibling) : t.appendChild(n), n;
 }
-function q(t) {
+function w(t) {
   t.querySelectorAll("[data-block-drop-indicator]").forEach((e) => e.remove());
 }
-function $(t, e, o) {
+function H(t, e, r) {
   const n = Array.from(t.querySelectorAll("[data-block-item]"));
-  for (const r of n) {
-    if (r === o) continue;
-    const d = r.getBoundingClientRect();
-    if (e >= d.top && e <= d.bottom) {
-      const p = e < d.top + d.height / 2 ? "before" : "after";
-      return { item: r, position: p };
+  for (const o of n) {
+    if (o === r) continue;
+    const s = o.getBoundingClientRect();
+    if (e >= s.top && e <= s.bottom) {
+      const f = e < s.top + s.height / 2 ? "before" : "after";
+      return { item: o, position: f };
     }
   }
   if (n.length > 0) {
-    const r = n[n.length - 1];
-    if (r !== o) {
-      const d = r.getBoundingClientRect();
-      if (e > d.bottom)
-        return { item: r, position: "after" };
+    const o = n[n.length - 1];
+    if (o !== r) {
+      const s = o.getBoundingClientRect();
+      if (e > s.bottom)
+        return { item: o, position: "after" };
     }
   }
   return null;
 }
-function G(t, e) {
-  const o = Array.from(t.querySelectorAll("[data-block-item]")), n = /* @__PURE__ */ new Map();
-  o.forEach((r) => {
-    n.set(r, r.getBoundingClientRect());
-  }), t.offsetHeight, o.forEach((r) => {
-    const d = n.get(r);
-    if (!d) return;
-    const p = r.getBoundingClientRect(), y = d.top - p.top;
-    Math.abs(y) < 1 || r.animate(
+function X(t, e) {
+  const r = Array.from(t.querySelectorAll("[data-block-item]")), n = /* @__PURE__ */ new Map();
+  r.forEach((o) => {
+    n.set(o, o.getBoundingClientRect());
+  }), t.offsetHeight, r.forEach((o) => {
+    const s = n.get(o);
+    if (!s) return;
+    const f = o.getBoundingClientRect(), v = s.top - f.top;
+    Math.abs(v) < 1 || o.animate(
       [
-        { transform: `translateY(${y}px)` },
+        { transform: `translateY(${v}px)` },
         { transform: "translateY(0)" }
       ],
       {
@@ -314,211 +333,213 @@ function G(t, e) {
     }
   );
 }
-function ke() {
+function Ee() {
   const t = document.getElementById("block-editor-live-region");
   if (t) return t;
   const e = document.createElement("div");
   return e.id = "block-editor-live-region", e.setAttribute("aria-live", "polite"), e.setAttribute("aria-atomic", "true"), e.className = "sr-only", e.style.cssText = "position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;", document.body.appendChild(e), e;
 }
-function I(t) {
-  const e = ke();
+function B(t) {
+  const e = Ee();
   e.textContent = "", requestAnimationFrame(() => {
     e.textContent = t;
   });
 }
-function N(t, e) {
-  const o = Array.from(t.querySelectorAll("[data-block-item]")), n = o.indexOf(e) + 1, r = o.length;
-  return { label: e.querySelector("[data-block-header] span")?.textContent || e.dataset.blockType || "Block", position: n, total: r };
+function $(t, e) {
+  const r = Array.from(t.querySelectorAll("[data-block-item]")), n = r.indexOf(e) + 1, o = r.length;
+  return { label: e.querySelector("[data-block-header] span")?.textContent || e.dataset.blockType || "Block", position: n, total: o };
 }
-function ye(t) {
+function Ae(t) {
   const e = {};
-  return t.querySelectorAll("input, select, textarea").forEach((o) => {
-    const n = o.getAttribute("data-block-field-name") || o.name;
-    !n || o.dataset.blockIgnore === "true" || (o instanceof HTMLInputElement && o.type === "checkbox" ? e[n] = o.checked : o instanceof HTMLSelectElement && o.multiple ? e[n] = Array.from(o.selectedOptions).map((r) => r.value) : e[n] = o.value);
+  return t.querySelectorAll("input, select, textarea").forEach((r) => {
+    const n = r.getAttribute("data-block-field-name") || r.name;
+    !n || r.dataset.blockIgnore === "true" || (r instanceof HTMLInputElement && r.type === "checkbox" ? e[n] = r.checked : r instanceof HTMLSelectElement && r.multiple ? e[n] = Array.from(r.selectedOptions).map((o) => o.value) : e[n] = r.value);
   }), e._type = t.dataset.blockType || "", e._schema = t.dataset.blockSchema || "", e;
 }
-function xe(t, e, o = 50, n = 10) {
-  const r = () => {
+function Ce(t, e, r = 50, n = 10) {
+  const o = () => {
     if (!e.dragging) {
       e.scrollInterval && (clearInterval(e.scrollInterval), e.scrollInterval = null);
       return;
     }
-    const d = t.getBoundingClientRect(), p = e.touchCurrentY;
-    p < d.top + o ? t.scrollTop -= n : p > d.bottom - o && (t.scrollTop += n);
+    const s = t.getBoundingClientRect(), f = e.touchCurrentY;
+    f < s.top + r ? t.scrollTop -= n : f > s.bottom - r && (t.scrollTop += n);
   };
-  e.scrollInterval || (e.scrollInterval = window.setInterval(r, 16));
+  e.scrollInterval || (e.scrollInterval = window.setInterval(o, 16));
 }
-function ve(t, e) {
-  const o = t.querySelectorAll('[name="_type"], [data-block-type-input]');
-  if (o.length === 0) {
+function Se(t, e) {
+  const r = t.querySelectorAll('[name="_type"], [data-block-type-input]');
+  if (r.length === 0) {
     const n = document.createElement("input");
     n.type = "hidden", n.name = "_type", n.value = e, n.readOnly = !0, n.setAttribute("data-block-type-input", "true"), n.setAttribute("data-block-ignore", "true"), t.appendChild(n);
     return;
   }
-  o.forEach((n) => {
-    n.setAttribute("data-block-type-input", "true"), n.setAttribute("data-block-ignore", "true"), n instanceof HTMLInputElement ? (n.value = e, n.readOnly = !0) : n instanceof HTMLSelectElement ? (Array.from(n.options).forEach((d) => {
-      d.selected = d.value === e;
+  r.forEach((n) => {
+    n.setAttribute("data-block-type-input", "true"), n.setAttribute("data-block-ignore", "true"), n instanceof HTMLInputElement ? (n.value = e, n.readOnly = !0) : n instanceof HTMLSelectElement ? (Array.from(n.options).forEach((s) => {
+      s.selected = s.value === e;
     }), n.disabled = !0) : (n.value = e, n.readOnly = !0);
-    const r = n.closest("[data-component]");
-    r && r.classList.add("hidden");
+    const o = n.closest("[data-component]");
+    o && o.classList.add("hidden");
   });
 }
-function Ee(t, e) {
-  const o = t.querySelectorAll('[name="_schema"], [data-block-schema-input]');
-  if (o.length === 0) {
+function Le(t, e) {
+  const r = t.querySelectorAll('[name="_schema"], [data-block-schema-input]');
+  if (r.length === 0) {
     const n = document.createElement("input");
     n.type = "hidden", n.name = "_schema", n.value = e, n.setAttribute("data-block-schema-input", "true"), n.setAttribute("data-block-ignore", "true"), t.appendChild(n);
     return;
   }
-  o.forEach((n) => {
+  r.forEach((n) => {
     n.setAttribute("data-block-schema-input", "true"), n.setAttribute("data-block-ignore", "true"), n.value = e, n.readOnly = !0;
-    const r = n.closest("[data-component]");
-    r && r.classList.add("hidden");
+    const o = n.closest("[data-component]");
+    o && o.classList.add("hidden");
   });
 }
-function Ae(t) {
-  const e = ae(t);
+function Be(t) {
+  const e = se(t);
   if (!e) return;
-  const o = re(t), n = ue(t, o), r = t.dataset.blockField || e.output.name, d = Q(t.dataset.blockSortable), p = o.sortable ?? d ?? !1, y = o.allowDrag ?? p, A = o.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", C = o.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", B = o.validateOnInput ?? !0;
+  const r = Z(t), n = te(t, r), o = t.dataset.blockField || e.output.name, s = ee(t.dataset.blockSortable), f = r.sortable ?? s ?? !1, v = r.allowDrag ?? f, A = r.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", C = r.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", L = r.validateOnInput ?? !0;
   e.addButton && (e.addButton.textContent = A), e.emptyState && (e.emptyState.textContent = C);
-  const c = e.list, w = e.output, F = () => {
+  const c = e.list, N = e.output, R = () => {
     const a = Array.from(c.querySelectorAll("[data-block-item]"));
-    let u = !1;
-    const s = a.map((b) => {
+    let d = !1;
+    const u = a.map((m) => {
       const l = {}, g = /* @__PURE__ */ new Map();
-      b.querySelectorAll("input, select, textarea").forEach((f) => {
-        if (f.dataset.blockIgnore === "true" || f.hasAttribute("data-block-ignore")) return;
-        const m = f.getAttribute("data-block-field-name") || f.name || "";
-        m && (g.has(m) || g.set(m, []), g.get(m).push(f));
-      }), g.forEach((f, m) => {
-        const S = ie(f);
-        S !== void 0 && se(l, m, S);
+      m.querySelectorAll("input, select, textarea").forEach((p) => {
+        if (p.dataset.blockIgnore === "true" || p.hasAttribute("data-block-ignore")) return;
+        const b = p.getAttribute("data-block-field-name") || p.name || "";
+        b && (g.has(b) || g.set(b, []), g.get(b).push(p));
+      }), g.forEach((p, b) => {
+        const E = fe(p);
+        E !== void 0 && ue(l, b, E);
       });
-      const k = b.dataset.blockType || l._type || "";
+      const k = m.dataset.blockType || l._type || "";
       k && (l._type = k);
-      const i = b.dataset.blockSchema || l._schema;
+      const i = m.dataset.blockSchema || l._schema;
       if (i)
         l._schema = i;
       else {
-        const f = n.get(k);
-        f?.schemaVersion && (l._schema = f.schemaVersion);
+        const p = n.get(k);
+        p?.schemaVersion && (l._schema = p.schemaVersion);
       }
-      if (B) {
-        const f = n.get(k);
-        if (f) {
-          const m = me(b, f);
-          pe(b, m), m.length > 0 && (u = !0);
+      if (L) {
+        const p = n.get(k);
+        if (p) {
+          const b = ge(m, p);
+          he(m, b), b.length > 0 && (d = !0);
         }
       }
       return l;
     });
-    w.value = JSON.stringify(s), t.dataset.blockEditorValid = u ? "false" : "true";
-  }, Z = () => {
-    Array.from(c.querySelectorAll("[data-block-item]")).forEach((u, s) => {
-      u.querySelectorAll("input, select, textarea").forEach((b) => {
-        if (b.dataset.blockIgnore === "true" || b.hasAttribute("data-block-ignore")) return;
-        const l = b.getAttribute("data-block-field-name") || b.name;
-        l && (b.hasAttribute("data-block-field-name") || b.setAttribute("data-block-field-name", l), b.name = ce(r, s, l));
+    N.value = JSON.stringify(u), t.dataset.blockEditorValid = d ? "false" : "true";
+  }, re = () => {
+    Array.from(c.querySelectorAll("[data-block-item]")).forEach((d, u) => {
+      d.querySelectorAll("input, select, textarea").forEach((m) => {
+        if (m.dataset.blockIgnore === "true" || m.hasAttribute("data-block-ignore")) return;
+        const l = m.getAttribute("data-block-field-name") || m.name;
+        l && (m.hasAttribute("data-block-field-name") || m.setAttribute("data-block-field-name", l), m.name = ie(o, u, l));
       });
     });
-  }, ee = () => {
+  }, oe = () => {
     if (!e.emptyState) return;
     const a = c.querySelector("[data-block-item]");
     e.emptyState.classList.toggle("hidden", !!a);
-  }, L = () => {
-    Z(), F(), ee();
+  }, S = () => {
+    re(), R(), oe();
   }, Y = t.closest("form");
   Y && Y.addEventListener("submit", () => {
-    F();
+    R();
   });
-  const te = (a, u) => {
-    a.querySelectorAll("input, select, textarea").forEach((s) => {
-      const b = s.getAttribute("data-block-field-name") || s.name;
-      if (!b) return;
-      const l = le(u, b);
-      l !== void 0 && de(s, l);
+  const ae = (a, d) => {
+    a.querySelectorAll("input, select, textarea").forEach((u) => {
+      const m = u.getAttribute("data-block-field-name") || u.name;
+      if (!m) return;
+      const l = de(d, m);
+      l !== void 0 && me(u, l);
     });
-  }, _ = (a, u) => {
-    const s = document.createElement("div");
-    s.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", s.setAttribute("data-block-item", "true"), s.dataset.blockType = a.type, p && s.setAttribute("draggable", "true");
-    const b = document.createElement("div");
-    b.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700", b.setAttribute("data-block-header", "true");
+  }, _ = (a, d) => {
+    const u = be(a, d, r.schemaVersionPattern), m = document.createElement("div");
+    m.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", m.setAttribute("data-block-item", "true"), m.dataset.blockType = a.type, f && m.setAttribute("draggable", "true");
     const l = document.createElement("div");
-    l.className = "flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white";
-    const g = document.createElement("span");
-    g.className = "inline-flex items-center justify-center h-6 min-w-[1.5rem] px-2 text-xs font-semibold uppercase rounded-full bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200", g.textContent = a.icon || a.label.slice(0, 1).toUpperCase();
+    l.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700", l.setAttribute("data-block-header", "true");
+    const g = document.createElement("div");
+    g.className = "flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white";
     const k = document.createElement("span");
-    k.textContent = a.label;
+    k.className = "inline-flex items-center justify-center h-6 min-w-[1.5rem] px-2 text-xs font-semibold uppercase rounded-full bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200", k.textContent = a.icon || a.label.slice(0, 1).toUpperCase();
     const i = document.createElement("span");
-    i.className = "text-xs text-gray-500 dark:text-gray-400", i.textContent = a.type, l.appendChild(g), l.appendChild(k), l.appendChild(i);
-    const f = document.createElement("div");
-    if (f.className = "flex items-center gap-2", p) {
-      const E = document.createElement("button");
-      E.type = "button", E.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", E.textContent = "Up", E.setAttribute("data-block-move-up", "true");
+    i.textContent = a.label;
+    const p = document.createElement("span");
+    p.className = "text-xs text-gray-500 dark:text-gray-400", p.textContent = a.type;
+    const b = document.createElement("span");
+    b.className = "block-schema-badge inline-flex items-center text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded dark:bg-blue-900/20 dark:text-blue-400", b.textContent = u, b.setAttribute("data-block-schema-badge", "true"), g.appendChild(k), g.appendChild(i), g.appendChild(p), g.appendChild(b);
+    const E = document.createElement("div");
+    if (E.className = "flex items-center gap-2", f) {
+      const q = document.createElement("button");
+      q.type = "button", q.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", q.textContent = "Up", q.setAttribute("data-block-move-up", "true");
       const D = document.createElement("button");
-      D.type = "button", D.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", D.textContent = "Down", D.setAttribute("data-block-move-down", "true"), f.appendChild(E), f.appendChild(D);
+      D.type = "button", D.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", D.textContent = "Down", D.setAttribute("data-block-move-down", "true"), E.appendChild(q), E.appendChild(D);
     }
-    const m = document.createElement("button");
-    m.type = "button", m.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", m.textContent = "Collapse", m.setAttribute("data-block-collapse", "true");
-    const S = document.createElement("button");
-    if (S.type = "button", S.className = "text-xs text-red-600 hover:text-red-700", S.textContent = "Remove", S.setAttribute("data-block-remove", "true"), f.appendChild(m), f.appendChild(S), p) {
-      const E = document.createElement("span");
-      E.className = "text-xs text-gray-400 cursor-move", E.textContent = "Drag", E.setAttribute("data-block-drag-handle", "true"), f.appendChild(E);
+    const h = document.createElement("button");
+    h.type = "button", h.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", h.textContent = "Collapse", h.setAttribute("data-block-collapse", "true");
+    const x = document.createElement("button");
+    if (x.type = "button", x.className = "text-xs text-red-600 hover:text-red-700", x.textContent = "Remove", x.setAttribute("data-block-remove", "true"), E.appendChild(h), E.appendChild(x), f) {
+      const q = document.createElement("span");
+      q.className = "text-xs text-gray-400 cursor-move", q.textContent = "Drag", q.setAttribute("data-block-drag-handle", "true"), E.appendChild(q);
     }
-    b.appendChild(l), b.appendChild(f);
-    const h = document.createElement("div");
-    h.className = "p-4 space-y-4", h.setAttribute("data-block-body", "true");
-    const v = a.template.content.cloneNode(!0);
-    h.appendChild(v), s.appendChild(b), s.appendChild(h), ve(s, a.type);
-    const x = fe(a, u, o.schemaVersionPattern);
-    return Ee(s, x), s.dataset.blockSchema = x, u && te(s, u), (a.collapsed ?? !1) && (h.classList.add("hidden"), s.dataset.blockCollapsed = "true", m.textContent = "Expand"), s;
-  }, R = (a, u) => {
-    const s = n.get(a);
-    if (!s) return;
-    const b = _(s, u);
-    c.appendChild(b), L();
-  }, j = e.addButton, H = e.addSelect;
-  if (j && H && j.addEventListener("click", () => {
-    const a = H.value.trim();
-    a && (R(a), H.value = "");
+    l.appendChild(g), l.appendChild(E);
+    const y = document.createElement("div");
+    y.className = "p-4 space-y-4", y.setAttribute("data-block-body", "true");
+    const T = a.template.content.cloneNode(!0);
+    y.appendChild(T), m.appendChild(l), m.appendChild(y), Se(m, a.type), Le(m, u), m.dataset.blockSchema = u, d && ae(m, d);
+    const I = a.requiredFields || [];
+    return I.length > 0 && ye(y, I), (a.collapsed ?? !1) && (y.classList.add("hidden"), m.dataset.blockCollapsed = "true", h.textContent = "Expand"), m;
+  }, j = (a, d) => {
+    const u = n.get(a);
+    if (!u) return;
+    const m = _(u, d);
+    c.appendChild(m), S();
+  }, P = e.addButton, M = e.addSelect;
+  if (P && M && P.addEventListener("click", () => {
+    const a = M.value.trim();
+    a && (j(a), M.value = "");
   }), t.addEventListener("click", (a) => {
-    const u = a.target;
-    if (!(u instanceof HTMLElement)) return;
-    const s = u.closest("[data-block-item]");
-    if (s) {
-      if (u.closest("[data-block-remove]")) {
-        s.remove(), L();
+    const d = a.target;
+    if (!(d instanceof HTMLElement)) return;
+    const u = d.closest("[data-block-item]");
+    if (u) {
+      if (d.closest("[data-block-remove]")) {
+        u.remove(), S();
         return;
       }
-      if (u.closest("[data-block-collapse]")) {
-        const b = s.querySelector("[data-block-body]");
-        if (b) {
-          const l = b.classList.toggle("hidden");
-          s.dataset.blockCollapsed = l ? "true" : "false";
-          const g = u.closest("[data-block-collapse]");
+      if (d.closest("[data-block-collapse]")) {
+        const m = u.querySelector("[data-block-body]");
+        if (m) {
+          const l = m.classList.toggle("hidden");
+          u.dataset.blockCollapsed = l ? "true" : "false";
+          const g = d.closest("[data-block-collapse]");
           g && (g.textContent = l ? "Expand" : "Collapse");
         }
         return;
       }
-      if (u.closest("[data-block-move-up]")) {
-        const b = s.previousElementSibling;
-        b && c.insertBefore(s, b), L();
+      if (d.closest("[data-block-move-up]")) {
+        const m = u.previousElementSibling;
+        m && c.insertBefore(u, m), S();
         return;
       }
-      if (u.closest("[data-block-move-down]")) {
-        const b = s.nextElementSibling;
-        b && c.insertBefore(b, s), L();
+      if (d.closest("[data-block-move-down]")) {
+        const m = u.nextElementSibling;
+        m && c.insertBefore(m, u), S();
         return;
       }
     }
   }), t.addEventListener("input", (a) => {
-    const u = a.target;
-    !(u instanceof HTMLElement) || !u.closest("[data-block-item]") || L();
+    const d = a.target;
+    !(d instanceof HTMLElement) || !d.closest("[data-block-item]") || S();
   }), t.addEventListener("change", (a) => {
-    const u = a.target;
-    !(u instanceof HTMLElement) || !u.closest("[data-block-item]") || L();
-  }), p && y) {
-    const a = o.dragFromHeader ?? !0, u = o.enableTouch ?? !0, s = o.enableAnimations ?? !0, b = o.enableCrossEditor ?? !1, l = {
+    const d = a.target;
+    !(d instanceof HTMLElement) || !d.closest("[data-block-item]") || S();
+  }), f && v) {
+    const a = r.dragFromHeader ?? !0, d = r.enableTouch ?? !0, u = r.enableAnimations ?? !0, m = r.enableCrossEditor ?? !1, l = {
       dragging: null,
       touchStartY: 0,
       touchCurrentY: 0,
@@ -526,70 +547,70 @@ function Ae(t) {
       originalIndex: -1
     }, g = (i) => i.closest("[data-block-drag-handle]") ? !0 : a && i.closest("[data-block-header]") ? !i.closest("button, input, select, textarea") : !1, k = (i) => Array.from(c.querySelectorAll("[data-block-item]")).indexOf(i);
     if (c.addEventListener("dragstart", (i) => {
-      const f = i.target;
-      if (!(f instanceof HTMLElement)) return;
-      if (!g(f)) {
+      const p = i.target;
+      if (!(p instanceof HTMLElement)) return;
+      if (!g(p)) {
         i.preventDefault();
         return;
       }
-      const m = f.closest("[data-block-item]");
-      if (!m) return;
-      if (l.dragging = m, l.originalIndex = k(m), m.classList.add("block-item--dragging"), i.dataTransfer) {
-        if (i.dataTransfer.effectAllowed = "move", i.dataTransfer.setData("text/plain", "block"), b) {
-          const v = ye(m);
-          i.dataTransfer.setData("application/x-block", JSON.stringify(v));
+      const b = p.closest("[data-block-item]");
+      if (!b) return;
+      if (l.dragging = b, l.originalIndex = k(b), b.classList.add("block-item--dragging"), i.dataTransfer) {
+        if (i.dataTransfer.effectAllowed = "move", i.dataTransfer.setData("text/plain", "block"), m) {
+          const x = Ae(b);
+          i.dataTransfer.setData("application/x-block", JSON.stringify(x));
         }
-        const h = m.cloneNode(!0);
+        const h = b.cloneNode(!0);
         h.style.cssText = "position: absolute; top: -9999px; left: -9999px; opacity: 0.8; transform: rotate(2deg);", document.body.appendChild(h), i.dataTransfer.setDragImage(h, 20, 20), requestAnimationFrame(() => h.remove());
       }
-      const S = N(c, m);
-      I(`Dragging ${S.label} from position ${S.position} of ${S.total}. Use arrow keys to move.`);
+      const E = $(c, b);
+      B(`Dragging ${E.label} from position ${E.position} of ${E.total}. Use arrow keys to move.`);
     }), c.addEventListener("dragover", (i) => {
       i.preventDefault(), i.dataTransfer && (i.dataTransfer.dropEffect = "move");
-      const f = i.clientY, m = $(c, f, l.dragging || void 0);
-      m ? W(c, m.item, m.position) : q(c);
+      const p = i.clientY, b = H(c, p, l.dragging || void 0);
+      b ? Q(c, b.item, b.position) : w(c);
     }), c.addEventListener("dragenter", (i) => {
       i.preventDefault();
     }), c.addEventListener("dragleave", (i) => {
-      const f = i.relatedTarget;
-      (!f || !c.contains(f)) && q(c);
+      const p = i.relatedTarget;
+      (!p || !c.contains(p)) && w(c);
     }), c.addEventListener("drop", (i) => {
-      i.preventDefault(), q(c);
-      const f = i.clientY, m = $(c, f, l.dragging || void 0);
-      if (!l.dragging && b && i.dataTransfer) {
+      i.preventDefault(), w(c);
+      const p = i.clientY, b = H(c, p, l.dragging || void 0);
+      if (!l.dragging && m && i.dataTransfer) {
         const h = i.dataTransfer.getData("application/x-block");
         if (h)
           try {
-            const v = JSON.parse(h), x = v._type;
-            if (x && n.has(x)) {
-              const T = n.get(x), E = _(T, v);
-              m ? m.position === "before" ? c.insertBefore(E, m.item) : c.insertBefore(E, m.item.nextSibling) : c.appendChild(E), L(), I(`Block ${x} added from another editor`);
+            const x = JSON.parse(h), y = x._type;
+            if (y && n.has(y)) {
+              const T = n.get(y), I = _(T, x);
+              b ? b.position === "before" ? c.insertBefore(I, b.item) : c.insertBefore(I, b.item.nextSibling) : c.appendChild(I), S(), B(`Block ${y} added from another editor`);
             }
           } catch {
           }
         return;
       }
       if (!l.dragging) return;
-      if (m && (m.position === "before" ? c.insertBefore(l.dragging, m.item) : c.insertBefore(l.dragging, m.item.nextSibling)), s && G(c, l.dragging), k(l.dragging) !== l.originalIndex) {
-        const h = N(c, l.dragging);
-        I(`${h.label} moved to position ${h.position} of ${h.total}`);
+      if (b && (b.position === "before" ? c.insertBefore(l.dragging, b.item) : c.insertBefore(l.dragging, b.item.nextSibling)), u && X(c, l.dragging), k(l.dragging) !== l.originalIndex) {
+        const h = $(c, l.dragging);
+        B(`${h.label} moved to position ${h.position} of ${h.total}`);
       }
     }), c.addEventListener("dragend", () => {
-      q(c), l.dragging && (l.dragging.classList.remove("block-item--dragging"), l.dragging = null), l.originalIndex = -1, L();
-    }), u) {
-      let i = null, f = null, m = !1;
-      const S = 10;
+      w(c), l.dragging && (l.dragging.classList.remove("block-item--dragging"), l.dragging = null), l.originalIndex = -1, S();
+    }), d) {
+      let i = null, p = null, b = !1;
+      const E = 10;
       c.addEventListener("touchstart", (h) => {
-        const v = h.touches[0], x = v.target;
-        if (!g(x)) return;
-        const T = x.closest("[data-block-item]");
-        T && (l.touchStartY = v.clientY, l.touchCurrentY = v.clientY, i = T, m = !1);
+        const x = h.touches[0], y = x.target;
+        if (!g(y)) return;
+        const T = y.closest("[data-block-item]");
+        T && (l.touchStartY = x.clientY, l.touchCurrentY = x.clientY, i = T, b = !1);
       }, { passive: !0 }), c.addEventListener("touchmove", (h) => {
         if (!i) return;
-        const v = h.touches[0];
-        if (l.touchCurrentY = v.clientY, !m) {
-          if (Math.abs(v.clientY - l.touchStartY) < S) return;
-          m = !0, f = i.cloneNode(!0), f.className = "block-item--touch-dragging", f.style.cssText = `
+        const x = h.touches[0];
+        if (l.touchCurrentY = x.clientY, !b) {
+          if (Math.abs(x.clientY - l.touchStartY) < E) return;
+          b = !0, p = i.cloneNode(!0), p.className = "block-item--touch-dragging", p.style.cssText = `
             position: fixed;
             left: 0;
             right: 0;
@@ -599,144 +620,151 @@ function Ae(t) {
             opacity: 0.9;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             transform: scale(1.02);
-          `, document.body.appendChild(f), i.classList.add("block-item--placeholder"), l.dragging = i, l.originalIndex = k(i);
-          const E = N(c, i);
-          I(`Dragging ${E.label}. Move finger to reposition.`);
+          `, document.body.appendChild(p), i.classList.add("block-item--placeholder"), l.dragging = i, l.originalIndex = k(i);
+          const I = $(c, i);
+          B(`Dragging ${I.label}. Move finger to reposition.`);
         }
-        h.preventDefault(), f && (f.style.top = `${v.clientY - f.offsetHeight / 2}px`);
-        const x = $(c, v.clientY, i || void 0);
-        x ? W(c, x.item, x.position) : q(c), xe(c, l);
+        h.preventDefault(), p && (p.style.top = `${x.clientY - p.offsetHeight / 2}px`);
+        const y = H(c, x.clientY, i || void 0);
+        y ? Q(c, y.item, y.position) : w(c), Ce(c, l);
       }, { passive: !1 }), c.addEventListener("touchend", () => {
-        if (l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), q(c), f && (f.remove(), f = null), i && m) {
+        if (l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), w(c), p && (p.remove(), p = null), i && b) {
           i.classList.remove("block-item--placeholder");
-          const h = $(c, l.touchCurrentY, i);
-          if (h && (h.position === "before" ? c.insertBefore(i, h.item) : c.insertBefore(i, h.item.nextSibling)), s && G(c, i), k(i) !== l.originalIndex) {
-            const x = N(c, i);
-            I(`${x.label} moved to position ${x.position} of ${x.total}`);
+          const h = H(c, l.touchCurrentY, i);
+          if (h && (h.position === "before" ? c.insertBefore(i, h.item) : c.insertBefore(i, h.item.nextSibling)), u && X(c, i), k(i) !== l.originalIndex) {
+            const y = $(c, i);
+            B(`${y.label} moved to position ${y.position} of ${y.total}`);
           }
-          L();
+          S();
         }
-        i = null, m = !1, l.dragging = null, l.originalIndex = -1;
+        i = null, b = !1, l.dragging = null, l.originalIndex = -1;
       }), c.addEventListener("touchcancel", () => {
-        l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), q(c), f && (f.remove(), f = null), i && i.classList.remove("block-item--placeholder"), i = null, m = !1, l.dragging = null, l.originalIndex = -1;
+        l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), w(c), p && (p.remove(), p = null), i && i.classList.remove("block-item--placeholder"), i = null, b = !1, l.dragging = null, l.originalIndex = -1;
       });
     }
   }
   if (e.addSelect) {
     const a = document.createElement("option");
-    a.value = "", a.textContent = "Select block type", e.addSelect.appendChild(a), n.forEach((u) => {
-      const s = document.createElement("option");
-      s.value = u.type, s.textContent = u.label, e.addSelect?.appendChild(s);
+    a.value = "", a.textContent = "Select block type", e.addSelect.appendChild(a), n.forEach((d) => {
+      const u = document.createElement("option");
+      u.value = d.type, u.textContent = d.label, e.addSelect?.appendChild(u);
     }), e.addSelect.value = "";
   }
   t.addEventListener("keydown", (a) => {
-    const u = a.target;
-    if (!(u instanceof HTMLElement)) return;
-    const s = u.closest("[data-block-item]");
-    if (!s) return;
-    const b = u.closest("[data-block-header]");
-    if (b)
+    const d = a.target;
+    if (!(d instanceof HTMLElement)) return;
+    const u = d.closest("[data-block-item]");
+    if (!u) return;
+    const m = d.closest("[data-block-header]");
+    if (m)
       switch (a.key) {
         case "Delete":
         case "Backspace":
-          a.shiftKey && (a.preventDefault(), s.remove(), L(), c.querySelector("[data-block-item] [data-block-header]")?.focus());
+          a.shiftKey && (a.preventDefault(), u.remove(), S(), c.querySelector("[data-block-item] [data-block-header]")?.focus());
           break;
         case "ArrowUp":
-          if (a.altKey && p) {
+          if (a.altKey && f) {
             a.preventDefault();
-            const g = s.previousElementSibling;
+            const g = u.previousElementSibling;
             if (g) {
-              c.insertBefore(s, g), L(), s.querySelector("[data-block-header]")?.focus();
-              const k = N(c, s);
-              I(`${k.label} moved to position ${k.position} of ${k.total}`);
+              c.insertBefore(u, g), S(), u.querySelector("[data-block-header]")?.focus();
+              const k = $(c, u);
+              B(`${k.label} moved to position ${k.position} of ${k.total}`);
             } else
-              I("Already at the top");
+              B("Already at the top");
           } else if (!a.altKey) {
             a.preventDefault();
-            const k = s.previousElementSibling?.querySelector("[data-block-header]");
-            k ? k.focus() : I("At the first block");
+            const k = u.previousElementSibling?.querySelector("[data-block-header]");
+            k ? k.focus() : B("At the first block");
           }
           break;
         case "ArrowDown":
-          if (a.altKey && p) {
+          if (a.altKey && f) {
             a.preventDefault();
-            const g = s.nextElementSibling;
+            const g = u.nextElementSibling;
             if (g) {
-              c.insertBefore(g, s), L(), s.querySelector("[data-block-header]")?.focus();
-              const k = N(c, s);
-              I(`${k.label} moved to position ${k.position} of ${k.total}`);
+              c.insertBefore(g, u), S(), u.querySelector("[data-block-header]")?.focus();
+              const k = $(c, u);
+              B(`${k.label} moved to position ${k.position} of ${k.total}`);
             } else
-              I("Already at the bottom");
+              B("Already at the bottom");
           } else if (!a.altKey) {
             a.preventDefault();
-            const k = s.nextElementSibling?.querySelector("[data-block-header]");
-            k ? k.focus() : I("At the last block");
+            const k = u.nextElementSibling?.querySelector("[data-block-header]");
+            k ? k.focus() : B("At the last block");
           }
           break;
         case "Enter":
         case " ":
-          u.matches("[data-block-collapse]") || u.matches("[data-block-remove]") || u.matches("[data-block-move-up]") || u.matches("[data-block-move-down]") ? (a.preventDefault(), u.click()) : b && !u.matches("button") && (a.preventDefault(), s.querySelector("[data-block-collapse]")?.click());
+          d.matches("[data-block-collapse]") || d.matches("[data-block-remove]") || d.matches("[data-block-move-up]") || d.matches("[data-block-move-down]") ? (a.preventDefault(), d.click()) : m && !d.matches("button") && (a.preventDefault(), u.querySelector("[data-block-collapse]")?.click());
           break;
         case "Escape":
-          const l = s.querySelector("[data-block-body]");
+          const l = u.querySelector("[data-block-body]");
           if (l && !l.classList.contains("hidden")) {
-            a.preventDefault(), l.classList.add("hidden"), s.dataset.blockCollapsed = "true";
-            const g = s.querySelector("[data-block-collapse]");
+            a.preventDefault(), l.classList.add("hidden"), u.dataset.blockCollapsed = "true";
+            const g = u.querySelector("[data-block-collapse]");
             g && (g.textContent = "Expand");
           }
           break;
       }
   });
-  const ne = () => {
+  const ce = () => {
     c.querySelectorAll("[data-block-header]").forEach((a) => {
       a.hasAttribute("tabindex") || (a.setAttribute("tabindex", "0"), a.setAttribute("role", "button"), a.setAttribute("aria-label", "Block header - Press Enter to collapse/expand, Shift+Delete to remove"));
     });
   };
   new MutationObserver(() => {
-    ne();
+    ce();
   }).observe(c, { childList: !0, subtree: !0 });
-  const P = w.value?.trim();
-  let M = [];
-  if (P)
+  const U = N.value?.trim();
+  let V = [];
+  if (U)
     try {
-      const a = JSON.parse(P);
-      Array.isArray(a) && (M = a, a.forEach((u) => {
-        const s = typeof u == "object" && u ? u._type : "";
-        s && n.has(s) && R(s, u);
+      const a = JSON.parse(U);
+      Array.isArray(a) && (V = a, a.forEach((d) => {
+        const u = typeof d == "object" && d ? d._type : "";
+        u && n.has(u) && j(u, d);
       }));
     } catch {
     }
-  const U = o.showConflicts ?? !0;
-  if (U && o.legacyBlocks && Array.isArray(o.legacyBlocks)) {
-    const a = K(M, o.legacyBlocks);
-    a.hasConflicts && z(t, a);
+  const J = r.showConflicts ?? !0;
+  if (J && r.legacyBlocks && Array.isArray(r.legacyBlocks)) {
+    const a = W(V, r.legacyBlocks);
+    a.hasConflicts && G(t, a);
   }
-  const J = t.dataset.blockLegacy;
-  if (U && J)
+  const K = t.dataset.blockLegacy;
+  if (J && K)
     try {
-      const a = JSON.parse(J);
+      const a = JSON.parse(K);
       if (Array.isArray(a)) {
-        const u = K(M, a);
-        u.hasConflicts && z(t, u);
+        const d = W(V, a);
+        d.hasConflicts && G(t, d);
       }
     } catch {
     }
-  L();
+  S();
 }
-function Be(t, e) {
-  const o = document.createElement("template");
-  o.setAttribute("data-block-template", ""), o.dataset.blockType = e.type, o.dataset.blockLabel = e.label, e.icon && (o.dataset.blockIcon = e.icon), e.schemaVersion && (o.dataset.blockSchemaVersion = e.schemaVersion), e.requiredFields && e.requiredFields.length > 0 && (o.dataset.blockRequiredFields = e.requiredFields.join(",")), o.innerHTML = e.html, t.appendChild(o);
+function Ne(t, e) {
+  const r = document.createElement("template");
+  r.setAttribute("data-block-template", ""), r.dataset.blockType = e.type, r.dataset.blockLabel = e.label, e.icon && (r.dataset.blockIcon = e.icon), e.schemaVersion && (r.dataset.blockSchemaVersion = e.schemaVersion), e.requiredFields && e.requiredFields.length > 0 && (r.dataset.blockRequiredFields = e.requiredFields.join(",")), r.innerHTML = e.html, t.appendChild(r);
 }
-function Ce(t = document) {
-  Array.from(t.querySelectorAll('[data-component="block"], [data-block-editor]')).filter((o) => o.dataset.blockLibraryPicker !== "true" && o.dataset.blockInit !== "manual").forEach((o) => Ae(o));
+function $e(t) {
+  if (!t) return;
+  const e = Z(t);
+  te(t, e);
 }
-function Se(t) {
+function qe(t = document) {
+  Array.from(t.querySelectorAll('[data-component="block"], [data-block-editor]')).filter((r) => r.dataset.blockLibraryPicker !== "true" && r.dataset.blockInit !== "manual").forEach((r) => Be(r));
+}
+function Ie(t) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", t, { once: !0 }) : t();
 }
-Se(() => Ce());
+Ie(() => qe());
 export {
-  Ae as initBlockEditor,
-  Ce as initBlockEditors,
-  Be as registerBlockTemplate
+  Be as initBlockEditor,
+  qe as initBlockEditors,
+  ye as markRequiredFields,
+  $e as refreshBlockTemplateRegistry,
+  Ne as registerBlockTemplate
 };
 //# sourceMappingURL=block_editor.js.map

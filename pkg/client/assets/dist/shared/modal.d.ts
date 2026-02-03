@@ -87,5 +87,23 @@ export declare class ConfirmModal extends Modal {
     protected onBeforeHide(): boolean;
     private _finish;
 }
+export interface TextPromptModalConfig {
+    title: string;
+    label: string;
+    placeholder?: string;
+    initialValue?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    /** CSS class string for the text input. Falls back to a sensible default. */
+    inputClass?: string;
+    onConfirm: (value: string) => void;
+    onCancel?: () => void;
+}
+export declare class TextPromptModal extends Modal {
+    private config;
+    constructor(config: TextPromptModalConfig);
+    protected renderContent(): string;
+    protected bindContentEvents(): void;
+}
 export declare function escapeHtml(str: string): string;
 //# sourceMappingURL=modal.d.ts.map
