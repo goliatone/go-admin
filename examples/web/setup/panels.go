@@ -75,10 +75,10 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 			admin.Action{Name: "archive", CommandName: "users.archive", Permission: "admin.users.delete"},
 		).
 		BulkActions(
-			admin.Action{Name: "activate", CommandName: "users.activate", Permission: "admin.users.edit"},
-			admin.Action{Name: "suspend", CommandName: "users.suspend", Permission: "admin.users.edit"},
-			admin.Action{Name: "disable", CommandName: "users.disable", Permission: "admin.users.edit"},
-			admin.Action{Name: "archive", CommandName: "users.archive", Permission: "admin.users.delete"},
+			admin.Action{Name: "activate", Label: "Activate", Icon: "check-circle", Confirm: "Activate {count} user(s)?", CommandName: "users.activate", Permission: "admin.users.edit"},
+			admin.Action{Name: "suspend", Label: "Suspend", Icon: "pause", Confirm: "Suspend {count} user(s)?", CommandName: "users.suspend", Permission: "admin.users.edit"},
+			admin.Action{Name: "disable", Label: "Disable", Icon: "x-circle", Confirm: "Disable {count} user(s)?", Variant: "danger", CommandName: "users.disable", Permission: "admin.users.edit", Overflow: true},
+			admin.Action{Name: "archive", Label: "Archive", Icon: "archive", Confirm: "Archive {count} user(s)?", Variant: "danger", CommandName: "users.archive", Permission: "admin.users.delete", Overflow: true},
 		).
 		Permissions(admin.PanelPermissions{
 			View:   "admin.users.view",
@@ -158,8 +158,8 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 			admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", CommandName: "pages.bulk_unpublish", Permission: "admin.pages.publish"},
 		).
 		BulkActions(
-			admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", CommandName: "pages.bulk_publish", Permission: "admin.pages.publish"},
-			admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", CommandName: "pages.bulk_unpublish", Permission: "admin.pages.publish"},
+			admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", Icon: "check-circle", Confirm: "Publish {count} page(s)?", CommandName: "pages.bulk_publish", Permission: "admin.pages.publish"},
+			admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", Icon: "pause", Confirm: "Unpublish {count} page(s)?", CommandName: "pages.bulk_unpublish", Permission: "admin.pages.publish"},
 		).
 		UseBlocks(true).
 		UseSEO(true).
@@ -253,10 +253,10 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 			admin.Action{Name: "schedule", Label: "Schedule", LabelKey: "actions.schedule", CommandName: "posts.bulk_schedule", Permission: "admin.posts.publish"},
 		).
 		BulkActions(
-			admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", CommandName: "posts.bulk_publish", Permission: "admin.posts.publish"},
-			admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", CommandName: "posts.bulk_unpublish", Permission: "admin.posts.edit"},
-			admin.Action{Name: "schedule", Label: "Schedule", LabelKey: "actions.schedule", CommandName: "posts.bulk_schedule", Permission: "admin.posts.publish"},
-			admin.Action{Name: "archive", Label: "Archive", LabelKey: "actions.archive", CommandName: "posts.bulk_archive", Permission: "admin.posts.edit"},
+			admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", Icon: "check-circle", Confirm: "Publish {count} post(s)?", CommandName: "posts.bulk_publish", Permission: "admin.posts.publish"},
+			admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", Icon: "pause", Confirm: "Unpublish {count} post(s)?", CommandName: "posts.bulk_unpublish", Permission: "admin.posts.edit"},
+			admin.Action{Name: "schedule", Label: "Schedule", LabelKey: "actions.schedule", Icon: "calendar", Confirm: "Schedule {count} post(s)?", CommandName: "posts.bulk_schedule", Permission: "admin.posts.publish", Overflow: true},
+			admin.Action{Name: "archive", Label: "Archive", LabelKey: "actions.archive", Icon: "archive", Confirm: "Archive {count} post(s)?", Variant: "danger", CommandName: "posts.bulk_archive", Permission: "admin.posts.edit", Overflow: true},
 		).
 		UseSEO(true).
 		Permissions(admin.PanelPermissions{

@@ -14,25 +14,37 @@ import (
 // goCMSContentBridge adapts the go-cms content service (which uses internal types)
 // to the admin.CMSContentService contract using reflection.
 type goCMSContentBridge struct {
-	content any
-	page    any
-	blocks  any
-	types   map[string]uuid.UUID
+	content   any
+	page      any
+	blocks    any
+	types     map[string]uuid.UUID
+	typeNames map[string]string
+
+	contentTypes admin.CMSContentTypeService
 
 	defaultTemplate uuid.UUID
 	blockDefs       map[string]uuid.UUID
 	blockDefNames   map[uuid.UUID]string
 }
 
-func newGoCMSContentBridge(contentSvc any, pageSvc any, blockSvc any, defaultTemplate uuid.UUID, typeIDs map[string]uuid.UUID) admin.CMSContentService {
+func newGoCMSContentBridge(contentSvc any, pageSvc any, blockSvc any, defaultTemplate uuid.UUID, typeIDs map[string]uuid.UUID, contentTypes admin.CMSContentTypeService) admin.CMSContentService {
 	if contentSvc == nil {
 		return nil
+	}
+	typeNames := map[string]string{}
+	for name, id := range typeIDs {
+		if id == uuid.Nil {
+			continue
+		}
+		typeNames[id.String()] = name
 	}
 	return &goCMSContentBridge{
 		content:         contentSvc,
 		page:            pageSvc,
 		blocks:          blockSvc,
 		types:           typeIDs,
+		typeNames:       typeNames,
+		contentTypes:    contentTypes,
 		defaultTemplate: defaultTemplate,
 		blockDefs:       map[string]uuid.UUID{},
 		blockDefNames:   map[uuid.UUID]string{},
@@ -55,7 +67,8 @@ func (b *goCMSContentBridge) hasPageService() bool {
 func (b *goCMSContentBridge) Pages(ctx context.Context, locale string) ([]admin.CMSPage, error) {
 	if b.hasPageService() {
 		method := reflect.ValueOf(b.page).MethodByName("List")
-		results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+		env := environmentKeyFromContext(ctx)
+		results := callWithOptionalEnv(method, ctx, env)
 		if err := reflectError(results); err != nil {
 			return nil, err
 		}
@@ -167,6 +180,9 @@ func (b *goCMSContentBridge) CreatePage(ctx context.Context, page admin.CMSPage)
 	}
 	setStringField(req, "Slug", page.Slug)
 	setStringField(req, "Status", page.Status)
+	if env := environmentKeyFromContext(ctx); env != "" {
+		setStringField(req, "EnvironmentKey", env)
+	}
 	setUUIDField(req, "CreatedBy", uuid.Nil)
 	setUUIDField(req, "UpdatedBy", uuid.Nil)
 	if tr := b.buildPageTranslation(req.FieldByName("Translations"), page, path, locale); tr.IsValid() {
@@ -208,6 +224,9 @@ func (b *goCMSContentBridge) UpdatePage(ctx context.Context, page admin.CMSPage)
 	}
 	setUUIDPtr(req, "TemplateID", templateID)
 	setStringField(req, "Status", page.Status)
+	if env := environmentKeyFromContext(ctx); env != "" {
+		setStringField(req, "EnvironmentKey", env)
+	}
 	setUUIDField(req, "UpdatedBy", uuid.Nil)
 	path := asString(page.Data["path"], page.PreviewURL)
 	if path == "" {
@@ -415,7 +434,8 @@ func (b *goCMSContentBridge) Contents(ctx context.Context, locale string) ([]adm
 	if !method.IsValid() {
 		return nil, admin.ErrNotFound
 	}
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+	env := environmentKeyFromContext(ctx)
+	results := callWithOptionalEnv(method, ctx, env)
 	if err := reflectError(results); err != nil {
 		return nil, err
 	}
@@ -425,7 +445,7 @@ func (b *goCMSContentBridge) Contents(ctx context.Context, locale string) ([]adm
 	slice := deref(results[0])
 	out := make([]admin.CMSContent, 0, slice.Len())
 	for i := 0; i < slice.Len(); i++ {
-		out = append(out, b.convertContent(slice.Index(i), locale))
+		out = append(out, b.convertContent(slice.Index(i), locale, ctx))
 	}
 	return out, nil
 }
@@ -446,7 +466,7 @@ func (b *goCMSContentBridge) Content(ctx context.Context, id, locale string) (*a
 	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
 		return nil, admin.ErrNotFound
 	}
-	rec := b.convertContent(results[0], locale)
+	rec := b.convertContent(results[0], locale, ctx)
 	return &rec, nil
 }
 
@@ -458,9 +478,16 @@ func (b *goCMSContentBridge) CreateContent(ctx context.Context, content admin.CM
 	reqType := method.Type().In(1)
 	req := reflect.New(reqType).Elem()
 
-	setUUIDField(req, "ContentTypeID", b.contentTypeID(content.ContentType))
+	contentTypeKey := strings.TrimSpace(content.ContentType)
+	if contentTypeKey == "" {
+		contentTypeKey = strings.TrimSpace(content.ContentTypeSlug)
+	}
+	setUUIDField(req, "ContentTypeID", b.contentTypeID(ctx, contentTypeKey))
 	setStringField(req, "Slug", content.Slug)
 	setStringField(req, "Status", content.Status)
+	if env := environmentKeyFromContext(ctx); env != "" {
+		setStringField(req, "EnvironmentKey", env)
+	}
 	setUUIDField(req, "CreatedBy", uuid.Nil)
 	setUUIDField(req, "UpdatedBy", uuid.Nil)
 	if tr := b.buildTranslation(req.FieldByName("Translations"), content); tr.IsValid() {
@@ -474,7 +501,7 @@ func (b *goCMSContentBridge) CreateContent(ctx context.Context, content admin.CM
 	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
 		return nil, admin.ErrNotFound
 	}
-	rec := b.convertContent(results[0], content.Locale)
+	rec := b.convertContent(results[0], content.Locale, ctx)
 	return &rec, nil
 }
 
@@ -488,6 +515,9 @@ func (b *goCMSContentBridge) UpdateContent(ctx context.Context, content admin.CM
 
 	setUUIDField(req, "ID", uuidOrNil(content.ID))
 	setStringField(req, "Status", content.Status)
+	if env := environmentKeyFromContext(ctx); env != "" {
+		setStringField(req, "EnvironmentKey", env)
+	}
 	setUUIDField(req, "UpdatedBy", uuid.Nil)
 	if tr := b.buildTranslation(req.FieldByName("Translations"), content); tr.IsValid() {
 		req.FieldByName("Translations").Set(tr)
@@ -500,7 +530,7 @@ func (b *goCMSContentBridge) UpdateContent(ctx context.Context, content admin.CM
 	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
 		return nil, admin.ErrNotFound
 	}
-	rec := b.convertContent(results[0], content.Locale)
+	rec := b.convertContent(results[0], content.Locale, ctx)
 	return &rec, nil
 }
 
@@ -528,7 +558,8 @@ func (b *goCMSContentBridge) BlockDefinitions(ctx context.Context) ([]admin.CMSB
 	if !method.IsValid() {
 		return nil, admin.ErrNotFound
 	}
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+	env := environmentKeyFromContext(ctx)
+	results := callWithOptionalEnv(method, ctx, env)
 	if err := reflectError(results); err != nil {
 		return nil, err
 	}
@@ -538,7 +569,11 @@ func (b *goCMSContentBridge) BlockDefinitions(ctx context.Context) ([]admin.CMSB
 	slice := deref(results[0])
 	out := make([]admin.CMSBlockDefinition, 0, slice.Len())
 	for i := 0; i < slice.Len(); i++ {
-		out = append(out, b.convertBlockDefinition(slice.Index(i)))
+		def := b.convertBlockDefinition(slice.Index(i))
+		if def.Environment == "" && env != "" {
+			def.Environment = env
+		}
+		out = append(out, def)
 	}
 	return out, nil
 }
@@ -560,6 +595,31 @@ func (b *goCMSContentBridge) CreateBlockDefinition(ctx context.Context, def admi
 		return nil, admin.ErrNotFound
 	}
 	setStringField(input, "Name", name)
+	if slug := strings.TrimSpace(def.Slug); slug != "" {
+		setStringField(input, "Slug", slug)
+	}
+	if desc := strings.TrimSpace(def.Description); desc != "" {
+		setStringPtr(input, "Description", desc)
+	}
+	if icon := strings.TrimSpace(def.Icon); icon != "" {
+		setStringPtr(input, "Icon", icon)
+	}
+	if category := strings.TrimSpace(def.Category); category != "" {
+		setStringPtr(input, "Category", category)
+	}
+	if status := strings.TrimSpace(def.Status); status != "" {
+		setStringField(input, "Status", status)
+	}
+	if def.UISchema != nil {
+		setMapField(input, "UISchema", cloneAnyMap(def.UISchema))
+	}
+	env := strings.TrimSpace(def.Environment)
+	if env == "" {
+		env = environmentKeyFromContext(ctx)
+	}
+	if env != "" {
+		setStringField(input, "EnvironmentKey", env)
+	}
 	if len(def.Schema) > 0 {
 		setMapField(input, "Schema", cloneAnyMap(def.Schema))
 	}
@@ -590,6 +650,33 @@ func (b *goCMSContentBridge) UpdateBlockDefinition(ctx context.Context, def admi
 	setUUIDField(input, "ID", defID)
 	if name := strings.TrimSpace(def.Name); name != "" {
 		setStringPtr(input, "Name", name)
+	}
+	if slug := strings.TrimSpace(def.Slug); slug != "" {
+		setStringPtr(input, "Slug", slug)
+	}
+	if def.DescriptionSet {
+		setStringPtr(input, "Description", def.Description)
+	}
+	if def.IconSet {
+		setStringPtr(input, "Icon", def.Icon)
+	}
+	if def.CategorySet {
+		setStringPtr(input, "Category", def.Category)
+	} else if category := strings.TrimSpace(def.Category); category != "" {
+		setStringPtr(input, "Category", category)
+	}
+	if status := strings.TrimSpace(def.Status); status != "" {
+		setStringPtr(input, "Status", status)
+	}
+	if def.UISchema != nil {
+		setMapField(input, "UISchema", cloneAnyMap(def.UISchema))
+	}
+	env := strings.TrimSpace(def.Environment)
+	if env == "" {
+		env = environmentKeyFromContext(ctx)
+	}
+	if env != "" {
+		setStringPtr(input, "EnvironmentKey", env)
 	}
 	if len(def.Schema) > 0 {
 		setMapField(input, "Schema", cloneAnyMap(def.Schema))
@@ -740,6 +827,9 @@ func (b *goCMSContentBridge) buildTranslation(field reflect.Value, content admin
 	if data := cloneAnyMap(content.Data); data != nil {
 		setMapField(tr, "Content", data)
 	}
+	if blocks := embeddedBlocksFromContent(content); len(blocks) > 0 {
+		setSliceField(tr, "Blocks", blocks)
+	}
 	slice := reflect.MakeSlice(field.Type(), 0, 1)
 	return reflect.Append(slice, tr)
 }
@@ -815,6 +905,9 @@ func (b *goCMSContentBridge) ensurePageTranslationViaUpdate(ctx context.Context,
 		status = stringField(pageVal, "Status")
 	}
 	setStringField(req, "Status", status)
+	if env := environmentKeyFromContext(ctx); env != "" {
+		setStringField(req, "EnvironmentKey", env)
+	}
 	setUUIDField(req, "UpdatedBy", uuid.Nil)
 	if allow := req.FieldByName("AllowMissingTranslations"); allow.IsValid() && allow.CanSet() && allow.Kind() == reflect.Bool {
 		allow.SetBool(true)
@@ -826,7 +919,7 @@ func (b *goCMSContentBridge) ensurePageTranslationViaUpdate(ctx context.Context,
 	return reflectError(results)
 }
 
-func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string) admin.CMSContent {
+func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, ctx context.Context) admin.CMSContent {
 	val := deref(value)
 	out := admin.CMSContent{
 		Data: map[string]any{},
@@ -838,14 +931,18 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string) 
 	out.Status = stringField(val, "Status")
 
 	if typID, ok := extractUUID(val, "ContentTypeID"); ok {
-		if name := b.typeName(typID); name != "" {
+		if name := b.typeName(ctx, typID); name != "" {
 			out.ContentType = name
+			out.ContentTypeSlug = name
 		}
 	}
 	if out.ContentType == "" {
 		if typ := val.FieldByName("Type"); typ.IsValid() {
 			if name := stringField(typ, "Name"); name != "" {
 				out.ContentType = name
+				if out.ContentTypeSlug == "" {
+					out.ContentTypeSlug = name
+				}
 			}
 		}
 	}
@@ -951,7 +1048,7 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 	return out
 }
 
-func (b *goCMSContentBridge) contentTypeID(name string) uuid.UUID {
+func (b *goCMSContentBridge) contentTypeID(ctx context.Context, name string) uuid.UUID {
 	normalized := strings.ToLower(strings.TrimSpace(name))
 	if normalized == "" {
 		return uuid.Nil
@@ -959,16 +1056,92 @@ func (b *goCMSContentBridge) contentTypeID(name string) uuid.UUID {
 	if id, ok := b.types[normalized]; ok {
 		return id
 	}
+	if parsed := uuidOrNil(normalized); parsed != uuid.Nil {
+		if b.typeNames != nil {
+			b.typeNames[parsed.String()] = normalized
+		}
+		return parsed
+	}
+	if b.contentTypes != nil {
+		if ct, err := b.contentTypes.ContentTypeBySlug(ctx, normalized); err == nil && ct != nil {
+			if parsed := uuidOrNil(ct.ID); parsed != uuid.Nil {
+				b.cacheContentType(normalized, parsed, ct.Slug, ct.Name)
+				return parsed
+			}
+		}
+	}
 	return uuid.Nil
 }
 
-func (b *goCMSContentBridge) typeName(id uuid.UUID) string {
-	for name, cid := range b.types {
-		if cid == id {
+func (b *goCMSContentBridge) typeName(ctx context.Context, id uuid.UUID) string {
+	if id == uuid.Nil {
+		return ""
+	}
+	if b.typeNames != nil {
+		if name, ok := b.typeNames[id.String()]; ok && name != "" {
 			return name
 		}
 	}
+	for name, cid := range b.types {
+		if cid == id {
+			if b.typeNames != nil {
+				b.typeNames[id.String()] = name
+			}
+			return name
+		}
+	}
+	if b.contentTypes != nil {
+		if ct, err := b.contentTypes.ContentType(ctx, id.String()); err == nil && ct != nil {
+			name := strings.TrimSpace(firstNonEmpty(ct.Slug, ct.Name))
+			if name != "" {
+				b.cacheContentType(name, id, ct.Slug, ct.Name)
+				return name
+			}
+		}
+	}
 	return ""
+}
+
+func (b *goCMSContentBridge) cacheContentType(key string, id uuid.UUID, slug, name string) {
+	if b == nil || id == uuid.Nil {
+		return
+	}
+	if b.types == nil {
+		b.types = map[string]uuid.UUID{}
+	}
+	if b.typeNames == nil {
+		b.typeNames = map[string]string{}
+	}
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	if normalized != "" {
+		b.types[normalized] = id
+		b.typeNames[id.String()] = normalized
+		return
+	}
+	if slug = strings.TrimSpace(slug); slug != "" {
+		b.types[strings.ToLower(slug)] = id
+		b.typeNames[id.String()] = slug
+		return
+	}
+	if name = strings.TrimSpace(name); name != "" {
+		b.types[strings.ToLower(name)] = id
+		b.typeNames[id.String()] = name
+	}
+}
+
+func environmentKeyFromContext(ctx context.Context) string {
+	return strings.TrimSpace(admin.EnvironmentFromContext(ctx))
+}
+
+func callWithOptionalEnv(method reflect.Value, ctx context.Context, env string) []reflect.Value {
+	if !method.IsValid() {
+		return nil
+	}
+	args := []reflect.Value{reflect.ValueOf(ctx)}
+	if env != "" && method.Type().NumIn() > 1 && method.Type().In(1).Kind() == reflect.String {
+		args = append(args, reflect.ValueOf(env))
+	}
+	return method.Call(args)
 }
 
 func reflectError(results []reflect.Value) error {
@@ -1011,6 +1184,22 @@ func setMapField(val reflect.Value, name string, m map[string]any) {
 	field := val.FieldByName(name)
 	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Map {
 		field.Set(reflect.ValueOf(m))
+	}
+}
+
+func setSliceField(val reflect.Value, name string, slice any) {
+	field := val.FieldByName(name)
+	if !field.IsValid() || !field.CanSet() {
+		return
+	}
+	value := reflect.ValueOf(slice)
+	if !value.IsValid() {
+		return
+	}
+	if value.Type().AssignableTo(field.Type()) {
+		field.Set(value)
+	} else if value.Type().ConvertibleTo(field.Type()) {
+		field.Set(value.Convert(field.Type()))
 	}
 }
 
@@ -1082,6 +1271,40 @@ func asString(val any, fallback string) string {
 		return string(b)
 	}
 	return fallback
+}
+
+func embeddedBlocksFromContent(content admin.CMSContent) []map[string]any {
+	if len(content.EmbeddedBlocks) > 0 {
+		return cloneBlockList(content.EmbeddedBlocks)
+	}
+	if content.Data != nil {
+		if raw, ok := content.Data["blocks"].([]map[string]any); ok {
+			return cloneBlockList(raw)
+		}
+		if raw, ok := content.Data["blocks"].([]any); ok {
+			out := make([]map[string]any, 0, len(raw))
+			for _, item := range raw {
+				if m, ok := item.(map[string]any); ok {
+					out = append(out, cloneAnyMap(m))
+				}
+			}
+			if len(out) > 0 {
+				return out
+			}
+		}
+	}
+	return nil
+}
+
+func cloneBlockList(blocks []map[string]any) []map[string]any {
+	if blocks == nil {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(blocks))
+	for _, block := range blocks {
+		out = append(out, cloneAnyMap(block))
+	}
+	return out
 }
 
 func schemaMigrationStatusFromSchema(schema map[string]any) string {
@@ -1179,6 +1402,22 @@ func (b *goCMSContentBridge) convertBlockDefinition(val reflect.Value) admin.CMS
 			def.ID = id.String()
 		}
 	}
+	def.Slug = strings.TrimSpace(stringField(val, "Slug"))
+	if desc := strings.TrimSpace(stringField(val, "Description")); desc != "" {
+		def.Description = desc
+		def.DescriptionSet = true
+	}
+	if icon := strings.TrimSpace(stringField(val, "Icon")); icon != "" {
+		def.Icon = icon
+		def.IconSet = true
+	}
+	if category := strings.TrimSpace(stringField(val, "Category")); category != "" {
+		def.Category = category
+		def.CategorySet = true
+	}
+	def.Status = strings.TrimSpace(stringField(val, "Status"))
+	def.SchemaVersion = strings.TrimSpace(stringField(val, "SchemaVersion"))
+	def.MigrationStatus = strings.TrimSpace(stringField(val, "MigrationStatus"))
 	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
 		if schema, ok := schemaField.Interface().(map[string]any); ok {
 			def.Schema = cloneAnyMap(schema)
@@ -1187,8 +1426,24 @@ func (b *goCMSContentBridge) convertBlockDefinition(val reflect.Value) admin.CMS
 			}
 		}
 	}
+	if uiSchemaField := val.FieldByName("UISchema"); uiSchemaField.IsValid() {
+		if uiSchema, ok := uiSchemaField.Interface().(map[string]any); ok {
+			def.UISchema = cloneAnyMap(uiSchema)
+		}
+	}
+	if def.Type == "" {
+		def.Type = strings.TrimSpace(def.Slug)
+	}
 	if id, ok := extractUUID(val, "ID"); ok && def.ID != "" {
-		b.blockDefs[strings.ToLower(def.ID)] = id
+		if key := strings.TrimSpace(def.ID); key != "" {
+			b.blockDefs[strings.ToLower(key)] = id
+		}
+		if key := strings.TrimSpace(def.Slug); key != "" {
+			b.blockDefs[strings.ToLower(key)] = id
+		}
+		if key := strings.TrimSpace(def.Type); key != "" {
+			b.blockDefs[strings.ToLower(key)] = id
+		}
 		b.blockDefNames[id] = def.ID
 	}
 	return def
@@ -1275,6 +1530,9 @@ func (b *goCMSContentBridge) refreshBlockDefinitions(ctx context.Context) {
 		lower := strings.ToLower(name)
 		b.blockDefs[lower] = id
 		b.blockDefNames[id] = name
+		if slug := strings.TrimSpace(stringField(item, "Slug")); slug != "" {
+			b.blockDefs[strings.ToLower(slug)] = id
+		}
 	}
 }
 
