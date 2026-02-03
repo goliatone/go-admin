@@ -459,6 +459,24 @@ func main() {
 			{Name: "archive", Description: "Archive post", From: "published", To: "archived"},
 		},
 	})
+	workflow.RegisterWorkflow("block_definitions", coreadmin.WorkflowDefinition{
+		EntityType:   "block_definitions",
+		InitialState: "draft",
+		Transitions: []coreadmin.WorkflowTransition{
+			{Name: "publish", Description: "Publish block definition", From: "draft", To: "active"},
+			{Name: "deprecate", Description: "Deprecate block definition", From: "active", To: "deprecated"},
+			{Name: "republish", Description: "Republish block definition", From: "deprecated", To: "active"},
+		},
+	})
+	workflow.RegisterWorkflow("content_types", coreadmin.WorkflowDefinition{
+		EntityType:   "content_types",
+		InitialState: "draft",
+		Transitions: []coreadmin.WorkflowTransition{
+			{Name: "publish", Description: "Publish content type", From: "draft", To: "active"},
+			{Name: "deprecate", Description: "Deprecate content type", From: "active", To: "deprecated"},
+			{Name: "republish", Description: "Republish content type", From: "deprecated", To: "active"},
+		},
+	})
 	adm.WithWorkflow(workflow)
 
 	// Allow dev workflows to fully rebuild navigation even when we're not running the
@@ -596,12 +614,20 @@ func main() {
 	preferencesJSONStrict := strings.EqualFold(strings.TrimSpace(os.Getenv("ADMIN_PREFERENCES_JSON_STRICT")), "true")
 
 	// Register modules
+	blockWorkflowAuth := coreadmin.NewRoleWorkflowAuthorizer(
+		string(authlib.RoleAdmin),
+		coreadmin.WithWorkflowExtraCheck(func(ctx context.Context, _ coreadmin.TransitionInput) bool {
+			return authlib.Can(ctx, "admin", "edit")
+		}),
+	)
 	modules := []admin.Module{
 		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
 		&usersModule{store: dataStores.Users, service: usersService, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
 		&pagesModule{store: dataStores.Pages, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		&postsModule{store: dataStores.Posts, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
-		quickstart.NewContentTypeBuilderModule(cfg, setup.NavigationSectionContent),
+		quickstart.NewContentTypeBuilderModule(cfg, setup.NavigationSectionContent,
+			coreadmin.WithContentTypeBuilderWorkflowAuthorizer(blockWorkflowAuth),
+		),
 		&notificationsModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupOthers},
 		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		admin.NewProfileModule().WithMenuParent(setup.NavigationGroupOthers),
