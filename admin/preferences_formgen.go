@@ -262,11 +262,20 @@ func applyPreferenceJSONEditorDefaults(props map[string]any, field string) {
 	}
 
 	xform := ensureSchemaMap(prop, "x-formgen")
+	if _, ok := xform["label"]; !ok {
+		xform["label"] = "Raw UI"
+	}
 	if _, ok := xform["widget"]; !ok {
 		xform["widget"] = "json-editor"
 	}
 	if _, ok := xform["schema.example"]; !ok {
 		xform["schema.example"] = "{\"ui.datagrid.users.columns\": {\"order\": [\"email\", \"username\"]}}"
+	}
+	if _, ok := xform["editor.mode"]; !ok {
+		xform["editor.mode"] = "hybrid"
+	}
+	if _, ok := xform["editor.activeView"]; !ok {
+		xform["editor.activeView"] = "gui"
 	}
 }
 
@@ -277,6 +286,9 @@ func applyPreferenceClearKeysDefaults(props map[string]any, field string) {
 	}
 
 	xform := ensureSchemaMap(prop, "x-formgen")
+	if _, ok := xform["label"]; !ok {
+		xform["label"] = "Clear UI Keys"
+	}
 	if _, ok := xform["placeholder"]; !ok {
 		xform["placeholder"] = "ui.datagrid.users.columns ui.datagrid.users.order"
 	}
