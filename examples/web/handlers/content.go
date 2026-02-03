@@ -59,16 +59,20 @@ func (h *PageHandlers) List(c router.Context) error {
 		pages[i]["actions"] = routes.ActionsMap(id)
 	}
 
+	bulkCtx := helpers.BuildBulkActionContext(h.Admin, "pages", h.Config.BasePath, c.Context())
 	viewCtx := h.WithNav(router.ViewContext{
-		"title":          h.Config.Title,
-		"base_path":      h.Config.BasePath,
-		"resource":       "pages",
-		"resource_label": "Pages",
-		"routes":         routes.RoutesMap(),
-		"items":          pages,
-		"columns":        columns,
-		"total":          total,
-		"export_config":  helpers.BuildExportConfig(h.Config, "pages", ""),
+		"title":                 h.Config.Title,
+		"base_path":             h.Config.BasePath,
+		"resource":              "pages",
+		"resource_label":        "Pages",
+		"routes":                routes.RoutesMap(),
+		"items":                 pages,
+		"columns":               columns,
+		"total":                 total,
+		"export_config":         helpers.BuildExportConfig(h.Config, "pages", ""),
+		"bulk_actions_primary":  bulkCtx.Primary,
+		"bulk_actions_overflow": bulkCtx.Overflow,
+		"bulk_base":             bulkCtx.BaseURL,
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".pages", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/pages/list", viewCtx)
@@ -313,16 +317,20 @@ func (h *PostHandlers) List(c router.Context) error {
 		id := posts[i]["id"]
 		posts[i]["actions"] = routes.ActionsMap(id)
 	}
+	bulkCtx := helpers.BuildBulkActionContext(h.Admin, "posts", h.Config.BasePath, c.Context())
 	viewCtx := h.WithNav(router.ViewContext{
-		"title":          h.Config.Title,
-		"base_path":      h.Config.BasePath,
-		"resource":       "posts",
-		"resource_label": "Posts",
-		"routes":         routes.RoutesMap(),
-		"items":          posts,
-		"columns":        columns,
-		"total":          total,
-		"export_config":  helpers.BuildExportConfig(h.Config, "posts", ""),
+		"title":                 h.Config.Title,
+		"base_path":             h.Config.BasePath,
+		"resource":              "posts",
+		"resource_label":        "Posts",
+		"routes":                routes.RoutesMap(),
+		"items":                 posts,
+		"columns":               columns,
+		"total":                 total,
+		"export_config":         helpers.BuildExportConfig(h.Config, "posts", ""),
+		"bulk_actions_primary":  bulkCtx.Primary,
+		"bulk_actions_overflow": bulkCtx.Overflow,
+		"bulk_base":             bulkCtx.BaseURL,
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".posts", c.Context())
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/posts/list", viewCtx)
