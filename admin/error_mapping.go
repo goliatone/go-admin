@@ -30,9 +30,6 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	case errors.Is(err, ErrWorkflowInvalidTransition):
 		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), nil)
 		status = mapped.Code
-	case errors.Is(err, ErrInvalidFeatureConfig):
-		mapped = NewDomainError(TextCodeInvalidFeatureConfig, err.Error(), nil)
-		status = mapped.Code
 	case errors.As(err, &settingsValidation):
 		mapped = goerrors.New("validation failed", goerrors.CategoryValidation).
 			WithCode(http.StatusBadRequest).
@@ -92,6 +89,9 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			"issues": issues,
 		}
 		status = http.StatusBadRequest
+	case errors.Is(err, ErrInvalidFeatureConfig):
+		mapped = NewDomainError(TextCodeInvalidFeatureConfig, err.Error(), nil)
+		status = mapped.Code
 	case errors.As(err, &permission):
 		mapped = goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
 			WithCode(http.StatusForbidden).
@@ -122,6 +122,13 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			WithCode(http.StatusNotFound).
 			WithTextCode(TextCodeFeatureDisabled)
 		status = http.StatusNotFound
+	case isContentTypeSchemaBreaking(err):
+		meta := map[string]any{}
+		if changes := parseContentTypeSchemaBreaking(err); len(changes) > 0 {
+			meta["breaking_changes"] = changes
+		}
+		mapped = NewDomainError(TextCodeContentTypeSchemaBreaking, err.Error(), meta)
+		status = mapped.Code
 	case errors.Is(err, ErrNotFound):
 		mapped = goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
 			WithCode(http.StatusNotFound).
@@ -150,4 +157,65 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	}
 
 	return mapped, status
+}
+
+func isContentTypeSchemaBreaking(err error) bool {
+	return extractContentTypeSchemaBreaking(err) != ""
+}
+
+func extractContentTypeSchemaBreaking(err error) string {
+	if err == nil {
+		return ""
+	}
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		message := strings.TrimSpace(current.Error())
+		lower := strings.ToLower(message)
+		if strings.HasPrefix(lower, "content type: schema has breaking changes") {
+			return message
+		}
+	}
+	return ""
+}
+
+func parseContentTypeSchemaBreaking(err error) []map[string]string {
+	message := extractContentTypeSchemaBreaking(err)
+	if message == "" {
+		return nil
+	}
+	lower := strings.ToLower(message)
+	idx := strings.Index(lower, "breaking changes")
+	if idx == -1 {
+		return nil
+	}
+	after := strings.TrimSpace(message[idx+len("breaking changes"):])
+	after = strings.TrimPrefix(after, ":")
+	after = strings.TrimSpace(after)
+	if after == "" {
+		return nil
+	}
+	entries := strings.Split(after, ",")
+	out := make([]map[string]string, 0, len(entries))
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		parts := strings.SplitN(entry, ":", 2)
+		kind := strings.TrimSpace(parts[0])
+		path := ""
+		if len(parts) > 1 {
+			path = strings.TrimSpace(parts[1])
+		}
+		payload := map[string]string{}
+		if kind != "" {
+			payload["type"] = kind
+		}
+		if path != "" {
+			payload["path"] = path
+		}
+		if len(payload) > 0 {
+			out = append(out, payload)
+		}
+	}
+	return out
 }
