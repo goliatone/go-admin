@@ -38,13 +38,17 @@
       "type": "string",
       "description": "Only keys with the ui. prefix are stored. Use Clear UI Keys to remove values.",
       "x-formgen": {
+        "label": "Raw UI",
         "widget": "json-editor",
-        "schema.example": "{\"ui.datagrid.users.columns\": {\"order\": [\"email\", \"username\"]}}"
+        "schema.example": "{\"ui.datagrid.users.columns\": {\"order\": [\"email\", \"username\"]}}",
+        "editor.mode": "hybrid",
+        "editor.activeView": "gui"
       }
     },
     "clear_ui_keys": {
       "type": "string",
       "x-formgen": {
+        "label": "Clear UI Keys",
         "placeholder": "ui.datagrid.users.columns ui.datagrid.users.order",
         "helpText": "Comma or whitespace-separated ui.* keys to remove."
       }
