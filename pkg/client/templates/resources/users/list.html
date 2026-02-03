@@ -295,9 +295,9 @@
   <!-- Overlay for filter panel -->
   <div id="filter-overlay" class="hidden fixed inset-0 bg-black opacity-30 z-40"></div>
 
-  <!-- Floating Bulk Actions Bar (data-driven from panel config) -->
+  <!-- Floating Bulk Actions Bar -->
   <div id="bulk-actions-overlay" class="bulk-actions-overlay hidden"{% if bulk_base %} data-bulk-base="{{ bulk_base }}"{% endif %}>
-    <div class="bulk-actions-bar">
+    <div class="bulk-actions-bar" id="bulk-actions-bar">
       <!-- Left: Close + Count -->
       <div class="flex items-center gap-4">
         <button id="bulk-clear-selection" class="bulk-close-btn" aria-label="Clear selection">
@@ -310,35 +310,60 @@
 
       <!-- Right: Action Buttons -->
       <div class="flex items-center gap-2">
-        {% if bulk_actions_primary %}
-        {% for action in bulk_actions_primary %}
-        <button class="bulk-action-btn{% if action.variant == 'danger' %} bulk-action-btn--danger{% endif %}"
-                data-bulk-action="{{ action.name }}"
-                {% if action.confirm %}data-bulk-confirm="{{ action.confirm }}"{% endif %}
-                {% if action.icon %}data-bulk-icon="{{ action.icon }}"{% endif %}>
-          {{ action.label }}
+        <button class="bulk-action-btn" data-bulk-action="bulk-export">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Export
         </button>
-        {% endfor %}
-        {% endif %}
-        {% if bulk_actions_overflow %}
+        <button class="bulk-action-btn" data-bulk-action="bulk-activate">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Activate
+        </button>
+        <button class="bulk-action-btn" data-bulk-action="bulk-suspend">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Suspend
+        </button>
+        <!-- More actions dropdown trigger -->
         <div class="relative">
           <button class="bulk-action-btn-icon" id="bulk-more-btn" aria-label="More actions">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
             </svg>
           </button>
-          <div id="bulk-overflow-menu" class="bulk-overflow-menu hidden">
-            {% for action in bulk_actions_overflow %}
-            <button class="bulk-overflow-item{% if action.variant == 'danger' %} text-red-400{% endif %}"
-                    data-bulk-action="{{ action.name }}"
-                    {% if action.confirm %}data-bulk-confirm="{{ action.confirm }}"{% endif %}
-                    {% if action.icon %}data-bulk-icon="{{ action.icon }}"{% endif %}>
-              {{ action.label }}
+          <!-- Overflow panel with Role Management + overflow actions -->
+          <div id="bulk-overflow-panel" class="bulk-overflow-panel hidden">
+            <!-- Role Management Section -->
+            <div class="bulk-overflow-section">
+              <div class="bulk-overflow-section-title">ROLE MANAGEMENT</div>
+              <select id="bulk-role-select" class="bulk-role-select">
+                <option value="">Select role</option>
+              </select>
+              <div class="flex gap-2 mt-3">
+                <button id="bulk-role-assign" class="bulk-role-btn bulk-role-btn--primary flex-1">Assign</button>
+                <button id="bulk-role-unassign" class="bulk-role-btn bulk-role-btn--secondary flex-1">Unassign</button>
+              </div>
+            </div>
+            <!-- Overflow Actions -->
+            <div class="bulk-overflow-divider"></div>
+            <button class="bulk-overflow-action" data-bulk-action="bulk-disable">
+              <svg class="w-5 h-5 mr-3 text-current opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+              </svg>
+              Disable Selected
             </button>
-            {% endfor %}
+            <button class="bulk-overflow-action" data-bulk-action="bulk-archive">
+              <svg class="w-5 h-5 mr-3 text-current opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+              </svg>
+              Archive Selected
+            </button>
           </div>
         </div>
-        {% endif %}
       </div>
     </div>
   </div>
@@ -667,6 +692,34 @@ document.addEventListener('DOMContentLoaded', async function() {
       return actions;
     },
 
+    // Custom bulk actions
+    bulkActions: [
+      {
+        id: 'bulk-activate',
+        label: 'Activate Selected',
+        icon: 'check-circle',
+        endpoint: '/admin/api/users/bulk/activate',
+        confirm: 'Activate {count} user(s)?',
+        onSuccess: () => grid.refresh()
+      },
+      {
+        id: 'bulk-suspend',
+        label: 'Suspend Selected',
+        icon: 'pause',
+        endpoint: '/admin/api/users/bulk/suspend',
+        confirm: 'Suspend {count} user(s)?',
+        onSuccess: () => grid.refresh()
+      },
+      {
+        id: 'bulk-assign-role',
+        label: 'Assign Role',
+        icon: 'user-badge',
+        endpoint: '/admin/api/users/bulk/assign-role',
+        guard: (ids) => ids.length > 0,
+        onSuccess: () => grid.refresh()
+      }
+    ],
+
     // Custom cell renderers
     cellRenderers: {
       'email': (value, record) => {
@@ -722,6 +775,145 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // Initialize the grid
   grid.init();
+
+  // ── Overflow panel: Role Management + extra bulk actions ──
+  (function initOverflowPanel() {
+    const moreBtn = document.getElementById('bulk-more-btn');
+    const panel = document.getElementById('bulk-overflow-panel');
+    const bar = document.getElementById('bulk-actions-bar');
+    if (!moreBtn || !panel || !bar) return;
+
+    let rolesLoaded = false;
+
+    // Toggle panel + corner de-rounding
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const opening = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden');
+      bar.classList.toggle('overflow-open', opening);
+      if (opening && !rolesLoaded) {
+        loadRoles();
+      }
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!panel.contains(e.target) && e.target !== moreBtn) {
+        panel.classList.add('hidden');
+        bar.classList.remove('overflow-open');
+      }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        panel.classList.add('hidden');
+        bar.classList.remove('overflow-open');
+      }
+    });
+
+    // Prevent clicks inside panel from closing it
+    panel.addEventListener('click', (e) => e.stopPropagation());
+
+    // ── Load roles into <select> ──
+    async function loadRoles() {
+      const select = document.getElementById('bulk-role-select');
+      if (!select) return;
+      try {
+        const resp = await fetch('/admin/crud/roles?per_page=50');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const items = data.data || data.items || [];
+        items.forEach((role) => {
+          const opt = document.createElement('option');
+          opt.value = role.id;
+          opt.textContent = role.name || role.title || role.id;
+          select.appendChild(opt);
+        });
+        rolesLoaded = true;
+      } catch (err) {
+        console.error('[Users] Failed to load roles:', err);
+      }
+    }
+
+    // ── Role Assign / Unassign handlers ──
+    async function bulkRoleAction(assign) {
+      const select = document.getElementById('bulk-role-select');
+      const roleId = select?.value;
+      if (!roleId) {
+        window.toastManager?.warning('Please select a role first');
+        return;
+      }
+      const ids = Array.from(grid.state.selectedRows);
+      if (ids.length === 0) {
+        window.toastManager?.warning('Please select users first');
+        return;
+      }
+      const verb = assign ? 'assign-role' : 'unassign-role';
+      const label = assign ? 'Assign' : 'Unassign';
+      const confirmed = await window.toastManager?.confirm(`${label} role for ${ids.length} user(s)?`);
+      if (!confirmed) return;
+      try {
+        const resp = await fetch(`/admin/crud/users/bulk/${verb}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids, role_id: roleId })
+        });
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(text);
+        }
+        window.toastManager?.success(`Role ${label.toLowerCase()}ed successfully`);
+        panel.classList.add('hidden');
+        bar.classList.remove('overflow-open');
+        grid.state.selectedRows.clear();
+        grid.refresh();
+      } catch (err) {
+        console.error(`[Users] Bulk ${verb} failed:`, err);
+        window.toastManager?.error(err.message || `${label} failed`);
+      }
+    }
+
+    document.getElementById('bulk-role-assign')?.addEventListener('click', () => bulkRoleAction(true));
+    document.getElementById('bulk-role-unassign')?.addEventListener('click', () => bulkRoleAction(false));
+
+    // ── Overflow action buttons (Disable, Archive) ──
+    panel.querySelectorAll('[data-bulk-action]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.bulkAction;
+        if (!action) return;
+        const ids = Array.from(grid.state.selectedRows);
+        if (ids.length === 0) {
+          window.toastManager?.warning('Please select users first');
+          return;
+        }
+        const label = btn.textContent.trim();
+        const confirmed = await window.toastManager?.confirm(`${label} ${ids.length} user(s)?`);
+        if (!confirmed) return;
+        // Strip the bulk- prefix for the endpoint
+        const actionName = action.replace(/^bulk-/, '');
+        try {
+          const resp = await fetch(`/admin/crud/users/bulk/${actionName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids })
+          });
+          if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(text);
+          }
+          window.toastManager?.success(`${label} completed`);
+          panel.classList.add('hidden');
+          bar.classList.remove('overflow-open');
+          grid.state.selectedRows.clear();
+          grid.refresh();
+        } catch (err) {
+          console.error(`[Users] Bulk ${actionName} failed:`, err);
+          window.toastManager?.error(err.message || `${label} failed`);
+        }
+      });
+    });
+  })();
 
   // Bind refresh button
   const refreshBtn = document.getElementById('refresh-btn');

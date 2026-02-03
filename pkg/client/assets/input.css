@@ -503,6 +503,75 @@
     @apply rounded-b-lg;
   }
 
+  /* ---- Rich overflow panel (users Role Management) ---- */
+  .bulk-overflow-panel {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: -12px;
+    min-width: 340px;
+    @apply bg-sidebar-bg border border-sidebar-border rounded-xl shadow-2xl;
+    z-index: 50;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .bulk-overflow-section {
+    @apply px-5 py-4;
+  }
+
+  .bulk-overflow-section-title {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-sidebar-text-muted mb-3;
+  }
+
+  .bulk-role-select {
+    @apply w-full px-4 py-2.5 text-sm rounded-lg border;
+    @apply bg-sidebar-bg-hover border-sidebar-border text-sidebar-text;
+    appearance: auto;
+  }
+
+  .bulk-role-select:focus {
+    @apply outline-none ring-1 ring-blue-500 border-blue-500;
+  }
+
+  .bulk-role-btn {
+    @apply px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors;
+  }
+
+  .bulk-role-btn--primary {
+    @apply bg-blue-600 text-white;
+  }
+
+  .bulk-role-btn--primary:hover {
+    @apply bg-blue-700;
+  }
+
+  .bulk-role-btn--secondary {
+    @apply border text-sidebar-text;
+    @apply border-sidebar-border bg-sidebar-bg-hover;
+  }
+
+  .bulk-role-btn--secondary:hover {
+    @apply bg-sidebar-bg-active;
+  }
+
+  .bulk-overflow-divider {
+    @apply border-t border-sidebar-border;
+  }
+
+  .bulk-overflow-action {
+    @apply flex items-center w-full px-5 py-3 text-sm text-sidebar-text transition-colors;
+  }
+
+  .bulk-overflow-action:hover {
+    @apply bg-sidebar-bg-hover;
+  }
+
+  /* Corner de-rounding: when overflow panel is open, square the bar's right corners */
+  .bulk-actions-bar.overflow-open {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
   /* Responsive adjustments */
   @media (max-width: 640px) {
     .bulk-actions-bar {

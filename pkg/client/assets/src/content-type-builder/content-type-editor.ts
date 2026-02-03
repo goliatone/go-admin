@@ -1838,7 +1838,31 @@ export class ContentTypeEditor {
       `;
     } else if (this.state.previewHtml) {
       previewContainer.innerHTML = this.state.previewHtml;
+      this.initPreviewEditors();
     }
+  }
+
+  /**
+   * Initialize JSON editors inside the preview container.
+   * The formgen-behaviors bundle (loaded via script tag) exposes
+   * FormgenBehaviors.initJSONEditors() which scans the document for
+   * un-initialized [data-json-editor] elements.
+   */
+  private initPreviewEditors(): void {
+    const fb = (window as any).FormgenBehaviors;
+    if (typeof fb?.initJSONEditors === 'function') {
+      fb.initJSONEditors();
+    }
+
+    // Switch hybrid editors to GUI view by default.
+    // The upstream template defaults hybrid mode to "raw"; clicking
+    // the GUI toggle triggers setActiveView which handles visibility,
+    // button styling, and data sync.
+    this.root
+      .querySelectorAll<HTMLButtonElement>(
+        '[data-json-editor-mode="hybrid"] [data-json-editor-mode-btn="gui"]'
+      )
+      .forEach((btn) => btn.click());
   }
 
   private renderValidationErrors(): void {
