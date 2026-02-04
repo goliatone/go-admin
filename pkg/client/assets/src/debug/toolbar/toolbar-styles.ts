@@ -434,11 +434,6 @@ export const toolbarStyles = `
     white-space: nowrap;
   }
 
-  .query-text:hover {
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-
   /* Empty state */
   .empty-state {
     color: var(--toolbar-text-muted);
