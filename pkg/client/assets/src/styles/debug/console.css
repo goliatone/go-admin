@@ -779,11 +779,6 @@ body {
   font-family: var(--debug-font);
 }
 
-.query-text:hover {
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
 /* SQL selection */
 .debug-sql-select {
   width: 28px;
