@@ -165,6 +165,12 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		return admin.CMSOptions{}, fmt.Errorf("go-cms content service unavailable")
 	}
 
+	if seedCfg.Enabled {
+		if err := seedCMSBlockDefinitions(ctx, contentSvc, defaultLocale); err != nil {
+			return admin.CMSOptions{}, fmt.Errorf("seed cms block definitions: %w", err)
+		}
+	}
+
 	widgetSvc := admin.CMSWidgetService(nil)
 	menuSvc := admin.CMSMenuService(nil)
 	if adapter != nil {
