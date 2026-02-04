@@ -131,10 +131,10 @@ func main() {
 	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
 
 	debugEnabled := strings.EqualFold(os.Getenv("ADMIN_DEBUG"), "true")
-	scopeDebugEnabled := scopeDebugEnabledFromEnv()
-	var scopeDebugBuffer *scopeDebugBuffer
+	scopeDebugEnabled := quickstart.ScopeDebugEnabledFromEnv()
+	var scopeDebugBuffer *quickstart.ScopeDebugBuffer
 	if scopeDebugEnabled {
-		scopeDebugBuffer = newScopeDebugBuffer(scopeDebugLimitFromEnv())
+		scopeDebugBuffer = quickstart.NewScopeDebugBuffer(quickstart.ScopeDebugLimitFromEnv())
 	}
 	cfg.Debug.Enabled = debugEnabled
 	cfg.Debug.ToolbarMode = debugEnabled
@@ -157,9 +157,9 @@ func main() {
 		}
 	}
 	if debugEnabled && scopeDebugEnabled {
-		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, scopeDebugPanelID)
-		cfg.Debug.ToolbarPanels = appendUniquePanel(cfg.Debug.ToolbarPanels, scopeDebugPanelID)
-		registerScopeDebugPanel(scopeDebugBuffer)
+		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, quickstart.ScopeDebugPanelID)
+		cfg.Debug.ToolbarPanels = appendUniquePanel(cfg.Debug.ToolbarPanels, quickstart.ScopeDebugPanelID)
+		quickstart.RegisterScopeDebugPanel(scopeDebugBuffer)
 	}
 
 	if debugEnabled && featureDefaults["export"] {
@@ -472,7 +472,7 @@ func main() {
 	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps, authOptions...)
 	wrapAuthed := authn.WrapHandler
 	if scopeDebugEnabled {
-		wrapAuthed = scopeDebugWrap(authn, &cfg, scopeDebugBuffer)
+		wrapAuthed = quickstart.ScopeDebugWrap(authn, &cfg, scopeDebugBuffer)
 	}
 
 	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme.
@@ -758,7 +758,7 @@ func main() {
 		return c.JSON(fiber.StatusOK, session)
 	}))
 	if scopeDebugEnabled {
-		r.Get(path.Join(cfg.BasePath, "api", "debug", "scope"), wrapAuthed(scopeDebugHandler(scopeDebugBuffer)))
+		r.Get(path.Join(cfg.BasePath, "api", "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 	}
 
 	r.Get(path.Join(cfg.BasePath, "api", "timezones"), wrapAuthed(handlers.ListTimezones))
