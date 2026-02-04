@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -1612,9 +1613,15 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Ptr && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
 			out.Data["excerpt"] = summaryPtr.Elem().String()
 		}
-		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
-			if m, ok := contentField.Interface().(map[string]any); ok {
-				out.Data = cloneAnyMap(m)
+		if contentData := translationContentMap(chosen); len(contentData) > 0 {
+			for key, value := range out.Data {
+				contentData[key] = value
+			}
+			out.Data = contentData
+		}
+		if out.Title == "" {
+			if title := strings.TrimSpace(toString(out.Data["title"])); title != "" {
+				out.Title = title
 			}
 		}
 	}
@@ -1647,7 +1654,7 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 	localeLower := strings.ToLower(strings.TrimSpace(locale))
 	for i := 0; translations.IsValid() && i < translations.Len(); i++ {
 		current := deref(translations.Index(i))
-		code := strings.ToLower(stringField(current, "Locale"))
+		code := strings.ToLower(localeCodeFromTranslation(current))
 		if !chosen.IsValid() {
 			chosen = current
 		}
@@ -1663,7 +1670,9 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 		if groupID := uuidStringField(chosen, "TranslationGroupID"); groupID != "" {
 			out.TranslationGroupID = groupID
 		}
-		out.Locale = stringField(chosen, "Locale")
+		if code := localeCodeFromTranslation(chosen); code != "" {
+			out.Locale = code
+		}
 		out.Title = stringField(chosen, "Title")
 		if path := stringField(chosen, "Path"); path != "" {
 			out.Data["path"] = path
@@ -1680,16 +1689,46 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 		if summary := stringField(chosen, "Summary"); summary != "" {
 			out.Data["summary"] = summary
 		}
-		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
-			if m, ok := contentField.Interface().(map[string]any); ok {
-				merged := cloneAnyMap(m)
-				if merged == nil {
-					merged = map[string]any{}
-				}
-				for key, value := range out.Data {
-					merged[key] = value
-				}
-				out.Data = merged
+		if contentData := translationContentMap(chosen); len(contentData) > 0 {
+			for key, value := range out.Data {
+				contentData[key] = value
+			}
+			out.Data = contentData
+		}
+		if out.Title == "" {
+			if title := strings.TrimSpace(toString(out.Data["title"])); title != "" {
+				out.Title = title
+			}
+		}
+		if path := strings.TrimSpace(toString(out.Data["path"])); path != "" {
+			out.Data["path"] = path
+			if out.PreviewURL == "" {
+				out.PreviewURL = path
+			}
+		} else if out.PreviewURL != "" {
+			out.Data["path"] = out.PreviewURL
+		}
+		if out.SEO == nil {
+			out.SEO = map[string]any{}
+		}
+		if strings.TrimSpace(toString(out.SEO["title"])) == "" {
+			if seoTitle := strings.TrimSpace(toString(out.Data["meta_title"])); seoTitle != "" {
+				out.SEO["title"] = seoTitle
+			}
+		}
+		if strings.TrimSpace(toString(out.SEO["description"])) == "" {
+			if seoDesc := strings.TrimSpace(toString(out.Data["meta_description"])); seoDesc != "" {
+				out.SEO["description"] = seoDesc
+			}
+		}
+		if strings.TrimSpace(toString(out.Data["meta_title"])) == "" {
+			if seoTitle := strings.TrimSpace(toString(out.SEO["title"])); seoTitle != "" {
+				out.Data["meta_title"] = seoTitle
+			}
+		}
+		if strings.TrimSpace(toString(out.Data["meta_description"])) == "" {
+			if seoDesc := strings.TrimSpace(toString(out.SEO["description"])); seoDesc != "" {
+				out.Data["meta_description"] = seoDesc
 			}
 		}
 	}
@@ -1957,6 +1996,52 @@ func localeCodeFromTranslation(val reflect.Value) string {
 		}
 	}
 	return ""
+}
+
+func translationContentMap(val reflect.Value) map[string]any {
+	contentField := val.FieldByName("Content")
+	if !contentField.IsValid() {
+		return nil
+	}
+	contentField = deref(contentField)
+	if !contentField.IsValid() {
+		return nil
+	}
+	switch contentField.Kind() {
+	case reflect.Map:
+		if m, ok := contentField.Interface().(map[string]any); ok {
+			return cloneAnyMap(m)
+		}
+		if contentField.Type().Key().Kind() == reflect.String {
+			out := map[string]any{}
+			iter := contentField.MapRange()
+			for iter.Next() {
+				out[iter.Key().String()] = iter.Value().Interface()
+			}
+			return out
+		}
+	case reflect.String:
+		raw := strings.TrimSpace(contentField.String())
+		if raw == "" {
+			return nil
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal([]byte(raw), &decoded); err == nil {
+			return decoded
+		}
+	case reflect.Slice:
+		if contentField.Type().Elem().Kind() == reflect.Uint8 {
+			raw := contentField.Bytes()
+			if len(raw) == 0 {
+				return nil
+			}
+			var decoded map[string]any
+			if err := json.Unmarshal(raw, &decoded); err == nil {
+				return decoded
+			}
+		}
+	}
+	return nil
 }
 
 func uuidFromString(id string) uuid.UUID {
