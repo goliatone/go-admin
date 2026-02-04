@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/runner"
+	crud "github.com/goliatone/go-crud"
 	goerrors "github.com/goliatone/go-errors"
 	repository "github.com/goliatone/go-repository-bun"
 	router "github.com/goliatone/go-router"
@@ -48,6 +49,18 @@ func NewDomainError(code, message string, meta map[string]any) *goerrors.Error {
 func EnvironmentFromContext(ctx context.Context) string {
 	return core.EnvironmentFromContext(ctx)
 }
+func LocaleFromContext(ctx context.Context) string {
+	return core.LocaleFromContext(ctx)
+}
+func WithEnvironment(ctx context.Context, environment string) context.Context {
+	return core.WithEnvironment(ctx, environment)
+}
+func WithLocale(ctx context.Context, locale string) context.Context {
+	return core.WithLocale(ctx, locale)
+}
+func NewCRUDContext(ctx context.Context) crud.Context {
+	return core.NewCRUDContext(ctx)
+}
 
 const (
 	TextCodeValidationError           = core.TextCodeValidationError
@@ -85,6 +98,13 @@ type (
 	ActivitySink         = core.ActivitySink
 	ActivitySinkAdapter  = core.ActivitySinkAdapter
 
+	AdminPageGetOptions   = core.AdminPageGetOptions
+	AdminPageListOptions  = core.AdminPageListOptions
+	AdminPageReadService  = core.AdminPageReadService
+	AdminPageRecord       = core.AdminPageRecord
+	AdminPageWriteService = core.AdminPageWriteService
+	DefaultPageMapper     = core.DefaultPageMapper
+
 	Admin        = core.Admin
 	AdminContext = core.AdminContext
 	AuthConfig   = core.AuthConfig
@@ -112,6 +132,13 @@ type (
 	CMSPageRepository         = core.CMSPageRepository
 	CMSWidgetService          = core.CMSWidgetService
 	WidgetDefinition          = core.WidgetDefinition
+	PageApplicationService    = core.PageApplicationService
+	PageGetOptions            = core.PageGetOptions
+	PageIncludeDefaults       = core.PageIncludeDefaults
+	PageListOptions           = core.PageListOptions
+	PageMapper                = core.PageMapper
+	PageReadDefaults          = core.PageReadDefaults
+	PageReadOptions           = core.PageReadOptions
 
 	Config       = core.Config
 	ErrorConfig  = core.ErrorConfig
