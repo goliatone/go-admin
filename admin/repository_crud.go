@@ -19,6 +19,11 @@ func NewCRUDRepositoryAdapter(service crud.Service[map[string]any]) *CRUDReposit
 	return &CRUDRepositoryAdapter{service: service}
 }
 
+// NewCRUDContext builds a minimal crud.Context backed by the provided context.
+func NewCRUDContext(ctx context.Context) crud.Context {
+	return newCrudAdapterContext(ctx)
+}
+
 // List delegates to the go-crud service using translated list options.
 func (r *CRUDRepositoryAdapter) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
 	if r.service == nil {
