@@ -84,7 +84,8 @@ func TestScopePolicyAllowsWhenClaimsMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error without claims, got %v", err)
 	}
-	if resolved.TenantID != uuid.Nil || resolved.OrgID != uuid.Nil {
-		t.Fatalf("expected empty scope for single-tenant path, got %+v", resolved)
+	expected := ScopeFromContext(context.Background())
+	if resolved.TenantID != expected.TenantID || resolved.OrgID != expected.OrgID {
+		t.Fatalf("expected scope %+v, got %+v", expected, resolved)
 	}
 }
