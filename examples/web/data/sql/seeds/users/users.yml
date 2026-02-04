@@ -36,6 +36,18 @@
       is_email_verified: true
       created_at: '{{ now }}'
       updated_at: '{{ now }}'
+    - id: '{{ hashid "user:translator" }}'
+      user_role: "member"
+      status: "active"
+      first_name: "Tara"
+      last_name: "Translator"
+      username: "translator"
+      email: "translator@example.com"
+      password_hash: '{{ hashpwd "translator.pwd" }}'
+      metadata: {}
+      is_email_verified: true
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
     - id: '{{ hashid "user:john.doe" }}'
       user_role: "member"
       status: "active"
@@ -81,14 +93,34 @@
       order: 0
       role_key: "superadmin"
       permissions:
+        - "admin.dashboard.view"
+        - "admin.users.view"
+        - "admin.users.create"
+        - "admin.users.edit"
+        - "admin.users.delete"
+        - "admin.roles.view"
+        - "admin.roles.create"
+        - "admin.roles.edit"
+        - "admin.roles.delete"
+        - "admin.activity.view"
+        - "admin.settings.view"
+        - "admin.settings.edit"
+        - "admin.jobs.view"
+        - "admin.jobs.edit"
+        - "admin.search.view"
+        - "admin.preferences.view"
+        - "admin.preferences.edit"
+        - "admin.profile.view"
+        - "admin.profile.edit"
+        - "admin.debug.view"
         - "admin.debug.repl"
         - "admin.debug.repl.exec"
-        - "admin.activity.view"
       metadata:
+        app_role: "superadmin"
         source: "seed"
       is_system: true
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       created_at: '{{ now }}'
       updated_at: '{{ now }}'
       created_by: '{{ hashid "user:superadmin" }}'
@@ -99,13 +131,101 @@
       order: 10
       role_key: "admin"
       permissions:
-        - "admin.debug.repl"
+        - "admin.dashboard.view"
+        - "admin.users.view"
+        - "admin.users.create"
+        - "admin.users.edit"
+        - "admin.roles.view"
+        - "admin.roles.create"
+        - "admin.roles.edit"
         - "admin.activity.view"
+        - "admin.settings.view"
+        - "admin.search.view"
+        - "admin.preferences.view"
+        - "admin.profile.view"
+        - "admin.profile.edit"
+        - "admin.debug.view"
+        - "admin.debug.repl"
       metadata:
+        app_role: "admin"
         source: "seed"
       is_system: true
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+      created_by: '{{ hashid "user:superadmin" }}'
+      updated_by: '{{ hashid "user:superadmin" }}'
+    - id: '{{ hashid "role:editor" }}'
+      name: "Editor"
+      order: 20
+      description: "Content editor with read access."
+      role_key: "editor"
+      permissions:
+        - "admin.dashboard.view"
+        - "admin.search.view"
+        - "admin.profile.view"
+        - "admin.profile.edit"
+      metadata:
+        app_role: "editor"
+        source: "seed"
+      is_system: false
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+      created_by: '{{ hashid "user:superadmin" }}'
+      updated_by: '{{ hashid "user:superadmin" }}'
+    - id: '{{ hashid "role:translator" }}'
+      name: "Translator"
+      description: "Translator role with search access."
+      order: 30
+      role_key: "translator"
+      permissions:
+        - "admin.search.view"
+        - "admin.profile.view"
+        - "admin.profile.edit"
+      metadata:
+        app_role: "translator"
+        source: "seed"
+      is_system: false
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+      created_by: '{{ hashid "user:superadmin" }}'
+      updated_by: '{{ hashid "user:superadmin" }}'
+    - id: '{{ hashid "role:user" }}'
+      name: "User"
+      description: "Basic access role."
+      order: 40
+      role_key: "user"
+      permissions:
+        - "admin.dashboard.view"
+        - "admin.profile.view"
+        - "admin.profile.edit"
+      metadata:
+        app_role: "user"
+        source: "seed"
+      is_system: false
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+      created_by: '{{ hashid "user:superadmin" }}'
+      updated_by: '{{ hashid "user:superadmin" }}'
+    - id: '{{ hashid "role:guest" }}'
+      name: "Guest"
+      description: "Minimal access role."
+      order: 50
+      role_key: "guest"
+      permissions: []
+      metadata:
+        app_role: "guest"
+        source: "seed"
+      is_system: false
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       created_at: '{{ now }}'
       updated_at: '{{ now }}'
       created_by: '{{ hashid "user:superadmin" }}'
@@ -115,14 +235,44 @@
   rows:
     - user_id: '{{ hashid "user:superadmin" }}'
       role_id: '{{ hashid "role:superadmin" }}'
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       assigned_at: '{{ now }}'
       assigned_by: '{{ hashid "user:superadmin" }}'
     - user_id: '{{ hashid "user:admin" }}'
       role_id: '{{ hashid "role:admin" }}'
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      assigned_at: '{{ now }}'
+      assigned_by: '{{ hashid "user:superadmin" }}'
+    - user_id: '{{ hashid "user:jane.smith" }}'
+      role_id: '{{ hashid "role:editor" }}'
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      assigned_at: '{{ now }}'
+      assigned_by: '{{ hashid "user:superadmin" }}'
+    - user_id: '{{ hashid "user:translator" }}'
+      role_id: '{{ hashid "role:translator" }}'
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      assigned_at: '{{ now }}'
+      assigned_by: '{{ hashid "user:superadmin" }}'
+    - user_id: '{{ hashid "user:john.doe" }}'
+      role_id: '{{ hashid "role:user" }}'
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      assigned_at: '{{ now }}'
+      assigned_by: '{{ hashid "user:superadmin" }}'
+    - user_id: '{{ hashid "user:viewer" }}'
+      role_id: '{{ hashid "role:guest" }}'
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      assigned_at: '{{ now }}'
+      assigned_by: '{{ hashid "user:superadmin" }}'
+    - user_id: '{{ hashid "user:inactive.user" }}'
+      role_id: '{{ hashid "role:guest" }}'
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       assigned_at: '{{ now }}'
       assigned_by: '{{ hashid "user:superadmin" }}'
 
@@ -138,8 +288,8 @@
         email: "superadmin@example.com"
       metadata:
         username: "superadmin"
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       created_at: '{{ now }}'
       created_by: '{{ hashid "user:superadmin" }}'
       updated_at: '{{ now }}'
@@ -154,8 +304,8 @@
         email: "admin@example.com"
       metadata:
         username: "admin"
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       created_at: '{{ now }}'
       created_by: '{{ hashid "user:admin" }}'
       updated_at: '{{ now }}'
@@ -170,12 +320,28 @@
         email: "jane@example.com"
       metadata:
         username: "jane.smith"
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       created_at: '{{ now }}'
       created_by: '{{ hashid "user:jane.smith" }}'
       updated_at: '{{ now }}'
       updated_by: '{{ hashid "user:jane.smith" }}'
+    - user_id: '{{ hashid "user:translator" }}'
+      display_name: "Tara Translator"
+      avatar_url: ""
+      locale: "en"
+      timezone: "UTC"
+      bio: "Demo translator account."
+      contact:
+        email: "translator@example.com"
+      metadata:
+        username: "translator"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      created_at: '{{ now }}'
+      created_by: '{{ hashid "user:translator" }}'
+      updated_at: '{{ now }}'
+      updated_by: '{{ hashid "user:translator" }}'
     - user_id: '{{ hashid "user:john.doe" }}'
       display_name: "John Doe"
       avatar_url: ""
@@ -186,8 +352,8 @@
         email: "john@example.com"
       metadata:
         username: "john.doe"
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       created_at: '{{ now }}'
       created_by: '{{ hashid "user:john.doe" }}'
       updated_at: '{{ now }}'
@@ -202,8 +368,8 @@
         email: "viewer@example.com"
       metadata:
         username: "viewer"
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       created_at: '{{ now }}'
       created_by: '{{ hashid "user:viewer" }}'
       updated_at: '{{ now }}'
@@ -218,8 +384,8 @@
         email: "inactive@example.com"
       metadata:
         username: "inactive.user"
-      tenant_id: "00000000-0000-0000-0000-000000000000"
-      org_id: "00000000-0000-0000-0000-000000000000"
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
       created_at: '{{ now }}'
       created_by: '{{ hashid "user:inactive.user" }}'
       updated_at: '{{ now }}'
