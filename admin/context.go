@@ -146,6 +146,18 @@ func orgIDFromContext(ctx context.Context) string {
 	return ""
 }
 
+// WithLocale stores the active locale on the context.
+func WithLocale(ctx context.Context, locale string) context.Context {
+	if ctx == nil {
+		return ctx
+	}
+	locale = strings.TrimSpace(locale)
+	if locale == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, localeContextKey, locale)
+}
+
 // WithEnvironment stores the active environment on the context.
 func WithEnvironment(ctx context.Context, environment string) context.Context {
 	if ctx == nil {
