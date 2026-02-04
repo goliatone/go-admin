@@ -80,7 +80,7 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	if reqCtx == nil {
 		reqCtx = context.Background()
 	}
-	rawSession := BuildSessionUser(reqCtx)
+	rawSession := ApplyScopeDefaultsToSession(BuildSessionUser(reqCtx), cfg)
 	scopeData := featureScopeFromSession(rawSession)
 	session := FilterSessionUser(rawSession, adm.FeatureGate())
 	sessionView := session.ToViewContext()
