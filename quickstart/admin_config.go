@@ -44,6 +44,11 @@ func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOp
 		cfg.Debug.BasePath = path.Join("/", cfg.BasePath, "debug")
 	}
 
+	scopeCfg := ScopeConfigFromAdmin(cfg)
+	cfg.ScopeMode = string(scopeCfg.Mode)
+	cfg.DefaultTenantID = scopeCfg.DefaultTenantID
+	cfg.DefaultOrgID = scopeCfg.DefaultOrgID
+
 	return cfg
 }
 
@@ -145,6 +150,39 @@ func WithFeatureCatalogPath(path string) AdminConfigOption {
 		}
 		cfg.FeatureCatalogPath = strings.TrimSpace(path)
 	}
+}
+
+// WithScopeConfig applies scope defaults for single/multi tenant behavior.
+func WithScopeConfig(scope ScopeConfig) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		ApplyScopeConfig(cfg, scope)
+	}
+}
+
+// WithScopeMode sets the scope mode (single or multi).
+func WithScopeMode(mode ScopeMode) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.ScopeMode = strings.ToLower(strings.TrimSpace(string(mode)))
+	}
+}
+
+// WithDefaultScope sets the default tenant/org identifiers for single-tenant mode.
+func WithDefaultScope(tenantID, orgID string) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.DefaultTenantID = strings.TrimSpace(tenantID)
+		cfg.DefaultOrgID = strings.TrimSpace(orgID)
+	}
+}
+
+// WithScopeFromEnv applies scope defaults from ADMIN_SCOPE_* env vars.
+func WithScopeFromEnv() AdminConfigOption {
+	return WithScopeConfig(ScopeConfigFromEnv())
 }
 
 func normalizeBasePath(basePath string) string {
