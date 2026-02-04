@@ -56,10 +56,11 @@ func BuildGoCMSContainer(ctx context.Context, cfg Config) (CMSContainer, error) 
 
 // GoCMSContainerAdapter maps go-cms containers/modules into the admin CMSContainer contract.
 type GoCMSContainerAdapter struct {
-	menuSvc        CMSMenuService
-	widgetSvc      CMSWidgetService
-	contentSvc     CMSContentService
-	contentTypeSvc CMSContentTypeService
+	menuSvc          CMSMenuService
+	widgetSvc        CMSWidgetService
+	contentSvc       CMSContentService
+	contentTypeSvc   CMSContentTypeService
+	adminPageReadSvc AdminPageReadService
 }
 
 // NewGoCMSContainerAdapter inspects a go-cms module or container and wraps available services.
@@ -68,14 +69,16 @@ func NewGoCMSContainerAdapter(container any) *GoCMSContainerAdapter {
 	widgetSvc := resolveGoCMSWidgetService(container)
 	contentSvc := resolveGoCMSContentService(container)
 	contentTypeSvc := resolveGoCMSContentTypeService(container)
-	if menuSvc == nil && widgetSvc == nil && contentSvc == nil && contentTypeSvc == nil {
+	pageReadSvc := resolveGoCMSAdminPageReadService(container)
+	if menuSvc == nil && widgetSvc == nil && contentSvc == nil && contentTypeSvc == nil && pageReadSvc == nil {
 		return nil
 	}
 	return &GoCMSContainerAdapter{
-		menuSvc:        menuSvc,
-		widgetSvc:      widgetSvc,
-		contentSvc:     contentSvc,
-		contentTypeSvc: contentTypeSvc,
+		menuSvc:          menuSvc,
+		widgetSvc:        widgetSvc,
+		contentSvc:       contentSvc,
+		contentTypeSvc:   contentTypeSvc,
+		adminPageReadSvc: pageReadSvc,
 	}
 }
 
@@ -84,6 +87,9 @@ func (c *GoCMSContainerAdapter) MenuService() CMSMenuService       { return c.me
 func (c *GoCMSContainerAdapter) ContentService() CMSContentService { return c.contentSvc }
 func (c *GoCMSContainerAdapter) ContentTypeService() CMSContentTypeService {
 	return c.contentTypeSvc
+}
+func (c *GoCMSContainerAdapter) AdminPageReadService() AdminPageReadService {
+	return c.adminPageReadSvc
 }
 
 func resolveGoCMSMenuService(container any) CMSMenuService {
@@ -156,6 +162,52 @@ func resolveGoCMSContentService(container any) CMSContentService {
 	}
 	if adapted := NewGoCMSContentAdapter(contentSvc, pageSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
 		return adapted
+	}
+	return nil
+}
+
+func resolveGoCMSAdminPageReadService(container any) AdminPageReadService {
+	if container == nil {
+		return nil
+	}
+	if svc, ok := container.(AdminPageReadService); ok && svc != nil {
+		return svc
+	}
+	if provider, ok := container.(interface{ AdminPageReadService() AdminPageReadService }); ok {
+		if svc := provider.AdminPageReadService(); svc != nil {
+			return svc
+		}
+	}
+	for _, name := range []string{
+		"AdminPageReadService",
+		"AdminPages",
+		"AdminPageRead",
+		"AdminPagesRead",
+		"PagesAdmin",
+		"PageAdminReadService",
+		"PageAdminRead",
+		"PageAdmin",
+	} {
+		if svc := callMethod(container, name); svc != nil {
+			if readSvc, ok := svc.(AdminPageReadService); ok && readSvc != nil {
+				return readSvc
+			}
+		}
+	}
+	if inner := callMethod(container, "Container"); inner != nil {
+		if svc := resolveGoCMSAdminPageReadService(inner); svc != nil {
+			return svc
+		}
+	}
+	if svc := callMethod(container, "Pages"); svc != nil {
+		if readSvc, ok := svc.(AdminPageReadService); ok && readSvc != nil {
+			return readSvc
+		}
+	}
+	if svc := callMethod(container, "PageService"); svc != nil {
+		if readSvc, ok := svc.(AdminPageReadService); ok && readSvc != nil {
+			return readSvc
+		}
 	}
 	return nil
 }
