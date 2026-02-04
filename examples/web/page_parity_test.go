@@ -56,7 +56,9 @@ func setupPageParityHarness(t *testing.T) pageParityHarness {
 
 	pageStoreAdapter := stores.NewAdminPageStoreAdapter(pageRepo, pageStore, "en")
 	pageReadService := admin.AdminPageReadService(pageStoreAdapter)
-	if provider, ok := cmsOpts.Container.(interface{ AdminPageReadService() admin.AdminPageReadService }); ok {
+	if provider, ok := cmsOpts.Container.(interface {
+		AdminPageReadService() admin.AdminPageReadService
+	}); ok {
 		if svc := provider.AdminPageReadService(); svc != nil {
 			pageReadService = svc
 		}
