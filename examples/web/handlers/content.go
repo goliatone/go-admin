@@ -931,12 +931,12 @@ func adminContextFromRequest(c router.Context, locale string) admin.AdminContext
 		ctx = admin.WithLocale(ctx, locale)
 	}
 	return admin.AdminContext{
-		Context:  ctx,
-		UserID:   userID,
-		TenantID: tenantID,
-		OrgID:    orgID,
+		Context:     ctx,
+		UserID:      userID,
+		TenantID:    tenantID,
+		OrgID:       orgID,
 		Environment: environment,
-		Locale:   locale,
+		Locale:      locale,
 	}
 }
 

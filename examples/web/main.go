@@ -716,7 +716,9 @@ func main() {
 	registerCrudAliases(crudAdapter, userProfileController, "user-profiles")
 	pageStoreAdapter := stores.NewAdminPageStoreAdapter(dataStores.PageRecords, dataStores.Pages, cfg.DefaultLocale)
 	pageReadService := admin.AdminPageReadService(pageStoreAdapter)
-	if provider, ok := cfg.CMS.Container.(interface{ AdminPageReadService() admin.AdminPageReadService }); ok {
+	if provider, ok := cfg.CMS.Container.(interface {
+		AdminPageReadService() admin.AdminPageReadService
+	}); ok {
 		if svc := provider.AdminPageReadService(); svc != nil {
 			pageReadService = svc
 		}
