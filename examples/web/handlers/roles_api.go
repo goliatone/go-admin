@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-router"
@@ -34,6 +35,13 @@ func (h *RolesAPIHandlers) List(c router.Context) error {
 	}
 
 	opts := parseRoleListOptions(c)
+	if opts.Filters == nil {
+		opts.Filters = map[string]any{}
+	}
+	if _, ok := opts.Filters["include_global"]; !ok {
+		scopeCfg := quickstart.ScopeConfigFromAdmin(h.Config)
+		opts.Filters["include_global"] = scopeCfg.Mode == quickstart.ScopeModeSingle
+	}
 	records, total, err := h.Admin.UserService().ListRoles(c.Context(), opts)
 	if err != nil {
 		return err

@@ -13,12 +13,10 @@ import (
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	authlib "github.com/goliatone/go-auth"
-	crud "github.com/goliatone/go-crud"
 	goerrors "github.com/goliatone/go-errors"
 	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
-	repository "github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-router"
 )
 
@@ -32,28 +30,46 @@ const (
 	updatePostOperation = "updatePost"
 )
 
+type PageService interface {
+	List(ctx context.Context, opts admin.PageListOptions) ([]admin.AdminPageRecord, int, error)
+	Get(ctx context.Context, id string, opts admin.PageGetOptions) (*admin.AdminPageRecord, error)
+	Create(ctx context.Context, payload map[string]any) (*admin.AdminPageRecord, error)
+	Update(ctx context.Context, id string, payload map[string]any) (*admin.AdminPageRecord, error)
+	Delete(ctx context.Context, id string) error
+	Publish(ctx context.Context, id string, payload map[string]any) (*admin.AdminPageRecord, error)
+	Unpublish(ctx context.Context, id string, payload map[string]any) (*admin.AdminPageRecord, error)
+	ToFormValues(record admin.AdminPageRecord) map[string]any
+}
+
 type PageHandlers struct {
-	Store         stores.PageRepository
-	PageRecords   repository.Repository[*stores.PageRecord]
-	CRUDService   crud.Service[*stores.PageRecord]
+	PageApp       PageService
 	FormGenerator *formgenorchestrator.Orchestrator
 	Admin         *admin.Admin
 	Config        admin.Config
 	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
 }
 
-func NewPageHandlers(store stores.PageRepository, records repository.Repository[*stores.PageRecord], crudService crud.Service[*stores.PageRecord], formGen *formgenorchestrator.Orchestrator, adm *admin.Admin, cfg admin.Config, withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext) *PageHandlers {
-	return &PageHandlers{Store: store, PageRecords: records, CRUDService: crudService, FormGenerator: formGen, Admin: adm, Config: cfg, WithNav: withNav}
+func NewPageHandlers(pageApp PageService, formGen *formgenorchestrator.Orchestrator, adm *admin.Admin, cfg admin.Config, withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext) *PageHandlers {
+	return &PageHandlers{PageApp: pageApp, FormGenerator: formGen, Admin: adm, Config: cfg, WithNav: withNav}
 }
 
 func (h *PageHandlers) List(c router.Context) error {
 	if err := guardResource(c, "admin.pages", "read"); err != nil {
 		return err
 	}
-	ctx := c.Context()
-	pages, total, err := h.Store.List(ctx, admin.ListOptions{})
+	locale := resolveLocaleInput(c.Query("locale"), "", h.Config.DefaultLocale)
+	ctx := pageContextFromRequest(c, locale)
+	if h.PageApp == nil {
+		return fmt.Errorf("page service is not configured")
+	}
+	records, total, err := h.PageApp.List(ctx, admin.PageListOptions{})
 	if err != nil {
 		return err
+	}
+	pages := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		page := h.pageRecordValues(record)
+		pages = append(pages, page)
 	}
 
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "pages")
@@ -99,7 +115,11 @@ func (h *PageHandlers) Create(c router.Context) error {
 	if err := guardResource(c, "admin.pages", "create"); err != nil {
 		return err
 	}
+	if h.PageApp == nil {
+		return fmt.Errorf("page service is not configured")
+	}
 	locale := resolveLocaleInput(c.FormValue("locale"), "", h.Config.DefaultLocale)
+	ctx := pageContextFromRequest(c, locale)
 	record := map[string]any{
 		"title":                c.FormValue("title"),
 		"slug":                 c.FormValue("slug"),
@@ -116,20 +136,8 @@ func (h *PageHandlers) Create(c router.Context) error {
 	if blocks := strings.TrimSpace(c.FormValue("blocks")); blocks != "" {
 		record["blocks"] = blocks
 	}
-	if h.CRUDService != nil {
-		crudCtx := admin.NewCRUDContext(c.Context())
-		if _, err := h.CRUDService.Create(crudCtx, stores.PageRecordFromMap(record)); err != nil {
-			return err
-		}
-	} else {
-		panel, err := resolvePanel(h.Admin, "pages")
-		if err != nil {
-			return err
-		}
-		adminCtx := adminContextFromRequest(c, locale)
-		if _, err := panel.Create(adminCtx, record); err != nil {
-			return err
-		}
+	if _, err := h.PageApp.Create(ctx, record); err != nil {
+		return err
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages"))
 }
@@ -138,21 +146,17 @@ func (h *PageHandlers) Detail(c router.Context) error {
 	if err := guardResource(c, "admin.pages", "read"); err != nil {
 		return err
 	}
+	if h.PageApp == nil {
+		return fmt.Errorf("page service is not configured")
+	}
 	id := c.Param("id")
-	ctx := c.Context()
-	var page map[string]any
-	if h.PageRecords != nil {
-		if rec, recErr := h.PageRecords.GetByID(ctx, id); recErr == nil && rec != nil {
-			page = stores.PageRecordToMap(rec)
-		}
+	locale := resolveLocaleInput(c.Query("locale"), "", h.Config.DefaultLocale)
+	ctx := pageContextFromRequest(c, locale)
+	record, err := h.PageApp.Get(ctx, id, admin.PageGetOptions{})
+	if err != nil {
+		return err
 	}
-	if page == nil {
-		var err error
-		page, err = h.Store.Get(ctx, id)
-		if err != nil {
-			return err
-		}
-	}
+	page := h.pageRecordValues(*record)
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "pages")
 	fields := []map[string]any{
 		{"label": "Title", "value": page["title"]},
@@ -182,48 +186,18 @@ func (h *PageHandlers) Edit(c router.Context) error {
 	if err := guardResource(c, "admin.pages", "edit"); err != nil {
 		return err
 	}
+	if h.PageApp == nil {
+		return fmt.Errorf("page service is not configured")
+	}
 	id := c.Param("id")
-	ctx := c.Context()
-	var page map[string]any
-	if h.PageRecords != nil {
-		if rec, recErr := h.PageRecords.GetByID(ctx, id); recErr == nil && rec != nil {
-			page = stores.PageRecordToMap(rec)
-		}
+	locale := resolveLocaleInput(c.Query("locale"), "", h.Config.DefaultLocale)
+	ctx := pageContextFromRequest(c, locale)
+	record, err := h.PageApp.Get(ctx, id, admin.PageGetOptions{})
+	if err != nil {
+		return err
 	}
-	if page == nil {
-		var err error
-		page, err = h.Store.Get(ctx, id)
-		if err != nil {
-			return err
-		}
-	} else if h.Store != nil {
-		if _, ok := page["blocks"]; !ok || page["blocks"] == nil {
-			if fallback, err := h.Store.Get(ctx, id); err == nil && fallback != nil {
-				if blocks, ok := fallback["blocks"]; ok {
-					page["blocks"] = blocks
-				}
-			}
-		}
-	}
-	values := cloneRecord(page)
-	if title := strings.TrimSpace(anyToString(values["title"])); title == "" {
-		if data, ok := page["data"].(map[string]any); ok {
-			title = strings.TrimSpace(anyToString(data["title"]))
-		}
-		if title == "" {
-			title = strings.TrimSpace(anyToString(page["meta_title"]))
-		}
-		if title != "" {
-			values["title"] = title
-		}
-	}
-	if parentID := strings.TrimSpace(anyToString(page["parent_id"])); parentID != "" {
-		values["parent_id"] = parentID
-	}
-	if templateID := strings.TrimSpace(anyToString(page["template_id"])); templateID != "" {
-		values["template_id"] = templateID
-	}
-	if groupID := strings.TrimSpace(anyToString(page["translation_group_id"])); groupID != "" {
+	values := h.pageRecordValues(*record)
+	if groupID := strings.TrimSpace(anyToString(values["translation_group_id"])); groupID != "" {
 		values["translation_group_id"] = formgenrender.ValueWithProvenance{
 			Value:    groupID,
 			Readonly: true,
@@ -231,7 +205,7 @@ func (h *PageHandlers) Edit(c router.Context) error {
 	}
 	previewURL := ""
 	if token, err := previewToken(h.Admin, "pages", id); err == nil && token != "" {
-		previewURL = buildPreviewURL(resolvePagePreviewPath(page), token)
+		previewURL = buildPreviewURL(resolvePagePreviewPath(values), token)
 	} else if err != nil {
 		return err
 	}
@@ -242,13 +216,16 @@ func (h *PageHandlers) Update(c router.Context) error {
 	if err := guardResource(c, "admin.pages", "edit"); err != nil {
 		return err
 	}
+	if h.PageApp == nil {
+		return fmt.Errorf("page service is not configured")
+	}
 	id := c.Param("id")
 	ctx := c.Context()
-	existing, err := h.Store.Get(ctx, id)
+	existing, err := h.PageApp.Get(ctx, id, pageGetOptionsMinimal())
 	if err != nil {
 		return err
 	}
-	locale := resolveLocaleInput(c.FormValue("locale"), anyToString(existing["locale"]), h.Config.DefaultLocale)
+	locale := resolveLocaleInput(c.FormValue("locale"), pageRecordLocale(existing), h.Config.DefaultLocale)
 	targetStatus := strings.ToLower(strings.TrimSpace(c.FormValue("status")))
 	updated := map[string]any{
 		"title":                c.FormValue("title"),
@@ -266,22 +243,9 @@ func (h *PageHandlers) Update(c router.Context) error {
 	if blocks := strings.TrimSpace(c.FormValue("blocks")); blocks != "" {
 		updated["blocks"] = blocks
 	}
-	applyWorkflowTransition(updated, strings.ToLower(anyToString(existing["status"])), targetStatus)
-	if h.CRUDService != nil {
-		updated["id"] = id
-		crudCtx := admin.NewCRUDContext(c.Context())
-		if _, err := h.CRUDService.Update(crudCtx, stores.PageRecordFromMap(updated)); err != nil {
-			return err
-		}
-	} else {
-		panel, err := resolvePanel(h.Admin, "pages")
-		if err != nil {
-			return err
-		}
-		adminCtx := adminContextFromRequest(c, locale)
-		if _, err := panel.Update(adminCtx, id, updated); err != nil {
-			return err
-		}
+	ctx = pageContextFromRequest(c, locale)
+	if _, err := h.PageApp.Update(ctx, id, updated); err != nil {
+		return err
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages"))
 }
@@ -291,20 +255,12 @@ func (h *PageHandlers) Delete(c router.Context) error {
 		return err
 	}
 	id := c.Param("id")
-	if h.CRUDService != nil {
-		crudCtx := admin.NewCRUDContext(c.Context())
-		if err := h.CRUDService.Delete(crudCtx, stores.PageRecordFromMap(map[string]any{"id": id})); err != nil {
-			return err
-		}
-	} else {
-		panel, err := resolvePanel(h.Admin, "pages")
-		if err != nil {
-			return err
-		}
-		adminCtx := adminContextFromRequest(c, h.Config.DefaultLocale)
-		if err := panel.Delete(adminCtx, id); err != nil {
-			return err
-		}
+	if h.PageApp == nil {
+		return fmt.Errorf("page service is not configured")
+	}
+	ctx := pageContextFromRequest(c, h.Config.DefaultLocale)
+	if err := h.PageApp.Delete(ctx, id); err != nil {
+		return err
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages"))
 }
@@ -313,32 +269,20 @@ func (h *PageHandlers) Publish(c router.Context) error {
 	if err := guardResource(c, "admin.pages", "edit"); err != nil {
 		return err
 	}
+	if h.PageApp == nil {
+		return fmt.Errorf("page service is not configured")
+	}
 	id := c.Param("id")
 	ctx := c.Context()
-	existing, err := h.Store.Get(ctx, id)
+	existing, err := h.PageApp.Get(ctx, id, pageGetOptionsMinimal())
 	if err != nil {
 		return err
 	}
-	targetStatus := "published"
-	update := map[string]any{"status": targetStatus}
-	applyWorkflowTransition(update, strings.ToLower(anyToString(existing["status"])), targetStatus)
-	locale := resolveLocaleInput("", anyToString(existing["locale"]), h.Config.DefaultLocale)
-	if h.CRUDService != nil {
-		update["id"] = id
-		update["locale"] = locale
-		crudCtx := admin.NewCRUDContext(c.Context())
-		if _, err := h.CRUDService.Update(crudCtx, stores.PageRecordFromMap(update)); err != nil {
-			return err
-		}
-	} else {
-		panel, err := resolvePanel(h.Admin, "pages")
-		if err != nil {
-			return err
-		}
-		adminCtx := adminContextFromRequest(c, locale)
-		if _, err := panel.Update(adminCtx, id, update); err != nil {
-			return err
-		}
+	locale := resolveLocaleInput("", pageRecordLocale(existing), h.Config.DefaultLocale)
+	ctx = pageContextFromRequest(c, locale)
+	update := map[string]any{"locale": locale}
+	if _, err := h.PageApp.Publish(ctx, id, update); err != nil {
+		return err
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages", id))
 }
@@ -347,34 +291,55 @@ func (h *PageHandlers) Unpublish(c router.Context) error {
 	if err := guardResource(c, "admin.pages", "edit"); err != nil {
 		return err
 	}
+	if h.PageApp == nil {
+		return fmt.Errorf("page service is not configured")
+	}
 	id := c.Param("id")
 	ctx := c.Context()
-	existing, err := h.Store.Get(ctx, id)
+	existing, err := h.PageApp.Get(ctx, id, pageGetOptionsMinimal())
 	if err != nil {
 		return err
 	}
-	targetStatus := "draft"
-	update := map[string]any{"status": targetStatus}
-	applyWorkflowTransition(update, strings.ToLower(anyToString(existing["status"])), targetStatus)
-	locale := resolveLocaleInput("", anyToString(existing["locale"]), h.Config.DefaultLocale)
-	if h.CRUDService != nil {
-		update["id"] = id
-		update["locale"] = locale
-		crudCtx := admin.NewCRUDContext(c.Context())
-		if _, err := h.CRUDService.Update(crudCtx, stores.PageRecordFromMap(update)); err != nil {
-			return err
-		}
-	} else {
-		panel, err := resolvePanel(h.Admin, "pages")
-		if err != nil {
-			return err
-		}
-		adminCtx := adminContextFromRequest(c, locale)
-		if _, err := panel.Update(adminCtx, id, update); err != nil {
-			return err
-		}
+	locale := resolveLocaleInput("", pageRecordLocale(existing), h.Config.DefaultLocale)
+	ctx = pageContextFromRequest(c, locale)
+	update := map[string]any{"locale": locale}
+	if _, err := h.PageApp.Unpublish(ctx, id, update); err != nil {
+		return err
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages", id))
+}
+
+func (h *PageHandlers) pageRecordValues(record admin.AdminPageRecord) map[string]any {
+	if h.PageApp == nil {
+		return map[string]any{}
+	}
+	values := h.PageApp.ToFormValues(record)
+	values["id"] = record.ID
+	return values
+}
+
+func pageContextFromRequest(c router.Context, locale string) context.Context {
+	return adminContextFromRequest(c, locale).Context
+}
+
+func pageRecordLocale(record *admin.AdminPageRecord) string {
+	if record == nil {
+		return ""
+	}
+	if strings.TrimSpace(record.ResolvedLocale) != "" {
+		return strings.TrimSpace(record.ResolvedLocale)
+	}
+	return strings.TrimSpace(record.RequestedLocale)
+}
+
+func pageGetOptionsMinimal() admin.PageGetOptions {
+	return admin.PageGetOptions{
+		PageReadOptions: admin.PageReadOptions{
+			IncludeContent: admin.BoolPtr(false),
+			IncludeBlocks:  admin.BoolPtr(false),
+			IncludeData:    admin.BoolPtr(false),
+		},
+	}
 }
 
 type PostHandlers struct {
@@ -941,6 +906,10 @@ func adminContextFromRequest(c router.Context, locale string) admin.AdminContext
 	userID := strings.TrimSpace(c.Header("X-User-ID"))
 	tenantID := ""
 	orgID := ""
+	environment := strings.TrimSpace(c.Query("env"))
+	if environment == "" {
+		environment = strings.TrimSpace(c.Query("environment"))
+	}
 	if actor, ok := authlib.ActorFromRouterContext(c); ok && actor != nil {
 		if actor.ActorID != "" {
 			userID = actor.ActorID
@@ -955,11 +924,18 @@ func adminContextFromRequest(c router.Context, locale string) admin.AdminContext
 		}
 		ctx = authlib.WithActorContext(ctx, actor)
 	}
+	if environment != "" {
+		ctx = admin.WithEnvironment(ctx, environment)
+	}
+	if strings.TrimSpace(locale) != "" {
+		ctx = admin.WithLocale(ctx, locale)
+	}
 	return admin.AdminContext{
 		Context:  ctx,
 		UserID:   userID,
 		TenantID: tenantID,
 		OrgID:    orgID,
+		Environment: environment,
 		Locale:   locale,
 	}
 }

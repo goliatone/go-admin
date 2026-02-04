@@ -3,7 +3,9 @@ package helpers
 import (
 	"context"
 	"strings"
+	"sync"
 
+	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
@@ -12,6 +14,9 @@ import (
 var (
 	tenantMetadataKeys       = []string{"tenant_id", "tenant", "default_tenant", "default_tenant_id"}
 	organizationMetadataKeys = []string{"organization_id", "org_id", "org"}
+	defaultScopeOnce         sync.Once
+	defaultScope             userstypes.ScopeFilter
+	defaultScopeEnabled      bool
 )
 
 // ActorRefFromContext maps the go-auth actor in context to a go-users ActorRef.
@@ -31,6 +36,11 @@ func ActorRefFromContext(ctx context.Context) userstypes.ActorRef {
 
 // ScopeFromContext extracts tenant/org identifiers into a go-users scope filter.
 func ScopeFromContext(ctx context.Context) userstypes.ScopeFilter {
+	return applyDefaultScope(ScopeFromContextRaw(ctx))
+}
+
+// ScopeFromContextRaw extracts tenant/org identifiers without applying defaults.
+func ScopeFromContextRaw(ctx context.Context) userstypes.ScopeFilter {
 	scope := userstypes.ScopeFilter{}
 	if ctx == nil {
 		return scope
@@ -143,6 +153,37 @@ func mergeScope(scope userstypes.ScopeFilter, tenantID, orgID string, metadata m
 		}
 	}
 	return scope
+}
+
+func applyDefaultScope(scope userstypes.ScopeFilter) userstypes.ScopeFilter {
+	defaults, ok := defaultScopeFromEnv()
+	if !ok {
+		return scope
+	}
+	if scope.TenantID == uuid.Nil && defaults.TenantID != uuid.Nil {
+		scope.TenantID = defaults.TenantID
+	}
+	if scope.OrgID == uuid.Nil && defaults.OrgID != uuid.Nil {
+		scope.OrgID = defaults.OrgID
+	}
+	return scope
+}
+
+func defaultScopeFromEnv() (userstypes.ScopeFilter, bool) {
+	defaultScopeOnce.Do(func() {
+		cfg := quickstart.ScopeConfigFromEnv()
+		if cfg.Mode != quickstart.ScopeModeSingle {
+			return
+		}
+		defaultScopeEnabled = true
+		if tenantID := parseUUID(cfg.DefaultTenantID); tenantID != uuid.Nil {
+			defaultScope.TenantID = tenantID
+		}
+		if orgID := parseUUID(cfg.DefaultOrgID); orgID != uuid.Nil {
+			defaultScope.OrgID = orgID
+		}
+	})
+	return defaultScope, defaultScopeEnabled
 }
 
 func parseUUID(val string) uuid.UUID {
