@@ -11,6 +11,10 @@ Each helper is optional and composable.
 - `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_DEBUG* config/envs to debug config.
 - `WithErrorConfig(cfg admin.ErrorConfig) AdminConfigOption` - Inputs: error config; outputs: option that applies error presentation defaults.
 - `WithErrorsFromEnv(opts ...ErrorEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_ERROR* config/envs to error config.
+- `WithScopeConfig(scope ScopeConfig) AdminConfigOption` - Inputs: scope config; outputs: option that applies single/multi-tenant defaults.
+- `WithScopeMode(mode ScopeMode) AdminConfigOption` - Inputs: scope mode (`single` or `multi`); outputs: option that sets the mode.
+- `WithDefaultScope(tenantID, orgID string) AdminConfigOption` - Inputs: default tenant/org IDs; outputs: option that sets defaults for single-tenant mode.
+- `WithScopeFromEnv() AdminConfigOption` - Inputs: none; outputs: option that reads `ADMIN_SCOPE_*` env vars.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
@@ -65,6 +69,39 @@ Each helper is optional and composable.
 - `NewSecureLinkNotificationBuilder(manager links.SecureLinkManager, opts ...linksecure.Option) links.LinkBuilder` - Inputs: notification manager + options; outputs: notification link builder.
 - `RegisterOnboardingRoutes(r router.Router[*fiber.App], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error` - Inputs: router/config/handlers; outputs: error (registers onboarding API routes).
 - `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth + go-users migrations).
+
+## Scope defaults (single vs multi-tenant)
+Quickstart can enforce a single-tenant default scope or require explicit tenant/org
+claims for multi-tenant projects.
+
+Modes:
+- `single` (default): injects default tenant/org IDs when claims are missing.
+- `multi`: never injects defaults; scope must come from auth claims/metadata.
+
+Defaults:
+- tenant: `11111111-1111-1111-1111-111111111111`
+- org: `22222222-2222-2222-2222-222222222222`
+
+Environment variables:
+- `ADMIN_SCOPE_MODE=single|multi`
+- `ADMIN_DEFAULT_TENANT_ID=<uuid>`
+- `ADMIN_DEFAULT_ORG_ID=<uuid>`
+
+Example:
+
+```go
+cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
+	quickstart.WithScopeFromEnv(),
+)
+```
+
+For explicit config:
+
+```go
+cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
+	quickstart.WithScopeMode(quickstart.ScopeModeMulti),
+)
+```
 
 ## Template functions
 `NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
@@ -469,6 +506,34 @@ if cfg.Debug.Enabled {
 
 repoOptions := adm.DebugQueryHookOptions()
 repo := repository.MustNewRepositoryWithOptions[*MyModel](db, handlers, repoOptions...)
+```
+
+### Scope debug (optional)
+Scope debug captures the raw/resolved tenant/org scope for requests, adds an `X-Admin-Resolved-Scope` header, and exposes a JSON snapshot endpoint.
+
+Environment mapping defaults:
+- `ADMIN_DEBUG_SCOPE=true` enables the scope debug capture.
+- `ADMIN_DEBUG_SCOPE_LIMIT=200` sets the in-memory buffer size (default 200).
+
+```go
+scopeDebugEnabled := quickstart.ScopeDebugEnabledFromEnv()
+var scopeDebugBuffer *quickstart.ScopeDebugBuffer
+if scopeDebugEnabled {
+	scopeDebugBuffer = quickstart.NewScopeDebugBuffer(quickstart.ScopeDebugLimitFromEnv())
+}
+
+if cfg.Debug.Enabled && scopeDebugEnabled {
+	cfg.Debug.Panels = append(cfg.Debug.Panels, quickstart.ScopeDebugPanelID)
+	cfg.Debug.ToolbarPanels = append(cfg.Debug.ToolbarPanels, quickstart.ScopeDebugPanelID)
+	quickstart.RegisterScopeDebugPanel(scopeDebugBuffer)
+}
+
+wrapAuthed := authn.WrapHandler
+if scopeDebugEnabled {
+	wrapAuthed = quickstart.ScopeDebugWrap(authn, &cfg, scopeDebugBuffer)
+}
+
+r.Get(path.Join(cfg.BasePath, "api", "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 ```
 
 ## Preferences quickstart
