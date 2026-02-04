@@ -55,6 +55,15 @@ module resolves it via either:
   the root `go.mod`, or
 - a `go.work` file that includes `./quickstart`.
 
+### Scope defaults (single vs multi-tenant)
+The example uses quickstart scope defaults. Configure via env:
+- `ADMIN_SCOPE_MODE=single|multi` (default: `single`)
+- `ADMIN_DEFAULT_TENANT_ID=<uuid>` (default: `11111111-1111-1111-1111-111111111111`)
+- `ADMIN_DEFAULT_ORG_ID=<uuid>` (default: `22222222-2222-2222-2222-222222222222`)
+
+For multi-tenant mode, ensure your auth claims and seeded data share the same tenant/org IDs.
+When running in single-tenant mode, the seed loader rewrites seeded rows to the configured defaults so the demo data stays in scope.
+
 ### API Endpoints
 
 - **Health**: `GET /admin/health`
