@@ -29,13 +29,13 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
-	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
 	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-crud"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-export/export"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
 	"github.com/goliatone/go-i18n"
 	persistence "github.com/goliatone/go-persistence-bun"
 	"github.com/goliatone/go-router"
@@ -64,6 +64,7 @@ func main() {
 			"accent":  "#f59e0b",
 		}),
 		quickstart.WithErrorsFromEnv(),
+		quickstart.WithScopeFromEnv(),
 	)
 	cfg.ActivityActionLabels = map[string]string{
 		"debug.repl.eval":       "Execute REPL",
@@ -130,6 +131,11 @@ func main() {
 	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
 
 	debugEnabled := strings.EqualFold(os.Getenv("ADMIN_DEBUG"), "true")
+	scopeDebugEnabled := scopeDebugEnabledFromEnv()
+	var scopeDebugBuffer *scopeDebugBuffer
+	if scopeDebugEnabled {
+		scopeDebugBuffer = newScopeDebugBuffer(scopeDebugLimitFromEnv())
+	}
 	cfg.Debug.Enabled = debugEnabled
 	cfg.Debug.ToolbarMode = debugEnabled
 	cfg.Debug.ToolbarPanels = []string{"requests", "sql", "logs", "routes", "config", "template", "session"}
@@ -149,6 +155,11 @@ func main() {
 		cfg.Debug.ViewContextBuilder = func(adm *admin.Admin, _ admin.DebugConfig, c router.Context, view router.ViewContext) router.ViewContext {
 			return helpers.WithNav(view, adm, cfg, "debug", c.Context())
 		}
+	}
+	if debugEnabled && scopeDebugEnabled {
+		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, scopeDebugPanelID)
+		cfg.Debug.ToolbarPanels = appendUniquePanel(cfg.Debug.ToolbarPanels, scopeDebugPanelID)
+		registerScopeDebugPanel(scopeDebugBuffer)
 	}
 
 	if debugEnabled && featureDefaults["export"] {
@@ -351,7 +362,7 @@ func main() {
 	dataStores.Posts.WithActivitySink(activitySink)
 	dataStores.Media.WithActivitySink(activitySink)
 
-	scopeResolver := helpers.ScopeBuilder()
+	scopeResolver := quickstart.ScopeBuilder(cfg)
 	adm.WithUserManagement(
 		admin.NewGoUsersUserRepository(usersDeps.AuthRepo, usersDeps.InventoryRepo, scopeResolver),
 		admin.NewGoUsersRoleRepository(usersDeps.RoleRegistry, scopeResolver),
@@ -360,9 +371,6 @@ func main() {
 	if usersDeps.ProfileRepo != nil && adm.ProfileService() != nil {
 		adm.ProfileService().WithStore(admin.NewGoUsersProfileStore(usersDeps.ProfileRepo, scopeResolver))
 	}
-
-	var defaultTenantID string
-	var defaultOrgID string
 
 	if lib := adm.MediaLibrary(); lib != nil {
 		mediaItems, _, _ := dataStores.Media.List(context.Background(), admin.ListOptions{})
@@ -456,7 +464,16 @@ func main() {
 	// both in-memory and persistent go-cms backends.
 
 	// Setup authentication and authorization
-	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps, setup.WithDefaultScope(defaultTenantID, defaultOrgID))
+	scopeCfg := quickstart.ScopeConfigFromAdmin(cfg)
+	authOptions := []setup.AuthOption{}
+	if scopeCfg.Mode == quickstart.ScopeModeSingle {
+		authOptions = append(authOptions, setup.WithDefaultScope(scopeCfg.DefaultTenantID, scopeCfg.DefaultOrgID))
+	}
+	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps, authOptions...)
+	wrapAuthed := authn.WrapHandler
+	if scopeDebugEnabled {
+		wrapAuthed = scopeDebugWrap(authn, &cfg, scopeDebugBuffer)
+	}
 
 	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme.
 	// Assets support light/dark variants: icon.light.svg, icon.dark.svg, logo.light.svg, logo.dark.svg
@@ -504,7 +521,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to access form templates: %v", err)
 	}
-	componentRegistry := components.NewRegistry()
+	componentRegistry := components.New()
 	componentRegistry.MustRegister("block-library-picker", coreadmin.BlockLibraryPickerDescriptor(cfg.BasePath))
 	formGenerator, err := quickstart.NewFormGenerator(
 		openapiFS,
@@ -599,7 +616,7 @@ func main() {
 	)
 	modules := []admin.Module{
 		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
-		&usersModule{store: dataStores.Users, service: usersService, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
+		&usersModule{store: dataStores.Users, profiles: dataStores.UserProfiles, service: usersService, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
 		&pagesModule{store: dataStores.Pages, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		&postsModule{store: dataStores.Posts, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		quickstart.NewContentTypeBuilderModule(cfg, setup.NavigationSectionContent,
@@ -686,7 +703,7 @@ func main() {
 	)
 	crudAPI := r.Group(path.Join(cfg.BasePath, "crud"))
 	crudAPI.Use(func(next router.HandlerFunc) router.HandlerFunc {
-		return authn.WrapHandler(next)
+		return wrapAuthed(next)
 	})
 	crudAdapter := crud.NewGoRouterAdapter(crudAPI)
 	userController.RegisterRoutes(crudAdapter)
@@ -697,11 +714,26 @@ func main() {
 	)
 	userProfileController.RegisterRoutes(crudAdapter)
 	registerCrudAliases(crudAdapter, userProfileController, "user-profiles")
+	pageStoreAdapter := stores.NewAdminPageStoreAdapter(dataStores.PageRecords, dataStores.Pages, cfg.DefaultLocale)
+	pageReadService := admin.AdminPageReadService(pageStoreAdapter)
+	if provider, ok := cfg.CMS.Container.(interface{ AdminPageReadService() admin.AdminPageReadService }); ok {
+		if svc := provider.AdminPageReadService(); svc != nil {
+			pageReadService = svc
+		}
+	}
+	pageApp := admin.PageApplicationService{
+		Read:     pageReadService,
+		Write:    pageStoreAdapter,
+		Workflow: workflow,
+	}
+	pageCRUDAdapter := stores.NewPageAppCRUDAdapter(pageApp, cfg.DefaultLocale)
 	pageController := crud.NewController(
 		dataStores.PageRecords,
 		crud.WithErrorEncoder[*stores.PageRecord](crudErrorEncoder),
 		crud.WithScopeGuard[*stores.PageRecord](contentCRUDScopeGuard[*stores.PageRecord]("admin.pages")),
-		crud.WithService[*stores.PageRecord](stores.NewPageCRUDService(dataStores.PageRecords, dataStores.Pages)),
+		crud.WithReadService[*stores.PageRecord](crud.ReadOnlyService[*stores.PageRecord](pageCRUDAdapter)),
+		crud.WithWriteService[*stores.PageRecord](crud.WriteOnlyService[*stores.PageRecord](pageCRUDAdapter)),
+		crud.WithContextFactory[*stores.PageRecord](contentCRUDContextFactory(cfg.DefaultLocale)),
 	)
 	pageController.RegisterRoutes(crudAdapter)
 	registerCrudAliases(crudAdapter, pageController, "pages")
@@ -721,13 +753,16 @@ func main() {
 	mediaController.RegisterRoutes(crudAdapter)
 	registerCrudAliases(crudAdapter, mediaController, "media")
 
-	r.Get(path.Join(cfg.BasePath, "api/session"), authn.WrapHandler(func(c router.Context) error {
+	r.Get(path.Join(cfg.BasePath, "api/session"), wrapAuthed(func(c router.Context) error {
 		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), adm.FeatureGate())
 		return c.JSON(fiber.StatusOK, session)
 	}))
+	if scopeDebugEnabled {
+		r.Get(path.Join(cfg.BasePath, "api", "debug", "scope"), wrapAuthed(scopeDebugHandler(scopeDebugBuffer)))
+	}
 
-	r.Get(path.Join(cfg.BasePath, "api", "timezones"), authn.WrapHandler(handlers.ListTimezones))
-	r.Get(path.Join(cfg.BasePath, "api", "templates"), authn.WrapHandler(handlers.ListTemplates(dataStores.Templates)))
+	r.Get(path.Join(cfg.BasePath, "api", "timezones"), wrapAuthed(handlers.ListTimezones))
+	r.Get(path.Join(cfg.BasePath, "api", "templates"), wrapAuthed(handlers.ListTemplates(dataStores.Templates)))
 
 	onboardingHandlers := handlers.OnboardingHandlers{
 		UsersService: usersService,
@@ -742,7 +777,7 @@ func main() {
 	}
 
 	onboardingBase := path.Join(cfg.BasePath, "api", "onboarding")
-	r.Post(path.Join(onboardingBase, "invite"), authn.WrapHandler(onboardingHandlers.Invite))
+	r.Post(path.Join(onboardingBase, "invite"), wrapAuthed(onboardingHandlers.Invite))
 	r.Get(path.Join(onboardingBase, "invite", "verify"), onboardingHandlers.VerifyInvite)
 	r.Post(path.Join(onboardingBase, "invite", "accept"), onboardingHandlers.AcceptInvite)
 	r.Post(path.Join(onboardingBase, "register"), onboardingHandlers.SelfRegister)
@@ -752,9 +787,9 @@ func main() {
 	r.Get(path.Join(onboardingBase, "token", "metadata"), onboardingHandlers.TokenMetadata)
 
 	uploadsBase := path.Join(cfg.BasePath, "api", "uploads", "users")
-	r.Post(path.Join(uploadsBase, "profile-picture"), authn.WrapHandler(handlers.ProfilePictureUploadHandler(cfg.BasePath, diskAssetsDir)))
+	r.Post(path.Join(uploadsBase, "profile-picture"), wrapAuthed(handlers.ProfilePictureUploadHandler(cfg.BasePath, diskAssetsDir)))
 	uploadsMediaBase := path.Join(cfg.BasePath, "api", "uploads", "media")
-	r.Post(path.Join(uploadsMediaBase, "featured-image"), authn.WrapHandler(handlers.FeaturedImageUploadHandler(cfg.BasePath, diskAssetsDir)))
+	r.Post(path.Join(uploadsMediaBase, "featured-image"), wrapAuthed(handlers.FeaturedImageUploadHandler(cfg.BasePath, diskAssetsDir)))
 
 	userActions := &handlers.UserActionHandlers{
 		Service:     usersService,
@@ -763,25 +798,25 @@ func main() {
 		FeatureGate: adm.FeatureGate(),
 	}
 	for _, base := range []string{path.Join(cfg.BasePath, "api", "users"), path.Join(cfg.BasePath, "crud", "users")} {
-		r.Post(path.Join(base, ":id", "activate"), authn.WrapHandler(userActions.Lifecycle(userstypes.LifecycleStateActive)))
-		r.Post(path.Join(base, ":id", "suspend"), authn.WrapHandler(userActions.Lifecycle(userstypes.LifecycleStateSuspended)))
-		r.Post(path.Join(base, ":id", "disable"), authn.WrapHandler(userActions.Lifecycle(userstypes.LifecycleStateDisabled)))
-		r.Post(path.Join(base, ":id", "archive"), authn.WrapHandler(userActions.Lifecycle(userstypes.LifecycleStateArchived)))
-		r.Post(path.Join(base, ":id", "reset-password"), authn.WrapHandler(userActions.ResetPassword))
-		r.Post(path.Join(base, ":id", "invite"), authn.WrapHandler(userActions.InviteByID))
+		r.Post(path.Join(base, ":id", "activate"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateActive)))
+		r.Post(path.Join(base, ":id", "suspend"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateSuspended)))
+		r.Post(path.Join(base, ":id", "disable"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateDisabled)))
+		r.Post(path.Join(base, ":id", "archive"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateArchived)))
+		r.Post(path.Join(base, ":id", "reset-password"), wrapAuthed(userActions.ResetPassword))
+		r.Post(path.Join(base, ":id", "invite"), wrapAuthed(userActions.InviteByID))
 
-		r.Post(path.Join(base, "bulk", "activate"), authn.WrapHandler(userActions.BulkLifecycle(userstypes.LifecycleStateActive)))
-		r.Post(path.Join(base, "bulk", "suspend"), authn.WrapHandler(userActions.BulkLifecycle(userstypes.LifecycleStateSuspended)))
-		r.Post(path.Join(base, "bulk", "disable"), authn.WrapHandler(userActions.BulkLifecycle(userstypes.LifecycleStateDisabled)))
-		r.Post(path.Join(base, "bulk", "archive"), authn.WrapHandler(userActions.BulkLifecycle(userstypes.LifecycleStateArchived)))
-		r.Post(path.Join(base, "bulk", "assign-role"), authn.WrapHandler(userActions.BulkAssignRole))
-		r.Post(path.Join(base, "bulk", "unassign-role"), authn.WrapHandler(userActions.BulkUnassignRole))
+		r.Post(path.Join(base, "bulk", "activate"), wrapAuthed(userActions.BulkLifecycle(userstypes.LifecycleStateActive)))
+		r.Post(path.Join(base, "bulk", "suspend"), wrapAuthed(userActions.BulkLifecycle(userstypes.LifecycleStateSuspended)))
+		r.Post(path.Join(base, "bulk", "disable"), wrapAuthed(userActions.BulkLifecycle(userstypes.LifecycleStateDisabled)))
+		r.Post(path.Join(base, "bulk", "archive"), wrapAuthed(userActions.BulkLifecycle(userstypes.LifecycleStateArchived)))
+		r.Post(path.Join(base, "bulk", "assign-role"), wrapAuthed(userActions.BulkAssignRole))
+		r.Post(path.Join(base, "bulk", "unassign-role"), wrapAuthed(userActions.BulkUnassignRole))
 	}
 
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
 	userProfileHandlers := handlers.NewUserProfileHandlers(dataStores.UserProfiles, formGenerator, adm, cfg, helpers.WithNav)
-	pageHandlers := handlers.NewPageHandlers(dataStores.Pages, formGenerator, adm, cfg, helpers.WithNav)
+	pageHandlers := handlers.NewPageHandlers(pageApp, formGenerator, adm, cfg, helpers.WithNav)
 	postHandlers := handlers.NewPostHandlers(dataStores.Posts, formGenerator, adm, cfg, helpers.WithNav)
 	mediaHandlers := handlers.NewMediaHandlers(dataStores.Media, adm, cfg, helpers.WithNav)
 	profileHandlers := handlers.NewProfileHandlers(adm, cfg, helpers.WithNav)
@@ -791,8 +826,10 @@ func main() {
 	}
 
 	// Optional metadata endpoint for frontend DataGrid column definitions.
-	r.Get(path.Join(cfg.BasePath, "api", "users", "columns"), authn.WrapHandler(userHandlers.Columns))
-	r.Get(path.Join(cfg.BasePath, "api", "user-profiles", "columns"), authn.WrapHandler(userProfileHandlers.Columns))
+	r.Get(path.Join(cfg.BasePath, "api", "users", "columns"), wrapAuthed(userHandlers.Columns))
+	r.Get(path.Join(cfg.BasePath, "api", "user-profiles", "columns"), wrapAuthed(userProfileHandlers.Columns))
+	roleAPIHandlers := handlers.NewRolesAPIHandlers(adm, cfg)
+	r.Get(path.Join(cfg.BasePath, "api", "roles"), wrapAuthed(roleAPIHandlers.List))
 
 	if err := quickstart.RegisterAdminUIRoutes(
 		r,
@@ -892,68 +929,68 @@ func main() {
 	})
 
 	// Profile routes (self-service HTML)
-	r.Get(path.Join(cfg.BasePath, "profile"), authn.WrapHandler(profileHandlers.Show))
-	r.Post(path.Join(cfg.BasePath, "profile"), authn.WrapHandler(profileHandlers.Save))
+	r.Get(path.Join(cfg.BasePath, "profile"), wrapAuthed(profileHandlers.Show))
+	r.Post(path.Join(cfg.BasePath, "profile"), wrapAuthed(profileHandlers.Save))
 
 	// User routes
-	r.Get(path.Join(cfg.BasePath, "users"), authn.WrapHandler(userHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "users/new"), authn.WrapHandler(userHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "users"), authn.WrapHandler(userHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "users/:id/edit"), authn.WrapHandler(userHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Update))
-	r.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), authn.WrapHandler(userHandlers.TabHTML))
-	r.Get(path.Join(cfg.BasePath, "api", "users", ":id", "tabs", ":tab"), authn.WrapHandler(userHandlers.TabJSON))
-	r.Get(path.Join(cfg.BasePath, "users/:id"), authn.WrapHandler(userHandlers.Detail))
-	r.Post(path.Join(cfg.BasePath, "users/:id/delete"), authn.WrapHandler(userHandlers.Delete))
+	r.Get(path.Join(cfg.BasePath, "users"), wrapAuthed(userHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "users/new"), wrapAuthed(userHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "users"), wrapAuthed(userHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "users/:id/edit"), wrapAuthed(userHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "users/:id"), wrapAuthed(userHandlers.Update))
+	r.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), wrapAuthed(userHandlers.TabHTML))
+	r.Get(path.Join(cfg.BasePath, "api", "users", ":id", "tabs", ":tab"), wrapAuthed(userHandlers.TabJSON))
+	r.Get(path.Join(cfg.BasePath, "users/:id"), wrapAuthed(userHandlers.Detail))
+	r.Post(path.Join(cfg.BasePath, "users/:id/delete"), wrapAuthed(userHandlers.Delete))
 
 	// User Profiles routes
-	r.Get(path.Join(cfg.BasePath, "user-profiles"), authn.WrapHandler(userProfileHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "user-profiles/new"), authn.WrapHandler(userProfileHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "user-profiles"), authn.WrapHandler(userProfileHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "user-profiles/:id/edit"), authn.WrapHandler(userProfileHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "user-profiles/:id"), authn.WrapHandler(userProfileHandlers.Update))
-	r.Get(path.Join(cfg.BasePath, "user-profiles/:id"), authn.WrapHandler(userProfileHandlers.Detail))
-	r.Post(path.Join(cfg.BasePath, "user-profiles/:id/delete"), authn.WrapHandler(userProfileHandlers.Delete))
+	r.Get(path.Join(cfg.BasePath, "user-profiles"), wrapAuthed(userProfileHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "user-profiles/new"), wrapAuthed(userProfileHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "user-profiles"), wrapAuthed(userProfileHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "user-profiles/:id/edit"), wrapAuthed(userProfileHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "user-profiles/:id"), wrapAuthed(userProfileHandlers.Update))
+	r.Get(path.Join(cfg.BasePath, "user-profiles/:id"), wrapAuthed(userProfileHandlers.Detail))
+	r.Post(path.Join(cfg.BasePath, "user-profiles/:id/delete"), wrapAuthed(userProfileHandlers.Delete))
 
 	// Page routes
-	r.Get(path.Join(cfg.BasePath, "pages"), authn.WrapHandler(pageHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "pages/new"), authn.WrapHandler(pageHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "pages"), authn.WrapHandler(pageHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "pages/:id"), authn.WrapHandler(pageHandlers.Detail))
-	r.Get(path.Join(cfg.BasePath, "pages/:id/edit"), authn.WrapHandler(pageHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "pages/:id"), authn.WrapHandler(pageHandlers.Update))
-	r.Post(path.Join(cfg.BasePath, "pages/:id/delete"), authn.WrapHandler(pageHandlers.Delete))
-	r.Post(path.Join(cfg.BasePath, "pages/:id/publish"), authn.WrapHandler(pageHandlers.Publish))
-	r.Post(path.Join(cfg.BasePath, "pages/:id/unpublish"), authn.WrapHandler(pageHandlers.Unpublish))
+	r.Get(path.Join(cfg.BasePath, "pages"), wrapAuthed(pageHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "pages/new"), wrapAuthed(pageHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "pages"), wrapAuthed(pageHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "pages/:id"), wrapAuthed(pageHandlers.Detail))
+	r.Get(path.Join(cfg.BasePath, "pages/:id/edit"), wrapAuthed(pageHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "pages/:id"), wrapAuthed(pageHandlers.Update))
+	r.Post(path.Join(cfg.BasePath, "pages/:id/delete"), wrapAuthed(pageHandlers.Delete))
+	r.Post(path.Join(cfg.BasePath, "pages/:id/publish"), wrapAuthed(pageHandlers.Publish))
+	r.Post(path.Join(cfg.BasePath, "pages/:id/unpublish"), wrapAuthed(pageHandlers.Unpublish))
 
 	// Post routes
-	r.Get(path.Join(cfg.BasePath, "posts"), authn.WrapHandler(postHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "posts/new"), authn.WrapHandler(postHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "posts"), authn.WrapHandler(postHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "posts/:id"), authn.WrapHandler(postHandlers.Detail))
-	r.Get(path.Join(cfg.BasePath, "posts/:id/edit"), authn.WrapHandler(postHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "posts/:id"), authn.WrapHandler(postHandlers.Update))
-	r.Post(path.Join(cfg.BasePath, "posts/:id/delete"), authn.WrapHandler(postHandlers.Delete))
-	r.Post(path.Join(cfg.BasePath, "posts/:id/publish"), authn.WrapHandler(postHandlers.Publish))
-	r.Post(path.Join(cfg.BasePath, "posts/:id/archive"), authn.WrapHandler(postHandlers.Archive))
+	r.Get(path.Join(cfg.BasePath, "posts"), wrapAuthed(postHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "posts/new"), wrapAuthed(postHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "posts"), wrapAuthed(postHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "posts/:id"), wrapAuthed(postHandlers.Detail))
+	r.Get(path.Join(cfg.BasePath, "posts/:id/edit"), wrapAuthed(postHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "posts/:id"), wrapAuthed(postHandlers.Update))
+	r.Post(path.Join(cfg.BasePath, "posts/:id/delete"), wrapAuthed(postHandlers.Delete))
+	r.Post(path.Join(cfg.BasePath, "posts/:id/publish"), wrapAuthed(postHandlers.Publish))
+	r.Post(path.Join(cfg.BasePath, "posts/:id/archive"), wrapAuthed(postHandlers.Archive))
 
 	// Media routes
-	r.Get(path.Join(cfg.BasePath, "media"), authn.WrapHandler(mediaHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "media/new"), authn.WrapHandler(mediaHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "media"), authn.WrapHandler(mediaHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "media/:id"), authn.WrapHandler(mediaHandlers.Detail))
-	r.Get(path.Join(cfg.BasePath, "media/:id/edit"), authn.WrapHandler(mediaHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "media/:id"), authn.WrapHandler(mediaHandlers.Update))
-	r.Post(path.Join(cfg.BasePath, "media/:id/delete"), authn.WrapHandler(mediaHandlers.Delete))
+	r.Get(path.Join(cfg.BasePath, "media"), wrapAuthed(mediaHandlers.List))
+	r.Get(path.Join(cfg.BasePath, "media/new"), wrapAuthed(mediaHandlers.New))
+	r.Post(path.Join(cfg.BasePath, "media"), wrapAuthed(mediaHandlers.Create))
+	r.Get(path.Join(cfg.BasePath, "media/:id"), wrapAuthed(mediaHandlers.Detail))
+	r.Get(path.Join(cfg.BasePath, "media/:id/edit"), wrapAuthed(mediaHandlers.Edit))
+	r.Post(path.Join(cfg.BasePath, "media/:id"), wrapAuthed(mediaHandlers.Update))
+	r.Post(path.Join(cfg.BasePath, "media/:id/delete"), wrapAuthed(mediaHandlers.Delete))
 
 	if tenantHandlers != nil {
-		r.Get(path.Join(cfg.BasePath, "tenants"), authn.WrapHandler(tenantHandlers.List))
-		r.Get(path.Join(cfg.BasePath, "tenants/new"), authn.WrapHandler(tenantHandlers.New))
-		r.Post(path.Join(cfg.BasePath, "tenants"), authn.WrapHandler(tenantHandlers.Create))
-		r.Get(path.Join(cfg.BasePath, "tenants/:id"), authn.WrapHandler(tenantHandlers.Detail))
-		r.Get(path.Join(cfg.BasePath, "tenants/:id/edit"), authn.WrapHandler(tenantHandlers.Edit))
-		r.Post(path.Join(cfg.BasePath, "tenants/:id"), authn.WrapHandler(tenantHandlers.Update))
-		r.Post(path.Join(cfg.BasePath, "tenants/:id/delete"), authn.WrapHandler(tenantHandlers.Delete))
+		r.Get(path.Join(cfg.BasePath, "tenants"), wrapAuthed(tenantHandlers.List))
+		r.Get(path.Join(cfg.BasePath, "tenants/new"), wrapAuthed(tenantHandlers.New))
+		r.Post(path.Join(cfg.BasePath, "tenants"), wrapAuthed(tenantHandlers.Create))
+		r.Get(path.Join(cfg.BasePath, "tenants/:id"), wrapAuthed(tenantHandlers.Detail))
+		r.Get(path.Join(cfg.BasePath, "tenants/:id/edit"), wrapAuthed(tenantHandlers.Edit))
+		r.Post(path.Join(cfg.BasePath, "tenants/:id"), wrapAuthed(tenantHandlers.Update))
+		r.Post(path.Join(cfg.BasePath, "tenants/:id/delete"), wrapAuthed(tenantHandlers.Delete))
 	}
 
 	siteHandlers := handlers.NewSiteHandlers(handlers.SiteHandlersConfig{

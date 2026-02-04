@@ -15,6 +15,7 @@ import (
 // usersModule registers the users panel and menu entry.
 type usersModule struct {
 	store      *stores.UserStore
+	profiles   *stores.UserProfileStore
 	service    *userssvc.Service
 	menuCode   string
 	defaultLoc string
@@ -34,6 +35,9 @@ func (m *usersModule) Manifest() admin.ModuleManifest {
 func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	if m == nil || m.store == nil {
 		return fmt.Errorf("users module store is nil")
+	}
+	if m.profiles == nil {
+		return fmt.Errorf("user profiles store is nil")
 	}
 	if m.service == nil {
 		return fmt.Errorf("users module service is nil")
@@ -74,6 +78,10 @@ func (m *usersModule) Register(ctx admin.ModuleContext) error {
 	// Register panel
 	builder := setup.NewUserPanelBuilder(m.store)
 	if _, err := ctx.Admin.RegisterPanel("users", builder); err != nil {
+		return err
+	}
+	profileBuilder := setup.NewUserProfilesPanelBuilder(m.profiles)
+	if _, err := ctx.Admin.RegisterPanel("user-profiles", profileBuilder); err != nil {
 		return err
 	}
 	if err := ctx.Admin.RegisterPanelTab("users", admin.PanelTab{

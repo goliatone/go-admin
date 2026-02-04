@@ -71,11 +71,25 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 	encoder := crud.ProblemJSONErrorEncoder(crud.WithProblemJSONStatusResolver(userCRUDStatusResolver))
 	adapter := crud.NewFiberAdapter(crudGroup)
 
+	pageStoreAdapter := stores.NewAdminPageStoreAdapter(pageRepo, pageStore, "en")
+	pageReadService := admin.AdminPageReadService(pageStoreAdapter)
+	if provider, ok := cmsOpts.Container.(interface{ AdminPageReadService() admin.AdminPageReadService }); ok {
+		if svc := provider.AdminPageReadService(); svc != nil {
+			pageReadService = svc
+		}
+	}
+	pageApp := admin.PageApplicationService{
+		Read:  pageReadService,
+		Write: pageStoreAdapter,
+	}
+	pageCRUDAdapter := stores.NewPageAppCRUDAdapter(pageApp, "en")
 	pageController := crud.NewController(
 		pageRepo,
 		crud.WithErrorEncoder[*stores.PageRecord](encoder),
 		crud.WithScopeGuard[*stores.PageRecord](contentCRUDScopeGuard[*stores.PageRecord]("admin.pages")),
-		crud.WithService[*stores.PageRecord](stores.NewPageCRUDService(pageRepo, pageStore)),
+		crud.WithReadService[*stores.PageRecord](crud.ReadOnlyService[*stores.PageRecord](pageCRUDAdapter)),
+		crud.WithWriteService[*stores.PageRecord](crud.WriteOnlyService[*stores.PageRecord](pageCRUDAdapter)),
+		crud.WithContextFactory[*stores.PageRecord](contentCRUDContextFactory("en")),
 	)
 	pageController.RegisterRoutes(adapter)
 	registerCrudAliases(adapter, pageController, "pages")
