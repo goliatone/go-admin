@@ -951,7 +951,7 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 	var chosen reflect.Value
 	for i := 0; i < translations.Len(); i++ {
 		current := deref(translations.Index(i))
-		code := strings.ToLower(stringField(current, "Locale"))
+		code := strings.ToLower(localeCodeFromTranslation(current))
 		if chosen.IsValid() == false {
 			chosen = current
 		}
@@ -967,7 +967,7 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 		if groupID := uuidStringField(chosen, "TranslationGroupID"); groupID != "" {
 			out.TranslationGroupID = groupID
 		}
-		out.Locale = stringField(chosen, "Locale")
+		out.Locale = localeCodeFromTranslation(chosen)
 		out.Title = stringField(chosen, "Title")
 		if summary := stringField(chosen, "Summary"); summary != "" {
 			out.Data["excerpt"] = summary
@@ -1008,7 +1008,7 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 	var chosen reflect.Value
 	for i := 0; i < translations.Len(); i++ {
 		current := deref(translations.Index(i))
-		code := strings.ToLower(stringField(current, "Locale"))
+		code := strings.ToLower(localeCodeFromTranslation(current))
 		if !chosen.IsValid() {
 			chosen = current
 		}
@@ -1024,7 +1024,7 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 		if groupID := uuidStringField(chosen, "TranslationGroupID"); groupID != "" {
 			out.TranslationGroupID = groupID
 		}
-		out.Locale = stringField(chosen, "Locale")
+		out.Locale = localeCodeFromTranslation(chosen)
 		out.Title = stringField(chosen, "Title")
 		if path := stringField(chosen, "Path"); path != "" {
 			out.Data["path"] = path
@@ -1040,6 +1040,18 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 		}
 		if summary := stringField(chosen, "Summary"); summary != "" {
 			out.Data["summary"] = summary
+		}
+		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
+			if m, ok := contentField.Interface().(map[string]any); ok {
+				merged := cloneAnyMap(m)
+				if merged == nil {
+					merged = map[string]any{}
+				}
+				for key, value := range out.Data {
+					merged[key] = value
+				}
+				out.Data = merged
+			}
 		}
 	}
 	if out.Locale == "" {
@@ -1237,6 +1249,22 @@ func stringField(val reflect.Value, field string) string {
 		}
 		if f.Kind() == reflect.Ptr && !f.IsNil() && f.Elem().Kind() == reflect.String {
 			return f.Elem().String()
+		}
+	}
+	return ""
+}
+
+func localeCodeFromTranslation(val reflect.Value) string {
+	if code := stringField(val, "Locale"); code != "" {
+		return code
+	}
+	if code := stringField(val, "LocaleCode"); code != "" {
+		return code
+	}
+	localeVal := deref(val.FieldByName("Locale"))
+	if localeVal.IsValid() {
+		if code := stringField(localeVal, "Code"); code != "" {
+			return code
 		}
 	}
 	return ""

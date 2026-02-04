@@ -189,6 +189,14 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 	if err := LoadSeedGroup(ctx, client, seedCfg, SeedGroupUsers); err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
+	if seedCfg.Enabled {
+		if err := rewriteSeedScope(ctx, client.DB(), quickstart.ScopeConfigFromEnv()); err != nil {
+			return stores.UserDependencies{}, nil, nil, err
+		}
+		if err := ensureSeedUserProfiles(ctx, deps); err != nil {
+			return stores.UserDependencies{}, nil, nil, err
+		}
+	}
 
 	notifier.Activity = activityRepo
 
@@ -237,6 +245,7 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 		{"superadmin", "superadmin@example.com", auth.RoleOwner, auth.UserStatusActive, now.Add(-1 * time.Hour)},
 		{"admin", "admin@example.com", auth.RoleAdmin, auth.UserStatusActive, now.Add(-2 * time.Hour)},
 		{"jane.smith", "jane@example.com", auth.RoleMember, auth.UserStatusActive, now.Add(-5 * time.Hour)},
+		{"translator", "translator@example.com", auth.RoleMember, auth.UserStatusActive, now.Add(-6 * time.Hour)},
 		{"john.doe", "john@example.com", auth.RoleMember, auth.UserStatusActive, now.Add(-24 * time.Hour)},
 		{"viewer", "viewer@example.com", auth.RoleGuest, auth.UserStatusActive, now.Add(-72 * time.Hour)},
 		{"inactive.user", "inactive@example.com", auth.RoleGuest, auth.UserStatusSuspended, now.Add(-120 * time.Hour)},
@@ -287,6 +296,29 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 	}
 	if err := seedDebugRoles(ctx, deps.RoleRegistry, seededUsers); err != nil {
 		return err
+	}
+	return nil
+}
+
+func ensureSeedUserProfiles(ctx context.Context, deps stores.UserDependencies) error {
+	if deps.ProfileRepo == nil || deps.RepoManager == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	usersRepo := deps.RepoManager.Users()
+	users, _, err := usersRepo.List(ctx)
+	if err != nil {
+		return err
+	}
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		if err := seedUserProfile(ctx, deps.ProfileRepo, user); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -366,7 +398,7 @@ func seedUserProfile(ctx context.Context, repo types.ProfileRepository, user *au
 		return nil
 	}
 
-	scope := types.ScopeFilter{}
+	scope := seedScopeDefaults()
 	existing, err := repo.GetProfile(ctx, user.ID, scope)
 	if err != nil {
 		return err
@@ -502,25 +534,98 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 	if registry == nil {
 		return nil
 	}
+	scope := seedScopeDefaults()
 	roleSeeds := []struct {
 		Key         string
 		Name        string
 		Permissions []string
 	}{
 		{
-			Key:         "superadmin",
-			Name:        "Super Admin",
-			Permissions: []string{"admin.debug.repl", "admin.debug.repl.exec", "admin.activity.view"},
+			Key:  "superadmin",
+			Name: "Super Admin",
+			Permissions: []string{
+				"admin.dashboard.view",
+				"admin.users.view",
+				"admin.users.create",
+				"admin.users.edit",
+				"admin.users.delete",
+				"admin.roles.view",
+				"admin.roles.create",
+				"admin.roles.edit",
+				"admin.roles.delete",
+				"admin.activity.view",
+				"admin.settings.view",
+				"admin.settings.edit",
+				"admin.jobs.view",
+				"admin.jobs.edit",
+				"admin.search.view",
+				"admin.preferences.view",
+				"admin.preferences.edit",
+				"admin.profile.view",
+				"admin.profile.edit",
+				"admin.debug.view",
+				"admin.debug.repl",
+				"admin.debug.repl.exec",
+			},
 		},
 		{
-			Key:         "admin",
-			Name:        "Admin",
-			Permissions: []string{"admin.debug.repl", "admin.activity.view"},
+			Key:  "admin",
+			Name: "Admin",
+			Permissions: []string{
+				"admin.dashboard.view",
+				"admin.users.view",
+				"admin.users.create",
+				"admin.users.edit",
+				"admin.roles.view",
+				"admin.roles.create",
+				"admin.roles.edit",
+				"admin.activity.view",
+				"admin.settings.view",
+				"admin.search.view",
+				"admin.preferences.view",
+				"admin.profile.view",
+				"admin.profile.edit",
+				"admin.debug.view",
+				"admin.debug.repl",
+			},
+		},
+		{
+			Key:  "editor",
+			Name: "Editor",
+			Permissions: []string{
+				"admin.dashboard.view",
+				"admin.search.view",
+				"admin.profile.view",
+				"admin.profile.edit",
+			},
+		},
+		{
+			Key:  "translator",
+			Name: "Translator",
+			Permissions: []string{
+				"admin.search.view",
+				"admin.profile.view",
+				"admin.profile.edit",
+			},
+		},
+		{
+			Key:  "user",
+			Name: "User",
+			Permissions: []string{
+				"admin.dashboard.view",
+				"admin.profile.view",
+				"admin.profile.edit",
+			},
+		},
+		{
+			Key:         "guest",
+			Name:        "Guest",
+			Permissions: []string{},
 		},
 	}
 	roles := map[string]*types.RoleDefinition{}
 	for _, seed := range roleSeeds {
-		role, err := ensureSeedRole(ctx, registry, seed.Key, seed.Name, seed.Permissions)
+		role, err := ensureSeedRole(ctx, registry, scope, seed.Key, seed.Name, seed.Permissions)
 		if err != nil {
 			return err
 		}
@@ -530,8 +635,13 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 	}
 
 	assignments := map[string]string{
-		"superadmin": "superadmin",
-		"admin":      "admin",
+		"superadmin":    "superadmin",
+		"admin":         "admin",
+		"jane.smith":    "editor",
+		"translator":    "translator",
+		"john.doe":      "user",
+		"viewer":        "guest",
+		"inactive.user": "guest",
 	}
 	for username, roleKey := range assignments {
 		user := users[username]
@@ -549,7 +659,7 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 	return nil
 }
 
-func ensureSeedRole(ctx context.Context, registry types.RoleRegistry, key, name string, permissions []string) (*types.RoleDefinition, error) {
+func ensureSeedRole(ctx context.Context, registry types.RoleRegistry, scope types.ScopeFilter, key, name string, permissions []string) (*types.RoleDefinition, error) {
 	key = strings.TrimSpace(key)
 	if key == "" || registry == nil {
 		return nil, nil
@@ -557,6 +667,7 @@ func ensureSeedRole(ctx context.Context, registry types.RoleRegistry, key, name 
 	page, err := registry.ListRoles(ctx, types.RoleFilter{
 		RoleKey:       key,
 		IncludeSystem: true,
+		Scope:         scope,
 	})
 	if err != nil {
 		return nil, err
@@ -566,7 +677,7 @@ func ensureSeedRole(ctx context.Context, registry types.RoleRegistry, key, name 
 			Name:        name,
 			RoleKey:     key,
 			Permissions: cloneRolePermissions(permissions),
-			Scope:       types.ScopeFilter{},
+			Scope:       scope,
 		})
 	}
 

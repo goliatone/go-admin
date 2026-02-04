@@ -37,8 +37,10 @@ type PageRecord struct {
 	ParentID           *uuid.UUID `json:"parent_id,omitempty" bun:"parent_id"`
 	MetaTitle          string     `json:"meta_title,omitempty" bun:"meta_title"`
 	MetaDescription    string     `json:"meta_description,omitempty" bun:"meta_description"`
+	Summary            *string    `json:"summary,omitempty" bun:"summary"`
 	Content            string     `json:"content,omitempty" bun:"content"`
 	Tags               []string   `json:"tags,omitempty" bun:"tags,type:jsonb"`
+	Blocks             any        `json:"blocks,omitempty" bun:"-"`
 	PreviewURL         string     `json:"preview_url,omitempty" bun:"preview_url"`
 	PublishedAt        *time.Time `json:"published_at,omitempty" bun:"published_at,nullzero"`
 	CreatedAt          *time.Time `json:"created_at,omitempty" bun:"created_at,nullzero,default:current_timestamp"`
@@ -99,6 +101,12 @@ func pageRecordFromMap(record map[string]any) *PageRecord {
 		MetaTitle:       asString(record["meta_title"], ""),
 		MetaDescription: asString(record["meta_description"], ""),
 	}
+	if summary := strings.TrimSpace(asString(record["summary"], "")); summary != "" {
+		rec.Summary = &summary
+	}
+	if blocks, ok := record["blocks"]; ok {
+		rec.Blocks = blocks
+	}
 	if cid := stringID(record["content_id"]); cid != "" {
 		rec.ContentID = parseSeededUUID(cid, cid)
 	}
@@ -151,6 +159,9 @@ func pageRecordToMap(record *PageRecord) map[string]any {
 		"content":          record.Content,
 		"preview_url":      record.PreviewURL,
 	}
+	if record.Blocks != nil {
+		out["blocks"] = record.Blocks
+	}
 	if record.ContentID != uuid.Nil {
 		out["content_id"] = record.ContentID.String()
 	}
@@ -166,6 +177,9 @@ func pageRecordToMap(record *PageRecord) map[string]any {
 	if len(record.Tags) > 0 {
 		out["tags"] = record.Tags
 	}
+	if record.Summary != nil && strings.TrimSpace(*record.Summary) != "" {
+		out["summary"] = strings.TrimSpace(*record.Summary)
+	}
 	if record.PublishedAt != nil && !record.PublishedAt.IsZero() {
 		out["published_at"] = record.PublishedAt
 	}
@@ -176,6 +190,14 @@ func pageRecordToMap(record *PageRecord) map[string]any {
 		out["updated_at"] = record.UpdatedAt
 	}
 	return out
+}
+
+func PageRecordFromMap(record map[string]any) *PageRecord {
+	return pageRecordFromMap(record)
+}
+
+func PageRecordToMap(record *PageRecord) map[string]any {
+	return pageRecordToMap(record)
 }
 
 func postRecordFromMap(record map[string]any) *PostRecord {

@@ -25,12 +25,13 @@ func TestSeedUsersCreatesProfilesForAllSeededUsers(t *testing.T) {
 	if len(users) == 0 {
 		t.Fatalf("expected seeded users")
 	}
+	scope := seedScopeDefaults()
 
 	for _, user := range users {
 		if user == nil {
 			continue
 		}
-		profile, err := deps.ProfileRepo.GetProfile(context.Background(), user.ID, types.ScopeFilter{})
+		profile, err := deps.ProfileRepo.GetProfile(context.Background(), user.ID, scope)
 		if err != nil {
 			t.Fatalf("get profile for user %s: %v", user.Username, err)
 		}
@@ -101,13 +102,14 @@ func TestSeedUserProfileIsIdempotent(t *testing.T) {
 	if err != nil || user == nil {
 		t.Fatalf("expected seeded admin user, got err=%v user=%v", err, user)
 	}
+	scope := seedScopeDefaults()
 
 	_, err = deps.ProfileRepo.UpsertProfile(context.Background(), types.UserProfile{
 		UserID:      user.ID,
 		DisplayName: "Custom Name",
 		Locale:      "fr",
 		Contact:     map[string]any{"email": "custom@example.com"},
-		Scope:       types.ScopeFilter{},
+		Scope:       scope,
 		CreatedBy:   user.ID,
 		UpdatedBy:   user.ID,
 	})
@@ -119,7 +121,7 @@ func TestSeedUserProfileIsIdempotent(t *testing.T) {
 		t.Fatalf("seedUserProfile: %v", err)
 	}
 
-	got, err := deps.ProfileRepo.GetProfile(context.Background(), user.ID, types.ScopeFilter{})
+	got, err := deps.ProfileRepo.GetProfile(context.Background(), user.ID, scope)
 	if err != nil {
 		t.Fatalf("get profile: %v", err)
 	}

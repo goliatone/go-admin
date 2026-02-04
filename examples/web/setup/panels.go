@@ -89,6 +89,54 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 	return builder
 }
 
+// NewUserProfilesPanelBuilder creates a panel builder for user profiles.
+func NewUserProfilesPanelBuilder(store *stores.UserProfileStore) *admin.PanelBuilder {
+	builder := &admin.PanelBuilder{}
+	builder.
+		WithRepository(store).
+		ListFields(
+			admin.Field{Name: "id", Label: "User ID", Type: "text"},
+			admin.Field{Name: "display_name", Label: "Display Name", Type: "text"},
+			admin.Field{Name: "email", Label: "Email", Type: "email"},
+			admin.Field{Name: "locale", Label: "Locale", Type: "text"},
+			admin.Field{Name: "timezone", Label: "Timezone", Type: "text"},
+			admin.Field{Name: "updated_at", Label: "Updated", Type: "datetime"},
+		).
+		FormFields(
+			admin.Field{Name: "id", Label: "User ID", Type: "text", Required: true},
+			admin.Field{Name: "display_name", Label: "Display Name", Type: "text", Required: true},
+			admin.Field{Name: "email", Label: "Email", Type: "email"},
+			admin.Field{Name: "avatar_url", Label: "Avatar URL", Type: "text"},
+			admin.Field{Name: "locale", Label: "Locale", Type: "text"},
+			admin.Field{Name: "timezone", Label: "Timezone", Type: "text"},
+			admin.Field{Name: "bio", Label: "Bio", Type: "textarea"},
+		).
+		DetailFields(
+			admin.Field{Name: "id", Label: "User ID", Type: "text", ReadOnly: true},
+			admin.Field{Name: "display_name", Label: "Display Name", Type: "text"},
+			admin.Field{Name: "email", Label: "Email", Type: "email"},
+			admin.Field{Name: "avatar_url", Label: "Avatar URL", Type: "text"},
+			admin.Field{Name: "locale", Label: "Locale", Type: "text"},
+			admin.Field{Name: "timezone", Label: "Timezone", Type: "text"},
+			admin.Field{Name: "bio", Label: "Bio", Type: "textarea"},
+			admin.Field{Name: "created_at", Label: "Created", Type: "datetime", ReadOnly: true},
+			admin.Field{Name: "updated_at", Label: "Updated", Type: "datetime", ReadOnly: true},
+		).
+		Filters(
+			admin.Filter{Name: "display_name", Label: "Display Name", Type: "text"},
+			admin.Filter{Name: "email", Label: "Email", Type: "text"},
+			admin.Filter{Name: "locale", Label: "Locale", Type: "text"},
+			admin.Filter{Name: "timezone", Label: "Timezone", Type: "text"},
+		).
+		Permissions(admin.PanelPermissions{
+			View:   "admin.users.view",
+			Create: "admin.users.create",
+			Edit:   "admin.users.edit",
+			Delete: "admin.users.delete",
+		})
+	return builder
+}
+
 // NewPagesPanelBuilder creates a panel builder for pages
 func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 	builder := &admin.PanelBuilder{}
