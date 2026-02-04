@@ -13,10 +13,12 @@ import (
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	authlib "github.com/goliatone/go-auth"
+	crud "github.com/goliatone/go-crud"
 	goerrors "github.com/goliatone/go-errors"
 	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
+	repository "github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-router"
 )
 
@@ -32,14 +34,16 @@ const (
 
 type PageHandlers struct {
 	Store         stores.PageRepository
+	PageRecords   repository.Repository[*stores.PageRecord]
+	CRUDService   crud.Service[*stores.PageRecord]
 	FormGenerator *formgenorchestrator.Orchestrator
 	Admin         *admin.Admin
 	Config        admin.Config
 	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
 }
 
-func NewPageHandlers(store stores.PageRepository, formGen *formgenorchestrator.Orchestrator, adm *admin.Admin, cfg admin.Config, withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext) *PageHandlers {
-	return &PageHandlers{Store: store, FormGenerator: formGen, Admin: adm, Config: cfg, WithNav: withNav}
+func NewPageHandlers(store stores.PageRepository, records repository.Repository[*stores.PageRecord], crudService crud.Service[*stores.PageRecord], formGen *formgenorchestrator.Orchestrator, adm *admin.Admin, cfg admin.Config, withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext) *PageHandlers {
+	return &PageHandlers{Store: store, PageRecords: records, CRUDService: crudService, FormGenerator: formGen, Admin: adm, Config: cfg, WithNav: withNav}
 }
 
 func (h *PageHandlers) List(c router.Context) error {
@@ -112,13 +116,20 @@ func (h *PageHandlers) Create(c router.Context) error {
 	if blocks := strings.TrimSpace(c.FormValue("blocks")); blocks != "" {
 		record["blocks"] = blocks
 	}
-	panel, err := resolvePanel(h.Admin, "pages")
-	if err != nil {
-		return err
-	}
-	adminCtx := adminContextFromRequest(c, locale)
-	if _, err := panel.Create(adminCtx, record); err != nil {
-		return err
+	if h.CRUDService != nil {
+		crudCtx := admin.NewCRUDContext(c.Context())
+		if _, err := h.CRUDService.Create(crudCtx, stores.PageRecordFromMap(record)); err != nil {
+			return err
+		}
+	} else {
+		panel, err := resolvePanel(h.Admin, "pages")
+		if err != nil {
+			return err
+		}
+		adminCtx := adminContextFromRequest(c, locale)
+		if _, err := panel.Create(adminCtx, record); err != nil {
+			return err
+		}
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages"))
 }
@@ -129,9 +140,18 @@ func (h *PageHandlers) Detail(c router.Context) error {
 	}
 	id := c.Param("id")
 	ctx := c.Context()
-	page, err := h.Store.Get(ctx, id)
-	if err != nil {
-		return err
+	var page map[string]any
+	if h.PageRecords != nil {
+		if rec, recErr := h.PageRecords.GetByID(ctx, id); recErr == nil && rec != nil {
+			page = stores.PageRecordToMap(rec)
+		}
+	}
+	if page == nil {
+		var err error
+		page, err = h.Store.Get(ctx, id)
+		if err != nil {
+			return err
+		}
 	}
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "pages")
 	fields := []map[string]any{
@@ -164,9 +184,26 @@ func (h *PageHandlers) Edit(c router.Context) error {
 	}
 	id := c.Param("id")
 	ctx := c.Context()
-	page, err := h.Store.Get(ctx, id)
-	if err != nil {
-		return err
+	var page map[string]any
+	if h.PageRecords != nil {
+		if rec, recErr := h.PageRecords.GetByID(ctx, id); recErr == nil && rec != nil {
+			page = stores.PageRecordToMap(rec)
+		}
+	}
+	if page == nil {
+		var err error
+		page, err = h.Store.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+	} else if h.Store != nil {
+		if _, ok := page["blocks"]; !ok || page["blocks"] == nil {
+			if fallback, err := h.Store.Get(ctx, id); err == nil && fallback != nil {
+				if blocks, ok := fallback["blocks"]; ok {
+					page["blocks"] = blocks
+				}
+			}
+		}
 	}
 	values := cloneRecord(page)
 	if title := strings.TrimSpace(anyToString(values["title"])); title == "" {
@@ -230,13 +267,21 @@ func (h *PageHandlers) Update(c router.Context) error {
 		updated["blocks"] = blocks
 	}
 	applyWorkflowTransition(updated, strings.ToLower(anyToString(existing["status"])), targetStatus)
-	panel, err := resolvePanel(h.Admin, "pages")
-	if err != nil {
-		return err
-	}
-	adminCtx := adminContextFromRequest(c, locale)
-	if _, err := panel.Update(adminCtx, id, updated); err != nil {
-		return err
+	if h.CRUDService != nil {
+		updated["id"] = id
+		crudCtx := admin.NewCRUDContext(c.Context())
+		if _, err := h.CRUDService.Update(crudCtx, stores.PageRecordFromMap(updated)); err != nil {
+			return err
+		}
+	} else {
+		panel, err := resolvePanel(h.Admin, "pages")
+		if err != nil {
+			return err
+		}
+		adminCtx := adminContextFromRequest(c, locale)
+		if _, err := panel.Update(adminCtx, id, updated); err != nil {
+			return err
+		}
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages"))
 }
@@ -246,13 +291,20 @@ func (h *PageHandlers) Delete(c router.Context) error {
 		return err
 	}
 	id := c.Param("id")
-	panel, err := resolvePanel(h.Admin, "pages")
-	if err != nil {
-		return err
-	}
-	adminCtx := adminContextFromRequest(c, h.Config.DefaultLocale)
-	if err := panel.Delete(adminCtx, id); err != nil {
-		return err
+	if h.CRUDService != nil {
+		crudCtx := admin.NewCRUDContext(c.Context())
+		if err := h.CRUDService.Delete(crudCtx, stores.PageRecordFromMap(map[string]any{"id": id})); err != nil {
+			return err
+		}
+	} else {
+		panel, err := resolvePanel(h.Admin, "pages")
+		if err != nil {
+			return err
+		}
+		adminCtx := adminContextFromRequest(c, h.Config.DefaultLocale)
+		if err := panel.Delete(adminCtx, id); err != nil {
+			return err
+		}
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages"))
 }
@@ -270,14 +322,23 @@ func (h *PageHandlers) Publish(c router.Context) error {
 	targetStatus := "published"
 	update := map[string]any{"status": targetStatus}
 	applyWorkflowTransition(update, strings.ToLower(anyToString(existing["status"])), targetStatus)
-	panel, err := resolvePanel(h.Admin, "pages")
-	if err != nil {
-		return err
-	}
 	locale := resolveLocaleInput("", anyToString(existing["locale"]), h.Config.DefaultLocale)
-	adminCtx := adminContextFromRequest(c, locale)
-	if _, err := panel.Update(adminCtx, id, update); err != nil {
-		return err
+	if h.CRUDService != nil {
+		update["id"] = id
+		update["locale"] = locale
+		crudCtx := admin.NewCRUDContext(c.Context())
+		if _, err := h.CRUDService.Update(crudCtx, stores.PageRecordFromMap(update)); err != nil {
+			return err
+		}
+	} else {
+		panel, err := resolvePanel(h.Admin, "pages")
+		if err != nil {
+			return err
+		}
+		adminCtx := adminContextFromRequest(c, locale)
+		if _, err := panel.Update(adminCtx, id, update); err != nil {
+			return err
+		}
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages", id))
 }
@@ -295,14 +356,23 @@ func (h *PageHandlers) Unpublish(c router.Context) error {
 	targetStatus := "draft"
 	update := map[string]any{"status": targetStatus}
 	applyWorkflowTransition(update, strings.ToLower(anyToString(existing["status"])), targetStatus)
-	panel, err := resolvePanel(h.Admin, "pages")
-	if err != nil {
-		return err
-	}
 	locale := resolveLocaleInput("", anyToString(existing["locale"]), h.Config.DefaultLocale)
-	adminCtx := adminContextFromRequest(c, locale)
-	if _, err := panel.Update(adminCtx, id, update); err != nil {
-		return err
+	if h.CRUDService != nil {
+		update["id"] = id
+		update["locale"] = locale
+		crudCtx := admin.NewCRUDContext(c.Context())
+		if _, err := h.CRUDService.Update(crudCtx, stores.PageRecordFromMap(update)); err != nil {
+			return err
+		}
+	} else {
+		panel, err := resolvePanel(h.Admin, "pages")
+		if err != nil {
+			return err
+		}
+		adminCtx := adminContextFromRequest(c, locale)
+		if _, err := panel.Update(adminCtx, id, update); err != nil {
+			return err
+		}
 	}
 	return c.Redirect(path.Join(h.Config.BasePath, "pages", id))
 }
