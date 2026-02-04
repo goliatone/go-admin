@@ -72,6 +72,10 @@ type Config struct {
 	FeatureFlagKeys    []string
 	FeatureCatalogPath string
 	EnablePublicAPI    bool
+
+	ScopeMode       string
+	DefaultTenantID string
+	DefaultOrgID    string
 }
 
 // URLConfig controls admin URL generation defaults.
