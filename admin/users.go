@@ -1037,15 +1037,86 @@ func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]R
 		limit = 10
 	}
 	offset := (opts.Page - 1) * limit
+	includeSystem := true
+	if raw, ok := opts.Filters["include_system"]; ok {
+		includeSystem = toBool(raw)
+	}
+	includeGlobal := true
+	if raw, ok := opts.Filters["include_global"]; ok {
+		includeGlobal = toBool(raw)
+	}
+	scope := r.scope(ctx)
 	filter := users.RoleFilter{
-		Actor:      users.ActorRef{ID: actor},
-		Scope:      r.scope(ctx),
-		Keyword:    opts.Search,
-		Pagination: users.Pagination{Limit: limit, Offset: offset},
+		Actor:         users.ActorRef{ID: actor},
+		Scope:         scope,
+		Keyword:       opts.Search,
+		IncludeSystem: includeSystem,
+		Pagination:    users.Pagination{Limit: limit, Offset: offset},
 	}
 	if roleKey := strings.TrimSpace(toString(opts.Filters["role_key"])); roleKey != "" {
 		filter.RoleKey = roleKey
 	}
+
+	// If scoped, optionally merge global roles (scope-less).
+	if includeGlobal && (scope.TenantID != uuid.Nil || scope.OrgID != uuid.Nil) {
+		scopedFilter := filter
+		scopedFilter.Pagination = users.Pagination{Limit: 200, Offset: 0}
+		scopedRoles, err := r.listAllRoles(ctx, scopedFilter)
+		if err != nil {
+			return nil, 0, err
+		}
+		globalFilter := filter
+		globalFilter.Scope = users.ScopeFilter{}
+		globalFilter.Pagination = users.Pagination{Limit: 200, Offset: 0}
+		globalRoles, err := r.listAllRoles(ctx, globalFilter)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		merged := make([]users.RoleDefinition, 0, len(scopedRoles)+len(globalRoles))
+		seen := map[uuid.UUID]bool{}
+		for _, role := range scopedRoles {
+			if role.ID == uuid.Nil || seen[role.ID] {
+				continue
+			}
+			seen[role.ID] = true
+			merged = append(merged, role)
+		}
+		for _, role := range globalRoles {
+			if role.ID == uuid.Nil || seen[role.ID] {
+				continue
+			}
+			seen[role.ID] = true
+			merged = append(merged, role)
+		}
+
+		sort.SliceStable(merged, func(i, j int) bool {
+			if merged[i].Order != merged[j].Order {
+				return merged[i].Order < merged[j].Order
+			}
+			return strings.ToLower(merged[i].Name) < strings.ToLower(merged[j].Name)
+		})
+
+		total := len(merged)
+		start := offset
+		if start < 0 {
+			start = 0
+		}
+		if start > total {
+			start = total
+		}
+		end := start + limit
+		if end > total {
+			end = total
+		}
+		pageSlice := merged[start:end]
+		roles := make([]RoleRecord, 0, len(pageSlice))
+		for _, role := range pageSlice {
+			roles = append(roles, fromUsersRole(role))
+		}
+		return roles, total, nil
+	}
+
 	page, err := r.registry.ListRoles(ctx, filter)
 	if err != nil {
 		return nil, 0, err
@@ -1055,6 +1126,36 @@ func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]R
 		roles = append(roles, fromUsersRole(role))
 	}
 	return roles, page.Total, nil
+}
+
+func (r *GoUsersRoleRepository) listAllRoles(ctx context.Context, filter users.RoleFilter) ([]users.RoleDefinition, error) {
+	if r == nil || r.registry == nil {
+		return nil, errors.New("role registry not configured")
+	}
+	limit := filter.Pagination.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 200
+	}
+	offset := filter.Pagination.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	filter.Pagination = users.Pagination{Limit: limit, Offset: offset}
+	out := []users.RoleDefinition{}
+	for {
+		page, err := r.registry.ListRoles(ctx, filter)
+		if err != nil {
+			return nil, err
+		}
+		if len(page.Roles) > 0 {
+			out = append(out, page.Roles...)
+		}
+		if !page.HasMore {
+			break
+		}
+		filter.Pagination.Offset = page.NextOffset
+	}
+	return out, nil
 }
 
 // Get role by ID.
