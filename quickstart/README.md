@@ -33,6 +33,8 @@ Each helper is optional and composable.
 - `NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error)` - Inputs: base FS and view options. Outputs: Fiber views engine and error.
 - `DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any` - Outputs: default template helpers (JSON, dict, singularize/pluralize, adminURL, widget titles, etc.).
 - `MergeTemplateFuncs(overrides map[string]any, opts ...TemplateFuncOption) map[string]any` - Inputs: overrides + optional template options. Outputs: merged map for `WithViewTemplateFuncs`.
+- `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
+- `WithViewURLResolver(urls urlkit.Resolver) ViewEngineOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
 - `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection.
 - `WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption` - Inputs: go-theme selector + manifest; outputs: option that wires theme selection + manifest into `NewAdmin` (including Preferences variant options).
 - `NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App])` - Inputs: views, config, admin, dev flag, server options. Outputs: go-router server adapter and router.
@@ -70,6 +72,22 @@ Each helper is optional and composable.
 - `RegisterOnboardingRoutes(r router.Router[*fiber.App], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error` - Inputs: router/config/handlers; outputs: error (registers onboarding API routes).
 - `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth + go-users migrations).
 
+## URL configuration
+Quickstart defaults still mount admin under `/admin` and the public API under
+`/api/v1`, but the canonical URL surface now lives in `cfg.URLs`.
+
+Example:
+
+```go
+cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+cfg.URLs.Admin.BasePath = "/control"
+cfg.URLs.Admin.APIPrefix = "api"
+cfg.URLs.Public.APIVersion = "v2"
+```
+
+If you need full control, set `cfg.URLs.URLKit` to a custom URLKit config and
+use `adm.URLs()` for template helpers and route registration.
+
 ## Scope defaults (single vs multi-tenant)
 Quickstart can enforce a single-tenant default scope or require explicit tenant/org
 claims for multi-tenant projects.
@@ -104,22 +122,27 @@ cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
 ```
 
 ## Template functions
-`NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. Use `WithViewBasePath(cfg.BasePath)` to configure the `adminURL` helper when you rely on the default template funcs. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
+`NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. Prefer `WithViewURLResolver(adm.URLs())` (or `WithTemplateURLResolver(adm.URLs())`) so `adminURL` resolves via URLKit; `WithViewBasePath(cfg.BasePath)` remains as a fallback for legacy setups. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
 The go-router Pongo2 engine treats these helpers as functions (globals), not filters, so call them like `{{ singularize(resource_label|default:resource)|title }}` instead of `{{ resource_label|singularize }}`.
 
 Template function options let you override widget title labels without touching the core map:
 - `WithWidgetTitleOverrides(overrides map[string]string) TemplateFuncOption` - merges label overrides into defaults.
 - `WithWidgetTitleMap(titles map[string]string) TemplateFuncOption` - replaces the default map entirely.
 - `WithWidgetTitleFunc(fn func(string) string) TemplateFuncOption` - provides a custom resolver.
-- `WithTemplateBasePath(basePath string) TemplateFuncOption` - sets the base path used by the `adminURL` helper.
+- `WithTemplateBasePath(basePath string) TemplateFuncOption` - sets the fallback base path used by the `adminURL` helper.
+- `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - configures the URLKit resolver used by `adminURL`.
 
 ```go
-funcs := quickstart.MergeTemplateFuncs(map[string]any{
-	"titleize": strings.ToUpper,
-}, quickstart.WithTemplateBasePath(cfg.BasePath),
+funcs := quickstart.MergeTemplateFuncs(
+	map[string]any{
+		"titleize": strings.ToUpper,
+	},
+	quickstart.WithTemplateURLResolver(adm.URLs()),
+	quickstart.WithTemplateBasePath(cfg.BasePath),
 	quickstart.WithWidgetTitleOverrides(map[string]string{
-	"admin.widget.user_profile_overview": "Profile Overview",
-}))
+		"admin.widget.user_profile_overview": "Profile Overview",
+	}),
+)
 
 views, err := quickstart.NewViewEngine(
 	os.DirFS("./web"),
@@ -461,13 +484,15 @@ _ = formgen
 `WithVanillaOption(...)` is applied last, so it can override templates/styles/registry. Use `WithComponentRegistry(...)` instead of the merge option to replace defaults entirely.
 
 ## Debug quickstart
-Debug is opt-in and requires module registration plus middleware/log wiring. Call the helpers after the debug module is registered so the collector is available.
+Debug is opt-in and requires module registration plus middleware/log wiring. Configure panels before constructing the admin; attach middleware/log helpers after the debug module is registered so the collector is available.
 
 Environment mapping defaults:
-- `ADMIN_DEBUG=true` enables `cfg.Debug.Enabled`, `ToolbarMode`, `CaptureSQL`, `CaptureLogs`, and sets the `debug` feature gate default.
+- `ADMIN_DEBUG=true` enables `cfg.Debug.Enabled`, `ToolbarMode`, `CaptureSQL`, `CaptureLogs`, `CaptureJSErrors`, `CaptureRequestBody`, and sets the `debug` feature gate default.
 - `ADMIN_DEBUG_ALLOWED_IPS=1.2.3.4,5.6.7.8` populates `cfg.Debug.AllowedIPs`.
-- `ADMIN_DEBUG_SQL` and `ADMIN_DEBUG_LOGS` override the capture flags.
+- `ADMIN_DEBUG_SQL`, `ADMIN_DEBUG_LOGS`, `ADMIN_DEBUG_JS_ERRORS`, and `ADMIN_DEBUG_REQUEST_BODY` override the capture flags.
 - `ADMIN_DEBUG_TOOLBAR` and `ADMIN_DEBUG_TOOLBAR_PANELS` override toolbar behavior/panels.
+- `ADMIN_DEBUG_LAYOUT=admin|standalone` sets `cfg.Debug.LayoutMode`.
+- `ADMIN_DEBUG_REPL` and `ADMIN_DEBUG_REPL_READONLY` configure the REPL.
 - `ADMIN_DEV=true` enables `cfg.Errors.DevMode` (stack traces + internal messages by default).
 - `ADMIN_ERROR_STACKTRACE=true` forces stack traces in non-dev environments.
 - `ADMIN_ERROR_EXPOSE_INTERNAL=true` exposes internal error messages in responses.
@@ -479,6 +504,8 @@ cfg := quickstart.NewAdminConfig(
 	"en",
 	quickstart.WithDebugFromEnv(),
 )
+
+quickstart.ConfigureDebugPanels(&cfg, quickstart.DebugPanelDeps{}, quickstart.DefaultDebugPanelCatalog())
 
 adm, _, err := quickstart.NewAdmin(cfg, hooks, quickstart.WithAdminDependencies(deps))
 if err != nil {
@@ -524,11 +551,11 @@ if scopeDebugEnabled {
 	scopeDebugBuffer = quickstart.NewScopeDebugBuffer(quickstart.ScopeDebugLimitFromEnv())
 }
 
-if cfg.Debug.Enabled && scopeDebugEnabled {
-	cfg.Debug.Panels = append(cfg.Debug.Panels, quickstart.ScopeDebugPanelID)
-	cfg.Debug.ToolbarPanels = append(cfg.Debug.ToolbarPanels, quickstart.ScopeDebugPanelID)
-	quickstart.RegisterScopeDebugPanel(scopeDebugBuffer)
-}
+quickstart.ConfigureDebugPanels(
+	&cfg,
+	quickstart.DebugPanelDeps{ScopeBuffer: scopeDebugBuffer},
+	quickstart.DefaultDebugPanelCatalog(),
+)
 
 wrapAuthed := authn.WrapHandler
 if scopeDebugEnabled {
