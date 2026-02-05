@@ -19,7 +19,10 @@ func (m *PreferencesModule) registerPreferencesRoutes(admin *Admin) {
 	if basePath == "" {
 		basePath = strings.TrimSpace(admin.config.BasePath)
 	}
-	prefPath := joinPath(basePath, preferencesModuleID)
+	prefPath := adminRoutePath(admin, preferencesModuleID)
+	if prefPath == "" {
+		prefPath = joinBasePath(basePath, preferencesModuleID)
+	}
 
 	viewHandler := func(c router.Context) error {
 		return m.renderPreferencesForm(admin, c, prefPath)
