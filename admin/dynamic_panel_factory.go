@@ -139,7 +139,7 @@ func (f *DynamicPanelFactory) CreatePanelFromContentType(ctx context.Context, co
 		}
 		return nil, nil
 	}
-	return f.createPanel(ctx, contentType, f.hooks.BeforeCreate, f.hooks.AfterCreate)
+	return f.createPanel(ctx, contentType, f.hooks.BeforeCreate, f.hooks.AfterCreate, nil)
 }
 
 // RefreshPanel updates an existing panel when the content type changes.
@@ -161,8 +161,10 @@ func (f *DynamicPanelFactory) RefreshPanel(ctx context.Context, contentType *CMS
 	}
 	panelSlug := panelSlugForContentType(contentType)
 	panelName := f.panelName(panelSlug, env)
+	var navPosition *int
 	if f.admin != nil {
 		if previous := f.storedSlug(env, contentType.ID); previous != "" && previous != panelSlug {
+			navPosition = f.resolveMenuItemPosition(ctx, previous, env)
 			previousName := f.panelName(previous, env)
 			if err := f.admin.UnregisterPanel(previousName); err != nil && !errors.Is(err, ErrNotFound) {
 				return err
@@ -175,7 +177,7 @@ func (f *DynamicPanelFactory) RefreshPanel(ctx context.Context, contentType *CMS
 			return err
 		}
 	}
-	panel, err := f.createPanel(ctx, contentType, nil, nil)
+	panel, err := f.createPanel(ctx, contentType, nil, nil, navPosition)
 	if err != nil {
 		return err
 	}
@@ -206,7 +208,7 @@ func (f *DynamicPanelFactory) RemovePanel(ctx context.Context, slugOrID string) 
 	return nil
 }
 
-func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSContentType, before func(context.Context, *CMSContentType) error, after func(context.Context, *Panel) error) (*Panel, error) {
+func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSContentType, before func(context.Context, *CMSContentType) error, after func(context.Context, *Panel) error, navPosition *int) (*Panel, error) {
 	if f == nil || f.admin == nil {
 		return nil, errors.New("admin not configured")
 	}
@@ -280,7 +282,7 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 	f.registerPanelSearchAdapter(panel, panelSlug, env)
 	f.storeSlug(contentType, env, panelSlug)
 
-	if err := f.addToNavigation(ctx, contentType, env, panelSlug, panelName); err != nil {
+	if err := f.addToNavigation(ctx, contentType, env, panelSlug, panelName, navPosition); err != nil {
 		return nil, err
 	}
 
@@ -403,7 +405,7 @@ func (f *DynamicPanelFactory) resolveSlug(env, slugOrID string) string {
 	return slug
 }
 
-func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *CMSContentType, env string, panelSlug string, panelName string) error {
+func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *CMSContentType, env string, panelSlug string, panelName string, navPosition *int) error {
 	if f == nil || f.admin == nil || contentType == nil {
 		return nil
 	}
@@ -427,18 +429,26 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 	if label == "" {
 		return nil
 	}
-	path := joinPath(basePath, path.Join("content", panelSlug))
+	params := map[string]string{"panel": panelSlug}
+	var query any
 	if env != "" {
-		separator := "?"
-		if strings.Contains(path, "?") {
-			separator = "&"
+		query = map[string]string{"env": env}
+	}
+	panelPath := resolveURLWith(f.admin.urlManager, "admin", "content.panel", params, query)
+	if panelPath == "" {
+		panelPath = joinBasePath(basePath, path.Join("content", panelSlug))
+		if env != "" {
+			separator := "?"
+			if strings.Contains(panelPath, "?") {
+				separator = "&"
+			}
+			panelPath = panelPath + separator + "env=" + url.QueryEscape(env)
 		}
-		path = path + separator + "env=" + url.QueryEscape(env)
 	}
 	if panelName == "" {
 		panelName = contentType.Slug
 	}
-	target := map[string]any{"type": "url", "path": path, "key": panelName}
+	target := map[string]any{"type": "url", "path": panelPath, "key": panelName}
 
 	item := MenuItem{
 		Label:    label,
@@ -447,6 +457,9 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 		Menu:     menuCode,
 		Locale:   locale,
 		ParentID: strings.TrimSpace(f.menuParent),
+	}
+	if navPosition != nil {
+		item.Position = intPtr(*navPosition)
 	}
 	perms := panelPermissionsForContentType(*contentType)
 	if strings.TrimSpace(perms.View) != "" {
@@ -474,15 +487,23 @@ func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, en
 		return nil
 	}
 	panelName := f.panelName(slug, env)
-	path := joinPath(f.admin.config.BasePath, path.Join("content", slug))
+	params := map[string]string{"panel": slug}
+	var query any
 	if env != "" {
-		separator := "?"
-		if strings.Contains(path, "?") {
-			separator = "&"
-		}
-		path = path + separator + "env=" + url.QueryEscape(env)
+		query = map[string]string{"env": env}
 	}
-	target := map[string]any{"type": "url", "path": path, "key": panelName}
+	panelPath := resolveURLWith(f.admin.urlManager, "admin", "content.panel", params, query)
+	if panelPath == "" {
+		panelPath = joinBasePath(f.admin.config.BasePath, path.Join("content", slug))
+		if env != "" {
+			separator := "?"
+			if strings.Contains(panelPath, "?") {
+				separator = "&"
+			}
+			panelPath = panelPath + separator + "env=" + url.QueryEscape(env)
+		}
+	}
+	target := map[string]any{"type": "url", "path": panelPath, "key": panelName}
 	item := MenuItem{
 		Label:    slug,
 		Target:   target,
@@ -495,6 +516,85 @@ func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, en
 			return nil
 		}
 		return err
+	}
+	return nil
+}
+
+func (f *DynamicPanelFactory) resolveMenuItemPosition(ctx context.Context, slug, env string) *int {
+	if f == nil || f.admin == nil || f.admin.menuSvc == nil {
+		return nil
+	}
+	menuCode := strings.TrimSpace(f.menuCode)
+	if menuCode == "" {
+		menuCode = f.admin.navMenuCode
+	}
+	if strings.TrimSpace(menuCode) == "" {
+		return nil
+	}
+	locale := strings.TrimSpace(f.defaultLocale)
+	if locale == "" {
+		locale = f.admin.config.DefaultLocale
+	}
+	itemID := f.menuItemID(menuCode, slug, env)
+	if itemID == "" {
+		return nil
+	}
+	menu, err := f.admin.menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil || menu == nil {
+		return nil
+	}
+	return findMenuItemPosition(menu.Items, itemID)
+}
+
+func (f *DynamicPanelFactory) menuItemID(menuCode, slug, env string) string {
+	if f == nil || f.admin == nil {
+		return ""
+	}
+	if strings.TrimSpace(slug) == "" {
+		return ""
+	}
+	panelName := f.panelName(slug, env)
+	params := map[string]string{"panel": slug}
+	var query any
+	if env != "" {
+		query = map[string]string{"env": env}
+	}
+	panelPath := resolveURLWith(f.admin.urlManager, "admin", "content.panel", params, query)
+	if panelPath == "" {
+		panelPath = joinBasePath(f.admin.config.BasePath, path.Join("content", slug))
+		if env != "" {
+			separator := "?"
+			if strings.Contains(panelPath, "?") {
+				separator = "&"
+			}
+			panelPath = panelPath + separator + "env=" + url.QueryEscape(env)
+		}
+	}
+	target := map[string]any{"type": "url", "path": panelPath, "key": panelName}
+	item := MenuItem{
+		Label:    slug,
+		Target:   target,
+		Menu:     menuCode,
+		ParentID: strings.TrimSpace(f.menuParent),
+	}
+	item = normalizeMenuItem(item, menuCode)
+	return item.ID
+}
+
+func findMenuItemPosition(items []MenuItem, id string) *int {
+	for _, item := range items {
+		if item.ID == id {
+			if item.Position == nil {
+				return nil
+			}
+			pos := *item.Position
+			return &pos
+		}
+		if len(item.Children) > 0 {
+			if pos := findMenuItemPosition(item.Children, id); pos != nil {
+				return pos
+			}
+		}
 	}
 	return nil
 }
