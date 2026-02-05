@@ -150,7 +150,7 @@ func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
 	if a.nav == nil || !featureEnabled(a.featureGate, FeatureSettings) {
 		return nil
 	}
-	settingsPath := joinPath(a.config.BasePath, "settings")
+	settingsPath := resolveURLWith(a.urlManager, "admin", "settings", nil, nil)
 	const targetKey = "settings"
 
 	if a.menuSvc != nil {
