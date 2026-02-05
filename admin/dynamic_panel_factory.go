@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
+	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -127,6 +129,16 @@ func (f *DynamicPanelFactory) envKey(env, id string) string {
 
 // CreatePanelFromContentType generates and registers a panel for a content type.
 func (f *DynamicPanelFactory) CreatePanelFromContentType(ctx context.Context, contentType *CMSContentType) (*Panel, error) {
+	if !contentTypePublished(contentType) {
+		if err := f.validateSchema(ctx, contentType); err != nil {
+			return nil, err
+		}
+		env := f.resolveEnvironment(ctx, contentType)
+		if err := f.cleanupPanel(ctx, contentType, env); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
 	return f.createPanel(ctx, contentType, f.hooks.BeforeCreate, f.hooks.AfterCreate)
 }
 
@@ -141,14 +153,21 @@ func (f *DynamicPanelFactory) RefreshPanel(ctx context.Context, contentType *CMS
 		}
 	}
 	env := f.resolveEnvironment(ctx, contentType)
-	panelName := f.panelName(contentType.Slug, env)
+	if !contentTypePublished(contentType) {
+		if err := f.validateSchema(ctx, contentType); err != nil {
+			return err
+		}
+		return f.cleanupPanel(ctx, contentType, env)
+	}
+	panelSlug := panelSlugForContentType(contentType)
+	panelName := f.panelName(panelSlug, env)
 	if f.admin != nil {
-		if previous := f.storedSlug(env, contentType.ID); previous != "" && previous != contentType.Slug {
+		if previous := f.storedSlug(env, contentType.ID); previous != "" && previous != panelSlug {
 			previousName := f.panelName(previous, env)
 			if err := f.admin.UnregisterPanel(previousName); err != nil && !errors.Is(err, ErrNotFound) {
 				return err
 			}
-			if err := f.removeFromNavigation(ctx, previous, env); err != nil && !errors.Is(err, ErrNotFound) {
+			if err := f.removeFromNavigation(ctx, previous, env); err != nil && !errors.Is(err, ErrNotFound) && !isMenuItemMissing(err) {
 				return err
 			}
 		}
@@ -181,7 +200,10 @@ func (f *DynamicPanelFactory) RemovePanel(ctx context.Context, slugOrID string) 
 	if err := f.admin.UnregisterPanel(panelName); err != nil && !errors.Is(err, ErrNotFound) {
 		return err
 	}
-	return f.removeFromNavigation(ctx, slug, env)
+	if err := f.removeFromNavigation(ctx, slug, env); err != nil && !errors.Is(err, ErrNotFound) && !isMenuItemMissing(err) {
+		return err
+	}
+	return nil
 }
 
 func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSContentType, before func(context.Context, *CMSContentType) error, after func(context.Context, *Panel) error) (*Panel, error) {
@@ -200,25 +222,47 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 			return nil, err
 		}
 	}
-
 	if err := f.validateSchema(ctx, contentType); err != nil {
 		return nil, err
 	}
 
 	env := f.resolveEnvironment(ctx, contentType)
-	panelName := f.panelName(contentType.Slug, env)
+	panelSlug := panelSlugForContentType(contentType)
+	if panelSlug == "" {
+		return nil, errors.New("content type panel slug required")
+	}
+	if err := f.ensurePanelSlugUnique(env, panelSlug, contentType.ID); err != nil {
+		return nil, err
+	}
+	panelName := f.panelName(panelSlug, env)
 	repo := NewCMSContentTypeEntryRepository(f.admin.contentSvc, *contentType)
 	fields := f.schemaConverter.Convert(contentType.Schema, contentType.UISchema)
-
+	blocksEnabled, blocksConfigured := blocksCapability(contentType.Capabilities)
+	if !blocksConfigured {
+		blocksEnabled = hasBlocksField(contentType.Schema)
+	}
 	builder := f.admin.Panel(panelName).
 		WithRepository(repo).
 		ListFields(fields.List...).
 		FormFields(fields.Form...).
 		DetailFields(fields.Detail...).
 		Filters(fields.Filters...).
-		UseBlocks(hasBlocksField(contentType.Schema)).
+		UseBlocks(blocksEnabled).
 		UseSEO(hasSEOCapability(contentType.Capabilities)).
+		TreeView(hasTreeCapability(contentType.Capabilities)).
 		Permissions(panelPermissionsForContentType(*contentType))
+
+	builder.WithWorkflow(nil)
+	workflowKey := capabilityString(contentType.Capabilities, "workflow", "workflow_key", "workflowKey")
+	if workflow := workflowEngineForContentType(f.admin, contentType); workflow != nil {
+		builder.WithWorkflow(workflow)
+		normalized := strings.ToLower(strings.TrimSpace(workflowKey))
+		if normalized == "pages" || normalized == "posts" {
+			if actions := resolveCMSWorkflowActions(f.admin); len(actions) > 0 {
+				builder.Actions(actions...)
+			}
+		}
+	}
 
 	if len(contentType.Schema) > 0 {
 		builder.FormSchema(cloneAnyMap(contentType.Schema))
@@ -233,9 +277,10 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 		return nil, err
 	}
 
-	f.storeSlug(contentType, env)
+	f.registerPanelSearchAdapter(panel, panelSlug, env)
+	f.storeSlug(contentType, env, panelSlug)
 
-	if err := f.addToNavigation(ctx, contentType, env, panelName); err != nil {
+	if err := f.addToNavigation(ctx, contentType, env, panelSlug, panelName); err != nil {
 		return nil, err
 	}
 
@@ -246,6 +291,60 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 	}
 
 	return panel, nil
+}
+
+func (f *DynamicPanelFactory) registerPanelSearchAdapter(panel *Panel, panelSlug, env string) {
+	if f == nil || f.admin == nil || panel == nil || panel.repo == nil {
+		return
+	}
+	if f.admin.search == nil || !featureEnabled(f.admin.featureGate, FeatureSearch) {
+		return
+	}
+	slug := strings.TrimSpace(panelSlug)
+	if slug == "" {
+		slug = strings.TrimSpace(panel.name)
+	}
+	basePath := strings.TrimSpace(f.basePath)
+	if basePath == "" {
+		basePath = f.admin.config.BasePath
+	}
+	adapter := &repoSearchAdapter{
+		repo:        panel.repo,
+		resource:    slug,
+		permission:  strings.TrimSpace(panel.permissions.View),
+		basePath:    basePath,
+		panelSlug:   slug,
+		environment: strings.TrimSpace(env),
+	}
+	f.admin.search.Register(panel.name, adapter)
+}
+
+func (f *DynamicPanelFactory) cleanupPanel(ctx context.Context, contentType *CMSContentType, env string) error {
+	if f == nil || f.admin == nil || contentType == nil {
+		return nil
+	}
+	currentSlug := panelSlugForContentType(contentType)
+	storedSlug := f.storedSlug(env, contentType.ID)
+	slugs := []string{}
+	if storedSlug != "" {
+		slugs = append(slugs, storedSlug)
+	}
+	if currentSlug != "" && currentSlug != storedSlug {
+		slugs = append(slugs, currentSlug)
+	}
+	if len(slugs) == 0 {
+		return nil
+	}
+	for _, slug := range slugs {
+		panelName := f.panelName(slug, env)
+		if err := f.admin.UnregisterPanel(panelName); err != nil && !errors.Is(err, ErrNotFound) {
+			return err
+		}
+		if err := f.removeFromNavigation(ctx, slug, env); err != nil && !errors.Is(err, ErrNotFound) && !isMenuItemMissing(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (f *DynamicPanelFactory) validateSchema(ctx context.Context, contentType *CMSContentType) error {
@@ -262,12 +361,12 @@ func (f *DynamicPanelFactory) validateSchema(ctx context.Context, contentType *C
 	return nil
 }
 
-func (f *DynamicPanelFactory) storeSlug(contentType *CMSContentType, env string) {
+func (f *DynamicPanelFactory) storeSlug(contentType *CMSContentType, env string, slug string) {
 	if contentType == nil {
 		return
 	}
 	id := strings.TrimSpace(contentType.ID)
-	slug := strings.TrimSpace(contentType.Slug)
+	slug = strings.TrimSpace(slug)
 	if id == "" || slug == "" {
 		return
 	}
@@ -304,7 +403,7 @@ func (f *DynamicPanelFactory) resolveSlug(env, slugOrID string) string {
 	return slug
 }
 
-func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *CMSContentType, env string, panelName string) error {
+func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *CMSContentType, env string, panelSlug string, panelName string) error {
 	if f == nil || f.admin == nil || contentType == nil {
 		return nil
 	}
@@ -322,10 +421,13 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 	}
 
 	label := strings.TrimSpace(firstNonEmpty(contentType.Name, contentType.Slug))
+	if override := strings.TrimSpace(panelSlug); override != "" {
+		label = titleCase(override)
+	}
 	if label == "" {
 		return nil
 	}
-	path := joinPath(basePath, contentType.Slug)
+	path := joinPath(basePath, path.Join("content", panelSlug))
 	if env != "" {
 		separator := "?"
 		if strings.Contains(path, "?") {
@@ -351,7 +453,13 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 		item.Permissions = []string{perms.View}
 	}
 
-	return f.admin.addMenuItems(ctx, []MenuItem{item})
+	if err := f.admin.addMenuItems(ctx, []MenuItem{item}); err != nil {
+		if isMenuItemMissing(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, env string) error {
@@ -366,7 +474,7 @@ func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, en
 		return nil
 	}
 	panelName := f.panelName(slug, env)
-	path := joinPath(f.admin.config.BasePath, slug)
+	path := joinPath(f.admin.config.BasePath, path.Join("content", slug))
 	if env != "" {
 		separator := "?"
 		if strings.Contains(path, "?") {
@@ -382,10 +490,19 @@ func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, en
 		ParentID: strings.TrimSpace(f.menuParent),
 	}
 	item = normalizeMenuItem(item, menuCode)
-	return f.admin.menuSvc.DeleteMenuItem(ctx, menuCode, item.ID)
+	if err := f.admin.menuSvc.DeleteMenuItem(ctx, menuCode, item.ID); err != nil {
+		if isMenuItemMissing(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func panelPermissionsForContentType(contentType CMSContentType) PanelPermissions {
+	if perms, ok := permissionsFromCapabilities(contentType.Capabilities); ok {
+		return perms
+	}
 	slug := strings.TrimSpace(firstNonEmpty(contentType.Slug, contentType.Name, contentType.ID))
 	if slug == "" {
 		return PanelPermissions{}
@@ -420,13 +537,244 @@ func hasBlocksField(schema map[string]any) bool {
 }
 
 func hasSEOCapability(capabilities map[string]any) bool {
+	enabled, _ := capabilityFlag(capabilities, "seo", "use_seo", "useSeo")
+	return enabled
+}
+
+func hasTreeCapability(capabilities map[string]any) bool {
+	enabled, _ := capabilityFlag(capabilities, "tree", "tree_view", "treeView")
+	return enabled
+}
+
+func blocksCapability(capabilities map[string]any) (bool, bool) {
+	if enabled, ok := capabilityFlag(capabilities, "blocks"); ok {
+		return enabled, true
+	}
+	if types, ok := blockTypesFromCapabilities(capabilities); ok {
+		return len(types) > 0, true
+	}
+	return false, false
+}
+
+func capabilityFlag(capabilities map[string]any, keys ...string) (bool, bool) {
 	if len(capabilities) == 0 {
-		return false
+		return false, false
 	}
-	if raw, ok := capabilities["seo"]; ok {
-		return toBool(raw)
+	for _, key := range keys {
+		if raw, ok := capabilities[key]; ok {
+			return capabilityEnabled(raw), true
+		}
 	}
-	return false
+	return false, false
+}
+
+func capabilityEnabled(raw any) bool {
+	switch value := raw.(type) {
+	case bool:
+		return value
+	case string:
+		return toBool(value)
+	case []string:
+		return len(value) > 0
+	case []any:
+		return len(value) > 0
+	case map[string]any:
+		keys := []string{"enabled", "active", "use", "types", "allowed", "block_types", "blockTypes"}
+		for _, key := range keys {
+			if nested, ok := value[key]; ok {
+				return capabilityEnabled(nested)
+			}
+		}
+		return len(value) > 0
+	default:
+		return toBool(value)
+	}
+}
+
+func panelSlugForContentType(contentType *CMSContentType) string {
+	if contentType == nil {
+		return ""
+	}
+	if override := capabilityString(contentType.Capabilities, "panel_slug", "panelSlug", "panel-slug"); override != "" {
+		return override
+	}
+	return strings.TrimSpace(contentType.Slug)
+}
+
+func permissionsFromCapabilities(capabilities map[string]any) (PanelPermissions, bool) {
+	if len(capabilities) == 0 {
+		return PanelPermissions{}, false
+	}
+	raw, ok := capabilities["permissions"]
+	if !ok {
+		raw, ok = capabilities["permission"]
+	}
+	if !ok {
+		return PanelPermissions{}, false
+	}
+	switch value := raw.(type) {
+	case string:
+		base := strings.TrimSpace(value)
+		if base == "" {
+			return PanelPermissions{}, false
+		}
+		return panelPermissionsFromBase(base), true
+	case []string:
+		if len(value) == 0 {
+			return PanelPermissions{}, false
+		}
+		if base := strings.TrimSpace(value[0]); base != "" {
+			return panelPermissionsFromBase(base), true
+		}
+	case []any:
+		if len(value) == 0 {
+			return PanelPermissions{}, false
+		}
+		if base := strings.TrimSpace(toString(value[0])); base != "" {
+			return panelPermissionsFromBase(base), true
+		}
+	case map[string]any:
+		if base := capabilityString(value, "base", "resource", "name", "key"); base != "" {
+			return panelPermissionsFromBase(base), true
+		}
+		perms := PanelPermissions{
+			View:   strings.TrimSpace(firstNonEmpty(toString(value["view"]), toString(value["read"]))),
+			Create: strings.TrimSpace(toString(value["create"])),
+			Edit:   strings.TrimSpace(firstNonEmpty(toString(value["edit"]), toString(value["update"]))),
+			Delete: strings.TrimSpace(toString(value["delete"])),
+		}
+		if perms.View != "" || perms.Create != "" || perms.Edit != "" || perms.Delete != "" {
+			return perms, true
+		}
+	}
+	return PanelPermissions{}, false
+}
+
+func panelPermissionsFromBase(base string) PanelPermissions {
+	base = strings.TrimSpace(base)
+	base = strings.TrimSuffix(base, ".")
+	return PanelPermissions{
+		View:   base + ".view",
+		Create: base + ".create",
+		Edit:   base + ".edit",
+		Delete: base + ".delete",
+	}
+}
+
+func workflowEngineForContentType(admin *Admin, contentType *CMSContentType) WorkflowEngine {
+	if contentType == nil {
+		return nil
+	}
+	workflowKey := capabilityString(contentType.Capabilities, "workflow", "workflow_key", "workflowKey")
+	if workflowKey == "" {
+		return nil
+	}
+	engine := resolveCMSWorkflowEngine(admin)
+	if engine == nil {
+		log.Printf("[admin] workflow engine unavailable content_type=%s workflow=%s", contentType.Slug, workflowKey)
+		return nil
+	}
+	checker, ok := engine.(WorkflowDefinitionChecker)
+	if !ok {
+		log.Printf("[admin] workflow definition check unsupported content_type=%s workflow=%s", contentType.Slug, workflowKey)
+		return nil
+	}
+	if !checker.HasWorkflow(workflowKey) {
+		log.Printf("[admin] workflow not found content_type=%s workflow=%s", contentType.Slug, workflowKey)
+		return nil
+	}
+	return workflowAlias{engine: engine, entityType: workflowKey}
+}
+
+type workflowAlias struct {
+	engine     WorkflowEngine
+	entityType string
+}
+
+func (w workflowAlias) Transition(ctx context.Context, input TransitionInput) (*TransitionResult, error) {
+	if w.engine == nil {
+		return nil, ErrWorkflowNotFound
+	}
+	if strings.TrimSpace(w.entityType) != "" {
+		input.EntityType = w.entityType
+	}
+	return w.engine.Transition(ctx, input)
+}
+
+func (w workflowAlias) AvailableTransitions(ctx context.Context, _ string, state string) ([]WorkflowTransition, error) {
+	if w.engine == nil {
+		return nil, nil
+	}
+	entityType := strings.TrimSpace(w.entityType)
+	if entityType == "" {
+		return nil, nil
+	}
+	return w.engine.AvailableTransitions(ctx, entityType, state)
+}
+
+func (f *DynamicPanelFactory) ensurePanelSlugUnique(env string, slug string, id string) error {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return errors.New("panel slug cannot be empty")
+	}
+	key := f.envKey(env, strings.TrimSpace(id))
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	if f.slugByID == nil {
+		return nil
+	}
+	for storedKey, storedSlug := range f.slugByID {
+		if strings.TrimSpace(storedSlug) != slug {
+			continue
+		}
+		if key != "" && storedKey == key {
+			continue
+		}
+		return fmt.Errorf("panel slug already registered: %s", slug)
+	}
+	return nil
+}
+
+func capabilityString(capabilities map[string]any, keys ...string) string {
+	if len(capabilities) == 0 {
+		return ""
+	}
+	for _, key := range keys {
+		if raw, ok := capabilities[key]; ok {
+			if value := capabilityStringValue(raw); value != "" {
+				return value
+			}
+		}
+	}
+	return ""
+}
+
+func capabilityStringValue(raw any) string {
+	switch value := raw.(type) {
+	case string:
+		return strings.TrimSpace(value)
+	case []string:
+		if len(value) == 0 {
+			return ""
+		}
+		return strings.TrimSpace(value[0])
+	case []any:
+		if len(value) == 0 {
+			return ""
+		}
+		return strings.TrimSpace(toString(value[0]))
+	case map[string]any:
+		keys := []string{"value", "name", "key", "slug", "id"}
+		for _, key := range keys {
+			if nested, ok := value[key]; ok {
+				if result := capabilityStringValue(nested); result != "" {
+					return result
+				}
+			}
+		}
+		return ""
+	}
+	return strings.TrimSpace(toString(raw))
 }
 
 func extractTabs(uiSchema map[string]any, panelName string) []PanelTab {
