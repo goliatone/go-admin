@@ -6,6 +6,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const (
@@ -23,6 +25,7 @@ type TenantsModule struct {
 	updatePerm    string
 	deletePerm    string
 	menuParent    string
+	urls          urlkit.Resolver
 }
 
 // NewTenantsModule constructs the default tenants module.
@@ -69,6 +72,9 @@ func (m *TenantsModule) Register(ctx ModuleContext) error {
 	if m.deletePerm == "" {
 		m.deletePerm = ctx.Admin.config.TenantsDeletePermission
 	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
+	}
 
 	repo := NewTenantPanelRepository(ctx.Admin.tenants)
 	builder := ctx.Admin.Panel(tenantsModuleID).
@@ -112,6 +118,7 @@ func (m *TenantsModule) Register(ctx ModuleContext) error {
 			service:    ctx.Admin.tenants,
 			permission: m.viewPerm,
 			basePath:   m.basePath,
+			urls:       m.urls,
 		})
 	}
 	return nil
@@ -122,7 +129,7 @@ func (m *TenantsModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := joinPath(m.basePath, tenantsModuleID)
+	path := resolveURLWith(m.urls, "admin", tenantsModuleID, nil, nil)
 	return []MenuItem{
 		{
 			Label:       "Tenants",
@@ -148,6 +155,7 @@ type OrganizationsModule struct {
 	updatePerm    string
 	deletePerm    string
 	menuParent    string
+	urls          urlkit.Resolver
 }
 
 // NewOrganizationsModule constructs the default organizations module.
@@ -194,6 +202,9 @@ func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 	if m.deletePerm == "" {
 		m.deletePerm = ctx.Admin.config.OrganizationsDeletePermission
 	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
+	}
 
 	repo := NewOrganizationPanelRepository(ctx.Admin.organizations)
 	builder := ctx.Admin.Panel(organizationsModuleID).
@@ -238,6 +249,7 @@ func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 			service:    ctx.Admin.organizations,
 			permission: m.viewPerm,
 			basePath:   m.basePath,
+			urls:       m.urls,
 		})
 	}
 	return nil
@@ -248,7 +260,7 @@ func (m *OrganizationsModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := joinPath(m.basePath, organizationsModuleID)
+	path := resolveURLWith(m.urls, "admin", organizationsModuleID, nil, nil)
 	return []MenuItem{
 		{
 			Label:       "Organizations",
@@ -572,6 +584,7 @@ type tenantSearchAdapter struct {
 	service    *TenantService
 	permission string
 	basePath   string
+	urls       urlkit.Resolver
 }
 
 func (a *tenantSearchAdapter) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
@@ -593,7 +606,7 @@ func (a *tenantSearchAdapter) Search(ctx context.Context, query string, limit in
 			ID:          tenant.ID,
 			Title:       tenant.Name,
 			Description: strings.Join(descParts, " "),
-			URL:         path.Join("/", a.basePath, tenantsModuleID, tenant.ID),
+			URL:         firstNonEmpty(resolveURLWith(a.urls, "admin", "tenants.id", map[string]string{"id": tenant.ID}, nil), path.Join("/", a.basePath, tenantsModuleID, tenant.ID)),
 			Icon:        "building",
 		})
 	}
@@ -611,6 +624,7 @@ type organizationSearchAdapter struct {
 	service    *OrganizationService
 	permission string
 	basePath   string
+	urls       urlkit.Resolver
 }
 
 func (a *organizationSearchAdapter) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
@@ -632,7 +646,7 @@ func (a *organizationSearchAdapter) Search(ctx context.Context, query string, li
 			ID:          org.ID,
 			Title:       org.Name,
 			Description: strings.Join(descParts, " "),
-			URL:         path.Join("/", a.basePath, organizationsModuleID, org.ID),
+			URL:         firstNonEmpty(resolveURLWith(a.urls, "admin", "organizations.id", map[string]string{"id": org.ID}, nil), path.Join("/", a.basePath, organizationsModuleID, org.ID)),
 			Icon:        "briefcase",
 		})
 	}
