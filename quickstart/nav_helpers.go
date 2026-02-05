@@ -10,6 +10,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // PlacementConfig maps logical placements to menu codes and dashboard areas.
@@ -74,8 +75,12 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
+	basePath := resolveAdminBasePath(nil, cfg.BasePath)
+	if adm != nil {
+		basePath = resolveAdminBasePath(adm.URLs(), adm.BasePath())
+	}
 	if _, ok := ctx["base_path"]; !ok {
-		ctx["base_path"] = cfg.BasePath
+		ctx["base_path"] = basePath
 	}
 	if reqCtx == nil {
 		reqCtx = context.Background()
@@ -85,7 +90,7 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	session := FilterSessionUser(rawSession, adm.FeatureGate())
 	sessionView := session.ToViewContext()
 	if sessionView["avatar_url"] == "" {
-		sessionView["avatar_url"] = path.Join(cfg.BasePath, "assets", "avatar-default.svg")
+		sessionView["avatar_url"] = path.Join(basePath, "assets", "avatar-default.svg")
 	}
 	ctx["session_user"] = sessionView
 	ctx = WithFeatureTemplateContext(ctx, reqCtx, scopeData, map[string]bool{})
@@ -118,11 +123,13 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	if nav == nil {
 		return entries
 	}
+	basePath := resolveAdminBasePath(adm.URLs(), adm.BasePath())
+	urls := adm.URLs()
 	menuCode := placements.MenuCodeFor(placement, cfg.NavMenuCode)
 	logNav := strings.EqualFold(os.Getenv("NAV_DEBUG"), "true") || strings.EqualFold(os.Getenv("NAV_DEBUG_LOG"), "true")
 	items := nav.ResolveMenu(ctx, menuCode, cfg.DefaultLocale)
 	for _, item := range items {
-		entry, _ := buildNavEntry(item, cfg, active)
+		entry, _ := buildNavEntry(item, basePath, urls, active)
 		entries = append(entries, entry)
 	}
 	if logNav {
@@ -133,18 +140,18 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	return entries
 }
 
-func buildNavEntry(item admin.NavigationItem, cfg admin.Config, active string) (map[string]any, bool) {
+func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resolver, active string) (map[string]any, bool) {
 	children := []map[string]any{}
 	childActive := false
 	for _, child := range item.Children {
-		childNode, hasActive := buildNavEntry(child, cfg, active)
+		childNode, hasActive := buildNavEntry(child, basePath, urls, active)
 		if hasActive {
 			childActive = true
 		}
 		children = append(children, childNode)
 	}
 
-	href, derivedKey, position := resolveNavTarget(item.Target, cfg.BasePath)
+	href, derivedKey, position := resolveNavTarget(item.Target, basePath, urls)
 	// Prefer target key for active matching since IDs may include parent prefixes
 	key := derivedKey
 	if key == "" {
@@ -183,7 +190,8 @@ func buildNavEntry(item admin.NavigationItem, cfg admin.Config, active string) (
 	return entry, isActive || childActive
 }
 
-func resolveNavTarget(target map[string]any, basePath string) (string, string, int) {
+func resolveNavTarget(target map[string]any, basePath string, urls urlkit.Resolver) (string, string, int) {
+	basePath = resolveAdminBasePath(urls, basePath)
 	href := basePath
 	key := ""
 	position := 0
@@ -194,12 +202,17 @@ func resolveNavTarget(target map[string]any, basePath string) (string, string, i
 
 	if targetPath, ok := target["path"].(string); ok && strings.TrimSpace(targetPath) != "" {
 		href = strings.TrimSpace(targetPath)
-		if shouldPrefixBasePath(target, basePath, href) {
-			href = joinBasePath(basePath, href)
+		if shouldPrefixBasePath(basePath, href) {
+			href = prefixBasePath(basePath, href)
 		}
 	} else if name, ok := target["name"].(string); ok && strings.TrimSpace(name) != "" {
-		trimmed := strings.TrimPrefix(strings.TrimSpace(name), "admin.")
-		href = joinBasePath(basePath, trimmed)
+		trimmedName := strings.TrimSpace(name)
+		if resolved := resolveNavRoute(urls, trimmedName); resolved != "" {
+			href = resolved
+		} else {
+			trimmed := strings.TrimPrefix(trimmedName, "admin.")
+			href = prefixBasePath(basePath, trimmed)
+		}
 	}
 
 	if k, ok := target["key"].(string); ok && strings.TrimSpace(k) != "" {
@@ -223,33 +236,38 @@ func resolveNavTarget(target map[string]any, basePath string) (string, string, i
 	return href, key, position
 }
 
-func shouldPrefixBasePath(target map[string]any, basePath string, href string) bool {
-	if target == nil {
-		return false
+func resolveNavRoute(urls urlkit.Resolver, name string) string {
+	if urls == nil {
+		return ""
 	}
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "admin.") {
+		route := strings.TrimPrefix(trimmed, "admin.")
+		return resolveRoutePath(urls, "admin", route)
+	}
+	if strings.HasPrefix(trimmed, "public.") {
+		route := strings.TrimPrefix(trimmed, "public.")
+		return resolveRoutePath(urls, "public", route)
+	}
+	return resolveRoutePath(urls, "admin", trimmed)
+}
+
+func shouldPrefixBasePath(basePath string, href string) bool {
 	if strings.TrimSpace(basePath) == "" || basePath == "/" {
 		return false
 	}
 	href = strings.TrimSpace(href)
-	if href == "" || !strings.HasPrefix(href, "/") {
+	if href == "" {
+		return false
+	}
+	if isAbsoluteURL(href) {
 		return false
 	}
 	if strings.HasPrefix(href, basePath) {
 		return false
 	}
-	if key, ok := target["key"].(string); ok {
-		key = strings.TrimSpace(key)
-		if key == "feature_flags" {
-			return true
-		}
-	}
-	return false
-}
-
-func joinBasePath(basePath string, suffix string) string {
-	base := strings.TrimSpace(basePath)
-	if base == "" {
-		base = "/"
-	}
-	return path.Join("/", strings.TrimPrefix(base, "/"), strings.TrimPrefix(strings.TrimSpace(suffix), "/"))
+	return true
 }
