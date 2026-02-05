@@ -16,7 +16,7 @@ func FeatureOverridesRouteStep(ctx BootCtx) error {
 		return nil
 	}
 
-	base := joinPath(ctx.BasePath(), "api/feature-flags")
+	base := routePath(ctx, ctx.AdminAPIGroup(), "feature_flags")
 	routes := []RouteSpec{
 		{
 			Method: "GET",

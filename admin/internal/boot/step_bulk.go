@@ -16,7 +16,7 @@ func BulkStep(ctx BootCtx) error {
 		return nil
 	}
 	gates := ctx.Gates()
-	base := joinPath(ctx.BasePath(), "api/bulk")
+	base := routePath(ctx, ctx.AdminAPIGroup(), "bulk")
 	routes := []RouteSpec{
 		{
 			Method: "GET",
@@ -56,7 +56,7 @@ func BulkStep(ctx BootCtx) error {
 		},
 		{
 			Method: "POST",
-			Path:   joinPath(base, ":id/rollback"),
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "bulk.rollback"),
 			Handler: func(c router.Context) error {
 				if gates != nil {
 					if err := gates.Require(FeatureBulk); err != nil {

@@ -164,6 +164,7 @@ type BootCtx interface {
 	Router() Router
 	AuthWrapper() HandlerWrapper
 	BasePath() string
+	AdminAPIGroup() string
 	URLs() urlkit.Resolver
 	DefaultLocale() string
 	NavMenuCode() string

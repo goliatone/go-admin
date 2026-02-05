@@ -7,7 +7,7 @@ func HealthStep(ctx BootCtx) error {
 	if ctx == nil || ctx.Router() == nil {
 		return nil
 	}
-	path := joinPath(ctx.BasePath(), "health")
+	path := routePath(ctx, "admin", "health")
 	responder := ctx.Responder()
 	if responder == nil {
 		return nil

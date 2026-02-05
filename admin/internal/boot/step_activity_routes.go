@@ -15,7 +15,7 @@ func ActivityRouteStep(ctx BootCtx) error {
 	if responder == nil {
 		return nil
 	}
-	path := joinPath(ctx.BasePath(), "api/activity")
+	path := routePath(ctx, ctx.AdminAPIGroup(), "activity")
 	routes := []RouteSpec{
 		{
 			Method: "GET",

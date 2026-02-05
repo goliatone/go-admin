@@ -22,11 +22,10 @@ func DashboardStep(ctx BootCtx) error {
 	}
 	gates := ctx.Gates()
 	routes := []RouteSpec{}
-	basePath := ctx.BasePath()
 	defaultLocale := ctx.DefaultLocale()
 
 	if binding.HasRenderer() {
-		htmlPath := joinPath(basePath, "dashboard")
+		htmlPath := routePath(ctx, "admin", "dashboard.page")
 		routes = append(routes, RouteSpec{
 			Method: "GET",
 			Path:   htmlPath,
@@ -51,7 +50,7 @@ func DashboardStep(ctx BootCtx) error {
 
 	routes = append(routes, RouteSpec{
 		Method: "GET",
-		Path:   joinPath(basePath, "api/dashboard"),
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "dashboard"),
 		Handler: func(c router.Context) error {
 			if gates != nil {
 				if err := gates.Require(FeatureDashboard); err != nil {
@@ -70,8 +69,8 @@ func DashboardStep(ctx BootCtx) error {
 		},
 	})
 
-	prefPath := joinPath(basePath, "api/dashboard/preferences")
-	configAlias := joinPath(basePath, "api/dashboard/config")
+	prefPath := routePath(ctx, ctx.AdminAPIGroup(), "dashboard.preferences")
+	configAlias := routePath(ctx, ctx.AdminAPIGroup(), "dashboard.config")
 	registerPref := func(path string) {
 		pathCopy := path
 		routes = append(routes, RouteSpec{
@@ -137,7 +136,7 @@ func DashboardStep(ctx BootCtx) error {
 	// TODO: make configurable
 	routes = append(routes, RouteSpec{
 		Method: "GET",
-		Path:   joinPath(basePath, "api/dashboard/debug"),
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "dashboard.debug"),
 		Handler: func(c router.Context) error {
 			if gates != nil {
 				if err := gates.Require(FeatureDashboard); err != nil {

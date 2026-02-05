@@ -19,7 +19,7 @@ func SchemaRegistryStep(ctx BootCtx) error {
 	if responder == nil {
 		return nil
 	}
-	base := joinPath(ctx.BasePath(), "api/schemas")
+	base := routePath(ctx, ctx.AdminAPIGroup(), "schemas")
 
 	routes := []RouteSpec{
 		{
@@ -35,7 +35,7 @@ func SchemaRegistryStep(ctx BootCtx) error {
 		},
 		{
 			Method: "GET",
-			Path:   joinPath(base, ":resource"),
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "schemas.resource"),
 			Handler: func(c router.Context) error {
 				resource := strings.TrimSpace(c.Param("resource", ""))
 				if resource == "" {

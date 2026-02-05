@@ -14,7 +14,7 @@ func ExportRegistrarStep(ctx BootCtx) error {
 		return nil
 	}
 	opts := ExportRouteOptions{
-		BasePath: ctx.BasePath(),
+		BasePath: adminBasePath(ctx),
 		Wrap:     safeWrapper(ctx.AuthWrapper()),
 	}
 	return registrar.Register(ctx.Router(), opts)
