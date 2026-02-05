@@ -8,11 +8,12 @@ import (
 
 // PageApplicationService orchestrates admin page reads/writes plus mapping/workflow.
 type PageApplicationService struct {
-	Read            AdminPageReadService
-	Write           AdminPageWriteService
-	Mapper          PageMapper
-	Workflow        WorkflowEngine
-	IncludeDefaults *PageReadDefaults
+	Read              AdminPageReadService
+	Write             AdminPageWriteService
+	Mapper            PageMapper
+	Workflow          WorkflowEngine
+	TranslationPolicy TranslationPolicy
+	IncludeDefaults   *PageReadDefaults
 }
 
 // AdminPageRecord mirrors the admin read model contract for page data.
@@ -26,6 +27,8 @@ type AdminPageRecord struct {
 	Path               string
 	RequestedLocale    string
 	ResolvedLocale     string
+	Translation        TranslationBundle[PageTranslation]
+	ContentTranslation TranslationBundle[ContentTranslation]
 	Status             string
 	ParentID           string
 	MetaTitle          string
@@ -140,10 +143,11 @@ func (s PageApplicationService) List(ctx context.Context, opts PageListOptions) 
 	if s.Read == nil {
 		return nil, 0, ErrNotFound
 	}
+	allowMissing := true
 	readOpts := AdminPageListOptions{
 		Locale:                   resolveLocale(opts.Locale, localeFromContext(ctx)),
 		FallbackLocale:           opts.FallbackLocale,
-		AllowMissingTranslations: opts.AllowMissingTranslations,
+		AllowMissingTranslations: allowMissing,
 		EnvironmentKey:           resolveEnvironment(opts.EnvironmentKey, environmentFromContext(ctx)),
 		Page:                     opts.Page,
 		PerPage:                  opts.PerPage,
@@ -164,10 +168,11 @@ func (s PageApplicationService) Get(ctx context.Context, id string, opts PageGet
 	if s.Read == nil {
 		return nil, ErrNotFound
 	}
+	allowMissing := true
 	readOpts := AdminPageGetOptions{
 		Locale:                   resolveLocale(opts.Locale, localeFromContext(ctx)),
 		FallbackLocale:           opts.FallbackLocale,
-		AllowMissingTranslations: opts.AllowMissingTranslations,
+		AllowMissingTranslations: allowMissing,
 		EnvironmentKey:           resolveEnvironment(opts.EnvironmentKey, environmentFromContext(ctx)),
 	}
 	includes := s.applyIncludeDefaults(false, opts.PageReadOptions)
@@ -294,6 +299,15 @@ func (DefaultPageMapper) ToFormValues(record AdminPageRecord) map[string]any {
 	setValue(values, "locale", locale)
 	setValue(values, "requested_locale", strings.TrimSpace(record.RequestedLocale))
 	setValue(values, "resolved_locale", strings.TrimSpace(record.ResolvedLocale))
+	if record.Translation.Meta.MissingRequestedLocale {
+		values["missing_requested_locale"] = true
+	}
+	if record.Translation.Meta.FallbackUsed {
+		values["fallback_used"] = true
+	}
+	if len(record.Translation.Meta.AvailableLocales) > 0 {
+		values["available_locales"] = append([]string{}, record.Translation.Meta.AvailableLocales...)
+	}
 	setValue(values, "status", strings.TrimSpace(record.Status))
 
 	metaTitle := strings.TrimSpace(record.MetaTitle)
@@ -448,6 +462,10 @@ func (s PageApplicationService) applyWorkflowTransition(ctx context.Context, id,
 				}
 			}
 		}
+	}
+	policyInput := buildTranslationPolicyInput(ctx, pageWorkflowEntityType, id, current, input.Transition, payload)
+	if err := applyTranslationPolicy(ctx, s.TranslationPolicy, policyInput); err != nil {
+		return err
 	}
 	result, err := s.Workflow.Transition(ctx, input)
 	if err != nil {
@@ -604,7 +622,7 @@ func applyRecordDefaults(payload map[string]any, record AdminPageRecord) {
 	}
 	setIfBlank(payload, "path", path)
 
-	locale := resolveLocale(record.ResolvedLocale, record.RequestedLocale)
+	locale := resolveLocale(record.RequestedLocale, record.ResolvedLocale)
 	setIfBlank(payload, "locale", locale)
 
 	setIfBlank(payload, "meta_title", strings.TrimSpace(record.MetaTitle))
