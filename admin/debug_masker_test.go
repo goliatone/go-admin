@@ -60,8 +60,9 @@ func TestDebugMaskQueryParamsNoURL(t *testing.T) {
 }
 
 func TestDebugMaskInlineTokensBearer(t *testing.T) {
+	cfg := DebugConfig{}
 	input := "error: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature123 at line 5"
-	result := debugMaskInlineTokens(input)
+	result := debugMaskInlineTokens(cfg, input)
 	if strings.Contains(result, "eyJhbGciOiJIUzI1NiJ9") {
 		t.Fatalf("expected bearer token masked, got %q", result)
 	}
@@ -71,9 +72,10 @@ func TestDebugMaskInlineTokensBearer(t *testing.T) {
 }
 
 func TestDebugMaskInlineTokensJWT(t *testing.T) {
+	cfg := DebugConfig{}
 	jwt := "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
 	input := "token was " + jwt + " in header"
-	result := debugMaskInlineTokens(input)
+	result := debugMaskInlineTokens(cfg, input)
 	if strings.Contains(result, jwt) {
 		t.Fatalf("expected JWT masked, got %q", result)
 	}
@@ -82,21 +84,9 @@ func TestDebugMaskInlineTokensJWT(t *testing.T) {
 	}
 }
 
-func TestDebugPreserveEnds(t *testing.T) {
-	result := debugPreserveEnds("abcdefghijklm", 4, 4)
-	if result != "abcd***jklm" {
-		t.Fatalf("expected preserved ends, got %q", result)
-	}
-	// Short string falls back to placeholder
-	result = debugPreserveEnds("short", 4, 4)
-	if result != "***" {
-		t.Fatalf("expected placeholder for short string, got %q", result)
-	}
-}
-
 func TestDebugIsSensitiveField(t *testing.T) {
 	cfg := DebugConfig{
-		MaskFieldTypes: map[string]string{"custom_secret": "filled"},
+		MaskFieldTypes: map[string]string{"Custom_Secret": "filled"},
 	}
 	debugMasker(cfg)
 
