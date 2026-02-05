@@ -1,6 +1,9 @@
 package admin
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 const featureFlagsModuleID = "feature_flags"
 
@@ -72,5 +75,11 @@ func (m *FeatureFlagsModule) MenuItems(locale string) []MenuItem {
 // WithMenuParent nests the feature flags navigation under a parent menu item ID.
 func (m *FeatureFlagsModule) WithMenuParent(parent string) *FeatureFlagsModule {
 	m.menuParent = parent
+	return m
+}
+
+// WithBasePath sets the base path used for menu item targets (e.g., /admin).
+func (m *FeatureFlagsModule) WithBasePath(basePath string) *FeatureFlagsModule {
+	m.basePath = strings.TrimSpace(basePath)
 	return m
 }
