@@ -19,6 +19,7 @@ import (
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const environmentCookieName = "admin_env"
@@ -212,7 +213,7 @@ func RegisterContentTypeBuilderAPIRoutes(
 	}
 
 	handlers := newContentTypeBuilderHandlers(adm, cfg, nil, options.permission, options.authResource)
-	apiBase := path.Join(options.basePath, "api")
+	apiBase := adminAPIBasePathFromConfig(options.basePath, cfg)
 	r.Post(path.Join(apiBase, "content_types", ":id", "publish"), wrap(handlers.PublishContentType))
 	r.Post(path.Join(apiBase, "content_types", ":id", "deprecate"), wrap(handlers.DeprecateContentType))
 	r.Post(path.Join(apiBase, "content_types", ":id", "clone"), wrap(handlers.CloneContentType))
@@ -380,9 +381,14 @@ func (h *contentTypeBuilderHandlers) ContentTypes(c router.Context) error {
 		selectedID = strings.TrimSpace(c.Query("content_type"))
 	}
 
+	var urls urlkit.Resolver
+	if h.admin != nil {
+		urls = h.admin.URLs()
+	}
 	viewCtx := router.ViewContext{
 		"title":                      h.cfg.Title,
 		"base_path":                  h.cfg.BasePath,
+		"api_base_path":              resolveAdminAPIBasePath(urls, h.cfg, h.cfg.BasePath),
 		"resource":                   "content_types",
 		"content_types":              contentTypes,
 		"selected_content_type_id":   selectedID,
@@ -402,9 +408,14 @@ func (h *contentTypeBuilderHandlers) BlockDefinitions(c router.Context) error {
 	if err != nil {
 		return err
 	}
+	var urls urlkit.Resolver
+	if h.admin != nil {
+		urls = h.admin.URLs()
+	}
 	viewCtx := router.ViewContext{
 		"title":             h.cfg.Title,
 		"base_path":         h.cfg.BasePath,
+		"api_base_path":     resolveAdminAPIBasePath(urls, h.cfg, h.cfg.BasePath),
 		"resource":          "block_definitions",
 		"block_definitions": blockDefs,
 	}
