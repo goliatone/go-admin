@@ -16,6 +16,7 @@ type ProfileModule struct {
 	viewPermission   string
 	updatePermission string
 	menuParent       string
+	skipMenu         bool
 }
 
 // NewProfileModule constructs the default profile module.
@@ -95,6 +96,9 @@ func (m *ProfileModule) Register(ctx ModuleContext) error {
 }
 
 func (m *ProfileModule) MenuItems(locale string) []MenuItem {
+	if m.skipMenu {
+		return nil
+	}
 	if locale == "" {
 		locale = m.defaultLocale
 	}
@@ -117,6 +121,12 @@ func (m *ProfileModule) MenuItems(locale string) []MenuItem {
 // WithMenuParent nests the profile navigation under a parent menu item ID.
 func (m *ProfileModule) WithMenuParent(parent string) *ProfileModule {
 	m.menuParent = parent
+	return m
+}
+
+// WithSkipMenu suppresses navigation menu contribution while keeping panel registration.
+func (m *ProfileModule) WithSkipMenu(skip bool) *ProfileModule {
+	m.skipMenu = skip
 	return m
 }
 
