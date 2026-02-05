@@ -153,6 +153,12 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 			if hasAnyKey(keySet, keys) {
 				if item.ID != "" && keySet["path:"+strings.TrimSpace(item.ID)] {
 					if err := a.menuSvc.UpdateMenuItem(ctx, code, item); err != nil && !errors.Is(err, ErrNotFound) {
+						if isMenuItemMissing(err) {
+							if addErr := a.menuSvc.AddMenuItem(ctx, code, item); addErr != nil && !isMenuItemMissing(addErr) && !errors.Is(addErr, ErrNotFound) {
+								return addErr
+							}
+							continue
+						}
 						return err
 					}
 				}
@@ -169,6 +175,9 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 				menuCodes[code] = true
 			}
 			if err := a.menuSvc.AddMenuItem(ctx, code, item); err != nil {
+				if isMenuItemMissing(err) {
+					continue
+				}
 				return err
 			}
 			for _, key := range keys {
