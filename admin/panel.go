@@ -29,6 +29,7 @@ type PanelBuilder struct {
 	commandBus   *CommandBus
 	activity     ActivitySink
 	workflow     WorkflowEngine
+	workflowSet  bool
 	workflowAuth WorkflowAuthorizer
 }
 
@@ -297,6 +298,7 @@ func (b *PanelBuilder) WithActivitySink(sink ActivitySink) *PanelBuilder {
 // WithWorkflow attaches a workflow engine to the panel.
 func (b *PanelBuilder) WithWorkflow(w WorkflowEngine) *PanelBuilder {
 	b.workflow = w
+	b.workflowSet = true
 	return b
 }
 
