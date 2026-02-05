@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/client"
@@ -20,13 +21,13 @@ import (
 	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
 	formgenschema "github.com/goliatone/go-formgen/pkg/schema"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const (
 	contentTypeBuilderModuleID    = "content_type_builder"
 	contentTypePanelID            = "content_types"
 	blockDefinitionsPanelID       = "block_definitions"
-	blockDefinitionsAPIBase       = "block_definitions_meta"
 	contentTypeCreateCommandName  = "content_types.create"
 	contentTypeUpdateCommandName  = "content_types.update"
 	contentTypePublishCommandName = "content_types.publish"
@@ -76,6 +77,7 @@ type ContentTypeBuilderModule struct {
 	activity         ActivitySink
 	workflow         WorkflowEngine
 	workflowAuth     WorkflowAuthorizer
+	urls             urlkit.Resolver
 }
 
 // ContentTypeBuilderOption configures the content type builder module.
@@ -194,6 +196,9 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	if m.menuCode == "" {
 		m.menuCode = ctx.Admin.navMenuCode
 	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
+	}
 	if m.defaultLocale == "" {
 		m.defaultLocale = ctx.Admin.config.DefaultLocale
 	}
@@ -221,7 +226,11 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	}
 
 	if m.schemaValidator == nil {
-		validator, err := NewFormgenSchemaValidator(m.basePath)
+		apiBase := ""
+		if ctx.Admin != nil {
+			apiBase = ctx.Admin.AdminAPIBasePath()
+		}
+		validator, err := NewFormgenSchemaValidatorWithAPIBase(m.basePath, apiBase)
 		if err != nil {
 			return err
 		}
@@ -267,12 +276,14 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	basePath := m.basePath
-	if basePath == "" {
-		basePath = "/admin"
+	contentTypesPath := resolveURLWith(m.urls, "admin", "content.types", nil, nil)
+	if contentTypesPath == "" {
+		contentTypesPath = joinBasePath(m.basePath, path.Join("content", "types"))
 	}
-	contentTypesPath := joinPath(basePath, path.Join("content", "types"))
-	blocksPath := joinPath(basePath, path.Join("content", "block-library"))
+	blocksPath := resolveURLWith(m.urls, "admin", "content.block_library", nil, nil)
+	if blocksPath == "" {
+		blocksPath = joinBasePath(m.basePath, path.Join("content", "block-library"))
+	}
 	contentModeling := MenuItem{
 		ID:       contentTypeBuilderMenuGroupID,
 		Label:    "Content Modeling",
@@ -460,6 +471,26 @@ func (m *ContentTypeBuilderModule) loadExistingContentTypes(admin *Admin) error 
 	if err != nil {
 		return err
 	}
+	sort.SliceStable(types, func(i, j int) bool {
+		left := strings.ToLower(strings.TrimSpace(types[i].Slug))
+		right := strings.ToLower(strings.TrimSpace(types[j].Slug))
+		if left == "" {
+			left = strings.ToLower(strings.TrimSpace(types[i].Name))
+		}
+		if right == "" {
+			right = strings.ToLower(strings.TrimSpace(types[j].Name))
+		}
+		if left == "" {
+			left = strings.TrimSpace(types[i].ID)
+		}
+		if right == "" {
+			right = strings.TrimSpace(types[j].ID)
+		}
+		if left == right {
+			return strings.TrimSpace(types[i].ID) < strings.TrimSpace(types[j].ID)
+		}
+		return left < right
+	})
 	for _, ct := range types {
 		contentType := ct
 		if err := m.panelFactory.RefreshPanel(context.Background(), &contentType); err != nil {
@@ -511,9 +542,13 @@ func (m *ContentTypeBuilderModule) registerSearchAdapter(admin *Admin) {
 	if admin == nil || admin.search == nil || m.contentTypeSvc == nil {
 		return
 	}
+	contentTypesPath := resolveURLWith(m.urls, "admin", "content.types", nil, nil)
+	if contentTypesPath == "" {
+		contentTypesPath = joinBasePath(m.basePath, path.Join("content", "types"))
+	}
 	admin.search.Register(contentTypeSearchAdapterKey, &contentTypeSearchAdapter{
 		svc:      m.contentTypeSvc,
-		basePath: joinPath(m.basePath, path.Join("content", "types")),
+		basePath: contentTypesPath,
 		perm:     m.permission,
 	})
 }
@@ -522,8 +557,8 @@ func (m *ContentTypeBuilderModule) registerSchemaRoutes(admin *Admin) {
 	if admin == nil || admin.router == nil {
 		return
 	}
-	validatePath := joinPath(m.basePath, "api/"+contentTypePanelID+"/validate")
-	previewPath := joinPath(m.basePath, "api/"+contentTypePanelID+"/preview")
+	validatePath := adminAPIRoutePath(admin, "content_types.validate")
+	previewPath := adminAPIRoutePath(admin, "content_types.preview")
 
 	validateHandler := func(c router.Context) error {
 		// Apply rate limiting
@@ -609,7 +644,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionCategoriesRoute(admin 
 	if admin == nil || admin.router == nil || m.contentSvc == nil {
 		return
 	}
-	categoriesPath := joinPath(m.basePath, "api/"+blockDefinitionsAPIBase+"/categories")
+	categoriesPath := adminAPIRoutePath(admin, "block_definitions_meta.categories")
 
 	handler := func(c router.Context) error {
 		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
@@ -652,7 +687,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionFieldTypesRoute(admin 
 	if admin == nil || admin.router == nil {
 		return
 	}
-	fieldTypesPath := joinPath(m.basePath, "api/"+blockDefinitionsAPIBase+"/field_types")
+	fieldTypesPath := adminAPIRoutePath(admin, "block_definitions_meta.field_types")
 
 	handler := func(c router.Context) error {
 		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
@@ -993,6 +1028,11 @@ type FormgenSchemaValidator struct {
 
 // NewFormgenSchemaValidator builds a formgen-backed schema validator/previewer.
 func NewFormgenSchemaValidator(basePath string) (*FormgenSchemaValidator, error) {
+	return NewFormgenSchemaValidatorWithAPIBase(basePath, "")
+}
+
+// NewFormgenSchemaValidatorWithAPIBase builds a formgen-backed schema validator/previewer with an explicit API base.
+func NewFormgenSchemaValidatorWithAPIBase(basePath, apiBase string) (*FormgenSchemaValidator, error) {
 	templatesFS, err := fs.Sub(client.Templates(), "formgen/vanilla")
 	if err != nil {
 		return nil, fmt.Errorf("init form templates: %w", err)
@@ -1004,7 +1044,7 @@ func NewFormgenSchemaValidator(basePath string) (*FormgenSchemaValidator, error)
 	componentRegistry := components.NewDefaultRegistry()
 	componentRegistry.MustRegister("schema-editor", SchemaEditorDescriptor(basePath))
 	componentRegistry.MustRegister("block", BlockEditorDescriptor(basePath))
-	componentRegistry.MustRegister("block-library-picker", BlockLibraryPickerDescriptor(basePath))
+	componentRegistry.MustRegister("block-library-picker", BlockLibraryPickerDescriptorWithAPIBase(basePath, apiBase))
 
 	registry := formgenrender.NewRegistry()
 	renderer, err := formgenvanilla.New(
