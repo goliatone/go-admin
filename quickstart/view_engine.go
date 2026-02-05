@@ -8,6 +8,7 @@ import (
 	fggate "github.com/goliatone/go-featuregate/gate"
 	fgtemplates "github.com/goliatone/go-featuregate/templates"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // ViewEngineOption customizes the view engine config.
@@ -25,6 +26,7 @@ type viewEngineOptions struct {
 	ext                  string
 	urlPrefix            string
 	basePath             string
+	urls                 urlkit.Resolver
 }
 
 // WithViewTemplatesFS appends template fallbacks.
@@ -120,13 +122,23 @@ func WithViewURLPrefix(prefix string) ViewEngineOption {
 	}
 }
 
-// WithViewBasePath sets the admin base path used by template helpers (adminURL).
+// WithViewBasePath sets the fallback admin base path used by template helpers (adminURL).
 func WithViewBasePath(basePath string) ViewEngineOption {
 	return func(opts *viewEngineOptions) {
 		if opts == nil {
 			return
 		}
 		opts.basePath = basePath
+	}
+}
+
+// WithViewURLResolver sets the URLKit resolver used by template helpers.
+func WithViewURLResolver(urls urlkit.Resolver) ViewEngineOption {
+	return func(opts *viewEngineOptions) {
+		if opts == nil || urls == nil {
+			return
+		}
+		opts.urls = urls
 	}
 }
 
@@ -171,6 +183,7 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 	if options.templateFuncs == nil {
 		options.templateFuncs = DefaultTemplateFuncs(
 			WithTemplateBasePath(options.basePath),
+			WithTemplateURLResolver(options.urls),
 			WithTemplateFeatureGate(options.featureGate, options.featureHelperOptions...),
 		)
 	}
