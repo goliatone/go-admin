@@ -193,7 +193,8 @@ class PanelFilterBehavior {
   }
 }
 
-const apiEndpoint = '{{ base_path }}/api/roles';
+const apiBasePath = '{{ api_base_path|default:"" }}';
+const apiEndpoint = apiBasePath ? `${apiBasePath}/roles` : '{{ base_path }}/api/roles';
 const columnVisibility = new DefaultColumnVisibilityBehavior(columnFields, 'roles_datatable_columns');
 
 {% verbatim %}

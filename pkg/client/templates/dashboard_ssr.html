@@ -12,7 +12,7 @@
   <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
     <h1 class="text-3xl font-bold text-admin-dark">Dashboard</h1>
     <div class="flex gap-3">
-      <button class="btn btn-secondary" onclick="window.open('{{ base_path }}/api/dashboard')">↑ Export</button>
+      <button id="dashboard-export" class="btn btn-secondary">↑ Export</button>
     </div>
   </header>
 
@@ -86,9 +86,18 @@
         const dashboardState = stateEl ? JSON.parse(stateEl.textContent) : null;
 
         // Initialize widget grid with drag & drop
+        const apiBasePath = '{{ api_base_path|default:"" }}';
+        const basePath = '{{ base_path }}';
+        const dashboardApi = apiBasePath ? `${apiBasePath}/dashboard` : `${basePath}/api/dashboard`;
+
+        const exportBtn = document.getElementById('dashboard-export');
+        if (exportBtn) {
+          exportBtn.addEventListener('click', () => window.open(dashboardApi));
+        }
+
         const grid = new WidgetGrid({
-          apiEndpoint: '{{ base_path }}/api/dashboard',
-          preferencesEndpoint: '{{ base_path }}/api/dashboard/preferences',
+          apiEndpoint: dashboardApi,
+          preferencesEndpoint: `${dashboardApi}/preferences`,
           areas: ['admin.dashboard.main', 'admin.dashboard.sidebar', 'admin.dashboard.footer'],
           selectors: {
             hideBtn: '.hide-widget',
@@ -116,4 +125,3 @@
   </script>
 </body>
 </html>
-

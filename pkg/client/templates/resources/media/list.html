@@ -238,16 +238,17 @@
     GoCrudExportBehavior,
     GoCrudBulkActionBehavior,
     DefaultColumnVisibilityBehavior
-  } from '/admin/assets/dist/datatable/index.js';
+  } from '{{ base_path }}/assets/dist/datatable/index.js';
 
   // Action base path for view/edit/delete
+  const basePath = '{{ base_path }}';
   const actionBasePath = window.location.pathname.replace('/list', '');
   const exportConfig = {{ toJSON(export_config)|safe }};
 
   // Initialize DataGrid
   const grid = new DataGrid({
     tableId: 'media-datatable',
-    apiEndpoint: '/admin/crud/media',
+    apiEndpoint: `${basePath}/crud/media`,
     actionBasePath: actionBasePath,
     columns: [
       { field: 'filename', label: 'Filename', sortable: true, filterable: true },
@@ -267,7 +268,7 @@
       pagination: new GoCrudPaginationBehavior(),
       sort: new GoCrudSortBehavior(),
       export: new GoCrudExportBehavior(exportConfig),
-      bulkActions: new GoCrudBulkActionBehavior('/admin/crud/media'),
+      bulkActions: new GoCrudBulkActionBehavior(`${basePath}/crud/media`),
       columnVisibility: new DefaultColumnVisibilityBehavior(
         ['filename', 'mime_type', 'size', 'created_at'],
         'media_datatable_columns'

@@ -541,6 +541,8 @@ import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFi
 import { ImportModal } from '{{ base_path }}/assets/dist/components/import-modal.js';
 
 // Template variables
+const basePath = '{{ base_path }}';
+const apiBasePath = '{{ api_base_path|default:"" }}';
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};
 const exportConfig = {{ toJSON(export_config)|safe }};
@@ -555,7 +557,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Lifecycle action handler
   async function lifecycleAction(userId, action) {
     try {
-      const response = await fetch(`/admin/api/users/${userId}/${action}`, {
+      const response = await fetch(`${basePath}/api/users/${userId}/${action}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -589,7 +591,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     try {
-      const response = await fetch(`/admin/api/users/${userId}/reset-password`, {
+      const response = await fetch(`${basePath}/api/users/${userId}/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -611,16 +613,18 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
+  const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: 'users',
-    localStorageKey: 'users_datatable_columns'
+    localStorageKey: 'users_datatable_columns',
+    preferencesEndpoint: preferencesEndpoint
   });
   await columnVisibility.loadFromServer();
 
   // Initialize the new TypeScript DataGrid component with custom actions
   const grid = new DataGrid({
     tableId: 'users-datatable',
-    apiEndpoint: '/admin/crud/users',
+    apiEndpoint: `${basePath}/crud/users`,
     actionBasePath: actionBasePath,
     columns: gridColumns,
     perPage: 10,
@@ -697,7 +701,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         id: 'bulk-activate',
         label: 'Activate Selected',
         icon: 'check-circle',
-        endpoint: '/admin/api/users/bulk/activate',
+        endpoint: `${basePath}/api/users/bulk/activate`,
         confirm: 'Activate {count} user(s)?',
         onSuccess: () => grid.refresh()
       },
@@ -705,7 +709,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         id: 'bulk-suspend',
         label: 'Suspend Selected',
         icon: 'pause',
-        endpoint: '/admin/api/users/bulk/suspend',
+        endpoint: `${basePath}/api/users/bulk/suspend`,
         confirm: 'Suspend {count} user(s)?',
         onSuccess: () => grid.refresh()
       },
@@ -713,7 +717,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         id: 'bulk-assign-role',
         label: 'Assign Role',
         icon: 'user-badge',
-        endpoint: '/admin/api/users/bulk/assign-role',
+        endpoint: `${basePath}/api/users/bulk/assign-role`,
         guard: (ids) => ids.length > 0,
         onSuccess: () => grid.refresh()
       }
@@ -747,7 +751,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       pagination: new GoCrudPaginationBehavior(),
       sort: new GoCrudSortBehavior(),
       export: new GoCrudExportBehavior(exportConfig),
-      bulkActions: new GoCrudBulkActionBehavior('/admin/crud/users'),
+      bulkActions: new GoCrudBulkActionBehavior(`${basePath}/crud/users`),
       columnVisibility: columnVisibility
     },
     selectors: {
@@ -819,7 +823,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       const select = document.getElementById('bulk-role-select');
       if (!select) return;
       try {
-        const resp = await fetch('/admin/crud/roles?per_page=50');
+        const resp = await fetch(`${basePath}/crud/roles?per_page=50`);
         if (!resp.ok) return;
         const data = await resp.json();
         const items = data.data || data.items || [];
@@ -853,7 +857,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       const confirmed = await window.toastManager?.confirm(`${label} role for ${ids.length} user(s)?`);
       if (!confirmed) return;
       try {
-        const resp = await fetch(`/admin/crud/users/bulk/${verb}`, {
+        const resp = await fetch(`${basePath}/crud/users/bulk/${verb}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids, role_id: roleId })
@@ -892,7 +896,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Strip the bulk- prefix for the endpoint
         const actionName = action.replace(/^bulk-/, '');
         try {
-          const resp = await fetch(`/admin/crud/users/bulk/${actionName}`, {
+          const resp = await fetch(`${basePath}/crud/users/bulk/${actionName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids })

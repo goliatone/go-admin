@@ -242,16 +242,17 @@
     GoCrudExportBehavior,
     GoCrudBulkActionBehavior,
     DefaultColumnVisibilityBehavior
-  } from '/admin/assets/dist/datatable/index.js';
+  } from '{{ base_path }}/assets/dist/datatable/index.js';
 
   // Action base path for view/edit/delete
+  const basePath = '{{ base_path }}';
   const actionBasePath = window.location.pathname.replace('/list', '');
   const exportConfig = {{ toJSON(export_config)|safe }};
 
   // Initialize DataGrid
   const grid = new DataGrid({
     tableId: 'tenants-datatable',
-    apiEndpoint: '/admin/crud/tenants',
+    apiEndpoint: `${basePath}/crud/tenants`,
     actionBasePath: actionBasePath,
     columns: [
       { field: 'name', label: 'Name', sortable: true, filterable: true },
@@ -267,7 +268,7 @@
       pagination: new GoCrudPaginationBehavior(),
       sort: new GoCrudSortBehavior(),
       export: new GoCrudExportBehavior(exportConfig),
-      bulkActions: new GoCrudBulkActionBehavior('/admin/crud/tenants'),
+      bulkActions: new GoCrudBulkActionBehavior(`${basePath}/crud/tenants`),
       columnVisibility: new DefaultColumnVisibilityBehavior(
         ['name', 'slug', 'status', 'created_at'],
         'tenants_datatable_columns'

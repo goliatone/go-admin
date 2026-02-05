@@ -17,6 +17,8 @@
 <script type="module">
 import { DataGrid, ServerColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
 
+const basePath = '{{ base_path }}';
+const apiBasePath = '{{ api_base_path|default:"" }}';
 const apiEndpoint = '{{ list_api }}';
 const actionBasePath = '{{ action_base }}';
 const columns = {{ toJSON(columns)|safe }};
@@ -57,9 +59,11 @@ const envQuery = env ? `?env=${encodeURIComponent(env)}` : '';
 let grid;
 
 document.addEventListener('DOMContentLoaded', async function() {
+  const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: '{{ panel_name }}',
-    localStorageKey: `content_${'{{ panel_name }}'}_datatable_columns`
+    localStorageKey: `content_${'{{ panel_name }}'}_datatable_columns`,
+    preferencesEndpoint: preferencesEndpoint
   });
   await columnVisibility.loadFromServer();
 

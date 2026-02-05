@@ -83,7 +83,8 @@
 import { FeatureFlagsManager } from '{{ base_path }}/assets/dist/feature-flags/index.js';
 
 const basePath = '{{ base_path }}';
-const apiPath = '{{ feature_flags_api_path|default:"" }}' || `${basePath}/api/feature-flags`;
+const apiBasePath = '{{ api_base_path|default:"" }}';
+const apiPath = '{{ feature_flags_api_path|default:"" }}' || (apiBasePath ? `${apiBasePath}/feature-flags` : `${basePath}/api/feature-flags`);
 
 const manager = new FeatureFlagsManager({
   apiPath,
