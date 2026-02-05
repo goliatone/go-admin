@@ -10,6 +10,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	theme "github.com/goliatone/go-theme"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const preferencesModuleID = "preferences"
@@ -27,6 +28,7 @@ type PreferencesModule struct {
 	schemaPath       string
 	jsonEditorStrict bool
 	skipMenu         bool
+	urls             urlkit.Resolver
 }
 
 // NewPreferencesModule constructs the default preferences module.
@@ -61,6 +63,9 @@ func (m *PreferencesModule) Register(ctx ModuleContext) error {
 	}
 	if m.permission == "" {
 		m.permission = ctx.Admin.config.PreferencesPermission
+	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
 	}
 
 	builder := ctx.Admin.Panel("preferences").
@@ -105,8 +110,12 @@ func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 		"key":  preferencesModuleID,
 		"name": "admin." + preferencesModuleID,
 	}
-	if basePath != "" {
-		target["path"] = joinPath(basePath, "preferences")
+	if basePath != "" || m.urls != nil {
+		if path := resolveURLWith(m.urls, "admin", preferencesModuleID, nil, nil); path != "" {
+			target["path"] = path
+		} else if basePath != "" {
+			target["path"] = joinBasePath(basePath, "preferences")
+		}
 	}
 	return []MenuItem{
 		{
