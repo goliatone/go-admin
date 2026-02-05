@@ -65,6 +65,16 @@ var defaultToolbarPanels = []string{
 	DebugPanelConfig,
 }
 
+// DefaultDebugPanels returns the default debug panel IDs.
+func DefaultDebugPanels() []string {
+	return append([]string{}, defaultDebugPanels...)
+}
+
+// DefaultDebugToolbarPanels returns the default toolbar panel IDs.
+func DefaultDebugToolbarPanels() []string {
+	return append([]string{}, defaultToolbarPanels...)
+}
+
 // DebugConfig controls the debug module behavior and feature flags.
 type DebugConfig struct {
 	Enabled            bool
@@ -129,7 +139,7 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	}
 	cfg.BasePath = strings.TrimSpace(cfg.BasePath)
 	if cfg.BasePath == "" {
-		cfg.BasePath = joinPath(basePath, debugDefaultPathSuffix)
+		cfg.BasePath = joinBasePath(basePath, debugDefaultPathSuffix)
 	}
 	cfg.StandaloneTemplate = strings.TrimSpace(cfg.StandaloneTemplate)
 	if cfg.StandaloneTemplate == "" {
