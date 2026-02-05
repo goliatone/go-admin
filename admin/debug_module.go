@@ -34,6 +34,7 @@ var debugPanelDefaults = map[string]debugPanelMeta{
 	DebugPanelConfig:   {Label: "Config", Span: debugPanelDefaultSpan},
 	DebugPanelRoutes:   {Label: "Routes", Span: debugPanelDefaultSpan},
 	DebugPanelCustom:   {Label: "Custom", Span: debugPanelDefaultSpan},
+	DebugPanelJSErrors: {Label: "JS Errors", Icon: "iconoir-warning-triangle", Span: debugPanelDefaultSpan},
 }
 
 // DebugModule registers the debug dashboard integration and menu entry.
@@ -45,6 +46,7 @@ type DebugModule struct {
 	menuCode      string
 	locale        string
 	permission    string
+	menuParent    string
 }
 
 // NewDebugModule constructs a debug module with the provided configuration.
@@ -131,8 +133,15 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 			Menu:        m.menuCode,
 			Locale:      locale,
 			Position:    intPtr(999),
+			ParentID:    m.menuParent,
 		},
 	}
+}
+
+// WithMenuParent nests the debug navigation under a parent menu item ID.
+func (m *DebugModule) WithMenuParent(parent string) *DebugModule {
+	m.menuParent = parent
+	return m
 }
 
 func (m *DebugModule) registerDashboardArea(admin *Admin) {
