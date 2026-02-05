@@ -31,7 +31,7 @@ Each helper is optional and composable.
 - `NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts ...FiberErrorHandlerOption) fiber.ErrorHandler` - Inputs: admin, config, dev flag + options. Outputs: Fiber error handler.
 - `WithFiberErrorMappers(mappers ...goerrors.ErrorMapper) FiberErrorHandlerOption` - Inputs: extra mappers; outputs: error handler option (appended to defaults).
 - `NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error)` - Inputs: base FS and view options. Outputs: Fiber views engine and error.
-- `DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any` - Outputs: default template helpers (JSON, dict, singularize/pluralize, widget titles, etc.).
+- `DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any` - Outputs: default template helpers (JSON, dict, singularize/pluralize, adminURL, widget titles, etc.).
 - `MergeTemplateFuncs(overrides map[string]any, opts ...TemplateFuncOption) map[string]any` - Inputs: overrides + optional template options. Outputs: merged map for `WithViewTemplateFuncs`.
 - `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection.
 - `WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption` - Inputs: go-theme selector + manifest; outputs: option that wires theme selection + manifest into `NewAdmin` (including Preferences variant options).
@@ -104,18 +104,20 @@ cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
 ```
 
 ## Template functions
-`NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
+`NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. Use `WithViewBasePath(cfg.BasePath)` to configure the `adminURL` helper when you rely on the default template funcs. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
 The go-router Pongo2 engine treats these helpers as functions (globals), not filters, so call them like `{{ singularize(resource_label|default:resource)|title }}` instead of `{{ resource_label|singularize }}`.
 
 Template function options let you override widget title labels without touching the core map:
 - `WithWidgetTitleOverrides(overrides map[string]string) TemplateFuncOption` - merges label overrides into defaults.
 - `WithWidgetTitleMap(titles map[string]string) TemplateFuncOption` - replaces the default map entirely.
 - `WithWidgetTitleFunc(fn func(string) string) TemplateFuncOption` - provides a custom resolver.
+- `WithTemplateBasePath(basePath string) TemplateFuncOption` - sets the base path used by the `adminURL` helper.
 
 ```go
 funcs := quickstart.MergeTemplateFuncs(map[string]any{
 	"titleize": strings.ToUpper,
-}, quickstart.WithWidgetTitleOverrides(map[string]string{
+}, quickstart.WithTemplateBasePath(cfg.BasePath),
+	quickstart.WithWidgetTitleOverrides(map[string]string{
 	"admin.widget.user_profile_overview": "Profile Overview",
 }))
 
