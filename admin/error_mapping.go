@@ -22,6 +22,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	var schemaErr *jsonschema.ValidationError
 	var invalid InvalidFeatureConfigError
 	var permission PermissionDeniedError
+	var missingTranslations MissingTranslationsError
 
 	switch {
 	case errors.Is(err, ErrWorkflowNotFound):
@@ -29,6 +30,31 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		status = mapped.Code
 	case errors.Is(err, ErrWorkflowInvalidTransition):
 		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), nil)
+		status = mapped.Code
+	case errors.As(err, &missingTranslations):
+		meta := map[string]any{}
+		if len(missingTranslations.MissingLocales) > 0 {
+			meta["missing_locales"] = missingTranslations.MissingLocales
+		}
+		if missingTranslations.EntityType != "" {
+			meta["entity_type"] = missingTranslations.EntityType
+		}
+		if missingTranslations.PolicyEntity != "" {
+			meta["policy_entity"] = missingTranslations.PolicyEntity
+		}
+		if missingTranslations.EntityID != "" {
+			meta["entity_id"] = missingTranslations.EntityID
+		}
+		if missingTranslations.Transition != "" {
+			meta["transition"] = missingTranslations.Transition
+		}
+		if missingTranslations.Environment != "" {
+			meta["environment"] = missingTranslations.Environment
+		}
+		if missingTranslations.RequestedLocale != "" {
+			meta["requested_locale"] = missingTranslations.RequestedLocale
+		}
+		mapped = NewDomainError(TextCodeTranslationMissing, missingTranslations.Error(), meta)
 		status = mapped.Code
 	case errors.As(err, &settingsValidation):
 		mapped = goerrors.New("validation failed", goerrors.CategoryValidation).
