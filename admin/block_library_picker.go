@@ -303,7 +303,11 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 	}
 
 	// Create a FormgenSchemaValidator for rendering block templates (task 2.5).
-	renderer, err := NewFormgenSchemaValidator(m.basePath)
+	apiBase := ""
+	if admin != nil {
+		apiBase = admin.AdminAPIBasePath()
+	}
+	renderer, err := NewFormgenSchemaValidatorWithAPIBase(m.basePath, apiBase)
 	if err != nil {
 		return
 	}
@@ -311,7 +315,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 	repo := NewCMSBlockDefinitionRepository(m.contentSvc, m.contentTypeSvc)
 
 	// Task 2.1: Single-template endpoint.
-	singlePath := joinPath(m.basePath, "api/"+blockDefinitionsAPIBase+"/templates/:slug")
+	singlePath := adminAPIRoutePath(admin, "block_definitions_meta.template")
 
 	singleHandler := func(c router.Context) error {
 		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
@@ -346,7 +350,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 	}
 
 	// Task 2.2: Batch-templates endpoint.
-	batchPath := joinPath(m.basePath, "api/"+blockDefinitionsAPIBase+"/templates")
+	batchPath := adminAPIRoutePath(admin, "block_definitions_meta.templates")
 
 	batchHandler := func(c router.Context) error {
 		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
@@ -466,8 +470,14 @@ func blockLibraryPickerRenderer(buf *bytes.Buffer, field model.Field, data compo
 
 // BlockLibraryPickerDescriptor returns the component descriptor for registration.
 func BlockLibraryPickerDescriptor(basePath string) components.Descriptor {
+	return BlockLibraryPickerDescriptorWithAPIBase(basePath, "")
+}
+
+// BlockLibraryPickerDescriptorWithAPIBase returns the component descriptor with an explicit API base.
+// apiBase should point to the admin API root (e.g. /admin/api or /admin/api/v0).
+func BlockLibraryPickerDescriptorWithAPIBase(basePath, apiBase string) components.Descriptor {
 	return components.Descriptor{
-		Renderer: blockLibraryPickerRendererWithBasePath(basePath),
+		Renderer: blockLibraryPickerRendererWithBasePath(basePath, apiBase),
 		Scripts: []components.Script{
 			{Src: blockLibraryPickerScript(basePath), Defer: true, Module: true},
 		},
@@ -510,8 +520,11 @@ func pickerAllowedBlocks(config map[string]any) []string {
 	return nil
 }
 
-func blockLibraryPickerRendererWithBasePath(basePath string) func(*bytes.Buffer, model.Field, components.ComponentData) error {
-	defaultAPIBase := joinPath(basePath, "api/"+blockDefinitionsAPIBase)
+func blockLibraryPickerRendererWithBasePath(basePath, apiBase string) func(*bytes.Buffer, model.Field, components.ComponentData) error {
+	defaultAPIBase := strings.TrimSpace(apiBase)
+	if defaultAPIBase == "" {
+		defaultAPIBase = joinBasePath(basePath, "api")
+	}
 	return func(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
 		data = withDefaultPickerAPIBase(data, defaultAPIBase)
 		return blockLibraryPickerRenderer(buf, field, data)
