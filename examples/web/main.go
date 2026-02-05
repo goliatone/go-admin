@@ -63,6 +63,7 @@ func main() {
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
 		}),
+		quickstart.WithDebugFromEnv(),
 		quickstart.WithErrorsFromEnv(),
 		quickstart.WithScopeFromEnv(),
 	)
@@ -130,73 +131,21 @@ func main() {
 
 	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
 
-	debugEnabled := strings.EqualFold(os.Getenv("ADMIN_DEBUG"), "true")
+	debugEnabled := cfg.Debug.Enabled
 	scopeDebugEnabled := quickstart.ScopeDebugEnabledFromEnv()
 	var scopeDebugBuffer *quickstart.ScopeDebugBuffer
 	if scopeDebugEnabled {
 		scopeDebugBuffer = quickstart.NewScopeDebugBuffer(quickstart.ScopeDebugLimitFromEnv())
 	}
-	cfg.Debug.Enabled = debugEnabled
-	cfg.Debug.ToolbarMode = debugEnabled
-	cfg.Debug.ToolbarPanels = []string{"requests", "sql", "logs", "routes", "config", "template", "session"}
-	cfg.Debug.CaptureSQL = debugEnabled
-	cfg.Debug.CaptureLogs = debugEnabled
-	cfg.Debug.CaptureJSErrors = debugEnabled
-	cfg.Debug.CaptureRequestBody = debugEnabled
 	if debugEnabled {
-		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
-		if mode := strings.TrimSpace(os.Getenv("ADMIN_DEBUG_LAYOUT")); mode != "" {
-			switch strings.ToLower(mode) {
-			case "admin":
-				cfg.Debug.LayoutMode = admin.DebugLayoutAdmin
-			case "standalone":
-				cfg.Debug.LayoutMode = admin.DebugLayoutStandalone
-			}
-		}
 		cfg.Debug.ViewContextBuilder = func(adm *admin.Admin, _ admin.DebugConfig, c router.Context, view router.ViewContext) router.ViewContext {
 			return helpers.WithNav(view, adm, cfg, "debug", c.Context())
 		}
-		// Ensure defaults before appending any custom/debug-only panels.
-		cfg.Debug.Panels = ensureDefaultDebugPanels(cfg.Debug.Panels)
 	}
-	if debugEnabled && cfg.Debug.CaptureJSErrors {
-		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, admin.DebugPanelJSErrors)
-		cfg.Debug.ToolbarPanels = appendUniquePanel(cfg.Debug.ToolbarPanels, admin.DebugPanelJSErrors)
-	}
-	if debugEnabled && scopeDebugEnabled {
-		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, quickstart.ScopeDebugPanelID)
-		cfg.Debug.ToolbarPanels = appendUniquePanel(cfg.Debug.ToolbarPanels, quickstart.ScopeDebugPanelID)
-		quickstart.RegisterScopeDebugPanel(scopeDebugBuffer)
-	}
-
-	if debugEnabled && featureDefaults["export"] {
-		cfg.Debug.Panels = ensureDefaultDebugPanels(cfg.Debug.Panels)
-		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, exportPipelinePanelID)
-	}
-
-	if debugEnabled && isDev && strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL"), "true") {
-		cfg.Debug.Repl.Enabled = true
-		cfg.Debug.Repl.AppEnabled = true
-		cfg.Debug.Repl.ShellEnabled = true
-		if strings.EqualFold(os.Getenv("ADMIN_DEBUG_REPL_READONLY"), "false") {
-			cfg.Debug.Repl.ReadOnly = admin.BoolPtr(false)
-		}
-		if len(cfg.Debug.Panels) == 0 {
-			cfg.Debug.Panels = []string{
-				admin.DebugPanelTemplate,
-				admin.DebugPanelSession,
-				admin.DebugPanelRequests,
-				admin.DebugPanelSQL,
-				admin.DebugPanelLogs,
-				admin.DebugPanelConfig,
-				admin.DebugPanelRoutes,
-				admin.DebugPanelCustom,
-			}
-		}
-		cfg.Debug.Panels = append(cfg.Debug.Panels, admin.DebugPanelConsole)
-		cfg.Debug.Panels = append(cfg.Debug.Panels, admin.DebugPanelShell)
-		cfg.Debug.ToolbarPanels = append(cfg.Debug.ToolbarPanels, admin.DebugPanelConsole, admin.DebugPanelShell)
-		log.Printf("debug repl enabled panels=%v toolbar_panels=%v read_only=%t", cfg.Debug.Panels, cfg.Debug.ToolbarPanels, cfg.Debug.Repl.ReadOnlyEnabled())
+	if cfg.Debug.Repl.Enabled && !isDev {
+		cfg.Debug.Repl.Enabled = false
+		cfg.Debug.Repl.AppEnabled = false
+		cfg.Debug.Repl.ShellEnabled = false
 	}
 
 	var adm *admin.Admin
@@ -272,8 +221,17 @@ func main() {
 		}
 	}
 	if debugEnabled && featureDefaults["export"] {
+		quickstart.AddDebugPanels(&cfg, exportPipelinePanelID)
+	}
+	debugPanelCatalog := quickstart.DefaultDebugPanelCatalog()
+	debugPanelCatalog[exportPipelinePanelID] = func(_ *admin.Config, _ quickstart.DebugPanelDeps) {
 		registerExportPipelinePanel(exportBundle)
 	}
+	quickstart.ConfigureDebugPanels(
+		&cfg,
+		quickstart.DebugPanelDeps{ScopeBuffer: scopeDebugBuffer},
+		debugPanelCatalog,
+	)
 	adminDeps := admin.Dependencies{
 		ExportRegistry:  exportBundle.Registry,
 		ExportRegistrar: exportBundle.Registrar,
@@ -529,7 +487,11 @@ func main() {
 		log.Fatalf("failed to access form templates: %v", err)
 	}
 	componentRegistry := components.New()
-	componentRegistry.MustRegister("block-library-picker", coreadmin.BlockLibraryPickerDescriptor(cfg.BasePath))
+	apiBasePath := ""
+	if adm != nil {
+		apiBasePath = adm.AdminAPIBasePath()
+	}
+	componentRegistry.MustRegister("block-library-picker", coreadmin.BlockLibraryPickerDescriptorWithAPIBase(cfg.BasePath, apiBasePath))
 	formGenerator, err := quickstart.NewFormGenerator(
 		openapiFS,
 		formTemplatesFS,
@@ -545,6 +507,7 @@ func main() {
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
 			append(
 				helpers.TemplateFuncOptions(),
+				quickstart.WithTemplateURLResolver(adm.URLs()),
 				quickstart.WithTemplateBasePath(cfg.BasePath),
 				quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
 			)...,
@@ -1690,35 +1653,6 @@ func exportPipelineSummary() map[string]int {
 		"deleted":    0,
 		"active":     0,
 	}
-}
-
-func ensureDefaultDebugPanels(panels []string) []string {
-	if len(panels) > 0 {
-		return panels
-	}
-	return []string{
-		admin.DebugPanelTemplate,
-		admin.DebugPanelSession,
-		admin.DebugPanelRequests,
-		admin.DebugPanelSQL,
-		admin.DebugPanelLogs,
-		admin.DebugPanelConfig,
-		admin.DebugPanelRoutes,
-		admin.DebugPanelCustom,
-	}
-}
-
-func appendUniquePanel(panels []string, panel string) []string {
-	normalized := strings.ToLower(strings.TrimSpace(panel))
-	if normalized == "" {
-		return panels
-	}
-	for _, existing := range panels {
-		if strings.ToLower(strings.TrimSpace(existing)) == normalized {
-			return panels
-		}
-	}
-	return append(panels, normalized)
 }
 
 type exportGuard struct{}

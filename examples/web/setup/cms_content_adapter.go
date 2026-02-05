@@ -821,11 +821,8 @@ func (b *goCMSContentBridge) buildPageTranslation(field reflect.Value, page admi
 }
 
 func isPageTranslationNotFoundErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(strings.TrimSpace(err.Error()))
-	return strings.Contains(msg, "translation not found")
+	// return admin.IsTranslationMissing(err)
+	return false
 }
 
 func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, ctx context.Context) admin.CMSContent {

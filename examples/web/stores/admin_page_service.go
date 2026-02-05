@@ -286,6 +286,8 @@ func (s *AdminPageStoreAdapter) toAdminPageRecord(record map[string]any, include
 		Path:               path,
 		RequestedLocale:    requested,
 		ResolvedLocale:     resolved,
+		Translation:        buildPageTranslationBundle(record, requested, resolved),
+		ContentTranslation: buildContentTranslationBundle(record, requested, resolved),
 		Status:             status,
 		ParentID:           strings.TrimSpace(stringID(record["parent_id"])),
 		MetaTitle:          metaTitle,
@@ -331,4 +333,139 @@ func resolveLocalePair(requested, resolved, fallback string) (string, string) {
 		}
 	}
 	return req, res
+}
+
+func buildPageTranslationBundle(record map[string]any, requested, resolved string) admin.TranslationBundle[admin.PageTranslation] {
+	meta := admin.TranslationMeta{
+		RequestedLocale: strings.TrimSpace(requested),
+		ResolvedLocale:  strings.TrimSpace(resolved),
+	}
+	if meta.RequestedLocale == "" {
+		meta.RequestedLocale = meta.ResolvedLocale
+	}
+	if locales := parseLocaleSlice(record["available_locales"]); len(locales) > 0 {
+		meta.AvailableLocales = locales
+	}
+	if meta.RequestedLocale != "" && meta.ResolvedLocale != "" && !strings.EqualFold(meta.RequestedLocale, meta.ResolvedLocale) {
+		meta.MissingRequestedLocale = true
+		meta.FallbackUsed = true
+	}
+	translation := admin.PageTranslation{
+		Locale: meta.ResolvedLocale,
+		Title:  strings.TrimSpace(asString(record["title"], "")),
+		Path:   strings.TrimSpace(asString(record["path"], "")),
+	}
+	if summaryText := strings.TrimSpace(asString(record["summary"], "")); summaryText != "" {
+		translation.Summary = &summaryText
+	}
+	fields := map[string]any{}
+	if metaTitle := strings.TrimSpace(asString(record["meta_title"], "")); metaTitle != "" {
+		fields["meta_title"] = metaTitle
+	}
+	if metaDescription := strings.TrimSpace(asString(record["meta_description"], "")); metaDescription != "" {
+		fields["meta_description"] = metaDescription
+	}
+	if len(fields) > 0 {
+		translation.Fields = fields
+	}
+
+	var requestedPtr *admin.PageTranslation
+	var resolvedPtr *admin.PageTranslation
+	if meta.ResolvedLocale != "" {
+		resolved := translation
+		resolvedPtr = &resolved
+		if !meta.MissingRequestedLocale {
+			requested := resolved
+			requestedPtr = &requested
+		}
+	}
+	return admin.TranslationBundle[admin.PageTranslation]{
+		Meta:      meta,
+		Requested: requestedPtr,
+		Resolved:  resolvedPtr,
+	}
+}
+
+func buildContentTranslationBundle(record map[string]any, requested, resolved string) admin.TranslationBundle[admin.ContentTranslation] {
+	meta := admin.TranslationMeta{
+		RequestedLocale: strings.TrimSpace(requested),
+		ResolvedLocale:  strings.TrimSpace(resolved),
+	}
+	if meta.RequestedLocale == "" {
+		meta.RequestedLocale = meta.ResolvedLocale
+	}
+	if locales := parseLocaleSlice(record["available_locales"]); len(locales) > 0 {
+		meta.AvailableLocales = locales
+	}
+	if meta.RequestedLocale != "" && meta.ResolvedLocale != "" && !strings.EqualFold(meta.RequestedLocale, meta.ResolvedLocale) {
+		meta.MissingRequestedLocale = true
+		meta.FallbackUsed = true
+	}
+
+	fields := map[string]any{}
+	if content := record["content"]; content != nil {
+		fields["content"] = content
+	}
+	if len(fields) == 0 {
+		fields = nil
+	}
+	translation := admin.ContentTranslation{
+		Locale: meta.ResolvedLocale,
+		Title:  strings.TrimSpace(asString(record["title"], "")),
+		Fields: fields,
+	}
+	if summaryText := strings.TrimSpace(asString(record["summary"], "")); summaryText != "" {
+		translation.Summary = &summaryText
+	}
+
+	var requestedPtr *admin.ContentTranslation
+	var resolvedPtr *admin.ContentTranslation
+	if meta.ResolvedLocale != "" {
+		resolved := translation
+		resolvedPtr = &resolved
+		if !meta.MissingRequestedLocale {
+			requested := resolved
+			requestedPtr = &requested
+		}
+	}
+	return admin.TranslationBundle[admin.ContentTranslation]{
+		Meta:      meta,
+		Requested: requestedPtr,
+		Resolved:  resolvedPtr,
+	}
+}
+
+func parseLocaleSlice(val any) []string {
+	switch typed := val.(type) {
+	case []string:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+		return out
+	case []any:
+		out := []string{}
+		for _, item := range typed {
+			if trimmed := strings.TrimSpace(asString(item, "")); trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+		return out
+	case string:
+		raw := strings.TrimSpace(typed)
+		if raw == "" {
+			return nil
+		}
+		parts := strings.Split(raw, ",")
+		out := []string{}
+		for _, part := range parts {
+			if trimmed := strings.TrimSpace(part); trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+		return out
+	}
+	return nil
 }

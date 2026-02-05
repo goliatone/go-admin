@@ -46,11 +46,8 @@ func stringID(val any) string {
 }
 
 func isTranslationNotFoundErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(strings.TrimSpace(err.Error()))
-	return strings.Contains(msg, "translation not found")
+	// return admin.IsTranslationMissing(err)
+	return false
 }
 
 func cloneAnyMap(src map[string]any) map[string]any {
