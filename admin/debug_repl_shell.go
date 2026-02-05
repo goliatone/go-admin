@@ -57,7 +57,7 @@ func (m *DebugModule) registerDebugREPLShellWebSocket(admin *Admin) {
 	}
 	basePath := m.basePath
 	if basePath == "" {
-		basePath = normalizeDebugConfig(m.config, admin.config.BasePath).BasePath
+		basePath = normalizeDebugConfig(m.config, adminBasePath(admin.config)).BasePath
 	}
 	cfg := router.DefaultWebSocketConfig()
 	cfg.OnPreUpgrade = func(c router.Context) (router.UpgradeData, error) {
@@ -83,7 +83,11 @@ func (m *DebugModule) registerDebugREPLShellWebSocket(admin *Admin) {
 			debugREPLUpgradeUserAgent:    strings.TrimSpace(c.Header("User-Agent")),
 		}, nil
 	}
-	ws.WebSocket(joinPath(basePath, debugREPLShellPathSuffix), cfg, func(c router.WebSocketContext) error {
+	wsPath := debugRoutePath(admin, m.config, "admin.debug", "repl.shell")
+	if wsPath == "" {
+		wsPath = joinBasePath(basePath, debugREPLShellPathSuffix)
+	}
+	ws.WebSocket(wsPath, cfg, func(c router.WebSocketContext) error {
 		return handleDebugREPLShellWebSocket(admin, m.config, c)
 	})
 }

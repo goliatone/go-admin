@@ -3,6 +3,7 @@ package admin
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"net/http"
 	"strings"
 	"time"
 
@@ -39,17 +40,40 @@ func debugEnsureJSErrorNonce(c router.Context, cookiePath string) string {
 	if nonce == "" {
 		return ""
 	}
+	secure := debugIsSecureRequest(c)
+	sameSite := "Strict"
+	if !secure {
+		sameSite = "Lax"
+	}
 	c.Cookie(&router.Cookie{
 		Name:     debugNonceCookieName,
 		Value:    nonce,
 		Path:     cookiePath,
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "Strict",
+		Secure:   secure,
+		SameSite: sameSite,
 		MaxAge:   debugNonceCookieMaxAge,
 		Expires:  time.Now().Add(time.Duration(debugNonceCookieMaxAge) * time.Second),
 	})
 	return nonce
+}
+
+// debugIsSecureRequest returns true when the request was made over HTTPS.
+// It checks the underlying TLS connection and the X-Forwarded-Proto header
+// for reverse-proxy setups.
+func debugIsSecureRequest(c router.Context) bool {
+	if c == nil {
+		return false
+	}
+	if proto := strings.ToLower(strings.TrimSpace(c.Header("X-Forwarded-Proto"))); proto == "https" {
+		return true
+	}
+	if httpCtx, ok := c.(interface{ Request() *http.Request }); ok {
+		if req := httpCtx.Request(); req != nil && req.TLS != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // debugValidateNonce checks that the body nonce matches the cookie nonce.

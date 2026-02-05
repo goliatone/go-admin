@@ -109,11 +109,14 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	}
 	basePath := m.basePath
 	if basePath == "" {
-		basePath = normalizeDebugConfig(m.config, admin.config.BasePath).BasePath
+		basePath = normalizeDebugConfig(m.config, adminBasePath(admin.config)).BasePath
 	}
 	access := debugAccessMiddleware(admin, m.config, m.permission)
 
 	register := func(path string, handler router.HandlerFunc) {
+		if path == "" {
+			return
+		}
 		if access != nil {
 			admin.router.Get(path, handler, access)
 			return
@@ -121,6 +124,9 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 		admin.router.Get(path, handler)
 	}
 	registerPost := func(path string, handler router.HandlerFunc) {
+		if path == "" {
+			return
+		}
 		if access != nil {
 			admin.router.Post(path, handler, access)
 			return
@@ -129,17 +135,23 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	}
 
 	if !featureEnabled(admin.featureGate, FeatureDashboard) {
-		register(basePath, func(c router.Context) error {
+		debugBase := debugRoutePath(admin, m.config, "admin.debug", "index")
+		if debugBase == "" {
+			debugBase = basePath
+		}
+		register(debugBase, func(c router.Context) error {
 			return m.handleDebugDashboard(admin, c)
 		})
 	}
-	register(joinPath(basePath, "api/panels"), m.handleDebugPanels)
-	register(joinPath(basePath, "api/snapshot"), m.handleDebugSnapshot)
-	registerPost(joinPath(basePath, "api/clear"), m.handleDebugClear)
-	registerPost(joinPath(basePath, "api/clear/:panel"), m.handleDebugClearPanel)
+	register(debugAPIRoutePath(admin, m.config, "panels"), m.handleDebugPanels)
+	register(debugAPIRoutePath(admin, m.config, "snapshot"), m.handleDebugSnapshot)
+	registerPost(debugAPIRoutePath(admin, m.config, "clear"), m.handleDebugClear)
+	registerPost(debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel)
 	// JS error ingestion endpoint — registered without access middleware so
 	// the global error collector on all app pages can report errors.
-	admin.router.Post(joinPath(basePath, "api/errors"), m.handleJSErrorReport)
+	if path := debugAPIRoutePath(admin, m.config, "errors"); path != "" {
+		admin.router.Post(path, m.handleJSErrorReport)
+	}
 }
 
 func (m *DebugModule) registerDebugWebSocket(admin *Admin) {
@@ -152,7 +164,7 @@ func (m *DebugModule) registerDebugWebSocket(admin *Admin) {
 	}
 	basePath := m.basePath
 	if basePath == "" {
-		basePath = normalizeDebugConfig(m.config, admin.config.BasePath).BasePath
+		basePath = normalizeDebugConfig(m.config, adminBasePath(admin.config)).BasePath
 	}
 	authHandler := debugAuthHandler(admin, m.config, m.permission)
 	cfg := router.DefaultWebSocketConfig()
@@ -165,7 +177,11 @@ func (m *DebugModule) registerDebugWebSocket(admin *Admin) {
 		}
 		return nil, nil
 	}
-	ws.WebSocket(joinPath(basePath, "ws"), cfg, func(c router.WebSocketContext) error {
+	wsPath := debugRoutePath(admin, m.config, "admin.debug", "ws")
+	if wsPath == "" {
+		wsPath = joinBasePath(basePath, "ws")
+	}
+	ws.WebSocket(wsPath, cfg, func(c router.WebSocketContext) error {
 		return m.handleDebugWebSocket(c)
 	})
 }
