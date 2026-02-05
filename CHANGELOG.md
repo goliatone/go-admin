@@ -6,6 +6,7 @@
 
 - Centralized error handling: API error responses now go through a shared presenter that sets `location`, `stack_trace`, and consistent `text_code`/`category` defaults.
 - Stack traces are included by default in dev mode; production stack traces are opt-in.
+- Translation workflow refactor: CMS read APIs now use options-based signatures and return translation metadata with nil translation payloads when missing; workflow checks now accept state/environment; writes require explicit create-translation intent.
 
 ## 🛠 Upgrade Guide
 
@@ -14,6 +15,15 @@
 - Use `admin.NewErrorPresenter(cfg.Errors, ...)` for custom handlers and call `Present` / `PresentWithContext` to produce API responses.
 - Wrap origin errors with `admin.WithStack(err)` when you want precise `location` and stack capture at the source.
 - Domain error codes are documented in `docs/ERROR_CODES.md` and exposed via `admin.DomainErrorCodes()`.
+- CMS CRUD alignment: route list/detail reads through `AdminPageReadService` (returning `AdminPageRecord` with `RequestedLocale`/`ResolvedLocale` and include flags). Ensure any view-backed read model (e.g., `admin_page_records`) matches the admin read contract.
+- For parity between HTML and JSON CRUD, split read/write services (go-crud `WithReadService`/`WithWriteService`) and centralize orchestration in `PageApplicationService`.
+- To opt into go-cms admin reads, provide a go-cms container/module exposing `AdminPageReadService` via `Config.CMS.Container`/`Config.CMS.GoCMSConfig`; otherwise keep a view-backed adapter as the fallback read source.
+- Translation workflow migration:
+  - Update go-cms page/content services to accept `TranslationReadOptions` and return translation metadata + nil translation payloads when missing.
+  - Replace locale-only reads in go-admin with options-based reads; propagate translation metadata to admin records.
+  - Pass `TranslationCheckOptions` (state/environment/version) to `CheckTranslations` in workflow guards.
+  - Require an explicit `CreateTranslation` flag/command for writes when the requested locale is missing.
+  - Remove any legacy adapters or string-matching error handling for missing translations.
 
 # [0.23.0](https://github.com/goliatone/go-admin/compare/v0.22.0...v0.23.0) - (2026-01-29)
 
@@ -1029,4 +1039,3 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
