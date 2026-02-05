@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // UIViewContextBuilder mutates the view context for UI routes.
@@ -321,10 +322,15 @@ func RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 
 	if options.registerActivity {
 		r.Get(options.activityPath, wrap(func(c router.Context) error {
+			var urls urlkit.Resolver
+			if adm != nil {
+				urls = adm.URLs()
+			}
+			apiBase := resolveAdminAPIBasePath(urls, cfg, options.basePath)
 			viewCtx := router.ViewContext{
 				"title":             options.activityTitle,
 				"base_path":         options.basePath,
-				"activity_api_path": path.Join(options.basePath, "api", "activity"),
+				"activity_api_path": prefixBasePath(apiBase, "activity"),
 			}
 			viewCtx = options.viewContext(viewCtx, options.activityActive, c)
 			return c.Render(options.activityTemplate, viewCtx)
@@ -333,10 +339,15 @@ func RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 
 	if options.registerFeatureFlags {
 		r.Get(options.featureFlagsPath, wrap(func(c router.Context) error {
+			var urls urlkit.Resolver
+			if adm != nil {
+				urls = adm.URLs()
+			}
+			apiBase := resolveAdminAPIBasePath(urls, cfg, options.basePath)
 			viewCtx := router.ViewContext{
 				"title":                  options.featureFlagsTitle,
 				"base_path":              options.basePath,
-				"feature_flags_api_path": path.Join(options.basePath, "api", "feature-flags"),
+				"feature_flags_api_path": prefixBasePath(apiBase, "feature-flags"),
 			}
 			viewCtx = options.viewContext(viewCtx, options.featureFlagsActive, c)
 			return c.Render(options.featureFlagsTemplate, viewCtx)
@@ -352,11 +363,18 @@ func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewConte
 		ctx = WithNav(ctx, adm, cfg, active, reqCtx)
 		ctx = WithThemeContext(ctx, adm, c)
 		ctx = withAssignedRoles(ctx, adm, reqCtx)
+		if _, ok := ctx["api_base_path"]; !ok {
+			var urls urlkit.Resolver
+			if adm != nil {
+				urls = adm.URLs()
+			}
+			ctx["api_base_path"] = resolveAdminAPIBasePath(urls, cfg, cfg.BasePath)
+		}
 		labels := cfg.ActivityActionLabels
 		if labels == nil {
 			labels = map[string]string{}
 		}
 		ctx["activity_action_labels"] = labels
-		return admin.CaptureViewContext(adm.Debug(), ctx)
+		return admin.CaptureViewContextForRequest(adm.Debug(), c, ctx)
 	}
 }
