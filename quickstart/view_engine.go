@@ -24,6 +24,7 @@ type viewEngineOptions struct {
 	embed                bool
 	ext                  string
 	urlPrefix            string
+	basePath             string
 }
 
 // WithViewTemplatesFS appends template fallbacks.
@@ -119,6 +120,16 @@ func WithViewURLPrefix(prefix string) ViewEngineOption {
 	}
 }
 
+// WithViewBasePath sets the admin base path used by template helpers (adminURL).
+func WithViewBasePath(basePath string) ViewEngineOption {
+	return func(opts *viewEngineOptions) {
+		if opts == nil {
+			return
+		}
+		opts.basePath = basePath
+	}
+}
+
 // NewViewEngine builds a view engine with quickstart sidebar fallbacks.
 func NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error) {
 	cfg, err := newViewEngineConfig(baseFS, opts...)
@@ -158,7 +169,10 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 		}
 	}
 	if options.templateFuncs == nil {
-		options.templateFuncs = DefaultTemplateFuncs(WithTemplateFeatureGate(options.featureGate, options.featureHelperOptions...))
+		options.templateFuncs = DefaultTemplateFuncs(
+			WithTemplateBasePath(options.basePath),
+			WithTemplateFeatureGate(options.featureGate, options.featureHelperOptions...),
+		)
 	}
 
 	templateFS := normalizeTemplatesFS(baseFS)
