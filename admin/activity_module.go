@@ -1,6 +1,10 @@
 package admin
 
-import "errors"
+import (
+	"errors"
+
+	urlkit "github.com/goliatone/go-urlkit"
+)
 
 const activityModuleID = "activity"
 
@@ -11,6 +15,7 @@ type ActivityModule struct {
 	defaultLocale string
 	permission    string
 	menuParent    string
+	urls          urlkit.Resolver
 }
 
 // NewActivityModule constructs the default activity module.
@@ -44,6 +49,9 @@ func (m *ActivityModule) Register(ctx ModuleContext) error {
 	if m.permission == "" {
 		m.permission = ctx.Admin.config.ActivityPermission
 	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
+	}
 
 	return ctx.Admin.RegisterPanelTab(usersModuleID, PanelTab{
 		ID:         "activity",
@@ -52,7 +60,7 @@ func (m *ActivityModule) Register(ctx ModuleContext) error {
 		Position:   20,
 		Scope:      PanelTabScopeDetail,
 		Permission: m.permission,
-		Target:     PanelTabTarget{Type: "path", Path: joinPath(m.basePath, activityModuleID)},
+		Target:     PanelTabTarget{Type: "path", Path: resolveURLWith(m.urls, "admin", activityModuleID, nil, nil)},
 		Query:      map[string]string{"user_id": "{{record.id}}"},
 	})
 }
@@ -62,7 +70,7 @@ func (m *ActivityModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := joinPath(m.basePath, activityModuleID)
+	path := resolveURLWith(m.urls, "admin", activityModuleID, nil, nil)
 	permissions := []string{}
 	if m.permission != "" {
 		permissions = []string{m.permission}
