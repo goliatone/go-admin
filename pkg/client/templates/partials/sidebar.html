@@ -38,7 +38,7 @@
                 <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ child.id }}" data-expanded="{% if not child.collapsed %}true{% else %}false{% endif %}">
                   <button class="nav-item w-full text-left" style="height: var(--sidebar-item-height, 36px);">
                     {% if child.icon %}
-                      <i class="iconoir-{{ child.icon }} flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
+                      {{ renderMenuIcon(child.icon)|safe }}
                     {% endif %}
                     <span class="nav-text flex-1 text-left">{{ child.label }}</span>
                     <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not child.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
@@ -47,7 +47,7 @@
                     {% for grandchild in child.children %}
                       <a href="{{ grandchild.href|default:'#' }}" class="nav-item{% if grandchild.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
                         {% if grandchild.icon %}
-                          <i class="iconoir-{{ grandchild.icon }} flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
+                          {{ renderMenuIcon(grandchild.icon)|safe }}
                         {% endif %}
                         <span class="nav-text flex-1">{{ grandchild.label }}</span>
                       </a>
@@ -57,7 +57,7 @@
               {% else %}
                 <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
                   {% if child.icon %}
-                    <i class="iconoir-{{ child.icon }} flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
+                    {{ renderMenuIcon(child.icon)|safe }}
                   {% endif %}
                   <span class="nav-text flex-1">{{ child.label }}</span>
                 </a>
@@ -69,7 +69,7 @@
         <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ item.id }}" data-expanded="{% if not item.collapsed %}true{% else %}false{% endif %}">
           <button class="nav-item w-full text-left" style="height: var(--sidebar-item-height, 36px);">
             {% if item.icon %}
-              <i class="iconoir-{{ item.icon }} flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
+              {{ renderMenuIcon(item.icon)|safe }}
             {% endif %}
             <span class="nav-text flex-1 text-left">{{ item.label }}</span>
             <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not item.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
@@ -78,7 +78,7 @@
             {% for child in item.children %}
               <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
                 {% if child.icon %}
-                  <i class="iconoir-{{ child.icon }} flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
+                  {{ renderMenuIcon(child.icon)|safe }}
                 {% endif %}
                 <span class="nav-text flex-1">{{ child.label }}</span>
               </a>
@@ -88,7 +88,7 @@
       {% else %}
         <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
           {% if item.icon %}
-            <i class="iconoir-{{ item.icon }} flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
+            {{ renderMenuIcon(item.icon)|safe }}
           {% endif %}
           <span class="nav-text flex-1">{{ item.label }}</span>
         </a>
@@ -103,15 +103,13 @@
   <div class="sidebar-bottom border-t border-sidebar-border" style="padding: var(--sidebar-padding-x, 12px);">
     <!-- Bottom Menu Items -->
     <div class="py-2 space-y-0.5">
-      <a href="{{ base_path }}/settings" class="nav-item" style="height: var(--sidebar-item-height, 36px);">
-        <i class="iconoir-settings flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
-        <span class="nav-text flex-1">Settings</span>
-        <kbd>⌘S</kbd>
+      <a href="{{ base_path }}/preferences" class="nav-item" style="height: var(--sidebar-item-height, 36px);">
+        <i class="iconoir-user-circle flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
+        <span class="nav-text flex-1">Preferences</span>
       </a>
-      <a href="{{ base_path }}/notifications" class="nav-item" style="height: var(--sidebar-item-height, 36px);">
-        <i class="iconoir-bell flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
-        <span class="nav-text flex-1">Notifications</span>
-        <kbd>⌘N</kbd>
+      <a href="{{ base_path }}/profile" class="nav-item" style="height: var(--sidebar-item-height, 36px);">
+        <i class="iconoir-user flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
+        <span class="nav-text flex-1">Profile</span>
       </a>
       <a href="{{ base_path }}/help" class="nav-item" style="height: var(--sidebar-item-height, 36px);">
         <i class="iconoir-question-mark flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>

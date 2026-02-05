@@ -9,10 +9,10 @@
     <p class="text-xs text-gray-500 mt-1">Design schemas, layout, and capabilities for structured content.</p>
   </div>
   <div class="flex items-center gap-3">
-    <a class="btn btn-secondary" href="{{ base_path }}/block_definitions">
+    <a class="btn btn-secondary" href="{{ base_path }}/content/block-library">
       Manage Blocks
     </a>
-    <a class="btn btn-primary" href="{{ base_path }}/content_types">New Content Type</a>
+    <a class="btn btn-primary" href="{{ base_path }}/content/types">New Content Type</a>
   </div>
 </header>
 
@@ -31,7 +31,7 @@
         {% set ct_slug = ct.slug|default:ct_id %}
         {% set is_active = selected_content_type_id and (selected_content_type_id == ct_id or selected_content_type_id == ct_slug) %}
         <li>
-          <a href="{{ base_path }}/content_types?slug={{ ct_slug|urlencode }}"
+          <a href="{{ base_path }}/content/types?slug={{ ct_slug|urlencode }}"
              class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors {% if is_active %}border-blue-200 bg-blue-50 text-blue-700{% else %}border-gray-200 hover:border-gray-300 text-gray-700{% endif %}">
             <span class="font-medium truncate">{{ ct.name|default:ct.slug|default:"Untitled" }}</span>
             <span class="text-xs uppercase tracking-wide text-gray-400">{{ ct.status|default:"draft" }}</span>
@@ -68,6 +68,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ base_path }}/runtime/formgen-behaviors.min.js" defer></script>
+<script src="{{ adminURL("runtime/formgen-behaviors.min.js") }}" defer></script>
 <script type="module" src="{{ base_path }}/assets/dist/content-type-builder/index.js"></script>
 {% endblock %}

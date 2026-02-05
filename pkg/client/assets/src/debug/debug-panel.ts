@@ -31,6 +31,7 @@ import {
   renderRoutesPanel,
   renderJSONPanel as renderSharedJSONPanel,
   renderCustomPanel,
+  renderJSErrorsPanel,
 } from './shared/panels/index.js';
 import {
   panelRegistry,
@@ -654,6 +655,11 @@ export class DebugPanel {
       content = this.renderRoutes();
     } else if (panel === 'custom') {
       content = this.renderCustom();
+    } else if (panel === 'jserrors') {
+      content = renderJSErrorsPanel(this.state.extra['jserrors'] || [], consoleStyles, {
+        newestFirst: this.filters.logs.newestFirst,
+        showSortToggle: true,
+      });
     } else {
       content = this.renderJSONPanel(getPanelLabel(panel), this.state.extra[panel], this.filters.objects.search);
     }
@@ -1095,10 +1101,17 @@ export class DebugPanel {
       data: custom.data || {},
       logs: ensureArray<CustomLogEntry>(custom.logs),
     };
+    // Extract registry and unknown panels into extra.
+    // Built-in state keys are already assigned above; everything else
+    // (including registry panels like jserrors) goes into extra.
+    const builtinStateKeys = new Set([
+      'template', 'session', 'requests', 'sql', 'logs',
+      'config', 'routes', 'custom',
+    ]);
     const extra: Record<string, any> = {};
     this.panels.forEach((panel) => {
-      if (!isKnownPanel(panel) && panel in next) {
-        extra[panel] = next[panel];
+      if (!builtinStateKeys.has(panel) && panel in next) {
+        extra[panel] = (next as any)[panel];
       }
     });
     this.state.extra = extra;

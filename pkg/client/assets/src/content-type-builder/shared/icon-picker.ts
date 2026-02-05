@@ -17,7 +17,7 @@
 
 import { iconForKey } from '../field-type-picker';
 import { inputClasses } from './field-input-classes';
-import { getBuiltinEmojiTab, getBuiltinIconsTab } from './icon-picker-data';
+import { getBuiltinEmojiTab, getBuiltinIconoirTab, getBuiltinIconsTab } from './icon-picker-data';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -68,6 +68,7 @@ let _initialized = false;
 function ensureBuiltins(): void {
   if (_initialized) return;
   _initialized = true;
+  _tabs.push(getBuiltinIconoirTab());
   _tabs.push(getBuiltinEmojiTab());
   _tabs.push(getBuiltinIconsTab());
 }
@@ -210,7 +211,7 @@ export function renderIconTrigger(
 let _popoverEl: HTMLElement | null = null;
 let _activeConfig: IconPickerConfig | null = null;
 let _activeTrigger: HTMLElement | null = null;
-let _activeTabId = 'emoji';
+let _activeTabId = 'iconoir';
 let _searchQuery = '';
 let _clickOutsideHandler: ((e: MouseEvent) => void) | null = null;
 let _escapeHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -235,7 +236,9 @@ export function openIconPicker(
   // Create popover element
   _popoverEl = document.createElement('div');
   _popoverEl.setAttribute('data-icon-picker-popover', '');
-  _popoverEl.className = 'fixed z-50';
+  _popoverEl.className = 'fixed';
+  // Compute z-index above the nearest modal backdrop (or fallback to 50)
+  _popoverEl.style.zIndex = String(getAncestorZIndex(anchor) + 5);
   _popoverEl.innerHTML = renderPopoverContent();
 
   document.body.appendChild(_popoverEl);
@@ -576,6 +579,17 @@ export function bindIconTriggerEvents(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Walk up the DOM to find the nearest ancestor with an inline z-index (e.g. modal backdrop). */
+function getAncestorZIndex(el: HTMLElement): number {
+  let node: HTMLElement | null = el;
+  while (node) {
+    const z = parseInt(node.style.zIndex, 10);
+    if (!isNaN(z) && z > 0) return z;
+    node = node.parentElement;
+  }
+  return 50;
+}
 
 function escapeHtml(str: string): string {
   return str

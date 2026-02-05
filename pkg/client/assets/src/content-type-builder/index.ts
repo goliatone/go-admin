@@ -123,7 +123,7 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
     // Wire default onCancel: navigate back to the content types list
     if (!config.onCancel) {
       config.onCancel = () => {
-        window.location.href = `${config.apiBasePath}/content_types`;
+        window.location.href = `${config.apiBasePath}/content/types`;
       };
     }
 
@@ -132,7 +132,7 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
       config.onSave = (saved) => {
         const slug = saved.slug ?? saved.id;
         if (slug) {
-          window.location.href = `${config.apiBasePath}/content_types?slug=${encodeURIComponent(slug)}`;
+          window.location.href = `${config.apiBasePath}/content/types?slug=${encodeURIComponent(slug)}`;
         }
       };
     }

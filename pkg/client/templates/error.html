@@ -43,6 +43,32 @@
           <div class="error-detail-content">{{ error_detail }}</div>
         </div>
         {% endif %}
+        {% if dev_mode %}
+          {% if error_feature %}
+          <div class="error-detail">
+            <div class="error-detail-label">Feature</div>
+            <div class="error-detail-content">{{ error_feature }}{% if error_reason %} ({{ error_reason }}){% endif %}</div>
+          </div>
+          {% endif %}
+          {% if error_text_code %}
+          <div class="error-detail">
+            <div class="error-detail-label">Error Code</div>
+            <div class="error-detail-content">{{ error_text_code }}{% if error_category %} ({{ error_category }}){% endif %}</div>
+          </div>
+          {% endif %}
+          {% if error_metadata_json %}
+          <div class="error-detail">
+            <div class="error-detail-label">Metadata</div>
+            <pre class="error-detail-content">{{ error_metadata_json }}</pre>
+          </div>
+          {% endif %}
+          {% if error_stack %}
+          <div class="error-detail">
+            <div class="error-detail-label">Stack Trace</div>
+            <pre class="error-detail-content">{{ error_stack }}</pre>
+          </div>
+          {% endif %}
+        {% endif %}
 
         <div class="error-actions">
           <a href="{{ base_path|default:"/admin" }}" class="btn btn-primary">

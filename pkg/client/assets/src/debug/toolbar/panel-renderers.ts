@@ -8,6 +8,7 @@ import type {
   RouteEntry,
   CustomLogEntry,
   CustomSnapshot,
+  JSErrorEntry,
   DebugSnapshot,
   PanelOptions,
 } from '../shared/types.js';
@@ -20,6 +21,7 @@ import {
   renderRoutesPanel,
   renderJSONPanel,
   renderCustomPanel,
+  renderJSErrorsPanel,
 } from '../shared/panels/index.js';
 
 // Re-export types for consumers that import from this file
@@ -30,6 +32,7 @@ export type {
   RouteEntry,
   CustomLogEntry,
   CustomSnapshot,
+  JSErrorEntry,
   DebugSnapshot,
   PanelOptions,
 };
@@ -98,14 +101,31 @@ export function renderPanel(
         useIconCopyButton: false,
         showCount: false,
       });
+    case 'jserrors':
+      return renderJSErrorsPanel(snapshot.jserrors || [], styles, {
+        newestFirst,
+        maxEntries: 50,
+        compact: true,
+        showSortToggle: true,
+      });
     case 'custom':
       return renderCustomPanel(snapshot.custom || {}, styles, {
         maxLogEntries: 50,
         useIconCopyButton: false,
         showCount: false,
       });
-    default:
+    default: {
+      // Dynamically registered panels: render as JSON if data exists in snapshot
+      const panelData = snapshot[panel];
+      if (panelData != null) {
+        const label = panel.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        return renderJSONPanel(label, panelData, styles, {
+          useIconCopyButton: false,
+          showCount: false,
+        });
+      }
       return `<div class="${styles.emptyState}">Panel "${escapeHTML(panel)}" not available</div>`;
+    }
   }
 }
 
@@ -117,12 +137,14 @@ export function getCounts(
   requests: number;
   sql: number;
   logs: number;
+  jserrors: number;
   errors: number;
   slowQueries: number;
 } {
   const requests = snapshot.requests?.length || 0;
   const sql = snapshot.sql?.length || 0;
   const logs = snapshot.logs?.length || 0;
+  const jserrors = snapshot.jserrors?.length || 0;
 
   // Count errors
   const requestErrors = (snapshot.requests || []).filter((r) => (r.status || 0) >= 400).length;
@@ -139,7 +161,8 @@ export function getCounts(
     requests,
     sql,
     logs,
-    errors: requestErrors + sqlErrors + logErrors,
+    jserrors,
+    errors: requestErrors + sqlErrors + logErrors + jserrors,
     slowQueries,
   };
 }

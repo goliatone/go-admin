@@ -1120,7 +1120,7 @@ export class ContentTypeEditor {
       const blocksOpenLibrary = target.closest<HTMLElement>('[data-ct-blocks-open-library]');
       if (blocksOpenLibrary) {
         const basePath = this.api.getBasePath();
-        window.location.href = `${basePath}/block_definitions`;
+        window.location.href = `${basePath}/content/block-library`;
         return;
       }
 

@@ -1,0 +1,154 @@
+{% extends "resources/shared/list-base.html" %}
+
+{% block list_title %}{{ resource_label|default:"Content" }} - {{ title }}{% endblock %}
+
+{% block filter_row %}{% endblock %}
+
+{% block empty_state %}
+<div class="text-center py-16">
+  <div class="text-6xl mb-4">📄</div>
+  <h3 class="text-xl font-semibold text-gray-900 mb-2">No {{ resource_label|default:"content"|lower }} yet</h3>
+  <p class="text-gray-500 mb-6">Create your first {{ resource_label|default:"content"|lower }} entry</p>
+  <a href="{{ routes.new }}" class="btn btn-primary">Create</a>
+</div>
+{% endblock %}
+
+{% block datatable_scripts %}
+<script type="module">
+import { DataGrid, ServerColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
+
+const apiEndpoint = '{{ list_api }}';
+const actionBasePath = '{{ action_base }}';
+const columns = {{ toJSON(columns)|safe }};
+const env = {{ toJSON(env)|safe }};
+const columnFields = columns.map(c => c.field);
+const gridColumns = columns.map(col => ({
+  ...col,
+  hidden: col.default === false
+}));
+
+class PanelPaginationBehavior {
+  buildQuery(page, perPage) {
+    const params = { page, per_page: perPage };
+    if (env) params.env = env;
+    return params;
+  }
+  async onPageChange(page, grid) {
+    await grid.refresh();
+  }
+}
+
+class PanelSearchBehavior {
+  buildQuery(term) {
+    const params = {};
+    const value = term ? term.trim() : '';
+    if (value) params.search = value;
+    if (env) params.env = env;
+    return params;
+  }
+  async onSearch(term, grid) {
+    grid.resetPagination();
+    await grid.refresh();
+  }
+}
+
+const envQuery = env ? `?env=${encodeURIComponent(env)}` : '';
+
+let grid;
+
+document.addEventListener('DOMContentLoaded', async function() {
+  const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
+    resource: '{{ panel_name }}',
+    localStorageKey: `content_${'{{ panel_name }}'}_datatable_columns`
+  });
+  await columnVisibility.loadFromServer();
+
+  grid = new DataGrid({
+    tableId: '{{ datatable_id|default:resource }}-datatable',
+    apiEndpoint: apiEndpoint,
+    actionBasePath: actionBasePath,
+    columns: gridColumns,
+    perPage: 10,
+    searchDelay: 300,
+    rowActions: (item) => [
+      {
+        label: 'View',
+        icon: 'eye',
+        variant: 'secondary',
+        action: () => { window.location.href = `${actionBasePath}/${item.id}${envQuery}`; }
+      },
+      {
+        label: 'Edit',
+        icon: 'edit',
+        variant: 'primary',
+        action: () => { window.location.href = `${actionBasePath}/${item.id}/edit${envQuery}`; }
+      },
+      {
+        label: 'Delete',
+        icon: 'trash',
+        variant: 'danger',
+        action: async () => {
+          if (!window.confirm('Are you sure you want to delete this item?')) return;
+          const response = await fetch(`${apiEndpoint}/${item.id}`, {
+            method: 'DELETE',
+            headers: { 'Accept': 'application/json' }
+          });
+          if (!response.ok) {
+            throw new Error('Delete failed');
+          }
+          await grid.refresh();
+        }
+      }
+    ],
+    behaviors: {
+      search: new PanelSearchBehavior(),
+      pagination: new PanelPaginationBehavior(),
+      columnVisibility: columnVisibility
+    },
+    selectors: {
+      searchInput: '#table-search',
+      perPageSelect: '#table-per-page',
+      filterRow: '[data-filter-column]',
+      columnToggleBtn: '#column-toggle-btn',
+      columnToggleMenu: '#column-toggle-menu',
+      exportBtn: '#export-btn',
+      exportMenu: '#export-menu',
+      paginationContainer: '#table-pagination',
+      tableInfoStart: '#table-info-start',
+      tableInfoEnd: '#table-info-end',
+      tableInfoTotal: '#table-info-total',
+      selectAllCheckbox: '#table-checkbox-all',
+      rowCheckboxes: '.table-checkbox',
+      bulkActionsBar: '#bulk-actions-overlay',
+      selectedCount: '#selected-count'
+    },
+    notifier: window.toastManager
+  });
+
+  grid.init();
+
+  const refreshBtn = document.getElementById('refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.classList.add('opacity-50');
+      try {
+        await grid.refresh();
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.classList.remove('opacity-50');
+      }
+    });
+  }
+
+  const filterToggle = document.getElementById('filter-toggle-btn');
+  if (filterToggle) {
+    filterToggle.classList.add('hidden');
+  }
+  const exportBtn = document.getElementById('export-btn');
+  if (exportBtn) {
+    exportBtn.classList.add('hidden');
+  }
+});
+</script>
+{% endblock %}

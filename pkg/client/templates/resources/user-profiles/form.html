@@ -21,7 +21,7 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/runtime/formgen-relationships.min.js" defer></script>
+  <script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
   <script>
     window.addEventListener("DOMContentLoaded", () => {
       const api = window.FormgenRelationships;

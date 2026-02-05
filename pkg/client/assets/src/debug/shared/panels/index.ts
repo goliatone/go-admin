@@ -7,3 +7,4 @@ export { renderLogsPanel, type LogsPanelOptions } from './logs.js';
 export { renderRoutesPanel, type RoutesPanelOptions } from './routes.js';
 export { renderJSONPanel, renderJSONViewer, type JSONPanelOptions } from './json.js';
 export { renderCustomPanel, type CustomPanelOptions } from './custom.js';
+export { renderJSErrorsPanel, type JSErrorsPanelOptions } from './jserrors.js';
