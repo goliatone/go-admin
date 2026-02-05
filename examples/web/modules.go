@@ -223,7 +223,6 @@ func (m *usersModule) WithTranslator(t admin.Translator) {
 
 // pagesModule registers the pages panel and menu entry.
 type pagesModule struct {
-	store      stores.PageRepository
 	menuCode   string
 	defaultLoc string
 	basePath   string
@@ -240,49 +239,13 @@ func (m *pagesModule) Manifest() admin.ModuleManifest {
 }
 
 func (m *pagesModule) Register(ctx admin.ModuleContext) error {
-	if m == nil || m.store == nil {
-		return fmt.Errorf("pages module store is nil")
-	}
-	if ctx.Admin == nil {
-		return fmt.Errorf("admin is nil")
+	if m == nil {
+		return nil
 	}
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
-
-	// Create activity adapter
-	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
-	bus := ctx.Admin.Commands()
-	if err := commands.RegisterPageCommandFactories(bus); err != nil {
-		return err
-	}
-
-	// Register commands with activity hooks
-	publishCmd := commands.NewPagePublishCommand(m.store).
-		WithActivityHooks(activityAdapter)
-	if _, err := admin.RegisterCommand(bus, publishCmd); err != nil {
-		return err
-	}
-
-	bulkPublishCmd := commands.NewPageBulkPublishCommand(m.store).
-		WithActivityHooks(activityAdapter)
-	if _, err := admin.RegisterCommand(bus, bulkPublishCmd); err != nil {
-		return err
-	}
-
-	bulkUnpublishCmd := commands.NewPageBulkUnpublishCommand(m.store).
-		WithActivityHooks(activityAdapter)
-	if _, err := admin.RegisterCommand(bus, bulkUnpublishCmd); err != nil {
-		return err
-	}
-
-	if reg := ctx.Admin.Registry(); reg != nil {
-		if _, exists := reg.Panel("pages"); exists {
-			return nil
-		}
-	}
-	_, err := ctx.Admin.RegisterPanel("pages", setup.NewPagesPanelBuilder(m.store))
-	return err
+	return nil
 }
 
 func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
@@ -304,7 +267,7 @@ func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
 			Icon:     "page",
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join(m.basePath, "pages"),
+				"path": path.Join(m.basePath, "content", "pages"),
 				"key":  "pages",
 			},
 			ParentID:    m.parentID,
@@ -322,7 +285,6 @@ func (m *pagesModule) WithTranslator(t admin.Translator) {
 
 // postsModule registers the posts panel and menu entry.
 type postsModule struct {
-	store      stores.PostRepository
 	menuCode   string
 	defaultLoc string
 	basePath   string
@@ -339,55 +301,13 @@ func (m *postsModule) Manifest() admin.ModuleManifest {
 }
 
 func (m *postsModule) Register(ctx admin.ModuleContext) error {
-	if m == nil || m.store == nil {
-		return fmt.Errorf("posts module store is nil")
-	}
-	if ctx.Admin == nil {
-		return fmt.Errorf("admin is nil")
+	if m == nil {
+		return nil
 	}
 	if ctx.Translator != nil {
 		m.translator = ctx.Translator
 	}
-
-	// Create activity adapter
-	activityAdapter := activity.NewAdminActivityAdapter(ctx.Admin.ActivityFeed())
-	bus := ctx.Admin.Commands()
-	if err := commands.RegisterPostCommandFactories(bus); err != nil {
-		return err
-	}
-
-	// Register commands with activity hooks
-	bulkPublishCmd := commands.NewPostBulkPublishCommand(m.store).
-		WithActivityHooks(activityAdapter)
-	if _, err := admin.RegisterCommand(bus, bulkPublishCmd); err != nil {
-		return err
-	}
-
-	bulkUnpublishCmd := commands.NewPostBulkUnpublishCommand(m.store).
-		WithActivityHooks(activityAdapter)
-	if _, err := admin.RegisterCommand(bus, bulkUnpublishCmd); err != nil {
-		return err
-	}
-
-	bulkScheduleCmd := commands.NewPostBulkScheduleCommand(m.store).
-		WithActivityHooks(activityAdapter)
-	if _, err := admin.RegisterCommand(bus, bulkScheduleCmd); err != nil {
-		return err
-	}
-
-	bulkArchiveCmd := commands.NewPostBulkArchiveCommand(m.store).
-		WithActivityHooks(activityAdapter)
-	if _, err := admin.RegisterCommand(bus, bulkArchiveCmd); err != nil {
-		return err
-	}
-
-	if reg := ctx.Admin.Registry(); reg != nil {
-		if _, exists := reg.Panel("posts"); exists {
-			return nil
-		}
-	}
-	_, err := ctx.Admin.RegisterPanel("posts", setup.NewPostsPanelBuilder(m.store))
-	return err
+	return nil
 }
 
 func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
@@ -409,7 +329,7 @@ func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
 			Icon:     "post",
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join(m.basePath, "posts"),
+				"path": path.Join(m.basePath, "content", "posts"),
 				"key":  "posts",
 			},
 			ParentID:    m.parentID,
@@ -510,56 +430,6 @@ func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 
 func (m *mediaModule) WithTranslator(t admin.Translator) {
 	m.translator = t
-}
-
-// notificationsModule contributes the notifications center menu entry.
-type notificationsModule struct {
-	menuCode   string
-	defaultLoc string
-	basePath   string
-	parentID   string
-}
-
-func (m *notificationsModule) Manifest() admin.ModuleManifest {
-	return admin.ModuleManifest{
-		ID:           "notifications",
-		FeatureFlags: []string{string(admin.FeatureNotifications)},
-	}
-}
-
-func (m *notificationsModule) Register(ctx admin.ModuleContext) error {
-	return nil
-}
-
-func (m *notificationsModule) MenuItems(locale string) []admin.MenuItem {
-	code := m.menuCode
-	if code == "" {
-		code = setup.NavigationMenuCode
-	}
-	if locale == "" {
-		locale = m.defaultLoc
-	}
-	id := "notifications"
-	if m.parentID != "" {
-		id = m.parentID + ".notifications"
-	}
-	return []admin.MenuItem{
-		{
-			ID:       id,
-			Label:    "Notifications",
-			LabelKey: "menu.notifications",
-			Icon:     "bell",
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(m.basePath, "notifications"),
-				"key":  "notifications",
-			},
-			ParentID: m.parentID,
-			Locale:   locale,
-			Menu:     code,
-			Position: admin.IntPtr(50),
-		},
-	}
 }
 
 // dashboardModule contributes the dashboard menu item.

@@ -198,6 +198,15 @@ func (s *CMSPageStore) Create(ctx context.Context, record map[string]any) (map[s
 	if err != nil {
 		return nil, err
 	}
+	if id := stringID(created["id"]); id != "" {
+		updated, err := s.repo.Update(ctx, id, payload)
+		if err != nil {
+			return nil, err
+		}
+		if updated != nil {
+			created = updated
+		}
+	}
 	out := s.pageToRecord(cmsPageFromMap(created))
 	s.emitActivity(ctx, "created", out)
 	return out, nil
@@ -215,6 +224,15 @@ func (s *CMSPageStore) Update(ctx context.Context, id string, record map[string]
 	record["id"] = id
 	payload := s.pagePayload(record, existing)
 	updated, err := s.repo.Update(ctx, id, payload)
+	if err != nil && isTranslationNotFoundErr(err) {
+		existingLocale := strings.TrimSpace(asString(existing["locale"], ""))
+		payloadLocale := strings.TrimSpace(asString(record["locale"], ""))
+		if existingLocale != "" && !strings.EqualFold(existingLocale, payloadLocale) {
+			record["locale"] = existingLocale
+			payload = s.pagePayload(record, existing)
+			updated, err = s.repo.Update(ctx, id, payload)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -312,10 +330,13 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	}
 	now := time.Now()
 	locale := asString(record["locale"], asString(existing["locale"], s.defaultLocale))
+	title := asString(record["title"], asString(existing["title"], ""))
+	slug := asString(record["slug"], asString(existing["slug"], ""))
 	metaTitle := asString(record["meta_title"], asString(existing["meta_title"], ""))
 	metaDescription := asString(record["meta_description"], asString(existing["meta_description"], ""))
 	content := asString(record["content"], asString(existing["content"], ""))
-	status := asString(record["status"], asString(existing["status"], "draft"))
+	rawStatus := asString(record["status"], asString(existing["status"], "draft"))
+	storageStatus, workflowStatus := normalizeCMSPageStatus(rawStatus)
 	templateID := asString(record["template_id"], asString(existing["template_id"], ""))
 	if templateID == "" {
 		templateID = asString(record["template"], asString(existing["template"], ""))
@@ -333,9 +354,9 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	}
 
 	payload := map[string]any{
-		"title":     asString(record["title"], asString(existing["title"], "")),
-		"slug":      asString(record["slug"], asString(existing["slug"], "")),
-		"status":    status,
+		"title":     title,
+		"slug":      slug,
+		"status":    storageStatus,
 		"locale":    locale,
 		"parent_id": asString(record["parent_id"], asString(existing["parent_id"], "")),
 		"seo": map[string]any{
@@ -349,6 +370,18 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 			"created_at":       createdAt,
 			"updated_at":       updatedAt,
 		},
+	}
+	if title != "" {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["title"] = title
+	}
+	if slug != "" {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["slug"] = slug
+	}
+	if workflowStatus != "" {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["workflow_status"] = workflowStatus
 	}
 	if path := asString(record["path"], asString(existing["path"], "")); path != "" {
 		payloadData := payload["data"].(map[string]any)
@@ -377,6 +410,18 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	return payload
 }
 
+func normalizeCMSPageStatus(status string) (string, string) {
+	trimmed := strings.ToLower(strings.TrimSpace(status))
+	switch trimmed {
+	case "", "draft":
+		return "draft", ""
+	case "published", "archived", "scheduled":
+		return trimmed, ""
+	default:
+		return "draft", trimmed
+	}
+}
+
 func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 	record := map[string]any{
 		"id":          page.ID,
@@ -398,9 +443,20 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 		record["blocks"] = append([]string{}, page.Blocks...)
 	}
 
+	if record["title"] == "" {
+		record["title"] = asString(data["title"], "")
+	}
+	if record["slug"] == "" {
+		record["slug"] = asString(data["slug"], "")
+	}
 	record["content"] = asString(data["content"], "")
 	record["meta_title"] = asString(seo["title"], asString(data["meta_title"], ""))
 	record["meta_description"] = asString(seo["description"], asString(data["meta_description"], ""))
+	if data != nil {
+		if workflowStatus := strings.TrimSpace(asString(data["workflow_status"], "")); workflowStatus != "" {
+			record["status"] = workflowStatus
+		}
+	}
 	if tpl := asString(data["template_id"], asString(data["template"], "")); tpl != "" && asString(record["template_id"], "") == "" {
 		record["template_id"] = tpl
 	}

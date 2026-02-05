@@ -87,6 +87,7 @@ type contentTypeRow struct {
 	Schema       map[string]any `bun:"schema,type:jsonb,notnull"`
 	Capabilities map[string]any `bun:"capabilities,type:jsonb"`
 	Icon         *string        `bun:"icon"`
+	Status       string         `bun:"status"`
 	CreatedAt    time.Time      `bun:"created_at"`
 	UpdatedAt    time.Time      `bun:"updated_at"`
 }
@@ -326,13 +327,24 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 		"$defs":   blockDefs,
 		"properties": map[string]any{
 			"title":          map[string]any{"type": "string"},
+			"slug":           map[string]any{"type": "string"},
+			"status":         map[string]any{"type": "string"},
+			"path":           map[string]any{"type": "string"},
+			"template_id":    map[string]any{"type": "string"},
+			"parent_id":      map[string]any{"type": "string"},
+			"published_at":   map[string]any{"type": "string", "format": "date-time"},
 			"summary":        map[string]any{"type": "string"},
-			"body":           map[string]any{"type": "string"},
+			"content":        map[string]any{"type": "string"},
 			"featured_image": map[string]any{"type": "string"},
-			"seo":            map[string]any{"type": "object"},
-			"meta":           map[string]any{"type": "object"},
-			"markdown":       map[string]any{"type": "object"},
-			"locale":         map[string]any{"type": "string"},
+			"tags": map[string]any{
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
+			},
+			"meta_title":       map[string]any{"type": "string"},
+			"meta_description": map[string]any{"type": "string"},
+			"seo":              map[string]any{"type": "object"},
+			"meta":             map[string]any{"type": "object"},
+			"markdown":         map[string]any{"type": "object"},
 			"blocks": map[string]any{
 				"type": "array",
 				"x-formgen": map[string]any{
@@ -355,17 +367,24 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 		"$defs":   blockDefs,
 		"properties": map[string]any{
 			"title":          map[string]any{"type": "string"},
-			"summary":        map[string]any{"type": "string"},
-			"body":           map[string]any{"type": "string"},
+			"slug":           map[string]any{"type": "string"},
+			"status":         map[string]any{"type": "string"},
+			"path":           map[string]any{"type": "string"},
+			"published_at":   map[string]any{"type": "string", "format": "date-time"},
+			"category":       map[string]any{"type": "string"},
+			"author":         map[string]any{"type": "string"},
+			"excerpt":        map[string]any{"type": "string"},
+			"content":        map[string]any{"type": "string"},
 			"featured_image": map[string]any{"type": "string"},
 			"tags": map[string]any{
 				"type":  "array",
 				"items": map[string]any{"type": "string"},
 			},
-			"meta":     map[string]any{"type": "object"},
-			"seo":      map[string]any{"type": "object"},
-			"markdown": map[string]any{"type": "object"},
-			"locale":   map[string]any{"type": "string"},
+			"meta_title":       map[string]any{"type": "string"},
+			"meta_description": map[string]any{"type": "string"},
+			"meta":             map[string]any{"type": "object"},
+			"seo":              map[string]any{"type": "object"},
+			"markdown":         map[string]any{"type": "object"},
 			"blocks": map[string]any{
 				"type": "array",
 				"x-formgen": map[string]any{
@@ -383,18 +402,181 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 		},
 	}
 
-	pageID, err := ensureContentType(ctx, db, pageContentTypeID, "page", "Pages managed through go-cms", pageSchema)
+	pageCapabilities := map[string]any{
+		"translations":      true,
+		"seo":               true,
+		"blocks":            true,
+		"tree":              true,
+		"structural_fields": true,
+		"workflow":          "pages",
+		"permissions":       "admin.pages",
+		"panel_slug":        "pages",
+		"policy_entity":     "pages",
+	}
+	postCapabilities := map[string]any{
+		"translations":  true,
+		"seo":           true,
+		"blocks":        true,
+		"workflow":      "posts",
+		"permissions":   "admin.posts",
+		"panel_slug":    "posts",
+		"policy_entity": "posts",
+	}
+
+	if err := validateSeedContentTypeCapabilities([]seedContentTypeSpec{
+		{
+			Name:         "page",
+			Capabilities: pageCapabilities,
+			RequiredStrings: map[string]string{
+				"workflow":      "pages",
+				"permissions":   "admin.pages",
+				"panel_slug":    "pages",
+				"policy_entity": "pages",
+			},
+			RequiredBools: map[string]bool{
+				"translations":      true,
+				"seo":               true,
+				"blocks":            true,
+				"tree":              true,
+				"structural_fields": true,
+			},
+		},
+		{
+			Name:         "post",
+			Capabilities: postCapabilities,
+			RequiredStrings: map[string]string{
+				"workflow":      "posts",
+				"permissions":   "admin.posts",
+				"panel_slug":    "posts",
+				"policy_entity": "posts",
+			},
+			RequiredBools: map[string]bool{
+				"translations": true,
+				"seo":          true,
+				"blocks":       true,
+			},
+		},
+	}); err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+
+	pageID, err := ensureContentType(ctx, db, pageContentTypeID, "page", "Pages managed through go-cms", pageSchema, pageCapabilities, "active")
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
-	postID, err := ensureContentType(ctx, db, postContentTypeID, "post", "Posts managed through go-cms", postSchema)
+	postID, err := ensureContentType(ctx, db, postContentTypeID, "post", "Posts managed through go-cms", postSchema, postCapabilities, "active")
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
 	return pageID, postID, nil
 }
 
-func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, description string, schema map[string]any) (uuid.UUID, error) {
+type seedContentTypeSpec struct {
+	Name            string
+	Capabilities    map[string]any
+	RequiredStrings map[string]string
+	RequiredBools   map[string]bool
+}
+
+func validateSeedContentTypeCapabilities(seeds []seedContentTypeSpec) error {
+	if len(seeds) == 0 {
+		return nil
+	}
+	panelSlugs := map[string]string{}
+	for _, seed := range seeds {
+		if seed.Name == "" {
+			return fmt.Errorf("seed content type name required")
+		}
+		if seed.Capabilities == nil {
+			return fmt.Errorf("seed content type %s missing capabilities", seed.Name)
+		}
+		for key, expected := range seed.RequiredStrings {
+			value := capabilityString(seed.Capabilities, key)
+			if value == "" {
+				return fmt.Errorf("seed content type %s missing capability %s", seed.Name, key)
+			}
+			if !strings.EqualFold(value, expected) {
+				return fmt.Errorf("seed content type %s capability %s must be %q", seed.Name, key, expected)
+			}
+		}
+		for key, expected := range seed.RequiredBools {
+			value, ok := capabilityBool(seed.Capabilities, key)
+			if !ok {
+				return fmt.Errorf("seed content type %s missing capability %s", seed.Name, key)
+			}
+			if value != expected {
+				return fmt.Errorf("seed content type %s capability %s must be %t", seed.Name, key, expected)
+			}
+		}
+		panelSlug := capabilityString(seed.Capabilities, "panel_slug", "panelSlug", "panel-slug")
+		if panelSlug == "" {
+			return fmt.Errorf("seed content type %s missing capability panel_slug", seed.Name)
+		}
+		normalized := strings.ToLower(panelSlug)
+		if existing, ok := panelSlugs[normalized]; ok {
+			return fmt.Errorf("panel_slug %s is duplicated by %s and %s", panelSlug, existing, seed.Name)
+		}
+		panelSlugs[normalized] = seed.Name
+	}
+	return nil
+}
+
+func capabilityString(capabilities map[string]any, keys ...string) string {
+	if capabilities == nil {
+		return ""
+	}
+	if len(keys) == 0 {
+		return ""
+	}
+	for _, key := range keys {
+		if value, ok := capabilities[key]; ok {
+			trimmed := strings.TrimSpace(fmt.Sprint(value))
+			if trimmed != "" {
+				return trimmed
+			}
+		}
+	}
+	return ""
+}
+
+func capabilityBool(capabilities map[string]any, key string) (bool, bool) {
+	if capabilities == nil {
+		return false, false
+	}
+	value, ok := capabilities[key]
+	if !ok {
+		return false, false
+	}
+	switch typed := value.(type) {
+	case bool:
+		return typed, true
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if strings.EqualFold(trimmed, "true") {
+			return true, true
+		}
+		if strings.EqualFold(trimmed, "false") {
+			return false, true
+		}
+	case int:
+		return typed != 0, true
+	case int64:
+		return typed != 0, true
+	case float64:
+		return typed != 0, true
+	}
+	return false, false
+}
+
+func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, description string, schema map[string]any, capabilities map[string]any, status string) (uuid.UUID, error) {
+	desiredStatus := strings.TrimSpace(status)
+	if desiredStatus == "" {
+		desiredStatus = "active"
+	}
+	if capabilities == nil {
+		capabilities = map[string]any{"translations": true}
+	}
+
 	var existing contentTypeRow
 	err := db.NewSelect().
 		Model(&existing).
@@ -402,22 +584,30 @@ func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, desc
 		Scan(ctx)
 	if err == nil {
 		actualID := existing.ID
+		updates := contentTypeRow{UpdatedAt: time.Now().UTC()}
+		columns := []string{"updated_at"}
 		if strings.TrimSpace(existing.Slug) == "" {
-			slug := contentTypeSlug(name)
-			if slug != "" {
-				if _, updateErr := db.NewUpdate().
-					Model(&contentTypeRow{Slug: slug, UpdatedAt: time.Now().UTC()}).
-					Column("slug", "updated_at").
-					Where("id = ?", existing.ID).
-					Exec(ctx); updateErr != nil {
-					return uuid.Nil, updateErr
-				}
+			if slug := contentTypeSlug(name); slug != "" {
+				updates.Slug = slug
+				columns = append(columns, "slug")
 			}
 		}
 		if !reflect.DeepEqual(existing.Schema, schema) {
+			updates.Schema = schema
+			columns = append(columns, "schema")
+		}
+		if !reflect.DeepEqual(existing.Capabilities, capabilities) {
+			updates.Capabilities = capabilities
+			columns = append(columns, "capabilities")
+		}
+		if !strings.EqualFold(strings.TrimSpace(existing.Status), desiredStatus) {
+			updates.Status = desiredStatus
+			columns = append(columns, "status")
+		}
+		if len(columns) > 1 {
 			if _, updateErr := db.NewUpdate().
-				Model(&contentTypeRow{Schema: schema, UpdatedAt: time.Now().UTC()}).
-				Column("schema", "updated_at").
+				Model(&updates).
+				Column(columns...).
 				Where("id = ?", existing.ID).
 				Exec(ctx); updateErr != nil {
 				return uuid.Nil, updateErr
@@ -443,7 +633,8 @@ func ensureContentType(ctx context.Context, db *bun.DB, id uuid.UUID, name, desc
 			Slug:         slug,
 			Description:  descPtr,
 			Schema:       schema,
-			Capabilities: map[string]any{"translations": true},
+			Capabilities: capabilities,
+			Status:       desiredStatus,
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}).
@@ -635,10 +826,7 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 	pageOpts := interfaces.ImportOptions{
 		ContentTypeID:                   refs.PageContentTypeID,
 		AuthorID:                        seedAuthorID,
-		CreatePages:                     true,
-		TemplateID:                      &refs.TemplateID,
 		ContentAllowMissingTranslations: true,
-		PageAllowMissingTranslations:    true,
 	}
 	if md != nil {
 		for _, seed := range pageSeeds {
@@ -651,10 +839,7 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 	postOpts := interfaces.ImportOptions{
 		ContentTypeID:                   refs.PostContentTypeID,
 		AuthorID:                        seedAuthorID,
-		CreatePages:                     true,
-		TemplateID:                      &refs.TemplateID,
 		ContentAllowMissingTranslations: true,
-		PageAllowMissingTranslations:    true,
 	}
 	if md != nil {
 		for _, seed := range postSeeds {

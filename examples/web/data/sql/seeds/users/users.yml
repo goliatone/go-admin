@@ -125,6 +125,44 @@
       updated_at: '{{ now }}'
       created_by: '{{ hashid "user:superadmin" }}'
       updated_by: '{{ hashid "user:superadmin" }}'
+    - id: '{{ hashid "role:owner" }}'
+      name: "Owner"
+      description: "Owner access to admin resources."
+      order: 5
+      role_key: "owner"
+      permissions:
+        - "admin.dashboard.view"
+        - "admin.users.view"
+        - "admin.users.create"
+        - "admin.users.edit"
+        - "admin.users.delete"
+        - "admin.roles.view"
+        - "admin.roles.create"
+        - "admin.roles.edit"
+        - "admin.roles.delete"
+        - "admin.activity.view"
+        - "admin.settings.view"
+        - "admin.settings.edit"
+        - "admin.jobs.view"
+        - "admin.jobs.edit"
+        - "admin.search.view"
+        - "admin.preferences.view"
+        - "admin.preferences.edit"
+        - "admin.profile.view"
+        - "admin.profile.edit"
+        - "admin.debug.view"
+        - "admin.debug.repl"
+        - "admin.debug.repl.exec"
+      metadata:
+        app_role: "owner"
+        source: "seed"
+      is_system: true
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+      created_by: '{{ hashid "user:superadmin" }}'
+      updated_by: '{{ hashid "user:superadmin" }}'
     - id: '{{ hashid "role:admin" }}'
       name: "Admin"
       description: "Admin access to manage users and roles."
@@ -235,6 +273,12 @@
   rows:
     - user_id: '{{ hashid "user:superadmin" }}'
       role_id: '{{ hashid "role:superadmin" }}'
+      tenant_id: "11111111-1111-1111-1111-111111111111"
+      org_id: "22222222-2222-2222-2222-222222222222"
+      assigned_at: '{{ now }}'
+      assigned_by: '{{ hashid "user:superadmin" }}'
+    - user_id: '{{ hashid "user:superadmin" }}'
+      role_id: '{{ hashid "role:owner" }}'
       tenant_id: "11111111-1111-1111-1111-111111111111"
       org_id: "22222222-2222-2222-2222-222222222222"
       assigned_at: '{{ now }}'

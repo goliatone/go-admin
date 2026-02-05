@@ -15,8 +15,8 @@ import (
 // to the admin.CMSContentService contract using reflection.
 type goCMSContentBridge struct {
 	content   any
-	page      any
 	blocks    any
+	pages     any
 	types     map[string]uuid.UUID
 	typeNames map[string]string
 
@@ -27,7 +27,7 @@ type goCMSContentBridge struct {
 	blockDefNames   map[uuid.UUID]string
 }
 
-func newGoCMSContentBridge(contentSvc any, pageSvc any, blockSvc any, defaultTemplate uuid.UUID, typeIDs map[string]uuid.UUID, contentTypes admin.CMSContentTypeService) admin.CMSContentService {
+func newGoCMSContentBridge(contentSvc any, blockSvc any, pageSvc any, defaultTemplate uuid.UUID, typeIDs map[string]uuid.UUID, contentTypes admin.CMSContentTypeService) admin.CMSContentService {
 	if contentSvc == nil {
 		return nil
 	}
@@ -40,8 +40,8 @@ func newGoCMSContentBridge(contentSvc any, pageSvc any, blockSvc any, defaultTem
 	}
 	return &goCMSContentBridge{
 		content:         contentSvc,
-		page:            pageSvc,
 		blocks:          blockSvc,
+		pages:           pageSvc,
 		types:           typeIDs,
 		typeNames:       typeNames,
 		contentTypes:    contentTypes,
@@ -51,40 +51,8 @@ func newGoCMSContentBridge(contentSvc any, pageSvc any, blockSvc any, defaultTem
 	}
 }
 
-func (b *goCMSContentBridge) hasPageService() bool {
-	if b == nil || b.page == nil {
-		return false
-	}
-	v := reflect.ValueOf(b.page)
-	for _, name := range []string{"List", "Get", "Create", "Update", "Delete"} {
-		if !v.MethodByName(name).IsValid() {
-			return false
-		}
-	}
-	return true
-}
-
 func (b *goCMSContentBridge) Pages(ctx context.Context, locale string) ([]admin.CMSPage, error) {
-	if b.hasPageService() {
-		method := reflect.ValueOf(b.page).MethodByName("List")
-		env := environmentKeyFromContext(ctx)
-		results := callWithOptionalEnv(method, ctx, env)
-		if err := reflectError(results); err != nil {
-			return nil, err
-		}
-		if len(results) == 0 || !results[0].IsValid() {
-			return nil, nil
-		}
-		slice := deref(results[0])
-		out := make([]admin.CMSPage, 0, slice.Len())
-		for i := 0; i < slice.Len(); i++ {
-			out = append(out, b.convertPage(slice.Index(i), locale))
-		}
-		return out, nil
-	}
-
-	// Fallback: when go-cms doesn't expose a page service matching the expected
-	// contract, surface "page" content types as CMS pages so the example can
+	// Surface "page" content types as CMS pages so the example can
 	// still list/seed pages.
 	contents, err := b.Contents(ctx, locale)
 	if err != nil {
@@ -101,23 +69,6 @@ func (b *goCMSContentBridge) Pages(ctx context.Context, locale string) ([]admin.
 }
 
 func (b *goCMSContentBridge) Page(ctx context.Context, id, locale string) (*admin.CMSPage, error) {
-	if b.hasPageService() {
-		method := reflect.ValueOf(b.page).MethodByName("Get")
-		u, err := uuid.Parse(strings.TrimSpace(id))
-		if err != nil {
-			return nil, err
-		}
-		results := method.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(u)})
-		if err := reflectError(results); err != nil {
-			return nil, err
-		}
-		if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
-			return nil, admin.ErrNotFound
-		}
-		rec := b.convertPage(results[0], locale)
-		return &rec, nil
-	}
-
 	content, err := b.Content(ctx, id, locale)
 	if err != nil {
 		return nil, err
@@ -130,144 +81,14 @@ func (b *goCMSContentBridge) Page(ctx context.Context, id, locale string) (*admi
 }
 
 func (b *goCMSContentBridge) CreatePage(ctx context.Context, page admin.CMSPage) (*admin.CMSPage, error) {
-	if !b.hasPageService() {
-		return b.createPageFromContent(ctx, page)
-	}
-	locale := strings.TrimSpace(page.Locale)
-	if locale == "" {
-		locale = "en"
-	}
-
-	contentData := cloneAnyMap(page.Data)
-	if contentData == nil {
-		contentData = map[string]any{}
-	}
-	if mt := asString(page.SEO["title"], asString(contentData["meta_title"], "")); mt != "" {
-		contentData["meta_title"] = mt
-	}
-	if md := asString(page.SEO["description"], asString(contentData["meta_description"], "")); md != "" {
-		contentData["meta_description"] = md
-	}
-	path := asString(contentData["path"], page.PreviewURL)
-	if path == "" {
-		path = "/" + strings.TrimPrefix(page.Slug, "/")
-	}
-	contentData["path"] = path
-
-	contentRes, err := b.CreateContent(ctx, admin.CMSContent{
-		Title:       page.Title,
-		Slug:        page.Slug,
-		Status:      page.Status,
-		Locale:      locale,
-		ContentType: "page",
-		Data:        contentData,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	method := reflect.ValueOf(b.page).MethodByName("Create")
-	reqType := method.Type().In(1)
-	req := reflect.New(reqType).Elem()
-	setUUIDField(req, "ContentID", uuidOrNil(contentRes.ID))
-	templateID := uuidOrNil(page.TemplateID)
-	if templateID == uuid.Nil {
-		templateID = b.defaultTemplate
-	}
-	setUUIDField(req, "TemplateID", templateID)
-	if pid := uuidOrNil(page.ParentID); pid != uuid.Nil {
-		setUUIDPtr(req, "ParentID", pid)
-	}
-	setStringField(req, "Slug", page.Slug)
-	setStringField(req, "Status", page.Status)
-	if env := environmentKeyFromContext(ctx); env != "" {
-		setStringField(req, "EnvironmentKey", env)
-	}
-	setUUIDField(req, "CreatedBy", uuid.Nil)
-	setUUIDField(req, "UpdatedBy", uuid.Nil)
-	if tr := b.buildPageTranslation(req.FieldByName("Translations"), page, path, locale); tr.IsValid() {
-		req.FieldByName("Translations").Set(tr)
-	}
-
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
-	if err := reflectError(results); err != nil {
-		return nil, err
-	}
-	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
-		return nil, admin.ErrNotFound
-	}
-	if err := b.ensurePageTranslation(ctx, results[0], page, path, locale); err != nil {
-		return nil, err
-	}
-	rec := b.convertPage(results[0], locale)
-	if rec.Data == nil {
-		rec.Data = cloneAnyMap(contentRes.Data)
-	}
-	return &rec, nil
+	return b.createPageFromContent(ctx, page)
 }
 
 func (b *goCMSContentBridge) UpdatePage(ctx context.Context, page admin.CMSPage) (*admin.CMSPage, error) {
-	if !b.hasPageService() {
-		return b.updatePageFromContent(ctx, page)
-	}
-	pageID := uuidOrNil(page.ID)
-	if pageID == uuid.Nil {
-		return nil, admin.ErrNotFound
-	}
-	method := reflect.ValueOf(b.page).MethodByName("Update")
-	reqType := method.Type().In(1)
-	req := reflect.New(reqType).Elem()
-	setUUIDField(req, "ID", pageID)
-	templateID := uuidOrNil(page.TemplateID)
-	if templateID == uuid.Nil {
-		templateID = b.defaultTemplate
-	}
-	setUUIDPtr(req, "TemplateID", templateID)
-	setStringField(req, "Status", page.Status)
-	if env := environmentKeyFromContext(ctx); env != "" {
-		setStringField(req, "EnvironmentKey", env)
-	}
-	setUUIDField(req, "UpdatedBy", uuid.Nil)
-	path := asString(page.Data["path"], page.PreviewURL)
-	if path == "" {
-		path = "/" + strings.TrimPrefix(page.Slug, "/")
-	}
-	if tr := b.buildPageTranslation(req.FieldByName("Translations"), page, path, page.Locale); tr.IsValid() {
-		req.FieldByName("Translations").Set(tr)
-	}
-
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
-	if err := reflectError(results); err != nil {
-		return nil, err
-	}
-	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
-		return nil, admin.ErrNotFound
-	}
-	if err := b.ensurePageTranslation(ctx, results[0], page, path, page.Locale); err != nil {
-		return nil, err
-	}
-	rec := b.convertPage(results[0], page.Locale)
-	return &rec, nil
+	return b.updatePageFromContent(ctx, page)
 }
 
 func (b *goCMSContentBridge) DeletePage(ctx context.Context, id string) error {
-	if b.hasPageService() {
-		method := reflect.ValueOf(b.page).MethodByName("Delete")
-		pageID := uuidOrNil(id)
-		if pageID == uuid.Nil {
-			return admin.ErrNotFound
-		}
-		reqType := method.Type().In(1)
-		req := reflect.New(reqType).Elem()
-		setUUIDField(req, "ID", pageID)
-		setUUIDField(req, "DeletedBy", uuid.Nil)
-		if f := req.FieldByName("HardDelete"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Bool {
-			f.SetBool(true)
-		}
-		results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
-		return reflectError(results)
-	}
-
 	return b.deletePageFromContent(ctx, id)
 }
 
@@ -324,8 +145,15 @@ func (b *goCMSContentBridge) createPageFromContent(ctx context.Context, page adm
 	if strings.TrimSpace(page.ParentID) != "" {
 		data["parent_id"] = page.ParentID
 	}
-	if strings.TrimSpace(page.TemplateID) != "" {
-		data["template_id"] = page.TemplateID
+	templateID := strings.TrimSpace(page.TemplateID)
+	if templateID == "" {
+		templateID = strings.TrimSpace(asString(data["template_id"], ""))
+	}
+	if templateID == "" && b.defaultTemplate != uuid.Nil {
+		templateID = b.defaultTemplate.String()
+	}
+	if templateID != "" {
+		data["template_id"] = templateID
 	}
 	path := strings.TrimSpace(asString(data["path"], page.PreviewURL))
 	if path == "" {
@@ -343,6 +171,9 @@ func (b *goCMSContentBridge) createPageFromContent(ctx context.Context, page adm
 		Data:        data,
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := b.ensurePageRecord(ctx, created.ID, page, data, locale, path); err != nil {
 		return nil, err
 	}
 	rec := b.pageFromContent(*created)
@@ -375,8 +206,12 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 	if strings.TrimSpace(page.ParentID) != "" {
 		data["parent_id"] = page.ParentID
 	}
-	if strings.TrimSpace(page.TemplateID) != "" {
-		data["template_id"] = page.TemplateID
+	templateID := strings.TrimSpace(page.TemplateID)
+	if templateID == "" {
+		templateID = strings.TrimSpace(asString(data["template_id"], ""))
+	}
+	if templateID != "" {
+		data["template_id"] = templateID
 	}
 	path := strings.TrimSpace(asString(data["path"], page.PreviewURL))
 	if path == "" {
@@ -414,6 +249,9 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 	if err != nil {
 		return nil, err
 	}
+	if err := b.ensurePageRecord(ctx, updated.ID, page, data, locale, path); err != nil {
+		return nil, err
+	}
 	rec := b.pageFromContent(*updated)
 	return &rec, nil
 }
@@ -426,7 +264,129 @@ func (b *goCMSContentBridge) deletePageFromContent(ctx context.Context, id strin
 	if existing == nil || !strings.EqualFold(existing.ContentType, "page") {
 		return admin.ErrNotFound
 	}
+	if err := b.deletePageRecord(ctx, existing.ID); err != nil {
+		return err
+	}
 	return b.DeleteContent(ctx, existing.ID)
+}
+
+func (b *goCMSContentBridge) ensurePageRecord(ctx context.Context, contentID string, page admin.CMSPage, data map[string]any, locale, path string) error {
+	if b == nil || b.pages == nil {
+		return nil
+	}
+	if uuidOrNil(contentID) == uuid.Nil {
+		return admin.ErrNotFound
+	}
+	pageID := b.pageRecordID(ctx, contentID)
+	if pageID == uuid.Nil {
+		return b.createPageRecord(ctx, contentID, page, data, locale, path)
+	}
+	return b.updatePageRecord(ctx, pageID, page, data, locale, path)
+}
+
+func (b *goCMSContentBridge) createPageRecord(ctx context.Context, contentID string, page admin.CMSPage, data map[string]any, locale, path string) error {
+	if b == nil || b.pages == nil {
+		return nil
+	}
+	method := reflect.ValueOf(b.pages).MethodByName("Create")
+	if !method.IsValid() {
+		return nil
+	}
+	contentUUID := uuidOrNil(contentID)
+	if contentUUID == uuid.Nil {
+		return admin.ErrNotFound
+	}
+	req := reflect.New(method.Type().In(1)).Elem()
+	setUUIDField(req, "ContentID", contentUUID)
+	if tpl := b.templateIDFromPage(page, data, true); tpl != uuid.Nil {
+		setUUIDField(req, "TemplateID", tpl)
+	}
+	if parentID := uuidOrNil(page.ParentID); parentID != uuid.Nil {
+		setUUIDPtr(req, "ParentID", parentID)
+	}
+	setStringField(req, "Slug", page.Slug)
+	if status := strings.TrimSpace(page.Status); status != "" {
+		setStringField(req, "Status", status)
+	}
+	if env := environmentKeyFromContext(ctx); env != "" {
+		setStringField(req, "EnvironmentKey", env)
+	}
+	setUUIDField(req, "CreatedBy", uuid.Nil)
+	setUUIDField(req, "UpdatedBy", uuid.Nil)
+	if tr := b.buildPageTranslation(req.FieldByName("Translations"), page, path, locale); tr.IsValid() {
+		req.FieldByName("Translations").Set(tr)
+	}
+	setBoolField(req, "AllowMissingTranslations", true)
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
+	return reflectError(results)
+}
+
+func (b *goCMSContentBridge) updatePageRecord(ctx context.Context, pageID uuid.UUID, page admin.CMSPage, data map[string]any, locale, path string) error {
+	if b == nil || b.pages == nil {
+		return nil
+	}
+	method := reflect.ValueOf(b.pages).MethodByName("Update")
+	if !method.IsValid() {
+		return nil
+	}
+	if pageID == uuid.Nil {
+		return admin.ErrNotFound
+	}
+	req := reflect.New(method.Type().In(1)).Elem()
+	setUUIDField(req, "ID", pageID)
+	if tpl := b.templateIDFromPage(page, data, false); tpl != uuid.Nil {
+		setUUIDPtr(req, "TemplateID", tpl)
+	}
+	if status := strings.TrimSpace(page.Status); status != "" {
+		setStringField(req, "Status", status)
+	}
+	if env := environmentKeyFromContext(ctx); env != "" {
+		setStringField(req, "EnvironmentKey", env)
+	}
+	setUUIDField(req, "UpdatedBy", uuid.Nil)
+	if tr := b.buildPageTranslation(req.FieldByName("Translations"), page, path, locale); tr.IsValid() {
+		req.FieldByName("Translations").Set(tr)
+	}
+	setBoolField(req, "AllowMissingTranslations", true)
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
+	return reflectError(results)
+}
+
+func (b *goCMSContentBridge) deletePageRecord(ctx context.Context, contentID string) error {
+	if b == nil || b.pages == nil {
+		return nil
+	}
+	method := reflect.ValueOf(b.pages).MethodByName("Delete")
+	if !method.IsValid() {
+		return nil
+	}
+	pageID := b.pageRecordID(ctx, contentID)
+	if pageID == uuid.Nil {
+		return nil
+	}
+	req := reflect.New(method.Type().In(1)).Elem()
+	setUUIDField(req, "ID", pageID)
+	setUUIDField(req, "DeletedBy", uuid.Nil)
+	if f := req.FieldByName("HardDelete"); f.IsValid() && f.CanSet() && f.Kind() == reflect.Bool {
+		f.SetBool(true)
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), req})
+	return reflectError(results)
+}
+
+func (b *goCMSContentBridge) templateIDFromPage(page admin.CMSPage, data map[string]any, useDefault bool) uuid.UUID {
+	if tid := strings.TrimSpace(page.TemplateID); tid != "" {
+		return uuidOrNil(tid)
+	}
+	if data != nil {
+		if tid := strings.TrimSpace(asString(data["template_id"], "")); tid != "" {
+			return uuidOrNil(tid)
+		}
+	}
+	if useDefault && b != nil && b.defaultTemplate != uuid.Nil {
+		return b.defaultTemplate
+	}
+	return uuid.Nil
 }
 
 func (b *goCMSContentBridge) Contents(ctx context.Context, locale string) ([]admin.CMSContent, error) {
@@ -860,63 +820,12 @@ func (b *goCMSContentBridge) buildPageTranslation(field reflect.Value, page admi
 	return reflect.Append(slice, tr)
 }
 
-func (b *goCMSContentBridge) ensurePageTranslation(ctx context.Context, pageVal reflect.Value, page admin.CMSPage, path, locale string) error {
-	pageVal = deref(pageVal)
-	pageID, ok := extractUUID(pageVal, "ID")
-	if !ok || pageID == uuid.Nil {
-		return nil
+func isPageTranslationNotFoundErr(err error) bool {
+	if err == nil {
+		return false
 	}
-	method := reflect.ValueOf(b.page).MethodByName("UpdateTranslation")
-	if !method.IsValid() {
-		return b.ensurePageTranslationViaUpdate(ctx, pageVal, page, path, locale, pageID)
-	}
-	reqType := method.Type().In(1)
-	req := reflect.New(reqType).Elem()
-	setUUIDField(req, "PageID", pageID)
-	setStringField(req, "Locale", locale)
-	setStringField(req, "Title", page.Title)
-	setStringField(req, "Path", path)
-	if groupID := uuidOrNil(page.TranslationGroupID); groupID != uuid.Nil {
-		setUUIDPtr(req, "TranslationGroupID", groupID)
-	}
-	if summary := asString(page.Data["summary"], ""); summary != "" {
-		setStringPtr(req, "Summary", summary)
-	}
-	setUUIDField(req, "UpdatedBy", uuid.Nil)
-	if err := reflectError(method.Call([]reflect.Value{reflect.ValueOf(ctx), req})); err == nil {
-		return nil
-	}
-	return b.ensurePageTranslationViaUpdate(ctx, pageVal, page, path, locale, pageID)
-}
-
-func (b *goCMSContentBridge) ensurePageTranslationViaUpdate(ctx context.Context, pageVal reflect.Value, page admin.CMSPage, path, locale string, pageID uuid.UUID) error {
-	updateMethod := reflect.ValueOf(b.page).MethodByName("Update")
-	if !updateMethod.IsValid() {
-		return nil
-	}
-	reqType := updateMethod.Type().In(1)
-	req := reflect.New(reqType).Elem()
-	setUUIDField(req, "ID", pageID)
-	if tpl, ok := extractUUID(pageVal, "TemplateID"); ok && tpl != uuid.Nil {
-		setUUIDPtr(req, "TemplateID", tpl)
-	}
-	status := page.Status
-	if status == "" {
-		status = stringField(pageVal, "Status")
-	}
-	setStringField(req, "Status", status)
-	if env := environmentKeyFromContext(ctx); env != "" {
-		setStringField(req, "EnvironmentKey", env)
-	}
-	setUUIDField(req, "UpdatedBy", uuid.Nil)
-	if allow := req.FieldByName("AllowMissingTranslations"); allow.IsValid() && allow.CanSet() && allow.Kind() == reflect.Bool {
-		allow.SetBool(true)
-	}
-	if tr := b.buildPageTranslation(req.FieldByName("Translations"), page, path, locale); tr.IsValid() {
-		req.FieldByName("Translations").Set(tr)
-	}
-	results := updateMethod.Call([]reflect.Value{reflect.ValueOf(ctx), req})
-	return reflectError(results)
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(msg, "translation not found")
 }
 
 func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, ctx context.Context) admin.CMSContent {
@@ -1231,6 +1140,13 @@ func setUUIDPtr(val reflect.Value, name string, id uuid.UUID) {
 	}
 }
 
+func setBoolField(val reflect.Value, name string, value bool) {
+	field := val.FieldByName(name)
+	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Bool {
+		field.SetBool(value)
+	}
+}
+
 func extractUUID(val reflect.Value, field string) (uuid.UUID, bool) {
 	f := val.FieldByName(field)
 	if f.IsValid() && f.CanInterface() {
@@ -1390,31 +1306,45 @@ func (b *goCMSContentBridge) resolvePageID(ctx context.Context, contentID string
 	if parsed == uuid.Nil {
 		return uuid.Nil
 	}
-	if b.hasPageService() {
-		getMethod := reflect.ValueOf(b.page).MethodByName("Get")
-		if getMethod.IsValid() {
-			results := getMethod.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(parsed)})
-			if reflectError(results) == nil && len(results) > 0 && results[0].IsValid() && !results[0].IsNil() {
-				return parsed
-			}
-		}
-		listMethod := reflect.ValueOf(b.page).MethodByName("List")
-		if listMethod.IsValid() {
-			results := listMethod.Call([]reflect.Value{reflect.ValueOf(ctx)})
-			if reflectError(results) == nil && len(results) > 0 && results[0].IsValid() {
-				slice := deref(results[0])
-				for i := 0; i < slice.Len(); i++ {
-					pageVal := deref(slice.Index(i))
-					if cid, ok := extractUUID(pageVal, "ContentID"); ok && cid == parsed {
-						if pageID, ok := extractUUID(pageVal, "ID"); ok {
-							return pageID
-						}
-					}
-				}
+	if b == nil || b.pages == nil {
+		return parsed
+	}
+	if pageID := b.pageRecordID(ctx, contentID); pageID != uuid.Nil {
+		return pageID
+	}
+	return parsed
+}
+
+func (b *goCMSContentBridge) pageRecordID(ctx context.Context, contentID string) uuid.UUID {
+	if b == nil || b.pages == nil {
+		return uuid.Nil
+	}
+	contentUUID := uuidOrNil(contentID)
+	if contentUUID == uuid.Nil {
+		return uuid.Nil
+	}
+	method := reflect.ValueOf(b.pages).MethodByName("List")
+	if !method.IsValid() {
+		return uuid.Nil
+	}
+	env := environmentKeyFromContext(ctx)
+	results := callWithOptionalEnv(method, ctx, env)
+	if err := reflectError(results); err != nil {
+		return uuid.Nil
+	}
+	if len(results) == 0 || !results[0].IsValid() {
+		return uuid.Nil
+	}
+	slice := deref(results[0])
+	for i := 0; i < slice.Len(); i++ {
+		val := deref(slice.Index(i))
+		if cid, ok := extractUUID(val, "ContentID"); ok && cid == contentUUID {
+			if id, ok := extractUUID(val, "ID"); ok {
+				return id
 			}
 		}
 	}
-	return parsed
+	return uuid.Nil
 }
 
 func (b *goCMSContentBridge) convertBlockDefinition(val reflect.Value) admin.CMSBlockDefinition {

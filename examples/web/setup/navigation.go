@@ -87,7 +87,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		Collapsed:   false,
 		Target: map[string]any{
 			"type": "url",
-			"path": path.Join(basePath, "pages"),
+			"path": path.Join(basePath, "content", "pages"),
 			"key":  "content",
 		},
 		Menu:        menuCode,
@@ -116,7 +116,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			LabelKey: "menu.content.pages",
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join(basePath, "pages"),
+				"path": path.Join(basePath, "content", "pages"),
 				"key":  "pages",
 			},
 			Position: prtInt(1),
@@ -130,7 +130,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			LabelKey: "menu.content.posts",
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join(basePath, "posts"),
+				"path": path.Join(basePath, "content", "posts"),
 				"key":  "posts",
 			},
 			Position: prtInt(2),
@@ -411,7 +411,7 @@ func EnsureDashboardFirst(ctx context.Context, menuSvc admin.CMSMenuService, bas
 			updated.Target["type"] = "url"
 		}
 		if _, ok := updated.Target["path"]; !ok {
-			updated.Target["path"] = path.Join(basePath, "pages")
+			updated.Target["path"] = path.Join(basePath, "content", "pages")
 		}
 		if _, ok := updated.Target["key"]; !ok {
 			updated.Target["key"] = "content"

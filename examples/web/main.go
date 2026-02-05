@@ -106,8 +106,8 @@ func main() {
 		"preferences":                 true,
 		"profile":                     true,
 		"users":                       false,
-		"tenants":                     true,
-		"organizations":               true,
+		"tenants":                     false,
+		"organizations":               false,
 		setup.FeatureUserInvites:      true,
 		setup.FeaturePasswordReset:    true,
 		setup.FeatureSelfRegistration: false,
@@ -155,6 +155,8 @@ func main() {
 		cfg.Debug.ViewContextBuilder = func(adm *admin.Admin, _ admin.DebugConfig, c router.Context, view router.ViewContext) router.ViewContext {
 			return helpers.WithNav(view, adm, cfg, "debug", c.Context())
 		}
+		// Ensure defaults before appending any custom/debug-only panels.
+		cfg.Debug.Panels = ensureDefaultDebugPanels(cfg.Debug.Panels)
 	}
 	if debugEnabled && scopeDebugEnabled {
 		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, quickstart.ScopeDebugPanelID)
@@ -536,7 +538,11 @@ func main() {
 	viewEngine, err := quickstart.NewViewEngine(
 		client.FS(),
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
-			append(helpers.TemplateFuncOptions(), quickstart.WithTemplateFeatureGate(adm.FeatureGate()))...,
+			append(
+				helpers.TemplateFuncOptions(),
+				quickstart.WithTemplateBasePath(cfg.BasePath),
+				quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
+			)...,
 		)),
 		quickstart.WithViewTemplatesFS(webFS),
 	)
@@ -617,20 +623,18 @@ func main() {
 	modules := []admin.Module{
 		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
 		&usersModule{store: dataStores.Users, profiles: dataStores.UserProfiles, service: usersService, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
-		&pagesModule{store: dataStores.Pages, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
-		&postsModule{store: dataStores.Posts, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
 		quickstart.NewContentTypeBuilderModule(cfg, setup.NavigationSectionContent,
 			coreadmin.WithContentTypeBuilderWorkflowAuthorizer(blockWorkflowAuth),
 		),
-		&notificationsModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupOthers},
 		&mediaModule{store: dataStores.Media, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationSectionContent},
-		admin.NewProfileModule().WithMenuParent(setup.NavigationGroupOthers),
+		admin.NewProfileModule().WithSkipMenu(true),
 		quickstart.NewPreferencesModule(
 			cfg,
-			setup.NavigationGroupOthers,
+			"",
 			quickstart.WithPreferencesSchemaPath(preferencesSchemaPath),
 			quickstart.WithPreferencesJSONEditorStrict(preferencesJSONStrict),
 			func(mod *admin.PreferencesModule) {
+				mod.WithSkipMenu(true)
 				mod.WithViewContextBuilder(func(adm *admin.Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
 					view = helpers.WithNav(view, adm, cfg, active, c.Context())
 					view = helpers.WithTheme(view, adm, c)
@@ -638,13 +642,20 @@ func main() {
 				})
 			},
 		),
+		coreadmin.NewActivityModule().WithMenuParent(setup.NavigationGroupOthers),
+		coreadmin.NewFeatureFlagsModule().WithMenuParent(setup.NavigationGroupOthers),
 	}
 	if debugEnabled {
-		modules = append(modules, admin.NewDebugModule(cfg.Debug))
+		modules = append(modules, admin.NewDebugModule(cfg.Debug).WithMenuParent(setup.NavigationGroupOthers))
 	}
 
 	if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev); err != nil {
 		log.Fatalf("failed to register modules: %v", err)
+	}
+
+	// Ensure Dashboard renders before Content in the Main Menu group.
+	if err := setup.EnsureDashboardFirst(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
+		log.Printf("warning: failed to fix dashboard ordering: %v", err)
 	}
 
 	// Wire dashboard renderer for server-side rendering
@@ -714,39 +725,6 @@ func main() {
 	)
 	userProfileController.RegisterRoutes(crudAdapter)
 	registerCrudAliases(crudAdapter, userProfileController, "user-profiles")
-	pageStoreAdapter := stores.NewAdminPageStoreAdapter(dataStores.PageRecords, dataStores.Pages, cfg.DefaultLocale)
-	pageReadService := admin.AdminPageReadService(pageStoreAdapter)
-	if provider, ok := cfg.CMS.Container.(interface {
-		AdminPageReadService() admin.AdminPageReadService
-	}); ok {
-		if svc := provider.AdminPageReadService(); svc != nil {
-			pageReadService = svc
-		}
-	}
-	pageApp := admin.PageApplicationService{
-		Read:     pageReadService,
-		Write:    pageStoreAdapter,
-		Workflow: workflow,
-	}
-	pageCRUDAdapter := stores.NewPageAppCRUDAdapter(pageApp, cfg.DefaultLocale)
-	pageController := crud.NewController(
-		dataStores.PageRecords,
-		crud.WithErrorEncoder[*stores.PageRecord](crudErrorEncoder),
-		crud.WithScopeGuard[*stores.PageRecord](contentCRUDScopeGuard[*stores.PageRecord]("admin.pages")),
-		crud.WithReadService[*stores.PageRecord](crud.ReadOnlyService[*stores.PageRecord](pageCRUDAdapter)),
-		crud.WithWriteService[*stores.PageRecord](crud.WriteOnlyService[*stores.PageRecord](pageCRUDAdapter)),
-		crud.WithContextFactory[*stores.PageRecord](contentCRUDContextFactory(cfg.DefaultLocale)),
-	)
-	pageController.RegisterRoutes(crudAdapter)
-	registerCrudAliases(crudAdapter, pageController, "pages")
-	postController := crud.NewController(
-		dataStores.PostRecords,
-		crud.WithErrorEncoder[*stores.PostRecord](crudErrorEncoder),
-		crud.WithScopeGuard[*stores.PostRecord](contentCRUDScopeGuard[*stores.PostRecord]("admin.posts")),
-		crud.WithService[*stores.PostRecord](stores.NewPostCRUDService(dataStores.PostRecords, dataStores.Posts)),
-	)
-	postController.RegisterRoutes(crudAdapter)
-	registerCrudAliases(crudAdapter, postController, "posts")
 	mediaController := crud.NewController(
 		dataStores.MediaRecords,
 		crud.WithErrorEncoder[*stores.MediaRecord](crudErrorEncoder),
@@ -818,14 +796,8 @@ func main() {
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
 	userProfileHandlers := handlers.NewUserProfileHandlers(dataStores.UserProfiles, formGenerator, adm, cfg, helpers.WithNav)
-	pageHandlers := handlers.NewPageHandlers(pageApp, formGenerator, adm, cfg, helpers.WithNav)
-	postHandlers := handlers.NewPostHandlers(dataStores.Posts, formGenerator, adm, cfg, helpers.WithNav)
 	mediaHandlers := handlers.NewMediaHandlers(dataStores.Media, adm, cfg, helpers.WithNav)
 	profileHandlers := handlers.NewProfileHandlers(adm, cfg, helpers.WithNav)
-	var tenantHandlers *handlers.TenantHandlers
-	if svc := adm.TenantService(); svc != nil {
-		tenantHandlers = handlers.NewTenantHandlers(svc, formGenerator, adm, cfg, helpers.WithNav)
-	}
 
 	// Optional metadata endpoint for frontend DataGrid column definitions.
 	r.Get(path.Join(cfg.BasePath, "api", "users", "columns"), wrapAuthed(userHandlers.Columns))
@@ -839,7 +811,6 @@ func main() {
 		adm,
 		authn,
 		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
-		quickstart.WithUINotificationsActive(setup.NavigationGroupOthers+".notifications"),
 	); err != nil {
 		log.Fatalf("failed to register admin UI routes: %v", err)
 	}
@@ -860,6 +831,9 @@ func main() {
 	}
 	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(r, cfg, adm, authn); err != nil {
 		log.Fatalf("failed to register content type builder API routes: %v", err)
+	}
+	if err := quickstart.RegisterContentEntryUIRoutes(r, cfg, adm, authn); err != nil {
+		log.Fatalf("failed to register content entry UI routes: %v", err)
 	}
 
 	secureLinkUI := setup.SecureLinkUIConfigFromEnv()
@@ -954,28 +928,6 @@ func main() {
 	r.Get(path.Join(cfg.BasePath, "user-profiles/:id"), wrapAuthed(userProfileHandlers.Detail))
 	r.Post(path.Join(cfg.BasePath, "user-profiles/:id/delete"), wrapAuthed(userProfileHandlers.Delete))
 
-	// Page routes
-	r.Get(path.Join(cfg.BasePath, "pages"), wrapAuthed(pageHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "pages/new"), wrapAuthed(pageHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "pages"), wrapAuthed(pageHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "pages/:id"), wrapAuthed(pageHandlers.Detail))
-	r.Get(path.Join(cfg.BasePath, "pages/:id/edit"), wrapAuthed(pageHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "pages/:id"), wrapAuthed(pageHandlers.Update))
-	r.Post(path.Join(cfg.BasePath, "pages/:id/delete"), wrapAuthed(pageHandlers.Delete))
-	r.Post(path.Join(cfg.BasePath, "pages/:id/publish"), wrapAuthed(pageHandlers.Publish))
-	r.Post(path.Join(cfg.BasePath, "pages/:id/unpublish"), wrapAuthed(pageHandlers.Unpublish))
-
-	// Post routes
-	r.Get(path.Join(cfg.BasePath, "posts"), wrapAuthed(postHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "posts/new"), wrapAuthed(postHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "posts"), wrapAuthed(postHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "posts/:id"), wrapAuthed(postHandlers.Detail))
-	r.Get(path.Join(cfg.BasePath, "posts/:id/edit"), wrapAuthed(postHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "posts/:id"), wrapAuthed(postHandlers.Update))
-	r.Post(path.Join(cfg.BasePath, "posts/:id/delete"), wrapAuthed(postHandlers.Delete))
-	r.Post(path.Join(cfg.BasePath, "posts/:id/publish"), wrapAuthed(postHandlers.Publish))
-	r.Post(path.Join(cfg.BasePath, "posts/:id/archive"), wrapAuthed(postHandlers.Archive))
-
 	// Media routes
 	r.Get(path.Join(cfg.BasePath, "media"), wrapAuthed(mediaHandlers.List))
 	r.Get(path.Join(cfg.BasePath, "media/new"), wrapAuthed(mediaHandlers.New))
@@ -984,16 +936,6 @@ func main() {
 	r.Get(path.Join(cfg.BasePath, "media/:id/edit"), wrapAuthed(mediaHandlers.Edit))
 	r.Post(path.Join(cfg.BasePath, "media/:id"), wrapAuthed(mediaHandlers.Update))
 	r.Post(path.Join(cfg.BasePath, "media/:id/delete"), wrapAuthed(mediaHandlers.Delete))
-
-	if tenantHandlers != nil {
-		r.Get(path.Join(cfg.BasePath, "tenants"), wrapAuthed(tenantHandlers.List))
-		r.Get(path.Join(cfg.BasePath, "tenants/new"), wrapAuthed(tenantHandlers.New))
-		r.Post(path.Join(cfg.BasePath, "tenants"), wrapAuthed(tenantHandlers.Create))
-		r.Get(path.Join(cfg.BasePath, "tenants/:id"), wrapAuthed(tenantHandlers.Detail))
-		r.Get(path.Join(cfg.BasePath, "tenants/:id/edit"), wrapAuthed(tenantHandlers.Edit))
-		r.Post(path.Join(cfg.BasePath, "tenants/:id"), wrapAuthed(tenantHandlers.Update))
-		r.Post(path.Join(cfg.BasePath, "tenants/:id/delete"), wrapAuthed(tenantHandlers.Delete))
-	}
 
 	siteHandlers := handlers.NewSiteHandlers(handlers.SiteHandlersConfig{
 		Admin:         adm,
@@ -1016,11 +958,12 @@ func main() {
 	log.Println("  Dashboard: /admin/api/dashboard")
 	log.Println("  Navigation: /admin/api/navigation")
 	log.Println("  Users: /admin/api/users")
-	log.Println("  Pages: /admin/api/pages")
-	log.Println("  Posts: /admin/api/posts")
+	log.Println("  Content: /admin/api/content")
 	log.Println("  Media: /admin/api/media")
 	log.Println("  Settings: /admin/api/settings")
 	log.Println("  Session: /admin/api/session")
+	log.Println("  Content UI (Pages): /admin/content/pages (alias: /admin/pages)")
+	log.Println("  Content UI (Posts): /admin/content/posts (alias: /admin/posts)")
 	log.Printf("  Dashboard: go-dashboard (persistent, requires CMS)")
 	log.Printf("  Activity backend: %s (USE_GO_USERS_ACTIVITY=%t)", activityBackend, adapterResult.Flags.UseGoUsersActivity)
 	log.Printf("  CMS backend: %s (USE_PERSISTENT_CMS=%t)", cmsBackend, adapterResult.Flags.UsePersistentCMS)
@@ -1820,8 +1763,6 @@ func setupSearch(adm *admin.Admin, dataStores *stores.DataStores) {
 	}
 
 	engine.Register("users", search.NewUsersSearchAdapter(dataStores.Users))
-	engine.Register("pages", search.NewPagesSearchAdapter(dataStores.Pages))
-	engine.Register("posts", search.NewPostsSearchAdapter(dataStores.Posts))
 	engine.Register("media", search.NewMediaSearchAdapter(dataStores.Media))
 }
 

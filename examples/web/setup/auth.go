@@ -390,7 +390,8 @@ func applySessionClaimsMetadata(ctx context.Context, identity auth.Identity, cla
 		}
 	}
 	if registry != nil {
-		perms, err := resolveRolePermissions(ctx, registry, identity)
+		scope := scopeFromClaims(claims, defaults)
+		perms, err := resolveRolePermissions(ctx, registry, identity, scope)
 		if err != nil {
 			log.Printf("DEBUG: applySessionClaimsMetadata - permissions lookup failed: %v", err)
 		} else if len(perms) > 0 {
@@ -401,7 +402,7 @@ func applySessionClaimsMetadata(ctx context.Context, identity auth.Identity, cla
 	return nil
 }
 
-func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistry, identity auth.Identity) ([]string, error) {
+func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistry, identity auth.Identity, scope userstypes.ScopeFilter) ([]string, error) {
 	if registry == nil || identity == nil {
 		return nil, nil
 	}
@@ -416,7 +417,7 @@ func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistr
 	actor := userstypes.ActorRef{ID: uid, Type: "user"}
 	assignments, err := registry.ListAssignments(ctx, userstypes.RoleAssignmentFilter{
 		Actor:  actor,
-		Scope:  userstypes.ScopeFilter{},
+		Scope:  scope,
 		UserID: uid,
 	})
 	if err != nil {
@@ -437,7 +438,7 @@ func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistr
 	}
 	roles, err := registry.ListRoles(ctx, userstypes.RoleFilter{
 		Actor:         actor,
-		Scope:         userstypes.ScopeFilter{},
+		Scope:         scope,
 		RoleIDs:       roleIDs,
 		IncludeSystem: true,
 	})
@@ -462,6 +463,33 @@ func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistr
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+func scopeFromClaims(claims *auth.JWTClaims, defaults authOptions) userstypes.ScopeFilter {
+	scope := userstypes.ScopeFilter{}
+	if claims == nil {
+		return scope
+	}
+	metadata := claims.Metadata
+	tenant := ""
+	org := ""
+	if metadata != nil {
+		tenant = strings.TrimSpace(toString(metadata["tenant_id"]))
+		org = strings.TrimSpace(toString(metadata["organization_id"]))
+	}
+	tenant = firstNonEmpty(tenant, defaults.defaultTenantID)
+	org = firstNonEmpty(org, defaults.defaultOrgID)
+	if tenant != "" {
+		if tid, err := uuid.Parse(tenant); err == nil {
+			scope.TenantID = tid
+		}
+	}
+	if org != "" {
+		if oid, err := uuid.Parse(org); err == nil {
+			scope.OrgID = oid
+		}
+	}
+	return scope
 }
 
 func statusFromIdentity(identity auth.Identity) auth.UserStatus {

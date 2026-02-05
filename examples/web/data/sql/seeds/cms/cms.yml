@@ -91,11 +91,32 @@
         properties:
           title:
             type: "string"
+          slug:
+            type: "string"
+          status:
+            type: "string"
+          path:
+            type: "string"
+          template_id:
+            type: "string"
+          parent_id:
+            type: "string"
+          published_at:
+            type: "string"
+            format: "date-time"
           summary:
             type: "string"
-          body:
+          content:
             type: "string"
           featured_image:
+            type: "string"
+          tags:
+            type: "array"
+            items:
+              type: "string"
+          meta_title:
+            type: "string"
+          meta_description:
             type: "string"
           seo:
             type: "object"
@@ -117,6 +138,14 @@
                 - "$ref": "#/$defs/rich_text"
       capabilities:
         translations: true
+        seo: true
+        blocks: true
+        tree: true
+        workflow: "pages"
+        permissions: "admin.pages"
+        panel_slug: "pages"
+        policy_entity: "pages"
+      status: "active"
       environment_id: "00000000-0000-0000-0000-000000000001"
       created_at: '{{ now }}'
       updated_at: '{{ now }}'
@@ -170,9 +199,24 @@
         properties:
           title:
             type: "string"
-          summary:
+          slug:
             type: "string"
-          body:
+          status:
+            type: "string"
+          path:
+            type: "string"
+          published_at:
+            type: "string"
+            format: "date-time"
+          category:
+            type: "string"
+          author:
+            type: "string"
+          excerpt:
+            type: "string"
+          content:
+            type: "string"
+          summary:
             type: "string"
           featured_image:
             type: "string"
@@ -180,6 +224,10 @@
             type: "array"
             items:
               type: "string"
+          meta_title:
+            type: "string"
+          meta_description:
+            type: "string"
           meta:
             type: "object"
           seo:
@@ -200,6 +248,13 @@
                 - "$ref": "#/$defs/rich_text"
       capabilities:
         translations: true
+        seo: true
+        blocks: true
+        workflow: "posts"
+        permissions: "admin.posts"
+        panel_slug: "posts"
+        policy_entity: "posts"
+      status: "active"
       environment_id: "00000000-0000-0000-0000-000000000001"
       created_at: '{{ now }}'
       updated_at: '{{ now }}'

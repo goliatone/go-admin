@@ -122,16 +122,16 @@ Error handling env toggles (wired via `quickstart.WithErrorsFromEnv()`):
 
 ### Content UI (Pages, Posts, Media)
 
-- HTML CRUD screens live at `/admin/pages`, `/admin/posts`, `/admin/media` (auth + permissions enforced: `admin.pages.*`, `admin.posts.*`, `admin.media.*`).
-- Actions include create/edit/delete plus publish/unpublish (pages) and publish/archive (posts); media supports add/edit/delete metadata.
+- HTML CRUD screens live at `/admin/content/pages`, `/admin/content/posts`, `/admin/media` (aliases `/admin/pages` and `/admin/posts` redirect; auth + permissions enforced: `admin.pages.*`, `admin.posts.*`, `admin.media.*`).
+- Actions include create/edit/delete plus workflow/publish actions for pages/posts; media supports add/edit/delete metadata.
 - Navigation highlights the active item; search results link to the new views.
 
 ### Content persistence (SQLite + go-repository-bun)
 
-- CRUD APIs (`/admin/crud/{pages,posts,media}`) are backed by SQLite via go-repository-bun stores; go-cms migrations from `../go-cms/data/sql/migrations` are applied on startup with a light overlay that creates `admin_pages`, `admin_posts`, and `media` demo tables for the example flows.
+- Pages/Posts are served via content entry APIs (`/admin/api/content`) backed by go-cms content entries; media continues to use go-crud at `/admin/crud/media`, backed by SQLite via go-repository-bun. go-cms migrations from `../go-cms/data/sql/migrations` are applied on startup with a light overlay that creates the demo tables for the example flows.
 - Configure the DSN with `CONTENT_DATABASE_DSN` (preferred), falling back to `CMS_DATABASE_DSN`, else `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; fixtures load from `examples/web/data/sql/seeds` when `ADMIN_SEEDS` is enabled (default outside production). Use `ADMIN_SEEDS_TRUNCATE=true` to reseed.
-- Controllers also register plural aliases (`/admin/crud/posts`, `/admin/crud/posts/:id`, `/admin/crud/posts/batch`, etc.) so the DataGrid and HTML flows keep using plural paths while hitting the DB.
-- Smoke: create/edit/delete a page, post, and media item via the UI or `/admin/crud/{resource}`; restart the server and confirm the records persist and still filter/sort in the lists.
+- Controllers also register plural aliases (`/admin/crud/media`, `/admin/crud/user-profiles`, etc.) so the DataGrid and HTML flows keep using plural paths while hitting the DB.
+- Smoke: create/edit/delete a page and post via the content entry UI, and a media item via `/admin/crud/media`; restart the server and confirm the records persist and still filter/sort in the lists.
 
 ## Sidebar Navigation & Quickstart defaults
 
@@ -143,7 +143,8 @@ Error handling env toggles (wired via `quickstart.WithErrorsFromEnv()`):
 
 ## Template Functions
 
-- The view engine uses `quickstart.DefaultTemplateFuncs`, which includes `singularize`, `pluralize`, `toJSON`, `dict`, `formatNumber`, and widget title helpers. These are helpers (globals) in Pongo2, so call them like `{{ singularize(resource_label|default:resource)|title }}`.
+- The view engine uses `quickstart.DefaultTemplateFuncs`, which includes `singularize`, `pluralize`, `toJSON`, `dict`, `formatNumber`, `adminURL`, and widget title helpers. These are helpers (globals) in Pongo2, so call them like `{{ singularize(resource_label|default:resource)|title }}`.
+- `adminURL` prefixes paths with the configured base path (wired in `examples/web/main.go` via `WithTemplateBasePath(cfg.BasePath)`).
 - Example-specific widget title labels are configured in `examples/web/helpers/template_funcs.go` via `helpers.TemplateFuncOptions()`.
 - To add custom template functions while keeping defaults, use `quickstart.MergeTemplateFuncs` and pass the result to `quickstart.WithViewTemplateFuncs` in `examples/web/main.go`.
 
@@ -473,7 +474,7 @@ func (c *UserActivateCommand) Execute(ctx admin.AdminContext) error {
 ### Activity backends & smoke
 
 - Flag: `USE_GO_USERS_ACTIVITY=true` swaps the activity sink to the go-users adapter (`examples/web/setup/activity.go`) while keeping dashboard hooks and the in-memory fallback buffer.
-- Smoke (in-memory): start normally, create a page (`POST /admin/api/pages`), update a post (`PUT /admin/api/posts/<id>`), delete a media item (`DELETE /admin/api/media/<id>`), then `GET /admin/api/activity?limit=10` and confirm `entries` show `page:<id>`, `post:<id>`, `media:<id>` with actor + metadata.
+- Smoke (in-memory): start normally, create a page (`POST /admin/api/content`), update a post (`PUT /admin/api/content/<id>`), delete a media item (`DELETE /admin/api/media/<id>`), then `GET /admin/api/activity?limit=10` and confirm `entries` show `page:<id>`, `post:<id>`, `media:<id>` with actor + metadata.
 - Smoke (go-users): restart with the flag, repeat the same create/update/delete calls, and verify `/admin/api/activity` still returns the new events in `entries` with intact IDs/actors; toggle the flag off again to confirm the feed keeps working.
 
 ## Persistent CMS (go-cms + Bun/SQLite)
@@ -491,7 +492,7 @@ func (c *UserActivateCommand) Execute(ctx admin.AdminContext) error {
 - Pages and Posts panels use the go-cms backend by default (container from `examples/web/setup/cms_persistent.go`).
 - Navigation seeds a `Content` parent guarded by `admin.pages.*`/`admin.posts.*`; the go-auth role provider now issues matching resource roles so the menu and panels hide for unauthorized tokens.
 - CMS-backed stores emit `page:<id>`/`post:<id>` activity (actor + slug/status metadata) and drive search adapters from go-cms data, keeping search and activity aligned with the persistent backend.
-- Smoke: `CMS_DATABASE_DSN=file:/tmp/go-admin-cms.db?cache=shared&_fk=1 go run ./examples/web`, create/edit/delete a page and a post via `/admin/pages` and `/admin/posts`, confirm `/admin/api/search?query=<slug>` returns them and `/admin/api/activity?limit=5` shows create/update/delete in `entries` with correct actors.
+- Smoke: `CMS_DATABASE_DSN=file:/tmp/go-admin-cms.db?cache=shared&_fk=1 go run ./examples/web`, create/edit/delete a page and a post via `/admin/content/pages` and `/admin/content/posts`, confirm `/admin/api/search?query=<slug>` returns them and `/admin/api/activity?limit=5` shows create/update/delete in `entries` with correct actors.
 
 ## User & Role Management
 

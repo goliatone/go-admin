@@ -107,7 +107,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			Collapsed:   false,
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join(basePath, "pages"),
+				"path": path.Join(basePath, "content", "pages"),
 				"key":  "content",
 			},
 			Menu:        menuCode,
