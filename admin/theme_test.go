@@ -31,7 +31,8 @@ func TestDashboardRouteReturnsTheme(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/dashboard", nil)
+	dashboardPath := mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "dashboard", nil, nil)
+	req := httptest.NewRequest("GET", dashboardPath, nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -86,7 +87,8 @@ func TestPanelSchemaIncludesThemePayload(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/items", nil)
+	itemsPath := mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "panel", map[string]string{"panel": "items"}, nil)
+	req := httptest.NewRequest("GET", itemsPath, nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -200,28 +202,28 @@ func TestThemeOverrideViaGoThemeSelector(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	themeQuery := "?theme=brand&variant=dark"
+	themeQuery := map[string]string{"theme": "brand", "variant": "dark"}
 	tests := []struct {
 		path    string
 		extract func(map[string]any) map[string]any
 		label   string
 	}{
 		{
-			path:  "/admin/api/dashboard" + themeQuery,
+			path:  mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "dashboard", nil, themeQuery),
 			label: "dashboard",
 			extract: func(body map[string]any) map[string]any {
 				return mapFromAny(body["theme"])
 			},
 		},
 		{
-			path:  "/admin/api/navigation" + themeQuery,
+			path:  mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "navigation", nil, themeQuery),
 			label: "navigation",
 			extract: func(body map[string]any) map[string]any {
 				return mapFromAny(body["theme"])
 			},
 		},
 		{
-			path:  "/admin/api/items" + themeQuery,
+			path:  mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "panel", map[string]string{"panel": "items"}, themeQuery),
 			label: "panel",
 			extract: func(body map[string]any) map[string]any {
 				schema, _ := body["schema"].(map[string]any)
@@ -229,7 +231,7 @@ func TestThemeOverrideViaGoThemeSelector(t *testing.T) {
 			},
 		},
 		{
-			path:  "/admin/api/settings/form" + themeQuery,
+			path:  mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "settings.form", nil, themeQuery),
 			label: "settings",
 			extract: func(body map[string]any) map[string]any {
 				return mapFromAny(body["theme"])

@@ -26,11 +26,23 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.FeatureFlagsUpdatePermission != "admin.feature_flags.update" {
 		t.Fatalf("expected feature flags update permission default, got %q", adm.config.FeatureFlagsUpdatePermission)
 	}
+	if adm.config.URLs.Admin.APIPrefix != "api" {
+		t.Fatalf("expected admin URL API prefix default, got %q", adm.config.URLs.Admin.APIPrefix)
+	}
+	if adm.config.URLs.Admin.APIVersion != "" {
+		t.Fatalf("expected admin URL API version to default empty, got %q", adm.config.URLs.Admin.APIVersion)
+	}
+	if adm.config.URLs.Public.APIPrefix != "api" {
+		t.Fatalf("expected public URL API prefix default, got %q", adm.config.URLs.Public.APIPrefix)
+	}
+	if adm.config.URLs.Public.APIVersion != "v1" {
+		t.Fatalf("expected public URL API version default, got %q", adm.config.URLs.Public.APIVersion)
+	}
 	if adm.config.URLs.APIPrefix != "api" {
-		t.Fatalf("expected URL API prefix default, got %q", adm.config.URLs.APIPrefix)
+		t.Fatalf("expected legacy URL API prefix default, got %q", adm.config.URLs.APIPrefix)
 	}
 	if adm.config.URLs.APIVersion != "" {
-		t.Fatalf("expected URL API version to default empty, got %q", adm.config.URLs.APIVersion)
+		t.Fatalf("expected legacy URL API version default empty, got %q", adm.config.URLs.APIVersion)
 	}
 	if adm.config.PreferencesPermission != "admin.preferences.view" {
 		t.Fatalf("expected preferences permission default, got %q", adm.config.PreferencesPermission)

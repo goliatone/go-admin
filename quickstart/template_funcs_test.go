@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -138,4 +139,24 @@ func TestDefaultTemplateFuncs_ContainsRenderMenuIcon(t *testing.T) {
 	require.True(t, ok, "renderMenuIcon should be func(string) string")
 	result := callable("cube")
 	assert.True(t, strings.Contains(result, "iconoir-cube"))
+}
+
+func TestAdminURLUsesURLKitResolver(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/control",
+				Routes: map[string]string{
+					"dashboard": "/",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	funcs := DefaultTemplateFuncs(WithTemplateURLResolver(manager))
+	fn, ok := funcs["adminURL"].(func(string) string)
+	require.True(t, ok, "adminURL should be func(string) string")
+	assert.Equal(t, "/control/runtime/formgen-behaviors.min.js", fn("runtime/formgen-behaviors.min.js"))
 }

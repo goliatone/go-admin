@@ -2,6 +2,7 @@ package boot
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,7 @@ type stubCtx struct {
 	router     Router
 	wrapper    HandlerWrapper
 	basePath   string
+	adminAPI   string
 	urls       urlkit.Resolver
 	responder  Responder
 	parseBody  func(router.Context) (map[string]any, error)
@@ -47,11 +49,22 @@ type stubCtx struct {
 func (s *stubCtx) Router() Router              { return s.router }
 func (s *stubCtx) AuthWrapper() HandlerWrapper { return s.wrapper }
 func (s *stubCtx) BasePath() string            { return s.basePath }
-func (s *stubCtx) URLs() urlkit.Resolver       { return s.urls }
-func (s *stubCtx) DefaultLocale() string       { return s.defaultLoc }
-func (s *stubCtx) NavMenuCode() string         { return s.navCode }
-func (s *stubCtx) Gates() FeatureGates         { return s.gates }
-func (s *stubCtx) Responder() Responder        { return s.responder }
+func (s *stubCtx) AdminAPIGroup() string {
+	if s.adminAPI != "" {
+		return s.adminAPI
+	}
+	return "admin.api"
+}
+func (s *stubCtx) URLs() urlkit.Resolver {
+	if s.urls != nil {
+		return s.urls
+	}
+	return newTestURLManager(s.basePath)
+}
+func (s *stubCtx) DefaultLocale() string { return s.defaultLoc }
+func (s *stubCtx) NavMenuCode() string   { return s.navCode }
+func (s *stubCtx) Gates() FeatureGates   { return s.gates }
+func (s *stubCtx) Responder() Responder  { return s.responder }
 func (s *stubCtx) ParseBody(c router.Context) (map[string]any, error) {
 	if s.parseBody != nil {
 		return s.parseBody(c)
@@ -112,6 +125,64 @@ func (r *recordRouter) Delete(path string, handler router.HandlerFunc, mw ...rou
 	return nil
 }
 
+func newTestURLManager(basePath string) *urlkit.RouteManager {
+	cfg := &urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: basePath,
+				Routes: map[string]string{
+					"dashboard":      "/",
+					"dashboard.page": "/dashboard",
+					"health":         "/health",
+				},
+				Groups: []urlkit.GroupConfig{
+					{
+						Name: "api",
+						Path: "/api",
+						Routes: map[string]string{
+							"dashboard":             "/dashboard",
+							"dashboard.preferences": "/dashboard/preferences",
+							"dashboard.config":      "/dashboard/config",
+							"dashboard.debug":       "/dashboard/debug",
+							"navigation":            "/navigation",
+							"settings":              "/settings",
+							"settings.form":         "/settings/form",
+							"schemas":               "/schemas",
+							"schemas.resource":      "/schemas/:resource",
+							"panel":                 "/:panel",
+							"panel.id":              "/:panel/:id",
+							"panel.action":          "/:panel/actions/:action",
+							"panel.bulk":            "/:panel/bulk/:action",
+							"panel.preview":         "/:panel/:id/preview",
+						},
+					},
+				},
+			},
+		},
+	}
+	manager, _ := urlkit.NewRouteManagerFromConfig(cfg)
+	return manager
+}
+
+func mustRoutePath(t *testing.T, ctx BootCtx, group, route string) string {
+	t.Helper()
+	path := routePath(ctx, group, route)
+	if path == "" {
+		t.Fatalf("expected route path for %s.%s", group, route)
+	}
+	return path
+}
+
+func mustRoutePathWithParams(t *testing.T, ctx BootCtx, group, route string, params map[string]string) string {
+	t.Helper()
+	path := routePathWithParams(ctx, group, route, params)
+	if path == "" {
+		t.Fatalf("expected route path for %s.%s", group, route)
+	}
+	return path
+}
+
 func TestRunShortCircuitsOnError(t *testing.T) {
 	ctx := &stubCtx{}
 	seen := []string{}
@@ -158,7 +229,7 @@ func TestHealthStepRegistersRouteWithWrapper(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rr.calls, 1)
 	require.Equal(t, "GET", rr.calls[0].method)
-	require.Equal(t, "/admin/health", rr.calls[0].path)
+	require.Equal(t, mustRoutePath(t, ctx, "admin", "health"), rr.calls[0].path)
 	require.NotNil(t, rr.calls[0].handler)
 	require.False(t, wrapped)
 
@@ -288,7 +359,7 @@ func TestNavigationStepRegistersRouteAndUsesDefaults(t *testing.T) {
 	require.NoError(t, NavigationStep(ctx))
 	require.Len(t, rr.calls, 1)
 	require.Equal(t, "GET", rr.calls[0].method)
-	require.Equal(t, "/admin/api/navigation", rr.calls[0].path)
+	require.Equal(t, mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "navigation"), rr.calls[0].path)
 
 	mockCtx := router.NewMockContext()
 	require.NoError(t, rr.calls[0].handler(mockCtx))
@@ -406,16 +477,21 @@ func TestDashboardStepRegistersRoutesAndWrapsHandlers(t *testing.T) {
 		paths[call.path] = true
 		methodPaths[call.method+" "+call.path] = true
 	}
-	require.True(t, paths["/admin/api/dashboard"])
-	require.True(t, paths["/admin/api/dashboard/preferences"])
-	require.True(t, paths["/admin/api/dashboard/config"])
-	require.True(t, paths["/admin/api/dashboard/debug"])
-	require.True(t, methodPaths["GET /admin/api/dashboard/preferences"])
-	require.False(t, methodPaths["POST /admin/api/dashboard.preferences"]) // sanity: no typo route
-	require.True(t, methodPaths["POST /admin/api/dashboard/preferences"])
-	require.True(t, methodPaths["GET /admin/api/dashboard/config"])
-	require.True(t, methodPaths["POST /admin/api/dashboard/config"])
-	require.True(t, methodPaths["GET /admin/api/dashboard/debug"])
+	dashboardPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "dashboard")
+	prefsPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "dashboard.preferences")
+	configPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "dashboard.config")
+	debugPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "dashboard.debug")
+	badPrefsPath := strings.Replace(prefsPath, "/preferences", ".preferences", 1)
+	require.True(t, paths[dashboardPath])
+	require.True(t, paths[prefsPath])
+	require.True(t, paths[configPath])
+	require.True(t, paths[debugPath])
+	require.True(t, methodPaths["GET "+prefsPath])
+	require.False(t, methodPaths["POST "+badPrefsPath]) // sanity: no typo route
+	require.True(t, methodPaths["POST "+prefsPath])
+	require.True(t, methodPaths["GET "+configPath])
+	require.True(t, methodPaths["POST "+configPath])
+	require.True(t, methodPaths["GET "+debugPath])
 
 	// Execute one handler to ensure wrapper and gate are applied.
 	mockCtx := router.NewMockContext()
@@ -466,8 +542,9 @@ func TestDashboardStepEnforcesPreferencesPermissions(t *testing.T) {
 
 	var getHandler router.HandlerFunc
 	var postHandler router.HandlerFunc
+	prefsPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "dashboard.preferences")
 	for _, call := range rr.calls {
-		if call.path == "/admin/api/dashboard/preferences" {
+		if call.path == prefsPath {
 			if call.method == "GET" {
 				getHandler = call.handler
 			}
@@ -545,8 +622,9 @@ func TestDashboardStepStopsOnPreferencesPermissionError(t *testing.T) {
 			require.NoError(t, DashboardStep(ctx))
 
 			var handler router.HandlerFunc
+			prefsPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "dashboard.preferences")
 			for _, call := range rr.calls {
-				if call.path == "/admin/api/dashboard/preferences" && call.method == tc.method {
+				if call.path == prefsPath && call.method == tc.method {
 					handler = call.handler
 				}
 			}
@@ -606,13 +684,15 @@ func TestSettingsRouteStepRegistersRoutesAndParsesBody(t *testing.T) {
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true
 	}
-	require.True(t, methodPaths["GET /admin/api/settings"])
-	require.True(t, methodPaths["GET /admin/api/settings/form"])
-	require.True(t, methodPaths["POST /admin/api/settings"])
+	settingsPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "settings")
+	settingsFormPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "settings.form")
+	require.True(t, methodPaths["GET "+settingsPath])
+	require.True(t, methodPaths["GET "+settingsFormPath])
+	require.True(t, methodPaths["POST "+settingsPath])
 
 	var postHandler router.HandlerFunc
 	for _, call := range rr.calls {
-		if call.method == "POST" && call.path == "/admin/api/settings" {
+		if call.method == "POST" && call.path == settingsPath {
 			postHandler = call.handler
 		}
 	}
@@ -658,12 +738,14 @@ func TestSchemaRegistryStepRegistersRoutes(t *testing.T) {
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true
 	}
-	require.True(t, methodPaths["GET /admin/api/schemas"])
-	require.True(t, methodPaths["GET /admin/api/schemas/:resource"])
+	schemasPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "schemas")
+	schemaResourcePath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "schemas.resource")
+	require.True(t, methodPaths["GET "+schemasPath])
+	require.True(t, methodPaths["GET "+schemaResourcePath])
 
 	var listHandler router.HandlerFunc
 	for _, call := range rr.calls {
-		if call.method == "GET" && call.path == "/admin/api/schemas" {
+		if call.method == "GET" && call.path == schemasPath {
 			listHandler = call.handler
 			break
 		}
