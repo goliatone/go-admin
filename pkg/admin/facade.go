@@ -335,6 +335,7 @@ const (
 	DebugPanelCustom   = core.DebugPanelCustom
 	DebugPanelConsole  = core.DebugPanelConsole
 	DebugPanelShell    = core.DebugPanelShell
+	DebugPanelJSErrors = core.DebugPanelJSErrors
 )
 
 func New(cfg Config, deps Dependencies) (*Admin, error) {
