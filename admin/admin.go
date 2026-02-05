@@ -69,6 +69,7 @@ type Admin struct {
 	navMenuCode                  string
 	translator                   Translator
 	workflow                     WorkflowEngine
+	translationPolicy            TranslationPolicy
 	cmsWorkflowDefaults          bool
 	cmsWorkflowActions           []Action
 	cmsWorkflowActionsSet        bool
@@ -217,14 +218,24 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		}
 	}
 
+	urlManager := deps.URLManager
+	if urlManager == nil {
+		var err error
+		urlManager, err = newURLManager(cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	mediaLib := deps.MediaLibrary
 	if mediaLib == nil {
 		mediaLib = DisabledMediaLibrary{}
 		if featureEnabled(featureGate, FeatureMedia) {
-			mediaBase := cfg.BasePath
+			mediaBase := resolveURLWith(urlManager, "admin", "dashboard", nil, nil)
 			if mediaBase == "" {
-				mediaBase = "/admin"
+				mediaBase = adminBasePath(cfg)
 			}
+			mediaBase = strings.TrimRight(mediaBase, "/")
 			mediaLib = NewInMemoryMediaLibrary(mediaBase)
 		}
 	}
@@ -283,15 +294,6 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	dashboard := NewDashboard()
 	dashboard.WithRegistry(registry)
 
-	urlManager := deps.URLManager
-	if urlManager == nil {
-		var err error
-		urlManager, err = newURLManager(cfg)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	adm := &Admin{
 		config:                 cfg,
 		featureGate:            featureGate,
@@ -338,6 +340,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		navMenuCode:            navMenuCode,
 		translator:             translator,
 		workflow:               deps.Workflow,
+		translationPolicy:      deps.TranslationPolicy,
 		preview:                NewPreviewService(cfg.PreviewSecret),
 	}
 
@@ -466,6 +469,12 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 func (a *Admin) WithWorkflow(w WorkflowEngine) *Admin {
 	a.workflow = w
 	applyCMSWorkflowDefaults(a)
+	return a
+}
+
+// WithTranslationPolicy attaches a translation policy used during workflow transitions.
+func (a *Admin) WithTranslationPolicy(policy TranslationPolicy) *Admin {
+	a.translationPolicy = policy
 	return a
 }
 
@@ -859,6 +868,9 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 	if builder.workflow == nil && !builder.workflowSet {
 		builder.workflow = a.workflow
 	}
+	if builder.translationPolicy == nil && !builder.translationPolicySet {
+		builder.translationPolicy = a.translationPolicy
+	}
 	panel, err := builder.Build()
 	if err != nil {
 		return nil, err
@@ -930,19 +942,21 @@ func (a *Admin) decorateSchema(schema *Schema, panelName string) {
 		return
 	}
 	if featureEnabled(a.featureGate, FeatureExport) {
+		exportURL := resolveURLWith(a.urlManager, "admin", "exports", nil, nil)
 		schema.Export = &ExportConfig{
 			Definition: panelName,
-			Endpoint:   joinPath(a.config.BasePath, "exports"),
+			Endpoint:   exportURL,
 		}
 	}
 	if featureEnabled(a.featureGate, FeatureBulk) && a.bulkSvc != nil {
+		bulkURL := resolveURLWith(a.urlManager, adminAPIGroupName(a.config), "bulk", nil, nil)
 		schema.Bulk = &BulkConfig{
-			Endpoint:         joinPath(a.config.BasePath, "api/bulk"),
+			Endpoint:         bulkURL,
 			SupportsRollback: supportsBulkRollback(a.bulkSvc),
 		}
 	}
 	if featureEnabled(a.featureGate, FeatureMedia) && a.mediaLibrary != nil {
-		libraryPath := joinPath(a.config.BasePath, "api/media/library")
+		libraryPath := resolveURLWith(a.urlManager, adminAPIGroupName(a.config), "media.library", nil, nil)
 		schema.Media = &MediaConfig{LibraryPath: libraryPath}
 		applyMediaHints(schema, libraryPath)
 	}
