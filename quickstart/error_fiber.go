@@ -2,8 +2,10 @@ package quickstart
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
@@ -43,7 +45,7 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 	}
 
 	errorCfg := cfg.Errors
-	if isDev {
+	if shouldEnableDevMode(isDev, errorCfg) {
 		errorCfg.DevMode = true
 		if !errorCfg.ExposeInternalMessages {
 			errorCfg.ExposeInternalMessages = true
@@ -128,9 +130,30 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 		viewCtx["request_path"] = c.Path()
 		viewCtx["base_path"] = cfg.BasePath
 		viewCtx["title"] = cfg.Title
+		viewCtx["dev_mode"] = errorCfg.DevMode
 
-		if isDev {
+		if errorCfg.DevMode {
 			viewCtx["error_detail"] = err.Error()
+			if mapped, _ := presenter.Present(err); mapped != nil {
+				viewCtx["error_text_code"] = mapped.TextCode
+				viewCtx["error_category"] = mapped.Category
+				if len(mapped.Metadata) > 0 {
+					viewCtx["error_metadata"] = mapped.Metadata
+					if metaJSON, metaErr := json.MarshalIndent(mapped.Metadata, "", "  "); metaErr == nil {
+						viewCtx["error_metadata_json"] = string(metaJSON)
+					}
+				}
+				if presenter.IncludeStackTrace() {
+					if stack := formatStackTrace(mapped.StackTrace); stack != "" {
+						viewCtx["error_stack"] = stack
+					}
+				}
+			}
+			var disabled admin.FeatureDisabledError
+			if errors.As(err, &disabled) {
+				viewCtx["error_feature"] = disabled.Feature
+				viewCtx["error_reason"] = disabled.Reason
+			}
 		}
 
 		// Set all viewCtx values via Locals to ensure Fiber's PassLocalsToViews works
@@ -143,6 +166,59 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 			return c.SendString(fmt.Sprintf("%d - %s", code, headline))
 		}
 		return nil
+	}
+}
+
+func shouldEnableDevMode(isDev bool, cfg admin.ErrorConfig) bool {
+	if isDev || cfg.DevMode {
+		return true
+	}
+	env := resolveRuntimeEnv()
+	if env == "" {
+		return false
+	}
+	if isProdEnv(env) {
+		return false
+	}
+	if value, ok := envBool("ADMIN_ERROR_NONPROD"); ok {
+		return value
+	}
+	return true
+}
+
+func resolveRuntimeEnv() string {
+	env := strings.TrimSpace(os.Getenv("GO_ENV"))
+	if env == "" {
+		env = strings.TrimSpace(os.Getenv("ENV"))
+	}
+	return strings.ToLower(env)
+}
+
+func isProdEnv(env string) bool {
+	switch strings.TrimSpace(strings.ToLower(env)) {
+	case "prod", "production":
+		return true
+	default:
+		return false
+	}
+}
+
+func formatStackTrace(trace any) string {
+	switch v := trace.(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case []string:
+		return strings.Join(v, "\n")
+	case []any:
+		parts := make([]string, 0, len(v))
+		for _, entry := range v {
+			parts = append(parts, fmt.Sprint(entry))
+		}
+		return strings.Join(parts, "\n")
+	default:
+		return fmt.Sprint(v)
 	}
 }
 
