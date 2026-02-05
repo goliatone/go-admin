@@ -3,8 +3,10 @@ package quickstart
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"strings"
+	"unicode"
 
 	"github.com/gobuffalo/flect"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -19,6 +21,7 @@ type templateFuncOptions struct {
 	widgetTitleFn        func(string) string
 	featureGate          fggate.FeatureGate
 	featureHelperOptions []fgtemplates.HelperOption
+	basePath             string
 }
 
 // DefaultTemplateFuncs returns shared template functions for view rendering.
@@ -45,6 +48,7 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		}
 	}
 
+	basePath := sanitizeTemplateBasePath(options.basePath)
 	funcs := map[string]any{
 		"toJSON": func(v any) string {
 			b, _ := json.Marshal(v)
@@ -64,6 +68,10 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		"formatNumber":   formatNumber,
 		"singularize":    flect.Singularize,
 		"pluralize":      flect.Pluralize,
+		"adminURL": func(path string) string {
+			return joinAdminURL(basePath, path)
+		},
+		"renderMenuIcon": renderMenuIcon,
 		"dict": func(values ...any) (map[string]any, error) {
 			if len(values)%2 != 0 {
 				return nil, fmt.Errorf("dict requires even number of arguments")
@@ -133,6 +141,16 @@ func WithWidgetTitleFunc(fn func(string) string) TemplateFuncOption {
 	}
 }
 
+// WithTemplateBasePath configures the base path used by adminURL helper.
+func WithTemplateBasePath(basePath string) TemplateFuncOption {
+	return func(opts *templateFuncOptions) {
+		if opts == nil {
+			return
+		}
+		opts.basePath = strings.TrimSpace(basePath)
+	}
+}
+
 // WithTemplateFeatureGate registers feature template helpers using the provided gate.
 func WithTemplateFeatureGate(gate fggate.FeatureGate, opts ...fgtemplates.HelperOption) TemplateFuncOption {
 	return func(options *templateFuncOptions) {
@@ -164,6 +182,34 @@ func defaultWidgetTitles() map[string]string {
 	}
 }
 
+func sanitizeTemplateBasePath(basePath string) string {
+	trimmed := strings.TrimSpace(basePath)
+	if trimmed == "" {
+		return ""
+	}
+	return "/" + strings.Trim(trimmed, "/")
+}
+
+func joinAdminURL(basePath, path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return basePath
+	}
+	if strings.HasPrefix(trimmed, "http://") ||
+		strings.HasPrefix(trimmed, "https://") ||
+		strings.HasPrefix(trimmed, "//") {
+		return trimmed
+	}
+	if basePath == "" || basePath == "/" {
+		if strings.HasPrefix(trimmed, "/") {
+			return trimmed
+		}
+		return "/" + trimmed
+	}
+	trimmed = strings.TrimPrefix(trimmed, "/")
+	return basePath + "/" + trimmed
+}
+
 func cloneWidgetTitles(input map[string]string) map[string]string {
 	if input == nil {
 		return nil
@@ -173,6 +219,101 @@ func cloneWidgetTitles(input map[string]string) map[string]string {
 		out[key] = value
 	}
 	return out
+}
+
+// svgFieldTypeKeys maps icon-picker SVG field-type keys to their closest
+// Iconoir equivalents. Keys that happen to be valid Iconoir names map to
+// themselves; others map to a reasonable visual fallback.
+var svgFieldTypeKeys = map[string]string{
+	"text":          "text",
+	"textarea":      "text",
+	"rich-text":     "edit-pencil",
+	"markdown":      "edit-pencil",
+	"code":          "code",
+	"number":        "calculator",
+	"integer":       "calculator",
+	"currency":      "credit-card",
+	"percentage":    "percentage-round",
+	"select":        "list",
+	"radio":         "circle",
+	"checkbox":      "check-circle",
+	"chips":         "label",
+	"toggle":        "switch-on",
+	"date":          "calendar",
+	"time":          "clock",
+	"datetime":      "calendar",
+	"media-picker":  "media-image",
+	"media-gallery": "media-image-list",
+	"file-upload":   "attachment",
+	"reference":     "link",
+	"references":    "link",
+	"user":          "user",
+	"group":         "folder",
+	"repeater":      "refresh-double",
+	"blocks":        "view-grid",
+	"json":          "code-brackets",
+	"slug":          "link",
+	"color":         "color-picker",
+	"location":      "pin-alt",
+}
+
+// renderMenuIcon returns safe HTML for a sidebar/menu icon.
+//
+// Detection order:
+//  1. Empty string → ""
+//  2. Emoji (Unicode range check) → <span> with the emoji character
+//  3. SVG field-type key (finite set from icon picker) → mapped to Iconoir name
+//  4. Default → rendered as Iconoir <i class="iconoir-{name}">
+func renderMenuIcon(icon string) string {
+	icon = strings.TrimSpace(icon)
+	if icon == "" {
+		return ""
+	}
+
+	style := `font-size: var(--sidebar-icon-size, 20px);`
+
+	// 1. Emoji detection
+	if isEmoji(icon) {
+		escaped := html.EscapeString(icon)
+		return `<span class="flex-shrink-0" style="` + style + ` line-height: 1; text-align: center; width: 1.25em;">` + escaped + `</span>`
+	}
+
+	// 2. SVG field-type key → map to Iconoir name
+	if mapped, ok := svgFieldTypeKeys[icon]; ok {
+		icon = mapped
+	}
+
+	// 3. Render as Iconoir
+	return `<i class="iconoir-` + html.EscapeString(icon) + ` flex-shrink-0" style="` + style + `"></i>`
+}
+
+// isEmoji returns true if the string contains emoji characters.
+func isEmoji(s string) bool {
+	for _, r := range s {
+		if r > 0xFF {
+			// Symbol, Other category covers many emoji
+			if unicode.Is(unicode.So, r) {
+				return true
+			}
+			// Variation selector (U+FE0F) and ZWJ (U+200D) indicate emoji sequences
+			if r == 0xFE0F || r == 0x200D {
+				return true
+			}
+			// Miscellaneous Symbols and Dingbats (U+2600–U+27BF)
+			if r >= 0x2600 && r <= 0x27BF {
+				return true
+			}
+			// Main emoji blocks (U+1F300–U+1FAFF)
+			if r >= 0x1F300 && r <= 0x1FAFF {
+				return true
+			}
+			// Skin tone modifiers
+			if r >= 0x1F3FB && r <= 0x1F3FF {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // formatNumber formats numbers with locale-aware separators.
