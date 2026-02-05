@@ -151,6 +151,9 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 	if r.content == nil {
 		return nil, ErrNotFound
 	}
+	if err := r.ensurePageTranslationIntent(ctx, id, record); err != nil {
+		return nil, err
+	}
 	page := mapToCMSPage(record)
 	page.ID = id
 	if strings.TrimSpace(page.Locale) == "" {
@@ -584,6 +587,9 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 func (r *CMSContentRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
 	if r.content == nil {
 		return nil, ErrNotFound
+	}
+	if err := r.ensureContentTranslationIntent(ctx, id, record); err != nil {
+		return nil, err
 	}
 	content := mapToCMSContent(record)
 	content.ID = id
@@ -2610,6 +2616,138 @@ func (r *CMSPageRepository) resolvePageLocale(ctx context.Context, id string) st
 		}
 	}
 	return ""
+}
+
+func (r *CMSPageRepository) ensurePageTranslationIntent(ctx context.Context, id string, record map[string]any) error {
+	if r == nil || r.content == nil {
+		return ErrNotFound
+	}
+	if record == nil {
+		return nil
+	}
+	requested := requestedLocaleFromPayload(record, localeFromContext(ctx))
+	if requested == "" {
+		return nil
+	}
+	missing, err := r.pageTranslationMissing(ctx, id, requested)
+	if err != nil {
+		return err
+	}
+	if missing {
+		if !createTranslationRequested(record) {
+			return translationCreateRequiredError(requested)
+		}
+		record["locale"] = requested
+	}
+	return nil
+}
+
+func (r *CMSPageRepository) pageTranslationMissing(ctx context.Context, id, requested string) (bool, error) {
+	if strings.TrimSpace(requested) == "" {
+		return false, nil
+	}
+	page, err := r.content.Page(ctx, id, requested)
+	if err != nil {
+		if IsTranslationMissing(err) {
+			return true, nil
+		}
+		if errors.Is(err, ErrNotFound) {
+			existing, err := r.content.Page(ctx, id, "")
+			if err == nil && existing != nil {
+				return true, nil
+			}
+			if err != nil && !errors.Is(err, ErrNotFound) {
+				return false, err
+			}
+			return false, ErrNotFound
+		}
+		return false, err
+	}
+	if page == nil {
+		return false, ErrNotFound
+	}
+	if page.MissingRequestedLocale {
+		return true, nil
+	}
+	if len(page.AvailableLocales) > 0 {
+		found := false
+		for _, loc := range page.AvailableLocales {
+			if strings.EqualFold(loc, requested) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (r *CMSContentRepository) ensureContentTranslationIntent(ctx context.Context, id string, record map[string]any) error {
+	if r == nil || r.content == nil {
+		return ErrNotFound
+	}
+	if record == nil {
+		return nil
+	}
+	requested := requestedLocaleFromPayload(record, localeFromContext(ctx))
+	if requested == "" {
+		return nil
+	}
+	missing, err := r.contentTranslationMissing(ctx, id, requested)
+	if err != nil {
+		return err
+	}
+	if missing {
+		if !createTranslationRequested(record) {
+			return translationCreateRequiredError(requested)
+		}
+		record["locale"] = requested
+	}
+	return nil
+}
+
+func (r *CMSContentRepository) contentTranslationMissing(ctx context.Context, id, requested string) (bool, error) {
+	if strings.TrimSpace(requested) == "" {
+		return false, nil
+	}
+	content, err := r.content.Content(ctx, id, requested)
+	if err != nil {
+		if IsTranslationMissing(err) {
+			return true, nil
+		}
+		if errors.Is(err, ErrNotFound) {
+			existing, err := r.content.Content(ctx, id, "")
+			if err == nil && existing != nil {
+				return true, nil
+			}
+			if err != nil && !errors.Is(err, ErrNotFound) {
+				return false, err
+			}
+			return false, ErrNotFound
+		}
+		return false, err
+	}
+	if content == nil {
+		return false, ErrNotFound
+	}
+	if content.MissingRequestedLocale {
+		return true, nil
+	}
+	if len(content.AvailableLocales) > 0 {
+		found := false
+		for _, loc := range content.AvailableLocales {
+			if strings.EqualFold(loc, requested) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func extractSearch(opts ListOptions) string {
