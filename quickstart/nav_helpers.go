@@ -193,10 +193,13 @@ func resolveNavTarget(target map[string]any, basePath string) (string, string, i
 	}
 
 	if targetPath, ok := target["path"].(string); ok && strings.TrimSpace(targetPath) != "" {
-		href = targetPath
+		href = strings.TrimSpace(targetPath)
+		if shouldPrefixBasePath(target, basePath, href) {
+			href = joinBasePath(basePath, href)
+		}
 	} else if name, ok := target["name"].(string); ok && strings.TrimSpace(name) != "" {
 		trimmed := strings.TrimPrefix(strings.TrimSpace(name), "admin.")
-		href = path.Join(basePath, trimmed)
+		href = joinBasePath(basePath, trimmed)
 	}
 
 	if k, ok := target["key"].(string); ok && strings.TrimSpace(k) != "" {
@@ -218,4 +221,35 @@ func resolveNavTarget(target map[string]any, basePath string) (string, string, i
 	}
 
 	return href, key, position
+}
+
+func shouldPrefixBasePath(target map[string]any, basePath string, href string) bool {
+	if target == nil {
+		return false
+	}
+	if strings.TrimSpace(basePath) == "" || basePath == "/" {
+		return false
+	}
+	href = strings.TrimSpace(href)
+	if href == "" || !strings.HasPrefix(href, "/") {
+		return false
+	}
+	if strings.HasPrefix(href, basePath) {
+		return false
+	}
+	if key, ok := target["key"].(string); ok {
+		key = strings.TrimSpace(key)
+		if key == "feature_flags" {
+			return true
+		}
+	}
+	return false
+}
+
+func joinBasePath(basePath string, suffix string) string {
+	base := strings.TrimSpace(basePath)
+	if base == "" {
+		base = "/"
+	}
+	return path.Join("/", strings.TrimPrefix(base, "/"), strings.TrimPrefix(strings.TrimSpace(suffix), "/"))
 }
