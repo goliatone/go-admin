@@ -43,7 +43,17 @@ func (a *Admin) AuthWrapper() boot.HandlerWrapper {
 
 // BasePath exposes the configured base path.
 func (a *Admin) BasePath() string {
-	return a.config.BasePath
+	return adminBasePath(a.config)
+}
+
+// AdminAPIGroup exposes the URLKit admin API group path.
+func (a *Admin) AdminAPIGroup() string {
+	return adminAPIGroupName(a.config)
+}
+
+// AdminAPIBasePath returns the base path for admin API routes (including version when configured).
+func (a *Admin) AdminAPIBasePath() string {
+	return adminAPIBasePath(a)
 }
 
 // URLs exposes the URL manager.
