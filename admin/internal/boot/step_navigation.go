@@ -15,7 +15,7 @@ func NavigationStep(ctx BootCtx) error {
 	if responder == nil {
 		return nil
 	}
-	path := joinPath(ctx.BasePath(), "api/navigation")
+	path := routePath(ctx, ctx.AdminAPIGroup(), "navigation")
 	defaultLocale := ctx.DefaultLocale()
 	defaultMenu := ctx.NavMenuCode()
 	routes := []RouteSpec{

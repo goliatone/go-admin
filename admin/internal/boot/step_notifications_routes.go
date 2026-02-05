@@ -16,7 +16,7 @@ func NotificationsRouteStep(ctx BootCtx) error {
 		return nil
 	}
 	gates := ctx.Gates()
-	base := joinPath(ctx.BasePath(), "api/notifications")
+	base := routePath(ctx, ctx.AdminAPIGroup(), "notifications")
 	routes := []RouteSpec{
 		{
 			Method: "GET",
@@ -36,7 +36,7 @@ func NotificationsRouteStep(ctx BootCtx) error {
 		},
 		{
 			Method: "POST",
-			Path:   joinPath(base, "read"),
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "notifications.read"),
 			Handler: func(c router.Context) error {
 				if gates != nil {
 					if err := gates.Require(FeatureNotifications); err != nil {

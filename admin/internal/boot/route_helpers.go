@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/goliatone/go-admin/admin/internal/helpers"
 	router "github.com/goliatone/go-router"
 )
 
@@ -54,8 +53,97 @@ func applyRoutes(ctx BootCtx, routes []RouteSpec) error {
 	return nil
 }
 
-func joinPath(basePath, suffix string) string {
-	return helpers.JoinPath(basePath, suffix)
+type routePathResolver interface {
+	RoutePath(groupPath, route string) (string, error)
+}
+
+func routePath(ctx BootCtx, groupPath, route string) string {
+	if ctx == nil {
+		return ""
+	}
+	resolver, ok := ctx.URLs().(routePathResolver)
+	if !ok || resolver == nil {
+		return ""
+	}
+	path, err := resolver.RoutePath(groupPath, route)
+	if err != nil {
+		return ""
+	}
+	return prefixBasePath(ctx.BasePath(), path)
+}
+
+func routePathWithParams(ctx BootCtx, groupPath, route string, params map[string]string) string {
+	path := routePath(ctx, groupPath, route)
+	if path == "" || len(params) == 0 {
+		return path
+	}
+	for key, value := range params {
+		if key == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, ":"+key, value)
+	}
+	return path
+}
+
+func adminBasePath(ctx BootCtx) string {
+	if ctx == nil {
+		return ""
+	}
+	path := routePath(ctx, "admin", "dashboard")
+	if path == "" {
+		return normalizeBasePath(ctx.BasePath())
+	}
+	if path == "/" {
+		return ""
+	}
+	return strings.TrimSuffix(path, "/")
+}
+
+func prefixBasePath(basePath, path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	path = ensureLeadingSlash(path)
+	basePath = normalizeBasePath(basePath)
+	if basePath == "" || basePath == "/" {
+		return path
+	}
+	if path == basePath || strings.HasPrefix(path, basePath+"/") {
+		return path
+	}
+	return joinBasePath(basePath, path)
+}
+
+func joinBasePath(basePath, routePath string) string {
+	basePath = normalizeBasePath(basePath)
+	if basePath == "" || basePath == "/" {
+		return ensureLeadingSlash(routePath)
+	}
+	trimmed := strings.TrimPrefix(strings.TrimSpace(routePath), "/")
+	if trimmed == "" {
+		return basePath
+	}
+	return basePath + "/" + trimmed
+}
+
+func normalizeBasePath(basePath string) string {
+	trimmed := strings.TrimSpace(basePath)
+	if trimmed == "" {
+		return ""
+	}
+	return "/" + strings.Trim(trimmed, "/")
+}
+
+func ensureLeadingSlash(path string) string {
+	if path == "" {
+		return ""
+	}
+	if strings.HasPrefix(path, "/") {
+		return path
+	}
+	return "/" + path
 }
 
 func parseListOptions(c router.Context) ListOptions {

@@ -16,8 +16,8 @@ func SettingsRouteStep(ctx BootCtx) error {
 		return nil
 	}
 	gates := ctx.Gates()
-	base := joinPath(ctx.BasePath(), "api/settings")
-	formPath := joinPath(ctx.BasePath(), "api/settings/form")
+	base := routePath(ctx, ctx.AdminAPIGroup(), "settings")
+	formPath := routePath(ctx, ctx.AdminAPIGroup(), "settings.form")
 	routes := []RouteSpec{
 		{
 			Method: "GET",

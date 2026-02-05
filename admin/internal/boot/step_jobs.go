@@ -16,7 +16,7 @@ func JobsStep(ctx BootCtx) error {
 		return nil
 	}
 	gates := ctx.Gates()
-	path := joinPath(ctx.BasePath(), "api/jobs")
+	path := routePath(ctx, ctx.AdminAPIGroup(), "jobs")
 	routes := []RouteSpec{
 		{
 			Method: "GET",
@@ -36,7 +36,7 @@ func JobsStep(ctx BootCtx) error {
 		},
 		{
 			Method: "POST",
-			Path:   joinPath(path, "trigger"),
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "jobs.trigger"),
 			Handler: func(c router.Context) error {
 				if gates != nil {
 					if err := gates.Require(FeatureJobs); err != nil {

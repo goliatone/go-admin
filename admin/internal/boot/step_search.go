@@ -16,8 +16,8 @@ func SearchStep(ctx BootCtx) error {
 		return nil
 	}
 	gates := ctx.Gates()
-	path := joinPath(ctx.BasePath(), "api/search")
-	typeaheadPath := joinPath(ctx.BasePath(), "api/search/typeahead")
+	path := routePath(ctx, ctx.AdminAPIGroup(), "search")
+	typeaheadPath := routePath(ctx, ctx.AdminAPIGroup(), "search.typeahead")
 	defaultLocale := ctx.DefaultLocale()
 	routes := []RouteSpec{
 		{

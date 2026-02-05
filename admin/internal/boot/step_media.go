@@ -16,7 +16,7 @@ func MediaStep(ctx BootCtx) error {
 		return nil
 	}
 	gates := ctx.Gates()
-	path := joinPath(ctx.BasePath(), "api/media/library")
+	path := routePath(ctx, ctx.AdminAPIGroup(), "media.library")
 	routes := []RouteSpec{
 		{
 			Method: "GET",

@@ -16,7 +16,6 @@ func PanelStep(ctx BootCtx) error {
 		return nil
 	}
 	routes := []RouteSpec{}
-	basePath := ctx.BasePath()
 	defaultLocale := ctx.DefaultLocale()
 	for _, binding := range panels {
 		b := binding
@@ -27,7 +26,8 @@ func PanelStep(ctx BootCtx) error {
 		if name == "" {
 			continue
 		}
-		base := joinPath(basePath, "api/"+name)
+		panelParams := map[string]string{"panel": name}
+		base := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel", panelParams)
 
 		routes = append(routes, RouteSpec{
 			Method: "GET",
@@ -54,7 +54,7 @@ func PanelStep(ctx BootCtx) error {
 
 		routes = append(routes, RouteSpec{
 			Method: "GET",
-			Path:   joinPath(base, ":id"),
+			Path:   routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.id", panelParams),
 			Handler: func(c router.Context) error {
 				locale := c.Query("locale")
 				if locale == "" {
@@ -98,7 +98,7 @@ func PanelStep(ctx BootCtx) error {
 
 		routes = append(routes, RouteSpec{
 			Method: "PUT",
-			Path:   joinPath(base, ":id"),
+			Path:   routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.id", panelParams),
 			Handler: func(c router.Context) error {
 				locale := c.Query("locale")
 				if locale == "" {
@@ -148,7 +148,7 @@ func PanelStep(ctx BootCtx) error {
 
 		routes = append(routes, RouteSpec{
 			Method: "DELETE",
-			Path:   joinPath(base, ":id"),
+			Path:   routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.id", panelParams),
 			Handler: func(c router.Context) error {
 				locale := c.Query("locale")
 				if locale == "" {
@@ -167,7 +167,7 @@ func PanelStep(ctx BootCtx) error {
 
 		routes = append(routes, RouteSpec{
 			Method: "POST",
-			Path:   joinPath(base, "actions/:action"),
+			Path:   routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.action", panelParams),
 			Handler: func(c router.Context) error {
 				locale := c.Query("locale")
 				if locale == "" {
@@ -194,7 +194,7 @@ func PanelStep(ctx BootCtx) error {
 
 		routes = append(routes, RouteSpec{
 			Method: "POST",
-			Path:   joinPath(base, "bulk/:action"),
+			Path:   routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.bulk", panelParams),
 			Handler: func(c router.Context) error {
 				locale := c.Query("locale")
 				if locale == "" {
@@ -221,7 +221,7 @@ func PanelStep(ctx BootCtx) error {
 
 		routes = append(routes, RouteSpec{
 			Method: "GET",
-			Path:   joinPath(base, ":id/preview"),
+			Path:   routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.preview", panelParams),
 			Handler: func(c router.Context) error {
 				locale := c.Query("locale")
 				if locale == "" {
