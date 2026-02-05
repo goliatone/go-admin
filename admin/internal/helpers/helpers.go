@@ -1,19 +1,12 @@
 package helpers
 
 import (
-	"path"
-
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 )
 
 // Translator resolves i18n keys into localized strings.
 type Translator interface {
 	Translate(locale, key string, args ...any) (string, error)
-}
-
-// JoinPath prefixes a suffix with the base admin path, ensuring a single leading slash.
-func JoinPath(basePath, suffix string) string {
-	return path.Join("/", basePath, suffix)
 }
 
 // NormalizeMenuSlug converts an arbitrary name/code into a normalized slug.
