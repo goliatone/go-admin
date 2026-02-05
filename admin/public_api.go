@@ -176,10 +176,23 @@ func (a *Admin) handlePublicPreview(c router.Context) error {
 	}
 
 	locale := publicLocale(a, c)
-	entityType := strings.ToLower(strings.TrimSpace(token.EntityType))
+	entityType, env := splitPreviewEntityType(token.EntityType)
+	ctx := c.Context()
+	if env != "" {
+		ctx = WithEnvironment(ctx, env)
+	}
 
-	if entityType == "pages" || entityType == "page" {
-		page, err := a.contentSvc.Page(c.Context(), token.ContentID, locale)
+	if isPageEntityType(entityType) {
+		content, err := a.contentSvc.Content(ctx, token.ContentID, locale)
+		if err == nil && content != nil {
+			page := pageFromContent(*content)
+			applyEmbeddedBlocksToPage(&page)
+			return writeJSON(c, page)
+		}
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return writeError(c, err)
+		}
+		page, err := a.contentSvc.Page(ctx, token.ContentID, locale)
 		if err != nil {
 			return writeError(c, err)
 		}
@@ -189,18 +202,14 @@ func (a *Admin) handlePublicPreview(c router.Context) error {
 		return writeJSON(c, page)
 	}
 
-	if entityType == "content" || entityType == "post" || entityType == "posts" {
-		content, err := a.contentSvc.Content(c.Context(), token.ContentID, locale)
-		if err != nil {
-			return writeError(c, err)
-		}
-		if content != nil {
-			applyEmbeddedBlocksToContent(content)
-		}
-		return writeJSON(c, content)
+	content, err := a.contentSvc.Content(ctx, token.ContentID, locale)
+	if err != nil {
+		return writeError(c, err)
 	}
-
-	return writeError(c, ErrNotFound)
+	if content != nil {
+		applyEmbeddedBlocksToContent(content)
+	}
+	return writeJSON(c, content)
 }
 
 func (a *Admin) resolveMenuTargets(ctx context.Context, items []MenuItem, locale string) {
@@ -289,6 +298,28 @@ func publicContentType(c router.Context) string {
 		c.Query("type"),
 		c.Query("content_type"),
 	))
+}
+
+func splitPreviewEntityType(raw string) (string, string) {
+	entityType := strings.ToLower(strings.TrimSpace(raw))
+	if entityType == "" {
+		return "", ""
+	}
+	if idx := strings.LastIndex(entityType, "@"); idx > 0 && idx+1 < len(entityType) {
+		env := strings.TrimSpace(entityType[idx+1:])
+		entityType = strings.TrimSpace(entityType[:idx])
+		return entityType, env
+	}
+	return entityType, ""
+}
+
+func isPageEntityType(entityType string) bool {
+	switch strings.ToLower(strings.TrimSpace(entityType)) {
+	case "page", "pages":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *Admin) listPublicContents(ctx context.Context, locale, contentType, category string, includeDrafts bool) ([]CMSContent, error) {
