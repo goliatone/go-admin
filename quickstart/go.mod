@@ -10,7 +10,7 @@ require (
 	github.com/goliatone/go-admin v0.23.0
 	github.com/goliatone/go-auth v0.28.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.28.0
-	github.com/goliatone/go-cms v0.27.0
+	github.com/goliatone/go-cms v0.29.0
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.10.0
@@ -23,7 +23,7 @@ require (
 	github.com/goliatone/go-router v0.44.1
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
-	github.com/goliatone/go-urlkit v0.3.0
+	github.com/goliatone/go-urlkit v0.5.0
 	github.com/goliatone/go-users v0.15.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
