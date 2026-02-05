@@ -67,7 +67,7 @@ func parseListOptions(c router.Context) ListOptions {
 			continue
 		}
 		if len(key) > len("filter_") && key[:7] == "filter_" {
-			filters[key[7:]] = val[0]
+			filters[key[7:]] = val
 		}
 	}
 	if _, ok := filters["environment"]; !ok {
