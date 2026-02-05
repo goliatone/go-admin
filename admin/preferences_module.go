@@ -26,6 +26,7 @@ type PreferencesModule struct {
 	viewBuilder      PreferencesViewContextBuilder
 	schemaPath       string
 	jsonEditorStrict bool
+	skipMenu         bool
 }
 
 // NewPreferencesModule constructs the default preferences module.
@@ -92,6 +93,9 @@ func (m *PreferencesModule) Register(ctx ModuleContext) error {
 }
 
 func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
+	if m.skipMenu {
+		return nil
+	}
 	if locale == "" {
 		locale = m.defaultLocale
 	}
@@ -122,6 +126,12 @@ func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 // WithMenuParent nests the preferences navigation under a parent menu item ID.
 func (m *PreferencesModule) WithMenuParent(parent string) *PreferencesModule {
 	m.menuParent = parent
+	return m
+}
+
+// WithSkipMenu suppresses navigation menu contribution while keeping panel registration.
+func (m *PreferencesModule) WithSkipMenu(skip bool) *PreferencesModule {
+	m.skipMenu = skip
 	return m
 }
 
