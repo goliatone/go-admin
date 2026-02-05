@@ -113,7 +113,7 @@ func (a *Admin) registerDashboardProviders() error {
 					actions, _ := cfg["actions"].([]any)
 					if len(actions) == 0 {
 						actions = []any{
-							map[string]any{"label": "Go to CMS", "url": "/admin/pages", "icon": "file"},
+							map[string]any{"label": "Go to CMS", "url": "/admin/content/pages", "icon": "file"},
 							map[string]any{"label": "View Users", "url": "/admin/users", "icon": "users"},
 						}
 					}
