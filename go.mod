@@ -10,7 +10,7 @@ require (
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-auth v0.28.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.28.0
-	github.com/goliatone/go-cms v0.27.0
+	github.com/goliatone/go-cms v0.29.0
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-crud v0.20.0
 	github.com/goliatone/go-crud/gql v0.20.0
@@ -30,7 +30,7 @@ require (
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-uploader v0.3.0
-	github.com/goliatone/go-urlkit v0.3.0
+	github.com/goliatone/go-urlkit v0.5.0
 	github.com/goliatone/go-users v0.15.0
 	github.com/goliatone/hashid v0.2.0
 	github.com/google/uuid v1.6.0

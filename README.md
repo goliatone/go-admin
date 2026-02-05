@@ -8,6 +8,33 @@ The core `github.com/goliatone/go-admin` module stays dependency-light and focus
 - Export refactor design: `EXPORT_REF_TDD.md`
 - Export refactor plan: `EXPORT_REF_TSK.md`
 
+## URL Configuration
+
+`Config.URLs` is the canonical URL surface. It exposes separate namespaces for
+admin and public URLs, each with its own base path, API prefix, and version.
+Defaults preserve `/admin` for the admin UI and `/api/v1` for the public API.
+If you need full control, set `Config.URLs.URLKit` to a custom URLKit config.
+
+Example:
+
+```go
+cfg := admin.Config{
+	BasePath: "/admin", // legacy fallback + theme tokens
+	URLs: admin.URLConfig{
+		Admin: admin.URLNamespaceConfig{
+			BasePath:   "/admin",
+			APIPrefix:  "api",
+			APIVersion: "",
+		},
+		Public: admin.URLNamespaceConfig{
+			BasePath:   "",
+			APIPrefix:  "api",
+			APIVersion: "v1",
+		},
+	},
+}
+```
+
 ## CMS CRUD Alignment (Read/Write Split)
 
 Admin page CRUD now uses an explicit admin read model (`AdminPageRecord`) plus split read/write services. List and detail reads go through `AdminPageReadService`, while writes (create/update/delete/publish) use `AdminPageWriteService` via `PageApplicationService` so HTML and JSON paths stay aligned.
