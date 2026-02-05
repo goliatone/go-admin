@@ -82,7 +82,7 @@ func (r *debugRouter) WebSocket(path string, config router.WebSocketConfig, hand
 	return nil
 }
 func (r *debugRouter) Routes() []router.RouteDefinition { return nil }
-func (r *debugRouter) ValidateRoutes() []error         { return nil }
+func (r *debugRouter) ValidateRoutes() []error          { return nil }
 func (r *debugRouter) PrintRoutes()                     {}
 func (r *debugRouter) WithLogger(logger router.Logger) router.Router[*fiber.App] {
 	_ = logger
@@ -113,8 +113,13 @@ func TestWithDebugFromEnvMapping(t *testing.T) {
 	t.Setenv("ADMIN_DEBUG_ALLOWED_IPS", "1.1.1.1, 2.2.2.2")
 	t.Setenv("ADMIN_DEBUG_SQL", "false")
 	t.Setenv("ADMIN_DEBUG_LOGS", "true")
+	t.Setenv("ADMIN_DEBUG_JS_ERRORS", "false")
+	t.Setenv("ADMIN_DEBUG_REQUEST_BODY", "true")
 	t.Setenv("ADMIN_DEBUG_TOOLBAR", "false")
 	t.Setenv("ADMIN_DEBUG_TOOLBAR_PANELS", "requests,sql")
+	t.Setenv("ADMIN_DEBUG_LAYOUT", "admin")
+	t.Setenv("ADMIN_DEBUG_REPL", "true")
+	t.Setenv("ADMIN_DEBUG_REPL_READONLY", "false")
 
 	cfg := NewAdminConfig("/admin", "Admin", "en", WithDebugFromEnv())
 
@@ -127,8 +132,26 @@ func TestWithDebugFromEnvMapping(t *testing.T) {
 	if !cfg.Debug.CaptureLogs {
 		t.Fatalf("expected log capture enabled")
 	}
+	if cfg.Debug.CaptureJSErrors {
+		t.Fatalf("expected js error capture disabled")
+	}
+	if !cfg.Debug.CaptureRequestBody {
+		t.Fatalf("expected request body capture enabled")
+	}
 	if cfg.Debug.ToolbarMode {
 		t.Fatalf("expected toolbar disabled")
+	}
+	if cfg.Debug.LayoutMode != admin.DebugLayoutAdmin {
+		t.Fatalf("expected layout mode admin, got %v", cfg.Debug.LayoutMode)
+	}
+	if !cfg.Debug.Repl.Enabled {
+		t.Fatalf("expected repl enabled")
+	}
+	if !cfg.Debug.Repl.AppEnabled || !cfg.Debug.Repl.ShellEnabled {
+		t.Fatalf("expected repl app/shell enabled")
+	}
+	if cfg.Debug.Repl.ReadOnlyEnabled() {
+		t.Fatalf("expected repl read-only disabled")
 	}
 	if len(cfg.Debug.AllowedIPs) != 2 {
 		t.Fatalf("expected allowed IPs parsed, got %v", cfg.Debug.AllowedIPs)

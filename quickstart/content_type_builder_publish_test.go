@@ -128,10 +128,8 @@ func TestPublishContentTypeResolvesStaleID(t *testing.T) {
 	claims := &auth.JWTClaims{UserRole: string(auth.RoleAdmin)}
 	ctx := router.NewMockContext()
 	ctx.On("Context").Return(auth.WithClaimsContext(context.Background(), claims))
-	ctx.On("Param", "id").Return("post")
-	ctx.On("Query", mock.Anything).Return("")
-	ctx.On("Cookies", mock.Anything).Return("")
-	ctx.On("Header", mock.Anything).Return("")
+	ctx.ParamsM["id"] = "post"
+	ctx.On("Body").Return([]byte(nil))
 	ctx.On("JSON", http.StatusOK, mock.Anything).Return(nil)
 
 	if err := handlers.PublishContentType(ctx); err != nil {

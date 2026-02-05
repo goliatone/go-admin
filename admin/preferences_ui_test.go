@@ -25,7 +25,7 @@ func TestPreferencesFormSaveMergesRawUIAndClearKeys(t *testing.T) {
 		t.Fatalf("seed preferences: %v", err)
 	}
 
-	prefPath := joinPath(cfg.BasePath, preferencesModuleID)
+	prefPath := joinBasePath(cfg.BasePath, preferencesModuleID)
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "user-1"
 	mockCtx.On("Context").Return(context.Background())
@@ -92,7 +92,7 @@ func TestPreferencesFormSaveRejectsInvalidRawUI(t *testing.T) {
 			mockCtx.On("FormValue", "clear_ui_keys").Return("")
 
 			mod := NewPreferencesModule()
-			if err := mod.savePreferencesForm(adm, mockCtx, joinPath(cfg.BasePath, preferencesModuleID)); err == nil {
+			if err := mod.savePreferencesForm(adm, mockCtx, joinBasePath(cfg.BasePath, preferencesModuleID)); err == nil {
 				t.Fatalf("expected raw_ui validation error")
 			}
 
@@ -137,7 +137,7 @@ func TestPreferencesFormSaveRejectsInvalidClearUIKeys(t *testing.T) {
 	mockCtx.On("FormValue", "clear_ui_keys").Return("not.allowed")
 
 	mod := NewPreferencesModule()
-	if err := mod.savePreferencesForm(adm, mockCtx, joinPath(cfg.BasePath, preferencesModuleID)); err == nil {
+	if err := mod.savePreferencesForm(adm, mockCtx, joinBasePath(cfg.BasePath, preferencesModuleID)); err == nil {
 		t.Fatalf("expected clear_ui_keys validation error")
 	}
 
@@ -166,7 +166,7 @@ func TestPreferencesViewContextIncludesSchemaMetadata(t *testing.T) {
 	mod := NewPreferencesModule()
 	mod.WithJSONEditorStrict(true)
 
-	prefPath := joinPath(cfg.BasePath, preferencesModuleID)
+	prefPath := joinBasePath(cfg.BasePath, preferencesModuleID)
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "user-1"
 	mockCtx.On("Context").Return(context.Background())

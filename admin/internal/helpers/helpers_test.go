@@ -6,18 +6,6 @@ import (
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 )
 
-func TestJoinPath(t *testing.T) {
-	got := JoinPath("/admin", "settings")
-	if got != "/admin/settings" {
-		t.Fatalf("expected /admin/settings, got %s", got)
-	}
-
-	got = JoinPath("admin", "/health")
-	if got != "/admin/health" {
-		t.Fatalf("expected /admin/health, got %s", got)
-	}
-}
-
 func TestMenuHelpersNormalizeAndDedupe(t *testing.T) {
 	item := navinternal.MenuItem{Label: "Settings", Target: map[string]any{"key": "settings"}}
 	normalized := NormalizeMenuItem(item, "admin.main")

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 func TestBuildNavItemsOrdering(t *testing.T) {
@@ -76,5 +77,34 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	}
 	if view["nav_items"] == nil {
 		t.Fatalf("expected nav_items in view context")
+	}
+}
+
+func TestResolveNavTargetUsesURLKitRoute(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/console",
+				Routes: map[string]string{
+					"dashboard": "/",
+					"settings":  "/settings",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("urlkit config: %v", err)
+	}
+
+	href, key, _ := resolveNavTarget(map[string]any{
+		"name": "admin.settings",
+	}, "/admin", manager)
+
+	if href != "/console/settings" {
+		t.Fatalf("expected urlkit path, got %q", href)
+	}
+	if key != "settings" {
+		t.Fatalf("expected key settings, got %q", key)
 	}
 }

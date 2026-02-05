@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 	users "github.com/goliatone/go-users/pkg/types"
@@ -38,10 +39,10 @@ func TestUserModuleRegistersPanelsAndNavigation(t *testing.T) {
 	foundUsers := false
 	foundRoles := false
 	for _, item := range items {
-		if targetMatches(item.Target, usersModuleID, joinPath(cfg.BasePath, usersModuleID)) {
+		if navinternal.TargetMatches(item.Target, usersModuleID, joinBasePath(cfg.BasePath, usersModuleID)) {
 			foundUsers = true
 		}
-		if targetMatches(item.Target, rolesPanelID, joinPath(cfg.BasePath, rolesPanelID)) {
+		if navinternal.TargetMatches(item.Target, rolesPanelID, joinBasePath(cfg.BasePath, rolesPanelID)) {
 			foundRoles = true
 		}
 	}

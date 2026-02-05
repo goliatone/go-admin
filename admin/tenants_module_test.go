@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 	router "github.com/goliatone/go-router"
 )
 
@@ -31,10 +32,10 @@ func TestTenantAndOrganizationModulesRegister(t *testing.T) {
 	}
 
 	items := adm.Navigation().Resolve(context.Background(), cfg.DefaultLocale)
-	if !navigationHasTarget(items, tenantsModuleID, joinPath(cfg.BasePath, tenantsModuleID)) {
+	if !navinternal.NavigationHasTarget(items, tenantsModuleID, joinBasePath(cfg.BasePath, tenantsModuleID)) {
 		t.Fatalf("expected tenants navigation entry, got %+v", items)
 	}
-	if !navigationHasTarget(items, organizationsModuleID, joinPath(cfg.BasePath, organizationsModuleID)) {
+	if !navinternal.NavigationHasTarget(items, organizationsModuleID, joinBasePath(cfg.BasePath, organizationsModuleID)) {
 		t.Fatalf("expected organizations navigation entry, got %+v", items)
 	}
 }

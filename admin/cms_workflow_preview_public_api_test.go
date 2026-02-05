@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -17,6 +18,8 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	if err := adm.RegisterCMSDemoPanels(); err != nil {
 		t.Fatalf("register cms demo panels: %v", err)
 	}
+	adminAPIGroup := adminAPIGroupName(adm.config)
+	publicAPIGroup := publicAPIGroupName(adm.config)
 
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -24,7 +27,8 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 
 	pageBody := `{"title":"Draft Page","slug":"draft-page","path":"/draft-page","status":"draft","locale":"en","blocks":[{"_type":"hero","title":"Hello"}]}`
-	createReq := httptest.NewRequest("POST", "/admin/api/pages", strings.NewReader(pageBody))
+	createPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel", map[string]string{"panel": "pages"}, nil)
+	createReq := httptest.NewRequest("POST", createPath, strings.NewReader(pageBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(createRes, createReq)
@@ -46,7 +50,8 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 
 	updateBody := `{"blocks":[{"_type":"hero","title":"Updated"}]}`
-	updateReq := httptest.NewRequest("PUT", "/admin/api/pages/"+pageID, strings.NewReader(updateBody))
+	updatePath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel.id", map[string]string{"panel": "pages", "id": pageID}, nil)
+	updateReq := httptest.NewRequest("PUT", updatePath, strings.NewReader(updateBody))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(updateRes, updateReq)
@@ -59,14 +64,16 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("expected updated embedded blocks, got %+v", updatedBlocks)
 	}
 
-	publicReq := httptest.NewRequest("GET", "/api/v1/pages/"+pageSlug, nil)
+	publicPath := mustResolveURL(t, adm.URLs(), publicAPIGroup, "page", map[string]string{"slug": pageSlug}, nil)
+	publicReq := httptest.NewRequest("GET", publicPath, nil)
 	publicRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	if publicRes.Code != http.StatusNotFound {
 		t.Fatalf("expected draft to be hidden, got %d body=%s", publicRes.Code, publicRes.Body.String())
 	}
 
-	previewReq := httptest.NewRequest("GET", "/admin/api/pages/"+pageID+"/preview", nil)
+	previewPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel.preview", map[string]string{"panel": "pages", "id": pageID}, nil)
+	previewReq := httptest.NewRequest("GET", previewPath, nil)
 	previewRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(previewRes, previewReq)
 	if previewRes.Code != http.StatusOK {
@@ -78,7 +85,8 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("expected preview token, got %+v", previewPayload)
 	}
 
-	adminPreviewReq := httptest.NewRequest("GET", "/admin/api/preview/"+token, nil)
+	adminPreviewPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "preview", map[string]string{"token": token}, nil)
+	adminPreviewReq := httptest.NewRequest("GET", adminPreviewPath, nil)
 	adminPreviewRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(adminPreviewRes, adminPreviewReq)
 	if adminPreviewRes.Code != http.StatusOK {
@@ -94,7 +102,8 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("expected preview blocks to include updated payload, got %+v", adminBlocks)
 	}
 
-	publicPreviewReq := httptest.NewRequest("GET", "/api/v1/preview/"+token, nil)
+	publicPreviewPath := mustResolveURL(t, adm.URLs(), publicAPIGroup, "preview", map[string]string{"token": token}, nil)
+	publicPreviewReq := httptest.NewRequest("GET", publicPreviewPath, nil)
 	publicPreviewRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicPreviewRes, publicPreviewReq)
 	if publicPreviewRes.Code != http.StatusOK {
@@ -109,7 +118,8 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("expected public preview blocks to include updated payload, got %+v", publicBlocks)
 	}
 
-	workflowReq := httptest.NewRequest("POST", "/admin/api/pages/actions/submit_for_approval", strings.NewReader(`{"id":"`+pageID+`"}`))
+	workflowPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel.action", map[string]string{"panel": "pages", "action": "submit_for_approval"}, nil)
+	workflowReq := httptest.NewRequest("POST", workflowPath, strings.NewReader(`{"id":"`+pageID+`"}`))
 	workflowReq.Header.Set("Content-Type", "application/json")
 	workflowRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(workflowRes, workflowReq)
@@ -117,12 +127,13 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("workflow submit status: %d body=%s", workflowRes.Code, workflowRes.Body.String())
 	}
 
-	status := fetchPageStatus(t, server, pageID)
+	status := fetchPageStatus(t, server, adm.URLs(), adminAPIGroup, pageID)
 	if status != "approval" {
 		t.Fatalf("expected approval status, got %q", status)
 	}
 
-	publishReq := httptest.NewRequest("POST", "/admin/api/pages/actions/publish", strings.NewReader(`{"id":"`+pageID+`"}`))
+	publishPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel.action", map[string]string{"panel": "pages", "action": "publish"}, nil)
+	publishReq := httptest.NewRequest("POST", publishPath, strings.NewReader(`{"id":"`+pageID+`"}`))
 	publishReq.Header.Set("Content-Type", "application/json")
 	publishRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publishRes, publishReq)
@@ -130,12 +141,13 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 		t.Fatalf("workflow publish status: %d body=%s", publishRes.Code, publishRes.Body.String())
 	}
 
-	status = fetchPageStatus(t, server, pageID)
+	status = fetchPageStatus(t, server, adm.URLs(), adminAPIGroup, pageID)
 	if status != "published" {
 		t.Fatalf("expected published status, got %q", status)
 	}
 
-	publicReq = httptest.NewRequest("GET", "/api/v1/pages/"+pageSlug, nil)
+	publicPath = mustResolveURL(t, adm.URLs(), publicAPIGroup, "page", map[string]string{"slug": pageSlug}, nil)
+	publicReq = httptest.NewRequest("GET", publicPath, nil)
 	publicRes = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	if publicRes.Code != http.StatusOK {
@@ -157,9 +169,10 @@ func decodeJSONMap(t *testing.T, rr *httptest.ResponseRecorder) map[string]any {
 	return payload
 }
 
-func fetchPageStatus(t *testing.T, server router.Server[*httprouter.Router], id string) string {
+func fetchPageStatus(t *testing.T, server router.Server[*httprouter.Router], urls urlkit.Resolver, adminAPIGroup, id string) string {
 	t.Helper()
-	getReq := httptest.NewRequest("GET", "/admin/api/pages/"+id, nil)
+	getPath := mustResolveURL(t, urls, adminAPIGroup, "panel.id", map[string]string{"panel": "pages", "id": id}, nil)
+	getReq := httptest.NewRequest("GET", getPath, nil)
 	getRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(getRes, getReq)
 	if getRes.Code != http.StatusOK {

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 	router "github.com/goliatone/go-router"
 )
 
@@ -29,7 +30,7 @@ func TestProfileModuleRegistersPanelAndNavigation(t *testing.T) {
 	items := adm.Navigation().Resolve(context.Background(), cfg.DefaultLocale)
 	found := false
 	for _, item := range items {
-		if targetMatches(item.Target, profileModuleID, joinPath(cfg.BasePath, profileModuleID)) {
+		if navinternal.TargetMatches(item.Target, profileModuleID, joinBasePath(cfg.BasePath, profileModuleID)) {
 			found = true
 			break
 		}
