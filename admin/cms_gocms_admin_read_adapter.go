@@ -28,7 +28,7 @@ func (a goCMSAdminPageReadAdapter) List(ctx context.Context, opts AdminPageListO
 	cmsOpts := cms.AdminPageListOptions{
 		Locale:                   opts.Locale,
 		FallbackLocale:           opts.FallbackLocale,
-		AllowMissingTranslations: opts.AllowMissingTranslations,
+		AllowMissingTranslations: true,
 		IncludeContent:           opts.IncludeContent,
 		IncludeBlocks:            opts.IncludeBlocks,
 		IncludeData:              opts.IncludeData,
@@ -40,12 +40,12 @@ func (a goCMSAdminPageReadAdapter) List(ctx context.Context, opts AdminPageListO
 		Search:                   opts.Search,
 		Filters:                  cloneAnyMap(opts.Filters),
 	}
+	if !cmsOpts.AllowMissingTranslations {
+		cmsOpts.AllowMissingTranslations = true
+	}
 	forceData := !cmsOpts.IncludeData
 	if forceData {
 		cmsOpts.IncludeData = true
-		if !cmsOpts.AllowMissingTranslations {
-			cmsOpts.AllowMissingTranslations = true
-		}
 	}
 	records, total, err := a.service.List(ctx, cmsOpts)
 	if err != nil {
@@ -73,18 +73,18 @@ func (a goCMSAdminPageReadAdapter) Get(ctx context.Context, id string, opts Admi
 	cmsOpts := cms.AdminPageGetOptions{
 		Locale:                   opts.Locale,
 		FallbackLocale:           opts.FallbackLocale,
-		AllowMissingTranslations: opts.AllowMissingTranslations,
+		AllowMissingTranslations: true,
 		IncludeContent:           opts.IncludeContent,
 		IncludeBlocks:            opts.IncludeBlocks,
 		IncludeData:              opts.IncludeData,
 		EnvironmentKey:           opts.EnvironmentKey,
 	}
+	if !cmsOpts.AllowMissingTranslations {
+		cmsOpts.AllowMissingTranslations = true
+	}
 	forceData := !cmsOpts.IncludeData
 	if forceData {
 		cmsOpts.IncludeData = true
-		if !cmsOpts.AllowMissingTranslations {
-			cmsOpts.AllowMissingTranslations = true
-		}
 	}
 	record, err := a.service.Get(ctx, strings.TrimSpace(id), cmsOpts)
 	if err != nil {
@@ -155,27 +155,29 @@ func workflowStatusFromData(data map[string]any) string {
 
 func mapCMSAdminPageRecord(record cms.AdminPageRecord) AdminPageRecord {
 	out := AdminPageRecord{
-		ID:              uuidString(record.ID),
-		ContentID:       uuidString(record.ContentID),
-		TemplateID:      uuidString(record.TemplateID),
-		Title:           strings.TrimSpace(record.Title),
-		Slug:            strings.TrimSpace(record.Slug),
-		Path:            strings.TrimSpace(record.Path),
-		RequestedLocale: strings.TrimSpace(record.RequestedLocale),
-		ResolvedLocale:  strings.TrimSpace(record.ResolvedLocale),
-		Status:          strings.TrimSpace(record.Status),
-		MetaTitle:       strings.TrimSpace(record.MetaTitle),
-		MetaDescription: strings.TrimSpace(record.MetaDescription),
-		Summary:         record.Summary,
-		Tags:            append([]string{}, record.Tags...),
-		SchemaVersion:   strings.TrimSpace(record.SchemaVersion),
-		Data:            cloneAnyMap(record.Data),
-		Content:         record.Content,
-		Blocks:          record.Blocks,
-		PreviewURL:      strings.TrimSpace(record.PreviewURL),
-		PublishedAt:     record.PublishedAt,
-		CreatedAt:       record.CreatedAt,
-		UpdatedAt:       record.UpdatedAt,
+		ID:                 uuidString(record.ID),
+		ContentID:          uuidString(record.ContentID),
+		TemplateID:         uuidString(record.TemplateID),
+		Title:              strings.TrimSpace(record.Title),
+		Slug:               strings.TrimSpace(record.Slug),
+		Path:               strings.TrimSpace(record.Path),
+		RequestedLocale:    strings.TrimSpace(record.RequestedLocale),
+		ResolvedLocale:     strings.TrimSpace(record.ResolvedLocale),
+		Translation:        record.Translation,
+		ContentTranslation: record.ContentTranslation,
+		Status:             strings.TrimSpace(record.Status),
+		MetaTitle:          strings.TrimSpace(record.MetaTitle),
+		MetaDescription:    strings.TrimSpace(record.MetaDescription),
+		Summary:            record.Summary,
+		Tags:               append([]string{}, record.Tags...),
+		SchemaVersion:      strings.TrimSpace(record.SchemaVersion),
+		Data:               cloneAnyMap(record.Data),
+		Content:            record.Content,
+		Blocks:             record.Blocks,
+		PreviewURL:         strings.TrimSpace(record.PreviewURL),
+		PublishedAt:        record.PublishedAt,
+		CreatedAt:          record.CreatedAt,
+		UpdatedAt:          record.UpdatedAt,
 	}
 
 	if record.TranslationGroupID != nil {
