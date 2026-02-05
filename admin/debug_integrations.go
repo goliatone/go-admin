@@ -53,7 +53,7 @@ func CaptureJSErrorContext(collector *DebugCollector, c router.Context, viewCtx 
 	if !cfg.CaptureJSErrors {
 		return viewCtx
 	}
-	injectJSErrorContext(cfg, c, viewCtx)
+	injectJSErrorContext(collector, c, viewCtx)
 	return viewCtx
 }
 
@@ -68,7 +68,7 @@ func captureViewContext(collector *DebugCollector, c router.Context, viewCtx rou
 	// Inject JS error collector variables when CaptureJSErrors is enabled.
 	// This is independent of ToolbarMode — the collector runs on all pages.
 	if cfg.CaptureJSErrors {
-		injectJSErrorContext(cfg, c, viewCtx)
+		injectJSErrorContext(collector, c, viewCtx)
 	}
 
 	// Inject toolbar variables when ToolbarMode is enabled.
@@ -90,13 +90,32 @@ func captureViewContext(collector *DebugCollector, c router.Context, viewCtx rou
 }
 
 // injectJSErrorContext sets the template variables needed by the jserror-collector partial.
-func injectJSErrorContext(cfg DebugConfig, c router.Context, viewCtx router.ViewContext) {
+func injectJSErrorContext(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) {
+	if collector == nil {
+		return
+	}
+	// cfg := collector.config
 	viewCtx["debug_jserror_enabled"] = true
-	viewCtx["debug_jserror_endpoint"] = joinPath(cfg.BasePath, "api/errors")
+	viewCtx["debug_jserror_endpoint"] = debugJSErrorEndpoint(collector)
 	if c != nil {
 		nonce := debugEnsureJSErrorNonce(c, "/")
 		viewCtx["debug_jserror_nonce"] = nonce
 	}
+}
+
+func debugJSErrorEndpoint(collector *DebugCollector) string {
+	if collector == nil {
+		return ""
+	}
+	cfg := collector.config
+	urls := collector.urlResolver()
+	if urls == nil {
+		return joinBasePath(cfg.BasePath, "api/errors")
+	}
+	if path := debugRoutePathWithBase(urls, cfg.BasePath, "admin.debug.api", "errors"); path != "" {
+		return path
+	}
+	return joinBasePath(cfg.BasePath, "api/errors")
 }
 
 // DebugRequestMiddleware captures request metadata for the debug collector.

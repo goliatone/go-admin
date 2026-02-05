@@ -83,7 +83,11 @@ func (m *DebugModule) registerDebugREPLAppWebSocket(admin *Admin) {
 			debugREPLUpgradeUserAgent:    strings.TrimSpace(c.Header("User-Agent")),
 		}, nil
 	}
-	ws.WebSocket(joinPath(basePath, debugREPLAppPathSuffix), cfg, func(c router.WebSocketContext) error {
+	path := debugRoutePath(admin, m.config, "admin.debug", "repl.app")
+	if path == "" {
+		path = joinBasePath(basePath, debugREPLAppPathSuffix)
+	}
+	ws.WebSocket(path, cfg, func(c router.WebSocketContext) error {
 		return handleDebugREPLAppWebSocket(admin, m.config, c)
 	})
 }

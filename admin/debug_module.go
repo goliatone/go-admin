@@ -8,6 +8,7 @@ import (
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -43,6 +44,7 @@ type DebugModule struct {
 	config        DebugConfig
 	basePath      string
 	adminBasePath string
+	urls          urlkit.Resolver
 	menuCode      string
 	locale        string
 	permission    string
@@ -96,6 +98,10 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	if m.collector == nil {
 		m.collector = NewDebugCollector(cfg)
 	}
+	m.collector.WithURLs(ctx.Admin.URLs())
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
+	}
 	ctx.Admin.debugCollector = m.collector
 	m.captureConfigSnapshot(ctx.Admin)
 	m.captureRoutesSnapshot(ctx.Admin)
@@ -115,6 +121,11 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 	basePath := m.basePath
 	if basePath == "" {
 		basePath = normalizeDebugConfig(m.config, m.adminBasePath).BasePath
+	}
+	if m.urls != nil {
+		if resolved := debugRoutePathWithBase(m.urls, basePath, "admin.debug", "index"); resolved != "" {
+			basePath = resolved
+		}
 	}
 	if locale == "" {
 		locale = m.locale
@@ -208,7 +219,7 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 	if !debugConfigEnabled(cfg) {
 		return nil
 	}
-	basePath, routes := debugDashboardRouteConfig(a.config.BasePath, cfg.BasePath)
+	basePath, routes := debugDashboardRouteConfig(a, cfg)
 	defaultLocale := a.config.DefaultLocale
 	viewerResolver := func(c router.Context) dashcmp.ViewerContext {
 		locale := strings.TrimSpace(c.Query("locale"))
@@ -227,15 +238,15 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 	access := debugAccessMiddleware(a, cfg, cfg.Permission)
 	authHandler := debugAuthHandler(a, cfg, cfg.Permission)
 	registerFallback := func() error {
-		debugPath := strings.TrimSpace(cfg.BasePath)
+		debugPath := debugRoutePath(a, cfg, "admin.debug", "index")
 		if debugPath == "" {
-			debugPath = joinPath(a.config.BasePath, debugDefaultPathSuffix)
+			debugPath = debugBasePath(a, cfg)
 		}
-		adminBasePath := strings.TrimSpace(a.config.BasePath)
+		adminBase := strings.TrimSpace(adminBasePath(a.config))
 		handler := func(c router.Context) error {
 			viewCtx := router.ViewContext{
 				"title":                   "Debug Console",
-				"base_path":               adminBasePath,
+				"base_path":               adminBase,
 				"debug_path":              debugPath,
 				"panels":                  cfg.Panels,
 				"repl_commands":           debugREPLCommandsForRequest(a, cfg, c),
@@ -310,43 +321,67 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 	return nil
 }
 
-func debugDashboardRouteConfig(adminBasePath, debugBasePath string) (string, dashboardrouter.RouteConfig) {
-	adminBasePath = strings.TrimSpace(adminBasePath)
-	debugBasePath = strings.TrimSpace(debugBasePath)
-	if debugBasePath == "" {
-		debugBasePath = joinPath(adminBasePath, debugDefaultPathSuffix)
+func debugDashboardRouteConfig(admin *Admin, cfg DebugConfig) (string, dashboardrouter.RouteConfig) {
+	if admin == nil {
+		return "", dashboardrouter.RouteConfig{}
+	}
+	adminBase := strings.TrimSpace(adminBasePath(admin.config))
+	debugBase := strings.TrimSpace(debugBasePath(admin, cfg))
+	if debugBase == "" {
+		debugBase = strings.TrimSpace(debugRoutePath(admin, cfg, "admin.debug", "index"))
 	}
 
-	basePath := adminBasePath
-	routePrefix := ""
+	basePath := adminBase
 	relative := false
-	if adminBasePath != "" {
-		if debugBasePath == adminBasePath {
-			routePrefix = "/"
+	if adminBase != "" {
+		if debugBase == adminBase {
 			relative = true
-		} else if strings.HasPrefix(debugBasePath, adminBasePath+"/") {
-			routePrefix = strings.TrimPrefix(debugBasePath, adminBasePath)
+		} else if strings.HasPrefix(debugBase, adminBase+"/") {
 			relative = true
 		}
 	}
 	if !relative {
-		basePath = debugBasePath
-		routePrefix = "/"
-	}
-	if !strings.HasPrefix(routePrefix, "/") {
-		routePrefix = "/" + routePrefix
+		basePath = debugBase
 	}
 
+	htmlPath := debugRoutePath(admin, cfg, "admin.debug", "index")
+	layoutPath := debugAPIRoutePath(admin, cfg, "dashboard")
+	widgetsPath := debugAPIRoutePath(admin, cfg, "dashboard.widgets")
+	widgetIDPath := debugAPIRoutePath(admin, cfg, "dashboard.widget")
+	reorderPath := debugAPIRoutePath(admin, cfg, "dashboard.widgets.reorder")
+	refreshPath := debugAPIRoutePath(admin, cfg, "dashboard.widgets.refresh")
+	prefsPath := debugAPIRoutePath(admin, cfg, "dashboard.preferences")
+	wsPath := debugAPIRoutePath(admin, cfg, "dashboard.ws")
+
 	return basePath, dashboardrouter.RouteConfig{
-		HTML:        routePrefix,
-		Layout:      joinPath(routePrefix, "api/dashboard"),
-		Widgets:     joinPath(routePrefix, "api/dashboard/widgets"),
-		WidgetID:    joinPath(routePrefix, "api/dashboard/widgets/:id"),
-		Reorder:     joinPath(routePrefix, "api/dashboard/widgets/reorder"),
-		Refresh:     joinPath(routePrefix, "api/dashboard/widgets/refresh"),
-		Preferences: joinPath(routePrefix, "api/dashboard/preferences"),
-		WebSocket:   joinPath(routePrefix, "api/dashboard/ws"),
+		HTML:        relativeRoutePath(basePath, htmlPath),
+		Layout:      relativeRoutePath(basePath, layoutPath),
+		Widgets:     relativeRoutePath(basePath, widgetsPath),
+		WidgetID:    relativeRoutePath(basePath, widgetIDPath),
+		Reorder:     relativeRoutePath(basePath, reorderPath),
+		Refresh:     relativeRoutePath(basePath, refreshPath),
+		Preferences: relativeRoutePath(basePath, prefsPath),
+		WebSocket:   relativeRoutePath(basePath, wsPath),
 	}
+}
+
+func relativeRoutePath(basePath, fullPath string) string {
+	fullPath = strings.TrimSpace(fullPath)
+	if fullPath == "" {
+		return ""
+	}
+	basePath = normalizeBasePath(basePath)
+	fullPath = ensureLeadingSlash(fullPath)
+	if basePath == "" || basePath == "/" {
+		return fullPath
+	}
+	if fullPath == basePath {
+		return "/"
+	}
+	if strings.HasPrefix(fullPath, basePath+"/") {
+		return strings.TrimPrefix(fullPath, basePath)
+	}
+	return fullPath
 }
 
 func debugPanelMetaFor(panelID string) debugPanelMeta {

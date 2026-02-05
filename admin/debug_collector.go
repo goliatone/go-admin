@@ -8,6 +8,7 @@ import (
 
 	debugregistry "github.com/goliatone/go-admin/debug"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const debugSubscriberBuffer = 64
@@ -40,6 +41,7 @@ type DebugCollector struct {
 	customLog    *RingBuffer[CustomLogEntry]
 	configData   map[string]any
 	routesData   []RouteEntry
+	urls         urlkit.Resolver
 
 	subscribers map[string]chan DebugEvent
 }
@@ -144,6 +146,26 @@ func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 		customLog:    NewRingBuffer[CustomLogEntry](cfg.MaxLogEntries),
 		subscribers:  map[string]chan DebugEvent{},
 	}
+}
+
+// WithURLs sets the URL resolver used for debug integrations.
+func (c *DebugCollector) WithURLs(urls urlkit.Resolver) *DebugCollector {
+	if c == nil {
+		return c
+	}
+	c.mu.Lock()
+	c.urls = urls
+	c.mu.Unlock()
+	return c
+}
+
+func (c *DebugCollector) urlResolver() urlkit.Resolver {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.urls
 }
 
 // RegisterPanel adds a custom debug panel.
