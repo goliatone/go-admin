@@ -287,7 +287,7 @@ func buildScopeDebugEntry(c router.Context, cfg *admin.Config) ScopeDebugEntry {
 			entry.Claims.Metadata = filterScopeMetadata(carrier.ClaimsMetadata())
 		}
 	}
-
+	// TODO: Should we use masker?
 	entry.Headers = map[string]string{
 		"authorization": redactHeader(c.Header("Authorization")),
 		"cookie":        redactHeader(c.Header("Cookie")),
@@ -359,6 +359,7 @@ func filterScopeMetadata(metadata map[string]any) map[string]any {
 	return out
 }
 
+// TODO: Should we use masker?
 func redactHeader(value string) string {
 	if strings.TrimSpace(value) == "" {
 		return ""
@@ -378,15 +379,4 @@ func formatUUID(value uuid.UUID) string {
 		return ""
 	}
 	return value.String()
-}
-
-func cloneStringMap(src map[string]string) map[string]string {
-	if len(src) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(src))
-	for key, value := range src {
-		out[key] = value
-	}
-	return out
 }
