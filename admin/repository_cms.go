@@ -58,6 +58,7 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 			"seo":         cloneAnyMap(page.SEO),
 			"status":      page.Status,
 			"data":        cloneAnyMap(page.Data),
+			"metadata":    cloneAnyMap(page.Metadata),
 			"preview_url": page.PreviewURL,
 		}
 		if schema != "" {
@@ -97,6 +98,7 @@ func (r *CMSPageRepository) Get(ctx context.Context, id string) (map[string]any,
 		"seo":         cloneAnyMap(page.SEO),
 		"status":      page.Status,
 		"data":        cloneAnyMap(page.Data),
+		"metadata":    cloneAnyMap(page.Metadata),
 		"preview_url": page.PreviewURL,
 	}
 	if schema != "" {
@@ -135,6 +137,7 @@ func (r *CMSPageRepository) Create(ctx context.Context, record map[string]any) (
 		"seo":         cloneAnyMap(created.SEO),
 		"status":      created.Status,
 		"data":        cloneAnyMap(created.Data),
+		"metadata":    cloneAnyMap(created.Metadata),
 		"preview_url": created.PreviewURL,
 	}
 	if schema != "" {
@@ -199,6 +202,7 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 		"seo":         cloneAnyMap(updated.SEO),
 		"status":      updated.Status,
 		"data":        cloneAnyMap(updated.Data),
+		"metadata":    cloneAnyMap(updated.Metadata),
 		"preview_url": updated.PreviewURL,
 	}
 	if schema != "" {
@@ -479,14 +483,19 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 		blocksPayload := blocksPayloadFromContent(item)
 		schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
 		record := map[string]any{
-			"id":           item.ID,
-			"title":        item.Title,
-			"slug":         item.Slug,
-			"locale":       item.Locale,
-			"content_type": contentType,
-			"status":       item.Status,
-			"blocks":       blocksPayload,
-			"data":         cloneAnyMap(item.Data),
+			"id":                       item.ID,
+			"title":                    item.Title,
+			"slug":                     item.Slug,
+			"locale":                   item.Locale,
+			"requested_locale":         item.RequestedLocale,
+			"resolved_locale":          item.ResolvedLocale,
+			"available_locales":        append([]string{}, item.AvailableLocales...),
+			"missing_requested_locale": item.MissingRequestedLocale,
+			"content_type":             contentType,
+			"status":                   item.Status,
+			"blocks":                   blocksPayload,
+			"data":                     cloneAnyMap(item.Data),
+			"metadata":                 cloneAnyMap(item.Metadata),
 		}
 		if schema != "" {
 			record["_schema"] = schema
@@ -515,14 +524,19 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 	blocksPayload := blocksPayloadFromContent(*item)
 	schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
 	record := map[string]any{
-		"id":           item.ID,
-		"title":        item.Title,
-		"slug":         item.Slug,
-		"locale":       item.Locale,
-		"content_type": contentType,
-		"status":       item.Status,
-		"blocks":       blocksPayload,
-		"data":         cloneAnyMap(item.Data),
+		"id":                       item.ID,
+		"title":                    item.Title,
+		"slug":                     item.Slug,
+		"locale":                   item.Locale,
+		"requested_locale":         item.RequestedLocale,
+		"resolved_locale":          item.ResolvedLocale,
+		"available_locales":        append([]string{}, item.AvailableLocales...),
+		"missing_requested_locale": item.MissingRequestedLocale,
+		"content_type":             contentType,
+		"status":                   item.Status,
+		"blocks":                   blocksPayload,
+		"data":                     cloneAnyMap(item.Data),
+		"metadata":                 cloneAnyMap(item.Metadata),
 	}
 	if schema != "" {
 		record["_schema"] = schema
@@ -545,14 +559,19 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 	blocksPayload := blocksPayloadFromContent(*created)
 	schema := strings.TrimSpace(firstNonEmpty(created.SchemaVersion, toString(created.Data["_schema"])))
 	createdRecord := map[string]any{
-		"id":           created.ID,
-		"title":        created.Title,
-		"slug":         created.Slug,
-		"locale":       created.Locale,
-		"content_type": contentType,
-		"status":       created.Status,
-		"blocks":       blocksPayload,
-		"data":         cloneAnyMap(created.Data),
+		"id":                       created.ID,
+		"title":                    created.Title,
+		"slug":                     created.Slug,
+		"locale":                   created.Locale,
+		"requested_locale":         created.RequestedLocale,
+		"resolved_locale":          created.ResolvedLocale,
+		"available_locales":        append([]string{}, created.AvailableLocales...),
+		"missing_requested_locale": created.MissingRequestedLocale,
+		"content_type":             contentType,
+		"status":                   created.Status,
+		"blocks":                   blocksPayload,
+		"data":                     cloneAnyMap(created.Data),
+		"metadata":                 cloneAnyMap(created.Metadata),
 	}
 	if schema != "" {
 		createdRecord["_schema"] = schema
@@ -601,14 +620,19 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 	blocksPayload := blocksPayloadFromContent(*updated)
 	schema := strings.TrimSpace(firstNonEmpty(updated.SchemaVersion, toString(updated.Data["_schema"])))
 	updatedRecord := map[string]any{
-		"id":           updated.ID,
-		"title":        updated.Title,
-		"slug":         updated.Slug,
-		"locale":       updated.Locale,
-		"content_type": contentType,
-		"status":       updated.Status,
-		"blocks":       blocksPayload,
-		"data":         cloneAnyMap(updated.Data),
+		"id":                       updated.ID,
+		"title":                    updated.Title,
+		"slug":                     updated.Slug,
+		"locale":                   updated.Locale,
+		"requested_locale":         updated.RequestedLocale,
+		"resolved_locale":          updated.ResolvedLocale,
+		"available_locales":        append([]string{}, updated.AvailableLocales...),
+		"missing_requested_locale": updated.MissingRequestedLocale,
+		"content_type":             contentType,
+		"status":                   updated.Status,
+		"blocks":                   blocksPayload,
+		"data":                     cloneAnyMap(updated.Data),
+		"metadata":                 cloneAnyMap(updated.Metadata),
 	}
 	if schema != "" {
 		updatedRecord["_schema"] = schema
@@ -668,14 +692,19 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 		blocksPayload := blocksPayloadFromContent(item)
 		schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
 		record := map[string]any{
-			"id":           item.ID,
-			"title":        item.Title,
-			"slug":         item.Slug,
-			"locale":       item.Locale,
-			"content_type": contentType,
-			"status":       item.Status,
-			"blocks":       blocksPayload,
-			"data":         cloneAnyMap(item.Data),
+			"id":                       item.ID,
+			"title":                    item.Title,
+			"slug":                     item.Slug,
+			"locale":                   item.Locale,
+			"requested_locale":         item.RequestedLocale,
+			"resolved_locale":          item.ResolvedLocale,
+			"available_locales":        append([]string{}, item.AvailableLocales...),
+			"missing_requested_locale": item.MissingRequestedLocale,
+			"content_type":             contentType,
+			"status":                   item.Status,
+			"blocks":                   blocksPayload,
+			"data":                     cloneAnyMap(item.Data),
+			"metadata":                 cloneAnyMap(item.Metadata),
 		}
 		if schema != "" {
 			record["_schema"] = schema
@@ -1686,6 +1715,9 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	if tpl, ok := record["template"].(string); ok && page.TemplateID == "" {
 		page.TemplateID = tpl
 	}
+	if meta, ok := record["metadata"].(map[string]any); ok {
+		page.Metadata = cloneAnyMap(meta)
+	}
 	return page
 }
 
@@ -1722,6 +1754,11 @@ func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) C
 	}
 	if !recordHasKey(record, "template_id") && !recordHasKey(record, "template") {
 		page.TemplateID = existing.TemplateID
+	}
+	if !recordHasKey(record, "metadata") {
+		page.Metadata = cloneAnyMap(existing.Metadata)
+	} else {
+		page.Metadata = cloneAnyMap(page.Metadata)
 	}
 	if recordHasKey(record, "seo") {
 		page.SEO = mergeAnyMap(existing.SEO, page.SEO)
@@ -1760,19 +1797,24 @@ func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) C
 }
 
 var cmsContentReservedKeys = map[string]struct{}{
-	"id":                   {},
-	"title":                {},
-	"slug":                 {},
-	"locale":               {},
-	"status":               {},
-	"content_type":         {},
-	"content_type_slug":    {},
-	"content_type_id":      {},
-	"translation_group_id": {},
-	"blocks":               {},
-	"data":                 {},
-	"schema":               {},
-	"_schema":              {},
+	"id":                       {},
+	"title":                    {},
+	"slug":                     {},
+	"locale":                   {},
+	"status":                   {},
+	"content_type":             {},
+	"content_type_slug":        {},
+	"content_type_id":          {},
+	"translation_group_id":     {},
+	"requested_locale":         {},
+	"resolved_locale":          {},
+	"available_locales":        {},
+	"missing_requested_locale": {},
+	"blocks":                   {},
+	"data":                     {},
+	"metadata":                 {},
+	"schema":                   {},
+	"_schema":                  {},
 }
 
 func mapToCMSContent(record map[string]any) CMSContent {
@@ -1796,6 +1838,45 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	}
 	if locale, ok := record["locale"].(string); ok {
 		content.Locale = locale
+	}
+	if requested, ok := record["requested_locale"].(string); ok {
+		content.RequestedLocale = strings.TrimSpace(requested)
+	} else if requested := strings.TrimSpace(toString(record["requested_locale"])); requested != "" {
+		content.RequestedLocale = requested
+	}
+	if resolved, ok := record["resolved_locale"].(string); ok {
+		content.ResolvedLocale = strings.TrimSpace(resolved)
+	} else if resolved := strings.TrimSpace(toString(record["resolved_locale"])); resolved != "" {
+		content.ResolvedLocale = resolved
+	}
+	if missing, ok := record["missing_requested_locale"].(bool); ok {
+		content.MissingRequestedLocale = missing
+	}
+	if raw := record["available_locales"]; raw != nil {
+		locales := []string{}
+		switch typed := raw.(type) {
+		case []string:
+			locales = append(locales, typed...)
+		case []any:
+			for _, item := range typed {
+				if val := strings.TrimSpace(toString(item)); val != "" {
+					locales = append(locales, val)
+				}
+			}
+		case string:
+			for _, item := range strings.Split(typed, ",") {
+				if val := strings.TrimSpace(item); val != "" {
+					locales = append(locales, val)
+				}
+			}
+		default:
+			if val := strings.TrimSpace(toString(raw)); val != "" {
+				locales = append(locales, val)
+			}
+		}
+		if len(locales) > 0 {
+			content.AvailableLocales = append([]string{}, locales...)
+		}
 	}
 	if status, ok := record["status"].(string); ok {
 		content.Status = status
@@ -1850,6 +1931,9 @@ func mapToCMSContent(record map[string]any) CMSContent {
 		}
 		content.Data["_schema"] = schema
 	}
+	if meta, ok := record["metadata"].(map[string]any); ok {
+		content.Metadata = cloneAnyMap(meta)
+	}
 	for key, val := range record {
 		if _, skip := cmsContentReservedKeys[key]; skip {
 			continue
@@ -1890,6 +1974,11 @@ func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[s
 	if !recordHasKey(record, "content_type") && !recordHasKey(record, "content_type_slug") && !recordHasKey(record, "content_type_id") {
 		content.ContentType = existing.ContentType
 		content.ContentTypeSlug = existing.ContentTypeSlug
+	}
+	if !recordHasKey(record, "metadata") {
+		content.Metadata = cloneAnyMap(existing.Metadata)
+	} else {
+		content.Metadata = cloneAnyMap(content.Metadata)
 	}
 	if cmsContentDataUpdated(record) {
 		content.Data = mergeAnyMap(existing.Data, content.Data)
