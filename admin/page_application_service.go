@@ -201,6 +201,9 @@ func (s PageApplicationService) Update(ctx context.Context, id string, payload m
 	if update == nil {
 		update = map[string]any{}
 	}
+	if err := s.hydrateUpdatePayload(ctx, id, update); err != nil {
+		return nil, err
+	}
 	if err := s.applyWorkflowWithCurrent(ctx, id, update); err != nil {
 		return nil, err
 	}
@@ -225,6 +228,9 @@ func (s PageApplicationService) Publish(ctx context.Context, id string, payload 
 		update = map[string]any{}
 	}
 	update["status"] = "published"
+	if err := s.hydrateUpdatePayload(ctx, id, update); err != nil {
+		return nil, err
+	}
 	if err := s.applyWorkflowWithCurrent(ctx, id, update); err != nil {
 		return nil, err
 	}
@@ -241,6 +247,9 @@ func (s PageApplicationService) Unpublish(ctx context.Context, id string, payloa
 		update = map[string]any{}
 	}
 	update["status"] = "draft"
+	if err := s.hydrateUpdatePayload(ctx, id, update); err != nil {
+		return nil, err
+	}
 	if err := s.applyWorkflowWithCurrent(ctx, id, update); err != nil {
 		return nil, err
 	}
@@ -459,10 +468,10 @@ func (s PageApplicationService) currentPageStatus(ctx context.Context, id string
 	opts := AdminPageGetOptions{
 		Locale:                   resolveLocale(locale, localeFromContext(ctx)),
 		FallbackLocale:           "",
-		AllowMissingTranslations: false,
+		AllowMissingTranslations: true,
 		IncludeContent:           false,
 		IncludeBlocks:            false,
-		IncludeData:              false,
+		IncludeData:              true,
 		EnvironmentKey:           resolveEnvironment(env, environmentFromContext(ctx)),
 	}
 	record, err := s.Read.Get(ctx, id, opts)
@@ -471,6 +480,11 @@ func (s PageApplicationService) currentPageStatus(ctx context.Context, id string
 	}
 	if record == nil {
 		return "", ErrNotFound
+	}
+	if record.Data != nil {
+		if status := strings.TrimSpace(toString(record.Data["workflow_status"])); status != "" {
+			return status, nil
+		}
 	}
 	return strings.TrimSpace(record.Status), nil
 }
@@ -507,4 +521,124 @@ func setValue(values map[string]any, key, value string) {
 		return
 	}
 	values[key] = value
+}
+
+func (s PageApplicationService) hydrateUpdatePayload(ctx context.Context, id string, payload map[string]any) error {
+	if s.Read == nil || payload == nil {
+		return nil
+	}
+	if strings.TrimSpace(id) == "" {
+		return nil
+	}
+	if !payloadNeedsHydration(payload) {
+		return nil
+	}
+	locale := resolveLocale(payloadString(payload, "locale"), localeFromContext(ctx))
+	if locale == "" {
+		locale = strings.TrimSpace(payloadString(payload, "requested_locale"))
+	}
+	env := resolveEnvironment(payloadString(payload, "environment"), environmentFromContext(ctx))
+	if env == "" {
+		env = strings.TrimSpace(payloadString(payload, "env"))
+	}
+	record, err := s.Read.Get(ctx, id, AdminPageGetOptions{
+		Locale:                   locale,
+		FallbackLocale:           strings.TrimSpace(payloadString(payload, "fallback_locale")),
+		AllowMissingTranslations: true,
+		IncludeContent:           false,
+		IncludeBlocks:            false,
+		IncludeData:              true,
+		EnvironmentKey:           env,
+	})
+	if err != nil || record == nil {
+		return err
+	}
+	applyRecordDefaults(payload, *record)
+	return nil
+}
+
+func payloadNeedsHydration(payload map[string]any) bool {
+	return isBlankPayloadValue(payload["title"]) ||
+		isBlankPayloadValue(payload["path"]) ||
+		isBlankPayloadValue(payload["locale"])
+}
+
+func payloadString(payload map[string]any, key string) string {
+	if payload == nil || key == "" {
+		return ""
+	}
+	return strings.TrimSpace(toString(payload[key]))
+}
+
+func isBlankPayloadValue(val any) bool {
+	switch v := val.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(v) == ""
+	default:
+		return false
+	}
+}
+
+func applyRecordDefaults(payload map[string]any, record AdminPageRecord) {
+	if payload == nil {
+		return
+	}
+	title := strings.TrimSpace(record.Title)
+	if title == "" {
+		title = strings.TrimSpace(record.MetaTitle)
+	}
+	if title == "" {
+		title = strings.TrimSpace(record.Slug)
+	}
+	setIfBlank(payload, "title", title)
+	setIfBlank(payload, "slug", strings.TrimSpace(record.Slug))
+
+	path := strings.TrimSpace(record.Path)
+	if path == "" {
+		path = strings.TrimSpace(record.PreviewURL)
+	}
+	if path == "" && strings.TrimSpace(record.Slug) != "" {
+		path = "/" + strings.TrimPrefix(strings.TrimSpace(record.Slug), "/")
+	}
+	setIfBlank(payload, "path", path)
+
+	locale := resolveLocale(record.ResolvedLocale, record.RequestedLocale)
+	setIfBlank(payload, "locale", locale)
+
+	setIfBlank(payload, "meta_title", strings.TrimSpace(record.MetaTitle))
+	setIfBlank(payload, "meta_description", strings.TrimSpace(record.MetaDescription))
+	setIfBlank(payload, "template_id", strings.TrimSpace(record.TemplateID))
+	setIfBlank(payload, "parent_id", strings.TrimSpace(record.ParentID))
+	setIfBlank(payload, "translation_group_id", strings.TrimSpace(record.TranslationGroupID))
+	setIfBlank(payload, "content_id", strings.TrimSpace(record.ContentID))
+
+	if _, ok := payload["summary"]; !ok && record.Summary != nil {
+		if summary := strings.TrimSpace(*record.Summary); summary != "" {
+			payload["summary"] = summary
+		}
+	}
+	if _, ok := payload["tags"]; !ok && len(record.Tags) > 0 {
+		payload["tags"] = append([]string{}, record.Tags...)
+	}
+	if _, ok := payload["content"]; !ok && record.Content != nil {
+		payload["content"] = record.Content
+	}
+	if _, ok := payload["blocks"]; !ok && record.Blocks != nil {
+		payload["blocks"] = record.Blocks
+	}
+}
+
+func setIfBlank(payload map[string]any, key, value string) {
+	if payload == nil || strings.TrimSpace(key) == "" {
+		return
+	}
+	if !isBlankPayloadValue(payload[key]) {
+		return
+	}
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+	payload[key] = value
 }
