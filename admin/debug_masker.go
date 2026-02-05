@@ -3,6 +3,8 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -166,6 +168,129 @@ func debugMaskBodyString(cfg DebugConfig, contentType string, body string) strin
 		return body
 	}
 	return string(out)
+}
+
+// debugMaskInlineString masks sensitive values embedded in freeform strings
+// such as error messages, stack traces, and URLs. It applies two passes:
+// 1. Mask URL query parameters whose names match known sensitive fields.
+// 2. Mask inline Bearer/JWT tokens that appear in the text.
+func debugMaskInlineString(cfg DebugConfig, s string) string {
+	if strings.TrimSpace(s) == "" {
+		return s
+	}
+	s = debugMaskQueryParams(cfg, s)
+	s = debugMaskInlineTokens(cfg, s)
+	return s
+}
+
+// debugInlineURLPattern matches http(s) URLs with query strings in freeform text.
+var debugInlineURLPattern = regexp.MustCompile(`https?://[^\s"'<>]+\?[^\s"'<>]+`)
+
+// debugMaskQueryParams finds inline URLs and masks query parameter values
+// whose names match the known sensitive field set (debugMaskFields + cfg.MaskFieldTypes).
+func debugMaskQueryParams(cfg DebugConfig, s string) string {
+	return debugInlineURLPattern.ReplaceAllStringFunc(s, func(rawURL string) string {
+		u, err := url.Parse(rawURL)
+		if err != nil || u.RawQuery == "" {
+			return rawURL
+		}
+		q := u.Query()
+		changed := false
+		for key, values := range q {
+			maskType, ok := debugMaskTypeForField(cfg, key)
+			if !ok {
+				continue
+			}
+			maskedValues := make([]string, len(values))
+			for i, value := range values {
+				maskedValues[i] = debugMaskStringWithType(cfg, maskType, value)
+			}
+			q[key] = maskedValues
+			changed = true
+		}
+		if !changed {
+			return rawURL
+		}
+		u.RawQuery = q.Encode()
+		return u.String()
+	})
+}
+
+// debugInlineTokenPattern matches Bearer tokens and JWTs embedded in text.
+var debugInlineTokenPattern = regexp.MustCompile(`(?i)\b(bearer\s+)([A-Za-z0-9\-._~+/]+=*\b)`)
+
+// debugJWTPattern matches standalone JWT-like tokens (three dot-separated base64 segments).
+var debugJWTPattern = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}[A-Za-z0-9_=-]*\b`)
+
+func debugMaskInlineTokens(cfg DebugConfig, s string) string {
+	s = debugInlineTokenPattern.ReplaceAllStringFunc(s, func(match string) string {
+		idx := strings.IndexByte(match, ' ')
+		if idx < 0 {
+			return match
+		}
+		prefix := match[:idx+1]
+		token := strings.TrimSpace(match[idx+1:])
+		return prefix + debugMaskStringWithType(cfg, debugMaskTypeToken, token)
+	})
+	s = debugJWTPattern.ReplaceAllStringFunc(s, func(match string) string {
+		return debugMaskStringWithType(cfg, debugMaskTypeToken, match)
+	})
+	return s
+}
+
+func debugMaskStringWithType(cfg DebugConfig, maskType, value string) string {
+	maskType = strings.TrimSpace(maskType)
+	if maskType == "" {
+		maskType = debugMaskTypeAny
+	}
+	masked, err := debugMasker(cfg).String(maskType, value)
+	if err != nil {
+		return value
+	}
+	return masked
+}
+
+func debugIsSensitiveField(cfg DebugConfig, field string) bool {
+	_, ok := debugMaskTypeForField(cfg, field)
+	return ok
+}
+
+func debugMaskTypeForField(cfg DebugConfig, field string) (string, bool) {
+	field = strings.TrimSpace(field)
+	if field == "" {
+		return "", false
+	}
+	lower := strings.ToLower(field)
+	if maskType, ok := debugMaskFields[lower]; ok {
+		return maskType, true
+	}
+	if maskType, ok := cfg.MaskFieldTypes[field]; ok {
+		return normalizeMaskType(maskType), true
+	}
+	if maskType, ok := cfg.MaskFieldTypes[lower]; ok {
+		return normalizeMaskType(maskType), true
+	}
+	canonical := http.CanonicalHeaderKey(field)
+	if maskType, ok := cfg.MaskFieldTypes[canonical]; ok {
+		return normalizeMaskType(maskType), true
+	}
+	if maskType, ok := cfg.MaskFieldTypes[strings.ToLower(canonical)]; ok {
+		return normalizeMaskType(maskType), true
+	}
+	for key, maskType := range debugMaskFields {
+		if strings.Contains(lower, key) {
+			return maskType, true
+		}
+	}
+	return "", false
+}
+
+func normalizeMaskType(maskType string) string {
+	maskType = strings.TrimSpace(maskType)
+	if maskType == "" {
+		return debugMaskTypeAny
+	}
+	return maskType
 }
 
 func debugIsJSONContentType(contentType string) bool {
