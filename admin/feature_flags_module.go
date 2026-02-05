@@ -3,6 +3,8 @@ package admin
 import (
 	"errors"
 	"strings"
+
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const featureFlagsModuleID = "feature_flags"
@@ -14,6 +16,7 @@ type FeatureFlagsModule struct {
 	defaultLocale string
 	permission    string
 	menuParent    string
+	urls          urlkit.Resolver
 }
 
 // NewFeatureFlagsModule constructs the default feature flags module.
@@ -45,6 +48,9 @@ func (m *FeatureFlagsModule) Register(ctx ModuleContext) error {
 	if m.permission == "" {
 		m.permission = ctx.Admin.config.FeatureFlagsViewPermission
 	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
+	}
 	return nil
 }
 
@@ -52,7 +58,16 @@ func (m *FeatureFlagsModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := joinPath(m.basePath, "feature-flags")
+	basePath := strings.TrimSpace(m.basePath)
+	target := map[string]any{
+		"type": "url",
+		"key":  featureFlagsModuleID,
+	}
+	if path := resolveURLWith(m.urls, "admin", "feature_flags", nil, nil); path != "" {
+		target["path"] = path
+	} else {
+		target["path"] = joinBasePath(basePath, "feature-flags")
+	}
 	permissions := []string{}
 	if m.permission != "" {
 		permissions = []string{m.permission}
@@ -62,7 +77,7 @@ func (m *FeatureFlagsModule) MenuItems(locale string) []MenuItem {
 			Label:       "Feature Flags",
 			LabelKey:    "menu.feature_flags",
 			Icon:        "switch-on",
-			Target:      map[string]any{"type": "url", "path": path, "key": featureFlagsModuleID},
+			Target:      target,
 			Permissions: permissions,
 			Menu:        m.menuCode,
 			Locale:      locale,
