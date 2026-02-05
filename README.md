@@ -8,6 +8,12 @@ The core `github.com/goliatone/go-admin` module stays dependency-light and focus
 - Export refactor design: `EXPORT_REF_TDD.md`
 - Export refactor plan: `EXPORT_REF_TSK.md`
 
+## CMS CRUD Alignment (Read/Write Split)
+
+Admin page CRUD now uses an explicit admin read model (`AdminPageRecord`) plus split read/write services. List and detail reads go through `AdminPageReadService`, while writes (create/update/delete/publish) use `AdminPageWriteService` via `PageApplicationService` so HTML and JSON paths stay aligned.
+
+See `docs/GUIDE_CMS.md` for include flags, locale resolution, blocks payload rules, and view-backed fallback guidance. Migration notes live in `CHANGELOG.md`.
+
 ## Commands (go-command)
 
 Commands are message-driven: define a message type with a stable `Type()` string, implement a `command.Commander[Msg]`, and register a message factory for name-based dispatch from HTTP/panels.
