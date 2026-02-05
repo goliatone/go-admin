@@ -13,23 +13,32 @@ func (a *Admin) RegisterPublicAPI(r AdminRouter) {
 	if r == nil {
 		return
 	}
-	base := "/api/v1"
+	register := func(route string, handler router.HandlerFunc) {
+		path := publicAPIRoutePath(a, route)
+		if path == "" {
+			return
+		}
+		r.Get(path, handler)
+	}
 
-	r.Get(joinPath(base, "pages"), a.handlePublicPages)
-	r.Get(joinPath(base, "pages/:slug"), a.handlePublicPage)
-	r.Get(joinPath(base, "content"), a.handlePublicContentList)
-	r.Get(joinPath(base, "content/:type"), a.handlePublicContentList)
-	r.Get(joinPath(base, "content/:type/:slug"), a.handlePublicContent)
+	register("pages", a.handlePublicPages)
+	register("page", a.handlePublicPage)
+	register("content", a.handlePublicContentList)
+	register("content.type", a.handlePublicContentList)
+	register("content.item", a.handlePublicContent)
 	// Legacy CMS demo routes.
-	r.Get(joinPath(base, "menus/:location"), a.handlePublicMenu)
-	r.Get(joinPath(base, "preview/:token"), a.handlePublicPreview)
+	register("menu", a.handlePublicMenu)
+	register("preview", a.handlePublicPreview)
 }
 
 func (a *Admin) registerPreviewRoutes() {
 	if a == nil || a.preview == nil || a.router == nil {
 		return
 	}
-	path := joinPath(a.config.BasePath, "api/preview/:token")
+	path := adminAPIRoutePath(a, "preview")
+	if path == "" {
+		return
+	}
 	a.router.Get(path, a.handlePublicPreview)
 }
 
