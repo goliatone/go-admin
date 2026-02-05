@@ -260,6 +260,19 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 								}
 							}
 						}
+						policyInput := buildTranslationPolicyInput(ctx.Context, p.name, ids[0], state, action, body)
+						if policyInput.RequestedLocale == "" && record != nil {
+							policyInput.RequestedLocale = requestedLocaleFromPayload(record, localeFromContext(ctx.Context))
+						}
+						if policyInput.Environment == "" && record != nil {
+							policyInput.Environment = resolvePolicyEnvironment(record, environmentFromContext(ctx.Context))
+						}
+						if policyInput.PolicyEntity == "" && record != nil {
+							policyInput.PolicyEntity = resolvePolicyEntity(record, p.name)
+						}
+						if err := applyTranslationPolicy(ctx.Context, p.panel.translationPolicy, policyInput); err != nil {
+							return err
+						}
 						_, err := p.panel.workflow.Transition(ctx.Context, TransitionInput{
 							EntityID:     ids[0],
 							EntityType:   p.name,
@@ -314,14 +327,9 @@ func (p *panelBinding) Preview(c router.Context, locale, id string) (map[string]
 		query.Set("locale", locale)
 	}
 
-	queryString := strings.TrimSpace(query.Encode())
-	// TODO: Remove hardcoded URL
-	previewURL := fmt.Sprintf("/api/v1/preview/%s", token)
-	adminURL := joinPath(p.admin.config.BasePath, fmt.Sprintf("api/preview/%s", token))
-	if queryString != "" {
-		previewURL = previewURL + "?" + queryString
-		adminURL = adminURL + "?" + queryString
-	}
+	params := map[string]string{"token": token}
+	previewURL := resolveURLWith(p.admin.urlManager, publicAPIGroupName(p.admin.config), "preview", params, query)
+	adminURL := resolveURLWith(p.admin.urlManager, adminAPIGroupName(p.admin.config), "preview", params, query)
 	return map[string]any{
 		"token":     token,
 		"url":       previewURL,
@@ -649,14 +657,15 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 			Locale: locale,
 		}
 	}
+	basePath := adminBasePath(d.admin.config)
 	routes := dashboardrouter.RouteConfig{
-		HTML:        "/dashboard",
-		Layout:      "/api/dashboard",
-		Widgets:     "/api/dashboard/widgets",
-		WidgetID:    "/api/dashboard/widgets/:id",
-		Reorder:     "/api/dashboard/widgets/reorder",
-		Refresh:     "/api/dashboard/widgets/refresh",
-		Preferences: "/api/dashboard/preferences",
+		HTML:        relativeRoutePath(basePath, adminRoutePath(d.admin, "dashboard.page")),
+		Layout:      relativeRoutePath(basePath, adminAPIRoutePath(d.admin, "dashboard")),
+		Widgets:     relativeRoutePath(basePath, adminAPIRoutePath(d.admin, "dashboard.widgets")),
+		WidgetID:    relativeRoutePath(basePath, adminAPIRoutePath(d.admin, "dashboard.widget")),
+		Reorder:     relativeRoutePath(basePath, adminAPIRoutePath(d.admin, "dashboard.widgets.reorder")),
+		Refresh:     relativeRoutePath(basePath, adminAPIRoutePath(d.admin, "dashboard.widgets.refresh")),
+		Preferences: relativeRoutePath(basePath, adminAPIRoutePath(d.admin, "dashboard.preferences")),
 	}
 
 	//TODO: Refactor so we do not need to cast
@@ -667,7 +676,7 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 			API:            d.admin.dash.executor,
 			Broadcast:      d.admin.dash.broadcast,
 			ViewerResolver: viewerResolver,
-			BasePath:       d.admin.config.BasePath,
+			BasePath:       basePath,
 			Routes:         routes,
 		}); err == nil {
 			return nil
@@ -682,7 +691,7 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 			API:            d.admin.dash.executor,
 			Broadcast:      d.admin.dash.broadcast,
 			ViewerResolver: viewerResolver,
-			BasePath:       d.admin.config.BasePath,
+			BasePath:       basePath,
 			Routes:         routes,
 		}); err == nil {
 			return nil
@@ -696,14 +705,16 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 			API:            d.admin.dash.executor,
 			Broadcast:      d.admin.dash.broadcast,
 			ViewerResolver: viewerResolver,
-			BasePath:       d.admin.config.BasePath,
+			BasePath:       basePath,
 			Routes:         routes,
 		}); err == nil {
 			return nil
 		}
 	}
 	if rt, ok := d.admin.router.(AdminRouter); ok {
-		basePath := d.admin.config.BasePath
+		dashboardPath := adminAPIRoutePath(d.admin, "dashboard")
+		prefsPath := adminAPIRoutePath(d.admin, "dashboard.preferences")
+		configPath := adminAPIRoutePath(d.admin, "dashboard.config")
 		getLocale := func(c router.Context) string {
 			locale := strings.TrimSpace(c.Query("locale"))
 			if locale == "" {
@@ -711,21 +722,21 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 			}
 			return locale
 		}
-		rt.Get(joinPath(basePath, "api/dashboard"), func(c router.Context) error {
+		rt.Get(dashboardPath, func(c router.Context) error {
 			payload, err := d.Widgets(c, getLocale(c))
 			if err != nil {
 				return writeError(c, err)
 			}
 			return writeJSON(c, payload)
 		})
-		rt.Get(joinPath(basePath, "api/dashboard/preferences"), func(c router.Context) error {
+		rt.Get(prefsPath, func(c router.Context) error {
 			payload, err := d.Widgets(c, getLocale(c))
 			if err != nil {
 				return writeError(c, err)
 			}
 			return writeJSON(c, payload)
 		})
-		rt.Get(joinPath(basePath, "api/dashboard/config"), func(c router.Context) error {
+		rt.Get(configPath, func(c router.Context) error {
 			payload, err := d.Widgets(c, getLocale(c))
 			if err != nil {
 				return writeError(c, err)
@@ -758,8 +769,8 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 			}
 			return writeJSON(c, map[string]any{"status": "ok"})
 		}
-		rt.Post(joinPath(basePath, "api/dashboard/preferences"), savePrefs)
-		rt.Post(joinPath(basePath, "api/dashboard/config"), savePrefs)
+		rt.Post(prefsPath, savePrefs)
+		rt.Post(configPath, savePrefs)
 		return nil
 	}
 	return fmt.Errorf("router does not support go-dashboard routes")
