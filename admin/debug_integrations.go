@@ -24,31 +24,59 @@ const debugMaxBodyBytes = 64 * 1024
 // - debug_path: the debug module base path
 // - debug_toolbar_panels: comma-separated list of panels for the toolbar
 // - debug_slow_threshold_ms: slow query threshold in milliseconds
+//
+// Note: this variant cannot inject JS error nonce cookies because it does not
+// have access to the router.Context. Use CaptureViewContextForRequest when
+// possible to get full JS error collector support.
 func CaptureViewContext(collector *DebugCollector, viewCtx router.ViewContext) router.ViewContext {
-	return captureViewContext(collector, "", viewCtx)
+	return captureViewContext(collector, nil, viewCtx)
 }
 
-// CaptureViewContextForRequest is like CaptureViewContext but honors ToolbarExcludePaths.
+// CaptureViewContextForRequest is like CaptureViewContext but honors ToolbarExcludePaths
+// and injects JS error collector variables (with nonce) when CaptureJSErrors is enabled.
 func CaptureViewContextForRequest(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) router.ViewContext {
 	if collector == nil {
 		return viewCtx
 	}
-	path := ""
-	if c != nil {
-		path = c.Path()
-	}
-	return captureViewContext(collector, path, viewCtx)
+	return captureViewContext(collector, c, viewCtx)
 }
 
-func captureViewContext(collector *DebugCollector, requestPath string, viewCtx router.ViewContext) router.ViewContext {
+// CaptureJSErrorContext injects JS error collector variables into the view
+// context without capturing template data or injecting toolbar variables.
+// Use this on non-admin pages (public site, login) that need the global
+// error collector but not the full debug integration.
+func CaptureJSErrorContext(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) router.ViewContext {
+	if collector == nil || viewCtx == nil {
+		return viewCtx
+	}
+	cfg := collector.config
+	if !cfg.CaptureJSErrors {
+		return viewCtx
+	}
+	injectJSErrorContext(cfg, c, viewCtx)
+	return viewCtx
+}
+
+func captureViewContext(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) router.ViewContext {
 	if collector == nil {
 		return viewCtx
 	}
 	collector.CaptureTemplateData(viewCtx)
 
-	// Inject toolbar variables when ToolbarMode is enabled.
 	cfg := collector.config
+
+	// Inject JS error collector variables when CaptureJSErrors is enabled.
+	// This is independent of ToolbarMode — the collector runs on all pages.
+	if cfg.CaptureJSErrors {
+		injectJSErrorContext(cfg, c, viewCtx)
+	}
+
+	// Inject toolbar variables when ToolbarMode is enabled.
 	if cfg.ToolbarMode && debugConfigEnabled(cfg) {
+		requestPath := ""
+		if c != nil {
+			requestPath = c.Path()
+		}
 		if requestPath != "" && debugToolbarExcluded(cfg, requestPath) {
 			viewCtx["debug_toolbar_enabled"] = false
 			return viewCtx
@@ -59,6 +87,16 @@ func captureViewContext(collector *DebugCollector, requestPath string, viewCtx r
 		viewCtx["debug_slow_threshold_ms"] = cfg.SlowQueryThreshold.Milliseconds()
 	}
 	return viewCtx
+}
+
+// injectJSErrorContext sets the template variables needed by the jserror-collector partial.
+func injectJSErrorContext(cfg DebugConfig, c router.Context, viewCtx router.ViewContext) {
+	viewCtx["debug_jserror_enabled"] = true
+	viewCtx["debug_jserror_endpoint"] = joinPath(cfg.BasePath, "api/errors")
+	if c != nil {
+		nonce := debugEnsureJSErrorNonce(c, "/")
+		viewCtx["debug_jserror_nonce"] = nonce
+	}
 }
 
 // DebugRequestMiddleware captures request metadata for the debug collector.
@@ -736,6 +774,7 @@ func debugDebugConfigSnapshot(cfg DebugConfig) map[string]any {
 		"CaptureSQL":         cfg.CaptureSQL,
 		"CaptureLogs":        cfg.CaptureLogs,
 		"CaptureRequestBody": cfg.CaptureRequestBody,
+		"CaptureJSErrors":    cfg.CaptureJSErrors,
 		"StrictQueryHooks":   cfg.StrictQueryHooks,
 		"MaxLogEntries":      cfg.MaxLogEntries,
 		"MaxSQLQueries":      cfg.MaxSQLQueries,
