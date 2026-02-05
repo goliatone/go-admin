@@ -136,10 +136,10 @@ func (a *GoCMSContentTypeAdapter) ContentTypeBySlug(ctx context.Context, slug st
 	}
 	method := findMethod(a.service, "ContentTypeBySlug", "GetBySlug")
 	if !method.IsValid() {
-		return nil, ErrNotFound
+		return a.contentTypeByPanelSlug(ctx, slug)
 	}
 	if method.Type().NumIn() < 2 {
-		return nil, ErrNotFound
+		return a.contentTypeByPanelSlug(ctx, slug)
 	}
 	args := []reflect.Value{reflect.ValueOf(ctx)}
 	arg, err := valueForStringType(method.Type().In(1), slug)
@@ -150,16 +150,39 @@ func (a *GoCMSContentTypeAdapter) ContentTypeBySlug(ctx context.Context, slug st
 	args = appendZeroArgs(args, method, 2)
 	results := method.Call(args)
 	if err := extractError(results); err != nil {
-		return nil, normalizeContentTypeAdapterError(err)
+		normalized := normalizeContentTypeAdapterError(err)
+		if errors.Is(normalized, ErrNotFound) {
+			return a.contentTypeByPanelSlug(ctx, slug)
+		}
+		return nil, normalized
 	}
 	if len(results) == 0 || !results[0].IsValid() {
-		return nil, ErrNotFound
+		return a.contentTypeByPanelSlug(ctx, slug)
 	}
 	converted := convertContentTypeValue(results[0])
 	if converted.ID == "" && converted.Slug == "" && converted.Name == "" {
-		return nil, ErrNotFound
+		return a.contentTypeByPanelSlug(ctx, slug)
 	}
 	return &converted, nil
+}
+
+func (a *GoCMSContentTypeAdapter) contentTypeByPanelSlug(ctx context.Context, slug string) (*CMSContentType, error) {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return nil, ErrNotFound
+	}
+	types, err := a.ContentTypes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, ct := range types {
+		panelSlug := capabilityString(ct.Capabilities, "panel_slug", "panelSlug", "panel-slug")
+		if panelSlug != "" && strings.EqualFold(panelSlug, slug) {
+			contentType := ct
+			return &contentType, nil
+		}
+	}
+	return nil, ErrNotFound
 }
 
 func (a *GoCMSContentTypeAdapter) CreateContentType(ctx context.Context, contentType CMSContentType) (*CMSContentType, error) {

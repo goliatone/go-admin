@@ -62,6 +62,33 @@ func extractUUID(val reflect.Value, fieldName string) (uuid.UUID, bool) {
 	return uuid.Nil, false
 }
 
+func mapFieldAny(val reflect.Value, fieldName string) map[string]any {
+	val = deref(val)
+	if !val.IsValid() || val.Kind() != reflect.Struct {
+		return nil
+	}
+	field := val.FieldByName(fieldName)
+	if !field.IsValid() {
+		return nil
+	}
+	field = deref(field)
+	if !field.IsValid() {
+		return nil
+	}
+	if m, ok := field.Interface().(map[string]any); ok {
+		return cloneAnyMap(m)
+	}
+	if field.Kind() == reflect.Map && field.Type().Key().Kind() == reflect.String {
+		out := map[string]any{}
+		iter := field.MapRange()
+		for iter.Next() {
+			out[iter.Key().String()] = iter.Value().Interface()
+		}
+		return out
+	}
+	return nil
+}
+
 func setStringField(val reflect.Value, fieldName string, value string) {
 	val = deref(val)
 	if !val.IsValid() || val.Kind() != reflect.Struct {
