@@ -14,7 +14,7 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.PreviewSecret == "" {
 		cfg.PreviewSecret = "admin-preview-secret-change-me"
 	}
-	cfg.URLs = normalizeURLConfig(cfg.URLs)
+	cfg.URLs = normalizeURLConfig(cfg.URLs, cfg.BasePath)
 
 	if cfg.SettingsPermission == "" {
 		cfg.SettingsPermission = "admin.settings.view"
