@@ -136,36 +136,46 @@ type MenuItem = navinternal.MenuItem
 
 // CMSPage represents a page managed by the CMS.
 type CMSPage struct {
-	ID                 string
-	Title              string
-	Slug               string
-	TemplateID         string
-	Locale             string
-	TranslationGroupID string
-	ParentID           string
-	Blocks             []string
-	EmbeddedBlocks     []map[string]any
-	SchemaVersion      string
-	SEO                map[string]any
-	Status             string
-	Data               map[string]any
-	PreviewURL         string
+	ID                     string
+	Title                  string
+	Slug                   string
+	TemplateID             string
+	Locale                 string
+	TranslationGroupID     string
+	RequestedLocale        string
+	ResolvedLocale         string
+	AvailableLocales       []string
+	MissingRequestedLocale bool
+	ParentID               string
+	Blocks                 []string
+	EmbeddedBlocks         []map[string]any
+	SchemaVersion          string
+	SEO                    map[string]any
+	Status                 string
+	Data                   map[string]any
+	Metadata               map[string]any
+	PreviewURL             string
 }
 
 // CMSContent represents structured content managed by the CMS.
 type CMSContent struct {
-	ID                 string
-	Title              string
-	Slug               string
-	Locale             string
-	TranslationGroupID string
-	ContentType        string
-	ContentTypeSlug    string
-	Status             string
-	Blocks             []string
-	EmbeddedBlocks     []map[string]any
-	SchemaVersion      string
-	Data               map[string]any
+	ID                     string
+	Title                  string
+	Slug                   string
+	Locale                 string
+	TranslationGroupID     string
+	RequestedLocale        string
+	ResolvedLocale         string
+	AvailableLocales       []string
+	MissingRequestedLocale bool
+	ContentType            string
+	ContentTypeSlug        string
+	Status                 string
+	Blocks                 []string
+	EmbeddedBlocks         []map[string]any
+	SchemaVersion          string
+	Data                   map[string]any
+	Metadata               map[string]any
 }
 
 // CMSContentType describes a content type definition.
