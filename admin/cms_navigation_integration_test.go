@@ -46,7 +46,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 			Position: intPtr(1),
 			Target: map[string]any{
 				"type": "url",
-				"path": "/admin/pages",
+				"path": "/admin/content/pages",
 			},
 			Collapsible: true,
 		},
@@ -58,7 +58,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 			ParentID: "nav-group-main.content",
 			Target: map[string]any{
 				"type": "url",
-				"path": "/admin/pages",
+				"path": "/admin/content/pages",
 			},
 			Position: intPtr(1),
 		},
@@ -70,7 +70,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 			ParentID: "nav-group-main.content",
 			Target: map[string]any{
 				"type": "url",
-				"path": "/admin/posts",
+				"path": "/admin/content/posts",
 			},
 			Position: intPtr(2),
 		},

@@ -429,3 +429,170 @@ func TestDebugCollectorRequestBodyMasking(t *testing.T) {
 		t.Fatalf("expected masked response headers, got %q", masked.ResponseHeaders["Set-Cookie"])
 	}
 }
+
+func TestDebugCollectorJSErrorSnapshotAndClear(t *testing.T) {
+	cfg := DebugConfig{
+		Panels: []string{DebugPanelJSErrors},
+	}
+	collector := NewDebugCollector(cfg)
+
+	collector.CaptureJSError(JSErrorEntry{
+		ID:      "jse-1",
+		Type:    "uncaught",
+		Message: "ReferenceError: foo is not defined",
+		Source:  "app.js",
+		Line:    42,
+		Column:  12,
+		Stack:   "ReferenceError: foo is not defined\n    at app.js:42:12",
+		URL:     "http://localhost:8080/admin",
+	})
+	collector.CaptureJSError(JSErrorEntry{
+		ID:      "jse-2",
+		Type:    "unhandled_rejection",
+		Message: "fetch failed",
+	})
+
+	snapshot := collector.Snapshot()
+	entries, ok := snapshot[DebugPanelJSErrors].([]JSErrorEntry)
+	if !ok {
+		t.Fatalf("expected jserrors snapshot, got %T", snapshot[DebugPanelJSErrors])
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 jserror entries, got %d", len(entries))
+	}
+	if entries[0].Message != "ReferenceError: foo is not defined" {
+		t.Fatalf("expected first error message preserved, got %q", entries[0].Message)
+	}
+	if entries[1].Type != "unhandled_rejection" {
+		t.Fatalf("expected second error type, got %q", entries[1].Type)
+	}
+
+	// ClearPanel
+	if !collector.ClearPanel(DebugPanelJSErrors) {
+		t.Fatalf("expected ClearPanel to succeed")
+	}
+	snapshot = collector.Snapshot()
+	entriesAfter, ok := snapshot[DebugPanelJSErrors].([]JSErrorEntry)
+	if !ok {
+		t.Fatalf("expected jserrors snapshot after clear, got %T", snapshot[DebugPanelJSErrors])
+	}
+	if len(entriesAfter) != 0 {
+		t.Fatalf("expected 0 entries after clear, got %d", len(entriesAfter))
+	}
+}
+
+func TestDebugCollectorJSErrorStreaming(t *testing.T) {
+	cfg := DebugConfig{
+		Panels: []string{DebugPanelJSErrors},
+	}
+	collector := NewDebugCollector(cfg)
+	events := collector.Subscribe("client-jse")
+	if events == nil {
+		t.Fatalf("expected subscription channel")
+	}
+
+	collector.CaptureJSError(JSErrorEntry{
+		ID:      "jse-stream",
+		Type:    "console_error",
+		Message: "test error",
+	})
+
+	select {
+	case event := <-events:
+		if event.Type != "jserror" {
+			t.Fatalf("expected jserror event type, got %q", event.Type)
+		}
+		payload, ok := event.Payload.(JSErrorEntry)
+		if !ok {
+			t.Fatalf("expected JSErrorEntry payload, got %T", event.Payload)
+		}
+		if payload.Message != "test error" {
+			t.Fatalf("expected message 'test error', got %q", payload.Message)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("expected jserror event")
+	}
+}
+
+func TestDebugCollectorJSErrorMasking(t *testing.T) {
+	cfg := DebugConfig{
+		Panels: []string{DebugPanelJSErrors},
+	}
+	collector := NewDebugCollector(cfg)
+
+	collector.CaptureJSError(JSErrorEntry{
+		ID:      "jse-mask",
+		Type:    "uncaught",
+		Message: "failed at http://example.com/api?apikey=abc123&name=test",
+		Stack:   "Error\n    at http://example.com/api?secret=xyz789",
+		URL:     "http://localhost:8080/page?session=tok456&q=hello",
+		Extra:   map[string]any{"jwt": "secret-token"},
+	})
+
+	entries := collector.jsErrorLog.Values()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	masked := entries[0]
+
+	// URL query params with sensitive field names should be masked
+	if masked.Message == "failed at http://example.com/api?apikey=abc123&name=test" {
+		t.Fatalf("expected message apikey to be masked, got %q", masked.Message)
+	}
+	if masked.Stack == "Error\n    at http://example.com/api?secret=xyz789" {
+		t.Fatalf("expected stack secret to be masked, got %q", masked.Stack)
+	}
+	if masked.URL == "http://localhost:8080/page?session=tok456&q=hello" {
+		t.Fatalf("expected URL session to be masked, got %q", masked.URL)
+	}
+
+	// Extra map should be masked via debugMaskMap
+	expectedExtra := mustMaskAnyMap(t, cfg, map[string]any{"jwt": "secret-token"})
+	if masked.Extra["jwt"] != expectedExtra["jwt"] {
+		t.Fatalf("expected extra jwt masked, got %v", masked.Extra["jwt"])
+	}
+}
+
+func TestDebugCollectorClearIncludesJSErrors(t *testing.T) {
+	cfg := DebugConfig{
+		Panels: []string{DebugPanelJSErrors},
+	}
+	collector := NewDebugCollector(cfg)
+
+	collector.CaptureJSError(JSErrorEntry{
+		ID:      "jse-clear",
+		Type:    "uncaught",
+		Message: "test",
+	})
+
+	if len(collector.jsErrorLog.Values()) != 1 {
+		t.Fatalf("expected 1 entry before clear")
+	}
+
+	collector.Clear()
+
+	if len(collector.jsErrorLog.Values()) != 0 {
+		t.Fatalf("expected 0 entries after Clear(), got %d", len(collector.jsErrorLog.Values()))
+	}
+}
+
+func TestDebugCollectorJSErrorDisabledPanel(t *testing.T) {
+	cfg := DebugConfig{
+		Panels: []string{DebugPanelRequests}, // jserrors not in list
+	}
+	collector := NewDebugCollector(cfg)
+
+	collector.CaptureJSError(JSErrorEntry{
+		ID:      "jse-disabled",
+		Type:    "uncaught",
+		Message: "should be ignored",
+	})
+
+	if len(collector.jsErrorLog.Values()) != 0 {
+		t.Fatalf("expected jserror to be ignored when panel disabled, got %d", len(collector.jsErrorLog.Values()))
+	}
+	snapshot := collector.Snapshot()
+	if snapshot[DebugPanelJSErrors] != nil {
+		t.Fatalf("expected jserrors absent from snapshot when panel disabled")
+	}
+}

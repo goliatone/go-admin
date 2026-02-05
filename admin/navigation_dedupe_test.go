@@ -31,7 +31,7 @@ func TestAddMenuItemsDedupesMenusByPath(t *testing.T) {
 			ParentID: "nav-group-main.content",
 			Target: map[string]any{
 				"type": "url",
-				"path": "/admin/pages",
+				"path": "/admin/content/pages",
 			},
 			Menu: "admin_main",
 		},
