@@ -28,6 +28,7 @@ const (
 	DebugPanelConfig   = "config"
 	DebugPanelRoutes   = "routes"
 	DebugPanelCustom   = "custom"
+	DebugPanelJSErrors = "jserrors"
 	DebugPanelShell    = "shell"
 	DebugPanelConsole  = "console"
 )
@@ -52,12 +53,14 @@ var defaultDebugPanels = []string{
 	DebugPanelConfig,
 	DebugPanelRoutes,
 	DebugPanelCustom,
+	DebugPanelJSErrors,
 }
 
 var defaultToolbarPanels = []string{
 	DebugPanelRequests,
 	DebugPanelSQL,
 	DebugPanelLogs,
+	DebugPanelJSErrors,
 	DebugPanelRoutes,
 	DebugPanelConfig,
 }
@@ -68,15 +71,21 @@ type DebugConfig struct {
 	CaptureSQL         bool
 	CaptureLogs        bool
 	CaptureRequestBody bool
-	StrictQueryHooks   bool
-	MaxLogEntries      int
-	MaxSQLQueries      int
-	MaskFieldTypes     map[string]string
-	MaskPlaceholder    string
-	Panels             []string
-	FeatureKey         string
-	Permission         string
-	BasePath           string
+	// CaptureJSErrors enables the global JS error collector on all pages.
+	// When true, an inline script is injected into every page <head> that
+	// captures uncaught exceptions, unhandled rejections, and console.error
+	// calls, then reports them to the debug backend. This flag is independent
+	// of ToolbarMode — the collector works in production without the toolbar.
+	CaptureJSErrors  bool
+	StrictQueryHooks bool
+	MaxLogEntries    int
+	MaxSQLQueries    int
+	MaskFieldTypes   map[string]string
+	MaskPlaceholder  string
+	Panels           []string
+	FeatureKey       string
+	Permission       string
+	BasePath         string
 	// LayoutMode controls which debug template is rendered for the HTML route.
 	LayoutMode DebugLayoutMode
 	// PageTemplate is the primary debug template used for HTML rendering.
