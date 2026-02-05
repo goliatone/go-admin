@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // RegisterCMSDemoPanels seeds CMS-backed panels (content/pages/blocks/widgets/menus) using the configured CMS services.
@@ -331,7 +332,8 @@ func (a *Admin) registerCMSRoutesFromService() {
 	}
 	a.cmsRoutesRegistered = true
 	// Page tree endpoint
-	a.router.Get(joinPath(a.config.BasePath, "api/pages-tree"), func(c router.Context) error {
+	pagesTreePath := adminAPIRoutePath(a, "cms.pages_tree")
+	a.router.Get(pagesTreePath, func(c router.Context) error {
 		locale := c.Query("locale")
 		pages, _ := a.contentSvc.Pages(a.ctx(), locale)
 		tree := buildPageTree(pages)
@@ -339,7 +341,8 @@ func (a *Admin) registerCMSRoutesFromService() {
 	})
 
 	// Content blocks endpoint for block editor
-	a.router.Get(joinPath(a.config.BasePath, "api/content/:id/blocks"), func(c router.Context) error {
+	contentBlocksPath := adminAPIRoutePath(a, "cms.content.blocks")
+	a.router.Get(contentBlocksPath, func(c router.Context) error {
 		id := c.Param("id", "")
 		if id == "" {
 			return writeError(c, errors.New("missing id"))
@@ -443,10 +446,10 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 	if svc, ok := a.menuSvc.(*InMemoryMenuService); ok {
 		if len(svc.menus) == 0 {
 			_, _ = svc.CreateMenu(ctx, a.navMenuCode)
-			dashboardTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "")}
-			contentTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "content")}
-			pagesTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "content/pages")}
-			conflictsTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "block_conflicts")}
+			dashboardTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "dashboard", nil, nil)}
+			contentTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "content", nil, nil)}
+			pagesTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "content.panel", map[string]string{"panel": "pages"}, nil)}
+			conflictsTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "block_conflicts", nil, nil)}
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: intPtr(1), Locale: "en", Target: dashboardTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: intPtr(2), Locale: "en", Target: contentTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Pages", Icon: "file-text", Position: intPtr(3), Locale: "en", Target: pagesTarget})
@@ -468,6 +471,7 @@ type repoSearchAdapter struct {
 	environment      string
 	titleField       string
 	descriptionField string
+	urls             urlkit.Resolver
 }
 
 func (r *repoSearchAdapter) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
@@ -554,7 +558,16 @@ func (r *repoSearchAdapter) resolveURL(id string) string {
 	if panelSlug == "" {
 		return ""
 	}
-	base := joinPath(r.basePath, path.Join("content", panelSlug, id))
+	params := map[string]string{"panel": panelSlug, "id": id}
+	query := map[string]string{}
+	if env := strings.TrimSpace(r.environment); env != "" {
+		query["env"] = env
+	}
+	resolved := resolveURLWith(r.urls, "admin", "content.panel.id", params, query)
+	if resolved != "" {
+		return resolved
+	}
+	base := joinBasePath(r.basePath, path.Join("content", panelSlug, id))
 	if env := strings.TrimSpace(r.environment); env != "" {
 		separator := "?"
 		if strings.Contains(base, "?") {
@@ -570,10 +583,10 @@ func (a *Admin) registerDemoSearchAdapters(contentRepo, pageRepo Repository) {
 		a.search = NewSearchEngine(a.authorizer)
 	}
 	if contentRepo != nil {
-		a.search.Register("content", &repoSearchAdapter{repo: contentRepo, resource: "content"})
+		a.search.Register("content", &repoSearchAdapter{repo: contentRepo, resource: "content", urls: a.urlManager})
 	}
 	if pageRepo != nil {
-		a.search.Register("pages", &repoSearchAdapter{repo: pageRepo, resource: "page"})
+		a.search.Register("pages", &repoSearchAdapter{repo: pageRepo, resource: "page", urls: a.urlManager})
 	}
 }
 
