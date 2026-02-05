@@ -15,6 +15,7 @@ func (a *Admin) Boot(steps ...boot.Step) error {
 		return err
 	}
 
+	a.registerContentEntryAliases()
 	a.registerCMSRoutesFromService()
 
 	if a.config.EnablePublicAPI {
