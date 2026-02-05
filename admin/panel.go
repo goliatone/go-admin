@@ -10,51 +10,54 @@ import (
 
 // PanelBuilder configures a panel before registration.
 type PanelBuilder struct {
-	name         string
-	repo         Repository
-	listFields   []Field
-	formFields   []Field
-	formSchema   map[string]any
-	detailFields []Field
-	filters      []Filter
-	actions      []Action
-	bulkActions  []Action
-	tabs         []PanelTab
-	hooks        PanelHooks
-	permissions  PanelPermissions
-	useBlocks    bool
-	useSEO       bool
-	treeView     bool
-	authorizer   Authorizer
-	commandBus   *CommandBus
-	activity     ActivitySink
-	workflow     WorkflowEngine
-	workflowSet  bool
-	workflowAuth WorkflowAuthorizer
+	name                 string
+	repo                 Repository
+	listFields           []Field
+	formFields           []Field
+	formSchema           map[string]any
+	detailFields         []Field
+	filters              []Filter
+	actions              []Action
+	bulkActions          []Action
+	tabs                 []PanelTab
+	hooks                PanelHooks
+	permissions          PanelPermissions
+	useBlocks            bool
+	useSEO               bool
+	treeView             bool
+	authorizer           Authorizer
+	commandBus           *CommandBus
+	activity             ActivitySink
+	workflow             WorkflowEngine
+	workflowSet          bool
+	workflowAuth         WorkflowAuthorizer
+	translationPolicy    TranslationPolicy
+	translationPolicySet bool
 }
 
 // Panel represents a registered panel.
 type Panel struct {
-	name         string
-	repo         Repository
-	listFields   []Field
-	formFields   []Field
-	formSchema   map[string]any
-	detailFields []Field
-	filters      []Filter
-	actions      []Action
-	bulkActions  []Action
-	tabs         []PanelTab
-	hooks        PanelHooks
-	permissions  PanelPermissions
-	useBlocks    bool
-	useSEO       bool
-	treeView     bool
-	authorizer   Authorizer
-	commandBus   *CommandBus
-	activity     ActivitySink
-	workflow     WorkflowEngine
-	workflowAuth WorkflowAuthorizer
+	name              string
+	repo              Repository
+	listFields        []Field
+	formFields        []Field
+	formSchema        map[string]any
+	detailFields      []Field
+	filters           []Filter
+	actions           []Action
+	bulkActions       []Action
+	tabs              []PanelTab
+	hooks             PanelHooks
+	permissions       PanelPermissions
+	useBlocks         bool
+	useSEO            bool
+	treeView          bool
+	authorizer        Authorizer
+	commandBus        *CommandBus
+	activity          ActivitySink
+	workflow          WorkflowEngine
+	workflowAuth      WorkflowAuthorizer
+	translationPolicy TranslationPolicy
 }
 
 // Repository provides CRUD operations for panel data.
@@ -308,36 +311,44 @@ func (b *PanelBuilder) WithWorkflowAuthorizer(auth WorkflowAuthorizer) *PanelBui
 	return b
 }
 
+// WithTranslationPolicy attaches a translation policy to the panel.
+func (b *PanelBuilder) WithTranslationPolicy(policy TranslationPolicy) *PanelBuilder {
+	b.translationPolicy = policy
+	b.translationPolicySet = true
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
 		return nil, errors.New("repository required")
 	}
 	if b.workflow != nil {
-		workflowHook := buildWorkflowUpdateHook(b.repo, b.workflow, b.workflowAuth, b.name)
+		workflowHook := buildWorkflowUpdateHook(b.repo, b.workflow, b.workflowAuth, b.translationPolicy, b.name)
 		b.hooks.BeforeUpdateWithID = chainBeforeUpdateWithID(b.hooks.BeforeUpdateWithID, workflowHook)
 	}
 	return &Panel{
-		name:         b.name,
-		repo:         b.repo,
-		listFields:   b.listFields,
-		formFields:   b.formFields,
-		formSchema:   cloneAnyMap(b.formSchema),
-		detailFields: b.detailFields,
-		filters:      b.filters,
-		actions:      b.actions,
-		bulkActions:  b.bulkActions,
-		tabs:         b.tabs,
-		hooks:        b.hooks,
-		permissions:  b.permissions,
-		useBlocks:    b.useBlocks,
-		useSEO:       b.useSEO,
-		treeView:     b.treeView,
-		authorizer:   b.authorizer,
-		commandBus:   b.commandBus,
-		activity:     b.activity,
-		workflow:     b.workflow,
-		workflowAuth: b.workflowAuth,
+		name:              b.name,
+		repo:              b.repo,
+		listFields:        b.listFields,
+		formFields:        b.formFields,
+		formSchema:        cloneAnyMap(b.formSchema),
+		detailFields:      b.detailFields,
+		filters:           b.filters,
+		actions:           b.actions,
+		bulkActions:       b.bulkActions,
+		tabs:              b.tabs,
+		hooks:             b.hooks,
+		permissions:       b.permissions,
+		useBlocks:         b.useBlocks,
+		useSEO:            b.useSEO,
+		treeView:          b.treeView,
+		authorizer:        b.authorizer,
+		commandBus:        b.commandBus,
+		activity:          b.activity,
+		workflow:          b.workflow,
+		workflowAuth:      b.workflowAuth,
+		translationPolicy: b.translationPolicy,
 	}, nil
 }
 
@@ -663,7 +674,7 @@ func chainBeforeUpdateWithID(existing func(AdminContext, string, map[string]any)
 	}
 }
 
-func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth WorkflowAuthorizer, panelName string) func(AdminContext, string, map[string]any) error {
+func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth WorkflowAuthorizer, policy TranslationPolicy, panelName string) func(AdminContext, string, map[string]any) error {
 	if repo == nil || workflow == nil {
 		return nil
 	}
@@ -707,6 +718,9 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 		}
 		if auth != nil && !auth.CanTransition(ctx.Context, input) {
 			return permissionDenied("workflow.transition", panelName)
+		}
+		if err := applyTranslationPolicy(ctx.Context, policy, buildTranslationPolicyInput(ctx.Context, panelName, id, currentState, input.Transition, record)); err != nil {
+			return err
 		}
 		result, err := workflow.Transition(ctx.Context, input)
 		if err != nil {
