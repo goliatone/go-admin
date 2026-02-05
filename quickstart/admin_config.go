@@ -68,8 +68,8 @@ func DefaultAdminFeatures() map[string]bool {
 		string(admin.FeaturePreferences):   true,
 		string(admin.FeatureProfile):       true,
 		string(admin.FeatureUsers):         true,
-		string(admin.FeatureTenants):       true,
-		string(admin.FeatureOrganizations): true,
+		string(admin.FeatureTenants):       false,
+		string(admin.FeatureOrganizations): false,
 	}
 }
 
