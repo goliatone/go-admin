@@ -103,6 +103,7 @@ export type { IconTab, IconEntry, IconPickerConfig } from './shared/icon-picker'
 import { ContentTypeEditor } from './content-type-editor';
 import { initBlockLibraryIDE } from './block-library-ide';
 import type { ContentTypeEditorConfig } from './types';
+import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
 
 /**
  * Initialize content type editors on elements matching [data-content-type-editor]
@@ -120,10 +121,12 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
       return;
     }
 
+    const basePath = config.basePath ?? deriveAdminBasePath(config.apiBasePath);
+
     // Wire default onCancel: navigate back to the content types list
     if (!config.onCancel) {
       config.onCancel = () => {
-        window.location.href = `${config.apiBasePath}/content/types`;
+        window.location.href = `${basePath}/content/types`;
       };
     }
 
@@ -132,7 +135,7 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
       config.onSave = (saved) => {
         const slug = saved.slug ?? saved.id;
         if (slug) {
-          window.location.href = `${config.apiBasePath}/content/types?slug=${encodeURIComponent(slug)}`;
+          window.location.href = `${basePath}/content/types?slug=${encodeURIComponent(slug)}`;
         }
       };
     }
@@ -166,19 +169,25 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
 }
 
 function parseConfig(root: HTMLElement): ContentTypeEditorConfig {
+  let config: Partial<ContentTypeEditorConfig> = {};
   const configAttr = root.getAttribute('data-content-type-editor-config');
   if (configAttr) {
     try {
-      return JSON.parse(configAttr);
+      config = JSON.parse(configAttr) as Partial<ContentTypeEditorConfig>;
     } catch {
       // Fall through to data attributes
     }
   }
 
+  const apiBasePath = resolveApiBasePath(config.apiBasePath, root.dataset.apiBasePath, root.dataset.basePath);
+  const basePath = config.basePath ?? deriveAdminBasePath(apiBasePath, root.dataset.basePath);
+
   return {
-    apiBasePath: root.dataset.apiBasePath ?? '/admin',
-    contentTypeId: root.dataset.contentTypeId,
-    locale: root.dataset.locale,
+    ...config,
+    apiBasePath,
+    basePath,
+    contentTypeId: config.contentTypeId ?? root.dataset.contentTypeId,
+    locale: config.locale ?? root.dataset.locale,
   };
 }
 

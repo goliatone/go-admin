@@ -22,6 +22,7 @@ import { generateFieldId, ContentTypeAPIClient } from './api-client';
 import { Modal } from '../shared/modal';
 import { inputClasses, selectClasses, textareaClasses, checkboxClasses, labelClasses } from './shared/field-input-classes';
 import { loadAvailableBlocks, blockKey as sharedBlockKey, normalizeBlockSelection } from './shared/block-picker';
+import { resolveApiBasePath } from './shared/api-paths';
 
 // =============================================================================
 // Field Config Form Component
@@ -1058,8 +1059,9 @@ export class FieldConfigForm extends Modal {
     const currentBlocks: string[] = hiddenInput?.value ? JSON.parse(hiddenInput.value) : [];
 
     // Create picker modal
+    const apiBasePath = resolveApiBasePath(this.config.apiBasePath);
     const picker = new BlockPickerModal({
-      apiBasePath: this.config.apiBasePath ?? '/admin',
+      apiBasePath,
       selectedBlocks: currentBlocks,
       title: listType === 'allowed' ? 'Select Allowed Blocks' : 'Select Denied Blocks',
       onSelect: (blocks) => {

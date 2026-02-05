@@ -80,6 +80,43 @@ function parseJSONAttr<T>(value: string | null | undefined, fallback: T): T {
   return fallback;
 }
 
+type PickerAPIBase = {
+  listBase: string;
+  templatesBase: string;
+};
+
+function resolvePickerBases(apiBase: string): PickerAPIBase {
+  const raw = apiBase.trim();
+  const trimmed = raw.replace(/\/+$/, '');
+  if (!trimmed) {
+    const root = raw === '/' ? '/api' : '';
+    if (!root) return { listBase: '', templatesBase: '' };
+    return {
+      listBase: `${root}/block_definitions`,
+      templatesBase: `${root}/block_definitions_meta`,
+    };
+  }
+
+  if (trimmed.endsWith('/block_definitions_meta')) {
+    return {
+      listBase: trimmed.replace(/_meta$/, ''),
+      templatesBase: trimmed,
+    };
+  }
+  if (trimmed.endsWith('/block_definitions')) {
+    return {
+      listBase: trimmed,
+      templatesBase: trimmed.replace(/block_definitions$/, 'block_definitions_meta'),
+    };
+  }
+
+  const apiRoot = /\/api(\/|$)/.test(trimmed) ? trimmed : `${trimmed}/api`;
+  return {
+    listBase: `${apiRoot}/block_definitions`,
+    templatesBase: `${apiRoot}/block_definitions_meta`,
+  };
+}
+
 async function fetchJSON<T>(url: string): Promise<T> {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`fetch ${url}: ${resp.status}`);
@@ -685,6 +722,11 @@ async function initPicker(root: HTMLElement): Promise<void> {
     console.warn('block-library-picker: missing data-api-base');
     return;
   }
+  const { listBase, templatesBase } = resolvePickerBases(apiBase);
+  if (!listBase || !templatesBase) {
+    console.warn('block-library-picker: invalid api base', apiBase);
+    return;
+  }
 
   const allowedBlocks = parseJSONAttr<string[]>(root.dataset.allowedBlocks, config.allowedBlocks ?? []);
   const maxBlocks = parseInt(root.dataset.maxBlocks || '', 10) || config.maxBlocks || 0;
@@ -698,7 +740,7 @@ async function initPicker(root: HTMLElement): Promise<void> {
   // -- 5.3.1: Fetch block definition metadata --
   let definitions: BlockDefinitionMeta[];
   try {
-    definitions = await fetchBlockMetadata(apiBase, includeInactive);
+    definitions = await fetchBlockMetadata(listBase, includeInactive);
   } catch (err) {
     console.error('block-library-picker: metadata fetch failed', err);
     return;
@@ -732,7 +774,7 @@ async function initPicker(root: HTMLElement): Promise<void> {
   // -- 5.3.4: Fetch templates for existing block slugs --
   if (existingSlugs.length > 0) {
     try {
-      const templates = await fetchBatchTemplates(apiBase, existingSlugs, includeInactive);
+      const templates = await fetchBatchTemplates(templatesBase, existingSlugs, includeInactive);
       for (const tmpl of templates) {
         registerFromResponse(root, tmpl);
         registeredSlugs.add(tmpl.slug);
@@ -750,7 +792,7 @@ async function initPicker(root: HTMLElement): Promise<void> {
       .map((d) => d.slug);
     if (missing.length > 0) {
       try {
-        const templates = await fetchBatchTemplates(apiBase, missing, includeInactive);
+        const templates = await fetchBatchTemplates(templatesBase, missing, includeInactive);
         for (const tmpl of templates) {
           registerFromResponse(root, tmpl);
           registeredSlugs.add(tmpl.slug);
@@ -850,7 +892,7 @@ async function initPicker(root: HTMLElement): Promise<void> {
       let tmplResp = templateCache.get(slug);
       if (!tmplResp) {
         try {
-          const fetched = await fetchSingleTemplate(apiBase, slug, includeInactive);
+          const fetched = await fetchSingleTemplate(templatesBase, slug, includeInactive);
           if (fetched) {
             tmplResp = fetched;
             registerFromResponse(root, tmplResp);

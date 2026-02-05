@@ -13,6 +13,7 @@ import { FieldPalettePanel } from './field-palette-panel';
 import { ConfirmModal, TextPromptModal } from '../shared/modal';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
 import { resolveIcon } from './shared/icon-picker';
+import { resolveApiBasePath } from './shared/api-paths';
 
 // =============================================================================
 // Types
@@ -88,7 +89,7 @@ export class BlockLibraryIDE {
   private currentEnvironment: string = '';
 
   constructor(root: HTMLElement) {
-    const apiBasePath = root.dataset.apiBasePath ?? '/admin';
+    const apiBasePath = resolveApiBasePath(root.dataset.apiBasePath, root.dataset.basePath);
     this.root = root;
     this.api = new ContentTypeAPIClient({ basePath: apiBasePath });
     this.state = {
@@ -1156,6 +1157,7 @@ export class BlockLibraryIDE {
         onMetadataChange: (blockId, patch) => this.handleEditorMetadataChange(blockId, patch),
         onSchemaChange: (blockId, fields) => this.handleEditorSchemaChange(blockId, fields),
         onFieldDrop: (meta) => this.handlePaletteAddField(meta),
+        onAddFieldClick: () => this.handleAddFieldClick(),
         onStatusChange: (blockId, newStatus) => this.handleEditorStatusChange(blockId, newStatus),
         onSave: (blockId) => this.saveBlock(blockId),
       });
@@ -1208,6 +1210,17 @@ export class BlockLibraryIDE {
     this.markDirty(blockId);
     // Schedule autosave (Phase 11)
     this.scheduleSave(blockId);
+  }
+
+  /** Handle "+ Add Field" button click from the editor panel */
+  private handleAddFieldClick(): void {
+    // On large screens the palette is always visible in the sidebar; scroll it into view.
+    // On small screens use the palette popover.
+    if (this.paletteEl && this.paletteEl.offsetParent !== null) {
+      this.paletteEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else if (this.paletteTriggerBtn) {
+      this.openPalettePopover(this.paletteTriggerBtn);
+    }
   }
 
   /** Handle adding a field from the palette (Phase 9 — click or drop) */
@@ -1719,6 +1732,7 @@ export class BlockLibraryIDE {
     }, 3000);
   }
 }
+
 
 // =============================================================================
 // Utilities

@@ -50,8 +50,12 @@ export class ContentTypeAPIClient {
   private environment: string = '';
 
   constructor(config: ContentTypeAPIConfig) {
+    let basePath = config.basePath.replace(/\/+$/, '');
+    if (basePath && !/\/api(\/|$)/.test(basePath)) {
+      basePath = `${basePath}/api`;
+    }
     this.config = {
-      basePath: config.basePath.replace(/\/$/, ''),
+      basePath,
       headers: config.headers ?? {},
       credentials: config.credentials ?? 'same-origin',
     };
@@ -74,7 +78,7 @@ export class ContentTypeAPIClient {
 
   /** Persist environment selection to the server session (Phase 12) */
   async setEnvironmentSession(env: string): Promise<void> {
-    const url = `${this.config.basePath}/api/session/environment`;
+    const url = `${this.config.basePath}/session/environment`;
     await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify({ environment: env }),
@@ -95,7 +99,7 @@ export class ContentTypeAPIClient {
     if (params?.search) queryParams.set('search', params.search);
 
     const query = queryParams.toString();
-    const url = `${this.config.basePath}/api/content_types${query ? `?${query}` : ''}`;
+    const url = `${this.config.basePath}/content_types${query ? `?${query}` : ''}`;
 
     const response = await this.fetch(url, { method: 'GET' });
     const data = await response.json();
@@ -118,7 +122,7 @@ export class ContentTypeAPIClient {
    * Get a single content type by ID or slug
    */
   async get(idOrSlug: string): Promise<ContentType> {
-    const url = `${this.config.basePath}/api/content_types/${encodeURIComponent(idOrSlug)}`;
+    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}`;
     const response = await this.fetch(url, { method: 'GET' });
     const data = await response.json();
 
@@ -130,7 +134,7 @@ export class ContentTypeAPIClient {
    * Create a new content type
    */
   async create(contentType: Partial<ContentType>): Promise<ContentType> {
-    const url = `${this.config.basePath}/api/content_types`;
+    const url = `${this.config.basePath}/content_types`;
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify(contentType),
@@ -143,7 +147,7 @@ export class ContentTypeAPIClient {
    * Update an existing content type
    */
   async update(idOrSlug: string, contentType: Partial<ContentType>): Promise<ContentType> {
-    const url = `${this.config.basePath}/api/content_types/${encodeURIComponent(idOrSlug)}`;
+    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}`;
     const response = await this.fetch(url, {
       method: 'PUT',
       body: JSON.stringify(contentType),
@@ -156,7 +160,7 @@ export class ContentTypeAPIClient {
    * Delete a content type
    */
   async delete(idOrSlug: string): Promise<void> {
-    const url = `${this.config.basePath}/api/content_types/${encodeURIComponent(idOrSlug)}`;
+    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}`;
     await this.fetch(url, { method: 'DELETE' });
   }
 
@@ -168,7 +172,7 @@ export class ContentTypeAPIClient {
    * Publish a content type (change status to active)
    */
   async publish(idOrSlug: string, force?: boolean): Promise<ContentType> {
-    const url = `${this.config.basePath}/api/content_types/${encodeURIComponent(idOrSlug)}/publish`;
+    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}/publish`;
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify({ force: force ?? false }),
@@ -181,7 +185,7 @@ export class ContentTypeAPIClient {
    * Deprecate a content type
    */
   async deprecate(idOrSlug: string): Promise<ContentType> {
-    const url = `${this.config.basePath}/api/content_types/${encodeURIComponent(idOrSlug)}/deprecate`;
+    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}/deprecate`;
     const response = await this.fetch(url, { method: 'POST' });
     const data = await response.json();
     return data.item ?? data.data ?? data;
@@ -191,7 +195,7 @@ export class ContentTypeAPIClient {
    * Clone a content type
    */
   async clone(idOrSlug: string, newSlug: string, newName?: string): Promise<ContentType> {
-    const url = `${this.config.basePath}/api/content_types/${encodeURIComponent(idOrSlug)}/clone`;
+    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}/clone`;
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify({ slug: newSlug, name: newName }),
@@ -208,7 +212,7 @@ export class ContentTypeAPIClient {
     newSchema: JSONSchema,
     newUiSchema?: UISchemaOverlay
   ): Promise<CompatibilityCheckResult> {
-    const url = `${this.config.basePath}/api/content_types/${encodeURIComponent(idOrSlug)}/compatibility`;
+    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}/compatibility`;
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify({ schema: newSchema, ui_schema: newUiSchema }),
@@ -220,7 +224,7 @@ export class ContentTypeAPIClient {
    * Get content type schema version history
    */
   async getVersionHistory(idOrSlug: string): Promise<{ versions: ContentTypeSchemaVersion[] }> {
-    const url = `${this.config.basePath}/api/content_types/${encodeURIComponent(idOrSlug)}/versions`;
+    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}/versions`;
     try {
       const response = await this.fetch(url, { method: 'GET' });
       const data = await response.json();
@@ -238,7 +242,7 @@ export class ContentTypeAPIClient {
    * Validate a JSON schema
    */
   async validateSchema(request: SchemaValidationRequest): Promise<SchemaValidationResponse> {
-    const url = `${this.config.basePath}/api/content_types/validate`;
+    const url = `${this.config.basePath}/content_types/validate`;
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify(request),
@@ -251,7 +255,7 @@ export class ContentTypeAPIClient {
    * Generate a preview of the schema as a rendered form
    */
   async previewSchema(request: SchemaPreviewRequest): Promise<SchemaPreviewResponse> {
-    const url = `${this.config.basePath}/api/content_types/preview`;
+    const url = `${this.config.basePath}/content_types/preview`;
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify(request),
@@ -268,7 +272,7 @@ export class ContentTypeAPIClient {
    * List available block definitions (summary)
    */
   async listBlockDefinitionsSummary(): Promise<BlockDefinitionSummary[]> {
-    const url = `${this.config.basePath}/api/block_definitions`;
+    const url = `${this.config.basePath}/block_definitions`;
     try {
       const response = await this.fetch(url, { method: 'GET' });
       const data = await response.json();
@@ -300,7 +304,7 @@ export class ContentTypeAPIClient {
     if (params?.status) queryParams.set('filter_status', params.status);
 
     const query = queryParams.toString();
-    const url = `${this.config.basePath}/api/block_definitions${query ? `?${query}` : ''}`;
+    const url = `${this.config.basePath}/block_definitions${query ? `?${query}` : ''}`;
 
     try {
       const response = await this.fetch(url, { method: 'GET' });
@@ -326,7 +330,7 @@ export class ContentTypeAPIClient {
    * Get a single block definition by ID or type
    */
   async getBlockDefinition(idOrType: string): Promise<BlockDefinition> {
-    const url = `${this.config.basePath}/api/block_definitions/${encodeURIComponent(idOrType)}`;
+    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}`;
     const response = await this.fetch(url, { method: 'GET' });
     const data = await response.json();
     return data.item ?? data.data ?? data;
@@ -336,7 +340,7 @@ export class ContentTypeAPIClient {
    * Create a new block definition
    */
   async createBlockDefinition(block: Partial<BlockDefinition>): Promise<BlockDefinition> {
-    const url = `${this.config.basePath}/api/block_definitions`;
+    const url = `${this.config.basePath}/block_definitions`;
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify(block),
@@ -349,7 +353,7 @@ export class ContentTypeAPIClient {
    * Update an existing block definition
    */
   async updateBlockDefinition(idOrType: string, block: Partial<BlockDefinition>): Promise<BlockDefinition> {
-    const url = `${this.config.basePath}/api/block_definitions/${encodeURIComponent(idOrType)}`;
+    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}`;
     const response = await this.fetch(url, {
       method: 'PUT',
       body: JSON.stringify(block),
@@ -362,7 +366,7 @@ export class ContentTypeAPIClient {
    * Delete a block definition
    */
   async deleteBlockDefinition(idOrType: string): Promise<void> {
-    const url = `${this.config.basePath}/api/block_definitions/${encodeURIComponent(idOrType)}`;
+    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}`;
     await this.fetch(url, { method: 'DELETE' });
   }
 
@@ -370,7 +374,7 @@ export class ContentTypeAPIClient {
    * Publish a block definition (change status to active)
    */
   async publishBlockDefinition(idOrType: string): Promise<BlockDefinition> {
-    const url = `${this.config.basePath}/api/block_definitions/${encodeURIComponent(idOrType)}/publish`;
+    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}/publish`;
     const response = await this.fetch(url, { method: 'POST' });
     const data = await response.json();
     return data.item ?? data.data ?? data;
@@ -380,7 +384,7 @@ export class ContentTypeAPIClient {
    * Deprecate a block definition
    */
   async deprecateBlockDefinition(idOrType: string): Promise<BlockDefinition> {
-    const url = `${this.config.basePath}/api/block_definitions/${encodeURIComponent(idOrType)}/deprecate`;
+    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}/deprecate`;
     const response = await this.fetch(url, { method: 'POST' });
     const data = await response.json();
     return data.item ?? data.data ?? data;
@@ -390,7 +394,7 @@ export class ContentTypeAPIClient {
    * Clone a block definition
    */
   async cloneBlockDefinition(idOrType: string, newType: string, newSlug?: string): Promise<BlockDefinition> {
-    const url = `${this.config.basePath}/api/block_definitions/${encodeURIComponent(idOrType)}/clone`;
+    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}/clone`;
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify({ type: newType, slug: newSlug }),
@@ -403,7 +407,7 @@ export class ContentTypeAPIClient {
    * Get block definition schema version history
    */
   async getBlockDefinitionVersions(idOrType: string): Promise<{ versions: BlockSchemaVersion[] }> {
-    const url = `${this.config.basePath}/api/block_definitions/${encodeURIComponent(idOrType)}/versions`;
+    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}/versions`;
     try {
       const response = await this.fetch(url, { method: 'GET' });
       const data = await response.json();
@@ -417,7 +421,7 @@ export class ContentTypeAPIClient {
    * Get block categories
    */
   async getBlockCategories(): Promise<string[]> {
-    const url = `${this.config.basePath}/api/block_definitions_meta/categories`;
+    const url = `${this.config.basePath}/block_definitions_meta/categories`;
     try {
       const response = await this.fetch(url, { method: 'GET' });
       const data = await response.json();
@@ -436,7 +440,7 @@ export class ContentTypeAPIClient {
    * Falls back to null if the endpoint is not available (Phase 3 not deployed).
    */
   async getFieldTypes(): Promise<FieldTypeMetadata[] | null> {
-    const url = `${this.config.basePath}/api/block_definitions_meta/field_types`;
+    const url = `${this.config.basePath}/block_definitions_meta/field_types`;
     try {
       const response = await this.fetch(url, { method: 'GET' });
       const data = await response.json();
@@ -455,7 +459,7 @@ export class ContentTypeAPIClient {
    * Returns null when the endpoint does not expose grouped categories.
    */
   async getBlockFieldTypeGroups(): Promise<BackendFieldTypeCategoryGroup[] | null> {
-    const url = `${this.config.basePath}/api/block_definitions_meta/field_types`;
+    const url = `${this.config.basePath}/block_definitions_meta/field_types`;
     try {
       const response = await this.fetch(url, { method: 'GET' });
       const data = await response.json();

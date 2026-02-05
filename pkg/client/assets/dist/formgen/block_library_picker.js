@@ -1,32 +1,57 @@
-import { initBlockEditor as _, registerBlockTemplate as $, refreshBlockTemplateRegistry as j, markRequiredFields as P } from "./block_editor.js";
-function R(t) {
-  if (!t) return {};
+import { initBlockEditor as I, registerBlockTemplate as O, refreshBlockTemplateRegistry as P, markRequiredFields as R } from "./block_editor.js";
+function j(e) {
+  if (!e) return {};
   try {
-    const s = JSON.parse(t);
-    if (s && typeof s == "object") return s;
+    const r = JSON.parse(e);
+    if (r && typeof r == "object") return r;
   } catch {
   }
   return {};
 }
-function H(t, s) {
-  if (!t) return s;
+function H(e, r) {
+  if (!e) return r;
   try {
-    return JSON.parse(t);
+    return JSON.parse(e);
   } catch {
   }
-  return s;
+  return r;
 }
-async function I(t) {
-  const s = await fetch(t);
-  if (!s.ok) throw new Error(`fetch ${t}: ${s.status}`);
-  return s.json();
+function F(e) {
+  const r = e.trim(), n = r.replace(/\/+$/, "");
+  if (!n) {
+    const f = r === "/" ? "/api" : "";
+    return f ? {
+      listBase: `${f}/block_definitions`,
+      templatesBase: `${f}/block_definitions_meta`
+    } : { listBase: "", templatesBase: "" };
+  }
+  if (n.endsWith("/block_definitions_meta"))
+    return {
+      listBase: n.replace(/_meta$/, ""),
+      templatesBase: n
+    };
+  if (n.endsWith("/block_definitions"))
+    return {
+      listBase: n,
+      templatesBase: n.replace(/block_definitions$/, "block_definitions_meta")
+    };
+  const l = /\/api(\/|$)/.test(n) ? n : `${n}/api`;
+  return {
+    listBase: `${l}/block_definitions`,
+    templatesBase: `${l}/block_definitions_meta`
+  };
 }
-async function F(t, s) {
-  const i = new URLSearchParams();
-  s || i.set("filter_status", "active");
-  const c = i.toString(), w = c ? `${t}?${c}` : t, n = await I(w);
-  return Array.isArray(n.items) ? n.items.map((o) => {
-    const b = typeof o.status == "string" ? o.status.trim() : "";
+async function T(e) {
+  const r = await fetch(e);
+  if (!r.ok) throw new Error(`fetch ${e}: ${r.status}`);
+  return r.json();
+}
+async function U(e, r) {
+  const n = new URLSearchParams();
+  r || n.set("filter_status", "active");
+  const l = n.toString(), f = l ? `${e}?${l}` : e, s = await T(f);
+  return Array.isArray(s.items) ? s.items.map((o) => {
+    const m = typeof o.status == "string" ? o.status.trim() : "";
     return {
       slug: o.slug ?? "",
       label: o.name ?? o.label ?? o.slug ?? "",
@@ -36,334 +61,339 @@ async function F(t, s) {
       schema_version: o.schema_version,
       required_fields: o.required_fields,
       status: o.status,
-      disabled: b.toLowerCase() !== "active"
+      disabled: m.toLowerCase() !== "active"
     };
   }) : [];
 }
-async function O(t, s, i) {
-  if (s.length === 0) return [];
-  let c = `${t}/templates?slugs=${encodeURIComponent(s.join(","))}`;
-  return i && (c += "&include_inactive=true"), (await I(c)).items ?? [];
+async function D(e, r, n) {
+  if (r.length === 0) return [];
+  let l = `${e}/templates?slugs=${encodeURIComponent(r.join(","))}`;
+  return n && (l += "&include_inactive=true"), (await T(l)).items ?? [];
 }
-async function U(t, s, i) {
-  let c = `${t}/${encodeURIComponent(s)}/template`;
-  i && (c += "?include_inactive=true");
+async function z(e, r, n) {
+  let l = `${e}/${encodeURIComponent(r)}/template`;
+  n && (l += "?include_inactive=true");
   try {
-    return (await I(c)).items?.[0] ?? null;
+    return (await T(l)).items?.[0] ?? null;
   } catch {
     return null;
   }
 }
-function D(t, s) {
-  $(t, {
-    type: s.slug,
-    label: s.label,
-    icon: s.icon || void 0,
-    schemaVersion: s.schema_version || void 0,
-    requiredFields: s.required_fields ?? [],
-    html: s.html
-  }), j(t);
+function M(e, r) {
+  O(e, {
+    type: r.slug,
+    label: r.label,
+    icon: r.icon || void 0,
+    schemaVersion: r.schema_version || void 0,
+    requiredFields: r.required_fields ?? [],
+    html: r.html
+  }), P(e);
 }
-function z(t, s) {
-  const i = typeof t.schema_version == "string" ? t.schema_version.trim() : "";
-  return i || (s ? s.replace("{type}", t.slug) : `${t.slug}@v1.0.0`);
+function V(e, r) {
+  const n = typeof e.schema_version == "string" ? e.schema_version.trim() : "";
+  return n || (r ? r.replace("{type}", e.slug) : `${e.slug}@v1.0.0`);
 }
-function V(t, s, i) {
-  const c = document.createElement("div");
-  c.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", c.setAttribute("data-block-item", "true"), c.dataset.blockType = t.slug, s && c.setAttribute("draggable", "true");
-  const w = document.createElement("div");
-  w.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700", w.setAttribute("data-block-header", "true");
-  const n = document.createElement("div");
-  n.className = "flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white";
+function J(e, r, n) {
+  const l = document.createElement("div");
+  l.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", l.setAttribute("data-block-item", "true"), l.dataset.blockType = e.slug, r && l.setAttribute("draggable", "true");
+  const f = document.createElement("div");
+  f.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700", f.setAttribute("data-block-header", "true");
+  const s = document.createElement("div");
+  s.className = "flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white";
   const o = document.createElement("span");
-  o.className = "inline-flex items-center justify-center h-6 min-w-[1.5rem] px-2 text-xs font-semibold uppercase rounded-full bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200", o.textContent = t.icon || t.label.slice(0, 1).toUpperCase();
-  const b = document.createElement("span");
-  b.textContent = t.label;
+  o.className = "inline-flex items-center justify-center h-6 min-w-[1.5rem] px-2 text-xs font-semibold uppercase rounded-full bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200", o.textContent = e.icon || e.label.slice(0, 1).toUpperCase();
+  const m = document.createElement("span");
+  m.textContent = e.label;
   const x = document.createElement("span");
-  x.className = "text-xs text-gray-500 dark:text-gray-400", x.textContent = t.slug;
-  const v = z(t, i), C = document.createElement("span");
-  C.className = "block-schema-badge inline-flex items-center text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded dark:bg-blue-900/20 dark:text-blue-400", C.textContent = v, C.setAttribute("data-block-schema-badge", "true"), n.appendChild(o), n.appendChild(b), n.appendChild(x), n.appendChild(C);
-  const g = document.createElement("div");
-  if (g.className = "flex items-center gap-2", s) {
-    const m = document.createElement("button");
-    m.type = "button", m.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", m.textContent = "Up", m.setAttribute("data-block-move-up", "true"), g.appendChild(m);
-    const d = document.createElement("button");
-    d.type = "button", d.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", d.textContent = "Down", d.setAttribute("data-block-move-down", "true"), g.appendChild(d);
+  x.className = "text-xs text-gray-500 dark:text-gray-400", x.textContent = e.slug;
+  const v = V(e, n), S = document.createElement("span");
+  S.className = "block-schema-badge inline-flex items-center text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded dark:bg-blue-900/20 dark:text-blue-400", S.textContent = v, S.setAttribute("data-block-schema-badge", "true"), s.appendChild(o), s.appendChild(m), s.appendChild(x), s.appendChild(S);
+  const h = document.createElement("div");
+  if (h.className = "flex items-center gap-2", r) {
+    const k = document.createElement("button");
+    k.type = "button", k.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", k.textContent = "Up", k.setAttribute("data-block-move-up", "true"), h.appendChild(k);
+    const C = document.createElement("button");
+    C.type = "button", C.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", C.textContent = "Down", C.setAttribute("data-block-move-down", "true"), h.appendChild(C);
   }
-  const l = document.createElement("button");
-  l.type = "button", l.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", l.textContent = "Collapse", l.setAttribute("data-block-collapse", "true"), g.appendChild(l);
-  const p = document.createElement("button");
-  if (p.type = "button", p.className = "text-xs text-red-600 hover:text-red-700", p.textContent = "Remove", p.setAttribute("data-block-remove", "true"), g.appendChild(p), s) {
-    const m = document.createElement("span");
-    m.className = "text-xs text-gray-400 cursor-move", m.textContent = "Drag", m.setAttribute("data-block-drag-handle", "true"), g.appendChild(m);
+  const d = document.createElement("button");
+  d.type = "button", d.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", d.textContent = "Collapse", d.setAttribute("data-block-collapse", "true"), h.appendChild(d);
+  const u = document.createElement("button");
+  if (u.type = "button", u.className = "text-xs text-red-600 hover:text-red-700", u.textContent = "Remove", u.setAttribute("data-block-remove", "true"), h.appendChild(u), r) {
+    const k = document.createElement("span");
+    k.className = "text-xs text-gray-400 cursor-move", k.textContent = "Drag", k.setAttribute("data-block-drag-handle", "true"), h.appendChild(k);
   }
-  w.appendChild(n), w.appendChild(g);
-  const A = document.createElement("div");
-  A.className = "p-4 space-y-4", A.setAttribute("data-block-body", "true"), A.innerHTML = t.html;
-  const L = t.required_fields || [];
-  L.length > 0 && P(A, L), c.appendChild(w), c.appendChild(A);
+  f.appendChild(s), f.appendChild(h);
+  const B = document.createElement("div");
+  B.className = "p-4 space-y-4", B.setAttribute("data-block-body", "true"), B.innerHTML = e.html;
+  const N = e.required_fields || [];
+  N.length > 0 && R(B, N), l.appendChild(f), l.appendChild(B);
   const E = document.createElement("input");
-  E.type = "hidden", E.name = "_type", E.value = t.slug, E.readOnly = !0, E.setAttribute("data-block-type-input", "true"), E.setAttribute("data-block-ignore", "true"), c.appendChild(E), c.dataset.blockSchema = v;
-  const f = document.createElement("input");
-  return f.type = "hidden", f.name = "_schema", f.value = v, f.setAttribute("data-block-schema-input", "true"), f.setAttribute("data-block-ignore", "true"), c.appendChild(f), c;
+  E.type = "hidden", E.name = "_type", E.value = e.slug, E.readOnly = !0, E.setAttribute("data-block-type-input", "true"), E.setAttribute("data-block-ignore", "true"), l.appendChild(E), l.dataset.blockSchema = v;
+  const w = document.createElement("input");
+  return w.type = "hidden", w.name = "_schema", w.value = v, w.setAttribute("data-block-schema-input", "true"), w.setAttribute("data-block-ignore", "true"), l.appendChild(w), l;
 }
-function J(t, s, i) {
-  const c = s.searchable !== !1, w = s.groupByCategory !== !1, n = document.createElement("div");
-  n.className = "absolute left-0 z-50 mt-1 w-80 rounded-lg border border-gray-200 bg-white shadow-xl overflow-hidden picker-popover dark:bg-slate-900 dark:border-gray-700", n.style.display = "none", n.setAttribute("data-picker-popover", "true"), n.setAttribute("data-picker-dropdown", "true"), n.setAttribute("role", "dialog"), n.setAttribute("aria-label", "Add block");
+function W(e, r, n) {
+  const l = r.searchable !== !1, f = r.groupByCategory !== !1, s = document.createElement("div");
+  s.className = "absolute left-0 z-50 mt-1 w-80 rounded-lg border border-gray-200 bg-white shadow-xl overflow-hidden picker-popover dark:bg-slate-900 dark:border-gray-700", s.style.display = "none", s.setAttribute("data-picker-popover", "true"), s.setAttribute("data-picker-dropdown", "true"), s.setAttribute("role", "dialog"), s.setAttribute("aria-label", "Add block");
   let o = null;
-  if (c) {
-    const e = document.createElement("div");
-    e.className = "sticky top-0 bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-gray-700 p-2 z-10";
-    const a = document.createElement("div");
-    a.className = "relative";
-    const u = document.createElement("svg");
-    u.className = "absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none", u.setAttribute("fill", "none"), u.setAttribute("stroke", "currentColor"), u.setAttribute("viewBox", "0 0 24 24"), u.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>', o = document.createElement("input"), o.type = "text", o.placeholder = "Search blocks…", o.className = "w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-gray-200 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500", o.setAttribute("data-picker-search", "true"), o.setAttribute("autocomplete", "off"), a.appendChild(u), a.appendChild(o), e.appendChild(a), n.appendChild(e);
+  if (l) {
+    const i = document.createElement("div");
+    i.className = "sticky top-0 bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-gray-700 p-2 z-10";
+    const c = document.createElement("div");
+    c.className = "relative";
+    const t = document.createElement("svg");
+    t.className = "absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none", t.setAttribute("fill", "none"), t.setAttribute("stroke", "currentColor"), t.setAttribute("viewBox", "0 0 24 24"), t.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>', o = document.createElement("input"), o.type = "text", o.placeholder = "Search blocks…", o.className = "w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-gray-200 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500", o.setAttribute("data-picker-search", "true"), o.setAttribute("autocomplete", "off"), c.appendChild(t), c.appendChild(o), i.appendChild(c), s.appendChild(i);
   }
-  const b = document.createElement("div");
-  b.className = "max-h-72 overflow-y-auto py-1", b.setAttribute("data-picker-cards", "true"), b.setAttribute("role", "listbox"), n.appendChild(b);
+  const m = document.createElement("div");
+  m.className = "max-h-72 overflow-y-auto py-1", m.setAttribute("data-picker-cards", "true"), m.setAttribute("role", "listbox"), s.appendChild(m);
   const x = document.createElement("div");
   x.className = "px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400", x.setAttribute("data-picker-empty", "true"), x.style.display = "none";
   const v = document.createElement("svg");
   v.className = "mx-auto mb-2 w-8 h-8 text-gray-300 dark:text-gray-600", v.setAttribute("fill", "none"), v.setAttribute("stroke", "currentColor"), v.setAttribute("viewBox", "0 0 24 24"), v.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>';
-  const C = document.createElement("p");
-  C.setAttribute("data-picker-empty-text", "true"), C.textContent = "No block types available", x.appendChild(v), x.appendChild(C), n.appendChild(x);
-  let g = !1, l = -1, p = [], A = [...t], L = /* @__PURE__ */ new Set();
-  function E(e, a) {
-    const u = a || !!e.disabled, r = document.createElement("button");
-    r.type = "button", r.setAttribute("data-picker-item", e.slug), r.setAttribute("data-picker-card", e.slug), r.setAttribute("role", "option"), r.setAttribute("aria-selected", "false"), e.category && (r.dataset.category = e.category), r.className = "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors " + (u ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 dark:hover:bg-slate-800 focus:outline-none"), u && (r.disabled = !0, r.setAttribute("aria-disabled", "true"), r.title = e.status && e.status.toLowerCase() !== "active" ? "This block type is inactive" : "This block type is not available");
-    const k = document.createElement("span");
-    k.className = "inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-lg text-xs font-semibold " + (u ? "bg-gray-100 text-gray-400 dark:bg-slate-800 dark:text-gray-500" : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"), k.textContent = e.icon || e.label.slice(0, 2).toUpperCase();
-    const y = document.createElement("div");
-    y.className = "flex-1 min-w-0";
-    const S = document.createElement("div");
-    S.className = "font-medium truncate " + (u ? "text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-white"), S.textContent = e.label;
-    const B = document.createElement("div");
-    B.className = "text-xs text-gray-500 dark:text-gray-400 truncate";
-    const q = [e.description || e.slug];
-    return e.status && e.status.toLowerCase() !== "active" && q.push(`(${e.status})`), B.textContent = q.join(" "), y.appendChild(S), y.appendChild(B), r.appendChild(k), r.appendChild(y), r;
+  const S = document.createElement("p");
+  S.setAttribute("data-picker-empty-text", "true"), S.textContent = "No block types available", x.appendChild(v), x.appendChild(S), s.appendChild(x);
+  let h = !1, d = -1, u = [], B = [...e], N = /* @__PURE__ */ new Set();
+  function E(i, c) {
+    const t = c || !!i.disabled, a = document.createElement("button");
+    a.type = "button", a.setAttribute("data-picker-item", i.slug), a.setAttribute("data-picker-card", i.slug), a.setAttribute("role", "option"), a.setAttribute("aria-selected", "false"), i.category && (a.dataset.category = i.category), a.className = "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors " + (t ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 dark:hover:bg-slate-800 focus:outline-none"), t && (a.disabled = !0, a.setAttribute("aria-disabled", "true"), a.title = i.status && i.status.toLowerCase() !== "active" ? "This block type is inactive" : "This block type is not available");
+    const b = document.createElement("span");
+    b.className = "inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-lg text-xs font-semibold " + (t ? "bg-gray-100 text-gray-400 dark:bg-slate-800 dark:text-gray-500" : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"), b.textContent = i.icon || i.label.slice(0, 2).toUpperCase();
+    const p = document.createElement("div");
+    p.className = "flex-1 min-w-0";
+    const L = document.createElement("div");
+    L.className = "font-medium truncate " + (t ? "text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-white"), L.textContent = i.label;
+    const A = document.createElement("div");
+    A.className = "text-xs text-gray-500 dark:text-gray-400 truncate";
+    const $ = [i.description || i.slug];
+    return i.status && i.status.toLowerCase() !== "active" && $.push(`(${i.status})`), A.textContent = $.join(" "), p.appendChild(L), p.appendChild(A), a.appendChild(b), a.appendChild(p), a;
   }
-  function f(e = "") {
-    b.innerHTML = "", p = [], l = -1;
-    const a = e.toLowerCase().trim(), u = a ? A.filter(
-      (r) => r.label.toLowerCase().includes(a) || r.slug.toLowerCase().includes(a) || (r.category || "").toLowerCase().includes(a) || (r.description || "").toLowerCase().includes(a)
-    ) : A;
-    if (u.length === 0) {
+  function w(i = "") {
+    m.innerHTML = "", u = [], d = -1;
+    const c = i.toLowerCase().trim(), t = c ? B.filter(
+      (a) => a.label.toLowerCase().includes(c) || a.slug.toLowerCase().includes(c) || (a.category || "").toLowerCase().includes(c) || (a.description || "").toLowerCase().includes(c)
+    ) : B;
+    if (t.length === 0) {
       x.style.display = "";
-      const r = x.querySelector("[data-picker-empty-text]");
-      r && (r.textContent = a ? "No blocks match your search" : "No block types available");
+      const a = x.querySelector("[data-picker-empty-text]");
+      a && (a.textContent = c ? "No blocks match your search" : "No block types available");
       return;
     }
-    if (x.style.display = "none", w) {
-      const r = /* @__PURE__ */ new Map();
-      for (const k of u) {
-        const y = k.category || "other";
-        r.has(y) || r.set(y, []), r.get(y).push(k);
+    if (x.style.display = "none", f) {
+      const a = /* @__PURE__ */ new Map();
+      for (const b of t) {
+        const p = b.category || "other";
+        a.has(p) || a.set(p, []), a.get(p).push(b);
       }
-      for (const [k, y] of r) {
-        const S = document.createElement("div");
-        S.className = "px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider sticky top-0 bg-white dark:bg-slate-900", S.setAttribute("data-picker-category", k), S.setAttribute("role", "presentation"), S.textContent = k, b.appendChild(S);
-        for (const B of y) {
-          const q = E(B, L.has(B.slug));
-          b.appendChild(q), q.disabled || p.push(q);
+      for (const [b, p] of a) {
+        const L = document.createElement("div");
+        L.className = "px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider sticky top-0 bg-white dark:bg-slate-900", L.setAttribute("data-picker-category", b), L.setAttribute("role", "presentation"), L.textContent = b, m.appendChild(L);
+        for (const A of p) {
+          const $ = E(A, N.has(A.slug));
+          m.appendChild($), $.disabled || u.push($);
         }
       }
     } else
-      for (const r of u) {
-        const k = E(r, L.has(r.slug));
-        b.appendChild(k), k.disabled || p.push(k);
+      for (const a of t) {
+        const b = E(a, N.has(a.slug));
+        m.appendChild(b), b.disabled || u.push(b);
       }
   }
-  f();
-  function m(e) {
-    if (l >= 0 && l < p.length) {
-      const a = p[l];
-      a.classList.remove("bg-blue-50", "dark:bg-blue-900/20"), a.setAttribute("aria-selected", "false");
+  w();
+  function k(i) {
+    if (d >= 0 && d < u.length) {
+      const c = u[d];
+      c.classList.remove("bg-blue-50", "dark:bg-blue-900/20"), c.setAttribute("aria-selected", "false");
     }
-    if (l = e, l >= 0 && l < p.length) {
-      const a = p[l];
-      a.classList.add("bg-blue-50", "dark:bg-blue-900/20"), a.setAttribute("aria-selected", "true"), typeof a.scrollIntoView == "function" && a.scrollIntoView({ block: "nearest" });
+    if (d = i, d >= 0 && d < u.length) {
+      const c = u[d];
+      c.classList.add("bg-blue-50", "dark:bg-blue-900/20"), c.setAttribute("aria-selected", "true"), typeof c.scrollIntoView == "function" && c.scrollIntoView({ block: "nearest" });
     }
   }
   o && o.addEventListener("input", () => {
-    f(o.value);
+    w(o.value);
   });
-  function d(e) {
-    switch (e.key) {
+  function C(i) {
+    switch (i.key) {
       case "ArrowDown":
-        e.preventDefault(), p.length > 0 && m(l < p.length - 1 ? l + 1 : 0);
+        i.preventDefault(), u.length > 0 && k(d < u.length - 1 ? d + 1 : 0);
         break;
       case "ArrowUp":
-        e.preventDefault(), p.length > 0 && m(l <= 0 ? p.length - 1 : l - 1);
+        i.preventDefault(), u.length > 0 && k(d <= 0 ? u.length - 1 : d - 1);
         break;
       case "Enter":
-        if (e.preventDefault(), l >= 0 && l < p.length) {
-          const a = p[l].getAttribute("data-picker-item");
-          a && i.onSelect(a);
+        if (i.preventDefault(), d >= 0 && d < u.length) {
+          const c = u[d].getAttribute("data-picker-item");
+          c && n.onSelect(c);
         }
         break;
       case "Escape":
-        e.preventDefault(), i.onClose();
+        i.preventDefault(), n.onClose();
         break;
       case "Tab":
-        e.preventDefault(), o && document.activeElement !== o ? (o.focus(), l = -1) : p.length > 0 && m(0);
+        i.preventDefault(), o && document.activeElement !== o ? (o.focus(), d = -1) : u.length > 0 && k(0);
         break;
     }
   }
-  b.addEventListener("click", (e) => {
-    const a = e.target.closest("[data-picker-item]");
-    if (!a || a.disabled) return;
-    const u = a.getAttribute("data-picker-item");
-    u && i.onSelect(u);
+  m.addEventListener("click", (i) => {
+    const c = i.target.closest("[data-picker-item]");
+    if (!c || c.disabled) return;
+    const t = c.getAttribute("data-picker-item");
+    t && n.onSelect(t);
   });
-  function M() {
-    n.style.bottom = "", n.style.marginBottom = "", n.style.top = "", n.style.marginTop = "4px", requestAnimationFrame(() => {
-      n.getBoundingClientRect().bottom > window.innerHeight - 8 && (n.style.bottom = "100%", n.style.top = "auto", n.style.marginBottom = "4px", n.style.marginTop = "0");
+  function _() {
+    s.style.bottom = "", s.style.marginBottom = "", s.style.top = "", s.style.marginTop = "4px", requestAnimationFrame(() => {
+      s.getBoundingClientRect().bottom > window.innerHeight - 8 && (s.style.bottom = "100%", s.style.top = "auto", s.style.marginBottom = "4px", s.style.marginTop = "0");
     });
   }
-  function h() {
-    n.style.display = "", g = !0, M(), o && (o.value = "", f(""), requestAnimationFrame(() => o.focus())), n.addEventListener("keydown", d);
+  function g() {
+    s.style.display = "", h = !0, _(), o && (o.value = "", w(""), requestAnimationFrame(() => o.focus())), s.addEventListener("keydown", C);
   }
-  function T() {
-    n.style.display = "none", g = !1, l = -1, n.removeEventListener("keydown", d);
+  function q() {
+    s.style.display = "none", h = !1, d = -1, s.removeEventListener("keydown", C);
   }
-  function N(e, a) {
-    A = e, a && (L = a), f(o?.value || "");
+  function y(i, c) {
+    B = i, c && (N = c), w(o?.value || "");
   }
   return {
-    element: n,
-    open: h,
-    close: T,
-    isOpen: () => g,
-    updateCards: N
+    element: s,
+    open: g,
+    close: q,
+    isOpen: () => h,
+    updateCards: y
   };
 }
-async function K(t) {
-  const s = t.closest("[data-component-config]") || t, i = R(s.getAttribute("data-component-config")), c = t.dataset.apiBase || i.apiBase || "";
-  if (!c) {
+async function K(e) {
+  const r = e.closest("[data-component-config]") || e, n = j(r.getAttribute("data-component-config")), l = e.dataset.apiBase || n.apiBase || "";
+  if (!l) {
     console.warn("block-library-picker: missing data-api-base");
     return;
   }
-  const w = H(t.dataset.allowedBlocks, i.allowedBlocks ?? []), n = parseInt(t.dataset.maxBlocks || "", 10) || i.maxBlocks || 0, o = i.lazyLoad !== !1, b = i.includeInactive === !0, x = i.sortable ?? t.dataset.blockSortable === "true", v = /* @__PURE__ */ new Set(), C = /* @__PURE__ */ new Map();
-  let g;
-  try {
-    g = await F(c, b);
-  } catch (e) {
-    console.error("block-library-picker: metadata fetch failed", e);
+  const { listBase: f, templatesBase: s } = F(l);
+  if (!f || !s) {
+    console.warn("block-library-picker: invalid api base", l);
     return;
   }
-  if (w.length > 0) {
-    const e = new Set(w.map((a) => a.toLowerCase()));
-    g = g.filter((a) => e.has(a.slug.toLowerCase()));
+  const o = H(e.dataset.allowedBlocks, n.allowedBlocks ?? []), m = parseInt(e.dataset.maxBlocks || "", 10) || n.maxBlocks || 0, x = n.lazyLoad !== !1, v = n.includeInactive === !0, S = n.sortable ?? e.dataset.blockSortable === "true", h = /* @__PURE__ */ new Set(), d = /* @__PURE__ */ new Map();
+  let u;
+  try {
+    u = await U(f, v);
+  } catch (t) {
+    console.error("block-library-picker: metadata fetch failed", t);
+    return;
   }
-  const l = t.querySelector("input[data-block-output]");
-  let p = [];
-  if (l?.value)
+  if (o.length > 0) {
+    const t = new Set(o.map((a) => a.toLowerCase()));
+    u = u.filter((a) => t.has(a.slug.toLowerCase()));
+  }
+  const B = e.querySelector("input[data-block-output]");
+  let N = [];
+  if (B?.value)
     try {
-      const e = JSON.parse(l.value);
-      Array.isArray(e) && (p = e);
+      const t = JSON.parse(B.value);
+      Array.isArray(t) && (N = t);
     } catch {
     }
-  const A = [
+  const E = [
     ...new Set(
-      p.map((e) => e && typeof e == "object" ? e._type : "").filter((e) => typeof e == "string" && e.length > 0)
+      N.map((t) => t && typeof t == "object" ? t._type : "").filter((t) => typeof t == "string" && t.length > 0)
     )
   ];
-  if (A.length > 0)
+  if (E.length > 0)
     try {
-      const e = await O(c, A, b);
-      for (const a of e)
-        D(t, a), v.add(a.slug), C.set(a.slug, a);
-    } catch (e) {
-      console.error("block-library-picker: template fetch failed", e);
+      const t = await D(s, E, v);
+      for (const a of t)
+        M(e, a), h.add(a.slug), d.set(a.slug, a);
+    } catch (t) {
+      console.error("block-library-picker: template fetch failed", t);
     }
-  if (!o) {
-    const e = g.filter((a) => !v.has(a.slug)).map((a) => a.slug);
-    if (e.length > 0)
+  if (!x) {
+    const t = u.filter((a) => !h.has(a.slug)).map((a) => a.slug);
+    if (t.length > 0)
       try {
-        const a = await O(c, e, b);
-        for (const u of a)
-          D(t, u), v.add(u.slug), C.set(u.slug, u);
+        const a = await D(s, t, v);
+        for (const b of a)
+          M(e, b), h.add(b.slug), d.set(b.slug, b);
       } catch (a) {
         console.error("block-library-picker: prefetch failed", a);
       }
   }
-  _(t);
-  const L = t.querySelector("[data-block-add-select]"), E = t.querySelector("[data-block-add]"), f = document.createElement("div");
-  f.className = "mt-3", f.setAttribute("data-picker-controls", "true");
-  const m = document.createElement("div");
-  m.className = "relative inline-block";
-  const d = document.createElement("button");
-  d.type = "button", d.className = "inline-flex items-center gap-1.5 py-2 px-4 rounded-md border border-dashed border-gray-300 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-300 dark:hover:bg-slate-800", d.setAttribute("data-picker-add-btn", "true"), d.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><span>${i.addLabel || "Add Block"}</span>`;
-  const M = () => {
-    if (n <= 0) return;
-    const a = t.querySelectorAll("[data-block-item]").length >= n;
-    d.disabled = a, d.classList.toggle("opacity-50", a), d.classList.toggle("cursor-not-allowed", a), d.title = a ? `Maximum of ${n} blocks reached` : "";
-  }, h = J(g, i, {
-    onSelect: (e) => T(e),
+  I(e);
+  const w = e.querySelector("[data-block-add-select]"), k = e.querySelector("[data-block-add]"), C = document.createElement("div");
+  C.className = "mt-3", C.setAttribute("data-picker-controls", "true");
+  const _ = document.createElement("div");
+  _.className = "relative inline-block";
+  const g = document.createElement("button");
+  g.type = "button", g.className = "inline-flex items-center gap-1.5 py-2 px-4 rounded-md border border-dashed border-gray-300 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-300 dark:hover:bg-slate-800", g.setAttribute("data-picker-add-btn", "true"), g.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><span>${n.addLabel || "Add Block"}</span>`;
+  const q = () => {
+    if (m <= 0) return;
+    const a = e.querySelectorAll("[data-block-item]").length >= m;
+    g.disabled = a, g.classList.toggle("opacity-50", a), g.classList.toggle("cursor-not-allowed", a), g.title = a ? `Maximum of ${m} blocks reached` : "";
+  }, y = W(u, n, {
+    onSelect: (t) => i(t),
     onClose: () => {
-      h.close(), d.focus();
+      y.close(), g.focus();
     }
   });
-  async function T(e) {
-    const a = g.find((r) => r.slug === e);
+  async function i(t) {
+    const a = u.find((p) => p.slug === t);
     if (!a || a.disabled) return;
-    if (n > 0 && t.querySelectorAll("[data-block-item]").length >= n) {
-      h.close();
+    if (m > 0 && e.querySelectorAll("[data-block-item]").length >= m) {
+      y.close();
       return;
     }
-    if (L instanceof HTMLSelectElement && Array.from(L.options).some((r) => r.value === e))
-      L.value = e, E?.click();
+    if (w instanceof HTMLSelectElement && Array.from(w.options).some((p) => p.value === t))
+      w.value = t, k?.click();
     else {
-      let r = C.get(e);
-      if (!r)
+      let p = d.get(t);
+      if (!p)
         try {
-          const y = await U(c, e, b);
-          y && (r = y, D(t, r), v.add(r.slug), C.set(r.slug, r));
-        } catch (y) {
-          console.error(`block-library-picker: fetch template ${e} failed`, y), h.close();
+          const A = await z(s, t, v);
+          A && (p = A, M(e, p), h.add(p.slug), d.set(p.slug, p));
+        } catch (A) {
+          console.error(`block-library-picker: fetch template ${t} failed`, A), y.close();
           return;
         }
-      if (!r) {
-        h.close();
+      if (!p) {
+        y.close();
         return;
       }
-      const k = t.querySelector("[data-block-list]");
-      if (k) {
-        const y = V(r, x, i.schemaVersionPattern);
-        k.appendChild(y), y.dispatchEvent(new Event("input", { bubbles: !0 }));
+      const L = e.querySelector("[data-block-list]");
+      if (L) {
+        const A = J(p, S, n.schemaVersionPattern);
+        L.appendChild(A), A.dispatchEvent(new Event("input", { bubbles: !0 }));
       }
     }
-    h.close(), M();
+    y.close(), q();
   }
-  if (d.addEventListener("click", (e) => {
-    e.stopPropagation(), !d.disabled && (h.isOpen() ? h.close() : h.open());
-  }), d.addEventListener("keydown", (e) => {
-    e.key === "ArrowDown" && !h.isOpen() && !d.disabled && (e.preventDefault(), h.open());
-  }), document.addEventListener("click", (e) => {
-    h.isOpen() && !m.contains(e.target) && h.close();
-  }), document.addEventListener("keydown", (e) => {
-    e.key === "Escape" && h.isOpen() && (h.close(), d.focus());
-  }), n > 0) {
-    const e = t.querySelector("[data-block-list]");
-    e && new MutationObserver(() => M()).observe(e, { childList: !0 }), M();
+  if (g.addEventListener("click", (t) => {
+    t.stopPropagation(), !g.disabled && (y.isOpen() ? y.close() : y.open());
+  }), g.addEventListener("keydown", (t) => {
+    t.key === "ArrowDown" && !y.isOpen() && !g.disabled && (t.preventDefault(), y.open());
+  }), document.addEventListener("click", (t) => {
+    y.isOpen() && !_.contains(t.target) && y.close();
+  }), document.addEventListener("keydown", (t) => {
+    t.key === "Escape" && y.isOpen() && (y.close(), g.focus());
+  }), m > 0) {
+    const t = e.querySelector("[data-block-list]");
+    t && new MutationObserver(() => q()).observe(t, { childList: !0 }), q();
   }
-  m.appendChild(d), m.appendChild(h.element), f.appendChild(m);
-  const N = t.querySelector("[data-block-list]");
-  N && N.nextSibling ? N.parentElement?.insertBefore(f, N.nextSibling) : t.appendChild(f), t.setAttribute("data-picker-initialized", "true");
+  _.appendChild(g), _.appendChild(y.element), C.appendChild(_);
+  const c = e.querySelector("[data-block-list]");
+  c && c.nextSibling ? c.parentElement?.insertBefore(C, c.nextSibling) : e.appendChild(C), e.setAttribute("data-picker-initialized", "true");
 }
-async function W(t = document) {
-  const i = Array.from(
-    t.querySelectorAll('[data-block-library-picker="true"]')
-  ).filter((c) => c.getAttribute("data-picker-initialized") !== "true").map((c) => K(c));
-  await Promise.all(i);
+async function G(e = document) {
+  const n = Array.from(
+    e.querySelectorAll('[data-block-library-picker="true"]')
+  ).filter((l) => l.getAttribute("data-picker-initialized") !== "true").map((l) => K(l));
+  await Promise.all(n);
 }
-function G(t) {
-  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", t, { once: !0 }) : t();
+function Q(e) {
+  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", e, { once: !0 }) : e();
 }
-G(() => {
-  W();
+Q(() => {
+  G();
 });
 export {
-  W as initBlockLibraryPickers
+  G as initBlockLibraryPickers
 };
 //# sourceMappingURL=block_library_picker.js.map

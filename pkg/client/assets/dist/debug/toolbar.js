@@ -1,4 +1,4 @@
-import { u as z, m as b, A as P, e as M, l as T, r as R, k as A, j as H, h as $, g as I, p as u, D as q, q as j, s as D, a as f, b as O, d as F, M as B, f as N, v as E } from "../chunks/builtin-panels-CzOOtPTV.js";
+import { u as P, m as b, A as z, e as M, l as T, r as A, k as R, j as $, h as H, g as I, p as u, D as q, q as j, s as D, a as f, b as O, d as F, M as B, f as N, v as E } from "../chunks/builtin-panels-CXbItKaK.js";
 import { DebugReplPanel as Q } from "./repl.js";
 const _ = `
   :host {
@@ -1030,7 +1030,7 @@ const _ = `
       max-width: 60%;
     }
   }
-`, c = P;
+`, c = z;
 function x(o, t, e = 50, s) {
   const a = s?.newestFirst ?? !0, r = s?.slowThresholdMs ?? e;
   switch (o) {
@@ -1046,7 +1046,7 @@ function x(o, t, e = 50, s) {
         maxDetailLength: 80
       });
     case "sql":
-      return $(t.sql || [], c, {
+      return H(t.sql || [], c, {
         newestFirst: a,
         slowThresholdMs: r,
         maxEntries: 50,
@@ -1055,7 +1055,7 @@ function x(o, t, e = 50, s) {
         // Toolbar uses SVG icons
       });
     case "logs":
-      return H(t.logs || [], c, {
+      return $(t.logs || [], c, {
         newestFirst: !0,
         // Logs always show newest first in toolbar
         maxEntries: 100,
@@ -1072,7 +1072,7 @@ function x(o, t, e = 50, s) {
         showCount: !1
       });
     case "routes":
-      return A(t.routes || [], c, {
+      return R(t.routes || [], c, {
         showName: !1
         // Toolbar doesn't show name column
       });
@@ -1087,7 +1087,7 @@ function x(o, t, e = 50, s) {
         showCount: !1
       });
     case "jserrors":
-      return R(t.jserrors || [], c, {
+      return A(t.jserrors || [], c, {
         newestFirst: a,
         maxEntries: 50,
         compact: !0,
@@ -1116,7 +1116,7 @@ function g(o, t = 50) {
   const e = o.requests?.length || 0, s = o.sql?.length || 0, a = o.logs?.length || 0, r = o.jserrors?.length || 0, n = (o.requests || []).filter((p) => (p.status || 0) >= 400).length, l = (o.sql || []).filter((p) => p.error).length, i = (o.logs || []).filter((p) => {
     const v = (p.level || "").toLowerCase();
     return v === "error" || v === "fatal";
-  }).length, d = (o.sql || []).filter((p) => z(p.duration, t)).length;
+  }).length, d = (o.sql || []).filter((p) => P(p.duration, t)).length;
   return {
     requests: e,
     sql: s,
@@ -1270,7 +1270,8 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   }
   // Attribute getters
   get basePath() {
-    return this.getAttribute("base-path") || "/admin";
+    const e = (this.getAttribute("base-path") || "").trim();
+    return e ? e.startsWith("http://") || e.startsWith("https://") || e.startsWith("//") ? e.replace(/\/+$/g, "") : e === "/" ? "" : "/" + e.replace(/^\/+|\/+$/g, "") : "";
   }
   get debugPath() {
     const t = this.getAttribute("debug-path");
@@ -1825,7 +1826,7 @@ const U = `
       font-size: 8px;
     }
   }
-`, J = {
+`, W = {
   template: "template",
   session: "session",
   requests: "request",
@@ -1833,7 +1834,7 @@ const U = `
   logs: "log",
   custom: "custom"
 }, C = ["requests", "sql", "logs", "routes", "config"];
-class W extends HTMLElement {
+class J extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1894,7 +1895,7 @@ class W extends HTMLElement {
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => J[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => W[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -2041,16 +2042,21 @@ class W extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", W);
+customElements.get("debug-fab") || customElements.define("debug-fab", J);
+const X = (o) => {
+  const t = (o || "").trim();
+  return !t || t === "/" ? "" : "/" + t.replace(/^\/+|\/+$/g, "");
+};
 class L {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
-      debugPath: "/admin/debug",
       panels: ["requests", "sql", "logs", "routes", "config"],
       slowThresholdMs: 50,
       container: document.body,
       ...t
     };
+    const e = X(this.options.basePath);
+    e && (this.options.basePath = e), !this.options.debugPath && e && (this.options.debugPath = `${e}/debug`);
   }
   /**
    * Initialize the debug UI with FAB and Toolbar
@@ -2083,10 +2089,10 @@ class L {
     this.toolbar && (this.toolbar.isExpanded() ? this.collapse() : this.expand());
   }
   createFab() {
-    this.fab = document.createElement("debug-fab"), this.fab.setAttribute("debug-path", this.options.debugPath || "/admin/debug"), this.options.panels && this.fab.setAttribute("panels", this.options.panels.join(",")), this.options.container?.appendChild(this.fab);
+    this.fab = document.createElement("debug-fab"), this.options.debugPath && this.fab.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.fab.setAttribute("base-path", this.options.basePath), this.options.panels && this.fab.setAttribute("panels", this.options.panels.join(",")), this.options.container?.appendChild(this.fab);
   }
   createToolbar() {
-    this.toolbar = document.createElement("debug-toolbar"), this.toolbar.setAttribute("debug-path", this.options.debugPath || "/admin/debug"), this.toolbar.setAttribute("use-fab", "true"), this.options.panels && this.toolbar.setAttribute("panels", this.options.panels.join(",")), this.options.slowThresholdMs && this.toolbar.setAttribute("slow-threshold-ms", String(this.options.slowThresholdMs)), this.options.container?.appendChild(this.toolbar);
+    this.toolbar = document.createElement("debug-toolbar"), this.options.debugPath && this.toolbar.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.toolbar.setAttribute("base-path", this.options.basePath), this.toolbar.setAttribute("use-fab", "true"), this.options.panels && this.toolbar.setAttribute("panels", this.options.panels.join(",")), this.options.slowThresholdMs && this.toolbar.setAttribute("slow-threshold-ms", String(this.options.slowThresholdMs)), this.options.container?.appendChild(this.toolbar);
   }
   wireEvents() {
     !this.fab || !this.toolbar || (this.fab.addEventListener("debug-expand", (t) => {
@@ -2107,30 +2113,32 @@ class L {
     }));
   }
 }
-function X() {
+function Z() {
   const o = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (o ? e = {
-    debugPath: o.debugPath || o.basePath,
+    basePath: o.basePath,
+    debugPath: o.debugPath,
     panels: o.panels,
     slowThresholdMs: o.slowThresholdMs
   } : t && (e = {
+    basePath: t.getAttribute("data-base-path") || void 0,
     debugPath: t.getAttribute("data-debug-path") || void 0,
     panels: t.getAttribute("data-panels")?.split(","),
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
-  }), !e.debugPath && !o && !t)
+  }), !e.debugPath && !e.basePath && !o && !t)
     return null;
   const s = new L(e);
   return s.init(), s;
 }
 window.DebugManager = L;
-window.initDebugManager = X;
+window.initDebugManager = Z;
 export {
-  W as DebugFab,
+  J as DebugFab,
   L as DebugManager,
   m as DebugToolbar,
   g as getCounts,
-  X as initDebugManager,
+  Z as initDebugManager,
   x as renderPanel
 };
 //# sourceMappingURL=toolbar.js.map

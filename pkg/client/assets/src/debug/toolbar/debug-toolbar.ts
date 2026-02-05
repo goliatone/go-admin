@@ -348,7 +348,14 @@ export class DebugToolbar extends HTMLElement {
 
   // Attribute getters
   private get basePath(): string {
-    return this.getAttribute('base-path') || '/admin';
+    const attr = this.getAttribute('base-path');
+    const trimmed = (attr || '').trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('//')) {
+      return trimmed.replace(/\/+$/g, '');
+    }
+    if (trimmed === '/') return '';
+    return '/' + trimmed.replace(/^\/+|\/+$/g, '');
   }
 
   private get debugPath(): string {

@@ -27,13 +27,13 @@ import type {
 import { ContentTypeAPIClient, fieldsToSchema, schemaToFields, generateFieldId, mergeSchemaWithBase } from './api-client';
 import { FieldTypePicker, getFieldTypeMetadata, FIELD_TYPES, normalizeFieldType } from './field-type-picker';
 import { FieldConfigForm } from './field-config-form';
-import { FieldPalettePanel } from './field-palette-panel';
+import { FieldPalettePanel, PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel';
 import { LayoutEditor } from './layout-editor';
 import { Modal, ConfirmModal } from '../shared/modal';
 import { inputClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { renderEntityHeader } from './shared/entity-header';
-import { renderFieldCard as renderFieldCardShared } from './shared/field-card';
+import { renderFieldCard as renderFieldCardShared, renderFieldKebab, renderDropZone } from './shared/field-card';
 import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
 
 // =============================================================================
@@ -67,6 +67,8 @@ export class ContentTypeEditor {
   private cachedBlocks: BlockDefinitionSummary[] | null = null;
   private blocksLoading = false;
   private blockPickerModes: Map<string, 'allowed' | 'denied'> = new Map();
+  /** Currently open field kebab menu (null = none open) */
+  private fieldActionsMenuId: string | null = null;
 
   constructor(container: HTMLElement, config: ContentTypeEditorConfig) {
     this.container = container;
@@ -394,6 +396,31 @@ export class ContentTypeEditor {
   }
 
   /**
+   * Move a field up (-1) or down (+1) within its section
+   */
+  moveFieldByDirection(fieldId: string, direction: -1 | 1): void {
+    const field = this.state.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+
+    const sectionName = field.section || DEFAULT_SECTION;
+    const sectionFields = this.state.fields.filter((f) => (f.section || DEFAULT_SECTION) === sectionName);
+    const indexInSection = sectionFields.findIndex((f) => f.id === fieldId);
+    const newIndex = indexInSection + direction;
+
+    if (newIndex < 0 || newIndex >= sectionFields.length) return;
+
+    // Swap in the master fields array
+    const globalA = this.state.fields.indexOf(sectionFields[indexInSection]);
+    const globalB = this.state.fields.indexOf(sectionFields[newIndex]);
+    [this.state.fields[globalA], this.state.fields[globalB]] = [this.state.fields[globalB], this.state.fields[globalA]];
+
+    this.state.isDirty = true;
+    this.renderFieldList();
+    this.updateDirtyState();
+    this.schedulePreview();
+  }
+
+  /**
    * Validate the schema
    */
   async validateSchema(): Promise<void> {
@@ -628,7 +655,7 @@ export class ContentTypeEditor {
     return this.renderFieldListContent();
   }
 
-  private renderFieldCard(field: FieldDefinition, index: number): string {
+  private renderFieldCard(field: FieldDefinition, index: number, sectionFields?: FieldDefinition[]): string {
     const isBlocks = normalizeFieldType(field.type) === 'blocks';
     const isExpanded = isBlocks && this.state.selectedFieldId === field.id;
 
@@ -646,23 +673,16 @@ export class ContentTypeEditor {
     if (field.validation?.max !== undefined) constraints.push(`<= ${field.validation.max}`);
     if (field.validation?.pattern) constraints.push('pattern');
 
-    // Build actions HTML (edit + remove buttons)
+    // Determine position in section for reorder buttons
+    const list = sectionFields ?? this.state.fields;
+    const indexInList = list.indexOf(field);
+
+    // Kebab menu with dropdown
+    const menuOpen = this.fieldActionsMenuId === field.id;
     const actionsHtml = `
-          <div class="flex items-center gap-1">
-            <button type="button" data-field-edit="${escapeHtml(field.id)}"
-                    class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                    title="Edit field">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-              </svg>
-            </button>
-            <button type="button" data-field-remove="${escapeHtml(field.id)}"
-                    class="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                    title="Remove field">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-              </svg>
-            </button>
+          <div class="relative flex-shrink-0">
+            ${renderFieldKebab(field.id)}
+            ${menuOpen ? this.renderFieldActionsMenu(field) : ''}
           </div>`;
 
     return renderFieldCardShared({
@@ -675,9 +695,31 @@ export class ContentTypeEditor {
       constraintBadges: constraints,
       index,
       actionsHtml,
+      showReorderButtons: true,
+      isFirst: indexInList === 0,
+      isLast: indexInList === list.length - 1,
       compact: false,
       renderExpandedContent: isBlocks ? () => this.renderBlocksInlineContent(field) : undefined,
     });
+  }
+
+  private renderFieldActionsMenu(field: FieldDefinition): string {
+    const itemClass = 'w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2';
+    return `
+      <div data-ct-field-actions-menu class="absolute right-0 top-full mt-1 z-30 w-40 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm">
+        <button type="button" data-field-action-edit="${escapeHtml(field.id)}" class="${itemClass}">
+          <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+          </svg>
+          Edit
+        </button>
+        <button type="button" data-field-action-remove="${escapeHtml(field.id)}" class="${itemClass} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          Remove
+        </button>
+      </div>`;
   }
 
   private renderBlocksInlineContent(field: FieldDefinition): string {
@@ -1086,19 +1128,49 @@ export class ContentTypeEditor {
     this.container.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
 
-      // Edit field
-      const editBtn = target.closest('[data-field-edit]');
-      if (editBtn) {
-        const fieldId = editBtn.getAttribute('data-field-edit');
-        if (fieldId) this.editField(fieldId);
+      // Kebab menu trigger — toggle dropdown
+      const actionsBtn = target.closest<HTMLElement>('[data-field-actions]');
+      if (actionsBtn) {
+        e.stopPropagation();
+        const fieldId = actionsBtn.dataset.fieldActions!;
+        this.fieldActionsMenuId = this.fieldActionsMenuId === fieldId ? null : fieldId;
+        this.renderFieldList();
         return;
       }
 
-      // Remove field
-      const removeBtn = target.closest('[data-field-remove]');
-      if (removeBtn) {
-        const fieldId = removeBtn.getAttribute('data-field-remove');
-        if (fieldId) this.removeField(fieldId);
+      // Kebab dropdown: Edit
+      const editAction = target.closest<HTMLElement>('[data-field-action-edit]');
+      if (editAction) {
+        const fieldId = editAction.dataset.fieldActionEdit!;
+        this.fieldActionsMenuId = null;
+        this.editField(fieldId);
+        return;
+      }
+
+      // Kebab dropdown: Remove
+      const removeAction = target.closest<HTMLElement>('[data-field-action-remove]');
+      if (removeAction) {
+        const fieldId = removeAction.dataset.fieldActionRemove!;
+        this.fieldActionsMenuId = null;
+        this.removeField(fieldId);
+        return;
+      }
+
+      // Reorder: Move up
+      const moveUpBtn = target.closest<HTMLElement>('[data-field-move-up]');
+      if (moveUpBtn && !moveUpBtn.hasAttribute('disabled')) {
+        e.stopPropagation();
+        const fieldId = moveUpBtn.dataset.fieldMoveUp!;
+        this.moveFieldByDirection(fieldId, -1);
+        return;
+      }
+
+      // Reorder: Move down
+      const moveDownBtn = target.closest<HTMLElement>('[data-field-move-down]');
+      if (moveDownBtn && !moveDownBtn.hasAttribute('disabled')) {
+        e.stopPropagation();
+        const fieldId = moveDownBtn.dataset.fieldMoveDown!;
+        this.moveFieldByDirection(fieldId, 1);
         return;
       }
 
@@ -1155,6 +1227,12 @@ export class ContentTypeEditor {
           this.state.selectedFieldId = this.state.selectedFieldId === fieldId ? null : fieldId;
           this.renderFieldList();
         }
+      }
+
+      // Close kebab menu on any click that didn't match a menu action
+      if (this.fieldActionsMenuId && !target.closest('[data-field-actions]') && !target.closest('[data-ct-field-actions-menu]')) {
+        this.fieldActionsMenuId = null;
+        this.renderFieldList();
       }
     });
 
@@ -1363,6 +1441,49 @@ export class ContentTypeEditor {
         this.dragOverRAF = null;
       }
       this.dragState = null;
+    });
+  }
+
+  /** Bind drag-and-drop events on [data-field-drop-zone] for palette drops */
+  private bindFieldDropZoneEvents(root: HTMLElement): void {
+    const dropZones = root.querySelectorAll<HTMLElement>('[data-field-drop-zone]');
+    dropZones.forEach((zone) => {
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer!.dropEffect = 'copy';
+        zone.classList.remove('border-gray-200', 'hover:border-gray-300', 'border-transparent');
+        zone.classList.add('border-blue-400', 'bg-blue-50/50');
+      });
+
+      zone.addEventListener('dragleave', (e) => {
+        if (!zone.contains(e.relatedTarget as Node)) {
+          zone.classList.remove('border-blue-400', 'bg-blue-50/50');
+          zone.classList.add('border-gray-200', 'hover:border-gray-300');
+        }
+      });
+
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('border-blue-400', 'bg-blue-50/50');
+        zone.classList.add('border-gray-200', 'hover:border-gray-300');
+
+        // Try full metadata first
+        const metaRaw = e.dataTransfer?.getData(PALETTE_DRAG_META_MIME);
+        if (metaRaw) {
+          try {
+            const parsed = JSON.parse(metaRaw);
+            if (parsed?.type) {
+              this.addField(parsed.type as FieldType);
+              return;
+            }
+          } catch { /* fall through */ }
+        }
+        // Fall back to type-only
+        const fieldType = e.dataTransfer?.getData(PALETTE_DRAG_MIME);
+        if (fieldType) {
+          this.addField(fieldType as FieldType);
+        }
+      });
     });
   }
 
@@ -1675,6 +1796,7 @@ export class ContentTypeEditor {
       fieldListContainer.innerHTML = this.renderFieldListContent();
       this.bindSectionToggleEvents();
       this.bindDragEvents();
+      this.bindFieldDropZoneEvents(fieldListContainer as HTMLElement);
       const selected = this.state.fields.find((f) => f.id === this.state.selectedFieldId);
       if (selected && normalizeFieldType(selected.type) === 'blocks' && this.cachedBlocks) {
         this.renderInlineBlockPickerForField(selected);
@@ -1706,10 +1828,12 @@ export class ContentTypeEditor {
 
     // Single section — render flat (no section headers)
     if (sectionNames.length <= 1) {
+      const allFields = this.state.fields;
       return `
         <div class="space-y-2">
-          ${this.state.fields.map((field, index) => this.renderFieldCard(field, index)).join('')}
+          ${allFields.map((field, index) => this.renderFieldCard(field, index, allFields)).join('')}
         </div>
+        ${renderDropZone({ highlight: false })}
       `;
     }
 
@@ -1737,11 +1861,13 @@ export class ContentTypeEditor {
 
           <div class="${isCollapsed ? 'hidden' : ''}" data-ct-section-body="${escapeHtml(sectionName)}">
             <div class="space-y-2 px-1 pb-2">
-              ${fields.map((field, index) => this.renderFieldCard(field, index)).join('')}
+              ${fields.map((field, index) => this.renderFieldCard(field, index, fields)).join('')}
             </div>
           </div>
         </div>`;
     }
+
+    html += renderDropZone({ highlight: false });
 
     return html;
   }

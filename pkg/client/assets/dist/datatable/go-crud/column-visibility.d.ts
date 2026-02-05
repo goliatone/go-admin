@@ -72,7 +72,9 @@ export declare class DefaultColumnVisibilityBehavior implements ColumnVisibility
 export interface ServerColumnVisibilityConfig {
     /** Resource name for the preference key (e.g., 'users' -> 'ui.datagrid.users.columns') */
     resource: string;
-    /** Base path for preferences API (default: '/admin/api/preferences') */
+    /** Base path for the preferences API (used when preferencesEndpoint is omitted) */
+    basePath?: string;
+    /** Base path for preferences API (default: '/api/preferences' unless basePath is provided) */
     preferencesEndpoint?: string;
     /** localStorage key for local cache (default: '<resource>_datatable_columns') */
     localStorageKey?: string;

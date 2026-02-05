@@ -1,4 +1,5 @@
 export interface DebugManagerOptions {
+    basePath?: string;
     debugPath?: string;
     panels?: string[];
     slowThresholdMs?: number;

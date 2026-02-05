@@ -21,6 +21,7 @@ import { badge } from '../shared/badge';
 import { Modal, ConfirmModal, TextPromptModal } from '../shared/modal.js';
 import { inputClasses, selectClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
 import { renderIconTrigger, bindIconTriggerEvents, resolveIcon } from './shared/icon-picker';
+import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
 
 // =============================================================================
 // Block Library Manager Component
@@ -907,6 +908,7 @@ class BlockDefinitionEditor extends Modal {
     const form = new FieldConfigForm({
       field,
       existingFieldNames: this.fields.filter((_, i) => i !== index).map((f) => f.name),
+      apiBasePath: this.config.apiBasePath,
       onSave: (updatedField) => {
         if (index >= 0) {
           this.fields[index] = updatedField;
@@ -1144,13 +1146,14 @@ export function initBlockLibraryManagers(scope: ParentNode = document): void {
   triggers.forEach((trigger) => {
     if (trigger.dataset.initialized === 'true') return;
 
-    const apiBasePath = trigger.dataset.apiBasePath ?? '/admin';
+    const apiBasePath = resolveApiBasePath(trigger.dataset.apiBasePath, trigger.dataset.basePath);
+    const basePath = deriveAdminBasePath(apiBasePath, trigger.dataset.basePath);
     const mode = (trigger.dataset.mode as 'manage' | 'picker') ?? 'manage';
 
     if (mode === 'manage') {
       // Manage mode navigates to the Block Library IDE page
       trigger.addEventListener('click', () => {
-        window.location.href = `${apiBasePath}/content/block-library`;
+        window.location.href = `${basePath}/content/block-library`;
       });
     } else {
       // Picker mode opens the modal for block selection
