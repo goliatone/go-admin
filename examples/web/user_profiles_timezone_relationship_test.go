@@ -86,7 +86,7 @@ func TestUserProfilesTemplateLoadsRelationshipsRuntime(t *testing.T) {
 		t.Fatalf("read template: %v", err)
 	}
 	content := string(raw)
-	assertContains(t, content, `/runtime/formgen-relationships.min.js`)
+	assertContains(t, content, `adminURL("runtime/formgen-relationships.min.js")`)
 	assertContains(t, content, `initRelationships`)
 }
 

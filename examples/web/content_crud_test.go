@@ -28,17 +28,11 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
 	require.NoError(t, err)
 
-	contentSvc := cmsOpts.Container.ContentService()
 	db, err := stores.SetupContentDatabase(ctx, dsn)
 	require.NoError(t, err)
 
-	pageStore := stores.NewCMSPageStore(contentSvc, "en")
-	postStore := stores.NewCMSPostStore(contentSvc, "en")
 	mediaStore, err := stores.NewMediaStore(db)
 	require.NoError(t, err)
-
-	pageRepo := stores.NewPageRecordRepository(db)
-	postRepo := stores.NewPostRecordRepository(db)
 
 	if menuSvc := cmsOpts.Container.MenuService(); menuSvc != nil {
 		_ = setup.SetupNavigation(ctx, menuSvc, "/admin", setup.NavigationMenuCode, "en")
@@ -53,8 +47,6 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 		claims := &authlib.JWTClaims{
 			UserRole: role,
 			Resources: map[string]string{
-				"admin.pages": role,
-				"admin.posts": role,
 				"admin.media": role,
 			},
 		}
@@ -70,40 +62,6 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 
 	encoder := crud.ProblemJSONErrorEncoder(crud.WithProblemJSONStatusResolver(userCRUDStatusResolver))
 	adapter := crud.NewFiberAdapter(crudGroup)
-
-	pageStoreAdapter := stores.NewAdminPageStoreAdapter(pageRepo, pageStore, "en")
-	pageReadService := admin.AdminPageReadService(pageStoreAdapter)
-	if provider, ok := cmsOpts.Container.(interface {
-		AdminPageReadService() admin.AdminPageReadService
-	}); ok {
-		if svc := provider.AdminPageReadService(); svc != nil {
-			pageReadService = svc
-		}
-	}
-	pageApp := admin.PageApplicationService{
-		Read:  pageReadService,
-		Write: pageStoreAdapter,
-	}
-	pageCRUDAdapter := stores.NewPageAppCRUDAdapter(pageApp, "en")
-	pageController := crud.NewController(
-		pageRepo,
-		crud.WithErrorEncoder[*stores.PageRecord](encoder),
-		crud.WithScopeGuard[*stores.PageRecord](contentCRUDScopeGuard[*stores.PageRecord]("admin.pages")),
-		crud.WithReadService[*stores.PageRecord](crud.ReadOnlyService[*stores.PageRecord](pageCRUDAdapter)),
-		crud.WithWriteService[*stores.PageRecord](crud.WriteOnlyService[*stores.PageRecord](pageCRUDAdapter)),
-		crud.WithContextFactory[*stores.PageRecord](contentCRUDContextFactory("en")),
-	)
-	pageController.RegisterRoutes(adapter)
-	registerCrudAliases(adapter, pageController, "pages")
-
-	postController := crud.NewController(
-		postRepo,
-		crud.WithErrorEncoder[*stores.PostRecord](encoder),
-		crud.WithScopeGuard[*stores.PostRecord](contentCRUDScopeGuard[*stores.PostRecord]("admin.posts")),
-		crud.WithService[*stores.PostRecord](stores.NewPostCRUDService(postRepo, postStore)),
-	)
-	postController.RegisterRoutes(adapter)
-	registerCrudAliases(adapter, postController, "posts")
 
 	mediaController := crud.NewController(
 		mediaStore.Repository(),
@@ -134,7 +92,7 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 				"id":    "content.fallback",
 				"target": map[string]any{
 					"type": "url",
-					"path": "/admin/pages",
+					"path": "/admin/content/pages",
 				},
 			}}
 			return c.JSON(map[string]any{"data": fallback})
@@ -150,8 +108,6 @@ func TestContentCRUD_ListEndpoints(t *testing.T) {
 	client := []struct {
 		path string
 	}{
-		{path: "/admin/crud/pages"},
-		{path: "/admin/crud/posts"},
 		{path: "/admin/crud/media"},
 	}
 
@@ -172,7 +128,7 @@ func TestContentCRUD_ListEndpoints(t *testing.T) {
 
 func TestContentCRUD_Unauthorized(t *testing.T) {
 	app, _ := setupContentCRUDApp(t)
-	req := httptest.NewRequest(http.MethodGet, "/admin/crud/pages", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/crud/media", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
@@ -181,12 +137,15 @@ func TestContentCRUD_Unauthorized(t *testing.T) {
 func TestContentCRUD_CreateForbidden(t *testing.T) {
 	app, _ := setupContentCRUDApp(t)
 	payload := map[string]any{
-		"title":  "New Post",
-		"slug":   "new-post",
-		"status": "draft",
+		"filename":    "forbidden-asset.png",
+		"url":         "/uploads/forbidden-asset.png",
+		"type":        "image",
+		"mime_type":   "image/png",
+		"size":        2048,
+		"uploaded_by": "crud-test",
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/crud/posts", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/admin/crud/media", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Role", string(authlib.RoleMember))
 
@@ -208,41 +167,8 @@ func TestContentCRUD_NotFound(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
-func TestContentCRUD_CreateAndUpdateFlows(t *testing.T) {
+func TestContentCRUD_MediaCreateAndDeleteFlows(t *testing.T) {
 	app, _ := setupContentCRUDApp(t)
-
-	pagePayload := map[string]any{
-		"title":            "Integration Page",
-		"slug":             "integration-page",
-		"status":           "draft",
-		"path":             "/integration/page",
-		"meta_title":       "Integration Page Meta",
-		"meta_description": "CMS-backed page",
-		"content":          "Rendered from go-cms",
-	}
-	pageResp, pageStatus := doJSONRequest(t, app, http.MethodPost, "/admin/crud/pages", pagePayload)
-	require.Contains(t, []int{http.StatusCreated, http.StatusOK}, pageStatus)
-	pageData := extractDataMap(t, pageResp)
-	pageID := fmt.Sprint(pageData["id"])
-	require.NotEmpty(t, pageID)
-	require.Equal(t, "integration-page", fmt.Sprint(pageData["slug"]))
-
-	postPayload := map[string]any{
-		"title":            "Integration Post",
-		"slug":             "integration-post",
-		"status":           "draft",
-		"path":             "/posts/integration-post",
-		"meta_title":       "Integration Post Meta",
-		"meta_description": "CMS-backed post",
-		"tags":             []string{"cms", "crud"},
-		"content":          "Content from CMS",
-	}
-	postResp, postStatus := doJSONRequest(t, app, http.MethodPost, "/admin/crud/posts", postPayload)
-	require.Contains(t, []int{http.StatusCreated, http.StatusOK}, postStatus)
-	postData := extractDataMap(t, postResp)
-	postID := fmt.Sprint(postData["id"])
-	require.NotEmpty(t, postID)
-	require.Equal(t, "integration-post", fmt.Sprint(postData["slug"]))
 
 	mediaPayload := map[string]any{
 		"filename":    "integration-asset.png",

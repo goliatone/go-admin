@@ -1,0 +1,185 @@
+package admin
+
+import (
+	"bytes"
+	"context"
+	"log"
+	"strings"
+	"testing"
+)
+
+func TestDynamicPanelFactoryCreatesPageAndPostPanelsFromActiveContentTypes(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	factory := NewDynamicPanelFactory(adm)
+
+	page := CMSContentType{
+		ID:           "ct-page",
+		Name:         "Page",
+		Slug:         "page",
+		Status:       "active",
+		Schema:       minimalContentTypeSchema(),
+		Capabilities: map[string]any{"panel_slug": "pages", "permissions": "admin.pages"},
+	}
+	post := CMSContentType{
+		ID:           "ct-post",
+		Name:         "Post",
+		Slug:         "post",
+		Status:       "active",
+		Schema:       minimalContentTypeSchema(),
+		Capabilities: map[string]any{"panel_slug": "posts", "permissions": "admin.posts"},
+	}
+
+	if _, err := factory.CreatePanelFromContentType(context.Background(), &page); err != nil {
+		t.Fatalf("create page panel failed: %v", err)
+	}
+	if _, err := factory.CreatePanelFromContentType(context.Background(), &post); err != nil {
+		t.Fatalf("create post panel failed: %v", err)
+	}
+
+	pagesPanel, ok := adm.Registry().Panel("pages")
+	if !ok || pagesPanel == nil {
+		t.Fatalf("expected pages panel registered")
+	}
+	postsPanel, ok := adm.Registry().Panel("posts")
+	if !ok || postsPanel == nil {
+		t.Fatalf("expected posts panel registered")
+	}
+
+	pagesPerms := pagesPanel.Schema().Permissions
+	if pagesPerms.View != "admin.pages.view" || pagesPerms.Create != "admin.pages.create" || pagesPerms.Edit != "admin.pages.edit" || pagesPerms.Delete != "admin.pages.delete" {
+		t.Fatalf("expected admin.pages permissions, got %+v", pagesPerms)
+	}
+	postsPerms := postsPanel.Schema().Permissions
+	if postsPerms.View != "admin.posts.view" || postsPerms.Create != "admin.posts.create" || postsPerms.Edit != "admin.posts.edit" || postsPerms.Delete != "admin.posts.delete" {
+		t.Fatalf("expected admin.posts permissions, got %+v", postsPerms)
+	}
+}
+
+func TestDynamicPanelFactoryCreatesPostsPanelForBlogPostPanelSlug(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	factory := NewDynamicPanelFactory(adm)
+
+	blogPost := CMSContentType{
+		ID:           "ct-blog",
+		Name:         "Blog Post",
+		Slug:         "blog_post",
+		Status:       "active",
+		Schema:       minimalContentTypeSchema(),
+		Capabilities: map[string]any{"panel_slug": "posts", "permissions": "admin.posts"},
+	}
+
+	if _, err := factory.CreatePanelFromContentType(context.Background(), &blogPost); err != nil {
+		t.Fatalf("create blog_post panel failed: %v", err)
+	}
+	if panel, ok := adm.Registry().Panel("posts"); !ok || panel == nil {
+		t.Fatalf("expected posts panel registered for blog_post")
+	}
+}
+
+func TestDynamicPanelFactoryAddsWorkflowActionsForPageAndPostPanels(t *testing.T) {
+	t.Run("pages", func(t *testing.T) {
+		adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+		adm.WithWorkflow(workflowEngineWithPagesAndPosts())
+		factory := NewDynamicPanelFactory(adm)
+
+		page := CMSContentType{
+			ID:           "ct-page",
+			Name:         "Page",
+			Slug:         "page",
+			Status:       "active",
+			Schema:       minimalContentTypeSchema(),
+			Capabilities: map[string]any{"panel_slug": "pages", "workflow": "pages"},
+		}
+
+		panel, err := factory.CreatePanelFromContentType(context.Background(), &page)
+		if err != nil {
+			t.Fatalf("create page panel failed: %v", err)
+		}
+		assertWorkflowActions(t, panel)
+	})
+
+	t.Run("posts", func(t *testing.T) {
+		adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+		adm.WithWorkflow(workflowEngineWithPagesAndPosts())
+		factory := NewDynamicPanelFactory(adm)
+
+		blogPost := CMSContentType{
+			ID:           "ct-blog",
+			Name:         "Blog Post",
+			Slug:         "blog_post",
+			Status:       "active",
+			Schema:       minimalContentTypeSchema(),
+			Capabilities: map[string]any{"panel_slug": "posts", "workflow": "posts"},
+		}
+
+		panel, err := factory.CreatePanelFromContentType(context.Background(), &blogPost)
+		if err != nil {
+			t.Fatalf("create blog_post panel failed: %v", err)
+		}
+		assertWorkflowActions(t, panel)
+	})
+}
+
+func TestDynamicPanelFactorySkipsUnknownWorkflowAndLogs(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	factory := NewDynamicPanelFactory(adm)
+
+	missing := CMSContentType{
+		ID:           "ct-missing",
+		Name:         "Missing Workflow",
+		Slug:         "missing-workflow",
+		Status:       "active",
+		Schema:       minimalContentTypeSchema(),
+		Capabilities: map[string]any{"panel_slug": "missing-workflow", "workflow": "unknown"},
+	}
+
+	var buf bytes.Buffer
+	prev := log.Writer()
+	log.SetOutput(&buf)
+	t.Cleanup(func() {
+		log.SetOutput(prev)
+	})
+
+	panel, err := factory.CreatePanelFromContentType(context.Background(), &missing)
+	if err != nil {
+		t.Fatalf("create panel failed: %v", err)
+	}
+	if panel == nil {
+		t.Fatalf("expected panel returned")
+	}
+	if panel.workflow != nil {
+		t.Fatalf("expected no workflow attached for unknown workflow")
+	}
+	logOutput := buf.String()
+	if !strings.Contains(logOutput, "workflow not found") || !strings.Contains(logOutput, "content_type=missing-workflow") || !strings.Contains(logOutput, "workflow=unknown") {
+		t.Fatalf("expected workflow warning, got %q", logOutput)
+	}
+}
+
+func assertWorkflowActions(t *testing.T, panel *Panel) {
+	t.Helper()
+	if panel == nil {
+		t.Fatalf("panel is nil")
+	}
+	if panel.workflow == nil {
+		t.Fatalf("expected workflow attached")
+	}
+	actions := panel.Schema().Actions
+	if !hasAction(actions, "submit_for_approval") || !hasAction(actions, "publish") {
+		t.Fatalf("expected workflow actions, got %+v", actions)
+	}
+	transitions, err := panel.workflow.AvailableTransitions(context.Background(), panel.name, "draft")
+	if err != nil {
+		t.Fatalf("available transitions failed: %v", err)
+	}
+	if !hasTransition(transitions, "submit_for_approval") {
+		t.Fatalf("expected submit_for_approval transition, got %+v", transitions)
+	}
+	transitions, err = panel.workflow.AvailableTransitions(context.Background(), panel.name, "approval")
+	if err != nil {
+		t.Fatalf("available transitions failed: %v", err)
+	}
+	if !hasTransition(transitions, "publish") {
+		t.Fatalf("expected publish transition, got %+v", transitions)
+	}
+}
