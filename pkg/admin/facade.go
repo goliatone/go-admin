@@ -86,6 +86,8 @@ const (
 	TextCodeReplExecPermissionDenied  = core.TextCodeReplExecPermissionDenied
 	TextCodeReplReadOnly              = core.TextCodeReplReadOnly
 	TextCodeReplIPDenied              = core.TextCodeReplIPDenied
+
+	CreateTranslationKey = core.CreateTranslationKey
 )
 
 type (
@@ -98,12 +100,16 @@ type (
 	ActivitySink         = core.ActivitySink
 	ActivitySinkAdapter  = core.ActivitySinkAdapter
 
-	AdminPageGetOptions   = core.AdminPageGetOptions
-	AdminPageListOptions  = core.AdminPageListOptions
-	AdminPageReadService  = core.AdminPageReadService
-	AdminPageRecord       = core.AdminPageRecord
-	AdminPageWriteService = core.AdminPageWriteService
-	DefaultPageMapper     = core.DefaultPageMapper
+	AdminPageGetOptions      = core.AdminPageGetOptions
+	AdminPageListOptions     = core.AdminPageListOptions
+	AdminPageReadService     = core.AdminPageReadService
+	AdminPageRecord          = core.AdminPageRecord
+	AdminPageWriteService    = core.AdminPageWriteService
+	DefaultPageMapper        = core.DefaultPageMapper
+	TranslationMeta          = core.TranslationMeta
+	TranslationBundle[T any] = core.TranslationBundle[T]
+	PageTranslation          = core.PageTranslation
+	ContentTranslation       = core.ContentTranslation
 
 	Admin        = core.Admin
 	AdminContext = core.AdminContext
