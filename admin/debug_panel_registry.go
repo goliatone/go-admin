@@ -42,6 +42,10 @@ func ensureDebugBuiltinPanels() {
 			EventType:   DebugPanelCustom,
 			SnapshotKey: DebugPanelCustom,
 		})
+		registerBuiltinDebugPanel(DebugPanelJSErrors, debugregistry.PanelConfig{
+			EventType:   "jserror",
+			SnapshotKey: DebugPanelJSErrors,
+		})
 	})
 }
 
