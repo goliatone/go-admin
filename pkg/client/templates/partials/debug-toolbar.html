@@ -3,7 +3,7 @@
   window.DEBUG_CONFIG = {
     basePath: '{{ base_path }}',
     debugPath: '{{ debug_path }}',
-    panels: '{{ debug_toolbar_panels|default:"requests,sql,logs,routes,config" }}'.split(','),
+    panels: '{{ debug_toolbar_panels|default:"requests,sql,logs,jserrors,routes,config" }}'.split(','),
     slowThresholdMs: {{ debug_slow_threshold_ms|default:"50" }}
   };
 </script>

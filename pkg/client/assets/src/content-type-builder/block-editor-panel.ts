@@ -1028,7 +1028,7 @@ export class BlockEditorPanel {
     if (blocksOpenLibrary) {
       e.stopPropagation();
       const basePath = this.config.api.getBasePath();
-      window.location.href = `${basePath}/block_definitions`;
+      window.location.href = `${basePath}/content/block-library`;
       return;
     }
 

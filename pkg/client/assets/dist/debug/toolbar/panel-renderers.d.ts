@@ -1,5 +1,5 @@
-import type { RequestEntry, SQLEntry, LogEntry, RouteEntry, CustomLogEntry, CustomSnapshot, DebugSnapshot, PanelOptions } from '../shared/types.js';
-export type { RequestEntry, SQLEntry, LogEntry, RouteEntry, CustomLogEntry, CustomSnapshot, DebugSnapshot, PanelOptions, };
+import type { RequestEntry, SQLEntry, LogEntry, RouteEntry, CustomLogEntry, CustomSnapshot, JSErrorEntry, DebugSnapshot, PanelOptions } from '../shared/types.js';
+export type { RequestEntry, SQLEntry, LogEntry, RouteEntry, CustomLogEntry, CustomSnapshot, JSErrorEntry, DebugSnapshot, PanelOptions, };
 /**
  * Main entry point for rendering panels in the toolbar.
  * Delegates to shared panel components with toolbar-specific defaults.
@@ -11,6 +11,7 @@ export declare function getCounts(snapshot: DebugSnapshot, slowThresholdMs?: num
     requests: number;
     sql: number;
     logs: number;
+    jserrors: number;
     errors: number;
     slowQueries: number;
 };

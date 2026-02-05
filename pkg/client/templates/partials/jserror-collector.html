@@ -1,0 +1,102 @@
+{% if debug_jserror_enabled %}
+<script>
+  // Global JS error collector — synchronous IIFE, runs before module scripts.
+  // Captures uncaught exceptions, unhandled rejections, and console.error calls,
+  // then batches them to the debug backend via sendBeacon/fetch.
+  // Independent of the debug toolbar; controlled by CaptureJSErrors config flag.
+  (function() {
+    var endpoint = '{{ debug_jserror_endpoint }}';
+    var nonce = '{{ debug_jserror_nonce }}';
+    var queue = [];
+    var sending = false;
+    var MAX_QUEUE = 50;
+    var FLUSH_MS = 2000;
+
+    function report(entry) {
+      if (queue.length >= MAX_QUEUE) return;
+      entry.url = entry.url || location.href;
+      entry.user_agent = entry.user_agent || navigator.userAgent;
+      entry.nonce = nonce;
+      queue.push(entry);
+      scheduleFlush();
+    }
+
+    function scheduleFlush() {
+      if (sending) return;
+      sending = true;
+      setTimeout(flush, FLUSH_MS);
+    }
+
+    function flush() {
+      sending = false;
+      if (queue.length === 0) return;
+      var batch = queue.splice(0, MAX_QUEUE);
+      for (var i = 0; i < batch.length; i++) {
+        var body = JSON.stringify(batch[i]);
+        try {
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));
+          } else {
+            fetch(endpoint, {
+              method: 'POST',
+              body: body,
+              headers: { 'Content-Type': 'application/json' },
+              keepalive: true,
+              credentials: 'same-origin'
+            }).catch(function() {});
+          }
+        } catch (e) {
+          // Silently ignore send failures to avoid error loops.
+        }
+      }
+    }
+
+    // 1. Uncaught exceptions
+    window.addEventListener('error', function(e) {
+      report({
+        type: 'uncaught',
+        message: e.message || String(e),
+        source: e.filename || '',
+        line: e.lineno || 0,
+        column: e.colno || 0,
+        stack: (e.error && e.error.stack) ? e.error.stack : ''
+      });
+    });
+
+    // 2. Unhandled promise rejections
+    window.addEventListener('unhandledrejection', function(e) {
+      var reason = e.reason;
+      report({
+        type: 'unhandled_rejection',
+        message: (reason && reason.message) ? reason.message : String(reason),
+        stack: (reason && reason.stack) ? reason.stack : ''
+      });
+    });
+
+    // 3. console.error override with recursion guard
+    var origError = console.error;
+    var inOverride = false;
+    console.error = function() {
+      if (inOverride) {
+        return origError.apply(console, arguments);
+      }
+      inOverride = true;
+      try {
+        var args = Array.prototype.slice.call(arguments);
+        report({
+          type: 'console_error',
+          message: args.map(String).join(' ')
+        });
+      } catch (e) {
+        // Never suppress the original console.error.
+      } finally {
+        inOverride = false;
+      }
+      return origError.apply(console, arguments);
+    };
+
+    // Flush remaining errors on page unload
+    window.addEventListener('pagehide', flush);
+  })();
+</script>
+{% endif %}

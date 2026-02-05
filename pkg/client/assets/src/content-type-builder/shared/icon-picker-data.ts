@@ -290,6 +290,116 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Iconoir Sidebar Icons (~50 curated for navigation / sidebar use)
+// ---------------------------------------------------------------------------
+
+interface IconoirEntry {
+  value: string;
+  label: string;
+  keywords?: string;
+  category: string;
+}
+
+export const ICONOIR_SIDEBAR_ICONS: IconoirEntry[] = [
+  // Content & Documents
+  { value: 'page', label: 'Page', keywords: 'document paper', category: 'Content' },
+  { value: 'page-edit', label: 'Page Edit', keywords: 'document write', category: 'Content' },
+  { value: 'journal', label: 'Journal', keywords: 'book notebook blog', category: 'Content' },
+  { value: 'book', label: 'Book', keywords: 'read documentation', category: 'Content' },
+  { value: 'clipboard', label: 'Clipboard', keywords: 'copy paste list', category: 'Content' },
+  { value: 'edit-pencil', label: 'Edit', keywords: 'write pencil compose', category: 'Content' },
+  { value: 'post', label: 'Post', keywords: 'article blog entry', category: 'Content' },
+  // Objects & Layout
+  { value: 'cube', label: 'Cube', keywords: 'box 3d model block', category: 'Objects' },
+  { value: 'view-grid', label: 'Grid', keywords: 'layout blocks tiles', category: 'Objects' },
+  { value: 'dashboard', label: 'Dashboard', keywords: 'home overview panel', category: 'Objects' },
+  { value: 'folder', label: 'Folder', keywords: 'directory files', category: 'Objects' },
+  { value: 'archive', label: 'Archive', keywords: 'box storage', category: 'Objects' },
+  { value: 'table-rows', label: 'Table', keywords: 'list rows data', category: 'Objects' },
+  { value: 'puzzle', label: 'Puzzle', keywords: 'piece component module', category: 'Objects' },
+  // People & Auth
+  { value: 'user', label: 'User', keywords: 'person account profile', category: 'People' },
+  { value: 'users', label: 'Users', keywords: 'people group team', category: 'People' },
+  { value: 'user-circle', label: 'User Circle', keywords: 'profile avatar', category: 'People' },
+  { value: 'shield', label: 'Shield', keywords: 'security auth role', category: 'People' },
+  { value: 'community', label: 'Community', keywords: 'group organization', category: 'People' },
+  { value: 'lock', label: 'Lock', keywords: 'secure private', category: 'People' },
+  // Commerce & Business
+  { value: 'building', label: 'Building', keywords: 'office company tenant', category: 'Business' },
+  { value: 'briefcase', label: 'Briefcase', keywords: 'work business', category: 'Business' },
+  { value: 'cart', label: 'Cart', keywords: 'shop ecommerce buy', category: 'Business' },
+  { value: 'credit-card', label: 'Credit Card', keywords: 'payment money', category: 'Business' },
+  { value: 'gift', label: 'Gift', keywords: 'present reward', category: 'Business' },
+  { value: 'shop', label: 'Shop', keywords: 'store ecommerce', category: 'Business' },
+  // Media
+  { value: 'media-image', label: 'Image', keywords: 'photo picture', category: 'Media' },
+  { value: 'camera', label: 'Camera', keywords: 'photo picture', category: 'Media' },
+  { value: 'play', label: 'Play', keywords: 'video media', category: 'Media' },
+  { value: 'music-note', label: 'Music', keywords: 'audio song', category: 'Media' },
+  { value: 'attachment', label: 'Attachment', keywords: 'file clip', category: 'Media' },
+  // Communication
+  { value: 'bell', label: 'Bell', keywords: 'notification alert', category: 'Communication' },
+  { value: 'chat-bubble', label: 'Chat', keywords: 'message comment', category: 'Communication' },
+  { value: 'mail', label: 'Mail', keywords: 'email message', category: 'Communication' },
+  { value: 'megaphone', label: 'Megaphone', keywords: 'announce broadcast', category: 'Communication' },
+  { value: 'send', label: 'Send', keywords: 'share submit', category: 'Communication' },
+  // System & Settings
+  { value: 'settings', label: 'Settings', keywords: 'config gear cog', category: 'System' },
+  { value: 'switch-on', label: 'Toggle', keywords: 'switch feature flag', category: 'System' },
+  { value: 'bug', label: 'Bug', keywords: 'debug error issue', category: 'System' },
+  { value: 'clock', label: 'Clock', keywords: 'time schedule activity', category: 'System' },
+  { value: 'database', label: 'Database', keywords: 'storage data', category: 'System' },
+  { value: 'code', label: 'Code', keywords: 'developer programming', category: 'System' },
+  { value: 'terminal', label: 'Terminal', keywords: 'console command line', category: 'System' },
+  // Misc & Navigation
+  { value: 'star', label: 'Star', keywords: 'favorite bookmark rating', category: 'Misc' },
+  { value: 'heart', label: 'Heart', keywords: 'love favorite', category: 'Misc' },
+  { value: 'bookmark', label: 'Bookmark', keywords: 'save favorite', category: 'Misc' },
+  { value: 'pin-alt', label: 'Pin', keywords: 'location map', category: 'Misc' },
+  { value: 'link', label: 'Link', keywords: 'url chain href', category: 'Misc' },
+  { value: 'search', label: 'Search', keywords: 'find magnifier', category: 'Misc' },
+  { value: 'download', label: 'Download', keywords: 'save get export', category: 'Misc' },
+  { value: 'cloud', label: 'Cloud', keywords: 'upload sync', category: 'Misc' },
+  { value: 'flash', label: 'Flash', keywords: 'lightning bolt fast', category: 'Misc' },
+  { value: 'calendar', label: 'Calendar', keywords: 'date event schedule', category: 'Misc' },
+  { value: 'graph-up', label: 'Analytics', keywords: 'chart statistics', category: 'Misc' },
+  { value: 'color-picker', label: 'Theme', keywords: 'color palette style', category: 'Misc' },
+  { value: 'globe', label: 'Globe', keywords: 'world international web', category: 'Misc' },
+  { value: 'rocket', label: 'Rocket', keywords: 'launch deploy fast', category: 'Misc' },
+  { value: 'flag', label: 'Flag', keywords: 'mark milestone report', category: 'Misc' },
+  { value: 'trash', label: 'Trash', keywords: 'delete remove', category: 'Misc' },
+];
+
+/** Build the built-in Iconoir tab from ICONOIR_SIDEBAR_ICONS. */
+export function getBuiltinIconoirTab(): IconTab {
+  const entries: IconEntry[] = [];
+  const categories: { id: string; label: string; startIndex: number }[] = [];
+
+  const catOrder = ['Content', 'Objects', 'People', 'Business', 'Media', 'Communication', 'System', 'Misc'];
+  for (const catName of catOrder) {
+    const catEntries = ICONOIR_SIDEBAR_ICONS.filter((e) => e.category === catName);
+    if (catEntries.length === 0) continue;
+    categories.push({ id: catName.toLowerCase(), label: catName, startIndex: entries.length });
+    for (const e of catEntries) {
+      entries.push({
+        value: e.value,
+        label: e.label,
+        keywords: e.keywords,
+        display: `<i class="iconoir-${e.value}" style="font-size:18px"></i>`,
+      });
+    }
+  }
+
+  return {
+    id: 'iconoir',
+    label: 'Sidebar',
+    icon: '🧭',
+    entries,
+    categories,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // SVG Icon Keys (from field-type-picker.ts, excluding cat-* internal icons)
 // ---------------------------------------------------------------------------
 

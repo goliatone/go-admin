@@ -694,8 +694,17 @@ export class DebugToolbar extends HTMLElement {
       case 'custom':
         const custom = this.snapshot.custom || {};
         return Object.keys(custom.data || {}).length + (custom.logs?.length || 0);
-      default:
+      default: {
+        // Dynamically registered panels: count keys if object, length if array
+        const data = this.snapshot[panel];
+        if (Array.isArray(data)) {
+          return data.length;
+        }
+        if (data != null && typeof data === 'object') {
+          return Object.keys(data as Record<string, unknown>).length;
+        }
         return 0;
+      }
     }
   }
 

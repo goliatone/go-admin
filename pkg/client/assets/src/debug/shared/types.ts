@@ -61,12 +61,27 @@ export type CustomSnapshot = {
   logs?: CustomLogEntry[];
 };
 
+export type JSErrorEntry = {
+  id?: string;
+  timestamp?: string;
+  type?: string;
+  message?: string;
+  source?: string;
+  line?: number;
+  column?: number;
+  stack?: string;
+  url?: string;
+  user_agent?: string;
+  extra?: Record<string, unknown>;
+};
+
 export type DebugSnapshot = {
   template?: Record<string, unknown>;
   session?: Record<string, unknown>;
   requests?: RequestEntry[];
   sql?: SQLEntry[];
   logs?: LogEntry[];
+  jserrors?: JSErrorEntry[];
   config?: Record<string, unknown>;
   routes?: RouteEntry[];
   custom?: CustomSnapshot;

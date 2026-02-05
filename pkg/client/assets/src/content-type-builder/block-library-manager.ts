@@ -1150,7 +1150,7 @@ export function initBlockLibraryManagers(scope: ParentNode = document): void {
     if (mode === 'manage') {
       // Manage mode navigates to the Block Library IDE page
       trigger.addEventListener('click', () => {
-        window.location.href = `${apiBasePath}/block_definitions`;
+        window.location.href = `${apiBasePath}/content/block-library`;
       });
     } else {
       // Picker mode opens the modal for block selection

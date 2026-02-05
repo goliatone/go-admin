@@ -10,6 +10,7 @@ import type {
   LogEntry,
   RouteEntry,
   CustomSnapshot,
+  JSErrorEntry,
 } from './types.js';
 import { isSlowDuration } from './utils.js';
 import {
@@ -19,6 +20,7 @@ import {
   renderRoutesPanel,
   renderJSONPanel,
   renderCustomPanel,
+  renderJSErrorsPanel,
 } from './panels/index.js';
 
 // ============================================================================
@@ -447,6 +449,58 @@ const customPanel: PanelDefinition = {
   supportsToolbar: true,
 };
 
+/**
+ * JS Errors panel - Frontend JavaScript errors
+ * snapshotKey: "jserrors"
+ * eventTypes: "jserror" (singular)
+ */
+const jserrorsPanel: PanelDefinition = {
+  id: 'jserrors',
+  label: 'JS Errors',
+  icon: 'iconoir-warning-triangle',
+  snapshotKey: 'jserrors',
+  eventTypes: 'jserror',
+  category: 'core',
+  order: 35,
+
+  render: (data, styles, options) => {
+    const errors = (data as JSErrorEntry[]) || [];
+    return renderJSErrorsPanel(errors, styles, {
+      ...options,
+      compact: false,
+      showSortToggle: false,
+    });
+  },
+
+  renderConsole: (data, styles, options) => {
+    const errors = (data as JSErrorEntry[]) || [];
+    return renderJSErrorsPanel(errors, styles, {
+      ...options,
+      maxEntries: 500,
+      compact: false,
+      showSortToggle: false,
+    });
+  },
+
+  renderToolbar: (data, styles, options) => {
+    const errors = (data as JSErrorEntry[]) || [];
+    return renderJSErrorsPanel(errors, styles, {
+      ...options,
+      maxEntries: 50,
+      compact: true,
+      showSortToggle: true,
+    });
+  },
+
+  getCount: (data) => ((data as JSErrorEntry[]) || []).length,
+
+  handleEvent: (current, event) => {
+    return defaultHandleEvent(current || [], event, 500);
+  },
+
+  supportsToolbar: true,
+};
+
 // ============================================================================
 // Registration
 // ============================================================================
@@ -459,6 +513,7 @@ export function registerBuiltinPanels(): void {
   panelRegistry.register(requestsPanel);
   panelRegistry.register(sqlPanel);
   panelRegistry.register(logsPanel);
+  panelRegistry.register(jserrorsPanel);
   panelRegistry.register(routesPanel);
   panelRegistry.register(configPanel);
   panelRegistry.register(templatePanel);
@@ -475,18 +530,21 @@ export function getToolbarCounts(
     requests?: RequestEntry[];
     sql?: SQLEntry[];
     logs?: LogEntry[];
+    jserrors?: JSErrorEntry[];
   },
   slowThresholdMs = 50
 ): {
   requests: number;
   sql: number;
   logs: number;
+  jserrors: number;
   errors: number;
   slowQueries: number;
 } {
   const requests = snapshot.requests?.length || 0;
   const sql = snapshot.sql?.length || 0;
   const logs = snapshot.logs?.length || 0;
+  const jserrors = snapshot.jserrors?.length || 0;
 
   // Count errors
   const requestErrors = (snapshot.requests || []).filter((r) => (r.status || 0) >= 400).length;
@@ -505,7 +563,8 @@ export function getToolbarCounts(
     requests,
     sql,
     logs,
-    errors: requestErrors + sqlErrors + logErrors,
+    jserrors,
+    errors: requestErrors + sqlErrors + logErrors + jserrors,
     slowQueries,
   };
 }
@@ -515,6 +574,7 @@ export {
   requestsPanel,
   sqlPanel,
   logsPanel,
+  jserrorsPanel,
   routesPanel,
   configPanel,
   templatePanel,
