@@ -158,6 +158,14 @@ func NewStaticAssets(r router.Router[*fiber.App], cfg admin.Config, assetsFS fs.
 			FS:   formgen.RuntimeAssetsFS(),
 			Root: ".",
 		})
+		// go-formgen injects the relationships runtime at "/runtime/..." by default.
+		// Keep a root alias so forms work even when the admin is served under a base path.
+		if needsRuntimeRootAlias(options.runtimePrefix) {
+			r.Static("/runtime", ".", router.Static{
+				FS:   formgen.RuntimeAssetsFS(),
+				Root: ".",
+			})
+		}
 	}
 
 	if options.formgenPrefix != "" {
@@ -173,6 +181,16 @@ func NewStaticAssets(r router.Router[*fiber.App], cfg admin.Config, assetsFS fs.
 			Root: ".",
 		})
 	}
+}
+
+func needsRuntimeRootAlias(prefix string) bool {
+	trimmed := strings.TrimSpace(prefix)
+	if trimmed == "" {
+		return false
+	}
+	trimmed = strings.TrimSuffix(trimmed, "/")
+	trimmed = strings.TrimPrefix(trimmed, "/")
+	return trimmed != "runtime"
 }
 
 func resolveAssetsFS(base fs.FS) fs.FS {
