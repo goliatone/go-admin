@@ -57,7 +57,7 @@ func NewPagesSearchAdapter(store stores.PageRepository) *pagesSearchAdapter {
 func (a *pagesSearchAdapter) Search(ctx context.Context, query string, limit int) ([]admin.SearchResult, error) {
 	results := []admin.SearchResult{}
 	pages, _, _ := a.store.List(ctx, admin.ListOptions{
-		Filters: map[string]any{"_search": query, "status": "published"},
+		Filters: map[string]any{"_search": query},
 		PerPage: limit,
 	})
 	for _, page := range pages {
@@ -66,7 +66,7 @@ func (a *pagesSearchAdapter) Search(ctx context.Context, query string, limit int
 			ID:          fmt.Sprintf("%v", page["id"]),
 			Title:       fmt.Sprintf("%v", page["title"]),
 			Description: fmt.Sprintf("Slug: %v", page["slug"]),
-			URL:         fmt.Sprintf("/admin/pages/%v", page["id"]),
+			URL:         fmt.Sprintf("/admin/content/pages/%v", page["id"]),
 			Icon:        "file",
 		})
 	}
@@ -90,7 +90,7 @@ func NewPostsSearchAdapter(store stores.PostRepository) *postsSearchAdapter {
 func (a *postsSearchAdapter) Search(ctx context.Context, query string, limit int) ([]admin.SearchResult, error) {
 	results := []admin.SearchResult{}
 	posts, _, _ := a.store.List(ctx, admin.ListOptions{
-		Filters: map[string]any{"_search": query, "status": "published"},
+		Filters: map[string]any{"_search": query},
 		PerPage: limit,
 	})
 	for _, post := range posts {
@@ -99,7 +99,7 @@ func (a *postsSearchAdapter) Search(ctx context.Context, query string, limit int
 			ID:          fmt.Sprintf("%v", post["id"]),
 			Title:       fmt.Sprintf("%v", post["title"]),
 			Description: fmt.Sprintf("By %v in %v", post["author"], post["category"]),
-			URL:         fmt.Sprintf("/admin/posts/%v", post["id"]),
+			URL:         fmt.Sprintf("/admin/content/posts/%v", post["id"]),
 			Icon:        "file-text",
 		})
 	}

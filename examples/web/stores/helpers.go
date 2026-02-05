@@ -45,6 +45,14 @@ func stringID(val any) string {
 	return strings.TrimSpace(fmt.Sprint(val))
 }
 
+func isTranslationNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(msg, "translation not found")
+}
+
 func cloneAnyMap(src map[string]any) map[string]any {
 	if len(src) == 0 {
 		return nil

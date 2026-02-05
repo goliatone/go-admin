@@ -55,36 +55,30 @@ func (s *AdminPageStoreAdapter) List(ctx context.Context, opts admin.AdminPageLi
 	return out, total, nil
 }
 
-// Get returns a single admin page record, optionally hydrating content/blocks from the store.
+// Get returns a single admin page record using the CMS-backed store when available.
 func (s *AdminPageStoreAdapter) Get(ctx context.Context, id string, opts admin.AdminPageGetOptions) (*admin.AdminPageRecord, error) {
 	include := pageIncludeFlags{includeContent: opts.IncludeContent, includeBlocks: opts.IncludeBlocks, includeData: opts.IncludeData}
 	if s == nil {
 		return nil, admin.ErrNotFound
 	}
 
-	var record map[string]any
-	if s.adapter != nil {
-		if rec, err := s.adapter.Get(ctx, id); err == nil {
-			record = rec
-		} else if s.store == nil {
+	if s.store != nil {
+		record, err := s.store.Get(ctx, id)
+		if err != nil {
 			return nil, err
 		}
+		out := s.toAdminPageRecord(record, include, opts.Locale, opts.FallbackLocale)
+		return &out, nil
 	}
 
-	var fallback map[string]any
-	if s.store != nil && (record == nil || needsPageFallback(record, include)) {
-		if rec, err := s.store.Get(ctx, id); err == nil {
-			fallback = rec
-		} else if record == nil {
-			return nil, err
-		}
-	}
-
-	merged := mergePageRecordMaps(record, fallback)
-	if merged == nil {
+	if s.adapter == nil {
 		return nil, admin.ErrNotFound
 	}
-	out := s.toAdminPageRecord(merged, include, opts.Locale, opts.FallbackLocale)
+	record, err := s.adapter.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	out := s.toAdminPageRecord(record, include, opts.Locale, opts.FallbackLocale)
 	return &out, nil
 }
 
@@ -205,55 +199,6 @@ func (s *AdminPageStoreAdapter) listFromStore(ctx context.Context, opts admin.Li
 		out = append(out, s.toAdminPageRecord(record, include, locale, fallbackLocale))
 	}
 	return out, total, nil
-}
-
-func needsPageFallback(record map[string]any, include pageIncludeFlags) bool {
-	if record == nil {
-		return true
-	}
-	if include.includeBlocks && record["blocks"] == nil {
-		return true
-	}
-	if include.includeContent && strings.TrimSpace(asString(record["content"], "")) == "" {
-		return true
-	}
-	return false
-}
-
-func mergePageRecordMaps(base, fallback map[string]any) map[string]any {
-	if len(base) == 0 && len(fallback) == 0 {
-		return nil
-	}
-	merged := cloneRecord(base)
-	if len(merged) == 0 {
-		return cloneRecord(fallback)
-	}
-	if len(fallback) == 0 {
-		return merged
-	}
-	for _, key := range []string{"content", "blocks", "meta_title", "meta_description", "path", "preview_url", "summary", "tags", "locale", "status"} {
-		if isEmptyValue(merged[key]) && !isEmptyValue(fallback[key]) {
-			merged[key] = fallback[key]
-		}
-	}
-	return merged
-}
-
-func isEmptyValue(val any) bool {
-	switch v := val.(type) {
-	case nil:
-		return true
-	case string:
-		return strings.TrimSpace(v) == ""
-	case []string:
-		return len(v) == 0
-	case []any:
-		return len(v) == 0
-	case map[string]any:
-		return len(v) == 0
-	default:
-		return false
-	}
 }
 
 func (s *AdminPageStoreAdapter) toAdminPageRecord(record map[string]any, include pageIncludeFlags, requestedLocale, fallbackLocale string) admin.AdminPageRecord {

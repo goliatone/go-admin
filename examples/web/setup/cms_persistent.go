@@ -123,6 +123,32 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		Content: 5,
 		Pages:   5,
 	}
+	cmsCfg.Workflow.Definitions = []cms.WorkflowDefinitionConfig{
+		{
+			Entity:      "page",
+			Description: "Page workflow",
+			States: []cms.WorkflowStateConfig{
+				{Name: "draft", Description: "Draft content", Initial: true},
+				{Name: "pending_approval", Description: "Pending approval"},
+				{Name: "scheduled", Description: "Scheduled"},
+				{Name: "published", Description: "Published"},
+				{Name: "archived", Description: "Archived"},
+			},
+			Transitions: []cms.WorkflowTransitionConfig{
+				{Name: "request_approval", Description: "Submit for review", From: "draft", To: "pending_approval"},
+				{Name: "approve", Description: "Approve content", From: "pending_approval", To: "published"},
+				{Name: "reject", Description: "Reject content", From: "pending_approval", To: "draft"},
+				{Name: "publish", Description: "Publish content", From: "draft", To: "published"},
+				{Name: "schedule", Description: "Schedule content", From: "draft", To: "scheduled"},
+				{Name: "publish", Description: "Publish scheduled content", From: "scheduled", To: "published"},
+				{Name: "cancel_schedule", Description: "Cancel scheduled publish", From: "scheduled", To: "draft"},
+				{Name: "unpublish", Description: "Move back to draft", From: "published", To: "draft"},
+				{Name: "archive", Description: "Archive content", From: "draft", To: "archived"},
+				{Name: "archive", Description: "Archive content", From: "published", To: "archived"},
+				{Name: "restore", Description: "Restore from archive", From: "archived", To: "draft"},
+			},
+		},
+	}
 
 	profileName := "primary"
 	cmsCfg.Storage.Provider = profileName
@@ -152,7 +178,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	}
 	contentSvc := admin.CMSContentService(nil)
 	if module != nil && module.Content() != nil {
-		contentSvc = newGoCMSContentBridge(module.Content(), module.Pages(), module.Blocks(), seedRefs.TemplateID, map[string]uuid.UUID{
+		contentSvc = newGoCMSContentBridge(module.Content(), module.Blocks(), module.Pages(), seedRefs.TemplateID, map[string]uuid.UUID{
 			"page": seedRefs.PageContentTypeID,
 			"post": seedRefs.PostContentTypeID,
 		}, adapter.ContentTypeService())

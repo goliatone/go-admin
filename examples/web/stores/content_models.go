@@ -21,7 +21,7 @@ func seedContentUUID(seed string) uuid.UUID {
 	return uuid.NewSHA1(contentIDNamespace, []byte(trimmed))
 }
 
-// PageRecord maps CMS-backed page records exposed by go-crud.
+// PageRecord maps CMS-backed page records used by admin content tooling.
 type PageRecord struct {
 	bun.BaseModel `bun:"table:admin_page_records,alias:pr" crud:"resource:page"`
 
@@ -47,7 +47,7 @@ type PageRecord struct {
 	UpdatedAt          *time.Time `json:"updated_at,omitempty" bun:"updated_at,nullzero,default:current_timestamp"`
 }
 
-// PostRecord represents posts exposed via go-crud.
+// PostRecord represents posts used by admin content tooling.
 type PostRecord struct {
 	bun.BaseModel `bun:"table:admin_post_records,alias:apr" crud:"resource:post"`
 
