@@ -78,9 +78,22 @@ type Config struct {
 	DefaultOrgID    string
 }
 
+// URLNamespaceConfig defines URL defaults for a namespace (admin or public).
+type URLNamespaceConfig struct {
+	BasePath     string
+	APIPrefix    string
+	APIVersion   string
+	URLTemplate  string
+	TemplateVars map[string]string
+}
+
 // URLConfig controls admin URL generation defaults.
 type URLConfig struct {
-	APIPrefix  string
+	Admin  URLNamespaceConfig
+	Public URLNamespaceConfig
+	// Deprecated: APIPrefix is kept for backward compatibility during migration.
+	APIPrefix string
+	// Deprecated: APIVersion is kept for backward compatibility during migration.
 	APIVersion string
 	URLKit     *urlkit.Config
 }
