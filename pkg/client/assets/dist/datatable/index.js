@@ -1,7 +1,7 @@
 import { F as Ue } from "../chunks/toast-manager-CTShyzXw.js";
 import { e as At, T as ht } from "../chunks/error-helpers-DitNcCtC.js";
 import { b as tt, a as Ut } from "../chunks/badge-CqKzZ9y5.js";
-class Vt {
+class zt {
   constructor(e = {}) {
     this.actionBasePath = e.actionBasePath || "", this.mode = e.mode || "dropdown", this.notifier = e.notifier || new Ue();
   }
@@ -211,7 +211,7 @@ class Vt {
     return t.textContent = e, t.innerHTML;
   }
 }
-class zt {
+class Vt {
   constructor() {
     this.renderers = /* @__PURE__ */ new Map(), this.defaultRenderer = (e) => e == null ? '<span class="text-gray-400">-</span>' : typeof e == "boolean" ? e ? "Yes" : "No" : String(e), this.registerDefaultRenderers();
   }
@@ -280,7 +280,7 @@ class zt {
     });
   }
 }
-const jr = {
+const Gr = {
   /**
    * Status badge renderer with custom colors
    */
@@ -335,7 +335,7 @@ function ft(o, e) {
   }
   return t;
 }
-function V(o) {
+function z(o) {
   for (var e = 1; e < arguments.length; e++) {
     var t = arguments[e] != null ? arguments[e] : {};
     e % 2 ? ft(Object(t), !0).forEach(function(r) {
@@ -574,7 +574,7 @@ function Kt(o, e) {
       e.hasOwnProperty(t) && (o[t] = e[t]);
   return o;
 }
-function ze(o, e) {
+function Ve(o, e) {
   return Math.round(o.top) === Math.round(e.top) && Math.round(o.left) === Math.round(e.left) && Math.round(o.height) === Math.round(e.height) && Math.round(o.width) === Math.round(e.width);
 }
 var Ce;
@@ -621,7 +621,7 @@ function er() {
               target: n,
               rect: A(n)
             });
-            var i = V({}, o[o.length - 1].rect);
+            var i = z({}, o[o.length - 1].rect);
             if (n.thisAnimationDuration) {
               var s = he(n, !0);
               s && (i.top -= s.f, i.left -= s.e);
@@ -648,8 +648,8 @@ function er() {
       var i = !1, s = 0;
       o.forEach(function(a) {
         var l = 0, c = a.target, d = c.fromRect, u = A(c), f = c.prevFromRect, m = c.prevToRect, b = a.rect, E = he(c, !0);
-        E && (u.top -= E.f, u.left -= E.e), c.toRect = u, c.thisAnimationDuration && ze(f, u) && !ze(d, u) && // Make sure animatingRect is on line between toRect & fromRect
-        (b.top - u.top) / (b.left - u.left) === (d.top - u.top) / (d.left - u.left) && (l = rr(b, f, m, n.options)), ze(u, d) || (c.prevFromRect = d, c.prevToRect = u, l || (l = n.options.animation), n.animate(c, b, u, l)), l && (i = !0, s = Math.max(s, l), clearTimeout(c.animationResetTimer), c.animationResetTimer = setTimeout(function() {
+        E && (u.top -= E.f, u.left -= E.e), c.toRect = u, c.thisAnimationDuration && Ve(f, u) && !Ve(d, u) && // Make sure animatingRect is on line between toRect & fromRect
+        (b.top - u.top) / (b.left - u.left) === (d.top - u.top) / (d.left - u.left) && (l = rr(b, f, m, n.options)), Ve(u, d) || (c.prevFromRect = d, c.prevToRect = u, l || (l = n.options.animation), n.animate(c, b, u, l)), l && (i = !0, s = Math.max(s, l), clearTimeout(c.animationResetTimer), c.animationResetTimer = setTimeout(function() {
           c.animationTime = 0, c.prevFromRect = null, c.fromRect = null, c.prevToRect = null, c.thisAnimationDuration = null;
         }, l), c.thisAnimationDuration = l);
       }), clearTimeout(e), i ? e = setTimeout(function() {
@@ -691,9 +691,9 @@ var le = [], Ye = {
     };
     var i = e + "Global";
     le.forEach(function(s) {
-      t[s.pluginName] && (t[s.pluginName][i] && t[s.pluginName][i](V({
+      t[s.pluginName] && (t[s.pluginName][i] && t[s.pluginName][i](z({
         sortable: t
-      }, r)), t.options[s.pluginName] && t[s.pluginName][e] && t[s.pluginName][e](V({
+      }, r)), t.options[s.pluginName] && t[s.pluginName][e] && t[s.pluginName][e](z({
         sortable: t
       }, r)));
     });
@@ -733,7 +733,7 @@ function nr(o) {
       bubbles: !0,
       cancelable: !0
     }) : (E = document.createEvent("Event"), E.initEvent(r, !0, !0)), E.to = s || t, E.from = a || t, E.item = n || t, E.clone = i, E.oldIndex = l, E.newIndex = c, E.oldDraggableIndex = d, E.newDraggableIndex = u, E.originalEvent = f, E.pullMode = m ? m.lastPutMode : void 0;
-    var T = V(V({}, b), Pe.getEventProperties(r, e));
+    var T = z(z({}, b), Pe.getEventProperties(r, e));
     for (var q in T)
       E[q] = T[q];
     t && t.dispatchEvent(E), I[$] && I[$].call(e, E);
@@ -741,7 +741,7 @@ function nr(o) {
 }
 var or = ["evt"], B = function(e, t) {
   var r = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : {}, n = r.evt, i = Wt(r, or);
-  Pe.pluginEvent.bind(g)(e, t, V({
+  Pe.pluginEvent.bind(g)(e, t, z({
     dragEl: h,
     parentEl: x,
     ghostEl: v,
@@ -776,7 +776,7 @@ var or = ["evt"], B = function(e, t) {
   }, i));
 };
 function L(o) {
-  nr(V({
+  nr(z({
     putSortable: k,
     cloneEl: C,
     targetEl: h,
@@ -787,8 +787,8 @@ function L(o) {
     newDraggableIndex: K
   }, o));
 }
-var h, x, v, S, ae, Oe, C, Z, ue, N, xe, K, Le, k, de = !1, qe = !1, je = [], oe, j, Xe, We, bt, yt, ye, ce, De, Ae = !1, $e = !1, Me, P, Je = [], rt = !1, Ge = [], Ve = typeof document < "u", Be = at, wt = ke || W ? "cssFloat" : "float", ir = Ve && !kt && !at && "draggable" in document.createElement("div"), Ot = function() {
-  if (Ve) {
+var h, x, v, S, ae, Oe, C, Z, ue, N, xe, K, Le, k, de = !1, qe = !1, je = [], oe, j, Xe, We, bt, yt, ye, ce, De, Ae = !1, $e = !1, Me, P, Je = [], rt = !1, Ge = [], ze = typeof document < "u", Be = at, wt = ke || W ? "cssFloat" : "float", ir = ze && !kt && !at && "draggable" in document.createElement("div"), Ot = function() {
+  if (ze) {
     if (W)
       return !1;
     var o = document.createElement("x");
@@ -843,7 +843,7 @@ var h, x, v, S, ae, Oe, C, Z, ue, N, xe, K, Le, k, de = !1, qe = !1, je = [], oe
 }, Ft = function() {
   !Ot && v && p(v, "display", "");
 };
-Ve && !kt && document.addEventListener("click", function(o) {
+ze && !kt && document.addEventListener("click", function(o) {
   if (qe)
     return o.preventDefault(), o.stopPropagation && o.stopPropagation(), o.stopImmediatePropagation && o.stopImmediatePropagation(), qe = !1, !1;
 }, !0);
@@ -1110,7 +1110,7 @@ g.prototype = /** @lends Sortable.prototype */
     var t = this.el, r = e.target, n, i, s, a = this.options, l = a.group, c = g.active, d = Le === l, u = a.sort, f = k || c, m, b = this, E = !1;
     if (rt) return;
     function I(be, Gt) {
-      B(be, b, V({
+      B(be, b, z({
         evt: e,
         isOwner: d,
         axis: m ? "vertical" : "horizontal",
@@ -1170,14 +1170,14 @@ g.prototype = /** @lends Sortable.prototype */
         i = A(r);
         var H = 0, re, pe = h.parentNode !== t, M = !sr(h.animated && h.toRect || n, r.animated && r.toRect || i, m), ge = m ? "top" : "left", J = mt(r, "top", "top") || mt(h, "top", "top"), me = J ? J.scrollTop : void 0;
         ce !== r && (re = i[ge], Ae = !1, $e = !M && a.invertSwap || pe), H = fr(e, r, i, m, M ? 1 : a.swapThreshold, a.invertedSwapThreshold == null ? a.swapThreshold : a.invertedSwapThreshold, $e, ce === r);
-        var z;
+        var V;
         if (H !== 0) {
           var ne = F(h);
           do
-            ne -= H, z = x.children[ne];
-          while (z && (p(z, "display") === "none" || z === v));
+            ne -= H, V = x.children[ne];
+          while (V && (p(V, "display") === "none" || V === v));
         }
-        if (H === 0 || z === r)
+        if (H === 0 || V === r)
           return T(!1);
         ce = r, De = H;
         var ve = r.nextElementSibling, Q = !1;
@@ -1409,7 +1409,7 @@ function Re(o) {
 function nt(o) {
   return clearTimeout(o);
 }
-Ve && w(document, "touchmove", function(o) {
+ze && w(document, "touchmove", function(o) {
   (g.active || de) && o.cancelable && o.preventDefault();
 });
 g.utils = {
@@ -1441,7 +1441,7 @@ g.mount = function() {
   e[0].constructor === Array && (e = e[0]), e.forEach(function(r) {
     if (!r.prototype || !r.prototype.constructor)
       throw "Sortable: Mounted plugin must be a constructor function, not ".concat({}.toString.call(r));
-    r.utils && (g.utils = V(V({}, g.utils), r.utils)), Pe.mount(r);
+    r.utils && (g.utils = z(z({}, g.utils), r.utils)), Pe.mount(r);
   });
 };
 g.create = function(o, e) {
@@ -1517,11 +1517,11 @@ var et = $t(function(o, e, t, r) {
     do {
       var m = f, b = A(m), E = b.top, I = b.bottom, $ = b.left, T = b.right, q = b.width, O = b.height, te = void 0, H = void 0, re = m.scrollWidth, pe = m.scrollHeight, M = p(m), ge = m.scrollLeft, J = m.scrollTop;
       m === l ? (te = q < re && (M.overflowX === "auto" || M.overflowX === "scroll" || M.overflowX === "visible"), H = O < pe && (M.overflowY === "auto" || M.overflowY === "scroll" || M.overflowY === "visible")) : (te = q < re && (M.overflowX === "auto" || M.overflowX === "scroll"), H = O < pe && (M.overflowY === "auto" || M.overflowY === "scroll"));
-      var me = te && (Math.abs(T - n) <= s && ge + q < re) - (Math.abs($ - n) <= s && !!ge), z = H && (Math.abs(I - i) <= s && J + O < pe) - (Math.abs(E - i) <= s && !!J);
+      var me = te && (Math.abs(T - n) <= s && ge + q < re) - (Math.abs($ - n) <= s && !!ge), V = H && (Math.abs(I - i) <= s && J + O < pe) - (Math.abs(E - i) <= s && !!J);
       if (!D[u])
         for (var ne = 0; ne <= u; ne++)
           D[ne] || (D[ne] = {});
-      (D[u].vx != me || D[u].vy != z || D[u].el !== m) && (D[u].el = m, D[u].vx = me, D[u].vy = z, clearInterval(D[u].pid), (me != 0 || z != 0) && (c = !0, D[u].pid = setInterval(function() {
+      (D[u].vx != me || D[u].vy != V || D[u].el !== m) && (D[u].el = m, D[u].vx = me, D[u].vy = V, clearInterval(D[u].pid), (me != 0 || V != 0) && (c = !0, D[u].pid = setInterval(function() {
         r && this.layer === 0 && g.active._onTouchMove(He);
         var ve = D[this.layer].vy ? D[this.layer].vy * a : 0, Q = D[this.layer].vx ? D[this.layer].vx * a : 0;
         typeof d == "function" && d.call(g.dragged.parentNode[_], Q, ve, o, He, D[this.layer].el) !== "continue" || Bt(D[this.layer].el, Q, ve);
@@ -1777,13 +1777,13 @@ class yr {
       ),
       columnOrder: this.config.columns.map((t) => t.field)
       // Initialize with config column order
-    }, this.actionRenderer = new Vt({
+    }, this.actionRenderer = new zt({
       mode: this.config.actionRenderMode || "dropdown",
       // Default to dropdown
       actionBasePath: this.config.actionBasePath || this.config.apiEndpoint,
       notifier: this.notifier
       // Pass notifier to ActionRenderer
-    }), this.cellRendererRegistry = new zt(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([t, r]) => {
+    }), this.cellRendererRegistry = new Vt(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([t, r]) => {
       this.cellRendererRegistry.register(t, r);
     }), this.defaultColumns = this.config.columns.map((t) => ({ ...t }));
   }
@@ -2701,7 +2701,7 @@ const St = {
     { label: "between", value: "between" }
   ]
 };
-class Gr {
+class Hr {
   constructor(e) {
     this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new Ue();
   }
@@ -2993,7 +2993,7 @@ const Ct = {
     { label: "is not", value: "ne" }
   ]
 };
-class Hr {
+class Ur {
   constructor(e) {
     this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new Ue(), this.structure = { groups: [], groupLogic: [] }, this.init();
   }
@@ -3359,7 +3359,7 @@ class Hr {
     this.structure = e, this.render();
   }
 }
-class Ur {
+class zr {
   constructor(e) {
     if (this.searchableFields = e, !e || e.length === 0)
       throw new Error("At least one searchable field is required");
@@ -3396,7 +3396,7 @@ class Vr {
     r.resetPagination(), await r.refresh();
   }
 }
-class zr {
+class Yr {
   buildQuery(e, t) {
     return {
       limit: t,
@@ -3407,7 +3407,7 @@ class zr {
     await t.refresh();
   }
 }
-class Yr {
+class Xr {
   buildQuery(e) {
     return !e || e.length === 0 ? {} : { order: e.map((r) => `${r.field} ${r.direction}`).join(",") };
   }
@@ -3415,7 +3415,7 @@ class Yr {
     await r.refresh();
   }
 }
-class Xr {
+class Wr {
   constructor(e) {
     if (!e || !e.endpoint)
       throw new Error("export endpoint is required");
@@ -3645,7 +3645,7 @@ function se(o, e, t) {
   }
   e === "error" && alert(t);
 }
-class Wr {
+class Jr {
   constructor(e) {
     this.baseEndpoint = e;
   }
@@ -3670,10 +3670,14 @@ class Wr {
     await r.refresh();
   }
 }
+function Mr(o) {
+  const e = (o || "").trim();
+  return !e || e === "/" ? "" : "/" + e.replace(/^\/+|\/+$/g, "");
+}
 function jt(o) {
   return typeof o == "object" && o !== null && "version" in o && o.version === 2;
 }
-class Mr {
+class Rr {
   constructor(e, t = "datatable_columns") {
     this.cachedOrder = null, this.storageKey = t;
   }
@@ -3789,10 +3793,12 @@ class Mr {
     }
   }
 }
-class Jr extends Mr {
+class Qr extends Rr {
   constructor(e, t) {
     const r = t.localStorageKey || `${t.resource}_datatable_columns`;
-    super(e, r), this.syncTimeout = null, this.serverPrefs = null, this.resource = t.resource, this.preferencesEndpoint = t.preferencesEndpoint || "/admin/api/preferences", this.syncDebounce = t.syncDebounce ?? 1e3;
+    super(e, r), this.syncTimeout = null, this.serverPrefs = null, this.resource = t.resource;
+    const n = Mr(t.basePath);
+    this.preferencesEndpoint = t.preferencesEndpoint || `${n}/api/preferences`, this.syncDebounce = t.syncDebounce ?? 1e3;
   }
   /**
    * Get the server preference key for this resource
@@ -3942,20 +3948,20 @@ class Jr extends Mr {
   }
 }
 export {
-  Vt as ActionRenderer,
-  Gr as AdvancedSearch,
-  zt as CellRendererRegistry,
+  zt as ActionRenderer,
+  Hr as AdvancedSearch,
+  Vt as CellRendererRegistry,
   br as ColumnManager,
-  jr as CommonRenderers,
+  Gr as CommonRenderers,
   yr as DataGrid,
-  Mr as DefaultColumnVisibilityBehavior,
-  Hr as FilterBuilder,
-  Wr as GoCrudBulkActionBehavior,
-  Xr as GoCrudExportBehavior,
+  Rr as DefaultColumnVisibilityBehavior,
+  Ur as FilterBuilder,
+  Jr as GoCrudBulkActionBehavior,
+  Wr as GoCrudExportBehavior,
   Vr as GoCrudFilterBehavior,
-  zr as GoCrudPaginationBehavior,
-  Ur as GoCrudSearchBehavior,
-  Yr as GoCrudSortBehavior,
-  Jr as ServerColumnVisibilityBehavior
+  Yr as GoCrudPaginationBehavior,
+  zr as GoCrudSearchBehavior,
+  Xr as GoCrudSortBehavior,
+  Qr as ServerColumnVisibilityBehavior
 };
 //# sourceMappingURL=index.js.map

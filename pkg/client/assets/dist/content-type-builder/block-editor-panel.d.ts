@@ -25,6 +25,8 @@ export interface BlockEditorPanelConfig {
     onStatusChange?: (blockId: string, newStatus: BlockDefinitionStatus) => void;
     /** Called when the user triggers a manual save (Phase 11 — Task 11.1) */
     onSave?: (blockId: string) => void;
+    /** Called when the user clicks "+ Add Field" button in the fields header */
+    onAddFieldClick?: () => void;
 }
 export declare class BlockEditorPanel {
     private config;

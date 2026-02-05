@@ -28,6 +28,8 @@ function getErrorTypeClass(type: string | undefined): string {
       return 'error';
     case 'console_error':
       return 'warn';
+    case 'network_error':
+      return 'warn';
     default:
       return 'error';
   }
@@ -44,6 +46,8 @@ function formatErrorType(type: string | undefined): string {
       return 'Rejection';
     case 'console_error':
       return 'Console';
+    case 'network_error':
+      return 'Network';
     default:
       return type || 'Error';
   }
@@ -64,9 +68,11 @@ function renderErrorRow(
   const source = entry.source || '';
   const hasStack = !!entry.stack;
   const location =
-    source && entry.line
-      ? `${source}:${entry.line}${entry.column ? ':' + entry.column : ''}`
-      : source || '';
+    entry.type === 'network_error' && entry.extra?.request_url
+      ? String(entry.extra.request_url)
+      : source && entry.line
+        ? `${source}:${entry.line}${entry.column ? ':' + entry.column : ''}`
+        : source || '';
 
   const expandIcon = hasStack ? `<span class="${styles.expandIcon}">&#9654;</span>` : '';
   const expandableClass = hasStack ? styles.expandableRow : '';

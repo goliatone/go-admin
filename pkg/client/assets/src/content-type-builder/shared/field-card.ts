@@ -2,13 +2,10 @@
  * Shared Field Card
  *
  * Renders a consistent field card for both the Block Editor Panel
- * (compact, accordion-style) and Content Type Editor (standard,
- * modal-editing). Supports drag-and-drop, expand/collapse,
+ * and Content Type Editor. Supports drag-and-drop, expand/collapse,
  * reorder buttons, and custom action slots.
  *
- * Layout variants:
- *   compact (Block Editor):  smaller padding, xs icon/text sizes, accordion
- *   standard (Content Type): larger padding, standard icon/text sizes
+ * Both surfaces use the same standard sizing by default (compact=false).
  */
 
 import type { FieldDefinition } from '../types';
@@ -82,13 +79,8 @@ const ERROR_ICON = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewB
 /**
  * Render a shared field card.
  *
- * In **compact** mode (Block Editor):
- *   Smaller padding (px-2 py-2), xs icon (w-7 h-7), xs text,
- *   monospace metadata line, accordion expansion.
- *
- * In **standard** mode (Content Type Editor):
- *   Standard padding (p-3), sm icon (w-8 h-8), standard text,
- *   richer metadata (type label, section, gridSpan).
+ * Both surfaces use the standard sizing by default.
+ * Set `compact: true` for a denser layout (smaller padding, xs text).
  */
 export function renderFieldCard(config: FieldCardConfig): string {
   const {
@@ -249,5 +241,53 @@ export function renderFieldCard(config: FieldCardConfig): string {
           ${expandToggle}
         </div>
         ${isExpanded && expandable ? renderExpandedContent!() : ''}
+      </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Shared Kebab Actions Menu
+// ---------------------------------------------------------------------------
+
+const KEBAB_ICON = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>';
+
+/**
+ * Render a kebab (⋮) action button for a field card.
+ * Both surfaces use this to trigger contextual menus.
+ */
+export function renderFieldKebab(fieldId: string): string {
+  return `<button type="button" data-field-actions="${esc(fieldId)}"
+                    class="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    title="Field actions">
+              ${KEBAB_ICON}
+            </button>`;
+}
+
+// ---------------------------------------------------------------------------
+// Shared Drop Zone
+// ---------------------------------------------------------------------------
+
+export interface DropZoneConfig {
+  /** Whether the zone is currently highlighted (drag hover) */
+  highlight?: boolean;
+  /** Helper text shown inside the zone */
+  text?: string;
+}
+
+/**
+ * Render a shared field drop zone used at the bottom of field lists.
+ * Both the Block Editor and Content Type Editor use this.
+ */
+export function renderDropZone(config: DropZoneConfig = {}): string {
+  const {
+    highlight = false,
+    text = 'Drop a field here or click a field type in the palette',
+  } = config;
+  const highlightClass = highlight
+    ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/20'
+    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600';
+  return `
+      <div data-field-drop-zone
+           class="mx-3 my-2 py-6 border-2 border-dashed rounded-lg text-center transition-colors ${highlightClass}">
+        <p class="text-xs text-gray-400 dark:text-gray-500">${esc(text)}</p>
       </div>`;
 }

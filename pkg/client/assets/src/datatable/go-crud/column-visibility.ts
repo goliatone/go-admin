@@ -15,6 +15,12 @@ interface ColumnPrefsV2 {
   order?: string[];
 }
 
+function normalizeBasePath(basePath?: string): string {
+  const trimmed = (basePath || '').trim();
+  if (!trimmed || trimmed === '/') return '';
+  return '/' + trimmed.replace(/^\/+|\/+$/g, '');
+}
+
 /**
  * Type guard to check if prefs are V2 format
  */
@@ -244,7 +250,9 @@ export class DefaultColumnVisibilityBehavior implements ColumnVisibilityBehavior
 export interface ServerColumnVisibilityConfig {
   /** Resource name for the preference key (e.g., 'users' -> 'ui.datagrid.users.columns') */
   resource: string;
-  /** Base path for preferences API (default: '/admin/api/preferences') */
+  /** Base path for the preferences API (used when preferencesEndpoint is omitted) */
+  basePath?: string;
+  /** Base path for preferences API (default: '/api/preferences' unless basePath is provided) */
   preferencesEndpoint?: string;
   /** localStorage key for local cache (default: '<resource>_datatable_columns') */
   localStorageKey?: string;
@@ -274,7 +282,8 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
     super(initialColumns, localStorageKey);
 
     this.resource = config.resource;
-    this.preferencesEndpoint = config.preferencesEndpoint || '/admin/api/preferences';
+    const basePath = normalizeBasePath(config.basePath);
+    this.preferencesEndpoint = config.preferencesEndpoint || `${basePath}/api/preferences`;
     this.syncDebounce = config.syncDebounce ?? 1000;
   }
 

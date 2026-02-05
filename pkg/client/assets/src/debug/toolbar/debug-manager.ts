@@ -6,11 +6,18 @@ import { DebugToolbar } from './debug-toolbar.js';
 import type { DebugSnapshot } from './panel-renderers.js';
 
 export interface DebugManagerOptions {
+  basePath?: string;
   debugPath?: string;
   panels?: string[];
   slowThresholdMs?: number;
   container?: HTMLElement;
 }
+
+const normalizeBasePath = (basePath?: string): string => {
+  const trimmed = (basePath || '').trim();
+  if (!trimmed || trimmed === '/') return '';
+  return '/' + trimmed.replace(/^\/+|\/+$/g, '');
+};
 
 export class DebugManager {
   private fab: DebugFab | null = null;
@@ -20,12 +27,19 @@ export class DebugManager {
 
   constructor(options: DebugManagerOptions = {}) {
     this.options = {
-      debugPath: '/admin/debug',
       panels: ['requests', 'sql', 'logs', 'routes', 'config'],
       slowThresholdMs: 50,
       container: document.body,
       ...options,
     };
+
+    const normalizedBasePath = normalizeBasePath(this.options.basePath);
+    if (normalizedBasePath) {
+      this.options.basePath = normalizedBasePath;
+    }
+    if (!this.options.debugPath && normalizedBasePath) {
+      this.options.debugPath = `${normalizedBasePath}/debug`;
+    }
   }
 
   /**
@@ -87,7 +101,12 @@ export class DebugManager {
 
   private createFab(): void {
     this.fab = document.createElement('debug-fab') as DebugFab;
-    this.fab.setAttribute('debug-path', this.options.debugPath || '/admin/debug');
+    if (this.options.debugPath) {
+      this.fab.setAttribute('debug-path', this.options.debugPath);
+    }
+    if (this.options.basePath) {
+      this.fab.setAttribute('base-path', this.options.basePath);
+    }
     if (this.options.panels) {
       this.fab.setAttribute('panels', this.options.panels.join(','));
     }
@@ -96,7 +115,12 @@ export class DebugManager {
 
   private createToolbar(): void {
     this.toolbar = document.createElement('debug-toolbar') as DebugToolbar;
-    this.toolbar.setAttribute('debug-path', this.options.debugPath || '/admin/debug');
+    if (this.options.debugPath) {
+      this.toolbar.setAttribute('debug-path', this.options.debugPath);
+    }
+    if (this.options.basePath) {
+      this.toolbar.setAttribute('base-path', this.options.basePath);
+    }
     this.toolbar.setAttribute('use-fab', 'true');
     if (this.options.panels) {
       this.toolbar.setAttribute('panels', this.options.panels.join(','));
@@ -169,12 +193,14 @@ export function initDebugManager(): DebugManager | null {
 
   if (windowConfig) {
     options = {
-      debugPath: windowConfig.debugPath || windowConfig.basePath,
+      basePath: windowConfig.basePath,
+      debugPath: windowConfig.debugPath,
       panels: windowConfig.panels,
       slowThresholdMs: windowConfig.slowThresholdMs,
     };
   } else if (existingElement) {
     options = {
+      basePath: existingElement.getAttribute('data-base-path') || undefined,
       debugPath: existingElement.getAttribute('data-debug-path') || undefined,
       panels: existingElement.getAttribute('data-panels')?.split(','),
       slowThresholdMs: parseInt(existingElement.getAttribute('data-slow-threshold-ms') || '50', 10),
@@ -182,7 +208,7 @@ export function initDebugManager(): DebugManager | null {
   }
 
   // Only initialize if we have a debug path configured
-  if (!options.debugPath && !windowConfig && !existingElement) {
+  if (!options.debugPath && !options.basePath && !windowConfig && !existingElement) {
     return null;
   }
 

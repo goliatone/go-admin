@@ -20,7 +20,7 @@ import { ConfirmModal, TextPromptModal } from '../shared/modal';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { renderEntityHeader, renderSaveIndicator } from './shared/entity-header';
 import type { SaveState } from './shared/entity-header';
-import { renderFieldCard as renderFieldCardShared } from './shared/field-card';
+import { renderFieldCard as renderFieldCardShared, renderDropZone } from './shared/field-card';
 import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
 
 // =============================================================================
@@ -40,6 +40,8 @@ export interface BlockEditorPanelConfig {
   onStatusChange?: (blockId: string, newStatus: BlockDefinitionStatus) => void;
   /** Called when the user triggers a manual save (Phase 11 — Task 11.1) */
   onSave?: (blockId: string) => void;
+  /** Called when the user clicks "+ Add Field" button in the fields header */
+  onAddFieldClick?: () => void;
 }
 
 interface SectionState {
@@ -262,8 +264,15 @@ export class BlockEditorPanel {
           <div class="flex items-center gap-2">
             <span class="w-1 h-4 rounded-full bg-emerald-400"></span>
             <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fields</span>
+            <span class="text-[11px] text-gray-400 dark:text-gray-500">0 fields</span>
           </div>
-          <span class="text-[11px] text-gray-400 dark:text-gray-500">0 fields</span>
+          <button type="button" data-block-add-field
+                  class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Add Field
+          </button>
         </div>
         <div data-field-drop-zone
              class="flex flex-col items-center justify-center py-16 px-5 text-center border-2 border-dashed ${this.dropHighlight ? 'border-blue-400 bg-blue-50/50' : 'border-transparent'} rounded-lg mx-3 my-2 transition-colors">
@@ -281,8 +290,15 @@ export class BlockEditorPanel {
         <div class="flex items-center gap-2">
           <span class="w-1 h-4 rounded-full bg-emerald-400"></span>
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Fields</span>
+          <span class="text-[11px] text-gray-400 dark:text-gray-500">${this.fields.length} field${this.fields.length !== 1 ? 's' : ''}</span>
         </div>
-        <span class="text-[11px] text-gray-400 dark:text-gray-500">${this.fields.length} field${this.fields.length !== 1 ? 's' : ''}</span>
+        <button type="button" data-block-add-field
+                class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Add Field
+        </button>
       </div>`;
 
     for (const sectionName of sectionNames) {
@@ -313,11 +329,7 @@ export class BlockEditorPanel {
     }
 
     // Drop zone at the bottom (Phase 9 — Task 9.3)
-    html += `
-      <div data-field-drop-zone
-           class="mx-3 my-2 py-3 border-2 border-dashed rounded-lg text-center transition-colors ${this.dropHighlight ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}">
-        <p class="text-[11px] text-gray-400 dark:text-gray-500">Drop a field here or click a field type in the palette</p>
-      </div>`;
+    html += renderDropZone({ highlight: this.dropHighlight });
 
     return html;
   }
@@ -329,6 +341,14 @@ export class BlockEditorPanel {
   private renderFieldCard(field: FieldDefinition, allSections: string[], sectionFields: FieldDefinition[]): string {
     const sectionName = field.section || DEFAULT_SECTION;
     const indexInSection = sectionFields.indexOf(field);
+
+    // Build constraint badges
+    const constraints: string[] = [];
+    if (field.validation?.minLength !== undefined) constraints.push(`min: ${field.validation.minLength}`);
+    if (field.validation?.maxLength !== undefined) constraints.push(`max: ${field.validation.maxLength}`);
+    if (field.validation?.min !== undefined) constraints.push(`>= ${field.validation.min}`);
+    if (field.validation?.max !== undefined) constraints.push(`<= ${field.validation.max}`);
+    if (field.validation?.pattern) constraints.push('pattern');
 
     // Build actions HTML (3-dot menu + move-to-section dropdown)
     const actionsHtml = `
@@ -350,9 +370,10 @@ export class BlockEditorPanel {
       showReorderButtons: true,
       isFirst: indexInSection === 0,
       isLast: indexInSection === sectionFields.length - 1,
-      compact: true,
+      compact: false,
       sectionName,
       actionsHtml,
+      constraintBadges: constraints,
       renderExpandedContent: () => this.renderFieldProperties(field, allSections),
     });
   }
@@ -890,6 +911,15 @@ export class BlockEditorPanel {
 
   private handleClick(e: Event, root: HTMLElement): void {
     const target = e.target as HTMLElement;
+
+    // Add Field button in fields header
+    const addFieldBtn = target.closest<HTMLElement>('[data-block-add-field]');
+    if (addFieldBtn) {
+      if (this.config.onAddFieldClick) {
+        this.config.onAddFieldClick();
+      }
+      return;
+    }
 
     // Section toggle (Task 8.3)
     const sectionToggle = target.closest<HTMLElement>('[data-toggle-section]');

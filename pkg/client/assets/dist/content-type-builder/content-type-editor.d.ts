@@ -23,6 +23,8 @@ export declare class ContentTypeEditor {
     private cachedBlocks;
     private blocksLoading;
     private blockPickerModes;
+    /** Currently open field kebab menu (null = none open) */
+    private fieldActionsMenuId;
     constructor(container: HTMLElement, config: ContentTypeEditorConfig);
     /**
      * Initialize the editor
@@ -56,6 +58,10 @@ export declare class ContentTypeEditor {
      */
     moveField(fieldId: string, targetSection: string, targetIndex: number): void;
     /**
+     * Move a field up (-1) or down (+1) within its section
+     */
+    moveFieldByDirection(fieldId: string, direction: -1 | 1): void;
+    /**
      * Validate the schema
      */
     validateSchema(): Promise<void>;
@@ -68,6 +74,7 @@ export declare class ContentTypeEditor {
     private renderFieldsSection;
     private renderFieldListHTML;
     private renderFieldCard;
+    private renderFieldActionsMenu;
     private renderBlocksInlineContent;
     private renderCapabilitiesSection;
     private renderPreviewPanel;
@@ -96,6 +103,8 @@ export declare class ContentTypeEditor {
     private removeDropIndicator;
     private getOrCreateDropIndicator;
     private bindDragEvents;
+    /** Bind drag-and-drop events on [data-field-drop-zone] for palette drops */
+    private bindFieldDropZoneEvents;
     private bindLifecycleMenuEvents;
     private togglePalette;
     private initPaletteIfNeeded;

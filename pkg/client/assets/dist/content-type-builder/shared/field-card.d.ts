@@ -2,13 +2,10 @@
  * Shared Field Card
  *
  * Renders a consistent field card for both the Block Editor Panel
- * (compact, accordion-style) and Content Type Editor (standard,
- * modal-editing). Supports drag-and-drop, expand/collapse,
+ * and Content Type Editor. Supports drag-and-drop, expand/collapse,
  * reorder buttons, and custom action slots.
  *
- * Layout variants:
- *   compact (Block Editor):  smaller padding, xs icon/text sizes, accordion
- *   standard (Content Type): larger padding, standard icon/text sizes
+ * Both surfaces use the same standard sizing by default (compact=false).
  */
 import type { FieldDefinition } from '../types';
 export interface FieldCardConfig {
@@ -46,13 +43,24 @@ export interface FieldCardConfig {
 /**
  * Render a shared field card.
  *
- * In **compact** mode (Block Editor):
- *   Smaller padding (px-2 py-2), xs icon (w-7 h-7), xs text,
- *   monospace metadata line, accordion expansion.
- *
- * In **standard** mode (Content Type Editor):
- *   Standard padding (p-3), sm icon (w-8 h-8), standard text,
- *   richer metadata (type label, section, gridSpan).
+ * Both surfaces use the standard sizing by default.
+ * Set `compact: true` for a denser layout (smaller padding, xs text).
  */
 export declare function renderFieldCard(config: FieldCardConfig): string;
+/**
+ * Render a kebab (⋮) action button for a field card.
+ * Both surfaces use this to trigger contextual menus.
+ */
+export declare function renderFieldKebab(fieldId: string): string;
+export interface DropZoneConfig {
+    /** Whether the zone is currently highlighted (drag hover) */
+    highlight?: boolean;
+    /** Helper text shown inside the zone */
+    text?: string;
+}
+/**
+ * Render a shared field drop zone used at the bottom of field lists.
+ * Both the Block Editor and Content Type Editor use this.
+ */
+export declare function renderDropZone(config?: DropZoneConfig): string;
 //# sourceMappingURL=field-card.d.ts.map

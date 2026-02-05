@@ -106,6 +106,8 @@ export declare class BlockLibraryIDE {
     private renderEditor;
     private handleEditorMetadataChange;
     private handleEditorSchemaChange;
+    /** Handle "+ Add Field" button click from the editor panel */
+    private handleAddFieldClick;
     /** Handle adding a field from the palette (Phase 9 — click or drop) */
     private handlePaletteAddField;
     private getFilteredBlocks;

@@ -280,6 +280,7 @@ export interface ContentTypeBuilderState {
 }
 export interface ContentTypeEditorConfig {
     apiBasePath: string;
+    basePath?: string;
     contentTypeId?: string;
     locale?: string;
     onSave?: (contentType: ContentType) => void;
