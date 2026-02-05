@@ -23,6 +23,10 @@ type moduleRegistrarOptions struct {
 	onDisabled func(feature, moduleID string) error
 }
 
+type menuSeedHook interface {
+	AfterMenuSeed(ctx context.Context, admin *admin.Admin) error
+}
+
 // WithModuleRegistrarContext sets the context used for navigation seeding.
 func WithModuleRegistrarContext(ctx context.Context) ModuleRegistrarOption {
 	return func(opts *moduleRegistrarOptions) {
@@ -141,6 +145,10 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 		}
 	}
 
+	if err := preSeedContentTypeBuilder(adm, cfg, ordered); err != nil {
+		return err
+	}
+
 	if options.seed && options.seedOpts.MenuSvc != nil {
 		items := buildSeedMenuItems(menuCode, locale, ordered, options.menuItems)
 		options.seedOpts.Items = items
@@ -152,8 +160,51 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 				return seedErr
 			}
 		}
+		if err := runMenuSeedHooks(options.ctx, adm, ordered); err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+func preSeedContentTypeBuilder(adm *admin.Admin, cfg admin.Config, modules []admin.Module) error {
+	if adm == nil || len(modules) == 0 {
+		return nil
+	}
+	for _, mod := range modules {
+		builder, ok := mod.(*admin.ContentTypeBuilderModule)
+		if !ok || builder == nil {
+			continue
+		}
+		err := builder.Register(admin.ModuleContext{
+			Admin:  adm,
+			Router: adm.PublicRouter(),
+			Locale: strings.TrimSpace(cfg.DefaultLocale),
+		})
+		if err != nil && !errors.Is(err, admin.ErrFeatureDisabled) {
+			return err
+		}
+	}
+	return nil
+}
+
+func runMenuSeedHooks(ctx context.Context, adm *admin.Admin, modules []admin.Module) error {
+	if adm == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	for _, mod := range modules {
+		hook, ok := mod.(menuSeedHook)
+		if !ok || hook == nil {
+			continue
+		}
+		if err := hook.AfterMenuSeed(ctx, adm); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
