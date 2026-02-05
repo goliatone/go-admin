@@ -24,10 +24,13 @@ func (a *Admin) registerContentEntryAliases() {
 	}
 	a.contentAliasRoutesRegistered = true
 
-	basePath := strings.TrimSpace(a.config.BasePath)
 	wrap := a.authWrapper()
 	for _, alias := range []string{contentAliasPages, contentAliasPosts} {
-		aliasBase := joinPath(basePath, alias)
+		aliasRoute := "content.alias." + alias
+		aliasBase := adminRoutePath(a, aliasRoute)
+		if aliasBase == "" {
+			aliasBase = joinBasePath(adminBasePath(a.config), alias)
+		}
 		handler := a.contentAliasHandler(alias, aliasBase)
 		a.router.Get(aliasBase, wrap(handler))
 		a.router.Get(aliasBase+"/*path", wrap(handler))
@@ -48,7 +51,10 @@ func (a *Admin) contentAliasHandler(alias string, aliasBase string) router.Handl
 		if panelSlug == "" {
 			panelSlug = alias
 		}
-		target := joinPath(a.config.BasePath, path.Join("content", panelSlug))
+		target := resolveURLWith(a.urlManager, "admin", "content.panel", map[string]string{"panel": panelSlug}, nil)
+		if target == "" {
+			target = joinBasePath(adminBasePath(a.config), path.Join("content", panelSlug))
+		}
 
 		suffix := strings.TrimPrefix(c.Path(), aliasBase)
 		if suffix != "" && !strings.HasPrefix(suffix, "/") {
