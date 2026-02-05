@@ -19,63 +19,64 @@ import (
 
 // Admin orchestrates CMS-backed admin features and adapters.
 type Admin struct {
-	config                      Config
-	featureGate                 fggate.FeatureGate
-	featureCatalog              catalog.Catalog
-	featureCatalogResolver      catalog.MessageResolver
-	urlManager                  *urlkit.RouteManager
-	registry                    *Registry
-	cms                         CMSContainer
-	widgetSvc                   CMSWidgetService
-	menuSvc                     CMSMenuService
-	contentSvc                  CMSContentService
-	contentTypeSvc              CMSContentTypeService
-	authenticator               Authenticator
-	router                      AdminRouter
-	commandBus                  *CommandBus
-	dashboard                   *Dashboard
-	debugCollector              *DebugCollector
-	replSessionStore            DebugREPLSessionStore
-	replSessionManager          *DebugREPLSessionManager
-	replCommandCatalog          *DebugREPLCommandCatalog
-	dash                        *dashboardComponents
-	nav                         *Navigation
-	search                      *SearchEngine
-	authorizer                  Authorizer
-	notifications               NotificationService
-	activity                    ActivitySink
-	activityFeed                ActivityFeedQuerier
-	activityPolicy              activity.ActivityAccessPolicy
-	jobs                        *JobRegistry
-	settings                    *SettingsService
-	settingsForm                *SettingsFormAdapter
-	settingsCommand             *SettingsUpdateCommand
-	preferences                 *PreferencesService
-	profile                     *ProfileService
-	users                       *UserManagementService
-	tenants                     *TenantService
-	organizations               *OrganizationService
-	bulkUserImport              *command.BulkUserImportCommand
-	panelForm                   *PanelFormAdapter
-	themeProvider               ThemeProvider
-	themeManifest               *theme.Manifest
-	defaultTheme                *ThemeSelection
-	exportRegistry              ExportRegistry
-	exportRegistrar             ExportHTTPRegistrar
-	exportMetadata              ExportMetadataProvider
-	bulkSvc                     BulkService
-	mediaLibrary                MediaLibrary
-	modulesLoaded               bool
-	navMenuCode                 string
-	translator                  Translator
-	workflow                    WorkflowEngine
-	cmsWorkflowDefaults         bool
-	cmsWorkflowActions          []Action
-	cmsWorkflowActionsSet       bool
-	preview                     *PreviewService
-	panelTabPermissionEvaluator PanelTabPermissionEvaluator
-	panelTabCollisionHandler    PanelTabCollisionHandler
-	cmsRoutesRegistered         bool
+	config                       Config
+	featureGate                  fggate.FeatureGate
+	featureCatalog               catalog.Catalog
+	featureCatalogResolver       catalog.MessageResolver
+	urlManager                   *urlkit.RouteManager
+	registry                     *Registry
+	cms                          CMSContainer
+	widgetSvc                    CMSWidgetService
+	menuSvc                      CMSMenuService
+	contentSvc                   CMSContentService
+	contentTypeSvc               CMSContentTypeService
+	authenticator                Authenticator
+	router                       AdminRouter
+	commandBus                   *CommandBus
+	dashboard                    *Dashboard
+	debugCollector               *DebugCollector
+	replSessionStore             DebugREPLSessionStore
+	replSessionManager           *DebugREPLSessionManager
+	replCommandCatalog           *DebugREPLCommandCatalog
+	dash                         *dashboardComponents
+	nav                          *Navigation
+	search                       *SearchEngine
+	authorizer                   Authorizer
+	notifications                NotificationService
+	activity                     ActivitySink
+	activityFeed                 ActivityFeedQuerier
+	activityPolicy               activity.ActivityAccessPolicy
+	jobs                         *JobRegistry
+	settings                     *SettingsService
+	settingsForm                 *SettingsFormAdapter
+	settingsCommand              *SettingsUpdateCommand
+	preferences                  *PreferencesService
+	profile                      *ProfileService
+	users                        *UserManagementService
+	tenants                      *TenantService
+	organizations                *OrganizationService
+	bulkUserImport               *command.BulkUserImportCommand
+	panelForm                    *PanelFormAdapter
+	themeProvider                ThemeProvider
+	themeManifest                *theme.Manifest
+	defaultTheme                 *ThemeSelection
+	exportRegistry               ExportRegistry
+	exportRegistrar              ExportHTTPRegistrar
+	exportMetadata               ExportMetadataProvider
+	bulkSvc                      BulkService
+	mediaLibrary                 MediaLibrary
+	modulesLoaded                bool
+	navMenuCode                  string
+	translator                   Translator
+	workflow                     WorkflowEngine
+	cmsWorkflowDefaults          bool
+	cmsWorkflowActions           []Action
+	cmsWorkflowActionsSet        bool
+	preview                      *PreviewService
+	panelTabPermissionEvaluator  PanelTabPermissionEvaluator
+	panelTabCollisionHandler     PanelTabCollisionHandler
+	cmsRoutesRegistered          bool
+	contentAliasRoutesRegistered bool
 }
 
 type activityAware interface {
@@ -855,7 +856,7 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 	if builder.authorizer == nil {
 		builder.authorizer = a.authorizer
 	}
-	if builder.workflow == nil {
+	if builder.workflow == nil && !builder.workflowSet {
 		builder.workflow = a.workflow
 	}
 	panel, err := builder.Build()
