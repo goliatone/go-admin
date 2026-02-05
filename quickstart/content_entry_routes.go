@@ -127,7 +127,11 @@ func RegisterContentEntryUIRoutes(
 		options.viewContext = defaultUIViewContextBuilder(adm, cfg)
 	}
 	if options.formRenderer == nil {
-		renderer, err := admin.NewFormgenSchemaValidator(cfg.BasePath)
+		apiBase := ""
+		if adm != nil {
+			apiBase = adm.AdminAPIBasePath()
+		}
+		renderer, err := admin.NewFormgenSchemaValidatorWithAPIBase(cfg.BasePath, apiBase)
 		if err != nil {
 			return err
 		}
