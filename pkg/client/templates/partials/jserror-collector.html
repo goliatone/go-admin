@@ -1,8 +1,9 @@
 {% if debug_jserror_enabled %}
 <script>
   // Global JS error collector — synchronous IIFE, runs before module scripts.
-  // Captures uncaught exceptions, unhandled rejections, and console.error calls,
-  // then batches them to the debug backend via sendBeacon/fetch.
+  // Captures uncaught exceptions, unhandled rejections, console.error calls,
+  // and network errors (failed fetch/XHR), then batches them to the debug
+  // backend via sendBeacon/fetch.
   // Independent of the debug toolbar; controlled by CaptureJSErrors config flag.
   (function() {
     var endpoint = '{{ debug_jserror_endpoint }}';
@@ -11,6 +12,8 @@
     var sending = false;
     var MAX_QUEUE = 50;
     var FLUSH_MS = 2000;
+    var __dbgSending = false;
+    var origFetch = window.fetch;
 
     function report(entry) {
       if (queue.length >= MAX_QUEUE) return;
@@ -31,13 +34,14 @@
       sending = false;
       if (queue.length === 0) return;
       var batch = queue.splice(0, MAX_QUEUE);
+      __dbgSending = true;
       for (var i = 0; i < batch.length; i++) {
         var body = JSON.stringify(batch[i]);
         try {
           if (navigator.sendBeacon) {
             navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));
           } else {
-            fetch(endpoint, {
+            origFetch(endpoint, {
               method: 'POST',
               body: body,
               headers: { 'Content-Type': 'application/json' },
@@ -49,6 +53,7 @@
           // Silently ignore send failures to avoid error loops.
         }
       }
+      __dbgSending = false;
     }
 
     // 1. Uncaught exceptions
@@ -93,6 +98,80 @@
         inOverride = false;
       }
       return origError.apply(console, arguments);
+    };
+
+    // 4. Network errors: intercept fetch()
+    if (typeof origFetch === 'function') {
+      window.fetch = function(input, init) {
+        var promise = origFetch.apply(this, arguments);
+        if (__dbgSending) return promise;
+
+        var method = 'GET';
+        var url = '';
+        if (typeof input === 'string') {
+          url = input;
+        } else if (input && typeof input === 'object') {
+          url = input.url || '';
+          method = (input.method || 'GET').toUpperCase();
+        }
+        if (init && init.method) {
+          method = init.method.toUpperCase();
+        }
+        if (url === endpoint) return promise;
+
+        return promise.then(function(response) {
+          if (!response.ok) {
+            report({
+              type: 'network_error',
+              message: method + ' ' + url + ' ' + response.status + ' (' + (response.statusText || 'Error') + ')',
+              extra: { method: method, status: response.status, status_text: response.statusText || '', request_url: url }
+            });
+          }
+          return response;
+        }, function(err) {
+          report({
+            type: 'network_error',
+            message: method + ' ' + url + ' failed: ' + (err && err.message ? err.message : String(err)),
+            extra: { method: method, status: 0, status_text: 'Network Error', request_url: url }
+          });
+          throw err;
+        });
+      };
+    }
+
+    // 5. Network errors: intercept XMLHttpRequest
+    var origXHROpen = XMLHttpRequest.prototype.open;
+    var origXHRSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function(method, url) {
+      this.__dbgMethod = (method || 'GET').toUpperCase();
+      this.__dbgURL = url || '';
+      return origXHROpen.apply(this, arguments);
+    };
+
+    XMLHttpRequest.prototype.send = function() {
+      var xhr = this;
+      var method = xhr.__dbgMethod || 'GET';
+      var url = xhr.__dbgURL || '';
+
+      if (!__dbgSending && url !== endpoint) {
+        xhr.addEventListener('loadend', function() {
+          if (__dbgSending) return;
+          if (xhr.status === 0 || xhr.status >= 400) {
+            var statusText = '';
+            try { statusText = xhr.statusText || ''; } catch(e) {}
+            var msg = xhr.status === 0
+              ? method + ' ' + url + ' failed: Network Error'
+              : method + ' ' + url + ' ' + xhr.status + ' (' + (statusText || 'Error') + ')';
+            report({
+              type: 'network_error',
+              message: msg,
+              extra: { method: method, status: xhr.status, status_text: statusText, request_url: url }
+            });
+          }
+        });
+      }
+      return origXHRSend.apply(this, arguments);
     };
 
     // Flush remaining errors on page unload

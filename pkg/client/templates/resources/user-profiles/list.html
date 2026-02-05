@@ -326,6 +326,8 @@
 import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
 
 // Template variables
+const basePath = '{{ base_path }}';
+const apiBasePath = '{{ api_base_path|default:"" }}';
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};
 const exportConfig = {{ toJSON(export_config)|safe }};
@@ -338,16 +340,18 @@ const gridColumns = columns.map(col => ({
 {% verbatim %}
 document.addEventListener('DOMContentLoaded', async function() {
   // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
+  const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: 'user-profiles',
-    localStorageKey: 'user_profiles_datatable_columns'
+    localStorageKey: 'user_profiles_datatable_columns',
+    preferencesEndpoint: preferencesEndpoint
   });
   await columnVisibility.loadFromServer();
 
   // Initialize the DataGrid component
   const grid = new DataGrid({
     tableId: 'user-profiles-datatable',
-    apiEndpoint: '/admin/crud/user-profiles',
+    apiEndpoint: `${basePath}/crud/user-profiles`,
     actionBasePath: actionBasePath,
     columns: gridColumns,
     perPage: 10,
