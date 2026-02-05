@@ -35,6 +35,7 @@ type DebugCollector struct {
 	requestLog   *RingBuffer[RequestEntry]
 	sqlLog       *RingBuffer[SQLEntry]
 	serverLog    *RingBuffer[LogEntry]
+	jsErrorLog   *RingBuffer[JSErrorEntry]
 	customData   map[string]any
 	customLog    *RingBuffer[CustomLogEntry]
 	configData   map[string]any
@@ -97,6 +98,21 @@ type CustomLogEntry struct {
 	Fields    map[string]any `json:"fields,omitempty"`
 }
 
+// JSErrorEntry captures a frontend JavaScript error reported by the browser.
+type JSErrorEntry struct {
+	ID        string         `json:"id"`
+	Timestamp time.Time      `json:"timestamp"`
+	Type      string         `json:"type"`
+	Message   string         `json:"message"`
+	Source    string         `json:"source,omitempty"`
+	Line      int            `json:"line,omitempty"`
+	Column    int            `json:"column,omitempty"`
+	Stack     string         `json:"stack,omitempty"`
+	URL       string         `json:"url,omitempty"`
+	UserAgent string         `json:"user_agent,omitempty"`
+	Extra     map[string]any `json:"extra,omitempty"`
+}
+
 // DebugEvent is sent to WebSocket subscribers.
 type DebugEvent struct {
 	Type      string    `json:"type"`
@@ -123,6 +139,7 @@ func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 		requestLog:   NewRingBuffer[RequestEntry](cfg.MaxLogEntries),
 		sqlLog:       NewRingBuffer[SQLEntry](cfg.MaxSQLQueries),
 		serverLog:    NewRingBuffer[LogEntry](cfg.MaxLogEntries),
+		jsErrorLog:   NewRingBuffer[JSErrorEntry](cfg.MaxLogEntries),
 		customData:   map[string]any{},
 		customLog:    NewRingBuffer[CustomLogEntry](cfg.MaxLogEntries),
 		subscribers:  map[string]chan DebugEvent{},
@@ -283,6 +300,27 @@ func (c *DebugCollector) CaptureLog(entry LogEntry) {
 		log.Add(entry)
 	}
 	c.publish("log", entry)
+}
+
+// CaptureJSError records a frontend JavaScript error.
+func (c *DebugCollector) CaptureJSError(entry JSErrorEntry) {
+	if c == nil || !c.panelEnabled(DebugPanelJSErrors) {
+		return
+	}
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now()
+	}
+	entry.Message = debugMaskInlineString(c.config, entry.Message)
+	entry.Stack = debugMaskInlineString(c.config, entry.Stack)
+	entry.URL = debugMaskInlineString(c.config, entry.URL)
+	entry.Source = debugMaskInlineString(c.config, entry.Source)
+	if len(entry.Extra) > 0 {
+		entry.Extra = debugMaskMap(c.config, entry.Extra)
+	}
+	if c.jsErrorLog != nil {
+		c.jsErrorLog.Add(entry)
+	}
+	c.publish("jserror", entry)
 }
 
 // CaptureConfigSnapshot stores a config snapshot for the config panel.
@@ -481,6 +519,9 @@ func (c *DebugCollector) Snapshot() map[string]any {
 	if c.panelEnabled(DebugPanelLogs) && c.serverLog != nil {
 		snapshot[DebugPanelLogs] = c.serverLog.Values()
 	}
+	if c.panelEnabled(DebugPanelJSErrors) && c.jsErrorLog != nil {
+		snapshot[DebugPanelJSErrors] = c.jsErrorLog.Values()
+	}
 	if c.panelEnabled(DebugPanelCustom) {
 		customSnapshot := map[string]any{
 			"data": customData,
@@ -585,6 +626,9 @@ func (c *DebugCollector) Clear() {
 	if c.serverLog != nil {
 		c.serverLog.Clear()
 	}
+	if c.jsErrorLog != nil {
+		c.jsErrorLog.Clear()
+	}
 	if c.customLog != nil {
 		c.customLog.Clear()
 	}
@@ -629,6 +673,10 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 	case DebugPanelLogs:
 		if c.serverLog != nil {
 			c.serverLog.Clear()
+		}
+	case DebugPanelJSErrors:
+		if c.jsErrorLog != nil {
+			c.jsErrorLog.Clear()
 		}
 	case DebugPanelCustom:
 		c.mu.Lock()
