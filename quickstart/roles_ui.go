@@ -15,6 +15,7 @@ import (
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 type RolesUIOption func(*rolesUIOptions)
@@ -26,6 +27,7 @@ type rolesUIOptions struct {
 	detailTemplate string
 	viewContext    UIViewContextBuilder
 	formGenerator  *formgenorchestrator.Orchestrator
+	urls           urlkit.Resolver
 }
 
 // WithRolesBasePath overrides the base path used to build role routes.
@@ -95,8 +97,11 @@ func RegisterRolesUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 		}
 	}
 
-	if options.basePath == "" {
-		options.basePath = "/"
+	if options.urls == nil && adm != nil {
+		options.urls = adm.URLs()
+	}
+	if resolved := resolveAdminBasePath(options.urls, options.basePath); resolved != "" {
+		options.basePath = resolved
 	}
 	if options.formGenerator == nil {
 		formGen, err := admin.NewRoleFormGenerator(cfg)
@@ -106,12 +111,12 @@ func RegisterRolesUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *a
 		options.formGenerator = formGen
 	}
 
-	handlers := newRoleHandlers(adm, cfg, options.formGenerator, options.viewContext, options.formTemplate, options.listTemplate, options.detailTemplate)
-	listPath := path.Join(options.basePath, "roles")
-	newPath := path.Join(options.basePath, "roles", "new")
-	detailPath := path.Join(options.basePath, "roles", ":id")
-	editPath := path.Join(options.basePath, "roles", ":id", "edit")
-	deletePath := path.Join(options.basePath, "roles", ":id", "delete")
+	handlers := newRoleHandlersWithRoutes(adm, cfg, options.formGenerator, options.viewContext, options.formTemplate, options.listTemplate, options.detailTemplate, options.basePath, options.urls)
+	listPath := resolveAdminRoutePath(options.urls, options.basePath, "roles")
+	newPath := path.Join(listPath, "new")
+	detailPath := path.Join(listPath, ":id")
+	editPath := path.Join(listPath, ":id", "edit")
+	deletePath := path.Join(listPath, ":id", "delete")
 
 	wrap := adm.AuthWrapper()
 	r.Get(listPath, wrap(handlers.list))
@@ -133,9 +138,25 @@ type roleHandlers struct {
 	listTemplate   string
 	formTemplate   string
 	detailTemplate string
+	basePath       string
+	rolesRoot      string
+	urls           urlkit.Resolver
 }
 
 func newRoleHandlers(adm *admin.Admin, cfg admin.Config, formGen *formgenorchestrator.Orchestrator, viewCtx UIViewContextBuilder, formTemplate string, listTemplate string, detailTemplate string) *roleHandlers {
+	basePath := cfg.BasePath
+	var urls urlkit.Resolver
+	if adm != nil {
+		urls = adm.URLs()
+	}
+	if resolved := resolveAdminBasePath(urls, basePath); resolved != "" {
+		basePath = resolved
+	}
+	return newRoleHandlersWithRoutes(adm, cfg, formGen, viewCtx, formTemplate, listTemplate, detailTemplate, basePath, urls)
+}
+
+func newRoleHandlersWithRoutes(adm *admin.Admin, cfg admin.Config, formGen *formgenorchestrator.Orchestrator, viewCtx UIViewContextBuilder, formTemplate string, listTemplate string, detailTemplate string, basePath string, urls urlkit.Resolver) *roleHandlers {
+	rolesRoot := resolveAdminRoutePath(urls, basePath, "roles")
 	return &roleHandlers{
 		admin:          adm,
 		cfg:            cfg,
@@ -144,6 +165,9 @@ func newRoleHandlers(adm *admin.Admin, cfg admin.Config, formGen *formgenorchest
 		formTemplate:   formTemplate,
 		listTemplate:   listTemplate,
 		detailTemplate: detailTemplate,
+		basePath:       basePath,
+		rolesRoot:      rolesRoot,
+		urls:           urls,
 	}
 }
 
@@ -157,10 +181,10 @@ func (h *roleHandlers) list(c router.Context) error {
 		return err
 	}
 
-	routes := newResourceRoutes(h.cfg.BasePath, "roles")
+	routes := newResourceRoutes(h.basePath, "roles")
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
-		"base_path":      h.cfg.BasePath,
+		"base_path":      h.basePath,
 		"resource":       "roles",
 		"resource_label": "Roles",
 		"routes":         routes.routesMap(),
@@ -194,7 +218,7 @@ func (h *roleHandlers) create(c router.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.Redirect(path.Join(h.cfg.BasePath, "roles"))
+	return c.Redirect(h.rolesRoot)
 }
 
 func (h *roleHandlers) edit(c router.Context) error {
@@ -224,7 +248,7 @@ func (h *roleHandlers) update(c router.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.Redirect(path.Join(h.cfg.BasePath, "roles", id))
+	return c.Redirect(path.Join(h.rolesRoot, id))
 }
 
 func (h *roleHandlers) detail(c router.Context) error {
@@ -236,7 +260,7 @@ func (h *roleHandlers) detail(c router.Context) error {
 		return err
 	}
 
-	routes := newResourceRoutes(h.cfg.BasePath, "roles")
+	routes := newResourceRoutes(h.basePath, "roles")
 	id := fmt.Sprint(record["id"])
 	record["actions"] = routes.actionsMap(id)
 	fields := []map[string]any{
@@ -255,7 +279,7 @@ func (h *roleHandlers) detail(c router.Context) error {
 
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
-		"base_path":      h.cfg.BasePath,
+		"base_path":      h.basePath,
 		"resource":       "roles",
 		"resource_label": "Roles",
 		"routes":         routes.routesMap(),
@@ -279,14 +303,14 @@ func (h *roleHandlers) delete(c router.Context) error {
 	if err := service.DeleteRole(c.Context(), id); err != nil {
 		return err
 	}
-	return c.Redirect(path.Join(h.cfg.BasePath, "roles"))
+	return c.Redirect(h.rolesRoot)
 }
 
 func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdit bool, template string) error {
 	if h.formGenerator == nil {
 		return errors.New("role form generator is not configured")
 	}
-	routes := newResourceRoutes(h.cfg.BasePath, "roles")
+	routes := newResourceRoutes(h.basePath, "roles")
 	operationID := admin.CreateRoleOperation
 	opts := formgenrender.RenderOptions{}
 	if isEdit {
@@ -313,11 +337,11 @@ func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdi
 			formID = strings.TrimSpace(c.Param("id"))
 		}
 	}
-	html = rewriteRolesFormHTML(html, h.cfg.BasePath, formID)
+	html = rewriteRolesFormHTML(html, h.rolesRoot, formID)
 
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
-		"base_path":      h.cfg.BasePath,
+		"base_path":      h.basePath,
 		"resource":       "roles",
 		"resource_label": "Roles",
 		"routes":         routes.routesMap(),
@@ -331,23 +355,21 @@ func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdi
 	return c.Render(template, viewCtx)
 }
 
-func rewriteRolesFormHTML(raw []byte, basePath string, id string) []byte {
+func rewriteRolesFormHTML(raw []byte, rolesRoot string, id string) []byte {
 	if len(raw) == 0 {
 		return raw
 	}
-	basePath = strings.TrimSpace(basePath)
-	if basePath == "" {
-		basePath = "/"
-	}
-	rolesRoot := path.Join(basePath, "roles")
-	if !strings.HasPrefix(rolesRoot, "/") {
+	rolesRoot = strings.TrimSpace(rolesRoot)
+	if rolesRoot == "" {
+		rolesRoot = "/roles"
+	} else if !strings.HasPrefix(rolesRoot, "/") && !isAbsoluteURL(rolesRoot) {
 		rolesRoot = "/" + rolesRoot
 	}
 
 	rendered := strings.ReplaceAll(string(raw), "/admin/roles", rolesRoot)
 	if id != "" {
-		action := path.Join(rolesRoot, id)
-		rendered = strings.ReplaceAll(rendered, path.Join(rolesRoot, "{id}"), action)
+		action := prefixBasePath(rolesRoot, id)
+		rendered = strings.ReplaceAll(rendered, prefixBasePath(rolesRoot, "{id}"), action)
 		rendered = strings.ReplaceAll(rendered, "/admin/roles/{id}", action)
 		rendered = strings.ReplaceAll(rendered, "{id}", id)
 	}

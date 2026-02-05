@@ -11,6 +11,7 @@ import (
 	"github.com/gobuffalo/flect"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	fgtemplates "github.com/goliatone/go-featuregate/templates"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // TemplateFuncOption customizes default template functions.
@@ -22,6 +23,7 @@ type templateFuncOptions struct {
 	featureGate          fggate.FeatureGate
 	featureHelperOptions []fgtemplates.HelperOption
 	basePath             string
+	urls                 urlkit.Resolver
 }
 
 // DefaultTemplateFuncs returns shared template functions for view rendering.
@@ -69,7 +71,7 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		"singularize":    flect.Singularize,
 		"pluralize":      flect.Pluralize,
 		"adminURL": func(path string) string {
-			return joinAdminURL(basePath, path)
+			return resolveAdminURL(options.urls, basePath, path)
 		},
 		"renderMenuIcon": renderMenuIcon,
 		"dict": func(values ...any) (map[string]any, error) {
@@ -141,13 +143,23 @@ func WithWidgetTitleFunc(fn func(string) string) TemplateFuncOption {
 	}
 }
 
-// WithTemplateBasePath configures the base path used by adminURL helper.
+// WithTemplateBasePath configures the fallback base path used by adminURL helper.
 func WithTemplateBasePath(basePath string) TemplateFuncOption {
 	return func(opts *templateFuncOptions) {
 		if opts == nil {
 			return
 		}
 		opts.basePath = strings.TrimSpace(basePath)
+	}
+}
+
+// WithTemplateURLResolver configures the URLKit resolver used by adminURL helper.
+func WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption {
+	return func(opts *templateFuncOptions) {
+		if opts == nil || urls == nil {
+			return
+		}
+		opts.urls = urls
 	}
 }
 
@@ -183,31 +195,7 @@ func defaultWidgetTitles() map[string]string {
 }
 
 func sanitizeTemplateBasePath(basePath string) string {
-	trimmed := strings.TrimSpace(basePath)
-	if trimmed == "" {
-		return ""
-	}
-	return "/" + strings.Trim(trimmed, "/")
-}
-
-func joinAdminURL(basePath, path string) string {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
-		return basePath
-	}
-	if strings.HasPrefix(trimmed, "http://") ||
-		strings.HasPrefix(trimmed, "https://") ||
-		strings.HasPrefix(trimmed, "//") {
-		return trimmed
-	}
-	if basePath == "" || basePath == "/" {
-		if strings.HasPrefix(trimmed, "/") {
-			return trimmed
-		}
-		return "/" + trimmed
-	}
-	trimmed = strings.TrimPrefix(trimmed, "/")
-	return basePath + "/" + trimmed
+	return normalizeBasePathValue(basePath)
 }
 
 func cloneWidgetTitles(input map[string]string) map[string]string {
