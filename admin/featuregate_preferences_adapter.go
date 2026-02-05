@@ -120,13 +120,18 @@ func (a *PreferencesStoreAdapter) Load(ctx context.Context, ref state.Ref) (map[
 }
 
 // Save implements state.Store.
-func (a *PreferencesStoreAdapter) Save(ctx context.Context, ref state.Ref, snapshot map[string]any, _ state.Meta) (state.Meta, error) {
+func (a *PreferencesStoreAdapter) Save(ctx context.Context, ref state.Ref, snapshot map[string]any, meta state.Meta) (state.Meta, error) {
 	if a == nil || a.store == nil {
 		return state.Meta{}, prefStoreRequiredError(ref.Scope, ref.Domain, "save")
 	}
 	level, prefScope, err := a.preferenceScope(ref.Scope)
 	if err != nil {
 		return state.Meta{}, err
+	}
+	if prefScope.UserID == "" {
+		if actorID := actorIDFromMeta(meta); actorID != "" {
+			prefScope.UserID = actorID
+		}
 	}
 
 	prefix := a.domainPrefix(ref.Domain)
@@ -190,6 +195,13 @@ func (a *PreferencesStoreAdapter) Save(ctx context.Context, ref state.Ref, snaps
 	}
 
 	return state.Meta{}, nil
+}
+
+func actorIDFromMeta(meta state.Meta) string {
+	if meta.Extra == nil {
+		return ""
+	}
+	return strings.TrimSpace(meta.Extra["actor_id"])
 }
 
 func (a *PreferencesStoreAdapter) preferenceScope(scopeDef opts.Scope) (PreferenceLevel, PreferenceScope, error) {
