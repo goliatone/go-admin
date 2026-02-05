@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -308,10 +309,23 @@ func (p *panelBinding) Preview(c router.Context, locale, id string) (map[string]
 	if err != nil {
 		return nil, err
 	}
+	query := url.Values{}
+	if strings.TrimSpace(locale) != "" {
+		query.Set("locale", locale)
+	}
+
+	queryString := strings.TrimSpace(query.Encode())
+	// TODO: Remove hardcoded URL
+	previewURL := fmt.Sprintf("/api/v1/preview/%s", token)
+	adminURL := joinPath(p.admin.config.BasePath, fmt.Sprintf("api/preview/%s", token))
+	if queryString != "" {
+		previewURL = previewURL + "?" + queryString
+		adminURL = adminURL + "?" + queryString
+	}
 	return map[string]any{
 		"token":     token,
-		"url":       fmt.Sprintf("/api/v1/preview/%s", token),
-		"admin_url": joinPath(p.admin.config.BasePath, fmt.Sprintf("api/preview/%s", token)),
+		"url":       previewURL,
+		"admin_url": adminURL,
 		"format":    format,
 	}, nil
 }
