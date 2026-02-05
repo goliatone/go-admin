@@ -7,6 +7,7 @@
 - Centralized error handling: API error responses now go through a shared presenter that sets `location`, `stack_trace`, and consistent `text_code`/`category` defaults.
 - Stack traces are included by default in dev mode; production stack traces are opt-in.
 - Translation workflow refactor: CMS read APIs now use options-based signatures and return translation metadata with nil translation payloads when missing; workflow checks now accept state/environment; writes require explicit create-translation intent.
+- URL normalization cleanup: legacy path helpers were removed (`admin/internal/helpers.JoinPath`, `admin/path_helpers.go`, quickstart `joinBasePath`/`joinAdminURL`). URL generation and route registration now rely on `Config.URLs` + URLKit.
 
 ## 🛠 Upgrade Guide
 
@@ -24,6 +25,9 @@
   - Pass `TranslationCheckOptions` (state/environment/version) to `CheckTranslations` in workflow guards.
   - Require an explicit `CreateTranslation` flag/command for writes when the requested locale is missing.
   - Remove any legacy adapters or string-matching error handling for missing translations.
+- URL normalization migration:
+  - Replace any custom uses of `joinPath`/`joinAdminURL`/`joinBasePath` with URLKit route resolution (`adm.URLs().Resolve(...)`) or `RoutePath` helpers.
+  - Move URL customization to `Config.URLs.Admin` and `Config.URLs.Public` (BasePath, APIPrefix, APIVersion) or supply a full `Config.URLs.URLKit` override.
 
 # [0.23.0](https://github.com/goliatone/go-admin/compare/v0.22.0...v0.23.0) - (2026-01-29)
 
