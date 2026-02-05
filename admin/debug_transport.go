@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -136,6 +137,9 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	register(joinPath(basePath, "api/snapshot"), m.handleDebugSnapshot)
 	registerPost(joinPath(basePath, "api/clear"), m.handleDebugClear)
 	registerPost(joinPath(basePath, "api/clear/:panel"), m.handleDebugClearPanel)
+	// JS error ingestion endpoint — registered without access middleware so
+	// the global error collector on all app pages can report errors.
+	admin.router.Post(joinPath(basePath, "api/errors"), m.handleJSErrorReport)
 }
 
 func (m *DebugModule) registerDebugWebSocket(admin *Admin) {
@@ -232,6 +236,59 @@ func (m *DebugModule) handleDebugClearPanel(c router.Context) error {
 	}
 	m.publishSnapshot()
 	return writeJSON(c, map[string]string{"status": "ok", "panel": panelID})
+}
+
+var errJSErrorMessageRequired = goerrors.New("message is required", goerrors.CategoryValidation).
+	WithCode(http.StatusBadRequest).
+	WithTextCode("MISSING_MESSAGE")
+
+func (m *DebugModule) handleJSErrorReport(c router.Context) error {
+	if m == nil || m.collector == nil {
+		return writeJSON(c, map[string]string{"status": "ignored"})
+	}
+	if !m.config.CaptureJSErrors {
+		return writeError(c, ErrNotFound)
+	}
+	var payload struct {
+		Type      string         `json:"type"`
+		Message   string         `json:"message"`
+		Source    string         `json:"source"`
+		Line      int            `json:"line"`
+		Column    int            `json:"column"`
+		Stack     string         `json:"stack"`
+		URL       string         `json:"url"`
+		UserAgent string         `json:"user_agent"`
+		Nonce     string         `json:"nonce"`
+		Extra     map[string]any `json:"extra"`
+	}
+	if err := json.Unmarshal(c.Body(), &payload); err != nil {
+		return writeError(c, goerrors.New("invalid JSON payload", goerrors.CategoryValidation).
+			WithCode(http.StatusBadRequest).
+			WithTextCode("INVALID_PAYLOAD"))
+	}
+	// Validate double-submit cookie nonce.
+	cookieNonce := c.Cookies(debugNonceCookieName)
+	if !debugValidateNonce(cookieNonce, payload.Nonce) {
+		return writeError(c, ErrForbidden)
+	}
+	if strings.TrimSpace(payload.Message) == "" {
+		return writeError(c, errJSErrorMessageRequired)
+	}
+	entry := JSErrorEntry{
+		ID:        uuid.NewString(),
+		Timestamp: time.Now(),
+		Type:      strings.TrimSpace(payload.Type),
+		Message:   payload.Message,
+		Source:    payload.Source,
+		Line:      payload.Line,
+		Column:    payload.Column,
+		Stack:     payload.Stack,
+		URL:       payload.URL,
+		UserAgent: payload.UserAgent,
+		Extra:     payload.Extra,
+	}
+	m.collector.CaptureJSError(entry)
+	return writeJSON(c, map[string]string{"status": "ok"})
 }
 
 func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
