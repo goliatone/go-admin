@@ -17,9 +17,14 @@ type AdminConfigOption func(*admin.Config)
 
 // NewAdminConfig builds a baseline admin config with quickstart defaults.
 func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOption) admin.Config {
+	basePath = strings.TrimSpace(basePath)
+	if basePath == "" {
+		basePath = "/admin"
+	}
+	basePath = normalizeBasePathValue(basePath)
 	cfg := admin.Config{
 		Title:         strings.TrimSpace(title),
-		BasePath:      normalizeBasePath(basePath),
+		BasePath:      basePath,
 		DefaultLocale: strings.TrimSpace(defaultLocale),
 		Theme:         "admin",
 		ThemeVariant:  "light",
@@ -183,14 +188,6 @@ func WithDefaultScope(tenantID, orgID string) AdminConfigOption {
 // WithScopeFromEnv applies scope defaults from ADMIN_SCOPE_* env vars.
 func WithScopeFromEnv() AdminConfigOption {
 	return WithScopeConfig(ScopeConfigFromEnv())
-}
-
-func normalizeBasePath(basePath string) string {
-	trimmed := strings.TrimSpace(basePath)
-	if trimmed == "" {
-		return "/admin"
-	}
-	return "/" + strings.Trim(trimmed, "/")
 }
 
 func envBool(key string) (bool, bool) {
