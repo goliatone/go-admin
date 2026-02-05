@@ -6,7 +6,7 @@ This guide explains how go-admin templates are packaged, how the view engine is 
 
 - Embedded admin templates and assets via `pkg/client` (HTML templates + static assets).
 - Quickstart view engine setup with template/assets fallback stacking.
-- Default template helpers (JSON, dict, singularize/pluralize, widget titles, etc.).
+- Default template helpers (JSON, dict, singularize/pluralize, adminURL, widget titles, etc.).
 - Sidebar templates/assets and dashboard SSR templates embedded in quickstart.
 - Theme wiring helpers for go-theme.
 - Opt-in UI route helpers for the admin shell, notifications, and auth pages.
@@ -35,13 +35,23 @@ The admin UI templates ship with the module and are exported from `pkg/client`.
 ```go
 views, err := quickstart.NewViewEngine(
 	client.FS(),
-	quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs()),
+	quickstart.WithViewBasePath(cfg.BasePath),
 )
 if err != nil {
 	return err
 }
 
 quickstart.NewStaticAssets(r, cfg, client.Assets())
+```
+
+If you override template funcs, pass the base path into the defaults so `adminURL` stays correct:
+
+```go
+funcs := quickstart.DefaultTemplateFuncs(quickstart.WithTemplateBasePath(cfg.BasePath))
+views, err := quickstart.NewViewEngine(
+	client.FS(),
+	quickstart.WithViewTemplateFuncs(funcs),
+)
 ```
 
 Important: `baseFS` must include templates (use `client.FS()` or `client.Templates()` as the base FS).
