@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"errors"
+	"net/url"
+	"path"
 	"sort"
 	"strings"
 
@@ -443,7 +445,7 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 			_, _ = svc.CreateMenu(ctx, a.navMenuCode)
 			dashboardTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "")}
 			contentTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "content")}
-			pagesTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "pages")}
+			pagesTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "content/pages")}
 			conflictsTarget := map[string]any{"type": "url", "path": joinPath(a.config.BasePath, "block_conflicts")}
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: intPtr(1), Locale: "en", Target: dashboardTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: intPtr(2), Locale: "en", Target: contentTarget})
@@ -458,24 +460,48 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 
 // search adapter using generic repository for content/pages.
 type repoSearchAdapter struct {
-	repo       Repository
-	resource   string
-	permission string
+	repo             Repository
+	resource         string
+	permission       string
+	basePath         string
+	panelSlug        string
+	environment      string
+	titleField       string
+	descriptionField string
 }
 
 func (r *repoSearchAdapter) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
-	records, _, err := r.repo.List(ctx, ListOptions{Filters: map[string]any{"_search": query}, PerPage: limit})
+	if r == nil || r.repo == nil {
+		return nil, nil
+	}
+	filters := map[string]any{"_search": query}
+	if status := strings.TrimSpace(firstQueryValue(queryParamsFromContext(ctx), "status", "filter_status", "status_filter")); status != "" {
+		filters["status"] = status
+	}
+	records, _, err := r.repo.List(ctx, ListOptions{
+		Filters: filters,
+		PerPage: limit,
+		Search:  query,
+	})
 	if err != nil {
 		return nil, err
 	}
 	out := []SearchResult{}
 	for _, rec := range records {
+		id := toString(rec["id"])
+		if id == "" {
+			continue
+		}
+		resource := strings.TrimSpace(r.resource)
+		if resource == "" {
+			resource = strings.TrimSpace(r.panelSlug)
+		}
 		out = append(out, SearchResult{
-			Type:        r.resource,
-			ID:          toString(rec["id"]),
-			Title:       toString(rec["title"]),
-			Description: toString(rec["status"]),
-			URL:         "",
+			Type:        resource,
+			ID:          id,
+			Title:       r.resolveTitle(rec, id),
+			Description: r.resolveDescription(rec),
+			URL:         r.resolveURL(id),
 			Icon:        "file-text",
 		})
 		if len(out) >= limit {
@@ -487,6 +513,56 @@ func (r *repoSearchAdapter) Search(ctx context.Context, query string, limit int)
 
 func (r *repoSearchAdapter) Permission() string {
 	return r.permission
+}
+
+func (r *repoSearchAdapter) resolveTitle(record map[string]any, fallback string) string {
+	if record == nil {
+		return strings.TrimSpace(fallback)
+	}
+	if field := strings.TrimSpace(r.titleField); field != "" {
+		if title := strings.TrimSpace(toString(record[field])); title != "" {
+			return title
+		}
+	}
+	return strings.TrimSpace(firstNonEmpty(
+		toString(record["title"]),
+		toString(record["name"]),
+		toString(record["label"]),
+		toString(record["slug"]),
+		fallback,
+	))
+}
+
+func (r *repoSearchAdapter) resolveDescription(record map[string]any) string {
+	if record == nil {
+		return ""
+	}
+	if field := strings.TrimSpace(r.descriptionField); field != "" {
+		return strings.TrimSpace(toString(record[field]))
+	}
+	return strings.TrimSpace(firstNonEmpty(
+		toString(record["status"]),
+		toString(record["summary"]),
+	))
+}
+
+func (r *repoSearchAdapter) resolveURL(id string) string {
+	if id == "" {
+		return ""
+	}
+	panelSlug := strings.TrimSpace(r.panelSlug)
+	if panelSlug == "" {
+		return ""
+	}
+	base := joinPath(r.basePath, path.Join("content", panelSlug, id))
+	if env := strings.TrimSpace(r.environment); env != "" {
+		separator := "?"
+		if strings.Contains(base, "?") {
+			separator = "&"
+		}
+		base = base + separator + "env=" + url.QueryEscape(env)
+	}
+	return base
 }
 
 func (a *Admin) registerDemoSearchAdapters(contentRepo, pageRepo Repository) {
