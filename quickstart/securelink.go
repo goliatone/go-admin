@@ -46,10 +46,14 @@ func (c SecureLinkConfig) Enabled() bool {
 
 // SecureLinkConfigFromEnv builds a securelink config from environment variables.
 func SecureLinkConfigFromEnv(basePath string) SecureLinkConfig {
-	if strings.TrimSpace(basePath) == "" {
-		basePath = os.Getenv("ADMIN_BASE_PATH")
+	basePath = strings.TrimSpace(basePath)
+	if basePath == "" {
+		basePath = strings.TrimSpace(os.Getenv("ADMIN_BASE_PATH"))
 	}
-	basePath = normalizeBasePath(basePath)
+	if basePath == "" {
+		basePath = "/admin"
+	}
+	basePath = normalizeBasePathValue(basePath)
 
 	baseURL := strings.TrimSpace(os.Getenv("ADMIN_SECURELINK_BASE_URL"))
 	if baseURL == "" {
@@ -78,7 +82,11 @@ func SecureLinkConfigFromEnv(basePath string) SecureLinkConfig {
 
 // DefaultSecureLinkRoutes builds the route map used by securelink managers.
 func DefaultSecureLinkRoutes(basePath string) map[string]string {
-	basePath = normalizeBasePath(basePath)
+	basePath = strings.TrimSpace(basePath)
+	if basePath == "" {
+		basePath = "/admin"
+	}
+	basePath = normalizeBasePathValue(basePath)
 	return map[string]string{
 		command.SecureLinkRouteInviteAccept:  path.Join(basePath, "invite"),
 		command.SecureLinkRouteRegister:      path.Join(basePath, "register"),
