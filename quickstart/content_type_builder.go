@@ -29,6 +29,7 @@ func NewContentTypeBuilderModule(cfg admin.Config, menuParent string, opts ...ad
 	moduleOpts := []admin.ContentTypeBuilderOption{
 		admin.WithContentTypeBuilderBasePath(cfg.BasePath),
 		admin.WithContentTypeBuilderMenu(cfg.NavMenuCode, menuParent),
+		admin.WithContentTypeBuilderEntryMenuParent(menuParent),
 		admin.WithContentTypeBuilderPreviewFallback(DefaultContentTypePreviewFallback()),
 	}
 	moduleOpts = append(moduleOpts, opts...)

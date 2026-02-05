@@ -127,10 +127,19 @@ func RegisterContentTypeBuilderUIRoutes(
 	handlers.contentTypesTemplate = options.contentTypesTemplate
 	handlers.blockDefinitionsTemplate = options.blockDefinitionsTemplate
 
-	contentTypesPath := path.Join(options.basePath, "content_types")
-	blockDefinitionsPath := path.Join(options.basePath, "block_definitions")
+	contentTypesPath := path.Join(options.basePath, "content", "types")
+	blockDefinitionsPath := path.Join(options.basePath, "content", "block-library")
+	legacyContentTypesPath := path.Join(options.basePath, "content_types")
+	legacyBlockDefinitionsPath := path.Join(options.basePath, "block_definitions")
+
 	r.Get(contentTypesPath, wrap(handlers.ContentTypes))
 	r.Get(blockDefinitionsPath, wrap(handlers.BlockDefinitions))
+	r.Get(legacyContentTypesPath, wrap(func(c router.Context) error {
+		return c.Redirect(contentTypesPath)
+	}))
+	r.Get(legacyBlockDefinitionsPath, wrap(func(c router.Context) error {
+		return c.Redirect(blockDefinitionsPath)
+	}))
 	return nil
 }
 
