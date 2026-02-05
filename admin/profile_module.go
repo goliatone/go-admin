@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"errors"
+
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const profileModuleID = "profile"
@@ -17,6 +19,7 @@ type ProfileModule struct {
 	updatePermission string
 	menuParent       string
 	skipMenu         bool
+	urls             urlkit.Resolver
 }
 
 // NewProfileModule constructs the default profile module.
@@ -54,6 +57,9 @@ func (m *ProfileModule) Register(ctx ModuleContext) error {
 	}
 	if m.updatePermission == "" {
 		m.updatePermission = ctx.Admin.config.ProfileUpdatePermission
+	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
 	}
 
 	repo := NewProfileRepository(ctx.Admin.profile, m.defaultLocale)
@@ -102,7 +108,7 @@ func (m *ProfileModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := joinPath(m.basePath, profileModuleID)
+	path := resolveURLWith(m.urls, "admin", profileModuleID, nil, nil)
 	return []MenuItem{
 		{
 			Label:       "Profile",
