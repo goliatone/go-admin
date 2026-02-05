@@ -141,6 +141,7 @@ func main() {
 	cfg.Debug.ToolbarPanels = []string{"requests", "sql", "logs", "routes", "config", "template", "session"}
 	cfg.Debug.CaptureSQL = debugEnabled
 	cfg.Debug.CaptureLogs = debugEnabled
+	cfg.Debug.CaptureJSErrors = debugEnabled
 	cfg.Debug.CaptureRequestBody = debugEnabled
 	if debugEnabled {
 		cfg.Debug.AllowedIPs = splitAndTrimCSV(os.Getenv("ADMIN_DEBUG_ALLOWED_IPS"))
@@ -157,6 +158,10 @@ func main() {
 		}
 		// Ensure defaults before appending any custom/debug-only panels.
 		cfg.Debug.Panels = ensureDefaultDebugPanels(cfg.Debug.Panels)
+	}
+	if debugEnabled && cfg.Debug.CaptureJSErrors {
+		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, admin.DebugPanelJSErrors)
+		cfg.Debug.ToolbarPanels = appendUniquePanel(cfg.Debug.ToolbarPanels, admin.DebugPanelJSErrors)
 	}
 	if debugEnabled && scopeDebugEnabled {
 		cfg.Debug.Panels = appendUniquePanel(cfg.Debug.Panels, quickstart.ScopeDebugPanelID)
