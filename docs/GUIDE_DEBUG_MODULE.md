@@ -11,6 +11,7 @@ This guide explains how to enable, configure, and integrate the Debug Module int
 - Registered routes overview
 - Template context debugging
 - Session data inspection
+- Frontend JavaScript error capture (uncaught exceptions, unhandled rejections, console.error)
 - Custom debug data injection
 - Shell + app REPL panels (disabled by default)
 - WebSocket-based live updates
@@ -62,7 +63,8 @@ The Debug Module provides development-time introspection for go-admin applicatio
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │                  DebugCollector                      │   │
 │  │  ┌─────────────────────────────────────────────────┐ │   │
-│  │  │  Ring Buffers: requests, sql, logs, custom      │ │   │
+│  │  │  Ring Buffers: requests, sql, logs, jserrors,    │ │   │
+│  │  │                custom                           │ │   │
 │  │  └─────────────────────────────────────────────────┘ │   │
 │  │  ┌─────────────────────────────────────────────────┐ │   │
 │  │  │  Snapshots: config, routes, template, session   │ │   │
@@ -78,6 +80,7 @@ The Debug Module provides development-time introspection for go-admin applicatio
 │  │  - Dashboard routes                                  │   │
 │  │  - WebSocket endpoint                                │   │
 │  │  - Toolbar injection                                 │   │
+│  │  - JS error ingestion endpoint                       │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -92,6 +95,8 @@ The Debug Module provides development-time introspection for go-admin applicatio
 | `admin/debug_integrations.go` | Middleware, slog handler, route/config snapshots |
 | `admin/debug_query_hook.go` | Bun ORM query hook for SQL capture |
 | `admin/debug_transport.go` | HTTP routes and WebSocket handlers |
+| `admin/debug_masker.go` | Sensitive data redaction (field, inline, URL, token masking) |
+| `admin/debug_nonce.go` | Double-submit cookie nonce for JS error endpoint |
 | `admin/ring_buffer.go` | Generic ring buffer implementation |
 
 ---
@@ -240,8 +245,9 @@ const (
 | `MaxLogEntries` | `500` |
 | `MaxSQLQueries` | `200` |
 | `SlowQueryThreshold` | `50ms` |
-| `Panels` | `["template", "session", "requests", "sql", "logs", "config", "routes", "custom"]` |
-| `ToolbarPanels` | `["requests", "sql", "logs", "routes", "config"]` |
+| `Panels` | `["template", "session", "requests", "sql", "logs", "config", "routes", "custom", "jserrors"]` |
+| `ToolbarPanels` | `["requests", "sql", "logs", "jserrors", "routes", "config"]` |
+| `CaptureJSErrors` | `false` |
 | `ToolbarExcludePaths` | `["{debug_path}"]` |
 
 ### Admin Layout Rendering
@@ -605,6 +611,7 @@ if collector != nil {
 | Logs | `logs` | Server log stream | `DebugLogHandler` |
 | Config | `config` | App configuration | Auto-captured on init |
 | Routes | `routes` | Registered routes | Auto-captured on init |
+| JS Errors | `jserrors` | Frontend JS errors | Inline collector script |
 | Shell | `shell` | Shell REPL (xterm.js) | `DebugConfig.Repl` |
 | App Console | `console` | App REPL (yaegi) | `DebugConfig.Repl` |
 | Custom | `custom` | Custom debug data | `Set()`, `Log()` |
@@ -681,6 +688,23 @@ type RouteEntry struct {
 }
 ```
 
+**JSErrorEntry**:
+```go
+type JSErrorEntry struct {
+    ID        string         `json:"id"`
+    Timestamp time.Time      `json:"timestamp"`
+    Type      string         `json:"type"`      // "uncaught", "unhandled_rejection", "console_error"
+    Message   string         `json:"message"`
+    Source    string         `json:"source,omitempty"`
+    Line      int            `json:"line,omitempty"`
+    Column    int            `json:"column,omitempty"`
+    Stack     string         `json:"stack,omitempty"`
+    URL       string         `json:"url,omitempty"`
+    UserAgent string         `json:"user_agent,omitempty"`
+    Extra     map[string]any `json:"extra,omitempty"`
+}
+```
+
 ---
 
 ## 7. Toolbar Mode
@@ -712,10 +736,70 @@ When `ToolbarMode` is enabled, `CaptureViewContext()` injects these variables:
 | `debug_toolbar_panels` | `string` | Comma-separated panel IDs |
 | `debug_slow_threshold_ms` | `int64` | Slow query threshold in ms |
 
+### Global JS Error Collector
+
+The JS error collector is controlled by the `CaptureJSErrors` config flag,
+**independent of `ToolbarMode`**. When enabled, a synchronous IIFE is injected
+into the `<head>` of **every page** (admin, public site, and login layouts)
+via the `partials/jserror-collector.html` template include. It captures frontend
+errors and sends them to the debug backend via `sendBeacon` (falling back to
+`fetch`). Three error sources are monitored:
+
+1. **`window.onerror`** — uncaught exceptions
+2. **`unhandledrejection`** — unhandled promise rejections
+3. **`console.error` override** — explicit error logging (with a recursion guard)
+
+Errors are batched and flushed every 2 seconds (and on `pagehide`). The
+endpoint `POST {debug_path}/api/errors` is registered **without** auth
+middleware but uses a **double-submit cookie nonce** for validation — only
+clients that loaded a server-rendered page can submit error reports.
+
+#### Nonce Authentication
+
+The collector uses the double-submit cookie pattern:
+
+1. **Server** generates a random nonce on first page load and sets an `HttpOnly`
+   cookie (`__dbg_nonce`).
+2. **Server** also embeds the nonce in the inline collector script.
+3. **Client** includes the nonce in every error report JSON body (`"nonce": "..."`).
+4. **Server** validates that the body nonce matches the cookie nonce; rejects
+   with 403 if they don't match.
+
+#### View Context Injection
+
+For admin pages, `CaptureViewContextForRequest()` injects both toolbar **and**
+JS error collector variables. For non-admin pages (public site, login), call
+`CaptureJSErrorContext()` to inject only the collector variables:
+
+```go
+viewCtx = admin.CaptureJSErrorContext(collector, c, viewCtx)
+```
+
+Template variables injected when `CaptureJSErrors` is `true`:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `debug_jserror_enabled` | `bool` | Always `true` when injected |
+| `debug_jserror_endpoint` | `string` | Full endpoint URL for error reports |
+| `debug_jserror_nonce` | `string` | Nonce for double-submit cookie validation |
+
+All string fields (`message`, `stack`, `url`, `source`) are masked server-side
+by `debugMaskInlineString` before storage — this redacts sensitive URL query
+parameters and inline Bearer/JWT tokens using the same rules as other debug
+masking.
+
 ### Layout Template Example
 
 ```html
 {% if debug_toolbar_enabled %}
+<script>
+  // Inline JS error collector (synchronous, runs before module scripts)
+  (function() {
+    var debugPath = '{{ debug_path }}';
+    var queue = [];
+    // ... captures errors, flushes via sendBeacon to debugPath + '/api/errors'
+  })();
+</script>
 <script>
   window.DEBUG_CONFIG = {
     basePath: "{{ base_path }}",
@@ -757,7 +841,7 @@ ws.onmessage = (event) => {
 
 ```typescript
 interface DebugEvent {
-  type: "snapshot" | "request" | "sql" | "log" | "template" | "session" | "custom";
+  type: "snapshot" | "request" | "sql" | "log" | "jserror" | "template" | "session" | "custom";
   payload: any;
   timestamp: string; // ISO 8601
 }
@@ -1296,6 +1380,20 @@ Sensitive data is automatically redacted:
 - `api_key`, `apikey`, `client_secret`, `secret`
 - `jwt`, `cookie`, `set-cookie`, `csrf`, `session`, `bearer`
 
+**Inline String Masking**:
+
+Free-form strings (error messages, stack traces, URLs) are masked by
+`debugMaskInlineString` which applies two passes:
+
+1. **URL query parameters** — URLs embedded in strings are parsed; any query
+   parameter whose key matches a sensitive field name (e.g. `apikey`, `token`,
+   `session`) has its value replaced with the mask placeholder.
+2. **Inline tokens** — `Bearer <token>` patterns and standalone JWT strings
+   (`eyJ...`) are detected and redacted.
+
+This is applied automatically to all `JSErrorEntry` fields and is available for
+custom use via `debugMaskInlineString(cfg, s)`.
+
 **Custom Masking**:
 
 ```go
@@ -1344,6 +1442,7 @@ cfg.Debug = admin.DebugConfig{
 | GET | `{debug_path}/api/snapshot` | Current state snapshot |
 | POST | `{debug_path}/api/clear` | Clear all panel data |
 | POST | `{debug_path}/api/clear/:panel` | Clear specific panel |
+| POST | `{debug_path}/api/errors` | Ingest JS error report (nonce auth) |
 | WS | `{debug_path}/ws` | WebSocket connection |
 | WS | `{debug_path}/repl/shell/ws` | Shell REPL WebSocket |
 | WS | `{debug_path}/repl/app/ws` | App console REPL WebSocket |
@@ -1380,6 +1479,19 @@ cfg.Debug = admin.DebugConfig{
       "level": "INFO",
       "message": "User logged in",
       "fields": { "user_id": "123" }
+    }
+  ],
+  "jserrors": [
+    {
+      "id": "uuid",
+      "timestamp": "2024-01-15T10:30:01Z",
+      "type": "uncaught",
+      "message": "ReferenceError: foo is not defined",
+      "source": "app.js",
+      "line": 42,
+      "column": 12,
+      "stack": "ReferenceError: foo is not defined\n    at app.js:42:12",
+      "url": "http://localhost:8080/admin/users"
     }
   ],
   "config": { /* admin configuration */ },
@@ -1419,6 +1531,7 @@ func (c *DebugCollector) CaptureSession(session map[string]any)
 func (c *DebugCollector) CaptureRequest(entry RequestEntry)
 func (c *DebugCollector) CaptureSQL(entry SQLEntry)
 func (c *DebugCollector) CaptureLog(entry LogEntry)
+func (c *DebugCollector) CaptureJSError(entry JSErrorEntry)
 func (c *DebugCollector) CaptureConfigSnapshot(snapshot map[string]any)
 func (c *DebugCollector) CaptureRoutes(routes []RouteEntry)
 
@@ -1582,6 +1695,33 @@ cfg.Debug.Repl.ShellEnabled = true
 cfg.Debug.Panels = append(cfg.Debug.Panels, "shell", "console")
 ```
 
+### JS Errors Not Appearing
+
+**Symptom**: JS Errors panel is empty despite frontend errors.
+
+**Causes**:
+1. `jserrors` not in `Panels` list
+2. Toolbar mode not enabled (collector script is injected via toolbar partial)
+3. The inline collector script failed to load (check for `<script>` errors before it)
+4. `sendBeacon` or `fetch` to `{debug_path}/api/errors` is blocked (CSP, CORS)
+
+**Solution**:
+```go
+// Ensure jserrors panel is enabled
+cfg.Debug.Panels = append(cfg.Debug.Panels, "jserrors")
+
+// Toolbar mode must be on for the inline collector
+cfg.Debug.ToolbarMode = true
+```
+
+To verify the endpoint is reachable, send a test request:
+```bash
+curl -X POST http://localhost:8080/admin/debug/api/errors \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"test","message":"hello"}'
+# Expected: {"status":"ok"}
+```
+
 ### Shell REPL Forbidden
 
 **Symptom**: Shell REPL connects but immediately closes or returns 403.
@@ -1601,6 +1741,7 @@ cfg.Debug.Repl.ExecPermission = "admin.debug.repl.exec"
 
 ## See Also
 
+- [Debug Client Guide](GUIDE_DEBUG_CLIENT.md) - Frontend debug architecture, panel renderers, and adding application code
 - [Module Development Guide](GUIDE_MODULES.md) - General module patterns
 - [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) - Template and theme customization
 - [Auth Guide](AUTH.md) - Authentication and authorization patterns

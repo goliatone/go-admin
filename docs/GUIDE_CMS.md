@@ -27,7 +27,8 @@ This guide explains how to use and extend the CMS module in `go-admin`. It cover
 12. [Best Practices](#12-best-practices)
 13. [Key Files](#13-key-files)
 14. [Example Implementation](#14-example-implementation)
-15. [See Also](#15-see-also)
+15. [Admin Read Model (Pages)](#15-admin-read-model-pages)
+16. [See Also](#16-see-also)
 
 ---
 
@@ -97,6 +98,24 @@ Examples:
 - Pages are routed by `path` (falling back to `slug` when `path` is empty).
 - Page `path` must be unique **per locale** to avoid routing collisions.
 - Preview URLs use `path` when present and fall back to the page slug.
+
+### Content Type Activation & Pages/Posts Sync
+
+go-admin only creates dynamic panels (and the content entry UI) for content types
+that are **active**. If a content type is still in `draft` or has been
+`deprecated`, the panel is not registered and the admin UI routes will not
+resolve.
+
+Pages and Posts are now standard content types, with content entries as the
+single source of truth. To keep the legacy Pages/Posts experience:
+
+- Ensure the `page` and `post` content types are `active` (and seeded as such).
+- Use capabilities to wire workflows + permissions (for example,
+  `workflow=pages`, `permissions=admin.pages` for `page`, and `workflow=posts`,
+  `permissions=admin.posts` for `post`).
+- Use the `panel_slug` capability to map content types onto existing panel
+  names. For example, `blog_post` with `panel_slug=posts` renders the Posts
+  panel and inherits `/admin/content/posts` routes.
 
 ---
 
@@ -371,6 +390,26 @@ Preview and draft access can be enabled with query flags on the management API:
 | POST   | `/admin/api/:panel/actions/request_approval` | Submit for review                      |
 | POST   | `/admin/api/:panel/actions/approve`          | Approve and publish                    |
 
+### Admin UI Routes (Content Entry UI + Aliases)
+
+Content entry screens mount under `/admin/content/:panel` when you register
+`quickstart.RegisterContentEntryUIRoutes` (or the equivalent wiring in your app).
+Common routes include:
+
+- `/admin/content/:panel` (list)
+- `/admin/content/:panel/new` (create)
+- `/admin/content/:panel/:id` (detail)
+- `/admin/content/:panel/:id/edit` (edit)
+
+go-admin also registers alias routes for Pages/Posts when CMS is enabled:
+
+- `/admin/pages` → `/admin/content/pages`
+- `/admin/posts` → `/admin/content/posts`
+
+Alias resolution uses the `panel_slug` capability, so a content type like
+`blog_post` with `panel_slug=posts` is served by the Posts panel. Query
+parameters (including `env`) are preserved during the redirect.
+
 ---
 
 ## 11. Configuration
@@ -421,7 +460,44 @@ See `examples/web/main.go` for a full implementation featuring:
 
 ---
 
-## 15. See Also
+## 15. Admin Read Model (Pages)
+
+Admin list and detail reads should use a single contract, `AdminPageRecord`, exposed via `AdminPageReadService`. `PageApplicationService` composes this read service with the write service so HTML handlers and JSON CRUD share the same mapping and workflow behavior.
+
+### Read/write split
+
+- Reads: `AdminPageReadService.List`/`Get` return `AdminPageRecord`.
+- Writes: `AdminPageWriteService.Create/Update/Delete/Publish/Unpublish`.
+- `PageApplicationService` applies include defaults (list minimal, get full) and workflow transitions.
+
+### Include flags (AdminPageListOptions / AdminPageGetOptions)
+
+- `IncludeContent`: include the localized content body (string or structured) in `Content`.
+- `IncludeBlocks`: include the embedded blocks payload in `Blocks` (omitted when false).
+- `IncludeData`: include a normalized `Data` map for UI hydration (path/meta/summary/tags/content/blocks).
+
+`PageApplicationService` defaults list reads to minimal includes and detail reads to full includes unless overridden.
+
+### Locale resolution + missing translations
+
+- `RequestedLocale` is always set to the incoming locale (even when no translation exists).
+- `ResolvedLocale` is the locale actually used (requested locale if available, otherwise `FallbackLocale`).
+- When `AllowMissingTranslations` is true and no translation exists, localized fields can be empty while identifiers/status still return. When false, missing translations may be treated as not found.
+
+### Blocks payload contract
+
+- `Blocks` prefers embedded blocks arrays (objects with `_type` + fields).
+- If embedded blocks are absent, fall back to legacy block ID arrays.
+- When `IncludeData` is true, `Data["blocks"]` should mirror the selected payload.
+
+### Read service selection (go-cms vs view-backed)
+
+- Preferred: use the go-cms admin read service when your CMS container exposes `AdminPageReadService` (or a compatible method) via `Config.CMS.Container`, `Config.CMS.ContainerBuilder`, or `Config.CMS.GoCMSConfig`.
+- Fallback: a view-backed adapter (for example, `examples/web/stores.AdminPageStoreAdapter`) can read from `admin_page_records` for list performance and hydrate missing fields from the CMS store for detail/edit.
+
+---
+
+## 16. See Also
 
 - [Module Development Guide](GUIDE_MODULES.md) — Creating and registering modules.
 - [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) — Theming and templates.
