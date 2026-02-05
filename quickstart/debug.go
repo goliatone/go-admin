@@ -11,12 +11,17 @@ import (
 
 // DebugEnvOption customizes which environment variables map to debug config.
 type DebugEnvOption struct {
-	EnabledKey       string
-	AllowedIPsKey    string
-	CaptureSQLKey    string
-	CaptureLogsKey   string
-	ToolbarModeKey   string
-	ToolbarPanelsKey string
+	EnabledKey            string
+	AllowedIPsKey         string
+	CaptureSQLKey         string
+	CaptureLogsKey        string
+	CaptureJSErrorsKey    string
+	CaptureRequestBodyKey string
+	ToolbarModeKey        string
+	ToolbarPanelsKey      string
+	LayoutModeKey         string
+	ReplEnabledKey        string
+	ReplReadOnlyKey       string
 }
 
 // WithDebugConfig merges a debug config into the admin config.
@@ -45,6 +50,8 @@ func WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption {
 				debugCfg.ToolbarMode = true
 				debugCfg.CaptureSQL = true
 				debugCfg.CaptureLogs = true
+				debugCfg.CaptureJSErrors = true
+				debugCfg.CaptureRequestBody = true
 			}
 		}
 
@@ -57,11 +64,35 @@ func WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption {
 		if value, ok := envBoolKey(envOpts.CaptureLogsKey); ok {
 			debugCfg.CaptureLogs = value
 		}
+		if value, ok := envBoolKey(envOpts.CaptureJSErrorsKey); ok {
+			debugCfg.CaptureJSErrors = value
+		}
+		if value, ok := envBoolKey(envOpts.CaptureRequestBodyKey); ok {
+			debugCfg.CaptureRequestBody = value
+		}
 		if value, ok := envBoolKey(envOpts.ToolbarModeKey); ok {
 			debugCfg.ToolbarMode = value
 		}
 		if panels, ok := envCSVKey(envOpts.ToolbarPanelsKey); ok {
 			debugCfg.ToolbarPanels = panels
+		}
+		if mode, ok := envStringKey(envOpts.LayoutModeKey); ok {
+			switch strings.ToLower(mode) {
+			case "admin":
+				debugCfg.LayoutMode = admin.DebugLayoutAdmin
+			case "standalone":
+				debugCfg.LayoutMode = admin.DebugLayoutStandalone
+			}
+		}
+		if enabled, ok := envBoolKey(envOpts.ReplEnabledKey); ok {
+			debugCfg.Repl.Enabled = enabled
+			if enabled && !debugCfg.Repl.AppEnabled && !debugCfg.Repl.ShellEnabled {
+				debugCfg.Repl.AppEnabled = true
+				debugCfg.Repl.ShellEnabled = true
+			}
+		}
+		if value, ok := envBoolKey(envOpts.ReplReadOnlyKey); ok {
+			debugCfg.Repl.ReadOnly = admin.BoolPtr(value)
 		}
 
 		cfg.Debug = debugCfg
@@ -112,12 +143,17 @@ func AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin) {
 
 func mergeDebugEnvOptions(opts ...DebugEnvOption) DebugEnvOption {
 	out := DebugEnvOption{
-		EnabledKey:       "ADMIN_DEBUG",
-		AllowedIPsKey:    "ADMIN_DEBUG_ALLOWED_IPS",
-		CaptureSQLKey:    "ADMIN_DEBUG_SQL",
-		CaptureLogsKey:   "ADMIN_DEBUG_LOGS",
-		ToolbarModeKey:   "ADMIN_DEBUG_TOOLBAR",
-		ToolbarPanelsKey: "ADMIN_DEBUG_TOOLBAR_PANELS",
+		EnabledKey:            "ADMIN_DEBUG",
+		AllowedIPsKey:         "ADMIN_DEBUG_ALLOWED_IPS",
+		CaptureSQLKey:         "ADMIN_DEBUG_SQL",
+		CaptureLogsKey:        "ADMIN_DEBUG_LOGS",
+		CaptureJSErrorsKey:    "ADMIN_DEBUG_JS_ERRORS",
+		CaptureRequestBodyKey: "ADMIN_DEBUG_REQUEST_BODY",
+		ToolbarModeKey:        "ADMIN_DEBUG_TOOLBAR",
+		ToolbarPanelsKey:      "ADMIN_DEBUG_TOOLBAR_PANELS",
+		LayoutModeKey:         "ADMIN_DEBUG_LAYOUT",
+		ReplEnabledKey:        "ADMIN_DEBUG_REPL",
+		ReplReadOnlyKey:       "ADMIN_DEBUG_REPL_READONLY",
 	}
 	for _, opt := range opts {
 		if key := strings.TrimSpace(opt.EnabledKey); key != "" {
@@ -132,11 +168,26 @@ func mergeDebugEnvOptions(opts ...DebugEnvOption) DebugEnvOption {
 		if key := strings.TrimSpace(opt.CaptureLogsKey); key != "" {
 			out.CaptureLogsKey = key
 		}
+		if key := strings.TrimSpace(opt.CaptureJSErrorsKey); key != "" {
+			out.CaptureJSErrorsKey = key
+		}
+		if key := strings.TrimSpace(opt.CaptureRequestBodyKey); key != "" {
+			out.CaptureRequestBodyKey = key
+		}
 		if key := strings.TrimSpace(opt.ToolbarModeKey); key != "" {
 			out.ToolbarModeKey = key
 		}
 		if key := strings.TrimSpace(opt.ToolbarPanelsKey); key != "" {
 			out.ToolbarPanelsKey = key
+		}
+		if key := strings.TrimSpace(opt.LayoutModeKey); key != "" {
+			out.LayoutModeKey = key
+		}
+		if key := strings.TrimSpace(opt.ReplEnabledKey); key != "" {
+			out.ReplEnabledKey = key
+		}
+		if key := strings.TrimSpace(opt.ReplReadOnlyKey); key != "" {
+			out.ReplReadOnlyKey = key
 		}
 	}
 	return out
@@ -173,4 +224,16 @@ func envCSVKey(key string) ([]string, bool) {
 		}
 	}
 	return out, true
+}
+
+func envStringKey(key string) (string, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", false
+	}
+	raw, ok := os.LookupEnv(key)
+	if !ok {
+		return "", false
+	}
+	return strings.TrimSpace(raw), true
 }
