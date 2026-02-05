@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/client"
@@ -61,6 +62,7 @@ type ContentTypeBuilderModule struct {
 	basePath         string
 	menuCode         string
 	menuParent       string
+	entryMenuParent  string
 	menuGroupID      string
 	defaultLocale    string
 	permission       string
@@ -102,6 +104,13 @@ func WithContentTypeBuilderMenu(menuCode, menuParent string) ContentTypeBuilderO
 	return func(module *ContentTypeBuilderModule) {
 		module.menuCode = menuCode
 		module.menuParent = menuParent
+	}
+}
+
+// WithContentTypeBuilderEntryMenuParent configures the menu parent for content type entry panels.
+func WithContentTypeBuilderEntryMenuParent(menuParent string) ContentTypeBuilderOption {
+	return func(module *ContentTypeBuilderModule) {
+		module.entryMenuParent = menuParent
 	}
 }
 
@@ -191,6 +200,9 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	if m.menuGroupID == "" {
 		m.menuGroupID = m.resolveMenuGroupID()
 	}
+	if m.entryMenuParent == "" {
+		m.entryMenuParent = m.menuGroupID
+	}
 	if m.contentTypeSvc == nil {
 		m.contentTypeSvc = ctx.Admin.contentTypeSvc
 	}
@@ -221,7 +233,7 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 		m.panelFactory = NewDynamicPanelFactory(ctx.Admin,
 			WithDynamicPanelSchemaConverter(NewSchemaToFieldsConverter()),
 			WithDynamicPanelSchemaValidator(m.schemaValidator),
-			WithDynamicPanelMenu(m.basePath, m.menuCode, m.menuGroupID, m.defaultLocale),
+			WithDynamicPanelMenu(m.basePath, m.menuCode, m.entryMenuParent, m.defaultLocale),
 		)
 	}
 
@@ -259,8 +271,8 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 	if basePath == "" {
 		basePath = "/admin"
 	}
-	contentTypesPath := joinPath(basePath, contentTypePanelID)
-	blocksPath := joinPath(basePath, blockDefinitionsPanelID)
+	contentTypesPath := joinPath(basePath, path.Join("content", "types"))
+	blocksPath := joinPath(basePath, path.Join("content", "block-library"))
 	contentModeling := MenuItem{
 		ID:       contentTypeBuilderMenuGroupID,
 		Label:    "Content Modeling",
@@ -449,17 +461,17 @@ func (m *ContentTypeBuilderModule) loadExistingContentTypes(admin *Admin) error 
 		return err
 	}
 	for _, ct := range types {
-		if admin.registry != nil {
-			if _, exists := admin.registry.Panel(ct.Slug); exists {
-				continue
-			}
-		}
 		contentType := ct
-		if _, err := m.panelFactory.CreatePanelFromContentType(context.Background(), &contentType); err != nil {
+		if err := m.panelFactory.RefreshPanel(context.Background(), &contentType); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// AfterMenuSeed refreshes panels/navigation after menu seeding.
+func (m *ContentTypeBuilderModule) AfterMenuSeed(_ context.Context, admin *Admin) error {
+	return m.loadExistingContentTypes(admin)
 }
 
 func (m *ContentTypeBuilderModule) resolveContentType(ctx context.Context, record map[string]any) (*CMSContentType, error) {
@@ -501,7 +513,7 @@ func (m *ContentTypeBuilderModule) registerSearchAdapter(admin *Admin) {
 	}
 	admin.search.Register(contentTypeSearchAdapterKey, &contentTypeSearchAdapter{
 		svc:      m.contentTypeSvc,
-		basePath: joinPath(m.basePath, contentTypePanelID),
+		basePath: joinPath(m.basePath, path.Join("content", "types")),
 		perm:     m.permission,
 	})
 }
@@ -1025,6 +1037,62 @@ func (v *FormgenSchemaValidator) Validate(ctx context.Context, schema map[string
 // Preview renders a form preview from a schema.
 func (v *FormgenSchemaValidator) Preview(ctx context.Context, schema map[string]any, opts SchemaValidationOptions) ([]byte, error) {
 	return v.generate(ctx, schema, opts, true)
+}
+
+// RenderForm renders HTML for a schema using formgen with custom render options.
+func (v *FormgenSchemaValidator) RenderForm(ctx context.Context, schema map[string]any, opts SchemaValidationOptions, renderOpts formgenrender.RenderOptions) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if v == nil || v.orchestrator == nil {
+		return "", errors.New("schema validator not configured")
+	}
+	if schema == nil {
+		return "", errors.New("schema required")
+	}
+
+	formID, err := resolveFormID(schema, opts)
+	if err != nil {
+		slug := strings.TrimSpace(opts.Slug)
+		if slug == "" {
+			return "", err
+		}
+		formID = slug + defaultFormIDOperationSuffix
+	}
+	doc, err := schemaDocumentFromMap(stripUnsupportedSchemaKeywords(schema))
+	if err != nil {
+		return "", err
+	}
+	normalizeOptions := formgenschema.NormalizeOptions{
+		ContentTypeSlug:   strings.TrimSpace(opts.Slug),
+		DefaultFormSuffix: defaultFormIDOperationSuffix,
+		FormID:            formID,
+	}
+	if len(opts.UISchema) > 0 {
+		overlayDoc := cloneAnyMap(opts.UISchema)
+		if overlayDoc != nil {
+			if _, ok := overlayDoc["$schema"]; !ok {
+				overlayDoc["$schema"] = "x-ui-overlay/v1"
+			}
+		}
+		if overlay, err := json.Marshal(overlayDoc); err == nil {
+			normalizeOptions.Overlay = overlay
+		}
+	}
+
+	request := formgenorchestrator.Request{
+		SchemaDocument:   &doc,
+		Format:           SchemaFormatJSONSchema,
+		OperationID:      formID,
+		NormalizeOptions: normalizeOptions,
+		Renderer:         v.renderer,
+		RenderOptions:    renderOpts,
+	}
+	html, err := v.orchestrator.Generate(ctx, request)
+	if err != nil {
+		return "", err
+	}
+	return string(html), nil
 }
 
 func (v *FormgenSchemaValidator) generate(ctx context.Context, schema map[string]any, opts SchemaValidationOptions, includeHTML bool) ([]byte, error) {
