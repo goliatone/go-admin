@@ -35,6 +35,7 @@ The admin UI templates ship with the module and are exported from `pkg/client`.
 ```go
 views, err := quickstart.NewViewEngine(
 	client.FS(),
+	quickstart.WithViewURLResolver(adm.URLs()),
 	quickstart.WithViewBasePath(cfg.BasePath),
 )
 if err != nil {
@@ -44,10 +45,13 @@ if err != nil {
 quickstart.NewStaticAssets(r, cfg, client.Assets())
 ```
 
-If you override template funcs, pass the base path into the defaults so `adminURL` stays correct:
+If you override template funcs, pass the URLKit resolver (or the base path fallback) into the defaults so `adminURL` stays correct:
 
 ```go
-funcs := quickstart.DefaultTemplateFuncs(quickstart.WithTemplateBasePath(cfg.BasePath))
+funcs := quickstart.DefaultTemplateFuncs(
+	quickstart.WithTemplateURLResolver(adm.URLs()),
+	quickstart.WithTemplateBasePath(cfg.BasePath),
+)
 views, err := quickstart.NewViewEngine(
 	client.FS(),
 	quickstart.WithViewTemplateFuncs(funcs),
