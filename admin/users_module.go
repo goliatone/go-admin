@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/google/uuid"
 )
 
@@ -23,6 +24,7 @@ type UserManagementModule struct {
 	usersPerm     string
 	rolesPerm     string
 	menuParent    string
+	urls          urlkit.Resolver
 }
 
 // NewUserManagementModule constructs the default user management module.
@@ -62,6 +64,9 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 	}
 	if m.rolesPerm == "" {
 		m.rolesPerm = ctx.Admin.config.RolesPermission
+	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
 	}
 
 	userRepo := NewUserPanelRepository(ctx.Admin.users)
@@ -165,6 +170,7 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 			service:    ctx.Admin.users,
 			permission: ctx.Admin.config.UsersPermission,
 			basePath:   m.basePath,
+			urls:       m.urls,
 		})
 	}
 	return nil
@@ -175,8 +181,8 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	usersPath := joinPath(m.basePath, usersModuleID)
-	rolesPath := joinPath(m.basePath, rolesPanelID)
+	usersPath := resolveURLWith(m.urls, "admin", usersModuleID, nil, nil)
+	rolesPath := resolveURLWith(m.urls, "admin", rolesPanelID, nil, nil)
 	return []MenuItem{
 		{
 			Label:       "Users",
@@ -368,6 +374,7 @@ type userSearchAdapter struct {
 	service    *UserManagementService
 	permission string
 	basePath   string
+	urls       urlkit.Resolver
 }
 
 // Search queries users by keyword.
@@ -394,7 +401,7 @@ func (a *userSearchAdapter) Search(ctx context.Context, query string, limit int)
 			ID:          user.ID,
 			Title:       fmt.Sprintf("%s (%s)", user.Username, user.Email),
 			Description: strings.TrimSpace(strings.Join(descParts, " ")),
-			URL:         path.Join("/", a.basePath, usersModuleID, user.ID),
+			URL:         firstNonEmpty(resolveURLWith(a.urls, "admin", "users.id", map[string]string{"id": user.ID}, nil), path.Join("/", a.basePath, usersModuleID, user.ID)),
 			Icon:        "user",
 		})
 	}
