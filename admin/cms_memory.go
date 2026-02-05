@@ -1351,6 +1351,9 @@ func (s *InMemoryContentService) DeleteBlock(ctx context.Context, id string) err
 
 func cloneCMSPage(in CMSPage) CMSPage {
 	out := in
+	if in.AvailableLocales != nil {
+		out.AvailableLocales = append([]string{}, in.AvailableLocales...)
+	}
 	if in.Blocks != nil {
 		out.Blocks = append([]string{}, in.Blocks...)
 	}
@@ -1369,11 +1372,20 @@ func cloneCMSPage(in CMSPage) CMSPage {
 			out.Data[k] = v
 		}
 	}
+	if in.Metadata != nil {
+		out.Metadata = make(map[string]any, len(in.Metadata))
+		for k, v := range in.Metadata {
+			out.Metadata[k] = v
+		}
+	}
 	return out
 }
 
 func cloneCMSContent(in CMSContent) CMSContent {
 	out := in
+	if in.AvailableLocales != nil {
+		out.AvailableLocales = append([]string{}, in.AvailableLocales...)
+	}
 	if in.Blocks != nil {
 		out.Blocks = append([]string{}, in.Blocks...)
 	}
@@ -1384,6 +1396,12 @@ func cloneCMSContent(in CMSContent) CMSContent {
 		out.Data = make(map[string]any, len(in.Data))
 		for k, v := range in.Data {
 			out.Data[k] = v
+		}
+	}
+	if in.Metadata != nil {
+		out.Metadata = make(map[string]any, len(in.Metadata))
+		for k, v := range in.Metadata {
+			out.Metadata[k] = v
 		}
 	}
 	return out
