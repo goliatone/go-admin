@@ -1,5 +1,5 @@
 import { DebugPanel, initDebugPanel } from './debug-panel.js';
-import { DebugStream } from './debug-stream.js';
+import { DebugStream, RemoteDebugStream } from './debug-stream.js';
 
 const autoInit = () => {
   initDebugPanel();
@@ -12,7 +12,14 @@ if (document.readyState === 'loading') {
 }
 
 // Core exports
-export { DebugPanel, DebugStream, initDebugPanel };
+export { DebugPanel, DebugStream, RemoteDebugStream, initDebugPanel };
+export type {
+  DebugEvent,
+  DebugStreamOptions,
+  DebugStreamStatus,
+  RemoteDebugStreamOptions,
+  RemoteDebugToken,
+} from './debug-stream.js';
 
 // Panel registry - for custom panel registration
 export {
