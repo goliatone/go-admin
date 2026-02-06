@@ -53,17 +53,11 @@ func effectiveAdminAPIPrefix(cfg admin.Config) string {
 	if value := strings.TrimSpace(cfg.URLs.Admin.APIPrefix); value != "" {
 		return strings.Trim(value, "/")
 	}
-	if value := strings.TrimSpace(cfg.URLs.APIPrefix); value != "" {
-		return strings.Trim(value, "/")
-	}
 	return "api"
 }
 
 func effectiveAdminAPIVersion(cfg admin.Config) string {
 	if value := strings.TrimSpace(cfg.URLs.Admin.APIVersion); value != "" {
-		return strings.Trim(value, "/")
-	}
-	if value := strings.TrimSpace(cfg.URLs.APIVersion); value != "" {
 		return strings.Trim(value, "/")
 	}
 	return ""
