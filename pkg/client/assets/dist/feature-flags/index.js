@@ -112,12 +112,13 @@ class f {
   }
 }
 function C(n) {
+  const e = (n || "").trim().replace(/\/+$/, ""), t = /\/api(\/|$)/.test(e) ? e : `${e || ""}/api`;
   return [
     {
       scope: "tenant",
-      resolver: c(`${n}/api/tenants`, {
-        labelField: (e) => String(e.name || ""),
-        descriptionField: (e) => String(e.slug || ""),
+      resolver: c(`${t}/tenants`, {
+        labelField: (s) => String(s.name || ""),
+        descriptionField: (s) => String(s.slug || ""),
         searchParam: "q"
       }),
       renderer: new l({
@@ -127,8 +128,8 @@ function C(n) {
     },
     {
       scope: "org",
-      resolver: c(`${n}/api/organizations`, {
-        labelField: (e) => String(e.name || ""),
+      resolver: c(`${t}/organizations`, {
+        labelField: (s) => String(s.name || ""),
         searchParam: "q"
       }),
       renderer: new l({
@@ -138,9 +139,9 @@ function C(n) {
     },
     {
       scope: "user",
-      resolver: c(`${n}/api/users`, {
-        labelField: (e) => String(e.displayName || e.username || e.email || ""),
-        descriptionField: (e) => String(e.email || ""),
+      resolver: c(`${t}/users`, {
+        labelField: (s) => String(s.displayName || s.username || s.email || ""),
+        descriptionField: (s) => String(s.email || ""),
         searchParam: "q"
       }),
       renderer: new h({
@@ -223,7 +224,7 @@ const F = {
   minus: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>',
   chevronDown: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>'
 };
-class k {
+class $ {
   constructor(e, t = {}, s) {
     this.scopeSelect = null, this.scopeIdInput = null, this.applyScopeBtn = null, this.refreshBtn = null, this.searchInput = null, this.mutableStateEl = null, this.tableBody = null, this.emptyState = null, this.allFlags = [], this.isMutable = !1, this.documentClickHandler = null, this.scopeSearchBox = null, this.config = e, this.selectors = { ...F, ...t }, this.toast = s || window.toastManager || null;
   }
@@ -452,7 +453,7 @@ class k {
   }
 }
 export {
-  k as FeatureFlagsManager,
+  $ as FeatureFlagsManager,
   f as ScopeSearchBox,
   C as createDefaultScopeConfigs,
   I as createScopeSearchBox

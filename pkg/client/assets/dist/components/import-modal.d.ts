@@ -25,6 +25,7 @@ type ImportModalNotifier = {
 type ImportModalOptions = {
     modalId?: string;
     endpoint?: string;
+    apiBasePath?: string;
     onSuccess?: (summary: Record<string, number>) => void;
     notifier?: ImportModalNotifier;
     resourceName?: string;
