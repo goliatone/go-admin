@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
 	"strings"
 	"time"
 
@@ -15,21 +14,88 @@ import (
 
 const usersModuleID = "users"
 const rolesPanelID = "roles"
+const userProfilesPanelID = "user-profiles"
 
 // UserManagementModule registers user and role management panels and navigation.
 type UserManagementModule struct {
-	basePath      string
 	menuCode      string
 	defaultLocale string
 	usersPerm     string
 	rolesPerm     string
 	menuParent    string
 	urls          urlkit.Resolver
+	userTabs      []PanelTab
+
+	usersPanelConfigurer        func(*PanelBuilder) *PanelBuilder
+	rolesPanelConfigurer        func(*PanelBuilder) *PanelBuilder
+	userProfilesPanelConfigurer func(*PanelBuilder) *PanelBuilder
+	enableUserProfilesPanel     bool
+	usersMenuPosition           *int
+	rolesMenuPosition           *int
 }
 
+// UserManagementModuleOption configures a UserManagementModule.
+type UserManagementModuleOption func(*UserManagementModule)
+
 // NewUserManagementModule constructs the default user management module.
-func NewUserManagementModule() *UserManagementModule {
-	return &UserManagementModule{}
+func NewUserManagementModule(opts ...UserManagementModuleOption) *UserManagementModule {
+	module := &UserManagementModule{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(module)
+		}
+	}
+	return module
+}
+
+// WithUsersPanelConfigurer customizes the users panel builder after defaults are set.
+func WithUsersPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManagementModuleOption {
+	return func(m *UserManagementModule) {
+		m.usersPanelConfigurer = fn
+	}
+}
+
+// WithRolesPanelConfigurer customizes the roles panel builder after defaults are set.
+func WithRolesPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManagementModuleOption {
+	return func(m *UserManagementModule) {
+		m.rolesPanelConfigurer = fn
+	}
+}
+
+// WithUserPanelTabs appends tabs to the users panel.
+func WithUserPanelTabs(tabs ...PanelTab) UserManagementModuleOption {
+	return func(m *UserManagementModule) {
+		m.userTabs = append(m.userTabs, tabs...)
+	}
+}
+
+// WithUserProfilesPanel enables the managed user profiles panel.
+func WithUserProfilesPanel() UserManagementModuleOption {
+	return func(m *UserManagementModule) {
+		m.enableUserProfilesPanel = true
+	}
+}
+
+// WithUserProfilesPanelConfigurer customizes the user profiles panel builder when enabled.
+func WithUserProfilesPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManagementModuleOption {
+	return func(m *UserManagementModule) {
+		m.userProfilesPanelConfigurer = fn
+	}
+}
+
+// WithUserMenuParent nests menu items under the provided parent ID.
+func WithUserMenuParent(parent string) UserManagementModuleOption {
+	return func(m *UserManagementModule) {
+		m.menuParent = parent
+	}
+}
+
+// WithMenuPositions overrides menu positions for users and roles.
+func WithMenuPositions(usersPos, rolesPos *int) UserManagementModuleOption {
+	return func(m *UserManagementModule) {
+		m.usersMenuPosition = usersPos
+		m.rolesMenuPosition = rolesPos
+	}
 }
 
 // Manifest describes the module metadata.
@@ -49,9 +115,6 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 	}
 	if ctx.Admin.users == nil {
 		return FeatureDisabledError{Feature: string(FeatureUsers)}
-	}
-	if m.basePath == "" {
-		m.basePath = ctx.Admin.config.BasePath
 	}
 	if m.menuCode == "" {
 		m.menuCode = ctx.Admin.navMenuCode
@@ -109,6 +172,11 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 			Edit:   ctx.Admin.config.UsersUpdatePermission,
 			Delete: ctx.Admin.config.UsersDeletePermission,
 		})
+	if m.usersPanelConfigurer != nil {
+		if configured := m.usersPanelConfigurer(userBuilder); configured != nil {
+			userBuilder = configured
+		}
+	}
 
 	if bus := ctx.Admin.Commands(); bus != nil {
 		_, _ = RegisterCommand(bus, newUserActivateCommand(ctx.Admin.users))
@@ -157,6 +225,11 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 			Edit:   ctx.Admin.config.RolesUpdatePermission,
 			Delete: ctx.Admin.config.RolesDeletePermission,
 		})
+	if m.rolesPanelConfigurer != nil {
+		if configured := m.rolesPanelConfigurer(roleBuilder); configured != nil {
+			roleBuilder = configured
+		}
+	}
 
 	if _, err := ctx.Admin.RegisterPanel(usersModuleID, userBuilder); err != nil {
 		return err
@@ -164,12 +237,71 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 	if _, err := ctx.Admin.RegisterPanel(rolesPanelID, roleBuilder); err != nil {
 		return err
 	}
+	for _, tab := range m.userTabs {
+		if err := ctx.Admin.RegisterPanelTab(usersModuleID, tab); err != nil {
+			return err
+		}
+	}
+
+	if m.enableUserProfilesPanel {
+		profileStore := ProfileStore(nil)
+		if ctx.Admin.profile != nil {
+			profileStore = ctx.Admin.profile.Store()
+		}
+		profilesRepo := NewUserProfilesPanelRepository(ctx.Admin.users, profileStore, m.defaultLocale)
+		profilesBuilder := ctx.Admin.Panel(userProfilesPanelID).
+			WithRepository(profilesRepo).
+			ListFields(
+				Field{Name: "id", Label: "User ID", Type: "text"},
+				Field{Name: profileKeyDisplayName, Label: "Display Name", Type: "text"},
+				Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
+				Field{Name: profileKeyLocale, Label: "Locale", Type: "text"},
+				Field{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
+			).
+			FormFields(
+				Field{Name: "id", Label: "User ID", Type: "text", Required: true},
+				Field{Name: profileKeyDisplayName, Label: "Display Name", Type: "text", Required: true},
+				Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
+				Field{Name: profileKeyAvatarURL, Label: "Avatar URL", Type: "text"},
+				Field{Name: profileKeyLocale, Label: "Locale", Type: "text"},
+				Field{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
+				Field{Name: profileKeyBio, Label: "Bio", Type: "textarea"},
+			).
+			DetailFields(
+				Field{Name: "id", Label: "User ID", Type: "text", ReadOnly: true},
+				Field{Name: profileKeyDisplayName, Label: "Display Name", Type: "text"},
+				Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
+				Field{Name: profileKeyAvatarURL, Label: "Avatar URL", Type: "text"},
+				Field{Name: profileKeyLocale, Label: "Locale", Type: "text"},
+				Field{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
+				Field{Name: profileKeyBio, Label: "Bio", Type: "textarea"},
+			).
+			Filters(
+				Filter{Name: profileKeyDisplayName, Label: "Display Name", Type: "text"},
+				Filter{Name: profileKeyEmail, Label: "Email", Type: "text"},
+				Filter{Name: profileKeyLocale, Label: "Locale", Type: "text"},
+				Filter{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
+			).
+			Permissions(PanelPermissions{
+				View:   ctx.Admin.config.UsersPermission,
+				Create: ctx.Admin.config.UsersCreatePermission,
+				Edit:   ctx.Admin.config.UsersUpdatePermission,
+				Delete: ctx.Admin.config.UsersDeletePermission,
+			})
+		if m.userProfilesPanelConfigurer != nil {
+			if configured := m.userProfilesPanelConfigurer(profilesBuilder); configured != nil {
+				profilesBuilder = configured
+			}
+		}
+		if _, err := ctx.Admin.RegisterPanel(userProfilesPanelID, profilesBuilder); err != nil {
+			return err
+		}
+	}
 
 	if ctx.Admin.SearchService() != nil && featureEnabled(ctx.Admin.featureGate, FeatureSearch) {
 		ctx.Admin.SearchService().Register(usersModuleID, &userSearchAdapter{
 			service:    ctx.Admin.users,
 			permission: ctx.Admin.config.UsersPermission,
-			basePath:   m.basePath,
 			urls:       m.urls,
 		})
 	}
@@ -183,7 +315,7 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 	}
 	usersPath := resolveURLWith(m.urls, "admin", usersModuleID, nil, nil)
 	rolesPath := resolveURLWith(m.urls, "admin", rolesPanelID, nil, nil)
-	return []MenuItem{
+	items := []MenuItem{
 		{
 			Label:       "Users",
 			LabelKey:    "menu.users",
@@ -192,7 +324,7 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.usersPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    intPtr(40),
+			Position:    menuPosition(m.usersMenuPosition, 40),
 			ParentID:    m.menuParent,
 		},
 		{
@@ -203,10 +335,32 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.rolesPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    intPtr(41),
+			Position:    menuPosition(m.rolesMenuPosition, 41),
 			ParentID:    m.menuParent,
 		},
 	}
+	if m.enableUserProfilesPanel {
+		profilesPath := resolveURLWith(m.urls, "admin", "user_profiles", nil, nil)
+		items = append(items, MenuItem{
+			Label:       "User Profiles",
+			LabelKey:    "menu.user_profiles",
+			Icon:        "user-circle",
+			Target:      map[string]any{"type": "url", "path": profilesPath, "key": userProfilesPanelID},
+			Permissions: []string{m.usersPerm},
+			Menu:        m.menuCode,
+			Locale:      locale,
+			Position:    menuPosition(nil, 42),
+			ParentID:    m.menuParent,
+		})
+	}
+	return items
+}
+
+func menuPosition(pos *int, fallback int) *int {
+	if pos != nil {
+		return intPtr(*pos)
+	}
+	return intPtr(fallback)
 }
 
 // WithMenuParent nests the module navigation under a parent menu item ID.
@@ -369,11 +523,196 @@ func (r *RolePanelRepository) Delete(ctx context.Context, id string) error {
 	return r.service.DeleteRole(ctx, id)
 }
 
+// UserProfilesPanelRepository adapts ProfileStore to managed user profile panels.
+type UserProfilesPanelRepository struct {
+	users         *UserManagementService
+	profiles      ProfileStore
+	defaultLocale string
+}
+
+// NewUserProfilesPanelRepository constructs a repository backed by UserManagementService and ProfileStore.
+func NewUserProfilesPanelRepository(users *UserManagementService, profiles ProfileStore, defaultLocale string) *UserProfilesPanelRepository {
+	return &UserProfilesPanelRepository{
+		users:         users,
+		profiles:      profiles,
+		defaultLocale: defaultLocale,
+	}
+}
+
+// List returns user profiles for managed users.
+func (r *UserProfilesPanelRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
+	if r.users == nil {
+		return nil, 0, FeatureDisabledError{Feature: string(FeatureUsers)}
+	}
+	if r.profiles == nil {
+		return nil, 0, errors.New("profile store not configured")
+	}
+	users, total, err := r.users.ListUsers(ctx, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]map[string]any, 0, len(users))
+	for _, user := range users {
+		profile, err := r.profiles.Get(ctx, user.ID)
+		if err != nil {
+			return nil, 0, err
+		}
+		if profile.UserID == "" {
+			profile.UserID = user.ID
+		}
+		out = append(out, r.recordFromProfile(r.applyDefaults(profile)))
+	}
+	return out, total, nil
+}
+
+// Get fetches a single user profile.
+func (r *UserProfilesPanelRepository) Get(ctx context.Context, id string) (map[string]any, error) {
+	if r.users == nil {
+		return nil, FeatureDisabledError{Feature: string(FeatureUsers)}
+	}
+	if r.profiles == nil {
+		return nil, errors.New("profile store not configured")
+	}
+	if id == "" {
+		return nil, ErrForbidden
+	}
+	if _, err := r.users.GetUser(ctx, id); err != nil {
+		return nil, err
+	}
+	profile, err := r.profiles.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if profile.UserID == "" {
+		profile.UserID = id
+	}
+	return r.recordFromProfile(r.applyDefaults(profile)), nil
+}
+
+// Create adds a user profile.
+func (r *UserProfilesPanelRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
+	return r.Update(ctx, "", record)
+}
+
+// Update modifies a user profile.
+func (r *UserProfilesPanelRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
+	if r.users == nil {
+		return nil, FeatureDisabledError{Feature: string(FeatureUsers)}
+	}
+	if r.profiles == nil {
+		return nil, errors.New("profile store not configured")
+	}
+	if id == "" {
+		id = toString(record["id"])
+	}
+	if id == "" {
+		return nil, ErrForbidden
+	}
+	if _, err := r.users.GetUser(ctx, id); err != nil {
+		return nil, err
+	}
+	profile := r.profileFromRecord(record)
+	profile.UserID = id
+	updated, err := r.profiles.Save(ctx, profile)
+	if err != nil {
+		return nil, err
+	}
+	if updated.UserID == "" {
+		updated.UserID = id
+	}
+	return r.recordFromProfile(r.applyDefaults(updated)), nil
+}
+
+// Delete removes a user profile if supported by the backing store.
+func (r *UserProfilesPanelRepository) Delete(ctx context.Context, id string) error {
+	if r.users == nil {
+		return FeatureDisabledError{Feature: string(FeatureUsers)}
+	}
+	if r.profiles == nil {
+		return errors.New("profile store not configured")
+	}
+	if id == "" {
+		return ErrForbidden
+	}
+	type profileDeleter interface {
+		Delete(ctx context.Context, userID string) error
+	}
+	if deleter, ok := r.profiles.(profileDeleter); ok {
+		return deleter.Delete(ctx, id)
+	}
+	return ErrForbidden
+}
+
+func (r *UserProfilesPanelRepository) applyDefaults(profile UserProfile) UserProfile {
+	if profile.Locale == "" {
+		profile.Locale = r.defaultLocale
+	}
+	return profile
+}
+
+func (r *UserProfilesPanelRepository) recordFromProfile(profile UserProfile) map[string]any {
+	record := map[string]any{
+		"id":                  profile.UserID,
+		profileKeyDisplayName: profile.DisplayName,
+		profileKeyEmail:       profile.Email,
+		profileKeyAvatarURL:   profile.AvatarURL,
+		profileKeyLocale:      profile.Locale,
+		profileKeyTimezone:    profile.Timezone,
+		profileKeyBio:         profile.Bio,
+	}
+	if len(profile.Contact) > 0 {
+		record["contact"] = cloneAnyMap(profile.Contact)
+	}
+	if len(profile.Metadata) > 0 {
+		record["metadata"] = cloneAnyMap(profile.Metadata)
+		if avatar := extractMap(profile.Metadata[profileKeyAvatar]); len(avatar) > 0 {
+			record[profileKeyAvatar] = cloneAnyMap(avatar)
+		}
+	}
+	return record
+}
+
+func (r *UserProfilesPanelRepository) profileFromRecord(record map[string]any) UserProfile {
+	profile := UserProfile{
+		Raw: cloneAnyMap(record),
+	}
+	if val, ok := record[profileKeyDisplayName]; ok {
+		profile.DisplayName = toString(val)
+	}
+	if val, ok := record[profileKeyEmail]; ok {
+		profile.Email = toString(val)
+	}
+	if val, ok := record[profileKeyAvatarURL]; ok {
+		profile.AvatarURL = toString(val)
+	}
+	if val, ok := record[profileKeyLocale]; ok {
+		profile.Locale = toString(val)
+	}
+	if val, ok := record[profileKeyTimezone]; ok {
+		profile.Timezone = toString(val)
+	}
+	if val, ok := record[profileKeyBio]; ok {
+		profile.Bio = toString(val)
+	}
+	if contact := extractMap(record["contact"]); len(contact) > 0 {
+		profile.Contact = cloneAnyMap(contact)
+	}
+	if metadata := extractMap(record["metadata"]); len(metadata) > 0 {
+		profile.Metadata = cloneAnyMap(metadata)
+	}
+	if avatar := extractMap(record[profileKeyAvatar]); len(avatar) > 0 {
+		if profile.Metadata == nil {
+			profile.Metadata = map[string]any{}
+		}
+		profile.Metadata[profileKeyAvatar] = cloneAnyMap(avatar)
+	}
+	return profile
+}
+
 // User search adapter for global search/typeahead.
 type userSearchAdapter struct {
 	service    *UserManagementService
 	permission string
-	basePath   string
 	urls       urlkit.Resolver
 }
 
@@ -401,7 +740,7 @@ func (a *userSearchAdapter) Search(ctx context.Context, query string, limit int)
 			ID:          user.ID,
 			Title:       fmt.Sprintf("%s (%s)", user.Username, user.Email),
 			Description: strings.TrimSpace(strings.Join(descParts, " ")),
-			URL:         firstNonEmpty(resolveURLWith(a.urls, "admin", "users.id", map[string]string{"id": user.ID}, nil), path.Join("/", a.basePath, usersModuleID, user.ID)),
+			URL:         resolveURLWith(a.urls, "admin", "users.id", map[string]string{"id": user.ID}, nil),
 			Icon:        "user",
 		})
 	}
