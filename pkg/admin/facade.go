@@ -61,6 +61,9 @@ func WithLocale(ctx context.Context, locale string) context.Context {
 func NewCRUDContext(ctx context.Context) crud.Context {
 	return core.NewCRUDContext(ctx)
 }
+func WithTranslations() CMSContentListOption {
+	return core.WithTranslations()
+}
 
 const (
 	TextCodeValidationError           = core.TextCodeValidationError
@@ -91,6 +94,7 @@ const (
 )
 
 type (
+	CMSContentListOption = core.CMSContentListOption
 	Action               = core.Action
 	ActivityEntry        = core.ActivityEntry
 	ActivityFilter       = core.ActivityFilter
