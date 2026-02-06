@@ -134,7 +134,7 @@ func WithRegistrationUIThemeAssets(prefix string, assets map[string]string) Regi
 }
 
 // RegisterRegistrationUIRoutes registers the registration UI route.
-func RegisterRegistrationUIRoutes(r router.Router[*fiber.App], cfg admin.Config, opts ...RegistrationUIOption) error {
+func RegisterRegistrationUIRoutes[T any](r router.Router[T], cfg admin.Config, opts ...RegistrationUIOption) error {
 	if r == nil {
 		return fmt.Errorf("router is required")
 	}
