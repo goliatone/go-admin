@@ -31,6 +31,8 @@ export interface ContentTypeCapabilities {
   seo?: boolean;
   localization?: boolean;
   blocks?: boolean;
+  filters_fallback_from_columns?: boolean;
+  filtersFallbackFromColumns?: boolean;
   [key: string]: boolean | undefined;
 }
 
@@ -84,6 +86,7 @@ export interface FormgenExtension {
   grid?: { span?: number; offset?: number };
   readonly?: boolean;
   hidden?: boolean;
+  filterable?: boolean;
   sortable?: boolean;
   collapsed?: boolean;
   icon?: string;
@@ -149,6 +152,7 @@ export interface FieldDefinition {
   required: boolean;
   readonly?: boolean;
   hidden?: boolean;
+  filterable?: boolean;
   defaultValue?: unknown;
   // Validation
   validation?: FieldValidation;

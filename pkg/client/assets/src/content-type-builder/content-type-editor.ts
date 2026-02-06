@@ -218,6 +218,7 @@ export class ContentTypeEditor {
       required: field.required,
       readonly: field.readonly,
       hidden: field.hidden,
+      filterable: field.filterable,
       defaultValue: field.defaultValue,
       section: field.section,
       gridSpan: field.gridSpan,
@@ -845,6 +846,16 @@ export class ContentTypeEditor {
               class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Block Editor</span>
+          </label>
+
+          <label class="flex items-center gap-2 cursor-pointer col-span-2">
+            <input
+              type="checkbox"
+              data-ct-cap="filters_fallback_from_columns"
+              ${caps.filters_fallback_from_columns || caps.filtersFallbackFromColumns ? 'checked' : ''}
+              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+            />
+            <span class="text-sm text-gray-700 dark:text-gray-300">Fallback filters from list columns</span>
           </label>
         </div>
       </div>
@@ -2019,15 +2030,20 @@ export class ContentTypeEditor {
   }
 
   /**
-   * Initialize JSON editors inside the preview container.
-   * The formgen-behaviors bundle (loaded via script tag) exposes
-   * FormgenBehaviors.initJSONEditors() which scans the document for
-   * un-initialized [data-json-editor] elements.
+   * Initialize preview field enhancements that require client-side behavior.
+   * formgen-behaviors provides JSON editor hydration and
+   * formgen-relationships provides WYSIWYG hydration.
    */
   private initPreviewEditors(): void {
     const fb = (window as any).FormgenBehaviors;
     if (typeof fb?.initJSONEditors === 'function') {
       fb.initJSONEditors();
+    }
+
+    const rel = (window as any).FormgenRelationships;
+    const initWysiwyg = rel?.autoInitWysiwyg ?? fb?.autoInitWysiwyg;
+    if (typeof initWysiwyg === 'function') {
+      initWysiwyg();
     }
   }
 

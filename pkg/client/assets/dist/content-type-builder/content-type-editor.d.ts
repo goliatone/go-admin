@@ -132,10 +132,9 @@ export declare class ContentTypeEditor {
     private applyBlockSelection;
     private renderPreview;
     /**
-     * Initialize JSON editors inside the preview container.
-     * The formgen-behaviors bundle (loaded via script tag) exposes
-     * FormgenBehaviors.initJSONEditors() which scans the document for
-     * un-initialized [data-json-editor] elements.
+     * Initialize preview field enhancements that require client-side behavior.
+     * formgen-behaviors provides JSON editor hydration and
+     * formgen-relationships provides WYSIWYG hydration.
      */
     private initPreviewEditors;
     private renderValidationErrors;
