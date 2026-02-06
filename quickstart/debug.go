@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
@@ -11,17 +12,27 @@ import (
 
 // DebugEnvOption customizes which environment variables map to debug config.
 type DebugEnvOption struct {
-	EnabledKey            string
-	AllowedIPsKey         string
-	CaptureSQLKey         string
-	CaptureLogsKey        string
-	CaptureJSErrorsKey    string
-	CaptureRequestBodyKey string
-	ToolbarModeKey        string
-	ToolbarPanelsKey      string
-	LayoutModeKey         string
-	ReplEnabledKey        string
-	ReplReadOnlyKey       string
+	EnabledKey                    string
+	AllowedIPsKey                 string
+	AllowedOriginsKey             string
+	AppIDKey                      string
+	AppNameKey                    string
+	EnvironmentKey                string
+	RemoteEnabledKey              string
+	TokenTTLKey                   string
+	SessionTrackingKey            string
+	SessionIncludeGlobalPanelsKey string
+	SessionCookieNameKey          string
+	SessionInactivityExpiryKey    string
+	CaptureSQLKey                 string
+	CaptureLogsKey                string
+	CaptureJSErrorsKey            string
+	CaptureRequestBodyKey         string
+	ToolbarModeKey                string
+	ToolbarPanelsKey              string
+	LayoutModeKey                 string
+	ReplEnabledKey                string
+	ReplReadOnlyKey               string
 }
 
 // WithDebugConfig merges a debug config into the admin config.
@@ -57,6 +68,36 @@ func WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption {
 
 		if allowedIPs, ok := envCSVKey(envOpts.AllowedIPsKey); ok {
 			debugCfg.AllowedIPs = allowedIPs
+		}
+		if origins, ok := envCSVKey(envOpts.AllowedOriginsKey); ok {
+			debugCfg.AllowedOrigins = origins
+		}
+		if value, ok := envStringKey(envOpts.AppIDKey); ok {
+			debugCfg.AppID = value
+		}
+		if value, ok := envStringKey(envOpts.AppNameKey); ok {
+			debugCfg.AppName = value
+		}
+		if value, ok := envStringKey(envOpts.EnvironmentKey); ok {
+			debugCfg.Environment = value
+		}
+		if value, ok := envBoolKey(envOpts.RemoteEnabledKey); ok {
+			debugCfg.RemoteEnabled = value
+		}
+		if value, ok := envDurationKey(envOpts.TokenTTLKey); ok {
+			debugCfg.TokenTTL = value
+		}
+		if value, ok := envBoolKey(envOpts.SessionTrackingKey); ok {
+			debugCfg.SessionTracking = value
+		}
+		if value, ok := envBoolKey(envOpts.SessionIncludeGlobalPanelsKey); ok {
+			debugCfg.SessionIncludeGlobalPanels = admin.BoolPtr(value)
+		}
+		if value, ok := envStringKey(envOpts.SessionCookieNameKey); ok {
+			debugCfg.SessionCookieName = value
+		}
+		if value, ok := envDurationKey(envOpts.SessionInactivityExpiryKey); ok {
+			debugCfg.SessionInactivityExpiry = value
 		}
 		if value, ok := envBoolKey(envOpts.CaptureSQLKey); ok {
 			debugCfg.CaptureSQL = value
@@ -143,17 +184,27 @@ func AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin) {
 
 func mergeDebugEnvOptions(opts ...DebugEnvOption) DebugEnvOption {
 	out := DebugEnvOption{
-		EnabledKey:            "ADMIN_DEBUG",
-		AllowedIPsKey:         "ADMIN_DEBUG_ALLOWED_IPS",
-		CaptureSQLKey:         "ADMIN_DEBUG_SQL",
-		CaptureLogsKey:        "ADMIN_DEBUG_LOGS",
-		CaptureJSErrorsKey:    "ADMIN_DEBUG_JS_ERRORS",
-		CaptureRequestBodyKey: "ADMIN_DEBUG_REQUEST_BODY",
-		ToolbarModeKey:        "ADMIN_DEBUG_TOOLBAR",
-		ToolbarPanelsKey:      "ADMIN_DEBUG_TOOLBAR_PANELS",
-		LayoutModeKey:         "ADMIN_DEBUG_LAYOUT",
-		ReplEnabledKey:        "ADMIN_DEBUG_REPL",
-		ReplReadOnlyKey:       "ADMIN_DEBUG_REPL_READONLY",
+		EnabledKey:                    "ADMIN_DEBUG",
+		AllowedIPsKey:                 "ADMIN_DEBUG_ALLOWED_IPS",
+		AllowedOriginsKey:             "ADMIN_DEBUG_ALLOWED_ORIGINS",
+		AppIDKey:                      "ADMIN_DEBUG_APP_ID",
+		AppNameKey:                    "ADMIN_DEBUG_APP_NAME",
+		EnvironmentKey:                "ADMIN_DEBUG_ENVIRONMENT",
+		RemoteEnabledKey:              "ADMIN_DEBUG_REMOTE",
+		TokenTTLKey:                   "ADMIN_DEBUG_TOKEN_TTL",
+		SessionTrackingKey:            "ADMIN_DEBUG_SESSION_TRACKING",
+		SessionIncludeGlobalPanelsKey: "ADMIN_DEBUG_SESSION_GLOBAL_PANELS",
+		SessionCookieNameKey:          "ADMIN_DEBUG_SESSION_COOKIE",
+		SessionInactivityExpiryKey:    "ADMIN_DEBUG_SESSION_EXPIRY",
+		CaptureSQLKey:                 "ADMIN_DEBUG_SQL",
+		CaptureLogsKey:                "ADMIN_DEBUG_LOGS",
+		CaptureJSErrorsKey:            "ADMIN_DEBUG_JS_ERRORS",
+		CaptureRequestBodyKey:         "ADMIN_DEBUG_REQUEST_BODY",
+		ToolbarModeKey:                "ADMIN_DEBUG_TOOLBAR",
+		ToolbarPanelsKey:              "ADMIN_DEBUG_TOOLBAR_PANELS",
+		LayoutModeKey:                 "ADMIN_DEBUG_LAYOUT",
+		ReplEnabledKey:                "ADMIN_DEBUG_REPL",
+		ReplReadOnlyKey:               "ADMIN_DEBUG_REPL_READONLY",
 	}
 	for _, opt := range opts {
 		if key := strings.TrimSpace(opt.EnabledKey); key != "" {
@@ -161,6 +212,36 @@ func mergeDebugEnvOptions(opts ...DebugEnvOption) DebugEnvOption {
 		}
 		if key := strings.TrimSpace(opt.AllowedIPsKey); key != "" {
 			out.AllowedIPsKey = key
+		}
+		if key := strings.TrimSpace(opt.AllowedOriginsKey); key != "" {
+			out.AllowedOriginsKey = key
+		}
+		if key := strings.TrimSpace(opt.AppIDKey); key != "" {
+			out.AppIDKey = key
+		}
+		if key := strings.TrimSpace(opt.AppNameKey); key != "" {
+			out.AppNameKey = key
+		}
+		if key := strings.TrimSpace(opt.EnvironmentKey); key != "" {
+			out.EnvironmentKey = key
+		}
+		if key := strings.TrimSpace(opt.RemoteEnabledKey); key != "" {
+			out.RemoteEnabledKey = key
+		}
+		if key := strings.TrimSpace(opt.TokenTTLKey); key != "" {
+			out.TokenTTLKey = key
+		}
+		if key := strings.TrimSpace(opt.SessionTrackingKey); key != "" {
+			out.SessionTrackingKey = key
+		}
+		if key := strings.TrimSpace(opt.SessionIncludeGlobalPanelsKey); key != "" {
+			out.SessionIncludeGlobalPanelsKey = key
+		}
+		if key := strings.TrimSpace(opt.SessionCookieNameKey); key != "" {
+			out.SessionCookieNameKey = key
+		}
+		if key := strings.TrimSpace(opt.SessionInactivityExpiryKey); key != "" {
+			out.SessionInactivityExpiryKey = key
 		}
 		if key := strings.TrimSpace(opt.CaptureSQLKey); key != "" {
 			out.CaptureSQLKey = key
@@ -236,4 +317,24 @@ func envStringKey(key string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimSpace(raw), true
+}
+
+func envDurationKey(key string) (time.Duration, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return 0, false
+	}
+	raw, ok := os.LookupEnv(key)
+	if !ok {
+		return 0, false
+	}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, true
+	}
+	parsed, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, false
+	}
+	return parsed, true
 }
