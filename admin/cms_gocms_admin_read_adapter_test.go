@@ -96,14 +96,31 @@ func TestGoCMSAdminPageReadAdapterListAllowsMissingTranslations(t *testing.T) {
 	if got.Translation.Meta.MissingRequestedLocale != true {
 		t.Fatalf("expected missing requested locale true, got %+v", got.Translation.Meta)
 	}
+	if got.Translation.Meta.RequestedLocale != "es" || got.Translation.Meta.ResolvedLocale != "en" {
+		t.Fatalf("expected translation meta requested/resolved preserved, got %+v", got.Translation.Meta)
+	}
+	if len(got.Translation.Meta.AvailableLocales) != 1 || got.Translation.Meta.AvailableLocales[0] != "en" {
+		t.Fatalf("expected translation available locales [en], got %+v", got.Translation.Meta.AvailableLocales)
+	}
+	if !got.Translation.Meta.FallbackUsed || got.Translation.Meta.PrimaryLocale != "en" {
+		t.Fatalf("expected translation fallback/primary preserved, got %+v", got.Translation.Meta)
+	}
 	if got.Translation.Requested != nil {
 		t.Fatalf("expected nil requested translation when missing")
 	}
 	if got.Translation.Resolved == nil || got.Translation.Resolved.Locale != "en" {
 		t.Fatalf("expected resolved translation in fallback locale, got %+v", got.Translation.Resolved)
 	}
-	if got.ContentTranslation.Meta.AvailableLocales == nil || len(got.ContentTranslation.Meta.AvailableLocales) != 2 {
-		t.Fatalf("expected content available locales, got %+v", got.ContentTranslation.Meta.AvailableLocales)
+	if got.ContentTranslation.Meta.RequestedLocale != "es" || got.ContentTranslation.Meta.ResolvedLocale != "en" {
+		t.Fatalf("expected content translation meta requested/resolved preserved, got %+v", got.ContentTranslation.Meta)
+	}
+	if len(got.ContentTranslation.Meta.AvailableLocales) != 2 ||
+		got.ContentTranslation.Meta.AvailableLocales[0] != "en" ||
+		got.ContentTranslation.Meta.AvailableLocales[1] != "fr" {
+		t.Fatalf("expected content available locales [en fr], got %+v", got.ContentTranslation.Meta.AvailableLocales)
+	}
+	if !got.ContentTranslation.Meta.FallbackUsed || got.ContentTranslation.Meta.PrimaryLocale != "en" {
+		t.Fatalf("expected content fallback/primary preserved, got %+v", got.ContentTranslation.Meta)
 	}
 }
 
@@ -145,5 +162,11 @@ func TestGoCMSAdminPageReadAdapterGetAllowsMissingTranslations(t *testing.T) {
 	}
 	if got.Translation.Meta.RequestedLocale != "es" || !got.Translation.Meta.MissingRequestedLocale {
 		t.Fatalf("expected translation meta preserved, got %+v", got.Translation.Meta)
+	}
+	if got.Translation.Meta.ResolvedLocale != "en" || !got.Translation.Meta.FallbackUsed || got.Translation.Meta.PrimaryLocale != "en" {
+		t.Fatalf("expected translation bundle metadata preserved, got %+v", got.Translation.Meta)
+	}
+	if len(got.Translation.Meta.AvailableLocales) != 1 || got.Translation.Meta.AvailableLocales[0] != "en" {
+		t.Fatalf("expected translation available locales [en], got %+v", got.Translation.Meta.AvailableLocales)
 	}
 }
