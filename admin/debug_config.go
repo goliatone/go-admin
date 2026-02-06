@@ -17,6 +17,8 @@ const (
 	debugDefaultMaxLogEntries      = 500
 	debugDefaultMaxSQLQueries      = 200
 	debugDefaultSlowQueryThreshold = 50 * time.Millisecond
+	debugDefaultSessionCookieName  = "admin_debug_session"
+	debugDefaultSessionInactivity  = 30 * time.Minute
 )
 
 const (
@@ -119,6 +121,14 @@ type DebugConfig struct {
 	// ToolbarExcludePaths disables the toolbar on matching paths.
 	// Use exact paths ("/admin/debug") or prefix wildcards ("/admin/debug/*").
 	ToolbarExcludePaths []string
+	// SessionTracking enables debug session tracking with optional cookie fallback.
+	SessionTracking bool
+	// SessionIncludeGlobalPanels controls whether global panels are included in session views.
+	SessionIncludeGlobalPanels *bool
+	// SessionCookieName controls the debug session cookie name.
+	SessionCookieName string
+	// SessionInactivityExpiry controls the TTL for session cookies and session registry expiry.
+	SessionInactivityExpiry time.Duration
 }
 
 func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
@@ -181,7 +191,25 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	}
 	cfg.ToolbarPanels = normalizePanelIDs(cfg.ToolbarPanels)
 	cfg.ToolbarExcludePaths = normalizeDebugToolbarExcludePaths(cfg.ToolbarExcludePaths, cfg.BasePath)
+	cfg.SessionCookieName = strings.TrimSpace(cfg.SessionCookieName)
+	if cfg.SessionCookieName == "" {
+		cfg.SessionCookieName = debugDefaultSessionCookieName
+	}
+	if cfg.SessionInactivityExpiry <= 0 {
+		cfg.SessionInactivityExpiry = debugDefaultSessionInactivity
+	}
+	if cfg.SessionIncludeGlobalPanels == nil {
+		cfg.SessionIncludeGlobalPanels = BoolPtr(true)
+	}
 	return cfg
+}
+
+// SessionIncludeGlobalPanelsEnabled returns the effective session global panel toggle.
+func (cfg DebugConfig) SessionIncludeGlobalPanelsEnabled() bool {
+	if cfg.SessionIncludeGlobalPanels == nil {
+		return true
+	}
+	return *cfg.SessionIncludeGlobalPanels
 }
 
 func normalizeDebugToolbarExcludePaths(paths []string, debugBasePath string) []string {
