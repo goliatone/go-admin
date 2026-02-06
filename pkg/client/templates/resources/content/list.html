@@ -15,18 +15,25 @@
 
 {% block datatable_scripts %}
 <script type="module">
-import { DataGrid, ServerColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { DataGrid, FilterBuilder, GoCrudFilterBehavior, ServerColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
 
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
 const apiEndpoint = '{{ list_api }}';
 const actionBasePath = '{{ action_base }}';
 const columns = {{ toJSON(columns)|safe }};
+const filters = {{ toJSON(filters)|safe }};
 const env = {{ toJSON(env)|safe }};
 const columnFields = columns.map(c => c.field);
 const gridColumns = columns.map(col => ({
   ...col,
   hidden: col.default === false
+}));
+const filterFields = (filters || []).map(filter => ({
+  name: filter.name,
+  label: filter.label,
+  type: normalizeFilterType(filter.type),
+  options: normalizeFilterOptions(filter.options)
 }));
 
 class PanelPaginationBehavior {
@@ -52,6 +59,36 @@ class PanelSearchBehavior {
     grid.resetPagination();
     await grid.refresh();
   }
+}
+
+function normalizeFilterType(type) {
+  switch ((type || '').toLowerCase()) {
+    case 'select':
+    case 'enum':
+      return 'select';
+    case 'number':
+    case 'integer':
+      return 'number';
+    case 'date':
+    case 'datetime':
+    case 'time':
+      return 'date';
+    default:
+      return 'text';
+  }
+}
+
+function normalizeFilterOptions(options) {
+  if (!Array.isArray(options)) return undefined;
+  const normalized = options
+    .map(option => {
+      if (!option) return null;
+      const value = option.value ?? '';
+      const label = option.label ?? String(value);
+      return { label: String(label), value: String(value) };
+    })
+    .filter(Boolean);
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 const envQuery = env ? `?env=${encodeURIComponent(env)}` : '';
@@ -106,6 +143,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     ],
     behaviors: {
       search: new PanelSearchBehavior(),
+      filter: new GoCrudFilterBehavior(),
       pagination: new PanelPaginationBehavior(),
       columnVisibility: columnVisibility
     },
@@ -145,13 +183,37 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
   }
 
-  const filterToggle = document.getElementById('filter-toggle-btn');
-  if (filterToggle) {
-    filterToggle.classList.add('hidden');
-  }
-  const exportBtn = document.getElementById('export-btn');
-  if (exportBtn) {
-    exportBtn.classList.add('hidden');
+  const filterToggleBtn = document.getElementById('filter-toggle-btn');
+  if (filterFields.length > 0) {
+    new FilterBuilder({
+      notifier: window.toastManager,
+      fields: filterFields,
+      onApply: (structure) => {
+        const appliedFilters = [];
+        structure.groups.forEach(group => {
+          group.conditions.forEach(condition => {
+            appliedFilters.push({
+              column: condition.field,
+              operator: condition.operator,
+              value: condition.value
+            });
+          });
+        });
+        grid.state.filters = appliedFilters;
+        grid.resetPagination();
+        grid.syncURL();
+        grid.refresh();
+      },
+      onClear: () => {
+        grid.state.search = '';
+        grid.state.filters = [];
+        grid.syncURL();
+        grid.refresh();
+      }
+    });
+  } else if (filterToggleBtn) {
+    filterToggleBtn.disabled = true;
+    filterToggleBtn.classList.add('opacity-50', 'cursor-not-allowed');
   }
 });
 </script>
