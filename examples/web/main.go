@@ -106,7 +106,7 @@ func main() {
 		"bulk":                        true,
 		"preferences":                 true,
 		"profile":                     true,
-		"users":                       false,
+		"users":                       true,
 		"tenants":                     false,
 		"organizations":               false,
 		setup.FeatureUserInvites:      true,
@@ -192,6 +192,7 @@ func main() {
 			log.Fatalf("users service not ready: %v", err)
 		}
 	}
+	scopeResolver := quickstart.ScopeBuilder(cfg)
 
 	exportTracker := newExportPipelineTracker(
 		export.NewMemoryTracker(),
@@ -247,6 +248,13 @@ func main() {
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
 		quickstart.WithAdapterFlags(adapterFlags),
+		quickstart.WithGoUsersUserManagement(quickstart.GoUsersUserManagementConfig{
+			AuthRepo:      usersDeps.AuthRepo,
+			InventoryRepo: usersDeps.InventoryRepo,
+			RoleRegistry:  usersDeps.RoleRegistry,
+			ProfileRepo:   usersDeps.ProfileRepo,
+			ScopeResolver: scopeResolver,
+		}),
 		quickstart.WithGoUsersPreferencesRepositoryFactory(func() (userstypes.PreferenceRepository, error) {
 			if usersDeps.DB == nil {
 				return nil, fmt.Errorf("preferences repository db not configured")
@@ -326,16 +334,6 @@ func main() {
 	dataStores.Pages.WithActivitySink(activitySink)
 	dataStores.Posts.WithActivitySink(activitySink)
 	dataStores.Media.WithActivitySink(activitySink)
-
-	scopeResolver := quickstart.ScopeBuilder(cfg)
-	adm.WithUserManagement(
-		admin.NewGoUsersUserRepository(usersDeps.AuthRepo, usersDeps.InventoryRepo, scopeResolver),
-		admin.NewGoUsersRoleRepository(usersDeps.RoleRegistry, scopeResolver),
-	)
-	adm.WithRoleAssignmentLookup(admin.UUIDRoleAssignmentLookup{})
-	if usersDeps.ProfileRepo != nil && adm.ProfileService() != nil {
-		adm.ProfileService().WithStore(admin.NewGoUsersProfileStore(usersDeps.ProfileRepo, scopeResolver))
-	}
 
 	if lib := adm.MediaLibrary(); lib != nil {
 		mediaItems, _, _ := dataStores.Media.List(context.Background(), admin.ListOptions{})
@@ -592,9 +590,35 @@ func main() {
 			return authlib.Can(ctx, "admin", "edit")
 		}),
 	)
+	usersModule := quickstart.NewUsersModule(
+		admin.WithUserMenuParent(setup.NavigationGroupMain),
+		admin.WithUserProfilesPanel(),
+		admin.WithUserPanelTabs(
+			admin.PanelTab{
+				ID:         "profile",
+				Label:      "Profile",
+				Icon:       "user-circle",
+				Position:   10,
+				Scope:      admin.PanelTabScopeDetail,
+				Permission: cfg.UsersPermission,
+				Target:     admin.PanelTabTarget{Type: "panel", Panel: "user-profiles"},
+				Filters:    map[string]string{"user_id": "{{record.id}}"},
+			},
+			admin.PanelTab{
+				ID:         "activity",
+				Label:      "Activity",
+				Icon:       "clock",
+				Position:   20,
+				Scope:      admin.PanelTabScopeDetail,
+				Permission: cfg.UsersPermission,
+				Target:     admin.PanelTabTarget{Type: "path", Path: path.Join(cfg.BasePath, "activity")},
+				Query:      map[string]string{"user_id": "{{record.id}}"},
+			},
+		),
+	)
 	modules := []admin.Module{
 		&dashboardModule{menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
-		&usersModule{store: dataStores.Users, profiles: dataStores.UserProfiles, service: usersService, menuCode: cfg.NavMenuCode, defaultLoc: cfg.DefaultLocale, basePath: cfg.BasePath, parentID: setup.NavigationGroupMain},
+		usersModule,
 		quickstart.NewContentTypeBuilderModule(cfg, setup.NavigationSectionContent,
 			coreadmin.WithContentTypeBuilderWorkflowAuthorizer(blockWorkflowAuth),
 		),
@@ -785,6 +809,9 @@ func main() {
 		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
 	); err != nil {
 		log.Fatalf("failed to register admin UI routes: %v", err)
+	}
+	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
+		log.Fatalf("failed to register settings UI routes: %v", err)
 	}
 	if err := quickstart.RegisterRolesUIRoutes(
 		r,
