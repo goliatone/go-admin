@@ -262,6 +262,37 @@ body {
   border-bottom: 1px solid var(--debug-border);
 }
 
+.debug-session-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(137, 180, 250, 0.12);
+  border-bottom: 1px solid var(--debug-border);
+}
+
+.debug-session-banner__info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.debug-session-banner__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--debug-accent);
+  font-weight: 700;
+}
+
+.debug-session-banner__meta {
+  font-size: 12px;
+  color: var(--debug-text);
+  font-family: var(--debug-font);
+}
+
 .debug-filters {
   display: flex;
   align-items: flex-end;
@@ -695,6 +726,52 @@ body {
 
 .debug-table tr.error td {
   background: rgba(243, 139, 168, 0.08);
+}
+
+/* Session panel */
+.debug-session-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 6px 0;
+}
+
+.debug-session-toolbar__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--debug-text-muted);
+  font-weight: 600;
+}
+
+.debug-session-table {
+  margin-top: 6px;
+}
+
+.debug-session-user {
+  font-weight: 600;
+  color: var(--debug-text);
+}
+
+.debug-session-meta {
+  font-size: 10px;
+  color: var(--debug-text-muted);
+}
+
+.debug-session-id {
+  font-family: var(--debug-font);
+}
+
+.debug-session-path {
+  display: inline-block;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-session-row--active td {
+  background: rgba(137, 180, 250, 0.12);
 }
 
 /* Badges */
