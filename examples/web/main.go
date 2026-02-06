@@ -85,12 +85,12 @@ func main() {
 	if value := strings.TrimSpace(os.Getenv("ADMIN_PREVIEW_SECRET")); value != "" {
 		cfg.PreviewSecret = value
 	}
-	cfg.URLs.APIVersion = "v0"
+	cfg.URLs.Admin.APIVersion = "v0"
 	if value, ok := os.LookupEnv("ADMIN_API_VERSION"); ok {
-		cfg.URLs.APIVersion = strings.TrimSpace(value)
+		cfg.URLs.Admin.APIVersion = strings.TrimSpace(value)
 	}
 	if value, ok := os.LookupEnv("ADMIN_API_PREFIX"); ok {
-		cfg.URLs.APIPrefix = strings.TrimSpace(value)
+		cfg.URLs.Admin.APIPrefix = strings.TrimSpace(value)
 	}
 	cfg.FeatureCatalogPath = resolveFeatureCatalogPath()
 	featureDefaults := map[string]bool{
@@ -491,6 +491,10 @@ func main() {
 	if adm != nil {
 		apiBasePath = adm.AdminAPIBasePath()
 	}
+	adminAPIBasePath := apiBasePath
+	if adminAPIBasePath == "" {
+		adminAPIBasePath = path.Join("/", cfg.BasePath, "api")
+	}
 	componentRegistry.MustRegister("block-library-picker", coreadmin.BlockLibraryPickerDescriptorWithAPIBase(cfg.BasePath, apiBasePath))
 	formGenerator, err := quickstart.NewFormGenerator(
 		openapiFS,
@@ -701,16 +705,16 @@ func main() {
 	mediaController.RegisterRoutes(crudAdapter)
 	registerCrudAliases(crudAdapter, mediaController, "media")
 
-	r.Get(path.Join(cfg.BasePath, "api/session"), wrapAuthed(func(c router.Context) error {
+	r.Get(path.Join(adminAPIBasePath, "session"), wrapAuthed(func(c router.Context) error {
 		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), adm.FeatureGate())
 		return c.JSON(fiber.StatusOK, session)
 	}))
 	if scopeDebugEnabled {
-		r.Get(path.Join(cfg.BasePath, "api", "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
+		r.Get(path.Join(adminAPIBasePath, "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 	}
 
-	r.Get(path.Join(cfg.BasePath, "api", "timezones"), wrapAuthed(handlers.ListTimezones))
-	r.Get(path.Join(cfg.BasePath, "api", "templates"), wrapAuthed(handlers.ListTemplates(dataStores.Templates)))
+	r.Get(path.Join(adminAPIBasePath, "timezones"), wrapAuthed(handlers.ListTimezones))
+	r.Get(path.Join(adminAPIBasePath, "templates"), wrapAuthed(handlers.ListTemplates(dataStores.Templates)))
 
 	onboardingHandlers := handlers.OnboardingHandlers{
 		UsersService: usersService,
@@ -724,7 +728,7 @@ func main() {
 		ResetRepo:    usersDeps.ResetRepo,
 	}
 
-	onboardingBase := path.Join(cfg.BasePath, "api", "onboarding")
+	onboardingBase := path.Join(adminAPIBasePath, "onboarding")
 	r.Post(path.Join(onboardingBase, "invite"), wrapAuthed(onboardingHandlers.Invite))
 	r.Get(path.Join(onboardingBase, "invite", "verify"), onboardingHandlers.VerifyInvite)
 	r.Post(path.Join(onboardingBase, "invite", "accept"), onboardingHandlers.AcceptInvite)
@@ -734,9 +738,9 @@ func main() {
 	r.Post(path.Join(onboardingBase, "password", "reset", "confirm"), onboardingHandlers.ConfirmPasswordReset)
 	r.Get(path.Join(onboardingBase, "token", "metadata"), onboardingHandlers.TokenMetadata)
 
-	uploadsBase := path.Join(cfg.BasePath, "api", "uploads", "users")
+	uploadsBase := path.Join(adminAPIBasePath, "uploads", "users")
 	r.Post(path.Join(uploadsBase, "profile-picture"), wrapAuthed(handlers.ProfilePictureUploadHandler(cfg.BasePath, diskAssetsDir)))
-	uploadsMediaBase := path.Join(cfg.BasePath, "api", "uploads", "media")
+	uploadsMediaBase := path.Join(adminAPIBasePath, "uploads", "media")
 	r.Post(path.Join(uploadsMediaBase, "featured-image"), wrapAuthed(handlers.FeaturedImageUploadHandler(cfg.BasePath, diskAssetsDir)))
 
 	userActions := &handlers.UserActionHandlers{
@@ -745,7 +749,7 @@ func main() {
 		AuthRepo:    usersDeps.AuthRepo,
 		FeatureGate: adm.FeatureGate(),
 	}
-	for _, base := range []string{path.Join(cfg.BasePath, "api", "users"), path.Join(cfg.BasePath, "crud", "users")} {
+	for _, base := range []string{path.Join(adminAPIBasePath, "users"), path.Join(cfg.BasePath, "crud", "users")} {
 		r.Post(path.Join(base, ":id", "activate"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateActive)))
 		r.Post(path.Join(base, ":id", "suspend"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateSuspended)))
 		r.Post(path.Join(base, ":id", "disable"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateDisabled)))
@@ -768,10 +772,10 @@ func main() {
 	profileHandlers := handlers.NewProfileHandlers(adm, cfg, helpers.WithNav)
 
 	// Optional metadata endpoint for frontend DataGrid column definitions.
-	r.Get(path.Join(cfg.BasePath, "api", "users", "columns"), wrapAuthed(userHandlers.Columns))
-	r.Get(path.Join(cfg.BasePath, "api", "user-profiles", "columns"), wrapAuthed(userProfileHandlers.Columns))
+	r.Get(path.Join(adminAPIBasePath, "users", "columns"), wrapAuthed(userHandlers.Columns))
+	r.Get(path.Join(adminAPIBasePath, "user-profiles", "columns"), wrapAuthed(userProfileHandlers.Columns))
 	roleAPIHandlers := handlers.NewRolesAPIHandlers(adm, cfg)
-	r.Get(path.Join(cfg.BasePath, "api", "roles"), wrapAuthed(roleAPIHandlers.List))
+	r.Get(path.Join(adminAPIBasePath, "roles"), wrapAuthed(roleAPIHandlers.List))
 
 	if err := quickstart.RegisterAdminUIRoutes(
 		r,
@@ -809,7 +813,7 @@ func main() {
 	registerPath := path.Join(cfg.BasePath, "register")
 	passwordResetPath := path.Join(cfg.BasePath, "password-reset")
 	passwordResetConfirmPath := path.Join(passwordResetPath, "confirm")
-	tokenMetadataPath := path.Join(cfg.BasePath, "api", "onboarding", "token", "metadata")
+	tokenMetadataPath := path.Join(adminAPIBasePath, "onboarding", "token", "metadata")
 	authUIViewContext := func(ctx router.ViewContext, _ router.Context) router.ViewContext {
 		ctx["password_policy_hints"] = passwordPolicyHints
 		ctx["token_metadata_path"] = tokenMetadataPath
@@ -883,7 +887,7 @@ func main() {
 	r.Get(path.Join(cfg.BasePath, "users/:id/edit"), wrapAuthed(userHandlers.Edit))
 	r.Post(path.Join(cfg.BasePath, "users/:id"), wrapAuthed(userHandlers.Update))
 	r.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), wrapAuthed(userHandlers.TabHTML))
-	r.Get(path.Join(cfg.BasePath, "api", "users", ":id", "tabs", ":tab"), wrapAuthed(userHandlers.TabJSON))
+	r.Get(path.Join(adminAPIBasePath, "users", ":id", "tabs", ":tab"), wrapAuthed(userHandlers.TabJSON))
 	r.Get(path.Join(cfg.BasePath, "users/:id"), wrapAuthed(userHandlers.Detail))
 	r.Post(path.Join(cfg.BasePath, "users/:id/delete"), wrapAuthed(userHandlers.Delete))
 
