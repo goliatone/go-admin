@@ -751,7 +751,7 @@ func setDefaultPassword(ctx context.Context, repo types.AuthRepository, id uuid.
 	if strings.TrimSpace(password) == ".pwd" {
 		password = uuid.NewString()
 	}
-	hash, err := auth.HashPassword(password)
+	hash, err := hashPassword(password)
 	if err != nil {
 		return err
 	}

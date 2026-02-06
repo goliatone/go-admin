@@ -2,8 +2,10 @@ package setup
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -143,7 +145,34 @@ func seedTemplateFuncs() template.FuncMap {
 		"uuid": func() string {
 			return uuid.NewString()
 		},
+		"hashpwd": func(identifier reflect.Value) (string, error) {
+			str := seedValueToString(identifier)
+			out, err := hashPassword(str)
+			if err != nil {
+				return "", fmt.Errorf("failed to generate password hash for value '%s': %w", str, err)
+			}
+			return out, nil
+		},
 	}
+}
+
+func seedValueToString(v reflect.Value) string {
+	if !v.IsValid() {
+		return ""
+	}
+	switch v.Kind() {
+	case reflect.Bool:
+		return strconv.FormatBool(v.Bool())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(v.Int(), 10)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return strconv.FormatUint(v.Uint(), 10)
+	case reflect.Float32:
+		return strconv.FormatFloat(v.Float(), 'g', -1, 32)
+	case reflect.Float64:
+		return strconv.FormatFloat(v.Float(), 'g', -1, 64)
+	}
+	return fmt.Sprintf("%v", v.Interface())
 }
 
 func isDuplicateSeedError(err error) bool {
