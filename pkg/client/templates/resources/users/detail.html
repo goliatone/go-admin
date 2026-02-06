@@ -32,6 +32,7 @@
        data-panel="{{ resource }}"
        data-record-id="{{ resource_item.id }}"
        data-base-path="{{ base_path }}"
+       data-api-base-path="{{ api_base_path }}"
        data-active-tab="{{ active_tab }}"
        data-default-tab="details">
     {% include "partials/tab-panel.html" with tab_panel=tab_panel fields=fields resource_item=resource_item resource_label=resource_label %}
@@ -79,6 +80,7 @@
     }
     const tabLinks = Array.from(tabsNav.querySelectorAll('[data-tab-id]'));
     const basePath = (panelContainer.dataset.basePath || '').replace(/\/$/, '');
+    const apiBasePath = (panelContainer.dataset.apiBasePath || '').replace(/\/$/, '');
     const panelName = panelContainer.dataset.panel || '';
     const recordId = panelContainer.dataset.recordId || '';
     const defaultTab = panelContainer.dataset.defaultTab || 'details';
@@ -90,7 +92,8 @@
       const safeTab = encodeURIComponent(tabId);
       const safeRecord = encodeURIComponent(recordId);
       if (kind === 'json') {
-        return `${basePath}/api/${panelName}/${safeRecord}/tabs/${safeTab}`;
+        const apiRoot = apiBasePath || `${basePath}/api`;
+        return `${apiRoot}/${panelName}/${safeRecord}/tabs/${safeTab}`;
       }
       return `${basePath}/${panelName}/${safeRecord}/tabs/${safeTab}`;
     }

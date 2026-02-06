@@ -215,10 +215,12 @@ export class ScopeSearchBox {
  * Uses go-crud endpoints for tenants, orgs, and users
  */
 export function createDefaultScopeConfigs(basePath: string): ScopeConfig[] {
+  const trimmed = (basePath || '').trim().replace(/\/+$/, '');
+  const apiBase = /\/api(\/|$)/.test(trimmed) ? trimmed : `${trimmed || ''}/api`;
   return [
     {
       scope: 'tenant',
-      resolver: createCrudResolver<Record<string, unknown>>(`${basePath}/api/tenants`, {
+      resolver: createCrudResolver<Record<string, unknown>>(`${apiBase}/tenants`, {
         labelField: (item) => String(item.name || ''),
         descriptionField: (item) => String(item.slug || ''),
         searchParam: 'q',
@@ -230,7 +232,7 @@ export function createDefaultScopeConfigs(basePath: string): ScopeConfig[] {
     },
     {
       scope: 'org',
-      resolver: createCrudResolver<Record<string, unknown>>(`${basePath}/api/organizations`, {
+      resolver: createCrudResolver<Record<string, unknown>>(`${apiBase}/organizations`, {
         labelField: (item) => String(item.name || ''),
         searchParam: 'q',
       }),
@@ -241,7 +243,7 @@ export function createDefaultScopeConfigs(basePath: string): ScopeConfig[] {
     },
     {
       scope: 'user',
-      resolver: createCrudResolver<Record<string, unknown>>(`${basePath}/api/users`, {
+      resolver: createCrudResolver<Record<string, unknown>>(`${apiBase}/users`, {
         labelField: (item) => String(item.displayName || item.username || item.email || ''),
         descriptionField: (item) => String(item.email || ''),
         searchParam: 'q',

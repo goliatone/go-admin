@@ -36,11 +36,13 @@
 {% block scripts %}
 <script>
   const notificationsBasePath = '{{ base_path }}';
+  const apiBasePath = '{{ api_base_path|default:"" }}';
+  const apiRoot = apiBasePath || `${notificationsBasePath}/api`;
   let notificationsCache = [];
 
   async function refreshNotifications() {
     try {
-      const res = await fetch(`${notificationsBasePath}/api/notifications`);
+      const res = await fetch(`${apiRoot}/notifications`);
       const data = await res.json();
       notificationsCache = data.notifications || [];
       renderNotifications(notificationsCache);
@@ -83,7 +85,7 @@
 
   async function toggleNotification(id, read) {
     try {
-      await fetch(`${notificationsBasePath}/api/notifications/read`, {
+      await fetch(`${apiRoot}/notifications/read`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ids: [id], read}),
@@ -100,7 +102,7 @@
     }
     const ids = notificationsCache.map(n => n.id);
     try {
-      await fetch(`${notificationsBasePath}/api/notifications/read`, {
+      await fetch(`${apiRoot}/notifications/read`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ids, read}),

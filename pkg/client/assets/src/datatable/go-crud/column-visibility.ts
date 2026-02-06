@@ -21,6 +21,12 @@ function normalizeBasePath(basePath?: string): string {
   return '/' + trimmed.replace(/^\/+|\/+$/g, '');
 }
 
+function normalizeApiBasePath(apiBasePath?: string): string {
+  const trimmed = (apiBasePath || '').trim();
+  if (!trimmed || trimmed === '/') return '';
+  return trimmed.replace(/\/+$/, '');
+}
+
 /**
  * Type guard to check if prefs are V2 format
  */
@@ -252,6 +258,8 @@ export interface ServerColumnVisibilityConfig {
   resource: string;
   /** Base path for the preferences API (used when preferencesEndpoint is omitted) */
   basePath?: string;
+  /** Full API base path (preferred when using versioned admin APIs) */
+  apiBasePath?: string;
   /** Base path for preferences API (default: '/api/preferences' unless basePath is provided) */
   preferencesEndpoint?: string;
   /** localStorage key for local cache (default: '<resource>_datatable_columns') */
@@ -283,7 +291,16 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
 
     this.resource = config.resource;
     const basePath = normalizeBasePath(config.basePath);
-    this.preferencesEndpoint = config.preferencesEndpoint || `${basePath}/api/preferences`;
+    const apiBasePath = normalizeApiBasePath(config.apiBasePath);
+    if (config.preferencesEndpoint) {
+      this.preferencesEndpoint = config.preferencesEndpoint;
+    } else if (apiBasePath) {
+      this.preferencesEndpoint = `${apiBasePath}/preferences`;
+    } else if (basePath) {
+      this.preferencesEndpoint = `${basePath}/api/preferences`;
+    } else {
+      this.preferencesEndpoint = '/api/preferences';
+    }
     this.syncDebounce = config.syncDebounce ?? 1000;
   }
 

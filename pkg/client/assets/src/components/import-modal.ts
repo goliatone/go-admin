@@ -27,6 +27,7 @@ type ImportModalNotifier = {
 type ImportModalOptions = {
   modalId?: string;
   endpoint?: string;
+  apiBasePath?: string;
   onSuccess?: (summary: Record<string, number>) => void;
   notifier?: ImportModalNotifier;
   resourceName?: string;
@@ -69,7 +70,14 @@ export class ImportModal {
    */
   constructor(options: ImportModalOptions = {}) {
     this.modalId = options.modalId || 'import-modal';
-    this.endpoint = options.endpoint || '/api/import';
+    if (options.endpoint) {
+      this.endpoint = options.endpoint;
+    } else if (options.apiBasePath) {
+      const trimmed = options.apiBasePath.trim().replace(/\/+$/, '');
+      this.endpoint = `${trimmed}/import`;
+    } else {
+      this.endpoint = '/api/import';
+    }
     this.onSuccess = options.onSuccess || (() => {});
     this.notifier = options.notifier || { success: console.log, error: console.error };
     this.resourceName = options.resourceName || 'items';

@@ -429,13 +429,13 @@
           <!-- Template Downloads -->
           <div class="flex items-center justify-center gap-4 text-xs">
             <span class="text-gray-500">Download template:</span>
-            <a href="{{ base_path }}/api/users-import/template?format=csv" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline">
+            <a href="{{ api_base_path }}/users-import/template?format=csv" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
               </svg>
               CSV
             </a>
-            <a href="{{ base_path }}/api/users-import/template?format=json" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline">
+            <a href="{{ api_base_path }}/users-import/template?format=json" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
               </svg>
@@ -557,7 +557,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Lifecycle action handler
   async function lifecycleAction(userId, action) {
     try {
-      const response = await fetch(`${basePath}/api/users/${userId}/${action}`, {
+      const apiRoot = apiBasePath || `${basePath}/api`;
+      const response = await fetch(`${apiRoot}/users/${userId}/${action}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -591,7 +592,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     try {
-      const response = await fetch(`${basePath}/api/users/${userId}/reset-password`, {
+      const apiRoot = apiBasePath || `${basePath}/api`;
+      const response = await fetch(`${apiRoot}/users/${userId}/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -613,7 +615,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
-  const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
+  const apiRoot = apiBasePath || `${basePath}/api`;
+  const preferencesEndpoint = `${apiRoot}/preferences`;
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: 'users',
     localStorageKey: 'users_datatable_columns',
@@ -701,7 +704,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         id: 'bulk-activate',
         label: 'Activate Selected',
         icon: 'check-circle',
-        endpoint: `${basePath}/api/users/bulk/activate`,
+        endpoint: `${apiRoot}/users/bulk/activate`,
         confirm: 'Activate {count} user(s)?',
         onSuccess: () => grid.refresh()
       },
@@ -709,7 +712,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         id: 'bulk-suspend',
         label: 'Suspend Selected',
         icon: 'pause',
-        endpoint: `${basePath}/api/users/bulk/suspend`,
+        endpoint: `${apiRoot}/users/bulk/suspend`,
         confirm: 'Suspend {count} user(s)?',
         onSuccess: () => grid.refresh()
       },
@@ -717,7 +720,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         id: 'bulk-assign-role',
         label: 'Assign Role',
         icon: 'user-badge',
-        endpoint: `${basePath}/api/users/bulk/assign-role`,
+        endpoint: `${apiRoot}/users/bulk/assign-role`,
         guard: (ids) => ids.length > 0,
         onSuccess: () => grid.refresh()
       }
@@ -936,7 +939,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Initialize Import Modal component
   const importModal = new ImportModal({
     modalId: 'import-users-modal',
-    endpoint: '{{ base_path }}/api/users-import',
+    endpoint: `${apiRoot}/users-import`,
     resourceName: 'Users',
     onSuccess: () => grid.refresh(),
     notifier: window.toastManager
