@@ -180,8 +180,11 @@ type (
 	DebugREPLSession              = core.DebugREPLSession
 	DebugREPLSessionManager       = core.DebugREPLSessionManager
 	DebugREPLSessionStore         = core.DebugREPLSessionStore
+	DebugUserSession              = core.DebugUserSession
+	DebugUserSessionStore         = core.DebugUserSessionStore
 	DenyAllStrategy               = core.DenyAllStrategy
 	InMemoryDebugREPLSessionStore = core.InMemoryDebugREPLSessionStore
+	InMemoryDebugUserSessionStore = core.InMemoryDebugUserSessionStore
 	SignedTokenStrategy           = core.SignedTokenStrategy
 	StaticKeyStrategy             = core.StaticKeyStrategy
 
