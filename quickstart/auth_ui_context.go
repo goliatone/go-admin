@@ -68,6 +68,7 @@ func WithAuthUIViewContext(ctx router.ViewContext, cfg admin.Config, state AuthU
 		basePath = strings.TrimSpace(cfg.BasePath)
 	}
 	ctx["base_path"] = basePath
+	ctx["api_base_path"] = adminAPIBasePathFromConfig(basePath, cfg)
 	ctx["password_reset_path"] = paths.PasswordResetPath
 	ctx["password_reset_confirm_path"] = paths.PasswordResetConfirmPath
 	ctx["register_path"] = paths.RegisterPath
