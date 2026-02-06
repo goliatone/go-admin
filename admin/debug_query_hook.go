@@ -39,9 +39,12 @@ func (h *DebugQueryHook) AfterQuery(ctx context.Context, event *bun.QueryEvent) 
 		return
 	}
 
+	sessionMeta := debugSessionContextFromContext(ctx)
 	entry := SQLEntry{
 		ID:        uuid.NewString(),
 		Timestamp: time.Now(),
+		SessionID: sessionMeta.SessionID,
+		UserID:    sessionMeta.UserID,
 		Query:     event.Query,
 		Args:      event.QueryArgs,
 		Duration:  time.Since(event.StartTime),
