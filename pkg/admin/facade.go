@@ -269,8 +269,11 @@ type (
 	SettingDefinition = core.SettingDefinition
 	SettingOption     = core.SettingOption
 
-	SettingsBundle = core.SettingsBundle
-	SettingsScope  = core.SettingsScope
+	SettingsBundle  = core.SettingsBundle
+	SettingsScope   = core.SettingsScope
+	ResolvedSetting = core.ResolvedSetting
+
+	FeatureDisabledError = core.FeatureDisabledError
 
 	TenantMember  = core.TenantMember
 	TenantRecord  = core.TenantRecord
@@ -293,7 +296,9 @@ type (
 
 	UserProfile = core.UserProfile
 
-	UserManagementService = core.UserManagementService
+	UserManagementService      = core.UserManagementService
+	UserManagementModule       = core.UserManagementModule
+	UserManagementModuleOption = core.UserManagementModuleOption
 
 	WidgetArea           = core.WidgetArea
 	WidgetAreaDefinition = core.WidgetAreaDefinition
@@ -470,4 +475,16 @@ func NewRolePanelRepository(service *UserManagementService) *RolePanelRepository
 
 func WithThemeSelection(ctx context.Context, selector ThemeSelector) context.Context {
 	return core.WithThemeSelection(ctx, selector)
+}
+
+func WithUserMenuParent(parent string) UserManagementModuleOption {
+	return core.WithUserMenuParent(parent)
+}
+
+func WithUserProfilesPanel() UserManagementModuleOption {
+	return core.WithUserProfilesPanel()
+}
+
+func WithUserPanelTabs(tabs ...PanelTab) UserManagementModuleOption {
+	return core.WithUserPanelTabs(tabs...)
 }
