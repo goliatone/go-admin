@@ -130,6 +130,11 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 			start := time.Now()
 
 			cfg := collector.config
+			sessionMeta := debugSessionContextFromRequest(c, cfg)
+			if sessionMeta.SessionID != "" || sessionMeta.UserID != "" {
+				c.SetContext(withDebugSessionContext(c.Context(), sessionMeta.SessionID, sessionMeta.UserID))
+			}
+			recordDebugUserSession(collector, c, sessionMeta, start)
 			contentType := debugContentType(c)
 			remoteIP := debugRemoteIP(c)
 			requestSize := debugRequestSize(c)
@@ -152,6 +157,8 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 			entry := RequestEntry{
 				ID:            uuid.NewString(),
 				Timestamp:     start,
+				SessionID:     sessionMeta.SessionID,
+				UserID:        sessionMeta.UserID,
 				Method:        strings.Clone(c.Method()),
 				Path:          strings.Clone(c.Path()),
 				Duration:      time.Since(start),
@@ -239,6 +246,35 @@ func debugRemoteIP(c router.Context) string {
 		}
 	}
 	return ""
+}
+
+func recordDebugUserSession(collector *DebugCollector, c router.Context, sessionMeta debugSessionContext, startedAt time.Time) {
+	if collector == nil || c == nil {
+		return
+	}
+	store := collector.sessionStoreRef()
+	if store == nil {
+		return
+	}
+	sessionID := strings.TrimSpace(sessionMeta.SessionID)
+	if sessionID == "" {
+		return
+	}
+	session := DebugUserSession{
+		SessionID:    sessionID,
+		UserID:       strings.TrimSpace(sessionMeta.UserID),
+		Username:     debugSessionUsernameFromRequest(c),
+		IP:           debugRemoteIP(c),
+		UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
+		CurrentPage:  strings.Clone(c.Path()),
+		StartedAt:    startedAt,
+		LastActivity: startedAt,
+		RequestCount: 1,
+	}
+	if ttl := collector.config.SessionInactivityExpiry; ttl > 0 {
+		_, _ = store.Expire(c.Context(), ttl)
+	}
+	_ = store.Upsert(c.Context(), session)
 }
 
 func debugIsTextContentType(contentType string) bool {
@@ -477,8 +513,11 @@ func (h *DebugLogHandler) Handle(ctx context.Context, r slog.Record) error {
 		return nil
 	}
 	if h.collector != nil {
+		sessionMeta := debugSessionContextFromContext(ctx)
 		entry := LogEntry{
 			Timestamp: r.Time,
+			SessionID: sessionMeta.SessionID,
+			UserID:    sessionMeta.UserID,
 			Level:     r.Level.String(),
 			Message:   r.Message,
 			Fields:    debugSlogFields(h.attrs, h.groups, r),
@@ -808,6 +847,22 @@ func debugDebugConfigSnapshot(cfg DebugConfig) map[string]any {
 		"slow_query_threshold": cfg.SlowQueryThreshold,
 		"persist_layout":       cfg.PersistLayout,
 		"toolbar_mode":         cfg.ToolbarMode,
+		"session_tracking":     cfg.SessionTracking,
+	}
+	if appID := strings.TrimSpace(cfg.AppID); appID != "" {
+		out["app_id"] = appID
+	}
+	if appName := strings.TrimSpace(cfg.AppName); appName != "" {
+		out["app_name"] = appName
+	}
+	if env := strings.TrimSpace(cfg.Environment); env != "" {
+		out["environment"] = env
+	}
+	if cfg.RemoteEnabled {
+		out["remote_enabled"] = true
+	}
+	if cfg.TokenTTL > 0 {
+		out["token_ttl"] = cfg.TokenTTL
 	}
 	if panels := cloneStringSlice(cfg.Panels); len(panels) > 0 {
 		out["panels"] = panels
@@ -820,6 +875,16 @@ func debugDebugConfigSnapshot(cfg DebugConfig) map[string]any {
 	}
 	if ips := cloneStringSlice(cfg.AllowedIPs); len(ips) > 0 {
 		out["allowed_ips"] = ips
+	}
+	if origins := cloneStringSlice(cfg.AllowedOrigins); len(origins) > 0 {
+		out["allowed_origins"] = origins
+	}
+	out["session_include_global_panels"] = cfg.SessionIncludeGlobalPanelsEnabled()
+	if name := strings.TrimSpace(cfg.SessionCookieName); name != "" {
+		out["session_cookie_name"] = name
+	}
+	if cfg.SessionInactivityExpiry > 0 {
+		out["session_inactivity_expiry"] = cfg.SessionInactivityExpiry
 	}
 	if mask := cloneStringMap(cfg.MaskFieldTypes); len(mask) > 0 {
 		out["mask_field_types"] = mask
