@@ -125,6 +125,8 @@ Error handling env toggles (wired via `quickstart.WithErrorsFromEnv()`):
 - HTML CRUD screens live at `/admin/content/pages`, `/admin/content/posts`, `/admin/media` (aliases `/admin/pages` and `/admin/posts` redirect; auth + permissions enforced: `admin.pages.*`, `admin.posts.*`, `admin.media.*`).
 - Actions include create/edit/delete plus workflow/publish actions for pages/posts; media supports add/edit/delete metadata.
 - Navigation highlights the active item; search results link to the new views.
+- Content entry filter fallback from columns is enabled globally in `examples/web/main.go` via `quickstart.WithContentEntryUIFilterFallbackFromColumnsDefault(true)`.
+- Per-content-type override is available with the capability key `filters_fallback_from_columns` (set by the content type builder checkbox); precedence is `content-type override` -> `global default` -> `disabled`.
 
 ### Content persistence (SQLite + go-repository-bun)
 
