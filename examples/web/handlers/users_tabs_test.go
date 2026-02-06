@@ -131,6 +131,54 @@ func TestUserTabJSONEndpoint(t *testing.T) {
 	}
 }
 
+func TestUserDetailTabSelectionFallsBackToRegistryTabs(t *testing.T) {
+	h, user := setupUserHandlersWithRegistryTabs(t)
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["id"] = fmt.Sprint(user["id"])
+	ctx.QueriesM["tab"] = "activity"
+	ctx.On("Context").Return(withUsersClaims())
+	ctx.On("Render", "resources/users/detail", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		viewCtx, ok := args.Get(1).(router.ViewContext)
+		if !ok {
+			t.Fatalf("expected view context")
+		}
+		if got := fmt.Sprint(viewCtx["active_tab"]); got != "activity" {
+			t.Fatalf("expected active_tab=activity, got %q", got)
+		}
+	})
+
+	if err := h.Detail(ctx); err != nil {
+		t.Fatalf("detail handler: %v", err)
+	}
+}
+
+func TestUserTabHTMLEndpointFallsBackToRegistryTabs(t *testing.T) {
+	h, user := setupUserHandlersWithRegistryTabs(t)
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["id"] = fmt.Sprint(user["id"])
+	ctx.ParamsM["tab"] = "activity"
+	ctx.On("Context").Return(withUsersClaims())
+	ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		viewCtx, ok := args.Get(1).(router.ViewContext)
+		if !ok {
+			t.Fatalf("expected view context")
+		}
+		tabPanel, ok := viewCtx["tab_panel"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected tab_panel payload")
+		}
+		if got := fmt.Sprint(tabPanel["id"]); got != "activity" {
+			t.Fatalf("expected tab_panel id activity, got %q", got)
+		}
+	})
+
+	if err := h.TabHTML(ctx); err != nil {
+		t.Fatalf("tab html handler: %v", err)
+	}
+}
+
 func setupUserHandlersTest(t *testing.T) (*UserHandlers, map[string]any) {
 	t.Helper()
 	dsn := fmt.Sprintf("file:users_tabs_test_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
@@ -162,7 +210,7 @@ func setupUserHandlersTest(t *testing.T) (*UserHandlers, map[string]any) {
 	handler := &UserHandlers{
 		Store:  store,
 		Config: cfg,
-		WithNav: func(ctx router.ViewContext, _ *admin.Admin, _ admin.Config, _ string, _ context.Context) router.ViewContext {
+		WithNav: func(ctx router.ViewContext, _ *admin.Admin, _ admin.Config, _ string, _ context.Context, _ router.Context) router.ViewContext {
 			return ctx
 		},
 		TabResolver: helpers.TabContentResolverFunc(func(context.Context, string, map[string]any, admin.PanelTab) (helpers.TabContentSpec, error) {
@@ -170,6 +218,40 @@ func setupUserHandlersTest(t *testing.T) (*UserHandlers, map[string]any) {
 		}),
 		TabMode: helpers.TabRenderModeSelector{Default: helpers.TabRenderModeSSR},
 	}
+	return handler, user
+}
+
+type allowAllTabAuthorizer struct{}
+
+func (allowAllTabAuthorizer) Can(context.Context, string, string) bool { return true }
+
+func setupUserHandlersWithRegistryTabs(t *testing.T) (*UserHandlers, map[string]any) {
+	t.Helper()
+	handler, user := setupUserHandlersTest(t)
+	adm, err := admin.New(handler.Config, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	adm.WithAuthorizer(allowAllTabAuthorizer{})
+	if err := adm.RegisterPanelTab("users", admin.PanelTab{
+		ID:         "activity",
+		Label:      "Activity",
+		Permission: "admin.users.view",
+		Scope:      admin.PanelTabScopeDetail,
+		Target:     admin.PanelTabTarget{Type: "path", Path: "/admin/activity"},
+	}); err != nil {
+		t.Fatalf("register panel tab: %v", err)
+	}
+	if err := adm.RegisterPanelTab("users", admin.PanelTab{
+		ID:         "profile",
+		Label:      "Profile",
+		Permission: "admin.users.view",
+		Scope:      admin.PanelTabScopeDetail,
+		Target:     admin.PanelTabTarget{Type: "panel", Panel: "user-profiles"},
+	}); err != nil {
+		t.Fatalf("register panel tab: %v", err)
+	}
+	handler.Admin = adm
 	return handler, user
 }
 

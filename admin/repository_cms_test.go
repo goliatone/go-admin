@@ -188,6 +188,161 @@ func TestCMSContentRepositoryEmbeddedBlocksAndSchema(t *testing.T) {
 	}
 }
 
+func TestCMSContentTypeEntryRepositoryListAppliesOperatorAwareFilters(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{Slug: "page"})
+
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "Home Page",
+		Slug:            "home",
+		Locale:          "en",
+		Status:          "published",
+		ContentTypeSlug: "page",
+		Data: map[string]any{
+			"category": "news",
+			"author":   "alice",
+		},
+	})
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "Landing",
+		Slug:            "landing",
+		Locale:          "en",
+		Status:          "draft",
+		ContentTypeSlug: "page",
+		Data: map[string]any{
+			"category": "updates",
+			"author":   "bob",
+		},
+	})
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "Changelog",
+		Slug:            "changelog",
+		Locale:          "en",
+		Status:          "published",
+		ContentTypeSlug: "page",
+		Data: map[string]any{
+			"category": "updates",
+			"author":   "alice",
+		},
+	})
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "Home Post",
+		Slug:            "home-post",
+		Locale:          "en",
+		Status:          "published",
+		ContentTypeSlug: "post",
+		Data: map[string]any{
+			"category": "news",
+			"author":   "alice",
+		},
+	})
+
+	_, total, err := repo.List(ctx, ListOptions{Filters: map[string]any{"status": "published"}, PerPage: 20})
+	if err != nil {
+		t.Fatalf("list with status filter failed: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected 2 published page records, got %d", total)
+	}
+
+	_, total, err = repo.List(ctx, ListOptions{Filters: map[string]any{"status__in": "draft,published"}, PerPage: 20})
+	if err != nil {
+		t.Fatalf("list with status__in failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected 3 page records for status__in, got %d", total)
+	}
+
+	_, total, err = repo.List(ctx, ListOptions{Filters: map[string]any{"title__ilike": "home"}, PerPage: 20})
+	if err != nil {
+		t.Fatalf("list with title__ilike failed: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected 1 page record for title__ilike, got %d", total)
+	}
+
+	_, total, err = repo.List(ctx, ListOptions{Filters: map[string]any{"author__eq": "alice"}, PerPage: 20})
+	if err != nil {
+		t.Fatalf("list with author__eq failed: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected 2 page records for author__eq data filter, got %d", total)
+	}
+
+	_, total, err = repo.List(ctx, ListOptions{Filters: map[string]any{"category__in": "news,announcements"}, PerPage: 20})
+	if err != nil {
+		t.Fatalf("list with category__in failed: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected 1 page record for category__in data filter, got %d", total)
+	}
+
+	_, total, err = repo.List(ctx, ListOptions{
+		Search:  "home",
+		Filters: map[string]any{"status": "published"},
+		PerPage: 20,
+	})
+	if err != nil {
+		t.Fatalf("list with search+status failed: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected search+status intersection to return 1 record, got %d", total)
+	}
+
+	_, total, err = repo.List(ctx, ListOptions{
+		Search:  "home",
+		Filters: map[string]any{"title__ilike": "landing"},
+		PerPage: 20,
+	})
+	if err != nil {
+		t.Fatalf("list with search+title__ilike failed: %v", err)
+	}
+	if total != 0 {
+		t.Fatalf("expected search+title__ilike intersection to return 0 records, got %d", total)
+	}
+
+	_, total, err = repo.List(ctx, ListOptions{
+		Filters: map[string]any{
+			"status":     "published",
+			"title__gt":  "zzz",
+			"author__ne": "alice",
+		},
+		PerPage: 20,
+	})
+	if err != nil {
+		t.Fatalf("list with unknown operators failed: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected unknown operators to be ignored, got total=%d", total)
+	}
+}
+
+func TestCMSContentTypeEntryRepositoryListFiltersBeforePagination(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{Slug: "page"})
+
+	_, _ = content.CreateContent(ctx, CMSContent{Title: "One", Slug: "one", Locale: "en", Status: "published", ContentTypeSlug: "page"})
+	_, _ = content.CreateContent(ctx, CMSContent{Title: "Two", Slug: "two", Locale: "en", Status: "draft", ContentTypeSlug: "page"})
+	_, _ = content.CreateContent(ctx, CMSContent{Title: "Three", Slug: "three", Locale: "en", Status: "published", ContentTypeSlug: "page"})
+
+	list, total, err := repo.List(ctx, ListOptions{
+		Page:    1,
+		PerPage: 1,
+		Filters: map[string]any{"status": "published"},
+	})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected filtered total to be 2 before pagination, got %d", total)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected one paginated record, got %d", len(list))
+	}
+}
+
 func TestCMSBlockDefinitionRepositoryFiltersByContentType(t *testing.T) {
 	content := NewInMemoryContentService()
 	ctx := context.Background()
