@@ -261,6 +261,93 @@ func TestDebugCollectorRedaction(t *testing.T) {
 	}
 }
 
+func TestDebugCollectorSessionSnapshotFiltersEntries(t *testing.T) {
+	cfg := DebugConfig{
+		CaptureSQL:  true,
+		CaptureLogs: true,
+		Panels: []string{
+			DebugPanelTemplate,
+			DebugPanelRequests,
+			DebugPanelSQL,
+			DebugPanelLogs,
+			DebugPanelConfig,
+			DebugPanelRoutes,
+		},
+	}
+	collector := NewDebugCollector(cfg)
+
+	collector.CaptureTemplateData(router.ViewContext{"user": "alice"})
+	collector.CaptureConfigSnapshot(map[string]any{"admin": map[string]any{"title": "Admin"}})
+	collector.CaptureRoutes([]RouteEntry{{Method: "GET", Path: "/test"}})
+
+	collector.CaptureRequest(RequestEntry{
+		ID:        "req-1",
+		SessionID: "session-1",
+		Method:    "GET",
+		Path:      "/one",
+	})
+	collector.CaptureRequest(RequestEntry{
+		ID:        "req-2",
+		SessionID: "session-2",
+		Method:    "GET",
+		Path:      "/two",
+	})
+	collector.CaptureSQL(SQLEntry{
+		ID:        "sql-1",
+		SessionID: "session-1",
+		Query:     "SELECT 1",
+		Duration:  time.Millisecond,
+	})
+	collector.CaptureSQL(SQLEntry{
+		ID:        "sql-2",
+		SessionID: "session-2",
+		Query:     "SELECT 2",
+		Duration:  time.Millisecond,
+	})
+	collector.CaptureLog(LogEntry{
+		SessionID: "session-1",
+		Message:   "hello",
+	})
+	collector.CaptureLog(LogEntry{
+		SessionID: "session-2",
+		Message:   "world",
+	})
+
+	snapshot := collector.SessionSnapshot("session-1", DebugSessionSnapshotOptions{IncludeGlobalPanels: true})
+	requests, ok := snapshot[DebugPanelRequests].([]RequestEntry)
+	if !ok || len(requests) != 1 || requests[0].Path != "/one" {
+		t.Fatalf("expected session requests filtered, got %+v", snapshot[DebugPanelRequests])
+	}
+	sqlEntries, ok := snapshot[DebugPanelSQL].([]SQLEntry)
+	if !ok || len(sqlEntries) != 1 || sqlEntries[0].Query != "SELECT 1" {
+		t.Fatalf("expected session sql filtered, got %+v", snapshot[DebugPanelSQL])
+	}
+	logEntries, ok := snapshot[DebugPanelLogs].([]LogEntry)
+	if !ok || len(logEntries) != 1 || logEntries[0].Message != "hello" {
+		t.Fatalf("expected session logs filtered, got %+v", snapshot[DebugPanelLogs])
+	}
+	if snapshot[DebugPanelTemplate] == nil {
+		t.Fatalf("expected global template panel included")
+	}
+	if snapshot[DebugPanelConfig] == nil {
+		t.Fatalf("expected global config panel included")
+	}
+	if snapshot[DebugPanelRoutes] == nil {
+		t.Fatalf("expected global routes panel included")
+	}
+
+	snapshot = collector.SessionSnapshot("session-1", DebugSessionSnapshotOptions{})
+	if _, ok := snapshot[DebugPanelTemplate]; ok {
+		t.Fatalf("expected global panels excluded by default")
+	}
+	if _, ok := snapshot[DebugPanelConfig]; ok {
+		t.Fatalf("expected global config excluded by default")
+	}
+	if _, ok := snapshot[DebugPanelRoutes]; ok {
+		t.Fatalf("expected global routes excluded by default")
+	}
+}
+
 func mustMaskAnyMap(t *testing.T, cfg DebugConfig, value map[string]any) map[string]any {
 	t.Helper()
 	masked, err := debugMasker(cfg).Mask(value)

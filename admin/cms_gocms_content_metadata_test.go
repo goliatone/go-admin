@@ -70,14 +70,20 @@ type stubContentRecord struct {
 }
 
 type stubGoCMSContentService struct {
-	listResp   []*stubContentRecord
-	getResp    *stubContentRecord
-	createReq  stubCreateContentRequest
-	updateReq  stubUpdateContentRequest
-	updateResp *stubContentRecord
+	listResp             []*stubContentRecord
+	listWithTranslations []*stubContentRecord
+	listOptions          []CMSContentListOption
+	getResp              *stubContentRecord
+	createReq            stubCreateContentRequest
+	updateReq            stubUpdateContentRequest
+	updateResp           *stubContentRecord
 }
 
-func (s *stubGoCMSContentService) List(context.Context) ([]*stubContentRecord, error) {
+func (s *stubGoCMSContentService) List(_ context.Context, opts ...CMSContentListOption) ([]*stubContentRecord, error) {
+	s.listOptions = append([]CMSContentListOption{}, opts...)
+	if hasTranslationListOption(opts) && s.listWithTranslations != nil {
+		return s.listWithTranslations, nil
+	}
 	return s.listResp, nil
 }
 
@@ -109,6 +115,15 @@ func (s *stubGoCMSContentService) Update(_ context.Context, req stubUpdateConten
 
 func (s *stubGoCMSContentService) Delete(context.Context, stubDeleteContentRequest) error {
 	return nil
+}
+
+func hasTranslationListOption(opts []CMSContentListOption) bool {
+	for _, opt := range opts {
+		if opt == WithTranslations() {
+			return true
+		}
+	}
+	return false
 }
 
 type stubContentTypeService struct {
