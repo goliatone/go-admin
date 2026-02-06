@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -91,6 +93,58 @@ func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
 	flag = findFlag(scopeFlags, "users.signup")
 	if flag == nil {
 		t.Fatalf("expected users.signup flag in tenant scope list")
+	}
+}
+
+func TestFeatureFlagsAPIIncludesUsersDescriptionAndDefault(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Title:         "Admin",
+	}
+	catalogPath := filepath.Join(t.TempDir(), "feature_catalog.yaml")
+	catalogBody := []byte("users: \"User and role management.\"\n")
+	if err := os.WriteFile(catalogPath, catalogBody, 0o600); err != nil {
+		t.Fatalf("write catalog: %v", err)
+	}
+	cfg.FeatureCatalogPath = catalogPath
+
+	store := admin.NewInMemoryPreferencesStore()
+	defaults := map[string]bool{
+		"users": true,
+	}
+	gate := buildFeatureGate(cfg, defaults, store)
+
+	adm, err := admin.New(cfg, admin.Dependencies{
+		FeatureGate:      gate,
+		PreferencesStore: store,
+	})
+	if err != nil {
+		t.Fatalf("admin.New error: %v", err)
+	}
+
+	server := router.NewFiberAdapter()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize error: %v", err)
+	}
+
+	flags := getFeatureFlags(t, server, "/admin/api/feature-flags?scope=system")
+	flag := findFlag(flags, "users")
+	if flag == nil {
+		t.Fatalf("expected users flag in list")
+	}
+	if description, ok := flag["description"].(string); !ok || description == "" {
+		t.Fatalf("expected users description, got %v", flag["description"])
+	}
+	defaultInfo, ok := flag["default"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected default info for users, got %v", flag["default"])
+	}
+	if set, ok := defaultInfo["set"].(bool); !ok || !set {
+		t.Fatalf("expected default set true, got %v", defaultInfo["set"])
+	}
+	if value, ok := defaultInfo["value"].(bool); !ok || !value {
+		t.Fatalf("expected default value true, got %v", defaultInfo["value"])
 	}
 }
 
