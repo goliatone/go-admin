@@ -8,9 +8,9 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
-	github.com/goliatone/go-auth v0.28.0
-	github.com/goliatone/go-auth/adapters/featuregate v0.28.0
-	github.com/goliatone/go-cms v0.30.0
+	github.com/goliatone/go-auth v0.29.1
+	github.com/goliatone/go-auth/adapters/featuregate v0.29.1
+	github.com/goliatone/go-cms v0.30.1
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-crud v0.20.0
 	github.com/goliatone/go-crud/gql v0.20.0
@@ -26,7 +26,7 @@ require (
 	github.com/goliatone/go-options v0.7.0
 	github.com/goliatone/go-persistence-bun v0.10.0
 	github.com/goliatone/go-repository-bun v0.12.0
-	github.com/goliatone/go-router v0.44.1
+	github.com/goliatone/go-router v0.45.1
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.2.0
 	github.com/goliatone/go-uploader v0.3.0
