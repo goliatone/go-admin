@@ -49,6 +49,7 @@ type DebugModule struct {
 	locale        string
 	permission    string
 	menuParent    string
+	sessionStore  DebugUserSessionStore
 }
 
 // NewDebugModule constructs a debug module with the provided configuration.
@@ -99,6 +100,12 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 		m.collector = NewDebugCollector(cfg)
 	}
 	m.collector.WithURLs(ctx.Admin.URLs())
+	if m.sessionStore == nil {
+		m.sessionStore = ctx.Admin.DebugUserSessions()
+	}
+	if m.sessionStore != nil {
+		m.collector.WithSessionStore(m.sessionStore)
+	}
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
 	}
@@ -109,6 +116,7 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	m.registerDashboardProviders(ctx.Admin)
 	m.registerDebugRoutes(ctx.Admin)
 	m.registerDebugWebSocket(ctx.Admin)
+	m.registerDebugSessionWebSocket(ctx.Admin)
 	m.registerDebugREPLShellWebSocket(ctx.Admin)
 	m.registerDebugREPLAppWebSocket(ctx.Admin)
 	return nil
