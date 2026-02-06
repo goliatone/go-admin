@@ -5,7 +5,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -242,7 +241,7 @@ func WithUIViewContextBuilder(builder UIViewContextBuilder) UIRouteOption {
 }
 
 // RegisterAdminUIRoutes registers default UI routes (dashboard + notifications).
-func RegisterAdminUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error {
+func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error {
 	if r == nil {
 		return fmt.Errorf("router is required")
 	}
