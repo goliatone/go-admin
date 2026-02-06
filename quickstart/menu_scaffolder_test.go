@@ -84,7 +84,7 @@ func TestEnsureDefaultMenuParentsNestsChildren(t *testing.T) {
 	items := nav.Resolve(ctx, "en")
 
 	main := findNavItem(items, func(n admin.NavigationItem) bool {
-		return n.ID == mainID || strings.EqualFold(n.GroupTitleKey, "menu.group.main") || strings.EqualFold(n.GroupTitle, "Main Menu")
+		return n.ID == mainID || strings.EqualFold(n.GroupTitleKey, "menu.group.main") || strings.EqualFold(n.GroupTitle, "Navigation")
 	})
 	if main == nil {
 		t.Fatalf("main group not found")
@@ -103,7 +103,7 @@ func TestEnsureDefaultMenuParentsNestsChildren(t *testing.T) {
 	}
 
 	others := findNavItem(items, func(n admin.NavigationItem) bool {
-		return n.ID == othersID || strings.EqualFold(n.GroupTitleKey, "menu.group.others") || strings.EqualFold(n.GroupTitle, "Others")
+		return n.ID == othersID || strings.EqualFold(n.GroupTitleKey, "menu.group.others") || strings.EqualFold(n.GroupTitle, "Tools")
 	})
 	if others == nil {
 		t.Fatalf("others group not found")

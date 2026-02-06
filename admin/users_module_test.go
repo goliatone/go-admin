@@ -15,6 +15,23 @@ import (
 	"github.com/google/uuid"
 )
 
+func adminAPIPath(adm *Admin, cfg Config, route string, params map[string]string, query map[string]string) string {
+	return resolveURLWith(adm.URLs(), adminAPIGroupName(cfg), route, params, query)
+}
+
+func adminPanelAPIPath(adm *Admin, cfg Config, panel string) string {
+	return adminAPIPath(adm, cfg, "panel", map[string]string{"panel": panel}, nil)
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
 func TestUserModuleRegistersPanelsAndNavigation(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
@@ -39,15 +56,161 @@ func TestUserModuleRegistersPanelsAndNavigation(t *testing.T) {
 	foundUsers := false
 	foundRoles := false
 	for _, item := range items {
-		if navinternal.TargetMatches(item.Target, usersModuleID, joinBasePath(cfg.BasePath, usersModuleID)) {
+		if navinternal.TargetMatches(item.Target, usersModuleID, resolveURLWith(adm.URLs(), "admin", usersModuleID, nil, nil)) {
 			foundUsers = true
 		}
-		if navinternal.TargetMatches(item.Target, rolesPanelID, joinBasePath(cfg.BasePath, rolesPanelID)) {
+		if navinternal.TargetMatches(item.Target, rolesPanelID, resolveURLWith(adm.URLs(), "admin", rolesPanelID, nil, nil)) {
 			foundRoles = true
 		}
 	}
 	if !foundUsers || !foundRoles {
 		t.Fatalf("expected navigation entries for users and roles, got %+v", items)
+	}
+}
+
+func TestUserModuleManifestIncludesFeatureUsers(t *testing.T) {
+	manifest := NewUserManagementModule().Manifest()
+	if !containsString(manifest.FeatureFlags, string(FeatureUsers)) {
+		t.Fatalf("expected FeatureUsers in manifest, got %+v", manifest.FeatureFlags)
+	}
+}
+
+func TestUserModuleFeatureGateBlocksRegistration(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys()})
+	if err := adm.RegisterModule(NewUserManagementModule()); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+	server := router.NewHTTPServer()
+	err := adm.Initialize(server.Router())
+	if err == nil {
+		t.Fatalf("expected error for disabled users feature")
+	}
+	var disabled FeatureDisabledError
+	if !errors.As(err, &disabled) || disabled.Feature != string(FeatureUsers) {
+		t.Fatalf("expected FeatureDisabledError users, got %v", err)
+	}
+}
+
+func TestUserModuleFeatureGateBlocksRegistrationWithOptions(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys()})
+	module := NewUserManagementModule(
+		WithUserProfilesPanel(),
+		WithUserPanelTabs(PanelTab{Label: "Activity", Target: PanelTabTarget{Type: "panel", Panel: "activity"}}),
+	)
+	if err := adm.RegisterModule(module); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+	server := router.NewHTTPServer()
+	err := adm.Initialize(server.Router())
+	if err == nil {
+		t.Fatalf("expected error for disabled users feature")
+	}
+	var disabled FeatureDisabledError
+	if !errors.As(err, &disabled) || disabled.Feature != string(FeatureUsers) {
+		t.Fatalf("expected FeatureDisabledError users, got %v", err)
+	}
+}
+
+func TestUserProfilesPanelOptIn(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
+	adm.WithAuthorizer(allowAll{})
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if _, ok := adm.Registry().Panel(userProfilesPanelID); ok {
+		t.Fatalf("expected user profiles panel to be opt-in")
+	}
+
+	adm = mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
+	adm.WithAuthorizer(allowAll{})
+	if err := adm.RegisterModule(NewUserManagementModule(WithUserProfilesPanel())); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+	server = router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if _, ok := adm.Registry().Panel(userProfilesPanelID); !ok {
+		t.Fatalf("expected user profiles panel when enabled")
+	}
+}
+
+func TestUserPanelTabsOptIn(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
+	adm.WithAuthorizer(allowAll{})
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if tabs := adm.Registry().PanelTabs(usersModuleID); len(tabs) != 0 {
+		t.Fatalf("expected no default user tabs, got %+v", tabs)
+	}
+
+	adm = mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
+	adm.WithAuthorizer(allowAll{})
+	if err := adm.RegisterModule(NewUserManagementModule(
+		WithUserPanelTabs(PanelTab{ID: "activity", Label: "Activity", Target: PanelTabTarget{Type: "panel", Panel: "activity"}}),
+	)); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+	server = router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	tabs := adm.Registry().PanelTabs(usersModuleID)
+	if len(tabs) != 1 || tabs[0].ID != "activity" {
+		t.Fatalf("expected activity tab registered, got %+v", tabs)
+	}
+}
+
+func TestUserModuleRespectsURLOverrides(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		URLs: URLConfig{
+			Admin: URLNamespaceConfig{
+				BasePath:  "/control",
+				APIPrefix: "rest",
+			},
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
+	adm.WithAuthorizer(allowAll{})
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	if got := resolveURLWith(adm.URLs(), "admin", usersModuleID, nil, nil); got != "/control/users" {
+		t.Fatalf("expected users UI path /control/users, got %q", got)
+	}
+	apiPath := adminPanelAPIPath(adm, cfg, usersModuleID)
+	if apiPath != "/control/rest/users" {
+		t.Fatalf("expected users API path /control/rest/users, got %q", apiPath)
+	}
+	req := httptest.NewRequest("GET", apiPath, nil)
+	req.Header.Set("X-User-ID", "actor-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 for users list, got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
 
@@ -63,7 +226,7 @@ func TestUserModuleEnforcesPermissions(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/users", nil)
+	req := httptest.NewRequest("GET", adminPanelAPIPath(adm, cfg, usersModuleID), nil)
 	req.Header.Set("X-User-ID", "actor-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -89,7 +252,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		"permissions": []string{"admin.users.edit", "admin.users.create"},
 	}
 	roleBody, _ := json.Marshal(rolePayload)
-	roleReq := httptest.NewRequest("POST", "/admin/api/roles", bytes.NewReader(roleBody))
+	roleReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
 	roleReq.Header.Set("Content-Type", "application/json")
 	roleReq.Header.Set("X-User-ID", "seed-actor")
 	roleRes := httptest.NewRecorder()
@@ -111,7 +274,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		"roles":    []string{roleID},
 	}
 	userBody, _ := json.Marshal(userPayload)
-	userReq := httptest.NewRequest("POST", "/admin/api/users", bytes.NewReader(userBody))
+	userReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
 	userReq.Header.Set("Content-Type", "application/json")
 	userReq.Header.Set("X-User-ID", "actor-123")
 	userRes := httptest.NewRecorder()
@@ -127,7 +290,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("unexpected user response %+v", user)
 	}
 
-	searchReq := httptest.NewRequest("GET", "/admin/api/search?query=tester", nil)
+	searchReq := httptest.NewRequest("GET", adminAPIPath(adm, cfg, "search", nil, map[string]string{"query": "tester"}), nil)
 	searchReq.Header.Set("X-User-ID", "actor-123")
 	searchRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(searchRes, searchReq)
@@ -178,7 +341,7 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 		"permissions": []string{"admin.users.view"},
 	}
 	roleBody, _ := json.Marshal(rolePayload)
-	roleReq := httptest.NewRequest("POST", "/admin/api/roles", bytes.NewReader(roleBody))
+	roleReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
 	roleReq.Header.Set("Content-Type", "application/json")
 	roleReq.Header.Set("X-User-ID", "seed-actor")
 	roleRes := httptest.NewRecorder()
@@ -201,7 +364,7 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 		"roles":    []string{roleID},
 	}
 	userBody, _ := json.Marshal(userPayload)
-	userReq := httptest.NewRequest("POST", "/admin/api/users", bytes.NewReader(userBody))
+	userReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
 	userReq.Header.Set("Content-Type", "application/json")
 	userReq.Header.Set("X-User-ID", "actor-123")
 	userRes := httptest.NewRecorder()
