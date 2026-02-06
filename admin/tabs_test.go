@@ -186,3 +186,35 @@ func TestMergePanelTabsCollisionHandlerRejectedChoiceKeepsExisting(t *testing.T)
 		t.Fatalf("expected existing tab to remain, got %+v", tabs)
 	}
 }
+
+func TestResolvePanelTabsUsesAdminContextAndPermissions(t *testing.T) {
+	adm := &Admin{
+		registry:   NewRegistry(),
+		authorizer: tabsDenyAuthorizer{},
+	}
+	if err := adm.registry.RegisterPanelTab("users", PanelTab{
+		ID:     "profile",
+		Label:  "Profile",
+		Scope:  PanelTabScopeDetail,
+		Target: PanelTabTarget{Type: "panel", Panel: "user-profiles"},
+	}); err != nil {
+		t.Fatalf("register profile tab: %v", err)
+	}
+	if err := adm.registry.RegisterPanelTab("users", PanelTab{
+		ID:         "activity",
+		Label:      "Activity",
+		Permission: "admin.users.view",
+		Scope:      PanelTabScopeDetail,
+		Target:     PanelTabTarget{Type: "path", Path: "/admin/activity"},
+	}); err != nil {
+		t.Fatalf("register activity tab: %v", err)
+	}
+
+	tabs, err := adm.ResolvePanelTabs(AdminContext{Context: context.Background()}, "users")
+	if err != nil {
+		t.Fatalf("resolve tabs: %v", err)
+	}
+	if len(tabs) != 1 || tabs[0].ID != "profile" {
+		t.Fatalf("expected only profile tab after permission filtering, got %+v", tabs)
+	}
+}
