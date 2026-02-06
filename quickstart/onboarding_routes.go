@@ -5,7 +5,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
@@ -116,7 +115,7 @@ func DefaultOnboardingRoutePaths(basePath string) OnboardingRoutePaths {
 }
 
 // RegisterOnboardingRoutes registers onboarding API endpoints.
-func RegisterOnboardingRoutes(r router.Router[*fiber.App], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error {
+func RegisterOnboardingRoutes[T any](r router.Router[T], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error {
 	if r == nil {
 		return fmt.Errorf("router is required")
 	}
