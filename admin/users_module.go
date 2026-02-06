@@ -319,7 +319,7 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 		{
 			Label:       "Users",
 			LabelKey:    "menu.users",
-			Icon:        "users",
+			Icon:        "group",
 			Target:      map[string]any{"type": "url", "path": usersPath, "key": usersModuleID},
 			Permissions: []string{m.usersPerm},
 			Menu:        m.menuCode,
