@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,6 +15,18 @@ import (
 )
 
 const debugEventSnapshot = "snapshot"
+
+const (
+	debugSessionViewPermission   = "admin.debug.session.view"
+	debugSessionAttachPermission = "admin.debug.session.attach"
+	debugSessionWSPathSuffix     = "session/:sessionId/ws"
+)
+
+const (
+	debugSessionUpgradeAdminContext = "debug_session_admin_context"
+	debugSessionUpgradeIP           = "debug_session_ip"
+	debugSessionUpgradeUserAgent    = "debug_session_user_agent"
+)
 
 var errDebugPanelRequired = goerrors.New("panel is required", goerrors.CategoryValidation).
 	WithCode(http.StatusBadRequest).
@@ -27,6 +40,10 @@ type debugCommand struct {
 type debugPanelsResponse struct {
 	Panels  []debugregistry.PanelDefinition `json:"panels"`
 	Version string                          `json:"version,omitempty"`
+}
+
+type debugSessionsResponse struct {
+	Sessions []DebugUserSession `json:"sessions"`
 }
 
 type debugSubscription struct {
@@ -112,6 +129,7 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 		basePath = normalizeDebugConfig(m.config, adminBasePath(admin.config)).BasePath
 	}
 	access := debugAccessMiddleware(admin, m.config, m.permission)
+	sessionAccess := debugAccessMiddleware(admin, m.config, debugSessionViewPermission)
 
 	register := func(path string, handler router.HandlerFunc) {
 		if path == "" {
@@ -133,6 +151,16 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 		}
 		admin.router.Post(path, handler)
 	}
+	registerSession := func(path string, handler router.HandlerFunc) {
+		if path == "" {
+			return
+		}
+		if sessionAccess != nil {
+			admin.router.Get(path, handler, sessionAccess)
+			return
+		}
+		admin.router.Get(path, handler)
+	}
 
 	if !featureEnabled(admin.featureGate, FeatureDashboard) {
 		debugBase := debugRoutePath(admin, m.config, "admin.debug", "index")
@@ -145,6 +173,7 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	}
 	register(debugAPIRoutePath(admin, m.config, "panels"), m.handleDebugPanels)
 	register(debugAPIRoutePath(admin, m.config, "snapshot"), m.handleDebugSnapshot)
+	registerSession(debugAPIRoutePath(admin, m.config, "sessions"), m.handleDebugSessions)
 	registerPost(debugAPIRoutePath(admin, m.config, "clear"), m.handleDebugClear)
 	registerPost(debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel)
 	// JS error ingestion endpoint — registered without access middleware so
@@ -186,6 +215,42 @@ func (m *DebugModule) registerDebugWebSocket(admin *Admin) {
 	})
 }
 
+func (m *DebugModule) registerDebugSessionWebSocket(admin *Admin) {
+	if admin == nil || admin.router == nil || m == nil || m.collector == nil {
+		return
+	}
+	ws, ok := admin.router.(debugWebSocketRouter)
+	if !ok {
+		return
+	}
+	basePath := m.basePath
+	if basePath == "" {
+		basePath = normalizeDebugConfig(m.config, adminBasePath(admin.config)).BasePath
+	}
+	cfg := router.DefaultWebSocketConfig()
+	cfg.OnPreUpgrade = func(c router.Context) (router.UpgradeData, error) {
+		if c == nil {
+			return nil, ErrForbidden
+		}
+		adminCtx, err := debugAuthorizeRequestWithContext(admin, m.config, debugSessionAttachPermission, c)
+		if err != nil {
+			return nil, err
+		}
+		return router.UpgradeData{
+			debugSessionUpgradeAdminContext: adminCtx,
+			debugSessionUpgradeIP:           strings.TrimSpace(c.IP()),
+			debugSessionUpgradeUserAgent:    strings.TrimSpace(c.Header("User-Agent")),
+		}, nil
+	}
+	wsPath := debugRoutePath(admin, m.config, "admin.debug", "session.ws")
+	if wsPath == "" {
+		wsPath = joinBasePath(basePath, debugSessionWSPathSuffix)
+	}
+	ws.WebSocket(wsPath, cfg, func(c router.WebSocketContext) error {
+		return m.handleDebugSessionWebSocket(admin, c)
+	})
+}
+
 func (m *DebugModule) handleDebugPanels(c router.Context) error {
 	if m == nil || m.collector == nil {
 		return writeJSON(c, debugPanelsResponse{Panels: []debugregistry.PanelDefinition{}})
@@ -202,6 +267,26 @@ func (m *DebugModule) handleDebugSnapshot(c router.Context) error {
 		return writeJSON(c, map[string]any{})
 	}
 	return writeJSON(c, m.collector.Snapshot())
+}
+
+func (m *DebugModule) handleDebugSessions(c router.Context) error {
+	if m == nil || m.sessionStore == nil {
+		return writeJSON(c, debugSessionsResponse{Sessions: []DebugUserSession{}})
+	}
+	if ttl := m.config.SessionInactivityExpiry; ttl > 0 {
+		_, _ = m.sessionStore.Expire(c.Context(), ttl)
+	}
+	sessions, err := m.sessionStore.ListActive(c.Context())
+	if err != nil {
+		return writeError(c, err)
+	}
+	if len(sessions) == 0 {
+		return writeJSON(c, debugSessionsResponse{Sessions: []DebugUserSession{}})
+	}
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].LastActivity.After(sessions[j].LastActivity)
+	})
+	return writeJSON(c, debugSessionsResponse{Sessions: sessions})
 }
 
 func (m *DebugModule) handleDebugDashboard(admin *Admin, c router.Context) error {
@@ -364,6 +449,111 @@ func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
 	}
 }
 
+func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSocketContext) error {
+	if m == nil || m.collector == nil || c == nil {
+		return ErrForbidden
+	}
+	sessionID := strings.TrimSpace(c.Param("sessionId"))
+	if sessionID == "" {
+		return ErrNotFound
+	}
+	includeGlobals := m.config.SessionIncludeGlobalPanelsEnabled()
+
+	clientID := uuid.NewString()
+	events := m.collector.Subscribe(clientID)
+	if events == nil {
+		return nil
+	}
+	defer m.collector.Unsubscribe(clientID)
+
+	if err := m.writeDebugSessionSnapshot(c, sessionID, includeGlobals); err != nil {
+		return err
+	}
+
+	adminCtx := debugSessionAdminContextFromUpgrade(c)
+	if adminCtx.Context == nil {
+		adminCtx.Context = c.Context()
+	}
+	if adminCtx.UserID == "" {
+		adminCtx.UserID = userIDFromContext(adminCtx.Context)
+	}
+	attachMeta := map[string]any{}
+	if ip := debugSessionUpgradeString(c, debugSessionUpgradeIP); ip != "" {
+		attachMeta["attach_ip"] = ip
+	}
+	if ua := debugSessionUpgradeString(c, debugSessionUpgradeUserAgent); ua != "" {
+		attachMeta["attach_user_agent"] = ua
+	}
+	session := DebugUserSession{SessionID: sessionID}
+	if m.sessionStore != nil {
+		if ttl := m.config.SessionInactivityExpiry; ttl > 0 {
+			_, _ = m.sessionStore.Expire(adminCtx.Context, ttl)
+		}
+		if stored, ok, _ := m.sessionStore.Get(adminCtx.Context, sessionID); ok {
+			session = stored
+		}
+	}
+	recordDebugSessionAttach(admin, adminCtx.Context, session, attachMeta)
+
+	commandCh := make(chan debugCommand, 16)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer close(commandCh)
+		for {
+			var cmd debugCommand
+			if err := c.ReadJSON(&cmd); err != nil {
+				return
+			}
+			select {
+			case commandCh <- cmd:
+			default:
+			}
+		}
+	}()
+
+	subscriptions := newDebugSubscription()
+	for {
+		select {
+		case <-done:
+			return nil
+		case <-c.Context().Done():
+			return c.Close()
+		case cmd, ok := <-commandCh:
+			if !ok {
+				return nil
+			}
+			m.handleDebugSessionCommand(c, subscriptions, cmd, sessionID, includeGlobals)
+		case event, ok := <-events:
+			if !ok {
+				return nil
+			}
+			if subscriptions.allows(event.Type) && debugSessionEventAllowed(event, sessionID, includeGlobals) {
+				if err := c.WriteJSON(event); err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+func (m *DebugModule) handleDebugSessionCommand(c router.WebSocketContext, subscriptions *debugSubscription, cmd debugCommand, sessionID string, includeGlobals bool) {
+	if m == nil {
+		return
+	}
+	switch strings.ToLower(strings.TrimSpace(cmd.Type)) {
+	case "subscribe":
+		subscriptions.subscribe(cmd.Panels)
+	case "unsubscribe":
+		subscriptions.unsubscribe(cmd.Panels)
+	case "snapshot":
+		_ = m.writeDebugSessionSnapshot(c, sessionID, includeGlobals)
+	case "clear":
+		m.clearDebugPanels(cmd.Panels)
+		_ = m.writeDebugSessionSnapshot(c, sessionID, includeGlobals)
+	}
+}
+
 func (m *DebugModule) handleDebugCommand(c router.WebSocketContext, subscriptions *debugSubscription, cmd debugCommand) {
 	if m == nil {
 		return
@@ -414,6 +604,96 @@ func (m *DebugModule) writeDebugSnapshot(c router.WebSocketContext) error {
 	})
 }
 
+func (m *DebugModule) writeDebugSessionSnapshot(c router.WebSocketContext, sessionID string, includeGlobals bool) error {
+	if m == nil || m.collector == nil {
+		return nil
+	}
+	snapshot := m.collector.SessionSnapshot(sessionID, DebugSessionSnapshotOptions{
+		IncludeGlobalPanels: includeGlobals,
+	})
+	return c.WriteJSON(DebugEvent{
+		Type:      debugEventSnapshot,
+		Payload:   snapshot,
+		Timestamp: time.Now(),
+	})
+}
+
+func debugSessionAdminContextFromUpgrade(c router.WebSocketContext) AdminContext {
+	if c == nil {
+		return AdminContext{}
+	}
+	raw, ok := c.UpgradeData(debugSessionUpgradeAdminContext)
+	if !ok {
+		return AdminContext{}
+	}
+	if adminCtx, ok := raw.(AdminContext); ok {
+		return adminCtx
+	}
+	return AdminContext{}
+}
+
+func debugSessionUpgradeString(c router.WebSocketContext, key string) string {
+	if c == nil {
+		return ""
+	}
+	if raw, ok := c.UpgradeData(key); ok {
+		if value, ok := raw.(string); ok {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func debugSessionEventAllowed(event DebugEvent, sessionID string, includeGlobals bool) bool {
+	if event.Type == debugEventSnapshot {
+		return false
+	}
+	if debugSessionEventType(event.Type) {
+		return sessionID != "" && debugEventSessionID(event) == sessionID
+	}
+	return includeGlobals
+}
+
+func debugSessionEventType(eventType string) bool {
+	switch strings.ToLower(strings.TrimSpace(eventType)) {
+	case "request", "log", DebugPanelSQL:
+		return true
+	default:
+		return false
+	}
+}
+
+func debugEventSessionID(event DebugEvent) string {
+	switch payload := event.Payload.(type) {
+	case RequestEntry:
+		return strings.TrimSpace(payload.SessionID)
+	case *RequestEntry:
+		if payload == nil {
+			return ""
+		}
+		return strings.TrimSpace(payload.SessionID)
+	case SQLEntry:
+		return strings.TrimSpace(payload.SessionID)
+	case *SQLEntry:
+		if payload == nil {
+			return ""
+		}
+		return strings.TrimSpace(payload.SessionID)
+	case LogEntry:
+		return strings.TrimSpace(payload.SessionID)
+	case *LogEntry:
+		if payload == nil {
+			return ""
+		}
+		return strings.TrimSpace(payload.SessionID)
+	case map[string]any:
+		if raw, ok := payload["session_id"]; ok {
+			return strings.TrimSpace(toString(raw))
+		}
+	}
+	return ""
+}
+
 func debugAccessMiddleware(admin *Admin, cfg DebugConfig, permission string) router.MiddlewareFunc {
 	if admin == nil {
 		return nil
@@ -440,11 +720,16 @@ func debugAuthHandler(admin *Admin, cfg DebugConfig, permission string) router.H
 }
 
 func debugAuthorizeRequest(admin *Admin, cfg DebugConfig, permission string, c router.Context) error {
+	_, err := debugAuthorizeRequestWithContext(admin, cfg, permission, c)
+	return err
+}
+
+func debugAuthorizeRequestWithContext(admin *Admin, cfg DebugConfig, permission string, c router.Context) (AdminContext, error) {
 	if admin == nil || c == nil {
-		return ErrForbidden
+		return AdminContext{}, ErrForbidden
 	}
 	if err := debugCheckIP(cfg.AllowedIPs, c.IP()); err != nil {
-		return err
+		return AdminContext{}, err
 	}
 	locale := strings.TrimSpace(c.Query("locale"))
 	if locale == "" {
@@ -455,7 +740,10 @@ func debugAuthorizeRequest(admin *Admin, cfg DebugConfig, permission string, c r
 	if permission == "" {
 		permission = cfg.Permission
 	}
-	return admin.requirePermission(adminCtx, permission, debugModuleID)
+	if err := admin.requirePermission(adminCtx, permission, debugModuleID); err != nil {
+		return adminCtx, err
+	}
+	return adminCtx, nil
 }
 
 func debugCheckIP(allowed []string, ip string) error {
