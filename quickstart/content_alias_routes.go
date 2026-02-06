@@ -8,7 +8,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
@@ -46,8 +45,8 @@ func WithContentAliasRoutes(aliases ...string) ContentAliasRouteOption {
 }
 
 // RegisterContentEntryAliasRoutes registers alias routes (e.g., /pages, /posts) for content entry UI.
-func RegisterContentEntryAliasRoutes(
-	r router.Router[*fiber.App],
+func RegisterContentEntryAliasRoutes[T any](
+	r router.Router[T],
 	cfg admin.Config,
 	adm *admin.Admin,
 	auth admin.HandlerAuthenticator,

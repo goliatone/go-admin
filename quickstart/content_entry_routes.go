@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
@@ -99,8 +98,8 @@ func WithContentEntryFormRenderer(renderer *admin.FormgenSchemaValidator) Conten
 }
 
 // RegisterContentEntryUIRoutes registers HTML routes for content entries.
-func RegisterContentEntryUIRoutes(
-	r router.Router[*fiber.App],
+func RegisterContentEntryUIRoutes[T any](
+	r router.Router[T],
 	cfg admin.Config,
 	adm *admin.Admin,
 	auth admin.HandlerAuthenticator,
