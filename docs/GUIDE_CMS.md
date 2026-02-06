@@ -394,6 +394,11 @@ Preview and draft access can be enabled with query flags on the management API:
 
 Content entry screens mount under `/admin/content/:panel` when you register
 `quickstart.RegisterContentEntryUIRoutes` (or the equivalent wiring in your app).
+If you want filter controls even when schema filters are empty, enable the
+quickstart fallback option:
+`quickstart.WithContentEntryUIFilterFallbackFromColumnsDefault(true)`.
+Per-content-type capability `filters_fallback_from_columns` overrides the global
+default (`true`/`false`).
 Common routes include:
 
 - `/admin/content/:panel` (list)
