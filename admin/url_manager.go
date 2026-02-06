@@ -22,19 +22,6 @@ func normalizeURLConfig(cfg URLConfig, basePath string) URLConfig {
 		APIVersion: defaultPublicAPIVersion,
 	})
 
-	legacyPrefix := strings.TrimSpace(cfg.APIPrefix)
-	if legacyPrefix != "" {
-		cfg.Admin.APIPrefix = normalizeAPIPrefix(legacyPrefix, defaultAPIPrefix)
-	}
-	legacyVersion := strings.TrimSpace(cfg.APIVersion)
-	if legacyVersion != "" {
-		cfg.Admin.APIVersion = normalizeAPIVersion(legacyVersion)
-	}
-
-	// Keep legacy fields in sync for existing call sites.
-	cfg.APIPrefix = cfg.Admin.APIPrefix
-	cfg.APIVersion = cfg.Admin.APIVersion
-
 	return cfg
 }
 
