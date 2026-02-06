@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
@@ -111,6 +112,16 @@ func TestWithDebugConfigSetsFeatureDefaults(t *testing.T) {
 func TestWithDebugFromEnvMapping(t *testing.T) {
 	t.Setenv("ADMIN_DEBUG", "true")
 	t.Setenv("ADMIN_DEBUG_ALLOWED_IPS", "1.1.1.1, 2.2.2.2")
+	t.Setenv("ADMIN_DEBUG_ALLOWED_ORIGINS", "https://one.example, https://two.example")
+	t.Setenv("ADMIN_DEBUG_APP_ID", "app-1")
+	t.Setenv("ADMIN_DEBUG_APP_NAME", "Admin Service")
+	t.Setenv("ADMIN_DEBUG_ENVIRONMENT", "staging")
+	t.Setenv("ADMIN_DEBUG_REMOTE", "true")
+	t.Setenv("ADMIN_DEBUG_TOKEN_TTL", "15m")
+	t.Setenv("ADMIN_DEBUG_SESSION_TRACKING", "true")
+	t.Setenv("ADMIN_DEBUG_SESSION_GLOBAL_PANELS", "false")
+	t.Setenv("ADMIN_DEBUG_SESSION_COOKIE", "debug_session_cookie")
+	t.Setenv("ADMIN_DEBUG_SESSION_EXPIRY", "45m")
 	t.Setenv("ADMIN_DEBUG_SQL", "false")
 	t.Setenv("ADMIN_DEBUG_LOGS", "true")
 	t.Setenv("ADMIN_DEBUG_JS_ERRORS", "false")
@@ -155,6 +166,36 @@ func TestWithDebugFromEnvMapping(t *testing.T) {
 	}
 	if len(cfg.Debug.AllowedIPs) != 2 {
 		t.Fatalf("expected allowed IPs parsed, got %v", cfg.Debug.AllowedIPs)
+	}
+	if len(cfg.Debug.AllowedOrigins) != 2 {
+		t.Fatalf("expected allowed origins parsed, got %v", cfg.Debug.AllowedOrigins)
+	}
+	if cfg.Debug.AppID != "app-1" {
+		t.Fatalf("expected app id, got %q", cfg.Debug.AppID)
+	}
+	if cfg.Debug.AppName != "Admin Service" {
+		t.Fatalf("expected app name, got %q", cfg.Debug.AppName)
+	}
+	if cfg.Debug.Environment != "staging" {
+		t.Fatalf("expected environment, got %q", cfg.Debug.Environment)
+	}
+	if !cfg.Debug.RemoteEnabled {
+		t.Fatalf("expected remote enabled")
+	}
+	if cfg.Debug.TokenTTL != 15*time.Minute {
+		t.Fatalf("expected token ttl 15m, got %v", cfg.Debug.TokenTTL)
+	}
+	if !cfg.Debug.SessionTracking {
+		t.Fatalf("expected session tracking enabled")
+	}
+	if cfg.Debug.SessionIncludeGlobalPanelsEnabled() {
+		t.Fatalf("expected session global panels disabled")
+	}
+	if cfg.Debug.SessionCookieName != "debug_session_cookie" {
+		t.Fatalf("expected session cookie name, got %q", cfg.Debug.SessionCookieName)
+	}
+	if cfg.Debug.SessionInactivityExpiry != 45*time.Minute {
+		t.Fatalf("expected session expiry 45m, got %v", cfg.Debug.SessionInactivityExpiry)
 	}
 	if len(cfg.Debug.ToolbarPanels) != 2 {
 		t.Fatalf("expected toolbar panels parsed, got %v", cfg.Debug.ToolbarPanels)
