@@ -48,7 +48,7 @@ type UserProfileHandlers struct {
 	FormGenerator *formgenorchestrator.Orchestrator
 	Admin         *admin.Admin
 	Config        admin.Config
-	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
+	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
 }
 
 func NewUserProfileHandlers(
@@ -56,7 +56,7 @@ func NewUserProfileHandlers(
 	formGen *formgenorchestrator.Orchestrator,
 	adm *admin.Admin,
 	cfg admin.Config,
-	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext,
+	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext,
 ) *UserProfileHandlers {
 	return &UserProfileHandlers{
 		Store:         store,
@@ -99,7 +99,7 @@ func (h *UserProfileHandlers) List(c router.Context) error {
 		"bulk_actions_primary":  bulkCtx.Primary,
 		"bulk_actions_overflow": bulkCtx.Overflow,
 		"bulk_base":             bulkCtx.BaseURL,
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/user-profiles/list", viewCtx)
 }
@@ -189,7 +189,7 @@ func (h *UserProfileHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  item,
 		"fields":         fields,
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/user-profiles/detail", viewCtx)
 }
@@ -320,7 +320,7 @@ func (h *UserProfileHandlers) renderProfileForm(c router.Context, operationID st
 		"routes":         routes.RoutesMap(),
 		"is_edit":        isEdit,
 		"form_html":      string(html),
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/user-profiles/form", viewCtx)
 }

@@ -9,9 +9,9 @@ import (
 )
 
 // WithNav adds navigation items to the view context using the shared quickstart helper.
-func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext {
+func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext {
 	ctx = quickstart.WithNav(ctx, adm, cfg, active, reqCtx)
-	return admin.CaptureViewContext(adm.Debug(), ctx)
+	return admin.CaptureViewContextForRequest(adm.Debug(), c, ctx)
 }
 
 // BuildNavItems builds navigation menu items from the admin menu service (shared quickstart implementation).

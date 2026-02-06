@@ -54,7 +54,7 @@ func newGoCMSContentBridge(contentSvc any, blockSvc any, pageSvc any, defaultTem
 func (b *goCMSContentBridge) Pages(ctx context.Context, locale string) ([]admin.CMSPage, error) {
 	// Surface "page" content types as CMS pages so the example can
 	// still list/seed pages.
-	contents, err := b.Contents(ctx, locale)
+	contents, err := b.listContents(ctx, locale, admin.WithTranslations())
 	if err != nil {
 		return nil, err
 	}
@@ -390,12 +390,20 @@ func (b *goCMSContentBridge) templateIDFromPage(page admin.CMSPage, data map[str
 }
 
 func (b *goCMSContentBridge) Contents(ctx context.Context, locale string) ([]admin.CMSContent, error) {
+	return b.listContents(ctx, locale)
+}
+
+func (b *goCMSContentBridge) ContentsWithOptions(ctx context.Context, locale string, opts ...admin.CMSContentListOption) ([]admin.CMSContent, error) {
+	return b.listContents(ctx, locale, opts...)
+}
+
+func (b *goCMSContentBridge) listContents(ctx context.Context, locale string, opts ...admin.CMSContentListOption) ([]admin.CMSContent, error) {
 	method := reflect.ValueOf(b.content).MethodByName("List")
 	if !method.IsValid() {
 		return nil, admin.ErrNotFound
 	}
 	env := environmentKeyFromContext(ctx)
-	results := callWithOptionalEnv(method, ctx, env)
+	results := callWithOptionalEnvAndOptions(method, ctx, env, opts...)
 	if err := reflectError(results); err != nil {
 		return nil, err
 	}
@@ -419,7 +427,13 @@ func (b *goCMSContentBridge) Content(ctx context.Context, id, locale string) (*a
 	if err != nil {
 		return nil, err
 	}
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(u)})
+	args := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(u)}
+	if method.Type().IsVariadic() {
+		args = append(args, reflect.ValueOf(string(admin.WithTranslations())))
+	} else if method.Type().NumIn() > 2 {
+		args = append(args, reflect.ValueOf(string(admin.WithTranslations())))
+	}
+	results := method.Call(args)
 	if err := reflectError(results); err != nil {
 		return nil, err
 	}
@@ -1058,6 +1072,33 @@ func callWithOptionalEnv(method reflect.Value, ctx context.Context, env string) 
 	args := []reflect.Value{reflect.ValueOf(ctx)}
 	if env != "" && method.Type().NumIn() > 1 && method.Type().In(1).Kind() == reflect.String {
 		args = append(args, reflect.ValueOf(env))
+	}
+	return method.Call(args)
+}
+
+func callWithOptionalEnvAndOptions(method reflect.Value, ctx context.Context, env string, opts ...admin.CMSContentListOption) []reflect.Value {
+	if !method.IsValid() {
+		return nil
+	}
+	args := []reflect.Value{reflect.ValueOf(ctx)}
+	if method.Type().NumIn() <= 1 {
+		return method.Call(args)
+	}
+	if method.Type().IsVariadic() {
+		if env != "" && method.Type().In(1).Kind() == reflect.String {
+			args = append(args, reflect.ValueOf(env))
+		}
+		for _, opt := range opts {
+			args = append(args, reflect.ValueOf(string(opt)))
+		}
+		return method.Call(args)
+	}
+	if len(opts) > 0 {
+		args = append(args, reflect.ValueOf(string(opts[0])))
+	} else if env != "" && method.Type().In(1).Kind() == reflect.String {
+		args = append(args, reflect.ValueOf(env))
+	} else {
+		args = append(args, reflect.Zero(method.Type().In(1)))
 	}
 	return method.Call(args)
 }

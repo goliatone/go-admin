@@ -16,22 +16,22 @@ import (
 type ProfileHandlers struct {
 	Admin   *admin.Admin
 	Config  admin.Config
-	WithNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
+	WithNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
 }
 
 func NewProfileHandlers(
 	adm *admin.Admin,
 	cfg admin.Config,
-	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext,
+	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext,
 ) *ProfileHandlers {
 	return &ProfileHandlers{
 		Admin:  adm,
 		Config: cfg,
-		WithNav: func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext {
+		WithNav: func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext {
 			if withNav == nil {
 				return ctx
 			}
-			return withNav(ctx, adm, cfg, active, reqCtx)
+			return withNav(ctx, adm, cfg, active, reqCtx, c)
 		},
 	}
 }
@@ -77,7 +77,7 @@ func (h *ProfileHandlers) Show(c router.Context) error {
 		},
 		"can_edit": canEdit,
 		"saved":    strings.TrimSpace(c.Query("saved")) != "",
-	}, h.Admin, h.Config, "profile", c.Context())
+	}, h.Admin, h.Config, "profile", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 
 	return c.Render("resources/profile/show", viewCtx)
@@ -117,7 +117,7 @@ func (h *ProfileHandlers) Save(c router.Context) error {
 			"profile":   input,
 			"errors":    errorsByField,
 			"can_edit":  true,
-		}, h.Admin, h.Config, "profile", c.Context())
+		}, h.Admin, h.Config, "profile", c.Context(), c)
 		viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 		return c.Render("resources/profile/show", viewCtx)
 	}
