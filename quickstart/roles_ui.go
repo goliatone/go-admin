@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	authlib "github.com/goliatone/go-auth"
 	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
@@ -76,7 +75,7 @@ func WithRolesFormGenerator(formGen *formgenorchestrator.Orchestrator) RolesUIOp
 }
 
 // RegisterRolesUIRoutes registers HTML routes for role management.
-func RegisterRolesUIRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *admin.Admin, opts ...RolesUIOption) error {
+func RegisterRolesUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *admin.Admin, opts ...RolesUIOption) error {
 	if r == nil {
 		return nil
 	}
