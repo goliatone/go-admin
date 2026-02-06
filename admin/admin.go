@@ -38,6 +38,7 @@ type Admin struct {
 	replSessionStore             DebugREPLSessionStore
 	replSessionManager           *DebugREPLSessionManager
 	replCommandCatalog           *DebugREPLCommandCatalog
+	debugSessionStore            DebugUserSessionStore
 	dash                         *dashboardComponents
 	nav                          *Navigation
 	search                       *SearchEngine
@@ -164,6 +165,10 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	}
 	replSessionManager := NewDebugREPLSessionManager(replSessionStore, cfg.Debug.Repl)
 	replCommandCatalog := debugREPLCommandCatalog()
+	debugSessionStore := deps.DebugUserSessionStore
+	if debugSessionStore == nil {
+		debugSessionStore = NewInMemoryDebugUserSessionStore()
+	}
 
 	commandBus := deps.CommandBus
 	if commandBus == nil {
@@ -315,6 +320,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		replSessionStore:       replSessionStore,
 		replSessionManager:     replSessionManager,
 		replCommandCatalog:     replCommandCatalog,
+		debugSessionStore:      debugSessionStore,
 		nav:                    NewNavigation(container.MenuService(), deps.Authorizer),
 		search:                 NewSearchEngine(deps.Authorizer),
 		authorizer:             deps.Authorizer,
@@ -692,6 +698,11 @@ func (a *Admin) Debug() *DebugCollector {
 // DebugREPLSessions exposes the REPL session store.
 func (a *Admin) DebugREPLSessions() DebugREPLSessionStore {
 	return a.replSessionStore
+}
+
+// DebugUserSessions exposes the debug user session store.
+func (a *Admin) DebugUserSessions() DebugUserSessionStore {
+	return a.debugSessionStore
 }
 
 // DebugREPLSessionManager exposes the REPL session lifecycle manager.
