@@ -2,7 +2,6 @@ package quickstart
 
 import (
 	"errors"
-	"path"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -39,17 +38,21 @@ type bulkRoleResponse struct {
 }
 
 // RegisterUserRoleBulkRoutes registers bulk assign/unassign endpoints.
-func RegisterUserRoleBulkRoutes(r router.Router[*fiber.App], cfg admin.Config, adm *admin.Admin) error {
+func RegisterUserRoleBulkRoutes(r admin.AdminRouter, cfg admin.Config, adm *admin.Admin) error {
 	if r == nil || adm == nil || adm.UserService() == nil {
 		return nil
 	}
-	basePath := strings.TrimSpace(cfg.BasePath)
-	if basePath == "" {
-		basePath = "/"
+	if !featureEnabled(adm.FeatureGate(), string(admin.FeatureUsers)) {
+		return nil
+	}
+	urls := adm.URLs()
+	group := adminAPIGroupName(cfg)
+	assignPath := resolveRoutePath(urls, group, UserRoleBulkAssignRouteKey)
+	unassignPath := resolveRoutePath(urls, group, UserRoleBulkUnassignRouteKey)
+	if assignPath == "" || unassignPath == "" {
+		return errors.New("user role bulk routes require URLKit route keys")
 	}
 	wrap := adm.AuthWrapper()
-	assignPath := path.Join(basePath, "api", "users", "bulk", "assign-role")
-	unassignPath := path.Join(basePath, "api", "users", "bulk", "unassign-role")
 
 	r.Post(assignPath, wrap(func(c router.Context) error {
 		return bulkRoleChange(c, adm, cfg, true)
