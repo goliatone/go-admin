@@ -229,7 +229,7 @@ func WithAuthUIThemeAssets(prefix string, assets map[string]string) AuthUIOption
 }
 
 // RegisterAuthUIRoutes registers login, logout, and password reset UI routes.
-func RegisterAuthUIRoutes(r router.Router[*fiber.App], cfg admin.Config, auther *auth.Auther, cookieName string, opts ...AuthUIOption) error {
+func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *auth.Auther, cookieName string, opts ...AuthUIOption) error {
 	if r == nil {
 		return fmt.Errorf("router is required")
 	}
