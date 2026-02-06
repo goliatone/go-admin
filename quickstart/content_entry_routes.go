@@ -24,14 +24,15 @@ import (
 type ContentEntryUIOption func(*contentEntryUIOptions)
 
 type contentEntryUIOptions struct {
-	basePath       string
-	listTemplate   string
-	formTemplate   string
-	detailTemplate string
-	viewContext    UIViewContextBuilder
-	permission     string
-	authResource   string
-	formRenderer   *admin.FormgenSchemaValidator
+	basePath                          string
+	listTemplate                      string
+	formTemplate                      string
+	detailTemplate                    string
+	viewContext                       UIViewContextBuilder
+	permission                        string
+	authResource                      string
+	formRenderer                      *admin.FormgenSchemaValidator
+	filtersFallbackFromColumnsDefault bool
 }
 
 // WithContentEntryUIBasePath overrides the base path used to build content entry routes.
@@ -93,6 +94,16 @@ func WithContentEntryFormRenderer(renderer *admin.FormgenSchemaValidator) Conten
 	return func(opts *contentEntryUIOptions) {
 		if opts != nil && renderer != nil {
 			opts.formRenderer = renderer
+		}
+	}
+}
+
+// WithContentEntryUIFilterFallbackFromColumnsDefault toggles the fallback behavior that
+// derives FilterBuilder fields from list columns when panel schema filters are empty.
+func WithContentEntryUIFilterFallbackFromColumnsDefault(enabled bool) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts != nil {
+			opts.filtersFallbackFromColumnsDefault = enabled
 		}
 	}
 }
@@ -166,16 +177,17 @@ func RegisterContentEntryUIRoutes[T any](
 }
 
 type contentEntryHandlers struct {
-	admin          *admin.Admin
-	cfg            admin.Config
-	viewContext    UIViewContextBuilder
-	listTemplate   string
-	formTemplate   string
-	detailTemplate string
-	permission     string
-	authResource   string
-	contentTypes   admin.CMSContentTypeService
-	formRenderer   *admin.FormgenSchemaValidator
+	admin                             *admin.Admin
+	cfg                               admin.Config
+	viewContext                       UIViewContextBuilder
+	listTemplate                      string
+	formTemplate                      string
+	detailTemplate                    string
+	permission                        string
+	authResource                      string
+	contentTypes                      admin.CMSContentTypeService
+	formRenderer                      *admin.FormgenSchemaValidator
+	filtersFallbackFromColumnsDefault bool
 }
 
 func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewContextBuilder, opts contentEntryUIOptions) *contentEntryHandlers {
@@ -184,16 +196,17 @@ func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewC
 		contentTypes = adm.ContentTypeService()
 	}
 	return &contentEntryHandlers{
-		admin:          adm,
-		cfg:            cfg,
-		viewContext:    viewCtx,
-		listTemplate:   opts.listTemplate,
-		formTemplate:   opts.formTemplate,
-		detailTemplate: opts.detailTemplate,
-		permission:     strings.TrimSpace(opts.permission),
-		authResource:   strings.TrimSpace(opts.authResource),
-		contentTypes:   contentTypes,
-		formRenderer:   opts.formRenderer,
+		admin:                             adm,
+		cfg:                               cfg,
+		viewContext:                       viewCtx,
+		listTemplate:                      opts.listTemplate,
+		formTemplate:                      opts.formTemplate,
+		detailTemplate:                    opts.detailTemplate,
+		permission:                        strings.TrimSpace(opts.permission),
+		authResource:                      strings.TrimSpace(opts.authResource),
+		contentTypes:                      contentTypes,
+		formRenderer:                      opts.formRenderer,
+		filtersFallbackFromColumnsDefault: opts.filtersFallbackFromColumnsDefault,
 	}
 }
 
@@ -209,7 +222,9 @@ func (h *contentEntryHandlers) List(c router.Context) error {
 	if err != nil {
 		return err
 	}
-	columns := contentEntryColumns(panel)
+	useFallback := h.shouldUseColumnFiltersFallback(contentType)
+	filters := contentEntryFilters(panel, useFallback)
+	columns := contentEntryColumns(panel, filters)
 	var urls urlkit.Resolver
 	if h.admin != nil {
 		urls = h.admin.URLs()
@@ -228,6 +243,7 @@ func (h *contentEntryHandlers) List(c router.Context) error {
 		"action_base":    actionBase,
 		"items":          items,
 		"columns":        columns,
+		"filters":        filters,
 		"total":          total,
 		"datatable_id":   "content-" + contentTypeSlug(contentType, panelName),
 		"list_api":       path.Join(apiBasePath, panelName),
@@ -640,10 +656,26 @@ func contentEntryValues(record map[string]any) map[string]any {
 	return values
 }
 
-func contentEntryColumns(panel *admin.Panel) []map[string]any {
+func contentEntryColumns(panel *admin.Panel, filters []map[string]any) []map[string]any {
 	fields := []admin.Field{}
+	filterable := map[string]struct{}{}
 	if panel != nil {
-		fields = panel.Schema().ListFields
+		schema := panel.Schema()
+		fields = schema.ListFields
+		for _, filter := range schema.Filters {
+			name := strings.TrimSpace(filter.Name)
+			if name == "" {
+				continue
+			}
+			filterable[name] = struct{}{}
+		}
+	}
+	for _, filter := range filters {
+		name := strings.TrimSpace(anyToString(filter["name"]))
+		if name == "" {
+			continue
+		}
+		filterable[name] = struct{}{}
 	}
 	if len(fields) == 0 {
 		fields = []admin.Field{
@@ -666,9 +698,185 @@ func contentEntryColumns(panel *admin.Panel) []map[string]any {
 			"filterable": false,
 			"default":    !field.Hidden,
 		}
+		if _, ok := filterable[field.Name]; ok {
+			col["filterable"] = true
+		}
 		cols = append(cols, col)
 	}
 	return cols
+}
+
+func contentEntryFilters(panel *admin.Panel, fallbackFromColumns bool) []map[string]any {
+	if panel == nil {
+		return []map[string]any{}
+	}
+	schema := panel.Schema()
+	if len(schema.Filters) == 0 && !fallbackFromColumns {
+		return []map[string]any{}
+	}
+	optionsByField := map[string][]map[string]any{}
+	formFieldByName := map[string]admin.Field{}
+	for _, field := range schema.FormFields {
+		name := strings.TrimSpace(field.Name)
+		if name == "" || len(field.Options) == 0 {
+			if name != "" {
+				formFieldByName[name] = field
+			}
+			continue
+		}
+		opts := make([]map[string]any, 0, len(field.Options))
+		for _, option := range field.Options {
+			label := strings.TrimSpace(option.Label)
+			if label == "" {
+				label = strings.TrimSpace(anyToString(option.Value))
+			}
+			opts = append(opts, map[string]any{
+				"label": label,
+				"value": option.Value,
+			})
+		}
+		optionsByField[name] = opts
+		formFieldByName[name] = field
+	}
+	if len(schema.Filters) == 0 && fallbackFromColumns {
+		return contentEntryColumnFallbackFilters(schema.ListFields, formFieldByName, optionsByField)
+	}
+	out := make([]map[string]any, 0, len(schema.Filters))
+	for _, filter := range schema.Filters {
+		name := strings.TrimSpace(filter.Name)
+		if name == "" {
+			continue
+		}
+		label := strings.TrimSpace(filter.Label)
+		if label == "" {
+			label = titleCase(name)
+		}
+		entry := map[string]any{
+			"name":  name,
+			"label": label,
+			"type":  strings.TrimSpace(filter.Type),
+		}
+		if options, ok := optionsByField[name]; ok && len(options) > 0 {
+			entry["options"] = options
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+func contentEntryColumnFallbackFilters(listFields []admin.Field, formFieldByName map[string]admin.Field, optionsByField map[string][]map[string]any) []map[string]any {
+	fields := listFields
+	if len(fields) == 0 {
+		fields = []admin.Field{
+			{Name: "title", Label: "Title", Type: "text"},
+			{Name: "slug", Label: "Slug", Type: "text"},
+			{Name: "status", Label: "Status", Type: "select"},
+			{Name: "locale", Label: "Locale", Type: "select"},
+		}
+	}
+	seen := map[string]struct{}{}
+	out := make([]map[string]any, 0, len(fields))
+	for _, field := range fields {
+		name := strings.TrimSpace(field.Name)
+		if name == "" || field.Hidden {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		label := strings.TrimSpace(field.Label)
+		if label == "" {
+			label = titleCase(name)
+		}
+		filterType := normalizeContentEntryFilterType(field.Type)
+		if formField, ok := formFieldByName[name]; ok {
+			if normalized := normalizeContentEntryFilterType(formField.Type); normalized != "" {
+				filterType = normalized
+			}
+		}
+		if filterType == "" {
+			filterType = "text"
+		}
+		entry := map[string]any{
+			"name":  name,
+			"label": label,
+			"type":  filterType,
+		}
+		if options, ok := optionsByField[name]; ok && len(options) > 0 {
+			entry["options"] = options
+			entry["type"] = "select"
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+func normalizeContentEntryFilterType(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "select", "enum", "radio", "chip":
+		return "select"
+	case "number", "integer", "float", "decimal":
+		return "number"
+	case "date", "datetime", "time":
+		return "date"
+	case "bool", "boolean", "toggle", "checkbox":
+		return "select"
+	case "text", "textarea", "string", "slug", "email", "url":
+		return "text"
+	default:
+		return "text"
+	}
+}
+
+func (h *contentEntryHandlers) shouldUseColumnFiltersFallback(contentType *admin.CMSContentType) bool {
+	if enabled, ok := contentTypeCapabilityBool(contentType, "filters_fallback_from_columns", "filtersFallbackFromColumns", "filters-fallback-from-columns"); ok {
+		return enabled
+	}
+	return h.filtersFallbackFromColumnsDefault
+}
+
+func contentTypeCapabilityBool(contentType *admin.CMSContentType, keys ...string) (bool, bool) {
+	if contentType == nil || len(contentType.Capabilities) == 0 {
+		return false, false
+	}
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		raw, ok := contentType.Capabilities[key]
+		if !ok {
+			continue
+		}
+		return capabilityBoolValue(raw)
+	}
+	return false, false
+}
+
+func capabilityBoolValue(raw any) (bool, bool) {
+	switch value := raw.(type) {
+	case bool:
+		return value, true
+	case string:
+		normalized := strings.ToLower(strings.TrimSpace(value))
+		switch normalized {
+		case "true", "1", "yes", "on", "enabled":
+			return true, true
+		case "false", "0", "no", "off", "disabled":
+			return false, true
+		default:
+			return false, false
+		}
+	case int:
+		return value != 0, true
+	case int64:
+		return value != 0, true
+	case float64:
+		return value != 0, true
+	default:
+		return false, false
+	}
 }
 
 func detailFieldsForRecord(panel *admin.Panel, record map[string]any) []map[string]any {
