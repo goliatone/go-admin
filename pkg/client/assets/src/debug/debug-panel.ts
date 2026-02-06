@@ -8,10 +8,12 @@ import type {
   RouteEntry,
   CustomLogEntry,
   DebugSnapshot,
+  DebugUserSession,
 } from './shared/types.js';
 import {
   escapeHTML,
   formatJSON,
+  formatTimestamp,
   formatNumber,
   countPayload,
   isSlowDuration,
@@ -59,6 +61,7 @@ type PanelFilters = {
   sql: { search: string; slowOnly: boolean; errorOnly: boolean; newestFirst: boolean };
   logs: { level: string; search: string; autoScroll: boolean; newestFirst: boolean };
   routes: { method: string; search: string };
+  sessions: { search: string };
   custom: { search: string };
   objects: { search: string };
 };
@@ -129,6 +132,9 @@ const getPanelLabel = (panelId: string): string => {
 
 // Get event types for a panel from registry
 const getPanelEventTypes = (panelId: string): string[] => {
+  if (panelId === 'sessions') {
+    return [];
+  }
   const def = panelRegistry.get(panelId);
   if (def) {
     return normalizeEventTypes(def);
@@ -257,6 +263,14 @@ export class DebugPanel {
   private eventCount = 0;
   private lastEventAt: Date | null = null;
   private stream: DebugStream;
+  private streamBasePath: string;
+  private sessions: DebugUserSession[] = [];
+  private sessionsLoading = false;
+  private sessionsLoaded = false;
+  private sessionsError: string | null = null;
+  private sessionsUpdatedAt: Date | null = null;
+  private activeSessionId: string | null = null;
+  private activeSession: DebugUserSession | null = null;
   private replPanels: Map<string, DebugReplPanel>;
   private replCommands: DebugReplCommand[];
   private panelRenderers: Map<string, PanelRenderer>;
@@ -267,6 +281,9 @@ export class DebugPanel {
   private connectionEl: HTMLElement;
   private eventCountEl: HTMLElement;
   private lastEventEl: HTMLElement;
+  private sessionBannerEl: HTMLElement | null = null;
+  private sessionMetaEl: HTMLElement | null = null;
+  private sessionDetachEl: HTMLButtonElement | null = null;
   private eventToPanel: Record<string, string>;
   private unsubscribeRegistry: (() => void) | null = null;
   private expandedRequests: Set<string> = new Set();
@@ -275,9 +292,13 @@ export class DebugPanel {
     this.container = container;
     const panelsData = parseJSON(container.dataset.panels);
     this.panels = normalizePanelList(panelsData);
+    if (!this.panels.includes('sessions')) {
+      this.panels.push('sessions');
+    }
     this.activePanel = this.panels[0] || 'template';
 
     this.debugPath = container.dataset.debugPath || '';
+    this.streamBasePath = this.debugPath;
     this.maxLogEntries = parseNumber(container.dataset.maxLogEntries, 500);
     this.maxSQLQueries = parseNumber(container.dataset.maxSqlQueries, 200);
     this.slowThresholdMs = parseNumber(container.dataset.slowThresholdMs, 50);
@@ -300,6 +321,7 @@ export class DebugPanel {
       sql: { search: '', slowOnly: false, errorOnly: false, newestFirst: true },
       logs: { level: 'all', search: '', autoScroll: true, newestFirst: true },
       routes: { method: 'all', search: '' },
+      sessions: { search: '' },
       custom: { search: '' },
       objects: { search: '' },
     };
@@ -323,13 +345,19 @@ export class DebugPanel {
     this.connectionEl = this.requireElement('[data-debug-connection]', document);
     this.eventCountEl = this.requireElement('[data-debug-events]', document);
     this.lastEventEl = this.requireElement('[data-debug-last]', document);
+    this.sessionBannerEl = document.querySelector('[data-debug-session-banner]');
+    this.sessionMetaEl = document.querySelector('[data-debug-session-meta]');
+    this.sessionDetachEl = document.querySelector('[data-debug-session-detach]');
+    if (this.sessionDetachEl) {
+      this.sessionDetachEl.addEventListener('click', () => this.detachSession());
+    }
 
     this.renderTabs();
     this.renderActivePanel();
     this.bindActions();
 
     this.stream = new DebugStream({
-      basePath: this.debugPath,
+      basePath: this.streamBasePath,
       onEvent: (event) => this.handleEvent(event),
       onStatusChange: (status) => this.updateConnectionStatus(status),
     });
@@ -549,6 +577,14 @@ export class DebugPanel {
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="/admin" />
         </div>
       `;
+    } else if (panel === 'sessions') {
+      const values = this.filters.sessions;
+      content = `
+        <div class="debug-filter debug-filter--grow">
+          <label>Search</label>
+          <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="user, session id, path" />
+        </div>
+      `;
     } else {
       const values = this.filters.objects;
       content = `
@@ -616,6 +652,15 @@ export class DebugPanel {
         }
       });
       this.filters.routes = next;
+    } else if (panel === 'sessions') {
+      const next = { ...this.filters.sessions };
+      inputs.forEach((input) => {
+        const key = input.dataset.filter || '';
+        if (key && key in next) {
+          next[key as keyof typeof next] = (input as HTMLInputElement).value;
+        }
+      });
+      this.filters.sessions = next;
     } else {
       const next = { ...this.filters.objects };
       inputs.forEach((input) => {
@@ -653,6 +698,8 @@ export class DebugPanel {
       content = this.renderLogs();
     } else if (panel === 'routes') {
       content = this.renderRoutes();
+    } else if (panel === 'sessions') {
+      content = this.renderSessionsPanel();
     } else if (panel === 'custom') {
       content = this.renderCustom();
     } else if (panel === 'jserrors') {
@@ -677,6 +724,9 @@ export class DebugPanel {
     }
     if (panel === 'sql') {
       this.attachSQLSelectionListeners();
+    }
+    if (panel === 'sessions') {
+      this.attachSessionActions();
     }
   }
 
@@ -849,6 +899,122 @@ export class DebugPanel {
     });
   }
 
+  private renderSessionsPanel(): string {
+    if (!this.sessionsLoaded && !this.sessionsLoading) {
+      void this.fetchSessions();
+    }
+
+    if (this.sessionsError) {
+      return this.renderEmptyState(this.sessionsError);
+    }
+
+    const trackingFlag =
+      this.state.config && typeof this.state.config === 'object' && 'session_tracking' in this.state.config
+        ? Boolean((this.state.config as Record<string, unknown>).session_tracking)
+        : undefined;
+
+    const search = this.filters.sessions.search.trim().toLowerCase();
+    let sessions = [...this.sessions];
+    if (search) {
+      sessions = sessions.filter((session) => {
+        const haystack = [
+          session.username,
+          session.user_id,
+          session.session_id,
+          session.ip,
+          session.current_page,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(search);
+      });
+    }
+
+    sessions.sort((a, b) => {
+      const aTime = new Date(a.last_activity || a.started_at || 0).getTime();
+      const bTime = new Date(b.last_activity || b.started_at || 0).getTime();
+      return bTime - aTime;
+    });
+
+    if (this.sessionsLoading && sessions.length === 0) {
+      return this.renderEmptyState('Loading sessions…');
+    }
+
+    if (sessions.length === 0) {
+      if (trackingFlag === false) {
+        return this.renderEmptyState('Session tracking is disabled. Enable it to list active sessions.');
+      }
+      return this.renderEmptyState('No active sessions yet.');
+    }
+
+    const rows = sessions
+      .map((session) => {
+        const sessionId = session.session_id || '';
+        const userLabel = session.username || session.user_id || 'Unknown';
+        const lastActivity = formatTimestamp(session.last_activity || session.started_at);
+        const requestCount = formatNumber(session.request_count ?? 0);
+        const isActive = !!sessionId && sessionId === this.activeSessionId;
+        const action = isActive ? 'detach' : 'attach';
+        const actionLabel = isActive ? 'Detach' : 'Attach';
+        const actionClass = isActive ? 'debug-btn debug-btn--danger' : 'debug-btn debug-btn--primary';
+        const rowClass = isActive ? 'debug-session-row debug-session-row--active' : 'debug-session-row';
+        const currentPage = session.current_page || '—';
+        const ip = session.ip || '—';
+
+        return `
+          <tr class="${rowClass}">
+            <td>
+              <div class="debug-session-user">${escapeHTML(userLabel)}</div>
+              <div class="debug-session-meta">
+                <span class="debug-session-id">${escapeHTML(sessionId || '—')}</span>
+              </div>
+            </td>
+            <td>${escapeHTML(ip)}</td>
+            <td>
+              <span class="debug-session-path">${escapeHTML(currentPage)}</span>
+            </td>
+            <td>${escapeHTML(lastActivity || '—')}</td>
+            <td>${escapeHTML(requestCount)}</td>
+            <td>
+              <button class="${actionClass}" data-session-action="${action}" data-session-id="${escapeHTML(sessionId)}">
+                ${actionLabel}
+              </button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const refreshLabel = this.sessionsLoading ? 'Refreshing…' : 'Refresh';
+    const countLabel = `${formatNumber(sessions.length)} active`;
+    return `
+      <div class="debug-session-toolbar">
+        <span class="debug-session-toolbar__label">${countLabel}</span>
+        <div class="debug-session-toolbar__actions">
+          <button class="debug-btn" data-session-action="refresh">
+            <i class="iconoir-refresh"></i> ${refreshLabel}
+          </button>
+        </div>
+      </div>
+      <table class="debug-table debug-session-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>IP</th>
+            <th>Current Page</th>
+            <th>Last Activity</th>
+            <th>Requests</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    `;
+  }
+
   private renderCustom(): string {
     const { search } = this.filters.custom;
 
@@ -906,6 +1072,8 @@ export class DebugPanel {
         return countPayload(this.state.config);
       case 'routes':
         return this.state.routes.length;
+      case 'sessions':
+        return this.sessions.length;
       case 'custom':
         return countPayload(this.state.custom.data) + this.state.custom.logs.length;
       default:
