@@ -1054,6 +1054,28 @@ func (a *Admin) resolvePanelTabs(ctx AdminContext, panelName string) ([]PanelTab
 	return a.mergePanelTabs(ctx, panelName, ownerTabs, registryTabs)
 }
 
+// ResolvePanelTabs returns the effective tabs for a panel using the provided admin context.
+func (a *Admin) ResolvePanelTabs(ctx AdminContext, panelName string) ([]PanelTab, error) {
+	if a == nil {
+		return nil, nil
+	}
+	if ctx.Context == nil {
+		ctx.Context = context.Background()
+	}
+	if ctx.Translator == nil {
+		ctx.Translator = a.translator
+	}
+	return a.resolvePanelTabs(a.withTheme(ctx), panelName)
+}
+
+// ResolvePanelTabsFromRequest resolves panel tabs using request-derived context and permissions.
+func (a *Admin) ResolvePanelTabsFromRequest(c router.Context, panelName, locale string) ([]PanelTab, error) {
+	if a == nil || c == nil {
+		return nil, nil
+	}
+	return a.ResolvePanelTabs(a.adminContextFromRequest(c, locale), panelName)
+}
+
 func (a *Admin) mergePanelTabs(ctx AdminContext, panelName string, groups ...[]PanelTab) ([]PanelTab, error) {
 	byID := map[string]PanelTab{}
 	for _, group := range groups {
