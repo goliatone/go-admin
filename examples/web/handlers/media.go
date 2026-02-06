@@ -17,10 +17,10 @@ type MediaHandlers struct {
 	Store   *stores.MediaStore
 	Admin   *admin.Admin
 	Config  admin.Config
-	WithNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
+	WithNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
 }
 
-func NewMediaHandlers(store *stores.MediaStore, adm *admin.Admin, cfg admin.Config, withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext) *MediaHandlers {
+func NewMediaHandlers(store *stores.MediaStore, adm *admin.Admin, cfg admin.Config, withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext) *MediaHandlers {
 	return &MediaHandlers{Store: store, Admin: adm, Config: cfg, WithNav: withNav}
 }
 
@@ -49,7 +49,7 @@ func (h *MediaHandlers) List(c router.Context) error {
 		"columns":        columns,
 		"total":          total,
 		"export_config":  helpers.BuildExportConfig(h.Config, "media", ""),
-	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/media/list", viewCtx)
 }
@@ -66,7 +66,7 @@ func (h *MediaHandlers) New(c router.Context) error {
 		"resource_label": "Media",
 		"routes":         routes.RoutesMap(),
 		"is_edit":        false,
-	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/media/form", viewCtx)
 }
@@ -121,7 +121,7 @@ func (h *MediaHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  item,
 		"fields":         fields,
-	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/media/detail", viewCtx)
 }
@@ -145,7 +145,7 @@ func (h *MediaHandlers) Edit(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"is_edit":        true,
 		"item":           item,
-	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context())
+	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/media/form", viewCtx)
 }

@@ -139,7 +139,7 @@ func main() {
 	}
 	if debugEnabled {
 		cfg.Debug.ViewContextBuilder = func(adm *admin.Admin, _ admin.DebugConfig, c router.Context, view router.ViewContext) router.ViewContext {
-			return helpers.WithNav(view, adm, cfg, "debug", c.Context())
+			return helpers.WithNav(view, adm, cfg, "debug", c.Context(), c)
 		}
 	}
 	if cfg.Debug.Repl.Enabled && !isDev {
@@ -632,7 +632,7 @@ func main() {
 			func(mod *admin.PreferencesModule) {
 				mod.WithSkipMenu(true)
 				mod.WithViewContextBuilder(func(adm *admin.Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
-					view = helpers.WithNav(view, adm, cfg, active, c.Context())
+					view = helpers.WithNav(view, adm, cfg, active, c.Context(), c)
 					view = helpers.WithTheme(view, adm, c)
 					return view
 				})
@@ -818,7 +818,7 @@ func main() {
 		cfg,
 		adm,
 		quickstart.WithRolesUIViewContext(func(ctx router.ViewContext, active string, c router.Context) router.ViewContext {
-			viewCtx := helpers.WithNav(ctx, adm, cfg, active, c.Context())
+			viewCtx := helpers.WithNav(ctx, adm, cfg, active, c.Context(), c)
 			viewCtx = helpers.WithTheme(viewCtx, adm, c)
 			return viewCtx
 		}),
@@ -831,7 +831,13 @@ func main() {
 	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(r, cfg, adm, authn); err != nil {
 		log.Fatalf("failed to register content type builder API routes: %v", err)
 	}
-	if err := quickstart.RegisterContentEntryUIRoutes(r, cfg, adm, authn); err != nil {
+	if err := quickstart.RegisterContentEntryUIRoutes(
+		r,
+		cfg,
+		adm,
+		authn,
+		quickstart.WithContentEntryUIFilterFallbackFromColumnsDefault(true),
+	); err != nil {
 		log.Fatalf("failed to register content entry UI routes: %v", err)
 	}
 

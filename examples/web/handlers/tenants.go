@@ -28,7 +28,7 @@ type TenantHandlers struct {
 	FormGenerator *formgenorchestrator.Orchestrator
 	Admin         *admin.Admin
 	Config        admin.Config
-	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
+	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
 }
 
 // NewTenantHandlers constructs tenant handlers.
@@ -37,7 +37,7 @@ func NewTenantHandlers(
 	formGen *formgenorchestrator.Orchestrator,
 	adm *admin.Admin,
 	cfg admin.Config,
-	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext,
+	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext,
 ) *TenantHandlers {
 	return &TenantHandlers{
 		Service:       service,
@@ -76,7 +76,7 @@ func (h *TenantHandlers) List(c router.Context) error {
 		"columns":        columns,
 		"total":          total,
 		"export_config":  helpers.BuildExportConfig(h.Config, "tenants", ""),
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/tenants/list", viewCtx)
 }
@@ -99,7 +99,7 @@ func (h *TenantHandlers) New(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"is_edit":        false,
 		"form_html":      string(html),
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/tenants/form", viewCtx)
 }
@@ -150,7 +150,7 @@ func (h *TenantHandlers) Detail(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"resource_item":  item,
 		"fields":         fields,
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/tenants/detail", viewCtx)
 }
@@ -179,7 +179,7 @@ func (h *TenantHandlers) Edit(c router.Context) error {
 		"routes":         routes.RoutesMap(),
 		"is_edit":        true,
 		"form_html":      string(html),
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/tenants/form", viewCtx)
 }

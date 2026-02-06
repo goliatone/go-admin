@@ -32,7 +32,7 @@ type UserHandlers struct {
 	FormGenerator *formgenorchestrator.Orchestrator
 	Admin         *admin.Admin
 	Config        admin.Config
-	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext
+	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
 	TabResolver   helpers.TabContentResolver
 	TabMode       helpers.TabRenderModeSelector
 }
@@ -59,7 +59,7 @@ func NewUserHandlers(
 	formGen *formgenorchestrator.Orchestrator,
 	adm *admin.Admin,
 	cfg admin.Config,
-	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext,
+	withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext,
 ) *UserHandlers {
 	tabResolver := helpers.NewTabContentRegistry()
 	tabResolver.Register("users", "details", helpers.TabContentSpec{
@@ -123,7 +123,7 @@ func (h *UserHandlers) List(c router.Context) error {
 		"bulk_actions_primary":  bulkCtx.Primary,
 		"bulk_actions_overflow": bulkCtx.Overflow,
 		"bulk_base":             bulkCtx.BaseURL,
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/list", viewCtx)
 }
@@ -191,10 +191,7 @@ func (h *UserHandlers) Detail(c router.Context) error {
 	if err != nil {
 		return err
 	}
-	tabs, err := helpers.FetchPanelTabs(c, h.Config, "users", id)
-	if err != nil {
-		tabs = nil
-	}
+	tabs := h.fetchPanelTabs(c, "users", id)
 	detailPath := path.Join(h.Config.BasePath, "users", id)
 	tabViews := helpers.BuildPanelTabViews(tabs, helpers.PanelTabViewOptions{
 		Context:      ctx,
@@ -232,7 +229,7 @@ func (h *UserHandlers) Detail(c router.Context) error {
 		"tabs":           tabViews,
 		"active_tab":     activeTab,
 		"tab_panel":      tabPanel,
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/detail", viewCtx)
 }
@@ -253,10 +250,7 @@ func (h *UserHandlers) TabHTML(c router.Context) error {
 	if err != nil {
 		return err
 	}
-	tabs, err := helpers.FetchPanelTabs(c, h.Config, "users", id)
-	if err != nil {
-		return err
-	}
+	tabs := h.fetchPanelTabs(c, "users", id)
 	spec, tabDef := h.resolveTabSpec(ctx, user, tabs, tabID)
 	if tabID != "details" && tabDef == nil {
 		return goerrors.New("tab not found", goerrors.CategoryNotFound).
@@ -296,10 +290,7 @@ func (h *UserHandlers) TabJSON(c router.Context) error {
 	if err != nil {
 		return err
 	}
-	tabs, err := helpers.FetchPanelTabs(c, h.Config, "users", id)
-	if err != nil {
-		return err
-	}
+	tabs := h.fetchPanelTabs(c, "users", id)
 	spec, tabDef := h.resolveTabSpec(ctx, user, tabs, tabID)
 	if tabID != "details" && tabDef == nil {
 		return goerrors.New("tab not found", goerrors.CategoryNotFound).
@@ -454,7 +445,7 @@ func (h *UserHandlers) renderUserForm(c router.Context, operationID string, opts
 		"routes":         routes.RoutesMap(),
 		"is_edit":        isEdit,
 		"form_html":      string(html),
-	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context())
+	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 	return c.Render("resources/users/form", viewCtx)
 }
@@ -480,6 +471,14 @@ func (h *UserHandlers) guard(c router.Context, action string) error {
 	return goerrors.New("forbidden", goerrors.CategoryAuthz).
 		WithCode(goerrors.CodeForbidden).
 		WithTextCode("FORBIDDEN")
+}
+
+func (h *UserHandlers) fetchPanelTabs(c router.Context, panelName, id string) []admin.PanelTab {
+	tabs, err := helpers.FetchPanelTabs(c, h.Config, panelName, id, h.Admin)
+	if err != nil {
+		return nil
+	}
+	return tabs
 }
 
 func (h *UserHandlers) resolveTabSpec(ctx context.Context, user map[string]any, tabs []admin.PanelTab, tabID string) (helpers.TabContentSpec, *admin.PanelTab) {

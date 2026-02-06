@@ -20,9 +20,15 @@ type adminDetailPayload struct {
 }
 
 // FetchPanelTabs loads panel tabs from the admin detail API for the given record.
-func FetchPanelTabs(c router.Context, cfg admin.Config, panelName, id string) ([]admin.PanelTab, error) {
+func FetchPanelTabs(c router.Context, cfg admin.Config, panelName, id string, adm ...*admin.Admin) ([]admin.PanelTab, error) {
 	if c == nil {
 		return nil, nil
+	}
+	if len(adm) > 0 && adm[0] != nil {
+		tabs, err := adm[0].ResolvePanelTabsFromRequest(c, panelName, cfg.DefaultLocale)
+		if err == nil {
+			return tabs, nil
+		}
 	}
 	host := strings.TrimSpace(c.Header("X-Forwarded-Host"))
 	if host == "" {

@@ -326,13 +326,39 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 		"type":    "object",
 		"$defs":   blockDefs,
 		"properties": map[string]any{
-			"title":          map[string]any{"type": "string"},
-			"slug":           map[string]any{"type": "string"},
-			"status":         map[string]any{"type": "string"},
-			"path":           map[string]any{"type": "string"},
-			"template_id":    map[string]any{"type": "string"},
-			"parent_id":      map[string]any{"type": "string"},
-			"published_at":   map[string]any{"type": "string", "format": "date-time"},
+			"title": map[string]any{
+				"type": "string",
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
+			"slug": map[string]any{
+				"type": "string",
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
+			"status": map[string]any{
+				"type": "string",
+				"enum": []string{
+					"draft",
+					"published",
+					"archived",
+				},
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
+			"path":        map[string]any{"type": "string"},
+			"template_id": map[string]any{"type": "string"},
+			"parent_id":   map[string]any{"type": "string"},
+			"published_at": map[string]any{
+				"type":   "string",
+				"format": "date-time",
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
 			"summary":        map[string]any{"type": "string"},
 			"content":        map[string]any{"type": "string"},
 			"featured_image": map[string]any{"type": "string"},
@@ -366,13 +392,54 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 		"type":    "object",
 		"$defs":   blockDefs,
 		"properties": map[string]any{
-			"title":          map[string]any{"type": "string"},
-			"slug":           map[string]any{"type": "string"},
-			"status":         map[string]any{"type": "string"},
-			"path":           map[string]any{"type": "string"},
-			"published_at":   map[string]any{"type": "string", "format": "date-time"},
-			"category":       map[string]any{"type": "string"},
-			"author":         map[string]any{"type": "string"},
+			"title": map[string]any{
+				"type": "string",
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
+			"slug": map[string]any{
+				"type": "string",
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
+			"status": map[string]any{
+				"type": "string",
+				"enum": []string{
+					"draft",
+					"published",
+					"archived",
+				},
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
+			"path": map[string]any{"type": "string"},
+			"published_at": map[string]any{
+				"type":   "string",
+				"format": "date-time",
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
+			"category": map[string]any{
+				"type": "string",
+				"enum": []string{
+					"news",
+					"updates",
+					"guides",
+				},
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
+			"author": map[string]any{
+				"type": "string",
+				"x-formgen": map[string]any{
+					"filterable": true,
+				},
+			},
 			"excerpt":        map[string]any{"type": "string"},
 			"content":        map[string]any{"type": "string"},
 			"featured_image": map[string]any{"type": "string"},
