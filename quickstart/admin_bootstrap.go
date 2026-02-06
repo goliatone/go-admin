@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"errors"
 
 	"github.com/goliatone/go-admin/admin"
 	theme "github.com/goliatone/go-theme"
@@ -23,6 +24,25 @@ type adminOptions struct {
 	translationPolicyConfig    TranslationPolicyConfig
 	translationPolicyConfigSet bool
 	translationPolicyServices  TranslationPolicyServices
+	errors                     []error
+	registerUserRoleBulkRoutes bool
+}
+
+func (o *adminOptions) addError(err error) {
+	if o == nil || err == nil {
+		return
+	}
+	o.errors = append(o.errors, err)
+}
+
+func (o *adminOptions) err() error {
+	if o == nil || len(o.errors) == 0 {
+		return nil
+	}
+	if len(o.errors) == 1 {
+		return o.errors[0]
+	}
+	return errors.Join(o.errors...)
 }
 
 // WithAdminContext sets the context used when resolving adapter hooks.
@@ -102,12 +122,16 @@ func WithTranslationPolicyServices(services TranslationPolicyServices) AdminOpti
 // NewAdmin constructs an admin instance with adapter wiring applied.
 func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error) {
 	options := adminOptions{
-		ctx: context.Background(),
+		ctx:                        context.Background(),
+		registerUserRoleBulkRoutes: true,
 	}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&options)
 		}
+	}
+	if err := options.err(); err != nil {
+		return nil, AdapterResult{}, err
 	}
 
 	var result AdapterResult
@@ -167,5 +191,10 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		adm.WithThemeManifest(options.themeManifest)
 	}
 	ApplyAdapterIntegrations(adm, &result, hooks)
+	if options.registerUserRoleBulkRoutes {
+		if err := registerUserRoleBulkRoutes(adm, cfg); err != nil {
+			return nil, result, err
+		}
+	}
 	return adm, result, nil
 }
