@@ -194,22 +194,48 @@ func sessionIDFromContext(ctx context.Context) (string, bool) {
 		return "", false
 	}
 	if claims, ok := auth.GetClaims(ctx); ok && claims != nil {
-		if jwtClaims, ok := claims.(*auth.JWTClaims); ok {
-			if id := strings.TrimSpace(jwtClaims.ID); id != "" {
-				return id, true
-			}
-		}
-		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok && carrier != nil {
-			if metadata := carrier.ClaimsMetadata(); len(metadata) > 0 {
-				if sessionID := strings.TrimSpace(toString(metadata["session_id"])); sessionID != "" {
-					return sessionID, true
-				}
-			}
+		if sessionID, ok := sessionIDFromClaims(claims); ok {
+			return sessionID, true
 		}
 	}
 	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
 		if sessionID := strings.TrimSpace(toString(actor.Metadata["session_id"])); sessionID != "" {
 			return sessionID, true
+		}
+	}
+	return "", false
+}
+
+func sessionIDFromClaims(claims auth.AuthClaims) (string, bool) {
+	if claims == nil {
+		return "", false
+	}
+	type tokenIDProvider interface {
+		TokenID() string
+	}
+	if provider, ok := claims.(tokenIDProvider); ok && provider != nil {
+		if id := strings.TrimSpace(provider.TokenID()); id != "" {
+			return id, true
+		}
+	}
+	type jtiProvider interface {
+		JTI() string
+	}
+	if provider, ok := claims.(jtiProvider); ok && provider != nil {
+		if id := strings.TrimSpace(provider.JTI()); id != "" {
+			return id, true
+		}
+	}
+	if jwtClaims, ok := claims.(*auth.JWTClaims); ok {
+		if id := strings.TrimSpace(jwtClaims.ID); id != "" {
+			return id, true
+		}
+	}
+	if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok && carrier != nil {
+		if metadata := carrier.ClaimsMetadata(); len(metadata) > 0 {
+			if sessionID := strings.TrimSpace(toString(metadata["session_id"])); sessionID != "" {
+				return sessionID, true
+			}
 		}
 	}
 	return "", false
