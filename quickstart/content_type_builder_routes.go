@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
@@ -88,8 +87,8 @@ func WithContentTypeBuilderUIAuthResource(resource string) ContentTypeBuilderUIO
 }
 
 // RegisterContentTypeBuilderUIRoutes registers HTML routes for the content type builder.
-func RegisterContentTypeBuilderUIRoutes(
-	r router.Router[*fiber.App],
+func RegisterContentTypeBuilderUIRoutes[T any](
+	r router.Router[T],
 	cfg admin.Config,
 	adm *admin.Admin,
 	auth admin.HandlerAuthenticator,
@@ -181,8 +180,8 @@ func WithContentTypeBuilderAPIAuthResource(resource string) ContentTypeBuilderAP
 }
 
 // RegisterContentTypeBuilderAPIRoutes registers API helper routes for content types and block definitions.
-func RegisterContentTypeBuilderAPIRoutes(
-	r router.Router[*fiber.App],
+func RegisterContentTypeBuilderAPIRoutes[T any](
+	r router.Router[T],
 	cfg admin.Config,
 	adm *admin.Admin,
 	auth admin.HandlerAuthenticator,
