@@ -12,14 +12,17 @@ import (
 type AdminOption func(*adminOptions)
 
 type adminOptions struct {
-	ctx                    context.Context
-	deps                   admin.Dependencies
-	flags                  *AdapterFlags
-	featureDefaults        map[string]bool
-	preferencesRepo        types.PreferenceRepository
-	preferencesRepoFactory func() (types.PreferenceRepository, error)
-	themeSelector          theme.ThemeSelector
-	themeManifest          *theme.Manifest
+	ctx                        context.Context
+	deps                       admin.Dependencies
+	flags                      *AdapterFlags
+	featureDefaults            map[string]bool
+	preferencesRepo            types.PreferenceRepository
+	preferencesRepoFactory     func() (types.PreferenceRepository, error)
+	themeSelector              theme.ThemeSelector
+	themeManifest              *theme.Manifest
+	translationPolicyConfig    TranslationPolicyConfig
+	translationPolicyConfigSet bool
+	translationPolicyServices  TranslationPolicyServices
 }
 
 // WithAdminContext sets the context used when resolving adapter hooks.
@@ -75,6 +78,27 @@ func WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) A
 	}
 }
 
+// WithTranslationPolicyConfig sets the translation policy config for quickstart defaults.
+func WithTranslationPolicyConfig(cfg TranslationPolicyConfig) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.translationPolicyConfig = NormalizeTranslationPolicyConfig(cfg)
+		opts.translationPolicyConfigSet = true
+	}
+}
+
+// WithTranslationPolicyServices overrides the translation check services used by the default policy.
+func WithTranslationPolicyServices(services TranslationPolicyServices) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.translationPolicyServices = services
+	}
+}
+
 // NewAdmin constructs an admin instance with adapter wiring applied.
 func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error) {
 	options := adminOptions{
@@ -91,6 +115,19 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		cfg, result = ConfigureAdaptersWithFlags(options.ctx, cfg, hooks, *options.flags)
 	} else {
 		cfg, result = ConfigureAdapters(options.ctx, cfg, hooks)
+	}
+	if options.deps.TranslationPolicy == nil {
+		policyCfg := DefaultTranslationPolicyConfig()
+		if options.translationPolicyConfigSet {
+			policyCfg = options.translationPolicyConfig
+		}
+		if options.translationPolicyConfigSet || policyCfg.DenyByDefault || hasTranslationPolicyRequirements(policyCfg) {
+			policyCfg = NormalizeTranslationPolicyConfig(policyCfg)
+			services := resolveTranslationPolicyServices(cfg, options.translationPolicyServices)
+			if policy := NewTranslationPolicy(policyCfg, services); policy != nil {
+				options.deps.TranslationPolicy = policy
+			}
+		}
 	}
 	if options.deps.PreferencesStore == nil {
 		repo := options.preferencesRepo
