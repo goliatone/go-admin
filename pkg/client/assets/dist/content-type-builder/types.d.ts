@@ -24,6 +24,8 @@ export interface ContentTypeCapabilities {
     seo?: boolean;
     localization?: boolean;
     blocks?: boolean;
+    filters_fallback_from_columns?: boolean;
+    filtersFallbackFromColumns?: boolean;
     [key: string]: boolean | undefined;
 }
 export interface JSONSchema {
@@ -72,6 +74,7 @@ export interface FormgenExtension {
     };
     readonly?: boolean;
     hidden?: boolean;
+    filterable?: boolean;
     sortable?: boolean;
     collapsed?: boolean;
     icon?: string;
@@ -122,6 +125,7 @@ export interface FieldDefinition {
     required: boolean;
     readonly?: boolean;
     hidden?: boolean;
+    filterable?: boolean;
     defaultValue?: unknown;
     validation?: FieldValidation;
     section?: string;

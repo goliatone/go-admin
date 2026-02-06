@@ -192,6 +192,16 @@ export class FieldConfigForm extends Modal {
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Hidden</span>
           </label>
+
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="filterable"
+              ${this.field.filterable ? 'checked' : ''}
+              class="${checkboxClasses()}"
+            />
+            <span class="text-sm text-gray-700 dark:text-gray-300">Filterable</span>
+          </label>
         </div>
       </div>
     `;
@@ -1151,12 +1161,14 @@ export class FieldConfigForm extends Modal {
       id: this.field.id || generateFieldId(),
       name,
       type: this.field.type,
+      order: this.field.order,
       label,
       description: (formData.get('description') as string)?.trim() || undefined,
       placeholder: (formData.get('placeholder') as string)?.trim() || undefined,
       required: formData.get('required') === 'on',
       readonly: formData.get('readonly') === 'on',
       hidden: formData.get('hidden') === 'on',
+      filterable: formData.get('filterable') === 'on',
       section: (formData.get('section') as string)?.trim() || undefined,
       gridSpan: formData.get('gridSpan') ? parseInt(formData.get('gridSpan') as string, 10) : undefined,
     };

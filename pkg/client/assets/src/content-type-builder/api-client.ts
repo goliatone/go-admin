@@ -551,7 +551,7 @@ export class ContentTypeAPIClient {
 // Schema Conversion Utilities
 // ===========================================================================
 
-import type { FieldDefinition, FieldType } from './types';
+import type { AdminExtension, FieldDefinition, FieldType, FormgenExtension } from './types';
 
 function cloneSchema<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -735,9 +735,16 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
   if (field.hidden) {
     formgen.hidden = true;
   }
+  if (field.filterable) {
+    formgen.filterable = true;
+  }
 
   if (Object.keys(formgen).length > 0) {
     schema['x-formgen'] = formgen as FormgenExtension;
+  }
+
+  if (field.filterable) {
+    schema['x-admin'] = { filterable: true } as AdminExtension;
   }
 
   // Type-specific handling
@@ -883,6 +890,8 @@ export function schemaToFields(schema: JSONSchema): FieldDefinition[] {
  */
 function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boolean): FieldDefinition {
   const formgen = schema['x-formgen'] as FormgenExtension | undefined;
+  const admin = schema['x-admin'] as AdminExtension | undefined;
+  const filterable = admin?.filterable ?? formgen?.filterable;
 
   const field: FieldDefinition = {
     id: generateFieldId(),
@@ -895,6 +904,7 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
     required: isRequired,
     readonly: formgen?.readonly,
     hidden: formgen?.hidden,
+    filterable: filterable === true,
     defaultValue: schema.default,
     section: formgen?.section,
     gridSpan: formgen?.grid?.span,
@@ -1062,5 +1072,3 @@ function titleCase(str: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 }
-
-import type { FormgenExtension } from './types';

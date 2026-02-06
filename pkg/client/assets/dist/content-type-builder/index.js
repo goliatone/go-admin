@@ -412,7 +412,7 @@ function Lt(o) {
   }[o.type] ?? { type: "string" };
   e.type = a.type, a.format && (e.format = a.format), o.label && (e.title = o.label), o.description && (e.description = o.description), o.defaultValue !== void 0 && (e.default = o.defaultValue), o.validation && (o.validation.minLength !== void 0 && (e.minLength = o.validation.minLength), o.validation.maxLength !== void 0 && (e.maxLength = o.validation.maxLength), o.validation.min !== void 0 && (e.minimum = o.validation.min), o.validation.max !== void 0 && (e.maximum = o.validation.max), o.validation.pattern && (e.pattern = o.validation.pattern));
   const r = {}, s = Et(o.type);
-  switch (s && (r.widget = s), o.placeholder && (r.placeholder = o.placeholder), o.helpText && (r.helpText = o.helpText), o.section && (r.section = o.section), o.order !== void 0 && (r.order = o.order), o.gridSpan !== void 0 && (r.grid = { span: o.gridSpan }), o.readonly && (r.readonly = !0), o.hidden && (r.hidden = !0), Object.keys(r).length > 0 && (e["x-formgen"] = r), o.type) {
+  switch (s && (r.widget = s), o.placeholder && (r.placeholder = o.placeholder), o.helpText && (r.helpText = o.helpText), o.section && (r.section = o.section), o.order !== void 0 && (r.order = o.order), o.gridSpan !== void 0 && (r.grid = { span: o.gridSpan }), o.readonly && (r.readonly = !0), o.hidden && (r.hidden = !0), o.filterable && (r.filterable = !0), Object.keys(r).length > 0 && (e["x-formgen"] = r), o.filterable && (e["x-admin"] = { filterable: !0 }), o.type) {
     case "select":
     case "radio":
       o.config && "options" in o.config && o.config.options && (e.enum = o.config.options.map((i) => i.value));
@@ -486,7 +486,7 @@ function ge(o) {
   return t.sort((a, r) => (a.order ?? 999) - (r.order ?? 999)), t;
 }
 function jt(o, e, t) {
-  const a = e["x-formgen"], r = {
+  const a = e["x-formgen"], s = e["x-admin"]?.filterable ?? a?.filterable, i = {
     id: Q(),
     name: o,
     type: Mt(e),
@@ -497,30 +497,31 @@ function jt(o, e, t) {
     required: t,
     readonly: a?.readonly,
     hidden: a?.hidden,
+    filterable: s === !0,
     defaultValue: e.default,
     section: a?.section,
     gridSpan: a?.grid?.span,
     order: a?.order
-  }, s = {};
-  if (e.minLength !== void 0 && (s.minLength = e.minLength), e.maxLength !== void 0 && (s.maxLength = e.maxLength), e.minimum !== void 0 && (s.min = e.minimum), e.maximum !== void 0 && (s.max = e.maximum), e.pattern && (s.pattern = e.pattern), Object.keys(s).length > 0 && (r.validation = s), e.enum && Array.isArray(e.enum) && (r.config = {
-    options: e.enum.map((i) => ({
-      value: String(i),
-      label: Ke(String(i))
+  }, n = {};
+  if (e.minLength !== void 0 && (n.minLength = e.minLength), e.maxLength !== void 0 && (n.maxLength = e.maxLength), e.minimum !== void 0 && (n.min = e.minimum), e.maximum !== void 0 && (n.max = e.maximum), e.pattern && (n.pattern = e.pattern), Object.keys(n).length > 0 && (i.validation = n), e.enum && Array.isArray(e.enum) && (i.config = {
+    options: e.enum.map((l) => ({
+      value: String(l),
+      label: Ke(String(l))
     }))
-  }), r.type === "blocks" && e.type === "array") {
-    const i = {};
-    if (e.minItems !== void 0 && (i.minBlocks = e.minItems), e.maxItems !== void 0 && (i.maxBlocks = e.maxItems), a?.allowedBlocks && Array.isArray(a.allowedBlocks))
-      i.allowedBlocks = a.allowedBlocks;
+  }), i.type === "blocks" && e.type === "array") {
+    const l = {};
+    if (e.minItems !== void 0 && (l.minBlocks = e.minItems), e.maxItems !== void 0 && (l.maxBlocks = e.maxItems), a?.allowedBlocks && Array.isArray(a.allowedBlocks))
+      l.allowedBlocks = a.allowedBlocks;
     else if (e.items) {
-      const n = e.items;
-      if (n.oneOf && Array.isArray(n.oneOf)) {
-        const l = n.oneOf.map((d) => d.properties?._type?.const).filter((d) => !!d);
-        l.length > 0 && (i.allowedBlocks = l);
+      const d = e.items;
+      if (d.oneOf && Array.isArray(d.oneOf)) {
+        const c = d.oneOf.map((g) => g.properties?._type?.const).filter((g) => !!g);
+        c.length > 0 && (l.allowedBlocks = c);
       }
     }
-    a?.deniedBlocks && Array.isArray(a.deniedBlocks) && (i.deniedBlocks = a.deniedBlocks), Object.keys(i).length > 0 && (r.config = i);
+    a?.deniedBlocks && Array.isArray(a.deniedBlocks) && (l.deniedBlocks = a.deniedBlocks), Object.keys(l).length > 0 && (i.config = l);
   }
-  return r;
+  return i;
 }
 function Mt(o) {
   const e = o["x-formgen"], t = Array.isArray(o.type) ? o.type[0] : o.type;
@@ -1048,10 +1049,10 @@ function De(o = {}) {
   const e = o.size ?? "sm", t = o.resize ?? "y", a = t === "none" ? "resize-none" : t === "x" ? "resize-x" : t === "both" ? "resize" : "resize-y";
   return `${p(e)} ${a}`;
 }
-function P() {
+function F() {
   return "w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500";
 }
-function y(o = "sm") {
+function m(o = "sm") {
   return o === "xs" ? "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1" : "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
 }
 function Ft(o = "sm") {
@@ -1738,15 +1739,15 @@ function oe(o) {
         No block definitions available.
       </div>`;
   const n = a ? e.filter((f) => {
-    const k = a.toLowerCase();
-    return f.name.toLowerCase().includes(k) || me(f).toLowerCase().includes(k) || (f.category ?? "").toLowerCase().includes(k);
+    const x = a.toLowerCase();
+    return f.name.toLowerCase().includes(x) || me(f).toLowerCase().includes(x) || (f.category ?? "").toLowerCase().includes(x);
   }) : e, l = /* @__PURE__ */ new Map();
   for (const f of n) {
-    const k = f.category || "uncategorized";
-    l.has(k) || l.set(k, []), l.get(k).push(f);
+    const x = f.category || "uncategorized";
+    l.has(x) || l.set(x, []), l.get(x).push(f);
   }
-  const d = t.size, c = d === 0 && i ? i : `${d} selected`, m = r === "red" ? "focus:ring-red-500" : "focus:ring-blue-500", w = r === "red" ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700" : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700";
-  let u = `
+  const d = t.size, c = d === 0 && i ? i : `${d} selected`, g = r === "red" ? "focus:ring-red-500" : "focus:ring-blue-500", k = r === "red" ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700" : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700";
+  let h = `
     <div class="space-y-2" data-block-picker-inline>
       <div class="flex items-center justify-between">
         <span class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">${N(s)}</span>
@@ -1756,36 +1757,36 @@ function oe(o) {
         <input type="text" data-block-picker-search
                placeholder="Search blocks..."
                value="${N(a ?? "")}"
-               class="w-full px-2 py-1 text-[12px] border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 ${m}" />
+               class="w-full px-2 py-1 text-[12px] border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 ${g}" />
       </div>
       <div class="max-h-[200px] overflow-y-auto space-y-1" data-block-picker-list>`;
   if (n.length === 0)
-    u += `
+    h += `
         <div class="text-center py-3 text-xs text-gray-400 dark:text-gray-500">No matching blocks</div>`;
   else
-    for (const [f, k] of l) {
-      l.size > 1 && (u += `
+    for (const [f, x] of l) {
+      l.size > 1 && (h += `
         <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">${N(Nt(f))}</div>`);
-      for (const L of k) {
-        const g = me(L), S = t.has(g) || t.has(L.type);
-        u += `
-        <label class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${S ? w : "hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent"}">
-          <input type="checkbox" value="${N(g)}" data-block-type="${N(L.type)}"
+      for (const L of x) {
+        const y = me(L), S = t.has(y) || t.has(L.type);
+        h += `
+        <label class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${S ? k : "hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent"}">
+          <input type="checkbox" value="${N(y)}" data-block-type="${N(L.type)}"
                  ${S ? "checked" : ""}
-                 class="${P()}" />
+                 class="${F()}" />
           <div class="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-medium">
-            ${L.icon ? le(L.icon) : g.charAt(0).toUpperCase()}
+            ${L.icon ? le(L.icon) : y.charAt(0).toUpperCase()}
           </div>
           <div class="flex-1 min-w-0">
             <span class="text-[12px] font-medium text-gray-800 dark:text-gray-200">${N(L.name)}</span>
-            <span class="text-[10px] text-gray-400 dark:text-gray-500 font-mono ml-1">${N(g)}</span>
+            <span class="text-[10px] text-gray-400 dark:text-gray-500 font-mono ml-1">${N(y)}</span>
           </div>
         </label>`;
       }
     }
-  return u += `
+  return h += `
       </div>
-    </div>`, u;
+    </div>`, h;
 }
 function lt(o, e) {
   const t = o.querySelector("[data-block-picker-inline]");
@@ -1921,13 +1922,13 @@ class fe extends D {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Field Name <span class="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="name"
-              value="${x(this.field.name)}"
+              value="${w(this.field.name)}"
               placeholder="field_name"
               pattern="^[a-z][a-z0-9_]*$"
               required
@@ -1937,13 +1938,13 @@ class fe extends D {
           </div>
 
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Label <span class="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="label"
-              value="${x(this.field.label)}"
+              value="${w(this.field.label)}"
               placeholder="Field Label"
               required
               class="${p()}"
@@ -1952,7 +1953,7 @@ class fe extends D {
         </div>
 
         <div>
-          <label class="${y()}">
+          <label class="${m()}">
             Description
           </label>
           <textarea
@@ -1960,17 +1961,17 @@ class fe extends D {
             rows="2"
             placeholder="Help text for editors"
             class="${De()}"
-          >${x(this.field.description ?? "")}</textarea>
+          >${w(this.field.description ?? "")}</textarea>
         </div>
 
         <div>
-          <label class="${y()}">
+          <label class="${m()}">
             Placeholder
           </label>
           <input
             type="text"
             name="placeholder"
-            value="${x(this.field.placeholder ?? "")}"
+            value="${w(this.field.placeholder ?? "")}"
             placeholder="Placeholder text"
             class="${p()}"
           />
@@ -1982,7 +1983,7 @@ class fe extends D {
               type="checkbox"
               name="required"
               ${this.field.required ? "checked" : ""}
-              class="${P()}"
+              class="${F()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Required</span>
           </label>
@@ -1992,7 +1993,7 @@ class fe extends D {
               type="checkbox"
               name="readonly"
               ${this.field.readonly ? "checked" : ""}
-              class="${P()}"
+              class="${F()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Read-only</span>
           </label>
@@ -2002,9 +2003,19 @@ class fe extends D {
               type="checkbox"
               name="hidden"
               ${this.field.hidden ? "checked" : ""}
-              class="${P()}"
+              class="${F()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Hidden</span>
+          </label>
+
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="filterable"
+              ${this.field.filterable ? "checked" : ""}
+              class="${F()}"
+            />
+            <span class="text-sm text-gray-700 dark:text-gray-300">Filterable</span>
           </label>
         </div>
       </div>
@@ -2021,7 +2032,7 @@ class fe extends D {
         <div class="grid grid-cols-2 gap-4">
           ${t ? `
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Min Length
               </label>
               <input
@@ -2033,7 +2044,7 @@ class fe extends D {
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Max Length
               </label>
               <input
@@ -2048,7 +2059,7 @@ class fe extends D {
 
           ${a ? `
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Minimum
               </label>
               <input
@@ -2060,7 +2071,7 @@ class fe extends D {
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Maximum
               </label>
               <input
@@ -2076,13 +2087,13 @@ class fe extends D {
 
         ${t ? `
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Pattern (RegEx)
             </label>
             <input
               type="text"
               name="pattern"
-              value="${x(e.pattern ?? "")}"
+              value="${w(e.pattern ?? "")}"
               placeholder="^[a-z]+$"
               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
             />
@@ -2098,20 +2109,20 @@ class fe extends D {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Section/Tab
             </label>
             <input
               type="text"
               name="section"
-              value="${x(this.field.section ?? "")}"
+              value="${w(this.field.section ?? "")}"
               placeholder="main"
               class="${p()}"
             />
           </div>
 
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Grid Span (1-12)
             </label>
             <input
@@ -2152,14 +2163,14 @@ class fe extends D {
                 <input
                   type="text"
                   name="option_value_${s}"
-                  value="${x(String(r.value))}"
+                  value="${w(String(r.value))}"
                   placeholder="value"
                   class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                   type="text"
                   name="option_label_${s}"
-                  value="${x(r.label)}"
+                  value="${w(r.label)}"
                   placeholder="label"
                   class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -2187,25 +2198,25 @@ class fe extends D {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Target Content Type
               </label>
               <input
                 type="text"
                 name="target"
-                value="${x(t?.target ?? "")}"
+                value="${w(t?.target ?? "")}"
                 placeholder="users"
                 class="${p()}"
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Display Field
               </label>
               <input
                 type="text"
                 name="displayField"
-                value="${x(t?.displayField ?? "")}"
+                value="${w(t?.displayField ?? "")}"
                 placeholder="name"
                 class="${p()}"
               />
@@ -2222,19 +2233,19 @@ class fe extends D {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Accept Types
               </label>
               <input
                 type="text"
                 name="accept"
-                value="${x(t?.accept ?? "")}"
+                value="${w(t?.accept ?? "")}"
                 placeholder="image/*"
                 class="${p()}"
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Max Size (MB)
               </label>
               <input
@@ -2254,7 +2265,7 @@ class fe extends D {
                 type="checkbox"
                 name="multiple"
                 ${t?.multiple !== !1 ? "checked" : ""}
-                class="${P()}"
+                class="${F()}"
               />
               <span class="text-sm text-gray-700 dark:text-gray-300">Allow multiple files</span>
             </label>
@@ -2269,7 +2280,7 @@ class fe extends D {
           <h3 class="text-sm font-medium text-gray-900 dark:text-white">Code Editor Settings</h3>
 
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Language
             </label>
             <select
@@ -2292,7 +2303,7 @@ class fe extends D {
               type="checkbox"
               name="lineNumbers"
               ${t?.lineNumbers !== !1 ? "checked" : ""}
-              class="${P()}"
+              class="${F()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Show line numbers</span>
           </label>
@@ -2306,13 +2317,13 @@ class fe extends D {
           <h3 class="text-sm font-medium text-gray-900 dark:text-white">Slug Settings</h3>
 
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Source Field
             </label>
             <input
               type="text"
               name="sourceField"
-              value="${x(t?.sourceField ?? "")}"
+              value="${w(t?.sourceField ?? "")}"
               placeholder="title"
               class="${p()}"
             />
@@ -2321,31 +2332,31 @@ class fe extends D {
 
           <div class="grid grid-cols-3 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Prefix
               </label>
               <input
                 type="text"
                 name="slugPrefix"
-                value="${x(t?.prefix ?? "")}"
+                value="${w(t?.prefix ?? "")}"
                 placeholder=""
                 class="${p()}"
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Suffix
               </label>
               <input
                 type="text"
                 name="slugSuffix"
-                value="${x(t?.suffix ?? "")}"
+                value="${w(t?.suffix ?? "")}"
                 placeholder=""
                 class="${p()}"
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Separator
               </label>
               <select
@@ -2368,7 +2379,7 @@ class fe extends D {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Format
               </label>
               <select
@@ -2386,7 +2397,7 @@ class fe extends D {
                   type="checkbox"
                   name="allowAlpha"
                   ${t?.allowAlpha ? "checked" : ""}
-                  class="${P()}"
+                  class="${F()}"
                 />
                 <span class="text-sm text-gray-700 dark:text-gray-300">Allow transparency (alpha)</span>
               </label>
@@ -2394,13 +2405,13 @@ class fe extends D {
           </div>
 
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Color Presets (comma-separated)
             </label>
             <input
               type="text"
               name="colorPresets"
-              value="${x(t?.presets?.join(", ") ?? "")}"
+              value="${w(t?.presets?.join(", ") ?? "")}"
               placeholder="#ff0000, #00ff00, #0000ff"
               class="${p()}"
             />
@@ -2416,7 +2427,7 @@ class fe extends D {
 
           <div class="grid grid-cols-3 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Default Latitude
               </label>
               <input
@@ -2429,7 +2440,7 @@ class fe extends D {
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Default Longitude
               </label>
               <input
@@ -2442,7 +2453,7 @@ class fe extends D {
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Default Zoom
               </label>
               <input
@@ -2462,7 +2473,7 @@ class fe extends D {
               type="checkbox"
               name="searchEnabled"
               ${t?.searchEnabled !== !1 ? "checked" : ""}
-              class="${P()}"
+              class="${F()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Enable location search</span>
           </label>
@@ -2477,24 +2488,24 @@ class fe extends D {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Min Date
               </label>
               <input
                 type="date"
                 name="minDate"
-                value="${x(t?.minDate ?? "")}"
+                value="${w(t?.minDate ?? "")}"
                 class="${p()}"
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Max Date
               </label>
               <input
                 type="date"
                 name="maxDate"
-                value="${x(t?.maxDate ?? "")}"
+                value="${w(t?.maxDate ?? "")}"
                 class="${p()}"
               />
             </div>
@@ -2505,7 +2516,7 @@ class fe extends D {
               type="checkbox"
               name="allowSameDay"
               ${t?.allowSameDay !== !1 ? "checked" : ""}
-              class="${P()}"
+              class="${F()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Allow same start and end date</span>
           </label>
@@ -2520,7 +2531,7 @@ class fe extends D {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Min Items
               </label>
               <input
@@ -2533,7 +2544,7 @@ class fe extends D {
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Max Items
               </label>
               <input
@@ -2552,7 +2563,7 @@ class fe extends D {
               type="checkbox"
               name="collapsed"
               ${t?.collapsed ? "checked" : ""}
-              class="${P()}"
+              class="${F()}"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Start collapsed</span>
           </label>
@@ -2573,7 +2584,7 @@ class fe extends D {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Min Blocks
               </label>
               <input
@@ -2586,7 +2597,7 @@ class fe extends D {
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Max Blocks
               </label>
               <input
@@ -2619,11 +2630,11 @@ class fe extends D {
             >
               <div data-allowed-blocks-chips class="flex flex-wrap gap-2">
                 ${t?.allowedBlocks?.length ? t.allowedBlocks.map(
-        (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" data-block-chip="${x(s)}">${x(s)}<button type="button" data-remove-allowed="${x(s)}" class="hover:text-blue-900 dark:hover:text-blue-200">&times;</button></span>`
+        (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" data-block-chip="${w(s)}">${w(s)}<button type="button" data-remove-allowed="${w(s)}" class="hover:text-blue-900 dark:hover:text-blue-200">&times;</button></span>`
       ).join("") : '<span class="text-xs text-gray-400 dark:text-gray-500">All blocks allowed (no restrictions)</span>'}
               </div>
             </div>
-            <input type="hidden" name="allowedBlocks" value='${x(a)}' />
+            <input type="hidden" name="allowedBlocks" value='${w(a)}' />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to allow all block types</p>
           </div>
 
@@ -2646,11 +2657,11 @@ class fe extends D {
             >
               <div data-denied-blocks-chips class="flex flex-wrap gap-2">
                 ${t?.deniedBlocks?.length ? t.deniedBlocks.map(
-        (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" data-block-chip="${x(s)}">${x(s)}<button type="button" data-remove-denied="${x(s)}" class="hover:text-red-900 dark:hover:text-red-200">&times;</button></span>`
+        (s) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" data-block-chip="${w(s)}">${w(s)}<button type="button" data-remove-denied="${w(s)}" class="hover:text-red-900 dark:hover:text-red-200">&times;</button></span>`
       ).join("") : '<span class="text-xs text-gray-400 dark:text-gray-500">No blocks denied</span>'}
               </div>
             </div>
-            <input type="hidden" name="deniedBlocks" value='${x(r)}' />
+            <input type="hidden" name="deniedBlocks" value='${w(r)}' />
           </div>
         </div>
       `);
@@ -2750,7 +2761,7 @@ class fe extends D {
       } else {
         const s = e === "allowed" ? "blue" : "red";
         r.innerHTML = t.map(
-          (i) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-${s}-100 text-${s}-700 dark:bg-${s}-900/30 dark:text-${s}-400" data-block-chip="${x(i)}">${x(i)}<button type="button" data-remove-${e}="${x(i)}" class="hover:text-${s}-900 dark:hover:text-${s}-200">&times;</button></span>`
+          (i) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-${s}-100 text-${s}-700 dark:bg-${s}-900/30 dark:text-${s}-400" data-block-chip="${w(i)}">${w(i)}<button type="button" data-remove-${e}="${w(i)}" class="hover:text-${s}-900 dark:hover:text-${s}-200">&times;</button></span>`
         ).join(""), r.querySelectorAll(`[data-remove-${e}]`).forEach((i) => {
           i.addEventListener("click", (n) => {
             n.preventDefault();
@@ -2792,24 +2803,26 @@ class fe extends D {
       id: this.field.id || Q(),
       name: a,
       type: this.field.type,
+      order: this.field.order,
       label: i,
       description: t.get("description")?.trim() || void 0,
       placeholder: t.get("placeholder")?.trim() || void 0,
       required: t.get("required") === "on",
       readonly: t.get("readonly") === "on",
       hidden: t.get("hidden") === "on",
+      filterable: t.get("filterable") === "on",
       section: t.get("section")?.trim() || void 0,
       gridSpan: t.get("gridSpan") ? parseInt(t.get("gridSpan"), 10) : void 0
     }, l = {}, d = t.get("minLength");
     d !== null && d !== "" && (l.minLength = parseInt(d, 10));
     const c = t.get("maxLength");
     c !== null && c !== "" && (l.maxLength = parseInt(c, 10));
-    const m = t.get("min");
-    m !== null && m !== "" && (l.min = parseFloat(m));
-    const w = t.get("max");
-    w !== null && w !== "" && (l.max = parseFloat(w));
-    const u = t.get("pattern");
-    u && u.trim() && (l.pattern = u.trim()), Object.keys(l).length > 0 && (n.validation = l);
+    const g = t.get("min");
+    g !== null && g !== "" && (l.min = parseFloat(g));
+    const k = t.get("max");
+    k !== null && k !== "" && (l.max = parseFloat(k));
+    const h = t.get("pattern");
+    h && h.trim() && (l.pattern = h.trim()), Object.keys(l).length > 0 && (n.validation = l);
     const f = this.buildTypeSpecificConfig(t);
     f && Object.keys(f).length > 0 && (n.config = f), this.config.onSave(n), this.hide();
   }
@@ -2927,7 +2940,7 @@ class fe extends D {
     a.addEventListener("input", i);
   }
 }
-function x(o) {
+function w(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
@@ -2944,7 +2957,7 @@ class Vt extends D {
   renderContent() {
     return `
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">${x(this.config.title)}</h3>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">${w(this.config.title)}</h3>
         <button type="button" data-picker-close class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -3006,19 +3019,19 @@ class Vt extends D {
           <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${r ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}">
             <input
               type="checkbox"
-              value="${x(a)}"
-              data-block-type="${x(t.type)}"
+              value="${w(a)}"
+              data-block-type="${w(t.type)}"
               ${r ? "checked" : ""}
-              class="${P()}"
+              class="${F()}"
             />
             <div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium">
               ${t.icon || a.charAt(0).toUpperCase()}
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium text-gray-900 dark:text-white">${x(t.name)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${x(a)}</div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white">${w(t.name)}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${w(a)}</div>
             </div>
-            ${t.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${x(t.schema_version)}</span>` : ""}
+            ${t.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${w(t.schema_version)}</span>` : ""}
           </label>
         `;
     }).join(""), e.querySelectorAll('input[type="checkbox"]').forEach((t) => {
@@ -3437,7 +3450,7 @@ function Wt(o, e) {
   const t = (o ?? "").trim();
   if (t) return t;
   const a = (e ?? "").trim();
-  return a ? ut(a) : "Advanced";
+  return a ? ht(a) : "Advanced";
 }
 function Yt(o) {
   const e = (o ?? "").trim().toLowerCase(), t = Jt[e] ?? "cat-advanced";
@@ -3448,7 +3461,7 @@ function Qt(o) {
   return !e || typeof e != "object" ? void 0 : e;
 }
 function Zt(o, e) {
-  const t = (o.type ?? "text").trim().toLowerCase(), a = t === "text" ? "textarea" : A(t), r = (o.label ?? "").trim() || ut(o.type ?? a), s = (o.description ?? "").trim(), i = Z(o.icon ?? "") || Z(a) || "", n = Qt(o), l = {
+  const t = (o.type ?? "text").trim().toLowerCase(), a = t === "text" ? "textarea" : A(t), r = (o.label ?? "").trim() || ht(o.type ?? a), s = (o.description ?? "").trim(), i = Z(o.icon ?? "") || Z(a) || "", n = Qt(o), l = {
     type: a,
     label: r,
     description: s,
@@ -3461,7 +3474,7 @@ function Zt(o, e) {
     hidden: !0
   }), l;
 }
-function ht(o) {
+function ut(o) {
   const e = [], t = [];
   for (const a of o) {
     const r = a.category ?? {}, s = (r.id ?? "").trim().toLowerCase(), i = Kt(s);
@@ -3477,7 +3490,7 @@ function ht(o) {
   }
   return { categories: e, fieldTypes: t };
 }
-const Xt = ht([
+const Xt = ut([
   {
     category: { id: "text", label: "Text", icon: "text", order: 10 },
     field_types: [
@@ -3678,7 +3691,7 @@ const Xt = ht([
     ]
   }
 ]);
-function ut(o) {
+function ht(o) {
   return o.replace(/_/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
 function ea() {
@@ -3696,12 +3709,12 @@ function ea() {
     fieldTypes: Array.from(o.values())
   };
 }
-const ue = ea();
+const he = ea();
 async function ta(o) {
   try {
     const e = await o.getBlockFieldTypeGroups();
     if (e && e.length > 0) {
-      const t = ht(e);
+      const t = ut(e);
       return {
         categories: t.categories,
         fieldTypes: t.fieldTypes
@@ -3713,20 +3726,20 @@ async function ta(o) {
     const e = await o.getFieldTypes();
     if (e && e.length > 0)
       return {
-        categories: [...ue.categories],
+        categories: [...he.categories],
         fieldTypes: e
       };
   } catch {
   }
   return {
-    categories: [...ue.categories],
-    fieldTypes: [...ue.fieldTypes]
+    categories: [...he.categories],
+    fieldTypes: [...he.fieldTypes]
   };
 }
 const aa = /* @__PURE__ */ new Set(["advanced"]), be = "application/x-field-palette-type", Oe = "application/x-field-palette-meta";
 class Ae {
   constructor(e) {
-    this.fieldTypes = [], this.fieldTypeByKey = /* @__PURE__ */ new Map(), this.fieldTypeKeyByRef = /* @__PURE__ */ new Map(), this.categoryOrder = [], this.searchQuery = "", this.categoryStates = /* @__PURE__ */ new Map(), this.isLoading = !0, this.enabled = !1, this.config = e, this.categoryOrder = [...ue.categories];
+    this.fieldTypes = [], this.fieldTypeByKey = /* @__PURE__ */ new Map(), this.fieldTypeKeyByRef = /* @__PURE__ */ new Map(), this.categoryOrder = [], this.searchQuery = "", this.categoryStates = /* @__PURE__ */ new Map(), this.isLoading = !0, this.enabled = !1, this.config = e, this.categoryOrder = [...he.categories];
   }
   // ===========================================================================
   // Public API
@@ -3970,34 +3983,34 @@ function gt(o) {
     saveMessage: n,
     actions: l,
     compact: d = !1
-  } = o, c = d ? "px-5" : "px-6", m = d ? "h2" : "h1", w = d ? "text-lg" : "text-xl", u = d ? "gap-2.5" : "gap-3", f = pt(i, n), k = r ? G(
+  } = o, c = d ? "px-5" : "px-6", g = d ? "h2" : "h1", k = d ? "text-lg" : "text-xl", h = d ? "gap-2.5" : "gap-3", f = pt(i, n), x = r ? G(
     d ? r : r.charAt(0).toUpperCase() + r.slice(1),
     "status",
     r,
     d ? { uppercase: !0, attrs: { "data-entity-status-badge": "" } } : { attrs: { "data-entity-status-badge": "" } }
-  ) : "", L = s ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${te(s)}</span>` : "", g = t ? `<p class="${a ? "text-[11px] font-mono text-gray-400 dark:text-gray-500" : "text-sm text-gray-500 dark:text-gray-400"} mt-0.5 truncate">${te(t)}</p>` : "";
+  ) : "", L = s ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${te(s)}</span>` : "", y = t ? `<p class="${a ? "text-[11px] font-mono text-gray-400 dark:text-gray-500" : "text-sm text-gray-500 dark:text-gray-400"} mt-0.5 truncate">${te(t)}</p>` : "";
   return d ? `
       <div class="${c} py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
         <div class="min-w-0 flex-1">
-          <${m} class="${w} font-semibold text-gray-900 dark:text-white truncate leading-snug" data-entity-name>${te(e)}</${m}>
-          ${g}
+          <${g} class="${k} font-semibold text-gray-900 dark:text-white truncate leading-snug" data-entity-name>${te(e)}</${g}>
+          ${y}
         </div>
-        <div class="flex items-center ${u} shrink-0">
+        <div class="flex items-center ${h} shrink-0">
           <span data-entity-save-indicator>${f}</span>
-          ${k}
+          ${x}
           ${l || ""}
         </div>
       </div>` : `
     <div class="${c} py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
       <div>
         <div class="flex items-center gap-3">
-          <${m} class="${w} font-semibold text-gray-900 dark:text-white" data-entity-name>${te(e)}</${m}>
-          ${k}
+          <${g} class="${k} font-semibold text-gray-900 dark:text-white" data-entity-name>${te(e)}</${g}>
+          ${x}
           ${L}
         </div>
-        ${g}
+        ${y}
       </div>
-      <div class="flex items-center ${u}">
+      <div class="flex items-center ${h}">
         <span data-entity-save-indicator>${f}</span>
         ${l || ""}
       </div>
@@ -4019,20 +4032,20 @@ function yt(o) {
     isFirst: l = !1,
     isLast: d = !1,
     compact: c = !1,
-    renderExpandedContent: m,
-    actionsHtml: w = "",
-    constraintBadges: u = [],
+    renderExpandedContent: g,
+    actionsHtml: k = "",
+    constraintBadges: h = [],
     sectionName: f,
-    index: k
-  } = o, L = xe(e.type), g = typeof m == "function";
+    index: x
+  } = o, L = xe(e.type), y = typeof g == "function";
   let S;
   s ? S = "border-red-400 bg-red-50 dark:bg-red-900/10" : t ? S = "border-blue-200 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-900/20" : a ? S = "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : S = "border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:border-gray-300 dark:hover:border-gray-600";
-  const C = r ? "border-t-2 border-t-blue-400" : "", F = c ? "gap-1.5 px-2 py-2" : "gap-3 p-3", mt = c ? "w-7 h-7 rounded-md" : "w-8 h-8 rounded-lg", ft = c ? "text-[13px]" : "text-sm", bt = c ? "text-[10px]" : "text-xs", vt = c ? "xs" : "sm", kt = s ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400", xt = s ? na : L?.icon ?? "?", de = [];
+  const C = r ? "border-t-2 border-t-blue-400" : "", P = c ? "gap-1.5 px-2 py-2" : "gap-3 p-3", mt = c ? "w-7 h-7 rounded-md" : "w-8 h-8 rounded-lg", ft = c ? "text-[13px]" : "text-sm", bt = c ? "text-[10px]" : "text-xs", vt = c ? "xs" : "sm", kt = s ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400", xt = s ? na : L?.icon ?? "?", de = [];
   e.required && de.push(G("req", "status", "required", { size: "sm", uppercase: !0, extraClass: "flex-shrink-0" })), e.readonly && de.push(G("ro", "status", "readonly", { size: "sm", uppercase: !0, extraClass: "flex-shrink-0" })), e.hidden && de.push(G("hid", "status", "hidden", { size: "sm", uppercase: !0, extraClass: "flex-shrink-0" }));
   const wt = de.join(`
           `);
   let Ce = `data-field-card="${E(e.id)}"`;
-  f != null && (Ce += ` data-field-section="${E(f)}"`), k != null && (Ce += ` data-field-index="${k}"`);
+  f != null && (Ce += ` data-field-section="${E(f)}"`), x != null && (Ce += ` data-field-index="${x}"`);
   let Be;
   if (c)
     Be = `${E(e.name)} &middot; ${E(e.type)}`;
@@ -4045,9 +4058,9 @@ function yt(o) {
     e.section && K.push(`<span>&middot; ${E(e.section)}</span>`), e.gridSpan && K.push(`<span>&middot; ${e.gridSpan} cols</span>`), Be = K.join(" ");
   }
   let Ne = "";
-  u.length > 0 && (Ne = `
+  h.length > 0 && (Ne = `
             <div class="flex items-center gap-1 mt-1">
-              ${u.map((O) => `<span class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400">${E(O)}</span>`).join("")}
+              ${h.map((O) => `<span class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400">${E(O)}</span>`).join("")}
             </div>`);
   let Re = "";
   s && i.length > 0 && (Re = `
@@ -4073,30 +4086,30 @@ function yt(o) {
           </span>`;
   }
   let Ue = "";
-  return g && (Ue = `
+  return y && (Ue = `
           <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer transition-colors">
             ${t ? oa : ia}
           </span>`), `
       <div ${Ce}
            draggable="true"
            class="rounded-lg border ${C} ${S} transition-colors">
-        <div class="flex items-center ${F} select-none" ${g ? `data-field-toggle="${E(e.id)}"` : ""}>
+        <div class="flex items-center ${P} select-none" ${y ? `data-field-toggle="${E(e.id)}"` : ""}>
           <span class="flex-shrink-0 text-gray-300 dark:text-gray-600 hover:text-gray-400 dark:hover:text-gray-500 cursor-grab active:cursor-grabbing" data-field-grip="${E(e.id)}">
             ${Ft(vt)}
           </span>
           <span class="flex-shrink-0 ${mt} flex items-center justify-center ${kt} text-[11px]">
             ${xt}
           </span>
-          <span class="flex-1 min-w-0 ${g ? "cursor-pointer" : ""}">
+          <span class="flex-1 min-w-0 ${y ? "cursor-pointer" : ""}">
             <span class="block ${ft} font-medium text-gray-800 dark:text-gray-100 truncate">${E(e.label || e.name)}</span>
             <span class="block ${bt} text-gray-400 dark:text-gray-500 ${c ? "font-mono" : ""} truncate">${Be}</span>${Ne}${Re}
           </span>
           ${wt}
           ${Ve}
-          ${w}
+          ${k}
           ${Ue}
         </div>
-        ${t && g ? m() : ""}
+        ${t && y ? g() : ""}
       </div>`;
 }
 const la = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>';
@@ -4210,6 +4223,7 @@ class ca {
       required: a.required,
       readonly: a.readonly,
       hidden: a.hidden,
+      filterable: a.filterable,
       defaultValue: a.defaultValue,
       section: a.section,
       gridSpan: a.gridSpan,
@@ -4302,15 +4316,15 @@ class ca {
     const c = d.findIndex((f) => f.id === e);
     if (c === -1) return;
     d.splice(c, 1), d.length === 0 && l.delete(i), l.has(n) || l.set(n, []);
-    const m = l.get(n);
-    let w = Math.max(0, Math.min(a, m.length));
-    i === n && c < w && (w -= 1), m.splice(w, 0, s), s.section = n === B ? void 0 : n;
-    const u = /* @__PURE__ */ new Map();
-    l.has(B) && u.set(B, l.get(B));
-    for (const [f, k] of l)
-      f !== B && u.set(f, k);
-    this.state.fields = Array.from(u.values()).flat(), this.state.fields.forEach((f, k) => {
-      f.order = k;
+    const g = l.get(n);
+    let k = Math.max(0, Math.min(a, g.length));
+    i === n && c < k && (k -= 1), g.splice(k, 0, s), s.section = n === B ? void 0 : n;
+    const h = /* @__PURE__ */ new Map();
+    l.has(B) && h.set(B, l.get(B));
+    for (const [f, x] of l)
+      f !== B && h.set(f, x);
+    this.state.fields = Array.from(h.values()).flat(), this.state.fields.forEach((f, x) => {
+      f.order = x;
     }), this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview();
   }
   /**
@@ -4415,7 +4429,7 @@ class ca {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Name <span class="text-red-500">*</span>
             </label>
             <input
@@ -4429,7 +4443,7 @@ class ca {
           </div>
 
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Slug
             </label>
             <input
@@ -4445,7 +4459,7 @@ class ca {
         </div>
 
         <div class="mt-4">
-          <label class="${y()}">
+          <label class="${m()}">
             Description
           </label>
           <textarea
@@ -4457,7 +4471,7 @@ class ca {
         </div>
 
         <div class="mt-4">
-          <label class="${y()}">
+          <label class="${m()}">
             Icon
           </label>
           ${we(e?.icon ?? "", "data-ct-icon")}
@@ -4524,13 +4538,13 @@ class ca {
   }
   renderFieldCard(e, t, a) {
     const r = A(e.type) === "blocks", s = r && this.state.selectedFieldId === e.id, i = this.state.validationErrors.filter(
-      (u) => u.path.includes(`/${e.name}`) || u.path.includes(`properties.${e.name}`)
+      (h) => h.path.includes(`/${e.name}`) || h.path.includes(`properties.${e.name}`)
     ), n = i.length > 0, l = [];
     e.validation?.minLength !== void 0 && l.push(`min: ${e.validation.minLength}`), e.validation?.maxLength !== void 0 && l.push(`max: ${e.validation.maxLength}`), e.validation?.min !== void 0 && l.push(`>= ${e.validation.min}`), e.validation?.max !== void 0 && l.push(`<= ${e.validation.max}`), e.validation?.pattern && l.push("pattern");
-    const d = a ?? this.state.fields, c = d.indexOf(e), m = this.fieldActionsMenuId === e.id, w = `
+    const d = a ?? this.state.fields, c = d.indexOf(e), g = this.fieldActionsMenuId === e.id, k = `
           <div class="relative flex-shrink-0">
             ${da(e.id)}
-            ${m ? this.renderFieldActionsMenu(e) : ""}
+            ${g ? this.renderFieldActionsMenu(e) : ""}
           </div>`;
     return yt({
       field: e,
@@ -4538,10 +4552,10 @@ class ca {
       isSelected: this.state.selectedFieldId === e.id,
       isExpanded: s,
       hasErrors: n,
-      errorMessages: i.map((u) => u.message),
+      errorMessages: i.map((h) => h.message),
       constraintBadges: l,
       index: t,
-      actionsHtml: w,
+      actionsHtml: k,
       showReorderButtons: !0,
       isFirst: c === 0,
       isLast: c === d.length - 1,
@@ -4570,19 +4584,19 @@ class ca {
   renderBlocksInlineContent(e) {
     const t = e.config ?? {}, r = this.getBlocksPickerMode(e.id) === "allowed", s = new Set(
       r ? t.allowedBlocks ?? [] : t.deniedBlocks ?? []
-    ), i = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", n = r ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", l = r ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", d = r ? "Allowed Blocks" : "Denied Blocks", c = r ? "blue" : "red", m = r ? "All blocks allowed (no restrictions)" : "No blocks denied";
-    let w;
+    ), i = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", n = r ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", l = r ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", d = r ? "Allowed Blocks" : "Denied Blocks", c = r ? "blue" : "red", g = r ? "All blocks allowed (no restrictions)" : "No blocks denied";
+    let k;
     if (this.cachedBlocks) {
-      const u = ie(s, this.cachedBlocks);
-      w = oe({
+      const h = ie(s, this.cachedBlocks);
+      k = oe({
         availableBlocks: this.cachedBlocks,
-        selectedBlocks: u,
+        selectedBlocks: h,
         label: d,
         accent: c,
-        emptySelectionText: m
+        emptySelectionText: g
       });
     } else
-      w = `
+      k = `
         <div class="flex items-center justify-center py-6" data-ct-blocks-loading="${v(e.id)}">
           <div class="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
           <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">Loading blocks...</span>
@@ -4606,7 +4620,7 @@ class ca {
           </button>
         </div>
         <div data-ct-blocks-picker-container="${v(e.id)}">
-          ${w}
+          ${k}
         </div>
         <div class="flex items-center justify-between">
           <button type="button" data-ct-blocks-advanced="${v(e.id)}"
@@ -4671,6 +4685,16 @@ class ca {
               class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Block Editor</span>
+          </label>
+
+          <label class="flex items-center gap-2 cursor-pointer col-span-2">
+            <input
+              type="checkbox"
+              data-ct-cap="filters_fallback_from_columns"
+              ${e.filters_fallback_from_columns || e.filtersFallbackFromColumns ? "checked" : ""}
+              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+            />
+            <span class="text-sm text-gray-700 dark:text-gray-300">Fallback filters from list columns</span>
           </label>
         </div>
       </div>
@@ -4830,7 +4854,7 @@ class ca {
     } catch (s) {
       a = s instanceof Error ? s.message : "Compatibility check failed";
     }
-    new ua({
+    new ha({
       contentType: this.state.contentType,
       compatibilityResult: t,
       compatibilityError: a ?? void 0,
@@ -4904,68 +4928,68 @@ class ca {
       const t = e.target, a = t.closest("[data-field-actions]");
       if (a) {
         e.stopPropagation();
-        const u = a.dataset.fieldActions;
-        this.fieldActionsMenuId = this.fieldActionsMenuId === u ? null : u, this.renderFieldList();
+        const h = a.dataset.fieldActions;
+        this.fieldActionsMenuId = this.fieldActionsMenuId === h ? null : h, this.renderFieldList();
         return;
       }
       const r = t.closest("[data-field-action-edit]");
       if (r) {
-        const u = r.dataset.fieldActionEdit;
-        this.fieldActionsMenuId = null, this.editField(u);
+        const h = r.dataset.fieldActionEdit;
+        this.fieldActionsMenuId = null, this.editField(h);
         return;
       }
       const s = t.closest("[data-field-action-remove]");
       if (s) {
-        const u = s.dataset.fieldActionRemove;
-        this.fieldActionsMenuId = null, this.removeField(u);
+        const h = s.dataset.fieldActionRemove;
+        this.fieldActionsMenuId = null, this.removeField(h);
         return;
       }
       const i = t.closest("[data-field-move-up]");
       if (i && !i.hasAttribute("disabled")) {
         e.stopPropagation();
-        const u = i.dataset.fieldMoveUp;
-        this.moveFieldByDirection(u, -1);
+        const h = i.dataset.fieldMoveUp;
+        this.moveFieldByDirection(h, -1);
         return;
       }
       const n = t.closest("[data-field-move-down]");
       if (n && !n.hasAttribute("disabled")) {
         e.stopPropagation();
-        const u = n.dataset.fieldMoveDown;
-        this.moveFieldByDirection(u, 1);
+        const h = n.dataset.fieldMoveDown;
+        this.moveFieldByDirection(h, 1);
         return;
       }
       const l = t.closest("[data-ct-blocks-mode-toggle]");
       if (l) {
-        const u = l.dataset.ctBlocksModeToggle, f = l.dataset.ctBlocksMode ?? "allowed";
-        this.blockPickerModes.set(u, f), this.renderFieldList();
-        const k = this.state.fields.find((L) => L.id === u);
-        k && A(k.type) === "blocks" && this.loadBlocksForField(k);
+        const h = l.dataset.ctBlocksModeToggle, f = l.dataset.ctBlocksMode ?? "allowed";
+        this.blockPickerModes.set(h, f), this.renderFieldList();
+        const x = this.state.fields.find((L) => L.id === h);
+        x && A(x.type) === "blocks" && this.loadBlocksForField(x);
         return;
       }
       if (t.closest("[data-ct-blocks-open-library]")) {
-        const u = this.api.getBasePath();
-        window.location.href = `${u}/content/block-library`;
+        const h = this.api.getBasePath();
+        window.location.href = `${h}/content/block-library`;
         return;
       }
       const c = t.closest("[data-ct-blocks-advanced]");
       if (c) {
-        const u = c.dataset.ctBlocksAdvanced;
-        u && this.editField(u);
+        const h = c.dataset.ctBlocksAdvanced;
+        h && this.editField(h);
         return;
       }
-      const m = t.closest("[data-field-toggle]");
-      if (m && !t.closest("button")) {
-        const u = m.dataset.fieldToggle;
-        if (this.state.selectedFieldId = this.state.selectedFieldId === u ? null : u, this.renderFieldList(), this.state.selectedFieldId) {
-          const f = this.state.fields.find((k) => k.id === this.state.selectedFieldId);
+      const g = t.closest("[data-field-toggle]");
+      if (g && !t.closest("button")) {
+        const h = g.dataset.fieldToggle;
+        if (this.state.selectedFieldId = this.state.selectedFieldId === h ? null : h, this.renderFieldList(), this.state.selectedFieldId) {
+          const f = this.state.fields.find((x) => x.id === this.state.selectedFieldId);
           f && A(f.type) === "blocks" && this.loadBlocksForField(f);
         }
         return;
       }
-      const w = t.closest("[data-field-card]");
-      if (w && !t.closest("button") && !t.closest("[data-field-props]")) {
-        const u = w.getAttribute("data-field-card");
-        u && (this.state.selectedFieldId = this.state.selectedFieldId === u ? null : u, this.renderFieldList());
+      const k = t.closest("[data-field-card]");
+      if (k && !t.closest("button") && !t.closest("[data-field-props]")) {
+        const h = k.getAttribute("data-field-card");
+        h && (this.state.selectedFieldId = this.state.selectedFieldId === h ? null : h, this.renderFieldList());
       }
       this.fieldActionsMenuId && !t.closest("[data-field-actions]") && !t.closest("[data-ct-field-actions-menu]") && (this.fieldActionsMenuId = null, this.renderFieldList());
     }), this.container.addEventListener("input", (e) => {
@@ -5029,10 +5053,10 @@ class ca {
         if (this.dragOverRAF = null, !this.dragState) return;
         const i = s.closest("[data-field-card]");
         if (!i || i.getAttribute("data-field-card") === this.dragState.fieldId) return;
-        const n = i.getBoundingClientRect(), l = n.top + n.height / 2, d = r < l, c = this.getOrCreateDropIndicator(), m = d ? i : i.nextSibling;
-        (c.nextSibling !== m || c.parentNode !== i.parentElement) && i.parentElement?.insertBefore(c, m);
-        const w = parseInt(i.getAttribute("data-field-index") ?? "0", 10), u = i.getAttribute("data-field-section") ?? B;
-        this.dragState.currentSection = u, this.dragState.currentIndex = d ? w : w + 1;
+        const n = i.getBoundingClientRect(), l = n.top + n.height / 2, d = r < l, c = this.getOrCreateDropIndicator(), g = d ? i : i.nextSibling;
+        (c.nextSibling !== g || c.parentNode !== i.parentElement) && i.parentElement?.insertBefore(c, g);
+        const k = parseInt(i.getAttribute("data-field-index") ?? "0", 10), h = i.getAttribute("data-field-section") ?? B;
+        this.dragState.currentSection = h, this.dragState.currentIndex = d ? k : k + 1;
       }));
     }), e.addEventListener("dragleave", (t) => {
       const r = t.relatedTarget;
@@ -5356,14 +5380,15 @@ class ca {
       ` : this.state.previewHtml && (e.innerHTML = this.state.previewHtml, this.initPreviewEditors()));
   }
   /**
-   * Initialize JSON editors inside the preview container.
-   * The formgen-behaviors bundle (loaded via script tag) exposes
-   * FormgenBehaviors.initJSONEditors() which scans the document for
-   * un-initialized [data-json-editor] elements.
+   * Initialize preview field enhancements that require client-side behavior.
+   * formgen-behaviors provides JSON editor hydration and
+   * formgen-relationships provides WYSIWYG hydration.
    */
   initPreviewEditors() {
     const e = window.FormgenBehaviors;
     typeof e?.initJSONEditors == "function" && e.initJSONEditors();
+    const a = window.FormgenRelationships?.autoInitWysiwyg ?? e?.autoInitWysiwyg;
+    typeof a == "function" && a();
   }
   renderValidationErrors() {
     const e = this.container.querySelector("[data-ct-validation-errors]");
@@ -5450,14 +5475,14 @@ function Ze(o) {
 function Xe(o) {
   return o.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ").replace(/\s+/g, " ").trim().split(" ").map((e) => e.charAt(0).toUpperCase() + e.slice(1).toLowerCase()).join(" ");
 }
-function ha(o) {
+function ua(o) {
   try {
     return new Date(o).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" });
   } catch {
     return o;
   }
 }
-class ua extends D {
+class ha extends D {
   constructor(e) {
     super({ size: "lg", flexColumn: !1 }), this.config = e;
   }
@@ -5619,7 +5644,7 @@ class pa extends D {
         </p>
 
         <div>
-          <label class="${y()}">
+          <label class="${m()}">
             New Slug <span class="text-red-500">*</span>
           </label>
           <input
@@ -5636,7 +5661,7 @@ class pa extends D {
         </div>
 
         <div>
-          <label class="${y()}">
+          <label class="${m()}">
             New Name
           </label>
           <input
@@ -5769,7 +5794,7 @@ class ga extends D {
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="text-xs text-gray-500 dark:text-gray-400">${ha(e.created_at)}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">${ua(e.created_at)}</span>
             ${r ? `
               <button
                 type="button"
@@ -6300,7 +6325,7 @@ class ma extends D {
         <form data-block-form class="space-y-6">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Name <span class="text-red-500">*</span>
               </label>
               <input
@@ -6313,7 +6338,7 @@ class ma extends D {
               />
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Type <span class="text-red-500">*</span>
               </label>
               <input
@@ -6331,7 +6356,7 @@ class ma extends D {
           </div>
 
           <div>
-            <label class="${y()}">
+            <label class="${m()}">
               Description
             </label>
             <textarea
@@ -6344,7 +6369,7 @@ class ma extends D {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Category
               </label>
               <select
@@ -6355,7 +6380,7 @@ class ma extends D {
               </select>
             </div>
             <div>
-              <label class="${y()}">
+              <label class="${m()}">
                 Icon
               </label>
               ${we(e?.icon ?? "", 'name="icon"')}
@@ -6737,7 +6762,7 @@ class xa {
   // Rendering – Metadata (Task 8.1)
   // ===========================================================================
   renderMetadataSection() {
-    const e = this.block, t = e.slug || e.type || "", a = e.slug && e.type && e.slug !== e.type ? `<p class="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Internal type: ${h(e.type)}</p>` : "";
+    const e = this.block, t = e.slug || e.type || "", a = e.slug && e.type && e.slug !== e.type ? `<p class="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Internal type: ${u(e.type)}</p>` : "";
     return `
       <div class="border-b border-gray-200 dark:border-gray-700" data-editor-metadata>
         <button type="button" data-toggle-metadata
@@ -6756,12 +6781,12 @@ class xa {
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Name</label>
-              <input type="text" data-meta-field="name" value="${h(e.name)}"
+              <input type="text" data-meta-field="name" value="${u(e.name)}"
                      class="${p()}" />
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Slug</label>
-              <input type="text" data-meta-field="slug" value="${h(t)}" pattern="^[a-z][a-z0-9_\\-]*$"
+              <input type="text" data-meta-field="slug" value="${u(t)}" pattern="^[a-z][a-z0-9_\\-]*$"
                      class="${p()} font-mono" />
               ${a}
             </div>
@@ -6770,13 +6795,13 @@ class xa {
             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Description</label>
             <textarea data-meta-field="description" rows="2"
                       placeholder="Short description for other editors..."
-                      class="${p()} resize-none">${h(e.description ?? "")}</textarea>
+                      class="${p()} resize-none">${u(e.description ?? "")}</textarea>
           </div>
           <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Category</label>
               <select data-meta-field="category" class="${_()}">
-                ${this.config.categories.map((r) => `<option value="${h(r)}" ${r === (e.category ?? "") ? "selected" : ""}>${h(W(r))}</option>`).join("")}
+                ${this.config.categories.map((r) => `<option value="${u(r)}" ${r === (e.category ?? "") ? "selected" : ""}>${u(W(r))}</option>`).join("")}
               </select>
             </div>
             <div>
@@ -6843,18 +6868,18 @@ class xa {
     for (const r of t) {
       const s = e.get(r), n = this.getSectionState(r).collapsed;
       a += `
-        <div data-section="${h(r)}" class="border-b border-gray-100 dark:border-gray-800">
-          <button type="button" data-toggle-section="${h(r)}"
+        <div data-section="${u(r)}" class="border-b border-gray-100 dark:border-gray-800">
+          <button type="button" data-toggle-section="${u(r)}"
                   class="w-full flex items-center gap-2 px-5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
-            <span class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex items-center justify-center" data-section-chevron="${h(r)}">
+            <span class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex items-center justify-center" data-section-chevron="${u(r)}">
               ${n ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'}
             </span>
-            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${h(W(r))}</span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${u(W(r))}</span>
             <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">${s.length}</span>
           </button>
 
-          <div class="${n ? "hidden" : ""}" data-section-body="${h(r)}">
-            <div class="px-3 pb-2 space-y-1" data-section-fields="${h(r)}">
+          <div class="${n ? "hidden" : ""}" data-section-body="${u(r)}">
+            <div class="px-3 pb-2 space-y-1" data-section-fields="${u(r)}">
               ${s.map((l) => this.renderFieldCard(l, t, s)).join("")}
             </div>
           </div>
@@ -6870,7 +6895,7 @@ class xa {
     e.validation?.minLength !== void 0 && i.push(`min: ${e.validation.minLength}`), e.validation?.maxLength !== void 0 && i.push(`max: ${e.validation.maxLength}`), e.validation?.min !== void 0 && i.push(`>= ${e.validation.min}`), e.validation?.max !== void 0 && i.push(`<= ${e.validation.max}`), e.validation?.pattern && i.push("pattern");
     const n = `
           <div class="relative flex-shrink-0">
-            <button type="button" data-field-actions="${h(e.id)}"
+            <button type="button" data-field-actions="${u(e.id)}"
                     class="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     title="Field actions">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -6903,53 +6928,53 @@ class xa {
   renderStandardFieldProperties(e, t) {
     const a = e.validation ?? {}, r = A(e.type), s = ["text", "textarea", "rich-text", "markdown", "code", "slug"].includes(r), i = ["number", "integer", "currency", "percentage"].includes(r), n = e.section || j;
     return `
-      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${h(e.id)}">
+      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${u(e.id)}">
         <!-- General -->
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Field Name</label>
-            <input type="text" data-field-prop="${h(e.id)}" data-prop-key="name"
-                   value="${h(e.name)}" pattern="^[a-z][a-z0-9_]*$"
+            <input type="text" data-field-prop="${u(e.id)}" data-prop-key="name"
+                   value="${u(e.name)}" pattern="^[a-z][a-z0-9_]*$"
                    class="${p("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Label</label>
-            <input type="text" data-field-prop="${h(e.id)}" data-prop-key="label"
-                   value="${h(e.label)}"
+            <input type="text" data-field-prop="${u(e.id)}" data-prop-key="label"
+                   value="${u(e.label)}"
                    class="${p("xs")}" />
           </div>
         </div>
 
         <div>
           <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Description</label>
-          <input type="text" data-field-prop="${h(e.id)}" data-prop-key="description"
-                 value="${h(e.description ?? "")}" placeholder="Help text for editors"
+          <input type="text" data-field-prop="${u(e.id)}" data-prop-key="description"
+                 value="${u(e.description ?? "")}" placeholder="Help text for editors"
                  class="${p("xs")}" />
         </div>
 
         <div>
           <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Placeholder</label>
-          <input type="text" data-field-prop="${h(e.id)}" data-prop-key="placeholder"
-                 value="${h(e.placeholder ?? "")}"
+          <input type="text" data-field-prop="${u(e.id)}" data-prop-key="placeholder"
+                 value="${u(e.placeholder ?? "")}"
                  class="${p("xs")}" />
         </div>
 
         <!-- Flags -->
         <div class="flex items-center gap-4">
           <label class="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" data-field-check="${h(e.id)}" data-check-key="required"
+            <input type="checkbox" data-field-check="${u(e.id)}" data-check-key="required"
                    ${e.required ? "checked" : ""}
                    class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
             <span class="text-[11px] text-gray-600 dark:text-gray-400">Required</span>
           </label>
           <label class="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" data-field-check="${h(e.id)}" data-check-key="readonly"
+            <input type="checkbox" data-field-check="${u(e.id)}" data-check-key="readonly"
                    ${e.readonly ? "checked" : ""}
                    class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
             <span class="text-[11px] text-gray-600 dark:text-gray-400">Read-only</span>
           </label>
           <label class="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" data-field-check="${h(e.id)}" data-check-key="hidden"
+            <input type="checkbox" data-field-check="${u(e.id)}" data-check-key="hidden"
                    ${e.hidden ? "checked" : ""}
                    class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
             <span class="text-[11px] text-gray-600 dark:text-gray-400">Hidden</span>
@@ -6961,21 +6986,21 @@ class xa {
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Min Length</label>
-            <input type="number" data-field-prop="${h(e.id)}" data-prop-key="validation.minLength"
+            <input type="number" data-field-prop="${u(e.id)}" data-prop-key="validation.minLength"
                    value="${a.minLength ?? ""}" min="0"
                    class="${p("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Max Length</label>
-            <input type="number" data-field-prop="${h(e.id)}" data-prop-key="validation.maxLength"
+            <input type="number" data-field-prop="${u(e.id)}" data-prop-key="validation.maxLength"
                    value="${a.maxLength ?? ""}" min="0"
                    class="${p("xs")}" />
           </div>
         </div>
         <div>
           <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Pattern (RegEx)</label>
-          <input type="text" data-field-prop="${h(e.id)}" data-prop-key="validation.pattern"
-                 value="${h(a.pattern ?? "")}" placeholder="^[a-z]+$"
+          <input type="text" data-field-prop="${u(e.id)}" data-prop-key="validation.pattern"
+                 value="${u(a.pattern ?? "")}" placeholder="^[a-z]+$"
                  class="${p("xs")} font-mono" />
         </div>` : ""}
 
@@ -6983,13 +7008,13 @@ class xa {
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Minimum</label>
-            <input type="number" data-field-prop="${h(e.id)}" data-prop-key="validation.min"
+            <input type="number" data-field-prop="${u(e.id)}" data-prop-key="validation.min"
                    value="${a.min ?? ""}" step="any"
                    class="${p("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Maximum</label>
-            <input type="number" data-field-prop="${h(e.id)}" data-prop-key="validation.max"
+            <input type="number" data-field-prop="${u(e.id)}" data-prop-key="validation.max"
                    value="${a.max ?? ""}" step="any"
                    class="${p("xs")}" />
           </div>
@@ -6999,15 +7024,15 @@ class xa {
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
-            <select data-field-section-select="${h(e.id)}"
+            <select data-field-section-select="${u(e.id)}"
                     class="${_("xs")}">
-              ${t.map((l) => `<option value="${h(l)}" ${l === n ? "selected" : ""}>${h(W(l))}</option>`).join("")}
+              ${t.map((l) => `<option value="${u(l)}" ${l === n ? "selected" : ""}>${u(W(l))}</option>`).join("")}
               <option value="__new__">+ New section...</option>
             </select>
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Grid Span (1-12)</label>
-            <input type="number" data-field-prop="${h(e.id)}" data-prop-key="gridSpan"
+            <input type="number" data-field-prop="${u(e.id)}" data-prop-key="gridSpan"
                    value="${e.gridSpan ?? ""}" min="1" max="12" placeholder="12"
                    class="${p("xs")}" />
           </div>
@@ -7015,7 +7040,7 @@ class xa {
 
         <!-- Remove field -->
         <div class="pt-2 border-t border-gray-100 dark:border-gray-800">
-          <button type="button" data-field-remove="${h(e.id)}"
+          <button type="button" data-field-remove="${u(e.id)}"
                   class="text-[11px] text-red-500 hover:text-red-700 font-medium transition-colors">
             Remove field
           </button>
@@ -7026,47 +7051,47 @@ class xa {
   renderBlocksFieldProperties(e, t) {
     const a = e.config ?? {}, r = e.section || j, i = this.getBlocksPickerMode(e.id) === "allowed", n = new Set(
       i ? a.allowedBlocks ?? [] : a.deniedBlocks ?? []
-    ), l = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", d = i ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", c = i ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", m = i ? "Allowed Blocks" : "Denied Blocks", w = i ? "blue" : "red", u = i ? "All blocks allowed (no restrictions)" : "No blocks denied";
+    ), l = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", d = i ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", c = i ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", g = i ? "Allowed Blocks" : "Denied Blocks", k = i ? "blue" : "red", h = i ? "All blocks allowed (no restrictions)" : "No blocks denied";
     let f;
     if (this.cachedBlocks) {
-      const k = ie(n, this.cachedBlocks);
+      const x = ie(n, this.cachedBlocks);
       f = oe({
         availableBlocks: this.cachedBlocks,
-        selectedBlocks: k,
-        label: m,
-        accent: w,
-        emptySelectionText: u
+        selectedBlocks: x,
+        label: g,
+        accent: k,
+        emptySelectionText: h
       });
     } else
       f = `
-        <div class="flex items-center justify-center py-6" data-blocks-loading="${h(e.id)}">
+        <div class="flex items-center justify-center py-6" data-blocks-loading="${u(e.id)}">
           <div class="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
           <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">Loading blocks...</span>
         </div>`;
     return `
-      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${h(e.id)}">
+      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${u(e.id)}">
         <!-- Block Selection (primary) -->
         <div class="flex items-center justify-between">
           <div class="inline-flex items-center gap-1 p-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <button type="button" data-blocks-mode-toggle="${h(e.id)}" data-blocks-mode="allowed"
+            <button type="button" data-blocks-mode-toggle="${u(e.id)}" data-blocks-mode="allowed"
                     class="${l} ${d}">
               Allowed
             </button>
-            <button type="button" data-blocks-mode-toggle="${h(e.id)}" data-blocks-mode="denied"
+            <button type="button" data-blocks-mode-toggle="${u(e.id)}" data-blocks-mode="denied"
                     class="${l} ${c}">
               Denied
             </button>
           </div>
-          <button type="button" data-blocks-open-library="${h(e.id)}"
+          <button type="button" data-blocks-open-library="${u(e.id)}"
                   class="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
             Open Block Library
           </button>
         </div>
-        <div data-blocks-picker-container="${h(e.id)}">
+        <div data-blocks-picker-container="${u(e.id)}">
           ${f}
         </div>
         <div class="flex items-center justify-between">
-          <button type="button" data-blocks-advanced="${h(e.id)}"
+          <button type="button" data-blocks-advanced="${u(e.id)}"
                   class="text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium">
             Advanced settings...
           </button>
@@ -7076,13 +7101,13 @@ class xa {
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Min Blocks</label>
-            <input type="number" data-field-prop="${h(e.id)}" data-prop-key="config.minBlocks"
+            <input type="number" data-field-prop="${u(e.id)}" data-prop-key="config.minBlocks"
                    value="${a.minBlocks ?? ""}" min="0" placeholder="0"
                    class="${p("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Max Blocks</label>
-            <input type="number" data-field-prop="${h(e.id)}" data-prop-key="config.maxBlocks"
+            <input type="number" data-field-prop="${u(e.id)}" data-prop-key="config.maxBlocks"
                    value="${a.maxBlocks ?? ""}" min="1" placeholder="No limit"
                    class="${p("xs")}" />
           </div>
@@ -7090,50 +7115,50 @@ class xa {
 
         <!-- Field Settings (secondary — collapsed by default) -->
         <div class="border-t border-gray-100 dark:border-gray-800 pt-2">
-          <button type="button" data-blocks-settings-toggle="${h(e.id)}"
+          <button type="button" data-blocks-settings-toggle="${u(e.id)}"
                   class="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium">
-            <span data-blocks-settings-chevron="${h(e.id)}">
+            <span data-blocks-settings-chevron="${u(e.id)}">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </span>
             Field Settings
           </button>
 
-          <div class="hidden mt-2 space-y-3" data-blocks-settings-body="${h(e.id)}">
+          <div class="hidden mt-2 space-y-3" data-blocks-settings-body="${u(e.id)}">
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Field Name</label>
-                <input type="text" data-field-prop="${h(e.id)}" data-prop-key="name"
-                       value="${h(e.name)}" pattern="^[a-z][a-z0-9_]*$"
+                <input type="text" data-field-prop="${u(e.id)}" data-prop-key="name"
+                       value="${u(e.name)}" pattern="^[a-z][a-z0-9_]*$"
                        class="${p("xs")}" />
               </div>
               <div>
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Label</label>
-                <input type="text" data-field-prop="${h(e.id)}" data-prop-key="label"
-                       value="${h(e.label)}"
+                <input type="text" data-field-prop="${u(e.id)}" data-prop-key="label"
+                       value="${u(e.label)}"
                        class="${p("xs")}" />
               </div>
             </div>
             <div>
               <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Description</label>
-              <input type="text" data-field-prop="${h(e.id)}" data-prop-key="description"
-                     value="${h(e.description ?? "")}" placeholder="Help text for editors"
+              <input type="text" data-field-prop="${u(e.id)}" data-prop-key="description"
+                     value="${u(e.description ?? "")}" placeholder="Help text for editors"
                      class="${p("xs")}" />
             </div>
             <div class="flex items-center gap-4">
               <label class="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" data-field-check="${h(e.id)}" data-check-key="required"
+                <input type="checkbox" data-field-check="${u(e.id)}" data-check-key="required"
                        ${e.required ? "checked" : ""}
                        class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
                 <span class="text-[11px] text-gray-600 dark:text-gray-400">Required</span>
               </label>
               <label class="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" data-field-check="${h(e.id)}" data-check-key="readonly"
+                <input type="checkbox" data-field-check="${u(e.id)}" data-check-key="readonly"
                        ${e.readonly ? "checked" : ""}
                        class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
                 <span class="text-[11px] text-gray-600 dark:text-gray-400">Read-only</span>
               </label>
               <label class="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" data-field-check="${h(e.id)}" data-check-key="hidden"
+                <input type="checkbox" data-field-check="${u(e.id)}" data-check-key="hidden"
                        ${e.hidden ? "checked" : ""}
                        class="w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500" />
                 <span class="text-[11px] text-gray-600 dark:text-gray-400">Hidden</span>
@@ -7142,15 +7167,15 @@ class xa {
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
-                <select data-field-section-select="${h(e.id)}"
+                <select data-field-section-select="${u(e.id)}"
                         class="${_("xs")}">
-                  ${t.map((k) => `<option value="${h(k)}" ${k === r ? "selected" : ""}>${h(W(k))}</option>`).join("")}
+                  ${t.map((x) => `<option value="${u(x)}" ${x === r ? "selected" : ""}>${u(W(x))}</option>`).join("")}
                   <option value="__new__">+ New section...</option>
                 </select>
               </div>
               <div>
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Grid Span (1-12)</label>
-                <input type="number" data-field-prop="${h(e.id)}" data-prop-key="gridSpan"
+                <input type="number" data-field-prop="${u(e.id)}" data-prop-key="gridSpan"
                        value="${e.gridSpan ?? ""}" min="1" max="12" placeholder="12"
                        class="${p("xs")}" />
               </div>
@@ -7160,7 +7185,7 @@ class xa {
 
         <!-- Remove field -->
         <div class="pt-2 border-t border-gray-100 dark:border-gray-800">
-          <button type="button" data-field-remove="${h(e.id)}"
+          <button type="button" data-field-remove="${u(e.id)}"
                   class="text-[11px] text-red-500 hover:text-red-700 font-medium transition-colors">
             Remove field
           </button>
@@ -7175,7 +7200,7 @@ class xa {
     return r.length === 0 ? `
         <div data-move-menu class="absolute right-0 top-full mt-1 z-30 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm">
           <div class="px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500">Only one section exists.</div>
-          <button type="button" data-move-new-section="${h(e.id)}"
+          <button type="button" data-move-new-section="${u(e.id)}"
                   class="w-full text-left px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
             + Create new section
           </button>
@@ -7183,15 +7208,15 @@ class xa {
       <div data-move-menu class="absolute right-0 top-full mt-1 z-30 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm">
         <div class="px-3 py-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Move to section</div>
         ${r.map((s) => `
-          <button type="button" data-move-to="${h(s)}" data-move-field="${h(e.id)}"
+          <button type="button" data-move-to="${u(s)}" data-move-field="${u(e.id)}"
                   class="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
             <svg class="w-3 h-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
-            ${h(W(s))}
+            ${u(W(s))}
           </button>`).join("")}
         <div class="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
-          <button type="button" data-move-new-section="${h(e.id)}"
+          <button type="button" data-move-new-section="${u(e.id)}"
                   class="w-full text-left px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
             + Create new section
           </button>
@@ -7302,30 +7327,30 @@ class xa {
     }
     const s = a.closest("[data-toggle-section]");
     if (s) {
-      const g = s.dataset.toggleSection, S = this.getSectionState(g);
-      S.collapsed = !S.collapsed, this.sectionStates.set(g, S);
-      const C = t.querySelector(`[data-section-body="${g}"]`), F = t.querySelector(`[data-section-chevron="${g}"]`);
-      C && C.classList.toggle("hidden", S.collapsed), F && (F.innerHTML = S.collapsed ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
+      const y = s.dataset.toggleSection, S = this.getSectionState(y);
+      S.collapsed = !S.collapsed, this.sectionStates.set(y, S);
+      const C = t.querySelector(`[data-section-body="${y}"]`), P = t.querySelector(`[data-section-chevron="${y}"]`);
+      C && C.classList.toggle("hidden", S.collapsed), P && (P.innerHTML = S.collapsed ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
       return;
     }
     const i = a.closest("[data-field-actions]");
     if (i) {
       e.stopPropagation();
-      const g = i.dataset.fieldActions;
-      this.moveMenuFieldId = this.moveMenuFieldId === g ? null : g, this.render();
+      const y = i.dataset.fieldActions;
+      this.moveMenuFieldId = this.moveMenuFieldId === y ? null : y, this.render();
       return;
     }
     const n = a.closest("[data-move-to]");
     if (n) {
       e.stopPropagation();
-      const g = n.dataset.moveTo, S = n.dataset.moveField;
-      this.moveFieldToSection(S, g);
+      const y = n.dataset.moveTo, S = n.dataset.moveField;
+      this.moveFieldToSection(S, y);
       return;
     }
     const l = a.closest("[data-move-new-section]");
     if (l) {
       e.stopPropagation();
-      const g = l.dataset.moveNewSection;
+      const y = l.dataset.moveNewSection;
       new se({
         title: "Create New Section",
         label: "Section name",
@@ -7333,8 +7358,8 @@ class xa {
         confirmLabel: "Create",
         inputClass: p(),
         onConfirm: (C) => {
-          const F = C.trim().toLowerCase().replace(/\s+/g, "_");
-          F && this.moveFieldToSection(g, F);
+          const P = C.trim().toLowerCase().replace(/\s+/g, "_");
+          P && this.moveFieldToSection(y, P);
         }
       }).show();
       return;
@@ -7342,63 +7367,63 @@ class xa {
     const d = a.closest("[data-field-move-up]");
     if (d) {
       e.stopPropagation();
-      const g = d.dataset.fieldMoveUp;
-      d.hasAttribute("disabled") || this.moveFieldInSection(g, -1);
+      const y = d.dataset.fieldMoveUp;
+      d.hasAttribute("disabled") || this.moveFieldInSection(y, -1);
       return;
     }
     const c = a.closest("[data-field-move-down]");
     if (c) {
       e.stopPropagation();
-      const g = c.dataset.fieldMoveDown;
-      c.hasAttribute("disabled") || this.moveFieldInSection(g, 1);
+      const y = c.dataset.fieldMoveDown;
+      c.hasAttribute("disabled") || this.moveFieldInSection(y, 1);
       return;
     }
-    const m = a.closest("[data-field-remove]");
-    if (m) {
-      const g = m.dataset.fieldRemove, S = this.fields.find((C) => C.id === g);
+    const g = a.closest("[data-field-remove]");
+    if (g) {
+      const y = g.dataset.fieldRemove, S = this.fields.find((C) => C.id === y);
       S && re.confirm(`Remove field "${S.label || S.name}"?`, {
         title: "Remove Field",
         confirmText: "Remove",
         confirmVariant: "danger"
       }).then((C) => {
-        C && (this.fields = this.fields.filter((F) => F.id !== g), this.expandedFieldId === g && (this.expandedFieldId = null), this.notifySchemaChange(), this.render());
+        C && (this.fields = this.fields.filter((P) => P.id !== y), this.expandedFieldId === y && (this.expandedFieldId = null), this.notifySchemaChange(), this.render());
       });
       return;
     }
-    const w = a.closest("[data-blocks-settings-toggle]");
-    if (w) {
-      const g = w.dataset.blocksSettingsToggle, S = t.querySelector(`[data-blocks-settings-body="${g}"]`), C = t.querySelector(`[data-blocks-settings-chevron="${g}"]`);
+    const k = a.closest("[data-blocks-settings-toggle]");
+    if (k) {
+      const y = k.dataset.blocksSettingsToggle, S = t.querySelector(`[data-blocks-settings-body="${y}"]`), C = t.querySelector(`[data-blocks-settings-chevron="${y}"]`);
       if (S) {
-        const F = S.classList.toggle("hidden");
-        C && (C.innerHTML = F ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
+        const P = S.classList.toggle("hidden");
+        C && (C.innerHTML = P ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
       }
       return;
     }
-    const u = a.closest("[data-blocks-mode-toggle]");
-    if (u) {
+    const h = a.closest("[data-blocks-mode-toggle]");
+    if (h) {
       e.stopPropagation();
-      const g = u.dataset.blocksModeToggle, S = u.dataset.blocksMode ?? "allowed";
-      this.blockPickerModes.set(g, S), this.render();
+      const y = h.dataset.blocksModeToggle, S = h.dataset.blocksMode ?? "allowed";
+      this.blockPickerModes.set(y, S), this.render();
       return;
     }
     if (a.closest("[data-blocks-open-library]")) {
       e.stopPropagation();
-      const g = this.config.api.getBasePath();
-      window.location.href = `${g}/content/block-library`;
+      const y = this.config.api.getBasePath();
+      window.location.href = `${y}/content/block-library`;
       return;
     }
-    const k = a.closest("[data-blocks-advanced]");
-    if (k) {
+    const x = a.closest("[data-blocks-advanced]");
+    if (x) {
       e.stopPropagation();
-      const g = k.dataset.blocksAdvanced, S = this.fields.find((C) => C.id === g);
+      const y = x.dataset.blocksAdvanced, S = this.fields.find((C) => C.id === y);
       S && this.openFieldConfigModal(S);
       return;
     }
     const L = a.closest("[data-field-toggle]");
     if (L) {
       if (a.closest("[data-field-grip]")) return;
-      const g = L.dataset.fieldToggle;
-      if (this.expandedFieldId = this.expandedFieldId === g ? null : g, this.render(), this.expandedFieldId) {
+      const y = L.dataset.fieldToggle;
+      if (this.expandedFieldId = this.expandedFieldId === y ? null : y, this.render(), this.expandedFieldId) {
         const S = this.fields.find((C) => C.id === this.expandedFieldId);
         S && A(S.type) === "blocks" && this.loadBlocksForField(S);
       }
@@ -7501,8 +7526,8 @@ class xa {
       selectedBlocks: i,
       onSelectionChange: (c) => {
         e.config || (e.config = {});
-        const m = e.config;
-        s ? c.size > 0 ? m.allowedBlocks = Array.from(c) : delete m.allowedBlocks : c.size > 0 ? m.deniedBlocks = Array.from(c) : delete m.deniedBlocks, Object.keys(e.config).length === 0 && (e.config = void 0), this.notifySchemaChange();
+        const g = e.config;
+        s ? c.size > 0 ? g.allowedBlocks = Array.from(c) : delete g.allowedBlocks : c.size > 0 ? g.deniedBlocks = Array.from(c) : delete g.deniedBlocks, Object.keys(e.config).length === 0 && (e.config = void 0), this.notifySchemaChange();
       },
       label: n,
       accent: l,
@@ -7611,7 +7636,7 @@ class xa {
     this.config.onSchemaChange(this.block.id, [...this.fields]);
   }
 }
-function h(o) {
+function u(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
@@ -7978,7 +8003,7 @@ const Ee = ["content", "media", "layout", "interactive", "custom"], ve = class v
     const t = this.listEl?.querySelector("[data-create-category]");
     if (!t) return;
     const a = e ?? t.value;
-    t.innerHTML = this.state.categories.map((r) => `<option value="${M(r)}">${M(he(r))}</option>`).join(""), t.innerHTML += '<option value="__add__">Add category...</option>', a && this.state.categories.includes(a) && (t.value = a);
+    t.innerHTML = this.state.categories.map((r) => `<option value="${M(r)}">${M(ue(r))}</option>`).join(""), t.innerHTML += '<option value="__add__">Add category...</option>', a && this.state.categories.includes(a) && (t.value = a);
   }
   promptForCategory(e, t) {
     new se({
@@ -8108,7 +8133,7 @@ const Ee = ["content", "media", "layout", "interactive", "custom"], ve = class v
             <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">Category</label>
             <select data-create-category
                     class="${_()}">
-              ${this.state.categories.map((e) => `<option value="${M(e)}">${M(he(e))}</option>`).join("")}
+              ${this.state.categories.map((e) => `<option value="${M(e)}">${M(ue(e))}</option>`).join("")}
               <option value="__add__">Add category...</option>
             </select>
           </div>
@@ -8150,10 +8175,10 @@ const Ee = ["content", "media", "layout", "interactive", "custom"], ve = class v
     l + n > window.innerWidth - 8 && (l = window.innerWidth - n - 8), l < 8 && (l = 8), r.style.left = `${l}px`, document.body.appendChild(r);
     const d = r.getBoundingClientRect();
     d.bottom > window.innerHeight - 8 && (r.style.top = `${i.top - d.height - 4}px`), r.addEventListener("click", (c) => {
-      const m = c.target.closest("[data-menu-action]");
-      if (!m) return;
-      const w = m.dataset.menuAction, u = m.dataset.menuBlockId;
-      this.closeContextMenu(), this.handleAction(w, u);
+      const g = c.target.closest("[data-menu-action]");
+      if (!g) return;
+      const k = g.dataset.menuAction, h = g.dataset.menuBlockId;
+      this.closeContextMenu(), this.handleAction(k, h);
     }), this.activeMenu = () => {
       r.remove(), this.activeMenu = null;
     };
@@ -8166,7 +8191,7 @@ const Ee = ["content", "media", "layout", "interactive", "custom"], ve = class v
       this.categorySelect.innerHTML = '<option value="">All Categories</option>';
       for (const e of this.state.categories) {
         const t = document.createElement("option");
-        t.value = e, t.textContent = he(e), e === this.state.categoryFilter && (t.selected = !0), this.categorySelect.appendChild(t);
+        t.value = e, t.textContent = ue(e), e === this.state.categoryFilter && (t.selected = !0), this.categorySelect.appendChild(t);
       }
     }
   }
@@ -8231,7 +8256,7 @@ const Ee = ["content", "media", "layout", "interactive", "custom"], ve = class v
   /** Handle adding a field from the palette (Phase 9 — click or drop) */
   handlePaletteAddField(e) {
     if (!this.editorPanel || !this.state.selectedBlockId) return;
-    const t = e.type === "blocks", a = t ? "Content Blocks" : e?.label ?? he(e.type), r = t ? "content_blocks" : e.type.replace(/-/g, "_"), s = new Set(this.editorPanel.getFields().map((d) => d.name));
+    const t = e.type === "blocks", a = t ? "Content Blocks" : e?.label ?? ue(e.type), r = t ? "content_blocks" : e.type.replace(/-/g, "_"), s = new Set(this.editorPanel.getFields().map((d) => d.name));
     let i = r, n = 1;
     for (; s.has(i); )
       i = t ? `content_blocks_${n++}` : `${r}_${n++}`;
@@ -8524,7 +8549,7 @@ function M(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
-function he(o) {
+function ue(o) {
   return o.charAt(0).toUpperCase() + o.slice(1).toLowerCase();
 }
 function wa(o) {
