@@ -661,6 +661,10 @@ type CMSContentTypeEntryRepository struct {
 	contentType CMSContentType
 }
 
+type cmsContentListOptionsService interface {
+	ContentsWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSContent, error)
+}
+
 // NewCMSContentTypeEntryRepository builds a content repository scoped to the supplied content type.
 func NewCMSContentTypeEntryRepository(content CMSContentService, contentType CMSContentType) *CMSContentTypeEntryRepository {
 	return &CMSContentTypeEntryRepository{content: content, contentType: contentType}
@@ -672,7 +676,7 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 		return nil, 0, ErrNotFound
 	}
 	locale := extractLocale(opts, "")
-	contents, err := r.content.Contents(ctx, locale)
+	contents, err := r.listContents(ctx, locale)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -719,6 +723,28 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 		out = append(out, record)
 	}
 	return out, total, nil
+}
+
+func (r *CMSContentTypeEntryRepository) listContents(ctx context.Context, locale string) ([]CMSContent, error) {
+	if r.content == nil {
+		return nil, ErrNotFound
+	}
+	if contentTypeWantsTranslations(r.contentType) {
+		if svc, ok := r.content.(cmsContentListOptionsService); ok && svc != nil {
+			return svc.ContentsWithOptions(ctx, locale, WithTranslations())
+		}
+	}
+	return r.content.Contents(ctx, locale)
+}
+
+func contentTypeWantsTranslations(contentType CMSContentType) bool {
+	slug := strings.ToLower(strings.TrimSpace(panelSlugForContentType(&contentType)))
+	switch slug {
+	case "pages", "page", "posts", "post":
+		return true
+	default:
+		return false
+	}
 }
 
 // Get retrieves content by id, enforcing content type membership.
