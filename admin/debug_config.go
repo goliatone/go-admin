@@ -98,6 +98,18 @@ type DebugConfig struct {
 	FeatureKey       string
 	Permission       string
 	BasePath         string
+	// AppID identifies the running application instance for remote debug clients.
+	AppID string
+	// AppName is a human-friendly application name for remote debug clients.
+	AppName string
+	// Environment labels the current deployment (e.g., "staging", "prod").
+	Environment string
+	// RemoteEnabled toggles the remote debug identity/token endpoints.
+	RemoteEnabled bool
+	// TokenTTL overrides the default TTL for debug exchange tokens.
+	TokenTTL time.Duration
+	// AllowedOrigins restricts remote debug origins (identity/token/ws).
+	AllowedOrigins []string
 	// LayoutMode controls which debug template is rendered for the HTML route.
 	LayoutMode DebugLayoutMode
 	// PageTemplate is the primary debug template used for HTML rendering.
@@ -148,6 +160,10 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 		cfg.Permission = debugDefaultPermission
 	}
 	cfg.BasePath = strings.TrimSpace(cfg.BasePath)
+	cfg.AppID = strings.TrimSpace(cfg.AppID)
+	cfg.AppName = strings.TrimSpace(cfg.AppName)
+	cfg.Environment = strings.TrimSpace(cfg.Environment)
+	cfg.AllowedOrigins = normalizeDebugOrigins(cfg.AllowedOrigins)
 	if cfg.BasePath == "" {
 		cfg.BasePath = joinBasePath(basePath, debugDefaultPathSuffix)
 	}
@@ -229,6 +245,22 @@ func normalizeDebugToolbarExcludePaths(paths []string, debugBasePath string) []s
 	}
 	if strings.TrimSpace(debugBasePath) != "" && !debugToolbarPathListed(out, debugBasePath) {
 		out = append(out, strings.TrimSpace(debugBasePath))
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeDebugOrigins(origins []string) []string {
+	if len(origins) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(origins))
+	for _, origin := range origins {
+		if trimmed := strings.TrimSpace(origin); trimmed != "" {
+			out = append(out, trimmed)
+		}
 	}
 	if len(out) == 0 {
 		return nil
