@@ -789,76 +789,76 @@ func normalizeDebugToolbarPath(path string) string {
 
 func debugDebugConfigSnapshot(cfg DebugConfig) map[string]any {
 	out := map[string]any{
-		"Enabled":            cfg.Enabled,
-		"CaptureSQL":         cfg.CaptureSQL,
-		"CaptureLogs":        cfg.CaptureLogs,
-		"CaptureRequestBody": cfg.CaptureRequestBody,
-		"CaptureJSErrors":    cfg.CaptureJSErrors,
-		"StrictQueryHooks":   cfg.StrictQueryHooks,
-		"MaxLogEntries":      cfg.MaxLogEntries,
-		"MaxSQLQueries":      cfg.MaxSQLQueries,
-		"MaskPlaceholder":    cfg.MaskPlaceholder,
-		"FeatureKey":         cfg.FeatureKey,
-		"Permission":         cfg.Permission,
-		"BasePath":           cfg.BasePath,
-		"LayoutMode":         cfg.LayoutMode,
-		"PageTemplate":       cfg.PageTemplate,
-		"StandaloneTemplate": cfg.StandaloneTemplate,
-		"DashboardTemplate":  cfg.DashboardTemplate,
-		"SlowQueryThreshold": cfg.SlowQueryThreshold,
-		"PersistLayout":      cfg.PersistLayout,
-		"ToolbarMode":        cfg.ToolbarMode,
+		"enabled":              cfg.Enabled,
+		"capture_sql":          cfg.CaptureSQL,
+		"capture_logs":         cfg.CaptureLogs,
+		"capture_request_body": cfg.CaptureRequestBody,
+		"capture_js_errors":    cfg.CaptureJSErrors,
+		"strict_query_hooks":   cfg.StrictQueryHooks,
+		"max_log_entries":      cfg.MaxLogEntries,
+		"max_sql_queries":      cfg.MaxSQLQueries,
+		"mask_placeholder":     cfg.MaskPlaceholder,
+		"feature_key":          cfg.FeatureKey,
+		"permission":           cfg.Permission,
+		"base_path":            cfg.BasePath,
+		"layout_mode":          cfg.LayoutMode,
+		"page_template":        cfg.PageTemplate,
+		"standalone_template":  cfg.StandaloneTemplate,
+		"dashboard_template":   cfg.DashboardTemplate,
+		"slow_query_threshold": cfg.SlowQueryThreshold,
+		"persist_layout":       cfg.PersistLayout,
+		"toolbar_mode":         cfg.ToolbarMode,
 	}
 	if panels := cloneStringSlice(cfg.Panels); len(panels) > 0 {
-		out["Panels"] = panels
+		out["panels"] = panels
 	}
 	if toolbar := cloneStringSlice(cfg.ToolbarPanels); len(toolbar) > 0 {
-		out["ToolbarPanels"] = toolbar
+		out["toolbar_panels"] = toolbar
 	}
 	if excludes := cloneStringSlice(cfg.ToolbarExcludePaths); len(excludes) > 0 {
-		out["ToolbarExcludePaths"] = excludes
+		out["toolbar_exclude_paths"] = excludes
 	}
 	if ips := cloneStringSlice(cfg.AllowedIPs); len(ips) > 0 {
-		out["AllowedIPs"] = ips
+		out["allowed_ips"] = ips
 	}
 	if mask := cloneStringMap(cfg.MaskFieldTypes); len(mask) > 0 {
-		out["MaskFieldTypes"] = mask
+		out["mask_field_types"] = mask
 	}
 	if repl := debugReplConfigSnapshot(cfg.Repl); len(repl) > 0 {
-		out["Repl"] = repl
+		out["repl"] = repl
 	}
 	return out
 }
 
 func debugReplConfigSnapshot(cfg DebugREPLConfig) map[string]any {
 	out := map[string]any{
-		"Enabled":            cfg.Enabled,
-		"ShellEnabled":       cfg.ShellEnabled,
-		"AppEnabled":         cfg.AppEnabled,
-		"Permission":         cfg.Permission,
-		"ExecPermission":     cfg.ExecPermission,
-		"ReadOnly":           cfg.ReadOnly,
-		"ShellCommand":       cfg.ShellCommand,
-		"WorkingDir":         cfg.WorkingDir,
-		"MaxSessionSeconds":  cfg.MaxSessionSeconds,
-		"AppEvalTimeoutMs":   cfg.AppEvalTimeoutMs,
-		"MaxSessionsPerUser": cfg.MaxSessionsPerUser,
-		"OverrideStrategy":   debugReplStrategySnapshot(cfg.OverrideStrategy),
+		"enabled":               cfg.Enabled,
+		"shell_enabled":         cfg.ShellEnabled,
+		"app_enabled":           cfg.AppEnabled,
+		"permission":            cfg.Permission,
+		"exec_permission":       cfg.ExecPermission,
+		"read_only":             cfg.ReadOnly,
+		"shell_command":         cfg.ShellCommand,
+		"working_dir":           cfg.WorkingDir,
+		"max_session_seconds":   cfg.MaxSessionSeconds,
+		"app_eval_timeout_ms":   cfg.AppEvalTimeoutMs,
+		"max_sessions_per_user": cfg.MaxSessionsPerUser,
+		"override_strategy":     debugReplStrategySnapshot(cfg.OverrideStrategy),
 	}
 	if roles := cloneStringSlice(cfg.AllowedRoles); len(roles) > 0 {
-		out["AllowedRoles"] = roles
+		out["allowed_roles"] = roles
 	}
 	if ips := cloneStringSlice(cfg.AllowedIPs); len(ips) > 0 {
-		out["AllowedIPs"] = ips
+		out["allowed_ips"] = ips
 	}
 	if args := cloneStringSlice(cfg.ShellArgs); len(args) > 0 {
-		out["ShellArgs"] = args
+		out["shell_args"] = args
 	}
 	if env := cloneStringSlice(cfg.Environment); len(env) > 0 {
-		out["Environment"] = env
+		out["environment"] = env
 	}
 	if pkgs := cloneStringSlice(cfg.AppAllowedPackages); len(pkgs) > 0 {
-		out["AppAllowedPackages"] = pkgs
+		out["app_allowed_packages"] = pkgs
 	}
 	return out
 }
