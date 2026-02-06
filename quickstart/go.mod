@@ -10,7 +10,7 @@ require (
 	github.com/goliatone/go-admin v0.23.0
 	github.com/goliatone/go-auth v0.28.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.28.0
-	github.com/goliatone/go-cms v0.29.0
+	github.com/goliatone/go-cms v0.30.0
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-dashboard v0.6.0
 	github.com/goliatone/go-errors v0.10.0
@@ -27,6 +27,8 @@ require (
 	github.com/goliatone/go-users v0.15.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
+	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
+	github.com/uptrace/bun/driver/sqliteshim v1.2.16
 )
 
 require (
@@ -151,8 +153,6 @@ require (
 	github.com/uptrace/bun v1.2.16 // indirect
 	github.com/uptrace/bun/dbfixture v1.2.16 // indirect
 	github.com/uptrace/bun/dialect/pgdialect v1.2.16 // indirect
-	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16 // indirect
-	github.com/uptrace/bun/driver/sqliteshim v1.2.16 // indirect
 	github.com/uptrace/bun/extra/bundebug v1.2.16 // indirect
 	github.com/uptrace/bun/extra/bunotel v1.2.16 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelsql v0.3.2 // indirect
