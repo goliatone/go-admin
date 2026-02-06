@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
+	"github.com/google/uuid"
 )
 
 type stubAppPageReadService struct {
@@ -187,9 +188,10 @@ func TestPageApplicationServiceGetAllowsMissingTranslations(t *testing.T) {
 
 func TestPageApplicationServicePublishBlockedByTranslationPolicy(t *testing.T) {
 	ctx := context.Background()
+	id := uuid.New().String()
 	read := &stubAppPageReadService{
 		getRecord: &AdminPageRecord{
-			ID:     "page-1",
+			ID:     id,
 			Title:  "Home",
 			Slug:   "home",
 			Path:   "/home",
@@ -214,7 +216,7 @@ func TestPageApplicationServicePublishBlockedByTranslationPolicy(t *testing.T) {
 		TranslationPolicy: policy,
 	}
 
-	_, err := service.Publish(ctx, "page-1", map[string]any{"locale": "es"})
+	_, err := service.Publish(ctx, id, map[string]any{"locale": "es"})
 	if err == nil {
 		t.Fatalf("expected translation policy error")
 	}
@@ -234,7 +236,8 @@ func TestPageApplicationServicePublishBlockedByTranslationPolicy(t *testing.T) {
 
 func TestWorkflowUpdateHookBlocksMissingTranslations(t *testing.T) {
 	ctx := AdminContext{Context: context.Background()}
-	repo := &stubPanelRepository{record: map[string]any{"id": "page-1", "status": "staging"}}
+	id := uuid.New().String()
+	repo := &stubPanelRepository{record: map[string]any{"id": id, "status": "staging"}}
 	workflow := &stubWorkflowEngine{
 		transitions: []WorkflowTransition{
 			{Name: "promote", From: "staging", To: "prod"},
@@ -252,7 +255,7 @@ func TestWorkflowUpdateHookBlocksMissingTranslations(t *testing.T) {
 		"transition": "promote",
 		"locale":     "fr",
 	}
-	err := hook(ctx, "page-1", record)
+	err := hook(ctx, id, record)
 	if err == nil {
 		t.Fatalf("expected translation policy error")
 	}
