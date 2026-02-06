@@ -280,7 +280,7 @@ class Vt {
     });
   }
 }
-const Gr = {
+const Hr = {
   /**
    * Status badge renderer with custom colors
    */
@@ -2701,7 +2701,7 @@ const St = {
     { label: "between", value: "between" }
   ]
 };
-class Hr {
+class Ur {
   constructor(e) {
     this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new Ue();
   }
@@ -2993,7 +2993,7 @@ const Ct = {
     { label: "is not", value: "ne" }
   ]
 };
-class Ur {
+class zr {
   constructor(e) {
     this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new Ue(), this.structure = { groups: [], groupLogic: [] }, this.init();
   }
@@ -3359,7 +3359,7 @@ class Ur {
     this.structure = e, this.render();
   }
 }
-class zr {
+class Vr {
   constructor(e) {
     if (this.searchableFields = e, !e || e.length === 0)
       throw new Error("At least one searchable field is required");
@@ -3376,7 +3376,7 @@ class zr {
     t.resetPagination(), await t.refresh();
   }
 }
-class Vr {
+class Yr {
   buildFilters(e) {
     const t = {}, r = /* @__PURE__ */ new Map();
     return e.forEach((n) => {
@@ -3396,7 +3396,7 @@ class Vr {
     r.resetPagination(), await r.refresh();
   }
 }
-class Yr {
+class Xr {
   buildQuery(e, t) {
     return {
       limit: t,
@@ -3407,7 +3407,7 @@ class Yr {
     await t.refresh();
   }
 }
-class Xr {
+class Wr {
   buildQuery(e) {
     return !e || e.length === 0 ? {} : { order: e.map((r) => `${r.field} ${r.direction}`).join(",") };
   }
@@ -3415,7 +3415,7 @@ class Xr {
     await r.refresh();
   }
 }
-class Wr {
+class Jr {
   constructor(e) {
     if (!e || !e.endpoint)
       throw new Error("export endpoint is required");
@@ -3645,7 +3645,7 @@ function se(o, e, t) {
   }
   e === "error" && alert(t);
 }
-class Jr {
+class Qr {
   constructor(e) {
     this.baseEndpoint = e;
   }
@@ -3674,10 +3674,14 @@ function Mr(o) {
   const e = (o || "").trim();
   return !e || e === "/" ? "" : "/" + e.replace(/^\/+|\/+$/g, "");
 }
+function Rr(o) {
+  const e = (o || "").trim();
+  return !e || e === "/" ? "" : e.replace(/\/+$/, "");
+}
 function jt(o) {
   return typeof o == "object" && o !== null && "version" in o && o.version === 2;
 }
-class Rr {
+class Nr {
   constructor(e, t = "datatable_columns") {
     this.cachedOrder = null, this.storageKey = t;
   }
@@ -3793,12 +3797,12 @@ class Rr {
     }
   }
 }
-class Qr extends Rr {
+class Kr extends Nr {
   constructor(e, t) {
     const r = t.localStorageKey || `${t.resource}_datatable_columns`;
     super(e, r), this.syncTimeout = null, this.serverPrefs = null, this.resource = t.resource;
-    const n = Mr(t.basePath);
-    this.preferencesEndpoint = t.preferencesEndpoint || `${n}/api/preferences`, this.syncDebounce = t.syncDebounce ?? 1e3;
+    const n = Mr(t.basePath), i = Rr(t.apiBasePath);
+    t.preferencesEndpoint ? this.preferencesEndpoint = t.preferencesEndpoint : i ? this.preferencesEndpoint = `${i}/preferences` : n ? this.preferencesEndpoint = `${n}/api/preferences` : this.preferencesEndpoint = "/api/preferences", this.syncDebounce = t.syncDebounce ?? 1e3;
   }
   /**
    * Get the server preference key for this resource
@@ -3949,19 +3953,19 @@ class Qr extends Rr {
 }
 export {
   zt as ActionRenderer,
-  Hr as AdvancedSearch,
+  Ur as AdvancedSearch,
   Vt as CellRendererRegistry,
   br as ColumnManager,
-  Gr as CommonRenderers,
+  Hr as CommonRenderers,
   yr as DataGrid,
-  Rr as DefaultColumnVisibilityBehavior,
-  Ur as FilterBuilder,
-  Jr as GoCrudBulkActionBehavior,
-  Wr as GoCrudExportBehavior,
-  Vr as GoCrudFilterBehavior,
-  Yr as GoCrudPaginationBehavior,
-  zr as GoCrudSearchBehavior,
-  Xr as GoCrudSortBehavior,
-  Qr as ServerColumnVisibilityBehavior
+  Nr as DefaultColumnVisibilityBehavior,
+  zr as FilterBuilder,
+  Qr as GoCrudBulkActionBehavior,
+  Jr as GoCrudExportBehavior,
+  Yr as GoCrudFilterBehavior,
+  Xr as GoCrudPaginationBehavior,
+  Vr as GoCrudSearchBehavior,
+  Wr as GoCrudSortBehavior,
+  Kr as ServerColumnVisibilityBehavior
 };
 //# sourceMappingURL=index.js.map

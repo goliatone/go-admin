@@ -71,4 +71,22 @@ export interface PersistenceBehavior {
     save(endpoint: string, layout: LayoutPreferences): Promise<void>;
     load(endpoint: string): Promise<LayoutPreferences | null>;
 }
+/**
+ * Configuration for admin dashboard client-side rendering
+ */
+export interface AdminDashboardConfig {
+    basePath: string;
+    apiBasePath: string;
+    activityActionLabels: Record<string, string>;
+}
+/**
+ * Dashboard API response structure
+ */
+export interface DashboardResponse {
+    widgets: Widget[];
+}
+/**
+ * Widget definition to title mapping
+ */
+export type WidgetTitleMap = Record<string, string>;
 //# sourceMappingURL=types.d.ts.map

@@ -18,9 +18,16 @@ export type {
   ResizeBehavior,
   VisibilityBehavior,
   PersistenceBehavior,
+  AdminDashboardConfig,
+  DashboardResponse,
+  WidgetTitleMap,
 } from './types.js';
 
 export { DefaultDragDropBehavior } from './behaviors/drag-drop.js';
 export { DefaultResizeBehavior } from './behaviors/resize.js';
 export { DefaultVisibilityBehavior } from './behaviors/visibility.js';
 export { DefaultPersistenceBehavior } from './behaviors/persistence.js';
+
+// Admin dashboard client-side rendering
+export { WidgetRenderer } from './widget-renderer.js';
+export { initAdminDashboard, bootstrapAdminDashboard } from './admin-dashboard.js';
