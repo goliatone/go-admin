@@ -549,7 +549,7 @@ func roleDebugPermissionsValue(record map[string]any) string {
 	}
 	debugPermissions := make([]string, 0, 2)
 	for _, permission := range permissions {
-		if permission == "admin.debug.repl" || permission == "admin.debug.repl.exec" {
+		if permission == "admin.debug.repl" || permission == "admin.debug.repl.exec" || permission == "admin.debug.session.view" || permission == "admin.debug.session.attach" {
 			debugPermissions = append(debugPermissions, permission)
 		}
 	}
