@@ -91,7 +91,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 		{
 			ID:            mainGroup,
 			Type:          admin.MenuItemTypeGroup,
-			GroupTitle:    "Main Menu",
+			GroupTitle:    "Navigation",
 			GroupTitleKey: "menu.group.main",
 			Position:      admin.IntPtr(0),
 			Menu:          menuCode,

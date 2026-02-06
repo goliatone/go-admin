@@ -62,7 +62,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		{
 			ID:            NavigationGroupMain,
 			Type:          admin.MenuItemTypeGroup,
-			GroupTitle:    "Main Menu",
+			GroupTitle:    "Navigation",
 			GroupTitleKey: "menu.group.main",
 			Position:      prtInt(0),
 			Menu:          menuCode,
@@ -70,7 +70,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		{
 			ID:            NavigationGroupOthers,
 			Type:          admin.MenuItemTypeGroup,
-			GroupTitle:    "Others",
+			GroupTitle:    "Tools",
 			GroupTitleKey: "menu.group.others",
 			Position:      prtInt(90),
 			Menu:          menuCode,
@@ -327,8 +327,8 @@ func EnsureDashboardFirst(ctx context.Context, menuSvc admin.CMSMenuService, bas
 		}
 		if strings.EqualFold(item.GroupTitleKey, "menu.group.main") ||
 			strings.EqualFold(item.LabelKey, "menu.group.main") ||
-			strings.EqualFold(item.GroupTitle, "Main Menu") ||
-			strings.EqualFold(item.Label, "Main Menu") {
+			strings.EqualFold(item.GroupTitle, "Navigation") ||
+			strings.EqualFold(item.Label, "Navigation") {
 			mainGroup = item
 			break
 		}
@@ -434,8 +434,8 @@ func EnsureDashboardFirst(ctx context.Context, menuSvc admin.CMSMenuService, bas
 		}
 		if strings.EqualFold(item.GroupTitleKey, "menu.group.main") ||
 			strings.EqualFold(item.LabelKey, "menu.group.main") ||
-			strings.EqualFold(item.GroupTitle, "Main Menu") ||
-			strings.EqualFold(item.Label, "Main Menu") {
+			strings.EqualFold(item.GroupTitle, "Navigation") ||
+			strings.EqualFold(item.Label, "Navigation") {
 			updatedMainGroup = item
 			break
 		}

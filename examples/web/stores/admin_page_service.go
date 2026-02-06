@@ -343,6 +343,9 @@ func buildPageTranslationBundle(record map[string]any, requested, resolved strin
 	if meta.RequestedLocale == "" {
 		meta.RequestedLocale = meta.ResolvedLocale
 	}
+	if primary := strings.TrimSpace(asString(record["primary_locale"], "")); primary != "" {
+		meta.PrimaryLocale = primary
+	}
 	if locales := parseLocaleSlice(record["available_locales"]); len(locales) > 0 {
 		meta.AvailableLocales = locales
 	}
@@ -393,6 +396,9 @@ func buildContentTranslationBundle(record map[string]any, requested, resolved st
 	}
 	if meta.RequestedLocale == "" {
 		meta.RequestedLocale = meta.ResolvedLocale
+	}
+	if primary := strings.TrimSpace(asString(record["primary_locale"], "")); primary != "" {
+		meta.PrimaryLocale = primary
 	}
 	if locales := parseLocaleSlice(record["available_locales"]); len(locales) > 0 {
 		meta.AvailableLocales = locales
