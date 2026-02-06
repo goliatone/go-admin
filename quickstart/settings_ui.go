@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
@@ -54,8 +53,8 @@ func WithSettingsUIRoute(route string) SettingsUIOption {
 }
 
 // RegisterSettingsUIRoutes registers a read-only settings page rendered from templates.
-func RegisterSettingsUIRoutes(
-	r router.Router[*fiber.App],
+func RegisterSettingsUIRoutes[T any](
+	r router.Router[T],
 	cfg admin.Config,
 	adm *admin.Admin,
 	auth admin.HandlerAuthenticator,
