@@ -48,7 +48,34 @@ func (a *Admin) Initialize(r AdminRouter) error {
 		return errors.New("router cannot be nil")
 	}
 	a.router = r
+	if err := a.runInitHooks(); err != nil {
+		return err
+	}
 	return a.Boot()
+}
+
+// AddInitHook registers a hook that runs after Initialize sets the router.
+func (a *Admin) AddInitHook(hook func(AdminRouter) error) {
+	if a == nil || hook == nil {
+		return
+	}
+	a.initHooks = append(a.initHooks, hook)
+}
+
+func (a *Admin) runInitHooks() error {
+	if a == nil || a.initHooksRun {
+		return nil
+	}
+	a.initHooksRun = true
+	for _, hook := range a.initHooks {
+		if hook == nil {
+			continue
+		}
+		if err := hook(a.router); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Prepare runs the pre-route initialization pipeline (bootstrap, module loading).
