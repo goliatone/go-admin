@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -25,8 +24,8 @@ type AdminPageSpec struct {
 }
 
 // RegisterAdminPageRoutes registers simple admin HTML page routes with URLKit resolution.
-func RegisterAdminPageRoutes(
-	r router.Router[*fiber.App],
+func RegisterAdminPageRoutes[T any](
+	r router.Router[T],
 	cfg admin.Config,
 	adm *admin.Admin,
 	auth admin.HandlerAuthenticator,
