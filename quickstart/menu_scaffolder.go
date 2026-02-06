@@ -15,7 +15,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 	mainGroup := admin.MenuItem{
 		ID:            "nav-group-main",
 		Type:          admin.MenuItemTypeGroup,
-		GroupTitle:    "Main Menu",
+		GroupTitle:    "Navigation",
 		GroupTitleKey: "menu.group.main",
 		Position:      intPtr(0),
 		Menu:          menuCode,
@@ -43,7 +43,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 	others := admin.MenuItem{
 		ID:            "nav-group-others",
 		Type:          admin.MenuItemTypeGroup,
-		GroupTitle:    "Others",
+		GroupTitle:    "Tools",
 		GroupTitleKey: "menu.group.others",
 		Position:      intPtr(90),
 		Menu:          menuCode,
