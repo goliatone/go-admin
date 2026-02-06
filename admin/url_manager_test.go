@@ -27,47 +27,24 @@ func TestNormalizeURLConfigDefaults(t *testing.T) {
 	if cfg.Public.APIVersion != "v1" {
 		t.Fatalf("expected public api version default v1, got %q", cfg.Public.APIVersion)
 	}
-	if cfg.APIPrefix != "api" {
-		t.Fatalf("expected legacy api prefix default, got %q", cfg.APIPrefix)
-	}
-	if cfg.APIVersion != "" {
-		t.Fatalf("expected legacy api version default empty, got %q", cfg.APIVersion)
-	}
 }
 
-func TestNormalizeURLConfigLegacyOverridesAdmin(t *testing.T) {
-	cfg := normalizeURLConfig(URLConfig{
-		APIPrefix:  "legacy-api",
-		APIVersion: "v9",
-	}, "/admin")
-
-	if cfg.Admin.APIPrefix != "legacy-api" {
-		t.Fatalf("expected admin api prefix from legacy, got %q", cfg.Admin.APIPrefix)
-	}
-	if cfg.Admin.APIVersion != "v9" {
-		t.Fatalf("expected admin api version from legacy, got %q", cfg.Admin.APIVersion)
-	}
-	if cfg.Public.APIVersion != "v1" {
-		t.Fatalf("expected public api version default v1, got %q", cfg.Public.APIVersion)
-	}
-	if cfg.APIPrefix != "legacy-api" || cfg.APIVersion != "v9" {
-		t.Fatalf("expected legacy fields to mirror admin, got %q/%q", cfg.APIPrefix, cfg.APIVersion)
-	}
-}
-
-func TestNormalizeURLConfigAdminOverridesLegacy(t *testing.T) {
+func TestNormalizeURLConfigAdminOverridesDefaults(t *testing.T) {
 	cfg := normalizeURLConfig(URLConfig{
 		Admin: URLNamespaceConfig{
 			APIPrefix:  "admin-api",
-			APIVersion: "v2",
+			APIVersion: "v9",
 		},
 	}, "/admin")
 
-	if cfg.APIPrefix != "admin-api" {
-		t.Fatalf("expected legacy api prefix to mirror admin, got %q", cfg.APIPrefix)
+	if cfg.Admin.APIPrefix != "admin-api" {
+		t.Fatalf("expected admin api prefix override, got %q", cfg.Admin.APIPrefix)
 	}
-	if cfg.APIVersion != "v2" {
-		t.Fatalf("expected legacy api version to mirror admin, got %q", cfg.APIVersion)
+	if cfg.Admin.APIVersion != "v9" {
+		t.Fatalf("expected admin api version override, got %q", cfg.Admin.APIVersion)
+	}
+	if cfg.Public.APIVersion != "v1" {
+		t.Fatalf("expected public api version default v1, got %q", cfg.Public.APIVersion)
 	}
 }
 
