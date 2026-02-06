@@ -174,7 +174,7 @@ Error handling env toggles (wired via `quickstart.WithErrorsFromEnv()`):
 ## User Detail Tabs (Example)
 
 - Users detail renders a tab strip sourced from `schema.tabs` in the admin detail payload.
-- Tabs are registered for the `users` panel in `examples/web/modules.go` and include Activity + Profile.
+- Tabs are registered for the `users` panel in `examples/web/main.go` via `quickstart.NewUsersModule(...WithUserPanelTabs(...))` and include Activity + Profile.
 - The detail handler (`examples/web/handlers/users.go`) calls the admin detail API and maps tabs to view links; the template renders `tabs`.
 - If you change the tab targets, ensure the routes exist (e.g., `/admin/activity`) or update the target to a panel/path that does.
 - Tab content is resolved by a host-app resolver (`helpers.TabContentResolver`) and render mode selector (`helpers.TabRenderModeSelector`) to support SSR, hybrid, or client-only strategies.
@@ -510,22 +510,40 @@ service := admin.NewUserManagementService(nil, nil)
 // Uses InMemoryUserStore for both users and roles
 ```
 
-### Using go-users Adapters
+### Quickstart Wiring (Example)
 
-See `../../docs/prds/ADMIN_REFACTOR.md#role-assignment-lookup-system-vs-custom-roles` for context on filtering system roles from custom role assignments.
+The example uses the quickstart helper to wire go-users repositories and the profile store:
 
 ```go
-import users "github.com/goliatone/go-users/pkg/types"
+scopeResolver := quickstart.ScopeBuilder(cfg)
 
-authRepo := // your go-users AuthRepository
-inventory := // your go-users UserInventoryRepository
-roleRegistry := // your go-users RoleRegistry
+adm, _, err := quickstart.NewAdmin(
+    cfg,
+    adapterHooks,
+    quickstart.WithGoUsersUserManagement(quickstart.GoUsersUserManagementConfig{
+        AuthRepo:      usersDeps.AuthRepo,
+        InventoryRepo: usersDeps.InventoryRepo,
+        RoleRegistry:  usersDeps.RoleRegistry,
+        ProfileRepo:   usersDeps.ProfileRepo,
+        ScopeResolver: scopeResolver,
+    }),
+)
+if err != nil {
+    return err
+}
+```
+
+For manual wiring (outside quickstart), you can still build repositories and services directly:
+
+```go
+authRepo := // go-users AuthRepository
+inventory := // go-users UserInventoryRepository
+roleRegistry := // go-users RoleRegistry
 
 userRepo := admin.NewGoUsersUserRepository(authRepo, inventory, scopeResolver)
 roleRepo := admin.NewGoUsersRoleRepository(roleRegistry, scopeResolver)
 
 service := admin.NewUserManagementService(userRepo, roleRepo)
-service.WithRoleAssignmentLookup(admin.UUIDRoleAssignmentLookup{})
 service.WithActivitySink(adm.ActivityFeed())
 ```
 
@@ -575,24 +593,18 @@ The example demonstrates the module pattern:
 ### Registering Modules
 
 ```go
-type usersModule struct {
-    store *stores.UserStore
-}
+usersModule := quickstart.NewUsersModule(
+    admin.WithUserMenuParent(setup.NavigationGroupMain),
+    admin.WithUserProfilesPanel(),
+    admin.WithUserPanelTabs(admin.PanelTab{
+        ID:     "activity",
+        Label:  "Activity",
+        Scope:  admin.PanelTabScopeDetail,
+        Target: admin.PanelTabTarget{Type: "path", Path: "/admin/activity"},
+    }),
+)
 
-func (m *usersModule) Manifest() admin.ModuleManifest {
-    return admin.ModuleManifest{
-        ID:             "users",
-        NameKey:        "modules.users.name",
-        DescriptionKey: "modules.users.description",
-    }
-}
-
-func (m *usersModule) Register(ctx admin.ModuleContext) error {
-    // Register panels, commands, search providers
-    return nil
-}
-
-adm.RegisterModule(&usersModule{store: dataStores.Users})
+modules := []admin.Module{usersModule}
 ```
 
 ### Built-in Modules
