@@ -18,6 +18,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // ContentEntryUIOption customizes content entry UI routes.
@@ -210,20 +211,27 @@ func (h *contentEntryHandlers) List(c router.Context) error {
 		return err
 	}
 	columns := contentEntryColumns(panel)
-	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
+	var urls urlkit.Resolver
+	if h.admin != nil {
+		urls = h.admin.URLs()
+	}
+	basePath := resolveAdminBasePath(urls, h.cfg.BasePath)
+	apiBasePath := resolveAdminAPIBasePath(urls, h.cfg, basePath)
+	actionBase := path.Join(basePath, "content", contentTypeSlug(contentType, panelName))
+	routes := newContentEntryRoutes(basePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
 
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
-		"base_path":      h.cfg.BasePath,
+		"base_path":      basePath,
 		"resource":       "content",
 		"resource_label": contentTypeLabel(contentType, panelName),
 		"routes":         routes.routesMap(),
-		"action_base":    path.Join(h.cfg.BasePath, "content", contentTypeSlug(contentType, panelName)),
+		"action_base":    actionBase,
 		"items":          items,
 		"columns":        columns,
 		"total":          total,
 		"datatable_id":   "content-" + contentTypeSlug(contentType, panelName),
-		"list_api":       path.Join(h.cfg.BasePath, "api", panelName),
+		"list_api":       path.Join(apiBasePath, panelName),
 		"env":            adminCtx.Environment,
 		"panel_name":     panelName,
 		"content_type": map[string]any{
