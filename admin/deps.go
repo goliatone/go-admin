@@ -41,6 +41,7 @@ type Dependencies struct {
 	ActivitySessionIDProvider      activity.SessionIDProvider
 	ActivitySessionIDKey           string
 	DebugREPLSessionStore          DebugREPLSessionStore
+	DebugUserSessionStore          DebugUserSessionStore
 
 	NotificationService NotificationService
 	ExportRegistry      ExportRegistry
