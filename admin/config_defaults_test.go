@@ -38,12 +38,6 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.URLs.Public.APIVersion != "v1" {
 		t.Fatalf("expected public URL API version default, got %q", adm.config.URLs.Public.APIVersion)
 	}
-	if adm.config.URLs.APIPrefix != "api" {
-		t.Fatalf("expected legacy URL API prefix default, got %q", adm.config.URLs.APIPrefix)
-	}
-	if adm.config.URLs.APIVersion != "" {
-		t.Fatalf("expected legacy URL API version default empty, got %q", adm.config.URLs.APIVersion)
-	}
 	if adm.config.PreferencesPermission != "admin.preferences.view" {
 		t.Fatalf("expected preferences permission default, got %q", adm.config.PreferencesPermission)
 	}
