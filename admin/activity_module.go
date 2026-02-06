@@ -52,17 +52,7 @@ func (m *ActivityModule) Register(ctx ModuleContext) error {
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
 	}
-
-	return ctx.Admin.RegisterPanelTab(usersModuleID, PanelTab{
-		ID:         "activity",
-		Label:      "Activity",
-		Icon:       "clock",
-		Position:   20,
-		Scope:      PanelTabScopeDetail,
-		Permission: m.permission,
-		Target:     PanelTabTarget{Type: "path", Path: resolveURLWith(m.urls, "admin", activityModuleID, nil, nil)},
-		Query:      map[string]string{"user_id": "{{record.id}}"},
-	})
+	return nil
 }
 
 // MenuItems contributes navigation for the activity module.
