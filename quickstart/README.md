@@ -22,6 +22,8 @@ Each helper is optional and composable.
 - `EnableFeature(feature admin.FeatureKey) AdminOption` - Inputs: feature key; outputs: option to enable a single feature gate key.
 - `WithGoUsersPreferencesRepository(repo types.PreferenceRepository) AdminOption` - Inputs: go-users preferences repo; outputs: option that wires a PreferencesStore via the adapter when one is not already set.
 - `WithGoUsersPreferencesRepositoryFactory(factory func() (types.PreferenceRepository, error)) AdminOption` - Inputs: repo builder; outputs: option to lazily construct a preferences repo (used when dependencies do not already supply a PreferencesStore).
+- `WithGoUsersUserManagement(cfg GoUsersUserManagementConfig) AdminOption` - Inputs: go-users auth/inventory/role repositories (plus optional profile repo and scope resolver); outputs: option that wires user/role repositories and enables bulk role route registration.
+- `NewUsersModule(opts ...admin.UserManagementModuleOption) *admin.UserManagementModule` - Inputs: user module options; outputs: configured built-in users module.
 - `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
 - `PreferencesPermissions() []PermissionDefinition` - Outputs: default preferences permission definitions.
 - `RegisterPreferencesPermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers default preferences permissions).
@@ -71,6 +73,55 @@ Each helper is optional and composable.
 - `NewSecureLinkNotificationBuilder(manager links.SecureLinkManager, opts ...linksecure.Option) links.LinkBuilder` - Inputs: notification manager + options; outputs: notification link builder.
 - `RegisterOnboardingRoutes(r router.Router[*fiber.App], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error` - Inputs: router/config/handlers; outputs: error (registers onboarding API routes).
 - `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth + go-users migrations).
+
+## User management
+Quickstart can wire go-users repositories and expose the built-in users module. The `users` feature flag is enabled by default in `DefaultAdminFeatures()`; if you disable it, the users module is skipped and user/role endpoints return `FeatureDisabledError`.
+
+Use `WithGoUsersUserManagement` to provide the required repositories (`AuthRepo`, `InventoryRepo`, `RoleRegistry`) and optional `ProfileRepo` + `ScopeResolver`. This wires `UserRepository`, `RoleRepository`, and (when provided) `ProfileStore`, and auto-registers bulk role routes when the `users` feature is enabled.
+
+```go
+cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+
+adm, _, err := quickstart.NewAdmin(
+\tcfg,
+\tquickstart.AdapterHooks{},
+\tquickstart.WithGoUsersUserManagement(quickstart.GoUsersUserManagementConfig{
+\t\tAuthRepo:      authRepo,
+\t\tInventoryRepo: inventoryRepo,
+\t\tRoleRegistry:  roleRegistry,
+\t\tProfileRepo:   profileRepo,   // optional
+\t\tScopeResolver: scopeResolver, // optional
+\t}),
+)
+if err != nil {
+\treturn err
+}
+
+_ = adm.RegisterModule(quickstart.NewUsersModule(
+\tadmin.WithUserMenuParent("main"),
+\tadmin.WithUserProfilesPanel(), // opt-in managed profiles panel
+\tadmin.WithUserPanelTabs(admin.PanelTab{
+\t\tID:     "activity",
+\t\tLabel:  "Activity",
+\t\tScope:  admin.PanelTabScopeDetail,
+\t\tTarget: admin.PanelTabTarget{Type: "path", Path: "/admin/users/:id/activity"},
+\t}),
+))
+```
+
+The managed profiles panel and activity tab are opt-in; omit `WithUserProfilesPanel` or `WithUserPanelTabs` to keep the default users panel.
+
+All user management URLs should resolve via URLKit (admin namespace). Defaults:
+- `adm.URLs().Resolve("admin.users")` -> `/admin/users`
+- `adm.URLs().Resolve("admin.roles")` -> `/admin/roles`
+- `adm.URLs().Resolve("admin.api.users")` -> `/admin/api/users`
+- `adm.URLs().Resolve("admin.api.roles")` -> `/admin/api/roles`
+- `adm.URLs().Resolve("admin.user_profiles")` -> `/admin/user-profiles` (when the profiles panel is enabled)
+- `adm.URLs().Resolve("admin.api.user_profiles")` -> `/admin/api/user-profiles` (when the profiles panel is enabled)
+
+Bulk role routes are auto-registered by quickstart when `users` is enabled:
+- `adm.URLs().Resolve("admin.api.users.bulk.assign_role")` -> `/admin/api/users/bulk/assign-role`
+- `adm.URLs().Resolve("admin.api.users.bulk.unassign_role")` -> `/admin/api/users/bulk/unassign-role`
 
 ## URL configuration
 Quickstart defaults still mount admin under `/admin` and the public API under
@@ -274,6 +325,69 @@ adm.WithCMSWorkflowActions(
     admin.Action{Name: "submit_for_approval", Label: "Submit for approval"},
     admin.Action{Name: "publish", Label: "Publish"},
 )
+```
+
+## Translation policy (workflow enforcement)
+Quickstart can enforce translation completeness during workflow transitions
+(publish/promote). Provide a `TranslationPolicyConfig` via
+`WithTranslationPolicyConfig`; quickstart wires the default policy when the
+config is present (or when `deny_by_default`/`required` are set).
+
+Config example (YAML/JSON):
+
+```yaml
+translation_policy:
+  deny_by_default: false
+  required_fields_strategy: "error" # error|warn|ignore
+  required:
+    pages:
+      publish:
+        locales: ["en", "es"]
+      promote:
+        environments:
+          staging:
+            locales: ["en"]
+          prod:
+            locales: ["en", "es", "fr"]
+    posts:
+      publish:
+        locales: ["en"]
+        required_fields:
+          en: ["title", "path"]
+```
+
+Behavior notes:
+- `required` keys map to policy entities (panel slug or content type slug). If a
+  payload includes `policy_entity`/`policyEntity`, it overrides the entity lookup.
+- Transition names are the workflow transition names (`publish`, `promote`, etc.).
+- If an `environment` match is present, it overrides transition-level
+  `locales`/`required_fields` for that transition.
+- `required_fields` is a map of locale → required field keys. If `locales` is
+  empty but `required_fields` is set, locales are derived from the map keys.
+- `required_fields_strategy` controls how unknown field keys are handled during
+  validation (`error`, `warn`, `ignore`).
+- `deny_by_default=true` blocks transitions when no requirements are configured
+  for a transition.
+
+Wiring example:
+
+```go
+policyCfg := quickstart.TranslationPolicyConfig{
+	Required: map[string]quickstart.TranslationPolicyEntityConfig{
+		"pages": {
+			"publish": {Locales: []string{"en", "es"}},
+		},
+	},
+}
+
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	hooks,
+	quickstart.WithTranslationPolicyConfig(policyCfg),
+)
+if err != nil {
+	return err
+}
 ```
 
 ### Theme selector + manifest
