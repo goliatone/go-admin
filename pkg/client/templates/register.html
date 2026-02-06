@@ -46,7 +46,7 @@
         Registration is limited to approved email domains.
       </div>
       {% endif %}
-      <form id="register-request-form" class="space-y-3" action="{{ base_path }}/api/onboarding/register" method="post">
+      <form id="register-request-form" class="space-y-3" action="{{ api_base_path }}/onboarding/register" method="post">
         <input
           type="email"
           name="email"
@@ -79,7 +79,7 @@
         <h2 class="text-lg font-semibold text-admin-dark">Finish registration</h2>
         <p class="text-sm text-zinc-500">Paste the token from your email to set a password.</p>
       </div>
-      <form id="register-confirm-form" class="space-y-3" action="{{ base_path }}/api/onboarding/register/confirm" method="post">
+      <form id="register-confirm-form" class="space-y-3" action="{{ api_base_path }}/onboarding/register/confirm" method="post">
         <input
           id="register-token"
           type="text"
