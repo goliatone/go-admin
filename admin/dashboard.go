@@ -54,6 +54,10 @@ type registeredProvider struct {
 	handler WidgetProvider
 }
 
+type widgetInstanceExistenceChecker interface {
+	HasInstanceForDefinition(ctx context.Context, definitionCode string, filter WidgetInstanceFilter) (bool, error)
+}
+
 // Dashboard orchestrates widget providers and instances.
 type Dashboard struct {
 	providers        map[string]registeredProvider
@@ -222,11 +226,24 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	// Track whether a persisted instance already exists for this definition.
 	hasPersistedInstance := false
 	if d.widgetSvc != nil {
-		if instances, err := d.widgetSvc.ListInstances(context.Background(), WidgetInstanceFilter{}); err == nil {
-			for _, inst := range instances {
-				if inst.DefinitionCode == spec.Code {
-					hasPersistedInstance = true
-					break
+		if checker, ok := d.widgetSvc.(widgetInstanceExistenceChecker); ok {
+			exists, err := checker.HasInstanceForDefinition(context.Background(), spec.Code, WidgetInstanceFilter{})
+			if err == nil {
+				hasPersistedInstance = exists
+			}
+		}
+		if !hasPersistedInstance {
+			filter := WidgetInstanceFilter{}
+			area := strings.TrimSpace(spec.DefaultArea)
+			if area != "" {
+				filter.Area = area
+			}
+			if instances, err := d.widgetSvc.ListInstances(context.Background(), filter); err == nil {
+				for _, inst := range instances {
+					if inst.DefinitionCode == spec.Code {
+						hasPersistedInstance = true
+						break
+					}
 				}
 			}
 		}
