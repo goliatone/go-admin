@@ -7,7 +7,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	dashboardcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	formgen "github.com/goliatone/go-formgen"
@@ -110,7 +109,7 @@ func WithSidebarAssetsFS(fsys fs.FS) StaticAssetsOption {
 }
 
 // NewStaticAssets registers static asset routes with quickstart defaults.
-func NewStaticAssets(r router.Router[*fiber.App], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption) {
+func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption) {
 	if r == nil {
 		return
 	}
