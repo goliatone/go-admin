@@ -91,11 +91,7 @@ type URLNamespaceConfig struct {
 type URLConfig struct {
 	Admin  URLNamespaceConfig
 	Public URLNamespaceConfig
-	// Deprecated: APIPrefix is kept for backward compatibility during migration.
-	APIPrefix string
-	// Deprecated: APIVersion is kept for backward compatibility during migration.
-	APIVersion string
-	URLKit     *urlkit.Config
+	URLKit *urlkit.Config
 }
 
 // CMSOptions configures how the CMS container is resolved (in-memory, go-cms, or host-provided).
