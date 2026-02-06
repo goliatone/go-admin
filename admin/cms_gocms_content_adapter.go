@@ -72,7 +72,7 @@ func (a *GoCMSContentAdapter) Pages(ctx context.Context, locale string) ([]CMSPa
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
-	contents, err := a.Contents(ctx, locale)
+	contents, err := a.listContents(ctx, locale, WithTranslations())
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,13 @@ func (a *GoCMSContentAdapter) fetchContent(ctx context.Context, id, locale strin
 	if err != nil {
 		return nil, err
 	}
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), arg})
+	args := []reflect.Value{reflect.ValueOf(ctx), arg}
+	if method.Type().IsVariadic() {
+		args = append(args, reflect.ValueOf(string(WithTranslations())))
+	} else if method.Type().NumIn() > 2 {
+		args = append(args, reflect.ValueOf(string(WithTranslations())))
+	}
+	results := method.Call(args)
 	if err := extractError(results); err != nil {
 		return nil, err
 	}
