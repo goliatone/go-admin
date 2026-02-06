@@ -355,6 +355,7 @@ export class DebugPanel {
     this.renderTabs();
     this.renderActivePanel();
     this.bindActions();
+    this.updateSessionBanner();
 
     this.stream = new DebugStream({
       basePath: this.streamBasePath,
@@ -938,7 +939,7 @@ export class DebugPanel {
     });
 
     if (this.sessionsLoading && sessions.length === 0) {
-      return this.renderEmptyState('Loading sessions…');
+      return this.renderEmptyState('Loading sessions...');
     }
 
     if (sessions.length === 0) {
@@ -959,22 +960,22 @@ export class DebugPanel {
         const actionLabel = isActive ? 'Detach' : 'Attach';
         const actionClass = isActive ? 'debug-btn debug-btn--danger' : 'debug-btn debug-btn--primary';
         const rowClass = isActive ? 'debug-session-row debug-session-row--active' : 'debug-session-row';
-        const currentPage = session.current_page || '—';
-        const ip = session.ip || '—';
+        const currentPage = session.current_page || '-';
+        const ip = session.ip || '-';
 
         return `
           <tr class="${rowClass}">
             <td>
               <div class="debug-session-user">${escapeHTML(userLabel)}</div>
               <div class="debug-session-meta">
-                <span class="debug-session-id">${escapeHTML(sessionId || '—')}</span>
+                <span class="debug-session-id">${escapeHTML(sessionId || '-')}</span>
               </div>
             </td>
             <td>${escapeHTML(ip)}</td>
             <td>
               <span class="debug-session-path">${escapeHTML(currentPage)}</span>
             </td>
-            <td>${escapeHTML(lastActivity || '—')}</td>
+            <td>${escapeHTML(lastActivity || '-')}</td>
             <td>${escapeHTML(requestCount)}</td>
             <td>
               <button class="${actionClass}" data-session-action="${action}" data-session-id="${escapeHTML(sessionId)}">
@@ -986,7 +987,7 @@ export class DebugPanel {
       })
       .join('');
 
-    const refreshLabel = this.sessionsLoading ? 'Refreshing…' : 'Refresh';
+    const refreshLabel = this.sessionsLoading ? 'Refreshing...' : 'Refresh';
     const countLabel = `${formatNumber(sessions.length)} active`;
     return `
       <div class="debug-session-toolbar">
@@ -1054,6 +1055,189 @@ export class DebugPanel {
       showCount: true,
       filterFn: search ? (obj) => filterObjectByKey(obj, search) : undefined,
     });
+  }
+
+  private attachSessionActions(): void {
+    const buttons = this.panelEl.querySelectorAll<HTMLButtonElement>('[data-session-action]');
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.sessionAction || '';
+        const sessionId = button.dataset.sessionId || '';
+        switch (action) {
+          case 'refresh':
+            void this.fetchSessions(true);
+            break;
+          case 'attach':
+            this.attachSessionByID(sessionId);
+            break;
+          case 'detach':
+            this.detachSession();
+            break;
+          default:
+            break;
+        }
+      });
+    });
+  }
+
+  private async fetchSessions(force = false): Promise<void> {
+    if (!this.debugPath) {
+      return;
+    }
+    if (this.sessionsLoading) {
+      return;
+    }
+    if (!force && this.sessionsLoaded && this.sessionsUpdatedAt) {
+      const ageMs = Date.now() - this.sessionsUpdatedAt.getTime();
+      if (ageMs < 3000) {
+        return;
+      }
+    }
+
+    this.sessionsLoading = true;
+    this.sessionsError = null;
+    try {
+      const response = await fetch(`${this.debugPath}/api/sessions`, {
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        this.sessionsError = 'Failed to load active sessions.';
+        return;
+      }
+      const payload = (await response.json()) as { sessions?: DebugUserSession[] };
+      this.sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
+      this.sessionsLoaded = true;
+      this.sessionsUpdatedAt = new Date();
+      if (this.activeSessionId) {
+        const updated = this.sessions.find((session) => session.session_id === this.activeSessionId);
+        if (updated) {
+          this.activeSession = updated;
+          this.updateSessionBanner();
+        }
+      }
+    } catch {
+      this.sessionsError = 'Failed to load active sessions.';
+    } finally {
+      this.sessionsLoading = false;
+      this.updateTabCounts();
+      if (this.activePanel === 'sessions') {
+        this.renderPanel();
+      }
+    }
+  }
+
+  private attachSessionByID(sessionID: string): void {
+    const trimmed = sessionID.trim();
+    if (!trimmed) {
+      return;
+    }
+    if (this.activeSessionId === trimmed) {
+      return;
+    }
+    const session = this.sessions.find((entry) => entry.session_id === trimmed) || { session_id: trimmed };
+    this.attachSession(session);
+  }
+
+  private attachSession(session: DebugUserSession): void {
+    const sessionID = (session.session_id || '').trim();
+    if (!sessionID) {
+      return;
+    }
+    if (this.activeSessionId === sessionID) {
+      return;
+    }
+    this.activeSessionId = sessionID;
+    this.activeSession = session;
+    this.streamBasePath = this.buildSessionStreamPath(sessionID);
+    this.resetDebugState();
+    this.updateSessionBanner();
+    this.rebuildStream('session');
+    this.renderPanel();
+  }
+
+  private detachSession(): void {
+    if (!this.activeSessionId) {
+      return;
+    }
+    this.activeSessionId = null;
+    this.activeSession = null;
+    this.streamBasePath = this.debugPath;
+    this.resetDebugState();
+    this.updateSessionBanner();
+    this.rebuildStream('global');
+    this.renderPanel();
+  }
+
+  private rebuildStream(mode: 'global' | 'session'): void {
+    this.stream.close();
+    this.stream = new DebugStream({
+      basePath: this.streamBasePath,
+      onEvent: (event) => this.handleEvent(event),
+      onStatusChange: (status) => this.updateConnectionStatus(status),
+    });
+    this.stream.connect();
+    this.subscribeToEvents();
+    if (mode === 'session') {
+      this.stream.requestSnapshot();
+    } else {
+      this.fetchSnapshot();
+    }
+  }
+
+  private resetDebugState(): void {
+    this.state = {
+      template: {},
+      session: {},
+      requests: [],
+      sql: [],
+      logs: [],
+      config: {},
+      routes: [],
+      custom: { data: {}, logs: [] },
+      extra: {},
+    };
+    this.expandedRequests.clear();
+    this.eventCount = 0;
+    this.lastEventAt = null;
+    this.updateStatusMeta();
+    this.updateTabCounts();
+  }
+
+  private buildSessionStreamPath(sessionID: string): string {
+    const base = this.debugPath.replace(/\/+$/, '');
+    const id = encodeURIComponent(sessionID);
+    if (!base) {
+      return '';
+    }
+    return `${base}/session/${id}`;
+  }
+
+  private updateSessionBanner(): void {
+    if (!this.sessionBannerEl) {
+      return;
+    }
+    if (!this.activeSessionId) {
+      this.sessionBannerEl.setAttribute('hidden', 'true');
+      return;
+    }
+    this.sessionBannerEl.removeAttribute('hidden');
+    if (this.sessionMetaEl) {
+      this.sessionMetaEl.textContent = this.sessionMetaText();
+    }
+  }
+
+  private sessionMetaText(): string {
+    const session: DebugUserSession =
+      this.activeSession ||
+      this.sessions.find((entry) => entry.session_id === this.activeSessionId) ||
+      { session_id: this.activeSessionId || undefined };
+    const parts = [
+      session.username || session.user_id,
+      session.session_id,
+      session.ip,
+      session.current_page,
+    ].filter(Boolean);
+    return parts.join(' | ');
   }
 
   private panelCount(panel: string): number {
@@ -1305,6 +1489,9 @@ export class DebugPanel {
     if (!this.debugPath) {
       return;
     }
+    if (this.activeSessionId) {
+      return;
+    }
     try {
       const response = await fetch(`${this.debugPath}/api/snapshot`, {
         credentials: 'same-origin',
@@ -1324,6 +1511,9 @@ export class DebugPanel {
       return;
     }
     this.stream.clear();
+    if (this.activeSessionId) {
+      return;
+    }
     fetch(`${this.debugPath}/api/clear`, { method: 'POST', credentials: 'same-origin' }).catch(() => {
       // ignore
     });
@@ -1335,6 +1525,9 @@ export class DebugPanel {
     }
     const panel = this.activePanel;
     this.stream.clear([panel]);
+    if (this.activeSessionId) {
+      return;
+    }
     fetch(`${this.debugPath}/api/clear/${panel}`, { method: 'POST', credentials: 'same-origin' }).catch(() => {
       // ignore
     });

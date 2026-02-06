@@ -1,6 +1,7 @@
 import { DebugPanel, initDebugPanel } from './debug-panel.js';
-import { DebugStream } from './debug-stream.js';
-export { DebugPanel, DebugStream, initDebugPanel };
+import { DebugStream, RemoteDebugStream } from './debug-stream.js';
+export { DebugPanel, DebugStream, RemoteDebugStream, initDebugPanel };
+export type { DebugEvent, DebugStreamOptions, DebugStreamStatus, RemoteDebugStreamOptions, RemoteDebugToken, } from './debug-stream.js';
 export { panelRegistry, type PanelDefinition, type PanelRegistry, type RegistryChangeEvent, type RegistryChangeListener, getSnapshotKey, normalizeEventTypes, defaultGetCount, defaultHandleEvent, getPanelData, getPanelCount, renderPanelContent, } from './shared/panel-registry.js';
 export { type StyleConfig, consoleStyles, toolbarStyles, getStyleConfig, } from './shared/styles.js';
 export { escapeHTML, formatTimestamp, formatDuration, formatJSON, formatNumber, truncate, countPayload, isSlowDuration, getStatusClass, getLevelClass, } from './shared/utils.js';
