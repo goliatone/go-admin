@@ -65,6 +65,8 @@ type Admin struct {
 	exportMetadata               ExportMetadataProvider
 	bulkSvc                      BulkService
 	mediaLibrary                 MediaLibrary
+	initHooks                    []func(AdminRouter) error
+	initHooksRun                 bool
 	modulesLoaded                bool
 	navMenuCode                  string
 	translator                   Translator
