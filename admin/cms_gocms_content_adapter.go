@@ -123,6 +123,16 @@ func (a *GoCMSContentAdapter) DeletePage(ctx context.Context, id string) error {
 }
 
 func (a *GoCMSContentAdapter) Contents(ctx context.Context, locale string) ([]CMSContent, error) {
+	return a.listContents(ctx, locale)
+}
+
+// ContentsWithOptions lists CMS content using go-cms list options (for example WithTranslations).
+// Contents remains the default behavior (no opt-in options).
+func (a *GoCMSContentAdapter) ContentsWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSContent, error) {
+	return a.listContents(ctx, locale, opts...)
+}
+
+func (a *GoCMSContentAdapter) listContents(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSContent, error) {
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
@@ -130,7 +140,21 @@ func (a *GoCMSContentAdapter) Contents(ctx context.Context, locale string) ([]CM
 	if !method.IsValid() {
 		return nil, ErrNotFound
 	}
-	results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+	args := []reflect.Value{reflect.ValueOf(ctx)}
+	if method.Type().NumIn() > 1 {
+		if len(opts) > 0 {
+			if method.Type().IsVariadic() {
+				for _, opt := range opts {
+					args = append(args, reflect.ValueOf(string(opt)))
+				}
+			} else {
+				args = append(args, reflect.ValueOf(string(opts[0])))
+			}
+		} else if !method.Type().IsVariadic() {
+			args = append(args, reflect.Zero(method.Type().In(1)))
+		}
+	}
+	results := method.Call(args)
 	if err := extractError(results); err != nil {
 		return nil, err
 	}
