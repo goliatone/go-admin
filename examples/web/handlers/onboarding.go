@@ -229,7 +229,7 @@ func (h *OnboardingHandlers) AcceptInvite(c router.Context) error {
 		return err
 	}
 
-	hash, err := authlib.HashPassword(password)
+	hash, err := hashPassword(password)
 	if err != nil {
 		return err
 	}
@@ -390,7 +390,7 @@ func (h *OnboardingHandlers) ConfirmRegistration(c router.Context) error {
 		return err
 	}
 
-	hash, err := authlib.HashPassword(password)
+	hash, err := hashPassword(password)
 	if err != nil {
 		return err
 	}
@@ -507,7 +507,7 @@ func (h *OnboardingHandlers) ConfirmPasswordReset(c router.Context) error {
 			WithTextCode("TOKEN_PASSWORD_REQUIRED")
 	}
 
-	hash, err := authlib.HashPassword(password)
+	hash, err := hashPassword(password)
 	if err != nil {
 		return err
 	}

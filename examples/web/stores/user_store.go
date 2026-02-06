@@ -808,7 +808,7 @@ func applyUserPatch(existing *types.AuthUser, record map[string]any) *types.Auth
 func resolvePasswordHash(record map[string]any, username string) string {
 	password := strings.TrimSpace(asString(record["password"], ""))
 	if password != "" {
-		if hash, err := auth.HashPassword(password); err == nil {
+		if hash, err := hashPassword(password); err == nil {
 			return hash
 		}
 		return ""
@@ -818,7 +818,7 @@ func resolvePasswordHash(record map[string]any, username string) string {
 	if username == "" {
 		return ""
 	}
-	if hash, err := auth.HashPassword(fmt.Sprintf("%s.pwd", username)); err == nil {
+	if hash, err := hashPassword(fmt.Sprintf("%s.pwd", username)); err == nil {
 		return hash
 	}
 	return ""
