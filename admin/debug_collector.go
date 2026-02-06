@@ -42,6 +42,7 @@ type DebugCollector struct {
 	configData   map[string]any
 	routesData   []RouteEntry
 	urls         urlkit.Resolver
+	sessionStore DebugUserSessionStore
 
 	subscribers map[string]chan DebugEvent
 }
@@ -55,6 +56,8 @@ type debugPanelSnapshot struct {
 type RequestEntry struct {
 	ID              string            `json:"id"`
 	Timestamp       time.Time         `json:"timestamp"`
+	SessionID       string            `json:"session_id,omitempty"`
+	UserID          string            `json:"user_id,omitempty"`
 	Method          string            `json:"method"`
 	Path            string            `json:"path"`
 	Status          int               `json:"status"`
@@ -76,6 +79,8 @@ type RequestEntry struct {
 type SQLEntry struct {
 	ID        string        `json:"id"`
 	Timestamp time.Time     `json:"timestamp"`
+	SessionID string        `json:"session_id,omitempty"`
+	UserID    string        `json:"user_id,omitempty"`
 	Query     string        `json:"query"`
 	Args      []any         `json:"args,omitempty"`
 	Duration  time.Duration `json:"duration"`
@@ -86,6 +91,8 @@ type SQLEntry struct {
 // LogEntry captures server log messages.
 type LogEntry struct {
 	Timestamp time.Time      `json:"timestamp"`
+	SessionID string         `json:"session_id,omitempty"`
+	UserID    string         `json:"user_id,omitempty"`
 	Level     string         `json:"level"`
 	Message   string         `json:"message"`
 	Fields    map[string]any `json:"fields,omitempty"`
@@ -120,6 +127,11 @@ type DebugEvent struct {
 	Type      string    `json:"type"`
 	Payload   any       `json:"payload"`
 	Timestamp time.Time `json:"timestamp"`
+}
+
+// DebugSessionSnapshotOptions controls session-scoped snapshot behavior.
+type DebugSessionSnapshotOptions struct {
+	IncludeGlobalPanels bool
 }
 
 // NewDebugCollector initializes a collector with the provided configuration.
@@ -159,6 +171,17 @@ func (c *DebugCollector) WithURLs(urls urlkit.Resolver) *DebugCollector {
 	return c
 }
 
+// WithSessionStore configures the debug user session store.
+func (c *DebugCollector) WithSessionStore(store DebugUserSessionStore) *DebugCollector {
+	if c == nil {
+		return c
+	}
+	c.mu.Lock()
+	c.sessionStore = store
+	c.mu.Unlock()
+	return c
+}
+
 func (c *DebugCollector) urlResolver() urlkit.Resolver {
 	if c == nil {
 		return nil
@@ -166,6 +189,15 @@ func (c *DebugCollector) urlResolver() urlkit.Resolver {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.urls
+}
+
+func (c *DebugCollector) sessionStoreRef() DebugUserSessionStore {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.sessionStore
 }
 
 // RegisterPanel adds a custom debug panel.
@@ -603,6 +635,95 @@ func (c *DebugCollector) Snapshot() map[string]any {
 		snapshot[id] = clonePanelPayload(debugMaskValue(c.config, panel.Collect(ctx)))
 	}
 	return snapshot
+}
+
+// SessionSnapshot returns session-scoped debug data filtered by session ID.
+func (c *DebugCollector) SessionSnapshot(sessionID string, opts DebugSessionSnapshotOptions) map[string]any {
+	if c == nil {
+		return map[string]any{}
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return map[string]any{}
+	}
+
+	c.mu.RLock()
+	templateData := cloneAnyMap(c.templateData)
+	configData := cloneAnyMap(c.configData)
+	routesData := cloneRouteEntries(c.routesData)
+	c.mu.RUnlock()
+
+	snapshot := map[string]any{}
+	if c.panelEnabled(DebugPanelRequests) && c.requestLog != nil {
+		snapshot[DebugPanelRequests] = filterRequestEntriesBySession(c.requestLog.Values(), sessionID)
+	}
+	if c.panelEnabled(DebugPanelSQL) && c.sqlLog != nil {
+		snapshot[DebugPanelSQL] = filterSQLEntriesBySession(c.sqlLog.Values(), sessionID)
+	}
+	if c.panelEnabled(DebugPanelLogs) && c.serverLog != nil {
+		snapshot[DebugPanelLogs] = filterLogEntriesBySession(c.serverLog.Values(), sessionID)
+	}
+
+	if opts.IncludeGlobalPanels {
+		if c.panelEnabled(DebugPanelTemplate) {
+			snapshot[DebugPanelTemplate] = templateData
+		}
+		if c.panelEnabled(DebugPanelConfig) && len(configData) > 0 {
+			snapshot[DebugPanelConfig] = debugMaskMap(c.config, configData)
+		}
+		if c.panelEnabled(DebugPanelRoutes) && len(routesData) > 0 {
+			snapshot[DebugPanelRoutes] = routesData
+		}
+	}
+	return snapshot
+}
+
+func filterRequestEntriesBySession(entries []RequestEntry, sessionID string) []RequestEntry {
+	if sessionID == "" || len(entries) == 0 {
+		return nil
+	}
+	out := make([]RequestEntry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.SessionID == sessionID {
+			out = append(out, entry)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func filterSQLEntriesBySession(entries []SQLEntry, sessionID string) []SQLEntry {
+	if sessionID == "" || len(entries) == 0 {
+		return nil
+	}
+	out := make([]SQLEntry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.SessionID == sessionID {
+			out = append(out, entry)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func filterLogEntriesBySession(entries []LogEntry, sessionID string) []LogEntry {
+	if sessionID == "" || len(entries) == 0 {
+		return nil
+	}
+	out := make([]LogEntry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.SessionID == sessionID {
+			out = append(out, entry)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // PanelDefinitions returns metadata for enabled panels.
