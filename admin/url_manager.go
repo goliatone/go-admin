@@ -295,6 +295,7 @@ func defaultAdminDebugRoutes() map[string]string {
 	return map[string]string{
 		"index":      "/",
 		"ws":         "/ws",
+		"session.ws": "/session/:sessionId/ws",
 		"repl.app":   "/repl/app/ws",
 		"repl.shell": "/repl/shell/ws",
 	}
@@ -304,6 +305,7 @@ func defaultAdminDebugAPIRoutes() map[string]string {
 	return map[string]string{
 		"panels":                    "/panels",
 		"snapshot":                  "/snapshot",
+		"sessions":                  "/sessions",
 		"clear":                     "/clear",
 		"clear.panel":               "/clear/:panel",
 		"errors":                    "/errors",
