@@ -260,6 +260,7 @@ type ProfileModule struct {
     viewPermission   string
     updatePermission string
     menuParent       string
+    urls             urlkit.Resolver
 }
 
 // 2. Constructor
@@ -296,6 +297,9 @@ func (m *ProfileModule) Register(ctx ModuleContext) error {
     }
     if m.defaultLocale == "" {
         m.defaultLocale = ctx.Admin.config.DefaultLocale
+    }
+    if m.urls == nil {
+        m.urls = ctx.Admin.URLs()
     }
     if m.viewPermission == "" {
         m.viewPermission = ctx.Admin.config.ProfilePermission
@@ -337,12 +341,21 @@ func (m *ProfileModule) MenuItems(locale string) []MenuItem {
     if locale == "" {
         locale = m.defaultLocale
     }
-    path := joinPath(m.basePath, "profile")
+    basePath := strings.TrimSpace(m.basePath)
+    target := map[string]any{
+        "type": "url",
+        "key":  "profile",
+    }
+    if path := resolveURLWith(m.urls, "admin", "profile", nil, nil); path != "" {
+        target["path"] = path
+    } else {
+        target["path"] = joinBasePath(basePath, "profile")
+    }
     return []MenuItem{{
         Label:       "Profile",
         LabelKey:    "menu.profile",
         Icon:        "user",
-        Target:      map[string]any{"type": "url", "path": path, "key": "profile"},
+        Target:      target,
         Permissions: []string{m.viewPermission},
         Menu:        m.menuCode,
         Locale:      locale,
@@ -713,6 +726,43 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 }
 ```
 
+### Ensuring Correct URLs
+
+Menu links are rendered from `Target["path"]` first, then `Target["name"]` if present. If neither resolves, the UI falls back to the admin base path. To avoid incorrect links (e.g. `/admin`), always resolve through URLKit and provide a base-path fallback.
+
+```go
+func (m *MyModule) MenuItems(locale string) []MenuItem {
+    if locale == "" {
+        locale = m.defaultLocale
+    }
+    basePath := strings.TrimSpace(m.basePath)
+    target := map[string]any{
+        "type": "url",
+        "key":  "my_module",
+    }
+    if path := resolveURLWith(m.urls, "admin", "my_module", nil, nil); path != "" {
+        target["path"] = path
+    } else {
+        target["path"] = joinBasePath(basePath, "my-module")
+    }
+
+    return []MenuItem{{
+        Label:    "My Module",
+        LabelKey: "menu.my_module",
+        Icon:     "layers",
+        Target:   target,
+        Menu:     m.menuCode,
+        Locale:   locale,
+        Position: intPtr(80),
+    }}
+}
+```
+
+Checklist:
+- Set `m.urls = ctx.Admin.URLs()` during `Register`, and keep it on the module for menu building.
+- Ensure the route exists in URLKit (`defaultAdminRoutes()` or a custom `cfg.URLs.URLKit` group). Missing routes resolve to an empty string.
+- Keep the route name and path consistent (e.g. `feature_flags` -> `/feature-flags`).
+
 ### MenuItem Structure
 
 ```go
@@ -873,6 +923,8 @@ func (m *MyModule) registerRoutes(ctx ModuleContext) error {
     return nil
 }
 ```
+
+Note: If you want navigation to resolve this route via URLKit, add the route name to the admin URLKit config (`defaultAdminRoutes()` or `cfg.URLs.URLKit`). Otherwise `resolveURLWith(...)` will return an empty string and your menu item will fall back to the base path.
 
 ### Route Handlers Example
 
