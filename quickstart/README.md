@@ -603,6 +603,14 @@ Debug is opt-in and requires module registration plus middleware/log wiring. Con
 Environment mapping defaults:
 - `ADMIN_DEBUG=true` enables `cfg.Debug.Enabled`, `ToolbarMode`, `CaptureSQL`, `CaptureLogs`, `CaptureJSErrors`, `CaptureRequestBody`, and sets the `debug` feature gate default.
 - `ADMIN_DEBUG_ALLOWED_IPS=1.2.3.4,5.6.7.8` populates `cfg.Debug.AllowedIPs`.
+- `ADMIN_DEBUG_ALLOWED_ORIGINS=https://app.example` populates `cfg.Debug.AllowedOrigins`.
+- `ADMIN_DEBUG_APP_ID`, `ADMIN_DEBUG_APP_NAME`, and `ADMIN_DEBUG_ENVIRONMENT` populate the debug identity fields.
+- `ADMIN_DEBUG_REMOTE=true` toggles remote debug endpoints.
+- `ADMIN_DEBUG_TOKEN_TTL=15m` overrides the debug token TTL.
+- `ADMIN_DEBUG_SESSION_TRACKING=true` toggles session tracking.
+- `ADMIN_DEBUG_SESSION_GLOBAL_PANELS=false` toggles global panels in session views.
+- `ADMIN_DEBUG_SESSION_COOKIE=admin_debug_session` overrides the session cookie name.
+- `ADMIN_DEBUG_SESSION_EXPIRY=30m` overrides the session inactivity expiry.
 - `ADMIN_DEBUG_SQL`, `ADMIN_DEBUG_LOGS`, `ADMIN_DEBUG_JS_ERRORS`, and `ADMIN_DEBUG_REQUEST_BODY` override the capture flags.
 - `ADMIN_DEBUG_TOOLBAR` and `ADMIN_DEBUG_TOOLBAR_PANELS` override toolbar behavior/panels.
 - `ADMIN_DEBUG_LAYOUT=admin|standalone` sets `cfg.Debug.LayoutMode`.
