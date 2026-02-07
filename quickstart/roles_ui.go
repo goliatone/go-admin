@@ -181,22 +181,14 @@ func (h *roleHandlers) list(c router.Context) error {
 	}
 
 	routes := newResourceRoutes(h.basePath, "roles")
-	viewCtx := router.ViewContext{
-		"title":          h.cfg.Title,
-		"base_path":      h.basePath,
-		"resource":       "roles",
-		"resource_label": "Roles",
-		"routes":         routes.routesMap(),
-		"items":          roleRecordsToMaps(records, routes),
-		"columns":        roleDataGridColumns(),
-		"filters":        roleDataGridFilters(),
-		"export_config":  roleExportConfig(h.basePath),
-		"total":          total,
-	}
-	if h.viewContext != nil {
-		viewCtx = h.viewContext(viewCtx, "roles", c)
-	}
-	return c.Render(h.listTemplate, viewCtx)
+	viewCtx := mergeViewContext(h.baseViewContext(routes), router.ViewContext{
+		"items":         roleRecordsToMaps(records, routes),
+		"columns":       roleDataGridColumns(),
+		"filters":       roleDataGridFilters(),
+		"export_config": roleExportConfig(h.basePath),
+		"total":         total,
+	})
+	return h.renderRoleView(c, h.listTemplate, viewCtx)
 }
 
 func (h *roleHandlers) new(c router.Context) error {
@@ -278,21 +270,13 @@ func (h *roleHandlers) detail(c router.Context) error {
 		{"id": "details", "label": "Details", "href": routes.show(id), "icon": "shield"},
 	}
 
-	viewCtx := router.ViewContext{
-		"title":          h.cfg.Title,
-		"base_path":      h.basePath,
-		"resource":       "roles",
-		"resource_label": "Roles",
-		"routes":         routes.routesMap(),
-		"resource_item":  record,
-		"fields":         fields,
-		"tabs":           tabs,
-		"active_tab":     "details",
-	}
-	if h.viewContext != nil {
-		viewCtx = h.viewContext(viewCtx, "roles", c)
-	}
-	return c.Render(h.detailTemplate, viewCtx)
+	viewCtx := mergeViewContext(h.baseViewContext(routes), router.ViewContext{
+		"resource_item": record,
+		"fields":        fields,
+		"tabs":          tabs,
+		"active_tab":    "details",
+	})
+	return h.renderRoleView(c, h.detailTemplate, viewCtx)
 }
 
 func (h *roleHandlers) delete(c router.Context) error {
@@ -340,16 +324,25 @@ func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdi
 	}
 	html = rewriteRolesFormHTML(html, h.rolesRoot, formID)
 
-	viewCtx := router.ViewContext{
+	viewCtx := mergeViewContext(h.baseViewContext(routes), router.ViewContext{
+		"resource_item": record,
+		"form_html":     string(html),
+		"is_edit":       isEdit,
+	})
+	return h.renderRoleView(c, template, viewCtx)
+}
+
+func (h *roleHandlers) baseViewContext(routes resourceRoutes) router.ViewContext {
+	return router.ViewContext{
 		"title":          h.cfg.Title,
 		"base_path":      h.basePath,
 		"resource":       "roles",
 		"resource_label": "Roles",
 		"routes":         routes.routesMap(),
-		"resource_item":  record,
-		"form_html":      string(html),
-		"is_edit":        isEdit,
 	}
+}
+
+func (h *roleHandlers) renderRoleView(c router.Context, template string, viewCtx router.ViewContext) error {
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, "roles", c)
 	}
