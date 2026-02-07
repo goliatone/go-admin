@@ -182,6 +182,32 @@ func (s *InMemoryWidgetService) ListInstances(_ context.Context, filter WidgetIn
 	return out, nil
 }
 
+// HasInstanceForDefinition reports whether a widget instance exists for a definition.
+func (s *InMemoryWidgetService) HasInstanceForDefinition(_ context.Context, definitionCode string, filter WidgetInstanceFilter) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	definitionCode = strings.TrimSpace(definitionCode)
+	if definitionCode == "" {
+		return false, nil
+	}
+	for _, inst := range s.instances {
+		if inst.DefinitionCode != definitionCode {
+			continue
+		}
+		if filter.Area != "" && inst.Area != filter.Area {
+			continue
+		}
+		if filter.PageID != "" && inst.PageID != filter.PageID {
+			continue
+		}
+		if filter.Locale != "" && inst.Locale != "" && inst.Locale != filter.Locale {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
 func cloneWidgetInstance(in WidgetInstance) WidgetInstance {
 	out := in
 	out.Config = cloneAnyMap(in.Config)
