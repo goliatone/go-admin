@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/goliatone/go-command"
@@ -81,10 +80,14 @@ func (b *CommandBus) RegisterFactory(name string, factory MessageFactory) error 
 		return nil
 	}
 	if name == "" {
-		return errors.New("command name required")
+		return validationDomainError("command name required", map[string]any{
+			"field": "command_name",
+		})
 	}
 	if factory == nil {
-		return errors.New("command factory required")
+		return validationDomainError("command factory required", map[string]any{
+			"field": "command_factory",
+		})
 	}
 
 	b.mu.Lock()
@@ -93,7 +96,9 @@ func (b *CommandBus) RegisterFactory(name string, factory MessageFactory) error 
 		b.factories = map[string]MessageFactory{}
 	}
 	if _, exists := b.factories[name]; exists {
-		return errors.New("command factory already registered")
+		return validationDomainError("command factory already registered", map[string]any{
+			"command_name": name,
+		})
 	}
 	b.factories[name] = factory
 	return nil
@@ -105,10 +110,14 @@ func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payl
 		return nil
 	}
 	if name == "" {
-		return errors.New("command name required")
+		return validationDomainError("command name required", map[string]any{
+			"field": "command_name",
+		})
 	}
 	if build == nil {
-		return errors.New("command factory required")
+		return validationDomainError("command factory required", map[string]any{
+			"field": "command_factory",
+		})
 	}
 
 	bus.mu.Lock()
@@ -120,7 +129,9 @@ func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payl
 		bus.dispatchers = map[string]DispatchFactory{}
 	}
 	if _, exists := bus.factories[name]; exists || bus.dispatchers[name] != nil {
-		return errors.New("command factory already registered")
+		return validationDomainError("command factory already registered", map[string]any{
+			"command_name": name,
+		})
 	}
 
 	bus.factories[name] = func(payload map[string]any, ids []string) (command.Message, error) {
@@ -130,7 +141,9 @@ func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payl
 		}
 		typed, ok := any(msg).(command.Message)
 		if !ok {
-			return nil, errors.New("message does not implement command.Message")
+			return nil, validationDomainError("message does not implement command.Message", map[string]any{
+				"command_name": name,
+			})
 		}
 		return typed, nil
 	}
@@ -167,7 +180,9 @@ func (b *CommandBus) DispatchByName(ctx context.Context, name string, payload ma
 	if _, err := factory(payload, ids); err != nil {
 		return err
 	}
-	return errors.New("command dispatcher not registered")
+	return serviceUnavailableDomainError("command dispatcher not registered", map[string]any{
+		"command_name": name,
+	})
 }
 
 // Reset unsubscribes registered handlers and clears factories.
