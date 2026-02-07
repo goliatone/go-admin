@@ -503,13 +503,14 @@ func (c *SchemaToFieldsConverter) Convert(schema map[string]any, uiSchema map[st
 		}
 		orderByName[name] = fieldOrder(prop, override, idx)
 
-		if !isHiddenInList(prop, override) {
+		hiddenInList := isHiddenInList(prop, override)
+		if !hiddenInList {
 			listFields = append(listFields, c.toListField(field))
 		}
 		formFields = append(formFields, field)
 		detailFields = append(detailFields, c.toDetailField(field))
 
-		if isFilterable(prop, override) {
+		if !hiddenInList && isFilterable(field, prop, override) {
 			if filter := c.toFilter(field); filter.Name != "" {
 				filterFields = append(filterFields, filter)
 			}
@@ -615,17 +616,35 @@ func (c *SchemaToFieldsConverter) toDetailField(field Field) Field {
 
 func (c *SchemaToFieldsConverter) toFilter(field Field) Filter {
 	filterType := field.Type
+	operators := []string{"eq", "ilike", "in"}
+	defaultOperator := "ilike"
 	switch filterType {
 	case "integer", "number":
 		filterType = "number"
+		operators = []string{"eq", "in"}
+		defaultOperator = "eq"
 	case "boolean":
-		filterType = "boolean"
+		filterType = "select"
+		operators = []string{"eq", "in"}
+		defaultOperator = "eq"
 	case "select":
 		filterType = "select"
+		operators = []string{"eq", "in"}
+		defaultOperator = "eq"
 	default:
 		filterType = "text"
 	}
-	return Filter{Name: field.Name, Label: field.Label, Type: filterType}
+	filter := Filter{
+		Name:            field.Name,
+		Label:           field.Label,
+		Type:            filterType,
+		Operators:       operators,
+		DefaultOperator: defaultOperator,
+	}
+	if filterType == "select" && len(field.Options) > 0 {
+		filter.Options = append([]Option{}, field.Options...)
+	}
+	return filter
 }
 
 func extractSchemaProperties(schema map[string]any) map[string]map[string]any {
@@ -869,26 +888,33 @@ func isHiddenInList(prop map[string]any, override map[string]any) bool {
 	return false
 }
 
-func isFilterable(prop map[string]any, override map[string]any) bool {
+func isFilterable(field Field, prop map[string]any, override map[string]any) bool {
 	if override != nil {
 		if value, ok := override["filterable"]; ok {
 			return toBool(value)
 		}
 	}
-	if prop == nil {
+	if prop != nil {
+		if meta := extractXFormgen(prop); meta != nil {
+			if value, ok := meta["filterable"]; ok {
+				return toBool(value)
+			}
+		}
+		if meta := extractXAdmin(prop); meta != nil {
+			if value, ok := meta["filterable"]; ok {
+				return toBool(value)
+			}
+		}
+	}
+	if field.Hidden {
 		return false
 	}
-	if meta := extractXFormgen(prop); meta != nil {
-		if value, ok := meta["filterable"]; ok {
-			return toBool(value)
-		}
+	switch strings.ToLower(strings.TrimSpace(field.Type)) {
+	case "", "object", "array", "block", "json", "group", "repeater", "blocks":
+		return false
+	default:
+		return true
 	}
-	if meta := extractXAdmin(prop); meta != nil {
-		if value, ok := meta["filterable"]; ok {
-			return toBool(value)
-		}
-	}
-	return false
 }
 
 func sortFieldsByOrder(fields []Field, order map[string]int) []Field {
