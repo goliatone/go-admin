@@ -21,56 +21,28 @@ func BulkStep(ctx BootCtx) error {
 		{
 			Method: "GET",
 			Path:   base,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureBulk); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
+			Handler: withFeatureGate(responder, gates, FeatureBulk, func(c router.Context) error {
 				payload, err := binding.List(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
+				return writeJSONOrError(responder, c, payload, err)
+			}),
 		},
 		{
 			Method: "POST",
 			Path:   base,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureBulk); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
-				body, err := ctx.ParseBody(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
+			Handler: withFeatureGate(responder, gates, FeatureBulk, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
 				payload, err := binding.Start(c, body)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
+				return writeJSONOrError(responder, c, payload, err)
+			})),
 		},
 		{
 			Method: "POST",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "bulk.rollback"),
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureBulk); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
+			Handler: withFeatureGate(responder, gates, FeatureBulk, func(c router.Context) error {
 				id := c.Param("id", "")
 				body, _ := ctx.ParseBody(c)
 				payload, err := binding.Rollback(c, id, body)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
+				return writeJSONOrError(responder, c, payload, err)
+			}),
 		},
 	}
 	return applyRoutes(ctx, routes)

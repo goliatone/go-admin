@@ -22,54 +22,26 @@ func SettingsRouteStep(ctx BootCtx) error {
 		{
 			Method: "GET",
 			Path:   base,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureSettings); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
+			Handler: withFeatureGate(responder, gates, FeatureSettings, func(c router.Context) error {
 				payload, err := binding.Values(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
+				return writeJSONOrError(responder, c, payload, err)
+			}),
 		},
 		{
 			Method: "GET",
 			Path:   formPath,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureSettings); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
+			Handler: withFeatureGate(responder, gates, FeatureSettings, func(c router.Context) error {
 				payload, err := binding.Form(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
+				return writeJSONOrError(responder, c, payload, err)
+			}),
 		},
 		{
 			Method: "POST",
 			Path:   base,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureSettings); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
-				body, err := ctx.ParseBody(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
+			Handler: withFeatureGate(responder, gates, FeatureSettings, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
 				payload, err := binding.Save(c, body)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
+				return writeJSONOrError(responder, c, payload, err)
+			})),
 		},
 	}
 	return applyRoutes(ctx, routes)

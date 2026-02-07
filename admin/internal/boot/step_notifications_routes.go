@@ -21,37 +21,20 @@ func NotificationsRouteStep(ctx BootCtx) error {
 		{
 			Method: "GET",
 			Path:   base,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureNotifications); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
+			Handler: withFeatureGate(responder, gates, FeatureNotifications, func(c router.Context) error {
 				payload, err := binding.List(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
+				return writeJSONOrError(responder, c, payload, err)
+			}),
 		},
 		{
 			Method: "POST",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "notifications.read"),
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureNotifications); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
-				body, err := ctx.ParseBody(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
+			Handler: withFeatureGate(responder, gates, FeatureNotifications, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
 				if err := binding.Mark(c, body); err != nil {
 					return responder.WriteError(c, err)
 				}
 				return responder.WriteJSON(c, map[string]string{"status": "ok"})
-			},
+			})),
 		},
 	}
 	return applyRoutes(ctx, routes)
