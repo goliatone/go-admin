@@ -28,13 +28,13 @@ type Result struct {
 
 // ParseContext extracts list query options from a router context.
 func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
-	page := atoiDefault(c.Query("page"), 0)
-	perPage := atoiDefault(c.Query("per_page"), 0)
+	page := AtoiDefault(c.Query("page"), 0)
+	perPage := AtoiDefault(c.Query("per_page"), 0)
 	if perPage <= 0 {
-		perPage = atoiDefault(c.Query("limit"), 0)
+		perPage = AtoiDefault(c.Query("limit"), 0)
 	}
 	if page <= 0 && perPage > 0 {
-		offset := atoiDefault(c.Query("offset"), 0)
+		offset := AtoiDefault(c.Query("offset"), 0)
 		page = (offset / perPage) + 1
 	}
 	if page <= 0 {
@@ -112,7 +112,7 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 		}
 	}
 
-	predicates := predicatesFromFilters(filters)
+	predicates := PredicatesFromFilters(filters)
 
 	return Result{
 		Page:       page,
@@ -141,7 +141,8 @@ func ParsePredicateKey(key string) (string, string) {
 	return field, operator
 }
 
-func predicatesFromFilters(filters map[string]any) []Predicate {
+// PredicatesFromFilters converts a filter map into normalized predicates.
+func PredicatesFromFilters(filters map[string]any) []Predicate {
 	if len(filters) == 0 {
 		return nil
 	}
@@ -156,7 +157,7 @@ func predicatesFromFilters(filters map[string]any) []Predicate {
 		if field == "" {
 			continue
 		}
-		values := valuesFromAny(filters[key])
+		values := ValuesFromAny(filters[key])
 		if len(values) == 0 {
 			continue
 		}
@@ -169,7 +170,8 @@ func predicatesFromFilters(filters map[string]any) []Predicate {
 	return out
 }
 
-func valuesFromAny(raw any) []string {
+// ValuesFromAny normalizes scalar/array filter values into a string slice.
+func ValuesFromAny(raw any) []string {
 	switch typed := raw.(type) {
 	case nil:
 		return nil
@@ -184,11 +186,11 @@ func valuesFromAny(raw any) []string {
 	case []any:
 		out := make([]string, 0, len(typed))
 		for _, value := range typed {
-			out = append(out, splitValues(toString(value))...)
+			out = append(out, splitValues(ToString(value))...)
 		}
 		return out
 	default:
-		return splitValues(toString(raw))
+		return splitValues(ToString(raw))
 	}
 }
 
@@ -204,7 +206,8 @@ func splitValues(value string) []string {
 	return out
 }
 
-func atoiDefault(val string, def int) int {
+// AtoiDefault converts a string to int and returns def on parse failure.
+func AtoiDefault(val string, def int) int {
 	if val == "" {
 		return def
 	}
@@ -214,7 +217,8 @@ func atoiDefault(val string, def int) int {
 	return def
 }
 
-func toString(v any) string {
+// ToString converts common scalar values into string.
+func ToString(v any) string {
 	switch value := v.(type) {
 	case string:
 		return value
@@ -228,3 +232,21 @@ func toString(v any) string {
 		return ""
 	}
 }
+
+// MapPredicates projects parsed predicates into consumer-specific predicate types.
+func MapPredicates[T any](predicates []Predicate, mapper func(Predicate) T) []T {
+	if len(predicates) == 0 || mapper == nil {
+		return nil
+	}
+	out := make([]T, 0, len(predicates))
+	for _, predicate := range predicates {
+		out = append(out, mapper(predicate))
+	}
+	return out
+}
+
+// Legacy wrappers retained for same-package tests/helpers.
+func predicatesFromFilters(filters map[string]any) []Predicate { return PredicatesFromFilters(filters) }
+func valuesFromAny(raw any) []string                           { return ValuesFromAny(raw) }
+func atoiDefault(val string, def int) int                      { return AtoiDefault(val, def) }
+func toString(v any) string                                    { return ToString(v) }

@@ -23,12 +23,7 @@ func SearchStep(ctx BootCtx) error {
 		{
 			Method: "GET",
 			Path:   path,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureSearch); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
+			Handler: withFeatureGate(responder, gates, FeatureSearch, func(c router.Context) error {
 				query := c.Query("query")
 				if query == "" {
 					return responder.WriteError(c, errMissingQuery)
@@ -39,21 +34,13 @@ func SearchStep(ctx BootCtx) error {
 					locale = defaultLocale
 				}
 				results, err := binding.Query(c, locale, query, limit)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, map[string]any{"results": results})
-			},
+				return writeJSONOrError(responder, c, map[string]any{"results": results}, err)
+			}),
 		},
 		{
 			Method: "GET",
 			Path:   typeaheadPath,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureSearch); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
+			Handler: withFeatureGate(responder, gates, FeatureSearch, func(c router.Context) error {
 				query := c.Query("query")
 				if query == "" {
 					return responder.WriteError(c, errMissingQuery)
@@ -64,11 +51,8 @@ func SearchStep(ctx BootCtx) error {
 					locale = defaultLocale
 				}
 				results, err := binding.Query(c, locale, query, limit)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, map[string]any{"results": results})
-			},
+				return writeJSONOrError(responder, c, map[string]any{"results": results}, err)
+			}),
 		},
 	}
 	return applyRoutes(ctx, routes)

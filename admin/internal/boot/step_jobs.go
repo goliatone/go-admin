@@ -21,37 +21,20 @@ func JobsStep(ctx BootCtx) error {
 		{
 			Method: "GET",
 			Path:   path,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureJobs); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
+			Handler: withFeatureGate(responder, gates, FeatureJobs, func(c router.Context) error {
 				payload, err := binding.List(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
+				return writeJSONOrError(responder, c, payload, err)
+			}),
 		},
 		{
 			Method: "POST",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "jobs.trigger"),
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureJobs); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
-				body, err := ctx.ParseBody(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
+			Handler: withFeatureGate(responder, gates, FeatureJobs, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
 				if err := binding.Trigger(c, body); err != nil {
 					return responder.WriteError(c, err)
 				}
 				return responder.WriteJSON(c, map[string]string{"status": "ok"})
-			},
+			})),
 		},
 	}
 	return applyRoutes(ctx, routes)

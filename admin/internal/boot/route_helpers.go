@@ -1,7 +1,6 @@
 package boot
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/listquery"
@@ -31,6 +30,55 @@ func safeWrapper(wrap HandlerWrapper) HandlerWrapper {
 	return func(handler router.HandlerFunc) router.HandlerFunc {
 		return handler
 	}
+}
+
+func withFeatureGate(responder Responder, gates FeatureGates, feature string, handler router.HandlerFunc) router.HandlerFunc {
+	if handler == nil {
+		return nil
+	}
+	return func(c router.Context) error {
+		if gates != nil {
+			if err := gates.Require(feature); err != nil {
+				if responder != nil {
+					return responder.WriteError(c, err)
+				}
+				return err
+			}
+		}
+		return handler(c)
+	}
+}
+
+func withParsedBody(ctx BootCtx, responder Responder, handler func(router.Context, map[string]any) error) router.HandlerFunc {
+	if handler == nil {
+		return nil
+	}
+	return func(c router.Context) error {
+		if ctx == nil {
+			return errMissingAction
+		}
+		body, err := ctx.ParseBody(c)
+		if err != nil {
+			if responder != nil {
+				return responder.WriteError(c, err)
+			}
+			return err
+		}
+		return handler(c, body)
+	}
+}
+
+func writeJSONOrError(responder Responder, c router.Context, payload any, err error) error {
+	if err != nil {
+		if responder == nil {
+			return err
+		}
+		return responder.WriteError(c, err)
+	}
+	if responder == nil {
+		return nil
+	}
+	return responder.WriteJSON(c, payload)
 }
 
 func applyRoutes(ctx BootCtx, routes []RouteSpec) error {
@@ -158,14 +206,13 @@ func ensureLeadingSlash(path string) string {
 
 func parseListOptions(c router.Context) ListOptions {
 	parsed := listquery.ParseContext(c, 1, 10)
-	predicates := make([]ListPredicate, 0, len(parsed.Predicates))
-	for _, predicate := range parsed.Predicates {
-		predicates = append(predicates, ListPredicate{
+	predicates := listquery.MapPredicates(parsed.Predicates, func(predicate listquery.Predicate) ListPredicate {
+		return ListPredicate{
 			Field:    predicate.Field,
 			Operator: predicate.Operator,
 			Values:   append([]string{}, predicate.Values...),
-		})
-	}
+		}
+	})
 	return ListOptions{
 		Page:       parsed.Page,
 		PerPage:    parsed.PerPage,
@@ -178,26 +225,9 @@ func parseListOptions(c router.Context) ListOptions {
 }
 
 func atoiDefault(val string, def int) int {
-	if val == "" {
-		return def
-	}
-	if n, err := strconv.Atoi(val); err == nil {
-		return n
-	}
-	return def
+	return listquery.AtoiDefault(val, def)
 }
 
 func toString(v any) string {
-	switch val := v.(type) {
-	case string:
-		return val
-	case int:
-		return strconv.Itoa(val)
-	case int64:
-		return strconv.FormatInt(val, 10)
-	case float64:
-		return strconv.FormatFloat(val, 'f', -1, 64)
-	default:
-		return ""
-	}
+	return listquery.ToString(v)
 }
