@@ -102,12 +102,16 @@ func RegisterSettingsUIRoutes[T any](
 			session := FilterSessionUser(BuildSessionUser(c.Context()), adm.FeatureGate())
 			values := adm.SettingsService().ResolveAll(session.ID)
 			groups := groupSettings(values)
+			groupsView, err := settingsGroupsTemplateValue(groups)
+			if err != nil {
+				return nil, err
+			}
 			apiPath := resolveSettingsAPIPath(adm, cfg)
 
 			return router.ViewContext{
 				"resource":       "settings",
 				"resource_label": "Settings",
-				"groups":         groups,
+				"groups":         groupsView,
 				"routes": map[string]string{
 					"api": apiPath,
 				},
@@ -119,18 +123,18 @@ func RegisterSettingsUIRoutes[T any](
 }
 
 type settingsGroup struct {
-	ID    string
-	Label string
-	Items []settingsItem
+	ID    string         `json:"id"`
+	Label string         `json:"label"`
+	Items []settingsItem `json:"items"`
 }
 
 type settingsItem struct {
-	Key         string
-	Title       string
-	Description string
-	Value       string
-	Scope       string
-	Provenance  string
+	Key         string `json:"key"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Value       string `json:"value"`
+	Scope       string `json:"scope"`
+	Provenance  string `json:"provenance"`
 }
 
 func groupSettings(values map[string]admin.ResolvedSetting) []settingsGroup {
@@ -170,6 +174,16 @@ func groupSettings(values map[string]admin.ResolvedSetting) []settingsGroup {
 	})
 
 	return groups
+}
+
+func settingsGroupsTemplateValue(groups []settingsGroup) (any, error) {
+	view, err := router.SerializeAsContext(map[string]any{
+		"groups": groups,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return view["groups"], nil
 }
 
 func normalizeSettingsGroup(group string) string {
