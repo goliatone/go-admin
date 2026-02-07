@@ -39,6 +39,22 @@ func TestParseListOptionsPreservesOperatorQualifiedFilterKeys(t *testing.T) {
 	if got := toString(opts.Filters["environment"]); got != "staging" {
 		t.Fatalf("expected environment fallback filter, got %q", got)
 	}
+	if len(opts.Predicates) == 0 {
+		t.Fatalf("expected parsed predicates, got none")
+	}
+	byField := map[string]ListPredicate{}
+	for _, predicate := range opts.Predicates {
+		byField[predicate.Field+"__"+predicate.Operator] = predicate
+	}
+	if got, ok := byField["status__eq"]; !ok || len(got.Values) != 1 || got.Values[0] != "published" {
+		t.Fatalf("expected status eq predicate, got %+v", got)
+	}
+	if got, ok := byField["status__in"]; !ok || len(got.Values) != 2 || got.Values[0] != "draft" || got.Values[1] != "published" {
+		t.Fatalf("expected status in predicate, got %+v", got)
+	}
+	if got, ok := byField["title__ilike"]; !ok || len(got.Values) != 1 || got.Values[0] != "landing" {
+		t.Fatalf("expected title ilike predicate, got %+v", got)
+	}
 }
 
 func TestParseListOptionsDoesNotConvertFieldILikeIntoSearch(t *testing.T) {
