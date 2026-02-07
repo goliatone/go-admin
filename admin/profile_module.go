@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -38,7 +37,7 @@ func (m *ProfileModule) Manifest() ModuleManifest {
 
 func (m *ProfileModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "profile_module"})
 	}
 	if ctx.Admin.profile == nil {
 		return FeatureDisabledError{Feature: string(FeatureProfile)}

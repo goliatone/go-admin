@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -72,7 +71,7 @@ func (m *DebugModule) Manifest() ModuleManifest {
 
 func (m *DebugModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "debug_module"})
 	}
 
 	cfg := normalizeDebugConfig(m.config, ctx.Admin.BasePath())

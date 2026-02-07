@@ -40,7 +40,7 @@ type dashboardDiagnosticsQuery struct {
 
 func (q *dashboardDiagnosticsQuery) Query(ctx context.Context, msg DashboardDiagnosticsMsg) (DashboardDiagnosticsReport, error) {
 	if q == nil || q.admin == nil {
-		return DashboardDiagnosticsReport{}, fmt.Errorf("dashboard diagnostics: admin not configured")
+		return DashboardDiagnosticsReport{}, serviceNotConfiguredDomainError("admin", map[string]any{"component": "dashboard_diagnostics"})
 	}
 	locale := strings.TrimSpace(msg.Locale)
 	areaFilter := strings.TrimSpace(msg.Area)

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 
 	cmsboot "github.com/goliatone/go-admin/admin/internal/cmsboot"
 )
@@ -219,7 +218,7 @@ func (a *Admin) ensureCMS(ctx context.Context) error {
 		}
 	}
 	if featureEnabled(a.featureGate, FeatureDashboard) && a.widgetSvc == nil {
-		return fmt.Errorf("dashboard requires a CMS widget service")
+		return serviceNotConfiguredDomainError("dashboard cms widget service", map[string]any{"component": "cms"})
 	}
 	return nil
 }

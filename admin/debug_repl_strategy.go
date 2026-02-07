@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"crypto/subtle"
-	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -81,7 +80,9 @@ func (s SignedTokenStrategy) Allows(_ context.Context, req DebugREPLRequest) (bo
 	claims := &jwt.RegisteredClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
+			return nil, validationDomainError("unexpected signing method", map[string]any{
+				"component": "debug_repl_strategy",
+			})
 		}
 		return s.Secret, nil
 	}, opts...)

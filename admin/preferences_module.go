@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"sort"
 	"strings"
@@ -47,7 +46,7 @@ func (m *PreferencesModule) Manifest() ModuleManifest {
 
 func (m *PreferencesModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "preferences_module"})
 	}
 	if ctx.Admin.preferences == nil {
 		return FeatureDisabledError{Feature: string(FeaturePreferences)}

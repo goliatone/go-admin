@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"errors"
 	"strings"
 
 	urlkit "github.com/goliatone/go-urlkit"
@@ -34,7 +33,7 @@ func (m *FeatureFlagsModule) Manifest() ModuleManifest {
 
 func (m *FeatureFlagsModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "feature_flags_module"})
 	}
 	if m.basePath == "" {
 		m.basePath = ctx.Admin.config.BasePath

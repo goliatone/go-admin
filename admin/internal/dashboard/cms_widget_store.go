@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	godash "github.com/goliatone/go-dashboard/components/dashboard"
+	goerrors "github.com/goliatone/go-errors"
 )
 
 var errWidgetServiceUnavailable = errors.New("widget service not configured")
@@ -236,7 +237,7 @@ func (s *CMSWidgetStore) loadInstance(ctx context.Context, id string) (WidgetIns
 			return inst, nil
 		}
 	}
-	return WidgetInstance{}, errors.New("widget instance not found")
+	return WidgetInstance{}, goerrors.New("widget instance not found", goerrors.CategoryNotFound).WithCode(404)
 }
 
 func toDashboardInstance(inst WidgetInstance) godash.WidgetInstance {

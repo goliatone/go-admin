@@ -45,7 +45,7 @@ func (a *Admin) Bootstrap(ctx context.Context) error {
 // Initialize attaches the router, bootstraps, and mounts base routes.
 func (a *Admin) Initialize(r AdminRouter) error {
 	if r == nil {
-		return errors.New("router cannot be nil")
+		return requiredFieldDomainError("router", map[string]any{"component": "bootstrap"})
 	}
 	a.router = r
 	if err := a.runInitHooks(); err != nil {
