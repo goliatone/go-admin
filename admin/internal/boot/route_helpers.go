@@ -1,19 +1,28 @@
 package boot
 
 import (
-	"errors"
 	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/listquery"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
 var (
-	errMissingID     = errors.New("missing id")
-	errMissingAction = errors.New("action required")
-	errMissingQuery  = errors.New("query required")
+	errMissingID     = bootValidationError("id", "missing id")
+	errMissingAction = bootValidationError("action", "action required")
+	errMissingQuery  = bootValidationError("query", "query required")
 )
+
+func bootValidationError(field, message string) error {
+	return goerrors.New(message, goerrors.CategoryValidation).
+		WithCode(400).
+		WithTextCode("VALIDATION_ERROR").
+		WithMetadata(map[string]any{
+			"field": field,
+		})
+}
 
 func safeWrapper(wrap HandlerWrapper) HandlerWrapper {
 	if wrap != nil {
