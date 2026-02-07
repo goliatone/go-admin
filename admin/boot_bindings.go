@@ -222,11 +222,15 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			}
 		}
 		if len(ids) != 1 {
-			return errors.New("translation requires a single id")
+			return validationDomainError("translation requires a single id", map[string]any{
+				"field": "id",
+			})
 		}
 		targetLocale := strings.TrimSpace(toString(body["locale"]))
 		if targetLocale == "" {
-			return errors.New("translation locale required")
+			return validationDomainError("translation locale required", map[string]any{
+				"field": "locale",
+			})
 		}
 		record, err := p.panel.Get(ctx, ids[0])
 		if err != nil {
@@ -519,7 +523,9 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 
 	rawLayout, ok := body["layout"].([]any)
 	if !ok {
-		return nil, errors.New("layout must be an array or valid preferences object")
+		return nil, validationDomainError("layout must be an array or valid preferences object", map[string]any{
+			"field": "layout",
+		})
 	}
 	layout := []DashboardWidgetInstance{}
 	for _, item := range rawLayout {
@@ -878,7 +884,9 @@ func (b *bulkBinding) Rollback(c router.Context, id string, body map[string]any)
 			id = toString(body["id"])
 		}
 		if id == "" {
-			return nil, errors.New("id required")
+			return nil, validationDomainError("id required", map[string]any{
+				"field": "id",
+			})
 		}
 		job, err := rollbackSvc.Rollback(c.Context(), id)
 		if err != nil {
@@ -962,7 +970,9 @@ func (n *notificationsBinding) List(c router.Context) (map[string]any, error) {
 func (n *notificationsBinding) Mark(c router.Context, body map[string]any) error {
 	rawIDs, ok := body["ids"].([]any)
 	if !ok {
-		return errors.New("ids must be array")
+		return validationDomainError("ids must be array", map[string]any{
+			"field": "ids",
+		})
 	}
 	read := true
 	if r, ok := body["read"].(bool); ok {
@@ -1048,7 +1058,9 @@ func (j *jobsBinding) List(c router.Context) (map[string]any, error) {
 func (j *jobsBinding) Trigger(c router.Context, body map[string]any) error {
 	name, _ := body["name"].(string)
 	if name == "" {
-		return errors.New("name required")
+		return validationDomainError("name required", map[string]any{
+			"field": "name",
+		})
 	}
 	adminCtx := j.admin.adminContextFromRequest(c, j.admin.config.DefaultLocale)
 	if err := j.admin.requirePermission(adminCtx, j.admin.config.JobsTriggerPermission, "jobs"); err != nil {
@@ -1092,7 +1104,9 @@ func (s *settingsBinding) Save(c router.Context, body map[string]any) (map[strin
 	}
 	valuesRaw, ok := body["values"].(map[string]any)
 	if !ok {
-		return nil, errors.New("values must be an object")
+		return nil, validationDomainError("values must be an object", map[string]any{
+			"field": "values",
+		})
 	}
 	scope := SettingsScopeSite
 	if str, ok := body["scope"].(string); ok && str != "" {
