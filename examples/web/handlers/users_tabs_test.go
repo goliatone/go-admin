@@ -39,6 +39,20 @@ func TestUserDetailTabSelection(t *testing.T) {
 		if got := fmt.Sprint(viewCtx["active_tab"]); got != "activity" {
 			t.Fatalf("expected active_tab=activity, got %q", got)
 		}
+		rawTabs, ok := viewCtx["tabs"].([]map[string]any)
+		if !ok {
+			t.Fatalf("expected tabs payload, got %T", viewCtx["tabs"])
+		}
+		hasDetails := false
+		for _, tab := range rawTabs {
+			if fmt.Sprint(tab["id"]) == "details" {
+				hasDetails = true
+				break
+			}
+		}
+		if !hasDetails {
+			t.Fatalf("expected synthetic details tab in tabs payload, got %+v", rawTabs)
+		}
 	})
 
 	if err := h.Detail(ctx); err != nil {

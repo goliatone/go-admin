@@ -37,7 +37,7 @@ func TestExampleExportSmokeFilters(t *testing.T) {
 	bundle := quickstart.NewExportBundle(
 		quickstart.WithExportHistoryPath("exports-history"),
 	)
-	if err := registerExampleExports(bundle, dataStores, nil); err != nil {
+	if err := registerExampleExports(bundle, dataStores, nil, nil); err != nil {
 		t.Fatalf("register exports: %v", err)
 	}
 

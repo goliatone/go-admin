@@ -291,7 +291,7 @@ func main() {
 		log.Fatalf("failed to initialize data stores: %v", err)
 	}
 	if featureEnabled(adm.FeatureGate(), "export") {
-		if err := registerExampleExports(exportBundle, dataStores, adm.TenantService()); err != nil {
+		if err := registerExampleExports(exportBundle, dataStores, adm.TenantService(), adm.UserService()); err != nil {
 			log.Fatalf("failed to register exports: %v", err)
 		}
 	}
@@ -836,7 +836,6 @@ func main() {
 		cfg,
 		adm,
 		authn,
-		quickstart.WithContentEntryUIFilterFallbackFromColumnsDefault(true),
 	); err != nil {
 		log.Fatalf("failed to register content entry UI routes: %v", err)
 	}
