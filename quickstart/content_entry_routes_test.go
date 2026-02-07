@@ -9,7 +9,7 @@ import (
 func TestContentEntryColumnsMarksFilterableFields(t *testing.T) {
 	panel := mustBuildContentEntryTestPanel(t)
 
-	filters := contentEntryFilters(panel, false)
+	filters := contentEntryFilters(panel)
 	columns := contentEntryColumns(panel, filters)
 	if len(columns) != 3 {
 		t.Fatalf("expected 3 columns, got %d", len(columns))
@@ -34,7 +34,7 @@ func TestContentEntryColumnsMarksFilterableFields(t *testing.T) {
 func TestContentEntryFiltersUsesSchemaAndFormFieldOptions(t *testing.T) {
 	panel := mustBuildContentEntryTestPanel(t)
 
-	filters := contentEntryFilters(panel, false)
+	filters := contentEntryFilters(panel)
 	if len(filters) != 2 {
 		t.Fatalf("expected 2 filters, got %d", len(filters))
 	}
@@ -71,7 +71,7 @@ func TestContentEntryFiltersUsesSchemaAndFormFieldOptions(t *testing.T) {
 	}
 }
 
-func TestContentEntryFiltersFallsBackToColumnsWhenEnabled(t *testing.T) {
+func TestContentEntryFiltersFallsBackToColumns(t *testing.T) {
 	panel, err := (&admin.PanelBuilder{}).
 		WithRepository(admin.NewMemoryRepository()).
 		ListFields(
@@ -94,10 +94,7 @@ func TestContentEntryFiltersFallsBackToColumnsWhenEnabled(t *testing.T) {
 		t.Fatalf("build panel: %v", err)
 	}
 
-	if got := contentEntryFilters(panel, false); len(got) != 0 {
-		t.Fatalf("expected no filters when fallback disabled, got %+v", got)
-	}
-	filters := contentEntryFilters(panel, true)
+	filters := contentEntryFilters(panel)
 	if len(filters) != 2 {
 		t.Fatalf("expected 2 fallback filters, got %d", len(filters))
 	}
@@ -115,28 +112,6 @@ func TestContentEntryFiltersFallsBackToColumnsWhenEnabled(t *testing.T) {
 	options, ok := byName["status"]["options"].([]map[string]any)
 	if !ok || len(options) != 2 {
 		t.Fatalf("expected status options from form field, got %+v", byName["status"]["options"])
-	}
-}
-
-func TestShouldUseColumnFiltersFallbackResolvesOverrides(t *testing.T) {
-	handlers := &contentEntryHandlers{filtersFallbackFromColumnsDefault: true}
-	if !handlers.shouldUseColumnFiltersFallback(nil) {
-		t.Fatalf("expected global default true when no content type override")
-	}
-
-	overrideFalse := &admin.CMSContentType{Capabilities: map[string]any{"filters_fallback_from_columns": false}}
-	if handlers.shouldUseColumnFiltersFallback(overrideFalse) {
-		t.Fatalf("expected content type false override to win over global true")
-	}
-
-	handlers = &contentEntryHandlers{filtersFallbackFromColumnsDefault: false}
-	overrideTrue := &admin.CMSContentType{Capabilities: map[string]any{"filters_fallback_from_columns": true}}
-	if !handlers.shouldUseColumnFiltersFallback(overrideTrue) {
-		t.Fatalf("expected content type true override to win over global false")
-	}
-
-	if handlers.shouldUseColumnFiltersFallback(nil) {
-		t.Fatalf("expected global default false when no content type override")
 	}
 }
 

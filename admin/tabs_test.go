@@ -127,11 +127,14 @@ func TestMergePanelTabsCollisionHandlerOverwrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("merge tabs: %v", err)
 	}
-	if len(tabs) != 1 || tabs[0].Label != "Second" {
-		t.Fatalf("expected second tab to win, got %+v", tabs)
+	if len(tabs) != 2 {
+		t.Fatalf("expected implicit details + second tab, got %+v", tabs)
 	}
-	if len(tabs[0].Contexts) != 1 || tabs[0].Contexts[0] != "detail" {
-		t.Fatalf("expected normalized contexts, got %+v", tabs[0].Contexts)
+	if tabs[0].ID != "details" || tabs[1].Label != "Second" {
+		t.Fatalf("expected [details second], got %+v", tabs)
+	}
+	if len(tabs[1].Contexts) != 1 || tabs[1].Contexts[0] != "detail" {
+		t.Fatalf("expected normalized contexts, got %+v", tabs[1].Contexts)
 	}
 }
 
@@ -187,6 +190,56 @@ func TestMergePanelTabsCollisionHandlerRejectedChoiceKeepsExisting(t *testing.T)
 	}
 }
 
+func TestMergePanelTabsInjectsImplicitDetailsForDetailTabs(t *testing.T) {
+	admin := &Admin{authorizer: tabsAllowAuthorizer{}}
+	ctx := AdminContext{Context: context.Background()}
+	tabs, err := admin.mergePanelTabs(ctx, "users", []PanelTab{
+		{
+			ID:     "profile",
+			Label:  "Profile",
+			Scope:  PanelTabScopeDetail,
+			Target: PanelTabTarget{Type: "panel", Panel: "user-profiles"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("merge tabs: %v", err)
+	}
+	if len(tabs) != 2 {
+		t.Fatalf("expected implicit details + profile, got %+v", tabs)
+	}
+	if tabs[0].ID != "details" || tabs[0].Scope != PanelTabScopeDetail {
+		t.Fatalf("expected details tab first, got %+v", tabs[0])
+	}
+	if tabs[1].ID != "profile" {
+		t.Fatalf("expected profile tab second, got %+v", tabs)
+	}
+}
+
+func TestMergePanelTabsDoesNotDuplicateExplicitDetails(t *testing.T) {
+	admin := &Admin{authorizer: tabsAllowAuthorizer{}}
+	ctx := AdminContext{Context: context.Background()}
+	tabs, err := admin.mergePanelTabs(ctx, "users", []PanelTab{
+		{
+			ID:     "details",
+			Label:  "Details",
+			Scope:  PanelTabScopeDetail,
+			Target: PanelTabTarget{Type: "panel", Panel: "users"},
+		},
+		{
+			ID:     "activity",
+			Label:  "Activity",
+			Scope:  PanelTabScopeDetail,
+			Target: PanelTabTarget{Type: "path", Path: "/admin/activity"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("merge tabs: %v", err)
+	}
+	if len(tabs) != 2 {
+		t.Fatalf("expected explicit details to remain single, got %+v", tabs)
+	}
+}
+
 func TestResolvePanelTabsUsesAdminContextAndPermissions(t *testing.T) {
 	adm := &Admin{
 		registry:   NewRegistry(),
@@ -214,7 +267,10 @@ func TestResolvePanelTabsUsesAdminContextAndPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve tabs: %v", err)
 	}
-	if len(tabs) != 1 || tabs[0].ID != "profile" {
-		t.Fatalf("expected only profile tab after permission filtering, got %+v", tabs)
+	if len(tabs) != 2 {
+		t.Fatalf("expected implicit details + profile after filtering, got %+v", tabs)
+	}
+	if tabs[0].ID != "details" || tabs[1].ID != "profile" {
+		t.Fatalf("expected [details profile], got %+v", tabs)
 	}
 }

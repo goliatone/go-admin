@@ -112,6 +112,69 @@ func TestDashboardLateProviderRegistrationUpdatesComponents(t *testing.T) {
 	}
 }
 
+func TestDashboardResolveIncludesRegisteredCustomAreas(t *testing.T) {
+	widgetSvc := NewInMemoryWidgetService()
+	dash := NewDashboard()
+	dash.WithWidgetService(widgetSvc)
+	dash.RegisterArea(WidgetAreaDefinition{Code: "admin.users.detail.profile", Name: "User Profile", Scope: "users.detail"})
+	dash.RegisterProvider(DashboardProviderSpec{
+		Code:        "custom.profile",
+		Name:        "Custom Profile Widget",
+		DefaultArea: "admin.users.detail.profile",
+		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			_ = ctx
+			_ = cfg
+			return map[string]any{"ok": true}, nil
+		},
+	})
+
+	widgets, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"})
+	if err != nil {
+		t.Fatalf("resolve failed: %v", err)
+	}
+	if len(widgets) != 1 {
+		t.Fatalf("expected one widget in custom area, got %d (%+v)", len(widgets), widgets)
+	}
+	if got := widgets[0]["area"]; got != "admin.users.detail.profile" {
+		t.Fatalf("expected custom area widget, got area=%v", got)
+	}
+}
+
+func TestDashboardLateAreaRegistrationRebuildsLayoutAreas(t *testing.T) {
+	widgetSvc := NewInMemoryWidgetService()
+	dash := NewDashboard()
+	dash.WithWidgetService(widgetSvc)
+
+	// Build components once with default areas.
+	if _, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"}); err != nil {
+		t.Fatalf("initial resolve failed: %v", err)
+	}
+
+	// Register a new non-default area and a widget after initialization.
+	dash.RegisterArea(WidgetAreaDefinition{Code: "admin.users.detail.activity", Name: "User Activity", Scope: "users.detail"})
+	dash.RegisterProvider(DashboardProviderSpec{
+		Code:        "custom.activity",
+		Name:        "Custom Activity Widget",
+		DefaultArea: "admin.users.detail.activity",
+		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			_ = ctx
+			_ = cfg
+			return map[string]any{"ok": true}, nil
+		},
+	})
+
+	widgets, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"})
+	if err != nil {
+		t.Fatalf("resolve after late area registration failed: %v", err)
+	}
+	if len(widgets) != 1 {
+		t.Fatalf("expected one widget in late-registered area, got %d (%+v)", len(widgets), widgets)
+	}
+	if got := widgets[0]["area"]; got != "admin.users.detail.activity" {
+		t.Fatalf("expected activity area widget, got area=%v", got)
+	}
+}
+
 func TestDashboardVisibilityPermissionFilters(t *testing.T) {
 	dash := NewDashboard()
 	dash.WithWidgetService(NewInMemoryWidgetService())
