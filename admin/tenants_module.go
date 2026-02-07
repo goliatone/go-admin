@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"path"
 	"strings"
 	"time"
@@ -46,7 +45,7 @@ func (m *TenantsModule) Manifest() ModuleManifest {
 // Register wires the tenants panel and search adapter.
 func (m *TenantsModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "tenants_module"})
 	}
 	if ctx.Admin.tenants == nil {
 		return FeatureDisabledError{Feature: string(FeatureTenants)}
@@ -176,7 +175,7 @@ func (m *OrganizationsModule) Manifest() ModuleManifest {
 // Register wires the organizations panel and search adapter.
 func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "tenants_module"})
 	}
 	if ctx.Admin.organizations == nil {
 		return FeatureDisabledError{Feature: string(FeatureOrganizations)}

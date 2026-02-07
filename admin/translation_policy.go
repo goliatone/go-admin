@@ -101,7 +101,10 @@ func (p GoCMSTranslationPolicy) Validate(ctx context.Context, input TranslationP
 	}
 	entityID := uuidFromString(input.EntityID)
 	if entityID == uuid.Nil {
-		return fmt.Errorf("translation policy requires a valid entity id")
+		return validationDomainError("translation policy requires a valid entity id", map[string]any{
+			"field":     "entity_id",
+			"component": "translation_policy",
+		})
 	}
 	opts := cmsinterfaces.TranslationCheckOptions{
 		State:                  strings.TrimSpace(input.State),
@@ -114,12 +117,16 @@ func (p GoCMSTranslationPolicy) Validate(ctx context.Context, input TranslationP
 	switch {
 	case strings.EqualFold(entity, pageWorkflowEntityType):
 		if p.Pages == nil {
-			return fmt.Errorf("page translation checker unavailable")
+			return serviceNotConfiguredDomainError("page translation checker", map[string]any{
+				"component": "translation_policy",
+			})
 		}
 		missing, err = p.Pages.CheckTranslations(ctx, entityID, required, opts)
 	default:
 		if p.Content == nil {
-			return fmt.Errorf("content translation checker unavailable")
+			return serviceNotConfiguredDomainError("content translation checker", map[string]any{
+				"component": "translation_policy",
+			})
 		}
 		missing, err = p.Content.CheckTranslations(ctx, entityID, required, opts)
 	}

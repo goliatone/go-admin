@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 )
 
 // userLifecycleCommand updates the lifecycle status for one or more users.
@@ -13,10 +12,10 @@ type userLifecycleCommand struct {
 
 func (c *userLifecycleCommand) transition(ctx context.Context, ids []string) error {
 	if c == nil || c.service == nil {
-		return errors.New("user lifecycle command not configured")
+		return serviceNotConfiguredDomainError("user lifecycle command", map[string]any{"component": "user_commands"})
 	}
 	if len(ids) == 0 {
-		return errors.New("user ids required")
+		return requiredFieldDomainError("user ids", map[string]any{"component": "user_commands"})
 	}
 	for _, id := range ids {
 		if _, err := c.service.TransitionUser(ctx, id, c.nextStatus); err != nil {

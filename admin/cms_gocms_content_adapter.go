@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -375,7 +374,7 @@ func (a *GoCMSContentAdapter) CreateBlockDefinition(ctx context.Context, def CMS
 	}
 	name := strings.TrimSpace(firstNonEmpty(def.ID, def.Name))
 	if name == "" {
-		return nil, fmt.Errorf("block definition name required")
+		return nil, requiredFieldDomainError("block definition name", map[string]any{"component": "content_adapter"})
 	}
 	input := reflect.New(method.Type().In(1)).Elem()
 	setStringField(input, "Name", name)
@@ -772,7 +771,7 @@ func (a *GoCMSContentAdapter) resolveContentTypeID(ctx context.Context, content 
 			}
 		}
 	}
-	return uuid.Nil, fmt.Errorf("content type not found: %s", content.ContentType)
+	return uuid.Nil, notFoundDomainError("content type not found", map[string]any{"component": "content_adapter", "content_type": content.ContentType})
 }
 
 func (a *GoCMSContentAdapter) resolveBlockDefinitionID(ctx context.Context, id string) (uuid.UUID, error) {

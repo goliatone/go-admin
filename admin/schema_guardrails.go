@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -502,7 +501,9 @@ func NewGuardrailedSchemaValidator(inner SchemaValidator, guardrails *SchemaGuar
 // Validate applies guardrails then delegates to the inner validator
 func (v *GuardrailedSchemaValidator) Validate(ctx context.Context, schema map[string]any, opts SchemaValidationOptions) error {
 	if v == nil || v.inner == nil {
-		return errors.New("schema validator not configured")
+		return serviceNotConfiguredDomainError("schema validator", map[string]any{
+			"component": "schema_guardrails",
+		})
 	}
 
 	// Apply schema guardrails first
@@ -524,7 +525,9 @@ func (v *GuardrailedSchemaValidator) Validate(ctx context.Context, schema map[st
 // Preview renders a form preview after guardrail validation
 func (v *GuardrailedSchemaValidator) Preview(ctx context.Context, schema map[string]any, opts SchemaValidationOptions) ([]byte, error) {
 	if v == nil || v.inner == nil {
-		return nil, errors.New("schema validator not configured")
+		return nil, serviceNotConfiguredDomainError("schema validator", map[string]any{
+			"component": "schema_guardrails",
+		})
 	}
 
 	// Apply schema guardrails first
@@ -542,7 +545,9 @@ func (v *GuardrailedSchemaValidator) Preview(ctx context.Context, schema map[str
 	// Delegate to inner previewer
 	previewer, ok := v.inner.(SchemaPreviewer)
 	if !ok {
-		return nil, errors.New("schema preview not configured")
+		return nil, serviceNotConfiguredDomainError("schema preview", map[string]any{
+			"component": "schema_guardrails",
+		})
 	}
 
 	html, err := previewer.Preview(ctx, schema, opts)

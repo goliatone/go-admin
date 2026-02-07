@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"fmt"
 	"io/fs"
 	"time"
 
@@ -16,7 +15,9 @@ import (
 
 func newFormGenerator(openapiFS fs.FS, templatesFS fs.FS, componentRegistry *components.Registry) (*formgenorchestrator.Orchestrator, error) {
 	if openapiFS == nil {
-		return nil, fmt.Errorf("missing OpenAPI filesystem")
+		return nil, serviceNotConfiguredDomainError("openapi filesystem", map[string]any{
+			"component": "formgen_helpers",
+		})
 	}
 
 	registry := formgenrender.NewRegistry()
@@ -41,7 +42,10 @@ func newFormGenerator(openapiFS fs.FS, templatesFS fs.FS, componentRegistry *com
 
 	vanillaRenderer, err := formgenvanilla.New(vanillaOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("init vanilla renderer: %w", err)
+		return nil, serviceUnavailableDomainError("init vanilla renderer failed", map[string]any{
+			"component": "formgen_helpers",
+			"error":     err.Error(),
+		})
 	}
 	registry.MustRegister(vanillaRenderer)
 
@@ -80,7 +84,11 @@ func mergeComponentRegistry(reg *components.Registry) (*components.Registry, err
 			descriptor = mergeComponentDescriptors(baseDescriptor, descriptor)
 		}
 		if err := merged.Register(name, descriptor); err != nil {
-			return nil, fmt.Errorf("merge component registry: %s: %w", name, err)
+			return nil, conflictDomainError("merge component registry failed", map[string]any{
+				"component": "formgen_helpers",
+				"name":      name,
+				"error":     err.Error(),
+			})
 		}
 	}
 	return merged, nil

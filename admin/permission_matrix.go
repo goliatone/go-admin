@@ -2,7 +2,6 @@ package admin
 
 import (
 	"bytes"
-	"fmt"
 	"path"
 	"sort"
 	"strings"
@@ -33,7 +32,7 @@ const (
 
 func permissionMatrixRenderer(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
 	if data.Template == nil {
-		return fmt.Errorf("permission matrix: template renderer not configured")
+		return serviceNotConfiguredDomainError("permission matrix template renderer", map[string]any{"component": "permission_matrix"})
 	}
 
 	templateName := permissionMatrixTemplate
@@ -109,7 +108,7 @@ func permissionMatrixRenderer(buf *bytes.Buffer, field model.Field, data compone
 	}
 	rendered, err := data.Template.RenderTemplate(templateName, payload)
 	if err != nil {
-		return fmt.Errorf("permission matrix: render template %q: %w", templateName, err)
+		return serviceUnavailableDomainError("permission matrix render template failed", map[string]any{"component": "permission_matrix", "template": templateName, "error": err.Error()})
 	}
 	buf.WriteString(rendered)
 	return nil

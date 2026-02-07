@@ -3,7 +3,6 @@ package admin
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"path"
 	"strings"
 
@@ -30,7 +29,7 @@ type blockDefinition struct {
 
 func blockEditorRenderer(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
 	if data.Template == nil {
-		return fmt.Errorf("block editor: template renderer not configured")
+		return serviceNotConfiguredDomainError("block editor template renderer", map[string]any{"component": "block_editor"})
 	}
 
 	templateName := blockEditorTemplate
@@ -71,7 +70,7 @@ func blockEditorRenderer(buf *bytes.Buffer, field model.Field, data components.C
 
 	rendered, err := data.Template.RenderTemplate(templateName, payload)
 	if err != nil {
-		return fmt.Errorf("block editor: render template %q: %w", templateName, err)
+		return serviceUnavailableDomainError("block editor render template failed", map[string]any{"component": "block_editor", "template": templateName, "error": err.Error()})
 	}
 	buf.WriteString(rendered)
 	return nil

@@ -615,16 +615,12 @@ func (c *SchemaToFieldsConverter) toDetailField(field Field) Field {
 }
 
 func (c *SchemaToFieldsConverter) toFilter(field Field) Filter {
-	filterType := field.Type
+	filterType := NormalizeFilterType(field.Type)
 	operators := []string{"eq", "ilike", "in"}
 	defaultOperator := "ilike"
 	switch filterType {
-	case "integer", "number":
+	case "number":
 		filterType = "number"
-		operators = []string{"eq", "in"}
-		defaultOperator = "eq"
-	case "boolean":
-		filterType = "select"
 		operators = []string{"eq", "in"}
 		defaultOperator = "eq"
 	case "select":

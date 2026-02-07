@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"path"
 	"strings"
 
@@ -194,7 +192,9 @@ func deriveBlockRequiredFields(schema map[string]any) []string {
 // keywords stripped. overlay (if non-nil) is applied via NormalizeOptions.
 func (v *FormgenSchemaValidator) renderBlockTemplate(ctx context.Context, schema map[string]any, overlay []byte, slug string) (string, error) {
 	if v == nil || v.orchestrator == nil {
-		return "", errors.New("schema validator not configured")
+		return "", serviceNotConfiguredDomainError("schema validator", map[string]any{
+			"component": "block_library_picker",
+		})
 	}
 	if schema == nil {
 		return "", nil
@@ -249,7 +249,9 @@ func blockLibraryRenderFunc(ctx context.Context, validator *FormgenSchemaValidat
 	return func(input any) (string, error) {
 		ri, ok := input.(blockLibraryRenderInput)
 		if !ok {
-			return "", errors.New("block library: invalid render input")
+			return "", validationDomainError("block library invalid render input", map[string]any{
+				"component": "block_library_picker",
+			})
 		}
 		return validator.renderBlockTemplate(ctx, ri.Schema, ri.Overlay, ri.Slug)
 	}
@@ -405,7 +407,9 @@ const (
 // the frontend via Phase 2 API endpoints.
 func blockLibraryPickerRenderer(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
 	if data.Template == nil {
-		return fmt.Errorf("block library picker: template renderer not configured")
+		return serviceNotConfiguredDomainError("block library template renderer", map[string]any{
+			"component": "block_library_picker",
+		})
 	}
 
 	templateName := blockLibraryPickerTemplate
@@ -462,7 +466,11 @@ func blockLibraryPickerRenderer(buf *bytes.Buffer, field model.Field, data compo
 
 	rendered, err := data.Template.RenderTemplate(templateName, payload)
 	if err != nil {
-		return fmt.Errorf("block library picker: render template %q: %w", templateName, err)
+		return serviceUnavailableDomainError("block library template render failed", map[string]any{
+			"component": "block_library_picker",
+			"template":  templateName,
+			"error":     err.Error(),
+		})
 	}
 	buf.WriteString(rendered)
 	return nil

@@ -340,29 +340,11 @@ func canonicalMenuItemPath(menuCode, raw string) string {
 }
 
 func normalizeMenuItemType(raw string) string {
-	switch strings.TrimSpace(raw) {
-	case MenuItemTypeGroup:
-		return MenuItemTypeGroup
-	case MenuItemTypeSeparator:
-		return MenuItemTypeSeparator
-	default:
-		return MenuItemTypeItem
-	}
+	return NormalizeMenuItemType(raw)
 }
 
 func normalizeMenuItemTranslationFields(item MenuItem) (label, labelKey, groupTitle, groupTitleKey string) {
-	label = strings.TrimSpace(item.Label)
-	labelKey = strings.TrimSpace(item.LabelKey)
-	groupTitle = strings.TrimSpace(item.GroupTitle)
-	groupTitleKey = strings.TrimSpace(item.GroupTitleKey)
-
-	if label == "" && labelKey != "" {
-		label = labelKey
-	}
-	if groupTitle == "" && groupTitleKey != "" {
-		groupTitle = groupTitleKey
-	}
-	return
+	return NormalizeMenuItemTranslationFields(item)
 }
 
 func deriveMenuItemPaths(menuCode string, item MenuItem) (string, string, error) {

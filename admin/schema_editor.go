@@ -3,7 +3,6 @@ package admin
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"path"
 	"strings"
 
@@ -18,7 +17,7 @@ const (
 
 func schemaEditorRenderer(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
 	if data.Template == nil {
-		return fmt.Errorf("schema editor: template renderer not configured")
+		return serviceNotConfiguredDomainError("schema editor template renderer", map[string]any{"component": "schema_editor"})
 	}
 
 	templateName := schemaEditorTemplate
@@ -45,7 +44,7 @@ func schemaEditorRenderer(buf *bytes.Buffer, field model.Field, data components.
 
 	rendered, err := data.Template.RenderTemplate(templateName, payload)
 	if err != nil {
-		return fmt.Errorf("schema editor: render template %q: %w", templateName, err)
+		return serviceUnavailableDomainError("schema editor render template failed", map[string]any{"component": "schema_editor", "template": templateName, "error": err.Error()})
 	}
 	buf.WriteString(rendered)
 	return nil

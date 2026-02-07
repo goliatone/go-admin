@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"fmt"
 	"io/fs"
 
 	"github.com/goliatone/go-admin/pkg/client"
@@ -19,15 +18,24 @@ const (
 func NewRoleFormGenerator(cfg Config) (*formgenorchestrator.Orchestrator, error) {
 	openapiFS := client.OpenAPI()
 	if openapiFS == nil {
-		return nil, fmt.Errorf("roles OpenAPI filesystem not configured")
+		return nil, serviceNotConfiguredDomainError("roles openapi filesystem", map[string]any{
+			"component": "roles_formgen",
+		})
 	}
 	if _, err := fs.Stat(openapiFS, RolesOpenAPISource); err != nil {
-		return nil, fmt.Errorf("missing roles OpenAPI: %w", err)
+		return nil, serviceUnavailableDomainError("missing roles openapi", map[string]any{
+			"component": "roles_formgen",
+			"source":    RolesOpenAPISource,
+			"error":     err.Error(),
+		})
 	}
 
 	formTemplatesFS, err := fs.Sub(client.Templates(), "formgen/vanilla")
 	if err != nil {
-		return nil, fmt.Errorf("init form templates: %w", err)
+		return nil, serviceUnavailableDomainError("init form templates failed", map[string]any{
+			"component": "roles_formgen",
+			"error":     err.Error(),
+		})
 	}
 
 	componentRegistry := components.New()

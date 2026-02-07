@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"fmt"
 	"strings"
 
 	urlkit "github.com/goliatone/go-urlkit"
@@ -68,20 +67,32 @@ func newURLManager(cfg Config) (*urlkit.RouteManager, error) {
 	if cfg.URLs.URLKit != nil {
 		manager, err := urlkit.NewRouteManagerFromConfig(cfg.URLs.URLKit)
 		if err != nil {
-			return nil, fmt.Errorf("url manager config error: %w", err)
+			return nil, validationDomainError("url manager config error", map[string]any{
+				"component": "url_manager",
+				"error":     err.Error(),
+			})
 		}
 		if err := validateURLKitRoutes(cfg, manager); err != nil {
-			return nil, fmt.Errorf("url manager validation error: %w", err)
+			return nil, validationDomainError("url manager validation error", map[string]any{
+				"component": "url_manager",
+				"error":     err.Error(),
+			})
 		}
 		return manager, nil
 	}
 
 	manager, err := urlkit.NewRouteManagerFromConfig(defaultURLKitConfig(cfg))
 	if err != nil {
-		return nil, fmt.Errorf("url manager default config error: %w", err)
+		return nil, validationDomainError("url manager default config error", map[string]any{
+			"component": "url_manager",
+			"error":     err.Error(),
+		})
 	}
 	if err := validateURLKitRoutes(cfg, manager); err != nil {
-		return nil, fmt.Errorf("url manager validation error: %w", err)
+		return nil, validationDomainError("url manager validation error", map[string]any{
+			"component": "url_manager",
+			"error":     err.Error(),
+		})
 	}
 	return manager, nil
 }
@@ -206,7 +217,9 @@ func requiredURLKitRoutes(cfg Config) map[string][]string {
 
 func validateURLKitRoutes(cfg Config, manager *urlkit.RouteManager) error {
 	if manager == nil {
-		return fmt.Errorf("url manager is nil")
+		return serviceNotConfiguredDomainError("url manager", map[string]any{
+			"component": "url_manager",
+		})
 	}
 	return manager.Validate(requiredURLKitRoutes(cfg))
 }
