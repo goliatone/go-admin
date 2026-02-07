@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/fs"
 	"path"
@@ -185,7 +184,9 @@ func (m *ContentTypeBuilderModule) Manifest() ModuleManifest {
 // Register wires the module panels, commands, and dynamic panel registration.
 func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceUnavailableDomainError("admin is nil", map[string]any{
+			"service": "admin",
+		})
 	}
 	if ctx.Admin.contentTypeSvc == nil || ctx.Admin.contentSvc == nil {
 		return FeatureDisabledError{Feature: string(FeatureCMS)}
@@ -323,7 +324,9 @@ func (m *ContentTypeBuilderModule) resolveMenuGroupID() string {
 
 func (m *ContentTypeBuilderModule) registerContentTypePanel(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceUnavailableDomainError("admin is nil", map[string]any{
+			"service": "admin",
+		})
 	}
 	if ctx.Admin.registry != nil {
 		if _, exists := ctx.Admin.registry.Panel(contentTypePanelID); exists {
@@ -391,7 +394,9 @@ func (m *ContentTypeBuilderModule) registerContentTypePanel(ctx ModuleContext) e
 
 func (m *ContentTypeBuilderModule) registerBlockDefinitionsPanel(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceUnavailableDomainError("admin is nil", map[string]any{
+			"service": "admin",
+		})
 	}
 	if ctx.Admin.registry != nil {
 		if _, exists := ctx.Admin.registry.Panel(blockDefinitionsPanelID); exists {
@@ -617,7 +622,9 @@ func (m *ContentTypeBuilderModule) registerSchemaRoutes(admin *Admin) {
 		}
 		previewer, ok := m.schemaValidator.(SchemaPreviewer)
 		if !ok {
-			return writeError(c, errors.New("schema preview not configured"))
+			return writeError(c, serviceUnavailableDomainError("schema preview not configured", map[string]any{
+				"service": "schema_preview",
+			}))
 		}
 		html, err := previewer.Preview(adminCtx.Context, schema, opts)
 		if err != nil {
@@ -808,7 +815,9 @@ type contentTypeCreateCommand struct {
 
 func (c *contentTypeCreateCommand) Execute(ctx context.Context, msg ContentTypeCreateMsg) error {
 	if c == nil || c.service == nil {
-		return errors.New("content type service not configured")
+		return serviceUnavailableDomainError("content type service not configured", map[string]any{
+			"service": "content_type",
+		})
 	}
 	created, err := c.service.CreateContentType(ctx, msg.ContentType)
 	if err != nil {
@@ -829,7 +838,9 @@ type contentTypeUpdateCommand struct {
 
 func (c *contentTypeUpdateCommand) Execute(ctx context.Context, msg ContentTypeUpdateMsg) error {
 	if c == nil || c.service == nil {
-		return errors.New("content type service not configured")
+		return serviceUnavailableDomainError("content type service not configured", map[string]any{
+			"service": "content_type",
+		})
 	}
 	updated, err := c.service.UpdateContentType(ctx, msg.ContentType)
 	if err != nil {
@@ -850,11 +861,15 @@ type contentTypeDeleteCommand struct {
 
 func (c *contentTypeDeleteCommand) Execute(ctx context.Context, msg ContentTypeDeleteMsg) error {
 	if c == nil || c.service == nil {
-		return errors.New("content type service not configured")
+		return serviceUnavailableDomainError("content type service not configured", map[string]any{
+			"service": "content_type",
+		})
 	}
 	id := strings.TrimSpace(msg.ID)
 	if id == "" {
-		return errors.New("content type id required")
+		return validationDomainError("content type id required", map[string]any{
+			"field": "id",
+		})
 	}
 	var deletedCT *CMSContentType
 	if ct, err := c.service.ContentTypeBySlug(ctx, id); err == nil && ct != nil && ct.ID != "" {
@@ -882,11 +897,15 @@ type contentTypePublishCommand struct {
 
 func (c *contentTypePublishCommand) Execute(ctx context.Context, msg ContentTypePublishMsg) error {
 	if c == nil || c.service == nil {
-		return errors.New("content type service not configured")
+		return serviceUnavailableDomainError("content type service not configured", map[string]any{
+			"service": "content_type",
+		})
 	}
 	id := strings.TrimSpace(msg.ID)
 	if id == "" {
-		return errors.New("content type id required")
+		return validationDomainError("content type id required", map[string]any{
+			"field": "id",
+		})
 	}
 	status := strings.TrimSpace(msg.Status)
 	if status == "" {
@@ -923,10 +942,14 @@ func (ContentTypeCreateMsg) Type() string { return contentTypeCreateCommandName 
 
 func (m ContentTypeCreateMsg) Validate() error {
 	if strings.TrimSpace(m.ContentType.Name) == "" {
-		return errors.New("name required")
+		return validationDomainError("name required", map[string]any{
+			"field": "name",
+		})
 	}
 	if len(m.ContentType.Schema) == 0 {
-		return errors.New("schema required")
+		return validationDomainError("schema required", map[string]any{
+			"field": "schema",
+		})
 	}
 	return nil
 }
@@ -940,7 +963,9 @@ func (ContentTypeUpdateMsg) Type() string { return contentTypeUpdateCommandName 
 
 func (m ContentTypeUpdateMsg) Validate() error {
 	if strings.TrimSpace(firstNonEmpty(m.ContentType.ID, m.ContentType.Slug)) == "" {
-		return errors.New("content type id required")
+		return validationDomainError("content type id required", map[string]any{
+			"field": "id",
+		})
 	}
 	return nil
 }
@@ -954,7 +979,9 @@ func (ContentTypeDeleteMsg) Type() string { return contentTypeDeleteCommandName 
 
 func (m ContentTypeDeleteMsg) Validate() error {
 	if strings.TrimSpace(m.ID) == "" {
-		return errors.New("content type id required")
+		return validationDomainError("content type id required", map[string]any{
+			"field": "id",
+		})
 	}
 	return nil
 }
@@ -970,14 +997,18 @@ func (ContentTypePublishMsg) Type() string { return contentTypePublishCommandNam
 
 func (m ContentTypePublishMsg) Validate() error {
 	if strings.TrimSpace(m.ID) == "" {
-		return errors.New("content type id required")
+		return validationDomainError("content type id required", map[string]any{
+			"field": "id",
+		})
 	}
 	return nil
 }
 
 func buildContentTypeCreateMsg(payload map[string]any, _ []string) (ContentTypeCreateMsg, error) {
 	if payload == nil {
-		return ContentTypeCreateMsg{}, errors.New("payload required")
+		return ContentTypeCreateMsg{}, validationDomainError("payload required", map[string]any{
+			"field": "payload",
+		})
 	}
 	ct := mapToCMSContentType(payload)
 	return ContentTypeCreateMsg{ContentType: ct}, nil
@@ -1003,7 +1034,9 @@ func buildContentTypePublishMsg(payload map[string]any, ids []string) (ContentTy
 	}
 	id := firstNonEmpty(firstString(ids...), toString(payload["id"]), toString(payload["slug"]))
 	if id == "" {
-		return ContentTypePublishMsg{}, errors.New("content type id required")
+		return ContentTypePublishMsg{}, validationDomainError("content type id required", map[string]any{
+			"field": "id",
+		})
 	}
 	status := strings.TrimSpace(toString(payload["status"]))
 	allowBreaking := toBool(payload["allow_breaking_changes"]) || toBool(payload["allow_breaking"]) || toBool(payload["force"])
@@ -1016,7 +1049,9 @@ func buildContentTypeDeleteMsg(payload map[string]any, ids []string) (ContentTyp
 		id = toString(payload["slug"])
 	}
 	if id == "" {
-		return ContentTypeDeleteMsg{}, errors.New("content type id required")
+		return ContentTypeDeleteMsg{}, validationDomainError("content type id required", map[string]any{
+			"field": "id",
+		})
 	}
 	return ContentTypeDeleteMsg{ID: id}, nil
 }
@@ -1085,10 +1120,14 @@ func (v *FormgenSchemaValidator) RenderForm(ctx context.Context, schema map[stri
 		ctx = context.Background()
 	}
 	if v == nil || v.orchestrator == nil {
-		return "", errors.New("schema validator not configured")
+		return "", serviceUnavailableDomainError("schema validator not configured", map[string]any{
+			"service": "schema_validator",
+		})
 	}
 	if schema == nil {
-		return "", errors.New("schema required")
+		return "", validationDomainError("schema required", map[string]any{
+			"field": "schema",
+		})
 	}
 
 	formID, err := resolveFormID(schema, opts)
@@ -1140,10 +1179,14 @@ func (v *FormgenSchemaValidator) generate(ctx context.Context, schema map[string
 		ctx = context.Background()
 	}
 	if v == nil || v.orchestrator == nil {
-		return nil, errors.New("schema validator not configured")
+		return nil, serviceUnavailableDomainError("schema validator not configured", map[string]any{
+			"service": "schema_validator",
+		})
 	}
 	if schema == nil {
-		return nil, errors.New("schema required")
+		return nil, validationDomainError("schema required", map[string]any{
+			"field": "schema",
+		})
 	}
 	formID, err := resolveFormID(schema, opts)
 	if err != nil {
@@ -1208,7 +1251,9 @@ func resolveFormID(schema map[string]any, opts SchemaValidationOptions) (string,
 		return "", err
 	}
 	if len(refs) == 0 || strings.TrimSpace(refs[0].ID) == "" {
-		return "", errors.New("form id not found")
+		return "", notFoundDomainError("form id not found", map[string]any{
+			"field": "form_id",
+		})
 	}
 	return refs[0].ID, nil
 }
@@ -1281,7 +1326,9 @@ func schemaValidationError(err error) error {
 func parseSchemaPayload(body map[string]any) (map[string]any, map[string]any, SchemaValidationOptions, error) {
 	opts := SchemaValidationOptions{}
 	if body == nil {
-		return nil, nil, opts, errors.New("payload required")
+		return nil, nil, opts, validationDomainError("payload required", map[string]any{
+			"field": "payload",
+		})
 	}
 	opts.Slug = strings.TrimSpace(firstNonEmpty(toString(body["slug"]), toString(body["content_type"]), toString(body["name"])))
 	opts.FormID = strings.TrimSpace(firstNonEmpty(toString(body["form_id"]), toString(body["operation_id"])))
@@ -1302,7 +1349,9 @@ func parseSchemaPayload(body map[string]any) (map[string]any, map[string]any, Sc
 		schema = cloneAnyMap(body)
 	}
 	if len(schema) == 0 {
-		return nil, nil, opts, errors.New("schema required")
+		return nil, nil, opts, validationDomainError("schema required", map[string]any{
+			"field": "schema",
+		})
 	}
 
 	var uiSchema map[string]any
