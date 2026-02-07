@@ -50,7 +50,9 @@ func (a *Admin) handlePublicPage(c router.Context) error {
 	}
 
 	if a.contentSvc == nil {
-		return writeError(c, errors.New("content service not available"))
+		return writeError(c, serviceUnavailableDomainError("content service not available", map[string]any{
+			"service": "content",
+		}))
 	}
 
 	locale := publicLocale(a, c)
@@ -67,7 +69,9 @@ func (a *Admin) handlePublicPage(c router.Context) error {
 
 func (a *Admin) handlePublicPages(c router.Context) error {
 	if a.contentSvc == nil {
-		return writeError(c, errors.New("content service not available"))
+		return writeError(c, serviceUnavailableDomainError("content service not available", map[string]any{
+			"service": "content",
+		}))
 	}
 	locale := publicLocale(a, c)
 	slug := c.Query("slug")
@@ -90,7 +94,9 @@ func (a *Admin) handlePublicPages(c router.Context) error {
 
 func (a *Admin) handlePublicContent(c router.Context) error {
 	if a.contentSvc == nil {
-		return writeError(c, errors.New("content service not available"))
+		return writeError(c, serviceUnavailableDomainError("content service not available", map[string]any{
+			"service": "content",
+		}))
 	}
 	locale := publicLocale(a, c)
 	contentType := publicContentType(c)
@@ -99,7 +105,9 @@ func (a *Admin) handlePublicContent(c router.Context) error {
 		slug = c.Query("slug")
 	}
 	if slug == "" {
-		return writeError(c, errors.New("content slug required"))
+		return writeError(c, validationDomainError("content slug required", map[string]any{
+			"field": "slug",
+		}))
 	}
 	content, err := a.findPublicContent(c.Context(), locale, contentType, slug, "", false)
 	if err != nil {
@@ -113,7 +121,9 @@ func (a *Admin) handlePublicContent(c router.Context) error {
 
 func (a *Admin) handlePublicContentList(c router.Context) error {
 	if a.contentSvc == nil {
-		return writeError(c, errors.New("content service not available"))
+		return writeError(c, serviceUnavailableDomainError("content service not available", map[string]any{
+			"service": "content",
+		}))
 	}
 
 	locale := publicLocale(a, c)
@@ -139,7 +149,9 @@ func (a *Admin) handlePublicContentList(c router.Context) error {
 
 func (a *Admin) handlePublicPosts(c router.Context) error {
 	if a.contentSvc == nil {
-		return writeError(c, errors.New("content service not available"))
+		return writeError(c, serviceUnavailableDomainError("content service not available", map[string]any{
+			"service": "content",
+		}))
 	}
 	locale := publicLocale(a, c)
 	category := c.Query("category")
@@ -155,7 +167,9 @@ func (a *Admin) handlePublicMenu(c router.Context) error {
 	locale := publicLocale(a, c)
 
 	if a.menuSvc == nil {
-		return writeError(c, errors.New("menu service not available"))
+		return writeError(c, serviceUnavailableDomainError("menu service not available", map[string]any{
+			"service": "menu",
+		}))
 	}
 
 	menu, err := a.menuSvc.MenuByLocation(c.Context(), location, locale)
@@ -172,7 +186,9 @@ func (a *Admin) handlePublicMenu(c router.Context) error {
 func (a *Admin) handlePublicPreview(c router.Context) error {
 	tokenString := c.Param("token", "")
 	if a.preview == nil {
-		return writeError(c, errors.New("preview service not available"))
+		return writeError(c, serviceUnavailableDomainError("preview service not available", map[string]any{
+			"service": "preview",
+		}))
 	}
 
 	token, err := a.preview.Validate(tokenString)
@@ -181,7 +197,9 @@ func (a *Admin) handlePublicPreview(c router.Context) error {
 	}
 
 	if a.contentSvc == nil {
-		return writeError(c, errors.New("content service not available"))
+		return writeError(c, serviceUnavailableDomainError("content service not available", map[string]any{
+			"service": "content",
+		}))
 	}
 
 	locale := publicLocale(a, c)
