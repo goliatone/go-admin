@@ -847,16 +847,6 @@ export class ContentTypeEditor {
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Block Editor</span>
           </label>
-
-          <label class="flex items-center gap-2 cursor-pointer col-span-2">
-            <input
-              type="checkbox"
-              data-ct-cap="filters_fallback_from_columns"
-              ${caps.filters_fallback_from_columns || caps.filtersFallbackFromColumns ? 'checked' : ''}
-              class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">Fallback filters from list columns</span>
-          </label>
         </div>
       </div>
     `;

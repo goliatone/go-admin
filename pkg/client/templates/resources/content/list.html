@@ -2,8 +2,6 @@
 
 {% block list_title %}{{ resource_label|default:"Content" }} - {{ title }}{% endblock %}
 
-{% block filter_row %}{% endblock %}
-
 {% block empty_state %}
 <div class="text-center py-16">
   <div class="text-6xl mb-4">📄</div>
@@ -33,7 +31,8 @@ const filterFields = (filters || []).map(filter => ({
   name: filter.name,
   label: filter.label,
   type: normalizeFilterType(filter.type),
-  options: normalizeFilterOptions(filter.options)
+  options: normalizeFilterOptions(filter.options),
+  operators: normalizeFilterOperators(filter.operators, filter.default_operator)
 }));
 
 class PanelPaginationBehavior {
@@ -89,6 +88,20 @@ function normalizeFilterOptions(options) {
     })
     .filter(Boolean);
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeFilterOperators(operators, defaultOperator) {
+  if (!Array.isArray(operators) || operators.length === 0) return undefined;
+  const normalized = operators
+    .map(op => String(op || '').trim().toLowerCase())
+    .filter(Boolean);
+  if (normalized.length === 0) return undefined;
+  const deduped = Array.from(new Set(normalized));
+  const preferred = defaultOperator ? String(defaultOperator).trim().toLowerCase() : '';
+  if (preferred && deduped.includes(preferred)) {
+    return [preferred, ...deduped.filter(op => op !== preferred)];
+  }
+  return deduped;
 }
 
 const envQuery = env ? `?env=${encodeURIComponent(env)}` : '';
