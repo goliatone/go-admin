@@ -332,7 +332,9 @@ func (b *PanelBuilder) WithTranslationPolicy(policy TranslationPolicy) *PanelBui
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
-		return nil, errors.New("repository required")
+		return nil, serviceUnavailableDomainError("repository required", map[string]any{
+			"component": "panel_builder",
+		})
 	}
 	if b.workflow != nil {
 		workflowHook := buildWorkflowUpdateHook(b.repo, b.workflow, b.workflowAuth, b.translationPolicy, b.name)
@@ -611,7 +613,10 @@ func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any,
 			return err
 		}
 	}
-	return errors.New("action not found")
+	return notFoundDomainError("action not found", map[string]any{
+		"panel":  p.name,
+		"action": name,
+	})
 }
 
 // RunBulkAction dispatches a command-backed bulk action.
@@ -631,7 +636,10 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 			return err
 		}
 	}
-	return errors.New("bulk action not found")
+	return notFoundDomainError("bulk action not found", map[string]any{
+		"panel":  p.name,
+		"action": name,
+	})
 }
 
 func (p *Panel) recordActivity(ctx AdminContext, action string, metadata map[string]any) {
