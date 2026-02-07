@@ -46,7 +46,6 @@ Each helper is optional and composable.
 - `RegisterAdminUIRoutes(r router.Router[T], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error` - Inputs: router/config/admin/auth wrapper + options. Outputs: error (registers dashboard + notifications UI routes).
 - `RegisterAuthUIRoutes(r router.Router[T], cfg admin.Config, auther *auth.Auther, cookieName string, opts ...AuthUIOption) error` - Inputs: router/config/go-auth auther/cookie name + options. Outputs: error (registers login/logout/reset UI routes).
 - `RegisterRegistrationUIRoutes(r router.Router[T], cfg admin.Config, opts ...RegistrationUIOption) error` - Inputs: router/config + options. Outputs: error (registers signup UI route).
-- `WithContentEntryUIFilterFallbackFromColumnsDefault(enabled bool) ContentEntryUIOption` - Inputs: fallback toggle; outputs: option that enables deriving FilterBuilder fields from list/form fields when schema filters are empty.
 - `AuthUIViewContext(cfg admin.Config, state AuthUIState, paths AuthUIPaths) router.ViewContext` - Inputs: config/state/paths; outputs: view context with auth flags + paths.
 - `AttachDebugMiddleware(r router.Router[T], cfg admin.Config, adm *admin.Admin)` - Inputs: router/config/admin; outputs: none (registers debug request capture middleware).
 - `AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin)` - Inputs: config/admin; outputs: none (wires slog debug handler).
@@ -236,18 +235,10 @@ if err := quickstart.RegisterContentEntryUIRoutes(
 	cfg,
 	adm,
 	authn,
-	quickstart.WithContentEntryUIFilterFallbackFromColumnsDefault(true),
 ); err != nil {
 	return err
 }
 ```
-
-Content entry filter fallback precedence:
-- Content-type capability `filters_fallback_from_columns` (explicit `true`/`false`) wins.
-- Otherwise the global quickstart option `WithContentEntryUIFilterFallbackFromColumnsDefault(...)` is used.
-- If neither is set, fallback stays disabled.
-
-The content type builder checkbox writes this capability so you can override behavior per content type without changing app-level wiring.
 
 Password reset UI defaults to two pages:
 
