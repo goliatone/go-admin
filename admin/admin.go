@@ -1116,6 +1116,7 @@ func (a *Admin) mergePanelTabs(ctx AdminContext, panelName string, groups ...[]P
 		}
 		return out[i].Position < out[j].Position
 	})
+	out = prependImplicitDetailTab(out)
 	return out, nil
 }
 
@@ -1130,6 +1131,51 @@ func normalizePanelTab(tab PanelTab) PanelTab {
 		tab.Contexts = []string{string(tab.Scope)}
 	}
 	return tab
+}
+
+func prependImplicitDetailTab(tabs []PanelTab) []PanelTab {
+	if len(tabs) == 0 {
+		return tabs
+	}
+	firstDetailIdx := -1
+	for i := range tabs {
+		if strings.EqualFold(strings.TrimSpace(tabs[i].ID), "details") {
+			return tabs
+		}
+		if panelTabMatchesContext(tabs[i], string(PanelTabScopeDetail)) && firstDetailIdx == -1 {
+			firstDetailIdx = i
+		}
+	}
+	if firstDetailIdx == -1 {
+		return tabs
+	}
+	details := normalizePanelTab(PanelTab{
+		ID:       "details",
+		Label:    "Details",
+		Scope:    PanelTabScopeDetail,
+		Contexts: []string{string(PanelTabScopeDetail)},
+	})
+	out := make([]PanelTab, 0, len(tabs)+1)
+	out = append(out, tabs[:firstDetailIdx]...)
+	out = append(out, details)
+	out = append(out, tabs[firstDetailIdx:]...)
+	return out
+}
+
+func panelTabMatchesContext(tab PanelTab, context string) bool {
+	context = strings.ToLower(strings.TrimSpace(context))
+	if context == "" {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(string(tab.Scope)), context) {
+		return true
+	}
+	for _, candidate := range tab.Contexts {
+		if strings.EqualFold(strings.TrimSpace(candidate), context) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *Admin) panelTabAllowed(ctx AdminContext, tab PanelTab, panelName string) bool {
