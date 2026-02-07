@@ -148,6 +148,9 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			WithCode(http.StatusNotFound).
 			WithTextCode(TextCodeFeatureDisabled)
 		status = http.StatusNotFound
+	case errors.Is(err, ErrPathConflict):
+		mapped = NewDomainError(TextCodePathConflict, err.Error(), nil)
+		status = mapped.Code
 	case isContentTypeSchemaBreaking(err):
 		meta := map[string]any{}
 		if changes := parseContentTypeSchemaBreaking(err); len(changes) > 0 {
