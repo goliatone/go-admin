@@ -121,7 +121,7 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 }
 
 func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) (cms.SeedMenuItem, error) {
-	itemType := normalizeMenuItemType(item.Type)
+	itemType := admin.NormalizeMenuItemType(item.Type)
 	derived, err := cms.DeriveMenuItemPaths(
 		menuCode,
 		item.ID,
@@ -174,7 +174,7 @@ func toSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) 
 		return seed, nil
 	}
 
-	label, labelKey, groupTitle, groupTitleKey := normalizeMenuItemTranslationFields(item)
+	label, labelKey, groupTitle, groupTitleKey := admin.NormalizeMenuItemTranslationFields(item)
 	seed.Translations = []cms.MenuItemTranslationInput{{
 		Locale:        locale,
 		Label:         label,
@@ -203,30 +203,4 @@ func normalizeSeedPermissions(perms []string) []string {
 		return nil
 	}
 	return out
-}
-
-func normalizeMenuItemType(raw string) string {
-	switch strings.TrimSpace(raw) {
-	case admin.MenuItemTypeGroup:
-		return admin.MenuItemTypeGroup
-	case admin.MenuItemTypeSeparator:
-		return admin.MenuItemTypeSeparator
-	default:
-		return admin.MenuItemTypeItem
-	}
-}
-
-func normalizeMenuItemTranslationFields(item admin.MenuItem) (label, labelKey, groupTitle, groupTitleKey string) {
-	label = strings.TrimSpace(item.Label)
-	labelKey = strings.TrimSpace(item.LabelKey)
-	groupTitle = strings.TrimSpace(item.GroupTitle)
-	groupTitleKey = strings.TrimSpace(item.GroupTitleKey)
-
-	if label == "" && labelKey != "" {
-		label = labelKey
-	}
-	if groupTitle == "" && groupTitleKey != "" {
-		groupTitle = groupTitleKey
-	}
-	return
 }
