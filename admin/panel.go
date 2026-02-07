@@ -77,12 +77,20 @@ var (
 
 // ListOptions holds pagination and filtering input.
 type ListOptions struct {
-	Page     int
-	PerPage  int
-	SortBy   string
-	SortDesc bool
-	Filters  map[string]any
-	Search   string
+	Page       int
+	PerPage    int
+	SortBy     string
+	SortDesc   bool
+	Filters    map[string]any
+	Predicates []ListPredicate
+	Search     string
+}
+
+// ListPredicate defines an operator-aware list filter predicate.
+type ListPredicate struct {
+	Field    string   `json:"field"`
+	Operator string   `json:"operator"`
+	Values   []string `json:"values,omitempty"`
 }
 
 // Field describes a panel field.
@@ -107,10 +115,13 @@ type Option struct {
 
 // Filter defines a filter input.
 type Filter struct {
-	Name     string `json:"name"`
-	Label    string `json:"label,omitempty"`
-	LabelKey string `json:"label_key,omitempty"`
-	Type     string `json:"type"`
+	Name            string   `json:"name"`
+	Label           string   `json:"label,omitempty"`
+	LabelKey        string   `json:"label_key,omitempty"`
+	Type            string   `json:"type"`
+	Operators       []string `json:"operators,omitempty"`
+	DefaultOperator string   `json:"default_operator,omitempty"`
+	Options         []Option `json:"options,omitempty"`
 }
 
 // Action describes an action or bulk action linked to a command handler.
