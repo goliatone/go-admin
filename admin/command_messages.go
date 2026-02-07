@@ -1,7 +1,5 @@
 package admin
 
-import "errors"
-
 const (
 	bulkCommandName              = "admin.bulk"
 	userActivateCommandName      = "users.activate"
@@ -20,7 +18,9 @@ func (SettingsUpdateMsg) Type() string { return settingsUpdateCommandName }
 
 func (m SettingsUpdateMsg) Validate() error {
 	if m.Bundle.Values == nil {
-		return errors.New("settings values required")
+		return validationDomainError("settings values required", map[string]any{
+			"field": "values",
+		})
 	}
 	return nil
 }
@@ -35,7 +35,9 @@ func (NotificationMarkMsg) Type() string { return NotificationMarkCommandName }
 
 func (m NotificationMarkMsg) Validate() error {
 	if len(m.IDs) == 0 {
-		return errors.New("notification ids required")
+		return validationDomainError("notification ids required", map[string]any{
+			"field": "ids",
+		})
 	}
 	return nil
 }
@@ -52,7 +54,9 @@ func (BulkStartMsg) Type() string { return bulkCommandName }
 
 func (m BulkStartMsg) Validate() error {
 	if m.Name == "" {
-		return errors.New("bulk name required")
+		return validationDomainError("bulk name required", map[string]any{
+			"field": "name",
+		})
 	}
 	return nil
 }
@@ -104,7 +108,9 @@ func (DashboardProviderMsg) Type() string { return dashboardProviderCommandName 
 
 func (m DashboardProviderMsg) Validate() error {
 	if m.CommandName == "" && m.Code == "" {
-		return errors.New("dashboard command name required")
+		return validationDomainError("dashboard command name required", map[string]any{
+			"field": "command_name",
+		})
 	}
 	return nil
 }
@@ -137,11 +143,15 @@ func RegisterCoreCommandFactories(bus *CommandBus) error {
 
 func buildSettingsUpdateMsg(payload map[string]any, _ []string) (SettingsUpdateMsg, error) {
 	if payload == nil {
-		return SettingsUpdateMsg{}, errors.New("payload required")
+		return SettingsUpdateMsg{}, validationDomainError("payload required", map[string]any{
+			"field": "payload",
+		})
 	}
 	values, ok := payload["values"].(map[string]any)
 	if !ok {
-		return SettingsUpdateMsg{}, errors.New("values must be an object")
+		return SettingsUpdateMsg{}, validationDomainError("values must be an object", map[string]any{
+			"field": "values",
+		})
 	}
 	scope := SettingsScopeSite
 	if raw, ok := payload["scope"].(string); ok && raw != "" {
@@ -164,14 +174,18 @@ func buildNotificationMarkMsg(payload map[string]any, ids []string) (Notificatio
 		}
 	}
 	if len(parsed.IDs) == 0 {
-		return parsed, errors.New("notification ids required")
+		return parsed, validationDomainError("notification ids required", map[string]any{
+			"field": "ids",
+		})
 	}
 	return parsed, nil
 }
 
 func buildBulkStartMsg(payload map[string]any, _ []string) (BulkStartMsg, error) {
 	if payload == nil {
-		return BulkStartMsg{}, errors.New("payload required")
+		return BulkStartMsg{}, validationDomainError("payload required", map[string]any{
+			"field": "payload",
+		})
 	}
 	total := atoiDefault(toString(payload["total"]), 0)
 	name := toString(payload["name"])
@@ -186,7 +200,9 @@ func buildBulkStartMsg(payload map[string]any, _ []string) (BulkStartMsg, error)
 		Payload: cloneAnyMap(payload),
 	}
 	if msg.Name == "" {
-		return msg, errors.New("bulk name required")
+		return msg, validationDomainError("bulk name required", map[string]any{
+			"field": "name",
+		})
 	}
 	return msg, nil
 }
@@ -194,7 +210,9 @@ func buildBulkStartMsg(payload map[string]any, _ []string) (BulkStartMsg, error)
 func buildUserActivateMsg(payload map[string]any, ids []string) (UserActivateMsg, error) {
 	userIDs := commandIDsFromPayload(ids, payload)
 	if len(userIDs) == 0 {
-		return UserActivateMsg{}, errors.New("user ids required")
+		return UserActivateMsg{}, validationDomainError("user ids required", map[string]any{
+			"field": "ids",
+		})
 	}
 	return UserActivateMsg{IDs: userIDs}, nil
 }
@@ -202,7 +220,9 @@ func buildUserActivateMsg(payload map[string]any, ids []string) (UserActivateMsg
 func buildUserSuspendMsg(payload map[string]any, ids []string) (UserSuspendMsg, error) {
 	userIDs := commandIDsFromPayload(ids, payload)
 	if len(userIDs) == 0 {
-		return UserSuspendMsg{}, errors.New("user ids required")
+		return UserSuspendMsg{}, validationDomainError("user ids required", map[string]any{
+			"field": "ids",
+		})
 	}
 	return UserSuspendMsg{IDs: userIDs}, nil
 }
@@ -210,7 +230,9 @@ func buildUserSuspendMsg(payload map[string]any, ids []string) (UserSuspendMsg, 
 func buildUserDisableMsg(payload map[string]any, ids []string) (UserDisableMsg, error) {
 	userIDs := commandIDsFromPayload(ids, payload)
 	if len(userIDs) == 0 {
-		return UserDisableMsg{}, errors.New("user ids required")
+		return UserDisableMsg{}, validationDomainError("user ids required", map[string]any{
+			"field": "ids",
+		})
 	}
 	return UserDisableMsg{IDs: userIDs}, nil
 }
@@ -218,7 +240,9 @@ func buildUserDisableMsg(payload map[string]any, ids []string) (UserDisableMsg, 
 func buildUserArchiveMsg(payload map[string]any, ids []string) (UserArchiveMsg, error) {
 	userIDs := commandIDsFromPayload(ids, payload)
 	if len(userIDs) == 0 {
-		return UserArchiveMsg{}, errors.New("user ids required")
+		return UserArchiveMsg{}, validationDomainError("user ids required", map[string]any{
+			"field": "ids",
+		})
 	}
 	return UserArchiveMsg{IDs: userIDs}, nil
 }
@@ -263,7 +287,9 @@ func commandIDsFromPayload(ids []string, payload map[string]any) []string {
 
 func requireIDs(ids []string, msg string) error {
 	if len(ids) == 0 {
-		return errors.New(msg)
+		return validationDomainError(msg, map[string]any{
+			"field": "ids",
+		})
 	}
 	return nil
 }
