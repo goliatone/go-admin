@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/internal/listquery"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
@@ -40,51 +41,25 @@ func parseJSONBody(c router.Context) (map[string]any, error) {
 }
 
 // parseListOptions extracts pagination/sort/search/filter params from query string.
-// Filters are collected from query parameters with the prefix "filter_".
+// Filters preserve operator-qualified keys (for example status__in, title__ilike).
 func parseListOptions(c router.Context) ListOptions {
-	page := atoiDefault(c.Query("page"), 1)
-	per := atoiDefault(c.Query("per_page"), 10)
-	sort := c.Query("sort")
-	sortDesc := c.Query("sort_desc") == "true"
-	search := c.Query("search")
-
-	// Also support go-crud style "order" parameter (e.g., "role asc" or "role desc")
-	if sort == "" {
-		if order := c.Query("order"); order != "" {
-			parts := strings.Fields(order)
-			if len(parts) > 0 {
-				sort = parts[0]
-				if len(parts) > 1 {
-					sortDesc = strings.ToLower(parts[1]) == "desc"
-				}
-			}
-		}
+	parsed := listquery.ParseContext(c, 1, 10)
+	predicates := make([]ListPredicate, 0, len(parsed.Predicates))
+	for _, predicate := range parsed.Predicates {
+		predicates = append(predicates, ListPredicate{
+			Field:    predicate.Field,
+			Operator: predicate.Operator,
+			Values:   append([]string{}, predicate.Values...),
+		})
 	}
-
-	filters := map[string]any{}
-	for key, val := range c.Queries() {
-		if len(val) == 0 {
-			continue
-		}
-		if len(key) > len("filter_") && key[:7] == "filter_" {
-			filters[key[7:]] = val
-		}
-	}
-	if _, ok := filters["environment"]; !ok {
-		if env := strings.TrimSpace(c.Query("env")); env != "" {
-			filters["environment"] = env
-		} else if env := strings.TrimSpace(c.Query("environment")); env != "" {
-			filters["environment"] = env
-		}
-	}
-
 	return ListOptions{
-		Page:     page,
-		PerPage:  per,
-		SortBy:   sort,
-		SortDesc: sortDesc,
-		Search:   search,
-		Filters:  filters,
+		Page:       parsed.Page,
+		PerPage:    parsed.PerPage,
+		SortBy:     parsed.SortBy,
+		SortDesc:   parsed.SortDesc,
+		Search:     parsed.Search,
+		Filters:    parsed.Filters,
+		Predicates: predicates,
 	}
 }
 
