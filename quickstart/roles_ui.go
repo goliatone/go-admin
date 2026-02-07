@@ -189,6 +189,8 @@ func (h *roleHandlers) list(c router.Context) error {
 		"routes":         routes.routesMap(),
 		"items":          roleRecordsToMaps(records, routes),
 		"columns":        roleDataGridColumns(),
+		"filters":        roleDataGridFilters(),
+		"export_config":  roleExportConfig(h.basePath),
 		"total":          total,
 	}
 	if h.viewContext != nil {
@@ -453,6 +455,33 @@ func roleDataGridColumns() []map[string]any {
 		{"field": "is_system", "label": "System", "sortable": true, "filterable": false, "default": true},
 		{"field": "created_at", "label": "Created", "sortable": true, "filterable": false, "default": true},
 		{"field": "updated_at", "label": "Updated", "sortable": true, "filterable": false, "default": false},
+	}
+}
+
+func roleDataGridFilters() []map[string]any {
+	return []map[string]any{
+		{"name": "name", "label": "Name", "type": "text"},
+		{"name": "role_key", "label": "Role Key", "type": "text"},
+		{"name": "description", "label": "Description", "type": "text"},
+		{
+			"name":  "is_system",
+			"label": "System Role",
+			"type":  "select",
+			"options": []map[string]string{
+				{"label": "System", "value": "true"},
+				{"label": "Custom", "value": "false"},
+			},
+		},
+		{"name": "created_at", "label": "Created", "type": "date"},
+		{"name": "updated_at", "label": "Updated", "type": "date"},
+	}
+}
+
+func roleExportConfig(basePath string) map[string]any {
+	base := strings.Trim(strings.TrimSpace(basePath), "/")
+	return map[string]any{
+		"endpoint":   path.Join("/", base, "exports"),
+		"definition": "roles",
 	}
 }
 
