@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -789,7 +788,7 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 		rt.Post(configPath, savePrefs)
 		return nil
 	}
-	return fmt.Errorf("router does not support go-dashboard routes")
+	return serviceUnavailableDomainError("router does not support go-dashboard routes", map[string]any{"component": "boot_bindings"})
 }
 
 func (d *dashboardGoBinding) viewer(c router.Context, locale string) dashcmp.ViewerContext {

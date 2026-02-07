@@ -99,10 +99,17 @@ func NewBunRepositoryAdapter[T any](repo repository.Repository[T], opts ...BunRe
 	return adapter
 }
 
+func (a *BunRepositoryAdapter[T]) ensureRepo() error {
+	if a == nil || a.repo == nil {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // List delegates to the underlying repository with translated pagination/sort/filter/search.
 func (a *BunRepositoryAdapter[T]) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
-	if a.repo == nil {
-		return nil, 0, ErrNotFound
+	if err := a.ensureRepo(); err != nil {
+		return nil, 0, err
 	}
 	criteria := append([]repository.SelectCriteria{}, a.baseCriteria...)
 
@@ -161,8 +168,8 @@ func (a *BunRepositoryAdapter[T]) List(ctx context.Context, opts ListOptions) ([
 
 // Get retrieves a single record by id.
 func (a *BunRepositoryAdapter[T]) Get(ctx context.Context, id string) (map[string]any, error) {
-	if a.repo == nil {
-		return nil, ErrNotFound
+	if err := a.ensureRepo(); err != nil {
+		return nil, err
 	}
 	criteria := append([]repository.SelectCriteria{}, a.baseCriteria...)
 	record, err := a.repo.GetByID(ctx, id, criteria...)
@@ -174,8 +181,8 @@ func (a *BunRepositoryAdapter[T]) Get(ctx context.Context, id string) (map[strin
 
 // Create inserts a new record.
 func (a *BunRepositoryAdapter[T]) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	if a.repo == nil {
-		return nil, ErrNotFound
+	if err := a.ensureRepo(); err != nil {
+		return nil, err
 	}
 	entity, err := a.recordConverter.ToRecord(record)
 	if err != nil {
@@ -190,8 +197,8 @@ func (a *BunRepositoryAdapter[T]) Create(ctx context.Context, record map[string]
 
 // Update modifies an existing record by id.
 func (a *BunRepositoryAdapter[T]) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	if a.repo == nil {
-		return nil, ErrNotFound
+	if err := a.ensureRepo(); err != nil {
+		return nil, err
 	}
 	current, err := a.repo.GetByID(ctx, id, a.baseCriteria...)
 	if err != nil {
@@ -218,8 +225,8 @@ func (a *BunRepositoryAdapter[T]) Update(ctx context.Context, id string, record 
 
 // Delete removes a record by id.
 func (a *BunRepositoryAdapter[T]) Delete(ctx context.Context, id string) error {
-	if a.repo == nil {
-		return ErrNotFound
+	if err := a.ensureRepo(); err != nil {
+		return err
 	}
 	criteria := append([]repository.DeleteCriteria{}, a.deleteCriteria...)
 	criteria = append(criteria, repository.DeleteByID(id))

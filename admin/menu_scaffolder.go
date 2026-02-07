@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
@@ -21,7 +20,7 @@ func EnsureMenuParents(ctx context.Context, opts EnsureMenuParentsOptions) error
 		ctx = context.Background()
 	}
 	if opts.MenuSvc == nil {
-		return fmt.Errorf("MenuSvc is required")
+		return serviceNotConfiguredDomainError("menu service", map[string]any{"component": "menu_scaffolder"})
 	}
 	menuCode := NormalizeMenuSlug(opts.MenuCode)
 	if menuCode == "" {

@@ -441,7 +441,7 @@ func (t *jobTask) Execute(ctx context.Context, _ *gojob.ExecutionMessage) error 
 
 func (t *jobTask) run(ctx context.Context) error {
 	if t == nil || t.handler == nil {
-		return errors.New("job handler unavailable")
+		return serviceNotConfiguredDomainError("job handler", map[string]any{"component": "jobs"})
 	}
 	return t.handler(ctx)
 }

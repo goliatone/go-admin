@@ -24,10 +24,17 @@ func NewCRUDContext(ctx context.Context) crud.Context {
 	return newCrudAdapterContext(ctx)
 }
 
+func (r *CRUDRepositoryAdapter) ensureService() error {
+	if r == nil || r.service == nil {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // List delegates to the go-crud service using translated list options.
 func (r *CRUDRepositoryAdapter) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
-	if r.service == nil {
-		return nil, 0, ErrNotFound
+	if err := r.ensureService(); err != nil {
+		return nil, 0, err
 	}
 	c := newCrudAdapterContext(ctx)
 	per := opts.PerPage
@@ -83,8 +90,8 @@ func (r *CRUDRepositoryAdapter) List(ctx context.Context, opts ListOptions) ([]m
 
 // Get retrieves a single record by id.
 func (r *CRUDRepositoryAdapter) Get(ctx context.Context, id string) (map[string]any, error) {
-	if r.service == nil {
-		return nil, ErrNotFound
+	if err := r.ensureService(); err != nil {
+		return nil, err
 	}
 	c := newCrudAdapterContext(ctx)
 	result, err := r.service.Show(c, id, nil)
@@ -93,8 +100,8 @@ func (r *CRUDRepositoryAdapter) Get(ctx context.Context, id string) (map[string]
 
 // Create inserts a record.
 func (r *CRUDRepositoryAdapter) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	if r.service == nil {
-		return nil, ErrNotFound
+	if err := r.ensureService(); err != nil {
+		return nil, err
 	}
 	c := newCrudAdapterContext(ctx)
 	return r.service.Create(c, cloneMap(record))
@@ -102,8 +109,8 @@ func (r *CRUDRepositoryAdapter) Create(ctx context.Context, record map[string]an
 
 // Update modifies a record.
 func (r *CRUDRepositoryAdapter) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	if r.service == nil {
-		return nil, ErrNotFound
+	if err := r.ensureService(); err != nil {
+		return nil, err
 	}
 	c := newCrudAdapterContext(ctx)
 	rec := cloneMap(record)
@@ -113,8 +120,8 @@ func (r *CRUDRepositoryAdapter) Update(ctx context.Context, id string, record ma
 
 // Delete removes a record by id.
 func (r *CRUDRepositoryAdapter) Delete(ctx context.Context, id string) error {
-	if r.service == nil {
-		return ErrNotFound
+	if err := r.ensureService(); err != nil {
+		return err
 	}
 	c := newCrudAdapterContext(ctx)
 	return r.service.Delete(c, map[string]any{"id": id})

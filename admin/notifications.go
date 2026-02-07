@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,7 +41,7 @@ func (c *NotificationMarkCommand) Execute(ctx context.Context, msg NotificationM
 		return FeatureDisabledError{Feature: string(FeatureNotifications)}
 	}
 	if len(msg.IDs) == 0 {
-		return errors.New("notification ids required")
+		return requiredFieldDomainError("notification ids", map[string]any{"component": "notifications"})
 	}
 	return c.Service.Mark(ctx, msg.IDs, msg.Read)
 }

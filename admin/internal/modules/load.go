@@ -2,8 +2,8 @@ package modules
 
 import (
 	"context"
-	"fmt"
 
+	goerrors "github.com/goliatone/go-errors"
 	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
@@ -35,7 +35,10 @@ func Load(ctx context.Context, opts LoadOptions) error {
 				if opts.DisabledError != nil {
 					return opts.DisabledError(flag, manifest.ID)
 				}
-				return fmt.Errorf("%s feature disabled (required by module %s)", flag, manifest.ID)
+				return goerrors.New("feature disabled", goerrors.CategoryAuthz).WithCode(403).WithMetadata(map[string]any{
+					"feature": flag,
+					"module":  manifest.ID,
+				})
 			}
 		}
 		if opts.Translator != nil {
@@ -83,16 +86,23 @@ func Order(modules []Module) ([]Module, error) {
 			return nil
 		}
 		if stack[id] {
-			return fmt.Errorf("module dependency cycle detected at %s", id)
+			return goerrors.New("module dependency cycle detected", goerrors.CategoryValidation).WithCode(400).WithMetadata(map[string]any{
+				"module": id,
+			})
 		}
 		mod, ok := nodes[id]
 		if !ok {
-			return fmt.Errorf("module %s not registered", id)
+			return goerrors.New("module not registered", goerrors.CategoryNotFound).WithCode(404).WithMetadata(map[string]any{
+				"module": id,
+			})
 		}
 		stack[id] = true
 		for _, dep := range mod.Manifest().Dependencies {
 			if _, ok := nodes[dep]; !ok {
-				return fmt.Errorf("module %s missing dependency %s", id, dep)
+				return goerrors.New("module missing dependency", goerrors.CategoryValidation).WithCode(400).WithMetadata(map[string]any{
+					"module":     id,
+					"dependency": dep,
+				})
 			}
 			if err := visit(dep); err != nil {
 				return err

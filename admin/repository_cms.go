@@ -1695,6 +1695,180 @@ func (r *WidgetInstanceRepository) Delete(ctx context.Context, id string) error 
 	return r.widgets.DeleteInstance(ctx, id)
 }
 
+type cmsCommonRecordFields struct {
+	ID                 string
+	TranslationGroupID string
+	Title              string
+	Slug               string
+	Locale             string
+	Status             string
+}
+
+type cmsMappedDataFields struct {
+	Data          map[string]any
+	Blocks        []string
+	Embedded      []map[string]any
+	SchemaVersion string
+}
+
+func assignStringIfPresent(record map[string]any, key string, target *string) {
+	if record == nil || target == nil {
+		return
+	}
+	if value, ok := record[key].(string); ok {
+		*target = value
+	}
+}
+
+func extractCMSCommonRecordFields(record map[string]any) cmsCommonRecordFields {
+	fields := cmsCommonRecordFields{}
+	assignStringIfPresent(record, "id", &fields.ID)
+	assignStringIfPresent(record, "translation_group_id", &fields.TranslationGroupID)
+	assignStringIfPresent(record, "title", &fields.Title)
+	assignStringIfPresent(record, "slug", &fields.Slug)
+	assignStringIfPresent(record, "locale", &fields.Locale)
+	assignStringIfPresent(record, "status", &fields.Status)
+	return fields
+}
+
+func mapCMSDataFields(record map[string]any) cmsMappedDataFields {
+	mapped := cmsMappedDataFields{
+		Data: map[string]any{},
+	}
+	if record == nil {
+		return mapped
+	}
+	if rawBlocks, ok := record["blocks"]; ok {
+		legacy, embedded, embeddedPresent := parseBlocksPayload(rawBlocks)
+		if embeddedPresent {
+			mapped.Embedded = embedded
+			mapped.Data["blocks"] = embedded
+		} else if len(legacy) > 0 {
+			mapped.Blocks = legacy
+		}
+	}
+	if data, ok := record["data"].(map[string]any); ok {
+		mapped.Data = cloneAnyMap(data)
+	}
+	if mapped.Embedded == nil {
+		if embedded, present := embeddedBlocksFromData(mapped.Data); present {
+			mapped.Embedded = embedded
+		}
+	}
+	if mapped.Embedded != nil {
+		if mapped.Data == nil {
+			mapped.Data = map[string]any{}
+		}
+		mapped.Data["blocks"] = cloneEmbeddedBlocks(mapped.Embedded)
+	}
+	if schema := schemaVersionFromRecord(record, mapped.Data); schema != "" {
+		mapped.SchemaVersion = schema
+		if mapped.Data == nil {
+			mapped.Data = map[string]any{}
+		}
+		mapped.Data["_schema"] = schema
+	}
+	return mapped
+}
+
+func normalizedLocaleList(raw any) []string {
+	if raw == nil {
+		return nil
+	}
+	locales := []string{}
+	switch typed := raw.(type) {
+	case []string:
+		locales = append(locales, typed...)
+	case []any:
+		for _, item := range typed {
+			if val := strings.TrimSpace(toString(item)); val != "" {
+				locales = append(locales, val)
+			}
+		}
+	case string:
+		for _, item := range strings.Split(typed, ",") {
+			if val := strings.TrimSpace(item); val != "" {
+				locales = append(locales, val)
+			}
+		}
+	default:
+		if val := strings.TrimSpace(toString(raw)); val != "" {
+			locales = append(locales, val)
+		}
+	}
+	if len(locales) == 0 {
+		return nil
+	}
+	return locales
+}
+
+func preserveStringField(record map[string]any, key string, target *string, fallback string) {
+	if target == nil {
+		return
+	}
+	if !recordHasKey(record, key) {
+		*target = fallback
+	}
+}
+
+func mergeCMSBlocksUpdate(record map[string]any, blocks *[]string, embedded *[]map[string]any, existingBlocks []string, existingEmbedded []map[string]any) {
+	if blocks == nil || embedded == nil {
+		return
+	}
+	if recordHasKey(record, "blocks") {
+		return
+	}
+	*blocks = append([]string{}, existingBlocks...)
+	if *embedded == nil && existingEmbedded != nil {
+		*embedded = cloneEmbeddedBlocks(existingEmbedded)
+	}
+}
+
+func mergeCMSMetadataUpdate(record map[string]any, metadata *map[string]any, existing map[string]any) {
+	if metadata == nil {
+		return
+	}
+	if !recordHasKey(record, "metadata") {
+		*metadata = cloneAnyMap(existing)
+		return
+	}
+	*metadata = cloneAnyMap(*metadata)
+}
+
+func mergeCMSDataUpdate(existingData map[string]any, incomingData map[string]any, shouldMerge bool) map[string]any {
+	if shouldMerge {
+		return mergeAnyMap(existingData, incomingData)
+	}
+	return cloneAnyMap(existingData)
+}
+
+func finalizeCMSDataSchemaAndBlocks(record map[string]any, data map[string]any, schemaVersion string, existingSchema string, embedded []map[string]any) (map[string]any, string, []map[string]any) {
+	if schemaVersion == "" && !recordHasKey(record, "_schema") {
+		schemaVersion = existingSchema
+	}
+	if schemaVersion == "" {
+		schemaVersion = strings.TrimSpace(toString(data["_schema"]))
+	}
+	if schemaVersion != "" {
+		if data == nil {
+			data = map[string]any{}
+		}
+		data["_schema"] = schemaVersion
+	}
+	if embedded == nil && data != nil {
+		if next, present := embeddedBlocksFromData(data); present {
+			embedded = next
+		}
+	}
+	if embedded != nil {
+		if data == nil {
+			data = map[string]any{}
+		}
+		data["blocks"] = cloneEmbeddedBlocks(embedded)
+	}
+	return data, schemaVersion, embedded
+}
+
 func mapToCMSPage(record map[string]any) CMSPage {
 	page := CMSPage{
 		Data: map[string]any{},
@@ -1703,62 +1877,23 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	if record == nil {
 		return page
 	}
-	if id, ok := record["id"].(string); ok {
-		page.ID = id
-	}
-	if groupID, ok := record["translation_group_id"].(string); ok {
-		page.TranslationGroupID = groupID
-	}
-	if title, ok := record["title"].(string); ok {
-		page.Title = title
-	}
-	if slug, ok := record["slug"].(string); ok {
-		page.Slug = slug
-	}
-	if locale, ok := record["locale"].(string); ok {
-		page.Locale = locale
-	}
+	common := extractCMSCommonRecordFields(record)
+	page.ID = common.ID
+	page.TranslationGroupID = common.TranslationGroupID
+	page.Title = common.Title
+	page.Slug = common.Slug
+	page.Locale = common.Locale
+	page.Status = common.Status
 	if parentID, ok := record["parent_id"].(string); ok {
 		page.ParentID = parentID
 	}
-	if status, ok := record["status"].(string); ok {
-		page.Status = status
-	}
-	if rawBlocks, ok := record["blocks"]; ok {
-		legacy, embedded, embeddedPresent := parseBlocksPayload(rawBlocks)
-		if embeddedPresent {
-			page.EmbeddedBlocks = embedded
-			if page.Data == nil {
-				page.Data = map[string]any{}
-			}
-			page.Data["blocks"] = embedded
-		} else if len(legacy) > 0 {
-			page.Blocks = legacy
-		}
-	}
+	mapped := mapCMSDataFields(record)
+	page.Data = mapped.Data
+	page.Blocks = mapped.Blocks
+	page.EmbeddedBlocks = mapped.Embedded
+	page.SchemaVersion = mapped.SchemaVersion
 	if seo, ok := record["seo"].(map[string]any); ok {
 		page.SEO = cloneAnyMap(seo)
-	}
-	if data, ok := record["data"].(map[string]any); ok {
-		page.Data = cloneAnyMap(data)
-	}
-	if page.EmbeddedBlocks == nil {
-		if embedded, present := embeddedBlocksFromData(page.Data); present {
-			page.EmbeddedBlocks = embedded
-		}
-	}
-	if page.EmbeddedBlocks != nil {
-		if page.Data == nil {
-			page.Data = map[string]any{}
-		}
-		page.Data["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
-	}
-	if schema := schemaVersionFromRecord(record, page.Data); schema != "" {
-		page.SchemaVersion = schema
-		if page.Data == nil {
-			page.Data = map[string]any{}
-		}
-		page.Data["_schema"] = schema
 	}
 	if path, ok := record["path"].(string); ok && strings.TrimSpace(path) != "" {
 		page.Data["path"] = path
@@ -1788,74 +1923,27 @@ func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) C
 	if record == nil {
 		return existing
 	}
-	if !recordHasKey(record, "title") {
-		page.Title = existing.Title
-	}
-	if !recordHasKey(record, "slug") {
-		page.Slug = existing.Slug
-	}
-	if !recordHasKey(record, "locale") {
-		page.Locale = existing.Locale
-	}
-	if !recordHasKey(record, "parent_id") {
-		page.ParentID = existing.ParentID
-	}
-	if !recordHasKey(record, "translation_group_id") {
-		page.TranslationGroupID = existing.TranslationGroupID
-	}
-	if !recordHasKey(record, "status") {
-		page.Status = existing.Status
-	}
+	preserveStringField(record, "title", &page.Title, existing.Title)
+	preserveStringField(record, "slug", &page.Slug, existing.Slug)
+	preserveStringField(record, "locale", &page.Locale, existing.Locale)
+	preserveStringField(record, "translation_group_id", &page.TranslationGroupID, existing.TranslationGroupID)
+	preserveStringField(record, "status", &page.Status, existing.Status)
+	preserveStringField(record, "parent_id", &page.ParentID, existing.ParentID)
 	if !recordHasKey(record, "preview_url") {
 		page.PreviewURL = existing.PreviewURL
 	}
-	if !recordHasKey(record, "blocks") {
-		page.Blocks = append([]string{}, existing.Blocks...)
-		if page.EmbeddedBlocks == nil && existing.EmbeddedBlocks != nil {
-			page.EmbeddedBlocks = cloneEmbeddedBlocks(existing.EmbeddedBlocks)
-		}
-	}
+	mergeCMSBlocksUpdate(record, &page.Blocks, &page.EmbeddedBlocks, existing.Blocks, existing.EmbeddedBlocks)
 	if !recordHasKey(record, "template_id") && !recordHasKey(record, "template") {
 		page.TemplateID = existing.TemplateID
 	}
-	if !recordHasKey(record, "metadata") {
-		page.Metadata = cloneAnyMap(existing.Metadata)
-	} else {
-		page.Metadata = cloneAnyMap(page.Metadata)
-	}
+	mergeCMSMetadataUpdate(record, &page.Metadata, existing.Metadata)
 	if recordHasKey(record, "seo") {
 		page.SEO = mergeAnyMap(existing.SEO, page.SEO)
 	} else {
 		page.SEO = cloneAnyMap(existing.SEO)
 	}
-	if recordHasKey(record, "data") || recordHasKey(record, "path") || recordHasKey(record, "blocks") || recordHasKey(record, "_schema") {
-		page.Data = mergeAnyMap(existing.Data, page.Data)
-	} else {
-		page.Data = cloneAnyMap(existing.Data)
-	}
-	if page.SchemaVersion == "" && !recordHasKey(record, "_schema") {
-		page.SchemaVersion = existing.SchemaVersion
-	}
-	if page.SchemaVersion == "" {
-		page.SchemaVersion = strings.TrimSpace(toString(page.Data["_schema"]))
-	}
-	if page.SchemaVersion != "" {
-		if page.Data == nil {
-			page.Data = map[string]any{}
-		}
-		page.Data["_schema"] = page.SchemaVersion
-	}
-	if page.EmbeddedBlocks == nil && page.Data != nil {
-		if embedded, present := embeddedBlocksFromData(page.Data); present {
-			page.EmbeddedBlocks = embedded
-		}
-	}
-	if page.EmbeddedBlocks != nil {
-		if page.Data == nil {
-			page.Data = map[string]any{}
-		}
-		page.Data["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
-	}
+	page.Data = mergeCMSDataUpdate(existing.Data, page.Data, recordHasKey(record, "data") || recordHasKey(record, "path") || recordHasKey(record, "blocks") || recordHasKey(record, "_schema"))
+	page.Data, page.SchemaVersion, page.EmbeddedBlocks = finalizeCMSDataSchemaAndBlocks(record, page.Data, page.SchemaVersion, existing.SchemaVersion, page.EmbeddedBlocks)
 	return page
 }
 
@@ -1887,21 +1975,13 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	if record == nil {
 		return content
 	}
-	if id, ok := record["id"].(string); ok {
-		content.ID = id
-	}
-	if groupID, ok := record["translation_group_id"].(string); ok {
-		content.TranslationGroupID = groupID
-	}
-	if title, ok := record["title"].(string); ok {
-		content.Title = title
-	}
-	if slug, ok := record["slug"].(string); ok {
-		content.Slug = slug
-	}
-	if locale, ok := record["locale"].(string); ok {
-		content.Locale = locale
-	}
+	common := extractCMSCommonRecordFields(record)
+	content.ID = common.ID
+	content.TranslationGroupID = common.TranslationGroupID
+	content.Title = common.Title
+	content.Slug = common.Slug
+	content.Locale = common.Locale
+	content.Status = common.Status
 	if requested, ok := record["requested_locale"].(string); ok {
 		content.RequestedLocale = strings.TrimSpace(requested)
 	} else if requested := strings.TrimSpace(toString(record["requested_locale"])); requested != "" {
@@ -1915,34 +1995,8 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	if missing, ok := record["missing_requested_locale"].(bool); ok {
 		content.MissingRequestedLocale = missing
 	}
-	if raw := record["available_locales"]; raw != nil {
-		locales := []string{}
-		switch typed := raw.(type) {
-		case []string:
-			locales = append(locales, typed...)
-		case []any:
-			for _, item := range typed {
-				if val := strings.TrimSpace(toString(item)); val != "" {
-					locales = append(locales, val)
-				}
-			}
-		case string:
-			for _, item := range strings.Split(typed, ",") {
-				if val := strings.TrimSpace(item); val != "" {
-					locales = append(locales, val)
-				}
-			}
-		default:
-			if val := strings.TrimSpace(toString(raw)); val != "" {
-				locales = append(locales, val)
-			}
-		}
-		if len(locales) > 0 {
-			content.AvailableLocales = append([]string{}, locales...)
-		}
-	}
-	if status, ok := record["status"].(string); ok {
-		content.Status = status
+	if locales := normalizedLocaleList(record["available_locales"]); len(locales) > 0 {
+		content.AvailableLocales = append([]string{}, locales...)
 	}
 	if ctype, ok := record["content_type"].(string); ok {
 		if content.ContentTypeSlug == "" {
@@ -1961,39 +2015,11 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	if content.ContentType == "" && content.ContentTypeSlug != "" {
 		content.ContentType = content.ContentTypeSlug
 	}
-	if rawBlocks, ok := record["blocks"]; ok {
-		legacy, embedded, embeddedPresent := parseBlocksPayload(rawBlocks)
-		if embeddedPresent {
-			content.EmbeddedBlocks = embedded
-			if content.Data == nil {
-				content.Data = map[string]any{}
-			}
-			content.Data["blocks"] = embedded
-		} else if len(legacy) > 0 {
-			content.Blocks = legacy
-		}
-	}
-	if data, ok := record["data"].(map[string]any); ok {
-		content.Data = cloneAnyMap(data)
-	}
-	if content.EmbeddedBlocks == nil {
-		if embedded, present := embeddedBlocksFromData(content.Data); present {
-			content.EmbeddedBlocks = embedded
-		}
-	}
-	if content.EmbeddedBlocks != nil {
-		if content.Data == nil {
-			content.Data = map[string]any{}
-		}
-		content.Data["blocks"] = cloneEmbeddedBlocks(content.EmbeddedBlocks)
-	}
-	if schema := schemaVersionFromRecord(record, content.Data); schema != "" {
-		content.SchemaVersion = schema
-		if content.Data == nil {
-			content.Data = map[string]any{}
-		}
-		content.Data["_schema"] = schema
-	}
+	mapped := mapCMSDataFields(record)
+	content.Data = mapped.Data
+	content.Blocks = mapped.Blocks
+	content.EmbeddedBlocks = mapped.Embedded
+	content.SchemaVersion = mapped.SchemaVersion
 	if meta, ok := record["metadata"].(map[string]any); ok {
 		content.Metadata = cloneAnyMap(meta)
 	}
@@ -2013,64 +2039,19 @@ func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[s
 	if record == nil {
 		return existing
 	}
-	if !recordHasKey(record, "title") {
-		content.Title = existing.Title
-	}
-	if !recordHasKey(record, "slug") {
-		content.Slug = existing.Slug
-	}
-	if !recordHasKey(record, "locale") {
-		content.Locale = existing.Locale
-	}
-	if !recordHasKey(record, "translation_group_id") {
-		content.TranslationGroupID = existing.TranslationGroupID
-	}
-	if !recordHasKey(record, "status") {
-		content.Status = existing.Status
-	}
-	if !recordHasKey(record, "blocks") {
-		content.Blocks = append([]string{}, existing.Blocks...)
-		if content.EmbeddedBlocks == nil && existing.EmbeddedBlocks != nil {
-			content.EmbeddedBlocks = cloneEmbeddedBlocks(existing.EmbeddedBlocks)
-		}
-	}
+	preserveStringField(record, "title", &content.Title, existing.Title)
+	preserveStringField(record, "slug", &content.Slug, existing.Slug)
+	preserveStringField(record, "locale", &content.Locale, existing.Locale)
+	preserveStringField(record, "translation_group_id", &content.TranslationGroupID, existing.TranslationGroupID)
+	preserveStringField(record, "status", &content.Status, existing.Status)
+	mergeCMSBlocksUpdate(record, &content.Blocks, &content.EmbeddedBlocks, existing.Blocks, existing.EmbeddedBlocks)
 	if !recordHasKey(record, "content_type") && !recordHasKey(record, "content_type_slug") && !recordHasKey(record, "content_type_id") {
 		content.ContentType = existing.ContentType
 		content.ContentTypeSlug = existing.ContentTypeSlug
 	}
-	if !recordHasKey(record, "metadata") {
-		content.Metadata = cloneAnyMap(existing.Metadata)
-	} else {
-		content.Metadata = cloneAnyMap(content.Metadata)
-	}
-	if cmsContentDataUpdated(record) {
-		content.Data = mergeAnyMap(existing.Data, content.Data)
-	} else {
-		content.Data = cloneAnyMap(existing.Data)
-	}
-	if content.SchemaVersion == "" && !recordHasKey(record, "_schema") {
-		content.SchemaVersion = existing.SchemaVersion
-	}
-	if content.SchemaVersion == "" {
-		content.SchemaVersion = strings.TrimSpace(toString(content.Data["_schema"]))
-	}
-	if content.SchemaVersion != "" {
-		if content.Data == nil {
-			content.Data = map[string]any{}
-		}
-		content.Data["_schema"] = content.SchemaVersion
-	}
-	if content.EmbeddedBlocks == nil && content.Data != nil {
-		if embedded, present := embeddedBlocksFromData(content.Data); present {
-			content.EmbeddedBlocks = embedded
-		}
-	}
-	if content.EmbeddedBlocks != nil {
-		if content.Data == nil {
-			content.Data = map[string]any{}
-		}
-		content.Data["blocks"] = cloneEmbeddedBlocks(content.EmbeddedBlocks)
-	}
+	mergeCMSMetadataUpdate(record, &content.Metadata, existing.Metadata)
+	content.Data = mergeCMSDataUpdate(existing.Data, content.Data, cmsContentDataUpdated(record))
+	content.Data, content.SchemaVersion, content.EmbeddedBlocks = finalizeCMSDataSchemaAndBlocks(record, content.Data, content.SchemaVersion, existing.SchemaVersion, content.EmbeddedBlocks)
 	content.Data = pruneNilMapValues(content.Data)
 	return content
 }

@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"errors"
-
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -35,7 +33,7 @@ func (m *ActivityModule) Manifest() ModuleManifest {
 // Register wires the activity module metadata and user tab integration.
 func (m *ActivityModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "activity_module"})
 	}
 	if m.basePath == "" {
 		m.basePath = ctx.Admin.config.BasePath

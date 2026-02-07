@@ -192,7 +192,7 @@ func (s *goNotificationsService) Mark(ctx context.Context, ids []string, read bo
 		return FeatureDisabledError{Feature: string(FeatureNotifications)}
 	}
 	if len(ids) == 0 {
-		return errors.New("notification ids required")
+		return requiredFieldDomainError("notification ids", map[string]any{"component": "notifications"})
 	}
 	userID := s.resolveUserID(ctx, "")
 	parsed := []string{}
