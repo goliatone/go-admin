@@ -34,6 +34,8 @@ const (
 	TextCodeReplExecPermissionDenied  = "REPL_EXEC_PERMISSION_DENIED"
 	TextCodeReplReadOnly              = "REPL_READ_ONLY"
 	TextCodeReplIPDenied              = "REPL_IP_DENIED"
+	TextCodePathConflict              = "PATH_CONFLICT"
+	TextCodeServiceUnavailable        = "SERVICE_UNAVAILABLE"
 )
 
 // DomainErrorCode describes a text code exposed to clients.
@@ -70,6 +72,8 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeReplExecPermissionDenied, Description: "REPL exec permission denied.", Category: goerrors.CategoryAuthz, HTTPStatus: 403},
 	{Code: TextCodeReplReadOnly, Description: "REPL exec disabled while read-only.", Category: goerrors.CategoryAuthz, HTTPStatus: 403},
 	{Code: TextCodeReplIPDenied, Description: "REPL access denied by IP policy.", Category: goerrors.CategoryAuthz, HTTPStatus: 403},
+	{Code: TextCodePathConflict, Description: "The requested path or slug conflicts with an existing resource.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeServiceUnavailable, Description: "A required service dependency is unavailable.", Category: goerrors.CategoryInternal, HTTPStatus: 500},
 	{Code: ferrors.TextCodeInvalidKey, Description: "Feature key is required.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: ferrors.TextCodeScopeMetadataMissing, Description: "Scope metadata is missing.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: ferrors.TextCodeScopeInvalid, Description: "Scope is invalid.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
