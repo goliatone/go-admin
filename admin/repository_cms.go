@@ -8,7 +8,6 @@ import (
 )
 
 // ErrPathConflict signals a page path/slug collision.
-// TODO: use go-errors and error_codes.go
 var ErrPathConflict = errors.New("path conflict")
 
 // CMSPageRepository adapts a CMSContentService to the admin Repository contract.
@@ -155,7 +154,12 @@ func (r *CMSPageRepository) ensureUniqueSlug(ctx context.Context, slug, skipID, 
 	}
 	for _, page := range pages {
 		if page.Slug == slug && page.ID != skipID {
-			return ErrPathConflict
+			return pathConflictDomainError(map[string]any{
+				"slug":      slug,
+				"skip_id":   skipID,
+				"candidate": page.ID,
+				"locale":    locale,
+			})
 		}
 	}
 	return nil
