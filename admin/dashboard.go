@@ -154,7 +154,13 @@ func (d *Dashboard) RegisterArea(def WidgetAreaDefinition) {
 		return
 	}
 	def.Code = code
+	prev, had := d.areas[code]
 	d.storeArea(def)
+	if !had || prev != def {
+		// Area list is baked into go-dashboard service options at initialization time.
+		// Force a rebuild so newly registered areas are resolvable in subsequent layout renders.
+		d.components = nil
+	}
 	if d.widgetSvc != nil {
 		_ = d.widgetSvc.RegisterAreaDefinition(context.Background(), def)
 	}
@@ -436,6 +442,9 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 		Providers:       registry,
 		RefreshHook:     refresh,
 	}
+	if areas := d.areaCodesForService(); len(areas) > 0 {
+		opts.Areas = areas
+	}
 	service := dashcmp.NewService(opts)
 	controller := dashcmp.NewController(dashcmp.ControllerOptions{
 		Service:  service,
@@ -451,6 +460,40 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 		specs:      specs,
 	}
 	return d.components, nil
+}
+
+func (d *Dashboard) areaCodesForService() []string {
+	if d == nil {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := []string{}
+	for _, area := range d.Areas() {
+		code := strings.TrimSpace(area.Code)
+		if code == "" {
+			continue
+		}
+		if _, ok := seen[code]; ok {
+			continue
+		}
+		seen[code] = struct{}{}
+		out = append(out, code)
+	}
+	if d.widgetSvc != nil {
+		for _, area := range d.widgetSvc.Areas() {
+			code := strings.TrimSpace(area.Code)
+			if code == "" {
+				continue
+			}
+			if _, ok := seen[code]; ok {
+				continue
+			}
+			seen[code] = struct{}{}
+			out = append(out, code)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // Providers returns registered provider metadata.
