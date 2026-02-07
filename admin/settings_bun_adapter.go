@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"sync"
 	"time"
 
@@ -40,7 +39,7 @@ type BunSettingsAdapter struct {
 
 func NewBunSettingsAdapter(db *bun.DB, repoOptions ...repository.Option) (*BunSettingsAdapter, error) {
 	if db == nil {
-		return nil, errors.New("settings: bun DB is required")
+		return nil, serviceNotConfiguredDomainError("settings bun db", map[string]any{"component": "settings"})
 	}
 	if err := ensureSettingsSchema(db); err != nil {
 		return nil, err
@@ -105,7 +104,7 @@ func (a *BunSettingsAdapter) Apply(ctx context.Context, bundle SettingsBundle) e
 		scope = SettingsScopeSite
 	}
 	if scope == SettingsScopeUser && bundle.UserID == "" {
-		return errors.New("user id required for user scope settings")
+		return requiredFieldDomainError("user id", map[string]any{"scope": string(SettingsScopeUser)})
 	}
 
 	a.mu.RLock()

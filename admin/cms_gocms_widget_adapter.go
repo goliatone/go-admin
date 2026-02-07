@@ -339,12 +339,46 @@ func (a *GoCMSWidgetAdapter) ListInstances(ctx context.Context, filter WidgetIns
 			if defID, ok := extractUUID(value.Index(i), "DefinitionID"); ok {
 				if code, ok := a.idToCode[defID]; ok {
 					inst.DefinitionCode = code
+				} else if code, err := a.resolveDefinitionCodeByID(ctx, defID); err == nil && strings.TrimSpace(code) != "" {
+					inst.DefinitionCode = code
 				}
 			}
 			out = append(out, inst)
 		}
 	}
 	return filterWidgetInstances(out, filter), nil
+}
+
+// HasInstanceForDefinition reports whether at least one instance exists for the given definition code.
+func (a *GoCMSWidgetAdapter) HasInstanceForDefinition(ctx context.Context, definitionCode string, filter WidgetInstanceFilter) (bool, error) {
+	if a == nil || a.service == nil {
+		return false, ErrNotFound
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	code := strings.TrimSpace(definitionCode)
+	if code == "" {
+		return false, nil
+	}
+	a.refreshDefinitions(ctx)
+	if defID, ok := a.definitions[code]; ok && defID != uuid.Nil {
+		if exists, err := a.hasInstanceByDefinitionID(ctx, defID, filter); err == nil {
+			return exists, nil
+		} else if err != ErrNotFound {
+			return false, err
+		}
+	}
+	instances, err := a.ListInstances(ctx, filter)
+	if err != nil {
+		return false, err
+	}
+	for _, inst := range instances {
+		if strings.EqualFold(strings.TrimSpace(inst.DefinitionCode), code) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (a *GoCMSWidgetAdapter) refreshDefinitions(ctx context.Context) {
@@ -431,6 +465,8 @@ func (a *GoCMSWidgetAdapter) convertResolvedWidget(value reflect.Value) WidgetIn
 	if defID, ok := extractUUID(instanceVal, "DefinitionID"); ok {
 		if code, ok := a.idToCode[defID]; ok {
 			inst.DefinitionCode = code
+		} else if code, err := a.resolveDefinitionCodeByID(context.Background(), defID); err == nil && strings.TrimSpace(code) != "" {
+			inst.DefinitionCode = code
 		}
 	}
 
@@ -470,6 +506,79 @@ func (a *GoCMSWidgetAdapter) convertResolvedWidget(value reflect.Value) WidgetIn
 	}
 
 	return inst
+}
+
+func (a *GoCMSWidgetAdapter) hasInstanceByDefinitionID(ctx context.Context, definitionID uuid.UUID, filter WidgetInstanceFilter) (bool, error) {
+	if a == nil || a.service == nil || definitionID == uuid.Nil {
+		return false, ErrNotFound
+	}
+	method := reflect.ValueOf(a.service).MethodByName("ListInstancesByDefinition")
+	if !method.IsValid() {
+		return false, ErrNotFound
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(definitionID)})
+	if err := extractError(results); err != nil {
+		return false, err
+	}
+	if len(results) == 0 || !results[0].IsValid() {
+		return false, nil
+	}
+	value := deref(results[0])
+	if value.Kind() != reflect.Slice {
+		return false, nil
+	}
+	for i := 0; i < value.Len(); i++ {
+		inst := convertWidgetInstance(value.Index(i))
+		if filter.Area != "" && inst.Area != filter.Area {
+			continue
+		}
+		if filter.PageID != "" && inst.PageID != filter.PageID {
+			continue
+		}
+		if filter.Locale != "" && inst.Locale != "" && !strings.EqualFold(inst.Locale, filter.Locale) {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func (a *GoCMSWidgetAdapter) resolveDefinitionCodeByID(ctx context.Context, definitionID uuid.UUID) (string, error) {
+	if a == nil || a.service == nil || definitionID == uuid.Nil {
+		return "", ErrNotFound
+	}
+	if code, ok := a.idToCode[definitionID]; ok {
+		return code, nil
+	}
+	method := reflect.ValueOf(a.service).MethodByName("GetDefinition")
+	if !method.IsValid() {
+		return "", ErrNotFound
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(definitionID)})
+	if err := extractError(results); err != nil {
+		return "", err
+	}
+	if len(results) == 0 {
+		return "", ErrNotFound
+	}
+	def := deref(results[0])
+	if !def.IsValid() {
+		return "", ErrNotFound
+	}
+	name, ok := getStringField(def, "Name")
+	if !ok {
+		return "", ErrNotFound
+	}
+	code := strings.TrimSpace(name)
+	if code == "" {
+		return "", ErrNotFound
+	}
+	a.idToCode[definitionID] = code
+	a.definitions[code] = definitionID
+	return code, nil
 }
 
 func filterWidgetInstances(instances []WidgetInstance, filter WidgetInstanceFilter) []WidgetInstance {

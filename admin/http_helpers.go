@@ -44,14 +44,13 @@ func parseJSONBody(c router.Context) (map[string]any, error) {
 // Filters preserve operator-qualified keys (for example status__in, title__ilike).
 func parseListOptions(c router.Context) ListOptions {
 	parsed := listquery.ParseContext(c, 1, 10)
-	predicates := make([]ListPredicate, 0, len(parsed.Predicates))
-	for _, predicate := range parsed.Predicates {
-		predicates = append(predicates, ListPredicate{
+	predicates := listquery.MapPredicates(parsed.Predicates, func(predicate listquery.Predicate) ListPredicate {
+		return ListPredicate{
 			Field:    predicate.Field,
 			Operator: predicate.Operator,
 			Values:   append([]string{}, predicate.Values...),
-		})
-	}
+		}
+	})
 	return ListOptions{
 		Page:       parsed.Page,
 		PerPage:    parsed.PerPage,

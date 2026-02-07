@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 
@@ -59,7 +58,7 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 	}
 	store := dashinternal.NewCMSWidgetStoreWithActivity(a.widgetServiceAdapter(), activityRecorderAdapter{sink: a.activity})
 	if store == nil {
-		return fmt.Errorf("dashboard requires a CMS widget service")
+		return serviceNotConfiguredDomainError("dashboard cms widget service", map[string]any{"component": "dashboard"})
 	}
 
 	providerRegistry, specs := a.dashboard.buildDashboardProviders()
@@ -177,14 +176,14 @@ type serviceExecutor struct{ svc *dashcmp.Service }
 
 func (e serviceExecutor) Assign(ctx context.Context, req dashcmp.AddWidgetRequest) error {
 	if e.svc == nil {
-		return fmt.Errorf("dashboard service not configured")
+		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
 	}
 	return e.svc.AddWidget(ctx, req)
 }
 
 func (e serviceExecutor) Remove(ctx context.Context, input dashcmd.RemoveWidgetInput) error {
 	if e.svc == nil {
-		return fmt.Errorf("dashboard service not configured")
+		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
 	}
 	ctx = dashcmp.ContextWithActivity(ctx, dashcmp.ActivityContext{
 		ActorID:  input.ActorID,
@@ -196,21 +195,21 @@ func (e serviceExecutor) Remove(ctx context.Context, input dashcmd.RemoveWidgetI
 
 func (e serviceExecutor) Reorder(ctx context.Context, input dashcmd.ReorderWidgetsInput) error {
 	if e.svc == nil {
-		return fmt.Errorf("dashboard service not configured")
+		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
 	}
 	return e.svc.ReorderWidgets(ctx, input.AreaCode, input.WidgetIDs)
 }
 
 func (e serviceExecutor) Refresh(ctx context.Context, input dashcmd.RefreshWidgetInput) error {
 	if e.svc == nil {
-		return fmt.Errorf("dashboard service not configured")
+		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
 	}
 	return e.svc.NotifyWidgetUpdated(ctx, input.Event)
 }
 
 func (e serviceExecutor) Preferences(ctx context.Context, input dashcmd.SaveLayoutPreferencesInput) error {
 	if e.svc == nil {
-		return fmt.Errorf("dashboard service not configured")
+		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
 	}
 	overrides := dashcmp.LayoutOverrides{
 		AreaOrder:     cloneStringSliceMap(input.AreaOrder),
@@ -251,7 +250,7 @@ func (s *dashboardPreferenceStore) SaveLayoutOverrides(ctx context.Context, view
 		return nil
 	}
 	if viewer.UserID == "" {
-		return fmt.Errorf("preferences store requires viewer user id")
+		return requiredFieldDomainError("viewer user id", map[string]any{"scope": "dashboard_preferences"})
 	}
 	if overrides.Locale == "" {
 		overrides.Locale = viewer.Locale

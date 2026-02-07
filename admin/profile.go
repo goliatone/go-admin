@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"sync"
 
@@ -55,7 +54,7 @@ func NewInMemoryProfileStore() *InMemoryProfileStore {
 func (s *InMemoryProfileStore) Get(ctx context.Context, userID string) (UserProfile, error) {
 	_ = ctx
 	if s == nil {
-		return UserProfile{}, errors.New("profile store not configured")
+		return UserProfile{}, serviceNotConfiguredDomainError("profile store", nil)
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -74,7 +73,7 @@ func (s *InMemoryProfileStore) Get(ctx context.Context, userID string) (UserProf
 func (s *InMemoryProfileStore) Save(ctx context.Context, profile UserProfile) (UserProfile, error) {
 	_ = ctx
 	if s == nil {
-		return UserProfile{}, errors.New("profile store not configured")
+		return UserProfile{}, serviceNotConfiguredDomainError("profile store", nil)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -122,7 +121,7 @@ func (s *ProfileService) Store() ProfileStore {
 // Get returns the profile for a user, applying defaults.
 func (s *ProfileService) Get(ctx context.Context, userID string) (UserProfile, error) {
 	if s == nil {
-		return UserProfile{}, errors.New("profile service not configured")
+		return UserProfile{}, serviceNotConfiguredDomainError("profile service", nil)
 	}
 	profile, err := s.store.Get(ctx, userID)
 	if err != nil {
@@ -137,7 +136,7 @@ func (s *ProfileService) Get(ctx context.Context, userID string) (UserProfile, e
 // Save merges and persists a profile for a user.
 func (s *ProfileService) Save(ctx context.Context, userID string, profile UserProfile) (UserProfile, error) {
 	if s == nil {
-		return UserProfile{}, errors.New("profile service not configured")
+		return UserProfile{}, serviceNotConfiguredDomainError("profile service", nil)
 	}
 	if userID == "" {
 		return UserProfile{}, ErrForbidden
@@ -308,7 +307,7 @@ func NewGoUsersProfileStore(repo users.ProfileRepository, scopeResolver func(con
 // Get returns a user profile via the go-users repository.
 func (s *GoUsersProfileStore) Get(ctx context.Context, userID string) (UserProfile, error) {
 	if s == nil || s.repo == nil {
-		return UserProfile{}, errors.New("profile repository not configured")
+		return UserProfile{}, serviceNotConfiguredDomainError("profile repository", nil)
 	}
 	id, err := uuid.Parse(userID)
 	if err != nil {
@@ -333,7 +332,7 @@ func (s *GoUsersProfileStore) Get(ctx context.Context, userID string) (UserProfi
 // Save upserts a user profile via the go-users repository.
 func (s *GoUsersProfileStore) Save(ctx context.Context, profile UserProfile) (UserProfile, error) {
 	if s == nil || s.repo == nil {
-		return UserProfile{}, errors.New("profile repository not configured")
+		return UserProfile{}, serviceNotConfiguredDomainError("profile repository", nil)
 	}
 	if profile.UserID == "" {
 		return UserProfile{}, ErrForbidden

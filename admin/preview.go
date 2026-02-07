@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -85,14 +84,14 @@ func (s *PreviewService) Validate(tokenString string) (*PreviewToken, error) {
 		return s.validateJWT(parts)
 	}
 	if len(parts) != 2 {
-		return nil, errors.New("invalid token format")
+		return nil, validationDomainError("invalid token format", map[string]any{"component": "preview_token"})
 	}
 
 	payloadEncoded := parts[0]
 	signature := parts[1]
 
 	if s.sign(payloadEncoded) != signature {
-		return nil, errors.New("invalid signature")
+		return nil, validationDomainError("invalid signature", map[string]any{"component": "preview_token"})
 	}
 
 	payload, err := base64.URLEncoding.DecodeString(payloadEncoded)
@@ -106,7 +105,7 @@ func (s *PreviewService) Validate(tokenString string) (*PreviewToken, error) {
 	}
 
 	if time.Now().Unix() > token.Expiry {
-		return nil, errors.New("token expired")
+		return nil, validationDomainError("token expired", map[string]any{"component": "preview_token"})
 	}
 
 	return &token, nil
@@ -114,11 +113,11 @@ func (s *PreviewService) Validate(tokenString string) (*PreviewToken, error) {
 
 func (s *PreviewService) validateJWT(parts []string) (*PreviewToken, error) {
 	if len(parts) != 3 {
-		return nil, errors.New("invalid token format")
+		return nil, validationDomainError("invalid token format", map[string]any{"component": "preview_token"})
 	}
 	unsigned := parts[0] + "." + parts[1]
 	if s.signJWT(unsigned) != parts[2] {
-		return nil, errors.New("invalid signature")
+		return nil, validationDomainError("invalid signature", map[string]any{"component": "preview_token"})
 	}
 
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
@@ -135,7 +134,7 @@ func (s *PreviewService) validateJWT(parts []string) (*PreviewToken, error) {
 		return nil, err
 	}
 	if time.Now().Unix() > claims.Expiry {
-		return nil, errors.New("token expired")
+		return nil, validationDomainError("token expired", map[string]any{"component": "preview_token"})
 	}
 	return &PreviewToken{
 		ContentID:  claims.ContentID,
