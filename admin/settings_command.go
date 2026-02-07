@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 
 	"github.com/goliatone/go-command"
 )
@@ -18,7 +17,7 @@ type SettingsUpdateCommand struct {
 // Execute applies the bundle found in the message.
 func (c *SettingsUpdateCommand) Execute(ctx context.Context, msg SettingsUpdateMsg) error {
 	if c.Service == nil {
-		return errors.New("settings service not configured")
+		return serviceNotConfiguredDomainError("settings service", map[string]any{"component": "settings_command"})
 	}
 	return c.Service.Apply(ctx, msg.Bundle)
 }

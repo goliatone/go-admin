@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/fs"
 	"path"
 	"sort"
@@ -1070,7 +1069,7 @@ func NewFormgenSchemaValidator(basePath string) (*FormgenSchemaValidator, error)
 func NewFormgenSchemaValidatorWithAPIBase(basePath, apiBase string) (*FormgenSchemaValidator, error) {
 	templatesFS, err := fs.Sub(client.Templates(), "formgen/vanilla")
 	if err != nil {
-		return nil, fmt.Errorf("init form templates: %w", err)
+		return nil, serviceUnavailableDomainError("init form templates failed", map[string]any{"component": "content_type_builder", "error": err.Error()})
 	}
 	templateBundle := formgenvanilla.TemplatesFS()
 	if templatesFS != nil {
@@ -1088,7 +1087,7 @@ func NewFormgenSchemaValidatorWithAPIBase(basePath, apiBase string) (*FormgenSch
 		formgenvanilla.WithComponentRegistry(componentRegistry),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("init form renderer: %w", err)
+		return nil, serviceUnavailableDomainError("init form renderer failed", map[string]any{"component": "content_type_builder", "error": err.Error()})
 	}
 	registry.MustRegister(renderer)
 

@@ -300,7 +300,7 @@ func (s *InMemoryMenuService) CreateMenu(ctx context.Context, code string) (*Men
 	slug := s.canonicalMenuSlug(code)
 	if slug == "" {
 		s.mu.Unlock()
-		return nil, fmt.Errorf("menu code required")
+		return nil, requiredFieldDomainError("menu code", map[string]any{"component": "cms_menu"})
 	}
 	if state, ok := s.menus[slug]; ok {
 		menu := &Menu{Code: state.slug, Slug: state.slug, ID: state.id}
@@ -361,7 +361,7 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 	state, slug := s.resolveMenuState(menuCode)
 	if slug == "" {
 		s.mu.Unlock()
-		return fmt.Errorf("menu code required")
+		return requiredFieldDomainError("menu code", map[string]any{"component": "cms_menu"})
 	}
 	if state == nil {
 		state = &menuState{

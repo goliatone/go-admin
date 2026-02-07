@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"log"
 	"sort"
 	"strings"
@@ -868,7 +867,10 @@ func (a *Admin) Jobs() *JobRegistry {
 // RegisterPanel registers a built panel with the admin.
 func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error) {
 	if builder == nil {
-		return nil, errors.New("panel builder is nil")
+		return nil, validationDomainError("panel builder is nil", map[string]any{
+			"component": "admin",
+			"field":     "panel_builder",
+		})
 	}
 	builder.name = name
 	builder.commandBus = a.commandBus
@@ -899,7 +901,9 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 // UnregisterPanel removes a previously registered panel.
 func (a *Admin) UnregisterPanel(name string) error {
 	if a.registry == nil {
-		return errors.New("registry is nil")
+		return serviceNotConfiguredDomainError("registry", map[string]any{
+			"component": "admin",
+		})
 	}
 	return a.registry.UnregisterPanel(name)
 }
@@ -907,7 +911,9 @@ func (a *Admin) UnregisterPanel(name string) error {
 // RegisterPanelTab attaches a tab to an existing or future panel.
 func (a *Admin) RegisterPanelTab(panelName string, tab PanelTab) error {
 	if a.registry == nil {
-		return errors.New("registry is nil")
+		return serviceNotConfiguredDomainError("registry", map[string]any{
+			"component": "admin",
+		})
 	}
 	if a.panelTabCollisionHandler == nil {
 		return a.registry.RegisterPanelTab(panelName, tab)
@@ -919,7 +925,9 @@ func (a *Admin) RegisterPanelTab(panelName string, tab PanelTab) error {
 		tab.ID = tabID
 	}
 	if tabID == "" {
-		return errors.New("panel tab ID cannot be empty")
+		return requiredFieldDomainError("panel tab id", map[string]any{
+			"component": "admin",
+		})
 	}
 
 	for _, existing := range a.registry.PanelTabs(panelName) {

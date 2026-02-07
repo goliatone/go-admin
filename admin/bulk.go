@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -77,7 +76,7 @@ func NewInMemoryBulkService() *InMemoryBulkService {
 func (s *InMemoryBulkService) Start(ctx context.Context, req BulkRequest) (BulkJob, error) {
 	_ = ctx
 	if req.Name == "" {
-		return BulkJob{}, errors.New("name required")
+		return BulkJob{}, requiredFieldDomainError("name", map[string]any{"component": "bulk"})
 	}
 	if req.Total <= 0 {
 		req.Total = 10
@@ -210,7 +209,7 @@ func (c *BulkCommand) Execute(ctx context.Context, msg BulkStartMsg) error {
 		Total:  msg.Total,
 	}
 	if req.Name == "" {
-		return errors.New("name required")
+		return requiredFieldDomainError("name", map[string]any{"component": "bulk"})
 	}
 	_, err := c.Service.Start(ctx, req)
 	return err

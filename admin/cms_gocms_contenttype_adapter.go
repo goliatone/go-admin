@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -413,7 +412,9 @@ func setIDValue(field reflect.Value, id string) error {
 func valueForIDType(argType reflect.Type, id string) (reflect.Value, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return reflect.Value{}, fmt.Errorf("content type id required")
+		return reflect.Value{}, requiredFieldDomainError("content type id", map[string]any{
+			"component": "content_type_adapter",
+		})
 	}
 	switch argType.Kind() {
 	case reflect.String:
@@ -443,7 +444,10 @@ func valueForIDType(argType reflect.Type, id string) (reflect.Value, error) {
 			return reflect.ValueOf(parsed), nil
 		}
 	}
-	return reflect.Value{}, fmt.Errorf("unsupported content type id type %s", argType.String())
+	return reflect.Value{}, validationDomainError("unsupported content type id type", map[string]any{
+		"component": "content_type_adapter",
+		"type":      argType.String(),
+	})
 }
 
 func valueForStringType(argType reflect.Type, value string) (reflect.Value, error) {
@@ -458,13 +462,19 @@ func valueForStringType(argType reflect.Type, value string) (reflect.Value, erro
 			return ptr, nil
 		}
 	}
-	return reflect.Value{}, fmt.Errorf("unsupported string type %s", argType.String())
+	return reflect.Value{}, validationDomainError("unsupported string type", map[string]any{
+		"component": "content_type_adapter",
+		"type":      argType.String(),
+	})
 }
 
 func parseUUID(value string) (uuid.UUID, error) {
 	parsed, err := uuid.Parse(strings.TrimSpace(value))
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("invalid uuid %q", value)
+		return uuid.Nil, validationDomainError("invalid uuid", map[string]any{
+			"component": "content_type_adapter",
+			"value":     value,
+		})
 	}
 	return parsed, nil
 }

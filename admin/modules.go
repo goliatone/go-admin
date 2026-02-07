@@ -14,7 +14,7 @@ import (
 // Duplicate IDs are rejected to preserve ordering and idempotency.
 func (a *Admin) RegisterModule(module Module) error {
 	if a.registry == nil {
-		return errors.New("registry not initialized")
+		return serviceNotConfiguredDomainError("registry", map[string]any{"component": "modules"})
 	}
 	return a.registry.RegisterModule(module)
 }
@@ -100,7 +100,7 @@ func (a *Admin) loadModules(ctx context.Context) error {
 		Register: func(mod modules.Module) error {
 			registrar, ok := mod.(Module)
 			if !ok {
-				return fmt.Errorf("module %s missing Register implementation", mod.Manifest().ID)
+				return validationDomainError("module missing Register implementation", map[string]any{"component": "modules", "module": mod.Manifest().ID})
 			}
 			return registrar.Register(ModuleContext{
 				Admin:      a,

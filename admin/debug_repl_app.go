@@ -141,10 +141,16 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 		fallback, fallbackErr := debugREPLAppFallbackInterpreter(replCfg)
 		if fallbackErr != nil {
 			log.Printf("[debug.repl] app console fallback failed: %v", fallbackErr)
-			_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", fmt.Errorf("app console unavailable: %w", initErr))
+			_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{
+				"component": "debug_repl_app",
+				"error":     initErr.Error(),
+			}))
 		} else {
 			interpreter = fallback
-			_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", fmt.Errorf("app console started without admin helpers: %w", initErr))
+			_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console started without admin helpers", map[string]any{
+				"component": "debug_repl_app",
+				"error":     initErr.Error(),
+			}))
 		}
 	}
 
@@ -214,7 +220,9 @@ func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, cfg DebugREP
 		return ErrForbidden
 	}
 	if interpreter == nil {
-		_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", errors.New("app console unavailable"))
+		_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{
+			"component": "debug_repl_app",
+		}))
 		return nil
 	}
 	switch strings.ToLower(strings.TrimSpace(cmd.Type)) {
@@ -226,7 +234,9 @@ func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, cfg DebugREP
 		requiresExec := debugREPLAppRequiresExec(code)
 		if requiresExec {
 			if cfg.ReadOnlyEnabled() {
-				return debugREPLAppWriteError(admin, adminCtx, session, c, code, errors.New("app console is read-only"))
+				return debugREPLAppWriteError(admin, adminCtx, session, c, code, NewDomainError(TextCodeReplReadOnly, "app console is read-only", map[string]any{
+					"component": "debug_repl_app",
+				}))
 			}
 			if err := admin.requirePermission(adminCtx, cfg.ExecPermission, debugReplResource); err != nil {
 				return debugREPLAppWriteError(admin, adminCtx, session, c, code, err)

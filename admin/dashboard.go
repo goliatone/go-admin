@@ -2,8 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log"
 	"sort"
 	"strconv"
@@ -421,7 +419,7 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 	}
 	store := dashinternal.NewCMSWidgetStoreWithActivity(d.widgetServiceAdapter(), activityRecorderAdapter{sink: d.activity})
 	if store == nil {
-		return nil, fmt.Errorf("dashboard requires a CMS widget service")
+		return nil, serviceNotConfiguredDomainError("dashboard cms widget service", map[string]any{"component": "dashboard"})
 	}
 	registry, specs := d.buildDashboardProviders()
 	var prefStore dashcmp.PreferenceStore
@@ -791,7 +789,7 @@ type dashboardProviderCommand struct {
 
 func (c *dashboardProviderCommand) Execute(ctx context.Context, msg DashboardProviderMsg) error {
 	if c.dashboard == nil {
-		return errors.New("dashboard not set")
+		return serviceNotConfiguredDomainError("dashboard", map[string]any{"component": "dashboard"})
 	}
 	code := strings.TrimSpace(msg.Code)
 	if code == "" {

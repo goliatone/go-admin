@@ -2,8 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -73,7 +71,9 @@ func (a *GoCMSWidgetAdapter) RegisterDefinition(ctx context.Context, def WidgetD
 	}
 	code, displayName, schema := normalizeWidgetDefinition(def)
 	if code == "" {
-		return fmt.Errorf("widget definition code is required")
+		return requiredFieldDomainError("widget definition code", map[string]any{
+			"component": "widget_adapter",
+		})
 	}
 	input := reflect.New(method.Type().In(1)).Elem()
 	// go-cms widget definitions don't expose a stable "code" field; persist go-admin's
@@ -170,13 +170,19 @@ func (a *GoCMSWidgetAdapter) Definitions() []WidgetDefinition {
 
 func (a *GoCMSWidgetAdapter) SaveInstance(ctx context.Context, instance WidgetInstance) (*WidgetInstance, error) {
 	if a == nil || a.service == nil {
-		return nil, fmt.Errorf("adapter or service nil")
+		return nil, serviceNotConfiguredDomainError("cms widget adapter service", map[string]any{
+			"component": "widget_adapter",
+		})
 	}
 	defCode := strings.TrimSpace(instance.DefinitionCode)
 	a.refreshDefinitions(ctx)
 	defID, ok := a.definitions[defCode]
 	if !ok {
-		return nil, fmt.Errorf("definition %q not found in cache (have %d definitions)", defCode, len(a.definitions))
+		return nil, notFoundDomainError("widget definition not found", map[string]any{
+			"component":       "widget_adapter",
+			"definition_code": defCode,
+			"cache_size":      len(a.definitions),
+		})
 	}
 	if strings.TrimSpace(instance.Area) != "" {
 		_ = a.RegisterAreaDefinition(ctx, WidgetAreaDefinition{Code: instance.Area, Name: instance.Area, Scope: "global"})
@@ -204,11 +210,18 @@ func (a *GoCMSWidgetAdapter) SaveInstance(ctx context.Context, instance WidgetIn
 
 func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID, instance WidgetInstance) (*WidgetInstance, error) {
 	if defID == uuid.Nil {
-		return nil, fmt.Errorf("createInstance called with nil defID for instance code=%q", instance.DefinitionCode)
+		return nil, requiredFieldDomainError("definition id", map[string]any{
+			"component":       "widget_adapter",
+			"operation":       "create_instance",
+			"definition_code": strings.TrimSpace(instance.DefinitionCode),
+		})
 	}
 	method := reflect.ValueOf(a.service).MethodByName("CreateInstance")
 	if !method.IsValid() {
-		return nil, fmt.Errorf("CreateInstance method not found")
+		return nil, serviceUnavailableDomainError("create instance method not available", map[string]any{
+			"component": "widget_adapter",
+			"method":    "CreateInstance",
+		})
 	}
 	input := reflect.New(method.Type().In(1)).Elem()
 	setUUIDField(input, "DefinitionID", defID)
@@ -234,7 +247,10 @@ func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID
 		return nil, err
 	}
 	if len(results) == 0 {
-		return nil, errors.New("widget instance not returned")
+		return nil, serviceUnavailableDomainError("widget instance not returned", map[string]any{
+			"component": "widget_adapter",
+			"operation": "create_instance",
+		})
 	}
 	converted := convertWidgetInstance(results[0])
 	converted.DefinitionCode = strings.TrimSpace(instance.DefinitionCode)
@@ -273,7 +289,10 @@ func (a *GoCMSWidgetAdapter) updateInstance(ctx context.Context, instance Widget
 		return nil, err
 	}
 	if len(results) == 0 {
-		return nil, errors.New("widget instance not returned")
+		return nil, serviceUnavailableDomainError("widget instance not returned", map[string]any{
+			"component": "widget_adapter",
+			"operation": "update_instance",
+		})
 	}
 	converted := convertWidgetInstance(results[0])
 	converted.DefinitionCode = strings.TrimSpace(instance.DefinitionCode)

@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -37,7 +36,10 @@ type preferencesSchemaInfo struct {
 func newPreferencesFormGenerator() (*formgenorchestrator.Orchestrator, error) {
 	formTemplatesFS, err := fs.Sub(client.Templates(), "formgen/vanilla")
 	if err != nil {
-		return nil, fmt.Errorf("preferences form templates: %w", err)
+		return nil, serviceUnavailableDomainError("preferences form templates unavailable", map[string]any{
+			"component": "preferences_form",
+			"error":     err.Error(),
+		})
 	}
 
 	registry := formgenrender.NewRegistry()
@@ -51,7 +53,10 @@ func newPreferencesFormGenerator() (*formgenorchestrator.Orchestrator, error) {
 		formgenvanilla.WithTemplatesFS(templateBundle),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("preferences form renderer: %w", err)
+		return nil, serviceUnavailableDomainError("preferences form renderer unavailable", map[string]any{
+			"component": "preferences_form",
+			"error":     err.Error(),
+		})
 	}
 	registry.MustRegister(vanillaRenderer)
 
@@ -114,22 +119,33 @@ func (m *PreferencesModule) resolvePreferencesSchema(themeOptions, variantOption
 
 	schemaMap := map[string]any{}
 	if err := json.Unmarshal(raw, &schemaMap); err != nil {
-		return formgenschema.Document{}, schemaInfo, fmt.Errorf("preferences schema parse: %w", err)
+		return formgenschema.Document{}, schemaInfo, validationDomainError("preferences schema parse failed", map[string]any{
+			"component": "preferences_form",
+			"error":     err.Error(),
+		})
 	}
 	if schemaMap == nil {
-		return formgenschema.Document{}, schemaInfo, fmt.Errorf("preferences schema is empty")
+		return formgenschema.Document{}, schemaInfo, validationDomainError("preferences schema is empty", map[string]any{
+			"component": "preferences_form",
+		})
 	}
 
 	applyPreferencesSchemaOptions(schemaMap, themeOptions, variantOptions)
 
 	updated, err := json.Marshal(schemaMap)
 	if err != nil {
-		return formgenschema.Document{}, schemaInfo, fmt.Errorf("preferences schema encode: %w", err)
+		return formgenschema.Document{}, schemaInfo, validationDomainError("preferences schema encode failed", map[string]any{
+			"component": "preferences_form",
+			"error":     err.Error(),
+		})
 	}
 
 	forms, err := formgenjsonschema.DiscoverFormsFromBytes(updated, formgenjsonschema.FormDiscoveryOptions{Slug: preferencesSchemaSlug})
 	if err != nil {
-		return formgenschema.Document{}, schemaInfo, fmt.Errorf("preferences schema forms: %w", err)
+		return formgenschema.Document{}, schemaInfo, validationDomainError("preferences schema forms discovery failed", map[string]any{
+			"component": "preferences_form",
+			"error":     err.Error(),
+		})
 	}
 	formID := preferencesSchemaSlug
 	if len(forms) > 0 && strings.TrimSpace(forms[0].ID) != "" {
@@ -171,20 +187,30 @@ func (m *PreferencesModule) readPreferencesSchema() ([]byte, string, string, err
 	fsys := admindata.UISchemas()
 	payload, err := fs.ReadFile(fsys, preferencesSchemaDefaultPath)
 	if err != nil {
-		return nil, "", preferencesSchemaSourceEmbed, fmt.Errorf("read embedded preferences schema: %w", err)
+		return nil, "", preferencesSchemaSourceEmbed, serviceUnavailableDomainError("embedded preferences schema unavailable", map[string]any{
+			"component": "preferences_form",
+			"path":      preferencesSchemaDefaultPath,
+			"error":     err.Error(),
+		})
 	}
 	return payload, preferencesSchemaDefaultPath, preferencesSchemaSourceEmbed, nil
 }
 
 func readPreferencesSchemaFile(path string) ([]byte, string, error) {
 	if strings.TrimSpace(path) == "" {
-		return nil, "", fmt.Errorf("preferences schema path is empty")
+		return nil, "", requiredFieldDomainError("preferences schema path", map[string]any{
+			"component": "preferences_form",
+		})
 	}
 
 	cleaned := filepath.Clean(path)
 	info, err := os.Stat(cleaned)
 	if err != nil {
-		return nil, "", fmt.Errorf("preferences schema path: %w", err)
+		return nil, "", validationDomainError("preferences schema path invalid", map[string]any{
+			"component": "preferences_form",
+			"path":      cleaned,
+			"error":     err.Error(),
+		})
 	}
 
 	location := cleaned
@@ -194,7 +220,11 @@ func readPreferencesSchemaFile(path string) ([]byte, string, error) {
 
 	payload, err := os.ReadFile(location)
 	if err != nil {
-		return nil, "", fmt.Errorf("read preferences schema: %w", err)
+		return nil, "", serviceUnavailableDomainError("read preferences schema failed", map[string]any{
+			"component": "preferences_form",
+			"path":      location,
+			"error":     err.Error(),
+		})
 	}
 	return payload, location, nil
 }

@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,14 +73,23 @@ func parseFeatureCatalogContents(raw []byte, ext string) (map[string]any, error)
 	switch ext {
 	case ".yaml", ".yml":
 		if err := yaml.Unmarshal(raw, &out); err != nil {
-			return nil, fmt.Errorf("feature catalog yaml: %w", err)
+			return nil, validationDomainError("feature catalog yaml parse failed", map[string]any{
+				"component": "feature_catalog",
+				"error":     err.Error(),
+			})
 		}
 	case ".json":
 		if err := json.Unmarshal(raw, &out); err != nil {
-			return nil, fmt.Errorf("feature catalog json: %w", err)
+			return nil, validationDomainError("feature catalog json parse failed", map[string]any{
+				"component": "feature_catalog",
+				"error":     err.Error(),
+			})
 		}
 	default:
-		return nil, fmt.Errorf("feature catalog file extension %q not supported", ext)
+		return nil, validationDomainError("feature catalog file extension not supported", map[string]any{
+			"component": "feature_catalog",
+			"ext":       ext,
+		})
 	}
 	return out, nil
 }
