@@ -8,6 +8,7 @@ import (
 )
 
 // ErrPathConflict signals a page path/slug collision.
+// TODO: use go-errors and error_codes.go
 var ErrPathConflict = errors.New("path conflict")
 
 // CMSPageRepository adapts a CMSContentService to the admin Repository contract.
@@ -43,28 +44,9 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 	sliced, total := paginateCMS(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, page := range sliced {
-		path := resolveCMSPagePath(page)
-		blocksPayload := blocksPayloadFromPage(page)
-		schema := strings.TrimSpace(firstNonEmpty(page.SchemaVersion, toString(page.Data["_schema"])))
-		record := map[string]any{
-			"id":          page.ID,
-			"title":       page.Title,
-			"slug":        page.Slug,
-			"path":        path,
-			"template_id": page.TemplateID,
-			"locale":      page.Locale,
-			"parent_id":   page.ParentID,
-			"blocks":      blocksPayload,
-			"seo":         cloneAnyMap(page.SEO),
-			"status":      page.Status,
-			"data":        cloneAnyMap(page.Data),
-			"metadata":    cloneAnyMap(page.Metadata),
-			"preview_url": page.PreviewURL,
-		}
-		if schema != "" {
-			record["_schema"] = schema
-		}
-		out = append(out, record)
+		out = append(out, cmsPageRecord(page, cmsPageRecordOptions{
+			includeTemplateID: true,
+		}))
 	}
 	return out, total, nil
 }
@@ -83,28 +65,9 @@ func (r *CMSPageRepository) Get(ctx context.Context, id string) (map[string]any,
 	if err != nil {
 		return nil, err
 	}
-	path := resolveCMSPagePath(*page)
-	blocksPayload := blocksPayloadFromPage(*page)
-	schema := strings.TrimSpace(firstNonEmpty(page.SchemaVersion, toString(page.Data["_schema"])))
-	record := map[string]any{
-		"id":          page.ID,
-		"title":       page.Title,
-		"slug":        page.Slug,
-		"path":        path,
-		"template_id": page.TemplateID,
-		"locale":      page.Locale,
-		"parent_id":   page.ParentID,
-		"blocks":      blocksPayload,
-		"seo":         cloneAnyMap(page.SEO),
-		"status":      page.Status,
-		"data":        cloneAnyMap(page.Data),
-		"metadata":    cloneAnyMap(page.Metadata),
-		"preview_url": page.PreviewURL,
-	}
-	if schema != "" {
-		record["_schema"] = schema
-	}
-	return record, nil
+	return cmsPageRecord(*page, cmsPageRecordOptions{
+		includeTemplateID: true,
+	}), nil
 }
 
 // Create inserts a page with path collision checks.
@@ -123,27 +86,7 @@ func (r *CMSPageRepository) Create(ctx context.Context, record map[string]any) (
 	if err != nil {
 		return nil, err
 	}
-	path := resolveCMSPagePath(*created)
-	blocksPayload := blocksPayloadFromPage(*created)
-	schema := strings.TrimSpace(firstNonEmpty(created.SchemaVersion, toString(created.Data["_schema"])))
-	out := map[string]any{
-		"id":          created.ID,
-		"title":       created.Title,
-		"slug":        created.Slug,
-		"path":        path,
-		"locale":      created.Locale,
-		"parent_id":   created.ParentID,
-		"blocks":      blocksPayload,
-		"seo":         cloneAnyMap(created.SEO),
-		"status":      created.Status,
-		"data":        cloneAnyMap(created.Data),
-		"metadata":    cloneAnyMap(created.Metadata),
-		"preview_url": created.PreviewURL,
-	}
-	if schema != "" {
-		out["_schema"] = schema
-	}
-	return out, nil
+	return cmsPageRecord(*created, cmsPageRecordOptions{}), nil
 }
 
 // Update modifies a page while preventing slug/path collisions.
@@ -191,27 +134,7 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 	if err != nil {
 		return nil, err
 	}
-	path := resolveCMSPagePath(*updated)
-	blocksPayload := blocksPayloadFromPage(*updated)
-	schema := strings.TrimSpace(firstNonEmpty(updated.SchemaVersion, toString(updated.Data["_schema"])))
-	out := map[string]any{
-		"id":          updated.ID,
-		"title":       updated.Title,
-		"slug":        updated.Slug,
-		"path":        path,
-		"locale":      updated.Locale,
-		"parent_id":   updated.ParentID,
-		"blocks":      blocksPayload,
-		"seo":         cloneAnyMap(updated.SEO),
-		"status":      updated.Status,
-		"data":        cloneAnyMap(updated.Data),
-		"metadata":    cloneAnyMap(updated.Metadata),
-		"preview_url": updated.PreviewURL,
-	}
-	if schema != "" {
-		out["_schema"] = schema
-	}
-	return out, nil
+	return cmsPageRecord(*updated, cmsPageRecordOptions{}), nil
 }
 
 // Delete removes a page.
@@ -236,6 +159,36 @@ func (r *CMSPageRepository) ensureUniqueSlug(ctx context.Context, slug, skipID, 
 		}
 	}
 	return nil
+}
+
+type cmsPageRecordOptions struct {
+	includeTemplateID bool
+}
+
+func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
+	path := resolveCMSPagePath(page)
+	schema := strings.TrimSpace(firstNonEmpty(page.SchemaVersion, toString(page.Data["_schema"])))
+	record := map[string]any{
+		"id":          page.ID,
+		"title":       page.Title,
+		"slug":        page.Slug,
+		"path":        path,
+		"locale":      page.Locale,
+		"parent_id":   page.ParentID,
+		"blocks":      blocksPayloadFromPage(page),
+		"seo":         cloneAnyMap(page.SEO),
+		"status":      page.Status,
+		"data":        cloneAnyMap(page.Data),
+		"metadata":    cloneAnyMap(page.Metadata),
+		"preview_url": page.PreviewURL,
+	}
+	if opts.includeTemplateID {
+		record["template_id"] = page.TemplateID
+	}
+	if schema != "" {
+		record["_schema"] = schema
+	}
+	return record
 }
 
 // CMSContentTypeRepository adapts CMSContentTypeService for content type definitions.
@@ -482,29 +435,11 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 	sliced, total := paginateCMS(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, item := range sliced {
-		contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
-		blocksPayload := blocksPayloadFromContent(item)
-		schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
-		record := map[string]any{
-			"id":                       item.ID,
-			"title":                    item.Title,
-			"slug":                     item.Slug,
-			"locale":                   item.Locale,
-			"requested_locale":         item.RequestedLocale,
-			"resolved_locale":          item.ResolvedLocale,
-			"available_locales":        append([]string{}, item.AvailableLocales...),
-			"missing_requested_locale": item.MissingRequestedLocale,
-			"content_type":             contentType,
-			"status":                   item.Status,
-			"blocks":                   blocksPayload,
-			"data":                     cloneAnyMap(item.Data),
-			"metadata":                 cloneAnyMap(item.Metadata),
-		}
-		if schema != "" {
-			record["_schema"] = schema
-		}
-		mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
-		out = append(out, record)
+		out = append(out, cmsContentRecord(item, cmsContentRecordOptions{
+			includeBlocks:   true,
+			includeData:     true,
+			includeMetadata: true,
+		}))
 	}
 	return out, total, nil
 }
@@ -523,29 +458,11 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 	if err != nil {
 		return nil, err
 	}
-	contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
-	blocksPayload := blocksPayloadFromContent(*item)
-	schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
-	record := map[string]any{
-		"id":                       item.ID,
-		"title":                    item.Title,
-		"slug":                     item.Slug,
-		"locale":                   item.Locale,
-		"requested_locale":         item.RequestedLocale,
-		"resolved_locale":          item.ResolvedLocale,
-		"available_locales":        append([]string{}, item.AvailableLocales...),
-		"missing_requested_locale": item.MissingRequestedLocale,
-		"content_type":             contentType,
-		"status":                   item.Status,
-		"blocks":                   blocksPayload,
-		"data":                     cloneAnyMap(item.Data),
-		"metadata":                 cloneAnyMap(item.Metadata),
-	}
-	if schema != "" {
-		record["_schema"] = schema
-	}
-	mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
-	return record, nil
+	return cmsContentRecord(*item, cmsContentRecordOptions{
+		includeBlocks:   true,
+		includeData:     true,
+		includeMetadata: true,
+	}), nil
 }
 
 // Create inserts new content.
@@ -558,29 +475,11 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 	if err != nil {
 		return nil, err
 	}
-	contentType := firstNonEmpty(created.ContentTypeSlug, created.ContentType)
-	blocksPayload := blocksPayloadFromContent(*created)
-	schema := strings.TrimSpace(firstNonEmpty(created.SchemaVersion, toString(created.Data["_schema"])))
-	createdRecord := map[string]any{
-		"id":                       created.ID,
-		"title":                    created.Title,
-		"slug":                     created.Slug,
-		"locale":                   created.Locale,
-		"requested_locale":         created.RequestedLocale,
-		"resolved_locale":          created.ResolvedLocale,
-		"available_locales":        append([]string{}, created.AvailableLocales...),
-		"missing_requested_locale": created.MissingRequestedLocale,
-		"content_type":             contentType,
-		"status":                   created.Status,
-		"blocks":                   blocksPayload,
-		"data":                     cloneAnyMap(created.Data),
-		"metadata":                 cloneAnyMap(created.Metadata),
-	}
-	if schema != "" {
-		createdRecord["_schema"] = schema
-	}
-	mergeCMSRecordData(createdRecord, created.Data, cmsContentReservedKeys)
-	return createdRecord, nil
+	return cmsContentRecord(*created, cmsContentRecordOptions{
+		includeBlocks:   true,
+		includeData:     true,
+		includeMetadata: true,
+	}), nil
 }
 
 // Update modifies content.
@@ -622,29 +521,11 @@ func (r *CMSContentRepository) Update(ctx context.Context, id string, record map
 	if err != nil {
 		return nil, err
 	}
-	contentType := firstNonEmpty(updated.ContentTypeSlug, updated.ContentType)
-	blocksPayload := blocksPayloadFromContent(*updated)
-	schema := strings.TrimSpace(firstNonEmpty(updated.SchemaVersion, toString(updated.Data["_schema"])))
-	updatedRecord := map[string]any{
-		"id":                       updated.ID,
-		"title":                    updated.Title,
-		"slug":                     updated.Slug,
-		"locale":                   updated.Locale,
-		"requested_locale":         updated.RequestedLocale,
-		"resolved_locale":          updated.ResolvedLocale,
-		"available_locales":        append([]string{}, updated.AvailableLocales...),
-		"missing_requested_locale": updated.MissingRequestedLocale,
-		"content_type":             contentType,
-		"status":                   updated.Status,
-		"blocks":                   blocksPayload,
-		"data":                     cloneAnyMap(updated.Data),
-		"metadata":                 cloneAnyMap(updated.Metadata),
-	}
-	if schema != "" {
-		updatedRecord["_schema"] = schema
-	}
-	mergeCMSRecordData(updatedRecord, updated.Data, cmsContentReservedKeys)
-	return updatedRecord, nil
+	return cmsContentRecord(*updated, cmsContentRecordOptions{
+		includeBlocks:   true,
+		includeData:     true,
+		includeMetadata: true,
+	}), nil
 }
 
 // Delete removes a content item.
@@ -693,34 +574,19 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 			!strings.Contains(strings.ToLower(contentType), search) {
 			continue
 		}
+		if !cmsContentEntryMatchesFilters(item, opts) {
+			continue
+		}
 		filtered = append(filtered, item)
 	}
 	sliced, total := paginateCMS(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, item := range sliced {
-		contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
-		blocksPayload := blocksPayloadFromContent(item)
-		schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
-		record := map[string]any{
-			"id":                       item.ID,
-			"title":                    item.Title,
-			"slug":                     item.Slug,
-			"locale":                   item.Locale,
-			"requested_locale":         item.RequestedLocale,
-			"resolved_locale":          item.ResolvedLocale,
-			"available_locales":        append([]string{}, item.AvailableLocales...),
-			"missing_requested_locale": item.MissingRequestedLocale,
-			"content_type":             contentType,
-			"status":                   item.Status,
-			"blocks":                   blocksPayload,
-			"data":                     cloneAnyMap(item.Data),
-			"metadata":                 cloneAnyMap(item.Metadata),
-		}
-		if schema != "" {
-			record["_schema"] = schema
-		}
-		mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
-		out = append(out, record)
+		out = append(out, cmsContentRecord(item, cmsContentRecordOptions{
+			includeBlocks:   true,
+			includeData:     true,
+			includeMetadata: true,
+		}))
 	}
 	return out, total, nil
 }
@@ -735,6 +601,167 @@ func (r *CMSContentTypeEntryRepository) listContents(ctx context.Context, locale
 		}
 	}
 	return r.content.Contents(ctx, locale)
+}
+
+func cmsContentEntryMatchesFilters(item CMSContent, opts ListOptions) bool {
+	predicates := NormalizeListPredicates(opts)
+	if len(predicates) == 0 {
+		return true
+	}
+	record := cmsContentFilterRecord(item)
+	for _, predicate := range predicates {
+		field := strings.TrimSpace(predicate.Field)
+		if field == "" || field == "_search" || field == "environment" {
+			continue
+		}
+		if len(predicate.Values) == 0 {
+			continue
+		}
+		operator := strings.ToLower(strings.TrimSpace(predicate.Operator))
+		if !isSupportedCMSFilterOperator(operator) {
+			continue
+		}
+		if !recordHasCMSFilterMatch(record, field, operator, predicate.Values) {
+			return false
+		}
+	}
+	return true
+}
+
+func cmsContentFilterRecord(item CMSContent) map[string]any {
+	return cmsContentRecord(item, cmsContentRecordOptions{
+		includeContentTypeSlug: true,
+	})
+}
+
+type cmsContentRecordOptions struct {
+	includeBlocks          bool
+	includeData            bool
+	includeMetadata        bool
+	includeContentTypeSlug bool
+}
+
+func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]any {
+	contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
+	schema := strings.TrimSpace(firstNonEmpty(item.SchemaVersion, toString(item.Data["_schema"])))
+	record := map[string]any{
+		"id":                       item.ID,
+		"title":                    item.Title,
+		"slug":                     item.Slug,
+		"locale":                   item.Locale,
+		"requested_locale":         item.RequestedLocale,
+		"resolved_locale":          item.ResolvedLocale,
+		"available_locales":        append([]string{}, item.AvailableLocales...),
+		"missing_requested_locale": item.MissingRequestedLocale,
+		"content_type":             contentType,
+		"status":                   item.Status,
+	}
+	if opts.includeContentTypeSlug {
+		record["content_type_slug"] = contentType
+	}
+	if opts.includeBlocks {
+		record["blocks"] = blocksPayloadFromContent(item)
+	}
+	if opts.includeData {
+		record["data"] = cloneAnyMap(item.Data)
+	}
+	if opts.includeMetadata {
+		record["metadata"] = cloneAnyMap(item.Metadata)
+	}
+	if schema != "" {
+		record["_schema"] = schema
+	}
+	mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
+	return record
+}
+
+func isSupportedCMSFilterOperator(operator string) bool {
+	switch strings.ToLower(strings.TrimSpace(operator)) {
+	case "eq", "in", "ilike":
+		return true
+	default:
+		return false
+	}
+}
+
+func recordHasCMSFilterMatch(record map[string]any, field, operator string, filterValues []string) bool {
+	value, exists := record[field]
+	if !exists {
+		return false
+	}
+	candidates := cmsFilterCandidateValues(value)
+	if len(candidates) == 0 {
+		return false
+	}
+	switch operator {
+	case "in":
+		if len(filterValues) == 0 {
+			return true
+		}
+		return cmsAnyCandidateEquals(candidates, filterValues)
+	case "ilike":
+		if len(filterValues) == 0 {
+			return true
+		}
+		return cmsAnyCandidateContains(candidates, filterValues)
+	case "eq":
+		fallthrough
+	default:
+		return cmsAnyCandidateEquals(candidates, filterValues)
+	}
+}
+
+func cmsFilterCandidateValues(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if normalized := strings.TrimSpace(item); normalized != "" {
+				out = append(out, normalized)
+			}
+		}
+		return out
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if normalized := strings.TrimSpace(toString(item)); normalized != "" {
+				out = append(out, normalized)
+			}
+		}
+		return out
+	default:
+		if normalized := strings.TrimSpace(toString(value)); normalized != "" {
+			return []string{normalized}
+		}
+	}
+	return []string{}
+}
+
+func cmsAnyCandidateEquals(candidates []string, accepted []string) bool {
+	for _, candidate := range candidates {
+		for _, value := range accepted {
+			if strings.EqualFold(strings.TrimSpace(candidate), strings.TrimSpace(value)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func cmsAnyCandidateContains(candidates []string, needles []string) bool {
+	for _, candidate := range candidates {
+		normalizedCandidate := strings.ToLower(strings.TrimSpace(candidate))
+		for _, needle := range needles {
+			normalizedNeedle := strings.ToLower(strings.TrimSpace(needle))
+			if normalizedNeedle == "" {
+				continue
+			}
+			if strings.Contains(normalizedCandidate, normalizedNeedle) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func contentTypeWantsTranslations(contentType CMSContentType) bool {
