@@ -818,20 +818,7 @@ func contentEntryFilterOptions(options []admin.Option) []map[string]any {
 }
 
 func normalizeContentEntryFilterType(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "select", "enum", "radio", "chip":
-		return "select"
-	case "number", "integer", "float", "decimal":
-		return "number"
-	case "date", "datetime", "time":
-		return "date"
-	case "bool", "boolean", "toggle", "checkbox":
-		return "select"
-	case "text", "textarea", "string", "slug", "email", "url":
-		return "text"
-	default:
-		return "text"
-	}
+	return admin.NormalizeFilterType(raw)
 }
 
 func detailFieldsForRecord(panel *admin.Panel, record map[string]any) []map[string]any {

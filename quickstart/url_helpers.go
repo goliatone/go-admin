@@ -3,6 +3,7 @@ package quickstart
 import (
 	"strings"
 
+	"github.com/goliatone/go-admin/admin"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -48,14 +49,7 @@ func resolveAdminURL(urls urlkit.Resolver, fallback, path string) string {
 }
 
 func normalizeBasePathValue(basePath string) string {
-	trimmed := strings.TrimSpace(basePath)
-	if trimmed == "" {
-		return ""
-	}
-	if trimmed == "/" {
-		return "/"
-	}
-	return "/" + strings.Trim(trimmed, "/")
+	return admin.NormalizeBasePath(basePath)
 }
 
 func trimTrailingSlash(path string) string {
@@ -89,7 +83,7 @@ func prefixBasePath(basePath, suffix string) string {
 	}
 
 	basePath = normalizeBasePathValue(basePath)
-	return strings.TrimSuffix(basePath, "/") + "/" + strings.TrimPrefix(trimmed, "/")
+	return admin.PrefixBasePath(basePath, trimmed)
 }
 
 func isAbsoluteURL(path string) bool {
