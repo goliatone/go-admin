@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"net/url"
 	"path"
 	"sort"
@@ -16,7 +15,9 @@ import (
 // It provides tree/blocks/SEO metadata needed for the CMS management UI and demo block editor routes.
 func (a *Admin) RegisterCMSDemoPanels() error {
 	if a.contentSvc == nil || a.menuSvc == nil || a.widgetSvc == nil || a.contentTypeSvc == nil {
-		return errors.New("cms services not configured")
+		return serviceUnavailableDomainError("cms services not configured", map[string]any{
+			"service": "cms",
+		})
 	}
 	ctx := a.ctx()
 	a.seedCMSDemoData(ctx)
@@ -345,7 +346,9 @@ func (a *Admin) registerCMSRoutesFromService() {
 	a.router.Get(contentBlocksPath, func(c router.Context) error {
 		id := c.Param("id", "")
 		if id == "" {
-			return writeError(c, errors.New("missing id"))
+			return writeError(c, validationDomainError("missing id", map[string]any{
+				"field": "id",
+			}))
 		}
 		locale := c.Query("locale")
 		blocks, err := a.contentSvc.BlocksForContent(a.ctx(), id, locale)
