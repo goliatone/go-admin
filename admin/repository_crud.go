@@ -51,11 +51,28 @@ func (r *CRUDRepositoryAdapter) List(ctx context.Context, opts ListOptions) ([]m
 	if opts.Search != "" {
 		c.setQuery("_search", opts.Search)
 	}
-	for k, v := range opts.Filters {
-		if k == "" || v == nil {
+
+	for _, predicate := range NormalizeListPredicates(opts) {
+		field := strings.TrimSpace(predicate.Field)
+		if field == "" {
 			continue
 		}
-		c.setQuery(k+"__eq", fmt.Sprint(v))
+		values := predicate.Values
+		if len(values) == 0 {
+			continue
+		}
+		operator := strings.ToLower(strings.TrimSpace(predicate.Operator))
+		if operator == "" {
+			operator = defaultListPredicateOperator
+		}
+		if field == "_search" {
+			if opts.Search == "" {
+				c.setQuery("_search", values[0])
+			}
+			continue
+		}
+		key := field + "__" + operator
+		c.setQuery(key, strings.Join(values, ","))
 	}
 	criteria, _, err := crud.BuildQueryCriteria[map[string]any](c, crud.OpList)
 	if err != nil {
