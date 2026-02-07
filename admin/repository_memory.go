@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"strconv"
 	"strings"
@@ -74,7 +73,7 @@ func (r *MemoryRepository) Get(_ context.Context, id string) (map[string]any, er
 			return cloneMap(rec), nil
 		}
 	}
-	return nil, errors.New("not found")
+	return nil, ErrNotFound
 }
 
 // Create inserts a new record.
@@ -102,7 +101,7 @@ func (r *MemoryRepository) Update(_ context.Context, id string, record map[strin
 			return cloneMap(rec), nil
 		}
 	}
-	return nil, errors.New("not found")
+	return nil, ErrNotFound
 }
 
 // Delete removes a record by id.
