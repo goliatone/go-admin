@@ -50,12 +50,20 @@ type Responder interface {
 
 // ListOptions holds pagination and filtering input for bindings.
 type ListOptions struct {
-	Page     int
-	PerPage  int
-	SortBy   string
-	SortDesc bool
-	Filters  map[string]any
-	Search   string
+	Page       int
+	PerPage    int
+	SortBy     string
+	SortDesc   bool
+	Filters    map[string]any
+	Predicates []ListPredicate
+	Search     string
+}
+
+// ListPredicate defines an operator-aware list filter predicate for boot bindings.
+type ListPredicate struct {
+	Field    string
+	Operator string
+	Values   []string
 }
 
 // PanelBinding exposes panel CRUD/action handlers for routes.
