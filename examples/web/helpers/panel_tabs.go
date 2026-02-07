@@ -91,8 +91,24 @@ func BuildPanelTabViews(tabs []admin.PanelTab, opts PanelTabViewOptions) []map[s
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	out := make([]map[string]any, 0, len(tabs))
-	for _, tab := range tabs {
+	tabsForView := tabs
+	if opts.DetailPath != "" && !hasTabID(tabs, "details") {
+		details := admin.PanelTab{
+			ID:    "details",
+			Label: "Details",
+			Scope: admin.PanelTabScopeDetail,
+			Target: admin.PanelTabTarget{
+				Type:  "path",
+				Path:  opts.DetailPath,
+				Panel: opts.PanelName,
+			},
+		}
+		tabsForView = make([]admin.PanelTab, 0, len(tabs)+1)
+		tabsForView = append(tabsForView, details)
+		tabsForView = append(tabsForView, tabs...)
+	}
+	out := make([]map[string]any, 0, len(tabsForView))
+	for _, tab := range tabsForView {
 		spec := TabContentSpec{}
 		if opts.Resolver != nil {
 			resolved, err := opts.Resolver.ResolveTabContent(ctx, opts.PanelName, opts.Record, tab)
@@ -124,6 +140,19 @@ func BuildPanelTabViews(tabs []admin.PanelTab, opts PanelTabViewOptions) []map[s
 		})
 	}
 	return out
+}
+
+func hasTabID(tabs []admin.PanelTab, id string) bool {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return false
+	}
+	for _, tab := range tabs {
+		if strings.EqualFold(strings.TrimSpace(tab.ID), id) {
+			return true
+		}
+	}
+	return false
 }
 
 // PanelTabHref builds the target URL for a tab target (panel/path/external).

@@ -26,13 +26,14 @@ type exportResource struct {
 	primaryKey string
 }
 
-func registerExampleExports(bundle *quickstart.ExportBundle, dataStores *stores.DataStores, tenantSvc *admin.TenantService) error {
+func registerExampleExports(bundle *quickstart.ExportBundle, dataStores *stores.DataStores, tenantSvc *admin.TenantService, usersSvc *admin.UserManagementService) error {
 	if bundle == nil || bundle.Runner == nil || dataStores == nil {
 		return nil
 	}
 
 	resources := []exportResource{
 		{name: "users", columns: handlers.UserDataGridColumns(), list: dataStores.Users},
+		{name: "roles", columns: handlers.RoleDataGridColumns(), list: rolesListProvider{svc: usersSvc}},
 		{name: "user-profiles", columns: handlers.UserProfileDataGridColumns(), list: dataStores.UserProfiles},
 		{name: "pages", columns: handlers.PageDataGridColumns(), list: dataStores.Pages},
 		{name: "posts", columns: handlers.PostDataGridColumns(), list: dataStores.Posts},
@@ -311,6 +312,40 @@ func applySelection(records []map[string]any, selection export.Selection, primar
 
 type tenantListProvider struct {
 	svc *admin.TenantService
+}
+
+type rolesListProvider struct {
+	svc *admin.UserManagementService
+}
+
+func (r rolesListProvider) List(ctx context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {
+	if r.svc == nil {
+		return nil, 0, fmt.Errorf("roles service not configured")
+	}
+	records, total, err := r.svc.ListRoles(ctx, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	items := make([]map[string]any, 0, len(records))
+	for _, rec := range records {
+		item := map[string]any{
+			"id":          rec.ID,
+			"name":        rec.Name,
+			"role_key":    rec.RoleKey,
+			"description": rec.Description,
+			"permissions": append([]string{}, rec.Permissions...),
+			"metadata":    rec.Metadata,
+			"is_system":   rec.IsSystem,
+		}
+		if !rec.CreatedAt.IsZero() {
+			item["created_at"] = rec.CreatedAt
+		}
+		if !rec.UpdatedAt.IsZero() {
+			item["updated_at"] = rec.UpdatedAt
+		}
+		items = append(items, item)
+	}
+	return items, total, nil
 }
 
 func (t tenantListProvider) List(ctx context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {

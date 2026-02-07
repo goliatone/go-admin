@@ -32,6 +32,11 @@ func TenantDataGridColumns() []helpers.DataGridColumn {
 	return tenantDataGridColumns()
 }
 
+// RoleDataGridColumns exposes the roles column allowlist for reuse.
+func RoleDataGridColumns() []helpers.DataGridColumn {
+	return roleDataGridColumns()
+}
+
 func pageDataGridColumns() []helpers.DataGridColumn {
 	return []helpers.DataGridColumn{
 		{Field: "title", Label: "Title", Sortable: true, Filterable: true, Default: true},
@@ -67,5 +72,17 @@ func tenantDataGridColumns() []helpers.DataGridColumn {
 		{Field: "slug", Label: "Slug"},
 		{Field: "status", Label: "Status"},
 		{Field: "created_at", Label: "Created"},
+	}
+}
+
+func roleDataGridColumns() []helpers.DataGridColumn {
+	return []helpers.DataGridColumn{
+		{Field: "name", Label: "Name", Sortable: true, Filterable: true, Default: true},
+		{Field: "role_key", Label: "Role Key", Sortable: true, Filterable: true, Default: true},
+		{Field: "description", Label: "Description", Sortable: true, Filterable: true, Default: true},
+		{Field: "permissions", Label: "Permissions", Sortable: false, Filterable: false, Default: false},
+		{Field: "is_system", Label: "System", Sortable: true, Filterable: false, Default: true},
+		{Field: "created_at", Label: "Created", Sortable: true, Filterable: false, Default: true},
+		{Field: "updated_at", Label: "Updated", Sortable: true, Filterable: false, Default: false},
 	}
 }
