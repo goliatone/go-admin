@@ -296,60 +296,50 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		}
 		return handler
 	}
+	renderView := func(c router.Context, template, title, active string, extra router.ViewContext) error {
+		viewCtx := router.ViewContext{
+			"title":     title,
+			"base_path": options.basePath,
+		}
+		viewCtx = mergeViewContext(viewCtx, extra)
+		viewCtx = options.viewContext(viewCtx, active, c)
+		return c.Render(template, viewCtx)
+	}
+	resolveAPIBase := func() string {
+		var urls urlkit.Resolver
+		if adm != nil {
+			urls = adm.URLs()
+		}
+		return resolveAdminAPIBasePath(urls, cfg, options.basePath)
+	}
 
 	if options.registerDashboard {
 		r.Get(options.dashboardPath, wrap(func(c router.Context) error {
-			viewCtx := router.ViewContext{
-				"title":     options.dashboardTitle,
-				"base_path": options.basePath,
-			}
-			viewCtx = options.viewContext(viewCtx, options.dashboardActive, c)
-			return c.Render(options.dashboardTemplate, viewCtx)
+			return renderView(c, options.dashboardTemplate, options.dashboardTitle, options.dashboardActive, nil)
 		}))
 	}
 
 	if options.registerNotifications {
 		r.Get(options.notificationsPath, wrap(func(c router.Context) error {
-			viewCtx := router.ViewContext{
-				"title":     options.notificationsTitle,
-				"base_path": options.basePath,
-			}
-			viewCtx = options.viewContext(viewCtx, options.notificationsActive, c)
-			return c.Render(options.notificationsTemplate, viewCtx)
+			return renderView(c, options.notificationsTemplate, options.notificationsTitle, options.notificationsActive, nil)
 		}))
 	}
 
 	if options.registerActivity {
 		r.Get(options.activityPath, wrap(func(c router.Context) error {
-			var urls urlkit.Resolver
-			if adm != nil {
-				urls = adm.URLs()
-			}
-			apiBase := resolveAdminAPIBasePath(urls, cfg, options.basePath)
-			viewCtx := router.ViewContext{
-				"title":             options.activityTitle,
-				"base_path":         options.basePath,
+			apiBase := resolveAPIBase()
+			return renderView(c, options.activityTemplate, options.activityTitle, options.activityActive, router.ViewContext{
 				"activity_api_path": prefixBasePath(apiBase, "activity"),
-			}
-			viewCtx = options.viewContext(viewCtx, options.activityActive, c)
-			return c.Render(options.activityTemplate, viewCtx)
+			})
 		}))
 	}
 
 	if options.registerFeatureFlags {
 		r.Get(options.featureFlagsPath, wrap(func(c router.Context) error {
-			var urls urlkit.Resolver
-			if adm != nil {
-				urls = adm.URLs()
-			}
-			apiBase := resolveAdminAPIBasePath(urls, cfg, options.basePath)
-			viewCtx := router.ViewContext{
-				"title":                  options.featureFlagsTitle,
-				"base_path":              options.basePath,
+			apiBase := resolveAPIBase()
+			return renderView(c, options.featureFlagsTemplate, options.featureFlagsTitle, options.featureFlagsActive, router.ViewContext{
 				"feature_flags_api_path": prefixBasePath(apiBase, "feature-flags"),
-			}
-			viewCtx = options.viewContext(viewCtx, options.featureFlagsActive, c)
-			return c.Render(options.featureFlagsTemplate, viewCtx)
+			})
 		}))
 	}
 
