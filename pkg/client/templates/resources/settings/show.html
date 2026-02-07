@@ -18,25 +18,25 @@
     {% for group in groups %}
       <section class="bg-white border border-gray-200 rounded-xl shadow-sm">
         <div class="px-6 py-4 border-b border-gray-100">
-          <h2 class="text-lg font-semibold text-gray-900">{{ group.label|default:group.Label }}</h2>
+          <h2 class="text-lg font-semibold text-gray-900">{{ group.label }}</h2>
         </div>
         <div class="divide-y divide-gray-100">
           {% for item in group.items %}
             <div class="px-6 py-4">
               <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div class="text-sm font-semibold text-gray-900">{{ item.title|default:item.Title|default:item.key|default:item.Key }}</div>
-                  {% if item.description|default:item.Description %}
-                    <div class="text-xs text-gray-500 mt-1">{{ item.description|default:item.Description }}</div>
+                  <div class="text-sm font-semibold text-gray-900">{{ item.title|default:item.key }}</div>
+                  {% if item.description %}
+                    <div class="text-xs text-gray-500 mt-1">{{ item.description }}</div>
                   {% endif %}
                 </div>
-                {% if item.scope|default:item.Scope %}
-                  <span class="inline-flex items-center px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 uppercase tracking-wide">{{ item.scope|default:item.Scope }}</span>
+                {% if item.scope %}
+                  <span class="inline-flex items-center px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 uppercase tracking-wide">{{ item.scope }}</span>
                 {% endif %}
               </div>
-              <div class="mt-2 text-sm text-gray-700 font-mono break-all">{{ item.value|default:item.Value|default:"—" }}</div>
-              {% if item.provenance|default:item.Provenance %}
-                <div class="mt-1 text-xs text-gray-400">Source: {{ item.provenance|default:item.Provenance }}</div>
+              <div class="mt-2 text-sm text-gray-700 font-mono break-all">{{ item.value|default:"—" }}</div>
+              {% if item.provenance %}
+                <div class="mt-1 text-xs text-gray-400">Source: {{ item.provenance }}</div>
               {% endif %}
             </div>
           {% endfor %}

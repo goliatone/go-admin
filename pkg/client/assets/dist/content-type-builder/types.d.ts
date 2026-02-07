@@ -24,8 +24,6 @@ export interface ContentTypeCapabilities {
     seo?: boolean;
     localization?: boolean;
     blocks?: boolean;
-    filters_fallback_from_columns?: boolean;
-    filtersFallbackFromColumns?: boolean;
     [key: string]: boolean | undefined;
 }
 export interface JSONSchema {
