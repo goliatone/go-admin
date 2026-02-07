@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"strings"
 	"sync"
@@ -71,7 +70,7 @@ func (s *TenantService) WithActivitySink(sink ActivitySink) {
 // ListTenants returns tenants with filters applied.
 func (s *TenantService) ListTenants(ctx context.Context, opts ListOptions) ([]TenantRecord, int, error) {
 	if s == nil || s.repo == nil {
-		return nil, 0, errors.New("tenant service not configured")
+		return nil, 0, serviceNotConfiguredDomainError("tenant service", nil)
 	}
 	return s.repo.List(ctx, opts)
 }
@@ -79,7 +78,7 @@ func (s *TenantService) ListTenants(ctx context.Context, opts ListOptions) ([]Te
 // GetTenant fetches a tenant by ID.
 func (s *TenantService) GetTenant(ctx context.Context, id string) (TenantRecord, error) {
 	if s == nil || s.repo == nil {
-		return TenantRecord{}, errors.New("tenant service not configured")
+		return TenantRecord{}, serviceNotConfiguredDomainError("tenant service", nil)
 	}
 	return s.repo.Get(ctx, id)
 }
@@ -87,7 +86,7 @@ func (s *TenantService) GetTenant(ctx context.Context, id string) (TenantRecord,
 // SaveTenant creates or updates a tenant record.
 func (s *TenantService) SaveTenant(ctx context.Context, tenant TenantRecord) (TenantRecord, error) {
 	if s == nil || s.repo == nil {
-		return TenantRecord{}, errors.New("tenant service not configured")
+		return TenantRecord{}, serviceNotConfiguredDomainError("tenant service", nil)
 	}
 	isCreate := strings.TrimSpace(tenant.ID) == ""
 	if tenant.ID == "" {
@@ -134,7 +133,7 @@ func (s *TenantService) SaveTenant(ctx context.Context, tenant TenantRecord) (Te
 // DeleteTenant removes a tenant by ID.
 func (s *TenantService) DeleteTenant(ctx context.Context, id string) error {
 	if s == nil || s.repo == nil {
-		return errors.New("tenant service not configured")
+		return serviceNotConfiguredDomainError("tenant service", nil)
 	}
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
@@ -146,7 +145,7 @@ func (s *TenantService) DeleteTenant(ctx context.Context, id string) error {
 // AssignMember adds or updates a tenant membership.
 func (s *TenantService) AssignMember(ctx context.Context, tenantID string, member TenantMember) (TenantRecord, error) {
 	if s == nil || s.repo == nil {
-		return TenantRecord{}, errors.New("tenant service not configured")
+		return TenantRecord{}, serviceNotConfiguredDomainError("tenant service", nil)
 	}
 	current, err := s.repo.Get(ctx, tenantID)
 	if err != nil {
@@ -154,7 +153,7 @@ func (s *TenantService) AssignMember(ctx context.Context, tenantID string, membe
 	}
 	member.UserID = strings.TrimSpace(member.UserID)
 	if member.UserID == "" {
-		return TenantRecord{}, errors.New("user id required")
+		return TenantRecord{}, requiredFieldDomainError("user id", nil)
 	}
 	member.Roles = dedupeStrings(member.Roles)
 	member.Permissions = dedupeStrings(member.Permissions)
@@ -178,7 +177,7 @@ func (s *TenantService) AssignMember(ctx context.Context, tenantID string, membe
 // RemoveMember detaches a user from a tenant.
 func (s *TenantService) RemoveMember(ctx context.Context, tenantID, userID string) (TenantRecord, error) {
 	if s == nil || s.repo == nil {
-		return TenantRecord{}, errors.New("tenant service not configured")
+		return TenantRecord{}, serviceNotConfiguredDomainError("tenant service", nil)
 	}
 	current, err := s.repo.Get(ctx, tenantID)
 	if err != nil {
@@ -199,7 +198,7 @@ func (s *TenantService) RemoveMember(ctx context.Context, tenantID, userID strin
 // SearchTenants performs a keyword search against tenants.
 func (s *TenantService) SearchTenants(ctx context.Context, query string, limit int) ([]TenantRecord, error) {
 	if s == nil || s.repo == nil {
-		return nil, errors.New("tenant service not configured")
+		return nil, serviceNotConfiguredDomainError("tenant service", nil)
 	}
 	return s.repo.Search(ctx, query, limit)
 }

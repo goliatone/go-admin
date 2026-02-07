@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/url"
 	"path"
@@ -145,7 +144,7 @@ func (f *DynamicPanelFactory) CreatePanelFromContentType(ctx context.Context, co
 // RefreshPanel updates an existing panel when the content type changes.
 func (f *DynamicPanelFactory) RefreshPanel(ctx context.Context, contentType *CMSContentType) error {
 	if contentType == nil {
-		return errors.New("content type is nil")
+		return validationDomainError("content type is nil", map[string]any{"field": "content_type"})
 	}
 	if f.hooks.BeforeUpdate != nil {
 		if err := f.hooks.BeforeUpdate(ctx, contentType); err != nil {
@@ -190,11 +189,11 @@ func (f *DynamicPanelFactory) RefreshPanel(ctx context.Context, contentType *CMS
 // RemovePanel removes a panel when a content type is deleted.
 func (f *DynamicPanelFactory) RemovePanel(ctx context.Context, slugOrID string) error {
 	if f.admin == nil {
-		return errors.New("admin is nil")
+		return serviceNotConfiguredDomainError("admin", nil)
 	}
 	slug := strings.TrimSpace(slugOrID)
 	if slug == "" {
-		return errors.New("content type slug required")
+		return requiredFieldDomainError("content type slug", nil)
 	}
 	env := f.resolveEnvironment(ctx, nil)
 	slug = f.resolveSlug(env, slug)
@@ -210,13 +209,13 @@ func (f *DynamicPanelFactory) RemovePanel(ctx context.Context, slugOrID string) 
 
 func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSContentType, before func(context.Context, *CMSContentType) error, after func(context.Context, *Panel) error, navPosition *int) (*Panel, error) {
 	if f == nil || f.admin == nil {
-		return nil, errors.New("admin not configured")
+		return nil, serviceNotConfiguredDomainError("admin", nil)
 	}
 	if contentType == nil {
-		return nil, errors.New("content type is nil")
+		return nil, validationDomainError("content type is nil", map[string]any{"field": "content_type"})
 	}
 	if strings.TrimSpace(contentType.Slug) == "" {
-		return nil, errors.New("content type slug required")
+		return nil, requiredFieldDomainError("content type slug", nil)
 	}
 
 	if before != nil {
@@ -231,7 +230,7 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 	env := f.resolveEnvironment(ctx, contentType)
 	panelSlug := panelSlugForContentType(contentType)
 	if panelSlug == "" {
-		return nil, errors.New("content type panel slug required")
+		return nil, requiredFieldDomainError("content type panel slug", nil)
 	}
 	if err := f.ensurePanelSlugUnique(env, panelSlug, contentType.ID); err != nil {
 		return nil, err
@@ -358,7 +357,7 @@ func (f *DynamicPanelFactory) validateSchema(ctx context.Context, contentType *C
 		UISchema: cloneAnyMap(contentType.UISchema),
 	}
 	if err := f.schemaValidator.Validate(ctx, contentType.Schema, opts); err != nil {
-		return fmt.Errorf("invalid schema: %w", err)
+		return validationDomainError("invalid schema", map[string]any{"error": err.Error()})
 	}
 	return nil
 }
@@ -815,7 +814,7 @@ func (w workflowAlias) AvailableTransitions(ctx context.Context, _ string, state
 func (f *DynamicPanelFactory) ensurePanelSlugUnique(env string, slug string, id string) error {
 	slug = strings.TrimSpace(slug)
 	if slug == "" {
-		return errors.New("panel slug cannot be empty")
+		return requiredFieldDomainError("panel slug", nil)
 	}
 	key := f.envKey(env, strings.TrimSpace(id))
 	f.mu.RLock()
@@ -830,7 +829,7 @@ func (f *DynamicPanelFactory) ensurePanelSlugUnique(env string, slug string, id 
 		if key != "" && storedKey == key {
 			continue
 		}
-		return fmt.Errorf("panel slug already registered: %s", slug)
+		return conflictDomainError("panel slug already registered", map[string]any{"slug": slug})
 	}
 	return nil
 }

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"strings"
 	"sync"
@@ -112,7 +111,7 @@ func (s *UserManagementService) WithRoleAssignmentLookup(lookup RoleAssignmentLo
 // ListUsers returns users with role assignments populated.
 func (s *UserManagementService) ListUsers(ctx context.Context, opts ListOptions) ([]UserRecord, int, error) {
 	if s == nil || s.users == nil {
-		return nil, 0, errors.New("user service not configured")
+		return nil, 0, serviceNotConfiguredDomainError("user service", nil)
 	}
 	users, total, err := s.users.List(ctx, opts)
 	if err != nil {
@@ -131,7 +130,7 @@ func (s *UserManagementService) ListUsers(ctx context.Context, opts ListOptions)
 // GetUser fetches a user and attached roles.
 func (s *UserManagementService) GetUser(ctx context.Context, id string) (UserRecord, error) {
 	if s == nil || s.users == nil {
-		return UserRecord{}, errors.New("user service not configured")
+		return UserRecord{}, serviceNotConfiguredDomainError("user service", nil)
 	}
 	user, err := s.users.Get(ctx, id)
 	if err != nil {
@@ -148,7 +147,7 @@ func (s *UserManagementService) GetUser(ctx context.Context, id string) (UserRec
 // SaveUser creates or updates a user and syncs role assignments.
 func (s *UserManagementService) SaveUser(ctx context.Context, user UserRecord) (UserRecord, error) {
 	if s == nil || s.users == nil {
-		return UserRecord{}, errors.New("user service not configured")
+		return UserRecord{}, serviceNotConfiguredDomainError("user service", nil)
 	}
 	isCreate := strings.TrimSpace(user.ID) == ""
 	if user.ID == "" {
@@ -209,7 +208,7 @@ func (s *UserManagementService) SaveUser(ctx context.Context, user UserRecord) (
 // DeleteUser removes a user and related assignments.
 func (s *UserManagementService) DeleteUser(ctx context.Context, id string) error {
 	if s == nil || s.users == nil {
-		return errors.New("user service not configured")
+		return serviceNotConfiguredDomainError("user service", nil)
 	}
 	if err := s.users.Delete(ctx, id); err != nil {
 		return err
@@ -228,11 +227,11 @@ func (s *UserManagementService) DeleteUser(ctx context.Context, id string) error
 // TransitionUser updates the lifecycle state for a user and records activity.
 func (s *UserManagementService) TransitionUser(ctx context.Context, id string, status string) (UserRecord, error) {
 	if s == nil || s.users == nil {
-		return UserRecord{}, errors.New("user service not configured")
+		return UserRecord{}, serviceNotConfiguredDomainError("user service", nil)
 	}
 	next := normalizeLifecycleState(status)
 	if next == "" {
-		return UserRecord{}, errors.New("invalid status")
+		return UserRecord{}, validationDomainError("invalid status", map[string]any{"field": "status"})
 	}
 	current, err := s.GetUser(ctx, id)
 	if err != nil {
@@ -256,7 +255,7 @@ func (s *UserManagementService) TransitionUser(ctx context.Context, id string, s
 // ListRoles returns registered roles.
 func (s *UserManagementService) ListRoles(ctx context.Context, opts ListOptions) ([]RoleRecord, int, error) {
 	if s == nil || s.roles == nil {
-		return nil, 0, errors.New("role service not configured")
+		return nil, 0, serviceNotConfiguredDomainError("role service", nil)
 	}
 	return s.roles.List(ctx, opts)
 }
@@ -264,7 +263,7 @@ func (s *UserManagementService) ListRoles(ctx context.Context, opts ListOptions)
 // GetRole fetches a role by ID.
 func (s *UserManagementService) GetRole(ctx context.Context, id string) (RoleRecord, error) {
 	if s == nil || s.roles == nil {
-		return RoleRecord{}, errors.New("role service not configured")
+		return RoleRecord{}, serviceNotConfiguredDomainError("role service", nil)
 	}
 	return s.roles.Get(ctx, id)
 }
@@ -272,7 +271,7 @@ func (s *UserManagementService) GetRole(ctx context.Context, id string) (RoleRec
 // SaveRole creates or updates a role.
 func (s *UserManagementService) SaveRole(ctx context.Context, role RoleRecord) (RoleRecord, error) {
 	if s == nil || s.roles == nil {
-		return RoleRecord{}, errors.New("role service not configured")
+		return RoleRecord{}, serviceNotConfiguredDomainError("role service", nil)
 	}
 	isCreate := strings.TrimSpace(role.ID) == ""
 	if role.ID == "" {
@@ -306,7 +305,7 @@ func (s *UserManagementService) SaveRole(ctx context.Context, role RoleRecord) (
 // DeleteRole removes a role and related assignments.
 func (s *UserManagementService) DeleteRole(ctx context.Context, id string) error {
 	if s == nil || s.roles == nil {
-		return errors.New("role service not configured")
+		return serviceNotConfiguredDomainError("role service", nil)
 	}
 	role, _ := s.roles.Get(ctx, id)
 	if role.IsSystem {
@@ -324,7 +323,7 @@ func (s *UserManagementService) DeleteRole(ctx context.Context, id string) error
 // RolesForUser returns assigned roles for the given user.
 func (s *UserManagementService) RolesForUser(ctx context.Context, userID string) ([]RoleRecord, error) {
 	if s == nil || s.roles == nil {
-		return nil, errors.New("role service not configured")
+		return nil, serviceNotConfiguredDomainError("role service", nil)
 	}
 	return s.roles.RolesForUser(ctx, userID)
 }
@@ -332,7 +331,7 @@ func (s *UserManagementService) RolesForUser(ctx context.Context, userID string)
 // AssignRole assigns a role to a user.
 func (s *UserManagementService) AssignRole(ctx context.Context, userID, roleID string) error {
 	if s == nil || s.roles == nil {
-		return errors.New("role service not configured")
+		return serviceNotConfiguredDomainError("role service", nil)
 	}
 	if err := s.roles.Assign(ctx, userID, roleID); err != nil {
 		return err
@@ -347,7 +346,7 @@ func (s *UserManagementService) AssignRole(ctx context.Context, userID, roleID s
 // UnassignRole removes a role assignment from a user.
 func (s *UserManagementService) UnassignRole(ctx context.Context, userID, roleID string) error {
 	if s == nil || s.roles == nil {
-		return errors.New("role service not configured")
+		return serviceNotConfiguredDomainError("role service", nil)
 	}
 	if err := s.roles.Unassign(ctx, userID, roleID); err != nil {
 		return err
@@ -362,7 +361,7 @@ func (s *UserManagementService) UnassignRole(ctx context.Context, userID, roleID
 // SearchUsers performs a keyword search against users.
 func (s *UserManagementService) SearchUsers(ctx context.Context, query string, limit int) ([]UserRecord, error) {
 	if s == nil || s.users == nil {
-		return nil, errors.New("user service not configured")
+		return nil, serviceNotConfiguredDomainError("user service", nil)
 	}
 	return s.users.Search(ctx, query, limit)
 }
@@ -896,7 +895,7 @@ func NewGoUsersUserRepository(auth users.AuthRepository, inventory users.UserInv
 // List delegates to the go-users inventory repository.
 func (r *GoUsersUserRepository) List(ctx context.Context, opts ListOptions) ([]UserRecord, int, error) {
 	if r == nil || r.inventory == nil {
-		return nil, 0, errors.New("user inventory not configured")
+		return nil, 0, serviceNotConfiguredDomainError("user inventory", nil)
 	}
 	actor := uuidFromContext(ctx)
 	if actor == uuid.Nil {
@@ -942,7 +941,7 @@ func (r *GoUsersUserRepository) List(ctx context.Context, opts ListOptions) ([]U
 // Get fetches a user by ID.
 func (r *GoUsersUserRepository) Get(ctx context.Context, id string) (UserRecord, error) {
 	if r == nil || r.authRepo == nil {
-		return UserRecord{}, errors.New("auth repository not configured")
+		return UserRecord{}, serviceNotConfiguredDomainError("auth repository", nil)
 	}
 	uid, err := uuid.Parse(id)
 	if err != nil {
@@ -958,7 +957,7 @@ func (r *GoUsersUserRepository) Get(ctx context.Context, id string) (UserRecord,
 // Create inserts a new user via go-users.
 func (r *GoUsersUserRepository) Create(ctx context.Context, user UserRecord) (UserRecord, error) {
 	if r == nil || r.authRepo == nil {
-		return UserRecord{}, errors.New("auth repository not configured")
+		return UserRecord{}, serviceNotConfiguredDomainError("auth repository", nil)
 	}
 	input := toUsersAuthUser(user)
 	created, err := r.authRepo.Create(ctx, &input)
@@ -971,7 +970,7 @@ func (r *GoUsersUserRepository) Create(ctx context.Context, user UserRecord) (Us
 // Update modifies a user via go-users.
 func (r *GoUsersUserRepository) Update(ctx context.Context, user UserRecord) (UserRecord, error) {
 	if r == nil || r.authRepo == nil {
-		return UserRecord{}, errors.New("auth repository not configured")
+		return UserRecord{}, serviceNotConfiguredDomainError("auth repository", nil)
 	}
 	input := toUsersAuthUser(user)
 	updated, err := r.authRepo.Update(ctx, &input)
@@ -984,7 +983,7 @@ func (r *GoUsersUserRepository) Update(ctx context.Context, user UserRecord) (Us
 // Delete marks a user as disabled (go-users does not hard delete via AuthRepository).
 func (r *GoUsersUserRepository) Delete(ctx context.Context, id string) error {
 	if r == nil || r.authRepo == nil {
-		return errors.New("auth repository not configured")
+		return serviceNotConfiguredDomainError("auth repository", nil)
 	}
 	userID, err := uuid.Parse(id)
 	if err != nil {
@@ -1026,7 +1025,7 @@ func NewGoUsersRoleRepository(registry users.RoleRegistry, scopeResolver func(co
 // List roles via go-users.
 func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]RoleRecord, int, error) {
 	if r == nil || r.registry == nil {
-		return nil, 0, errors.New("role registry not configured")
+		return nil, 0, serviceNotConfiguredDomainError("role registry", nil)
 	}
 	actor := uuidFromContext(ctx)
 	if actor == uuid.Nil {
@@ -1130,7 +1129,7 @@ func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]R
 
 func (r *GoUsersRoleRepository) listAllRoles(ctx context.Context, filter users.RoleFilter) ([]users.RoleDefinition, error) {
 	if r == nil || r.registry == nil {
-		return nil, errors.New("role registry not configured")
+		return nil, serviceNotConfiguredDomainError("role registry", nil)
 	}
 	limit := filter.Pagination.Limit
 	if limit <= 0 || limit > 200 {
@@ -1161,7 +1160,7 @@ func (r *GoUsersRoleRepository) listAllRoles(ctx context.Context, filter users.R
 // Get role by ID.
 func (r *GoUsersRoleRepository) Get(ctx context.Context, id string) (RoleRecord, error) {
 	if r == nil || r.registry == nil {
-		return RoleRecord{}, errors.New("role registry not configured")
+		return RoleRecord{}, serviceNotConfiguredDomainError("role registry", nil)
 	}
 	roleID, err := uuid.Parse(id)
 	if err != nil {
@@ -1177,7 +1176,7 @@ func (r *GoUsersRoleRepository) Get(ctx context.Context, id string) (RoleRecord,
 // Create inserts a role.
 func (r *GoUsersRoleRepository) Create(ctx context.Context, role RoleRecord) (RoleRecord, error) {
 	if r == nil || r.registry == nil {
-		return RoleRecord{}, errors.New("role registry not configured")
+		return RoleRecord{}, serviceNotConfiguredDomainError("role registry", nil)
 	}
 	actor := uuidFromContext(ctx)
 	if actor == uuid.Nil {
@@ -1203,7 +1202,7 @@ func (r *GoUsersRoleRepository) Create(ctx context.Context, role RoleRecord) (Ro
 // Update modifies a role.
 func (r *GoUsersRoleRepository) Update(ctx context.Context, role RoleRecord) (RoleRecord, error) {
 	if r == nil || r.registry == nil {
-		return RoleRecord{}, errors.New("role registry not configured")
+		return RoleRecord{}, serviceNotConfiguredDomainError("role registry", nil)
 	}
 	roleID, err := uuid.Parse(role.ID)
 	if err != nil {
@@ -1233,7 +1232,7 @@ func (r *GoUsersRoleRepository) Update(ctx context.Context, role RoleRecord) (Ro
 // Delete removes a role via go-users registry.
 func (r *GoUsersRoleRepository) Delete(ctx context.Context, id string) error {
 	if r == nil || r.registry == nil {
-		return errors.New("role registry not configured")
+		return serviceNotConfiguredDomainError("role registry", nil)
 	}
 	roleID, err := uuid.Parse(id)
 	if err != nil {
@@ -1249,7 +1248,7 @@ func (r *GoUsersRoleRepository) Delete(ctx context.Context, id string) error {
 // Assign a role to a user.
 func (r *GoUsersRoleRepository) Assign(ctx context.Context, userID, roleID string) error {
 	if r == nil || r.registry == nil {
-		return errors.New("role registry not configured")
+		return serviceNotConfiguredDomainError("role registry", nil)
 	}
 	uID, err := uuid.Parse(userID)
 	if err != nil {
@@ -1269,7 +1268,7 @@ func (r *GoUsersRoleRepository) Assign(ctx context.Context, userID, roleID strin
 // Unassign removes a role assignment.
 func (r *GoUsersRoleRepository) Unassign(ctx context.Context, userID, roleID string) error {
 	if r == nil || r.registry == nil {
-		return errors.New("role registry not configured")
+		return serviceNotConfiguredDomainError("role registry", nil)
 	}
 	uID, err := uuid.Parse(userID)
 	if err != nil {
@@ -1289,7 +1288,7 @@ func (r *GoUsersRoleRepository) Unassign(ctx context.Context, userID, roleID str
 // RolesForUser lists assignments.
 func (r *GoUsersRoleRepository) RolesForUser(ctx context.Context, userID string) ([]RoleRecord, error) {
 	if r == nil || r.registry == nil {
-		return nil, errors.New("role registry not configured")
+		return nil, serviceNotConfiguredDomainError("role registry", nil)
 	}
 	uID, err := uuid.Parse(userID)
 	if err != nil {

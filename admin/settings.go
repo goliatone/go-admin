@@ -2,8 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -226,7 +224,7 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 	}
 	bundle.Scope = scope
 	if scope == SettingsScopeUser && bundle.UserID == "" {
-		return errors.New("user id required for user scope settings")
+		return requiredFieldDomainError("user id", map[string]any{"scope": string(SettingsScopeUser)})
 	}
 
 	s.mu.RLock()
@@ -279,7 +277,7 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 			}
 			s.userValues[bundle.UserID][key] = val
 		default:
-			return fmt.Errorf("unsupported scope: %s", scope)
+			return unsupportedScopeDomainError(string(scope), nil)
 		}
 	}
 	s.recordActivity(ctx, scope, bundle, sanitized)
@@ -370,22 +368,22 @@ func validateType(t string, val any) error {
 	switch t {
 	case "", "string":
 		if _, ok := val.(string); !ok {
-			return errors.New("expected string")
+			return expectedTypeDomainError("string", nil)
 		}
 	case "textarea", "text":
 		if _, ok := val.(string); !ok {
-			return errors.New("expected string")
+			return expectedTypeDomainError("string", nil)
 		}
 	case "boolean", "bool":
 		if _, ok := val.(bool); !ok {
-			return errors.New("expected boolean")
+			return expectedTypeDomainError("boolean", nil)
 		}
 	case "number":
 		switch val.(type) {
 		case int, int64, float32, float64:
 			return nil
 		default:
-			return errors.New("expected number")
+			return expectedTypeDomainError("number", nil)
 		}
 	}
 	return nil
@@ -542,7 +540,7 @@ func validateSetting(ctx context.Context, def SettingDefinition, val any) error 
 		return err
 	}
 	if len(options) > 0 && !valueAllowedByOptions(val, options) {
-		return fmt.Errorf("value not allowed")
+		return validationDomainError("value not allowed", map[string]any{"rule": "enum"})
 	}
 	if def.Validator != nil {
 		return def.Validator(ctx, val)

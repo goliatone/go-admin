@@ -2,8 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"sync"
 
 	opts "github.com/goliatone/go-options"
@@ -70,7 +68,7 @@ func (a *GoOptionsSettingsAdapter) Apply(ctx context.Context, bundle SettingsBun
 		scope = SettingsScopeSite
 	}
 	if scope == SettingsScopeUser && bundle.UserID == "" {
-		return errors.New("user id required for user scope settings")
+		return requiredFieldDomainError("user id", map[string]any{"scope": string(SettingsScopeUser)})
 	}
 
 	a.mu.Lock()
@@ -112,7 +110,7 @@ func (a *GoOptionsSettingsAdapter) Apply(ctx context.Context, bundle SettingsBun
 			}
 			a.userValues[bundle.UserID][key] = val
 		default:
-			return fmt.Errorf("unsupported scope: %s", scope)
+			return unsupportedScopeDomainError(string(scope), nil)
 		}
 	}
 	return nil

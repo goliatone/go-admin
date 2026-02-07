@@ -1,8 +1,9 @@
 package admin
 
 import (
-	"sort"
 	"strings"
+
+	"github.com/goliatone/go-admin/admin/internal/listquery"
 )
 
 const defaultListPredicateOperator = "eq"
@@ -41,27 +42,17 @@ func predicatesFromFilterMap(filters map[string]any) []ListPredicate {
 	if len(filters) == 0 {
 		return nil
 	}
-	keys := make([]string, 0, len(filters))
-	for key := range filters {
-		if strings.TrimSpace(key) != "" {
-			keys = append(keys, key)
-		}
-	}
-	sort.Strings(keys)
-	out := make([]ListPredicate, 0, len(keys))
-	for _, key := range keys {
-		values := normalizePredicateValues(anyToPredicateValues(filters[key]))
-		if len(values) == 0 {
-			continue
-		}
-		field, op := ParseListPredicateKey(key)
-		if field == "" {
+	parsed := listquery.PredicatesFromFilters(filters)
+	out := make([]ListPredicate, 0, len(parsed))
+	for _, predicate := range parsed {
+		field := strings.TrimSpace(predicate.Field)
+		if field == "" || len(predicate.Values) == 0 {
 			continue
 		}
 		out = append(out, ListPredicate{
 			Field:    field,
-			Operator: op,
-			Values:   values,
+			Operator: normalizePredicateOperator(predicate.Operator),
+			Values:   normalizePredicateValues(predicate.Values),
 		})
 	}
 	return out
@@ -69,14 +60,7 @@ func predicatesFromFilterMap(filters map[string]any) []ListPredicate {
 
 // ParseListPredicateKey splits field operator keys like "status__in".
 func ParseListPredicateKey(key string) (string, string) {
-	parts := strings.SplitN(strings.TrimSpace(key), "__", 2)
-	field := strings.TrimSpace(parts[0])
-	operator := defaultListPredicateOperator
-	if len(parts) == 2 {
-		if op := strings.TrimSpace(parts[1]); op != "" {
-			operator = strings.ToLower(op)
-		}
-	}
+	field, operator := listquery.ParsePredicateKey(key)
 	return field, normalizePredicateOperator(operator)
 }
 
@@ -104,23 +88,4 @@ func normalizePredicateValues(values []string) []string {
 		}
 	}
 	return out
-}
-
-func anyToPredicateValues(value any) []string {
-	switch typed := value.(type) {
-	case nil:
-		return nil
-	case string:
-		return []string{typed}
-	case []string:
-		return append([]string{}, typed...)
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			out = append(out, toString(item))
-		}
-		return out
-	default:
-		return []string{toString(value)}
-	}
 }

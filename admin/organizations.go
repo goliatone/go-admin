@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"strings"
 	"sync"
@@ -71,7 +70,7 @@ func (s *OrganizationService) WithActivitySink(sink ActivitySink) {
 // ListOrganizations returns organizations with filters applied.
 func (s *OrganizationService) ListOrganizations(ctx context.Context, opts ListOptions) ([]OrganizationRecord, int, error) {
 	if s == nil || s.repo == nil {
-		return nil, 0, errors.New("organization service not configured")
+		return nil, 0, serviceNotConfiguredDomainError("organization service", nil)
 	}
 	return s.repo.List(ctx, opts)
 }
@@ -79,7 +78,7 @@ func (s *OrganizationService) ListOrganizations(ctx context.Context, opts ListOp
 // GetOrganization fetches an organization by ID.
 func (s *OrganizationService) GetOrganization(ctx context.Context, id string) (OrganizationRecord, error) {
 	if s == nil || s.repo == nil {
-		return OrganizationRecord{}, errors.New("organization service not configured")
+		return OrganizationRecord{}, serviceNotConfiguredDomainError("organization service", nil)
 	}
 	return s.repo.Get(ctx, id)
 }
@@ -87,7 +86,7 @@ func (s *OrganizationService) GetOrganization(ctx context.Context, id string) (O
 // SaveOrganization creates or updates an organization record.
 func (s *OrganizationService) SaveOrganization(ctx context.Context, org OrganizationRecord) (OrganizationRecord, error) {
 	if s == nil || s.repo == nil {
-		return OrganizationRecord{}, errors.New("organization service not configured")
+		return OrganizationRecord{}, serviceNotConfiguredDomainError("organization service", nil)
 	}
 	isCreate := strings.TrimSpace(org.ID) == ""
 	if org.ID == "" {
@@ -135,7 +134,7 @@ func (s *OrganizationService) SaveOrganization(ctx context.Context, org Organiza
 // DeleteOrganization removes an organization by ID.
 func (s *OrganizationService) DeleteOrganization(ctx context.Context, id string) error {
 	if s == nil || s.repo == nil {
-		return errors.New("organization service not configured")
+		return serviceNotConfiguredDomainError("organization service", nil)
 	}
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
@@ -149,7 +148,7 @@ func (s *OrganizationService) DeleteOrganization(ctx context.Context, id string)
 // AssignMember adds or updates an organization membership.
 func (s *OrganizationService) AssignMember(ctx context.Context, orgID string, member OrganizationMember) (OrganizationRecord, error) {
 	if s == nil || s.repo == nil {
-		return OrganizationRecord{}, errors.New("organization service not configured")
+		return OrganizationRecord{}, serviceNotConfiguredDomainError("organization service", nil)
 	}
 	current, err := s.repo.Get(ctx, orgID)
 	if err != nil {
@@ -157,7 +156,7 @@ func (s *OrganizationService) AssignMember(ctx context.Context, orgID string, me
 	}
 	member.UserID = strings.TrimSpace(member.UserID)
 	if member.UserID == "" {
-		return OrganizationRecord{}, errors.New("user id required")
+		return OrganizationRecord{}, requiredFieldDomainError("user id", nil)
 	}
 	member.Roles = dedupeStrings(member.Roles)
 	member.Permissions = dedupeStrings(member.Permissions)
@@ -181,7 +180,7 @@ func (s *OrganizationService) AssignMember(ctx context.Context, orgID string, me
 // RemoveMember detaches a user from an organization.
 func (s *OrganizationService) RemoveMember(ctx context.Context, orgID, userID string) (OrganizationRecord, error) {
 	if s == nil || s.repo == nil {
-		return OrganizationRecord{}, errors.New("organization service not configured")
+		return OrganizationRecord{}, serviceNotConfiguredDomainError("organization service", nil)
 	}
 	current, err := s.repo.Get(ctx, orgID)
 	if err != nil {
@@ -202,7 +201,7 @@ func (s *OrganizationService) RemoveMember(ctx context.Context, orgID, userID st
 // SearchOrganizations performs a keyword search against organizations.
 func (s *OrganizationService) SearchOrganizations(ctx context.Context, query string, limit int) ([]OrganizationRecord, error) {
 	if s == nil || s.repo == nil {
-		return nil, errors.New("organization service not configured")
+		return nil, serviceNotConfiguredDomainError("organization service", nil)
 	}
 	return s.repo.Search(ctx, query, limit)
 }

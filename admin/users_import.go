@@ -94,7 +94,7 @@ func (b *userImportBinding) ImportUsers(c router.Context) error {
 
 	outcome, err := parseImportFile(file)
 	if err != nil {
-		return respondBulkImportError(c, http.StatusBadRequest, err.Error())
+		return respondBulkImportError(c, http.StatusBadRequest, bulkImportErrorMessage(err))
 	}
 
 	response := newBulkImportResponse()
@@ -343,15 +343,15 @@ func isSupportedImportFile(file *multipart.FileHeader) bool {
 func parseImportFile(file *multipart.FileHeader) (bulkImportParseOutcome, error) {
 	outcome := bulkImportParseOutcome{}
 	if file == nil {
-		return outcome, fmt.Errorf("file required")
+		return outcome, requiredFieldDomainError("file", map[string]any{"component": "users_import"})
 	}
 	format := detectImportFormat(file)
 	if format == "" {
-		return outcome, fmt.Errorf("unsupported import format")
+		return outcome, validationDomainError("unsupported import format", map[string]any{"component": "users_import"})
 	}
 	handle, err := file.Open()
 	if err != nil {
-		return outcome, fmt.Errorf("unable to read import file")
+		return outcome, validationDomainError("unable to read import file", map[string]any{"component": "users_import"})
 	}
 	defer handle.Close()
 
@@ -361,7 +361,7 @@ func parseImportFile(file *multipart.FileHeader) (bulkImportParseOutcome, error)
 	case "json":
 		return parseJSONImport(handle)
 	default:
-		return outcome, fmt.Errorf("unsupported import format")
+		return outcome, validationDomainError("unsupported import format", map[string]any{"component": "users_import"})
 	}
 }
 
@@ -391,7 +391,7 @@ func detectImportFormat(file *multipart.FileHeader) string {
 func parseCSVImport(reader io.Reader) (bulkImportParseOutcome, error) {
 	outcome := bulkImportParseOutcome{}
 	if reader == nil {
-		return outcome, fmt.Errorf("empty csv payload")
+		return outcome, validationDomainError("empty csv payload", map[string]any{"format": "csv"})
 	}
 	csvReader := csv.NewReader(reader)
 	csvReader.FieldsPerRecord = -1
@@ -401,9 +401,9 @@ func parseCSVImport(reader io.Reader) (bulkImportParseOutcome, error) {
 	header, err := csvReader.Read()
 	if err != nil {
 		if err == io.EOF {
-			return outcome, fmt.Errorf("empty csv payload")
+			return outcome, validationDomainError("empty csv payload", map[string]any{"format": "csv"})
 		}
-		return outcome, fmt.Errorf("invalid csv payload")
+		return outcome, validationDomainError("invalid csv payload", map[string]any{"format": "csv"})
 	}
 	columnIndex := map[string]int{}
 	for idx, column := range header {
@@ -414,7 +414,7 @@ func parseCSVImport(reader io.Reader) (bulkImportParseOutcome, error) {
 		columnIndex[key] = idx
 	}
 	if _, ok := columnIndex["email"]; !ok {
-		return outcome, fmt.Errorf("csv requires an email column")
+		return outcome, requiredFieldDomainError("email column", map[string]any{"format": "csv"})
 	}
 
 	rowIndex := 0
@@ -424,7 +424,7 @@ func parseCSVImport(reader io.Reader) (bulkImportParseOutcome, error) {
 			if err == io.EOF {
 				break
 			}
-			return outcome, fmt.Errorf("invalid csv payload")
+			return outcome, validationDomainError("invalid csv payload", map[string]any{"format": "csv"})
 		}
 		record := importRecord{
 			Email:    valueFromRow(row, columnIndex, "email"),
@@ -449,18 +449,18 @@ func parseCSVImport(reader io.Reader) (bulkImportParseOutcome, error) {
 func parseJSONImport(reader io.Reader) (bulkImportParseOutcome, error) {
 	outcome := bulkImportParseOutcome{}
 	if reader == nil {
-		return outcome, fmt.Errorf("empty json payload")
+		return outcome, validationDomainError("empty json payload", map[string]any{"format": "json"})
 	}
 	decoder := json.NewDecoder(reader)
 	decoder.UseNumber()
 
 	var payload any
 	if err := decoder.Decode(&payload); err != nil {
-		return outcome, fmt.Errorf("invalid json payload")
+		return outcome, validationDomainError("invalid json payload", map[string]any{"format": "json"})
 	}
 	rows, ok := payload.([]any)
 	if !ok {
-		return outcome, fmt.Errorf("json payload must be an array")
+		return outcome, validationDomainError("json payload must be an array", map[string]any{"format": "json"})
 	}
 
 	for idx, raw := range rows {
@@ -514,7 +514,7 @@ func normalizeImportRecord(index int, record importRecord) (*userstypes.AuthUser
 	}
 	metadata, err := parseMetadata(record.Metadata)
 	if err != nil {
-		result.Error = err.Error()
+		result.Error = bulkImportErrorMessage(err)
 		return nil, result
 	}
 	user := &userstypes.AuthUser{
@@ -564,7 +564,7 @@ func parseMetadata(raw any) (map[string]any, error) {
 	case json.RawMessage:
 		return parseMetadataJSON(string(value))
 	default:
-		return nil, fmt.Errorf("metadata must be a json object")
+		return nil, validationDomainError("metadata must be a json object", map[string]any{"field": "metadata"})
 	}
 }
 
@@ -575,7 +575,7 @@ func parseMetadataJSON(raw string) (map[string]any, error) {
 	}
 	payload := map[string]any{}
 	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
-		return nil, fmt.Errorf("metadata must be valid json")
+		return nil, validationDomainError("metadata must be valid json", map[string]any{"field": "metadata"})
 	}
 	return payload, nil
 }

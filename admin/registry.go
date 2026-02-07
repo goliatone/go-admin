@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"sort"
 	"strings"
@@ -34,16 +32,16 @@ func NewRegistry() *Registry {
 // RegisterPanel stores a panel by name; duplicate names are rejected.
 func (r *Registry) RegisterPanel(name string, panel *Panel) error {
 	if panel == nil {
-		return errors.New("panel cannot be nil")
+		return validationDomainError("panel cannot be nil", map[string]any{"field": "panel"})
 	}
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return errors.New("panel name cannot be empty")
+		return requiredFieldDomainError("panel name", nil)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, exists := r.panels[name]; exists {
-		return fmt.Errorf("panel already registered: %s", name)
+		return conflictDomainError("panel already registered", map[string]any{"panel": name})
 	}
 	r.panels[name] = panel
 	return nil
@@ -53,7 +51,7 @@ func (r *Registry) RegisterPanel(name string, panel *Panel) error {
 func (r *Registry) UnregisterPanel(name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return errors.New("panel name cannot be empty")
+		return requiredFieldDomainError("panel name", nil)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -82,7 +80,7 @@ func (r *Registry) Panels() map[string]*Panel {
 func (r *Registry) RegisterPanelTab(panelName string, tab PanelTab) error {
 	panelName = strings.TrimSpace(panelName)
 	if panelName == "" {
-		return errors.New("panel name cannot be empty")
+		return requiredFieldDomainError("panel name", nil)
 	}
 	tabID := strings.TrimSpace(tab.ID)
 	if tabID == "" {
@@ -90,7 +88,7 @@ func (r *Registry) RegisterPanelTab(panelName string, tab PanelTab) error {
 		tab.ID = tabID
 	}
 	if tabID == "" {
-		return errors.New("panel tab ID cannot be empty")
+		return requiredFieldDomainError("panel tab id", nil)
 	}
 
 	r.mu.Lock()
@@ -115,7 +113,7 @@ func (r *Registry) RegisterPanelTab(panelName string, tab PanelTab) error {
 func (r *Registry) SetPanelTab(panelName string, tab PanelTab) error {
 	panelName = strings.TrimSpace(panelName)
 	if panelName == "" {
-		return errors.New("panel name cannot be empty")
+		return requiredFieldDomainError("panel name", nil)
 	}
 	tabID := strings.TrimSpace(tab.ID)
 	if tabID == "" {
@@ -123,7 +121,7 @@ func (r *Registry) SetPanelTab(panelName string, tab PanelTab) error {
 		tab.ID = tabID
 	}
 	if tabID == "" {
-		return errors.New("panel tab ID cannot be empty")
+		return requiredFieldDomainError("panel tab id", nil)
 	}
 
 	r.mu.Lock()
@@ -176,16 +174,16 @@ func (r *Registry) Panel(name string) (*Panel, bool) {
 // RegisterModule records a module in registration order; duplicate IDs are rejected.
 func (r *Registry) RegisterModule(module Module) error {
 	if module == nil {
-		return errors.New("module cannot be nil")
+		return validationDomainError("module cannot be nil", map[string]any{"field": "module"})
 	}
 	manifest := module.Manifest()
 	if manifest.ID == "" {
-		return errors.New("module ID cannot be empty")
+		return requiredFieldDomainError("module id", nil)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, exists := r.moduleIndex[manifest.ID]; exists {
-		return fmt.Errorf("module already registered: %s", manifest.ID)
+		return conflictDomainError("module already registered", map[string]any{"module": manifest.ID})
 	}
 	r.modules = append(r.modules, module)
 	r.moduleIndex[manifest.ID] = module

@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -111,7 +110,7 @@ func (m *UserManagementModule) Manifest() ModuleManifest {
 // Register wires the users and roles panels, search adapter, and permissions.
 func (m *UserManagementModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
-		return errors.New("admin is nil")
+		return serviceNotConfiguredDomainError("admin", nil)
 	}
 	if ctx.Admin.users == nil {
 		return FeatureDisabledError{Feature: string(FeatureUsers)}
@@ -545,7 +544,7 @@ func (r *UserProfilesPanelRepository) List(ctx context.Context, opts ListOptions
 		return nil, 0, FeatureDisabledError{Feature: string(FeatureUsers)}
 	}
 	if r.profiles == nil {
-		return nil, 0, errors.New("profile store not configured")
+		return nil, 0, serviceNotConfiguredDomainError("profile store", nil)
 	}
 	users, total, err := r.users.ListUsers(ctx, opts)
 	if err != nil {
@@ -571,7 +570,7 @@ func (r *UserProfilesPanelRepository) Get(ctx context.Context, id string) (map[s
 		return nil, FeatureDisabledError{Feature: string(FeatureUsers)}
 	}
 	if r.profiles == nil {
-		return nil, errors.New("profile store not configured")
+		return nil, serviceNotConfiguredDomainError("profile store", nil)
 	}
 	if id == "" {
 		return nil, ErrForbidden
@@ -600,7 +599,7 @@ func (r *UserProfilesPanelRepository) Update(ctx context.Context, id string, rec
 		return nil, FeatureDisabledError{Feature: string(FeatureUsers)}
 	}
 	if r.profiles == nil {
-		return nil, errors.New("profile store not configured")
+		return nil, serviceNotConfiguredDomainError("profile store", nil)
 	}
 	if id == "" {
 		id = toString(record["id"])
@@ -629,7 +628,7 @@ func (r *UserProfilesPanelRepository) Delete(ctx context.Context, id string) err
 		return FeatureDisabledError{Feature: string(FeatureUsers)}
 	}
 	if r.profiles == nil {
-		return errors.New("profile store not configured")
+		return serviceNotConfiguredDomainError("profile store", nil)
 	}
 	if id == "" {
 		return ErrForbidden

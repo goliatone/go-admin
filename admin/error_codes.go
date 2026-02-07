@@ -35,6 +35,7 @@ const (
 	TextCodeReplReadOnly              = "REPL_READ_ONLY"
 	TextCodeReplIPDenied              = "REPL_IP_DENIED"
 	TextCodePathConflict              = "PATH_CONFLICT"
+	TextCodeConflict                  = "CONFLICT"
 	TextCodeServiceUnavailable        = "SERVICE_UNAVAILABLE"
 )
 
@@ -73,6 +74,7 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeReplReadOnly, Description: "REPL exec disabled while read-only.", Category: goerrors.CategoryAuthz, HTTPStatus: 403},
 	{Code: TextCodeReplIPDenied, Description: "REPL access denied by IP policy.", Category: goerrors.CategoryAuthz, HTTPStatus: 403},
 	{Code: TextCodePathConflict, Description: "The requested path or slug conflicts with an existing resource.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeConflict, Description: "The request conflicts with an existing resource or state.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeServiceUnavailable, Description: "A required service dependency is unavailable.", Category: goerrors.CategoryInternal, HTTPStatus: 500},
 	{Code: ferrors.TextCodeInvalidKey, Description: "Feature key is required.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: ferrors.TextCodeScopeMetadataMissing, Description: "Scope metadata is missing.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
