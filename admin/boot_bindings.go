@@ -94,6 +94,16 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		Filters:  opts.Filters,
 		Search:   opts.Search,
 	}
+	if len(opts.Predicates) > 0 {
+		listOpts.Predicates = make([]ListPredicate, 0, len(opts.Predicates))
+		for _, predicate := range opts.Predicates {
+			listOpts.Predicates = append(listOpts.Predicates, ListPredicate{
+				Field:    predicate.Field,
+				Operator: predicate.Operator,
+				Values:   append([]string{}, predicate.Values...),
+			})
+		}
+	}
 	baseSchema := p.panel.Schema()
 	if baseSchema.UseBlocks || baseSchema.UseSEO || baseSchema.TreeView {
 		if listOpts.Filters == nil {
