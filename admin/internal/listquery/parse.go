@@ -26,6 +26,18 @@ type Result struct {
 	Predicates []Predicate
 }
 
+// Options projects Result into consumer-specific predicate types.
+// The field layout intentionally mirrors admin and boot list option structs.
+type Options[T any] struct {
+	Page       int
+	PerPage    int
+	SortBy     string
+	SortDesc   bool
+	Filters    map[string]any
+	Predicates []T
+	Search     string
+}
+
 // ParseContext extracts list query options from a router context.
 func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 	page := AtoiDefault(c.Query("page"), 0)
@@ -122,6 +134,20 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 		Search:     search,
 		Filters:    filters,
 		Predicates: predicates,
+	}
+}
+
+// ParseOptions parses list query params and maps predicates into consumer-specific types.
+func ParseOptions[T any](c router.Context, defaultPage, defaultPerPage int, mapper func(Predicate) T) Options[T] {
+	parsed := ParseContext(c, defaultPage, defaultPerPage)
+	return Options[T]{
+		Page:       parsed.Page,
+		PerPage:    parsed.PerPage,
+		SortBy:     parsed.SortBy,
+		SortDesc:   parsed.SortDesc,
+		Filters:    parsed.Filters,
+		Predicates: MapPredicates(parsed.Predicates, mapper),
+		Search:     parsed.Search,
 	}
 }
 
