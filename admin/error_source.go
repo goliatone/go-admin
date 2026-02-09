@@ -43,15 +43,15 @@ type StackFrameInfo struct {
 
 // DevErrorContext holds all developer-friendly error context.
 type DevErrorContext struct {
-	ErrorMessage   string            `json:"error_message"`
-	ErrorType      string            `json:"error_type,omitempty"`
-	TextCode       string            `json:"text_code,omitempty"`
-	Category       string            `json:"category,omitempty"`
-	PrimarySource  *SourceContext    `json:"primary_source,omitempty"`
-	StackFrames    []StackFrameInfo  `json:"stack_frames,omitempty"`
-	RequestInfo    *RequestInfo      `json:"request_info,omitempty"`
+	ErrorMessage    string           `json:"error_message"`
+	ErrorType       string           `json:"error_type,omitempty"`
+	TextCode        string           `json:"text_code,omitempty"`
+	Category        string           `json:"category,omitempty"`
+	PrimarySource   *SourceContext   `json:"primary_source,omitempty"`
+	StackFrames     []StackFrameInfo `json:"stack_frames,omitempty"`
+	RequestInfo     *RequestInfo     `json:"request_info,omitempty"`
 	EnvironmentInfo *EnvironmentInfo `json:"environment_info,omitempty"`
-	Metadata       map[string]any    `json:"metadata,omitempty"`
+	Metadata        map[string]any   `json:"metadata,omitempty"`
 }
 
 // RequestInfo holds HTTP request details.
