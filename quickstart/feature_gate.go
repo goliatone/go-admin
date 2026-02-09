@@ -20,7 +20,7 @@ func buildFeatureGate(cfg admin.Config, defaults map[string]bool, store admin.Pr
 		resolver.WithClaimsProvider(goauthadapter.NewClaimsProvider()),
 	}
 	if store != nil {
-		stateStore := admin.NewPreferencesStoreAdapter(store)
+		stateStore := admin.NewPreferencesStoreAdapter(store, admin.WithDeleteMissing(true))
 		overrides := optionsadapter.NewStore(stateStore)
 		options = append(options, resolver.WithOverrideStore(overrides))
 	}
