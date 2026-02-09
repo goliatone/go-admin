@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/admin"
 	authlib "github.com/goliatone/go-auth"
@@ -261,7 +262,7 @@ func (h *contentEntryHandlers) New(c router.Context) error {
 		"locale": defaultLocaleValue("", h.cfg.DefaultLocale),
 		"status": "draft",
 	}
-	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, false)
+	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, false, "")
 }
 
 func (h *contentEntryHandlers) Create(c router.Context) error {
@@ -356,7 +357,11 @@ func (h *contentEntryHandlers) Edit(c router.Context) error {
 		return err
 	}
 	values := contentEntryValues(record)
-	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, true)
+	previewURL, err := h.previewURLForRecord(c.Context(), panelName, id, record)
+	if err != nil {
+		return err
+	}
+	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, true, previewURL)
 }
 
 func (h *contentEntryHandlers) Update(c router.Context) error {
@@ -525,7 +530,7 @@ func (h *contentEntryHandlers) guardPanel(c router.Context, panelName string, pa
 	return admin.ErrForbidden
 }
 
-func (h *contentEntryHandlers) renderForm(c router.Context, panelName string, panel *admin.Panel, contentType *admin.CMSContentType, adminCtx admin.AdminContext, values map[string]any, isEdit bool) error {
+func (h *contentEntryHandlers) renderForm(c router.Context, panelName string, panel *admin.Panel, contentType *admin.CMSContentType, adminCtx admin.AdminContext, values map[string]any, isEdit bool, previewURL string) error {
 	if h.formRenderer == nil {
 		return errors.New("form renderer is not configured")
 	}
@@ -558,6 +563,7 @@ func (h *contentEntryHandlers) renderForm(c router.Context, panelName string, pa
 		"routes":         routes.routesMap(),
 		"form_html":      html,
 		"is_edit":        isEdit,
+		"preview_url":    strings.TrimSpace(previewURL),
 		"content_type": map[string]any{
 			"id":     contentTypeID(contentType),
 			"name":   contentTypeLabel(contentType, panelName),
@@ -570,6 +576,82 @@ func (h *contentEntryHandlers) renderForm(c router.Context, panelName string, pa
 		viewCtx = h.viewContext(viewCtx, panelName, c)
 	}
 	return c.Render(h.formTemplate, viewCtx)
+}
+
+func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelName, id string, record map[string]any) (string, error) {
+	if h == nil || h.admin == nil || strings.TrimSpace(id) == "" {
+		return "", nil
+	}
+	targetPath := resolveContentEntryPreviewPath(panelName, record)
+	if targetPath == "" {
+		return "", nil
+	}
+	previewSvc := h.admin.Preview()
+	if previewSvc == nil {
+		return "", nil
+	}
+	token, err := previewSvc.Generate(strings.TrimSpace(panelName), strings.TrimSpace(id), time.Hour)
+	if err != nil {
+		return "", err
+	}
+	return buildSitePreviewURL(targetPath, token), nil
+}
+
+func resolveContentEntryPreviewPath(panelName string, record map[string]any) string {
+	if record == nil {
+		return ""
+	}
+	for _, key := range []string{"path", "preview_url"} {
+		if resolved := normalizePreviewPath(anyToString(record[key])); resolved != "" {
+			return resolved
+		}
+	}
+	if data, ok := record["data"].(map[string]any); ok {
+		for _, key := range []string{"path", "preview_url"} {
+			if resolved := normalizePreviewPath(anyToString(data[key])); resolved != "" {
+				return resolved
+			}
+		}
+	}
+	slug := strings.TrimSpace(anyToString(record["slug"]))
+	if slug == "" {
+		return ""
+	}
+	switch strings.ToLower(strings.TrimSpace(panelName)) {
+	case "pages", "page":
+		return normalizePreviewPath(slug)
+	case "posts", "post":
+		return normalizePreviewPath(path.Join("posts", strings.TrimLeft(slug, "/")))
+	default:
+		if strings.HasPrefix(slug, "/") {
+			return normalizePreviewPath(slug)
+		}
+	}
+	return ""
+}
+
+func normalizePreviewPath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		return "/" + trimmed
+	}
+	return trimmed
+}
+
+func buildSitePreviewURL(targetPath, token string) string {
+	path := strings.TrimSpace(targetPath)
+	token = strings.TrimSpace(token)
+	if path == "" || token == "" {
+		return ""
+	}
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+	return path + separator + "preview_token=" + url.QueryEscape(token)
 }
 
 func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[string]any) (map[string]any, error) {
