@@ -248,12 +248,7 @@ func (s *InMemoryOrganizationStore) List(ctx context.Context, opts ListOptions) 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]OrganizationRecord, 0, len(s.orgs))
-	search := strings.ToLower(strings.TrimSpace(opts.Search))
-	if search == "" {
-		if term, ok := opts.Filters["_search"].(string); ok {
-			search = strings.ToLower(strings.TrimSpace(term))
-		}
-	}
+	search := inMemoryListSearchTerm(opts)
 	filterStatus := strings.ToLower(toString(opts.Filters["status"]))
 	filterTenant := strings.ToLower(toString(opts.Filters["tenant_id"]))
 	for _, org := range s.orgs {
@@ -271,24 +266,8 @@ func (s *InMemoryOrganizationStore) List(ctx context.Context, opts ListOptions) 
 	sort.Slice(out, func(i, j int) bool {
 		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
 	})
-	total := len(out)
-	page := opts.Page
-	if page <= 0 {
-		page = 1
-	}
-	per := opts.PerPage
-	if per <= 0 {
-		per = 10
-	}
-	start := (page - 1) * per
-	if start > len(out) {
-		start = len(out)
-	}
-	end := start + per
-	if end > len(out) {
-		end = len(out)
-	}
-	return out[start:end], total, nil
+	sliced, total := paginateInMemory(out, opts, 10)
+	return sliced, total, nil
 }
 
 // Get returns an organization by ID.
@@ -346,12 +325,7 @@ func (s *InMemoryOrganizationStore) Update(ctx context.Context, org Organization
 		existing.Members = normalizeOrganizationMembers(org.Members)
 	}
 	if org.Metadata != nil {
-		if existing.Metadata == nil {
-			existing.Metadata = map[string]any{}
-		}
-		for k, v := range org.Metadata {
-			existing.Metadata[k] = v
-		}
+		existing.Metadata = mergeMapInto(existing.Metadata, org.Metadata)
 	}
 	existing.UpdatedAt = time.Now()
 	s.orgs[existing.ID] = cloneOrganization(existing)
@@ -372,23 +346,14 @@ func (s *InMemoryOrganizationStore) Delete(ctx context.Context, id string) error
 
 // Search performs a simple keyword search.
 func (s *InMemoryOrganizationStore) Search(ctx context.Context, query string, limit int) ([]OrganizationRecord, error) {
-	opts := ListOptions{Search: query, Page: 1, PerPage: limit}
-	if opts.PerPage <= 0 {
-		opts.PerPage = 5
-	}
-	orgs, _, err := s.List(ctx, opts)
+	orgs, _, err := s.List(ctx, listOptionsForSearch(query, limit, 5))
 	return orgs, err
 }
 
 func normalizeOrganizationMembers(members []OrganizationMember) []OrganizationMember {
-	out := []OrganizationMember{}
-	for _, m := range members {
-		if strings.TrimSpace(m.UserID) == "" {
-			continue
-		}
-		out = append(out, normalizeOrganizationMember(m))
-	}
-	return out
+	return normalizeScopedMembers(members, func(member OrganizationMember) string {
+		return member.UserID
+	}, normalizeOrganizationMember)
 }
 
 func normalizeOrganizationMember(member OrganizationMember) OrganizationMember {
@@ -418,13 +383,13 @@ func cloneOrganization(record OrganizationRecord) OrganizationRecord {
 }
 
 func cloneOrganizationMembers(members []OrganizationMember) []OrganizationMember {
-	out := make([]OrganizationMember, 0, len(members))
-	for _, m := range members {
-		out = append(out, OrganizationMember{
-			UserID:      m.UserID,
-			Roles:       append([]string{}, m.Roles...),
-			Permissions: append([]string{}, m.Permissions...),
-		})
+	return cloneScopedMembers(members, cloneOrganizationMember)
+}
+
+func cloneOrganizationMember(member OrganizationMember) OrganizationMember {
+	return OrganizationMember{
+		UserID:      member.UserID,
+		Roles:       append([]string{}, member.Roles...),
+		Permissions: append([]string{}, member.Permissions...),
 	}
-	return out
 }
