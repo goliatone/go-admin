@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -68,7 +69,7 @@ func TestBunRepositoryAdapterCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	id, _ := created["id"].(string)
+	id := fmt.Sprint(created["id"])
 	if id == "" {
 		t.Fatalf("expected created id")
 	}
@@ -102,5 +103,49 @@ func TestBunRepositoryAdapterCRUD(t *testing.T) {
 	}
 	if _, err := adapter.Get(ctx, id); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected not found after delete, got %v", err)
+	}
+}
+
+func TestBunRepositoryAdapterUpdatePatchAllowlist(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestBunDB(t)
+	defer db.Close()
+
+	repo := newTestProductRepo(db)
+	adapter := NewBunRepositoryAdapter[*bunTestProduct](
+		repo,
+		WithBunPatchAllowedFields[*bunTestProduct]("status"),
+	)
+
+	created, err := adapter.Create(ctx, map[string]any{"name": "Widget", "status": "draft"})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id := fmt.Sprint(created["id"])
+
+	if _, err := adapter.Update(ctx, id, map[string]any{"status": "published"}); err != nil {
+		t.Fatalf("update status: %v", err)
+	}
+
+	_, err = adapter.Update(ctx, id, map[string]any{"name": "Renamed"})
+	if err == nil {
+		t.Fatalf("expected allowlist error")
+	}
+	if !errors.Is(err, repository.ErrPatchFieldNotAllowed) {
+		t.Fatalf("expected ErrPatchFieldNotAllowed, got %v", err)
+	}
+}
+
+func TestBunRepositoryAdapterUpdateNotFoundMapsError(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestBunDB(t)
+	defer db.Close()
+
+	repo := newTestProductRepo(db)
+	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo)
+
+	_, err := adapter.Update(ctx, uuid.NewString(), map[string]any{"status": "published"})
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }

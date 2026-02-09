@@ -122,7 +122,43 @@ func TestGoCMSMenuAdapterReordersAndUpdates(t *testing.T) {
 	}
 }
 
-func TestUseCMSWrapsGoCMSMenuService(t *testing.T) {
+func TestGoCMSMenuAdapterMenuByLocation(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := newStubCMSMenuService()
+	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
+
+	menuCode := cms.CanonicalMenuCode("admin.main")
+	if _, err := menuSvc.UpsertMenuWithLocation(ctx, menuCode, "site.primary", nil, uuid.Nil); err != nil {
+		t.Fatalf("seed menu with location: %v", err)
+	}
+	if err := adapter.AddMenuItem(ctx, "admin.main", MenuItem{
+		ID:     "dashboard",
+		Label:  "Dashboard",
+		Locale: "en",
+		Target: map[string]any{"slug": "dashboard"},
+	}); err != nil {
+		t.Fatalf("add menu item: %v", err)
+	}
+
+	menu, err := adapter.MenuByLocation(ctx, "site.primary", "en")
+	if err != nil {
+		t.Fatalf("menu by location: %v", err)
+	}
+	if menu == nil {
+		t.Fatalf("expected menu")
+	}
+	if menu.Code != menuCode {
+		t.Fatalf("expected code %q, got %q", menuCode, menu.Code)
+	}
+	if menu.Location != "site.primary" {
+		t.Fatalf("expected location site.primary, got %q", menu.Location)
+	}
+	if len(menu.Items) != 1 || menu.Items[0].Label != "Dashboard" {
+		t.Fatalf("unexpected location menu payload: %+v", menu.Items)
+	}
+}
+
+func TestUseCMSUsesTypedContainerMenuService(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := newStubCMSMenuService()
 	container := &stubGoCMSContainer{
@@ -161,12 +197,11 @@ type stubGoCMSContainer struct {
 }
 
 func (s *stubGoCMSContainer) WidgetService() CMSWidgetService   { return s.widgets }
-func (s *stubGoCMSContainer) MenuService() CMSMenuService       { return nil }
+func (s *stubGoCMSContainer) MenuService() CMSMenuService       { return NewGoCMSMenuAdapter(s.menu) }
 func (s *stubGoCMSContainer) ContentService() CMSContentService { return nil }
 func (s *stubGoCMSContainer) ContentTypeService() CMSContentTypeService {
 	return s.types
 }
-func (s *stubGoCMSContainer) GoCMSMenuService() any { return s.menu }
 
 type stubCMSMenuService struct {
 	menus     map[string]*stubCMSMenu
