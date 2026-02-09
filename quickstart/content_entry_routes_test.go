@@ -1,6 +1,9 @@
 package quickstart
 
 import (
+	"context"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
@@ -144,4 +147,98 @@ func mustBuildContentEntryTestPanel(t *testing.T) *admin.Panel {
 		t.Fatalf("build panel: %v", err)
 	}
 	return panel
+}
+
+func TestResolveContentEntryPreviewPathSupportsPagesAndPosts(t *testing.T) {
+	tests := []struct {
+		name      string
+		panelName string
+		record    map[string]any
+		expected  string
+	}{
+		{
+			name:      "pages path",
+			panelName: "pages",
+			record:    map[string]any{"path": "about"},
+			expected:  "/about",
+		},
+		{
+			name:      "pages slug fallback",
+			panelName: "pages",
+			record:    map[string]any{"slug": "home"},
+			expected:  "/home",
+		},
+		{
+			name:      "posts slug fallback",
+			panelName: "posts",
+			record:    map[string]any{"slug": "launch"},
+			expected:  "/posts/launch",
+		},
+		{
+			name:      "default path-like slug",
+			panelName: "article",
+			record:    map[string]any{"slug": "/legal/privacy"},
+			expected:  "/legal/privacy",
+		},
+		{
+			name:      "unsupported panel without path",
+			panelName: "article",
+			record:    map[string]any{"slug": "plain-slug"},
+			expected:  "",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := resolveContentEntryPreviewPath(tc.panelName, tc.record)
+			if got != tc.expected {
+				t.Fatalf("expected %q got %q", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestBuildSitePreviewURLAppendsTokenQueryParam(t *testing.T) {
+	got := buildSitePreviewURL("/about?lang=en", "token-123")
+	if got != "/about?lang=en&preview_token=token-123" {
+		t.Fatalf("expected preview token appended, got %q", got)
+	}
+}
+
+func TestPreviewURLForRecordUsesSignedPreviewToken(t *testing.T) {
+	adm, err := admin.New(admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		PreviewSecret: "quickstart-preview-test-secret",
+	}, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	handler := &contentEntryHandlers{admin: adm}
+	urlWithToken, err := handler.previewURLForRecord(context.Background(), "pages", "42", map[string]any{
+		"path": "/about",
+	})
+	if err != nil {
+		t.Fatalf("preview url: %v", err)
+	}
+	if !strings.HasPrefix(urlWithToken, "/about?preview_token=") {
+		t.Fatalf("expected /about preview url, got %q", urlWithToken)
+	}
+	parsed, err := url.Parse(urlWithToken)
+	if err != nil {
+		t.Fatalf("parse preview url: %v", err)
+	}
+	token := strings.TrimSpace(parsed.Query().Get("preview_token"))
+	if token == "" {
+		t.Fatalf("expected preview_token query param in %q", urlWithToken)
+	}
+	decoded, err := adm.Preview().Validate(token)
+	if err != nil {
+		t.Fatalf("validate preview token: %v", err)
+	}
+	if decoded.EntityType != "pages" {
+		t.Fatalf("expected entity_type pages, got %q", decoded.EntityType)
+	}
+	if decoded.ContentID != "42" {
+		t.Fatalf("expected content id 42, got %q", decoded.ContentID)
+	}
 }

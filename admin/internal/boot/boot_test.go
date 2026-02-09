@@ -307,9 +307,11 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 	require.Len(t, rr.calls, 9)
 
 	actionCtx := router.NewMockContext()
+	actionCtx.ParamsM["panel"] = "users"
 	actionCtx.ParamsM["action"] = "run"
 	actionCtx.On("Body").Return([]byte{})
 	bulkCtx := router.NewMockContext()
+	bulkCtx.ParamsM["panel"] = "users"
 	bulkCtx.ParamsM["action"] = "bulk"
 	bulkCtx.On("Body").Return([]byte{})
 
@@ -318,6 +320,36 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 	require.Equal(t, 1, binding.actionCalled)
 	require.Equal(t, 1, binding.bulkCalled)
 	require.Equal(t, "en", binding.lastLocale)
+}
+
+func TestPanelStepResolvesPanelBindingAtRequestTime(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	usersBinding := &stubPanelBinding{name: "users"}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{usersBinding},
+	}
+
+	err := PanelStep(ctx)
+	require.NoError(t, err)
+	require.Len(t, rr.calls, 9)
+
+	replacementUsersBinding := &stubPanelBinding{name: "users"}
+	ctx.panels = []PanelBinding{replacementUsersBinding}
+
+	listCtx := router.NewMockContext()
+	require.NoError(t, rr.calls[0].handler(listCtx))
+	require.Equal(t, 1, replacementUsersBinding.listCalled)
+	require.Equal(t, 0, usersBinding.listCalled)
+
+	ctx.panels = nil
+	missingCtx := router.NewMockContext()
+	require.NoError(t, rr.calls[0].handler(missingCtx))
+	require.Equal(t, 1, resp.errCalled)
 }
 
 type stubNavigationBinding struct {
