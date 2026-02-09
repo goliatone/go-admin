@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
 )
 
@@ -12,20 +13,20 @@ func TestGoCMSContentAdapterContentsWithOptionsLoadsTranslations(t *testing.T) {
 	typeSvc := newStubContentTypeService(CMSContentType{ID: uuid.New().String(), Slug: "page"})
 	contentID := uuid.New()
 	contentSvc := &stubGoCMSContentService{
-		listResp: []*stubContentRecord{
+		listResp: []*cmscontent.Content{
 			{
 				ID:   contentID,
 				Slug: "home",
-				Type: &stubContentTypeRecord{Slug: "page"},
+				Type: &cmscontent.ContentType{Slug: "page"},
 			},
 		},
-		listWithTranslations: []*stubContentRecord{
+		listWithTranslations: []*cmscontent.Content{
 			{
 				ID:   contentID,
 				Slug: "home",
-				Type: &stubContentTypeRecord{Slug: "page"},
-				Translations: []*stubContentTranslationRecord{
-					{Locale: "en", Title: "Home", Content: map[string]any{"body": "hello"}},
+				Type: &cmscontent.ContentType{Slug: "page"},
+				Translations: []*cmscontent.ContentTranslation{
+					{Locale: &cmscontent.Locale{Code: "en"}, Title: "Home", Content: map[string]any{"body": "hello"}},
 				},
 			},
 		},
@@ -70,20 +71,20 @@ func TestCMSContentTypeEntryRepositoryListOptInTranslations(t *testing.T) {
 	}
 	otherType := CMSContentType{Slug: "news"}
 	contentSvc := &stubGoCMSContentService{
-		listResp: []*stubContentRecord{
+		listResp: []*cmscontent.Content{
 			{
 				ID:   uuid.New(),
 				Slug: "breaking",
-				Type: &stubContentTypeRecord{Slug: "news"},
+				Type: &cmscontent.ContentType{Slug: "news"},
 			},
 		},
-		listWithTranslations: []*stubContentRecord{
+		listWithTranslations: []*cmscontent.Content{
 			{
 				ID:   uuid.New(),
 				Slug: "home",
-				Type: &stubContentTypeRecord{Slug: "page"},
-				Translations: []*stubContentTranslationRecord{
-					{Locale: "en", Title: "Home", Content: map[string]any{"body": "hello"}},
+				Type: &cmscontent.ContentType{Slug: "page"},
+				Translations: []*cmscontent.ContentTranslation{
+					{Locale: &cmscontent.Locale{Code: "en"}, Title: "Home", Content: map[string]any{"body": "hello"}},
 				},
 			},
 		},

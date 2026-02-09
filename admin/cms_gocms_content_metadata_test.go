@@ -4,105 +4,44 @@ import (
 	"context"
 	"testing"
 
+	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
 )
 
-type stubContentTranslationInput struct {
-	Locale  string
-	Title   string
-	Summary *string
-	Content map[string]any
-}
-
-type stubCreateContentRequest struct {
-	ContentTypeID            uuid.UUID
-	Slug                     string
-	Status                   string
-	CreatedBy                uuid.UUID
-	UpdatedBy                uuid.UUID
-	Metadata                 map[string]any
-	Translations             []stubContentTranslationInput
-	AllowMissingTranslations bool
-}
-
-type stubUpdateContentRequest struct {
-	ID                       uuid.UUID
-	Status                   string
-	UpdatedBy                uuid.UUID
-	Metadata                 map[string]any
-	Translations             []stubContentTranslationInput
-	AllowMissingTranslations bool
-}
-
-type stubDeleteContentRequest struct {
-	ID         uuid.UUID
-	DeletedBy  uuid.UUID
-	HardDelete bool
-}
-
-type stubContentTypeRecord struct {
-	ID   uuid.UUID
-	Slug string
-	Name string
-}
-
-type stubContentTranslationRecord struct {
-	Locale             string
-	Title              string
-	Summary            *string
-	Content            map[string]any
-	TranslationGroupID *uuid.UUID
-	ResolvedLocale     string
-}
-
-type stubContentRecord struct {
-	ID                     uuid.UUID
-	Slug                   string
-	Status                 string
-	ContentTypeID          uuid.UUID
-	Type                   *stubContentTypeRecord
-	Metadata               map[string]any
-	Translations           []*stubContentTranslationRecord
-	AvailableLocales       []string
-	RequestedLocale        string
-	ResolvedLocale         string
-	MissingRequestedLocale bool
-}
-
 type stubGoCMSContentService struct {
-	listResp             []*stubContentRecord
-	listWithTranslations []*stubContentRecord
-	listOptions          []CMSContentListOption
-	getResp              *stubContentRecord
-	createReq            stubCreateContentRequest
-	updateReq            stubUpdateContentRequest
-	updateResp           *stubContentRecord
+	listResp             []*cmscontent.Content
+	listWithTranslations []*cmscontent.Content
+	listOptions          []cmscontent.ContentListOption
+	getResp              *cmscontent.Content
+	createReq            cmscontent.CreateContentRequest
+	updateReq            cmscontent.UpdateContentRequest
+	updateResp           *cmscontent.Content
 }
 
-func (s *stubGoCMSContentService) List(_ context.Context, opts ...CMSContentListOption) ([]*stubContentRecord, error) {
-	s.listOptions = append([]CMSContentListOption{}, opts...)
+func (s *stubGoCMSContentService) List(_ context.Context, opts ...cmscontent.ContentListOption) ([]*cmscontent.Content, error) {
+	s.listOptions = append([]cmscontent.ContentListOption{}, opts...)
 	if hasTranslationListOption(opts) && s.listWithTranslations != nil {
 		return s.listWithTranslations, nil
 	}
 	return s.listResp, nil
 }
 
-func (s *stubGoCMSContentService) Get(_ context.Context, _ uuid.UUID) (*stubContentRecord, error) {
+func (s *stubGoCMSContentService) Get(_ context.Context, _ uuid.UUID, _ ...cmscontent.ContentGetOption) (*cmscontent.Content, error) {
 	if s.getResp == nil {
 		return nil, ErrNotFound
 	}
 	return s.getResp, nil
 }
 
-func (s *stubGoCMSContentService) Create(_ context.Context, req stubCreateContentRequest) (*stubContentRecord, error) {
+func (s *stubGoCMSContentService) Create(_ context.Context, req cmscontent.CreateContentRequest) (*cmscontent.Content, error) {
 	s.createReq = req
 	if s.getResp != nil {
 		return s.getResp, nil
 	}
-	return &stubContentRecord{ID: uuid.New(), Slug: req.Slug, Status: req.Status}, nil
+	return &cmscontent.Content{ID: uuid.New(), Slug: req.Slug, Status: req.Status}, nil
 }
 
-func (s *stubGoCMSContentService) Update(_ context.Context, req stubUpdateContentRequest) (*stubContentRecord, error) {
+func (s *stubGoCMSContentService) Update(_ context.Context, req cmscontent.UpdateContentRequest) (*cmscontent.Content, error) {
 	s.updateReq = req
 	if s.updateResp != nil {
 		return s.updateResp, nil
@@ -110,16 +49,16 @@ func (s *stubGoCMSContentService) Update(_ context.Context, req stubUpdateConten
 	if s.getResp != nil {
 		return s.getResp, nil
 	}
-	return &stubContentRecord{ID: req.ID, Status: req.Status}, nil
+	return &cmscontent.Content{ID: req.ID, Status: req.Status}, nil
 }
 
-func (s *stubGoCMSContentService) Delete(context.Context, stubDeleteContentRequest) error {
+func (s *stubGoCMSContentService) Delete(context.Context, cmscontent.DeleteContentRequest) error {
 	return nil
 }
 
-func hasTranslationListOption(opts []CMSContentListOption) bool {
+func hasTranslationListOption(opts []cmscontent.ContentListOption) bool {
 	for _, opt := range opts {
-		if opt == WithTranslations() {
+		if opt == cmscontent.WithTranslations() {
 			return true
 		}
 	}
@@ -192,10 +131,10 @@ func TestGoCMSContentAdapterCreatePageMetadataMapping(t *testing.T) {
 		Capabilities: map[string]any{"structural_fields": true, "panel_slug": "pages"},
 	})
 	contentSvc := &stubGoCMSContentService{
-		getResp: &stubContentRecord{
+		getResp: &cmscontent.Content{
 			ID:   uuid.New(),
 			Slug: "home",
-			Type: &stubContentTypeRecord{Slug: "page"},
+			Type: &cmscontent.ContentType{Slug: "page"},
 		},
 	}
 	adapter := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
@@ -276,10 +215,10 @@ func TestGoCMSContentAdapterUpdatePageMetadataMapping(t *testing.T) {
 	})
 	existingID := uuid.New()
 	contentSvc := &stubGoCMSContentService{
-		getResp: &stubContentRecord{
+		getResp: &cmscontent.Content{
 			ID:   existingID,
 			Slug: "home",
-			Type: &stubContentTypeRecord{Slug: "page"},
+			Type: &cmscontent.ContentType{Slug: "page"},
 			Metadata: map[string]any{
 				"path":        "/old",
 				"parent_id":   "parent-1",
@@ -288,8 +227,8 @@ func TestGoCMSContentAdapterUpdatePageMetadataMapping(t *testing.T) {
 				"custom":      "keep",
 				"legacy":      "stay",
 			},
-			Translations: []*stubContentTranslationRecord{
-				{Locale: "en", Title: "Home", Content: map[string]any{"body": "old"}},
+			Translations: []*cmscontent.ContentTranslation{
+				{Locale: &cmscontent.Locale{Code: "en"}, Title: "Home", Content: map[string]any{"body": "old"}},
 			},
 		},
 	}
@@ -362,19 +301,19 @@ func TestGoCMSContentAdapterListInjectsMetadata(t *testing.T) {
 		Capabilities: map[string]any{"structural_fields": true, "panel_slug": "pages"},
 	})
 	contentSvc := &stubGoCMSContentService{
-		listResp: []*stubContentRecord{
+		listResp: []*cmscontent.Content{
 			{
 				ID:   uuid.New(),
 				Slug: "home",
-				Type: &stubContentTypeRecord{Slug: "page"},
+				Type: &cmscontent.ContentType{Slug: "page"},
 				Metadata: map[string]any{
 					"path":        "/home",
 					"parent_id":   "parent-1",
 					"template_id": "tmpl-1",
 					"sort_order":  3,
 				},
-				Translations: []*stubContentTranslationRecord{
-					{Locale: "en", Title: "Home", Content: map[string]any{"body": "hello"}},
+				Translations: []*cmscontent.ContentTranslation{
+					{Locale: &cmscontent.Locale{Code: "en"}, Title: "Home", Content: map[string]any{"body": "hello"}},
 				},
 			},
 		},
@@ -409,13 +348,13 @@ func TestGoCMSContentAdapterLegacyMetadataFallback(t *testing.T) {
 	})
 	contentID := uuid.New()
 	contentSvc := &stubGoCMSContentService{
-		getResp: &stubContentRecord{
+		getResp: &cmscontent.Content{
 			ID:   contentID,
 			Slug: "legacy",
-			Type: &stubContentTypeRecord{Slug: "page"},
-			Translations: []*stubContentTranslationRecord{
+			Type: &cmscontent.ContentType{Slug: "page"},
+			Translations: []*cmscontent.ContentTranslation{
 				{
-					Locale: "en",
+					Locale: &cmscontent.Locale{Code: "en"},
 					Title:  "Legacy",
 					Content: map[string]any{
 						"path":        "/legacy",
