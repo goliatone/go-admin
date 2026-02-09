@@ -31,6 +31,11 @@
   - Move URL customization to `Config.URLs.Admin` and `Config.URLs.Public` (BasePath, APIPrefix, APIVersion) or supply a full `Config.URLs.URLKit` override.
   - Remove any assignments to `Config.URLs.APIPrefix` or `Config.URLs.APIVersion`; set `Config.URLs.Admin.APIPrefix` / `Config.URLs.Admin.APIVersion` instead (and `Config.URLs.Public.*` for public API overrides).
 
+## 📣 Release Notes
+
+- Users detail tabs: profile UI now renders grouped `sections` payload only; legacy `values` fallback has been removed after the compatibility window.
+- Users activity tab permission model is explicit: both users read and activity read permissions are required; failures follow stable semantics (`403` permission, `400` invalid input, `404` missing user/tab, degraded tab-level unavailable state for backend query failures/timeouts).
+
 # [0.23.0](https://github.com/goliatone/go-admin/compare/v0.22.0...v0.23.0) - (2026-01-29)
 
 ## <!-- 1 -->🐛 Bug Fixes
