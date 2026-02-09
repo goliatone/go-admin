@@ -282,6 +282,7 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 	schemaProvided := recordHasKey(record, "schema")
 	uiSchemaProvided := recordHasKey(record, "ui_schema") || recordHasKey(record, "uiSchema")
 	capsProvided := recordHasKey(record, "capabilities")
+	replaceCapabilities := capabilitiesReplaceRequested(record)
 	ct := mapToCMSContentType(record)
 	if ct.Environment == "" {
 		ct.Environment = strings.TrimSpace(environmentFromContext(ctx))
@@ -334,8 +335,10 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 		if ct.UISchema == nil && uiSchemaProvided {
 			ct.UISchema = existing.UISchema
 		}
-		if ct.Capabilities == nil && capsProvided {
+		if !capsProvided {
 			ct.Capabilities = existing.Capabilities
+		} else if !replaceCapabilities {
+			ct.Capabilities = mergeAnyMap(cloneAnyMap(existing.Capabilities), cloneAnyMap(ct.Capabilities))
 		}
 	}
 	if existing != nil && schemaProvided && ct.Schema != nil {
@@ -1247,8 +1250,8 @@ func NewCMSBlockRepository(content CMSContentService) *CMSBlockRepository {
 
 // List returns blocks for a content ID (or all when unspecified).
 func (r *CMSBlockRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
-	if r.content == nil {
-		return nil, 0, ErrNotFound
+	if err := ensureCMSContentService(r.content); err != nil {
+		return nil, 0, err
 	}
 	locale := extractLocale(opts, "")
 	contentIDs := []string{}
@@ -1285,18 +1288,7 @@ func (r *CMSBlockRepository) List(ctx context.Context, opts ListOptions) ([]map[
 	sliced, total := paginateCMS(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, blk := range sliced {
-		out = append(out, map[string]any{
-			"id":               blk.ID,
-			"definition_id":    blk.DefinitionID,
-			"content_id":       blk.ContentID,
-			"region":           blk.Region,
-			"locale":           blk.Locale,
-			"status":           blk.Status,
-			"position":         blk.Position,
-			"data":             cloneAnyMap(blk.Data),
-			"block_type":       blk.BlockType,
-			"block_schema_key": blk.BlockSchemaKey,
-		})
+		out = append(out, cmsBlockRecord(blk))
 	}
 	return out, total, nil
 }
@@ -1317,32 +1309,21 @@ func (r *CMSBlockRepository) Get(ctx context.Context, id string) (map[string]any
 
 // Create saves a new block.
 func (r *CMSBlockRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
+	if err := ensureCMSContentService(r.content); err != nil {
+		return nil, err
 	}
 	block := mapToCMSBlock(record)
 	created, err := r.content.SaveBlock(ctx, block)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{
-		"id":               created.ID,
-		"definition_id":    created.DefinitionID,
-		"content_id":       created.ContentID,
-		"region":           created.Region,
-		"locale":           created.Locale,
-		"status":           created.Status,
-		"position":         created.Position,
-		"data":             cloneAnyMap(created.Data),
-		"block_type":       created.BlockType,
-		"block_schema_key": created.BlockSchemaKey,
-	}, nil
+	return cmsBlockRecord(*created), nil
 }
 
 // Update modifies an existing block.
 func (r *CMSBlockRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
+	if err := ensureCMSContentService(r.content); err != nil {
+		return nil, err
 	}
 	block := mapToCMSBlock(record)
 	block.ID = id
@@ -1350,24 +1331,13 @@ func (r *CMSBlockRepository) Update(ctx context.Context, id string, record map[s
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{
-		"id":               updated.ID,
-		"definition_id":    updated.DefinitionID,
-		"content_id":       updated.ContentID,
-		"region":           updated.Region,
-		"locale":           updated.Locale,
-		"status":           updated.Status,
-		"position":         updated.Position,
-		"data":             cloneAnyMap(updated.Data),
-		"block_type":       updated.BlockType,
-		"block_schema_key": updated.BlockSchemaKey,
-	}, nil
+	return cmsBlockRecord(*updated), nil
 }
 
 // Delete removes a block.
 func (r *CMSBlockRepository) Delete(ctx context.Context, id string) error {
-	if r.content == nil {
-		return ErrNotFound
+	if err := ensureCMSContentService(r.content); err != nil {
+		return err
 	}
 	return r.content.DeleteBlock(ctx, id)
 }
@@ -1501,8 +1471,8 @@ func NewWidgetDefinitionRepository(widgets CMSWidgetService) *WidgetDefinitionRe
 
 // List returns widget definitions.
 func (r *WidgetDefinitionRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
-	if r.widgets == nil {
-		return nil, 0, ErrNotFound
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
+		return nil, 0, err
 	}
 	defs := r.widgets.Definitions()
 	search := strings.ToLower(extractSearch(opts))
@@ -1516,24 +1486,19 @@ func (r *WidgetDefinitionRepository) List(ctx context.Context, opts ListOptions)
 	sliced, total := paginateWidgetDefs(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, def := range sliced {
-		out = append(out, map[string]any{
-			"code":   def.Code,
-			"name":   def.Name,
-			"schema": cloneAnyMap(def.Schema),
-		})
+		out = append(out, widgetDefinitionRecord(def))
 	}
 	return out, total, nil
 }
 
 // Get returns a widget definition by code.
 func (r *WidgetDefinitionRepository) Get(ctx context.Context, id string) (map[string]any, error) {
-	list, _, err := r.List(ctx, ListOptions{PerPage: 1000})
-	if err != nil {
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
 		return nil, err
 	}
-	for _, def := range list {
-		if def["code"] == id {
-			return def, nil
+	for _, def := range r.widgets.Definitions() {
+		if def.Code == id {
+			return widgetDefinitionRecord(def), nil
 		}
 	}
 	return nil, ErrNotFound
@@ -1541,24 +1506,20 @@ func (r *WidgetDefinitionRepository) Get(ctx context.Context, id string) (map[st
 
 // Create registers a widget definition.
 func (r *WidgetDefinitionRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	if r.widgets == nil {
-		return nil, ErrNotFound
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
+		return nil, err
 	}
 	def := mapToWidgetDefinition(record)
 	if err := r.widgets.RegisterDefinition(ctx, def); err != nil {
 		return nil, err
 	}
-	return map[string]any{
-		"code":   def.Code,
-		"name":   def.Name,
-		"schema": cloneAnyMap(def.Schema),
-	}, nil
+	return widgetDefinitionRecord(def), nil
 }
 
 // Update updates a widget definition (overwrites).
 func (r *WidgetDefinitionRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	if r.widgets == nil {
-		return nil, ErrNotFound
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
+		return nil, err
 	}
 	def := mapToWidgetDefinition(record)
 	if def.Code == "" {
@@ -1567,17 +1528,13 @@ func (r *WidgetDefinitionRepository) Update(ctx context.Context, id string, reco
 	if err := r.widgets.RegisterDefinition(ctx, def); err != nil {
 		return nil, err
 	}
-	return map[string]any{
-		"code":   def.Code,
-		"name":   def.Name,
-		"schema": cloneAnyMap(def.Schema),
-	}, nil
+	return widgetDefinitionRecord(def), nil
 }
 
 // Delete removes a widget definition.
 func (r *WidgetDefinitionRepository) Delete(ctx context.Context, id string) error {
-	if r.widgets == nil {
-		return ErrNotFound
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
+		return err
 	}
 	return r.widgets.DeleteDefinition(ctx, id)
 }
@@ -1594,8 +1551,8 @@ func NewWidgetInstanceRepository(widgets CMSWidgetService) *WidgetInstanceReposi
 
 // List returns widget instances filtered by area/page/locale.
 func (r *WidgetInstanceRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
-	if r.widgets == nil {
-		return nil, 0, ErrNotFound
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
+		return nil, 0, err
 	}
 	filter := WidgetInstanceFilter{
 		Area:   stringFromFilter(opts.Filters, "area"),
@@ -1617,28 +1574,23 @@ func (r *WidgetInstanceRepository) List(ctx context.Context, opts ListOptions) (
 	sliced, total := paginateWidgetInstances(filtered, opts)
 	out := make([]map[string]any, 0, len(sliced))
 	for _, inst := range sliced {
-		out = append(out, map[string]any{
-			"id":              inst.ID,
-			"definition_code": inst.DefinitionCode,
-			"area":            inst.Area,
-			"page_id":         inst.PageID,
-			"locale":          inst.Locale,
-			"config":          cloneAnyMap(inst.Config),
-			"position":        inst.Position,
-		})
+		out = append(out, widgetInstanceRecord(inst))
 	}
 	return out, total, nil
 }
 
 // Get returns a widget instance by id.
 func (r *WidgetInstanceRepository) Get(ctx context.Context, id string) (map[string]any, error) {
-	list, _, err := r.List(ctx, ListOptions{PerPage: 1000})
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
+		return nil, err
+	}
+	instances, err := r.widgets.ListInstances(ctx, WidgetInstanceFilter{})
 	if err != nil {
 		return nil, err
 	}
-	for _, inst := range list {
-		if inst["id"] == id {
-			return inst, nil
+	for _, inst := range instances {
+		if inst.ID == id {
+			return widgetInstanceRecord(inst), nil
 		}
 	}
 	return nil, ErrNotFound
@@ -1646,29 +1598,21 @@ func (r *WidgetInstanceRepository) Get(ctx context.Context, id string) (map[stri
 
 // Create saves a widget instance.
 func (r *WidgetInstanceRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	if r.widgets == nil {
-		return nil, ErrNotFound
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
+		return nil, err
 	}
 	instance := mapToWidgetInstance(record)
 	created, err := r.widgets.SaveInstance(ctx, instance)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{
-		"id":              created.ID,
-		"definition_code": created.DefinitionCode,
-		"area":            created.Area,
-		"page_id":         created.PageID,
-		"locale":          created.Locale,
-		"config":          cloneAnyMap(created.Config),
-		"position":        created.Position,
-	}, nil
+	return widgetInstanceRecord(*created), nil
 }
 
 // Update modifies a widget instance.
 func (r *WidgetInstanceRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	if r.widgets == nil {
-		return nil, ErrNotFound
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
+		return nil, err
 	}
 	instance := mapToWidgetInstance(record)
 	instance.ID = id
@@ -1676,23 +1620,64 @@ func (r *WidgetInstanceRepository) Update(ctx context.Context, id string, record
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{
-		"id":              updated.ID,
-		"definition_code": updated.DefinitionCode,
-		"area":            updated.Area,
-		"page_id":         updated.PageID,
-		"locale":          updated.Locale,
-		"config":          cloneAnyMap(updated.Config),
-		"position":        updated.Position,
-	}, nil
+	return widgetInstanceRecord(*updated), nil
 }
 
 // Delete removes a widget instance.
 func (r *WidgetInstanceRepository) Delete(ctx context.Context, id string) error {
-	if r.widgets == nil {
-		return ErrNotFound
+	if err := ensureCMSWidgetService(r.widgets); err != nil {
+		return err
 	}
 	return r.widgets.DeleteInstance(ctx, id)
+}
+
+func ensureCMSContentService(content CMSContentService) error {
+	if content == nil {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func ensureCMSWidgetService(widgets CMSWidgetService) error {
+	if widgets == nil {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func cmsBlockRecord(block CMSBlock) map[string]any {
+	return map[string]any{
+		"id":               block.ID,
+		"definition_id":    block.DefinitionID,
+		"content_id":       block.ContentID,
+		"region":           block.Region,
+		"locale":           block.Locale,
+		"status":           block.Status,
+		"position":         block.Position,
+		"data":             cloneAnyMap(block.Data),
+		"block_type":       block.BlockType,
+		"block_schema_key": block.BlockSchemaKey,
+	}
+}
+
+func widgetDefinitionRecord(def WidgetDefinition) map[string]any {
+	return map[string]any{
+		"code":   def.Code,
+		"name":   def.Name,
+		"schema": cloneAnyMap(def.Schema),
+	}
+}
+
+func widgetInstanceRecord(instance WidgetInstance) map[string]any {
+	return map[string]any{
+		"id":              instance.ID,
+		"definition_code": instance.DefinitionCode,
+		"area":            instance.Area,
+		"page_id":         instance.PageID,
+		"locale":          instance.Locale,
+		"config":          cloneAnyMap(instance.Config),
+		"position":        instance.Position,
+	}
 }
 
 type cmsCommonRecordFields struct {
@@ -2225,6 +2210,11 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 	} else if raw, ok := record["force"]; ok {
 		ct.AllowBreakingChanges = toBool(raw)
 	}
+	if raw, ok := record["replace_capabilities"]; ok {
+		ct.ReplaceCapabilities = toBool(raw)
+	} else if raw, ok := record["replaceCapabilities"]; ok {
+		ct.ReplaceCapabilities = toBool(raw)
+	}
 	if env, ok := record["environment"].(string); ok {
 		ct.Environment = env
 	} else if env, ok := record["env"].(string); ok && ct.Environment == "" {
@@ -2257,6 +2247,19 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 		}
 	}
 	return ct
+}
+
+func capabilitiesReplaceRequested(record map[string]any) bool {
+	if record == nil {
+		return false
+	}
+	if raw, ok := record["replace_capabilities"]; ok {
+		return toBool(raw)
+	}
+	if raw, ok := record["replaceCapabilities"]; ok {
+		return toBool(raw)
+	}
+	return false
 }
 
 func mergeCMSContentTypeSchema(base, incoming map[string]any) map[string]any {
