@@ -5,83 +5,29 @@ import (
 	"errors"
 	"testing"
 
+	cmswidgets "github.com/goliatone/go-cms/widgets"
 	"github.com/google/uuid"
 )
 
-type stubGoCMSWidgetDefinition struct {
-	ID          uuid.UUID
-	Name        string
-	Description *string
-	Schema      map[string]any
-}
-
-type stubRegisterWidgetDefinitionInput struct {
-	Name        string
-	Description *string
-	Schema      map[string]any
-}
-
-type stubGoCMSWidgetInstance struct {
-	ID            uuid.UUID
-	DefinitionID  uuid.UUID
-	AreaCode      *string
-	Configuration map[string]any
-	Position      int
-	Span          int
-	Hidden        bool
-}
-
-type stubCreateWidgetInstanceInput struct {
-	DefinitionID  uuid.UUID
-	AreaCode      *string
-	Position      int
-	Span          int
-	Hidden        bool
-	Configuration map[string]any
-	CreatedBy     uuid.UUID
-	UpdatedBy     uuid.UUID
-}
-
-type stubGoCMSWidgetAreaDefinition struct {
-	Code  string
-	Name  string
-	Scope string
-}
-
-type stubRegisterWidgetAreaDefinitionInput struct {
-	Code  string
-	Name  string
-	Scope string
-}
-
-type stubDeleteWidgetInstanceRequest struct {
-	InstanceID uuid.UUID
-	DeletedBy  uuid.UUID
-	HardDelete bool
-}
-
-type stubDeleteWidgetDefinitionRequest struct {
-	ID         uuid.UUID
-	HardDelete bool
-}
-
 type stubGoCMSWidgetService struct {
-	defs                  map[string]*stubGoCMSWidgetDefinition
-	instances             map[uuid.UUID]*stubGoCMSWidgetInstance
-	areas                 map[string]*stubGoCMSWidgetAreaDefinition
+	defs                  map[string]*cmswidgets.Definition
+	instances             map[uuid.UUID]*cmswidgets.Instance
+	areas                 map[string]*cmswidgets.AreaDefinition
+	placementsByArea      map[string]map[uuid.UUID]*cmswidgets.AreaPlacement
 	forceEmptyDefinitions bool
 	forceEmptyListAll     bool
 }
 
 func newStubGoCMSWidgetService() *stubGoCMSWidgetService {
 	return &stubGoCMSWidgetService{
-		defs:      map[string]*stubGoCMSWidgetDefinition{},
-		instances: map[uuid.UUID]*stubGoCMSWidgetInstance{},
-		areas:     map[string]*stubGoCMSWidgetAreaDefinition{},
+		defs:             map[string]*cmswidgets.Definition{},
+		instances:        map[uuid.UUID]*cmswidgets.Instance{},
+		areas:            map[string]*cmswidgets.AreaDefinition{},
+		placementsByArea: map[string]map[uuid.UUID]*cmswidgets.AreaPlacement{},
 	}
 }
 
-func (s *stubGoCMSWidgetService) RegisterDefinition(_ context.Context, input stubRegisterWidgetDefinitionInput) (*stubGoCMSWidgetDefinition, error) {
+func (s *stubGoCMSWidgetService) RegisterDefinition(_ context.Context, input cmswidgets.RegisterDefinitionInput) (*cmswidgets.Definition, error) {
 	if input.Name == "" {
 		return nil, errors.New("name required")
 	}
@@ -91,28 +37,17 @@ func (s *stubGoCMSWidgetService) RegisterDefinition(_ context.Context, input stu
 	if _, ok := s.defs[input.Name]; ok {
 		return nil, errors.New("definition exists")
 	}
-	def := &stubGoCMSWidgetDefinition{
+	def := &cmswidgets.Definition{
 		ID:          uuid.New(),
 		Name:        input.Name,
 		Description: input.Description,
-		Schema:      input.Schema,
+		Schema:      cloneAnyMap(input.Schema),
 	}
 	s.defs[input.Name] = def
 	return def, nil
 }
 
-func (s *stubGoCMSWidgetService) ListDefinitions(_ context.Context) ([]*stubGoCMSWidgetDefinition, error) {
-	if s.forceEmptyDefinitions {
-		return []*stubGoCMSWidgetDefinition{}, nil
-	}
-	out := make([]*stubGoCMSWidgetDefinition, 0, len(s.defs))
-	for _, d := range s.defs {
-		out = append(out, d)
-	}
-	return out, nil
-}
-
-func (s *stubGoCMSWidgetService) GetDefinition(_ context.Context, id uuid.UUID) (*stubGoCMSWidgetDefinition, error) {
+func (s *stubGoCMSWidgetService) GetDefinition(_ context.Context, id uuid.UUID) (*cmswidgets.Definition, error) {
 	for _, def := range s.defs {
 		if def.ID == id {
 			return def, nil
@@ -121,7 +56,18 @@ func (s *stubGoCMSWidgetService) GetDefinition(_ context.Context, id uuid.UUID) 
 	return nil, errors.New("not found")
 }
 
-func (s *stubGoCMSWidgetService) DeleteDefinition(_ context.Context, req stubDeleteWidgetDefinitionRequest) error {
+func (s *stubGoCMSWidgetService) ListDefinitions(_ context.Context) ([]*cmswidgets.Definition, error) {
+	if s.forceEmptyDefinitions {
+		return []*cmswidgets.Definition{}, nil
+	}
+	out := make([]*cmswidgets.Definition, 0, len(s.defs))
+	for _, d := range s.defs {
+		out = append(out, d)
+	}
+	return out, nil
+}
+
+func (s *stubGoCMSWidgetService) DeleteDefinition(_ context.Context, req cmswidgets.DeleteDefinitionRequest) error {
 	for key, def := range s.defs {
 		if def.ID == req.ID {
 			delete(s.defs, key)
@@ -131,66 +77,28 @@ func (s *stubGoCMSWidgetService) DeleteDefinition(_ context.Context, req stubDel
 	return errors.New("not found")
 }
 
-func (s *stubGoCMSWidgetService) RegisterAreaDefinition(_ context.Context, input stubRegisterWidgetAreaDefinitionInput) (*stubGoCMSWidgetAreaDefinition, error) {
-	if input.Code == "" {
-		return nil, errors.New("code required")
-	}
-	area := &stubGoCMSWidgetAreaDefinition{
-		Code:  input.Code,
-		Name:  input.Name,
-		Scope: input.Scope,
-	}
-	s.areas[input.Code] = area
-	return area, nil
-}
-
-func (s *stubGoCMSWidgetService) ListAreaDefinitions(_ context.Context) ([]*stubGoCMSWidgetAreaDefinition, error) {
-	out := make([]*stubGoCMSWidgetAreaDefinition, 0, len(s.areas))
-	for _, a := range s.areas {
-		out = append(out, a)
-	}
-	return out, nil
-}
-
-func (s *stubGoCMSWidgetService) CreateInstance(_ context.Context, input stubCreateWidgetInstanceInput) (*stubGoCMSWidgetInstance, error) {
+func (s *stubGoCMSWidgetService) CreateInstance(_ context.Context, input cmswidgets.CreateInstanceInput) (*cmswidgets.Instance, error) {
 	if input.DefinitionID == uuid.Nil {
 		return nil, errors.New("definition required")
 	}
-	inst := &stubGoCMSWidgetInstance{
+	inst := &cmswidgets.Instance{
 		ID:            uuid.New(),
 		DefinitionID:  input.DefinitionID,
 		AreaCode:      input.AreaCode,
-		Configuration: input.Configuration,
+		Placement:     cloneAnyMap(input.Placement),
+		Configuration: cloneAnyMap(input.Configuration),
 		Position:      input.Position,
-		Span:          input.Span,
-		Hidden:        input.Hidden,
 	}
 	s.instances[inst.ID] = inst
 	return inst, nil
 }
 
-func (s *stubGoCMSWidgetService) UpdateInstance(_ context.Context, _ any) (*stubGoCMSWidgetInstance, error) {
+func (s *stubGoCMSWidgetService) UpdateInstance(_ context.Context, _ cmswidgets.UpdateInstanceInput) (*cmswidgets.Instance, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubGoCMSWidgetService) DeleteInstance(_ context.Context, req stubDeleteWidgetInstanceRequest) error {
-	delete(s.instances, req.InstanceID)
-	return nil
-}
-
-func (s *stubGoCMSWidgetService) ListAllInstances(_ context.Context) ([]*stubGoCMSWidgetInstance, error) {
-	if s.forceEmptyListAll {
-		return []*stubGoCMSWidgetInstance{}, nil
-	}
-	out := make([]*stubGoCMSWidgetInstance, 0, len(s.instances))
-	for _, inst := range s.instances {
-		out = append(out, inst)
-	}
-	return out, nil
-}
-
-func (s *stubGoCMSWidgetService) ListInstancesByDefinition(_ context.Context, definitionID uuid.UUID) ([]*stubGoCMSWidgetInstance, error) {
-	out := make([]*stubGoCMSWidgetInstance, 0, len(s.instances))
+func (s *stubGoCMSWidgetService) ListInstancesByDefinition(_ context.Context, definitionID uuid.UUID) ([]*cmswidgets.Instance, error) {
+	out := make([]*cmswidgets.Instance, 0, len(s.instances))
 	for _, inst := range s.instances {
 		if inst.DefinitionID == definitionID {
 			out = append(out, inst)
@@ -199,14 +107,110 @@ func (s *stubGoCMSWidgetService) ListInstancesByDefinition(_ context.Context, de
 	return out, nil
 }
 
-func (s *stubGoCMSWidgetService) ListInstancesByArea(_ context.Context, area string) ([]*stubGoCMSWidgetInstance, error) {
-	out := []*stubGoCMSWidgetInstance{}
+func (s *stubGoCMSWidgetService) ListInstancesByArea(_ context.Context, areaCode string) ([]*cmswidgets.Instance, error) {
+	out := make([]*cmswidgets.Instance, 0, len(s.instances))
 	for _, inst := range s.instances {
-		if inst.AreaCode != nil && *inst.AreaCode == area {
+		if inst.AreaCode != nil && *inst.AreaCode == areaCode {
 			out = append(out, inst)
 		}
 	}
 	return out, nil
+}
+
+func (s *stubGoCMSWidgetService) ListAllInstances(_ context.Context) ([]*cmswidgets.Instance, error) {
+	if s.forceEmptyListAll {
+		return []*cmswidgets.Instance{}, nil
+	}
+	out := make([]*cmswidgets.Instance, 0, len(s.instances))
+	for _, inst := range s.instances {
+		out = append(out, inst)
+	}
+	return out, nil
+}
+
+func (s *stubGoCMSWidgetService) DeleteInstance(_ context.Context, req cmswidgets.DeleteInstanceRequest) error {
+	delete(s.instances, req.InstanceID)
+	for area, placements := range s.placementsByArea {
+		delete(placements, req.InstanceID)
+		if len(placements) == 0 {
+			delete(s.placementsByArea, area)
+		}
+	}
+	return nil
+}
+
+func (s *stubGoCMSWidgetService) RegisterAreaDefinition(_ context.Context, input cmswidgets.RegisterAreaDefinitionInput) (*cmswidgets.AreaDefinition, error) {
+	if input.Code == "" {
+		return nil, errors.New("code required")
+	}
+	area := &cmswidgets.AreaDefinition{
+		ID:    uuid.New(),
+		Code:  input.Code,
+		Name:  input.Name,
+		Scope: input.Scope,
+	}
+	s.areas[input.Code] = area
+	return area, nil
+}
+
+func (s *stubGoCMSWidgetService) ListAreaDefinitions(_ context.Context) ([]*cmswidgets.AreaDefinition, error) {
+	out := make([]*cmswidgets.AreaDefinition, 0, len(s.areas))
+	for _, area := range s.areas {
+		out = append(out, area)
+	}
+	return out, nil
+}
+
+func (s *stubGoCMSWidgetService) AssignWidgetToArea(_ context.Context, input cmswidgets.AssignWidgetToAreaInput) ([]*cmswidgets.AreaPlacement, error) {
+	inst, ok := s.instances[input.InstanceID]
+	if !ok {
+		return nil, errors.New("instance not found")
+	}
+	if _, ok := s.placementsByArea[input.AreaCode]; !ok {
+		s.placementsByArea[input.AreaCode] = map[uuid.UUID]*cmswidgets.AreaPlacement{}
+	}
+	if _, exists := s.placementsByArea[input.AreaCode][input.InstanceID]; exists {
+		return nil, cmswidgets.ErrAreaPlacementExists
+	}
+	position := len(s.placementsByArea[input.AreaCode])
+	if input.Position != nil {
+		position = *input.Position
+	}
+	placement := &cmswidgets.AreaPlacement{
+		ID:         uuid.New(),
+		AreaCode:   input.AreaCode,
+		LocaleID:   input.LocaleID,
+		InstanceID: input.InstanceID,
+		Position:   position,
+		Metadata:   cloneAnyMap(input.Metadata),
+	}
+	s.placementsByArea[input.AreaCode][input.InstanceID] = placement
+	areaCode := input.AreaCode
+	inst.AreaCode = &areaCode
+	inst.Position = position
+	return []*cmswidgets.AreaPlacement{placement}, nil
+}
+
+func (s *stubGoCMSWidgetService) ResolveArea(_ context.Context, input cmswidgets.ResolveAreaInput) ([]*cmswidgets.ResolvedWidget, error) {
+	placements := s.placementsByArea[input.AreaCode]
+	if len(placements) == 0 {
+		return []*cmswidgets.ResolvedWidget{}, nil
+	}
+	out := make([]*cmswidgets.ResolvedWidget, 0, len(placements))
+	for instanceID, placement := range placements {
+		inst, ok := s.instances[instanceID]
+		if !ok {
+			continue
+		}
+		out = append(out, &cmswidgets.ResolvedWidget{Instance: inst, Placement: placement})
+	}
+	return out, nil
+}
+
+func TestNewGoCMSWidgetAdapterRejectsIncompatibleService(t *testing.T) {
+	if adapter := NewGoCMSWidgetAdapter(struct{}{}); adapter != nil {
+		t.Fatalf("expected nil adapter for incompatible service")
+	}
 }
 
 func TestGoCMSWidgetAdapterRegistersDefinitionUsingCode(t *testing.T) {
@@ -266,7 +270,7 @@ func TestGoCMSWidgetAdapterSaveInstanceRefreshesDefinitions(t *testing.T) {
 	adapter := NewGoCMSWidgetAdapter(svc)
 
 	code := "admin.widget.existing"
-	svc.defs[code] = &stubGoCMSWidgetDefinition{
+	svc.defs[code] = &cmswidgets.Definition{
 		ID:     uuid.New(),
 		Name:   code,
 		Schema: map[string]any{"fields": []any{}},
@@ -308,7 +312,6 @@ func TestDashboardRegisterProviderSeedsDefaultInstanceWithGoCMSWidgetAdapter(t *
 		t.Fatalf("expected 1 widget instance, got %d", len(svc.instances))
 	}
 
-	// Sanity: ensure adapter can read the instance back with correct code mapping.
 	listed, err := widgetSvc.ListInstances(ctx, WidgetInstanceFilter{Area: "admin.dashboard.main"})
 	if err != nil {
 		t.Fatalf("list instances: %v", err)
@@ -322,13 +325,12 @@ func TestDashboardRegisterProviderSkipsSeedingWhenDefinitionHasExistingInstance(
 	ctx := context.Background()
 	svc := newStubGoCMSWidgetService()
 	defID := uuid.New()
-	svc.defs["admin.widget.seed_test"] = &stubGoCMSWidgetDefinition{
+	svc.defs["admin.widget.seed_test"] = &cmswidgets.Definition{
 		ID:     defID,
 		Name:   "admin.widget.seed_test",
 		Schema: map[string]any{"fields": []any{}},
 	}
-	// Existing widget has no area assignment. Default-area filtering would miss this.
-	svc.instances[uuid.New()] = &stubGoCMSWidgetInstance{
+	svc.instances[uuid.New()] = &cmswidgets.Instance{
 		ID:            uuid.New(),
 		DefinitionID:  defID,
 		AreaCode:      nil,
@@ -361,20 +363,27 @@ func TestGoCMSWidgetAdapterListInstancesResolvesDefinitionCodeByID(t *testing.T)
 	ctx := context.Background()
 	svc := newStubGoCMSWidgetService()
 	defID := uuid.New()
-	svc.defs["admin.widget.lazy_resolve"] = &stubGoCMSWidgetDefinition{
+	svc.defs["admin.widget.lazy_resolve"] = &cmswidgets.Definition{
 		ID:     defID,
 		Name:   "admin.widget.lazy_resolve",
 		Schema: map[string]any{"fields": []any{}},
 	}
 	area := "admin.dashboard.main"
 	instID := uuid.New()
-	svc.instances[instID] = &stubGoCMSWidgetInstance{
+	svc.instances[instID] = &cmswidgets.Instance{
 		ID:            instID,
 		DefinitionID:  defID,
 		AreaCode:      &area,
 		Configuration: map[string]any{},
 	}
-	// Simulate truncated ListDefinitions so ID->code lookup must use GetDefinition.
+	svc.placementsByArea[area] = map[uuid.UUID]*cmswidgets.AreaPlacement{
+		instID: {
+			ID:         uuid.New(),
+			AreaCode:   area,
+			InstanceID: instID,
+			Position:   0,
+		},
+	}
 	svc.forceEmptyDefinitions = true
 	adapter := NewGoCMSWidgetAdapter(svc)
 
@@ -387,5 +396,23 @@ func TestGoCMSWidgetAdapterListInstancesResolvesDefinitionCodeByID(t *testing.T)
 	}
 	if instances[0].DefinitionCode != "admin.widget.lazy_resolve" {
 		t.Fatalf("expected resolved definition code, got %q", instances[0].DefinitionCode)
+	}
+}
+
+func TestGoCMSWidgetAdapterSaveInstanceWithNilContext(t *testing.T) {
+	svc := newStubGoCMSWidgetService()
+	adapter := NewGoCMSWidgetAdapter(svc)
+
+	code := "admin.widget.nil_ctx"
+	if err := adapter.RegisterDefinition(nil, WidgetDefinition{Code: code, Name: "Nil Context"}); err != nil {
+		t.Fatalf("register definition: %v", err)
+	}
+
+	inst, err := adapter.SaveInstance(nil, WidgetInstance{DefinitionCode: code, Area: "admin.dashboard.main"})
+	if err != nil {
+		t.Fatalf("save instance with nil context: %v", err)
+	}
+	if inst == nil || inst.DefinitionCode != code {
+		t.Fatalf("expected instance definition code %q, got %+v", code, inst)
 	}
 }

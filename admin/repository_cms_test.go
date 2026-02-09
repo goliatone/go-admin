@@ -541,3 +541,99 @@ func TestCMSContentTypeRepositoryUpdatePreservesOptionalFieldsWhenOmitted(t *tes
 		t.Fatalf("expected icon preserved, got %+v", updated["icon"])
 	}
 }
+
+func TestCMSContentTypeRepositoryUpdateMergesCapabilitiesByDefault(t *testing.T) {
+	content := NewInMemoryContentService()
+	repo := NewCMSContentTypeRepository(content)
+	ctx := context.Background()
+	schema := map[string]any{"fields": []map[string]any{{"name": "title", "type": "string"}}}
+	created, err := repo.Create(ctx, map[string]any{
+		"name":   "Page",
+		"slug":   "page",
+		"schema": schema,
+		"capabilities": map[string]any{
+			"panel_slug":  "pages",
+			"workflow":    "pages",
+			"permissions": "admin.pages",
+			"seo":         true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	id := toString(created["id"])
+	updated, err := repo.Update(ctx, id, map[string]any{
+		"icon": "page",
+		"capabilities": map[string]any{
+			"seo":    false,
+			"blocks": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	caps, ok := updated["capabilities"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected capabilities map, got %#v", updated["capabilities"])
+	}
+	if caps["panel_slug"] != "pages" {
+		t.Fatalf("expected panel_slug preserved, got %#v", caps["panel_slug"])
+	}
+	if caps["workflow"] != "pages" {
+		t.Fatalf("expected workflow preserved, got %#v", caps["workflow"])
+	}
+	if caps["permissions"] != "admin.pages" {
+		t.Fatalf("expected permissions preserved, got %#v", caps["permissions"])
+	}
+	if caps["seo"] != false {
+		t.Fatalf("expected seo updated to false, got %#v", caps["seo"])
+	}
+	if caps["blocks"] != true {
+		t.Fatalf("expected blocks added, got %#v", caps["blocks"])
+	}
+}
+
+func TestCMSContentTypeRepositoryUpdateCanReplaceCapabilities(t *testing.T) {
+	content := NewInMemoryContentService()
+	repo := NewCMSContentTypeRepository(content)
+	ctx := context.Background()
+	schema := map[string]any{"fields": []map[string]any{{"name": "title", "type": "string"}}}
+	created, err := repo.Create(ctx, map[string]any{
+		"name":   "Page",
+		"slug":   "page",
+		"schema": schema,
+		"capabilities": map[string]any{
+			"panel_slug":  "pages",
+			"workflow":    "pages",
+			"permissions": "admin.pages",
+			"seo":         true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	id := toString(created["id"])
+	updated, err := repo.Update(ctx, id, map[string]any{
+		"capabilities": map[string]any{
+			"seo": false,
+		},
+		"replace_capabilities": true,
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	caps, ok := updated["capabilities"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected capabilities map, got %#v", updated["capabilities"])
+	}
+	if len(caps) != 1 {
+		t.Fatalf("expected replaced capabilities with one key, got %#v", caps)
+	}
+	if caps["seo"] != false {
+		t.Fatalf("expected seo=false after replace, got %#v", caps["seo"])
+	}
+}
