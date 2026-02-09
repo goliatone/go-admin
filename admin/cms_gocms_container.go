@@ -120,6 +120,19 @@ func resolveGoCMSWidgetService(container any) CMSWidgetService {
 	if container == nil {
 		return nil
 	}
+	if adapted := NewGoCMSWidgetAdapter(container); adapted != nil {
+		return adapted
+	}
+	if provider, ok := container.(interface{ WidgetService() cms.WidgetService }); ok {
+		if adapted := NewGoCMSWidgetAdapter(provider.WidgetService()); adapted != nil {
+			return adapted
+		}
+	}
+	if provider, ok := container.(interface{ Widgets() cms.WidgetService }); ok {
+		if adapted := NewGoCMSWidgetAdapter(provider.Widgets()); adapted != nil {
+			return adapted
+		}
+	}
 	if adapted := NewGoCMSWidgetAdapter(callMethod(container, "WidgetService")); adapted != nil {
 		return adapted
 	}
@@ -135,6 +148,36 @@ func resolveGoCMSContentService(container any) CMSContentService {
 	}
 	if svc, ok := container.(CMSContentService); ok && svc != nil {
 		return svc
+	}
+	if provider, ok := container.(interface{ ContentService() cms.ContentService }); ok {
+		contentSvc := provider.ContentService()
+		var blockSvc any
+		if blockProvider, ok := container.(interface{ BlockService() cms.BlockService }); ok {
+			blockSvc = blockProvider.BlockService()
+		}
+		if blockSvc == nil {
+			if blockProvider, ok := container.(interface{ Blocks() cms.BlockService }); ok {
+				blockSvc = blockProvider.Blocks()
+			}
+		}
+		if adapted := NewGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
+			return adapted
+		}
+	}
+	if provider, ok := container.(interface{ Content() cms.ContentService }); ok {
+		contentSvc := provider.Content()
+		var blockSvc any
+		if blockProvider, ok := container.(interface{ Blocks() cms.BlockService }); ok {
+			blockSvc = blockProvider.Blocks()
+		}
+		if blockSvc == nil {
+			if blockProvider, ok := container.(interface{ BlockService() cms.BlockService }); ok {
+				blockSvc = blockProvider.BlockService()
+			}
+		}
+		if adapted := NewGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
+			return adapted
+		}
 	}
 	if svc, ok := callMethod(container, "ContentService").(CMSContentService); ok && svc != nil {
 		return svc
@@ -162,6 +205,16 @@ func resolveGoCMSContentTypeService(container any) CMSContentTypeService {
 	}
 	if svc, ok := container.(CMSContentTypeService); ok && svc != nil {
 		return svc
+	}
+	if provider, ok := container.(interface{ ContentTypes() cms.ContentTypeService }); ok {
+		if adapted := NewGoCMSContentTypeAdapter(provider.ContentTypes()); adapted != nil {
+			return adapted
+		}
+	}
+	if provider, ok := container.(interface{ ContentTypeService() cms.ContentTypeService }); ok {
+		if adapted := NewGoCMSContentTypeAdapter(provider.ContentTypeService()); adapted != nil {
+			return adapted
+		}
 	}
 	if adapted := NewGoCMSContentTypeAdapter(callMethod(container, "ContentTypeService")); adapted != nil {
 		return adapted
