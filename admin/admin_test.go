@@ -380,6 +380,87 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 	})
 }
 
+func TestPanelRoutesActionPayloadValidation(t *testing.T) {
+	registry.WithTestRegistry(func() {
+		cfg := Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		}
+		adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
+		defer adm.Commands().Reset()
+		server := router.NewHTTPServer()
+		r := server.Router()
+
+		repo := NewMemoryRepository()
+		cmd := &calledCommand{}
+		if _, err := RegisterCommand(adm.Commands(), cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(adm.Commands(), "items.refresh", func(payload map[string]any, ids []string) (calledCommandMsg, error) {
+			return calledCommandMsg{Payload: payload}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
+
+		builder := (&PanelBuilder{}).
+			WithRepository(repo).
+			ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+			FormFields(Field{Name: "name", Label: "Name", Type: "text"}).
+			Actions(Action{
+				Name:            "refresh",
+				CommandName:     "items.refresh",
+				PayloadRequired: []string{"source"},
+				PayloadSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"source": map[string]any{"type": "string"},
+					},
+					"required":             []any{"source"},
+					"additionalProperties": true,
+				},
+			})
+		if _, err := adm.RegisterPanel("items", builder); err != nil {
+			t.Fatalf("register panel: %v", err)
+		}
+		if err := adm.Initialize(r); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
+
+		req := httptest.NewRequest("POST", "/admin/api/items/actions/refresh", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("expected validation status 400, got %d body=%s", rr.Code, rr.Body.String())
+		}
+		if cmd.called {
+			t.Fatalf("command should not execute on payload validation error")
+		}
+
+		req = httptest.NewRequest("POST", "/admin/api/items/actions/refresh", strings.NewReader(`{"source": 1}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 400 {
+			t.Fatalf("expected schema validation status 400, got %d body=%s", rr.Code, rr.Body.String())
+		}
+		if cmd.called {
+			t.Fatalf("command should not execute on schema validation error")
+		}
+
+		req = httptest.NewRequest("POST", "/admin/api/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("expected success status 200, got %d body=%s", rr.Code, rr.Body.String())
+		}
+		if !cmd.called {
+			t.Fatalf("expected command execution for valid payload")
+		}
+	})
+}
+
 func TestNotificationsRoutes(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
@@ -578,7 +659,7 @@ func TestBulkRoute(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 
-	req := httptest.NewRequest("POST", "/admin/api/bulk", strings.NewReader(`{"name":"cleanup","total":5}`))
+	req := httptest.NewRequest("POST", "/admin/api/bulk", strings.NewReader(`{"name":"cleanup","total":5,"source":"tests","ref":"job-123"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -606,6 +687,16 @@ func TestBulkRoute(t *testing.T) {
 	}
 	if status, _ := first["status"].(string); status == "" {
 		t.Fatalf("expected status in job payload")
+	}
+	payload, _ := first["payload"].(map[string]any)
+	if payload == nil {
+		t.Fatalf("expected payload metadata in bulk job")
+	}
+	if source, _ := payload["source"].(string); source != "tests" {
+		t.Fatalf("expected payload source metadata, got %v", payload["source"])
+	}
+	if ref, _ := payload["ref"].(string); ref != "job-123" {
+		t.Fatalf("expected payload ref metadata, got %v", payload["ref"])
 	}
 	id, _ := first["id"].(string)
 	if id == "" {
