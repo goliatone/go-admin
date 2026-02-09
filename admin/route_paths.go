@@ -186,3 +186,7 @@ func ensureLeadingSlashPath(path string) string {
 	}
 	return "/" + path
 }
+
+func ensureLeadingSlash(path string) string {
+	return ensureLeadingSlashPath(strings.TrimSpace(path))
+}
