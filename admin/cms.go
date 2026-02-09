@@ -9,9 +9,6 @@ import (
 // CMSContainer abstracts CMS services used by admin.
 type CMSContainer = cmsboot.CMSContainer
 
-// GoCMSMenuProvider exposes a raw go-cms menu service for adapter wiring.
-type GoCMSMenuProvider = cmsboot.GoCMSMenuProvider
-
 // CMSWidgetService registers dashboard widget areas/definitions.
 type CMSWidgetService = cmsboot.CMSWidgetService
 
@@ -120,11 +117,6 @@ func (a *Admin) UseCMS(container CMSContainer) *Admin {
 		a.widgetSvc = prevWidget
 	}
 	menuSvc := container.MenuService()
-	if provider, ok := container.(GoCMSMenuProvider); ok {
-		if svc := provider.GoCMSMenuService(); svc != nil {
-			menuSvc = NewGoCMSMenuAdapterFromAny(svc)
-		}
-	}
 	if menuSvc == nil {
 		menuSvc = prevMenu
 	}
