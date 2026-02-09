@@ -1137,7 +1137,7 @@ func (v *FormgenSchemaValidator) RenderForm(ctx context.Context, schema map[stri
 		}
 		formID = slug + defaultFormIDOperationSuffix
 	}
-	doc, err := schemaDocumentFromMap(stripUnsupportedSchemaKeywords(schema))
+	doc, err := schemaDocumentFromMap(prepareSchemaForFormgen(schema))
 	if err != nil {
 		return "", err
 	}
@@ -1191,7 +1191,7 @@ func (v *FormgenSchemaValidator) generate(ctx context.Context, schema map[string
 	if err != nil {
 		return nil, err
 	}
-	doc, err := schemaDocumentFromMap(stripUnsupportedSchemaKeywords(schema))
+	doc, err := schemaDocumentFromMap(prepareSchemaForFormgen(schema))
 	if err != nil {
 		return nil, err
 	}
@@ -1286,6 +1286,270 @@ func stripUnsupportedSchemaKeywords(schema map[string]any) map[string]any {
 		return out
 	}
 	return schema
+}
+
+func prepareSchemaForFormgen(schema map[string]any) map[string]any {
+	return normalizeFormgenSchemaCompatibility(stripUnsupportedSchemaKeywords(schema))
+}
+
+func normalizeFormgenSchemaCompatibility(schema map[string]any) map[string]any {
+	if schema == nil {
+		return nil
+	}
+	out := deepCloneAnyMap(schema)
+	normalizeFormgenSchemaValue(out)
+	return out
+}
+
+func deepCloneAnyMap(in map[string]any) map[string]any {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = deepCloneAnyValue(value)
+	}
+	return out
+}
+
+func deepCloneAnyValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return deepCloneAnyMap(typed)
+	case []any:
+		out := make([]any, len(typed))
+		for i := range typed {
+			out[i] = deepCloneAnyValue(typed[i])
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+func normalizeFormgenSchemaValue(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		if isOneOfArraySchema(typed) {
+			normalizeBlockPickerWidgetHints(typed)
+		}
+		for _, child := range typed {
+			normalizeFormgenSchemaValue(child)
+		}
+	case []any:
+		for _, child := range typed {
+			normalizeFormgenSchemaValue(child)
+		}
+	}
+}
+
+func isOneOfArraySchema(node map[string]any) bool {
+	if node == nil {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(toString(node["type"])), "array") {
+		return false
+	}
+	items, ok := node["items"].(map[string]any)
+	if !ok || items == nil {
+		return false
+	}
+	oneOf, ok := items["oneOf"].([]any)
+	return ok && len(oneOf) > 0
+}
+
+func normalizeBlockPickerWidgetHints(node map[string]any) {
+	if node == nil {
+		return
+	}
+	if !hasBlockLibraryWidgetHint(node) {
+		return
+	}
+	items, _ := node["items"].(map[string]any)
+	if items == nil {
+		return
+	}
+	oneOf, _ := items["oneOf"].([]any)
+	allowed := extractAllowedBlockTypes(oneOf)
+	if len(oneOf) > 0 {
+		delete(items, "oneOf")
+		if strings.TrimSpace(toString(items["type"])) == "" {
+			items["type"] = "object"
+		}
+	}
+	ensureAllowedBlocksConfig(node, allowed)
+	ensureBlockPickerComponentHints(node, allowed)
+}
+
+func hasBlockLibraryWidgetHint(node map[string]any) bool {
+	if node == nil {
+		return false
+	}
+	if hasWidgetInMap(node, "x-formgen") || hasWidgetInMap(node, "x-admin") {
+		return true
+	}
+	return isBlockLibraryWidget(node["x-formgen-widget"]) || isBlockLibraryWidget(node["x-admin-widget"])
+}
+
+func hasWidgetInMap(node map[string]any, key string) bool {
+	raw, ok := node[key]
+	if !ok || raw == nil {
+		return false
+	}
+	mapped, ok := raw.(map[string]any)
+	if !ok || mapped == nil {
+		return false
+	}
+	return isBlockLibraryWidget(mapped["widget"])
+}
+
+func ensureAllowedBlocksConfig(node map[string]any, allowed []string) {
+	if len(allowed) == 0 || node == nil {
+		return
+	}
+	for _, key := range []string{"x-formgen", "x-admin"} {
+		raw, ok := node[key]
+		if !ok || raw == nil {
+			continue
+		}
+		mapped, ok := raw.(map[string]any)
+		if !ok || mapped == nil || !isBlockLibraryWidget(mapped["widget"]) {
+			continue
+		}
+		if _, exists := mapped["allowedBlocks"]; !exists {
+			mapped["allowedBlocks"] = append([]string{}, allowed...)
+		}
+	}
+}
+
+func ensureBlockPickerComponentHints(node map[string]any, allowed []string) {
+	if node == nil {
+		return
+	}
+	formgen := ensureExtensionObject(node, "x-formgen")
+	if formgen == nil {
+		return
+	}
+	if _, ok := formgen["widget"]; !ok {
+		formgen["widget"] = "block-library-picker"
+	}
+	if strings.TrimSpace(toString(formgen["component.name"])) == "" {
+		formgen["component.name"] = "block-library-picker"
+	}
+	config := ensureComponentConfigObject(formgen)
+	if len(allowed) > 0 {
+		if _, exists := config["allowedBlocks"]; !exists {
+			config["allowedBlocks"] = append([]string{}, allowed...)
+		}
+	}
+	if _, exists := config["includeInactive"]; !exists {
+		config["includeInactive"] = true
+	}
+	if len(config) > 0 {
+		formgen["component.config"] = config
+	}
+}
+
+func ensureExtensionObject(node map[string]any, key string) map[string]any {
+	if node == nil {
+		return nil
+	}
+	if raw, ok := node[key]; ok {
+		if mapped, ok := raw.(map[string]any); ok && mapped != nil {
+			return mapped
+		}
+	}
+	mapped := map[string]any{}
+	node[key] = mapped
+	return mapped
+}
+
+func ensureComponentConfigObject(ext map[string]any) map[string]any {
+	if ext == nil {
+		return map[string]any{}
+	}
+	if raw, ok := ext["component.config"]; ok {
+		switch value := raw.(type) {
+		case map[string]any:
+			if value != nil {
+				return value
+			}
+		case string:
+			parsed := map[string]any{}
+			if strings.TrimSpace(value) != "" && json.Unmarshal([]byte(value), &parsed) == nil {
+				return parsed
+			}
+		}
+	}
+	return map[string]any{}
+}
+
+func extractAllowedBlockTypes(oneOf []any) []string {
+	if len(oneOf) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(oneOf))
+	add := func(value string) {
+		trimmed := strings.TrimSpace(value)
+		for _, candidate := range blockTypeAliasCandidates(trimmed) {
+			if candidate == "" || seen[candidate] {
+				continue
+			}
+			seen[candidate] = true
+			out = append(out, candidate)
+		}
+	}
+	for _, entry := range oneOf {
+		item, ok := entry.(map[string]any)
+		if !ok || item == nil {
+			continue
+		}
+		if ref := strings.TrimSpace(toString(item["$ref"])); ref != "" {
+			parts := strings.Split(ref, "/")
+			add(parts[len(parts)-1])
+			continue
+		}
+		props, _ := item["properties"].(map[string]any)
+		if props == nil {
+			continue
+		}
+		typeProp, _ := props["_type"].(map[string]any)
+		if typeProp == nil {
+			continue
+		}
+		add(toString(typeProp["const"]))
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func blockTypeAliasCandidates(value string) []string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := []string{}
+	add := func(candidate string) {
+		key := strings.TrimSpace(candidate)
+		if key == "" || seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, key)
+	}
+	add(trimmed)
+	add(strings.ReplaceAll(trimmed, "-", "_"))
+	add(strings.ReplaceAll(trimmed, "_", "-"))
+	return out
+}
+
+func isBlockLibraryWidget(raw any) bool {
+	widget := strings.TrimSpace(strings.ToLower(toString(raw)))
+	return widget == "block-library-picker" || widget == "block-library"
 }
 
 func stripUnsupportedSchemaValue(value any, inProperties bool) any {
