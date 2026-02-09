@@ -116,16 +116,31 @@ func resolveBlockString(config map[string]any, hints map[string]string, key stri
 	if config != nil {
 		if raw, ok := config[key]; ok {
 			if value, ok := raw.(string); ok {
-				return strings.TrimSpace(value)
+				if normalized, ok := normalizeBlockStringValue(value); ok {
+					return normalized
+				}
 			}
 		}
 	}
 	if hints != nil {
-		if value := strings.TrimSpace(hints[key]); value != "" {
-			return value
+		if normalized, ok := normalizeBlockStringValue(hints[key]); ok {
+			return normalized
 		}
 	}
 	return fallback
+}
+
+func normalizeBlockStringValue(raw string) (string, bool) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", false
+	}
+	switch strings.ToLower(value) {
+	case "true", "false":
+		return "", false
+	default:
+		return value, true
+	}
 }
 
 func blockDefinitionsFromField(field model.Field, renderChild func(any) (string, error)) ([]blockDefinition, error) {
