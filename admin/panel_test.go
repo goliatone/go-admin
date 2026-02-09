@@ -311,3 +311,40 @@ func TestPanelSchemaIncludesFormSchema(t *testing.T) {
 		t.Fatalf("expected filters/actions populated")
 	}
 }
+
+func TestPanelSchemaIncludesActionPayloadContracts(t *testing.T) {
+	panel := &Panel{
+		name: "schema",
+		actions: []Action{
+			{
+				Name:            "publish",
+				CommandName:     "publish.command",
+				PayloadRequired: []string{"publish_at"},
+				PayloadSchema: map[string]any{
+					"type": "object",
+				},
+			},
+		},
+		bulkActions: []Action{
+			{
+				Name:            "bulk_publish",
+				CommandName:     "bulk.publish.command",
+				PayloadRequired: []string{"ids"},
+			},
+		},
+	}
+
+	schema := panel.Schema()
+	if len(schema.Actions) != 1 {
+		t.Fatalf("expected single action, got %d", len(schema.Actions))
+	}
+	if len(schema.Actions[0].PayloadRequired) != 1 || schema.Actions[0].PayloadRequired[0] != "publish_at" {
+		t.Fatalf("expected payload_required to be preserved, got %v", schema.Actions[0].PayloadRequired)
+	}
+	if schema.Actions[0].PayloadSchema == nil || schema.Actions[0].PayloadSchema["type"] != "object" {
+		t.Fatalf("expected payload_schema to be preserved, got %v", schema.Actions[0].PayloadSchema)
+	}
+	if len(schema.BulkActions) != 1 || len(schema.BulkActions[0].PayloadRequired) != 1 {
+		t.Fatalf("expected bulk action payload contract to be preserved")
+	}
+}
