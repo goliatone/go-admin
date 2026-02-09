@@ -737,6 +737,21 @@ func main() {
 		r.Get(path.Join(adminAPIBasePath, "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 	}
 
+	// Test error route for dev error page testing (only in dev mode)
+	if isDev {
+		r.Get(path.Join(cfg.BasePath, "test-error"), func(c router.Context) error {
+			errorType := c.Query("type", "internal")
+			return triggerTestError(errorType)
+		})
+		r.Get(path.Join(cfg.BasePath, "test-error/:type"), func(c router.Context) error {
+			errorType := c.Param("type")
+			if errorType == "" {
+				errorType = "internal"
+			}
+			return triggerTestError(errorType)
+		})
+	}
+
 	r.Get(path.Join(adminAPIBasePath, "timezones"), wrapAuthed(handlers.ListTimezones))
 	r.Get(path.Join(adminAPIBasePath, "templates"), wrapAuthed(handlers.ListTemplates(dataStores.Templates)))
 
@@ -1776,4 +1791,69 @@ func getErrorContext(code int) (headline string, message string) {
 	default:
 		return "Error", "An unexpected error occurred. Please try again or contact support if the problem persists."
 	}
+}
+
+// triggerTestError generates test errors for dev error page testing.
+// Usage: /admin/test-error?type=internal (or /admin/test-error/internal)
+// Types: internal, notfound, forbidden, validation, panic, nested
+func triggerTestError(errorType string) error {
+	switch errorType {
+	case "notfound", "404":
+		return goerrors.New("requested resource does not exist", goerrors.CategoryNotFound).
+			WithCode(fiber.StatusNotFound).
+			WithTextCode("NOT_FOUND").
+			WithMetadata(map[string]any{
+				"resource_type": "example",
+				"resource_id":   "test-123",
+			})
+	case "forbidden", "403":
+		return goerrors.New("you do not have permission to access this resource", goerrors.CategoryAuthz).
+			WithCode(fiber.StatusForbidden).
+			WithTextCode("FORBIDDEN").
+			WithMetadata(map[string]any{
+				"required_permission": "admin.test.access",
+			})
+	case "validation", "400":
+		return goerrors.New("validation failed", goerrors.CategoryValidation).
+			WithCode(fiber.StatusBadRequest).
+			WithTextCode("VALIDATION_ERROR").
+			WithMetadata(map[string]any{
+				"fields": map[string]string{
+					"email":    "invalid email format",
+					"username": "username must be at least 3 characters",
+				},
+			})
+	case "panic":
+		panic("intentional panic for error page testing")
+	case "nested":
+		return nestedErrorExample()
+	case "template":
+		return goerrors.New("failed to render: template error on line 42", goerrors.CategoryInternal).
+			WithCode(fiber.StatusInternalServerError).
+			WithTextCode("TEMPLATE_ERROR").
+			WithMetadata(map[string]any{
+				"template": "users/detail.html",
+				"line":     42,
+			})
+	default:
+		return goerrors.New("this is a test internal server error for dev error page testing", goerrors.CategoryInternal).
+			WithCode(fiber.StatusInternalServerError).
+			WithTextCode("INTERNAL_ERROR").
+			WithMetadata(map[string]any{
+				"test_type": errorType,
+				"timestamp": time.Now().Format(time.RFC3339),
+			})
+	}
+}
+
+func nestedErrorExample() error {
+	return fmt.Errorf("outer error: %w",
+		fmt.Errorf("middle error: %w",
+			goerrors.New("root cause: database connection failed", goerrors.CategoryExternal).
+				WithCode(fiber.StatusInternalServerError).
+				WithTextCode("DB_CONNECTION_ERROR").
+				WithMetadata(map[string]any{
+					"host":     "localhost:5432",
+					"database": "example_db",
+				})))
 }
