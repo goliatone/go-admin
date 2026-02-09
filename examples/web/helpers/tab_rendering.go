@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
 )
@@ -139,18 +140,45 @@ func ResolveTabWidgets(ctx admin.AdminContext, adm *admin.Admin, basePath, areaC
 	return widgetsForArea(layout, areaCode), nil
 }
 
+// ProfileFieldType defines the rendering type for a profile field.
+type ProfileFieldType string
+
+const (
+	ProfileFieldText     ProfileFieldType = "text"
+	ProfileFieldBadge    ProfileFieldType = "badge"
+	ProfileFieldStatus   ProfileFieldType = "status"
+	ProfileFieldDate     ProfileFieldType = "date"
+	ProfileFieldRelative ProfileFieldType = "relative"
+	ProfileFieldVerified ProfileFieldType = "verified"
+)
+
+// ProfileField represents a typed field in a profile section.
+type ProfileField struct {
+	Key         string           `json:"key"`
+	Label       string           `json:"label"`
+	Value       any              `json:"value"`
+	Type        ProfileFieldType `json:"type"`
+	HideIfEmpty bool             `json:"hide_if_empty,omitempty"`
+	Verified    bool             `json:"verified,omitempty"`
+}
+
+// ProfileSection represents a group of related profile fields.
+type ProfileSection struct {
+	ID     string         `json:"id"`
+	Label  string         `json:"label"`
+	Fields []ProfileField `json:"fields"`
+}
+
 // ApplyUserProfileWidgetOverrides injects record data into profile widgets.
+// Emits only the `sections` payload for typed profile rendering.
 func ApplyUserProfileWidgetOverrides(widgets []map[string]any, record map[string]any) {
 	if len(widgets) == 0 || record == nil {
 		return
 	}
-	values := map[string]any{
-		"Username": record["username"],
-		"Email":    record["email"],
-		"Role":     record["role"],
-		"Status":   record["status"],
-		"Created":  record["created_at"],
-	}
+
+	// Build sections payload with typed fields.
+	sections := buildUserProfileSections(record)
+
 	for _, widget := range widgets {
 		if widget["definition"] != UserProfileWidgetCode {
 			continue
@@ -159,9 +187,177 @@ func ApplyUserProfileWidgetOverrides(widgets []map[string]any, record map[string
 		if !ok || data == nil {
 			data = map[string]any{}
 		}
-		data["values"] = values
+		delete(data, "values")
+		data["sections"] = sections
 		widget["data"] = data
 	}
+}
+
+// buildUserProfileSections creates typed profile sections from a user record.
+func buildUserProfileSections(record map[string]any) []ProfileSection {
+	// Account section
+	accountFields := []ProfileField{}
+
+	if username := toString(record["username"]); username != "" {
+		accountFields = append(accountFields, ProfileField{
+			Key:   "username",
+			Label: "Username",
+			Value: username,
+			Type:  ProfileFieldText,
+		})
+	}
+
+	if email := toString(record["email"]); email != "" {
+		verified := toBool(record["is_email_verified"])
+		accountFields = append(accountFields, ProfileField{
+			Key:      "email",
+			Label:    "Email",
+			Value:    email,
+			Type:     ProfileFieldVerified,
+			Verified: verified,
+		})
+	}
+
+	if role := toString(record["role"]); role != "" {
+		accountFields = append(accountFields, ProfileField{
+			Key:   "role",
+			Label: "Role",
+			Value: role,
+			Type:  ProfileFieldBadge,
+		})
+	}
+
+	if status := toString(record["status"]); status != "" {
+		accountFields = append(accountFields, ProfileField{
+			Key:   "status",
+			Label: "Status",
+			Value: status,
+			Type:  ProfileFieldStatus,
+		})
+	}
+
+	// Personal info section
+	personalFields := []ProfileField{}
+
+	// Full name composition
+	firstName := toString(record["first_name"])
+	lastName := toString(record["last_name"])
+	fullName := composeFullName(firstName, lastName)
+	if fullName != "" {
+		personalFields = append(personalFields, ProfileField{
+			Key:   "full_name",
+			Label: "Name",
+			Value: fullName,
+			Type:  ProfileFieldText,
+		})
+	}
+
+	if phone := toString(record["phone_number"]); phone != "" {
+		personalFields = append(personalFields, ProfileField{
+			Key:         "phone_number",
+			Label:       "Phone",
+			Value:       phone,
+			Type:        ProfileFieldText,
+			HideIfEmpty: true,
+		})
+	}
+
+	// Dates section
+	dateFields := []ProfileField{}
+
+	if created := record["created_at"]; created != nil {
+		dateFields = append(dateFields, ProfileField{
+			Key:   "created_at",
+			Label: "Created",
+			Value: created,
+			Type:  ProfileFieldDate,
+		})
+	}
+
+	if updated := record["updated_at"]; updated != nil {
+		dateFields = append(dateFields, ProfileField{
+			Key:   "updated_at",
+			Label: "Updated",
+			Value: updated,
+			Type:  ProfileFieldDate,
+		})
+	}
+
+	if lastLogin := record["last_login"]; lastLogin != nil {
+		dateFields = append(dateFields, ProfileField{
+			Key:         "last_login",
+			Label:       "Last Login",
+			Value:       lastLogin,
+			Type:        ProfileFieldRelative,
+			HideIfEmpty: true,
+		})
+	}
+
+	sections := []ProfileSection{}
+
+	if len(accountFields) > 0 {
+		sections = append(sections, ProfileSection{
+			ID:     "account",
+			Label:  "Account",
+			Fields: accountFields,
+		})
+	}
+
+	if len(personalFields) > 0 {
+		sections = append(sections, ProfileSection{
+			ID:     "personal_info",
+			Label:  "Personal Info",
+			Fields: personalFields,
+		})
+	}
+
+	if len(dateFields) > 0 {
+		sections = append(sections, ProfileSection{
+			ID:     "dates",
+			Label:  "Dates",
+			Fields: dateFields,
+		})
+	}
+
+	return sections
+}
+
+// composeFullName creates a full name from first and last name components.
+func composeFullName(firstName, lastName string) string {
+	firstName = strings.TrimSpace(firstName)
+	lastName = strings.TrimSpace(lastName)
+	if firstName == "" && lastName == "" {
+		return ""
+	}
+	if firstName == "" {
+		return lastName
+	}
+	if lastName == "" {
+		return firstName
+	}
+	return firstName + " " + lastName
+}
+
+// toString safely converts a value to string.
+func toString(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return strings.TrimSpace(s)
+	}
+	return ""
+}
+
+// toBool safely converts a value to bool.
+func toBool(v any) bool {
+	if v == nil {
+		return false
+	}
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	return false
 }
 
 func widgetsForArea(layout *admin.DashboardLayout, areaCode string) []map[string]any {
