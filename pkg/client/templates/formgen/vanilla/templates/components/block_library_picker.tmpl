@@ -1,6 +1,6 @@
 {% set sortable = sortable or false -%}
-{% set add_label = add_label or "Add block" -%}
-{% set empty_label = empty_label or "No blocks added yet." -%}
+{% if not add_label %}{% set add_label = "Add block" %}{% endif -%}
+{% if not empty_label %}{% set empty_label = "No blocks added yet." %}{% endif -%}
 
 <div class="space-y-3" data-block-editor="true" data-block-field="{{ field.name }}" data-block-library-picker="true" data-block-init="manual"{% if api_base %} data-api-base="{{ api_base }}"{% endif %} data-allowed-blocks='{{ allowed_blocks_json }}'{% if max_blocks %} data-max-blocks="{{ max_blocks }}"{% endif %}{% if sortable %} data-block-sortable="true"{% endif %}{% if config_json %} data-component-config='{{ config_json }}'{% endif %}>
     <div class="flex flex-wrap items-center gap-2" style="display:none;">

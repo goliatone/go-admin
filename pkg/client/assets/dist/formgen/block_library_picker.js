@@ -16,6 +16,14 @@ function H(e, r) {
   }
   return r;
 }
+function X(e) {
+  const r = e.trim().toLowerCase();
+  return r ? Array.from(new Set([
+    r,
+    r.replace(/-/g, "_"),
+    r.replace(/_/g, "-")
+  ])) : [];
+}
 function F(e) {
   const r = e.trim(), n = r.replace(/\/+$/, "");
   if (!n) {
@@ -71,7 +79,7 @@ async function D(e, r, n) {
   return n && (l += "&include_inactive=true"), (await T(l)).items ?? [];
 }
 async function z(e, r, n) {
-  let l = `${e}/${encodeURIComponent(r)}/template`;
+  let l = `${e}/templates/${encodeURIComponent(r)}`;
   n && (l += "?include_inactive=true");
   try {
     return (await T(l)).items?.[0] ?? null;
@@ -282,8 +290,16 @@ async function K(e) {
     return;
   }
   if (o.length > 0) {
-    const t = new Set(o.map((a) => a.toLowerCase()));
-    u = u.filter((a) => t.has(a.slug.toLowerCase()));
+    const t = new Set();
+    for (const a of o)
+      for (const b of X(a))
+        t.add(b);
+    u = u.filter((a) => {
+      for (const b of X(a.slug))
+        if (t.has(b))
+          return !0;
+      return !1;
+    });
   }
   const B = e.querySelector("input[data-block-output]");
   let N = [];
@@ -323,22 +339,23 @@ async function K(e) {
   const _ = document.createElement("div");
   _.className = "relative inline-block";
   const g = document.createElement("button");
-  g.type = "button", g.className = "inline-flex items-center gap-1.5 py-2 px-4 rounded-md border border-dashed border-gray-300 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-300 dark:hover:bg-slate-800", g.setAttribute("data-picker-add-btn", "true"), g.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><span>${n.addLabel || "Add Block"}</span>`;
-  const q = () => {
+  const q = typeof n.addLabel == "string" && n.addLabel.trim() ? n.addLabel.trim() : "Add Block";
+  g.type = "button", g.className = "inline-flex items-center gap-1.5 py-2 px-4 rounded-md border border-dashed border-gray-300 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-300 dark:hover:bg-slate-800", g.setAttribute("data-picker-add-btn", "true"), g.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><span>${q}</span>`;
+  const y = () => {
     if (m <= 0) return;
     const a = e.querySelectorAll("[data-block-item]").length >= m;
     g.disabled = a, g.classList.toggle("opacity-50", a), g.classList.toggle("cursor-not-allowed", a), g.title = a ? `Maximum of ${m} blocks reached` : "";
-  }, y = W(u, n, {
-    onSelect: (t) => i(t),
+  }, i = W(u, n, {
+    onSelect: (t) => addSelectedBlock(t),
     onClose: () => {
-      y.close(), g.focus();
+      i.close(), g.focus();
     }
   });
-  async function i(t) {
+  async function addSelectedBlock(t) {
     const a = u.find((p) => p.slug === t);
     if (!a || a.disabled) return;
     if (m > 0 && e.querySelectorAll("[data-block-item]").length >= m) {
-      y.close();
+      i.close();
       return;
     }
     if (w instanceof HTMLSelectElement && Array.from(w.options).some((p) => p.value === t))
@@ -350,11 +367,11 @@ async function K(e) {
           const A = await z(s, t, v);
           A && (p = A, M(e, p), h.add(p.slug), d.set(p.slug, p));
         } catch (A) {
-          console.error(`block-library-picker: fetch template ${t} failed`, A), y.close();
+          console.error(`block-library-picker: fetch template ${t} failed`, A), i.close();
           return;
         }
       if (!p) {
-        y.close();
+        i.close();
         return;
       }
       const L = e.querySelector("[data-block-list]");
@@ -363,21 +380,21 @@ async function K(e) {
         L.appendChild(A), A.dispatchEvent(new Event("input", { bubbles: !0 }));
       }
     }
-    y.close(), q();
+    i.close(), y();
   }
   if (g.addEventListener("click", (t) => {
-    t.stopPropagation(), !g.disabled && (y.isOpen() ? y.close() : y.open());
+    t.stopPropagation(), !g.disabled && (i.isOpen() ? i.close() : i.open());
   }), g.addEventListener("keydown", (t) => {
-    t.key === "ArrowDown" && !y.isOpen() && !g.disabled && (t.preventDefault(), y.open());
+    t.key === "ArrowDown" && !i.isOpen() && !g.disabled && (t.preventDefault(), i.open());
   }), document.addEventListener("click", (t) => {
-    y.isOpen() && !_.contains(t.target) && y.close();
+    i.isOpen() && !_.contains(t.target) && i.close();
   }), document.addEventListener("keydown", (t) => {
-    t.key === "Escape" && y.isOpen() && (y.close(), g.focus());
+    t.key === "Escape" && i.isOpen() && (i.close(), g.focus());
   }), m > 0) {
     const t = e.querySelector("[data-block-list]");
-    t && new MutationObserver(() => q()).observe(t, { childList: !0 }), q();
+    t && new MutationObserver(() => y()).observe(t, { childList: !0 }), y();
   }
-  _.appendChild(g), _.appendChild(y.element), C.appendChild(_);
+  _.appendChild(g), _.appendChild(i.element), C.appendChild(_);
   const c = e.querySelector("[data-block-list]");
   c && c.nextSibling ? c.parentElement?.insertBefore(C, c.nextSibling) : e.appendChild(C), e.setAttribute("data-picker-initialized", "true");
 }
