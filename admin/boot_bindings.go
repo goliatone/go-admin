@@ -213,6 +213,11 @@ func (p *panelBinding) Delete(c router.Context, locale string, id string) error 
 func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) error {
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
+	if definition, ok := p.panel.findAction(action); ok {
+		if err := validateActionPayload(definition, body); err != nil {
+			return err
+		}
+	}
 
 	if action == "create_translation" {
 		if len(ids) == 0 {
@@ -312,6 +317,11 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[string]any) error {
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
+	if definition, ok := p.panel.findBulkAction(action); ok {
+		if err := validateActionPayload(definition, body); err != nil {
+			return err
+		}
+	}
 	return p.panel.RunBulkAction(ctx, action, body, ids)
 }
 
@@ -859,9 +869,10 @@ func (b *bulkBinding) List(c router.Context) (map[string]any, error) {
 func (b *bulkBinding) Start(c router.Context, body map[string]any) (map[string]any, error) {
 	total := atoiDefault(toString(body["total"]), 0)
 	req := BulkRequest{
-		Name:   toString(body["name"]),
-		Action: toString(body["action"]),
-		Total:  total,
+		Name:    toString(body["name"]),
+		Action:  toString(body["action"]),
+		Total:   total,
+		Payload: cloneAnyMap(body),
 	}
 	if req.Name == "" && req.Action != "" {
 		req.Name = req.Action
