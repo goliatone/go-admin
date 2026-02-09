@@ -412,6 +412,10 @@ func WithBunRecordMapper[T any](mapper BunRecordMapper[T]) BunRepositoryOption[T
 	return core.WithBunRecordMapper[T](mapper)
 }
 
+func WithBunPatchAllowedFields[T any](fields ...string) BunRepositoryOption[T] {
+	return core.WithBunPatchAllowedFields[T](fields...)
+}
+
 func NewCMSContentRepository(content CMSContentService) *CMSContentRepository {
 	return core.NewCMSContentRepository(content)
 }
