@@ -126,15 +126,17 @@ type Filter struct {
 
 // Action describes an action or bulk action linked to a command handler.
 type Action struct {
-	Name        string `json:"name"`
-	Label       string `json:"label,omitempty"`
-	LabelKey    string `json:"label_key,omitempty"`
-	CommandName string `json:"command_name"`
-	Permission  string `json:"permission,omitempty"`
-	Icon        string `json:"icon,omitempty"`
-	Confirm     string `json:"confirm,omitempty"`
-	Variant     string `json:"variant,omitempty"`
-	Overflow    bool   `json:"overflow,omitempty"`
+	Name            string         `json:"name"`
+	Label           string         `json:"label,omitempty"`
+	LabelKey        string         `json:"label_key,omitempty"`
+	CommandName     string         `json:"command_name"`
+	Permission      string         `json:"permission,omitempty"`
+	Icon            string         `json:"icon,omitempty"`
+	Confirm         string         `json:"confirm,omitempty"`
+	Variant         string         `json:"variant,omitempty"`
+	Overflow        bool           `json:"overflow,omitempty"`
+	PayloadRequired []string       `json:"payload_required,omitempty"`
+	PayloadSchema   map[string]any `json:"payload_schema,omitempty"`
 }
 
 // PanelPermissions declares resource actions.
@@ -642,6 +644,24 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 		"panel":  p.name,
 		"action": name,
 	})
+}
+
+func (p *Panel) findAction(name string) (Action, bool) {
+	for _, action := range p.actions {
+		if action.Name == name {
+			return action, true
+		}
+	}
+	return Action{}, false
+}
+
+func (p *Panel) findBulkAction(name string) (Action, bool) {
+	for _, action := range p.bulkActions {
+		if action.Name == name {
+			return action, true
+		}
+	}
+	return Action{}, false
 }
 
 func (p *Panel) recordActivity(ctx AdminContext, action string, metadata map[string]any) {
