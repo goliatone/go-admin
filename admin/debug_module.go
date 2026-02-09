@@ -378,7 +378,7 @@ func relativeRoutePath(basePath, fullPath string) string {
 		return ""
 	}
 	basePath = normalizeBasePath(basePath)
-	fullPath = ensureLeadingSlash(fullPath)
+	fullPath = ensureLeadingSlashPath(fullPath)
 	if basePath == "" || basePath == "/" {
 		return fullPath
 	}
