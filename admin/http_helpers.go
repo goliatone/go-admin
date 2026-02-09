@@ -43,23 +43,14 @@ func parseJSONBody(c router.Context) (map[string]any, error) {
 // parseListOptions extracts pagination/sort/search/filter params from query string.
 // Filters preserve operator-qualified keys (for example status__in, title__ilike).
 func parseListOptions(c router.Context) ListOptions {
-	parsed := listquery.ParseContext(c, 1, 10)
-	predicates := listquery.MapPredicates(parsed.Predicates, func(predicate listquery.Predicate) ListPredicate {
+	opts := listquery.ParseOptions(c, 1, 10, func(predicate listquery.Predicate) ListPredicate {
 		return ListPredicate{
 			Field:    predicate.Field,
 			Operator: predicate.Operator,
 			Values:   append([]string{}, predicate.Values...),
 		}
 	})
-	return ListOptions{
-		Page:       parsed.Page,
-		PerPage:    parsed.PerPage,
-		SortBy:     parsed.SortBy,
-		SortDesc:   parsed.SortDesc,
-		Search:     parsed.Search,
-		Filters:    parsed.Filters,
-		Predicates: predicates,
-	}
+	return ListOptions(opts)
 }
 
 func parseCommandIDs(body map[string]any, queryID string, queryIDs string) []string {
