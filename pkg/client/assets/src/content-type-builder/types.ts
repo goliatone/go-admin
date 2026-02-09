@@ -280,6 +280,16 @@ export interface BlocksFieldConfig {
   deniedBlocks?: string[];
   minBlocks?: number;
   maxBlocks?: number;
+  // Internal round-trip metadata used by the builder to preserve source schema shape.
+  __sourceItemsSchema?: JSONSchema;
+  __sourceAllowedBlocks?: string[];
+  __sourceDeniedBlocks?: string[];
+  __sourceRefPrefix?: string;
+  __sourceRepresentation?: 'refs' | 'inline';
+  __sourceWidget?: string;
+  __sourceSortable?: boolean;
+  __sourceHadAllowedBlocks?: boolean;
+  __sourceHadDeniedBlocks?: boolean;
 }
 
 export interface CodeFieldConfig {

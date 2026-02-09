@@ -1330,6 +1330,7 @@ export class FieldConfigForm extends Modal {
         const maxBlocks = formData.get('maxBlocks');
         const allowedStr = (formData.get('allowedBlocks') as string)?.trim();
         const deniedStr = (formData.get('deniedBlocks') as string)?.trim();
+        const existingConfig = this.field.config as BlocksFieldConfig | undefined;
 
         // Parse JSON arrays (new format) or fall back to comma-separated (legacy)
         let allowedBlocks: string[] | undefined;
@@ -1358,6 +1359,15 @@ export class FieldConfigForm extends Modal {
         }
 
         return {
+          __sourceItemsSchema: existingConfig?.__sourceItemsSchema,
+          __sourceAllowedBlocks: existingConfig?.__sourceAllowedBlocks,
+          __sourceDeniedBlocks: existingConfig?.__sourceDeniedBlocks,
+          __sourceRefPrefix: existingConfig?.__sourceRefPrefix,
+          __sourceRepresentation: existingConfig?.__sourceRepresentation,
+          __sourceWidget: existingConfig?.__sourceWidget,
+          __sourceSortable: existingConfig?.__sourceSortable,
+          __sourceHadAllowedBlocks: existingConfig?.__sourceHadAllowedBlocks,
+          __sourceHadDeniedBlocks: existingConfig?.__sourceHadDeniedBlocks,
           minBlocks: minBlocks ? parseInt(minBlocks as string, 10) : undefined,
           maxBlocks: maxBlocks ? parseInt(maxBlocks as string, 10) : undefined,
           allowedBlocks,

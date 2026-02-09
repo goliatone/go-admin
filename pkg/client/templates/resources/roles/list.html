@@ -70,10 +70,16 @@ const apiEndpoint = apiBasePath ? `${apiBasePath}/roles` : '{{ base_path }}/api/
 
 {% verbatim %}
 document.addEventListener('DOMContentLoaded', async function() {
+  const tableId = 'roles-datatable';
+  const tableEl = document.getElementById(tableId);
+  if (!tableEl) {
+    return;
+  }
+
   const columnVisibility = new DefaultColumnVisibilityBehavior(columnFields, 'roles_datatable_columns');
 
   const grid = new DataGrid({
-    tableId: 'roles-datatable',
+    tableId: tableId,
     apiEndpoint: apiEndpoint,
     actionBasePath: actionBasePath,
     columns: gridColumns,

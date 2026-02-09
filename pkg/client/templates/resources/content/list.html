@@ -105,10 +105,16 @@ function normalizeFilterOperators(operators, defaultOperator) {
 }
 
 const envQuery = env ? `?env=${encodeURIComponent(env)}` : '';
+const datatableId = '{{ datatable_id|default:resource }}-datatable';
 
 let grid;
 
 document.addEventListener('DOMContentLoaded', async function() {
+  const tableEl = document.getElementById(datatableId);
+  if (!tableEl) {
+    return;
+  }
+
   const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: '{{ panel_name }}',
@@ -118,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   await columnVisibility.loadFromServer();
 
   grid = new DataGrid({
-    tableId: '{{ datatable_id|default:resource }}-datatable',
+    tableId: datatableId,
     apiEndpoint: apiEndpoint,
     actionBasePath: actionBasePath,
     columns: gridColumns,
