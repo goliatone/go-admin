@@ -120,6 +120,44 @@ Error handling env toggles (wired via `quickstart.WithErrorsFromEnv()`):
 - `ADMIN_ERROR_STACKTRACE=true` forces stack traces outside dev.
 - `ADMIN_ERROR_EXPOSE_INTERNAL=true` exposes internal error messages in responses.
 
+### Developer Error Page
+
+When running in dev mode (`GO_ENV=development`), the example includes an enhanced error page with:
+- **Tabbed interface**: Error, Stack Trace, Request, and App tabs
+- **Source code context**: Shows code around the error location with syntax highlighting
+- **Enriched stack traces**: Collapsible frames with app vs vendor distinction, VS Code links
+- **Request details**: Headers, query params, form data, request body
+- **Environment info**: Go version, app version, quick search links (Google, Stack Overflow)
+
+**Test Error Endpoint** (dev mode only):
+
+```
+GET /admin/test-error
+GET /admin/test-error?type=<type>
+GET /admin/test-error/<type>
+```
+
+| Type | Description |
+|------|-------------|
+| `internal` (default) | 500 Internal Server Error with metadata |
+| `notfound` / `404` | 404 Not Found |
+| `forbidden` / `403` | 403 Forbidden |
+| `validation` / `400` | 400 Validation Error with field errors |
+| `template` | Template rendering error |
+| `nested` | Wrapped/nested error chain |
+| `panic` | Triggers a panic (for panic recovery testing) |
+
+Example:
+```bash
+# Start in dev mode
+GO_ENV=development go run .
+
+# Test different error types
+curl http://localhost:8080/admin/test-error
+curl http://localhost:8080/admin/test-error/validation
+curl http://localhost:8080/admin/test-error?type=nested
+```
+
 ### Content UI (Pages, Posts, Media)
 
 - HTML CRUD screens live at `/admin/content/pages`, `/admin/content/posts`, `/admin/media` (aliases `/admin/pages` and `/admin/posts` redirect; auth + permissions enforced: `admin.pages.*`, `admin.posts.*`, `admin.media.*`).
