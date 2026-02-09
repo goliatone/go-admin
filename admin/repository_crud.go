@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -36,7 +35,22 @@ func (r *CRUDRepositoryAdapter) List(ctx context.Context, opts ListOptions) ([]m
 	if err := r.ensureService(); err != nil {
 		return nil, 0, err
 	}
+
+	queryOpts := crudListQueryOptions(opts)
+	criteria, _, err := crud.BuildListCriteriaFromOptions[map[string]any](queryOpts)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	c := newCrudAdapterContext(ctx)
+
+	// Preserve existing service behavior for adapters that still inspect query values.
+	applyListQueryOptionsToContext(c, queryOpts)
+
+	return r.service.Index(c, criteria)
+}
+
+func crudListQueryOptions(opts ListOptions) crud.ListQueryOptions {
 	per := opts.PerPage
 	if per <= 0 {
 		per = 10
@@ -45,47 +59,99 @@ func (r *CRUDRepositoryAdapter) List(ctx context.Context, opts ListOptions) ([]m
 	if page < 1 {
 		page = 1
 	}
-	offset := (page - 1) * per
-	c.setQuery("limit", strconv.Itoa(per))
-	c.setQuery("offset", strconv.Itoa(offset))
-	if opts.SortBy != "" {
-		dir := "asc"
-		if opts.SortDesc {
-			dir = "desc"
-		}
-		c.setQuery("order", fmt.Sprintf("%s %s", opts.SortBy, dir))
-	}
-	if opts.Search != "" {
-		c.setQuery("_search", opts.Search)
+
+	normalized := NormalizeListPredicates(opts)
+	predicates := make([]crud.ListQueryPredicate, 0, len(normalized))
+	for _, predicate := range normalized {
+		predicates = append(predicates, crud.ListQueryPredicate{
+			Field:    predicate.Field,
+			Operator: predicate.Operator,
+			Values:   predicate.Values,
+		})
 	}
 
-	for _, predicate := range NormalizeListPredicates(opts) {
+	return crud.ListQueryOptions{
+		Page:       page,
+		PerPage:    per,
+		SortBy:     strings.TrimSpace(opts.SortBy),
+		SortDesc:   opts.SortDesc,
+		Search:     strings.TrimSpace(opts.Search),
+		Predicates: predicates,
+	}
+}
+
+func applyListQueryOptionsToContext(c *crudAdapterContext, opts crud.ListQueryOptions) {
+	if c == nil {
+		return
+	}
+
+	limit, offset := listQueryPagination(opts)
+	c.setQuery("limit", strconv.Itoa(limit))
+	c.setQuery("offset", strconv.Itoa(offset))
+
+	if order := listQueryOrder(opts); order != "" {
+		c.setQuery("order", order)
+	}
+
+	if search := strings.TrimSpace(opts.Search); search != "" {
+		c.setQuery("_search", search)
+	}
+
+	for _, predicate := range opts.Predicates {
 		field := strings.TrimSpace(predicate.Field)
-		if field == "" {
+		if field == "" || len(predicate.Values) == 0 {
 			continue
 		}
-		values := predicate.Values
-		if len(values) == 0 {
+		if field == "_search" {
+			if c.Query("_search") == "" {
+				c.setQuery("_search", predicate.Values[0])
+			}
 			continue
 		}
+
 		operator := strings.ToLower(strings.TrimSpace(predicate.Operator))
 		if operator == "" {
 			operator = defaultListPredicateOperator
 		}
-		if field == "_search" {
-			if opts.Search == "" {
-				c.setQuery("_search", values[0])
-			}
-			continue
+		c.setQuery(field+"__"+operator, strings.Join(predicate.Values, ","))
+	}
+}
+
+func listQueryPagination(opts crud.ListQueryOptions) (int, int) {
+	if opts.Limit > 0 || opts.Offset != 0 {
+		limit := opts.Limit
+		if limit <= 0 {
+			limit = crud.DefaultLimit
 		}
-		key := field + "__" + operator
-		c.setQuery(key, strings.Join(values, ","))
+		return limit, opts.Offset
 	}
-	criteria, _, err := crud.BuildQueryCriteria[map[string]any](c, crud.OpList)
-	if err != nil {
-		return nil, 0, err
+
+	perPage := opts.PerPage
+	if perPage <= 0 {
+		perPage = crud.DefaultLimit
 	}
-	return r.service.Index(c, criteria)
+	page := opts.Page
+	if page < 1 {
+		page = 1
+	}
+	return perPage, (page - 1) * perPage
+}
+
+func listQueryOrder(opts crud.ListQueryOptions) string {
+	if order := strings.TrimSpace(opts.Order); order != "" {
+		return order
+	}
+
+	sortBy := strings.TrimSpace(opts.SortBy)
+	if sortBy == "" {
+		return ""
+	}
+
+	dir := "asc"
+	if opts.SortDesc {
+		dir = "desc"
+	}
+	return sortBy + " " + dir
 }
 
 // Get retrieves a single record by id.
