@@ -5170,11 +5170,11 @@ class ca {
       return e.value.trim();
   }
   getCapabilities() {
-    const e = {};
-    return this.container.querySelectorAll("[data-ct-cap]").forEach((t) => {
-      const a = t.getAttribute("data-ct-cap");
-      a && (e[a] = t.checked);
-    }), e;
+    const e = this.state.contentType?.capabilities, t = e && typeof e == "object" ? { ...e } : {};
+    return this.container.querySelectorAll("[data-ct-cap]").forEach((a) => {
+      const r = a.getAttribute("data-ct-cap");
+      r && (t[r] = a.checked);
+    }), t;
   }
   buildUISchema() {
     const e = {}, t = {

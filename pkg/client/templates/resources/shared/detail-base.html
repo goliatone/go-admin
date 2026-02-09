@@ -1,0 +1,163 @@
+{% extends "layout.html" %}
+
+{% block title %}{% block detail_title %}{{ singularize(resource_label|default:resource)|title }} - {{ resource_item.name|default:resource_item.username|default:resource_item.title|default:resource_item.id }}{% endblock %} - {{ title }}{% endblock %}
+
+{% block head_extra %}
+{% block detail_head_extra %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <div>
+    {% block header_pretitle %}{% endblock %}
+    <h1 class="text-3xl font-bold text-admin-dark">{% block header_title %}{{ singularize(resource_label|default:resource)|title }}{% endblock %}</h1>
+  </div>
+  <div class="flex gap-3">
+    {% block header_actions %}
+      {% block header_actions_prepend %}{% endblock %}
+      {% if resource_item.actions.edit %}
+        <a href="{{ resource_item.actions.edit }}" class="btn btn-primary">
+          <i class="iconoir-edit-pencil"></i>
+          Edit
+        </a>
+      {% endif %}
+      {% if resource_item.actions.delete %}
+        <button type="button" class="btn btn-danger" onclick="confirmDelete('{{ resource_item.actions.delete }}', 'Delete this {{ singularize(resource_label|default:resource)|lower }}?')">
+          <i class="iconoir-trash"></i>
+          Delete
+        </button>
+      {% endif %}
+      {% if routes.index %}
+        <a href="{{ routes.index }}" class="btn btn-secondary">
+          <i class="iconoir-arrow-left"></i>
+          Back to {{ resource_label|default:resource|title }}
+        </a>
+      {% endif %}
+      {% block header_actions_append %}{% endblock %}
+    {% endblock %}
+  </div>
+</header>
+
+{% block tabs_area %}
+  {% if tabs %}
+    {% include "partials/panel-tabs.html" with tabs=tabs active_tab=active_tab %}
+  {% endif %}
+{% endblock %}
+
+<div class="flex-1 p-8 overflow-y-auto"
+     {% block content_data_attrs %}{% endblock %}>
+  {% block detail_content %}
+    <div class="max-w-4xl">
+      {% block identity_card %}
+        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          {% block identity_header %}
+            <div class="p-6 bg-gray-50 border-b border-gray-200 flex items-center gap-4">
+              {% block identity_avatar %}
+                {% set avatar_type = avatar_type|default:"person" %}
+                {% set initial = resource_item.name|default:resource_item.username|default:resource_item.display_name|default:resource_item.title|default:resource_item.id|slice:"0:1"|upper %}
+                {% if avatar_type == "person" %}
+                  <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl font-semibold text-blue-700">
+                    {{ initial }}
+                  </div>
+                {% elif avatar_type == "organization" %}
+                  <div class="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center text-xl font-semibold text-slate-700">
+                    {{ initial }}
+                  </div>
+                {% elif avatar_type == "role" %}
+                  <div class="w-14 h-14 rounded-lg bg-purple-100 flex items-center justify-center">
+                    <i class="iconoir-shield text-2xl text-purple-700"></i>
+                  </div>
+                {% elif avatar_type == "content" %}
+                  <div class="w-14 h-14 rounded-lg bg-emerald-100 flex items-center justify-center">
+                    <i class="iconoir-page text-2xl text-emerald-700"></i>
+                  </div>
+                {% else %}
+                  <div class="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-xl font-semibold text-gray-700">
+                    {{ initial }}
+                  </div>
+                {% endif %}
+              {% endblock %}
+              <div class="flex-1 min-w-0">
+                {% block identity_info %}
+                  <h2 class="text-xl font-semibold text-gray-900 truncate">
+                    {% block identity_title %}{{ resource_item.name|default:resource_item.username|default:resource_item.display_name|default:resource_item.title|default:resource_item.id }}{% endblock %}
+                  </h2>
+                  {% block identity_subtitle %}
+                    {% if resource_item.email %}
+                      <p class="text-sm text-gray-500 truncate">{{ resource_item.email }}</p>
+                    {% elif resource_item.description %}
+                      <p class="text-sm text-gray-500 truncate">{{ resource_item.description }}</p>
+                    {% elif resource_item.domain %}
+                      <p class="text-sm text-gray-500 truncate">{{ resource_item.domain }}</p>
+                    {% endif %}
+                  {% endblock %}
+                {% endblock %}
+              </div>
+              {% block identity_status %}
+                {% if resource_item.status %}
+                  {% set status = resource_item.status|lower %}
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                    {% if status == 'active' %}bg-green-100 text-green-800
+                    {% elif status == 'inactive' %}bg-gray-100 text-gray-800
+                    {% elif status == 'suspended' %}bg-red-100 text-red-800
+                    {% elif status == 'pending' %}bg-yellow-100 text-yellow-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    <span class="w-1.5 h-1.5 rounded-full
+                      {% if status == 'active' %}bg-green-500
+                      {% elif status == 'inactive' %}bg-gray-400
+                      {% elif status == 'suspended' %}bg-red-500
+                      {% elif status == 'pending' %}bg-yellow-500
+                      {% else %}bg-gray-400{% endif %}"></span>
+                    {{ resource_item.status|title }}
+                  </span>
+                {% endif %}
+              {% endblock %}
+            </div>
+          {% endblock %}
+
+          {% block fields_section %}
+            <div class="p-6">
+              <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">{% block fields_title %}Details{% endblock %}</div>
+              <div class="grid grid-cols-2 gap-6">
+                {% for field in fields %}
+                  <div class="flex flex-col">
+                    <div class="text-sm text-gray-500 mb-1">{{ field.label }}</div>
+                    <div class="text-base font-medium text-gray-900">{{ field.value|default:"-" }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endblock %}
+
+          {% block extra_sections %}{% endblock %}
+        </div>
+      {% endblock %}
+
+      {% block after_card %}{% endblock %}
+    </div>
+  {% endblock %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function confirmDelete(url, message) {
+    if (!window.toastManager) {
+      const confirmed = window.confirm(message || 'Are you sure you want to delete this item?');
+      if (!confirmed) return;
+    } else {
+      const confirmed = await window.toastManager.confirm(
+        message || 'Are you sure you want to delete this item?',
+        { title: 'Confirm Delete', confirmText: 'Delete', cancelText: 'Cancel' }
+      );
+      if (!confirmed) return;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    document.body.appendChild(form);
+    form.submit();
+  }
+</script>
+{% block detail_scripts %}{% endblock %}
+{% endblock %}

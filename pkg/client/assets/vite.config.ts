@@ -12,6 +12,7 @@ export default defineConfig({
         'dashboard/index': resolve(__dirname, 'src/dashboard/index.ts'),
         'feature-flags/index': resolve(__dirname, 'src/feature-flags/index.ts'),
         'searchbox/index': resolve(__dirname, 'src/searchbox/index.ts'),
+        'tabs/index': resolve(__dirname, 'src/tabs/index.ts'),
         'toast/init': resolve(__dirname, 'src/toast/init.ts'),
         'formgen/file_uploader': resolve(__dirname, 'src/formgen/file_uploader.ts'),
         'formgen/block_editor': resolve(__dirname, 'src/formgen/block_editor.ts'),

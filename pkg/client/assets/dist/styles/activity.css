@@ -207,6 +207,74 @@
   border: 1px solid var(--activity-system-border);
 }
 
+/* Timeline action badge colors */
+.timeline-action-badge--created {
+  background-color: var(--activity-created-bg);
+  color: var(--activity-created);
+  border-color: var(--activity-created-border);
+}
+
+.timeline-action-badge--updated {
+  background-color: var(--activity-updated-bg);
+  color: var(--activity-updated);
+  border-color: var(--activity-updated-border);
+}
+
+.timeline-action-badge--deleted {
+  background-color: var(--activity-deleted-bg);
+  color: var(--activity-deleted);
+  border-color: var(--activity-deleted-border);
+}
+
+.timeline-action-badge--auth {
+  background-color: var(--activity-auth-bg);
+  color: var(--activity-auth);
+  border-color: var(--activity-auth-border);
+}
+
+.timeline-action-badge--viewed {
+  background-color: var(--activity-viewed-bg);
+  color: var(--activity-viewed);
+  border-color: var(--activity-viewed-border);
+}
+
+.timeline-action-badge--system {
+  background-color: var(--activity-system-bg);
+  color: var(--activity-system);
+  border-color: var(--activity-system-border);
+}
+
+/* Timeline marker colors */
+.timeline-entry-dot--created {
+  border-color: var(--activity-created);
+  background-color: var(--activity-created-bg);
+}
+
+.timeline-entry-dot--updated {
+  border-color: var(--activity-updated);
+  background-color: var(--activity-updated-bg);
+}
+
+.timeline-entry-dot--deleted {
+  border-color: var(--activity-deleted);
+  background-color: var(--activity-deleted-bg);
+}
+
+.timeline-entry-dot--auth {
+  border-color: var(--activity-auth);
+  background-color: var(--activity-auth-bg);
+}
+
+.timeline-entry-dot--viewed {
+  border-color: var(--activity-viewed);
+  background-color: var(--activity-viewed-bg);
+}
+
+.timeline-entry-dot--system {
+  border-color: var(--activity-system);
+  background-color: var(--activity-system-bg);
+}
+
 /* Row category left border (applied via inline styles, but CSS fallback) */
 .activity-row--created td:first-child {
   border-left: 3px solid var(--activity-created);

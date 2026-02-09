@@ -108,3 +108,84 @@
   font-weight: 600;
   margin-top: 0.3rem;
 }
+
+/* Profile Sections (user_profile_overview widget) */
+.profile-sections {
+  /* Container for grouped profile sections */
+}
+
+.profile-section {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.profile-section:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.profile-field {
+  padding: 0.25rem 0;
+}
+
+/* Profile Badge */
+.profile-badge {
+  text-transform: capitalize;
+}
+
+/* Profile Status Indicator */
+.profile-status {
+  text-transform: capitalize;
+}
+
+/* Profile Verified Badge */
+.profile-verified svg {
+  flex-shrink: 0;
+}
+
+/* Profile Date/Relative Time */
+.profile-date,
+.profile-relative {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Activity Timeline Styles */
+.activity-timeline {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.activity-entry {
+  transition: background-color 150ms ease;
+}
+
+.activity-entry:hover {
+  background-color: #f9fafb;
+}
+
+.activity-avatar {
+  flex-shrink: 0;
+}
+
+.activity-content {
+  overflow: hidden;
+}
+
+.activity-object {
+  word-break: break-word;
+}
+
+.activity-action-badge {
+  text-transform: capitalize;
+}
+
+/* Activity Empty/Unavailable States */
+.activity-empty,
+.activity-unavailable {
+  color: #6b7280;
+}
+
+.activity-empty svg,
+.activity-unavailable svg {
+  opacity: 0.8;
+}

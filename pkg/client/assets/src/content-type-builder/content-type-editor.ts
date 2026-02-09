@@ -1646,7 +1646,10 @@ export class ContentTypeEditor {
   }
 
   private getCapabilities(): ContentTypeCapabilities {
-    const caps: ContentTypeCapabilities = {};
+    const existing = this.state.contentType?.capabilities;
+    const caps: ContentTypeCapabilities =
+      existing && typeof existing === 'object' ? { ...existing } : {};
+
     this.container.querySelectorAll<HTMLInputElement>('[data-ct-cap]').forEach((input) => {
       const key = input.getAttribute('data-ct-cap');
       if (key) {
