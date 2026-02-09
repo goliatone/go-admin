@@ -176,7 +176,7 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 			admin.Field{Name: "template_id", Label: "Template", LabelKey: "fields.template", Type: "text"},
 			admin.Field{Name: "meta_title", Label: "SEO Title", LabelKey: "fields.seo_title", Type: "text"},
 			admin.Field{Name: "meta_description", Label: "SEO Description", LabelKey: "fields.seo_description", Type: "textarea"},
-			admin.Field{Name: "blocks", Label: "Blocks", LabelKey: "fields.blocks", Type: "textarea", ReadOnly: true},
+			admin.Field{Name: "blocks", Label: "Blocks", LabelKey: "fields.blocks", Type: "block-library-picker"},
 		).
 		DetailFields(
 			admin.Field{Name: "id", Label: "ID", LabelKey: "fields.id", Type: "text", ReadOnly: true},
