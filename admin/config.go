@@ -27,14 +27,20 @@ type Config struct {
 	CustomCSS  string
 	CustomJS   string
 
-	SettingsPermission                   string
-	SettingsUpdatePermission             string
-	FeatureFlagsViewPermission           string
-	FeatureFlagsUpdatePermission         string
-	SettingsThemeTokens                  map[string]string
-	NotificationsPermission              string
-	NotificationsUpdatePermission        string
-	ActivityPermission                   string
+	SettingsPermission            string
+	SettingsUpdatePermission      string
+	FeatureFlagsViewPermission    string
+	FeatureFlagsUpdatePermission  string
+	SettingsThemeTokens           map[string]string
+	NotificationsPermission       string
+	NotificationsUpdatePermission string
+	ActivityPermission            string
+	// ActivityTabPermissionFailureMode controls how users detail activity tab handles
+	// activity permission failures. Supported values:
+	// - "strict": return a 403 error
+	// - "inline": render tab-level unavailable state
+	// - "": auto mode (strict in dev, inline otherwise)
+	ActivityTabPermissionFailureMode     string
 	ActivityActionLabels                 map[string]string
 	JobsPermission                       string
 	JobsTriggerPermission                string
