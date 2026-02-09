@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -25,6 +24,7 @@ type BunRepositoryAdapter[T any] struct {
 	deleteCriteria  []repository.DeleteCriteria
 	searchColumns   []string
 	filterBuilders  map[string]func(any) repository.SelectCriteria
+	patchOptions    []repository.MapPatchOption
 	recordConverter BunRecordMapper[T]
 }
 
@@ -77,20 +77,44 @@ func WithBunFilterMapping[T any](builders map[string]func(any) repository.Select
 	}
 }
 
-// WithBunRecordMapper overrides the default JSON-based mapper.
+// WithBunRecordMapper overrides the default map-native mapper.
 func WithBunRecordMapper[T any](mapper BunRecordMapper[T]) BunRepositoryOption[T] {
 	return func(a *BunRepositoryAdapter[T]) {
 		a.recordConverter = mapper
 	}
 }
 
+// WithBunPatchAllowedFields restricts update patch payloads to a known allowlist.
+func WithBunPatchAllowedFields[T any](fields ...string) BunRepositoryOption[T] {
+	return func(a *BunRepositoryAdapter[T]) {
+		if len(fields) == 0 {
+			return
+		}
+		a.patchOptions = append(a.patchOptions, repository.WithPatchAllowedFields(fields...))
+	}
+}
+
 // NewBunRepositoryAdapter constructs an adapter around a go-repository-bun Repository.
 func NewBunRepositoryAdapter[T any](repo repository.Repository[T], opts ...BunRepositoryOption[T]) *BunRepositoryAdapter[T] {
+	mapMapper := repository.NewMapRecordMapper[T](repository.MapRecordMapperConfig{
+		ProjectionOptions: []repository.MapProjectionOption{
+			repository.WithProjectionKeyMode(repository.MapKeyBun),
+		},
+		PatchOptions: []repository.MapPatchOption{
+			repository.WithPatchKeyMode(repository.MapKeyBun),
+			repository.WithPatchIgnoreUnknown(true),
+		},
+	})
+
 	adapter := &BunRepositoryAdapter[T]{
 		repo: repo,
+		patchOptions: []repository.MapPatchOption{
+			repository.WithPatchKeyMode(repository.MapKeyBun),
+			repository.WithPatchIgnoreUnknown(true),
+		},
 		recordConverter: BunRecordMapper[T]{
-			ToRecord: defaultBunToRecord[T],
-			ToMap:    defaultBunToMap[T],
+			ToRecord: mapMapper.ToRecord,
+			ToMap:    mapMapper.ToMap,
 		},
 	}
 	for _, opt := range opts {
@@ -200,23 +224,23 @@ func (a *BunRepositoryAdapter[T]) Update(ctx context.Context, id string, record 
 	if err := a.ensureRepo(); err != nil {
 		return nil, err
 	}
-	current, err := a.repo.GetByID(ctx, id, a.baseCriteria...)
-	if err != nil {
-		return nil, mapBunError(err)
+
+	if len(a.baseCriteria) > 0 {
+		if _, err := a.repo.GetByID(ctx, id, a.baseCriteria...); err != nil {
+			return nil, mapBunError(err)
+		}
 	}
-	currentMap, err := a.recordConverter.ToMap(current)
-	if err != nil {
-		return nil, err
-	}
-	for k, v := range record {
-		currentMap[k] = v
-	}
-	currentMap["id"] = id
-	entity, err := a.recordConverter.ToRecord(currentMap)
-	if err != nil {
-		return nil, err
-	}
-	updated, err := a.repo.Update(ctx, entity, a.updateCriteria...)
+
+	criteria := append([]repository.UpdateCriteria{}, a.updateCriteria...)
+	patch := cloneMap(record)
+	updated, err := repository.UpdateByIDWithMapPatch(
+		ctx,
+		a.repo,
+		id,
+		patch,
+		criteria,
+		a.patchOptions...,
+	)
 	if err != nil {
 		return nil, mapBunError(err)
 	}
@@ -273,33 +297,6 @@ func (a *BunRepositoryAdapter[T]) buildSearchCriteria(term string) repository.Se
 		}
 		return q
 	})
-}
-
-func defaultBunToRecord[T any](payload map[string]any) (T, error) {
-	var entity T
-	if payload == nil {
-		return entity, nil
-	}
-	bytes, err := json.Marshal(payload)
-	if err != nil {
-		return entity, err
-	}
-	if err := json.Unmarshal(bytes, &entity); err != nil {
-		return entity, err
-	}
-	return entity, nil
-}
-
-func defaultBunToMap[T any](record T) (map[string]any, error) {
-	bytes, err := json.Marshal(record)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]any{}
-	if err := json.Unmarshal(bytes, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func mapBunError(err error) error {
