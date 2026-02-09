@@ -551,7 +551,7 @@ export class ContentTypeAPIClient {
 // Schema Conversion Utilities
 // ===========================================================================
 
-import type { AdminExtension, FieldDefinition, FieldType, FormgenExtension } from './types';
+import type { AdminExtension, BlocksFieldConfig, FieldDefinition, FieldType, FormgenExtension } from './types';
 
 function cloneSchema<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -559,6 +559,131 @@ function cloneSchema<T>(value: T): T {
 
 function mergeSchemaSection(base: Record<string, unknown>, next: Record<string, unknown>): Record<string, unknown> {
   return { ...base, ...next };
+}
+
+function normalizeBlockTypeList(values: string[] | undefined): string[] {
+  if (!values || values.length === 0) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+function blockTypeListsEqual(a: string[] | undefined, b: string[] | undefined): boolean {
+  const left = normalizeBlockTypeList(a);
+  const right = normalizeBlockTypeList(b);
+  if (left.length !== right.length) {
+    return false;
+  }
+  const rightSet = new Set(right);
+  return left.every((item) => rightSet.has(item));
+}
+
+function extractBlockTypeFromRef(ref: unknown): { type?: string; prefix?: string } {
+  if (typeof ref !== 'string') {
+    return {};
+  }
+  const trimmed = ref.trim();
+  if (!trimmed) {
+    return {};
+  }
+  const idx = trimmed.lastIndexOf('/');
+  if (idx === -1 || idx === trimmed.length - 1) {
+    return { type: trimmed };
+  }
+  return {
+    type: trimmed.slice(idx + 1),
+    prefix: trimmed.slice(0, idx + 1),
+  };
+}
+
+function extractAllowedBlocksFromOneOf(
+  oneOf: unknown
+): { allowed: string[]; mode: 'refs' | 'inline'; refPrefix?: string } | null {
+  if (!Array.isArray(oneOf) || oneOf.length === 0) {
+    return null;
+  }
+
+  const refs: string[] = [];
+  let refPrefix: string | undefined;
+  for (const entry of oneOf) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const record = entry as Record<string, unknown>;
+    const refInfo = extractBlockTypeFromRef(record.$ref);
+    if (!refInfo.type) {
+      continue;
+    }
+    refs.push(refInfo.type);
+    if (!refPrefix && refInfo.prefix) {
+      refPrefix = refInfo.prefix;
+    }
+  }
+  if (refs.length > 0) {
+    return { allowed: normalizeBlockTypeList(refs), mode: 'refs', refPrefix };
+  }
+
+  const inline = oneOf
+    .map((subSchema) => {
+      const typeSchema = subSchema as JSONSchema;
+      const typeProp = typeSchema?.properties?._type as JSONSchema | undefined;
+      return typeof typeProp?.const === 'string' ? typeProp.const : undefined;
+    })
+    .filter((t): t is string => !!t);
+  if (inline.length > 0) {
+    return { allowed: normalizeBlockTypeList(inline), mode: 'inline' };
+  }
+
+  return null;
+}
+
+function buildInlineBlocksItemsSchema(allowedBlocks: string[] | undefined): JSONSchema {
+  const itemsSchema: JSONSchema = {
+    type: 'object',
+    properties: {
+      _type: {
+        type: 'string',
+        description: 'Block type discriminator',
+      },
+      _schema: {
+        type: 'string',
+        description: 'Block schema version',
+      },
+    },
+    required: ['_type'],
+  };
+
+  if (allowedBlocks && allowedBlocks.length > 0) {
+    itemsSchema.oneOf = allowedBlocks.map((blockType) => ({
+      type: 'object' as const,
+      properties: {
+        _type: { const: blockType },
+      },
+      required: ['_type'],
+    }));
+    itemsSchema['x-discriminator'] = '_type';
+  }
+
+  return itemsSchema;
+}
+
+function buildRefBlocksItemsSchema(allowedBlocks: string[], prefix?: string): JSONSchema {
+  const refPrefix = typeof prefix === 'string' && prefix.trim() ? prefix : '#/$defs/';
+  return {
+    oneOf: allowedBlocks.map((blockType) => ({
+      $ref: `${refPrefix}${blockType}`,
+    })),
+  };
 }
 
 export function mergeSchemaWithBase(base: JSONSchema | null | undefined, next: JSONSchema): JSONSchema {
@@ -777,39 +902,25 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
       break;
 
     case 'blocks': {
-      // Blocks use oneOf with _type discriminator pattern
-      const blocksConfig = field.config as import('./types').BlocksFieldConfig | undefined;
+      const blocksConfig = field.config as BlocksFieldConfig | undefined;
+      const allowedBlocks = normalizeBlockTypeList(blocksConfig?.allowedBlocks);
+      const deniedBlocks = normalizeBlockTypeList(blocksConfig?.deniedBlocks);
+      const sourceAllowed = normalizeBlockTypeList(blocksConfig?.__sourceAllowedBlocks);
+      const sourceDenied = normalizeBlockTypeList(blocksConfig?.__sourceDeniedBlocks);
+      const hasAllowedOverride = allowedBlocks.length > 0;
+      const hasDeniedOverride = deniedBlocks.length > 0;
+      const allowedChanged = !blockTypeListsEqual(allowedBlocks, sourceAllowed);
+      const deniedChanged = !blockTypeListsEqual(deniedBlocks, sourceDenied);
 
-      // Build the items schema with oneOf and discriminator
-      const itemsSchema: JSONSchema = {
-        type: 'object',
-        properties: {
-          _type: {
-            type: 'string',
-            description: 'Block type discriminator',
-          },
-          _schema: {
-            type: 'string',
-            description: 'Block schema version',
-          },
-        },
-        required: ['_type'],
-      };
-
-      // If we have allowed blocks, create oneOf with explicit types
-      if (blocksConfig?.allowedBlocks && blocksConfig.allowedBlocks.length > 0) {
-        itemsSchema.oneOf = blocksConfig.allowedBlocks.map((blockType) => ({
-          type: 'object' as const,
-          properties: {
-            _type: { const: blockType },
-          },
-          required: ['_type'],
-        }));
-        // Add discriminator metadata
-        itemsSchema['x-discriminator'] = '_type';
+      const sourceItems = blocksConfig?.__sourceItemsSchema;
+      const sourceMode = blocksConfig?.__sourceRepresentation ?? 'inline';
+      if (sourceItems && !allowedChanged) {
+        schema.items = cloneSchema(sourceItems);
+      } else if (sourceMode === 'refs' && hasAllowedOverride) {
+        schema.items = buildRefBlocksItemsSchema(allowedBlocks, blocksConfig?.__sourceRefPrefix);
+      } else {
+        schema.items = buildInlineBlocksItemsSchema(hasAllowedOverride ? allowedBlocks : undefined);
       }
-
-      schema.items = itemsSchema;
 
       // Add min/max constraints
       if (blocksConfig?.minBlocks !== undefined) {
@@ -822,14 +933,17 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
       // Build x-formgen with blocks configuration
       const blocksFormgen: Record<string, unknown> = {
         ...formgen,
-        widget: 'block',
-        sortable: true,
+        widget: blocksConfig?.__sourceWidget || 'block',
+        sortable: blocksConfig?.__sourceSortable ?? true,
       };
-      if (blocksConfig?.allowedBlocks) {
-        blocksFormgen.allowedBlocks = blocksConfig.allowedBlocks;
+      if (
+        hasAllowedOverride &&
+        (blocksConfig?.__sourceHadAllowedBlocks || sourceMode !== 'refs' || allowedChanged)
+      ) {
+        blocksFormgen.allowedBlocks = allowedBlocks;
       }
-      if (blocksConfig?.deniedBlocks) {
-        blocksFormgen.deniedBlocks = blocksConfig.deniedBlocks;
+      if (hasDeniedOverride || (blocksConfig?.__sourceHadDeniedBlocks && deniedChanged)) {
+        blocksFormgen.deniedBlocks = deniedBlocks;
       }
       schema['x-formgen'] = blocksFormgen as FormgenExtension;
       break;
@@ -934,7 +1048,19 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
 
   // Blocks configuration
   if (field.type === 'blocks' && schema.type === 'array') {
-    const blocksConfig: import('./types').BlocksFieldConfig = {};
+    const blocksConfig: BlocksFieldConfig = {};
+    const sourceItems = schema.items ? cloneSchema(schema.items as JSONSchema) : undefined;
+    if (sourceItems) {
+      blocksConfig.__sourceItemsSchema = sourceItems;
+    }
+    if (typeof formgen?.widget === 'string' && formgen.widget.trim()) {
+      blocksConfig.__sourceWidget = formgen.widget.trim();
+    }
+    if (typeof formgen?.sortable === 'boolean') {
+      blocksConfig.__sourceSortable = formgen.sortable;
+    }
+    blocksConfig.__sourceHadAllowedBlocks = Array.isArray(formgen?.allowedBlocks);
+    blocksConfig.__sourceHadDeniedBlocks = Array.isArray(formgen?.deniedBlocks);
 
     // Extract min/max from schema
     if (schema.minItems !== undefined) {
@@ -944,29 +1070,39 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
       blocksConfig.maxBlocks = schema.maxItems;
     }
 
-    // Extract allowed blocks from x-formgen or oneOf
-    if (formgen?.allowedBlocks && Array.isArray(formgen.allowedBlocks)) {
-      blocksConfig.allowedBlocks = formgen.allowedBlocks as string[];
-    } else if (schema.items) {
-      const itemsSchema = schema.items as JSONSchema;
-      if (itemsSchema.oneOf && Array.isArray(itemsSchema.oneOf)) {
-        // Extract allowed block types from oneOf const values
-        const allowedTypes = itemsSchema.oneOf
-          .map((subSchema) => {
-            const typeSchema = subSchema as JSONSchema;
-            const typeProp = typeSchema.properties?._type as JSONSchema | undefined;
-            return typeProp?.const as string | undefined;
-          })
-          .filter((t): t is string => !!t);
-        if (allowedTypes.length > 0) {
-          blocksConfig.allowedBlocks = allowedTypes;
-        }
+    // Extract allowed blocks from oneOf/formgen and keep source representation metadata.
+    const parsedSource = sourceItems?.oneOf ? extractAllowedBlocksFromOneOf(sourceItems.oneOf) : null;
+    if (parsedSource) {
+      blocksConfig.__sourceRepresentation = parsedSource.mode;
+      if (parsedSource.refPrefix) {
+        blocksConfig.__sourceRefPrefix = parsedSource.refPrefix;
       }
+    }
+    let sourceAllowedBlocks: string[] | undefined;
+    if (formgen?.allowedBlocks && Array.isArray(formgen.allowedBlocks)) {
+      const configured = normalizeBlockTypeList(formgen.allowedBlocks as string[]);
+      sourceAllowedBlocks = parsedSource?.allowed.length ? parsedSource.allowed : configured;
+      if (configured.length > 0) {
+        blocksConfig.allowedBlocks = configured;
+      }
+    } else if (parsedSource?.allowed.length) {
+      sourceAllowedBlocks = parsedSource.allowed;
+      blocksConfig.allowedBlocks = parsedSource.allowed;
+    }
+    if (!blocksConfig.__sourceRepresentation) {
+      blocksConfig.__sourceRepresentation = 'inline';
+    }
+    if (sourceAllowedBlocks && sourceAllowedBlocks.length > 0) {
+      blocksConfig.__sourceAllowedBlocks = sourceAllowedBlocks;
     }
 
     // Extract denied blocks from x-formgen
     if (formgen?.deniedBlocks && Array.isArray(formgen.deniedBlocks)) {
-      blocksConfig.deniedBlocks = formgen.deniedBlocks as string[];
+      const denied = normalizeBlockTypeList(formgen.deniedBlocks as string[]);
+      if (denied.length > 0) {
+        blocksConfig.deniedBlocks = denied;
+      }
+      blocksConfig.__sourceDeniedBlocks = denied;
     }
 
     if (Object.keys(blocksConfig).length > 0) {

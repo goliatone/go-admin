@@ -284,6 +284,8 @@ export declare class DataGrid {
      * Extract error message from Response or Error
      */
     private extractError;
+    private parseDatasetStringArray;
+    private parseDatasetObject;
     /**
      * Reorder columns based on the provided order array
      * Updates config.columns order and triggers DOM reordering

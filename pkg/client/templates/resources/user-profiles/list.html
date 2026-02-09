@@ -291,7 +291,9 @@
         <button class="bulk-action-btn{% if action.variant == 'danger' %} bulk-action-btn--danger{% endif %}"
                 data-bulk-action="{{ action.name }}"
                 {% if action.confirm %}data-bulk-confirm="{{ action.confirm }}"{% endif %}
-                {% if action.icon %}data-bulk-icon="{{ action.icon }}"{% endif %}>
+                {% if action.icon %}data-bulk-icon="{{ action.icon }}"{% endif %}
+                {% if action.payload_required %}data-bulk-payload-required='{{ toJSON(action.payload_required) }}'{% endif %}
+                {% if action.payload_schema %}data-bulk-payload-schema='{{ toJSON(action.payload_schema) }}'{% endif %}>
           {{ action.label }}
         </button>
         {% endfor %}
@@ -308,7 +310,9 @@
             <button class="bulk-overflow-item{% if action.variant == 'danger' %} text-red-400{% endif %}"
                     data-bulk-action="{{ action.name }}"
                     {% if action.confirm %}data-bulk-confirm="{{ action.confirm }}"{% endif %}
-                    {% if action.icon %}data-bulk-icon="{{ action.icon }}"{% endif %}>
+                    {% if action.icon %}data-bulk-icon="{{ action.icon }}"{% endif %}
+                    {% if action.payload_required %}data-bulk-payload-required='{{ toJSON(action.payload_required) }}'{% endif %}
+                    {% if action.payload_schema %}data-bulk-payload-schema='{{ toJSON(action.payload_schema) }}'{% endif %}>
               {{ action.label }}
             </button>
             {% endfor %}
@@ -339,6 +343,12 @@ const gridColumns = columns.map(col => ({
 
 {% verbatim %}
 document.addEventListener('DOMContentLoaded', async function() {
+  const tableId = 'user-profiles-datatable';
+  const tableEl = document.getElementById(tableId);
+  if (!tableEl) {
+    return;
+  }
+
   // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
   const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
@@ -350,7 +360,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // Initialize the DataGrid component
   const grid = new DataGrid({
-    tableId: 'user-profiles-datatable',
+    tableId: tableId,
     apiEndpoint: `${basePath}/crud/user-profiles`,
     actionBasePath: actionBasePath,
     columns: gridColumns,

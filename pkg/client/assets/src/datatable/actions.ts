@@ -6,6 +6,7 @@
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import { extractErrorMessage } from '../toast/error-helpers.js';
+import { Modal, escapeHtml as escapeModalHtml } from '../shared/modal.js';
 
 export type ActionVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
 export type ActionRenderMode = 'inline' | 'dropdown';
@@ -29,6 +30,234 @@ export interface BulkActionConfig {
   guard?: (selectedIds: string[]) => boolean;
   onSuccess?: (response: any) => void;
   onError?: (error: Error) => void;
+  payload?: Record<string, unknown>;
+  payloadRequired?: string[];
+  payloadSchema?: Record<string, unknown>;
+}
+
+interface PayloadSchemaProperty {
+  type?: string;
+  title?: string;
+  description?: string;
+  default?: unknown;
+  enum?: unknown[];
+  oneOf?: PayloadSchemaOption[];
+}
+
+interface PayloadSchemaOption {
+  const?: unknown;
+  title?: string;
+}
+
+interface PayloadSchema {
+  type?: string;
+  required?: unknown;
+  properties?: Record<string, PayloadSchemaProperty>;
+}
+
+interface PayloadModalFieldOption {
+  value: string;
+  label: string;
+}
+
+interface PayloadModalField {
+  name: string;
+  label: string;
+  description?: string;
+  value: string;
+  type: string;
+  options?: PayloadModalFieldOption[];
+}
+
+interface PayloadModalConfig {
+  title: string;
+  fields: PayloadModalField[];
+  confirmLabel?: string;
+  cancelLabel?: string;
+}
+
+class PayloadInputModal extends Modal {
+  private readonly config: PayloadModalConfig;
+  private readonly onConfirm: (values: Record<string, string>) => void;
+  private readonly onCancel: () => void;
+  private resolved = false;
+
+  constructor(
+    config: PayloadModalConfig,
+    onConfirm: (values: Record<string, string>) => void,
+    onCancel: () => void
+  ) {
+    super({ size: 'md', initialFocus: '[data-payload-field]', lockBodyScroll: false });
+    this.config = config;
+    this.onConfirm = onConfirm;
+    this.onCancel = onCancel;
+  }
+
+  static prompt(config: PayloadModalConfig): Promise<Record<string, string> | null> {
+    return new Promise<Record<string, string> | null>((resolve) => {
+      const modal = new PayloadInputModal(
+        config,
+        (values) => resolve(values),
+        () => resolve(null)
+      );
+      modal.show();
+    });
+  }
+
+  protected renderContent(): string {
+    const fields = this.config.fields.map((field) => this.renderField(field)).join('');
+    return `
+      <form class="flex flex-col" data-payload-form>
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-gray-900">${escapeModalHtml(this.config.title)}</h3>
+          <p class="text-sm text-gray-500 mt-1">Complete required fields to continue.</p>
+        </div>
+        <div class="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          ${fields}
+        </div>
+        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+          <button type="button"
+                  data-payload-cancel
+                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
+            ${escapeModalHtml(this.config.cancelLabel ?? 'Cancel')}
+          </button>
+          <button type="submit"
+                  data-payload-confirm
+                  class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 cursor-pointer">
+            ${escapeModalHtml(this.config.confirmLabel ?? 'Continue')}
+          </button>
+        </div>
+      </form>
+    `;
+  }
+
+  protected bindContentEvents(): void {
+    const form = this.container?.querySelector<HTMLFormElement>('[data-payload-form]');
+    const cancelBtn = this.container?.querySelector<HTMLButtonElement>('[data-payload-cancel]');
+    const submit = (): void => {
+      this.clearErrors();
+      const values: Record<string, string> = {};
+      let firstInvalid: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null = null;
+
+      for (const field of this.config.fields) {
+        const input = this.container?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+          `[data-payload-field="${field.name}"]`
+        );
+        if (!input) {
+          continue;
+        }
+        const value = input.value.trim();
+        values[field.name] = value;
+        if (!value) {
+          if (!firstInvalid) {
+            firstInvalid = input;
+          }
+          this.showFieldError(field.name, 'This field is required.');
+        }
+      }
+
+      if (firstInvalid) {
+        firstInvalid.focus();
+        return;
+      }
+
+      this.resolved = true;
+      this.onConfirm(values);
+      this.hide();
+    };
+
+    form?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      submit();
+    });
+    cancelBtn?.addEventListener('click', () => {
+      this.hide();
+    });
+  }
+
+  protected onBeforeHide(): boolean {
+    if (!this.resolved) {
+      this.resolved = true;
+      this.onCancel();
+    }
+    return true;
+  }
+
+  private renderField(field: PayloadModalField): string {
+    const description = field.description
+      ? `<p class="text-xs text-gray-500 mt-1">${escapeModalHtml(field.description)}</p>`
+      : '';
+    const control = field.options && field.options.length > 0
+      ? this.renderSelect(field)
+      : this.renderInput(field);
+    return `
+      <div>
+        <label class="block text-sm font-medium text-gray-800 mb-1.5" for="payload-field-${field.name}">
+          ${escapeModalHtml(field.label)}
+        </label>
+        ${control}
+        ${description}
+        <p class="hidden text-xs text-red-600 mt-1" data-payload-error="${field.name}"></p>
+      </div>
+    `;
+  }
+
+  private renderSelect(field: PayloadModalField): string {
+    const selected = field.value;
+    const options = field.options || [];
+    const optionHtml = options
+      .map((option) => {
+        const isSelected = option.value === selected ? ' selected' : '';
+        return `<option value="${escapeModalHtml(option.value)}"${isSelected}>${escapeModalHtml(option.label)}</option>`;
+      })
+      .join('');
+    return `
+      <select id="payload-field-${field.name}"
+              data-payload-field="${field.name}"
+              class="w-full border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent px-3 py-2 text-sm border-gray-300">
+        <option value="">Select an option</option>
+        ${optionHtml}
+      </select>
+    `;
+  }
+
+  private renderInput(field: PayloadModalField): string {
+    const cls = 'w-full border rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent px-3 py-2 text-sm border-gray-300';
+    if (field.type === 'array' || field.type === 'object') {
+      return `
+        <textarea id="payload-field-${field.name}"
+                  data-payload-field="${field.name}"
+                  rows="4"
+                  class="${cls}"
+                  placeholder="${field.type === 'array' ? '[...]' : '{...}'}">${escapeModalHtml(field.value)}</textarea>
+      `;
+    }
+    const inputType = field.type === 'integer' || field.type === 'number' ? 'number' : 'text';
+    return `
+      <input id="payload-field-${field.name}"
+             type="${inputType}"
+             data-payload-field="${field.name}"
+             value="${escapeModalHtml(field.value)}"
+             class="${cls}" />
+    `;
+  }
+
+  private clearErrors(): void {
+    const errors = this.container?.querySelectorAll<HTMLElement>('[data-payload-error]');
+    errors?.forEach((el) => {
+      el.textContent = '';
+      el.classList.add('hidden');
+    });
+  }
+
+  private showFieldError(name: string, message: string): void {
+    const errorEl = this.container?.querySelector<HTMLElement>(`[data-payload-error="${name}"]`);
+    if (!errorEl) {
+      return;
+    }
+    errorEl.textContent = message;
+    errorEl.classList.remove('hidden');
+  }
 }
 
 export interface ActionRendererConfig {
@@ -291,6 +520,11 @@ export class ActionRenderer {
       }
     }
 
+    const requestPayload = await this.resolveBulkActionPayload(config, selectedIds);
+    if (requestPayload === null) {
+      return;
+    }
+
     try {
       const response = await fetch(config.endpoint, {
         method: config.method || 'POST',
@@ -298,7 +532,7 @@ export class ActionRenderer {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ ids: selectedIds }),
+        body: JSON.stringify(requestPayload),
       });
 
       if (!response.ok) {
@@ -326,6 +560,266 @@ export class ActionRenderer {
       }
       throw error;
     }
+  }
+
+  private async resolveBulkActionPayload(
+    config: BulkActionConfig,
+    selectedIds: string[]
+  ): Promise<Record<string, unknown> | null> {
+    const payload: Record<string, unknown> = {
+      ...(config.payload || {}),
+      ids: selectedIds,
+    };
+
+    const schema = this.normalizePayloadSchema(config.payloadSchema);
+    if (schema?.properties) {
+      Object.entries(schema.properties).forEach(([field, definition]) => {
+        if (payload[field] === undefined && definition && definition.default !== undefined) {
+          payload[field] = definition.default;
+        }
+      });
+    }
+
+    const required = this.collectRequiredFields(config.payloadRequired, schema);
+    const missingRequired = required.filter((field) => field !== 'ids' && this.isEmptyPayloadValue(payload[field]));
+    if (missingRequired.length === 0) {
+      return payload;
+    }
+
+    const rawValues = await this.requestRequiredFields(config, missingRequired, schema, payload);
+    if (rawValues === null) {
+      return null;
+    }
+
+    for (const field of missingRequired) {
+      const definition = schema?.properties?.[field];
+      const rawValue = rawValues[field] ?? '';
+      const parsed = this.coercePromptValue(rawValue, field, definition);
+      if (parsed.error) {
+        this.notifier.error(parsed.error);
+        return null;
+      }
+      payload[field] = parsed.value;
+    }
+
+    return payload;
+  }
+
+  private collectRequiredFields(required: string[] | undefined, schema: PayloadSchema | null): string[] {
+    const ordered: string[] = [];
+    const seen = new Set<string>();
+    const append = (field: string): void => {
+      const value = field.trim();
+      if (!value || seen.has(value)) {
+        return;
+      }
+      seen.add(value);
+      ordered.push(value);
+    };
+
+    if (Array.isArray(required)) {
+      required.forEach((field) => append(String(field)));
+    }
+    if (Array.isArray(schema?.required)) {
+      schema.required.forEach((field) => append(String(field)));
+    }
+    return ordered;
+  }
+
+  private normalizePayloadSchema(schema: Record<string, unknown> | undefined): PayloadSchema | null {
+    if (!schema || typeof schema !== 'object') {
+      return null;
+    }
+    const propertiesRaw = schema.properties;
+    let properties: Record<string, PayloadSchemaProperty> | undefined;
+    if (propertiesRaw && typeof propertiesRaw === 'object') {
+      properties = {};
+      Object.entries(propertiesRaw as Record<string, unknown>).forEach(([key, value]) => {
+        if (value && typeof value === 'object') {
+          properties![key] = value as PayloadSchemaProperty;
+        }
+      });
+    }
+    return {
+      type: typeof schema.type === 'string' ? schema.type : undefined,
+      required: schema.required,
+      properties,
+    };
+  }
+
+  private async requestRequiredFields(
+    config: BulkActionConfig,
+    requiredFields: string[],
+    schema: PayloadSchema | null,
+    payload: Record<string, unknown>
+  ): Promise<Record<string, string> | null> {
+    const modalFields = requiredFields.map((field) => {
+      const definition = schema?.properties?.[field];
+      const rawType = typeof definition?.type === 'string' ? definition.type.toLowerCase() : 'string';
+      return {
+        name: field,
+        label: (definition?.title || field).trim(),
+        description: (definition?.description || '').trim() || undefined,
+        value: this.stringifyPromptDefault(payload[field] !== undefined ? payload[field] : definition?.default),
+        type: rawType,
+        options: this.buildSchemaOptions(definition),
+      };
+    });
+    return PayloadInputModal.prompt({
+      title: `Complete ${config.label || config.id}`,
+      fields: modalFields,
+    });
+  }
+
+  private buildSchemaOptions(definition: PayloadSchemaProperty | undefined): PayloadModalFieldOption[] | undefined {
+    if (!definition) {
+      return undefined;
+    }
+
+    if (Array.isArray(definition.oneOf) && definition.oneOf.length > 0) {
+      const options = definition.oneOf
+        .filter((option) => option && Object.prototype.hasOwnProperty.call(option, 'const'))
+        .map((option) => {
+          const value = this.stringifyPromptDefault(option.const);
+          const label = typeof option.title === 'string' && option.title.trim() ? option.title.trim() : value;
+          return { value, label };
+        });
+      return options.length > 0 ? options : undefined;
+    }
+
+    if (Array.isArray(definition.enum) && definition.enum.length > 0) {
+      const options = definition.enum.map((item) => {
+        const value = this.stringifyPromptDefault(item);
+        return { value, label: value };
+      });
+      return options.length > 0 ? options : undefined;
+    }
+
+    if (typeof definition.type === 'string' && definition.type.toLowerCase() === 'boolean') {
+      return [
+        { value: 'true', label: 'True' },
+        { value: 'false', label: 'False' },
+      ];
+    }
+
+    return undefined;
+  }
+
+  private stringifyPromptDefault(value: unknown): string {
+    if (value === undefined || value === null) {
+      return '';
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '';
+    }
+  }
+
+  private coercePromptValue(
+    rawValue: string,
+    field: string,
+    definition: PayloadSchemaProperty | undefined
+  ): { value: unknown; error?: string } {
+    if (Array.isArray(definition?.oneOf) && definition.oneOf.length > 0) {
+      const match = definition.oneOf.find(
+        (item) => item && Object.prototype.hasOwnProperty.call(item, 'const') && this.stringifyPromptDefault(item.const) === rawValue
+      );
+      if (!match || !Object.prototype.hasOwnProperty.call(match, 'const')) {
+        const allowed = definition.oneOf
+          .map((item) => (typeof item?.title === 'string' && item.title.trim() ? item.title.trim() : this.stringifyPromptDefault(item.const)))
+          .filter((value) => value !== '')
+          .join(', ');
+        return { value: rawValue, error: `${field} must be one of: ${allowed}` };
+      }
+      return { value: match.const };
+    }
+
+    const type = (definition?.type || 'string').toLowerCase();
+    if (rawValue === '') {
+      return { value: '' };
+    }
+
+    let value: unknown = rawValue;
+    switch (type) {
+      case 'integer': {
+        const parsed = Number.parseInt(rawValue, 10);
+        if (Number.isNaN(parsed)) {
+          return { value: rawValue, error: `${field} must be an integer.` };
+        }
+        value = parsed;
+        break;
+      }
+      case 'number': {
+        const parsed = Number.parseFloat(rawValue);
+        if (Number.isNaN(parsed)) {
+          return { value: rawValue, error: `${field} must be a number.` };
+        }
+        value = parsed;
+        break;
+      }
+      case 'boolean': {
+        const normalized = rawValue.toLowerCase();
+        if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+          value = true;
+          break;
+        }
+        if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
+          value = false;
+          break;
+        }
+        return { value: rawValue, error: `${field} must be true/false.` };
+      }
+      case 'array':
+      case 'object': {
+        try {
+          const parsed = JSON.parse(rawValue) as unknown;
+          if (type === 'array' && !Array.isArray(parsed)) {
+            return { value: rawValue, error: `${field} must be a JSON array.` };
+          }
+          if (type === 'object' && (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object')) {
+            return { value: rawValue, error: `${field} must be a JSON object.` };
+          }
+          value = parsed;
+        } catch {
+          return { value: rawValue, error: `${field} must be valid JSON.` };
+        }
+        break;
+      }
+      default:
+        value = rawValue;
+    }
+
+    if (Array.isArray(definition?.enum) && definition!.enum!.length > 0) {
+      const matches = definition!.enum!.some((item) => item === value || String(item) === String(value));
+      if (!matches) {
+        return { value, error: `${field} must be one of: ${definition!.enum!.map((item) => String(item)).join(', ')}` };
+      }
+    }
+
+    return { value };
+  }
+
+  private isEmptyPayloadValue(value: unknown): boolean {
+    if (value === undefined || value === null) {
+      return true;
+    }
+    if (typeof value === 'string') {
+      return value.trim() === '';
+    }
+    if (Array.isArray(value)) {
+      return value.length === 0;
+    }
+    if (typeof value === 'object') {
+      return Object.keys(value as Record<string, unknown>).length === 0;
+    }
+    return false;
   }
 
   private getVariantClass(variant: ActionVariant): string {

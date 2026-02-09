@@ -18,7 +18,7 @@
       <div class="flex-1 min-w-[200px]">
         <input
           type="text"
-          id="search-input"
+          id="table-search"
           placeholder="Search tenants..."
           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
@@ -38,7 +38,8 @@
       {# Column Visibility #}
       <div class="relative">
         <button
-          id="column-visibility-btn"
+          id="column-toggle-btn"
+          data-dropdown-toggle="column-toggle-menu"
           class="btn btn-secondary flex items-center gap-2"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,7 +47,7 @@
           </svg>
           Columns
         </button>
-        <div id="column-visibility-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+        <div id="column-toggle-menu" class="hidden absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
           <div class="p-2 space-y-1">
             {# Populated by ColumnVisibility behavior #}
           </div>
@@ -57,6 +58,7 @@
       <div class="relative">
         <button
           id="export-btn"
+          data-dropdown-toggle="export-menu"
           class="btn btn-secondary flex items-center gap-2"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,26 +82,6 @@
         </div>
       </div>
 
-      {# Bulk Actions #}
-      <div class="relative">
-        <button
-          id="bulk-actions-btn"
-          disabled
-          class="btn btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-          </svg>
-          Bulk Actions <span id="bulk-count" class="ml-1 text-xs">(0)</span>
-        </button>
-        <div id="bulk-actions-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-          <button data-action="activate" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">Activate</button>
-          <button data-action="suspend" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">Suspend</button>
-          <button data-action="archive" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">Archive</button>
-          <button data-action="delete" class="w-full text-left px-4 py-2 hover:bg-red-100 text-red-600 text-sm">Delete</button>
-        </div>
-      </div>
-
       {# Refresh #}
       <button
         id="refresh-btn"
@@ -112,18 +94,20 @@
       </button>
     </div>
 
-    {# Filter Builder Panel #}
-    <div id="filter-builder-panel" class="hidden mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-      <div id="filter-builder-root"></div>
-      <div class="flex gap-2 mt-4">
-        <button id="apply-filters-btn" class="btn btn-primary">Apply Filters</button>
-        <button id="clear-filters-btn" class="btn btn-secondary">Clear</button>
-      </div>
+    {# Applied Filter Preview #}
+    <div id="applied-filter-preview" class="hidden mt-4 text-sm text-gray-600">
+      <span class="font-medium">Applied filter:</span>
+      <span id="filter-preview-text" class="ml-1"></span>
+      <button type="button" id="clear-filters-btn" class="ml-2 text-red-600 hover:text-red-800" aria-label="Clear filters">
+        <svg class="inline h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+        </svg>
+      </button>
     </div>
 
-    {# Active Filters Display #}
-    <div id="active-filters" class="hidden mt-4 flex flex-wrap gap-2">
-      {# Populated by FilterBehavior #}
+    {# Filter Panel (rendered by FilterBuilder) #}
+    <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
+      {# Panel content is rendered by FilterBuilder #}
     </div>
   </div>
 
@@ -138,7 +122,7 @@
             </th>
             <th scope="col" data-column="name" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               Name
-              <button class="sort-btn ml-1" data-column="name">
+              <button class="sort-btn ml-1" data-sort-column="name">
                 <svg class="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
@@ -146,7 +130,7 @@
             </th>
             <th scope="col" data-column="slug" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               Slug
-              <button class="sort-btn ml-1" data-column="slug">
+              <button class="sort-btn ml-1" data-sort-column="slug">
                 <svg class="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
@@ -154,7 +138,7 @@
             </th>
             <th scope="col" data-column="status" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               Status
-              <button class="sort-btn ml-1" data-column="status">
+              <button class="sort-btn ml-1" data-sort-column="status">
                 <svg class="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
@@ -162,7 +146,7 @@
             </th>
             <th scope="col" data-column="created_at" class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               Created
-              <button class="sort-btn ml-1" data-column="created_at">
+              <button class="sort-btn ml-1" data-sort-column="created_at">
                 <svg class="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
@@ -179,52 +163,45 @@
       </table>
     </div>
 
-    {# Loading State #}
-    <div id="loading-state" class="hidden p-8 text-center text-gray-500">
-      <svg class="animate-spin h-8 w-8 mx-auto mb-2 text-blue-600" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      Loading...
-    </div>
-
-    {# Empty State #}
-    <div id="empty-state" class="hidden p-8 text-center text-gray-500">
-      <div class="text-6xl mb-4">🏢</div>
-      <p class="text-lg font-medium">No tenants found</p>
-      <p class="text-sm mt-1">Try adjusting your search or filters</p>
-    </div>
-
-    {# Error State #}
-    <div id="error-state" class="hidden p-8 text-center text-red-500">
-      <div class="text-6xl mb-4">⚠️</div>
-      <p class="text-lg font-medium">Failed to load tenants</p>
-      <p class="text-sm mt-1" id="error-message"></p>
-      <button id="retry-btn" class="mt-4 btn btn-primary">Retry</button>
-    </div>
   </div>
 
   {# Pagination #}
   <div class="mt-4 flex justify-between items-center bg-white border border-gray-200 rounded-xl p-4">
     <div class="text-sm text-gray-600">
-      Showing <span id="page-info-start">0</span> to <span id="page-info-end">0</span> of <span id="page-info-total">0</span> results
+      Showing <span id="table-info-start">0</span> to <span id="table-info-end">0</span> of <span id="table-info-total">0</span> results
     </div>
     <div class="flex gap-2 items-center">
-      <button id="prev-page" class="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed">
-        Previous
-      </button>
-      <div id="page-numbers" class="flex gap-1">
-        {# Page numbers populated by PaginationBehavior #}
-      </div>
-      <button id="next-page" class="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed">
-        Next
-      </button>
-      <select id="per-page-select" class="ml-4 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      <nav id="table-pagination" class="flex items-center gap-x-1"></nav>
+      <select id="table-per-page" class="ml-4 border border-gray-300 rounded-lg px-3 py-2 text-sm">
         <option value="10">10 per page</option>
         <option value="25">25 per page</option>
         <option value="50">50 per page</option>
         <option value="100">100 per page</option>
       </select>
+    </div>
+  </div>
+
+  {# Overlay for filter panel #}
+  <div id="filter-overlay" class="hidden fixed inset-0 bg-black opacity-30 z-40"></div>
+
+  <!-- Floating Bulk Actions Bar -->
+  <div id="bulk-actions-overlay" class="bulk-actions-overlay hidden">
+    <div class="bulk-actions-bar" id="bulk-actions-bar">
+      <div class="flex items-center gap-4">
+        <button id="bulk-clear-selection" class="bulk-close-btn" aria-label="Clear selection">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+        <span class="bulk-count-text">Selected: <span id="selected-count">0</span></span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button class="bulk-action-btn" data-bulk-action="activate">Activate</button>
+        <button class="bulk-action-btn" data-bulk-action="suspend">Suspend</button>
+        <button class="bulk-action-btn" data-bulk-action="archive">Archive</button>
+        <button class="bulk-action-btn bulk-action-btn--danger" data-bulk-action="delete">Delete</button>
+      </div>
     </div>
   </div>
 </div>
@@ -240,7 +217,6 @@
     GoCrudPaginationBehavior,
     GoCrudSortBehavior,
     GoCrudExportBehavior,
-    GoCrudBulkActionBehavior,
     DefaultColumnVisibilityBehavior
   } from '{{ base_path }}/assets/dist/datatable/index.js';
 
@@ -248,6 +224,7 @@
   const basePath = '{{ base_path }}';
   const actionBasePath = window.location.pathname.replace('/list', '');
   const exportConfig = {{ toJSON(export_config)|safe }};
+  const bulkEndpoint = `${basePath}/crud/tenants/bulk`;
 
   // Initialize DataGrid
   const grid = new DataGrid({
@@ -260,6 +237,32 @@
       { field: 'status', label: 'Status', sortable: true, filterable: true, render: (value) => `<span class="status-badge status-${value}">${value}</span>` },
       { field: 'created_at', label: 'Created', sortable: true, filterable: true }
     ],
+    bulkActions: [
+      {
+        id: 'activate',
+        label: 'Activate',
+        endpoint: `${bulkEndpoint}/activate`,
+        confirm: 'Activate {count} tenant(s)?'
+      },
+      {
+        id: 'suspend',
+        label: 'Suspend',
+        endpoint: `${bulkEndpoint}/suspend`,
+        confirm: 'Suspend {count} tenant(s)?'
+      },
+      {
+        id: 'archive',
+        label: 'Archive',
+        endpoint: `${bulkEndpoint}/archive`,
+        confirm: 'Archive {count} tenant(s)?'
+      },
+      {
+        id: 'delete',
+        label: 'Delete',
+        endpoint: `${bulkEndpoint}/delete`,
+        confirm: 'Delete {count} tenant(s)?'
+      }
+    ],
     perPage: 10,
     searchDelay: 300,
     behaviors: {
@@ -268,7 +271,6 @@
       pagination: new GoCrudPaginationBehavior(),
       sort: new GoCrudSortBehavior(),
       export: new GoCrudExportBehavior(exportConfig),
-      bulkActions: new GoCrudBulkActionBehavior(`${basePath}/crud/tenants`),
       columnVisibility: new DefaultColumnVisibilityBehavior(
         ['name', 'slug', 'status', 'created_at'],
         'tenants_datatable_columns'
@@ -277,7 +279,7 @@
   });
 
   // Initialize FilterBuilder
-  const filterBuilder = new FilterBuilder({
+  new FilterBuilder({
     fields: [
       { name: 'name', label: 'Name', type: 'text' },
       { name: 'slug', label: 'Slug', type: 'text' },
@@ -303,27 +305,13 @@
       grid.resetPagination();
       grid.syncURL();
       grid.refresh();
+    },
+    onClear: () => {
+      grid.state.filters = [];
+      grid.resetPagination();
+      grid.syncURL();
+      grid.refresh();
     }
-  });
-
-  filterBuilder.mount(document.getElementById('filter-builder-root'));
-
-  // UI Event Handlers
-  document.getElementById('filter-toggle-btn').addEventListener('click', () => {
-    const panel = document.getElementById('filter-builder-panel');
-    panel.classList.toggle('hidden');
-  });
-
-  document.getElementById('apply-filters-btn').addEventListener('click', () => {
-    filterBuilder.apply();
-  });
-
-  document.getElementById('clear-filters-btn').addEventListener('click', () => {
-    filterBuilder.clear();
-    grid.state.filters = [];
-    grid.resetPagination();
-    grid.syncURL();
-    grid.refresh();
   });
 
   document.getElementById('refresh-btn').addEventListener('click', () => {

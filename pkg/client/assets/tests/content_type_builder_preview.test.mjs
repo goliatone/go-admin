@@ -17,7 +17,7 @@ Object.defineProperty(globalThis.document, 'readyState', { value: 'loading', con
 
 globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ items: [] }) });
 
-const { FieldConfigForm, ContentTypeEditor } = await import('../dist/content-type-builder/index.js');
+const { FieldConfigForm, ContentTypeEditor, schemaToFields, fieldsToSchema } = await import('../dist/content-type-builder/index.js');
 
 function setGlobals(win) {
   globalThis.window = win;
@@ -87,6 +87,46 @@ test('FieldConfigForm preserves order when saving an existing field', async () =
 
   assert.ok(savedField, 'expected onSave callback');
   assert.equal(savedField.order, 7);
+
+  form.destroy();
+});
+
+test('FieldConfigForm preserves internal blocks schema metadata on save', async () => {
+  setupDom();
+
+  let savedField = null;
+  const form = new FieldConfigForm({
+    field: {
+      id: 'field_blocks',
+      name: 'blocks',
+      type: 'blocks',
+      label: 'Blocks',
+      required: false,
+      config: {
+        __sourceItemsSchema: { oneOf: [{ $ref: '#/$defs/hero' }] },
+        __sourceAllowedBlocks: ['hero'],
+        __sourceRefPrefix: '#/$defs/',
+        __sourceRepresentation: 'refs',
+        __sourceWidget: 'block-library-picker',
+      },
+    },
+    existingFieldNames: [],
+    onCancel: () => {},
+    onSave: (field) => {
+      savedField = field;
+    },
+  });
+
+  await form.show();
+  const saveButton = document.querySelector('[data-field-config-save]');
+  assert.ok(saveButton, 'expected save button');
+  click(saveButton);
+
+  assert.ok(savedField, 'expected onSave callback');
+  assert.equal(savedField.config.__sourceRepresentation, 'refs');
+  assert.equal(savedField.config.__sourceRefPrefix, '#/$defs/');
+  assert.deepEqual(savedField.config.__sourceAllowedBlocks, ['hero']);
+  assert.deepEqual(savedField.config.__sourceItemsSchema, { oneOf: [{ $ref: '#/$defs/hero' }] });
 
   form.destroy();
 });
@@ -174,4 +214,65 @@ test('ContentTypeEditor save preserves non-boolean capabilities when updating ic
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('schemaToFields/fieldsToSchema preserves ref-based blocks representation', () => {
+  const inputSchema = {
+    type: 'object',
+    properties: {
+      blocks: {
+        type: 'array',
+        'x-formgen': {
+          widget: 'block-library-picker',
+          sortable: true,
+        },
+        items: {
+          oneOf: [
+            { $ref: '#/$defs/hero' },
+            { $ref: '#/$defs/rich_text' },
+          ],
+        },
+      },
+    },
+  };
+
+  const fields = schemaToFields(inputSchema);
+  const rebuilt = fieldsToSchema(fields, 'page');
+  const blocksSchema = rebuilt.properties.blocks;
+
+  assert.deepEqual(blocksSchema.items.oneOf, [
+    { $ref: '#/$defs/hero' },
+    { $ref: '#/$defs/rich_text' },
+  ]);
+  assert.equal(blocksSchema.items.required, undefined);
+  assert.equal(blocksSchema['x-formgen'].widget, 'block-library-picker');
+});
+
+test('blocks allowed-block edits from ref-based schema keep oneOf refs', () => {
+  const inputSchema = {
+    type: 'object',
+    properties: {
+      blocks: {
+        type: 'array',
+        'x-formgen': {
+          widget: 'block-library-picker',
+          sortable: true,
+        },
+        items: {
+          oneOf: [
+            { $ref: '#/$defs/hero' },
+            { $ref: '#/$defs/rich_text' },
+          ],
+        },
+      },
+    },
+  };
+
+  const fields = schemaToFields(inputSchema);
+  fields[0].config.allowedBlocks = ['hero'];
+  const rebuilt = fieldsToSchema(fields, 'page');
+  const blocksSchema = rebuilt.properties.blocks;
+
+  assert.deepEqual(blocksSchema.items.oneOf, [{ $ref: '#/$defs/hero' }]);
+  assert.equal(blocksSchema.items.required, undefined);
 });

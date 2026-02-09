@@ -1555,11 +1555,15 @@ export class DataGrid {
         if (bulkBase) {
           const endpoint = `${bulkBase}/${actionId}`;
           const confirmMsg = el.dataset.bulkConfirm;
+          const payloadRequired = this.parseDatasetStringArray(el.dataset.bulkPayloadRequired);
+          const payloadSchema = this.parseDatasetObject(el.dataset.bulkPayloadSchema);
           const domConfig = {
             id: actionId,
             label: el.textContent?.trim() || actionId,
             endpoint: endpoint,
             confirm: confirmMsg,
+            payloadRequired: payloadRequired,
+            payloadSchema: payloadSchema,
           };
           try {
             await this.actionRenderer.executeBulkAction(domConfig, ids);
@@ -1862,6 +1866,41 @@ export class DataGrid {
       return error.message;
     }
     return 'An unexpected error occurred';
+  }
+
+  private parseDatasetStringArray(raw: string | undefined): string[] | undefined {
+    if (!raw) {
+      return undefined;
+    }
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) {
+        return undefined;
+      }
+      const result = parsed
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item.length > 0);
+      return result.length > 0 ? result : undefined;
+    } catch (error) {
+      console.warn('[DataGrid] Failed to parse bulk payload_required:', error);
+      return undefined;
+    }
+  }
+
+  private parseDatasetObject(raw: string | undefined): Record<string, unknown> | undefined {
+    if (!raw) {
+      return undefined;
+    }
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return undefined;
+      }
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      console.warn('[DataGrid] Failed to parse bulk payload_schema:', error);
+      return undefined;
+    }
   }
 
   /**

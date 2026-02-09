@@ -23,6 +23,9 @@ export interface BulkActionConfig {
     guard?: (selectedIds: string[]) => boolean;
     onSuccess?: (response: any) => void;
     onError?: (error: Error) => void;
+    payload?: Record<string, unknown>;
+    payloadRequired?: string[];
+    payloadSchema?: Record<string, unknown>;
 }
 export interface ActionRendererConfig {
     mode?: ActionRenderMode;
@@ -72,6 +75,14 @@ export declare class ActionRenderer {
      * Execute bulk action
      */
     executeBulkAction(config: BulkActionConfig, selectedIds: string[]): Promise<void>;
+    private resolveBulkActionPayload;
+    private collectRequiredFields;
+    private normalizePayloadSchema;
+    private requestRequiredFields;
+    private buildSchemaOptions;
+    private stringifyPromptDefault;
+    private coercePromptValue;
+    private isEmptyPayloadValue;
     private getVariantClass;
     private renderIcon;
     private sanitize;

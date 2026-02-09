@@ -310,12 +310,6 @@
 
       <!-- Right: Action Buttons -->
       <div class="flex items-center gap-2">
-        <button class="bulk-action-btn" data-bulk-action="bulk-export">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-          </svg>
-          Export
-        </button>
         <button class="bulk-action-btn" data-bulk-action="bulk-activate">
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -341,12 +335,10 @@
         <!-- Role Management Section -->
         <div class="bulk-overflow-section">
           <div class="bulk-overflow-section-title">ROLE MANAGEMENT</div>
-          <select id="bulk-role-select" class="bulk-role-select">
-            <option value="">Select role</option>
-          </select>
+          <p class="text-xs text-gray-500 mb-3">You will select a role in a modal.</p>
           <div class="flex gap-2 mt-3">
-            <button id="bulk-role-assign" class="bulk-role-btn bulk-role-btn--primary flex-1">Assign</button>
-            <button id="bulk-role-unassign" class="bulk-role-btn bulk-role-btn--secondary flex-1">Unassign</button>
+            <button class="bulk-role-btn bulk-role-btn--primary flex-1" data-bulk-action="bulk-assign-role">Assign Role</button>
+            <button class="bulk-role-btn bulk-role-btn--secondary flex-1" data-bulk-action="bulk-unassign-role">Unassign Role</button>
           </div>
         </div>
         <!-- Overflow Actions -->
@@ -537,7 +529,7 @@
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, ServerColumnVisibilityBehavior, CommonRenderers } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior, CommonRenderers } from '{{ base_path }}/assets/dist/datatable/index.js';
 import { ImportModal } from '{{ base_path }}/assets/dist/components/import-modal.js';
 
 // Template variables
@@ -573,7 +565,9 @@ document.addEventListener('DOMContentLoaded', async function() {
       }
 
       // Refresh the grid to show updated status
-      grid.refresh();
+      if (grid) {
+        await grid.refresh();
+      }
 
       // Show success message
       const actionLabel = action.replace('-', ' ');
@@ -623,9 +617,65 @@ document.addEventListener('DOMContentLoaded', async function() {
     preferencesEndpoint: preferencesEndpoint
   });
   await columnVisibility.loadFromServer();
+  const closeBulkOverflowPanel = () => {
+    const panel = document.getElementById('bulk-overflow-panel');
+    const bar = document.getElementById('bulk-actions-bar');
+    panel?.classList.add('hidden');
+    bar?.classList.remove('overflow-open');
+  };
+  const buildRolePayloadField = async () => {
+    const baseField = {
+      type: 'string',
+      title: 'Role',
+      description: 'Select the role to apply.',
+    };
+    try {
+      const response = await fetch(`${apiRoot}/roles?per_page=200`, {
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`roles fetch failed: ${response.status}`);
+      }
+      const body = await response.json();
+      const records = Array.isArray(body?.data)
+        ? body.data
+        : Array.isArray(body?.items)
+          ? body.items
+          : [];
+      const options = records
+        .map((role) => {
+          const id = String(role?.id ?? '').trim();
+          if (!id) {
+            return null;
+          }
+          const label = String(role?.name ?? role?.title ?? role?.slug ?? id).trim() || id;
+          return {
+            const: id,
+            title: label,
+          };
+        })
+        .filter(Boolean);
+      if (options.length > 0) {
+        return {
+          ...baseField,
+          oneOf: options,
+        };
+      }
+    } catch (error) {
+      console.warn('[Users] Failed to load roles for bulk role actions:', error);
+    }
+    return {
+      ...baseField,
+      title: 'Role ID',
+      description: 'Provide the role identifier to apply.',
+    };
+  };
+  const rolePayloadField = await buildRolePayloadField();
 
   // Initialize the new TypeScript DataGrid component with custom actions
-  const grid = new DataGrid({
+  const grid = document.getElementById('users-datatable') ? new DataGrid({
     tableId: 'users-datatable',
     apiEndpoint: `${basePath}/crud/users`,
     actionBasePath: actionBasePath,
@@ -706,7 +756,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         icon: 'check-circle',
         endpoint: `${apiRoot}/users/bulk/activate`,
         confirm: 'Activate {count} user(s)?',
-        onSuccess: () => grid.refresh()
+        onSuccess: () => closeBulkOverflowPanel()
       },
       {
         id: 'bulk-suspend',
@@ -714,15 +764,55 @@ document.addEventListener('DOMContentLoaded', async function() {
         icon: 'pause',
         endpoint: `${apiRoot}/users/bulk/suspend`,
         confirm: 'Suspend {count} user(s)?',
-        onSuccess: () => grid.refresh()
+        onSuccess: () => closeBulkOverflowPanel()
+      },
+      {
+        id: 'bulk-disable',
+        label: 'Disable Selected',
+        icon: 'pause',
+        endpoint: `${apiRoot}/users/bulk/disable`,
+        confirm: 'Disable {count} user(s)?',
+        onSuccess: () => closeBulkOverflowPanel()
+      },
+      {
+        id: 'bulk-archive',
+        label: 'Archive Selected',
+        icon: 'archive',
+        endpoint: `${apiRoot}/users/bulk/archive`,
+        confirm: 'Archive {count} user(s)?',
+        onSuccess: () => closeBulkOverflowPanel()
       },
       {
         id: 'bulk-assign-role',
         label: 'Assign Role',
         icon: 'user-badge',
         endpoint: `${apiRoot}/users/bulk/assign-role`,
-        guard: (ids) => ids.length > 0,
-        onSuccess: () => grid.refresh()
+        confirm: 'Assign role to {count} user(s)?',
+        payloadRequired: ['role_id'],
+        payloadSchema: {
+          type: 'object',
+          required: ['role_id'],
+          properties: {
+            role_id: rolePayloadField
+          }
+        },
+        onSuccess: () => closeBulkOverflowPanel()
+      },
+      {
+        id: 'bulk-unassign-role',
+        label: 'Unassign Role',
+        icon: 'user-xmark',
+        endpoint: `${apiRoot}/users/bulk/unassign-role`,
+        confirm: 'Unassign role from {count} user(s)?',
+        payloadRequired: ['role_id'],
+        payloadSchema: {
+          type: 'object',
+          required: ['role_id'],
+          properties: {
+            role_id: rolePayloadField
+          }
+        },
+        onSuccess: () => closeBulkOverflowPanel()
       }
     ],
 
@@ -754,7 +844,6 @@ document.addEventListener('DOMContentLoaded', async function() {
       pagination: new GoCrudPaginationBehavior(),
       sort: new GoCrudSortBehavior(),
       export: new GoCrudExportBehavior(exportConfig),
-      bulkActions: new GoCrudBulkActionBehavior(`${basePath}/crud/users`),
       columnVisibility: columnVisibility
     },
     selectors: {
@@ -777,163 +866,61 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Wire toast notification system (initialized globally in layout.html)
     notifier: window.toastManager
-  });
+  }) : null;
 
-  // Initialize the grid
-  grid.init();
+  if (grid) {
+    // Initialize the grid
+    grid.init();
 
-  // ── Overflow panel: Role Management + extra bulk actions ──
-  (function initOverflowPanel() {
-    const moreBtn = document.getElementById('bulk-more-btn');
-    const panel = document.getElementById('bulk-overflow-panel');
-    const bar = document.getElementById('bulk-actions-bar');
-    if (!moreBtn || !panel || !bar) return;
+    // ── Overflow panel state ──
+    (function initOverflowPanel() {
+      const moreBtn = document.getElementById('bulk-more-btn');
+      const panel = document.getElementById('bulk-overflow-panel');
+      const bar = document.getElementById('bulk-actions-bar');
+      if (!moreBtn || !panel || !bar) return;
 
-    let rolesLoaded = false;
+      // Toggle panel + corner de-rounding
+      moreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const opening = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden');
+        bar.classList.toggle('overflow-open', opening);
+      });
 
-    // Toggle panel + corner de-rounding
-    moreBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const opening = panel.classList.contains('hidden');
-      panel.classList.toggle('hidden');
-      bar.classList.toggle('overflow-open', opening);
-      if (opening && !rolesLoaded) {
-        loadRoles();
-      }
-    });
-
-    // Close on outside click
-    document.addEventListener('click', (e) => {
-      if (!panel.contains(e.target) && e.target !== moreBtn) {
-        panel.classList.add('hidden');
-        bar.classList.remove('overflow-open');
-      }
-    });
-
-    // Close on Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        panel.classList.add('hidden');
-        bar.classList.remove('overflow-open');
-      }
-    });
-
-    // Prevent clicks inside panel from closing it
-    panel.addEventListener('click', (e) => e.stopPropagation());
-
-    // ── Load roles into <select> ──
-    async function loadRoles() {
-      const select = document.getElementById('bulk-role-select');
-      if (!select) return;
-      try {
-        const resp = await fetch(`${basePath}/crud/roles?per_page=50`);
-        if (!resp.ok) return;
-        const data = await resp.json();
-        const items = data.data || data.items || [];
-        items.forEach((role) => {
-          const opt = document.createElement('option');
-          opt.value = role.id;
-          opt.textContent = role.name || role.title || role.id;
-          select.appendChild(opt);
-        });
-        rolesLoaded = true;
-      } catch (err) {
-        console.error('[Users] Failed to load roles:', err);
-      }
-    }
-
-    // ── Role Assign / Unassign handlers ──
-    async function bulkRoleAction(assign) {
-      const select = document.getElementById('bulk-role-select');
-      const roleId = select?.value;
-      if (!roleId) {
-        window.toastManager?.warning('Please select a role first');
-        return;
-      }
-      const ids = Array.from(grid.state.selectedRows);
-      if (ids.length === 0) {
-        window.toastManager?.warning('Please select users first');
-        return;
-      }
-      const verb = assign ? 'assign-role' : 'unassign-role';
-      const label = assign ? 'Assign' : 'Unassign';
-      const confirmed = await window.toastManager?.confirm(`${label} role for ${ids.length} user(s)?`);
-      if (!confirmed) return;
-      try {
-        const resp = await fetch(`${basePath}/crud/users/bulk/${verb}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids, role_id: roleId })
-        });
-        if (!resp.ok) {
-          const text = await resp.text();
-          throw new Error(text);
-        }
-        window.toastManager?.success(`Role ${label.toLowerCase()}ed successfully`);
-        panel.classList.add('hidden');
-        bar.classList.remove('overflow-open');
-        grid.state.selectedRows.clear();
-        grid.refresh();
-      } catch (err) {
-        console.error(`[Users] Bulk ${verb} failed:`, err);
-        window.toastManager?.error(err.message || `${label} failed`);
-      }
-    }
-
-    document.getElementById('bulk-role-assign')?.addEventListener('click', () => bulkRoleAction(true));
-    document.getElementById('bulk-role-unassign')?.addEventListener('click', () => bulkRoleAction(false));
-
-    // ── Overflow action buttons (Disable, Archive) ──
-    panel.querySelectorAll('[data-bulk-action]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const action = btn.dataset.bulkAction;
-        if (!action) return;
-        const ids = Array.from(grid.state.selectedRows);
-        if (ids.length === 0) {
-          window.toastManager?.warning('Please select users first');
-          return;
-        }
-        const label = btn.textContent.trim();
-        const confirmed = await window.toastManager?.confirm(`${label} ${ids.length} user(s)?`);
-        if (!confirmed) return;
-        // Strip the bulk- prefix for the endpoint
-        const actionName = action.replace(/^bulk-/, '');
-        try {
-          const resp = await fetch(`${basePath}/crud/users/bulk/${actionName}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids })
-          });
-          if (!resp.ok) {
-            const text = await resp.text();
-            throw new Error(text);
-          }
-          window.toastManager?.success(`${label} completed`);
+      // Close on outside click
+      document.addEventListener('click', (e) => {
+        if (!panel.contains(e.target) && e.target !== moreBtn) {
           panel.classList.add('hidden');
           bar.classList.remove('overflow-open');
-          grid.state.selectedRows.clear();
-          grid.refresh();
-        } catch (err) {
-          console.error(`[Users] Bulk ${actionName} failed:`, err);
-          window.toastManager?.error(err.message || `${label} failed`);
         }
       });
-    });
-  })();
 
-  // Bind refresh button
-  const refreshBtn = document.getElementById('refresh-btn');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', async () => {
-      refreshBtn.disabled = true;
-      refreshBtn.classList.add('opacity-50');
-      try {
-        await grid.refresh();
-      } finally {
-        refreshBtn.disabled = false;
-        refreshBtn.classList.remove('opacity-50');
-      }
-    });
+      // Close on Escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          panel.classList.add('hidden');
+          bar.classList.remove('overflow-open');
+        }
+      });
+
+      // Prevent clicks inside panel from closing it
+      panel.addEventListener('click', (e) => e.stopPropagation());
+    })();
+
+    // Bind refresh button
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        refreshBtn.disabled = true;
+        refreshBtn.classList.add('opacity-50');
+        try {
+          await grid.refresh();
+        } finally {
+          refreshBtn.disabled = false;
+          refreshBtn.classList.remove('opacity-50');
+        }
+      });
+    }
   }
 
   // Initialize Import Modal component
@@ -941,7 +928,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     modalId: 'import-users-modal',
     endpoint: `${apiRoot}/users-import`,
     resourceName: 'Users',
-    onSuccess: () => grid.refresh(),
+    onSuccess: () => {
+      if (grid) {
+        grid.refresh();
+      }
+    },
     notifier: window.toastManager
   });
 
@@ -952,54 +943,56 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   // Initialize FilterBuilder
-	  const filterBuilder = new FilterBuilder({
-	    notifier: window.toastManager,
-	    fields: [
-	      { name: 'username', label: 'Username', type: 'text' },
-	      { name: 'email', label: 'Email', type: 'text' },
-	      { name: 'role', label: 'Role', type: 'select', options: [
-        { label: 'Admin', value: 'admin' },
-        { label: 'Editor', value: 'editor' },
-        { label: 'Member', value: 'member' },
-        { label: 'Viewer', value: 'viewer' },
-        { label: 'Guest', value: 'guest' }
-      ]},
-      { name: 'status', label: 'Status', type: 'select', options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-        { label: 'Disabled', value: 'disabled' }
-      ]},
-      { name: 'created_at', label: 'Created Date', type: 'date' }
-    ],
-    onApply: (structure) => {
-      console.log('[FilterBuilder] Filter structure:', structure);
+  if (grid) {
+    new FilterBuilder({
+      notifier: window.toastManager,
+      fields: [
+        { name: 'username', label: 'Username', type: 'text' },
+        { name: 'email', label: 'Email', type: 'text' },
+        { name: 'role', label: 'Role', type: 'select', options: [
+          { label: 'Admin', value: 'admin' },
+          { label: 'Editor', value: 'editor' },
+          { label: 'Member', value: 'member' },
+          { label: 'Viewer', value: 'viewer' },
+          { label: 'Guest', value: 'guest' }
+        ]},
+        { name: 'status', label: 'Status', type: 'select', options: [
+          { label: 'Active', value: 'active' },
+          { label: 'Inactive', value: 'inactive' },
+          { label: 'Disabled', value: 'disabled' }
+        ]},
+        { name: 'created_at', label: 'Created Date', type: 'date' }
+      ],
+      onApply: (structure) => {
+        console.log('[FilterBuilder] Filter structure:', structure);
 
-      // Convert filter structure to grid filters
-      const filters = [];
-      structure.groups.forEach(group => {
-        group.conditions.forEach(condition => {
-          filters.push({
-            column: condition.field,
-            operator: condition.operator,
-            value: condition.value
+        // Convert filter structure to grid filters
+        const filters = [];
+        structure.groups.forEach(group => {
+          group.conditions.forEach(condition => {
+            filters.push({
+              column: condition.field,
+              operator: condition.operator,
+              value: condition.value
+            });
           });
         });
-      });
 
-      // Update grid state with filters
-      grid.state.filters = filters;
-      grid.resetPagination();
-      grid.syncURL();
-      grid.refresh();
-    },
-    onClear: () => {
-      console.log('[FilterBuilder] Clear filters');
-      grid.state.search = '';
-      grid.state.filters = [];
-      grid.syncURL();
-      grid.refresh();
-    }
-  });
+        // Update grid state with filters
+        grid.state.filters = filters;
+        grid.resetPagination();
+        grid.syncURL();
+        grid.refresh();
+      },
+      onClear: () => {
+        console.log('[FilterBuilder] Clear filters');
+        grid.state.search = '';
+        grid.state.filters = [];
+        grid.syncURL();
+        grid.refresh();
+      }
+    });
+  }
 });
 {% endverbatim %}
 </script>
