@@ -248,7 +248,7 @@ func (a *Admin) resolveMenuTargets(ctx context.Context, items []MenuItem, locale
 					if page, err := a.contentSvc.Page(ctx, pageID, locale); err == nil && page != nil {
 						path := extractPathFromData(page.Data, page.Slug)
 						if path != "" {
-							item.Target["url"] = ensureLeadingSlash(path)
+							item.Target["url"] = ensureLeadingSlashPath(strings.TrimSpace(path))
 						}
 					}
 				}
@@ -291,18 +291,7 @@ func buildContentURL(content *CMSContent) string {
 	if segment == "" {
 		segment = "content"
 	}
-	return ensureLeadingSlash(segment + "/" + strings.TrimLeft(slug, "/"))
-}
-
-func ensureLeadingSlash(path string) string {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
-		return ""
-	}
-	if strings.HasPrefix(trimmed, "/") {
-		return trimmed
-	}
-	return "/" + trimmed
+	return ensureLeadingSlashPath(strings.TrimSpace(segment + "/" + strings.TrimLeft(slug, "/")))
 }
 
 func publicLocale(a *Admin, c router.Context) string {
