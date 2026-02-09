@@ -3,10 +3,10 @@ package quickstart
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
+	"github.com/goliatone/go-auth/activitymap"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 )
 
@@ -51,53 +51,30 @@ func NewGoAuthActivitySink(sink admin.ActivitySink, opts ...GoAuthActivitySinkOp
 		if sink == nil {
 			return nil
 		}
-		metadata := cloneAnyMap(event.Metadata)
-		if actorType := strings.TrimSpace(event.Actor.Type); actorType != "" {
-			if metadata == nil {
-				metadata = map[string]any{}
-			}
-			if _, ok := metadata[admin.ActivityActorTypeKey]; !ok {
-				metadata[admin.ActivityActorTypeKey] = actorType
-			}
-		}
-		if event.FromStatus != "" {
-			if metadata == nil {
-				metadata = map[string]any{}
-			}
-			metadata["from_status"] = string(event.FromStatus)
-		}
-		if event.ToStatus != "" {
-			if metadata == nil {
-				metadata = map[string]any{}
-			}
-			metadata["to_status"] = string(event.ToStatus)
-		}
-		actorID := strings.TrimSpace(event.Actor.ID)
-		if actorID == "" {
-			actorID = strings.TrimSpace(event.UserID)
-		}
+		normalized := activitymap.Normalize(
+			event,
+			activitymap.WithDefaultChannel(options.channel),
+			activitymap.WithDefaultObjectType(options.objectType),
+			// Preserve previous empty actor behavior when actor/user identifiers are missing.
+			activitymap.WithActorFallback(""),
+		)
 
-		object := strings.TrimSpace(options.objectType)
-		if userID := strings.TrimSpace(event.UserID); userID != "" {
+		object := strings.TrimSpace(normalized.ObjectType)
+		if objectID := strings.TrimSpace(normalized.ObjectID); objectID != "" {
 			if object != "" {
-				object = object + ":" + userID
+				object = object + ":" + objectID
 			} else {
-				object = userID
+				object = objectID
 			}
-		}
-
-		occurredAt := event.OccurredAt
-		if occurredAt.IsZero() {
-			occurredAt = time.Now().UTC()
 		}
 
 		return sink.Record(ctx, admin.ActivityEntry{
-			Actor:     actorID,
-			Action:    string(event.EventType),
+			Actor:     normalized.ActorID,
+			Action:    normalized.Verb,
 			Object:    object,
-			Channel:   options.channel,
-			Metadata:  metadata,
-			CreatedAt: occurredAt,
+			Channel:   normalized.Channel,
+			Metadata:  normalized.Metadata,
+			CreatedAt: normalized.OccurredAt,
 		})
 	})
 }
