@@ -3,7 +3,6 @@ package quickstart
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 
@@ -304,16 +303,21 @@ func resolveGoCMSPageChecker(raw any) TranslationChecker {
 	case interface{ PageService() cms.PageService }:
 		return resolveTranslationChecker(v.PageService())
 	}
-	if inner := callMethod(raw, "Container"); inner != nil {
+	if provider, ok := raw.(interface{ Container() any }); ok {
+		inner := provider.Container()
 		if svc := resolveGoCMSPageChecker(inner); svc != nil {
 			return svc
 		}
 	}
-	if svc := resolveTranslationChecker(callMethod(raw, "Pages")); svc != nil {
-		return svc
+	if provider, ok := raw.(interface{ Pages() any }); ok {
+		if svc := resolveTranslationChecker(provider.Pages()); svc != nil {
+			return svc
+		}
 	}
-	if svc := resolveTranslationChecker(callMethod(raw, "PageService")); svc != nil {
-		return svc
+	if provider, ok := raw.(interface{ PageService() any }); ok {
+		if svc := resolveTranslationChecker(provider.PageService()); svc != nil {
+			return svc
+		}
 	}
 	return nil
 }
@@ -328,16 +332,21 @@ func resolveGoCMSContentChecker(raw any) TranslationChecker {
 	case interface{ ContentService() cms.ContentService }:
 		return resolveTranslationChecker(v.ContentService())
 	}
-	if inner := callMethod(raw, "Container"); inner != nil {
+	if provider, ok := raw.(interface{ Container() any }); ok {
+		inner := provider.Container()
 		if svc := resolveGoCMSContentChecker(inner); svc != nil {
 			return svc
 		}
 	}
-	if svc := resolveTranslationChecker(callMethod(raw, "Content")); svc != nil {
-		return svc
+	if provider, ok := raw.(interface{ Content() any }); ok {
+		if svc := resolveTranslationChecker(provider.Content()); svc != nil {
+			return svc
+		}
 	}
-	if svc := resolveTranslationChecker(callMethod(raw, "ContentService")); svc != nil {
-		return svc
+	if provider, ok := raw.(interface{ ContentService() any }); ok {
+		if svc := resolveTranslationChecker(provider.ContentService()); svc != nil {
+			return svc
+		}
 	}
 	return nil
 }
@@ -350,26 +359,4 @@ func resolveTranslationChecker(value any) TranslationChecker {
 		return svc
 	}
 	return nil
-}
-
-func callMethod(target any, name string) any {
-	if target == nil {
-		return nil
-	}
-	value := reflect.ValueOf(target)
-	if value.Kind() == reflect.Pointer && value.IsNil() {
-		return nil
-	}
-	method := value.MethodByName(name)
-	if !method.IsValid() {
-		return nil
-	}
-	if method.Type().NumIn() != 0 {
-		return nil
-	}
-	out := method.Call(nil)
-	if len(out) == 0 {
-		return nil
-	}
-	return out[0].Interface()
 }
