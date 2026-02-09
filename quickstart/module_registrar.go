@@ -153,12 +153,7 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 		items := buildSeedMenuItems(menuCode, locale, ordered, options.menuItems)
 		options.seedOpts.Items = items
 		if err := SeedNavigation(options.ctx, options.seedOpts); err != nil {
-			if !errors.Is(err, ErrSeedNavigationRequiresGoCMS) {
-				return err
-			}
-			if seedErr := EnsureDefaultMenuParents(options.ctx, options.seedOpts.MenuSvc, menuCode, locale); seedErr != nil {
-				return seedErr
-			}
+			return err
 		}
 		if err := runMenuSeedHooks(options.ctx, adm, ordered); err != nil {
 			return err
