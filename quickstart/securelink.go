@@ -1,7 +1,6 @@
 package quickstart
 
 import (
-	"errors"
 	"os"
 	"path"
 	"strings"
@@ -9,7 +8,6 @@ import (
 
 	linknotifications "github.com/goliatone/go-notifications/adapters/securelink"
 	"github.com/goliatone/go-notifications/pkg/links"
-	urlsecurelink "github.com/goliatone/go-urlkit/securelink"
 	linkusers "github.com/goliatone/go-users/adapter/securelink"
 	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
@@ -122,11 +120,7 @@ func NewNotificationsSecureLinkManager(cfg SecureLinkConfig) (links.SecureLinkMa
 	if !cfg.Enabled() {
 		return nil, nil
 	}
-	manager, err := urlsecurelink.NewManagerFromConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return notificationSecureLinkManager{inner: manager}, nil
+	return linknotifications.NewManager(cfg)
 }
 
 // SecureLinkUsersOption customizes go-users securelink wiring.
@@ -217,49 +211,6 @@ func NewSecureLinkNotificationBuilder(manager links.SecureLinkManager, opts ...l
 		return nil
 	}
 	return linknotifications.NewBuilder(manager, opts...)
-}
-
-type notificationSecureLinkManager struct {
-	inner urlsecurelink.Manager
-}
-
-func (m notificationSecureLinkManager) Generate(route string, payloads ...links.SecureLinkPayload) (string, error) {
-	if m.inner == nil {
-		return "", errors.New("securelink manager is required")
-	}
-	if len(payloads) == 0 {
-		return m.inner.Generate(route)
-	}
-	converted := make([]urlsecurelink.Payload, len(payloads))
-	for i, payload := range payloads {
-		converted[i] = urlsecurelink.Payload(payload)
-	}
-	return m.inner.Generate(route, converted...)
-}
-
-func (m notificationSecureLinkManager) Validate(token string) (map[string]any, error) {
-	if m.inner == nil {
-		return nil, errors.New("securelink manager is required")
-	}
-	return m.inner.Validate(token)
-}
-
-func (m notificationSecureLinkManager) GetAndValidate(fn func(string) string) (links.SecureLinkPayload, error) {
-	if m.inner == nil {
-		return nil, errors.New("securelink manager is required")
-	}
-	payload, err := m.inner.GetAndValidate(fn)
-	if payload == nil {
-		return nil, err
-	}
-	return links.SecureLinkPayload(payload), err
-}
-
-func (m notificationSecureLinkManager) GetExpiration() time.Duration {
-	if m.inner == nil {
-		return 0
-	}
-	return m.inner.GetExpiration()
 }
 
 func envBoolDefault(key string, fallback bool) bool {
