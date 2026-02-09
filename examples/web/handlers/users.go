@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/setup"
@@ -24,6 +27,9 @@ const (
 	userFormSource      = "users.json"
 	createUserOperation = "createUser"
 	updateUserOperation = "updateUser"
+
+	activityPermissionModeStrict = "strict"
+	activityPermissionModeInline = "inline"
 )
 
 // UserHandlers holds dependencies for user-related HTTP handlers
@@ -32,6 +38,8 @@ type UserHandlers struct {
 	FormGenerator *formgenorchestrator.Orchestrator
 	Admin         *admin.Admin
 	Config        admin.Config
+	ActivityLog   *slog.Logger
+	ActivityStats UserTabActivityMetrics
 	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
 	TabResolver   helpers.TabContentResolver
 	TabMode       helpers.TabRenderModeSelector
@@ -210,6 +218,16 @@ func (h *UserHandlers) Detail(c router.Context) error {
 	if !helpers.IsInlineTab(activeSpec) {
 		activeSpec = helpers.TabContentSpec{Kind: helpers.TabContentDetails}
 	}
+	if activeTab == "activity" &&
+		activeSpec.AreaCode == helpers.UserActivityAreaCode &&
+		h.strictActivityPermissionFailures() {
+		if err := h.guardActivity(c); err != nil {
+			return err
+		}
+		if _, err := parseUserActivityLimit(c.Query("limit", "")); err != nil {
+			return err
+		}
+	}
 	tabPanel := h.buildTabPanel(c, user, activeTab, activeDef, activeSpec)
 
 	routes := helpers.NewResourceRoutes(h.Config.BasePath, "users")
@@ -236,14 +254,25 @@ func (h *UserHandlers) Detail(c router.Context) error {
 
 // TabHTML handles GET /users/:id/tabs/:tab - renders tab panel HTML for hybrid mode.
 func (h *UserHandlers) TabHTML(c router.Context) error {
-	if err := h.guard(c, "read"); err != nil {
-		return err
-	}
 	id := strings.TrimSpace(c.Param("id"))
 	tabID := strings.TrimSpace(c.Param("tab"))
 	if tabID == "" {
 		return goerrors.New("tab id required", goerrors.CategoryValidation).
 			WithCode(goerrors.CodeBadRequest)
+	}
+	if tabID == "activity" {
+		if err := h.guardActivity(c); err != nil {
+			h.recordActivityTabFailure(c.Context(), "tab_html", id, "permission_denied", 0, err)
+			return err
+		}
+		if _, err := parseUserActivityLimit(c.Query("limit", "")); err != nil {
+			h.recordActivityTabFailure(c.Context(), "tab_html", id, "invalid_limit", 0, err)
+			return err
+		}
+	} else {
+		if err := h.guard(c, "read"); err != nil {
+			return err
+		}
 	}
 	ctx := c.Context()
 	user, err := h.Store.Get(ctx, id)
@@ -276,14 +305,25 @@ func (h *UserHandlers) TabHTML(c router.Context) error {
 
 // TabJSON handles GET /admin/api/users/:id/tabs/:tab - returns tab panel JSON for client mode.
 func (h *UserHandlers) TabJSON(c router.Context) error {
-	if err := h.guard(c, "read"); err != nil {
-		return err
-	}
 	id := strings.TrimSpace(c.Param("id"))
 	tabID := strings.TrimSpace(c.Param("tab"))
 	if tabID == "" {
 		return goerrors.New("tab id required", goerrors.CategoryValidation).
 			WithCode(goerrors.CodeBadRequest)
+	}
+	if tabID == "activity" {
+		if err := h.guardActivity(c); err != nil {
+			h.recordActivityTabFailure(c.Context(), "tab_json", id, "permission_denied", 0, err)
+			return err
+		}
+		if _, err := parseUserActivityLimit(c.Query("limit", "")); err != nil {
+			h.recordActivityTabFailure(c.Context(), "tab_json", id, "invalid_limit", 0, err)
+			return err
+		}
+	} else {
+		if err := h.guard(c, "read"); err != nil {
+			return err
+		}
 	}
 	ctx := c.Context()
 	user, err := h.Store.Get(ctx, id)
@@ -473,6 +513,118 @@ func (h *UserHandlers) guard(c router.Context, action string) error {
 		WithTextCode("FORBIDDEN")
 }
 
+// guardActivity checks both users read AND activity read permissions.
+// Returns nil if both permissions are satisfied.
+func (h *UserHandlers) guardActivity(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
+	activityPermission := h.Config.ActivityPermission
+	if activityPermission == "" {
+		activityPermission = "admin.activity.view"
+	}
+	if !authlib.Can(c.Context(), activityPermission, "read") {
+		return goerrors.New("activity view permission required", goerrors.CategoryAuthz).
+			WithCode(goerrors.CodeForbidden).
+			WithTextCode("FORBIDDEN").
+			WithMetadata(map[string]any{
+				"resource":            "users.activity",
+				"required_permission": activityPermission,
+				"required_action":     "read",
+				"tab":                 "activity",
+			})
+	}
+	return nil
+}
+
+// canViewActivity checks if the current user has activity read permission.
+func (h *UserHandlers) canViewActivity(c router.Context) bool {
+	activityPermission := h.Config.ActivityPermission
+	if activityPermission == "" {
+		activityPermission = "admin.activity.view"
+	}
+	return authlib.Can(c.Context(), activityPermission, "read")
+}
+
+func (h *UserHandlers) strictActivityPermissionFailures() bool {
+	mode := strings.ToLower(strings.TrimSpace(h.Config.ActivityTabPermissionFailureMode))
+	switch mode {
+	case activityPermissionModeStrict:
+		return true
+	case activityPermissionModeInline:
+		return false
+	default:
+		return h.Config.Errors.DevMode
+	}
+}
+
+func (h *UserHandlers) activityLogger() *slog.Logger {
+	if h != nil && h.ActivityLog != nil {
+		return h.ActivityLog
+	}
+	return slog.Default()
+}
+
+func (h *UserHandlers) activityMetrics() UserTabActivityMetrics {
+	if h != nil && h.ActivityStats != nil {
+		return h.ActivityStats
+	}
+	return defaultUserTabActivityMetrics
+}
+
+func (h *UserHandlers) activityMetricTags(reason string) map[string]string {
+	tags := map[string]string{
+		"panel": "users",
+		"tab":   "activity",
+	}
+	reason = strings.TrimSpace(reason)
+	if reason != "" {
+		tags["reason"] = reason
+	}
+	return tags
+}
+
+func (h *UserHandlers) recordActivityTabFailure(ctx context.Context, endpoint, userID, reason string, limit int, err error) {
+	tags := h.activityMetricTags(reason)
+	if endpoint != "" {
+		tags["endpoint"] = endpoint
+	}
+	h.activityMetrics().IncrementErrorCount(ctx, tags)
+
+	attrs := []any{
+		"resource", "users.activity",
+		"endpoint", endpoint,
+		"reason", reason,
+		"tab", "activity",
+	}
+	userID = strings.TrimSpace(userID)
+	if userID != "" {
+		attrs = append(attrs, "subject_user_id", userID)
+	}
+	if limit > 0 {
+		attrs = append(attrs, "limit", limit)
+	}
+	if err != nil {
+		attrs = append(attrs, "error_type", fmt.Sprintf("%T", err))
+	}
+	h.activityLogger().WarnContext(ctx, "users activity tab failure", attrs...)
+}
+
+func (h *UserHandlers) setActivityTabUnavailable(
+	ctx context.Context,
+	tabPanel map[string]any,
+	userID string,
+	limit int,
+	reason string,
+	message string,
+	err error,
+) {
+	tabPanel["unavailable"] = true
+	tabPanel["unavailable_reason"] = reason
+	tabPanel["error_message"] = message
+	h.recordActivityTabFailure(ctx, "detail_inline", userID, reason, limit, err)
+}
+
 func (h *UserHandlers) fetchPanelTabs(c router.Context, panelName, id string) []admin.PanelTab {
 	tabs, err := helpers.FetchPanelTabs(c, h.Config, panelName, id, h.Admin)
 	if err != nil {
@@ -524,6 +676,13 @@ func (h *UserHandlers) buildTabPanel(c router.Context, user map[string]any, tabI
 			tabPanel["href"] = href
 		}
 	}
+
+	// Handle activity tab with shared helper and graceful degradation
+	if tabID == "activity" && spec.AreaCode == helpers.UserActivityAreaCode {
+		h.buildActivityTabPanel(c, user, tabPanel)
+		return tabPanel
+	}
+
 	if spec.Kind == helpers.TabContentDashboard || spec.Kind == helpers.TabContentCMS {
 		adminCtx := buildDashboardContext(c, h.Config)
 		widgets, err := helpers.ResolveTabWidgets(adminCtx, h.Admin, h.Config.BasePath, spec.AreaCode)
@@ -533,6 +692,101 @@ func (h *UserHandlers) buildTabPanel(c router.Context, user map[string]any, tabI
 		}
 	}
 	return tabPanel
+}
+
+// buildActivityTabPanel populates the activity tab panel with user activity data.
+// It uses the shared BuildUserTabActivity helper and handles graceful degradation.
+func (h *UserHandlers) buildActivityTabPanel(c router.Context, user map[string]any, tabPanel map[string]any) {
+	ctx := c.Context()
+
+	// Check activity permission
+	if !h.canViewActivity(c) {
+		h.setActivityTabUnavailable(ctx, tabPanel, "", 0, "permission_denied", "You do not have permission to view activity data.", nil)
+		return
+	}
+
+	// Get user ID from record
+	userID := userRecordID(user)
+	if userID == "" {
+		h.setActivityTabUnavailable(ctx, tabPanel, userID, 0, "invalid_user", "Invalid user identifier.", nil)
+		return
+	}
+
+	// Get activity sink from admin
+	if h.Admin == nil {
+		h.setActivityTabUnavailable(ctx, tabPanel, userID, 0, "service_unavailable", "Activity service is not available.", nil)
+		return
+	}
+	activitySink := h.Admin.ActivityFeed()
+	if activitySink == nil {
+		h.setActivityTabUnavailable(ctx, tabPanel, userID, 0, "service_unavailable", "Activity service is not available.", nil)
+		return
+	}
+
+	// Parse limit from query string with clamping
+	limit, err := parseUserActivityLimit(c.Query("limit", ""))
+	if err != nil {
+		h.setActivityTabUnavailable(ctx, tabPanel, userID, 0, "invalid_limit", "Invalid activity limit.", err)
+		return
+	}
+
+	// Build activity using shared helper
+	start := time.Now()
+	result := helpers.BuildUserTabActivity(ctx, activitySink, userID, limit)
+	queryReason := "success"
+	if result.Error != nil {
+		queryReason = "query_failed"
+	}
+	h.activityMetrics().ObserveQueryDuration(ctx, time.Since(start), h.activityMetricTags(queryReason))
+	if result.Error != nil {
+		h.setActivityTabUnavailable(ctx, tabPanel, userID, limit, "query_failed", "Failed to load activity data.", result.Error)
+		return
+	}
+
+	// Set activity entries
+	tabPanel["entries"] = result.Entries
+	tabPanel["has_entries"] = len(result.Entries) > 0
+	h.activityMetrics().ObserveResultCount(ctx, len(result.Entries), h.activityMetricTags("success"))
+	if len(result.Entries) == 0 {
+		tabPanel["empty_message"] = "No activity recorded for this user."
+	}
+}
+
+func userRecordID(user map[string]any) string {
+	if user == nil {
+		return ""
+	}
+	raw, ok := user["id"]
+	if !ok || raw == nil {
+		return ""
+	}
+	switch id := raw.(type) {
+	case string:
+		return strings.TrimSpace(id)
+	case fmt.Stringer:
+		return strings.TrimSpace(id.String())
+	case []byte:
+		return strings.TrimSpace(string(id))
+	default:
+		asString := strings.TrimSpace(fmt.Sprint(id))
+		if asString == "" || strings.EqualFold(asString, "<nil>") {
+			return ""
+		}
+		return asString
+	}
+}
+
+func parseUserActivityLimit(raw string) (int, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return helpers.UserActivityDefaultLimit, nil
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, goerrors.New("invalid limit", goerrors.CategoryValidation).
+			WithCode(goerrors.CodeBadRequest)
+	}
+	return helpers.ClampActivityLimit(parsed), nil
 }
 
 func fetchAssignedRoles(ctx context.Context, adm *admin.Admin, userID string) []admin.RoleRecord {
