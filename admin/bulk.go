@@ -14,21 +14,24 @@ type BulkRequest struct {
 	Name   string
 	Action string
 	Total  int
+	// Payload carries optional job metadata for downstream processors.
+	Payload map[string]any
 }
 
 // BulkJob captures bulk job state for UI/progress.
 type BulkJob struct {
-	ID                string    `json:"id"`
-	Name              string    `json:"name"`
-	Action            string    `json:"action,omitempty"`
-	Status            string    `json:"status"`
-	Total             int       `json:"total"`
-	Processed         int       `json:"processed"`
-	Progress          float64   `json:"progress,omitempty"`
-	Errors            []string  `json:"errors,omitempty"`
-	StartedAt         time.Time `json:"started_at,omitempty"`
-	CompletedAt       time.Time `json:"completed_at,omitempty"`
-	RollbackAvailable bool      `json:"rollback_available,omitempty"`
+	ID                string         `json:"id"`
+	Name              string         `json:"name"`
+	Action            string         `json:"action,omitempty"`
+	Status            string         `json:"status"`
+	Total             int            `json:"total"`
+	Processed         int            `json:"processed"`
+	Progress          float64        `json:"progress,omitempty"`
+	Payload           map[string]any `json:"payload,omitempty"`
+	Errors            []string       `json:"errors,omitempty"`
+	StartedAt         time.Time      `json:"started_at,omitempty"`
+	CompletedAt       time.Time      `json:"completed_at,omitempty"`
+	RollbackAvailable bool           `json:"rollback_available,omitempty"`
 }
 
 // BulkService manages bulk jobs.
@@ -92,6 +95,7 @@ func (s *InMemoryBulkService) Start(ctx context.Context, req BulkRequest) (BulkJ
 		Status:    "running",
 		Total:     req.Total,
 		Processed: 0,
+		Payload:   cloneAnyMap(req.Payload),
 		Errors:    []string{},
 		StartedAt: time.Now(),
 	}
@@ -110,6 +114,9 @@ func (s *InMemoryBulkService) List(ctx context.Context) []BulkJob {
 		jobCopy := job
 		if jobCopy.Total > 0 {
 			jobCopy.Progress = float64(jobCopy.Processed) / float64(jobCopy.Total)
+		}
+		if jobCopy.Payload != nil {
+			jobCopy.Payload = cloneAnyMap(jobCopy.Payload)
 		}
 		out[i] = jobCopy
 	}
@@ -204,9 +211,10 @@ func (c *BulkCommand) Execute(ctx context.Context, msg BulkStartMsg) error {
 		return FeatureDisabledError{Feature: string(FeatureBulk)}
 	}
 	req := BulkRequest{
-		Name:   msg.Name,
-		Action: msg.Action,
-		Total:  msg.Total,
+		Name:    msg.Name,
+		Action:  msg.Action,
+		Total:   msg.Total,
+		Payload: cloneAnyMap(msg.Payload),
 	}
 	if req.Name == "" {
 		return requiredFieldDomainError("name", map[string]any{"component": "bulk"})
