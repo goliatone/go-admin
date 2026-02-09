@@ -2,6 +2,7 @@ package admin
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -19,6 +20,14 @@ func deref(val reflect.Value) reflect.Value {
 		}
 	}
 	return val
+}
+
+func structField(val reflect.Value, fieldName string) reflect.Value {
+	val = deref(val)
+	if !val.IsValid() || val.Kind() != reflect.Struct {
+		return reflect.Value{}
+	}
+	return val.FieldByName(fieldName)
 }
 
 func extractError(results []reflect.Value) error {
@@ -239,4 +248,60 @@ func setMapField(val reflect.Value, fieldName string, value map[string]any) {
 	if f.Kind() == reflect.Interface {
 		f.Set(reflect.ValueOf(value))
 	}
+}
+
+func setClonedMapField(val reflect.Value, fieldName string, value map[string]any) {
+	setMapField(val, fieldName, cloneAnyMap(value))
+}
+
+func setOptionalClonedMapField(val reflect.Value, fieldName string, value map[string]any) {
+	if value == nil {
+		return
+	}
+	setClonedMapField(val, fieldName, value)
+}
+
+func setEnvironmentFieldAliases(input reflect.Value, env string) {
+	env = strings.TrimSpace(env)
+	if env == "" {
+		return
+	}
+	setStringPtr(structField(input, "Environment"), env)
+	setStringPtr(structField(input, "Env"), env)
+}
+
+func getStringField(val reflect.Value, name string) (string, bool) {
+	val = deref(val)
+	if !val.IsValid() || val.Kind() != reflect.Struct {
+		return "", false
+	}
+	f := val.FieldByName(name)
+	if f.IsValid() && f.Kind() == reflect.String {
+		return f.String(), true
+	}
+	return "", false
+}
+
+func getIntField(val reflect.Value, name string) (int, bool) {
+	val = deref(val)
+	if !val.IsValid() || val.Kind() != reflect.Struct {
+		return 0, false
+	}
+	f := val.FieldByName(name)
+	if f.IsValid() && f.Kind() == reflect.Int {
+		return int(f.Int()), true
+	}
+	return 0, false
+}
+
+func getBoolField(val reflect.Value, name string) (bool, bool) {
+	val = deref(val)
+	if !val.IsValid() || val.Kind() != reflect.Struct {
+		return false, false
+	}
+	f := val.FieldByName(name)
+	if f.IsValid() && f.Kind() == reflect.Bool {
+		return f.Bool(), true
+	}
+	return false, false
 }

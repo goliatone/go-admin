@@ -7,11 +7,14 @@ import (
 	"strings"
 	"time"
 
+	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
 )
 
-// GoCMSContentTypeAdapter maps a go-cms content type service into CMSContentTypeService using reflection.
+// GoCMSContentTypeAdapter maps a go-cms content type service into CMSContentTypeService.
+// It prefers the public typed go-cms contract and falls back to reflection for compatibility.
 type GoCMSContentTypeAdapter struct {
+	typed   cmscontent.ContentTypeService
 	service any
 }
 
@@ -23,10 +26,11 @@ func NewGoCMSContentTypeAdapter(service any) CMSContentTypeService {
 	if svc, ok := service.(CMSContentTypeService); ok && svc != nil {
 		return svc
 	}
-	if !hasContentTypeMethods(service) {
+	typed, hasTyped := service.(cmscontent.ContentTypeService)
+	if !hasTyped && !hasContentTypeMethods(service) {
 		return nil
 	}
-	return &GoCMSContentTypeAdapter{service: service}
+	return &GoCMSContentTypeAdapter{typed: typed, service: service}
 }
 
 func hasContentTypeMethods(service any) bool {
@@ -81,6 +85,20 @@ func (a *GoCMSContentTypeAdapter) ContentTypes(ctx context.Context) ([]CMSConten
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
+	if a.typed != nil {
+		items, err := a.typed.List(ctx)
+		if err != nil {
+			return nil, normalizeContentTypeAdapterError(err)
+		}
+		out := make([]CMSContentType, 0, len(items))
+		for _, item := range items {
+			if item == nil {
+				continue
+			}
+			out = append(out, convertContentTypeValue(reflect.ValueOf(item)))
+		}
+		return out, nil
+	}
 	method := findMethod(a.service, "ContentTypes", "ListContentTypes", "List")
 	if !method.IsValid() {
 		return nil, ErrNotFound
@@ -100,6 +118,21 @@ func (a *GoCMSContentTypeAdapter) ContentTypes(ctx context.Context) ([]CMSConten
 func (a *GoCMSContentTypeAdapter) ContentType(ctx context.Context, id string) (*CMSContentType, error) {
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
+	}
+	if a.typed != nil {
+		uid := uuidFromString(id)
+		if uid == uuid.Nil {
+			return nil, ErrNotFound
+		}
+		record, err := a.typed.Get(ctx, uid)
+		if err != nil {
+			return nil, normalizeContentTypeAdapterError(err)
+		}
+		if record == nil {
+			return nil, ErrNotFound
+		}
+		converted := convertContentTypeValue(reflect.ValueOf(record))
+		return &converted, nil
 	}
 	method := findMethod(a.service, "ContentType", "GetContentType", "Get")
 	if !method.IsValid() {
@@ -132,6 +165,24 @@ func (a *GoCMSContentTypeAdapter) ContentType(ctx context.Context, id string) (*
 func (a *GoCMSContentTypeAdapter) ContentTypeBySlug(ctx context.Context, slug string) (*CMSContentType, error) {
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
+	}
+	if a.typed != nil {
+		record, err := a.typed.GetBySlug(ctx, strings.TrimSpace(slug))
+		if err != nil {
+			normalized := normalizeContentTypeAdapterError(err)
+			if errors.Is(normalized, ErrNotFound) {
+				return a.contentTypeByPanelSlug(ctx, slug)
+			}
+			return nil, normalized
+		}
+		if record == nil {
+			return a.contentTypeByPanelSlug(ctx, slug)
+		}
+		converted := convertContentTypeValue(reflect.ValueOf(record))
+		if converted.ID == "" && converted.Slug == "" && converted.Name == "" {
+			return a.contentTypeByPanelSlug(ctx, slug)
+		}
+		return &converted, nil
 	}
 	method := findMethod(a.service, "ContentTypeBySlug", "GetBySlug")
 	if !method.IsValid() {
@@ -188,6 +239,41 @@ func (a *GoCMSContentTypeAdapter) CreateContentType(ctx context.Context, content
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
+	if a.typed != nil {
+		req := cmscontent.CreateContentTypeRequest{
+			Name:         strings.TrimSpace(contentType.Name),
+			Slug:         strings.TrimSpace(contentType.Slug),
+			Schema:       cloneAnyMap(contentType.Schema),
+			UISchema:     cloneAnyMap(contentType.UISchema),
+			Capabilities: cloneAnyMap(contentType.Capabilities),
+		}
+		if desc := strings.TrimSpace(contentType.Description); desc != "" || contentType.DescriptionSet {
+			descCopy := contentType.Description
+			req.Description = &descCopy
+		}
+		if icon := strings.TrimSpace(contentType.Icon); icon != "" || contentType.IconSet {
+			iconCopy := contentType.Icon
+			req.Icon = &iconCopy
+		}
+		if status := strings.TrimSpace(contentType.Status); status != "" {
+			req.Status = status
+		}
+		if env := strings.TrimSpace(contentType.Environment); env != "" {
+			req.EnvironmentKey = env
+		}
+		actor := actorUUID(ctx)
+		req.CreatedBy = actor
+		req.UpdatedBy = actor
+		record, err := a.typed.Create(ctx, req)
+		if err != nil {
+			return nil, normalizeContentTypeAdapterError(err)
+		}
+		if record == nil {
+			return nil, ErrNotFound
+		}
+		converted := convertContentTypeValue(reflect.ValueOf(record))
+		return &converted, nil
+	}
 	method := findMethod(a.service, "CreateContentType", "RegisterContentType", "Create")
 	if !method.IsValid() {
 		return nil, ErrNotFound
@@ -216,6 +302,48 @@ func (a *GoCMSContentTypeAdapter) UpdateContentType(ctx context.Context, content
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
+	if a.typed != nil {
+		req := cmscontent.UpdateContentTypeRequest{
+			ID:                   uuidFromString(contentType.ID),
+			Schema:               cloneAnyMap(contentType.Schema),
+			UISchema:             cloneAnyMap(contentType.UISchema),
+			Capabilities:         cloneAnyMap(contentType.Capabilities),
+			AllowBreakingChanges: contentType.AllowBreakingChanges,
+			UpdatedBy:            actorUUID(ctx),
+		}
+		if req.ID == uuid.Nil {
+			return nil, ErrNotFound
+		}
+		if name := strings.TrimSpace(contentType.Name); name != "" {
+			req.Name = &name
+		}
+		if slug := strings.TrimSpace(contentType.Slug); slug != "" {
+			req.Slug = &slug
+		}
+		if desc := strings.TrimSpace(contentType.Description); desc != "" || contentType.DescriptionSet {
+			descCopy := contentType.Description
+			req.Description = &descCopy
+		}
+		if icon := strings.TrimSpace(contentType.Icon); icon != "" || contentType.IconSet {
+			iconCopy := contentType.Icon
+			req.Icon = &iconCopy
+		}
+		if status := strings.TrimSpace(contentType.Status); status != "" {
+			req.Status = &status
+		}
+		if env := strings.TrimSpace(contentType.Environment); env != "" {
+			req.EnvironmentKey = env
+		}
+		record, err := a.typed.Update(ctx, req)
+		if err != nil {
+			return nil, normalizeContentTypeAdapterError(err)
+		}
+		if record == nil {
+			return nil, ErrNotFound
+		}
+		converted := convertContentTypeValue(reflect.ValueOf(record))
+		return &converted, nil
+	}
 	method := findMethod(a.service, "UpdateContentType", "Update")
 	if !method.IsValid() {
 		return nil, ErrNotFound
@@ -243,6 +371,17 @@ func (a *GoCMSContentTypeAdapter) UpdateContentType(ctx context.Context, content
 func (a *GoCMSContentTypeAdapter) DeleteContentType(ctx context.Context, id string) error {
 	if a == nil || a.service == nil {
 		return ErrNotFound
+	}
+	if a.typed != nil {
+		req := cmscontent.DeleteContentTypeRequest{
+			ID:         uuidFromString(id),
+			DeletedBy:  actorUUID(ctx),
+			HardDelete: true,
+		}
+		if req.ID == uuid.Nil {
+			return ErrNotFound
+		}
+		return normalizeContentTypeAdapterError(a.typed.Delete(ctx, req))
 	}
 	method := findMethod(a.service, "DeleteContentType", "Delete")
 	if !method.IsValid() {
@@ -324,15 +463,9 @@ func buildContentTypeInput(argType reflect.Type, contentType CMSContentType, isU
 	} else if desc := strings.TrimSpace(contentType.Description); desc != "" {
 		setStringPtr(input.FieldByName("Description"), desc)
 	}
-	if contentType.Schema != nil {
-		setMapField(input, "Schema", cloneAnyMap(contentType.Schema))
-	}
-	if contentType.UISchema != nil {
-		setMapField(input, "UISchema", cloneAnyMap(contentType.UISchema))
-	}
-	if contentType.Capabilities != nil {
-		setMapField(input, "Capabilities", cloneAnyMap(contentType.Capabilities))
-	}
+	setOptionalClonedMapField(input, "Schema", contentType.Schema)
+	setOptionalClonedMapField(input, "UISchema", contentType.UISchema)
+	setOptionalClonedMapField(input, "Capabilities", contentType.Capabilities)
 	if isUpdate && contentType.IconSet {
 		setStringPtr(input.FieldByName("Icon"), contentType.Icon)
 	} else if icon := strings.TrimSpace(contentType.Icon); icon != "" {
@@ -345,10 +478,7 @@ func buildContentTypeInput(argType reflect.Type, contentType CMSContentType, isU
 		setBoolField(input, "AllowBreakingChanges", true)
 		setBoolField(input, "AllowBreaking", true)
 	}
-	if env := strings.TrimSpace(contentType.Environment); env != "" {
-		setStringPtr(input.FieldByName("Environment"), env)
-		setStringPtr(input.FieldByName("Env"), env)
-	}
+	setEnvironmentFieldAliases(input, contentType.Environment)
 
 	if ptr {
 		return input.Addr(), nil
