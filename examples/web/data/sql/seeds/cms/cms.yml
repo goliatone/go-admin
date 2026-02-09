@@ -129,7 +129,7 @@
           blocks:
             type: "array"
             x-formgen:
-              widget: "block"
+              widget: "block-library-picker"
               label: "Page Sections"
               sortable: true
             items:
@@ -239,7 +239,7 @@
           blocks:
             type: "array"
             x-formgen:
-              widget: "block"
+              widget: "block-library-picker"
               label: "Post Blocks"
               sortable: true
             items:
