@@ -19,8 +19,8 @@ import (
 type GoUsersPreferencesStore struct {
 	repo     types.PreferenceRepository
 	resolver *preferences.Resolver
-	upsert   *command.PreferenceUpsertCommand
-	deleter  *command.PreferenceDeleteCommand
+	upsert   *command.PreferenceUpsertManyCommand
+	deleter  *command.PreferenceDeleteManyCommand
 }
 
 // NewGoUsersPreferencesStore builds a preferences store backed by go-users.
@@ -38,8 +38,8 @@ func NewGoUsersPreferencesStore(repo types.PreferenceRepository) (*GoUsersPrefer
 	return &GoUsersPreferencesStore{
 		repo:     repo,
 		resolver: resolver,
-		upsert:   command.NewPreferenceUpsertCommand(cmdCfg),
-		deleter:  command.NewPreferenceDeleteCommand(cmdCfg),
+		upsert:   command.NewPreferenceUpsertManyCommand(cmdCfg),
+		deleter:  command.NewPreferenceDeleteManyCommand(cmdCfg),
 	}, nil
 }
 
@@ -62,31 +62,26 @@ func (s *GoUsersPreferencesStore) Resolve(ctx context.Context, input admin.Prefe
 	}
 	base := cloneAnyMap(input.Base)
 	snap, err := s.resolver.Resolve(ctx, preferences.ResolveInput{
-		UserID: userID,
-		Scope:  scope,
-		Levels: levels,
-		Keys:   keys,
-		Base:   base,
+		UserID:          userID,
+		Scope:           scope,
+		Levels:          levels,
+		Keys:            keys,
+		Base:            base,
+		OutputMode:      types.PreferenceOutputRawValue,
+		IncludeVersions: input.IncludeVersion,
 	})
 	if err != nil {
 		return admin.PreferenceSnapshot{}, err
 	}
-	effective := flattenPreferences(snap.Effective)
-	out := admin.PreferenceSnapshot{Effective: effective}
-
-	var versionsByLevel map[types.PreferenceLevel]map[string]int
-	if input.IncludeVersion || input.IncludeTraces {
-		versions, perLevel, err := s.preferenceVersions(ctx, userID, scope, levels, keys, effective)
-		if err != nil {
-			return admin.PreferenceSnapshot{}, err
-		}
-		if input.IncludeVersion {
-			out.Versions = versions
-		}
-		versionsByLevel = perLevel
+	out := admin.PreferenceSnapshot{Effective: snap.Effective}
+	if out.Effective == nil {
+		out.Effective = map[string]any{}
+	}
+	if input.IncludeVersion {
+		out.Versions = resolvedPreferenceVersions(snap.EffectiveVersions, keys, out.Effective)
 	}
 	if input.IncludeTraces {
-		out.Traces = toAdminTraces(snap.Traces, versionsByLevel)
+		out.Traces = toAdminTraces(snap.Traces)
 	}
 	return out, nil
 }
@@ -120,20 +115,15 @@ func (s *GoUsersPreferencesStore) Upsert(ctx context.Context, input admin.Prefer
 		return admin.PreferenceSnapshot{Effective: map[string]any{}}, nil
 	}
 
-	for key, val := range updates {
-		record := types.PreferenceRecord{}
-		err := s.upsert.Execute(ctx, command.PreferenceUpsertInput{
-			UserID: userID,
-			Scope:  scope,
-			Level:  usersLevel,
-			Key:    key,
-			Value:  map[string]any{"value": val},
-			Actor:  types.ActorRef{ID: actorID},
-			Result: &record,
-		})
-		if err != nil {
-			return admin.PreferenceSnapshot{}, err
-		}
+	if err := s.upsert.Execute(ctx, command.PreferenceUpsertManyInput{
+		UserID: userID,
+		Scope:  scope,
+		Level:  usersLevel,
+		Values: wrapPreferenceValues(updates),
+		Actor:  types.ActorRef{ID: actorID},
+		Mode:   types.PreferenceBulkModeBestEffort,
+	}); err != nil {
+		return admin.PreferenceSnapshot{}, err
 	}
 	return admin.PreferenceSnapshot{Effective: cloneAnyMap(updates)}, nil
 }
@@ -163,44 +153,31 @@ func (s *GoUsersPreferencesStore) Delete(ctx context.Context, input admin.Prefer
 		userID = actorID
 	}
 	keys := normalizePreferenceKeys(input.Keys)
-	for _, key := range keys {
-		if err := s.deleter.Execute(ctx, command.PreferenceDeleteInput{
-			UserID: userID,
-			Scope:  scope,
-			Level:  usersLevel,
-			Key:    key,
-			Actor:  types.ActorRef{ID: actorID},
-		}); err != nil {
-			return err
-		}
+	if len(keys) == 0 {
+		return nil
+	}
+	if err := s.deleter.Execute(ctx, command.PreferenceDeleteManyInput{
+		UserID: userID,
+		Scope:  scope,
+		Level:  usersLevel,
+		Keys:   keys,
+		Actor:  types.ActorRef{ID: actorID},
+		Mode:   types.PreferenceBulkModeBestEffort,
+	}); err != nil {
+		return err
 	}
 	return nil
 }
 
-func flattenPreferences(input map[string]any) map[string]any {
-	if len(input) == 0 {
+func wrapPreferenceValues(values map[string]any) map[string]any {
+	if len(values) == 0 {
 		return map[string]any{}
 	}
-	out := map[string]any{}
-	for key, val := range input {
-		if asMap, ok := val.(map[string]any); ok {
-			if v, exists := asMap["value"]; exists {
-				out[key] = v
-				continue
-			}
-		}
-		out[key] = val
+	out := make(map[string]any, len(values))
+	for key, val := range values {
+		out[key] = map[string]any{"value": val}
 	}
 	return out
-}
-
-func flattenPreferenceValue(val any) any {
-	if asMap, ok := val.(map[string]any); ok {
-		if v, exists := asMap["value"]; exists {
-			return v
-		}
-	}
-	return val
 }
 
 func normalizePreferenceKeys(keys []string) []string {
@@ -367,7 +344,7 @@ func toUsersScope(scope admin.PreferenceScope) (types.ScopeFilter, error) {
 	return types.ScopeFilter{TenantID: tenantID, OrgID: orgID}, nil
 }
 
-func toAdminTraces(traces []types.PreferenceTrace, versions map[types.PreferenceLevel]map[string]int) []admin.PreferenceTrace {
+func toAdminTraces(traces []types.PreferenceTrace) []admin.PreferenceTrace {
 	if len(traces) == 0 {
 		return nil
 	}
@@ -382,13 +359,9 @@ func toAdminTraces(traces []types.PreferenceTrace, versions map[types.Preference
 					TenantID: uuidToString(layer.Scope.TenantID),
 					OrgID:    uuidToString(layer.Scope.OrgID),
 				},
-				Found: layer.Found,
-				Value: flattenPreferenceValue(layer.Value),
-			}
-			if versions != nil {
-				if levelVersions, ok := versions[layer.Level]; ok {
-					convertedLayer.Version = levelVersions[trace.Key]
-				}
+				Found:   layer.Found,
+				Value:   layer.Value,
+				Version: layer.Version,
 			}
 			converted.Layers = append(converted.Layers, convertedLayer)
 		}
@@ -397,73 +370,28 @@ func toAdminTraces(traces []types.PreferenceTrace, versions map[types.Preference
 	return out
 }
 
-func (s *GoUsersPreferencesStore) preferenceVersions(ctx context.Context, userID uuid.UUID, scope types.ScopeFilter, levels []types.PreferenceLevel, keys []string, effective map[string]any) (map[string]int, map[types.PreferenceLevel]map[string]int, error) {
-	levelOrder := levels
-	if len(levelOrder) == 0 {
-		levelOrder = []types.PreferenceLevel{
-			types.PreferenceLevelSystem,
-			types.PreferenceLevelTenant,
-			types.PreferenceLevelOrg,
-			types.PreferenceLevelUser,
+func resolvedPreferenceVersions(versions map[string]int, keys []string, effective map[string]any) map[string]int {
+	if len(versions) == 0 && len(keys) == 0 && len(effective) == 0 {
+		return map[string]int{}
+	}
+	out := make(map[string]int, len(versions))
+	for key, version := range versions {
+		out[key] = version
+	}
+	if len(keys) > 0 {
+		for _, key := range keys {
+			if _, ok := out[key]; !ok {
+				out[key] = 0
+			}
+		}
+		return out
+	}
+	for key := range effective {
+		if _, ok := out[key]; !ok {
+			out[key] = 0
 		}
 	}
-	lookupKeys := keys
-	if len(lookupKeys) == 0 {
-		for key := range effective {
-			lookupKeys = append(lookupKeys, key)
-		}
-		sort.Strings(lookupKeys)
-	}
-	versionsByLevel := map[types.PreferenceLevel]map[string]int{}
-	for _, level := range levelOrder {
-		if !shouldResolveLevel(level, userID, scope) {
-			continue
-		}
-		records, err := s.repo.ListPreferences(ctx, types.PreferenceFilter{
-			UserID: userID,
-			Scope:  scope,
-			Level:  level,
-			Keys:   lookupKeys,
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-		if len(records) == 0 {
-			continue
-		}
-		levelVersions := map[string]int{}
-		for _, record := range records {
-			levelVersions[record.Key] = record.Version
-		}
-		versionsByLevel[level] = levelVersions
-	}
-
-	effectiveVersions := map[string]int{}
-	for _, level := range levelOrder {
-		levelVersions := versionsByLevel[level]
-		for key, version := range levelVersions {
-			effectiveVersions[key] = version
-		}
-	}
-	for _, key := range lookupKeys {
-		if _, ok := effectiveVersions[key]; !ok {
-			effectiveVersions[key] = 0
-		}
-	}
-	return effectiveVersions, versionsByLevel, nil
-}
-
-func shouldResolveLevel(level types.PreferenceLevel, userID uuid.UUID, scope types.ScopeFilter) bool {
-	switch level {
-	case types.PreferenceLevelUser:
-		return userID != uuid.Nil
-	case types.PreferenceLevelTenant:
-		return scope.TenantID != uuid.Nil
-	case types.PreferenceLevelOrg:
-		return scope.OrgID != uuid.Nil
-	default:
-		return true
-	}
+	return out
 }
 
 func uuidToString(id uuid.UUID) string {
