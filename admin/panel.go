@@ -436,7 +436,7 @@ func mapFieldType(t string) string {
 		return "number"
 	case "boolean":
 		return "boolean"
-	case "array", "blocks", "block", "repeater":
+	case "array", "blocks", "block", "repeater", "block-library-picker", "block-library":
 		return "array"
 	case "object", "json":
 		return "object"
@@ -455,6 +455,8 @@ func mapWidget(t string) string {
 		return "media-picker"
 	case "block", "blocks":
 		return "block"
+	case "block-library-picker", "block-library":
+		return "block-library-picker"
 	default:
 		return ""
 	}
