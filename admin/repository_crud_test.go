@@ -219,6 +219,56 @@ func TestCRUDAdapterListPaginationAndFilters(t *testing.T) {
 	if q := service.capturedContext.Query("order"); q == "" {
 		t.Fatalf("expected order applied")
 	}
+	if len(service.capturedCriteria) == 0 {
+		t.Fatalf("expected list criteria")
+	}
+}
+
+func TestCRUDAdapterListSearchUsesLegacySearchFilterWhenSearchEmpty(t *testing.T) {
+	service := newStubCRUDService()
+	service.records = []map[string]any{
+		{"id": "1", "name": "Alpha"},
+		{"id": "2", "name": "Beta"},
+	}
+	adapter := NewCRUDRepositoryAdapter(service)
+
+	results, total, err := adapter.List(context.Background(), ListOptions{
+		PerPage: 10,
+		Filters: map[string]any{"_search": "beta"},
+	})
+	if err != nil {
+		t.Fatalf("list error: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected total=1, got %d", total)
+	}
+	if len(results) != 1 || results[0]["id"] != "2" {
+		t.Fatalf("unexpected results: %+v", results)
+	}
+	if q := service.capturedContext.Query("_search"); q != "beta" {
+		t.Fatalf("expected _search query set from filters, got %q", q)
+	}
+}
+
+func TestCRUDAdapterListPreservesOperatorAwarePredicates(t *testing.T) {
+	service := newStubCRUDService()
+	service.records = []map[string]any{
+		{"id": "1", "name": "Alpha", "status": "draft"},
+	}
+	adapter := NewCRUDRepositoryAdapter(service)
+
+	_, _, err := adapter.List(context.Background(), ListOptions{
+		PerPage: 10,
+		Predicates: []ListPredicate{
+			{Field: "status", Operator: "in", Values: []string{"draft", "published"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list error: %v", err)
+	}
+	if q := service.capturedContext.Query("status__in"); q != "draft,published" {
+		t.Fatalf("expected operator-aware query, got %q", q)
+	}
 }
 
 func TestCRUDAdapterCreateUpdateDelete(t *testing.T) {

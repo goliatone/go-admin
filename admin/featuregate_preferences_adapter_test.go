@@ -149,7 +149,45 @@ func TestPreferencesStoreAdapterSaveUsesKeyPrefix(t *testing.T) {
 	}
 }
 
-func TestPreferencesStoreAdapterLoadRejectsMissingScopeMetadata(t *testing.T) {
+func TestPreferencesStoreAdapterSaveDoesNotDeleteMissingWhenDisabled(t *testing.T) {
+	store := NewInMemoryPreferencesStore()
+	adapter := NewPreferencesStoreAdapter(store, WithDeleteMissing(false))
+	ref := state.Ref{Domain: "feature_flags", Scope: opts.NewScope("system", 10)}
+	ctx := context.Background()
+
+	if _, err := adapter.Save(ctx, ref, map[string]any{
+		"users": map[string]any{
+			"signup":         true,
+			"password_reset": true,
+		},
+	}, state.Meta{}); err != nil {
+		t.Fatalf("save error: %v", err)
+	}
+	if _, err := adapter.Save(ctx, ref, map[string]any{
+		"users": map[string]any{
+			"signup": false,
+		},
+	}, state.Meta{}); err != nil {
+		t.Fatalf("save error: %v", err)
+	}
+
+	loaded, _, ok, err := adapter.Load(ctx, ref)
+	if err != nil || !ok {
+		t.Fatalf("load error: %v", err)
+	}
+	users, ok := loaded["users"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected users map, got %v", loaded)
+	}
+	if users["signup"] != false {
+		t.Fatalf("expected signup false, got %v", users["signup"])
+	}
+	if users["password_reset"] != true {
+		t.Fatalf("expected password_reset to remain, got %v", users)
+	}
+}
+
+func TestPreferencesStoreAdapterLoadRejectsInvalidScopeMetadata(t *testing.T) {
 	store := NewInMemoryPreferencesStore()
 	adapter := NewPreferencesStoreAdapter(store)
 	ref := state.Ref{
@@ -160,8 +198,11 @@ func TestPreferencesStoreAdapterLoadRejectsMissingScopeMetadata(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error for missing scope metadata")
 	}
+	if !errors.Is(err, ErrPreferencesScopeMetadataInvalid) {
+		t.Fatalf("expected ErrPreferencesScopeMetadataInvalid, got %v", err)
+	}
 	rich, ok := ferrors.As(err)
-	if !ok || rich.TextCode != ferrors.TextCodeScopeMetadataMissing {
-		t.Fatalf("expected scope metadata missing error, got %v", err)
+	if !ok || rich.TextCode != ferrors.TextCodeScopeMetadataInvalid {
+		t.Fatalf("expected scope metadata invalid error, got %v", err)
 	}
 }

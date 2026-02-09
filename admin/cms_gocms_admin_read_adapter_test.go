@@ -170,3 +170,44 @@ func TestGoCMSAdminPageReadAdapterGetAllowsMissingTranslations(t *testing.T) {
 		t.Fatalf("expected translation available locales [en], got %+v", got.Translation.Meta.AvailableLocales)
 	}
 }
+
+func TestGoCMSAdminPageReadAdapterDoesNotDeriveCoreFieldsFromData(t *testing.T) {
+	ctx := context.Background()
+	pageID := uuid.New()
+	record := cms.AdminPageRecord{
+		ID:         pageID,
+		ContentID:  uuid.New(),
+		TemplateID: uuid.New(),
+		Data: map[string]any{
+			"title":            "Fallback Title",
+			"slug":             "fallback-slug",
+			"path":             "/fallback-path",
+			"meta_title":       "Fallback Meta Title",
+			"meta_description": "Fallback Meta Description",
+			"workflow_status":  "published",
+		},
+	}
+	svc := &stubAdminPageReadService{
+		listRecords: []cms.AdminPageRecord{record},
+		listTotal:   1,
+	}
+	adapter := NewGoCMSAdminPageReadAdapter(svc)
+
+	items, total, err := adapter.List(ctx, AdminPageListOptions{Locale: "en", IncludeData: true})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if total != 1 || len(items) != 1 {
+		t.Fatalf("expected one record, got total=%d len=%d", total, len(items))
+	}
+	got := items[0]
+	if got.Title != "" || got.Slug != "" || got.Path != "" {
+		t.Fatalf("expected title/slug/path not derived from Data, got title=%q slug=%q path=%q", got.Title, got.Slug, got.Path)
+	}
+	if got.MetaTitle != "" || got.MetaDescription != "" {
+		t.Fatalf("expected meta fields not derived from Data, got meta_title=%q meta_description=%q", got.MetaTitle, got.MetaDescription)
+	}
+	if got.Status != "" {
+		t.Fatalf("expected status not derived from Data, got %q", got.Status)
+	}
+}

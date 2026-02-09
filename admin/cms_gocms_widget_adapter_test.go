@@ -3,8 +3,10 @@ package admin
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
+	cms "github.com/goliatone/go-cms"
 	cmswidgets "github.com/goliatone/go-cms/widgets"
 	"github.com/google/uuid"
 )
@@ -14,6 +16,7 @@ type stubGoCMSWidgetService struct {
 	instances             map[uuid.UUID]*cmswidgets.Instance
 	areas                 map[string]*cmswidgets.AreaDefinition
 	placementsByArea      map[string]map[uuid.UUID]*cmswidgets.AreaPlacement
+	assignErr             error
 	forceEmptyDefinitions bool
 	forceEmptyListAll     bool
 }
@@ -162,6 +165,9 @@ func (s *stubGoCMSWidgetService) ListAreaDefinitions(_ context.Context) ([]*cmsw
 }
 
 func (s *stubGoCMSWidgetService) AssignWidgetToArea(_ context.Context, input cmswidgets.AssignWidgetToAreaInput) ([]*cmswidgets.AreaPlacement, error) {
+	if s.assignErr != nil {
+		return nil, s.assignErr
+	}
 	inst, ok := s.instances[input.InstanceID]
 	if !ok {
 		return nil, errors.New("instance not found")
@@ -198,6 +204,11 @@ func (s *stubGoCMSWidgetService) ResolveArea(_ context.Context, input cmswidgets
 	}
 	out := make([]*cmswidgets.ResolvedWidget, 0, len(placements))
 	for instanceID, placement := range placements {
+		if input.LocaleID != nil {
+			if placement.LocaleID == nil || *placement.LocaleID != *input.LocaleID {
+				continue
+			}
+		}
 		inst, ok := s.instances[instanceID]
 		if !ok {
 			continue
@@ -414,5 +425,105 @@ func TestGoCMSWidgetAdapterSaveInstanceWithNilContext(t *testing.T) {
 	}
 	if inst == nil || inst.DefinitionCode != code {
 		t.Fatalf("expected instance definition code %q, got %+v", code, inst)
+	}
+}
+
+type stubLocaleResolver struct {
+	ids map[string]uuid.UUID
+}
+
+func (s stubLocaleResolver) ResolveByCode(_ context.Context, code string) (cms.LocaleInfo, error) {
+	if id, ok := s.ids[strings.ToLower(strings.TrimSpace(code))]; ok {
+		return cms.LocaleInfo{ID: id, Code: code}, nil
+	}
+	return cms.LocaleInfo{}, cms.ErrUnknownLocale
+}
+
+func TestGoCMSWidgetAdapterListInstancesUsesResolvedLocaleID(t *testing.T) {
+	ctx := context.Background()
+	localeID := uuid.New()
+	svc := newStubGoCMSWidgetService()
+	adapter := newGoCMSWidgetAdapter(svc, stubLocaleResolver{
+		ids: map[string]uuid.UUID{"es": localeID},
+	})
+
+	code := "admin.widget.locale_aware"
+	if err := adapter.RegisterDefinition(ctx, WidgetDefinition{Code: code, Name: "Locale Aware"}); err != nil {
+		t.Fatalf("register definition: %v", err)
+	}
+
+	if _, err := adapter.SaveInstance(ctx, WidgetInstance{
+		DefinitionCode: code,
+		Area:           "admin.dashboard.main",
+		Locale:         "es",
+	}); err != nil {
+		t.Fatalf("save instance: %v", err)
+	}
+
+	instances, err := adapter.ListInstances(ctx, WidgetInstanceFilter{
+		Area:   "admin.dashboard.main",
+		Locale: "es",
+	})
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	if len(instances) != 1 {
+		t.Fatalf("expected one instance, got %d", len(instances))
+	}
+}
+
+func TestGoCMSWidgetAdapterListInstancesUnknownLocaleReturnsEmpty(t *testing.T) {
+	ctx := context.Background()
+	localeID := uuid.New()
+	svc := newStubGoCMSWidgetService()
+	adapter := newGoCMSWidgetAdapter(svc, stubLocaleResolver{
+		ids: map[string]uuid.UUID{"es": localeID},
+	})
+
+	code := "admin.widget.unknown_locale"
+	if err := adapter.RegisterDefinition(ctx, WidgetDefinition{Code: code, Name: "Unknown Locale"}); err != nil {
+		t.Fatalf("register definition: %v", err)
+	}
+	if _, err := adapter.SaveInstance(ctx, WidgetInstance{
+		DefinitionCode: code,
+		Area:           "admin.dashboard.main",
+		Locale:         "es",
+	}); err != nil {
+		t.Fatalf("save instance: %v", err)
+	}
+
+	instances, err := adapter.ListInstances(ctx, WidgetInstanceFilter{
+		Area:   "admin.dashboard.main",
+		Locale: "fr",
+	})
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	if len(instances) != 0 {
+		t.Fatalf("expected no instances for unknown locale filter, got %d", len(instances))
+	}
+}
+
+func TestGoCMSWidgetAdapterAssignWidgetPlacementDoesNotStringMatchDuplicates(t *testing.T) {
+	ctx := context.Background()
+	svc := newStubGoCMSWidgetService()
+	svc.assignErr = errors.New("widgets: widget already assigned to area for locale")
+	adapter := NewGoCMSWidgetAdapter(svc)
+
+	code := "admin.widget.duplicate_error"
+	if err := adapter.RegisterDefinition(ctx, WidgetDefinition{Code: code, Name: "Duplicate Error"}); err != nil {
+		t.Fatalf("register definition: %v", err)
+	}
+
+	_, err := adapter.SaveInstance(ctx, WidgetInstance{
+		DefinitionCode: code,
+		Area:           "admin.dashboard.main",
+		Locale:         "en",
+	})
+	if err == nil {
+		t.Fatalf("expected duplicate assignment error")
+	}
+	if !strings.Contains(err.Error(), "already assigned") {
+		t.Fatalf("expected duplicate assignment error preserved, got %v", err)
 	}
 }

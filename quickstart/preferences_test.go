@@ -16,9 +16,11 @@ import (
 )
 
 type stubPreferenceRepo struct {
-	records   map[string]types.PreferenceRecord
-	upserts   []types.PreferenceRecord
-	upsertErr error
+	records     map[string]types.PreferenceRecord
+	upserts     []types.PreferenceRecord
+	upsertErr   error
+	listCalls   int
+	listFilters []types.PreferenceFilter
 }
 
 func newStubPreferenceRepo() *stubPreferenceRepo {
@@ -28,6 +30,8 @@ func newStubPreferenceRepo() *stubPreferenceRepo {
 }
 
 func (s *stubPreferenceRepo) ListPreferences(_ context.Context, filter types.PreferenceFilter) ([]types.PreferenceRecord, error) {
+	s.listCalls++
+	s.listFilters = append(s.listFilters, filter)
 	out := []types.PreferenceRecord{}
 	for _, record := range s.records {
 		if !matchesPreferenceFilter(record, filter) {
@@ -266,6 +270,9 @@ func TestGoUsersPreferencesStoreResolveIncludesTracesAndVersions(t *testing.T) {
 	if last.Version != 4 {
 		t.Fatalf("expected trace version 4, got %d", last.Version)
 	}
+	if repo.listCalls != 3 {
+		t.Fatalf("expected resolver-only list calls, got %d", repo.listCalls)
+	}
 }
 
 func TestGoUsersPreferencesStoreResolveHonorsTenantScope(t *testing.T) {
@@ -423,7 +430,13 @@ func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 			DefaultLocale: "en",
 		}
 
-		adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithGoUsersPreferencesRepository(repo), EnablePreferences())
+		adm, _, err := NewAdmin(
+			cfg,
+			AdapterHooks{},
+			WithGoUsersPreferencesRepository(repo),
+			EnablePreferences(),
+			func(opts *adminOptions) { opts.registerUserRoleBulkRoutes = false },
+		)
 		if err != nil {
 			t.Fatalf("new admin: %v", err)
 		}
