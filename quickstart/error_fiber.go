@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -134,21 +135,68 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 
 		if errorCfg.DevMode {
 			viewCtx["error_detail"] = err.Error()
-			if mapped, _ := presenter.Present(err); mapped != nil {
-				viewCtx["error_text_code"] = mapped.TextCode
-				viewCtx["error_category"] = mapped.Category
-				if len(mapped.Metadata) > 0 {
-					viewCtx["error_metadata"] = mapped.Metadata
-					if metaJSON, metaErr := json.MarshalIndent(mapped.Metadata, "", "  "); metaErr == nil {
-						viewCtx["error_metadata_json"] = string(metaJSON)
-					}
+
+			// Build request info for dev context
+			reqInfo := buildRequestInfo(c, errorCfg)
+
+			// Build enriched dev error context
+			devCtx := presenter.BuildDevErrorContext(err, reqInfo)
+			if devCtx != nil {
+				viewCtx["dev_context"] = devCtx
+				viewCtx["error_type"] = devCtx.ErrorType
+				viewCtx["error_text_code"] = devCtx.TextCode
+				viewCtx["error_category"] = devCtx.Category
+
+				// Primary source context for the error tab
+				if devCtx.PrimarySource != nil {
+					viewCtx["primary_source"] = devCtx.PrimarySource
 				}
-				if presenter.IncludeStackTrace() {
-					if stack := formatStackTrace(mapped.StackTrace); stack != "" {
+
+				// Stack frames for the stack tab
+				if len(devCtx.StackFrames) > 0 {
+					viewCtx["stack_frames"] = devCtx.StackFrames
+					// Also provide legacy stack string for backwards compatibility
+					if stack := formatStackTrace(devCtx.StackFrames); stack != "" {
 						viewCtx["error_stack"] = stack
 					}
 				}
+
+				// Request info for the request tab
+				if devCtx.RequestInfo != nil {
+					viewCtx["request_info"] = devCtx.RequestInfo
+				}
+
+				// Environment info for the app tab
+				if devCtx.EnvironmentInfo != nil {
+					viewCtx["env_info"] = devCtx.EnvironmentInfo
+				}
+
+				// Metadata
+				if len(devCtx.Metadata) > 0 {
+					viewCtx["error_metadata"] = devCtx.Metadata
+					if metaJSON, metaErr := json.MarshalIndent(devCtx.Metadata, "", "  "); metaErr == nil {
+						viewCtx["error_metadata_json"] = string(metaJSON)
+					}
+				}
+			} else {
+				// Fallback to legacy behavior
+				if mapped, _ := presenter.Present(err); mapped != nil {
+					viewCtx["error_text_code"] = mapped.TextCode
+					viewCtx["error_category"] = mapped.Category
+					if len(mapped.Metadata) > 0 {
+						viewCtx["error_metadata"] = mapped.Metadata
+						if metaJSON, metaErr := json.MarshalIndent(mapped.Metadata, "", "  "); metaErr == nil {
+							viewCtx["error_metadata_json"] = string(metaJSON)
+						}
+					}
+					if presenter.IncludeStackTrace() {
+						if stack := formatStackTrace(mapped.StackTrace); stack != "" {
+							viewCtx["error_stack"] = stack
+						}
+					}
+				}
 			}
+
 			var disabled admin.FeatureDisabledError
 			if errors.As(err, &disabled) {
 				viewCtx["error_feature"] = disabled.Feature
@@ -211,6 +259,12 @@ func formatStackTrace(trace any) string {
 		return v
 	case []string:
 		return strings.Join(v, "\n")
+	case []admin.StackFrameInfo:
+		parts := make([]string, 0, len(v))
+		for _, frame := range v {
+			parts = append(parts, fmt.Sprintf("%s\n\t%s:%d", frame.Function, frame.File, frame.Line))
+		}
+		return strings.Join(parts, "\n")
 	case []any:
 		parts := make([]string, 0, len(v))
 		for _, entry := range v {
@@ -219,6 +273,120 @@ func formatStackTrace(trace any) string {
 		return strings.Join(parts, "\n")
 	default:
 		return fmt.Sprint(v)
+	}
+}
+
+// buildRequestInfo extracts request information from Fiber context.
+func buildRequestInfo(c *fiber.Ctx, cfg admin.ErrorConfig) *admin.RequestInfo {
+	info := &admin.RequestInfo{
+		Method:      c.Method(),
+		Path:        c.Path(),
+		FullURL:     c.OriginalURL(),
+		ContentType: string(c.Request().Header.ContentType()),
+		RemoteIP:    c.IP(),
+		UserAgent:   c.Get("User-Agent"),
+	}
+
+	// Extract headers if enabled
+	if cfg.ShowRequestHeaders {
+		info.Headers = make(map[string]string)
+		c.Request().Header.VisitAll(func(key, value []byte) {
+			headerKey := string(key)
+			// Skip sensitive headers
+			if !isSensitiveHeader(headerKey) {
+				info.Headers[headerKey] = string(value)
+			}
+		})
+	}
+
+	// Extract query params
+	info.QueryParams = make(map[string]string)
+	c.Request().URI().QueryArgs().VisitAll(func(key, value []byte) {
+		info.QueryParams[string(key)] = string(value)
+	})
+
+	// Extract form data for POST requests
+	if c.Method() == "POST" || c.Method() == "PUT" || c.Method() == "PATCH" {
+		contentType := info.ContentType
+		if strings.Contains(contentType, "application/x-www-form-urlencoded") ||
+			strings.Contains(contentType, "multipart/form-data") {
+			info.FormData = make(map[string]string)
+			c.Request().PostArgs().VisitAll(func(key, value []byte) {
+				formKey := string(key)
+				// Skip sensitive form fields
+				if !isSensitiveFormField(formKey) {
+					info.FormData[formKey] = string(value)
+				}
+			})
+		} else if cfg.ShowRequestBody && strings.Contains(contentType, "application/json") {
+			// Include JSON body (truncated)
+			body := c.Body()
+			if len(body) > 0 {
+				if len(body) > 2000 {
+					info.Body = string(body[:2000]) + "... (truncated)"
+				} else {
+					info.Body = string(body)
+				}
+			}
+		}
+	}
+
+	return info
+}
+
+// isSensitiveHeader checks if a header should be hidden.
+func isSensitiveHeader(key string) bool {
+	lower := strings.ToLower(key)
+	sensitive := []string{
+		"authorization",
+		"cookie",
+		"set-cookie",
+		"x-api-key",
+		"x-auth-token",
+		"x-csrf-token",
+	}
+	for _, s := range sensitive {
+		if lower == s {
+			return true
+		}
+	}
+	return false
+}
+
+// isSensitiveFormField checks if a form field should be hidden.
+func isSensitiveFormField(key string) bool {
+	lower := strings.ToLower(key)
+	sensitive := []string{
+		"password",
+		"passwd",
+		"secret",
+		"token",
+		"api_key",
+		"apikey",
+		"credit_card",
+		"creditcard",
+		"cvv",
+		"ssn",
+	}
+	for _, s := range sensitive {
+		if strings.Contains(lower, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// buildEnvironmentInfo creates environment information.
+func buildEnvironmentInfo(cfg admin.ErrorConfig) *admin.EnvironmentInfo {
+	if !cfg.ShowEnvironment {
+		return nil
+	}
+
+	return &admin.EnvironmentInfo{
+		GoVersion:   runtime.Version(),
+		AppVersion:  cfg.AppVersion,
+		Environment: resolveRuntimeEnv(),
+		Debug:       cfg.DevMode,
 	}
 }
 
