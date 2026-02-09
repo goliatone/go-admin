@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"reflect"
 
 	cms "github.com/goliatone/go-cms"
 )
@@ -98,46 +97,38 @@ func resolveGoCMSMenuService(container any) CMSMenuService {
 		}
 	}
 
-	// Some go-cms modules expose services on the internal container; prefer using the public
-	// cms.MenuService facade when available (Menus/MenuService), which supports both navigation
-	// resolution and path-based mutations.
-	if inner := callMethod(container, "Container"); inner != nil {
-		if adapted := NewGoCMSMenuAdapterFromAny(callMethod(inner, "MenuService")); adapted != nil {
+	if provider, ok := container.(interface{ MenuService() cms.MenuService }); ok {
+		if adapted := NewGoCMSMenuAdapterFromAny(provider.MenuService()); adapted != nil {
 			return adapted
 		}
 	}
-
-	if adapted := NewGoCMSMenuAdapterFromAny(callMethod(container, "MenuService")); adapted != nil {
-		return adapted
-	}
-	if adapted := NewGoCMSMenuAdapterFromAny(callMethod(container, "Menus")); adapted != nil {
-		return adapted
-	}
-	return nil
-}
-
-func resolveGoCMSWidgetService(container any) CMSWidgetService {
-	if container == nil {
-		return nil
-	}
-	if adapted := NewGoCMSWidgetAdapter(container); adapted != nil {
-		return adapted
-	}
-	if provider, ok := container.(interface{ WidgetService() cms.WidgetService }); ok {
-		if adapted := NewGoCMSWidgetAdapter(provider.WidgetService()); adapted != nil {
+	if provider, ok := container.(interface{ Menus() cms.MenuService }); ok {
+		if adapted := NewGoCMSMenuAdapterFromAny(provider.Menus()); adapted != nil {
 			return adapted
 		}
 	}
-	if provider, ok := container.(interface{ Widgets() cms.WidgetService }); ok {
-		if adapted := NewGoCMSWidgetAdapter(provider.Widgets()); adapted != nil {
+	if provider, ok := container.(interface{ MenuService() any }); ok {
+		if adapted := NewGoCMSMenuAdapterFromAny(provider.MenuService()); adapted != nil {
 			return adapted
 		}
 	}
-	if adapted := NewGoCMSWidgetAdapter(callMethod(container, "WidgetService")); adapted != nil {
-		return adapted
+	if provider, ok := container.(interface{ Menus() any }); ok {
+		if adapted := NewGoCMSMenuAdapterFromAny(provider.Menus()); adapted != nil {
+			return adapted
+		}
 	}
-	if adapted := NewGoCMSWidgetAdapter(callMethod(container, "Widgets")); adapted != nil {
-		return adapted
+	if provider, ok := container.(interface{ Container() any }); ok {
+		inner := provider.Container()
+		if innerProvider, ok := inner.(interface{ MenuService() cms.MenuService }); ok {
+			if adapted := NewGoCMSMenuAdapterFromAny(innerProvider.MenuService()); adapted != nil {
+				return adapted
+			}
+		}
+		if innerProvider, ok := inner.(interface{ MenuService() any }); ok {
+			if adapted := NewGoCMSMenuAdapterFromAny(innerProvider.MenuService()); adapted != nil {
+				return adapted
+			}
+		}
 	}
 	return nil
 }
@@ -179,22 +170,41 @@ func resolveGoCMSContentService(container any) CMSContentService {
 			return adapted
 		}
 	}
-	if svc, ok := callMethod(container, "ContentService").(CMSContentService); ok && svc != nil {
-		return svc
+	if provider, ok := container.(interface{ ContentService() any }); ok {
+		contentSvc := provider.ContentService()
+		var blockSvc any
+		if blockProvider, ok := container.(interface{ Blocks() any }); ok {
+			blockSvc = blockProvider.Blocks()
+		}
+		if blockSvc == nil {
+			if blockProvider, ok := container.(interface{ BlockService() any }); ok {
+				blockSvc = blockProvider.BlockService()
+			}
+		}
+		if adapted := NewGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
+			return adapted
+		}
 	}
-	if svc, ok := callMethod(container, "Content").(CMSContentService); ok && svc != nil {
-		return svc
+	if provider, ok := container.(interface{ Content() any }); ok {
+		contentSvc := provider.Content()
+		var blockSvc any
+		if blockProvider, ok := container.(interface{ Blocks() any }); ok {
+			blockSvc = blockProvider.Blocks()
+		}
+		if blockSvc == nil {
+			if blockProvider, ok := container.(interface{ BlockService() any }); ok {
+				blockSvc = blockProvider.BlockService()
+			}
+		}
+		if adapted := NewGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
+			return adapted
+		}
 	}
-	contentSvc := callMethod(container, "ContentService")
-	if contentSvc == nil {
-		contentSvc = callMethod(container, "Content")
-	}
-	blockSvc := callMethod(container, "Blocks")
-	if blockSvc == nil {
-		blockSvc = callMethod(container, "BlockService")
-	}
-	if adapted := NewGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
-		return adapted
+	if provider, ok := container.(interface{ Container() any }); ok {
+		inner := provider.Container()
+		if adapted := resolveGoCMSContentService(inner); adapted != nil {
+			return adapted
+		}
 	}
 	return nil
 }
@@ -216,34 +226,67 @@ func resolveGoCMSContentTypeService(container any) CMSContentTypeService {
 			return adapted
 		}
 	}
-	if adapted := NewGoCMSContentTypeAdapter(callMethod(container, "ContentTypeService")); adapted != nil {
-		return adapted
-	}
-	if inner := callMethod(container, "Container"); inner != nil {
-		if adapted := NewGoCMSContentTypeAdapter(callMethod(inner, "ContentTypeService")); adapted != nil {
+	if provider, ok := container.(interface{ ContentTypeService() any }); ok {
+		if adapted := NewGoCMSContentTypeAdapter(provider.ContentTypeService()); adapted != nil {
 			return adapted
 		}
 	}
-	if adapted := NewGoCMSContentTypeAdapter(callMethod(container, "ContentService")); adapted != nil {
-		return adapted
+	if provider, ok := container.(interface{ ContentTypes() any }); ok {
+		if adapted := NewGoCMSContentTypeAdapter(provider.ContentTypes()); adapted != nil {
+			return adapted
+		}
 	}
-	if adapted := NewGoCMSContentTypeAdapter(callMethod(container, "Content")); adapted != nil {
-		return adapted
+	if provider, ok := container.(interface{ Container() any }); ok {
+		inner := provider.Container()
+		if adapted := resolveGoCMSContentTypeService(inner); adapted != nil {
+			return adapted
+		}
+	}
+	if provider, ok := container.(interface{ ContentService() any }); ok {
+		if adapted := NewGoCMSContentTypeAdapter(provider.ContentService()); adapted != nil {
+			return adapted
+		}
+	}
+	if provider, ok := container.(interface{ Content() any }); ok {
+		if adapted := NewGoCMSContentTypeAdapter(provider.Content()); adapted != nil {
+			return adapted
+		}
 	}
 	return nil
 }
 
-func callMethod(target any, name string) any {
-	if target == nil {
+func resolveGoCMSWidgetService(container any) CMSWidgetService {
+	if container == nil {
 		return nil
 	}
-	method := reflect.ValueOf(target).MethodByName(name)
-	if !method.IsValid() {
-		return nil
+	if adapted := NewGoCMSWidgetAdapter(container); adapted != nil {
+		return adapted
 	}
-	results := method.Call(nil)
-	if len(results) == 0 {
-		return nil
+	if provider, ok := container.(interface{ WidgetService() cms.WidgetService }); ok {
+		if adapted := NewGoCMSWidgetAdapter(provider.WidgetService()); adapted != nil {
+			return adapted
+		}
 	}
-	return results[0].Interface()
+	if provider, ok := container.(interface{ Widgets() cms.WidgetService }); ok {
+		if adapted := NewGoCMSWidgetAdapter(provider.Widgets()); adapted != nil {
+			return adapted
+		}
+	}
+	if provider, ok := container.(interface{ WidgetService() any }); ok {
+		if adapted := NewGoCMSWidgetAdapter(provider.WidgetService()); adapted != nil {
+			return adapted
+		}
+	}
+	if provider, ok := container.(interface{ Widgets() any }); ok {
+		if adapted := NewGoCMSWidgetAdapter(provider.Widgets()); adapted != nil {
+			return adapted
+		}
+	}
+	if provider, ok := container.(interface{ Container() any }); ok {
+		inner := provider.Container()
+		if adapted := resolveGoCMSWidgetService(inner); adapted != nil {
+			return adapted
+		}
+	}
+	return nil
 }
