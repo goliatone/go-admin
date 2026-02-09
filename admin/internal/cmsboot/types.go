@@ -16,11 +16,6 @@ type CMSContainer interface {
 	ContentTypeService() CMSContentTypeService
 }
 
-// GoCMSMenuProvider exposes a raw go-cms menu service for adapter wiring.
-type GoCMSMenuProvider interface {
-	GoCMSMenuService() any
-}
-
 // CMSWidgetService registers dashboard widget areas/definitions.
 type CMSWidgetService interface {
 	RegisterAreaDefinition(ctx context.Context, def WidgetAreaDefinition) error
