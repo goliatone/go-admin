@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	cms "github.com/goliatone/go-cms"
@@ -54,10 +53,6 @@ func (a goCMSAdminPageReadAdapter) List(ctx context.Context, opts AdminPageListO
 	out := make([]AdminPageRecord, 0, len(records))
 	for _, record := range records {
 		mapped := mapCMSAdminPageRecord(record)
-		applyMetaFromData(&mapped)
-		if status := workflowStatusFromData(mapped.Data); status != "" {
-			mapped.Status = status
-		}
 		if forceData {
 			mapped.Data = nil
 		}
@@ -94,63 +89,10 @@ func (a goCMSAdminPageReadAdapter) Get(ctx context.Context, id string, opts Admi
 		return nil, ErrNotFound
 	}
 	mapped := mapCMSAdminPageRecord(*record)
-	applyMetaFromData(&mapped)
-	if status := workflowStatusFromData(mapped.Data); status != "" {
-		mapped.Status = status
-	}
 	if forceData {
 		mapped.Data = nil
 	}
 	return &mapped, nil
-}
-
-func applyMetaFromData(record *AdminPageRecord) {
-	if record == nil || record.Data == nil {
-		return
-	}
-	if record.Title == "" {
-		if val, ok := record.Data["title"]; ok && val != nil {
-			record.Title = strings.TrimSpace(fmt.Sprint(val))
-		}
-	}
-	if record.Slug == "" {
-		if val, ok := record.Data["slug"]; ok && val != nil {
-			record.Slug = strings.TrimSpace(fmt.Sprint(val))
-		}
-	}
-	if record.Path == "" {
-		if val, ok := record.Data["path"]; ok && val != nil {
-			record.Path = strings.TrimSpace(fmt.Sprint(val))
-		}
-	}
-	if record.MetaTitle == "" {
-		if val, ok := record.Data["meta_title"]; ok && val != nil {
-			record.MetaTitle = strings.TrimSpace(fmt.Sprint(val))
-		}
-	}
-	if record.MetaDescription == "" {
-		if val, ok := record.Data["meta_description"]; ok && val != nil {
-			record.MetaDescription = strings.TrimSpace(fmt.Sprint(val))
-		}
-	}
-}
-
-func workflowStatusFromData(data map[string]any) string {
-	if data == nil {
-		return ""
-	}
-	raw, ok := data["workflow_status"]
-	if !ok || raw == nil {
-		return ""
-	}
-	switch v := raw.(type) {
-	case string:
-		return strings.TrimSpace(v)
-	case fmt.Stringer:
-		return strings.TrimSpace(v.String())
-	default:
-		return strings.TrimSpace(fmt.Sprint(v))
-	}
 }
 
 func mapCMSAdminPageRecord(record cms.AdminPageRecord) AdminPageRecord {

@@ -1,20 +1,58 @@
 package admin
 
 import (
+	"context"
 	"strings"
+	"sync"
 
-	hashid "github.com/goliatone/hashid/pkg/hashid"
+	cms "github.com/goliatone/go-cms"
 	"github.com/google/uuid"
 )
 
-func localeUUID(localeCode string) uuid.UUID {
+type goCMSLocaleResolver interface {
+	ResolveByCode(ctx context.Context, code string) (cms.LocaleInfo, error)
+}
+
+type goCMSLocaleIDCache struct {
+	resolver goCMSLocaleResolver
+
+	mu  sync.RWMutex
+	ids map[string]uuid.UUID
+}
+
+func newGoCMSLocaleIDCache(resolver goCMSLocaleResolver) *goCMSLocaleIDCache {
+	if resolver == nil {
+		return nil
+	}
+	return &goCMSLocaleIDCache{
+		resolver: resolver,
+		ids:      map[string]uuid.UUID{},
+	}
+}
+
+func (c *goCMSLocaleIDCache) Resolve(ctx context.Context, localeCode string) (uuid.UUID, bool) {
+	if c == nil || c.resolver == nil {
+		return uuid.Nil, false
+	}
 	trimmed := strings.ToLower(strings.TrimSpace(localeCode))
 	if trimmed == "" {
-		return uuid.Nil
+		return uuid.Nil, false
 	}
-	key := "go-cms:locale:" + trimmed
-	if uid, err := hashid.NewUUID(key, hashid.WithHashAlgorithm(hashid.SHA256), hashid.WithNormalization(true)); err == nil && uid != uuid.Nil {
-		return uid
+
+	c.mu.RLock()
+	if cached, ok := c.ids[trimmed]; ok && cached != uuid.Nil {
+		c.mu.RUnlock()
+		return cached, true
 	}
-	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(key))
+	c.mu.RUnlock()
+
+	record, err := c.resolver.ResolveByCode(ctx, trimmed)
+	if err != nil || record.ID == uuid.Nil {
+		return uuid.Nil, false
+	}
+
+	c.mu.Lock()
+	c.ids[trimmed] = record.ID
+	c.mu.Unlock()
+	return record.ID, true
 }
