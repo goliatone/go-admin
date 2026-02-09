@@ -1,79 +1,13 @@
-{% extends "layout.html" %}
+{% extends "resources/shared/detail-base.html" %}
 
-{% block title %}{{ singularize(resource_label|default:resource)|title }} - {{ resource_item.name|default:resource_item.id }}{% endblock %}
+{% set avatar_type = "organization" %}
 
-{% block content %}
-  <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-    <h1 class="text-3xl font-bold text-admin-dark">{{ singularize(resource_label|default:resource)|title }}</h1>
-    <div class="flex gap-3">
-      {% if resource_item.actions.edit %}
-        <a href="{{ resource_item.actions.edit }}" class="btn btn-primary">
-          <i class="iconoir-edit-pencil"></i>
-          Edit
-        </a>
-      {% endif %}
-      {% if routes.index %}
-        <a href="{{ routes.index }}" class="btn btn-secondary">
-          <i class="iconoir-arrow-left"></i>
-          Back to {{ resource_label|default:resource|title }}
-        </a>
-      {% endif %}
-    </div>
-  </header>
+{% block identity_title %}{{ resource_item.name|default:resource_item.slug|default:resource_item.id }}{% endblock %}
 
-  <div class="flex-1 p-8 overflow-y-auto">
-    <div class="max-w-3xl bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div class="p-8 bg-gradient-to-br from-slate-900 to-slate-700 text-white flex items-center gap-6">
-        <div class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold border-3 border-white/30">
-          {{ resource_item.name|default:resource_item.slug|default:resource_item.id|slice:"0:1"|upper }}
-        </div>
-        <div>
-          <h2 class="text-2xl mb-1">{{ resource_item.name|default:resource_item.slug|default:resource_item.id }}</h2>
-          <p class="opacity-90 text-base">{{ resource_item.domain|default:"" }}</p>
-        </div>
-      </div>
-      <div class="p-8 space-y-8">
-        <div>
-          <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Details</div>
-          <div class="grid grid-cols-2 gap-6">
-            {% for field in fields %}
-              <div class="flex flex-col">
-                <div class="text-sm text-zinc-500 mb-1">{{ field.label }}</div>
-                <div class="font-semibold text-gray-800">{{ field.value|default:"-" }}</div>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Actions</div>
-	          <div class="flex gap-3">
-	            {% if resource_item.actions.edit %}<a href="{{ resource_item.actions.edit }}" class="btn btn-primary">Edit</a>{% endif %}
-	            {% if resource_item.actions.delete %}
-	              <form method="POST" action="{{ resource_item.actions.delete }}" class="inline">
-	                <button type="button" class="btn btn-secondary" onclick="confirmDelete(this.form, 'Delete this {{ resource_label|default:resource|lower }}?')">Delete</button>
-	              </form>
-	            {% endif %}
-	          </div>
-	        </div>
-	      </div>
-	    </div>
-	  </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-  async function confirmDelete(form, message) {
-    if (!window.toastManager) {
-      console.error('[confirmDelete] ToastManager not available');
-      return;
-    }
-    const confirmed = await window.toastManager.confirm(
-      message,
-      { title: 'Confirm Delete', confirmText: 'Delete', cancelText: 'Cancel' }
-    );
-    if (!confirmed) return;
-    form.submit();
-  }
-</script>
+{% block identity_subtitle %}
+  {% if resource_item.domain %}
+    <p class="text-sm text-gray-500 truncate">{{ resource_item.domain }}</p>
+  {% elif resource_item.slug %}
+    <p class="text-sm text-gray-500 truncate">{{ resource_item.slug }}</p>
+  {% endif %}
 {% endblock %}

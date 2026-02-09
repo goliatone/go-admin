@@ -1,454 +1,56 @@
-{% extends "layout.html" %}
+{% extends "resources/shared/detail-base.html" %}
 
-{% block title %}{{ singularize(resource_label|default:resource)|title }} - {{ resource_item.username|default:resource_item.id }}{% endblock %}
+{% set avatar_type = "person" %}
 
-{% block head_extra %}
+{% block detail_head_extra %}
 <link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/widgets.css">
+<link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/activity.css">
 {% endblock %}
 
-{% block content %}
-  <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-    <h1 class="text-3xl font-bold text-admin-dark">{{ singularize(resource_label|default:resource)|title }}</h1>
-    <div class="flex gap-3">
-      {% if resource_item.actions.edit %}
-        <a href="{{ resource_item.actions.edit }}" class="btn btn-primary">
-          <i class="iconoir-edit-pencil"></i>
-          Edit
-        </a>
-      {% endif %}
-      {% if routes.index %}
-        <a href="{{ routes.index }}" class="btn btn-secondary">
-          <i class="iconoir-arrow-left"></i>
-          Back to {{ resource_label|default:resource|title }}
-        </a>
-      {% endif %}
-    </div>
-  </header>
+{% block identity_title %}{{ resource_item.username|default:resource_item.display_name|default:resource_item.id }}{% endblock %}
 
-  {% include "partials/panel-tabs.html" with tabs=tabs active_tab=active_tab %}
+{% block identity_subtitle %}
+  {% if resource_item.email %}
+    <p class="text-sm text-gray-500 truncate">{{ resource_item.email }}</p>
+  {% endif %}
+{% endblock %}
 
-  <div class="flex-1 p-8 overflow-y-auto"
-       data-tab-panel-container
-       data-panel="{{ resource }}"
-       data-record-id="{{ resource_item.id }}"
-       data-base-path="{{ base_path }}"
-       data-api-base-path="{{ api_base_path }}"
-       data-active-tab="{{ active_tab }}"
-       data-default-tab="details">
-    {% include "partials/tab-panel.html" with tab_panel=tab_panel fields=fields resource_item=resource_item resource_label=resource_label %}
-    {% if assigned_roles and assigned_roles|length > 0 %}
-    <div class="mt-6 max-w-3xl bg-white border border-gray-200 rounded-xl overflow-hidden">
+{% block content_data_attrs %}
+  data-tab-panel-container
+  data-panel="{{ resource }}"
+  data-record-id="{{ resource_item.id }}"
+  data-base-path="{{ base_path }}"
+  data-api-base-path="{{ api_base_path }}"
+  data-active-tab="{{ active_tab }}"
+  data-default-tab="details"
+{% endblock %}
+
+{% block detail_content %}
+  {% include "partials/tab-panel.html" with tab_panel=tab_panel fields=fields resource_item=resource_item resource_label=resource_label %}
+
+  {% if assigned_roles and assigned_roles|length > 0 %}
+    <div class="mt-6 max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div class="p-6">
-        <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Assigned Roles</div>
+        <div class="text-xs uppercase tracking-wider text-gray-500 mb-4 font-semibold">Assigned Roles</div>
         <div class="flex flex-wrap gap-2">
           {% for role in assigned_roles %}
-          <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-50 border border-gray-200 text-sm">
-            <span class="font-semibold text-gray-800">{{ role.name|default:role.id }}</span>
-            {% if role.role_key %}
-            <span class="text-xs text-gray-500">{{ role.role_key }}</span>
-            {% endif %}
-          </span>
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-sm">
+              <i class="iconoir-shield text-purple-600"></i>
+              <span class="font-medium text-purple-800">{{ role.name|default:role.id }}</span>
+              {% if role.role_key %}
+                <span class="text-xs text-purple-500">{{ role.role_key }}</span>
+              {% endif %}
+            </span>
           {% endfor %}
         </div>
       </div>
     </div>
-    {% endif %}
-  </div>
+  {% endif %}
 {% endblock %}
 
-{% block scripts %}
-<script>
-  async function confirmDelete(form, message) {
-    if (!window.toastManager) {
-      console.error('[confirmDelete] ToastManager not available');
-      return;
-    }
-    const confirmed = await window.toastManager.confirm(
-      message,
-      { title: 'Confirm Delete', confirmText: 'Delete', cancelText: 'Cancel' }
-    );
-    if (!confirmed) return;
-    form.submit();
-  }
-</script>
-<script>
-  (function() {
-    const tabsNav = document.querySelector('.panel-tabs');
-    const panelContainer = document.querySelector('[data-tab-panel-container]');
-    if (!tabsNav || !panelContainer) {
-      return;
-    }
-    const tabLinks = Array.from(tabsNav.querySelectorAll('[data-tab-id]'));
-    const basePath = (panelContainer.dataset.basePath || '').replace(/\/$/, '');
-    const apiBasePath = (panelContainer.dataset.apiBasePath || '').replace(/\/$/, '');
-    const panelName = panelContainer.dataset.panel || '';
-    const recordId = panelContainer.dataset.recordId || '';
-    const defaultTab = panelContainer.dataset.defaultTab || 'details';
-
-    function buildEndpoint(kind, tabId) {
-      if (!basePath || !panelName || !recordId || !tabId) {
-        return '';
-      }
-      const safeTab = encodeURIComponent(tabId);
-      const safeRecord = encodeURIComponent(recordId);
-      if (kind === 'json') {
-        const apiRoot = apiBasePath || `${basePath}/api`;
-        return `${apiRoot}/${panelName}/${safeRecord}/tabs/${safeTab}`;
-      }
-      return `${basePath}/${panelName}/${safeRecord}/tabs/${safeTab}`;
-    }
-
-    function setActiveTab(tabId) {
-      tabLinks.forEach(link => {
-        const isActive = link.dataset.tabId === tabId;
-        link.classList.toggle('panel-tab-active', isActive);
-        link.setAttribute('aria-selected', isActive ? 'true' : 'false');
-      });
-      panelContainer.dataset.activeTab = tabId || '';
-    }
-
-    function updateUrl(href) {
-      if (!href) {
-        return;
-      }
-      try {
-        window.history.pushState({ tab: href }, '', href);
-      } catch (err) {
-        console.warn('[tabs] Unable to update URL', err);
-      }
-    }
-
-    function escapeHTML(raw) {
-      const text = String(raw || '');
-      return text.replace(/[&<>"']/g, match => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      }[match]));
-    }
-
-    function formatNumber(value) {
-      if (typeof value === 'number') {
-        return value.toLocaleString();
-      }
-      if (value === null || value === undefined) {
-        return '';
-      }
-      return String(value);
-    }
-
-    function getWidgetTitle(definition) {
-      const titles = {
-        'admin.widget.user_stats': 'User Statistics',
-        'admin.widget.activity_feed': 'Recent Activity',
-        'admin.widget.user_activity_feed': 'User Activity',
-        'admin.widget.quick_actions': 'Quick Actions',
-        'admin.widget.notifications': 'Notifications',
-        'admin.widget.settings_overview': 'Settings Overview',
-        'admin.widget.user_profile_overview': 'Profile Overview',
-        'admin.widget.content_stats': 'Content Stats',
-        'admin.widget.storage_stats': 'Storage Stats',
-        'admin.widget.system_health': 'System Health',
-        'admin.widget.bar_chart': 'Bar Chart',
-        'admin.widget.line_chart': 'Line Chart',
-        'admin.widget.pie_chart': 'Pie Chart',
-        'admin.widget.gauge_chart': 'Gauge',
-        'admin.widget.scatter_chart': 'Scatter Chart',
-      };
-      return titles[definition] || (definition || '').replace(/_/g, ' ');
-    }
-
-    function renderWidgetContent(widget) {
-      const def = widget.definition || '';
-      const data = widget.data || {};
-
-      if (def === 'admin.widget.user_stats') {
-        const values = data.values || {
-          Total: data.total,
-          Active: data.active,
-          'New Today': data.new_today,
-        };
-        return `
-          <div class="metrics">
-            ${Object.entries(values).map(([key, value]) => `
-              <div class="metric">
-                <small>${escapeHTML(key)}</small>
-                <span>${escapeHTML(formatNumber(value))}</span>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      }
-
-      if (def === 'admin.widget.settings_overview' || def === 'admin.widget.user_profile_overview') {
-        const values = data.values || {};
-        const entries = Object.entries(values);
-        if (!entries.length) {
-          return '<p class="text-gray-500">No settings to display</p>';
-        }
-        return `
-          <dl class="space-y-2">
-            ${entries.map(([key, value]) => `
-              <div class="flex items-start justify-between gap-4">
-                <dt class="text-sm text-gray-600">${escapeHTML(key)}</dt>
-                <dd class="text-sm font-semibold text-gray-900">${escapeHTML(value ?? '-')}</dd>
-              </div>
-            `).join('')}
-          </dl>
-        `;
-      }
-
-      if (def === 'admin.widget.activity_feed' || def === 'admin.widget.user_activity_feed') {
-        const entries = data.entries || [];
-        if (!entries.length) {
-          return '<p class="text-gray-500">No recent activity</p>';
-        }
-        return `
-          <ul class="space-y-3">
-            ${entries.map(entry => `
-              <li class="py-3 border-b border-gray-100 last:border-b-0">
-                <div class="font-semibold text-gray-900 text-sm">${escapeHTML(entry.actor)}</div>
-                <div class="text-gray-600 text-sm mt-1">${escapeHTML(entry.action)} ${escapeHTML(entry.object)}</div>
-              </li>
-            `).join('')}
-          </ul>
-        `;
-      }
-
-      return `<pre class="text-xs text-gray-600 overflow-auto">${escapeHTML(JSON.stringify(data, null, 2))}</pre>`;
-    }
-
-    function renderWidget(widget) {
-      const areaCode = widget.area || '';
-      const metadata = widget.metadata || {};
-      const layout = metadata.layout || {};
-      const span = layout.width || widget.span || 12;
-      const hidden = widget.hidden || false;
-      const title = widget.data?.title || widget.config?.title || widget.title || getWidgetTitle(widget.definition);
-      return `
-        <article class="widget"
-                 data-widget="${escapeHTML(widget.id || widget.definition || '')}"
-                 data-span="${escapeHTML(span)}"
-                 data-area-code="${escapeHTML(areaCode)}"
-                 data-resizable="false"
-                 ${hidden ? 'data-hidden="true"' : ''}
-                 style="--span: ${escapeHTML(span)}">
-          <div class="widget__toolbar">
-            <button type="button" class="hide-widget">Toggle Hide</button>
-            <button type="button" class="resize-widget" disabled title="Resize only available in Main or Operations">Half Width</button>
-          </div>
-          <div class="widget__header mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">${escapeHTML(title)}</h3>
-          </div>
-          <div class="widget__content">
-            ${renderWidgetContent(widget)}
-          </div>
-        </article>
-      `;
-    }
-
-    function renderWidgetPanel(panel) {
-      const widgets = Array.isArray(panel.widgets) ? panel.widgets : [];
-      const message = panel.empty_message || 'No widgets configured for this tab.';
-      if (!widgets.length) {
-        return `
-          <div class="max-w-5xl bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div class="p-8 space-y-6">
-              <p class="text-sm text-gray-500">${escapeHTML(message)}</p>
-            </div>
-          </div>
-        `;
-      }
-      return `
-        <div class="max-w-5xl bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div class="p-8 space-y-6">
-            <div class="widgets-grid" data-area-code="${escapeHTML(panel.area_code || '')}">
-              ${widgets.map(renderWidget).join('')}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderPanelLink(panel) {
-      const href = panel.href || '';
-      const panelName = panel.panel || 'panel';
-      if (!href) {
-        return `
-          <div class="max-w-5xl bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div class="p-8 text-sm text-gray-500">Panel link unavailable.</div>
-          </div>
-        `;
-      }
-      return `
-        <div class="max-w-5xl bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div class="p-8 space-y-4">
-            <div class="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Linked Panel</div>
-            <p class="text-sm text-gray-600">This tab links to the ${escapeHTML(panelName)} panel.</p>
-            <a href="${escapeHTML(href)}" class="btn btn-secondary">Open panel</a>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderTemplatePanel(panel) {
-      if (panel.html) {
-        return panel.html;
-      }
-      if (panel.template) {
-        return `
-          <div class="max-w-5xl bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div class="p-8 text-sm text-gray-500">
-              Template tab "${escapeHTML(panel.template)}" requires server rendering.
-            </div>
-          </div>
-        `;
-      }
-      return `
-        <div class="max-w-5xl bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div class="p-8 text-sm text-gray-500">Template tab is missing a template reference.</div>
-        </div>
-      `;
-    }
-
-    function renderDetailsPanel(payload) {
-      const record = payload.record || {};
-      const fields = Array.isArray(payload.fields) ? payload.fields : [];
-      const resourceLabel = payload.resource_label || payload.resource || 'Record';
-      const displayName = record.username || record.display_name || record.id || '';
-      const email = record.email || '';
-      const initialsSource = record.username || record.display_name || record.email || record.id || '?';
-      const initial = String(initialsSource).slice(0, 1).toUpperCase();
-      const actions = record.actions || {};
-      const actionsHTML = `
-        <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Actions</div>
-        <div class="flex gap-3">
-          ${actions.edit ? `<a href="${escapeHTML(actions.edit)}" class="btn btn-primary">Edit</a>` : ''}
-          ${actions.delete ? `
-            <form method="POST" action="${escapeHTML(actions.delete)}" class="inline">
-              <button type="button" class="btn btn-secondary" onclick="confirmDelete(this.form, 'Delete this ${escapeHTML(resourceLabel).toLowerCase()}?')">Delete</button>
-            </form>
-          ` : ''}
-        </div>
-      `;
-
-      return `
-        <div class="max-w-3xl bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div class="p-8 bg-gradient-to-br from-blue-900 to-blue-800 text-white flex items-center gap-6">
-            <div class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold border-3 border-white/30">
-              ${escapeHTML(initial)}
-            </div>
-            <div>
-              <h2 class="text-2xl mb-1">${escapeHTML(displayName)}</h2>
-              <p class="opacity-90 text-base">${escapeHTML(email)}</p>
-            </div>
-          </div>
-          <div class="p-8 space-y-8">
-            <div>
-              <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Details</div>
-              <div class="grid grid-cols-2 gap-6">
-                ${fields.map(field => `
-                  <div class="flex flex-col">
-                    <div class="text-sm text-zinc-500 mb-1">${escapeHTML(field.label)}</div>
-                    <div class="font-semibold text-gray-800">${escapeHTML(field.value ?? '-')}</div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            <div>
-              ${actionsHTML}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderClientTab(payload) {
-      const panel = payload && (payload.tab || payload);
-      if (!panel || !panel.kind) {
-        return '<p class="text-sm text-gray-500">No content available.</p>';
-      }
-      if (panel.kind === 'dashboard_area' || panel.kind === 'cms_area') {
-        return renderWidgetPanel(panel);
-      }
-      if (panel.kind === 'details') {
-        return renderDetailsPanel(payload);
-      }
-      if (panel.kind === 'panel') {
-        return renderPanelLink(panel);
-      }
-      if (panel.kind === 'template') {
-        return renderTemplatePanel(panel);
-      }
-      return '<p class="text-sm text-gray-500">Tab content unavailable.</p>';
-    }
-
-    async function loadTab(link, options) {
-      const mode = link.dataset.renderMode || '';
-      const tabId = link.dataset.tabId || '';
-      if (!mode || !tabId) {
-        return false;
-      }
-      const href = link.getAttribute('href') || '';
-      setActiveTab(tabId);
-      if (!options || !options.silent) {
-        updateUrl(href);
-      }
-      panelContainer.innerHTML = '<p class="text-sm text-gray-500">Loading tab...</p>';
-      try {
-        if (mode === 'hybrid') {
-          const endpoint = buildEndpoint('html', tabId);
-          if (!endpoint) {
-            throw new Error('missing html endpoint');
-          }
-          const response = await fetch(endpoint, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-          if (!response.ok) {
-            throw new Error(`tab html ${response.status}`);
-          }
-          panelContainer.innerHTML = await response.text();
-          return true;
-        }
-        if (mode === 'client') {
-          const endpoint = buildEndpoint('json', tabId);
-          if (!endpoint) {
-            throw new Error('missing json endpoint');
-          }
-          const response = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
-          if (!response.ok) {
-            throw new Error(`tab json ${response.status}`);
-          }
-          const payload = await response.json();
-          panelContainer.innerHTML = renderClientTab(payload);
-          return true;
-        }
-      } catch (err) {
-        console.warn('[tabs] Failed to load tab', err);
-        if (href) {
-          window.location.href = href;
-        }
-      }
-      return false;
-    }
-
-    tabsNav.addEventListener('click', event => {
-      const link = event.target.closest('[data-tab-id]');
-      if (!link) {
-        return;
-      }
-      const mode = link.dataset.renderMode || '';
-      if (mode !== 'hybrid' && mode !== 'client') {
-        return;
-      }
-      event.preventDefault();
-      loadTab(link);
-    });
-
-    const activeLink = tabsNav.querySelector('.panel-tab-active');
-    if (activeLink && activeLink.dataset.renderMode === 'client') {
-      loadTab(activeLink, { silent: true });
-    }
-  })();
+{% block detail_scripts %}
+<script type="module">
+  import { initTabsController } from '{{ base_path }}/assets/dist/tabs/index.js';
+  initTabsController();
 </script>
 {% endblock %}

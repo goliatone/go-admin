@@ -31,7 +31,19 @@ export interface ContentTypeCapabilities {
   seo?: boolean;
   localization?: boolean;
   blocks?: boolean;
-  [key: string]: boolean | undefined;
+  [key: string]: ContentTypeCapabilityValue | undefined;
+}
+
+export type ContentTypeCapabilityValue =
+  | boolean
+  | string
+  | number
+  | null
+  | ContentTypeCapabilityObject
+  | ContentTypeCapabilityValue[];
+
+export interface ContentTypeCapabilityObject {
+  [key: string]: ContentTypeCapabilityValue | undefined;
 }
 
 // =============================================================================

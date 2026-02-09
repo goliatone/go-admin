@@ -1,56 +1,31 @@
-{% extends "layout.html" %}
+{% extends "resources/shared/detail-base.html" %}
 
-{% block title %}{{ resource_label|default:"Content" }} - {{ resource_item.title|default:resource_item.slug|default:"Detail" }} - {{ title }}{% endblock %}
+{% set avatar_type = "content" %}
 
-{% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-  <div>
-    <p class="text-sm text-gray-500 mb-1">{{ resource_label|default:"Content" }}</p>
-    <h1 class="text-3xl font-bold text-admin-dark">{{ resource_item.title|default:resource_item.slug|default:"Entry" }}</h1>
-  </div>
-  <div class="flex gap-3">
-    {% if resource_item.actions and resource_item.actions.edit %}
-      <a href="{{ resource_item.actions.edit }}" class="btn btn-secondary">Edit</a>
-    {% endif %}
-    {% if resource_item.actions and resource_item.actions.delete %}
-      <button type="button" class="btn btn-danger" onclick="deleteResource('{{ resource_item.actions.delete }}')">Delete</button>
-    {% endif %}
-    {% if routes.index %}
-      <a href="{{ routes.index }}" class="btn btn-secondary">Back</a>
-    {% endif %}
-  </div>
-</header>
-
-<div class="flex-1 p-8 overflow-y-auto">
-  <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-    {% for field in fields %}
-    <div>
-      <p class="text-sm font-semibold text-gray-600">{{ field.label }}</p>
-      <p class="text-gray-900 whitespace-pre-line">{{ field.value|default:"-" }}</p>
-    </div>
-    {% endfor %}
-  </div>
-</div>
+{% block header_pretitle %}
+  <p class="text-sm text-gray-500 mb-1">{{ resource_label|default:"Content" }}</p>
 {% endblock %}
 
-{% block scripts %}
-<script>
-  async function deleteResource(url) {
-    if (!window.toastManager) {
-      const confirmed = window.confirm('Are you sure you want to delete this item?');
-      if (!confirmed) return;
-    } else {
-      const confirmed = await window.toastManager.confirm(
-        'Are you sure you want to delete this item?',
-        { title: 'Confirm Delete', confirmText: 'Delete', cancelText: 'Cancel' }
-      );
-      if (!confirmed) return;
-    }
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = url;
-    document.body.appendChild(form);
-    form.submit();
-  }
-</script>
+{% block header_title %}{{ resource_item.title|default:resource_item.slug|default:"Entry" }}{% endblock %}
+
+{% block identity_title %}{{ resource_item.title|default:resource_item.slug|default:"Entry" }}{% endblock %}
+
+{% block identity_subtitle %}
+  {% if resource_item.slug %}
+    <p class="text-sm text-gray-500 truncate">/{{ resource_item.slug }}</p>
+  {% endif %}
+  {% if resource_item.content_type %}
+    <p class="text-xs text-gray-400">{{ resource_item.content_type }}</p>
+  {% endif %}
+{% endblock %}
+
+{% block fields_section %}
+  <div class="p-6">
+    {% for field in fields %}
+      <div class="{% if not loop.first %}mt-4 pt-4 border-t border-gray-100{% endif %}">
+        <p class="text-sm font-medium text-gray-500 mb-1">{{ field.label }}</p>
+        <p class="text-gray-900 whitespace-pre-line">{{ field.value|default:"-" }}</p>
+      </div>
+    {% endfor %}
+  </div>
 {% endblock %}

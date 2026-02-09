@@ -1,82 +1,28 @@
-{% extends "layout.html" %}
+{% extends "resources/shared/detail-base.html" %}
 
-{% block title %}{{ resource_label|default:resource|title }} - {{ resource_item.name|default:resource_item.id }}{% endblock %}
+{% set avatar_type = "role" %}
 
-{% block content %}
-  <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-    <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
-    <div class="flex gap-3">
-      {% if resource_item.actions.edit %}
-        <a href="{{ resource_item.actions.edit }}" class="btn btn-primary">
-          <i class="iconoir-edit-pencil"></i>
-          Edit
-        </a>
-      {% endif %}
-      {% if routes.index %}
-        <a href="{{ routes.index }}" class="btn btn-secondary">
-          <i class="iconoir-arrow-left"></i>
-          Back to {{ resource_label|default:resource|title }}
-        </a>
-      {% endif %}
-    </div>
-  </header>
+{% block identity_title %}{{ resource_item.name|default:resource_item.id }}{% endblock %}
 
-  {% include "partials/panel-tabs.html" with tabs=tabs active_tab=active_tab %}
-
-  <div class="flex-1 p-8 overflow-y-auto">
-    <div class="max-w-3xl bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div class="p-8 bg-gradient-to-br from-blue-900 to-blue-800 text-white flex items-center gap-6">
-        <div class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold border-3 border-white/30">
-          {{ resource_item.name|default:resource_item.id|slice:"0:1"|upper }}
-        </div>
-        <div>
-          <h2 class="text-2xl mb-1">{{ resource_item.name|default:resource_item.id }}</h2>
-          <p class="opacity-90 text-base">{{ resource_item.description|default:"" }}</p>
-        </div>
-      </div>
-      <div class="p-8 space-y-8">
-        <div>
-          <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Details</div>
-          <div class="grid grid-cols-2 gap-6">
-            {% for field in fields %}
-              <div class="flex flex-col">
-                <div class="text-sm text-zinc-500 mb-1">{{ field.label }}</div>
-                <div class="font-semibold text-gray-800">{{ field.value|default:"-" }}</div>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs uppercase tracking-wider text-zinc-500 mb-4 font-semibold">Actions</div>
-            <div class="flex gap-3">
-              {% if resource_item.actions.edit %}<a href="{{ resource_item.actions.edit }}" class="btn btn-primary">Edit</a>{% endif %}
-              {% if resource_item.actions.delete %}
-                <form method="POST" action="{{ resource_item.actions.delete }}" class="inline">
-                  <button type="button" class="btn btn-secondary" onclick="confirmDelete(this.form, 'Delete this {{ resource_label|default:resource|lower }}?')">Delete</button>
-                </form>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+{% block identity_subtitle %}
+  {% if resource_item.description %}
+    <p class="text-sm text-gray-500 truncate">{{ resource_item.description }}</p>
+  {% elif resource_item.role_key %}
+    <p class="text-sm text-gray-500 truncate">{{ resource_item.role_key }}</p>
+  {% endif %}
 {% endblock %}
 
-{% block scripts %}
-<script>
-  async function confirmDelete(form, message) {
-    if (!window.toastManager) {
-      console.error('[confirmDelete] ToastManager not available');
-      return;
-    }
-    const confirmed = await window.toastManager.confirm(
-      message,
-      { title: 'Confirm Delete', confirmText: 'Delete', cancelText: 'Cancel' }
-    );
-    if (!confirmed) return;
-    form.submit();
-  }
-</script>
+{% block extra_sections %}
+  {% if resource_item.permissions and resource_item.permissions|length > 0 %}
+    <div class="p-6 border-t border-gray-200">
+      <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Permissions</div>
+      <div class="flex flex-wrap gap-2">
+        {% for perm in resource_item.permissions %}
+          <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-purple-50 border border-purple-200 text-sm text-purple-800">
+            {{ perm.name|default:perm }}
+          </span>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
 {% endblock %}
