@@ -142,19 +142,19 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 			// Build enriched dev error context
 			devCtx := presenter.BuildDevErrorContext(err, reqInfo)
 			if devCtx != nil {
-				viewCtx["dev_context"] = devCtx
+				viewCtx["dev_context"] = serializeTemplateValue(devCtx)
 				viewCtx["error_type"] = devCtx.ErrorType
 				viewCtx["error_text_code"] = devCtx.TextCode
 				viewCtx["error_category"] = devCtx.Category
 
 				// Primary source context for the error tab
 				if devCtx.PrimarySource != nil {
-					viewCtx["primary_source"] = devCtx.PrimarySource
+					viewCtx["primary_source"] = serializeTemplateValue(devCtx.PrimarySource)
 				}
 
 				// Stack frames for the stack tab
 				if len(devCtx.StackFrames) > 0 {
-					viewCtx["stack_frames"] = devCtx.StackFrames
+					viewCtx["stack_frames"] = serializeTemplateValue(devCtx.StackFrames)
 					// Also provide legacy stack string for backwards compatibility
 					if stack := formatStackTrace(devCtx.StackFrames); stack != "" {
 						viewCtx["error_stack"] = stack
@@ -163,12 +163,12 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 
 				// Request info for the request tab
 				if devCtx.RequestInfo != nil {
-					viewCtx["request_info"] = devCtx.RequestInfo
+					viewCtx["request_info"] = serializeTemplateValue(devCtx.RequestInfo)
 				}
 
 				// Environment info for the app tab
 				if devCtx.EnvironmentInfo != nil {
-					viewCtx["env_info"] = devCtx.EnvironmentInfo
+					viewCtx["env_info"] = serializeTemplateValue(devCtx.EnvironmentInfo)
 				}
 
 				// Metadata
@@ -232,6 +232,22 @@ func shouldEnableDevMode(isDev bool, cfg admin.ErrorConfig) bool {
 		return value
 	}
 	return true
+}
+
+func serializeTemplateValue(value any) any {
+	if value == nil {
+		return nil
+	}
+	serialized, err := router.SerializeAsContext(map[string]any{
+		"value": value,
+	})
+	if err != nil {
+		return value
+	}
+	if converted, ok := serialized["value"]; ok {
+		return converted
+	}
+	return value
 }
 
 func resolveRuntimeEnv() string {
