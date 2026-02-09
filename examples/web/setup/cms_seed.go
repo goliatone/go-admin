@@ -374,7 +374,7 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 			"blocks": map[string]any{
 				"type": "array",
 				"x-formgen": map[string]any{
-					"widget":   "block",
+					"widget":   "block-library-picker",
 					"label":    "Page Sections",
 					"sortable": true,
 				},
@@ -455,7 +455,7 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 			"blocks": map[string]any{
 				"type": "array",
 				"x-formgen": map[string]any{
-					"widget":   "block",
+					"widget":   "block-library-picker",
 					"label":    "Post Blocks",
 					"sortable": true,
 				},

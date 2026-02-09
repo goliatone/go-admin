@@ -2,10 +2,10 @@ package activity
 
 import (
 	"context"
-	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
+	"github.com/goliatone/go-dashboard/pkg/activity/admininterop"
 )
 
 // DashboardActivityHook adapts go-admin activity events to go-dashboard activity hooks.
@@ -46,52 +46,30 @@ func (h *DashboardActivityHook) Notify(ctx context.Context, event Event) {
 // AdminActivitySinkAdapter adapts go-dashboard activity hooks to admin.ActivitySink.
 // This allows dashboard activity hooks to receive events from admin's activity system.
 type AdminActivitySinkAdapter struct {
-	emitter *dashboardactivity.Emitter
+	sink admininterop.Sink
 }
 
 // NewAdminActivitySinkAdapter creates an adapter that forwards admin ActivityEntry
 // records to go-dashboard activity hooks.
 func NewAdminActivitySinkAdapter(hooks dashboardactivity.Hooks, cfg dashboardactivity.Config) *AdminActivitySinkAdapter {
 	return &AdminActivitySinkAdapter{
-		emitter: dashboardactivity.NewEmitter(hooks, cfg),
+		sink: admininterop.NewSink(hooks, cfg),
 	}
 }
 
 // Record implements admin.ActivitySink by converting ActivityEntry to dashboard Event.
 func (a *AdminActivitySinkAdapter) Record(ctx context.Context, entry admin.ActivityEntry) error {
-	if a.emitter == nil || !a.emitter.Enabled() {
+	if a == nil || a.sink == nil {
 		return nil
 	}
-
-	// Parse object type and ID from entry.Object (format: "type:id")
-	objectType := entry.Object
-	objectID := ""
-	if idx := len(entry.Object); idx > 0 {
-		for i := 0; i < idx; i++ {
-			if entry.Object[i] == ':' {
-				objectType = entry.Object[:i]
-				objectID = entry.Object[i+1:]
-				break
-			}
-		}
-	}
-
-	// Convert admin.ActivityEntry to dashboard.Event
-	channel := strings.TrimSpace(entry.Channel)
-	if channel == "" {
-		channel = "admin"
-	}
-	dashEvent := dashboardactivity.Event{
-		Verb:       entry.Action,
-		ActorID:    entry.Actor,
-		ObjectType: objectType,
-		ObjectID:   objectID,
-		Channel:    channel,
+	return a.sink.Record(ctx, admininterop.Record{
+		Actor:      entry.Actor,
+		Action:     entry.Action,
+		Object:     entry.Object,
+		Channel:    entry.Channel,
 		Metadata:   entry.Metadata,
 		OccurredAt: entry.CreatedAt,
-	}
-
-	return a.emitter.Emit(ctx, dashEvent)
+	})
 }
 
 // List implements admin.ActivitySink but is not supported by this adapter

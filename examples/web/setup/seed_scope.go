@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"strings"
 
 	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-users/pkg/types"
@@ -70,4 +71,16 @@ WHERE (tenant_id = ? AND org_id = ?) OR (tenant_id = ? AND org_id = ?)`,
 	}
 
 	return nil
+}
+
+func parseScopeUUID(raw string, _ string) (uuid.UUID, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return uuid.Nil, nil
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return id, nil
 }
