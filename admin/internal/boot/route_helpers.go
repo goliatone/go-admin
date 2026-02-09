@@ -205,23 +205,14 @@ func ensureLeadingSlash(path string) string {
 }
 
 func parseListOptions(c router.Context) ListOptions {
-	parsed := listquery.ParseContext(c, 1, 10)
-	predicates := listquery.MapPredicates(parsed.Predicates, func(predicate listquery.Predicate) ListPredicate {
+	opts := listquery.ParseOptions(c, 1, 10, func(predicate listquery.Predicate) ListPredicate {
 		return ListPredicate{
 			Field:    predicate.Field,
 			Operator: predicate.Operator,
 			Values:   append([]string{}, predicate.Values...),
 		}
 	})
-	return ListOptions{
-		Page:       parsed.Page,
-		PerPage:    parsed.PerPage,
-		SortBy:     parsed.SortBy,
-		SortDesc:   parsed.SortDesc,
-		Search:     parsed.Search,
-		Filters:    parsed.Filters,
-		Predicates: predicates,
-	}
+	return ListOptions(opts)
 }
 
 func atoiDefault(val string, def int) int {
