@@ -9,6 +9,11 @@
     <h1 class="text-3xl font-bold text-admin-dark">{% if is_edit %}Edit{% else %}Create{% endif %} {{ resource_label|default:"Content" }}</h1>
   </div>
   <div class="flex gap-3">
+    {% if preview_url %}
+      <a href="{{ preview_url }}" class="btn btn-secondary" target="_blank" rel="noopener">
+        Preview
+      </a>
+    {% endif %}
     {% if routes.index %}
       <a href="{{ routes.index }}" class="btn btn-secondary">
         <i class="iconoir-arrow-left"></i>

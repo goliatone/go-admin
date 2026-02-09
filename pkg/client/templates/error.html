@@ -8,12 +8,456 @@
   <link rel="stylesheet" href="{{ base_path|default:"/admin" }}/assets/output.css">
   <link rel="stylesheet" href="{{ base_path|default:"/admin" }}/assets/dist/styles/error-page.css">
 </head>
-<body class="error-page">
+<body class="error-page{% if dev_mode %} dev-mode{% endif %}">
   <div class="error-container">
+    {% if dev_mode %}
+    {# Developer Error Page #}
+    <div class="dev-error-wrapper">
+      {# Error Header #}
+      <div class="dev-error-header">
+        <div class="dev-error-badge">
+          <span class="dev-error-status">{{ status|default:500 }}</span>
+          <span class="dev-error-type">
+            {% if status == 404 %}Not Found
+            {% elif status == 403 %}Forbidden
+            {% elif status == 401 %}Unauthorized
+            {% elif status == 500 %}Internal Server Error
+            {% else %}Error
+            {% endif %}
+          </span>
+        </div>
+        <h1 class="dev-error-message">{{ error_detail|default:headline }}</h1>
+        {% if error_text_code %}
+        <div class="dev-error-code">
+          <span class="dev-error-code-label">{{ error_text_code }}</span>
+          {% if error_category %}
+          <span class="dev-error-category">{{ error_category }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
+        <div class="dev-error-path">
+          <span class="dev-error-method">{{ request_info.method|default:"GET" }}</span>
+          <span class="dev-error-url">{{ request_path }}</span>
+        </div>
+      </div>
+
+      {# Tab Navigation #}
+      <div class="dev-tabs">
+        <button class="dev-tab active" data-tab="error">
+          <i class="iconoir-warning-triangle"></i>
+          Error
+        </button>
+        <button class="dev-tab" data-tab="stack">
+          <i class="iconoir-list"></i>
+          Stack Trace
+        </button>
+        <button class="dev-tab" data-tab="request">
+          <i class="iconoir-globe"></i>
+          Request
+        </button>
+        <button class="dev-tab" data-tab="app">
+          <i class="iconoir-settings"></i>
+          App
+        </button>
+      </div>
+
+      {# Tab Panels #}
+      <div class="dev-tab-panels">
+        {# Error Tab #}
+        <div class="dev-tab-panel active" id="panel-error">
+          {% if primary_source %}
+          <div class="dev-source-context">
+            <div class="dev-source-header">
+              <div class="dev-source-file">
+                <i class="iconoir-page"></i>
+                <span class="dev-source-path">{{ primary_source.rel_path|default:primary_source.file }}</span>
+                <span class="dev-source-line">:{{ primary_source.line }}</span>
+              </div>
+              <div class="dev-source-actions">
+                {% if primary_source.can_open_ide %}
+                <a href="vscode://file{{ primary_source.file }}:{{ primary_source.line }}" class="dev-btn-icon" title="Open in VS Code">
+                  <i class="iconoir-code"></i>
+                </a>
+                {% endif %}
+                <button class="dev-btn-icon" onclick="copyToClipboard('{{ primary_source.file }}:{{ primary_source.line }}')" title="Copy path">
+                  <i class="iconoir-copy"></i>
+                </button>
+              </div>
+            </div>
+            <div class="dev-source-code" data-language="{{ primary_source.language|default:"go" }}">
+              <table class="dev-code-table">
+                <tbody>
+                  {% for line in primary_source.lines %}
+                  <tr class="{% if line.is_error %}error-line{% endif %}">
+                    <td class="dev-line-number">{{ line.number }}</td>
+                    <td class="dev-line-content"><pre>{{ line.content }}</pre></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% else %}
+          <div class="dev-no-source">
+            <i class="iconoir-warning-circle"></i>
+            <p>Source context not available</p>
+            {% if error_detail %}
+            <div class="dev-error-detail-box">
+              <pre>{{ error_detail }}</pre>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if error_metadata_json %}
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-database"></i>
+              <span>Error Metadata</span>
+            </div>
+            <div class="dev-section-content">
+              <pre class="dev-json">{{ error_metadata_json }}</pre>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if error_feature %}
+          <div class="dev-section dev-section-warning">
+            <div class="dev-section-header">
+              <i class="iconoir-warning-triangle"></i>
+              <span>Feature Disabled</span>
+            </div>
+            <div class="dev-section-content">
+              <p><strong>{{ error_feature }}</strong>{% if error_reason %}: {{ error_reason }}{% endif %}</p>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        {# Stack Trace Tab #}
+        <div class="dev-tab-panel" id="panel-stack">
+          {% if stack_frames %}
+          <div class="dev-stack-controls">
+            <button class="dev-btn-small active" data-filter="app">App Frames</button>
+            <button class="dev-btn-small" data-filter="all">All Frames</button>
+            <button class="dev-btn-icon" onclick="copyStackTrace()" title="Copy stack trace">
+              <i class="iconoir-copy"></i>
+            </button>
+          </div>
+          <div class="dev-stack-frames">
+            {% for frame in stack_frames %}
+            <div class="dev-stack-frame {% if frame.is_app_code %}app-frame{% else %}vendor-frame{% endif %}" data-expanded="{{ frame.is_expanded }}">
+              <div class="dev-frame-header" onclick="toggleFrame(this)">
+                <div class="dev-frame-indicator">
+                  <i class="iconoir-nav-arrow-right"></i>
+                </div>
+                <div class="dev-frame-info">
+                  <span class="dev-frame-function">{{ frame.function }}</span>
+                  <span class="dev-frame-location">{{ frame.file }}:{{ frame.line }}</span>
+                </div>
+                <div class="dev-frame-actions">
+                  {% if frame.ide_link %}
+                  <a href="{{ frame.ide_link }}" class="dev-btn-icon" title="Open in VS Code" onclick="event.stopPropagation()">
+                    <i class="iconoir-code"></i>
+                  </a>
+                  {% endif %}
+                </div>
+              </div>
+              {% if frame.source %}
+              <div class="dev-frame-source">
+                <table class="dev-code-table">
+                  <tbody>
+                    {% for line in frame.source.lines %}
+                    <tr class="{% if line.is_error %}error-line{% endif %}">
+                      <td class="dev-line-number">{{ line.number }}</td>
+                      <td class="dev-line-content"><pre>{{ line.content }}</pre></td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="dev-no-data">
+            <i class="iconoir-list"></i>
+            <p>No stack trace available</p>
+          </div>
+          {% endif %}
+
+          {% if error_stack %}
+          <div class="dev-raw-stack">
+            <div class="dev-section-header">
+              <i class="iconoir-terminal"></i>
+              <span>Raw Stack Trace</span>
+              <button class="dev-btn-icon" onclick="copyToClipboard(document.getElementById('raw-stack').textContent)" title="Copy">
+                <i class="iconoir-copy"></i>
+              </button>
+            </div>
+            <pre id="raw-stack" class="dev-raw-stack-content">{{ error_stack }}</pre>
+          </div>
+          {% endif %}
+        </div>
+
+        {# Request Tab #}
+        <div class="dev-tab-panel" id="panel-request">
+          {% if request_info %}
+          <div class="dev-request-overview">
+            <div class="dev-request-method method-{{ request_info.method|lower }}">{{ request_info.method }}</div>
+            <div class="dev-request-url">{{ request_info.full_url|default:request_path }}</div>
+          </div>
+
+          {% if request_info.query_params %}
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-search"></i>
+              <span>Query Parameters</span>
+            </div>
+            <div class="dev-section-content">
+              <table class="dev-kv-table">
+                <tbody>
+                  {% for key, value in request_info.query_params %}
+                  <tr>
+                    <td class="dev-kv-key">{{ key }}</td>
+                    <td class="dev-kv-value">{{ value }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if request_info.headers %}
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-internet"></i>
+              <span>Request Headers</span>
+            </div>
+            <div class="dev-section-content">
+              <table class="dev-kv-table">
+                <tbody>
+                  {% for key, value in request_info.headers %}
+                  <tr>
+                    <td class="dev-kv-key">{{ key }}</td>
+                    <td class="dev-kv-value">{{ value }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if request_info.form_data %}
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-edit-pencil"></i>
+              <span>Form Data</span>
+            </div>
+            <div class="dev-section-content">
+              <table class="dev-kv-table">
+                <tbody>
+                  {% for key, value in request_info.form_data %}
+                  <tr>
+                    <td class="dev-kv-key">{{ key }}</td>
+                    <td class="dev-kv-value">{{ value }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if request_info.body %}
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-page"></i>
+              <span>Request Body</span>
+            </div>
+            <div class="dev-section-content">
+              <pre class="dev-json">{{ request_info.body }}</pre>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-user"></i>
+              <span>Client Info</span>
+            </div>
+            <div class="dev-section-content">
+              <table class="dev-kv-table">
+                <tbody>
+                  <tr>
+                    <td class="dev-kv-key">Remote IP</td>
+                    <td class="dev-kv-value">{{ request_info.remote_ip|default:"Unknown" }}</td>
+                  </tr>
+                  <tr>
+                    <td class="dev-kv-key">User Agent</td>
+                    <td class="dev-kv-value">{{ request_info.user_agent|default:"Unknown" }}</td>
+                  </tr>
+                  <tr>
+                    <td class="dev-kv-key">Content Type</td>
+                    <td class="dev-kv-value">{{ request_info.content_type|default:"None" }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% else %}
+          <div class="dev-no-data">
+            <i class="iconoir-globe"></i>
+            <p>Request information not available</p>
+          </div>
+          {% endif %}
+        </div>
+
+        {# App Tab #}
+        <div class="dev-tab-panel" id="panel-app">
+          {% if env_info %}
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-cpu"></i>
+              <span>Runtime</span>
+            </div>
+            <div class="dev-section-content">
+              <table class="dev-kv-table">
+                <tbody>
+                  <tr>
+                    <td class="dev-kv-key">Go Version</td>
+                    <td class="dev-kv-value">{{ env_info.go_version|default:"Unknown" }}</td>
+                  </tr>
+                  {% if env_info.app_version %}
+                  <tr>
+                    <td class="dev-kv-key">App Version</td>
+                    <td class="dev-kv-value">{{ env_info.app_version }}</td>
+                  </tr>
+                  {% endif %}
+                  {% if env_info.environment %}
+                  <tr>
+                    <td class="dev-kv-key">Environment</td>
+                    <td class="dev-kv-value">{{ env_info.environment }}</td>
+                  </tr>
+                  {% endif %}
+                  <tr>
+                    <td class="dev-kv-key">Debug Mode</td>
+                    <td class="dev-kv-value">{% if env_info.debug %}Enabled{% else %}Disabled{% endif %}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-bookmark-book"></i>
+              <span>Quick Links</span>
+            </div>
+            <div class="dev-section-content">
+              <div class="dev-quick-links">
+                <a href="https://www.google.com/search?q={{ error_detail|urlencode }}" target="_blank" class="dev-quick-link">
+                  <i class="iconoir-search"></i>
+                  Search Google
+                </a>
+                <a href="https://stackoverflow.com/search?q={{ error_detail|urlencode }}" target="_blank" class="dev-quick-link">
+                  <i class="iconoir-community"></i>
+                  Search Stack Overflow
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# Footer Actions #}
+      <div class="dev-error-footer">
+        <div class="dev-footer-actions">
+          <a href="{{ base_path|default:"/admin" }}" class="dev-btn dev-btn-primary">
+            <i class="iconoir-home"></i>
+            Dashboard
+          </a>
+          <a href="javascript:history.back()" class="dev-btn dev-btn-secondary">
+            <i class="iconoir-arrow-left"></i>
+            Go Back
+          </a>
+          <button class="dev-btn dev-btn-secondary" onclick="location.reload()">
+            <i class="iconoir-refresh"></i>
+            Retry
+          </button>
+        </div>
+        <div class="dev-footer-meta">
+          <span class="dev-powered-by">go-admin dev mode</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Tab switching
+      document.querySelectorAll('.dev-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabId = tab.dataset.tab;
+          document.querySelectorAll('.dev-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.dev-tab-panel').forEach(p => p.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('panel-' + tabId).classList.add('active');
+        });
+      });
+
+      // Stack frame toggle
+      function toggleFrame(header) {
+        const frame = header.closest('.dev-stack-frame');
+        const isExpanded = frame.dataset.expanded === 'true';
+        frame.dataset.expanded = isExpanded ? 'false' : 'true';
+      }
+
+      // Stack frame filtering
+      document.querySelectorAll('.dev-stack-controls button[data-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const filter = btn.dataset.filter;
+          document.querySelectorAll('.dev-stack-controls button[data-filter]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          document.querySelectorAll('.dev-stack-frame').forEach(frame => {
+            if (filter === 'all') {
+              frame.style.display = '';
+            } else {
+              frame.style.display = frame.classList.contains('app-frame') ? '' : 'none';
+            }
+          });
+        });
+      });
+
+      // Copy to clipboard
+      function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+          // Could show a toast here
+        });
+      }
+
+      // Copy stack trace
+      function copyStackTrace() {
+        const rawStack = document.getElementById('raw-stack');
+        if (rawStack) {
+          copyToClipboard(rawStack.textContent);
+        }
+      }
+
+      // Initialize: show only app frames by default
+      document.querySelectorAll('.dev-stack-frame.vendor-frame').forEach(frame => {
+        frame.style.display = 'none';
+      });
+    </script>
+
+    {% else %}
+    {# Production Error Page #}
     <div class="error-card">
       <div class="error-header">
         <div class="error-icon">
-          {% if status == 404 %}🔍{% elif status == 403 %}🔒{% elif status == 401 %}🚫{% else %}⚠️{% endif %}
+          {% if status == 404 %}&#128269;{% elif status == 403 %}&#128274;{% elif status == 401 %}&#128683;{% else %}&#9888;&#65039;{% endif %}
         </div>
         <div class="error-status">{{ status|default:500 }}</div>
         <div class="error-type">
@@ -37,39 +481,6 @@
         </div>
         {% endif %}
 
-        {% if error_detail %}
-        <div class="error-detail">
-          <div class="error-detail-label">Technical Details</div>
-          <div class="error-detail-content">{{ error_detail }}</div>
-        </div>
-        {% endif %}
-        {% if dev_mode %}
-          {% if error_feature %}
-          <div class="error-detail">
-            <div class="error-detail-label">Feature</div>
-            <div class="error-detail-content">{{ error_feature }}{% if error_reason %} ({{ error_reason }}){% endif %}</div>
-          </div>
-          {% endif %}
-          {% if error_text_code %}
-          <div class="error-detail">
-            <div class="error-detail-label">Error Code</div>
-            <div class="error-detail-content">{{ error_text_code }}{% if error_category %} ({{ error_category }}){% endif %}</div>
-          </div>
-          {% endif %}
-          {% if error_metadata_json %}
-          <div class="error-detail">
-            <div class="error-detail-label">Metadata</div>
-            <pre class="error-detail-content">{{ error_metadata_json }}</pre>
-          </div>
-          {% endif %}
-          {% if error_stack %}
-          <div class="error-detail">
-            <div class="error-detail-label">Stack Trace</div>
-            <pre class="error-detail-content">{{ error_stack }}</pre>
-          </div>
-          {% endif %}
-        {% endif %}
-
         <div class="error-actions">
           <a href="{{ base_path|default:"/admin" }}" class="btn btn-primary">
             <i class="iconoir-home"></i>
@@ -82,6 +493,7 @@
         </div>
       </div>
     </div>
+    {% endif %}
   </div>
 </body>
 </html>

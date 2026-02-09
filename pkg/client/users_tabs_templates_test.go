@@ -54,6 +54,7 @@ func TestDashboardUserProfileBranchSnapshot(t *testing.T) {
 
 func TestUsersDetailTemplateSmokeContract(t *testing.T) {
 	template := mustReadEmbeddedTemplate(t, "resources/users/detail.html")
+	controllerSource := mustReadClientSourceFile(t, filepath.Join("assets", "src", "tabs", "tabs-controller.ts"))
 
 	if got := strings.Count(template, `<link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/widgets.css">`); got != 1 {
 		t.Fatalf("expected widgets.css include exactly once, got %d", got)
@@ -64,22 +65,26 @@ func TestUsersDetailTemplateSmokeContract(t *testing.T) {
 	if strings.Contains(template, "ActivityManager") {
 		t.Fatalf("users detail template must not bootstrap ActivityManager")
 	}
+	assertContainsAll(t, template,
+		`import { initTabsController } from '{{ base_path }}/assets/dist/tabs/index.js';`,
+		`initTabsController();`,
+	)
 
 	required := []string{
 		`if (mode === 'hybrid')`,
 		`'X-Requested-With': 'XMLHttpRequest'`,
 		`if (mode === 'client')`,
-		`'Accept': 'application/json'`,
-		`hydrateTimeElements(panelContainer);`,
+		`Accept: 'application/json'`,
+		`hydrateTimeElements(this.panelContainer);`,
 		`window.location.href = href;`,
 	}
-	assertContainsAll(t, template, required...)
+	assertContainsAll(t, controllerSource, required...)
 }
 
 func TestUsersTabTemplateAccessibilityContract(t *testing.T) {
 	activityTemplate := mustReadEmbeddedTemplate(t, "partials/tab-panel.html")
 	profileTemplate := mustReadEmbeddedTemplate(t, "dashboard_widget_content.html")
-	detailTemplate := mustReadEmbeddedTemplate(t, "resources/users/detail.html")
+	renderersSource := mustReadClientSourceFile(t, filepath.Join("assets", "src", "tabs", "renderers.ts"))
 
 	assertContainsAll(t, activityTemplate,
 		`<section class="timeline" aria-label="User activity timeline">`,
@@ -98,7 +103,7 @@ func TestUsersTabTemplateAccessibilityContract(t *testing.T) {
 		`aria-hidden="true" focusable="false"`,
 	)
 
-	assertContainsAll(t, detailTemplate,
+	assertContainsAll(t, renderersSource,
 		`class="profile-status inline-flex items-center gap-1.5" aria-label="${valueText} status"`,
 		`<span class="w-2 h-2 rounded-full ${tone.dot}" aria-hidden="true"></span>`,
 	)
@@ -121,6 +126,16 @@ func mustReadUsersTabSnapshot(t *testing.T, name string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read snapshot %s: %v", path, err)
+	}
+	return string(data)
+}
+
+func mustReadClientSourceFile(t *testing.T, path string) string {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read source file %s: %v", path, err)
 	}
 	return string(data)
 }

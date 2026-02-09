@@ -47,7 +47,7 @@ function renderProfileFieldValue(field: ProfileField): string {
       suspended: { dot: 'bg-red-500', text: 'text-red-700' },
       pending: { dot: 'bg-yellow-500', text: 'text-yellow-700' },
     } as Record<string, { dot: string; text: string }>)[status] || { dot: 'bg-gray-400', text: 'text-gray-700' };
-    return `<span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full ${tone.dot}"></span><span class="${tone.text}">${valueText}</span></span>`;
+    return `<span class="profile-status inline-flex items-center gap-1.5" aria-label="${valueText} status"><span class="w-2 h-2 rounded-full ${tone.dot}" aria-hidden="true"></span><span class="${tone.text}">${valueText}</span></span>`;
   }
 
   if (type === 'verified') {
