@@ -27,3 +27,18 @@ func TestTemplatesEmbedContentTypesEditorIncludesRelationshipsRuntime(t *testing
 		t.Fatalf("expected content-types editor template to load relationships runtime script")
 	}
 }
+
+func TestRolesDetailTemplateUsesStringPermissions(t *testing.T) {
+	data, err := fs.ReadFile(Templates(), "resources/roles/detail.html")
+	if err != nil {
+		t.Fatalf("expected embedded roles detail template: %v", err)
+	}
+
+	content := string(data)
+	if strings.Contains(content, `perm.name|default:perm`) {
+		t.Fatalf("roles detail template must not access perm.name for string permissions")
+	}
+	if !strings.Contains(content, `{{ perm }}`) {
+		t.Fatalf("roles detail template must render permission values directly")
+	}
+}

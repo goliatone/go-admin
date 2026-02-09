@@ -72,7 +72,7 @@ function y(a) {
       suspended: { dot: "bg-red-500", text: "text-red-700" },
       pending: { dot: "bg-yellow-500", text: "text-yellow-700" }
     }[s] || { dot: "bg-gray-400", text: "text-gray-700" };
-    return `<span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full ${n.dot}"></span><span class="${n.text}">${e}</span></span>`;
+    return `<span class="profile-status inline-flex items-center gap-1.5" aria-label="${e} status"><span class="w-2 h-2 rounded-full ${n.dot}" aria-hidden="true"></span><span class="${n.text}">${e}</span></span>`;
   }
   if (i === "verified") {
     const s = !!a?.verified;

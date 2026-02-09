@@ -19,7 +19,7 @@
       <div class="flex flex-wrap gap-2">
         {% for perm in resource_item.permissions %}
           <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-purple-50 border border-purple-200 text-sm text-purple-800">
-            {{ perm.name|default:perm }}
+            {{ perm }}
           </span>
         {% endfor %}
       </div>
