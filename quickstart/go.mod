@@ -7,7 +7,7 @@ replace github.com/goliatone/go-admin => ..
 require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/goliatone/go-admin v0.23.0
+	github.com/goliatone/go-admin v0.24.0
 	github.com/goliatone/go-auth v0.30.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.30.0
 	github.com/goliatone/go-cms v0.34.0
