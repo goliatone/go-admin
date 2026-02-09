@@ -242,12 +242,7 @@ func (s *InMemoryTenantStore) List(ctx context.Context, opts ListOptions) ([]Ten
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]TenantRecord, 0, len(s.tenants))
-	search := strings.ToLower(strings.TrimSpace(opts.Search))
-	if search == "" {
-		if term, ok := opts.Filters["_search"].(string); ok {
-			search = strings.ToLower(strings.TrimSpace(term))
-		}
-	}
+	search := inMemoryListSearchTerm(opts)
 	filterStatus := strings.ToLower(toString(opts.Filters["status"]))
 	for _, tenant := range s.tenants {
 		if filterStatus != "" && strings.ToLower(tenant.Status) != filterStatus {
@@ -261,24 +256,8 @@ func (s *InMemoryTenantStore) List(ctx context.Context, opts ListOptions) ([]Ten
 	sort.Slice(out, func(i, j int) bool {
 		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
 	})
-	total := len(out)
-	page := opts.Page
-	if page <= 0 {
-		page = 1
-	}
-	per := opts.PerPage
-	if per <= 0 {
-		per = 10
-	}
-	start := (page - 1) * per
-	if start > len(out) {
-		start = len(out)
-	}
-	end := start + per
-	if end > len(out) {
-		end = len(out)
-	}
-	return out[start:end], total, nil
+	sliced, total := paginateInMemory(out, opts, 10)
+	return sliced, total, nil
 }
 
 // Get returns a tenant by ID.
@@ -336,12 +315,7 @@ func (s *InMemoryTenantStore) Update(ctx context.Context, tenant TenantRecord) (
 		existing.Members = normalizeTenantMembers(tenant.Members)
 	}
 	if tenant.Metadata != nil {
-		if existing.Metadata == nil {
-			existing.Metadata = map[string]any{}
-		}
-		for k, v := range tenant.Metadata {
-			existing.Metadata[k] = v
-		}
+		existing.Metadata = mergeMapInto(existing.Metadata, tenant.Metadata)
 	}
 	existing.UpdatedAt = time.Now()
 	s.tenants[existing.ID] = cloneTenant(existing)
@@ -362,23 +336,14 @@ func (s *InMemoryTenantStore) Delete(ctx context.Context, id string) error {
 
 // Search performs a simple keyword search.
 func (s *InMemoryTenantStore) Search(ctx context.Context, query string, limit int) ([]TenantRecord, error) {
-	opts := ListOptions{Search: query, Page: 1, PerPage: limit}
-	if opts.PerPage <= 0 {
-		opts.PerPage = 5
-	}
-	tenants, _, err := s.List(ctx, opts)
+	tenants, _, err := s.List(ctx, listOptionsForSearch(query, limit, 5))
 	return tenants, err
 }
 
 func normalizeTenantMembers(members []TenantMember) []TenantMember {
-	out := []TenantMember{}
-	for _, m := range members {
-		if strings.TrimSpace(m.UserID) == "" {
-			continue
-		}
-		out = append(out, normalizeTenantMember(m))
-	}
-	return out
+	return normalizeScopedMembers(members, func(member TenantMember) string {
+		return member.UserID
+	}, normalizeTenantMember)
 }
 
 func normalizeTenantMember(member TenantMember) TenantMember {
@@ -408,15 +373,15 @@ func cloneTenant(record TenantRecord) TenantRecord {
 }
 
 func cloneTenantMembers(members []TenantMember) []TenantMember {
-	out := make([]TenantMember, 0, len(members))
-	for _, m := range members {
-		out = append(out, TenantMember{
-			UserID:      m.UserID,
-			Roles:       append([]string{}, m.Roles...),
-			Permissions: append([]string{}, m.Permissions...),
-		})
+	return cloneScopedMembers(members, cloneTenantMember)
+}
+
+func cloneTenantMember(member TenantMember) TenantMember {
+	return TenantMember{
+		UserID:      member.UserID,
+		Roles:       append([]string{}, member.Roles...),
+		Permissions: append([]string{}, member.Permissions...),
 	}
-	return out
 }
 
 func slugify(value string) string {
