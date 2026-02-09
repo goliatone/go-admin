@@ -8,30 +8,30 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
-	github.com/goliatone/go-auth v0.29.1
-	github.com/goliatone/go-auth/adapters/featuregate v0.29.1
-	github.com/goliatone/go-cms v0.33.0
+	github.com/goliatone/go-auth v0.30.0
+	github.com/goliatone/go-auth/adapters/featuregate v0.30.0
+	github.com/goliatone/go-cms v0.34.0
 	github.com/goliatone/go-command v0.13.0
-	github.com/goliatone/go-crud v0.20.0
-	github.com/goliatone/go-crud/gql v0.20.0
-	github.com/goliatone/go-dashboard v0.6.0
+	github.com/goliatone/go-crud v0.21.1
+	github.com/goliatone/go-crud/gql v0.21.1
+	github.com/goliatone/go-dashboard v0.7.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.6.0
-	github.com/goliatone/go-featuregate v0.5.0
+	github.com/goliatone/go-featuregate v0.6.0
 	github.com/goliatone/go-formgen v0.18.0
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
 	github.com/goliatone/go-masker v0.1.0
-	github.com/goliatone/go-notifications v0.11.0
+	github.com/goliatone/go-notifications v0.12.0
 	github.com/goliatone/go-options v0.7.0
 	github.com/goliatone/go-persistence-bun v0.10.0
-	github.com/goliatone/go-repository-bun v0.12.0
-	github.com/goliatone/go-router v0.45.1
+	github.com/goliatone/go-repository-bun v0.13.0
+	github.com/goliatone/go-router v0.46.0
 	github.com/goliatone/go-template v0.3.1
-	github.com/goliatone/go-theme v0.2.0
+	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.3.0
 	github.com/goliatone/go-urlkit v0.5.0
-	github.com/goliatone/go-users v0.15.0
+	github.com/goliatone/go-users v0.16.0
 	github.com/goliatone/hashid v0.2.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -42,6 +42,7 @@ require (
 	github.com/uptrace/bun v1.2.16
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
 	github.com/uptrace/bun/driver/sqliteshim v1.2.16
+	golang.org/x/crypto v0.46.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -182,7 +183,6 @@ require (
 	go.opentelemetry.io/otel v1.39.0 // indirect
 	go.opentelemetry.io/otel/metric v1.39.0 // indirect
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
-	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
