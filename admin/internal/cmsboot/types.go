@@ -189,6 +189,7 @@ type CMSContentType struct {
 	Schema               map[string]any
 	UISchema             map[string]any
 	Capabilities         map[string]any
+	ReplaceCapabilities  bool
 	Icon                 string
 	IconSet              bool
 	Status               string
