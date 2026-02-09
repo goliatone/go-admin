@@ -874,8 +874,10 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 	if contentType.UISchema != nil {
 		existing.UISchema = cloneAnyMap(contentType.UISchema)
 	}
-	if contentType.Capabilities != nil {
+	if contentType.ReplaceCapabilities {
 		existing.Capabilities = cloneAnyMap(contentType.Capabilities)
+	} else if contentType.Capabilities != nil {
+		existing.Capabilities = mergeAnyMap(cloneAnyMap(existing.Capabilities), cloneAnyMap(contentType.Capabilities))
 	}
 	if contentType.DescriptionSet {
 		existing.Description = contentType.Description
