@@ -1,6 +1,6 @@
 {% set sortable = sortable or false -%}
-{% set add_label = add_label or "Add block" -%}
-{% set empty_label = empty_label or "No blocks added yet." -%}
+{% if not add_label %}{% set add_label = "Add block" %}{% endif -%}
+{% if not empty_label %}{% set empty_label = "No blocks added yet." %}{% endif -%}
 
 <div class="space-y-3" data-block-editor="true" data-block-field="{{ field.name }}"{% if sortable %} data-block-sortable="true"{% endif %}{% if config_json %} data-component-config='{{ config_json }}'{% endif %}>
     {% if blocks and blocks|length > 0 %}

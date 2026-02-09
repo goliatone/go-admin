@@ -80,6 +80,16 @@ function parseJSONAttr<T>(value: string | null | undefined, fallback: T): T {
   return fallback;
 }
 
+function blockSlugAliases(value: string): string[] {
+  const slug = value.trim().toLowerCase();
+  if (!slug) return [];
+  return Array.from(new Set([
+    slug,
+    slug.replace(/-/g, '_'),
+    slug.replace(/_/g, '-'),
+  ]));
+}
+
 type PickerAPIBase = {
   listBase: string;
   templatesBase: string;
@@ -174,7 +184,7 @@ async function fetchSingleTemplate(
   slug: string,
   includeInactive: boolean,
 ): Promise<BlockTemplateResponse | null> {
-  let url = `${apiBase}/${encodeURIComponent(slug)}/template`;
+  let url = `${apiBase}/templates/${encodeURIComponent(slug)}`;
   if (includeInactive) url += '?include_inactive=true';
   try {
     const data = await fetchJSON<{ items: BlockTemplateResponse[] }>(url);
@@ -748,8 +758,16 @@ async function initPicker(root: HTMLElement): Promise<void> {
 
   // Filter by allowedBlocks
   if (allowedBlocks.length > 0) {
-    const allowed = new Set(allowedBlocks.map((s) => s.toLowerCase()));
-    definitions = definitions.filter((d) => allowed.has(d.slug.toLowerCase()));
+    const allowed = new Set<string>();
+    for (const slug of allowedBlocks) {
+      for (const alias of blockSlugAliases(slug)) allowed.add(alias);
+    }
+    definitions = definitions.filter((d) => {
+      for (const alias of blockSlugAliases(d.slug)) {
+        if (allowed.has(alias)) return true;
+      }
+      return false;
+    });
   }
 
   // -- 5.3.2: Parse existing blocks from hidden input --
@@ -834,11 +852,15 @@ async function initPicker(root: HTMLElement): Promise<void> {
     'dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-300 ' +
     'dark:hover:bg-slate-800';
   addBtn.setAttribute('data-picker-add-btn', 'true');
+  const addButtonLabel =
+    typeof config.addLabel === 'string' && config.addLabel.trim()
+      ? config.addLabel.trim()
+      : 'Add Block';
   addBtn.innerHTML =
     '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
     '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>' +
     '</svg>' +
-    `<span>${config.addLabel || 'Add Block'}</span>`;
+    `<span>${addButtonLabel}</span>`;
 
   // =========================================================================
   // Phase 6: Picker Popover UI
