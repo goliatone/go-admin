@@ -89,14 +89,6 @@ func resolveGoCMSMenuService(container any) CMSMenuService {
 	if container == nil {
 		return nil
 	}
-	if provider, ok := container.(GoCMSMenuProvider); ok {
-		if svc := provider.GoCMSMenuService(); svc != nil {
-			if adapted := NewGoCMSMenuAdapterFromAny(svc); adapted != nil {
-				return adapted
-			}
-		}
-	}
-
 	if provider, ok := container.(interface{ MenuService() cms.MenuService }); ok {
 		if adapted := NewGoCMSMenuAdapterFromAny(provider.MenuService()); adapted != nil {
 			return adapted
@@ -137,6 +129,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 	if container == nil {
 		return nil
 	}
+	localeResolver := resolveGoCMSLocaleResolver(container)
 	if svc, ok := container.(CMSContentService); ok && svc != nil {
 		return svc
 	}
@@ -151,7 +144,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.Blocks()
 			}
 		}
-		if adapted := NewGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
@@ -166,7 +159,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.BlockService()
 			}
 		}
-		if adapted := NewGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
@@ -181,7 +174,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.BlockService()
 			}
 		}
-		if adapted := NewGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
@@ -196,7 +189,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.BlockService()
 			}
 		}
-		if adapted := NewGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container)); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
@@ -259,26 +252,27 @@ func resolveGoCMSWidgetService(container any) CMSWidgetService {
 	if container == nil {
 		return nil
 	}
-	if adapted := NewGoCMSWidgetAdapter(container); adapted != nil {
+	localeResolver := resolveGoCMSLocaleResolver(container)
+	if adapted := newGoCMSWidgetAdapter(container, localeResolver); adapted != nil {
 		return adapted
 	}
 	if provider, ok := container.(interface{ WidgetService() cms.WidgetService }); ok {
-		if adapted := NewGoCMSWidgetAdapter(provider.WidgetService()); adapted != nil {
+		if adapted := newGoCMSWidgetAdapter(provider.WidgetService(), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
 	if provider, ok := container.(interface{ Widgets() cms.WidgetService }); ok {
-		if adapted := NewGoCMSWidgetAdapter(provider.Widgets()); adapted != nil {
+		if adapted := newGoCMSWidgetAdapter(provider.Widgets(), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
 	if provider, ok := container.(interface{ WidgetService() any }); ok {
-		if adapted := NewGoCMSWidgetAdapter(provider.WidgetService()); adapted != nil {
+		if adapted := newGoCMSWidgetAdapter(provider.WidgetService(), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
 	if provider, ok := container.(interface{ Widgets() any }); ok {
-		if adapted := NewGoCMSWidgetAdapter(provider.Widgets()); adapted != nil {
+		if adapted := newGoCMSWidgetAdapter(provider.Widgets(), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
@@ -287,6 +281,36 @@ func resolveGoCMSWidgetService(container any) CMSWidgetService {
 		if adapted := resolveGoCMSWidgetService(inner); adapted != nil {
 			return adapted
 		}
+	}
+	return nil
+}
+
+func resolveGoCMSLocaleResolver(container any) goCMSLocaleResolver {
+	if container == nil {
+		return nil
+	}
+	if provider, ok := container.(interface{ Locales() cms.LocaleService }); ok {
+		if svc := provider.Locales(); svc != nil {
+			return svc
+		}
+	}
+	if provider, ok := container.(interface{ Locales() any }); ok {
+		if svc, ok := provider.Locales().(goCMSLocaleResolver); ok && svc != nil {
+			return svc
+		}
+	}
+	if provider, ok := container.(interface{ LocaleService() cms.LocaleService }); ok {
+		if svc := provider.LocaleService(); svc != nil {
+			return svc
+		}
+	}
+	if provider, ok := container.(interface{ LocaleService() any }); ok {
+		if svc, ok := provider.LocaleService().(goCMSLocaleResolver); ok && svc != nil {
+			return svc
+		}
+	}
+	if provider, ok := container.(interface{ Container() any }); ok {
+		return resolveGoCMSLocaleResolver(provider.Container())
 	}
 	return nil
 }

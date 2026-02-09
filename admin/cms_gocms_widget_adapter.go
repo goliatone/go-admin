@@ -35,11 +35,16 @@ type GoCMSWidgetAdapter struct {
 	service     goCMSWidgetService
 	definitions map[string]uuid.UUID
 	idToCode    map[uuid.UUID]string
+	locales     *goCMSLocaleIDCache
 	mu          sync.RWMutex
 }
 
 // NewGoCMSWidgetAdapter wraps a go-cms widgets.Service (or compatible typed service).
 func NewGoCMSWidgetAdapter(service any) *GoCMSWidgetAdapter {
+	return newGoCMSWidgetAdapter(service, nil)
+}
+
+func newGoCMSWidgetAdapter(service any, localeResolver goCMSLocaleResolver) *GoCMSWidgetAdapter {
 	if service == nil {
 		return nil
 	}
@@ -47,7 +52,12 @@ func NewGoCMSWidgetAdapter(service any) *GoCMSWidgetAdapter {
 	if !ok || svc == nil {
 		return nil
 	}
-	return &GoCMSWidgetAdapter{service: svc, definitions: map[string]uuid.UUID{}, idToCode: map[uuid.UUID]string{}}
+	return &GoCMSWidgetAdapter{
+		service:     svc,
+		definitions: map[string]uuid.UUID{},
+		idToCode:    map[uuid.UUID]string{},
+		locales:     newGoCMSLocaleIDCache(localeResolver),
+	}
 }
 
 func minimalWidgetSchema() map[string]any {
@@ -59,6 +69,13 @@ func widgetCallContext(ctx context.Context) context.Context {
 		return context.Background()
 	}
 	return ctx
+}
+
+func (a *GoCMSWidgetAdapter) resolveLocaleID(ctx context.Context, localeCode string) (uuid.UUID, bool) {
+	if a == nil || a.locales == nil {
+		return uuid.Nil, false
+	}
+	return a.locales.Resolve(widgetCallContext(ctx), localeCode)
 }
 
 func normalizeWidgetDefinition(def WidgetDefinition) (code string, displayName string, schema map[string]any) {
@@ -450,8 +467,10 @@ func (a *GoCMSWidgetAdapter) resolveAreaInstances(ctx context.Context, filter Wi
 	}
 	ctx = widgetCallContext(ctx)
 	input := cmswidgets.ResolveAreaInput{AreaCode: strings.TrimSpace(filter.Area)}
-	if localeID := localeUUID(filter.Locale); localeID != uuid.Nil {
+	if localeID, ok := a.resolveLocaleID(ctx, filter.Locale); ok {
 		input.LocaleID = &localeID
+	} else if strings.TrimSpace(filter.Locale) != "" {
+		return []WidgetInstance{}, nil
 	}
 	resolved, err := a.service.ResolveArea(ctx, input)
 	if err != nil {
@@ -564,7 +583,7 @@ func (a *GoCMSWidgetAdapter) assignWidgetPlacement(ctx context.Context, updated 
 	if source.Position > 0 {
 		input.Position = &source.Position
 	}
-	if localeID := localeUUID(source.Locale); localeID != uuid.Nil {
+	if localeID, ok := a.resolveLocaleID(ctx, source.Locale); ok {
 		input.LocaleID = &localeID
 	}
 	if meta := widgetPlacementMetadata(source); len(meta) > 0 {
@@ -573,9 +592,6 @@ func (a *GoCMSWidgetAdapter) assignWidgetPlacement(ctx context.Context, updated 
 	placements, err := a.service.AssignWidgetToArea(widgetCallContext(ctx), input)
 	if err != nil {
 		if errors.Is(err, cmswidgets.ErrAreaPlacementExists) {
-			return nil
-		}
-		if strings.Contains(strings.ToLower(err.Error()), "already assigned") {
 			return nil
 		}
 		return err

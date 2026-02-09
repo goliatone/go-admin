@@ -269,35 +269,29 @@ func (a *GoCMSMenuAdapter) MenuByLocation(ctx context.Context, location, locale 
 	trimmed := strings.TrimSpace(location)
 	menuCode := cms.CanonicalMenuCode(trimmed)
 	resolvedLocation := trimmed
-	foundLocation := false
 
-	if locator, ok := a.service.(interface {
-		GetMenuByLocation(ctx context.Context, location string) (*cms.MenuInfo, error)
-	}); ok {
-		if info, err := locator.GetMenuByLocation(ctx, trimmed); err == nil && info != nil {
-			menuCode = info.Code
-			if info.Location != "" {
-				resolvedLocation = info.Location
-			}
-			foundLocation = true
-		} else if err != nil && !errors.Is(err, cms.ErrMenuNotFound) {
+	info, err := a.service.GetMenuByLocation(ctx, trimmed)
+	if err != nil {
+		if !errors.Is(err, cms.ErrMenuNotFound) {
 			return nil, err
+		}
+		nodes, resolveErr := a.service.ResolveNavigation(ctx, menuCode, locale)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		items := convertPublicNavigationNodes(nodes, menuCode, "")
+		return &Menu{ID: menuCode, Code: menuCode, Slug: menuCode, Location: resolvedLocation, Items: items}, nil
+	}
+
+	if info != nil {
+		menuCode = cms.CanonicalMenuCode(info.Code)
+		if loc := strings.TrimSpace(info.Location); loc != "" {
+			resolvedLocation = loc
 		}
 	}
 
-	var (
-		nodes []cms.NavigationNode
-		err   error
-	)
-	if foundLocation {
-		if resolver, ok := a.service.(interface {
-			ResolveNavigationByLocation(ctx context.Context, location string, locale string) ([]cms.NavigationNode, error)
-		}); ok {
-			nodes, err = resolver.ResolveNavigationByLocation(ctx, resolvedLocation, locale)
-		} else {
-			nodes, err = a.service.ResolveNavigation(ctx, menuCode, locale)
-		}
-	} else {
+	nodes, err := a.service.ResolveNavigationByLocation(ctx, resolvedLocation, locale)
+	if err != nil {
 		nodes, err = a.service.ResolveNavigation(ctx, menuCode, locale)
 	}
 	if err != nil {

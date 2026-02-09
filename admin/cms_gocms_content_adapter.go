@@ -40,6 +40,7 @@ type GoCMSContentAdapter struct {
 	content      goCMSContentService
 	blocks       goCMSBlockService
 	contentTypes CMSContentTypeService
+	locales      *goCMSLocaleIDCache
 
 	blockDefinitions  map[string]uuid.UUID
 	blockDefinitionBy map[uuid.UUID]string
@@ -47,6 +48,10 @@ type GoCMSContentAdapter struct {
 
 // NewGoCMSContentAdapter wraps go-cms services into the admin CMSContentService contract.
 func NewGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSContentTypeService) CMSContentService {
+	return newGoCMSContentAdapter(contentSvc, blockSvc, contentTypeSvc, nil)
+}
+
+func newGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSContentTypeService, localeResolver goCMSLocaleResolver) CMSContentService {
 	if contentSvc == nil {
 		return nil
 	}
@@ -62,6 +67,7 @@ func NewGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSCont
 		content:           typedContent,
 		blocks:            typedBlocks,
 		contentTypes:      contentTypeSvc,
+		locales:           newGoCMSLocaleIDCache(localeResolver),
 		blockDefinitions:  map[string]uuid.UUID{},
 		blockDefinitionBy: map[uuid.UUID]string{},
 	}
@@ -93,6 +99,13 @@ func buildGoCMSContentTranslations(content CMSContent) []cmscontent.ContentTrans
 
 func (a *GoCMSContentAdapter) hasBlockService() bool {
 	return a != nil && a.blocks != nil
+}
+
+func (a *GoCMSContentAdapter) resolveLocaleID(ctx context.Context, localeCode string) (uuid.UUID, bool) {
+	if a == nil || a.locales == nil {
+		return uuid.Nil, false
+	}
+	return a.locales.Resolve(ctx, localeCode)
 }
 
 func (a *GoCMSContentAdapter) Pages(ctx context.Context, locale string) ([]CMSPage, error) {
@@ -510,7 +523,7 @@ func (a *GoCMSContentAdapter) legacyBlocksForContent(ctx context.Context, conten
 		if instance == nil {
 			continue
 		}
-		blocks = append(blocks, a.convertBlockInstance(reflect.ValueOf(instance), locale))
+		blocks = append(blocks, a.convertBlockInstance(ctx, reflect.ValueOf(instance), locale))
 	}
 	return blocks, nil
 }
@@ -570,7 +583,7 @@ func (a *GoCMSContentAdapter) createBlockInstance(ctx context.Context, defID, pa
 	if err := a.upsertBlockTranslation(ctx, created.ID, block, false); err != nil {
 		return nil, err
 	}
-	converted := a.convertBlockInstance(reflect.ValueOf(created), block.Locale)
+	converted := a.convertBlockInstance(ctx, reflect.ValueOf(created), block.Locale)
 	if len(converted.Data) == 0 && len(block.Data) > 0 {
 		converted.Data = cloneAnyMap(block.Data)
 	}
@@ -610,7 +623,7 @@ func (a *GoCMSContentAdapter) updateBlockInstance(ctx context.Context, defID, pa
 	if err := a.upsertBlockTranslation(ctx, updated.ID, block, true); err != nil {
 		return nil, err
 	}
-	converted := a.convertBlockInstance(reflect.ValueOf(updated), block.Locale)
+	converted := a.convertBlockInstance(ctx, reflect.ValueOf(updated), block.Locale)
 	if len(converted.Data) == 0 && len(block.Data) > 0 {
 		converted.Data = cloneAnyMap(block.Data)
 	}
@@ -632,8 +645,8 @@ func (a *GoCMSContentAdapter) upsertBlockTranslation(ctx context.Context, instan
 	if payload == nil {
 		payload = map[string]any{}
 	}
-	localeID := localeUUID(locale)
-	if localeID == uuid.Nil {
+	localeID, ok := a.resolveLocaleID(ctx, locale)
+	if !ok {
 		return nil
 	}
 	updateReq := cmsblocks.UpdateTranslationInput{
@@ -1558,7 +1571,7 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 	return out
 }
 
-func (a *GoCMSContentAdapter) convertBlockInstance(value reflect.Value, locale string) CMSBlock {
+func (a *GoCMSContentAdapter) convertBlockInstance(ctx context.Context, value reflect.Value, locale string) CMSBlock {
 	val := deref(value)
 	block := CMSBlock{Data: map[string]any{}}
 	if id, ok := extractUUID(val, "ID"); ok {
@@ -1588,13 +1601,13 @@ func (a *GoCMSContentAdapter) convertBlockInstance(value reflect.Value, locale s
 
 	translations := deref(val.FieldByName("Translations"))
 	var chosen reflect.Value
-	localeID := localeUUID(locale)
+	localeID, hasLocaleID := a.resolveLocaleID(ctx, locale)
 	for i := 0; translations.IsValid() && i < translations.Len(); i++ {
 		current := deref(translations.Index(i))
 		if !chosen.IsValid() {
 			chosen = current
 		}
-		if localeID == uuid.Nil {
+		if !hasLocaleID {
 			continue
 		}
 		if trID, ok := extractUUID(current, "LocaleID"); ok && trID == localeID {
