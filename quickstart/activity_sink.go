@@ -2,10 +2,10 @@ package quickstart
 
 import (
 	"context"
-	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
+	"github.com/goliatone/go-dashboard/pkg/activity/admininterop"
 )
 
 // NewCompositeActivitySink forwards admin activity entries to the primary sink and dashboard hooks.
@@ -13,19 +13,19 @@ func NewCompositeActivitySink(primary admin.ActivitySink, hooks dashboardactivit
 	if primary == nil {
 		primary = admin.NewActivityFeed()
 	}
-	var emitter *dashboardactivity.Emitter
+	var bridge admininterop.Sink
 	if hooks.Enabled() {
-		emitter = dashboardactivity.NewEmitter(hooks, cfg)
+		bridge = admininterop.NewSink(hooks, cfg)
 	}
 	return &compositeActivitySink{
 		primary: primary,
-		emitter: emitter,
+		bridge:  bridge,
 	}
 }
 
 type compositeActivitySink struct {
 	primary admin.ActivitySink
-	emitter *dashboardactivity.Emitter
+	bridge  admininterop.Sink
 }
 
 func (c *compositeActivitySink) Record(ctx context.Context, entry admin.ActivityEntry) error {
@@ -33,33 +33,17 @@ func (c *compositeActivitySink) Record(ctx context.Context, entry admin.Activity
 		return err
 	}
 
-	if c.emitter == nil || !c.emitter.Enabled() {
+	if c.bridge == nil {
 		return nil
 	}
-
-	objectType := entry.Object
-	objectID := ""
-	if typ, id, ok := strings.Cut(entry.Object, ":"); ok {
-		objectType = strings.TrimSpace(typ)
-		objectID = strings.TrimSpace(id)
-	}
-
-	channel := strings.TrimSpace(entry.Channel)
-	if channel == "" {
-		channel = "admin"
-	}
-
-	event := dashboardactivity.Event{
-		Verb:       entry.Action,
-		ActorID:    entry.Actor,
-		ObjectType: objectType,
-		ObjectID:   objectID,
-		Channel:    channel,
+	return c.bridge.Record(ctx, admininterop.Record{
+		Actor:      entry.Actor,
+		Action:     entry.Action,
+		Object:     entry.Object,
+		Channel:    entry.Channel,
 		Metadata:   cloneAnyMap(entry.Metadata),
 		OccurredAt: entry.CreatedAt,
-	}
-
-	return c.emitter.Emit(ctx, event)
+	})
 }
 
 func (c *compositeActivitySink) List(ctx context.Context, limit int, filters ...admin.ActivityFilter) ([]admin.ActivityEntry, error) {
