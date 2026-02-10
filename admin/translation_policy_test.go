@@ -138,3 +138,96 @@ func TestGoCMSTranslationPolicyUsesCheckTranslations(t *testing.T) {
 		t.Fatalf("expected required fields copied, got %+v", pageSvc.lastOpts.RequiredFields)
 	}
 }
+
+func TestGoCMSTranslationPolicyIncludesMissingFieldsByLocale(t *testing.T) {
+	pageSvc := &stubPageTranslationService{missing: []string{"fr"}}
+	resolver := TranslationRequirementsResolverFunc(func(context.Context, TranslationPolicyInput) (TranslationRequirements, bool, error) {
+		return TranslationRequirements{
+			Locales:                []string{"en", "fr"},
+			RequiredFields:         map[string][]string{"fr": {"title", "path"}},
+			RequiredFieldsStrategy: RequiredFieldsValidationError,
+		}, true, nil
+	})
+	policy := GoCMSTranslationPolicy{Pages: pageSvc, Resolver: resolver}
+
+	err := policy.Validate(context.Background(), TranslationPolicyInput{
+		EntityType: pageWorkflowEntityType,
+		EntityID:   uuid.New().String(),
+		Transition: "publish",
+	})
+	if err == nil {
+		t.Fatalf("expected missing translations error")
+	}
+	var missingErr MissingTranslationsError
+	if !errors.As(err, &missingErr) {
+		t.Fatalf("expected MissingTranslationsError, got %T", err)
+	}
+	if !missingErr.RequiredFieldsEvaluated {
+		t.Fatalf("expected required fields evaluated")
+	}
+	if !reflect.DeepEqual(missingErr.MissingFieldsByLocale, map[string][]string{"fr": {"path", "title"}}) {
+		t.Fatalf("expected missing fields by locale, got %+v", missingErr.MissingFieldsByLocale)
+	}
+}
+
+func TestGoCMSTranslationPolicySkipsMissingFieldsForIgnoreStrategy(t *testing.T) {
+	pageSvc := &stubPageTranslationService{missing: []string{"fr"}}
+	resolver := TranslationRequirementsResolverFunc(func(context.Context, TranslationPolicyInput) (TranslationRequirements, bool, error) {
+		return TranslationRequirements{
+			Locales:                []string{"en", "fr"},
+			RequiredFields:         map[string][]string{"fr": {"title", "path"}},
+			RequiredFieldsStrategy: RequiredFieldsValidationIgnore,
+		}, true, nil
+	})
+	policy := GoCMSTranslationPolicy{Pages: pageSvc, Resolver: resolver}
+
+	err := policy.Validate(context.Background(), TranslationPolicyInput{
+		EntityType: pageWorkflowEntityType,
+		EntityID:   uuid.New().String(),
+		Transition: "publish",
+	})
+	if err == nil {
+		t.Fatalf("expected missing translations error")
+	}
+	var missingErr MissingTranslationsError
+	if !errors.As(err, &missingErr) {
+		t.Fatalf("expected MissingTranslationsError, got %T", err)
+	}
+	if missingErr.RequiredFieldsEvaluated {
+		t.Fatalf("expected required fields to be skipped for ignore strategy")
+	}
+	if len(missingErr.MissingFieldsByLocale) != 0 {
+		t.Fatalf("expected missing fields map omitted, got %+v", missingErr.MissingFieldsByLocale)
+	}
+}
+
+func TestGoCMSTranslationPolicyNormalizesEntityMetadata(t *testing.T) {
+	pageSvc := &stubPageTranslationService{missing: []string{"fr"}}
+	resolver := TranslationRequirementsResolverFunc(func(context.Context, TranslationPolicyInput) (TranslationRequirements, bool, error) {
+		return TranslationRequirements{
+			Locales: []string{"en", "fr"},
+		}, true, nil
+	})
+	policy := GoCMSTranslationPolicy{Pages: pageSvc, Resolver: resolver}
+
+	err := policy.Validate(context.Background(), TranslationPolicyInput{
+		EntityType:      "pages@staging",
+		PolicyEntity:    "pages@staging",
+		EntityID:        uuid.New().String(),
+		Transition:      "publish",
+		RequestedLocale: "en",
+	})
+	if err == nil {
+		t.Fatalf("expected missing translations error")
+	}
+	var missingErr MissingTranslationsError
+	if !errors.As(err, &missingErr) {
+		t.Fatalf("expected MissingTranslationsError, got %T", err)
+	}
+	if missingErr.EntityType != "pages" {
+		t.Fatalf("expected normalized entity type pages, got %q", missingErr.EntityType)
+	}
+	if missingErr.PolicyEntity != "pages" {
+		t.Fatalf("expected normalized policy entity pages, got %q", missingErr.PolicyEntity)
+	}
+}

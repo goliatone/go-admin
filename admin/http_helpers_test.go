@@ -144,3 +144,208 @@ func TestWriteErrorMapsSchemaValidationErrors(t *testing.T) {
 		t.Fatalf("expected schema field mapped, got %v", fields)
 	}
 }
+
+func TestWriteErrorMapsTranslationMissingConflict(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/publish", func(c router.Context) error {
+		return writeError(c, MissingTranslationsError{
+			EntityType:      "pages",
+			PolicyEntity:    "pages",
+			EntityID:        "page_123",
+			Transition:      "publish",
+			Environment:     "production",
+			RequestedLocale: "en",
+			MissingLocales:  []string{"es", "fr"},
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/publish", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != TextCodeTranslationMissing {
+		t.Fatalf("expected %s, got %v", TextCodeTranslationMissing, errPayload["text_code"])
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if meta["transition"] != "publish" {
+		t.Fatalf("expected transition publish, got %v", meta["transition"])
+	}
+	if meta["entity_type"] != "pages" || meta["policy_entity"] != "pages" {
+		t.Fatalf("expected entity metadata, got %v", meta)
+	}
+	if meta["requested_locale"] != "en" || meta["environment"] != "production" {
+		t.Fatalf("expected locale/environment metadata, got %v", meta)
+	}
+	locales, _ := meta["missing_locales"].([]any)
+	if len(locales) != 2 {
+		t.Fatalf("expected missing locales [es fr], got %v", meta["missing_locales"])
+	}
+}
+
+func TestWriteErrorMapsTranslationMissingNormalizesEntityTypeMetadata(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/publish", func(c router.Context) error {
+		return writeError(c, MissingTranslationsError{
+			EntityType:      "posts@staging",
+			PolicyEntity:    "posts@staging",
+			EntityID:        "post_123",
+			Transition:      "publish",
+			Environment:     "staging",
+			RequestedLocale: "en",
+			MissingLocales:  []string{"fr"},
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/publish", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if meta["entity_type"] != "posts" || meta["policy_entity"] != "posts" {
+		t.Fatalf("expected normalized entity metadata, got %v", meta)
+	}
+}
+
+func TestWriteErrorMapsTranslationMissingUnprocessableWhenFieldFailuresPresent(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/publish", func(c router.Context) error {
+		return writeError(c, MissingTranslationsError{
+			EntityType:              "pages",
+			EntityID:                "page_123",
+			Transition:              "publish",
+			RequestedLocale:         "en",
+			MissingLocales:          []string{"fr"},
+			MissingFieldsByLocale:   map[string][]string{"fr": {"title", "path"}},
+			RequiredFieldsEvaluated: true,
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/publish", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 422 {
+		t.Fatalf("expected 422, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	rawFields, ok := meta["missing_fields_by_locale"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected missing_fields_by_locale metadata, got %v", meta)
+	}
+	frFields, _ := rawFields["fr"].([]any)
+	if len(frFields) != 2 {
+		t.Fatalf("expected fr field failures, got %v", rawFields["fr"])
+	}
+}
+
+func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/translate", func(c router.Context) error {
+		return writeError(c, TranslationAlreadyExistsError{
+			Panel:              "pages",
+			EntityID:           "page_123",
+			Locale:             "es",
+			TranslationGroupID: "tg_123",
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/translate", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != TextCodeTranslationExists {
+		t.Fatalf("expected %s, got %v", TextCodeTranslationExists, errPayload["text_code"])
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if meta["locale"] != "es" || meta["translation_group_id"] != "tg_123" {
+		t.Fatalf("expected locale/group metadata, got %v", meta)
+	}
+}
+
+func TestWriteErrorMapsTranslationExchangeUnsupportedFormat(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/exchange", func(c router.Context) error {
+		return writeError(c, TranslationExchangeUnsupportedFormatError{
+			Format:    "xml",
+			Supported: []string{"csv", "json"},
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/exchange", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != TextCodeTranslationExchangeUnsupportedFormat {
+		t.Fatalf("expected %s, got %v", TextCodeTranslationExchangeUnsupportedFormat, errPayload["text_code"])
+	}
+}
+
+func TestWriteErrorMapsTranslationExchangeConflict(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/exchange-conflict", func(c router.Context) error {
+		return writeError(c, TranslationExchangeConflictError{
+			Type:               "stale_source_hash",
+			Index:              2,
+			Resource:           "pages",
+			EntityID:           "page_123",
+			TranslationGroupID: "tg_123",
+			TargetLocale:       "es",
+			FieldPath:          "title",
+			CurrentSourceHash:  "aaaa",
+			ProvidedSourceHash: "bbbb",
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/exchange-conflict", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != TextCodeTranslationExchangeStaleSourceHash {
+		t.Fatalf("expected %s, got %v", TextCodeTranslationExchangeStaleSourceHash, errPayload["text_code"])
+	}
+}

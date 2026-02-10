@@ -383,6 +383,95 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 	}
 }
 
+func TestUserPanelListIncludesRoleDisplayFields(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
+	adm.WithRoleAssignmentLookup(UUIDRoleAssignmentLookup{})
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	roleBody, _ := json.Marshal(map[string]any{
+		"name":        "Operators",
+		"description": "Ops role",
+		"permissions": []string{"admin.users.view"},
+	})
+	roleReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
+	roleReq.Header.Set("Content-Type", "application/json")
+	roleReq.Header.Set("X-User-ID", "seed-actor")
+	roleRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(roleRes, roleReq)
+	if roleRes.Code != 200 {
+		t.Fatalf("expected role create 200, got %d body=%s", roleRes.Code, roleRes.Body.String())
+	}
+	var role map[string]any
+	_ = json.Unmarshal(roleRes.Body.Bytes(), &role)
+	roleID := toString(role["id"])
+	if roleID == "" {
+		t.Fatalf("expected role id in response, got %v", role)
+	}
+
+	userBody, _ := json.Marshal(map[string]any{
+		"email":    "operator@example.com",
+		"username": "operator",
+		"status":   "active",
+		"roles":    []string{roleID},
+	})
+	userReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
+	userReq.Header.Set("Content-Type", "application/json")
+	userReq.Header.Set("X-User-ID", "actor-1")
+	userRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(userRes, userReq)
+	if userRes.Code != 200 {
+		t.Fatalf("expected user create 200, got %d body=%s", userRes.Code, userRes.Body.String())
+	}
+	var user map[string]any
+	_ = json.Unmarshal(userRes.Body.Bytes(), &user)
+	userID := toString(user["id"])
+	if userID == "" {
+		t.Fatalf("expected user id in create response")
+	}
+
+	listReq := httptest.NewRequest("GET", adminPanelAPIPath(adm, cfg, usersModuleID), nil)
+	listReq.Header.Set("X-User-ID", "actor-1")
+	listRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(listRes, listReq)
+	if listRes.Code != 200 {
+		t.Fatalf("expected users list 200, got %d body=%s", listRes.Code, listRes.Body.String())
+	}
+
+	var payload map[string]any
+	_ = json.Unmarshal(listRes.Body.Bytes(), &payload)
+	records, _ := payload["records"].([]any)
+	if len(records) == 0 {
+		t.Fatalf("expected records in users list response")
+	}
+
+	var record map[string]any
+	for _, item := range records {
+		entry, _ := item.(map[string]any)
+		if toString(entry["id"]) == userID {
+			record = entry
+			break
+		}
+	}
+	if len(record) == 0 {
+		t.Fatalf("expected created user %s in records: %+v", userID, records)
+	}
+
+	if toString(record["role_display"]) != "Operators" {
+		t.Fatalf("expected role_display Operators, got %v", record["role_display"])
+	}
+	assignments := toStringSlice(record["role_assignments"])
+	if len(assignments) != 1 || assignments[0] != "Operators" {
+		t.Fatalf("expected role_assignments [Operators], got %v", assignments)
+	}
+}
+
 func TestUserLifecycleCommandTransitionsStatus(t *testing.T) {
 	svc := NewUserManagementService(nil, nil)
 	feed := NewActivityFeed()

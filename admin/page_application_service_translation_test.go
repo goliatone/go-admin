@@ -269,3 +269,55 @@ func TestWorkflowUpdateHookBlocksMissingTranslations(t *testing.T) {
 		t.Fatalf("expected CheckTranslations called once, got %d", pageSvc.calls)
 	}
 }
+
+func TestWorkflowUpdateHookPropagatesPolicyContextForPosts(t *testing.T) {
+	ctx := AdminContext{Context: context.Background()}
+	id := uuid.New().String()
+	repo := &stubPanelRepository{record: map[string]any{"id": id, "status": "approval"}}
+	workflow := &stubWorkflowEngine{
+		transitions: []WorkflowTransition{
+			{Name: "publish", From: "approval", To: "published"},
+		},
+	}
+	var received TranslationPolicyInput
+	policy := TranslationPolicyFunc(func(_ context.Context, input TranslationPolicyInput) error {
+		received = input
+		return MissingTranslationsError{
+			EntityType:      input.EntityType,
+			PolicyEntity:    input.PolicyEntity,
+			EntityID:        input.EntityID,
+			Transition:      input.Transition,
+			Environment:     input.Environment,
+			RequestedLocale: input.RequestedLocale,
+			MissingLocales:  []string{"fr"},
+		}
+	})
+	hook := buildWorkflowUpdateHook(repo, workflow, nil, policy, "posts")
+
+	record := map[string]any{
+		"status":        "published",
+		"transition":    "publish",
+		"locale":        "en",
+		"environment":   "production",
+		"policy_entity": "posts",
+	}
+	err := hook(ctx, id, record)
+	if err == nil {
+		t.Fatalf("expected translation policy error")
+	}
+	if !errors.Is(err, ErrMissingTranslations) {
+		t.Fatalf("expected ErrMissingTranslations, got %v", err)
+	}
+	if received.EntityType != "posts" {
+		t.Fatalf("expected entity type posts, got %q", received.EntityType)
+	}
+	if received.PolicyEntity != "posts" {
+		t.Fatalf("expected policy entity posts, got %q", received.PolicyEntity)
+	}
+	if received.Environment != "production" {
+		t.Fatalf("expected environment production, got %q", received.Environment)
+	}
+	if workflow.transitionCalls != 0 {
+		t.Fatalf("expected workflow transition blocked, got %d calls", workflow.transitionCalls)
+	}
+}
