@@ -1,18 +1,11 @@
 package admin
 
 import (
-	"embed"
+	admindata "github.com/goliatone/go-admin/data"
 	"io/fs"
 )
 
-//go:embed data/sql/migrations/*.sql data/sql/migrations/sqlite/*.sql data/sql/migrations/postgres/*.sql
-var translationAssignmentMigrationsFS embed.FS
-
-// GetTranslationAssignmentMigrationsFS returns queue assignment migrations rooted at data/sql/migrations.
+// GetTranslationAssignmentMigrationsFS returns queue assignment migrations from top-level data/sql/migrations.
 func GetTranslationAssignmentMigrationsFS() fs.FS {
-	root, err := fs.Sub(translationAssignmentMigrationsFS, "data/sql/migrations")
-	if err != nil {
-		return translationAssignmentMigrationsFS
-	}
-	return root
+	return admindata.TranslationAssignmentMigrations()
 }
