@@ -74,6 +74,7 @@ func TestDefaultAdminFeatures(t *testing.T) {
 		"tenants":               false,
 		"organizations":         false,
 		"translations.exchange": false,
+		"translations.queue":    false,
 	}
 	if !reflect.DeepEqual(got, expected) {
 		t.Fatalf("expected default features %+v, got %+v", expected, got)
