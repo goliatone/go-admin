@@ -26,6 +26,8 @@ type adminOptions struct {
 	translationPolicyServices    TranslationPolicyServices
 	translationExchangeConfig    TranslationExchangeConfig
 	translationExchangeConfigSet bool
+	translationQueueConfig       TranslationQueueConfig
+	translationQueueConfigSet    bool
 	errors                       []error
 	registerUserRoleBulkRoutes   bool
 }
@@ -191,6 +193,12 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 			return nil, result, err
 		}
 	}
+	if options.translationQueueConfigSet {
+		policyCfg, hasPolicyCfg := queuePolicyConfigFromOptions(options)
+		if err := RegisterTranslationQueueWiring(adm, options.translationQueueConfig, policyCfg, hasPolicyCfg); err != nil {
+			return nil, result, err
+		}
+	}
 	if options.themeSelector != nil {
 		adm.WithGoTheme(options.themeSelector)
 	}
@@ -204,4 +212,17 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		}
 	}
 	return adm, result, nil
+}
+
+func queuePolicyConfigFromOptions(opts adminOptions) (TranslationPolicyConfig, bool) {
+	if opts.translationPolicyConfigSet {
+		return NormalizeTranslationPolicyConfig(opts.translationPolicyConfig), true
+	}
+	if policy, ok := opts.deps.TranslationPolicy.(translationPolicy); ok {
+		return NormalizeTranslationPolicyConfig(policy.cfg), true
+	}
+	if policy, ok := opts.deps.TranslationPolicy.(*translationPolicy); ok && policy != nil {
+		return NormalizeTranslationPolicyConfig(policy.cfg), true
+	}
+	return TranslationPolicyConfig{}, false
 }
