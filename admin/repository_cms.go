@@ -573,34 +573,24 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 	if err != nil {
 		return nil, 0, err
 	}
-	search := strings.ToLower(extractSearch(opts))
 	typeKey := strings.ToLower(strings.TrimSpace(firstNonEmpty(r.contentType.Slug, r.contentType.Name, r.contentType.ID)))
-	filtered := make([]CMSContent, 0, len(contents))
+	records := make([]map[string]any, 0, len(contents))
 	for _, item := range contents {
 		contentType := strings.ToLower(strings.TrimSpace(firstNonEmpty(item.ContentTypeSlug, item.ContentType)))
 		if typeKey != "" && contentType != typeKey {
 			continue
 		}
-		if search != "" && !strings.Contains(strings.ToLower(item.Title), search) &&
-			!strings.Contains(strings.ToLower(item.Slug), search) &&
-			!strings.Contains(strings.ToLower(contentType), search) {
-			continue
-		}
-		if !cmsContentEntryMatchesFilters(item, opts) {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-	sliced, total := paginateCMS(filtered, opts)
-	out := make([]map[string]any, 0, len(sliced))
-	for _, item := range sliced {
-		out = append(out, cmsContentRecord(item, cmsContentRecordOptions{
+		records = append(records, cmsContentRecord(item, cmsContentRecordOptions{
 			includeBlocks:   true,
 			includeData:     true,
 			includeMetadata: true,
 		}))
 	}
-	return out, total, nil
+	list, total := applyListOptionsToRecordMaps(records, opts, listRecordOptions{
+		PredicateMatcher: cmsContentRecordPredicateMatcher,
+		SearchMatcher:    cmsContentRecordSearchMatcher,
+	})
+	return list, total, nil
 }
 
 func (r *CMSContentTypeEntryRepository) listContents(ctx context.Context, locale string) ([]CMSContent, error) {
@@ -615,35 +605,26 @@ func (r *CMSContentTypeEntryRepository) listContents(ctx context.Context, locale
 	return r.content.Contents(ctx, locale)
 }
 
-func cmsContentEntryMatchesFilters(item CMSContent, opts ListOptions) bool {
-	predicates := NormalizeListPredicates(opts)
-	if len(predicates) == 0 {
+func cmsContentRecordSearchMatcher(record map[string]any, search string) bool {
+	if strings.TrimSpace(search) == "" {
 		return true
 	}
-	record := cmsContentFilterRecord(item)
-	for _, predicate := range predicates {
-		field := strings.TrimSpace(predicate.Field)
-		if field == "" || field == "_search" || field == "environment" {
-			continue
-		}
-		if len(predicate.Values) == 0 {
-			continue
-		}
-		operator := strings.ToLower(strings.TrimSpace(predicate.Operator))
-		if !isSupportedCMSFilterOperator(operator) {
-			continue
-		}
-		if !recordHasCMSFilterMatch(record, field, operator, predicate.Values) {
-			return false
-		}
-	}
-	return true
+	return strings.Contains(strings.ToLower(toString(record["title"])), search) ||
+		strings.Contains(strings.ToLower(toString(record["slug"])), search) ||
+		strings.Contains(strings.ToLower(toString(record["content_type"])), search)
 }
 
-func cmsContentFilterRecord(item CMSContent) map[string]any {
-	return cmsContentRecord(item, cmsContentRecordOptions{
-		includeContentTypeSlug: true,
-	})
+func cmsContentRecordPredicateMatcher(record map[string]any, predicate ListPredicate) (bool, bool) {
+	field := strings.TrimSpace(predicate.Field)
+	if field == "" || field == "_search" || field == "environment" {
+		return true, true
+	}
+	operator := strings.ToLower(strings.TrimSpace(predicate.Operator))
+	if !isSupportedCMSFilterOperator(operator) {
+		// Keep existing behavior: unsupported operators are ignored.
+		return true, true
+	}
+	return recordHasCMSFilterMatch(record, field, operator, predicate.Values), true
 }
 
 type cmsContentRecordOptions struct {
@@ -684,6 +665,7 @@ func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]
 		record["_schema"] = schema
 	}
 	mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
+	mergeCMSRecordMarkdownDerivedFields(record)
 	return record
 }
 
@@ -2116,6 +2098,194 @@ func mergeCMSRecordData(record map[string]any, data map[string]any, reserved map
 			continue
 		}
 		record[key] = val
+	}
+}
+
+func mergeCMSRecordMarkdownDerivedFields(record map[string]any) {
+	if record == nil {
+		return
+	}
+	markdown := cmsRecordMapValue(record["markdown"])
+	if len(markdown) == 0 {
+		return
+	}
+	custom := cmsRecordMapValue(markdown["custom"])
+	frontmatter := cmsRecordMapValue(markdown["frontmatter"])
+	nestedFrontmatter := map[string]any{}
+	if nestedMarkdown := cmsRecordMapValue(custom["markdown"]); len(nestedMarkdown) > 0 {
+		nestedFrontmatter = cmsRecordMapValue(nestedMarkdown["frontmatter"])
+	}
+
+	setCMSRecordFieldIfMissing(record, "content", firstNonEmptyMarkdownString(markdown["body"]))
+	setCMSRecordFieldIfMissing(record, "summary",
+		firstNonEmptyMarkdownString(
+			record["excerpt"],
+			custom["summary"],
+			frontmatter["summary"],
+			nestedFrontmatter["summary"],
+		),
+	)
+	setCMSRecordFieldIfMissing(record, "path",
+		firstNonEmptyMarkdownString(
+			custom["path"],
+			frontmatter["path"],
+			nestedFrontmatter["path"],
+		),
+	)
+	setCMSRecordFieldIfMissing(record, "published_at",
+		firstNonEmptyMarkdownString(
+			custom["published_at"],
+			frontmatter["published_at"],
+			nestedFrontmatter["published_at"],
+		),
+	)
+	setCMSRecordFieldIfMissing(record, "featured_image",
+		firstNonEmptyMarkdownString(
+			custom["featured_image"],
+			frontmatter["featured_image"],
+			nestedFrontmatter["featured_image"],
+		),
+	)
+
+	setCMSRecordFieldIfMissing(record, "meta", firstNonEmptyMarkdownValue(custom["meta"]))
+	setCMSRecordFieldIfMissing(record, "tags",
+		firstNonEmptyMarkdownValue(
+			custom["tags"],
+			frontmatter["tags"],
+			nestedFrontmatter["tags"],
+		),
+	)
+	setCMSRecordFieldIfMissing(record, "template_id",
+		firstNonEmptyMarkdownString(
+			custom["template_id"],
+			frontmatter["template_id"],
+			nestedFrontmatter["template_id"],
+		),
+	)
+	setCMSRecordFieldIfMissing(record, "parent_id",
+		firstNonEmptyMarkdownString(
+			custom["parent_id"],
+			frontmatter["parent_id"],
+			nestedFrontmatter["parent_id"],
+		),
+	)
+	setCMSRecordFieldIfMissing(record, "blocks",
+		firstNonEmptyMarkdownValue(
+			custom["blocks"],
+			frontmatter["blocks"],
+			nestedFrontmatter["blocks"],
+		),
+	)
+
+	seoMap := firstNonEmptyMarkdownMap(
+		custom["seo"],
+		frontmatter["seo"],
+		nestedFrontmatter["seo"],
+	)
+	setCMSRecordFieldIfMissing(record, "seo", seoMap)
+	setCMSRecordFieldIfMissing(record, "meta_title",
+		firstNonEmptyMarkdownString(
+			custom["meta_title"],
+			frontmatter["meta_title"],
+			nestedFrontmatter["meta_title"],
+			seoMap["title"],
+		),
+	)
+	setCMSRecordFieldIfMissing(record, "meta_description",
+		firstNonEmptyMarkdownString(
+			custom["meta_description"],
+			frontmatter["meta_description"],
+			nestedFrontmatter["meta_description"],
+			seoMap["description"],
+		),
+	)
+}
+
+func cmsRecordMapValue(value any) map[string]any {
+	mapped, ok := value.(map[string]any)
+	if !ok || len(mapped) == 0 {
+		return nil
+	}
+	return mapped
+}
+
+func firstNonEmptyMarkdownString(values ...any) string {
+	for _, value := range values {
+		if text := strings.TrimSpace(toString(value)); text != "" {
+			return text
+		}
+	}
+	return ""
+}
+
+func firstNonEmptyMarkdownValue(values ...any) any {
+	for _, value := range values {
+		switch typed := value.(type) {
+		case nil:
+			continue
+		case string:
+			if strings.TrimSpace(typed) == "" {
+				continue
+			}
+			return typed
+		case []string:
+			if len(typed) == 0 {
+				continue
+			}
+			return append([]string{}, typed...)
+		case []any:
+			if len(typed) == 0 {
+				continue
+			}
+			return append([]any{}, typed...)
+		case map[string]any:
+			if len(typed) == 0 {
+				continue
+			}
+			return cloneAnyMap(typed)
+		default:
+			return typed
+		}
+	}
+	return nil
+}
+
+func firstNonEmptyMarkdownMap(values ...any) map[string]any {
+	for _, value := range values {
+		if mapped := cmsRecordMapValue(value); len(mapped) > 0 {
+			return cloneAnyMap(mapped)
+		}
+	}
+	return nil
+}
+
+func setCMSRecordFieldIfMissing(record map[string]any, key string, value any) {
+	if record == nil || strings.TrimSpace(key) == "" {
+		return
+	}
+	if isEmptyCMSRecordValue(value) {
+		return
+	}
+	if existing, ok := record[key]; ok && !isEmptyCMSRecordValue(existing) {
+		return
+	}
+	record[key] = value
+}
+
+func isEmptyCMSRecordValue(value any) bool {
+	switch typed := value.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(typed) == ""
+	case []string:
+		return len(typed) == 0
+	case []any:
+		return len(typed) == 0
+	case map[string]any:
+		return len(typed) == 0
+	default:
+		return false
 	}
 }
 
