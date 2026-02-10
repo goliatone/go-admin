@@ -3,6 +3,7 @@ package quickstart
 import (
 	"log/slog"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -148,9 +149,6 @@ func AttachDebugMiddleware[T any](r router.Router[T], cfg admin.Config, adm *adm
 	if !cfg.Debug.Enabled {
 		return
 	}
-	if adm.Debug() == nil {
-		return
-	}
 	basePath := strings.TrimSpace(cfg.BasePath)
 	r.Use(func(next router.HandlerFunc) router.HandlerFunc {
 		return func(c router.Context) error {
@@ -177,9 +175,22 @@ func AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin) {
 	if _, ok := slog.Default().Handler().(*admin.DebugLogHandler); ok {
 		return
 	}
-	delegate := slog.Default().Handler()
+	delegate := safeDebugLogDelegate(slog.Default().Handler())
 	handler := admin.NewDebugLogHandler(collector, delegate)
 	slog.SetDefault(slog.New(handler))
+}
+
+func safeDebugLogDelegate(delegate slog.Handler) slog.Handler {
+	if delegate == nil {
+		return slog.NewTextHandler(os.Stderr, nil)
+	}
+	delegateType := reflect.TypeOf(delegate)
+	if delegateType != nil && strings.Contains(delegateType.String(), "slog.defaultHandler") {
+		// slog's default handler writes via the standard logger, which creates a cycle
+		// once slog.SetDefault wires log.Printf back into slog.
+		return slog.NewTextHandler(os.Stderr, nil)
+	}
+	return delegate
 }
 
 func mergeDebugEnvOptions(opts ...DebugEnvOption) DebugEnvOption {
