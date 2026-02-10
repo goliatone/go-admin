@@ -2,9 +2,7 @@ package admin
 
 import (
 	"context"
-	"sort"
 	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -25,40 +23,9 @@ func (r *MemoryRepository) List(_ context.Context, opts ListOptions) ([]map[stri
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	filtered := r.applyFilters(opts.Filters)
-	total := len(filtered)
-
-	if opts.SortBy != "" {
-		sort.SliceStable(filtered, func(i, j int) bool {
-			vi := filtered[i][opts.SortBy]
-			vj := filtered[j][opts.SortBy]
-			si := toString(vi)
-			sj := toString(vj)
-			if opts.SortDesc {
-				return sj < si
-			}
-			return si < sj
-		})
-	}
-
-	page := opts.Page
-	if page < 1 {
-		page = 1
-	}
-	per := opts.PerPage
-	if per <= 0 {
-		per = 10
-	}
-	start := (page - 1) * per
-	if start > len(filtered) {
-		return []map[string]any{}, total, nil
-	}
-	end := start + per
-	if end > len(filtered) {
-		end = len(filtered)
-	}
-	out := make([]map[string]any, 0, end-start)
-	for _, rec := range filtered[start:end] {
+	paged, total := applyListOptionsToRecordMaps(cloneSlice(r.data), opts, listRecordOptions{})
+	out := make([]map[string]any, 0, len(paged))
+	for _, rec := range paged {
 		out = append(out, cloneMap(rec))
 	}
 	return out, total, nil
@@ -117,34 +84,6 @@ func (r *MemoryRepository) Delete(_ context.Context, id string) error {
 	return ErrNotFound
 }
 
-func (r *MemoryRepository) applyFilters(filters map[string]any) []map[string]any {
-	if len(filters) == 0 {
-		return cloneSlice(r.data)
-	}
-	out := []map[string]any{}
-	for _, rec := range r.data {
-		match := true
-		if needle, ok := filters["_search"]; ok && toString(needle) != "" {
-			if !contains(rec, toString(needle)) {
-				continue
-			}
-		}
-		for k, v := range filters {
-			if k == "_search" {
-				continue
-			}
-			if val, ok := rec[k]; !ok || !strings.EqualFold(toString(val), toString(v)) {
-				match = false
-				break
-			}
-		}
-		if match {
-			out = append(out, cloneMap(rec))
-		}
-	}
-	return out
-}
-
 func cloneMap(in map[string]any) map[string]any {
 	out := make(map[string]any, len(in))
 	for k, v := range in {
@@ -167,21 +106,31 @@ func toString(v any) string {
 		return t
 	case int:
 		return strconv.Itoa(t)
+	case int8:
+		return strconv.FormatInt(int64(t), 10)
+	case int16:
+		return strconv.FormatInt(int64(t), 10)
+	case int32:
+		return strconv.FormatInt(int64(t), 10)
 	case int64:
 		return strconv.FormatInt(t, 10)
+	case uint:
+		return strconv.FormatUint(uint64(t), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(t), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(t), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(t), 10)
+	case uint64:
+		return strconv.FormatUint(t, 10)
+	case float32:
+		return strconv.FormatFloat(float64(t), 'f', -1, 32)
 	case float64:
 		return strconv.FormatFloat(t, 'f', -1, 64)
+	case bool:
+		return strconv.FormatBool(t)
 	default:
 		return ""
 	}
-}
-
-func contains(rec map[string]any, needle string) bool {
-	ln := strings.ToLower(needle)
-	for _, v := range rec {
-		if strings.Contains(strings.ToLower(toString(v)), ln) {
-			return true
-		}
-	}
-	return false
 }
