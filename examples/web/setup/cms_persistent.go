@@ -88,15 +88,14 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	if err := LoadSeedGroup(ctx, client, seedCfg, SeedGroupCMS); err != nil {
 		return admin.CMSOptions{}, fmt.Errorf("load cms seeds: %w", err)
 	}
-	seedRefs := cmsSeedRefs{
-		PageContentTypeID: pageContentTypeID,
-		PostContentTypeID: postContentTypeID,
-		TemplateID:        seedTemplateID,
+	seedRefs, err := seedCMSPrereqs(ctx, client.DB(), defaultLocale)
+	if err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("seed cms prereqs: %w", err)
 	}
 
 	cmsCfg := cms.DefaultConfig()
 	cmsCfg.DefaultLocale = defaultLocale
-	cmsCfg.I18N.Locales = []string{defaultLocale}
+	cmsCfg.I18N.Locales = translationSeedLocales(defaultLocale)
 	cmsCfg.I18N.Enabled = true
 	cmsCfg.I18N.RequireTranslations = false
 	cmsCfg.Activity.Enabled = true
@@ -113,7 +112,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	cmsCfg.Features.Markdown = true
 	cmsCfg.Markdown.Enabled = true
 	cmsCfg.Markdown.DefaultLocale = defaultLocale
-	cmsCfg.Markdown.Locales = []string{defaultLocale}
+	cmsCfg.Markdown.Locales = translationSeedLocales(defaultLocale)
 	contentDir, err := os.MkdirTemp("", "cms-content-*")
 	if err != nil {
 		return admin.CMSOptions{}, err
@@ -191,17 +190,22 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		return admin.CMSOptions{}, fmt.Errorf("go-cms content service unavailable")
 	}
 
-	if seedCfg.Enabled {
-		if err := seedCMSBlockDefinitions(ctx, contentSvc, defaultLocale); err != nil {
-			return admin.CMSOptions{}, fmt.Errorf("seed cms block definitions: %w", err)
-		}
-	}
-
 	widgetSvc := admin.CMSWidgetService(nil)
 	menuSvc := admin.CMSMenuService(nil)
 	if adapter != nil {
 		widgetSvc = adapter.WidgetService()
 		menuSvc = adapter.MenuService()
+	}
+
+	if seedCfg.Enabled {
+		if err := seedCMSBlockDefinitions(ctx, contentSvc, defaultLocale); err != nil {
+			return admin.CMSOptions{}, fmt.Errorf("seed cms block definitions: %w", err)
+		}
+		if menuSvc != nil {
+			if err := seedCMSDemoContent(ctx, client.DB(), nil, contentSvc, menuSvc, seedRefs, defaultLocale); err != nil {
+				return admin.CMSOptions{}, fmt.Errorf("seed cms demo content: %w", err)
+			}
+		}
 	}
 
 	contentTypeSvc := admin.CMSContentTypeService(nil)

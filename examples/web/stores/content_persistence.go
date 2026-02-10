@@ -130,6 +130,32 @@ SELECT
     pt.locale_id           AS locale_id,
     pt.translation_group_id AS translation_group_id,
     COALESCE(
+        (
+            SELECT l2.code
+            FROM page_translations AS pt2
+                     JOIN locales AS l2 ON l2.id = pt2.locale_id
+            WHERE pt.translation_group_id IS NOT NULL
+              AND pt2.translation_group_id = pt.translation_group_id
+            ORDER BY CASE WHEN LOWER(l2.code) = 'en' THEN 0 ELSE 1 END, LOWER(l2.code)
+            LIMIT 1
+        ),
+        COALESCE(l.code, '')
+    ) AS primary_locale,
+    COALESCE(
+        (
+            SELECT group_concat(code, ',')
+            FROM (
+                SELECT DISTINCT l2.code AS code
+                FROM page_translations AS pt2
+                         JOIN locales AS l2 ON l2.id = pt2.locale_id
+                WHERE pt.translation_group_id IS NOT NULL
+                  AND pt2.translation_group_id = pt.translation_group_id
+                ORDER BY LOWER(l2.code)
+            )
+        ),
+        COALESCE(l.code, '')
+    ) AS available_locales,
+    COALESCE(
         pt.seo_title,
         json_extract(ct.content, '$.markdown.frontmatter.seo.title'),
         json_extract(ct.content, '$.markdown.custom.seo.title'),
@@ -193,6 +219,32 @@ SELECT
     ct.title                                            AS title,
     l.code                                              AS locale,
     ct.translation_group_id                             AS translation_group_id,
+    COALESCE(
+        (
+            SELECT l2.code
+            FROM content_translations AS ct2
+                     JOIN locales AS l2 ON l2.id = ct2.locale_id
+            WHERE ct.translation_group_id IS NOT NULL
+              AND ct2.translation_group_id = ct.translation_group_id
+            ORDER BY CASE WHEN LOWER(l2.code) = 'en' THEN 0 ELSE 1 END, LOWER(l2.code)
+            LIMIT 1
+        ),
+        COALESCE(l.code, '')
+    ) AS primary_locale,
+    COALESCE(
+        (
+            SELECT group_concat(code, ',')
+            FROM (
+                SELECT DISTINCT l2.code AS code
+                FROM content_translations AS ct2
+                         JOIN locales AS l2 ON l2.id = ct2.locale_id
+                WHERE ct.translation_group_id IS NOT NULL
+                  AND ct2.translation_group_id = ct.translation_group_id
+                ORDER BY LOWER(l2.code)
+            )
+        ),
+        COALESCE(l.code, '')
+    ) AS available_locales,
     ct.summary                                          AS excerpt,
     COALESCE(
         json_extract(ct.content, '$.markdown.body'),
