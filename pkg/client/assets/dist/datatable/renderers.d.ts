@@ -54,5 +54,17 @@ export declare const CommonRenderers: {
      * Relative time renderer (e.g., "2 hours ago")
      */
     relativeTime: (value: any) => string;
+    /**
+     * Locale badge renderer - shows current locale with fallback indicator
+     */
+    localeBadge: (value: unknown, record: Record<string, unknown>, column: string) => string;
+    /**
+     * Translation status renderer - shows locale + available locales
+     */
+    translationStatus: (value: unknown, record: Record<string, unknown>, column: string) => string;
+    /**
+     * Compact translation status for smaller cells
+     */
+    translationStatusCompact: (value: unknown, record: Record<string, unknown>, column: string) => string;
 };
 //# sourceMappingURL=renderers.d.ts.map

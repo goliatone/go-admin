@@ -677,7 +677,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Initialize the new TypeScript DataGrid component with custom actions
   const grid = document.getElementById('users-datatable') ? new DataGrid({
     tableId: 'users-datatable',
-    apiEndpoint: `${basePath}/crud/users`,
+    apiEndpoint: `${apiRoot}/users`,
     actionBasePath: actionBasePath,
     columns: gridColumns,
     perPage: 10,
@@ -828,13 +828,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         disabled: 'red',
         archived: 'purple'
       }),
-      'role': CommonRenderers.roleBadge({
-        admin: 'red',
-        editor: 'blue',
-        member: 'purple',
-        viewer: 'gray',
-        guest: 'yellow'
-      }),
+      'role': (value, record) => {
+        const display = record?.role_display || value;
+        return CommonRenderers.roleBadge()(display, record, 'role');
+      },
       'is_email_verified': CommonRenderers.booleanChip()
     },
 

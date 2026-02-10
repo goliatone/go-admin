@@ -4,6 +4,12 @@
  */
 
 import { badge, booleanChip as sharedBooleanChip } from '../shared/badge.js';
+import {
+  renderLocaleBadge,
+  renderTranslationStatusCell,
+  createTranslationStatusRenderer,
+  createLocaleBadgeRenderer
+} from './translation-context.js';
 
 export type CellRenderer = (value: any, record: any, column: string) => string;
 
@@ -256,4 +262,19 @@ export const CommonRenderers = {
       return String(value);
     }
   },
+
+  /**
+   * Locale badge renderer - shows current locale with fallback indicator
+   */
+  localeBadge: createLocaleBadgeRenderer(),
+
+  /**
+   * Translation status renderer - shows locale + available locales
+   */
+  translationStatus: createTranslationStatusRenderer(),
+
+  /**
+   * Compact translation status for smaller cells
+   */
+  translationStatusCompact: createTranslationStatusRenderer({ size: 'sm', maxLocales: 2 }),
 };

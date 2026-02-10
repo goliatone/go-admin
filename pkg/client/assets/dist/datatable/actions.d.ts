@@ -83,6 +83,7 @@ export declare class ActionRenderer {
     private stringifyPromptDefault;
     private coercePromptValue;
     private isEmptyPayloadValue;
+    private buildBulkSuccessMessage;
     private getVariantClass;
     private renderIcon;
     private sanitize;

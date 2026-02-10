@@ -542,6 +542,7 @@ export class ActionRenderer {
       }
 
       const data = await response.json();
+      this.notifier.success(this.buildBulkSuccessMessage(config, data, selectedIds.length));
 
       if (config.onSuccess) {
         config.onSuccess(data);
@@ -820,6 +821,23 @@ export class ActionRenderer {
       return Object.keys(value as Record<string, unknown>).length === 0;
     }
     return false;
+  }
+
+  private buildBulkSuccessMessage(
+    config: BulkActionConfig,
+    data: any,
+    fallbackCount: number
+  ): string {
+    const actionLabel = config.label || config.id || 'Bulk action';
+    const summary = data && typeof data === 'object' ? data.summary : null;
+    const succeeded = summary && typeof summary.succeeded === 'number'
+      ? summary.succeeded
+      : (typeof data?.processed === 'number' ? data.processed : fallbackCount);
+    const failed = summary && typeof summary.failed === 'number' ? summary.failed : 0;
+    if (failed > 0) {
+      return `${actionLabel} completed: ${succeeded} succeeded, ${failed} failed.`;
+    }
+    return `${actionLabel} completed for ${succeeded} item${succeeded === 1 ? '' : 's'}.`;
   }
 
   private getVariantClass(variant: ActionVariant): string {
