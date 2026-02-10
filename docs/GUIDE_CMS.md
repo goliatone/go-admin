@@ -30,6 +30,7 @@ This guide explains how to use and extend the CMS module in `go-admin`. It cover
 15. [Admin Read Model (Pages)](#15-admin-read-model-pages)
 16. [See Also](#16-see-also)
 17. [Translation Workflow Operations](#17-translation-workflow-operations)
+18. [Translation Queue Operations](#18-translation-queue-operations)
 
 ---
 
@@ -656,3 +657,107 @@ Use this checklist before enabling translation workflow enforcement in productio
 - [ ] Ops sign-off complete.
 - [ ] Milestone completion criteria for translation workflow are met.
 - [ ] Rollback owner and rollback window are confirmed.
+
+## 18. Translation Queue Operations
+
+Queue management is a phase-2 extension for coordinating translation work across
+teams. Queue entries are coordination records and do not replace locale variant
+content records.
+
+### 18.1 State machine and lifecycle
+
+Statuses:
+- `pending`
+- `assigned`
+- `in_progress`
+- `review`
+- `rejected`
+- `approved`
+- `published`
+- `archived`
+
+Normative transitions:
+1. `pending -> assigned`
+2. `pending (open_pool) -> in_progress` (claim)
+3. `assigned -> in_progress`
+4. `in_progress -> review`
+5. `review -> approved`
+6. `review -> rejected`
+7. `rejected -> in_progress`
+8. `approved -> published`
+9. Any non-terminal state -> `archived`
+
+Terminal statuses: `published`, `archived`.
+
+### 18.2 Command names and routing
+
+Single commands:
+- `translation.queue.claim`
+- `translation.queue.assign`
+- `translation.queue.release`
+- `translation.queue.submit_review`
+- `translation.queue.approve`
+- `translation.queue.reject`
+- `translation.queue.archive`
+
+Bulk commands:
+- `translation.queue.bulk_assign`
+- `translation.queue.bulk_release`
+- `translation.queue.bulk_priority`
+- `translation.queue.bulk_archive`
+
+Route key usage:
+- resolver group: `admin`
+- queue route key: `translations.queue`
+- semantic queue links use resolver queries (`assignee_id`, `status`,
+  `assignment_type`, `overdue`) instead of hardcoded `/admin/...` URLs.
+
+### 18.3 Permission matrix
+
+Queue permissions are scoped to `admin.translations.*`:
+- `admin.translations.view`
+- `admin.translations.edit`
+- `admin.translations.manage`
+- `admin.translations.assign`
+- `admin.translations.approve`
+- `admin.translations.claim`
+
+Action mapping:
+- claim: `admin.translations.claim`
+- assign/release: `admin.translations.assign`
+- submit_review: `admin.translations.edit`
+- approve/reject: `admin.translations.approve`
+- archive + bulk lifecycle operations: `admin.translations.manage`
+
+### 18.4 Quickstart opt-in behavior
+
+Queue feature gate key: `translations.queue` (default disabled).
+
+Enable via:
+- `quickstart.WithTranslationQueueConfig(...)`
+
+Quickstart wiring responsibilities:
+1. Register queue panel + tabs (`pages`, `posts`) with queue context filters.
+2. Register queue command handlers and message factories.
+3. Register queue permissions when host permission registration callback is provided.
+
+Locale alignment contract:
+1. If `supported_locales` is unset, locales derive from translation policy requirements.
+2. If `supported_locales` is explicit and policy locales are available, sets must match; mismatches fail startup.
+
+### 18.5 Operational playbook
+
+Conflict handling:
+- `TRANSLATION_QUEUE_CONFLICT`:
+  - Active uniqueness conflict on key:
+    `translation_group_id + entity_type + source_locale + target_locale`.
+  - Reuse active assignment or archive obsolete non-terminal assignment before replacement.
+- `TRANSLATION_QUEUE_VERSION_CONFLICT`:
+  - Optimistic lock mismatch on stale `expected_version`.
+  - Refetch assignment, reconcile state, retry with current version.
+
+Overdue handling:
+1. Filter queue using `overdue=true`.
+2. Reprioritize or reassign stale work by status (`assigned`, `in_progress`, `review`).
+3. Archive obsolete non-terminal assignments tied to canceled or superseded content work.
+4. Monitor queue dashboard summary metrics (`active`, `review`, `overdue`) during daily triage.
