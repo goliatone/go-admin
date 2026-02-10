@@ -1,0 +1,1034 @@
+{% extends "layout.html" %}
+
+{% block title %}Import from Google Drive - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <div>
+    <p class="text-sm text-gray-500 mb-1">E-Sign Documents</p>
+    <h1 class="text-3xl font-bold text-admin-dark">Import from Google Drive</h1>
+  </div>
+  <div class="flex gap-3">
+    {% if routes.esign_documents %}
+      <a href="{{ routes.esign_documents }}" class="btn btn-secondary" aria-label="Return to documents list">
+        <i class="iconoir-arrow-left" aria-hidden="true"></i>
+        Back to Documents
+      </a>
+    {% endif %}
+  </div>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  {# Live region for announcements #}
+  <div id="drive-announcements" class="sr-only" role="alert" aria-live="polite"></div>
+
+  <div class="max-w-5xl">
+
+    {# Connection Check #}
+    {% if not google_connected %}
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-6" role="alert">
+        <div class="flex items-start gap-4">
+          <div class="flex-shrink-0">
+            <svg class="w-6 h-6 text-amber-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-amber-800">Google Drive Not Connected</h2>
+            <p class="mt-1 text-sm text-amber-700">
+              You need to connect your Google account before importing documents.
+            </p>
+            <a href="{{ base_path }}/esign/integrations/google" class="mt-3 inline-block text-sm font-medium text-amber-800 hover:text-amber-900 underline">
+              Connect Google Account
+            </a>
+          </div>
+        </div>
+      </div>
+    {% else %}
+
+    <div class="flex gap-6">
+      {# Left Panel: Search & Browse #}
+      <div class="flex-1">
+        {# Search Bar #}
+        <div class="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+          <div class="relative">
+            <input
+              type="text"
+              id="drive-search"
+              placeholder="Search files in Google Drive..."
+              aria-label="Search Google Drive files"
+              aria-describedby="search-help"
+              class="w-full px-4 py-3 pl-11 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+            <div class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none" aria-hidden="true">
+              <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+            </div>
+            <button
+              type="button"
+              id="clear-search-btn"
+              class="hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
+            >
+              <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <p id="search-help" class="mt-2 text-xs text-gray-500">
+            Search by file name. Results include Google Docs that can be exported as PDF.
+          </p>
+        </div>
+
+        {# Breadcrumb Navigation #}
+        <nav id="breadcrumb" class="mb-4 hidden" aria-label="Folder navigation">
+          <ol class="flex items-center gap-2 text-sm flex-wrap" role="list">
+            <li>
+              <button type="button" data-folder-id="root" class="breadcrumb-item text-blue-600 hover:text-blue-800 hover:underline">
+                My Drive
+              </button>
+            </li>
+            {# Additional crumbs added by JavaScript #}
+          </ol>
+        </nav>
+
+        {# File List #}
+        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="font-medium text-gray-900 text-sm">
+              <span id="list-title">My Drive</span>
+              <span id="result-count" class="text-gray-500 font-normal ml-2"></span>
+            </h2>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                id="view-list-btn"
+                class="p-1.5 rounded hover:bg-gray-100"
+                aria-label="List view"
+                aria-pressed="true"
+              >
+                <svg class="w-4 h-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                id="view-grid-btn"
+                class="p-1.5 rounded hover:bg-gray-100"
+                aria-label="Grid view"
+                aria-pressed="false"
+              >
+                <svg class="w-4 h-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                id="refresh-btn"
+                class="p-1.5 rounded hover:bg-gray-100 ml-2"
+                aria-label="Refresh file list"
+              >
+                <svg class="w-4 h-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {# File List Content #}
+          <div id="file-list" class="divide-y divide-gray-100" role="listbox" aria-label="Google Drive files">
+            {# Loading State #}
+            <div id="loading-state" class="p-8 text-center">
+              <svg class="animate-spin h-8 w-8 mx-auto text-gray-400 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-sm text-gray-500">Loading files...</p>
+            </div>
+          </div>
+
+          {# Pagination #}
+          <div id="pagination" class="hidden px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <button
+              type="button"
+              id="load-more-btn"
+              class="text-sm text-blue-600 hover:text-blue-800"
+            >
+              Load more files
+            </button>
+            <span id="page-info" class="text-xs text-gray-500"></span>
+          </div>
+        </div>
+      </div>
+
+      {# Right Panel: Selection Preview #}
+      <div class="w-80 flex-shrink-0">
+        <div id="selection-panel" class="bg-white border border-gray-200 rounded-xl sticky top-4">
+          {# Empty State #}
+          <div id="no-selection" class="p-6 text-center">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <svg class="w-8 h-8 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+              </svg>
+            </div>
+            <h3 class="text-sm font-medium text-gray-900 mb-1">Select a Document</h3>
+            <p class="text-xs text-gray-500">Click on a Google Doc to preview and import</p>
+          </div>
+
+          {# Selected File Preview #}
+          <div id="file-preview" class="hidden">
+            <div class="p-4 border-b border-gray-100">
+              <div class="flex items-center gap-3">
+                <div id="preview-icon" class="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0">
+                  {# Icon set by JavaScript #}
+                </div>
+                <div class="min-w-0">
+                  <h3 id="preview-title" class="font-medium text-gray-900 truncate">Document Title</h3>
+                  <p id="preview-type" class="text-xs text-gray-500">Google Document</p>
+                </div>
+              </div>
+            </div>
+
+            {# Metadata #}
+            <div class="p-4 space-y-3">
+              <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Document Details</h4>
+
+              <div class="space-y-2 text-sm">
+                <div class="flex items-start gap-2">
+                  <svg class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  <div>
+                    <p class="text-gray-700 font-medium">File ID</p>
+                    <p id="preview-file-id" class="text-gray-500 text-xs font-mono break-all">-</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-2">
+                  <svg class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                  </svg>
+                  <div>
+                    <p class="text-gray-700 font-medium">Owner</p>
+                    <p id="preview-owner" class="text-gray-500 text-xs">-</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-2">
+                  <svg class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                  </svg>
+                  <div>
+                    <p class="text-gray-700 font-medium">Location</p>
+                    <p id="preview-location" class="text-gray-500 text-xs">-</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-2">
+                  <svg class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <div>
+                    <p class="text-gray-700 font-medium">Last Modified</p>
+                    <p id="preview-modified" class="text-gray-500 text-xs">-</p>
+                  </div>
+                </div>
+              </div>
+
+              {# Version Confirmation #}
+              <div class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg" role="alert">
+                <div class="flex items-start gap-2">
+                  <svg class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <p class="text-xs text-blue-700">
+                    <strong>Snapshot Warning:</strong> A PDF snapshot will be created from the current version.
+                    Changes made after import will not be reflected.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {# Actions #}
+            <div class="p-4 border-t border-gray-100 space-y-3">
+              <button
+                type="button"
+                id="import-btn"
+                class="w-full btn btn-primary flex items-center justify-center gap-2"
+              >
+                <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                Import Document
+              </button>
+
+              <a
+                id="open-in-google-btn"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="w-full btn btn-secondary flex items-center justify-center gap-2 text-sm"
+              >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Open in Google Docs
+              </a>
+
+              <button
+                type="button"
+                id="clear-selection-btn"
+                class="w-full text-sm text-gray-500 hover:text-gray-700"
+              >
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% endif %}{# end google_connected check #}
+  </div>
+</div>
+
+{# Import Confirmation Modal #}
+<div id="import-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full">
+      <div class="p-6 border-b border-gray-100">
+        <h3 id="import-modal-title" class="text-lg font-semibold text-gray-900">Import Document</h3>
+        <p class="mt-1 text-sm text-gray-500">Configure the import settings before proceeding.</p>
+      </div>
+
+      <form id="import-form" class="p-6 space-y-4">
+        <input type="hidden" id="import-google-file-id" name="google_file_id" value="">
+
+        <div>
+          <label for="import-document-title" class="block text-sm font-medium text-gray-700 mb-1">
+            Document Title <span class="text-red-500" aria-hidden="true">*</span>
+          </label>
+          <input
+            type="text"
+            id="import-document-title"
+            name="document_title"
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+          <p class="mt-1 text-xs text-gray-500">The title for the imported PDF document.</p>
+        </div>
+
+        <div>
+          <label for="import-agreement-title" class="block text-sm font-medium text-gray-700 mb-1">
+            Agreement Title
+          </label>
+          <input
+            type="text"
+            id="import-agreement-title"
+            name="agreement_title"
+            placeholder="Leave blank to create document only"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+          <p class="mt-1 text-xs text-gray-500">Optionally create a draft agreement with this document.</p>
+        </div>
+
+        <div class="p-3 bg-amber-50 border border-amber-100 rounded-lg">
+          <div class="flex items-start gap-2">
+            <svg class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <div class="text-xs text-amber-700">
+              <p class="font-medium">This creates an immutable snapshot</p>
+              <p class="mt-0.5">The PDF will be exported from Google Docs at this moment. Future changes to the Google Doc will not be reflected.</p>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+        <button
+          type="button"
+          id="import-cancel-btn"
+          class="btn btn-secondary"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          id="import-confirm-btn"
+          class="btn btn-primary"
+        >
+          <svg id="import-spinner" class="hidden animate-spin w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span id="import-btn-text">Import</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const basePath = '{{ base_path }}';
+  const apiBase = '{{ api_base_path|default:basePath + "/api" }}';
+  const userId = '{{ user_id|default:"" }}';
+
+  // Elements
+  const searchInput = document.getElementById('drive-search');
+  const clearSearchBtn = document.getElementById('clear-search-btn');
+  const fileList = document.getElementById('file-list');
+  const loadingState = document.getElementById('loading-state');
+  const breadcrumb = document.getElementById('breadcrumb');
+  const listTitle = document.getElementById('list-title');
+  const resultCount = document.getElementById('result-count');
+  const pagination = document.getElementById('pagination');
+  const loadMoreBtn = document.getElementById('load-more-btn');
+  const refreshBtn = document.getElementById('refresh-btn');
+  const announcements = document.getElementById('drive-announcements');
+
+  // Selection panel elements
+  const noSelection = document.getElementById('no-selection');
+  const filePreview = document.getElementById('file-preview');
+  const previewIcon = document.getElementById('preview-icon');
+  const previewTitle = document.getElementById('preview-title');
+  const previewType = document.getElementById('preview-type');
+  const previewFileId = document.getElementById('preview-file-id');
+  const previewOwner = document.getElementById('preview-owner');
+  const previewLocation = document.getElementById('preview-location');
+  const previewModified = document.getElementById('preview-modified');
+  const importBtn = document.getElementById('import-btn');
+  const openInGoogleBtn = document.getElementById('open-in-google-btn');
+  const clearSelectionBtn = document.getElementById('clear-selection-btn');
+
+  // Import modal elements
+  const importModal = document.getElementById('import-modal');
+  const importForm = document.getElementById('import-form');
+  const importGoogleFileId = document.getElementById('import-google-file-id');
+  const importDocumentTitle = document.getElementById('import-document-title');
+  const importAgreementTitle = document.getElementById('import-agreement-title');
+  const importCancelBtn = document.getElementById('import-cancel-btn');
+  const importConfirmBtn = document.getElementById('import-confirm-btn');
+  const importSpinner = document.getElementById('import-spinner');
+  const importBtnText = document.getElementById('import-btn-text');
+
+  // State
+  let currentFiles = [];
+  let nextPageToken = null;
+  let currentFolderPath = [{ id: 'root', name: 'My Drive' }];
+  let selectedFile = null;
+  let searchQuery = '';
+  let searchTimeout = null;
+  let isListView = true;
+
+  function announce(message) {
+    if (announcements) {
+      announcements.textContent = message;
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function getFileIcon(file) {
+    const mimeType = file.mimeType || '';
+    const colors = {
+      doc: { bg: 'bg-blue-100', text: 'text-blue-600' },
+      sheet: { bg: 'bg-green-100', text: 'text-green-600' },
+      slide: { bg: 'bg-yellow-100', text: 'text-yellow-600' },
+      pdf: { bg: 'bg-red-100', text: 'text-red-600' },
+      folder: { bg: 'bg-gray-100', text: 'text-gray-600' },
+      default: { bg: 'bg-gray-100', text: 'text-gray-500' }
+    };
+
+    let type = 'default';
+    if (mimeType.includes('folder')) type = 'folder';
+    else if (mimeType.includes('document')) type = 'doc';
+    else if (mimeType.includes('spreadsheet')) type = 'sheet';
+    else if (mimeType.includes('presentation')) type = 'slide';
+    else if (mimeType.includes('pdf')) type = 'pdf';
+
+    const color = colors[type];
+
+    const icons = {
+      doc: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>',
+      sheet: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/><path d="M8 14h3v2H8zm5 0h3v2h-3zm-5-4h3v2H8zm5 0h3v2h-3z"/></svg>',
+      slide: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 12h5v5H7z"/></svg>',
+      pdf: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5z"/></svg>',
+      folder: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>',
+      default: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>'
+    };
+
+    return { html: icons[type], ...color };
+  }
+
+  function isImportable(file) {
+    const mimeType = file.mimeType || '';
+    return mimeType.includes('document') ||
+           mimeType.includes('spreadsheet') ||
+           mimeType.includes('presentation') ||
+           mimeType.includes('pdf');
+  }
+
+  function isFolder(file) {
+    return (file.mimeType || '').includes('folder');
+  }
+
+  function getFileTypeName(mimeType) {
+    if (mimeType.includes('document')) return 'Google Document';
+    if (mimeType.includes('spreadsheet')) return 'Google Spreadsheet';
+    if (mimeType.includes('presentation')) return 'Google Slides';
+    if (mimeType.includes('pdf')) return 'PDF Document';
+    if (mimeType.includes('folder')) return 'Folder';
+    return 'File';
+  }
+
+  // Google-specific error handling
+  function getGoogleErrorInfo(errorCode, httpStatus) {
+    const errorMessages = {
+      'GOOGLE_ACCESS_REVOKED': {
+        title: 'Access Revoked',
+        message: 'Your Google account connection has been revoked. Please reconnect to continue.',
+        actionText: 'Reconnect Google Account',
+        actionUrl: `${basePath}/esign/integrations/google`,
+        icon: 'unlink',
+        color: 'red'
+      },
+      'GOOGLE_RATE_LIMITED': {
+        title: 'Rate Limit Exceeded',
+        message: 'Too many requests to Google Drive. Please wait a moment before trying again.',
+        actionText: 'Try Again',
+        actionUrl: null,
+        icon: 'clock',
+        color: 'amber',
+        retryable: true
+      },
+      'GOOGLE_PERMISSION_DENIED': {
+        title: 'Permission Denied',
+        message: 'You do not have permission to access this file or folder. Check that the file is shared with your connected Google account.',
+        actionText: 'Check Permissions',
+        actionUrl: null,
+        icon: 'lock',
+        color: 'red'
+      },
+      'GOOGLE_SCOPE_VIOLATION': {
+        title: 'Insufficient Permissions',
+        message: 'The connected Google account does not have the required permissions. Please reconnect with the correct scopes.',
+        actionText: 'Reconnect Google Account',
+        actionUrl: `${basePath}/esign/integrations/google`,
+        icon: 'shield',
+        color: 'amber'
+      },
+      'GOOGLE_INTEGRATION_DISABLED': {
+        title: 'Feature Disabled',
+        message: 'Google Drive integration is not enabled for this installation. Contact your administrator.',
+        actionText: null,
+        actionUrl: null,
+        icon: 'ban',
+        color: 'gray'
+      }
+    };
+
+    if (errorMessages[errorCode]) {
+      return errorMessages[errorCode];
+    }
+
+    // Default error based on HTTP status
+    if (httpStatus === 401) {
+      return {
+        title: 'Authentication Required',
+        message: 'Your session has expired. Please reconnect your Google account.',
+        actionText: 'Reconnect',
+        actionUrl: `${basePath}/esign/integrations/google`,
+        icon: 'key',
+        color: 'amber'
+      };
+    }
+    if (httpStatus === 429) {
+      return {
+        title: 'Rate Limited',
+        message: 'Too many requests. Please wait a moment before trying again.',
+        actionText: 'Try Again',
+        actionUrl: null,
+        icon: 'clock',
+        color: 'amber',
+        retryable: true
+      };
+    }
+    if (httpStatus >= 500) {
+      return {
+        title: 'Service Unavailable',
+        message: 'Google Drive is temporarily unavailable. Please try again later.',
+        actionText: 'Try Again',
+        actionUrl: null,
+        icon: 'server',
+        color: 'red',
+        retryable: true
+      };
+    }
+
+    return {
+      title: 'Error',
+      message: 'An unexpected error occurred while accessing Google Drive.',
+      actionText: 'Try Again',
+      actionUrl: null,
+      icon: 'alert',
+      color: 'red',
+      retryable: true
+    };
+  }
+
+  function getErrorIcon(iconName) {
+    const icons = {
+      unlink: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>',
+      clock: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+      lock: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>',
+      shield: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>',
+      ban: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>',
+      key: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>',
+      server: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>',
+      alert: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>'
+    };
+    return icons[iconName] || icons.alert;
+  }
+
+  function getErrorColorClasses(color) {
+    const colors = {
+      red: { bg: 'bg-red-100', text: 'text-red-500', btnBg: 'bg-red-600 hover:bg-red-700', btnText: 'text-white' },
+      amber: { bg: 'bg-amber-100', text: 'text-amber-600', btnBg: 'bg-amber-600 hover:bg-amber-700', btnText: 'text-white' },
+      gray: { bg: 'bg-gray-100', text: 'text-gray-500', btnBg: 'bg-gray-600 hover:bg-gray-700', btnText: 'text-white' }
+    };
+    return colors[color] || colors.red;
+  }
+
+  function renderErrorState(errorInfo) {
+    const colors = getErrorColorClasses(errorInfo.color);
+    const iconSvg = getErrorIcon(errorInfo.icon);
+
+    let actionHtml = '';
+    if (errorInfo.actionText) {
+      if (errorInfo.actionUrl) {
+        actionHtml = `<a href="${errorInfo.actionUrl}" class="inline-block px-4 py-2 rounded-lg text-sm font-medium ${colors.btnBg} ${colors.btnText}">${escapeHtml(errorInfo.actionText)}</a>`;
+      } else if (errorInfo.retryable) {
+        actionHtml = `<button type="button" onclick="location.reload()" class="inline-block px-4 py-2 rounded-lg text-sm font-medium ${colors.btnBg} ${colors.btnText}">${escapeHtml(errorInfo.actionText)}</button>`;
+      }
+    }
+
+    return `
+      <div class="p-8 text-center">
+        <div class="w-14 h-14 mx-auto mb-4 rounded-full ${colors.bg} flex items-center justify-center">
+          <svg class="w-7 h-7 ${colors.text}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            ${iconSvg}
+          </svg>
+        </div>
+        <h3 class="text-base font-semibold text-gray-900 mb-2">${escapeHtml(errorInfo.title)}</h3>
+        <p class="text-sm text-gray-500 mb-4 max-w-md mx-auto">${escapeHtml(errorInfo.message)}</p>
+        ${actionHtml}
+      </div>
+    `;
+  }
+
+  async function loadFiles(options = {}) {
+    const { folderId, query, pageToken, append } = options;
+
+    if (!append) {
+      fileList.innerHTML = loadingState.outerHTML;
+    }
+
+    try {
+      let url;
+      if (query) {
+        url = `${apiBase}/esign/google-drive/search?user_id=${encodeURIComponent(userId)}&q=${encodeURIComponent(query)}&page_size=20`;
+        if (pageToken) url += `&page_token=${encodeURIComponent(pageToken)}`;
+      } else {
+        url = `${apiBase}/esign/google-drive/browse?user_id=${encodeURIComponent(userId)}&page_size=20`;
+        if (folderId && folderId !== 'root') url += `&folder_id=${encodeURIComponent(folderId)}`;
+        if (pageToken) url += `&page_token=${encodeURIComponent(pageToken)}`;
+      }
+
+      const response = await fetch(url, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorCode = data.error?.code || '';
+        const errorInfo = getGoogleErrorInfo(errorCode, response.status);
+        throw { message: errorInfo.message, code: errorCode, info: errorInfo };
+      }
+
+      const files = data.files || [];
+      nextPageToken = data.next_page_token || null;
+
+      if (append) {
+        currentFiles = [...currentFiles, ...files];
+      } else {
+        currentFiles = files;
+      }
+
+      renderFiles(currentFiles, append);
+
+      // Update result count
+      if (query) {
+        resultCount.textContent = `(${currentFiles.length} result${currentFiles.length !== 1 ? 's' : ''})`;
+        listTitle.textContent = 'Search Results';
+      } else {
+        resultCount.textContent = '';
+        listTitle.textContent = currentFolderPath[currentFolderPath.length - 1].name;
+      }
+
+      // Show/hide pagination
+      if (nextPageToken) {
+        pagination.classList.remove('hidden');
+      } else {
+        pagination.classList.add('hidden');
+      }
+
+      announce(`Loaded ${files.length} files`);
+    } catch (error) {
+      console.error('Error loading files:', error);
+
+      // Use specific error info if available, otherwise create a generic one
+      const errorInfo = error.info || getGoogleErrorInfo(error.code || '', 0);
+      fileList.innerHTML = renderErrorState(errorInfo);
+
+      // Show toast for specific error types
+      if (window.toastManager && error.code) {
+        window.toastManager.error(`${errorInfo.title}: ${errorInfo.message}`);
+      }
+
+      announce(`Error: ${errorInfo.title}`);
+    }
+  }
+
+  function renderFiles(files, append = false) {
+    if (files.length === 0) {
+      fileList.innerHTML = `
+        <div class="p-8 text-center">
+          <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+            <svg class="w-6 h-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <p class="text-sm text-gray-500">No files found</p>
+        </div>
+      `;
+      return;
+    }
+
+    const html = files.map((file, index) => {
+      const icon = getFileIcon(file);
+      const importable = isImportable(file);
+      const folder = isFolder(file);
+      const selected = selectedFile && selectedFile.id === file.id;
+
+      return `
+        <button
+          type="button"
+          class="file-item w-full p-3 flex items-center gap-3 hover:bg-gray-50 text-left transition-colors ${selected ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''} ${!importable && !folder ? 'opacity-50 cursor-not-allowed' : ''}"
+          role="option"
+          aria-selected="${selected}"
+          data-file-index="${index}"
+          ${!importable && !folder ? 'disabled' : ''}
+        >
+          <div class="w-10 h-10 rounded-lg ${icon.bg} flex items-center justify-center flex-shrink-0 ${icon.text}">
+            ${icon.html}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-gray-900 truncate">${escapeHtml(file.name || 'Untitled')}</p>
+            <p class="text-xs text-gray-500">
+              ${getFileTypeName(file.mimeType)}
+              ${file.modifiedTime ? ' • ' + formatDate(file.modifiedTime) : ''}
+            </p>
+          </div>
+          ${folder ? `
+            <svg class="w-5 h-5 text-gray-400 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          ` : ''}
+        </button>
+      `;
+    }).join('');
+
+    if (append) {
+      fileList.insertAdjacentHTML('beforeend', html);
+    } else {
+      fileList.innerHTML = html;
+    }
+
+    // Attach click handlers
+    fileList.querySelectorAll('.file-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const index = parseInt(item.dataset.fileIndex, 10);
+        const file = currentFiles[index];
+        if (isFolder(file)) {
+          navigateToFolder(file);
+        } else if (isImportable(file)) {
+          selectFile(file);
+        }
+      });
+    });
+  }
+
+  function navigateToFolder(folder) {
+    currentFolderPath.push({ id: folder.id, name: folder.name });
+    updateBreadcrumb();
+    searchQuery = '';
+    searchInput.value = '';
+    clearSearchBtn.classList.add('hidden');
+    loadFiles({ folderId: folder.id });
+  }
+
+  function updateBreadcrumb() {
+    if (currentFolderPath.length <= 1) {
+      breadcrumb.classList.add('hidden');
+      return;
+    }
+
+    breadcrumb.classList.remove('hidden');
+    const ol = breadcrumb.querySelector('ol');
+    ol.innerHTML = currentFolderPath.map((folder, index) => {
+      const isLast = index === currentFolderPath.length - 1;
+      return `
+        <li class="flex items-center">
+          ${index > 0 ? '<svg class="w-4 h-4 text-gray-400 mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>' : ''}
+          <button type="button" data-folder-index="${index}" class="breadcrumb-item ${isLast ? 'text-gray-900 font-medium cursor-default' : 'text-blue-600 hover:text-blue-800 hover:underline'}">
+            ${escapeHtml(folder.name)}
+          </button>
+        </li>
+      `;
+    }).join('');
+
+    ol.querySelectorAll('.breadcrumb-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const index = parseInt(item.dataset.folderIndex, 10);
+        currentFolderPath = currentFolderPath.slice(0, index + 1);
+        updateBreadcrumb();
+        const folder = currentFolderPath[currentFolderPath.length - 1];
+        loadFiles({ folderId: folder.id });
+      });
+    });
+  }
+
+  function selectFile(file) {
+    selectedFile = file;
+    const icon = getFileIcon(file);
+
+    // Update selection visual
+    fileList.querySelectorAll('.file-item').forEach(item => {
+      const index = parseInt(item.dataset.fileIndex, 10);
+      if (currentFiles[index].id === file.id) {
+        item.classList.add('bg-blue-50', 'border-l-2', 'border-l-blue-500');
+        item.setAttribute('aria-selected', 'true');
+      } else {
+        item.classList.remove('bg-blue-50', 'border-l-2', 'border-l-blue-500');
+        item.setAttribute('aria-selected', 'false');
+      }
+    });
+
+    // Show preview
+    noSelection.classList.add('hidden');
+    filePreview.classList.remove('hidden');
+
+    previewIcon.className = `w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${icon.bg} ${icon.text}`;
+    previewIcon.innerHTML = icon.html.replace('w-5 h-5', 'w-6 h-6');
+    previewTitle.textContent = file.name || 'Untitled';
+    previewType.textContent = getFileTypeName(file.mimeType);
+    previewFileId.textContent = file.id;
+    previewOwner.textContent = file.owners?.[0]?.displayName || file.owners?.[0]?.emailAddress || 'Unknown';
+    previewLocation.textContent = file.parents ? 'Google Drive' : 'My Drive';
+    previewModified.textContent = formatDate(file.modifiedTime);
+
+    openInGoogleBtn.href = file.webViewLink || `https://docs.google.com/document/d/${file.id}`;
+
+    announce(`Selected: ${file.name}`);
+  }
+
+  function clearSelection() {
+    selectedFile = null;
+    noSelection.classList.remove('hidden');
+    filePreview.classList.add('hidden');
+
+    fileList.querySelectorAll('.file-item').forEach(item => {
+      item.classList.remove('bg-blue-50', 'border-l-2', 'border-l-blue-500');
+      item.setAttribute('aria-selected', 'false');
+    });
+  }
+
+  function showImportModal() {
+    if (!selectedFile) return;
+
+    importGoogleFileId.value = selectedFile.id;
+    importDocumentTitle.value = selectedFile.name || '';
+    importAgreementTitle.value = '';
+
+    importModal.classList.remove('hidden');
+    importDocumentTitle.focus();
+  }
+
+  function hideImportModal() {
+    importModal.classList.add('hidden');
+  }
+
+  async function doImport() {
+    if (!selectedFile) return;
+
+    importConfirmBtn.disabled = true;
+    importSpinner.classList.remove('hidden');
+    importBtnText.textContent = 'Importing...';
+
+    try {
+      const response = await fetch(`${apiBase}/esign/google-drive/import?user_id=${encodeURIComponent(userId)}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          google_file_id: importGoogleFileId.value,
+          document_title: importDocumentTitle.value.trim(),
+          agreement_title: importAgreementTitle.value.trim() || undefined,
+          created_by_user_id: userId
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorCode = data.error?.code || '';
+        const errorInfo = getGoogleErrorInfo(errorCode, response.status);
+        throw { message: errorInfo.message, code: errorCode, info: errorInfo };
+      }
+
+      if (window.toastManager) {
+        window.toastManager.success('Document imported successfully');
+      }
+      announce('Document imported successfully');
+
+      hideImportModal();
+
+      // Redirect based on whether agreement was created
+      if (data.agreement?.id) {
+        window.location.href = `${basePath}/esign/agreements/${data.agreement.id}/edit`;
+      } else if (data.document?.id) {
+        window.location.href = `${basePath}/esign/documents/${data.document.id}`;
+      } else {
+        window.location.href = `${basePath}/esign/documents`;
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+
+      // Use specific error info if available
+      const errorInfo = error.info || getGoogleErrorInfo(error.code || '', 0);
+
+      if (window.toastManager) {
+        window.toastManager.error(`${errorInfo.title}: ${errorInfo.message}`);
+      }
+      announce(`Import failed: ${errorInfo.title}`);
+
+      // For access revoked errors, prompt user to reconnect
+      if (error.code === 'GOOGLE_ACCESS_REVOKED' || error.code === 'GOOGLE_SCOPE_VIOLATION') {
+        if (confirm(`${errorInfo.message}\n\nWould you like to reconnect your Google account now?`)) {
+          window.location.href = `${basePath}/esign/integrations/google`;
+        }
+      }
+    } finally {
+      importConfirmBtn.disabled = false;
+      importSpinner.classList.add('hidden');
+      importBtnText.textContent = 'Import';
+    }
+  }
+
+  // Event Listeners
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+
+    if (searchTimeout) clearTimeout(searchTimeout);
+
+    if (query) {
+      clearSearchBtn.classList.remove('hidden');
+      searchTimeout = setTimeout(() => {
+        searchQuery = query;
+        loadFiles({ query });
+      }, 300);
+    } else {
+      clearSearchBtn.classList.add('hidden');
+      searchQuery = '';
+      const folder = currentFolderPath[currentFolderPath.length - 1];
+      loadFiles({ folderId: folder.id });
+    }
+  });
+
+  clearSearchBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    searchQuery = '';
+    clearSearchBtn.classList.add('hidden');
+    const folder = currentFolderPath[currentFolderPath.length - 1];
+    loadFiles({ folderId: folder.id });
+  });
+
+  loadMoreBtn.addEventListener('click', () => {
+    if (nextPageToken) {
+      const folder = currentFolderPath[currentFolderPath.length - 1];
+      loadFiles({
+        folderId: searchQuery ? undefined : folder.id,
+        query: searchQuery || undefined,
+        pageToken: nextPageToken,
+        append: true
+      });
+    }
+  });
+
+  refreshBtn.addEventListener('click', () => {
+    if (searchQuery) {
+      loadFiles({ query: searchQuery });
+    } else {
+      const folder = currentFolderPath[currentFolderPath.length - 1];
+      loadFiles({ folderId: folder.id });
+    }
+  });
+
+  clearSelectionBtn.addEventListener('click', clearSelection);
+  importBtn.addEventListener('click', showImportModal);
+  importCancelBtn.addEventListener('click', hideImportModal);
+  importConfirmBtn.addEventListener('click', doImport);
+
+  // Close modal on escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !importModal.classList.contains('hidden')) {
+      hideImportModal();
+    }
+  });
+
+  // Close modal on backdrop click
+  importModal.addEventListener('click', (e) => {
+    if (e.target === importModal || e.target.getAttribute('aria-hidden') === 'true') {
+      hideImportModal();
+    }
+  });
+
+  // Initial load
+  loadFiles({ folderId: 'root' });
+});
+</script>
+{% endblock %}

@@ -260,7 +260,8 @@ test('lazy-loaded blocks participate in validation after template refresh', asyn
       body: { items: metadataItems },
     },
     {
-      match: (url) => url.includes('/hero/template'),
+      // Lazy load single template uses /templates/{slug} pattern
+      match: (url) => url.includes('/templates/hero'),
       body: { items: [heroTemplate] },
     },
   ]);
@@ -273,7 +274,8 @@ test('lazy-loaded blocks participate in validation after template refresh', asyn
   assert.ok(heroCard, 'hero card should exist');
   click(heroCard);
 
-  await new Promise((r) => setTimeout(r, 0));
+  // Allow time for async template fetch and block rendering
+  await new Promise((r) => setTimeout(r, 50));
 
   const item = doc.querySelector('[data-block-item]');
   assert.ok(item, 'block item should be added');

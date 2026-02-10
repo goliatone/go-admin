@@ -1,0 +1,891 @@
+{% extends "login-layout.html" %}
+
+{% block title %}Sign - {{ agreement.title|default:"Document" }}{% endblock %}
+
+{% block head_extra %}
+<style>
+  .field-card {
+    transition: all 0.2s ease;
+  }
+  .field-card.active {
+    box-shadow: 0 0 0 2px var(--color-primary, #3b82f6);
+  }
+  .field-card.completed {
+    border-color: #10b981;
+    background-color: #f0fdf4;
+  }
+  .progress-bar {
+    transition: width 0.3s ease-out;
+  }
+  .fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .signature-preview {
+    min-height: 80px;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 39px,
+      #e5e7eb 39px,
+      #e5e7eb 40px
+    );
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col bg-gray-50">
+  <!-- Header Bar -->
+  <header class="bg-white border-b border-gray-200 px-4 py-3 sm:px-6 sticky top-0 z-40" role="banner">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-3">
+          {% if theme and theme.assets and theme.assets.icon %}
+          <div class="w-8 h-8 bg-admin-dark rounded-lg flex items-center justify-center">
+            <img src="{{ theme.assets.icon }}" alt="Logo" class="w-5 h-5 object-contain" />
+          </div>
+          {% else %}
+          <div class="w-8 h-8 bg-admin-dark rounded-lg flex items-center justify-center">
+            <i class="iconoir-signature text-white text-sm"></i>
+          </div>
+          {% endif %}
+          <div class="hidden sm:block">
+            <p class="text-sm font-medium text-gray-900 truncate max-w-[200px]">{{ agreement.title|default:"Document" }}</p>
+            <p class="text-xs text-gray-500">Complete all required fields</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            onclick="openDocumentPreview()"
+            class="btn btn-secondary text-sm py-2"
+            aria-label="View full document"
+          >
+            <i class="iconoir-eye" aria-hidden="true"></i>
+            <span class="hidden sm:inline ml-1">View Document</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="space-y-1">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-gray-500">Progress</span>
+          <span class="font-medium text-gray-700">
+            <span id="completed-count">0</span> of <span id="total-count">{{ session.fields|length }}</span> fields
+          </span>
+        </div>
+        <div class="h-2 bg-gray-200 rounded-full overflow-hidden" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+          <div id="progress-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 px-4 py-6 sm:px-6" role="main">
+    <div class="max-w-4xl mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Fields List (Sidebar on large screens) -->
+        <div class="lg:col-span-1 order-2 lg:order-1">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-28">
+            <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
+              <h2 class="text-sm font-semibold text-gray-900">Fields to Complete</h2>
+            </div>
+            <div class="divide-y divide-gray-100 max-h-[400px] overflow-y-auto" id="fields-list" role="list" aria-label="Signing fields">
+              {% for field in session.fields %}
+              <button
+                type="button"
+                class="field-nav-item w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                data-field-id="{{ field.id }}"
+                data-field-index="{{ forloop.Counter0 }}"
+                onclick="scrollToField('{{ field.id }}')"
+                role="listitem"
+                aria-current="{% if forloop.First %}true{% else %}false{% endif %}"
+              >
+                <div class="field-status-icon w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 {% if field.value_text or field.value_bool %}bg-green-100 text-green-600{% else %}bg-gray-100 text-gray-400{% endif %}">
+                  {% if field.value_text or field.value_bool %}
+                  <i class="iconoir-check text-sm" aria-hidden="true"></i>
+                  {% else %}
+                  <span class="text-xs font-medium">{{ forloop.Counter }}</span>
+                  {% endif %}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-900 truncate">
+                    {% if field.type == "signature" %}Signature{% elif field.type == "initials" %}Initials{% elif field.type == "name" %}Full Name{% elif field.type == "date_signed" %}Date{% elif field.type == "text" %}Text Field{% elif field.type == "checkbox" %}Checkbox{% else %}{{ field.type|title }}{% endif %}
+                    {% if field.required %}<span class="text-red-500">*</span>{% endif %}
+                  </p>
+                  <p class="text-xs text-gray-500">Page {{ field.page }}</p>
+                </div>
+                <i class="iconoir-nav-arrow-right text-gray-400" aria-hidden="true"></i>
+              </button>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Field Area -->
+        <div class="lg:col-span-2 order-1 lg:order-2 space-y-4" id="fields-container">
+          {% for field in session.fields %}
+          <div
+            class="field-card bg-white rounded-xl shadow-sm border border-gray-200 p-6 {% if forloop.First %}active{% endif %}"
+            id="field-{{ field.id }}"
+            data-field-id="{{ field.id }}"
+            data-field-type="{{ field.type }}"
+            data-field-required="{{ field.required }}"
+            role="region"
+            aria-labelledby="field-label-{{ field.id }}"
+          >
+            <!-- Field Header -->
+            <div class="flex items-start justify-between mb-4">
+              <div>
+                <h3 id="field-label-{{ field.id }}" class="text-lg font-semibold text-gray-900">
+                  {% if field.type == "signature" %}
+                  <i class="iconoir-signature text-purple-600 mr-2" aria-hidden="true"></i>Your Signature
+                  {% elif field.type == "initials" %}
+                  <i class="iconoir-text text-purple-600 mr-2" aria-hidden="true"></i>Your Initials
+                  {% elif field.type == "name" %}
+                  <i class="iconoir-user text-blue-600 mr-2" aria-hidden="true"></i>Full Name
+                  {% elif field.type == "date_signed" %}
+                  <i class="iconoir-calendar text-green-600 mr-2" aria-hidden="true"></i>Date Signed
+                  {% elif field.type == "text" %}
+                  <i class="iconoir-edit-pencil text-blue-600 mr-2" aria-hidden="true"></i>{{ field.label|default:"Text" }}
+                  {% elif field.type == "checkbox" %}
+                  <i class="iconoir-check-square text-green-600 mr-2" aria-hidden="true"></i>{{ field.label|default:"Confirmation" }}
+                  {% endif %}
+                  {% if field.required %}<span class="text-red-500 text-sm ml-1">Required</span>{% endif %}
+                </h3>
+                <p class="text-sm text-gray-500 mt-1">Page {{ field.page }}</p>
+              </div>
+              <div class="field-complete-badge hidden items-center gap-1 text-green-600 bg-green-50 px-2 py-1 rounded-full text-sm">
+                <i class="iconoir-check" aria-hidden="true"></i>
+                <span>Done</span>
+              </div>
+            </div>
+
+            <!-- Field Input Area -->
+            <div class="field-input-area">
+              {% if field.type == "signature" or field.type == "initials" %}
+              <!-- Signature/Initials Field -->
+              <div class="space-y-4">
+                <div class="signature-container" data-field-id="{{ field.id }}">
+                  <!-- Type selector tabs -->
+                  <div class="flex border-b border-gray-200 mb-4" role="tablist" aria-label="Signature input method">
+                    <button
+                      type="button"
+                      class="sig-tab-btn flex-1 py-2 text-sm font-medium text-center border-b-2 border-blue-600 text-blue-600"
+                      data-tab="type"
+                      role="tab"
+                      aria-selected="true"
+                      aria-controls="sig-type-{{ field.id }}"
+                    >
+                      Type
+                    </button>
+                    <button
+                      type="button"
+                      class="sig-tab-btn flex-1 py-2 text-sm font-medium text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700"
+                      data-tab="draw"
+                      role="tab"
+                      aria-selected="false"
+                      aria-controls="sig-draw-{{ field.id }}"
+                    >
+                      Draw
+                    </button>
+                  </div>
+
+                  <!-- Type signature panel -->
+                  <div id="sig-type-{{ field.id }}" class="sig-panel" role="tabpanel" aria-labelledby="sig-tab-type-{{ field.id }}">
+                    <input
+                      type="text"
+                      class="sig-type-input w-full text-2xl font-signature text-center py-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="{% if field.type == 'initials' %}Type your initials{% else %}Type your name{% endif %}"
+                      data-field-id="{{ field.id }}"
+                      value="{{ field.value_text }}"
+                      aria-label="{% if field.type == 'initials' %}Type your initials{% else %}Type your signature{% endif %}"
+                    />
+                    <p class="text-xs text-gray-500 mt-2 text-center">Your typed {% if field.type == 'initials' %}initials{% else %}name{% endif %} will appear as your signature</p>
+                  </div>
+
+                  <!-- Draw signature panel -->
+                  <div id="sig-draw-{{ field.id }}" class="sig-panel hidden" role="tabpanel" aria-labelledby="sig-tab-draw-{{ field.id }}">
+                    <div class="relative border border-gray-200 rounded-lg overflow-hidden bg-white">
+                      <canvas
+                        class="sig-canvas w-full h-32 cursor-crosshair"
+                        data-field-id="{{ field.id }}"
+                        aria-label="Draw your signature"
+                      ></canvas>
+                      <button
+                        type="button"
+                        class="absolute bottom-2 right-2 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                        onclick="clearSignatureCanvas('{{ field.id }}')"
+                      >
+                        <i class="iconoir-refresh" aria-hidden="true"></i> Clear
+                      </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2 text-center">Draw your signature using mouse or touch</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  class="btn btn-primary w-full justify-center field-apply-btn"
+                  data-field-id="{{ field.id }}"
+                  onclick="applySignature('{{ field.id }}')"
+                >
+                  Apply {% if field.type == 'initials' %}Initials{% else %}Signature{% endif %}
+                </button>
+              </div>
+
+              {% elif field.type == "name" %}
+              <!-- Name Field -->
+              <div class="space-y-4">
+                <input
+                  type="text"
+                  class="field-text-input w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter your full legal name"
+                  data-field-id="{{ field.id }}"
+                  value="{{ field.value_text }}"
+                  oninput="handleFieldInput('{{ field.id }}', this.value)"
+                  aria-label="Full name"
+                />
+                <button
+                  type="button"
+                  class="btn btn-primary w-full justify-center field-apply-btn"
+                  data-field-id="{{ field.id }}"
+                  onclick="saveTextField('{{ field.id }}')"
+                >
+                  Apply Name
+                </button>
+              </div>
+
+              {% elif field.type == "date_signed" %}
+              <!-- Date Field (Auto-filled, read-only) -->
+              <div class="space-y-3">
+                <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i class="iconoir-calendar-check text-green-600" aria-hidden="true"></i>
+                  </div>
+                  <div>
+                    <p class="text-sm text-gray-500">This field will be automatically filled with today's date when you submit:</p>
+                    <p class="text-lg font-medium text-gray-900 mt-1" id="date-preview-{{ field.id }}"></p>
+                  </div>
+                </div>
+                <p class="text-xs text-gray-500 text-center">
+                  <i class="iconoir-info-circle mr-1" aria-hidden="true"></i>
+                  Date is set automatically to ensure accuracy
+                </p>
+              </div>
+
+              {% elif field.type == "text" %}
+              <!-- Text Field -->
+              <div class="space-y-4">
+                <textarea
+                  class="field-text-input w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="{{ field.placeholder|default:'Enter text' }}"
+                  rows="3"
+                  data-field-id="{{ field.id }}"
+                  oninput="handleFieldInput('{{ field.id }}', this.value)"
+                  aria-label="Text field"
+                >{{ field.value_text }}</textarea>
+                <button
+                  type="button"
+                  class="btn btn-primary w-full justify-center field-apply-btn"
+                  data-field-id="{{ field.id }}"
+                  onclick="saveTextField('{{ field.id }}')"
+                >
+                  Apply
+                </button>
+              </div>
+
+              {% elif field.type == "checkbox" %}
+              <!-- Checkbox Field -->
+              <div class="space-y-4">
+                <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    class="field-checkbox-input w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                    data-field-id="{{ field.id }}"
+                    {% if field.value_bool %}checked{% endif %}
+                    onchange="handleCheckboxChange('{{ field.id }}', this.checked)"
+                  />
+                  <span class="text-gray-700">{{ field.label|default:"I agree to the terms" }}</span>
+                </label>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+
+          <!-- Submit Section -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6" id="submit-section">
+            <div class="text-center space-y-4">
+              <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                <i class="iconoir-check-circle text-blue-600 text-2xl" aria-hidden="true"></i>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900">Ready to Submit?</h3>
+                <p class="text-sm text-gray-600 mt-1" id="submit-status">
+                  Complete all required fields above, then click Submit to finalize your signature.
+                </p>
+              </div>
+
+              <div id="incomplete-fields-notice" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-4 text-left">
+                <p class="text-sm font-medium text-amber-800 mb-2">
+                  <i class="iconoir-warning-circle mr-1" aria-hidden="true"></i>
+                  Please complete the following required fields:
+                </p>
+                <ul id="incomplete-fields-list" class="text-sm text-amber-700 space-y-1 ml-5 list-disc"></ul>
+              </div>
+
+              <button
+                type="button"
+                id="submit-btn"
+                class="btn btn-primary w-full sm:w-auto px-8 py-3 justify-center text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick="handleSubmit()"
+                disabled
+              >
+                <i class="iconoir-send mr-2" aria-hidden="true"></i>
+                Submit Signature
+              </button>
+
+              <p class="text-xs text-gray-500">
+                By clicking Submit, you agree that your signature has the same legal effect as signing in ink.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Configuration
+  const signerConfig = {
+    token: '{{ token }}',
+    apiBasePath: '{{ api_base_path|default:"/api/v1/esign/signing" }}',
+    agreementId: '{{ session.agreement_id }}',
+    recipientId: '{{ session.recipient_id }}',
+    fields: JSON.parse('{{ session.fields_json|escapejs|default:"[]" }}')
+  };
+
+  // State
+  const fieldState = new Map();
+  let activeFieldIndex = 0;
+  let signatureCanvases = new Map();
+
+  // Initialize on load
+  document.addEventListener('DOMContentLoaded', function() {
+    initializeFields();
+    initializeSignatureCanvases();
+    initializeSignatureTabs();
+    updateProgress();
+    updateSubmitButton();
+    showCurrentDate();
+  });
+
+  function initializeFields() {
+    const fields = document.querySelectorAll('.field-card');
+    fields.forEach((card, index) => {
+      const fieldId = card.dataset.fieldId;
+      const fieldType = card.dataset.fieldType;
+      const isRequired = card.dataset.fieldRequired === 'true';
+
+      // Get initial value from DOM
+      let value = null;
+      if (fieldType === 'checkbox') {
+        const checkbox = card.querySelector('.field-checkbox-input');
+        value = checkbox?.checked || false;
+      } else if (fieldType === 'date_signed') {
+        value = new Date().toISOString().split('T')[0]; // Auto-filled
+      } else {
+        const input = card.querySelector('.field-text-input, .sig-type-input');
+        value = input?.value || '';
+      }
+
+      fieldState.set(fieldId, {
+        id: fieldId,
+        type: fieldType,
+        required: isRequired,
+        value: value,
+        completed: Boolean(value),
+        signatureType: 'typed', // typed or drawn
+        signatureData: null
+      });
+
+      // Update UI if already completed
+      if (value) {
+        updateFieldStatus(fieldId, true);
+      }
+    });
+  }
+
+  function initializeSignatureCanvases() {
+    const canvases = document.querySelectorAll('.sig-canvas');
+    canvases.forEach(canvas => {
+      const fieldId = canvas.dataset.fieldId;
+      const ctx = canvas.getContext('2d');
+
+      // Set canvas resolution
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * 2;
+      canvas.height = rect.height * 2;
+      ctx.scale(2, 2);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#1f2937';
+
+      let isDrawing = false;
+      let lastX = 0;
+      let lastY = 0;
+
+      const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+        const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+        return { x, y };
+      };
+
+      canvas.addEventListener('mousedown', (e) => {
+        isDrawing = true;
+        const pos = getPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+      });
+
+      canvas.addEventListener('mousemove', (e) => {
+        if (!isDrawing) return;
+        const pos = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        lastX = pos.x;
+        lastY = pos.y;
+      });
+
+      canvas.addEventListener('mouseup', () => { isDrawing = false; });
+      canvas.addEventListener('mouseout', () => { isDrawing = false; });
+
+      // Touch events
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        isDrawing = true;
+        const pos = getPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+      });
+
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!isDrawing) return;
+        const pos = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        lastX = pos.x;
+        lastY = pos.y;
+      });
+
+      canvas.addEventListener('touchend', () => { isDrawing = false; });
+
+      signatureCanvases.set(fieldId, { canvas, ctx });
+    });
+  }
+
+  function initializeSignatureTabs() {
+    const tabBtns = document.querySelectorAll('.sig-tab-btn');
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const container = this.closest('.signature-container');
+        const targetTab = this.dataset.tab;
+
+        // Update tab buttons
+        container.querySelectorAll('.sig-tab-btn').forEach(b => {
+          b.classList.remove('border-blue-600', 'text-blue-600');
+          b.classList.add('border-transparent', 'text-gray-500');
+          b.setAttribute('aria-selected', 'false');
+        });
+        this.classList.remove('border-transparent', 'text-gray-500');
+        this.classList.add('border-blue-600', 'text-blue-600');
+        this.setAttribute('aria-selected', 'true');
+
+        // Update panels
+        container.querySelectorAll('.sig-panel').forEach(p => p.classList.add('hidden'));
+        container.querySelector(`#sig-${targetTab}-${container.dataset.fieldId}`).classList.remove('hidden');
+
+        // Update field state
+        const fieldId = container.dataset.fieldId;
+        const state = fieldState.get(fieldId);
+        if (state) {
+          state.signatureType = targetTab === 'draw' ? 'drawn' : 'typed';
+        }
+      });
+    });
+  }
+
+  function clearSignatureCanvas(fieldId) {
+    const canvasData = signatureCanvases.get(fieldId);
+    if (canvasData) {
+      const { canvas, ctx } = canvasData;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  function showCurrentDate() {
+    const dateFields = document.querySelectorAll('[id^="date-preview-"]');
+    const today = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    dateFields.forEach(el => el.textContent = today);
+  }
+
+  function scrollToField(fieldId) {
+    const card = document.getElementById(`field-${fieldId}`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Update active states
+      document.querySelectorAll('.field-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      // Update nav
+      document.querySelectorAll('.field-nav-item').forEach(n => {
+        n.setAttribute('aria-current', n.dataset.fieldId === fieldId ? 'true' : 'false');
+      });
+    }
+  }
+
+  function handleFieldInput(fieldId, value) {
+    const state = fieldState.get(fieldId);
+    if (state) {
+      state.value = value;
+    }
+  }
+
+  function handleCheckboxChange(fieldId, checked) {
+    const state = fieldState.get(fieldId);
+    if (state) {
+      state.value = checked;
+      state.completed = true;
+      saveFieldValue(fieldId, null, checked);
+      updateFieldStatus(fieldId, true);
+      updateProgress();
+      updateSubmitButton();
+    }
+  }
+
+  async function saveTextField(fieldId) {
+    const state = fieldState.get(fieldId);
+    if (!state) return;
+
+    const input = document.querySelector(`[data-field-id="${fieldId}"].field-text-input, [data-field-id="${fieldId}"].sig-type-input`);
+    const value = input?.value?.trim();
+
+    if (!value && state.required) {
+      if (window.toastManager) {
+        window.toastManager.error('This field is required');
+      }
+      return;
+    }
+
+    await saveFieldValue(fieldId, value, null);
+    state.value = value;
+    state.completed = Boolean(value);
+    updateFieldStatus(fieldId, state.completed);
+    updateProgress();
+    updateSubmitButton();
+    moveToNextField(fieldId);
+  }
+
+  async function applySignature(fieldId) {
+    const state = fieldState.get(fieldId);
+    if (!state) return;
+
+    let signatureData = null;
+    let valueText = '';
+
+    if (state.signatureType === 'typed') {
+      const input = document.querySelector(`[data-field-id="${fieldId}"].sig-type-input`);
+      valueText = input?.value?.trim();
+      if (!valueText) {
+        if (window.toastManager) {
+          window.toastManager.error('Please type your signature');
+        }
+        return;
+      }
+      signatureData = { type: 'typed', text: valueText };
+    } else {
+      // Drawn signature
+      const canvasData = signatureCanvases.get(fieldId);
+      if (!canvasData) return;
+
+      const { canvas } = canvasData;
+      const dataUrl = canvas.toDataURL('image/png');
+
+      // Check if canvas has content
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const hasContent = imageData.data.some((val, i) => i % 4 === 3 && val > 0);
+
+      if (!hasContent) {
+        if (window.toastManager) {
+          window.toastManager.error('Please draw your signature');
+        }
+        return;
+      }
+
+      signatureData = { type: 'drawn', dataUrl };
+      valueText = '[Drawn Signature]';
+    }
+
+    // Save signature via API
+    await saveSignatureArtifact(fieldId, signatureData, valueText);
+    state.value = valueText;
+    state.signatureData = signatureData;
+    state.completed = true;
+    updateFieldStatus(fieldId, true);
+    updateProgress();
+    updateSubmitButton();
+    moveToNextField(fieldId);
+  }
+
+  async function saveFieldValue(fieldId, valueText, valueBool) {
+    const btn = document.querySelector(`[data-field-id="${fieldId}"].field-apply-btn`);
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Saving...';
+    }
+
+    try {
+      const response = await fetch(`${signerConfig.apiBasePath}/field-values/${signerConfig.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          field_id: fieldId,
+          value_text: valueText,
+          value_bool: valueBool
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to save field');
+      }
+
+      if (window.toastManager) {
+        window.toastManager.success('Field saved');
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      if (window.toastManager) {
+        window.toastManager.error(error.message);
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Apply';
+      }
+    }
+  }
+
+  async function saveSignatureArtifact(fieldId, signatureData, valueText) {
+    const btn = document.querySelector(`[data-field-id="${fieldId}"].field-apply-btn`);
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Saving...';
+    }
+
+    try {
+      const response = await fetch(`${signerConfig.apiBasePath}/field-values/signature/${signerConfig.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          field_id: fieldId,
+          type: signatureData.type,
+          value_text: valueText,
+          data: signatureData.dataUrl || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to save signature');
+      }
+
+      if (window.toastManager) {
+        window.toastManager.success('Signature applied');
+      }
+    } catch (error) {
+      console.error('Signature error:', error);
+      if (window.toastManager) {
+        window.toastManager.error(error.message);
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        const state = fieldState.get(fieldId);
+        btn.innerHTML = state?.type === 'initials' ? 'Apply Initials' : 'Apply Signature';
+      }
+    }
+  }
+
+  function updateFieldStatus(fieldId, completed) {
+    const card = document.getElementById(`field-${fieldId}`);
+    const navItem = document.querySelector(`.field-nav-item[data-field-id="${fieldId}"]`);
+
+    if (card) {
+      const badge = card.querySelector('.field-complete-badge');
+      if (completed) {
+        card.classList.add('completed');
+        badge?.classList.remove('hidden');
+        badge?.classList.add('flex');
+      } else {
+        card.classList.remove('completed');
+        badge?.classList.add('hidden');
+        badge?.classList.remove('flex');
+      }
+    }
+
+    if (navItem) {
+      const icon = navItem.querySelector('.field-status-icon');
+      if (completed) {
+        icon.classList.remove('bg-gray-100', 'text-gray-400');
+        icon.classList.add('bg-green-100', 'text-green-600');
+        icon.innerHTML = '<i class="iconoir-check text-sm"></i>';
+      }
+    }
+  }
+
+  function moveToNextField(currentFieldId) {
+    const fields = Array.from(document.querySelectorAll('.field-card'));
+    const currentIndex = fields.findIndex(f => f.dataset.fieldId === currentFieldId);
+
+    // Find next incomplete required field
+    for (let i = currentIndex + 1; i < fields.length; i++) {
+      const fieldId = fields[i].dataset.fieldId;
+      const state = fieldState.get(fieldId);
+      if (state && state.required && !state.completed) {
+        scrollToField(fieldId);
+        return;
+      }
+    }
+
+    // Check if any required fields before current are incomplete
+    for (let i = 0; i < currentIndex; i++) {
+      const fieldId = fields[i].dataset.fieldId;
+      const state = fieldState.get(fieldId);
+      if (state && state.required && !state.completed) {
+        scrollToField(fieldId);
+        return;
+      }
+    }
+
+    // All required fields complete - scroll to submit
+    document.getElementById('submit-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function updateProgress() {
+    let completed = 0;
+    let total = 0;
+
+    fieldState.forEach(state => {
+      if (state.required || state.completed) {
+        total++;
+        if (state.completed) completed++;
+      }
+    });
+
+    // Update count display
+    document.getElementById('completed-count').textContent = completed;
+    document.getElementById('total-count').textContent = fieldState.size;
+
+    // Update progress bar
+    const percentage = fieldState.size > 0 ? (completed / fieldState.size) * 100 : 0;
+    const progressBar = document.getElementById('progress-bar');
+    progressBar.style.width = `${percentage}%`;
+    progressBar.parentElement.setAttribute('aria-valuenow', Math.round(percentage));
+  }
+
+  function updateSubmitButton() {
+    const submitBtn = document.getElementById('submit-btn');
+    const incompleteNotice = document.getElementById('incomplete-fields-notice');
+    const incompleteList = document.getElementById('incomplete-fields-list');
+
+    let incompleteRequired = [];
+    fieldState.forEach((state, fieldId) => {
+      if (state.required && !state.completed) {
+        incompleteRequired.push({ id: fieldId, type: state.type });
+      }
+    });
+
+    if (incompleteRequired.length === 0) {
+      submitBtn.disabled = false;
+      incompleteNotice.classList.add('hidden');
+      document.getElementById('submit-status').textContent = 'All fields complete. Click Submit to finalize your signature.';
+    } else {
+      submitBtn.disabled = true;
+      incompleteNotice.classList.remove('hidden');
+      incompleteList.innerHTML = incompleteRequired.map(f => {
+        const label = f.type === 'signature' ? 'Signature' :
+                      f.type === 'initials' ? 'Initials' :
+                      f.type === 'name' ? 'Full Name' :
+                      f.type.charAt(0).toUpperCase() + f.type.slice(1);
+        return `<li><a href="#field-${f.id}" onclick="scrollToField('${f.id}'); return false;" class="underline hover:no-underline">${label}</a></li>`;
+      }).join('');
+    }
+  }
+
+  async function handleSubmit() {
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Submitting...';
+
+    try {
+      const response = await fetch(`${signerConfig.apiBasePath}/submit/${signerConfig.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idempotency_key: `submit-${signerConfig.recipientId}-${Date.now()}`
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to submit');
+      }
+
+      // Redirect to confirmation page
+      window.location.href = signerConfig.apiBasePath.replace('/api/v1/esign/signing', '/esign/sign') + '/' + signerConfig.token + '/complete';
+    } catch (error) {
+      console.error('Submit error:', error);
+      if (window.toastManager) {
+        window.toastManager.error(error.message);
+      }
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="iconoir-send mr-2"></i> Submit Signature';
+    }
+  }
+
+  function openDocumentPreview() {
+    window.open(`${signerConfig.apiBasePath}/preview/${signerConfig.token}`, '_blank', 'width=900,height=700');
+  }
+</script>
+
+<style>
+  .font-signature {
+    font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  }
+</style>
+{% endblock %}

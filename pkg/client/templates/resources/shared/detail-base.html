@@ -47,6 +47,7 @@
 <div class="flex-1 p-8 overflow-y-auto"
      {% block content_data_attrs %}{% endblock %}>
   {% block detail_content %}
+    {% block detail_content_pre %}{% endblock %}
     <div class="max-w-4xl">
       {% block identity_card %}
         <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -135,6 +136,7 @@
 
       {% block after_card %}{% endblock %}
     </div>
+    {% block detail_content_post %}{% endblock %}
   {% endblock %}
 </div>
 {% endblock %}

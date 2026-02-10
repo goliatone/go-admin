@@ -1,0 +1,214 @@
+{% extends "login-layout.html" %}
+
+{% block title %}{{ error_title|default:"Error" }} - E-Sign{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col bg-gray-50">
+  <!-- Header Bar -->
+  <header class="bg-white border-b border-gray-200 px-4 py-4 sm:px-6" role="banner">
+    <div class="max-w-3xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        {% if theme and theme.assets and theme.assets.icon %}
+        <div class="w-10 h-10 bg-admin-dark rounded-xl flex items-center justify-center">
+          <img src="{{ theme.assets.icon }}" alt="Logo" class="w-6 h-6 object-contain" />
+        </div>
+        {% else %}
+        <div class="w-10 h-10 bg-admin-dark rounded-xl flex items-center justify-center">
+          <i class="iconoir-signature text-white text-lg"></i>
+        </div>
+        {% endif %}
+        <span class="text-sm font-medium text-gray-900 hidden sm:inline">E-Sign</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 px-4 py-8 sm:px-6 flex items-center justify-center" role="main">
+    <div class="max-w-lg w-full">
+
+      {% if error_code == "TOKEN_EXPIRED" %}
+      <!-- Token Expired -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center" role="alert" aria-live="assertive">
+        <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <i class="iconoir-clock text-amber-600 text-3xl" aria-hidden="true"></i>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Link Expired</h1>
+        <p class="text-gray-600 mb-6">
+          This signing link has expired. For your security, signing links are only valid for a limited time.
+        </p>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-left">
+          <div class="flex items-start gap-3">
+            <i class="iconoir-info-circle text-amber-600 text-lg flex-shrink-0 mt-0.5" aria-hidden="true"></i>
+            <div>
+              <p class="text-sm font-medium text-amber-800">What you can do:</p>
+              <ul class="text-sm text-amber-700 mt-2 space-y-1 list-disc list-inside">
+                <li>Contact the sender to request a new signing link</li>
+                <li>Check your email for a more recent invitation</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-sm text-gray-500">
+          The sender's email address: <strong class="text-gray-700">{{ sender_email|default:"the document sender" }}</strong>
+        </p>
+      </div>
+
+      {% elif error_code == "TOKEN_REVOKED" %}
+      <!-- Token Revoked -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center" role="alert" aria-live="assertive">
+        <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <i class="iconoir-prohibition text-red-600 text-3xl" aria-hidden="true"></i>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Link No Longer Valid</h1>
+        <p class="text-gray-600 mb-6">
+          This signing link has been revoked. The sender may have issued a new link or canceled the signing request.
+        </p>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-left">
+          <div class="flex items-start gap-3">
+            <i class="iconoir-info-circle text-blue-600 text-lg flex-shrink-0 mt-0.5" aria-hidden="true"></i>
+            <div>
+              <p class="text-sm font-medium text-blue-800">What you can do:</p>
+              <ul class="text-sm text-blue-700 mt-2 space-y-1 list-disc list-inside">
+                <li>Check your email for a newer signing invitation</li>
+                <li>Contact the sender if you haven't received one</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-sm text-gray-500">
+          If you believe this is an error, please contact the sender.
+        </p>
+      </div>
+
+      {% elif error_code == "AGREEMENT_VOIDED" %}
+      <!-- Agreement Voided -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center" role="alert">
+        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <i class="iconoir-cancel text-gray-500 text-3xl" aria-hidden="true"></i>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Document Voided</h1>
+        <p class="text-gray-600 mb-6">
+          This document has been voided by the sender and is no longer available for signing.
+        </p>
+
+        <p class="text-sm text-gray-500">
+          Please contact the sender if you have questions or need a new document.
+        </p>
+      </div>
+
+      {% elif error_code == "AGREEMENT_DECLINED" %}
+      <!-- Agreement Declined -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center" role="alert">
+        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <i class="iconoir-xmark text-gray-500 text-3xl" aria-hidden="true"></i>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Document Declined</h1>
+        <p class="text-gray-600 mb-6">
+          This document was declined by one of the signers and is no longer available.
+        </p>
+
+        <p class="text-sm text-gray-500">
+          Please contact the sender if you need a revised document.
+        </p>
+      </div>
+
+      {% elif error_code == "AGREEMENT_COMPLETED" %}
+      <!-- Agreement Already Completed -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center" role="status">
+        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <i class="iconoir-check-double text-green-600 text-3xl" aria-hidden="true"></i>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Already Completed</h1>
+        <p class="text-gray-600 mb-6">
+          This document has already been fully signed by all parties.
+        </p>
+
+        <p class="text-sm text-gray-500">
+          You should have received or will receive a copy of the completed document via email.
+        </p>
+      </div>
+
+      {% elif error_code == "RATE_LIMITED" %}
+      <!-- Rate Limited -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center" role="alert" aria-live="assertive">
+        <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <i class="iconoir-timer text-amber-600 text-3xl" aria-hidden="true"></i>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Too Many Requests</h1>
+        <p class="text-gray-600 mb-6">
+          You've made too many requests in a short period. Please wait a moment before trying again.
+        </p>
+
+        <button
+          onclick="location.reload()"
+          class="btn btn-primary inline-flex items-center justify-center"
+        >
+          <i class="iconoir-refresh mr-2" aria-hidden="true"></i>
+          Try Again
+        </button>
+      </div>
+
+      {% else %}
+      <!-- Generic Error -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center" role="alert">
+        <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <i class="iconoir-warning-triangle text-red-600 text-3xl" aria-hidden="true"></i>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ error_title|default:"Something Went Wrong" }}</h1>
+        <p class="text-gray-600 mb-6">
+          {{ error_message|default:"We encountered an error processing your request. Please try again or contact support." }}
+        </p>
+
+        {% if error_code %}
+        <p class="text-xs text-gray-400 font-mono mb-6">
+          Error code: {{ error_code }}
+        </p>
+        {% endif %}
+
+        <div class="space-y-3">
+          <button
+            onclick="location.reload()"
+            class="btn btn-primary w-full sm:w-auto inline-flex items-center justify-center"
+          >
+            <i class="iconoir-refresh mr-2" aria-hidden="true"></i>
+            Try Again
+          </button>
+          <p class="text-sm text-gray-500">
+            Or <a href="#" class="text-blue-600 hover:underline">contact support</a> for help.
+          </p>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Support Link -->
+      <p class="text-center text-sm text-gray-500 mt-6">
+        Need help? Visit our <a href="#" class="text-blue-600 hover:underline">Help Center</a>
+      </p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="px-4 py-4 border-t border-gray-100 bg-white" role="contentinfo">
+    <div class="max-w-3xl mx-auto">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
+        <p>Secured with E-Sign</p>
+        <div class="flex items-center gap-4">
+          <a href="#" class="hover:text-gray-700">Privacy Policy</a>
+          <a href="#" class="hover:text-gray-700">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+{% endblock %}

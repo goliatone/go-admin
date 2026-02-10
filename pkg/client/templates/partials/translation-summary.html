@@ -1,37 +1,30 @@
-{#
-  Translation Summary Partial
+{# Translation Summary Partial #}
+{# Shows translation context for multilingual content. #}
+{# Requires `translation_context` with requested/resolved/available locale metadata. #}
 
-  Shows translation context for multilingual content:
-  - Current/resolved locale badge
-  - Available locales list
-  - Missing required locales with create action
-  - Fallback warning when viewing non-requested locale
+{% set summary_translation_group_id = translation_group_id %}
+{% set summary_requested_locale = requested_locale %}
+{% set summary_resolved_locale = resolved_locale %}
+{% set summary_available_locales = available_locales %}
+{% set summary_missing_requested_locale = missing_requested_locale %}
+{% set summary_fallback_used = fallback_used %}
+{% if translation_context %}
+  {% set summary_translation_group_id = translation_context.translation_group_id|default:summary_translation_group_id %}
+  {% set summary_requested_locale = translation_context.requested_locale|default:summary_requested_locale %}
+  {% set summary_resolved_locale = translation_context.resolved_locale|default:summary_resolved_locale %}
+  {% set summary_available_locales = translation_context.available_locales|default:summary_available_locales %}
+  {% set summary_missing_requested_locale = translation_context.missing_requested_locale|default:summary_missing_requested_locale %}
+  {% set summary_fallback_used = translation_context.fallback_used|default:summary_fallback_used %}
+{% endif %}
 
-  Required context variables:
-  - translation_context: object with translation metadata
-    - requested_locale: string
-    - resolved_locale: string
-    - available_locales: []string
-    - missing_requested_locale: bool
-    - fallback_used: bool
-    - translation_group_id: string
-
-  Optional variables:
-  - required_locales: []string - locales required for publish
-  - show_create_actions: bool - show create translation buttons (default: true)
-  - compact: bool - use compact layout (default: false)
-  - panel_name: string - panel name for action dispatch
-  - record_id: string - record ID for action dispatch
-#}
-
-{% if translation_context and translation_context.translation_group_id %}
+{% if summary_translation_group_id %}
 <div class="translation-summary bg-white border border-gray-200 rounded-lg overflow-hidden mb-4"
-     data-translation-group-id="{{ translation_context.translation_group_id }}"
-     data-requested-locale="{{ translation_context.requested_locale }}"
-     data-resolved-locale="{{ translation_context.resolved_locale }}">
+     data-translation-group-id="{{ summary_translation_group_id }}"
+     data-requested-locale="{{ summary_requested_locale }}"
+     data-resolved-locale="{{ summary_resolved_locale }}">
 
   {# Fallback Warning Banner (when viewing non-requested locale) #}
-  {% if translation_context.fallback_used or translation_context.missing_requested_locale %}
+  {% if summary_fallback_used or summary_missing_requested_locale %}
   <div class="fallback-warning bg-amber-50 border-b border-amber-200 p-3"
        role="alert"
        aria-live="polite"
@@ -45,8 +38,8 @@
       <div class="flex-1">
         <h4 class="text-sm font-medium text-amber-800">Viewing fallback content</h4>
         <p class="mt-1 text-sm text-amber-700">
-          The <strong>{{ translation_context.requested_locale|upper }}</strong> translation doesn't exist.
-          You're viewing content from <strong>{{ translation_context.resolved_locale|upper }}</strong>.
+          The <strong>{{ summary_requested_locale|upper }}</strong> translation doesn't exist.
+          You're viewing content from <strong>{{ summary_resolved_locale|upper }}</strong>.
         </p>
         <p class="mt-1 text-xs text-amber-600">Editing is disabled until you create the missing translation.</p>
       </div>
@@ -55,13 +48,13 @@
         <button type="button"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded transition-colors"
                 data-action="create-translation"
-                data-locale="{{ translation_context.requested_locale }}"
+                data-locale="{{ summary_requested_locale }}"
                 data-panel="{{ panel_name }}"
                 data-record-id="{{ record_id }}">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
-          Create {{ translation_context.requested_locale|upper }}
+          Create {{ summary_requested_locale|upper }}
         </button>
       </div>
       {% endif %}
@@ -75,28 +68,28 @@
       {# Current Locale Badge #}
       <div class="flex items-center gap-2">
         <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Locale</span>
-        {% if translation_context.fallback_used %}
+        {% if summary_fallback_used %}
         <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-amber-100 text-amber-800"
-              title="Fallback: showing {{ translation_context.resolved_locale }} instead of {{ translation_context.requested_locale }}">
+              title="Fallback: showing {{ summary_resolved_locale }} instead of {{ summary_requested_locale }}">
           <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
           </svg>
-          {{ translation_context.resolved_locale|upper }}
+          {{ summary_resolved_locale|upper }}
         </span>
         {% else %}
         <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800">
-          {{ translation_context.resolved_locale|upper }}
+          {{ summary_resolved_locale|upper }}
         </span>
         {% endif %}
       </div>
 
       {# Available Locales #}
-      {% if translation_context.available_locales and translation_context.available_locales|length > 0 %}
+      {% if summary_available_locales and summary_available_locales|length > 0 %}
       <div class="flex items-center gap-2">
         <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Available</span>
         <div class="flex items-center gap-1">
-          {% for loc in translation_context.available_locales %}
-          <span class="{% if loc == translation_context.resolved_locale %}px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700 font-medium{% else %}px-1.5 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600{% endif %}">
+          {% for loc in summary_available_locales %}
+          <span class="{% if loc == summary_resolved_locale %}px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700 font-medium{% else %}px-1.5 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600{% endif %}">
             {{ loc|upper }}
           </span>
           {% endfor %}
@@ -104,19 +97,14 @@
       </div>
       {% endif %}
 
-      {# Required Locales (Missing) #}
+      {# Missing Required Locales #}
       {% if required_locales and required_locales|length > 0 %}
-      {% set missing_required = [] %}
-      {% for req_loc in required_locales %}
-        {% if req_loc not in translation_context.available_locales %}
-          {% set missing_required = missing_required|append(req_loc) %}
-        {% endif %}
-      {% endfor %}
-      {% if missing_required|length > 0 %}
       <div class="flex items-center gap-2">
         <span class="text-xs font-medium text-red-600 uppercase tracking-wide">Missing</span>
         <div class="flex items-center gap-1">
-          {% for loc in missing_required %}
+          {% for loc in required_locales %}
+          {% if summary_available_locales and loc in summary_available_locales %}
+          {% else %}
           <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-red-100 text-red-700 font-medium">
             {{ loc|upper }}
             {% if show_create_actions != false and panel_name and record_id %}
@@ -133,10 +121,10 @@
             </button>
             {% endif %}
           </span>
+          {% endif %}
           {% endfor %}
         </div>
       </div>
-      {% endif %}
       {% endif %}
     </div>
   </div>

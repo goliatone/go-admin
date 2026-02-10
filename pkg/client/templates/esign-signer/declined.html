@@ -1,0 +1,88 @@
+{% extends "login-layout.html" %}
+
+{% block title %}Document Declined - {{ agreement.title|default:"Document" }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col bg-gray-50">
+  <!-- Header Bar -->
+  <header class="bg-white border-b border-gray-200 px-4 py-4 sm:px-6" role="banner">
+    <div class="max-w-3xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        {% if theme and theme.assets and theme.assets.icon %}
+        <div class="w-10 h-10 bg-admin-dark rounded-xl flex items-center justify-center">
+          <img src="{{ theme.assets.icon }}" alt="Logo" class="w-6 h-6 object-contain" />
+        </div>
+        {% else %}
+        <div class="w-10 h-10 bg-admin-dark rounded-xl flex items-center justify-center">
+          <i class="iconoir-signature text-white text-lg"></i>
+        </div>
+        {% endif %}
+        <span class="text-sm font-medium text-gray-900 hidden sm:inline">E-Sign</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 px-4 py-8 sm:px-6 flex items-center justify-center" role="main">
+    <div class="max-w-lg w-full">
+      <!-- Declined Card -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center" role="status" aria-live="polite">
+        <!-- Icon -->
+        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <i class="iconoir-xmark text-gray-500 text-3xl" aria-hidden="true"></i>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Document Declined</h1>
+        <p class="text-gray-600 mb-6">
+          You have chosen not to sign this document. The sender has been notified.
+        </p>
+
+        <!-- Document Details -->
+        <div class="bg-gray-50 rounded-xl p-4 mb-6 text-left">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center flex-shrink-0">
+              <i class="iconoir-page text-gray-600" aria-hidden="true"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-gray-900 truncate">{{ agreement.title|default:"Document" }}</p>
+              <p class="text-sm text-gray-500">From: {{ agreement.sender_name|default:agreement.sender_email }}</p>
+            </div>
+          </div>
+        </div>
+
+        {% if decline_reason %}
+        <div class="bg-gray-50 rounded-xl p-4 mb-6 text-left">
+          <p class="text-sm font-medium text-gray-700 mb-1">Your reason:</p>
+          <p class="text-sm text-gray-600">{{ decline_reason }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Info -->
+        <div class="border-t border-gray-100 pt-6">
+          <p class="text-sm text-gray-500">
+            If you declined in error or changed your mind, please contact the sender to request a new signing link.
+          </p>
+        </div>
+      </div>
+
+      <!-- Support Link -->
+      <p class="text-center text-sm text-gray-500 mt-6">
+        Questions? Contact the sender directly.
+      </p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="px-4 py-4 border-t border-gray-100 bg-white" role="contentinfo">
+    <div class="max-w-3xl mx-auto">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
+        <p>Secured with E-Sign</p>
+        <div class="flex items-center gap-4">
+          <a href="#" class="hover:text-gray-700">Privacy Policy</a>
+          <a href="#" class="hover:text-gray-700">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+{% endblock %}

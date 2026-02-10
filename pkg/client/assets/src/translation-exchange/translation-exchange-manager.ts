@@ -8,18 +8,24 @@ import type {
   TranslationExchangeSelectors,
   ExportRequest,
   ExportResponse,
+  ExportRow,
   ImportOptions,
-  ImportResult,
-  ImportState,
-  RowResult,
   ToastNotifier,
 } from './types.js';
 import {
-  extractStructuredError,
   parseImportResult,
   groupRowResultsByStatus,
   generateExchangeReport,
+  type ExchangeImportResult,
+  type ExchangeRowResult,
 } from '../toast/error-helpers.js';
+
+/** Internal import state tracking */
+interface ImportState {
+  file: File | null;
+  validated: boolean;
+  validationResult: ExchangeImportResult | null;
+}
 
 const DEFAULT_SELECTORS: TranslationExchangeSelectors = {
   // Tabs
@@ -232,8 +238,8 @@ export class TranslationExchangeManager {
 
       if (!response.ok) {
         const error = await response.json();
-        const structured = extractStructuredError(error);
-        throw new Error(structured?.message || 'Export failed');
+        const message = error?.error?.message || error?.message || 'Export failed';
+        throw new Error(message);
       }
 
       const result: ExportResponse = await response.json();
@@ -261,7 +267,7 @@ export class TranslationExchangeManager {
     URL.revokeObjectURL(url);
   }
 
-  private convertToCSV(rows: Record<string, unknown>[]): string {
+  private convertToCSV(rows: ExportRow[]): string {
     if (rows.length === 0) return '';
 
     const headers = [
@@ -278,12 +284,12 @@ export class TranslationExchangeManager {
       'title',
       'status',
       'notes',
-    ];
+    ] as const;
 
     const csvRows = [headers.join(',')];
     for (const row of rows) {
       const values = headers.map((h) => {
-        const val = row[h] ?? '';
+        const val = (row as unknown as Record<string, unknown>)[h] ?? '';
         const str = String(val);
         // Escape quotes and wrap in quotes if contains comma/quote/newline
         if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -352,15 +358,15 @@ export class TranslationExchangeManager {
       const data = await response.json();
 
       if (!response.ok) {
-        const structured = extractStructuredError(data);
-        throw new Error(structured?.message || 'Validation failed');
+        const message = data?.error?.message || data?.message || 'Validation failed';
+        throw new Error(message);
       }
 
       const result = parseImportResult(data);
       this.importState.validated = true;
       this.importState.validationResult = result;
 
-      this.displayResults(result);
+      this.displayExchangeResults(result);
 
       // Enable apply button if validation passed (some succeeded)
       if (this.applyBtn && result.summary.succeeded > 0) {
@@ -407,14 +413,14 @@ export class TranslationExchangeManager {
       const data = await response.json();
 
       if (!response.ok) {
-        const structured = extractStructuredError(data);
-        throw new Error(structured?.message || 'Apply failed');
+        const message = data?.error?.message || data?.message || 'Apply failed';
+        throw new Error(message);
       }
 
       const result = parseImportResult(data);
       this.importState.validationResult = result;
 
-      this.displayResults(result);
+      this.displayExchangeResults(result);
 
       if (result.summary.succeeded > 0) {
         this.toast?.success(`Applied ${result.summary.succeeded} translations successfully`);
@@ -442,7 +448,7 @@ export class TranslationExchangeManager {
     };
   }
 
-  private displayResults(result: ImportResult): void {
+  private displayExchangeResults(result: ExchangeImportResult): void {
     // Show results section
     this.validationResults?.classList.remove('hidden');
 
@@ -464,7 +470,7 @@ export class TranslationExchangeManager {
     this.renderResultsTable(result.results);
   }
 
-  private renderResultsTable(results: RowResult[]): void {
+  private renderResultsTable(results: ExchangeRowResult[]): void {
     if (!this.resultsTable) return;
 
     if (results.length === 0) {
@@ -483,9 +489,9 @@ export class TranslationExchangeManager {
         <tr>
           <td class="px-4 py-3 text-gray-500">${row.index + 1}</td>
           <td class="px-4 py-3">${this.escapeHtml(row.resource)}</td>
-          <td class="px-4 py-3 font-mono text-xs">${this.escapeHtml(row.entity_id)}</td>
-          <td class="px-4 py-3">${this.escapeHtml(row.field_path)}</td>
-          <td class="px-4 py-3">${this.escapeHtml(row.target_locale)}</td>
+          <td class="px-4 py-3 font-mono text-xs">${this.escapeHtml(row.entityId)}</td>
+          <td class="px-4 py-3">${this.escapeHtml(row.fieldPath)}</td>
+          <td class="px-4 py-3">${this.escapeHtml(row.targetLocale)}</td>
           <td class="px-4 py-3">
             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badge.class}">
               ${badge.label}
@@ -505,13 +511,12 @@ export class TranslationExchangeManager {
       return;
     }
 
-    const report = generateExchangeReport(this.importState.validationResult, 'text');
-    const blob = new Blob([report], { type: 'text/plain;charset=utf-8;' });
+    const blob = generateExchangeReport(this.importState.validationResult, 'csv');
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const timestamp = new Date().toISOString().split('T')[0];
     link.href = url;
-    link.download = `translation_import_report_${timestamp}.txt`;
+    link.download = `translation_import_report_${timestamp}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

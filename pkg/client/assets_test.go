@@ -12,6 +12,18 @@ func TestAssetsEmbedIncludesOutputCSS(t *testing.T) {
 	}
 }
 
+func TestAssetsEmbedExcludesFrontendTestFiles(t *testing.T) {
+	if _, err := fs.Stat(Assets(), "tests/error_helpers.test.mjs"); err == nil {
+		t.Fatalf("did not expect frontend test files to be embedded")
+	}
+}
+
+func TestAssetsEmbedExcludesNodeModules(t *testing.T) {
+	if _, err := fs.Stat(Assets(), "node_modules/.package-lock.json"); err == nil {
+		t.Fatalf("did not expect node_modules to be embedded")
+	}
+}
+
 func TestTemplatesEmbedIncludesDebugIndex(t *testing.T) {
 	if _, err := fs.Stat(Templates(), "resources/debug/index.html"); err != nil {
 		t.Fatalf("expected embedded debug index template: %v", err)

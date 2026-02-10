@@ -186,18 +186,20 @@
                 data-column="{{ col.field }}"
                 {% if col.sortable %}data-sortable="true"{% endif %}
                 class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="flex items-center gap-2 group">
-                <span>{{ col.label }}</span>
+              <div class="flex items-center gap-2">
                 {% if col.sortable %}
                 <button type="button"
                         data-sort-column="{{ col.field }}"
-                        class="sort-btn opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                        class="sort-btn inline-flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-gray-700 focus:text-gray-700 transition-colors"
                         aria-label="Sort by {{ col.label }} (click to cycle: ascending, descending, clear)"
                         title="Click to cycle: ascending → descending → clear">
+                  <span>{{ col.label }}</span>
                   <svg class="w-3 h-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
                   </svg>
                 </button>
+                {% else %}
+                <span>{{ col.label }}</span>
                 {% endif %}
               </div>
             </th>

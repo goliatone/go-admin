@@ -23,29 +23,70 @@
   </div>
 </header>
 
+{% if is_edit and resource_item %}
+  {% set fallback_requested_locale = resource_item.requested_locale %}
+  {% if not fallback_requested_locale and resource_item.translation and resource_item.translation.meta %}
+    {% set fallback_requested_locale = resource_item.translation.meta.requested_locale %}
+  {% endif %}
+  {% set fallback_resolved_locale = resource_item.resolved_locale %}
+  {% if not fallback_resolved_locale and resource_item.locale %}
+    {% set fallback_resolved_locale = resource_item.locale %}
+  {% endif %}
+  {% if not fallback_resolved_locale and resource_item.translation and resource_item.translation.meta %}
+    {% set fallback_resolved_locale = resource_item.translation.meta.resolved_locale %}
+  {% endif %}
+  {% set fallback_mode = resource_item.fallback_used %}
+  {% if not fallback_mode and resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.fallback_used %}
+    {% set fallback_mode = true %}
+  {% endif %}
+{% endif %}
+
 <div class="flex-1 p-8 overflow-y-auto"
      {% if is_edit and resource_item %}
      data-record-id="{{ resource_item.id }}"
      data-panel-name="{{ panel_name }}"
-     {% if resource_item.fallback_used or (resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.fallback_used) %}
+     {% if fallback_mode %}
      data-fallback-mode="true"
-     data-requested-locale="{{ resource_item.requested_locale|default:(resource_item.translation.meta.requested_locale if resource_item.translation and resource_item.translation.meta else '') }}"
-     data-resolved-locale="{{ resource_item.resolved_locale|default:resource_item.locale|default:(resource_item.translation.meta.resolved_locale if resource_item.translation and resource_item.translation.meta else '') }}"
+     data-requested-locale="{{ fallback_requested_locale }}"
+     data-resolved-locale="{{ fallback_resolved_locale }}"
      {% endif %}
      {% endif %}>
 
   {# Translation Summary for multilingual content in edit mode #}
   {% if is_edit and resource_item %}
-    {% set has_translation_context = resource_item.translation_group_id or (resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.translation_group_id) %}
+    {% set has_translation_context = resource_item.translation_group_id %}
+    {% if not has_translation_context and resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.translation_group_id %}
+      {% set has_translation_context = resource_item.translation.meta.translation_group_id %}
+    {% endif %}
     {% if has_translation_context %}
-      {% set translation_context = {} %}
-      {% set translation_context = translation_context|merge({'translation_group_id': resource_item.translation_group_id|default:(resource_item.translation.meta.translation_group_id if resource_item.translation and resource_item.translation.meta else '')}) %}
-      {% set translation_context = translation_context|merge({'requested_locale': resource_item.requested_locale|default:(resource_item.translation.meta.requested_locale if resource_item.translation and resource_item.translation.meta else '')}) %}
-      {% set translation_context = translation_context|merge({'resolved_locale': resource_item.resolved_locale|default:resource_item.locale|default:(resource_item.translation.meta.resolved_locale if resource_item.translation and resource_item.translation.meta else '')}) %}
-      {% set translation_context = translation_context|merge({'available_locales': resource_item.available_locales|default:(resource_item.translation.meta.available_locales if resource_item.translation and resource_item.translation.meta else [])}) %}
-      {% set translation_context = translation_context|merge({'missing_requested_locale': resource_item.missing_requested_locale|default:(resource_item.translation.meta.missing_requested_locale if resource_item.translation and resource_item.translation.meta else false)}) %}
-      {% set translation_context = translation_context|merge({'fallback_used': resource_item.fallback_used|default:(resource_item.translation.meta.fallback_used if resource_item.translation and resource_item.translation.meta else false)}) %}
-      {% include "partials/translation-summary.html" with translation_context=translation_context panel_name=panel_name record_id=resource_item.id show_create_actions=true compact=false %}
+      {% set translation_group_id = resource_item.translation_group_id %}
+      {% if not translation_group_id and resource_item.translation and resource_item.translation.meta %}
+        {% set translation_group_id = resource_item.translation.meta.translation_group_id %}
+      {% endif %}
+      {% set requested_locale = resource_item.requested_locale %}
+      {% if not requested_locale and resource_item.translation and resource_item.translation.meta %}
+        {% set requested_locale = resource_item.translation.meta.requested_locale %}
+      {% endif %}
+      {% set resolved_locale = resource_item.resolved_locale %}
+      {% if not resolved_locale and resource_item.locale %}
+        {% set resolved_locale = resource_item.locale %}
+      {% endif %}
+      {% if not resolved_locale and resource_item.translation and resource_item.translation.meta %}
+        {% set resolved_locale = resource_item.translation.meta.resolved_locale %}
+      {% endif %}
+      {% set available_locales = resource_item.available_locales %}
+      {% if not available_locales and resource_item.translation and resource_item.translation.meta %}
+        {% set available_locales = resource_item.translation.meta.available_locales %}
+      {% endif %}
+      {% set missing_requested_locale = resource_item.missing_requested_locale %}
+      {% if not missing_requested_locale and resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.missing_requested_locale %}
+        {% set missing_requested_locale = true %}
+      {% endif %}
+      {% set fallback_used = resource_item.fallback_used %}
+      {% if not fallback_used and resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.fallback_used %}
+        {% set fallback_used = true %}
+      {% endif %}
+      {% include "partials/translation-summary.html" with translation_group_id=translation_group_id requested_locale=requested_locale resolved_locale=resolved_locale available_locales=available_locales missing_requested_locale=missing_requested_locale fallback_used=fallback_used panel_name=panel_name record_id=resource_item.id show_create_actions=true compact=false %}
     {% endif %}
   {% endif %}
 
