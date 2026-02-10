@@ -99,3 +99,55 @@ func TestTranslationImportApplyCommandPopulatesResult(t *testing.T) {
 		t.Fatalf("unexpected output: %+v", out.Summary)
 	}
 }
+
+func TestTranslationExchangeCommandsExposeCLIOptions(t *testing.T) {
+	tests := []struct {
+		name string
+		path []string
+		cmd  interface {
+			CLIHandler() any
+			CLIOptions() CLIConfig
+		}
+	}{
+		{
+			name: "export",
+			path: []string{"translations", "exchange", "export"},
+			cmd:  &TranslationExportCommand{},
+		},
+		{
+			name: "import validate",
+			path: []string{"translations", "exchange", "import", "validate"},
+			cmd:  &TranslationImportValidateCommand{},
+		},
+		{
+			name: "import apply",
+			path: []string{"translations", "exchange", "import", "apply"},
+			cmd:  &TranslationImportApplyCommand{},
+		},
+		{
+			name: "import run",
+			path: []string{"translations", "exchange", "import", "run"},
+			cmd:  &TranslationImportRunCommand{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.cmd.CLIHandler() == nil {
+				t.Fatalf("expected CLI handler")
+			}
+			opts := tc.cmd.CLIOptions()
+			if len(opts.Path) != len(tc.path) {
+				t.Fatalf("expected path length %d, got %d", len(tc.path), len(opts.Path))
+			}
+			for i := range tc.path {
+				if opts.Path[i] != tc.path[i] {
+					t.Fatalf("expected path segment %d to be %q, got %q", i, tc.path[i], opts.Path[i])
+				}
+			}
+			if opts.Description == "" {
+				t.Fatalf("expected non-empty description")
+			}
+		})
+	}
+}
