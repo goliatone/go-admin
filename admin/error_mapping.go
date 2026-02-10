@@ -24,6 +24,8 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	var permission PermissionDeniedError
 	var missingTranslations MissingTranslationsError
 	var translationExists TranslationAlreadyExistsError
+	var queueConflict TranslationAssignmentConflictError
+	var queueVersionConflict TranslationAssignmentVersionConflictError
 	var exchangeUnsupportedFormat TranslationExchangeUnsupportedFormatError
 	var exchangeInvalidPayload TranslationExchangeInvalidPayloadError
 	var exchangeConflict TranslationExchangeConflictError
@@ -68,6 +70,25 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			"translation_group_id": strings.TrimSpace(translationExists.TranslationGroupID),
 		}
 		mapped = NewDomainError(TextCodeTranslationExists, translationExists.Error(), meta)
+		status = mapped.Code
+	case errors.As(err, &queueConflict):
+		meta := map[string]any{
+			"assignment_id":          strings.TrimSpace(queueConflict.AssignmentID),
+			"existing_assignment_id": strings.TrimSpace(queueConflict.ExistingAssignmentID),
+			"translation_group_id":   strings.TrimSpace(queueConflict.TranslationGroupID),
+			"entity_type":            normalizePolicyEntityKey(queueConflict.EntityType),
+			"source_locale":          strings.TrimSpace(strings.ToLower(queueConflict.SourceLocale)),
+			"target_locale":          strings.TrimSpace(strings.ToLower(queueConflict.TargetLocale)),
+		}
+		mapped = NewDomainError(TextCodeTranslationQueueConflict, queueConflict.Error(), meta)
+		status = mapped.Code
+	case errors.As(err, &queueVersionConflict):
+		meta := map[string]any{
+			"assignment_id":    strings.TrimSpace(queueVersionConflict.AssignmentID),
+			"expected_version": queueVersionConflict.ExpectedVersion,
+			"actual_version":   queueVersionConflict.ActualVersion,
+		}
+		mapped = NewDomainError(TextCodeTranslationQueueVersionConflict, queueVersionConflict.Error(), meta)
 		status = mapped.Code
 	case errors.As(err, &exchangeUnsupportedFormat):
 		format := strings.TrimSpace(strings.ToLower(exchangeUnsupportedFormat.Format))
