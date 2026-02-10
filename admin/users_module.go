@@ -713,6 +713,12 @@ func userToRecord(user UserRecord) map[string]any {
 		"permissions":  append([]string{}, user.Permissions...),
 		"display_name": strings.TrimSpace(strings.Join([]string{user.FirstName, user.LastName}, " ")),
 	}
+	if len(user.RoleLabels) > 0 {
+		record["role_assignments"] = append([]string{}, user.RoleLabels...)
+	}
+	if trimmed := strings.TrimSpace(user.RoleDisplay); trimmed != "" {
+		record["role_display"] = trimmed
+	}
 	if !user.CreatedAt.IsZero() {
 		record["created_at"] = user.CreatedAt.Format(time.RFC3339)
 	}
