@@ -15,37 +15,38 @@ func TranslationExchangeRouteStep(ctx BootCtx) error {
 	if responder == nil {
 		return nil
 	}
+	gates := ctx.Gates()
 	routes := []RouteSpec{
 		{
 			Method: "POST",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.export"),
-			Handler: func(c router.Context) error {
+			Handler: withFeatureGate(responder, gates, FeatureTranslationExchange, func(c router.Context) error {
 				payload, err := binding.Export(c)
 				return writeJSONOrError(responder, c, payload, err)
-			},
+			}),
 		},
 		{
 			Method: "GET",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.template"),
-			Handler: func(c router.Context) error {
+			Handler: withFeatureGate(responder, gates, FeatureTranslationExchange, func(c router.Context) error {
 				return binding.Template(c)
-			},
+			}),
 		},
 		{
 			Method: "POST",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.import.validate"),
-			Handler: func(c router.Context) error {
+			Handler: withFeatureGate(responder, gates, FeatureTranslationExchange, func(c router.Context) error {
 				payload, err := binding.ImportValidate(c)
 				return writeJSONOrError(responder, c, payload, err)
-			},
+			}),
 		},
 		{
 			Method: "POST",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.import.apply"),
-			Handler: func(c router.Context) error {
+			Handler: withFeatureGate(responder, gates, FeatureTranslationExchange, func(c router.Context) error {
 				payload, err := binding.ImportApply(c)
 				return writeJSONOrError(responder, c, payload, err)
-			},
+			}),
 		},
 	}
 	return applyRoutes(ctx, routes)
