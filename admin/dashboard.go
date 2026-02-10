@@ -59,6 +59,7 @@ type widgetInstanceExistenceChecker interface {
 // Dashboard orchestrates widget providers and instances.
 type Dashboard struct {
 	providers        map[string]registeredProvider
+	providerCommands map[string]string
 	defaultInstances []DashboardWidgetInstance
 	widgetSvc        CMSWidgetService
 	prefs            DashboardPreferences
@@ -78,6 +79,7 @@ type Dashboard struct {
 func NewDashboard() *Dashboard {
 	return &Dashboard{
 		providers:        make(map[string]registeredProvider),
+		providerCommands: make(map[string]string),
 		defaultInstances: []DashboardWidgetInstance{},
 		prefs:            NewInMemoryDashboardPreferences(),
 		areas:            map[string]WidgetAreaDefinition{},
@@ -216,6 +218,14 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	if d == nil || spec.Code == "" || spec.Handler == nil {
 		return
 	}
+	spec.CommandName = strings.TrimSpace(spec.CommandName)
+	previous, hadPrevious := d.providers[spec.Code]
+	if hadPrevious {
+		prevCommand := strings.TrimSpace(previous.spec.CommandName)
+		if prevCommand != "" && prevCommand != spec.CommandName {
+			delete(d.providerCommands, prevCommand)
+		}
+	}
 
 	// Replace existing provider and drop any previously registered default instances for the same code
 	// so that overrides (e.g., app-specific providers without DefaultArea) do not leave stale defaults.
@@ -283,12 +293,23 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 
 	// Register a command hook if requested.
 	if d.commandBus != nil && spec.CommandName != "" {
-		if !d.providerCmdReady {
-			_, _ = RegisterCommand(d.commandBus, &dashboardProviderCommand{dashboard: d})
-			d.providerCmdReady = true
+		if d.providerCommands == nil {
+			d.providerCommands = map[string]string{}
 		}
-		if err := RegisterDashboardProviderFactory(d.commandBus, spec.CommandName, spec.Code, spec.DefaultConfig); err != nil {
-			log.Printf("[dashboard] failed to register command %s: %v", spec.CommandName, err)
+		if existingCode, exists := d.providerCommands[spec.CommandName]; exists {
+			if existingCode != spec.Code {
+				log.Printf("[dashboard] command %s already mapped to provider %s; skipping provider %s", spec.CommandName, existingCode, spec.Code)
+			}
+		} else {
+			if !d.providerCmdReady {
+				_, _ = RegisterCommand(d.commandBus, &dashboardProviderCommand{dashboard: d})
+				d.providerCmdReady = true
+			}
+			if err := RegisterDashboardProviderFactory(d.commandBus, spec.CommandName, spec.Code, spec.DefaultConfig); err != nil {
+				log.Printf("[dashboard] failed to register command %s: %v", spec.CommandName, err)
+			} else {
+				d.providerCommands[spec.CommandName] = spec.Code
+			}
 		}
 	}
 
