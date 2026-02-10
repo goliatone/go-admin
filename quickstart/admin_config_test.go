@@ -58,21 +58,22 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 func TestDefaultAdminFeatures(t *testing.T) {
 	got := DefaultAdminFeatures()
 	expected := map[string]bool{
-		"dashboard":     true,
-		"cms":           true,
-		"commands":      true,
-		"settings":      true,
-		"search":        true,
-		"notifications": true,
-		"jobs":          true,
-		"media":         true,
-		"export":        true,
-		"bulk":          true,
-		"preferences":   true,
-		"profile":       true,
-		"users":         true,
-		"tenants":       false,
-		"organizations": false,
+		"dashboard":             true,
+		"cms":                   true,
+		"commands":              true,
+		"settings":              true,
+		"search":                true,
+		"notifications":         true,
+		"jobs":                  true,
+		"media":                 true,
+		"export":                true,
+		"bulk":                  true,
+		"preferences":           true,
+		"profile":               true,
+		"users":                 true,
+		"tenants":               false,
+		"organizations":         false,
+		"translations.exchange": false,
 	}
 	if !reflect.DeepEqual(got, expected) {
 		t.Fatalf("expected default features %+v, got %+v", expected, got)
