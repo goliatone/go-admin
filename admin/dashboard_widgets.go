@@ -151,6 +151,9 @@ func (a *Admin) registerDashboardProviders() error {
 			a.dashboard.RegisterProvider(statsSpec)
 			a.dashboard.RegisterProvider(quickActionsSpec)
 			a.dashboard.RegisterProvider(chartSpec)
+			if queueStats := translationQueueStatsServiceFromAdmin(a); queueStats != nil {
+				RegisterTranslationProgressWidget(a.dashboard, queueStats, a.urlManager)
+			}
 			return nil
 		},
 	)
