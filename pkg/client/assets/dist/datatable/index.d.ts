@@ -17,4 +17,14 @@ export { CellRendererRegistry, CommonRenderers } from './renderers.js';
 export type { CellRenderer } from './renderers.js';
 export { ColumnManager } from './column-manager.js';
 export type { ColumnManagerConfig } from './column-manager.js';
+export { SchemaActionBuilder, buildSchemaRowActions, extractSchemaActions } from './schema-actions.js';
+export type { SchemaAction, SchemaActionBuilderConfig, ActionResult, TranslationBlockerContext, PayloadSchema, PayloadSchemaProperty } from './schema-actions.js';
+export { PayloadInputModal } from './payload-modal.js';
+export type { PayloadModalConfig, PayloadModalField, PayloadModalFieldOption } from './payload-modal.js';
+export { TranslationBlockerModal, showTranslationBlocker } from './translation-blocker-modal.js';
+export type { TranslationBlockerModalConfig, CreateTranslationResult } from './translation-blocker-modal.js';
+export { extractTranslationContext, isInFallbackMode, hasTranslationContext, renderLocaleBadge, renderAvailableLocalesIndicator, renderTranslationStatusCell, renderStatusBadge, renderFallbackWarning, createTranslationStatusRenderer, createLocaleBadgeRenderer } from './translation-context.js';
+export type { TranslationContext, LocaleBadgeOptions, TranslationStatusOptions } from './translation-context.js';
+export { isExchangeError, extractExchangeError, parseImportResult, groupRowResultsByStatus, generateExchangeReport } from '../toast/error-helpers.js';
+export type { ExchangeErrorCode, ExchangeRowStatus, ExchangeRowResult, ExchangeConflictInfo, ExchangeResultSummary, ExchangeImportResult, ExchangeExportOptions, ExchangeExportResult, ExchangeErrorInfo } from '../toast/error-helpers.js';
 //# sourceMappingURL=index.d.ts.map

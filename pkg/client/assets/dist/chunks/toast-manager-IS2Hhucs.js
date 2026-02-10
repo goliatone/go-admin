@@ -1,4 +1,4 @@
-import { C as r } from "./error-helpers-reYGXKKl.js";
+import { C as r } from "./modal-DXPBR0f5.js";
 class l {
   constructor(t = {}) {
     this.toasts = /* @__PURE__ */ new Map(), this.position = t.position || "top-right", this.container = this.getOrCreateContainer(), this.applyContainerClasses(this.container);
@@ -141,4 +141,4 @@ export {
   c as F,
   l as T
 };
-//# sourceMappingURL=toast-manager-DS2ghjI8.js.map
+//# sourceMappingURL=toast-manager-IS2Hhucs.js.map

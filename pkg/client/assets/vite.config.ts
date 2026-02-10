@@ -14,6 +14,7 @@ export default defineConfig({
         'searchbox/index': resolve(__dirname, 'src/searchbox/index.ts'),
         'tabs/index': resolve(__dirname, 'src/tabs/index.ts'),
         'toast/init': resolve(__dirname, 'src/toast/init.ts'),
+        'toast/error-helpers': resolve(__dirname, 'src/toast/error-helpers.ts'),
         'formgen/file_uploader': resolve(__dirname, 'src/formgen/file_uploader.ts'),
         'formgen/block_editor': resolve(__dirname, 'src/formgen/block_editor.ts'),
         'formgen/block_library_picker': resolve(__dirname, 'src/formgen/block_library_picker.ts'),
