@@ -73,7 +73,14 @@ func RegisterTranslationQueuePanel(admin *Admin, repo TranslationAssignmentRepos
 	if repo == nil {
 		return nil, serviceNotConfiguredDomainError("translation assignment repository", map[string]any{"component": "translation_queue_panel"})
 	}
-	return admin.RegisterPanel(translationQueuePanelID, NewTranslationQueuePanel(NewTranslationAssignmentPanelRepository(repo)))
+	panel, err := admin.RegisterPanel(translationQueuePanelID, NewTranslationQueuePanel(NewTranslationAssignmentPanelRepository(repo)))
+	if err != nil {
+		return nil, err
+	}
+	if err := RegisterTranslationQueueTabs(admin); err != nil {
+		return nil, err
+	}
+	return panel, nil
 }
 
 // TranslationAssignmentPanelRepository adapts typed queue storage to panel CRUD contracts.
