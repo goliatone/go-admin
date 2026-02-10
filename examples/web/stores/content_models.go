@@ -33,6 +33,8 @@ type PageRecord struct {
 	Slug               string     `json:"slug" bun:"slug"`
 	Path               string     `json:"path" bun:"path"`
 	Locale             string     `json:"locale" bun:"locale"`
+	PrimaryLocale      string     `json:"primary_locale,omitempty" bun:"primary_locale"`
+	AvailableLocales   string     `json:"available_locales,omitempty" bun:"available_locales"`
 	Status             string     `json:"status" bun:"status"`
 	ParentID           *uuid.UUID `json:"parent_id,omitempty" bun:"parent_id"`
 	MetaTitle          string     `json:"meta_title,omitempty" bun:"meta_title"`
@@ -57,6 +59,8 @@ type PostRecord struct {
 	Status             string     `json:"status" bun:"status"`
 	Locale             string     `json:"locale" bun:"locale"`
 	TranslationGroupID *uuid.UUID `json:"translation_group_id,omitempty" bun:"translation_group_id,type:uuid"`
+	PrimaryLocale      string     `json:"primary_locale,omitempty" bun:"primary_locale"`
+	AvailableLocales   string     `json:"available_locales,omitempty" bun:"available_locales"`
 	Path               string     `json:"path" bun:"path"`
 	Author             string     `json:"author,omitempty" bun:"author"`
 	Excerpt            string     `json:"excerpt,omitempty" bun:"excerpt"`
@@ -90,16 +94,18 @@ type MediaRecord struct {
 func pageRecordFromMap(record map[string]any) *PageRecord {
 	now := time.Now().UTC()
 	rec := &PageRecord{
-		ID:              parseSeededUUID(stringID(record["id"]), "page:"+asString(record["slug"], asString(record["title"], ""))),
-		Title:           asString(record["title"], ""),
-		Slug:            sanitizeSlug(asString(record["slug"], "")),
-		Path:            asString(record["path"], ""),
-		Locale:          strings.TrimSpace(asString(record["locale"], "")),
-		Status:          strings.ToLower(asString(record["status"], "draft")),
-		Content:         asString(record["content"], ""),
-		PreviewURL:      asString(record["preview_url"], ""),
-		MetaTitle:       asString(record["meta_title"], ""),
-		MetaDescription: asString(record["meta_description"], ""),
+		ID:               parseSeededUUID(stringID(record["id"]), "page:"+asString(record["slug"], asString(record["title"], ""))),
+		Title:            asString(record["title"], ""),
+		Slug:             sanitizeSlug(asString(record["slug"], "")),
+		Path:             asString(record["path"], ""),
+		Locale:           strings.TrimSpace(asString(record["locale"], "")),
+		PrimaryLocale:    strings.TrimSpace(asString(record["primary_locale"], "")),
+		AvailableLocales: strings.TrimSpace(asString(record["available_locales"], "")),
+		Status:           strings.ToLower(asString(record["status"], "draft")),
+		Content:          asString(record["content"], ""),
+		PreviewURL:       asString(record["preview_url"], ""),
+		MetaTitle:        asString(record["meta_title"], ""),
+		MetaDescription:  asString(record["meta_description"], ""),
 	}
 	if summary := strings.TrimSpace(asString(record["summary"], "")); summary != "" {
 		rec.Summary = &summary
@@ -148,16 +154,18 @@ func pageRecordToMap(record *PageRecord) map[string]any {
 		return map[string]any{}
 	}
 	out := map[string]any{
-		"id":               record.ID.String(),
-		"title":            record.Title,
-		"slug":             record.Slug,
-		"path":             record.Path,
-		"locale":           record.Locale,
-		"status":           strings.ToLower(record.Status),
-		"meta_title":       record.MetaTitle,
-		"meta_description": record.MetaDescription,
-		"content":          record.Content,
-		"preview_url":      record.PreviewURL,
+		"id":                record.ID.String(),
+		"title":             record.Title,
+		"slug":              record.Slug,
+		"path":              record.Path,
+		"locale":            record.Locale,
+		"primary_locale":    record.PrimaryLocale,
+		"available_locales": record.AvailableLocales,
+		"status":            strings.ToLower(record.Status),
+		"meta_title":        record.MetaTitle,
+		"meta_description":  record.MetaDescription,
+		"content":           record.Content,
+		"preview_url":       record.PreviewURL,
 	}
 	if record.Blocks != nil {
 		out["blocks"] = record.Blocks
@@ -203,20 +211,22 @@ func PageRecordToMap(record *PageRecord) map[string]any {
 func postRecordFromMap(record map[string]any) *PostRecord {
 	now := time.Now().UTC()
 	rec := &PostRecord{
-		ID:              parseSeededUUID(stringID(record["id"]), "post:"+asString(record["slug"], asString(record["title"], ""))),
-		Title:           asString(record["title"], ""),
-		Slug:            sanitizeSlug(asString(record["slug"], "")),
-		Path:            asString(record["path"], ""),
-		Locale:          strings.TrimSpace(asString(record["locale"], "")),
-		Status:          strings.ToLower(asString(record["status"], "draft")),
-		Author:          asString(record["author"], ""),
-		Excerpt:         asString(record["excerpt"], ""),
-		Content:         asString(record["content"], ""),
-		Category:        strings.ToLower(asString(record["category"], "")),
-		FeaturedImage:   asString(record["featured_image"], ""),
-		Tags:            parseTags(record["tags"]),
-		MetaTitle:       asString(record["meta_title"], ""),
-		MetaDescription: asString(record["meta_description"], ""),
+		ID:               parseSeededUUID(stringID(record["id"]), "post:"+asString(record["slug"], asString(record["title"], ""))),
+		Title:            asString(record["title"], ""),
+		Slug:             sanitizeSlug(asString(record["slug"], "")),
+		Path:             asString(record["path"], ""),
+		Locale:           strings.TrimSpace(asString(record["locale"], "")),
+		PrimaryLocale:    strings.TrimSpace(asString(record["primary_locale"], "")),
+		AvailableLocales: strings.TrimSpace(asString(record["available_locales"], "")),
+		Status:           strings.ToLower(asString(record["status"], "draft")),
+		Author:           asString(record["author"], ""),
+		Excerpt:          asString(record["excerpt"], ""),
+		Content:          asString(record["content"], ""),
+		Category:         strings.ToLower(asString(record["category"], "")),
+		FeaturedImage:    asString(record["featured_image"], ""),
+		Tags:             parseTags(record["tags"]),
+		MetaTitle:        asString(record["meta_title"], ""),
+		MetaDescription:  asString(record["meta_description"], ""),
 	}
 	if gid := stringID(record["translation_group_id"]); gid != "" {
 		groupID := parseSeededUUID(gid, "translation-group:"+gid)
@@ -246,17 +256,19 @@ func postRecordToMap(record *PostRecord) map[string]any {
 		return map[string]any{}
 	}
 	out := map[string]any{
-		"id":             record.ID.String(),
-		"title":          record.Title,
-		"slug":           record.Slug,
-		"status":         strings.ToLower(record.Status),
-		"locale":         record.Locale,
-		"path":           record.Path,
-		"author":         record.Author,
-		"excerpt":        record.Excerpt,
-		"content":        record.Content,
-		"category":       record.Category,
-		"featured_image": record.FeaturedImage,
+		"id":                record.ID.String(),
+		"title":             record.Title,
+		"slug":              record.Slug,
+		"status":            strings.ToLower(record.Status),
+		"locale":            record.Locale,
+		"primary_locale":    record.PrimaryLocale,
+		"available_locales": record.AvailableLocales,
+		"path":              record.Path,
+		"author":            record.Author,
+		"excerpt":           record.Excerpt,
+		"content":           record.Content,
+		"category":          record.Category,
+		"featured_image":    record.FeaturedImage,
 	}
 	if record.TranslationGroupID != nil && *record.TranslationGroupID != uuid.Nil {
 		out["translation_group_id"] = record.TranslationGroupID.String()

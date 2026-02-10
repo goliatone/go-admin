@@ -159,7 +159,10 @@ func NewUserStore(deps UserDependencies) (*UserStore, error) {
 		inventoryRepo: deps.InventoryRepo,
 		usersRepo:     deps.RepoManager.Users(),
 	}
-	store := &UserStore{repo: repo, users: deps.RepoManager.Users()}
+	store := &UserStore{
+		repo:  repo,
+		users: deps.RepoManager.Users(),
+	}
 	store.crudRepo = &userRepositoryAdapter{store: store}
 	return store, nil
 }
@@ -367,7 +370,8 @@ func (s *UserStore) List(ctx context.Context, opts admin.ListOptions) ([]map[str
 
 	results := make([]map[string]any, 0, len(filteredUsers))
 	for _, user := range filteredUsers {
-		results = append(results, userToMap(&user, lastLoginFromUser(&user, s.repo)))
+		record := userToMap(&user, lastLoginFromUser(&user, s.repo))
+		results = append(results, record)
 	}
 
 	// Apply sorting if specified
@@ -388,7 +392,8 @@ func (s *UserStore) Get(ctx context.Context, id string) (map[string]any, error) 
 	if err != nil {
 		return nil, err
 	}
-	return userToMap(user, lastLoginFromUser(user, s.repo)), nil
+	record := userToMap(user, lastLoginFromUser(user, s.repo))
+	return record, nil
 }
 
 // Create adds a new user.

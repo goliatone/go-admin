@@ -242,11 +242,23 @@ func main() {
 		adminDeps.ActivityRepository = usersDeps.ActivityRepo
 		adminDeps.ActivityAccessPolicy = activity.NewDefaultAccessPolicy()
 	}
+	translationPolicyCfg := quickstart.DefaultContentTranslationPolicyConfig()
+	validationResult, err := quickstart.ValidateTranslationPolicyConfig(
+		translationPolicyCfg,
+		quickstart.DefaultTranslationPolicyValidationCatalog(),
+	)
+	if err != nil {
+		log.Fatalf("invalid translation policy config: %v", err)
+	}
+	for _, warning := range validationResult.Warnings {
+		log.Printf("warning: translation policy config: %s", warning)
+	}
 	adm, adapterResult, err := quickstart.NewAdmin(
 		cfg,
 		adapterHooks,
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
+		quickstart.WithTranslationPolicyConfig(translationPolicyCfg),
 		quickstart.WithAdapterFlags(adapterFlags),
 		quickstart.WithGoUsersUserManagement(quickstart.GoUsersUserManagementConfig{
 			AuthRepo:      usersDeps.AuthRepo,

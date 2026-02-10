@@ -5,6 +5,37 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 )
 
+func createTranslationAction(permission string) admin.Action {
+	return admin.Action{
+		Name:            "create_translation",
+		Label:           "Add Translation",
+		LabelKey:        "actions.add_translation",
+		Permission:      permission,
+		PayloadRequired: []string{"locale"},
+		PayloadSchema: map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"required":             []string{"locale"},
+			"properties": map[string]any{
+				"locale": map[string]any{
+					"type":      "string",
+					"title":     "Locale",
+					"enum":      []string{"en", "es", "fr"},
+					"x-options": translationLocalePayloadOptions(),
+				},
+			},
+		},
+	}
+}
+
+func translationLocalePayloadOptions() []map[string]any {
+	return []map[string]any{
+		{"value": "en", "label": "English"},
+		{"value": "es", "label": "Spanish"},
+		{"value": "fr", "label": "French"},
+	}
+}
+
 // NewUserPanelBuilder creates a panel builder for users
 func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 	builder := &admin.PanelBuilder{}
@@ -198,7 +229,7 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 			admin.Filter{Name: "template_id", Label: "Template", LabelKey: "fields.template", Type: "text"},
 		).
 		Actions(
-			admin.Action{Name: "create_translation", Label: "Add Translation", LabelKey: "actions.add_translation", Permission: "admin.pages.edit"},
+			createTranslationAction("admin.pages.edit"),
 			admin.Action{Name: "request_approval", Label: "Request Approval", LabelKey: "actions.request_approval", Permission: "admin.pages.edit"},
 			admin.Action{Name: "approve", Label: "Approve", LabelKey: "actions.approve", Permission: "admin.pages.publish"},
 			admin.Action{Name: "reject", Label: "Reject", LabelKey: "actions.reject", Permission: "admin.pages.publish"},
@@ -292,7 +323,7 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 			admin.Filter{Name: "author", Label: "Author", LabelKey: "fields.author", Type: "text"},
 		).
 		Actions(
-			admin.Action{Name: "create_translation", Label: "Add Translation", LabelKey: "actions.add_translation", Permission: "admin.posts.edit"},
+			createTranslationAction("admin.posts.edit"),
 			admin.Action{Name: "request_approval", Label: "Request Approval", LabelKey: "actions.request_approval", Permission: "admin.posts.edit"},
 			admin.Action{Name: "approve", Label: "Approve", LabelKey: "actions.approve", Permission: "admin.posts.publish"},
 			admin.Action{Name: "reject", Label: "Reject", LabelKey: "actions.reject", Permission: "admin.posts.publish"},

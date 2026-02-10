@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
 	"path/filepath"
 )
 
@@ -142,6 +143,7 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 		"status":           "draft",
 		"locale":           "en",
 		"path":             "/posts/contract-post",
+		"category":         "guides",
 		"meta_title":       "VirtualScopeMeta",
 		"meta_description": "MetaSearchAttr",
 		"tags":             []string{"repo", "virtual", "contractsuite"},
@@ -183,6 +185,7 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 		"status":           "draft",
 		"locale":           "en",
 		"path":             "/posts/sort-alpha",
+		"category":         "updates",
 		"meta_title":       "AlphaSort",
 		"meta_description": "virtual-sort-check",
 	})
@@ -195,6 +198,7 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 		"status":           "draft",
 		"locale":           "en",
 		"path":             "/posts/sort-zeta",
+		"category":         "updates",
 		"meta_title":       "ZetaSort",
 		"meta_description": "virtual-sort-check",
 	})
@@ -231,4 +235,128 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 	require.Equal(t, 1, mediaTotal)
 	require.NotEmpty(t, mediaResults)
 	require.Equal(t, "contract-asset.png", fmt.Sprint(mediaResults[0]["filename"]))
+}
+
+func TestCMSSeedsIncludeMonolingualAndMultilingualTranslationScenarios(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db")
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", dbPath)
+
+	_, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err, "setup persistent cms")
+
+	db, err := stores.SetupContentDatabase(ctx, dsn)
+	require.NoError(t, err, "setup content database")
+
+	pageHomeLocales := pageTranslationLocalesBySlug(t, ctx, db, "home")
+	require.ElementsMatch(t, []string{"en", "es", "fr"}, pageHomeLocales, "home should be seeded as multilingual")
+
+	pageContactLocales := pageTranslationLocalesBySlug(t, ctx, db, "contact")
+	require.ElementsMatch(t, []string{"en"}, pageContactLocales, "contact should remain en-only")
+
+	postGettingStartedLocales := contentTranslationLocalesBySlug(t, ctx, db, "getting-started-go")
+	require.ElementsMatch(t, []string{"en", "es", "fr"}, postGettingStartedLocales, "getting-started-go should be seeded as multilingual")
+
+	postDatabaseOptimizationLocales := contentTranslationLocalesBySlug(t, ctx, db, "database-optimization")
+	require.ElementsMatch(t, []string{"en"}, postDatabaseOptimizationLocales, "database-optimization should remain en-only")
+}
+
+func TestAdminPageResponsesExposeTranslationMetadataForListAndDetail(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db")
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", dbPath)
+
+	_, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err, "setup persistent cms")
+
+	db, err := stores.SetupContentDatabase(ctx, dsn)
+	require.NoError(t, err, "setup content database")
+
+	pageRepo := stores.NewPageRecordRepository(db)
+	pageService := stores.NewAdminPageStoreAdapter(pageRepo, nil, "en")
+
+	records, total, err := pageService.List(ctx, admin.AdminPageListOptions{
+		Locale:  "fr",
+		PerPage: 50,
+	})
+	require.NoError(t, err, "list pages for fr locale")
+	require.Greater(t, total, 0, "expected at least one page row")
+
+	var home admin.AdminPageRecord
+	foundHome := false
+	for _, record := range records {
+		if strings.EqualFold(record.Slug, "home") {
+			home = record
+			foundHome = true
+			break
+		}
+	}
+	require.True(t, foundHome, "expected home record in fr list response")
+	require.Equal(t, "fr", strings.ToLower(home.RequestedLocale))
+	require.Equal(t, "fr", strings.ToLower(home.ResolvedLocale))
+	require.Equal(t, "en", strings.ToLower(home.Translation.Meta.PrimaryLocale))
+	require.Contains(t, home.Translation.Meta.AvailableLocales, "en")
+	require.Contains(t, home.Translation.Meta.AvailableLocales, "es")
+	require.Contains(t, home.Translation.Meta.AvailableLocales, "fr")
+	require.False(t, home.Translation.Meta.MissingRequestedLocale)
+	require.False(t, home.Translation.Meta.FallbackUsed)
+
+	var contactID string
+	err = db.NewSelect().
+		Table("pages").
+		Column("id").
+		Where("slug = ?", "contact").
+		Limit(1).
+		Scan(ctx, &contactID)
+	require.NoError(t, err, "load contact page id")
+	require.NotEmpty(t, contactID)
+
+	contact, err := pageService.Get(ctx, contactID, admin.AdminPageGetOptions{Locale: "fr"})
+	require.NoError(t, err, "get contact page detail with fr request")
+	require.NotNil(t, contact)
+	require.Equal(t, "fr", strings.ToLower(contact.RequestedLocale))
+	require.Equal(t, "en", strings.ToLower(contact.ResolvedLocale))
+	require.NotEmpty(t, contact.TranslationGroupID)
+	require.True(t, contact.Translation.Meta.MissingRequestedLocale)
+	require.True(t, contact.Translation.Meta.FallbackUsed)
+	require.Contains(t, contact.Translation.Meta.AvailableLocales, "en")
+	require.NotContains(t, contact.Translation.Meta.AvailableLocales, "fr")
+	require.True(t, contact.ContentTranslation.Meta.MissingRequestedLocale)
+	require.True(t, contact.ContentTranslation.Meta.FallbackUsed)
+}
+
+func pageTranslationLocalesBySlug(t *testing.T, ctx context.Context, db *bun.DB, slug string) []string {
+	t.Helper()
+	var codes []string
+	err := db.NewSelect().
+		TableExpr("page_translations AS tr").
+		ColumnExpr("l.code").
+		Join("JOIN pages AS p ON p.id = tr.page_id").
+		Join("JOIN locales AS l ON l.id = tr.locale_id").
+		Where("p.slug = ?", slug).
+		OrderExpr("l.code ASC").
+		Scan(ctx, &codes)
+	require.NoError(t, err, "load page translation locales for slug %s", slug)
+	require.NotEmpty(t, codes, "expected page translations for slug %s", slug)
+	return codes
+}
+
+func contentTranslationLocalesBySlug(t *testing.T, ctx context.Context, db *bun.DB, slug string) []string {
+	t.Helper()
+	var codes []string
+	err := db.NewSelect().
+		TableExpr("content_translations AS tr").
+		ColumnExpr("l.code").
+		Join("JOIN contents AS c ON c.id = tr.content_id").
+		Join("JOIN locales AS l ON l.id = tr.locale_id").
+		Where("c.slug = ?", slug).
+		OrderExpr("l.code ASC").
+		Scan(ctx, &codes)
+	require.NoError(t, err, "load content translation locales for slug %s", slug)
+	require.NotEmpty(t, codes, "expected content translations for slug %s", slug)
+	return codes
 }

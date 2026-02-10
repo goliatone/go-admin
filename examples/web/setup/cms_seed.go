@@ -19,14 +19,56 @@ import (
 )
 
 var (
-	cmsSeedNamespace      = uuid.MustParse("4e7b7b9f-24c0-4d6a-9e2f-6e5a0cc3d7b7")
-	seedAuthorID          = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
-	pageContentTypeID     = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:page"))
-	postContentTypeID     = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:post"))
-	seedThemeID           = uuid.NewSHA1(cmsSeedNamespace, []byte("theme:admin-demo"))
-	seedTemplateID        = uuid.NewSHA1(cmsSeedNamespace, []byte("template:page-default"))
-	siteMenuLocaleDefault = ""
+	cmsSeedNamespace                     = uuid.MustParse("4e7b7b9f-24c0-4d6a-9e2f-6e5a0cc3d7b7")
+	seedAuthorID                         = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	pageContentTypeID                    = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:page"))
+	postContentTypeID                    = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:post"))
+	seedThemeID                          = uuid.NewSHA1(cmsSeedNamespace, []byte("theme:admin-demo"))
+	seedTemplateID                       = uuid.NewSHA1(cmsSeedNamespace, []byte("template:page-default"))
+	siteMenuLocaleDefault                = ""
+	translationScenarioMultilingualSlugs = map[string]struct{}{
+		"home":               {},
+		"getting-started-go": {},
+	}
 )
+
+func translationSeedLocales(defaultLocale string) []string {
+	primary := strings.ToLower(strings.TrimSpace(defaultLocale))
+	if primary == "" {
+		primary = "en"
+	}
+	seen := map[string]struct{}{}
+	add := func(out []string, locale string) []string {
+		normalized := strings.ToLower(strings.TrimSpace(locale))
+		if normalized == "" {
+			return out
+		}
+		if _, ok := seen[normalized]; ok {
+			return out
+		}
+		seen[normalized] = struct{}{}
+		return append(out, normalized)
+	}
+
+	locales := []string{}
+	locales = add(locales, primary)
+	for _, locale := range []string{"en", "es", "fr"} {
+		locales = add(locales, locale)
+	}
+	return locales
+}
+
+func translationSeedLocalesForSlug(defaultLocale, slug string) []string {
+	primary := strings.ToLower(strings.TrimSpace(defaultLocale))
+	if primary == "" {
+		primary = "en"
+	}
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	if _, ok := translationScenarioMultilingualSlugs[slug]; !ok {
+		return []string{primary}
+	}
+	return translationSeedLocales(primary)
+}
 
 type cmsSeedRefs struct {
 	PageContentTypeID uuid.UUID
@@ -147,8 +189,14 @@ func seedCMSPrereqs(ctx context.Context, db *bun.DB, defaultLocale string) (cmsS
 		return cmsSeedRefs{}, fmt.Errorf("db is nil")
 	}
 
-	if err := ensureLocale(ctx, db, defaultLocale); err != nil {
-		return cmsSeedRefs{}, err
+	defaultLocale = strings.ToLower(strings.TrimSpace(defaultLocale))
+	if defaultLocale == "" {
+		defaultLocale = "en"
+	}
+	for _, locale := range translationSeedLocales(defaultLocale) {
+		if err := ensureLocale(ctx, db, locale, strings.EqualFold(locale, defaultLocale)); err != nil {
+			return cmsSeedRefs{}, err
+		}
 	}
 	themeID, err := ensureTheme(ctx, db)
 	if err != nil {
@@ -170,7 +218,7 @@ func seedCMSPrereqs(ctx context.Context, db *bun.DB, defaultLocale string) (cmsS
 	}, nil
 }
 
-func ensureLocale(ctx context.Context, db *bun.DB, code string) error {
+func ensureLocale(ctx context.Context, db *bun.DB, code string, isDefault bool) error {
 	if strings.TrimSpace(code) == "" {
 		return fmt.Errorf("locale code is required")
 	}
@@ -190,7 +238,7 @@ func ensureLocale(ctx context.Context, db *bun.DB, code string) error {
 				Code:      strings.ToLower(code),
 				Display:   strings.ToUpper(code),
 				IsActive:  true,
-				IsDefault: true,
+				IsDefault: isDefault,
 				Metadata:  map[string]any{},
 				CreatedAt: now,
 			}).
@@ -831,7 +879,8 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 			Path:    "/posts/getting-started-go",
 			Tags:    []string{"go", "programming", "tutorial"},
 			Custom: map[string]any{
-				"seo": map[string]any{"title": "Getting Started with Go", "description": "A beginner's guide to Go"},
+				"category": "guides",
+				"seo":      map[string]any{"title": "Getting Started with Go", "description": "A beginner's guide to Go"},
 				"blocks": []map[string]any{
 					richTextBlock("Start with packages, modules, and fast feedback loops."),
 				},
@@ -846,7 +895,8 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 			Path:    "/posts/building-rest-apis",
 			Tags:    []string{"go", "api", "rest"},
 			Custom: map[string]any{
-				"seo": map[string]any{"title": "Building REST APIs", "description": "REST API development guide"},
+				"category": "guides",
+				"seo":      map[string]any{"title": "Building REST APIs", "description": "REST API development guide"},
 				"blocks": []map[string]any{
 					richTextBlock("Plan your handlers, use middleware, and add structured logs."),
 				},
@@ -861,7 +911,8 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 			Path:    "/posts/company-news-q4-2024",
 			Tags:    []string{"news", "company"},
 			Custom: map[string]any{
-				"seo": map[string]any{"title": "Company News Q4 2024", "description": "Our Q4 achievements"},
+				"category": "news",
+				"seo":      map[string]any{"title": "Company News Q4 2024", "description": "Our Q4 achievements"},
 			},
 		},
 		{
@@ -873,7 +924,8 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 			Path:    "/posts/database-optimization",
 			Tags:    []string{"database", "optimization"},
 			Custom: map[string]any{
-				"seo": map[string]any{"title": "Database Optimization", "description": "Improve your database performance"},
+				"category": "updates",
+				"seo":      map[string]any{"title": "Database Optimization", "description": "Improve your database performance"},
 			},
 		},
 		{
@@ -885,7 +937,8 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 			Path:    "/posts/upcoming-features-2025",
 			Tags:    []string{"news", "roadmap"},
 			Custom: map[string]any{
-				"seo": map[string]any{"title": "Upcoming Features", "description": "Preview of 2025 features"},
+				"category": "news",
+				"seo":      map[string]any{"title": "Upcoming Features", "description": "Preview of 2025 features"},
 			},
 		},
 	}
@@ -1027,6 +1080,11 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 			"meta_title":       seoTitle,
 			"meta_description": seoDescription,
 			"tags":             append([]string{}, seed.Tags...),
+		}
+		if seed.Custom != nil {
+			if category := strings.TrimSpace(fmt.Sprint(seed.Custom["category"])); category != "" && category != "<nil>" {
+				record["category"] = category
+			}
 		}
 		if seed.Custom != nil {
 			if blocks, ok := seed.Custom["blocks"]; ok {
@@ -1206,17 +1264,21 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 	if db == nil {
 		return fmt.Errorf("db is nil")
 	}
-	code := strings.TrimSpace(locale)
-	if code == "" {
-		code = siteMenuLocaleDefault
+	defaultCode := strings.ToLower(strings.TrimSpace(locale))
+	if defaultCode == "" {
+		defaultCode = "en"
 	}
 
-	var loc localeRow
-	if err := db.NewSelect().
-		Model(&loc).
-		Where("LOWER(code) = LOWER(?)", code).
-		Scan(ctx); err != nil {
-		return fmt.Errorf("lookup locale %s: %w", code, err)
+	localeLookup := map[string]localeRow{}
+	for _, code := range translationSeedLocales(defaultCode) {
+		var loc localeRow
+		if err := db.NewSelect().
+			Model(&loc).
+			Where("LOWER(code) = LOWER(?)", code).
+			Scan(ctx); err != nil {
+			return fmt.Errorf("lookup locale %s: %w", code, err)
+		}
+		localeLookup[strings.ToLower(code)] = loc
 	}
 
 	seeds := append([]contentSeed{}, pageSeeds...)
@@ -1233,95 +1295,103 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 			continue
 		}
 
-		payload := buildSeedContentPayload(seed)
-		summary := strings.TrimSpace(seed.Summary)
-		contentTranslation := &contentTranslationRow{
-			ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":"+code)),
-			ContentID:          contentID,
-			LocaleID:           loc.ID,
-			TranslationGroupID: &contentID,
-			Title:              seed.Title,
-			Content:            payload,
-			CreatedAt:          now,
-			UpdatedAt:          now,
-		}
-		if summary != "" {
-			contentTranslation.Summary = &summary
-		}
+		targetLocales := translationSeedLocalesForSlug(defaultCode, seed.Slug)
+		for _, targetLocale := range targetLocales {
+			loc, ok := localeLookup[strings.ToLower(targetLocale)]
+			if !ok {
+				return fmt.Errorf("seed locale unavailable for %s", targetLocale)
+			}
 
-		if _, err := db.NewInsert().
-			Model(contentTranslation).
-			On("CONFLICT (content_id, locale_id) DO UPDATE").
-			Set("title = EXCLUDED.title").
-			Set("summary = EXCLUDED.summary").
-			Set("content = EXCLUDED.content").
-			Set("translation_group_id = EXCLUDED.translation_group_id").
-			Set("updated_at = EXCLUDED.updated_at").
-			Exec(ctx); err != nil {
-			return fmt.Errorf("seed content translation %s: %w", seed.Slug, err)
-		}
+			payload := buildSeedContentPayload(seed)
+			summary := strings.TrimSpace(seed.Summary)
+			contentTranslation := &contentTranslationRow{
+				ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":"+targetLocale)),
+				ContentID:          contentID,
+				LocaleID:           loc.ID,
+				TranslationGroupID: &contentID,
+				Title:              seed.Title,
+				Content:            payload,
+				CreatedAt:          now,
+				UpdatedAt:          now,
+			}
+			if summary != "" {
+				contentTranslation.Summary = &summary
+			}
 
-		if strings.EqualFold(seed.Status, "published") {
-			_, _ = db.NewUpdate().
-				TableExpr("contents").
-				Set("published_at = COALESCE(published_at, ?)", now).
-				Where("id = ?", contentID).
-				Exec(ctx)
-		}
+			if _, err := db.NewInsert().
+				Model(contentTranslation).
+				On("CONFLICT (content_id, locale_id) DO UPDATE").
+				Set("title = EXCLUDED.title").
+				Set("summary = EXCLUDED.summary").
+				Set("content = EXCLUDED.content").
+				Set("translation_group_id = EXCLUDED.translation_group_id").
+				Set("updated_at = EXCLUDED.updated_at").
+				Exec(ctx); err != nil {
+				return fmt.Errorf("seed content translation %s (%s): %w", seed.Slug, targetLocale, err)
+			}
 
-		var pageID uuid.UUID
-		if err := db.NewSelect().
-			Table("pages").
-			Column("id").
-			Where("content_id = ?", contentID).
-			Scan(ctx, &pageID); err != nil || pageID == uuid.Nil {
-			continue
-		}
+			if strings.EqualFold(seed.Status, "published") {
+				_, _ = db.NewUpdate().
+					TableExpr("contents").
+					Set("published_at = COALESCE(published_at, ?)", now).
+					Where("id = ?", contentID).
+					Exec(ctx)
+			}
 
-		seoTitle, seoDescription := seedSEO(seed)
-		path := normalizePath(seed.Path, seed.Slug)
-		pageTranslation := &pageTranslationRow{
-			ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":page:"+code)),
-			PageID:             pageID,
-			LocaleID:           loc.ID,
-			TranslationGroupID: &pageID,
-			Title:              seed.Title,
-			Path:               path,
-			MediaBindings:      map[string]any{},
-			CreatedAt:          now,
-			UpdatedAt:          now,
-		}
-		if summary != "" {
-			pageTranslation.Summary = &summary
-		}
-		if seoTitle != "" {
-			pageTranslation.SEOTitle = &seoTitle
-		}
-		if seoDescription != "" {
-			pageTranslation.SEODescription = &seoDescription
-		}
+			var pageID uuid.UUID
+			if err := db.NewSelect().
+				Table("pages").
+				Column("id").
+				Where("content_id = ?", contentID).
+				Scan(ctx, &pageID); err != nil || pageID == uuid.Nil {
+				continue
+			}
 
-		if _, err := db.NewInsert().
-			Model(pageTranslation).
-			On("CONFLICT (page_id, locale_id) DO UPDATE").
-			Set("title = EXCLUDED.title").
-			Set("path = EXCLUDED.path").
-			Set("summary = EXCLUDED.summary").
-			Set("seo_title = EXCLUDED.seo_title").
-			Set("seo_description = EXCLUDED.seo_description").
-			Set("media_bindings = EXCLUDED.media_bindings").
-			Set("translation_group_id = EXCLUDED.translation_group_id").
-			Set("updated_at = EXCLUDED.updated_at").
-			Exec(ctx); err != nil {
-			return fmt.Errorf("seed page translation %s: %w", seed.Slug, err)
-		}
+			seoTitle, seoDescription := seedSEO(seed)
+			path := normalizePath(seed.Path, seed.Slug)
+			pageTranslation := &pageTranslationRow{
+				ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":page:"+targetLocale)),
+				PageID:             pageID,
+				LocaleID:           loc.ID,
+				TranslationGroupID: &pageID,
+				Title:              seed.Title,
+				Path:               path,
+				MediaBindings:      map[string]any{},
+				CreatedAt:          now,
+				UpdatedAt:          now,
+			}
+			if summary != "" {
+				pageTranslation.Summary = &summary
+			}
+			if seoTitle != "" {
+				pageTranslation.SEOTitle = &seoTitle
+			}
+			if seoDescription != "" {
+				pageTranslation.SEODescription = &seoDescription
+			}
 
-		if strings.EqualFold(seed.Status, "published") {
-			_, _ = db.NewUpdate().
-				TableExpr("pages").
-				Set("published_at = COALESCE(published_at, ?)", now).
-				Where("id = ?", pageID).
-				Exec(ctx)
+			if _, err := db.NewInsert().
+				Model(pageTranslation).
+				On("CONFLICT (page_id, locale_id) DO UPDATE").
+				Set("title = EXCLUDED.title").
+				Set("path = EXCLUDED.path").
+				Set("summary = EXCLUDED.summary").
+				Set("seo_title = EXCLUDED.seo_title").
+				Set("seo_description = EXCLUDED.seo_description").
+				Set("media_bindings = EXCLUDED.media_bindings").
+				Set("translation_group_id = EXCLUDED.translation_group_id").
+				Set("updated_at = EXCLUDED.updated_at").
+				Exec(ctx); err != nil {
+				return fmt.Errorf("seed page translation %s (%s): %w", seed.Slug, targetLocale, err)
+			}
+
+			if strings.EqualFold(seed.Status, "published") {
+				_, _ = db.NewUpdate().
+					TableExpr("pages").
+					Set("published_at = COALESCE(published_at, ?)", now).
+					Where("id = ?", pageID).
+					Exec(ctx)
+			}
 		}
 	}
 
