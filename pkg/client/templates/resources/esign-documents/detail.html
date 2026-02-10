@@ -1,0 +1,183 @@
+{% extends "resources/shared/detail-base.html" %}
+
+{% set avatar_type = "document" %}
+
+{% block header_pretitle %}
+  <p class="text-sm text-gray-500 mb-1">E-Sign Document</p>
+{% endblock %}
+
+{% block header_title %}{{ resource_item.title|default:"Document" }}{% endblock %}
+
+{% block header_actions %}
+  {% block header_actions_prepend %}{% endblock %}
+  {# Documents are immutable - no edit action #}
+  {% if routes.index %}
+    <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to documents list">
+      <i class="iconoir-arrow-left" aria-hidden="true"></i>
+      Back to Documents
+    </a>
+  {% endif %}
+  {% block header_actions_append %}{% endblock %}
+{% endblock %}
+
+{% block identity_avatar %}
+  <div class="w-14 h-14 rounded-lg bg-red-100 flex items-center justify-center" aria-hidden="true">
+    <svg class="w-8 h-8 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+    </svg>
+  </div>
+{% endblock %}
+
+{% block identity_title %}{{ resource_item.title|default:"Untitled Document" }}{% endblock %}
+
+{% block identity_subtitle %}
+  <div class="flex items-center gap-3 text-sm text-gray-500">
+    {% if resource_item.page_count %}
+      <span class="inline-flex items-center gap-1">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        {{ resource_item.page_count }} page{% if resource_item.page_count != 1 %}s{% endif %}
+      </span>
+    {% endif %}
+    {% if resource_item.size_bytes %}
+      <span class="inline-flex items-center gap-1" id="doc-size">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+        </svg>
+        <span data-size-bytes="{{ resource_item.size_bytes }}">{{ resource_item.size_bytes }} bytes</span>
+      </span>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block identity_status %}
+  <span role="status" aria-label="Document status: Immutable" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+    </svg>
+    Immutable
+  </span>
+{% endblock %}
+
+{% block fields_section %}
+<div class="p-6">
+  <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Document Details</div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Document ID</div>
+      <div class="text-base font-mono text-gray-900 break-all">{{ resource_item.id|default:"-" }}</div>
+    </div>
+
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Uploaded</div>
+      <div class="text-base text-gray-900" id="doc-created-at" data-timestamp="{{ resource_item.created_at }}">
+        {{ resource_item.created_at|default:"-" }}
+      </div>
+    </div>
+
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Page Count</div>
+      <div class="text-base text-gray-900">{{ resource_item.page_count|default:"-" }}</div>
+    </div>
+
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">File Size</div>
+      <div class="text-base text-gray-900" id="doc-size-detail" data-size-bytes="{{ resource_item.size_bytes }}">
+        {{ resource_item.size_bytes|default:"-" }} bytes
+      </div>
+    </div>
+  </div>
+
+  {% if resource_item.source_sha256 %}
+  <div class="mt-6 pt-6 border-t border-gray-100">
+    <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Integrity Verification</div>
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">SHA-256 Hash</div>
+      <div class="text-sm font-mono text-gray-700 break-all bg-gray-50 p-3 rounded-lg">
+        {{ resource_item.source_sha256 }}
+      </div>
+      <p class="text-xs text-gray-400 mt-2">
+        This cryptographic hash uniquely identifies the document content.
+        It cannot be changed after upload.
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if resource_item.source_object_key %}
+  <div class="mt-6 pt-6 border-t border-gray-100">
+    <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Storage</div>
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Object Key</div>
+      <div class="text-sm font-mono text-gray-700 break-all bg-gray-50 p-3 rounded-lg">
+        {{ resource_item.source_object_key }}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_sections %}
+<div class="p-6 border-t border-gray-200 bg-amber-50" role="note" aria-label="Document immutability notice">
+  <div class="flex items-start gap-3">
+    <div class="flex-shrink-0" aria-hidden="true">
+      <svg class="w-5 h-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div>
+      <h4 class="text-sm font-medium text-amber-800">Immutable Document</h4>
+      <p class="text-sm text-amber-700 mt-1">
+        This document cannot be modified after upload. To use a different version,
+        upload a new document and create a new agreement.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block detail_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Format file size
+  function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return '-';
+    bytes = parseInt(bytes, 10);
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  // Format timestamp
+  function formatTimestamp(ts) {
+    if (!ts) return '-';
+    try {
+      const date = new Date(ts);
+      return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return ts;
+    }
+  }
+
+  // Format size elements
+  document.querySelectorAll('[data-size-bytes]').forEach(el => {
+    const bytes = el.getAttribute('data-size-bytes');
+    if (bytes) {
+      el.textContent = formatBytes(bytes);
+    }
+  });
+
+  // Format timestamp elements
+  const createdAtEl = document.getElementById('doc-created-at');
+  if (createdAtEl) {
+    const ts = createdAtEl.getAttribute('data-timestamp');
+    if (ts) {
+      createdAtEl.textContent = formatTimestamp(ts);
+    }
+  }
+});
+</script>
+{% endblock %}

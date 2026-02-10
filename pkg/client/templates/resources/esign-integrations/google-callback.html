@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Authorization - E-Sign</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    .container {
+      background: white;
+      border-radius: 1rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 1.5rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .icon.loading {
+      background-color: #dbeafe;
+    }
+    .icon.success {
+      background-color: #d1fae5;
+    }
+    .icon.error {
+      background-color: #fee2e2;
+    }
+    .icon svg {
+      width: 32px;
+      height: 32px;
+    }
+    .icon.loading svg {
+      color: #3b82f6;
+      animation: spin 1s linear infinite;
+    }
+    .icon.success svg {
+      color: #10b981;
+    }
+    .icon.error svg {
+      color: #ef4444;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      font-size: 0.875rem;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+    .error-detail {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background-color: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      color: #991b1b;
+      word-break: break-word;
+    }
+    .close-note {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e7eb;
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .btn:hover {
+      background-color: #2563eb;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    {# Loading State #}
+    <div id="loading-state">
+      <div class="icon loading">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </div>
+      <h1>Processing Authorization</h1>
+      <p>Please wait while we complete the connection...</p>
+    </div>
+
+    {# Success State #}
+    <div id="success-state" class="hidden">
+      <div class="icon success">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <h1>Connected Successfully</h1>
+      <p>Your Google account has been connected. This window will close automatically.</p>
+      <p class="close-note">If this window doesn't close, you can close it manually.</p>
+    </div>
+
+    {# Error State #}
+    <div id="error-state" class="hidden">
+      <div class="icon error">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </div>
+      <h1>Authorization Failed</h1>
+      <p id="error-message">An error occurred during authorization.</p>
+      <div id="error-detail" class="error-detail hidden"></div>
+      <button id="close-btn" class="btn">Close Window</button>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const loadingState = document.getElementById('loading-state');
+      const successState = document.getElementById('success-state');
+      const errorState = document.getElementById('error-state');
+      const errorMessage = document.getElementById('error-message');
+      const errorDetail = document.getElementById('error-detail');
+      const closeBtn = document.getElementById('close-btn');
+
+      function showState(state) {
+        loadingState.classList.add('hidden');
+        successState.classList.add('hidden');
+        errorState.classList.add('hidden');
+
+        switch (state) {
+          case 'loading':
+            loadingState.classList.remove('hidden');
+            break;
+          case 'success':
+            successState.classList.remove('hidden');
+            break;
+          case 'error':
+            errorState.classList.remove('hidden');
+            break;
+        }
+      }
+
+      function sendToOpener(data) {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(data, window.location.origin);
+        }
+      }
+
+      function handleError(error, description) {
+        showState('error');
+
+        const errorMessages = {
+          'access_denied': 'You denied access to your Google account.',
+          'invalid_request': 'The authorization request was invalid.',
+          'unauthorized_client': 'This application is not authorized.',
+          'unsupported_response_type': 'The response type is not supported.',
+          'invalid_scope': 'The requested scope is invalid.',
+          'server_error': 'Google encountered a server error.',
+          'temporarily_unavailable': 'Google is temporarily unavailable. Please try again.'
+        };
+
+        errorMessage.textContent = errorMessages[error] || 'Authorization failed.';
+
+        if (description) {
+          errorDetail.textContent = description;
+          errorDetail.classList.remove('hidden');
+        }
+
+        sendToOpener({
+          type: 'google_oauth_callback',
+          error: error,
+          error_description: description
+        });
+      }
+
+      function handleSuccess(code) {
+        showState('success');
+
+        const redirectUri = window.location.origin + window.location.pathname;
+
+        sendToOpener({
+          type: 'google_oauth_callback',
+          code: code,
+          redirect_uri: redirectUri
+        });
+
+        // Auto-close after a short delay
+        setTimeout(() => {
+          window.close();
+        }, 2000);
+      }
+
+      // Parse URL parameters
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const error = params.get('error');
+      const errorDescription = params.get('error_description');
+      const state = params.get('state'); // Contains user_id
+
+      if (error) {
+        handleError(error, errorDescription);
+      } else if (code) {
+        handleSuccess(code);
+      } else {
+        // No code or error - something unexpected
+        handleError('unknown', 'No authorization code was received from Google.');
+      }
+
+      // Close button handler
+      closeBtn.addEventListener('click', () => {
+        window.close();
+      });
+
+      // If this wasn't opened as a popup, show a redirect option
+      if (!window.opener) {
+        closeBtn.textContent = 'Return to App';
+        closeBtn.addEventListener('click', () => {
+          // Redirect back to integration page
+          const basePath = '{{ base_path|default:"/admin" }}';
+          window.location.href = basePath + '/esign/integrations/google';
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

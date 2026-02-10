@@ -5,7 +5,9 @@ import (
 	"io/fs"
 )
 
-//go:embed assets templates openapi
+// Embed runtime assets only. Exclude frontend dev/test trees (e.g. assets/tests, assets/node_modules)
+// so local frontend edits cannot break Go builds with copy length mismatches.
+//go:embed assets/dist assets/uploads assets/*.css assets/*.js assets/*.svg templates openapi
 var embeddedClient embed.FS
 
 // FS returns the embedded client filesystem (assets + templates).

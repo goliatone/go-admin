@@ -1,0 +1,766 @@
+{% extends "layout.html" %}
+
+{% block title %}Google Drive Integration - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <div>
+    <p class="text-sm text-gray-500 mb-1">E-Sign Integrations</p>
+    <h1 class="text-3xl font-bold text-admin-dark">Google Drive Integration</h1>
+  </div>
+  <div class="flex gap-3">
+    {% if routes.esign_settings %}
+      <a href="{{ routes.esign_settings }}" class="btn btn-secondary" aria-label="Return to E-Sign settings">
+        <i class="iconoir-arrow-left" aria-hidden="true"></i>
+        Back to Settings
+      </a>
+    {% endif %}
+  </div>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  {# Live region for status announcements #}
+  <div id="integration-announcements" class="sr-only" role="alert" aria-live="polite"></div>
+
+  <div class="max-w-3xl space-y-6">
+
+    {# Feature Gate Check #}
+    {% if not google_enabled %}
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-6" role="alert">
+        <div class="flex items-start gap-4">
+          <div class="flex-shrink-0">
+            <svg class="w-6 h-6 text-amber-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-amber-800">Feature Not Enabled</h2>
+            <p class="mt-1 text-sm text-amber-700">
+              The Google Drive integration is not enabled for this installation.
+              Contact your administrator to enable the <code class="px-1 py-0.5 bg-amber-100 rounded">esign_google</code> feature flag.
+            </p>
+          </div>
+        </div>
+      </div>
+    {% else %}
+
+    {# Integration Status Card #}
+    <div id="status-card" class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          {# Google logo #}
+          <div class="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="font-semibold text-gray-900">Google Drive</h2>
+            <p class="text-sm text-gray-500">Import documents directly from Google Drive</p>
+          </div>
+        </div>
+        <div id="status-badge" role="status">
+          {# Will be populated by JavaScript #}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+            <span class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
+            Checking...
+          </span>
+        </div>
+      </div>
+
+      {# Status Details Section #}
+      <div id="status-details" class="px-6 py-6">
+        {# Loading State #}
+        <div id="loading-state" class="flex items-center justify-center py-8">
+          <svg class="animate-spin h-8 w-8 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="sr-only">Loading integration status...</span>
+        </div>
+
+        {# Not Connected State #}
+        <div id="disconnected-state" class="hidden">
+          <div class="text-center py-6">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <svg class="w-8 h-8 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Not Connected</h3>
+            <p class="text-sm text-gray-500 mb-6 max-w-md mx-auto">
+              Connect your Google account to import documents directly from Google Drive into e-sign agreements.
+            </p>
+            <button
+              type="button"
+              id="connect-btn"
+              class="btn btn-primary inline-flex items-center gap-2"
+              aria-describedby="connect-description"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Connect Google Account
+            </button>
+            <p id="connect-description" class="mt-3 text-xs text-gray-400">
+              You will be redirected to Google to authorize access.
+            </p>
+          </div>
+        </div>
+
+        {# Connected State #}
+        <div id="connected-state" class="hidden space-y-6">
+          {# Account Info #}
+          <div class="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <svg class="w-5 h-5 text-green-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-medium text-green-800">Connected</p>
+                <p class="text-sm text-green-700" id="connected-email">user@example.com</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              id="disconnect-btn"
+              class="text-sm text-red-600 hover:text-red-700 font-medium"
+              aria-label="Disconnect Google account"
+            >
+              Disconnect
+            </button>
+          </div>
+
+          {# Scopes & Permissions #}
+          <div>
+            <h4 class="text-sm font-medium text-gray-700 mb-3">Authorized Permissions</h4>
+            <ul id="scopes-list" class="space-y-2" role="list" aria-label="Authorized Google permissions">
+              {# Will be populated by JavaScript #}
+            </ul>
+          </div>
+
+          {# Token Expiry Info #}
+          <div id="expiry-section" class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-gray-500 mt-0.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <div>
+                <p class="text-sm font-medium text-gray-700">Token Status</p>
+                <p class="text-sm text-gray-500" id="expiry-info">Access token is valid</p>
+              </div>
+            </div>
+          </div>
+
+          {# Re-auth Warning (shown when token is expiring soon) #}
+          <div id="reauth-warning" class="hidden p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-amber-600 mt-0.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              <div class="flex-1">
+                <p class="text-sm font-medium text-amber-800">Re-authorization Needed</p>
+                <p class="text-sm text-amber-700 mt-1" id="reauth-reason">Your access token will expire soon.</p>
+                <button
+                  type="button"
+                  id="reauth-btn"
+                  class="mt-3 text-sm font-medium text-amber-800 hover:text-amber-900 underline"
+                >
+                  Re-authorize Now
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {# Quick Actions #}
+          <div class="pt-4 border-t border-gray-200">
+            <h4 class="text-sm font-medium text-gray-700 mb-3">Quick Actions</h4>
+            <div class="flex flex-wrap gap-3">
+              <a
+                href="{{ base_path }}/esign/documents/new?source=google"
+                class="btn btn-secondary text-sm"
+                aria-label="Import a document from Google Drive"
+              >
+                <svg class="w-4 h-4 mr-1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                Import Document
+              </a>
+              <button
+                type="button"
+                id="refresh-status-btn"
+                class="btn btn-secondary text-sm"
+                aria-label="Refresh connection status"
+              >
+                <svg class="w-4 h-4 mr-1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Refresh Status
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {# Error State #}
+        <div id="error-state" class="hidden">
+          <div class="text-center py-6">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+              <svg class="w-8 h-8 text-red-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Unable to Load Status</h3>
+            <p class="text-sm text-gray-500 mb-4" id="error-message">An error occurred while checking the integration status.</p>
+            <button
+              type="button"
+              id="retry-btn"
+              class="btn btn-secondary"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Information Section #}
+    <div class="bg-white border border-gray-200 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-gray-900 mb-4">About This Integration</h3>
+      <div class="space-y-4 text-sm text-gray-600">
+        <div class="flex items-start gap-3">
+          <svg class="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <p>Import Google Docs and export them as PDF snapshots for signing</p>
+        </div>
+        <div class="flex items-start gap-3">
+          <svg class="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <p>Browse your Drive files or search by name</p>
+        </div>
+        <div class="flex items-start gap-3">
+          <svg class="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <p>Source document metadata is preserved for audit trail</p>
+        </div>
+        <div class="flex items-start gap-3">
+          <svg class="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          <p>Your credentials are encrypted and stored securely</p>
+        </div>
+      </div>
+
+      <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Required Permissions</h4>
+        <ul class="text-xs text-gray-500 space-y-1">
+          <li><code class="px-1 py-0.5 bg-gray-200 rounded">drive.readonly</code> - Read access to your Drive files</li>
+          <li><code class="px-1 py-0.5 bg-gray-200 rounded">drive.file</code> - Access to files you open with this app</li>
+        </ul>
+      </div>
+    </div>
+
+    {% endif %}{# end google_enabled check #}
+  </div>
+</div>
+
+{# OAuth Popup/Redirect Modal #}
+<div id="oauth-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="oauth-modal-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+      <h3 id="oauth-modal-title" class="text-lg font-semibold text-gray-900 mb-4">Connecting to Google</h3>
+      <div class="flex items-center justify-center py-8">
+        <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+      <p class="text-center text-sm text-gray-500">
+        A new window has opened for Google authorization.<br>
+        Complete the process there to continue.
+      </p>
+      <button
+        type="button"
+        id="oauth-cancel-btn"
+        class="mt-6 w-full btn btn-secondary"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+{# Disconnect Confirmation Modal #}
+<div id="disconnect-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="disconnect-modal-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+          <svg class="w-5 h-5 text-red-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <h3 id="disconnect-modal-title" class="text-lg font-semibold text-gray-900">Disconnect Google Account?</h3>
+      </div>
+      <p class="text-sm text-gray-600 mb-6">
+        This will revoke access to your Google Drive. You will need to reconnect to import documents from Google Drive again.
+      </p>
+      <div class="flex gap-3 justify-end">
+        <button
+          type="button"
+          id="disconnect-cancel-btn"
+          class="btn btn-secondary"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          id="disconnect-confirm-btn"
+          class="btn bg-red-600 hover:bg-red-700 text-white"
+        >
+          Disconnect
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const basePath = '{{ base_path }}';
+  const apiBase = '{{ api_base_path|default:basePath + "/api" }}';
+  const userId = '{{ user_id|default:"" }}';
+
+  // Elements
+  const loadingState = document.getElementById('loading-state');
+  const disconnectedState = document.getElementById('disconnected-state');
+  const connectedState = document.getElementById('connected-state');
+  const errorState = document.getElementById('error-state');
+  const statusBadge = document.getElementById('status-badge');
+  const announcements = document.getElementById('integration-announcements');
+
+  const connectBtn = document.getElementById('connect-btn');
+  const disconnectBtn = document.getElementById('disconnect-btn');
+  const refreshBtn = document.getElementById('refresh-status-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const reauthBtn = document.getElementById('reauth-btn');
+
+  const oauthModal = document.getElementById('oauth-modal');
+  const oauthCancelBtn = document.getElementById('oauth-cancel-btn');
+  const disconnectModal = document.getElementById('disconnect-modal');
+  const disconnectCancelBtn = document.getElementById('disconnect-cancel-btn');
+  const disconnectConfirmBtn = document.getElementById('disconnect-confirm-btn');
+
+  const connectedEmail = document.getElementById('connected-email');
+  const scopesList = document.getElementById('scopes-list');
+  const expiryInfo = document.getElementById('expiry-info');
+  const reauthWarning = document.getElementById('reauth-warning');
+  const reauthReason = document.getElementById('reauth-reason');
+  const errorMessage = document.getElementById('error-message');
+
+  let oauthWindow = null;
+
+  function announce(message) {
+    if (announcements) {
+      announcements.textContent = message;
+    }
+  }
+
+  function showState(state) {
+    loadingState.classList.add('hidden');
+    disconnectedState.classList.add('hidden');
+    connectedState.classList.add('hidden');
+    errorState.classList.add('hidden');
+
+    switch (state) {
+      case 'loading':
+        loadingState.classList.remove('hidden');
+        break;
+      case 'disconnected':
+        disconnectedState.classList.remove('hidden');
+        break;
+      case 'connected':
+        connectedState.classList.remove('hidden');
+        break;
+      case 'error':
+        errorState.classList.remove('hidden');
+        break;
+    }
+  }
+
+  function updateStatusBadge(connected, expiring = false) {
+    if (connected) {
+      if (expiring) {
+        statusBadge.innerHTML = `
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
+            <span class="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true"></span>
+            Expiring Soon
+          </span>
+        `;
+      } else {
+        statusBadge.innerHTML = `
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
+            <span class="w-2 h-2 rounded-full bg-green-500" aria-hidden="true"></span>
+            Connected
+          </span>
+        `;
+      }
+    } else {
+      statusBadge.innerHTML = `
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+          <span class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
+          Not Connected
+        </span>
+      `;
+    }
+  }
+
+  function formatScope(scope) {
+    const scopeDescriptions = {
+      'https://www.googleapis.com/auth/drive.readonly': { label: 'Drive (Read Only)', description: 'View files in your Google Drive' },
+      'https://www.googleapis.com/auth/drive.file': { label: 'Drive (App Files)', description: 'Access files opened with this app' },
+      'drive.readonly': { label: 'Drive (Read Only)', description: 'View files in your Google Drive' },
+      'drive.file': { label: 'Drive (App Files)', description: 'Access files opened with this app' },
+    };
+    return scopeDescriptions[scope] || { label: scope, description: '' };
+  }
+
+  function renderScopes(scopes) {
+    if (!scopes || scopes.length === 0) {
+      scopesList.innerHTML = '<li class="text-sm text-gray-500">No specific scopes granted</li>';
+      return;
+    }
+
+    scopesList.innerHTML = scopes.map(scope => {
+      const info = formatScope(scope);
+      return `
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          <div>
+            <span class="text-sm font-medium text-gray-700">${escapeHtml(info.label)}</span>
+            ${info.description ? `<p class="text-xs text-gray-500">${escapeHtml(info.description)}</p>` : ''}
+          </div>
+        </li>
+      `;
+    }).join('');
+  }
+
+  function renderExpiry(expiryTime, isExpired, isExpiringSoon) {
+    if (!expiryTime) {
+      expiryInfo.textContent = 'Access token status unknown';
+      return;
+    }
+
+    const expiryDate = new Date(expiryTime);
+    const now = new Date();
+
+    if (isExpired) {
+      expiryInfo.textContent = 'Access token has expired. Please re-authorize.';
+      expiryInfo.classList.remove('text-gray-500');
+      expiryInfo.classList.add('text-red-600');
+      reauthWarning.classList.remove('hidden');
+      reauthReason.textContent = 'Your access token has expired. Please re-authorize to continue using Google Drive import.';
+    } else if (isExpiringSoon) {
+      const hoursLeft = Math.round((expiryDate - now) / (1000 * 60 * 60));
+      expiryInfo.textContent = `Token expires in approximately ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}`;
+      expiryInfo.classList.remove('text-gray-500');
+      expiryInfo.classList.add('text-amber-600');
+      reauthWarning.classList.remove('hidden');
+      reauthReason.textContent = `Your access token will expire in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}. Re-authorize now to avoid interruption.`;
+    } else {
+      expiryInfo.textContent = `Token valid until ${expiryDate.toLocaleDateString()} ${expiryDate.toLocaleTimeString()}`;
+      expiryInfo.classList.remove('text-red-600', 'text-amber-600');
+      expiryInfo.classList.add('text-gray-500');
+      reauthWarning.classList.add('hidden');
+    }
+  }
+
+  async function checkStatus() {
+    showState('loading');
+
+    try {
+      const response = await fetch(`${apiBase}/esign/integrations/google/status?user_id=${encodeURIComponent(userId)}`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        if (response.status === 404 || response.status === 400) {
+          // Not connected
+          showState('disconnected');
+          updateStatusBadge(false);
+          announce('Google Drive is not connected');
+          return;
+        }
+        throw new Error(`Failed to check status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const integration = data.integration || {};
+
+      if (integration.connected) {
+        connectedEmail.textContent = integration.email || integration.user_email || 'Connected';
+        renderScopes(integration.scopes || []);
+
+        const isExpired = integration.is_expired === true;
+        const isExpiringSoon = integration.is_expiring_soon === true;
+        renderExpiry(integration.expires_at, isExpired, isExpiringSoon);
+
+        showState('connected');
+        updateStatusBadge(true, isExpiringSoon || isExpired);
+        announce('Google Drive is connected');
+      } else {
+        showState('disconnected');
+        updateStatusBadge(false);
+        announce('Google Drive is not connected');
+      }
+    } catch (error) {
+      console.error('Error checking status:', error);
+      errorMessage.textContent = error.message || 'An error occurred while checking the integration status.';
+      showState('error');
+      updateStatusBadge(false);
+      announce('Error checking Google Drive status');
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // OAuth Connect Flow
+  async function startOAuthFlow() {
+    // Show modal
+    oauthModal.classList.remove('hidden');
+
+    // Build OAuth URL (this should come from backend ideally)
+    const redirectUri = `${window.location.origin}${basePath}/esign/integrations/google/callback`;
+    const authUrl = buildGoogleOAuthUrl(redirectUri);
+
+    // Open popup
+    const width = 500;
+    const height = 600;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+    oauthWindow = window.open(
+      authUrl,
+      'google_oauth',
+      `width=${width},height=${height},left=${left},top=${top},popup=yes`
+    );
+
+    // Listen for callback message
+    window.addEventListener('message', handleOAuthCallback);
+
+    // Check if popup was blocked or closed
+    const checkPopup = setInterval(() => {
+      if (oauthWindow && oauthWindow.closed) {
+        clearInterval(checkPopup);
+        oauthModal.classList.add('hidden');
+        window.removeEventListener('message', handleOAuthCallback);
+      }
+    }, 500);
+  }
+
+  function buildGoogleOAuthUrl(redirectUri) {
+    // This is a placeholder - in production, the backend should provide the full auth URL
+    // with properly configured client ID and scopes
+    const clientId = '{{ google_client_id|default:"" }}';
+    const scopes = [
+      'https://www.googleapis.com/auth/drive.readonly',
+      'https://www.googleapis.com/auth/drive.file'
+    ].join(' ');
+
+    if (!clientId) {
+      // If no client ID, redirect to backend endpoint that handles OAuth
+      return `${apiBase}/esign/integrations/google/auth?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
+    }
+
+    return `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scopes)}` +
+      `&access_type=offline` +
+      `&prompt=consent` +
+      `&state=${encodeURIComponent(userId)}`;
+  }
+
+  async function handleOAuthCallback(event) {
+    // Verify origin
+    if (event.origin !== window.location.origin) return;
+
+    const data = event.data;
+    if (data.type !== 'google_oauth_callback') return;
+
+    window.removeEventListener('message', handleOAuthCallback);
+    oauthModal.classList.add('hidden');
+
+    if (data.error) {
+      if (window.toastManager) {
+        window.toastManager.error(`OAuth failed: ${data.error}`);
+      }
+      announce(`OAuth failed: ${data.error}`);
+      return;
+    }
+
+    if (data.code) {
+      // Exchange code for token
+      try {
+        const response = await fetch(`${apiBase}/esign/integrations/google/connect?user_id=${encodeURIComponent(userId)}`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            auth_code: data.code,
+            redirect_uri: data.redirect_uri
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || 'Failed to connect');
+        }
+
+        if (window.toastManager) {
+          window.toastManager.success('Google Drive connected successfully');
+        }
+        announce('Google Drive connected successfully');
+        checkStatus();
+      } catch (error) {
+        console.error('Connect error:', error);
+        if (window.toastManager) {
+          window.toastManager.error(`Failed to connect: ${error.message}`);
+        }
+        announce(`Failed to connect: ${error.message}`);
+      }
+    }
+  }
+
+  // Disconnect Flow
+  async function disconnect() {
+    disconnectModal.classList.add('hidden');
+
+    try {
+      const response = await fetch(`${apiBase}/esign/integrations/google/disconnect?user_id=${encodeURIComponent(userId)}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to disconnect');
+      }
+
+      if (window.toastManager) {
+        window.toastManager.success('Google Drive disconnected');
+      }
+      announce('Google Drive disconnected');
+      checkStatus();
+    } catch (error) {
+      console.error('Disconnect error:', error);
+      if (window.toastManager) {
+        window.toastManager.error(`Failed to disconnect: ${error.message}`);
+      }
+      announce(`Failed to disconnect: ${error.message}`);
+    }
+  }
+
+  // Event Listeners
+  if (connectBtn) {
+    connectBtn.addEventListener('click', startOAuthFlow);
+  }
+
+  if (reauthBtn) {
+    reauthBtn.addEventListener('click', startOAuthFlow);
+  }
+
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener('click', () => {
+      disconnectModal.classList.remove('hidden');
+    });
+  }
+
+  if (disconnectCancelBtn) {
+    disconnectCancelBtn.addEventListener('click', () => {
+      disconnectModal.classList.add('hidden');
+    });
+  }
+
+  if (disconnectConfirmBtn) {
+    disconnectConfirmBtn.addEventListener('click', disconnect);
+  }
+
+  if (oauthCancelBtn) {
+    oauthCancelBtn.addEventListener('click', () => {
+      oauthModal.classList.add('hidden');
+      if (oauthWindow && !oauthWindow.closed) {
+        oauthWindow.close();
+      }
+      window.removeEventListener('message', handleOAuthCallback);
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', checkStatus);
+  }
+
+  if (retryBtn) {
+    retryBtn.addEventListener('click', checkStatus);
+  }
+
+  // Close modals on escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!oauthModal.classList.contains('hidden')) {
+        oauthModal.classList.add('hidden');
+        if (oauthWindow && !oauthWindow.closed) {
+          oauthWindow.close();
+        }
+        window.removeEventListener('message', handleOAuthCallback);
+      }
+      if (!disconnectModal.classList.contains('hidden')) {
+        disconnectModal.classList.add('hidden');
+      }
+    }
+  });
+
+  // Close modals on backdrop click
+  [oauthModal, disconnectModal].forEach(modal => {
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal || e.target.getAttribute('aria-hidden') === 'true') {
+          modal.classList.add('hidden');
+          if (modal === oauthModal && oauthWindow && !oauthWindow.closed) {
+            oauthWindow.close();
+          }
+        }
+      });
+    }
+  });
+
+  // Initial status check
+  checkStatus();
+});
+</script>
+{% endblock %}

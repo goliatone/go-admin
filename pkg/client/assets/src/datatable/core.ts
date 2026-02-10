@@ -1164,7 +1164,13 @@ export class DataGrid {
       // Handler function for both input and change events
       const handleFilterChange = async () => {
         const column = input.dataset.filterColumn;
-        const operator = (input.dataset.filterOperator as any) || 'eq';
+        const inputType = input instanceof HTMLInputElement ? input.type.toLowerCase() : '';
+        const inferredOperator = input instanceof HTMLSelectElement
+          ? 'eq'
+          : (inputType === '' || inputType === 'text' || inputType === 'search' || inputType === 'email' || inputType === 'tel' || inputType === 'url')
+            ? 'ilike'
+            : 'eq';
+        const operator = (input.dataset.filterOperator as any) || inferredOperator;
         const value = input.value;
 
         if (!column) return;
