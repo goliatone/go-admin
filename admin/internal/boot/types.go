@@ -6,15 +6,16 @@ import (
 )
 
 const (
-	FeatureDashboard     = "dashboard"
-	FeatureSearch        = "search"
-	FeatureExport        = "export"
-	FeatureBulk          = "bulk"
-	FeatureMedia         = "media"
-	FeatureNotifications = "notifications"
-	FeatureJobs          = "jobs"
-	FeatureSettings      = "settings"
-	FeatureCMS           = "cms"
+	FeatureDashboard           = "dashboard"
+	FeatureSearch              = "search"
+	FeatureExport              = "export"
+	FeatureBulk                = "bulk"
+	FeatureMedia               = "media"
+	FeatureNotifications       = "notifications"
+	FeatureJobs                = "jobs"
+	FeatureSettings            = "settings"
+	FeatureCMS                 = "cms"
+	FeatureTranslationExchange = "translations.exchange"
 )
 
 // HandlerWrapper wraps router handlers with auth or middleware.
