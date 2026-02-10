@@ -9,34 +9,39 @@ import (
 )
 
 const (
-	TextCodeValidationError           = "VALIDATION_ERROR"
-	TextCodeInvalidFeatureConfig      = "INVALID_FEATURE_CONFIG"
-	TextCodeForbidden                 = "FORBIDDEN"
-	TextCodeNotFound                  = "NOT_FOUND"
-	TextCodeFeatureDisabled           = "FEATURE_DISABLED"
-	TextCodeReplSessionLimit          = "REPL_SESSION_LIMIT"
-	TextCodeWorkflowNotFound          = "WORKFLOW_NOT_FOUND"
-	TextCodeWorkflowInvalidTransition = "WORKFLOW_INVALID_TRANSITION"
-	TextCodeTranslationMissing        = "TRANSLATION_MISSING"
-	TextCodeContentTypeSchemaBreaking = "CONTENT_TYPE_SCHEMA_BREAKING"
-	TextCodeFeatureEnabledRequired    = "FEATURE_ENABLED_REQUIRED"
-	TextCodeFeatureAliasDisabled      = "FEATURE_ALIAS_DISABLED"
-	TextCodeMissingPanel              = "MISSING_PANEL"
-	TextCodeRawUINotSupported         = "RAW_UI_NOT_SUPPORTED"
-	TextCodeClearKeysNotSupported     = "CLEAR_KEYS_NOT_SUPPORTED"
-	TextCodeReplDebugDisabled         = "REPL_DEBUG_DISABLED"
-	TextCodeReplShellDisabled         = "REPL_SHELL_DISABLED"
-	TextCodeReplAppDisabled           = "REPL_APP_DISABLED"
-	TextCodeReplDisabled              = "REPL_DISABLED"
-	TextCodeReplOverrideDenied        = "REPL_OVERRIDE_DENIED"
-	TextCodeReplRoleDenied            = "REPL_ROLE_DENIED"
-	TextCodeReplPermissionDenied      = "REPL_PERMISSION_DENIED"
-	TextCodeReplExecPermissionDenied  = "REPL_EXEC_PERMISSION_DENIED"
-	TextCodeReplReadOnly              = "REPL_READ_ONLY"
-	TextCodeReplIPDenied              = "REPL_IP_DENIED"
-	TextCodePathConflict              = "PATH_CONFLICT"
-	TextCodeConflict                  = "CONFLICT"
-	TextCodeServiceUnavailable        = "SERVICE_UNAVAILABLE"
+	TextCodeValidationError                      = "VALIDATION_ERROR"
+	TextCodeInvalidFeatureConfig                 = "INVALID_FEATURE_CONFIG"
+	TextCodeForbidden                            = "FORBIDDEN"
+	TextCodeNotFound                             = "NOT_FOUND"
+	TextCodeFeatureDisabled                      = "FEATURE_DISABLED"
+	TextCodeReplSessionLimit                     = "REPL_SESSION_LIMIT"
+	TextCodeWorkflowNotFound                     = "WORKFLOW_NOT_FOUND"
+	TextCodeWorkflowInvalidTransition            = "WORKFLOW_INVALID_TRANSITION"
+	TextCodeTranslationMissing                   = "TRANSLATION_MISSING"
+	TextCodeTranslationExists                    = "TRANSLATION_EXISTS"
+	TextCodeTranslationExchangeUnsupportedFormat = "TRANSLATION_EXCHANGE_UNSUPPORTED_FORMAT"
+	TextCodeTranslationExchangeInvalidPayload    = "TRANSLATION_EXCHANGE_INVALID_PAYLOAD"
+	TextCodeTranslationExchangeMissingLinkage    = "TRANSLATION_EXCHANGE_MISSING_LINKAGE"
+	TextCodeTranslationExchangeStaleSourceHash   = "TRANSLATION_EXCHANGE_STALE_SOURCE_HASH"
+	TextCodeContentTypeSchemaBreaking            = "CONTENT_TYPE_SCHEMA_BREAKING"
+	TextCodeFeatureEnabledRequired               = "FEATURE_ENABLED_REQUIRED"
+	TextCodeFeatureAliasDisabled                 = "FEATURE_ALIAS_DISABLED"
+	TextCodeMissingPanel                         = "MISSING_PANEL"
+	TextCodeRawUINotSupported                    = "RAW_UI_NOT_SUPPORTED"
+	TextCodeClearKeysNotSupported                = "CLEAR_KEYS_NOT_SUPPORTED"
+	TextCodeReplDebugDisabled                    = "REPL_DEBUG_DISABLED"
+	TextCodeReplShellDisabled                    = "REPL_SHELL_DISABLED"
+	TextCodeReplAppDisabled                      = "REPL_APP_DISABLED"
+	TextCodeReplDisabled                         = "REPL_DISABLED"
+	TextCodeReplOverrideDenied                   = "REPL_OVERRIDE_DENIED"
+	TextCodeReplRoleDenied                       = "REPL_ROLE_DENIED"
+	TextCodeReplPermissionDenied                 = "REPL_PERMISSION_DENIED"
+	TextCodeReplExecPermissionDenied             = "REPL_EXEC_PERMISSION_DENIED"
+	TextCodeReplReadOnly                         = "REPL_READ_ONLY"
+	TextCodeReplIPDenied                         = "REPL_IP_DENIED"
+	TextCodePathConflict                         = "PATH_CONFLICT"
+	TextCodeConflict                             = "CONFLICT"
+	TextCodeServiceUnavailable                   = "SERVICE_UNAVAILABLE"
 )
 
 // DomainErrorCode describes a text code exposed to clients.
@@ -57,6 +62,11 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeWorkflowNotFound, Description: "Workflow definition is missing for the entity type.", Category: goerrors.CategoryNotFound, HTTPStatus: 404},
 	{Code: TextCodeWorkflowInvalidTransition, Description: "Workflow transition is invalid for the current state.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeTranslationMissing, Description: "Required translations are missing for this workflow transition.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
+	{Code: TextCodeTranslationExists, Description: "Translation for the requested locale already exists.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeTranslationExchangeUnsupportedFormat, Description: "Translation exchange format is not supported.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
+	{Code: TextCodeTranslationExchangeInvalidPayload, Description: "Translation exchange payload is invalid.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
+	{Code: TextCodeTranslationExchangeMissingLinkage, Description: "Translation exchange row linkage could not be resolved.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeTranslationExchangeStaleSourceHash, Description: "Translation exchange row source hash is stale.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeContentTypeSchemaBreaking, Description: "Content type schema changes are breaking.", Category: goerrors.CategoryBadInput, HTTPStatus: 409},
 	{Code: TextCodeFeatureEnabledRequired, Description: "Feature must be enabled to apply overrides.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeFeatureAliasDisabled, Description: "Feature alias overrides are disabled.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
