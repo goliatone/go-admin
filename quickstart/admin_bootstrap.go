@@ -13,19 +13,21 @@ import (
 type AdminOption func(*adminOptions)
 
 type adminOptions struct {
-	ctx                        context.Context
-	deps                       admin.Dependencies
-	flags                      *AdapterFlags
-	featureDefaults            map[string]bool
-	preferencesRepo            types.PreferenceRepository
-	preferencesRepoFactory     func() (types.PreferenceRepository, error)
-	themeSelector              theme.ThemeSelector
-	themeManifest              *theme.Manifest
-	translationPolicyConfig    TranslationPolicyConfig
-	translationPolicyConfigSet bool
-	translationPolicyServices  TranslationPolicyServices
-	errors                     []error
-	registerUserRoleBulkRoutes bool
+	ctx                          context.Context
+	deps                         admin.Dependencies
+	flags                        *AdapterFlags
+	featureDefaults              map[string]bool
+	preferencesRepo              types.PreferenceRepository
+	preferencesRepoFactory       func() (types.PreferenceRepository, error)
+	themeSelector                theme.ThemeSelector
+	themeManifest                *theme.Manifest
+	translationPolicyConfig      TranslationPolicyConfig
+	translationPolicyConfigSet   bool
+	translationPolicyServices    TranslationPolicyServices
+	translationExchangeConfig    TranslationExchangeConfig
+	translationExchangeConfigSet bool
+	errors                       []error
+	registerUserRoleBulkRoutes   bool
 }
 
 func (o *adminOptions) addError(err error) {
@@ -183,6 +185,11 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {
 		return nil, result, err
+	}
+	if options.translationExchangeConfigSet {
+		if err := RegisterTranslationExchangeWiring(adm, options.translationExchangeConfig); err != nil {
+			return nil, result, err
+		}
 	}
 	if options.themeSelector != nil {
 		adm.WithGoTheme(options.themeSelector)
