@@ -19,9 +19,11 @@ Each helper is optional and composable.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
 - `WithTranslationExchangeConfig(cfg TranslationExchangeConfig) AdminOption` - Inputs: exchange config (disabled by default); outputs: option that enables exchange feature + command wiring when configured.
+- `WithTranslationQueueConfig(cfg TranslationQueueConfig) AdminOption` - Inputs: queue config (disabled by default); outputs: option that enables queue feature + panel/command wiring when configured.
 - `EnablePreferences() AdminOption` - Inputs: none; outputs: option to enable `FeaturePreferences`.
 - `EnableFeature(feature admin.FeatureKey) AdminOption` - Inputs: feature key; outputs: option to enable a single feature gate key.
 - `RegisterTranslationExchangeWiring(adm *admin.Admin, cfg TranslationExchangeConfig) error` - Inputs: admin + exchange config; outputs: error (registers exchange commands and optional permission entries).
+- `RegisterTranslationQueueWiring(adm *admin.Admin, cfg TranslationQueueConfig, policyCfg TranslationPolicyConfig, hasPolicyCfg bool) error` - Inputs: admin + queue config + policy context; outputs: error (registers queue panel, tabs, commands, and optional permission entries).
 - `WithGoUsersPreferencesRepository(repo types.PreferenceRepository) AdminOption` - Inputs: go-users preferences repo; outputs: option that wires a PreferencesStore via the adapter when one is not already set.
 - `WithGoUsersPreferencesRepositoryFactory(factory func() (types.PreferenceRepository, error)) AdminOption` - Inputs: repo builder; outputs: option to lazily construct a preferences repo (used when dependencies do not already supply a PreferencesStore).
 - `WithGoUsersUserManagement(cfg GoUsersUserManagementConfig) AdminOption` - Inputs: go-users auth/inventory/role repositories (plus optional profile repo and scope resolver); outputs: option that wires user/role repositories and enables bulk role route registration.
@@ -31,6 +33,8 @@ Each helper is optional and composable.
 - `RegisterPreferencesPermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers default preferences permissions).
 - `TranslationExchangePermissions() []PermissionDefinition` - Outputs: default translation exchange permission definitions.
 - `RegisterTranslationExchangePermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers translation exchange permissions).
+- `TranslationQueuePermissions() []PermissionDefinition` - Outputs: default translation queue permission definitions.
+- `RegisterTranslationQueuePermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers translation queue permissions).
 - `NewPreferencesModule(cfg admin.Config, menuParent string, opts ...PreferencesModuleOption) admin.Module` - Inputs: admin config, optional menu parent, preferences module options. Outputs: configured Preferences module.
 - `WithPreferencesSchemaPath(path string) PreferencesModuleOption` - Inputs: schema path (file or directory); outputs: option that overrides the Preferences form schema.
 - `WithPreferencesJSONEditorStrict(strict bool) PreferencesModuleOption` - Inputs: strict toggle; outputs: option that enforces client-side JSON validation for `raw_ui`.
@@ -170,6 +174,42 @@ quickstart.WithTranslationExchangeConfig(quickstart.TranslationExchangeConfig{
 			Metadata: map[string]any{"queued": true},
 		}, nil
 	},
+})
+```
+
+## Translation queue (opt-in)
+Translation queue is disabled by default in quickstart. Enable it with
+`WithTranslationQueueConfig(...)`.
+
+Minimal wiring:
+
+```go
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	quickstart.AdapterHooks{},
+	quickstart.WithTranslationPolicyConfig(quickstart.DefaultContentTranslationPolicyConfig()),
+	quickstart.WithTranslationQueueConfig(quickstart.TranslationQueueConfig{
+		Enabled: true,
+		// Optional: provide repository/service overrides.
+		// Repository: admin.NewInMemoryTranslationAssignmentRepository(),
+	}),
+)
+if err != nil {
+	return err
+}
+```
+
+Locale alignment rule:
+- If `supported_locales` is omitted, quickstart derives queue locales from active
+  translation policy requirements.
+- If `supported_locales` is explicitly set and policy locales are available,
+  sets must match exactly or startup fails with `ErrTranslationQueueConfig`.
+
+Optional permission registration:
+
+```go
+err := quickstart.RegisterTranslationQueuePermissions(func(def quickstart.PermissionDefinition) error {
+	return permissionRegistry.Register(def.Key, def.Description)
 })
 ```
 
