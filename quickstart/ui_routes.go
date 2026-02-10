@@ -17,28 +17,33 @@ type UIViewContextBuilder func(ctx router.ViewContext, active string, c router.C
 type UIRouteOption func(*uiRouteOptions)
 
 type uiRouteOptions struct {
-	basePath              string
-	dashboardPath         string
-	notificationsPath     string
-	activityPath          string
-	featureFlagsPath      string
-	dashboardTemplate     string
-	notificationsTemplate string
-	activityTemplate      string
-	featureFlagsTemplate  string
-	dashboardTitle        string
-	notificationsTitle    string
-	activityTitle         string
-	featureFlagsTitle     string
-	dashboardActive       string
-	notificationsActive   string
-	activityActive        string
-	featureFlagsActive    string
-	registerDashboard     bool
-	registerNotifications bool
-	registerActivity      bool
-	registerFeatureFlags  bool
-	viewContext           UIViewContextBuilder
+	basePath                    string
+	dashboardPath               string
+	notificationsPath           string
+	activityPath                string
+	featureFlagsPath            string
+	translationExchangePath     string
+	dashboardTemplate           string
+	notificationsTemplate       string
+	activityTemplate            string
+	featureFlagsTemplate        string
+	translationExchangeTemplate string
+	dashboardTitle              string
+	notificationsTitle          string
+	activityTitle               string
+	featureFlagsTitle           string
+	translationExchangeTitle    string
+	dashboardActive             string
+	notificationsActive         string
+	activityActive              string
+	featureFlagsActive          string
+	translationExchangeActive   string
+	registerDashboard           bool
+	registerNotifications       bool
+	registerActivity            bool
+	registerFeatureFlags        bool
+	registerTranslationExchange bool
+	viewContext                 UIViewContextBuilder
 }
 
 // WithUIBasePath overrides the base path used to build default routes.
@@ -87,6 +92,15 @@ func WithUIFeatureFlagsRoute(enabled bool) UIRouteOption {
 	}
 }
 
+// WithUITranslationExchangeRoute toggles the translation exchange route registration.
+func WithUITranslationExchangeRoute(enabled bool) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.registerTranslationExchange = enabled
+		}
+	}
+}
+
 // WithUIDashboardPath overrides the dashboard route path.
 func WithUIDashboardPath(route string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
@@ -119,6 +133,15 @@ func WithUIFeatureFlagsPath(route string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
 		if opts != nil {
 			opts.featureFlagsPath = strings.TrimSpace(route)
+		}
+	}
+}
+
+// WithUITranslationExchangePath overrides the translation exchange route path.
+func WithUITranslationExchangePath(route string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.translationExchangePath = strings.TrimSpace(route)
 		}
 	}
 }
@@ -159,6 +182,15 @@ func WithUIFeatureFlagsTemplate(name string) UIRouteOption {
 	}
 }
 
+// WithUITranslationExchangeTemplate overrides the translation exchange template name.
+func WithUITranslationExchangeTemplate(name string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.translationExchangeTemplate = strings.TrimSpace(name)
+		}
+	}
+}
+
 // WithUIDashboardTitle overrides the dashboard view title.
 func WithUIDashboardTitle(title string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
@@ -191,6 +223,15 @@ func WithUIFeatureFlagsTitle(title string) UIRouteOption {
 	return func(opts *uiRouteOptions) {
 		if opts != nil {
 			opts.featureFlagsTitle = strings.TrimSpace(title)
+		}
+	}
+}
+
+// WithUITranslationExchangeTitle overrides the translation exchange view title.
+func WithUITranslationExchangeTitle(title string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.translationExchangeTitle = strings.TrimSpace(title)
 		}
 	}
 }
@@ -231,6 +272,15 @@ func WithUIFeatureFlagsActive(active string) UIRouteOption {
 	}
 }
 
+// WithUITranslationExchangeActive sets the active menu key for the translation exchange route.
+func WithUITranslationExchangeActive(active string) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.translationExchangeActive = strings.TrimSpace(active)
+		}
+	}
+}
+
 // WithUIViewContextBuilder overrides the default view context builder.
 func WithUIViewContextBuilder(builder UIViewContextBuilder) UIRouteOption {
 	return func(opts *uiRouteOptions) {
@@ -247,23 +297,27 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	}
 
 	options := uiRouteOptions{
-		basePath:              strings.TrimSpace(cfg.BasePath),
-		dashboardTemplate:     "admin",
-		notificationsTemplate: "notifications",
-		activityTemplate:      "resources/activity/list",
-		featureFlagsTemplate:  "resources/feature-flags/index",
-		dashboardTitle:        strings.TrimSpace(cfg.Title),
-		notificationsTitle:    strings.TrimSpace(cfg.Title),
-		activityTitle:         "Activity",
-		featureFlagsTitle:     "Feature Flags",
-		dashboardActive:       "dashboard",
-		notificationsActive:   "notifications",
-		activityActive:        "activity",
-		featureFlagsActive:    "feature_flags",
-		registerDashboard:     true,
-		registerNotifications: true,
-		registerActivity:      true,
-		registerFeatureFlags:  true,
+		basePath:                    strings.TrimSpace(cfg.BasePath),
+		dashboardTemplate:           "admin",
+		notificationsTemplate:       "notifications",
+		activityTemplate:            "resources/activity/list",
+		featureFlagsTemplate:        "resources/feature-flags/index",
+		translationExchangeTemplate: "resources/translations/exchange",
+		dashboardTitle:              strings.TrimSpace(cfg.Title),
+		notificationsTitle:          strings.TrimSpace(cfg.Title),
+		activityTitle:               "Activity",
+		featureFlagsTitle:           "Feature Flags",
+		translationExchangeTitle:    "Translation Exchange",
+		dashboardActive:             "dashboard",
+		notificationsActive:         "notifications",
+		activityActive:              "activity",
+		featureFlagsActive:          "feature_flags",
+		translationExchangeActive:   "translation_exchange",
+		registerDashboard:           true,
+		registerNotifications:       true,
+		registerActivity:            true,
+		registerFeatureFlags:        true,
+		registerTranslationExchange: false, // opt-in: enable via WithUITranslationExchangeRoute(true)
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -285,6 +339,9 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	}
 	if options.featureFlagsPath == "" {
 		options.featureFlagsPath = path.Join(options.basePath, "feature-flags")
+	}
+	if options.translationExchangePath == "" {
+		options.translationExchangePath = path.Join(options.basePath, "translations", "exchange")
 	}
 	if options.viewContext == nil {
 		options.viewContext = defaultUIViewContextBuilder(adm, cfg)
@@ -339,6 +396,15 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 			apiBase := resolveAPIBase()
 			return renderView(c, options.featureFlagsTemplate, options.featureFlagsTitle, options.featureFlagsActive, router.ViewContext{
 				"feature_flags_api_path": prefixBasePath(apiBase, "feature-flags"),
+			})
+		}))
+	}
+
+	if options.registerTranslationExchange {
+		r.Get(options.translationExchangePath, wrap(func(c router.Context) error {
+			apiBase := resolveAPIBase()
+			return renderView(c, options.translationExchangeTemplate, options.translationExchangeTitle, options.translationExchangeActive, router.ViewContext{
+				"translation_exchange_api_path": prefixBasePath(apiBase, "translations"),
 			})
 		}))
 	}
