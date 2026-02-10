@@ -21,6 +21,8 @@ type UserRecord struct {
 	Status      string
 	Role        string
 	Roles       []string
+	RoleDisplay string
+	RoleLabels  []string
 	Permissions []string
 	Metadata    map[string]any
 	CreatedAt   time.Time
@@ -38,6 +40,38 @@ type RoleRecord struct {
 	IsSystem    bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+// BulkRoleChangeRequest captures inputs for bulk role assignment operations.
+type BulkRoleChangeRequest struct {
+	UserIDs []string
+	RoleID  string
+	Assign  bool
+	Replace bool
+}
+
+// BulkRoleChangeSummary aggregates per-user execution status for bulk role changes.
+type BulkRoleChangeSummary struct {
+	Processed int `json:"processed"`
+	Succeeded int `json:"succeeded"`
+	Failed    int `json:"failed"`
+	Skipped   int `json:"skipped"`
+}
+
+// BulkRoleChangeResult captures per-user execution details for bulk role changes.
+type BulkRoleChangeResult struct {
+	UserID string `json:"user_id"`
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+}
+
+// BulkRoleChangeResponse is the public API contract returned by bulk role endpoints.
+type BulkRoleChangeResponse struct {
+	Summary BulkRoleChangeSummary  `json:"summary"`
+	Results []BulkRoleChangeResult `json:"results"`
+	RoleID  string                 `json:"role_id"`
+	Action  string                 `json:"action"`
+	Replace bool                   `json:"replace"`
 }
 
 // UserRepository exposes CRUD operations for auth users.
@@ -117,12 +151,8 @@ func (s *UserManagementService) ListUsers(ctx context.Context, opts ListOptions)
 	if err != nil {
 		return nil, 0, err
 	}
-	for i, u := range users {
-		if len(u.Roles) == 0 && s.roles != nil {
-			if roles, err := s.roles.RolesForUser(ctx, u.ID); err == nil {
-				users[i].Roles = roleIDs(roles)
-			}
-		}
+	for i := range users {
+		s.hydrateUserRoles(ctx, &users[i])
 	}
 	return users, total, nil
 }
@@ -136,12 +166,88 @@ func (s *UserManagementService) GetUser(ctx context.Context, id string) (UserRec
 	if err != nil {
 		return UserRecord{}, err
 	}
-	if s.roles != nil {
-		if roles, err := s.roles.RolesForUser(ctx, id); err == nil {
-			user.Roles = roleIDs(roles)
-		}
-	}
+	s.hydrateUserRoles(ctx, &user)
 	return user, nil
+}
+
+// BulkRoleChange applies assign/unassign role mutations for multiple users.
+func (s *UserManagementService) BulkRoleChange(ctx context.Context, req BulkRoleChangeRequest) (BulkRoleChangeResponse, error) {
+	if s == nil || s.roles == nil {
+		return BulkRoleChangeResponse{}, serviceNotConfiguredDomainError("role service", nil)
+	}
+	roleID := strings.TrimSpace(req.RoleID)
+	if roleID == "" {
+		return BulkRoleChangeResponse{}, validationDomainError("invalid role id", map[string]any{"field": "role_id"})
+	}
+	userIDs := dedupeNonEmptyStrings(req.UserIDs)
+	if len(userIDs) == 0 {
+		return BulkRoleChangeResponse{}, validationDomainError("invalid user ids", map[string]any{"field": "ids"})
+	}
+
+	response := BulkRoleChangeResponse{
+		Summary: BulkRoleChangeSummary{Processed: len(userIDs)},
+		Results: make([]BulkRoleChangeResult, 0, len(userIDs)),
+		RoleID:  roleID,
+		Action:  "unassign",
+		Replace: req.Replace,
+	}
+	if req.Assign {
+		response.Action = "assign"
+	}
+
+	for _, userID := range userIDs {
+		result := BulkRoleChangeResult{
+			UserID: userID,
+			Status: "skipped",
+		}
+
+		if req.Assign && req.Replace {
+			existing, err := s.RolesForUser(ctx, userID)
+			if err != nil {
+				result.Status = "failed"
+				result.Error = err.Error()
+				response.Summary.Failed++
+				response.Results = append(response.Results, result)
+				continue
+			}
+			replaceFailed := false
+			for _, role := range existing {
+				if strings.TrimSpace(role.ID) == roleID {
+					continue
+				}
+				if err := s.UnassignRole(ctx, userID, role.ID); err != nil {
+					result.Status = "failed"
+					result.Error = err.Error()
+					response.Summary.Failed++
+					response.Results = append(response.Results, result)
+					replaceFailed = true
+					break
+				}
+			}
+			if replaceFailed {
+				continue
+			}
+		}
+
+		var execErr error
+		if req.Assign {
+			execErr = s.AssignRole(ctx, userID, roleID)
+		} else {
+			execErr = s.UnassignRole(ctx, userID, roleID)
+		}
+		if execErr != nil {
+			result.Status = "failed"
+			result.Error = execErr.Error()
+			response.Summary.Failed++
+		} else {
+			result.Status = "success"
+			response.Summary.Succeeded++
+		}
+		response.Results = append(response.Results, result)
+	}
+
+	response.Summary.Skipped = response.Summary.Processed - response.Summary.Succeeded - response.Summary.Failed
+	return response, nil
 }
 
 // SaveUser creates or updates a user and syncs role assignments.
@@ -429,6 +535,25 @@ func (s *UserManagementService) filterAssignableRoles(ctx context.Context, roles
 		}
 	}
 	return out, nil
+}
+
+func (s *UserManagementService) hydrateUserRoles(ctx context.Context, user *UserRecord) {
+	if s == nil || s.roles == nil || user == nil {
+		return
+	}
+	userID := strings.TrimSpace(user.ID)
+	if userID == "" {
+		return
+	}
+	roles, err := s.roles.RolesForUser(ctx, userID)
+	if err != nil || len(roles) == 0 {
+		return
+	}
+	user.Roles = roleIDs(roles)
+	user.RoleLabels = roleLabels(roles)
+	if len(user.RoleLabels) > 0 {
+		user.RoleDisplay = strings.Join(user.RoleLabels, ", ")
+	}
 }
 
 func (s *UserManagementService) recordActivity(ctx context.Context, action, object string, metadata map[string]any) {
@@ -1452,6 +1577,23 @@ func roleIDs(roles []RoleRecord) []string {
 	return out
 }
 
+func roleLabels(roles []RoleRecord) []string {
+	out := make([]string, 0, len(roles))
+	for _, role := range roles {
+		label := strings.TrimSpace(role.Name)
+		if label == "" {
+			label = strings.TrimSpace(role.RoleKey)
+		}
+		if label == "" {
+			label = strings.TrimSpace(role.ID)
+		}
+		if label != "" {
+			out = append(out, label)
+		}
+	}
+	return out
+}
+
 func cloneUser(u UserRecord) UserRecord {
 	return UserRecord{
 		ID:          u.ID,
@@ -1462,6 +1604,8 @@ func cloneUser(u UserRecord) UserRecord {
 		Status:      u.Status,
 		Role:        u.Role,
 		Roles:       append([]string{}, u.Roles...),
+		RoleDisplay: u.RoleDisplay,
+		RoleLabels:  append([]string{}, u.RoleLabels...),
 		Permissions: append([]string{}, u.Permissions...),
 		Metadata:    cloneAnyMap(u.Metadata),
 		CreatedAt:   u.CreatedAt,
@@ -1496,6 +1640,20 @@ func dedupeStrings(values []string) []string {
 		}
 		seen[key] = true
 		out = append(out, key)
+	}
+	return out
+}
+
+func dedupeNonEmptyStrings(values []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" || seen[trimmed] {
+			continue
+		}
+		seen[trimmed] = true
+		out = append(out, trimmed)
 	}
 	return out
 }
