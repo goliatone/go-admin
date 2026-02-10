@@ -2,8 +2,10 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDefaultTranslationQueueServiceLifecycleApprove(t *testing.T) {
@@ -247,5 +249,133 @@ func TestDefaultTranslationQueueServiceEmitsQueueActivityAndNotificationHooks(t 
 	}
 	if items[0].Metadata["resolver_key"] != translationQueueResolverKey {
 		t.Fatalf("expected resolver metadata on notification, got %+v", items[0].Metadata)
+	}
+}
+
+func TestDefaultTranslationQueueServiceClaimRejectResumeApprovePublishFlow(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	svc := &DefaultTranslationQueueService{Repository: repo}
+	ctx := context.Background()
+
+	created, err := repo.Create(ctx, TranslationAssignment{
+		TranslationGroupID: "tg_flow",
+		EntityType:         "pages",
+		SourceRecordID:     "page_flow",
+		SourceLocale:       "en",
+		TargetLocale:       "es",
+		AssignmentType:     AssignmentTypeOpenPool,
+		Status:             AssignmentStatusPending,
+		Priority:           PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+
+	claimed, err := svc.Claim(ctx, TranslationQueueClaimInput{
+		AssignmentID:    created.ID,
+		ClaimerID:       "translator_1",
+		ExpectedVersion: created.Version,
+	})
+	if err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+
+	submitted, err := svc.SubmitReview(ctx, TranslationQueueSubmitInput{
+		AssignmentID:    claimed.ID,
+		TranslatorID:    "translator_1",
+		ExpectedVersion: claimed.Version,
+	})
+	if err != nil {
+		t.Fatalf("submit review: %v", err)
+	}
+
+	rejected, err := svc.Reject(ctx, TranslationQueueRejectInput{
+		AssignmentID:    submitted.ID,
+		ReviewerID:      "reviewer_1",
+		Reason:          "style guide mismatch",
+		ExpectedVersion: submitted.Version,
+	})
+	if err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+
+	resumed, err := svc.Claim(ctx, TranslationQueueClaimInput{
+		AssignmentID:    rejected.ID,
+		ClaimerID:       "translator_1",
+		ExpectedVersion: rejected.Version,
+	})
+	if err != nil {
+		t.Fatalf("resume claim: %v", err)
+	}
+
+	resubmitted, err := svc.SubmitReview(ctx, TranslationQueueSubmitInput{
+		AssignmentID:    resumed.ID,
+		TranslatorID:    "translator_1",
+		ExpectedVersion: resumed.Version,
+	})
+	if err != nil {
+		t.Fatalf("resubmit review: %v", err)
+	}
+
+	approved, err := svc.Approve(ctx, TranslationQueueApproveInput{
+		AssignmentID:    resubmitted.ID,
+		ReviewerID:      "reviewer_1",
+		ExpectedVersion: resubmitted.Version,
+	})
+	if err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	if approved.Status != AssignmentStatusApproved {
+		t.Fatalf("expected approved status, got %q", approved.Status)
+	}
+
+	approved.PublishedAt = func() *time.Time { now := time.Now().UTC(); return &now }()
+	approved.Status = AssignmentStatusPublished
+	published, err := repo.Update(ctx, approved, approved.Version)
+	if err != nil {
+		t.Fatalf("publish status update: %v", err)
+	}
+	if published.Status != AssignmentStatusPublished {
+		t.Fatalf("expected published status, got %q", published.Status)
+	}
+	if !published.Status.IsTerminal() {
+		t.Fatalf("expected published status to be terminal")
+	}
+}
+
+func TestDefaultTranslationQueueServiceClaimDetectsOptimisticLockRace(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	svc := &DefaultTranslationQueueService{Repository: repo}
+	ctx := context.Background()
+
+	created, err := repo.Create(ctx, TranslationAssignment{
+		TranslationGroupID: "tg_race",
+		EntityType:         "pages",
+		SourceRecordID:     "page_race",
+		SourceLocale:       "en",
+		TargetLocale:       "fr",
+		AssignmentType:     AssignmentTypeOpenPool,
+		Status:             AssignmentStatusPending,
+		Priority:           PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+
+	created.SourceTitle = "stale-write"
+	if _, err := repo.Update(ctx, created, created.Version); err != nil {
+		t.Fatalf("seed optimistic lock change: %v", err)
+	}
+
+	_, err = svc.Claim(ctx, TranslationQueueClaimInput{
+		AssignmentID:    created.ID,
+		ClaimerID:       "translator_1",
+		ExpectedVersion: created.Version,
+	})
+	if err == nil {
+		t.Fatalf("expected optimistic lock conflict on stale claim")
+	}
+	if !errors.Is(err, ErrTranslationAssignmentVersionConflict) {
+		t.Fatalf("expected ErrTranslationAssignmentVersionConflict, got %v", err)
 	}
 }
