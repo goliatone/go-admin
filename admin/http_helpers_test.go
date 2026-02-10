@@ -291,6 +291,71 @@ func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
 	}
 }
 
+func TestWriteErrorMapsTranslationQueueConflict(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/queue/conflict", func(c router.Context) error {
+		return writeError(c, TranslationAssignmentConflictError{
+			AssignmentID:         "tqa_2",
+			ExistingAssignmentID: "tqa_1",
+			TranslationGroupID:   "tg_123",
+			EntityType:           "pages",
+			SourceLocale:         "en",
+			TargetLocale:         "es",
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/queue/conflict", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != TextCodeTranslationQueueConflict {
+		t.Fatalf("expected %s, got %v", TextCodeTranslationQueueConflict, errPayload["text_code"])
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if meta["existing_assignment_id"] != "tqa_1" || meta["target_locale"] != "es" {
+		t.Fatalf("expected queue conflict metadata, got %v", meta)
+	}
+}
+
+func TestWriteErrorMapsTranslationQueueVersionConflict(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/queue/version-conflict", func(c router.Context) error {
+		return writeError(c, TranslationAssignmentVersionConflictError{
+			AssignmentID:    "tqa_1",
+			ExpectedVersion: 2,
+			ActualVersion:   3,
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/queue/version-conflict", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != TextCodeTranslationQueueVersionConflict {
+		t.Fatalf("expected %s, got %v", TextCodeTranslationQueueVersionConflict, errPayload["text_code"])
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if meta["expected_version"] != float64(2) || meta["actual_version"] != float64(3) {
+		t.Fatalf("expected version conflict metadata, got %v", meta)
+	}
+}
+
 func TestWriteErrorMapsTranslationExchangeUnsupportedFormat(t *testing.T) {
 	server := router.NewHTTPServer()
 	server.Router().Post("/exchange", func(c router.Context) error {

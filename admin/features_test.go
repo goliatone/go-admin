@@ -68,3 +68,24 @@ func TestSearchRouteRespectsFeatureGates(t *testing.T) {
 		t.Fatalf("expected FEATURE_DISABLED text_code, got %v", text)
 	}
 }
+
+func TestInitializeValidatesTranslationExchangeFeatureDependencies(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureTranslationExchange)})
+	server := router.NewHTTPServer()
+
+	err := adm.Initialize(server.Router())
+	if err == nil {
+		t.Fatalf("expected dependency validation error")
+	}
+	var invalid InvalidFeatureConfigError
+	if !errors.As(err, &invalid) {
+		t.Fatalf("expected InvalidFeatureConfigError, got %v", err)
+	}
+	if len(invalid.Issues) == 0 {
+		t.Fatalf("expected at least one dependency issue, got %v", invalid)
+	}
+}
