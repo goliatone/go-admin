@@ -23,6 +23,10 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	var invalid InvalidFeatureConfigError
 	var permission PermissionDeniedError
 	var missingTranslations MissingTranslationsError
+	var translationExists TranslationAlreadyExistsError
+	var exchangeUnsupportedFormat TranslationExchangeUnsupportedFormatError
+	var exchangeInvalidPayload TranslationExchangeInvalidPayloadError
+	var exchangeConflict TranslationExchangeConflictError
 
 	switch {
 	case errors.Is(err, ErrWorkflowNotFound):
@@ -32,29 +36,88 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), nil)
 		status = mapped.Code
 	case errors.As(err, &missingTranslations):
-		meta := map[string]any{}
-		if len(missingTranslations.MissingLocales) > 0 {
-			meta["missing_locales"] = missingTranslations.MissingLocales
+		missingLocales := normalizeLocaleList(missingTranslations.MissingLocales)
+		if missingLocales == nil {
+			missingLocales = []string{}
 		}
-		if missingTranslations.EntityType != "" {
-			meta["entity_type"] = missingTranslations.EntityType
+		missingFields := normalizeMissingFieldsByLocale(missingTranslations.MissingFieldsByLocale)
+		meta := map[string]any{
+			"missing_locales":  missingLocales,
+			"transition":       strings.TrimSpace(missingTranslations.Transition),
+			"entity_type":      normalizePolicyEntityKey(missingTranslations.EntityType),
+			"policy_entity":    normalizePolicyEntityKey(missingTranslations.PolicyEntity),
+			"entity_id":        strings.TrimSpace(missingTranslations.EntityID),
+			"environment":      strings.TrimSpace(missingTranslations.Environment),
+			"requested_locale": strings.TrimSpace(missingTranslations.RequestedLocale),
 		}
-		if missingTranslations.PolicyEntity != "" {
-			meta["policy_entity"] = missingTranslations.PolicyEntity
-		}
-		if missingTranslations.EntityID != "" {
-			meta["entity_id"] = missingTranslations.EntityID
-		}
-		if missingTranslations.Transition != "" {
-			meta["transition"] = missingTranslations.Transition
-		}
-		if missingTranslations.Environment != "" {
-			meta["environment"] = missingTranslations.Environment
-		}
-		if missingTranslations.RequestedLocale != "" {
-			meta["requested_locale"] = missingTranslations.RequestedLocale
+		if missingTranslations.RequiredFieldsEvaluated || len(missingFields) > 0 {
+			if missingFields == nil {
+				missingFields = map[string][]string{}
+			}
+			meta["missing_fields_by_locale"] = missingFields
 		}
 		mapped = NewDomainError(TextCodeTranslationMissing, missingTranslations.Error(), meta)
+		status = translationBlockerStatus(missingFields)
+		mapped.WithCode(status)
+	case errors.As(err, &translationExists):
+		meta := map[string]any{
+			"panel":                strings.TrimSpace(translationExists.Panel),
+			"entity_id":            strings.TrimSpace(translationExists.EntityID),
+			"locale":               strings.TrimSpace(translationExists.Locale),
+			"source_locale":        strings.TrimSpace(translationExists.SourceLocale),
+			"translation_group_id": strings.TrimSpace(translationExists.TranslationGroupID),
+		}
+		mapped = NewDomainError(TextCodeTranslationExists, translationExists.Error(), meta)
+		status = mapped.Code
+	case errors.As(err, &exchangeUnsupportedFormat):
+		format := strings.TrimSpace(strings.ToLower(exchangeUnsupportedFormat.Format))
+		if format == "" {
+			format = "unknown"
+		}
+		supported := normalizeLocaleList(exchangeUnsupportedFormat.Supported)
+		meta := map[string]any{
+			"format": format,
+		}
+		if len(supported) > 0 {
+			meta["supported_formats"] = supported
+		}
+		mapped = NewDomainError(TextCodeTranslationExchangeUnsupportedFormat, exchangeUnsupportedFormat.Error(), meta)
+		status = mapped.Code
+	case errors.As(err, &exchangeInvalidPayload):
+		meta := map[string]any{}
+		if field := strings.TrimSpace(exchangeInvalidPayload.Field); field != "" {
+			meta["field"] = field
+		}
+		if format := strings.TrimSpace(strings.ToLower(exchangeInvalidPayload.Format)); format != "" {
+			meta["format"] = format
+		}
+		for key, value := range exchangeInvalidPayload.Metadata {
+			meta[key] = value
+		}
+		mapped = NewDomainError(TextCodeTranslationExchangeInvalidPayload, exchangeInvalidPayload.Error(), meta)
+		status = mapped.Code
+	case errors.As(err, &exchangeConflict):
+		conflictType := strings.TrimSpace(exchangeConflict.Type)
+		code := TextCodeTranslationExchangeMissingLinkage
+		if conflictType == "stale_source_hash" {
+			code = TextCodeTranslationExchangeStaleSourceHash
+		}
+		meta := map[string]any{
+			"type":                 firstNonEmpty(conflictType, "missing_linkage"),
+			"index":                exchangeConflict.Index,
+			"resource":             strings.TrimSpace(exchangeConflict.Resource),
+			"entity_id":            strings.TrimSpace(exchangeConflict.EntityID),
+			"translation_group_id": strings.TrimSpace(exchangeConflict.TranslationGroupID),
+			"target_locale":        strings.TrimSpace(exchangeConflict.TargetLocale),
+			"field_path":           strings.TrimSpace(exchangeConflict.FieldPath),
+		}
+		if current := strings.TrimSpace(exchangeConflict.CurrentSourceHash); current != "" {
+			meta["current_source_hash"] = current
+		}
+		if provided := strings.TrimSpace(exchangeConflict.ProvidedSourceHash); provided != "" {
+			meta["provided_source_hash"] = provided
+		}
+		mapped = NewDomainError(code, exchangeConflict.Error(), meta)
 		status = mapped.Code
 	case errors.As(err, &settingsValidation):
 		mapped = goerrors.New("validation failed", goerrors.CategoryValidation).
@@ -247,4 +310,42 @@ func parseContentTypeSchemaBreaking(err error) []map[string]string {
 		}
 	}
 	return out
+}
+
+func normalizeMissingFieldsByLocale(fields map[string][]string) map[string][]string {
+	if len(fields) == 0 {
+		return nil
+	}
+	out := map[string][]string{}
+	for locale, names := range fields {
+		locale = strings.TrimSpace(locale)
+		if locale == "" {
+			continue
+		}
+		normalized := normalizeRequiredFieldNames(names)
+		if len(normalized) == 0 {
+			continue
+		}
+		out[locale] = normalized
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func translationBlockerStatus(missingFieldsByLocale map[string][]string) int {
+	if hasMissingFieldFailures(missingFieldsByLocale) {
+		return http.StatusUnprocessableEntity
+	}
+	return http.StatusConflict
+}
+
+func hasMissingFieldFailures(missingFieldsByLocale map[string][]string) bool {
+	for _, names := range missingFieldsByLocale {
+		if len(names) > 0 {
+			return true
+		}
+	}
+	return false
 }
