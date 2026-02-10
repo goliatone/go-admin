@@ -47,6 +47,19 @@ func createTranslationRequested(payload map[string]any) bool {
 	return false
 }
 
+func exchangeCreateTranslationRequested(payload map[string]any) bool {
+	if createTranslationRequested(payload) {
+		return true
+	}
+	if payload == nil {
+		return false
+	}
+	if val, ok := payload["allow_create_missing"]; ok {
+		return toBool(val)
+	}
+	return false
+}
+
 func requestedLocaleFromPayload(payload map[string]any, fallback string) string {
 	if payload != nil {
 		if loc := strings.TrimSpace(toString(payload["requested_locale"])); loc != "" {
