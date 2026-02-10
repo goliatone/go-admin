@@ -18,8 +18,10 @@ Each helper is optional and composable.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
+- `WithTranslationExchangeConfig(cfg TranslationExchangeConfig) AdminOption` - Inputs: exchange config (disabled by default); outputs: option that enables exchange feature + command wiring when configured.
 - `EnablePreferences() AdminOption` - Inputs: none; outputs: option to enable `FeaturePreferences`.
 - `EnableFeature(feature admin.FeatureKey) AdminOption` - Inputs: feature key; outputs: option to enable a single feature gate key.
+- `RegisterTranslationExchangeWiring(adm *admin.Admin, cfg TranslationExchangeConfig) error` - Inputs: admin + exchange config; outputs: error (registers exchange commands and optional permission entries).
 - `WithGoUsersPreferencesRepository(repo types.PreferenceRepository) AdminOption` - Inputs: go-users preferences repo; outputs: option that wires a PreferencesStore via the adapter when one is not already set.
 - `WithGoUsersPreferencesRepositoryFactory(factory func() (types.PreferenceRepository, error)) AdminOption` - Inputs: repo builder; outputs: option to lazily construct a preferences repo (used when dependencies do not already supply a PreferencesStore).
 - `WithGoUsersUserManagement(cfg GoUsersUserManagementConfig) AdminOption` - Inputs: go-users auth/inventory/role repositories (plus optional profile repo and scope resolver); outputs: option that wires user/role repositories and enables bulk role route registration.
@@ -27,6 +29,8 @@ Each helper is optional and composable.
 - `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
 - `PreferencesPermissions() []PermissionDefinition` - Outputs: default preferences permission definitions.
 - `RegisterPreferencesPermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers default preferences permissions).
+- `TranslationExchangePermissions() []PermissionDefinition` - Outputs: default translation exchange permission definitions.
+- `RegisterTranslationExchangePermissions(register PermissionRegisterFunc) error` - Inputs: register func; outputs: error (registers translation exchange permissions).
 - `NewPreferencesModule(cfg admin.Config, menuParent string, opts ...PreferencesModuleOption) admin.Module` - Inputs: admin config, optional menu parent, preferences module options. Outputs: configured Preferences module.
 - `WithPreferencesSchemaPath(path string) PreferencesModuleOption` - Inputs: schema path (file or directory); outputs: option that overrides the Preferences form schema.
 - `WithPreferencesJSONEditorStrict(strict bool) PreferencesModuleOption` - Inputs: strict toggle; outputs: option that enforces client-side JSON validation for `raw_ui`.
@@ -122,6 +126,52 @@ All user management URLs should resolve via URLKit (admin namespace). Defaults:
 Bulk role routes are auto-registered by quickstart when `users` is enabled:
 - `adm.URLs().Resolve("admin.api.users.bulk.assign_role")` -> `/admin/api/users/bulk/assign-role`
 - `adm.URLs().Resolve("admin.api.users.bulk.unassign_role")` -> `/admin/api/users/bulk/unassign-role`
+
+## Translation exchange (opt-in)
+Translation exchange is disabled by default in quickstart. Enable it explicitly with `WithTranslationExchangeConfig(...)`.
+
+Minimal in-process wiring:
+
+```go
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	quickstart.AdapterHooks{},
+	quickstart.WithTranslationExchangeConfig(quickstart.TranslationExchangeConfig{
+		Enabled: true,
+		Store:   translationExchangeStore, // implements admin.TranslationExchangeStore
+	}),
+)
+if err != nil {
+	return err
+}
+```
+
+Optional permission registration:
+
+```go
+err := quickstart.RegisterTranslationExchangePermissions(func(def quickstart.PermissionDefinition) error {
+	// host permission catalog integration
+	return permissionRegistry.Register(def.Key, def.Description)
+})
+```
+
+Optional async apply integration for production workers:
+
+```go
+quickstart.WithTranslationExchangeConfig(quickstart.TranslationExchangeConfig{
+	Enabled: true,
+	Store:   translationExchangeStore,
+	AsyncApply: func(ctx context.Context, input admin.TranslationImportApplyInput) (admin.TranslationExchangeResult, error) {
+		// enqueue job in external worker and return queued contract
+		return admin.TranslationExchangeResult{
+			Summary: admin.TranslationExchangeSummary{
+				Processed: len(input.Rows),
+			},
+			Metadata: map[string]any{"queued": true},
+		}, nil
+	},
+})
+```
 
 ## URL configuration
 Quickstart defaults still mount admin under `/admin` and the public API under
