@@ -46,8 +46,8 @@ func (p translationPolicy) Validate(ctx context.Context, input admin.Translation
 	if !ok || len(requiredLocales) == 0 {
 		if p.cfg.DenyByDefault {
 			return admin.MissingTranslationsError{
-				EntityType:      strings.TrimSpace(input.EntityType),
-				PolicyEntity:    strings.TrimSpace(input.PolicyEntity),
+				EntityType:      normalizePolicyEntity(input.EntityType),
+				PolicyEntity:    normalizePolicyEntity(input.PolicyEntity),
 				EntityID:        strings.TrimSpace(input.EntityID),
 				Transition:      strings.TrimSpace(input.Transition),
 				Environment:     strings.TrimSpace(input.Environment),
@@ -86,14 +86,21 @@ func (p translationPolicy) Validate(ctx context.Context, input admin.Translation
 	if len(missing) == 0 {
 		return nil
 	}
+	requiredFieldsEvaluated := requiredFieldsValidationEnabled(req.RequiredFields, req.RequiredFieldsStrategy)
 	return admin.MissingTranslationsError{
-		EntityType:      strings.TrimSpace(input.EntityType),
-		PolicyEntity:    strings.TrimSpace(input.PolicyEntity),
+		EntityType:      normalizePolicyEntity(input.EntityType),
+		PolicyEntity:    normalizePolicyEntity(input.PolicyEntity),
 		EntityID:        strings.TrimSpace(input.EntityID),
 		Transition:      strings.TrimSpace(input.Transition),
 		Environment:     strings.TrimSpace(input.Environment),
 		RequestedLocale: strings.TrimSpace(input.RequestedLocale),
 		MissingLocales:  normalizeLocaleList(missing),
+		MissingFieldsByLocale: buildMissingFieldsByLocale(
+			req.RequiredFields,
+			missing,
+			requiredFieldsEvaluated,
+		),
+		RequiredFieldsEvaluated: requiredFieldsEvaluated,
 	}
 }
 
@@ -134,62 +141,23 @@ func resolveTranslationRequirements(cfg TranslationPolicyConfig, input admin.Tra
 }
 
 func resolvePolicyEntity(input admin.TranslationPolicyInput) string {
-	entity := strings.TrimSpace(input.PolicyEntity)
+	entity := normalizePolicyEntity(input.PolicyEntity)
 	if entity == "" {
-		entity = strings.TrimSpace(input.EntityType)
+		entity = normalizePolicyEntity(input.EntityType)
 	}
-	if entity == "" {
-		return ""
-	}
-	if idx := strings.Index(entity, "@"); idx > 0 {
-		entity = entity[:idx]
-	}
-	return strings.TrimSpace(entity)
+	return entity
 }
 
 func findEntityConfig(required map[string]TranslationPolicyEntityConfig, entity string) (TranslationPolicyEntityConfig, bool) {
-	if required == nil {
-		return nil, false
-	}
-	if cfg, ok := required[entity]; ok {
-		return cfg, true
-	}
-	for key, cfg := range required {
-		if strings.EqualFold(key, entity) {
-			return cfg, true
-		}
-	}
-	return nil, false
+	return caseInsensitiveMapLookup(required, entity)
 }
 
 func findTransitionConfig(entityCfg TranslationPolicyEntityConfig, transition string) (TranslationPolicyTransitionConfig, bool) {
-	if entityCfg == nil {
-		return TranslationPolicyTransitionConfig{}, false
-	}
-	if cfg, ok := entityCfg[transition]; ok {
-		return cfg, true
-	}
-	for key, cfg := range entityCfg {
-		if strings.EqualFold(key, transition) {
-			return cfg, true
-		}
-	}
-	return TranslationPolicyTransitionConfig{}, false
+	return caseInsensitiveMapLookup(entityCfg, transition)
 }
 
 func findEnvironmentCriteria(envs map[string]TranslationCriteria, env string) (TranslationCriteria, bool) {
-	if envs == nil {
-		return TranslationCriteria{}, false
-	}
-	if cfg, ok := envs[env]; ok {
-		return cfg, true
-	}
-	for key, cfg := range envs {
-		if strings.EqualFold(key, env) {
-			return cfg, true
-		}
-	}
-	return TranslationCriteria{}, false
+	return caseInsensitiveMapLookup(envs, env)
 }
 
 func normalizeLocaleList(locales []string) []string {
@@ -245,6 +213,117 @@ func cloneRequiredFields(fields map[string][]string) map[string][]string {
 		out[locale] = append([]string{}, values...)
 	}
 	return out
+}
+
+func requiredFieldsValidationEnabled(fields map[string][]string, strategy admin.RequiredFieldsValidationStrategy) bool {
+	if len(fields) == 0 {
+		return false
+	}
+	return !strings.EqualFold(string(strategy), string(admin.RequiredFieldsValidationIgnore))
+}
+
+func buildMissingFieldsByLocale(requiredFields map[string][]string, missingLocales []string, include bool) map[string][]string {
+	if !include || len(requiredFields) == 0 || len(missingLocales) == 0 {
+		return nil
+	}
+	out := map[string][]string{}
+	for _, locale := range normalizeLocaleList(missingLocales) {
+		fields := requiredFieldsForLocale(requiredFields, locale)
+		if len(fields) == 0 {
+			continue
+		}
+		out[locale] = fields
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func requiredFieldsForLocale(requiredFields map[string][]string, locale string) []string {
+	locale = strings.TrimSpace(locale)
+	if locale == "" || len(requiredFields) == 0 {
+		return nil
+	}
+	fields, ok := caseInsensitiveMapLookup(requiredFields, locale)
+	if ok {
+		return normalizeRequiredFieldNames(fields)
+	}
+	return nil
+}
+
+func caseInsensitiveMapLookup[T any](values map[string]T, key string) (T, bool) {
+	var zero T
+	if len(values) == 0 {
+		return zero, false
+	}
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return zero, false
+	}
+	if value, ok := values[trimmed]; ok {
+		return value, true
+	}
+	target := normalizeLookupKey(trimmed)
+	if target == "" {
+		return zero, false
+	}
+	matches := make([]string, 0, len(values))
+	for candidate := range values {
+		if normalizeLookupKey(candidate) == target {
+			matches = append(matches, candidate)
+		}
+	}
+	if len(matches) == 0 {
+		return zero, false
+	}
+	sort.Slice(matches, func(i, j int) bool {
+		li := normalizeLookupKey(matches[i])
+		lj := normalizeLookupKey(matches[j])
+		if li == lj {
+			return matches[i] < matches[j]
+		}
+		return li < lj
+	})
+	return values[matches[0]], true
+}
+
+func normalizeRequiredFieldNames(fields []string) []string {
+	if len(fields) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(fields))
+	for _, field := range fields {
+		trimmed := strings.TrimSpace(field)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return strings.ToLower(out[i]) < strings.ToLower(out[j])
+	})
+	return out
+}
+
+func normalizePolicyEntity(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if idx := strings.Index(value, "@"); idx > 0 {
+		value = value[:idx]
+	}
+	return strings.TrimSpace(value)
 }
 
 func uuidFromString(id string) uuid.UUID {
