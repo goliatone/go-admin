@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
@@ -38,10 +39,10 @@ type TranslationPolicyInput struct {
 }
 
 func (input TranslationPolicyInput) effectiveEntity() string {
-	if entity := strings.TrimSpace(input.PolicyEntity); entity != "" {
+	if entity := normalizePolicyEntityKey(input.PolicyEntity); entity != "" {
 		return entity
 	}
-	return strings.TrimSpace(input.EntityType)
+	return normalizePolicyEntityKey(input.EntityType)
 }
 
 // TranslationRequirements captures required locales and optional field checks.
@@ -137,14 +138,31 @@ func (p GoCMSTranslationPolicy) Validate(ctx context.Context, input TranslationP
 		return nil
 	}
 	return MissingTranslationsError{
-		EntityType:      strings.TrimSpace(input.EntityType),
-		PolicyEntity:    strings.TrimSpace(input.PolicyEntity),
+		EntityType:      normalizePolicyEntityKey(input.EntityType),
+		PolicyEntity:    normalizePolicyEntityKey(input.PolicyEntity),
 		EntityID:        strings.TrimSpace(input.EntityID),
 		Transition:      strings.TrimSpace(input.Transition),
 		Environment:     strings.TrimSpace(input.Environment),
 		RequestedLocale: strings.TrimSpace(input.RequestedLocale),
 		MissingLocales:  normalizeLocaleList(missing),
+		MissingFieldsByLocale: buildMissingFieldsByLocale(
+			req.RequiredFields,
+			missing,
+			requiredFieldsValidationEnabled(req.RequiredFields, req.RequiredFieldsStrategy),
+		),
+		RequiredFieldsEvaluated: requiredFieldsValidationEnabled(req.RequiredFields, req.RequiredFieldsStrategy),
 	}
+}
+
+func normalizePolicyEntityKey(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if idx := strings.Index(value, "@"); idx > 0 {
+		value = value[:idx]
+	}
+	return strings.TrimSpace(value)
 }
 
 // ErrMissingTranslations marks translation policy failures due to missing locales.
@@ -152,13 +170,15 @@ var ErrMissingTranslations = errors.New("missing required translations")
 
 // MissingTranslationsError reports which locales are required but absent.
 type MissingTranslationsError struct {
-	EntityType      string
-	PolicyEntity    string
-	EntityID        string
-	Transition      string
-	Environment     string
-	RequestedLocale string
-	MissingLocales  []string
+	EntityType              string
+	PolicyEntity            string
+	EntityID                string
+	Transition              string
+	Environment             string
+	RequestedLocale         string
+	MissingLocales          []string
+	MissingFieldsByLocale   map[string][]string
+	RequiredFieldsEvaluated bool
 }
 
 func (e MissingTranslationsError) Error() string {
@@ -180,7 +200,15 @@ func applyTranslationPolicy(ctx context.Context, policy TranslationPolicy, input
 	if strings.TrimSpace(input.EntityID) == "" {
 		return nil
 	}
-	return policy.Validate(ctx, input)
+	err := policy.Validate(ctx, input)
+	if err == nil {
+		return nil
+	}
+	var missing MissingTranslationsError
+	if errors.As(err, &missing) {
+		recordTranslationBlockedTransitionMetric(ctx, input, missing)
+	}
+	return err
 }
 
 func buildTranslationPolicyInput(ctx context.Context, entityType, entityID, currentState, transition string, payload map[string]any) TranslationPolicyInput {
@@ -215,21 +243,14 @@ func resolvePolicyEnvironment(payload map[string]any, fallback string) string {
 
 func resolvePolicyEntity(payload map[string]any, entityType string) string {
 	if payload != nil {
-		if val := strings.TrimSpace(toString(payload["policy_entity"])); val != "" {
+		if val := normalizePolicyEntityKey(toString(payload["policy_entity"])); val != "" {
 			return val
 		}
-		if val := strings.TrimSpace(toString(payload["policyEntity"])); val != "" {
+		if val := normalizePolicyEntityKey(toString(payload["policyEntity"])); val != "" {
 			return val
 		}
 	}
-	entityType = strings.TrimSpace(entityType)
-	if entityType == "" {
-		return ""
-	}
-	if idx := strings.Index(entityType, "@"); idx > 0 {
-		entityType = entityType[:idx]
-	}
-	return strings.TrimSpace(entityType)
+	return normalizePolicyEntityKey(entityType)
 }
 
 func normalizeLocaleList(locales []string) []string {
@@ -270,5 +291,73 @@ func cloneRequiredFields(fields map[string][]string) map[string][]string {
 		copy(copied, values)
 		out[trimmedKey] = copied
 	}
+	return out
+}
+
+func requiredFieldsValidationEnabled(fields map[string][]string, strategy RequiredFieldsValidationStrategy) bool {
+	if len(fields) == 0 {
+		return false
+	}
+	return !strings.EqualFold(string(strategy), string(RequiredFieldsValidationIgnore))
+}
+
+func buildMissingFieldsByLocale(requiredFields map[string][]string, missingLocales []string, include bool) map[string][]string {
+	if !include || len(requiredFields) == 0 || len(missingLocales) == 0 {
+		return nil
+	}
+	out := map[string][]string{}
+	for _, locale := range normalizeLocaleList(missingLocales) {
+		fields := requiredFieldsForLocale(requiredFields, locale)
+		if len(fields) == 0 {
+			continue
+		}
+		out[locale] = fields
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func requiredFieldsForLocale(requiredFields map[string][]string, locale string) []string {
+	locale = strings.TrimSpace(locale)
+	if locale == "" || len(requiredFields) == 0 {
+		return nil
+	}
+	if fields, ok := requiredFields[locale]; ok {
+		return normalizeRequiredFieldNames(fields)
+	}
+	for key, fields := range requiredFields {
+		if strings.EqualFold(strings.TrimSpace(key), locale) {
+			return normalizeRequiredFieldNames(fields)
+		}
+	}
+	return nil
+}
+
+func normalizeRequiredFieldNames(fields []string) []string {
+	if len(fields) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(fields))
+	for _, field := range fields {
+		trimmed := strings.TrimSpace(field)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return strings.ToLower(out[i]) < strings.ToLower(out[j])
+	})
 	return out
 }
