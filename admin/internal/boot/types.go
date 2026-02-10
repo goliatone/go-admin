@@ -16,6 +16,7 @@ const (
 	FeatureSettings            = "settings"
 	FeatureCMS                 = "cms"
 	FeatureTranslationExchange = "translations.exchange"
+	FeatureTranslationQueue    = "translations.queue"
 )
 
 // HandlerWrapper wraps router handlers with auth or middleware.
