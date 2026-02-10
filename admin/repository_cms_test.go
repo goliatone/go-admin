@@ -408,6 +408,81 @@ func TestCMSContentTypeEntryRepositoryListSortsBeforePagination(t *testing.T) {
 	}
 }
 
+func TestCMSContentTypeEntryRepositoryListFlattensMarkdownFields(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{Slug: "page"})
+
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "About Us",
+		Slug:            "about",
+		Locale:          "en",
+		Status:          "published",
+		ContentTypeSlug: "page",
+		Data: map[string]any{
+			"markdown": map[string]any{
+				"body": "We build composable admin products.",
+				"frontmatter": map[string]any{
+					"summary": "How the team builds reliable admin tooling for Go services.",
+					"tags":    []string{"company", "mission", "engineering"},
+				},
+				"custom": map[string]any{
+					"path":           "/about",
+					"published_at":   "2025-10-13T10:00:00Z",
+					"featured_image": "/static/media/logo.png",
+					"meta": map[string]any{
+						"audience":             "customers",
+						"reading_time_minutes": 4,
+					},
+					"seo": map[string]any{
+						"title":       "About Enterprise Admin",
+						"description": "Meet the team building modular admin tooling for Go applications.",
+					},
+				},
+			},
+		},
+	})
+
+	list, total, err := repo.List(ctx, ListOptions{PerPage: 20})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(list) != 1 {
+		t.Fatalf("expected one record, got total=%d len=%d", total, len(list))
+	}
+
+	record := list[0]
+	if got := toString(record["summary"]); got != "How the team builds reliable admin tooling for Go services." {
+		t.Fatalf("expected flattened summary, got %q", got)
+	}
+	if got := toString(record["path"]); got != "/about" {
+		t.Fatalf("expected flattened path, got %q", got)
+	}
+	if got := toString(record["published_at"]); got != "2025-10-13T10:00:00Z" {
+		t.Fatalf("expected flattened published_at, got %q", got)
+	}
+	if got := toString(record["featured_image"]); got != "/static/media/logo.png" {
+		t.Fatalf("expected flattened featured_image, got %q", got)
+	}
+	if got := toString(record["meta_title"]); got != "About Enterprise Admin" {
+		t.Fatalf("expected derived meta_title, got %q", got)
+	}
+	if got := toString(record["meta_description"]); got != "Meet the team building modular admin tooling for Go applications." {
+		t.Fatalf("expected derived meta_description, got %q", got)
+	}
+	if got := toString(record["content"]); got != "We build composable admin products." {
+		t.Fatalf("expected derived content body, got %q", got)
+	}
+	meta, ok := record["meta"].(map[string]any)
+	if !ok || toString(meta["audience"]) != "customers" {
+		t.Fatalf("expected flattened meta map, got %#v", record["meta"])
+	}
+	tags, ok := record["tags"].([]string)
+	if !ok || !reflect.DeepEqual(tags, []string{"company", "mission", "engineering"}) {
+		t.Fatalf("expected flattened tags, got %#v", record["tags"])
+	}
+}
+
 func TestCMSBlockDefinitionRepositoryFiltersByContentType(t *testing.T) {
 	content := NewInMemoryContentService()
 	ctx := context.Background()
