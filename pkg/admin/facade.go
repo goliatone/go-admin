@@ -289,6 +289,11 @@ type (
 	ThemeSelector = core.ThemeSelector
 	Translator    = core.Translator
 
+	TranslationImportRunInput          = core.TranslationImportRunInput
+	TranslationImportRunResult         = core.TranslationImportRunResult
+	TranslationImportRunTriggerInput   = core.TranslationImportRunTriggerInput
+	TranslationImportRunTriggerCommand = core.TranslationImportRunTriggerCommand
+
 	TransitionInput    = core.TransitionInput
 	TransitionResult   = core.TransitionResult
 	WorkflowDefinition = core.WorkflowDefinition
