@@ -759,10 +759,11 @@ func contentEntryColumns(panel *admin.Panel, filters []map[string]any) []map[str
 		if label == "" {
 			label = titleCase(strings.TrimSpace(field.Name))
 		}
+		sortable := contentEntryFieldSortable(field)
 		col := map[string]any{
 			"field":      field.Name,
 			"label":      label,
-			"sortable":   false,
+			"sortable":   sortable,
 			"filterable": false,
 			"default":    !field.Hidden,
 		}
@@ -772,6 +773,18 @@ func contentEntryColumns(panel *admin.Panel, filters []map[string]any) []map[str
 		cols = append(cols, col)
 	}
 	return cols
+}
+
+func contentEntryFieldSortable(field admin.Field) bool {
+	if field.Hidden {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(field.Type)) {
+	case "textarea", "json", "object", "array", "block-library-picker", "blocks":
+		return false
+	default:
+		return true
+	}
 }
 
 func contentEntryFilters(panel *admin.Panel) []map[string]any {
