@@ -126,6 +126,11 @@ func (a *Admin) BootUserImport() boot.UserImportBinding {
 	return newUserImportBinding(a)
 }
 
+// BootTranslationExchange exposes translation exchange bindings.
+func (a *Admin) BootTranslationExchange() boot.TranslationExchangeBinding {
+	return newTranslationExchangeBinding(a)
+}
+
 // BootNotifications exposes the notifications binding.
 func (a *Admin) BootNotifications() boot.NotificationsBinding {
 	return newNotificationsBinding(a)
