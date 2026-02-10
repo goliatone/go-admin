@@ -26,6 +26,7 @@ type TranslationExportCommand struct {
 }
 
 var _ gocommand.Commander[TranslationExportInput] = (*TranslationExportCommand)(nil)
+var _ gocommand.CLICommand = (*TranslationExportCommand)(nil)
 
 func (c *TranslationExportCommand) Execute(ctx context.Context, msg TranslationExportInput) error {
 	if c == nil || c.Service == nil {
@@ -46,11 +47,25 @@ func (c *TranslationExportCommand) Execute(ctx context.Context, msg TranslationE
 	return nil
 }
 
+func (c *TranslationExportCommand) CLIHandler() any {
+	return &NoopCLIHandler{}
+}
+
+func (c *TranslationExportCommand) CLIOptions() gocommand.CLIConfig {
+	return gocommand.CLIConfig{
+		Path:        []string{"translations", "exchange", "export"},
+		Description: "Export translation exchange rows",
+		Group:       "translations",
+		Aliases:     []string{"translations:exchange:export"},
+	}
+}
+
 type TranslationImportValidateCommand struct {
 	Service TranslationExchangeValidator
 }
 
 var _ gocommand.Commander[TranslationImportValidateInput] = (*TranslationImportValidateCommand)(nil)
+var _ gocommand.CLICommand = (*TranslationImportValidateCommand)(nil)
 
 func (c *TranslationImportValidateCommand) Execute(ctx context.Context, msg TranslationImportValidateInput) error {
 	if c == nil || c.Service == nil {
@@ -71,11 +86,25 @@ func (c *TranslationImportValidateCommand) Execute(ctx context.Context, msg Tran
 	return nil
 }
 
+func (c *TranslationImportValidateCommand) CLIHandler() any {
+	return &NoopCLIHandler{}
+}
+
+func (c *TranslationImportValidateCommand) CLIOptions() gocommand.CLIConfig {
+	return gocommand.CLIConfig{
+		Path:        []string{"translations", "exchange", "import", "validate"},
+		Description: "Validate translation exchange import rows",
+		Group:       "translations",
+		Aliases:     []string{"translations:exchange:import:validate"},
+	}
+}
+
 type TranslationImportApplyCommand struct {
 	Service TranslationExchangeApplier
 }
 
 var _ gocommand.Commander[TranslationImportApplyInput] = (*TranslationImportApplyCommand)(nil)
+var _ gocommand.CLICommand = (*TranslationImportApplyCommand)(nil)
 
 func (c *TranslationImportApplyCommand) Execute(ctx context.Context, msg TranslationImportApplyInput) error {
 	if c == nil || c.Service == nil {
@@ -96,12 +125,26 @@ func (c *TranslationImportApplyCommand) Execute(ctx context.Context, msg Transla
 	return nil
 }
 
+func (c *TranslationImportApplyCommand) CLIHandler() any {
+	return &NoopCLIHandler{}
+}
+
+func (c *TranslationImportApplyCommand) CLIOptions() gocommand.CLIConfig {
+	return gocommand.CLIConfig{
+		Path:        []string{"translations", "exchange", "import", "apply"},
+		Description: "Apply translation exchange import rows",
+		Group:       "translations",
+		Aliases:     []string{"translations:exchange:import:apply"},
+	}
+}
+
 type TranslationImportRunCommand struct {
 	Validator TranslationExchangeValidator
 	Applier   TranslationExchangeApplier
 }
 
 var _ gocommand.Commander[TranslationImportRunInput] = (*TranslationImportRunCommand)(nil)
+var _ gocommand.CLICommand = (*TranslationImportRunCommand)(nil)
 
 func (c *TranslationImportRunCommand) Execute(ctx context.Context, msg TranslationImportRunInput) error {
 	if c == nil || c.Validator == nil || c.Applier == nil {
@@ -128,4 +171,17 @@ func (c *TranslationImportRunCommand) Execute(ctx context.Context, msg Translati
 		}
 	}
 	return nil
+}
+
+func (c *TranslationImportRunCommand) CLIHandler() any {
+	return &NoopCLIHandler{}
+}
+
+func (c *TranslationImportRunCommand) CLIOptions() gocommand.CLIConfig {
+	return gocommand.CLIConfig{
+		Path:        []string{"translations", "exchange", "import", "run"},
+		Description: "Run translation exchange validate+apply flow",
+		Group:       "translations",
+		Aliases:     []string{"translations:exchange:import:run"},
+	}
 }
