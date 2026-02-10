@@ -74,7 +74,7 @@ type PanelBinding interface {
 	Create(router.Context, string, map[string]any) (map[string]any, error)
 	Update(router.Context, string, string, map[string]any) (map[string]any, error)
 	Delete(router.Context, string, string) error
-	Action(router.Context, string, string, map[string]any) error
+	Action(router.Context, string, string, map[string]any) (map[string]any, error)
 	Bulk(router.Context, string, string, map[string]any) error
 	Preview(router.Context, string, string) (map[string]any, error)
 }
@@ -128,6 +128,14 @@ type MediaBinding interface {
 type UserImportBinding interface {
 	ImportUsers(router.Context) error
 	ImportTemplate(router.Context) error
+}
+
+// TranslationExchangeBinding exposes translation exchange transport operations.
+type TranslationExchangeBinding interface {
+	Export(router.Context) (any, error)
+	Template(router.Context) error
+	ImportValidate(router.Context) (any, error)
+	ImportApply(router.Context) (any, error)
 }
 
 // NotificationsBinding exposes notifications operations.
@@ -188,6 +196,7 @@ type BootCtx interface {
 	BootBulk() BulkBinding
 	BootMedia() MediaBinding
 	BootUserImport() UserImportBinding
+	BootTranslationExchange() TranslationExchangeBinding
 	BootNotifications() NotificationsBinding
 	BootActivity() ActivityBinding
 	BootJobs() JobsBinding
