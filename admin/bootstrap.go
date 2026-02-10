@@ -158,6 +158,7 @@ func (a *Admin) validateConfig() error {
 
 	require(FeatureJobs, FeatureCommands)
 	require(FeatureBulk, FeatureCommands, FeatureJobs)
+	require(FeatureTranslationExchange, FeatureCommands, FeatureCMS)
 
 	for _, feature := range []FeatureKey{FeatureMedia, FeatureExport, FeatureBulk} {
 		if featureEnabled(a.featureGate, feature) && !featureEnabled(a.featureGate, FeatureCMS) {
