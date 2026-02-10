@@ -229,6 +229,9 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 			admin.Filter{Name: "template_id", Label: "Template", LabelKey: "fields.template", Type: "text"},
 		).
 		Actions(
+			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: "admin.pages.view"},
+			admin.Action{Name: "edit", Label: "Edit", LabelKey: "actions.edit", Permission: "admin.pages.edit"},
+			admin.Action{Name: "delete", Label: "Delete", LabelKey: "actions.delete", Variant: "danger", Permission: "admin.pages.delete"},
 			createTranslationAction("admin.pages.edit"),
 			admin.Action{Name: "request_approval", Label: "Request Approval", LabelKey: "actions.request_approval", Permission: "admin.pages.edit"},
 			admin.Action{Name: "approve", Label: "Approve", LabelKey: "actions.approve", Permission: "admin.pages.publish"},
@@ -323,6 +326,9 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 			admin.Filter{Name: "author", Label: "Author", LabelKey: "fields.author", Type: "text"},
 		).
 		Actions(
+			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: "admin.posts.view"},
+			admin.Action{Name: "edit", Label: "Edit", LabelKey: "actions.edit", Permission: "admin.posts.edit"},
+			admin.Action{Name: "delete", Label: "Delete", LabelKey: "actions.delete", Variant: "danger", Permission: "admin.posts.delete"},
 			createTranslationAction("admin.posts.edit"),
 			admin.Action{Name: "request_approval", Label: "Request Approval", LabelKey: "actions.request_approval", Permission: "admin.posts.edit"},
 			admin.Action{Name: "approve", Label: "Approve", LabelKey: "actions.approve", Permission: "admin.posts.publish"},

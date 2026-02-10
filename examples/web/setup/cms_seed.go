@@ -1,21 +1,26 @@
 package setup
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/fs"
 	"reflect"
 	"strings"
+	"text/template"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/web/data"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-cms/pkg/interfaces"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -31,6 +36,8 @@ var (
 		"getting-started-go": {},
 	}
 )
+
+const cmsContentSeedsFilePath = "content/content.yml"
 
 func translationSeedLocales(defaultLocale string) []string {
 	primary := strings.ToLower(strings.TrimSpace(defaultLocale))
@@ -174,14 +181,60 @@ type pageTranslationRow struct {
 }
 
 type contentSeed struct {
-	Slug    string
-	Title   string
-	Summary string
-	Body    string
-	Status  string
-	Path    string
-	Tags    []string
-	Custom  map[string]any
+	Slug    string         `yaml:"slug"`
+	Title   string         `yaml:"title"`
+	Summary string         `yaml:"summary"`
+	Body    string         `yaml:"body"`
+	Status  string         `yaml:"status"`
+	Path    string         `yaml:"path"`
+	Tags    []string       `yaml:"tags"`
+	Custom  map[string]any `yaml:"custom"`
+}
+
+type cmsContentSeedsFile struct {
+	Pages []contentSeed `yaml:"pages"`
+	Posts []contentSeed `yaml:"posts"`
+}
+
+func loadCMSContentSeeds() ([]contentSeed, []contentSeed, error) {
+	fsys := data.SeedsFS()
+	raw, err := fs.ReadFile(fsys, cmsContentSeedsFilePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read cms content seeds %s: %w", cmsContentSeedsFilePath, err)
+	}
+
+	tmpl, err := template.New("cms-content-seeds").
+		Funcs(seedTemplateFuncs()).
+		Option("missingkey=zero").
+		Parse(string(raw))
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse cms content seed template: %w", err)
+	}
+
+	var rendered bytes.Buffer
+	if err := tmpl.Execute(&rendered, nil); err != nil {
+		return nil, nil, fmt.Errorf("render cms content seed template: %w", err)
+	}
+
+	var payload cmsContentSeedsFile
+	if err := yaml.Unmarshal(rendered.Bytes(), &payload); err != nil {
+		return nil, nil, fmt.Errorf("decode cms content seeds yaml: %w", err)
+	}
+
+	for idx := range payload.Pages {
+		seed := &payload.Pages[idx]
+		if seed.Custom == nil {
+			seed.Custom = map[string]any{}
+		}
+	}
+	for idx := range payload.Posts {
+		seed := &payload.Posts[idx]
+		if seed.Custom == nil {
+			seed.Custom = map[string]any{}
+		}
+	}
+
+	return payload.Pages, payload.Posts, nil
 }
 
 func seedCMSPrereqs(ctx context.Context, db *bun.DB, defaultLocale string) (cmsSeedRefs, error) {
@@ -781,166 +834,9 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 		useContentFallback = false
 	}
 
-	heroBlock := func(headline, subheadline, ctaLabel, ctaURL string) map[string]any {
-		block := map[string]any{
-			"_type":    "hero",
-			"headline": headline,
-		}
-		if subheadline != "" {
-			block["subheadline"] = subheadline
-		}
-		if ctaLabel != "" {
-			block["cta_label"] = ctaLabel
-		}
-		if ctaURL != "" {
-			block["cta_url"] = ctaURL
-		}
-		return block
-	}
-	richTextBlock := func(body string) map[string]any {
-		return map[string]any{
-			"_type": "rich_text",
-			"body":  body,
-		}
-	}
-
-	pageSeeds := []contentSeed{
-		{
-			Slug:    "home",
-			Title:   "Home",
-			Summary: "Welcome to our website",
-			Body:    "Welcome to our website. Explore our content and dashboards.",
-			Status:  "published",
-			Path:    "/",
-			Custom: map[string]any{
-				"seo": map[string]any{"title": "Home - Enterprise Admin", "description": "Welcome to Enterprise Admin"},
-				"blocks": []map[string]any{
-					heroBlock("Enterprise Admin", "Build modular admin experiences with go-cms.", "Explore", "/admin"),
-					richTextBlock("The CMS panel now supports schema-driven blocks for pages and posts."),
-				},
-			},
-		},
-		{
-			Slug:    "about",
-			Title:   "About Us",
-			Summary: "Learn more about our company",
-			Body:    "We build modular admin experiences on top of go-cms.",
-			Status:  "published",
-			Path:    "/about",
-			Custom: map[string]any{
-				"seo": map[string]any{"title": "About Us", "description": "Learn more about our company"},
-				"blocks": []map[string]any{
-					richTextBlock("We build modular admin experiences on top of go-cms and go-formgen."),
-				},
-			},
-		},
-		{
-			Slug:    "team",
-			Title:   "Our Team",
-			Summary: "Meet our team members",
-			Body:    "A distributed team shipping Go-first admin tooling.",
-			Status:  "published",
-			Path:    "/about/team",
-			Custom: map[string]any{
-				"seo": map[string]any{"title": "Our Team", "description": "Meet the team behind Enterprise Admin"},
-			},
-		},
-		{
-			Slug:    "contact",
-			Title:   "Contact",
-			Summary: "Get in touch with us",
-			Body:    "Reach us for support, demos, or questions.",
-			Status:  "published",
-			Path:    "/contact",
-			Custom: map[string]any{
-				"seo": map[string]any{"title": "Contact", "description": "Get in touch"},
-			},
-		},
-		{
-			Slug:    "privacy",
-			Title:   "Privacy Policy",
-			Summary: "Our privacy policy",
-			Body:    "We respect your privacy and protect your data.",
-			Status:  "draft",
-			Path:    "/privacy",
-			Custom: map[string]any{
-				"seo": map[string]any{"title": "Privacy Policy", "description": "Our privacy policy"},
-			},
-		},
-	}
-
-	postSeeds := []contentSeed{
-		{
-			Slug:    "getting-started-go",
-			Title:   "Getting Started with Go",
-			Summary: "A beginner's guide to Go",
-			Body:    "Learn the basics of Go programming and build fast services.",
-			Status:  "published",
-			Path:    "/posts/getting-started-go",
-			Tags:    []string{"go", "programming", "tutorial"},
-			Custom: map[string]any{
-				"category": "guides",
-				"seo":      map[string]any{"title": "Getting Started with Go", "description": "A beginner's guide to Go"},
-				"blocks": []map[string]any{
-					richTextBlock("Start with packages, modules, and fast feedback loops."),
-				},
-			},
-		},
-		{
-			Slug:    "building-rest-apis",
-			Title:   "Building REST APIs",
-			Summary: "REST API development guide",
-			Body:    "How to build RESTful APIs in Go.",
-			Status:  "published",
-			Path:    "/posts/building-rest-apis",
-			Tags:    []string{"go", "api", "rest"},
-			Custom: map[string]any{
-				"category": "guides",
-				"seo":      map[string]any{"title": "Building REST APIs", "description": "REST API development guide"},
-				"blocks": []map[string]any{
-					richTextBlock("Plan your handlers, use middleware, and add structured logs."),
-				},
-			},
-		},
-		{
-			Slug:    "company-news-q4-2024",
-			Title:   "Company News: Q4 2024",
-			Summary: "Our Q4 achievements",
-			Body:    "Exciting updates from Q4, including product launches.",
-			Status:  "published",
-			Path:    "/posts/company-news-q4-2024",
-			Tags:    []string{"news", "company"},
-			Custom: map[string]any{
-				"category": "news",
-				"seo":      map[string]any{"title": "Company News Q4 2024", "description": "Our Q4 achievements"},
-			},
-		},
-		{
-			Slug:    "database-optimization",
-			Title:   "Database Optimization Tips",
-			Summary: "Improve your database performance",
-			Body:    "Tips for optimizing database queries.",
-			Status:  "draft",
-			Path:    "/posts/database-optimization",
-			Tags:    []string{"database", "optimization"},
-			Custom: map[string]any{
-				"category": "updates",
-				"seo":      map[string]any{"title": "Database Optimization", "description": "Improve your database performance"},
-			},
-		},
-		{
-			Slug:    "upcoming-features-2025",
-			Title:   "Upcoming Features in 2025",
-			Summary: "Preview of 2025 features",
-			Body:    "What's coming in 2025 for go-admin and go-cms.",
-			Status:  "scheduled",
-			Path:    "/posts/upcoming-features-2025",
-			Tags:    []string{"news", "roadmap"},
-			Custom: map[string]any{
-				"category": "news",
-				"seo":      map[string]any{"title": "Upcoming Features", "description": "Preview of 2025 features"},
-			},
-		},
+	pageSeeds, postSeeds, err := loadCMSContentSeeds()
+	if err != nil {
+		return err
 	}
 
 	pageOpts := interfaces.ImportOptions{
@@ -1043,13 +939,16 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 			"title":            seed.Title,
 			"slug":             seed.Slug,
 			"content":          seed.Body,
+			"summary":          seed.Summary,
 			"status":           seed.Status,
 			"locale":           locale,
 			"path":             normalizePath(seed.Path, seed.Slug),
 			"meta_title":       seoTitle,
 			"meta_description": seoDescription,
 			"template_id":      refs.TemplateID.String(),
+			"tags":             append([]string{}, seed.Tags...),
 		}
+		mergeSeedCustomFields(record, seed.Custom, "blocks")
 		if seed.Custom != nil {
 			if blocks, ok := seed.Custom["blocks"]; ok {
 				record["blocks"] = blocks
@@ -1074,6 +973,7 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 			"slug":             seed.Slug,
 			"content":          seed.Body,
 			"excerpt":          seed.Summary,
+			"summary":          seed.Summary,
 			"status":           seed.Status,
 			"locale":           locale,
 			"path":             normalizePath(seed.Path, seed.Slug),
@@ -1081,6 +981,7 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 			"meta_description": seoDescription,
 			"tags":             append([]string{}, seed.Tags...),
 		}
+		mergeSeedCustomFields(record, seed.Custom, "blocks")
 		if seed.Custom != nil {
 			if category := strings.TrimSpace(fmt.Sprint(seed.Custom["category"])); category != "" && category != "<nil>" {
 				record["category"] = category
@@ -1097,6 +998,30 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 	}
 
 	return nil
+}
+
+func mergeSeedCustomFields(record map[string]any, custom map[string]any, excluded ...string) {
+	if record == nil || len(custom) == 0 {
+		return
+	}
+	exclude := map[string]struct{}{}
+	for _, key := range excluded {
+		normalized := strings.ToLower(strings.TrimSpace(key))
+		if normalized == "" {
+			continue
+		}
+		exclude[normalized] = struct{}{}
+	}
+	for key, value := range custom {
+		normalized := strings.ToLower(strings.TrimSpace(key))
+		if normalized == "" {
+			continue
+		}
+		if _, blocked := exclude[normalized]; blocked {
+			continue
+		}
+		record[key] = value
+	}
 }
 
 func importSeed(ctx context.Context, md interfaces.MarkdownService, seed contentSeed, opts interfaces.ImportOptions, locale string) error {
@@ -1400,10 +1325,14 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 
 func buildSeedContentPayload(seed contentSeed) map[string]any {
 	seoTitle, seoDescription := seedSEO(seed)
+	path := normalizePath(seed.Path, seed.Slug)
 	frontmatter := map[string]any{
 		"title":   seed.Title,
 		"summary": seed.Summary,
 		"status":  seed.Status,
+	}
+	if path != "" {
+		frontmatter["path"] = path
 	}
 	if len(seed.Tags) > 0 {
 		frontmatter["tags"] = append([]string{}, seed.Tags...)
@@ -1422,8 +1351,40 @@ func buildSeedContentPayload(seed contentSeed) map[string]any {
 		},
 	}
 
-	if len(seed.Custom) > 0 {
-		payload["markdown"].(map[string]any)["custom"] = cloneAnyMap(seed.Custom)
+	custom := cloneAnyMap(seed.Custom)
+	if custom == nil {
+		custom = map[string]any{}
+	}
+	if path != "" {
+		if strings.TrimSpace(fmt.Sprint(custom["path"])) == "" || fmt.Sprint(custom["path"]) == "<nil>" {
+			custom["path"] = path
+		}
+	}
+	if strings.TrimSpace(seed.Summary) != "" {
+		if strings.TrimSpace(fmt.Sprint(custom["summary"])) == "" || fmt.Sprint(custom["summary"]) == "<nil>" {
+			custom["summary"] = seed.Summary
+		}
+	}
+	if len(seed.Tags) > 0 {
+		if existing, ok := custom["tags"]; !ok || existing == nil {
+			custom["tags"] = append([]string{}, seed.Tags...)
+		}
+	}
+	if seoTitle != "" || seoDescription != "" {
+		seo, _ := custom["seo"].(map[string]any)
+		if seo == nil {
+			seo = map[string]any{}
+		}
+		if seoTitle != "" && strings.TrimSpace(fmt.Sprint(seo["title"])) == "" {
+			seo["title"] = seoTitle
+		}
+		if seoDescription != "" && strings.TrimSpace(fmt.Sprint(seo["description"])) == "" {
+			seo["description"] = seoDescription
+		}
+		custom["seo"] = seo
+	}
+	if len(custom) > 0 {
+		payload["markdown"].(map[string]any)["custom"] = custom
 	}
 
 	return payload

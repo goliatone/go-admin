@@ -125,27 +125,18 @@ func (s *CMSPageStore) List(ctx context.Context, opts admin.ListOptions) ([]map[
 		return nil, 0, err
 	}
 	search := strings.ToLower(extractSearchFromOptions(opts))
-	statusFilter := strings.ToLower(asString(opts.Filters["status"], asString(opts.Filters["Status"], "")))
-	slugFilter := strings.ToLower(asString(opts.Filters["slug"], asString(opts.Filters["Slug"], "")))
-	pathFilter := strings.ToLower(asString(opts.Filters["path"], asString(opts.Filters["Path"], "")))
 	records := []map[string]any{}
 	for _, page := range pages {
 		record := s.pageToRecord(page)
 		if search != "" && !strings.Contains(strings.ToLower(page.Title), search) && !strings.Contains(strings.ToLower(page.Slug), search) && !strings.Contains(strings.ToLower(asString(record["path"], "")), search) {
 			continue
 		}
-		if statusFilter != "" && !strings.EqualFold(asString(record["status"], ""), statusFilter) {
-			continue
-		}
-		if slugFilter != "" && !strings.EqualFold(asString(record["slug"], ""), slugFilter) {
-			continue
-		}
-		if pathFilter != "" && !strings.EqualFold(strings.ToLower(asString(record["path"], "")), pathFilter) {
-			continue
-		}
 		records = append(records, record)
 	}
-	return records, len(records), nil
+	paged, total := applyListOptionsToRecords(records, opts, map[string]struct{}{
+		"locale": {},
+	})
+	return paged, total, nil
 }
 
 // Get returns a single page.
@@ -332,9 +323,42 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	locale := asString(record["locale"], asString(existing["locale"], s.defaultLocale))
 	title := asString(record["title"], asString(existing["title"], ""))
 	slug := asString(record["slug"], asString(existing["slug"], ""))
+	summary := asString(record["summary"], asString(existing["summary"], ""))
 	metaTitle := asString(record["meta_title"], asString(existing["meta_title"], ""))
 	metaDescription := asString(record["meta_description"], asString(existing["meta_description"], ""))
 	content := asString(record["content"], asString(existing["content"], ""))
+	featuredImage := asString(record["featured_image"], asString(existing["featured_image"], ""))
+	tags := parseTags(record["tags"])
+	if len(tags) == 0 {
+		tags = parseTags(existing["tags"])
+	}
+	if tags == nil {
+		tags = []string{}
+	}
+	seoData := cloneAnyMap(nil)
+	if raw, ok := record["seo"].(map[string]any); ok {
+		seoData = cloneAnyMap(raw)
+	} else if raw, ok := existing["seo"].(map[string]any); ok {
+		seoData = cloneAnyMap(raw)
+	}
+	if metaTitle == "" {
+		metaTitle = asString(seoData["title"], "")
+	}
+	if metaDescription == "" {
+		metaDescription = asString(seoData["description"], "")
+	}
+	meta := cloneAnyMap(nil)
+	if raw, ok := record["meta"].(map[string]any); ok {
+		meta = cloneAnyMap(raw)
+	} else if raw, ok := existing["meta"].(map[string]any); ok {
+		meta = cloneAnyMap(raw)
+	}
+	markdown := cloneAnyMap(nil)
+	if raw, ok := record["markdown"].(map[string]any); ok {
+		markdown = cloneAnyMap(raw)
+	} else if raw, ok := existing["markdown"].(map[string]any); ok {
+		markdown = cloneAnyMap(raw)
+	}
 	rawStatus := asString(record["status"], asString(existing["status"], "draft"))
 	storageStatus, workflowStatus := normalizeCMSPageStatus(rawStatus)
 	templateID := asString(record["template_id"], asString(existing["template_id"], ""))
@@ -352,6 +376,10 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	if updatedAt.IsZero() {
 		updatedAt = now
 	}
+	publishedAt := parseTimeValue(record["published_at"])
+	if publishedAt.IsZero() {
+		publishedAt = parseTimeValue(existing["published_at"])
+	}
 
 	payload := map[string]any{
 		"title":     title,
@@ -365,6 +393,9 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 		},
 		"data": map[string]any{
 			"content":          content,
+			"summary":          summary,
+			"featured_image":   featuredImage,
+			"tags":             tags,
 			"meta_title":       metaTitle,
 			"meta_description": metaDescription,
 			"created_at":       createdAt,
@@ -382,6 +413,22 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	if workflowStatus != "" {
 		payloadData := payload["data"].(map[string]any)
 		payloadData["workflow_status"] = workflowStatus
+	}
+	if publishedAt.IsZero() == false {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["published_at"] = publishedAt
+	}
+	if len(meta) > 0 {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["meta"] = meta
+	}
+	if len(markdown) > 0 {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["markdown"] = markdown
+	}
+	if len(seoData) > 0 {
+		payloadData := payload["data"].(map[string]any)
+		payloadData["seo"] = seoData
 	}
 	if path := asString(record["path"], asString(existing["path"], "")); path != "" {
 		payloadData := payload["data"].(map[string]any)
@@ -436,6 +483,14 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 
 	data := cloneRecord(page.Data)
 	seo := cloneRecord(page.SEO)
+	if seoData, ok := data["seo"].(map[string]any); ok {
+		if seo == nil {
+			seo = map[string]any{}
+		}
+		for key, value := range seoData {
+			seo[key] = value
+		}
+	}
 
 	if embedded, ok := extractEmbeddedBlocks(data["blocks"]); ok {
 		record["blocks"] = embedded
@@ -450,8 +505,20 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 		record["slug"] = asString(data["slug"], "")
 	}
 	record["content"] = asString(data["content"], "")
+	record["summary"] = asString(data["summary"], "")
+	record["featured_image"] = asString(data["featured_image"], "")
+	record["tags"] = parseTags(data["tags"])
 	record["meta_title"] = asString(seo["title"], asString(data["meta_title"], ""))
 	record["meta_description"] = asString(seo["description"], asString(data["meta_description"], ""))
+	if len(seo) > 0 {
+		record["seo"] = seo
+	}
+	if meta, ok := data["meta"].(map[string]any); ok && len(meta) > 0 {
+		record["meta"] = cloneRecord(meta)
+	}
+	if markdown, ok := data["markdown"].(map[string]any); ok && len(markdown) > 0 {
+		record["markdown"] = cloneRecord(markdown)
+	}
 	if data != nil {
 		if workflowStatus := strings.TrimSpace(asString(data["workflow_status"], "")); workflowStatus != "" {
 			record["status"] = workflowStatus
@@ -478,6 +545,9 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 	}
 	if updated := parseTimeValue(data["updated_at"]); !updated.IsZero() {
 		record["updated_at"] = updated
+	}
+	if published := parseTimeValue(data["published_at"]); !published.IsZero() {
+		record["published_at"] = published
 	}
 
 	return record

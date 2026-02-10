@@ -139,10 +139,6 @@ func (s *CMSPostStore) List(ctx context.Context, opts admin.ListOptions) ([]map[
 	}
 
 	search := strings.ToLower(extractSearchFromOptions(opts))
-	statusFilter := strings.ToLower(asString(opts.Filters["status"], asString(opts.Filters["Status"], "")))
-	categoryFilter := strings.ToLower(asString(opts.Filters["category"], asString(opts.Filters["Category"], "")))
-	tagFilter := strings.ToLower(asString(opts.Filters["tag"], asString(opts.Filters["Tag"], "")))
-	slugFilter := strings.ToLower(asString(opts.Filters["slug"], asString(opts.Filters["Slug"], "")))
 	records := []map[string]any{}
 	for _, item := range contents {
 		if !strings.EqualFold(item.ContentType, "post") {
@@ -152,21 +148,12 @@ func (s *CMSPostStore) List(ctx context.Context, opts admin.ListOptions) ([]map[
 			continue
 		}
 		rec := s.postToRecord(item)
-		if statusFilter != "" && !strings.EqualFold(asString(rec["status"], ""), statusFilter) {
-			continue
-		}
-		if slugFilter != "" && !strings.EqualFold(asString(rec["slug"], ""), slugFilter) {
-			continue
-		}
-		if categoryFilter != "" && !strings.EqualFold(asString(rec["category"], ""), categoryFilter) {
-			continue
-		}
-		if tagFilter != "" && !strings.Contains(strings.ToLower(asString(rec["tags"], "")), tagFilter) {
-			continue
-		}
 		records = append(records, rec)
 	}
-	return records, len(records), nil
+	paged, total := applyListOptionsToRecords(records, opts, map[string]struct{}{
+		"locale": {},
+	})
+	return paged, total, nil
 }
 
 // Get returns a post by id.
@@ -343,6 +330,19 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	status := asString(record["status"], asString(existing["status"], "draft"))
 	metaTitle := asString(record["meta_title"], asString(existing["meta_title"], ""))
 	metaDescription := asString(record["meta_description"], asString(existing["meta_description"], ""))
+	excerpt := asString(record["excerpt"], asString(record["summary"], asString(existing["excerpt"], asString(existing["summary"], ""))))
+	seoData := cloneAnyMap(nil)
+	if raw, ok := record["seo"].(map[string]any); ok {
+		seoData = cloneAnyMap(raw)
+	} else if raw, ok := existing["seo"].(map[string]any); ok {
+		seoData = cloneAnyMap(raw)
+	}
+	if metaTitle == "" {
+		metaTitle = asString(seoData["title"], "")
+	}
+	if metaDescription == "" {
+		metaDescription = asString(seoData["description"], "")
+	}
 	createdAt := parseTimeValue(record["created_at"])
 	if createdAt.IsZero() {
 		createdAt = parseTimeValue(existing["created_at"])
@@ -371,6 +371,18 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	}
 	category := asString(record["category"], asString(existing["category"], ""))
 	featuredImage := asString(record["featured_image"], asString(existing["featured_image"], ""))
+	meta := cloneAnyMap(nil)
+	if raw, ok := record["meta"].(map[string]any); ok {
+		meta = cloneAnyMap(raw)
+	} else if raw, ok := existing["meta"].(map[string]any); ok {
+		meta = cloneAnyMap(raw)
+	}
+	markdown := cloneAnyMap(nil)
+	if raw, ok := record["markdown"].(map[string]any); ok {
+		markdown = cloneAnyMap(raw)
+	} else if raw, ok := existing["markdown"].(map[string]any); ok {
+		markdown = cloneAnyMap(raw)
+	}
 	if metaTitle != "" {
 		tags = append(tags, metaTitle)
 	}
@@ -385,7 +397,8 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	}
 	payloadData := map[string]any{
 		"content":        content,
-		"excerpt":        asString(record["excerpt"], asString(existing["excerpt"], "")),
+		"excerpt":        excerpt,
+		"summary":        excerpt,
 		"category":       category,
 		"featured_image": featuredImage,
 		"tags":           tags,
@@ -394,7 +407,10 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 		"updated_at":     updatedAt,
 	}
 	payload["data"] = payloadData
-	seo := map[string]any{}
+	seo := cloneAnyMap(seoData)
+	if seo == nil {
+		seo = map[string]any{}
+	}
 	if metaTitle != "" {
 		payloadData["meta_title"] = metaTitle
 		seo["title"] = metaTitle
@@ -403,7 +419,10 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 		payloadData["meta_description"] = metaDescription
 		seo["description"] = metaDescription
 	}
-	markdown := map[string]any{
+	if len(meta) > 0 {
+		payloadData["meta"] = meta
+	}
+	generatedMarkdown := map[string]any{
 		"frontmatter": map[string]any{
 			"seo":              cloneAnyMap(seo),
 			"tags":             tags,
@@ -414,7 +433,11 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 		},
 		"body": content,
 	}
-	payloadData["markdown"] = markdown
+	if len(markdown) > 0 {
+		payloadData["markdown"] = markdown
+	} else {
+		payloadData["markdown"] = generatedMarkdown
+	}
 
 	if len(seo) > 0 {
 		payloadData["seo"] = seo
@@ -451,6 +474,7 @@ func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
 		"content_type":   content.ContentType,
 		"content":        "",
 		"excerpt":        "",
+		"summary":        "",
 		"category":       "",
 		"featured_image": "",
 		"tags":           "",
@@ -460,18 +484,26 @@ func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
 	data := cloneRecord(content.Data)
 	record["content"] = asString(data["content"], "")
 	record["excerpt"] = asString(data["excerpt"], "")
+	record["summary"] = asString(data["summary"], asString(data["excerpt"], ""))
 	record["category"] = asString(data["category"], "")
 	record["featured_image"] = asString(data["featured_image"], "")
 	record["tags"] = parseTags(data["tags"])
 	record["author"] = asString(data["author"], "")
 	if seo, ok := data["seo"].(map[string]any); ok {
+		record["seo"] = cloneRecord(seo)
 		record["meta_title"] = asString(seo["title"], "")
 		record["meta_description"] = asString(seo["description"], "")
+	}
+	if meta, ok := data["meta"].(map[string]any); ok && len(meta) > 0 {
+		record["meta"] = cloneRecord(meta)
+	}
+	if markdown, ok := data["markdown"].(map[string]any); ok && len(markdown) > 0 {
+		record["markdown"] = cloneRecord(markdown)
 	}
 	if metaTitle := asString(data["meta_title"], ""); metaTitle != "" && record["meta_title"] == "" {
 		record["meta_title"] = metaTitle
 	}
-	if metaDesc := asString(data["meta_description"], ""); metaDesc != "" && record["meta_description"] == nil {
+	if metaDesc := asString(data["meta_description"], ""); metaDesc != "" && asString(record["meta_description"], "") == "" {
 		record["meta_description"] = metaDesc
 	}
 	if path := asString(data["path"], ""); path != "" {
