@@ -2,8 +2,11 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
+
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // TranslationQueueService contains queue lifecycle operations used by command handlers.
@@ -23,7 +26,10 @@ type TranslationQueueService interface {
 
 // DefaultTranslationQueueService implements queue lifecycle transitions over a repository.
 type DefaultTranslationQueueService struct {
-	Repository TranslationAssignmentRepository
+	Repository    TranslationAssignmentRepository
+	Activity      ActivitySink
+	Notifications NotificationService
+	URLs          urlkit.Resolver
 }
 
 func (s *DefaultTranslationQueueService) ensureRepository() error {
@@ -68,7 +74,12 @@ func (s *DefaultTranslationQueueService) Claim(ctx context.Context, input Transl
 	assignment.ClaimedAt = &now
 	assignment.LastRejectionReason = ""
 
-	return s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	updated, err := s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	s.recordTransition(ctx, "claimed", strings.TrimSpace(input.ClaimerID), updated)
+	return updated, nil
 }
 
 func (s *DefaultTranslationQueueService) Assign(ctx context.Context, input TranslationQueueAssignInput) (TranslationAssignment, error) {
@@ -102,7 +113,12 @@ func (s *DefaultTranslationQueueService) Assign(ctx context.Context, input Trans
 	}
 	assignment.LastRejectionReason = ""
 
-	return s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	updated, err := s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	s.recordTransition(ctx, "assigned", strings.TrimSpace(input.AssignerID), updated)
+	return updated, nil
 }
 
 func (s *DefaultTranslationQueueService) Release(ctx context.Context, input TranslationQueueReleaseInput) (TranslationAssignment, error) {
@@ -129,7 +145,12 @@ func (s *DefaultTranslationQueueService) Release(ctx context.Context, input Tran
 	assignment.AssigneeID = ""
 	assignment.AssignerID = strings.TrimSpace(input.ActorID)
 
-	return s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	updated, err := s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	s.recordTransition(ctx, "released", strings.TrimSpace(input.ActorID), updated)
+	return updated, nil
 }
 
 func (s *DefaultTranslationQueueService) SubmitReview(ctx context.Context, input TranslationQueueSubmitInput) (TranslationAssignment, error) {
@@ -154,7 +175,12 @@ func (s *DefaultTranslationQueueService) SubmitReview(ctx context.Context, input
 	assignment.SubmittedAt = &now
 	assignment.AssigneeID = strings.TrimSpace(input.TranslatorID)
 
-	return s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	updated, err := s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	s.recordTransition(ctx, "submitted", strings.TrimSpace(input.TranslatorID), updated)
+	return updated, nil
 }
 
 func (s *DefaultTranslationQueueService) Approve(ctx context.Context, input TranslationQueueApproveInput) (TranslationAssignment, error) {
@@ -179,7 +205,12 @@ func (s *DefaultTranslationQueueService) Approve(ctx context.Context, input Tran
 	assignment.ApprovedAt = &now
 	assignment.LastReviewerID = strings.TrimSpace(input.ReviewerID)
 
-	return s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	updated, err := s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	s.recordTransition(ctx, "approved", strings.TrimSpace(input.ReviewerID), updated)
+	return updated, nil
 }
 
 func (s *DefaultTranslationQueueService) Reject(ctx context.Context, input TranslationQueueRejectInput) (TranslationAssignment, error) {
@@ -203,7 +234,12 @@ func (s *DefaultTranslationQueueService) Reject(ctx context.Context, input Trans
 	assignment.LastReviewerID = strings.TrimSpace(input.ReviewerID)
 	assignment.LastRejectionReason = strings.TrimSpace(input.Reason)
 
-	return s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	updated, err := s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	s.recordTransition(ctx, "rejected", strings.TrimSpace(input.ReviewerID), updated)
+	return updated, nil
 }
 
 func (s *DefaultTranslationQueueService) Archive(ctx context.Context, input TranslationQueueArchiveInput) (TranslationAssignment, error) {
@@ -228,7 +264,12 @@ func (s *DefaultTranslationQueueService) Archive(ctx context.Context, input Tran
 	assignment.ArchivedAt = &now
 	assignment.LastReviewerID = strings.TrimSpace(firstNonEmpty(assignment.LastReviewerID, input.ActorID))
 
-	return s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	updated, err := s.Repository.Update(ctx, assignment, input.ExpectedVersion)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	s.recordTransition(ctx, "archived", strings.TrimSpace(input.ActorID), updated)
+	return updated, nil
 }
 
 func (s *DefaultTranslationQueueService) BulkAssign(ctx context.Context, input TranslationQueueBulkAssignInput) ([]TranslationAssignment, error) {
@@ -349,4 +390,94 @@ func invalidQueueTransitionError(from AssignmentStatus, transition string, assig
 		"source_locale":        strings.TrimSpace(assignment.SourceLocale),
 		"target_locale":        strings.TrimSpace(assignment.TargetLocale),
 	})
+}
+
+func (s *DefaultTranslationQueueService) recordTransition(ctx context.Context, action, actorID string, assignment TranslationAssignment) {
+	action = strings.TrimSpace(action)
+	if action == "" {
+		return
+	}
+	meta := s.transitionMetadata(action, assignment)
+	if s.Activity != nil {
+		_ = s.Activity.Record(ctx, ActivityEntry{
+			Actor:    actorID,
+			Action:   "translation.queue." + action,
+			Object:   "translation_assignment:" + strings.TrimSpace(assignment.ID),
+			Metadata: cloneAnyMap(meta),
+		})
+	}
+
+	targetUser := queueNotificationTarget(action, assignment, actorID)
+	if s.Notifications != nil && targetUser != "" {
+		title, message := queueNotificationMessage(action, assignment)
+		_, _ = s.Notifications.Add(ctx, Notification{
+			Title:     title,
+			Message:   message,
+			ActionURL: firstNonEmpty(toString(meta["url"]), ""),
+			Metadata:  cloneAnyMap(meta),
+			UserID:    targetUser,
+			Read:      false,
+		})
+	}
+}
+
+func (s *DefaultTranslationQueueService) transitionMetadata(action string, assignment TranslationAssignment) map[string]any {
+	query := map[string]string{}
+	if id := strings.TrimSpace(assignment.ID); id != "" {
+		query["assignment_id"] = id
+	}
+	url := resolveURLWith(s.URLs, "admin", "translations.queue", nil, query)
+	meta := map[string]any{
+		"event":                "translation.queue." + action,
+		"assignment_id":        strings.TrimSpace(assignment.ID),
+		"translation_group_id": strings.TrimSpace(assignment.TranslationGroupID),
+		"entity_type":          strings.TrimSpace(assignment.EntityType),
+		"source_locale":        strings.TrimSpace(assignment.SourceLocale),
+		"target_locale":        strings.TrimSpace(assignment.TargetLocale),
+		"status":               strings.TrimSpace(string(assignment.Status)),
+		"assignee_id":          strings.TrimSpace(assignment.AssigneeID),
+		"source_title":         strings.TrimSpace(assignment.SourceTitle),
+		"source_path":          strings.TrimSpace(assignment.SourcePath),
+		"resolver_key":         translationQueueResolverKey,
+		"group":                "admin",
+		"route":                "translations.queue",
+		"query":                query,
+	}
+	if url != "" {
+		meta["url"] = url
+	}
+	return meta
+}
+
+func queueNotificationTarget(action string, assignment TranslationAssignment, actorID string) string {
+	action = strings.TrimSpace(action)
+	target := ""
+	switch action {
+	case "assigned", "rejected", "approved":
+		target = strings.TrimSpace(assignment.AssigneeID)
+	}
+	if target == "" || target == strings.TrimSpace(actorID) {
+		return ""
+	}
+	return target
+}
+
+func queueNotificationMessage(action string, assignment TranslationAssignment) (string, string) {
+	action = strings.TrimSpace(action)
+	title := "Translation Queue Update"
+	switch action {
+	case "assigned":
+		title = "Translation Assigned"
+	case "rejected":
+		title = "Translation Changes Requested"
+	case "approved":
+		title = "Translation Approved"
+	}
+	subject := strings.TrimSpace(firstNonEmpty(assignment.SourceTitle, assignment.TranslationGroupID, assignment.ID))
+	source := strings.TrimSpace(assignment.SourceLocale)
+	target := strings.TrimSpace(assignment.TargetLocale)
+	if source == "" || target == "" {
+		return title, fmt.Sprintf("%s (%s)", subject, strings.TrimSpace(string(assignment.Status)))
+	}
+	return title, fmt.Sprintf("%s (%s -> %s)", subject, source, target)
 }
