@@ -216,10 +216,16 @@ func PanelStep(ctx BootCtx) error {
 					if err != nil {
 						return responder.WriteError(c, err)
 					}
-					if err := binding.Action(c, localeFromRequest(c), actionName, body); err != nil {
+					body = mergeActionContextFromRequest(c, body, localeFromRequest(c))
+					data, err := binding.Action(c, localeFromRequest(c), actionName, body)
+					if err != nil {
 						return responder.WriteError(c, err)
 					}
-					return responder.WriteJSON(c, map[string]string{"status": "ok"})
+					payload := map[string]any{"status": "ok"}
+					if len(data) > 0 {
+						payload["data"] = data
+					}
+					return responder.WriteJSON(c, payload)
 				},
 			},
 			RouteSpec{
@@ -266,4 +272,39 @@ func PanelStep(ctx BootCtx) error {
 		)
 	}
 	return applyRoutes(ctx, routes)
+}
+
+func mergeActionContextFromRequest(c router.Context, body map[string]any, routeLocale string) map[string]any {
+	if body == nil {
+		body = map[string]any{}
+	}
+	if strings.TrimSpace(toStringAny(body["locale"])) == "" {
+		if locale := strings.TrimSpace(c.Query("locale")); locale != "" {
+			body["locale"] = locale
+		} else if locale := strings.TrimSpace(routeLocale); locale != "" {
+			body["locale"] = locale
+		}
+	}
+	if strings.TrimSpace(toStringAny(body["environment"])) == "" && strings.TrimSpace(toStringAny(body["env"])) == "" {
+		if env := strings.TrimSpace(c.Query("environment")); env != "" {
+			body["environment"] = env
+		} else if env := strings.TrimSpace(c.Query("env")); env != "" {
+			body["environment"] = env
+		}
+	}
+	if strings.TrimSpace(toStringAny(body["policy_entity"])) == "" && strings.TrimSpace(toStringAny(body["policyEntity"])) == "" {
+		if policyEntity := strings.TrimSpace(c.Query("policy_entity")); policyEntity != "" {
+			body["policy_entity"] = policyEntity
+		} else if policyEntity := strings.TrimSpace(c.Query("policyEntity")); policyEntity != "" {
+			body["policy_entity"] = policyEntity
+		}
+	}
+	return body
+}
+
+func toStringAny(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
 }
