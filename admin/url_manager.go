@@ -250,6 +250,7 @@ func defaultAdminRoutes() map[string]string {
 		"content.panel":         "/content/:panel",
 		"content.panel.id":      "/content/:panel/:id",
 		"content.panel.preview": "/content/:panel/:id/preview",
+		"translations.queue":    "/translations",
 		"content.alias.pages":   "/pages",
 		"content.alias.posts":   "/posts",
 		"block_conflicts":       "/block_conflicts",
