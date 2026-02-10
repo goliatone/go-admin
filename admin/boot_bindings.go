@@ -210,12 +210,13 @@ func (p *panelBinding) Delete(c router.Context, locale string, id string) error 
 	return p.panel.Delete(ctx, id)
 }
 
-func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) error {
+func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) (map[string]any, error) {
+	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("environment"), c.Query("env"), c.Query("policy_entity"), c.Query("policyEntity"))
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
 	if definition, ok := p.panel.findAction(action); ok {
 		if err := validateActionPayload(definition, body); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -226,19 +227,44 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			}
 		}
 		if len(ids) != 1 {
-			return validationDomainError("translation requires a single id", map[string]any{
+			return nil, validationDomainError("translation requires a single id", map[string]any{
 				"field": "id",
 			})
 		}
 		targetLocale := strings.TrimSpace(toString(body["locale"]))
 		if targetLocale == "" {
-			return validationDomainError("translation locale required", map[string]any{
+			return nil, validationDomainError("translation locale required", map[string]any{
 				"field": "locale",
 			})
 		}
+		environment := resolvePolicyEnvironment(body, environmentFromContext(ctx.Context))
 		record, err := p.panel.Get(ctx, ids[0])
 		if err != nil {
-			return err
+			return nil, err
+		}
+		groupID := strings.TrimSpace(toString(record["translation_group_id"]))
+		if groupID == "" {
+			groupID = ids[0]
+		}
+		if translationLocaleExists(record, targetLocale) {
+			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
+				Entity:             p.name,
+				EntityID:           ids[0],
+				SourceLocale:       strings.TrimSpace(toString(record["locale"])),
+				Locale:             targetLocale,
+				Transition:         "create_translation",
+				Environment:        environment,
+				Outcome:            "duplicate",
+				TranslationGroupID: groupID,
+			})
+			dup := TranslationAlreadyExistsError{
+				Panel:              p.name,
+				EntityID:           ids[0],
+				SourceLocale:       strings.TrimSpace(toString(record["locale"])),
+				Locale:             targetLocale,
+				TranslationGroupID: groupID,
+			}
+			return nil, dup
 		}
 		clone := map[string]any{}
 		for k, v := range record {
@@ -250,14 +276,40 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 		delete(clone, "updated_at")
 		delete(clone, "published_at")
 		clone["locale"] = targetLocale
-		groupID := strings.TrimSpace(toString(record["translation_group_id"]))
-		if groupID == "" {
-			groupID = ids[0]
-		}
 		clone["translation_group_id"] = groupID
 		clone["status"] = "draft"
-		_, err = p.panel.Create(ctx, clone)
-		return err
+		created, err := p.panel.Create(ctx, clone)
+		if err != nil {
+			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
+				Entity:             p.name,
+				EntityID:           ids[0],
+				SourceLocale:       strings.TrimSpace(toString(record["locale"])),
+				Locale:             targetLocale,
+				Transition:         "create_translation",
+				Environment:        environment,
+				Outcome:            "error",
+				TranslationGroupID: groupID,
+				Err:                err,
+			})
+			return nil, err
+		}
+		recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
+			Entity:             p.name,
+			EntityID:           ids[0],
+			SourceLocale:       strings.TrimSpace(toString(record["locale"])),
+			Locale:             targetLocale,
+			Transition:         "create_translation",
+			Environment:        environment,
+			Outcome:            "created",
+			TranslationGroupID: groupID,
+		})
+		p.panel.recordActivity(ctx, "panel.translation.create", map[string]any{
+			"panel":                p.name,
+			"entity_id":            ids[0],
+			"locale":               targetLocale,
+			"translation_group_id": groupID,
+		})
+		return buildCreateTranslationResponse(created, targetLocale, groupID), nil
 	}
 
 	if p.panel.workflow != nil && len(ids) == 1 {
@@ -274,7 +326,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 						for _, a := range p.panel.actions {
 							if a.Name == action && a.Permission != "" && p.panel.authorizer != nil {
 								if !p.panel.authorizer.Can(ctx.Context, a.Permission, p.name) {
-									return permissionDenied(a.Permission, p.name)
+									return nil, permissionDenied(a.Permission, p.name)
 								}
 							}
 						}
@@ -289,7 +341,8 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 							policyInput.PolicyEntity = resolvePolicyEntity(record, p.name)
 						}
 						if err := applyTranslationPolicy(ctx.Context, p.panel.translationPolicy, policyInput); err != nil {
-							return err
+							p.recordBlockedTransition(ctx, ids[0], action, policyInput, err)
+							return nil, err
 						}
 						_, err := p.panel.workflow.Transition(ctx.Context, TransitionInput{
 							EntityID:     ids[0],
@@ -304,14 +357,115 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 							// Successfully transitioned, now update the record status without re-evaluating workflow.
 							_, _ = p.panel.Update(ctx, ids[0], map[string]any{"status": t.To, "_workflow_skip": true})
 						}
-						return err
+						if err != nil {
+							return nil, err
+						}
+						return nil, nil
 					}
 				}
 			}
 		}
 	}
 
-	return p.panel.RunAction(ctx, action, body, ids)
+	return nil, p.panel.RunAction(ctx, action, body, ids)
+}
+
+func mergePanelActionContext(body map[string]any, locale string, values ...string) map[string]any {
+	if body == nil {
+		body = map[string]any{}
+	}
+	queryLocale := ""
+	queryEnvironment := ""
+	queryPolicyEntity := ""
+	if len(values) > 0 {
+		queryLocale = strings.TrimSpace(values[0])
+	}
+	if len(values) > 1 {
+		queryEnvironment = strings.TrimSpace(values[1])
+	}
+	if len(values) > 2 && queryEnvironment == "" {
+		queryEnvironment = strings.TrimSpace(values[2])
+	}
+	if len(values) > 3 {
+		queryPolicyEntity = strings.TrimSpace(values[3])
+	}
+	if len(values) > 4 && queryPolicyEntity == "" {
+		queryPolicyEntity = strings.TrimSpace(values[4])
+	}
+
+	if strings.TrimSpace(toString(body["locale"])) == "" {
+		switch {
+		case queryLocale != "":
+			body["locale"] = queryLocale
+		case strings.TrimSpace(locale) != "":
+			body["locale"] = strings.TrimSpace(locale)
+		}
+	}
+	if strings.TrimSpace(toString(body["environment"])) == "" && strings.TrimSpace(toString(body["env"])) == "" && queryEnvironment != "" {
+		body["environment"] = queryEnvironment
+	}
+	if strings.TrimSpace(toString(body["policy_entity"])) == "" && strings.TrimSpace(toString(body["policyEntity"])) == "" && queryPolicyEntity != "" {
+		body["policy_entity"] = queryPolicyEntity
+	}
+	return body
+}
+
+func translationLocaleExists(record map[string]any, locale string) bool {
+	locale = strings.TrimSpace(locale)
+	if locale == "" || len(record) == 0 {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(toString(record["locale"])), locale) {
+		return true
+	}
+	for _, item := range toStringSlice(record["available_locales"]) {
+		if strings.EqualFold(strings.TrimSpace(item), locale) {
+			return true
+		}
+	}
+	return false
+}
+
+func buildCreateTranslationResponse(created map[string]any, locale, groupID string) map[string]any {
+	response := map[string]any{
+		"locale":               strings.TrimSpace(locale),
+		"translation_group_id": strings.TrimSpace(groupID),
+	}
+	if createdID := strings.TrimSpace(toString(created["id"])); createdID != "" {
+		response["id"] = createdID
+	}
+	if createdLocale := strings.TrimSpace(toString(created["locale"])); createdLocale != "" {
+		response["locale"] = createdLocale
+	}
+	status := strings.TrimSpace(toString(created["status"]))
+	if status == "" {
+		status = "draft"
+	}
+	response["status"] = status
+	if createdGroupID := strings.TrimSpace(toString(created["translation_group_id"])); createdGroupID != "" {
+		response["translation_group_id"] = createdGroupID
+	}
+	return response
+}
+
+func (p *panelBinding) recordBlockedTransition(ctx AdminContext, entityID, transition string, input TranslationPolicyInput, policyErr error) {
+	if p == nil || p.panel == nil {
+		return
+	}
+	metadata := map[string]any{
+		"panel":            p.name,
+		"entity_id":        strings.TrimSpace(entityID),
+		"transition":       strings.TrimSpace(transition),
+		"locale":           strings.TrimSpace(input.RequestedLocale),
+		"environment":      strings.TrimSpace(input.Environment),
+		"policy_entity":    strings.TrimSpace(input.PolicyEntity),
+		"translation_code": TextCodeTranslationMissing,
+	}
+	var missing MissingTranslationsError
+	if errors.As(policyErr, &missing) {
+		metadata["missing_locales"] = normalizeLocaleList(missing.MissingLocales)
+	}
+	p.panel.recordActivity(ctx, "panel.transition.blocked", metadata)
 }
 
 func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[string]any) error {
@@ -693,48 +847,35 @@ func (d *dashboardGoBinding) RegisterGoDashboardRoutes() error {
 		Preferences: relativeRoutePath(basePath, adminAPIRoutePath(d.admin, "dashboard.preferences")),
 	}
 
-	//TODO: Refactor so we do not need to cast
-	if rt, ok := d.admin.router.(router.Router[router.Context]); ok {
-		if err := dashboardrouter.Register(dashboardrouter.Config[router.Context]{
-			Router:         rt,
-			Controller:     d.admin.dash.controller,
-			API:            d.admin.dash.executor,
-			Broadcast:      d.admin.dash.broadcast,
-			ViewerResolver: viewerResolver,
-			BasePath:       basePath,
-			Routes:         routes,
-		}); err == nil {
-			return nil
-		}
+	registered, err := registerDashboardRoutesByRouterType(d.admin.router, dashboardRouteRegistrars{
+		HTTP: func(rt router.Router[*httprouter.Router]) error {
+			return dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
+				Router:         rt,
+				Controller:     d.admin.dash.controller,
+				API:            d.admin.dash.executor,
+				Broadcast:      d.admin.dash.broadcast,
+				ViewerResolver: viewerResolver,
+				BasePath:       basePath,
+				Routes:         routes,
+			})
+		},
+		Fiber: func(rt router.Router[*fiber.App]) error {
+			return dashboardrouter.Register(dashboardrouter.Config[*fiber.App]{
+				Router:         rt,
+				Controller:     d.admin.dash.controller,
+				API:            d.admin.dash.executor,
+				Broadcast:      d.admin.dash.broadcast,
+				ViewerResolver: viewerResolver,
+				BasePath:       basePath,
+				Routes:         routes,
+			})
+		},
+	})
+	if err != nil {
+		return err
 	}
-
-	//TODO: Refactor so we do not need to cast
-	if rt, ok := d.admin.router.(router.Router[*httprouter.Router]); ok {
-		if err := dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
-			Router:         rt,
-			Controller:     d.admin.dash.controller,
-			API:            d.admin.dash.executor,
-			Broadcast:      d.admin.dash.broadcast,
-			ViewerResolver: viewerResolver,
-			BasePath:       basePath,
-			Routes:         routes,
-		}); err == nil {
-			return nil
-		}
-	}
-	//TODO: Refactor so we do not need to cast
-	if rt, ok := d.admin.router.(router.Router[*fiber.App]); ok {
-		if err := dashboardrouter.Register(dashboardrouter.Config[*fiber.App]{
-			Router:         rt,
-			Controller:     d.admin.dash.controller,
-			API:            d.admin.dash.executor,
-			Broadcast:      d.admin.dash.broadcast,
-			ViewerResolver: viewerResolver,
-			BasePath:       basePath,
-			Routes:         routes,
-		}); err == nil {
-			return nil
-		}
+	if registered {
+		return nil
 	}
 	if rt, ok := d.admin.router.(AdminRouter); ok {
 		dashboardPath := adminAPIRoutePath(d.admin, "dashboard")
