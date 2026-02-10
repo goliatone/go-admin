@@ -321,53 +321,82 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			}
 			transitions, err := p.panel.workflow.AvailableTransitions(ctx.Context, p.name, state)
 			if err == nil {
+				candidates := workflowTransitionCandidates(action)
 				for _, t := range transitions {
-					if t.Name == action {
-						for _, a := range p.panel.actions {
-							if a.Name == action && a.Permission != "" && p.panel.authorizer != nil {
-								if !p.panel.authorizer.Can(ctx.Context, a.Permission, p.name) {
-									return nil, permissionDenied(a.Permission, p.name)
-								}
+					if !containsTransitionName(candidates, t.Name) {
+						continue
+					}
+					transitionName := t.Name
+					for _, a := range p.panel.actions {
+						if a.Name == action && a.Permission != "" && p.panel.authorizer != nil {
+							if !p.panel.authorizer.Can(ctx.Context, a.Permission, p.name) {
+								return nil, permissionDenied(a.Permission, p.name)
 							}
 						}
-						policyInput := buildTranslationPolicyInput(ctx.Context, p.name, ids[0], state, action, body)
-						if policyInput.RequestedLocale == "" && record != nil {
-							policyInput.RequestedLocale = requestedLocaleFromPayload(record, localeFromContext(ctx.Context))
-						}
-						if policyInput.Environment == "" && record != nil {
-							policyInput.Environment = resolvePolicyEnvironment(record, environmentFromContext(ctx.Context))
-						}
-						if policyInput.PolicyEntity == "" && record != nil {
-							policyInput.PolicyEntity = resolvePolicyEntity(record, p.name)
-						}
-						if err := applyTranslationPolicy(ctx.Context, p.panel.translationPolicy, policyInput); err != nil {
-							p.recordBlockedTransition(ctx, ids[0], action, policyInput, err)
-							return nil, err
-						}
-						_, err := p.panel.workflow.Transition(ctx.Context, TransitionInput{
-							EntityID:     ids[0],
-							EntityType:   p.name,
-							CurrentState: state,
-							Transition:   action,
-							TargetState:  t.To,
-							ActorID:      ctx.UserID,
-							Metadata:     body,
-						})
-						if err == nil {
-							// Successfully transitioned, now update the record status without re-evaluating workflow.
-							_, _ = p.panel.Update(ctx, ids[0], map[string]any{"status": t.To, "_workflow_skip": true})
-						}
-						if err != nil {
-							return nil, err
-						}
-						return nil, nil
 					}
+					policyInput := buildTranslationPolicyInput(ctx.Context, p.name, ids[0], state, action, body)
+					if policyInput.RequestedLocale == "" && record != nil {
+						policyInput.RequestedLocale = requestedLocaleFromPayload(record, localeFromContext(ctx.Context))
+					}
+					if policyInput.Environment == "" && record != nil {
+						policyInput.Environment = resolvePolicyEnvironment(record, environmentFromContext(ctx.Context))
+					}
+					if policyInput.PolicyEntity == "" && record != nil {
+						policyInput.PolicyEntity = resolvePolicyEntity(record, p.name)
+					}
+					if err := applyTranslationPolicy(ctx.Context, p.panel.translationPolicy, policyInput); err != nil {
+						p.recordBlockedTransition(ctx, ids[0], action, policyInput, err)
+						return nil, err
+					}
+					_, err := p.panel.workflow.Transition(ctx.Context, TransitionInput{
+						EntityID:     ids[0],
+						EntityType:   p.name,
+						CurrentState: state,
+						Transition:   transitionName,
+						TargetState:  t.To,
+						ActorID:      ctx.UserID,
+						Metadata:     body,
+					})
+					if err == nil {
+						// Successfully transitioned, now update the record status without re-evaluating workflow.
+						_, _ = p.panel.Update(ctx, ids[0], map[string]any{"status": t.To, "_workflow_skip": true})
+					}
+					if err != nil {
+						return nil, err
+					}
+					return nil, nil
 				}
 			}
 		}
 	}
 
 	return nil, p.panel.RunAction(ctx, action, body, ids)
+}
+
+func workflowTransitionCandidates(action string) []string {
+	normalized := strings.ToLower(strings.TrimSpace(action))
+	switch normalized {
+	case "submit_for_approval":
+		return []string{"submit_for_approval", "request_approval"}
+	case "request_approval":
+		return []string{"request_approval", "submit_for_approval"}
+	case "publish":
+		return []string{"publish", "approve"}
+	case "approve":
+		return []string{"approve", "publish"}
+	default:
+		return []string{normalized}
+	}
+}
+
+func containsTransitionName(values []string, target string) bool {
+	target = strings.ToLower(strings.TrimSpace(target))
+	for _, value := range values {
+		if strings.ToLower(strings.TrimSpace(value)) == target {
+			return true
+		}
+	}
+	return false
 }
 
 func mergePanelActionContext(body map[string]any, locale string, values ...string) map[string]any {
