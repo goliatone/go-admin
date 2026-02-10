@@ -1,0 +1,54 @@
+{
+  "release_id": "esign-2026.02.10-rc1",
+  "track": "A",
+  "phase": "12",
+  "signoffs": {
+    "be": {
+      "approved": false,
+      "approver": "backend-lead",
+      "approved_at": "",
+      "ticket": "REL-1201"
+    },
+    "fe": {
+      "approved": false,
+      "approver": "frontend-lead",
+      "approved_at": "",
+      "ticket": "REL-1202"
+    },
+    "qa": {
+      "approved": false,
+      "approver": "qa-lead",
+      "approved_at": "",
+      "ticket": "REL-1203"
+    },
+    "ops": {
+      "approved": false,
+      "approver": "ops-lead",
+      "approved_at": "",
+      "ticket": "REL-1204"
+    }
+  },
+  "security": {
+    "high_severity_open": 0,
+    "review_ref": "docs/GUIDES_ESIGN_RELEASE_GATES.md#security-review"
+  },
+  "runtime": {
+    "uses_mock_dependencies": false,
+    "requires_manual_patches": false,
+    "notes": "Runtime paths validated by backend tests; no mock/demo-only fallback accepted in production flow."
+  },
+  "evidence": {
+    "staging_validation_ref": "docs/GUIDES_ESIGN_RELEASE_GATES.md#staged-rollout-validation",
+    "load_validation_ref": "docs/GUIDES_ESIGN_RELEASE_GATES.md#load-profile-send-sign-finalize",
+    "slo_validation_ref": "docs/GUIDES_ESIGN_RELEASE_GATES.md#slo-go-no-go-gate"
+  },
+  "slo_snapshot": {
+    "AdminReadP95MS": 250,
+    "SendP95MS": 500,
+    "SignerSubmitP95MS": 600,
+    "FinalizeP99MS": 80000,
+    "EmailDispatchStartP99MS": 20000,
+    "JobSuccessTotal": 999,
+    "JobFailureTotal": 1
+  }
+}

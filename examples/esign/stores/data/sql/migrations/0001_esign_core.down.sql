@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS email_logs;
+DROP TABLE IF EXISTS audit_events;
+DROP TABLE IF EXISTS field_values;
+DROP TABLE IF EXISTS signature_artifacts;
+DROP TABLE IF EXISTS fields;
+DROP TABLE IF EXISTS signing_tokens;
+DROP TABLE IF EXISTS recipients;
+DROP TABLE IF EXISTS agreements;
+DROP TABLE IF EXISTS documents;
