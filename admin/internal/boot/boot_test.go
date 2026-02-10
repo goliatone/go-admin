@@ -38,6 +38,7 @@ type stubCtx struct {
 	dashboard  DashboardBinding
 	navigation NavigationBinding
 	settings   SettingsBinding
+	exchange   TranslationExchangeBinding
 	registry   SchemaRegistryBinding
 	overrides  FeatureOverridesBinding
 	gates      FeatureGates
@@ -79,6 +80,9 @@ func (s *stubCtx) ExportRegistrar() ExportRegistrar  { return nil }
 func (s *stubCtx) BootBulk() BulkBinding             { return nil }
 func (s *stubCtx) BootMedia() MediaBinding           { return nil }
 func (s *stubCtx) BootUserImport() UserImportBinding { return nil }
+func (s *stubCtx) BootTranslationExchange() TranslationExchangeBinding {
+	return s.exchange
+}
 func (s *stubCtx) BootNotifications() NotificationsBinding {
 	return nil
 }
@@ -141,20 +145,24 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 						Name: "api",
 						Path: "/api",
 						Routes: map[string]string{
-							"dashboard":             "/dashboard",
-							"dashboard.preferences": "/dashboard/preferences",
-							"dashboard.config":      "/dashboard/config",
-							"dashboard.debug":       "/dashboard/debug",
-							"navigation":            "/navigation",
-							"settings":              "/settings",
-							"settings.form":         "/settings/form",
-							"schemas":               "/schemas",
-							"schemas.resource":      "/schemas/:resource",
-							"panel":                 "/:panel",
-							"panel.id":              "/:panel/:id",
-							"panel.action":          "/:panel/actions/:action",
-							"panel.bulk":            "/:panel/bulk/:action",
-							"panel.preview":         "/:panel/:id/preview",
+							"dashboard":                    "/dashboard",
+							"dashboard.preferences":        "/dashboard/preferences",
+							"dashboard.config":             "/dashboard/config",
+							"dashboard.debug":              "/dashboard/debug",
+							"navigation":                   "/navigation",
+							"settings":                     "/settings",
+							"settings.form":                "/settings/form",
+							"translations.export":          "/translations/export",
+							"translations.template":        "/translations/template",
+							"translations.import.validate": "/translations/import/validate",
+							"translations.import.apply":    "/translations/import/apply",
+							"schemas":                      "/schemas",
+							"schemas.resource":             "/schemas/:resource",
+							"panel":                        "/:panel",
+							"panel.id":                     "/:panel/:id",
+							"panel.action":                 "/:panel/actions/:action",
+							"panel.bulk":                   "/:panel/bulk/:action",
+							"panel.preview":                "/:panel/:id/preview",
 						},
 					},
 				},
@@ -246,6 +254,7 @@ type stubPanelBinding struct {
 	bulkCalled     int
 	lastLocale     string
 	lastActionBody map[string]any
+	actionResult   map[string]any
 }
 
 func (s *stubPanelBinding) Name() string { return s.name }
@@ -264,14 +273,14 @@ func (s *stubPanelBinding) Update(router.Context, string, string, map[string]any
 	return map[string]any{"id": "3"}, nil
 }
 func (s *stubPanelBinding) Delete(router.Context, string, string) error { return nil }
-func (s *stubPanelBinding) Action(_ router.Context, locale, action string, body map[string]any) error {
+func (s *stubPanelBinding) Action(_ router.Context, locale, action string, body map[string]any) (map[string]any, error) {
 	s.actionCalled++
 	s.lastLocale = locale
 	s.lastActionBody = body
 	if action == "" {
-		return errors.New("missing action")
+		return nil, errors.New("missing action")
 	}
-	return nil
+	return s.actionResult, nil
 }
 func (s *stubPanelBinding) Bulk(_ router.Context, locale, action string, body map[string]any) error {
 	s.bulkCalled++
@@ -320,6 +329,125 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 	require.Equal(t, 1, binding.actionCalled)
 	require.Equal(t, 1, binding.bulkCalled)
 	require.Equal(t, "en", binding.lastLocale)
+}
+
+func TestPanelStepActionSuccessEnvelopeWithData(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubPanelBinding{
+		name:         "users",
+		actionResult: map[string]any{"id": "2", "locale": "es"},
+	}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{binding},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+	require.Len(t, rr.calls, 9)
+
+	actionCtx := router.NewMockContext()
+	actionCtx.ParamsM["panel"] = "users"
+	actionCtx.ParamsM["action"] = "create_translation"
+	actionCtx.On("Body").Return([]byte{})
+
+	require.NoError(t, rr.calls[6].handler(actionCtx))
+	payload, ok := resp.lastJSON.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "ok", payload["status"])
+	data, ok := payload["data"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "2", data["id"])
+	require.Equal(t, "es", data["locale"])
+}
+
+func TestPanelStepActionMergesQueryContextIntoPayload(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubPanelBinding{name: "content"}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{binding},
+		parseBody: func(router.Context) (map[string]any, error) {
+			return map[string]any{"id": "x"}, nil
+		},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+
+	actionCtx := router.NewMockContext()
+	actionCtx.ParamsM["panel"] = "content"
+	actionCtx.ParamsM["action"] = "publish"
+	actionCtx.QueriesM["locale"] = "es"
+	actionCtx.QueriesM["environment"] = "staging"
+	actionCtx.QueriesM["policy_entity"] = "posts"
+	actionCtx.On("Body").Return([]byte(`{"id":"x"}`))
+
+	require.NoError(t, rr.calls[6].handler(actionCtx))
+	require.Equal(t, "es", binding.lastActionBody["locale"])
+	require.Equal(t, "staging", binding.lastActionBody["environment"])
+	require.Equal(t, "posts", binding.lastActionBody["policy_entity"])
+}
+
+func TestPanelStepActionPayloadWinsOverQueryContext(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubPanelBinding{name: "content"}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{binding},
+		parseBody: func(router.Context) (map[string]any, error) {
+			return map[string]any{
+				"id":            "x",
+				"locale":        "fr",
+				"environment":   "production",
+				"policy_entity": "pages",
+			}, nil
+		},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+
+	actionCtx := router.NewMockContext()
+	actionCtx.ParamsM["panel"] = "content"
+	actionCtx.ParamsM["action"] = "publish"
+	actionCtx.QueriesM["locale"] = "es"
+	actionCtx.QueriesM["environment"] = "staging"
+	actionCtx.QueriesM["policy_entity"] = "posts"
+	actionCtx.On("Body").Return([]byte(`{"id":"x"}`))
+
+	require.NoError(t, rr.calls[6].handler(actionCtx))
+	require.Equal(t, "fr", binding.lastActionBody["locale"])
+	require.Equal(t, "production", binding.lastActionBody["environment"])
+	require.Equal(t, "pages", binding.lastActionBody["policy_entity"])
+}
+
+func TestPanelStepDoesNotRegisterPreflightRoute(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{&stubPanelBinding{name: "users"}},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+	for _, call := range rr.calls {
+		if strings.Contains(call.path, "preflight") {
+			t.Fatalf("unexpected preflight route registered: %s", call.path)
+		}
+	}
 }
 
 func TestPanelStepResolvesPanelBindingAtRequestTime(t *testing.T) {
@@ -676,6 +804,65 @@ type stubSettingsBinding struct {
 	formCalled   int
 	saveCalled   int
 	lastBody     map[string]any
+}
+
+type stubTranslationExchangeBinding struct {
+	exportCalled   int
+	templateCalled int
+	validateCalled int
+	applyCalled    int
+}
+
+func (s *stubTranslationExchangeBinding) Export(_ router.Context) (any, error) {
+	s.exportCalled++
+	return map[string]any{"row_count": 1}, nil
+}
+
+func (s *stubTranslationExchangeBinding) Template(_ router.Context) error {
+	s.templateCalled++
+	return nil
+}
+
+func (s *stubTranslationExchangeBinding) ImportValidate(_ router.Context) (any, error) {
+	s.validateCalled++
+	return map[string]any{"summary": map[string]any{"processed": 1}}, nil
+}
+
+func (s *stubTranslationExchangeBinding) ImportApply(_ router.Context) (any, error) {
+	s.applyCalled++
+	return map[string]any{"summary": map[string]any{"processed": 1}}, nil
+}
+
+func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubTranslationExchangeBinding{}
+	ctx := &stubCtx{
+		router:    rr,
+		responder: resp,
+		basePath:  "/admin",
+		exchange:  binding,
+	}
+
+	require.NoError(t, TranslationExchangeRouteStep(ctx))
+	require.Len(t, rr.calls, 4)
+
+	methodPaths := map[string]bool{}
+	for _, call := range rr.calls {
+		methodPaths[call.method+" "+call.path] = true
+	}
+	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.export")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.template")])
+	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.import.validate")])
+	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.import.apply")])
+
+	for _, call := range rr.calls {
+		require.NoError(t, call.handler(router.NewMockContext()))
+	}
+	require.Equal(t, 1, binding.exportCalled)
+	require.Equal(t, 1, binding.templateCalled)
+	require.Equal(t, 1, binding.validateCalled)
+	require.Equal(t, 1, binding.applyCalled)
 }
 
 func (s *stubSettingsBinding) Values(_ router.Context) (map[string]any, error) {

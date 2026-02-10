@@ -120,6 +120,66 @@ func TestDynamicPanelFactoryAddsWorkflowActionsForPageAndPostPanels(t *testing.T
 	})
 }
 
+func TestDynamicPanelFactoryAddsCreateTranslationActionForPagesAndPosts(t *testing.T) {
+	tests := []struct {
+		name         string
+		contentType  CMSContentType
+		expectedSlug string
+	}{
+		{
+			name: "pages",
+			contentType: CMSContentType{
+				ID:           "ct-page",
+				Name:         "Page",
+				Slug:         "page",
+				Status:       "active",
+				Schema:       minimalContentTypeSchema(),
+				Capabilities: map[string]any{"panel_slug": "pages", "workflow": "pages"},
+			},
+			expectedSlug: "pages",
+		},
+		{
+			name: "posts",
+			contentType: CMSContentType{
+				ID:           "ct-post",
+				Name:         "Post",
+				Slug:         "post",
+				Status:       "active",
+				Schema:       minimalContentTypeSchema(),
+				Capabilities: map[string]any{"panel_slug": "posts", "workflow": "posts"},
+			},
+			expectedSlug: "posts",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+			adm.WithWorkflow(workflowEngineWithPagesAndPosts())
+			factory := NewDynamicPanelFactory(adm)
+
+			panel, err := factory.CreatePanelFromContentType(context.Background(), &tt.contentType)
+			if err != nil {
+				t.Fatalf("create panel failed: %v", err)
+			}
+			actions := panel.Schema().Actions
+			translationAction, ok := findActionByName(actions, CreateTranslationKey)
+			if !ok {
+				t.Fatalf("expected %s action in schema, got %+v", CreateTranslationKey, actions)
+			}
+			if len(translationAction.PayloadRequired) != 1 || translationAction.PayloadRequired[0] != "locale" {
+				t.Fatalf("expected locale payload requirement, got %+v", translationAction.PayloadRequired)
+			}
+			if translationAction.PayloadSchema == nil {
+				t.Fatalf("expected payload schema for create_translation")
+			}
+			if !hasAction(actions, "submit_for_approval") || !hasAction(actions, "publish") {
+				t.Fatalf("expected workflow actions on %s panel, got %+v", tt.expectedSlug, actions)
+			}
+		})
+	}
+}
+
 func TestDynamicPanelFactorySkipsUnknownWorkflowAndLogs(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 	factory := NewDynamicPanelFactory(adm)
@@ -182,4 +242,13 @@ func assertWorkflowActions(t *testing.T, panel *Panel) {
 	if !hasTransition(transitions, "publish") {
 		t.Fatalf("expected publish transition, got %+v", transitions)
 	}
+}
+
+func findActionByName(actions []Action, name string) (Action, bool) {
+	for _, action := range actions {
+		if action.Name == name {
+			return action, true
+		}
+	}
+	return Action{}, false
 }
