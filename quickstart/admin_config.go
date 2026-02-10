@@ -60,21 +60,22 @@ func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOp
 // DefaultAdminFeatures returns the baseline feature defaults for quickstart.
 func DefaultAdminFeatures() map[string]bool {
 	return map[string]bool{
-		string(admin.FeatureDashboard):     true,
-		string(admin.FeatureCMS):           true,
-		string(admin.FeatureCommands):      true,
-		string(admin.FeatureSettings):      true,
-		string(admin.FeatureSearch):        true,
-		string(admin.FeatureNotifications): true,
-		string(admin.FeatureJobs):          true,
-		string(admin.FeatureMedia):         true,
-		string(admin.FeatureExport):        true,
-		string(admin.FeatureBulk):          true,
-		string(admin.FeaturePreferences):   true,
-		string(admin.FeatureProfile):       true,
-		string(admin.FeatureUsers):         true,
-		string(admin.FeatureTenants):       false,
-		string(admin.FeatureOrganizations): false,
+		string(admin.FeatureDashboard):           true,
+		string(admin.FeatureCMS):                 true,
+		string(admin.FeatureCommands):            true,
+		string(admin.FeatureSettings):            true,
+		string(admin.FeatureSearch):              true,
+		string(admin.FeatureNotifications):       true,
+		string(admin.FeatureJobs):                true,
+		string(admin.FeatureMedia):               true,
+		string(admin.FeatureExport):              true,
+		string(admin.FeatureBulk):                true,
+		string(admin.FeaturePreferences):         true,
+		string(admin.FeatureProfile):             true,
+		string(admin.FeatureUsers):               true,
+		string(admin.FeatureTenants):             false,
+		string(admin.FeatureOrganizations):       false,
+		string(admin.FeatureTranslationExchange): false,
 	}
 }
 
