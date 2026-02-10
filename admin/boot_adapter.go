@@ -128,6 +128,9 @@ func (a *Admin) BootUserImport() boot.UserImportBinding {
 
 // BootTranslationExchange exposes translation exchange bindings.
 func (a *Admin) BootTranslationExchange() boot.TranslationExchangeBinding {
+	if !featureEnabled(a.featureGate, FeatureTranslationExchange) {
+		return nil
+	}
 	return newTranslationExchangeBinding(a)
 }
 
