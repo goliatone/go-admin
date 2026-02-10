@@ -549,11 +549,13 @@ func (p *Panel) Update(ctx AdminContext, id string, record map[string]any) (map[
 	}
 	if p.hooks.BeforeUpdateWithID != nil {
 		if err := p.hooks.BeforeUpdateWithID(ctx, id, record); err != nil {
+			p.recordBlockedTranslation(ctx, id, record, err)
 			return nil, err
 		}
 	}
 	if p.hooks.BeforeUpdate != nil {
 		if err := p.hooks.BeforeUpdate(ctx, record); err != nil {
+			p.recordBlockedTranslation(ctx, id, record, err)
 			return nil, err
 		}
 	}
@@ -679,6 +681,27 @@ func (p *Panel) recordActivity(ctx AdminContext, action string, metadata map[str
 		Metadata: metadata,
 	}
 	_ = p.activity.Record(ctx.Context, entry)
+}
+
+func (p *Panel) recordBlockedTranslation(ctx AdminContext, id string, record map[string]any, err error) {
+	if p == nil || err == nil {
+		return
+	}
+	var missing MissingTranslationsError
+	if !errors.As(err, &missing) {
+		return
+	}
+	metadata := map[string]any{
+		"panel":            p.name,
+		"entity_id":        strings.TrimSpace(id),
+		"transition":       strings.TrimSpace(toString(record["transition"])),
+		"locale":           strings.TrimSpace(requestedLocaleFromPayload(record, localeFromContext(ctx.Context))),
+		"environment":      strings.TrimSpace(resolvePolicyEnvironment(record, environmentFromContext(ctx.Context))),
+		"policy_entity":    strings.TrimSpace(resolvePolicyEntity(record, p.name)),
+		"translation_code": TextCodeTranslationMissing,
+		"missing_locales":  normalizeLocaleList(missing.MissingLocales),
+	}
+	p.recordActivity(ctx, "panel.transition.blocked", metadata)
 }
 
 func extractRecordID(values ...any) string {
