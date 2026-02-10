@@ -138,6 +138,21 @@ func defaultCMSWorkflowDefinitions() []WorkflowDefinition {
 // DefaultCMSWorkflowActions returns the default workflow actions for CMS demo panels.
 func DefaultCMSWorkflowActions() []Action {
 	return []Action{
+		{
+			Name:            CreateTranslationKey,
+			Label:           "Add Translation",
+			PayloadRequired: []string{"locale"},
+			PayloadSchema: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"required":             []string{"locale"},
+				"properties": map[string]any{
+					"locale": map[string]any{
+						"type": "string",
+					},
+				},
+			},
+		},
 		{Name: "submit_for_approval", Label: "Submit for approval"},
 		{Name: "publish", Label: "Publish"},
 	}
