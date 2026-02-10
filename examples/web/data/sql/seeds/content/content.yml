@@ -1,0 +1,288 @@
+pages:
+  - slug: "home"
+    title: "Home"
+    summary: "Platform overview for teams running content-heavy admin workflows."
+    body: "Enterprise Admin centralizes publishing, operations, and governance so teams can ship content safely with clear approvals and auditability."
+    status: "published"
+    path: "/"
+    tags: ["platform", "enterprise", "overview"]
+    custom:
+      featured_image: "/static/media/banner.jpg"
+      published_at: "2025-09-13T10:00:00Z"
+      meta:
+        audience: "operations"
+        funnel_stage: "awareness"
+        reading_time_minutes: 3
+      seo:
+        title: "Enterprise Admin | Content Operations Platform"
+        description: "Run pages, posts, and workflows from one operational control panel."
+      markdown:
+        frontmatter:
+          title: "Home"
+          summary: "Platform overview for teams running content-heavy admin workflows."
+          status: "published"
+          featured_image: "/static/media/banner.jpg"
+          tags: ["platform", "enterprise", "overview"]
+        body: "Enterprise Admin centralizes publishing, operations, and governance so teams can ship content safely with clear approvals and auditability."
+      blocks:
+        - _type: "hero"
+          headline: "Enterprise Admin"
+          subheadline: "Build modular admin experiences with go-cms."
+          cta_label: "Explore"
+          cta_url: "/admin"
+        - _type: "rich_text"
+          body: "The CMS panel now supports schema-driven blocks for pages and posts."
+
+  - slug: "about"
+    title: "About Us"
+    summary: "How the team builds reliable admin tooling for Go services."
+    body: "We build composable admin products on top of go-cms, go-formgen, and go-featuregate, with a focus on maintainable operations."
+    status: "published"
+    path: "/about"
+    tags: ["company", "mission", "engineering"]
+    custom:
+      featured_image: "/static/media/logo.png"
+      published_at: "2025-10-13T10:00:00Z"
+      meta:
+        audience: "customers"
+        reading_time_minutes: 4
+      seo:
+        title: "About Enterprise Admin"
+        description: "Meet the team building modular admin tooling for Go applications."
+      markdown:
+        frontmatter:
+          title: "About Us"
+          summary: "How the team builds reliable admin tooling for Go services."
+          status: "published"
+          featured_image: "/static/media/logo.png"
+          tags: ["company", "mission", "engineering"]
+        body: "We build composable admin products on top of go-cms, go-formgen, and go-featuregate, with a focus on maintainable operations."
+      blocks:
+        - _type: "rich_text"
+          body: "We build modular admin experiences on top of go-cms and go-formgen."
+
+  - slug: "team"
+    title: "Our Team"
+    summary: "The distributed product, design, and platform team behind releases."
+    body: "Our remote team ships in weekly increments, pairing product and platform reviews to keep quality high without slowing delivery."
+    status: "published"
+    path: "/about/team"
+    tags: ["team", "culture", "delivery"]
+    custom:
+      featured_image: "/static/media/banner.jpg"
+      published_at: "2025-11-12T10:00:00Z"
+      meta:
+        department: "platform"
+        reading_time_minutes: 2
+      seo:
+        title: "Our Team | Enterprise Admin"
+        description: "Meet the engineers and operators building Enterprise Admin."
+      markdown:
+        frontmatter:
+          title: "Our Team"
+          summary: "The distributed product, design, and platform team behind releases."
+          status: "published"
+          featured_image: "/static/media/banner.jpg"
+          tags: ["team", "culture", "delivery"]
+        body: "Our remote team ships in weekly increments, pairing product and platform reviews to keep quality high without slowing delivery."
+
+  - slug: "contact"
+    title: "Contact"
+    summary: "Talk to support, request a demo, or ask implementation questions."
+    body: "Reach us for onboarding, architecture walkthroughs, and production support response planning."
+    status: "published"
+    path: "/contact"
+    tags: ["support", "sales", "contact"]
+    custom:
+      featured_image: "/static/media/logo.png"
+      published_at: "2025-12-27T10:00:00Z"
+      meta:
+        owner_team: "customer-success"
+        reading_time_minutes: 1
+      seo:
+        title: "Contact Enterprise Admin"
+        description: "Get in touch for support, demos, and implementation guidance."
+      markdown:
+        frontmatter:
+          title: "Contact"
+          summary: "Talk to support, request a demo, or ask implementation questions."
+          status: "published"
+          featured_image: "/static/media/logo.png"
+          tags: ["support", "sales", "contact"]
+        body: "Reach us for onboarding, architecture walkthroughs, and production support response planning."
+
+  - slug: "privacy"
+    title: "Privacy Policy"
+    summary: "How we collect, process, and protect customer data."
+    body: "This policy explains retention windows, subprocessor classes, and customer controls for exported and operational data."
+    status: "draft"
+    path: "/privacy"
+    tags: ["legal", "privacy", "compliance"]
+    custom:
+      featured_image: "/static/media/banner.jpg"
+      meta:
+        owner_team: "legal"
+        reading_time_minutes: 5
+        review_due: "2026-03-31"
+      seo:
+        title: "Privacy Policy | Enterprise Admin"
+        description: "Understand how Enterprise Admin handles customer data and compliance."
+      markdown:
+        frontmatter:
+          title: "Privacy Policy"
+          summary: "How we collect, process, and protect customer data."
+          status: "draft"
+          featured_image: "/static/media/banner.jpg"
+          tags: ["legal", "privacy", "compliance"]
+        body: "This policy explains retention windows, subprocessor classes, and customer controls for exported and operational data."
+
+posts:
+  - slug: "getting-started-go"
+    title: "Getting Started with Go"
+    summary: "A pragmatic path from zero to shipping your first Go service."
+    body: "Learn packages, modules, context handling, and testable handler design patterns used in production teams."
+    status: "published"
+    path: "/posts/getting-started-go"
+    tags: ["go", "programming", "tutorial"]
+    custom:
+      author: "jane.smith"
+      category: "guides"
+      featured_image: "/static/media/banner.jpg"
+      published_at: "2025-11-27T10:00:00Z"
+      meta:
+        reading_time_minutes: 8
+        difficulty: "beginner"
+      seo:
+        title: "Getting Started with Go"
+        description: "A beginner-friendly guide for writing reliable Go services."
+      markdown:
+        frontmatter:
+          title: "Getting Started with Go"
+          summary: "A pragmatic path from zero to shipping your first Go service."
+          status: "published"
+          author: "jane.smith"
+          category: "guides"
+          featured_image: "/static/media/banner.jpg"
+          tags: ["go", "programming", "tutorial"]
+        body: "Learn packages, modules, context handling, and testable handler design patterns used in production teams."
+      blocks:
+        - _type: "rich_text"
+          body: "Start with packages, modules, and fast feedback loops."
+
+  - slug: "building-rest-apis"
+    title: "Building REST APIs"
+    summary: "Designing maintainable REST APIs with validation and observability."
+    body: "This guide covers route composition, versioning, request validation, and audit-friendly API behavior."
+    status: "published"
+    path: "/posts/building-rest-apis"
+    tags: ["go", "api", "rest"]
+    custom:
+      author: "jane.smith"
+      category: "guides"
+      featured_image: "/static/media/logo.png"
+      published_at: "2025-12-20T10:00:00Z"
+      meta:
+        reading_time_minutes: 10
+        difficulty: "intermediate"
+      seo:
+        title: "Building REST APIs"
+        description: "A practical guide to REST API development in Go."
+      markdown:
+        frontmatter:
+          title: "Building REST APIs"
+          summary: "Designing maintainable REST APIs with validation and observability."
+          status: "published"
+          author: "jane.smith"
+          category: "guides"
+          featured_image: "/static/media/logo.png"
+          tags: ["go", "api", "rest"]
+        body: "This guide covers route composition, versioning, request validation, and audit-friendly API behavior."
+      blocks:
+        - _type: "rich_text"
+          body: "Plan your handlers, use middleware, and add structured logs."
+
+  - slug: "company-news-q4-2024"
+    title: "Company News: Q4 2024"
+    summary: "A recap of Q4 releases, uptime milestones, and team growth."
+    body: "We shipped workflow improvements, expanded localization tooling, and improved ops visibility across modules."
+    status: "published"
+    path: "/posts/company-news-q4-2024"
+    tags: ["news", "company"]
+    custom:
+      author: "editorial.team"
+      category: "news"
+      featured_image: "/static/media/banner.jpg"
+      published_at: "2026-01-11T10:00:00Z"
+      meta:
+        reading_time_minutes: 6
+        quarter: "Q4-2024"
+      seo:
+        title: "Company News: Q4 2024"
+        description: "Highlights from product delivery, uptime, and customer adoption."
+      markdown:
+        frontmatter:
+          title: "Company News: Q4 2024"
+          summary: "A recap of Q4 releases, uptime milestones, and team growth."
+          status: "published"
+          author: "editorial.team"
+          category: "news"
+          featured_image: "/static/media/banner.jpg"
+          tags: ["news", "company"]
+        body: "We shipped workflow improvements, expanded localization tooling, and improved ops visibility across modules."
+
+  - slug: "database-optimization"
+    title: "Database Optimization Tips"
+    summary: "Improve query latency and reduce load in content-heavy workloads."
+    body: "Review indexing strategy, query plans, and cache invalidation patterns that keep CMS data fast under load."
+    status: "draft"
+    path: "/posts/database-optimization"
+    tags: ["database", "optimization"]
+    custom:
+      author: "sre.team"
+      category: "updates"
+      featured_image: "/static/media/logo.png"
+      meta:
+        reading_time_minutes: 7
+        difficulty: "advanced"
+      seo:
+        title: "Database Optimization Tips"
+        description: "Practical advice for improving database performance and reliability."
+      markdown:
+        frontmatter:
+          title: "Database Optimization Tips"
+          summary: "Improve query latency and reduce load in content-heavy workloads."
+          status: "draft"
+          author: "sre.team"
+          category: "updates"
+          featured_image: "/static/media/logo.png"
+          tags: ["database", "optimization"]
+        body: "Review indexing strategy, query plans, and cache invalidation patterns that keep CMS data fast under load."
+
+  - slug: "upcoming-features-2025"
+    title: "Upcoming Features in 2025"
+    summary: "Roadmap preview for the next wave of platform capabilities."
+    body: "Here is a preview of upcoming workflow automation, content APIs, and multi-environment tooling planned for the next release cycle."
+    status: "scheduled"
+    path: "/posts/upcoming-features-2025"
+    tags: ["news", "roadmap"]
+    custom:
+      author: "product.team"
+      category: "news"
+      featured_image: "/static/media/banner.jpg"
+      published_at: "2026-02-24T10:00:00Z"
+      meta:
+        reading_time_minutes: 5
+        release_window: "2025-H1"
+      seo:
+        title: "Upcoming Features in 2025"
+        description: "Roadmap highlights for go-admin and go-cms."
+      markdown:
+        frontmatter:
+          title: "Upcoming Features in 2025"
+          summary: "Roadmap preview for the next wave of platform capabilities."
+          status: "scheduled"
+          author: "product.team"
+          category: "news"
+          featured_image: "/static/media/banner.jpg"
+          tags: ["news", "roadmap"]
+        body: "Here is a preview of upcoming workflow automation, content APIs, and multi-environment tooling planned for the next release cycle."
