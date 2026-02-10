@@ -27,6 +27,7 @@ const (
 	FeatureTenants             FeatureKey = "tenants"
 	FeatureOrganizations       FeatureKey = "organizations"
 	FeatureTranslationExchange FeatureKey = "translations.exchange"
+	FeatureTranslationQueue    FeatureKey = "translations.queue"
 )
 
 // ErrFeatureDisabled signals a disabled feature gate.
