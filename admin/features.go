@@ -11,21 +11,22 @@ import (
 type FeatureKey string
 
 const (
-	FeatureDashboard     FeatureKey = "dashboard"
-	FeatureSearch        FeatureKey = "search"
-	FeatureExport        FeatureKey = "export"
-	FeatureCMS           FeatureKey = "cms"
-	FeatureJobs          FeatureKey = "jobs"
-	FeatureCommands      FeatureKey = "commands"
-	FeatureSettings      FeatureKey = "settings"
-	FeatureNotifications FeatureKey = "notifications"
-	FeatureMedia         FeatureKey = "media"
-	FeatureBulk          FeatureKey = "bulk"
-	FeaturePreferences   FeatureKey = "preferences"
-	FeatureProfile       FeatureKey = "profile"
-	FeatureUsers         FeatureKey = "users"
-	FeatureTenants       FeatureKey = "tenants"
-	FeatureOrganizations FeatureKey = "organizations"
+	FeatureDashboard           FeatureKey = "dashboard"
+	FeatureSearch              FeatureKey = "search"
+	FeatureExport              FeatureKey = "export"
+	FeatureCMS                 FeatureKey = "cms"
+	FeatureJobs                FeatureKey = "jobs"
+	FeatureCommands            FeatureKey = "commands"
+	FeatureSettings            FeatureKey = "settings"
+	FeatureNotifications       FeatureKey = "notifications"
+	FeatureMedia               FeatureKey = "media"
+	FeatureBulk                FeatureKey = "bulk"
+	FeaturePreferences         FeatureKey = "preferences"
+	FeatureProfile             FeatureKey = "profile"
+	FeatureUsers               FeatureKey = "users"
+	FeatureTenants             FeatureKey = "tenants"
+	FeatureOrganizations       FeatureKey = "organizations"
+	FeatureTranslationExchange FeatureKey = "translations.exchange"
 )
 
 // ErrFeatureDisabled signals a disabled feature gate.
