@@ -173,18 +173,23 @@ func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
 	path := resolveCMSPagePath(page)
 	schema := strings.TrimSpace(firstNonEmpty(page.SchemaVersion, toString(page.Data["_schema"])))
 	record := map[string]any{
-		"id":          page.ID,
-		"title":       page.Title,
-		"slug":        page.Slug,
-		"path":        path,
-		"locale":      page.Locale,
-		"parent_id":   page.ParentID,
-		"blocks":      blocksPayloadFromPage(page),
-		"seo":         cloneAnyMap(page.SEO),
-		"status":      page.Status,
-		"data":        cloneAnyMap(page.Data),
-		"metadata":    cloneAnyMap(page.Metadata),
-		"preview_url": page.PreviewURL,
+		"id":                       page.ID,
+		"title":                    page.Title,
+		"slug":                     page.Slug,
+		"path":                     path,
+		"locale":                   page.Locale,
+		"translation_group_id":     page.TranslationGroupID,
+		"requested_locale":         page.RequestedLocale,
+		"resolved_locale":          page.ResolvedLocale,
+		"available_locales":        append([]string{}, page.AvailableLocales...),
+		"missing_requested_locale": page.MissingRequestedLocale,
+		"parent_id":                page.ParentID,
+		"blocks":                   blocksPayloadFromPage(page),
+		"seo":                      cloneAnyMap(page.SEO),
+		"status":                   page.Status,
+		"data":                     cloneAnyMap(page.Data),
+		"metadata":                 cloneAnyMap(page.Metadata),
+		"preview_url":              page.PreviewURL,
 	}
 	if opts.includeTemplateID {
 		record["template_id"] = page.TemplateID
