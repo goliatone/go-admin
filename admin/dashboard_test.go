@@ -61,6 +61,48 @@ func TestDashboardProviderRegistersCommandAndResolvesInstances(t *testing.T) {
 	})
 }
 
+func TestDashboardProviderCommandRegistrationIsIdempotent(t *testing.T) {
+	registry.WithTestRegistry(func() {
+		widgetSvc := NewInMemoryWidgetService()
+		dash := NewDashboard()
+		dash.WithWidgetService(widgetSvc)
+		cmdBus := NewCommandBus(true)
+		defer cmdBus.Reset()
+		dash.WithCommandBus(cmdBus)
+		dash.RegisterArea(WidgetAreaDefinition{Code: "admin.dashboard.main"})
+
+		hits := 0
+		spec := DashboardProviderSpec{
+			Code:        "demo.widget",
+			Name:        "Demo",
+			DefaultArea: "admin.dashboard.main",
+			CommandName: "dashboard.demo.widget",
+			Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+				_ = ctx
+				_ = cfg
+				hits++
+				return map[string]any{"ok": true}, nil
+			},
+		}
+		dash.RegisterProvider(spec)
+		dash.RegisterProvider(spec)
+
+		if got := len(cmdBus.factories); got != 1 {
+			t.Fatalf("expected one command factory, got %d", got)
+		}
+		if got := len(cmdBus.dispatchers); got != 1 {
+			t.Fatalf("expected one command dispatcher, got %d", got)
+		}
+
+		if err := cmdBus.DispatchByName(context.Background(), "dashboard.demo.widget", nil, nil); err != nil {
+			t.Fatalf("command dispatch failed: %v", err)
+		}
+		if hits != 1 {
+			t.Fatalf("expected one provider invocation after dispatch, got %d", hits)
+		}
+	})
+}
+
 func TestDashboardLateProviderRegistrationUpdatesComponents(t *testing.T) {
 	widgetSvc := NewInMemoryWidgetService()
 	dash := NewDashboard()

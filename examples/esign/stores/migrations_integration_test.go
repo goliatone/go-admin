@@ -3,6 +3,7 @@ package stores
 import (
 	"context"
 	"database/sql"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -29,6 +30,12 @@ func newSQLiteMigrationClient(t *testing.T) (*persistence.Client, func()) {
 	t.Helper()
 
 	dsn := "file:" + filepath.Join(t.TempDir(), "esign_phase1.db") + "?cache=shared&_fk=1"
+	return newSQLiteMigrationClientWithDSN(t, dsn)
+}
+
+func newSQLiteMigrationClientWithDSN(t *testing.T, dsn string) (*persistence.Client, func()) {
+	t.Helper()
+
 	sqlDB, err := sql.Open(sqliteshim.ShimName, dsn)
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
@@ -119,6 +126,7 @@ func TestMigrationsApplySeedAndRollbackSQLite(t *testing.T) {
 		"signature_artifacts",
 		"audit_events",
 		"email_logs",
+		"integration_credentials",
 	}
 	for _, table := range requiredTables {
 		exists, err := tableExists(ctx, client.DB(), table)
@@ -181,6 +189,97 @@ func TestMigrationsExposeVersionAndRecipientLifecycleColumns(t *testing.T) {
 	for _, col := range []string{"version", "first_view_at", "last_view_at", "decline_reason", "signing_order", "role"} {
 		if !contains(recipientCols, col) {
 			t.Fatalf("expected recipients.%s column", col)
+		}
+	}
+}
+
+func TestMigrationsBackupAndRestoreSQLite(t *testing.T) {
+	tempDir := t.TempDir()
+	sourceDSN := "file:" + filepath.Join(tempDir, "esign_source.db") + "?cache=shared&_fk=1"
+	client, cleanup := newSQLiteMigrationClientWithDSN(t, sourceDSN)
+	defer cleanup()
+
+	ctx := context.Background()
+	if err := client.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	if _, err := SeedCoreFixtures(ctx, client.DB(), scope); err != nil {
+		t.Fatalf("SeedCoreFixtures: %v", err)
+	}
+
+	backupPath := filepath.Join(tempDir, "esign_backup.db")
+	backupStmt := "VACUUM INTO '" + strings.ReplaceAll(backupPath, "'", "''") + "'"
+	if _, err := client.DB().ExecContext(ctx, backupStmt); err != nil {
+		t.Fatalf("VACUUM INTO backup: %v", err)
+	}
+	if _, err := os.Stat(backupPath); err != nil {
+		t.Fatalf("backup file missing: %v", err)
+	}
+
+	restoreDSN := "file:" + backupPath + "?cache=shared&_fk=1"
+	restoreSQLDB, err := sql.Open(sqliteshim.ShimName, restoreDSN)
+	if err != nil {
+		t.Fatalf("open restore sqlite: %v", err)
+	}
+	defer restoreSQLDB.Close()
+
+	restoreDB := bun.NewDB(restoreSQLDB, sqlitedialect.New())
+	defer restoreDB.Close()
+
+	exists, err := tableExists(ctx, restoreDB, "documents")
+	if err != nil {
+		t.Fatalf("restore tableExists(documents): %v", err)
+	}
+	if !exists {
+		t.Fatalf("expected documents table in restored backup")
+	}
+	count, err := countRows(ctx, restoreDB, "documents")
+	if err != nil {
+		t.Fatalf("restore countRows(documents): %v", err)
+	}
+	if count < 1 {
+		t.Fatalf("expected at least one document row in restored backup")
+	}
+}
+
+func TestMigrationsExposeGoogleSourceMetadataAndCredentialTable(t *testing.T) {
+	client, cleanup := newSQLiteMigrationClient(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	if err := client.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	documentCols, err := tableColumnNames(ctx, client.DB(), "documents")
+	if err != nil {
+		t.Fatalf("tableColumnNames(documents): %v", err)
+	}
+	for _, col := range []string{"source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id"} {
+		if !contains(documentCols, col) {
+			t.Fatalf("expected documents.%s column", col)
+		}
+	}
+
+	agreementCols, err := tableColumnNames(ctx, client.DB(), "agreements")
+	if err != nil {
+		t.Fatalf("tableColumnNames(agreements): %v", err)
+	}
+	for _, col := range []string{"source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id"} {
+		if !contains(agreementCols, col) {
+			t.Fatalf("expected agreements.%s column", col)
+		}
+	}
+
+	integrationCols, err := tableColumnNames(ctx, client.DB(), "integration_credentials")
+	if err != nil {
+		t.Fatalf("tableColumnNames(integration_credentials): %v", err)
+	}
+	for _, col := range []string{"provider", "user_id", "encrypted_access_token", "encrypted_refresh_token", "scopes_json", "expires_at"} {
+		if !contains(integrationCols, col) {
+			t.Fatalf("expected integration_credentials.%s column", col)
 		}
 	}
 }

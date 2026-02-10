@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"io"
+	"log"
 	"log/slog"
 	"testing"
 	"time"
@@ -248,6 +249,27 @@ func TestAttachDebugMiddlewareRegistersWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestAttachDebugMiddlewareRegistersBeforeCollectorReady(t *testing.T) {
+	cfg := NewAdminConfig(
+		"/admin",
+		"Admin",
+		"en",
+		WithDebugConfig(admin.DebugConfig{Enabled: true}),
+	)
+	r := &debugRouter{}
+	adm, err := admin.New(cfg, admin.Dependencies{Router: r})
+	if err != nil {
+		t.Fatalf("admin.New error: %v", err)
+	}
+
+	// Do not register/debug-initialize module yet; middleware should still be attached.
+	AttachDebugMiddleware(r, cfg, adm)
+
+	if r.useCalls == 0 {
+		t.Fatalf("expected middleware registration before collector is initialized")
+	}
+}
+
 func TestAttachDebugLogHandlerWiresSlog(t *testing.T) {
 	cfg := NewAdminConfig(
 		"/admin",
@@ -275,6 +297,43 @@ func TestAttachDebugLogHandlerWiresSlog(t *testing.T) {
 
 	if _, ok := slog.Default().Handler().(*admin.DebugLogHandler); !ok {
 		t.Fatalf("expected debug log handler installed")
+	}
+}
+
+func TestAttachDebugLogHandlerAvoidsDefaultDelegateRecursion(t *testing.T) {
+	cfg := NewAdminConfig(
+		"/admin",
+		"Admin",
+		"en",
+		WithDebugConfig(admin.DebugConfig{Enabled: true, CaptureLogs: true}),
+	)
+	r := &debugRouter{}
+	adm, err := admin.New(cfg, admin.Dependencies{Router: r})
+	if err != nil {
+		t.Fatalf("admin.New error: %v", err)
+	}
+	mod := admin.NewDebugModule(cfg.Debug)
+	if err := mod.Register(admin.ModuleContext{Admin: adm}); err != nil {
+		t.Fatalf("debug module register error: %v", err)
+	}
+
+	previous := slog.Default()
+	t.Cleanup(func() {
+		slog.SetDefault(previous)
+	})
+
+	AttachDebugLogHandler(cfg, adm)
+
+	done := make(chan struct{})
+	go func() {
+		log.Printf("debug log handler recursion probe")
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatalf("log.Printf blocked after attaching debug slog handler")
 	}
 }
 

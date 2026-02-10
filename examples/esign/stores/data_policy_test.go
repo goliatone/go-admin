@@ -55,3 +55,37 @@ func TestMinimizeAuditMetadata(t *testing.T) {
 		t.Fatalf("expected actor_id retained, got %v", minimized["actor_id"])
 	}
 }
+
+func TestRetentionLifecyclePeriodicCheck(t *testing.T) {
+	policy := DefaultRetentionPolicy()
+	now := time.Date(2026, 2, 10, 9, 0, 0, 0, time.UTC)
+
+	check := policy.EvaluateLifecycleCheck(
+		now,
+		[]time.Time{
+			now.Add(-policy.ArtifactTTL - time.Minute),
+			now.Add(-time.Hour),
+		},
+		[]time.Time{
+			now.Add(-policy.LogTTL - time.Minute),
+			now.Add(-2 * time.Hour),
+		},
+		[]time.Time{
+			now.Add(-policy.PIIMetadataTTL - time.Minute),
+			now.Add(-3 * time.Hour),
+		},
+	)
+
+	if check.CheckedAt != now {
+		t.Fatalf("expected CheckedAt=%s, got %s", now, check.CheckedAt)
+	}
+	if check.ArtifactDueCount != 1 {
+		t.Fatalf("expected 1 artifact due for purge, got %+v", check)
+	}
+	if check.LogDueCount != 1 {
+		t.Fatalf("expected 1 log due for purge, got %+v", check)
+	}
+	if check.PIIDueCount != 1 {
+		t.Fatalf("expected 1 pii record due for purge, got %+v", check)
+	}
+}

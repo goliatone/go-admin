@@ -176,6 +176,9 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForPagesAndPosts(t *testi
 			if !hasAction(actions, "submit_for_approval") || !hasAction(actions, "publish") {
 				t.Fatalf("expected workflow actions on %s panel, got %+v", tt.expectedSlug, actions)
 			}
+			if !hasAction(actions, "view") || !hasAction(actions, "edit") || !hasAction(actions, "delete") {
+				t.Fatalf("expected default CRUD actions on %s panel, got %+v", tt.expectedSlug, actions)
+			}
 		})
 	}
 }
@@ -227,6 +230,9 @@ func assertWorkflowActions(t *testing.T, panel *Panel) {
 	actions := panel.Schema().Actions
 	if !hasAction(actions, "submit_for_approval") || !hasAction(actions, "publish") {
 		t.Fatalf("expected workflow actions, got %+v", actions)
+	}
+	if !hasAction(actions, "view") || !hasAction(actions, "edit") || !hasAction(actions, "delete") {
+		t.Fatalf("expected default CRUD actions, got %+v", actions)
 	}
 	transitions, err := panel.workflow.AvailableTransitions(context.Background(), panel.name, "draft")
 	if err != nil {

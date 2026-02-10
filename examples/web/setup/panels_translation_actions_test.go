@@ -123,12 +123,12 @@ func TestPagesAndPostsPanelsExposeTranslationWorkflowActions(t *testing.T) {
 		{
 			name:            "pages",
 			builder:         NewPagesPanelBuilder(repo),
-			requiredActions: []string{"create_translation", "request_approval", "approve", "reject", "publish", "unpublish"},
+			requiredActions: []string{"view", "edit", "delete", "create_translation", "request_approval", "approve", "reject", "publish", "unpublish"},
 		},
 		{
 			name:            "posts",
 			builder:         NewPostsPanelBuilder(repo),
-			requiredActions: []string{"create_translation", "request_approval", "approve", "reject", "publish", "unpublish", "schedule"},
+			requiredActions: []string{"view", "edit", "delete", "create_translation", "request_approval", "approve", "reject", "publish", "unpublish", "schedule"},
 		},
 	}
 

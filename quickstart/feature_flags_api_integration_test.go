@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
+	"github.com/goliatone/go-users/pkg/types"
+	"github.com/google/uuid"
 )
 
 func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
@@ -145,6 +149,137 @@ func TestFeatureFlagsAPIIncludesUsersDescriptionAndDefault(t *testing.T) {
 	}
 	if value, ok := defaultInfo["value"].(bool); !ok || !value {
 		t.Fatalf("expected default value true, got %v", defaultInfo["value"])
+	}
+}
+
+func TestFeatureFlagsAPIMutateAllScopesWithGoUsersPreferencesStore(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Title:         "Admin",
+	}
+	repo := newStubPreferenceRepo()
+	store, err := NewGoUsersPreferencesStore(repo)
+	if err != nil {
+		t.Fatalf("new go-users preferences store: %v", err)
+	}
+	defaults := map[string]bool{
+		"translations.exchange": false,
+	}
+	gate := buildFeatureGate(cfg, defaults, store)
+
+	adm, err := admin.New(cfg, admin.Dependencies{
+		FeatureGate:      gate,
+		PreferencesStore: store,
+	})
+	if err != nil {
+		t.Fatalf("admin.New error: %v", err)
+	}
+
+	server := router.NewFiberAdapter()
+	actorID := uuid.New()
+	server.WrappedRouter().Use(func(c *fiber.Ctx) error {
+		actor := &auth.ActorContext{
+			ActorID: actorID.String(),
+			Subject: actorID.String(),
+			Role:    "admin",
+		}
+		ctx := auth.WithActorContext(c.UserContext(), actor)
+		c.SetUserContext(ctx)
+		return c.Next()
+	})
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize error: %v", err)
+	}
+
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	userID := uuid.New()
+	cases := []struct {
+		name        string
+		body        map[string]any
+		level       types.PreferenceLevel
+		userID      uuid.UUID
+		scopeTenant uuid.UUID
+		scopeOrg    uuid.UUID
+	}{
+		{
+			name:   "system",
+			body:   map[string]any{"key": "translations.exchange", "enabled": true, "scope": "system"},
+			level:  types.PreferenceLevelSystem,
+			userID: uuid.Nil,
+		},
+		{
+			name:        "tenant",
+			body:        map[string]any{"key": "translations.exchange", "enabled": true, "scope": "tenant", "tenant_id": tenantID.String()},
+			level:       types.PreferenceLevelTenant,
+			userID:      uuid.Nil,
+			scopeTenant: tenantID,
+		},
+		{
+			name:     "org",
+			body:     map[string]any{"key": "translations.exchange", "enabled": true, "scope": "org", "org_id": orgID.String()},
+			level:    types.PreferenceLevelOrg,
+			userID:   uuid.Nil,
+			scopeOrg: orgID,
+		},
+		{
+			name:   "user",
+			body:   map[string]any{"key": "translations.exchange", "enabled": true, "scope": "user", "user_id": userID.String()},
+			level:  types.PreferenceLevelUser,
+			userID: userID,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body, err := json.Marshal(tc.body)
+			if err != nil {
+				t.Fatalf("marshal body: %v", err)
+			}
+			req := httptest.NewRequest(http.MethodPost, "/admin/api/feature-flags", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := server.WrappedRouter().Test(req)
+			if err != nil {
+				t.Fatalf("feature flag set request error: %v", err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("expected set status 200, got %d", resp.StatusCode)
+			}
+		})
+	}
+
+	targetKey := "feature_flags.translations.exchange"
+	for _, tc := range cases {
+		found := false
+		for _, record := range repo.records {
+			if record.Level != tc.level || record.Key != targetKey {
+				continue
+			}
+			if record.UserID != tc.userID {
+				continue
+			}
+			if record.Scope.TenantID != tc.scopeTenant {
+				continue
+			}
+			if record.Scope.OrgID != tc.scopeOrg {
+				continue
+			}
+			if record.UpdatedBy != actorID {
+				t.Fatalf("expected actor %s for %s, got %s", actorID, tc.name, record.UpdatedBy)
+			}
+			found = true
+			break
+		}
+		if !found {
+			t.Fatalf("expected persisted override for scope %s", tc.name)
+		}
+	}
+
+	flags := getFeatureFlags(t, server, "/admin/api/feature-flags?scope=system")
+	flag := findFlag(flags, "translations.exchange")
+	if flag == nil {
+		t.Fatalf("expected translations.exchange flag after mutate")
 	}
 }
 

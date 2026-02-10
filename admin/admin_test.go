@@ -76,6 +76,30 @@ func TestNewAdminContextPrefersActor(t *testing.T) {
 	mockCtx.AssertExpectations(t)
 }
 
+func TestNewAdminContextDerivesActorFromClaims(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "claims-user-1",
+		UserRole: string(auth.RoleAdmin),
+	}
+	ctxWithClaims := auth.WithClaimsContext(context.Background(), claims)
+
+	mockCtx := router.NewMockContext()
+	mockCtx.On("Context").Return(ctxWithClaims)
+
+	result := newAdminContextFromRouter(mockCtx, "en")
+	if result.UserID != "claims-user-1" {
+		t.Fatalf("expected claims user id to be used, got %s", result.UserID)
+	}
+	actor, ok := auth.ActorFromContext(result.Context)
+	if !ok || actor == nil {
+		t.Fatalf("expected actor on context from claims")
+	}
+	if actor.ActorID != "claims-user-1" {
+		t.Fatalf("expected actor id claims-user-1, got %s", actor.ActorID)
+	}
+	mockCtx.AssertExpectations(t)
+}
+
 func TestInitializeRegistersHealth(t *testing.T) {
 	cfg := Config{
 		Title:         "test admin",
