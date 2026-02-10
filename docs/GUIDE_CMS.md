@@ -29,6 +29,7 @@ This guide explains how to use and extend the CMS module in `go-admin`. It cover
 14. [Example Implementation](#14-example-implementation)
 15. [Admin Read Model (Pages)](#15-admin-read-model-pages)
 16. [See Also](#16-see-also)
+17. [Translation Workflow Operations](#17-translation-workflow-operations)
 
 ---
 
@@ -508,3 +509,150 @@ Admin list and detail reads should use a single contract, `AdminPageRecord`, exp
 - [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) — Theming and templates.
 - [Block Editor Guide](GUIDE_BLOCK_EDITOR.md) — Block editor setup, drag/drop, icon picker, and custom icon tabs.
 - [CMS TDD](../CMS_TDD.md) — Technical design document for the CMS extension.
+
+---
+
+## 17. Translation Workflow Operations
+
+This section documents the production contract for translation workflow
+enforcement and rollout.
+
+### 17.1 Translation policy configuration
+
+Quickstart enforces translation requirements during workflow transitions when
+`WithTranslationPolicyConfig(...)` is provided (or when policy settings are
+present in config).
+
+```yaml
+translation_policy:
+  deny_by_default: false
+  required_fields_strategy: "error" # error|warn|ignore
+  required:
+    pages:
+      publish:
+        locales: ["en", "es"]
+      promote:
+        environments:
+          staging:
+            locales: ["en"]
+          production:
+            locales: ["en", "es", "fr"]
+    posts:
+      publish:
+        locales: ["en"]
+        required_fields:
+          en: ["title", "path"]
+```
+
+Rules:
+- `required` keys map to policy entities (`pages`, `posts`, or a custom
+  `policy_entity` override from action payload/query).
+- `environment`-specific requirements override transition defaults.
+- If `required_fields` exists and `locales` is empty, locales derive from
+  required-field locale keys.
+- `deny_by_default=true` blocks transitions without an explicit matching rule.
+
+### 17.2 UI behavior contract (operator view)
+
+When a transition is blocked, backend returns `TRANSLATION_MISSING` with:
+- `missing_locales` (always present; empty array when none).
+- `transition`.
+- entity context keys: `entity_type`, `policy_entity`, `entity_id`,
+  `environment`, `requested_locale`.
+- optional `missing_fields_by_locale` when required-field checks were evaluated.
+
+Expected UI flow:
+- Workflow action (for example `publish`) is attempted from list/detail row
+  actions.
+- UI shows actionable blocker guidance using `missing_locales` and optional
+  field hints.
+- User runs remediation (`create_translation`) and retries transition.
+
+### 17.3 Troubleshooting workflow
+
+1. Reproduce with the same context used by UI:
+   - `locale`, `environment`/`env`, and optional `policy_entity`.
+2. Inspect the API error payload and confirm `text_code=TRANSLATION_MISSING`.
+3. Verify blocker metadata contains at least:
+   - `missing_locales`, `transition`, `entity_type`, `entity_id`.
+4. Check structured logs:
+   - blocker event: `translation.transition.blocked`.
+   - remediation event: `translation.remediation.action`.
+5. Check counters:
+   - `admin_translation_blocked_transition_count`
+   - `admin_translation_create_action_count`
+6. Confirm policy config matches the intended entity/transition/environment
+   mapping and required-field keys.
+7. Re-run the transition after creating missing locale variants.
+
+### 17.4 Rollout checklist
+
+#### Staging validation
+- Deploy with translation policy config enabled in staging first.
+- Validate `publish` and `promote` paths for both `pages` and `posts`.
+- Confirm expected blocker and remediation flows:
+  - blocked publish returns `TRANSLATION_MISSING`.
+  - `create_translation` creates the target locale draft in the same
+    `translation_group_id`.
+  - transition succeeds after remediation.
+
+#### Policy dry-run checks
+- Run representative workflow actions using staging data before production cutover.
+- Capture and review:
+  - blocker frequency (`admin_translation_blocked_transition_count`),
+  - create-translation outcomes (`admin_translation_create_action_count`),
+  - blocker/remediation structured logs.
+- Validate configured entity keys, transition names, environments, and required
+  field keys against real content.
+
+#### Production enablement
+- Roll out policy config in a controlled window.
+- Confirm no unexpected spikes in blocked transitions after enablement.
+- Confirm operators can remediate blocked transitions via `create_translation`
+  without manual DB intervention.
+
+#### Rollback plan
+- Keep previous translation policy config available for immediate restore.
+- If blocker volume or false positives exceed threshold, revert to last known
+  stable config and re-run validation in staging.
+- Preserve logs/counter snapshots from the failed rollout window for follow-up.
+
+### 17.5 API contract table
+
+#### Error/status matrix
+
+| Scenario | HTTP status | `text_code` | Required metadata keys | Client handling |
+| --- | --- | --- | --- | --- |
+| Transition blocked: missing locales only | `409 Conflict` | `TRANSLATION_MISSING` | `missing_locales`, `transition`, `entity_type`, `policy_entity`, `entity_id`, `environment`, `requested_locale` | Show translation blocker UI with missing locale actions. |
+| Transition blocked: required fields missing in one or more locales | `422 Unprocessable Entity` | `TRANSLATION_MISSING` | All keys above plus `missing_fields_by_locale` | Show blocker UI with per-locale missing-field hints. |
+| Duplicate translation create attempt | `409 Conflict` | `TRANSLATION_EXISTS` | `panel`, `entity_id`, `locale`, `source_locale`, `translation_group_id` | Keep row/detail state, show deterministic duplicate-locale feedback. |
+
+#### Legacy payload fallback behavior
+
+| Payload shape | Required fallback behavior |
+| --- | --- |
+| Structured error missing metadata keys | Client falls back to message-level handling and generic error toast. |
+| `TRANSLATION_MISSING` without `missing_fields_by_locale` | Client still renders locale blockers and remediation actions using `missing_locales` only. |
+| Legacy message-only error envelope | Client extracts best-effort message text and preserves existing non-structured behavior. |
+
+### 17.6 Go/No-Go release gates
+
+Use this checklist before enabling translation workflow enforcement in production.
+
+#### Sign-off matrix
+
+| Gate | Owner | Required evidence |
+| --- | --- | --- |
+| Backend contract gate | Backend | Translation blocker status/metadata contract tests pass; create-translation action contract is stable. |
+| Frontend behavior gate | Frontend | Blocker UX flow validated (blocked -> remediate -> retry success); legacy payload fallback verified. |
+| QA scenario gate | QA | Pages + posts scenarios pass in staging across locales/environments (including duplicate create attempts). |
+| Ops readiness gate | Ops | Metrics/log dashboards available, rollout checklist rehearsed, rollback config ready. |
+
+#### Final release checklist
+
+- [ ] Backend sign-off complete.
+- [ ] Frontend sign-off complete.
+- [ ] QA sign-off complete.
+- [ ] Ops sign-off complete.
+- [ ] Milestone completion criteria for translation workflow are met.
+- [ ] Rollback owner and rollback window are confirmed.
