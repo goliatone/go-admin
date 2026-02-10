@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -168,5 +169,83 @@ func TestDefaultTranslationQueueServiceRejectRequiresReviewState(t *testing.T) {
 	_, err = svc.Reject(ctx, TranslationQueueRejectInput{AssignmentID: created.ID, ReviewerID: "reviewer_1", Reason: "nope", ExpectedVersion: created.Version})
 	if err == nil {
 		t.Fatalf("expected invalid transition error")
+	}
+}
+
+func TestDefaultTranslationQueueServiceEmitsQueueActivityAndNotificationHooks(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	activity := NewActivityFeed()
+	notifications := NewInMemoryNotificationService()
+	cfg := applyConfigDefaults(Config{BasePath: "/admin", DefaultLocale: "en"})
+	urls, err := newURLManager(cfg)
+	if err != nil {
+		t.Fatalf("new url manager: %v", err)
+	}
+	svc := &DefaultTranslationQueueService{
+		Repository:    repo,
+		Activity:      activity,
+		Notifications: notifications,
+		URLs:          urls,
+	}
+	ctx := context.Background()
+
+	created, err := repo.Create(ctx, TranslationAssignment{
+		TranslationGroupID: "tg_5",
+		EntityType:         "pages",
+		SourceRecordID:     "page_5",
+		SourceLocale:       "en",
+		TargetLocale:       "es",
+		SourceTitle:        "Home",
+		SourcePath:         "/home",
+		AssignmentType:     AssignmentTypeOpenPool,
+		Status:             AssignmentStatusPending,
+		Priority:           PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+
+	_, err = svc.Assign(ctx, TranslationQueueAssignInput{
+		AssignmentID:    created.ID,
+		AssigneeID:      "translator_5",
+		AssignerID:      "manager_5",
+		ExpectedVersion: created.Version,
+	})
+	if err != nil {
+		t.Fatalf("assign: %v", err)
+	}
+
+	entries, err := activity.List(ctx, 10)
+	if err != nil {
+		t.Fatalf("activity list: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatalf("expected at least one activity entry")
+	}
+	if entries[0].Action != "translation.queue.assigned" {
+		t.Fatalf("expected translation.queue.assigned activity, got %q", entries[0].Action)
+	}
+	if entries[0].Metadata["resolver_key"] != translationQueueResolverKey {
+		t.Fatalf("expected resolver metadata key, got %+v", entries[0].Metadata)
+	}
+	if entries[0].Metadata["source_title"] != "Home" || entries[0].Metadata["source_path"] != "/home" {
+		t.Fatalf("expected source snapshot metadata, got %+v", entries[0].Metadata)
+	}
+
+	items, err := notifications.List(ctx)
+	if err != nil {
+		t.Fatalf("notifications list: %v", err)
+	}
+	if len(items) == 0 {
+		t.Fatalf("expected assignment notification")
+	}
+	if items[0].UserID != "translator_5" {
+		t.Fatalf("expected notification user translator_5, got %q", items[0].UserID)
+	}
+	if !strings.HasPrefix(items[0].ActionURL, "/admin/translations") {
+		t.Fatalf("expected resolver-based queue URL, got %q", items[0].ActionURL)
+	}
+	if items[0].Metadata["resolver_key"] != translationQueueResolverKey {
+		t.Fatalf("expected resolver metadata on notification, got %+v", items[0].Metadata)
 	}
 }
