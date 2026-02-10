@@ -24,6 +24,7 @@ func defaultFeatureFlagKeys() []string {
 		string(FeatureUsers),
 		string(FeatureTenants),
 		string(FeatureOrganizations),
+		string(FeatureTranslationExchange),
 		"debug",
 		"users.invite",
 		fggate.FeatureUsersSignup,
