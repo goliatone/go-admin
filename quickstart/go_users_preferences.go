@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-users/command"
+	"github.com/goliatone/go-users/pkg/authctx"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/goliatone/go-users/preferences"
 	"github.com/google/uuid"
@@ -98,7 +99,7 @@ func (s *GoUsersPreferencesStore) Upsert(ctx context.Context, input admin.Prefer
 	if err != nil {
 		return admin.PreferenceSnapshot{}, err
 	}
-	actorID, err := parseRequiredUserUUID(input.Scope.UserID)
+	actorID, err := resolvePreferenceActorID(ctx, input.Scope)
 	if err != nil {
 		return admin.PreferenceSnapshot{}, err
 	}
@@ -108,7 +109,10 @@ func (s *GoUsersPreferencesStore) Upsert(ctx context.Context, input admin.Prefer
 	}
 	userID := uuid.Nil
 	if level == admin.PreferenceLevelUser {
-		userID = actorID
+		userID, err = parseRequiredUserUUID(input.Scope.UserID)
+		if err != nil {
+			return admin.PreferenceSnapshot{}, err
+		}
 	}
 	updates := normalizePreferenceValues(input.Values)
 	if len(updates) == 0 {
@@ -140,7 +144,7 @@ func (s *GoUsersPreferencesStore) Delete(ctx context.Context, input admin.Prefer
 	if err != nil {
 		return err
 	}
-	actorID, err := parseRequiredUserUUID(input.Scope.UserID)
+	actorID, err := resolvePreferenceActorID(ctx, input.Scope)
 	if err != nil {
 		return err
 	}
@@ -150,7 +154,10 @@ func (s *GoUsersPreferencesStore) Delete(ctx context.Context, input admin.Prefer
 	}
 	userID := uuid.Nil
 	if level == admin.PreferenceLevelUser {
-		userID = actorID
+		userID, err = parseRequiredUserUUID(input.Scope.UserID)
+		if err != nil {
+			return err
+		}
 	}
 	keys := normalizePreferenceKeys(input.Keys)
 	if len(keys) == 0 {
@@ -316,6 +323,20 @@ func parseRequiredUserUUID(raw string) (uuid.UUID, error) {
 		})
 	}
 	return userID, nil
+}
+
+func resolvePreferenceActorID(ctx context.Context, scope admin.PreferenceScope) (uuid.UUID, error) {
+	if actor, _, err := authctx.ResolveActor(ctx); err == nil && actor.ID != uuid.Nil {
+		return actor.ID, nil
+	}
+	if fallback, err := parseUserUUID(scope.UserID); err != nil {
+		return uuid.Nil, err
+	} else if fallback != uuid.Nil {
+		return fallback, nil
+	}
+	return uuid.Nil, preferenceValidationError("actor id required", map[string]any{
+		"field": "actor_id",
+	})
 }
 
 func parseScopeUUID(raw string, field string) (uuid.UUID, error) {
