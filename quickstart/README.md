@@ -377,6 +377,7 @@ Behavior notes:
   validation (`error`, `warn`, `ignore`).
 - `deny_by_default=true` blocks transitions when no requirements are configured
   for a transition.
+- Operational contract and troubleshooting workflow: `../docs/GUIDE_CMS.md#17-translation-workflow-operations`.
 
 Wiring example:
 
