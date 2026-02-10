@@ -26,11 +26,20 @@ func TestContentEntryColumnsMarksFilterableFields(t *testing.T) {
 	if filterable, _ := byField["title"]["filterable"].(bool); !filterable {
 		t.Fatalf("expected title column to be filterable, got %+v", byField["title"])
 	}
+	if sortable, _ := byField["title"]["sortable"].(bool); !sortable {
+		t.Fatalf("expected title column to be sortable, got %+v", byField["title"])
+	}
 	if filterable, _ := byField["status"]["filterable"].(bool); !filterable {
 		t.Fatalf("expected status column to be filterable, got %+v", byField["status"])
 	}
+	if sortable, _ := byField["status"]["sortable"].(bool); !sortable {
+		t.Fatalf("expected status column to be sortable, got %+v", byField["status"])
+	}
 	if filterable, _ := byField["slug"]["filterable"].(bool); filterable {
 		t.Fatalf("expected slug column to be non-filterable, got %+v", byField["slug"])
+	}
+	if sortable, _ := byField["slug"]["sortable"].(bool); !sortable {
+		t.Fatalf("expected slug column to be sortable, got %+v", byField["slug"])
 	}
 }
 

@@ -343,6 +343,71 @@ func TestCMSContentTypeEntryRepositoryListFiltersBeforePagination(t *testing.T) 
 	}
 }
 
+func TestCMSContentTypeEntryRepositoryListSortsBeforePagination(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{Slug: "post"})
+
+	_, _ = content.CreateContent(ctx, CMSContent{Title: "Gamma", Slug: "gamma", Locale: "en", Status: "published", ContentTypeSlug: "post"})
+	_, _ = content.CreateContent(ctx, CMSContent{Title: "Alpha", Slug: "alpha", Locale: "en", Status: "published", ContentTypeSlug: "post"})
+	_, _ = content.CreateContent(ctx, CMSContent{Title: "Beta", Slug: "beta", Locale: "en", Status: "published", ContentTypeSlug: "post"})
+
+	pageOne, total, err := repo.List(ctx, ListOptions{
+		Page:    1,
+		PerPage: 1,
+		SortBy:  "title",
+	})
+	if err != nil {
+		t.Fatalf("list page one failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected total 3, got %d", total)
+	}
+	if len(pageOne) != 1 {
+		t.Fatalf("expected one item on page one, got %d", len(pageOne))
+	}
+	if got := toString(pageOne[0]["title"]); got != "Alpha" {
+		t.Fatalf("expected first sorted item Alpha, got %q", got)
+	}
+
+	pageTwo, total, err := repo.List(ctx, ListOptions{
+		Page:    2,
+		PerPage: 1,
+		SortBy:  "title",
+	})
+	if err != nil {
+		t.Fatalf("list page two failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected total 3 on page two, got %d", total)
+	}
+	if len(pageTwo) != 1 {
+		t.Fatalf("expected one item on page two, got %d", len(pageTwo))
+	}
+	if got := toString(pageTwo[0]["title"]); got != "Beta" {
+		t.Fatalf("expected second sorted item Beta, got %q", got)
+	}
+
+	desc, total, err := repo.List(ctx, ListOptions{
+		Page:     1,
+		PerPage:  1,
+		SortBy:   "title",
+		SortDesc: true,
+	})
+	if err != nil {
+		t.Fatalf("list desc failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected total 3 on desc list, got %d", total)
+	}
+	if len(desc) != 1 {
+		t.Fatalf("expected one item on desc page one, got %d", len(desc))
+	}
+	if got := toString(desc[0]["title"]); got != "Gamma" {
+		t.Fatalf("expected desc item Gamma, got %q", got)
+	}
+}
+
 func TestCMSBlockDefinitionRepositoryFiltersByContentType(t *testing.T) {
 	content := NewInMemoryContentService()
 	ctx := context.Background()

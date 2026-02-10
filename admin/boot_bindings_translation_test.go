@@ -67,6 +67,28 @@ func (translationWorkflowStub) AvailableTransitions(context.Context, string, str
 	return []WorkflowTransition{{Name: "publish", To: "published"}}, nil
 }
 
+type translationWorkflowAliasStub struct {
+	calls []string
+}
+
+func (s *translationWorkflowAliasStub) Transition(_ context.Context, input TransitionInput) (*TransitionResult, error) {
+	s.calls = append(s.calls, input.Transition)
+	return &TransitionResult{
+		EntityID:   input.EntityID,
+		EntityType: input.EntityType,
+		Transition: input.Transition,
+		FromState:  input.CurrentState,
+		ToState:    input.TargetState,
+	}, nil
+}
+
+func (s *translationWorkflowAliasStub) AvailableTransitions(context.Context, string, string) ([]WorkflowTransition, error) {
+	return []WorkflowTransition{
+		{Name: "request_approval", To: "pending_approval"},
+		{Name: "approve", To: "published"},
+	}, nil
+}
+
 func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
@@ -226,6 +248,53 @@ func TestPanelBindingLogsBlockedWorkflowTransition(t *testing.T) {
 	}
 	if entries[0].Metadata["transition"] != "publish" {
 		t.Fatalf("expected transition publish metadata, got %+v", entries[0].Metadata)
+	}
+}
+
+func TestPanelBindingWorkflowActionAliasesSupportLegacyTransitions(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"page_123": {
+				"id":                   "page_123",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_123",
+			},
+		},
+	}
+	workflow := &translationWorkflowAliasStub{}
+	panel := &Panel{
+		name:     "pages",
+		repo:     repo,
+		workflow: workflow,
+		actions: []Action{
+			{Name: "submit_for_approval"},
+			{Name: "publish"},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "pages",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	if _, err := binding.Action(c, "en", "submit_for_approval", map[string]any{"id": "page_123"}); err != nil {
+		t.Fatalf("submit_for_approval alias should resolve: %v", err)
+	}
+	if _, err := binding.Action(c, "en", "publish", map[string]any{"id": "page_123"}); err != nil {
+		t.Fatalf("publish alias should resolve: %v", err)
+	}
+
+	if len(workflow.calls) != 2 {
+		t.Fatalf("expected 2 workflow transitions, got %d (%+v)", len(workflow.calls), workflow.calls)
+	}
+	if workflow.calls[0] != "request_approval" {
+		t.Fatalf("expected submit_for_approval to map to request_approval, got %q", workflow.calls[0])
+	}
+	if workflow.calls[1] != "approve" {
+		t.Fatalf("expected publish to map to approve, got %q", workflow.calls[1])
 	}
 }
 

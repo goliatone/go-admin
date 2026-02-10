@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/pkg/types"
@@ -401,6 +402,61 @@ func TestGoUsersPreferencesStoreUpsertAndDelete(t *testing.T) {
 	}
 	if fallback.Effective["theme"] != "tenant" {
 		t.Fatalf("expected tenant fallback, got %v", fallback.Effective["theme"])
+	}
+}
+
+func TestGoUsersPreferencesStoreUpsertUserLevelSeparatesTargetAndActor(t *testing.T) {
+	repo := newStubPreferenceRepo()
+	store, err := NewGoUsersPreferencesStore(repo)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	actorID := uuid.New()
+	targetUserID := uuid.New()
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID: actorID.String(),
+		Subject: actorID.String(),
+		Role:    "admin",
+	})
+
+	if _, err := store.Upsert(ctx, admin.PreferencesUpsertInput{
+		Scope: admin.PreferenceScope{
+			UserID: targetUserID.String(),
+		},
+		Level:  admin.PreferenceLevelUser,
+		Values: map[string]any{"theme": "amber"},
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	record, ok := repo.getRecord(targetUserID, types.PreferenceLevelUser, "theme")
+	if !ok {
+		t.Fatalf("expected stored user-level record")
+	}
+	if record.UserID != targetUserID {
+		t.Fatalf("expected target user id %s, got %s", targetUserID, record.UserID)
+	}
+	if record.UpdatedBy != actorID {
+		t.Fatalf("expected actor updated_by %s, got %s", actorID, record.UpdatedBy)
+	}
+	if record.CreatedBy != actorID {
+		t.Fatalf("expected actor created_by %s, got %s", actorID, record.CreatedBy)
+	}
+}
+
+func TestGoUsersPreferencesStoreSystemUpsertRequiresActorContext(t *testing.T) {
+	repo := newStubPreferenceRepo()
+	store, err := NewGoUsersPreferencesStore(repo)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	if _, err := store.Upsert(context.Background(), admin.PreferencesUpsertInput{
+		Level:  admin.PreferenceLevelSystem,
+		Values: map[string]any{"feature_flags.users.signup": true},
+	}); err == nil {
+		t.Fatalf("expected actor id required error")
 	}
 }
 
