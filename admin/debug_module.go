@@ -286,41 +286,32 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 			Template: cfg.DashboardTemplate,
 		})
 	}
-	if rt, ok := a.router.(router.Router[router.Context]); ok {
-		group := rt.Group(basePath)
-		if access != nil {
-			group.Use(access)
-		}
-		if err := dashboardrouter.Register(dashboardrouter.Config[router.Context]{
-			Router:         group,
-			Controller:     controller,
-			API:            a.dash.executor,
-			Broadcast:      nil,
-			ViewerResolver: viewerResolver,
-			BasePath:       "/",
-			Routes:         routes,
-		}); err == nil {
+	registered, err := registerDashboardRoutesByRouterType(a.router, dashboardRouteRegistrars{
+		HTTP: func(rt router.Router[*httprouter.Router]) error {
+			group := rt.Group(basePath)
+			if access != nil {
+				group.Use(access)
+			}
+			if err := dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
+				Router:         group,
+				Controller:     controller,
+				API:            a.dash.executor,
+				Broadcast:      nil,
+				ViewerResolver: viewerResolver,
+				BasePath:       "/",
+				Routes:         routes,
+			}); err != nil {
+				return err
+			}
 			registerDebugDashboardWebSocket(group, routes.WebSocket, a.dash.broadcast, authHandler)
 			return nil
-		}
+		},
+	})
+	if err != nil {
+		return err
 	}
-	if rt, ok := a.router.(router.Router[*httprouter.Router]); ok {
-		group := rt.Group(basePath)
-		if access != nil {
-			group.Use(access)
-		}
-		if err := dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
-			Router:         group,
-			Controller:     controller,
-			API:            a.dash.executor,
-			Broadcast:      nil,
-			ViewerResolver: viewerResolver,
-			BasePath:       "/",
-			Routes:         routes,
-		}); err == nil {
-			registerDebugDashboardWebSocket(group, routes.WebSocket, a.dash.broadcast, authHandler)
-			return nil
-		}
+	if registered {
+		return nil
 	}
 	if err := registerFallback(); err != nil {
 		return err
