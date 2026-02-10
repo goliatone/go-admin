@@ -150,9 +150,12 @@ type (
 	PageReadDefaults          = core.PageReadDefaults
 	PageReadOptions           = core.PageReadOptions
 
-	Config       = core.Config
-	ErrorConfig  = core.ErrorConfig
-	Dependencies = core.Dependencies
+	Config         = core.Config
+	ErrorConfig    = core.ErrorConfig
+	Dependencies   = core.Dependencies
+	Logger         = core.Logger
+	LoggerProvider = core.LoggerProvider
+	FieldsLogger   = core.FieldsLogger
 
 	ExportColumn           = core.ExportColumn
 	ExportDefinition       = core.ExportDefinition
