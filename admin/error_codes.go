@@ -19,6 +19,8 @@ const (
 	TextCodeWorkflowInvalidTransition            = "WORKFLOW_INVALID_TRANSITION"
 	TextCodeTranslationMissing                   = "TRANSLATION_MISSING"
 	TextCodeTranslationExists                    = "TRANSLATION_EXISTS"
+	TextCodeTranslationQueueConflict             = "TRANSLATION_QUEUE_CONFLICT"
+	TextCodeTranslationQueueVersionConflict      = "TRANSLATION_QUEUE_VERSION_CONFLICT"
 	TextCodeTranslationExchangeUnsupportedFormat = "TRANSLATION_EXCHANGE_UNSUPPORTED_FORMAT"
 	TextCodeTranslationExchangeInvalidPayload    = "TRANSLATION_EXCHANGE_INVALID_PAYLOAD"
 	TextCodeTranslationExchangeMissingLinkage    = "TRANSLATION_EXCHANGE_MISSING_LINKAGE"
@@ -63,6 +65,8 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeWorkflowInvalidTransition, Description: "Workflow transition is invalid for the current state.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeTranslationMissing, Description: "Required translations are missing for this workflow transition.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
 	{Code: TextCodeTranslationExists, Description: "Translation for the requested locale already exists.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeTranslationQueueConflict, Description: "Translation queue assignment conflicts with an active assignment.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeTranslationQueueVersionConflict, Description: "Translation queue assignment version does not match the expected value.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeTranslationExchangeUnsupportedFormat, Description: "Translation exchange format is not supported.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeTranslationExchangeInvalidPayload, Description: "Translation exchange payload is invalid.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeTranslationExchangeMissingLinkage, Description: "Translation exchange row linkage could not be resolved.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
