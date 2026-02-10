@@ -16,27 +16,6 @@ type bulkRolePayload struct {
 	Replace bool     `json:"replace"`
 }
 
-type bulkRoleSummary struct {
-	Processed int `json:"processed"`
-	Succeeded int `json:"succeeded"`
-	Failed    int `json:"failed"`
-	Skipped   int `json:"skipped"`
-}
-
-type bulkRoleResult struct {
-	UserID string `json:"user_id"`
-	Status string `json:"status"`
-	Error  string `json:"error,omitempty"`
-}
-
-type bulkRoleResponse struct {
-	Summary bulkRoleSummary  `json:"summary"`
-	Results []bulkRoleResult `json:"results"`
-	RoleID  string           `json:"role_id"`
-	Action  string           `json:"action"`
-	Replace bool             `json:"replace"`
-}
-
 // RegisterUserRoleBulkRoutes registers bulk assign/unassign endpoints.
 func RegisterUserRoleBulkRoutes(r admin.AdminRouter, cfg admin.Config, adm *admin.Admin) error {
 	if r == nil || adm == nil || adm.UserService() == nil {
@@ -92,55 +71,16 @@ func bulkRoleChange(c router.Context, adm *admin.Admin, cfg admin.Config, assign
 		return c.JSON(fiber.StatusBadRequest, map[string]any{"error": "ids required"})
 	}
 
-	results := make([]bulkRoleResult, 0, len(userIDs))
-	summary := bulkRoleSummary{Processed: len(userIDs)}
-	for _, userID := range userIDs {
-		result := bulkRoleResult{UserID: userID, Status: "skipped"}
-		if assign && payload.Replace {
-			if existing, err := service.RolesForUser(c.Context(), userID); err == nil {
-				for _, role := range existing {
-					if role.ID == roleID {
-						continue
-					}
-					_ = service.UnassignRole(c.Context(), userID, role.ID)
-				}
-			}
-		}
-
-		if assign {
-			if err := service.AssignRole(c.Context(), userID, roleID); err != nil {
-				result.Status = "failed"
-				result.Error = err.Error()
-				summary.Failed++
-			} else {
-				result.Status = "success"
-				summary.Succeeded++
-			}
-		} else {
-			if err := service.UnassignRole(c.Context(), userID, roleID); err != nil {
-				result.Status = "failed"
-				result.Error = err.Error()
-				summary.Failed++
-			} else {
-				result.Status = "success"
-				summary.Succeeded++
-			}
-		}
-		results = append(results, result)
-	}
-	summary.Skipped = summary.Processed - summary.Succeeded - summary.Failed
-
-	action := "unassign"
-	if assign {
-		action = "assign"
-	}
-	return c.JSON(fiber.StatusOK, bulkRoleResponse{
-		Summary: summary,
-		Results: results,
+	result, err := service.BulkRoleChange(c.Context(), admin.BulkRoleChangeRequest{
+		UserIDs: userIDs,
 		RoleID:  roleID,
-		Action:  action,
+		Assign:  assign,
 		Replace: payload.Replace,
 	})
+	if err != nil {
+		return err
+	}
+	return c.JSON(fiber.StatusOK, result)
 }
 
 func filterNonEmpty(values []string) []string {
