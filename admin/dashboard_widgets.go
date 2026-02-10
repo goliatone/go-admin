@@ -35,7 +35,7 @@ func (a *Admin) registerDefaultWidgets() error {
 	return dashinternal.RegisterDefaultWidgets(
 		a.widgetServiceAdapter(),
 		features,
-		func() error { return a.registerDashboardProviders() },
+		nil,
 	)
 }
 
