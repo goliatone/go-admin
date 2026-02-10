@@ -113,3 +113,20 @@ func TestTranslationQueuePanelRunActionRequiresPermission(t *testing.T) {
 		t.Fatalf("expected permission denied error")
 	}
 }
+
+func TestRegisterTranslationQueuePanelAlsoRegistersPageAndPostTabs(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	for _, panelName := range []string{"pages", "posts"} {
+		tabs := adm.registry.PanelTabs(panelName)
+		if len(tabs) != 1 {
+			t.Fatalf("expected one queue tab on %s, got %d", panelName, len(tabs))
+		}
+		if tabs[0].Target.Panel != translationQueuePanelID {
+			t.Fatalf("expected %s tab target, got %+v", translationQueuePanelID, tabs[0].Target)
+		}
+	}
+}
