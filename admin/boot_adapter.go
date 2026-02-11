@@ -61,6 +61,30 @@ func (a *Admin) URLs() urlkit.Resolver {
 	return a.urlManager
 }
 
+// LoggerProvider exposes the configured logger provider.
+func (a *Admin) LoggerProvider() LoggerProvider {
+	if a == nil {
+		return nil
+	}
+	return a.loggerProvider
+}
+
+// Logger exposes the base configured logger.
+func (a *Admin) Logger() Logger {
+	if a == nil {
+		return ensureLogger(nil)
+	}
+	return ensureLogger(a.logger)
+}
+
+// NamedLogger resolves a named logger via the configured provider.
+func (a *Admin) NamedLogger(name string) Logger {
+	if a == nil {
+		return ensureLogger(nil)
+	}
+	return a.loggerFor(name)
+}
+
 // DefaultLocale exposes the configured default locale.
 func (a *Admin) DefaultLocale() string {
 	return a.config.DefaultLocale
@@ -162,6 +186,11 @@ func (a *Admin) BootSchemaRegistry() boot.SchemaRegistryBinding {
 // BootFeatureOverrides exposes the feature overrides binding.
 func (a *Admin) BootFeatureOverrides() boot.FeatureOverridesBinding {
 	return newFeatureOverridesBinding(a)
+}
+
+// BootIcons exposes the icons binding for icon discovery and rendering.
+func (a *Admin) BootIcons() boot.IconsBinding {
+	return newIconsBinding(a)
 }
 
 // SettingsWidget registers the settings widget provider.
