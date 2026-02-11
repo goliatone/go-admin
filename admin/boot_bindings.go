@@ -3,15 +3,18 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin/internal/boot"
+	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-command/dispatcher"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
+	goerrors "github.com/goliatone/go-errors"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/pkg/authctx"
@@ -123,6 +126,10 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		return nil, 0, nil, nil, err
 	}
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
+	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
+	schema.BulkActions = filterActionsForScope(schema.BulkActions, ActionScopeBulk)
+	records = p.withTranslationReadiness(ctx, records, listOpts.Filters)
+	records = p.withRowActionState(ctx, records, schema.Actions)
 	if p.admin != nil {
 		p.admin.applyContentTypeSchemaFromContext(ctx, &schema, p.name)
 	}
@@ -148,6 +155,7 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 	if err != nil {
 		return nil, err
 	}
+	record = p.withTranslationReadinessRecord(ctx, record, nil)
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
 	contentTypeKey := ""
 	if p.name == "content" && record != nil {
@@ -214,19 +222,18 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("environment"), c.Query("env"), c.Query("policy_entity"), c.Query("policyEntity"))
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
-	if definition, ok := p.panel.findAction(action); ok {
-		if err := validateActionPayload(definition, body); err != nil {
+	primaryID := resolvePrimaryActionID(body, ids)
+	actionDef, actionDefined := p.panel.findAction(action)
+	workflowBackedAction := actionDefined && shouldReturnWorkflowInvalidTransition(actionDef, action)
+	if actionDefined {
+		body = applyActionPayloadDefaults(actionDef, body, ids)
+		if err := validateActionPayload(actionDef, body); err != nil {
 			return nil, err
 		}
 	}
 
 	if action == "create_translation" {
-		if len(ids) == 0 {
-			if raw := toString(body["id"]); raw != "" {
-				ids = []string{raw}
-			}
-		}
-		if len(ids) != 1 {
+		if primaryID == "" {
 			return nil, validationDomainError("translation requires a single id", map[string]any{
 				"field": "id",
 			})
@@ -238,18 +245,18 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			})
 		}
 		environment := resolvePolicyEnvironment(body, environmentFromContext(ctx.Context))
-		record, err := p.panel.Get(ctx, ids[0])
+		record, err := p.panel.Get(ctx, primaryID)
 		if err != nil {
 			return nil, err
 		}
 		groupID := strings.TrimSpace(toString(record["translation_group_id"]))
 		if groupID == "" {
-			groupID = ids[0]
+			groupID = primaryID
 		}
 		if translationLocaleExists(record, targetLocale) {
 			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
 				Entity:             p.name,
-				EntityID:           ids[0],
+				EntityID:           primaryID,
 				SourceLocale:       strings.TrimSpace(toString(record["locale"])),
 				Locale:             targetLocale,
 				Transition:         "create_translation",
@@ -259,7 +266,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			})
 			dup := TranslationAlreadyExistsError{
 				Panel:              p.name,
-				EntityID:           ids[0],
+				EntityID:           primaryID,
 				SourceLocale:       strings.TrimSpace(toString(record["locale"])),
 				Locale:             targetLocale,
 				TranslationGroupID: groupID,
@@ -282,7 +289,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 		if err != nil {
 			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
 				Entity:             p.name,
-				EntityID:           ids[0],
+				EntityID:           primaryID,
 				SourceLocale:       strings.TrimSpace(toString(record["locale"])),
 				Locale:             targetLocale,
 				Transition:         "create_translation",
@@ -295,7 +302,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 		}
 		recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
 			Entity:             p.name,
-			EntityID:           ids[0],
+			EntityID:           primaryID,
 			SourceLocale:       strings.TrimSpace(toString(record["locale"])),
 			Locale:             targetLocale,
 			Transition:         "create_translation",
@@ -305,22 +312,30 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 		})
 		p.panel.recordActivity(ctx, "panel.translation.create", map[string]any{
 			"panel":                p.name,
-			"entity_id":            ids[0],
+			"entity_id":            primaryID,
 			"locale":               targetLocale,
 			"translation_group_id": groupID,
 		})
 		return buildCreateTranslationResponse(created, targetLocale, groupID), nil
 	}
 
-	if p.panel.workflow != nil && len(ids) == 1 {
-		record, err := p.panel.Get(ctx, ids[0])
-		if err == nil {
+	if p.panel.workflow != nil && primaryID != "" {
+		record, err := p.panel.Get(ctx, primaryID)
+		if err != nil {
+			if workflowBackedAction {
+				return nil, err
+			}
+		} else {
 			state := ""
 			if s, ok := record["status"].(string); ok {
 				state = s
 			}
 			transitions, err := p.panel.workflow.AvailableTransitions(ctx.Context, p.name, state)
-			if err == nil {
+			if err != nil {
+				if workflowBackedAction {
+					return nil, err
+				}
+			} else {
 				candidates := workflowTransitionCandidates(action)
 				for _, t := range transitions {
 					if !containsTransitionName(candidates, t.Name) {
@@ -334,7 +349,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 							}
 						}
 					}
-					policyInput := buildTranslationPolicyInput(ctx.Context, p.name, ids[0], state, action, body)
+					policyInput := buildTranslationPolicyInput(ctx.Context, p.name, primaryID, state, action, body)
 					if policyInput.RequestedLocale == "" && record != nil {
 						policyInput.RequestedLocale = requestedLocaleFromPayload(record, localeFromContext(ctx.Context))
 					}
@@ -345,11 +360,11 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 						policyInput.PolicyEntity = resolvePolicyEntity(record, p.name)
 					}
 					if err := applyTranslationPolicy(ctx.Context, p.panel.translationPolicy, policyInput); err != nil {
-						p.recordBlockedTransition(ctx, ids[0], action, policyInput, err)
+						p.recordBlockedTransition(ctx, primaryID, action, policyInput, err)
 						return nil, err
 					}
 					_, err := p.panel.workflow.Transition(ctx.Context, TransitionInput{
-						EntityID:     ids[0],
+						EntityID:     primaryID,
 						EntityType:   p.name,
 						CurrentState: state,
 						Transition:   transitionName,
@@ -359,12 +374,15 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 					})
 					if err == nil {
 						// Successfully transitioned, now update the record status without re-evaluating workflow.
-						_, _ = p.panel.Update(ctx, ids[0], map[string]any{"status": t.To, "_workflow_skip": true})
+						_, _ = p.panel.Update(ctx, primaryID, map[string]any{"status": t.To, "_workflow_skip": true})
 					}
 					if err != nil {
 						return nil, err
 					}
 					return nil, nil
+				}
+				if workflowBackedAction {
+					return nil, workflowInvalidTransitionDomainError(p.name, primaryID, action, state, transitions)
 				}
 			}
 		}
@@ -397,6 +415,258 @@ func containsTransitionName(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func shouldReturnWorkflowInvalidTransition(definition Action, action string) bool {
+	if strings.TrimSpace(definition.CommandName) != "" {
+		return false
+	}
+	if actionHasPassiveRouting(definition) {
+		return false
+	}
+	action = strings.ToLower(strings.TrimSpace(action))
+	if action == "" {
+		return false
+	}
+	_, ok := workflowActionNames[action]
+	return ok
+}
+
+func workflowInvalidTransitionDomainError(panelName, entityID, action, currentState string, transitions []WorkflowTransition) error {
+	currentState = strings.TrimSpace(currentState)
+	if currentState == "" {
+		currentState = "unknown"
+	}
+	action = strings.TrimSpace(action)
+	return NewDomainError(
+		TextCodeWorkflowInvalidTransition,
+		fmt.Sprintf("transition %q is not available from state %q", action, currentState),
+		map[string]any{
+			"panel":                 strings.TrimSpace(panelName),
+			"entity_id":             strings.TrimSpace(entityID),
+			"action":                action,
+			"current_state":         currentState,
+			"available_transitions": workflowTransitionNamesList(transitions),
+		},
+	)
+}
+
+func workflowTransitionNamesList(transitions []WorkflowTransition) []string {
+	if len(transitions) == 0 {
+		return []string{}
+	}
+	out := make([]string, 0, len(transitions))
+	seen := make(map[string]struct{}, len(transitions))
+	for _, transition := range transitions {
+		name := strings.TrimSpace(transition.Name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
+	}
+	return out
+}
+
+func (p *panelBinding) withRowActionState(ctx AdminContext, records []map[string]any, actions []Action) []map[string]any {
+	if len(records) == 0 || len(actions) == 0 {
+		return records
+	}
+	workflowTransitionsByState := map[string][]WorkflowTransition{}
+	workflowTransitionErrByState := map[string]error{}
+	out := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		cloned := cloneAnyMap(record)
+		state := strings.TrimSpace(toString(cloned["status"]))
+		if p.panel.workflow != nil {
+			if _, seen := workflowTransitionsByState[state]; !seen {
+				transitions, err := p.panel.workflow.AvailableTransitions(ctx.Context, p.name, state)
+				workflowTransitionsByState[state] = append([]WorkflowTransition{}, transitions...)
+				workflowTransitionErrByState[state] = err
+			}
+		}
+		actionState := p.rowActionStateForRecord(ctx, cloned, actions, workflowTransitionsByState[state], workflowTransitionErrByState[state])
+		if len(actionState) > 0 {
+			cloned["_action_state"] = actionState
+		}
+		out = append(out, cloned)
+	}
+	return out
+}
+
+func (p *panelBinding) withTranslationReadiness(ctx AdminContext, records []map[string]any, filters map[string]any) []map[string]any {
+	if len(records) == 0 {
+		return records
+	}
+	out := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		out = append(out, p.withTranslationReadinessRecord(ctx, record, filters))
+	}
+	return out
+}
+
+func (p *panelBinding) withTranslationReadinessRecord(ctx AdminContext, record map[string]any, filters map[string]any) map[string]any {
+	if len(record) == 0 {
+		return record
+	}
+	policy := p.translationReadinessPolicy()
+	if policy == nil {
+		return record
+	}
+	readiness := buildRecordTranslationReadiness(ctx.Context, policy, p.name, record, filters)
+	if len(readiness) == 0 {
+		return record
+	}
+	cloned := cloneAnyMap(record)
+	if cloned == nil {
+		cloned = map[string]any{}
+	}
+	cloned["translation_readiness"] = readiness
+	return cloned
+}
+
+func (p *panelBinding) translationReadinessPolicy() TranslationPolicy {
+	if p == nil {
+		return nil
+	}
+	if p.panel != nil && p.panel.translationPolicy != nil {
+		return p.panel.translationPolicy
+	}
+	if p.admin != nil {
+		return p.admin.translationPolicy
+	}
+	return nil
+}
+
+func (p *panelBinding) rowActionStateForRecord(ctx AdminContext, record map[string]any, actions []Action, transitions []WorkflowTransition, transitionsErr error) map[string]map[string]any {
+	if len(record) == 0 || len(actions) == 0 {
+		return nil
+	}
+	state := strings.TrimSpace(toString(record["status"]))
+	id := strings.TrimSpace(toString(record["id"]))
+	out := map[string]map[string]any{}
+	for _, action := range actions {
+		name := strings.TrimSpace(action.Name)
+		if name == "" {
+			continue
+		}
+		availability := map[string]any{"enabled": true}
+		if !actionContextRequiredSatisfied(record, action.ContextRequired) {
+			availability["enabled"] = false
+			availability["reason_code"] = "missing_context_required"
+			availability["reason"] = "record does not include required context for this action"
+			out[name] = availability
+			continue
+		}
+		if action.Permission != "" && p.panel.authorizer != nil && !p.panel.authorizer.Can(ctx.Context, action.Permission, p.name) {
+			availability["enabled"] = false
+			availability["reason_code"] = "permission_denied"
+			availability["reason"] = "you do not have permission to execute this action"
+			out[name] = availability
+			continue
+		}
+		lowered := strings.ToLower(name)
+		if _, workflowAction := workflowActionNames[lowered]; !workflowAction {
+			out[name] = availability
+			continue
+		}
+		if p.panel.workflow == nil {
+			availability["enabled"] = false
+			availability["reason_code"] = "workflow_not_configured"
+			availability["reason"] = "workflow is not configured for this panel"
+			out[name] = availability
+			continue
+		}
+		if id == "" {
+			availability["enabled"] = false
+			availability["reason_code"] = "record_id_missing"
+			availability["reason"] = "record id required to evaluate workflow action"
+			out[name] = availability
+			continue
+		}
+		if transitionsErr != nil {
+			availability["enabled"] = false
+			availability["reason_code"] = "workflow_transitions_unavailable"
+			availability["reason"] = "workflow transitions are unavailable"
+			out[name] = availability
+			continue
+		}
+		transitionNames := workflowTransitionNamesList(transitions)
+		availability["available_transitions"] = transitionNames
+		if !actionMatchesAvailableWorkflowTransition(name, transitions) {
+			availability["enabled"] = false
+			availability["reason_code"] = "workflow_transition_not_available"
+			availability["reason"] = fmt.Sprintf("transition %q is not available from state %q", name, firstNonEmpty(state, "unknown"))
+			out[name] = availability
+			continue
+		}
+		out[name] = availability
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func actionMatchesAvailableWorkflowTransition(action string, transitions []WorkflowTransition) bool {
+	if len(transitions) == 0 {
+		return false
+	}
+	candidates := workflowTransitionCandidates(action)
+	for _, transition := range transitions {
+		if containsTransitionName(candidates, transition.Name) {
+			return true
+		}
+	}
+	return false
+}
+
+func actionContextRequiredSatisfied(record map[string]any, required []string) bool {
+	if len(required) == 0 {
+		return true
+	}
+	for _, field := range required {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		value, ok := actionContextValue(record, field)
+		if !ok || isEmptyActionPayloadValue(value) {
+			return false
+		}
+	}
+	return true
+}
+
+func actionContextValue(record map[string]any, field string) (any, bool) {
+	if len(record) == 0 {
+		return nil, false
+	}
+	if !strings.Contains(field, ".") {
+		value, ok := record[field]
+		return value, ok
+	}
+	parts := strings.Split(field, ".")
+	var current any = record
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			return nil, false
+		}
+		object, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		next, ok := object[part]
+		if !ok {
+			return nil, false
+		}
+		current = next
+	}
+	return current, true
 }
 
 func mergePanelActionContext(body map[string]any, locale string, values ...string) map[string]any {
@@ -437,6 +707,40 @@ func mergePanelActionContext(body map[string]any, locale string, values ...strin
 		body["policy_entity"] = queryPolicyEntity
 	}
 	return body
+}
+
+func resolvePrimaryActionID(body map[string]any, ids []string) string {
+	if len(body) > 0 {
+		if id := strings.TrimSpace(toString(body["id"])); id != "" {
+			return id
+		}
+		if record := extractMap(body["record"]); len(record) > 0 {
+			if id := strings.TrimSpace(toString(record["id"])); id != "" {
+				return id
+			}
+		}
+		if selection := extractMap(body["selection"]); len(selection) > 0 {
+			if id := strings.TrimSpace(toString(selection["id"])); id != "" {
+				return id
+			}
+			if selectionIDs := toStringSlice(selection["ids"]); len(selectionIDs) > 0 {
+				if id := strings.TrimSpace(selectionIDs[0]); id != "" {
+					return id
+				}
+			}
+		}
+		if bodyIDs := toStringSlice(body["ids"]); len(bodyIDs) > 0 {
+			if id := strings.TrimSpace(bodyIDs[0]); id != "" {
+				return id
+			}
+		}
+	}
+	for _, id := range ids {
+		if trimmed := strings.TrimSpace(id); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func translationLocaleExists(record map[string]any, locale string) bool {
@@ -501,6 +805,7 @@ func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[st
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
 	if definition, ok := p.panel.findBulkAction(action); ok {
+		body = applyActionPayloadDefaults(definition, body, ids)
 		if err := validateActionPayload(definition, body); err != nil {
 			return err
 		}
@@ -1187,8 +1492,15 @@ func newActivityBinding(a *Admin) boot.ActivityBinding {
 
 func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) {
 	adminCtx := aBinding.admin.adminContextFromRequest(c, aBinding.admin.config.DefaultLocale)
-	actorRef, actorCtx, err := authctx.ResolveActor(adminCtx.Context)
+	actorCtx, err := authctx.ResolveActorContext(adminCtx.Context)
 	if err != nil {
+		return nil, err
+	}
+	actorRef, err := authctx.ActorRefFromActorContext(actorCtx)
+	if err != nil {
+		if isActivityActorContextInvalid(err) {
+			return nil, invalidActivityActorContextDomainError(actorCtx, err)
+		}
 		return nil, err
 	}
 	if err := aBinding.admin.requirePermission(adminCtx, aBinding.admin.config.ActivityPermission, "activity"); err != nil {
@@ -1203,6 +1515,9 @@ func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) 
 	}
 	page, err := aBinding.admin.activityFeed.Query(adminCtx.Context, filter)
 	if err != nil {
+		if isActivityActorContextInvalid(err) {
+			return nil, invalidActivityActorContextDomainError(actorCtx, err)
+		}
 		if errors.Is(err, usertypes.ErrMissingActivityRepository) {
 			return nil, FeatureDisabledError{Feature: "activity"}
 		}
@@ -1214,6 +1529,42 @@ func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) 
 		"next_offset": page.NextOffset,
 		"has_more":    page.HasMore,
 	}, nil
+}
+
+func isActivityActorContextInvalid(err error) bool {
+	var typed *goerrors.Error
+	if !goerrors.As(err, &typed) || typed == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(typed.TextCode), "ACTOR_CONTEXT_INVALID")
+}
+
+func invalidActivityActorContextDomainError(actorCtx *auth.ActorContext, cause error) error {
+	actorID := ""
+	role := ""
+	subject := ""
+	if actorCtx != nil {
+		actorID = strings.TrimSpace(actorCtx.ActorID)
+		role = strings.TrimSpace(actorCtx.Role)
+		subject = strings.TrimSpace(actorCtx.Subject)
+	}
+	message := "activity requires auth actor_id to be a UUID string"
+	if actorID != "" {
+		message = fmt.Sprintf("activity requires auth actor_id to be a UUID string; got %q", actorID)
+	}
+	meta := map[string]any{
+		"component":           "activity",
+		"field":               "actor_id",
+		"actor_id":            actorID,
+		"role":                role,
+		"subject":             subject,
+		"expected_format":     "uuid",
+		"source_text_code":    "ACTOR_CONTEXT_INVALID",
+		"source_error":        strings.TrimSpace(cause.Error()),
+		"resolution":          "Set auth actor_id/user_id to a UUID value in the auth middleware claims mapping.",
+		"integration_surface": "authctx.ActorRefFromActorContext",
+	}
+	return NewDomainError(TextCodeActivityActorContextInvalid, message, meta)
 }
 
 type jobsBinding struct {
@@ -1347,5 +1698,136 @@ func (d *dashboardBinding) Diagnostics(c router.Context, locale string) (map[str
 		"resolve_errors":     report.ResolveErrors,
 		"widget_service":     report.WidgetService,
 		"has_widget_service": report.HasWidgetService,
+	}, nil
+}
+
+type iconsBinding struct {
+	admin *Admin
+}
+
+func newIconsBinding(a *Admin) boot.IconsBinding {
+	if a == nil || a.iconService == nil {
+		return nil
+	}
+	return &iconsBinding{admin: a}
+}
+
+func (i *iconsBinding) Libraries(c router.Context) (map[string]any, error) {
+	libraries := i.admin.iconService.Libraries()
+	result := make([]map[string]any, len(libraries))
+	for idx, lib := range libraries {
+		result[idx] = map[string]any{
+			"id":          lib.ID,
+			"name":        lib.Name,
+			"description": lib.Description,
+			"version":     lib.Version,
+			"cdn":         lib.CDN,
+			"css_class":   lib.CSSClass,
+			"render_mode": lib.RenderMode,
+			"priority":    lib.Priority,
+			"categories":  lib.Categories,
+		}
+	}
+	defaults := i.admin.iconService.Defaults()
+	return map[string]any{
+		"libraries": result,
+		"default":   defaults.DefaultLibrary,
+	}, nil
+}
+
+func (i *iconsBinding) Library(c router.Context, id string) (map[string]any, error) {
+	lib, ok := i.admin.iconService.Library(id)
+	if !ok {
+		return nil, notFoundDomainError("icon library not found", map[string]any{"id": id})
+	}
+	return map[string]any{
+		"id":          lib.ID,
+		"name":        lib.Name,
+		"description": lib.Description,
+		"version":     lib.Version,
+		"cdn":         lib.CDN,
+		"css_class":   lib.CSSClass,
+		"render_mode": lib.RenderMode,
+		"priority":    lib.Priority,
+		"categories":  i.admin.iconService.Categories(id),
+		"icon_count":  len(lib.Icons),
+	}, nil
+}
+
+func (i *iconsBinding) LibraryIcons(c router.Context, libraryID, category string) ([]map[string]any, error) {
+	icons := i.admin.iconService.LibraryIcons(libraryID, category)
+	result := make([]map[string]any, len(icons))
+	for idx, icon := range icons {
+		result[idx] = map[string]any{
+			"id":       icon.ID,
+			"name":     icon.Name,
+			"label":    icon.Label,
+			"type":     icon.Type,
+			"library":  icon.Library,
+			"keywords": icon.Keywords,
+			"category": icon.Category,
+		}
+	}
+	return result, nil
+}
+
+func (i *iconsBinding) Search(c router.Context, query string, limit int) ([]map[string]any, error) {
+	icons := i.admin.iconService.Search(c.Context(), query, limit)
+	result := make([]map[string]any, len(icons))
+	for idx, icon := range icons {
+		result[idx] = map[string]any{
+			"id":       icon.ID,
+			"name":     icon.Name,
+			"label":    icon.Label,
+			"type":     icon.Type,
+			"library":  icon.Library,
+			"keywords": icon.Keywords,
+			"category": icon.Category,
+		}
+	}
+	return result, nil
+}
+
+func (i *iconsBinding) Resolve(c router.Context, value string) (map[string]any, error) {
+	ref := ParseIconReference(value)
+	def, err := i.admin.iconService.Resolve(ref)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]any{
+		"raw":           ref.Raw,
+		"type":          ref.Type,
+		"library":       ref.Library,
+		"value":         ref.Value,
+		"qualified":     ref.Qualified,
+		"legacy_mapped": ref.LegacyMapped,
+	}
+	if def != nil {
+		result["definition"] = map[string]any{
+			"id":       def.ID,
+			"name":     def.Name,
+			"label":    def.Label,
+			"type":     def.Type,
+			"library":  def.Library,
+			"keywords": def.Keywords,
+			"category": def.Category,
+		}
+	}
+	return result, nil
+}
+
+func (i *iconsBinding) Render(c router.Context, value, variant string) (map[string]any, error) {
+	ref := ParseIconReference(value)
+	opts := RenderOptionsForAPI(false) // Untrusted by default for API requests
+	if variant != "" {
+		opts.Variant = variant
+	}
+	html := i.admin.iconService.Render(ref, opts)
+	return map[string]any{
+		"value":   value,
+		"variant": variant,
+		"html":    html,
+		"type":    ref.Type,
+		"library": ref.Library,
 	}, nil
 }
