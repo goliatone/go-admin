@@ -3,6 +3,11 @@
 {% block title %}E-Sign - {{ title }}{% endblock %}
 
 {% block content %}
+{% set agreements_index = adminURL("content/esign_agreements") %}
+{% set agreements_new = adminURL("content/esign_agreements/new") %}
+{% set documents_index = adminURL("content/esign_documents") %}
+{% set documents_new = adminURL("content/esign_documents/new") %}
+{% set google_integration = adminURL("esign/integrations/google") %}
 <header class="px-8 py-6 bg-white border-b border-gray-200">
   <div class="flex justify-between items-center">
     <div>
@@ -10,7 +15,7 @@
       <p class="text-sm text-zinc-500 mt-1">Create, send, and manage digital agreements</p>
     </div>
     <div class="flex gap-3">
-      <a href="{{ base_path }}/esign/agreements/new" class="btn btn-primary" aria-label="Create new agreement">
+      <a href="{{ agreements_new }}" class="btn btn-primary" aria-label="Create new agreement">
         <i class="iconoir-plus mr-2" aria-hidden="true"></i>
         New Agreement
       </a>
@@ -24,7 +29,7 @@
     <h2 id="quick-actions-title" class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Quick Actions</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <!-- Upload Document -->
-      <a href="{{ base_path }}/esign/documents/new"
+      <a href="{{ documents_new }}"
          class="group bg-white rounded-xl border border-gray-200 p-6 hover:border-blue-300 hover:shadow-md transition-all"
          aria-label="Upload a new document">
         <div class="flex items-start gap-4">
@@ -39,7 +44,7 @@
       </a>
 
       <!-- Create Agreement -->
-      <a href="{{ base_path }}/esign/agreements/new"
+      <a href="{{ agreements_new }}"
          class="group bg-white rounded-xl border border-gray-200 p-6 hover:border-green-300 hover:shadow-md transition-all"
          aria-label="Create a new agreement">
         <div class="flex items-start gap-4">
@@ -54,7 +59,7 @@
       </a>
 
       <!-- View Documents -->
-      <a href="{{ base_path }}/esign/documents"
+      <a href="{{ documents_index }}"
          class="group bg-white rounded-xl border border-gray-200 p-6 hover:border-purple-300 hover:shadow-md transition-all"
          aria-label="Browse document library">
         <div class="flex items-start gap-4">
@@ -75,7 +80,7 @@
     <h2 id="status-overview-title" class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Agreement Status</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <!-- Draft -->
-      <a href="{{ base_path }}/esign/agreements?status=draft"
+      <a href="{{ agreements_index }}?status=draft"
          class="bg-white rounded-xl border border-gray-200 p-5 hover:border-gray-300 hover:shadow-sm transition-all"
          aria-label="View draft agreements">
         <div class="flex items-center gap-3 mb-2">
@@ -86,7 +91,7 @@
       </a>
 
       <!-- Pending (Sent + In Progress) -->
-      <a href="{{ base_path }}/esign/agreements?status=sent,in_progress"
+      <a href="{{ agreements_index }}?status=sent,in_progress"
          class="bg-white rounded-xl border border-gray-200 p-5 hover:border-amber-300 hover:shadow-sm transition-all"
          aria-label="View pending agreements">
         <div class="flex items-center gap-3 mb-2">
@@ -97,7 +102,7 @@
       </a>
 
       <!-- Completed -->
-      <a href="{{ base_path }}/esign/agreements?status=completed"
+      <a href="{{ agreements_index }}?status=completed"
          class="bg-white rounded-xl border border-gray-200 p-5 hover:border-green-300 hover:shadow-sm transition-all"
          aria-label="View completed agreements">
         <div class="flex items-center gap-3 mb-2">
@@ -108,7 +113,7 @@
       </a>
 
       <!-- Action Required -->
-      <a href="{{ base_path }}/esign/agreements?action_required=true"
+      <a href="{{ agreements_index }}?action_required=true"
          class="bg-white rounded-xl border border-gray-200 p-5 hover:border-red-300 hover:shadow-sm transition-all"
          aria-label="View agreements requiring action">
         <div class="flex items-center gap-3 mb-2">
@@ -124,7 +129,7 @@
   <section aria-labelledby="recent-agreements-title">
     <div class="flex items-center justify-between mb-4">
       <h2 id="recent-agreements-title" class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Recent Agreements</h2>
-      <a href="{{ base_path }}/esign/agreements" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+      <a href="{{ agreements_index }}" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
         View All
         <i class="iconoir-arrow-right ml-1" aria-hidden="true"></i>
       </a>
@@ -146,7 +151,7 @@
           {% for agreement in recent_agreements %}
           <tr class="hover:bg-gray-50">
             <td class="px-6 py-4">
-              <a href="{{ base_path }}/esign/agreements/{{ agreement.id }}" class="font-medium text-admin-dark hover:text-blue-600">
+              <a href="{{ agreements_index }}/{{ agreement.id }}" class="font-medium text-admin-dark hover:text-blue-600">
                 {{ agreement.title }}
               </a>
             </td>
@@ -174,7 +179,7 @@
               {{ agreement.updated_at }}
             </td>
             <td class="px-6 py-4 text-right">
-              <a href="{{ base_path }}/esign/agreements/{{ agreement.id }}"
+              <a href="{{ agreements_index }}/{{ agreement.id }}"
                  class="text-blue-600 hover:text-blue-700 text-sm font-medium"
                  aria-label="View agreement {{ agreement.title }}">
                 View
@@ -191,7 +196,7 @@
         </div>
         <h3 class="text-lg font-medium text-admin-dark mb-2">No agreements yet</h3>
         <p class="text-sm text-zinc-500 mb-4">Get started by creating your first agreement</p>
-        <a href="{{ base_path }}/esign/agreements/new" class="btn btn-primary">
+        <a href="{{ agreements_new }}" class="btn btn-primary">
           <i class="iconoir-plus mr-2" aria-hidden="true"></i>
           Create Agreement
         </a>
@@ -220,7 +225,7 @@
             <p class="text-sm text-zinc-500">Import documents directly from Google Drive</p>
           </div>
         </div>
-        <a href="{{ base_path }}/esign/integrations/google" class="btn btn-secondary">
+        <a href="{{ google_integration }}" class="btn btn-secondary">
           Configure
         </a>
       </div>
