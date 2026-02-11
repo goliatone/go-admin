@@ -1029,9 +1029,6 @@ func importSeed(ctx context.Context, md interfaces.MarkdownService, seed content
 	if custom == nil {
 		custom = map[string]any{}
 	}
-	if seed.Tags != nil {
-		custom["tags"] = append([]string(nil), seed.Tags...)
-	}
 	if seed.Path != "" {
 		if custom["path"] == nil {
 			custom["path"] = seed.Path
@@ -1354,34 +1351,6 @@ func buildSeedContentPayload(seed contentSeed) map[string]any {
 	custom := cloneAnyMap(seed.Custom)
 	if custom == nil {
 		custom = map[string]any{}
-	}
-	if path != "" {
-		if strings.TrimSpace(fmt.Sprint(custom["path"])) == "" || fmt.Sprint(custom["path"]) == "<nil>" {
-			custom["path"] = path
-		}
-	}
-	if strings.TrimSpace(seed.Summary) != "" {
-		if strings.TrimSpace(fmt.Sprint(custom["summary"])) == "" || fmt.Sprint(custom["summary"]) == "<nil>" {
-			custom["summary"] = seed.Summary
-		}
-	}
-	if len(seed.Tags) > 0 {
-		if existing, ok := custom["tags"]; !ok || existing == nil {
-			custom["tags"] = append([]string{}, seed.Tags...)
-		}
-	}
-	if seoTitle != "" || seoDescription != "" {
-		seo, _ := custom["seo"].(map[string]any)
-		if seo == nil {
-			seo = map[string]any{}
-		}
-		if seoTitle != "" && strings.TrimSpace(fmt.Sprint(seo["title"])) == "" {
-			seo["title"] = seoTitle
-		}
-		if seoDescription != "" && strings.TrimSpace(fmt.Sprint(seo["description"])) == "" {
-			seo["description"] = seoDescription
-		}
-		custom["seo"] = seo
 	}
 	if len(custom) > 0 {
 		payload["markdown"].(map[string]any)["custom"] = custom

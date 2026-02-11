@@ -403,7 +403,8 @@ func (b *goCMSContentBridge) listContents(ctx context.Context, locale string, op
 		return nil, admin.ErrNotFound
 	}
 	env := environmentKeyFromContext(ctx)
-	results := callWithOptionalEnvAndOptions(method, ctx, env, opts...)
+	listOpts := ensureBridgeDerivedFieldsProjection(opts...)
+	results := callWithOptionalEnvAndOptions(method, ctx, env, listOpts...)
 	if err := reflectError(results); err != nil {
 		return nil, err
 	}
@@ -430,8 +431,12 @@ func (b *goCMSContentBridge) Content(ctx context.Context, id, locale string) (*a
 	args := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(u)}
 	if method.Type().IsVariadic() {
 		args = append(args, reflect.ValueOf(string(admin.WithTranslations())))
-	} else if method.Type().NumIn() > 2 {
+		args = append(args, reflect.ValueOf(string(admin.WithDerivedFields())))
+	} else if method.Type().NumIn() > 3 {
 		args = append(args, reflect.ValueOf(string(admin.WithTranslations())))
+		args = append(args, reflect.ValueOf(string(admin.WithDerivedFields())))
+	} else if method.Type().NumIn() > 2 {
+		args = append(args, reflect.ValueOf(string(admin.WithDerivedFields())))
 	}
 	results := method.Call(args)
 	if err := reflectError(results); err != nil {
@@ -978,6 +983,40 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 		out.Locale = locale
 	}
 	return out
+}
+
+func ensureBridgeDerivedFieldsProjection(opts ...admin.CMSContentListOption) []admin.CMSContentListOption {
+	if len(opts) == 0 {
+		return nil
+	}
+	if !hasBridgeContentListOption(opts, admin.WithTranslations()) {
+		return opts
+	}
+	if hasBridgeProjectionOption(opts) {
+		return opts
+	}
+	out := append([]admin.CMSContentListOption{}, opts...)
+	out = append(out, admin.WithDerivedFields())
+	return out
+}
+
+func hasBridgeContentListOption(opts []admin.CMSContentListOption, token admin.CMSContentListOption) bool {
+	for _, opt := range opts {
+		if opt == token {
+			return true
+		}
+	}
+	return false
+}
+
+func hasBridgeProjectionOption(opts []admin.CMSContentListOption) bool {
+	const prefix = "content:list:projection:"
+	for _, opt := range opts {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(opt))), prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *goCMSContentBridge) contentTypeID(ctx context.Context, name string) uuid.UUID {
