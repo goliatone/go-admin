@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"log"
 	"strings"
 	"time"
 
@@ -68,19 +67,19 @@ func debugREPLAuthorizeRequest(admin *Admin, cfg DebugConfig, kind string, requi
 		return AdminContext{}, ErrForbidden
 	}
 	if !debugConfigEnabled(cfg) {
-		return AdminContext{}, debugREPLDeny(c.Context(), c, kind, requireExec, "debug module disabled", debugReplTextCodeDebugDisabled, nil)
+		return AdminContext{}, debugREPLDeny(admin, c.Context(), c, kind, requireExec, "debug module disabled", debugReplTextCodeDebugDisabled, nil)
 	}
 	replCfg := normalizeDebugREPLConfig(cfg.Repl)
 	if err := debugCheckIP(debugREPLAllowedIPs(cfg.AllowedIPs, replCfg.AllowedIPs), c.IP()); err != nil {
-		return AdminContext{}, debugREPLDeny(c.Context(), c, kind, requireExec, "repl access denied by ip policy", debugReplTextCodeIPDenied, map[string]any{
+		return AdminContext{}, debugREPLDeny(admin, c.Context(), c, kind, requireExec, "repl access denied by ip policy", debugReplTextCodeIPDenied, map[string]any{
 			"ip": strings.TrimSpace(c.IP()),
 		})
 	}
 	if kind == DebugREPLKindShell && !replCfg.ShellEnabled {
-		return AdminContext{}, debugREPLDeny(c.Context(), c, kind, requireExec, "shell repl disabled", debugReplTextCodeShellDisabled, nil)
+		return AdminContext{}, debugREPLDeny(admin, c.Context(), c, kind, requireExec, "shell repl disabled", debugReplTextCodeShellDisabled, nil)
 	}
 	if kind == DebugREPLKindApp && !replCfg.AppEnabled {
-		return AdminContext{}, debugREPLDeny(c.Context(), c, kind, requireExec, "app repl disabled", debugReplTextCodeAppDisabled, nil)
+		return AdminContext{}, debugREPLDeny(admin, c.Context(), c, kind, requireExec, "app repl disabled", debugReplTextCodeAppDisabled, nil)
 	}
 	locale := strings.TrimSpace(c.Query("locale"))
 	if locale == "" {
@@ -102,23 +101,23 @@ func debugREPLAuthorizeRequest(admin *Admin, cfg DebugConfig, kind string, requi
 			if err != nil {
 				textCode = debugReplTextCodeOverrideDenied
 			}
-			return adminCtx, debugREPLDeny(adminCtx.Context, c, kind, requireExec, "repl disabled", textCode, meta)
+			return adminCtx, debugREPLDeny(admin, adminCtx.Context, c, kind, requireExec, "repl disabled", textCode, meta)
 		}
 	}
 	if !debugREPLRoleAllowed(adminCtx.Context, replCfg.AllowedRoles) {
-		return adminCtx, debugREPLDeny(adminCtx.Context, c, kind, requireExec, "repl role not allowed", debugReplTextCodeRoleDenied, map[string]any{
+		return adminCtx, debugREPLDeny(admin, adminCtx.Context, c, kind, requireExec, "repl role not allowed", debugReplTextCodeRoleDenied, map[string]any{
 			"allowed_roles": replCfg.AllowedRoles,
 		})
 	}
 	if err := admin.requirePermission(adminCtx, replCfg.Permission, debugReplResource); err != nil {
-		return adminCtx, debugREPLPermissionDenied(adminCtx.Context, c, kind, requireExec, replCfg.Permission, debugReplResource, debugReplTextCodePermission, err)
+		return adminCtx, debugREPLPermissionDenied(admin, adminCtx.Context, c, kind, requireExec, replCfg.Permission, debugReplResource, debugReplTextCodePermission, err)
 	}
 	if requireExec {
 		if replCfg.ReadOnlyEnabled() {
-			return adminCtx, debugREPLDeny(adminCtx.Context, c, kind, requireExec, "repl exec disabled while read-only", debugReplTextCodeReadOnly, nil)
+			return adminCtx, debugREPLDeny(admin, adminCtx.Context, c, kind, requireExec, "repl exec disabled while read-only", debugReplTextCodeReadOnly, nil)
 		}
 		if err := admin.requirePermission(adminCtx, replCfg.ExecPermission, debugReplResource); err != nil {
-			return adminCtx, debugREPLPermissionDenied(adminCtx.Context, c, kind, requireExec, replCfg.ExecPermission, debugReplResource, debugReplTextCodeExecPermission, err)
+			return adminCtx, debugREPLPermissionDenied(admin, adminCtx.Context, c, kind, requireExec, replCfg.ExecPermission, debugReplResource, debugReplTextCodeExecPermission, err)
 		}
 	}
 	return adminCtx, nil
@@ -219,7 +218,7 @@ func debugREPLRoleMatch(role string, allowed []string) bool {
 	return false
 }
 
-func debugREPLPermissionDenied(ctx context.Context, c router.Context, kind string, requireExec bool, permission, resource, textCode string, err error) error {
+func debugREPLPermissionDenied(admin *Admin, ctx context.Context, c router.Context, kind string, requireExec bool, permission, resource, textCode string, err error) error {
 	message := "repl permission denied"
 	if err != nil {
 		message = err.Error()
@@ -231,14 +230,14 @@ func debugREPLPermissionDenied(ctx context.Context, c router.Context, kind strin
 	if strings.TrimSpace(resource) != "" {
 		meta["resource"] = resource
 	}
-	return debugREPLDeny(ctx, c, kind, requireExec, message, textCode, meta)
+	return debugREPLDeny(admin, ctx, c, kind, requireExec, message, textCode, meta)
 }
 
-func debugREPLDeny(ctx context.Context, c router.Context, kind string, requireExec bool, message, textCode string, meta map[string]any) error {
+func debugREPLDeny(admin *Admin, ctx context.Context, c router.Context, kind string, requireExec bool, message, textCode string, meta map[string]any) error {
 	if ctx == nil && c != nil {
 		ctx = c.Context()
 	}
-	debugREPLLogDenied(ctx, c, kind, requireExec, textCode, meta)
+	debugREPLLogDenied(admin, ctx, c, kind, requireExec, textCode, meta)
 	err := goerrors.Wrap(ErrForbidden, goerrors.CategoryAuthz, message).
 		WithCode(goerrors.CodeForbidden).
 		WithTextCode(textCode)
@@ -248,7 +247,7 @@ func debugREPLDeny(ctx context.Context, c router.Context, kind string, requireEx
 	return err
 }
 
-func debugREPLLogDenied(ctx context.Context, c router.Context, kind string, requireExec bool, textCode string, meta map[string]any) {
+func debugREPLLogDenied(admin *Admin, ctx context.Context, c router.Context, kind string, requireExec bool, textCode string, meta map[string]any) {
 	if ctx == nil && c != nil {
 		ctx = c.Context()
 	}
@@ -282,6 +281,14 @@ func debugREPLLogDenied(ctx context.Context, c router.Context, kind string, requ
 			}
 		}
 	}
-	log.Printf("[debug.repl] denied text_code=%s kind=%s exec=%t user_id=%s role=%s ip=%s path=%s resource_roles=%v meta=%v",
-		textCode, kind, requireExec, userID, role, ip, path, resourceRoles, meta)
+	adminScopedLogger(admin, "admin.debug.repl.guard").Warn("debug repl access denied",
+		"text_code", textCode,
+		"kind", kind,
+		"exec", requireExec,
+		"user_id", userID,
+		"role", role,
+		"ip", ip,
+		"path", path,
+		"resource_roles", resourceRoles,
+		"meta", meta)
 }
