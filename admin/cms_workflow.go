@@ -138,6 +138,9 @@ func defaultCMSWorkflowDefinitions() []WorkflowDefinition {
 // DefaultCMSWorkflowActions returns the default workflow actions for CMS demo panels.
 func DefaultCMSWorkflowActions() []Action {
 	return []Action{
+		{Name: "view", Label: "View"},
+		{Name: "edit", Label: "Edit"},
+		{Name: "delete", Label: "Delete", Variant: "danger"},
 		{
 			Name:            CreateTranslationKey,
 			Label:           "Add Translation",

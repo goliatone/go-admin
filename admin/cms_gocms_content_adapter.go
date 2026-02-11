@@ -1363,6 +1363,7 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 			}
 		}
 	}
+	MergeCMSMarkdownDerivedFields(out.Data)
 	if out.Locale == "" {
 		out.Locale = locale
 	}
@@ -1527,6 +1528,7 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 			}
 		}
 	}
+	MergeCMSMarkdownDerivedFields(out.Data)
 	if out.Locale == "" {
 		out.Locale = locale
 	}
