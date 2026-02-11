@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -61,6 +60,7 @@ type Dashboard struct {
 	providers        map[string]registeredProvider
 	providerCommands map[string]string
 	defaultInstances []DashboardWidgetInstance
+	logger           Logger
 	widgetSvc        CMSWidgetService
 	prefs            DashboardPreferences
 	prefService      *PreferencesService
@@ -81,8 +81,16 @@ func NewDashboard() *Dashboard {
 		providers:        make(map[string]registeredProvider),
 		providerCommands: make(map[string]string),
 		defaultInstances: []DashboardWidgetInstance{},
+		logger:           ensureLogger(nil),
 		prefs:            NewInMemoryDashboardPreferences(),
 		areas:            map[string]WidgetAreaDefinition{},
+	}
+}
+
+// WithLogger sets the runtime logger used by dashboard internals.
+func (d *Dashboard) WithLogger(logger Logger) {
+	if d != nil {
+		d.logger = ensureLogger(logger)
 	}
 }
 
@@ -268,7 +276,8 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 		d.registry.RegisterDashboardProvider(spec)
 	}
 	if d.components != nil {
-		log.Printf("[dashboard] provider %s registered after initialization; updating live registry", spec.Code)
+		d.logger.Warn("dashboard provider registered after initialization; updating live registry",
+			"provider", spec.Code)
 		d.registerProviderInComponents(spec, spec.Handler)
 	}
 
@@ -298,7 +307,10 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 		}
 		if existingCode, exists := d.providerCommands[spec.CommandName]; exists {
 			if existingCode != spec.Code {
-				log.Printf("[dashboard] command %s already mapped to provider %s; skipping provider %s", spec.CommandName, existingCode, spec.Code)
+				d.logger.Warn("dashboard command already mapped; skipping provider",
+					"command", spec.CommandName,
+					"existing_provider", existingCode,
+					"provider", spec.Code)
 			}
 		} else {
 			if !d.providerCmdReady {
@@ -306,7 +318,9 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 				d.providerCmdReady = true
 			}
 			if err := RegisterDashboardProviderFactory(d.commandBus, spec.CommandName, spec.Code, spec.DefaultConfig); err != nil {
-				log.Printf("[dashboard] failed to register command %s: %v", spec.CommandName, err)
+				d.logger.Warn("failed to register dashboard command",
+					"command", spec.CommandName,
+					"error", err)
 			} else {
 				d.providerCommands[spec.CommandName] = spec.Code
 			}
@@ -382,7 +396,10 @@ func (d *Dashboard) AddDefaultInstance(area, defCode string, cfg map[string]any,
 			Span:           span,
 			Locale:         locale,
 		}); err != nil {
-			log.Printf("[dashboard] failed to persist default widget instance definition=%s area=%s: %v", defCode, area, err)
+			d.logger.Warn("failed to persist default widget instance",
+				"definition", defCode,
+				"area", area,
+				"error", err)
 		}
 	}
 }
