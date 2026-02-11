@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+
+{% block title %}Feature Unavailable - {{ title }}{% endblock %}
+
+{% block content %}
+<div class="flex-1 flex items-center justify-center p-8">
+  <div class="max-w-lg w-full text-center">
+    <!-- Icon -->
+    <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-amber-50 flex items-center justify-center">
+      <i class="iconoir-warning-triangle text-amber-500 text-3xl" aria-hidden="true"></i>
+    </div>
+
+    <!-- Content -->
+    <h1 class="text-2xl font-bold text-admin-dark mb-3">
+      {% if feature_name %}{{ feature_name }} is Not Available{% else %}Feature Not Available{% endif %}
+    </h1>
+
+    <p class="text-zinc-600 mb-6">
+      {% if feature_message %}
+      {{ feature_message }}
+      {% elif feature_disabled %}
+      This feature is currently disabled. Contact your administrator to enable it.
+      {% elif feature_requires_setup %}
+      This feature requires additional setup before it can be used.
+      {% else %}
+      The page you're looking for isn't available in this application. It may require additional configuration or isn't included in your current setup.
+      {% endif %}
+    </p>
+
+    {% if feature_reason %}
+    <div class="bg-gray-50 rounded-lg p-4 mb-6 text-left" role="note" aria-label="Additional information">
+      <div class="flex items-start gap-3">
+        <i class="iconoir-info-circle text-gray-400 mt-0.5" aria-hidden="true"></i>
+        <div class="text-sm text-zinc-600">
+          <strong class="font-medium text-zinc-700">Details:</strong>
+          <p class="mt-1">{{ feature_reason }}</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Suggested Actions -->
+    <div class="space-y-3 mb-8">
+      {% if suggested_features and suggested_features|length > 0 %}
+      <p class="text-sm text-zinc-500 mb-3">You might be looking for:</p>
+      <div class="flex flex-wrap justify-center gap-2">
+        {% for feature in suggested_features %}
+        <a href="{{ feature.href }}"
+           class="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-zinc-700 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+          {% if feature.icon %}<i class="iconoir-{{ feature.icon }} mr-2" aria-hidden="true"></i>{% endif %}
+          {{ feature.label }}
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+      <a href="{{ base_path }}" class="btn btn-primary">
+        <i class="iconoir-home mr-2" aria-hidden="true"></i>
+        Go to Dashboard
+      </a>
+      <button onclick="history.back()" class="btn btn-secondary">
+        <i class="iconoir-arrow-left mr-2" aria-hidden="true"></i>
+        Go Back
+      </button>
+    </div>
+
+    <!-- Help Link -->
+    {% if help_url %}
+    <p class="mt-8 text-sm text-zinc-500">
+      Need help? <a href="{{ help_url }}" class="text-blue-600 hover:text-blue-700 font-medium">View documentation</a>
+    </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
