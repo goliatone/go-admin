@@ -61,6 +61,8 @@ func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOp
 func DefaultAdminFeatures() map[string]bool {
 	return map[string]bool{
 		string(admin.FeatureDashboard):           true,
+		string(admin.FeatureActivity):            true,
+		string(admin.FeaturePreview):             true,
 		string(admin.FeatureCMS):                 true,
 		string(admin.FeatureCommands):            true,
 		string(admin.FeatureSettings):            true,
