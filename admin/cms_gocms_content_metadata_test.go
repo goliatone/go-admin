@@ -11,8 +11,11 @@ import (
 type stubGoCMSContentService struct {
 	listResp             []*cmscontent.Content
 	listWithTranslations []*cmscontent.Content
+	listWithDerived      []*cmscontent.Content
 	listOptions          []cmscontent.ContentListOption
 	getResp              *cmscontent.Content
+	getWithDerived       *cmscontent.Content
+	getOptions           []cmscontent.ContentGetOption
 	createReq            cmscontent.CreateContentRequest
 	updateReq            cmscontent.UpdateContentRequest
 	updateResp           *cmscontent.Content
@@ -20,13 +23,20 @@ type stubGoCMSContentService struct {
 
 func (s *stubGoCMSContentService) List(_ context.Context, opts ...cmscontent.ContentListOption) ([]*cmscontent.Content, error) {
 	s.listOptions = append([]cmscontent.ContentListOption{}, opts...)
+	if hasTranslationListOption(opts) && hasDerivedProjectionListOption(opts) && s.listWithDerived != nil {
+		return s.listWithDerived, nil
+	}
 	if hasTranslationListOption(opts) && s.listWithTranslations != nil {
 		return s.listWithTranslations, nil
 	}
 	return s.listResp, nil
 }
 
-func (s *stubGoCMSContentService) Get(_ context.Context, _ uuid.UUID, _ ...cmscontent.ContentGetOption) (*cmscontent.Content, error) {
+func (s *stubGoCMSContentService) Get(_ context.Context, _ uuid.UUID, opts ...cmscontent.ContentGetOption) (*cmscontent.Content, error) {
+	s.getOptions = append([]cmscontent.ContentGetOption{}, opts...)
+	if hasDerivedProjectionGetOption(opts) && s.getWithDerived != nil {
+		return s.getWithDerived, nil
+	}
 	if s.getResp == nil {
 		return nil, ErrNotFound
 	}
@@ -59,6 +69,24 @@ func (s *stubGoCMSContentService) Delete(context.Context, cmscontent.DeleteConte
 func hasTranslationListOption(opts []cmscontent.ContentListOption) bool {
 	for _, opt := range opts {
 		if opt == cmscontent.WithTranslations() {
+			return true
+		}
+	}
+	return false
+}
+
+func hasDerivedProjectionListOption(opts []cmscontent.ContentListOption) bool {
+	for _, opt := range opts {
+		if opt == cmscontent.WithDerivedFields() {
+			return true
+		}
+	}
+	return false
+}
+
+func hasDerivedProjectionGetOption(opts []cmscontent.ContentGetOption) bool {
+	for _, opt := range opts {
+		if opt == cmscontent.WithDerivedFields() {
 			return true
 		}
 	}

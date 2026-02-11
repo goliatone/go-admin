@@ -408,7 +408,7 @@ func TestCMSContentTypeEntryRepositoryListSortsBeforePagination(t *testing.T) {
 	}
 }
 
-func TestCMSContentTypeEntryRepositoryListFlattensMarkdownFields(t *testing.T) {
+func TestCMSContentTypeEntryRepositoryListUsesProjectedTopLevelFields(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
 	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{Slug: "page"})
@@ -420,23 +420,29 @@ func TestCMSContentTypeEntryRepositoryListFlattensMarkdownFields(t *testing.T) {
 		Status:          "published",
 		ContentTypeSlug: "page",
 		Data: map[string]any{
+			"content":        "We build composable admin products.",
+			"summary":        "How the team builds reliable admin tooling for Go services.",
+			"path":           "/about",
+			"published_at":   "2025-10-13T10:00:00Z",
+			"featured_image": "/static/media/logo.png",
+			"meta": map[string]any{
+				"audience":             "customers",
+				"reading_time_minutes": 4,
+			},
+			"tags":             []string{"company", "mission", "engineering"},
+			"meta_title":       "About Enterprise Admin",
+			"meta_description": "Meet the team building modular admin tooling for Go applications.",
 			"markdown": map[string]any{
 				"body": "We build composable admin products.",
 				"frontmatter": map[string]any{
-					"summary": "How the team builds reliable admin tooling for Go services.",
-					"tags":    []string{"company", "mission", "engineering"},
+					"summary": "Legacy markdown summary that should not be flattened in repository",
+					"tags":    []string{"legacy"},
 				},
 				"custom": map[string]any{
-					"path":           "/about",
-					"published_at":   "2025-10-13T10:00:00Z",
-					"featured_image": "/static/media/logo.png",
-					"meta": map[string]any{
-						"audience":             "customers",
-						"reading_time_minutes": 4,
-					},
+					"path": "/legacy-about",
 					"seo": map[string]any{
-						"title":       "About Enterprise Admin",
-						"description": "Meet the team building modular admin tooling for Go applications.",
+						"title":       "Legacy SEO title",
+						"description": "Legacy SEO description",
 					},
 				},
 			},
@@ -453,33 +459,33 @@ func TestCMSContentTypeEntryRepositoryListFlattensMarkdownFields(t *testing.T) {
 
 	record := list[0]
 	if got := toString(record["summary"]); got != "How the team builds reliable admin tooling for Go services." {
-		t.Fatalf("expected flattened summary, got %q", got)
+		t.Fatalf("expected projected summary, got %q", got)
 	}
 	if got := toString(record["path"]); got != "/about" {
-		t.Fatalf("expected flattened path, got %q", got)
+		t.Fatalf("expected projected path, got %q", got)
 	}
 	if got := toString(record["published_at"]); got != "2025-10-13T10:00:00Z" {
-		t.Fatalf("expected flattened published_at, got %q", got)
+		t.Fatalf("expected projected published_at, got %q", got)
 	}
 	if got := toString(record["featured_image"]); got != "/static/media/logo.png" {
-		t.Fatalf("expected flattened featured_image, got %q", got)
+		t.Fatalf("expected projected featured_image, got %q", got)
 	}
 	if got := toString(record["meta_title"]); got != "About Enterprise Admin" {
-		t.Fatalf("expected derived meta_title, got %q", got)
+		t.Fatalf("expected projected meta_title, got %q", got)
 	}
 	if got := toString(record["meta_description"]); got != "Meet the team building modular admin tooling for Go applications." {
-		t.Fatalf("expected derived meta_description, got %q", got)
+		t.Fatalf("expected projected meta_description, got %q", got)
 	}
 	if got := toString(record["content"]); got != "We build composable admin products." {
-		t.Fatalf("expected derived content body, got %q", got)
+		t.Fatalf("expected projected content body, got %q", got)
 	}
 	meta, ok := record["meta"].(map[string]any)
 	if !ok || toString(meta["audience"]) != "customers" {
-		t.Fatalf("expected flattened meta map, got %#v", record["meta"])
+		t.Fatalf("expected projected meta map, got %#v", record["meta"])
 	}
 	tags, ok := record["tags"].([]string)
 	if !ok || !reflect.DeepEqual(tags, []string{"company", "mission", "engineering"}) {
-		t.Fatalf("expected flattened tags, got %#v", record["tags"])
+		t.Fatalf("expected projected tags, got %#v", record["tags"])
 	}
 }
 

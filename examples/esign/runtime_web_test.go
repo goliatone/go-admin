@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/pkg/client"
@@ -49,6 +50,8 @@ func TestRuntimeAdminUIRoutesRequireLoginButSignerRouteStaysPublic(t *testing.T)
 	app := setupESignRuntimeWebApp(t)
 
 	assertRedirect(t, app, http.MethodGet, "/admin/esign", "/admin/login")
+	assertRedirect(t, app, http.MethodGet, "/admin/esign/documents", "/admin/login")
+	assertRedirect(t, app, http.MethodGet, "/admin/esign/agreements", "/admin/login")
 	assertRedirect(t, app, http.MethodGet, "/admin/content/esign_documents", "/admin/login")
 
 	signerResp := doRequest(t, app, http.MethodGet, "/api/v1/esign/signing/session/public-token", "", nil)
@@ -62,6 +65,28 @@ func TestRuntimeAdminUIRoutesRequireLoginButSignerRouteStaysPublic(t *testing.T)
 			t.Fatalf("expected signer route to stay public, got redirect to %q", location)
 		}
 	}
+}
+
+func TestRuntimeESignLegacyAliasesRedirectAfterLogin(t *testing.T) {
+	app := setupESignRuntimeWebApp(t)
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/documents", "/admin/content/esign_documents")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/documents/new?source=google", "/admin/content/esign_documents/new?source=google")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/agreements", "/admin/content/esign_agreements")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/users", "/admin/users")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/roles", "/admin/roles")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/profile", "/admin/profile")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/activity", "/admin/activity")
 }
 
 func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
@@ -138,6 +163,20 @@ func TestRuntimeLoginFailureStaysOnLoginWithErrorMessage(t *testing.T) {
 	}
 }
 
+func TestApplyESignRuntimeDefaultsSetsDebugAdminLayout(t *testing.T) {
+	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
+	applyESignRuntimeDefaults(&cfg)
+	if cfg.Debug.LayoutMode != coreadmin.DebugLayoutAdmin {
+		t.Fatalf("expected debug layout mode admin, got %q", cfg.Debug.LayoutMode)
+	}
+
+	cfg.Debug.LayoutMode = coreadmin.DebugLayoutStandalone
+	applyESignRuntimeDefaults(&cfg)
+	if cfg.Debug.LayoutMode != coreadmin.DebugLayoutStandalone {
+		t.Fatalf("expected explicit debug layout mode to remain unchanged, got %q", cfg.Debug.LayoutMode)
+	}
+}
+
 func setupESignRuntimeWebApp(t *testing.T) *fiber.App {
 	t.Helper()
 	esignRuntimeAppOnce.Do(func() {
@@ -151,6 +190,7 @@ func setupESignRuntimeWebApp(t *testing.T) *fiber.App {
 
 func newESignRuntimeWebAppForTests() (*fiber.App, error) {
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
+	applyESignRuntimeDefaults(&cfg)
 	cfg.URLs.Admin.APIPrefix = "api"
 	cfg.URLs.Admin.APIVersion = "v1"
 	cfg.URLs.Public.APIPrefix = "api"
@@ -207,6 +247,19 @@ func newESignRuntimeWebAppForTests() (*fiber.App, error) {
 func assertRedirect(t *testing.T, app *fiber.App, method, endpoint, expectedLocation string) {
 	t.Helper()
 	resp := doRequest(t, app, method, endpoint, "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("expected %s %s status 302, got %d", method, endpoint, resp.StatusCode)
+	}
+	location := strings.TrimSpace(resp.Header.Get("Location"))
+	if location != expectedLocation {
+		t.Fatalf("expected %s %s redirect to %q, got %q", method, endpoint, expectedLocation, location)
+	}
+}
+
+func assertRedirectWithCookie(t *testing.T, app *fiber.App, cookie *http.Cookie, method, endpoint, expectedLocation string) {
+	t.Helper()
+	resp := doRequestWithCookie(t, app, method, endpoint, cookie)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusFound {
 		t.Fatalf("expected %s %s status 302, got %d", method, endpoint, resp.StatusCode)
