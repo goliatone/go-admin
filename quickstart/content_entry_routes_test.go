@@ -1,19 +1,24 @@
 package quickstart
 
 import (
+	"bytes"
 	"context"
+	"mime/multipart"
 	"net/url"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/goliatone/go-admin/admin"
+	router "github.com/goliatone/go-router"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestContentEntryColumnsMarksFilterableFields(t *testing.T) {
 	panel := mustBuildContentEntryTestPanel(t)
 
 	filters := contentEntryFilters(panel)
-	columns := contentEntryColumns(panel, filters)
+	columns := contentEntryColumns(panel, nil, filters, nil)
 	if len(columns) != 3 {
 		t.Fatalf("expected 3 columns, got %d", len(columns))
 	}
@@ -40,6 +45,243 @@ func TestContentEntryColumnsMarksFilterableFields(t *testing.T) {
 	}
 	if sortable, _ := byField["slug"]["sortable"].(bool); !sortable {
 		t.Fatalf("expected slug column to be sortable, got %+v", byField["slug"])
+	}
+}
+
+func TestContentEntryColumnsWiresRenderersAndUISchemaHints(t *testing.T) {
+	panel, err := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		ListFields(
+			admin.Field{Name: "title", Label: "Title", Type: "text"},
+			admin.Field{Name: "tags", Label: "Tags", Type: "array"},
+			admin.Field{Name: "metadata", Label: "Metadata", Type: "json"},
+			admin.Field{Name: "blocks", Label: "Blocks", Type: "block-library-picker"},
+		).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	contentType := &admin.CMSContentType{
+		UISchema: map[string]any{
+			"fields": map[string]any{
+				"/metadata": map[string]any{
+					"display_key": "name",
+				},
+				"blocks": map[string]any{
+					"renderer": "blocks_summary",
+					"renderer_options": map[string]any{
+						"display_key": "title",
+					},
+				},
+			},
+		},
+	}
+
+	columns := contentEntryColumns(panel, contentType, nil, nil)
+	if len(columns) != 4 {
+		t.Fatalf("expected 4 columns, got %d", len(columns))
+	}
+
+	byField := map[string]map[string]any{}
+	for _, column := range columns {
+		byField[column["field"].(string)] = column
+	}
+
+	if got := strings.TrimSpace(anyToString(byField["tags"]["renderer"])); got != "_array" {
+		t.Fatalf("expected tags renderer _array, got %q", got)
+	}
+	if got := strings.TrimSpace(anyToString(byField["metadata"]["renderer"])); got != "_object" {
+		t.Fatalf("expected metadata renderer _object, got %q", got)
+	}
+	metadataOptions, _ := byField["metadata"]["renderer_options"].(map[string]any)
+	if got := strings.TrimSpace(anyToString(metadataOptions["display_key"])); got != "name" {
+		t.Fatalf("expected metadata display_key=name, got %q", got)
+	}
+	if got := strings.TrimSpace(anyToString(byField["blocks"]["renderer"])); got != "blocks_summary" {
+		t.Fatalf("expected blocks renderer override, got %q", got)
+	}
+	blocksOptions, _ := byField["blocks"]["renderer_options"].(map[string]any)
+	if got := strings.TrimSpace(anyToString(blocksOptions["display_key"])); got != "title" {
+		t.Fatalf("expected blocks display_key=title, got %q", got)
+	}
+}
+
+func TestDetailFieldsForRecordFormatsArraysAndObjects(t *testing.T) {
+	panel, err := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		DetailFields(
+			admin.Field{Name: "title", Label: "Title", Type: "text"},
+			admin.Field{Name: "tags", Label: "Tags", Type: "array"},
+			admin.Field{Name: "author", Label: "Author", Type: "json"},
+			admin.Field{Name: "blocks", Label: "Blocks", Type: "block-library-picker"},
+		).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	contentType := &admin.CMSContentType{
+		UISchema: map[string]any{
+			"fields": map[string]any{
+				"blocks": map[string]any{
+					"display_key": "title",
+				},
+			},
+		},
+	}
+
+	record := map[string]any{
+		"title": "Homepage",
+		"tags":  []any{"news", "featured"},
+		"author": map[string]any{
+			"id":   "author-1",
+			"name": "Ada Lovelace",
+		},
+		"blocks": []any{
+			map[string]any{"title": "Hero"},
+			map[string]any{"id": "block-2"},
+		},
+	}
+
+	fields := detailFieldsForRecord(panel, contentType, record)
+	if len(fields) != 4 {
+		t.Fatalf("expected 4 fields, got %d", len(fields))
+	}
+
+	byLabel := map[string]string{}
+	for _, field := range fields {
+		byLabel[strings.TrimSpace(anyToString(field["label"]))] = strings.TrimSpace(anyToString(field["value"]))
+	}
+
+	if got := byLabel["Tags"]; got != "news, featured" {
+		t.Fatalf("expected formatted tags, got %q", got)
+	}
+	if got := byLabel["Author"]; got != "Ada Lovelace" {
+		t.Fatalf("expected object label lookup, got %q", got)
+	}
+	if got := byLabel["Blocks"]; got != "Hero, block-2" {
+		t.Fatalf("expected block list summary, got %q", got)
+	}
+}
+
+func TestContentEntryColumnsAppliesConfiguredDefaultRenderers(t *testing.T) {
+	panel, err := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		ListFields(
+			admin.Field{Name: "title", Label: "Title", Type: "text"},
+			admin.Field{Name: "blocks", Label: "Blocks", Type: "block-library-picker"},
+			admin.Field{Name: "sections", Label: "Sections", Type: "blocks"},
+			admin.Field{Name: "metadata", Label: "Metadata", Type: "json"},
+		).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	contentType := &admin.CMSContentType{
+		UISchema: map[string]any{
+			"fields": map[string]any{
+				"blocks": map[string]any{
+					"renderer": "blocks_summary",
+				},
+			},
+		},
+	}
+
+	defaultRenderers := map[string]string{
+		"block-library-picker": "blocks_chips",
+		"blocks":               "blocks_chips",
+	}
+	columns := contentEntryColumns(panel, contentType, nil, defaultRenderers)
+
+	byField := map[string]map[string]any{}
+	for _, column := range columns {
+		byField[column["field"].(string)] = column
+	}
+
+	if got := strings.TrimSpace(anyToString(byField["blocks"]["renderer"])); got != "blocks_summary" {
+		t.Fatalf("expected ui_schema renderer override for blocks, got %q", got)
+	}
+	if got := strings.TrimSpace(anyToString(byField["sections"]["renderer"])); got != "blocks_chips" {
+		t.Fatalf("expected sections renderer from configured defaults, got %q", got)
+	}
+	if got := strings.TrimSpace(anyToString(byField["metadata"]["renderer"])); got != "_object" {
+		t.Fatalf("expected metadata renderer fallback _object, got %q", got)
+	}
+}
+
+func TestContentEntryDefaultRendererFallsBackByFieldName(t *testing.T) {
+	got := contentEntryDefaultRenderer(admin.Field{Name: "blocks", Type: ""}, map[string]string{
+		"blocks": "blocks_chips",
+	})
+	if got != "_array" {
+		t.Fatalf("expected field-name fallback _array for blocks when type is empty, got %q", got)
+	}
+}
+
+func TestWithContentEntryDefaultRenderersReplacesAndNormalizes(t *testing.T) {
+	input := map[string]string{
+		" BLOCKS ": " blocks_chips ",
+		"":         "_array",
+		"json":     "",
+	}
+	opts := contentEntryUIOptions{
+		defaultRenderers: map[string]string{
+			"array": "_array",
+		},
+	}
+
+	WithContentEntryDefaultRenderers(input)(&opts)
+
+	if got := opts.defaultRenderers["blocks"]; got != "blocks_chips" {
+		t.Fatalf("expected normalized blocks renderer blocks_chips, got %q", got)
+	}
+	if _, ok := opts.defaultRenderers["array"]; ok {
+		t.Fatalf("expected replace semantics to remove previous keys")
+	}
+	input[" BLOCKS "] = "_array"
+	if got := opts.defaultRenderers["blocks"]; got != "blocks_chips" {
+		t.Fatalf("expected renderer map to be cloned, got %q", got)
+	}
+}
+
+func TestWithContentEntryMergeDefaultRenderersMergesAndOverrides(t *testing.T) {
+	opts := contentEntryUIOptions{}
+	WithContentEntryDefaultRenderers(map[string]string{
+		"array": "_array",
+	})(&opts)
+
+	WithContentEntryMergeDefaultRenderers(map[string]string{
+		"blocks":  "blocks_chips",
+		" ARRAY ": "_tags",
+	})(&opts)
+
+	if got := opts.defaultRenderers["blocks"]; got != "blocks_chips" {
+		t.Fatalf("expected merged blocks renderer blocks_chips, got %q", got)
+	}
+	if got := opts.defaultRenderers["array"]; got != "_tags" {
+		t.Fatalf("expected merge override for array renderer _tags, got %q", got)
+	}
+}
+
+func TestWithContentEntryRecommendedDefaultsMerges(t *testing.T) {
+	opts := contentEntryUIOptions{
+		defaultRenderers: map[string]string{
+			"json": "json_card",
+		},
+	}
+
+	WithContentEntryRecommendedDefaults()(&opts)
+
+	if got := opts.defaultRenderers["json"]; got != "json_card" {
+		t.Fatalf("expected existing json renderer preserved, got %q", got)
+	}
+	if got := opts.defaultRenderers["blocks"]; got != "blocks_chips" {
+		t.Fatalf("expected recommended blocks renderer blocks_chips, got %q", got)
+	}
+	if got := opts.defaultRenderers["block-library-picker"]; got != "blocks_chips" {
+		t.Fatalf("expected recommended block-library-picker renderer blocks_chips, got %q", got)
 	}
 }
 
@@ -213,6 +455,168 @@ func TestBuildSitePreviewURLAppendsTokenQueryParam(t *testing.T) {
 	}
 }
 
+func TestCanonicalPanelRouteBindingsResolvesCorePanels(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+
+	mustRegisterPanel := func(name string) {
+		t.Helper()
+		builder := (&admin.PanelBuilder{}).WithRepository(admin.NewMemoryRepository())
+		if _, err := adm.RegisterPanel(name, builder); err != nil {
+			t.Fatalf("register panel %s: %v", name, err)
+		}
+	}
+
+	mustRegisterPanel("users")
+	mustRegisterPanel("roles")
+	mustRegisterPanel("profile")
+	mustRegisterPanel("user-profiles")
+
+	bindings := canonicalPanelRouteBindings(adm.URLs(), adm.Registry().Panels())
+	got := map[string]string{}
+	for _, binding := range bindings {
+		got[binding.Panel] = binding.Path
+	}
+
+	if got["users"] != "/admin/users" {
+		t.Fatalf("expected users canonical path /admin/users, got %q", got["users"])
+	}
+	if got["roles"] != "/admin/roles" {
+		t.Fatalf("expected roles canonical path /admin/roles, got %q", got["roles"])
+	}
+	if got["profile"] != "/admin/profile" {
+		t.Fatalf("expected profile canonical path /admin/profile, got %q", got["profile"])
+	}
+	if got["user-profiles"] != "/admin/user-profiles" {
+		t.Fatalf("expected user-profiles canonical path /admin/user-profiles, got %q", got["user-profiles"])
+	}
+}
+
+func TestCanonicalPanelRouteBindingsSkipsPanelsWithoutNamedAdminRoute(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	if _, err := adm.RegisterPanel("esign_documents", (&admin.PanelBuilder{}).WithRepository(admin.NewMemoryRepository())); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	bindings := canonicalPanelRouteBindings(adm.URLs(), adm.Registry().Panels())
+	for _, binding := range bindings {
+		if binding.Panel == "esign_documents" {
+			t.Fatalf("expected esign_documents to be excluded from canonical bindings, got %+v", binding)
+		}
+	}
+}
+
+func TestCanonicalPanelNameStripsEnvironmentSuffix(t *testing.T) {
+	if got := canonicalPanelName("users@staging"); got != "users" {
+		t.Fatalf("expected canonical panel users, got %q", got)
+	}
+	if got := canonicalPanelName(" profile "); got != "profile" {
+		t.Fatalf("expected trimmed panel profile, got %q", got)
+	}
+}
+
+func TestContentEntryCreateRedirectTargetDefaultsToEdit(t *testing.T) {
+	routes := newContentEntryRoutes("/admin", "pages", "")
+	got := contentEntryCreateRedirectTarget("pages", "42", routes)
+	if got != "/admin/content/pages/42/edit" {
+		t.Fatalf("expected edit redirect, got %q", got)
+	}
+}
+
+func TestContentEntryCreateRedirectTargetUsesDetailForESignDocuments(t *testing.T) {
+	routes := newContentEntryRoutes("/admin", "esign_documents", "staging")
+	got := contentEntryCreateRedirectTarget("esign_documents", "abc-123", routes)
+	if got != "/admin/content/esign_documents/abc-123?created=1&env=staging" {
+		t.Fatalf("expected detail redirect with success marker, got %q", got)
+	}
+}
+
+func TestContentEntryCreateRedirectTargetUsesEditWithMarkerForESignAgreements(t *testing.T) {
+	routes := newContentEntryRoutes("/admin", "esign_agreements", "staging")
+	got := contentEntryCreateRedirectTarget("esign_agreements", "abc-123", routes)
+	if got != "/admin/content/esign_agreements/abc-123/edit?created=1&env=staging" {
+		t.Fatalf("expected edit redirect with success marker, got %q", got)
+	}
+}
+
+func TestContentEntryCreateRedirectTargetFallsBackToIndexWhenMissingID(t *testing.T) {
+	routes := newContentEntryRoutes("/admin", "esign_documents", "")
+	got := contentEntryCreateRedirectTarget("esign_documents", "", routes)
+	if got != "/admin/content/esign_documents" {
+		t.Fatalf("expected index redirect when id missing, got %q", got)
+	}
+}
+
+func TestRenderFormIncludesCreateActionInViewContext(t *testing.T) {
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+	panel, err := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		FormFields(admin.Field{Name: "title", Type: "text", Required: true}).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		if strings.TrimSpace(anyToString(viewCtx["form_action"])) != "/admin/content/posts" {
+			return false
+		}
+		routes, ok := viewCtx["routes"].(map[string]string)
+		if !ok {
+			return false
+		}
+		return routes["create"] == "/admin/content/posts"
+	})).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		cfg: admin.Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		},
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+	err = handler.renderForm(
+		ctx,
+		"posts",
+		panel,
+		nil,
+		admin.AdminContext{Context: context.Background()},
+		map[string]any{},
+		false,
+		"",
+	)
+	if err != nil {
+		t.Fatalf("render form: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestPreviewURLForRecordUsesSignedPreviewToken(t *testing.T) {
 	adm, err := admin.New(admin.Config{
 		BasePath:      "/admin",
@@ -249,5 +653,358 @@ func TestPreviewURLForRecordUsesSignedPreviewToken(t *testing.T) {
 	}
 	if decoded.ContentID != "42" {
 		t.Fatalf("expected content id 42, got %q", decoded.ContentID)
+	}
+}
+
+func TestContentTypeSchemaFallsBackToPanelFields(t *testing.T) {
+	panel, err := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		FormFields(
+			admin.Field{Name: "title", Type: "text", Required: true},
+			admin.Field{Name: "page_count", Type: "integer"},
+			admin.Field{Name: "is_public", Type: "boolean"},
+		).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	schema := contentTypeSchema(nil, panel)
+	if schema == nil {
+		t.Fatalf("expected synthesized schema")
+	}
+	if schema["type"] != "object" {
+		t.Fatalf("expected object schema type, got %v", schema["type"])
+	}
+	if schema["$schema"] != "https://json-schema.org/draft/2020-12/schema" {
+		t.Fatalf("expected draft schema identifier, got %v", schema["$schema"])
+	}
+
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected schema properties map, got %T", schema["properties"])
+	}
+
+	assertPropertyType := func(field, wantType string) {
+		t.Helper()
+		prop, ok := props[field].(map[string]any)
+		if !ok {
+			t.Fatalf("expected %s schema property map, got %T", field, props[field])
+		}
+		if got := prop["type"]; got != wantType {
+			t.Fatalf("expected %s type %s, got %v", field, wantType, got)
+		}
+	}
+	assertPropertyType("title", "string")
+	assertPropertyType("page_count", "number")
+	assertPropertyType("is_public", "boolean")
+
+	required, ok := schema["required"].([]string)
+	if !ok || len(required) != 1 || required[0] != "title" {
+		t.Fatalf("expected title to be required, got %#v", schema["required"])
+	}
+}
+
+func TestContentTypeSchemaAddsDefaultSchemaDialect(t *testing.T) {
+	schema := contentTypeSchema(&admin.CMSContentType{
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"title": map[string]any{"type": "string", "readOnly": true, "read_only": true},
+			},
+		},
+	}, nil)
+	if schema == nil {
+		t.Fatalf("expected schema")
+	}
+	if schema["$schema"] != "https://json-schema.org/draft/2020-12/schema" {
+		t.Fatalf("expected default schema dialect, got %v", schema["$schema"])
+	}
+
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected schema properties map, got %T", schema["properties"])
+	}
+	titleProp, ok := properties["title"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected title schema property map, got %T", properties["title"])
+	}
+	if _, exists := titleProp["readOnly"]; exists {
+		t.Fatalf("expected unsupported readOnly keyword to be removed")
+	}
+	if _, exists := titleProp["read_only"]; exists {
+		t.Fatalf("expected unsupported read_only keyword to be removed")
+	}
+}
+
+func TestContentEntryPanelTemplateNormalizesPanelSlug(t *testing.T) {
+	got := contentEntryPanelTemplate("esign_documents", "resources/content/form")
+	if got != "resources/esign-documents/form" {
+		t.Fatalf("expected panel template resources/esign-documents/form, got %q", got)
+	}
+
+	got = contentEntryPanelTemplate("pages@staging", "resources/content/list")
+	if got != "resources/pages/list" {
+		t.Fatalf("expected env suffix trimmed from panel slug, got %q", got)
+	}
+}
+
+func TestTemplateExistsFromFSResolvesTemplatesByLogicalName(t *testing.T) {
+	checker := templateExistsFromFS(fstest.MapFS{
+		"templates/resources/content/list.html": {Data: []byte("list")},
+	})
+	if checker == nil {
+		t.Fatalf("expected template checker")
+	}
+	if !checker("resources/content/list") {
+		t.Fatalf("expected resources/content/list to resolve through .html suffix")
+	}
+	if !checker("resources/content/list.html") {
+		t.Fatalf("expected resources/content/list.html to resolve directly")
+	}
+	if checker("resources/pages/list") {
+		t.Fatalf("expected missing panel template to return false")
+	}
+}
+
+func TestRenderTemplateUsesDeterministicFallbackWhenCustomTemplateMissing(t *testing.T) {
+	viewCtx := router.ViewContext{"title": "Pages"}
+	ctx := router.NewMockContext()
+	ctx.On("Render", "resources/content/list", viewCtx).Return(nil).Once()
+
+	h := &contentEntryHandlers{
+		templateExists: func(name string) bool { return name == "resources/content/list" },
+	}
+	if err := h.renderTemplate(ctx, "pages", "resources/content/list", viewCtx); err != nil {
+		t.Fatalf("render with deterministic fallback: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestRenderTemplateRendersPanelTemplateWhenAvailable(t *testing.T) {
+	viewCtx := router.ViewContext{"title": "Pages"}
+	ctx := router.NewMockContext()
+	ctx.On("Render", "resources/pages/list", viewCtx).Return(nil).Once()
+
+	h := &contentEntryHandlers{
+		templateExists: func(name string) bool { return name == "resources/pages/list" },
+	}
+	if err := h.renderTemplate(ctx, "pages", "resources/content/list", viewCtx); err != nil {
+		t.Fatalf("render with panel template: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestParseMultipartFormValuesReadsTextFieldsAndSkipsFiles(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField("title", "NDA"); err != nil {
+		t.Fatalf("write title: %v", err)
+	}
+	if err := writer.WriteField("pdf_base64", "ZmFrZS1wZGY="); err != nil {
+		t.Fatalf("write pdf field: %v", err)
+	}
+	filePart, err := writer.CreateFormFile("pdf_file", "nda.pdf")
+	if err != nil {
+		t.Fatalf("create file part: %v", err)
+	}
+	if _, err := filePart.Write([]byte("%PDF-1.4 fake")); err != nil {
+		t.Fatalf("write file body: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return(body.Bytes())
+	ctx.HeadersM["Content-Type"] = writer.FormDataContentType()
+
+	values, err := parseMultipartFormValues(ctx)
+	if err != nil {
+		t.Fatalf("parse multipart values: %v", err)
+	}
+	if got := values.Get("title"); got != "NDA" {
+		t.Fatalf("expected title NDA, got %q", got)
+	}
+	if got := values.Get("pdf_base64"); got != "ZmFrZS1wZGY=" {
+		t.Fatalf("expected pdf_base64 field, got %q", got)
+	}
+	if got := values.Get("pdf_file"); got != "" {
+		t.Fatalf("expected file part to be skipped, got %q", got)
+	}
+}
+
+func TestIsJSONRequestReadsContentTypeHeader(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.HeadersM["Content-Type"] = "application/json; charset=utf-8"
+
+	if !isJSONRequest(ctx) {
+		t.Fatalf("expected JSON request when Content-Type header is application/json")
+	}
+}
+
+func TestRequestContentTypeReturnsHeaderValue(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.HeadersM["Content-Type"] = "multipart/form-data; boundary=abc123"
+
+	if got := requestContentType(ctx); got != "multipart/form-data; boundary=abc123" {
+		t.Fatalf("expected content type from header, got %q", got)
+	}
+}
+
+func TestContentEntryNeedsBlocksChipsDetectsRenderer(t *testing.T) {
+	tests := []struct {
+		name     string
+		columns  []map[string]any
+		expected bool
+	}{
+		{
+			name:     "nil columns",
+			columns:  nil,
+			expected: false,
+		},
+		{
+			name:     "empty columns",
+			columns:  []map[string]any{},
+			expected: false,
+		},
+		{
+			name: "no blocks_chips renderer",
+			columns: []map[string]any{
+				{"field": "title", "renderer": "_array"},
+				{"field": "tags", "renderer": "_tags"},
+			},
+			expected: false,
+		},
+		{
+			name: "has blocks_chips renderer",
+			columns: []map[string]any{
+				{"field": "title", "renderer": "_array"},
+				{"field": "blocks", "renderer": "blocks_chips"},
+			},
+			expected: true,
+		},
+		{
+			name: "blocks_chips with whitespace",
+			columns: []map[string]any{
+				{"field": "blocks", "renderer": "  blocks_chips  "},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := contentEntryNeedsBlocksChips(tt.columns)
+			if got != tt.expected {
+				t.Errorf("contentEntryNeedsBlocksChips() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestContentEntryAttachBlocksIconMapMergesOptions(t *testing.T) {
+	iconMap := map[string]string{
+		"hero":    "iconoir:home",
+		"text":    "iconoir:text",
+		"gallery": "iconoir:image",
+	}
+
+	tests := []struct {
+		name             string
+		columns          []map[string]any
+		expectIconMap    bool
+		expectPreserved  bool
+		preservedMapKeys []string
+	}{
+		{
+			name: "attaches icon map to blocks_chips column",
+			columns: []map[string]any{
+				{"field": "blocks", "renderer": "blocks_chips"},
+			},
+			expectIconMap: true,
+		},
+		{
+			name: "does not attach to other renderers",
+			columns: []map[string]any{
+				{"field": "tags", "renderer": "_array"},
+			},
+			expectIconMap: false,
+		},
+		{
+			name: "preserves existing renderer_options",
+			columns: []map[string]any{
+				{
+					"field":    "blocks",
+					"renderer": "blocks_chips",
+					"renderer_options": map[string]any{
+						"max_visible": 5,
+					},
+				},
+			},
+			expectIconMap:   true,
+			expectPreserved: true,
+		},
+		{
+			name: "does not override user-provided block_icons_map",
+			columns: []map[string]any{
+				{
+					"field":    "blocks",
+					"renderer": "blocks_chips",
+					"renderer_options": map[string]any{
+						"block_icons_map": map[string]string{"custom": "custom-icon"},
+					},
+				},
+			},
+			expectIconMap:    false,
+			preservedMapKeys: []string{"custom"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := contentEntryAttachBlocksIconMap(tt.columns, iconMap)
+
+			for _, col := range result {
+				renderer, _ := col["renderer"].(string)
+				opts, _ := col["renderer_options"].(map[string]any)
+
+				if renderer == "blocks_chips" {
+					if tt.expectIconMap {
+						attachedMap, ok := opts["block_icons_map"].(map[string]string)
+						if !ok {
+							t.Errorf("expected block_icons_map to be attached")
+						}
+						if _, exists := attachedMap["hero"]; !exists {
+							t.Errorf("expected icon map to contain 'hero' key")
+						}
+					}
+					if tt.expectPreserved {
+						if val, ok := opts["max_visible"].(int); !ok || val != 5 {
+							t.Errorf("expected existing options to be preserved")
+						}
+					}
+					if len(tt.preservedMapKeys) > 0 {
+						attachedMap, ok := opts["block_icons_map"].(map[string]string)
+						if !ok {
+							t.Errorf("expected block_icons_map to exist")
+						}
+						for _, key := range tt.preservedMapKeys {
+							if _, exists := attachedMap[key]; !exists {
+								t.Errorf("expected user-provided key %q to be preserved", key)
+							}
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestContentEntryBlockIconsMapReturnsNilForNilAdmin(t *testing.T) {
+	ctx := admin.AdminContext{}
+	result := contentEntryBlockIconsMap(ctx, nil)
+	if result != nil {
+		t.Errorf("expected nil for nil admin, got %v", result)
 	}
 }

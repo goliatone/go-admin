@@ -6,16 +6,26 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin/internal/boot"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
 type translationActionRepoStub struct {
 	records map[string]map[string]any
 	created []map[string]any
+	list    []map[string]any
 	nextID  int
 }
 
 func (s *translationActionRepoStub) List(context.Context, ListOptions) ([]map[string]any, int, error) {
+	if len(s.list) > 0 {
+		out := make([]map[string]any, 0, len(s.list))
+		for _, record := range s.list {
+			out = append(out, cloneAnyMap(record))
+		}
+		return out, len(out), nil
+	}
 	return nil, 0, nil
 }
 
@@ -68,11 +78,13 @@ func (translationWorkflowStub) AvailableTransitions(context.Context, string, str
 }
 
 type translationWorkflowAliasStub struct {
-	calls []string
+	calls     []string
+	entityIDs []string
 }
 
 func (s *translationWorkflowAliasStub) Transition(_ context.Context, input TransitionInput) (*TransitionResult, error) {
 	s.calls = append(s.calls, input.Transition)
+	s.entityIDs = append(s.entityIDs, input.EntityID)
 	return &TransitionResult{
 		EntityID:   input.EntityID,
 		EntityType: input.EntityType,
@@ -87,6 +99,34 @@ func (s *translationWorkflowAliasStub) AvailableTransitions(context.Context, str
 		{Name: "request_approval", To: "pending_approval"},
 		{Name: "approve", To: "published"},
 	}, nil
+}
+
+type translationWorkflowStateStub struct {
+	transitionsByState map[string][]WorkflowTransition
+	err                error
+}
+
+func (s translationWorkflowStateStub) Transition(_ context.Context, input TransitionInput) (*TransitionResult, error) {
+	return &TransitionResult{
+		EntityID:   input.EntityID,
+		EntityType: input.EntityType,
+		Transition: input.Transition,
+		FromState:  input.CurrentState,
+		ToState:    input.TargetState,
+	}, nil
+}
+
+func (s translationWorkflowStateStub) AvailableTransitions(_ context.Context, _ string, state string) ([]WorkflowTransition, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if len(s.transitionsByState) == 0 {
+		return nil, nil
+	}
+	transitions := s.transitionsByState[state]
+	out := make([]WorkflowTransition, len(transitions))
+	copy(out, transitions)
+	return out, nil
 }
 
 func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
@@ -148,6 +188,61 @@ func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
 	}
 	if len(entries) == 0 || entries[0].Action != "panel.translation.create" {
 		t.Fatalf("expected panel.translation.create activity entry, got %+v", entries)
+	}
+}
+
+func TestPanelBindingCreateTranslationAcceptsStrictSchemaWithContextFields(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"page_123": {
+				"id":                   "page_123",
+				"title":                "Home",
+				"slug":                 "home",
+				"locale":               "en",
+				"status":               "approval",
+				"translation_group_id": "tg_123",
+				"available_locales":    []string{"en"},
+			},
+		},
+	}
+	panel := &Panel{
+		name: "pages",
+		repo: repo,
+		actions: []Action{
+			{
+				Name:            "create_translation",
+				PayloadRequired: []string{"locale"},
+				PayloadSchema: map[string]any{
+					"type":                 "object",
+					"additionalProperties": false,
+					"required":             []string{"locale"},
+					"properties": map[string]any{
+						"locale": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "pages",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	data, err := binding.Action(c, "en", "create_translation", map[string]any{
+		"id":            "page_123",
+		"locale":        "es",
+		"policy_entity": "pages",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if data["locale"] != "es" {
+		t.Fatalf("expected locale es, got %v", data["locale"])
 	}
 }
 
@@ -295,6 +390,336 @@ func TestPanelBindingWorkflowActionAliasesSupportLegacyTransitions(t *testing.T)
 	}
 	if workflow.calls[1] != "approve" {
 		t.Fatalf("expected publish to map to approve, got %q", workflow.calls[1])
+	}
+}
+
+func TestPanelBindingWorkflowActionsUsePrimaryIDWhenSelectionContainsMultipleIDs(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"page_123": {
+				"id":                   "page_123",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_123",
+			},
+		},
+	}
+	workflow := &translationWorkflowAliasStub{}
+	panel := &Panel{
+		name:     "pages",
+		repo:     repo,
+		workflow: workflow,
+		actions: []Action{
+			{Name: "submit_for_approval"},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "pages",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	_, err := binding.Action(c, "en", "submit_for_approval", map[string]any{
+		"id":  "page_123",
+		"ids": []any{"page_123", "page_456"},
+	})
+	if err != nil {
+		t.Fatalf("submit_for_approval should resolve using primary id: %v", err)
+	}
+	if len(workflow.calls) != 1 || workflow.calls[0] != "request_approval" {
+		t.Fatalf("expected request_approval transition, got %+v", workflow.calls)
+	}
+	if len(workflow.entityIDs) != 1 || workflow.entityIDs[0] != "page_123" {
+		t.Fatalf("expected primary entity id page_123, got %+v", workflow.entityIDs)
+	}
+}
+
+func TestPanelBindingWorkflowActionReturnsInvalidTransitionErrorWhenUnavailable(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_123": {
+				"id":     "post_123",
+				"status": "published",
+			},
+		},
+	}
+	panel := &Panel{
+		name:     "posts",
+		repo:     repo,
+		workflow: translationWorkflowStateStub{transitionsByState: map[string][]WorkflowTransition{"published": {{Name: "unpublish", To: "draft"}}}},
+		actions:  []Action{{Name: "submit_for_approval"}},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	_, err := binding.Action(c, "en", "submit_for_approval", map[string]any{"id": "post_123"})
+	if err == nil {
+		t.Fatalf("expected invalid transition error")
+	}
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) {
+		t.Fatalf("expected typed domain error, got %T", err)
+	}
+	if typedErr.TextCode != TextCodeWorkflowInvalidTransition {
+		t.Fatalf("expected %s, got %q", TextCodeWorkflowInvalidTransition, typedErr.TextCode)
+	}
+	if got := toString(typedErr.Metadata["current_state"]); got != "published" {
+		t.Fatalf("expected current_state published, got %q", got)
+	}
+	available, ok := typedErr.Metadata["available_transitions"].([]string)
+	if !ok {
+		t.Fatalf("expected []string available_transitions, got %#v", typedErr.Metadata["available_transitions"])
+	}
+	if len(available) != 1 || available[0] != "unpublish" {
+		t.Fatalf("expected [unpublish], got %#v", available)
+	}
+}
+
+func TestPanelBindingWorkflowActionReturnsWorkflowLookupError(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_123": {
+				"id":     "post_123",
+				"status": "draft",
+			},
+		},
+	}
+	panel := &Panel{
+		name:     "posts",
+		repo:     repo,
+		workflow: translationWorkflowStateStub{err: ErrWorkflowNotFound},
+		actions:  []Action{{Name: "submit_for_approval"}},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	_, err := binding.Action(c, "en", "submit_for_approval", map[string]any{"id": "post_123"})
+	if err == nil {
+		t.Fatalf("expected workflow lookup error")
+	}
+	if !errors.Is(err, ErrWorkflowNotFound) {
+		t.Fatalf("expected ErrWorkflowNotFound, got %v", err)
+	}
+}
+
+func TestPanelBindingWorkflowActionReturnsRecordLookupError(t *testing.T) {
+	panel := &Panel{
+		name:     "posts",
+		repo:     &translationActionRepoStub{},
+		workflow: translationWorkflowStateStub{},
+		actions:  []Action{{Name: "submit_for_approval"}},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	_, err := binding.Action(c, "en", "submit_for_approval", map[string]any{"id": "post_missing"})
+	if err == nil {
+		t.Fatalf("expected record lookup error")
+	}
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestPanelBindingCommandBackedActionKeepsFallbackWhenWorkflowTransitionUnavailable(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_123": {
+				"id":     "post_123",
+				"status": "published",
+			},
+		},
+	}
+	panel := &Panel{
+		name:     "posts",
+		repo:     repo,
+		workflow: translationWorkflowStateStub{transitionsByState: map[string][]WorkflowTransition{"published": {{Name: "unpublish", To: "draft"}}}},
+		actions:  []Action{{Name: "publish", CommandName: "posts.bulk_publish"}},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	_, err := binding.Action(c, "en", "publish", map[string]any{"id": "post_123"})
+	if err == nil {
+		t.Fatalf("expected fallback action error")
+	}
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) {
+		t.Fatalf("expected typed domain error, got %T", err)
+	}
+	if typedErr.TextCode != TextCodeNotFound {
+		t.Fatalf("expected %s fallback, got %q", TextCodeNotFound, typedErr.TextCode)
+	}
+}
+
+func TestPanelBindingListIncludesRowActionStateFromWorkflowAvailability(t *testing.T) {
+	repo := &translationActionRepoStub{
+		list: []map[string]any{
+			{
+				"id":     "post_123",
+				"title":  "Published Post",
+				"status": "published",
+			},
+		},
+	}
+	panel := &Panel{
+		name:     "posts",
+		repo:     repo,
+		workflow: translationWorkflowStateStub{transitionsByState: map[string][]WorkflowTransition{"published": {{Name: "unpublish", To: "draft"}}}},
+		actions: []Action{
+			{Name: "submit_for_approval"},
+			{Name: "publish"},
+			{Name: "unpublish"},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	records, total, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(records) != 1 {
+		t.Fatalf("expected one record, got total=%d len=%d", total, len(records))
+	}
+
+	rawState, ok := records[0]["_action_state"]
+	if !ok {
+		t.Fatalf("expected _action_state on record: %#v", records[0])
+	}
+	state, ok := rawState.(map[string]map[string]any)
+	if !ok {
+		t.Fatalf("expected map[string]map[string]any action state, got %#v", rawState)
+	}
+
+	submitState := state["submit_for_approval"]
+	if enabled, _ := submitState["enabled"].(bool); enabled {
+		t.Fatalf("expected submit_for_approval disabled, got %#v", submitState)
+	}
+	if toString(submitState["reason_code"]) != "workflow_transition_not_available" {
+		t.Fatalf("expected workflow_transition_not_available, got %#v", submitState["reason_code"])
+	}
+
+	publishState := state["publish"]
+	if enabled, _ := publishState["enabled"].(bool); enabled {
+		t.Fatalf("expected publish disabled, got %#v", publishState)
+	}
+	if toString(publishState["reason_code"]) != "workflow_transition_not_available" {
+		t.Fatalf("expected workflow_transition_not_available, got %#v", publishState["reason_code"])
+	}
+
+	unpublishState := state["unpublish"]
+	if enabled, _ := unpublishState["enabled"].(bool); !enabled {
+		t.Fatalf("expected unpublish enabled, got %#v", unpublishState)
+	}
+	available, ok := unpublishState["available_transitions"].([]string)
+	if !ok {
+		t.Fatalf("expected []string available_transitions, got %#v", unpublishState["available_transitions"])
+	}
+	if len(available) != 1 || available[0] != "unpublish" {
+		t.Fatalf("expected [unpublish], got %#v", available)
+	}
+}
+
+func TestPanelBindingListAndDetailIncludeTranslationReadiness(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_123": {
+				"id":                   "post_123",
+				"title":                "Published Post",
+				"status":               "published",
+				"locale":               "en",
+				"translation_group_id": "tg_123",
+				"available_locales":    []string{"en", "es"},
+			},
+		},
+		list: []map[string]any{
+			{
+				"id":                   "post_123",
+				"title":                "Published Post",
+				"status":               "published",
+				"locale":               "en",
+				"translation_group_id": "tg_123",
+				"available_locales":    []string{"en", "es"},
+			},
+		},
+	}
+	panel := &Panel{
+		name: "posts",
+		repo: repo,
+		translationPolicy: readinessPolicyStub{
+			ok: true,
+			req: TranslationRequirements{
+				Locales: []string{"en", "es", "fr"},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	records, _, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("expected one record, got %d", len(records))
+	}
+	readiness, ok := records[0]["translation_readiness"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected translation_readiness on list record, got %#v", records[0]["translation_readiness"])
+	}
+	if state := toString(readiness["readiness_state"]); state != "missing_locales" {
+		t.Fatalf("expected readiness_state missing_locales, got %q", state)
+	}
+	missing := toStringSlice(readiness["missing_required_locales"])
+	if len(missing) != 1 || missing[0] != "fr" {
+		t.Fatalf("expected missing_required_locales [fr], got %v", missing)
+	}
+
+	detail, err := binding.Detail(c, "en", "post_123")
+	if err != nil {
+		t.Fatalf("detail failed: %v", err)
+	}
+	data, _ := detail["data"].(map[string]any)
+	readiness, ok = data["translation_readiness"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected translation_readiness on detail record, got %#v", data["translation_readiness"])
+	}
+	readyFor, _ := readiness["ready_for_transition"].(map[string]bool)
+	if readyFor["publish"] {
+		t.Fatalf("expected publish readiness false when required locale is missing")
 	}
 }
 

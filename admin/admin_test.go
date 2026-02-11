@@ -485,6 +485,122 @@ func TestPanelRoutesActionPayloadValidation(t *testing.T) {
 	})
 }
 
+func TestPanelListSchemaFiltersActionsToRowScope(t *testing.T) {
+	registry.WithTestRegistry(func() {
+		cfg := Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		}
+		adm := mustNewAdmin(t, cfg, Dependencies{})
+		server := router.NewHTTPServer()
+		r := server.Router()
+
+		repo := NewMemoryRepository()
+		builder := (&PanelBuilder{}).
+			WithRepository(repo).
+			ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+			FormFields(Field{Name: "name", Label: "Name", Type: "text"}).
+			Actions(
+				Action{Name: "row_action", CommandName: "noop.row", Scope: ActionScopeRow},
+				Action{Name: "detail_action", CommandName: "noop.detail", Scope: ActionScopeDetail},
+				Action{Name: "any_action", CommandName: "noop.any", Scope: ActionScopeAny},
+			)
+		if _, err := adm.RegisterPanel("items", builder); err != nil {
+			t.Fatalf("register panel: %v", err)
+		}
+		if err := adm.Initialize(r); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
+
+		req := httptest.NewRequest("GET", "/admin/api/items", nil)
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("list status: %d body=%s", rr.Code, rr.Body.String())
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		schema, ok := payload["schema"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected schema in payload")
+		}
+		actions, ok := schema["actions"].([]any)
+		if !ok {
+			t.Fatalf("expected schema.actions array, got %T", schema["actions"])
+		}
+		names := map[string]bool{}
+		for _, entry := range actions {
+			obj, _ := entry.(map[string]any)
+			names[toString(obj["name"])] = true
+		}
+		if !names["row_action"] || !names["any_action"] {
+			t.Fatalf("expected row and any actions in list schema, got %+v", names)
+		}
+		if names["detail_action"] {
+			t.Fatalf("did not expect detail_action in list schema, got %+v", names)
+		}
+	})
+}
+
+func TestPanelRoutesActionIdempotentFallbackGeneratesKey(t *testing.T) {
+	registry.WithTestRegistry(func() {
+		cfg := Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		}
+		adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
+		defer adm.Commands().Reset()
+		server := router.NewHTTPServer()
+		r := server.Router()
+
+		repo := NewMemoryRepository()
+		cmd := &calledCommand{}
+		if _, err := RegisterCommand(adm.Commands(), cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(adm.Commands(), "items.send", func(payload map[string]any, ids []string) (calledCommandMsg, error) {
+			return calledCommandMsg{Payload: payload}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
+
+		builder := (&PanelBuilder{}).
+			WithRepository(repo).
+			ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+			FormFields(Field{Name: "name", Label: "Name", Type: "text"}).
+			Actions(Action{
+				Name:            "send",
+				CommandName:     "items.send",
+				Idempotent:      true,
+				PayloadRequired: []string{"idempotency_key"},
+			})
+		if _, err := adm.RegisterPanel("items", builder); err != nil {
+			t.Fatalf("register panel: %v", err)
+		}
+		if err := adm.Initialize(r); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
+
+		req := httptest.NewRequest("POST", "/admin/api/items/actions/send", strings.NewReader(`{"id":"item-1"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("expected success status 200, got %d body=%s", rr.Code, rr.Body.String())
+		}
+		if !cmd.called {
+			t.Fatalf("expected command execution for idempotent action")
+		}
+		idempotencyKey := toString(cmd.payload["idempotency_key"])
+		if idempotencyKey == "" {
+			t.Fatalf("expected generated idempotency key in command payload")
+		}
+	})
+}
+
 func TestNotificationsRoutes(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",

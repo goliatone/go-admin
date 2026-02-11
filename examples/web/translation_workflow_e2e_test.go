@@ -12,14 +12,23 @@ import (
 	"testing"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/web/commands"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	commandregistry "github.com/goliatone/go-command/registry"
+	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/require"
 )
 
 type translationWorkflowFixture struct {
 	handler http.Handler
+}
+
+type alwaysOnFeatureGate struct{}
+
+func (alwaysOnFeatureGate) Enabled(context.Context, string, ...fggate.ResolveOption) (bool, error) {
+	return true, nil
 }
 
 type translationWorkflowEngine struct{}
@@ -29,11 +38,14 @@ func (translationWorkflowEngine) AvailableTransitions(_ context.Context, _ strin
 	case "", "draft":
 		return []coreadmin.WorkflowTransition{
 			{Name: "publish", From: "draft", To: "published"},
+			{Name: "submit_for_approval", From: "draft", To: "pending_approval"},
 			{Name: "request_approval", From: "draft", To: "pending_approval"},
 		}, nil
 	case "pending_approval":
 		return []coreadmin.WorkflowTransition{
 			{Name: "publish", From: "pending_approval", To: "published"},
+			{Name: "approve", From: "pending_approval", To: "published"},
+			{Name: "reject", From: "pending_approval", To: "draft"},
 		}, nil
 	case "published":
 		return []coreadmin.WorkflowTransition{
@@ -154,8 +166,72 @@ func TestPublishBlockedThenCreateTranslationsThenPublishSucceedsForPagesAndPosts
 	}
 }
 
+func TestListIncludesWorkflowActionStateMetadata(t *testing.T) {
+	fx := newTranslationWorkflowFixture(t)
+
+	tests := []struct {
+		name       string
+		panel      string
+		createBody map[string]any
+	}{
+		{
+			name:  "pages",
+			panel: "pages",
+			createBody: map[string]any{
+				"title":  "Action State Page",
+				"slug":   "action-state-page",
+				"path":   "/action-state-page",
+				"status": "published",
+				"locale": "en",
+			},
+		},
+		{
+			name:  "posts",
+			panel: "posts",
+			createBody: map[string]any{
+				"title":    "Action State Post",
+				"slug":     "action-state-post",
+				"path":     "/posts/action-state-post",
+				"content":  "Action state content",
+				"excerpt":  "Action state excerpt",
+				"category": "guides",
+				"status":   "published",
+				"locale":   "en",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			createStatus, createdPayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, panelCollectionPath(tc.panel), tc.createBody)
+			require.Equal(t, http.StatusOK, createStatus, "create payload=%+v", createdPayload)
+			createdRecord := extractTestRecord(createdPayload)
+			entityID := strings.TrimSpace(fmt.Sprint(createdRecord["id"]))
+			require.NotEmpty(t, entityID)
+
+			listPath := panelCollectionPath(tc.panel) + "?page=1&per_page=200"
+			listStatus, listPayload := doAdminJSONRequest(t, fx.handler, http.MethodGet, listPath, nil)
+			require.Equal(t, http.StatusOK, listStatus, "list payload=%+v", listPayload)
+
+			listRecord := extractListRecordByID(listPayload, entityID)
+			require.NotNil(t, listRecord, "expected created record in list response")
+
+			actionState, ok := listRecord["_action_state"].(map[string]any)
+			require.True(t, ok, "expected _action_state on list record: %+v", listRecord)
+
+			requireActionStateEnabled(t, actionState, "request_approval", false)
+			requireActionStateEnabled(t, actionState, "publish", false)
+			requireActionStateEnabled(t, actionState, "unpublish", true)
+		})
+	}
+}
+
 func newTranslationWorkflowFixture(t *testing.T) translationWorkflowFixture {
 	t.Helper()
+	_ = commandregistry.Stop(context.Background())
+	t.Cleanup(func() {
+		_ = commandregistry.Stop(context.Background())
+	})
 
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", normalizedTestDSNName(t.Name()))
@@ -181,9 +257,28 @@ func newTranslationWorkflowFixture(t *testing.T) translationWorkflowFixture {
 		CMSContainer:      cmsOpts.Container,
 		Workflow:          translationWorkflowEngine{},
 		TranslationPolicy: newTranslationPolicyForContent(contentSvc),
-		FeatureGate:       nil,
+		FeatureGate:       alwaysOnFeatureGate{},
 	})
 	require.NoError(t, err, "create admin")
+
+	require.NoError(t, commands.RegisterPageCommandFactories(adm.Commands()), "register page command factories")
+	require.NoError(t, commands.RegisterPostCommandFactories(adm.Commands()), "register post command factories")
+
+	_, err = coreadmin.RegisterCommand(adm.Commands(), commands.NewPagePublishCommand(pageStore))
+	require.NoError(t, err, "register page publish command")
+	_, err = coreadmin.RegisterCommand(adm.Commands(), commands.NewPageBulkPublishCommand(pageStore))
+	require.NoError(t, err, "register page bulk publish command")
+	_, err = coreadmin.RegisterCommand(adm.Commands(), commands.NewPageBulkUnpublishCommand(pageStore))
+	require.NoError(t, err, "register page bulk unpublish command")
+
+	_, err = coreadmin.RegisterCommand(adm.Commands(), commands.NewPostBulkPublishCommand(postStore))
+	require.NoError(t, err, "register post bulk publish command")
+	_, err = coreadmin.RegisterCommand(adm.Commands(), commands.NewPostBulkUnpublishCommand(postStore))
+	require.NoError(t, err, "register post bulk unpublish command")
+	_, err = coreadmin.RegisterCommand(adm.Commands(), commands.NewPostBulkScheduleCommand(postStore))
+	require.NoError(t, err, "register post bulk schedule command")
+	_, err = coreadmin.RegisterCommand(adm.Commands(), commands.NewPostBulkArchiveCommand(postStore))
+	require.NoError(t, err, "register post bulk archive command")
 
 	_, err = adm.RegisterPanel("pages", setup.NewPagesPanelBuilder(pageStore))
 	require.NoError(t, err, "register pages panel")
@@ -395,6 +490,65 @@ func extractMissingLocales(payload map[string]any) []string {
 		out = append(out, locale)
 	}
 	return out
+}
+
+func extractListRecordByID(payload map[string]any, id string) map[string]any {
+	if payload == nil {
+		return nil
+	}
+	items := extractListRecords(payload)
+	targetID := strings.TrimSpace(id)
+	if targetID == "" {
+		return nil
+	}
+	for _, item := range items {
+		record, _ := item.(map[string]any)
+		if strings.EqualFold(recordID(record), targetID) {
+			return record
+		}
+	}
+	return nil
+}
+
+func extractListRecords(payload map[string]any) []any {
+	if payload == nil {
+		return nil
+	}
+	for _, key := range []string{"data", "records", "items"} {
+		raw, ok := payload[key]
+		if !ok {
+			continue
+		}
+		if values, ok := raw.([]any); ok {
+			return values
+		}
+	}
+	return nil
+}
+
+func recordID(record map[string]any) string {
+	if len(record) == 0 {
+		return ""
+	}
+	id := strings.TrimSpace(fmt.Sprint(record["id"]))
+	if id != "" && id != "<nil>" {
+		return id
+	}
+	id = strings.TrimSpace(fmt.Sprint(record["ID"]))
+	if id != "" && id != "<nil>" {
+		return id
+	}
+	return ""
+}
+
+func requireActionStateEnabled(t *testing.T, actionState map[string]any, actionName string, expected bool) {
+	t.Helper()
+	raw := actionState[strings.TrimSpace(actionName)]
+	state, ok := raw.(map[string]any)
+	require.True(t, ok, "expected action state object for %s, got %T", actionName, raw)
+	enabled, ok := state["enabled"].(bool)
+	require.True(t, ok, "expected enabled bool for %s, got %T", actionName, state["enabled"])
+	require.Equal(t, expected, enabled, "unexpected enabled value for %s", actionName)
 }
 
 func normalizeLocales(locales []string) []string {

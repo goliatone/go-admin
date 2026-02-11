@@ -213,6 +213,11 @@ func TestDebugLogCaptureIncludesFiberRequestsAndDILogs(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register duplicate tab: %v", err)
 	}
+	adm.NamedLogger("module.esign.service").Info(
+		"module service log",
+		"module", "esign",
+		"service", "agreement",
+	)
 
 	collector := adm.Debug()
 	if collector == nil {
@@ -228,5 +233,8 @@ func TestDebugLogCaptureIncludesFiberRequestsAndDILogs(t *testing.T) {
 	}
 	if got := countDebugLogEntriesByMessage(logs, "panel tab collision"); got == 0 {
 		t.Fatalf("expected at least one app DI log entry")
+	}
+	if got := countDebugLogEntriesByMessage(logs, "module service log"); got == 0 {
+		t.Fatalf("expected at least one module/service DI log entry")
 	}
 }

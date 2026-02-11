@@ -97,6 +97,17 @@ func decodeActivityResponse(t *testing.T, rr *httptest.ResponseRecorder) activit
 
 func decodeErrorField(t *testing.T, rr *httptest.ResponseRecorder) string {
 	t.Helper()
+	errBody := decodeErrorPayload(t, rr)
+	meta, _ := errBody["metadata"].(map[string]any)
+	if meta == nil {
+		return ""
+	}
+	field, _ := meta["field"].(string)
+	return field
+}
+
+func decodeErrorPayload(t *testing.T, rr *httptest.ResponseRecorder) map[string]any {
+	t.Helper()
 	var body map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode error response: %v", err)
@@ -105,12 +116,7 @@ func decodeErrorField(t *testing.T, rr *httptest.ResponseRecorder) string {
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
 	}
-	meta, _ := errBody["metadata"].(map[string]any)
-	if meta == nil {
-		return ""
-	}
-	field, _ := meta["field"].(string)
-	return field
+	return errBody
 }
 
 func filterMachineRecords(records []usertypes.ActivityRecord, actorTypes, dataKeys []string) []usertypes.ActivityRecord {
@@ -226,7 +232,7 @@ func TestActivityRouteRequiresPermission(t *testing.T) {
 	}
 }
 
-func TestActivityRouteAllowsLegacyNonUUIDActorID(t *testing.T) {
+func TestActivityRouteRejectsNonUUIDActorID(t *testing.T) {
 	feed := &captureActivityFeedQuery{}
 	server := setupActivityServer(t, Dependencies{
 		Authorizer:        allowAuthorizer{},
@@ -245,17 +251,67 @@ func TestActivityRouteAllowsLegacyNonUUIDActorID(t *testing.T) {
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rr.Code, rr.Body.String())
 	}
-	if feed.lastFilter.Actor.ID != uuid.Nil {
-		t.Fatalf("expected nil actor id in filter, got %s", feed.lastFilter.Actor.ID)
+	errBody := decodeErrorPayload(t, rr)
+	if textCode, _ := errBody["text_code"].(string); textCode != TextCodeActivityActorContextInvalid {
+		t.Fatalf("expected text code %s, got %v", TextCodeActivityActorContextInvalid, errBody["text_code"])
 	}
-	if feed.lastFilter.Scope.TenantID != tenantID {
-		t.Fatalf("expected tenant scope %s, got %s", tenantID, feed.lastFilter.Scope.TenantID)
+	msg, _ := errBody["message"].(string)
+	if !strings.Contains(msg, "actor_id") || !strings.Contains(msg, "UUID") {
+		t.Fatalf("expected clear actor_id/UUID message, got %q", msg)
 	}
-	if feed.lastFilter.Scope.OrgID != orgID {
-		t.Fatalf("expected org scope %s, got %s", orgID, feed.lastFilter.Scope.OrgID)
+	meta, _ := errBody["metadata"].(map[string]any)
+	if meta == nil {
+		t.Fatalf("expected metadata in error payload")
+	}
+	if got, _ := meta["actor_id"].(string); got != "esign-admin" {
+		t.Fatalf("expected actor_id metadata esign-admin, got %q", got)
+	}
+	if got, _ := meta["field"].(string); got != "actor_id" {
+		t.Fatalf("expected field metadata actor_id, got %q", got)
+	}
+	if got, _ := meta["source_text_code"].(string); got != "ACTOR_CONTEXT_INVALID" {
+		t.Fatalf("expected source text code ACTOR_CONTEXT_INVALID, got %q", got)
+	}
+}
+
+func TestActivityRouteRejectsNonUUIDActorIDWithDefaultPolicy(t *testing.T) {
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	repo := &stubActivityRepository{
+		records: []usertypes.ActivityRecord{
+			{
+				ID:         uuid.New(),
+				Verb:       "login",
+				ObjectType: "user",
+				ObjectID:   "user-1",
+				OccurredAt: time.Now().UTC(),
+			},
+		},
+	}
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:         allowAuthorizer{},
+		ActivityRepository: repo,
+	})
+
+	req := httptest.NewRequest("GET", "/admin/api/activity", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID:        "esign-admin",
+		Role:           "admin",
+		TenantID:       tenantID.String(),
+		OrganizationID: orgID.String(),
+	}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	errBody := decodeErrorPayload(t, rr)
+	if textCode, _ := errBody["text_code"].(string); textCode != TextCodeActivityActorContextInvalid {
+		t.Fatalf("expected text code %s, got %v", TextCodeActivityActorContextInvalid, errBody["text_code"])
 	}
 }
 

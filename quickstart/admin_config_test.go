@@ -59,6 +59,8 @@ func TestDefaultAdminFeatures(t *testing.T) {
 	got := DefaultAdminFeatures()
 	expected := map[string]bool{
 		"dashboard":             true,
+		"activity":              true,
+		"preview":               true,
 		"cms":                   true,
 		"commands":              true,
 		"settings":              true,
