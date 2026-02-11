@@ -112,11 +112,13 @@ func (m *PreferencesModule) renderPreferencesForm(admin *Admin, c router.Context
 		},
 		"json_editor_strict": m.jsonEditorStrict,
 	}
+	viewCtx = buildAdminLayoutViewContext(admin, c, viewCtx, preferencesModuleID)
 	if m != nil && m.viewBuilder != nil {
 		if updated := m.viewBuilder(admin, c, viewCtx, preferencesModuleID); updated != nil {
 			viewCtx = updated
 		}
 	}
+	viewCtx = buildAdminLayoutViewContext(admin, c, viewCtx, preferencesModuleID)
 	viewCtx = CaptureViewContextForRequest(admin.Debug(), c, viewCtx)
 	return c.Render(preferencesFormTemplate, viewCtx)
 }
