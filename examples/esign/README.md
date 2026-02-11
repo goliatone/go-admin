@@ -110,6 +110,18 @@ Phase 16 wiring enables the admin shell/login flow for the e-sign runtime.
 - Public signer routes stay outside admin auth, for example:
   - `http://localhost:8082/api/v1/esign/signing/session/:token`
 
+### Template Path Context
+
+The signer pages now use shared quickstart path-context wiring instead of local
+string concatenation. Runtime handlers inject:
+
+- `base_path`
+- `api_base_path`
+- `asset_base_path`
+
+via `quickstart.WithPathViewContext(...)`, which keeps asset URLs aligned with
+`quickstart.NewStaticAssets(...)` when `cfg.BasePath` changes.
+
 ### Demo Login Credentials (Env-Backed Provider)
 
 By default:
