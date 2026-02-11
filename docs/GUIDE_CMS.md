@@ -228,6 +228,70 @@ workflow.RegisterWorkflow("pages", admin.WorkflowDefinition{
 Transitions are exposed as Panel actions and enforced during updates. Workflow enforcement runs inside panel update hooks so status changes always pass through the workflow engine.
 CMS demo panels default to the `submit_for_approval` and `publish` actions. Override them with `adm.WithCMSWorkflowActions(...)` (use `admin.DefaultCMSWorkflowActions()` as a base).
 
+### Row Action Availability Contract (`_action_state`)
+
+List responses now include per-record action availability metadata under
+`_action_state`. The UI uses this to disable actions that are not valid for the
+current record state.
+
+Example record fragment:
+
+```json
+{
+  "id": "post_123",
+  "status": "published",
+  "_action_state": {
+    "submit_for_approval": {
+      "enabled": false,
+      "reason_code": "workflow_transition_not_available",
+      "reason": "transition \"submit_for_approval\" is not available from state \"published\"",
+      "available_transitions": ["unpublish"]
+    },
+    "publish": {
+      "enabled": false,
+      "reason_code": "workflow_transition_not_available"
+    },
+    "unpublish": {
+      "enabled": true,
+      "available_transitions": ["unpublish"]
+    }
+  }
+}
+```
+
+Current `reason_code` values:
+
+- `workflow_transition_not_available`
+- `workflow_not_configured`
+- `workflow_transitions_unavailable`
+- `record_id_missing`
+- `missing_context_required`
+- `permission_denied`
+
+### Action Execution Error Semantics
+
+Workflow-backed row actions now return workflow-specific errors instead of a
+generic action lookup failure:
+
+- `WORKFLOW_INVALID_TRANSITION` when the action is defined but not available in
+  the current state.
+- `WORKFLOW_NOT_FOUND` (or repository lookup errors like `NOT_FOUND`) when
+  workflow/record lookup fails for a workflow-backed action.
+
+Command-backed actions still use command dispatch fallback behavior.
+
+### Boot-Time Action Wiring Validation
+
+`Admin.Prepare(...)` validates panel action wiring before routes are used.
+Validation fails fast when:
+
+- a row/bulk action references an unregistered command factory
+- a workflow action exists but no workflow is configured
+- a workflow action exists but no matching workflow transition is registered
+
+This is intended to catch configuration drift at startup instead of at request
+time.
+
 ### Block Definitions Workflow
 
 The Content Type Builder module also publishes and deprecates block definitions.
@@ -396,11 +460,20 @@ Preview and draft access can be enabled with query flags on the management API:
 
 Content entry screens mount under `/admin/content/:panel` when you register
 `quickstart.RegisterContentEntryUIRoutes` (or the equivalent wiring in your app).
-If you want filter controls even when schema filters are empty, enable the
-quickstart fallback option:
-`quickstart.WithContentEntryUIFilterFallbackFromColumnsDefault(true)`.
-Per-content-type capability `filters_fallback_from_columns` overrides the global
-default (`true`/`false`).
+Common route options:
+
+- `quickstart.WithContentEntryUIBasePath(...)`
+- `quickstart.WithContentEntryUITemplates(list, form, detail)`
+- `quickstart.WithContentEntryUIViewContext(...)`
+- `quickstart.WithContentEntryUIPermission(...)`
+- `quickstart.WithContentEntryUIAuthResource(...)`
+- `quickstart.WithContentEntryFormRenderer(...)`
+- `quickstart.WithContentEntryUITemplateFS(...)`
+- `quickstart.WithContentEntryUITemplateExists(...)`
+- `quickstart.WithContentEntryDefaultRenderers(map[string]string{...})` (replace configured map)
+- `quickstart.WithContentEntryMergeDefaultRenderers(map[string]string{...})` (merge/override configured map)
+- `quickstart.WithContentEntryRecommendedDefaults()` (opt-in recommended renderer defaults)
+
 Common routes include:
 
 - `/admin/content/:panel` (list)
@@ -416,6 +489,114 @@ go-admin also registers alias routes for Pages/Posts when CMS is enabled:
 Alias resolution uses the `panel_slug` capability, so a content type like
 `blog_post` with `panel_slug=posts` is served by the Posts panel. Query
 parameters (including `env`) are preserved during the redirect.
+
+### Content Entry List/Detail Rendering Mechanics
+
+The content-entry list columns are derived from panel `ListFields`, and filter
+metadata comes from panel `Filters`. When `Filters` are empty, the UI
+automatically falls back to list-field based filters.
+
+List columns now support renderer metadata:
+
+- `renderer`: named DataGrid renderer (for example `_array`, `_object`).
+- `renderer_options`: options passed to the renderer.
+
+Built-in list renderer fallback:
+
+- array-like fields (`array`, `multiselect`, `tags`, `blocks`, `block-library-picker`) -> `_array`
+- object-like fields (`json`, `jsonschema`, `object`) -> `_object`
+
+Optional quickstart defaults can be configured by field type:
+
+- `WithContentEntryDefaultRenderers(...)` replaces the configured defaults map.
+- `WithContentEntryMergeDefaultRenderers(...)` merges into the configured map.
+- `WithContentEntryRecommendedDefaults()` merges this recommended map:
+  `{"blocks":"blocks_chips","block-library-picker":"blocks_chips"}`.
+
+Renderer resolution order:
+
+1. `ui_schema.fields.<field>.renderer` (or aliases like `cell_renderer`)
+2. configured quickstart defaults (`defaultRenderers[fieldType]`)
+3. built-in fallback mapping (`_array`, `_object`, etc.)
+
+You can override render behavior per field using `ui_schema.fields.<field>` (or
+`ui_schema.fields./<field>`). Supported hint keys:
+
+- `renderer` / `cell_renderer` / `cellRenderer`
+- `renderer_options` / `rendererOptions`
+- `display_key` / `displayKey`
+- `display_keys` / `displayKeys`
+
+Nested scopes are supported under `table`, `list`, `datagrid`, or `data_grid`
+inside each field hint.
+
+Detail view formatting is scalar-safe by default:
+
+- arrays render as comma-separated summaries;
+- objects use `display_key`/`display_keys` first, then common label keys
+  (`name`, `label`, `title`, `slug`, `id`, etc.);
+- unresolved objects fall back to compact JSON, preventing raw reflect output.
+
+### blocks_chips Renderer
+
+The `blocks_chips` renderer displays block arrays as styled chips with icons,
+providing a compact visualization of content blocks in list views.
+
+**Renderer name:** `blocks_chips`
+
+**Supported options** (snake_case and camelCase accepted):
+
+| Option            | Type              | Default       | Description                                      |
+| ----------------- | ----------------- | ------------- | ------------------------------------------------ |
+| `max_visible`     | number            | `3`           | Maximum chips shown before overflow badge        |
+| `show_count`      | boolean           | `true`        | Show "+N more" badge when blocks exceed max      |
+| `chip_variant`    | string            | `"default"`   | Chip styling variant (`default`, `muted`, `outline`) |
+| `block_icons_map` | `Record<string, string>` | server-provided | Map of block type to icon reference     |
+
+**Block label resolution order:**
+
+1. `_type` field
+2. `type` field
+3. `blockType` field
+4. `block_type` field
+5. String value fallback (for legacy string arrays)
+
+**Icon resolution order:**
+
+1. `block_icons_map[label]` from renderer options
+2. Default: `iconoir:view-grid`
+
+**Server behavior:**
+
+- When a column uses `renderer: "blocks_chips"`, the server automatically
+  attaches `block_icons_map` to `renderer_options` by querying block
+  definitions for the current environment.
+- If `block_icons_map` is already provided in `ui_schema`, the server value
+  is not applied (user override wins).
+- Block definition fetch failures do not fail the list response; chips render
+  without icons and errors are logged once per request path.
+
+**Example ui_schema configuration:**
+
+```json
+{
+  "fields": {
+    "blocks": {
+      "renderer": "blocks_chips",
+      "renderer_options": {
+        "max_visible": 4,
+        "show_count": true,
+        "chip_variant": "muted"
+      }
+    }
+  }
+}
+```
+
+**Payload shapes supported:**
+
+- Embedded objects array: `[{"_type": "hero", ...}, {"_type": "text", ...}]`
+- Legacy string array: `["hero", "text", "gallery"]`
 
 ---
 

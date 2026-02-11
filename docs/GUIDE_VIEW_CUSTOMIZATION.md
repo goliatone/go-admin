@@ -98,6 +98,119 @@ views, err := quickstart.NewViewEngine(
 
 The embedded resource CRUD templates under `pkg/client/templates/resources/*` are reusable defaults and can be overridden the same way. Auth and shell templates live at `pkg/client/templates/login.html`, `pkg/client/templates/password_reset.html`, `pkg/client/templates/password_reset_confirm.html`, `pkg/client/templates/admin.html`, and `pkg/client/templates/notifications.html`.
 
+For content-entry panel-specific overrides, keep the same base filename under a
+panel-specific directory:
+
+- `templates/resources/content/list.html` (global fallback content list)
+- `templates/resources/content/detail.html` (global fallback content detail)
+- `templates/resources/<panel-slug>/list.html` (panel-specific list)
+- `templates/resources/<panel-slug>/detail.html` (panel-specific detail)
+
+When registering content entry routes, quickstart supports deterministic
+template fallback probing via:
+
+- `quickstart.WithContentEntryUITemplateFS(...)`
+- `quickstart.WithContentEntryUITemplateExists(...)`
+
+This allows per-panel templates to fall back cleanly to shared
+`resources/content/*` templates when a panel-specific template is missing.
+
+## Content DataGrid renderer extension
+
+The content list DataGrid supports named renderers from server-provided column
+metadata (`renderer` + `renderer_options`) and a client-side renderer registry.
+
+To register custom renderer functions in templates/pages, assign:
+
+```html
+<script>
+  window.contentEntryCellRenderers = {
+    blocks_summary(value, record, column, context) {
+      // context.options contains renderer_options
+      return Array.isArray(value) ? `${value.length} blocks` : '-';
+    }
+  };
+</script>
+```
+
+Then reference the renderer from a content type `ui_schema` field hint (for
+example `renderer: "blocks_summary"`). Built-in renderers include `_array` and
+`_object`, and `_object` supports `display_key` / `display_keys` options.
+
+Note: content translation renderers (`locale`, `translation_status`,
+`available_locales`) are injected after `window.contentEntryCellRenderers`, so
+those built-in translation renderers take precedence when names collide.
+
+### Row action disable states from API
+
+When a list record includes `_action_state`, `SchemaActionBuilder` applies it
+to row action buttons automatically. Disabled actions render as disabled and
+show the server-provided reason (`reason`) as tooltip text.
+
+Record fragment:
+
+```json
+{
+  "_action_state": {
+    "publish": {
+      "enabled": false,
+      "reason_code": "workflow_transition_not_available",
+      "reason": "transition \"publish\" is not available from state \"published\""
+    }
+  }
+}
+```
+
+No template changes are required if your list page already uses
+`SchemaActionBuilder`.
+
+### blocks_chips renderer
+
+The `blocks_chips` renderer displays block arrays as styled chips with icons.
+It automatically resolves block type icons from the `block_definitions` panel.
+
+If you want this renderer as the default for `blocks`/`block-library-picker`
+without setting `ui_schema` per content type, opt in at route registration:
+
+```go
+quickstart.RegisterContentEntryUIRoutes(
+  r,
+  cfg,
+  adm,
+  authn,
+  quickstart.WithContentEntryRecommendedDefaults(),
+)
+```
+
+**Configuration in ui_schema:**
+
+```json
+{
+  "fields": {
+    "blocks": {
+      "renderer": "blocks_chips",
+      "renderer_options": {
+        "max_visible": 4,
+        "show_count": true,
+        "chip_variant": "muted"
+      }
+    }
+  }
+}
+```
+
+**Options:**
+
+| Option            | Default     | Description                                        |
+| ----------------- | ----------- | -------------------------------------------------- |
+| `max_visible`     | `3`         | Maximum chips shown before overflow badge          |
+| `show_count`      | `true`      | Show "+N more" badge when blocks exceed max        |
+| `chip_variant`    | `"default"` | Styling: `default` (blue), `muted` (gray), `outline` |
+| `block_icons_map` | auto        | Server-provided; can be overridden in ui_schema   |
+
+The server automatically attaches `block_icons_map` by querying active block
+definitions for the current environment. User-provided values take precedence.
+
 ## Auth UI slots (login extra)
 
 The login template now exposes a slot block you can extend without modifying the base template:
@@ -196,6 +309,25 @@ if err := quickstart.RegisterAuthUIRoutes(
 Use `WithUIDashboardActive(...)` / `WithUINotificationsActive(...)` to control which nav item is marked active.
 Use `WithUIViewContextBuilder(...)` to inject additional data into the admin/notifications templates.
 Use `WithAuthUIViewContextBuilder(...)` if you need to inject theme or custom fields into the login/reset templates.
+
+### Feature-aware body classes (activity UI)
+
+Quickstart admin UI routes now inject feature-state context keys that let templates style or disable UI surfaces without waiting for API failures:
+
+- `activity_enabled` / `activity_feature_enabled` (bool)
+- `body_classes` includes:
+  - `feature-activity`
+  - `feature-activity-enabled` or `feature-activity-disabled`
+  - on the activity page only: `feature-enabled` or `feature-disabled`
+
+The default `layout.html` appends `body_classes` to `<body class="...">`, so page CSS can branch on feature state:
+
+```css
+body.feature-activity-disabled #activity-enabled-content { display: none; }
+body.feature-activity-disabled #activity-disabled { display: block; }
+```
+
+The default activity template also short-circuits JS bootstrapping when `feature-activity-disabled` is present, so it does not call the activity API.
 
 ## Dashboard SSR templates
 
