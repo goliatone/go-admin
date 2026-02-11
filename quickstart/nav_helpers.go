@@ -74,20 +74,16 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
+	var urls urlkit.Resolver
 	basePath := resolveAdminBasePath(nil, cfg.BasePath)
 	if adm != nil {
-		basePath = resolveAdminBasePath(adm.URLs(), adm.BasePath())
+		urls = adm.URLs()
+		basePath = resolveAdminBasePath(urls, adm.BasePath())
 	}
-	if _, ok := ctx["base_path"]; !ok {
-		ctx["base_path"] = basePath
-	}
-	if _, ok := ctx["api_base_path"]; !ok {
-		var urls urlkit.Resolver
-		if adm != nil {
-			urls = adm.URLs()
-		}
-		ctx["api_base_path"] = resolveAdminAPIBasePath(urls, cfg, basePath)
-	}
+	ctx = WithPathViewContext(ctx, cfg, PathViewContextConfig{
+		BasePath:    basePath,
+		URLResolver: urls,
+	})
 	if reqCtx == nil {
 		reqCtx = context.Background()
 	}

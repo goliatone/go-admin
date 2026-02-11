@@ -78,6 +78,9 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	if view["nav_items"] == nil {
 		t.Fatalf("expected nav_items in view context")
 	}
+	if view["asset_base_path"] == nil {
+		t.Fatalf("expected asset_base_path in view context")
+	}
 }
 
 func TestResolveNavTargetUsesURLKitRoute(t *testing.T) {
