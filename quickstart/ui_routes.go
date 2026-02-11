@@ -430,6 +430,7 @@ func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewConte
 			labels = map[string]string{}
 		}
 		ctx["activity_action_labels"] = labels
+		ctx = withUIFeatureContext(ctx, adm, active)
 		return admin.CaptureViewContextForRequest(adm.Debug(), c, ctx)
 	}
 }
