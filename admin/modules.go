@@ -112,6 +112,37 @@ func (a *Admin) loadModules(ctx context.Context) error {
 		AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
 			return a.addMenuItems(ctx, []MenuItem(items))
 		},
+		AddIconLibrary: func(lib modules.IconLibrary) error {
+			if a.iconService == nil {
+				return nil
+			}
+			return a.iconService.RegisterLibrary(IconLibrary{
+				ID:          lib.ID,
+				Name:        lib.Name,
+				Description: lib.Description,
+				CDN:         lib.CDN,
+				CSSClass:    lib.CSSClass,
+				RenderMode:  IconRenderMode(lib.RenderMode),
+				Priority:    lib.Priority,
+				Trusted:     lib.Trusted,
+			})
+		},
+		AddIconDefinition: func(icon modules.IconDefinition) error {
+			if a.iconService == nil {
+				return nil
+			}
+			return a.iconService.RegisterIcon(IconDefinition{
+				ID:       icon.ID,
+				Name:     icon.Name,
+				Label:    icon.Label,
+				Type:     IconType(icon.Type),
+				Library:  icon.Library,
+				Content:  icon.Content,
+				Keywords: icon.Keywords,
+				Category: icon.Category,
+				Trusted:  icon.Trusted,
+			})
+		},
 	})
 	if err != nil {
 		return err
