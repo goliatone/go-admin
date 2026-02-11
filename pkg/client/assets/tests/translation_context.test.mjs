@@ -1749,4 +1749,257 @@ describe('renderMissingTranslationsBadge', () => {
   });
 });
 
+// ============================================================================
+// Phase 19.4: Dual-Mode Compatibility Tests (Productized + Legacy)
+// ============================================================================
+
+describe('Dual-mode compatibility: fallback detection', () => {
+  // Simulate the fallback detection that works in both modes
+  function detectFallbackMode(record) {
+    // Check flat fields first (legacy mode)
+    if (record.fallback_used === true || record.fallback_used === 'true') return true;
+    if (record.missing_requested_locale === true || record.missing_requested_locale === 'true') return true;
+
+    // Check nested translation.meta (legacy mode)
+    const translationMeta = record.translation?.meta || record.content_translation?.meta || {};
+    if (translationMeta.fallback_used === true || translationMeta.fallback_used === 'true') return true;
+    if (translationMeta.missing_requested_locale === true || translationMeta.missing_requested_locale === 'true') return true;
+
+    // Infer from locale mismatch
+    const requested = record.requested_locale || translationMeta.requested_locale;
+    const resolved = record.resolved_locale || record.locale || translationMeta.resolved_locale;
+    if (requested && resolved && requested !== resolved) return true;
+
+    return false;
+  }
+
+  it('legacy mode: detects fallback from flat fallback_used', () => {
+    assert.equal(detectFallbackMode({ fallback_used: true }), true);
+    assert.equal(detectFallbackMode({ fallback_used: 'true' }), true);
+  });
+
+  it('legacy mode: detects fallback from nested translation.meta', () => {
+    assert.equal(detectFallbackMode({
+      translation: { meta: { fallback_used: true } }
+    }), true);
+    assert.equal(detectFallbackMode({
+      content_translation: { meta: { fallback_used: true } }
+    }), true);
+  });
+
+  it('legacy mode: detects fallback from locale mismatch', () => {
+    assert.equal(detectFallbackMode({
+      requested_locale: 'es',
+      resolved_locale: 'en'
+    }), true);
+  });
+
+  it('productized mode: coexists with translation_readiness without interference', () => {
+    // Record has both legacy context and productized readiness
+    const record = {
+      locale: 'en',
+      requested_locale: 'en',
+      resolved_locale: 'en',
+      fallback_used: false,
+      translation_readiness: {
+        readiness_state: 'missing_locales',
+        missing_required_locales: ['es', 'fr'],
+        available_locales: ['en'],
+      },
+    };
+
+    // Fallback detection should return false (we're viewing the correct locale)
+    assert.equal(detectFallbackMode(record), false);
+  });
+
+  it('productized mode: fallback detection independent of readiness state', () => {
+    // Even if readiness says "ready", if we're in fallback mode, editing should be blocked
+    const readyButFallback = {
+      requested_locale: 'es',
+      resolved_locale: 'en',
+      translation_readiness: {
+        readiness_state: 'ready',
+        missing_required_locales: [],
+      },
+    };
+    assert.equal(detectFallbackMode(readyButFallback), true);
+
+    // Conversely, if not in fallback but readiness has issues, still allow editing
+    const notFallbackButMissing = {
+      requested_locale: 'en',
+      resolved_locale: 'en',
+      fallback_used: false,
+      translation_readiness: {
+        readiness_state: 'missing_locales',
+        missing_required_locales: ['es'],
+      },
+    };
+    assert.equal(detectFallbackMode(notFallbackButMissing), false);
+  });
+
+  it('productized mode: legacy fallback flags take precedence', () => {
+    // If legacy says fallback, block editing regardless of productized state
+    const record = {
+      fallback_used: true,
+      translation_readiness: {
+        readiness_state: 'ready',
+        missing_required_locales: [],
+      },
+    };
+    assert.equal(detectFallbackMode(record), true);
+  });
+});
+
+describe('Dual-mode compatibility: readiness extraction', () => {
+  // Simulate readiness extraction for both modes
+  function getReadinessInfo(record) {
+    // Productized mode: use translation_readiness
+    if (record.translation_readiness) {
+      const r = record.translation_readiness;
+      return {
+        hasMetadata: true,
+        isReady: r.readiness_state === 'ready',
+        missingLocales: r.missing_required_locales || [],
+        requiredLocales: r.required_locales || [],
+        availableLocales: r.available_locales || [],
+      };
+    }
+
+    // Legacy mode: no productized readiness, use available_locales
+    const availableLocales = record.available_locales ||
+      record.translation?.meta?.available_locales || [];
+
+    return {
+      hasMetadata: false,
+      isReady: null, // Unknown in legacy mode
+      missingLocales: [],
+      requiredLocales: [],
+      availableLocales,
+    };
+  }
+
+  it('productized mode: extracts readiness from translation_readiness', () => {
+    const info = getReadinessInfo({
+      translation_readiness: {
+        readiness_state: 'missing_locales',
+        required_locales: ['en', 'es', 'fr'],
+        available_locales: ['en'],
+        missing_required_locales: ['es', 'fr'],
+      },
+    });
+
+    assert.equal(info.hasMetadata, true);
+    assert.equal(info.isReady, false);
+    assert.deepEqual(info.missingLocales, ['es', 'fr']);
+    assert.deepEqual(info.requiredLocales, ['en', 'es', 'fr']);
+  });
+
+  it('legacy mode: falls back to available_locales only', () => {
+    const info = getReadinessInfo({
+      available_locales: ['en', 'es'],
+      translation: {
+        meta: {
+          translation_group_id: 'tg_123',
+        },
+      },
+    });
+
+    assert.equal(info.hasMetadata, false);
+    assert.equal(info.isReady, null);
+    assert.deepEqual(info.availableLocales, ['en', 'es']);
+  });
+
+  it('legacy mode: extracts available_locales from nested translation.meta', () => {
+    const info = getReadinessInfo({
+      translation: {
+        meta: {
+          available_locales: ['en', 'fr'],
+        },
+      },
+    });
+
+    assert.equal(info.hasMetadata, false);
+    assert.deepEqual(info.availableLocales, ['en', 'fr']);
+  });
+
+  it('dual-mode: productized takes precedence when both present', () => {
+    const info = getReadinessInfo({
+      available_locales: ['en'], // legacy
+      translation_readiness: {
+        readiness_state: 'ready',
+        available_locales: ['en', 'es', 'fr'], // productized
+        missing_required_locales: [],
+      },
+    });
+
+    assert.equal(info.hasMetadata, true);
+    assert.equal(info.isReady, true);
+    assert.deepEqual(info.availableLocales, ['en', 'es', 'fr']);
+  });
+});
+
+describe('Dual-mode compatibility: form edit guard behavior', () => {
+  // Simulate form edit guard logic
+  function shouldBlockFormEdit(record) {
+    // Form editing is blocked when in fallback mode
+    // This is independent of readiness state
+
+    // Check explicit fallback flags
+    if (record.fallback_used === true || record.fallback_used === 'true') return true;
+    if (record.missing_requested_locale === true || record.missing_requested_locale === 'true') return true;
+
+    // Check nested
+    const meta = record.translation?.meta || record.content_translation?.meta || {};
+    if (meta.fallback_used === true || meta.fallback_used === 'true') return true;
+    if (meta.missing_requested_locale === true || meta.missing_requested_locale === 'true') return true;
+
+    // Infer from locale mismatch
+    const requested = record.requested_locale || meta.requested_locale;
+    const resolved = record.resolved_locale || record.locale || meta.resolved_locale;
+    if (requested && resolved && requested !== resolved) return true;
+
+    return false;
+  }
+
+  it('blocks editing in legacy fallback mode', () => {
+    assert.equal(shouldBlockFormEdit({ fallback_used: true }), true);
+    assert.equal(shouldBlockFormEdit({
+      translation: { meta: { missing_requested_locale: true } }
+    }), true);
+  });
+
+  it('allows editing when not in fallback mode (legacy)', () => {
+    assert.equal(shouldBlockFormEdit({
+      requested_locale: 'en',
+      resolved_locale: 'en',
+      fallback_used: false,
+    }), false);
+  });
+
+  it('allows editing when not in fallback mode (productized with missing)', () => {
+    // Even if translations are missing, we can edit the current locale
+    assert.equal(shouldBlockFormEdit({
+      requested_locale: 'en',
+      resolved_locale: 'en',
+      fallback_used: false,
+      translation_readiness: {
+        readiness_state: 'missing_locales',
+        missing_required_locales: ['es', 'fr'],
+      },
+    }), false);
+  });
+
+  it('blocks editing when in fallback mode (productized ready)', () => {
+    // Even if productized says "ready", fallback mode blocks editing
+    assert.equal(shouldBlockFormEdit({
+      requested_locale: 'es',
+      resolved_locale: 'en',
+      translation_readiness: {
+        readiness_state: 'ready',
+        missing_required_locales: [],
+      },
+    }), true);
+  });
+});
+
 console.log('All translation context tests completed');
