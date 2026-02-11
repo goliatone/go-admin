@@ -12,6 +12,8 @@ type FeatureKey string
 
 const (
 	FeatureDashboard           FeatureKey = "dashboard"
+	FeatureActivity            FeatureKey = "activity"
+	FeaturePreview             FeatureKey = "preview"
 	FeatureSearch              FeatureKey = "search"
 	FeatureExport              FeatureKey = "export"
 	FeatureCMS                 FeatureKey = "cms"
