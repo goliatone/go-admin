@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http/httptest"
 	"sync"
@@ -159,5 +160,73 @@ func TestDebugFiberSlogMiddlewareEmitsLevelByResponse(t *testing.T) {
 	}
 	if _, ok := records[2].attrs["error"]; !ok {
 		t.Fatalf("expected error attr for failed request")
+	}
+}
+
+func TestDebugLogCaptureIncludesFiberRequestsAndDILogs(t *testing.T) {
+	cfg := NewAdminConfig(
+		"/admin",
+		"Admin",
+		"en",
+		WithDebugConfig(admin.DebugConfig{Enabled: true, CaptureLogs: true}),
+	)
+	adm, err := admin.New(cfg, admin.Dependencies{Router: &debugRouter{}})
+	if err != nil {
+		t.Fatalf("admin.New error: %v", err)
+	}
+	if err := admin.NewDebugModule(cfg.Debug).Register(admin.ModuleContext{Admin: adm}); err != nil {
+		t.Fatalf("debug module register error: %v", err)
+	}
+
+	previous := slog.Default()
+	t.Cleanup(func() {
+		slog.SetDefault(previous)
+	})
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	AttachDebugLogHandler(cfg, adm)
+
+	app := fiber.New()
+	app.Use(debugFiberSlogMiddleware(cfg))
+	app.Get("/ok", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/ok", nil), -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200 got %d", resp.StatusCode)
+	}
+
+	if err := adm.RegisterPanelTab("users", admin.PanelTab{
+		ID:     "dup",
+		Label:  "First",
+		Target: admin.PanelTabTarget{Type: "panel", Panel: "first"},
+	}); err != nil {
+		t.Fatalf("register first tab: %v", err)
+	}
+	if err := adm.RegisterPanelTab("users", admin.PanelTab{
+		ID:     "dup",
+		Label:  "Second",
+		Target: admin.PanelTabTarget{Type: "panel", Panel: "second"},
+	}); err != nil {
+		t.Fatalf("register duplicate tab: %v", err)
+	}
+
+	collector := adm.Debug()
+	if collector == nil {
+		t.Fatalf("expected debug collector")
+	}
+	snapshot := collector.Snapshot()
+	logs, ok := snapshot[admin.DebugPanelLogs].([]admin.LogEntry)
+	if !ok {
+		t.Fatalf("expected debug logs snapshot, got %#v", snapshot[admin.DebugPanelLogs])
+	}
+	if got := countDebugLogEntriesByMessage(logs, "fiber request"); got == 0 {
+		t.Fatalf("expected at least one fiber request log entry")
+	}
+	if got := countDebugLogEntriesByMessage(logs, "panel tab collision"); got == 0 {
+		t.Fatalf("expected at least one app DI log entry")
 	}
 }

@@ -100,29 +100,25 @@ func TestGoAuthAuthorizerDebugLogging(t *testing.T) {
 		UserRole: string(auth.RoleAdmin),
 	}
 	ctx := auth.WithClaimsContext(context.Background(), claims)
-	logs := 0
+	debugLogger := &captureAdminLogger{}
 	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
 		DefaultResource: "admin",
 		Debug:           true,
-		Logger: func(format string, args ...any) {
-			logs++
-		},
+		Logger:          debugLogger,
 	})
 	_ = authz.Can(ctx, "admin.settings.view", "")
-	if logs == 0 {
+	if got := debugLogger.count("debug", "auth decision"); got == 0 {
 		t.Fatalf("expected debug logger to be called when debug enabled")
 	}
 
-	logs = 0
+	offLogger := &captureAdminLogger{}
 	authzOff := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
 		DefaultResource: "admin",
 		Debug:           false,
-		Logger: func(format string, args ...any) {
-			logs++
-		},
+		Logger:          offLogger,
 	})
 	_ = authzOff.Can(ctx, "admin.settings.view", "")
-	if logs != 0 {
+	if got := offLogger.count("debug", "auth decision"); got != 0 {
 		t.Fatalf("expected no debug logging when debug disabled")
 	}
 }
