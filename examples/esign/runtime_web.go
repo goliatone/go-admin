@@ -764,7 +764,6 @@ func registerESignPublicSignerWebRoutes(
 	if apiBasePath == "" {
 		apiBasePath = "/api/v1/esign/signing"
 	}
-	signerCfg.AssetBasePath = normalizeRouteBasePath(signerCfg.AssetBasePath, "/admin")
 
 	// GET /sign/:token - Main session/consent entrypoint
 	r.Get("/sign/:token", func(c router.Context) error {
@@ -971,29 +970,15 @@ func handleSignerTokenError(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 }
 
 func signerTemplateViewContext(cfg SignerWebRouteConfig, apiBasePath string, viewCtx router.ViewContext) router.ViewContext {
-	if viewCtx == nil {
-		viewCtx = router.ViewContext{}
+	basePath := strings.TrimSpace(cfg.AssetBasePath)
+	if basePath == "" {
+		basePath = "/admin"
 	}
-	basePath := normalizeRouteBasePath(cfg.AssetBasePath, "/admin")
-	viewCtx["asset_base_path"] = basePath
-	if _, ok := viewCtx["base_path"]; !ok {
-		viewCtx["base_path"] = basePath
-	}
-	if _, ok := viewCtx["api_base_path"]; !ok {
-		viewCtx["api_base_path"] = strings.TrimSpace(apiBasePath)
-	}
-	return viewCtx
-}
-
-func normalizeRouteBasePath(basePath, fallback string) string {
-	resolved := strings.TrimSpace(basePath)
-	if resolved == "" {
-		resolved = strings.TrimSpace(fallback)
-	}
-	if resolved == "" {
-		return ""
-	}
-	return "/" + strings.Trim(resolved, "/")
+	return quickstart.WithPathViewContext(viewCtx, coreadmin.Config{}, quickstart.PathViewContextConfig{
+		BasePath:      basePath,
+		APIBasePath:   strings.TrimSpace(apiBasePath),
+		AssetBasePath: basePath,
+	})
 }
 
 func buildSignerSessionViewContext(token, apiBasePath string, session services.SignerSessionContext, agreement map[string]any) router.ViewContext {
