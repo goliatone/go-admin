@@ -75,6 +75,10 @@ func WithFiberAdapterConfig(mutator func(*router.FiberAdapterConfig)) FiberServe
 
 // NewFiberServer constructs a Fiber-backed router adapter with quickstart defaults.
 func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App]) {
+	if adm != nil {
+		setQuickstartDefaultLoggerDependencies(adm.LoggerProvider(), adm.Logger())
+	}
+
 	options := fiberServerOptions{
 		config: fiber.Config{
 			UnescapePath:      true,
