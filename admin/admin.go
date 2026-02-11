@@ -81,6 +81,7 @@ type Admin struct {
 	panelTabCollisionHandler     PanelTabCollisionHandler
 	cmsRoutesRegistered          bool
 	contentAliasRoutesRegistered bool
+	iconService                  *IconService
 }
 
 type activityAware interface {
@@ -146,7 +147,6 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	}
 	activityPolicy := deps.ActivityAccessPolicy
 	if activityPolicy == nil {
-		// TODO: Review to make sure we have something that makes sense
 		activityPolicy = activity.NewDefaultAccessPolicy()
 	}
 	activityFeed := deps.ActivityFeedQuery
@@ -304,6 +304,16 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	dashboard.WithRegistry(registry)
 	dashboard.WithLogger(resolveNamedLogger("admin.dashboard", loggerProvider, logger))
 
+	iconService := deps.IconService
+	if iconService == nil {
+		iconService = NewIconService(
+			WithIconServiceLogger(resolveNamedLogger("admin.icons", loggerProvider, logger)),
+		)
+		if err := RegisterBuiltinIconLibraries(iconService); err != nil {
+			return nil, err
+		}
+	}
+
 	adm := &Admin{
 		config:                 cfg,
 		logger:                 logger,
@@ -355,6 +365,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		workflow:               deps.Workflow,
 		translationPolicy:      deps.TranslationPolicy,
 		preview:                NewPreviewService(cfg.PreviewSecret),
+		iconService:            iconService,
 	}
 
 	if _, err := RegisterQuery(commandBus, &dashboardDiagnosticsQuery{admin: adm}); err != nil {
@@ -842,6 +853,11 @@ func (a *Admin) TenantService() *TenantService {
 // OrganizationService exposes the organization management service.
 func (a *Admin) OrganizationService() *OrganizationService {
 	return a.organizations
+}
+
+// IconService returns the icon service for icon resolution and rendering.
+func (a *Admin) IconService() *IconService {
+	return a.iconService
 }
 
 func (a *Admin) recordActivity(ctx context.Context, actor, action, object string, metadata map[string]any) {
