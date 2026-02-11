@@ -1255,15 +1255,14 @@ For routes registered outside the quickstart helpers, ensure `CaptureViewContext
 
 ```go
 router.Get("/admin/custom-page", authMiddleware(func(c router.Context) error {
-    viewCtx := router.ViewContext{
-        "title":     "Custom Page",
-        "base_path": cfg.BasePath,
-    }
-    // Add navigation and theme
-    viewCtx = quickstart.WithNav(viewCtx, adm, cfg, "custom", c.Context())
-    viewCtx = quickstart.WithThemeContext(viewCtx, adm, c)
+    viewCtx := quickstart.WithPathViewContext(nil, cfg, quickstart.PathViewContextConfig{
+        BasePath: cfg.BasePath,
+    })
+    viewCtx["title"] = "Custom Page"
+    // Optional go-admin enricher for layout templates (paths/nav/session/theme)
+    viewCtx = admin.EnrichLayoutViewContext(adm, c, viewCtx, "custom")
     // Enable debug toolbar (required for toolbar to appear)
-    viewCtx = admin.CaptureViewContext(adm.Debug(), viewCtx)
+    viewCtx = admin.CaptureViewContextForRequest(adm.Debug(), c, viewCtx)
 
     return c.Render("resources/custom/page", viewCtx)
 }))
