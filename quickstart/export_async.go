@@ -68,9 +68,9 @@ func (r inProcessRequester) RequestExport(ctx context.Context, actor export.Acto
 		if _, err := r.service.GenerateExport(execCtx, actor, record.ID, asyncReq); err != nil {
 			logger := r.logger
 			if logger == nil {
-				logger = export.NopLogger{}
+				logger = export.NopLogger()
 			}
-			logger.Errorf("async export failed: %v", err)
+			logger.Error("async export failed", "error", err)
 		}
 	}()
 
