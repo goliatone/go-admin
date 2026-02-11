@@ -70,6 +70,21 @@ func debugSessionContextFromRequest(c router.Context, cfg DebugConfig) debugSess
 	sessionID := strings.TrimSpace(meta.SessionID)
 	userID := strings.TrimSpace(meta.UserID)
 	if sessionID == "" || userID == "" {
+		if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
+			if sessionID == "" {
+				if resolved, ok := sessionIDFromClaims(claims); ok {
+					sessionID = resolved
+				}
+			}
+			if userID == "" {
+				userID = strings.TrimSpace(claims.UserID())
+				if userID == "" {
+					userID = strings.TrimSpace(claims.Subject())
+				}
+			}
+		}
+	}
+	if sessionID == "" || userID == "" {
 		if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
 			if sessionID == "" {
 				if resolved, ok := sessionIDFromClaims(claims); ok {
@@ -138,6 +153,18 @@ func debugSessionUsernameFromRequest(c router.Context) string {
 	if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
 		if name := debugSessionUsernameFromMetadata(actor.Metadata); name != "" {
 			return name
+		}
+	}
+	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
+		if carrier, ok := claims.(interface{ Username() string }); ok {
+			if name := strings.TrimSpace(carrier.Username()); name != "" {
+				return name
+			}
+		}
+		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
+			if name := debugSessionUsernameFromMetadata(carrier.ClaimsMetadata()); name != "" {
+				return name
+			}
 		}
 	}
 	if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
