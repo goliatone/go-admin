@@ -44,6 +44,7 @@ const (
 	TextCodePathConflict                         = "PATH_CONFLICT"
 	TextCodeConflict                             = "CONFLICT"
 	TextCodeServiceUnavailable                   = "SERVICE_UNAVAILABLE"
+	TextCodeActivityActorContextInvalid          = "ACTIVITY_ACTOR_CONTEXT_INVALID"
 )
 
 // DomainErrorCode describes a text code exposed to clients.
@@ -90,6 +91,7 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodePathConflict, Description: "The requested path or slug conflicts with an existing resource.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeConflict, Description: "The request conflicts with an existing resource or state.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeServiceUnavailable, Description: "A required service dependency is unavailable.", Category: goerrors.CategoryInternal, HTTPStatus: 500},
+	{Code: TextCodeActivityActorContextInvalid, Description: "Activity access requires auth actor_id to be a UUID.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
 	{Code: ferrors.TextCodeInvalidKey, Description: "Feature key is required.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: ferrors.TextCodeScopeMetadataMissing, Description: "Scope metadata is missing.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: ferrors.TextCodeScopeInvalid, Description: "Scope is invalid.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
