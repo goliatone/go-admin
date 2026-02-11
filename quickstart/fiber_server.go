@@ -128,6 +128,13 @@ func debugFiberSlogMiddleware(cfg admin.Config) fiber.Handler {
 		err := c.Next()
 
 		status := c.Response().StatusCode()
+		if err != nil {
+			if ferr, ok := err.(*fiber.Error); ok && ferr.Code > 0 {
+				status = ferr.Code
+			} else if status < fiber.StatusBadRequest {
+				status = fiber.StatusInternalServerError
+			}
+		}
 		level := slog.LevelInfo
 		if err != nil || status >= fiber.StatusInternalServerError {
 			level = slog.LevelError
