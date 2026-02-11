@@ -226,6 +226,39 @@ func TestActivityRouteRequiresPermission(t *testing.T) {
 	}
 }
 
+func TestActivityRouteAllowsLegacyNonUUIDActorID(t *testing.T) {
+	feed := &captureActivityFeedQuery{}
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:        allowAuthorizer{},
+		ActivityFeedQuery: feed,
+	})
+	tenantID := uuid.New()
+	orgID := uuid.New()
+
+	req := httptest.NewRequest("GET", "/admin/api/activity", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID:        "esign-admin",
+		Role:           "admin",
+		TenantID:       tenantID.String(),
+		OrganizationID: orgID.String(),
+	}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if feed.lastFilter.Actor.ID != uuid.Nil {
+		t.Fatalf("expected nil actor id in filter, got %s", feed.lastFilter.Actor.ID)
+	}
+	if feed.lastFilter.Scope.TenantID != tenantID {
+		t.Fatalf("expected tenant scope %s, got %s", tenantID, feed.lastFilter.Scope.TenantID)
+	}
+	if feed.lastFilter.Scope.OrgID != orgID {
+		t.Fatalf("expected org scope %s, got %s", orgID, feed.lastFilter.Scope.OrgID)
+	}
+}
+
 func TestActivityRoutePaginationMetadata(t *testing.T) {
 	feed := &captureActivityFeedQuery{
 		page: usertypes.ActivityPage{

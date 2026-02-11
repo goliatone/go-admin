@@ -26,7 +26,26 @@ func TestGoCMSContentAdapterContentsWithOptionsLoadsTranslations(t *testing.T) {
 				Slug: "home",
 				Type: &cmscontent.ContentType{Slug: "page"},
 				Translations: []*cmscontent.ContentTranslation{
-					{Locale: &cmscontent.Locale{Code: "en"}, Title: "Home", Content: map[string]any{"body": "hello"}},
+					{Locale: &cmscontent.Locale{Code: "en"}, Title: "Home", Content: map[string]any{"markdown": map[string]any{"body": "hello"}}},
+				},
+			},
+		},
+		listWithDerived: []*cmscontent.Content{
+			{
+				ID:   contentID,
+				Slug: "home",
+				Type: &cmscontent.ContentType{Slug: "page"},
+				Translations: []*cmscontent.ContentTranslation{
+					{
+						Locale: &cmscontent.Locale{Code: "en"},
+						Title:  "Home",
+						Content: map[string]any{
+							"body":       "hello",
+							"summary":    "Derived summary",
+							"path":       "/home",
+							"meta_title": "Derived title",
+						},
+					},
 				},
 			},
 		},
@@ -60,6 +79,15 @@ func TestGoCMSContentAdapterContentsWithOptionsLoadsTranslations(t *testing.T) {
 	}
 	if items[0].Data["body"] != "hello" {
 		t.Fatalf("expected translation content merged, got %v", items[0].Data["body"])
+	}
+	if !hasDerivedProjectionListOption(contentSvc.listOptions) {
+		t.Fatalf("expected derived-fields projection option, got %v", contentSvc.listOptions)
+	}
+	if items[0].Data["summary"] != "Derived summary" {
+		t.Fatalf("expected projected summary field, got %v", items[0].Data["summary"])
+	}
+	if items[0].Data["path"] != "/home" {
+		t.Fatalf("expected projected path field, got %v", items[0].Data["path"])
 	}
 }
 
@@ -105,6 +133,9 @@ func TestCMSContentTypeEntryRepositoryListOptInTranslations(t *testing.T) {
 	if !hasTranslationListOption(contentSvc.listOptions) {
 		t.Fatalf("expected translations option for pages list, got %v", contentSvc.listOptions)
 	}
+	if !hasDerivedProjectionListOption(contentSvc.listOptions) {
+		t.Fatalf("expected derived-fields projection for pages list, got %v", contentSvc.listOptions)
+	}
 
 	otherRepo := NewCMSContentTypeEntryRepository(adapter, otherType)
 	other, _, err := otherRepo.List(ctx, ListOptions{Filters: map[string]any{"locale": "en"}})
@@ -119,5 +150,55 @@ func TestCMSContentTypeEntryRepositoryListOptInTranslations(t *testing.T) {
 	}
 	if hasTranslationListOption(contentSvc.listOptions) {
 		t.Fatalf("expected no translations option for non-pages list, got %v", contentSvc.listOptions)
+	}
+	if hasDerivedProjectionListOption(contentSvc.listOptions) {
+		t.Fatalf("expected no derived-fields projection for non-pages list, got %v", contentSvc.listOptions)
+	}
+}
+
+func TestGoCMSContentAdapterContentUsesDerivedFieldsProjection(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	typeSvc := newStubContentTypeService(CMSContentType{ID: uuid.New().String(), Slug: "page"})
+	contentSvc := &stubGoCMSContentService{
+		getWithDerived: &cmscontent.Content{
+			ID:   contentID,
+			Slug: "home",
+			Type: &cmscontent.ContentType{Slug: "page"},
+			Translations: []*cmscontent.ContentTranslation{
+				{
+					Locale: &cmscontent.Locale{Code: "en"},
+					Title:  "Home",
+					Content: map[string]any{
+						"summary":          "Projected summary",
+						"path":             "/home",
+						"meta_title":       "Projected SEO title",
+						"meta_description": "Projected SEO description",
+					},
+				},
+			},
+		},
+	}
+	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
+	adapter, ok := svc.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", svc)
+	}
+
+	item, err := adapter.Content(ctx, contentID.String(), "en")
+	if err != nil {
+		t.Fatalf("get content: %v", err)
+	}
+	if item == nil {
+		t.Fatalf("expected content record")
+	}
+	if !hasDerivedProjectionGetOption(contentSvc.getOptions) {
+		t.Fatalf("expected derived-fields projection on get, got %v", contentSvc.getOptions)
+	}
+	if item.Data["summary"] != "Projected summary" {
+		t.Fatalf("expected projected summary, got %v", item.Data["summary"])
+	}
+	if item.Data["path"] != "/home" {
+		t.Fatalf("expected projected path, got %v", item.Data["path"])
 	}
 }
