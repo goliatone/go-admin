@@ -84,6 +84,40 @@ func toGoCMSContentListOptions(opts ...CMSContentListOption) []cmscontent.Conten
 	return out
 }
 
+func ensureDerivedFieldsProjection(opts ...CMSContentListOption) []CMSContentListOption {
+	if len(opts) == 0 {
+		return nil
+	}
+	if !hasCMSContentListOption(opts, WithTranslations()) {
+		return opts
+	}
+	if hasCMSProjectionOption(opts) {
+		return opts
+	}
+	out := append([]CMSContentListOption{}, opts...)
+	out = append(out, WithDerivedFields())
+	return out
+}
+
+func hasCMSContentListOption(opts []CMSContentListOption, token CMSContentListOption) bool {
+	for _, opt := range opts {
+		if opt == token {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCMSProjectionOption(opts []CMSContentListOption) bool {
+	const prefix = "content:list:projection:"
+	for _, opt := range opts {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(opt))), prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func buildGoCMSContentTranslations(content CMSContent) []cmscontent.ContentTranslationInput {
 	tr := cmscontent.ContentTranslationInput{
 		Locale:  content.Locale,
@@ -176,7 +210,8 @@ func (a *GoCMSContentAdapter) listContents(ctx context.Context, locale string, o
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
-	listed, err := a.content.List(ctx, toGoCMSContentListOptions(opts...)...)
+	listOpts := ensureDerivedFieldsProjection(opts...)
+	listed, err := a.content.List(ctx, toGoCMSContentListOptions(listOpts...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +240,7 @@ func (a *GoCMSContentAdapter) fetchContent(ctx context.Context, id, locale strin
 	if uid == uuid.Nil {
 		return nil, ErrNotFound
 	}
-	record, err := a.content.Get(ctx, uid, cmscontent.WithTranslations())
+	record, err := a.content.Get(ctx, uid, cmscontent.WithTranslations(), cmscontent.WithDerivedFields())
 	if err != nil {
 		return nil, err
 	}
@@ -1363,7 +1398,6 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 			}
 		}
 	}
-	MergeCMSMarkdownDerivedFields(out.Data)
 	if out.Locale == "" {
 		out.Locale = locale
 	}
@@ -1528,7 +1562,6 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 			}
 		}
 	}
-	MergeCMSMarkdownDerivedFields(out.Data)
 	if out.Locale == "" {
 		out.Locale = locale
 	}
