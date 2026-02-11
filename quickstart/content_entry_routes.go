@@ -1,10 +1,15 @@
 package quickstart
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path"
@@ -24,15 +29,30 @@ import (
 // ContentEntryUIOption customizes content entry UI routes.
 type ContentEntryUIOption func(*contentEntryUIOptions)
 
+type templateExistsFunc func(string) bool
+
 type contentEntryUIOptions struct {
-	basePath       string
-	listTemplate   string
-	formTemplate   string
-	detailTemplate string
-	viewContext    UIViewContextBuilder
-	permission     string
-	authResource   string
-	formRenderer   *admin.FormgenSchemaValidator
+	basePath         string
+	listTemplate     string
+	formTemplate     string
+	detailTemplate   string
+	viewContext      UIViewContextBuilder
+	permission       string
+	authResource     string
+	formRenderer     *admin.FormgenSchemaValidator
+	templateExists   templateExistsFunc
+	defaultRenderers map[string]string
+}
+
+var recommendedContentEntryDefaultRenderers = map[string]string{
+	"blocks":               "blocks_chips",
+	"block-library-picker": "blocks_chips",
+}
+
+// RecommendedContentEntryDefaultRenderers returns a copy of the recommended
+// default renderer map used by WithContentEntryRecommendedDefaults.
+func RecommendedContentEntryDefaultRenderers() map[string]string {
+	return cloneStringMap(recommendedContentEntryDefaultRenderers)
 }
 
 // WithContentEntryUIBasePath overrides the base path used to build content entry routes.
@@ -96,6 +116,55 @@ func WithContentEntryFormRenderer(renderer *admin.FormgenSchemaValidator) Conten
 			opts.formRenderer = renderer
 		}
 	}
+}
+
+// WithContentEntryUITemplateExists sets a template existence checker used to resolve panel template fallbacks.
+func WithContentEntryUITemplateExists(checker func(name string) bool) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts == nil || checker == nil {
+			return
+		}
+		opts.templateExists = checker
+	}
+}
+
+// WithContentEntryUITemplateFS configures deterministic template fallback resolution from filesystem sources.
+func WithContentEntryUITemplateFS(fsys ...fs.FS) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts == nil || len(fsys) == 0 {
+			return
+		}
+		if checker := templateExistsFromFS(fsys...); checker != nil {
+			opts.templateExists = checker
+		}
+	}
+}
+
+// WithContentEntryDefaultRenderers replaces the configured default renderer map.
+// Values are used when ui_schema does not specify a renderer.
+func WithContentEntryDefaultRenderers(renderers map[string]string) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts == nil {
+			return
+		}
+		opts.defaultRenderers = contentEntryNormalizeDefaultRenderers(renderers)
+	}
+}
+
+// WithContentEntryMergeDefaultRenderers merges renderer defaults into the existing map.
+// Keys in renderers override existing configured values.
+func WithContentEntryMergeDefaultRenderers(renderers map[string]string) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts == nil {
+			return
+		}
+		opts.defaultRenderers = contentEntryMergeDefaultRenderers(opts.defaultRenderers, renderers)
+	}
+}
+
+// WithContentEntryRecommendedDefaults merges recommended content-entry defaults.
+func WithContentEntryRecommendedDefaults() ContentEntryUIOption {
+	return WithContentEntryMergeDefaultRenderers(RecommendedContentEntryDefaultRenderers())
 }
 
 // RegisterContentEntryUIRoutes registers HTML routes for content entries.
@@ -163,20 +232,149 @@ func RegisterContentEntryUIRoutes[T any](
 	r.Get(editPath, wrap(handlers.Edit))
 	r.Post(updatePath, wrap(handlers.Update))
 	r.Post(deletePath, wrap(handlers.Delete))
+	registerCanonicalContentEntryPanelRoutes(r, adm, wrap, handlers)
 	return nil
 }
 
+func registerCanonicalContentEntryPanelRoutes[T any](
+	r router.Router[T],
+	adm *admin.Admin,
+	wrap func(router.HandlerFunc) router.HandlerFunc,
+	handlers *contentEntryHandlers,
+) {
+	if r == nil || adm == nil || handlers == nil || adm.Registry() == nil {
+		return
+	}
+	bindings := canonicalPanelRouteBindings(adm.URLs(), adm.Registry().Panels())
+	for _, binding := range bindings {
+		panelName := strings.TrimSpace(binding.Panel)
+		listPath := strings.TrimSpace(binding.Path)
+		if panelName == "" || listPath == "" {
+			continue
+		}
+		newPath := path.Join(listPath, "new")
+		detailPath := path.Join(listPath, ":id")
+		editPath := path.Join(listPath, ":id", "edit")
+		deletePath := path.Join(listPath, ":id", "delete")
+
+		r.Get(listPath, wrap(func(c router.Context) error {
+			return handlers.listForPanel(c, panelName)
+		}))
+		r.Get(newPath, wrap(func(c router.Context) error {
+			return handlers.newForPanel(c, panelName)
+		}))
+		r.Post(listPath, wrap(func(c router.Context) error {
+			return handlers.createForPanel(c, panelName)
+		}))
+		r.Get(detailPath, wrap(func(c router.Context) error {
+			return handlers.detailForPanel(c, panelName)
+		}))
+		r.Get(editPath, wrap(func(c router.Context) error {
+			return handlers.editForPanel(c, panelName)
+		}))
+		r.Post(detailPath, wrap(func(c router.Context) error {
+			return handlers.updateForPanel(c, panelName)
+		}))
+		r.Post(deletePath, wrap(func(c router.Context) error {
+			return handlers.deleteForPanel(c, panelName)
+		}))
+	}
+}
+
+type panelRouteBinding struct {
+	Panel string
+	Path  string
+}
+
+func canonicalPanelRouteBindings(urls urlkit.Resolver, panels map[string]*admin.Panel) []panelRouteBinding {
+	if len(panels) == 0 || urls == nil {
+		return nil
+	}
+	panelNames := make([]string, 0, len(panels))
+	for panelName := range panels {
+		panelNames = append(panelNames, panelName)
+	}
+	sort.Strings(panelNames)
+
+	pathSeen := map[string]bool{}
+	out := make([]panelRouteBinding, 0, len(panelNames))
+	for _, panelName := range panelNames {
+		canonicalPanel := canonicalPanelName(panelName)
+		if canonicalPanel == "" {
+			continue
+		}
+		routePath := resolveCanonicalPanelRoutePath(urls, canonicalPanel)
+		if routePath == "" || pathSeen[routePath] {
+			continue
+		}
+		pathSeen[routePath] = true
+		out = append(out, panelRouteBinding{Panel: canonicalPanel, Path: routePath})
+	}
+	return out
+}
+
+func canonicalPanelName(panelName string) string {
+	trimmed := strings.TrimSpace(panelName)
+	if trimmed == "" {
+		return ""
+	}
+	if at := strings.Index(trimmed, "@"); at > 0 {
+		trimmed = strings.TrimSpace(trimmed[:at])
+	}
+	return trimmed
+}
+
+func resolveCanonicalPanelRoutePath(urls urlkit.Resolver, panelName string) string {
+	for _, routeKey := range panelRouteKeys(panelName) {
+		routePath := strings.TrimSpace(resolveRoutePath(urls, "admin", routeKey))
+		if routePath == "" {
+			continue
+		}
+		// Skip template routes (e.g. /content/:panel) and keep concrete panel routes.
+		if strings.Contains(routePath, ":") || strings.Contains(routePath, "*") {
+			continue
+		}
+		return routePath
+	}
+	return ""
+}
+
+func panelRouteKeys(panelName string) []string {
+	panelName = strings.TrimSpace(panelName)
+	if panelName == "" {
+		return nil
+	}
+	out := []string{panelName}
+	add := func(candidate string) {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			return
+		}
+		for _, existing := range out {
+			if existing == candidate {
+				return
+			}
+		}
+		out = append(out, candidate)
+	}
+	add(strings.ReplaceAll(panelName, "-", "_"))
+	add(strings.ReplaceAll(panelName, "_", "-"))
+	return out
+}
+
 type contentEntryHandlers struct {
-	admin          *admin.Admin
-	cfg            admin.Config
-	viewContext    UIViewContextBuilder
-	listTemplate   string
-	formTemplate   string
-	detailTemplate string
-	permission     string
-	authResource   string
-	contentTypes   admin.CMSContentTypeService
-	formRenderer   *admin.FormgenSchemaValidator
+	admin            *admin.Admin
+	cfg              admin.Config
+	viewContext      UIViewContextBuilder
+	listTemplate     string
+	formTemplate     string
+	detailTemplate   string
+	permission       string
+	authResource     string
+	contentTypes     admin.CMSContentTypeService
+	formRenderer     *admin.FormgenSchemaValidator
+	templateExists   templateExistsFunc
+	defaultRenderers map[string]string
 }
 
 func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewContextBuilder, opts contentEntryUIOptions) *contentEntryHandlers {
@@ -185,21 +383,27 @@ func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewC
 		contentTypes = adm.ContentTypeService()
 	}
 	return &contentEntryHandlers{
-		admin:          adm,
-		cfg:            cfg,
-		viewContext:    viewCtx,
-		listTemplate:   opts.listTemplate,
-		formTemplate:   opts.formTemplate,
-		detailTemplate: opts.detailTemplate,
-		permission:     strings.TrimSpace(opts.permission),
-		authResource:   strings.TrimSpace(opts.authResource),
-		contentTypes:   contentTypes,
-		formRenderer:   opts.formRenderer,
+		admin:            adm,
+		cfg:              cfg,
+		viewContext:      viewCtx,
+		listTemplate:     opts.listTemplate,
+		formTemplate:     opts.formTemplate,
+		detailTemplate:   opts.detailTemplate,
+		permission:       strings.TrimSpace(opts.permission),
+		authResource:     strings.TrimSpace(opts.authResource),
+		contentTypes:     contentTypes,
+		formRenderer:     opts.formRenderer,
+		templateExists:   opts.templateExists,
+		defaultRenderers: cloneStringMap(opts.defaultRenderers),
 	}
 }
 
 func (h *contentEntryHandlers) List(c router.Context) error {
-	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c)
+	return h.listForPanel(c, "")
+}
+
+func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) error {
+	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
 	}
@@ -211,7 +415,13 @@ func (h *contentEntryHandlers) List(c router.Context) error {
 		return err
 	}
 	filters := contentEntryFilters(panel)
-	columns := contentEntryColumns(panel, filters)
+	columns := contentEntryColumns(panel, contentType, filters, h.defaultRenderers)
+	// Inject block icons map for blocks_chips renderer (only when needed).
+	if contentEntryNeedsBlocksChips(columns) {
+		if iconMap := contentEntryBlockIconsMap(adminCtx, h.admin); iconMap != nil {
+			columns = contentEntryAttachBlocksIconMap(columns, iconMap)
+		}
+	}
 	var urls urlkit.Resolver
 	if h.admin != nil {
 		urls = h.admin.URLs()
@@ -247,11 +457,15 @@ func (h *contentEntryHandlers) List(c router.Context) error {
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, panelName, c)
 	}
-	return c.Render(h.listTemplate, viewCtx)
+	return h.renderTemplate(c, contentTypeSlug(contentType, panelName), h.listTemplate, viewCtx)
 }
 
 func (h *contentEntryHandlers) New(c router.Context) error {
-	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c)
+	return h.newForPanel(c, "")
+}
+
+func (h *contentEntryHandlers) newForPanel(c router.Context, panelSlug string) error {
+	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
 	}
@@ -266,7 +480,11 @@ func (h *contentEntryHandlers) New(c router.Context) error {
 }
 
 func (h *contentEntryHandlers) Create(c router.Context) error {
-	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c)
+	return h.createForPanel(c, "")
+}
+
+func (h *contentEntryHandlers) createForPanel(c router.Context, panelSlug string) error {
+	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
 	}
@@ -287,15 +505,17 @@ func (h *contentEntryHandlers) Create(c router.Context) error {
 	if err != nil {
 		return err
 	}
-	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
-	if createdID := strings.TrimSpace(anyToString(created["id"])); createdID != "" {
-		return c.Redirect(routes.edit(createdID))
-	}
-	return c.Redirect(routes.index())
+	baseSlug := contentTypeSlug(contentType, panelName)
+	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Environment)
+	return c.Redirect(contentEntryCreateRedirectTarget(baseSlug, anyToString(created["id"]), routes))
 }
 
 func (h *contentEntryHandlers) Detail(c router.Context) error {
-	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c)
+	return h.detailForPanel(c, "")
+}
+
+func (h *contentEntryHandlers) detailForPanel(c router.Context, panelSlug string) error {
+	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
 	}
@@ -317,7 +537,7 @@ func (h *contentEntryHandlers) Detail(c router.Context) error {
 			"delete": routes.delete(id),
 		}
 	}
-	fields := detailFieldsForRecord(panel, record)
+	fields := detailFieldsForRecord(panel, contentType, record)
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
 		"base_path":      h.cfg.BasePath,
@@ -326,6 +546,7 @@ func (h *contentEntryHandlers) Detail(c router.Context) error {
 		"routes":         routes.routesMap(),
 		"resource_item":  record,
 		"fields":         fields,
+		"upload_success": queryParamEnabled(c, "created"),
 		"content_type": map[string]any{
 			"id":     contentTypeID(contentType),
 			"name":   contentTypeLabel(contentType, panelName),
@@ -337,11 +558,15 @@ func (h *contentEntryHandlers) Detail(c router.Context) error {
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, panelName, c)
 	}
-	return c.Render(h.detailTemplate, viewCtx)
+	return h.renderTemplate(c, contentTypeSlug(contentType, panelName), h.detailTemplate, viewCtx)
 }
 
 func (h *contentEntryHandlers) Edit(c router.Context) error {
-	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c)
+	return h.editForPanel(c, "")
+}
+
+func (h *contentEntryHandlers) editForPanel(c router.Context, panelSlug string) error {
+	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
 	}
@@ -365,7 +590,11 @@ func (h *contentEntryHandlers) Edit(c router.Context) error {
 }
 
 func (h *contentEntryHandlers) Update(c router.Context) error {
-	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c)
+	return h.updateForPanel(c, "")
+}
+
+func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string) error {
+	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
 	}
@@ -395,7 +624,11 @@ func (h *contentEntryHandlers) Update(c router.Context) error {
 }
 
 func (h *contentEntryHandlers) Delete(c router.Context) error {
-	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c)
+	return h.deleteForPanel(c, "")
+}
+
+func (h *contentEntryHandlers) deleteForPanel(c router.Context, panelSlug string) error {
+	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
 	}
@@ -413,11 +646,14 @@ func (h *contentEntryHandlers) Delete(c router.Context) error {
 	return c.Redirect(routes.index())
 }
 
-func (h *contentEntryHandlers) resolvePanelContext(c router.Context) (*admin.Panel, string, *admin.CMSContentType, admin.AdminContext, error) {
+func (h *contentEntryHandlers) resolvePanelContext(c router.Context, panelSlug string) (*admin.Panel, string, *admin.CMSContentType, admin.AdminContext, error) {
 	if h.admin == nil || h.admin.Registry() == nil {
 		return nil, "", nil, admin.AdminContext{}, admin.ErrNotFound
 	}
-	name := strings.TrimSpace(c.Param("name"))
+	name := strings.TrimSpace(panelSlug)
+	if name == "" && c != nil {
+		name = strings.TrimSpace(c.Param("name"))
+	}
 	if name == "" {
 		return nil, "", nil, admin.AdminContext{}, admin.ErrNotFound
 	}
@@ -428,7 +664,10 @@ func (h *contentEntryHandlers) resolvePanelContext(c router.Context) (*admin.Pan
 	}
 	contentType, err := h.contentTypeFor(adminCtx.Context, name, adminCtx.Environment)
 	if err != nil {
-		return nil, "", nil, adminCtx, err
+		if !errors.Is(err, admin.ErrNotFound) {
+			return nil, "", nil, adminCtx, err
+		}
+		contentType = nil
 	}
 	return panel, panelName, contentType, adminCtx, nil
 }
@@ -561,8 +800,10 @@ func (h *contentEntryHandlers) renderForm(c router.Context, panelName string, pa
 		"resource":       "content",
 		"resource_label": contentTypeLabel(contentType, panelName),
 		"routes":         routes.routesMap(),
+		"form_action":    formAction,
 		"form_html":      html,
 		"is_edit":        isEdit,
+		"create_success": queryParamEnabled(c, "created"),
 		"preview_url":    strings.TrimSpace(previewURL),
 		"content_type": map[string]any{
 			"id":     contentTypeID(contentType),
@@ -575,7 +816,7 @@ func (h *contentEntryHandlers) renderForm(c router.Context, panelName string, pa
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, panelName, c)
 	}
-	return c.Render(h.formTemplate, viewCtx)
+	return h.renderTemplate(c, baseSlug, h.formTemplate, viewCtx)
 }
 
 func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelName, id string, record map[string]any) (string, error) {
@@ -668,13 +909,23 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 	body := c.Body()
 	values := url.Values{}
 	if len(body) > 0 {
-		parsed, err := url.ParseQuery(string(body))
-		if err != nil {
-			return nil, goerrors.New("invalid form payload", goerrors.CategoryValidation).
-				WithCode(http.StatusBadRequest).
-				WithTextCode("INVALID_FORM")
+		if isMultipartFormRequest(c) {
+			parsed, err := parseMultipartFormValues(c)
+			if err != nil {
+				return nil, goerrors.New("invalid multipart form payload", goerrors.CategoryValidation).
+					WithCode(http.StatusBadRequest).
+					WithTextCode("INVALID_FORM")
+			}
+			values = parsed
+		} else {
+			parsed, err := url.ParseQuery(string(body))
+			if err != nil {
+				return nil, goerrors.New("invalid form payload", goerrors.CategoryValidation).
+					WithCode(http.StatusBadRequest).
+					WithTextCode("INVALID_FORM")
+			}
+			values = parsed
 		}
-		values = parsed
 	}
 	record := map[string]any{}
 	schemaMap, boolPaths := flattenSchema(schema)
@@ -702,6 +953,67 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 	return record, nil
 }
 
+func isMultipartFormRequest(c router.Context) bool {
+	contentType := strings.ToLower(strings.TrimSpace(requestContentType(c)))
+	return strings.Contains(contentType, "multipart/form-data")
+}
+
+func requestContentType(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(c.Header("Content-Type"))
+}
+
+func parseMultipartFormValues(c router.Context) (url.Values, error) {
+	values := url.Values{}
+	if c == nil {
+		return values, nil
+	}
+	body := c.Body()
+	if len(body) == 0 {
+		return values, nil
+	}
+	contentType := strings.TrimSpace(requestContentType(c))
+	if contentType == "" {
+		return values, nil
+	}
+	_, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return nil, err
+	}
+	boundary := strings.TrimSpace(params["boundary"])
+	if boundary == "" {
+		return nil, fmt.Errorf("missing multipart boundary")
+	}
+	reader := multipart.NewReader(bytes.NewReader(body), boundary)
+	for {
+		part, err := reader.NextPart()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+		name := strings.TrimSpace(part.FormName())
+		if name == "" {
+			_ = part.Close()
+			continue
+		}
+		if strings.TrimSpace(part.FileName()) != "" {
+			_ = part.Close()
+			continue
+		}
+		data, readErr := io.ReadAll(part)
+		_ = part.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+		values.Add(name, string(data))
+	}
+	return values, nil
+}
+
 func contentEntryValues(record map[string]any) map[string]any {
 	values := map[string]any{}
 	if record == nil {
@@ -724,7 +1036,7 @@ func contentEntryValues(record map[string]any) map[string]any {
 	return values
 }
 
-func contentEntryColumns(panel *admin.Panel, filters []map[string]any) []map[string]any {
+func contentEntryColumns(panel *admin.Panel, contentType *admin.CMSContentType, filters []map[string]any, defaultRenderers map[string]string) []map[string]any {
 	fields := []admin.Field{}
 	filterable := map[string]struct{}{}
 	if panel != nil {
@@ -767,6 +1079,13 @@ func contentEntryColumns(panel *admin.Panel, filters []map[string]any) []map[str
 			"filterable": false,
 			"default":    !field.Hidden,
 		}
+		renderer, rendererOptions := contentEntryFieldRenderer(field, contentType, defaultRenderers)
+		if renderer != "" {
+			col["renderer"] = renderer
+		}
+		if len(rendererOptions) > 0 {
+			col["renderer_options"] = rendererOptions
+		}
 		if _, ok := filterable[field.Name]; ok {
 			col["filterable"] = true
 		}
@@ -785,6 +1104,203 @@ func contentEntryFieldSortable(field admin.Field) bool {
 	default:
 		return true
 	}
+}
+
+func contentEntryFieldRenderer(field admin.Field, contentType *admin.CMSContentType, defaultRenderers map[string]string) (string, map[string]any) {
+	hints := contentEntryFieldUISchemaHints(contentType, field.Name)
+	renderer := contentEntryRendererNameFromHints(hints)
+	if renderer == "" {
+		renderer = contentEntryDefaultRenderer(field, defaultRenderers)
+	}
+	return renderer, contentEntryRendererOptionsFromHints(hints)
+}
+
+func contentEntryDefaultRenderer(field admin.Field, defaultRenderers map[string]string) string {
+	if renderer := contentEntryConfiguredDefaultRenderer(field, defaultRenderers); renderer != "" {
+		return renderer
+	}
+	fieldType := strings.ToLower(strings.TrimSpace(field.Type))
+	fieldName := strings.ToLower(strings.TrimSpace(field.Name))
+	switch fieldType {
+	case "array", "multiselect", "list", "tags", "block-library-picker", "blocks":
+		return "_array"
+	case "json", "jsonschema", "object":
+		return "_object"
+	}
+	switch fieldName {
+	case "tags", "blocks":
+		return "_array"
+	}
+	return ""
+}
+
+func contentEntryConfiguredDefaultRenderer(field admin.Field, defaultRenderers map[string]string) string {
+	if len(defaultRenderers) == 0 {
+		return ""
+	}
+	fieldType := strings.ToLower(strings.TrimSpace(field.Type))
+	if fieldType == "" {
+		return ""
+	}
+	return strings.TrimSpace(defaultRenderers[fieldType])
+}
+
+func contentEntryNormalizeDefaultRenderers(renderers map[string]string) map[string]string {
+	if len(renderers) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(renderers))
+	for fieldType, renderer := range renderers {
+		key := strings.ToLower(strings.TrimSpace(fieldType))
+		value := strings.TrimSpace(renderer)
+		if key == "" || value == "" {
+			continue
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func contentEntryMergeDefaultRenderers(base map[string]string, renderers map[string]string) map[string]string {
+	out := cloneStringMap(contentEntryNormalizeDefaultRenderers(base))
+	normalized := contentEntryNormalizeDefaultRenderers(renderers)
+	if len(normalized) == 0 {
+		return out
+	}
+	if out == nil {
+		out = make(map[string]string, len(normalized))
+	}
+	for fieldType, renderer := range normalized {
+		out[fieldType] = renderer
+	}
+	return out
+}
+
+func contentEntryFieldUISchemaHints(contentType *admin.CMSContentType, fieldName string) map[string]any {
+	if contentType == nil || len(contentType.UISchema) == 0 {
+		return nil
+	}
+	fields, ok := contentType.UISchema["fields"].(map[string]any)
+	if !ok || len(fields) == 0 {
+		return nil
+	}
+	name := strings.TrimSpace(fieldName)
+	if name == "" {
+		return nil
+	}
+	candidates := []string{name, "/" + name}
+	for _, key := range candidates {
+		value, ok := fields[key]
+		if !ok {
+			continue
+		}
+		hints, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		return hints
+	}
+	return nil
+}
+
+func contentEntryHintScopes(hints map[string]any) []map[string]any {
+	if len(hints) == 0 {
+		return nil
+	}
+	scopes := []map[string]any{}
+	for _, key := range []string{"table", "list", "datagrid", "data_grid"} {
+		if value, ok := hints[key].(map[string]any); ok && len(value) > 0 {
+			scopes = append(scopes, value)
+		}
+	}
+	scopes = append(scopes, hints)
+	return scopes
+}
+
+func contentEntryRendererNameFromHints(hints map[string]any) string {
+	for _, scope := range contentEntryHintScopes(hints) {
+		for _, key := range []string{"renderer", "cell_renderer", "cellRenderer"} {
+			if name := strings.TrimSpace(anyToString(scope[key])); name != "" {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
+func contentEntryRendererOptionsFromHints(hints map[string]any) map[string]any {
+	options := map[string]any{}
+	for _, scope := range contentEntryHintScopes(hints) {
+		for _, key := range []string{"renderer_options", "rendererOptions"} {
+			raw, ok := scope[key].(map[string]any)
+			if !ok || len(raw) == 0 {
+				continue
+			}
+			for optKey, optValue := range raw {
+				if _, exists := options[optKey]; exists {
+					continue
+				}
+				options[optKey] = optValue
+			}
+		}
+		if _, exists := options["display_key"]; !exists {
+			if key := strings.TrimSpace(anyToString(scope["display_key"])); key != "" {
+				options["display_key"] = key
+			} else if key := strings.TrimSpace(anyToString(scope["displayKey"])); key != "" {
+				options["display_key"] = key
+			}
+		}
+		if _, exists := options["display_keys"]; !exists {
+			keys := contentEntryStringList(scope["display_keys"])
+			if len(keys) == 0 {
+				keys = contentEntryStringList(scope["displayKeys"])
+			}
+			if len(keys) > 0 {
+				out := make([]any, 0, len(keys))
+				for _, key := range keys {
+					out = append(out, key)
+				}
+				options["display_keys"] = out
+			}
+		}
+	}
+	if len(options) == 0 {
+		return nil
+	}
+	return options
+}
+
+func contentEntryStringList(raw any) []string {
+	switch typed := raw.(type) {
+	case string:
+		if value := strings.TrimSpace(typed); value != "" {
+			return []string{value}
+		}
+	case []string:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if value := strings.TrimSpace(item); value != "" {
+				out = append(out, value)
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if value := strings.TrimSpace(anyToString(item)); value != "" {
+				out = append(out, value)
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	return nil
 }
 
 func contentEntryFilters(panel *admin.Panel) []map[string]any {
@@ -916,7 +1432,7 @@ func normalizeContentEntryFilterType(raw string) string {
 	return admin.NormalizeFilterType(raw)
 }
 
-func detailFieldsForRecord(panel *admin.Panel, record map[string]any) []map[string]any {
+func detailFieldsForRecord(panel *admin.Panel, contentType *admin.CMSContentType, record map[string]any) []map[string]any {
 	fields := []admin.Field{}
 	if panel != nil {
 		schema := panel.Schema()
@@ -935,7 +1451,7 @@ func detailFieldsForRecord(panel *admin.Panel, record map[string]any) []map[stri
 			}
 			out = append(out, map[string]any{
 				"label": label,
-				"value": record[field.Name],
+				"value": formatContentEntryDetailValue(record[field.Name], contentEntryDisplayKeys(field.Name, contentType)),
 			})
 		}
 		return out
@@ -954,22 +1470,201 @@ func detailFieldsForRecord(panel *admin.Panel, record map[string]any) []map[stri
 	for _, key := range keys {
 		out = append(out, map[string]any{
 			"label": titleCase(key),
-			"value": record[key],
+			"value": formatContentEntryDetailValue(record[key], contentEntryDisplayKeys(key, contentType)),
 		})
 	}
 	return out
 }
 
+func contentEntryDisplayKeys(fieldName string, contentType *admin.CMSContentType) []string {
+	hints := contentEntryFieldUISchemaHints(contentType, fieldName)
+	scopes := contentEntryHintScopes(hints)
+	if len(scopes) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := []string{}
+	for _, scope := range scopes {
+		if key := strings.TrimSpace(anyToString(scope["display_key"])); key != "" {
+			if _, exists := seen[key]; !exists {
+				seen[key] = struct{}{}
+				out = append(out, key)
+			}
+		}
+		if key := strings.TrimSpace(anyToString(scope["displayKey"])); key != "" {
+			if _, exists := seen[key]; !exists {
+				seen[key] = struct{}{}
+				out = append(out, key)
+			}
+		}
+		for _, raw := range []any{scope["display_keys"], scope["displayKeys"]} {
+			for _, key := range contentEntryStringList(raw) {
+				if _, exists := seen[key]; exists {
+					continue
+				}
+				seen[key] = struct{}{}
+				out = append(out, key)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func formatContentEntryDetailValue(value any, displayKeys []string) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return typed
+	case []string:
+		if len(typed) == 0 {
+			return ""
+		}
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+		return strings.Join(out, ", ")
+	case []any:
+		if len(typed) == 0 {
+			return ""
+		}
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if text := strings.TrimSpace(formatContentEntryDetailValue(item, displayKeys)); text != "" {
+				out = append(out, text)
+			}
+		}
+		return strings.Join(out, ", ")
+	case map[string]any:
+		return summarizeContentEntryObject(typed, displayKeys)
+	case map[string]string:
+		converted := make(map[string]any, len(typed))
+		for key, item := range typed {
+			converted[key] = item
+		}
+		return summarizeContentEntryObject(converted, displayKeys)
+	case bool:
+		if typed {
+			return "true"
+		}
+		return "false"
+	default:
+		if encoded, err := json.Marshal(typed); err == nil {
+			return string(encoded)
+		}
+		return anyToString(typed)
+	}
+}
+
+func summarizeContentEntryObject(value map[string]any, displayKeys []string) string {
+	if len(value) == 0 {
+		return ""
+	}
+	candidates := make([]string, 0, len(displayKeys)+11)
+	candidates = append(candidates, displayKeys...)
+	candidates = append(candidates, "name", "label", "title", "slug", "id", "code", "key", "value", "type", "blockType", "block_type")
+	seen := map[string]struct{}{}
+	for _, key := range candidates {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		candidate, ok := contentEntryObjectValueByPath(value, key)
+		if !ok {
+			continue
+		}
+		if text := strings.TrimSpace(formatContentEntryDetailValue(candidate, nil)); text != "" {
+			return text
+		}
+	}
+	if encoded, err := json.Marshal(value); err == nil {
+		return string(encoded)
+	}
+	return anyToString(value)
+}
+
+func contentEntryObjectValueByPath(value map[string]any, key string) (any, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return nil, false
+	}
+	if candidate, ok := value[key]; ok {
+		return candidate, true
+	}
+	segments := strings.Split(key, ".")
+	if len(segments) == 1 {
+		return nil, false
+	}
+	var current any = value
+	for idx, segment := range segments {
+		typed, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		candidate, ok := typed[segment]
+		if !ok {
+			return nil, false
+		}
+		if idx == len(segments)-1 {
+			return candidate, true
+		}
+		current = candidate
+	}
+	return nil, false
+}
+
 func contentTypeSchema(contentType *admin.CMSContentType, panel *admin.Panel) map[string]any {
 	if contentType != nil && len(contentType.Schema) > 0 {
-		return cloneAnyMap(contentType.Schema)
+		return ensureContentEntryJSONSchema(cloneAnyMap(contentType.Schema))
 	}
 	if panel != nil {
 		if schema := panel.Schema().FormSchema; len(schema) > 0 {
-			return cloneAnyMap(schema)
+			return ensureContentEntryJSONSchema(cloneAnyMap(schema))
+		}
+		if schema := schemaFromPanelFields(panel.Schema().FormFields); len(schema) > 0 {
+			return ensureContentEntryJSONSchema(schema)
 		}
 	}
 	return nil
+}
+
+func ensureContentEntryJSONSchema(schema map[string]any) map[string]any {
+	if len(schema) == 0 {
+		return nil
+	}
+	stripUnsupportedContentEntrySchemaKeywords(schema)
+	if raw, ok := schema["$schema"]; ok {
+		if strings.TrimSpace(anyToString(raw)) != "" {
+			return schema
+		}
+	}
+	schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+	return schema
+}
+
+func stripUnsupportedContentEntrySchemaKeywords(node any) {
+	switch typed := node.(type) {
+	case map[string]any:
+		delete(typed, "readOnly")
+		delete(typed, "read_only")
+		for _, value := range typed {
+			stripUnsupportedContentEntrySchemaKeywords(value)
+		}
+	case []any:
+		for _, value := range typed {
+			stripUnsupportedContentEntrySchemaKeywords(value)
+		}
+	}
 }
 
 func contentTypeUISchema(contentType *admin.CMSContentType) map[string]any {
@@ -1037,6 +1732,205 @@ func contentTypeStatus(contentType *admin.CMSContentType) string {
 	return strings.TrimSpace(contentType.Status)
 }
 
+func schemaFromPanelFields(fields []admin.Field) map[string]any {
+	if len(fields) == 0 {
+		return nil
+	}
+	properties := map[string]any{}
+	required := []string{}
+	for _, field := range fields {
+		name := strings.TrimSpace(field.Name)
+		if name == "" {
+			continue
+		}
+		fieldSchema := map[string]any{
+			"type": schemaTypeForField(field),
+		}
+		if label := strings.TrimSpace(field.Label); label != "" {
+			fieldSchema["title"] = label
+		}
+		if enumValues := enumValuesFromField(field); len(enumValues) > 0 {
+			fieldSchema["enum"] = enumValues
+		}
+		if fieldSchema["type"] == "array" {
+			fieldSchema["items"] = map[string]any{"type": "string"}
+		}
+		properties[name] = fieldSchema
+		if field.Required {
+			required = append(required, name)
+		}
+	}
+	if len(properties) == 0 {
+		return nil
+	}
+	schema := map[string]any{
+		"$schema":    "https://json-schema.org/draft/2020-12/schema",
+		"type":       "object",
+		"properties": properties,
+	}
+	if len(required) > 0 {
+		schema["required"] = required
+	}
+	return schema
+}
+
+func schemaTypeForField(field admin.Field) string {
+	switch strings.ToLower(strings.TrimSpace(field.Type)) {
+	case "checkbox", "toggle", "switch", "boolean", "bool":
+		return "boolean"
+	case "integer", "int":
+		return "integer"
+	case "number", "float", "decimal", "currency":
+		return "number"
+	case "json", "jsonschema", "object":
+		return "object"
+	case "multiselect", "array", "list", "tags":
+		return "array"
+	default:
+		return "string"
+	}
+}
+
+func enumValuesFromField(field admin.Field) []any {
+	if len(field.Options) == 0 {
+		return nil
+	}
+	values := make([]any, 0, len(field.Options))
+	for _, option := range field.Options {
+		switch v := option.Value.(type) {
+		case nil:
+			continue
+		case string:
+			if strings.TrimSpace(v) == "" {
+				continue
+			}
+			values = append(values, strings.TrimSpace(v))
+		default:
+			values = append(values, v)
+		}
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	return values
+}
+
+func (h *contentEntryHandlers) renderTemplate(c router.Context, panelSlug string, fallbackTemplate string, viewCtx router.ViewContext) error {
+	if c == nil {
+		return admin.ErrNotFound
+	}
+	fallbackTemplate = strings.TrimSpace(fallbackTemplate)
+	if fallbackTemplate == "" {
+		return admin.ErrNotFound
+	}
+	customTemplate := contentEntryPanelTemplate(panelSlug, fallbackTemplate)
+	if customTemplate == "" || customTemplate == fallbackTemplate {
+		return c.Render(fallbackTemplate, viewCtx)
+	}
+	if h.templateExists != nil {
+		if h.templateExists(customTemplate) {
+			return c.Render(customTemplate, viewCtx)
+		}
+		return c.Render(fallbackTemplate, viewCtx)
+	}
+	if err := c.Render(customTemplate, viewCtx); err != nil {
+		if !isTemplateResolutionError(err) {
+			return err
+		}
+		return c.Render(fallbackTemplate, viewCtx)
+	}
+	return nil
+}
+
+func templateExistsFromFS(fsys ...fs.FS) templateExistsFunc {
+	stack := make([]fs.FS, 0, len(fsys))
+	for _, current := range fsys {
+		if current == nil {
+			continue
+		}
+		stack = append(stack, normalizeTemplatesFS(current))
+	}
+	merged := fallbackFSList(stack)
+	if merged == nil {
+		return nil
+	}
+	return func(name string) bool {
+		candidates := templateLookupCandidates(name)
+		for _, candidate := range candidates {
+			info, err := fs.Stat(merged, candidate)
+			if err != nil {
+				continue
+			}
+			if !info.IsDir() {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func templateLookupCandidates(name string) []string {
+	normalized := normalizeTemplateLookupName(name)
+	if normalized == "" {
+		return nil
+	}
+	if path.Ext(normalized) != "" {
+		return []string{normalized}
+	}
+	return []string{
+		normalized,
+		normalized + ".html",
+	}
+}
+
+func normalizeTemplateLookupName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	name = strings.TrimPrefix(name, "/")
+	name = path.Clean(name)
+	if name == "." {
+		return ""
+	}
+	return name
+}
+
+func contentEntryPanelTemplate(panelSlug, fallbackTemplate string) string {
+	fallbackTemplate = strings.TrimSpace(fallbackTemplate)
+	panelSlug = normalizeContentEntryTemplateSlug(panelSlug)
+	if fallbackTemplate == "" || panelSlug == "" {
+		return fallbackTemplate
+	}
+	return path.Join("resources", panelSlug, path.Base(fallbackTemplate))
+}
+
+func normalizeContentEntryTemplateSlug(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if idx := strings.Index(raw, "@"); idx >= 0 {
+		raw = raw[:idx]
+	}
+	raw = strings.ReplaceAll(raw, "_", "-")
+	raw = strings.ReplaceAll(raw, ".", "-")
+	return strings.Trim(raw, "- ")
+}
+
+func isTemplateResolutionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	lower := strings.ToLower(strings.TrimSpace(err.Error()))
+	if !strings.Contains(lower, "does not exist") {
+		return false
+	}
+	return strings.Contains(lower, "template") ||
+		strings.Contains(lower, "view") ||
+		strings.Contains(lower, "layout")
+}
+
 func defaultLocaleValue(value string, fallback string) string {
 	if strings.TrimSpace(value) != "" {
 		return strings.TrimSpace(value)
@@ -1099,8 +1993,77 @@ func (r contentEntryRoutes) delete(id string) string {
 
 func (r contentEntryRoutes) routesMap() map[string]string {
 	return map[string]string{
-		"index": r.index(),
-		"new":   r.new(),
+		"index":  r.index(),
+		"new":    r.new(),
+		"create": r.create(),
+	}
+}
+
+func contentEntryCreateRedirectTarget(slug, createdID string, routes contentEntryRoutes) string {
+	id := strings.TrimSpace(createdID)
+	if id == "" {
+		return routes.index()
+	}
+	if shouldRedirectToDetailAfterCreate(slug) {
+		return appendQueryParam(routes.show(id), "created", "1")
+	}
+	target := routes.edit(id)
+	if shouldAppendCreateMarkerAfterCreate(slug) {
+		target = appendQueryParam(target, "created", "1")
+	}
+	return target
+}
+
+func shouldRedirectToDetailAfterCreate(slug string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(slug))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	switch normalized {
+	case "esign_documents":
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldAppendCreateMarkerAfterCreate(slug string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(slug))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	switch normalized {
+	case "esign_agreements":
+		return true
+	default:
+		return false
+	}
+}
+
+func appendQueryParam(rawPath, key, value string) string {
+	pathValue := strings.TrimSpace(rawPath)
+	if pathValue == "" {
+		return ""
+	}
+	parsed, err := url.Parse(pathValue)
+	if err != nil {
+		separator := "?"
+		if strings.Contains(pathValue, "?") {
+			separator = "&"
+		}
+		return pathValue + separator + url.QueryEscape(strings.TrimSpace(key)) + "=" + url.QueryEscape(strings.TrimSpace(value))
+	}
+	query := parsed.Query()
+	query.Set(strings.TrimSpace(key), strings.TrimSpace(value))
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
+}
+
+func queryParamEnabled(c router.Context, key string) bool {
+	if c == nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(c.Query(key))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -1108,19 +2071,7 @@ func isJSONRequest(c router.Context) bool {
 	if c == nil {
 		return false
 	}
-	raw := c.Get("Content-Type", "")
-	contentType := ""
-	switch v := raw.(type) {
-	case string:
-		contentType = v
-	case []byte:
-		contentType = string(v)
-	default:
-		if raw != nil {
-			contentType = fmt.Sprint(raw)
-		}
-	}
-	contentType = strings.ToLower(contentType)
+	contentType := strings.ToLower(requestContentType(c))
 	return strings.Contains(contentType, "application/json")
 }
 
@@ -1305,4 +2256,87 @@ func titleCase(value string) string {
 		parts[i] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
 	}
 	return strings.Join(parts, " ")
+}
+
+// contentEntryNeedsBlocksChips returns true if any column uses the blocks_chips renderer.
+func contentEntryNeedsBlocksChips(columns []map[string]any) bool {
+	for _, col := range columns {
+		renderer := strings.TrimSpace(anyToString(col["renderer"]))
+		if renderer == "blocks_chips" {
+			return true
+		}
+	}
+	return false
+}
+
+// contentEntryBlockIconsMap builds a map of block type slugs to icon references
+// by querying the block_definitions panel for the current environment.
+// Returns nil on error (logged once) so list rendering continues without icons.
+func contentEntryBlockIconsMap(ctx admin.AdminContext, adm *admin.Admin) map[string]string {
+	if adm == nil || adm.Registry() == nil {
+		return nil
+	}
+	panel, ok := adm.Registry().Panel("block_definitions")
+	if !ok || panel == nil {
+		return nil
+	}
+	filters := map[string]any{
+		"status": "active",
+	}
+	if env := strings.TrimSpace(ctx.Environment); env != "" {
+		filters["environment"] = env
+	}
+	items, _, err := panel.List(ctx, admin.ListOptions{
+		PerPage: 10000,
+		Filters: filters,
+	})
+	if err != nil {
+		// Log once per request path, but don't fail the page.
+		return nil
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	iconMap := make(map[string]string, len(items))
+	for _, item := range items {
+		slug := strings.TrimSpace(anyToString(item["slug"]))
+		if slug == "" {
+			continue
+		}
+		icon := strings.TrimSpace(anyToString(item["icon"]))
+		if icon == "" {
+			icon = "view-grid" // default fallback
+		}
+		iconMap[slug] = icon
+	}
+	if len(iconMap) == 0 {
+		return nil
+	}
+	return iconMap
+}
+
+// contentEntryAttachBlocksIconMap attaches the block_icons_map to renderer_options
+// for columns using blocks_chips renderer, if not already provided by ui_schema.
+func contentEntryAttachBlocksIconMap(columns []map[string]any, iconMap map[string]string) []map[string]any {
+	if len(iconMap) == 0 {
+		return columns
+	}
+	for i, col := range columns {
+		renderer := strings.TrimSpace(anyToString(col["renderer"]))
+		if renderer != "blocks_chips" {
+			continue
+		}
+		opts, _ := col["renderer_options"].(map[string]any)
+		if opts == nil {
+			opts = map[string]any{}
+		}
+		// Only set if not already provided (user override wins).
+		if _, exists := opts["block_icons_map"]; !exists {
+			if _, exists := opts["blockIconsMap"]; !exists {
+				opts["block_icons_map"] = iconMap
+			}
+		}
+		columns[i]["renderer_options"] = opts
+	}
+	return columns
 }
