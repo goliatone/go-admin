@@ -177,6 +177,22 @@ type FeatureOverridesBinding interface {
 	Unset(router.Context, map[string]any) (map[string]any, error)
 }
 
+// IconsBinding exposes icon library and icon operations.
+type IconsBinding interface {
+	// Libraries returns all registered icon libraries.
+	Libraries(router.Context) (map[string]any, error)
+	// Library returns a single icon library by ID.
+	Library(router.Context, string) (map[string]any, error)
+	// LibraryIcons returns icons from a library, optionally filtered by category.
+	LibraryIcons(router.Context, string, string) ([]map[string]any, error)
+	// Search searches icons across libraries.
+	Search(router.Context, string, int) ([]map[string]any, error)
+	// Resolve resolves an icon reference to its definition.
+	Resolve(router.Context, string) (map[string]any, error)
+	// Render renders an icon to HTML.
+	Render(router.Context, string, string) (map[string]any, error)
+}
+
 // BootCtx exposes the surface needed by boot steps.
 type BootCtx interface {
 	Router() Router
@@ -205,6 +221,7 @@ type BootCtx interface {
 	BootSettings() SettingsBinding
 	BootSchemaRegistry() SchemaRegistryBinding
 	BootFeatureOverrides() FeatureOverridesBinding
+	BootIcons() IconsBinding
 
 	SettingsWidget() error
 	ActivityWidget() error
