@@ -30,6 +30,18 @@ type mapAuthorizer struct {
 	allowed map[string]bool
 }
 
+type agreementStatsStub struct {
+	records []stores.AgreementRecord
+	err     error
+}
+
+func (s agreementStatsStub) ListAgreements(context.Context, stores.Scope, stores.AgreementQuery) ([]stores.AgreementRecord, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return append([]stores.AgreementRecord{}, s.records...), nil
+}
+
 type sharedDriveEdgeProvider struct {
 	now        time.Time
 	files      map[string]services.GoogleDriveFile
@@ -264,6 +276,50 @@ func TestRegisterAdminRoutesAllowPermission(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestRegisterAgreementStatsRouteAllowPermission(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}),
+		WithAgreementStatsService(agreementStatsStub{
+			records: []stores.AgreementRecord{
+				{Status: stores.AgreementStatusDraft},
+				{Status: stores.AgreementStatusSent},
+				{Status: stores.AgreementStatusInProgress},
+				{Status: stores.AgreementStatusCompleted},
+				{Status: stores.AgreementStatusDeclined},
+			},
+		}),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/stats", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	payload := string(body)
+	if !strings.Contains(payload, `"draft":1`) {
+		t.Fatalf("expected draft count in payload, got %s", payload)
+	}
+	if !strings.Contains(payload, `"pending":2`) {
+		t.Fatalf("expected pending count in payload, got %s", payload)
+	}
+	if !strings.Contains(payload, `"completed":1`) {
+		t.Fatalf("expected completed count in payload, got %s", payload)
+	}
+	if !strings.Contains(payload, `"action_required":3`) {
+		t.Fatalf("expected action_required count in payload, got %s", payload)
 	}
 }
 

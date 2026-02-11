@@ -66,6 +66,12 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.AdminAPIStatus != "/suite/api/v9/esign/status" {
 		t.Fatalf("expected admin api route /suite/api/v9/esign/status, got %q", routes.AdminAPIStatus)
 	}
+	if routes.AdminAgreementsStats != "/suite/api/v9/esign/agreements/stats" {
+		t.Fatalf("expected admin agreement stats route /suite/api/v9/esign/agreements/stats, got %q", routes.AdminAgreementsStats)
+	}
+	if routes.AdminDocumentsUpload != "/suite/api/v9/esign/documents/upload" {
+		t.Fatalf("expected admin document upload route /suite/api/v9/esign/documents/upload, got %q", routes.AdminDocumentsUpload)
+	}
 	if routes.SignerSession != "/api/v1/esign/signing/session/:token" {
 		t.Fatalf("expected signer route fallback /api/v1/esign/signing/session/:token, got %q", routes.SignerSession)
 	}
@@ -80,6 +86,9 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	}
 	if routes.SignerDecline != "/api/v1/esign/signing/decline/:token" {
 		t.Fatalf("expected signer decline route fallback /api/v1/esign/signing/decline/:token, got %q", routes.SignerDecline)
+	}
+	if routes.SignerAssets != "/api/v1/esign/signing/assets/:token" {
+		t.Fatalf("expected signer assets route fallback /api/v1/esign/signing/assets/:token, got %q", routes.SignerAssets)
 	}
 	if routes.AdminGoogleOAuthStatus != "/suite/api/v9/esign/integrations/google/status" {
 		t.Fatalf("expected google oauth status route /suite/api/v9/esign/integrations/google/status, got %q", routes.AdminGoogleOAuthStatus)
@@ -104,6 +113,12 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	if routes.AdminAPIStatus != "/admin/api/v1/esign/status" {
 		t.Fatalf("expected /admin/api/v1/esign/status, got %q", routes.AdminAPIStatus)
 	}
+	if routes.AdminAgreementsStats != "/admin/api/v1/esign/agreements/stats" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/stats, got %q", routes.AdminAgreementsStats)
+	}
+	if routes.AdminDocumentsUpload != "/admin/api/v1/esign/documents/upload" {
+		t.Fatalf("expected /admin/api/v1/esign/documents/upload, got %q", routes.AdminDocumentsUpload)
+	}
 	if routes.SignerSession != "/api/v1/esign/signing/session/:token" {
 		t.Fatalf("expected /api/v1/esign/signing/session/:token, got %q", routes.SignerSession)
 	}
@@ -118,6 +133,9 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.SignerDecline != "/api/v1/esign/signing/decline/:token" {
 		t.Fatalf("expected /api/v1/esign/signing/decline/:token, got %q", routes.SignerDecline)
+	}
+	if routes.SignerAssets != "/api/v1/esign/signing/assets/:token" {
+		t.Fatalf("expected /api/v1/esign/signing/assets/:token, got %q", routes.SignerAssets)
 	}
 	if routes.AdminGoogleOAuthConnect != "/admin/api/v1/esign/integrations/google/connect" {
 		t.Fatalf("expected /admin/api/v1/esign/integrations/google/connect, got %q", routes.AdminGoogleOAuthConnect)

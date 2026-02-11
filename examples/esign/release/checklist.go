@@ -33,9 +33,10 @@ type SecurityReviewSummary struct {
 }
 
 type RuntimeReadinessSummary struct {
-	UsesMockDependencies  bool   `json:"uses_mock_dependencies"`
-	RequiresManualPatches bool   `json:"requires_manual_patches"`
-	Notes                 string `json:"notes"`
+	UsesMockDependencies    bool   `json:"uses_mock_dependencies"`
+	RequiresManualPatches   bool   `json:"requires_manual_patches"`
+	APIOnlyFallbackDetected bool   `json:"api_only_fallback_detected"`
+	Notes                   string `json:"notes"`
 }
 
 type RolloutEvidenceSummary struct {
@@ -90,6 +91,9 @@ func (c Checklist) Validate() []string {
 	}
 	if c.Runtime.RequiresManualPatches {
 		issues = append(issues, "runtime requires manual data patching")
+	}
+	if c.Runtime.APIOnlyFallbackDetected {
+		issues = append(issues, "runtime still requires API-only fallback for normal signer flow")
 	}
 	slo := observability.EvaluateSLO(c.SLOSnapshot)
 	if !slo.OverallPass {

@@ -1,0 +1,632 @@
+package stores
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"maps"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/uptrace/bun/driver/sqliteshim"
+)
+
+const defaultESignSQLiteFilename = "go-admin-esign.db"
+
+// ResolveSQLiteDSN returns the preferred DSN for the e-sign example store.
+func ResolveSQLiteDSN() string {
+	if value := strings.TrimSpace(os.Getenv("ESIGN_DATABASE_DSN")); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(os.Getenv("CONTENT_DATABASE_DSN")); value != "" {
+		return value
+	}
+	filename := strings.TrimSuffix(defaultESignSQLiteFilename, ".db")
+	filename = fmt.Sprintf("%s-%d.db", filename, os.Getpid())
+	return "file:" + filepath.Join(os.TempDir(), filename) + "?cache=shared&_fk=1&_busy_timeout=5000"
+}
+
+// SQLiteStore persists e-sign domain data in SQLite while reusing InMemoryStore logic.
+type SQLiteStore struct {
+	*InMemoryStore
+	db *sql.DB
+	mu sync.Mutex
+}
+
+type sqliteStoreSnapshot struct {
+	Documents                  map[string]DocumentRecord              `json:"documents"`
+	Agreements                 map[string]AgreementRecord             `json:"agreements"`
+	Recipients                 map[string]RecipientRecord             `json:"recipients"`
+	Fields                     map[string]FieldRecord                 `json:"fields"`
+	SigningTokens              map[string]SigningTokenRecord          `json:"signing_tokens"`
+	TokenHashIndex             map[string]string                      `json:"token_hash_index"`
+	SignatureArtifacts         map[string]SignatureArtifactRecord     `json:"signature_artifacts"`
+	FieldValues                map[string]FieldValueRecord            `json:"field_values"`
+	AuditEvents                map[string]AuditEventRecord            `json:"audit_events"`
+	AgreementArtifacts         map[string]AgreementArtifactRecord     `json:"agreement_artifacts"`
+	EmailLogs                  map[string]EmailLogRecord              `json:"email_logs"`
+	JobRuns                    map[string]JobRunRecord                `json:"job_runs"`
+	JobRunDedupeIndex          map[string]string                      `json:"job_run_dedupe_index"`
+	IntegrationCredentials     map[string]IntegrationCredentialRecord `json:"integration_credentials"`
+	IntegrationCredentialIndex map[string]string                      `json:"integration_credential_index"`
+}
+
+// NewSQLiteStore creates a SQLite-backed e-sign store.
+func NewSQLiteStore(dsn string) (*SQLiteStore, error) {
+	dsn = strings.TrimSpace(dsn)
+	if dsn == "" {
+		dsn = ResolveSQLiteDSN()
+	}
+	if dsn == "" {
+		return nil, fmt.Errorf("esign sqlite dsn is required")
+	}
+
+	ensureSQLiteDSNDir(dsn)
+	db, err := sql.Open(sqliteshim.ShimName, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open esign sqlite store: %w", err)
+	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	if err := db.Ping(); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("ping esign sqlite store: %w", err)
+	}
+	if err := ConfigureSQLiteConnection(context.Background(), db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	if err := ensureSQLiteStoreSchema(context.Background(), db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
+	mem, err := loadSQLiteSnapshot(context.Background(), db)
+	if err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return &SQLiteStore{
+		InMemoryStore: mem,
+		db:            db,
+	}, nil
+}
+
+// ConfigureSQLiteConnection applies pragmatic defaults for local concurrency.
+func ConfigureSQLiteConnection(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return nil
+	}
+	statements := []string{
+		`PRAGMA journal_mode=WAL`,
+		`PRAGMA synchronous=NORMAL`,
+		`PRAGMA busy_timeout=5000`,
+	}
+	for _, stmt := range statements {
+		if _, err := db.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("configure sqlite pragma (%s): %w", stmt, err)
+		}
+	}
+	return nil
+}
+
+func ensureSQLiteStoreSchema(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return fmt.Errorf("esign sqlite db is nil")
+	}
+	const stmt = `CREATE TABLE IF NOT EXISTS esign_store_state (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		snapshot_json TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	)`
+	if _, err := db.ExecContext(ctx, stmt); err != nil {
+		return fmt.Errorf("ensure esign sqlite state schema: %w", err)
+	}
+	return nil
+}
+
+func loadSQLiteSnapshot(ctx context.Context, db *sql.DB) (*InMemoryStore, error) {
+	mem := NewInMemoryStore()
+	if db == nil {
+		return mem, nil
+	}
+	var payload string
+	err := db.QueryRowContext(ctx, `SELECT snapshot_json FROM esign_store_state WHERE id = 1`).Scan(&payload)
+	if err == sql.ErrNoRows {
+		return mem, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load esign sqlite snapshot: %w", err)
+	}
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return mem, nil
+	}
+
+	var snapshot sqliteStoreSnapshot
+	if err := json.Unmarshal([]byte(payload), &snapshot); err != nil {
+		return nil, fmt.Errorf("decode esign sqlite snapshot: %w", err)
+	}
+	mem.documents = ensureDocumentMap(snapshot.Documents)
+	mem.agreements = ensureAgreementMap(snapshot.Agreements)
+	mem.recipients = ensureRecipientMap(snapshot.Recipients)
+	mem.fields = ensureFieldMap(snapshot.Fields)
+	mem.signingTokens = ensureSigningTokenMap(snapshot.SigningTokens)
+	mem.tokenHashIndex = ensureStringMap(snapshot.TokenHashIndex)
+	mem.signatureArtifacts = ensureSignatureArtifactMap(snapshot.SignatureArtifacts)
+	mem.fieldValues = ensureFieldValueMap(snapshot.FieldValues)
+	mem.auditEvents = ensureAuditEventMap(snapshot.AuditEvents)
+	mem.agreementArtifacts = ensureAgreementArtifactMap(snapshot.AgreementArtifacts)
+	mem.emailLogs = ensureEmailLogMap(snapshot.EmailLogs)
+	mem.jobRuns = ensureJobRunMap(snapshot.JobRuns)
+	mem.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
+	mem.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
+	mem.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
+	return mem, nil
+}
+
+func ensureSQLiteDSNDir(dsn string) {
+	if !strings.HasPrefix(dsn, "file:") {
+		return
+	}
+	raw := strings.TrimPrefix(dsn, "file:")
+	if idx := strings.Index(raw, "?"); idx >= 0 {
+		raw = raw[:idx]
+	}
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == ":memory:" || strings.HasPrefix(raw, ":memory:") {
+		return
+	}
+	dir := filepath.Dir(raw)
+	if dir == "" || dir == "." {
+		return
+	}
+	_ = os.MkdirAll(dir, 0o755)
+}
+
+func (s *SQLiteStore) persist(ctx context.Context) error {
+	if s == nil || s.db == nil || s.InMemoryStore == nil {
+		return nil
+	}
+	s.InMemoryStore.mu.RLock()
+	snapshot := sqliteStoreSnapshot{
+		Documents:                  maps.Clone(s.documents),
+		Agreements:                 maps.Clone(s.agreements),
+		Recipients:                 maps.Clone(s.recipients),
+		Fields:                     maps.Clone(s.fields),
+		SigningTokens:              maps.Clone(s.signingTokens),
+		TokenHashIndex:             maps.Clone(s.tokenHashIndex),
+		SignatureArtifacts:         maps.Clone(s.signatureArtifacts),
+		FieldValues:                maps.Clone(s.fieldValues),
+		AuditEvents:                maps.Clone(s.auditEvents),
+		AgreementArtifacts:         maps.Clone(s.agreementArtifacts),
+		EmailLogs:                  maps.Clone(s.emailLogs),
+		JobRuns:                    maps.Clone(s.jobRuns),
+		JobRunDedupeIndex:          maps.Clone(s.jobRunDedupeIndex),
+		IntegrationCredentials:     maps.Clone(s.integrationCredentials),
+		IntegrationCredentialIndex: maps.Clone(s.integrationCredentialIndex),
+	}
+	s.InMemoryStore.mu.RUnlock()
+
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		return fmt.Errorf("encode esign sqlite snapshot: %w", err)
+	}
+	_, err = s.db.ExecContext(
+		ctx,
+		`INSERT INTO esign_store_state (id, snapshot_json, updated_at)
+		 VALUES (1, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET
+		   snapshot_json = excluded.snapshot_json,
+		   updated_at = excluded.updated_at`,
+		string(payload),
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return fmt.Errorf("persist esign sqlite snapshot: %w", err)
+	}
+	return nil
+}
+
+// Close closes the underlying SQLite connection.
+func (s *SQLiteStore) Close() error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+	return s.db.Close()
+}
+
+func (s *SQLiteStore) Create(ctx context.Context, scope Scope, record DocumentRecord) (DocumentRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.Create(ctx, scope, record)
+	if err != nil {
+		return DocumentRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return DocumentRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.CreateDraft(ctx, scope, record)
+	if err != nil {
+		return AgreementRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return AgreementRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) UpdateDraft(ctx context.Context, scope Scope, id string, patch AgreementDraftPatch, expectedVersion int64) (AgreementRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpdateDraft(ctx, scope, id, patch, expectedVersion)
+	if err != nil {
+		return AgreementRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return AgreementRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) Transition(ctx context.Context, scope Scope, id string, input AgreementTransitionInput) (AgreementRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.Transition(ctx, scope, id, input)
+	if err != nil {
+		return AgreementRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return AgreementRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) UpsertRecipientDraft(ctx context.Context, scope Scope, agreementID string, patch RecipientDraftPatch, expectedVersion int64) (RecipientRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertRecipientDraft(ctx, scope, agreementID, patch, expectedVersion)
+	if err != nil {
+		return RecipientRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return RecipientRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) TouchRecipientView(ctx context.Context, scope Scope, agreementID, recipientID string, viewedAt time.Time) (RecipientRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.TouchRecipientView(ctx, scope, agreementID, recipientID, viewedAt)
+	if err != nil {
+		return RecipientRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return RecipientRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) CompleteRecipient(ctx context.Context, scope Scope, agreementID, recipientID string, completedAt time.Time, expectedVersion int64) (RecipientRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.CompleteRecipient(ctx, scope, agreementID, recipientID, completedAt, expectedVersion)
+	if err != nil {
+		return RecipientRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return RecipientRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) DeclineRecipient(ctx context.Context, scope Scope, agreementID, recipientID, reason string, declinedAt time.Time, expectedVersion int64) (RecipientRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.DeclineRecipient(ctx, scope, agreementID, recipientID, reason, declinedAt, expectedVersion)
+	if err != nil {
+		return RecipientRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return RecipientRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) DeleteRecipientDraft(ctx context.Context, scope Scope, agreementID, recipientID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.DeleteRecipientDraft(ctx, scope, agreementID, recipientID); err != nil {
+		return err
+	}
+	return s.persist(ctx)
+}
+
+func (s *SQLiteStore) UpsertFieldDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDraftPatch) (FieldRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertFieldDraft(ctx, scope, agreementID, patch)
+	if err != nil {
+		return FieldRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return FieldRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) DeleteFieldDraft(ctx context.Context, scope Scope, agreementID, fieldID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.DeleteFieldDraft(ctx, scope, agreementID, fieldID); err != nil {
+		return err
+	}
+	return s.persist(ctx)
+}
+
+func (s *SQLiteStore) CreateSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.CreateSigningToken(ctx, scope, record)
+	if err != nil {
+		return SigningTokenRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return SigningTokenRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) RevokeActiveSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string, revokedAt time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, revokedAt)
+	if err != nil {
+		return 0, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return 0, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) CreateSignatureArtifact(ctx context.Context, scope Scope, record SignatureArtifactRecord) (SignatureArtifactRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.CreateSignatureArtifact(ctx, scope, record)
+	if err != nil {
+		return SignatureArtifactRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return SignatureArtifactRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) UpsertFieldValue(ctx context.Context, scope Scope, value FieldValueRecord, expectedVersion int64) (FieldValueRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertFieldValue(ctx, scope, value, expectedVersion)
+	if err != nil {
+		return FieldValueRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return FieldValueRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) Append(ctx context.Context, scope Scope, event AuditEventRecord) (AuditEventRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.Append(ctx, scope, event)
+	if err != nil {
+		return AuditEventRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return AuditEventRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) SaveAgreementArtifacts(ctx context.Context, scope Scope, record AgreementArtifactRecord) (AgreementArtifactRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.SaveAgreementArtifacts(ctx, scope, record)
+	if err != nil {
+		return AgreementArtifactRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return AgreementArtifactRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) CreateEmailLog(ctx context.Context, scope Scope, record EmailLogRecord) (EmailLogRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.CreateEmailLog(ctx, scope, record)
+	if err != nil {
+		return EmailLogRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return EmailLogRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) UpdateEmailLog(ctx context.Context, scope Scope, id string, patch EmailLogRecord) (EmailLogRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpdateEmailLog(ctx, scope, id, patch)
+	if err != nil {
+		return EmailLogRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return EmailLogRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) BeginJobRun(ctx context.Context, scope Scope, input JobRunInput) (JobRunRecord, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, reused, err := s.InMemoryStore.BeginJobRun(ctx, scope, input)
+	if err != nil {
+		return JobRunRecord{}, false, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return JobRunRecord{}, false, err
+	}
+	return record, reused, nil
+}
+
+func (s *SQLiteStore) MarkJobRunSucceeded(ctx context.Context, scope Scope, id string, completedAt time.Time) (JobRunRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkJobRunSucceeded(ctx, scope, id, completedAt)
+	if err != nil {
+		return JobRunRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return JobRunRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) MarkJobRunFailed(ctx context.Context, scope Scope, id, failureReason string, nextRetryAt *time.Time, failedAt time.Time) (JobRunRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkJobRunFailed(ctx, scope, id, failureReason, nextRetryAt, failedAt)
+	if err != nil {
+		return JobRunRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return JobRunRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) UpsertIntegrationCredential(ctx context.Context, scope Scope, record IntegrationCredentialRecord) (IntegrationCredentialRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertIntegrationCredential(ctx, scope, record)
+	if err != nil {
+		return IntegrationCredentialRecord{}, err
+	}
+	if err := s.persist(ctx); err != nil {
+		return IntegrationCredentialRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) DeleteIntegrationCredential(ctx context.Context, scope Scope, provider, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.DeleteIntegrationCredential(ctx, scope, provider, userID); err != nil {
+		return err
+	}
+	return s.persist(ctx)
+}
+
+func ensureDocumentMap(in map[string]DocumentRecord) map[string]DocumentRecord {
+	if in == nil {
+		return map[string]DocumentRecord{}
+	}
+	return in
+}
+
+func ensureAgreementMap(in map[string]AgreementRecord) map[string]AgreementRecord {
+	if in == nil {
+		return map[string]AgreementRecord{}
+	}
+	return in
+}
+
+func ensureRecipientMap(in map[string]RecipientRecord) map[string]RecipientRecord {
+	if in == nil {
+		return map[string]RecipientRecord{}
+	}
+	return in
+}
+
+func ensureFieldMap(in map[string]FieldRecord) map[string]FieldRecord {
+	if in == nil {
+		return map[string]FieldRecord{}
+	}
+	return in
+}
+
+func ensureSigningTokenMap(in map[string]SigningTokenRecord) map[string]SigningTokenRecord {
+	if in == nil {
+		return map[string]SigningTokenRecord{}
+	}
+	return in
+}
+
+func ensureSignatureArtifactMap(in map[string]SignatureArtifactRecord) map[string]SignatureArtifactRecord {
+	if in == nil {
+		return map[string]SignatureArtifactRecord{}
+	}
+	return in
+}
+
+func ensureFieldValueMap(in map[string]FieldValueRecord) map[string]FieldValueRecord {
+	if in == nil {
+		return map[string]FieldValueRecord{}
+	}
+	return in
+}
+
+func ensureAuditEventMap(in map[string]AuditEventRecord) map[string]AuditEventRecord {
+	if in == nil {
+		return map[string]AuditEventRecord{}
+	}
+	return in
+}
+
+func ensureAgreementArtifactMap(in map[string]AgreementArtifactRecord) map[string]AgreementArtifactRecord {
+	if in == nil {
+		return map[string]AgreementArtifactRecord{}
+	}
+	return in
+}
+
+func ensureEmailLogMap(in map[string]EmailLogRecord) map[string]EmailLogRecord {
+	if in == nil {
+		return map[string]EmailLogRecord{}
+	}
+	return in
+}
+
+func ensureJobRunMap(in map[string]JobRunRecord) map[string]JobRunRecord {
+	if in == nil {
+		return map[string]JobRunRecord{}
+	}
+	return in
+}
+
+func ensureIntegrationCredentialMap(in map[string]IntegrationCredentialRecord) map[string]IntegrationCredentialRecord {
+	if in == nil {
+		return map[string]IntegrationCredentialRecord{}
+	}
+	return in
+}
+
+func ensureStringMap(in map[string]string) map[string]string {
+	if in == nil {
+		return map[string]string{}
+	}
+	return in
+}

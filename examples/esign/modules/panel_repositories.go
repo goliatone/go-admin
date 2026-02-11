@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-uploader"
 )
 
 const (
@@ -20,15 +23,21 @@ const (
 	esignAgreementsPanelID = "esign_agreements"
 )
 
+var (
+	recipientBracketKeyPattern = regexp.MustCompile(`^recipients\[(\d+)\]$`)
+	fieldBracketKeyPattern     = regexp.MustCompile(`^fields\[(\d+)\]$`)
+)
+
 type documentPanelRepository struct {
 	store        stores.DocumentStore
 	uploader     services.DocumentService
+	uploads      *uploader.Manager
 	defaultScope stores.Scope
 	settings     RuntimeSettings
 }
 
-func newDocumentPanelRepository(store stores.DocumentStore, uploader services.DocumentService, defaultScope stores.Scope, settings RuntimeSettings) *documentPanelRepository {
-	return &documentPanelRepository{store: store, uploader: uploader, defaultScope: defaultScope, settings: settings}
+func newDocumentPanelRepository(store stores.DocumentStore, uploader services.DocumentService, uploads *uploader.Manager, defaultScope stores.Scope, settings RuntimeSettings) *documentPanelRepository {
+	return &documentPanelRepository{store: store, uploader: uploader, uploads: uploads, defaultScope: defaultScope, settings: settings}
 }
 
 func (r *documentPanelRepository) List(ctx context.Context, opts coreadmin.ListOptions) ([]map[string]any, int, error) {
@@ -87,13 +96,19 @@ func (r *documentPanelRepository) Create(ctx context.Context, record map[string]
 	if r.store == nil {
 		return nil, fmt.Errorf("document store not configured")
 	}
-	objectKey := strings.TrimSpace(toString(record["source_object_key"]))
+	requestedObjectKey := strings.TrimSpace(toString(record["source_object_key"]))
+	objectKey := requestedObjectKey
 	if objectKey == "" {
 		objectKey = fmt.Sprintf("tenant/%s/org/%s/docs/%d/source.pdf", scope.TenantID, scope.OrgID, time.Now().UTC().UnixNano())
 	}
 	pdfBytes, err := decodePDFPayload(record)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, errPDFPayloadRequired) && requestedObjectKey != "" {
+			pdfBytes, err = loadPDFPayloadFromObjectKey(ctx, r.uploads, requestedObjectKey)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	if maxSize := r.settings.MaxSourcePDFBytes; maxSize > 0 && int64(len(pdfBytes)) > maxSize {
 		return nil, fmt.Errorf("pdf payload exceeds configured max size")
@@ -119,6 +134,8 @@ func (r *documentPanelRepository) Delete(context.Context, string) error {
 	return fmt.Errorf("documents are immutable after upload")
 }
 
+var errPDFPayloadRequired = errors.New("pdf payload is required")
+
 func decodePDFPayload(record map[string]any) ([]byte, error) {
 	var decodeErr error
 	for _, key := range []string{"pdf_base64", "pdf"} {
@@ -142,7 +159,25 @@ func decodePDFPayload(record map[string]any) ([]byte, error) {
 	if decodeErr != nil {
 		return nil, fmt.Errorf("invalid base64 pdf payload: %w", decodeErr)
 	}
-	return nil, fmt.Errorf("pdf payload is required")
+	return nil, errPDFPayloadRequired
+}
+
+func loadPDFPayloadFromObjectKey(ctx context.Context, uploads *uploader.Manager, objectKey string) ([]byte, error) {
+	if uploads == nil {
+		return nil, fmt.Errorf("pdf payload is required")
+	}
+	objectKey = strings.TrimSpace(objectKey)
+	if objectKey == "" {
+		return nil, fmt.Errorf("source_object_key is required")
+	}
+	decoded, err := uploads.GetFile(ctx, objectKey)
+	if err != nil {
+		return nil, fmt.Errorf("load source object %q: %w", objectKey, err)
+	}
+	if len(decoded) == 0 {
+		return nil, fmt.Errorf("source object %q is empty", objectKey)
+	}
+	return decoded, nil
 }
 
 func documentRecordToMap(record stores.DocumentRecord) map[string]any {
@@ -315,11 +350,11 @@ func (r *agreementPanelRepository) Create(ctx context.Context, record map[string
 	if err != nil {
 		return nil, err
 	}
-	recipients, err := r.agreements.ListRecipients(ctx, scope, created.ID)
+	recipients, fields, err := r.syncDraftFormPayload(ctx, scope, created.ID, record)
 	if err != nil {
 		return nil, err
 	}
-	return agreementRecordToMap(created, recipients, nil, nil, services.AgreementDeliveryDetail{}), nil
+	return agreementRecordToMap(created, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
 }
 
 func (r *agreementPanelRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
@@ -332,24 +367,27 @@ func (r *agreementPanelRepository) Update(ctx context.Context, id string, record
 		expectedVersion = toInt64(record["version"])
 	}
 	patch := stores.AgreementDraftPatch{}
-	if title := strings.TrimSpace(toString(record["title"])); title != "" {
+	if _, ok := record["title"]; ok {
+		title := strings.TrimSpace(toString(record["title"]))
 		patch.Title = &title
 	}
-	if message := strings.TrimSpace(toString(record["message"])); message != "" {
+	if _, ok := record["message"]; ok {
+		message := strings.TrimSpace(toString(record["message"]))
 		patch.Message = &message
 	}
-	if documentID := strings.TrimSpace(toString(record["document_id"])); documentID != "" {
+	if _, ok := record["document_id"]; ok {
+		documentID := strings.TrimSpace(toString(record["document_id"]))
 		patch.DocumentID = &documentID
 	}
 	updated, err := r.service.UpdateDraft(ctx, scope, strings.TrimSpace(id), patch, expectedVersion)
 	if err != nil {
 		return nil, err
 	}
-	recipients, err := r.agreements.ListRecipients(ctx, scope, updated.ID)
+	recipients, fields, err := r.syncDraftFormPayload(ctx, scope, updated.ID, record)
 	if err != nil {
 		return nil, err
 	}
-	return agreementRecordToMap(updated, recipients, nil, nil, services.AgreementDeliveryDetail{}), nil
+	return agreementRecordToMap(updated, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
 }
 
 func (r *agreementPanelRepository) Delete(context.Context, string) error {
@@ -394,7 +432,7 @@ func agreementRecordToMap(
 		payload["recipients"] = recipientsToMaps(recipients)
 	}
 	if len(fields) > 0 {
-		payload["fields"] = fieldsToMaps(fields)
+		payload["fields"] = fieldsToMaps(fields, recipientIndexesByID(recipients))
 	}
 	if len(events) > 0 {
 		payload["timeline"] = eventsToMaps(events)
@@ -435,21 +473,38 @@ func recipientsToMaps(records []stores.RecipientRecord) []map[string]any {
 	return out
 }
 
-func fieldsToMaps(records []stores.FieldRecord) []map[string]any {
+func fieldsToMaps(records []stores.FieldRecord, recipientIndexByID map[string]int) []map[string]any {
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
-		out = append(out, map[string]any{
+		entry := map[string]any{
 			"id":           record.ID,
 			"agreement_id": record.AgreementID,
 			"recipient_id": record.RecipientID,
 			"type":         record.Type,
+			"page":         record.PageNumber,
 			"page_number":  record.PageNumber,
 			"pos_x":        record.PosX,
 			"pos_y":        record.PosY,
 			"width":        record.Width,
 			"height":       record.Height,
 			"required":     record.Required,
-		})
+		}
+		if index, ok := recipientIndexByID[strings.TrimSpace(record.RecipientID)]; ok {
+			entry["recipient_index"] = index
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+func recipientIndexesByID(recipients []stores.RecipientRecord) map[string]int {
+	out := make(map[string]int, len(recipients))
+	for index, recipient := range recipients {
+		id := strings.TrimSpace(recipient.ID)
+		if id == "" {
+			continue
+		}
+		out[id] = index
 	}
 	return out
 }
@@ -493,6 +548,310 @@ func formatTimePtr(value *time.Time) string {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339Nano)
+}
+
+type agreementRecipientFormInput struct {
+	Name  string
+	Email string
+	Role  string
+}
+
+type agreementFieldFormInput struct {
+	Type           string
+	RecipientIndex int
+	RecipientID    string
+	PageNumber     int
+	Required       bool
+}
+
+func (r *agreementPanelRepository) syncDraftFormPayload(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	record map[string]any,
+) ([]stores.RecipientRecord, []stores.FieldRecord, error) {
+	recipients, err := r.agreements.ListRecipients(ctx, scope, agreementID)
+	if err != nil {
+		return nil, nil, err
+	}
+	fields, err := r.agreements.ListFields(ctx, scope, agreementID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	recipientInputs, hasRecipientPayload := parseAgreementRecipientFormInputs(record)
+	if !hasRecipientPayload && toBool(record["recipients_present"]) {
+		hasRecipientPayload = true
+	}
+	if hasRecipientPayload {
+		recipients, err = r.syncDraftRecipients(ctx, scope, agreementID, recipients, recipientInputs)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	fieldInputs, hasFieldPayload := parseAgreementFieldFormInputs(record)
+	if !hasFieldPayload && toBool(record["fields_present"]) {
+		hasFieldPayload = true
+	}
+	if hasFieldPayload {
+		fields, err = r.syncDraftFields(ctx, scope, agreementID, fields, recipients, fieldInputs)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return recipients, fields, nil
+}
+
+func (r *agreementPanelRepository) syncDraftRecipients(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	existing []stores.RecipientRecord,
+	inputs []agreementRecipientFormInput,
+) ([]stores.RecipientRecord, error) {
+	if len(inputs) == 0 {
+		return nil, fmt.Errorf("at least one recipient is required")
+	}
+	for index, input := range inputs {
+		email := strings.TrimSpace(input.Email)
+		name := strings.TrimSpace(input.Name)
+		role := strings.ToLower(strings.TrimSpace(input.Role))
+		if role == "" {
+			role = stores.RecipientRoleSigner
+		}
+		signingOrder := index + 1
+		patch := stores.RecipientDraftPatch{
+			Email:        &email,
+			Name:         &name,
+			Role:         &role,
+			SigningOrder: &signingOrder,
+		}
+		expectedVersion := int64(0)
+		if index < len(existing) {
+			patch.ID = existing[index].ID
+			expectedVersion = existing[index].Version
+		}
+		if _, err := r.service.UpsertRecipientDraft(ctx, scope, agreementID, patch, expectedVersion); err != nil {
+			return nil, err
+		}
+	}
+	for index := len(inputs); index < len(existing); index++ {
+		if err := r.service.RemoveRecipientDraft(ctx, scope, agreementID, existing[index].ID); err != nil {
+			return nil, err
+		}
+	}
+	return r.agreements.ListRecipients(ctx, scope, agreementID)
+}
+
+func (r *agreementPanelRepository) syncDraftFields(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	existingFields []stores.FieldRecord,
+	recipients []stores.RecipientRecord,
+	inputs []agreementFieldFormInput,
+) ([]stores.FieldRecord, error) {
+	if len(recipients) == 0 {
+		return nil, fmt.Errorf("at least one recipient is required before adding fields")
+	}
+	recipientIDsByIndex := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		recipientIDsByIndex = append(recipientIDsByIndex, recipient.ID)
+	}
+
+	for index, input := range inputs {
+		fieldType := strings.TrimSpace(input.Type)
+		if fieldType == "" {
+			fieldType = stores.FieldTypeSignature
+		}
+		recipientID := strings.TrimSpace(input.RecipientID)
+		if recipientID == "" {
+			if input.RecipientIndex < 0 || input.RecipientIndex >= len(recipientIDsByIndex) {
+				return nil, fmt.Errorf("field recipient assignment %d is invalid", input.RecipientIndex)
+			}
+			recipientID = recipientIDsByIndex[input.RecipientIndex]
+		} else {
+			known := false
+			for _, id := range recipientIDsByIndex {
+				if id == recipientID {
+					known = true
+					break
+				}
+			}
+			if !known {
+				return nil, fmt.Errorf("field recipient_id %q is invalid", recipientID)
+			}
+		}
+		pageNumber := input.PageNumber
+		if pageNumber <= 0 {
+			pageNumber = 1
+		}
+		required := input.Required
+		patch := stores.FieldDraftPatch{
+			RecipientID: &recipientID,
+			Type:        &fieldType,
+			PageNumber:  &pageNumber,
+			Required:    &required,
+		}
+		if index < len(existingFields) {
+			patch.ID = existingFields[index].ID
+		}
+		if _, err := r.service.UpsertFieldDraft(ctx, scope, agreementID, patch); err != nil {
+			return nil, err
+		}
+	}
+	for index := len(inputs); index < len(existingFields); index++ {
+		if err := r.service.DeleteFieldDraft(ctx, scope, agreementID, existingFields[index].ID); err != nil {
+			return nil, err
+		}
+	}
+	return r.agreements.ListFields(ctx, scope, agreementID)
+}
+
+func parseAgreementRecipientFormInputs(record map[string]any) ([]agreementRecipientFormInput, bool) {
+	entries := map[int]map[string]any{}
+	hasPayload := false
+	if record == nil {
+		return nil, false
+	}
+
+	if raw, ok := record["recipients"]; ok {
+		hasPayload = true
+		collectIndexedFormEntries(entries, raw)
+	}
+	for key, value := range record {
+		matches := recipientBracketKeyPattern.FindStringSubmatch(strings.TrimSpace(key))
+		if len(matches) != 2 {
+			continue
+		}
+		hasPayload = true
+		index := int(toInt64(matches[1]))
+		entry, ok := value.(map[string]any)
+		if !ok {
+			entry = map[string]any{}
+		}
+		entries[index] = entry
+	}
+
+	indexes := sortedEntryIndexes(entries)
+	out := make([]agreementRecipientFormInput, 0, len(indexes))
+	for _, index := range indexes {
+		entry := entries[index]
+		name := strings.TrimSpace(toString(entry["name"]))
+		email := strings.TrimSpace(toString(entry["email"]))
+		role := strings.ToLower(strings.TrimSpace(toString(entry["role"])))
+		if name == "" && email == "" && role == "" {
+			continue
+		}
+		out = append(out, agreementRecipientFormInput{
+			Name:  name,
+			Email: email,
+			Role:  role,
+		})
+	}
+	return out, hasPayload
+}
+
+func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormInput, bool) {
+	entries := map[int]map[string]any{}
+	hasPayload := false
+	if record == nil {
+		return nil, false
+	}
+
+	if raw, ok := record["fields"]; ok {
+		hasPayload = true
+		collectIndexedFormEntries(entries, raw)
+	}
+	for key, value := range record {
+		matches := fieldBracketKeyPattern.FindStringSubmatch(strings.TrimSpace(key))
+		if len(matches) != 2 {
+			continue
+		}
+		hasPayload = true
+		index := int(toInt64(matches[1]))
+		entry, ok := value.(map[string]any)
+		if !ok {
+			entry = map[string]any{}
+		}
+		entries[index] = entry
+	}
+
+	indexes := sortedEntryIndexes(entries)
+	out := make([]agreementFieldFormInput, 0, len(indexes))
+	for _, index := range indexes {
+		entry := entries[index]
+		fieldType := strings.TrimSpace(toString(entry["type"]))
+		recipientIndexRaw := strings.TrimSpace(toString(entry["recipient_index"]))
+		recipientIndex := int(toInt64(recipientIndexRaw))
+		recipientID := strings.TrimSpace(toString(entry["recipient_id"]))
+		pageRaw := strings.TrimSpace(toString(entry["page"]))
+		if pageRaw == "" {
+			pageRaw = strings.TrimSpace(toString(entry["page_number"]))
+		}
+		pageNumber := int(toInt64(pageRaw))
+		required := toBool(entry["required"])
+		if fieldType == "" && recipientIndexRaw == "" && recipientID == "" {
+			continue
+		}
+		out = append(out, agreementFieldFormInput{
+			Type:           fieldType,
+			RecipientIndex: recipientIndex,
+			RecipientID:    recipientID,
+			PageNumber:     pageNumber,
+			Required:       required,
+		})
+	}
+	return out, hasPayload
+}
+
+func collectIndexedFormEntries(dst map[int]map[string]any, raw any) {
+	switch typed := raw.(type) {
+	case []any:
+		for index, item := range typed {
+			entry, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			dst[index] = entry
+		}
+	case map[string]any:
+		for key, item := range typed {
+			entry, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			index := int(toInt64(key))
+			dst[index] = entry
+		}
+	}
+}
+
+func sortedEntryIndexes(entries map[int]map[string]any) []int {
+	indexes := make([]int, 0, len(entries))
+	for index := range entries {
+		indexes = append(indexes, index)
+	}
+	sort.Ints(indexes)
+	return indexes
+}
+
+func toBool(value any) bool {
+	switch raw := value.(type) {
+	case bool:
+		return raw
+	case string:
+		switch strings.ToLower(strings.TrimSpace(raw)) {
+		case "", "0", "false", "off", "no":
+			return false
+		default:
+			return true
+		}
+	default:
+		return toInt64(value) > 0
+	}
 }
 
 func lookupFilter(filters map[string]any, keys ...string) string {

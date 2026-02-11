@@ -41,7 +41,13 @@ func RunValidationProfile(ctx context.Context, cfg ValidationConfig) (Validation
 	defer observability.ResetDefaultMetrics()
 
 	scope := stores.Scope{TenantID: "tenant-staging", OrgID: "org-staging"}
-	store := stores.NewInMemoryStore()
+	store, err := stores.NewSQLiteStore(stores.ResolveSQLiteDSN())
+	if err != nil {
+		return ValidationResult{}, fmt.Errorf("initialize sqlite store: %w", err)
+	}
+	defer func() {
+		_ = store.Close()
+	}()
 	documentSvc := services.NewDocumentService(store)
 	agreementSvc := services.NewAgreementService(store, store)
 	signingSvc := services.NewSigningService(store, store)

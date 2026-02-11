@@ -63,8 +63,9 @@ func TestChecklistValidatePassesForApprovedChecklist(t *testing.T) {
 			HighSeverityOpen: 0,
 		},
 		Runtime: RuntimeReadinessSummary{
-			UsesMockDependencies:  false,
-			RequiresManualPatches: false,
+			UsesMockDependencies:    false,
+			RequiresManualPatches:   false,
+			APIOnlyFallbackDetected: false,
 		},
 		SLOSnapshot: observability.MetricsSnapshot{
 			AdminReadP95MS:          250,
@@ -90,5 +91,39 @@ func TestValidateChecklistFileTemplateShowsPendingApprovals(t *testing.T) {
 	}
 	if len(issues) == 0 {
 		t.Fatal("expected pending checklist template to fail validation")
+	}
+}
+
+func TestChecklistValidateRejectsAPIOnlyFallback(t *testing.T) {
+	checklist := Checklist{
+		ReleaseID: "esign-2026.02.10-rc1",
+		Track:     "A",
+		Phase:     "12",
+		Signoffs: map[string]Signoff{
+			TeamBackend:  {Approved: true, Approver: "be-lead", ApprovedAt: "2026-02-10T17:00:00Z"},
+			TeamFrontend: {Approved: true, Approver: "fe-lead", ApprovedAt: "2026-02-10T17:05:00Z"},
+			TeamQA:       {Approved: true, Approver: "qa-lead", ApprovedAt: "2026-02-10T17:10:00Z"},
+			TeamOps:      {Approved: true, Approver: "ops-lead", ApprovedAt: "2026-02-10T17:15:00Z"},
+		},
+		Security: SecurityReviewSummary{HighSeverityOpen: 0},
+		Runtime: RuntimeReadinessSummary{
+			UsesMockDependencies:    false,
+			RequiresManualPatches:   false,
+			APIOnlyFallbackDetected: true,
+		},
+		SLOSnapshot: observability.MetricsSnapshot{
+			AdminReadP95MS:          250,
+			SendP95MS:               500,
+			EmailDispatchStartP99MS: 20_000,
+			FinalizeP99MS:           80_000,
+			JobSuccessTotal:         999,
+			JobFailureTotal:         1,
+		},
+	}
+
+	issues := checklist.Validate()
+	joined := strings.Join(issues, " | ")
+	if !strings.Contains(joined, "API-only fallback") {
+		t.Fatalf("expected API-only fallback validation issue, got %s", joined)
 	}
 }

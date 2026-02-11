@@ -16,6 +16,7 @@ type AgreementService struct {
 	documents  stores.DocumentStore
 	tokens     AgreementTokenService
 	audits     stores.AuditEventStore
+	emails     AgreementEmailWorkflow
 	now        func() time.Time
 	sendByKey  map[string]stores.AgreementRecord
 }
@@ -28,6 +29,30 @@ type AgreementTokenService interface {
 	Issue(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
 	Rotate(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
 	Revoke(ctx context.Context, scope stores.Scope, agreementID, recipientID string) error
+}
+
+// AgreementNotificationType defines notification policy kinds emitted by agreement lifecycle transitions.
+type AgreementNotificationType string
+
+const (
+	NotificationSigningInvitation AgreementNotificationType = "signing_invitation"
+	NotificationSigningReminder   AgreementNotificationType = "signing_reminder"
+	NotificationCompletionPackage AgreementNotificationType = "completion_delivery"
+)
+
+// AgreementNotification carries canonical email notification payload context.
+type AgreementNotification struct {
+	AgreementID   string
+	RecipientID   string
+	CorrelationID string
+	Type          AgreementNotificationType
+	Token         stores.IssuedSigningToken
+}
+
+// AgreementEmailWorkflow captures post-send and post-resend email dispatch behavior.
+type AgreementEmailWorkflow interface {
+	OnAgreementSent(ctx context.Context, scope stores.Scope, notification AgreementNotification) error
+	OnAgreementResent(ctx context.Context, scope stores.Scope, notification AgreementNotification) error
 }
 
 // WithAgreementClock sets the service clock.
@@ -57,6 +82,16 @@ func WithAgreementAuditStore(audits stores.AuditEventStore) AgreementServiceOpti
 			return
 		}
 		s.audits = audits
+	}
+}
+
+// WithAgreementEmailWorkflow configures email dispatch for send/resend flows.
+func WithAgreementEmailWorkflow(workflow AgreementEmailWorkflow) AgreementServiceOption {
+	return func(s *AgreementService) {
+		if s == nil {
+			return
+		}
+		s.emails = workflow
 	}
 }
 
@@ -98,6 +133,9 @@ func NewAgreementService(agreements stores.AgreementStore, documents stores.Docu
 	}
 	if audits, ok := agreements.(stores.AuditEventStore); ok {
 		svc.audits = audits
+	}
+	if signingTokens, ok := agreements.(stores.SigningTokenStore); ok {
+		svc.tokens = stores.NewTokenService(signingTokens)
 	}
 	for _, opt := range opts {
 		if opt == nil {
@@ -450,12 +488,28 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		}
 		return stores.AgreementRecord{}, domainValidationError("agreements", "status", "send requires draft status")
 	}
+	if s.tokens == nil {
+		return stores.AgreementRecord{}, domainValidationError("signing_tokens", "service", "not configured")
+	}
+	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	activeSigner, ok := activeSignerForSequentialFlow(recipients)
+	if !ok {
+		return stores.AgreementRecord{}, domainValidationError("recipients", "role", "no active signer recipient found")
+	}
+	issued, err := s.tokens.Issue(ctx, scope, agreementID, activeSigner.ID)
+	if err != nil {
+		return stores.AgreementRecord{}, err
+	}
 
 	transitioned, err := s.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
 		ToStatus:        stores.AgreementStatusSent,
 		ExpectedVersion: agreement.Version,
 	})
 	if err != nil {
+		_ = s.tokens.Revoke(ctx, scope, agreementID, activeSigner.ID)
 		return stores.AgreementRecord{}, err
 	}
 	if key != "" {
@@ -464,8 +518,31 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 	if err := s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.sent", "system", "", map[string]any{
 		"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
 		"status":          transitioned.Status,
+		"recipient_id":    activeSigner.ID,
+		"token_id":        issued.Record.ID,
+		"token_expires_at": func() string {
+			if issued.Record.ExpiresAt.IsZero() {
+				return ""
+			}
+			return issued.Record.ExpiresAt.UTC().Format(time.RFC3339)
+		}(),
 	}); err != nil {
 		return stores.AgreementRecord{}, err
+	}
+	if s.emails != nil {
+		if err := s.emails.OnAgreementSent(ctx, scope, AgreementNotification{
+			AgreementID:   transitioned.ID,
+			RecipientID:   activeSigner.ID,
+			CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+			Type:          NotificationSigningInvitation,
+			Token:         issued,
+		}); err != nil {
+			_ = s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
+				"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+				"recipient_id":    activeSigner.ID,
+				"error":           strings.TrimSpace(err.Error()),
+			})
+		}
 	}
 	return transitioned, nil
 }
@@ -637,8 +714,20 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		"rotate_token":              input.RotateToken,
 		"invalidate_existing":       input.InvalidateExisting,
 		"allow_out_of_order_resend": input.AllowOutOfOrderResend,
+		"token_id":                  issued.Record.ID,
 	}); err != nil {
 		return ResendResult{}, err
+	}
+	if s.emails != nil {
+		if err := s.emails.OnAgreementResent(ctx, scope, AgreementNotification{
+			AgreementID:   agreement.ID,
+			RecipientID:   target.ID,
+			CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+			Type:          NotificationSigningReminder,
+			Token:         issued,
+		}); err != nil {
+			return ResendResult{}, err
+		}
 	}
 
 	return ResendResult{

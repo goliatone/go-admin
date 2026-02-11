@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -13,7 +14,10 @@ import (
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
+	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/modules"
+	"github.com/goliatone/go-admin/examples/esign/observability"
+	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
@@ -30,6 +34,7 @@ func main() {
 		quickstart.WithScopeFromEnv(),
 	)
 	applyESignRuntimeDefaults(&cfg)
+	applyESignEmailTransportDefault()
 
 	// Explicit namespaces for admin and public signer API surfaces.
 	cfg.URLs.Admin.APIPrefix = "api"
@@ -40,22 +45,34 @@ func main() {
 	debugEnabled := cfg.Debug.Enabled
 
 	featureDefaults := map[string]bool{
-		"esign":        envBool("ESIGN_FEATURE_ENABLED", true),
-		"esign_google": envBool("ESIGN_GOOGLE_FEATURE_ENABLED", false),
+		"esign":                       envBool("ESIGN_FEATURE_ENABLED", true),
+		"esign_google":                envBool("ESIGN_GOOGLE_FEATURE_ENABLED", false),
+		string(admin.FeatureActivity): envBool("ESIGN_ACTIVITY_FEATURE_ENABLED", true),
+	}
+	adminDeps, err := newESignActivityDependencies()
+	if err != nil {
+		log.Fatalf("init activity sqlite dependencies: %v", err)
 	}
 	if err := validateRuntimeSecurityBaseline(); err != nil {
 		log.Fatalf("runtime security baseline: %v", err)
+	}
+	if err := validateRuntimeProviderConfiguration(); err != nil {
+		log.Fatalf("runtime provider configuration: %v", err)
 	}
 
 	adm, _, err := quickstart.NewAdmin(
 		cfg,
 		quickstart.AdapterHooks{},
 		quickstart.WithAdminContext(context.Background()),
+		quickstart.WithAdminDependencies(adminDeps),
 		quickstart.WithFeatureDefaults(featureDefaults),
 	)
 	if err != nil {
 		log.Fatalf("new admin: %v", err)
 	}
+	observability.ConfigureLogging(
+		observability.WithLogger(adm.NamedLogger("esign.observability")),
+	)
 
 	if debugEnabled {
 		if err := adm.RegisterModule(admin.NewDebugModule(cfg.Debug)); err != nil {
@@ -63,7 +80,9 @@ func main() {
 		}
 	}
 
-	if err := adm.RegisterModule(modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode)); err != nil {
+	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
+		WithUploadDir(resolveESignDiskAssetsDir())
+	if err := adm.RegisterModule(esignModule); err != nil {
 		log.Fatalf("register module: %v", err)
 	}
 
@@ -141,7 +160,7 @@ func main() {
 		log.Fatalf("initialize admin: %v", err)
 	}
 	routes := handlers.BuildRouteSet(adm.URLs(), adm.BasePath(), adm.AdminAPIGroup())
-	if err := registerESignWebRoutes(server.Router(), cfg, adm, authn, auther, authCookieName, routes); err != nil {
+	if err := registerESignWebRoutes(server.Router(), cfg, adm, authn, auther, authCookieName, routes, esignModule); err != nil {
 		log.Fatalf("register web routes: %v", err)
 	}
 	if debugEnabled {
@@ -153,7 +172,8 @@ func main() {
 	}
 
 	addr := listenAddr()
-	log.Printf("e-sign admin ready at http://localhost%s%s", addr, adm.BasePath())
+	startupURL := "http://localhost" + addr + adm.BasePath()
+	adm.NamedLogger("esign.bootstrap").Info("e-sign admin ready", "url", startupURL)
 	if err := server.Serve(addr); err != nil {
 		log.Fatalf("server stopped: %v", err)
 	}
@@ -185,6 +205,18 @@ func envBool(key string, fallback bool) bool {
 	return parsed
 }
 
+func applyESignEmailTransportDefault() {
+	transport := strings.ToLower(strings.TrimSpace(os.Getenv(jobs.EnvEmailTransport)))
+	if transport == "" {
+		_ = os.Setenv(jobs.EnvEmailTransport, "deterministic")
+		return
+	}
+
+	if transport == "mailpit" && strings.TrimSpace(os.Getenv(jobs.EnvEmailSMTPDisableSTARTTLS)) == "" {
+		_ = os.Setenv(jobs.EnvEmailSMTPDisableSTARTTLS, "true")
+	}
+}
+
 func validateRuntimeSecurityBaseline() error {
 	policy := stores.DefaultObjectStorageSecurityPolicy()
 	algorithm := strings.TrimSpace(os.Getenv("ESIGN_STORAGE_ENCRYPTION_ALGORITHM"))
@@ -199,6 +231,30 @@ func validateRuntimeSecurityBaseline() error {
 	for _, key := range keys {
 		if err := policy.ValidateObjectWrite(key, algorithm); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func validateRuntimeProviderConfiguration() error {
+	profile := strings.ToLower(strings.TrimSpace(os.Getenv("ESIGN_RUNTIME_PROFILE")))
+	if profile != "production" && profile != "prod" {
+		return nil
+	}
+
+	transport := strings.ToLower(strings.TrimSpace(os.Getenv(jobs.EnvEmailTransport)))
+	switch transport {
+	case "", "deterministic", "mock":
+		return fmt.Errorf("production profile requires ESIGN_EMAIL_TRANSPORT to use a non-deterministic provider")
+	}
+
+	if envBool("ESIGN_GOOGLE_FEATURE_ENABLED", false) {
+		mode := services.ResolveGoogleProviderMode()
+		if mode == services.GoogleProviderModeDeterministic {
+			return fmt.Errorf("production profile requires ESIGN_GOOGLE_PROVIDER_MODE=real when ESIGN_GOOGLE_FEATURE_ENABLED=true")
+		}
+		if _, err := services.NewGoogleHTTPProviderFromEnv(); err != nil {
+			return fmt.Errorf("production profile requires valid google provider configuration: %w", err)
 		}
 	}
 	return nil

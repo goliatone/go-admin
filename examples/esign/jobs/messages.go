@@ -7,6 +7,10 @@ type EmailSendSigningRequestMsg struct {
 	AgreementID   string
 	RecipientID   string
 	TemplateCode  string
+	Notification  string
+	SignerToken   string
+	SignURL       string
+	CompletionURL string
 	CorrelationID string
 	DedupeKey     string
 	MaxAttempts   int

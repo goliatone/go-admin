@@ -8,6 +8,9 @@ type AlertPolicy struct {
 	JobFailureRatePercentThreshold      float64
 	GoogleImportFailureTotalThreshold   int64
 	GoogleAuthChurnTotalThreshold       int64
+	SignerLinkOpenRatePercentFloor      float64
+	SignerSubmitConversionPercentFloor  float64
+	CompletionDeliverySuccessRateFloor  float64
 }
 
 // DefaultAlertPolicy returns baseline thresholds for e-sign runtime alerting.
@@ -17,6 +20,9 @@ func DefaultAlertPolicy() AlertPolicy {
 		JobFailureRatePercentThreshold:      2.0,
 		GoogleImportFailureTotalThreshold:   1,
 		GoogleAuthChurnTotalThreshold:       5,
+		SignerLinkOpenRatePercentFloor:      95.0,
+		SignerSubmitConversionPercentFloor:  70.0,
+		CompletionDeliverySuccessRateFloor:  99.0,
 	}
 }
 
@@ -41,6 +47,15 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 	}
 	if policy.GoogleAuthChurnTotalThreshold <= 0 {
 		policy.GoogleAuthChurnTotalThreshold = DefaultAlertPolicy().GoogleAuthChurnTotalThreshold
+	}
+	if policy.SignerLinkOpenRatePercentFloor <= 0 {
+		policy.SignerLinkOpenRatePercentFloor = DefaultAlertPolicy().SignerLinkOpenRatePercentFloor
+	}
+	if policy.SignerSubmitConversionPercentFloor <= 0 {
+		policy.SignerSubmitConversionPercentFloor = DefaultAlertPolicy().SignerSubmitConversionPercentFloor
+	}
+	if policy.CompletionDeliverySuccessRateFloor <= 0 {
+		policy.CompletionDeliverySuccessRateFloor = DefaultAlertPolicy().CompletionDeliverySuccessRateFloor
 	}
 
 	alerts := []Alert{}
@@ -107,6 +122,51 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 				"churn_total":     snapshot.GoogleAuthChurnTotal,
 				"churn_by_reason": snapshot.GoogleAuthChurnByReason,
 				"threshold_total": policy.GoogleAuthChurnTotalThreshold,
+			},
+		})
+	}
+
+	linkOpenRate := snapshot.SignerLinkOpenRatePercent()
+	if linkOpenRate < policy.SignerLinkOpenRatePercentFloor {
+		alerts = append(alerts, Alert{
+			Code:     "signer.link_open_rate_low",
+			Severity: "warning",
+			Message:  "signer link open rate below threshold",
+			Metadata: map[string]any{
+				"open_rate_percent": linkOpenRate,
+				"threshold_percent": policy.SignerLinkOpenRatePercentFloor,
+				"open_success":      snapshot.SignerLinkOpenSuccessTotal,
+				"open_failure":      snapshot.SignerLinkOpenFailureTotal,
+			},
+		})
+	}
+
+	submitConversion := snapshot.SignerSubmitConversionPercent()
+	if submitConversion < policy.SignerSubmitConversionPercentFloor {
+		alerts = append(alerts, Alert{
+			Code:     "signer.submit_conversion_low",
+			Severity: "warning",
+			Message:  "signer submit conversion below threshold",
+			Metadata: map[string]any{
+				"conversion_percent": submitConversion,
+				"threshold_percent":  policy.SignerSubmitConversionPercentFloor,
+				"submit_success":     snapshot.SignerSubmitSuccessTotal,
+				"link_open_success":  snapshot.SignerLinkOpenSuccessTotal,
+			},
+		})
+	}
+
+	completionRate := snapshot.CompletionDeliverySuccessRatePercent()
+	if completionRate < policy.CompletionDeliverySuccessRateFloor {
+		alerts = append(alerts, Alert{
+			Code:     "completion.delivery_success_rate_low",
+			Severity: "critical",
+			Message:  "completion delivery success rate below threshold",
+			Metadata: map[string]any{
+				"success_rate_percent": completionRate,
+				"threshold_percent":    policy.CompletionDeliverySuccessRateFloor,
+				"success_total":        snapshot.CompletionDeliverySuccessTotal,
+				"failure_total":        snapshot.CompletionDeliveryFailureTotal,
 			},
 		})
 	}

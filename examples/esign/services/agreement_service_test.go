@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,41 @@ import (
 func stringPtr(v string) *string { return &v }
 func intPtr(v int) *int          { return &v }
 func boolPtr(v bool) *bool       { return &v }
+
+type stubAgreementEmailWorkflow struct {
+	sentCalls       int
+	resentCalls     int
+	lastScope       stores.Scope
+	lastAgreement   string
+	lastRecipient   string
+	lastCorrelation string
+	lastType        AgreementNotificationType
+	lastToken       string
+	sentErr         error
+	resentErr       error
+}
+
+func (s *stubAgreementEmailWorkflow) OnAgreementSent(_ context.Context, scope stores.Scope, notification AgreementNotification) error {
+	s.sentCalls++
+	s.lastScope = scope
+	s.lastAgreement = notification.AgreementID
+	s.lastRecipient = notification.RecipientID
+	s.lastCorrelation = notification.CorrelationID
+	s.lastType = notification.Type
+	s.lastToken = strings.TrimSpace(notification.Token.Token)
+	return s.sentErr
+}
+
+func (s *stubAgreementEmailWorkflow) OnAgreementResent(_ context.Context, scope stores.Scope, notification AgreementNotification) error {
+	s.resentCalls++
+	s.lastScope = scope
+	s.lastAgreement = notification.AgreementID
+	s.lastRecipient = notification.RecipientID
+	s.lastCorrelation = notification.CorrelationID
+	s.lastType = notification.Type
+	s.lastToken = strings.TrimSpace(notification.Token.Token)
+	return s.resentErr
+}
 
 func setupDraftAgreement(t *testing.T) (context.Context, stores.Scope, *stores.InMemoryStore, AgreementService, stores.AgreementRecord) {
 	t.Helper()
@@ -294,6 +330,103 @@ func TestAgreementServiceSendIdempotency(t *testing.T) {
 	}
 }
 
+func TestAgreementServiceSendDispatchesEmailWorkflow(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	workflow := &stubAgreementEmailWorkflow{}
+	svc := NewAgreementService(store, store, WithAgreementEmailWorkflow(workflow))
+
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-hook"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if workflow.sentCalls != 1 {
+		t.Fatalf("expected 1 email workflow send call, got %d", workflow.sentCalls)
+	}
+	if workflow.lastScope != scope {
+		t.Fatalf("expected scope %+v, got %+v", scope, workflow.lastScope)
+	}
+	if workflow.lastAgreement != agreement.ID {
+		t.Fatalf("expected agreement %q, got %q", agreement.ID, workflow.lastAgreement)
+	}
+	if workflow.lastCorrelation != "send-hook" {
+		t.Fatalf("expected correlation send-hook, got %q", workflow.lastCorrelation)
+	}
+	if workflow.lastType != NotificationSigningInvitation {
+		t.Fatalf("expected notification type %q, got %q", NotificationSigningInvitation, workflow.lastType)
+	}
+	if workflow.lastToken == "" {
+		t.Fatal("expected send workflow notification to include issued token")
+	}
+}
+
+func TestAgreementServiceSendPersistsSentStatusWhenEmailWorkflowFails(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	workflow := &stubAgreementEmailWorkflow{sentErr: errors.New("smtp unavailable")}
+	svc := NewAgreementService(store, store, WithAgreementEmailWorkflow(workflow))
+
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+
+	sent, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-with-email-error"})
+	if err != nil {
+		t.Fatalf("Send should succeed despite email workflow failure: %v", err)
+	}
+	if sent.Status != stores.AgreementStatusSent {
+		t.Fatalf("expected agreement status sent, got %q", sent.Status)
+	}
+	if workflow.sentCalls != 1 {
+		t.Fatalf("expected 1 email workflow send call, got %d", workflow.sentCalls)
+	}
+
+	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	found := false
+	for _, event := range events {
+		if event.EventType == "agreement.send_notification_failed" {
+			found = true
+			if !strings.Contains(event.MetadataJSON, "smtp unavailable") {
+				t.Fatalf("expected failure metadata to include cause, got %s", event.MetadataJSON)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected agreement.send_notification_failed audit event in %+v", events)
+	}
+}
+
 func TestAgreementServiceResendSequentialAndTokenRotation(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
@@ -364,6 +497,63 @@ func TestAgreementServiceResendSequentialAndTokenRotation(t *testing.T) {
 	}
 	if _, err := tokenService.Validate(ctx, scope, rotated.Token.Token); err != nil {
 		t.Fatalf("expected rotated token to validate: %v", err)
+	}
+}
+
+func TestAgreementServiceResendDispatchesEmailWorkflow(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	tokenService := stores.NewTokenService(store)
+	workflow := &stubAgreementEmailWorkflow{}
+	svc := NewAgreementService(
+		store,
+		store,
+		WithAgreementTokenService(tokenService),
+		WithAgreementEmailWorkflow(workflow),
+	)
+
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if _, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{IdempotencyKey: "resend-hook"}); err != nil {
+		t.Fatalf("Resend: %v", err)
+	}
+
+	if workflow.resentCalls != 1 {
+		t.Fatalf("expected 1 email workflow resend call, got %d", workflow.resentCalls)
+	}
+	if workflow.lastScope != scope {
+		t.Fatalf("expected scope %+v, got %+v", scope, workflow.lastScope)
+	}
+	if workflow.lastAgreement != agreement.ID {
+		t.Fatalf("expected agreement %q, got %q", agreement.ID, workflow.lastAgreement)
+	}
+	if workflow.lastRecipient != signer.ID {
+		t.Fatalf("expected recipient %q, got %q", signer.ID, workflow.lastRecipient)
+	}
+	if workflow.lastCorrelation != "resend-hook" {
+		t.Fatalf("expected correlation resend-hook, got %q", workflow.lastCorrelation)
+	}
+	if workflow.lastType != NotificationSigningReminder {
+		t.Fatalf("expected notification type %q, got %q", NotificationSigningReminder, workflow.lastType)
+	}
+	if workflow.lastToken == "" {
+		t.Fatal("expected resend workflow notification to include issued token")
 	}
 }
 

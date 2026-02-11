@@ -39,6 +39,15 @@ func (alwaysFailEmailProvider) Send(context.Context, EmailSendInput) (string, er
 	return "", errors.New("provider permanent error")
 }
 
+type captureTemplateProvider struct {
+	inputs []EmailSendInput
+}
+
+func (p *captureTemplateProvider) Send(_ context.Context, input EmailSendInput) (string, error) {
+	p.inputs = append(p.inputs, input)
+	return "provider-" + input.Recipient.ID, nil
+}
+
 func samplePDF() []byte {
 	return []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF")
 }
@@ -216,6 +225,7 @@ func TestHandlersRetryEmailAndExposeStatus(t *testing.T) {
 		AgreementID:   agreement.ID,
 		RecipientID:   signer.ID,
 		CorrelationID: "corr-email",
+		SignURL:       "https://example.test/sign/token-retry",
 	})
 	if err == nil {
 		t.Fatal("expected first email attempt to fail")
@@ -234,6 +244,7 @@ func TestHandlersRetryEmailAndExposeStatus(t *testing.T) {
 		AgreementID:   agreement.ID,
 		RecipientID:   signer.ID,
 		CorrelationID: "corr-email",
+		SignURL:       "https://example.test/sign/token-retry",
 	}); err != nil {
 		t.Fatalf("expected retry send success, got %v", err)
 	}
@@ -257,6 +268,7 @@ func TestRunCompletionWorkflowDistributesArtifactsToCC(t *testing.T) {
 		JobRuns:    store,
 		EmailLogs:  store,
 		Audits:     store,
+		Tokens:     stores.NewTokenService(store),
 		Pipeline:   pipeline,
 	})
 	if err := handlers.RunCompletionWorkflow(ctx, scope, agreement.ID, "corr-complete-1"); err != nil {
@@ -295,6 +307,63 @@ func TestRunCompletionWorkflowDistributesArtifactsToCC(t *testing.T) {
 	snapshot := observability.Snapshot()
 	if snapshot.FinalizeSuccessTotal != 1 {
 		t.Fatalf("expected finalize success metric increment, got %+v", snapshot)
+	}
+}
+
+func TestRunCompletionWorkflowBuildsScopedCompletionLinks(t *testing.T) {
+	ctx, scope, store, agreement, _, cc := setupCompletedAgreement(t)
+	pipeline := services.NewArtifactPipelineService(store, store, store, store, store, store, services.NewDeterministicArtifactRenderer())
+	tokenSvc := stores.NewTokenService(store)
+	provider := &captureTemplateProvider{}
+	handlers := NewHandlers(HandlerDependencies{
+		Agreements:    store,
+		Artifacts:     store,
+		JobRuns:       store,
+		EmailLogs:     store,
+		Audits:        store,
+		Tokens:        tokenSvc,
+		Pipeline:      pipeline,
+		EmailProvider: provider,
+	})
+	if err := handlers.RunCompletionWorkflow(ctx, scope, agreement.ID, "corr-complete-link"); err != nil {
+		t.Fatalf("RunCompletionWorkflow: %v", err)
+	}
+	if len(provider.inputs) == 0 {
+		t.Fatal("expected completion email provider input")
+	}
+	var completionInput EmailSendInput
+	found := false
+	for _, input := range provider.inputs {
+		if input.TemplateCode == completionCCTemplate && input.Recipient.ID == cc.ID {
+			completionInput = input
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected completion template input for cc recipient, got %+v", provider.inputs)
+	}
+	if completionInput.CompletionURL == "" {
+		t.Fatal("expected completion URL in completion email payload")
+	}
+	if strings.Contains(completionInput.CompletionURL, "agreements/") || strings.Contains(completionInput.CompletionURL, "tenant/") {
+		t.Fatalf("expected completion URL without raw object key exposure, got %q", completionInput.CompletionURL)
+	}
+
+	parts := strings.Split(strings.TrimSpace(completionInput.CompletionURL), "/")
+	token := ""
+	if len(parts) > 0 {
+		token = strings.TrimSpace(parts[len(parts)-1])
+	}
+	if token == "" {
+		t.Fatalf("expected tokenized completion URL, got %q", completionInput.CompletionURL)
+	}
+	record, err := tokenSvc.Validate(ctx, scope, token)
+	if err != nil {
+		t.Fatalf("Validate completion token: %v", err)
+	}
+	if record.RecipientID != cc.ID {
+		t.Fatalf("expected completion token scoped to cc recipient %q, got %q", cc.ID, record.RecipientID)
 	}
 }
 
@@ -435,6 +504,7 @@ func TestHandlersPermanentEmailFailureTransitionsToTerminalFailed(t *testing.T) 
 		AgreementID:   agreement.ID,
 		RecipientID:   signer.ID,
 		CorrelationID: "corr-email-terminal",
+		SignURL:       "https://example.test/sign/token-terminal",
 	}
 	if err := handlers.ExecuteEmailSendSigningRequest(ctx, msg); err == nil {
 		t.Fatal("expected first permanent failure to return error")
@@ -452,7 +522,13 @@ func TestHandlersPermanentEmailFailureTransitionsToTerminalFailed(t *testing.T) 
 		t.Fatalf("expected failed distribution status, got %q", detail.DistributionStatus)
 	}
 
-	dedupeKey := strings.Join([]string{agreement.ID, signer.ID, defaultSigningRequestTemplate}, "|")
+	dedupeKey := strings.Join([]string{
+		agreement.ID,
+		signer.ID,
+		defaultSigningRequestTemplate,
+		string(services.NotificationSigningInvitation),
+		"corr-email-terminal",
+	}, "|")
 	jobRun, err := store.GetJobRunByDedupe(ctx, scope, JobEmailSendSigningRequest, dedupeKey)
 	if err != nil {
 		t.Fatalf("GetJobRunByDedupe email send: %v", err)

@@ -25,11 +25,15 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	}
 	metrics.ObserveSend(ctx, 250*time.Millisecond, true)
 	metrics.ObserveSend(ctx, 900*time.Millisecond, false)
+	metrics.ObserveSignerLinkOpen(ctx, true)
+	metrics.ObserveSignerLinkOpen(ctx, false)
 	metrics.ObserveSignerSubmit(ctx, 400*time.Millisecond, true)
 	metrics.ObserveFinalize(ctx, 90*time.Second, true)
 	metrics.ObserveFinalize(ctx, 125*time.Second, false)
 	metrics.ObserveEmailDispatchStart(ctx, 45*time.Second, true)
 	metrics.ObserveEmailDispatchStart(ctx, 61*time.Second, false)
+	metrics.ObserveCompletionDelivery(ctx, true)
+	metrics.ObserveCompletionDelivery(ctx, false)
 	metrics.ObserveJobResult(ctx, "jobs.esign.pdf_generate_executed", true)
 	metrics.ObserveJobResult(ctx, "jobs.esign.pdf_generate_executed", false)
 	metrics.ObserveProviderResult(ctx, "email", true)
@@ -64,6 +68,12 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	}
 	if snapshot.GoogleAuthChurnByReason["access_revoked"] != 1 {
 		t.Fatalf("expected access_revoked churn counter, got %+v", snapshot.GoogleAuthChurnByReason)
+	}
+	if snapshot.SignerLinkOpenSuccessTotal != 1 || snapshot.SignerLinkOpenFailureTotal != 1 {
+		t.Fatalf("expected signer link open counters, got %+v", snapshot)
+	}
+	if snapshot.CompletionDeliverySuccessTotal != 1 || snapshot.CompletionDeliveryFailureTotal != 1 {
+		t.Fatalf("expected completion delivery counters, got %+v", snapshot)
 	}
 	if snapshot.JobSuccessRatePercent() <= 0 || snapshot.JobSuccessRatePercent() >= 100 {
 		t.Fatalf("expected mixed success rate, got %f", snapshot.JobSuccessRatePercent())
@@ -117,6 +127,15 @@ func TestEvaluateSLOAndBuildDashboardPayload(t *testing.T) {
 	if _, ok := dashboard["slo_targets"].([]SLOTargetStatus); !ok {
 		t.Fatalf("expected slo_targets payload, got %+v", dashboard)
 	}
+	for _, key := range []string{
+		"signer_link_open_rate",
+		"signer_submit_conversion_rate",
+		"completion_delivery_success_rate",
+	} {
+		if _, ok := dashboard[key]; !ok {
+			t.Fatalf("expected %s in dashboard payload, got %+v", key, dashboard)
+		}
+	}
 }
 
 func TestEvaluateAlertsForGoogleImportFailuresAndAuthChurn(t *testing.T) {
@@ -136,6 +155,30 @@ func TestEvaluateAlertsForGoogleImportFailuresAndAuthChurn(t *testing.T) {
 	}
 	if !hasAlertCode(alerts, "google.auth_churn_high") {
 		t.Fatalf("expected google auth churn alert, got %+v", alerts)
+	}
+}
+
+func TestEvaluateAlertsForSignerAndCompletionDeliveryRates(t *testing.T) {
+	snapshot := MetricsSnapshot{
+		SignerLinkOpenSuccessTotal:     5,
+		SignerLinkOpenFailureTotal:     5,
+		SignerSubmitSuccessTotal:       2,
+		CompletionDeliverySuccessTotal: 8,
+		CompletionDeliveryFailureTotal: 2,
+	}
+	alerts := EvaluateAlerts(snapshot, AlertPolicy{
+		SignerLinkOpenRatePercentFloor:     80,
+		SignerSubmitConversionPercentFloor: 70,
+		CompletionDeliverySuccessRateFloor: 90,
+	})
+	if !hasAlertCode(alerts, "signer.link_open_rate_low") {
+		t.Fatalf("expected signer link open rate alert, got %+v", alerts)
+	}
+	if !hasAlertCode(alerts, "signer.submit_conversion_low") {
+		t.Fatalf("expected signer submit conversion alert, got %+v", alerts)
+	}
+	if !hasAlertCode(alerts, "completion.delivery_success_rate_low") {
+		t.Fatalf("expected completion delivery success rate alert, got %+v", alerts)
 	}
 }
 
