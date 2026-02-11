@@ -24,6 +24,9 @@ type adminOptions struct {
 	translationPolicyConfig      TranslationPolicyConfig
 	translationPolicyConfigSet   bool
 	translationPolicyServices    TranslationPolicyServices
+	translationProductConfig     TranslationProductConfig
+	translationProductConfigSet  bool
+	translationProductWarnings   []string
 	translationExchangeConfig    TranslationExchangeConfig
 	translationExchangeConfigSet bool
 	translationQueueConfig       TranslationQueueConfig
@@ -143,6 +146,11 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	options.deps.Logger = logger
 	setQuickstartDefaultLoggerDependencies(loggerProvider, logger)
 	adaptersLogger := resolveQuickstartNamedLogger("quickstart.adapters", loggerProvider, logger)
+	translationLogger := resolveQuickstartNamedLogger("quickstart.translation.product", loggerProvider, logger)
+	if err := resolveTranslationProductOptions(cfg, &options); err != nil {
+		logTranslationCapabilityValidationError(translationLogger, err)
+		return nil, AdapterResult{}, err
+	}
 
 	var result AdapterResult
 	if options.flags != nil {
@@ -217,6 +225,14 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 			return nil, result, err
 		}
 	}
+	if shouldValidateTranslationProductRuntime(options) {
+		if err := validateTranslationProductRuntime(adm, options.translationProductConfig, options.translationProductWarnings); err != nil {
+			logTranslationCapabilityValidationError(translationLogger, err)
+			return nil, result, err
+		}
+	}
+	registerTranslationCapabilities(adm, options.translationProductConfig, options.translationProductWarnings)
+	logTranslationCapabilitiesStartup(translationLogger, TranslationCapabilities(adm))
 	return adm, result, nil
 }
 
