@@ -575,12 +575,47 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		body, _ := io.ReadAll(sessionPageResp.Body)
 		t.Fatalf("expected signer session page status 200, got %d body=%s", sessionPageResp.StatusCode, strings.TrimSpace(string(body)))
 	}
+	sessionPageBody, err := io.ReadAll(sessionPageResp.Body)
+	if err != nil {
+		t.Fatalf("read signer session page body: %v", err)
+	}
+	sessionMarkup := string(sessionPageBody)
+	if !strings.Contains(sessionMarkup, `/admin/assets/output.css`) {
+		t.Fatalf("expected signer session page to reference /admin/assets/output.css, got %s", strings.TrimSpace(sessionMarkup))
+	}
+	if !strings.Contains(sessionMarkup, `/admin/assets/dist/toast/init.js`) {
+		t.Fatalf("expected signer session page to reference /admin/assets/dist/toast/init.js, got %s", strings.TrimSpace(sessionMarkup))
+	}
+	if strings.Contains(sessionMarkup, `href="/assets/output.css"`) || strings.Contains(sessionMarkup, `src="/assets/dist/toast/init.js"`) {
+		t.Fatalf("expected signer session page to avoid root /assets references, got %s", strings.TrimSpace(sessionMarkup))
+	}
+
+	assetsCSSResp := doRequest(t, app, http.MethodGet, "/admin/assets/output.css", "", nil)
+	defer assetsCSSResp.Body.Close()
+	if assetsCSSResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(assetsCSSResp.Body)
+		t.Fatalf("expected /admin/assets/output.css status 200, got %d body=%s", assetsCSSResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	assetsToastResp := doRequest(t, app, http.MethodGet, "/admin/assets/dist/toast/init.js", "", nil)
+	defer assetsToastResp.Body.Close()
+	if assetsToastResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(assetsToastResp.Body)
+		t.Fatalf("expected /admin/assets/dist/toast/init.js status 200, got %d body=%s", assetsToastResp.StatusCode, strings.TrimSpace(string(body)))
+	}
 
 	fieldsPageResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken)+"/fields", "", nil)
 	defer fieldsPageResp.Body.Close()
 	if fieldsPageResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(fieldsPageResp.Body)
 		t.Fatalf("expected signer fields page status 200, got %d body=%s", fieldsPageResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	fieldsPageBody, err := io.ReadAll(fieldsPageResp.Body)
+	if err != nil {
+		t.Fatalf("read signer fields page body: %v", err)
+	}
+	fieldsMarkup := string(fieldsPageBody)
+	if !strings.Contains(fieldsMarkup, `/admin/assets/output.css`) || !strings.Contains(fieldsMarkup, `/admin/assets/dist/toast/init.js`) {
+		t.Fatalf("expected signer fields page to reference admin asset paths, got %s", strings.TrimSpace(fieldsMarkup))
 	}
 
 	consentResp := doRequestWithBody(

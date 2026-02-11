@@ -411,6 +411,7 @@ func registerESignWebRoutes(
 			SigningService: esignModule.SigningService(),
 			DefaultScope:   esignModule.DefaultScope(),
 			APIBasePath:    "/api/v1/esign/signing",
+			AssetBasePath:  basePath,
 		}
 		if err := registerESignPublicSignerWebRoutes(r, signerCfg); err != nil {
 			return err
@@ -746,6 +747,7 @@ type SignerWebRouteConfig struct {
 	SigningService handlers.SignerSessionService
 	DefaultScope   stores.Scope
 	APIBasePath    string
+	AssetBasePath  string
 }
 
 // registerESignPublicSignerWebRoutes registers HTML routes for the public signer flow.
@@ -762,6 +764,7 @@ func registerESignPublicSignerWebRoutes(
 	if apiBasePath == "" {
 		apiBasePath = "/api/v1/esign/signing"
 	}
+	signerCfg.AssetBasePath = normalizeRouteBasePath(signerCfg.AssetBasePath, "/admin")
 
 	// GET /sign/:token - Main session/consent entrypoint
 	r.Get("/sign/:token", func(c router.Context) error {
@@ -804,39 +807,39 @@ func renderSignerSessionPage(c router.Context, cfg SignerWebRouteConfig, apiBase
 	token := strings.TrimSpace(c.Param("token"))
 	if token == "" {
 		observability.ObserveSignerLinkOpen(c.Context(), false)
-		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
+		return renderSignerErrorPage(c, cfg, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
 	}
 
 	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
 	if err != nil {
-		return handleSignerTokenError(c, apiBasePath, err, token)
+		return handleSignerTokenError(c, cfg, apiBasePath, err, token)
 	}
 
 	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
 	if err != nil {
 		observability.ObserveSignerLinkOpen(c.Context(), false)
-		return renderSignerErrorPage(c, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
+		return renderSignerErrorPage(c, cfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
 	}
 
 	observability.ObserveSignerLinkOpen(c.Context(), true)
 	viewCtx := buildSignerSessionViewContext(token, apiBasePath, session, nil)
-	return c.Render("esign-signer/session", viewCtx)
+	return c.Render("esign-signer/session", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func renderSignerFieldsPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
 	token := strings.TrimSpace(c.Param("token"))
 	if token == "" {
-		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
+		return renderSignerErrorPage(c, cfg, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
 	}
 
 	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
 	if err != nil {
-		return handleSignerTokenError(c, apiBasePath, err, token)
+		return handleSignerTokenError(c, cfg, apiBasePath, err, token)
 	}
 
 	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
 	if err != nil {
-		return renderSignerErrorPage(c, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
+		return renderSignerErrorPage(c, cfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
 	}
 
 	// Redirect to session page if not in active state
@@ -845,13 +848,13 @@ func renderSignerFieldsPage(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 	}
 
 	viewCtx := buildSignerFieldsViewContext(token, apiBasePath, session)
-	return c.Render("esign-signer/fields", viewCtx)
+	return c.Render("esign-signer/fields", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
 	token := strings.TrimSpace(c.Param("token"))
 	if token == "" {
-		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
+		return renderSignerErrorPage(c, cfg, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
 	}
 
 	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
@@ -867,7 +870,7 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 			},
 			"signed_at": time.Now().Format("January 2, 2006"),
 		}
-		return c.Render("esign-signer/complete", viewCtx)
+		return c.Render("esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 	}
 
 	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
@@ -882,7 +885,7 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 			},
 			"signed_at": time.Now().Format("January 2, 2006"),
 		}
-		return c.Render("esign-signer/complete", viewCtx)
+		return c.Render("esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 	}
 
 	viewCtx := router.ViewContext{
@@ -896,13 +899,13 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 		"session":   sessionToViewContext(session),
 		"signed_at": time.Now().Format("January 2, 2006"),
 	}
-	return c.Render("esign-signer/complete", viewCtx)
+	return c.Render("esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func renderSignerDeclinedPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
 	token := strings.TrimSpace(c.Param("token"))
 	if token == "" {
-		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
+		return renderSignerErrorPage(c, cfg, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
 	}
 
 	declineReason := strings.TrimSpace(c.Query("reason"))
@@ -930,17 +933,17 @@ func renderSignerDeclinedPage(c router.Context, cfg SignerWebRouteConfig, apiBas
 		}
 	}
 
-	return c.Render("esign-signer/declined", viewCtx)
+	return c.Render("esign-signer/declined", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
-func renderSignerErrorPage(c router.Context, apiBasePath, errorCode, errorTitle, errorMessage string) error {
+func renderSignerErrorPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath, errorCode, errorTitle, errorMessage string) error {
 	viewCtx := router.ViewContext{
 		"api_base_path": apiBasePath,
 		"error_code":    errorCode,
 		"error_title":   errorTitle,
 		"error_message": errorMessage,
 	}
-	return c.Render("esign-signer/error", viewCtx)
+	return c.Render("esign-signer/error", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func validateSignerToken(ctx context.Context, cfg SignerWebRouteConfig, token string) (stores.SigningTokenRecord, error) {
@@ -950,21 +953,47 @@ func validateSignerToken(ctx context.Context, cfg SignerWebRouteConfig, token st
 	return cfg.TokenValidator.Validate(ctx, cfg.DefaultScope, token)
 }
 
-func handleSignerTokenError(c router.Context, apiBasePath string, err error, token string) error {
+func handleSignerTokenError(c router.Context, cfg SignerWebRouteConfig, apiBasePath string, err error, token string) error {
 	observability.ObserveSignerLinkOpen(c.Context(), false)
 	errMsg := strings.ToLower(err.Error())
 
 	if strings.Contains(errMsg, "expired") {
-		return renderSignerErrorPage(c, apiBasePath, "TOKEN_EXPIRED", "Link Expired", "This signing link has expired.")
+		return renderSignerErrorPage(c, cfg, apiBasePath, "TOKEN_EXPIRED", "Link Expired", "This signing link has expired.")
 	}
 	if strings.Contains(errMsg, "revoked") || strings.Contains(errMsg, "invalidated") {
-		return renderSignerErrorPage(c, apiBasePath, "TOKEN_REVOKED", "Link No Longer Valid", "This signing link has been revoked.")
+		return renderSignerErrorPage(c, cfg, apiBasePath, "TOKEN_REVOKED", "Link No Longer Valid", "This signing link has been revoked.")
 	}
 	if strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "invalid") {
-		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "This signing link is invalid or doesn't exist.")
+		return renderSignerErrorPage(c, cfg, apiBasePath, "INVALID_TOKEN", "Invalid Link", "This signing link is invalid or doesn't exist.")
 	}
 
-	return renderSignerErrorPage(c, apiBasePath, "TOKEN_ERROR", "Unable to Verify Link", "We couldn't verify your signing link. Please contact the sender.")
+	return renderSignerErrorPage(c, cfg, apiBasePath, "TOKEN_ERROR", "Unable to Verify Link", "We couldn't verify your signing link. Please contact the sender.")
+}
+
+func signerTemplateViewContext(cfg SignerWebRouteConfig, apiBasePath string, viewCtx router.ViewContext) router.ViewContext {
+	if viewCtx == nil {
+		viewCtx = router.ViewContext{}
+	}
+	basePath := normalizeRouteBasePath(cfg.AssetBasePath, "/admin")
+	viewCtx["asset_base_path"] = basePath
+	if _, ok := viewCtx["base_path"]; !ok {
+		viewCtx["base_path"] = basePath
+	}
+	if _, ok := viewCtx["api_base_path"]; !ok {
+		viewCtx["api_base_path"] = strings.TrimSpace(apiBasePath)
+	}
+	return viewCtx
+}
+
+func normalizeRouteBasePath(basePath, fallback string) string {
+	resolved := strings.TrimSpace(basePath)
+	if resolved == "" {
+		resolved = strings.TrimSpace(fallback)
+	}
+	if resolved == "" {
+		return ""
+	}
+	return "/" + strings.Trim(resolved, "/")
 }
 
 func buildSignerSessionViewContext(token, apiBasePath string, session services.SignerSessionContext, agreement map[string]any) router.ViewContext {
