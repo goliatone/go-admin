@@ -85,7 +85,6 @@ func main() {
 	if value := strings.TrimSpace(os.Getenv("ADMIN_PREVIEW_SECRET")); value != "" {
 		cfg.PreviewSecret = value
 	}
-	cfg.URLs.Admin.APIVersion = "v0"
 	if value, ok := os.LookupEnv("ADMIN_API_VERSION"); ok {
 		cfg.URLs.Admin.APIVersion = strings.TrimSpace(value)
 	}
@@ -281,6 +280,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to construct admin: %v", err)
 	}
+	if caps := quickstart.TranslationCapabilities(adm); len(caps) > 0 {
+		log.Printf(
+			"translation.capabilities.startup profile=%v schema_version=%v modules=%v features=%v routes=%v panels=%v resolver_keys=%v warnings=%v",
+			caps["profile"],
+			caps["schema_version"],
+			caps["modules"],
+			caps["features"],
+			caps["routes"],
+			caps["panels"],
+			caps["resolver_keys"],
+			caps["warnings"],
+		)
+	}
 	cfg = adapterResult.Config
 	cmsBackend := adapterResult.CMSBackend
 	settingsBackend := adapterResult.SettingsBackend
@@ -397,7 +409,10 @@ func main() {
 		EntityType:   "pages",
 		InitialState: "draft",
 		Transitions: []coreadmin.WorkflowTransition{
+			{Name: "submit_for_approval", Description: "Submit for review", From: "draft", To: "pending_approval"},
 			{Name: "request_approval", Description: "Submit for review", From: "draft", To: "pending_approval"},
+			{Name: "publish", Description: "Publish content", From: "draft", To: "published"},
+			{Name: "publish", Description: "Publish content", From: "pending_approval", To: "published"},
 			{Name: "approve", Description: "Approve content", From: "pending_approval", To: "published"},
 			{Name: "reject", Description: "Reject content", From: "pending_approval", To: "draft"},
 			{Name: "unpublish", Description: "Move back to draft", From: "published", To: "draft"},
@@ -407,9 +422,13 @@ func main() {
 		EntityType:   "posts",
 		InitialState: "draft",
 		Transitions: []coreadmin.WorkflowTransition{
+			{Name: "submit_for_approval", Description: "Submit for review", From: "draft", To: "pending_approval"},
 			{Name: "request_approval", Description: "Submit for review", From: "draft", To: "pending_approval"},
+			{Name: "publish", Description: "Publish content", From: "draft", To: "published"},
+			{Name: "publish", Description: "Publish content", From: "pending_approval", To: "published"},
 			{Name: "approve", Description: "Approve content", From: "pending_approval", To: "published"},
 			{Name: "reject", Description: "Reject content", From: "pending_approval", To: "draft"},
+			{Name: "unpublish", Description: "Move back to draft", From: "published", To: "draft"},
 			{Name: "archive", Description: "Archive post", From: "published", To: "archived"},
 		},
 	})
@@ -497,15 +516,14 @@ func main() {
 		log.Fatalf("failed to access form templates: %v", err)
 	}
 	componentRegistry := components.New()
-	apiBasePath := ""
-	if adm != nil {
-		apiBasePath = adm.AdminAPIBasePath()
+	adminAPIBasePath := strings.TrimSpace(quickstart.ResolveAdminAPIBasePath(adm.URLs(), cfg, cfg.BasePath))
+	if adminAPIBasePath == "" && adm != nil {
+		adminAPIBasePath = strings.TrimSpace(adm.AdminAPIBasePath())
 	}
-	adminAPIBasePath := apiBasePath
 	if adminAPIBasePath == "" {
-		adminAPIBasePath = path.Join("/", cfg.BasePath, "api")
+		adminAPIBasePath = path.Join(cfg.BasePath, "api")
 	}
-	componentRegistry.MustRegister("block-library-picker", coreadmin.BlockLibraryPickerDescriptorWithAPIBase(cfg.BasePath, apiBasePath))
+	componentRegistry.MustRegister("block-library-picker", coreadmin.BlockLibraryPickerDescriptorWithAPIBase(cfg.BasePath, adminAPIBasePath))
 	formGenerator, err := quickstart.NewFormGenerator(
 		openapiFS,
 		formTemplatesFS,
@@ -863,6 +881,8 @@ func main() {
 		cfg,
 		adm,
 		authn,
+		quickstart.WithContentEntryUITemplateFS(client.FS(), webFS),
+		quickstart.WithContentEntryRecommendedDefaults(),
 	); err != nil {
 		log.Fatalf("failed to register content entry UI routes: %v", err)
 	}
@@ -986,20 +1006,20 @@ func main() {
 
 	listenAddr := resolveListenAddr()
 	log.Printf("Enterprise Admin available at %s", urlForListenAddr(listenAddr))
-	log.Println("  Dashboard: /admin/api/dashboard")
-	log.Println("  Navigation: /admin/api/navigation")
-	log.Println("  Users: /admin/api/users")
-	log.Println("  Content: /admin/api/content")
-	log.Println("  Media: /admin/api/media")
-	log.Println("  Settings: /admin/api/settings")
-	log.Println("  Session: /admin/api/session")
+	log.Printf("  Dashboard API: %s", path.Join(adminAPIBasePath, "dashboard"))
+	log.Printf("  Navigation API: %s", path.Join(adminAPIBasePath, "navigation"))
+	log.Printf("  Users API: %s", path.Join(adminAPIBasePath, "users"))
+	log.Printf("  Panel API (content): %s", path.Join(adminAPIBasePath, "content"))
+	log.Printf("  Panel API (media): %s", path.Join(adminAPIBasePath, "media"))
+	log.Printf("  Settings API: %s", path.Join(adminAPIBasePath, "settings"))
+	log.Printf("  Session API: %s", path.Join(adminAPIBasePath, "session"))
 	log.Println("  Content UI (Pages): /admin/content/pages (alias: /admin/pages)")
 	log.Println("  Content UI (Posts): /admin/content/posts (alias: /admin/posts)")
 	log.Printf("  Dashboard: go-dashboard (persistent, requires CMS)")
 	log.Printf("  Activity backend: %s (USE_GO_USERS_ACTIVITY=%t)", activityBackend, adapterResult.Flags.UseGoUsersActivity)
 	log.Printf("  CMS backend: %s (USE_PERSISTENT_CMS=%t)", cmsBackend, adapterResult.Flags.UsePersistentCMS)
 	log.Printf("  Settings backend: %s (USE_GO_OPTIONS=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
-	log.Println("  Search: /admin/api/search?query=...")
+	log.Printf("  Search API: %s?query=...", path.Join(adminAPIBasePath, "search"))
 
 	if err := server.Serve(listenAddr); err != nil {
 		log.Fatalf("server stopped: %v", err)

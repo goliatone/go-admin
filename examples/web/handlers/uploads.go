@@ -1,17 +1,12 @@
 package handlers
 
 import (
-	"mime"
-	"net/http"
-	"os"
-	"path"
-	"path/filepath"
-	"strings"
+	"context"
 
+	quickstart "github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
-	"github.com/goliatone/go-router"
-	"github.com/goliatone/go-uploader"
+	router "github.com/goliatone/go-router"
 )
 
 const (
@@ -51,142 +46,71 @@ var allowedFeaturedImageExtensions = map[string]bool{
 }
 
 func ProfilePictureUploadHandler(basePath string, diskAssetsDir string) router.HandlerFunc {
-	return func(c router.Context) error {
-		if c == nil {
-			return goerrors.New("missing context", goerrors.CategoryAuth).
-				WithCode(goerrors.CodeUnauthorized).
-				WithTextCode("UNAUTHORIZED")
-		}
-
-		ctx := c.Context()
-		claims, ok := authlib.GetClaims(ctx)
-		if !ok || claims == nil {
-			return goerrors.New("missing or invalid token", goerrors.CategoryAuth).
-				WithCode(goerrors.CodeUnauthorized).
-				WithTextCode("UNAUTHORIZED")
-		}
-
-		if !(authlib.Can(ctx, "admin.users", "edit") || authlib.Can(ctx, "admin.users", "create")) {
-			return goerrors.New("forbidden", goerrors.CategoryAuthz).
-				WithCode(goerrors.CodeForbidden).
-				WithTextCode("FORBIDDEN")
-		}
-
-		assetsDir := strings.TrimSpace(diskAssetsDir)
-		if assetsDir == "" {
-			assetsDir = filepath.Join("pkg", "client", "assets")
-		}
-		if err := os.MkdirAll(filepath.Join(assetsDir, "uploads", "users", "profile-pictures"), 0o755); err != nil {
-			return err
-		}
-
-		file, err := c.FormFile(userProfilePictureUploadField)
-		if err != nil {
-			return router.NewBadRequestError("No file provided or invalid file")
-		}
-
-		contentType := strings.TrimSpace(file.Header.Get("Content-Type"))
-		if contentType == "" {
-			if guessed := mime.TypeByExtension(strings.ToLower(filepath.Ext(file.Filename))); guessed != "" {
-				if semi := strings.IndexByte(guessed, ';'); semi > -1 {
-					guessed = guessed[:semi]
-				}
-				contentType = strings.TrimSpace(guessed)
-				if contentType != "" {
-					file.Header.Set("Content-Type", contentType)
-				}
-			}
-		}
-
-		validator := uploader.NewValidator(
-			uploader.WithUploadMaxFileSize(userProfilePictureMaxSize),
-			uploader.WithAllowedMimeTypes(allowedProfilePictureMimeTypes),
-			uploader.WithAllowedImageFormats(allowedProfilePictureExtensions),
-		)
-
-		provider := uploader.NewFSProvider(assetsDir)
-		manager := uploader.NewManager(
-			uploader.WithProvider(provider),
-			uploader.WithValidator(validator),
-		)
-
-		meta, err := manager.HandleFile(ctx, file, userProfilePictureUploadsSubdir)
-		if err != nil {
-			return err
-		}
-
-		publicURL := path.Join(basePath, "assets", meta.Name)
-		return c.JSON(http.StatusOK, map[string]string{"url": publicURL})
-	}
+	return quickstart.NewUploadHandler(quickstart.UploadHandlerConfig{
+		BasePath:            basePath,
+		DiskAssetsDir:       diskAssetsDir,
+		FormField:           userProfilePictureUploadField,
+		UploadSubdir:        userProfilePictureUploadsSubdir,
+		MaxFileSize:         userProfilePictureMaxSize,
+		AllowedMimeTypes:    allowedProfilePictureMimeTypes,
+		AllowedImageFormats: allowedProfilePictureExtensions,
+		Authorize:           authorizeProfilePictureUpload,
+	})
 }
 
 func FeaturedImageUploadHandler(basePath string, diskAssetsDir string) router.HandlerFunc {
-	return func(c router.Context) error {
-		if c == nil {
-			return goerrors.New("missing context", goerrors.CategoryAuth).
-				WithCode(goerrors.CodeUnauthorized).
-				WithTextCode("UNAUTHORIZED")
-		}
+	return quickstart.NewUploadHandler(quickstart.UploadHandlerConfig{
+		BasePath:            basePath,
+		DiskAssetsDir:       diskAssetsDir,
+		FormField:           featuredImageUploadField,
+		UploadSubdir:        featuredImageUploadsSubdir,
+		MaxFileSize:         featuredImageMaxSize,
+		AllowedMimeTypes:    allowedFeaturedImageMimeTypes,
+		AllowedImageFormats: allowedFeaturedImageExtensions,
+		Authorize:           authorizeFeaturedImageUpload,
+	})
+}
 
-		ctx := c.Context()
-		claims, ok := authlib.GetClaims(ctx)
-		if !ok || claims == nil {
-			return goerrors.New("missing or invalid token", goerrors.CategoryAuth).
-				WithCode(goerrors.CodeUnauthorized).
-				WithTextCode("UNAUTHORIZED")
-		}
-
-		if !(authlib.Can(ctx, "admin.posts", "edit") || authlib.Can(ctx, "admin.posts", "create") ||
-			authlib.Can(ctx, "admin.pages", "edit") || authlib.Can(ctx, "admin.pages", "create")) {
-			return goerrors.New("forbidden", goerrors.CategoryAuthz).
-				WithCode(goerrors.CodeForbidden).
-				WithTextCode("FORBIDDEN")
-		}
-
-		assetsDir := strings.TrimSpace(diskAssetsDir)
-		if assetsDir == "" {
-			assetsDir = filepath.Join("pkg", "client", "assets")
-		}
-		if err := os.MkdirAll(filepath.Join(assetsDir, "uploads", "media", "featured-images"), 0o755); err != nil {
-			return err
-		}
-
-		file, err := c.FormFile(featuredImageUploadField)
-		if err != nil {
-			return router.NewBadRequestError("No file provided or invalid file")
-		}
-
-		contentType := strings.TrimSpace(file.Header.Get("Content-Type"))
-		if contentType == "" {
-			if guessed := mime.TypeByExtension(strings.ToLower(filepath.Ext(file.Filename))); guessed != "" {
-				if semi := strings.IndexByte(guessed, ';'); semi > -1 {
-					guessed = guessed[:semi]
-				}
-				contentType = strings.TrimSpace(guessed)
-				if contentType != "" {
-					file.Header.Set("Content-Type", contentType)
-				}
-			}
-		}
-
-		validator := uploader.NewValidator(
-			uploader.WithUploadMaxFileSize(featuredImageMaxSize),
-			uploader.WithAllowedMimeTypes(allowedFeaturedImageMimeTypes),
-			uploader.WithAllowedImageFormats(allowedFeaturedImageExtensions),
-		)
-
-		provider := uploader.NewFSProvider(assetsDir)
-		manager := uploader.NewManager(
-			uploader.WithProvider(provider),
-			uploader.WithValidator(validator),
-		)
-
-		meta, err := manager.HandleFile(ctx, file, featuredImageUploadsSubdir)
-		if err != nil {
-			return err
-		}
-
-		publicURL := path.Join(basePath, "assets", meta.Name)
-		return c.JSON(http.StatusOK, map[string]string{"url": publicURL})
+func authorizeProfilePictureUpload(ctx context.Context) error {
+	if err := ensureUploadClaims(ctx); err != nil {
+		return err
 	}
+	if authlib.Can(ctx, "admin.users", "edit") || authlib.Can(ctx, "admin.users", "create") {
+		return nil
+	}
+	return uploadForbiddenError()
+}
+
+func authorizeFeaturedImageUpload(ctx context.Context) error {
+	if err := ensureUploadClaims(ctx); err != nil {
+		return err
+	}
+	if authlib.Can(ctx, "admin.posts", "edit") || authlib.Can(ctx, "admin.posts", "create") ||
+		authlib.Can(ctx, "admin.pages", "edit") || authlib.Can(ctx, "admin.pages", "create") {
+		return nil
+	}
+	return uploadForbiddenError()
+}
+
+func ensureUploadClaims(ctx context.Context) error {
+	if ctx == nil {
+		return uploadUnauthorizedError()
+	}
+	claims, ok := authlib.GetClaims(ctx)
+	if !ok || claims == nil {
+		return uploadUnauthorizedError()
+	}
+	return nil
+}
+
+func uploadUnauthorizedError() error {
+	return goerrors.New("missing or invalid token", goerrors.CategoryAuth).
+		WithCode(goerrors.CodeUnauthorized).
+		WithTextCode("UNAUTHORIZED")
+}
+
+func uploadForbiddenError() error {
+	return goerrors.New("forbidden", goerrors.CategoryAuthz).
+		WithCode(goerrors.CodeForbidden).
+		WithTextCode("FORBIDDEN")
 }
