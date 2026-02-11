@@ -182,6 +182,24 @@ export declare function renderLocaleCompleteness(record: Record<string, unknown>
     extraClass?: string;
 }): string;
 /**
+ * Render a prominent "Missing Translations" badge for list rows.
+ * This is a first-class affordance to quickly identify incomplete content.
+ *
+ * @param record - The record from API response
+ * @param options - Rendering options
+ * @returns HTML string for the missing translations badge, or empty if complete
+ */
+export declare function renderMissingTranslationsBadge(record: Record<string, unknown>, options?: ReadinessBadgeOptions): string;
+/**
+ * Check if a record has missing required translations.
+ * Used for quick filtering in list views.
+ */
+export declare function hasMissingTranslations(record: Record<string, unknown>): boolean;
+/**
+ * Get the missing translations count for a record.
+ */
+export declare function getMissingTranslationsCount(record: Record<string, unknown>): number;
+/**
  * Render a fallback warning banner for detail/edit views.
  * Shows when the requested locale doesn't exist and fallback content is displayed.
  *
