@@ -2,6 +2,8 @@ package setup
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 	"time"
@@ -9,6 +11,11 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 	hashid "github.com/goliatone/hashid/pkg/hashid"
 	"github.com/google/uuid"
+)
+
+var (
+	bridgeContextType = reflect.TypeOf((*context.Context)(nil)).Elem()
+	bridgeUUIDType    = reflect.TypeOf(uuid.UUID{})
 )
 
 // goCMSContentBridge adapts the go-cms content service (which uses internal types)
@@ -29,6 +36,13 @@ type goCMSContentBridge struct {
 
 func newGoCMSContentBridge(contentSvc any, blockSvc any, pageSvc any, defaultTemplate uuid.UUID, typeIDs map[string]uuid.UUID, contentTypes admin.CMSContentTypeService) admin.CMSContentService {
 	if contentSvc == nil {
+		return nil
+	}
+	if !bridgeSupportsOptionCapableContentAPI(contentSvc) {
+		slog.Warn(
+			"cms content bridge disabled: unsupported content service signature",
+			"service_type", fmt.Sprintf("%T", contentSvc),
+		)
 		return nil
 	}
 	typeNames := map[string]string{}
@@ -402,9 +416,15 @@ func (b *goCMSContentBridge) listContents(ctx context.Context, locale string, op
 	if !method.IsValid() {
 		return nil, admin.ErrNotFound
 	}
+	if err := ensureBridgeListMethodSignature(method); err != nil {
+		return nil, err
+	}
 	env := environmentKeyFromContext(ctx)
 	listOpts := ensureBridgeDerivedFieldsProjection(opts...)
-	results := callWithOptionalEnvAndOptions(method, ctx, env, listOpts...)
+	results, err := callWithOptionalEnvAndOptions(method, ctx, env, listOpts...)
+	if err != nil {
+		return nil, err
+	}
 	if err := reflectError(results); err != nil {
 		return nil, err
 	}
@@ -424,20 +444,19 @@ func (b *goCMSContentBridge) Content(ctx context.Context, id, locale string) (*a
 	if !method.IsValid() {
 		return nil, admin.ErrNotFound
 	}
+	if err := ensureBridgeGetMethodSignature(method); err != nil {
+		return nil, err
+	}
 	u, err := uuid.Parse(strings.TrimSpace(id))
 	if err != nil {
 		return nil, err
 	}
 	args := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(u)}
-	if method.Type().IsVariadic() {
-		args = append(args, reflect.ValueOf(string(admin.WithTranslations())))
-		args = append(args, reflect.ValueOf(string(admin.WithDerivedFields())))
-	} else if method.Type().NumIn() > 3 {
-		args = append(args, reflect.ValueOf(string(admin.WithTranslations())))
-		args = append(args, reflect.ValueOf(string(admin.WithDerivedFields())))
-	} else if method.Type().NumIn() > 2 {
-		args = append(args, reflect.ValueOf(string(admin.WithDerivedFields())))
+	optionValues, err := bridgeOptionValues(method, "Get", string(admin.WithTranslations()), string(admin.WithDerivedFields()))
+	if err != nil {
+		return nil, err
 	}
+	args = append(args, optionValues...)
 	results := method.Call(args)
 	if err := reflectError(results); err != nil {
 		return nil, err
@@ -1000,6 +1019,87 @@ func ensureBridgeDerivedFieldsProjection(opts ...admin.CMSContentListOption) []a
 	return out
 }
 
+func bridgeSupportsOptionCapableContentAPI(contentSvc any) bool {
+	if contentSvc == nil {
+		return false
+	}
+	listMethod := reflect.ValueOf(contentSvc).MethodByName("List")
+	getMethod := reflect.ValueOf(contentSvc).MethodByName("Get")
+	return ensureBridgeListMethodSignature(listMethod) == nil && ensureBridgeGetMethodSignature(getMethod) == nil
+}
+
+func ensureBridgeListMethodSignature(method reflect.Value) error {
+	if !method.IsValid() {
+		return admin.ErrNotFound
+	}
+	t := method.Type()
+	if !t.IsVariadic() || t.NumIn() != 2 {
+		return validationBridgeMethodError("List")
+	}
+	if !t.In(0).Implements(bridgeContextType) {
+		return validationBridgeMethodError("List")
+	}
+	if t.In(1).Kind() != reflect.Slice {
+		return validationBridgeMethodError("List")
+	}
+	if !isBridgeOptionTokenType(t.In(1).Elem()) {
+		return validationBridgeMethodError("List")
+	}
+	return nil
+}
+
+func ensureBridgeGetMethodSignature(method reflect.Value) error {
+	if !method.IsValid() {
+		return admin.ErrNotFound
+	}
+	t := method.Type()
+	if !t.IsVariadic() || t.NumIn() != 3 {
+		return validationBridgeMethodError("Get")
+	}
+	if !t.In(0).Implements(bridgeContextType) {
+		return validationBridgeMethodError("Get")
+	}
+	if t.In(1) != bridgeUUIDType {
+		return validationBridgeMethodError("Get")
+	}
+	if t.In(2).Kind() != reflect.Slice {
+		return validationBridgeMethodError("Get")
+	}
+	if !isBridgeOptionTokenType(t.In(2).Elem()) {
+		return validationBridgeMethodError("Get")
+	}
+	return nil
+}
+
+func isBridgeOptionTokenType(t reflect.Type) bool {
+	if t == nil {
+		return false
+	}
+	return t.Kind() == reflect.String
+}
+
+func validationBridgeMethodError(method string) error {
+	return admin.NewDomainError(
+		admin.TextCodeValidationError,
+		"go-cms content bridge requires option-capable method signature",
+		map[string]any{
+			"component": "cms_content_bridge",
+			"method":    method,
+		},
+	)
+}
+
+func validationBridgeOptionError(method string) error {
+	return admin.NewDomainError(
+		admin.TextCodeValidationError,
+		"go-cms content bridge option tokens are incompatible with method signature",
+		map[string]any{
+			"component": "cms_content_bridge",
+			"method":    method,
+		},
+	)
+}
+
 func hasBridgeContentListOption(opts []admin.CMSContentListOption, token admin.CMSContentListOption) bool {
 	for _, opt := range opts {
 		if opt == token {
@@ -1115,31 +1215,55 @@ func callWithOptionalEnv(method reflect.Value, ctx context.Context, env string) 
 	return method.Call(args)
 }
 
-func callWithOptionalEnvAndOptions(method reflect.Value, ctx context.Context, env string, opts ...admin.CMSContentListOption) []reflect.Value {
+func callWithOptionalEnvAndOptions(method reflect.Value, ctx context.Context, env string, opts ...admin.CMSContentListOption) ([]reflect.Value, error) {
 	if !method.IsValid() {
-		return nil
+		return nil, admin.ErrNotFound
 	}
 	args := []reflect.Value{reflect.ValueOf(ctx)}
-	if method.Type().NumIn() <= 1 {
-		return method.Call(args)
+	if err := ensureBridgeListMethodSignature(method); err != nil {
+		return nil, err
 	}
-	if method.Type().IsVariadic() {
-		if env != "" && method.Type().In(1).Kind() == reflect.String {
-			args = append(args, reflect.ValueOf(env))
+	optionTokens := make([]string, 0, len(opts)+1)
+	if env != "" {
+		optionTokens = append(optionTokens, env)
+	}
+	for _, opt := range opts {
+		optionTokens = append(optionTokens, string(opt))
+	}
+	optionValues, err := bridgeOptionValues(method, "List", optionTokens...)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, optionValues...)
+	return method.Call(args), nil
+}
+
+func bridgeOptionValues(method reflect.Value, methodName string, tokens ...string) ([]reflect.Value, error) {
+	if len(tokens) == 0 {
+		return nil, nil
+	}
+	t := method.Type()
+	if !t.IsVariadic() || t.NumIn() == 0 {
+		return nil, validationBridgeOptionError(methodName)
+	}
+	optionParam := t.In(t.NumIn() - 1)
+	if optionParam.Kind() != reflect.Slice {
+		return nil, validationBridgeOptionError(methodName)
+	}
+	optionTokenType := optionParam.Elem()
+	values := make([]reflect.Value, 0, len(tokens))
+	for _, token := range tokens {
+		raw := reflect.ValueOf(token)
+		switch {
+		case raw.Type().AssignableTo(optionTokenType):
+			values = append(values, raw)
+		case raw.Type().ConvertibleTo(optionTokenType):
+			values = append(values, raw.Convert(optionTokenType))
+		default:
+			return nil, validationBridgeOptionError(methodName)
 		}
-		for _, opt := range opts {
-			args = append(args, reflect.ValueOf(string(opt)))
-		}
-		return method.Call(args)
 	}
-	if len(opts) > 0 {
-		args = append(args, reflect.ValueOf(string(opts[0])))
-	} else if env != "" && method.Type().In(1).Kind() == reflect.String {
-		args = append(args, reflect.ValueOf(env))
-	} else {
-		args = append(args, reflect.Zero(method.Type().In(1)))
-	}
-	return method.Call(args)
+	return values, nil
 }
 
 func reflectError(results []reflect.Value) error {
