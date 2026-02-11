@@ -45,6 +45,46 @@ export interface TranslationContext {
 }
 
 /**
+ * Translation readiness state from canonical backend `translation_readiness` fields.
+ * Used for grid-level visibility without requiring publish-failure round trips.
+ */
+export interface TranslationReadiness {
+  /** Translation group ID linking all locale variants */
+  translationGroupId: string | null;
+  /** Required locales per policy for this entity/transition/environment */
+  requiredLocales: string[];
+  /** Available locales that exist for this translation group */
+  availableLocales: string[];
+  /** Locales that are required but missing */
+  missingRequiredLocales: string[];
+  /** Missing required fields by locale (only includes locales in availableLocales) */
+  missingRequiredFieldsByLocale: Record<string, string[]>;
+  /** Computed readiness state */
+  readinessState: ReadinessState | null;
+  /** Transition readiness map (e.g., { publish: true }) */
+  readyForTransition: Record<string, boolean>;
+  /** Environment used for policy evaluation */
+  evaluatedEnvironment: string | null;
+  /** Whether readiness metadata is present (for legacy compat) */
+  hasReadinessMetadata: boolean;
+}
+
+/** Possible readiness states from backend */
+export type ReadinessState = 'ready' | 'missing_locales' | 'missing_fields' | 'missing_locales_and_fields';
+
+/**
+ * Readiness badge rendering options
+ */
+export interface ReadinessBadgeOptions {
+  /** Size variant for the badge */
+  size?: 'sm' | 'default';
+  /** Show detailed tooltip with missing info */
+  showDetailedTooltip?: boolean;
+  /** Additional CSS classes */
+  extraClass?: string;
+}
+
+/**
  * Badge rendering options
  */
 export interface LocaleBadgeOptions {
@@ -166,6 +206,112 @@ export function isInFallbackMode(record: Record<string, unknown>): boolean {
 export function hasTranslationContext(record: Record<string, unknown>): boolean {
   const ctx = extractTranslationContext(record);
   return ctx.translationGroupId !== null || ctx.resolvedLocale !== null || ctx.availableLocales.length > 0;
+}
+
+/**
+ * Extract canonical translation readiness fields from a record payload.
+ * These fields are exposed by Phase 18.6 productization for grid-level visibility.
+ *
+ * @param record - The record object from API response
+ * @returns Normalized TranslationReadiness
+ */
+export function extractTranslationReadiness(record: Record<string, unknown>): TranslationReadiness {
+  const readiness: TranslationReadiness = {
+    translationGroupId: null,
+    requiredLocales: [],
+    availableLocales: [],
+    missingRequiredLocales: [],
+    missingRequiredFieldsByLocale: {},
+    readinessState: null,
+    readyForTransition: {},
+    evaluatedEnvironment: null,
+    hasReadinessMetadata: false,
+  };
+
+  if (!record || typeof record !== 'object') {
+    return readiness;
+  }
+
+  // Check for nested translation_readiness object (canonical productized format)
+  const readinessObj = record.translation_readiness as Record<string, unknown> | undefined;
+
+  if (readinessObj && typeof readinessObj === 'object') {
+    readiness.hasReadinessMetadata = true;
+
+    readiness.translationGroupId = typeof readinessObj.translation_group_id === 'string'
+      ? readinessObj.translation_group_id
+      : null;
+
+    readiness.requiredLocales = Array.isArray(readinessObj.required_locales)
+      ? readinessObj.required_locales.filter((v): v is string => typeof v === 'string')
+      : [];
+
+    readiness.availableLocales = Array.isArray(readinessObj.available_locales)
+      ? readinessObj.available_locales.filter((v): v is string => typeof v === 'string')
+      : [];
+
+    readiness.missingRequiredLocales = Array.isArray(readinessObj.missing_required_locales)
+      ? readinessObj.missing_required_locales.filter((v): v is string => typeof v === 'string')
+      : [];
+
+    // Parse missing_required_fields_by_locale
+    const fieldsByLocale = readinessObj.missing_required_fields_by_locale;
+    if (fieldsByLocale && typeof fieldsByLocale === 'object' && !Array.isArray(fieldsByLocale)) {
+      for (const [locale, fields] of Object.entries(fieldsByLocale)) {
+        if (Array.isArray(fields)) {
+          readiness.missingRequiredFieldsByLocale[locale] = fields.filter(
+            (v): v is string => typeof v === 'string'
+          );
+        }
+      }
+    }
+
+    // Parse readiness_state
+    const state = readinessObj.readiness_state;
+    if (typeof state === 'string' && isValidReadinessState(state)) {
+      readiness.readinessState = state;
+    }
+
+    // Parse ready_for_transition map
+    const readyFor = readinessObj.ready_for_transition;
+    if (readyFor && typeof readyFor === 'object' && !Array.isArray(readyFor)) {
+      for (const [transition, ready] of Object.entries(readyFor)) {
+        if (typeof ready === 'boolean') {
+          readiness.readyForTransition[transition] = ready;
+        }
+      }
+    }
+
+    readiness.evaluatedEnvironment = typeof readinessObj.evaluated_environment === 'string'
+      ? readinessObj.evaluated_environment
+      : null;
+  }
+
+  return readiness;
+}
+
+/**
+ * Check if a record has canonical translation readiness metadata.
+ * Used to determine whether to use productized rendering vs legacy fallback.
+ */
+export function hasTranslationReadiness(record: Record<string, unknown>): boolean {
+  const readiness = extractTranslationReadiness(record);
+  return readiness.hasReadinessMetadata;
+}
+
+/**
+ * Check if a record is ready for a specific transition (e.g., 'publish').
+ */
+export function isReadyForTransition(record: Record<string, unknown>, transition: string): boolean {
+  const readiness = extractTranslationReadiness(record);
+  return readiness.readyForTransition[transition] === true;
+}
+
+/**
+ * Type guard for valid readiness states.
+ */
+function isValidReadinessState(state: string): state is ReadinessState {
+  return ['ready', 'missing_locales', 'missing_fields', 'missing_locales_and_fields'].includes(state);
 }
 
 // ============================================================================
@@ -316,6 +462,291 @@ export function renderStatusBadge(status: string | null, size: 'sm' | 'default' 
 
   const statusLower = status.toLowerCase();
   return badge(status, 'status', statusLower, { size: size === 'sm' ? 'sm' : undefined });
+}
+
+// ============================================================================
+// Translation Readiness Rendering (Productized Phase 19)
+// ============================================================================
+
+/**
+ * Render a translation readiness indicator for content rows.
+ * Shows completeness state based on canonical backend readiness fields.
+ *
+ * @param record - The record from API response
+ * @param options - Rendering options
+ * @returns HTML string for the readiness indicator
+ */
+export function renderReadinessIndicator(
+  record: Record<string, unknown>,
+  options: ReadinessBadgeOptions = {}
+): string {
+  const readiness = extractTranslationReadiness(record);
+
+  // Legacy mode: no readiness metadata, show nothing or fallback
+  if (!readiness.hasReadinessMetadata) {
+    return '';
+  }
+
+  const { size = 'default', showDetailedTooltip = true, extraClass = '' } = options;
+  const sizeClass = size === 'sm' ? 'text-xs px-1.5 py-0.5' : 'text-xs px-2 py-1';
+  const baseClasses = `inline-flex items-center gap-1 rounded font-medium ${sizeClass}`;
+
+  const state = readiness.readinessState || 'ready';
+  const { icon, label, bgClass, textClass, tooltip } = getReadinessStateDisplay(state, readiness, showDetailedTooltip);
+
+  return `<span class="${baseClasses} ${bgClass} ${textClass} ${extraClass}"
+                title="${tooltip}"
+                aria-label="${label}"
+                data-readiness-state="${state}">
+    ${icon}
+    <span>${label}</span>
+  </span>`;
+}
+
+/**
+ * Render a compact publish readiness badge (ready/not ready).
+ */
+export function renderPublishReadinessBadge(
+  record: Record<string, unknown>,
+  options: ReadinessBadgeOptions = {}
+): string {
+  const readiness = extractTranslationReadiness(record);
+
+  if (!readiness.hasReadinessMetadata) {
+    return '';
+  }
+
+  const isReady = readiness.readyForTransition.publish === true;
+  const { size = 'default', extraClass = '' } = options;
+  const sizeClass = size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-1';
+
+  if (isReady) {
+    return `<span class="inline-flex items-center gap-1 rounded font-medium ${sizeClass} bg-green-100 text-green-700 ${extraClass}"
+                  title="Ready to publish"
+                  aria-label="Ready to publish">
+      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+      </svg>
+      Ready
+    </span>`;
+  }
+
+  // Not ready - show missing info
+  const missingCount = readiness.missingRequiredLocales.length;
+  const tooltip = missingCount > 0
+    ? `Missing translations: ${readiness.missingRequiredLocales.join(', ')}`
+    : 'Not ready to publish';
+
+  return `<span class="inline-flex items-center gap-1 rounded font-medium ${sizeClass} bg-amber-100 text-amber-700 ${extraClass}"
+                title="${tooltip}"
+                aria-label="Not ready to publish">
+    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+    </svg>
+    ${missingCount > 0 ? `${missingCount} missing` : 'Not ready'}
+  </span>`;
+}
+
+/**
+ * Render a locale completeness progress indicator.
+ * Shows X/Y locales complete.
+ */
+export function renderLocaleCompleteness(
+  record: Record<string, unknown>,
+  options: { size?: 'sm' | 'default'; extraClass?: string } = {}
+): string {
+  const readiness = extractTranslationReadiness(record);
+
+  if (!readiness.hasReadinessMetadata || readiness.requiredLocales.length === 0) {
+    return '';
+  }
+
+  const { size = 'default', extraClass = '' } = options;
+  const sizeClass = size === 'sm' ? 'text-xs' : 'text-sm';
+
+  const required = readiness.requiredLocales.length;
+  const available = readiness.availableLocales.filter(
+    loc => readiness.requiredLocales.includes(loc)
+  ).length;
+  const complete = required > 0 && available === required;
+
+  const colorClass = complete
+    ? 'text-green-600'
+    : available > 0
+      ? 'text-amber-600'
+      : 'text-gray-500';
+
+  return `<span class="${sizeClass} ${colorClass} font-medium ${extraClass}"
+                title="Locale completeness: ${available} of ${required} required locales available"
+                aria-label="${available} of ${required} locales">
+    ${available}/${required}
+  </span>`;
+}
+
+/**
+ * Render a prominent "Missing Translations" badge for list rows.
+ * This is a first-class affordance to quickly identify incomplete content.
+ *
+ * @param record - The record from API response
+ * @param options - Rendering options
+ * @returns HTML string for the missing translations badge, or empty if complete
+ */
+export function renderMissingTranslationsBadge(
+  record: Record<string, unknown>,
+  options: ReadinessBadgeOptions = {}
+): string {
+  const readiness = extractTranslationReadiness(record);
+
+  // No badge needed if ready or no metadata
+  if (!readiness.hasReadinessMetadata || readiness.readinessState === 'ready') {
+    return '';
+  }
+
+  const { size = 'default', extraClass = '' } = options;
+  const sizeClass = size === 'sm' ? 'text-xs px-2 py-1' : 'text-sm px-2.5 py-1';
+  const missingCount = readiness.missingRequiredLocales.length;
+
+  // Different severity levels
+  const hasMissingLocales = missingCount > 0;
+  const hasMissingFields = Object.keys(readiness.missingRequiredFieldsByLocale).length > 0;
+
+  let bgClass = 'bg-amber-100';
+  let textClass = 'text-amber-800';
+  let label = '';
+  let tooltip = '';
+
+  if (hasMissingLocales && hasMissingFields) {
+    bgClass = 'bg-red-100';
+    textClass = 'text-red-800';
+    label = `${missingCount} missing`;
+    tooltip = `Missing translations: ${readiness.missingRequiredLocales.join(', ')}. Also has incomplete fields.`;
+  } else if (hasMissingLocales) {
+    bgClass = 'bg-amber-100';
+    textClass = 'text-amber-800';
+    label = `${missingCount} missing`;
+    tooltip = `Missing translations: ${readiness.missingRequiredLocales.join(', ')}`;
+  } else if (hasMissingFields) {
+    bgClass = 'bg-yellow-100';
+    textClass = 'text-yellow-800';
+    label = 'Incomplete';
+    const locales = Object.keys(readiness.missingRequiredFieldsByLocale);
+    tooltip = `Incomplete fields in: ${locales.join(', ')}`;
+  }
+
+  if (!label) {
+    return '';
+  }
+
+  const warningIcon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>`;
+
+  return `<span class="inline-flex items-center gap-1.5 rounded-full font-medium ${sizeClass} ${bgClass} ${textClass} ${extraClass}"
+                title="${tooltip}"
+                aria-label="${tooltip}"
+                data-missing-translations="true"
+                data-missing-count="${missingCount}">
+    ${warningIcon}
+    <span>${label}</span>
+  </span>`;
+}
+
+/**
+ * Check if a record has missing required translations.
+ * Used for quick filtering in list views.
+ */
+export function hasMissingTranslations(record: Record<string, unknown>): boolean {
+  const readiness = extractTranslationReadiness(record);
+  if (!readiness.hasReadinessMetadata) {
+    return false;
+  }
+  return readiness.readinessState !== 'ready';
+}
+
+/**
+ * Get the missing translations count for a record.
+ */
+export function getMissingTranslationsCount(record: Record<string, unknown>): number {
+  const readiness = extractTranslationReadiness(record);
+  return readiness.missingRequiredLocales.length;
+}
+
+/**
+ * Get display properties for a readiness state.
+ */
+function getReadinessStateDisplay(
+  state: ReadinessState,
+  readiness: TranslationReadiness,
+  showDetailedTooltip: boolean
+): { icon: string; label: string; bgClass: string; textClass: string; tooltip: string } {
+  const checkIcon = `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
+  const warningIcon = `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>`;
+
+  switch (state) {
+    case 'ready':
+      return {
+        icon: checkIcon,
+        label: 'Ready',
+        bgClass: 'bg-green-100',
+        textClass: 'text-green-700',
+        tooltip: 'All required translations are complete',
+      };
+
+    case 'missing_locales': {
+      const missing = readiness.missingRequiredLocales;
+      const tooltip = showDetailedTooltip && missing.length > 0
+        ? `Missing translations: ${missing.join(', ')}`
+        : 'Missing required translations';
+      return {
+        icon: warningIcon,
+        label: `${missing.length} missing`,
+        bgClass: 'bg-amber-100',
+        textClass: 'text-amber-700',
+        tooltip,
+      };
+    }
+
+    case 'missing_fields': {
+      const localesWithMissingFields = Object.keys(readiness.missingRequiredFieldsByLocale);
+      const tooltip = showDetailedTooltip && localesWithMissingFields.length > 0
+        ? `Incomplete fields in: ${localesWithMissingFields.join(', ')}`
+        : 'Some translations have missing required fields';
+      return {
+        icon: warningIcon,
+        label: 'Incomplete',
+        bgClass: 'bg-yellow-100',
+        textClass: 'text-yellow-700',
+        tooltip,
+      };
+    }
+
+    case 'missing_locales_and_fields': {
+      const missingLocales = readiness.missingRequiredLocales;
+      const localesWithMissingFields = Object.keys(readiness.missingRequiredFieldsByLocale);
+      const parts: string[] = [];
+      if (missingLocales.length > 0) {
+        parts.push(`Missing: ${missingLocales.join(', ')}`);
+      }
+      if (localesWithMissingFields.length > 0) {
+        parts.push(`Incomplete: ${localesWithMissingFields.join(', ')}`);
+      }
+      const tooltip = showDetailedTooltip ? parts.join('; ') : 'Missing translations and incomplete fields';
+      return {
+        icon: warningIcon,
+        label: 'Not ready',
+        bgClass: 'bg-red-100',
+        textClass: 'text-red-700',
+        tooltip,
+      };
+    }
+
+    default:
+      return {
+        icon: '',
+        label: 'Unknown',
+        bgClass: 'bg-gray-100',
+        textClass: 'text-gray-600',
+        tooltip: 'Unknown readiness state',
+      };
+  }
 }
 
 // ============================================================================

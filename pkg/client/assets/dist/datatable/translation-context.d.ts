@@ -37,6 +37,43 @@ export interface TranslationContext {
     recordId: string | null;
 }
 /**
+ * Translation readiness state from canonical backend `translation_readiness` fields.
+ * Used for grid-level visibility without requiring publish-failure round trips.
+ */
+export interface TranslationReadiness {
+    /** Translation group ID linking all locale variants */
+    translationGroupId: string | null;
+    /** Required locales per policy for this entity/transition/environment */
+    requiredLocales: string[];
+    /** Available locales that exist for this translation group */
+    availableLocales: string[];
+    /** Locales that are required but missing */
+    missingRequiredLocales: string[];
+    /** Missing required fields by locale (only includes locales in availableLocales) */
+    missingRequiredFieldsByLocale: Record<string, string[]>;
+    /** Computed readiness state */
+    readinessState: ReadinessState | null;
+    /** Transition readiness map (e.g., { publish: true }) */
+    readyForTransition: Record<string, boolean>;
+    /** Environment used for policy evaluation */
+    evaluatedEnvironment: string | null;
+    /** Whether readiness metadata is present (for legacy compat) */
+    hasReadinessMetadata: boolean;
+}
+/** Possible readiness states from backend */
+export type ReadinessState = 'ready' | 'missing_locales' | 'missing_fields' | 'missing_locales_and_fields';
+/**
+ * Readiness badge rendering options
+ */
+export interface ReadinessBadgeOptions {
+    /** Size variant for the badge */
+    size?: 'sm' | 'default';
+    /** Show detailed tooltip with missing info */
+    showDetailedTooltip?: boolean;
+    /** Additional CSS classes */
+    extraClass?: string;
+}
+/**
  * Badge rendering options
  */
 export interface LocaleBadgeOptions {
@@ -76,6 +113,23 @@ export declare function isInFallbackMode(record: Record<string, unknown>): boole
  */
 export declare function hasTranslationContext(record: Record<string, unknown>): boolean;
 /**
+ * Extract canonical translation readiness fields from a record payload.
+ * These fields are exposed by Phase 18.6 productization for grid-level visibility.
+ *
+ * @param record - The record object from API response
+ * @returns Normalized TranslationReadiness
+ */
+export declare function extractTranslationReadiness(record: Record<string, unknown>): TranslationReadiness;
+/**
+ * Check if a record has canonical translation readiness metadata.
+ * Used to determine whether to use productized rendering vs legacy fallback.
+ */
+export declare function hasTranslationReadiness(record: Record<string, unknown>): boolean;
+/**
+ * Check if a record is ready for a specific transition (e.g., 'publish').
+ */
+export declare function isReadyForTransition(record: Record<string, unknown>, transition: string): boolean;
+/**
  * Render a locale badge for display in content rows.
  * Shows the resolved locale with an optional fallback indicator.
  *
@@ -106,6 +160,27 @@ export declare function renderTranslationStatusCell(context: TranslationContext 
  * Render a workflow status badge.
  */
 export declare function renderStatusBadge(status: string | null, size?: 'sm' | 'default'): string;
+/**
+ * Render a translation readiness indicator for content rows.
+ * Shows completeness state based on canonical backend readiness fields.
+ *
+ * @param record - The record from API response
+ * @param options - Rendering options
+ * @returns HTML string for the readiness indicator
+ */
+export declare function renderReadinessIndicator(record: Record<string, unknown>, options?: ReadinessBadgeOptions): string;
+/**
+ * Render a compact publish readiness badge (ready/not ready).
+ */
+export declare function renderPublishReadinessBadge(record: Record<string, unknown>, options?: ReadinessBadgeOptions): string;
+/**
+ * Render a locale completeness progress indicator.
+ * Shows X/Y locales complete.
+ */
+export declare function renderLocaleCompleteness(record: Record<string, unknown>, options?: {
+    size?: 'sm' | 'default';
+    extraClass?: string;
+}): string;
 /**
  * Render a fallback warning banner for detail/edit views.
  * Shows when the requested locale doesn't exist and fallback content is displayed.
