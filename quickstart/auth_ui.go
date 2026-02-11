@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"fmt"
+	"net/url"
 	"path"
 	"strings"
 
@@ -41,6 +42,9 @@ type authUIOptions struct {
 	themeAssets                  map[string]string
 	themeAssetPrefix             string
 	featureGate                  fggate.FeatureGate
+	loginErrorQueryKey           string
+	loginIdentifierQueryKey      string
+	loginRememberQueryKey        string
 }
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
@@ -250,6 +254,9 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 			HTTPOnly: true,
 			SameSite: "Lax",
 		},
+		loginErrorQueryKey:      "error",
+		loginIdentifierQueryKey: "identifier",
+		loginRememberQueryKey:   "remember",
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -329,6 +336,22 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 			PasswordResetConfirmPath: confirmLinkPath,
 			RegisterPath:             options.registerPath,
 		})
+		if key := strings.TrimSpace(options.loginErrorQueryKey); key != "" {
+			if code := strings.TrimSpace(c.Query(key)); code != "" {
+				viewCtx["login_error_code"] = code
+				viewCtx["login_error_message"] = resolveLoginErrorMessage(code)
+			}
+		}
+		if key := strings.TrimSpace(options.loginIdentifierQueryKey); key != "" {
+			if identifier := strings.TrimSpace(c.Query(key)); identifier != "" {
+				viewCtx["login_identifier"] = identifier
+			}
+		}
+		if key := strings.TrimSpace(options.loginRememberQueryKey); key != "" {
+			if remember := strings.TrimSpace(c.Query(key)); remember != "" {
+				viewCtx["login_remember"] = parseLoginRemember(remember)
+			}
+		}
 		viewCtx["title"] = options.loginTitle
 		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
 		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
@@ -342,7 +365,18 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 
 		token, err := auther.Login(c.Context(), payload.Identifier, payload.Password)
 		if err != nil {
-			return err
+			return c.Redirect(
+				buildLoginFailureRedirect(
+					options.loginPath,
+					options.loginErrorQueryKey,
+					"invalid_credentials",
+					options.loginIdentifierQueryKey,
+					payload.Identifier,
+					options.loginRememberQueryKey,
+					payload.Remember,
+				),
+				fiber.StatusFound,
+			)
 		}
 
 		cookie := options.cookie
@@ -460,4 +494,51 @@ func stripRouteParams(route string) string {
 		return ""
 	}
 	return "/" + strings.Join(filtered, "/")
+}
+
+func buildLoginFailureRedirect(loginPath, errorKey, errorCode, identifierKey, identifier, rememberKey string, remember bool) string {
+	loginPath = strings.TrimSpace(loginPath)
+	if loginPath == "" {
+		loginPath = "/login"
+	}
+	query := url.Values{}
+	if key := strings.TrimSpace(errorKey); key != "" {
+		code := strings.TrimSpace(errorCode)
+		if code == "" {
+			code = "invalid_credentials"
+		}
+		query.Set(key, code)
+	}
+	if key := strings.TrimSpace(identifierKey); key != "" {
+		if trimmed := strings.TrimSpace(identifier); trimmed != "" {
+			query.Set(key, trimmed)
+		}
+	}
+	if remember && strings.TrimSpace(rememberKey) != "" {
+		query.Set(rememberKey, "1")
+	}
+	if encoded := query.Encode(); encoded != "" {
+		return loginPath + "?" + encoded
+	}
+	return loginPath
+}
+
+func resolveLoginErrorMessage(code string) string {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "invalid_credentials", "auth_failed":
+		return "Invalid credentials. Please check your identifier and password."
+	case "account_disabled":
+		return "This account is currently disabled."
+	default:
+		return "Unable to sign in. Please try again."
+	}
+}
+
+func parseLoginRemember(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
