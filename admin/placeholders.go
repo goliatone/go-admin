@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"log"
 	"os"
 	"strings"
 
@@ -121,14 +120,14 @@ func WithAuthErrorHandler(handler func(router.Context, error) error) GoAuthAuthe
 type GoAuthAuthorizer struct {
 	defaultResource string
 	debug           bool
-	logger          func(format string, args ...any)
+	logger          Logger
 }
 
 // GoAuthAuthorizerConfig configures resource resolution.
 type GoAuthAuthorizerConfig struct {
 	DefaultResource string
 	Debug           bool
-	Logger          func(format string, args ...any)
+	Logger          Logger
 }
 
 // NewGoAuthAuthorizer builds an Authorizer backed by go-auth claims.
@@ -136,7 +135,7 @@ func NewGoAuthAuthorizer(cfg GoAuthAuthorizerConfig) *GoAuthAuthorizer {
 	return &GoAuthAuthorizer{
 		defaultResource: cfg.DefaultResource,
 		debug:           cfg.Debug || strings.EqualFold(os.Getenv("AUTH_DEBUG"), "true"),
-		logger:          cfg.Logger,
+		logger:          ensureLogger(cfg.Logger),
 	}
 }
 
@@ -198,18 +197,22 @@ func (a *GoAuthAuthorizer) Can(ctx context.Context, permission string, resource 
 }
 
 func (a *GoAuthAuthorizer) logDecision(permission, target, action string, allowed bool, reason string) {
-	if !a.debug {
+	if a == nil || !a.debug {
 		return
 	}
-	logger := a.logger
-	if logger == nil {
-		logger = log.Printf
+	logger := ensureLogger(a.logger)
+	attrs := []any{
+		"permission", permission,
+		"target", target,
+		"action", action,
+		"allowed", allowed,
 	}
 	if reason != "" {
-		logger("[auth] perm=%s target=%s action=%s allowed=%t reason=%s", permission, target, action, allowed, reason)
+		attrs = append(attrs, "reason", reason)
+		logger.Debug("auth decision", attrs...)
 		return
 	}
-	logger("[auth] perm=%s target=%s action=%s allowed=%t", permission, target, action, allowed)
+	logger.Debug("auth decision", attrs...)
 }
 
 func normalizeAuthAction(permission string) string {
