@@ -18,6 +18,9 @@ Each helper is optional and composable.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
+- `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
+- `WithTranslationProductConfig(cfg TranslationProductConfig) AdminOption` - Inputs: product config (`SchemaVersion`, `Profile`, optional module overrides); outputs: option that resolves effective translation module wiring with deterministic precedence.
+- `TranslationCapabilities(adm *admin.Admin) map[string]any` - Inputs: admin instance; outputs: resolved translation capability metadata (`profile`, `schema_version`, module enablement, feature flags, routes, resolver keys, panels, warnings).
 - `WithTranslationExchangeConfig(cfg TranslationExchangeConfig) AdminOption` - Inputs: exchange config (disabled by default); outputs: option that enables exchange feature + command wiring when configured.
 - `WithTranslationQueueConfig(cfg TranslationQueueConfig) AdminOption` - Inputs: queue config (disabled by default); outputs: option that enables queue feature + panel/command wiring when configured.
 - `EnablePreferences() AdminOption` - Inputs: none; outputs: option to enable `FeaturePreferences`.
@@ -51,7 +54,7 @@ Each helper is optional and composable.
 - `NewThemeSelector(name, variant string, tokenOverrides map[string]string, opts ...ThemeOption) (theme.Selector, *theme.Manifest, error)` - Inputs: theme name/variant, token overrides, theme options. Outputs: selector, manifest, error.
 - `NewStaticAssets(r router.Router[T], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption)` - Inputs: router, config, host assets FS, asset options. Outputs: none (registers static routes).
 - `ResolveDiskAssetsDir(marker string, candidates ...string) string` - Inputs: marker file + candidate directories. Outputs: first matching directory.
-- `RegisterAdminUIRoutes(r router.Router[T], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error` - Inputs: router/config/admin/auth wrapper + options. Outputs: error (registers dashboard + notifications UI routes).
+- `RegisterAdminUIRoutes(r router.Router[T], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error` - Inputs: router/config/admin/auth wrapper + options. Outputs: error (registers dashboard + notifications UI routes, and injects feature-aware view context such as `activity_enabled` + `body_classes`).
 - `RegisterAuthUIRoutes(r router.Router[T], cfg admin.Config, auther *auth.Auther, cookieName string, opts ...AuthUIOption) error` - Inputs: router/config/go-auth auther/cookie name + options. Outputs: error (registers login/logout/reset UI routes).
 - `RegisterRegistrationUIRoutes(r router.Router[T], cfg admin.Config, opts ...RegistrationUIOption) error` - Inputs: router/config + options. Outputs: error (registers signup UI route).
 - `AuthUIViewContext(cfg admin.Config, state AuthUIState, paths AuthUIPaths) router.ViewContext` - Inputs: config/state/paths; outputs: view context with auth flags + paths.
@@ -133,6 +136,38 @@ Bulk role routes are auto-registered by quickstart when `users` is enabled:
 
 ## Translation exchange (opt-in)
 Translation exchange is disabled by default in quickstart. Enable it explicitly with `WithTranslationExchangeConfig(...)`.
+
+## Translation product profiles
+Quickstart supports one product-level translation entry point:
+
+```go
+quickstart.WithTranslationProductConfig(quickstart.TranslationProductConfig{
+	SchemaVersion: 1, // defaults to 1
+	Profile:       quickstart.TranslationProfileCore, // default for cms-enabled apps
+	Exchange:      nil, // optional module override
+	Queue:         nil, // optional module override
+})
+```
+
+Supported profiles:
+- `none`
+- `core`
+- `core+exchange`
+- `core+queue`
+- `full`
+
+Deterministic precedence order:
+1. Profile baseline (`core` default when `cms` is enabled, otherwise `none`).
+2. Product module overrides (`TranslationProductConfig.Exchange` / `Queue`).
+3. Legacy options (`WithTranslationExchangeConfig`, `WithTranslationQueueConfig`) as final compatibility overrides.
+
+When exchange is enabled through profiles, quickstart still validates that required exchange handlers are configured.
+If `cms` is disabled, any effective profile/module enablement other than `none` fails startup with a typed translation product config error.
+Quickstart publishes resolved translation metadata to both:
+- `quickstart.TranslationCapabilities(adm)` for backend/example wiring.
+- `translation_capabilities` in UI route view context for template/frontend gating.
+- Startup diagnostics log event: `translation.capabilities.startup` (INFO) with `profile`, `schema_version`, module enablement, feature flags, routes, panels, resolver keys, and warnings.
+- Validation failures log `translation.capabilities.startup` (ERROR) with deterministic fields: `error_code`, `error_message`, `hint`, `failed_checks`.
 
 Minimal in-process wiring:
 
