@@ -64,6 +64,9 @@ func NewCRUDContext(ctx context.Context) crud.Context {
 func WithTranslations() CMSContentListOption {
 	return core.WithTranslations()
 }
+func WithDerivedFields() CMSContentListOption {
+	return core.WithDerivedFields()
+}
 
 const (
 	TextCodeValidationError           = core.TextCodeValidationError
