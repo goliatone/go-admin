@@ -20,6 +20,7 @@ import {
   getActorType,
   getActorTypeIconHtml,
 } from './formatters.js';
+import { renderIcon } from '../shared/icon-renderer.js';
 
 /**
  * Color configuration for action categories
@@ -301,7 +302,7 @@ export function renderTimelineEntry(
         <div class="timeline-entry-content">
           <div class="timeline-entry-action">
             <span class="timeline-action-badge" style="background-color: ${colors.bg}; color: ${colors.color}; border-color: ${colors.border};">
-              <i class="iconoir-${parsedAction.icon}"></i>
+              ${renderIcon(`iconoir:${parsedAction.icon}`)}
               <span>${escapeHtml(parsedAction.action || entry.action)}</span>
             </span>
           </div>

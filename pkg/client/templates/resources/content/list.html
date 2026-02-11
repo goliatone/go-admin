@@ -145,6 +145,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   schemaActionBuilder = new SchemaActionBuilder({
     apiEndpoint: apiEndpoint,
     actionBasePath: actionBasePath,
+    actionContext: 'row',
     locale: locale || undefined,
     environment: env || undefined,
     panelName: panelName,
@@ -224,6 +225,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   };
 
+  const extensionCellRenderers = (window.contentEntryCellRenderers && typeof window.contentEntryCellRenderers === 'object')
+    ? window.contentEntryCellRenderers
+    : {};
+  const mergedCellRenderers = {
+    ...extensionCellRenderers,
+    ...translationCellRenderers
+  };
+
   grid = new DataGrid({
     tableId: datatableId,
     apiEndpoint: apiEndpoint,
@@ -231,7 +240,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     columns: gridColumns,
     perPage: 10,
     searchDelay: 300,
-    cellRenderers: translationCellRenderers,
+    cellRenderers: mergedCellRenderers,
     rowActions: (item) => {
       // Use schema actions if available, otherwise fall back to defaults
       const schema = grid.getSchema();

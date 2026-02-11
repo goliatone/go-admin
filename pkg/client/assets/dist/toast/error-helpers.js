@@ -1,5 +1,5 @@
 async function p(t) {
-  const e = t.headers.get("content-type") || "", n = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => ""), r = {
+  const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => ""), i = {
     textCode: null,
     message: `Request failed (${t.status})`,
     metadata: null,
@@ -7,67 +7,67 @@ async function p(t) {
     validationErrors: null
   };
   if (!s)
-    return r;
-  if (n || s.trim().startsWith("{"))
+    return i;
+  if (r || s.trim().startsWith("{"))
     try {
       const o = JSON.parse(s);
       if (o.error && typeof o.error == "object") {
         const a = o.error;
-        if (typeof a.text_code == "string" && (r.textCode = a.text_code), typeof a.message == "string" && a.message.trim() && (r.message = a.message.trim()), a.metadata && typeof a.metadata == "object" && (r.metadata = a.metadata), Array.isArray(a.validation_errors)) {
-          const l = [], f = {};
-          for (const c of a.validation_errors) {
-            if (!c || typeof c != "object") continue;
-            const u = c.field, d = c.message;
-            typeof u == "string" && typeof d == "string" && (l.push({ field: u, message: d }), f[u] = d);
+        if (typeof a.text_code == "string" && (i.textCode = a.text_code), typeof a.message == "string" && a.message.trim() && (i.message = a.message.trim()), a.metadata && typeof a.metadata == "object" && (i.metadata = a.metadata), Array.isArray(a.validation_errors)) {
+          const c = [], f = {};
+          for (const l of a.validation_errors) {
+            if (!l || typeof l != "object") continue;
+            const d = l.field, u = l.message;
+            typeof d == "string" && typeof u == "string" && (c.push({ field: d, message: u }), f[d] = u);
           }
-          l.length > 0 && (r.validationErrors = l, r.fields = f);
+          c.length > 0 && (i.validationErrors = c, i.fields = f);
         }
-        if (r.metadata?.fields && typeof r.metadata.fields == "object" && !Array.isArray(r.metadata.fields)) {
-          const l = r.metadata.fields;
-          r.fields || (r.fields = {});
-          for (const [f, c] of Object.entries(l))
-            typeof c == "string" && (r.fields[f] = c);
+        if (i.metadata?.fields && typeof i.metadata.fields == "object" && !Array.isArray(i.metadata.fields)) {
+          const c = i.metadata.fields;
+          i.fields || (i.fields = {});
+          for (const [f, l] of Object.entries(c))
+            typeof l == "string" && (i.fields[f] = l);
         }
-        return r;
+        return i;
       }
       if (typeof o.error == "string" && o.error.trim())
-        return r.message = o.error.trim(), r;
+        return i.message = o.error.trim(), i;
       if (typeof o.detail == "string" && o.detail.trim())
-        return r.message = o.detail.trim(), r;
+        return i.message = o.detail.trim(), i;
       if (typeof o.title == "string" && o.title.trim())
-        return r.message = o.title.trim(), r;
+        return i.message = o.title.trim(), i;
       if (typeof o.message == "string" && o.message.trim())
-        return r.message = o.message.trim(), r;
+        return i.message = o.message.trim(), i;
     } catch {
     }
   if (s.includes("go-users:")) {
     const o = s.match(/go-users:\s*([^|]+)/);
     if (o)
-      return r.message = o[1].trim(), r;
+      return i.message = o[1].trim(), i;
   }
-  const i = s.match(/\|\s*([^|]+)$/);
-  return i ? (r.message = i[1].trim(), r) : (s.trim().length > 0 && s.length < 200 && (r.message = s.trim()), r);
+  const n = s.match(/\|\s*([^|]+)$/);
+  return n ? (i.message = n[1].trim(), i) : (s.trim().length > 0 && s.length < 200 && (i.message = s.trim()), i);
 }
 function x(t) {
   if (t.textCode !== "TRANSLATION_MISSING")
     return null;
   const e = t.metadata || {};
-  let n = [];
-  Array.isArray(e.missing_locales) && (n = e.missing_locales.filter((l) => typeof l == "string"));
+  let r = [];
+  Array.isArray(e.missing_locales) && (r = e.missing_locales.filter((c) => typeof c == "string"));
   let s = null;
   if (e.missing_fields_by_locale && typeof e.missing_fields_by_locale == "object") {
     s = {};
-    const l = e.missing_fields_by_locale;
-    for (const [f, c] of Object.entries(l))
-      Array.isArray(c) && (s[f] = c.filter((u) => typeof u == "string"));
+    const c = e.missing_fields_by_locale;
+    for (const [f, l] of Object.entries(c))
+      Array.isArray(l) && (s[f] = l.filter((d) => typeof d == "string"));
     Object.keys(s).length === 0 && (s = null);
   }
-  const r = typeof e.transition == "string" ? e.transition : null, i = typeof e.entity_type == "string" ? e.entity_type : typeof e.policy_entity == "string" ? e.policy_entity : null, o = typeof e.requested_locale == "string" ? e.requested_locale : null, a = typeof e.environment == "string" ? e.environment : null;
+  const i = typeof e.transition == "string" ? e.transition : null, n = typeof e.entity_type == "string" ? e.entity_type : typeof e.policy_entity == "string" ? e.policy_entity : null, o = typeof e.requested_locale == "string" ? e.requested_locale : null, a = typeof e.environment == "string" ? e.environment : null;
   return {
-    missingLocales: n,
+    missingLocales: r,
     missingFieldsByLocale: s,
-    transition: r,
-    entityType: i,
+    transition: i,
+    entityType: n,
     requestedLocale: o,
     environment: a
   };
@@ -93,7 +93,7 @@ function m(t) {
     return e.data && typeof e.data == "object" && (s.data = e.data), s;
   }
   if (e.error && typeof e.error == "object") {
-    const s = e.error, r = {
+    const s = e.error, i = {
       textCode: typeof s.text_code == "string" ? s.text_code : null,
       message: typeof s.message == "string" ? s.message : "Unknown error",
       metadata: s.metadata && typeof s.metadata == "object" ? s.metadata : null,
@@ -101,29 +101,29 @@ function m(t) {
       validationErrors: null
     };
     if (Array.isArray(s.validation_errors)) {
-      const i = [], o = {};
+      const n = [], o = {};
       for (const a of s.validation_errors) {
         if (!a || typeof a != "object") continue;
-        const l = a.field, f = a.message;
-        typeof l == "string" && typeof f == "string" && (i.push({ field: l, message: f }), o[l] = f);
+        const c = a.field, f = a.message;
+        typeof c == "string" && typeof f == "string" && (n.push({ field: c, message: f }), o[c] = f);
       }
-      i.length > 0 && (r.validationErrors = i, r.fields = o);
+      n.length > 0 && (i.validationErrors = n, i.fields = o);
     }
-    return { success: !1, error: r };
+    return { success: !1, error: i };
   }
-  let n = "Unknown response format";
-  return typeof e.message == "string" ? n = e.message : typeof e.error == "string" && (n = e.error), {
+  let r = "Unknown response format";
+  return typeof e.message == "string" ? r = e.message : typeof e.error == "string" && (r = e.error), {
     success: !1,
     error: {
       textCode: null,
-      message: n,
+      message: r,
       metadata: null,
       fields: null,
       validationErrors: null
     }
   };
 }
-async function A(t, e, n) {
+async function A(t, e, r) {
   try {
     const s = await fetch(t, {
       method: "POST",
@@ -131,13 +131,13 @@ async function A(t, e, n) {
         "Content-Type": "application/json",
         Accept: "application/json"
       },
-      ...n,
+      ...r,
       body: JSON.stringify(e)
     });
     if (!s.ok)
       return { success: !1, error: await p(s) };
-    const r = await s.json();
-    return m(r);
+    const i = await s.json();
+    return m(i);
   } catch (s) {
     return {
       success: !1,
@@ -152,48 +152,64 @@ async function A(t, e, n) {
   }
 }
 async function E(t) {
-  const e = t.headers.get("content-type") || "", n = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => "");
+  const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => "");
   if (s) {
-    if (n || s.trim().startsWith("{"))
+    if (r || s.trim().startsWith("{"))
       try {
-        const i = JSON.parse(s);
-        if (typeof i.error == "string" && i.error.trim()) return i.error.trim();
-        if (i.error && typeof i.error == "object") {
-          const o = i.error, a = typeof o.message == "string" ? o.message.trim() : "", l = [];
+        const n = JSON.parse(s);
+        if (typeof n.error == "string" && n.error.trim()) return n.error.trim();
+        if (n.error && typeof n.error == "object") {
+          const o = n.error, a = typeof o.message == "string" ? o.message.trim() : "", c = [];
           if (Array.isArray(o.validation_errors))
-            for (const c of o.validation_errors) {
-              if (!c || typeof c != "object") continue;
-              const u = c.field, d = c.message;
-              typeof u == "string" && typeof d == "string" && l.push(`${u}: ${d}`);
+            for (const l of o.validation_errors) {
+              if (!l || typeof l != "object") continue;
+              const d = l.field, u = l.message;
+              typeof d == "string" && typeof u == "string" && c.push(`${d}: ${u}`);
             }
           const f = o.metadata;
           if (f && typeof f == "object") {
-            const c = f.fields;
-            if (c && typeof c == "object" && !Array.isArray(c))
-              for (const [u, d] of Object.entries(c))
-                typeof d == "string" && l.push(`${u}: ${d}`);
+            const l = f.fields;
+            if (l && typeof l == "object" && !Array.isArray(l))
+              for (const [d, u] of Object.entries(l))
+                typeof u == "string" && c.push(`${d}: ${u}`);
           }
-          if (l.length > 0)
-            return `${a && a.toLowerCase() !== "validation failed" ? `${a}: ` : "Validation failed: "}${l.join("; ")}`;
+          if (c.length > 0)
+            return `${a && a.toLowerCase() !== "validation failed" ? `${a}: ` : "Validation failed: "}${c.join("; ")}`;
           if (a) return a;
         }
-        if (typeof i.detail == "string" && i.detail.trim()) return i.detail.trim();
-        if (typeof i.title == "string" && i.title.trim()) return i.title.trim();
-        if (typeof i.message == "string" && i.message.trim()) return i.message.trim();
+        if (typeof n.detail == "string" && n.detail.trim()) return n.detail.trim();
+        if (typeof n.title == "string" && n.title.trim()) return n.title.trim();
+        if (typeof n.message == "string" && n.message.trim()) return n.message.trim();
       } catch {
       }
     if (s.includes("go-users:")) {
-      const i = s.match(/go-users:\s*([^|]+)/);
-      if (i) return i[1].trim();
+      const n = s.match(/go-users:\s*([^|]+)/);
+      if (n) return n[1].trim();
     }
-    const r = s.match(/\|\s*([^|]+)$/);
-    if (r) return r[1].trim();
+    const i = s.match(/\|\s*([^|]+)$/);
+    if (i) return i[1].trim();
     if (s.trim().length > 0 && s.length < 200) return s.trim();
   }
   return `Request failed (${t.status})`;
 }
-function R(t) {
+function O(t) {
   return t instanceof Error ? t.message : typeof t == "string" ? t : "An unexpected error occurred";
+}
+function R(t, e = "Request failed") {
+  const r = (t.message || "").trim() || e, s = [], i = /* @__PURE__ */ new Set(), n = (a, c) => {
+    const f = a.trim(), l = c.trim();
+    if (!f || !l) return;
+    const d = `${f}: ${l}`;
+    i.has(d) || (i.add(d), s.push(d));
+  };
+  if (t.fields)
+    for (const [a, c] of Object.entries(t.fields))
+      typeof c == "string" && n(a, c);
+  if (t.metadata?.fields && typeof t.metadata.fields == "object" && !Array.isArray(t.metadata.fields))
+    for (const [a, c] of Object.entries(t.metadata.fields))
+      typeof c == "string" && n(a, c);
+  const o = s.length > 0 ? `: ${s.join("; ")}` : "";
+  return t.textCode && !r.includes(t.textCode) ? `${t.textCode}: ${r}${o}` : `${r}${o}`;
 }
 function y(t) {
   const e = [
@@ -207,10 +223,10 @@ function y(t) {
   ];
   return t.textCode !== null && e.includes(t.textCode);
 }
-function O(t) {
+function I(t) {
   if (!y(t))
     return null;
-  const e = t.metadata || {}, n = {
+  const e = t.metadata || {}, r = {
     code: t.textCode,
     message: t.message,
     resource: typeof e.resource == "string" ? e.resource : void 0,
@@ -218,9 +234,9 @@ function O(t) {
   };
   if (e.import_result && typeof e.import_result == "object") {
     const s = e.import_result;
-    n.importResult = g(s);
+    r.importResult = g(s);
   }
-  return n;
+  return r;
 }
 function g(t) {
   const e = {
@@ -235,16 +251,16 @@ function g(t) {
     truncated: !1
   };
   if (t.summary && typeof t.summary == "object") {
-    const n = t.summary;
+    const r = t.summary;
     e.summary = {
-      processed: typeof n.processed == "number" ? n.processed : 0,
-      succeeded: typeof n.succeeded == "number" ? n.succeeded : 0,
-      failed: typeof n.failed == "number" ? n.failed : 0,
-      conflicts: typeof n.conflicts == "number" ? n.conflicts : 0,
-      skipped: typeof n.skipped == "number" ? n.skipped : 0
+      processed: typeof r.processed == "number" ? r.processed : 0,
+      succeeded: typeof r.succeeded == "number" ? r.succeeded : 0,
+      failed: typeof r.failed == "number" ? r.failed : 0,
+      conflicts: typeof r.conflicts == "number" ? r.conflicts : 0,
+      skipped: typeof r.skipped == "number" ? r.skipped : 0
     };
   }
-  return Array.isArray(t.results) && (e.results = t.results.filter((n) => n !== null && typeof n == "object").map((n) => _(n))), typeof t.truncated == "boolean" && (e.truncated = t.truncated), typeof t.total_rows == "number" && (e.totalRows = t.total_rows), e;
+  return Array.isArray(t.results) && (e.results = t.results.filter((r) => r !== null && typeof r == "object").map((r) => _(r))), typeof t.truncated == "boolean" && (e.truncated = t.truncated), typeof t.total_rows == "number" && (e.totalRows = t.total_rows), e;
 }
 function _(t) {
   const e = {
@@ -257,12 +273,12 @@ function _(t) {
     status: h(t.status)
   };
   if (typeof t.error == "string" && (e.error = t.error), t.conflict && typeof t.conflict == "object") {
-    const n = t.conflict;
+    const r = t.conflict;
     e.conflict = {
-      type: b(n.type),
-      expectedHash: typeof n.expected_hash == "string" ? n.expected_hash : void 0,
-      actualHash: typeof n.actual_hash == "string" ? n.actual_hash : void 0,
-      details: typeof n.details == "string" ? n.details : void 0
+      type: b(r.type),
+      expectedHash: typeof r.expected_hash == "string" ? r.expected_hash : void 0,
+      actualHash: typeof r.actual_hash == "string" ? r.actual_hash : void 0,
+      details: typeof r.details == "string" ? r.details : void 0
     };
   }
   return e;
@@ -273,7 +289,7 @@ function h(t) {
 function b(t) {
   return t === "stale_source" || t === "missing_linkage" || t === "duplicate" || t === "invalid_locale" ? t : "missing_linkage";
 }
-function I(t) {
+function T(t) {
   return {
     success: t.filter((e) => e.status === "success"),
     error: t.filter((e) => e.status === "error"),
@@ -281,37 +297,38 @@ function I(t) {
     skipped: t.filter((e) => e.status === "skipped")
   };
 }
-function T(t, e = "json") {
+function C(t, e = "json") {
   if (e === "json") {
-    const i = JSON.stringify(t, null, 2);
-    return new Blob([i], { type: "application/json" });
+    const n = JSON.stringify(t, null, 2);
+    return new Blob([n], { type: "application/json" });
   }
-  const n = ["index", "resource", "entity_id", "translation_group_id", "target_locale", "field_path", "status", "error", "conflict_type"], s = t.results.map((i) => [
-    String(i.index),
-    i.resource,
-    i.entityId,
-    i.translationGroupId,
-    i.targetLocale,
-    i.fieldPath,
-    i.status,
-    i.error || "",
-    i.conflict?.type || ""
-  ]), r = [
-    n.join(","),
-    ...s.map((i) => i.map((o) => `"${o.replace(/"/g, '""')}"`).join(","))
+  const r = ["index", "resource", "entity_id", "translation_group_id", "target_locale", "field_path", "status", "error", "conflict_type"], s = t.results.map((n) => [
+    String(n.index),
+    n.resource,
+    n.entityId,
+    n.translationGroupId,
+    n.targetLocale,
+    n.fieldPath,
+    n.status,
+    n.error || "",
+    n.conflict?.type || ""
+  ]), i = [
+    r.join(","),
+    ...s.map((n) => n.map((o) => `"${o.replace(/"/g, '""')}"`).join(","))
   ].join(`
 `);
-  return new Blob([r], { type: "text/csv" });
+  return new Blob([i], { type: "text/csv" });
 }
 export {
   A as executeActionRequest,
   E as extractErrorMessage,
-  O as extractExchangeError,
+  I as extractExchangeError,
   p as extractStructuredError,
   x as extractTranslationBlocker,
-  T as generateExchangeReport,
-  R as getErrorMessage,
-  I as groupRowResultsByStatus,
+  R as formatStructuredErrorForDisplay,
+  C as generateExchangeReport,
+  O as getErrorMessage,
+  T as groupRowResultsByStatus,
   y as isExchangeError,
   j as isTranslationBlocker,
   m as parseActionResponse,

@@ -522,6 +522,49 @@ export function getErrorMessage(error: unknown): string {
   return 'An unexpected error occurred';
 }
 
+/**
+ * Build a user-facing message from a structured error.
+ * Includes text_code and field-level details when available.
+ */
+export function formatStructuredErrorForDisplay(
+  error: StructuredError,
+  fallbackMessage = 'Request failed'
+): string {
+  const baseMessage = (error.message || '').trim() || fallbackMessage;
+  const fieldMessages: string[] = [];
+  const seen = new Set<string>();
+  const appendFieldMessage = (field: string, detail: string): void => {
+    const f = field.trim();
+    const d = detail.trim();
+    if (!f || !d) return;
+    const entry = `${f}: ${d}`;
+    if (seen.has(entry)) return;
+    seen.add(entry);
+    fieldMessages.push(entry);
+  };
+
+  if (error.fields) {
+    for (const [field, detail] of Object.entries(error.fields)) {
+      if (typeof detail === 'string') {
+        appendFieldMessage(field, detail);
+      }
+    }
+  }
+  if (error.metadata?.fields && typeof error.metadata.fields === 'object' && !Array.isArray(error.metadata.fields)) {
+    for (const [field, detail] of Object.entries(error.metadata.fields as Record<string, unknown>)) {
+      if (typeof detail === 'string') {
+        appendFieldMessage(field, detail);
+      }
+    }
+  }
+
+  const suffix = fieldMessages.length > 0 ? `: ${fieldMessages.join('; ')}` : '';
+  if (error.textCode && !baseMessage.includes(error.textCode)) {
+    return `${error.textCode}: ${baseMessage}${suffix}`;
+  }
+  return `${baseMessage}${suffix}`;
+}
+
 // ============================================================================
 // Translation Exchange Types (Phase 15 - prepared for backend integration)
 // ============================================================================

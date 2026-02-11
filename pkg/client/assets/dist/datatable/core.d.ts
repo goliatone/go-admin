@@ -183,6 +183,7 @@ export declare class DataGrid {
      */
     getTabs(): any[];
     private normalizeDetailResponse;
+    private resolveRendererOptions;
     /**
      * Create table row element
      */

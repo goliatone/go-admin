@@ -82,6 +82,12 @@
           <span class="sr-only">Loading integration status...</span>
         </div>
 
+        {# Degraded Provider Warning #}
+        <div id="degraded-warning" class="hidden mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg" role="status" aria-live="polite">
+          <p class="text-sm font-medium text-amber-800">Google provider is degraded.</p>
+          <p class="text-sm text-amber-700 mt-1" id="degraded-reason">Google API health checks are failing. Import actions may be unavailable until provider recovery.</p>
+        </div>
+
         {# Not Connected State #}
         <div id="disconnected-state" class="hidden">
           <div class="text-center py-6">
@@ -342,7 +348,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const basePath = '{{ base_path }}';
-  const apiBase = '{{ api_base_path|default:basePath + "/api" }}';
+  const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
   const userId = '{{ user_id|default:"" }}';
 
   // Elements
@@ -371,6 +377,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const reauthWarning = document.getElementById('reauth-warning');
   const reauthReason = document.getElementById('reauth-reason');
   const errorMessage = document.getElementById('error-message');
+  const degradedWarning = document.getElementById('degraded-warning');
+  const degradedReason = document.getElementById('degraded-reason');
 
   let oauthWindow = null;
 
@@ -402,7 +410,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function updateStatusBadge(connected, expiring = false) {
+  function updateStatusBadge(connected, expiring = false, degraded = false) {
+    if (degraded) {
+      statusBadge.innerHTML = `
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
+          <span class="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true"></span>
+          Degraded
+        </span>
+      `;
+      return;
+    }
     if (connected) {
       if (expiring) {
         statusBadge.innerHTML = `
@@ -491,6 +508,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  function renderDegradedState(isDegraded, reason) {
+    if (!degradedWarning) return;
+    if (isDegraded) {
+      degradedWarning.classList.remove('hidden');
+      if (degradedReason) {
+        degradedReason.textContent = reason || 'Google API health checks are failing. Import actions may be unavailable until provider recovery.';
+      }
+      return;
+    }
+    degradedWarning.classList.add('hidden');
+  }
+
   async function checkStatus() {
     showState('loading');
 
@@ -513,6 +542,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
       const data = await response.json();
       const integration = data.integration || {};
+      const isDegraded = integration.degraded === true;
+      const degradedReasonText = integration.degraded_reason || '';
+      renderDegradedState(isDegraded, degradedReasonText);
 
       if (integration.connected) {
         connectedEmail.textContent = integration.email || integration.user_email || 'Connected';
@@ -523,17 +555,18 @@ document.addEventListener('DOMContentLoaded', function() {
         renderExpiry(integration.expires_at, isExpired, isExpiringSoon);
 
         showState('connected');
-        updateStatusBadge(true, isExpiringSoon || isExpired);
-        announce('Google Drive is connected');
+        updateStatusBadge(true, isExpiringSoon || isExpired, isDegraded);
+        announce(isDegraded ? 'Google Drive connected with degraded provider health' : 'Google Drive is connected');
       } else {
         showState('disconnected');
-        updateStatusBadge(false);
-        announce('Google Drive is not connected');
+        updateStatusBadge(false, false, isDegraded);
+        announce(isDegraded ? 'Google Drive integration is degraded' : 'Google Drive is not connected');
       }
     } catch (error) {
       console.error('Error checking status:', error);
       errorMessage.textContent = error.message || 'An error occurred while checking the integration status.';
       showState('error');
+      renderDegradedState(false, '');
       updateStatusBadge(false);
       announce('Error checking Google Drive status');
     }

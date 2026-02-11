@@ -49,6 +49,9 @@ export interface ColumnDefinition {
     sortable?: boolean;
     filterable?: boolean;
     hidden?: boolean;
+    renderer?: string;
+    rendererOptions?: Record<string, any>;
+    renderer_options?: Record<string, any>;
     render?: (value: any, row: any) => string;
 }
 /**

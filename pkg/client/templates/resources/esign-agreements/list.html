@@ -205,6 +205,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   schemaActionBuilder = new SchemaActionBuilder({
     apiEndpoint: apiEndpoint,
     actionBasePath: actionBasePath,
+    actionContext: 'row',
     locale: locale || undefined,
     environment: env || undefined,
     panelName: panelName,
@@ -217,7 +218,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     },
     onActionError: (actionName, error) => {
       if (window.toastManager) {
-        window.toastManager.error(error.message || `${actionName} failed`);
+        const fieldDetails = error?.fields
+          ? Object.entries(error.fields)
+            .map(([field, detail]) => `${field}: ${detail}`)
+            .join('; ')
+          : '';
+        const prefix = error?.textCode ? `${error.textCode}: ` : '';
+        const message = error?.message || `${actionName} failed`;
+        window.toastManager.error(fieldDetails ? `${prefix}${message}: ${fieldDetails}` : `${prefix}${message}`);
       }
     }
   });

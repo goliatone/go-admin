@@ -48,4 +48,3 @@ func mustReadClientTemplate(t *testing.T, name string) string {
 	}
 	return string(data)
 }
-

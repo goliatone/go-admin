@@ -30,6 +30,17 @@
   --activity-system-border: #e5e7eb;
 }
 
+/* Feature-disabled layout state */
+body.feature-activity-disabled #activity-view-switcher,
+body.feature-activity-disabled #activity-refresh,
+body.feature-activity-disabled #activity-enabled-content {
+  display: none;
+}
+
+body.feature-activity-disabled #activity-disabled {
+  display: block;
+}
+
 /* Table base styles */
 .activity-table {
   border-collapse: collapse;

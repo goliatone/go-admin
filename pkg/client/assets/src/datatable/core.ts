@@ -5,7 +5,7 @@ import type {
   DataGridBehaviors
 } from './behaviors/types.js';
 import type { ActionButton, BulkActionConfig, ActionRenderMode } from './actions.js';
-import type { CellRenderer } from './renderers.js';
+import type { CellRenderer, CellRendererContext } from './renderers.js';
 import type { ToastNotifier } from '../toast/types.js';
 import { ActionRenderer } from './actions.js';
 import { CellRendererRegistry } from './renderers.js';
@@ -799,6 +799,14 @@ export class DataGrid {
     return { data: payload };
   }
 
+  private resolveRendererOptions(col: ColumnDefinition): Record<string, any> {
+    const options = col.rendererOptions ?? col.renderer_options;
+    if (!options || typeof options !== 'object' || Array.isArray(options)) {
+      return {};
+    }
+    return options;
+  }
+
   /**
    * Create table row element
    */
@@ -834,13 +842,20 @@ export class DataGrid {
       cell.setAttribute('data-column', col.field);
 
       const value = item[col.field];
+      const rendererName = typeof col.renderer === 'string' ? col.renderer.trim() : '';
+      const rendererContext: CellRendererContext = {
+        options: this.resolveRendererOptions(col),
+      };
 
-      // Priority: column render > custom renderer > default renderer
+      // Priority: column render > field renderer > named renderer > default renderer
       if (col.render) {
         cell.innerHTML = col.render(value, item);
       } else if (this.cellRendererRegistry.has(col.field)) {
         const renderer = this.cellRendererRegistry.get(col.field);
-        cell.innerHTML = renderer(value, item, col.field);
+        cell.innerHTML = renderer(value, item, col.field, rendererContext);
+      } else if (rendererName && this.cellRendererRegistry.has(rendererName)) {
+        const renderer = this.cellRendererRegistry.get(rendererName);
+        cell.innerHTML = renderer(value, item, col.field, rendererContext);
       } else if (value === null || value === undefined) {
         cell.textContent = '-';
       } else if (col.field.includes('_at')) {
@@ -868,9 +883,15 @@ export class DataGrid {
       actions.forEach(action => {
         const actionId = this.sanitizeActionId(action.label);
         const button = actionsCell.querySelector(`[data-action-id="${actionId}"]`);
+        if (action.disabled) {
+          return;
+        }
         if (button) {
           button.addEventListener('click', async (e) => {
             e.preventDefault();
+            if ((button as HTMLButtonElement).disabled) {
+              return;
+            }
             try {
               await action.action(item);
             } catch (error) {
@@ -914,6 +935,9 @@ export class DataGrid {
           button.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if ((button as HTMLButtonElement).disabled) {
+              return;
+            }
             try {
               await action.action();
             } catch (error) {

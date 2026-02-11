@@ -8,6 +8,7 @@
 
 import { iconForKey } from '../field-type-picker';
 import type { IconTab, IconEntry } from './icon-picker';
+import { renderIcon } from '../../shared/icon-renderer.js';
 
 // ---------------------------------------------------------------------------
 // Emoji Types
@@ -385,7 +386,7 @@ export function getBuiltinIconoirTab(): IconTab {
         value: e.value,
         label: e.label,
         keywords: e.keywords,
-        display: `<i class="iconoir-${e.value}" style="font-size:18px"></i>`,
+        display: renderIcon(`iconoir:${e.value}`, { size: '18px' }),
       });
     }
   }

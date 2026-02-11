@@ -4,6 +4,7 @@
  */
 
 import { badge, booleanChip as sharedBooleanChip } from '../shared/badge.js';
+import { renderIcon } from '../shared/icon-renderer.js';
 import {
   renderLocaleBadge,
   renderTranslationStatusCell,
@@ -11,7 +12,242 @@ import {
   createLocaleBadgeRenderer
 } from './translation-context.js';
 
-export type CellRenderer = (value: any, record: any, column: string) => string;
+const EMPTY_CELL_HTML = '<span class="text-gray-400">-</span>';
+const DEFAULT_OBJECT_LABEL_KEYS = [
+  'name',
+  'label',
+  'title',
+  'slug',
+  'id',
+  'code',
+  'key',
+  'value',
+  'type',
+  'blockType',
+  'block_type',
+];
+
+export interface CellRendererContext {
+  options?: Record<string, any>;
+}
+
+export type CellRenderer = (value: any, record: any, column: string, context?: CellRendererContext) => string;
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function compactJSON(value: any): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function normalizeDisplayKeys(options: Record<string, any>): string[] {
+  const keys: string[] = [];
+  const pushKey = (candidate: any) => {
+    if (typeof candidate !== 'string') return;
+    const key = candidate.trim();
+    if (!key || keys.includes(key)) return;
+    keys.push(key);
+  };
+  pushKey(options.display_key);
+  pushKey(options.displayKey);
+  const listCandidate = options.display_keys ?? options.displayKeys;
+  if (Array.isArray(listCandidate)) {
+    listCandidate.forEach(pushKey);
+  }
+  return keys;
+}
+
+function objectValueByPath(value: Record<string, any>, key: string): any {
+  if (!key) return undefined;
+  if (Object.prototype.hasOwnProperty.call(value, key)) {
+    return value[key];
+  }
+  if (!key.includes('.')) {
+    return undefined;
+  }
+  const segments = key.split('.');
+  let current: any = value;
+  for (const segment of segments) {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) {
+      return undefined;
+    }
+    if (!Object.prototype.hasOwnProperty.call(current, segment)) {
+      return undefined;
+    }
+    current = current[segment];
+  }
+  return current;
+}
+
+function scalarSummary(value: any): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  switch (typeof value) {
+    case 'string':
+      return value.trim();
+    case 'number':
+    case 'bigint':
+      return String(value);
+    case 'boolean':
+      return value ? 'true' : 'false';
+    default:
+      return '';
+  }
+}
+
+function summarizeObjectValue(value: any, options: Record<string, any>): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (Array.isArray(value)) {
+    return summarizeArrayValue(value, options);
+  }
+  if (typeof value !== 'object') {
+    return String(value);
+  }
+
+  const displayKeys = normalizeDisplayKeys(options);
+  const keys = [...displayKeys, ...DEFAULT_OBJECT_LABEL_KEYS];
+  const seen = new Set<string>();
+  for (const key of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const candidate = objectValueByPath(value as Record<string, any>, key);
+    const summary = scalarSummary(candidate);
+    if (summary) {
+      return summary;
+    }
+  }
+
+  return compactJSON(value);
+}
+
+function summarizeArrayValue(value: any[], options: Record<string, any>): string {
+  if (!Array.isArray(value) || value.length === 0) {
+    return '';
+  }
+  const normalized = value
+    .map(item => summarizeObjectValue(item, options).trim())
+    .filter(Boolean);
+  if (normalized.length === 0) {
+    return '';
+  }
+  const rawLimit = Number(options.preview_limit ?? options.previewLimit ?? 3);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 3;
+  const preview = normalized.slice(0, limit);
+  if (normalized.length <= limit) {
+    return preview.join(', ');
+  }
+  return `${preview.join(', ')} +${normalized.length - limit} more`;
+}
+
+// ---------------------------------------------------------------------------
+// blocks_chips helper functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalizes a number option from renderer_options, checking both snake_case and camelCase keys.
+ */
+function normalizeNumberOption(
+  options: Record<string, any>,
+  snakeKey: string,
+  camelKey: string,
+  defaultValue: number
+): number {
+  const raw = options[snakeKey] ?? options[camelKey] ?? defaultValue;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : defaultValue;
+}
+
+/**
+ * Normalizes a boolean option from renderer_options, checking both snake_case and camelCase keys.
+ */
+function normalizeBooleanOption(
+  options: Record<string, any>,
+  snakeKey: string,
+  camelKey: string,
+  defaultValue: boolean
+): boolean {
+  const raw = options[snakeKey] ?? options[camelKey];
+  if (raw === undefined || raw === null) {
+    return defaultValue;
+  }
+  if (typeof raw === 'boolean') {
+    return raw;
+  }
+  if (typeof raw === 'string') {
+    return raw.toLowerCase() === 'true' || raw === '1';
+  }
+  return Boolean(raw);
+}
+
+/**
+ * Normalizes a string option from renderer_options, checking both snake_case and camelCase keys.
+ */
+function normalizeStringOption(
+  options: Record<string, any>,
+  snakeKey: string,
+  camelKey: string,
+  defaultValue: string
+): string {
+  const raw = options[snakeKey] ?? options[camelKey];
+  if (raw === undefined || raw === null) {
+    return defaultValue;
+  }
+  const str = String(raw).trim();
+  return str || defaultValue;
+}
+
+/**
+ * Block label resolution order: _type, type, blockType, block_type, then string value fallback.
+ */
+function resolveBlockLabel(item: any): string {
+  if (item === null || item === undefined) {
+    return '';
+  }
+  // Legacy string array support
+  if (typeof item === 'string') {
+    return item.trim();
+  }
+  if (typeof item !== 'object') {
+    return String(item).trim();
+  }
+  // Embedded objects: check type keys in order
+  const typeKeys = ['_type', 'type', 'blockType', 'block_type'];
+  for (const key of typeKeys) {
+    const val = item[key];
+    if (typeof val === 'string' && val.trim()) {
+      return val.trim();
+    }
+  }
+  return '';
+}
+
+/**
+ * Returns Tailwind classes for chip variant styling.
+ */
+function blocksChipVariantClass(variant: string): string {
+  switch (variant) {
+    case 'muted':
+      return 'bg-gray-100 text-gray-600';
+    case 'outline':
+      return 'bg-white border border-gray-300 text-gray-700';
+    case 'default':
+    default:
+      return 'bg-blue-50 text-blue-700';
+  }
+}
 
 export class CellRendererRegistry {
   private renderers: Map<string, CellRenderer> = new Map();
@@ -46,10 +282,18 @@ export class CellRendererRegistry {
    */
   private defaultRenderer: CellRenderer = (value: any): string => {
     if (value === null || value === undefined) {
-      return '<span class="text-gray-400">-</span>';
+      return EMPTY_CELL_HTML;
     }
     if (typeof value === 'boolean') {
       return value ? 'Yes' : 'No';
+    }
+    if (Array.isArray(value)) {
+      const summary = summarizeArrayValue(value, {});
+      return summary ? escapeHtml(summary) : EMPTY_CELL_HTML;
+    }
+    if (typeof value === 'object') {
+      const summary = summarizeObjectValue(value, {});
+      return summary ? escapeHtml(summary) : EMPTY_CELL_HTML;
     }
     return String(value);
   };
@@ -159,12 +403,24 @@ export class CellRendererRegistry {
       return `<span title="${text}">${text.substring(0, maxLength)}...</span>`;
     });
 
-    // Array renderer (comma-separated)
-    this.renderers.set('_array', (value: any): string => {
+    // Array renderer (supports scalar and object arrays)
+    this.renderers.set('_array', (value: any, _record: any, _column: string, context?: CellRendererContext): string => {
       if (!Array.isArray(value) || value.length === 0) {
-        return '<span class="text-gray-400">-</span>';
+        return EMPTY_CELL_HTML;
       }
-      return value.join(', ');
+      const options = context?.options || {};
+      const summary = summarizeArrayValue(value, options);
+      return summary ? escapeHtml(summary) : EMPTY_CELL_HTML;
+    });
+
+    // Object renderer with configurable display-key hints
+    this.renderers.set('_object', (value: any, _record: any, _column: string, context?: CellRendererContext): string => {
+      if (value === null || value === undefined) {
+        return EMPTY_CELL_HTML;
+      }
+      const options = context?.options || {};
+      const summary = summarizeObjectValue(value, options);
+      return summary ? escapeHtml(summary) : EMPTY_CELL_HTML;
     });
 
     // Tags/badges renderer
@@ -175,6 +431,44 @@ export class CellRendererRegistry {
       return value.map(tag =>
         `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mr-1">${tag}</span>`
       ).join('');
+    });
+
+    // Blocks chips renderer - displays block items as styled chips with icons
+    this.renderers.set('blocks_chips', (value: any, _record: any, _column: string, context?: CellRendererContext): string => {
+      if (!Array.isArray(value) || value.length === 0) {
+        return EMPTY_CELL_HTML;
+      }
+      const options = context?.options || {};
+      const maxVisible = normalizeNumberOption(options, 'max_visible', 'maxVisible', 3);
+      const showCount = normalizeBooleanOption(options, 'show_count', 'showCount', true);
+      const chipVariant = normalizeStringOption(options, 'chip_variant', 'chipVariant', 'default');
+      const iconMap: Record<string, string> = options.block_icons_map || options.blockIconsMap || {};
+
+      const chips: string[] = [];
+      const visibleItems = value.slice(0, maxVisible);
+
+      for (const item of visibleItems) {
+        const label = resolveBlockLabel(item);
+        if (!label) continue;
+        const iconRef = iconMap[label] || 'view-grid';
+        const iconHtml = renderIcon(iconRef, { size: '14px', extraClass: 'flex-shrink-0' });
+        const variantClass = blocksChipVariantClass(chipVariant);
+        chips.push(
+          `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${variantClass}">${iconHtml}<span>${escapeHtml(label)}</span></span>`
+        );
+      }
+
+      if (chips.length === 0) {
+        return EMPTY_CELL_HTML;
+      }
+
+      const remaining = value.length - maxVisible;
+      let overflowBadge = '';
+      if (showCount && remaining > 0) {
+        overflowBadge = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600">+${remaining} more</span>`;
+      }
+
+      return `<div class="flex flex-wrap gap-1">${chips.join('')}${overflowBadge}</div>`;
     });
 
     // Image thumbnail renderer

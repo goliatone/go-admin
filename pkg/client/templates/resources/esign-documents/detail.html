@@ -60,6 +60,14 @@
   </span>
 {% endblock %}
 
+{% block detail_content_pre %}
+  {% if upload_success %}
+    <div class="max-w-4xl mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800" role="status" aria-live="polite">
+      Document uploaded successfully. You are now viewing the document details.
+    </div>
+  {% endif %}
+{% endblock %}
+
 {% block fields_section %}
 <div class="p-6">
   <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Document Details</div>

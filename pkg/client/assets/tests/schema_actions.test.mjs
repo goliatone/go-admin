@@ -88,6 +88,92 @@ test('builds actions from schema.actions when provided', () => {
   assert.equal(actions[2].label, 'Publish');
 });
 
+test('filters out actions not valid for row scope', () => {
+  const builder = createBuilder({ actionContext: 'row' });
+  const record = createMockRecord();
+  const schemaActions = [
+    { name: 'view', label: 'View', scope: 'row' },
+    { name: 'send_email', label: 'Send Email', scope: 'detail' },
+    { name: 'archive', label: 'Archive', scope: 'all' },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 2);
+  assert.equal(actions[0].label, 'View');
+  assert.equal(actions[1].label, 'Archive');
+});
+
+test('filters out actions when context_required fields are missing on record', () => {
+  const builder = createBuilder({ actionContext: 'row' });
+  const record = createMockRecord();
+  const schemaActions = [
+    { name: 'send', label: 'Send', context_required: ['id'] },
+    { name: 'rotate_token', label: 'Rotate Token', context_required: ['recipient_id'] },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].label, 'Send');
+});
+
+test('includes context_required actions when nested record fields are present', () => {
+  const builder = createBuilder({ actionContext: 'row' });
+  const record = createMockRecord({ delivery: { recipient_id: 'rec-1' } });
+  const schemaActions = [
+    { name: 'resend', label: 'Resend', context_required: ['delivery.recipient_id'] },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].label, 'Resend');
+});
+
+test('applies disabled state from record _action_state when action is unavailable', () => {
+  const builder = createBuilder({ actionContext: 'row' });
+  const record = createMockRecord({
+    _action_state: {
+      publish: {
+        enabled: false,
+        reason: 'Already published',
+        reason_code: 'workflow_transition_not_available',
+      },
+    },
+  });
+  const schemaActions = [
+    { name: 'publish', label: 'Publish' },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].disabled, true);
+  assert.equal(actions[0].disabledReason, 'Already published');
+});
+
+test('uses fallback disabled reason when _action_state has reason_code only', () => {
+  const builder = createBuilder({ actionContext: 'row' });
+  const record = createMockRecord({
+    _action_state: {
+      submit_for_approval: {
+        enabled: false,
+        reason_code: 'workflow_transition_not_available',
+      },
+    },
+  });
+  const schemaActions = [
+    { name: 'submit_for_approval', label: 'Submit for approval' },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].disabled, true);
+  assert.equal(actions[0].disabledReason, 'Action is not available in the current workflow state.');
+});
+
 test('schema actions suppress default actions (no duplicates)', () => {
   const builder = createBuilder();
   const record = createMockRecord();
@@ -566,6 +652,24 @@ test('payload_required triggers payload collection', () => {
   assert.equal(actions.length, 1);
   assert.equal(actions[0].label, 'Create Translation');
   // Action is async and will prompt for payload
+  assert.equal(typeof actions[0].action, 'function');
+});
+
+test('payload_required array is accepted without payload_schema', () => {
+  const builder = createBuilder();
+  const record = createMockRecord();
+  const schemaActions = [
+    {
+      name: 'send',
+      label: 'Send',
+      payload_required: ['idempotency_key'],
+    },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].label, 'Send');
   assert.equal(typeof actions[0].action, 'function');
 });
 

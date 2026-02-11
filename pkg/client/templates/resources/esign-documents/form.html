@@ -115,8 +115,8 @@
         </div>
       </div>
 
-      {# Hidden field for base64 PDF data (alternative to file upload) #}
-      <input type="hidden" id="pdf_base64" name="pdf_base64" value="">
+      {# Hidden field populated after upload API returns object_key #}
+      <input type="hidden" id="source_object_key" name="source_object_key" value="">
 
       {# Submit #}
       <div class="flex justify-end gap-3 pt-4">
@@ -147,9 +147,12 @@ document.addEventListener('DOMContentLoaded', function() {
   const errorEl = document.getElementById('upload-error');
   const submitBtn = document.getElementById('submit-btn');
   const titleInput = document.getElementById('title');
-  const base64Input = document.getElementById('pdf_base64');
+  const sourceObjectKeyInput = document.getElementById('source_object_key');
+  const apiBasePath = '{{ api_base_path|default:"/admin/api/v1" }}';
+  const uploadEndpoint = apiBasePath.replace(/\/$/, '') + '/esign/documents/upload';
 
   const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
+  let isSubmitting = false;
 
   function formatBytes(bytes) {
     if (bytes < 1024) return bytes + ' B';
@@ -221,14 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const file = this.files[0];
     if (file && validateFile(file)) {
       showPreview(file);
-
-      // Convert to base64 for form submission
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const base64 = e.target.result.split(',')[1]; // Remove data:... prefix
-        base64Input.value = base64;
-      };
-      reader.readAsDataURL(file);
+      sourceObjectKeyInput.value = '';
 
       // Auto-fill title from filename if empty
       if (!titleInput.value.trim()) {
@@ -238,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       this.value = '';
       clearPreview();
-      base64Input.value = '';
+      sourceObjectKeyInput.value = '';
     }
     updateSubmitState();
   });
@@ -247,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
     e.preventDefault();
     e.stopPropagation();
     fileInput.value = '';
-    base64Input.value = '';
+    sourceObjectKeyInput.value = '';
     clearPreview();
     clearError();
     updateSubmitState();
@@ -289,20 +285,79 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Form submission
-  form.addEventListener('submit', function(e) {
+  function setSubmittingState(submitting) {
+    submitBtn.disabled = submitting;
+    submitBtn.setAttribute('aria-disabled', submitting ? 'true' : 'false');
+    if (submitting) {
+      submitBtn.innerHTML = `
+        <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Uploading...
+      `;
+    } else {
+      submitBtn.innerHTML = `
+        <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+        Upload Document
+      `;
+    }
+  }
+
+  async function uploadSourcePDF(file) {
+    const params = new URLSearchParams(window.location.search);
+    const tenantId = params.get('tenant_id');
+    const orgId = params.get('org_id');
+    const uploadURL = new URL(uploadEndpoint, window.location.origin);
+    if (tenantId) uploadURL.searchParams.set('tenant_id', tenantId);
+    if (orgId) uploadURL.searchParams.set('org_id', orgId);
+
+    const payload = new FormData();
+    payload.append('file', file);
+
+    const response = await fetch(uploadURL.toString(), {
+      method: 'POST',
+      body: payload,
+      credentials: 'same-origin'
+    });
+
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = body?.error?.message || body?.message || 'Upload failed. Please try again.';
+      throw new Error(message);
+    }
+    const objectKey = (body && body.object_key) ? String(body.object_key).trim() : '';
+    if (!objectKey) {
+      throw new Error('Upload failed: missing source object key.');
+    }
+    return objectKey;
+  }
+
+  form.addEventListener('submit', async function(e) {
+    if (isSubmitting) {
+      return;
+    }
     if (!validateFile(fileInput.files[0])) {
       e.preventDefault();
       return;
     }
-
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `
-      <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      Uploading...
-    `;
+    e.preventDefault();
+    clearError();
+    isSubmitting = true;
+    setSubmittingState(true);
+    try {
+      const objectKey = await uploadSourcePDF(fileInput.files[0]);
+      sourceObjectKeyInput.value = objectKey;
+      form.submit();
+    } catch (err) {
+      const message = (err && err.message) ? err.message : 'Upload failed. Please try again.';
+      showError(message);
+      setSubmittingState(false);
+      isSubmitting = false;
+      updateSubmitState();
+    }
   });
 });
 </script>

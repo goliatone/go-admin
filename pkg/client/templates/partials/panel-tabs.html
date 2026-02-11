@@ -12,7 +12,7 @@
         {% if tab.render_mode %}data-render-mode="{{ tab.render_mode }}"{% endif %}
       >
         {% if tab.icon %}
-          <i class="iconoir-{{ tab.icon }} panel-tab-icon"></i>
+          {{ renderMenuIcon(tab.icon)|safe }}
         {% endif %}
         <span class="panel-tab-label">{{ tab.label|default:tab.label_key|default:tab.id }}</span>
       </a>
