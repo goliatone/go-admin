@@ -306,6 +306,12 @@ func defaultAdminAPIRoutes() map[string]string {
 		"block_definitions_meta.template":    "/block_definitions_meta/templates/:slug",
 		"cms.pages_tree":                     "/pages-tree",
 		"cms.content.blocks":                 "/content/:id/blocks",
+		"icons.libraries":                    "/icons/libraries",
+		"icons.library":                      "/icons/libraries/:id",
+		"icons.library.icons":                "/icons/libraries/:id/icons",
+		"icons.search":                       "/icons/search",
+		"icons.resolve":                      "/icons/resolve",
+		"icons.render":                       "/icons/render",
 	}
 }
 
