@@ -172,6 +172,7 @@ func AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin) {
 	if collector == nil {
 		return
 	}
+	adm.AttachDebugLogBridge()
 	if _, ok := slog.Default().Handler().(*admin.DebugLogHandler); ok {
 		return
 	}
