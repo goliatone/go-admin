@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/google/uuid"
@@ -134,7 +135,6 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 			if sessionMeta.SessionID != "" || sessionMeta.UserID != "" {
 				c.SetContext(withDebugSessionContext(c.Context(), sessionMeta.SessionID, sessionMeta.UserID))
 			}
-			recordDebugUserSession(collector, c, sessionMeta, start)
 			contentType := debugContentType(c)
 			remoteIP := debugRemoteIP(c)
 			requestSize := debugRequestSize(c)
@@ -153,6 +153,9 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 			}
 
 			err := next(c)
+			sessionMeta = debugSessionContextFromRequest(c, cfg)
+			recordDebugUserSession(collector, c, sessionMeta, start)
+			collector.CaptureSession(buildDebugSessionSnapshot(c, sessionMeta, start))
 
 			entry := RequestEntry{
 				ID:            uuid.NewString(),
@@ -201,6 +204,34 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 			return err
 		}
 	}
+}
+
+func buildDebugSessionSnapshot(c router.Context, sessionMeta debugSessionContext, startedAt time.Time) map[string]any {
+	snapshot := map[string]any{
+		"session_id":    strings.TrimSpace(sessionMeta.SessionID),
+		"user_id":       strings.TrimSpace(sessionMeta.UserID),
+		"username":      debugSessionUsernameFromRequest(c),
+		"ip":            debugRemoteIP(c),
+		"user_agent":    strings.TrimSpace(c.Header("User-Agent")),
+		"current_page":  strings.Clone(c.Path()),
+		"last_activity": startedAt,
+	}
+	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
+		snapshot["subject"] = strings.TrimSpace(claims.Subject())
+		snapshot["role"] = strings.TrimSpace(claims.Role())
+	}
+	if actor, ok := auth.ActorFromContext(c.Context()); ok && actor != nil {
+		if strings.TrimSpace(toString(snapshot["role"])) == "" {
+			snapshot["role"] = strings.TrimSpace(actor.Role)
+		}
+		if strings.TrimSpace(toString(snapshot["user_id"])) == "" {
+			snapshot["user_id"] = firstNonEmpty(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
+		}
+		snapshot["actor_id"] = strings.TrimSpace(actor.ActorID)
+		snapshot["tenant_id"] = strings.TrimSpace(actor.TenantID)
+		snapshot["organization_id"] = strings.TrimSpace(actor.OrganizationID)
+	}
+	return snapshot
 }
 
 func debugNormalizeContentType(contentType string) string {
