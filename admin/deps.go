@@ -16,6 +16,9 @@ import (
 // Optional dependencies fall back to in-memory defaults when omitted.
 type Dependencies struct {
 	Router AdminRouter
+	Logger Logger
+
+	LoggerProvider LoggerProvider
 
 	CMSContainer        CMSContainer
 	CMSContainerBuilder CMSContainerBuilder
