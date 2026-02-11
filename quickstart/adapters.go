@@ -2,7 +2,6 @@ package quickstart
 
 import (
 	"context"
-	"log"
 	"os"
 	"strings"
 
@@ -50,11 +49,16 @@ func ResolveAdapterFlags() AdapterFlags {
 // ConfigureAdapters mutates the admin config (CMS) based on env flags and available hooks.
 func ConfigureAdapters(ctx context.Context, cfg admin.Config, hooks AdapterHooks) (admin.Config, AdapterResult) {
 	flags := ResolveAdapterFlags()
-	return ConfigureAdaptersWithFlags(ctx, cfg, hooks, flags)
+	return configureAdaptersWithFlagsLogger(ctx, cfg, hooks, flags, nil)
 }
 
 // ConfigureAdaptersWithFlags mutates the admin config (CMS) based on supplied flags.
 func ConfigureAdaptersWithFlags(ctx context.Context, cfg admin.Config, hooks AdapterHooks, flags AdapterFlags) (admin.Config, AdapterResult) {
+	return configureAdaptersWithFlagsLogger(ctx, cfg, hooks, flags, nil)
+}
+
+func configureAdaptersWithFlagsLogger(ctx context.Context, cfg admin.Config, hooks AdapterHooks, flags AdapterFlags, logger admin.Logger) (admin.Config, AdapterResult) {
+	logger = ensureQuickstartLogger(logger)
 	result := AdapterResult{
 		Flags:           flags,
 		CMSBackend:      "in-memory CMS",
@@ -67,7 +71,10 @@ func ConfigureAdaptersWithFlags(ctx context.Context, cfg admin.Config, hooks Ada
 			result.CMSBackend = backend
 			result.PersistentCMSSet = true
 		} else if err != nil {
-			log.Printf("warning: persistent CMS requested but setup failed: %v", err)
+			logger.Warn("persistent CMS requested but setup failed",
+				"error", err,
+				"default_locale", cfg.DefaultLocale,
+			)
 		}
 	}
 	result.Config = cfg
