@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -123,7 +122,12 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 	if options.gates == nil && adm != nil {
 		options.gates = adm.FeatureGate()
 	}
-	filtered, err := filterModulesForRegistrar(modules, options.gates, options.onDisabled)
+	filtered, err := filterModulesForRegistrarWithLogger(
+		modules,
+		options.gates,
+		options.onDisabled,
+		resolveQuickstartAdminLogger(adm, "quickstart.modules", nil, nil),
+	)
 	if err != nil {
 		return err
 	}
@@ -263,12 +267,20 @@ func orderModules(mods []admin.Module) ([]admin.Module, error) {
 }
 
 func filterModulesForRegistrar(mods []admin.Module, gates fggate.FeatureGate, onDisabled func(feature, moduleID string) error) ([]admin.Module, error) {
+	return filterModulesForRegistrarWithLogger(mods, gates, onDisabled, nil)
+}
+
+func filterModulesForRegistrarWithLogger(mods []admin.Module, gates fggate.FeatureGate, onDisabled func(feature, moduleID string) error, logger admin.Logger) ([]admin.Module, error) {
 	if gates == nil {
 		return mods, nil
 	}
 	if onDisabled == nil {
+		logger = resolveQuickstartNamedLogger("quickstart.modules", nil, logger)
 		onDisabled = func(feature, moduleID string) error {
-			log.Printf("module %s skipped: feature %s disabled", moduleID, feature)
+			logger.Warn("module skipped: feature disabled",
+				"module_id", moduleID,
+				"feature", feature,
+			)
 			return nil
 		}
 	}
