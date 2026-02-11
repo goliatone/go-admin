@@ -1628,4 +1628,125 @@ describe('Locale completeness rendering', () => {
   });
 });
 
+// ============================================================================
+// Phase 19.2: Missing Translations Affordance Tests
+// ============================================================================
+
+describe('hasMissingTranslations', () => {
+  function hasMissingTranslations(record) {
+    if (!record || typeof record !== 'object') return false;
+    const readinessObj = record.translation_readiness;
+    if (!readinessObj || typeof readinessObj !== 'object') return false;
+    return readinessObj.readiness_state !== 'ready';
+  }
+
+  it('should return false when ready', () => {
+    assert.equal(hasMissingTranslations({
+      translation_readiness: { readiness_state: 'ready' }
+    }), false);
+  });
+
+  it('should return true when missing_locales', () => {
+    assert.equal(hasMissingTranslations({
+      translation_readiness: { readiness_state: 'missing_locales' }
+    }), true);
+  });
+
+  it('should return true when missing_fields', () => {
+    assert.equal(hasMissingTranslations({
+      translation_readiness: { readiness_state: 'missing_fields' }
+    }), true);
+  });
+
+  it('should return true when missing_locales_and_fields', () => {
+    assert.equal(hasMissingTranslations({
+      translation_readiness: { readiness_state: 'missing_locales_and_fields' }
+    }), true);
+  });
+
+  it('should return false when no readiness metadata', () => {
+    assert.equal(hasMissingTranslations({}), false);
+    assert.equal(hasMissingTranslations({ id: 'page_123' }), false);
+  });
+});
+
+describe('getMissingTranslationsCount', () => {
+  function getMissingTranslationsCount(record) {
+    if (!record || typeof record !== 'object') return 0;
+    const readinessObj = record.translation_readiness;
+    if (!readinessObj || typeof readinessObj !== 'object') return 0;
+    return (readinessObj.missing_required_locales || []).length;
+  }
+
+  it('should return count of missing locales', () => {
+    assert.equal(getMissingTranslationsCount({
+      translation_readiness: {
+        missing_required_locales: ['es', 'fr'],
+      },
+    }), 2);
+  });
+
+  it('should return 0 when no missing locales', () => {
+    assert.equal(getMissingTranslationsCount({
+      translation_readiness: {
+        missing_required_locales: [],
+      },
+    }), 0);
+  });
+
+  it('should return 0 when no readiness metadata', () => {
+    assert.equal(getMissingTranslationsCount({}), 0);
+  });
+});
+
+describe('renderMissingTranslationsBadge', () => {
+  function renderMissingTranslationsBadge(record) {
+    if (!record || typeof record !== 'object') return '';
+    const readinessObj = record.translation_readiness;
+    if (!readinessObj || typeof readinessObj !== 'object') return '';
+    if (readinessObj.readiness_state === 'ready') return '';
+
+    const missingCount = (readinessObj.missing_required_locales || []).length;
+    const hasMissingFields = Object.keys(readinessObj.missing_required_fields_by_locale || {}).length > 0;
+
+    if (missingCount > 0) {
+      return `badge:${missingCount} missing`;
+    } else if (hasMissingFields) {
+      return 'badge:Incomplete';
+    }
+    return '';
+  }
+
+  it('should return empty when ready', () => {
+    assert.equal(renderMissingTranslationsBadge({
+      translation_readiness: { readiness_state: 'ready' }
+    }), '');
+  });
+
+  it('should show missing count when locales missing', () => {
+    const result = renderMissingTranslationsBadge({
+      translation_readiness: {
+        readiness_state: 'missing_locales',
+        missing_required_locales: ['es', 'fr'],
+      },
+    });
+    assert.ok(result.includes('2 missing'));
+  });
+
+  it('should show Incomplete when fields missing', () => {
+    const result = renderMissingTranslationsBadge({
+      translation_readiness: {
+        readiness_state: 'missing_fields',
+        missing_required_locales: [],
+        missing_required_fields_by_locale: { en: ['title'] },
+      },
+    });
+    assert.ok(result.includes('Incomplete'));
+  });
+
+  it('should return empty when no readiness metadata', () => {
+    assert.equal(renderMissingTranslationsBadge({}), '');
+  });
+});
+
 console.log('All translation context tests completed');

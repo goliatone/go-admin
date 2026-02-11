@@ -86,7 +86,9 @@
       {% if not fallback_used and resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.fallback_used %}
         {% set fallback_used = true %}
       {% endif %}
-      {% include "partials/translation-summary.html" with translation_group_id=translation_group_id requested_locale=requested_locale resolved_locale=resolved_locale available_locales=available_locales missing_requested_locale=missing_requested_locale fallback_used=fallback_used panel_name=panel_name record_id=resource_item.id show_create_actions=true compact=false %}
+      {# Phase 19.3: Pass translation_readiness for productized mode #}
+      {% set translation_readiness = resource_item.translation_readiness %}
+      {% include "partials/translation-summary.html" with translation_group_id=translation_group_id requested_locale=requested_locale resolved_locale=resolved_locale available_locales=available_locales missing_requested_locale=missing_requested_locale fallback_used=fallback_used panel_name=panel_name record_id=resource_item.id show_create_actions=true compact=false translation_readiness=translation_readiness %}
     {% endif %}
   {% endif %}
 

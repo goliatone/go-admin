@@ -1,6 +1,6 @@
 {# Translation Summary Partial #}
 {# Shows translation context for multilingual content. #}
-{# Requires `translation_context` with requested/resolved/available locale metadata. #}
+{# Supports both legacy `translation_context` and productized `translation_readiness` inputs. #}
 
 {% set summary_translation_group_id = translation_group_id %}
 {% set summary_requested_locale = requested_locale %}
@@ -8,6 +8,11 @@
 {% set summary_available_locales = available_locales %}
 {% set summary_missing_requested_locale = missing_requested_locale %}
 {% set summary_fallback_used = fallback_used %}
+{% set summary_required_locales = required_locales %}
+{% set summary_missing_required_locales = [] %}
+{% set summary_readiness_state = nil %}
+
+{# Extract from legacy translation_context if provided #}
 {% if translation_context %}
   {% set summary_translation_group_id = translation_context.translation_group_id|default:summary_translation_group_id %}
   {% set summary_requested_locale = translation_context.requested_locale|default:summary_requested_locale %}
@@ -15,6 +20,15 @@
   {% set summary_available_locales = translation_context.available_locales|default:summary_available_locales %}
   {% set summary_missing_requested_locale = translation_context.missing_requested_locale|default:summary_missing_requested_locale %}
   {% set summary_fallback_used = translation_context.fallback_used|default:summary_fallback_used %}
+{% endif %}
+
+{# Phase 19.3: Extract from canonical translation_readiness if provided (productized mode) #}
+{% if translation_readiness %}
+  {% set summary_translation_group_id = translation_readiness.translation_group_id|default:summary_translation_group_id %}
+  {% set summary_required_locales = translation_readiness.required_locales|default:summary_required_locales %}
+  {% set summary_available_locales = translation_readiness.available_locales|default:summary_available_locales %}
+  {% set summary_missing_required_locales = translation_readiness.missing_required_locales|default:summary_missing_required_locales %}
+  {% set summary_readiness_state = translation_readiness.readiness_state %}
 {% endif %}
 
 {% if summary_translation_group_id %}
@@ -97,14 +111,26 @@
       </div>
       {% endif %}
 
-      {# Missing Required Locales #}
-      {% if required_locales and required_locales|length > 0 %}
+      {# Missing Required Locales - Productized mode uses translation_readiness.missing_required_locales #}
+      {# Legacy mode falls back to computing missing from required_locales - available_locales #}
+      {% set display_missing_locales = summary_missing_required_locales %}
+      {% if display_missing_locales|length == 0 and summary_required_locales and summary_required_locales|length > 0 %}
+        {# Legacy fallback: compute missing from required - available #}
+        {% set computed_missing = [] %}
+        {% for loc in summary_required_locales %}
+          {% if summary_available_locales and loc in summary_available_locales %}
+          {% else %}
+            {% set computed_missing = computed_missing|append:loc %}
+          {% endif %}
+        {% endfor %}
+        {% set display_missing_locales = computed_missing %}
+      {% endif %}
+
+      {% if display_missing_locales and display_missing_locales|length > 0 %}
       <div class="flex items-center gap-2">
         <span class="text-xs font-medium text-red-600 uppercase tracking-wide">Missing</span>
         <div class="flex items-center gap-1">
-          {% for loc in required_locales %}
-          {% if summary_available_locales and loc in summary_available_locales %}
-          {% else %}
+          {% for loc in display_missing_locales %}
           <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-red-100 text-red-700 font-medium">
             {{ loc|upper }}
             {% if show_create_actions != false and panel_name and record_id %}
@@ -121,9 +147,44 @@
             </button>
             {% endif %}
           </span>
-          {% endif %}
           {% endfor %}
         </div>
+      </div>
+      {% endif %}
+
+      {# Phase 19.3: Readiness state badge (productized mode only) #}
+      {% if summary_readiness_state %}
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</span>
+        {% if summary_readiness_state == "ready" %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">
+          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+          </svg>
+          Ready
+        </span>
+        {% elif summary_readiness_state == "missing_locales" %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">
+          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          Missing Translations
+        </span>
+        {% elif summary_readiness_state == "missing_fields" %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-700">
+          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          Incomplete Fields
+        </span>
+        {% elif summary_readiness_state == "missing_locales_and_fields" %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">
+          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          Not Ready
+        </span>
+        {% endif %}
       </div>
       {% endif %}
     </div>
