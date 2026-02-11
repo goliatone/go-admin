@@ -64,6 +64,8 @@ type Dependencies struct {
 
 	SettingsService *SettingsService
 
+	IconService *IconService
+
 	FeatureGate            fggate.FeatureGate
 	FeatureCatalog         catalog.Catalog
 	FeatureCatalogResolver catalog.MessageResolver
