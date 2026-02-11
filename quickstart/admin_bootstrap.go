@@ -138,11 +138,17 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		return nil, AdapterResult{}, err
 	}
 
+	loggerProvider, logger := resolveQuickstartLoggerDependencies(options.deps.LoggerProvider, options.deps.Logger)
+	options.deps.LoggerProvider = loggerProvider
+	options.deps.Logger = logger
+	setQuickstartDefaultLoggerDependencies(loggerProvider, logger)
+	adaptersLogger := resolveQuickstartNamedLogger("quickstart.adapters", loggerProvider, logger)
+
 	var result AdapterResult
 	if options.flags != nil {
-		cfg, result = ConfigureAdaptersWithFlags(options.ctx, cfg, hooks, *options.flags)
+		cfg, result = configureAdaptersWithFlagsLogger(options.ctx, cfg, hooks, *options.flags, adaptersLogger)
 	} else {
-		cfg, result = ConfigureAdapters(options.ctx, cfg, hooks)
+		cfg, result = configureAdaptersWithFlagsLogger(options.ctx, cfg, hooks, ResolveAdapterFlags(), adaptersLogger)
 	}
 	if options.deps.TranslationPolicy == nil {
 		policyCfg := DefaultTranslationPolicyConfig()
