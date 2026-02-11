@@ -9,3 +9,11 @@ func (a *Admin) FeatureGate() fggate.FeatureGate {
 	}
 	return a.featureGate
 }
+
+// ActivityReadEnabled reports whether the activity read API is wired.
+func (a *Admin) ActivityReadEnabled() bool {
+	if a == nil {
+		return false
+	}
+	return a.activityFeed != nil
+}
