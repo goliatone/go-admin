@@ -24,7 +24,16 @@ import {
   showTranslationBlocker,
   extractTranslationContext,
   renderLocaleBadge,
-  renderTranslationStatusCell
+  renderTranslationStatusCell,
+  // Phase 19 productization: translation readiness
+  extractTranslationReadiness,
+  hasTranslationReadiness,
+  renderReadinessIndicator,
+  renderPublishReadinessBadge,
+  renderLocaleCompleteness,
+  // Phase 19.2: Missing translations affordance
+  renderMissingTranslationsBadge,
+  hasMissingTranslations
 } from '{{ base_path }}/assets/dist/datatable/index.js';
 
 const basePath = '{{ base_path }}';
@@ -222,6 +231,31 @@ document.addEventListener('DOMContentLoaded', async function() {
           : 'px-1.5 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600';
         return `<span class="${pillClass}">${loc.toUpperCase()}</span>`;
       }).join(' ');
+    },
+    // Phase 19: Translation readiness indicator (uses canonical backend fields)
+    translation_readiness: (value, record) => {
+      // Prefer productized readiness metadata when available
+      if (hasTranslationReadiness(record)) {
+        return renderReadinessIndicator(record, { size: 'sm', showDetailedTooltip: true });
+      }
+      // Legacy fallback: show nothing if no readiness metadata
+      return '<span class="text-gray-400">-</span>';
+    },
+    // Phase 19: Publish readiness badge (compact ready/not ready)
+    publish_readiness: (value, record) => {
+      if (hasTranslationReadiness(record)) {
+        return renderPublishReadinessBadge(record, { size: 'sm' });
+      }
+      return '';
+    },
+    // Phase 19: Locale completeness (X/Y format)
+    locale_completeness: (value, record) => {
+      return renderLocaleCompleteness(record, { size: 'sm' });
+    },
+    // Phase 19.2: Missing translations badge (prominent affordance)
+    missing_translations: (value, record) => {
+      // First-class affordance for identifying incomplete content
+      return renderMissingTranslationsBadge(record, { size: 'sm' });
     }
   };
 

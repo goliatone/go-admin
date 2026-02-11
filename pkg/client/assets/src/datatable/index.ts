@@ -99,12 +99,27 @@ export {
   renderStatusBadge,
   renderFallbackWarning,
   createTranslationStatusRenderer,
-  createLocaleBadgeRenderer
+  createLocaleBadgeRenderer,
+  // Phase 19 productization: translation readiness
+  extractTranslationReadiness,
+  hasTranslationReadiness,
+  isReadyForTransition,
+  renderReadinessIndicator,
+  renderPublishReadinessBadge,
+  renderLocaleCompleteness,
+  // Phase 19.2: Missing translations affordance
+  renderMissingTranslationsBadge,
+  hasMissingTranslations,
+  getMissingTranslationsCount
 } from './translation-context.js';
 export type {
   TranslationContext,
   LocaleBadgeOptions,
-  TranslationStatusOptions
+  TranslationStatusOptions,
+  // Phase 19 productization types
+  TranslationReadiness,
+  ReadinessState,
+  ReadinessBadgeOptions
 } from './translation-context.js';
 
 // Export translation exchange types and helpers (Phase 15)

@@ -1268,4 +1268,364 @@ describe('Contract: Forms Fallback Detection Integration', () => {
   });
 });
 
+// ============================================================================
+// Phase 19: Translation Readiness Tests
+// ============================================================================
+
+describe('extractTranslationReadiness', () => {
+  // Simulate the extraction logic for translation_readiness
+  function extractTranslationReadiness(record) {
+    const readiness = {
+      translationGroupId: null,
+      requiredLocales: [],
+      availableLocales: [],
+      missingRequiredLocales: [],
+      missingRequiredFieldsByLocale: {},
+      readinessState: null,
+      readyForTransition: {},
+      evaluatedEnvironment: null,
+      hasReadinessMetadata: false,
+    };
+
+    if (!record || typeof record !== 'object') {
+      return readiness;
+    }
+
+    const readinessObj = record.translation_readiness;
+    if (readinessObj && typeof readinessObj === 'object') {
+      readiness.hasReadinessMetadata = true;
+
+      readiness.translationGroupId = typeof readinessObj.translation_group_id === 'string'
+        ? readinessObj.translation_group_id
+        : null;
+
+      readiness.requiredLocales = Array.isArray(readinessObj.required_locales)
+        ? readinessObj.required_locales.filter(v => typeof v === 'string')
+        : [];
+
+      readiness.availableLocales = Array.isArray(readinessObj.available_locales)
+        ? readinessObj.available_locales.filter(v => typeof v === 'string')
+        : [];
+
+      readiness.missingRequiredLocales = Array.isArray(readinessObj.missing_required_locales)
+        ? readinessObj.missing_required_locales.filter(v => typeof v === 'string')
+        : [];
+
+      const fieldsByLocale = readinessObj.missing_required_fields_by_locale;
+      if (fieldsByLocale && typeof fieldsByLocale === 'object' && !Array.isArray(fieldsByLocale)) {
+        for (const [locale, fields] of Object.entries(fieldsByLocale)) {
+          if (Array.isArray(fields)) {
+            readiness.missingRequiredFieldsByLocale[locale] = fields.filter(v => typeof v === 'string');
+          }
+        }
+      }
+
+      const state = readinessObj.readiness_state;
+      if (typeof state === 'string' && ['ready', 'missing_locales', 'missing_fields', 'missing_locales_and_fields'].includes(state)) {
+        readiness.readinessState = state;
+      }
+
+      const readyFor = readinessObj.ready_for_transition;
+      if (readyFor && typeof readyFor === 'object' && !Array.isArray(readyFor)) {
+        for (const [transition, ready] of Object.entries(readyFor)) {
+          if (typeof ready === 'boolean') {
+            readiness.readyForTransition[transition] = ready;
+          }
+        }
+      }
+
+      readiness.evaluatedEnvironment = typeof readinessObj.evaluated_environment === 'string'
+        ? readinessObj.evaluated_environment
+        : null;
+    }
+
+    return readiness;
+  }
+
+  it('should return empty readiness for null/undefined input', () => {
+    const resultNull = extractTranslationReadiness(null);
+    const resultUndefined = extractTranslationReadiness(undefined);
+    const resultEmpty = extractTranslationReadiness({});
+
+    assert.equal(resultNull.hasReadinessMetadata, false);
+    assert.equal(resultUndefined.hasReadinessMetadata, false);
+    assert.equal(resultEmpty.hasReadinessMetadata, false);
+  });
+
+  it('should extract canonical translation_readiness fields', () => {
+    const record = {
+      id: 'page_123',
+      translation_readiness: {
+        translation_group_id: 'tg_abc',
+        required_locales: ['en', 'es', 'fr'],
+        available_locales: ['en', 'es'],
+        missing_required_locales: ['fr'],
+        missing_required_fields_by_locale: {},
+        readiness_state: 'missing_locales',
+        ready_for_transition: { publish: false },
+        evaluated_environment: 'production',
+      },
+    };
+
+    const readiness = extractTranslationReadiness(record);
+
+    assert.equal(readiness.hasReadinessMetadata, true);
+    assert.equal(readiness.translationGroupId, 'tg_abc');
+    assert.deepEqual(readiness.requiredLocales, ['en', 'es', 'fr']);
+    assert.deepEqual(readiness.availableLocales, ['en', 'es']);
+    assert.deepEqual(readiness.missingRequiredLocales, ['fr']);
+    assert.equal(readiness.readinessState, 'missing_locales');
+    assert.equal(readiness.readyForTransition.publish, false);
+    assert.equal(readiness.evaluatedEnvironment, 'production');
+  });
+
+  it('should parse missing_required_fields_by_locale correctly', () => {
+    const record = {
+      translation_readiness: {
+        translation_group_id: 'tg_abc',
+        required_locales: ['en', 'es'],
+        available_locales: ['en', 'es'],
+        missing_required_locales: [],
+        missing_required_fields_by_locale: {
+          es: ['title', 'summary'],
+          fr: ['path'],
+        },
+        readiness_state: 'missing_fields',
+        ready_for_transition: { publish: false },
+        evaluated_environment: 'staging',
+      },
+    };
+
+    const readiness = extractTranslationReadiness(record);
+
+    assert.deepEqual(readiness.missingRequiredFieldsByLocale.es, ['title', 'summary']);
+    assert.deepEqual(readiness.missingRequiredFieldsByLocale.fr, ['path']);
+    assert.equal(readiness.readinessState, 'missing_fields');
+  });
+
+  it('should handle ready state correctly', () => {
+    const record = {
+      translation_readiness: {
+        translation_group_id: 'tg_abc',
+        required_locales: ['en', 'es'],
+        available_locales: ['en', 'es'],
+        missing_required_locales: [],
+        missing_required_fields_by_locale: {},
+        readiness_state: 'ready',
+        ready_for_transition: { publish: true },
+        evaluated_environment: 'production',
+      },
+    };
+
+    const readiness = extractTranslationReadiness(record);
+
+    assert.equal(readiness.readinessState, 'ready');
+    assert.equal(readiness.readyForTransition.publish, true);
+    assert.deepEqual(readiness.missingRequiredLocales, []);
+  });
+
+  it('should handle missing_locales_and_fields state', () => {
+    const record = {
+      translation_readiness: {
+        translation_group_id: 'tg_abc',
+        required_locales: ['en', 'es', 'fr'],
+        available_locales: ['en'],
+        missing_required_locales: ['es', 'fr'],
+        missing_required_fields_by_locale: {
+          en: ['summary'],
+        },
+        readiness_state: 'missing_locales_and_fields',
+        ready_for_transition: { publish: false },
+        evaluated_environment: 'production',
+      },
+    };
+
+    const readiness = extractTranslationReadiness(record);
+
+    assert.equal(readiness.readinessState, 'missing_locales_and_fields');
+    assert.deepEqual(readiness.missingRequiredLocales, ['es', 'fr']);
+    assert.deepEqual(readiness.missingRequiredFieldsByLocale.en, ['summary']);
+  });
+
+  it('should filter invalid values from arrays', () => {
+    const record = {
+      translation_readiness: {
+        translation_group_id: 'tg_abc',
+        required_locales: ['en', null, 'es', undefined, 123],
+        available_locales: ['en', {}, 'es'],
+        missing_required_locales: ['fr', null],
+        readiness_state: 'missing_locales',
+        ready_for_transition: { publish: false },
+      },
+    };
+
+    const readiness = extractTranslationReadiness(record);
+
+    assert.deepEqual(readiness.requiredLocales, ['en', 'es']);
+    assert.deepEqual(readiness.availableLocales, ['en', 'es']);
+    assert.deepEqual(readiness.missingRequiredLocales, ['fr']);
+  });
+});
+
+describe('hasTranslationReadiness', () => {
+  function hasTranslationReadiness(record) {
+    if (!record || typeof record !== 'object') return false;
+    const readinessObj = record.translation_readiness;
+    return !!(readinessObj && typeof readinessObj === 'object');
+  }
+
+  it('should return true when translation_readiness exists', () => {
+    assert.equal(hasTranslationReadiness({
+      translation_readiness: { readiness_state: 'ready' }
+    }), true);
+  });
+
+  it('should return false when translation_readiness is missing', () => {
+    assert.equal(hasTranslationReadiness({}), false);
+    assert.equal(hasTranslationReadiness({ id: 'page_123' }), false);
+  });
+
+  it('should return false for null/undefined', () => {
+    assert.equal(hasTranslationReadiness(null), false);
+    assert.equal(hasTranslationReadiness(undefined), false);
+  });
+});
+
+describe('isReadyForTransition', () => {
+  function isReadyForTransition(record, transition) {
+    if (!record || typeof record !== 'object') return false;
+    const readinessObj = record.translation_readiness;
+    if (!readinessObj || typeof readinessObj !== 'object') return false;
+    const readyFor = readinessObj.ready_for_transition;
+    if (!readyFor || typeof readyFor !== 'object') return false;
+    return readyFor[transition] === true;
+  }
+
+  it('should return true when ready for publish', () => {
+    assert.equal(isReadyForTransition({
+      translation_readiness: { ready_for_transition: { publish: true } }
+    }, 'publish'), true);
+  });
+
+  it('should return false when not ready for publish', () => {
+    assert.equal(isReadyForTransition({
+      translation_readiness: { ready_for_transition: { publish: false } }
+    }, 'publish'), false);
+  });
+
+  it('should return false when transition not in map', () => {
+    assert.equal(isReadyForTransition({
+      translation_readiness: { ready_for_transition: { publish: true } }
+    }, 'archive'), false);
+  });
+
+  it('should return false when no readiness metadata', () => {
+    assert.equal(isReadyForTransition({}, 'publish'), false);
+    assert.equal(isReadyForTransition({ id: 'page_123' }, 'publish'), false);
+  });
+});
+
+describe('Readiness rendering helpers', () => {
+  // Test the rendering logic output patterns
+
+  function getReadinessStateDisplay(state, readiness) {
+    switch (state) {
+      case 'ready':
+        return { label: 'Ready', bgClass: 'bg-green-100', hasCheck: true };
+      case 'missing_locales':
+        return { label: `${readiness.missingRequiredLocales.length} missing`, bgClass: 'bg-amber-100', hasWarning: true };
+      case 'missing_fields':
+        return { label: 'Incomplete', bgClass: 'bg-yellow-100', hasWarning: true };
+      case 'missing_locales_and_fields':
+        return { label: 'Not ready', bgClass: 'bg-red-100', hasWarning: true };
+      default:
+        return { label: 'Unknown', bgClass: 'bg-gray-100' };
+    }
+  }
+
+  it('should return Ready for ready state', () => {
+    const display = getReadinessStateDisplay('ready', { missingRequiredLocales: [] });
+    assert.equal(display.label, 'Ready');
+    assert.equal(display.bgClass, 'bg-green-100');
+  });
+
+  it('should return missing count for missing_locales state', () => {
+    const display = getReadinessStateDisplay('missing_locales', { missingRequiredLocales: ['es', 'fr'] });
+    assert.equal(display.label, '2 missing');
+    assert.equal(display.bgClass, 'bg-amber-100');
+  });
+
+  it('should return Incomplete for missing_fields state', () => {
+    const display = getReadinessStateDisplay('missing_fields', { missingRequiredLocales: [] });
+    assert.equal(display.label, 'Incomplete');
+    assert.equal(display.bgClass, 'bg-yellow-100');
+  });
+
+  it('should return Not ready for combined state', () => {
+    const display = getReadinessStateDisplay('missing_locales_and_fields', { missingRequiredLocales: ['es'] });
+    assert.equal(display.label, 'Not ready');
+    assert.equal(display.bgClass, 'bg-red-100');
+  });
+});
+
+describe('Locale completeness rendering', () => {
+  function renderLocaleCompleteness(record) {
+    if (!record || !record.translation_readiness) return '';
+    const readiness = record.translation_readiness;
+    const required = readiness.required_locales?.length || 0;
+    if (required === 0) return '';
+
+    const available = (readiness.available_locales || []).filter(
+      loc => (readiness.required_locales || []).includes(loc)
+    ).length;
+
+    return `${available}/${required}`;
+  }
+
+  it('should render X/Y format for locale completeness', () => {
+    const result = renderLocaleCompleteness({
+      translation_readiness: {
+        required_locales: ['en', 'es', 'fr'],
+        available_locales: ['en', 'es'],
+      },
+    });
+    assert.equal(result, '2/3');
+  });
+
+  it('should render 0/Y when no locales available', () => {
+    const result = renderLocaleCompleteness({
+      translation_readiness: {
+        required_locales: ['en', 'es'],
+        available_locales: [],
+      },
+    });
+    assert.equal(result, '0/2');
+  });
+
+  it('should render Y/Y when all complete', () => {
+    const result = renderLocaleCompleteness({
+      translation_readiness: {
+        required_locales: ['en', 'es'],
+        available_locales: ['en', 'es', 'fr'], // extra fr doesn't count
+      },
+    });
+    assert.equal(result, '2/2');
+  });
+
+  it('should return empty when no readiness metadata', () => {
+    assert.equal(renderLocaleCompleteness({}), '');
+    assert.equal(renderLocaleCompleteness(null), '');
+  });
+
+  it('should return empty when no required locales', () => {
+    const result = renderLocaleCompleteness({
+      translation_readiness: {
+        required_locales: [],
+        available_locales: ['en'],
+      },
+    });
+    assert.equal(result, '');
+  });
+});
+
 console.log('All translation context tests completed');
