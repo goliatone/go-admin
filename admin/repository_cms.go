@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 )
 
@@ -442,6 +443,11 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 			!strings.Contains(strings.ToLower(contentType), search) {
 			continue
 		}
+		if contentRecordRequiresCanonicalTopLevelFields(item) {
+			if err := ensureCanonicalTopLevelFields(item); err != nil {
+				return nil, 0, err
+			}
+		}
 		filtered = append(filtered, item)
 	}
 	sliced, total := paginateCMS(filtered, opts)
@@ -469,6 +475,11 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 	}
 	if err != nil {
 		return nil, err
+	}
+	if item != nil && contentRecordRequiresCanonicalTopLevelFields(*item) {
+		if err := ensureCanonicalTopLevelFields(*item); err != nil {
+			return nil, err
+		}
 	}
 	return cmsContentRecord(*item, cmsContentRecordOptions{
 		includeBlocks:   true,
@@ -580,6 +591,11 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 		if typeKey != "" && contentType != typeKey {
 			continue
 		}
+		if contentTypeWantsTranslations(r.contentType) {
+			if err := ensureCanonicalTopLevelFields(item); err != nil {
+				return nil, 0, err
+			}
+		}
 		records = append(records, cmsContentRecord(item, cmsContentRecordOptions{
 			includeBlocks:   true,
 			includeData:     true,
@@ -599,7 +615,7 @@ func (r *CMSContentTypeEntryRepository) listContents(ctx context.Context, locale
 	}
 	if contentTypeWantsTranslations(r.contentType) {
 		if svc, ok := r.content.(cmsContentListOptionsService); ok && svc != nil {
-			return svc.ContentsWithOptions(ctx, locale, WithTranslations())
+			return svc.ContentsWithOptions(ctx, locale, WithTranslations(), WithDerivedFields())
 		}
 	}
 	return r.content.Contents(ctx, locale)
@@ -764,6 +780,170 @@ func contentTypeWantsTranslations(contentType CMSContentType) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func contentRecordRequiresCanonicalTopLevelFields(item CMSContent) bool {
+	key := strings.ToLower(strings.TrimSpace(firstNonEmpty(item.ContentTypeSlug, item.ContentType)))
+	switch key {
+	case "page", "pages", "post", "posts":
+		return true
+	default:
+		return false
+	}
+}
+
+func ensureCanonicalTopLevelFields(item CMSContent) error {
+	missing := missingCanonicalTopLevelFields(item.Data)
+	if len(missing) == 0 {
+		return nil
+	}
+	ensureLogger(nil).Warn(
+		"cms content payload missing canonical top-level derived fields",
+		"content_id", item.ID,
+		"content_type", firstNonEmpty(item.ContentTypeSlug, item.ContentType),
+		"missing_fields", missing,
+	)
+	return validationDomainError("cms content payload missing canonical top-level derived fields", map[string]any{
+		"component":    "cms_content_repository",
+		"content_id":   item.ID,
+		"content_type": firstNonEmpty(item.ContentTypeSlug, item.ContentType),
+		"locale":       item.Locale,
+		"missing":      missing,
+	})
+}
+
+func missingCanonicalTopLevelFields(data map[string]any) []string {
+	markdown := canonicalMapValue(data["markdown"])
+	if len(markdown) == 0 {
+		return nil
+	}
+	out := []string{}
+	if isNonEmptyCanonicalValue(canonicalNestedLookup(data, "markdown", "body")) && !isNonEmptyCanonicalValue(data["content"]) {
+		out = append(out, "content")
+	}
+	if (isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, "summary")) ||
+		isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, "excerpt"))) &&
+		!isNonEmptyCanonicalValue(data["summary"]) &&
+		!isNonEmptyCanonicalValue(data["excerpt"]) {
+		out = append(out, "summary/excerpt")
+	}
+	for _, field := range []string{"path", "published_at", "featured_image", "meta", "tags"} {
+		if isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, field)) && !isNonEmptyCanonicalValue(data[field]) {
+			out = append(out, field)
+		}
+	}
+	if isNonEmptyCanonicalValue(
+		canonicalFirstNonEmpty(
+			canonicalMarkdownSourceFieldValue(data, "meta_title"),
+			canonicalSEOFieldValue(canonicalFirstNonEmpty(data["seo"], canonicalMarkdownSourceFieldValue(data, "seo")), "title"),
+		),
+	) && !isNonEmptyCanonicalValue(data["meta_title"]) {
+		out = append(out, "meta_title")
+	}
+	if isNonEmptyCanonicalValue(
+		canonicalFirstNonEmpty(
+			canonicalMarkdownSourceFieldValue(data, "meta_description"),
+			canonicalSEOFieldValue(canonicalFirstNonEmpty(data["seo"], canonicalMarkdownSourceFieldValue(data, "seo")), "description"),
+		),
+	) && !isNonEmptyCanonicalValue(data["meta_description"]) {
+		out = append(out, "meta_description")
+	}
+	return out
+}
+
+func canonicalMarkdownSourceFieldValue(payload map[string]any, field string) any {
+	if strings.TrimSpace(field) == "" {
+		return nil
+	}
+	for _, path := range [][]string{
+		{"markdown", "custom", field},
+		{"markdown", "frontmatter", field},
+		{"markdown", "custom", "markdown", "frontmatter", field},
+	} {
+		value := canonicalNestedLookup(payload, path...)
+		if isNonEmptyCanonicalValue(value) {
+			return value
+		}
+	}
+	return nil
+}
+
+func canonicalNestedLookup(payload map[string]any, path ...string) any {
+	if payload == nil || len(path) == 0 {
+		return nil
+	}
+	var current any = payload
+	for _, part := range path {
+		record := canonicalMapValue(current)
+		if len(record) == 0 {
+			return nil
+		}
+		value, ok := record[part]
+		if !ok {
+			return nil
+		}
+		current = value
+	}
+	return current
+}
+
+func canonicalMapValue(value any) map[string]any {
+	record, ok := value.(map[string]any)
+	if !ok || len(record) == 0 {
+		return nil
+	}
+	return record
+}
+
+func canonicalSEOFieldValue(value any, key string) any {
+	if strings.TrimSpace(key) == "" {
+		return nil
+	}
+	switch typed := value.(type) {
+	case map[string]any:
+		return typed[key]
+	case map[string]string:
+		return typed[key]
+	default:
+		return nil
+	}
+}
+
+func canonicalFirstNonEmpty(values ...any) any {
+	for _, value := range values {
+		if isNonEmptyCanonicalValue(value) {
+			return value
+		}
+	}
+	return nil
+}
+
+func isNonEmptyCanonicalValue(value any) bool {
+	if value == nil {
+		return false
+	}
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed) != ""
+	case map[string]any:
+		return len(typed) > 0
+	case []string:
+		return len(typed) > 0
+	case []any:
+		return len(typed) > 0
+	}
+	rv := reflect.ValueOf(value)
+	switch rv.Kind() {
+	case reflect.Interface, reflect.Pointer:
+		if rv.IsNil() {
+			return false
+		}
+		return isNonEmptyCanonicalValue(rv.Elem().Interface())
+	case reflect.Map, reflect.Slice, reflect.Array:
+		return rv.Len() > 0
+	default:
+		return true
 	}
 }
 
