@@ -29,6 +29,7 @@ func main() {
 		quickstart.WithErrorsFromEnv(),
 		quickstart.WithScopeFromEnv(),
 	)
+	applyESignRuntimeDefaults(&cfg)
 
 	// Explicit namespaces for admin and public signer API surfaces.
 	cfg.URLs.Admin.APIPrefix = "api"

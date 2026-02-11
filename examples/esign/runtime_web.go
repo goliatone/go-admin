@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"sort"
@@ -23,7 +24,7 @@ import (
 )
 
 const (
-	defaultESignDemoAdminID       = "esign-admin"
+	defaultESignDemoAdminID       = "63eb32ab-64f5-4ddf-b5a0-5f9a8db9f8ea"
 	defaultESignDemoAdminEmail    = "admin@example.com"
 	defaultESignDemoAdminPassword = "admin.pwd"
 	defaultESignDemoAdminRole     = "admin"
@@ -254,6 +255,15 @@ func makeESignAuthErrorHandler(cfg eSignAuthConfig) func(router.Context, error) 
 	}
 }
 
+func applyESignRuntimeDefaults(cfg *coreadmin.Config) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Debug.LayoutMode == "" {
+		cfg.Debug.LayoutMode = coreadmin.DebugLayoutAdmin
+	}
+}
+
 func newESignViewEngine(cfg coreadmin.Config, adm *coreadmin.Admin) (fiber.Views, error) {
 	templateOpts := []quickstart.TemplateFuncOption{
 		quickstart.WithTemplateBasePath(cfg.BasePath),
@@ -313,6 +323,7 @@ func registerESignWebRoutes(
 	if err := quickstart.RegisterContentEntryUIRoutes(r, cfg, adm, authn); err != nil {
 		return err
 	}
+	registerESignLegacyUIAliasRoutes(r, authn, basePath)
 	if err := quickstart.RegisterAuthUIRoutes(
 		r,
 		cfg,
@@ -367,6 +378,81 @@ func registerESignWebRoutes(
 	}
 
 	return nil
+}
+
+func registerESignLegacyUIAliasRoutes(
+	r router.Router[*fiber.App],
+	authn coreadmin.HandlerAuthenticator,
+	basePath string,
+) {
+	if r == nil {
+		return
+	}
+	wrap := func(handler router.HandlerFunc) router.HandlerFunc {
+		if authn != nil {
+			return authn.WrapHandler(handler)
+		}
+		return handler
+	}
+
+	aliases := map[string]string{
+		path.Join(basePath, "esign", "agreements"):        path.Join(basePath, "content", "esign_agreements"),
+		path.Join(basePath, "esign", "agreements", "new"): path.Join(basePath, "content", "esign_agreements", "new"),
+		path.Join(basePath, "esign", "documents"):         path.Join(basePath, "content", "esign_documents"),
+		path.Join(basePath, "esign", "documents", "new"):  path.Join(basePath, "content", "esign_documents", "new"),
+		path.Join(basePath, "esign", "users"):             path.Join(basePath, "users"),
+		path.Join(basePath, "esign", "roles"):             path.Join(basePath, "roles"),
+		path.Join(basePath, "esign", "profile"):           path.Join(basePath, "profile"),
+		path.Join(basePath, "esign", "activity"):          path.Join(basePath, "activity"),
+	}
+
+	for fromPath, toPath := range aliases {
+		fromPath := fromPath
+		toPath := toPath
+		handler := wrap(func(c router.Context) error {
+			return redirectPathAlias(c, fromPath, toPath)
+		})
+		r.Get(fromPath, handler)
+		r.Get(fromPath+"/*path", handler)
+	}
+}
+
+func redirectPathAlias(c router.Context, fromPath, toPath string) error {
+	if c == nil {
+		return coreadmin.ErrNotFound
+	}
+	target := strings.TrimSpace(toPath)
+	if target == "" {
+		return coreadmin.ErrNotFound
+	}
+	suffix := strings.TrimPrefix(c.Path(), strings.TrimSpace(fromPath))
+	if suffix != "" && !strings.HasPrefix(suffix, "/") {
+		suffix = "/" + suffix
+	}
+	if suffix != "" {
+		target += suffix
+	}
+	if rawQuery := rawQueryFromURL(c.OriginalURL()); rawQuery != "" {
+		if strings.Contains(target, "?") {
+			target += "&" + rawQuery
+		} else {
+			target += "?" + rawQuery
+		}
+	}
+	return c.Redirect(target, http.StatusFound)
+}
+
+func rawQueryFromURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(raw); err == nil {
+		return parsed.RawQuery
+	}
+	if idx := strings.Index(raw, "?"); idx >= 0 && idx+1 < len(raw) {
+		return raw[idx+1:]
+	}
+	return ""
 }
 
 func cloneResourceRoles(input map[string]string) map[string]string {

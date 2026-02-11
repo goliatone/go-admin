@@ -223,7 +223,7 @@ func (m *ESignModule) panelListURL(panelID string) string {
 	if basePath == "/" {
 		basePath = "/admin"
 	}
-	return path.Join(basePath, "resources", strings.TrimSpace(panelID))
+	return path.Join(basePath, "content", strings.TrimSpace(panelID))
 }
 
 func (m *ESignModule) panelItemURL(panelID, id string) string {
