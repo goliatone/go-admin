@@ -28,6 +28,23 @@ type translationPolicy struct {
 	services TranslationPolicyServices
 }
 
+// Requirements exposes policy-derived translation requirements for read-model readiness.
+func (p translationPolicy) Requirements(_ context.Context, input admin.TranslationPolicyInput) (admin.TranslationRequirements, bool, error) {
+	req, ok := resolveTranslationRequirements(p.cfg, input)
+	if !ok {
+		return admin.TranslationRequirements{}, false, nil
+	}
+	locales := normalizeLocaleList(req.Locales)
+	if len(locales) == 0 && len(req.RequiredFields) > 0 {
+		locales = requiredLocalesFromFields(req.RequiredFields)
+	}
+	return admin.TranslationRequirements{
+		Locales:                locales,
+		RequiredFields:         cloneRequiredFields(req.RequiredFields),
+		RequiredFieldsStrategy: req.RequiredFieldsStrategy,
+	}, true, nil
+}
+
 // NewTranslationPolicy builds a quickstart translation policy from config + services.
 func NewTranslationPolicy(cfg TranslationPolicyConfig, services TranslationPolicyServices) admin.TranslationPolicy {
 	if services.Pages == nil && services.Content == nil {
