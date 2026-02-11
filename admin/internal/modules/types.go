@@ -35,6 +35,37 @@ type MenuContributor interface {
 	MenuItems(locale string) []navinternal.MenuItem
 }
 
+// IconLibrary represents an icon library contribution from a module.
+type IconLibrary struct {
+	ID          string
+	Name        string
+	Description string
+	CDN         string
+	CSSClass    string
+	RenderMode  string
+	Priority    int
+	Trusted     bool
+}
+
+// IconDefinition represents a single icon contribution from a module.
+type IconDefinition struct {
+	ID       string
+	Name     string
+	Label    string
+	Type     string
+	Library  string
+	Content  string
+	Keywords []string
+	Category string
+	Trusted  bool
+}
+
+// IconContributor optionally lets a module contribute icon libraries and definitions.
+type IconContributor interface {
+	IconLibraries() []IconLibrary
+	IconDefinitions() []IconDefinition
+}
+
 // FeatureGates evaluates feature enablement.
 type FeatureGates = fggate.FeatureGate
 
@@ -47,14 +78,22 @@ type RegisterFunc func(Module) error
 // MenuItemsFunc forwards contributed menu items to the host.
 type MenuItemsFunc func(ctx context.Context, items []navinternal.MenuItem) error
 
+// IconLibraryFunc forwards contributed icon libraries to the host.
+type IconLibraryFunc func(lib IconLibrary) error
+
+// IconDefinitionFunc forwards contributed icon definitions to the host.
+type IconDefinitionFunc func(icon IconDefinition) error
+
 // LoadOptions configures module loading.
 type LoadOptions struct {
-	Modules          []Module
-	Gates            FeatureGates
-	DefaultLocale    string
-	Translator       Translator
-	DisabledError    DisabledErrorFactory
-	Register         RegisterFunc
-	AddMenuItems     MenuItemsFunc
-	RegisterDefaults func() error
+	Modules           []Module
+	Gates             FeatureGates
+	DefaultLocale     string
+	Translator        Translator
+	DisabledError     DisabledErrorFactory
+	Register          RegisterFunc
+	AddMenuItems      MenuItemsFunc
+	AddIconLibrary    IconLibraryFunc
+	AddIconDefinition IconDefinitionFunc
+	RegisterDefaults  func() error
 }
