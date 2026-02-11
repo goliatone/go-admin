@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -10,6 +9,7 @@ import (
 // Registry stores registered panels, modules, dashboard providers, and settings.
 type Registry struct {
 	mu                 sync.RWMutex
+	logger             Logger
 	panels             map[string]*Panel
 	modules            []Module
 	moduleIndex        map[string]Module
@@ -21,12 +21,22 @@ type Registry struct {
 // NewRegistry creates an empty registry.
 func NewRegistry() *Registry {
 	return &Registry{
+		logger:             ensureLogger(nil),
 		panels:             map[string]*Panel{},
 		moduleIndex:        map[string]Module{},
 		dashboardProviders: map[string]DashboardProviderSpec{},
 		settings:           map[string]SettingDefinition{},
 		panelTabs:          map[string]map[string]PanelTab{},
 	}
+}
+
+// WithLogger sets the registry logger used for runtime diagnostics.
+func (r *Registry) WithLogger(logger Logger) *Registry {
+	if r == nil {
+		return nil
+	}
+	r.logger = ensureLogger(logger)
+	return r
 }
 
 // RegisterPanel stores a panel by name; duplicate names are rejected.
@@ -102,7 +112,11 @@ func (r *Registry) RegisterPanelTab(panelName string, tab PanelTab) error {
 		r.panelTabs[panelName] = panelTabs
 	}
 	if existing, exists := panelTabs[tabID]; exists {
-		log.Printf("[admin] panel tab collision panel=%s id=%s existing_label=%s incoming_label=%s", panelName, tabID, existing.Label, tab.Label)
+		r.logger.Warn("panel tab collision",
+			"panel", panelName,
+			"id", tabID,
+			"existing_label", existing.Label,
+			"incoming_label", tab.Label)
 		return nil
 	}
 	panelTabs[tabID] = tab
