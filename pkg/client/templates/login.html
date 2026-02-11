@@ -37,6 +37,12 @@
         <p class="text-sm text-zinc-500">Enter email & password to continue.</p>
       </div>
 
+      {% if login_error_message %}
+      <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert" aria-live="polite">
+        {{ login_error_message }}
+      </div>
+      {% endif %}
+
       <!-- Form -->
       <form class="space-y-4" action="{{ base_path }}/login" method="post">
         <!-- Email Input -->
@@ -49,6 +55,7 @@
               type="text"
               name="identifier"
               placeholder="Enter your email address"
+              value="{{ login_identifier|default:'' }}"
               class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               required
             />
@@ -82,7 +89,7 @@
         <!-- Remember & Forgot -->
         <div class="flex items-center justify-between">
           <label class="flex items-center gap-2 text-sm text-zinc-600 cursor-pointer">
-            <input type="checkbox" name="remember" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <input type="checkbox" name="remember" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" {% if login_remember %}checked{% endif %} />
             Remember me
           </label>
           {% if feature("users.password_reset") %}

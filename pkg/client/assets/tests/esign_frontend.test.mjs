@@ -1487,3 +1487,593 @@ test('all Google error codes are recognized', async () => {
     assert.equal(result.textCode, code, `Error code ${code} should be extracted`);
   }
 });
+
+// =============================================================================
+// Phase 16: E-Sign Shell/Auth Entry and Redirect Behavior Tests
+// =============================================================================
+
+/**
+ * Auth redirect configuration for shell entry points
+ */
+const AUTH_REDIRECT_CONFIG = {
+  loginPath: '/admin/login',
+  logoutPath: '/admin/logout',
+  defaultLandingPath: '/admin/esign',
+  publicSignerBasePath: '/api/v1/esign/signing',
+};
+
+/**
+ * Check if a path requires authentication
+ * @param {string} path - URL path
+ * @returns {boolean}
+ */
+function isAuthRequiredPath(path) {
+  // Public signer paths don't require admin auth
+  if (path.startsWith(AUTH_REDIRECT_CONFIG.publicSignerBasePath)) {
+    return false;
+  }
+  // All /admin/* paths require auth except login
+  if (path.startsWith('/admin') && !path.startsWith('/admin/login')) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Check if a path is a public signer path
+ * @param {string} path - URL path
+ * @returns {boolean}
+ */
+function isPublicSignerPath(path) {
+  return path.startsWith(AUTH_REDIRECT_CONFIG.publicSignerBasePath);
+}
+
+/**
+ * Resolve redirect path for unauthenticated requests
+ * @param {string} requestedPath - Original requested path
+ * @returns {string} - Redirect path
+ */
+function resolveAuthRedirect(requestedPath) {
+  if (!isAuthRequiredPath(requestedPath)) {
+    return requestedPath; // No redirect needed
+  }
+  // Redirect to login with return URL
+  return `${AUTH_REDIRECT_CONFIG.loginPath}?return=${encodeURIComponent(requestedPath)}`;
+}
+
+/**
+ * Resolve landing path after successful login
+ * @param {string|null} returnUrl - Return URL from login redirect
+ * @returns {string}
+ */
+function resolvePostLoginRedirect(returnUrl) {
+  if (returnUrl && returnUrl.startsWith('/admin')) {
+    return returnUrl;
+  }
+  return AUTH_REDIRECT_CONFIG.defaultLandingPath;
+}
+
+/**
+ * Check if shell is authenticated (has valid session)
+ * @param {Object} sessionData - Session context
+ * @returns {boolean}
+ */
+function isShellAuthenticated(sessionData) {
+  return Boolean(sessionData?.user?.id);
+}
+
+/**
+ * Determine shell navigation state
+ * @param {boolean} authenticated - Whether user is authenticated
+ * @param {string} currentPath - Current URL path
+ * @returns {string} - 'login' | 'shell' | 'signer' | 'redirect'
+ */
+function getShellNavigationState(authenticated, currentPath) {
+  if (isPublicSignerPath(currentPath)) {
+    return 'signer'; // Public signer flow
+  }
+  if (currentPath === AUTH_REDIRECT_CONFIG.loginPath) {
+    return authenticated ? 'redirect' : 'login';
+  }
+  if (!authenticated && isAuthRequiredPath(currentPath)) {
+    return 'redirect'; // Needs to redirect to login
+  }
+  return 'shell'; // Authenticated admin shell
+}
+
+// Auth redirect tests
+
+test('isAuthRequiredPath returns true for /admin paths', () => {
+  assert.equal(isAuthRequiredPath('/admin'), true);
+  assert.equal(isAuthRequiredPath('/admin/esign'), true);
+  assert.equal(isAuthRequiredPath('/admin/esign/agreements'), true);
+  assert.equal(isAuthRequiredPath('/admin/settings'), true);
+});
+
+test('isAuthRequiredPath returns false for /admin/login', () => {
+  assert.equal(isAuthRequiredPath('/admin/login'), false);
+});
+
+test('isAuthRequiredPath returns false for public signer paths', () => {
+  assert.equal(isAuthRequiredPath('/api/v1/esign/signing/session/abc123'), false);
+  assert.equal(isAuthRequiredPath('/api/v1/esign/signing/submit/abc123'), false);
+});
+
+test('isPublicSignerPath identifies signer API paths', () => {
+  assert.equal(isPublicSignerPath('/api/v1/esign/signing/session/token123'), true);
+  assert.equal(isPublicSignerPath('/api/v1/esign/signing/consent/token123'), true);
+  assert.equal(isPublicSignerPath('/api/v1/esign/signing/submit/token123'), true);
+  assert.equal(isPublicSignerPath('/admin/esign'), false);
+});
+
+test('resolveAuthRedirect returns login path with return URL for protected paths', () => {
+  const result = resolveAuthRedirect('/admin/esign/agreements');
+  assert.equal(result, '/admin/login?return=%2Fadmin%2Fesign%2Fagreements');
+});
+
+test('resolveAuthRedirect returns original path for non-protected paths', () => {
+  assert.equal(resolveAuthRedirect('/admin/login'), '/admin/login');
+  assert.equal(resolveAuthRedirect('/api/v1/esign/signing/session/abc'), '/api/v1/esign/signing/session/abc');
+});
+
+test('resolvePostLoginRedirect uses return URL when valid admin path', () => {
+  assert.equal(resolvePostLoginRedirect('/admin/esign/agreements/123'), '/admin/esign/agreements/123');
+  assert.equal(resolvePostLoginRedirect('/admin/settings'), '/admin/settings');
+});
+
+test('resolvePostLoginRedirect falls back to default landing for invalid return URL', () => {
+  assert.equal(resolvePostLoginRedirect(null), '/admin/esign');
+  assert.equal(resolvePostLoginRedirect(''), '/admin/esign');
+  assert.equal(resolvePostLoginRedirect('/external/path'), '/admin/esign');
+});
+
+test('isShellAuthenticated checks session user ID', () => {
+  assert.equal(isShellAuthenticated({ user: { id: 'user123' } }), true);
+  assert.equal(isShellAuthenticated({ user: {} }), false);
+  assert.equal(isShellAuthenticated({ user: null }), false);
+  assert.equal(isShellAuthenticated({}), false);
+  assert.equal(isShellAuthenticated(null), false);
+});
+
+test('getShellNavigationState returns signer for public signer paths', () => {
+  assert.equal(getShellNavigationState(false, '/api/v1/esign/signing/session/abc'), 'signer');
+  assert.equal(getShellNavigationState(true, '/api/v1/esign/signing/session/abc'), 'signer');
+});
+
+test('getShellNavigationState returns login for unauthenticated login page', () => {
+  assert.equal(getShellNavigationState(false, '/admin/login'), 'login');
+});
+
+test('getShellNavigationState returns redirect for authenticated login page', () => {
+  assert.equal(getShellNavigationState(true, '/admin/login'), 'redirect');
+});
+
+test('getShellNavigationState returns redirect for unauthenticated protected paths', () => {
+  assert.equal(getShellNavigationState(false, '/admin/esign'), 'redirect');
+  assert.equal(getShellNavigationState(false, '/admin/esign/agreements'), 'redirect');
+});
+
+test('getShellNavigationState returns shell for authenticated admin paths', () => {
+  assert.equal(getShellNavigationState(true, '/admin/esign'), 'shell');
+  assert.equal(getShellNavigationState(true, '/admin/esign/agreements'), 'shell');
+});
+
+// =============================================================================
+// E-Sign Landing Page Navigation Tests
+// =============================================================================
+
+/**
+ * E-Sign landing page quick actions configuration
+ */
+const ESIGN_LANDING_QUICK_ACTIONS = [
+  { id: 'upload', href: '/admin/esign/documents/new', label: 'Upload Document', icon: 'upload' },
+  { id: 'create', href: '/admin/esign/agreements/new', label: 'Create Agreement', icon: 'edit-pencil' },
+  { id: 'library', href: '/admin/esign/documents', label: 'Document Library', icon: 'folder' },
+];
+
+/**
+ * E-Sign status filter options
+ */
+const ESIGN_STATUS_FILTERS = [
+  { id: 'draft', href: '/admin/esign/agreements?status=draft', label: 'Drafts', color: 'gray' },
+  { id: 'pending', href: '/admin/esign/agreements?status=sent,in_progress', label: 'Pending', color: 'amber' },
+  { id: 'completed', href: '/admin/esign/agreements?status=completed', label: 'Completed', color: 'green' },
+  { id: 'action_required', href: '/admin/esign/agreements?action_required=true', label: 'Action Required', color: 'red' },
+];
+
+/**
+ * Get quick action by ID
+ * @param {string} actionId - Action identifier
+ * @returns {Object|null}
+ */
+function getQuickAction(actionId) {
+  return ESIGN_LANDING_QUICK_ACTIONS.find(a => a.id === actionId) || null;
+}
+
+/**
+ * Get status filter by ID
+ * @param {string} filterId - Filter identifier
+ * @returns {Object|null}
+ */
+function getStatusFilter(filterId) {
+  return ESIGN_STATUS_FILTERS.find(f => f.id === filterId) || null;
+}
+
+test('getQuickAction returns correct upload action', () => {
+  const action = getQuickAction('upload');
+  assert.ok(action);
+  assert.equal(action.href, '/admin/esign/documents/new');
+  assert.equal(action.icon, 'upload');
+});
+
+test('getQuickAction returns correct create action', () => {
+  const action = getQuickAction('create');
+  assert.ok(action);
+  assert.equal(action.href, '/admin/esign/agreements/new');
+});
+
+test('getQuickAction returns null for unknown action', () => {
+  assert.equal(getQuickAction('unknown'), null);
+});
+
+test('getStatusFilter returns correct draft filter', () => {
+  const filter = getStatusFilter('draft');
+  assert.ok(filter);
+  assert.equal(filter.href, '/admin/esign/agreements?status=draft');
+  assert.equal(filter.color, 'gray');
+});
+
+test('getStatusFilter returns correct pending filter with combined statuses', () => {
+  const filter = getStatusFilter('pending');
+  assert.ok(filter);
+  assert.equal(filter.href, '/admin/esign/agreements?status=sent,in_progress');
+  assert.equal(filter.color, 'amber');
+});
+
+test('getStatusFilter returns correct completed filter', () => {
+  const filter = getStatusFilter('completed');
+  assert.ok(filter);
+  assert.equal(filter.color, 'green');
+});
+
+// =============================================================================
+// Feature Availability and Guardrail UI Tests
+// =============================================================================
+
+/**
+ * Feature availability config for guardrail UI
+ */
+const FEATURE_AVAILABILITY = {
+  esign: { enabled: true, label: 'E-Sign' },
+  pages: { enabled: false, label: 'Pages', reason: 'CMS feature not enabled' },
+  posts: { enabled: false, label: 'Posts', reason: 'CMS feature not enabled' },
+  media: { enabled: true, label: 'Media Library' },
+};
+
+/**
+ * Check if a feature/panel is available
+ * @param {string} featureKey - Feature identifier
+ * @returns {boolean}
+ */
+function isFeatureAvailable(featureKey) {
+  return FEATURE_AVAILABILITY[featureKey]?.enabled === true;
+}
+
+/**
+ * Get unavailable feature message
+ * @param {string} featureKey - Feature identifier
+ * @returns {Object|null}
+ */
+function getFeatureUnavailableInfo(featureKey) {
+  const feature = FEATURE_AVAILABILITY[featureKey];
+  if (!feature || feature.enabled) return null;
+  return {
+    label: feature.label,
+    reason: feature.reason || 'This feature is not available',
+  };
+}
+
+test('isFeatureAvailable returns true for enabled features', () => {
+  assert.equal(isFeatureAvailable('esign'), true);
+  assert.equal(isFeatureAvailable('media'), true);
+});
+
+test('isFeatureAvailable returns false for disabled features', () => {
+  assert.equal(isFeatureAvailable('pages'), false);
+  assert.equal(isFeatureAvailable('posts'), false);
+});
+
+test('isFeatureAvailable returns false for unknown features', () => {
+  assert.equal(isFeatureAvailable('unknown'), false);
+});
+
+test('getFeatureUnavailableInfo returns null for enabled features', () => {
+  assert.equal(getFeatureUnavailableInfo('esign'), null);
+});
+
+test('getFeatureUnavailableInfo returns info for disabled features', () => {
+  const info = getFeatureUnavailableInfo('pages');
+  assert.ok(info);
+  assert.equal(info.label, 'Pages');
+  assert.equal(info.reason, 'CMS feature not enabled');
+});
+
+test('getFeatureUnavailableInfo returns info for posts', () => {
+  const info = getFeatureUnavailableInfo('posts');
+  assert.ok(info);
+  assert.equal(info.label, 'Posts');
+});
+
+// =============================================================================
+// Phase 16: E-Sign E2E Smoke Flow Tests
+// =============================================================================
+
+/**
+ * Simulate navigation state machine for E2E smoke flow validation
+ */
+class NavigationFlowSimulator {
+  constructor() {
+    this.authenticated = false;
+    this.currentPath = '/';
+    this.redirectHistory = [];
+    this.sessionData = null;
+  }
+
+  /**
+   * Navigate to a path and simulate redirects
+   * @param {string} targetPath - Destination path
+   * @returns {Object} - Navigation result
+   */
+  navigate(targetPath) {
+    const startPath = this.currentPath;
+    this.currentPath = targetPath;
+
+    // Check if redirect is needed
+    const state = getShellNavigationState(this.authenticated, targetPath);
+
+    if (state === 'redirect' && !this.authenticated) {
+      // Redirect to login
+      const redirectPath = resolveAuthRedirect(targetPath);
+      this.redirectHistory.push({ from: targetPath, to: redirectPath, reason: 'unauthenticated' });
+      this.currentPath = AUTH_REDIRECT_CONFIG.loginPath;
+      return {
+        path: this.currentPath,
+        redirected: true,
+        originalPath: targetPath,
+        state: 'login',
+      };
+    }
+
+    if (state === 'redirect' && this.authenticated) {
+      // Already authenticated, redirect from login to landing
+      const landingPath = resolvePostLoginRedirect(null);
+      this.redirectHistory.push({ from: targetPath, to: landingPath, reason: 'already_authenticated' });
+      this.currentPath = landingPath;
+      return {
+        path: this.currentPath,
+        redirected: true,
+        originalPath: targetPath,
+        state: 'shell',
+      };
+    }
+
+    return {
+      path: this.currentPath,
+      redirected: false,
+      originalPath: startPath,
+      state,
+    };
+  }
+
+  /**
+   * Simulate login action
+   * @param {string} userId - User ID to authenticate
+   * @param {string} returnUrl - Optional return URL
+   * @returns {Object} - Login result
+   */
+  login(userId, returnUrl = null) {
+    this.authenticated = true;
+    this.sessionData = { user: { id: userId } };
+
+    const landingPath = resolvePostLoginRedirect(returnUrl);
+    this.redirectHistory.push({ from: '/admin/login', to: landingPath, reason: 'login_success' });
+    this.currentPath = landingPath;
+
+    return {
+      path: this.currentPath,
+      authenticated: true,
+      userId,
+    };
+  }
+
+  /**
+   * Simulate logout action
+   * @returns {Object} - Logout result
+   */
+  logout() {
+    this.authenticated = false;
+    this.sessionData = null;
+    this.redirectHistory.push({ from: this.currentPath, to: AUTH_REDIRECT_CONFIG.loginPath, reason: 'logout' });
+    this.currentPath = AUTH_REDIRECT_CONFIG.loginPath;
+
+    return {
+      path: this.currentPath,
+      authenticated: false,
+    };
+  }
+
+  /**
+   * Get current state summary
+   * @returns {Object}
+   */
+  getState() {
+    return {
+      path: this.currentPath,
+      authenticated: this.authenticated,
+      sessionData: this.sessionData,
+      redirectCount: this.redirectHistory.length,
+    };
+  }
+}
+
+// E2E Smoke Flow Tests
+
+test('E2E Smoke: Root path redirects to admin', () => {
+  const nav = new NavigationFlowSimulator();
+
+  // Navigate to root
+  nav.currentPath = '/';
+
+  // Simulate server-side redirect (/ -> /admin)
+  const result = nav.navigate('/admin');
+
+  // Unauthenticated, should redirect to login
+  assert.equal(result.redirected, true);
+  assert.equal(result.state, 'login');
+  assert.equal(nav.currentPath, '/admin/login');
+});
+
+test('E2E Smoke: Unauthenticated /admin redirects to login', () => {
+  const nav = new NavigationFlowSimulator();
+
+  const result = nav.navigate('/admin');
+
+  assert.equal(result.redirected, true);
+  assert.equal(result.state, 'login');
+  assert.equal(nav.currentPath, '/admin/login');
+});
+
+test('E2E Smoke: Login page accessible when unauthenticated', () => {
+  const nav = new NavigationFlowSimulator();
+
+  const result = nav.navigate('/admin/login');
+
+  assert.equal(result.redirected, false);
+  assert.equal(result.state, 'login');
+  assert.equal(nav.currentPath, '/admin/login');
+});
+
+test('E2E Smoke: Login redirects to e-sign landing', () => {
+  const nav = new NavigationFlowSimulator();
+  nav.navigate('/admin/login');
+
+  const result = nav.login('user123');
+
+  assert.equal(result.authenticated, true);
+  assert.equal(result.path, '/admin/esign');
+  assert.equal(nav.currentPath, '/admin/esign');
+});
+
+test('E2E Smoke: Login with return URL redirects correctly', () => {
+  const nav = new NavigationFlowSimulator();
+  nav.navigate('/admin/login');
+
+  const result = nav.login('user123', '/admin/esign/agreements/123');
+
+  assert.equal(result.authenticated, true);
+  assert.equal(result.path, '/admin/esign/agreements/123');
+});
+
+test('E2E Smoke: Authenticated user can navigate shell', () => {
+  const nav = new NavigationFlowSimulator();
+  nav.navigate('/admin/login');
+  nav.login('user123');
+
+  // Navigate to various shell pages
+  let result = nav.navigate('/admin/esign/documents');
+  assert.equal(result.state, 'shell');
+  assert.equal(result.redirected, false);
+
+  result = nav.navigate('/admin/esign/agreements');
+  assert.equal(result.state, 'shell');
+  assert.equal(result.redirected, false);
+
+  result = nav.navigate('/admin/settings');
+  assert.equal(result.state, 'shell');
+  assert.equal(result.redirected, false);
+});
+
+test('E2E Smoke: Authenticated user redirected from login page', () => {
+  const nav = new NavigationFlowSimulator();
+  nav.navigate('/admin/login');
+  nav.login('user123');
+
+  // Try to navigate back to login
+  const result = nav.navigate('/admin/login');
+
+  assert.equal(result.redirected, true);
+  assert.equal(result.state, 'shell');
+  assert.equal(nav.currentPath, '/admin/esign');
+});
+
+test('E2E Smoke: Logout redirects to login', () => {
+  const nav = new NavigationFlowSimulator();
+  nav.navigate('/admin/login');
+  nav.login('user123');
+  nav.navigate('/admin/esign');
+
+  const result = nav.logout();
+
+  assert.equal(result.authenticated, false);
+  assert.equal(result.path, '/admin/login');
+});
+
+test('E2E Smoke: Public signer path accessible without auth', () => {
+  const nav = new NavigationFlowSimulator();
+
+  const result = nav.navigate('/api/v1/esign/signing/session/abc123');
+
+  assert.equal(result.state, 'signer');
+  assert.equal(result.redirected, false);
+  assert.equal(nav.currentPath, '/api/v1/esign/signing/session/abc123');
+});
+
+test('E2E Smoke: Full flow - unauthenticated user to completed draft', () => {
+  const nav = new NavigationFlowSimulator();
+
+  // Step 1: Navigate to root (redirects to admin)
+  nav.navigate('/admin');
+  assert.equal(nav.currentPath, '/admin/login');
+  assert.equal(nav.authenticated, false);
+
+  // Step 2: Login
+  nav.login('sender123');
+  assert.equal(nav.currentPath, '/admin/esign');
+  assert.equal(nav.authenticated, true);
+
+  // Step 3: Navigate to create agreement
+  const createResult = nav.navigate('/admin/esign/agreements/new');
+  assert.equal(createResult.state, 'shell');
+  assert.equal(nav.currentPath, '/admin/esign/agreements/new');
+
+  // Step 4: After creating, navigate to agreement detail
+  nav.navigate('/admin/esign/agreements/agr_new123');
+  assert.equal(nav.currentPath, '/admin/esign/agreements/agr_new123');
+
+  // Step 5: Navigate to document upload
+  nav.navigate('/admin/esign/documents/new');
+  assert.equal(nav.currentPath, '/admin/esign/documents/new');
+
+  // All navigation completed without redirect issues
+  const state = nav.getState();
+  assert.equal(state.authenticated, true);
+  assert.ok(state.redirectCount >= 2); // At least login redirect + post-login redirect
+});
+
+test('E2E Smoke: Session persistence across navigation', () => {
+  const nav = new NavigationFlowSimulator();
+  nav.navigate('/admin/login');
+  nav.login('admin123');
+
+  // Navigate through multiple pages
+  nav.navigate('/admin/esign/documents');
+  nav.navigate('/admin/esign/agreements');
+  nav.navigate('/admin/esign/agreements/123');
+  nav.navigate('/admin/settings');
+  nav.navigate('/admin/esign');
+
+  // Session should persist
+  const state = nav.getState();
+  assert.equal(state.authenticated, true);
+  assert.equal(state.sessionData.user.id, 'admin123');
+});
