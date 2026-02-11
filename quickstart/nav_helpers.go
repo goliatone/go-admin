@@ -3,7 +3,6 @@ package quickstart
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -140,8 +139,13 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 		entries = append(entries, entry)
 	}
 	if logNav {
+		logger := resolveQuickstartAdminLogger(adm, "quickstart.navigation", nil, nil)
 		if raw, err := json.Marshal(map[string]any{"placement": placement, "menu_code": menuCode, "items": entries}); err == nil {
-			log.Printf("[nav] payload=%s", string(raw))
+			logger.Debug("nav payload",
+				"placement", placement,
+				"menu_code", menuCode,
+				"payload", string(raw),
+			)
 		}
 	}
 	return entries
