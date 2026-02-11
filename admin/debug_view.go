@@ -59,26 +59,7 @@ func buildDebugViewContext(adm *Admin, cfg DebugConfig, c router.Context, view r
 	if cfg.LayoutMode != DebugLayoutAdmin {
 		return view
 	}
-	basePath := strings.TrimSpace(toString(view["base_path"]))
-	if basePath == "" && adm != nil {
-		basePath = strings.TrimSpace(adm.config.BasePath)
-	}
-	if _, ok := view["base_path"]; !ok && basePath != "" {
-		view["base_path"] = basePath
-	}
-	if _, ok := view["nav_items"]; !ok {
-		view["nav_items"] = debugViewNavItems(adm, c, basePath)
-	}
-	if _, ok := view["session_user"]; !ok {
-		view["session_user"] = debugViewSessionUser(c, basePath)
-	}
-	if _, ok := view["theme"]; !ok && adm != nil {
-		ctx := context.Background()
-		if c != nil && c.Context() != nil {
-			ctx = c.Context()
-		}
-		view["theme"] = adm.themePayload(ctx)
-	}
+	view = buildAdminLayoutViewContext(adm, c, view, "")
 	if _, ok := view["debug_standalone_path"]; !ok {
 		if debugPath, ok := view["debug_path"].(string); ok && debugPath != "" {
 			view["debug_standalone_path"] = debugStandalonePath(debugPath)
