@@ -14,6 +14,7 @@
 import type { ActionButton, ActionVariant } from './actions.js';
 import {
   executeActionRequest,
+  formatStructuredErrorForDisplay,
   extractTranslationBlocker,
   isTranslationBlocker,
   type StructuredError,
@@ -41,16 +42,27 @@ export interface SchemaAction {
   variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
   /** Icon identifier */
   icon?: string;
-  /** Whether payload is required */
-  payload_required?: boolean;
+  /** Required payload fields (legacy boolean is also tolerated) */
+  payload_required?: string[] | boolean;
   /** JSON Schema for payload */
-  payload_schema?: PayloadSchema;
+  payload_schema?: PayloadSchema | Record<string, unknown>;
   /** Action type hint (navigation vs POST) */
   type?: 'navigation' | 'action';
   /** Target URL pattern for navigation actions */
   href?: string;
+  /** Scope where this action is valid */
+  scope?: 'all' | 'row' | 'detail' | 'bulk';
+  /** Record fields required to render/execute this action in a given context */
+  context_required?: string[];
   /** Permission required for this action */
   permission?: string;
+}
+
+export interface ActionState {
+  enabled?: boolean;
+  reason?: string;
+  reason_code?: string;
+  available_transitions?: string[];
 }
 
 /**
@@ -104,6 +116,8 @@ export interface SchemaActionBuilderConfig {
   useDefaultFallback?: boolean;
   /** Explicit compatibility mode: append defaults even with schema actions */
   appendDefaultActions?: boolean;
+  /** Action rendering context (DataGrid row actions use 'row') */
+  actionContext?: 'row' | 'detail' | 'bulk';
 }
 
 /**
@@ -151,6 +165,7 @@ export class SchemaActionBuilder {
     this.config = {
       useDefaultFallback: true,
       appendDefaultActions: false,
+      actionContext: 'row',
       ...config,
     };
   }
@@ -173,12 +188,15 @@ export class SchemaActionBuilder {
     if (Array.isArray(schemaActions) && schemaActions.length > 0) {
       for (const schemaAction of schemaActions) {
         if (!schemaAction.name) continue;
+        if (!this.shouldIncludeAction(record, schemaAction)) continue;
 
         // Skip duplicates
-        if (this.seenActions.has(schemaAction.name)) continue;
-        this.seenActions.add(schemaAction.name);
+        const actionKey = schemaAction.name.toLowerCase();
+        if (this.seenActions.has(actionKey)) continue;
+        this.seenActions.add(actionKey);
 
-        const actionButton = this.buildActionFromSchema(record, schemaAction, queryContext);
+        const actionState = this.resolveRecordActionState(record, schemaAction.name);
+        const actionButton = this.buildActionFromSchema(record, schemaAction, queryContext, actionState);
         if (actionButton) {
           actions.push(actionButton);
         }
@@ -202,7 +220,8 @@ export class SchemaActionBuilder {
   private buildActionFromSchema(
     record: Record<string, unknown>,
     schemaAction: SchemaAction,
-    queryContext: string
+    queryContext: string,
+    actionState: ActionState | null
   ): ActionButton | null {
     const actionName = schemaAction.name;
     const label = schemaAction.label || schemaAction.label_key || actionName;
@@ -214,15 +233,18 @@ export class SchemaActionBuilder {
     const isDeleteAction = actionName === 'delete';
 
     if (isNavigationAction) {
-      return this.buildNavigationAction(record, schemaAction, label, variant, icon, queryContext);
+      return this.applyActionState(
+        this.buildNavigationAction(record, schemaAction, label, variant, icon, queryContext),
+        actionState
+      );
     }
 
     if (isDeleteAction) {
-      return this.buildDeleteAction(record, label, variant, icon);
+      return this.applyActionState(this.buildDeleteAction(record, label, variant, icon), actionState);
     }
 
     // All other actions: POST to panel action endpoint
-    return this.buildPostAction(record, schemaAction, label, variant, icon);
+    return this.applyActionState(this.buildPostAction(record, schemaAction, label, variant, icon), actionState);
   }
 
   /**
@@ -235,6 +257,103 @@ export class SchemaActionBuilder {
     // Known navigation actions by name
     const navActions = ['view', 'edit', 'show', 'details'];
     return navActions.includes(schemaAction.name.toLowerCase());
+  }
+
+  private shouldIncludeAction(record: Record<string, unknown>, schemaAction: SchemaAction): boolean {
+    if (!this.matchesActionScope(schemaAction.scope)) {
+      return false;
+    }
+
+    const requiredContext = Array.isArray(schemaAction.context_required)
+      ? schemaAction.context_required
+      : [];
+    if (requiredContext.length === 0) {
+      return true;
+    }
+
+    for (const rawField of requiredContext) {
+      const field = typeof rawField === 'string' ? rawField.trim() : '';
+      if (!field) continue;
+      const value = this.resolveRecordContextValue(record, field);
+      if (this.isEmptyPayloadValue(value)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private resolveRecordActionState(record: Record<string, unknown>, actionName: string): ActionState | null {
+    const rawState = record['_action_state'];
+    if (!rawState || typeof rawState !== 'object' || Array.isArray(rawState)) {
+      return null;
+    }
+    const perAction = (rawState as Record<string, unknown>)[actionName];
+    if (!perAction || typeof perAction !== 'object' || Array.isArray(perAction)) {
+      return null;
+    }
+    return perAction as ActionState;
+  }
+
+  private applyActionState(action: ActionButton, state: ActionState | null): ActionButton {
+    if (!state) {
+      return action;
+    }
+    if (state.enabled !== false) {
+      return action;
+    }
+    const disabledReason = this.disabledReason(state);
+    return {
+      ...action,
+      disabled: true,
+      disabledReason,
+    };
+  }
+
+  private disabledReason(state: ActionState): string {
+    const reason = typeof state.reason === 'string' ? state.reason.trim() : '';
+    if (reason) {
+      return reason;
+    }
+    const code = typeof state.reason_code === 'string' ? state.reason_code.trim().toLowerCase() : '';
+    switch (code) {
+      case 'workflow_transition_not_available':
+        return 'Action is not available in the current workflow state.';
+      case 'permission_denied':
+        return 'You do not have permission to execute this action.';
+      case 'missing_context_required':
+        return 'Action is unavailable because required record context is missing.';
+      default:
+        return 'Action is currently unavailable.';
+    }
+  }
+
+  private matchesActionScope(scope: SchemaAction['scope']): boolean {
+    const normalizedScope = typeof scope === 'string' ? scope.trim().toLowerCase() : '';
+    if (!normalizedScope || normalizedScope === 'all') {
+      return true;
+    }
+    const context = (this.config.actionContext || 'row').toLowerCase();
+    return normalizedScope === context;
+  }
+
+  private resolveRecordContextValue(record: Record<string, unknown>, path: string): unknown {
+    const normalizedPath = path.trim();
+    if (!normalizedPath) return undefined;
+    if (!normalizedPath.includes('.')) {
+      return record[normalizedPath];
+    }
+
+    const segments = normalizedPath.split('.').map((segment) => segment.trim()).filter(Boolean);
+    if (segments.length === 0) return undefined;
+
+    let cursor: unknown = record;
+    for (const segment of segments) {
+      if (!cursor || typeof cursor !== 'object' || Array.isArray(cursor)) {
+        return undefined;
+      }
+      cursor = (cursor as Record<string, unknown>)[segment];
+    }
+    return cursor;
   }
 
   /**
@@ -361,8 +480,12 @@ export class SchemaActionBuilder {
             }
           }
 
-          this.config.onActionError?.(actionName, result.error);
-          throw new Error(result.error.message);
+          const formattedMessage = this.buildActionErrorMessage(actionName, result.error);
+          this.config.onActionError?.(actionName, {
+            ...result.error,
+            message: formattedMessage,
+          });
+          throw new Error(formattedMessage);
         }
       },
     };
@@ -390,13 +513,44 @@ export class SchemaActionBuilder {
       payload.policy_entity = this.config.panelName;
     }
 
-    // If payload is required, we need to prompt for values
-    if (schemaAction.payload_required && schemaAction.payload_schema) {
-      const promptedValues = await this.promptForPayload(schemaAction);
-      if (promptedValues === null) {
-        return null; // User cancelled
+    const schema = this.normalizePayloadSchema(schemaAction.payload_schema);
+    const requiredFields = this.collectRequiredFields(schemaAction.payload_required, schema);
+
+    // Seed defaults from schema definitions.
+    if (schema?.properties) {
+      for (const [field, definition] of Object.entries(schema.properties)) {
+        if (payload[field] === undefined && definition.default !== undefined) {
+          payload[field] = definition.default;
+        }
       }
-      Object.assign(payload, promptedValues);
+    }
+
+    // Generate idempotency_key for send-like actions when required but absent.
+    if (
+      requiredFields.includes('idempotency_key') &&
+      this.isEmptyPayloadValue(payload.idempotency_key)
+    ) {
+      payload.idempotency_key = this.generateIdempotencyKey(schemaAction.name, String(record.id || ''));
+    }
+
+    const missingRequired = requiredFields.filter((field) => this.isEmptyPayloadValue(payload[field]));
+    if (missingRequired.length === 0) {
+      return payload;
+    }
+
+    const promptedValues = await this.promptForPayload(schemaAction, missingRequired, schema, payload);
+    if (promptedValues === null) {
+      return null; // User cancelled
+    }
+
+    for (const field of missingRequired) {
+      const definition = schema?.properties?.[field];
+      const rawValue = promptedValues[field] ?? '';
+      const parsed = this.coercePromptValue(rawValue, field, definition);
+      if (parsed.error) {
+        throw new Error(parsed.error);
+      }
+      payload[field] = parsed.value;
     }
 
     return payload;
@@ -406,28 +560,33 @@ export class SchemaActionBuilder {
    * Prompt user for required payload values
    * Uses the existing PayloadInputModal from actions.ts
    */
-  private async promptForPayload(schemaAction: SchemaAction): Promise<Record<string, unknown> | null> {
-    const schema = schemaAction.payload_schema;
-    if (!schema?.properties) {
+  private async promptForPayload(
+    schemaAction: SchemaAction,
+    requiredFields: string[],
+    schema: PayloadSchema | null,
+    payload: Record<string, unknown>
+  ): Promise<Record<string, unknown> | null> {
+    if (requiredFields.length === 0) {
       return {};
     }
-
     // Import dynamically to avoid circular dependencies
     const { PayloadInputModal } = await import('./payload-modal.js');
 
-    const required = schema.required || [];
-    const fields = Object.entries(schema.properties).map(([name, prop]) => ({
-      name,
-      label: prop.title || name,
-      description: prop.description,
-      value: this.stringifyDefault(prop.default),
-      type: prop.type || 'string',
-      options: this.buildFieldOptions(prop),
-    }));
+    const fields = requiredFields.map((name) => {
+      const definition = schema?.properties?.[name];
+      return {
+        name,
+        label: definition?.title || name,
+        description: definition?.description,
+        value: this.stringifyDefault(payload[name] ?? definition?.default),
+        type: definition?.type || 'string',
+        options: this.buildFieldOptions(definition),
+      };
+    });
 
     const result = await PayloadInputModal.prompt({
       title: `Complete ${schemaAction.label || schemaAction.name}`,
-      fields: fields.filter(f => required.includes(f.name)),
+      fields,
     });
 
     return result;
@@ -436,7 +595,10 @@ export class SchemaActionBuilder {
   /**
    * Build field options from schema property
    */
-  private buildFieldOptions(prop: PayloadSchemaProperty): Array<{ value: string; label: string }> | undefined {
+  private buildFieldOptions(prop: PayloadSchemaProperty | undefined): Array<{ value: string; label: string }> | undefined {
+    if (!prop) {
+      return undefined;
+    }
     if (prop.oneOf) {
       return prop.oneOf
         .filter(opt => opt && 'const' in opt)
@@ -462,7 +624,143 @@ export class SchemaActionBuilder {
   private stringifyDefault(value: unknown): string {
     if (value === undefined || value === null) return '';
     if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return '';
+      }
+    }
     return String(value);
+  }
+
+  private normalizePayloadSchema(schema: SchemaAction['payload_schema']): PayloadSchema | null {
+    if (!schema || typeof schema !== 'object') {
+      return null;
+    }
+
+    const propertiesRaw = (schema as Record<string, unknown>).properties;
+    let properties: Record<string, PayloadSchemaProperty> | undefined;
+    if (propertiesRaw && typeof propertiesRaw === 'object' && !Array.isArray(propertiesRaw)) {
+      properties = {};
+      for (const [key, value] of Object.entries(propertiesRaw as Record<string, unknown>)) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          properties[key] = value as PayloadSchemaProperty;
+        }
+      }
+    }
+
+    const requiredRaw = (schema as Record<string, unknown>).required;
+    const required = Array.isArray(requiredRaw)
+      ? requiredRaw
+        .filter((field): field is string => typeof field === 'string')
+        .map((field) => field.trim())
+        .filter((field) => field.length > 0)
+      : undefined;
+
+    return {
+      type: typeof (schema as Record<string, unknown>).type === 'string'
+        ? ((schema as Record<string, unknown>).type as string)
+        : undefined,
+      required,
+      properties,
+    };
+  }
+
+  private collectRequiredFields(
+    payloadRequired: SchemaAction['payload_required'],
+    schema: PayloadSchema | null
+  ): string[] {
+    const ordered: string[] = [];
+    const seen = new Set<string>();
+    const append = (field: string): void => {
+      const name = field.trim();
+      if (!name || seen.has(name)) {
+        return;
+      }
+      seen.add(name);
+      ordered.push(name);
+    };
+
+    if (Array.isArray(payloadRequired)) {
+      payloadRequired.forEach((field) => append(String(field)));
+    }
+    if (Array.isArray(schema?.required)) {
+      schema.required.forEach((field) => append(String(field)));
+    }
+    return ordered;
+  }
+
+  private isEmptyPayloadValue(value: unknown): boolean {
+    if (value === null || value === undefined) {
+      return true;
+    }
+    if (typeof value === 'string') {
+      return value.trim() === '';
+    }
+    if (Array.isArray(value)) {
+      return value.length === 0;
+    }
+    if (typeof value === 'object') {
+      return Object.keys(value as Record<string, unknown>).length === 0;
+    }
+    return false;
+  }
+
+  private generateIdempotencyKey(actionName: string, recordId: string): string {
+    const safeAction = actionName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const safeRecord = recordId.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const suffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+    return `${safeAction || 'action'}-${safeRecord || 'record'}-${suffix}`;
+  }
+
+  private coercePromptValue(
+    rawValue: unknown,
+    field: string,
+    prop: PayloadSchemaProperty | undefined
+  ): { value: unknown; error?: string } {
+    const value = typeof rawValue === 'string' ? rawValue.trim() : String(rawValue ?? '').trim();
+    const type = typeof prop?.type === 'string' ? prop.type.toLowerCase() : 'string';
+
+    if (value.length === 0) {
+      return { value };
+    }
+
+    if (type === 'number' || type === 'integer') {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) {
+        return { value: null, error: `${field} must be a valid number` };
+      }
+      return { value: type === 'integer' ? Math.trunc(parsed) : parsed };
+    }
+
+    if (type === 'boolean') {
+      const normalized = value.toLowerCase();
+      if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
+        return { value: true };
+      }
+      if (normalized === 'false' || normalized === '0' || normalized === 'no') {
+        return { value: false };
+      }
+      return { value: null, error: `${field} must be true or false` };
+    }
+
+    if (type === 'array' || type === 'object') {
+      try {
+        return { value: JSON.parse(value) };
+      } catch {
+        const expected = type === 'array' ? '[...]' : '{...}';
+        return { value: null, error: `${field} must be valid JSON (${expected})` };
+      }
+    }
+
+    return { value };
+  }
+
+  private buildActionErrorMessage(actionName: string, error: StructuredError): string {
+    return formatStructuredErrorForDisplay(error, `${actionName} failed`);
   }
 
   /**

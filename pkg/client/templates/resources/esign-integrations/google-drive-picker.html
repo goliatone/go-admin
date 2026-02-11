@@ -379,7 +379,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const basePath = '{{ base_path }}';
-  const apiBase = '{{ api_base_path|default:basePath + "/api" }}';
+  const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
   const userId = '{{ user_id|default:"" }}';
   const integrationsBase = '{{ adminURL("esign/integrations/google") }}';
   const agreementsBase = '{{ adminURL("content/esign_agreements") }}';

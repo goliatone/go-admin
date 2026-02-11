@@ -107,6 +107,11 @@ export declare function extractErrorMessage(response: Response): Promise<string>
  */
 export declare function getErrorMessage(error: unknown): string;
 /**
+ * Build a user-facing message from a structured error.
+ * Includes text_code and field-level details when available.
+ */
+export declare function formatStructuredErrorForDisplay(error: StructuredError, fallbackMessage?: string): string;
+/**
  * Exchange error codes for import/export operations.
  * These match the backend error codes from Phase 12 Task 12.3.
  */

@@ -4,6 +4,7 @@
  */
 
 import type { ActivityEntry, ActionCategory, ParsedObject, ActorType } from './types.js';
+import { renderIcon } from '../shared/icon-renderer.js';
 
 /**
  * Mapping of verbs to action categories
@@ -779,7 +780,7 @@ export function getActionClass(category: ActionCategory): string {
  */
 export function getActionIconHtml(category: ActionCategory): string {
   const icon = ACTION_ICONS[category];
-  return `<i class="iconoir-${icon} activity-action-icon"></i>`;
+  return renderIcon(`iconoir:${icon}`, { extraClass: 'activity-action-icon' });
 }
 
 /**
@@ -790,21 +791,25 @@ export function getActorTypeIconHtml(actorType: ActorType, options?: { badge?: b
   const icon = ACTOR_TYPE_ICONS[actorType];
   const label = ACTOR_TYPE_LABELS[actorType];
 
-  const sizeStyles: Record<string, string> = {
-    sm: 'font-size: 12px;',
-    md: 'font-size: 14px;',
-    lg: 'font-size: 16px;',
+  const sizeMap: Record<string, string> = {
+    sm: '12px',
+    md: '14px',
+    lg: '16px',
   };
 
   if (badge) {
+    const iconHtml = renderIcon(`iconoir:${icon}`, { size: sizeMap[size] });
     return `
       <span class="activity-actor-type-badge activity-actor-type-badge--${actorType}" title="${escapeHtml(label)}">
-        <i class="iconoir-${icon}" style="${sizeStyles[size]}"></i>
+        ${iconHtml}
       </span>
     `;
   }
 
-  return `<i class="iconoir-${icon} activity-actor-type-icon activity-actor-type-icon--${actorType}" style="${sizeStyles[size]}" title="${escapeHtml(label)}"></i>`;
+  return renderIcon(`iconoir:${icon}`, {
+    size: sizeMap[size],
+    extraClass: `activity-actor-type-icon activity-actor-type-icon--${actorType}`,
+  });
 }
 
 /**

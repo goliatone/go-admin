@@ -16,6 +16,8 @@ export interface ActionButton {
   icon?: string;
   action: (record: any) => void | Promise<void>;
   condition?: (record: any) => boolean;
+  disabled?: boolean;
+  disabledReason?: string;
   variant?: ActionVariant;
   className?: string;
 }
@@ -298,13 +300,21 @@ export class ActionRenderer {
       const variantClass = this.getVariantClass(action.variant || 'secondary');
       const icon = action.icon ? this.renderIcon(action.icon) : '';
       const customClass = action.className || '';
+      const disabled = action.disabled === true;
+      const disabledClass = disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : '';
+      const disabledAttr = disabled ? 'disabled' : '';
+      const titleAttr = action.disabledReason
+        ? `title="${this.escapeHtml(action.disabledReason)}"`
+        : '';
 
       return `
         <button
           type="button"
-          class="btn btn-sm ${variantClass} ${customClass}"
+          class="btn btn-sm ${variantClass} ${customClass} ${disabledClass}"
           data-action-id="${this.sanitize(action.label)}"
           data-record-id="${record.id}"
+          ${disabledAttr}
+          ${titleAttr}
         >
           ${icon}
           ${this.sanitize(action.label)}
@@ -357,6 +367,7 @@ export class ActionRenderer {
   private buildDropdownItems(record: any, actions: ActionButton[]): string {
     return actions.map((action, index) => {
       const isDestructive = action.variant === 'danger';
+      const disabled = action.disabled === true;
       const icon = action.icon ? this.renderIcon(action.icon) : '';
       const needsDivider = this.shouldShowDivider(action, index, actions);
 
@@ -364,9 +375,15 @@ export class ActionRenderer {
         ? '<div class="action-divider border-t border-gray-200 my-1"></div>'
         : '';
 
-      const itemClass = isDestructive
+      const itemClass = disabled
+        ? 'action-item text-gray-400 cursor-not-allowed'
+        : isDestructive
         ? 'action-item text-red-600 hover:bg-red-50'
         : 'action-item text-gray-700 hover:bg-gray-50';
+      const disabledAttr = disabled ? 'disabled' : '';
+      const titleAttr = action.disabledReason
+        ? `title="${this.escapeHtml(action.disabledReason)}"`
+        : '';
 
       return `
         ${divider}
@@ -374,7 +391,9 @@ export class ActionRenderer {
                 class="${itemClass} flex items-center gap-3 w-full px-4 py-2.5 transition-colors"
                 data-action-id="${this.sanitize(action.label)}"
                 data-record-id="${record.id}"
-                role="menuitem">
+                role="menuitem"
+                ${disabledAttr}
+                ${titleAttr}>
           <span class="flex-shrink-0 w-5 h-5">${icon}</span>
           <span class="text-sm font-medium">${this.escapeHtml(action.label)}</span>
         </button>

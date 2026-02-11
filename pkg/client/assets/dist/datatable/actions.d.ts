@@ -10,6 +10,8 @@ export interface ActionButton {
     icon?: string;
     action: (record: any) => void | Promise<void>;
     condition?: (record: any) => boolean;
+    disabled?: boolean;
+    disabledReason?: string;
     variant?: ActionVariant;
     className?: string;
 }

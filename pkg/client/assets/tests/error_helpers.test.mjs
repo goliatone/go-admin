@@ -9,6 +9,7 @@ const {
   parseActionResponse,
   extractErrorMessage,
   getErrorMessage,
+  formatStructuredErrorForDisplay,
 } = await import('../dist/toast/error-helpers.js');
 
 // Helper to create mock Response objects
@@ -430,6 +431,30 @@ test('getErrorMessage returns fallback for unknown types', () => {
   assert.equal(getErrorMessage(null), 'An unexpected error occurred');
   assert.equal(getErrorMessage(42), 'An unexpected error occurred');
   assert.equal(getErrorMessage({}), 'An unexpected error occurred');
+});
+
+test('formatStructuredErrorForDisplay includes text code and field details', () => {
+  const message = formatStructuredErrorForDisplay({
+    textCode: 'VALIDATION_ERROR',
+    message: 'action payload validation failed',
+    metadata: { fields: { idempotency_key: 'required' } },
+    fields: null,
+    validationErrors: null,
+  }, 'fallback message');
+
+  assert.equal(message, 'VALIDATION_ERROR: action payload validation failed: idempotency_key: required');
+});
+
+test('formatStructuredErrorForDisplay falls back when message missing', () => {
+  const message = formatStructuredErrorForDisplay({
+    textCode: null,
+    message: '',
+    metadata: null,
+    fields: null,
+    validationErrors: null,
+  }, 'fallback message');
+
+  assert.equal(message, 'fallback message');
 });
 
 // =============================================================================

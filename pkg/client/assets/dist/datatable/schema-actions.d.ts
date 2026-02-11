@@ -30,16 +30,26 @@ export interface SchemaAction {
     variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
     /** Icon identifier */
     icon?: string;
-    /** Whether payload is required */
-    payload_required?: boolean;
+    /** Required payload fields (legacy boolean is also tolerated) */
+    payload_required?: string[] | boolean;
     /** JSON Schema for payload */
-    payload_schema?: PayloadSchema;
+    payload_schema?: PayloadSchema | Record<string, unknown>;
     /** Action type hint (navigation vs POST) */
     type?: 'navigation' | 'action';
     /** Target URL pattern for navigation actions */
     href?: string;
+    /** Scope where this action is valid */
+    scope?: 'all' | 'row' | 'detail' | 'bulk';
+    /** Record fields required to render/execute this action in a given context */
+    context_required?: string[];
     /** Permission required for this action */
     permission?: string;
+}
+export interface ActionState {
+    enabled?: boolean;
+    reason?: string;
+    reason_code?: string;
+    available_transitions?: string[];
 }
 /**
  * Payload schema for actions requiring input
@@ -85,6 +95,8 @@ export interface SchemaActionBuilderConfig {
     useDefaultFallback?: boolean;
     /** Explicit compatibility mode: append defaults even with schema actions */
     appendDefaultActions?: boolean;
+    /** Action rendering context (DataGrid row actions use 'row') */
+    actionContext?: 'row' | 'detail' | 'bulk';
 }
 /**
  * Result from action execution
@@ -137,6 +149,12 @@ export declare class SchemaActionBuilder {
      * Check if action is a navigation action
      */
     private isNavigationAction;
+    private shouldIncludeAction;
+    private resolveRecordActionState;
+    private applyActionState;
+    private disabledReason;
+    private matchesActionScope;
+    private resolveRecordContextValue;
     /**
      * Build navigation action (view, edit, etc.)
      */
@@ -166,6 +184,12 @@ export declare class SchemaActionBuilder {
      * Stringify default value for form input
      */
     private stringifyDefault;
+    private normalizePayloadSchema;
+    private collectRequiredFields;
+    private isEmptyPayloadValue;
+    private generateIdempotencyKey;
+    private coercePromptValue;
+    private buildActionErrorMessage;
     /**
      * Build URL query context from locale/environment
      */

@@ -26,6 +26,7 @@ import {
   shortenId,
   getSessionId,
 } from './formatters.js';
+import { renderIcon } from '../shared/icon-renderer.js';
 
 import { ActivityViewSwitcher } from './activity-view-switcher.js';
 import { TimelineRenderer, createLoadingIndicator, createEndIndicator, createScrollSentinel } from './activity-timeline.js';
@@ -52,6 +53,27 @@ const TIMELINE_SELECTORS = {
 const FIELD_IDS = ['q', 'verb', 'channels', 'object_type', 'object_id'];
 const DATE_FIELDS = ['since', 'until'];
 const PASSTHROUGH_FIELDS = ['user_id', 'actor_id'];
+
+type ActivityAPIError = {
+  textCode: string;
+  message: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseActivityAPIError(payload: unknown): ActivityAPIError {
+  if (!isRecord(payload)) {
+    return { textCode: '', message: '' };
+  }
+
+  const envelope = isRecord(payload.error) ? payload.error : payload;
+  const textCode = typeof envelope.text_code === 'string' ? envelope.text_code.trim() : '';
+  const message = typeof envelope.message === 'string' ? envelope.message.trim() : '';
+
+  return { textCode, message };
+}
 
 export class ActivityManager {
   private config: ActivityConfig;
@@ -441,21 +463,22 @@ export class ActivityManager {
       const response = await fetch(url, { headers: { Accept: 'application/json' } });
 
       if (!response.ok) {
-        let payload = null;
+        let payload: unknown = null;
         try {
           payload = await response.json();
         } catch {
           payload = null;
         }
+        const apiError = parseActivityAPIError(payload);
 
-        if (response.status === 404 && payload?.text_code === 'FEATURE_DISABLED') {
-          this.showDisabled(payload.message || 'Activity feature disabled.');
+        if (response.status === 404 && apiError.textCode === 'FEATURE_DISABLED') {
+          this.showDisabled(apiError.message || 'Activity feature disabled.');
           this.renderRows([]);
           this.updatePagination(0);
           return;
         }
 
-        this.showError(payload?.message || `Failed to load activity (${response.status})`);
+        this.showError(apiError.message || `Failed to load activity (${response.status})`);
         return;
       }
 
@@ -577,7 +600,7 @@ export class ActivityManager {
       actionCellHtml = `
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f3f4f6; border-radius: 6px; color: #6b7280;" title="${escapeHtml(parsedAction.namespace)}">
-            <i class="iconoir-${parsedAction.icon}" style="font-size: 14px;"></i>
+            ${renderIcon(`iconoir:${parsedAction.icon}`, { size: '14px' })}
           </span>
           <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${colors.bg}; color: ${colors.color}; border: 1px solid ${colors.border};">
             ${escapeHtml(parsedAction.action)}
@@ -588,7 +611,7 @@ export class ActivityManager {
       // Simple action - show as colored badge with icon
       actionCellHtml = `
         <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${colors.bg}; color: ${colors.color}; border: 1px solid ${colors.border};">
-          <i class="iconoir-${parsedAction.icon}" style="font-size: 14px;"></i>
+          ${renderIcon(`iconoir:${parsedAction.icon}`, { size: '14px' })}
           <span>${escapeHtml(parsedAction.action || '-')}</span>
         </span>
       `;

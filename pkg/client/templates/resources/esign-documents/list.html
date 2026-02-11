@@ -182,6 +182,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   schemaActionBuilder = new SchemaActionBuilder({
     apiEndpoint: apiEndpoint,
     actionBasePath: actionBasePath,
+    actionContext: 'row',
     locale: locale || undefined,
     environment: env || undefined,
     panelName: panelName,

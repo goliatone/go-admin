@@ -2,7 +2,10 @@
  * Cell Renderers for DataGrid
  * Provides extensible cell rendering capabilities
  */
-export type CellRenderer = (value: any, record: any, column: string) => string;
+export interface CellRendererContext {
+    options?: Record<string, any>;
+}
+export type CellRenderer = (value: any, record: any, column: string, context?: CellRendererContext) => string;
 export declare class CellRendererRegistry {
     private renderers;
     constructor();

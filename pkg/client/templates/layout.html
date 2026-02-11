@@ -42,7 +42,7 @@
   {% include "partials/jserror-collector.html" %}
   {% block head_extra %}{% endblock %}
 </head>
-<body class="font-sans bg-gray-50 text-gray-900 leading-normal flex h-screen overflow-hidden" data-theme="{{ theme.selection.variant|default:"default" }}">
+<body class="font-sans bg-gray-50 text-gray-900 leading-normal flex h-screen overflow-hidden {{ body_classes|default:"" }}" data-theme="{{ theme.selection.variant|default:"default" }}">
   <!-- Toast notification container -->
   {% include "partials/toast-container.html" %}
 

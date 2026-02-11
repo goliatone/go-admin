@@ -938,7 +938,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Action handlers
   const basePath = '{{ base_path }}';
-  const apiBase = '{{ api_base_path|default:base_path + "/api" }}';
+  const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
   const agreementId = '{{ resource_item.id }}';
   const panelName = '{{ panel_name|default:"esign_agreements" }}';
 
@@ -1272,39 +1272,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const inlineTimeline = {% if resource_item.timeline %}{{ toJSON(resource_item.timeline)|safe }}{% else %}[]{% endif %};
     const inlineAuditEvents = {% if resource_item.audit_events %}{{ toJSON(resource_item.audit_events)|safe }}{% else %}[]{% endif %};
 
-    try {
-      // Try fetching from events/timeline endpoint first
-      const response = await fetch(`${apiBase}/${panelName}/${agreementId}/events`, {
-        headers: { 'Accept': 'application/json' },
-        credentials: 'same-origin'
-      });
-
-      if (!response.ok) {
-        // If events endpoint doesn't exist, try to use resource_item.timeline if available
-        if (inlineTimeline.length > 0) {
-          renderTimeline(inlineTimeline);
-          return;
-        }
-        // Fall back to audit_events from resource_item
-        if (inlineAuditEvents.length > 0) {
-          renderTimeline(inlineAuditEvents);
-          return;
-        }
-        throw new Error('Timeline not available');
-      }
-
-      const data = await response.json();
-      renderTimeline(data.events || data.items || data);
-    } catch (error) {
-      if (inlineTimeline.length > 0) {
-        renderTimeline(inlineTimeline);
-      } else if (inlineAuditEvents.length > 0) {
-        renderTimeline(inlineAuditEvents);
-      } else {
-        // Show empty state
-        renderTimeline([]);
-      }
+    if (inlineTimeline.length > 0) {
+      renderTimeline(inlineTimeline);
+      return;
     }
+    if (inlineAuditEvents.length > 0) {
+      renderTimeline(inlineAuditEvents);
+      return;
+    }
+    renderTimeline([]);
   }
 
   // Initial load
