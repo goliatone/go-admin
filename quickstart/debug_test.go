@@ -337,6 +337,71 @@ func TestAttachDebugLogHandlerAvoidsDefaultDelegateRecursion(t *testing.T) {
 	}
 }
 
+func TestAttachDebugLogHandlerInstallsBridgeIdempotently(t *testing.T) {
+	cfg := NewAdminConfig(
+		"/admin",
+		"Admin",
+		"en",
+		WithDebugConfig(admin.DebugConfig{Enabled: true, CaptureLogs: true}),
+	)
+	r := &debugRouter{}
+	adm, err := admin.New(cfg, admin.Dependencies{Router: r})
+	if err != nil {
+		t.Fatalf("admin.New error: %v", err)
+	}
+	mod := admin.NewDebugModule(cfg.Debug)
+	if err := mod.Register(admin.ModuleContext{Admin: adm}); err != nil {
+		t.Fatalf("debug module register error: %v", err)
+	}
+
+	previous := slog.Default()
+	t.Cleanup(func() {
+		slog.SetDefault(previous)
+	})
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	AttachDebugLogHandler(cfg, adm)
+	AttachDebugLogHandler(cfg, adm)
+
+	if err := adm.RegisterPanelTab("users", admin.PanelTab{
+		ID:     "dup",
+		Label:  "First",
+		Target: admin.PanelTabTarget{Type: "panel", Panel: "first"},
+	}); err != nil {
+		t.Fatalf("register first tab: %v", err)
+	}
+	if err := adm.RegisterPanelTab("users", admin.PanelTab{
+		ID:     "dup",
+		Label:  "Second",
+		Target: admin.PanelTabTarget{Type: "panel", Panel: "second"},
+	}); err != nil {
+		t.Fatalf("register duplicate tab: %v", err)
+	}
+
+	collector := adm.Debug()
+	if collector == nil {
+		t.Fatalf("expected debug collector")
+	}
+	snapshot := collector.Snapshot()
+	entries, ok := snapshot[admin.DebugPanelLogs].([]admin.LogEntry)
+	if !ok {
+		t.Fatalf("expected debug logs snapshot, got %#v", snapshot[admin.DebugPanelLogs])
+	}
+	if got := countDebugLogEntriesByMessage(entries, "panel tab collision"); got != 1 {
+		t.Fatalf("expected exactly one panel tab collision log, got %d", got)
+	}
+}
+
+func countDebugLogEntriesByMessage(entries []admin.LogEntry, message string) int {
+	count := 0
+	for _, entry := range entries {
+		if entry.Message == message {
+			count++
+		}
+	}
+	return count
+}
+
 func assertFeatureEnabled(t *testing.T, gate fggate.FeatureGate, feature string) {
 	t.Helper()
 	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))

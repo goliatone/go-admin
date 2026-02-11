@@ -1,10 +1,7 @@
 package admin
 
 import (
-	"bytes"
 	"context"
-	"log"
-	"strings"
 	"testing"
 )
 
@@ -184,7 +181,8 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForPagesAndPosts(t *testi
 }
 
 func TestDynamicPanelFactorySkipsUnknownWorkflowAndLogs(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	logger := &captureAdminLogger{}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{Logger: logger})
 	factory := NewDynamicPanelFactory(adm)
 
 	missing := CMSContentType{
@@ -196,13 +194,6 @@ func TestDynamicPanelFactorySkipsUnknownWorkflowAndLogs(t *testing.T) {
 		Capabilities: map[string]any{"panel_slug": "missing-workflow", "workflow": "unknown"},
 	}
 
-	var buf bytes.Buffer
-	prev := log.Writer()
-	log.SetOutput(&buf)
-	t.Cleanup(func() {
-		log.SetOutput(prev)
-	})
-
 	panel, err := factory.CreatePanelFromContentType(context.Background(), &missing)
 	if err != nil {
 		t.Fatalf("create panel failed: %v", err)
@@ -213,9 +204,8 @@ func TestDynamicPanelFactorySkipsUnknownWorkflowAndLogs(t *testing.T) {
 	if panel.workflow != nil {
 		t.Fatalf("expected no workflow attached for unknown workflow")
 	}
-	logOutput := buf.String()
-	if !strings.Contains(logOutput, "workflow not found") || !strings.Contains(logOutput, "content_type=missing-workflow") || !strings.Contains(logOutput, "workflow=unknown") {
-		t.Fatalf("expected workflow warning, got %q", logOutput)
+	if got := logger.count("warn", "workflow not found"); got == 0 {
+		t.Fatalf("expected workflow warning to be logged via injected logger")
 	}
 }
 

@@ -20,9 +20,13 @@ func (l stubAdminLogger) WithContext(context.Context) Logger {
 
 type stubAdminLoggerProvider struct {
 	logger Logger
+	byName map[string]Logger
 }
 
-func (p stubAdminLoggerProvider) GetLogger(string) Logger {
+func (p stubAdminLoggerProvider) GetLogger(name string) Logger {
+	if p.byName != nil {
+		return p.byName[name]
+	}
 	return p.logger
 }
 
@@ -75,8 +79,8 @@ func TestNewAppliesDependencyDefaults(t *testing.T) {
 	if adm.loggerProvider == nil {
 		t.Fatalf("expected logger provider default")
 	}
-	if got := adm.loggerProvider.GetLogger("admin.test"); got == nil {
-		t.Fatalf("expected provider logger default")
+	if got := adm.loggerProvider.GetLogger("admin.test"); got != adm.logger {
+		t.Fatalf("expected provider logger to reuse resolved default logger")
 	}
 }
 
@@ -136,5 +140,30 @@ func TestNewResolvesProviderAndLoggerPrefersProvider(t *testing.T) {
 	}
 	if got := adm.loggerProvider.GetLogger("admin.any"); got != providerLogger {
 		t.Fatalf("expected provider to serve named loggers when both provided")
+	}
+}
+
+func TestNewResolvesProviderFallbackWhenProviderReturnsNilForAdmin(t *testing.T) {
+	providerLogger := &stubAdminLogger{}
+	fallbackLogger := &stubAdminLogger{}
+	adm, err := New(Config{}, Dependencies{
+		Logger: fallbackLogger,
+		LoggerProvider: stubAdminLoggerProvider{
+			byName: map[string]Logger{
+				"admin.any": providerLogger,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	if adm.logger != fallbackLogger {
+		t.Fatalf("expected fallback logger when provider returns nil for admin logger")
+	}
+	if got := adm.loggerProvider.GetLogger("admin.any"); got != providerLogger {
+		t.Fatalf("expected provider logger for explicit named logger")
+	}
+	if got := adm.loggerProvider.GetLogger("admin.missing"); got != fallbackLogger {
+		t.Fatalf("expected fallback logger for missing provider logger")
 	}
 }
