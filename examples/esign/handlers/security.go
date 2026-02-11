@@ -47,8 +47,12 @@ type registerConfig struct {
 	authorizer       coreadmin.Authorizer
 	tokenValidator   SignerTokenValidator
 	signerSession    SignerSessionService
+	signerAssets     SignerAssetContractService
+	agreements       AgreementStatsService
+	auditEvents      stores.AuditEventStore
 	google           GoogleIntegrationService
 	googleEnabled    bool
+	documentUpload   router.HandlerFunc
 	permissions      Permissions
 	defaultScope     stores.Scope
 	scopeResolver    ScopeResolver
@@ -79,6 +83,16 @@ type SignerSessionService interface {
 	AttachSignatureArtifact(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSignatureInput) (services.SignerSignatureResult, error)
 	Submit(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSubmitInput) (services.SignerSubmitResult, error)
 	Decline(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerDeclineInput) (services.SignerDeclineResult, error)
+}
+
+// SignerAssetContractService resolves token-scoped signer asset contract metadata.
+type SignerAssetContractService interface {
+	Resolve(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.SignerAssetContract, error)
+}
+
+// AgreementStatsService captures agreement listing operations needed for admin summary cards.
+type AgreementStatsService interface {
+	ListAgreements(ctx context.Context, scope stores.Scope, query stores.AgreementQuery) ([]stores.AgreementRecord, error)
 }
 
 // GoogleIntegrationService captures Google OAuth/Drive/import backend operations.
@@ -154,6 +168,36 @@ func WithSignerSessionService(service SignerSessionService) RegisterOption {
 	}
 }
 
+// WithSignerAssetContractService configures token-scoped asset contract resolution for signer links.
+func WithSignerAssetContractService(service SignerAssetContractService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.signerAssets = service
+	}
+}
+
+// WithAgreementStatsService configures agreement list access for summary statistics endpoints.
+func WithAgreementStatsService(service AgreementStatsService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.agreements = service
+	}
+}
+
+// WithAuditEventStore configures append-only audit event persistence for signer asset access.
+func WithAuditEventStore(store stores.AuditEventStore) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.auditEvents = store
+	}
+}
+
 // WithGoogleIntegrationService configures Google OAuth/Drive/import backend service.
 func WithGoogleIntegrationService(service GoogleIntegrationService) RegisterOption {
 	return func(cfg *registerConfig) {
@@ -171,6 +215,16 @@ func WithGoogleIntegrationEnabled(enabled bool) RegisterOption {
 			return
 		}
 		cfg.googleEnabled = enabled
+	}
+}
+
+// WithDocumentUploadHandler configures the admin document upload endpoint handler.
+func WithDocumentUploadHandler(handler router.HandlerFunc) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.documentUpload = handler
 	}
 }
 
@@ -249,7 +303,7 @@ func requireAdminPermission(cfg registerConfig, permission string) router.Middle
 	required := strings.TrimSpace(permission)
 	return func(next router.HandlerFunc) router.HandlerFunc {
 		return func(c router.Context) error {
-			if required == "" || cfg.authorizer == nil || cfg.authorizer.Can(c.Context(), required, esignAuthzResource) {
+			if required == "" || cfg.authorizer == nil || authorizerAllows(c, cfg.authorizer, required) {
 				if err := enforceScopeBoundary(c, cfg); err != nil {
 					return asHandlerError(err)
 				}
@@ -267,6 +321,29 @@ func requireAdminPermission(cfg registerConfig, permission string) router.Middle
 				WithMetadata(map[string]any{"permission": required, "resource": esignAuthzResource}), http.StatusForbidden, string(services.ErrorCodeScopeDenied), "permission denied", nil)
 		}
 	}
+}
+
+func authorizerAllows(c router.Context, authorizer coreadmin.Authorizer, permission string) bool {
+	if authorizer == nil || c == nil {
+		return false
+	}
+	permission = strings.TrimSpace(permission)
+	if permission == "" {
+		return true
+	}
+	if authorizer.Can(c.Context(), permission, esignAuthzResource) {
+		return true
+	}
+	parts := strings.Split(permission, ".")
+	if len(parts) < 2 {
+		return false
+	}
+	action := strings.TrimSpace(parts[len(parts)-1])
+	resource := strings.TrimSpace(strings.Join(parts[:len(parts)-1], "."))
+	if action == "" || resource == "" {
+		return false
+	}
+	return authorizer.Can(c.Context(), action, resource)
 }
 
 func enforceScopeBoundary(c router.Context, cfg registerConfig) error {

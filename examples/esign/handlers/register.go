@@ -2,15 +2,18 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
+	"github.com/goliatone/go-admin/examples/esign/stores"
 	router "github.com/goliatone/go-router"
 )
 
@@ -50,12 +53,15 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				"admin":                   routes.AdminHome,
 				"admin_status":            routes.AdminStatus,
 				"admin_api":               routes.AdminAPIStatus,
+				"admin_agreements_stats":  routes.AdminAgreementsStats,
+				"admin_documents_upload":  routes.AdminDocumentsUpload,
 				"signer_session":          routes.SignerSession,
 				"signer_consent":          routes.SignerConsent,
 				"signer_field_values":     routes.SignerFieldValues,
 				"signer_signature":        routes.SignerSignature,
 				"signer_submit":           routes.SignerSubmit,
 				"signer_decline":          routes.SignerDecline,
+				"signer_assets":           routes.SignerAssets,
 				"google_oauth_connect":    routes.AdminGoogleOAuthConnect,
 				"google_oauth_disconnect": routes.AdminGoogleOAuthDisconnect,
 				"google_oauth_rotate":     routes.AdminGoogleOAuthRotate,
@@ -68,6 +74,49 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 		logAPIOperation(c.Context(), "admin_api_status", correlationID, startedAt, err, nil)
 		return err
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	r.Get(routes.AdminAgreementsStats, func(c router.Context) error {
+		stats := map[string]int{
+			"draft":           0,
+			"pending":         0,
+			"completed":       0,
+			"action_required": 0,
+			"total":           0,
+		}
+		byStatus := map[string]int{}
+		if cfg.agreements != nil {
+			records, err := cfg.agreements.ListAgreements(c.Context(), cfg.resolveScope(c), stores.AgreementQuery{})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusInternalServerError, "AGREEMENT_STATS_UNAVAILABLE", "unable to load agreement stats", nil)
+			}
+			for _, record := range records {
+				status := strings.ToLower(strings.TrimSpace(record.Status))
+				if status == "" {
+					continue
+				}
+				byStatus[status] = byStatus[status] + 1
+			}
+			stats["draft"] = byStatus[stores.AgreementStatusDraft]
+			stats["pending"] = byStatus[stores.AgreementStatusSent] + byStatus[stores.AgreementStatusInProgress]
+			stats["completed"] = byStatus[stores.AgreementStatusCompleted]
+			stats["action_required"] = stats["pending"] + byStatus[stores.AgreementStatusDeclined]
+			stats["total"] = len(records)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"status":    "ok",
+			"stats":     stats,
+			"by_status": byStatus,
+		})
+	})
+
+	if cfg.documentUpload != nil {
+		r.Post(routes.AdminDocumentsUpload, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			return cfg.documentUpload(c)
+		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
+	}
 
 	if cfg.googleEnabled && cfg.google != nil {
 		r.Post(routes.AdminGoogleOAuthConnect, func(c router.Context) error {
@@ -299,6 +348,76 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 		return c.JSON(http.StatusOK, map[string]any{
 			"status": "ok",
 			"token":  token,
+		})
+	})
+
+	r.Get(routes.SignerAssets, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		token := strings.TrimSpace(c.Param("token"))
+		if token == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
+		}
+		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
+			return asHandlerError(err)
+		}
+		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		if err != nil {
+			return asHandlerError(err)
+		}
+		contract := services.SignerAssetContract{
+			AgreementID: strings.TrimSpace(tokenRecord.AgreementID),
+			RecipientID: strings.TrimSpace(tokenRecord.RecipientID),
+		}
+		if cfg.signerAssets != nil {
+			contract, err = cfg.signerAssets.Resolve(c.Context(), cfg.resolveScope(c), tokenRecord)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to resolve signer asset contract", nil)
+			}
+		}
+
+		escapedToken := url.PathEscape(token)
+		sessionURL := strings.Replace(routes.SignerSession, ":token", escapedToken, 1)
+		contractURL := strings.Replace(routes.SignerAssets, ":token", escapedToken, 1)
+		assets := map[string]any{
+			"contract_url": contractURL,
+			"session_url":  sessionURL,
+		}
+		if contract.SourceDocumentAvailable {
+			assets["source_url"] = contractURL + "?asset=source"
+		}
+		if contract.ExecutedArtifactAvailable {
+			assets["executed_url"] = contractURL + "?asset=executed"
+		}
+		if contract.CertificateAvailable {
+			assets["certificate_url"] = contractURL + "?asset=certificate"
+		}
+
+		if cfg.auditEvents != nil {
+			metadataJSON := "{}"
+			if encoded, merr := json.Marshal(map[string]any{
+				"recipient_id": strings.TrimSpace(contract.RecipientID),
+				"assets":       assets,
+			}); merr == nil {
+				metadataJSON = string(encoded)
+			}
+			_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+				AgreementID:  strings.TrimSpace(contract.AgreementID),
+				EventType:    "signer.assets.contract_viewed",
+				ActorType:    "signer_token",
+				ActorID:      strings.TrimSpace(contract.RecipientID),
+				IPAddress:    strings.TrimSpace(c.IP()),
+				UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
+				MetadataJSON: metadataJSON,
+				CreatedAt:    time.Now().UTC(),
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"status":   "ok",
+			"contract": contract,
+			"assets":   assets,
 		})
 	})
 

@@ -35,7 +35,8 @@
   "runtime": {
     "uses_mock_dependencies": false,
     "requires_manual_patches": false,
-    "notes": "Runtime paths validated by backend tests; no mock/demo-only fallback accepted in production flow."
+    "api_only_fallback_detected": false,
+    "notes": "Runtime paths validated by backend tests; no mock/demo-only fallback and no API-only signer fallback accepted in production flow."
   },
   "evidence": {
     "staging_validation_ref": "docs/GUIDES_ESIGN_RELEASE_GATES.md#staged-rollout-validation",

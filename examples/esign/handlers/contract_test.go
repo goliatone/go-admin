@@ -40,7 +40,8 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 	}
 	for _, key := range []string{
 		"admin", "admin_api",
-		"signer_session", "signer_consent", "signer_field_values", "signer_signature", "signer_submit", "signer_decline",
+		"admin_documents_upload",
+		"signer_session", "signer_consent", "signer_field_values", "signer_signature", "signer_submit", "signer_decline", "signer_assets",
 		"google_oauth_connect", "google_oauth_disconnect", "google_oauth_rotate", "google_oauth_status",
 		"google_drive_search", "google_drive_browse", "google_drive_import",
 	} {
@@ -194,6 +195,27 @@ func TestSignerSessionExpiredTokenErrorEnvelopeContract(t *testing.T) {
 	if _, ok := errPayload["message"].(string); !ok {
 		t.Fatalf("expected error.message string, got %+v", errPayload)
 	}
+}
+
+func TestSignerAssetContractEnvelope(t *testing.T) {
+	app := setupRegisterTestApp(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/token-contract", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	payload := mustDecodeJSONMap(t, resp.Body)
+	if payload["status"] != "ok" {
+		t.Fatalf("expected status=ok envelope, got %+v", payload)
+	}
+	assets := mustMapField(t, payload, "assets")
+	assertMapHasRequiredKeys(t, assets, "contract_url", "session_url")
 }
 
 func mustDecodeJSONMap(t *testing.T, body io.Reader) map[string]any {

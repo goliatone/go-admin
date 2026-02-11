@@ -12,9 +12,11 @@ import (
 type Metrics interface {
 	ObserveAdminRead(ctx context.Context, duration time.Duration, success bool, endpoint string)
 	ObserveSend(ctx context.Context, duration time.Duration, success bool)
+	ObserveSignerLinkOpen(ctx context.Context, success bool)
 	ObserveSignerSubmit(ctx context.Context, duration time.Duration, success bool)
 	ObserveFinalize(ctx context.Context, duration time.Duration, success bool)
 	ObserveEmailDispatchStart(ctx context.Context, duration time.Duration, success bool)
+	ObserveCompletionDelivery(ctx context.Context, success bool)
 	ObserveJobResult(ctx context.Context, jobName string, success bool)
 	ObserveProviderResult(ctx context.Context, provider string, success bool)
 	ObserveTokenValidationFailure(ctx context.Context, reason string)
@@ -37,12 +39,16 @@ type MetricsSnapshot struct {
 	FinalizeSampleTotal      int64
 	EmailDispatchSampleTotal int64
 
-	SendSuccessTotal         int64
-	SendFailureTotal         int64
-	SignerSubmitSuccessTotal int64
-	SignerSubmitFailureTotal int64
-	FinalizeSuccessTotal     int64
-	FinalizeFailureTotal     int64
+	SendSuccessTotal               int64
+	SendFailureTotal               int64
+	SignerLinkOpenSuccessTotal     int64
+	SignerLinkOpenFailureTotal     int64
+	SignerSubmitSuccessTotal       int64
+	SignerSubmitFailureTotal       int64
+	FinalizeSuccessTotal           int64
+	FinalizeFailureTotal           int64
+	CompletionDeliverySuccessTotal int64
+	CompletionDeliveryFailureTotal int64
 
 	JobSuccessTotal      int64
 	JobFailureTotal      int64
@@ -79,30 +85,57 @@ func (s MetricsSnapshot) EmailSuccessRatePercent() float64 {
 	return (float64(s.EmailSuccessTotal) / float64(total)) * 100
 }
 
+func (s MetricsSnapshot) SignerLinkOpenRatePercent() float64 {
+	total := s.SignerLinkOpenSuccessTotal + s.SignerLinkOpenFailureTotal
+	if total <= 0 {
+		return 100
+	}
+	return (float64(s.SignerLinkOpenSuccessTotal) / float64(total)) * 100
+}
+
+func (s MetricsSnapshot) SignerSubmitConversionPercent() float64 {
+	if s.SignerLinkOpenSuccessTotal <= 0 {
+		return 100
+	}
+	return (float64(s.SignerSubmitSuccessTotal) / float64(s.SignerLinkOpenSuccessTotal)) * 100
+}
+
+func (s MetricsSnapshot) CompletionDeliverySuccessRatePercent() float64 {
+	total := s.CompletionDeliverySuccessTotal + s.CompletionDeliveryFailureTotal
+	if total <= 0 {
+		return 100
+	}
+	return (float64(s.CompletionDeliverySuccessTotal) / float64(total)) * 100
+}
+
 type inMemoryMetrics struct {
 	mu sync.Mutex
 
-	adminReadDurationsMS     []float64
-	sendDurationsMS          []float64
-	signerSubmitDurationsMS  []float64
-	finalizeDurationsMS      []float64
-	emailDispatchDurationsMS []float64
-	sendSuccessTotal         int64
-	sendFailureTotal         int64
-	signerSubmitSuccessTotal int64
-	signerSubmitFailureTotal int64
-	finalizeSuccessTotal     int64
-	finalizeFailureTotal     int64
-	jobSuccessByName         map[string]int64
-	jobFailureByName         map[string]int64
-	providerSuccessByName    map[string]int64
-	providerFailureByName    map[string]int64
-	tokenValidationByReason  map[string]int64
-	googleImportFailureByKey map[string]int64
-	googleAuthChurnByReason  map[string]int64
-	googleImportSuccessTotal int64
-	adminReadSuccessByPath   map[string]int64
-	adminReadFailureByPath   map[string]int64
+	adminReadDurationsMS           []float64
+	sendDurationsMS                []float64
+	signerSubmitDurationsMS        []float64
+	finalizeDurationsMS            []float64
+	emailDispatchDurationsMS       []float64
+	sendSuccessTotal               int64
+	sendFailureTotal               int64
+	signerLinkOpenSuccessTotal     int64
+	signerLinkOpenFailureTotal     int64
+	signerSubmitSuccessTotal       int64
+	signerSubmitFailureTotal       int64
+	finalizeSuccessTotal           int64
+	finalizeFailureTotal           int64
+	completionDeliverySuccessTotal int64
+	completionDeliveryFailureTotal int64
+	jobSuccessByName               map[string]int64
+	jobFailureByName               map[string]int64
+	providerSuccessByName          map[string]int64
+	providerFailureByName          map[string]int64
+	tokenValidationByReason        map[string]int64
+	googleImportFailureByKey       map[string]int64
+	googleAuthChurnByReason        map[string]int64
+	googleImportSuccessTotal       int64
+	adminReadSuccessByPath         map[string]int64
+	adminReadFailureByPath         map[string]int64
 }
 
 func newInMemoryMetrics() *inMemoryMetrics {
@@ -142,6 +175,16 @@ func (m *inMemoryMetrics) ObserveSend(_ context.Context, duration time.Duration,
 	m.sendFailureTotal++
 }
 
+func (m *inMemoryMetrics) ObserveSignerLinkOpen(_ context.Context, success bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if success {
+		m.signerLinkOpenSuccessTotal++
+		return
+	}
+	m.signerLinkOpenFailureTotal++
+}
+
 func (m *inMemoryMetrics) ObserveSignerSubmit(_ context.Context, duration time.Duration, success bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -169,6 +212,16 @@ func (m *inMemoryMetrics) ObserveEmailDispatchStart(_ context.Context, duration 
 	defer m.mu.Unlock()
 	m.emailDispatchDurationsMS = appendDurationMS(m.emailDispatchDurationsMS, duration)
 	_ = success
+}
+
+func (m *inMemoryMetrics) ObserveCompletionDelivery(_ context.Context, success bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if success {
+		m.completionDeliverySuccessTotal++
+		return
+	}
+	m.completionDeliveryFailureTotal++
 }
 
 func (m *inMemoryMetrics) ObserveJobResult(_ context.Context, jobName string, success bool) {
@@ -243,12 +296,16 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 		FinalizeSampleTotal:      int64(len(m.finalizeDurationsMS)),
 		EmailDispatchSampleTotal: int64(len(m.emailDispatchDurationsMS)),
 
-		SendSuccessTotal:         m.sendSuccessTotal,
-		SendFailureTotal:         m.sendFailureTotal,
-		SignerSubmitSuccessTotal: m.signerSubmitSuccessTotal,
-		SignerSubmitFailureTotal: m.signerSubmitFailureTotal,
-		FinalizeSuccessTotal:     m.finalizeSuccessTotal,
-		FinalizeFailureTotal:     m.finalizeFailureTotal,
+		SendSuccessTotal:               m.sendSuccessTotal,
+		SendFailureTotal:               m.sendFailureTotal,
+		SignerLinkOpenSuccessTotal:     m.signerLinkOpenSuccessTotal,
+		SignerLinkOpenFailureTotal:     m.signerLinkOpenFailureTotal,
+		SignerSubmitSuccessTotal:       m.signerSubmitSuccessTotal,
+		SignerSubmitFailureTotal:       m.signerSubmitFailureTotal,
+		FinalizeSuccessTotal:           m.finalizeSuccessTotal,
+		FinalizeFailureTotal:           m.finalizeFailureTotal,
+		CompletionDeliverySuccessTotal: m.completionDeliverySuccessTotal,
+		CompletionDeliveryFailureTotal: m.completionDeliveryFailureTotal,
 
 		JobSuccessTotal:             jobSuccessTotal,
 		JobFailureTotal:             jobFailureTotal,
@@ -303,6 +360,13 @@ func ObserveSend(ctx context.Context, duration time.Duration, success bool) {
 	defaultMetrics.ObserveSend(ctx, duration, success)
 }
 
+func ObserveSignerLinkOpen(ctx context.Context, success bool) {
+	if defaultMetrics == nil {
+		return
+	}
+	defaultMetrics.ObserveSignerLinkOpen(ctx, success)
+}
+
 func ObserveSignerSubmit(ctx context.Context, duration time.Duration, success bool) {
 	if defaultMetrics == nil {
 		return
@@ -322,6 +386,13 @@ func ObserveEmailDispatchStart(ctx context.Context, duration time.Duration, succ
 		return
 	}
 	defaultMetrics.ObserveEmailDispatchStart(ctx, duration, success)
+}
+
+func ObserveCompletionDelivery(ctx context.Context, success bool) {
+	if defaultMetrics == nil {
+		return
+	}
+	defaultMetrics.ObserveCompletionDelivery(ctx, success)
 }
 
 func ObserveJobResult(ctx context.Context, jobName string, success bool) {

@@ -2,9 +2,13 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -389,6 +393,345 @@ func TestNewGoogleCredentialCipherFailsWhenActiveKeyMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected missing active key error")
 	}
+}
+
+func TestGoogleHTTPProviderContractAgainstEmulator(t *testing.T) {
+	ctx := context.Background()
+	emulator := newGoogleProviderEmulatorServer()
+	defer emulator.Close()
+
+	provider, err := NewGoogleHTTPProvider(GoogleHTTPProviderConfig{
+		ClientID:         "client-id",
+		ClientSecret:     "client-secret",
+		TokenEndpoint:    emulator.URL + "/oauth/token",
+		RevokeEndpoint:   emulator.URL + "/oauth/revoke",
+		DriveBaseURL:     emulator.URL + "/drive/v3",
+		UserInfoEndpoint: emulator.URL + "/oauth/userinfo",
+		HealthEndpoint:   emulator.URL + "/health",
+		HTTPClient:       emulator.Client(),
+	})
+	if err != nil {
+		t.Fatalf("NewGoogleHTTPProvider: %v", err)
+	}
+
+	if err := provider.HealthCheck(ctx); err != nil {
+		t.Fatalf("HealthCheck: %v", err)
+	}
+
+	token, err := provider.ExchangeCode(ctx, "oauth-code-1", "https://app.example.test/callback", DefaultGoogleOAuthScopes)
+	if err != nil {
+		t.Fatalf("ExchangeCode: %v", err)
+	}
+	if token.AccessToken == "" || token.RefreshToken == "" {
+		t.Fatalf("expected non-empty oauth tokens, got %+v", token)
+	}
+	if token.AccountEmail != "operator@example.com" {
+		t.Fatalf("expected account email from userinfo, got %q", token.AccountEmail)
+	}
+
+	search, err := provider.SearchFiles(ctx, token.AccessToken, "nda", "", 25)
+	if err != nil {
+		t.Fatalf("SearchFiles: %v", err)
+	}
+	if len(search.Files) != 1 || search.Files[0].ID != "google-file-1" {
+		t.Fatalf("expected one NDA file, got %+v", search.Files)
+	}
+
+	browse, err := provider.BrowseFiles(ctx, token.AccessToken, "root", "", 25)
+	if err != nil {
+		t.Fatalf("BrowseFiles: %v", err)
+	}
+	if len(browse.Files) == 0 {
+		t.Fatalf("expected browse results, got %+v", browse)
+	}
+
+	exported, err := provider.ExportFilePDF(ctx, token.AccessToken, "google-file-1")
+	if err != nil {
+		t.Fatalf("ExportFilePDF: %v", err)
+	}
+	if exported.File.ID != "google-file-1" || len(exported.PDF) == 0 {
+		t.Fatalf("expected exported google file payload, got %+v", exported)
+	}
+
+	if err := provider.RevokeToken(ctx, token.AccessToken); err != nil {
+		t.Fatalf("RevokeToken: %v", err)
+	}
+}
+
+func TestGoogleIntegrationRealAdapterRevokedAccessRecovery(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	emulator := newGoogleProviderEmulatorServer()
+	defer emulator.Close()
+
+	provider, err := NewGoogleHTTPProvider(GoogleHTTPProviderConfig{
+		ClientID:         "client-id",
+		ClientSecret:     "client-secret",
+		TokenEndpoint:    emulator.URL + "/oauth/token",
+		RevokeEndpoint:   emulator.URL + "/oauth/revoke",
+		DriveBaseURL:     emulator.URL + "/drive/v3",
+		UserInfoEndpoint: emulator.URL + "/oauth/userinfo",
+		HealthEndpoint:   emulator.URL + "/health",
+		HTTPClient:       emulator.Client(),
+	})
+	if err != nil {
+		t.Fatalf("NewGoogleHTTPProvider: %v", err)
+	}
+
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		NewDocumentService(store),
+		NewAgreementService(store, store),
+		WithGoogleProviderMode(GoogleProviderModeReal),
+	)
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "ops-user",
+		AuthCode: "oauth-recovery-1",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	emulator.Revoke("access-oauth-recovery-1")
+	if _, err := service.SearchFiles(ctx, scope, GoogleDriveQueryInput{UserID: "ops-user", Query: "nda"}); err == nil {
+		t.Fatal("expected SearchFiles to fail with revoked access")
+	} else {
+		var coded *goerrors.Error
+		if !errors.As(err, &coded) {
+			t.Fatalf("expected goerrors.Error, got %T", err)
+		}
+		if coded.TextCode != string(ErrorCodeGoogleAccessRevoked) {
+			t.Fatalf("expected GOOGLE_ACCESS_REVOKED, got %q (%v)", coded.TextCode, err)
+		}
+	}
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "ops-user",
+		AuthCode: "oauth-recovery-2",
+	}); err != nil {
+		t.Fatalf("Connect recovery: %v", err)
+	}
+	search, err := service.SearchFiles(ctx, scope, GoogleDriveQueryInput{UserID: "ops-user", Query: "nda"})
+	if err != nil {
+		t.Fatalf("SearchFiles after recovery: %v", err)
+	}
+	if len(search.Files) == 0 {
+		t.Fatalf("expected search results after recovery, got %+v", search)
+	}
+}
+
+func TestGoogleIntegrationProviderHealthDegradedMode(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	emulator := newGoogleProviderEmulatorServer()
+	defer emulator.Close()
+	emulator.SetHealth(false)
+
+	provider, err := NewGoogleHTTPProvider(GoogleHTTPProviderConfig{
+		ClientID:         "client-id",
+		ClientSecret:     "client-secret",
+		TokenEndpoint:    emulator.URL + "/oauth/token",
+		RevokeEndpoint:   emulator.URL + "/oauth/revoke",
+		DriveBaseURL:     emulator.URL + "/drive/v3",
+		UserInfoEndpoint: emulator.URL + "/oauth/userinfo",
+		HealthEndpoint:   emulator.URL + "/health",
+		HTTPClient:       emulator.Client(),
+	})
+	if err != nil {
+		t.Fatalf("NewGoogleHTTPProvider: %v", err)
+	}
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		NewDocumentService(store),
+		NewAgreementService(store, store),
+		WithGoogleProviderMode(GoogleProviderModeReal),
+	)
+
+	status, err := service.Status(ctx, scope, "ops-user")
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if status.Healthy || !status.Degraded {
+		t.Fatalf("expected degraded health status, got %+v", status)
+	}
+	if status.ProviderMode != GoogleProviderModeReal {
+		t.Fatalf("expected real provider mode, got %q", status.ProviderMode)
+	}
+
+	_, err = service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "ops-user",
+		AuthCode: "oauth-degraded-1",
+	})
+	if err == nil {
+		t.Fatal("expected connect to fail when provider health is degraded")
+	}
+	var coded *goerrors.Error
+	if !errors.As(err, &coded) {
+		t.Fatalf("expected goerrors.Error, got %T", err)
+	}
+	if coded.TextCode != string(ErrorCodeGoogleProviderDegraded) {
+		t.Fatalf("expected GOOGLE_PROVIDER_DEGRADED, got %q", coded.TextCode)
+	}
+}
+
+func TestNewGoogleProviderFromEnvRequiresExplicitDeterministicOptIn(t *testing.T) {
+	t.Setenv(EnvGoogleProviderMode, GoogleProviderModeDeterministic)
+	provider, mode, err := NewGoogleProviderFromEnv()
+	if err != nil {
+		t.Fatalf("NewGoogleProviderFromEnv deterministic: %v", err)
+	}
+	if mode != GoogleProviderModeDeterministic {
+		t.Fatalf("expected deterministic mode, got %q", mode)
+	}
+	if _, ok := provider.(*DeterministicGoogleProvider); !ok {
+		t.Fatalf("expected deterministic provider, got %T", provider)
+	}
+}
+
+type googleProviderEmulatorServer struct {
+	*httptest.Server
+	mu      sync.Mutex
+	revoked map[string]bool
+	healthy bool
+}
+
+func newGoogleProviderEmulatorServer() *googleProviderEmulatorServer {
+	emulator := &googleProviderEmulatorServer{
+		revoked: map[string]bool{},
+		healthy: true,
+	}
+	emulator.Server = httptest.NewServer(http.HandlerFunc(emulator.serveHTTP))
+	return emulator
+}
+
+func (e *googleProviderEmulatorServer) SetHealth(healthy bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.healthy = healthy
+}
+
+func (e *googleProviderEmulatorServer) Revoke(token string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.revoked[strings.TrimSpace(token)] = true
+}
+
+func (e *googleProviderEmulatorServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == http.MethodGet && r.URL.Path == "/health":
+		e.mu.Lock()
+		healthy := e.healthy
+		e.mu.Unlock()
+		if !healthy {
+			writeJSONResponse(w, http.StatusServiceUnavailable, map[string]any{"error": "provider outage"})
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	case r.Method == http.MethodPost && r.URL.Path == "/oauth/token":
+		if err := r.ParseForm(); err != nil {
+			writeJSONResponse(w, http.StatusBadRequest, map[string]any{"error": "invalid_request"})
+			return
+		}
+		code := strings.TrimSpace(r.FormValue("code"))
+		if code == "" {
+			writeJSONResponse(w, http.StatusBadRequest, map[string]any{"error": "invalid_grant"})
+			return
+		}
+		writeJSONResponse(w, http.StatusOK, map[string]any{
+			"access_token":  "access-" + code,
+			"refresh_token": "refresh-" + code,
+			"scope":         strings.Join(DefaultGoogleOAuthScopes, " "),
+			"expires_in":    3600,
+			"token_type":    "Bearer",
+		})
+		return
+	case r.Method == http.MethodPost && r.URL.Path == "/oauth/revoke":
+		if err := r.ParseForm(); err == nil {
+			e.Revoke(strings.TrimSpace(r.FormValue("token")))
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	case r.Method == http.MethodGet && r.URL.Path == "/oauth/userinfo":
+		if e.isRevokedBearer(r) {
+			writeJSONResponse(w, http.StatusUnauthorized, map[string]any{"error": "invalid_token"})
+			return
+		}
+		writeJSONResponse(w, http.StatusOK, map[string]any{"email": "operator@example.com"})
+		return
+	case strings.HasPrefix(r.URL.Path, "/drive/v3/files"):
+		if e.isRevokedBearer(r) {
+			writeJSONResponse(w, http.StatusUnauthorized, map[string]any{"error": "invalid_token"})
+			return
+		}
+		e.serveDriveFiles(w, r)
+		return
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (e *googleProviderEmulatorServer) serveDriveFiles(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == http.MethodGet && r.URL.Path == "/drive/v3/files":
+		q := strings.TrimSpace(r.URL.Query().Get("q"))
+		file := map[string]any{
+			"id":           "google-file-1",
+			"name":         "NDA Source",
+			"mimeType":     "application/vnd.google-apps.document",
+			"webViewLink":  "https://docs.google.com/document/d/google-file-1/edit",
+			"parents":      []string{"root"},
+			"modifiedTime": "2026-02-10T12:00:00Z",
+			"owners":       []map[string]any{{"emailAddress": "owner@example.com"}},
+		}
+		files := []map[string]any{}
+		if strings.Contains(q, "name contains") || strings.Contains(q, "in parents") || q == "" {
+			files = append(files, file)
+		}
+		writeJSONResponse(w, http.StatusOK, map[string]any{
+			"nextPageToken": "",
+			"files":         files,
+		})
+		return
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/export"):
+		w.Header().Set("Content-Type", "application/pdf")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF")
+		return
+	case r.Method == http.MethodGet && r.URL.Path == "/drive/v3/files/google-file-1":
+		writeJSONResponse(w, http.StatusOK, map[string]any{
+			"id":           "google-file-1",
+			"name":         "NDA Source",
+			"mimeType":     "application/vnd.google-apps.document",
+			"webViewLink":  "https://docs.google.com/document/d/google-file-1/edit",
+			"parents":      []string{"root"},
+			"modifiedTime": "2026-02-10T12:00:00Z",
+			"owners":       []map[string]any{{"emailAddress": "owner@example.com"}},
+		})
+		return
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (e *googleProviderEmulatorServer) isRevokedBearer(r *http.Request) bool {
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if authHeader == "" {
+		return false
+	}
+	token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.revoked[token]
+}
+
+func writeJSONResponse(w http.ResponseWriter, status int, payload map[string]any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(payload)
 }
 
 func asGoError(err error, target **goerrors.Error) bool {

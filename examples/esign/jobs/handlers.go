@@ -16,18 +16,20 @@ import (
 )
 
 const (
-	defaultSigningRequestTemplate = "esign.sign_request"
-	completionCCTemplate          = "esign.completed_cc"
+	defaultSigningRequestTemplate  = "esign.sign_request_invitation"
+	defaultSigningReminderTemplate = "esign.sign_request_reminder"
+	completionCCTemplate           = "esign.completed_delivery"
 )
 
 type EmailSendInput struct {
-	Scope                stores.Scope
-	Agreement            stores.AgreementRecord
-	Recipient            stores.RecipientRecord
-	TemplateCode         string
-	CorrelationID        string
-	ExecutedObjectKey    string
-	CertificateObjectKey string
+	Scope         stores.Scope
+	Agreement     stores.AgreementRecord
+	Recipient     stores.RecipientRecord
+	TemplateCode  string
+	Notification  string
+	CorrelationID string
+	SignURL       string
+	CompletionURL string
 }
 
 type EmailProvider interface {
@@ -44,14 +46,16 @@ func (p DeterministicEmailProvider) Send(_ context.Context, input EmailSendInput
 		strings.TrimSpace(input.Recipient.ID),
 		strings.TrimSpace(input.Recipient.Email),
 		strings.TrimSpace(input.CorrelationID),
-		strings.TrimSpace(input.ExecutedObjectKey),
-		strings.TrimSpace(input.CertificateObjectKey),
+		strings.TrimSpace(input.Notification),
+		strings.TrimSpace(input.SignURL),
+		strings.TrimSpace(input.CompletionURL),
 	}, "|")
 	sum := sha256.Sum256([]byte(payload))
 	return "msg_" + hex.EncodeToString(sum[:8]), nil
 }
 
-type TokenRotator interface {
+type TokenService interface {
+	Issue(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
 	Rotate(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
 }
 
@@ -100,7 +104,7 @@ type HandlerDependencies struct {
 	JobRuns        stores.JobRunStore
 	EmailLogs      stores.EmailLogStore
 	Audits         stores.AuditEventStore
-	Tokens         TokenRotator
+	Tokens         TokenService
 	Pipeline       services.ArtifactPipelineService
 	EmailProvider  EmailProvider
 	GoogleImporter GoogleImporter
@@ -114,7 +118,7 @@ type Handlers struct {
 	jobRuns        stores.JobRunStore
 	emailLogs      stores.EmailLogStore
 	audits         stores.AuditEventStore
-	tokens         TokenRotator
+	tokens         TokenService
 	pipeline       services.ArtifactPipelineService
 	emailProvider  EmailProvider
 	googleImporter GoogleImporter
@@ -163,13 +167,12 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		})
 		return err
 	}
-	templateCode := strings.TrimSpace(msg.TemplateCode)
-	if templateCode == "" {
-		templateCode = defaultSigningRequestTemplate
-	}
+	notification := resolveNotificationType(msg.Notification, msg.TemplateCode)
+	templateCode := resolveTemplateCode(msg.TemplateCode, notification)
+	isCompletionNotification := notification == string(services.NotificationCompletionPackage)
 	dedupeKey := strings.TrimSpace(msg.DedupeKey)
 	if dedupeKey == "" {
-		dedupeKey = strings.Join([]string{msg.AgreementID, msg.RecipientID, templateCode}, "|")
+		dedupeKey = strings.Join([]string{msg.AgreementID, msg.RecipientID, templateCode, notification, strings.TrimSpace(msg.CorrelationID)}, "|")
 	}
 	now := h.now()
 	run, shouldRun, err := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
@@ -224,19 +227,54 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		Agreement:     agreement,
 		Recipient:     recipient,
 		TemplateCode:  templateCode,
+		Notification:  notification,
 		CorrelationID: run.CorrelationID,
 	}
-	if templateCode == completionCCTemplate && h.artifacts != nil {
-		if artifactRecord, artifactErr := h.artifacts.GetAgreementArtifacts(ctx, msg.Scope, msg.AgreementID); artifactErr == nil {
-			emailInput.ExecutedObjectKey = artifactRecord.ExecutedObjectKey
-			emailInput.CertificateObjectKey = artifactRecord.CertificateObjectKey
+	if isSigningNotification(notification) {
+		signURL := strings.TrimSpace(msg.SignURL)
+		if signURL == "" {
+			signURL = buildSignLink(msg.SignerToken)
 		}
+		if signURL == "" {
+			return h.failJob(ctx, msg.Scope, run, fmt.Errorf("missing sign link for signing notification"), msg.AgreementID, map[string]any{
+				"template_code": templateCode,
+				"notification":  notification,
+			})
+		}
+		emailInput.SignURL = signURL
+	}
+	if isCompletionNotification {
+		completionURL := strings.TrimSpace(msg.CompletionURL)
+		completionToken := strings.TrimSpace(msg.SignerToken)
+		if completionToken == "" && h.tokens != nil {
+			issued, issueErr := h.tokens.Issue(ctx, msg.Scope, msg.AgreementID, msg.RecipientID)
+			if issueErr != nil {
+				return h.failJob(ctx, msg.Scope, run, issueErr, msg.AgreementID, map[string]any{
+					"template_code": templateCode,
+					"notification":  notification,
+				})
+			}
+			completionToken = strings.TrimSpace(issued.Token)
+		}
+		if completionURL == "" {
+			completionURL = buildAssetContractLink(completionToken)
+		}
+		if completionURL == "" {
+			return h.failJob(ctx, msg.Scope, run, fmt.Errorf("missing completion delivery link"), msg.AgreementID, map[string]any{
+				"template_code": templateCode,
+				"notification":  notification,
+			})
+		}
+		emailInput.CompletionURL = completionURL
 	}
 
 	providerMessageID, sendErr := h.emailProvider.Send(ctx, emailInput)
 	if sendErr != nil {
 		if hasDispatchDelay {
 			observability.ObserveEmailDispatchStart(ctx, dispatchDelay, false)
+		}
+		if isCompletionNotification {
+			observability.ObserveCompletionDelivery(ctx, false)
 		}
 		observability.ObserveProviderResult(ctx, "email", false)
 		return h.failEmailJob(ctx, msg.Scope, run, emailLog, sendErr, msg.AgreementID, map[string]any{
@@ -245,6 +283,9 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 	}
 	if hasDispatchDelay {
 		observability.ObserveEmailDispatchStart(ctx, dispatchDelay, true)
+	}
+	if isCompletionNotification {
+		observability.ObserveCompletionDelivery(ctx, true)
 	}
 	observability.ObserveProviderResult(ctx, "email", true)
 	if _, err := h.emailLogs.UpdateEmailLog(ctx, msg.Scope, emailLog.ID, stores.EmailLogRecord{
@@ -267,12 +308,14 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		"agreement_id":  strings.TrimSpace(msg.AgreementID),
 		"recipient_id":  strings.TrimSpace(msg.RecipientID),
 		"template_code": templateCode,
+		"notification":  notification,
 		"attempt_count": run.AttemptCount,
 	})
 	return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.succeeded", map[string]any{
 		"job_name":       JobEmailSendSigningRequest,
 		"dedupe_key":     dedupeKey,
 		"template_code":  templateCode,
+		"notification":   notification,
 		"attempt_count":  run.AttemptCount,
 		"correlation_id": run.CorrelationID,
 	})
@@ -602,8 +645,10 @@ func (h Handlers) RunCompletionWorkflow(ctx context.Context, scope stores.Scope,
 			Scope:         scope,
 			AgreementID:   agreementID,
 			RecipientID:   recipient.ID,
+			Notification:  string(services.NotificationCompletionPackage),
 			TemplateCode:  completionCCTemplate,
 			CorrelationID: correlationID,
+			DedupeKey:     strings.Join([]string{agreementID, recipient.ID, completionCCTemplate, correlationID}, "|"),
 		})
 		if err != nil && firstErr == nil {
 			firstErr = err
@@ -715,4 +760,45 @@ func (h Handlers) findRecipient(ctx context.Context, scope stores.Scope, agreeme
 		}
 	}
 	return stores.RecipientRecord{}, fmt.Errorf("recipient not found for agreement")
+}
+
+func resolveTemplateCode(templateCode, notification string) string {
+	templateCode = strings.TrimSpace(templateCode)
+	if templateCode != "" {
+		return templateCode
+	}
+	switch strings.TrimSpace(notification) {
+	case string(services.NotificationSigningReminder):
+		return defaultSigningReminderTemplate
+	case string(services.NotificationCompletionPackage):
+		return completionCCTemplate
+	default:
+		return defaultSigningRequestTemplate
+	}
+}
+
+func resolveNotificationType(notification, templateCode string) string {
+	notification = strings.TrimSpace(notification)
+	if notification != "" {
+		return notification
+	}
+	switch strings.TrimSpace(templateCode) {
+	case completionCCTemplate:
+		return string(services.NotificationCompletionPackage)
+	case defaultSigningReminderTemplate:
+		return string(services.NotificationSigningReminder)
+	case defaultSigningRequestTemplate:
+		return string(services.NotificationSigningInvitation)
+	default:
+		return string(services.NotificationSigningInvitation)
+	}
+}
+
+func isSigningNotification(notification string) bool {
+	switch strings.TrimSpace(notification) {
+	case string(services.NotificationSigningInvitation), string(services.NotificationSigningReminder):
+		return true
+	default:
+		return false
+	}
 }

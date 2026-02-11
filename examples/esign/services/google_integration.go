@@ -50,6 +50,7 @@ const (
 	GoogleProviderErrorPermissionDenied GoogleProviderErrorCode = "permission_denied"
 	GoogleProviderErrorRateLimited      GoogleProviderErrorCode = "rate_limited"
 	GoogleProviderErrorAccessRevoked    GoogleProviderErrorCode = "access_revoked"
+	GoogleProviderErrorUnavailable      GoogleProviderErrorCode = "provider_unavailable"
 )
 
 // GoogleProviderError captures typed provider failures that must map to API-safe error codes.
@@ -108,6 +109,11 @@ func MapGoogleProviderError(err error) error {
 		return goerrors.New(message, goerrors.CategoryAuthz).
 			WithCode(http.StatusUnauthorized).
 			WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
+			WithMetadata(metadata)
+	case GoogleProviderErrorUnavailable:
+		return goerrors.New(message, goerrors.CategoryBadInput).
+			WithCode(http.StatusServiceUnavailable).
+			WithTextCode(string(ErrorCodeGoogleProviderDegraded)).
 			WithMetadata(metadata)
 	default:
 		return err
@@ -394,13 +400,18 @@ type GoogleOAuthToken struct {
 
 // GoogleOAuthStatus captures connection status details returned by status endpoints.
 type GoogleOAuthStatus struct {
-	Provider       string
-	UserID         string
-	Connected      bool
-	AccountEmail   string
-	Scopes         []string
-	ExpiresAt      *time.Time
-	LeastPrivilege bool
+	Provider        string
+	ProviderMode    string
+	UserID          string
+	Connected       bool
+	AccountEmail    string
+	Scopes          []string
+	ExpiresAt       *time.Time
+	LeastPrivilege  bool
+	Healthy         bool
+	Degraded        bool
+	DegradedReason  string
+	HealthCheckedAt *time.Time
 }
 
 // GoogleDriveFile captures the subset of Drive metadata needed by backend APIs.
@@ -433,6 +444,10 @@ type GoogleProvider interface {
 	SearchFiles(ctx context.Context, accessToken, query, pageToken string, pageSize int) (GoogleDriveListResult, error)
 	BrowseFiles(ctx context.Context, accessToken, folderID, pageToken string, pageSize int) (GoogleDriveListResult, error)
 	ExportFilePDF(ctx context.Context, accessToken, fileID string) (GoogleExportSnapshot, error)
+}
+
+type googleProviderHealthChecker interface {
+	HealthCheck(ctx context.Context) error
 }
 
 // DeterministicGoogleProvider is a no-network test/local provider implementation.
@@ -617,6 +632,14 @@ type GoogleImportResult struct {
 	Agreement stores.AgreementRecord
 }
 
+// GoogleProviderHealthStatus captures runtime provider health used for degraded-mode signaling.
+type GoogleProviderHealthStatus struct {
+	Mode      string
+	Healthy   bool
+	Reason    string
+	CheckedAt *time.Time
+}
+
 // GoogleIntegrationOption customizes Google integration service behavior.
 type GoogleIntegrationOption func(*GoogleIntegrationService)
 
@@ -650,10 +673,21 @@ func WithGoogleAllowedScopes(scopes []string) GoogleIntegrationOption {
 	}
 }
 
+// WithGoogleProviderMode captures the runtime provider mode (real or deterministic) for status diagnostics.
+func WithGoogleProviderMode(mode string) GoogleIntegrationOption {
+	return func(s *GoogleIntegrationService) {
+		if s == nil {
+			return
+		}
+		s.providerMode = normalizeGoogleProviderMode(mode)
+	}
+}
+
 // GoogleIntegrationService handles OAuth credential lifecycle, Drive search/browse, and import flows.
 type GoogleIntegrationService struct {
 	credentials   stores.IntegrationCredentialStore
 	provider      GoogleProvider
+	providerMode  string
 	documents     GoogleDocumentUploader
 	agreements    GoogleAgreementCreator
 	cipher        CredentialCipher
@@ -672,20 +706,21 @@ func NewGoogleIntegrationService(
 	svc := GoogleIntegrationService{
 		credentials:   credentials,
 		provider:      provider,
+		providerMode:  inferGoogleProviderMode(provider),
 		documents:     documents,
 		agreements:    agreements,
 		cipher:        NewKeyringCredentialCipher(DefaultGoogleCredentialKeyID, map[string][]byte{DefaultGoogleCredentialKeyID: []byte(defaultGoogleCredentialKey)}), // deterministic local/test default
 		now:           func() time.Time { return time.Now().UTC() },
 		allowedScopes: normalizeScopes(DefaultGoogleOAuthScopes),
 	}
-	if svc.provider == nil {
-		svc.provider = NewDeterministicGoogleProvider()
-	}
 	for _, opt := range opts {
 		if opt == nil {
 			continue
 		}
 		opt(&svc)
+	}
+	if svc.providerMode == "" {
+		svc.providerMode = inferGoogleProviderMode(svc.provider)
 	}
 	if len(svc.allowedScopes) == 0 {
 		svc.allowedScopes = normalizeScopes(DefaultGoogleOAuthScopes)
@@ -705,6 +740,9 @@ func (s GoogleIntegrationService) Connect(ctx context.Context, scope stores.Scop
 	authCode := strings.TrimSpace(input.AuthCode)
 	if authCode == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "auth_code", "required")
+	}
+	if err := s.ensureProviderHealthy(ctx); err != nil {
+		return GoogleOAuthStatus{}, err
 	}
 	token, err := s.provider.ExchangeCode(ctx, authCode, strings.TrimSpace(input.RedirectURI), append([]string{}, s.allowedScopes...))
 	if err != nil {
@@ -740,14 +778,20 @@ func (s GoogleIntegrationService) Connect(ctx context.Context, scope stores.Scop
 	}
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 	observability.ObserveGoogleAuthChurn(ctx, "oauth_connected")
+	health := s.ProviderHealth(ctx)
 	return GoogleOAuthStatus{
-		Provider:       GoogleProviderName,
-		UserID:         userID,
-		Connected:      true,
-		AccountEmail:   strings.TrimSpace(token.AccountEmail),
-		Scopes:         scopes,
-		ExpiresAt:      expiresAt,
-		LeastPrivilege: true,
+		Provider:        GoogleProviderName,
+		ProviderMode:    health.Mode,
+		UserID:          userID,
+		Connected:       true,
+		AccountEmail:    strings.TrimSpace(token.AccountEmail),
+		Scopes:          scopes,
+		ExpiresAt:       expiresAt,
+		LeastPrivilege:  true,
+		Healthy:         health.Healthy,
+		Degraded:        !health.Healthy,
+		DegradedReason:  health.Reason,
+		HealthCheckedAt: cloneGoogleTimePtr(health.CheckedAt),
 	}, nil
 }
 
@@ -788,6 +832,7 @@ func (s GoogleIntegrationService) Status(ctx context.Context, scope stores.Scope
 	if s.credentials == nil {
 		return GoogleOAuthStatus{}, domainValidationError("google", "service", "not configured")
 	}
+	health := s.ProviderHealth(ctx)
 	userID = normalizeRequiredID("google", "user_id", userID)
 	if userID == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
@@ -796,24 +841,34 @@ func (s GoogleIntegrationService) Status(ctx context.Context, scope stores.Scope
 	if err != nil {
 		if isNotFound(err) {
 			return GoogleOAuthStatus{
-				Provider:       GoogleProviderName,
-				UserID:         userID,
-				Connected:      false,
-				Scopes:         []string{},
-				ExpiresAt:      nil,
-				LeastPrivilege: false,
+				Provider:        GoogleProviderName,
+				ProviderMode:    health.Mode,
+				UserID:          userID,
+				Connected:       false,
+				Scopes:          []string{},
+				ExpiresAt:       nil,
+				LeastPrivilege:  false,
+				Healthy:         health.Healthy,
+				Degraded:        !health.Healthy,
+				DegradedReason:  health.Reason,
+				HealthCheckedAt: cloneGoogleTimePtr(health.CheckedAt),
 			}, nil
 		}
 		return GoogleOAuthStatus{}, err
 	}
 	least := validateLeastPrivilegeScopes(credential.Scopes, s.allowedScopes) == nil
 	return GoogleOAuthStatus{
-		Provider:       GoogleProviderName,
-		UserID:         userID,
-		Connected:      true,
-		Scopes:         normalizeScopes(credential.Scopes),
-		ExpiresAt:      cloneGoogleTimePtr(credential.ExpiresAt),
-		LeastPrivilege: least,
+		Provider:        GoogleProviderName,
+		ProviderMode:    health.Mode,
+		UserID:          userID,
+		Connected:       true,
+		Scopes:          normalizeScopes(credential.Scopes),
+		ExpiresAt:       cloneGoogleTimePtr(credential.ExpiresAt),
+		LeastPrivilege:  least,
+		Healthy:         health.Healthy,
+		Degraded:        !health.Healthy,
+		DegradedReason:  health.Reason,
+		HealthCheckedAt: cloneGoogleTimePtr(health.CheckedAt),
 	}, nil
 }
 
@@ -866,6 +921,9 @@ func (s GoogleIntegrationService) RotateCredentialEncryption(ctx context.Context
 
 // SearchFiles searches files via provider using decrypted scoped credentials.
 func (s GoogleIntegrationService) SearchFiles(ctx context.Context, scope stores.Scope, input GoogleDriveQueryInput) (GoogleDriveListResult, error) {
+	if err := s.ensureProviderHealthy(ctx); err != nil {
+		return GoogleDriveListResult{}, err
+	}
 	accessToken, _, err := s.resolveAccessToken(ctx, scope, input.UserID)
 	if err != nil {
 		return GoogleDriveListResult{}, err
@@ -888,6 +946,9 @@ func (s GoogleIntegrationService) SearchFiles(ctx context.Context, scope stores.
 
 // BrowseFiles lists files under a Drive folder via provider using decrypted scoped credentials.
 func (s GoogleIntegrationService) BrowseFiles(ctx context.Context, scope stores.Scope, input GoogleDriveQueryInput) (GoogleDriveListResult, error) {
+	if err := s.ensureProviderHealthy(ctx); err != nil {
+		return GoogleDriveListResult{}, err
+	}
 	accessToken, _, err := s.resolveAccessToken(ctx, scope, input.UserID)
 	if err != nil {
 		return GoogleDriveListResult{}, err
@@ -915,6 +976,9 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 	}()
 	if s.documents == nil || s.agreements == nil {
 		return GoogleImportResult{}, domainValidationError("google", "import", "document/agreement services not configured")
+	}
+	if err := s.ensureProviderHealthy(ctx); err != nil {
+		return GoogleImportResult{}, err
 	}
 	accessToken, userID, err := s.resolveAccessToken(ctx, scope, input.UserID)
 	if err != nil {
@@ -989,6 +1053,58 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 	}, nil
 }
 
+// ProviderHealth reports provider mode and health/degraded state.
+func (s GoogleIntegrationService) ProviderHealth(ctx context.Context) GoogleProviderHealthStatus {
+	mode := normalizeGoogleProviderMode(s.providerMode)
+	if mode == "" {
+		mode = inferGoogleProviderMode(s.provider)
+	}
+	checkedAt := time.Now().UTC()
+	if s.now != nil {
+		checkedAt = s.now().UTC()
+	}
+	status := GoogleProviderHealthStatus{
+		Mode:      mode,
+		Healthy:   true,
+		Reason:    "",
+		CheckedAt: &checkedAt,
+	}
+	if s.provider == nil {
+		status.Healthy = false
+		status.Reason = "provider_not_configured"
+		return status
+	}
+	checker, ok := s.provider.(googleProviderHealthChecker)
+	if !ok || checker == nil {
+		return status
+	}
+	if err := checker.HealthCheck(ctx); err != nil {
+		status.Healthy = false
+		status.Reason = normalizeGoogleTelemetryReason(err.Error())
+	}
+	return status
+}
+
+func (s GoogleIntegrationService) ensureProviderHealthy(ctx context.Context) error {
+	health := s.ProviderHealth(ctx)
+	if health.Healthy {
+		return nil
+	}
+	observability.ObserveProviderResult(ctx, GoogleProviderName, false)
+	metadata := map[string]any{
+		"provider":      GoogleProviderName,
+		"provider_mode": health.Mode,
+		"reason":        health.Reason,
+	}
+	if health.CheckedAt != nil {
+		metadata["checked_at"] = health.CheckedAt.UTC().Format(time.RFC3339Nano)
+	}
+	return goerrors.New("google provider degraded", goerrors.CategoryBadInput).
+		WithCode(http.StatusServiceUnavailable).
+		WithTextCode(string(ErrorCodeGoogleProviderDegraded)).
+		WithMetadata(metadata)
+}
+
 func (s GoogleIntegrationService) resolveAccessToken(ctx context.Context, scope stores.Scope, userID string) (string, string, error) {
 	if s.credentials == nil || s.provider == nil || s.cipher == nil {
 		return "", "", domainValidationError("google", "service", "not configured")
@@ -1030,6 +1146,29 @@ func normalizeRequiredID(entity, field, value string) string {
 		return ""
 	}
 	return value
+}
+
+func inferGoogleProviderMode(provider GoogleProvider) string {
+	switch provider.(type) {
+	case *DeterministicGoogleProvider:
+		return GoogleProviderModeDeterministic
+	case *GoogleHTTPProvider:
+		return GoogleProviderModeReal
+	default:
+		return normalizeGoogleProviderMode(ResolveGoogleProviderMode())
+	}
+}
+
+func normalizeGoogleProviderMode(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	switch value {
+	case GoogleProviderModeDeterministic:
+		return GoogleProviderModeDeterministic
+	case "", GoogleProviderModeReal:
+		return GoogleProviderModeReal
+	default:
+		return value
+	}
 }
 
 func normalizeCredentialKeyID(value string) string {

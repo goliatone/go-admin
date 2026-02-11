@@ -138,6 +138,12 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if !hasMenuTargetKey(menu, "esign") {
 		t.Fatalf("expected e-sign menu contribution in navigation")
 	}
+	if !hasMenuTarget(menu, esignAgreementsPanelID, "/admin/content/esign_agreements") {
+		t.Fatalf("expected e-sign agreements menu entry in navigation")
+	}
+	if !hasMenuTarget(menu, esignDocumentsPanelID, "/admin/content/esign_documents") {
+		t.Fatalf("expected e-sign documents menu entry in navigation")
+	}
 
 	providers := adm.Dashboard().Providers()
 	for _, code := range []string{
@@ -167,7 +173,17 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if !ok {
 		t.Fatalf("expected delivery health widget data map, got %+v", deliveryWidget["data"])
 	}
-	assertMapHasKeys(t, deliveryData, "slo_overall_pass", "slo_targets", "alerts", "job_success_rate", "emails_sent", "emails_failed")
+	assertMapHasKeys(t, deliveryData,
+		"slo_overall_pass",
+		"slo_targets",
+		"alerts",
+		"job_success_rate",
+		"emails_sent",
+		"emails_failed",
+		"signer_link_open_rate",
+		"signer_submit_conversion_rate",
+		"completion_delivery_success_rate",
+	)
 	if deliveryData["period"] != "rolling window" {
 		t.Fatalf("expected rolling window period in delivery widget, got %+v", deliveryData["period"])
 	}
@@ -298,6 +314,18 @@ func hasMenuTargetKey(items []coreadmin.NavigationItem, key string) bool {
 	return false
 }
 
+func hasMenuTarget(items []coreadmin.NavigationItem, key, menuPath string) bool {
+	for _, item := range items {
+		if targetKey(item.Target) == key && targetPath(item.Target) == menuPath {
+			return true
+		}
+		if hasMenuTarget(item.Children, key, menuPath) {
+			return true
+		}
+	}
+	return false
+}
+
 func hasDashboardProvider(providers []coreadmin.DashboardProviderSpec, code string) bool {
 	for _, provider := range providers {
 		if provider.Code == code {
@@ -322,6 +350,16 @@ func targetKey(target map[string]any) string {
 	}
 	if value, ok := target["key"].(string); ok {
 		return value
+	}
+	return ""
+}
+
+func targetPath(target map[string]any) string {
+	if target == nil {
+		return ""
+	}
+	if value, ok := target["path"].(string); ok {
+		return strings.TrimSpace(value)
 	}
 	return ""
 }

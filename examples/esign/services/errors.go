@@ -24,6 +24,7 @@ const (
 	ErrorCodeGoogleAccessRevoked    ErrorCode = "GOOGLE_ACCESS_REVOKED"
 	ErrorCodeGoogleScopeViolation   ErrorCode = "GOOGLE_SCOPE_VIOLATION"
 	ErrorCodeGoogleIntegrationOff   ErrorCode = "GOOGLE_INTEGRATION_DISABLED"
+	ErrorCodeGoogleProviderDegraded ErrorCode = "GOOGLE_PROVIDER_DEGRADED"
 )
 
 // DomainErrorCodes is the phase-0 e-sign error namespace registration payload.
@@ -117,6 +118,12 @@ var DomainErrorCodes = []coreadmin.DomainErrorCode{
 		Description: "Google integration is disabled by feature flag.",
 		Category:    goerrors.CategoryAuthz,
 		HTTPStatus:  404,
+	},
+	{
+		Code:        string(ErrorCodeGoogleProviderDegraded),
+		Description: "Google provider is degraded or unavailable.",
+		Category:    goerrors.CategoryBadInput,
+		HTTPStatus:  503,
 	},
 }
 

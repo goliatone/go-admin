@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,12 +16,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
+	"github.com/goliatone/go-admin/examples/esign/modules"
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/permissions"
+	"github.com/goliatone/go-admin/examples/esign/services"
+	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
+	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
+	"github.com/goliatone/go-uploader"
 )
 
 const (
@@ -30,6 +37,7 @@ const (
 	defaultESignDemoAdminRole     = "admin"
 	defaultESignAuthSigningKey    = "esign-demo-secret"
 	defaultESignAuthContextKey    = "esign_admin_user"
+	esignUploadFormField          = "file"
 )
 
 var (
@@ -38,6 +46,7 @@ var (
 		"admin.activity":         string(auth.RoleAdmin),
 		"admin.content":          string(auth.RoleAdmin),
 		"admin.dashboard":        string(auth.RoleAdmin),
+		"esign":                  string(auth.RoleAdmin),
 		"admin.esign":            string(auth.RoleAdmin),
 		"admin.esign_agreements": string(auth.RoleAdmin),
 		"admin.esign_documents":  string(auth.RoleAdmin),
@@ -57,6 +66,12 @@ var (
 		"admin.dashboard.view",
 		"admin.notifications.view",
 		"admin.settings.view",
+	}
+	allowedESignUploadMimeTypes = map[string]bool{
+		"application/pdf": true,
+	}
+	allowedESignUploadExtensions = map[string]bool{
+		".pdf": true,
 	}
 )
 
@@ -289,6 +304,7 @@ func registerESignWebRoutes(
 	auther *auth.Auther,
 	cookieName string,
 	routes handlers.RouteSet,
+	esignModule *modules.ESignModule,
 ) error {
 	if r == nil {
 		return fmt.Errorf("router is required")
@@ -320,9 +336,16 @@ func registerESignWebRoutes(
 	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
 		return err
 	}
-	if err := quickstart.RegisterContentEntryUIRoutes(r, cfg, adm, authn); err != nil {
+	if err := quickstart.RegisterContentEntryUIRoutes(
+		r,
+		cfg,
+		adm,
+		authn,
+		quickstart.WithContentEntryUITemplateFS(client.FS(), eSignTemplatesFS),
+	); err != nil {
 		return err
 	}
+	registerESignDocumentUploadRoute(r, authn, routes, esignModule)
 	registerESignLegacyUIAliasRoutes(r, authn, basePath)
 	if err := quickstart.RegisterAuthUIRoutes(
 		r,
@@ -376,8 +399,184 @@ func registerESignWebRoutes(
 	); err != nil {
 		return err
 	}
+	if err := registerESignGoogleIntegrationUIRoutes(r, cfg, adm, authn, routes, esignModule); err != nil {
+		return err
+	}
+
+	// Register public signer web routes (no auth required)
+	tokenSvc := esignModule.TokenService()
+	if tokenSvc != nil {
+		signerCfg := SignerWebRouteConfig{
+			TokenValidator: tokenSvc,
+			SigningService: esignModule.SigningService(),
+			DefaultScope:   esignModule.DefaultScope(),
+			APIBasePath:    "/api/v1/esign/signing",
+		}
+		if err := registerESignPublicSignerWebRoutes(r, signerCfg); err != nil {
+			return err
+		}
+	}
 
 	return nil
+}
+
+func registerESignGoogleIntegrationUIRoutes(
+	r router.Router[*fiber.App],
+	cfg coreadmin.Config,
+	adm *coreadmin.Admin,
+	authn coreadmin.HandlerAuthenticator,
+	routes handlers.RouteSet,
+	esignModule *modules.ESignModule,
+) error {
+	if r == nil || adm == nil {
+		return nil
+	}
+
+	basePath := strings.TrimSpace(adm.BasePath())
+	if basePath == "" {
+		basePath = strings.TrimSpace(cfg.BasePath)
+	}
+	if basePath == "" {
+		basePath = "/admin"
+	}
+
+	landingPath := strings.TrimSpace(routes.AdminHome)
+	if landingPath == "" {
+		landingPath = path.Join(basePath, "esign")
+	}
+	documentsPath := path.Join(basePath, "content", "esign_documents")
+	googleIntegrationPath := path.Join(basePath, "esign", "integrations", "google")
+	googleCallbackPath := path.Join(googleIntegrationPath, "callback")
+	googleDrivePickerPath := path.Join(googleIntegrationPath, "drive")
+	apiBasePath := strings.TrimSpace(adm.AdminAPIBasePath())
+	googleEnabled := featureEnabledInSystemScope(adm.FeatureGate(), "esign_google")
+	if !googleEnabled {
+		return nil
+	}
+
+	return quickstart.RegisterAdminPageRoutes(
+		r,
+		cfg,
+		adm,
+		authn,
+		quickstart.AdminPageSpec{
+			Path:       googleIntegrationPath,
+			Template:   "resources/esign-integrations/google",
+			Title:      "Google Drive Integration",
+			Active:     "esign",
+			Permission: permissions.AdminESignSettings,
+			BuildContext: func(c router.Context) (router.ViewContext, error) {
+				userID := resolveESignAdminUserID(c)
+				return router.ViewContext{
+					"api_base_path":    apiBasePath,
+					"google_enabled":   googleEnabled,
+					"google_client_id": strings.TrimSpace(os.Getenv("ESIGN_GOOGLE_CLIENT_ID")),
+					"user_id":          userID,
+					"routes": map[string]any{
+						"esign_settings":      landingPath,
+						"esign_documents":     documentsPath,
+						"esign_google_picker": googleDrivePickerPath,
+					},
+				}, nil
+			},
+		},
+		quickstart.AdminPageSpec{
+			Path:       googleCallbackPath,
+			Template:   "resources/esign-integrations/google-callback",
+			Title:      "Google Authorization",
+			Active:     "esign",
+			Permission: permissions.AdminESignSettings,
+		},
+		quickstart.AdminPageSpec{
+			Path:       googleDrivePickerPath,
+			Template:   "resources/esign-integrations/google-drive-picker",
+			Title:      "Import from Google Drive",
+			Active:     "esign",
+			Permission: permissions.AdminESignCreate,
+			BuildContext: func(c router.Context) (router.ViewContext, error) {
+				userID := resolveESignAdminUserID(c)
+				scope := stores.Scope{TenantID: "tenant-bootstrap", OrgID: "org-bootstrap"}
+				if esignModule != nil {
+					scope = resolveESignUploadScope(c, esignModule.DefaultScope())
+				}
+				googleConnected := esignModule != nil && esignModule.GoogleConnected(c.Context(), scope, userID)
+				return router.ViewContext{
+					"api_base_path":    apiBasePath,
+					"user_id":          userID,
+					"google_connected": googleConnected,
+					"routes": map[string]any{
+						"esign_settings":  landingPath,
+						"esign_documents": documentsPath,
+					},
+				}, nil
+			},
+		},
+	)
+}
+
+func registerESignDocumentUploadRoute(
+	r router.Router[*fiber.App],
+	authn coreadmin.HandlerAuthenticator,
+	routes handlers.RouteSet,
+	esignModule *modules.ESignModule,
+) {
+	if r == nil || authn == nil || esignModule == nil {
+		return
+	}
+	uploadHandler := quickstart.NewUploadHandler(quickstart.UploadHandlerConfig{
+		BasePath:            routes.AdminBasePath,
+		DiskAssetsDir:       resolveESignDiskAssetsDir(),
+		FormField:           esignUploadFormField,
+		MaxFileSize:         esignModule.MaxSourcePDFBytes(),
+		AllowedMimeTypes:    cloneStringBoolMap(allowedESignUploadMimeTypes),
+		AllowedImageFormats: cloneStringBoolMap(allowedESignUploadExtensions),
+		Manager:             esignModule.UploadManager(),
+		Authorize: func(ctx context.Context) error {
+			if auth.Can(ctx, "admin.esign", "create") || auth.Can(ctx, "esign", "create") {
+				return nil
+			}
+			return goerrors.New("forbidden", goerrors.CategoryAuthz).
+				WithCode(goerrors.CodeForbidden).
+				WithTextCode("FORBIDDEN")
+		},
+		ResolveUploadSubdir: func(c router.Context) string {
+			scope := resolveESignUploadScope(c, esignModule.DefaultScope())
+			return path.Join("tenant", scope.TenantID, "org", scope.OrgID, "docs")
+		},
+		Response: func(publicURL string, meta *uploader.FileMeta) any {
+			objectKey := ""
+			if meta != nil {
+				objectKey = strings.TrimSpace(meta.Name)
+			}
+			return map[string]any{
+				"url":        publicURL,
+				"object_key": objectKey,
+			}
+		},
+	})
+	r.Post(routes.AdminDocumentsUpload, authn.WrapHandler(uploadHandler))
+}
+
+func resolveESignUploadScope(c router.Context, fallback stores.Scope) stores.Scope {
+	scope := fallback
+	if c == nil {
+		return scope
+	}
+	tenantID := strings.TrimSpace(c.Query("tenant_id"))
+	if tenantID == "" {
+		tenantID = strings.TrimSpace(c.Header("X-Tenant-ID"))
+	}
+	if tenantID != "" {
+		scope.TenantID = tenantID
+	}
+	orgID := strings.TrimSpace(c.Query("org_id"))
+	if orgID == "" {
+		orgID = strings.TrimSpace(c.Header("X-Org-ID"))
+	}
+	if orgID != "" {
+		scope.OrgID = orgID
+	}
+	return scope
 }
 
 func registerESignLegacyUIAliasRoutes(
@@ -492,6 +691,45 @@ func dedupePermissionList(input []string) []string {
 	return out
 }
 
+func resolveESignAdminUserID(c router.Context) string {
+	if c != nil {
+		if actor, ok := auth.ActorFromContext(c.Context()); ok && actor != nil {
+			if subject := strings.TrimSpace(actor.Subject); subject != "" {
+				return subject
+			}
+			if actorID := strings.TrimSpace(actor.ActorID); actorID != "" {
+				return actorID
+			}
+		}
+		if userID := strings.TrimSpace(c.Query("user_id")); userID != "" {
+			return userID
+		}
+		if userID := strings.TrimSpace(c.Header("X-User-ID")); userID != "" {
+			return userID
+		}
+	}
+	return firstNonEmptyEnv("ESIGN_ADMIN_ID", defaultESignDemoAdminID)
+}
+
+func featureEnabledInSystemScope(gate fggate.FeatureGate, feature string) bool {
+	if gate == nil || strings.TrimSpace(feature) == "" {
+		return false
+	}
+	enabled, err := gate.Enabled(context.Background(), strings.TrimSpace(feature), fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
+	return err == nil && enabled
+}
+
+func cloneStringBoolMap(input map[string]bool) map[string]bool {
+	if len(input) == 0 {
+		return map[string]bool{}
+	}
+	out := make(map[string]bool, len(input))
+	for key, value := range input {
+		out[key] = value
+	}
+	return out
+}
+
 func firstNonEmptyEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		trimmed := strings.TrimSpace(value)
@@ -500,4 +738,334 @@ func firstNonEmptyEnv(key, fallback string) string {
 		}
 	}
 	return strings.TrimSpace(fallback)
+}
+
+// SignerWebRouteConfig holds dependencies for public signer web routes.
+type SignerWebRouteConfig struct {
+	TokenValidator handlers.SignerTokenValidator
+	SigningService handlers.SignerSessionService
+	DefaultScope   stores.Scope
+	APIBasePath    string
+}
+
+// registerESignPublicSignerWebRoutes registers HTML routes for the public signer flow.
+// These routes serve HTML pages backed by signer APIs (session, fields, complete, declined, error).
+func registerESignPublicSignerWebRoutes(
+	r router.Router[*fiber.App],
+	signerCfg SignerWebRouteConfig,
+) error {
+	if r == nil {
+		return fmt.Errorf("router is required")
+	}
+
+	apiBasePath := strings.TrimSpace(signerCfg.APIBasePath)
+	if apiBasePath == "" {
+		apiBasePath = "/api/v1/esign/signing"
+	}
+
+	// GET /sign/:token - Main session/consent entrypoint
+	r.Get("/sign/:token", func(c router.Context) error {
+		return renderSignerSessionPage(c, signerCfg, apiBasePath)
+	})
+
+	// Alias: /esign/sign/:token (for template URL pattern compatibility)
+	r.Get("/esign/sign/:token", func(c router.Context) error {
+		return renderSignerSessionPage(c, signerCfg, apiBasePath)
+	})
+
+	// GET /sign/:token/fields - Field completion page
+	r.Get("/sign/:token/fields", func(c router.Context) error {
+		return renderSignerFieldsPage(c, signerCfg, apiBasePath)
+	})
+	r.Get("/esign/sign/:token/fields", func(c router.Context) error {
+		return renderSignerFieldsPage(c, signerCfg, apiBasePath)
+	})
+
+	// GET /sign/:token/complete - Submission complete confirmation
+	r.Get("/sign/:token/complete", func(c router.Context) error {
+		return renderSignerCompletePage(c, signerCfg, apiBasePath)
+	})
+	r.Get("/esign/sign/:token/complete", func(c router.Context) error {
+		return renderSignerCompletePage(c, signerCfg, apiBasePath)
+	})
+
+	// GET /sign/:token/declined - Decline confirmation
+	r.Get("/sign/:token/declined", func(c router.Context) error {
+		return renderSignerDeclinedPage(c, signerCfg, apiBasePath)
+	})
+	r.Get("/esign/sign/:token/declined", func(c router.Context) error {
+		return renderSignerDeclinedPage(c, signerCfg, apiBasePath)
+	})
+
+	return nil
+}
+
+func renderSignerSessionPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
+	token := strings.TrimSpace(c.Param("token"))
+	if token == "" {
+		observability.ObserveSignerLinkOpen(c.Context(), false)
+		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
+	}
+
+	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
+	if err != nil {
+		return handleSignerTokenError(c, apiBasePath, err, token)
+	}
+
+	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
+	if err != nil {
+		observability.ObserveSignerLinkOpen(c.Context(), false)
+		return renderSignerErrorPage(c, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
+	}
+
+	observability.ObserveSignerLinkOpen(c.Context(), true)
+	viewCtx := buildSignerSessionViewContext(token, apiBasePath, session, nil)
+	return c.Render("esign-signer/session", viewCtx)
+}
+
+func renderSignerFieldsPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
+	token := strings.TrimSpace(c.Param("token"))
+	if token == "" {
+		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
+	}
+
+	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
+	if err != nil {
+		return handleSignerTokenError(c, apiBasePath, err, token)
+	}
+
+	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
+	if err != nil {
+		return renderSignerErrorPage(c, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
+	}
+
+	// Redirect to session page if not in active state
+	if session.State != services.SignerSessionStateActive {
+		return c.Redirect("/sign/"+token, http.StatusFound)
+	}
+
+	viewCtx := buildSignerFieldsViewContext(token, apiBasePath, session)
+	return c.Render("esign-signer/fields", viewCtx)
+}
+
+func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
+	token := strings.TrimSpace(c.Param("token"))
+	if token == "" {
+		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
+	}
+
+	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
+	if err != nil {
+		// For complete page, some token errors are expected (e.g., token revoked after completion)
+		// Show a generic completion message
+		viewCtx := router.ViewContext{
+			"token":         token,
+			"api_base_path": apiBasePath,
+			"agreement": map[string]any{
+				"title":     "Document",
+				"completed": true,
+			},
+			"signed_at": time.Now().Format("January 2, 2006"),
+		}
+		return c.Render("esign-signer/complete", viewCtx)
+	}
+
+	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
+	if err != nil {
+		// Still show completion page even if session fails
+		viewCtx := router.ViewContext{
+			"token":         token,
+			"api_base_path": apiBasePath,
+			"agreement": map[string]any{
+				"title":     "Document",
+				"completed": true,
+			},
+			"signed_at": time.Now().Format("January 2, 2006"),
+		}
+		return c.Render("esign-signer/complete", viewCtx)
+	}
+
+	viewCtx := router.ViewContext{
+		"token":         token,
+		"api_base_path": apiBasePath,
+		"agreement": map[string]any{
+			"title":     "Agreement",
+			"status":    session.AgreementStatus,
+			"completed": session.AgreementStatus == stores.AgreementStatusCompleted,
+		},
+		"session":   sessionToViewContext(session),
+		"signed_at": time.Now().Format("January 2, 2006"),
+	}
+	return c.Render("esign-signer/complete", viewCtx)
+}
+
+func renderSignerDeclinedPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
+	token := strings.TrimSpace(c.Param("token"))
+	if token == "" {
+		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
+	}
+
+	declineReason := strings.TrimSpace(c.Query("reason"))
+
+	viewCtx := router.ViewContext{
+		"token":          token,
+		"api_base_path":  apiBasePath,
+		"decline_reason": declineReason,
+		"agreement": map[string]any{
+			"title":        "Document",
+			"sender_email": "",
+		},
+	}
+
+	// Try to load session for additional context, but don't fail if unavailable
+	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
+	if err == nil {
+		session, sessionErr := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
+		if sessionErr == nil {
+			viewCtx["agreement"] = map[string]any{
+				"title":        "Agreement",
+				"sender_email": "",
+			}
+			viewCtx["session"] = sessionToViewContext(session)
+		}
+	}
+
+	return c.Render("esign-signer/declined", viewCtx)
+}
+
+func renderSignerErrorPage(c router.Context, apiBasePath, errorCode, errorTitle, errorMessage string) error {
+	viewCtx := router.ViewContext{
+		"api_base_path": apiBasePath,
+		"error_code":    errorCode,
+		"error_title":   errorTitle,
+		"error_message": errorMessage,
+	}
+	return c.Render("esign-signer/error", viewCtx)
+}
+
+func validateSignerToken(ctx context.Context, cfg SignerWebRouteConfig, token string) (stores.SigningTokenRecord, error) {
+	if cfg.TokenValidator == nil {
+		return stores.SigningTokenRecord{}, fmt.Errorf("token validator not configured")
+	}
+	return cfg.TokenValidator.Validate(ctx, cfg.DefaultScope, token)
+}
+
+func handleSignerTokenError(c router.Context, apiBasePath string, err error, token string) error {
+	observability.ObserveSignerLinkOpen(c.Context(), false)
+	errMsg := strings.ToLower(err.Error())
+
+	if strings.Contains(errMsg, "expired") {
+		return renderSignerErrorPage(c, apiBasePath, "TOKEN_EXPIRED", "Link Expired", "This signing link has expired.")
+	}
+	if strings.Contains(errMsg, "revoked") || strings.Contains(errMsg, "invalidated") {
+		return renderSignerErrorPage(c, apiBasePath, "TOKEN_REVOKED", "Link No Longer Valid", "This signing link has been revoked.")
+	}
+	if strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "invalid") {
+		return renderSignerErrorPage(c, apiBasePath, "INVALID_TOKEN", "Invalid Link", "This signing link is invalid or doesn't exist.")
+	}
+
+	return renderSignerErrorPage(c, apiBasePath, "TOKEN_ERROR", "Unable to Verify Link", "We couldn't verify your signing link. Please contact the sender.")
+}
+
+func buildSignerSessionViewContext(token, apiBasePath string, session services.SignerSessionContext, agreement map[string]any) router.ViewContext {
+	if agreement == nil {
+		agreement = map[string]any{
+			"title":         "Agreement",
+			"status":        session.AgreementStatus,
+			"page_count":    1,
+			"document_name": "Document.pdf",
+			"sender_email":  "",
+			"total_signers": 1,
+		}
+	}
+
+	return router.ViewContext{
+		"token":         token,
+		"api_base_path": apiBasePath,
+		"session":       sessionToViewContext(session),
+		"agreement":     agreement,
+	}
+}
+
+func buildSignerFieldsViewContext(token, apiBasePath string, session services.SignerSessionContext) router.ViewContext {
+	fieldsJSON := "[]"
+	if len(session.Fields) > 0 {
+		if encoded, err := encodeFieldsJSON(session.Fields); err == nil {
+			fieldsJSON = encoded
+		}
+	}
+
+	sessionCtx := sessionToViewContext(session)
+	sessionCtx["fields_json"] = fieldsJSON
+
+	return router.ViewContext{
+		"token":         token,
+		"api_base_path": apiBasePath,
+		"session":       sessionCtx,
+		"agreement": map[string]any{
+			"title":         "Agreement",
+			"status":        session.AgreementStatus,
+			"page_count":    1,
+			"document_name": "Document.pdf",
+		},
+	}
+}
+
+func sessionToViewContext(session services.SignerSessionContext) router.ViewContext {
+	fields := make([]map[string]any, 0, len(session.Fields))
+	for _, f := range session.Fields {
+		field := map[string]any{
+			"id":         f.ID,
+			"type":       f.Type,
+			"page":       f.Page,
+			"required":   f.Required,
+			"value_text": f.ValueText,
+		}
+		if f.ValueBool != nil {
+			field["value_bool"] = *f.ValueBool
+		}
+		fields = append(fields, field)
+	}
+
+	return router.ViewContext{
+		"agreement_id":      session.AgreementID,
+		"agreement_status":  session.AgreementStatus,
+		"recipient_id":      session.RecipientID,
+		"recipient_email":   session.RecipientEmail,
+		"recipient_name":    session.RecipientName,
+		"recipient_order":   session.RecipientOrder,
+		"recipient_role":    session.RecipientRole,
+		"state":             session.State,
+		"has_consented":     false,
+		"fields":            fields,
+		"active_recipient":  session.ActiveRecipientID,
+		"waiting_recipient": session.WaitingForRecipient,
+	}
+}
+
+func encodeFieldsJSON(fields []services.SignerSessionField) (string, error) {
+	type fieldJSON struct {
+		ID        string `json:"id"`
+		Type      string `json:"type"`
+		Page      int    `json:"page"`
+		Required  bool   `json:"required"`
+		ValueText string `json:"value_text,omitempty"`
+		ValueBool *bool  `json:"value_bool,omitempty"`
+	}
+	out := make([]fieldJSON, 0, len(fields))
+	for _, f := range fields {
+		out = append(out, fieldJSON{
+			ID:        f.ID,
+			Type:      f.Type,
+			Page:      f.Page,
+			Required:  f.Required,
+			ValueText: f.ValueText,
+			ValueBool: f.ValueBool,
+		})
+	}
+	encoded, err := json.Marshal(out)
+	if err != nil {
+		return "[]", err
+	}
+	return string(encoded), nil
 }
