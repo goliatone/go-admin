@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"path"
 	"reflect"
@@ -523,7 +522,7 @@ func (h *contentTypeBuilderHandlers) ContentTypeCompatibility(c router.Context) 
 		return resolveErr
 	}
 	if resolvedID == "" {
-		logContentTypeIDMismatch("compatibility", id, resolvedID, resolvedFrom, record)
+		h.logContentTypeIDMismatch("compatibility", id, resolvedID, resolvedFrom, record)
 		return goerrors.New("content type not found", goerrors.CategoryNotFound).
 			WithCode(http.StatusNotFound).
 			WithTextCode(admin.TextCodeNotFound)
@@ -532,7 +531,7 @@ func (h *contentTypeBuilderHandlers) ContentTypeCompatibility(c router.Context) 
 		record, recordErr = panel.Get(adminCtx, resolvedID)
 		if recordErr != nil {
 			if errors.Is(recordErr, admin.ErrNotFound) {
-				logContentTypeIDMismatch("compatibility", id, resolvedID, resolvedFrom, record)
+				h.logContentTypeIDMismatch("compatibility", id, resolvedID, resolvedFrom, record)
 				return goerrors.New("content type not found", goerrors.CategoryNotFound).
 					WithCode(http.StatusNotFound).
 					WithTextCode(admin.TextCodeNotFound)
@@ -840,7 +839,7 @@ func (h *contentTypeBuilderHandlers) updateContentTypeStatus(c router.Context, s
 		return resolveErr
 	}
 	if resolvedID == "" {
-		logContentTypeIDMismatch("publish", id, resolvedID, resolvedFrom, record)
+		h.logContentTypeIDMismatch("publish", id, resolvedID, resolvedFrom, record)
 		return goerrors.New("content type not found", goerrors.CategoryNotFound).
 			WithCode(http.StatusNotFound).
 			WithTextCode(admin.TextCodeNotFound)
@@ -855,7 +854,7 @@ func (h *contentTypeBuilderHandlers) updateContentTypeStatus(c router.Context, s
 	updated, err := panel.Update(adminCtx, resolvedID, updatePayload)
 	if err != nil {
 		if errors.Is(err, admin.ErrNotFound) {
-			logContentTypeIDMismatch("publish", id, resolvedID, resolvedFrom, record)
+			h.logContentTypeIDMismatch("publish", id, resolvedID, resolvedFrom, record)
 			return goerrors.New("content type not found", goerrors.CategoryNotFound).
 				WithCode(http.StatusNotFound).
 				WithTextCode(admin.TextCodeNotFound)
@@ -919,7 +918,7 @@ func (h *contentTypeBuilderHandlers) resolveContentTypeID(ctx context.Context, r
 	return "", "", nil
 }
 
-func logContentTypeIDMismatch(action, requestID, resolvedID, resolvedFrom string, record map[string]any) {
+func (h *contentTypeBuilderHandlers) logContentTypeIDMismatch(action, requestID, resolvedID, resolvedFrom string, record map[string]any) {
 	if action == "" {
 		action = "update"
 	}
@@ -931,8 +930,16 @@ func logContentTypeIDMismatch(action, requestID, resolvedID, resolvedFrom string
 		recordTypeID = strings.TrimSpace(anyToString(record["content_type_id"]))
 		recordSlug = strings.TrimSpace(anyToString(record["slug"]))
 	}
-	log.Printf("[content types] %s id mismatch request_id=%q resolved_id=%q resolved_from=%q record_id=%q record_content_type_id=%q record_slug=%q",
-		action, requestID, resolvedID, resolvedFrom, recordID, recordTypeID, recordSlug)
+	logger := resolveQuickstartAdminLogger(h.admin, "quickstart.content_types", nil, nil)
+	logger.Warn("content type id mismatch",
+		"action", action,
+		"request_id", requestID,
+		"resolved_id", resolvedID,
+		"resolved_from", resolvedFrom,
+		"record_id", recordID,
+		"record_content_type_id", recordTypeID,
+		"record_slug", recordSlug,
+	)
 }
 
 func (h *contentTypeBuilderHandlers) updateBlockDefinitionStatus(c router.Context, status string) error {
