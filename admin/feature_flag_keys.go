@@ -10,6 +10,8 @@ import (
 func defaultFeatureFlagKeys() []string {
 	return []string{
 		string(FeatureDashboard),
+		string(FeatureActivity),
+		string(FeaturePreview),
 		string(FeatureSearch),
 		string(FeatureExport),
 		string(FeatureCMS),
