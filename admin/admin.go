@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"log"
 	"sort"
 	"strings"
 
@@ -19,6 +18,8 @@ import (
 // Admin orchestrates CMS-backed admin features and adapters.
 type Admin struct {
 	config                       Config
+	logger                       Logger
+	loggerProvider               LoggerProvider
 	featureGate                  fggate.FeatureGate
 	featureCatalog               catalog.Catalog
 	featureCatalogResolver       catalog.MessageResolver
@@ -115,6 +116,8 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	if translator == nil {
 		translator = NoopTranslator{}
 	}
+	loggerProvider, logger := resolveLoggerDependencies(deps.LoggerProvider, deps.Logger)
+	registry.WithLogger(resolveNamedLogger("admin.registry", loggerProvider, logger))
 
 	featureGate := deps.FeatureGate
 	if featureGate == nil {
@@ -299,9 +302,12 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 
 	dashboard := NewDashboard()
 	dashboard.WithRegistry(registry)
+	dashboard.WithLogger(resolveNamedLogger("admin.dashboard", loggerProvider, logger))
 
 	adm := &Admin{
 		config:                 cfg,
+		logger:                 logger,
+		loggerProvider:         loggerProvider,
 		featureGate:            featureGate,
 		featureCatalog:         featureCatalog,
 		featureCatalogResolver: featureCatalogResolver,
@@ -1207,6 +1213,10 @@ func (a *Admin) resolvePanelTabCollision(panelName string, existing PanelTab, in
 	if a != nil && a.panelTabCollisionHandler != nil {
 		return a.panelTabCollisionHandler(panelName, existing, incoming)
 	}
-	log.Printf("[admin] panel tab collision panel=%s id=%s existing_label=%s incoming_label=%s", panelName, existing.ID, existing.Label, incoming.Label)
+	a.loggerFor("admin.tabs").Warn("panel tab collision",
+		"panel", panelName,
+		"id", existing.ID,
+		"existing_label", existing.Label,
+		"incoming_label", incoming.Label)
 	return existing, nil
 }
