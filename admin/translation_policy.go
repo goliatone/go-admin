@@ -87,6 +87,14 @@ type GoCMSTranslationPolicy struct {
 	Resolver TranslationRequirementsResolver
 }
 
+// Requirements resolves transition requirements when the policy exposes a resolver.
+func (p GoCMSTranslationPolicy) Requirements(ctx context.Context, input TranslationPolicyInput) (TranslationRequirements, bool, error) {
+	if p.Resolver == nil {
+		return TranslationRequirements{}, false, nil
+	}
+	return p.Resolver.Requirements(ctx, input)
+}
+
 // Validate enforces the translation requirements resolved for the transition.
 func (p GoCMSTranslationPolicy) Validate(ctx context.Context, input TranslationPolicyInput) error {
 	if p.Resolver == nil {
