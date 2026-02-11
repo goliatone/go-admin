@@ -222,3 +222,8 @@ func atoiDefault(val string, def int) int {
 func toString(v any) string {
 	return listquery.ToString(v)
 }
+
+func queryInt(c router.Context, key string, def int) int {
+	val := c.Query(key)
+	return atoiDefault(val, def)
+}
