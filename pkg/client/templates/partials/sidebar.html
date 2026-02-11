@@ -2,7 +2,7 @@
   <!-- Header: Logo -->
   <div class="sidebar-header flex items-center gap-2" style="padding: var(--sidebar-padding-y, 12px) var(--sidebar-padding-x, 12px);">
     <a href="{{ base_path }}" class="flex items-center no-underline flex-1 min-w-0 overflow-hidden">
-      <img src="{{ asset_base_path|default:base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo" />
+      <img src="{{ asset_base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo" />
     </a>
     <button id="sidebar-toggle" class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0" aria-label="Toggle sidebar">
       <i class="iconoir-menu text-lg text-sidebar-text-muted"></i>
@@ -97,6 +97,9 @@
     {% if nav_debug and nav_items_json %}
       <pre class="mt-4 text-[11px] bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto">{{ nav_items_json }}</pre>
     {% endif %}
+
+    <!-- Translation Operations Entrypoints (capability-gated) -->
+    <div data-translation-operations class="translation-operations-section mt-4" style="display: none;"></div>
   </nav>
 
   <!-- Fixed Bottom Section -->

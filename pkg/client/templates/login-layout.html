@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}{{ title|default:"Enterprise Admin" }}{% endblock %}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
-  <link rel="stylesheet" href="{{ asset_base_path|default:base_path }}/assets/output.css">
+  <link rel="stylesheet" href="{{ asset_base_path }}/assets/output.css">
   {% if theme %}
   <style>
     :root {
@@ -25,7 +25,7 @@
   {% block content %}{% endblock %}
 
   <!-- Initialize toast manager globally -->
-  <script type="module" src="{{ asset_base_path|default:base_path }}/assets/dist/toast/init.js"></script>
+  <script type="module" src="{{ asset_base_path }}/assets/dist/toast/init.js"></script>
 
   {% block scripts %}{% endblock %}
 </body>

@@ -27,6 +27,7 @@ export default defineConfig({
         'debug/toolbar': resolve(__dirname, 'src/debug/toolbar/index.ts'),
         'content-type-builder/index': resolve(__dirname, 'src/content-type-builder/index.ts'),
         'translation-exchange/index': resolve(__dirname, 'src/translation-exchange/index.ts'),
+        'translation-operations/index': resolve(__dirname, 'src/translation-operations/index.ts'),
       },
       formats: ['es'],
       // Output file names without hash for predictable paths
