@@ -124,19 +124,34 @@ type Filter struct {
 	Options         []Option `json:"options,omitempty"`
 }
 
+type ActionScope string
+
+const (
+	ActionScopeAny    ActionScope = "all"
+	ActionScopeRow    ActionScope = "row"
+	ActionScopeDetail ActionScope = "detail"
+	ActionScopeBulk   ActionScope = "bulk"
+)
+
 // Action describes an action or bulk action linked to a command handler.
 type Action struct {
-	Name            string         `json:"name"`
-	Label           string         `json:"label,omitempty"`
-	LabelKey        string         `json:"label_key,omitempty"`
-	CommandName     string         `json:"command_name"`
-	Permission      string         `json:"permission,omitempty"`
-	Icon            string         `json:"icon,omitempty"`
-	Confirm         string         `json:"confirm,omitempty"`
-	Variant         string         `json:"variant,omitempty"`
-	Overflow        bool           `json:"overflow,omitempty"`
-	PayloadRequired []string       `json:"payload_required,omitempty"`
-	PayloadSchema   map[string]any `json:"payload_schema,omitempty"`
+	Name             string         `json:"name"`
+	Label            string         `json:"label,omitempty"`
+	LabelKey         string         `json:"label_key,omitempty"`
+	CommandName      string         `json:"command_name"`
+	Permission       string         `json:"permission,omitempty"`
+	Type             string         `json:"type,omitempty"`
+	Href             string         `json:"href,omitempty"`
+	Scope            ActionScope    `json:"scope,omitempty"`
+	ContextRequired  []string       `json:"context_required,omitempty"`
+	Icon             string         `json:"icon,omitempty"`
+	Confirm          string         `json:"confirm,omitempty"`
+	Variant          string         `json:"variant,omitempty"`
+	Overflow         bool           `json:"overflow,omitempty"`
+	Idempotent       bool           `json:"idempotent,omitempty"`
+	IdempotencyField string         `json:"idempotency_field,omitempty"`
+	PayloadRequired  []string       `json:"payload_required,omitempty"`
+	PayloadSchema    map[string]any `json:"payload_schema,omitempty"`
 }
 
 // PanelPermissions declares resource actions.
@@ -373,13 +388,15 @@ func (p *Panel) Schema() Schema {
 	if len(p.formSchema) > 0 {
 		formSchema = cloneAnyMap(p.formSchema)
 	}
+	actions := normalizePanelActionsForSchema(p.actions, p.permissions)
+	bulkActions := normalizeBulkActionsForSchema(p.bulkActions)
 	return Schema{
 		ListFields:   p.listFields,
 		FormFields:   p.formFields,
 		DetailFields: p.detailFields,
 		Filters:      p.filters,
-		Actions:      p.actions,
-		BulkActions:  p.bulkActions,
+		Actions:      actions,
+		BulkActions:  bulkActions,
 		Tabs:         append([]PanelTab{}, p.tabs...),
 		FormSchema:   formSchema,
 		UseBlocks:    p.useBlocks,
@@ -396,6 +413,234 @@ func (p *Panel) SchemaWithTheme(theme map[string]map[string]string) Schema {
 		schema.Theme = theme
 	}
 	return schema
+}
+
+func normalizePanelActionsForSchema(actions []Action, perms PanelPermissions) []Action {
+	out := make([]Action, 0, len(actions)+2)
+	if !hasActionNamed(actions, "view") {
+		out = append(out, normalizeActionContract(Action{
+			Name:       "view",
+			Label:      "View",
+			Type:       "navigation",
+			Scope:      ActionScopeRow,
+			Permission: strings.TrimSpace(perms.View),
+			Variant:    "secondary",
+			Icon:       "eye",
+		}, ActionScopeRow))
+	}
+	if !hasActionNamed(actions, "edit") {
+		out = append(out, normalizeActionContract(Action{
+			Name:       "edit",
+			Label:      "Edit",
+			Type:       "navigation",
+			Scope:      ActionScopeRow,
+			Permission: strings.TrimSpace(perms.Edit),
+			Variant:    "primary",
+			Icon:       "edit",
+		}, ActionScopeRow))
+	}
+	for _, action := range actions {
+		out = append(out, normalizeActionContract(action, ActionScopeRow))
+	}
+	return out
+}
+
+func normalizeBulkActionsForSchema(actions []Action) []Action {
+	out := make([]Action, 0, len(actions))
+	for _, action := range actions {
+		out = append(out, normalizeActionContract(action, ActionScopeBulk))
+	}
+	return out
+}
+
+func normalizeActionContract(action Action, defaultScope ActionScope) Action {
+	action.Name = strings.TrimSpace(action.Name)
+	action.Label = strings.TrimSpace(action.Label)
+	action.LabelKey = strings.TrimSpace(action.LabelKey)
+	action.CommandName = strings.TrimSpace(action.CommandName)
+	action.Permission = strings.TrimSpace(action.Permission)
+	action.Type = strings.TrimSpace(action.Type)
+	action.Href = strings.TrimSpace(action.Href)
+	action.Icon = strings.TrimSpace(action.Icon)
+	action.Confirm = strings.TrimSpace(action.Confirm)
+	action.Variant = strings.TrimSpace(action.Variant)
+	action.IdempotencyField = strings.TrimSpace(action.IdempotencyField)
+	action.Scope = normalizeActionScope(action.Scope, defaultScope)
+	action.ContextRequired = normalizeActionFieldList(action.ContextRequired)
+	action.PayloadRequired = normalizeActionFieldList(action.PayloadRequired)
+
+	if action.Idempotent {
+		field := actionIdempotencyField(action)
+		if field != "" && !containsActionField(action.PayloadRequired, field) {
+			action.PayloadRequired = append(action.PayloadRequired, field)
+		}
+	}
+	if len(action.PayloadRequired) > 0 || len(action.PayloadSchema) > 0 {
+		action.PayloadSchema = ensureActionPayloadSchemaContract(action.PayloadSchema, action.PayloadRequired)
+	}
+	return action
+}
+
+func normalizeActionScope(scope ActionScope, fallback ActionScope) ActionScope {
+	normalized := strings.ToLower(strings.TrimSpace(string(scope)))
+	switch ActionScope(normalized) {
+	case ActionScopeAny, ActionScopeRow, ActionScopeDetail, ActionScopeBulk:
+		return ActionScope(normalized)
+	}
+	if strings.TrimSpace(string(fallback)) == "" {
+		return ActionScopeAny
+	}
+	return fallback
+}
+
+func normalizeActionFieldList(fields []string) []string {
+	if len(fields) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(fields))
+	seen := map[string]struct{}{}
+	for _, field := range fields {
+		normalized := strings.TrimSpace(field)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func ensureActionPayloadSchemaContract(schema map[string]any, required []string) map[string]any {
+	out := cloneAnyMap(schema)
+	if out == nil {
+		out = map[string]any{}
+	}
+
+	required = normalizeActionFieldList(required)
+	if existingType, ok := out["type"].(string); !ok || strings.TrimSpace(existingType) == "" {
+		out["type"] = "object"
+	}
+
+	props, ok := out["properties"].(map[string]any)
+	if !ok || props == nil {
+		props = map[string]any{}
+	}
+	out["properties"] = props
+
+	requiredSet := map[string]struct{}{}
+	requiredOut := []string{}
+	appendRequired := func(field string) {
+		normalized := strings.TrimSpace(field)
+		if normalized == "" {
+			return
+		}
+		if _, ok := requiredSet[normalized]; ok {
+			return
+		}
+		requiredSet[normalized] = struct{}{}
+		requiredOut = append(requiredOut, normalized)
+	}
+	switch existing := out["required"].(type) {
+	case []string:
+		for _, field := range existing {
+			appendRequired(field)
+		}
+	case []any:
+		for _, field := range existing {
+			appendRequired(strings.TrimSpace(toString(field)))
+		}
+	}
+	for _, field := range required {
+		appendRequired(field)
+	}
+
+	for _, field := range requiredOut {
+		prop, ok := props[field].(map[string]any)
+		if !ok || prop == nil {
+			prop = map[string]any{}
+		}
+		if _, ok := prop["type"].(string); !ok {
+			prop["type"] = "string"
+		}
+		if _, ok := prop["title"].(string); !ok {
+			prop["title"] = actionFieldTitle(field)
+		}
+		props[field] = prop
+	}
+
+	if len(requiredOut) > 0 {
+		out["required"] = requiredOut
+	}
+	return out
+}
+
+func actionFieldTitle(name string) string {
+	parts := strings.Fields(strings.ReplaceAll(strings.TrimSpace(name), "_", " "))
+	if len(parts) == 0 {
+		return ""
+	}
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		lower := strings.ToLower(part)
+		parts[i] = strings.ToUpper(lower[:1]) + lower[1:]
+	}
+	return strings.Join(parts, " ")
+}
+
+func hasActionNamed(actions []Action, name string) bool {
+	target := strings.ToLower(strings.TrimSpace(name))
+	if target == "" {
+		return false
+	}
+	for _, action := range actions {
+		if strings.ToLower(strings.TrimSpace(action.Name)) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func containsActionField(fields []string, field string) bool {
+	target := strings.TrimSpace(field)
+	if target == "" {
+		return false
+	}
+	for _, candidate := range fields {
+		if strings.TrimSpace(candidate) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func actionIdempotencyField(action Action) string {
+	if field := strings.TrimSpace(action.IdempotencyField); field != "" {
+		return field
+	}
+	return "idempotency_key"
+}
+
+func filterActionsForScope(actions []Action, scope ActionScope) []Action {
+	if len(actions) == 0 {
+		return nil
+	}
+	target := normalizeActionScope(scope, ActionScopeAny)
+	out := make([]Action, 0, len(actions))
+	for _, action := range actions {
+		actionScope := normalizeActionScope(action.Scope, ActionScopeAny)
+		if actionScope == ActionScopeAny || actionScope == target {
+			out = append(out, action)
+		}
+	}
+	return out
 }
 
 func buildFormSchema(fields []Field) map[string]any {
