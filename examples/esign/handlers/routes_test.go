@@ -57,8 +57,11 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 
 	routes := BuildRouteSet(manager, "/admin-fallback", "admin.api.v9")
 
-	if routes.AdminStatus != "/suite/esign" {
-		t.Fatalf("expected admin route /suite/esign, got %q", routes.AdminStatus)
+	if routes.AdminHome != "/suite/esign" {
+		t.Fatalf("expected admin home /suite/esign, got %q", routes.AdminHome)
+	}
+	if routes.AdminStatus != "/suite/esign/status" {
+		t.Fatalf("expected admin status route /suite/esign/status, got %q", routes.AdminStatus)
 	}
 	if routes.AdminAPIStatus != "/suite/api/v9/esign/status" {
 		t.Fatalf("expected admin api route /suite/api/v9/esign/status, got %q", routes.AdminAPIStatus)
@@ -92,8 +95,11 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	routes := BuildRouteSet(nil, "/admin", "admin.api.v1")
 
-	if routes.AdminStatus != "/admin/esign" {
-		t.Fatalf("expected /admin/esign, got %q", routes.AdminStatus)
+	if routes.AdminHome != "/admin/esign" {
+		t.Fatalf("expected /admin/esign, got %q", routes.AdminHome)
+	}
+	if routes.AdminStatus != "/admin/esign/status" {
+		t.Fatalf("expected /admin/esign/status, got %q", routes.AdminStatus)
 	}
 	if routes.AdminAPIStatus != "/admin/api/v1/esign/status" {
 		t.Fatalf("expected /admin/api/v1/esign/status, got %q", routes.AdminAPIStatus)

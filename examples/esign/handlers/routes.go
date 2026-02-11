@@ -42,6 +42,7 @@ type RouteSet struct {
 	AdminAPIBase  string
 	PublicAPIBase string
 
+	AdminHome         string
 	AdminStatus       string
 	AdminAPIStatus    string
 	SignerSession     string
@@ -78,7 +79,8 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		AdminBasePath:     adminBase,
 		AdminAPIBase:      adminAPIBase,
 		PublicAPIBase:     publicAPIBase,
-		AdminStatus:       joinPath(adminBase, esignSegment),
+		AdminHome:         joinPath(adminBase, esignSegment),
+		AdminStatus:       joinPath(adminBase, esignSegment, adminStatusSegment),
 		AdminAPIStatus:    joinPath(adminAPIBase, esignSegment, adminStatusSegment),
 		SignerSession:     joinPath(signingBase, sessionSegment, ":token"),
 		SignerConsent:     joinPath(signingBase, consentSegment, ":token"),

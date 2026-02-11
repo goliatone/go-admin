@@ -267,7 +267,7 @@ func (m *ESignModule) MenuItems(locale string) []coreadmin.MenuItem {
 		menuCode = "admin_main"
 	}
 
-	targetPath := strings.TrimSpace(m.routes.AdminStatus)
+	targetPath := strings.TrimSpace(m.routes.AdminHome)
 	if targetPath == "" {
 		targetPath = joinBasePath(m.basePath, moduleID)
 	}
