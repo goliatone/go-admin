@@ -59,6 +59,24 @@ func Load(ctx context.Context, opts LoadOptions) error {
 				}
 			}
 		}
+		if opts.AddIconLibrary != nil || opts.AddIconDefinition != nil {
+			if contributor, ok := mod.(IconContributor); ok {
+				if opts.AddIconLibrary != nil {
+					for _, lib := range contributor.IconLibraries() {
+						if err := opts.AddIconLibrary(lib); err != nil {
+							return err
+						}
+					}
+				}
+				if opts.AddIconDefinition != nil {
+					for _, icon := range contributor.IconDefinitions() {
+						if err := opts.AddIconDefinition(icon); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
