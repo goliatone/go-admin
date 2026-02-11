@@ -105,6 +105,9 @@ func (a *Admin) Prepare(ctx context.Context) error {
 	if err := a.loadModules(ctx); err != nil {
 		return err
 	}
+	if err := a.validatePanelActionWiring(); err != nil {
+		return err
+	}
 	if err := a.initializeCommandRegistry(ctx); err != nil {
 		return err
 	}
