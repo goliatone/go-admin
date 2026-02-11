@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"go/parser"
 	"io"
-	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -136,11 +135,13 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 
 	interpreter, err := debugREPLAppInterpreter(admin, adminCtx, replCfg)
 	if err != nil {
-		log.Printf("[debug.repl] app console init failed: %v", err)
+		admin.loggerFor("admin.debug.repl.app").Error("app console initialization failed",
+			"error", err)
 		initErr := err
 		fallback, fallbackErr := debugREPLAppFallbackInterpreter(replCfg)
 		if fallbackErr != nil {
-			log.Printf("[debug.repl] app console fallback failed: %v", fallbackErr)
+			admin.loggerFor("admin.debug.repl.app").Error("app console fallback initialization failed",
+				"error", fallbackErr)
 			_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{
 				"component": "debug_repl_app",
 				"error":     initErr.Error(),
