@@ -6,9 +6,9 @@
   <title>{% block title %}{{ title|default:"Enterprise Admin" }}{% endblock %}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
   <link rel="stylesheet" href="{{ base_path }}/formgen/formgen-vanilla.css">
-  <link rel="stylesheet" href="{{ asset_base_path|default:base_path }}/assets/output.css">
+  <link rel="stylesheet" href="{{ asset_base_path }}/assets/output.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.min.css">
-  <link rel="stylesheet" href="{{ asset_base_path|default:base_path }}/assets/src/datatable/actions.css">
+  <link rel="stylesheet" href="{{ asset_base_path }}/assets/src/datatable/actions.css">
   <!-- Pre-load ECharts for dashboard charts -->
   <script src="https://go-echarts.github.io/go-echarts-assets/assets/echarts.min.js"></script>
   {% if theme %}
@@ -40,6 +40,14 @@
   </style>
   {% endif %}
   {% include "partials/jserror-collector.html" %}
+  {% if translation_capabilities %}
+  <script id="translation-capabilities-data" type="application/json" data-translation-capabilities>
+    {{ toJSON(translation_capabilities)|safe }}
+  </script>
+  <script>
+    window.__TRANSLATION_CAPABILITIES__ = {{ toJSON(translation_capabilities)|safe }};
+  </script>
+  {% endif %}
   {% block head_extra %}{% endblock %}
 </head>
 <body class="font-sans bg-gray-50 text-gray-900 leading-normal flex h-screen overflow-hidden {{ body_classes|default:"" }}" data-theme="{{ theme.selection.variant|default:"default" }}">
@@ -54,9 +62,20 @@
   </div>
 
   <!-- Initialize toast manager globally -->
-  <script type="module" src="{{ asset_base_path|default:base_path }}/assets/dist/toast/init.js"></script>
+  <script type="module" src="{{ asset_base_path }}/assets/dist/toast/init.js"></script>
 
-  <script src="{{ asset_base_path|default:base_path }}/assets/sidebar.js"></script>
+  <script src="{{ asset_base_path }}/assets/sidebar.js"></script>
+
+  <!-- Initialize translation operations entrypoints (capability-gated) -->
+  {% if translation_capabilities and translation_capabilities.modules %}
+  <script type="module">
+    import { initTranslationOperations } from '{{ asset_base_path }}/assets/dist/translation-operations/index.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      initTranslationOperations('{{ base_path }}');
+    });
+  </script>
+  {% endif %}
+
   {% block scripts %}{% endblock %}
 
   <!-- Debug toolbar (only shown when debug.ToolbarMode is enabled) -->

@@ -9,7 +9,7 @@
 {% set summary_missing_requested_locale = missing_requested_locale %}
 {% set summary_fallback_used = fallback_used %}
 {% set summary_required_locales = required_locales %}
-{% set summary_missing_required_locales = [] %}
+{% set summary_missing_required_locales = nil %}
 {% set summary_readiness_state = nil %}
 
 {# Extract from legacy translation_context if provided #}
@@ -115,15 +115,8 @@
       {# Legacy mode falls back to computing missing from required_locales - available_locales #}
       {% set display_missing_locales = summary_missing_required_locales %}
       {% if display_missing_locales|length == 0 and summary_required_locales and summary_required_locales|length > 0 %}
-        {# Legacy fallback: compute missing from required - available #}
-        {% set computed_missing = [] %}
-        {% for loc in summary_required_locales %}
-          {% if summary_available_locales and loc in summary_available_locales %}
-          {% else %}
-            {% set computed_missing = computed_missing|append:loc %}
-          {% endif %}
-        {% endfor %}
-        {% set display_missing_locales = computed_missing %}
+        {# Legacy fallback: when backend does not provide missing_required_locales, show required_locales. #}
+        {% set display_missing_locales = summary_required_locales %}
       {% endif %}
 
       {% if display_missing_locales and display_missing_locales|length > 0 %}
