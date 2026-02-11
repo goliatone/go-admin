@@ -24,6 +24,7 @@ type templateFuncOptions struct {
 	featureHelperOptions []fgtemplates.HelperOption
 	basePath             string
 	urls                 urlkit.Resolver
+	iconRenderFunc       func(ref string, variant string) string
 }
 
 // DefaultTemplateFuncs returns shared template functions for view rendering.
@@ -51,6 +52,23 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 	}
 
 	basePath := sanitizeTemplateBasePath(options.basePath)
+
+	// Build icon render functions based on injected renderer or fallback
+	iconRenderFunc := options.iconRenderFunc
+	renderIconFn := func(icon string) string {
+		if iconRenderFunc != nil {
+			return iconRenderFunc(icon, "")
+		}
+		return renderMenuIcon(icon)
+	}
+	renderIconVariantFn := func(icon, variant string) string {
+		if iconRenderFunc != nil {
+			return iconRenderFunc(icon, variant)
+		}
+		// Legacy path ignores variant
+		return renderMenuIcon(icon)
+	}
+
 	funcs := map[string]any{
 		"toJSON": func(v any) string {
 			b, _ := json.Marshal(v)
@@ -73,7 +91,9 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		"adminURL": func(path string) string {
 			return resolveAdminURL(options.urls, basePath, path)
 		},
-		"renderMenuIcon": renderMenuIcon,
+		"renderMenuIcon":    renderMenuIcon,
+		"renderIcon":        renderIconFn,
+		"renderIconVariant": renderIconVariantFn,
 		"dict": func(values ...any) (map[string]any, error) {
 			if len(values)%2 != 0 {
 				return nil, fmt.Errorf("dict requires even number of arguments")
@@ -173,6 +193,36 @@ func WithTemplateFeatureGate(gate fggate.FeatureGate, opts ...fgtemplates.Helper
 		if len(opts) > 0 {
 			options.featureHelperOptions = append(options.featureHelperOptions, opts...)
 		}
+	}
+}
+
+// WithTemplateIconRenderer injects an icon renderer for template functions.
+// The render function takes (ref string, variant string) and returns HTML.
+// If not provided, templates use the built-in legacy icon rendering.
+func WithTemplateIconRenderer(renderFunc func(ref string, variant string) string) TemplateFuncOption {
+	return func(opts *templateFuncOptions) {
+		if opts == nil || renderFunc == nil {
+			return
+		}
+		opts.iconRenderFunc = renderFunc
+	}
+}
+
+// TemplateIconRenderer defines the interface for rendering icons in templates.
+// This is satisfied by admin.IconService.
+type TemplateIconRenderer interface {
+	RenderFromString(rawRef string, trusted bool, variant string) string
+}
+
+// IconRendererFunc creates a template-compatible render function from a TemplateIconRenderer.
+// Template-driven values are treated as untrusted by default.
+func IconRendererFunc(renderer TemplateIconRenderer) func(ref string, variant string) string {
+	if renderer == nil {
+		return nil
+	}
+	return func(ref string, variant string) string {
+		// Template values are untrusted by default
+		return renderer.RenderFromString(ref, false, variant)
 	}
 }
 
