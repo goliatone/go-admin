@@ -12,8 +12,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/esign/handlers"
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	router "github.com/goliatone/go-router"
 )
@@ -64,11 +66,23 @@ func main() {
 		log.Fatalf("register module: %v", err)
 	}
 
+	authn, auther, authCookieName, err := configureESignAuth(adm, cfg)
+	if err != nil {
+		log.Fatalf("configure auth: %v", err)
+	}
+
+	viewEngine, err := newESignViewEngine(cfg, adm)
+	if err != nil {
+		log.Fatalf("initialize view engine: %v", err)
+	}
+
 	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 		app := fiber.New(fiber.Config{
 			UnescapePath:      true,
 			StrictRouting:     false,
 			EnablePrintRoutes: true,
+			PassLocalsToViews: true,
+			Views:             viewEngine,
 		})
 		app.Use(fiberlogger.New())
 		if debugEnabled && cfg.Debug.CaptureLogs {
@@ -77,6 +91,13 @@ func main() {
 				err := c.Next()
 
 				status := c.Response().StatusCode()
+				if err != nil {
+					if ferr, ok := err.(*fiber.Error); ok && ferr.Code > 0 {
+						status = ferr.Code
+					} else if status < fiber.StatusBadRequest {
+						status = fiber.StatusInternalServerError
+					}
+				}
 				level := slog.LevelInfo
 				if err != nil || status >= fiber.StatusInternalServerError {
 					level = slog.LevelError
@@ -109,6 +130,7 @@ func main() {
 		}
 		return app
 	})
+	quickstart.NewStaticAssets(server.Router(), cfg, client.Assets(), quickstart.WithDiskAssetsDir(resolveESignDiskAssetsDir()))
 
 	if debugEnabled {
 		quickstart.AttachDebugMiddleware(server.Router(), cfg, adm)
@@ -116,6 +138,10 @@ func main() {
 
 	if err := adm.Initialize(server.Router()); err != nil {
 		log.Fatalf("initialize admin: %v", err)
+	}
+	routes := handlers.BuildRouteSet(adm.URLs(), adm.BasePath(), adm.AdminAPIGroup())
+	if err := registerESignWebRoutes(server.Router(), cfg, adm, authn, auther, authCookieName, routes); err != nil {
+		log.Fatalf("register web routes: %v", err)
 	}
 	if debugEnabled {
 		enableSlog := !strings.EqualFold(os.Getenv("ADMIN_DEBUG_SLOG"), "false") &&
@@ -175,4 +201,14 @@ func validateRuntimeSecurityBaseline() error {
 		}
 	}
 	return nil
+}
+
+func resolveESignDiskAssetsDir() string {
+	return quickstart.ResolveDiskAssetsDir(
+		"output.css",
+		"assets",
+		"pkg/client/assets",
+		"../pkg/client/assets",
+		"../../pkg/client/assets",
+	)
 }

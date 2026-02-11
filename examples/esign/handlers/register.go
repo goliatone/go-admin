@@ -47,7 +47,8 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				string(services.ErrorCodeMissingRequiredFields),
 			},
 			"routes": map[string]string{
-				"admin":                   routes.AdminStatus,
+				"admin":                   routes.AdminHome,
+				"admin_status":            routes.AdminStatus,
 				"admin_api":               routes.AdminAPIStatus,
 				"signer_session":          routes.SignerSession,
 				"signer_consent":          routes.SignerConsent,

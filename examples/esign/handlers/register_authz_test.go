@@ -240,7 +240,7 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 func TestRegisterAdminRoutesRequirePermission(t *testing.T) {
 	app := setupRegisterTestApp(t, WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}))
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/esign", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/esign/status", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
