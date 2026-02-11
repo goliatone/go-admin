@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/goliatone/go-command"
@@ -216,4 +217,22 @@ func (b *CommandBus) track(sub dispatcher.Subscription) {
 	b.mu.Lock()
 	b.subs = append(b.subs, sub)
 	b.mu.Unlock()
+}
+
+// HasFactory reports whether a named message factory is registered.
+func (b *CommandBus) HasFactory(name string) bool {
+	if b == nil || !b.enabled {
+		return false
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.factories == nil {
+		return false
+	}
+	_, ok := b.factories[name]
+	return ok
 }
