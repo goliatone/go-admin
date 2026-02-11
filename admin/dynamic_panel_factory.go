@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"errors"
-	"log"
 	"net/url"
 	"path"
 	"sort"
@@ -770,16 +769,22 @@ func workflowEngineForContentType(admin *Admin, contentType *CMSContentType) Wor
 	}
 	engine := resolveCMSWorkflowEngine(admin)
 	if engine == nil {
-		log.Printf("[admin] workflow engine unavailable content_type=%s workflow=%s", contentType.Slug, workflowKey)
+		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow engine unavailable",
+			"content_type", contentType.Slug,
+			"workflow", workflowKey)
 		return nil
 	}
 	checker, ok := engine.(WorkflowDefinitionChecker)
 	if !ok {
-		log.Printf("[admin] workflow definition check unsupported content_type=%s workflow=%s", contentType.Slug, workflowKey)
+		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow definition checker unavailable",
+			"content_type", contentType.Slug,
+			"workflow", workflowKey)
 		return nil
 	}
 	if !checker.HasWorkflow(workflowKey) {
-		log.Printf("[admin] workflow not found content_type=%s workflow=%s", contentType.Slug, workflowKey)
+		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow not found",
+			"content_type", contentType.Slug,
+			"workflow", workflowKey)
 		return nil
 	}
 	return workflowAlias{engine: engine, entityType: workflowKey}
