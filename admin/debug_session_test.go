@@ -73,3 +73,24 @@ func TestDebugSessionContextFromRequestCookieFallback(t *testing.T) {
 		t.Fatalf("expected session cookie value to match session_id, got %q", found.Value)
 	}
 }
+
+func TestDebugSessionContextFromRequestReadsStandardClaimsContext(t *testing.T) {
+	cfg := normalizeDebugConfig(DebugConfig{}, "/admin")
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	rec := httptest.NewRecorder()
+	ctx := router.NewHTTPRouterContext(rec, req, httprouter.Params{}, nil)
+
+	claims := &auth.JWTClaims{
+		RegisteredClaims: jwt.RegisteredClaims{ID: "session-ctx", Subject: "user-subject"},
+		UID:              "user-ctx",
+	}
+	ctx.SetContext(auth.WithClaimsContext(ctx.Context(), claims))
+
+	session := debugSessionContextFromRequest(ctx, cfg)
+	if session.SessionID != "session-ctx" {
+		t.Fatalf("expected session_id from standard context claims, got %q", session.SessionID)
+	}
+	if session.UserID != "user-ctx" {
+		t.Fatalf("expected user_id from standard context claims, got %q", session.UserID)
+	}
+}

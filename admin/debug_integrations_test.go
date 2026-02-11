@@ -5,8 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/golang-jwt/jwt/v5"
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 	"github.com/julienschmidt/httprouter"
 )
@@ -192,5 +195,44 @@ func TestDebugRequestMiddlewareSkipsBodiesWhenDisabled(t *testing.T) {
 	}
 	if entry.ResponseSize != int64(len(responseBody)) {
 		t.Fatalf("expected response size %d, got %d", len(responseBody), entry.ResponseSize)
+	}
+}
+
+func TestDebugRequestMiddlewareCapturesSessionPanelSnapshot(t *testing.T) {
+	cfg := DebugConfig{
+		Panels: []string{DebugPanelRequests, DebugPanelSession},
+	}
+	collector := NewDebugCollector(cfg)
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	rec := httptest.NewRecorder()
+	ctx := router.NewHTTPRouterContext(rec, req, httprouter.Params{}, nil)
+	ctx.SetContext(auth.WithClaimsContext(ctx.Context(), &auth.JWTClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:      "session-123",
+			Subject: "subject-123",
+		},
+		UID:      "user-123",
+		UserRole: "admin",
+	}))
+
+	handler := func(c router.Context) error { return nil }
+	if err := DebugRequestMiddleware(collector)(handler)(ctx); err != nil {
+		t.Fatalf("expected handler to succeed: %v", err)
+	}
+
+	snapshot := collector.Snapshot()
+	session, ok := snapshot[DebugPanelSession].(map[string]any)
+	if !ok {
+		t.Fatalf("expected session panel map, got %T", snapshot[DebugPanelSession])
+	}
+	if got, _ := session["session_id"].(string); strings.TrimSpace(got) == "" {
+		t.Fatalf("expected non-empty session_id, got %q", got)
+	}
+	if got, _ := session["user_id"].(string); got != "user-123" {
+		t.Fatalf("expected user_id=user-123, got %q", got)
+	}
+	if got, _ := session["subject"].(string); got != "subject-123" {
+		t.Fatalf("expected subject=subject-123, got %q", got)
 	}
 }

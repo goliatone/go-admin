@@ -95,6 +95,7 @@ func (s *stubCtx) BootSchemaRegistry() SchemaRegistryBinding {
 func (s *stubCtx) BootFeatureOverrides() FeatureOverridesBinding {
 	return s.overrides
 }
+func (s *stubCtx) BootIcons() IconsBinding           { return nil }
 func (s *stubCtx) SettingsWidget() error             { return nil }
 func (s *stubCtx) ActivityWidget() error             { return nil }
 func (s *stubCtx) NotificationsWidget() error        { return nil }

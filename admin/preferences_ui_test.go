@@ -2,8 +2,10 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
 )
@@ -170,6 +172,7 @@ func TestPreferencesViewContextIncludesSchemaMetadata(t *testing.T) {
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "user-1"
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("Path").Return(prefPath)
 	mockCtx.On("Render", preferencesFormTemplate, mock.MatchedBy(func(arg any) bool {
 		viewCtx, ok := arg.(router.ViewContext)
 		if !ok {
@@ -200,6 +203,138 @@ func TestPreferencesViewContextIncludesSchemaMetadata(t *testing.T) {
 			return false
 		}
 		if schema["schema"] == nil {
+			return false
+		}
+		return true
+	})).Return(nil)
+
+	if err := mod.renderPreferencesForm(adm, mockCtx, prefPath); err != nil {
+		t.Fatalf("render preferences form: %v", err)
+	}
+	mockCtx.AssertExpectations(t)
+}
+
+func TestPreferencesViewContextIncludesAdminLayoutContext(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		NavMenuCode:   "admin.main",
+	}
+	adm, err := New(cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.WithAuthorizer(allowAll{})
+	adm.Navigation().UseCMS(false)
+	adm.Navigation().AddFallback(NavigationItem{
+		ID:    "admin.main.dashboard",
+		Label: "Dashboard",
+		Target: map[string]any{
+			"path": "/admin",
+			"key":  "dashboard",
+		},
+	})
+
+	mod := NewPreferencesModule()
+	prefPath := joinBasePath(cfg.BasePath, preferencesModuleID)
+	reqCtx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID: "user-1",
+		Subject: "user-1",
+		Role:    "admin",
+		Metadata: map[string]any{
+			"display_name": "Admin User",
+		},
+	})
+	mockCtx := router.NewMockContext()
+	mockCtx.HeadersM["X-User-ID"] = "user-1"
+	mockCtx.On("Context").Return(reqCtx)
+	mockCtx.On("Path").Return(prefPath)
+	mockCtx.On("Render", preferencesFormTemplate, mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		navItems, ok := viewCtx["nav_items"].([]map[string]any)
+		if !ok || len(navItems) == 0 {
+			return false
+		}
+		sessionUser, ok := viewCtx["session_user"].(map[string]any)
+		if !ok {
+			return false
+		}
+		displayName := strings.TrimSpace(toString(sessionUser["display_name"]))
+		if displayName == "" || strings.EqualFold(displayName, "Guest") {
+			return false
+		}
+		if _, ok := viewCtx["theme"].(map[string]map[string]string); !ok {
+			return false
+		}
+		if strings.TrimSpace(toString(viewCtx["api_base_path"])) == "" {
+			return false
+		}
+		return true
+	})).Return(nil)
+
+	if err := mod.renderPreferencesForm(adm, mockCtx, prefPath); err != nil {
+		t.Fatalf("render preferences form: %v", err)
+	}
+	mockCtx.AssertExpectations(t)
+}
+
+func TestPreferencesViewContextRehydratesAdminLayoutAfterCustomBuilder(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		NavMenuCode:   "admin.main",
+	}
+	adm, err := New(cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.WithAuthorizer(allowAll{})
+	adm.Navigation().UseCMS(false)
+	adm.Navigation().AddFallback(NavigationItem{
+		ID:    "admin.main.dashboard",
+		Label: "Dashboard",
+		Target: map[string]any{
+			"path": "/admin",
+			"key":  "dashboard",
+		},
+	})
+
+	mod := NewPreferencesModule()
+	mod.WithViewContextBuilder(func(_ *Admin, _ router.Context, _ router.ViewContext, _ string) router.ViewContext {
+		return router.ViewContext{
+			"title": "Custom",
+		}
+	})
+
+	prefPath := joinBasePath(cfg.BasePath, preferencesModuleID)
+	reqCtx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID: "user-1",
+		Subject: "user-1",
+	})
+	mockCtx := router.NewMockContext()
+	mockCtx.HeadersM["X-User-ID"] = "user-1"
+	mockCtx.On("Context").Return(reqCtx)
+	mockCtx.On("Path").Return(prefPath)
+	mockCtx.On("Render", preferencesFormTemplate, mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		if toString(viewCtx["title"]) != "Custom" {
+			return false
+		}
+		navItems, ok := viewCtx["nav_items"].([]map[string]any)
+		if !ok || len(navItems) == 0 {
+			return false
+		}
+		sessionUser, ok := viewCtx["session_user"].(map[string]any)
+		if !ok {
+			return false
+		}
+		if strings.TrimSpace(toString(sessionUser["display_name"])) == "" {
 			return false
 		}
 		return true

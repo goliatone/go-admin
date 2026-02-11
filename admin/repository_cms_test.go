@@ -5,6 +5,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	goerrors "github.com/goliatone/go-errors"
 )
 
 func TestCMSPageRepositoryListFiltersAndSearch(t *testing.T) {
@@ -486,6 +488,90 @@ func TestCMSContentTypeEntryRepositoryListUsesProjectedTopLevelFields(t *testing
 	tags, ok := record["tags"].([]string)
 	if !ok || !reflect.DeepEqual(tags, []string{"company", "mission", "engineering"}) {
 		t.Fatalf("expected projected tags, got %#v", record["tags"])
+	}
+}
+
+func TestCMSContentRepositoryListRejectsMarkdownOnlyPagePayloadsWithoutCanonicalTopLevelFields(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSContentRepository(content)
+
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "Legacy Page",
+		Slug:            "legacy-page",
+		Locale:          "en",
+		Status:          "published",
+		ContentTypeSlug: "page",
+		Data: map[string]any{
+			"markdown": map[string]any{
+				"body": "Legacy body only in nested markdown payload.",
+				"frontmatter": map[string]any{
+					"summary":          "Legacy summary in frontmatter",
+					"path":             "/legacy-page",
+					"meta_title":       "Legacy Meta Title",
+					"meta_description": "Legacy Meta Description",
+				},
+			},
+		},
+	})
+
+	_, _, err := repo.List(ctx, ListOptions{PerPage: 20})
+	if err == nil {
+		t.Fatalf("expected canonical top-level validation error")
+	}
+
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) {
+		t.Fatalf("expected typed domain error, got %T", err)
+	}
+	if typedErr.TextCode != TextCodeValidationError {
+		t.Fatalf("expected validation code, got %q", typedErr.TextCode)
+	}
+	missing, ok := typedErr.Metadata["missing"].([]string)
+	if !ok {
+		t.Fatalf("expected missing fields metadata, got %#v", typedErr.Metadata["missing"])
+	}
+	for _, field := range []string{"content", "summary/excerpt", "path", "meta_title", "meta_description"} {
+		found := false
+		for _, candidate := range missing {
+			if candidate == field {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected missing field %q, got %#v", field, missing)
+		}
+	}
+}
+
+func TestCMSContentRepositoryListAllowsMarkdownOnlyPayloadsForNonPageTypes(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSContentRepository(content)
+
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "Legacy Article",
+		Slug:            "legacy-article",
+		Locale:          "en",
+		Status:          "published",
+		ContentTypeSlug: "article",
+		Data: map[string]any{
+			"markdown": map[string]any{
+				"body": "Article markdown body",
+				"frontmatter": map[string]any{
+					"summary": "Article summary",
+				},
+			},
+		},
+	})
+
+	list, total, err := repo.List(ctx, ListOptions{PerPage: 20})
+	if err != nil {
+		t.Fatalf("expected non-page markdown payload to be accepted, got %v", err)
+	}
+	if total != 1 || len(list) != 1 {
+		t.Fatalf("expected one record, got total=%d len=%d", total, len(list))
 	}
 }
 

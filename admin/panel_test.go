@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/goliatone/go-command/registry"
@@ -307,8 +308,11 @@ func TestPanelSchemaIncludesFormSchema(t *testing.T) {
 	if !schema.UseBlocks || !schema.UseSEO || !schema.TreeView {
 		t.Fatalf("expected flags set")
 	}
-	if len(schema.Filters) != 1 || len(schema.Actions) != 1 || len(schema.BulkActions) != 1 {
-		t.Fatalf("expected filters/actions populated")
+	if len(schema.Filters) != 1 || len(schema.BulkActions) != 1 {
+		t.Fatalf("expected filters/bulk actions populated")
+	}
+	if !containsActionName(schema.Actions, "approve") || !containsActionName(schema.Actions, "view") || !containsActionName(schema.Actions, "edit") {
+		t.Fatalf("expected approve/view/edit actions in schema, got %+v", schema.Actions)
 	}
 }
 
@@ -335,16 +339,118 @@ func TestPanelSchemaIncludesActionPayloadContracts(t *testing.T) {
 	}
 
 	schema := panel.Schema()
-	if len(schema.Actions) != 1 {
-		t.Fatalf("expected single action, got %d", len(schema.Actions))
+	publish, ok := findPanelSchemaActionByName(schema.Actions, "publish")
+	if !ok {
+		t.Fatalf("expected publish action in schema, got %+v", schema.Actions)
 	}
-	if len(schema.Actions[0].PayloadRequired) != 1 || schema.Actions[0].PayloadRequired[0] != "publish_at" {
-		t.Fatalf("expected payload_required to be preserved, got %v", schema.Actions[0].PayloadRequired)
+	if len(publish.PayloadRequired) != 1 || publish.PayloadRequired[0] != "publish_at" {
+		t.Fatalf("expected payload_required to be preserved, got %v", publish.PayloadRequired)
 	}
-	if schema.Actions[0].PayloadSchema == nil || schema.Actions[0].PayloadSchema["type"] != "object" {
-		t.Fatalf("expected payload_schema to be preserved, got %v", schema.Actions[0].PayloadSchema)
+	if publish.PayloadSchema == nil || publish.PayloadSchema["type"] != "object" {
+		t.Fatalf("expected payload_schema to be preserved, got %v", publish.PayloadSchema)
 	}
 	if len(schema.BulkActions) != 1 || len(schema.BulkActions[0].PayloadRequired) != 1 {
 		t.Fatalf("expected bulk action payload contract to be preserved")
 	}
+	if !containsActionName(schema.Actions, "view") || !containsActionName(schema.Actions, "edit") {
+		t.Fatalf("expected default view/edit actions to be included, got %+v", schema.Actions)
+	}
+}
+
+func TestPanelSchemaSynthesizesPayloadSchemaFromRequiredFields(t *testing.T) {
+	panel := &Panel{
+		name: "schema",
+		actions: []Action{
+			{
+				Name:            "send",
+				CommandName:     "send.command",
+				PayloadRequired: []string{"idempotency_key", "reason"},
+			},
+		},
+	}
+
+	schema := panel.Schema()
+	send, ok := findPanelSchemaActionByName(schema.Actions, "send")
+	if !ok {
+		t.Fatalf("expected send action in schema, got %+v", schema.Actions)
+	}
+	if send.PayloadSchema == nil {
+		t.Fatalf("expected synthesized payload schema")
+	}
+	if got := toString(send.PayloadSchema["type"]); got != "object" {
+		t.Fatalf("expected payload schema type object, got %q", got)
+	}
+	required, ok := send.PayloadSchema["required"].([]string)
+	if !ok {
+		t.Fatalf("expected []string required fields, got %T", send.PayloadSchema["required"])
+	}
+	if len(required) != 2 {
+		t.Fatalf("expected 2 required fields, got %v", required)
+	}
+	props, ok := send.PayloadSchema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected payload schema properties map, got %T", send.PayloadSchema["properties"])
+	}
+	if _, ok := props["idempotency_key"]; !ok {
+		t.Fatalf("expected idempotency_key property, got %+v", props)
+	}
+	if _, ok := props["reason"]; !ok {
+		t.Fatalf("expected reason property, got %+v", props)
+	}
+}
+
+func TestPanelSchemaSetsActionScopes(t *testing.T) {
+	panel := &Panel{
+		name: "schema",
+		actions: []Action{
+			{Name: "publish", CommandName: "publish.command"},
+		},
+		bulkActions: []Action{
+			{Name: "bulk_publish", CommandName: "bulk.publish.command"},
+		},
+	}
+
+	schema := panel.Schema()
+	publish, ok := findPanelSchemaActionByName(schema.Actions, "publish")
+	if !ok {
+		t.Fatalf("expected publish action in schema, got %+v", schema.Actions)
+	}
+	if publish.Scope != ActionScopeRow {
+		t.Fatalf("expected publish scope row, got %q", publish.Scope)
+	}
+	if len(schema.BulkActions) != 1 {
+		t.Fatalf("expected 1 bulk action, got %d", len(schema.BulkActions))
+	}
+	if schema.BulkActions[0].Scope != ActionScopeBulk {
+		t.Fatalf("expected bulk action scope bulk, got %q", schema.BulkActions[0].Scope)
+	}
+}
+
+func TestFilterActionsForScope(t *testing.T) {
+	actions := []Action{
+		{Name: "view", Scope: ActionScopeRow},
+		{Name: "edit", Scope: ActionScopeDetail},
+		{Name: "delete", Scope: ActionScopeAny},
+	}
+	filtered := filterActionsForScope(actions, ActionScopeRow)
+	if len(filtered) != 2 {
+		t.Fatalf("expected 2 actions for row scope, got %d", len(filtered))
+	}
+	if !containsActionName(filtered, "view") || !containsActionName(filtered, "delete") {
+		t.Fatalf("expected view/delete actions for row scope, got %+v", filtered)
+	}
+}
+
+func findPanelSchemaActionByName(actions []Action, name string) (Action, bool) {
+	for _, action := range actions {
+		if strings.EqualFold(strings.TrimSpace(action.Name), strings.TrimSpace(name)) {
+			return action, true
+		}
+	}
+	return Action{}, false
+}
+
+func containsActionName(actions []Action, name string) bool {
+	_, ok := findPanelSchemaActionByName(actions, name)
+	return ok
 }
