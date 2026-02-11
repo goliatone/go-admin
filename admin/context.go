@@ -38,14 +38,15 @@ type Authorizer interface {
 // newAdminContext builds an AdminContext from an HTTP request.
 func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	ctx := c.Context()
-	userID := c.Header("X-User-ID")
+	userID := strings.TrimSpace(c.Header("X-User-ID"))
 	tenantID := ""
 	orgID := ""
 	environment := strings.TrimSpace(c.Query("env"))
 	if environment == "" {
 		environment = strings.TrimSpace(c.Query("environment"))
 	}
-	if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
+	actor := actorFromRouterOrClaims(c, ctx)
+	if actor != nil {
 		if actor.ActorID != "" {
 			userID = actor.ActorID
 		} else if actor.Subject != "" {
@@ -57,13 +58,38 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 		if actor.OrganizationID != "" {
 			orgID = actor.OrganizationID
 		}
-		ctx = auth.WithActorContext(ctx, actor)
 	}
 	if tenantID == "" {
 		tenantID = strings.TrimSpace(c.Query("tenant_id"))
 	}
 	if orgID == "" {
 		orgID = strings.TrimSpace(c.Query("org_id"))
+	}
+	if actor == nil && userID != "" {
+		actor = &auth.ActorContext{
+			ActorID:        userID,
+			Subject:        userID,
+			TenantID:       tenantID,
+			OrganizationID: orgID,
+		}
+	}
+	if actor != nil {
+		if actor.ActorID == "" {
+			actor.ActorID = userID
+		}
+		if actor.Subject == "" {
+			actor.Subject = actor.ActorID
+		}
+		if actor.TenantID == "" {
+			actor.TenantID = tenantID
+		}
+		if actor.OrganizationID == "" {
+			actor.OrganizationID = orgID
+		}
+		if userID == "" {
+			userID = firstNonEmpty(actor.ActorID, actor.Subject)
+		}
+		ctx = auth.WithActorContext(ctx, actor)
 	}
 	if userID != "" {
 		ctx = context.WithValue(ctx, userIDContextKey, userID)
@@ -91,6 +117,20 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 		Environment: environment,
 		Locale:      locale,
 	}
+}
+
+func actorFromRouterOrClaims(c router.Context, ctx context.Context) *auth.ActorContext {
+	if c != nil {
+		if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
+			return actor
+		}
+	}
+	if claims, ok := auth.GetClaims(ctx); ok && claims != nil {
+		if actor := auth.ActorContextFromClaims(claims); actor != nil {
+			return actor
+		}
+	}
+	return nil
 }
 
 func userIDFromContext(ctx context.Context) string {
