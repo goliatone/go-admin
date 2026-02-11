@@ -2,7 +2,6 @@ package quickstart
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -167,6 +166,7 @@ func ScopeDebugWrap(authn *admin.GoAuthAuthenticator, cfg *admin.Config, buffer 
 			return next
 		}
 	}
+	logger := resolveQuickstartNamedLogger("quickstart.scope", nil, nil)
 	return func(next router.HandlerFunc) router.HandlerFunc {
 		if next == nil {
 			next = func(c router.Context) error { return nil }
@@ -179,7 +179,7 @@ func ScopeDebugWrap(authn *admin.GoAuthAuthenticator, cfg *admin.Config, buffer 
 			if buffer != nil {
 				buffer.Add(entry)
 			}
-			logScopeDebugEntry(entry)
+			logScopeDebugEntry(logger, entry)
 			return next(c)
 		})
 	}
@@ -296,7 +296,7 @@ func buildScopeDebugEntry(c router.Context, cfg *admin.Config) ScopeDebugEntry {
 	return entry
 }
 
-func logScopeDebugEntry(entry ScopeDebugEntry) {
+func logScopeDebugEntry(logger admin.Logger, entry ScopeDebugEntry) {
 	msg := []string{
 		entry.Method,
 		entry.Path,
@@ -307,17 +307,17 @@ func logScopeDebugEntry(entry ScopeDebugEntry) {
 	resOrg := entry.ResolvedScope.OrgID
 	defaults := entry.DefaultsApplied
 
-	log.Printf("%s %s raw_tenant=%s raw_org=%s resolved_tenant=%s resolved_org=%s defaults_applied=%t/%t actor=%s role=%s",
-		scopeDebugLogLabel,
-		strings.Join(msg, " "),
-		rawTenant,
-		rawOrg,
-		resTenant,
-		resOrg,
-		defaults.TenantID,
-		defaults.OrgID,
-		entry.Actor.ID,
-		entry.Actor.Role,
+	ensureQuickstartLogger(logger).Debug("scope debug entry",
+		"label", scopeDebugLogLabel,
+		"request", strings.Join(msg, " "),
+		"raw_tenant", rawTenant,
+		"raw_org", rawOrg,
+		"resolved_tenant", resTenant,
+		"resolved_org", resOrg,
+		"default_tenant_applied", defaults.TenantID,
+		"default_org_applied", defaults.OrgID,
+		"actor_id", entry.Actor.ID,
+		"actor_role", entry.Actor.Role,
 	)
 }
 
