@@ -170,6 +170,31 @@ Quickstart publishes resolved translation metadata to both:
 - `translation_capabilities` in UI route view context for template/frontend gating.
 - Startup diagnostics log event: `translation.capabilities.startup` (INFO) with `profile`, `schema_version`, module enablement, feature flags, routes, panels, resolver keys, and warnings.
 - Validation failures log `translation.capabilities.startup` (ERROR) with deterministic fields: `error_code`, `error_message`, `hint`, `failed_checks`.
+- `SchemaVersion=0` is treated as a supported legacy input and normalized to
+  schema version `1` with warning
+  `translation.productization.schema.upconverted`.
+- Explicit translation module feature overrides in `WithFeatureDefaults` are
+  honored (`translations.exchange`, `translations.queue`) before dependency
+  validation.
+- `dashboard=false` only suppresses dashboard exposure; it does not disable
+  translation policy enforcement or queue/exchange wiring by itself.
+
+### Migration and compatibility contract
+
+Product wiring and legacy manual wiring can coexist during migration.
+
+- Conflict handling is deterministic: legacy module options are applied after
+  profile + product module overrides.
+- Mixed product+legacy usage emits warning
+  `translation.productization.legacy_override`.
+- Switching to product config changes runtime wiring source only and must not
+  mutate persisted translation records, exchange artifacts, or queue
+  assignments.
+- Legacy manual wiring options remain supported for at least two minor releases
+  after product API GA.
+
+Detailed contract and rollout rules:
+`../docs/GUIDE_CMS.md#177-translation-productization-contract`.
 
 Minimal in-process wiring:
 
@@ -213,6 +238,40 @@ quickstart.WithTranslationExchangeConfig(quickstart.TranslationExchangeConfig{
 	},
 })
 ```
+
+### Exchange contract and trigger reuse
+
+Exchange adapters should preserve one command contract across HTTP, CLI, and
+jobs.
+
+HTTP routes:
+- `POST /admin/api/translations/export`
+- `GET /admin/api/translations/template`
+- `POST /admin/api/translations/import/validate`
+- `POST /admin/api/translations/import/apply`
+
+Row linkage fields (`rows[*]`):
+- `resource`
+- `entity_id`
+- `translation_group_id`
+- `target_locale`
+- `field_path`
+
+Safety semantics:
+- Run `validate` before `apply`.
+- `apply` never auto-publishes imported rows.
+- Missing locale variants require explicit create intent (`create_translation`).
+- `source_hash` mismatch is a typed row conflict unless explicitly overridden.
+- Duplicate linkage rows in one payload produce deterministic row conflicts and
+  do not write duplicate changes.
+
+Trigger command names:
+- `admin.translations.exchange.import.run` (typed run command)
+- `jobs.translations.exchange.import.run` (cron/manual trigger)
+
+Job wrapper:
+- `examples/web/jobs.NewTranslationImportRunJob(...)` builds a cron trigger
+  command that dispatches the same typed run message contract.
 
 ## Translation queue (opt-in)
 Translation queue is disabled by default in quickstart. Enable it with
@@ -909,6 +968,84 @@ if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev); err != nil {
 - Register modules with `NewModuleRegistrar` (uses `adm.FeatureGate()` by default).
 - Wire auth with `WithGoAuth(...)` (include `*admin.AuthConfig` when needed).
 - Enable dashboard SSR with `WithDefaultDashboardRenderer(...)` (override templates as needed).
+
+## Translation Profile Operational Runbook
+
+### Environment-based Configuration
+
+Configure translation profiles via environment variables:
+
+| Variable | Values | Default | Description |
+|----------|--------|---------|-------------|
+| `ADMIN_TRANSLATION_PROFILE` | `none`, `core`, `core+exchange`, `core+queue`, `full` | Empty (resolves to `core` when CMS enabled) | Sets the baseline translation capability profile |
+| `ADMIN_TRANSLATION_EXCHANGE` | `true`, `false` | Profile default | Overrides exchange module enablement |
+| `ADMIN_TRANSLATION_QUEUE` | `true`, `false` | Profile default | Overrides queue module enablement |
+
+Profile capability matrix:
+
+| Profile | Exchange | Queue | Use Case |
+|---------|----------|-------|----------|
+| `none` | - | - | Translation disabled |
+| `core` | - | - | Basic translation readiness only |
+| `core+exchange` | Yes | - | Import/export workflows |
+| `core+queue` | - | Yes | Assignment management |
+| `full` | Yes | Yes | Complete translation operations |
+
+### Verification Checklist
+
+1. Start the host app with the intended profile and overrides.
+2. Validate the startup capability event and module flags.
+3. Validate module route exposure for enabled modules.
+4. Validate disabled modules are not exposed.
+
+Example startup:
+
+```bash
+ADMIN_TRANSLATION_PROFILE=full \
+ADMIN_TRANSLATION_EXCHANGE=true \
+ADMIN_TRANSLATION_QUEUE=true \
+go run ./examples/web
+```
+
+Check startup logs for `translation.capabilities.startup` and verify:
+- `profile` is the expected resolved value.
+- `modules.exchange.enabled` and `modules.queue.enabled` match the final intended state.
+- `routes` includes enabled module routes only.
+- `resolver_keys` include route keys expected by UI entrypoints.
+
+### Route/Capability Expectations
+
+Expected runtime routes when modules are enabled:
+- Exchange UI route: `/admin/translations/exchange`
+- Exchange API routes: `/admin/api/translations/export`, `/admin/api/translations/import/validate`, `/admin/api/translations/import/apply`
+- Queue panel API route: `/admin/api/translations`
+
+When a module is disabled:
+- Exchange UI route is not registered.
+- Exchange API endpoints are not registered.
+- Queue panel/API routes are not registered.
+- Capability metadata (`TranslationCapabilities(adm)`) reports the module as disabled.
+
+### Troubleshooting
+
+| Symptom | Likely Cause | Resolution |
+|---------|--------------|------------|
+| `translation product config invalid` at startup | Missing CMS feature for non-`none` profile | Enable `cms` feature or use profile `none` |
+| Exchange routes not registered | Exchange module not enabled | Set `ADMIN_TRANSLATION_EXCHANGE=true` or use `core+exchange`/`full` profile |
+| `exchange.handlers_missing` error | Exchange store not configured | Provide `TranslationExchangeConfig.Store` implementation |
+| `queue.locales_invalid` error | Queue enabled without supported locales | Set `TranslationQueueConfig.SupportedLocales` or configure translation policy |
+| Translation UI not visible | Feature gate disabled | Check `FeatureTranslationExchange` in feature gate |
+
+### Runtime Validation
+
+After admin initialization, call `quickstart.TranslationCapabilities(adm)` to get resolved capabilities:
+
+```go
+caps := quickstart.TranslationCapabilities(adm)
+log.Printf("Translation profile: %s", caps["profile"])
+log.Printf("Exchange enabled: %v", caps["modules"].(map[string]any)["exchange"].(map[string]any)["enabled"])
+log.Printf("Registered routes: %v", caps["routes"])
+```
 
 ## References
 - `../QUICKBOOT_TDD.md`
