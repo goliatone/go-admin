@@ -238,7 +238,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 				"field": "id",
 			})
 		}
-		targetLocale := strings.TrimSpace(toString(body["locale"]))
+		targetLocale := normalizeCreateTranslationLocale(toString(body["locale"]))
 		if targetLocale == "" {
 			return nil, validationDomainError("translation locale required", map[string]any{
 				"field": "locale",
@@ -253,7 +253,72 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 		if groupID == "" {
 			groupID = primaryID
 		}
-		if translationLocaleExists(record, targetLocale) {
+		if creator, ok := p.panel.repo.(RepositoryTranslationCreator); ok && creator != nil {
+			created, createErr := creator.CreateTranslation(ctx.Context, normalizeTranslationCreateInput(TranslationCreateInput{
+				SourceID:     primaryID,
+				Locale:       targetLocale,
+				Environment:  environment,
+				PolicyEntity: resolvePolicyEntity(body, p.name),
+				ContentType:  p.name,
+				Status:       "draft",
+			}))
+			if createErr == nil {
+				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
+					Entity:             p.name,
+					EntityID:           primaryID,
+					SourceLocale:       strings.TrimSpace(toString(record["locale"])),
+					Locale:             targetLocale,
+					Transition:         "create_translation",
+					Environment:        environment,
+					Outcome:            "created",
+					TranslationGroupID: groupID,
+				})
+				p.panel.recordActivity(ctx, "panel.translation.create", map[string]any{
+					"panel":                p.name,
+					"entity_id":            primaryID,
+					"locale":               targetLocale,
+					"translation_group_id": groupID,
+				})
+				return buildCreateTranslationResponse(created, targetLocale, groupID), nil
+			}
+			var dup TranslationAlreadyExistsError
+			if errors.As(createErr, &dup) {
+				duplicateLocale := strings.TrimSpace(firstNonEmpty(dup.Locale, targetLocale))
+				duplicateGroupID := strings.TrimSpace(firstNonEmpty(dup.TranslationGroupID, groupID))
+				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
+					Entity:             p.name,
+					EntityID:           primaryID,
+					SourceLocale:       strings.TrimSpace(toString(record["locale"])),
+					Locale:             duplicateLocale,
+					Transition:         "create_translation",
+					Environment:        environment,
+					Outcome:            "duplicate",
+					TranslationGroupID: duplicateGroupID,
+				})
+				return nil, createErr
+			}
+			if !errors.Is(createErr, ErrTranslationCreateUnsupported) {
+				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
+					Entity:             p.name,
+					EntityID:           primaryID,
+					SourceLocale:       strings.TrimSpace(toString(record["locale"])),
+					Locale:             targetLocale,
+					Transition:         "create_translation",
+					Environment:        environment,
+					Outcome:            "error",
+					TranslationGroupID: groupID,
+					Err:                createErr,
+				})
+				return nil, createErr
+			}
+		}
+		translationExists := translationLocaleExists(record, targetLocale)
+		if !translationExists && groupID != "" {
+			if exists, err := translationLocaleExistsInRepositoryGroup(ctx.Context, p.panel.repo, groupID, targetLocale, primaryID); err == nil && exists {
+				translationExists = true
+			}
+		}
+		if translationExists {
 			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
 				Entity:             p.name,
 				EntityID:           primaryID,
@@ -285,8 +350,24 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 		clone["locale"] = targetLocale
 		clone["translation_group_id"] = groupID
 		clone["status"] = "draft"
+		prepareCreateTranslationClone(clone, record, targetLocale)
 		created, err := p.panel.Create(ctx, clone)
 		if err != nil {
+			err = mapCreateTranslationPersistenceError(err, p.name, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, groupID)
+			var dup TranslationAlreadyExistsError
+			if errors.As(err, &dup) {
+				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
+					Entity:             p.name,
+					EntityID:           primaryID,
+					SourceLocale:       strings.TrimSpace(toString(record["locale"])),
+					Locale:             targetLocale,
+					Transition:         "create_translation",
+					Environment:        environment,
+					Outcome:            "duplicate",
+					TranslationGroupID: groupID,
+				})
+				return nil, err
+			}
 			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
 				Entity:             p.name,
 				EntityID:           primaryID,
@@ -359,7 +440,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 					if policyInput.PolicyEntity == "" && record != nil {
 						policyInput.PolicyEntity = resolvePolicyEntity(record, p.name)
 					}
-					if err := applyTranslationPolicy(ctx.Context, p.panel.translationPolicy, policyInput); err != nil {
+					if err := applyTranslationPolicyWithQueueHook(ctx.Context, p.panel.translationPolicy, policyInput, record, p.panel.translationQueueAutoCreateHook); err != nil {
 						p.recordBlockedTransition(ctx, primaryID, action, policyInput, err)
 						return nil, err
 					}
@@ -501,9 +582,19 @@ func (p *panelBinding) withTranslationReadiness(ctx AdminContext, records []map[
 	if len(records) == 0 {
 		return records
 	}
+	policy := p.translationReadinessPolicy()
+	if policy == nil {
+		return records
+	}
+	// Use memoized requirements resolution for all records in the batch.
+	// Requirements are memoized per (entity_type, policy_entity, transition,
+	// environment), and locale availability is aggregated by translation group.
+	cache := translationReadinessRequirementsCache{
+		availableLocalesByGroup: translationReadinessBatchAvailableLocales(records),
+	}
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
-		out = append(out, p.withTranslationReadinessRecord(ctx, record, filters))
+		out = append(out, p.withTranslationReadinessRecordCached(ctx, record, filters, policy, &cache))
 	}
 	return out
 }
@@ -517,6 +608,22 @@ func (p *panelBinding) withTranslationReadinessRecord(ctx AdminContext, record m
 		return record
 	}
 	readiness := buildRecordTranslationReadiness(ctx.Context, policy, p.name, record, filters)
+	if len(readiness) == 0 {
+		return record
+	}
+	cloned := cloneAnyMap(record)
+	if cloned == nil {
+		cloned = map[string]any{}
+	}
+	cloned["translation_readiness"] = readiness
+	return cloned
+}
+
+func (p *panelBinding) withTranslationReadinessRecordCached(ctx AdminContext, record map[string]any, filters map[string]any, policy TranslationPolicy, cache *translationReadinessRequirementsCache) map[string]any {
+	if len(record) == 0 {
+		return record
+	}
+	readiness := buildRecordTranslationReadinessWithCache(ctx.Context, policy, p.name, record, filters, cache)
 	if len(readiness) == 0 {
 		return record
 	}
@@ -759,6 +866,191 @@ func translationLocaleExists(record map[string]any, locale string) bool {
 	return false
 }
 
+func translationLocaleExistsInRepositoryGroup(ctx context.Context, repo Repository, groupID, locale, skipID string) (bool, error) {
+	if repo == nil {
+		return false, ErrNotFound
+	}
+	groupID = strings.TrimSpace(groupID)
+	locale = strings.TrimSpace(locale)
+	if groupID == "" || locale == "" {
+		return false, nil
+	}
+	const perPage = 200
+	page := 1
+	for {
+		records, total, err := repo.List(ctx, ListOptions{
+			Page:    page,
+			PerPage: perPage,
+		})
+		if err != nil {
+			return false, err
+		}
+		for _, record := range records {
+			if strings.TrimSpace(toString(record["id"])) == strings.TrimSpace(skipID) {
+				continue
+			}
+			candidateGroup := strings.TrimSpace(toString(record["translation_group_id"]))
+			if candidateGroup == "" || !strings.EqualFold(candidateGroup, groupID) {
+				continue
+			}
+			candidateLocale := strings.TrimSpace(toString(record["locale"]))
+			if candidateLocale != "" && strings.EqualFold(candidateLocale, locale) {
+				return true, nil
+			}
+		}
+		if len(records) == 0 {
+			return false, nil
+		}
+		if total > 0 && page*perPage >= total {
+			return false, nil
+		}
+		if len(records) < perPage {
+			return false, nil
+		}
+		page++
+	}
+}
+
+func mapCreateTranslationPersistenceError(err error, panel, entityID, sourceLocale, locale, groupID string) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ErrPathConflict) {
+		return TranslationAlreadyExistsError{
+			Panel:              strings.TrimSpace(panel),
+			EntityID:           strings.TrimSpace(entityID),
+			SourceLocale:       strings.TrimSpace(sourceLocale),
+			Locale:             strings.TrimSpace(locale),
+			TranslationGroupID: strings.TrimSpace(groupID),
+		}
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	if strings.Contains(message, "slug already exists") ||
+		strings.Contains(message, "path conflict") ||
+		strings.Contains(message, "duplicate key") ||
+		strings.Contains(message, "unique constraint failed") {
+		return TranslationAlreadyExistsError{
+			Panel:              strings.TrimSpace(panel),
+			EntityID:           strings.TrimSpace(entityID),
+			SourceLocale:       strings.TrimSpace(sourceLocale),
+			Locale:             strings.TrimSpace(locale),
+			TranslationGroupID: strings.TrimSpace(groupID),
+		}
+	}
+	return err
+}
+
+func normalizeCreateTranslationLocale(locale string) string {
+	return strings.ToLower(strings.TrimSpace(locale))
+}
+
+func prepareCreateTranslationClone(clone, source map[string]any, targetLocale string) {
+	if len(clone) == 0 {
+		return
+	}
+
+	for _, key := range []string{
+		"available_locales",
+		"requested_locale",
+		"resolved_locale",
+		"missing_requested_locale",
+		"translation_readiness",
+		"_action_state",
+	} {
+		delete(clone, key)
+	}
+
+	sourceLocale := normalizeCreateTranslationLocale(toString(source["locale"]))
+	if sourceLocale == "" {
+		sourceLocale = normalizeCreateTranslationLocale(toString(clone["locale"]))
+	}
+	targetLocale = normalizeCreateTranslationLocale(targetLocale)
+	if targetLocale == "" {
+		return
+	}
+
+	if slug := strings.TrimSpace(toString(clone["slug"])); slug != "" {
+		clone["slug"] = withCreateTranslationLocaleSuffix(slug, sourceLocale, targetLocale)
+	}
+	if path := strings.TrimSpace(toString(clone["path"])); path != "" {
+		clone["path"] = withCreateTranslationPathSuffix(path, sourceLocale, targetLocale)
+	}
+
+	if data, ok := clone["data"].(map[string]any); ok && data != nil {
+		if slug := strings.TrimSpace(toString(data["slug"])); slug != "" {
+			data["slug"] = withCreateTranslationLocaleSuffix(slug, sourceLocale, targetLocale)
+		}
+		if path := strings.TrimSpace(toString(data["path"])); path != "" {
+			data["path"] = withCreateTranslationPathSuffix(path, sourceLocale, targetLocale)
+		}
+	}
+}
+
+func withCreateTranslationLocaleSuffix(value, sourceLocale, targetLocale string) string {
+	base := strings.TrimSpace(value)
+	if base == "" {
+		return base
+	}
+	sourceLocale = normalizeCreateTranslationLocale(sourceLocale)
+	targetLocale = normalizeCreateTranslationLocale(targetLocale)
+	if targetLocale == "" {
+		return base
+	}
+	if sourceLocale != "" {
+		base = stripCreateTranslationLocaleSuffix(base, sourceLocale)
+	}
+	if strings.EqualFold(base, "/") {
+		return "/" + targetLocale
+	}
+	if strings.HasSuffix(strings.ToLower(base), "-"+targetLocale) {
+		return base
+	}
+	return strings.TrimRight(base, "-") + "-" + targetLocale
+}
+
+func withCreateTranslationPathSuffix(path, sourceLocale, targetLocale string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return trimmed
+	}
+
+	sourceLocale = normalizeCreateTranslationLocale(sourceLocale)
+	targetLocale = normalizeCreateTranslationLocale(targetLocale)
+	if targetLocale == "" {
+		return trimmed
+	}
+
+	if strings.EqualFold(trimmed, "/") {
+		return "/" + targetLocale
+	}
+	if sourceLocale != "" {
+		if strings.EqualFold(trimmed, "/"+sourceLocale) {
+			return "/" + targetLocale
+		}
+		prefix := "/" + sourceLocale + "/"
+		if strings.HasPrefix(strings.ToLower(trimmed), strings.ToLower(prefix)) {
+			return "/" + targetLocale + trimmed[len(prefix)-1:]
+		}
+	}
+	return withCreateTranslationLocaleSuffix(trimmed, sourceLocale, targetLocale)
+}
+
+func stripCreateTranslationLocaleSuffix(value, locale string) string {
+	base := strings.TrimSpace(value)
+	if base == "" {
+		return base
+	}
+	locale = normalizeCreateTranslationLocale(locale)
+	if locale == "" {
+		return base
+	}
+	suffix := "-" + locale
+	if strings.HasSuffix(strings.ToLower(base), suffix) {
+		return strings.TrimSpace(base[:len(base)-len(suffix)])
+	}
+	return base
+}
+
 func buildCreateTranslationResponse(created map[string]any, locale, groupID string) map[string]any {
 	response := map[string]any{
 		"locale":               strings.TrimSpace(locale),
@@ -847,6 +1139,32 @@ func (p *panelBinding) Preview(c router.Context, locale, id string) (map[string]
 		"admin_url": adminURL,
 		"format":    format,
 	}, nil
+}
+
+func (p *panelBinding) Subresources() []boot.PanelSubresourceSpec {
+	if p == nil || p.panel == nil {
+		return nil
+	}
+	declared := p.panel.Subresources()
+	if len(declared) == 0 {
+		return nil
+	}
+	out := make([]boot.PanelSubresourceSpec, 0, len(declared))
+	for _, subresource := range declared {
+		out = append(out, boot.PanelSubresourceSpec{
+			Name:   strings.TrimSpace(subresource.Name),
+			Method: strings.TrimSpace(subresource.Method),
+		})
+	}
+	return out
+}
+
+func (p *panelBinding) HandleSubresource(c router.Context, locale, id, subresource, value string) error {
+	if p == nil || p.panel == nil {
+		return ErrNotFound
+	}
+	ctx := p.admin.adminContextFromRequest(c, locale)
+	return p.panel.ServeSubresource(ctx, c, id, subresource, value)
 }
 
 type dashboardBinding struct {
