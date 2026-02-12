@@ -54,6 +54,7 @@ Temporary Items
 go.work
 .tmp
 node_modules
+.build_hash
 .gocache
 *.log
 *.db
