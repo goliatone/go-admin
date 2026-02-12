@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,6 +17,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/quickstart"
 	router "github.com/goliatone/go-router"
 )
 
@@ -59,6 +63,9 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				"signer_consent":          routes.SignerConsent,
 				"signer_field_values":     routes.SignerFieldValues,
 				"signer_signature":        routes.SignerSignature,
+				"signer_signature_upload": routes.SignerSignatureUpload,
+				"signer_signature_object": routes.SignerSignatureObject,
+				"signer_telemetry":        routes.SignerTelemetry,
 				"signer_submit":           routes.SignerSubmit,
 				"signer_decline":          routes.SignerDecline,
 				"signer_assets":           routes.SignerAssets,
@@ -380,18 +387,70 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 		escapedToken := url.PathEscape(token)
 		sessionURL := strings.Replace(routes.SignerSession, ":token", escapedToken, 1)
 		contractURL := strings.Replace(routes.SignerAssets, ":token", escapedToken, 1)
-		assets := map[string]any{
-			"contract_url": contractURL,
-			"session_url":  sessionURL,
+		assets := buildSignerAssetLinks(contract, contractURL, sessionURL)
+
+		rawAssetType := strings.TrimSpace(c.Query("asset"))
+		assetType := normalizeSignerAssetType(rawAssetType)
+		if rawAssetType != "" && assetType == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "asset must be one of source|executed|certificate", map[string]any{
+				"asset": rawAssetType,
+			})
 		}
-		if contract.SourceDocumentAvailable {
-			assets["source_url"] = contractURL + "?asset=source"
-		}
-		if contract.ExecutedArtifactAvailable {
-			assets["executed_url"] = contractURL + "?asset=executed"
-		}
-		if contract.CertificateAvailable {
-			assets["certificate_url"] = contractURL + "?asset=certificate"
+		if assetType != "" {
+			if !signerRoleCanAccessAsset(contract.RecipientRole, assetType) || !signerAssetAvailable(contract, assetType) {
+				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
+					"asset": assetType,
+				})
+			}
+			if cfg.objectStore == nil {
+				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
+					"asset": assetType,
+				})
+			}
+			objectKey := signerAssetObjectKey(contract, assetType)
+			if objectKey == "" {
+				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
+					"asset": assetType,
+				})
+			}
+			disposition := resolveSignerAssetDisposition(c.Query("disposition"))
+			filename := signerAssetFilename(contract, assetType)
+
+			if cfg.auditEvents != nil {
+				metadataJSON := "{}"
+				if encoded, merr := json.Marshal(map[string]any{
+					"recipient_id": strings.TrimSpace(contract.RecipientID),
+					"asset":        assetType,
+					"disposition":  disposition,
+				}); merr == nil {
+					metadataJSON = string(encoded)
+				}
+				_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+					AgreementID:  strings.TrimSpace(contract.AgreementID),
+					EventType:    "signer.assets.asset_opened",
+					ActorType:    "signer_token",
+					ActorID:      strings.TrimSpace(contract.RecipientID),
+					IPAddress:    strings.TrimSpace(c.IP()),
+					UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
+					MetadataJSON: metadataJSON,
+					CreatedAt:    time.Now().UTC(),
+				})
+			}
+			if err := quickstart.ServeBinaryObject(c, quickstart.BinaryObjectResponseConfig{
+				Store:       cfg.objectStore,
+				ObjectKey:   objectKey,
+				ContentType: "application/pdf",
+				Filename:    filename,
+				Disposition: disposition,
+			}); err != nil {
+				if !errors.Is(err, quickstart.ErrBinaryObjectUnavailable) {
+					return err
+				}
+				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
+					"asset": assetType,
+				})
+			}
+			return nil
 		}
 
 		if cfg.auditEvents != nil {
@@ -418,6 +477,38 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			"status":   "ok",
 			"contract": contract,
 			"assets":   assets,
+		})
+	})
+
+	r.Post(routes.SignerTelemetry, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		token := strings.TrimSpace(c.Param("token"))
+		if token == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
+		}
+		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
+			return asHandlerError(err)
+		}
+		if _, err := resolveSignerToken(c, cfg, token); err != nil {
+			return asHandlerError(err)
+		}
+
+		acceptedEvents := 0
+		if payload := c.Body(); len(payload) > 0 {
+			var envelope struct {
+				Events  []map[string]any `json:"events"`
+				Summary map[string]any   `json:"summary"`
+			}
+			if err := json.Unmarshal(payload, &envelope); err == nil {
+				acceptedEvents = len(envelope.Events)
+			}
+		}
+
+		return c.JSON(http.StatusAccepted, map[string]any{
+			"status":          "accepted",
+			"accepted_events": acceptedEvents,
 		})
 	})
 
@@ -456,32 +547,58 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 	})
 
 	r.Post(routes.SignerFieldValues, func(c router.Context) error {
+		startedAt := time.Now()
+		unifiedFlow := isUnifiedFlowRequest(c)
 		if err := enforceTransportSecurity(c, cfg); err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
+			}
 			return asHandlerError(err)
 		}
 		token := strings.TrimSpace(c.Param("token"))
 		if token == "" {
+			if unifiedFlow {
+				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
+			}
 			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
 		}
 		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
+			}
 			return asHandlerError(err)
 		}
 		tokenRecord, err := resolveSignerToken(c, cfg, token)
 		if err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
+			}
 			return asHandlerError(err)
 		}
 		if cfg.signerSession == nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
+			}
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
 		var payload services.SignerFieldValueInput
 		if err := c.Bind(&payload); err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
+			}
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field value payload", nil)
 		}
 		payload.IPAddress = strings.TrimSpace(c.IP())
 		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
 		value, err := cfg.signerSession.UpsertFieldValue(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
 		if err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
+			}
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to upsert field value", nil)
+		}
+		if unifiedFlow {
+			observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), true)
 		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"status":      "ok",
@@ -490,6 +607,66 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 	})
 
 	r.Post(routes.SignerSignature, func(c router.Context) error {
+		startedAt := time.Now()
+		unifiedFlow := isUnifiedFlowRequest(c)
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
+			}
+			return asHandlerError(err)
+		}
+		token := strings.TrimSpace(c.Param("token"))
+		if token == "" {
+			if unifiedFlow {
+				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
+			}
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
+		}
+		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
+			}
+			return asHandlerError(err)
+		}
+		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		if err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
+			}
+			return asHandlerError(err)
+		}
+		if cfg.signerSession == nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
+			}
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
+		}
+		var payload services.SignerSignatureInput
+		if err := c.Bind(&payload); err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
+			}
+			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature payload", nil)
+		}
+		payload.IPAddress = strings.TrimSpace(c.IP())
+		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
+		result, err := cfg.signerSession.AttachSignatureArtifact(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
+		if err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
+			}
+			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to attach signature", nil)
+		}
+		if unifiedFlow {
+			observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), true)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"status":    "ok",
+			"signature": result,
+		})
+	})
+
+	r.Post(routes.SignerSignatureUpload, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
 		}
@@ -507,27 +684,78 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 		if cfg.signerSession == nil {
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
-		var payload services.SignerSignatureInput
+		var payload services.SignerSignatureUploadInput
 		if err := c.Bind(&payload); err != nil {
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature payload", nil)
+			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature upload payload", nil)
 		}
 		payload.IPAddress = strings.TrimSpace(c.IP())
 		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
-		result, err := cfg.signerSession.AttachSignatureArtifact(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
+		contract, err := cfg.signerSession.IssueSignatureUpload(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
 		if err != nil {
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to attach signature", nil)
+			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to issue signature upload contract", nil)
 		}
+		contract.UploadURL = strings.TrimSpace(routes.SignerSignatureObject)
+		c.SetHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate, private")
+		c.SetHeader("Pragma", "no-cache")
 		return c.JSON(http.StatusOK, map[string]any{
-			"status":    "ok",
-			"signature": result,
+			"status":   "ok",
+			"contract": contract,
+		})
+	})
+
+	r.Put(routes.SignerSignatureObject, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.signerSession == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
+		}
+		uploadToken := strings.TrimSpace(c.Header("X-ESign-Upload-Token"))
+		if uploadToken == "" {
+			uploadToken = strings.TrimSpace(c.Query("upload_token"))
+		}
+		objectKey := strings.TrimSpace(c.Header("X-ESign-Upload-Key"))
+		if objectKey == "" {
+			objectKey = strings.TrimSpace(c.Query("object_key"))
+		}
+		body := c.Body()
+		if len(body) == 0 {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "signature upload body is required", nil)
+		}
+		digest := sha256.Sum256(body)
+		receipt, err := cfg.signerSession.ConfirmSignatureUpload(c.Context(), cfg.resolveScope(c), services.SignerSignatureUploadCommitInput{
+			UploadToken: uploadToken,
+			ObjectKey:   objectKey,
+			SHA256:      hex.EncodeToString(digest[:]),
+			ContentType: strings.TrimSpace(c.Header("Content-Type")),
+			SizeBytes:   int64(len(body)),
+			Payload:     append([]byte{}, body...),
+			IPAddress:   strings.TrimSpace(c.IP()),
+			UserAgent:   strings.TrimSpace(c.Header("User-Agent")),
+		})
+		if err != nil {
+			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to confirm signature upload", nil)
+		}
+		c.SetHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate, private")
+		c.SetHeader("Pragma", "no-cache")
+		return c.JSON(http.StatusOK, map[string]any{
+			"status": "ok",
+			"upload": receipt,
 		})
 	})
 
 	r.Post(routes.SignerSubmit, func(c router.Context) error {
 		startedAt := time.Now()
+		unifiedFlow := isUnifiedFlowRequest(c)
 		idempotencyKey := strings.TrimSpace(c.Header("Idempotency-Key"))
 		correlationID := apiCorrelationID(c, idempotencyKey, c.Param("token"), "signer_submit")
 		if err := enforceTransportSecurity(c, cfg); err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
+			}
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
 			return asHandlerError(err)
 		}
@@ -535,21 +763,33 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 		if token == "" {
 			werr := writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
 			observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), false)
+			if unifiedFlow {
+				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
+			}
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
 			return werr
 		}
 		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
+			}
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
 			return asHandlerError(err)
 		}
 		tokenRecord, err := resolveSignerToken(c, cfg, token)
 		if err != nil {
+			if unifiedFlow {
+				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
+			}
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
 			return asHandlerError(err)
 		}
 		if cfg.signerSession == nil {
 			werr := writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 			observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), false)
+			if unifiedFlow {
+				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
+			}
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
 			return werr
 		}
@@ -561,6 +801,9 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 		if err != nil {
 			werr := writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to submit signer completion", nil)
 			observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), false)
+			if unifiedFlow {
+				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
+			}
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
 			return werr
 		}
@@ -569,6 +812,11 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			"submit": result,
 		})
 		observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), respErr == nil)
+		if unifiedFlow {
+			if respErr == nil && !result.Replay {
+				observability.ObserveUnifiedSubmitConversion(c.Context(), true)
+			}
+		}
 		logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, respErr, map[string]any{
 			"agreement_id": strings.TrimSpace(result.Agreement.ID),
 			"completed":    result.Completed,
@@ -651,6 +899,110 @@ func apiCorrelationID(c router.Context, candidates ...string) string {
 	}
 	values = append(values, candidates...)
 	return observability.ResolveCorrelationID(values...)
+}
+
+func isUnifiedFlowRequest(c router.Context) bool {
+	if c == nil {
+		return false
+	}
+	flow := strings.ToLower(strings.TrimSpace(c.Header("X-ESign-Flow-Mode")))
+	if flow == "" {
+		flow = strings.ToLower(strings.TrimSpace(c.Query("flow")))
+	}
+	if flow == "unified" {
+		return true
+	}
+	referer := strings.ToLower(strings.TrimSpace(c.Header("Referer")))
+	return strings.Contains(referer, "/sign/") && strings.Contains(referer, "/review")
+}
+
+func buildSignerAssetLinks(contract services.SignerAssetContract, contractURL, sessionURL string) map[string]any {
+	assets := map[string]any{
+		"contract_url": strings.TrimSpace(contractURL),
+		"session_url":  strings.TrimSpace(sessionURL),
+	}
+	if contract.SourceDocumentAvailable {
+		assets["source_url"] = strings.TrimSpace(contractURL) + "?asset=source"
+	}
+	if contract.ExecutedArtifactAvailable {
+		assets["executed_url"] = strings.TrimSpace(contractURL) + "?asset=executed"
+	}
+	if contract.CertificateAvailable {
+		assets["certificate_url"] = strings.TrimSpace(contractURL) + "?asset=certificate"
+	}
+	return assets
+}
+
+func normalizeSignerAssetType(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "source":
+		return "source"
+	case "executed":
+		return "executed"
+	case "certificate":
+		return "certificate"
+	default:
+		return ""
+	}
+}
+
+func signerAssetAvailable(contract services.SignerAssetContract, assetType string) bool {
+	switch normalizeSignerAssetType(assetType) {
+	case "source":
+		return contract.SourceDocumentAvailable
+	case "executed":
+		return contract.ExecutedArtifactAvailable
+	case "certificate":
+		return contract.CertificateAvailable
+	default:
+		return false
+	}
+}
+
+func signerRoleCanAccessAsset(role, assetType string) bool {
+	role = strings.ToLower(strings.TrimSpace(role))
+	assetType = normalizeSignerAssetType(assetType)
+	if assetType == "" {
+		return false
+	}
+	switch role {
+	case stores.RecipientRoleSigner, stores.RecipientRoleCC:
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveSignerAssetDisposition(raw string) string {
+	if strings.EqualFold(strings.TrimSpace(raw), "attachment") {
+		return "attachment"
+	}
+	return "inline"
+}
+
+func signerAssetFilename(contract services.SignerAssetContract, assetType string) string {
+	baseID := strings.TrimSpace(contract.AgreementID)
+	if baseID == "" {
+		baseID = "agreement"
+	}
+	assetType = normalizeSignerAssetType(assetType)
+	if assetType == "" {
+		assetType = "asset"
+	}
+	return fmt.Sprintf("%s-%s.pdf", baseID, assetType)
+}
+
+func signerAssetObjectKey(contract services.SignerAssetContract, assetType string) string {
+	switch normalizeSignerAssetType(assetType) {
+	case "source":
+		return strings.TrimSpace(contract.SourceObjectKey)
+	case "executed":
+		return strings.TrimSpace(contract.ExecutedObjectKey)
+	case "certificate":
+		return strings.TrimSpace(contract.CertificateObjectKey)
+	default:
+		return ""
+	}
 }
 
 func logAPIOperation(ctx context.Context, operation, correlationID string, startedAt time.Time, err error, fields map[string]any) {

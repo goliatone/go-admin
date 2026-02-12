@@ -202,25 +202,5 @@ func runAgreementLifecycle(
 }
 
 func samplePDF(pageCount int) []byte {
-	if pageCount <= 0 {
-		pageCount = 1
-	}
-	var b strings.Builder
-	b.WriteString("%PDF-1.7\n")
-	b.WriteString("1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n")
-	b.WriteString("2 0 obj<< /Type /Pages /Count ")
-	b.WriteString("1")
-	b.WriteString(" /Kids [")
-	for i := 0; i < pageCount; i++ {
-		b.WriteString("3 0 R")
-		if i < pageCount-1 {
-			b.WriteString(" ")
-		}
-	}
-	b.WriteString("] >>endobj\n")
-	for i := 0; i < pageCount; i++ {
-		b.WriteString("3 0 obj<< /Type /Page /Parent 2 0 R >>endobj\n")
-	}
-	b.WriteString("%%EOF")
-	return []byte(b.String())
+	return services.GenerateDeterministicPDF(pageCount)
 }

@@ -43,6 +43,14 @@
     "load_validation_ref": "docs/GUIDES_ESIGN_RELEASE_GATES.md#load-profile-send-sign-finalize",
     "slo_validation_ref": "docs/GUIDES_ESIGN_RELEASE_GATES.md#slo-go-no-go-gate"
   },
+  "productization_154": {
+    "recipient_journey_from_sign_link": false,
+    "invitation_link_actionable": false,
+    "completion_link_actionable": false,
+    "primary_cta_not_contract_json": false,
+    "ci_smoke_workflow_passed": false,
+    "ci_smoke_ref": "ci/esign-smoke/<build-id>"
+  },
   "slo_snapshot": {
     "AdminReadP95MS": 250,
     "SendP95MS": 500,

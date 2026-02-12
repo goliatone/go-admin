@@ -1,13 +1,17 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-uploader"
 )
 
 type capturingCompletionWorkflow struct {
@@ -124,6 +128,147 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 	}
 	if waitingSession.Fields[0].ValueText != "Signer Two" {
 		t.Fatalf("expected signer two value snapshot, got %+v", waitingSession.Fields[0])
+	}
+}
+
+func TestSigningServiceGetSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Name:         stringPtr("Signer One"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+
+	posX := 72.5
+	posY := 180.25
+	width := 220.0
+	height := 42.0
+	field, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(2),
+		PosX:        &posX,
+		PosY:        &posY,
+		Width:       &width,
+		Height:      &height,
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase18-session-bootstrap"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store, store)
+	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+
+	if session.DocumentName != "Master Services Agreement" {
+		t.Fatalf("expected document name Master Services Agreement, got %q", session.DocumentName)
+	}
+	if session.PageCount != 2 {
+		t.Fatalf("expected page count 2, got %d", session.PageCount)
+	}
+	if session.Viewer.CoordinateSpace != "pdf_points" {
+		t.Fatalf("expected coordinate space pdf_points, got %q", session.Viewer.CoordinateSpace)
+	}
+	if session.Viewer.ContractVersion != "pdf_page_space_v1" {
+		t.Fatalf("expected contract version pdf_page_space_v1, got %q", session.Viewer.ContractVersion)
+	}
+	if session.Viewer.Unit != "pt" || session.Viewer.Origin != "top_left" || session.Viewer.YAxisDirection != "down" {
+		t.Fatalf("expected canonical viewer metadata, got %+v", session.Viewer)
+	}
+	if len(session.Viewer.Pages) != 2 {
+		t.Fatalf("expected 2 viewer pages, got %+v", session.Viewer.Pages)
+	}
+	if session.Viewer.Pages[1].Page != 2 {
+		t.Fatalf("expected viewer page index 2 at position 2, got %+v", session.Viewer.Pages)
+	}
+
+	if len(session.Fields) != 1 {
+		t.Fatalf("expected one signer field, got %+v", session.Fields)
+	}
+	got := session.Fields[0]
+	if got.ID != field.ID {
+		t.Fatalf("expected field id %q, got %q", field.ID, got.ID)
+	}
+	if got.RecipientID != signer.ID {
+		t.Fatalf("expected recipient binding %q, got %q", signer.ID, got.RecipientID)
+	}
+	if got.Page != 2 || got.PosX != posX || got.PosY != posY || got.Width != width || got.Height != height {
+		t.Fatalf("expected geometry page=2 pos=(%v,%v) size=(%v,%v), got %+v", posX, posY, width, height, got)
+	}
+	if got.PageWidth != 612 || got.PageHeight != 792 || got.PageRotation != 0 {
+		t.Fatalf("expected page metadata width=612 height=792 rotation=0, got %+v", got)
+	}
+	if got.TabIndex != 1 {
+		t.Fatalf("expected first field tab index 1, got %d", got.TabIndex)
+	}
+}
+
+func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	negativePosX := -20.0
+	negativePosY := -12.0
+	oversizeWidth := 2000.0
+	oversizeHeight := 1600.0
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(99),
+		PosX:        &negativePosX,
+		PosY:        &negativePosY,
+		Width:       &oversizeWidth,
+		Height:      &oversizeHeight,
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-coordinate-normalization"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store, store)
+	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if len(session.Fields) != 1 {
+		t.Fatalf("expected one field, got %+v", session.Fields)
+	}
+	field := session.Fields[0]
+	if field.Page <= 0 {
+		t.Fatalf("expected positive page index, got %+v", field)
+	}
+	if field.PosX < 0 || field.PosY < 0 {
+		t.Fatalf("expected non-negative normalized position, got %+v", field)
+	}
+	if field.Width > field.PageWidth || field.Height > field.PageHeight {
+		t.Fatalf("expected size within page bounds, got %+v", field)
 	}
 }
 
@@ -411,6 +556,318 @@ func TestSigningServiceAttachSignatureArtifact(t *testing.T) {
 	}
 }
 
+func TestSigningServiceIssueSignatureUploadBootstrap(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-bootstrap"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	now := time.Date(2026, 2, 12, 9, 0, 0, 0, time.UTC)
+	signingSvc := NewSigningService(store, store, WithSigningClock(func() time.Time {
+		return now
+	}))
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+
+	contract, err := signingSvc.IssueSignatureUpload(ctx, scope, token, SignerSignatureUploadInput{
+		FieldID:     signatureField.ID,
+		SHA256:      strings.Repeat("a", 64),
+		ContentType: "image/png",
+		SizeBytes:   1024,
+	})
+	if err != nil {
+		t.Fatalf("IssueSignatureUpload: %v", err)
+	}
+	if strings.TrimSpace(contract.UploadToken) == "" {
+		t.Fatalf("expected upload token in contract, got %+v", contract)
+	}
+	if strings.TrimSpace(contract.ObjectKey) == "" {
+		t.Fatalf("expected object key in contract, got %+v", contract)
+	}
+	if contract.Method != "PUT" {
+		t.Fatalf("expected upload method PUT, got %q", contract.Method)
+	}
+	if contract.UploadURL != "/api/v1/esign/signing/signature-upload/object" {
+		t.Fatalf("expected upload url /api/v1/esign/signing/signature-upload/object, got %q", contract.UploadURL)
+	}
+	if strings.TrimSpace(anyToString(contract.Headers["X-ESign-Upload-Token"])) == "" {
+		t.Fatalf("expected upload token header in contract, got %+v", contract.Headers)
+	}
+	if contract.ContentType != "image/png" {
+		t.Fatalf("expected content type image/png, got %q", contract.ContentType)
+	}
+	if !contract.ExpiresAt.After(now) {
+		t.Fatalf("expected expiry after issue time, got %s", contract.ExpiresAt)
+	}
+}
+
+func TestSigningServiceIssueSignatureUploadRespectsConfiguredTTLPolicy(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-ttl-policy"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	now := time.Date(2026, 2, 12, 11, 0, 0, 0, time.UTC)
+	ttl := 2 * time.Minute
+	signingSvc := NewSigningService(
+		store,
+		store,
+		WithSigningClock(func() time.Time { return now }),
+		WithSignatureUploadConfig(ttl, "phase19-upload-secret"),
+	)
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+
+	contract, err := signingSvc.IssueSignatureUpload(ctx, scope, token, SignerSignatureUploadInput{
+		FieldID:     signatureField.ID,
+		SHA256:      strings.Repeat("a", 64),
+		ContentType: "image/png",
+		SizeBytes:   512,
+	})
+	if err != nil {
+		t.Fatalf("IssueSignatureUpload: %v", err)
+	}
+	expectedExpiry := now.Add(ttl)
+	if !contract.ExpiresAt.Equal(expectedExpiry) {
+		t.Fatalf("expected ttl policy expiry %s, got %s", expectedExpiry, contract.ExpiresAt)
+	}
+}
+
+func TestSigningServiceAttachSignatureArtifactDrawnRequiresUploadBootstrap(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-required"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store, store)
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+
+	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:   signatureField.ID,
+		Type:      "drawn",
+		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/signer-1/drawn.png",
+		SHA256:    strings.Repeat("d", 64),
+	}); err == nil {
+		t.Fatal("expected drawn signature attach to require upload bootstrap token")
+	}
+}
+
+func TestSigningServiceAttachSignatureArtifactDrawnVerifiesBootstrapAndRetries(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-verify"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store, store)
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+	contract, err := signingSvc.IssueSignatureUpload(ctx, scope, token, SignerSignatureUploadInput{
+		FieldID:     signatureField.ID,
+		SHA256:      strings.Repeat("a", 64),
+		ContentType: "image/png",
+		SizeBytes:   512,
+	})
+	if err != nil {
+		t.Fatalf("IssueSignatureUpload: %v", err)
+	}
+	if _, err := signingSvc.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
+		UploadToken: contract.UploadToken,
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      contract.SHA256,
+		ContentType: contract.ContentType,
+		SizeBytes:   contract.SizeBytes,
+	}); err != nil {
+		t.Fatalf("ConfirmSignatureUpload: %v", err)
+	}
+
+	first, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:     signatureField.ID,
+		Type:        "drawn",
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      contract.SHA256,
+		UploadToken: contract.UploadToken,
+	})
+	if err != nil {
+		t.Fatalf("AttachSignatureArtifact first: %v", err)
+	}
+
+	replay, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:     signatureField.ID,
+		Type:        "drawn",
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      contract.SHA256,
+		UploadToken: contract.UploadToken,
+	})
+	if err != nil {
+		t.Fatalf("AttachSignatureArtifact replay: %v", err)
+	}
+	if replay.Artifact.ID != first.Artifact.ID {
+		t.Fatalf("expected replay artifact id %q, got %q", first.Artifact.ID, replay.Artifact.ID)
+	}
+	if replay.FieldValue.ID != first.FieldValue.ID {
+		t.Fatalf("expected replay field value id %q, got %q", first.FieldValue.ID, replay.FieldValue.ID)
+	}
+
+	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:     signatureField.ID,
+		Type:        "drawn",
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      strings.Repeat("b", 64),
+		UploadToken: contract.UploadToken,
+	}); err == nil {
+		t.Fatal("expected digest mismatch validation error")
+	}
+}
+
+func TestSigningServiceConfirmSignatureUploadPersistsPayloadToObjectStore(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-persist"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	signingSvc := NewSigningService(store, store, WithSigningObjectStore(manager))
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+	uploadPayload := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01, 0x02, 0x03}
+	digest := sha256.Sum256(uploadPayload)
+	uploadSHA := hex.EncodeToString(digest[:])
+	contract, err := signingSvc.IssueSignatureUpload(ctx, scope, token, SignerSignatureUploadInput{
+		FieldID:     signatureField.ID,
+		SHA256:      uploadSHA,
+		ContentType: "image/png",
+		SizeBytes:   int64(len(uploadPayload)),
+	})
+	if err != nil {
+		t.Fatalf("IssueSignatureUpload: %v", err)
+	}
+	receipt, err := signingSvc.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
+		UploadToken: contract.UploadToken,
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      uploadSHA,
+		ContentType: "image/png",
+		SizeBytes:   int64(len(uploadPayload)),
+		Payload:     uploadPayload,
+	})
+	if err != nil {
+		t.Fatalf("ConfirmSignatureUpload: %v", err)
+	}
+	if receipt.ObjectKey != contract.ObjectKey {
+		t.Fatalf("expected receipt object key %q, got %q", contract.ObjectKey, receipt.ObjectKey)
+	}
+	if receipt.SHA256 != uploadSHA {
+		t.Fatalf("expected receipt sha256 %q, got %q", uploadSHA, receipt.SHA256)
+	}
+	persisted, err := manager.GetFile(ctx, contract.ObjectKey)
+	if err != nil {
+		t.Fatalf("GetFile: %v", err)
+	}
+	if !bytes.Equal(persisted, uploadPayload) {
+		t.Fatalf("expected persisted signature upload payload to match source bytes")
+	}
+}
+
 func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
@@ -488,6 +945,9 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 	}
 	if second.Agreement.Version != first.Agreement.Version {
 		t.Fatalf("expected idempotent agreement version %d, got %d", first.Agreement.Version, second.Agreement.Version)
+	}
+	if second.Replay != true {
+		t.Fatalf("expected idempotent replay result, got replay=%v", second.Replay)
 	}
 
 	if _, err := signingSvc.Submit(ctx, scope, token, SignerSubmitInput{}); err == nil {

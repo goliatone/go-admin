@@ -13,6 +13,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
+	"github.com/goliatone/go-uploader"
 )
 
 const (
@@ -48,6 +49,7 @@ type registerConfig struct {
 	tokenValidator   SignerTokenValidator
 	signerSession    SignerSessionService
 	signerAssets     SignerAssetContractService
+	objectStore      SignerObjectStore
 	agreements       AgreementStatsService
 	auditEvents      stores.AuditEventStore
 	google           GoogleIntegrationService
@@ -80,6 +82,8 @@ type SignerSessionService interface {
 	GetSession(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.SignerSessionContext, error)
 	CaptureConsent(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerConsentInput) (services.SignerConsentResult, error)
 	UpsertFieldValue(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerFieldValueInput) (stores.FieldValueRecord, error)
+	IssueSignatureUpload(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSignatureUploadInput) (services.SignerSignatureUploadContract, error)
+	ConfirmSignatureUpload(ctx context.Context, scope stores.Scope, input services.SignerSignatureUploadCommitInput) (services.SignerSignatureUploadCommitResult, error)
 	AttachSignatureArtifact(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSignatureInput) (services.SignerSignatureResult, error)
 	Submit(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSubmitInput) (services.SignerSubmitResult, error)
 	Decline(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerDeclineInput) (services.SignerDeclineResult, error)
@@ -88,6 +92,12 @@ type SignerSessionService interface {
 // SignerAssetContractService resolves token-scoped signer asset contract metadata.
 type SignerAssetContractService interface {
 	Resolve(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.SignerAssetContract, error)
+}
+
+// SignerObjectStore resolves and persists signer-facing asset/signature blobs by object key.
+type SignerObjectStore interface {
+	GetFile(ctx context.Context, path string) ([]byte, error)
+	UploadFile(ctx context.Context, path string, content []byte, opts ...uploader.UploadOption) (string, error)
 }
 
 // AgreementStatsService captures agreement listing operations needed for admin summary cards.
@@ -175,6 +185,16 @@ func WithSignerAssetContractService(service SignerAssetContractService) Register
 			return
 		}
 		cfg.signerAssets = service
+	}
+}
+
+// WithSignerObjectStore configures signer binary asset/signature object I/O.
+func WithSignerObjectStore(store SignerObjectStore) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.objectStore = store
 	}
 }
 

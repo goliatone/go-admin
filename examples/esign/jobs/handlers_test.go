@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ func (p *captureTemplateProvider) Send(_ context.Context, input EmailSendInput) 
 }
 
 func samplePDF() []byte {
-	return []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF")
+	return services.GenerateDeterministicPDF(1)
 }
 
 func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stores.InMemoryStore, stores.AgreementRecord, stores.RecipientRecord, stores.RecipientRecord) {
@@ -346,14 +347,24 @@ func TestRunCompletionWorkflowBuildsScopedCompletionLinks(t *testing.T) {
 	if completionInput.CompletionURL == "" {
 		t.Fatal("expected completion URL in completion email payload")
 	}
+	if !strings.Contains(completionInput.CompletionURL, "/sign/") || !strings.Contains(completionInput.CompletionURL, "/complete") {
+		t.Fatalf("expected completion URL to target user-facing completion route, got %q", completionInput.CompletionURL)
+	}
+	if strings.Contains(completionInput.CompletionURL, "/api/v1/esign/signing/assets/") {
+		t.Fatalf("expected completion URL to use user-facing completion route, got %q", completionInput.CompletionURL)
+	}
 	if strings.Contains(completionInput.CompletionURL, "agreements/") || strings.Contains(completionInput.CompletionURL, "tenant/") {
 		t.Fatalf("expected completion URL without raw object key exposure, got %q", completionInput.CompletionURL)
 	}
 
-	parts := strings.Split(strings.TrimSpace(completionInput.CompletionURL), "/")
+	parsedURL, err := url.Parse(strings.TrimSpace(completionInput.CompletionURL))
+	if err != nil {
+		t.Fatalf("parse completion URL: %v", err)
+	}
+	segments := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
 	token := ""
-	if len(parts) > 0 {
-		token = strings.TrimSpace(parts[len(parts)-1])
+	if len(segments) >= 3 && segments[len(segments)-3] == "sign" && segments[len(segments)-1] == "complete" {
+		token = strings.TrimSpace(segments[len(segments)-2])
 	}
 	if token == "" {
 		t.Fatalf("expected tokenized completion URL, got %q", completionInput.CompletionURL)

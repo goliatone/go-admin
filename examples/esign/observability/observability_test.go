@@ -27,6 +27,14 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	metrics.ObserveSend(ctx, 900*time.Millisecond, false)
 	metrics.ObserveSignerLinkOpen(ctx, true)
 	metrics.ObserveSignerLinkOpen(ctx, false)
+	metrics.ObserveUnifiedViewerLoad(ctx, 120*time.Millisecond, true)
+	metrics.ObserveUnifiedViewerLoad(ctx, 240*time.Millisecond, false)
+	metrics.ObserveUnifiedFieldSave(ctx, 80*time.Millisecond, true)
+	metrics.ObserveUnifiedFieldSave(ctx, 180*time.Millisecond, false)
+	metrics.ObserveUnifiedSignatureAttach(ctx, 95*time.Millisecond, true)
+	metrics.ObserveUnifiedSignatureAttach(ctx, 145*time.Millisecond, false)
+	metrics.ObserveUnifiedSubmitConversion(ctx, true)
+	metrics.ObserveUnifiedSubmitConversion(ctx, false)
 	metrics.ObserveSignerSubmit(ctx, 400*time.Millisecond, true)
 	metrics.ObserveFinalize(ctx, 90*time.Second, true)
 	metrics.ObserveFinalize(ctx, 125*time.Second, false)
@@ -71,6 +79,21 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	}
 	if snapshot.SignerLinkOpenSuccessTotal != 1 || snapshot.SignerLinkOpenFailureTotal != 1 {
 		t.Fatalf("expected signer link open counters, got %+v", snapshot)
+	}
+	if snapshot.UnifiedViewerSuccessTotal != 1 || snapshot.UnifiedViewerFailureTotal != 1 {
+		t.Fatalf("expected unified viewer counters, got %+v", snapshot)
+	}
+	if snapshot.UnifiedFieldSaveSuccessTotal != 1 || snapshot.UnifiedFieldSaveFailureTotal != 1 {
+		t.Fatalf("expected unified field save counters, got %+v", snapshot)
+	}
+	if snapshot.UnifiedSignatureSuccessTotal != 1 || snapshot.UnifiedSignatureFailureTotal != 1 {
+		t.Fatalf("expected unified signature counters, got %+v", snapshot)
+	}
+	if snapshot.UnifiedSubmitSuccessTotal != 1 || snapshot.UnifiedSubmitFailureTotal != 1 {
+		t.Fatalf("expected unified submit conversion counters, got %+v", snapshot)
+	}
+	if snapshot.UnifiedSubmitConversionPercent() != 100 {
+		t.Fatalf("expected unified submit conversion percent 100, got %f", snapshot.UnifiedSubmitConversionPercent())
 	}
 	if snapshot.CompletionDeliverySuccessTotal != 1 || snapshot.CompletionDeliveryFailureTotal != 1 {
 		t.Fatalf("expected completion delivery counters, got %+v", snapshot)
@@ -130,6 +153,7 @@ func TestEvaluateSLOAndBuildDashboardPayload(t *testing.T) {
 	for _, key := range []string{
 		"signer_link_open_rate",
 		"signer_submit_conversion_rate",
+		"unified_submit_conversion_rate",
 		"completion_delivery_success_rate",
 	} {
 		if _, ok := dashboard[key]; !ok {

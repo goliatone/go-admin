@@ -475,7 +475,7 @@ func NewDeterministicGoogleProvider() *DeterministicGoogleProvider {
 			},
 		},
 		pdfByID: map[string][]byte{
-			"google-file-1": []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF"),
+			"google-file-1": GenerateDeterministicPDF(1),
 		},
 		errorByOp: map[string]error{},
 	}

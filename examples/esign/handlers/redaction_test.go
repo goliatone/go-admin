@@ -5,6 +5,9 @@ import "testing"
 func TestRedactSecurityFieldsMasksSensitiveValues(t *testing.T) {
 	input := map[string]any{
 		"token":             "raw-token-value",
+		"upload_token":      "signed-upload-token",
+		"object_key":        "tenant/tenant-1/org/org-1/agreements/a/sig/object.png",
+		"sha256":            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"recipient_email":   "signer@example.com",
 		"signature_payload": "data:image/png;base64,AAAA",
 		"safe":              "ok",
@@ -18,6 +21,15 @@ func TestRedactSecurityFieldsMasksSensitiveValues(t *testing.T) {
 
 	if masked["token"] != redactionPlaceholder {
 		t.Fatalf("expected token redacted, got %v", masked["token"])
+	}
+	if masked["upload_token"] != redactionPlaceholder {
+		t.Fatalf("expected upload_token redacted, got %v", masked["upload_token"])
+	}
+	if masked["object_key"] != redactionPlaceholder {
+		t.Fatalf("expected object_key redacted, got %v", masked["object_key"])
+	}
+	if masked["sha256"] != redactionPlaceholder {
+		t.Fatalf("expected sha256 redacted, got %v", masked["sha256"])
 	}
 	if masked["recipient_email"] != redactionPlaceholder {
 		t.Fatalf("expected recipient_email redacted, got %v", masked["recipient_email"])
@@ -50,9 +62,11 @@ func TestSecurityLogEventAppliesRedaction(t *testing.T) {
 	}
 
 	cfg.logSecurityEvent("signer.token.rejected", map[string]any{
-		"token": "secret-token",
-		"email": "person@example.com",
-		"safe":  "value",
+		"token":        "secret-token",
+		"upload_token": "upload-token",
+		"signed_url":   "https://example.com/signed?token=abc",
+		"email":        "person@example.com",
+		"safe":         "value",
 	})
 
 	if captured["token"] != redactionPlaceholder {
@@ -60,6 +74,12 @@ func TestSecurityLogEventAppliesRedaction(t *testing.T) {
 	}
 	if captured["email"] != redactionPlaceholder {
 		t.Fatalf("expected email redacted, got %v", captured["email"])
+	}
+	if captured["signed_url"] != redactionPlaceholder {
+		t.Fatalf("expected signed_url redacted, got %v", captured["signed_url"])
+	}
+	if captured["upload_token"] != redactionPlaceholder {
+		t.Fatalf("expected upload_token redacted, got %v", captured["upload_token"])
 	}
 	if captured["safe"] != "value" {
 		t.Fatalf("expected safe value preserved, got %v", captured["safe"])

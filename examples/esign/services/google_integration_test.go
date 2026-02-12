@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -699,7 +698,7 @@ func (e *googleProviderEmulatorServer) serveDriveFiles(w http.ResponseWriter, r 
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/export"):
 		w.Header().Set("Content-Type", "application/pdf")
 		w.WriteHeader(http.StatusOK)
-		_, _ = io.WriteString(w, "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF")
+		_, _ = w.Write(GenerateDeterministicPDF(1))
 		return
 	case r.Method == http.MethodGet && r.URL.Path == "/drive/v3/files/google-file-1":
 		writeJSONResponse(w, http.StatusOK, map[string]any{

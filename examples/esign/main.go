@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/gofiber/fiber/v2"
-	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	"github.com/goliatone/go-admin/examples/esign/jobs"
@@ -21,7 +18,6 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
-	router "github.com/goliatone/go-router"
 )
 
 func main() {
@@ -43,6 +39,8 @@ func main() {
 	cfg.URLs.Public.APIVersion = "v1"
 	cfg.EnablePublicAPI = true
 	debugEnabled := cfg.Debug.Enabled
+	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") ||
+		strings.EqualFold(os.Getenv("ENV"), "development")
 
 	featureDefaults := map[string]bool{
 		"esign":                       envBool("ESIGN_FEATURE_ENABLED", true),
@@ -96,71 +94,18 @@ func main() {
 		log.Fatalf("initialize view engine: %v", err)
 	}
 
-	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
-		app := fiber.New(fiber.Config{
-			UnescapePath:      true,
-			StrictRouting:     false,
-			EnablePrintRoutes: true,
-			PassLocalsToViews: true,
-			Views:             viewEngine,
-		})
-		app.Use(fiberlogger.New())
-		if debugEnabled && cfg.Debug.CaptureLogs {
-			app.Use(func(c *fiber.Ctx) error {
-				started := time.Now()
-				err := c.Next()
-
-				status := c.Response().StatusCode()
-				if err != nil {
-					if ferr, ok := err.(*fiber.Error); ok && ferr.Code > 0 {
-						status = ferr.Code
-					} else if status < fiber.StatusBadRequest {
-						status = fiber.StatusInternalServerError
-					}
-				}
-				level := slog.LevelInfo
-				if err != nil || status >= fiber.StatusInternalServerError {
-					level = slog.LevelError
-				} else if status >= fiber.StatusBadRequest {
-					level = slog.LevelWarn
-				}
-
-				requestCtx := c.UserContext()
-				if requestCtx == nil {
-					requestCtx = context.Background()
-				}
-
-				attrs := []any{
-					"method", c.Method(),
-					"path", c.Path(),
-					"status", status,
-					"duration_ms", time.Since(started).Milliseconds(),
-					"remote_ip", c.IP(),
-				}
-				if userAgent := strings.TrimSpace(c.Get("User-Agent")); userAgent != "" {
-					attrs = append(attrs, "user_agent", userAgent)
-				}
-				if err != nil {
-					attrs = append(attrs, "error", err.Error())
-				}
-
-				slog.Log(requestCtx, level, "fiber request", attrs...)
-				return err
-			})
-		}
-		return app
-	})
-	quickstart.NewStaticAssets(server.Router(), cfg, client.Assets(), quickstart.WithDiskAssetsDir(resolveESignDiskAssetsDir()))
+	server, r := quickstart.NewFiberServer(viewEngine, cfg, adm, isDev)
+	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(resolveESignDiskAssetsDir()))
 
 	if debugEnabled {
-		quickstart.AttachDebugMiddleware(server.Router(), cfg, adm)
+		quickstart.AttachDebugMiddleware(r, cfg, adm)
 	}
 
-	if err := adm.Initialize(server.Router()); err != nil {
+	if err := adm.Initialize(r); err != nil {
 		log.Fatalf("initialize admin: %v", err)
 	}
 	routes := handlers.BuildRouteSet(adm.URLs(), adm.BasePath(), adm.AdminAPIGroup())
-	if err := registerESignWebRoutes(server.Router(), cfg, adm, authn, auther, authCookieName, routes, esignModule); err != nil {
+	if err := registerESignWebRoutes(r, cfg, adm, authn, auther, authCookieName, routes, esignModule); err != nil {
 		log.Fatalf("register web routes: %v", err)
 	}
 	if debugEnabled {
@@ -205,6 +150,22 @@ func envBool(key string, fallback bool) bool {
 	return parsed
 }
 
+func envInt(key string, fallback int) int {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
 func applyESignEmailTransportDefault() {
 	transport := strings.ToLower(strings.TrimSpace(os.Getenv(jobs.EnvEmailTransport)))
 	if transport == "" {
@@ -238,6 +199,11 @@ func validateRuntimeSecurityBaseline() error {
 
 func validateRuntimeProviderConfiguration() error {
 	profile := strings.ToLower(strings.TrimSpace(os.Getenv("ESIGN_RUNTIME_PROFILE")))
+	if isProductionLikeRuntimeProfile(profile) {
+		if err := validatePublicBaseURLForRuntimeProfile(profile); err != nil {
+			return err
+		}
+	}
 	if profile != "production" && profile != "prod" {
 		return nil
 	}
@@ -246,6 +212,13 @@ func validateRuntimeProviderConfiguration() error {
 	switch transport {
 	case "", "deterministic", "mock":
 		return fmt.Errorf("production profile requires ESIGN_EMAIL_TRANSPORT to use a non-deterministic provider")
+	}
+	if strings.TrimSpace(os.Getenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY")) == "" {
+		return fmt.Errorf("production profile requires ESIGN_SIGNER_UPLOAD_SIGNING_KEY for signer upload contract signing")
+	}
+	uploadTTLSeconds := envInt("ESIGN_SIGNER_UPLOAD_TTL_SECONDS", 300)
+	if uploadTTLSeconds < 60 || uploadTTLSeconds > 900 {
+		return fmt.Errorf("production profile requires ESIGN_SIGNER_UPLOAD_TTL_SECONDS between 60 and 900 seconds")
 	}
 
 	if envBool("ESIGN_GOOGLE_FEATURE_ENABLED", false) {
@@ -256,6 +229,36 @@ func validateRuntimeProviderConfiguration() error {
 		if _, err := services.NewGoogleHTTPProviderFromEnv(); err != nil {
 			return fmt.Errorf("production profile requires valid google provider configuration: %w", err)
 		}
+	}
+	return nil
+}
+
+func isProductionLikeRuntimeProfile(profile string) bool {
+	switch strings.ToLower(strings.TrimSpace(profile)) {
+	case "production", "prod", "staging":
+		return true
+	default:
+		return false
+	}
+}
+
+func validatePublicBaseURLForRuntimeProfile(profile string) error {
+	base := strings.TrimSpace(os.Getenv(jobs.EnvPublicBaseURL))
+	if base == "" {
+		return fmt.Errorf("%s profile requires %s", strings.TrimSpace(profile), jobs.EnvPublicBaseURL)
+	}
+	parsed, err := url.Parse(base)
+	if err != nil || strings.TrimSpace(parsed.Scheme) == "" || strings.TrimSpace(parsed.Host) == "" {
+		return fmt.Errorf("%s must be a valid absolute URL", jobs.EnvPublicBaseURL)
+	}
+	scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("%s must use http or https", jobs.EnvPublicBaseURL)
+	}
+	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
+	switch host {
+	case "", "localhost", "127.0.0.1", "::1", "0.0.0.0":
+		return fmt.Errorf("%s must not point to localhost in %s profile", jobs.EnvPublicBaseURL, strings.TrimSpace(profile))
 	}
 	return nil
 }

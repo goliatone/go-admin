@@ -3,15 +3,21 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
@@ -74,8 +80,8 @@ func newSharedDriveEdgeProvider() *sharedDriveEdgeProvider {
 			},
 		},
 		pdfByID: map[string][]byte{
-			"shared-file-1":   []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF"),
-			"shared-denied-1": []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF"),
+			"shared-file-1":   services.GenerateDeterministicPDF(1),
+			"shared-denied-1": services.GenerateDeterministicPDF(1),
 		},
 		denyExport: map[string]bool{},
 	}
@@ -148,6 +154,35 @@ func strPtr(value string) *string {
 	return &value
 }
 
+func toString(value any) string {
+	if value == nil {
+		return ""
+	}
+	if out, ok := value.(string); ok {
+		return out
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
+}
+
+func extractJSONFieldString(raw []byte, path []string) string {
+	payload := map[string]any{}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return ""
+	}
+	var current any = payload
+	for _, key := range path {
+		asMap, ok := current.(map[string]any)
+		if !ok {
+			return ""
+		}
+		current = asMap[key]
+	}
+	if out, ok := current.(string); ok {
+		return strings.TrimSpace(out)
+	}
+	return ""
+}
+
 func (a mapAuthorizer) Can(_ context.Context, action string, _ string) bool {
 	if len(a.allowed) == 0 {
 		return false
@@ -181,7 +216,7 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
 		Title:     "Agreement Source",
 		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF"),
+		PDF:       services.GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -521,7 +556,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
 		Title:     "Agreement Source",
 		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF"),
+		PDF:       services.GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -622,6 +657,48 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	}
 	if !strings.Contains(bodyText, "\"recipient_id\":\""+signerTwo.ID+"\"") {
 		t.Fatalf("expected signer two recipient id %q, got %s", signerTwo.ID, bodyText)
+	}
+}
+
+func TestRegisterSignerSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *testing.T) {
+	app, _, token, fieldID, _ := setupSignerFlowApp(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+token, nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	payload, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	bodyText := string(payload)
+	if !strings.Contains(bodyText, "\"document_name\":\"Agreement Source\"") {
+		t.Fatalf("expected document_name in session payload, got %s", bodyText)
+	}
+	if !strings.Contains(bodyText, "\"page_count\":1") {
+		t.Fatalf("expected page_count in session payload, got %s", bodyText)
+	}
+	if !strings.Contains(bodyText, "\"viewer\":{\"coordinate_space\":\"pdf_points\"") {
+		t.Fatalf("expected viewer context in session payload, got %s", bodyText)
+	}
+	for _, key := range []string{"\"contract_version\":\"pdf_page_space_v1\"", "\"unit\":\"pt\"", "\"origin\":\"top_left\"", "\"y_axis_direction\":\"down\""} {
+		if !strings.Contains(bodyText, key) {
+			t.Fatalf("expected key %s in viewer payload, got %s", key, bodyText)
+		}
+	}
+	if !strings.Contains(bodyText, "\"id\":\""+fieldID+"\"") {
+		t.Fatalf("expected field id %q in session payload, got %s", fieldID, bodyText)
+	}
+	for _, key := range []string{"\"recipient_id\":", "\"pos_x\":", "\"pos_y\":", "\"width\":", "\"height\":", "\"page_width\":", "\"page_height\":", "\"page_rotation\":", "\"tab_index\":"} {
+		if !strings.Contains(bodyText, key) {
+			t.Fatalf("expected key %s in session payload, got %s", key, bodyText)
+		}
 	}
 }
 
@@ -733,6 +810,226 @@ func TestRegisterSignerSignatureAttachSuccess(t *testing.T) {
 	}
 }
 
+func TestRegisterSignerSignatureUploadBootstrapSuccess(t *testing.T) {
+	app, _, token, _, signatureFieldID := setupSignerFlowApp(t)
+
+	body := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","sha256":"` + strings.Repeat("a", 64) + `","content_type":"image/png","size_bytes":2048}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, body)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(payload))
+	}
+	if cacheControl := strings.ToLower(strings.TrimSpace(resp.Header.Get("Cache-Control"))); !strings.Contains(cacheControl, "no-store") {
+		t.Fatalf("expected no-store cache-control policy, got %q", resp.Header.Get("Cache-Control"))
+	}
+	payload, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	bodyText := string(payload)
+	if !strings.Contains(bodyText, "\"contract\"") {
+		t.Fatalf("expected contract payload, got %s", bodyText)
+	}
+	if !strings.Contains(bodyText, "\"upload_token\"") {
+		t.Fatalf("expected upload token in contract payload, got %s", bodyText)
+	}
+	if !strings.Contains(bodyText, "\"object_key\"") {
+		t.Fatalf("expected object_key in contract payload, got %s", bodyText)
+	}
+}
+
+func TestRegisterSignerTelemetryAcceptsBeaconPayload(t *testing.T) {
+	app, _, token, _, _ := setupSignerFlowApp(t)
+
+	body := bytes.NewBufferString(`{"events":[{"event":"viewer_load_success"},{"event":"page_viewed"}],"summary":{"sessionId":"session-1"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/telemetry/"+token, body)
+	req.Header.Set("Content-Type", "text/plain;charset=UTF-8")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		payload, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 202, got %d body=%s", resp.StatusCode, payload)
+	}
+	payload, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(payload), "\"accepted_events\":2") {
+		t.Fatalf("expected accepted event count in response, got %s", payload)
+	}
+}
+
+func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
+	app, _, token, _, signatureFieldID := setupSignerFlowApp(t)
+	uploadBytes := bytes.Repeat([]byte("b"), 1024)
+	uploadDigest := sha256.Sum256(uploadBytes)
+	uploadSHA := hex.EncodeToString(uploadDigest[:])
+
+	bootstrapReqBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","sha256":"` + uploadSHA + `","content_type":"image/png","size_bytes":1024}`)
+	bootstrapReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, bootstrapReqBody)
+	bootstrapReq.Header.Set("Content-Type", "application/json")
+	bootstrapResp, err := app.Test(bootstrapReq, -1)
+	if err != nil {
+		t.Fatalf("bootstrap request failed: %v", err)
+	}
+	defer bootstrapResp.Body.Close()
+	if bootstrapResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(bootstrapResp.Body)
+		t.Fatalf("expected bootstrap status 200, got %d body=%s", bootstrapResp.StatusCode, body)
+	}
+	bootstrapPayloadRaw, err := io.ReadAll(bootstrapResp.Body)
+	if err != nil {
+		t.Fatalf("read bootstrap response body: %v", err)
+	}
+	var bootstrapPayload map[string]any
+	if err := json.Unmarshal(bootstrapPayloadRaw, &bootstrapPayload); err != nil {
+		t.Fatalf("decode bootstrap payload: %v", err)
+	}
+	contract, _ := bootstrapPayload["contract"].(map[string]any)
+	uploadToken := strings.TrimSpace(toString(contract["upload_token"]))
+	objectKey := strings.TrimSpace(toString(contract["object_key"]))
+	if uploadToken == "" || objectKey == "" {
+		t.Fatalf("expected upload token/object key in bootstrap contract, got %+v", bootstrapPayload)
+	}
+	uploadReq := httptest.NewRequest(http.MethodPut, "/api/v1/esign/signing/signature-upload/object?upload_token="+url.QueryEscape(uploadToken)+"&object_key="+url.QueryEscape(objectKey), bytes.NewBuffer(uploadBytes))
+	uploadReq.Header.Set("Content-Type", "image/png")
+	uploadReq.Header.Set("X-ESign-Upload-Token", uploadToken)
+	uploadReq.Header.Set("X-ESign-Upload-Key", objectKey)
+	uploadResp, err := app.Test(uploadReq, -1)
+	if err != nil {
+		t.Fatalf("upload request failed: %v", err)
+	}
+	defer uploadResp.Body.Close()
+	if uploadResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uploadResp.Body)
+		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, body)
+	}
+
+	body := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"drawn","object_key":"` + objectKey + `","sha256":"` + uploadSHA + `","upload_token":"` + uploadToken + `"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(payload))
+	}
+	payload, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(payload), "\"signature\"") {
+		t.Fatalf("expected signature payload, got %s", payload)
+	}
+}
+
+func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) {
+	app, _, token, _, signatureFieldID := setupSignerFlowApp(t)
+	uploadBytes := bytes.Repeat([]byte("c"), 1024)
+	uploadDigest := sha256.Sum256(uploadBytes)
+	uploadSHA := hex.EncodeToString(uploadDigest[:])
+
+	bootstrapReqBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","sha256":"` + uploadSHA + `","content_type":"image/png","size_bytes":1024}`)
+	bootstrapReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, bootstrapReqBody)
+	bootstrapReq.Header.Set("Content-Type", "application/json")
+	bootstrapResp, err := app.Test(bootstrapReq, -1)
+	if err != nil {
+		t.Fatalf("bootstrap request failed: %v", err)
+	}
+	defer bootstrapResp.Body.Close()
+	if bootstrapResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(bootstrapResp.Body)
+		t.Fatalf("expected bootstrap status 200, got %d body=%s", bootstrapResp.StatusCode, body)
+	}
+	bootstrapPayloadRaw, err := io.ReadAll(bootstrapResp.Body)
+	if err != nil {
+		t.Fatalf("read bootstrap response body: %v", err)
+	}
+	var bootstrapPayload map[string]any
+	if err := json.Unmarshal(bootstrapPayloadRaw, &bootstrapPayload); err != nil {
+		t.Fatalf("decode bootstrap payload: %v", err)
+	}
+	contract, _ := bootstrapPayload["contract"].(map[string]any)
+	uploadToken := strings.TrimSpace(toString(contract["upload_token"]))
+	objectKey := strings.TrimSpace(toString(contract["object_key"]))
+	if uploadToken == "" || objectKey == "" {
+		t.Fatalf("expected upload token/object key in bootstrap contract, got %+v", bootstrapPayload)
+	}
+	uploadReq := httptest.NewRequest(http.MethodPut, "/api/v1/esign/signing/signature-upload/object?upload_token="+url.QueryEscape(uploadToken)+"&object_key="+url.QueryEscape(objectKey), bytes.NewBuffer(uploadBytes))
+	uploadReq.Header.Set("Content-Type", "image/png")
+	uploadReq.Header.Set("X-ESign-Upload-Token", uploadToken)
+	uploadReq.Header.Set("X-ESign-Upload-Key", objectKey)
+	uploadResp, err := app.Test(uploadReq, -1)
+	if err != nil {
+		t.Fatalf("upload request failed: %v", err)
+	}
+	defer uploadResp.Body.Close()
+	if uploadResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uploadResp.Body)
+		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, body)
+	}
+
+	attachBody := `{"field_id":"` + signatureFieldID + `","type":"drawn","object_key":"` + objectKey + `","sha256":"` + uploadSHA + `","upload_token":"` + uploadToken + `"}`
+	firstReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, bytes.NewBufferString(attachBody))
+	firstReq.Header.Set("Content-Type", "application/json")
+	firstResp, err := app.Test(firstReq, -1)
+	if err != nil {
+		t.Fatalf("first attach request failed: %v", err)
+	}
+	defer firstResp.Body.Close()
+	if firstResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(firstResp.Body)
+		t.Fatalf("expected first attach status 200, got %d body=%s", firstResp.StatusCode, body)
+	}
+	firstPayload, err := io.ReadAll(firstResp.Body)
+	if err != nil {
+		t.Fatalf("read first attach response body: %v", err)
+	}
+	firstArtifactID := extractJSONFieldString(firstPayload, []string{"signature", "artifact", "ID"})
+	if firstArtifactID == "" {
+		t.Fatalf("expected first attach artifact id, got %s", firstPayload)
+	}
+
+	retryReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, bytes.NewBufferString(attachBody))
+	retryReq.Header.Set("Content-Type", "application/json")
+	retryResp, err := app.Test(retryReq, -1)
+	if err != nil {
+		t.Fatalf("retry attach request failed: %v", err)
+	}
+	defer retryResp.Body.Close()
+	if retryResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(retryResp.Body)
+		t.Fatalf("expected retry attach status 200, got %d body=%s", retryResp.StatusCode, body)
+	}
+	retryPayload, err := io.ReadAll(retryResp.Body)
+	if err != nil {
+		t.Fatalf("read retry attach response body: %v", err)
+	}
+	retryArtifactID := extractJSONFieldString(retryPayload, []string{"signature", "artifact", "ID"})
+	if retryArtifactID == "" {
+		t.Fatalf("expected retry attach artifact id, got %s", retryPayload)
+	}
+	if retryArtifactID != firstArtifactID {
+		t.Fatalf("expected retry artifact id %q, got %q", firstArtifactID, retryArtifactID)
+	}
+}
+
 func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	app, _, token, textFieldID, signatureFieldID := setupSignerFlowApp(t)
 
@@ -798,6 +1095,137 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	defer replayResp.Body.Close()
 	if replayResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected submit replay status 200, got %d", replayResp.StatusCode)
+	}
+	replayPayload, err := io.ReadAll(replayResp.Body)
+	if err != nil {
+		t.Fatalf("read submit replay response body: %v", err)
+	}
+	if !strings.Contains(string(replayPayload), `"replay":true`) {
+		t.Fatalf("expected replay submit payload marker, got %s", string(replayPayload))
+	}
+}
+
+func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
+	observability.ResetDefaultMetrics()
+	t.Cleanup(observability.ResetDefaultMetrics)
+
+	app, _, token, textFieldID, signatureFieldID := setupSignerFlowApp(t)
+
+	consentReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/consent/"+token, bytes.NewBufferString(`{"accepted":true}`))
+	consentReq.Header.Set("Content-Type", "application/json")
+	consentReq.Header.Set("X-ESign-Flow-Mode", "unified")
+	consentResp, err := app.Test(consentReq, -1)
+	if err != nil {
+		t.Fatalf("consent request failed: %v", err)
+	}
+	_ = consentResp.Body.Close()
+	if consentResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected consent status 200, got %d", consentResp.StatusCode)
+	}
+
+	signatureReqBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-observe.png","sha256":"` + strings.Repeat("f", 64) + `","value_text":"Signer Name"}`)
+	signatureReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
+	signatureReq.Header.Set("Content-Type", "application/json")
+	signatureReq.Header.Set("X-ESign-Flow-Mode", "unified")
+	signatureResp, err := app.Test(signatureReq, -1)
+	if err != nil {
+		t.Fatalf("signature request failed: %v", err)
+	}
+	_ = signatureResp.Body.Close()
+	if signatureResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected signature status 200, got %d", signatureResp.StatusCode)
+	}
+
+	fieldReqBody := bytes.NewBufferString(`{"field_id":"` + textFieldID + `","value_text":"Signer Name"}`)
+	fieldReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
+	fieldReq.Header.Set("Content-Type", "application/json")
+	fieldReq.Header.Set("X-ESign-Flow-Mode", "unified")
+	fieldResp, err := app.Test(fieldReq, -1)
+	if err != nil {
+		t.Fatalf("field-values request failed: %v", err)
+	}
+	_ = fieldResp.Body.Close()
+	if fieldResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected field-values status 200, got %d", fieldResp.StatusCode)
+	}
+
+	submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
+	submitReq.Header.Set("Idempotency-Key", "submit-unified-observe-1")
+	submitReq.Header.Set("X-ESign-Flow-Mode", "unified")
+	submitResp, err := app.Test(submitReq, -1)
+	if err != nil {
+		t.Fatalf("submit request failed: %v", err)
+	}
+	_ = submitResp.Body.Close()
+	if submitResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected submit status 200, got %d", submitResp.StatusCode)
+	}
+
+	snapshot := observability.Snapshot()
+	if snapshot.UnifiedFieldSaveSuccessTotal == 0 {
+		t.Fatalf("expected unified field-save telemetry, got %+v", snapshot)
+	}
+	if snapshot.UnifiedSignatureSuccessTotal == 0 {
+		t.Fatalf("expected unified signature telemetry, got %+v", snapshot)
+	}
+	if snapshot.UnifiedSubmitSuccessTotal == 0 {
+		t.Fatalf("expected unified submit telemetry, got %+v", snapshot)
+	}
+}
+
+func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
+	app, _, token, textFieldID, signatureFieldID := setupSignerFlowApp(t)
+
+	consentReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/consent/"+token, bytes.NewBufferString(`{"accepted":true}`))
+	consentReq.Header.Set("Content-Type", "application/json")
+	consentResp, err := app.Test(consentReq, -1)
+	if err != nil {
+		t.Fatalf("consent request failed: %v", err)
+	}
+	_ = consentResp.Body.Close()
+	if consentResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected consent status 200, got %d", consentResp.StatusCode)
+	}
+
+	signatureReqBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-burst.png","sha256":"` + strings.Repeat("e", 64) + `","value_text":"Signer Name"}`)
+	signatureReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
+	signatureReq.Header.Set("Content-Type", "application/json")
+	signatureResp, err := app.Test(signatureReq, -1)
+	if err != nil {
+		t.Fatalf("signature request failed: %v", err)
+	}
+	_ = signatureResp.Body.Close()
+	if signatureResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected signature status 200, got %d", signatureResp.StatusCode)
+	}
+
+	fieldReqBody := bytes.NewBufferString(`{"field_id":"` + textFieldID + `","value_text":"Signer Name"}`)
+	fieldReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
+	fieldReq.Header.Set("Content-Type", "application/json")
+	fieldResp, err := app.Test(fieldReq, -1)
+	if err != nil {
+		t.Fatalf("field-values request failed: %v", err)
+	}
+	_ = fieldResp.Body.Close()
+	if fieldResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected field-values status 200, got %d", fieldResp.StatusCode)
+	}
+
+	for i := 0; i < 20; i++ {
+		submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
+		submitReq.Header.Set("Idempotency-Key", "submit-burst-idempotency-1")
+		submitResp, err := app.Test(submitReq, -1)
+		if err != nil {
+			t.Fatalf("submit request %d failed: %v", i, err)
+		}
+		body, _ := io.ReadAll(submitResp.Body)
+		_ = submitResp.Body.Close()
+		if submitResp.StatusCode != http.StatusOK {
+			t.Fatalf("expected submit status 200 in burst iteration %d, got %d body=%s", i, submitResp.StatusCode, body)
+		}
+		if !strings.Contains(string(body), `"completed":true`) {
+			t.Fatalf("expected completed submit payload in burst iteration %d, got %s", i, body)
+		}
 	}
 }
 

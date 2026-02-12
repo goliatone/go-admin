@@ -81,6 +81,15 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.SignerSignature != "/api/v1/esign/signing/field-values/signature/:token" {
 		t.Fatalf("expected signer signature route fallback /api/v1/esign/signing/field-values/signature/:token, got %q", routes.SignerSignature)
 	}
+	if routes.SignerSignatureUpload != "/api/v1/esign/signing/signature-upload/:token" {
+		t.Fatalf("expected signer signature-upload route fallback /api/v1/esign/signing/signature-upload/:token, got %q", routes.SignerSignatureUpload)
+	}
+	if routes.SignerSignatureObject != "/api/v1/esign/signing/signature-upload/object" {
+		t.Fatalf("expected signer signature-upload object route fallback /api/v1/esign/signing/signature-upload/object, got %q", routes.SignerSignatureObject)
+	}
+	if routes.SignerTelemetry != "/api/v1/esign/signing/telemetry/:token" {
+		t.Fatalf("expected signer telemetry route fallback /api/v1/esign/signing/telemetry/:token, got %q", routes.SignerTelemetry)
+	}
 	if routes.SignerSubmit != "/api/v1/esign/signing/submit/:token" {
 		t.Fatalf("expected signer submit route fallback /api/v1/esign/signing/submit/:token, got %q", routes.SignerSubmit)
 	}
@@ -127,6 +136,15 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.SignerSignature != "/api/v1/esign/signing/field-values/signature/:token" {
 		t.Fatalf("expected /api/v1/esign/signing/field-values/signature/:token, got %q", routes.SignerSignature)
+	}
+	if routes.SignerSignatureUpload != "/api/v1/esign/signing/signature-upload/:token" {
+		t.Fatalf("expected /api/v1/esign/signing/signature-upload/:token, got %q", routes.SignerSignatureUpload)
+	}
+	if routes.SignerSignatureObject != "/api/v1/esign/signing/signature-upload/object" {
+		t.Fatalf("expected /api/v1/esign/signing/signature-upload/object, got %q", routes.SignerSignatureObject)
+	}
+	if routes.SignerTelemetry != "/api/v1/esign/signing/telemetry/:token" {
+		t.Fatalf("expected /api/v1/esign/signing/telemetry/:token, got %q", routes.SignerTelemetry)
 	}
 	if routes.SignerSubmit != "/api/v1/esign/signing/submit/:token" {
 		t.Fatalf("expected /api/v1/esign/signing/submit/:token, got %q", routes.SignerSubmit)

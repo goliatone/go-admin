@@ -9,11 +9,16 @@ const redactionPlaceholder = "[redacted]"
 
 var sensitiveFieldMatchers = []string{
 	"token",
+	"upload_token",
 	"authorization",
 	"cookie",
 	"email",
 	"name",
 	"signature",
+	"object_key",
+	"signed_url",
+	"sha256",
+	"digest",
 	"payload",
 	"ssn",
 	"phone",

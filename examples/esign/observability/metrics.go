@@ -13,6 +13,10 @@ type Metrics interface {
 	ObserveAdminRead(ctx context.Context, duration time.Duration, success bool, endpoint string)
 	ObserveSend(ctx context.Context, duration time.Duration, success bool)
 	ObserveSignerLinkOpen(ctx context.Context, success bool)
+	ObserveUnifiedViewerLoad(ctx context.Context, duration time.Duration, success bool)
+	ObserveUnifiedFieldSave(ctx context.Context, duration time.Duration, success bool)
+	ObserveUnifiedSignatureAttach(ctx context.Context, duration time.Duration, success bool)
+	ObserveUnifiedSubmitConversion(ctx context.Context, success bool)
 	ObserveSignerSubmit(ctx context.Context, duration time.Duration, success bool)
 	ObserveFinalize(ctx context.Context, duration time.Duration, success bool)
 	ObserveEmailDispatchStart(ctx context.Context, duration time.Duration, success bool)
@@ -30,12 +34,18 @@ type MetricsSnapshot struct {
 	AdminReadP95MS          float64
 	SendP95MS               float64
 	SignerSubmitP95MS       float64
+	UnifiedViewerLoadP95MS  float64
+	UnifiedFieldSaveP95MS   float64
+	UnifiedSignatureP95MS   float64
 	FinalizeP99MS           float64
 	EmailDispatchStartP99MS float64
 
 	AdminReadSampleTotal     int64
 	SendSampleTotal          int64
 	SignerSubmitSampleTotal  int64
+	UnifiedViewerSampleTotal int64
+	UnifiedFieldSaveTotal    int64
+	UnifiedSignatureTotal    int64
 	FinalizeSampleTotal      int64
 	EmailDispatchSampleTotal int64
 
@@ -45,6 +55,14 @@ type MetricsSnapshot struct {
 	SignerLinkOpenFailureTotal     int64
 	SignerSubmitSuccessTotal       int64
 	SignerSubmitFailureTotal       int64
+	UnifiedViewerSuccessTotal      int64
+	UnifiedViewerFailureTotal      int64
+	UnifiedFieldSaveSuccessTotal   int64
+	UnifiedFieldSaveFailureTotal   int64
+	UnifiedSignatureSuccessTotal   int64
+	UnifiedSignatureFailureTotal   int64
+	UnifiedSubmitSuccessTotal      int64
+	UnifiedSubmitFailureTotal      int64
 	FinalizeSuccessTotal           int64
 	FinalizeFailureTotal           int64
 	CompletionDeliverySuccessTotal int64
@@ -100,6 +118,13 @@ func (s MetricsSnapshot) SignerSubmitConversionPercent() float64 {
 	return (float64(s.SignerSubmitSuccessTotal) / float64(s.SignerLinkOpenSuccessTotal)) * 100
 }
 
+func (s MetricsSnapshot) UnifiedSubmitConversionPercent() float64 {
+	if s.UnifiedViewerSuccessTotal <= 0 {
+		return 100
+	}
+	return (float64(s.UnifiedSubmitSuccessTotal) / float64(s.UnifiedViewerSuccessTotal)) * 100
+}
+
 func (s MetricsSnapshot) CompletionDeliverySuccessRatePercent() float64 {
 	total := s.CompletionDeliverySuccessTotal + s.CompletionDeliveryFailureTotal
 	if total <= 0 {
@@ -114,6 +139,9 @@ type inMemoryMetrics struct {
 	adminReadDurationsMS           []float64
 	sendDurationsMS                []float64
 	signerSubmitDurationsMS        []float64
+	unifiedViewerDurationsMS       []float64
+	unifiedFieldSaveDurationsMS    []float64
+	unifiedSignatureDurationsMS    []float64
 	finalizeDurationsMS            []float64
 	emailDispatchDurationsMS       []float64
 	sendSuccessTotal               int64
@@ -122,6 +150,14 @@ type inMemoryMetrics struct {
 	signerLinkOpenFailureTotal     int64
 	signerSubmitSuccessTotal       int64
 	signerSubmitFailureTotal       int64
+	unifiedViewerSuccessTotal      int64
+	unifiedViewerFailureTotal      int64
+	unifiedFieldSaveSuccessTotal   int64
+	unifiedFieldSaveFailureTotal   int64
+	unifiedSignatureSuccessTotal   int64
+	unifiedSignatureFailureTotal   int64
+	unifiedSubmitSuccessTotal      int64
+	unifiedSubmitFailureTotal      int64
 	finalizeSuccessTotal           int64
 	finalizeFailureTotal           int64
 	completionDeliverySuccessTotal int64
@@ -183,6 +219,49 @@ func (m *inMemoryMetrics) ObserveSignerLinkOpen(_ context.Context, success bool)
 		return
 	}
 	m.signerLinkOpenFailureTotal++
+}
+
+func (m *inMemoryMetrics) ObserveUnifiedViewerLoad(_ context.Context, duration time.Duration, success bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.unifiedViewerDurationsMS = appendDurationMS(m.unifiedViewerDurationsMS, duration)
+	if success {
+		m.unifiedViewerSuccessTotal++
+		return
+	}
+	m.unifiedViewerFailureTotal++
+}
+
+func (m *inMemoryMetrics) ObserveUnifiedFieldSave(_ context.Context, duration time.Duration, success bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.unifiedFieldSaveDurationsMS = appendDurationMS(m.unifiedFieldSaveDurationsMS, duration)
+	if success {
+		m.unifiedFieldSaveSuccessTotal++
+		return
+	}
+	m.unifiedFieldSaveFailureTotal++
+}
+
+func (m *inMemoryMetrics) ObserveUnifiedSignatureAttach(_ context.Context, duration time.Duration, success bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.unifiedSignatureDurationsMS = appendDurationMS(m.unifiedSignatureDurationsMS, duration)
+	if success {
+		m.unifiedSignatureSuccessTotal++
+		return
+	}
+	m.unifiedSignatureFailureTotal++
+}
+
+func (m *inMemoryMetrics) ObserveUnifiedSubmitConversion(_ context.Context, success bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if success {
+		m.unifiedSubmitSuccessTotal++
+		return
+	}
+	m.unifiedSubmitFailureTotal++
 }
 
 func (m *inMemoryMetrics) ObserveSignerSubmit(_ context.Context, duration time.Duration, success bool) {
@@ -287,12 +366,18 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 		AdminReadP95MS:          percentile(m.adminReadDurationsMS, 95),
 		SendP95MS:               percentile(m.sendDurationsMS, 95),
 		SignerSubmitP95MS:       percentile(m.signerSubmitDurationsMS, 95),
+		UnifiedViewerLoadP95MS:  percentile(m.unifiedViewerDurationsMS, 95),
+		UnifiedFieldSaveP95MS:   percentile(m.unifiedFieldSaveDurationsMS, 95),
+		UnifiedSignatureP95MS:   percentile(m.unifiedSignatureDurationsMS, 95),
 		FinalizeP99MS:           percentile(m.finalizeDurationsMS, 99),
 		EmailDispatchStartP99MS: percentile(m.emailDispatchDurationsMS, 99),
 
 		AdminReadSampleTotal:     int64(len(m.adminReadDurationsMS)),
 		SendSampleTotal:          int64(len(m.sendDurationsMS)),
 		SignerSubmitSampleTotal:  int64(len(m.signerSubmitDurationsMS)),
+		UnifiedViewerSampleTotal: int64(len(m.unifiedViewerDurationsMS)),
+		UnifiedFieldSaveTotal:    int64(len(m.unifiedFieldSaveDurationsMS)),
+		UnifiedSignatureTotal:    int64(len(m.unifiedSignatureDurationsMS)),
 		FinalizeSampleTotal:      int64(len(m.finalizeDurationsMS)),
 		EmailDispatchSampleTotal: int64(len(m.emailDispatchDurationsMS)),
 
@@ -302,6 +387,14 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 		SignerLinkOpenFailureTotal:     m.signerLinkOpenFailureTotal,
 		SignerSubmitSuccessTotal:       m.signerSubmitSuccessTotal,
 		SignerSubmitFailureTotal:       m.signerSubmitFailureTotal,
+		UnifiedViewerSuccessTotal:      m.unifiedViewerSuccessTotal,
+		UnifiedViewerFailureTotal:      m.unifiedViewerFailureTotal,
+		UnifiedFieldSaveSuccessTotal:   m.unifiedFieldSaveSuccessTotal,
+		UnifiedFieldSaveFailureTotal:   m.unifiedFieldSaveFailureTotal,
+		UnifiedSignatureSuccessTotal:   m.unifiedSignatureSuccessTotal,
+		UnifiedSignatureFailureTotal:   m.unifiedSignatureFailureTotal,
+		UnifiedSubmitSuccessTotal:      m.unifiedSubmitSuccessTotal,
+		UnifiedSubmitFailureTotal:      m.unifiedSubmitFailureTotal,
 		FinalizeSuccessTotal:           m.finalizeSuccessTotal,
 		FinalizeFailureTotal:           m.finalizeFailureTotal,
 		CompletionDeliverySuccessTotal: m.completionDeliverySuccessTotal,
@@ -365,6 +458,34 @@ func ObserveSignerLinkOpen(ctx context.Context, success bool) {
 		return
 	}
 	defaultMetrics.ObserveSignerLinkOpen(ctx, success)
+}
+
+func ObserveUnifiedViewerLoad(ctx context.Context, duration time.Duration, success bool) {
+	if defaultMetrics == nil {
+		return
+	}
+	defaultMetrics.ObserveUnifiedViewerLoad(ctx, duration, success)
+}
+
+func ObserveUnifiedFieldSave(ctx context.Context, duration time.Duration, success bool) {
+	if defaultMetrics == nil {
+		return
+	}
+	defaultMetrics.ObserveUnifiedFieldSave(ctx, duration, success)
+}
+
+func ObserveUnifiedSignatureAttach(ctx context.Context, duration time.Duration, success bool) {
+	if defaultMetrics == nil {
+		return
+	}
+	defaultMetrics.ObserveUnifiedSignatureAttach(ctx, duration, success)
+}
+
+func ObserveUnifiedSubmitConversion(ctx context.Context, success bool) {
+	if defaultMetrics == nil {
+		return
+	}
+	defaultMetrics.ObserveUnifiedSubmitConversion(ctx, success)
 }
 
 func ObserveSignerSubmit(ctx context.Context, duration time.Duration, success bool) {
