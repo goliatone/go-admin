@@ -74,7 +74,7 @@ func validatePanelAction(panel *Panel, panelName, scope string, action Action, b
 		return panelActionIssue(panelName, scope, action, "action_name_required")
 	}
 	if commandName != "" {
-		if bus != nil && !bus.HasFactory(commandName) {
+		if bus != nil && bus.enabled && !bus.HasFactory(commandName) {
 			return panelActionIssue(panelName, scope, action, "command_factory_not_registered")
 		}
 		return nil
