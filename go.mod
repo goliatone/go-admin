@@ -21,6 +21,7 @@ require (
 	github.com/goliatone/go-formgen v0.18.0
 	github.com/goliatone/go-i18n v0.2.0
 	github.com/goliatone/go-job v0.14.0
+	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-masker v0.1.0
 	github.com/goliatone/go-notifications v0.12.0
 	github.com/goliatone/go-options v0.7.0
@@ -35,6 +36,7 @@ require (
 	github.com/goliatone/hashid v0.2.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
+	github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/stretchr/testify v1.11.1
@@ -110,7 +112,6 @@ require (
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.8.0 // indirect
 	github.com/goliatone/go-export/adapters/template/go-template v0.7.0 // indirect
-	github.com/goliatone/go-logger v0.8.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.6.0 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
