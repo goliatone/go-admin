@@ -14,10 +14,14 @@ import (
 )
 
 type translationActionRepoStub struct {
-	records map[string]map[string]any
-	created []map[string]any
-	list    []map[string]any
-	nextID  int
+	records                 map[string]map[string]any
+	created                 []map[string]any
+	list                    []map[string]any
+	nextID                  int
+	createTranslationCalls  int
+	createTranslationInput  TranslationCreateInput
+	createTranslationResult map[string]any
+	createTranslationErr    error
 }
 
 func (s *translationActionRepoStub) List(context.Context, ListOptions) ([]map[string]any, int, error) {
@@ -53,6 +57,18 @@ func (s *translationActionRepoStub) Create(_ context.Context, record map[string]
 	}
 	s.records[id] = cloneAnyMap(created)
 	return created, nil
+}
+
+func (s *translationActionRepoStub) CreateTranslation(_ context.Context, input TranslationCreateInput) (map[string]any, error) {
+	s.createTranslationCalls++
+	s.createTranslationInput = input
+	if s.createTranslationErr != nil {
+		return nil, s.createTranslationErr
+	}
+	if s.createTranslationResult != nil {
+		return cloneAnyMap(s.createTranslationResult), nil
+	}
+	return nil, ErrTranslationCreateUnsupported
 }
 
 func (s *translationActionRepoStub) Update(context.Context, string, map[string]any) (map[string]any, error) {
@@ -227,6 +243,102 @@ func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
 	}
 }
 
+func TestPanelBindingCreateTranslationUsesRepositoryCommandWhenAvailable(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_123": {
+				"id":                   "post_123",
+				"title":                "Post",
+				"slug":                 "post",
+				"locale":               "en",
+				"status":               "draft",
+				"translation_group_id": "tg_123",
+			},
+		},
+		createTranslationResult: map[string]any{
+			"id":                   "post_456",
+			"locale":               "es",
+			"status":               "draft",
+			"translation_group_id": "tg_123",
+		},
+	}
+	panel := &Panel{name: "posts", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	data, err := binding.Action(c, "en", "create_translation", map[string]any{
+		"id":     "post_123",
+		"locale": "es",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.createTranslationCalls != 1 {
+		t.Fatalf("expected one repository translation command call, got %d", repo.createTranslationCalls)
+	}
+	if len(repo.created) != 0 {
+		t.Fatalf("expected legacy clone path to be skipped, got %d create calls", len(repo.created))
+	}
+	if data["id"] != "post_456" {
+		t.Fatalf("expected response id post_456, got %v", data["id"])
+	}
+	if data["locale"] != "es" {
+		t.Fatalf("expected locale es, got %v", data["locale"])
+	}
+	if repo.createTranslationInput.SourceID != "post_123" {
+		t.Fatalf("expected source id post_123, got %q", repo.createTranslationInput.SourceID)
+	}
+	if repo.createTranslationInput.Locale != "es" {
+		t.Fatalf("expected target locale es, got %q", repo.createTranslationInput.Locale)
+	}
+}
+
+func TestPanelBindingCreateTranslationFallsBackWhenRepositoryCommandUnsupported(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_123": {
+				"id":                   "post_123",
+				"title":                "Post",
+				"slug":                 "post",
+				"locale":               "en",
+				"status":               "draft",
+				"translation_group_id": "tg_123",
+				"available_locales":    []string{"en"},
+			},
+		},
+	}
+	panel := &Panel{name: "posts", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	data, err := binding.Action(c, "en", "create_translation", map[string]any{
+		"id":     "post_123",
+		"locale": "fr",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.createTranslationCalls != 1 {
+		t.Fatalf("expected one repository translation command call, got %d", repo.createTranslationCalls)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected legacy clone fallback create call, got %d", len(repo.created))
+	}
+	if data["locale"] != "fr" {
+		t.Fatalf("expected locale fr, got %v", data["locale"])
+	}
+}
+
 func TestPanelBindingCreateTranslationAcceptsStrictSchemaWithContextFields(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
@@ -318,6 +430,54 @@ func TestPanelBindingCreateTranslationDuplicateReturnsTypedError(t *testing.T) {
 	}
 	if len(repo.created) != 0 {
 		t.Fatalf("expected no create call on duplicate, got %d", len(repo.created))
+	}
+}
+
+func TestPanelBindingCreateTranslationRepositoryCommandDuplicateReturnsTypedError(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_123": {
+				"id":                   "post_123",
+				"locale":               "en",
+				"translation_group_id": "tg_123",
+			},
+		},
+		createTranslationErr: TranslationAlreadyExistsError{
+			Panel:              "posts",
+			EntityID:           "post_123",
+			Locale:             "fr",
+			SourceLocale:       "en",
+			TranslationGroupID: "tg_123",
+		},
+	}
+	panel := &Panel{name: "posts", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	_, err := binding.Action(c, "en", "create_translation", map[string]any{
+		"id":     "post_123",
+		"locale": "fr",
+	})
+	if err == nil {
+		t.Fatalf("expected duplicate error")
+	}
+	var dup TranslationAlreadyExistsError
+	if !errors.As(err, &dup) {
+		t.Fatalf("expected TranslationAlreadyExistsError, got %T", err)
+	}
+	if dup.Locale != "fr" {
+		t.Fatalf("expected duplicate locale fr, got %q", dup.Locale)
+	}
+	if repo.createTranslationCalls != 1 {
+		t.Fatalf("expected one repository translation command call, got %d", repo.createTranslationCalls)
+	}
+	if len(repo.created) != 0 {
+		t.Fatalf("expected no legacy clone create call on duplicate, got %d", len(repo.created))
 	}
 }
 

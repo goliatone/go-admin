@@ -9,6 +9,25 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 )
 
+type translationCreatorContentServiceStub struct {
+	CMSContentService
+	lastInput TranslationCreateInput
+	result    *CMSContent
+	err       error
+}
+
+func (s *translationCreatorContentServiceStub) CreateTranslation(_ context.Context, input TranslationCreateInput) (*CMSContent, error) {
+	s.lastInput = input
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.result != nil {
+		created := cloneCMSContent(*s.result)
+		return &created, nil
+	}
+	return nil, ErrNotFound
+}
+
 func TestCMSPageRepositoryListFiltersAndSearch(t *testing.T) {
 	content := NewInMemoryContentService()
 	_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Home", Slug: "/home", Locale: "en"})
@@ -187,6 +206,68 @@ func TestCMSContentRepositoryEmbeddedBlocksAndSchema(t *testing.T) {
 	}
 	if len(item.EmbeddedBlocks) != 1 {
 		t.Fatalf("expected embedded blocks persisted, got %+v", item.EmbeddedBlocks)
+	}
+}
+
+func TestCMSContentRepositoryCreateTranslationDelegatesToContentCommand(t *testing.T) {
+	service := &translationCreatorContentServiceStub{
+		CMSContentService: NewInMemoryContentService(),
+		result: &CMSContent{
+			ID:                 "post_456",
+			Locale:             "fr",
+			Status:             "draft",
+			TranslationGroupID: "tg_123",
+			ContentTypeSlug:    "posts",
+		},
+	}
+	repo := NewCMSContentRepository(service)
+
+	record, err := repo.CreateTranslation(context.Background(), TranslationCreateInput{
+		SourceID: "post_123",
+		Locale:   "fr",
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if record["id"] != "post_456" {
+		t.Fatalf("expected id post_456, got %v", record["id"])
+	}
+	if record["locale"] != "fr" {
+		t.Fatalf("expected locale fr, got %v", record["locale"])
+	}
+	if service.lastInput.SourceID != "post_123" {
+		t.Fatalf("expected source id post_123, got %q", service.lastInput.SourceID)
+	}
+	if service.lastInput.Locale != "fr" {
+		t.Fatalf("expected locale fr, got %q", service.lastInput.Locale)
+	}
+}
+
+func TestCMSContentTypeEntryRepositoryCreateTranslationDelegatesToContentCommand(t *testing.T) {
+	service := &translationCreatorContentServiceStub{
+		CMSContentService: NewInMemoryContentService(),
+		result: &CMSContent{
+			ID:                 "post_456",
+			Locale:             "fr",
+			Status:             "draft",
+			TranslationGroupID: "tg_123",
+			ContentTypeSlug:    "posts",
+		},
+	}
+	repo := NewCMSContentTypeEntryRepository(service, CMSContentType{Slug: "posts"})
+
+	record, err := repo.CreateTranslation(context.Background(), TranslationCreateInput{
+		SourceID: "post_123",
+		Locale:   "fr",
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if record["id"] != "post_456" {
+		t.Fatalf("expected id post_456, got %v", record["id"])
+	}
+	if service.lastInput.ContentType != "posts" {
+		t.Fatalf("expected content type posts, got %q", service.lastInput.ContentType)
 	}
 }
 

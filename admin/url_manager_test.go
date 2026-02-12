@@ -79,4 +79,17 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	if publicPreview != "/api/v1/preview/token" {
 		t.Fatalf("expected /api/v1/preview/token, got %q", publicPreview)
 	}
+
+	panelSubresource, err := manager.Resolve("admin.api", "panel.subresource", urlkit.Params{
+		"panel":       "agreements",
+		"id":          "agreement-1",
+		"subresource": "artifact",
+		"value":       "executed",
+	}, nil)
+	if err != nil {
+		t.Fatalf("resolve admin.api panel.subresource: %v", err)
+	}
+	if panelSubresource != "/admin/api/agreements/agreement-1/artifact/executed" {
+		t.Fatalf("expected panel subresource path, got %q", panelSubresource)
+	}
 }

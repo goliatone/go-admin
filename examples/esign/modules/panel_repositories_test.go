@@ -90,6 +90,7 @@ func TestAgreementPanelRepositoryCreatePersistsFormRecipientsAndFields(t *testin
 		services.NewAgreementService(store, store),
 		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
 		nil,
+		nil,
 		scope,
 		RuntimeSettings{},
 	)
@@ -152,6 +153,7 @@ func TestAgreementPanelRepositoryUpdateSynchronizesFormRecipientsAndFields(t *te
 		store,
 		services.NewAgreementService(store, store),
 		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
+		nil,
 		nil,
 		scope,
 		RuntimeSettings{},
@@ -249,6 +251,7 @@ func TestAgreementPanelRepositoryGetIncludesFieldFormAliases(t *testing.T) {
 		services.NewAgreementService(store, store),
 		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
 		nil,
+		nil,
 		scope,
 		RuntimeSettings{},
 	)
@@ -306,6 +309,7 @@ func TestAgreementPanelRepositoryUpdateAllowsClearingMessage(t *testing.T) {
 		services.NewAgreementService(store, store),
 		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
 		nil,
+		nil,
 		scope,
 		RuntimeSettings{},
 	)
@@ -349,6 +353,7 @@ func TestAgreementPanelRepositoryUpdateRemovesAllFieldsWhenFieldsPresentFlagSet(
 		store,
 		services.NewAgreementService(store, store),
 		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
+		nil,
 		nil,
 		scope,
 		RuntimeSettings{},
