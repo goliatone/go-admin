@@ -19,6 +19,24 @@ type stubGoCMSContentService struct {
 	createReq            cmscontent.CreateContentRequest
 	updateReq            cmscontent.UpdateContentRequest
 	updateResp           *cmscontent.Content
+	createTranslationReq stubCreateTranslationRequest
+	createTranslationRes *cmscontent.Content
+	createTranslationErr error
+	createTranslationCnt int
+}
+
+type stubCreateTranslationRequest struct {
+	ContentID       uuid.UUID
+	SourceID        uuid.UUID
+	ID              uuid.UUID
+	Locale          string
+	TargetLocale    string
+	EnvironmentKey  string
+	ContentType     string
+	ContentTypeSlug string
+	Status          string
+	CreatedBy       uuid.UUID
+	UpdatedBy       uuid.UUID
 }
 
 func (s *stubGoCMSContentService) List(_ context.Context, opts ...cmscontent.ContentListOption) ([]*cmscontent.Content, error) {
@@ -60,6 +78,18 @@ func (s *stubGoCMSContentService) Update(_ context.Context, req cmscontent.Updat
 		return s.getResp, nil
 	}
 	return &cmscontent.Content{ID: req.ID, Status: req.Status}, nil
+}
+
+func (s *stubGoCMSContentService) CreateTranslation(_ context.Context, req stubCreateTranslationRequest) (*cmscontent.Content, error) {
+	s.createTranslationCnt++
+	s.createTranslationReq = req
+	if s.createTranslationErr != nil {
+		return nil, s.createTranslationErr
+	}
+	if s.createTranslationRes != nil {
+		return s.createTranslationRes, nil
+	}
+	return nil, ErrNotFound
 }
 
 func (s *stubGoCMSContentService) Delete(context.Context, cmscontent.DeleteContentRequest) error {
@@ -318,6 +348,70 @@ func TestGoCMSContentAdapterUpdatePageMetadataMapping(t *testing.T) {
 	}
 	if content["body"] != "updated" {
 		t.Fatalf("expected body preserved in translation content, got %v", content["body"])
+	}
+}
+
+func TestGoCMSContentAdapterCreateTranslationUsesOptionalCommand(t *testing.T) {
+	ctx := context.Background()
+	typeID := uuid.New()
+	sourceID := uuid.New()
+	groupID := uuid.New()
+	typeSvc := newStubContentTypeService(CMSContentType{
+		ID:   typeID.String(),
+		Slug: "posts",
+	})
+	contentSvc := &stubGoCMSContentService{
+		createTranslationRes: &cmscontent.Content{
+			ID:     uuid.New(),
+			Slug:   "hello-fr",
+			Status: "draft",
+			Type:   &cmscontent.ContentType{Slug: "posts"},
+			Translations: []*cmscontent.ContentTranslation{
+				{
+					Locale:             &cmscontent.Locale{Code: "fr"},
+					Title:              "Bonjour",
+					TranslationGroupID: &groupID,
+					Content:            map[string]any{"body": "bonjour"},
+				},
+			},
+		},
+	}
+	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
+	adapter, ok := svc.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", svc)
+	}
+
+	created, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
+		SourceID:    sourceID.String(),
+		Locale:      "fr",
+		Environment: "staging",
+		ContentType: "posts",
+		Status:      "draft",
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if contentSvc.createTranslationCnt != 1 {
+		t.Fatalf("expected one create translation call, got %d", contentSvc.createTranslationCnt)
+	}
+	if contentSvc.createTranslationReq.ContentID != sourceID {
+		t.Fatalf("expected content id %s, got %s", sourceID.String(), contentSvc.createTranslationReq.ContentID.String())
+	}
+	if contentSvc.createTranslationReq.Locale != "fr" {
+		t.Fatalf("expected locale fr, got %q", contentSvc.createTranslationReq.Locale)
+	}
+	if contentSvc.createTranslationReq.EnvironmentKey != "staging" {
+		t.Fatalf("expected environment staging, got %q", contentSvc.createTranslationReq.EnvironmentKey)
+	}
+	if created == nil {
+		t.Fatalf("expected created content")
+	}
+	if created.Locale != "fr" {
+		t.Fatalf("expected created locale fr, got %q", created.Locale)
+	}
+	if created.TranslationGroupID != groupID.String() {
+		t.Fatalf("expected group id %s, got %s", groupID.String(), created.TranslationGroupID)
 	}
 }
 

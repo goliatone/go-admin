@@ -528,6 +528,80 @@ func TestCanonicalPanelNameStripsEnvironmentSuffix(t *testing.T) {
 	}
 }
 
+func TestHydrateDetailRelationLinksBuildsPanelLinks(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	builder := (&admin.PanelBuilder{}).WithRepository(admin.NewMemoryRepository())
+	if _, err := adm.RegisterPanel("esign_documents", builder); err != nil {
+		t.Fatalf("register documents panel: %v", err)
+	}
+	if _, err := adm.RegisterPanel("esign_agreements", builder); err != nil {
+		t.Fatalf("register agreements panel: %v", err)
+	}
+	handlers := &contentEntryHandlers{
+		admin: adm,
+		cfg:   cfg,
+	}
+
+	record := map[string]any{
+		"id":          "agreement-1",
+		"document_id": "doc-1",
+	}
+	hydrated := handlers.hydrateDetailRelationLinks("esign_agreements", record, "")
+
+	if got := strings.TrimSpace(anyToString(hydrated["document_url"])); got != "/admin/content/esign_documents/doc-1" {
+		t.Fatalf("expected hydrated document_url, got %q", got)
+	}
+	links, ok := hydrated["links"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected links map[string]string, got %T", hydrated["links"])
+	}
+	if links["document"] != "/admin/content/esign_documents/doc-1" {
+		t.Fatalf("expected relation link for document, got %q", links["document"])
+	}
+	if links["document_id"] != "/admin/content/esign_documents/doc-1" {
+		t.Fatalf("expected relation link for document_id, got %q", links["document_id"])
+	}
+}
+
+func TestHydrateDetailRelationLinksAddsEnvironmentQuery(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	builder := (&admin.PanelBuilder{}).WithRepository(admin.NewMemoryRepository())
+	if _, err := adm.RegisterPanel("esign_documents@staging", builder); err != nil {
+		t.Fatalf("register staging documents panel: %v", err)
+	}
+	if _, err := adm.RegisterPanel("esign_agreements@staging", builder); err != nil {
+		t.Fatalf("register staging agreements panel: %v", err)
+	}
+	handlers := &contentEntryHandlers{
+		admin: adm,
+		cfg:   cfg,
+	}
+
+	record := map[string]any{
+		"id":          "agreement-1",
+		"document_id": "doc-1",
+	}
+	hydrated := handlers.hydrateDetailRelationLinks("esign_agreements@staging", record, "staging")
+	got := strings.TrimSpace(anyToString(hydrated["document_url"]))
+	if got != "/admin/content/esign_documents/doc-1?env=staging" {
+		t.Fatalf("expected env-aware document_url, got %q", got)
+	}
+}
+
 func TestContentEntryCreateRedirectTargetDefaultsToEdit(t *testing.T) {
 	routes := newContentEntryRoutes("/admin", "pages", "")
 	got := contentEntryCreateRedirectTarget("pages", "42", routes)

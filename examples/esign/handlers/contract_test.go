@@ -28,6 +28,18 @@ func (r staticSignerAssetContractResolver) Resolve(context.Context, stores.Scope
 	return r.contract, nil
 }
 
+type staticAgreementDeliveryResolver struct {
+	detail services.AgreementDeliveryDetail
+	err    error
+}
+
+func (r staticAgreementDeliveryResolver) AgreementDeliveryDetail(context.Context, stores.Scope, string) (services.AgreementDeliveryDetail, error) {
+	if r.err != nil {
+		return services.AgreementDeliveryDetail{}, r.err
+	}
+	return r.detail, nil
+}
+
 type fixedSignerTokenValidator struct {
 	record stores.SigningTokenRecord
 }
@@ -333,6 +345,78 @@ func TestSignerAssetContractReturnsTyped404WhenAssetUnavailable(t *testing.T) {
 	errPayload := mustMapField(t, payload, "error")
 	if errPayload["code"] != string(services.ErrorCodeAssetUnavailable) {
 		t.Fatalf("expected code %q, got %+v", services.ErrorCodeAssetUnavailable, errPayload)
+	}
+}
+
+func TestAdminAgreementArtifactDownloadReturnsPDFBinary(t *testing.T) {
+	objectKey := "tenant/tenant-1/org/org-1/agreements/agreement-admin-1/executed.pdf"
+	objectStore := &memorySignerObjectStore{
+		objects: map[string][]byte{
+			objectKey: services.GenerateDeterministicPDF(1),
+		},
+	}
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminDownload: true}}),
+		WithSignerObjectStore(objectStore),
+		WithAgreementDeliveryService(staticAgreementDeliveryResolver{
+			detail: services.AgreementDeliveryDetail{
+				AgreementID:       "agreement-admin-1",
+				ExecutedObjectKey: objectKey,
+			},
+		}),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign_agreements/agreement-admin-1/artifact/executed", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
+	}
+	if contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(contentType, "application/pdf") {
+		t.Fatalf("expected application/pdf content type, got %q", resp.Header.Get("Content-Type"))
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.HasPrefix(string(body), "%PDF-") {
+		t.Fatalf("expected pdf payload prefix, got %q", string(body))
+	}
+}
+
+func TestAdminAgreementArtifactDownloadSupportsEnvSuffixedPanelName(t *testing.T) {
+	objectKey := "tenant/tenant-1/org/org-1/agreements/agreement-admin-env-1/executed.pdf"
+	objectStore := &memorySignerObjectStore{
+		objects: map[string][]byte{
+			objectKey: services.GenerateDeterministicPDF(1),
+		},
+	}
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminDownload: true}}),
+		WithSignerObjectStore(objectStore),
+		WithAgreementDeliveryService(staticAgreementDeliveryResolver{
+			detail: services.AgreementDeliveryDetail{
+				AgreementID:       "agreement-admin-env-1",
+				ExecutedObjectKey: objectKey,
+			},
+		}),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign_agreements@staging/agreement-admin-env-1/artifact/executed", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
 	}
 }
 

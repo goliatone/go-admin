@@ -164,6 +164,7 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"panel.action":                 "/:panel/actions/:action",
 							"panel.bulk":                   "/:panel/bulk/:action",
 							"panel.preview":                "/:panel/:id/preview",
+							"panel.subresource":            "/:panel/:id/:subresource/:value",
 						},
 					},
 				},
@@ -249,13 +250,20 @@ func TestHealthStepRegistersRouteWithWrapper(t *testing.T) {
 }
 
 type stubPanelBinding struct {
-	name           string
-	listCalled     int
-	actionCalled   int
-	bulkCalled     int
-	lastLocale     string
-	lastActionBody map[string]any
-	actionResult   map[string]any
+	name              string
+	listCalled        int
+	actionCalled      int
+	bulkCalled        int
+	subresourceCalled int
+	lastLocale        string
+	lastActionBody    map[string]any
+	actionResult      map[string]any
+	subresources      []PanelSubresourceSpec
+	lastSubresource   struct {
+		id    string
+		name  string
+		value string
+	}
 }
 
 func (s *stubPanelBinding) Name() string { return s.name }
@@ -295,6 +303,19 @@ func (s *stubPanelBinding) Bulk(_ router.Context, locale, action string, body ma
 
 func (s *stubPanelBinding) Preview(router.Context, string, string) (map[string]any, error) {
 	return map[string]any{"token": "preview-token"}, nil
+}
+
+func (s *stubPanelBinding) Subresources() []PanelSubresourceSpec {
+	return append([]PanelSubresourceSpec{}, s.subresources...)
+}
+
+func (s *stubPanelBinding) HandleSubresource(_ router.Context, locale, id, subresource, value string) error {
+	s.subresourceCalled++
+	s.lastLocale = locale
+	s.lastSubresource.id = id
+	s.lastSubresource.name = subresource
+	s.lastSubresource.value = value
+	return nil
 }
 
 func TestPanelStepRegistersHandlers(t *testing.T) {
@@ -430,6 +451,52 @@ func TestPanelStepActionPayloadWinsOverQueryContext(t *testing.T) {
 	require.Equal(t, "fr", binding.lastActionBody["locale"])
 	require.Equal(t, "production", binding.lastActionBody["environment"])
 	require.Equal(t, "pages", binding.lastActionBody["policy_entity"])
+}
+
+func TestPanelStepRegistersPanelSubresourceRoutes(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubPanelBinding{
+		name: "agreements",
+		subresources: []PanelSubresourceSpec{
+			{Name: "artifact", Method: "GET"},
+		},
+	}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{binding},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+	require.Len(t, rr.calls, 10)
+
+	expectedPath := mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.subresource", map[string]string{
+		"panel":       "agreements",
+		"subresource": "artifact",
+	})
+	var subresourceHandler router.HandlerFunc
+	for _, call := range rr.calls {
+		if call.path == expectedPath && call.method == "GET" {
+			subresourceHandler = call.handler
+			break
+		}
+	}
+	require.NotNil(t, subresourceHandler)
+
+	mockCtx := router.NewMockContext()
+	mockCtx.ParamsM["panel"] = "agreements"
+	mockCtx.ParamsM["id"] = "ag-1"
+	mockCtx.ParamsM["value"] = "executed"
+
+	require.NoError(t, subresourceHandler(mockCtx))
+	require.Equal(t, 1, binding.subresourceCalled)
+	require.Equal(t, "en", binding.lastLocale)
+	require.Equal(t, "ag-1", binding.lastSubresource.id)
+	require.Equal(t, "artifact", binding.lastSubresource.name)
+	require.Equal(t, "executed", binding.lastSubresource.value)
 }
 
 func TestPanelStepDoesNotRegisterPreflightRoute(t *testing.T) {

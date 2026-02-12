@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-command/registry"
+	router "github.com/goliatone/go-router"
 )
 
 type allowAll struct{}
@@ -88,6 +89,24 @@ func (denyAll) Can(ctx context.Context, action string, resource string) bool {
 	_ = action
 	_ = resource
 	return false
+}
+
+type panelSubresourceResponderRepo struct {
+	Repository
+	calls int
+	last  struct {
+		id          string
+		subresource string
+		value       string
+	}
+}
+
+func (r *panelSubresourceResponderRepo) ServePanelSubresource(_ AdminContext, _ router.Context, id, subresource, value string) error {
+	r.calls++
+	r.last.id = id
+	r.last.subresource = subresource
+	r.last.value = value
+	return nil
 }
 
 func TestPanelPermissionDenied(t *testing.T) {
@@ -423,6 +442,53 @@ func TestPanelSchemaSetsActionScopes(t *testing.T) {
 	}
 	if schema.BulkActions[0].Scope != ActionScopeBulk {
 		t.Fatalf("expected bulk action scope bulk, got %q", schema.BulkActions[0].Scope)
+	}
+}
+
+func TestPanelSchemaIncludesSubresources(t *testing.T) {
+	panel := &Panel{
+		name: "agreements",
+		subresources: []PanelSubresource{
+			{Name: "artifact", Method: "get", Permission: "agreements.download"},
+			{Name: "artifact", Method: "post"},
+			{Name: "  "},
+		},
+	}
+
+	schema := panel.Schema()
+	if len(schema.Subresources) != 1 {
+		t.Fatalf("expected 1 normalized subresource, got %d", len(schema.Subresources))
+	}
+	if schema.Subresources[0].Name != "artifact" {
+		t.Fatalf("expected subresource artifact, got %q", schema.Subresources[0].Name)
+	}
+	if schema.Subresources[0].Method != "GET" {
+		t.Fatalf("expected method GET, got %q", schema.Subresources[0].Method)
+	}
+	if schema.Subresources[0].Permission != "agreements.download" {
+		t.Fatalf("expected permission preserved, got %q", schema.Subresources[0].Permission)
+	}
+}
+
+func TestPanelServeSubresourceUsesResponder(t *testing.T) {
+	repo := &panelSubresourceResponderRepo{Repository: NewMemoryRepository()}
+	panel := &Panel{
+		name: "agreements",
+		repo: repo,
+		subresources: []PanelSubresource{
+			{Name: "artifact", Method: "GET"},
+		},
+	}
+
+	err := panel.ServeSubresource(AdminContext{Context: context.Background()}, router.NewMockContext(), "agreement-1", "artifact", "executed")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if repo.calls != 1 {
+		t.Fatalf("expected responder call count 1, got %d", repo.calls)
+	}
+	if repo.last.id != "agreement-1" || repo.last.subresource != "artifact" || repo.last.value != "executed" {
+		t.Fatalf("unexpected subresource payload: %+v", repo.last)
 	}
 }
 

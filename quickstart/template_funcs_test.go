@@ -54,9 +54,9 @@ func TestRenderMenuIcon_Emoji(t *testing.T) {
 
 func TestRenderMenuIcon_SVGKey(t *testing.T) {
 	tests := []struct {
-		input   string
-		mapped  string
-		label   string
+		input  string
+		mapped string
+		label  string
 	}{
 		{"rich-text", "edit-pencil", "rich-text maps to edit-pencil"},
 		{"media-picker", "media-image", "media-picker maps to media-image"},
@@ -159,4 +159,42 @@ func TestAdminURLUsesURLKitResolver(t *testing.T) {
 	fn, ok := funcs["adminURL"].(func(string) string)
 	require.True(t, ok, "adminURL should be func(string) string")
 	assert.Equal(t, "/control/runtime/formgen-behaviors.min.js", fn("runtime/formgen-behaviors.min.js"))
+}
+
+func TestPanelURLHelpersResolveRoutes(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/control",
+				Routes: map[string]string{
+					"dashboard":             "/",
+					"users":                 "/users",
+					"users.id":              "/users/:id",
+					"content.panel":         "/content/:panel",
+					"content.panel.id":      "/content/:panel/:id",
+					"content.panel.preview": "/content/:panel/:id/preview",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	funcs := DefaultTemplateFuncs(WithTemplateURLResolver(manager))
+
+	panelURL, ok := funcs["panelURL"].(func(string) string)
+	require.True(t, ok)
+	panelDetailURL, ok := funcs["panelDetailURL"].(func(string, string) string)
+	require.True(t, ok)
+	panelEditURL, ok := funcs["panelEditURL"].(func(string, string) string)
+	require.True(t, ok)
+	panelPreviewURL, ok := funcs["panelPreviewURL"].(func(string, string) string)
+	require.True(t, ok)
+
+	assert.Equal(t, "/control/users", panelURL("users"))
+	assert.Equal(t, "/control/users/1", panelDetailURL("users", "1"))
+	assert.Equal(t, "/control/content/esign_documents", panelURL("esign_documents"))
+	assert.Equal(t, "/control/content/esign_documents/doc-1", panelDetailURL("esign_documents", "doc-1"))
+	assert.Equal(t, "/control/content/esign_documents/doc-1/edit", panelEditURL("esign_documents", "doc-1"))
+	assert.Equal(t, "/control/content/esign_documents/doc-1/preview", panelPreviewURL("esign_documents", "doc-1"))
 }
