@@ -45,23 +45,24 @@ var DefaultPermissions = Permissions{
 }
 
 type registerConfig struct {
-	authorizer       coreadmin.Authorizer
-	tokenValidator   SignerTokenValidator
-	signerSession    SignerSessionService
-	signerAssets     SignerAssetContractService
-	objectStore      SignerObjectStore
-	agreements       AgreementStatsService
-	auditEvents      stores.AuditEventStore
-	google           GoogleIntegrationService
-	googleEnabled    bool
-	documentUpload   router.HandlerFunc
-	permissions      Permissions
-	defaultScope     stores.Scope
-	scopeResolver    ScopeResolver
-	actorScope       ActorScopeResolver
-	transportGuard   TransportGuard
-	rateLimiter      RequestRateLimiter
-	securityLogEvent SecurityLogEvent
+	authorizer        coreadmin.Authorizer
+	tokenValidator    SignerTokenValidator
+	signerSession     SignerSessionService
+	signerAssets      SignerAssetContractService
+	agreementDelivery AgreementDeliveryService
+	objectStore       SignerObjectStore
+	agreements        AgreementStatsService
+	auditEvents       stores.AuditEventStore
+	google            GoogleIntegrationService
+	googleEnabled     bool
+	documentUpload    router.HandlerFunc
+	permissions       Permissions
+	defaultScope      stores.Scope
+	scopeResolver     ScopeResolver
+	actorScope        ActorScopeResolver
+	transportGuard    TransportGuard
+	rateLimiter       RequestRateLimiter
+	securityLogEvent  SecurityLogEvent
 }
 
 func defaultRegisterConfig() registerConfig {
@@ -92,6 +93,11 @@ type SignerSessionService interface {
 // SignerAssetContractService resolves token-scoped signer asset contract metadata.
 type SignerAssetContractService interface {
 	Resolve(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.SignerAssetContract, error)
+}
+
+// AgreementDeliveryService resolves agreement-level artifact delivery metadata for admin downloads.
+type AgreementDeliveryService interface {
+	AgreementDeliveryDetail(ctx context.Context, scope stores.Scope, agreementID string) (services.AgreementDeliveryDetail, error)
 }
 
 // SignerObjectStore resolves and persists signer-facing asset/signature blobs by object key.
@@ -185,6 +191,16 @@ func WithSignerAssetContractService(service SignerAssetContractService) Register
 			return
 		}
 		cfg.signerAssets = service
+	}
+}
+
+// WithAgreementDeliveryService configures agreement-level artifact delivery resolution for admin artifact downloads.
+func WithAgreementDeliveryService(service AgreementDeliveryService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.agreementDelivery = service
 	}
 }
 

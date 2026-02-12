@@ -40,11 +40,41 @@ function dev:cover {
 function dev:serve {
     local root_dir
     root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-    (cd "${root_dir}/pkg/client/assets" && lgr exec -- npm run build)
-    local build_status=$?
-    if [ "$build_status" -ne 0 ]; then
-        lgr error "npm build failed with status $build_status"
-        return "$build_status"
+    local assets_dir="${root_dir}/pkg/client/assets"
+    local hash_file="${assets_dir}/.build_hash"
+    local src_dir="${assets_dir}/src"
+
+    # Calculate hash of source files
+    local current_hash
+    if command -v md5sum &> /dev/null; then
+        # Linux
+        current_hash=$(find "${src_dir}" -type f \( -name "*.ts" -o -name "*.css" -o -name "*.js" \) -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d' ' -f1)
+    else
+        # macOS
+        current_hash=$(find "${src_dir}" -type f \( -name "*.ts" -o -name "*.css" -o -name "*.js" \) -exec md5 -q {} \; 2>/dev/null | sort | md5 -q)
+    fi
+
+    # Check if build is needed
+    local needs_build=1
+    if [ -f "$hash_file" ] && [ -d "${assets_dir}/dist" ]; then
+        local stored_hash
+        stored_hash=$(cat "$hash_file" 2>/dev/null)
+        if [ "$stored_hash" = "$current_hash" ]; then
+            needs_build=0
+            echo "Assets unchanged, skipping build"
+        fi
+    fi
+
+    if [ "$needs_build" -eq 1 ]; then
+        echo "Building assets..."
+        (cd "${assets_dir}" && lgr exec -- npm run build)
+        local build_status=$?
+        if [ "$build_status" -ne 0 ]; then
+            lgr error "npm build failed with status $build_status"
+            return "$build_status"
+        fi
+        # Store hash after successful build
+        echo "$current_hash" > "$hash_file"
     fi
 
     export ENV=development;
@@ -68,6 +98,18 @@ function dev:serve {
     export ADMIN_ASSETS_DIR="${root_dir}/pkg/client/assets"
 
     "${GO_BIN}" run .
+}
+
+# Force rebuild assets, bypassing hash check
+function dev:serve:rebuild {
+    local root_dir
+    root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+    local assets_dir="${root_dir}/pkg/client/assets"
+
+    # Remove hash file to force rebuild
+    rm -f "${assets_dir}/.build_hash"
+
+    dev:serve
 }
 
 function release:verify {
