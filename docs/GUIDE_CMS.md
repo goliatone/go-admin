@@ -839,6 +839,123 @@ Use this checklist before enabling translation workflow enforcement in productio
 - [ ] Milestone completion criteria for translation workflow are met.
 - [ ] Rollback owner and rollback window are confirmed.
 
+### 17.7 Translation productization contract
+
+This subsection defines migration, rollback, schema-version, and feature-flag
+semantics for the productized quickstart API:
+
+- `quickstart.WithTranslationProfile(...)`
+- `quickstart.WithTranslationProductConfig(...)`
+
+#### Migration and compatibility
+
+Coexistence is supported during migration:
+
+1. Profile baseline (`core` default when `cms` is enabled, otherwise `none`).
+2. Product module overrides (`TranslationProductConfig.Exchange` / `Queue`).
+3. Legacy module options (`WithTranslationExchangeConfig(...)`,
+   `WithTranslationQueueConfig(...)`) as final compatibility overrides.
+
+When product+legacy options are mixed, capabilities include warning
+`translation.productization.legacy_override`.
+
+Manual wiring options remain supported for at least two minor releases after
+product API GA.
+
+#### Rollback and data retention
+
+Queue/exchange disable is runtime exposure rollback only:
+
+- disabled modules do not register runtime routes/panels/commands,
+- persisted queue/exchange data in host repositories/stores is retained,
+- re-enabling restores runtime access to retained data.
+
+#### Schema-version compatibility
+
+- `TranslationProductConfig.SchemaVersion` default is `1`.
+- `SchemaVersion=0` is accepted as legacy input and normalized to `1`.
+- Unknown future schema versions fail startup with
+  `translation.productization.schema.unsupported`.
+
+#### Feature interaction matrix
+
+Final capability resolution is deterministic across profile/module config and
+feature defaults (`cms`, `dashboard`, `translations.exchange`,
+`translations.queue`):
+
+1. `cms=false` with effective translation modules enabled is startup error
+   `translation.productization.requires_cms`.
+2. `dashboard=false` suppresses dashboard exposure only; it does not disable
+   translation policy enforcement or exchange/queue registration by itself.
+3. Explicit translation module feature overrides are applied before dependency
+   validation.
+4. Startup diagnostics publish one final capability snapshot (`profile`,
+   `schema_version`, module enablement, feature states, routes, panels,
+   resolver keys, warnings).
+
+### 17.8 Translation exchange schema, safety, and trigger contract
+
+Translation exchange is transport-adapted but command-driven. HTTP, CLI, and
+job triggers must compose the same typed command inputs.
+
+#### HTTP contract
+
+Routes:
+- `POST /admin/api/translations/export`
+- `GET /admin/api/translations/template`
+- `POST /admin/api/translations/import/validate`
+- `POST /admin/api/translations/import/apply`
+
+Row linkage contract (`rows[*]`):
+- `resource`
+- `entity_id`
+- `translation_group_id`
+- `target_locale`
+- `field_path`
+
+Optional row fields:
+- `source_locale`
+- `source_text`
+- `translated_text` (required for apply)
+- `source_hash`
+
+#### Safety rules
+
+1. Validate-before-apply is the normative flow (`validate` then `apply`).
+2. Import apply never auto-publishes; applied rows are persisted as draft state.
+3. Missing target locale writes require explicit create intent
+   (`create_translation` / `allow_create_missing`).
+4. `source_hash` conflicts are deterministic (`stale_source_hash`) unless
+   explicit override is enabled.
+5. Duplicate linkage rows inside one payload are deterministic row conflicts
+   (`duplicate_row`) and do not write duplicate changes.
+
+#### Quickstart opt-in
+
+Quickstart keeps exchange disabled by default. Enable with:
+
+- `quickstart.WithTranslationExchangeConfig(...)`
+
+Required minimum wiring:
+- `Enabled: true`
+- `Store` implementing `admin.TranslationExchangeStore`
+
+#### Trigger usage (HTTP/CLI/jobs)
+
+Transport adapters must reuse typed commands:
+- `admin.translations.exchange.export`
+- `admin.translations.exchange.import.validate`
+- `admin.translations.exchange.import.apply`
+- `admin.translations.exchange.import.run`
+
+Job trigger command:
+- `jobs.translations.exchange.import.run`
+
+Example wrapper in `examples/web/jobs`:
+- `jobs.NewTranslationImportRunJob(schedule, provider)`
+  dispatches typed `TranslationImportRunInput` via the same run command path as
+  other triggers.
+
 ## 18. Translation Queue Operations
 
 Queue management is a phase-2 extension for coordinating translation work across
