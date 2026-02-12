@@ -68,6 +68,12 @@ type ListPredicate struct {
 	Values   []string
 }
 
+// PanelSubresourceSpec declares an additional panel-owned route.
+type PanelSubresourceSpec struct {
+	Name   string
+	Method string
+}
+
 // PanelBinding exposes panel CRUD/action handlers for routes.
 type PanelBinding interface {
 	Name() string
@@ -79,6 +85,8 @@ type PanelBinding interface {
 	Action(router.Context, string, string, map[string]any) (map[string]any, error)
 	Bulk(router.Context, string, string, map[string]any) error
 	Preview(router.Context, string, string) (map[string]any, error)
+	Subresources() []PanelSubresourceSpec
+	HandleSubresource(router.Context, string, string, string, string) error
 }
 
 // DashboardBinding exposes dashboard handlers.
