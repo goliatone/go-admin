@@ -136,8 +136,15 @@ func TestESignModuleAgreementArtifactSubresourceDeniesMissingDownloadPermission(
 	if nested, ok := payload["error"].(map[string]any); ok && nested != nil {
 		errorPayload = nested
 	}
-	metadata, ok := errorPayload["metadata"].(map[string]any)
-	if !ok {
+	metadata := map[string]any{}
+	switch rawMeta := errorPayload["metadata"].(type) {
+	case map[string]any:
+		metadata = rawMeta
+	case map[string]string:
+		for key, value := range rawMeta {
+			metadata[key] = value
+		}
+	default:
 		t.Fatalf("expected metadata payload for forbidden response, got %+v", payload)
 	}
 	if got := strings.TrimSpace(toString(metadata["permission"])); got != permissions.AdminESignDownload {

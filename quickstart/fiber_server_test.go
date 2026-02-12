@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	gorouter "github.com/goliatone/go-router"
 )
 
 type capturedSlogRecord struct {
@@ -160,6 +161,76 @@ func TestDebugFiberSlogMiddlewareEmitsLevelByResponse(t *testing.T) {
 	}
 	if _, ok := records[2].attrs["error"]; !ok {
 		t.Fatalf("expected error attr for failed request")
+	}
+}
+
+func TestNewFiberServerRouteConflictPanicsInDev(t *testing.T) {
+	_, r := NewFiberServer(nil, admin.Config{}, nil, true)
+	r.Get("/route-conflict/:id", func(c gorouter.Context) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	didPanic := false
+	func() {
+		defer func() {
+			didPanic = recover() != nil
+		}()
+		r.Get("/route-conflict/static", func(c gorouter.Context) error {
+			return c.SendStatus(fiber.StatusOK)
+		})
+	}()
+
+	if !didPanic {
+		t.Fatalf("expected route conflict panic in dev mode")
+	}
+}
+
+func TestNewFiberServerRouteConflictDoesNotPanicInProductionDefaults(t *testing.T) {
+	_, r := NewFiberServer(nil, admin.Config{}, nil, false)
+	r.Get("/route-conflict-prod/:id", func(c gorouter.Context) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	didPanic := false
+	func() {
+		defer func() {
+			didPanic = recover() != nil
+		}()
+		r.Get("/route-conflict-prod/static", func(c gorouter.Context) error {
+			return c.SendStatus(fiber.StatusOK)
+		})
+	}()
+
+	if didPanic {
+		t.Fatalf("expected production defaults to keep running on route conflicts")
+	}
+}
+
+func TestNewFiberServerRouteConflictPolicyCanBeOverridden(t *testing.T) {
+	_, r := NewFiberServer(nil, admin.Config{}, nil, true, WithFiberAdapterConfig(func(cfg *gorouter.FiberAdapterConfig) {
+		if cfg == nil {
+			return
+		}
+		policy := gorouter.HTTPRouterConflictLogAndContinue
+		cfg.ConflictPolicy = &policy
+		cfg.StrictRoutes = false
+	}))
+	r.Get("/route-conflict-override/:id", func(c gorouter.Context) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	didPanic := false
+	func() {
+		defer func() {
+			didPanic = recover() != nil
+		}()
+		r.Get("/route-conflict-override/static", func(c gorouter.Context) error {
+			return c.SendStatus(fiber.StatusOK)
+		})
+	}()
+
+	if didPanic {
+		t.Fatalf("expected explicit conflict policy override to prevent panic")
 	}
 }
 
