@@ -180,6 +180,11 @@ export declare class SchemaActionBuilder {
      * Build field options from schema property
      */
     private buildFieldOptions;
+    private buildExtensionFieldOptions;
+    private deriveCreateTranslationLocaleOptions;
+    private asObject;
+    private asStringArray;
+    private localeLabel;
     /**
      * Stringify default value for form input
      */

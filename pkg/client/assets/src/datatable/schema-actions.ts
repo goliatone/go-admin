@@ -538,7 +538,7 @@ export class SchemaActionBuilder {
       return payload;
     }
 
-    const promptedValues = await this.promptForPayload(schemaAction, missingRequired, schema, payload);
+    const promptedValues = await this.promptForPayload(schemaAction, missingRequired, schema, payload, record);
     if (promptedValues === null) {
       return null; // User cancelled
     }
@@ -564,7 +564,8 @@ export class SchemaActionBuilder {
     schemaAction: SchemaAction,
     requiredFields: string[],
     schema: PayloadSchema | null,
-    payload: Record<string, unknown>
+    payload: Record<string, unknown>,
+    record?: Record<string, unknown>
   ): Promise<Record<string, unknown> | null> {
     if (requiredFields.length === 0) {
       return {};
@@ -580,7 +581,7 @@ export class SchemaActionBuilder {
         description: definition?.description,
         value: this.stringifyDefault(payload[name] ?? definition?.default),
         type: definition?.type || 'string',
-        options: this.buildFieldOptions(definition),
+        options: this.buildFieldOptions(name, schemaAction.name, definition, record),
       };
     });
 
@@ -595,9 +596,14 @@ export class SchemaActionBuilder {
   /**
    * Build field options from schema property
    */
-  private buildFieldOptions(prop: PayloadSchemaProperty | undefined): Array<{ value: string; label: string }> | undefined {
+  private buildFieldOptions(
+    fieldName: string,
+    actionName: string,
+    prop: PayloadSchemaProperty | undefined,
+    record?: Record<string, unknown>
+  ): Array<{ value: string; label: string }> | undefined {
     if (!prop) {
-      return undefined;
+      return this.deriveCreateTranslationLocaleOptions(fieldName, actionName, record);
     }
     if (prop.oneOf) {
       return prop.oneOf
@@ -615,7 +621,121 @@ export class SchemaActionBuilder {
       }));
     }
 
-    return undefined;
+    const extensionOptions = this.buildExtensionFieldOptions(prop);
+    if (extensionOptions && extensionOptions.length > 0) {
+      return extensionOptions;
+    }
+
+    return this.deriveCreateTranslationLocaleOptions(fieldName, actionName, record);
+  }
+
+  private buildExtensionFieldOptions(prop: PayloadSchemaProperty): Array<{ value: string; label: string }> | undefined {
+    const raw = prop as Record<string, unknown>;
+    const candidate =
+      raw['x-options'] ??
+      raw.x_options ??
+      raw.xOptions;
+    if (!Array.isArray(candidate) || candidate.length === 0) {
+      return undefined;
+    }
+
+    const options: Array<{ value: string; label: string }> = [];
+    for (const item of candidate) {
+      if (typeof item === 'string') {
+        const value = this.stringifyDefault(item);
+        if (!value) {
+          continue;
+        }
+        options.push({ value, label: value });
+        continue;
+      }
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
+      const candidateValue = (item as Record<string, unknown>).value;
+      const value = this.stringifyDefault(candidateValue);
+      if (!value) {
+        continue;
+      }
+      const candidateLabel = (item as Record<string, unknown>).label;
+      const label = this.stringifyDefault(candidateLabel) || value;
+      options.push({ value, label });
+    }
+    return options.length > 0 ? options : undefined;
+  }
+
+  private deriveCreateTranslationLocaleOptions(
+    fieldName: string,
+    actionName: string,
+    record?: Record<string, unknown>
+  ): Array<{ value: string; label: string }> | undefined {
+    if (fieldName.trim().toLowerCase() !== 'locale') {
+      return undefined;
+    }
+    if (actionName.trim().toLowerCase() !== 'create_translation') {
+      return undefined;
+    }
+    if (!record || typeof record !== 'object') {
+      return undefined;
+    }
+
+    const readiness = this.asObject(record.translation_readiness);
+    let locales = this.asStringArray(readiness?.missing_required_locales);
+    if (locales.length === 0) {
+      locales = this.asStringArray((record as Record<string, unknown>).missing_locales);
+    }
+    if (locales.length === 0 && readiness) {
+      const required = this.asStringArray(readiness.required_locales);
+      const availableSet = new Set(this.asStringArray(readiness.available_locales));
+      locales = required.filter((locale) => !availableSet.has(locale));
+    }
+    if (locales.length === 0) {
+      return undefined;
+    }
+
+    const seen = new Set<string>();
+    const options: Array<{ value: string; label: string }> = [];
+    for (const rawLocale of locales) {
+      const locale = rawLocale.trim().toLowerCase();
+      if (!locale || seen.has(locale)) {
+        continue;
+      }
+      seen.add(locale);
+      options.push({
+        value: locale,
+        label: this.localeLabel(locale),
+      });
+    }
+    return options.length > 0 ? options : undefined;
+  }
+
+  private asObject(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    return value as Record<string, unknown>;
+  }
+
+  private asStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value
+      .filter((entry): entry is string => typeof entry === 'string')
+      .map((entry) => entry.trim().toLowerCase())
+      .filter((entry) => entry.length > 0);
+  }
+
+  private localeLabel(locale: string): string {
+    const labels: Record<string, string> = {
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German',
+      it: 'Italian',
+      pt: 'Portuguese',
+    };
+    return labels[locale] || locale.toUpperCase();
   }
 
   /**
