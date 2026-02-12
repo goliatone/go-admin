@@ -3,6 +3,8 @@ package quickstart
 import (
 	"context"
 	"log/slog"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -87,9 +89,7 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 			PassLocalsToViews: true,
 			Views:             viewEngine,
 		},
-		routerConfig: router.FiberAdapterConfig{
-			OrderRoutesBySpecificity: true,
-		},
+		routerConfig: defaultFiberAdapterConfig(cfg, isDev),
 		enableLogger: true,
 	}
 
@@ -121,6 +121,78 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 	})
 
 	return adapter, adapter.Router()
+}
+
+func defaultFiberAdapterConfig(cfg admin.Config, isDev bool) router.FiberAdapterConfig {
+	conflictPolicy := resolveFiberRouteConflictPolicy(cfg, isDev)
+	return router.FiberAdapterConfig{
+		OrderRoutesBySpecificity: true,
+		ConflictPolicy:           &conflictPolicy,
+		StrictRoutes:             resolveFiberStrictRoutes(cfg, isDev),
+	}
+}
+
+func resolveFiberRouteConflictPolicy(cfg admin.Config, isDev bool) router.HTTPRouterConflictPolicy {
+	if policy, ok := fiberRouteConflictPolicyFromEnv(); ok {
+		return policy
+	}
+	if resolveFiberStrictRoutes(cfg, isDev) {
+		return router.HTTPRouterConflictPanic
+	}
+	return router.HTTPRouterConflictLogAndContinue
+}
+
+func resolveFiberStrictRoutes(cfg admin.Config, isDev bool) bool {
+	if strict, ok := boolEnv("ADMIN_STRICT_ROUTES"); ok {
+		return strict
+	}
+	if cfg.Debug.Enabled || isDev {
+		return true
+	}
+	environment := strings.ToLower(strings.TrimSpace(firstNonEmptyString(
+		os.Getenv("GO_ENV"),
+		os.Getenv("ENV"),
+	)))
+	return environment == "test" || environment == "testing"
+}
+
+func fiberRouteConflictPolicyFromEnv() (router.HTTPRouterConflictPolicy, bool) {
+	raw, ok := os.LookupEnv("ADMIN_ROUTE_CONFLICT_POLICY")
+	if !ok {
+		return 0, false
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "panic":
+		return router.HTTPRouterConflictPanic, true
+	case "log_and_skip", "log-skip", "skip":
+		return router.HTTPRouterConflictLogAndSkip, true
+	case "log_and_continue", "log-continue", "continue":
+		return router.HTTPRouterConflictLogAndContinue, true
+	default:
+		return 0, false
+	}
+}
+
+func boolEnv(key string) (bool, bool) {
+	raw, ok := os.LookupEnv(strings.TrimSpace(key))
+	if !ok {
+		return false, false
+	}
+	parsed, err := strconv.ParseBool(strings.TrimSpace(raw))
+	if err != nil {
+		return false, false
+	}
+	return parsed, true
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func debugFiberSlogMiddleware(cfg admin.Config) fiber.Handler {
