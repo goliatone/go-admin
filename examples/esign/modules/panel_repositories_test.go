@@ -393,6 +393,102 @@ func TestAgreementPanelRepositoryUpdateRemovesAllFieldsWhenFieldsPresentFlagSet(
 	}
 }
 
+func TestAgreementRecordToMapDerivesRecipientStatusForCompletedAgreement(t *testing.T) {
+	sentAt := time.Date(2026, 2, 12, 20, 48, 26, 0, time.UTC)
+	signerViewedAt := sentAt.Add(30 * time.Second)
+	signerSignedAt := sentAt.Add(2 * time.Minute)
+	completedAt := sentAt.Add(3 * time.Minute)
+	agreement := stores.AgreementRecord{
+		ID:          "agreement-complete-1",
+		TenantID:    defaultModuleScope.TenantID,
+		OrgID:       defaultModuleScope.OrgID,
+		Status:      stores.AgreementStatusCompleted,
+		SentAt:      &sentAt,
+		CompletedAt: &completedAt,
+		CreatedAt:   sentAt,
+		UpdatedAt:   completedAt,
+	}
+	recipients := []stores.RecipientRecord{
+		{
+			ID:          "recipient-signer-1",
+			AgreementID: agreement.ID,
+			Email:       "signer@example.com",
+			Role:        stores.RecipientRoleSigner,
+			FirstViewAt: &signerViewedAt,
+			CompletedAt: &signerSignedAt,
+		},
+		{
+			ID:          "recipient-cc-1",
+			AgreementID: agreement.ID,
+			Email:       "cc@example.com",
+			Role:        stores.RecipientRoleCC,
+		},
+	}
+
+	payload := agreementRecordToMap(agreement, recipients, nil, nil, services.AgreementDeliveryDetail{})
+	items, ok := payload["recipients"].([]map[string]any)
+	if !ok || len(items) != 2 {
+		t.Fatalf("expected two recipients in payload, got %#v", payload["recipients"])
+	}
+
+	signer := items[0]
+	if got := strings.TrimSpace(toString(signer["status"])); got != "signed" {
+		t.Fatalf("expected signer status signed, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(signer["signed_at"])); got != signerSignedAt.UTC().Format(time.RFC3339Nano) {
+		t.Fatalf("expected signer signed_at %q, got %q", signerSignedAt.UTC().Format(time.RFC3339Nano), got)
+	}
+
+	cc := items[1]
+	if got := strings.TrimSpace(toString(cc["status"])); got != "delivered" {
+		t.Fatalf("expected cc status delivered, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(cc["delivered_at"])); got != completedAt.UTC().Format(time.RFC3339Nano) {
+		t.Fatalf("expected cc delivered_at %q, got %q", completedAt.UTC().Format(time.RFC3339Nano), got)
+	}
+}
+
+func TestAgreementRecordToMapDerivesRecipientStatusForInFlightAgreement(t *testing.T) {
+	sentAt := time.Date(2026, 2, 12, 20, 48, 26, 0, time.UTC)
+	viewedAt := sentAt.Add(10 * time.Second)
+	agreement := stores.AgreementRecord{
+		ID:        "agreement-sent-1",
+		TenantID:  defaultModuleScope.TenantID,
+		OrgID:     defaultModuleScope.OrgID,
+		Status:    stores.AgreementStatusSent,
+		SentAt:    &sentAt,
+		CreatedAt: sentAt,
+		UpdatedAt: sentAt,
+	}
+	recipients := []stores.RecipientRecord{
+		{
+			ID:          "recipient-signer-1",
+			AgreementID: agreement.ID,
+			Email:       "signer@example.com",
+			Role:        stores.RecipientRoleSigner,
+			FirstViewAt: &viewedAt,
+		},
+		{
+			ID:          "recipient-cc-1",
+			AgreementID: agreement.ID,
+			Email:       "cc@example.com",
+			Role:        stores.RecipientRoleCC,
+		},
+	}
+
+	payload := agreementRecordToMap(agreement, recipients, nil, nil, services.AgreementDeliveryDetail{})
+	items, ok := payload["recipients"].([]map[string]any)
+	if !ok || len(items) != 2 {
+		t.Fatalf("expected two recipients in payload, got %#v", payload["recipients"])
+	}
+	if got := strings.TrimSpace(toString(items[0]["status"])); got != "viewed" {
+		t.Fatalf("expected signer status viewed, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(items[1]["status"])); got != "sent" {
+		t.Fatalf("expected cc status sent, got %q", got)
+	}
+}
+
 func seedESignDocument(t *testing.T, store *stores.InMemoryStore, scope stores.Scope, id string) {
 	t.Helper()
 	now := time.Now().UTC()

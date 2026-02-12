@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"testing"
 )
 
@@ -17,6 +18,20 @@ func (s readinessPolicyStub) Validate(context.Context, TranslationPolicyInput) e
 
 func (s readinessPolicyStub) Requirements(context.Context, TranslationPolicyInput) (TranslationRequirements, bool, error) {
 	return s.req, s.ok, s.err
+}
+
+type readinessPolicyCounterStub struct {
+	calls []string
+}
+
+func (s *readinessPolicyCounterStub) Validate(context.Context, TranslationPolicyInput) error {
+	return nil
+}
+
+func (s *readinessPolicyCounterStub) Requirements(_ context.Context, input TranslationPolicyInput) (TranslationRequirements, bool, error) {
+	key := fmt.Sprintf("%s|%s|%s|%s", input.EntityType, input.PolicyEntity, input.Transition, input.Environment)
+	s.calls = append(s.calls, key)
+	return TranslationRequirements{Locales: []string{"en", "fr"}}, true, nil
 }
 
 func TestBuildRecordTranslationReadinessMissingLocales(t *testing.T) {
@@ -89,5 +104,71 @@ func TestBuildRecordTranslationReadinessMissingFields(t *testing.T) {
 	fields := missingFields["en"]
 	if len(fields) != 1 || fields[0] != "path" {
 		t.Fatalf("expected missing fields [path], got %v", fields)
+	}
+}
+
+func TestBuildRecordTranslationReadinessCacheMemoizesByEntityAndEnvironment(t *testing.T) {
+	record := map[string]any{
+		"id":                   "post_1",
+		"locale":               "en",
+		"translation_group_id": "tg_1",
+		"available_locales":    []string{"en"},
+	}
+	cache := &translationReadinessRequirementsCache{}
+	policy := &readinessPolicyCounterStub{}
+
+	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", record, map[string]any{"environment": "production"}, cache)
+	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
+		"id":                   "post_2",
+		"locale":               "en",
+		"translation_group_id": "tg_2",
+		"available_locales":    []string{"en"},
+	}, map[string]any{"environment": "production"}, cache)
+	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
+		"id":                   "post_3",
+		"locale":               "en",
+		"translation_group_id": "tg_3",
+		"available_locales":    []string{"en"},
+	}, map[string]any{"environment": "staging"}, cache)
+	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
+		"id":                   "post_4",
+		"locale":               "en",
+		"policy_entity":        "news",
+		"translation_group_id": "tg_4",
+		"available_locales":    []string{"en"},
+	}, map[string]any{"environment": "production"}, cache)
+
+	if got := len(policy.calls); got != 3 {
+		t.Fatalf("expected 3 requirements resolutions, got %d (%v)", got, policy.calls)
+	}
+}
+
+func TestTranslationReadinessBatchAvailableLocalesAggregatesByGroup(t *testing.T) {
+	grouped := translationReadinessBatchAvailableLocales([]map[string]any{
+		{
+			"id":                   "post_1",
+			"locale":               "en",
+			"translation_group_id": "tg_shared",
+			"available_locales":    []string{"en"},
+		},
+		{
+			"id":                   "post_2",
+			"locale":               "fr",
+			"translation_group_id": "tg_shared",
+			"available_locales":    []string{"fr"},
+		},
+		{
+			"id":                "post_3",
+			"locale":            "es",
+			"available_locales": []string{"es"},
+		},
+	})
+
+	locales := grouped["tg_shared"]
+	if len(locales) != 2 || locales[0] != "en" || locales[1] != "fr" {
+		t.Fatalf("expected grouped locales [en fr], got %v", locales)
+	}
+	if _, exists := grouped[""]; exists {
+		t.Fatalf("did not expect anonymous group aggregation, got %v", grouped[""])
 	}
 }

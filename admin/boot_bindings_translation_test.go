@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	goerrors "github.com/goliatone/go-errors"
@@ -127,6 +129,40 @@ func (s translationWorkflowStateStub) AvailableTransitions(_ context.Context, _ 
 	out := make([]WorkflowTransition, len(transitions))
 	copy(out, transitions)
 	return out, nil
+}
+
+type readinessRequirementsPolicyRecorder struct {
+	calls      int
+	delay      time.Duration
+	defaultReq TranslationRequirements
+}
+
+func (s *readinessRequirementsPolicyRecorder) Validate(context.Context, TranslationPolicyInput) error {
+	return nil
+}
+
+func (s *readinessRequirementsPolicyRecorder) Requirements(_ context.Context, _ TranslationPolicyInput) (TranslationRequirements, bool, error) {
+	s.calls++
+	if s.delay > 0 {
+		time.Sleep(s.delay)
+	}
+	return s.defaultReq, true, nil
+}
+
+func percentile95(samples []time.Duration) time.Duration {
+	if len(samples) == 0 {
+		return 0
+	}
+	out := append([]time.Duration{}, samples...)
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	idx := (len(out)*95 + 99) / 100
+	if idx <= 0 {
+		return out[0]
+	}
+	if idx > len(out) {
+		idx = len(out)
+	}
+	return out[idx-1]
 }
 
 func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
@@ -720,6 +756,192 @@ func TestPanelBindingListAndDetailIncludeTranslationReadiness(t *testing.T) {
 	readyFor, _ := readiness["ready_for_transition"].(map[string]bool)
 	if readyFor["publish"] {
 		t.Fatalf("expected publish readiness false when required locale is missing")
+	}
+}
+
+func TestPanelBindingListTranslationReadinessMemoizesRequirementsForBatch(t *testing.T) {
+	repo := &translationActionRepoStub{list: make([]map[string]any, 0, 50)}
+	for i := 0; i < 50; i++ {
+		repo.list = append(repo.list, map[string]any{
+			"id":                   fmt.Sprintf("post_%d", i),
+			"title":                fmt.Sprintf("Post %d", i),
+			"status":               "draft",
+			"locale":               "en",
+			"translation_group_id": fmt.Sprintf("tg_%d", i),
+			"available_locales":    []string{"en"},
+		})
+	}
+	policy := &readinessRequirementsPolicyRecorder{
+		defaultReq: TranslationRequirements{Locales: []string{"en", "fr"}},
+	}
+	panel := &Panel{
+		name:              "posts",
+		repo:              repo,
+		translationPolicy: policy,
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	records, _, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 50,
+		Filters: map[string]any{"environment": "production"},
+	})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if len(records) != 50 {
+		t.Fatalf("expected 50 records, got %d", len(records))
+	}
+	if policy.calls != 1 {
+		t.Fatalf("expected one requirements call for 50-row batch, got %d", policy.calls)
+	}
+}
+
+func TestPanelBindingListTranslationReadinessAggregatesLocalesByGroup(t *testing.T) {
+	repo := &translationActionRepoStub{
+		list: []map[string]any{
+			{
+				"id":                   "post_en",
+				"title":                "Post EN",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_shared",
+				"available_locales":    []string{"en"},
+			},
+			{
+				"id":                   "post_fr",
+				"title":                "Post FR",
+				"status":               "draft",
+				"locale":               "fr",
+				"translation_group_id": "tg_shared",
+				"available_locales":    []string{"fr"},
+			},
+		},
+	}
+	panel := &Panel{
+		name: "posts",
+		repo: repo,
+		translationPolicy: readinessPolicyStub{
+			ok:  true,
+			req: TranslationRequirements{Locales: []string{"en", "fr"}},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	records, _, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("expected two records, got %d", len(records))
+	}
+	for _, record := range records {
+		readiness, _ := record["translation_readiness"].(map[string]any)
+		if readiness == nil {
+			t.Fatalf("expected readiness payload, got %#v", record["translation_readiness"])
+		}
+		missing := toStringSlice(readiness["missing_required_locales"])
+		if len(missing) != 0 {
+			t.Fatalf("expected no missing locales after group aggregation, got %v", missing)
+		}
+		if state := toString(readiness["readiness_state"]); state != translationReadinessStateReady {
+			t.Fatalf("expected readiness state %q, got %q", translationReadinessStateReady, state)
+		}
+	}
+}
+
+func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T) {
+	repo := &translationActionRepoStub{list: make([]map[string]any, 0, 50)}
+	for i := 0; i < 50; i++ {
+		repo.list = append(repo.list, map[string]any{
+			"id":                   fmt.Sprintf("post_%d", i),
+			"title":                fmt.Sprintf("Post %d", i),
+			"status":               "draft",
+			"locale":               "en",
+			"translation_group_id": fmt.Sprintf("tg_%d", i),
+			"available_locales":    []string{"en"},
+		})
+	}
+	const warmupRuns = 5
+	const runs = 40
+	filters := map[string]any{"environment": "production"}
+
+	makeBinding := func(policy TranslationPolicy) *panelBinding {
+		return &panelBinding{
+			admin: &Admin{config: Config{DefaultLocale: "en"}},
+			name:  "posts",
+			panel: &Panel{
+				name:              "posts",
+				repo:              repo,
+				translationPolicy: policy,
+			},
+		}
+	}
+	measure := func(binding *panelBinding) ([]time.Duration, int) {
+		invocations := 0
+		for i := 0; i < warmupRuns; i++ {
+			c := router.NewMockContext()
+			c.On("Context").Return(context.Background())
+			_, _, _, _, err := binding.List(c, "en", boot.ListOptions{
+				Page:    1,
+				PerPage: 50,
+				Filters: filters,
+			})
+			if err != nil {
+				t.Fatalf("list failed: %v", err)
+			}
+			invocations++
+		}
+		out := make([]time.Duration, 0, runs)
+		for i := 0; i < runs; i++ {
+			c := router.NewMockContext()
+			c.On("Context").Return(context.Background())
+			started := time.Now()
+			_, _, _, _, err := binding.List(c, "en", boot.ListOptions{
+				Page:    1,
+				PerPage: 50,
+				Filters: filters,
+			})
+			if err != nil {
+				t.Fatalf("list failed: %v", err)
+			}
+			out = append(out, time.Since(started))
+			invocations++
+		}
+		return out, invocations
+	}
+
+	baselineSamples, _ := measure(makeBinding(nil))
+	baselineP95 := percentile95(baselineSamples)
+	policy := &readinessRequirementsPolicyRecorder{
+		delay:      2 * time.Millisecond,
+		defaultReq: TranslationRequirements{Locales: []string{"en", "fr"}},
+	}
+	readinessSamples, readinessInvocations := measure(makeBinding(policy))
+	readinessP95 := percentile95(readinessSamples)
+	if policy.calls != readinessInvocations {
+		t.Fatalf("expected one requirements call per request, got %d calls for %d requests", policy.calls, readinessInvocations)
+	}
+
+	increase := readinessP95 - baselineP95
+	if increase < 0 {
+		increase = 0
+	}
+	const maxAllowed = 20 * time.Millisecond
+	if increase > maxAllowed {
+		t.Fatalf("readiness p95 latency increase %v exceeds budget %v (baseline=%v readiness=%v)", increase, maxAllowed, baselineP95, readinessP95)
 	}
 }
 
