@@ -506,6 +506,50 @@ func (b *goCMSContentBridge) CreateContent(ctx context.Context, content admin.CM
 	return &rec, nil
 }
 
+// CreateTranslation attempts to invoke a first-class translation command on the
+// underlying go-cms service when available.
+func (b *goCMSContentBridge) CreateTranslation(ctx context.Context, input admin.TranslationCreateInput) (*admin.CMSContent, error) {
+	if b == nil || b.content == nil {
+		return nil, admin.ErrNotFound
+	}
+	input.SourceID = strings.TrimSpace(input.SourceID)
+	input.Locale = strings.ToLower(strings.TrimSpace(input.Locale))
+	input.Environment = strings.TrimSpace(input.Environment)
+	input.ContentType = strings.TrimSpace(input.ContentType)
+	input.Status = strings.TrimSpace(input.Status)
+	if input.SourceID == "" {
+		return nil, admin.NewDomainError(admin.TextCodeValidationError, "translation requires a single id", map[string]any{
+			"field": "id",
+		})
+	}
+	if input.Locale == "" {
+		return nil, admin.NewDomainError(admin.TextCodeValidationError, "translation locale required", map[string]any{
+			"field": "locale",
+		})
+	}
+	method := reflect.ValueOf(b.content).MethodByName("CreateTranslation")
+	if !method.IsValid() {
+		return nil, admin.ErrTranslationCreateUnsupported
+	}
+	sourceID := uuidOrNil(input.SourceID)
+	if sourceID == uuid.Nil {
+		return nil, admin.ErrNotFound
+	}
+	args, err := bridgeCreateTranslationArgs(method, ctx, input, sourceID)
+	if err != nil {
+		return nil, err
+	}
+	results := method.Call(args)
+	if err := reflectError(results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+		return nil, admin.ErrNotFound
+	}
+	rec := b.convertContent(results[0], input.Locale, ctx)
+	return &rec, nil
+}
+
 func (b *goCMSContentBridge) UpdateContent(ctx context.Context, content admin.CMSContent) (*admin.CMSContent, error) {
 	method := reflect.ValueOf(b.content).MethodByName("Update")
 	if !method.IsValid() {
@@ -896,9 +940,17 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 
 	translations := deref(val.FieldByName("Translations"))
 	var chosen reflect.Value
+	availableLocales := make([]string, 0, translations.Len())
+	availableSeen := map[string]struct{}{}
 	for i := 0; i < translations.Len(); i++ {
 		current := deref(translations.Index(i))
 		code := strings.ToLower(localeCodeFromTranslation(current))
+		if code != "" {
+			if _, seen := availableSeen[code]; !seen {
+				availableSeen[code] = struct{}{}
+				availableLocales = append(availableLocales, code)
+			}
+		}
 		if chosen.IsValid() == false {
 			chosen = current
 		}
@@ -930,6 +982,28 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 	if out.Locale == "" {
 		out.Locale = locale
 	}
+	if len(availableLocales) > 0 {
+		out.AvailableLocales = append([]string{}, availableLocales...)
+	}
+	requestedLocale := strings.ToLower(strings.TrimSpace(locale))
+	if requestedLocale == "" {
+		requestedLocale = strings.ToLower(strings.TrimSpace(out.Locale))
+	}
+	out.RequestedLocale = requestedLocale
+	out.ResolvedLocale = strings.ToLower(strings.TrimSpace(out.Locale))
+	if requestedLocale != "" {
+		missing := true
+		for _, code := range out.AvailableLocales {
+			if strings.EqualFold(strings.TrimSpace(code), requestedLocale) {
+				missing = false
+				break
+			}
+		}
+		if len(out.AvailableLocales) == 0 {
+			missing = false
+		}
+		out.MissingRequestedLocale = missing
+	}
 	return out
 }
 
@@ -953,9 +1027,17 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 
 	translations := deref(val.FieldByName("Translations"))
 	var chosen reflect.Value
+	availableLocales := make([]string, 0, translations.Len())
+	availableSeen := map[string]struct{}{}
 	for i := 0; i < translations.Len(); i++ {
 		current := deref(translations.Index(i))
 		code := strings.ToLower(localeCodeFromTranslation(current))
+		if code != "" {
+			if _, seen := availableSeen[code]; !seen {
+				availableSeen[code] = struct{}{}
+				availableLocales = append(availableLocales, code)
+			}
+		}
 		if !chosen.IsValid() {
 			chosen = current
 		}
@@ -1003,6 +1085,28 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 	}
 	if out.Locale == "" {
 		out.Locale = locale
+	}
+	if len(availableLocales) > 0 {
+		out.AvailableLocales = append([]string{}, availableLocales...)
+	}
+	requestedLocale := strings.ToLower(strings.TrimSpace(locale))
+	if requestedLocale == "" {
+		requestedLocale = strings.ToLower(strings.TrimSpace(out.Locale))
+	}
+	out.RequestedLocale = requestedLocale
+	out.ResolvedLocale = strings.ToLower(strings.TrimSpace(out.Locale))
+	if requestedLocale != "" {
+		missing := true
+		for _, code := range out.AvailableLocales {
+			if strings.EqualFold(strings.TrimSpace(code), requestedLocale) {
+				missing = false
+				break
+			}
+		}
+		if len(out.AvailableLocales) == 0 {
+			missing = false
+		}
+		out.MissingRequestedLocale = missing
 	}
 	return out
 }
@@ -1072,6 +1176,68 @@ func ensureBridgeGetMethodSignature(method reflect.Value) error {
 		return validationBridgeMethodError("Get")
 	}
 	return nil
+}
+
+func bridgeCreateTranslationArgs(method reflect.Value, ctx context.Context, input admin.TranslationCreateInput, sourceID uuid.UUID) ([]reflect.Value, error) {
+	t := method.Type()
+	if t.NumIn() < 2 || !t.In(0).Implements(bridgeContextType) {
+		return nil, admin.ErrTranslationCreateUnsupported
+	}
+	args := []reflect.Value{reflect.ValueOf(ctx)}
+	switch {
+	case t.NumIn() == 2 && t.In(1).Kind() == reflect.Struct:
+		req := reflect.New(t.In(1)).Elem()
+		applyBridgeCreateTranslationRequest(req, input, sourceID)
+		args = append(args, req)
+	case t.NumIn() == 2 && t.In(1).Kind() == reflect.Pointer && t.In(1).Elem().Kind() == reflect.Struct:
+		req := reflect.New(t.In(1).Elem())
+		applyBridgeCreateTranslationRequest(req.Elem(), input, sourceID)
+		args = append(args, req)
+	case t.NumIn() >= 3 && t.In(1) == bridgeUUIDType && t.In(2).Kind() == reflect.String:
+		args = append(args, reflect.ValueOf(sourceID), reflect.ValueOf(input.Locale))
+		if t.NumIn() >= 4 {
+			if t.In(3).Kind() != reflect.String {
+				return nil, admin.ErrTranslationCreateUnsupported
+			}
+			env := strings.TrimSpace(input.Environment)
+			if env == "" {
+				env = environmentKeyFromContext(ctx)
+			}
+			args = append(args, reflect.ValueOf(env))
+		}
+		if t.NumIn() > len(args) {
+			return nil, admin.ErrTranslationCreateUnsupported
+		}
+	default:
+		return nil, admin.ErrTranslationCreateUnsupported
+	}
+	return args, nil
+}
+
+func applyBridgeCreateTranslationRequest(req reflect.Value, input admin.TranslationCreateInput, sourceID uuid.UUID) {
+	setUUIDField(req, "ContentID", sourceID)
+	setUUIDPtr(req, "ContentID", sourceID)
+	setUUIDField(req, "SourceID", sourceID)
+	setUUIDPtr(req, "SourceID", sourceID)
+	setUUIDField(req, "ID", sourceID)
+	setUUIDPtr(req, "ID", sourceID)
+
+	setStringField(req, "Locale", input.Locale)
+	setStringField(req, "TargetLocale", input.Locale)
+
+	env := strings.TrimSpace(input.Environment)
+	if env != "" {
+		setStringField(req, "Environment", env)
+		setStringField(req, "EnvironmentKey", env)
+	}
+	if contentType := strings.TrimSpace(input.ContentType); contentType != "" {
+		setStringField(req, "ContentType", contentType)
+		setStringField(req, "ContentTypeSlug", contentType)
+		setStringField(req, "EntityType", contentType)
+	}
+	if status := strings.TrimSpace(input.Status); status != "" {
+		setStringField(req, "Status", status)
+	}
 }
 
 func isBridgeOptionTokenType(t reflect.Type) bool {

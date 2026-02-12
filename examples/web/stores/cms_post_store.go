@@ -704,6 +704,20 @@ func (f *filteredContentService) DeleteBlock(ctx context.Context, id string) err
 	return f.inner.DeleteBlock(ctx, id)
 }
 
+func (f *filteredContentService) CreateTranslation(ctx context.Context, input admin.TranslationCreateInput) (*admin.CMSContent, error) {
+	if f.inner == nil {
+		return nil, admin.ErrNotFound
+	}
+	creator, ok := f.inner.(admin.CMSContentTranslationCreator)
+	if !ok || creator == nil {
+		return nil, admin.ErrTranslationCreateUnsupported
+	}
+	if strings.TrimSpace(input.ContentType) == "" {
+		input.ContentType = f.contentType
+	}
+	return creator.CreateTranslation(ctx, input)
+}
+
 func cmsContentFromMap(record map[string]any) admin.CMSContent {
 	if record == nil {
 		return admin.CMSContent{Data: map[string]any{}}
