@@ -18,6 +18,7 @@ type TranslationQueueConfig struct {
 	EnableOpenPool      bool     `json:"enable_open_pool"`
 	EnableDashboard     bool     `json:"enable_dashboard_widget"`
 	EnableNotifications bool     `json:"enable_notifications"`
+	EnableAutoCreate    bool     `json:"enable_auto_create"`
 	DefaultPriority     string   `json:"default_priority,omitempty"`
 	SupportedLocales    []string `json:"supported_locales,omitempty"`
 
@@ -215,4 +216,20 @@ func sortQueueLocales(set map[string]struct{}) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// NewTranslationQueueAutoCreateHook builds an auto-create hook for queue assignments.
+// When enabled, workflow transitions blocked by missing translations will automatically
+// create/reuse queue assignments for the missing locales.
+func NewTranslationQueueAutoCreateHook(cfg TranslationQueueConfig) admin.TranslationQueueAutoCreateHook {
+	if !cfg.Enabled || !cfg.EnableAutoCreate {
+		return nil
+	}
+	repo := cfg.Repository
+	if repo == nil {
+		repo = admin.NewInMemoryTranslationAssignmentRepository()
+	}
+	return &admin.DefaultTranslationQueueAutoCreateHook{
+		Repository: repo,
+	}
 }

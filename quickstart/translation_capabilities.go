@@ -11,16 +11,22 @@ import (
 
 var translationCapabilitiesStore sync.Map // map[*admin.Admin]map[string]any
 
+type translationCapabilityModuleState struct {
+	ExchangeEnabled bool
+	QueueEnabled    bool
+	HasState        bool
+}
+
 // TranslationCapabilities returns a stable translation capability snapshot for the admin instance.
 func TranslationCapabilities(adm *admin.Admin) map[string]any {
 	return translationCapabilitiesForAdmin(adm)
 }
 
-func registerTranslationCapabilities(adm *admin.Admin, productCfg TranslationProductConfig, warnings []string) {
+func registerTranslationCapabilities(adm *admin.Admin, productCfg TranslationProductConfig, warnings []string, modules translationCapabilityModuleState) {
 	if adm == nil {
 		return
 	}
-	caps := buildTranslationCapabilities(adm, productCfg, warnings)
+	caps := buildTranslationCapabilities(adm, productCfg, warnings, modules)
 	translationCapabilitiesStore.Store(adm, caps)
 }
 
@@ -33,10 +39,10 @@ func translationCapabilitiesForAdmin(adm *admin.Admin) map[string]any {
 			return cloneAnyMap(typed)
 		}
 	}
-	return buildTranslationCapabilities(adm, TranslationProductConfig{}, nil)
+	return buildTranslationCapabilities(adm, TranslationProductConfig{}, nil, translationCapabilityModuleState{})
 }
 
-func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProductConfig, warnings []string) map[string]any {
+func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProductConfig, warnings []string, modules translationCapabilityModuleState) map[string]any {
 	if adm == nil {
 		return map[string]any{}
 	}
@@ -45,6 +51,10 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 	dashboardEnabled := featureEnabled(gate, string(admin.FeatureDashboard))
 	exchangeEnabled := featureEnabled(gate, string(admin.FeatureTranslationExchange))
 	queueEnabled := featureEnabled(gate, string(admin.FeatureTranslationQueue))
+	if modules.HasState {
+		exchangeEnabled = modules.ExchangeEnabled
+		queueEnabled = modules.QueueEnabled
+	}
 
 	schemaVersion, err := normalizeTranslationProductSchemaVersion(productCfg.SchemaVersion)
 	if err != nil {
@@ -96,6 +106,7 @@ func translationCapabilityRoutes(adm *admin.Admin) (map[string]string, []string)
 	}
 
 	register(adminGroup, "translations.queue", "admin.translations.queue")
+	register(adminGroup, "translations.exchange", "admin.translations.exchange")
 	register(adminAPIGroup, "translations.export", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.export"))
 	register(adminAPIGroup, "translations.template", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.template"))
 	register(adminAPIGroup, "translations.import.validate", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.import.validate"))

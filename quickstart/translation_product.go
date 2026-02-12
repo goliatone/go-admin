@@ -15,6 +15,10 @@ var ErrTranslationProductConfig = errors.New("translation product config invalid
 // TranslationProductSchemaVersionCurrent is the supported quickstart product schema version.
 const TranslationProductSchemaVersionCurrent = 1
 
+// TranslationProductSchemaVersionMinimumSupported is the minimum schema version
+// accepted for deterministic up-conversion into the current version.
+const TranslationProductSchemaVersionMinimumSupported = 0
+
 // TranslationProfile defines the quickstart translation capability profile.
 type TranslationProfile string
 
@@ -80,6 +84,8 @@ type translationProductResolution struct {
 }
 
 const translationProductLegacyOverrideWarning = "translation.productization.legacy_override"
+const translationProductSchemaUpconvertWarning = "translation.productization.schema.upconverted"
+const translationProductFeatureOverrideWarningPrefix = "translation.productization.feature_override."
 
 // WithTranslationProfile applies a productized translation profile.
 func WithTranslationProfile(profile TranslationProfile) AdminOption {
@@ -129,9 +135,13 @@ func resolveTranslationProductOptions(cfg admin.Config, opts *adminOptions) erro
 
 func buildTranslationProductResolution(cfg admin.Config, opts adminOptions) (translationProductResolution, error) {
 	productCfg := opts.translationProductConfig
-	schemaVersion, err := normalizeTranslationProductSchemaVersion(productCfg.SchemaVersion)
+	schemaVersion, schemaUpconverted, err := resolveTranslationProductSchemaVersion(productCfg.SchemaVersion)
 	if err != nil {
 		return translationProductResolution{}, err
+	}
+	warnings := []string{}
+	if schemaUpconverted {
+		warnings = append(warnings, translationProductSchemaUpconvertWarning)
 	}
 	cmsEnabled := translationProductCMSDefault(cfg, opts)
 	profile, err := resolveTranslationProfile(productCfg.Profile, cmsEnabled)
@@ -157,7 +167,6 @@ func buildTranslationProductResolution(cfg admin.Config, opts adminOptions) (tra
 		queueCfg = mergeTranslationQueueConfig(queueCfg, *productCfg.Queue)
 	}
 
-	warnings := []string{}
 	if opts.translationExchangeConfigSet {
 		exchangeCfg = opts.translationExchangeConfig
 		warnings = append(warnings, translationProductLegacyOverrideWarning)
@@ -165,6 +174,18 @@ func buildTranslationProductResolution(cfg admin.Config, opts adminOptions) (tra
 	if opts.translationQueueConfigSet {
 		queueCfg = opts.translationQueueConfig
 		warnings = append(warnings, translationProductLegacyOverrideWarning)
+	}
+	if enabled, ok := translationFeatureOverride(opts.featureDefaults, admin.FeatureTranslationExchange); ok {
+		if exchangeCfg.Enabled != enabled {
+			warnings = append(warnings, translationProductFeatureOverrideWarning(admin.FeatureTranslationExchange))
+		}
+		exchangeCfg.Enabled = enabled
+	}
+	if enabled, ok := translationFeatureOverride(opts.featureDefaults, admin.FeatureTranslationQueue); ok {
+		if queueCfg.Enabled != enabled {
+			warnings = append(warnings, translationProductFeatureOverrideWarning(admin.FeatureTranslationQueue))
+		}
+		queueCfg.Enabled = enabled
 	}
 	if !cmsEnabled && (exchangeCfg.Enabled || queueCfg.Enabled) {
 		return translationProductResolution{}, newTranslationProductConfigError(
@@ -223,28 +244,33 @@ func translationProductCMSDefault(_ admin.Config, opts adminOptions) bool {
 }
 
 func normalizeTranslationProductSchemaVersion(version int) (int, error) {
-	if version == 0 {
-		return TranslationProductSchemaVersionCurrent, nil
+	normalized, _, err := resolveTranslationProductSchemaVersion(version)
+	return normalized, err
+}
+
+func resolveTranslationProductSchemaVersion(version int) (int, bool, error) {
+	if version == TranslationProductSchemaVersionMinimumSupported {
+		return TranslationProductSchemaVersionCurrent, true, nil
 	}
-	if version < 0 {
-		return 0, newTranslationProductConfigError(
+	if version < TranslationProductSchemaVersionMinimumSupported {
+		return 0, false, newTranslationProductConfigError(
 			"translation.productization.schema.invalid",
-			fmt.Sprintf("schema_version must be >= 0; got %d", version),
+			fmt.Sprintf("schema_version must be >= %d; got %d", TranslationProductSchemaVersionMinimumSupported, version),
 			fmt.Sprintf("use schema_version %d", TranslationProductSchemaVersionCurrent),
 			[]string{"schema_version"},
 			nil,
 		)
 	}
 	if version > TranslationProductSchemaVersionCurrent {
-		return 0, newTranslationProductConfigError(
+		return 0, false, newTranslationProductConfigError(
 			"translation.productization.schema.unsupported",
-			fmt.Sprintf("unsupported schema_version %d", version),
+			fmt.Sprintf("unsupported future schema_version %d", version),
 			fmt.Sprintf("use schema_version %d", TranslationProductSchemaVersionCurrent),
 			[]string{"schema_version"},
 			nil,
 		)
 	}
-	return version, nil
+	return version, false, nil
 }
 
 func resolveTranslationProfile(profile TranslationProfile, cmsEnabled bool) (TranslationProfile, error) {
@@ -357,11 +383,81 @@ func dedupeStringSlice(values []string) []string {
 	return out
 }
 
+func translationFeatureOverride(defaults map[string]bool, key admin.FeatureKey) (bool, bool) {
+	if len(defaults) == 0 {
+		return false, false
+	}
+	enabled, ok := defaults[string(key)]
+	return enabled, ok
+}
+
+func translationProductFeatureOverrideWarning(key admin.FeatureKey) string {
+	return translationProductFeatureOverrideWarningPrefix + strings.TrimSpace(string(key))
+}
+
+func resolvedTranslationCapabilityModules(
+	productCfg TranslationProductConfig,
+	exchangeCfg TranslationExchangeConfig,
+	exchangeCfgSet bool,
+	queueCfg TranslationQueueConfig,
+	queueCfgSet bool,
+) translationCapabilityModuleState {
+	hasState := exchangeCfgSet || queueCfgSet || strings.TrimSpace(string(productCfg.Profile)) != "" || productCfg.Exchange != nil || productCfg.Queue != nil
+	if !hasState {
+		return translationCapabilityModuleState{}
+	}
+
+	profile := normalizeTranslationProfileForModules(productCfg.Profile)
+	exchangeDefaults, queueDefaults := translationProfileDefaults(profile)
+	exchangeEnabled := exchangeDefaults.Enabled
+	queueEnabled := queueDefaults.Enabled
+	if productCfg.Exchange != nil {
+		exchangeEnabled = productCfg.Exchange.Enabled
+	}
+	if productCfg.Queue != nil {
+		queueEnabled = productCfg.Queue.Enabled
+	}
+	if exchangeCfgSet {
+		exchangeEnabled = exchangeCfg.Enabled
+	}
+	if queueCfgSet {
+		queueEnabled = queueCfg.Enabled
+	}
+
+	return translationCapabilityModuleState{
+		ExchangeEnabled: exchangeEnabled,
+		QueueEnabled:    queueEnabled,
+		HasState:        true,
+	}
+}
+
+func normalizeTranslationProfileForModules(profile TranslationProfile) TranslationProfile {
+	switch TranslationProfile(strings.ToLower(strings.TrimSpace(string(profile)))) {
+	case TranslationProfileNone:
+		return TranslationProfileNone
+	case TranslationProfileCore:
+		return TranslationProfileCore
+	case TranslationProfileCoreExchange:
+		return TranslationProfileCoreExchange
+	case TranslationProfileCoreQueue:
+		return TranslationProfileCoreQueue
+	case TranslationProfileFull:
+		return TranslationProfileFull
+	default:
+		return TranslationProfileNone
+	}
+}
+
 func shouldValidateTranslationProductRuntime(opts adminOptions) bool {
 	return opts.translationProductConfigSet || opts.translationExchangeConfigSet || opts.translationQueueConfigSet
 }
 
-func validateTranslationProductRuntime(adm *admin.Admin, productCfg TranslationProductConfig, warnings []string) error {
+func validateTranslationProductRuntime(
+	adm *admin.Admin,
+	productCfg TranslationProductConfig,
+	warnings []string,
+	moduleState translationCapabilityModuleState,
+) error {
 	if adm == nil {
 		return newTranslationProductConfigError(
 			"translation.productization.runtime.admin_missing",
@@ -371,7 +467,7 @@ func validateTranslationProductRuntime(adm *admin.Admin, productCfg TranslationP
 			nil,
 		)
 	}
-	snapshot := buildTranslationCapabilities(adm, productCfg, warnings)
+	snapshot := buildTranslationCapabilities(adm, productCfg, warnings, moduleState)
 	if len(snapshot) == 0 {
 		return newTranslationProductConfigError(
 			"translation.productization.runtime.capabilities_missing",
@@ -389,6 +485,9 @@ func validateTranslationProductRuntime(adm *admin.Admin, productCfg TranslationP
 	if translationModuleEnabled(modules, "exchange") {
 		if adm.BootTranslationExchange() == nil {
 			failed = append(failed, "exchange.binding")
+		}
+		if strings.TrimSpace(routes["admin.translations.exchange"]) == "" {
+			failed = append(failed, "exchange.route.translations.exchange")
 		}
 		exportKey := fmt.Sprintf("%s.%s", adm.AdminAPIGroup(), "translations.export")
 		if strings.TrimSpace(routes[exportKey]) == "" {
