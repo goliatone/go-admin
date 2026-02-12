@@ -2,7 +2,10 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"testing"
+
+	goerrors "github.com/goliatone/go-errors"
 )
 
 type stubExchangeProcessor struct {
@@ -97,6 +100,199 @@ func TestTranslationImportApplyCommandPopulatesResult(t *testing.T) {
 	}
 	if out.Summary.Processed != 1 || out.Summary.Succeeded != 1 {
 		t.Fatalf("unexpected output: %+v", out.Summary)
+	}
+}
+
+// Task 16.1: Command safety semantics - nil service returns typed error
+func TestTranslationExportCommandNilServiceReturnsError(t *testing.T) {
+	cmd := &TranslationExportCommand{Service: nil}
+	err := cmd.Execute(context.Background(), TranslationExportInput{
+		Filter: TranslationExportFilter{Resources: []string{"pages"}},
+	})
+	if err == nil {
+		t.Fatalf("expected error for nil service")
+	}
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) || domErr.TextCode != TextCodeServiceUnavailable {
+		t.Fatalf("expected SERVICE_UNAVAILABLE error, got %v", err)
+	}
+}
+
+func TestTranslationImportValidateCommandNilServiceReturnsError(t *testing.T) {
+	cmd := &TranslationImportValidateCommand{Service: nil}
+	err := cmd.Execute(context.Background(), TranslationImportValidateInput{
+		Rows: []TranslationExchangeRow{
+			{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected error for nil service")
+	}
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) || domErr.TextCode != TextCodeServiceUnavailable {
+		t.Fatalf("expected SERVICE_UNAVAILABLE error, got %v", err)
+	}
+}
+
+func TestTranslationImportApplyCommandNilServiceReturnsError(t *testing.T) {
+	cmd := &TranslationImportApplyCommand{Service: nil}
+	err := cmd.Execute(context.Background(), TranslationImportApplyInput{
+		Rows: []TranslationExchangeRow{
+			{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected error for nil service")
+	}
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) || domErr.TextCode != TextCodeServiceUnavailable {
+		t.Fatalf("expected SERVICE_UNAVAILABLE error, got %v", err)
+	}
+}
+
+func TestTranslationImportRunCommandNilValidatorReturnsError(t *testing.T) {
+	cmd := &TranslationImportRunCommand{Validator: nil, Applier: &stubExchangeProcessor{}}
+	err := cmd.Execute(context.Background(), TranslationImportRunInput{
+		ValidateInput: TranslationImportValidateInput{
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+			},
+		},
+		ApplyInput: TranslationImportApplyInput{
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected error for nil validator")
+	}
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) || domErr.TextCode != TextCodeServiceUnavailable {
+		t.Fatalf("expected SERVICE_UNAVAILABLE error, got %v", err)
+	}
+}
+
+func TestTranslationImportRunCommandNilApplierReturnsError(t *testing.T) {
+	cmd := &TranslationImportRunCommand{Validator: &stubExchangeProcessor{}, Applier: nil}
+	err := cmd.Execute(context.Background(), TranslationImportRunInput{
+		ValidateInput: TranslationImportValidateInput{
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+			},
+		},
+		ApplyInput: TranslationImportApplyInput{
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected error for nil applier")
+	}
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) || domErr.TextCode != TextCodeServiceUnavailable {
+		t.Fatalf("expected SERVICE_UNAVAILABLE error, got %v", err)
+	}
+}
+
+// Task 16.1: Command input validation - validation errors surface correctly
+func TestTranslationExportCommandValidationError(t *testing.T) {
+	service := &stubExchangeProcessor{}
+	cmd := &TranslationExportCommand{Service: service}
+	err := cmd.Execute(context.Background(), TranslationExportInput{
+		Filter: TranslationExportFilter{Resources: []string{}}, // empty resources triggers validation error
+	})
+	if err == nil {
+		t.Fatalf("expected validation error for empty resources")
+	}
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) || domErr.TextCode != TextCodeValidationError {
+		t.Fatalf("expected VALIDATION_ERROR, got %v", err)
+	}
+}
+
+func TestTranslationImportValidateCommandValidationError(t *testing.T) {
+	service := &stubExchangeProcessor{}
+	cmd := &TranslationImportValidateCommand{Service: service}
+	err := cmd.Execute(context.Background(), TranslationImportValidateInput{
+		Rows: []TranslationExchangeRow{}, // empty rows triggers validation error
+	})
+	if err == nil {
+		t.Fatalf("expected validation error for empty rows")
+	}
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) || domErr.TextCode != TextCodeValidationError {
+		t.Fatalf("expected VALIDATION_ERROR, got %v", err)
+	}
+}
+
+func TestTranslationImportApplyCommandValidationError(t *testing.T) {
+	service := &stubExchangeProcessor{}
+	cmd := &TranslationImportApplyCommand{Service: service}
+	err := cmd.Execute(context.Background(), TranslationImportApplyInput{
+		Rows: []TranslationExchangeRow{
+			{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"}, // missing translated_text
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected validation error for missing translated_text")
+	}
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) || domErr.TextCode != TextCodeValidationError {
+		t.Fatalf("expected VALIDATION_ERROR, got %v", err)
+	}
+}
+
+func TestTranslationImportRunCommandValidationError(t *testing.T) {
+	service := &stubExchangeProcessor{}
+	cmd := &TranslationImportRunCommand{Validator: service, Applier: service}
+	err := cmd.Execute(context.Background(), TranslationImportRunInput{
+		ValidateInput: TranslationImportValidateInput{Rows: []TranslationExchangeRow{}}, // empty rows
+		ApplyInput:    TranslationImportApplyInput{Rows: []TranslationExchangeRow{}},
+	})
+	if err == nil {
+		t.Fatalf("expected validation error for empty rows")
+	}
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) || domErr.TextCode != TextCodeValidationError {
+		t.Fatalf("expected VALIDATION_ERROR, got %v", err)
+	}
+}
+
+// Task 16.1: Run command composes validate+apply and populates combined result
+func TestTranslationImportRunCommandPopulatesCombinedResult(t *testing.T) {
+	service := &stubExchangeProcessor{
+		validateResult: TranslationExchangeResult{
+			Summary: TranslationExchangeSummary{Processed: 2, Succeeded: 2},
+		},
+		applyResult: TranslationExchangeResult{
+			Summary: TranslationExchangeSummary{Processed: 2, Succeeded: 2},
+		},
+	}
+	cmd := &TranslationImportRunCommand{Validator: service, Applier: service}
+	var out TranslationImportRunResult
+	err := cmd.Execute(context.Background(), TranslationImportRunInput{
+		ValidateInput: TranslationImportValidateInput{
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+			},
+		},
+		ApplyInput: TranslationImportApplyInput{
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
+			},
+		},
+		Result: &out,
+	})
+	if err != nil {
+		t.Fatalf("execute failed: %v", err)
+	}
+	if out.Validate.Summary.Processed != 2 {
+		t.Fatalf("expected validate processed 2, got %d", out.Validate.Summary.Processed)
+	}
+	if out.Apply.Summary.Processed != 2 {
+		t.Fatalf("expected apply processed 2, got %d", out.Apply.Summary.Processed)
 	}
 }
 

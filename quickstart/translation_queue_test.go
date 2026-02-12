@@ -161,3 +161,69 @@ func TestNewAdminTranslationQueueFailsOnPolicyLocaleMismatch(t *testing.T) {
 		t.Fatalf("expected ErrTranslationQueueConfig, got %v", err)
 	}
 }
+
+func TestNewTranslationQueueAutoCreateHookDisabledWhenQueueDisabled(t *testing.T) {
+	hook := NewTranslationQueueAutoCreateHook(TranslationQueueConfig{
+		Enabled:          false,
+		EnableAutoCreate: true,
+	})
+	if hook != nil {
+		t.Fatalf("expected nil hook when queue disabled")
+	}
+}
+
+func TestNewTranslationQueueAutoCreateHookDisabledWhenAutoCreateDisabled(t *testing.T) {
+	hook := NewTranslationQueueAutoCreateHook(TranslationQueueConfig{
+		Enabled:          true,
+		EnableAutoCreate: false,
+	})
+	if hook != nil {
+		t.Fatalf("expected nil hook when auto-create disabled")
+	}
+}
+
+func TestNewTranslationQueueAutoCreateHookCreatesHookWhenEnabled(t *testing.T) {
+	repo := admin.NewInMemoryTranslationAssignmentRepository()
+	hook := NewTranslationQueueAutoCreateHook(TranslationQueueConfig{
+		Enabled:          true,
+		EnableAutoCreate: true,
+		Repository:       repo,
+	})
+	if hook == nil {
+		t.Fatalf("expected non-nil hook when enabled")
+	}
+
+	// Test that hook creates assignments
+	result := hook.OnTranslationBlocker(context.Background(), admin.TranslationQueueAutoCreateInput{
+		TranslationGroupID: "tg_123",
+		EntityType:         "pages",
+		EntityID:           "page_123",
+		SourceLocale:       "en",
+		MissingLocales:     []string{"es"},
+	})
+	if result.Created != 1 {
+		t.Fatalf("expected 1 created, got %d", result.Created)
+	}
+}
+
+func TestNewTranslationQueueAutoCreateHookUsesDefaultRepoWhenNil(t *testing.T) {
+	hook := NewTranslationQueueAutoCreateHook(TranslationQueueConfig{
+		Enabled:          true,
+		EnableAutoCreate: true,
+		Repository:       nil, // nil repo should use default in-memory
+	})
+	if hook == nil {
+		t.Fatalf("expected non-nil hook with default repo")
+	}
+
+	result := hook.OnTranslationBlocker(context.Background(), admin.TranslationQueueAutoCreateInput{
+		TranslationGroupID: "tg_456",
+		EntityType:         "posts",
+		EntityID:           "post_456",
+		SourceLocale:       "en",
+		MissingLocales:     []string{"fr"},
+	})
+	if result.Created != 1 {
+		t.Fatalf("expected 1 created with default repo, got %d", result.Created)
+	}
+}

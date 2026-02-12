@@ -283,6 +283,169 @@ func TestTranslationExchangeServiceValidateImportHandlesUnexpectedResolveErrors(
 	}
 }
 
+func TestTranslationExchangeServiceValidateImportMissingTranslationGroupIDReturnsInvalidPayload(t *testing.T) {
+	service := NewTranslationExchangeService(&stubTranslationExchangeStore{})
+	result, err := service.ValidateImport(context.Background(), TranslationImportValidateInput{
+		Rows: []TranslationExchangeRow{
+			{
+				Resource:     "pages",
+				EntityID:     "1",
+				TargetLocale: "es",
+				FieldPath:    "title",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("validate import failed: %v", err)
+	}
+	if len(result.Results) != 1 {
+		t.Fatalf("expected one result, got %d", len(result.Results))
+	}
+	if result.Results[0].Status != translationExchangeRowStatusError {
+		t.Fatalf("expected error status, got %q", result.Results[0].Status)
+	}
+	if code := toString(result.Results[0].Metadata["error_code"]); code != TextCodeTranslationExchangeInvalidPayload {
+		t.Fatalf("expected invalid payload error_code, got %q", code)
+	}
+}
+
+func TestTranslationExchangeServiceValidateImportInvalidLocaleFieldPathReturnsMissingLinkageConflict(t *testing.T) {
+	service := NewTranslationExchangeService(&stubTranslationExchangeStore{resolve: map[string]TranslationExchangeLinkage{}})
+	result, err := service.ValidateImport(context.Background(), TranslationImportValidateInput{
+		Rows: []TranslationExchangeRow{
+			{
+				Resource:           "pages",
+				EntityID:           "1",
+				TranslationGroupID: "tg_1",
+				TargetLocale:       "zz-invalid",
+				FieldPath:          "unsupported.field",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("validate import failed: %v", err)
+	}
+	if len(result.Results) != 1 {
+		t.Fatalf("expected one result, got %d", len(result.Results))
+	}
+	if result.Results[0].Status != translationExchangeRowStatusConflict {
+		t.Fatalf("expected conflict status, got %q", result.Results[0].Status)
+	}
+	if code := toString(result.Results[0].Metadata["error_code"]); code != TextCodeTranslationExchangeMissingLinkage {
+		t.Fatalf("expected missing linkage error_code, got %q", code)
+	}
+}
+
+func TestTranslationExchangeServiceValidateImportDuplicateRowsReturnConflict(t *testing.T) {
+	store := &stubTranslationExchangeStore{
+		resolve: map[string]TranslationExchangeLinkage{
+			"pages::1::tg_1::es::title": {
+				Key: TranslationExchangeLinkageKey{
+					Resource:           "pages",
+					EntityID:           "1",
+					TranslationGroupID: "tg_1",
+					TargetLocale:       "es",
+					FieldPath:          "title",
+				},
+				SourceHash: "current_hash",
+			},
+		},
+	}
+	service := NewTranslationExchangeService(store)
+	result, err := service.ValidateImport(context.Background(), TranslationImportValidateInput{
+		Rows: []TranslationExchangeRow{
+			{
+				Resource:           "pages",
+				EntityID:           "1",
+				TranslationGroupID: "tg_1",
+				TargetLocale:       "es",
+				FieldPath:          "title",
+				SourceHash:         "current_hash",
+			},
+			{
+				Resource:           "pages",
+				EntityID:           "1",
+				TranslationGroupID: "tg_1",
+				TargetLocale:       "es",
+				FieldPath:          "title",
+				SourceHash:         "current_hash",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("validate import failed: %v", err)
+	}
+	if len(result.Results) != 2 {
+		t.Fatalf("expected two results, got %d", len(result.Results))
+	}
+	if result.Results[0].Status != translationExchangeRowStatusSuccess {
+		t.Fatalf("expected first row success, got %q", result.Results[0].Status)
+	}
+	if result.Results[1].Status != translationExchangeRowStatusConflict {
+		t.Fatalf("expected duplicate row conflict, got %q", result.Results[1].Status)
+	}
+	if code := toString(result.Results[1].Metadata["error_code"]); code != TextCodeTranslationExchangeInvalidPayload {
+		t.Fatalf("expected invalid payload error_code, got %q", code)
+	}
+	if duplicateOf := result.Results[1].Metadata["duplicate_of_row"]; duplicateOf != 0 {
+		t.Fatalf("expected duplicate_of_row=0, got %v", duplicateOf)
+	}
+}
+
+func TestTranslationExchangeServiceApplyImportDuplicateRowsSkipSecondWrite(t *testing.T) {
+	store := &stubTranslationExchangeStore{
+		resolve: map[string]TranslationExchangeLinkage{
+			"pages::1::tg_1::es::title": {
+				Key: TranslationExchangeLinkageKey{
+					Resource:           "pages",
+					EntityID:           "1",
+					TranslationGroupID: "tg_1",
+					TargetLocale:       "es",
+					FieldPath:          "title",
+				},
+				TargetExists: true,
+			},
+		},
+	}
+	service := NewTranslationExchangeService(store)
+	result, err := service.ApplyImport(context.Background(), TranslationImportApplyInput{
+		Rows: []TranslationExchangeRow{
+			{
+				Resource:           "pages",
+				EntityID:           "1",
+				TranslationGroupID: "tg_1",
+				TargetLocale:       "es",
+				FieldPath:          "title",
+				TranslatedText:     "Hola",
+			},
+			{
+				Resource:           "pages",
+				EntityID:           "1",
+				TranslationGroupID: "tg_1",
+				TargetLocale:       "es",
+				FieldPath:          "title",
+				TranslatedText:     "Hola 2",
+			},
+		},
+		ContinueOnError: true,
+	})
+	if err != nil {
+		t.Fatalf("apply import failed: %v", err)
+	}
+	if len(result.Results) != 2 {
+		t.Fatalf("expected two results, got %d", len(result.Results))
+	}
+	if result.Results[0].Status != translationExchangeRowStatusSuccess {
+		t.Fatalf("expected first row success, got %q", result.Results[0].Status)
+	}
+	if result.Results[1].Status != translationExchangeRowStatusConflict {
+		t.Fatalf("expected duplicate row conflict, got %q", result.Results[1].Status)
+	}
+	if len(store.apply) != 1 {
+		t.Fatalf("expected one write for duplicate rows, got %d", len(store.apply))
+	}
+}
+
 type resolveErrorStore struct {
 	err error
 }

@@ -673,6 +673,85 @@ func TestSigningServiceIssueSignatureUploadRespectsConfiguredTTLPolicy(t *testin
 	}
 }
 
+func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	initialsField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeInitials),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft initials: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-initials-drawn"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store, store)
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+	uploadPayload := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x09, 0x08, 0x07, 0x06}
+	digest := sha256.Sum256(uploadPayload)
+	uploadSHA := hex.EncodeToString(digest[:])
+
+	contract, err := signingSvc.IssueSignatureUpload(ctx, scope, token, SignerSignatureUploadInput{
+		FieldID:     initialsField.ID,
+		SHA256:      uploadSHA,
+		ContentType: "image/png",
+		SizeBytes:   int64(len(uploadPayload)),
+	})
+	if err != nil {
+		t.Fatalf("IssueSignatureUpload initials: %v", err)
+	}
+	if _, err := signingSvc.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
+		UploadToken: contract.UploadToken,
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      uploadSHA,
+		ContentType: "image/png",
+		SizeBytes:   int64(len(uploadPayload)),
+		Payload:     uploadPayload,
+	}); err != nil {
+		t.Fatalf("ConfirmSignatureUpload initials: %v", err)
+	}
+	result, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:     initialsField.ID,
+		Type:        "drawn",
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      uploadSHA,
+		UploadToken: contract.UploadToken,
+		ValueText:   "[Drawn Initials]",
+	})
+	if err != nil {
+		t.Fatalf("AttachSignatureArtifact initials: %v", err)
+	}
+	if result.Artifact.Type != "drawn" {
+		t.Fatalf("expected drawn artifact, got %q", result.Artifact.Type)
+	}
+	if result.FieldValue.FieldID != initialsField.ID {
+		t.Fatalf("expected field value bound to initials field %q, got %q", initialsField.ID, result.FieldValue.FieldID)
+	}
+}
+
 func TestSigningServiceAttachSignatureArtifactDrawnRequiresUploadBootstrap(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
@@ -865,6 +944,142 @@ func TestSigningServiceConfirmSignatureUploadPersistsPayloadToObjectStore(t *tes
 	}
 	if !bytes.Equal(persisted, uploadPayload) {
 		t.Fatalf("expected persisted signature upload payload to match source bytes")
+	}
+}
+
+func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromAudit(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-audit-recovery"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvcA := NewSigningService(store, store)
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+	contract, err := signingSvcA.IssueSignatureUpload(ctx, scope, token, SignerSignatureUploadInput{
+		FieldID:     signatureField.ID,
+		SHA256:      strings.Repeat("a", 64),
+		ContentType: "image/png",
+		SizeBytes:   512,
+	})
+	if err != nil {
+		t.Fatalf("IssueSignatureUpload: %v", err)
+	}
+	if _, err := signingSvcA.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
+		UploadToken: contract.UploadToken,
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      contract.SHA256,
+		ContentType: contract.ContentType,
+		SizeBytes:   contract.SizeBytes,
+	}); err != nil {
+		t.Fatalf("ConfirmSignatureUpload: %v", err)
+	}
+
+	// Simulate service state loss between upload confirm and attach.
+	signingSvcB := NewSigningService(store, store)
+	result, err := signingSvcB.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:     signatureField.ID,
+		Type:        "drawn",
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      contract.SHA256,
+		UploadToken: contract.UploadToken,
+	})
+	if err != nil {
+		t.Fatalf("AttachSignatureArtifact after restart: %v", err)
+	}
+	if result.Artifact.ID == "" {
+		t.Fatal("expected recovered attach to persist signature artifact")
+	}
+}
+
+func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromObjectStore(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-object-recovery"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	signingSvcA := NewSigningService(store, store, WithSigningObjectStore(manager))
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+	uploadPayload := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xAA, 0xBB, 0xCC, 0xDD}
+	digest := sha256.Sum256(uploadPayload)
+	uploadSHA := hex.EncodeToString(digest[:])
+
+	contract, err := signingSvcA.IssueSignatureUpload(ctx, scope, token, SignerSignatureUploadInput{
+		FieldID:     signatureField.ID,
+		SHA256:      uploadSHA,
+		ContentType: "image/png",
+		SizeBytes:   int64(len(uploadPayload)),
+	})
+	if err != nil {
+		t.Fatalf("IssueSignatureUpload: %v", err)
+	}
+	if _, err := signingSvcA.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
+		UploadToken: contract.UploadToken,
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      uploadSHA,
+		ContentType: "image/png",
+		SizeBytes:   int64(len(uploadPayload)),
+		Payload:     uploadPayload,
+	}); err != nil {
+		t.Fatalf("ConfirmSignatureUpload: %v", err)
+	}
+
+	// Simulate service restart where in-memory receipt cache is empty.
+	signingSvcB := NewSigningService(store, store, WithSigningObjectStore(manager))
+	result, err := signingSvcB.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:     signatureField.ID,
+		Type:        "drawn",
+		ObjectKey:   contract.ObjectKey,
+		SHA256:      uploadSHA,
+		UploadToken: contract.UploadToken,
+	})
+	if err != nil {
+		t.Fatalf("AttachSignatureArtifact after restart: %v", err)
+	}
+	if result.Artifact.ID == "" {
+		t.Fatal("expected recovered attach to persist signature artifact")
 	}
 }
 
