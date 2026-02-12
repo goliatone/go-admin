@@ -252,12 +252,23 @@ func main() {
 	for _, warning := range validationResult.Warnings {
 		log.Printf("warning: translation policy config: %s", warning)
 	}
+
+	// Resolve translation profile and module wiring from environment.
+	// Profile sets defaults; module env vars override profile defaults.
+	var exchangeContentService coreadmin.CMSContentService
+	exchangeStore := newExampleTranslationExchangeStore(func() coreadmin.CMSContentService {
+		return exchangeContentService
+	})
+	queueRepository := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	translationProductCfg := buildTranslationProductConfig(resolveTranslationProfile(), exchangeStore, queueRepository)
+
 	adm, adapterResult, err := quickstart.NewAdmin(
 		cfg,
 		adapterHooks,
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
 		quickstart.WithTranslationPolicyConfig(translationPolicyCfg),
+		quickstart.WithTranslationProductConfig(translationProductCfg),
 		quickstart.WithAdapterFlags(adapterFlags),
 		quickstart.WithGoUsersUserManagement(quickstart.GoUsersUserManagementConfig{
 			AuthRepo:      usersDeps.AuthRepo,
@@ -303,8 +314,23 @@ func main() {
 	if cfg.CMS.Container != nil {
 		cmsContentSvc = cfg.CMS.Container.ContentService()
 	}
+	if cmsContentSvc == nil && adm != nil {
+		cmsContentSvc = adm.ContentService()
+	}
+	if adapterResult.Flags.UsePersistentCMS && !adapterResult.PersistentCMSSet {
+		log.Printf(
+			"warning: persistent CMS requested but setup did not complete; using fallback content service (backend=%s)",
+			cmsBackend,
+		)
+	}
 	if cmsContentSvc == nil {
-		log.Fatalf("persistent CMS content service is required")
+		log.Fatalf("cms content service is required")
+	}
+	exchangeContentService = cmsContentSvc
+	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
+		if err := seedExampleTranslationQueueFixture(context.Background(), queueRepository, cmsContentSvc); err != nil {
+			log.Printf("warning: failed to seed translation queue fixture: %v", err)
+		}
 	}
 	repoOptions := adm.DebugQueryHookOptions()
 	dataStores, err := stores.InitializeWithOptions(cmsContentSvc, defaultLocale, usersDeps, stores.InitOptions{
@@ -846,12 +872,22 @@ func main() {
 	roleAPIHandlers := handlers.NewRolesAPIHandlers(adm, cfg)
 	r.Get(path.Join(adminAPIBasePath, "roles"), wrapAuthed(roleAPIHandlers.List))
 
+	// Build UI route options with conditional translation module routes.
+	// When translation exchange is enabled via feature gate (profile or explicit toggle),
+	// register the translation exchange UI route for import/export operations.
+	uiRouteOpts := []quickstart.UIRouteOption{
+		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
+	}
+	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationExchange)) {
+		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationExchangeRoute(true))
+		log.Printf("Translation exchange UI route enabled (/admin/translations/exchange)")
+	}
 	if err := quickstart.RegisterAdminUIRoutes(
 		r,
 		cfg,
 		adm,
 		authn,
-		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
+		uiRouteOpts...,
 	); err != nil {
 		log.Fatalf("failed to register admin UI routes: %v", err)
 	}
@@ -1037,6 +1073,79 @@ func resolveListenAddr() string {
 		return ":" + port
 	}
 	return ":8080"
+}
+
+// resolveTranslationProfile reads the translation capability profile from environment.
+// Supported profiles: none, core, core+exchange, core+queue, full
+// Default: "core" (will be auto-selected for CMS-enabled apps when omitted)
+func resolveTranslationProfile() quickstart.TranslationProfile {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_TRANSLATION_PROFILE")))
+	switch value {
+	case "none":
+		return quickstart.TranslationProfileNone
+	case "core":
+		return quickstart.TranslationProfileCore
+	case "core+exchange", "exchange":
+		return quickstart.TranslationProfileCoreExchange
+	case "core+queue", "queue":
+		return quickstart.TranslationProfileCoreQueue
+	case "full":
+		return quickstart.TranslationProfileFull
+	default:
+		// Empty/unset defaults to "core" for CMS-enabled apps; quickstart resolves this.
+		return quickstart.TranslationProfile(value)
+	}
+}
+
+func buildTranslationProductConfig(
+	profile quickstart.TranslationProfile,
+	exchangeStore coreadmin.TranslationExchangeStore,
+	queueRepository coreadmin.TranslationAssignmentRepository,
+) quickstart.TranslationProductConfig {
+	cfg := quickstart.TranslationProductConfig{
+		SchemaVersion: quickstart.TranslationProductSchemaVersionCurrent,
+		Profile:       profile,
+	}
+
+	exchangeEnabled, queueEnabled := translationProfileModuleDefaults(profile)
+	exchangeOverride := false
+	queueOverride := false
+	if enabled, ok := envBool("ADMIN_TRANSLATION_EXCHANGE"); ok {
+		exchangeEnabled = enabled
+		exchangeOverride = true
+	}
+	if enabled, ok := envBool("ADMIN_TRANSLATION_QUEUE"); ok {
+		queueEnabled = enabled
+		queueOverride = true
+	}
+
+	if exchangeEnabled || exchangeOverride {
+		cfg.Exchange = &quickstart.TranslationExchangeConfig{
+			Enabled: exchangeEnabled,
+			Store:   exchangeStore,
+		}
+	}
+	if queueEnabled || queueOverride {
+		cfg.Queue = &quickstart.TranslationQueueConfig{
+			Enabled:    queueEnabled,
+			Repository: queueRepository,
+		}
+	}
+
+	return cfg
+}
+
+func translationProfileModuleDefaults(profile quickstart.TranslationProfile) (exchangeEnabled, queueEnabled bool) {
+	switch strings.ToLower(strings.TrimSpace(string(profile))) {
+	case string(quickstart.TranslationProfileCoreExchange):
+		return true, false
+	case string(quickstart.TranslationProfileCoreQueue):
+		return false, true
+	case string(quickstart.TranslationProfileFull):
+		return true, true
+	default:
+		return false, false
+	}
 }
 
 func urlForListenAddr(addr string) string {
