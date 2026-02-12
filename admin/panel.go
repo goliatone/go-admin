@@ -6,58 +6,63 @@ import (
 	"strings"
 
 	crud "github.com/goliatone/go-crud"
+	router "github.com/goliatone/go-router"
 )
 
 // PanelBuilder configures a panel before registration.
 type PanelBuilder struct {
-	name                 string
-	repo                 Repository
-	listFields           []Field
-	formFields           []Field
-	formSchema           map[string]any
-	detailFields         []Field
-	filters              []Filter
-	actions              []Action
-	bulkActions          []Action
-	tabs                 []PanelTab
-	hooks                PanelHooks
-	permissions          PanelPermissions
-	useBlocks            bool
-	useSEO               bool
-	treeView             bool
-	authorizer           Authorizer
-	commandBus           *CommandBus
-	activity             ActivitySink
-	workflow             WorkflowEngine
-	workflowSet          bool
-	workflowAuth         WorkflowAuthorizer
-	translationPolicy    TranslationPolicy
-	translationPolicySet bool
+	name                           string
+	repo                           Repository
+	listFields                     []Field
+	formFields                     []Field
+	formSchema                     map[string]any
+	detailFields                   []Field
+	filters                        []Filter
+	actions                        []Action
+	bulkActions                    []Action
+	subresources                   []PanelSubresource
+	tabs                           []PanelTab
+	hooks                          PanelHooks
+	permissions                    PanelPermissions
+	useBlocks                      bool
+	useSEO                         bool
+	treeView                       bool
+	authorizer                     Authorizer
+	commandBus                     *CommandBus
+	activity                       ActivitySink
+	workflow                       WorkflowEngine
+	workflowSet                    bool
+	workflowAuth                   WorkflowAuthorizer
+	translationPolicy              TranslationPolicy
+	translationPolicySet           bool
+	translationQueueAutoCreateHook TranslationQueueAutoCreateHook
 }
 
 // Panel represents a registered panel.
 type Panel struct {
-	name              string
-	repo              Repository
-	listFields        []Field
-	formFields        []Field
-	formSchema        map[string]any
-	detailFields      []Field
-	filters           []Filter
-	actions           []Action
-	bulkActions       []Action
-	tabs              []PanelTab
-	hooks             PanelHooks
-	permissions       PanelPermissions
-	useBlocks         bool
-	useSEO            bool
-	treeView          bool
-	authorizer        Authorizer
-	commandBus        *CommandBus
-	activity          ActivitySink
-	workflow          WorkflowEngine
-	workflowAuth      WorkflowAuthorizer
-	translationPolicy TranslationPolicy
+	name                           string
+	repo                           Repository
+	listFields                     []Field
+	formFields                     []Field
+	formSchema                     map[string]any
+	detailFields                   []Field
+	filters                        []Filter
+	actions                        []Action
+	bulkActions                    []Action
+	subresources                   []PanelSubresource
+	tabs                           []PanelTab
+	hooks                          PanelHooks
+	permissions                    PanelPermissions
+	useBlocks                      bool
+	useSEO                         bool
+	treeView                       bool
+	authorizer                     Authorizer
+	commandBus                     *CommandBus
+	activity                       ActivitySink
+	workflow                       WorkflowEngine
+	workflowAuth                   WorkflowAuthorizer
+	translationPolicy              TranslationPolicy
+	translationQueueAutoCreateHook TranslationQueueAutoCreateHook
 }
 
 // Repository provides CRUD operations for panel data.
@@ -111,6 +116,27 @@ type Option struct {
 	Value    any    `json:"value"`
 	Label    string `json:"label"`
 	LabelKey string `json:"label_key,omitempty"`
+}
+
+// PanelSubresource defines a panel-owned HTTP subresource endpoint
+// addressable as /:panel/:id/:name/:value.
+type PanelSubresource struct {
+	Name       string `json:"name"`
+	Label      string `json:"label,omitempty"`
+	Method     string `json:"method,omitempty"`
+	Permission string `json:"permission,omitempty"`
+}
+
+// PanelSubresourceRepository resolves panel subresource payloads.
+// Responses are JSON encoded by the default panel route handler.
+type PanelSubresourceRepository interface {
+	ResolvePanelSubresource(ctx context.Context, id, subresource, value string) (any, error)
+}
+
+// PanelSubresourceResponder writes panel subresource responses directly.
+// This is useful for non-JSON responses such as binary file downloads.
+type PanelSubresourceResponder interface {
+	ServePanelSubresource(ctx AdminContext, c router.Context, id, subresource, value string) error
 }
 
 // Filter defines a filter input.
@@ -186,6 +212,7 @@ type Schema struct {
 	Filters      []Filter                     `json:"filters,omitempty"`
 	Actions      []Action                     `json:"actions,omitempty"`
 	BulkActions  []Action                     `json:"bulk_actions,omitempty"`
+	Subresources []PanelSubresource           `json:"subresources,omitempty"`
 	Tabs         []PanelTab                   `json:"tabs,omitempty"`
 	FormSchema   map[string]any               `json:"form_schema,omitempty"`
 	UseBlocks    bool                         `json:"use_blocks,omitempty"`
@@ -272,6 +299,12 @@ func (b *PanelBuilder) BulkActions(actions ...Action) *PanelBuilder {
 	return b
 }
 
+// Subresources sets panel subresource route declarations.
+func (b *PanelBuilder) Subresources(subresources ...PanelSubresource) *PanelBuilder {
+	b.subresources = clonePanelSubresources(normalizePanelSubresources(subresources))
+	return b
+}
+
 // Tabs sets owner tabs for the panel.
 func (b *PanelBuilder) Tabs(tabs ...PanelTab) *PanelBuilder {
 	b.tabs = append([]PanelTab{}, tabs...)
@@ -346,6 +379,14 @@ func (b *PanelBuilder) WithTranslationPolicy(policy TranslationPolicy) *PanelBui
 	return b
 }
 
+// WithTranslationQueueAutoCreateHook attaches a queue auto-create hook to the panel.
+// When set, workflow transitions blocked by missing translations will automatically
+// create/reuse queue assignments for the missing locales.
+func (b *PanelBuilder) WithTranslationQueueAutoCreateHook(hook TranslationQueueAutoCreateHook) *PanelBuilder {
+	b.translationQueueAutoCreateHook = hook
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
@@ -358,27 +399,29 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		b.hooks.BeforeUpdateWithID = chainBeforeUpdateWithID(b.hooks.BeforeUpdateWithID, workflowHook)
 	}
 	return &Panel{
-		name:              b.name,
-		repo:              b.repo,
-		listFields:        b.listFields,
-		formFields:        b.formFields,
-		formSchema:        cloneAnyMap(b.formSchema),
-		detailFields:      b.detailFields,
-		filters:           b.filters,
-		actions:           b.actions,
-		bulkActions:       b.bulkActions,
-		tabs:              b.tabs,
-		hooks:             b.hooks,
-		permissions:       b.permissions,
-		useBlocks:         b.useBlocks,
-		useSEO:            b.useSEO,
-		treeView:          b.treeView,
-		authorizer:        b.authorizer,
-		commandBus:        b.commandBus,
-		activity:          b.activity,
-		workflow:          b.workflow,
-		workflowAuth:      b.workflowAuth,
-		translationPolicy: b.translationPolicy,
+		name:                           b.name,
+		repo:                           b.repo,
+		listFields:                     b.listFields,
+		formFields:                     b.formFields,
+		formSchema:                     cloneAnyMap(b.formSchema),
+		detailFields:                   b.detailFields,
+		filters:                        b.filters,
+		actions:                        b.actions,
+		bulkActions:                    b.bulkActions,
+		subresources:                   clonePanelSubresources(normalizePanelSubresources(b.subresources)),
+		tabs:                           b.tabs,
+		hooks:                          b.hooks,
+		permissions:                    b.permissions,
+		useBlocks:                      b.useBlocks,
+		useSEO:                         b.useSEO,
+		treeView:                       b.treeView,
+		authorizer:                     b.authorizer,
+		commandBus:                     b.commandBus,
+		activity:                       b.activity,
+		workflow:                       b.workflow,
+		workflowAuth:                   b.workflowAuth,
+		translationPolicy:              b.translationPolicy,
+		translationQueueAutoCreateHook: b.translationQueueAutoCreateHook,
 	}, nil
 }
 
@@ -397,6 +440,7 @@ func (p *Panel) Schema() Schema {
 		Filters:      p.filters,
 		Actions:      actions,
 		BulkActions:  bulkActions,
+		Subresources: p.Subresources(),
 		Tabs:         append([]PanelTab{}, p.tabs...),
 		FormSchema:   formSchema,
 		UseBlocks:    p.useBlocks,
@@ -451,6 +495,57 @@ func normalizeBulkActionsForSchema(actions []Action) []Action {
 		out = append(out, normalizeActionContract(action, ActionScopeBulk))
 	}
 	return out
+}
+
+func normalizePanelSubresources(subresources []PanelSubresource) []PanelSubresource {
+	if len(subresources) == 0 {
+		return nil
+	}
+	out := make([]PanelSubresource, 0, len(subresources))
+	seen := map[string]struct{}{}
+	for _, subresource := range subresources {
+		name := strings.TrimSpace(subresource.Name)
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, PanelSubresource{
+			Name:       name,
+			Label:      strings.TrimSpace(subresource.Label),
+			Method:     normalizePanelSubresourceMethod(subresource.Method),
+			Permission: strings.TrimSpace(subresource.Permission),
+		})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func clonePanelSubresources(subresources []PanelSubresource) []PanelSubresource {
+	if len(subresources) == 0 {
+		return nil
+	}
+	out := make([]PanelSubresource, len(subresources))
+	copy(out, subresources)
+	return out
+}
+
+func normalizePanelSubresourceMethod(method string) string {
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case "POST":
+		return "POST"
+	case "PUT":
+		return "PUT"
+	case "DELETE":
+		return "DELETE"
+	default:
+		return "GET"
+	}
 }
 
 func normalizeActionContract(action Action, defaultScope ActionScope) Action {
@@ -847,6 +942,48 @@ func (p *Panel) Delete(ctx AdminContext, id string) error {
 	return nil
 }
 
+// Subresources returns normalized panel subresource declarations.
+func (p *Panel) Subresources() []PanelSubresource {
+	if p == nil {
+		return nil
+	}
+	return clonePanelSubresources(normalizePanelSubresources(p.subresources))
+}
+
+// ServeSubresource resolves a panel subresource request.
+func (p *Panel) ServeSubresource(ctx AdminContext, c router.Context, id, subresource, value string) error {
+	if p == nil {
+		return ErrNotFound
+	}
+	if c == nil {
+		return validationDomainError("subresource context required", map[string]any{
+			"panel": p.name,
+		})
+	}
+	spec, ok := p.findSubresource(subresource)
+	if !ok {
+		return ErrNotFound
+	}
+	if spec.Permission != "" && p.authorizer != nil {
+		if !p.authorizer.Can(ctx.Context, spec.Permission, p.name) {
+			return permissionDenied(spec.Permission, p.name)
+		}
+	}
+	id = strings.TrimSpace(id)
+	value = strings.TrimSpace(value)
+	if responder, ok := p.repo.(PanelSubresourceResponder); ok && responder != nil {
+		return responder.ServePanelSubresource(ctx, c, id, spec.Name, value)
+	}
+	if repo, ok := p.repo.(PanelSubresourceRepository); ok && repo != nil {
+		payload, err := repo.ResolvePanelSubresource(ctx.Context, id, spec.Name, value)
+		if err != nil {
+			return err
+		}
+		return c.JSON(200, payload)
+	}
+	return ErrNotFound
+}
+
 // RunAction dispatches a command-backed action.
 func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any, ids []string) error {
 	for _, action := range p.actions {
@@ -909,6 +1046,19 @@ func (p *Panel) findBulkAction(name string) (Action, bool) {
 		}
 	}
 	return Action{}, false
+}
+
+func (p *Panel) findSubresource(name string) (PanelSubresource, bool) {
+	target := strings.ToLower(strings.TrimSpace(name))
+	if target == "" {
+		return PanelSubresource{}, false
+	}
+	for _, subresource := range p.Subresources() {
+		if strings.ToLower(strings.TrimSpace(subresource.Name)) == target {
+			return subresource, true
+		}
+	}
+	return PanelSubresource{}, false
 }
 
 func (p *Panel) recordActivity(ctx AdminContext, action string, metadata map[string]any) {
