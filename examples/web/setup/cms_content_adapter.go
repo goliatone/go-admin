@@ -126,17 +126,18 @@ func (b *goCMSContentBridge) pageFromContent(content admin.CMSContent) admin.CMS
 	}
 
 	out := admin.CMSPage{
-		ID:         content.ID,
-		Title:      content.Title,
-		Slug:       content.Slug,
-		TemplateID: templateID,
-		Locale:     content.Locale,
-		ParentID:   parentID,
-		Blocks:     append([]string{}, content.Blocks...),
-		SEO:        seo,
-		Status:     content.Status,
-		Data:       data,
-		PreviewURL: path,
+		ID:                 content.ID,
+		Title:              content.Title,
+		Slug:               content.Slug,
+		TemplateID:         templateID,
+		Locale:             content.Locale,
+		TranslationGroupID: strings.TrimSpace(content.TranslationGroupID),
+		ParentID:           parentID,
+		Blocks:             append([]string{}, content.Blocks...),
+		SEO:                seo,
+		Status:             content.Status,
+		Data:               data,
+		PreviewURL:         path,
 	}
 	if out.PreviewURL == "" && strings.TrimSpace(out.Slug) != "" {
 		out.PreviewURL = "/" + strings.TrimPrefix(out.Slug, "/")
@@ -176,13 +177,14 @@ func (b *goCMSContentBridge) createPageFromContent(ctx context.Context, page adm
 	data["path"] = path
 
 	created, err := b.CreateContent(ctx, admin.CMSContent{
-		Title:       page.Title,
-		Slug:        page.Slug,
-		Status:      page.Status,
-		Locale:      locale,
-		ContentType: "page",
-		Blocks:      append([]string{}, page.Blocks...),
-		Data:        data,
+		Title:              page.Title,
+		Slug:               page.Slug,
+		Status:             page.Status,
+		Locale:             locale,
+		TranslationGroupID: strings.TrimSpace(page.TranslationGroupID),
+		ContentType:        "page",
+		Blocks:             append([]string{}, page.Blocks...),
+		Data:               data,
 	})
 	if err != nil {
 		return nil, err
@@ -251,14 +253,15 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 	}
 
 	updated, err := b.UpdateContent(ctx, admin.CMSContent{
-		ID:          existing.ID,
-		Title:       title,
-		Slug:        slug,
-		Status:      status,
-		Locale:      locale,
-		ContentType: "page",
-		Blocks:      blocks,
-		Data:        data,
+		ID:                 existing.ID,
+		Title:              title,
+		Slug:               slug,
+		Status:             status,
+		Locale:             locale,
+		TranslationGroupID: strings.TrimSpace(firstNonEmpty(page.TranslationGroupID, existing.TranslationGroupID)),
+		ContentType:        "page",
+		Blocks:             blocks,
+		Data:               data,
 	})
 	if err != nil {
 		return nil, err

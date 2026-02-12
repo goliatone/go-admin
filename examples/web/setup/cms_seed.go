@@ -32,8 +32,18 @@ var (
 	seedTemplateID                       = uuid.NewSHA1(cmsSeedNamespace, []byte("template:page-default"))
 	siteMenuLocaleDefault                = ""
 	translationScenarioMultilingualSlugs = map[string]struct{}{
-		"home":               {},
-		"getting-started-go": {},
+		"home":                          {},
+		"getting-started-go":            {},
+		"translation-demo-exchange":     {},
+		"translation-demo-queue-active": {},
+	}
+	// translationScenarioMissingLocale slugs get en/es but NOT fr (for readiness testing)
+	translationScenarioMissingLocale = map[string]struct{}{
+		"translation-demo-missing-locale": {},
+	}
+	// translationScenarioReviewPending slugs have es in review state (for publish readiness testing)
+	translationScenarioReviewPending = map[string]struct{}{
+		"translation-demo-review-pending": {},
 	}
 )
 
@@ -71,6 +81,17 @@ func translationSeedLocalesForSlug(defaultLocale, slug string) []string {
 		primary = "en"
 	}
 	slug = strings.ToLower(strings.TrimSpace(slug))
+
+	// Missing locale scenario: seed en/es but NOT fr (for readiness testing)
+	if _, ok := translationScenarioMissingLocale[slug]; ok {
+		return []string{primary, "es"}
+	}
+
+	// Review pending scenario: seed en/es only (es will be in review state)
+	if _, ok := translationScenarioReviewPending[slug]; ok {
+		return []string{primary, "es"}
+	}
+
 	if _, ok := translationScenarioMultilingualSlugs[slug]; !ok {
 		return []string{primary}
 	}
@@ -846,7 +867,7 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 	}
 	if md != nil {
 		for _, seed := range pageSeeds {
-			if err := importSeed(ctx, md, seed, pageOpts, defaultLocale); err != nil && !useContentFallback {
+			if err := importSeed(ctx, md, seed, pageOpts, seedLocale(seed, defaultLocale)); err != nil && !useContentFallback {
 				return err
 			}
 		}
@@ -859,7 +880,7 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 	}
 	if md != nil {
 		for _, seed := range postSeeds {
-			if err := importSeed(ctx, md, seed, postOpts, defaultLocale); err != nil && !useContentFallback {
+			if err := importSeed(ctx, md, seed, postOpts, seedLocale(seed, defaultLocale)); err != nil && !useContentFallback {
 				return err
 			}
 		}
@@ -1057,6 +1078,21 @@ func importSeed(ctx context.Context, md interfaces.MarkdownService, seed content
 		return fmt.Errorf("import %s: %w", seed.Slug, err)
 	}
 	return nil
+}
+
+func seedLocale(seed contentSeed, fallback string) string {
+	locale := strings.ToLower(strings.TrimSpace(fallback))
+	if locale == "" {
+		locale = "en"
+	}
+	if seed.Custom == nil {
+		return locale
+	}
+	customLocale := strings.ToLower(strings.TrimSpace(fmt.Sprint(seed.Custom["locale"])))
+	if customLocale == "" || customLocale == "<nil>" {
+		return locale
+	}
+	return customLocale
 }
 
 func updatePageParents(ctx context.Context, db *bun.DB, parents map[string]string) error {
