@@ -91,6 +91,18 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		"adminURL": func(path string) string {
 			return resolveAdminURL(options.urls, basePath, path)
 		},
+		"panelURL": func(panel string) string {
+			return resolveAdminPanelURL(options.urls, basePath, panel)
+		},
+		"panelDetailURL": func(panel string, id string) string {
+			return resolveAdminPanelDetailURL(options.urls, basePath, panel, id)
+		},
+		"panelEditURL": func(panel string, id string) string {
+			return resolveAdminPanelEditURL(options.urls, basePath, panel, id)
+		},
+		"panelPreviewURL": func(panel string, id string) string {
+			return resolveAdminPanelPreviewURL(options.urls, basePath, panel, id)
+		},
 		"renderMenuIcon":    renderMenuIcon,
 		"renderIcon":        renderIconFn,
 		"renderIconVariant": renderIconVariantFn,
