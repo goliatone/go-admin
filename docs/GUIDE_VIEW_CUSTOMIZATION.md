@@ -268,6 +268,41 @@ Important: helpers are globals (functions), not filters. Call them like:
 {{ singularize(resource_label|default:resource)|title }}
 ```
 
+### Available template functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `toJSON` | `toJSON(v any) string` | Serializes a value to JSON string |
+| `safeHTML` | `safeHTML(s string) template.HTML` | Marks a string as safe HTML (deprecated, use `safe` filter) |
+| `default` | `default(defaultVal, val any) any` | Returns `defaultVal` if `val` is nil or empty string |
+| `getWidgetTitle` | `getWidgetTitle(definition string) string` | Resolves widget title from definition key (e.g., `admin.widget.user_stats`) |
+| `formatNumber` | `formatNumber(value any) string` | Formats numbers with locale-aware separators |
+| `singularize` | `singularize(s string) string` | Converts plural word to singular (via flect) |
+| `pluralize` | `pluralize(s string) string` | Converts singular word to plural (via flect) |
+| `adminURL` | `adminURL(path string) string` | Resolves admin-relative URL path (uses URLKit if configured) |
+| `panelURL` | `panelURL(panel string) string` | Resolves panel list URL (e.g., `/admin/users`) |
+| `panelDetailURL` | `panelDetailURL(panel, id string) string` | Resolves panel detail URL (e.g., `/admin/users/123`) |
+| `panelEditURL` | `panelEditURL(panel, id string) string` | Resolves panel edit URL (e.g., `/admin/users/123/edit`) |
+| `panelPreviewURL` | `panelPreviewURL(panel, id string) string` | Resolves panel preview URL (e.g., `/admin/users/123/preview`) |
+| `renderMenuIcon` | `renderMenuIcon(icon string) string` | Renders sidebar/menu icon HTML (emoji, SVG field-type key, or Iconoir) |
+| `renderIcon` | `renderIcon(icon string) string` | Renders icon HTML using injected renderer or legacy fallback |
+| `renderIconVariant` | `renderIconVariant(icon, variant string) string` | Renders icon HTML with variant using injected renderer |
+| `dict` | `dict(values ...any) (map[string]any, error)` | Creates a dictionary from key-value pairs (keys must be strings) |
+
+When `WithTemplateFeatureGate` is configured, additional feature gate helpers are registered from go-featuregate (e.g., `featureEnabled`, `featureDisabled`).
+
+### Template function options
+
+| Option | Description |
+|--------|-------------|
+| `WithWidgetTitleOverrides(overrides map[string]string)` | Merges label overrides into the default widget title map |
+| `WithWidgetTitleMap(titles map[string]string)` | Replaces the default widget title map entirely |
+| `WithWidgetTitleFunc(fn func(string) string)` | Provides a custom widget title resolver function |
+| `WithTemplateBasePath(basePath string)` | Sets the fallback base path used by `adminURL` |
+| `WithTemplateURLResolver(urls urlkit.Resolver)` | Configures URLKit resolver for `adminURL` (preferred over base path) |
+| `WithTemplateFeatureGate(gate, opts...)` | Registers feature gate template helpers from go-featuregate |
+| `WithTemplateIconRenderer(renderFunc)` | Injects a custom icon renderer for `renderIcon`/`renderIconVariant` |
+
 Example:
 
 ```go
