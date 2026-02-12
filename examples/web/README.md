@@ -64,6 +64,54 @@ The example uses quickstart scope defaults. Configure via env:
 For multi-tenant mode, ensure your auth claims and seeded data share the same tenant/org IDs.
 When running in single-tenant mode, the seed loader rewrites seeded rows to the configured defaults so the demo data stays in scope.
 
+### Translation capability profiles (productized wiring)
+
+The example app uses productized translation quickstart wiring through `WithTranslationProductConfig(...)`.
+
+Environment matrix:
+- `ADMIN_TRANSLATION_PROFILE=none|core|core+exchange|core+queue|full`
+  - Default when unset: `core` (CMS-enabled app baseline).
+- `ADMIN_TRANSLATION_EXCHANGE=true|false`
+  - Optional explicit override for exchange module enablement.
+- `ADMIN_TRANSLATION_QUEUE=true|false`
+  - Optional explicit override for queue module enablement.
+
+Override precedence:
+1. `ADMIN_TRANSLATION_PROFILE` sets module defaults.
+2. `ADMIN_TRANSLATION_EXCHANGE` / `ADMIN_TRANSLATION_QUEUE` explicitly override profile module defaults.
+
+Module routes when enabled:
+- Exchange UI: `GET /admin/translations/exchange`
+- Exchange API: `/admin/api/translations/*`
+- Queue panel route key: `admin.translations.queue` (resolved path typically `/admin/translations`)
+
+Operational verification:
+1. Start with `ADMIN_TRANSLATION_PROFILE=full` and optional explicit overrides:
+   - `ADMIN_TRANSLATION_EXCHANGE=true`
+   - `ADMIN_TRANSLATION_QUEUE=true`
+2. Verify startup event `translation.capabilities.startup` includes expected `profile`, `modules`, `routes`, and `resolver_keys`.
+3. Verify enabled-module routes:
+   - `GET /admin/translations/exchange` (exchange UI)
+   - `POST /admin/api/translations/export` (exchange API)
+   - `GET /admin/api/translations` (queue panel API)
+4. Verify disabled-module behavior by switching profiles:
+   - `ADMIN_TRANSLATION_PROFILE=core`: exchange + queue routes should not be exposed.
+   - `ADMIN_TRANSLATION_PROFILE=none`: translation routes and translation operations entrypoints should not be exposed.
+5. Verify capabilities from runtime payload in templates (`translation_capabilities`) or backend call (`quickstart.TranslationCapabilities(adm)`), ensuring module flags match route availability.
+
+Quick smoke command matrix:
+
+```bash
+# full profile (exchange + queue expected)
+ADMIN_TRANSLATION_PROFILE=full go run .
+
+# core profile (exchange + queue disabled)
+ADMIN_TRANSLATION_PROFILE=core go run .
+
+# none profile (translation capabilities disabled)
+ADMIN_TRANSLATION_PROFILE=none go run .
+```
+
 ### API Endpoints
 
 - **Health**: `GET /admin/health`
