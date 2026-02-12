@@ -6,6 +6,7 @@ const {
   SchemaActionBuilder,
   buildSchemaRowActions,
   extractSchemaActions,
+  PayloadInputModal,
 } = await import('../dist/datatable/index.js');
 
 // =============================================================================
@@ -653,6 +654,104 @@ test('payload_required triggers payload collection', () => {
   assert.equal(actions[0].label, 'Create Translation');
   // Action is async and will prompt for payload
   assert.equal(typeof actions[0].action, 'function');
+});
+
+test('create_translation derives locale options from translation_readiness when schema options are missing', async () => {
+  const builder = createBuilder();
+  const record = createMockRecord({
+    translation_readiness: {
+      missing_required_locales: ['es', 'fr'],
+    },
+  });
+  const schemaActions = [
+    {
+      name: 'create_translation',
+      label: 'Create Translation',
+      payload_required: ['locale'],
+      payload_schema: {
+        type: 'object',
+        required: ['locale'],
+        properties: {
+          locale: {
+            type: 'string',
+            title: 'Locale',
+          },
+        },
+      },
+    },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+  assert.equal(actions.length, 1);
+
+  const originalPrompt = PayloadInputModal.prompt;
+  let captured = null;
+  PayloadInputModal.prompt = async (config) => {
+    captured = config;
+    return null; // Cancel after inspecting prompt config
+  };
+  try {
+    await actions[0].action();
+  } finally {
+    PayloadInputModal.prompt = originalPrompt;
+  }
+
+  assert.ok(captured);
+  assert.ok(Array.isArray(captured.fields));
+  assert.equal(captured.fields.length, 1);
+  assert.equal(captured.fields[0].name, 'locale');
+  assert.ok(Array.isArray(captured.fields[0].options));
+  assert.equal(captured.fields[0].options.length, 2);
+  assert.equal(captured.fields[0].options[0].value, 'es');
+  assert.equal(captured.fields[0].options[1].value, 'fr');
+});
+
+test('x-options payload schema extension is rendered as selectable options', async () => {
+  const builder = createBuilder();
+  const record = createMockRecord();
+  const schemaActions = [
+    {
+      name: 'create_translation',
+      label: 'Create Translation',
+      payload_required: ['locale'],
+      payload_schema: {
+        type: 'object',
+        required: ['locale'],
+        properties: {
+          locale: {
+            type: 'string',
+            title: 'Locale',
+            'x-options': [
+              { value: 'en', label: 'English' },
+              { value: 'es', label: 'Spanish' },
+            ],
+          },
+        },
+      },
+    },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+  assert.equal(actions.length, 1);
+
+  const originalPrompt = PayloadInputModal.prompt;
+  let captured = null;
+  PayloadInputModal.prompt = async (config) => {
+    captured = config;
+    return null;
+  };
+  try {
+    await actions[0].action();
+  } finally {
+    PayloadInputModal.prompt = originalPrompt;
+  }
+
+  assert.ok(captured);
+  assert.equal(captured.fields[0].name, 'locale');
+  assert.ok(Array.isArray(captured.fields[0].options));
+  assert.equal(captured.fields[0].options.length, 2);
+  assert.equal(captured.fields[0].options[0].value, 'en');
+  assert.equal(captured.fields[0].options[0].label, 'English');
 });
 
 test('payload_required array is accepted without payload_schema', () => {

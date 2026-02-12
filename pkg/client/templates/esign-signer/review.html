@@ -2219,7 +2219,7 @@
   function getFieldEditorContent(fieldData) {
     if (fieldData.type === 'signature' || fieldData.type === 'initials') {
       const labelText = fieldData.type === 'initials' ? 'initials' : 'signature';
-      const canDraw = fieldData.type === 'signature';
+      const canDraw = fieldData.type === 'signature' || fieldData.type === 'initials';
       return `
         <div class="space-y-4">
           ${canDraw ? `
@@ -2564,7 +2564,8 @@
     const typeInput = document.getElementById('sig-type-input');
     const drawPanel = document.getElementById('sig-editor-draw');
 
-    const isDrawMode = fieldData?.type === 'signature' && drawPanel && !drawPanel.classList.contains('hidden');
+    const supportsDraw = fieldData?.type === 'signature' || fieldData?.type === 'initials';
+    const isDrawMode = supportsDraw && drawPanel && !drawPanel.classList.contains('hidden');
 
     if (isDrawMode) {
       const canvasData = state.signatureCanvases.get(fieldId);
@@ -2575,15 +2576,15 @@
       const hasContent = imageData.data.some((val, i) => i % 4 === 3 && val > 0);
 
       if (!hasContent) {
-        throw new Error('Please draw your signature');
+        throw new Error(fieldData?.type === 'initials' ? 'Please draw your initials' : 'Please draw your signature');
       }
 
       const dataUrl = canvas.toDataURL('image/png');
-      return await saveSignatureArtifact(fieldId, { type: 'drawn', dataUrl }, '[Drawn]');
+      return await saveSignatureArtifact(fieldId, { type: 'drawn', dataUrl }, fieldData?.type === 'initials' ? '[Drawn Initials]' : '[Drawn]');
     } else {
       const value = typeInput?.value?.trim();
       if (!value) {
-        throw new Error('Please type your signature');
+        throw new Error(fieldData?.type === 'initials' ? 'Please type your initials' : 'Please type your signature');
       }
 
       if (fieldData.type === 'initials') {
