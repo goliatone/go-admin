@@ -118,6 +118,7 @@ export declare function getTranslationRoute(key: keyof typeof ROUTE_KEYS, caps?:
 export declare function buildTranslationEntrypoints(caps?: TranslationCapabilities, basePath?: string): TranslationEntrypoint[];
 /**
  * Renders a single entrypoint as an HTML element
+ * Includes accessibility attributes for screen readers
  */
 export declare function renderEntrypointLink(entrypoint: TranslationEntrypoint, options?: {
     asListItem?: boolean;

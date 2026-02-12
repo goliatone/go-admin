@@ -311,6 +311,7 @@ export function buildTranslationEntrypoints(
 
 /**
  * Renders a single entrypoint as an HTML element
+ * Includes accessibility attributes for screen readers
  */
 export function renderEntrypointLink(
   entrypoint: TranslationEntrypoint,
@@ -324,10 +325,16 @@ export function renderEntrypointLink(
   link.setAttribute('data-entrypoint-id', entrypoint.id);
   link.setAttribute('data-module', entrypoint.module);
 
-  // Icon
+  // Accessibility: descriptive label and tooltip
+  const description = entrypoint.description || entrypoint.label;
+  link.setAttribute('aria-label', description);
+  link.setAttribute('title', description);
+
+  // Icon (decorative - hidden from screen readers)
   const icon = document.createElement('i');
   icon.className = `${entrypoint.icon} flex-shrink-0`;
   icon.style.fontSize = 'var(--sidebar-icon-size, 20px)';
+  icon.setAttribute('aria-hidden', 'true');
   link.appendChild(icon);
 
   // Label
@@ -348,6 +355,7 @@ export function renderEntrypointLink(
       : 'bg-blue-500/20 text-blue-400';
     badge.className = `ml-auto px-2 py-0.5 ${variantClass} text-xs font-medium rounded`;
     badge.textContent = entrypoint.badge;
+    badge.setAttribute('aria-label', `${entrypoint.badge} badge`);
     link.appendChild(badge);
   }
 
@@ -385,24 +393,36 @@ export function renderTranslationEntrypoints(
   containerEl.style.display = '';
   containerEl.innerHTML = '';
 
+  // Accessibility: wrap in nav element with aria-label
+  const nav = document.createElement('nav');
+  nav.setAttribute('aria-label', headerLabel || 'Translation operations');
+  nav.setAttribute('role', 'navigation');
+
   // Optional header
   if (headerLabel) {
-    const header = document.createElement('div');
+    const headerId = `translation-ops-header-${Date.now()}`;
+    const header = document.createElement('h3');
+    header.id = headerId;
     header.className = 'text-xs font-medium text-sidebar-text-muted uppercase tracking-wider px-3 py-2';
     header.textContent = headerLabel;
-    containerEl.appendChild(header);
+    nav.appendChild(header);
+    nav.setAttribute('aria-labelledby', headerId);
   }
 
-  // Render entrypoints
+  // Render entrypoints as list for better accessibility
   const wrapper = asListItems ? document.createElement('ul') : document.createElement('div');
   wrapper.className = asListItems ? 'space-y-0.5' : 'space-y-0.5';
+  if (asListItems) {
+    wrapper.setAttribute('role', 'list');
+  }
 
   for (const entrypoint of entrypoints) {
     const el = renderEntrypointLink(entrypoint, { asListItem: asListItems });
     wrapper.appendChild(el);
   }
 
-  containerEl.appendChild(wrapper);
+  nav.appendChild(wrapper);
+  containerEl.appendChild(nav);
 }
 
 /**

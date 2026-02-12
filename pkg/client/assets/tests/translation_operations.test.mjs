@@ -627,3 +627,485 @@ describe('Disabled Module Non-Discovery', () => {
     assert.equal(exchangeEntry, undefined);
   });
 });
+
+// ============================================================================
+// Task 19.7: Capability-Profile Test Matrix
+// ============================================================================
+
+describe('Task 19.7: Capability-Profile Test Matrix', () => {
+  describe('Full Profile Behavioral Coverage (pages + posts)', () => {
+    it('full profile: has both queue and exchange enabled', () => {
+      assert.equal(isExchangeEnabled(FULL_CAPABILITIES), true);
+      assert.equal(isQueueEnabled(FULL_CAPABILITIES), true);
+    });
+
+    it('full profile: exposes all translation routes', () => {
+      const queueRoute = getTranslationRoute('QUEUE', FULL_CAPABILITIES, '/admin');
+      const exchangeRoute = getTranslationRoute('EXCHANGE_UI', FULL_CAPABILITIES, '/admin');
+      const exportRoute = getTranslationRoute('EXCHANGE_EXPORT', FULL_CAPABILITIES, '/admin');
+
+      assert.ok(queueRoute, 'Queue route should be available');
+      assert.ok(exchangeRoute, 'Exchange route should be available');
+      assert.equal(queueRoute, '/admin/translations/queue');
+      assert.equal(exchangeRoute, '/admin/translations/exchange');
+    });
+
+    it('full profile: builds entrypoints for both modules', () => {
+      const entrypoints = buildTranslationEntrypoints(FULL_CAPABILITIES, '/admin');
+      assert.equal(entrypoints.length, 2);
+
+      const ids = entrypoints.map(e => e.id);
+      assert.ok(ids.includes('translation-queue'), 'Should have queue entrypoint');
+      assert.ok(ids.includes('translation-exchange'), 'Should have exchange entrypoint');
+    });
+
+    it('full profile: entrypoints use resolver-based routes', () => {
+      const entrypoints = buildTranslationEntrypoints(FULL_CAPABILITIES, '/admin');
+      for (const entry of entrypoints) {
+        assert.ok(entry.href.startsWith('/admin'), 'Route should start with base path');
+        assert.ok(entry.href.includes('translations'), 'Route should include translations');
+      }
+    });
+
+    it('full profile: supports pages resource type', () => {
+      const pagesCapabilities = {
+        ...FULL_CAPABILITIES,
+        panels: ['translations', 'pages'],
+      };
+      const caps = normalizeCapabilities(pagesCapabilities);
+      assert.ok(caps.panels.includes('pages'), 'Should include pages panel');
+    });
+
+    it('full profile: supports posts resource type', () => {
+      const postsCapabilities = {
+        ...FULL_CAPABILITIES,
+        panels: ['translations', 'posts'],
+      };
+      const caps = normalizeCapabilities(postsCapabilities);
+      assert.ok(caps.panels.includes('posts'), 'Should include posts panel');
+    });
+  });
+
+  describe('Core Profile Smoke Tests', () => {
+    it('core profile: has no queue or exchange enabled', () => {
+      assert.equal(isExchangeEnabled(CORE_CAPABILITIES), false);
+      assert.equal(isQueueEnabled(CORE_CAPABILITIES), false);
+      assert.equal(hasTranslationOperations(CORE_CAPABILITIES), false);
+    });
+
+    it('core profile: normalizes correctly', () => {
+      const caps = normalizeCapabilities(CORE_CAPABILITIES);
+      assert.equal(caps.profile, 'core');
+      assert.equal(caps.modules.exchange.enabled, false);
+      assert.equal(caps.modules.queue.enabled, false);
+    });
+
+    it('core profile: builds no entrypoints', () => {
+      const entrypoints = buildTranslationEntrypoints(CORE_CAPABILITIES, '/admin');
+      assert.equal(entrypoints.length, 0);
+    });
+
+    it('core profile: returns null for all translation routes', () => {
+      assert.equal(getTranslationRoute('QUEUE', CORE_CAPABILITIES, '/admin'), null);
+      assert.equal(getTranslationRoute('EXCHANGE_UI', CORE_CAPABILITIES, '/admin'), null);
+    });
+  });
+
+  describe('Core+Exchange Profile Smoke Tests', () => {
+    it('core+exchange profile: has only exchange enabled', () => {
+      assert.equal(isExchangeEnabled(EXCHANGE_ONLY_CAPABILITIES), true);
+      assert.equal(isQueueEnabled(EXCHANGE_ONLY_CAPABILITIES), false);
+      assert.equal(hasTranslationOperations(EXCHANGE_ONLY_CAPABILITIES), true);
+    });
+
+    it('core+exchange profile: exposes only exchange routes', () => {
+      const exchangeRoute = getTranslationRoute('EXCHANGE_UI', EXCHANGE_ONLY_CAPABILITIES, '/admin');
+      const queueRoute = getTranslationRoute('QUEUE', EXCHANGE_ONLY_CAPABILITIES, '/admin');
+
+      assert.ok(exchangeRoute, 'Exchange route should be available');
+      assert.equal(queueRoute, null, 'Queue route should not be available');
+    });
+
+    it('core+exchange profile: builds only exchange entrypoint', () => {
+      const entrypoints = buildTranslationEntrypoints(EXCHANGE_ONLY_CAPABILITIES, '/admin');
+      assert.equal(entrypoints.length, 1);
+      assert.equal(entrypoints[0].module, 'exchange');
+      assert.equal(entrypoints[0].id, 'translation-exchange');
+    });
+  });
+
+  describe('Core+Queue Profile Smoke Tests', () => {
+    it('core+queue profile: has only queue enabled', () => {
+      assert.equal(isExchangeEnabled(QUEUE_ONLY_CAPABILITIES), false);
+      assert.equal(isQueueEnabled(QUEUE_ONLY_CAPABILITIES), true);
+      assert.equal(hasTranslationOperations(QUEUE_ONLY_CAPABILITIES), true);
+    });
+
+    it('core+queue profile: exposes only queue routes', () => {
+      const queueRoute = getTranslationRoute('QUEUE', QUEUE_ONLY_CAPABILITIES, '/admin');
+      const exchangeRoute = getTranslationRoute('EXCHANGE_UI', QUEUE_ONLY_CAPABILITIES, '/admin');
+
+      assert.ok(queueRoute, 'Queue route should be available');
+      assert.equal(exchangeRoute, null, 'Exchange route should not be available');
+    });
+
+    it('core+queue profile: builds only queue entrypoint', () => {
+      const entrypoints = buildTranslationEntrypoints(QUEUE_ONLY_CAPABILITIES, '/admin');
+      assert.equal(entrypoints.length, 1);
+      assert.equal(entrypoints[0].module, 'queue');
+      assert.equal(entrypoints[0].id, 'translation-queue');
+    });
+  });
+
+  describe('None Profile Smoke Tests', () => {
+    it('none profile: has no modules enabled', () => {
+      assert.equal(isExchangeEnabled(NONE_CAPABILITIES), false);
+      assert.equal(isQueueEnabled(NONE_CAPABILITIES), false);
+      assert.equal(hasTranslationOperations(NONE_CAPABILITIES), false);
+    });
+
+    it('none profile: has CMS disabled', () => {
+      const caps = normalizeCapabilities(NONE_CAPABILITIES);
+      assert.equal(caps.features.cms, false);
+      assert.equal(caps.features.dashboard, false);
+    });
+
+    it('none profile: builds no entrypoints', () => {
+      const entrypoints = buildTranslationEntrypoints(NONE_CAPABILITIES, '/admin');
+      assert.equal(entrypoints.length, 0);
+    });
+  });
+
+  describe('Disabled-Module Non-Discovery', () => {
+    it('disabled queue module: does not leak queue entrypoint', () => {
+      const entrypoints = buildTranslationEntrypoints(EXCHANGE_ONLY_CAPABILITIES, '/admin');
+      const queueEntry = entrypoints.find(e => e.module === 'queue');
+      assert.equal(queueEntry, undefined, 'Queue entrypoint should not be present');
+    });
+
+    it('disabled exchange module: does not leak exchange entrypoint', () => {
+      const entrypoints = buildTranslationEntrypoints(QUEUE_ONLY_CAPABILITIES, '/admin');
+      const exchangeEntry = entrypoints.find(e => e.module === 'exchange');
+      assert.equal(exchangeEntry, undefined, 'Exchange entrypoint should not be present');
+    });
+
+    it('disabled modules: route resolution returns null', () => {
+      // Queue disabled in exchange-only profile
+      assert.equal(getTranslationRoute('QUEUE', EXCHANGE_ONLY_CAPABILITIES, '/admin'), null);
+
+      // Exchange disabled in queue-only profile
+      assert.equal(getTranslationRoute('EXCHANGE_UI', QUEUE_ONLY_CAPABILITIES, '/admin'), null);
+
+      // Both disabled in core profile
+      assert.equal(getTranslationRoute('QUEUE', CORE_CAPABILITIES, '/admin'), null);
+      assert.equal(getTranslationRoute('EXCHANGE_UI', CORE_CAPABILITIES, '/admin'), null);
+    });
+
+    it('disabled modules: entrypoints array excludes disabled modules', () => {
+      // Verify array only contains enabled modules
+      const exchangeEntrypoints = buildTranslationEntrypoints(EXCHANGE_ONLY_CAPABILITIES, '/admin');
+      const queueEntrypoints = buildTranslationEntrypoints(QUEUE_ONLY_CAPABILITIES, '/admin');
+
+      assert.ok(exchangeEntrypoints.every(e => e.module === 'exchange'), 'Exchange-only should have only exchange');
+      assert.ok(queueEntrypoints.every(e => e.module === 'queue'), 'Queue-only should have only queue');
+    });
+  });
+
+  describe('Profile + Explicit Overrides Precedence', () => {
+    it('explicit module override takes precedence over profile inference', () => {
+      // Simulate a case where profile says "core" but modules are explicitly enabled
+      const overrideCapabilities = {
+        profile: 'core', // Profile says core (no modules)
+        schema_version: 1,
+        modules: {
+          exchange: { enabled: true }, // But exchange is explicitly enabled
+          queue: { enabled: false },
+        },
+        features: { cms: true, dashboard: true },
+        routes: {
+          'admin.translations.exchange': '/admin/translations/exchange',
+        },
+        panels: [],
+        resolver_keys: ['admin.translations.exchange'],
+        warnings: [],
+      };
+
+      // Module enablement should be read from modules, not inferred from profile
+      assert.equal(isExchangeEnabled(overrideCapabilities), true, 'Explicit module enable should work');
+      assert.equal(isQueueEnabled(overrideCapabilities), false);
+
+      // Entrypoint should be built based on actual module state
+      const entrypoints = buildTranslationEntrypoints(overrideCapabilities, '/admin');
+      assert.equal(entrypoints.length, 1);
+      assert.equal(entrypoints[0].module, 'exchange');
+    });
+
+    it('routes take precedence over base path fallback', () => {
+      const customRouteCapabilities = {
+        ...FULL_CAPABILITIES,
+        routes: {
+          'admin.translations.queue': '/custom/path/to/queue',
+          'admin.translations.exchange': '/custom/path/to/exchange',
+        },
+      };
+
+      const queueRoute = getTranslationRoute('QUEUE', customRouteCapabilities, '/admin');
+      const exchangeRoute = getTranslationRoute('EXCHANGE_UI', customRouteCapabilities, '/admin');
+
+      assert.equal(queueRoute, '/custom/path/to/queue', 'Should use custom route');
+      assert.equal(exchangeRoute, '/custom/path/to/exchange', 'Should use custom route');
+    });
+
+    it('fallback to base path when routes not specified', () => {
+      const noRoutesCapabilities = {
+        profile: 'full',
+        schema_version: 1,
+        modules: {
+          exchange: { enabled: true },
+          queue: { enabled: true },
+        },
+        features: { cms: true, dashboard: true },
+        routes: {}, // No routes specified
+        panels: [],
+        resolver_keys: [],
+        warnings: [],
+      };
+
+      const queueRoute = getTranslationRoute('QUEUE', noRoutesCapabilities, '/admin');
+      const exchangeRoute = getTranslationRoute('EXCHANGE_UI', noRoutesCapabilities, '/admin');
+
+      assert.equal(queueRoute, '/admin/translations/queue', 'Should fallback to base path');
+      assert.equal(exchangeRoute, '/admin/translations/exchange', 'Should fallback to base path');
+    });
+  });
+
+  describe('Permission-Denied Entrypoint Handling', () => {
+    // Note: Permission handling is enforced at backend level.
+    // Frontend receives capabilities that reflect permission state.
+    // These tests verify that disabled capabilities result in no entrypoints.
+
+    it('permission-denied state: modules disabled results in no entrypoints', () => {
+      // Simulate permission-denied by having modules explicitly disabled
+      const permissionDeniedCapabilities = {
+        profile: 'full', // Profile would normally enable everything
+        schema_version: 1,
+        modules: {
+          exchange: { enabled: false }, // But permission denied
+          queue: { enabled: false },
+        },
+        features: { cms: true, dashboard: true },
+        routes: {},
+        panels: [],
+        resolver_keys: [],
+        warnings: ['Permission denied for translation modules'],
+      };
+
+      const entrypoints = buildTranslationEntrypoints(permissionDeniedCapabilities, '/admin');
+      assert.equal(entrypoints.length, 0, 'No entrypoints when permission denied');
+    });
+
+    it('partial permission: only permitted modules show entrypoints', () => {
+      // Simulate partial permission - queue allowed, exchange denied
+      const partialPermissionCapabilities = {
+        profile: 'full',
+        schema_version: 1,
+        modules: {
+          exchange: { enabled: false }, // Exchange denied
+          queue: { enabled: true }, // Queue allowed
+        },
+        features: { cms: true, dashboard: true },
+        routes: {
+          'admin.translations.queue': '/admin/translations/queue',
+        },
+        panels: [],
+        resolver_keys: ['admin.translations.queue'],
+        warnings: ['Permission denied for exchange module'],
+      };
+
+      const entrypoints = buildTranslationEntrypoints(partialPermissionCapabilities, '/admin');
+      assert.equal(entrypoints.length, 1);
+      assert.equal(entrypoints[0].module, 'queue');
+    });
+
+    it('warnings array captures permission issues', () => {
+      const capsWithWarnings = {
+        ...CORE_CAPABILITIES,
+        warnings: ['Permission denied for queue', 'Permission denied for exchange'],
+      };
+
+      const normalized = normalizeCapabilities(capsWithWarnings);
+      assert.deepEqual(normalized.warnings, ['Permission denied for queue', 'Permission denied for exchange']);
+    });
+  });
+});
+
+// ============================================================================
+// Task 19.8: Accessibility and UX Copy Consistency Tests
+// ============================================================================
+
+describe('Task 19.8: Accessibility and UX Copy Consistency', () => {
+  describe('Entrypoint Accessibility Attributes', () => {
+    it('entrypoints have consistent labels', () => {
+      const entrypoints = buildTranslationEntrypoints(FULL_CAPABILITIES, '/admin');
+
+      for (const entry of entrypoints) {
+        // Every entrypoint must have a label
+        assert.ok(entry.label, `Entrypoint ${entry.id} should have a label`);
+        assert.ok(entry.label.length > 0, `Entrypoint ${entry.id} label should not be empty`);
+      }
+    });
+
+    it('entrypoints have descriptive text', () => {
+      const entrypoints = buildTranslationEntrypoints(FULL_CAPABILITIES, '/admin');
+
+      for (const entry of entrypoints) {
+        // Every entrypoint should have a description for aria-label
+        assert.ok(entry.description, `Entrypoint ${entry.id} should have a description`);
+        assert.ok(entry.description.length > 0, `Entrypoint ${entry.id} description should not be empty`);
+      }
+    });
+
+    it('entrypoints have valid href', () => {
+      const entrypoints = buildTranslationEntrypoints(FULL_CAPABILITIES, '/admin');
+
+      for (const entry of entrypoints) {
+        assert.ok(entry.href, `Entrypoint ${entry.id} should have an href`);
+        assert.ok(entry.href.startsWith('/'), `Entrypoint ${entry.id} href should be a valid path`);
+      }
+    });
+
+    it('entrypoints have valid icon class', () => {
+      const entrypoints = buildTranslationEntrypoints(FULL_CAPABILITIES, '/admin');
+
+      for (const entry of entrypoints) {
+        assert.ok(entry.icon, `Entrypoint ${entry.id} should have an icon`);
+        assert.ok(entry.icon.includes('iconoir'), `Entrypoint ${entry.id} icon should use iconoir`);
+      }
+    });
+  });
+
+  describe('UX Copy Consistency', () => {
+    it('Translation Queue label is consistent', () => {
+      const entrypoints = buildTranslationEntrypoints(QUEUE_ONLY_CAPABILITIES, '/admin');
+      const queueEntry = entrypoints.find(e => e.module === 'queue');
+
+      assert.ok(queueEntry);
+      assert.equal(queueEntry.label, 'Translation Queue');
+      assert.ok(queueEntry.description.toLowerCase().includes('translation'));
+    });
+
+    it('Translation Exchange label is consistent', () => {
+      const entrypoints = buildTranslationEntrypoints(EXCHANGE_ONLY_CAPABILITIES, '/admin');
+      const exchangeEntry = entrypoints.find(e => e.module === 'exchange');
+
+      assert.ok(exchangeEntry);
+      assert.equal(exchangeEntry.label, 'Translation Exchange');
+      assert.ok(exchangeEntry.description.toLowerCase().includes('translation'));
+    });
+
+    it('entrypoint ids are descriptive kebab-case', () => {
+      const entrypoints = buildTranslationEntrypoints(FULL_CAPABILITIES, '/admin');
+
+      for (const entry of entrypoints) {
+        // IDs should be kebab-case
+        assert.ok(/^[a-z0-9-]+$/.test(entry.id), `ID ${entry.id} should be kebab-case`);
+        // IDs should be descriptive
+        assert.ok(entry.id.includes('translation'), `ID ${entry.id} should include 'translation'`);
+      }
+    });
+
+    it('module identifiers are consistent across entrypoints', () => {
+      const entrypoints = buildTranslationEntrypoints(FULL_CAPABILITIES, '/admin');
+
+      const modules = entrypoints.map(e => e.module);
+      // Only 'queue' and 'exchange' as module identifiers
+      for (const mod of modules) {
+        assert.ok(['queue', 'exchange', 'core'].includes(mod), `Module ${mod} should be valid`);
+      }
+    });
+  });
+
+  describe('Capability Profile Labels', () => {
+    it('profile names are lowercase with valid format', () => {
+      const validProfiles = ['none', 'core', 'core+exchange', 'core+queue', 'full'];
+
+      for (const profile of validProfiles) {
+        const normalized = normalizeProfile(profile);
+        assert.equal(normalized, profile, `Profile ${profile} should normalize to itself`);
+      }
+    });
+
+    it('invalid profiles normalize to none', () => {
+      const invalidProfiles = ['invalid', '', null, undefined, 123, 'FULL', '  full  '];
+
+      for (const profile of invalidProfiles) {
+        const normalized = normalizeProfile(profile);
+        // FULL and "  full  " should normalize to "full" (case insensitive, trimmed)
+        if (profile === 'FULL' || profile === '  full  ') {
+          assert.equal(normalized, 'full');
+        } else if (typeof profile === 'string' && profile.trim()) {
+          assert.equal(normalized, 'none', `Profile ${profile} should normalize to none`);
+        } else {
+          assert.equal(normalized, 'none');
+        }
+      }
+    });
+  });
+
+  describe('Error Messages and Warnings', () => {
+    it('warnings array contains user-friendly messages', () => {
+      const capsWithWarnings = {
+        ...CORE_CAPABILITIES,
+        warnings: [
+          'Permission denied for translation exchange module',
+          'Queue module requires CMS feature',
+        ],
+      };
+
+      const normalized = normalizeCapabilities(capsWithWarnings);
+
+      // Warnings should be readable strings
+      for (const warning of normalized.warnings) {
+        assert.ok(typeof warning === 'string');
+        assert.ok(warning.length > 0);
+        // Warnings should contain actionable context
+        assert.ok(
+          warning.toLowerCase().includes('permission') ||
+          warning.toLowerCase().includes('requires') ||
+          warning.toLowerCase().includes('module'),
+          'Warning should be descriptive'
+        );
+      }
+    });
+  });
+
+  describe('Route URL Format Consistency', () => {
+    it('routes use consistent URL patterns', () => {
+      const routes = FULL_CAPABILITIES.routes;
+
+      for (const [key, route] of Object.entries(routes)) {
+        // Routes should start with /
+        assert.ok(route.startsWith('/'), `Route ${key} should start with /`);
+        // Routes should use kebab-case for path segments
+        const segments = route.split('/').filter(Boolean);
+        for (const segment of segments) {
+          assert.ok(
+            /^[a-z0-9-]+$/.test(segment) || segment === 'api',
+            `Route segment ${segment} in ${key} should be kebab-case`
+          );
+        }
+      }
+    });
+
+    it('resolver keys use dot-notation consistently', () => {
+      const caps = normalizeCapabilities(FULL_CAPABILITIES);
+
+      for (const key of caps.resolver_keys) {
+        // Resolver keys should use dot notation
+        assert.ok(key.includes('.'), `Resolver key ${key} should use dot notation`);
+        // Keys should start with admin
+        assert.ok(key.startsWith('admin.'), `Resolver key ${key} should start with admin.`);
+      }
+    });
+  });
+});

@@ -106,20 +106,145 @@
           </ul>
         </div>
 
-        <!-- Actions -->
-        <div class="mt-6 pt-6 border-t border-gray-100">
-          <p class="text-sm text-gray-500 mb-4">
-            You can safely close this window.
-          </p>
+        <!-- Artifact Actions (Phase 20.FE.3) -->
+        <div class="mt-6 pt-6 border-t border-gray-100" id="artifact-actions-container">
+          <!-- Initial loading state -->
+          <div id="artifacts-loading" class="flex flex-col items-center gap-3">
+            <div class="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-sm text-gray-500">Loading document options...</p>
+          </div>
+
+          <!-- Processing state (artifacts not yet available) -->
+          <div id="artifacts-processing" class="hidden">
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-left">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <i class="iconoir-timer text-blue-600 animate-pulse" aria-hidden="true"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-gray-900">Document Being Prepared</p>
+                  <p class="text-sm text-gray-600 mt-1">
+                    Your signed document is being finalized. This usually takes just a moment.
+                    You'll receive an email with the download link once it's ready.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p class="text-sm text-gray-500">
+              You can safely close this window. We'll email you when the document is ready.
+            </p>
+          </div>
+
+          <!-- Available artifacts -->
+          <div id="artifacts-available" class="hidden space-y-3">
+            <p class="text-sm text-gray-700 font-medium mb-3">Your Documents</p>
+
+            <!-- Executed document -->
+            <div id="artifact-executed" class="hidden">
+              <a
+                id="artifact-executed-link"
+                href="#"
+                class="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors group"
+                target="_blank"
+              >
+                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                  <i class="iconoir-page-check text-green-600" aria-hidden="true"></i>
+                </div>
+                <div class="flex-1 min-w-0 text-left">
+                  <p class="font-medium text-gray-900">Executed Document</p>
+                  <p class="text-xs text-gray-500">Final signed version with all signatures</p>
+                </div>
+                <i class="iconoir-download text-green-600" aria-hidden="true"></i>
+              </a>
+            </div>
+
+            <!-- Source document (original) -->
+            <div id="artifact-source" class="hidden">
+              <a
+                id="artifact-source-link"
+                href="#"
+                class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group"
+                target="_blank"
+              >
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-gray-200 transition-colors">
+                  <i class="iconoir-page text-gray-600" aria-hidden="true"></i>
+                </div>
+                <div class="flex-1 min-w-0 text-left">
+                  <p class="font-medium text-gray-900">Original Document</p>
+                  <p class="text-xs text-gray-500">Document as submitted before signing</p>
+                </div>
+                <i class="iconoir-download text-gray-600" aria-hidden="true"></i>
+              </a>
+            </div>
+
+            <!-- Certificate of completion -->
+            <div id="artifact-certificate" class="hidden">
+              <a
+                id="artifact-certificate-link"
+                href="#"
+                class="flex items-center gap-3 p-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors group"
+                target="_blank"
+              >
+                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                  <i class="iconoir-diploma text-purple-600" aria-hidden="true"></i>
+                </div>
+                <div class="flex-1 min-w-0 text-left">
+                  <p class="font-medium text-gray-900">Certificate of Completion</p>
+                  <p class="text-xs text-gray-500">Audit trail and verification details</p>
+                </div>
+                <i class="iconoir-download text-purple-600" aria-hidden="true"></i>
+              </a>
+            </div>
+
+            <p class="text-sm text-gray-500 pt-2">
+              You can safely close this window.
+            </p>
+          </div>
+
+          <!-- Error/Unavailable state -->
+          <div id="artifacts-unavailable" class="hidden">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-left">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <i class="iconoir-warning-circle text-amber-600" aria-hidden="true"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-gray-900">Documents Not Available</p>
+                  <p class="text-sm text-gray-600 mt-1">
+                    We couldn't load the document links right now. Don't worry - your signature was recorded successfully.
+                    You'll receive an email with the download link once it's ready.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onclick="loadArtifacts()"
+              class="text-sm font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2"
+            >
+              <i class="iconoir-refresh mr-1" aria-hidden="true"></i>
+              Try again
+            </button>
+            <p class="text-sm text-gray-500 mt-4">
+              You can safely close this window.
+            </p>
+          </div>
+
+          <!-- Fallback for server-rendered download_url -->
           {% if download_url %}
-          <a
-            href="{{ download_url }}"
-            class="btn btn-primary inline-flex items-center justify-center"
-            target="_blank"
-          >
-            <i class="iconoir-download mr-2" aria-hidden="true"></i>
-            Download Copy
-          </a>
+          <div id="artifacts-fallback" class="hidden">
+            <a
+              href="{{ download_url }}"
+              class="btn btn-primary inline-flex items-center justify-center"
+              target="_blank"
+            >
+              <i class="iconoir-download mr-2" aria-hidden="true"></i>
+              Download Copy
+            </a>
+            <p class="text-sm text-gray-500 mt-4">
+              You can safely close this window.
+            </p>
+          </div>
           {% endif %}
         </div>
       </div>
@@ -164,4 +289,156 @@
     animation: ping-slow 2s ease-out infinite;
   }
 </style>
+
+<script>
+  // Configuration from server (Phase 20.FE.3)
+  const completionConfig = {
+    token: '{{ token }}',
+    apiBasePath: '{{ api_base_path|default:"/api/v1/esign/signing" }}',
+    agreementCompleted: {{ agreement.completed|default:"false"|lower }},
+    hasServerDownloadUrl: {% if download_url %}true{% else %}false{% endif %}
+  };
+
+  // State management for artifact loading
+  const artifactState = {
+    loaded: false,
+    loading: false,
+    hasArtifacts: false,
+    retryCount: 0,
+    maxRetries: 3
+  };
+
+  /**
+   * Resolve binary asset URLs from the assets response.
+   * Never uses contract_url (which returns JSON).
+   */
+  function resolveArtifacts(assets) {
+    if (!assets) return null;
+
+    const artifacts = {
+      executed: assets.executed_url || null,
+      source: assets.source_url || null,
+      certificate: assets.certificate_url || null
+    };
+
+    // Check if any artifact is available
+    const hasAny = !!(artifacts.executed || artifacts.source || artifacts.certificate);
+
+    return hasAny ? artifacts : null;
+  }
+
+  /**
+   * Show a specific artifact section and hide others.
+   */
+  function showArtifactState(state) {
+    const states = ['loading', 'processing', 'available', 'unavailable', 'fallback'];
+    states.forEach(s => {
+      const el = document.getElementById(`artifacts-${s}`);
+      if (el) {
+        el.classList.toggle('hidden', s !== state);
+      }
+    });
+  }
+
+  /**
+   * Load artifacts from the assets endpoint.
+   */
+  async function loadArtifacts() {
+    if (artifactState.loading) return;
+
+    artifactState.loading = true;
+    showArtifactState('loading');
+
+    try {
+      const response = await fetch(`${completionConfig.apiBasePath}/assets/${completionConfig.token}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load artifacts');
+      }
+
+      const payload = await response.json();
+      const assets = payload?.assets || {};
+      const artifacts = resolveArtifacts(assets);
+
+      if (artifacts) {
+        // We have at least one artifact - show the available state
+        artifactState.hasArtifacts = true;
+        displayArtifacts(artifacts);
+        showArtifactState('available');
+      } else if (completionConfig.agreementCompleted) {
+        // Agreement is complete but artifacts not yet generated - show processing state
+        showArtifactState('processing');
+        // Schedule a retry after a delay
+        if (artifactState.retryCount < artifactState.maxRetries) {
+          artifactState.retryCount++;
+          setTimeout(() => loadArtifacts(), 5000); // Retry after 5 seconds
+        }
+      } else {
+        // Agreement not complete yet - show processing (waiting for other signers)
+        showArtifactState('processing');
+      }
+
+      artifactState.loaded = true;
+    } catch (error) {
+      console.error('Artifact load error:', error);
+
+      // If we have a server-rendered fallback, use it
+      if (completionConfig.hasServerDownloadUrl) {
+        showArtifactState('fallback');
+      } else {
+        showArtifactState('unavailable');
+      }
+    } finally {
+      artifactState.loading = false;
+    }
+  }
+
+  /**
+   * Display available artifacts in the UI.
+   */
+  function displayArtifacts(artifacts) {
+    if (artifacts.executed) {
+      const container = document.getElementById('artifact-executed');
+      const link = document.getElementById('artifact-executed-link');
+      if (container && link) {
+        link.href = new URL(artifacts.executed, window.location.origin).toString();
+        container.classList.remove('hidden');
+      }
+    }
+
+    if (artifacts.source) {
+      const container = document.getElementById('artifact-source');
+      const link = document.getElementById('artifact-source-link');
+      if (container && link) {
+        link.href = new URL(artifacts.source, window.location.origin).toString();
+        container.classList.remove('hidden');
+      }
+    }
+
+    if (artifacts.certificate) {
+      const container = document.getElementById('artifact-certificate');
+      const link = document.getElementById('artifact-certificate-link');
+      if (container && link) {
+        link.href = new URL(artifacts.certificate, window.location.origin).toString();
+        container.classList.remove('hidden');
+      }
+    }
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    loadArtifacts();
+  });
+
+  // Export for testing
+  if (typeof window !== 'undefined') {
+    window.esignCompletionHelpers = {
+      resolveArtifacts,
+      artifactState
+    };
+  }
+</script>
 {% endblock %}
