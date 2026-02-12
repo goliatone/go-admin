@@ -15,6 +15,8 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/quickstart"
+	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
 )
 
@@ -206,6 +208,7 @@ type agreementPanelRepository struct {
 	service      services.AgreementService
 	artifacts    services.ArtifactPipelineService
 	projector    *AuditActivityProjector
+	objectStore  quickstart.BinaryObjectStore
 	defaultScope stores.Scope
 	settings     RuntimeSettings
 }
@@ -215,6 +218,7 @@ func newAgreementPanelRepository(
 	service services.AgreementService,
 	artifacts services.ArtifactPipelineService,
 	projector *AuditActivityProjector,
+	objectStore quickstart.BinaryObjectStore,
 	defaultScope stores.Scope,
 	settings RuntimeSettings,
 ) *agreementPanelRepository {
@@ -223,6 +227,7 @@ func newAgreementPanelRepository(
 		service:      service,
 		artifacts:    artifacts,
 		projector:    projector,
+		objectStore:  objectStore,
 		defaultScope: defaultScope,
 		settings:     settings,
 	}
@@ -392,6 +397,109 @@ func (r *agreementPanelRepository) Update(ctx context.Context, id string, record
 
 func (r *agreementPanelRepository) Delete(context.Context, string) error {
 	return fmt.Errorf("agreements cannot be deleted; use void action")
+}
+
+func (r *agreementPanelRepository) ServePanelSubresource(ctx coreadmin.AdminContext, c router.Context, agreementID, subresource, value string) error {
+	if strings.TrimSpace(subresource) != "artifact" {
+		return coreadmin.ErrNotFound
+	}
+	assetType := normalizeAgreementArtifactType(value)
+	if assetType == "" {
+		return coreadmin.ErrNotFound
+	}
+	scope, err := resolveScopeFromContext(ctx.Context, r.defaultScope)
+	if err != nil {
+		return err
+	}
+	detail, err := r.artifacts.AgreementDeliveryDetail(ctx.Context, scope, strings.TrimSpace(agreementID))
+	if err != nil {
+		return err
+	}
+	objectKey := agreementArtifactObjectKey(detail, assetType)
+	if strings.TrimSpace(objectKey) == "" {
+		return coreadmin.ErrNotFound
+	}
+	if r.objectStore == nil {
+		return coreadmin.ErrNotFound
+	}
+	disposition := "inline"
+	if strings.EqualFold(strings.TrimSpace(c.Query("disposition")), "attachment") {
+		disposition = "attachment"
+	}
+	if audits, ok := r.agreements.(stores.AuditEventStore); ok && audits != nil {
+		actorID := strings.TrimSpace(ctx.UserID)
+		if actorID == "" {
+			actorID = strings.TrimSpace(userIDFromContext(ctx.Context))
+		}
+		metadataJSON := "{}"
+		if encoded, err := json.Marshal(map[string]any{
+			"asset":       assetType,
+			"disposition": disposition,
+			"user_id":     actorID,
+		}); err == nil {
+			metadataJSON = string(encoded)
+		}
+		_, _ = audits.Append(ctx.Context, scope, stores.AuditEventRecord{
+			AgreementID:  strings.TrimSpace(agreementID),
+			EventType:    "admin.agreement.artifact_downloaded",
+			ActorType:    "admin",
+			ActorID:      actorID,
+			IPAddress:    strings.TrimSpace(c.IP()),
+			UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
+			MetadataJSON: metadataJSON,
+			CreatedAt:    time.Now().UTC(),
+		})
+	}
+	if err := quickstart.ServeBinaryObject(c, quickstart.BinaryObjectResponseConfig{
+		Store:       r.objectStore,
+		ObjectKey:   objectKey,
+		ContentType: "application/pdf",
+		Filename:    agreementArtifactFilename(strings.TrimSpace(agreementID), assetType),
+		Disposition: disposition,
+	}); err != nil {
+		if errors.Is(err, quickstart.ErrBinaryObjectUnavailable) {
+			return coreadmin.ErrNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+func normalizeAgreementArtifactType(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "executed":
+		return "executed"
+	case "certificate":
+		return "certificate"
+	default:
+		return ""
+	}
+}
+
+func agreementArtifactObjectKey(detail services.AgreementDeliveryDetail, assetType string) string {
+	switch normalizeAgreementArtifactType(assetType) {
+	case "executed":
+		return strings.TrimSpace(detail.ExecutedObjectKey)
+	case "certificate":
+		return strings.TrimSpace(detail.CertificateObjectKey)
+	default:
+		return ""
+	}
+}
+
+func agreementArtifactFilename(agreementID, assetType string) string {
+	agreementID = strings.TrimSpace(agreementID)
+	if agreementID == "" {
+		agreementID = "agreement"
+	}
+	switch normalizeAgreementArtifactType(assetType) {
+	case "executed":
+		return agreementID + "-executed.pdf"
+	case "certificate":
+		return agreementID + "-certificate.pdf"
+	default:
+		return agreementID + ".pdf"
+	}
 }
 
 func agreementRecordToMap(

@@ -17,6 +17,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
+	"github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 )
 
@@ -25,6 +26,7 @@ type allowAllAuthorizer struct{}
 func (allowAllAuthorizer) Can(context.Context, string, string) bool { return true }
 
 func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *testing.T) {
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")

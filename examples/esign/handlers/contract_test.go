@@ -348,7 +348,7 @@ func TestSignerAssetContractReturnsTyped404WhenAssetUnavailable(t *testing.T) {
 	}
 }
 
-func TestAdminAgreementArtifactDownloadReturnsPDFBinary(t *testing.T) {
+func TestAdminAgreementArtifactDownloadRouteNotExposedByHandlersRegister(t *testing.T) {
 	objectKey := "tenant/tenant-1/org/org-1/agreements/agreement-admin-1/executed.pdf"
 	objectStore := &memorySignerObjectStore{
 		objects: map[string][]byte{
@@ -373,23 +373,13 @@ func TestAdminAgreementArtifactDownloadReturnsPDFBinary(t *testing.T) {
 		t.Fatalf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
-	}
-	if contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(contentType, "application/pdf") {
-		t.Fatalf("expected application/pdf content type, got %q", resp.Header.Get("Content-Type"))
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("read response body: %v", err)
-	}
-	if !strings.HasPrefix(string(body), "%PDF-") {
-		t.Fatalf("expected pdf payload prefix, got %q", string(body))
+		t.Fatalf("expected status 404 for non-canonical artifact route, got %d body=%s", resp.StatusCode, string(body))
 	}
 }
 
-func TestAdminAgreementArtifactDownloadSupportsEnvSuffixedPanelName(t *testing.T) {
+func TestAdminAgreementArtifactDownloadRouteNotExposedByHandlersRegisterWithEnvSuffix(t *testing.T) {
 	objectKey := "tenant/tenant-1/org/org-1/agreements/agreement-admin-env-1/executed.pdf"
 	objectStore := &memorySignerObjectStore{
 		objects: map[string][]byte{
@@ -414,9 +404,9 @@ func TestAdminAgreementArtifactDownloadSupportsEnvSuffixedPanelName(t *testing.T
 		t.Fatalf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
+		t.Fatalf("expected status 404 for non-canonical artifact route, got %d body=%s", resp.StatusCode, string(body))
 	}
 }
 

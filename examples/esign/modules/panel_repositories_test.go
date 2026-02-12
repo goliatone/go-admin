@@ -3,14 +3,20 @@ package modules
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
 )
 
@@ -491,6 +497,128 @@ func TestAgreementRecordToMapDerivesRecipientStatusForInFlightAgreement(t *testi
 	}
 	if got := strings.TrimSpace(toString(items[1]["status"])); got != "sent" {
 		t.Fatalf("expected cc status sent, got %q", got)
+	}
+}
+
+type testBinaryObjectStore struct {
+	objects map[string][]byte
+}
+
+func (s *testBinaryObjectStore) GetFile(_ context.Context, path string) ([]byte, error) {
+	if s == nil {
+		return nil, io.EOF
+	}
+	raw, ok := s.objects[strings.TrimSpace(path)]
+	if !ok {
+		return nil, io.EOF
+	}
+	return append([]byte{}, raw...), nil
+}
+
+func TestAgreementPanelRepositoryServePanelSubresourceReturnsPDFAndAppendsAuditEvent(t *testing.T) {
+	scope := defaultModuleScope
+	store := stores.NewInMemoryStore()
+	seedESignDocument(t, store, scope, "doc-artifact-1")
+
+	agreementSvc := services.NewAgreementService(store, store)
+	agreement, err := agreementSvc.CreateDraft(context.Background(), scope, services.CreateDraftInput{
+		DocumentID:      "doc-artifact-1",
+		Title:           "Artifact Access",
+		CreatedByUserID: "admin-user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+
+	objectKey := "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/agreements/" + agreement.ID + "/executed.pdf"
+	if _, err := store.SaveAgreementArtifacts(context.Background(), scope, stores.AgreementArtifactRecord{
+		AgreementID:       agreement.ID,
+		ExecutedObjectKey: objectKey,
+		ExecutedSHA256:    strings.Repeat("a", 64),
+		CorrelationID:     "corr-artifact-1",
+	}); err != nil {
+		t.Fatalf("SaveAgreementArtifacts: %v", err)
+	}
+
+	repo := newAgreementPanelRepository(
+		store,
+		agreementSvc,
+		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
+		nil,
+		&testBinaryObjectStore{
+			objects: map[string][]byte{
+				objectKey: services.GenerateDeterministicPDF(1),
+			},
+		},
+		scope,
+		RuntimeSettings{},
+	)
+
+	adapter := router.NewFiberAdapter()
+	r := adapter.Router()
+	r.Get("/artifact", func(c router.Context) error {
+		adminCtx := coreadmin.AdminContext{
+			Context:  c.Context(),
+			UserID:   "admin-user-1",
+			TenantID: scope.TenantID,
+			OrgID:    scope.OrgID,
+		}
+		return repo.ServePanelSubresource(adminCtx, c, agreement.ID, "artifact", "executed")
+	})
+
+	resp, err := adapter.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/artifact?disposition=attachment", nil), -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	if contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(contentType, "application/pdf") {
+		t.Fatalf("expected application/pdf content type, got %q", resp.Header.Get("Content-Type"))
+	}
+	if disposition := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Disposition"))); !strings.HasPrefix(disposition, "attachment;") {
+		t.Fatalf("expected attachment disposition, got %q", resp.Header.Get("Content-Disposition"))
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.HasPrefix(string(body), "%PDF-") {
+		t.Fatalf("expected pdf payload prefix, got %q", string(body))
+	}
+
+	events, err := store.ListForAgreement(context.Background(), scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	found := false
+	for _, event := range events {
+		if strings.TrimSpace(event.EventType) != "admin.agreement.artifact_downloaded" {
+			continue
+		}
+		found = true
+		if got := strings.TrimSpace(event.ActorID); got != "admin-user-1" {
+			t.Fatalf("expected actor id admin-user-1, got %q", got)
+		}
+		meta := map[string]any{}
+		if err := json.Unmarshal([]byte(event.MetadataJSON), &meta); err != nil {
+			t.Fatalf("unmarshal metadata: %v", err)
+		}
+		if got := strings.TrimSpace(toString(meta["asset"])); got != "executed" {
+			t.Fatalf("expected metadata asset executed, got %q", got)
+		}
+		if got := strings.TrimSpace(toString(meta["disposition"])); got != "attachment" {
+			t.Fatalf("expected metadata disposition attachment, got %q", got)
+		}
+		if got := strings.TrimSpace(toString(meta["user_id"])); got != "admin-user-1" {
+			t.Fatalf("expected metadata user_id admin-user-1, got %q", got)
+		}
+	}
+	if !found {
+		t.Fatalf("expected admin.agreement.artifact_downloaded event, got %+v", events)
 	}
 }
 

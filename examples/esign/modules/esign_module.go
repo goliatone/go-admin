@@ -286,6 +286,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 				services.WithSignerAssetObjectStore(objectStore),
 			),
 		),
+		handlers.WithAgreementDeliveryService(m.artifacts),
 		handlers.WithSignerObjectStore(objectStore),
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),
@@ -352,7 +353,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		return err
 	}
 
-	agreementRepo := newAgreementPanelRepository(m.store, m.agreements, m.artifacts, m.activityMap, m.defaultScope, m.settings)
+	agreementRepo := newAgreementPanelRepository(m.store, m.agreements, m.artifacts, m.activityMap, m.documentUploadManager(), m.defaultScope, m.settings)
 	agreementBuilder := adm.Panel(esignAgreementsPanelID).
 		WithRepository(agreementRepo).
 		ListFields(
@@ -390,6 +391,9 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		BulkActions(
 			coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}},
 			coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}},
+		).
+		Subresources(
+			coreadmin.PanelSubresource{Name: "artifact", Method: "GET", Permission: permissions.AdminESignDownload},
 		).
 		Permissions(coreadmin.PanelPermissions{
 			View:   permissions.AdminESignView,
