@@ -99,6 +99,20 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 					WithTextCode(goerrors.HTTPStatusToTextCode(code))
 				status = code
 			}
+			if fe != nil && fe.Code > 0 &&
+				(mapped.Code == 0 || mapped.Code >= fiber.StatusInternalServerError) &&
+				fe.Code < fiber.StatusInternalServerError {
+				mapped.Code = fe.Code
+				mapped.TextCode = goerrors.HTTPStatusToTextCode(fe.Code)
+				mapped.Message = fe.Message
+				switch fe.Code {
+				case fiber.StatusNotFound:
+					mapped.Category = goerrors.CategoryNotFound
+				default:
+					mapped.Category = goerrors.CategoryValidation
+				}
+				status = fe.Code
+			}
 			if mapped.Metadata == nil {
 				mapped.Metadata = map[string]any{}
 			}
