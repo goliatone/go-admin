@@ -1,0 +1,3527 @@
+{% extends "login-layout.html" %}
+
+{% block title %}Sign - {{ agreement.title|default:"Document" }}{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* Skip link for keyboard navigation */
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #3b82f6;
+    color: white;
+    padding: 0.5rem 1rem;
+    z-index: 1000;
+    border-radius: 0 0 0.5rem 0;
+    font-weight: 500;
+    transition: top 0.2s ease;
+  }
+
+  .skip-link:focus {
+    top: 0;
+  }
+
+  /* Enhanced focus indicators for accessibility */
+  :focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  .field-list-item:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: -2px;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+  }
+
+  .field-overlay:focus-visible {
+    outline: 3px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  .zoom-btn:focus-visible {
+    background: rgba(255, 255, 255, 0.3);
+    outline: 2px solid white;
+    outline-offset: 1px;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .field-overlay {
+      border-width: 3px;
+    }
+
+    .field-overlay.required::after {
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .field-list-item {
+      border-width: 2px;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+
+    .animate-pulse-slow,
+    .animate-spin {
+      animation: none !important;
+    }
+  }
+
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Using mouse indicator for focus styles */
+  body.using-mouse *:focus {
+    outline: none;
+  }
+
+  body.using-mouse *:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  /* Mobile/Touch Hardening Styles */
+
+  /* Larger touch targets for mobile */
+  @media (max-width: 768px) {
+    .zoom-btn {
+      width: 40px;
+      height: 40px;
+      min-width: 44px; /* iOS accessibility minimum */
+      min-height: 44px;
+    }
+
+    .field-list-item {
+      padding: 1rem;
+      min-height: 56px; /* Comfortable touch target */
+    }
+
+    .field-overlay {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .panel-footer button {
+      min-height: 52px;
+      font-size: 1rem;
+    }
+
+    /* Signature canvas larger on mobile */
+    .signature-canvas {
+      height: 180px;
+    }
+
+    /* Better modal sizing for mobile */
+    .field-editor {
+      max-width: 95%;
+      margin: 0 auto;
+    }
+  }
+
+  /* Touch-optimized signature canvas */
+  .signature-canvas-container {
+    touch-action: none; /* Prevent scrolling while drawing */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .signature-canvas {
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Visual feedback for touch */
+  .field-overlay:active {
+    background: rgba(59, 130, 246, 0.3);
+    transform: scale(0.98);
+  }
+
+  .field-list-item:active {
+    background: #e5e7eb;
+    transform: scale(0.99);
+  }
+
+  /* Prevent text selection during touch interactions */
+  .unified-container {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  .unified-container input,
+  .unified-container textarea {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+
+  /* Improve touch scrolling in viewer */
+  .viewer-content {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Panel scroll for touch */
+  .panel-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Touch-friendly zoom controls */
+  @media (pointer: coarse) {
+    .zoom-control {
+      gap: 0.75rem;
+      padding: 0.5rem;
+    }
+
+    .zoom-btn {
+      width: 44px;
+      height: 44px;
+    }
+
+    /* Larger field overlay tap areas */
+    .field-overlay {
+      padding: 8px;
+    }
+
+    /* Increase spacing between interactive elements */
+    .field-list-item + .field-list-item {
+      margin-top: 0.75rem;
+    }
+  }
+
+  /* Prevent double-tap zoom on interactive elements */
+  button,
+  .field-overlay,
+  .field-list-item {
+    touch-action: manipulation;
+  }
+
+  /* Signature canvas drawing feedback */
+  .signature-canvas-container.drawing {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+  }
+
+  /* Mobile-optimized modal transitions */
+  @media (max-width: 768px) {
+    .field-editor-overlay.active .field-editor {
+      animation: slideUpMobile 0.25s ease-out;
+    }
+
+    @keyframes slideUpMobile {
+      from {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+  }
+  /* Unified signer layout */
+  .unified-container {
+    display: flex;
+    height: calc(100vh - 64px);
+    overflow: hidden;
+  }
+
+  /* Document viewer area */
+  .viewer-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #525659;
+    overflow: hidden;
+  }
+
+  .viewer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: #3d4043;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .viewer-content {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .pdf-container {
+    position: relative;
+    background: white;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transform-origin: top center;
+  }
+
+  .pdf-page {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pdf-page canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Field overlay styles */
+  .field-overlay {
+    position: absolute;
+    border: 2px dashed rgba(59, 130, 246, 0.6);
+    background: rgba(59, 130, 246, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+  }
+
+  .field-overlay:hover {
+    border-color: rgba(59, 130, 246, 0.9);
+    background: rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  }
+
+  .field-overlay.active {
+    border-color: #3b82f6;
+    border-style: solid;
+    background: rgba(59, 130, 246, 0.15);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+  }
+
+  .field-overlay.completed {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.15);
+  }
+
+  .field-overlay.required::after {
+    content: '*';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 16px;
+    height: 16px;
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .field-overlay.completed.required::after {
+    content: '';
+    background: #10b981;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+    background-size: 10px;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
+  .field-overlay-label {
+    font-size: 11px;
+    color: #3b82f6;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+  }
+
+  .field-overlay.completed .field-overlay-label {
+    color: #10b981;
+  }
+
+  /* Side panel */
+  .side-panel {
+    width: 360px;
+    background: white;
+    border-left: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 1024px) {
+    .unified-container {
+      flex-direction: column;
+      height: auto;
+    }
+
+    .viewer-area {
+      height: 50vh;
+      min-height: 400px;
+    }
+
+    .side-panel {
+      width: 100%;
+      height: auto;
+      max-height: 50vh;
+      border-left: none;
+      border-top: 1px solid #e5e7eb;
+    }
+  }
+
+  /* Panel sections */
+  .panel-header {
+    padding: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+    flex-shrink: 0;
+  }
+
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+  }
+
+  .panel-footer {
+    padding: 1rem;
+    border-top: 1px solid #e5e7eb;
+    background: white;
+    flex-shrink: 0;
+  }
+
+  /* Field list in panel */
+  .field-list-item {
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .field-list-item:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+
+  .field-list-item.active {
+    border-color: #3b82f6;
+    background: #eff6ff;
+  }
+
+  .field-list-item.completed {
+    border-color: #10b981;
+    background: #f0fdf4;
+  }
+
+  .field-list-item.error {
+    border-color: #ef4444;
+    background: #fef2f2;
+  }
+
+  /* Field editor modal */
+  .field-editor-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+  }
+
+  .field-editor-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .field-editor {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    max-width: 480px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: hidden;
+    transform: translateY(20px);
+    transition: transform 0.2s ease;
+  }
+
+  .field-editor-overlay.active .field-editor {
+    transform: translateY(0);
+  }
+
+  /* Signature canvas styles */
+  .signature-canvas-container {
+    border: 2px dashed #d1d5db;
+    border-radius: 0.5rem;
+    background: white;
+    position: relative;
+  }
+
+  .signature-canvas {
+    width: 100%;
+    height: 120px;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  /* Progress indicator */
+  .progress-ring {
+    transform: rotate(-90deg);
+  }
+
+  .progress-ring-circle {
+    transition: stroke-dashoffset 0.3s ease;
+  }
+
+  /* Zoom controls */
+  .zoom-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.375rem;
+    padding: 0.25rem;
+  }
+
+  .zoom-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    border-radius: 0.25rem;
+    transition: background 0.2s;
+  }
+
+  .zoom-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .zoom-value {
+    font-size: 0.75rem;
+    min-width: 40px;
+    text-align: center;
+  }
+
+  /* Font for typed signature */
+  .font-signature {
+    font-family: 'Brush Script MT', 'Segoe Script', 'Bradley Hand', cursive;
+  }
+
+  /* Animations */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Toast position adjustment for unified view */
+  .toast-container-unified {
+    z-index: 200;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Skip Links for Keyboard Navigation -->
+<a href="#fields-list" class="skip-link">Skip to fields</a>
+<a href="#submit-btn" class="skip-link" style="left: 150px;">Skip to submit</a>
+
+<!-- ARIA Live Regions for Screen Reader Announcements -->
+<div id="a11y-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="a11y-alerts" class="sr-only" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- Header Bar -->
+<header class="bg-white border-b border-gray-200 h-16 flex items-center px-4 lg:px-6 sticky top-0 z-50" role="banner">
+  <div class="flex items-center justify-between w-full max-w-screen-2xl mx-auto">
+    <!-- Logo and document info -->
+    <div class="flex items-center gap-3">
+      {% if theme and theme.assets and theme.assets.icon %}
+      <div class="w-10 h-10 bg-admin-dark rounded-xl flex items-center justify-center">
+        <img src="{{ theme.assets.icon }}" alt="Logo" class="w-6 h-6 object-contain" />
+      </div>
+      {% else %}
+      <div class="w-10 h-10 bg-admin-dark rounded-xl flex items-center justify-center">
+        <i class="iconoir-signature text-white text-lg"></i>
+      </div>
+      {% endif %}
+      <div class="hidden sm:block">
+        <p class="text-sm font-medium text-gray-900 truncate max-w-[200px]">{{ agreement.title|default:"Document" }}</p>
+        <p class="text-xs text-gray-500">{{ agreement.page_count|default:"1" }} page{% if agreement.page_count != 1 %}s{% endif %}</p>
+      </div>
+    </div>
+
+    <!-- Center: Progress indicator -->
+    <div class="hidden md:flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <svg class="progress-ring w-8 h-8" viewBox="0 0 36 36">
+          <circle class="text-gray-200" stroke="currentColor" stroke-width="3" fill="none" cx="18" cy="18" r="15.5"/>
+          <circle id="progress-ring-circle" class="progress-ring-circle text-blue-600" stroke="currentColor" stroke-width="3" fill="none" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="97.4" stroke-linecap="round"/>
+        </svg>
+        <span class="text-sm text-gray-600">
+          <span id="completed-count" class="font-semibold text-gray-900">0</span>
+          <span class="text-gray-400">/</span>
+          <span id="total-count" class="font-semibold text-gray-900">0</span>
+          <span class="hidden sm:inline">fields</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Right: Signer info and actions -->
+    <div class="flex items-center gap-3">
+      <div class="text-right hidden sm:block">
+        <p class="text-xs text-gray-500">Signing as</p>
+        <p class="text-sm font-medium text-gray-900 truncate max-w-[150px]" title="{{ session.recipient_email }}">
+          {{ session.recipient_name|default:session.recipient_email }}
+        </p>
+      </div>
+      <button
+        type="button"
+        onclick="openLegacyFlow()"
+        class="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
+        title="Switch to classic signing view"
+      >
+        <i class="iconoir-switch-horizontal" aria-hidden="true"></i>
+        <span class="hidden lg:inline ml-1">Classic view</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Main unified container -->
+<div class="unified-container">
+  <!-- Document Viewer Area -->
+  <div class="viewer-area">
+    <!-- Viewer Toolbar -->
+    <div class="viewer-toolbar">
+      <!-- Page navigation -->
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="prevPage()" class="zoom-btn" aria-label="Previous page" id="prev-page-btn" disabled>
+          <i class="iconoir-nav-arrow-left"></i>
+        </button>
+        <span class="text-sm">
+          Page <span id="current-page">1</span> of <span id="page-count">{{ agreement.page_count|default:"1" }}</span>
+        </span>
+        <button type="button" onclick="nextPage()" class="zoom-btn" aria-label="Next page" id="next-page-btn">
+          <i class="iconoir-nav-arrow-right"></i>
+        </button>
+      </div>
+
+      <!-- Zoom controls -->
+      <div class="zoom-control">
+        <button type="button" onclick="zoomOut()" class="zoom-btn" aria-label="Zoom out">
+          <i class="iconoir-minus"></i>
+        </button>
+        <span class="zoom-value" id="zoom-level">100%</span>
+        <button type="button" onclick="zoomIn()" class="zoom-btn" aria-label="Zoom in">
+          <i class="iconoir-plus"></i>
+        </button>
+        <button type="button" onclick="fitToWidth()" class="zoom-btn" aria-label="Fit to width" title="Fit to width">
+          <i class="iconoir-expand"></i>
+        </button>
+      </div>
+
+      <!-- Viewer actions -->
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="downloadDocument()" class="zoom-btn" aria-label="Download document">
+          <i class="iconoir-download"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- PDF Viewer Content -->
+    <div class="viewer-content" id="viewer-content">
+      <div class="pdf-container" id="pdf-container">
+        <div id="pdf-pages">
+          <!-- PDF pages will be rendered here by PDF.js -->
+          <div class="pdf-page" id="pdf-page-1">
+            <!-- Loading placeholder -->
+            <div class="flex items-center justify-center h-[800px] w-[600px] bg-white text-gray-400" id="pdf-loading">
+              <div class="text-center">
+                <i class="iconoir-refresh animate-spin text-2xl mb-2"></i>
+                <p class="text-sm">Loading document...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Field overlays container -->
+        <div id="field-overlays" class="absolute inset-0 pointer-events-none">
+          <!-- Field overlays will be dynamically generated here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Side Panel -->
+  <div class="side-panel">
+    <!-- Panel Header -->
+    <div class="panel-header">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold text-gray-900">Complete & Sign</h2>
+        <span id="fields-status" class="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+          0 remaining
+        </span>
+      </div>
+
+      <!-- Quick progress bar for mobile -->
+      <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden md:hidden">
+        <div id="mobile-progress" class="h-full bg-blue-600 rounded-full transition-all" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Panel Content: Field List -->
+    <div class="panel-content" id="panel-content">
+      <!-- Consent notice if not yet consented -->
+      <div id="consent-notice" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg {% if session.has_consented %}hidden{% endif %}">
+        <div class="flex items-start gap-3">
+          <i class="iconoir-warning-circle text-amber-600 mt-0.5"></i>
+          <div>
+            <p class="text-sm font-medium text-amber-800">Consent Required</p>
+            <p class="text-xs text-amber-700 mt-1">Please review and accept the electronic signature consent before completing fields.</p>
+            <button type="button" onclick="showConsentModal()" class="mt-2 text-sm font-medium text-amber-800 hover:text-amber-900 underline underline-offset-2">
+              Review & Accept
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fields list -->
+      <div id="fields-list" class="space-y-2" role="list" aria-label="Fields to complete" aria-describedby="a11y-status">
+        {% for field in session.fields %}
+        <button
+          type="button"
+          class="field-list-item w-full text-left flex items-center gap-3 {% if field.value_text or field.value_bool %}completed{% endif %}"
+          data-field-id="{{ field.id }}"
+          data-field-type="{{ field.type }}"
+          data-field-required="{{ field.required }}"
+          data-field-page="{{ field.page }}"
+          onclick="activateField('{{ field.id }}')"
+          role="listitem"
+          aria-pressed="false"
+          aria-describedby="field-desc-{{ field.id }}"
+          tabindex="0"
+        >
+          <span id="field-desc-{{ field.id }}" class="sr-only">
+            {% if field.required %}Required{% else %}Optional{% endif %} {{ field.type }} field on page {{ field.page }}.
+            {% if field.value_text or field.value_bool %}Completed.{% else %}Not completed.{% endif %}
+          </span>
+          <!-- Status icon -->
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 {% if field.value_text or field.value_bool %}bg-green-100 text-green-600{% else %}bg-gray-100 text-gray-500{% endif %}">
+            {% if field.value_text or field.value_bool %}
+            <i class="iconoir-check"></i>
+            {% else %}
+            {% if field.type == "signature" %}
+            <i class="iconoir-signature"></i>
+            {% elif field.type == "initials" %}
+            <i class="iconoir-text"></i>
+            {% elif field.type == "name" %}
+            <i class="iconoir-user"></i>
+            {% elif field.type == "date_signed" %}
+            <i class="iconoir-calendar"></i>
+            {% elif field.type == "checkbox" %}
+            <i class="iconoir-check-square"></i>
+            {% else %}
+            <i class="iconoir-edit-pencil"></i>
+            {% endif %}
+            {% endif %}
+          </div>
+
+          <!-- Field info -->
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900">
+              {% if field.type == "signature" %}Signature{% elif field.type == "initials" %}Initials{% elif field.type == "name" %}Full Name{% elif field.type == "date_signed" %}Date{% elif field.type == "checkbox" %}Checkbox{% elif field.type == "text" %}{{ field.label|default:"Text" }}{% else %}{{ field.type|title }}{% endif %}
+              {% if field.required %}<span class="text-red-500">*</span>{% endif %}
+            </p>
+            <p class="text-xs text-gray-500">
+              {% if field.value_text %}
+              <span class="truncate block max-w-[180px]">{{ field.value_text }}</span>
+              {% elif field.value_bool %}
+              Checked
+              {% elif field.type == "date_signed" %}
+              Auto-filled on submit
+              {% else %}
+              Page {{ field.page }}
+              {% endif %}
+            </p>
+          </div>
+
+          <!-- Arrow/edit indicator -->
+          <i class="iconoir-nav-arrow-right text-gray-400 flex-shrink-0" aria-hidden="true"></i>
+        </button>
+        {% empty %}
+        <div class="text-center py-8 text-gray-500">
+          <i class="iconoir-check-circle text-2xl mb-2"></i>
+          <p class="text-sm">No fields to complete</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Panel Footer: Actions -->
+    <div class="panel-footer">
+      <!-- Incomplete fields warning -->
+      <div id="incomplete-warning" class="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg hidden">
+        <p class="text-xs text-amber-800">
+          <i class="iconoir-warning-circle mr-1"></i>
+          <span id="incomplete-message">Complete all required fields to submit</span>
+        </p>
+      </div>
+
+      <!-- Submit button -->
+      <button
+        type="button"
+        id="submit-btn"
+        class="btn btn-primary w-full justify-center py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+        onclick="handleSubmit()"
+        disabled
+        aria-disabled="true"
+        aria-describedby="submit-status"
+      >
+        <i class="iconoir-send mr-2" aria-hidden="true"></i>
+        Submit Signature
+      </button>
+      <span id="submit-status" class="sr-only">Complete all required fields to enable submission.</span>
+
+      <!-- Decline option -->
+      <div class="text-center mt-3">
+        <button
+          type="button"
+          onclick="showDeclineModal()"
+          class="text-sm text-gray-500 hover:text-red-600 underline underline-offset-2"
+        >
+          Decline to sign
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Field Editor Modal -->
+<div id="field-editor-overlay" class="field-editor-overlay" role="dialog" aria-modal="true" aria-labelledby="field-editor-title" aria-hidden="true">
+  <div class="field-editor">
+    <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+      <h3 id="field-editor-title" class="text-lg font-semibold text-gray-900">Edit Field</h3>
+      <button type="button" onclick="closeFieldEditor()" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+        <i class="iconoir-xmark text-xl"></i>
+      </button>
+    </div>
+
+    <div class="p-4" id="field-editor-content">
+      <!-- Content will be dynamically populated based on field type -->
+    </div>
+
+    <div class="p-4 border-t border-gray-100 flex gap-3">
+      <button type="button" onclick="closeFieldEditor()" class="btn btn-secondary flex-1 justify-center">
+        Cancel
+      </button>
+      <button type="button" id="field-editor-save" onclick="saveFieldFromEditor()" class="btn btn-primary flex-1 justify-center">
+        Apply
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Consent Modal -->
+<div id="consent-modal" class="field-editor-overlay" role="dialog" aria-modal="true" aria-labelledby="consent-modal-title" aria-hidden="true">
+  <div class="field-editor">
+    <div class="p-4 border-b border-gray-100">
+      <h3 id="consent-modal-title" class="text-lg font-semibold text-gray-900">Electronic Signature Consent</h3>
+    </div>
+
+    <div class="p-4">
+      <div class="bg-gray-50 rounded-lg p-4 mb-4 text-sm text-gray-700 leading-relaxed">
+        By checking the box below, I agree to use electronic records and signatures for this document.
+        I understand that my electronic signature will have the same legal effect as a handwritten signature.
+        I confirm that I have reviewed the document and agree to its terms.
+      </div>
+
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input type="checkbox" id="consent-checkbox" class="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500" />
+        <span class="text-sm text-gray-700">I have read and agree to the electronic signature consent</span>
+      </label>
+    </div>
+
+    <div class="p-4 border-t border-gray-100 flex gap-3">
+      <button type="button" onclick="hideConsentModal()" class="btn btn-secondary flex-1 justify-center">
+        Cancel
+      </button>
+      <button type="button" id="consent-accept-btn" onclick="acceptConsent()" class="btn btn-primary flex-1 justify-center" disabled>
+        Accept & Continue
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Decline Modal -->
+<div id="decline-modal" class="field-editor-overlay" role="dialog" aria-modal="true" aria-labelledby="decline-modal-title" aria-hidden="true">
+  <div class="field-editor">
+    <div class="p-4 border-b border-gray-100 text-center">
+      <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+        <i class="iconoir-warning-triangle text-red-600 text-2xl"></i>
+      </div>
+      <h3 id="decline-modal-title" class="text-lg font-semibold text-gray-900">Decline to Sign?</h3>
+      <p class="text-sm text-gray-600 mt-1">The sender will be notified and you won't be able to sign this document.</p>
+    </div>
+
+    <div class="p-4">
+      <label class="block text-sm font-medium text-gray-700 mb-2">Reason for declining (optional)</label>
+      <textarea
+        id="decline-reason"
+        rows="3"
+        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm resize-none"
+        placeholder="Let the sender know why..."
+      ></textarea>
+    </div>
+
+    <div class="p-4 border-t border-gray-100 flex gap-3">
+      <button type="button" onclick="hideDeclineModal()" class="btn btn-secondary flex-1 justify-center">
+        Cancel
+      </button>
+      <button type="button" onclick="confirmDecline()" class="btn bg-red-600 hover:bg-red-700 text-white flex-1 justify-center">
+        Decline to Sign
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- PDF.js library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  // Configure PDF.js worker
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+
+<script>
+  // ============================================
+  // Configuration
+  // ============================================
+  const unifiedConfig = {
+    token: '{{ token }}',
+    apiBasePath: '{{ api_base_path|default:"/api/v1/esign/signing" }}',
+    legacyBasePath: '{{ legacy_base_path|default:"/esign/sign" }}',
+    agreementId: '{{ session.agreement_id }}',
+    recipientId: '{{ session.recipient_id }}',
+    documentUrl: '{{ document_url }}',
+    pageCount: parseInt('{{ agreement.page_count|default:"1" }}', 10),
+    hasConsented: {{ session.has_consented|default:"false"|lower }},
+    fields: JSON.parse('{{ session.fields_json|escapejs|default:"[]" }}'),
+    flowMode: '{{ flow_mode|default:"unified" }}',
+    telemetryEnabled: {{ telemetry_enabled|default:"true"|lower }},
+    // Viewer coordinate context for overlay rendering
+    viewer: {
+      coordinateSpace: '{{ viewer.coordinate_space|default:"pdf" }}',
+      contractVersion: '{{ viewer.contract_version|default:"1.0" }}',
+      unit: '{{ viewer.unit|default:"pt" }}',
+      origin: '{{ viewer.origin|default:"top-left" }}',
+      yAxisDirection: '{{ viewer.y_axis_direction|default:"down" }}',
+      pages: JSON.parse('{{ viewer.pages_json|escapejs|default:"[]" }}')
+    }
+  };
+
+  // ============================================
+  // Client Telemetry Module
+  // ============================================
+  const telemetry = {
+    events: [],
+    sessionId: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+    startTime: Date.now(),
+    metrics: {
+      viewerLoadTime: null,
+      fieldSaveLatencies: [],
+      signatureAttachLatencies: [],
+      errorsEncountered: [],
+      pagesViewed: new Set(),
+      fieldsCompleted: 0,
+      consentTime: null,
+      submitTime: null
+    },
+
+    /**
+     * Track a telemetry event
+     * @param {string} eventName - Event name
+     * @param {Object} data - Event data
+     */
+    track(eventName, data = {}) {
+      if (!unifiedConfig.telemetryEnabled) return;
+
+      const event = {
+        event: eventName,
+        timestamp: Date.now(),
+        sessionId: this.sessionId,
+        flowMode: unifiedConfig.flowMode,
+        agreementId: unifiedConfig.agreementId,
+        ...data
+      };
+
+      this.events.push(event);
+
+      // Send immediately for critical events
+      if (this.isCriticalEvent(eventName)) {
+        this.flush();
+      }
+    },
+
+    /**
+     * Check if event is critical and should be sent immediately
+     * @param {string} eventName - Event name
+     * @returns {boolean}
+     */
+    isCriticalEvent(eventName) {
+      const critical = [
+        'viewer_load_failed',
+        'submit_success',
+        'submit_failed',
+        'fallback_triggered',
+        'consent_declined'
+      ];
+      return critical.includes(eventName);
+    },
+
+    /**
+     * Track viewer load completion
+     * @param {boolean} success - Whether load succeeded
+     * @param {number} duration - Load duration in ms
+     * @param {string} error - Error message if failed
+     */
+    trackViewerLoad(success, duration, error = null) {
+      this.metrics.viewerLoadTime = duration;
+      this.track(success ? 'viewer_load_success' : 'viewer_load_failed', {
+        duration,
+        error,
+        pageCount: unifiedConfig.pageCount
+      });
+    },
+
+    /**
+     * Track field save operation
+     * @param {string} fieldId - Field ID
+     * @param {string} fieldType - Field type
+     * @param {boolean} success - Whether save succeeded
+     * @param {number} latency - Operation latency in ms
+     * @param {string} error - Error message if failed
+     */
+    trackFieldSave(fieldId, fieldType, success, latency, error = null) {
+      this.metrics.fieldSaveLatencies.push(latency);
+      if (success) {
+        this.metrics.fieldsCompleted++;
+      } else {
+        this.metrics.errorsEncountered.push({ type: 'field_save', fieldId, error });
+      }
+
+      this.track(success ? 'field_save_success' : 'field_save_failed', {
+        fieldId,
+        fieldType,
+        latency,
+        error
+      });
+    },
+
+    /**
+     * Track signature attachment
+     * @param {string} fieldId - Field ID
+     * @param {string} signatureType - 'typed' or 'drawn'
+     * @param {boolean} success - Whether attach succeeded
+     * @param {number} latency - Operation latency in ms
+     * @param {string} error - Error message if failed
+     */
+    trackSignatureAttach(fieldId, signatureType, success, latency, error = null) {
+      this.metrics.signatureAttachLatencies.push(latency);
+
+      this.track(success ? 'signature_attach_success' : 'signature_attach_failed', {
+        fieldId,
+        signatureType,
+        latency,
+        error
+      });
+    },
+
+    /**
+     * Track consent action
+     * @param {boolean} accepted - Whether consent was accepted
+     */
+    trackConsent(accepted) {
+      this.metrics.consentTime = Date.now() - this.startTime;
+      this.track(accepted ? 'consent_accepted' : 'consent_declined', {
+        timeToConsent: this.metrics.consentTime
+      });
+    },
+
+    /**
+     * Track submission
+     * @param {boolean} success - Whether submit succeeded
+     * @param {string} error - Error message if failed
+     */
+    trackSubmit(success, error = null) {
+      this.metrics.submitTime = Date.now() - this.startTime;
+
+      this.track(success ? 'submit_success' : 'submit_failed', {
+        timeToSubmit: this.metrics.submitTime,
+        fieldsCompleted: this.metrics.fieldsCompleted,
+        totalFields: state.fieldState.size,
+        error
+      });
+    },
+
+    /**
+     * Track page navigation
+     * @param {number} pageNum - Page number viewed
+     */
+    trackPageView(pageNum) {
+      if (!this.metrics.pagesViewed.has(pageNum)) {
+        this.metrics.pagesViewed.add(pageNum);
+        this.track('page_viewed', {
+          pageNum,
+          totalPagesViewed: this.metrics.pagesViewed.size
+        });
+      }
+    },
+
+    /**
+     * Track fallback to legacy flow
+     * @param {string} reason - Reason for fallback
+     */
+    trackFallback(reason) {
+      this.track('fallback_triggered', {
+        reason,
+        timeBeforeFallback: Date.now() - this.startTime,
+        pagesViewed: this.metrics.pagesViewed.size,
+        fieldsCompleted: this.metrics.fieldsCompleted
+      });
+    },
+
+    /**
+     * Track degraded mode
+     * @param {string} degradationType - Type of degradation
+     * @param {Object} details - Additional details
+     */
+    trackDegradedMode(degradationType, details = {}) {
+      this.track('degraded_mode', {
+        degradationType,
+        ...details
+      });
+    },
+
+    /**
+     * Get session summary for debugging
+     * @returns {Object}
+     */
+    getSessionSummary() {
+      return {
+        sessionId: this.sessionId,
+        duration: Date.now() - this.startTime,
+        flowMode: unifiedConfig.flowMode,
+        viewerLoadTime: this.metrics.viewerLoadTime,
+        avgFieldSaveLatency: this.calculateAverage(this.metrics.fieldSaveLatencies),
+        avgSignatureAttachLatency: this.calculateAverage(this.metrics.signatureAttachLatencies),
+        fieldsCompleted: this.metrics.fieldsCompleted,
+        totalFields: state.fieldState?.size || 0,
+        pagesViewed: this.metrics.pagesViewed.size,
+        errorsCount: this.metrics.errorsEncountered.length,
+        consentTime: this.metrics.consentTime,
+        submitTime: this.metrics.submitTime
+      };
+    },
+
+    /**
+     * Calculate average of array
+     * @param {number[]} arr - Array of numbers
+     * @returns {number}
+     */
+    calculateAverage(arr) {
+      if (!arr.length) return 0;
+      return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+    },
+
+    /**
+     * Flush events to backend
+     */
+    async flush() {
+      if (!unifiedConfig.telemetryEnabled || this.events.length === 0) return;
+
+      const eventsToSend = [...this.events];
+      this.events = [];
+
+      try {
+        // Use sendBeacon for reliability during page unload
+        if (navigator.sendBeacon) {
+          const payload = JSON.stringify({
+            events: eventsToSend,
+            summary: this.getSessionSummary()
+          });
+          navigator.sendBeacon(`${unifiedConfig.apiBasePath}/telemetry/${unifiedConfig.token}`, payload);
+        } else {
+          // Fallback to fetch
+          await fetch(`${unifiedConfig.apiBasePath}/telemetry/${unifiedConfig.token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              events: eventsToSend,
+              summary: this.getSessionSummary()
+            }),
+            keepalive: true
+          });
+        }
+      } catch (error) {
+        // Re-add events if send failed
+        this.events = [...eventsToSend, ...this.events];
+        console.warn('Telemetry flush failed:', error);
+      }
+    }
+  };
+
+  // Flush telemetry on page unload
+  window.addEventListener('beforeunload', () => {
+    telemetry.track('session_end', telemetry.getSessionSummary());
+    telemetry.flush();
+  });
+
+  // Periodic flush every 30 seconds
+  setInterval(() => telemetry.flush(), 30000);
+
+  // ============================================
+  // State Management
+  // ============================================
+  const state = {
+    currentPage: 1,
+    zoomLevel: 1.0,
+    pdfDoc: null,
+    pageRendering: false,
+    pageNumPending: null,
+    fieldState: new Map(),
+    activeFieldId: null,
+    hasConsented: unifiedConfig.hasConsented,
+    signatureCanvases: new Map(),
+    pendingSaves: new Set(),
+    // Performance state
+    renderedPages: new Map(), // Map of page number to rendered canvas
+    pageRenderQueue: [],
+    maxCachedPages: 5, // Limit memory usage
+    isLowMemory: false,
+    lastRenderTime: 0,
+    renderDebounceMs: 100
+  };
+
+  // ============================================
+  // Coordinate Transform System (Task 19.FE.2)
+  // ============================================
+  const coordinateTransform = {
+    /**
+     * Device pixel ratio for high-DPI displays
+     */
+    dpr: window.devicePixelRatio || 1,
+
+    /**
+     * Cached page dimensions from PDF.js render
+     */
+    pageViewports: new Map(),
+
+    /**
+     * Get page metadata from viewer config or field data
+     */
+    getPageMetadata(pageNum) {
+      // First check viewer.pages from backend
+      const viewerPage = unifiedConfig.viewer.pages?.find(p => p.page === pageNum);
+      if (viewerPage) {
+        return {
+          width: viewerPage.width,
+          height: viewerPage.height,
+          rotation: viewerPage.rotation || 0
+        };
+      }
+
+      // Fallback to cached PDF.js viewport
+      const viewport = this.pageViewports.get(pageNum);
+      if (viewport) {
+        return {
+          width: viewport.width / state.zoomLevel,
+          height: viewport.height / state.zoomLevel,
+          rotation: viewport.rotation || 0
+        };
+      }
+
+      // Default PDF page dimensions (letter size at 72 DPI)
+      return { width: 612, height: 792, rotation: 0 };
+    },
+
+    /**
+     * Cache PDF.js viewport for page
+     */
+    setPageViewport(pageNum, viewport) {
+      this.pageViewports.set(pageNum, {
+        width: viewport.width,
+        height: viewport.height,
+        rotation: viewport.rotation || 0,
+        scale: viewport.scale
+      });
+    },
+
+    /**
+     * Transform field coordinates from page-space to screen-space
+     * Accounts for zoom level, DPR, container sizing, and origin
+     */
+    pageToScreen(fieldData, containerEl) {
+      const pageNum = fieldData.page;
+      const pageMetadata = this.getPageMetadata(pageNum);
+
+      // Get rendered container dimensions
+      const containerRect = containerEl.getBoundingClientRect();
+      const containerWidth = containerEl.offsetWidth;
+      const containerHeight = containerEl.offsetHeight;
+
+      // Source page dimensions (from backend or PDF)
+      const sourceWidth = fieldData.pageWidth || pageMetadata.width;
+      const sourceHeight = fieldData.pageHeight || pageMetadata.height;
+
+      // Calculate scale factors
+      const scaleX = (containerWidth / sourceWidth) * state.zoomLevel;
+      const scaleY = (containerHeight / sourceHeight) * state.zoomLevel;
+
+      // Handle coordinate origin and Y-axis direction
+      // Backend provides coordinates in PDF space (origin top-left, Y down)
+      let posX = fieldData.posX || 0;
+      let posY = fieldData.posY || 0;
+
+      // Apply Y-axis flip if backend uses bottom-left origin
+      if (unifiedConfig.viewer.origin === 'bottom-left') {
+        posY = sourceHeight - posY - (fieldData.height || 30);
+      }
+
+      // Transform to screen coordinates
+      const screenX = posX * scaleX;
+      const screenY = posY * scaleY;
+      const screenWidth = (fieldData.width || 150) * scaleX;
+      const screenHeight = (fieldData.height || 30) * scaleY;
+
+      // Apply minimum size constraints for touch targets
+      const minSize = 44; // iOS accessibility minimum
+      const finalWidth = Math.max(screenWidth, minSize);
+      const finalHeight = Math.max(screenHeight, minSize);
+
+      // Center adjustment if size was clamped
+      const xAdjust = (finalWidth - screenWidth) / 2;
+      const yAdjust = (finalHeight - screenHeight) / 2;
+
+      return {
+        left: screenX - xAdjust,
+        top: screenY - yAdjust,
+        width: finalWidth,
+        height: finalHeight,
+        // Store original values for debugging
+        _debug: {
+          sourceX: posX,
+          sourceY: posY,
+          sourceWidth: fieldData.width,
+          sourceHeight: fieldData.height,
+          pageWidth: sourceWidth,
+          pageHeight: sourceHeight,
+          scaleX,
+          scaleY,
+          zoom: state.zoomLevel,
+          dpr: this.dpr
+        }
+      };
+    },
+
+    /**
+     * Get CSS transform values for overlay positioning
+     */
+    getOverlayStyles(fieldData, containerEl) {
+      const coords = this.pageToScreen(fieldData, containerEl);
+      return {
+        left: `${Math.round(coords.left)}px`,
+        top: `${Math.round(coords.top)}px`,
+        width: `${Math.round(coords.width)}px`,
+        height: `${Math.round(coords.height)}px`,
+        // Use transform for sub-pixel precision on high-DPI
+        transform: this.dpr > 1 ? 'translateZ(0)' : 'none'
+      };
+    }
+  };
+
+  // ============================================
+  // Signed Upload Contract System (Task 19.FE.1)
+  // ============================================
+  const signatureUploader = {
+    /**
+     * Request signed upload bootstrap from backend
+     */
+    async requestUploadBootstrap(fieldId, sha256, contentType, sizeBytes) {
+      const response = await fetch(
+        `${unifiedConfig.apiBasePath}/signature-upload/${unifiedConfig.token}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            field_id: fieldId,
+            sha256: sha256,
+            content_type: contentType,
+            size_bytes: sizeBytes
+          })
+        }
+      );
+
+      if (!response.ok) {
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch (err) {
+          errorData = null;
+        }
+        throw new Error(errorData?.error?.message || 'Failed to get upload contract');
+      }
+
+      const responseData = await response.json();
+      const contract = responseData?.contract || responseData;
+      if (!contract || typeof contract !== 'object' || !contract.upload_url) {
+        throw new Error('Invalid upload contract response');
+      }
+      return contract;
+    },
+
+    /**
+     * Upload binary data to signed URL
+     */
+    async uploadToSignedUrl(uploadContract, binaryData) {
+      const headers = {
+        'Content-Type': uploadContract.content_type || 'image/png'
+      };
+
+      // Add any extra headers from the upload contract
+      if (uploadContract.headers) {
+        Object.entries(uploadContract.headers).forEach(([key, value]) => {
+          headers[key] = String(value);
+        });
+      }
+
+      const response = await fetch(uploadContract.upload_url, {
+        method: uploadContract.method || 'PUT',
+        headers,
+        body: binaryData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
+
+      return true;
+    },
+
+    /**
+     * Convert canvas data URL to binary blob
+     */
+    dataUrlToBlob(dataUrl) {
+      const [header, base64Data] = dataUrl.split(',');
+      const mimeMatch = header.match(/data:([^;]+)/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      return new Blob([bytes], { type: mimeType });
+    },
+
+    /**
+     * Full drawn signature upload flow with signed URL
+     */
+    async uploadDrawnSignature(fieldId, canvasDataUrl) {
+      // Convert to blob for size calculation
+      const blob = this.dataUrlToBlob(canvasDataUrl);
+      const sizeBytes = blob.size;
+      const contentType = blob.type || 'image/png';
+
+      // Calculate SHA256 of binary content
+      const sha256 = await sha256Bytes(blob);
+
+      // Request upload bootstrap contract
+      const uploadContract = await this.requestUploadBootstrap(
+        fieldId,
+        sha256,
+        contentType,
+        sizeBytes
+      );
+
+      // Upload to signed URL
+      await this.uploadToSignedUrl(uploadContract, blob);
+
+      // Return contract data for attach call
+      return {
+        uploadToken: uploadContract.upload_token,
+        objectKey: uploadContract.object_key,
+        sha256: uploadContract.sha256,
+        contentType: uploadContract.content_type
+      };
+    }
+  };
+
+  /**
+   * SHA256 of binary blob
+   */
+  async function sha256Bytes(blob) {
+    if (window.crypto && window.crypto.subtle) {
+      const buffer = await blob.arrayBuffer();
+      const digest = await window.crypto.subtle.digest('SHA-256', buffer);
+      return Array.from(new Uint8Array(digest))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+    // Fallback (should not happen in modern browsers)
+    return crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Date.now().toString(16);
+  }
+
+  // ============================================
+  // Initialization
+  // ============================================
+  document.addEventListener('DOMContentLoaded', async function() {
+    // Detect device capabilities for performance optimization
+    state.isLowMemory = detectLowMemoryDevice();
+
+    initializeFieldState();
+    initializeConsentCheckbox();
+    updateProgress();
+    updateSubmitButton();
+
+    // Load PDF document
+    await loadPdfDocument();
+
+    // Render field overlays
+    renderFieldOverlays();
+
+    // Set up visibility change handler for memory management
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Set up memory pressure handling (if supported)
+    if ('memory' in navigator) {
+      monitorMemoryPressure();
+    }
+
+    // Initialize debug mode if enabled
+    debugMode.init();
+  });
+
+  /**
+   * Handle page visibility changes for memory management
+   */
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      // Page is hidden, reduce memory usage
+      reduceCacheSize();
+    }
+  }
+
+  /**
+   * Reduce cache size when memory pressure is detected
+   */
+  function reduceCacheSize() {
+    const targetSize = state.isLowMemory ? 1 : 2;
+
+    while (state.renderedPages.size > targetSize) {
+      // Find oldest cached page that isn't the current page
+      let oldest = null;
+      let oldestTime = Infinity;
+
+      state.renderedPages.forEach((value, pageNum) => {
+        if (pageNum !== state.currentPage && value.timestamp < oldestTime) {
+          oldest = pageNum;
+          oldestTime = value.timestamp;
+        }
+      });
+
+      if (oldest !== null) {
+        state.renderedPages.delete(oldest);
+      } else {
+        break;
+      }
+    }
+  }
+
+  /**
+   * Monitor memory pressure and adjust caching behavior
+   */
+  function monitorMemoryPressure() {
+    // Check periodically if we're using too much memory
+    setInterval(() => {
+      if (navigator.memory) {
+        const usedJSHeap = navigator.memory.usedJSHeapSize;
+        const totalJSHeap = navigator.memory.totalJSHeapSize;
+        const usage = usedJSHeap / totalJSHeap;
+
+        if (usage > 0.8) {
+          // High memory usage, reduce cache
+          state.isLowMemory = true;
+          reduceCacheSize();
+        }
+      }
+    }, 30000); // Check every 30 seconds
+  }
+
+  function initializeFieldState() {
+    unifiedConfig.fields.forEach(field => {
+      let value = null;
+      let completed = false;
+
+      if (field.type === 'checkbox') {
+        value = field.value_bool || false;
+        completed = value;
+      } else if (field.type === 'date_signed') {
+        value = new Date().toISOString().split('T')[0];
+        completed = true; // Auto-filled
+      } else {
+        value = field.value_text || '';
+        completed = Boolean(value);
+      }
+
+      state.fieldState.set(field.id, {
+        id: field.id,
+        type: field.type,
+        page: field.page || 1,
+        required: field.required,
+        value: value,
+        completed: completed,
+        hasError: false,
+        lastError: null,
+        // Geometry metadata (will be populated from backend in Phase 18.BE.3)
+        posX: field.pos_x || 0,
+        posY: field.pos_y || 0,
+        width: field.width || 150,
+        height: field.height || 30
+      });
+    });
+  }
+
+  function initializeConsentCheckbox() {
+    const checkbox = document.getElementById('consent-checkbox');
+    const acceptBtn = document.getElementById('consent-accept-btn');
+
+    if (checkbox && acceptBtn) {
+      checkbox.addEventListener('change', function() {
+        acceptBtn.disabled = !this.checked;
+      });
+    }
+  }
+
+  // ============================================
+  // Performance Optimization Helpers
+  // ============================================
+
+  /**
+   * Check if device has limited memory
+   * @returns {boolean}
+   */
+  function detectLowMemoryDevice() {
+    // Check navigator.deviceMemory if available (Chrome/Edge)
+    if (navigator.deviceMemory && navigator.deviceMemory < 4) {
+      return true;
+    }
+
+    // Heuristic: mobile devices are more likely memory-constrained
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Manage page cache - evict old pages when over limit
+   */
+  function managePagesCache() {
+    const maxPages = state.isLowMemory ? 3 : state.maxCachedPages;
+
+    if (state.renderedPages.size <= maxPages) return;
+
+    // Find pages to evict (furthest from current page)
+    const pagesToEvict = [];
+    state.renderedPages.forEach((_, pageNum) => {
+      const distance = Math.abs(pageNum - state.currentPage);
+      pagesToEvict.push({ pageNum, distance });
+    });
+
+    // Sort by distance descending, evict furthest pages
+    pagesToEvict.sort((a, b) => b.distance - a.distance);
+
+    while (state.renderedPages.size > maxPages && pagesToEvict.length > 0) {
+      const toEvict = pagesToEvict.shift();
+      if (toEvict && toEvict.pageNum !== state.currentPage) {
+        state.renderedPages.delete(toEvict.pageNum);
+      }
+    }
+  }
+
+  /**
+   * Debounced render to prevent excessive renders during rapid navigation
+   * @param {number} pageNum - Page number to render
+   */
+  function debouncedRenderPage(pageNum) {
+    const now = Date.now();
+    if (now - state.lastRenderTime < state.renderDebounceMs) {
+      // Queue the render
+      state.pageNumPending = pageNum;
+      setTimeout(() => {
+        if (state.pageNumPending === pageNum) {
+          renderPage(pageNum);
+        }
+      }, state.renderDebounceMs);
+      return;
+    }
+
+    state.lastRenderTime = now;
+    renderPage(pageNum);
+  }
+
+  /**
+   * Preload adjacent pages for smoother navigation
+   * @param {number} currentPage - Current page number
+   */
+  function preloadAdjacentPages(currentPage) {
+    if (state.isLowMemory) return; // Skip preloading on low-memory devices
+
+    const pagesToPreload = [];
+
+    if (currentPage > 1) {
+      pagesToPreload.push(currentPage - 1);
+    }
+    if (currentPage < unifiedConfig.pageCount) {
+      pagesToPreload.push(currentPage + 1);
+    }
+
+    // Preload asynchronously in idle time
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => {
+        pagesToPreload.forEach(async (pageNum) => {
+          if (!state.renderedPages.has(pageNum) && !state.pageRendering) {
+            await preloadPage(pageNum);
+          }
+        });
+      }, { timeout: 2000 });
+    }
+  }
+
+  /**
+   * Preload a page without displaying it
+   * @param {number} pageNum - Page number to preload
+   */
+  async function preloadPage(pageNum) {
+    if (!state.pdfDoc || state.renderedPages.has(pageNum)) return;
+
+    try {
+      const page = await state.pdfDoc.getPage(pageNum);
+      const scale = state.zoomLevel;
+      const viewport = page.getViewport({ scale: scale * window.devicePixelRatio });
+
+      const offscreenCanvas = document.createElement('canvas');
+      const ctx = offscreenCanvas.getContext('2d');
+
+      offscreenCanvas.width = viewport.width;
+      offscreenCanvas.height = viewport.height;
+
+      const renderContext = {
+        canvasContext: ctx,
+        viewport: viewport
+      };
+
+      await page.render(renderContext).promise;
+
+      state.renderedPages.set(pageNum, {
+        canvas: offscreenCanvas,
+        scale: scale,
+        timestamp: Date.now()
+      });
+
+      managePagesCache();
+    } catch (error) {
+      console.warn('Preload failed for page', pageNum, error);
+    }
+  }
+
+  /**
+   * Get render quality based on device capabilities
+   * @returns {number} - Scale factor for rendering
+   */
+  function getRenderQuality() {
+    const dpr = window.devicePixelRatio || 1;
+
+    // Limit DPR on low-memory devices
+    if (state.isLowMemory) {
+      return Math.min(dpr, 1.5);
+    }
+
+    // Cap at 2x for performance
+    return Math.min(dpr, 2);
+  }
+
+  // ============================================
+  // PDF Loading and Rendering
+  // ============================================
+  async function loadPdfDocument() {
+    const loadingEl = document.getElementById('pdf-loading');
+    const loadStartTime = Date.now();
+
+    try {
+      // Fetch document URL from assets endpoint
+      const assetsResponse = await fetch(`${unifiedConfig.apiBasePath}/assets/${unifiedConfig.token}`);
+      if (!assetsResponse.ok) {
+        throw new Error('Failed to load document');
+      }
+
+      const assetsData = await assetsResponse.json();
+      const assets = assetsData.assets || {};
+
+      // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
+      const documentUrl = assets.source_url || assets.executed_url || assets.certificate_url || unifiedConfig.documentUrl;
+
+      if (!documentUrl) {
+        throw new Error('Document preview is not available yet. The document may still be processing.');
+      }
+
+      // Load PDF with PDF.js
+      const loadingTask = pdfjsLib.getDocument(documentUrl);
+      state.pdfDoc = await loadingTask.promise;
+
+      // Update page count
+      unifiedConfig.pageCount = state.pdfDoc.numPages;
+      document.getElementById('page-count').textContent = state.pdfDoc.numPages;
+
+      // Render first page
+      await renderPage(1);
+
+      // Update navigation buttons
+      updatePageNavigation();
+
+      // Track successful load
+      telemetry.trackViewerLoad(true, Date.now() - loadStartTime);
+      telemetry.trackPageView(1);
+
+    } catch (error) {
+      console.error('PDF load error:', error);
+
+      // Track failed load
+      telemetry.trackViewerLoad(false, Date.now() - loadStartTime, error.message);
+
+      if (loadingEl) {
+        loadingEl.innerHTML = `
+          <div class="text-center text-red-500">
+            <i class="iconoir-warning-circle text-2xl mb-2"></i>
+            <p class="text-sm">Failed to load document</p>
+            <button onclick="loadPdfDocument()" class="mt-2 text-blue-600 hover:underline text-sm">Retry</button>
+          </div>
+        `;
+      }
+
+      // Offer fallback to legacy flow
+      showFallbackOption();
+    }
+  }
+
+  async function renderPage(pageNum) {
+    if (!state.pdfDoc) return;
+
+    // Check for cached render first
+    const cached = state.renderedPages.get(pageNum);
+    if (cached && cached.scale === state.zoomLevel) {
+      displayCachedPage(cached, pageNum);
+      state.currentPage = pageNum;
+      document.getElementById('current-page').textContent = pageNum;
+      renderFieldOverlays();
+      preloadAdjacentPages(pageNum);
+      return;
+    }
+
+    state.pageRendering = true;
+
+    try {
+      const page = await state.pdfDoc.getPage(pageNum);
+      const scale = state.zoomLevel;
+      const renderQuality = getRenderQuality();
+      const viewport = page.getViewport({ scale: scale * renderQuality });
+
+      // Cache viewport for coordinate transforms (Task 19.FE.2)
+      coordinateTransform.setPageViewport(pageNum, {
+        width: viewport.width / scale,
+        height: viewport.height / scale,
+        rotation: viewport.rotation || 0,
+        scale: scale
+      });
+
+      const container = document.getElementById('pdf-page-1');
+      container.innerHTML = '';
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      canvas.style.width = `${viewport.width / renderQuality}px`;
+      canvas.style.height = `${viewport.height / renderQuality}px`;
+
+      container.appendChild(canvas);
+
+      // Update container size for overlays
+      const pdfContainer = document.getElementById('pdf-container');
+      pdfContainer.style.width = `${viewport.width / renderQuality}px`;
+
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport
+      };
+
+      await page.render(renderContext).promise;
+
+      // Cache the rendered page
+      state.renderedPages.set(pageNum, {
+        canvas: canvas.cloneNode(true),
+        scale: scale,
+        timestamp: Date.now(),
+        displayWidth: viewport.width / renderQuality,
+        displayHeight: viewport.height / renderQuality
+      });
+
+      // Copy rendered content to cloned canvas for cache
+      const clonedCtx = state.renderedPages.get(pageNum).canvas.getContext('2d');
+      clonedCtx.drawImage(canvas, 0, 0);
+
+      managePagesCache();
+
+      state.currentPage = pageNum;
+      document.getElementById('current-page').textContent = pageNum;
+
+      // Re-render overlays for current page
+      renderFieldOverlays();
+
+      // Track page view
+      telemetry.trackPageView(pageNum);
+
+      // Preload adjacent pages in background
+      preloadAdjacentPages(pageNum);
+
+    } catch (error) {
+      console.error('Page render error:', error);
+    } finally {
+      state.pageRendering = false;
+
+      if (state.pageNumPending !== null) {
+        const pending = state.pageNumPending;
+        state.pageNumPending = null;
+        await renderPage(pending);
+      }
+    }
+  }
+
+  /**
+   * Display a cached page without re-rendering
+   * @param {Object} cached - Cached page data
+   * @param {number} pageNum - Page number
+   */
+  function displayCachedPage(cached, pageNum) {
+    const container = document.getElementById('pdf-page-1');
+    container.innerHTML = '';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = cached.canvas.width;
+    canvas.height = cached.canvas.height;
+    canvas.style.width = `${cached.displayWidth}px`;
+    canvas.style.height = `${cached.displayHeight}px`;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(cached.canvas, 0, 0);
+
+    container.appendChild(canvas);
+
+    // Update container size
+    const pdfContainer = document.getElementById('pdf-container');
+    pdfContainer.style.width = `${cached.displayWidth}px`;
+  }
+
+  function queueRenderPage(num) {
+    if (state.pageRendering) {
+      state.pageNumPending = num;
+    } else {
+      renderPage(num);
+    }
+  }
+
+  // ============================================
+  // Field Overlays
+  // ============================================
+  function renderFieldOverlays() {
+    const overlaysContainer = document.getElementById('field-overlays');
+    overlaysContainer.innerHTML = '';
+    overlaysContainer.style.pointerEvents = 'auto';
+
+    // Get PDF container for coordinate transforms
+    const pdfContainer = document.getElementById('pdf-container');
+
+    state.fieldState.forEach((fieldData, fieldId) => {
+      // Only show overlays for current page
+      if (fieldData.page !== state.currentPage) return;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'field-overlay';
+      overlay.dataset.fieldId = fieldId;
+
+      if (fieldData.required) {
+        overlay.classList.add('required');
+      }
+      if (fieldData.completed) {
+        overlay.classList.add('completed');
+      }
+      if (state.activeFieldId === fieldId) {
+        overlay.classList.add('active');
+      }
+
+      // Use coordinate transform system for precise positioning (Task 19.FE.2)
+      // Check if we have valid geometry data from backend
+      const hasGeometry = fieldData.posX != null && fieldData.posY != null &&
+                          fieldData.width != null && fieldData.height != null;
+
+      if (hasGeometry) {
+        // Use canonical coordinate transform for precise overlay placement
+        const styles = coordinateTransform.getOverlayStyles(fieldData, pdfContainer);
+        overlay.style.left = styles.left;
+        overlay.style.top = styles.top;
+        overlay.style.width = styles.width;
+        overlay.style.height = styles.height;
+        overlay.style.transform = styles.transform;
+
+        // Store debug info on element for debugging
+        if (debugMode.enabled) {
+          overlay.dataset.debugCoords = JSON.stringify(
+            coordinateTransform.pageToScreen(fieldData, pdfContainer)._debug
+          );
+        }
+      } else {
+        // Fallback: stack fields vertically when geometry is missing
+        const fieldIndex = Array.from(state.fieldState.keys()).indexOf(fieldId);
+        overlay.style.left = '10px';
+        overlay.style.top = `${100 + (fieldIndex * 50)}px`;
+        overlay.style.width = '150px';
+        overlay.style.height = '30px';
+      }
+
+      // Label inside overlay
+      const label = document.createElement('span');
+      label.className = 'field-overlay-label';
+      label.textContent = getFieldTypeLabel(fieldData.type);
+      overlay.appendChild(label);
+
+      // Accessibility: keyboard focusable
+      overlay.setAttribute('tabindex', '0');
+      overlay.setAttribute('role', 'button');
+      overlay.setAttribute('aria-label', `${getFieldTypeLabel(fieldData.type)} field${fieldData.required ? ', required' : ''}${fieldData.completed ? ', completed' : ''}`);
+
+      // Click and keyboard handlers
+      overlay.addEventListener('click', () => activateField(fieldId));
+      overlay.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activateField(fieldId);
+        }
+      });
+
+      overlaysContainer.appendChild(overlay);
+    });
+  }
+
+  function getFieldTypeLabel(type) {
+    const labels = {
+      'signature': 'Sign',
+      'initials': 'Initial',
+      'name': 'Name',
+      'date_signed': 'Date',
+      'text': 'Text',
+      'checkbox': 'Check'
+    };
+    return labels[type] || type;
+  }
+
+  // ============================================
+  // Page Navigation
+  // ============================================
+  function prevPage() {
+    if (state.currentPage <= 1) return;
+    queueRenderPage(state.currentPage - 1);
+    updatePageNavigation();
+  }
+
+  function nextPage() {
+    if (state.currentPage >= unifiedConfig.pageCount) return;
+    queueRenderPage(state.currentPage + 1);
+    updatePageNavigation();
+  }
+
+  function goToPage(pageNum) {
+    if (pageNum < 1 || pageNum > unifiedConfig.pageCount) return;
+    queueRenderPage(pageNum);
+    updatePageNavigation();
+  }
+
+  function updatePageNavigation() {
+    document.getElementById('prev-page-btn').disabled = state.currentPage <= 1;
+    document.getElementById('next-page-btn').disabled = state.currentPage >= unifiedConfig.pageCount;
+  }
+
+  // ============================================
+  // Zoom Controls
+  // ============================================
+  function zoomIn() {
+    state.zoomLevel = Math.min(state.zoomLevel + 0.25, 3.0);
+    updateZoomDisplay();
+    queueRenderPage(state.currentPage);
+  }
+
+  function zoomOut() {
+    state.zoomLevel = Math.max(state.zoomLevel - 0.25, 0.5);
+    updateZoomDisplay();
+    queueRenderPage(state.currentPage);
+  }
+
+  function fitToWidth() {
+    const viewerContent = document.getElementById('viewer-content');
+    const containerWidth = viewerContent.offsetWidth - 32; // Account for padding
+
+    // Estimate page width (default 612pt = 8.5in at 72dpi)
+    const pageWidth = 612;
+    state.zoomLevel = containerWidth / pageWidth;
+
+    updateZoomDisplay();
+    queueRenderPage(state.currentPage);
+  }
+
+  function updateZoomDisplay() {
+    document.getElementById('zoom-level').textContent = `${Math.round(state.zoomLevel * 100)}%`;
+  }
+
+  // ============================================
+  // Field Activation and Editor
+  // ============================================
+  function activateField(fieldId) {
+    // Check consent first
+    if (!state.hasConsented && unifiedConfig.fields.some(f => f.id === fieldId && f.type !== 'date_signed')) {
+      showConsentModal();
+      return;
+    }
+
+    state.activeFieldId = fieldId;
+    const fieldData = state.fieldState.get(fieldId);
+
+    // Update UI
+    document.querySelectorAll('.field-list-item').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.field-list-item[data-field-id="${fieldId}"]`)?.classList.add('active');
+
+    // Update overlays
+    document.querySelectorAll('.field-overlay').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.field-overlay[data-field-id="${fieldId}"]`)?.classList.add('active');
+
+    // Navigate to field's page if needed
+    if (fieldData.page !== state.currentPage) {
+      goToPage(fieldData.page);
+    }
+
+    // Open field editor (except for date_signed which is auto-filled)
+    if (fieldData.type !== 'date_signed') {
+      openFieldEditor(fieldId);
+    }
+  }
+
+  function openFieldEditor(fieldId) {
+    const fieldData = state.fieldState.get(fieldId);
+    if (!fieldData) return;
+
+    const editorOverlay = document.getElementById('field-editor-overlay');
+    const editorContent = document.getElementById('field-editor-content');
+    const editorTitle = document.getElementById('field-editor-title');
+
+    editorTitle.textContent = getFieldEditorTitle(fieldData.type);
+    editorContent.innerHTML = getFieldEditorContent(fieldData);
+
+    // Initialize signature canvas if needed
+    if (fieldData.type === 'signature' || fieldData.type === 'initials') {
+      initializeSignatureEditor(fieldId);
+    }
+
+    // Show editor with accessibility support
+    editorOverlay.classList.add('active');
+    editorOverlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    // Trap focus in modal
+    trapFocusInModal(editorOverlay.querySelector('.field-editor'));
+
+    // Announce to screen readers
+    announceToScreenReader(`Editing ${getFieldEditorTitle(fieldData.type)}. Press Escape to cancel.`);
+
+    // Focus first input
+    setTimeout(() => {
+      const firstInput = editorContent.querySelector('input, textarea');
+      if (firstInput) firstInput.focus();
+    }, 100);
+  }
+
+  function getFieldEditorTitle(type) {
+    const titles = {
+      'signature': 'Add Your Signature',
+      'initials': 'Add Your Initials',
+      'name': 'Enter Your Name',
+      'text': 'Enter Text',
+      'checkbox': 'Confirmation'
+    };
+    return titles[type] || 'Edit Field';
+  }
+
+  function getFieldEditorContent(fieldData) {
+    if (fieldData.type === 'signature' || fieldData.type === 'initials') {
+      const labelText = fieldData.type === 'initials' ? 'initials' : 'signature';
+      const canDraw = fieldData.type === 'signature';
+      return `
+        <div class="space-y-4">
+          ${canDraw ? `
+          <!-- Type/Draw tabs -->
+          <div class="flex border-b border-gray-200" role="tablist">
+            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600" data-tab="type" onclick="switchSignatureTab('type', '${fieldData.id}')">
+              Type
+            </button>
+            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="draw" onclick="switchSignatureTab('draw', '${fieldData.id}')">
+              Draw
+            </button>
+          </div>
+          ` : ''}
+
+          <!-- Type panel -->
+          <div id="sig-editor-type" class="sig-editor-panel">
+            <input
+              type="text"
+              id="sig-type-input"
+              class="w-full text-2xl font-signature text-center py-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Type your ${labelText}"
+              value="${fieldData.value || ''}"
+              data-field-id="${fieldData.id}"
+            />
+            <p class="text-xs text-gray-500 mt-2 text-center">Your typed ${labelText} will appear as your ${fieldData.type}</p>
+          </div>
+
+          ${canDraw ? `
+          <!-- Draw panel -->
+          <div id="sig-editor-draw" class="sig-editor-panel hidden">
+            <div class="signature-canvas-container">
+              <canvas id="sig-draw-canvas" class="signature-canvas" data-field-id="${fieldData.id}"></canvas>
+              <button type="button" onclick="clearSignatureCanvas('${fieldData.id}')" class="absolute bottom-2 right-2 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                <i class="iconoir-refresh"></i> Clear
+              </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2 text-center">Draw your ${labelText} using mouse or touch</p>
+          </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    if (fieldData.type === 'name') {
+      return `
+        <input
+          type="text"
+          id="field-text-input"
+          class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter your full legal name"
+          value="${fieldData.value || ''}"
+          data-field-id="${fieldData.id}"
+        />
+      `;
+    }
+
+    if (fieldData.type === 'text') {
+      return `
+        <textarea
+          id="field-text-input"
+          class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          placeholder="Enter text"
+          rows="3"
+          data-field-id="${fieldData.id}"
+        >${fieldData.value || ''}</textarea>
+      `;
+    }
+
+    if (fieldData.type === 'checkbox') {
+      return `
+        <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+          <input
+            type="checkbox"
+            id="field-checkbox-input"
+            class="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+            ${fieldData.value ? 'checked' : ''}
+            data-field-id="${fieldData.id}"
+          />
+          <span class="text-gray-700">I agree to the terms and conditions</span>
+        </label>
+      `;
+    }
+
+    return '<p class="text-gray-500">Unsupported field type</p>';
+  }
+
+  function switchSignatureTab(tab, fieldId) {
+    // Update tab buttons
+    document.querySelectorAll('.sig-editor-tab').forEach(btn => {
+      btn.classList.remove('border-blue-600', 'text-blue-600');
+      btn.classList.add('border-transparent', 'text-gray-500');
+    });
+    const selectedTab = document.querySelector(`.sig-editor-tab[data-tab="${tab}"]`);
+    selectedTab?.classList.add('border-blue-600', 'text-blue-600');
+    selectedTab?.classList.remove('border-transparent', 'text-gray-500');
+
+    // Update panels
+    document.getElementById('sig-editor-type')?.classList.toggle('hidden', tab !== 'type');
+    document.getElementById('sig-editor-draw')?.classList.toggle('hidden', tab !== 'draw');
+
+    // Initialize canvas if switching to draw
+    if (tab === 'draw' && selectedTab) {
+      requestAnimationFrame(() => initializeSignatureCanvas(fieldId));
+    }
+  }
+
+  function initializeSignatureEditor(fieldId) {
+    // Will initialize canvas when draw tab is selected
+  }
+
+  function initializeSignatureCanvas(fieldId) {
+    const canvas = document.getElementById('sig-draw-canvas');
+    if (!canvas || state.signatureCanvases.has(fieldId)) return;
+
+    const container = canvas.closest('.signature-canvas-container');
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+
+    // Use device pixel ratio for crisp drawing
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#1f2937';
+
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    let drawingPath = []; // Track path for velocity-based stroke width
+
+    const getPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      let clientX, clientY;
+
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top,
+        timestamp: Date.now()
+      };
+    };
+
+    const startDrawing = (e) => {
+      isDrawing = true;
+      const pos = getPos(e);
+      lastX = pos.x;
+      lastY = pos.y;
+      drawingPath = [{ x: pos.x, y: pos.y, t: pos.timestamp }];
+
+      // Visual feedback
+      if (container) {
+        container.classList.add('drawing');
+      }
+    };
+
+    const draw = (e) => {
+      if (!isDrawing) return;
+
+      const pos = getPos(e);
+      drawingPath.push({ x: pos.x, y: pos.y, t: pos.timestamp });
+
+      // Calculate velocity for variable stroke width
+      const dx = pos.x - lastX;
+      const dy = pos.y - lastY;
+      const dt = pos.timestamp - (drawingPath[drawingPath.length - 2]?.t || pos.timestamp);
+      const velocity = Math.sqrt(dx * dx + dy * dy) / Math.max(dt, 1);
+
+      // Adjust line width based on velocity (faster = thinner)
+      const baseWidth = 2.5;
+      const minWidth = 1.5;
+      const maxWidth = 4;
+      const velocityFactor = Math.min(velocity / 5, 1);
+      ctx.lineWidth = Math.max(minWidth, Math.min(maxWidth, baseWidth - velocityFactor * 1.5));
+
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+
+      lastX = pos.x;
+      lastY = pos.y;
+    };
+
+    const stopDrawing = () => {
+      isDrawing = false;
+      drawingPath = [];
+
+      // Remove visual feedback
+      if (container) {
+        container.classList.remove('drawing');
+      }
+    };
+
+    // Mouse events
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+
+    // Touch events with proper prevention
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startDrawing(e);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      draw(e);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      stopDrawing();
+    }, { passive: false });
+
+    canvas.addEventListener('touchcancel', stopDrawing);
+
+    // Prevent scroll/zoom while drawing
+    canvas.addEventListener('gesturestart', (e) => e.preventDefault());
+    canvas.addEventListener('gesturechange', (e) => e.preventDefault());
+    canvas.addEventListener('gestureend', (e) => e.preventDefault());
+
+    state.signatureCanvases.set(fieldId, { canvas, ctx, dpr });
+  }
+
+  function clearSignatureCanvas(fieldId) {
+    const canvasData = state.signatureCanvases.get(fieldId);
+    if (canvasData) {
+      const { canvas, ctx } = canvasData;
+      ctx.clearRect(0, 0, canvas.width / 2, canvas.height / 2);
+    }
+  }
+
+  function closeFieldEditor() {
+    const editorOverlay = document.getElementById('field-editor-overlay');
+    const fieldEditor = editorOverlay.querySelector('.field-editor');
+
+    // Release focus trap before hiding
+    releaseFocusTrap(fieldEditor);
+
+    editorOverlay.classList.remove('active');
+    editorOverlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+
+    // Restore focus to the active field button
+    if (state.activeFieldId) {
+      const fieldButton = document.querySelector(`.field-list-item[data-field-id="${state.activeFieldId}"]`);
+      requestAnimationFrame(() => {
+        fieldButton?.focus();
+      });
+    }
+
+    state.activeFieldId = null;
+
+    // Clean up canvas reference
+    state.signatureCanvases.clear();
+
+    // Announce to screen readers
+    announceToScreenReader('Field editor closed.');
+  }
+
+  // ============================================
+  // Field Saving
+  // ============================================
+  async function saveFieldFromEditor() {
+    const fieldId = state.activeFieldId;
+    if (!fieldId) return;
+
+    const fieldData = state.fieldState.get(fieldId);
+    if (!fieldData) return;
+
+    const saveBtn = document.getElementById('field-editor-save');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Saving...';
+
+    try {
+      let success = false;
+
+      if (fieldData.type === 'signature' || fieldData.type === 'initials') {
+        success = await saveSignatureField(fieldId);
+      } else if (fieldData.type === 'checkbox') {
+        const checkbox = document.getElementById('field-checkbox-input');
+        success = await saveFieldValue(fieldId, null, checkbox?.checked || false);
+      } else {
+        const input = document.getElementById('field-text-input') || document.getElementById('sig-type-input');
+        const value = input?.value?.trim() || '';
+
+        if (!value && fieldData.required) {
+          throw new Error('This field is required');
+        }
+
+        success = await saveFieldValue(fieldId, value, null);
+      }
+
+      if (success) {
+        closeFieldEditor();
+        updateProgress();
+        updateSubmitButton();
+        updateA11yFieldProgress();
+        renderFieldOverlays();
+        updateFieldListItem(fieldId);
+        moveToNextIncomplete();
+
+        // Announce progress to screen readers
+        const progress = calculateA11yProgress();
+        if (progress.allRequiredComplete) {
+          announceToScreenReader('Field saved. All required fields complete. Ready to submit.');
+        } else {
+          announceToScreenReader(`Field saved. ${progress.remainingRequired} required field${progress.remainingRequired > 1 ? 's' : ''} remaining.`);
+        }
+      }
+    } catch (error) {
+      if (window.toastManager) {
+        window.toastManager.error(error.message);
+      }
+
+      // Announce error to screen readers
+      announceToScreenReader(`Error saving field: ${error.message}`, 'assertive');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = 'Apply';
+    }
+  }
+
+  async function saveSignatureField(fieldId) {
+    const fieldData = state.fieldState.get(fieldId);
+    const typeInput = document.getElementById('sig-type-input');
+    const drawPanel = document.getElementById('sig-editor-draw');
+
+    const isDrawMode = fieldData?.type === 'signature' && drawPanel && !drawPanel.classList.contains('hidden');
+
+    if (isDrawMode) {
+      const canvasData = state.signatureCanvases.get(fieldId);
+      if (!canvasData) return false;
+
+      const { canvas, ctx } = canvasData;
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const hasContent = imageData.data.some((val, i) => i % 4 === 3 && val > 0);
+
+      if (!hasContent) {
+        throw new Error('Please draw your signature');
+      }
+
+      const dataUrl = canvas.toDataURL('image/png');
+      return await saveSignatureArtifact(fieldId, { type: 'drawn', dataUrl }, '[Drawn]');
+    } else {
+      const value = typeInput?.value?.trim();
+      if (!value) {
+        throw new Error('Please type your signature');
+      }
+
+      if (fieldData.type === 'initials') {
+        return await saveFieldValue(fieldId, value, null);
+      }
+
+      return await saveSignatureArtifact(fieldId, { type: 'typed', text: value }, value);
+    }
+  }
+
+  async function saveFieldValue(fieldId, valueText, valueBool) {
+    state.pendingSaves.add(fieldId);
+    const saveStartTime = Date.now();
+    const fieldData = state.fieldState.get(fieldId);
+
+    try {
+      const response = await fetch(`${unifiedConfig.apiBasePath}/field-values/${unifiedConfig.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          field_id: fieldId,
+          value_text: valueText,
+          value_bool: valueBool
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to save field');
+      }
+
+      // Update local state
+      const fieldData = state.fieldState.get(fieldId);
+      if (fieldData) {
+        fieldData.value = valueText ?? valueBool;
+        fieldData.completed = true;
+        fieldData.hasError = false;
+      }
+
+      if (window.toastManager) {
+        window.toastManager.success('Field saved');
+      }
+
+      // Track successful field save
+      telemetry.trackFieldSave(fieldId, fieldData?.type, true, Date.now() - saveStartTime);
+
+      return true;
+    } catch (error) {
+      const fd = state.fieldState.get(fieldId);
+      if (fd) {
+        fd.hasError = true;
+        fd.lastError = error.message;
+      }
+
+      // Track failed field save
+      telemetry.trackFieldSave(fieldId, fieldData?.type, false, Date.now() - saveStartTime, error.message);
+
+      throw error;
+    } finally {
+      state.pendingSaves.delete(fieldId);
+    }
+  }
+
+  async function saveSignatureArtifact(fieldId, signatureData, valueText) {
+    state.pendingSaves.add(fieldId);
+    const saveStartTime = Date.now();
+    const signatureType = signatureData?.type || 'typed';
+
+    try {
+      let payload;
+
+      if (signatureType === 'drawn') {
+        // Task 19.FE.1: Use signed upload contract flow for drawn signatures
+        // 1. Request upload bootstrap token
+        // 2. Upload binary to signed URL
+        // 3. Attach with upload token
+        const uploadResult = await signatureUploader.uploadDrawnSignature(
+          fieldId,
+          signatureData.dataUrl
+        );
+
+        payload = {
+          field_id: fieldId,
+          type: 'drawn',
+          value_text: valueText,
+          object_key: uploadResult.objectKey,
+          sha256: uploadResult.sha256,
+          upload_token: uploadResult.uploadToken
+        };
+      } else {
+        // Typed signatures continue to use direct attach flow
+        payload = await buildTypedSignaturePayload(fieldId, valueText);
+      }
+
+      const response = await fetch(`${unifiedConfig.apiBasePath}/field-values/signature/${unifiedConfig.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to save signature');
+      }
+
+      // Update local state
+      const fieldData = state.fieldState.get(fieldId);
+      if (fieldData) {
+        fieldData.value = valueText;
+        fieldData.completed = true;
+        fieldData.hasError = false;
+      }
+
+      if (window.toastManager) {
+        window.toastManager.success('Signature applied');
+      }
+
+      // Track successful signature attach
+      telemetry.trackSignatureAttach(fieldId, signatureType, true, Date.now() - saveStartTime);
+
+      return true;
+    } catch (error) {
+      const fieldData = state.fieldState.get(fieldId);
+      if (fieldData) {
+        fieldData.hasError = true;
+        fieldData.lastError = error.message;
+      }
+
+      // Track failed signature attach
+      telemetry.trackSignatureAttach(fieldId, signatureType, false, Date.now() - saveStartTime, error.message);
+
+      throw error;
+    } finally {
+      state.pendingSaves.delete(fieldId);
+    }
+  }
+
+  /**
+   * Build payload for typed signature attach (direct flow, no upload bootstrap)
+   */
+  async function buildTypedSignaturePayload(fieldId, valueText) {
+    // Typed signatures use text-based hash
+    const shaInput = `${valueText}|${fieldId}`;
+    const sha256 = await sha256Hex(shaInput);
+
+    // Object key for typed signatures
+    const objectKey = `tenant/bootstrap/org/bootstrap/agreements/${unifiedConfig.agreementId}/signatures/${unifiedConfig.recipientId}/${fieldId}-${Date.now()}.txt`;
+
+    return {
+      field_id: fieldId,
+      type: 'typed',
+      value_text: valueText,
+      object_key: objectKey,
+      sha256: sha256
+      // Note: no upload_token for typed signatures (legacy compatible)
+    };
+  }
+
+  /**
+   * SHA256 hex string from text input
+   */
+  async function sha256Hex(input) {
+    if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+      const bytes = new TextEncoder().encode(input);
+      const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    // Fallback
+    return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  }
+
+  // ============================================
+  // UI Updates
+  // ============================================
+  function updateProgress() {
+    let completed = 0;
+    let required = 0;
+
+    state.fieldState.forEach(field => {
+      if (field.required) required++;
+      if (field.completed) completed++;
+    });
+
+    const total = state.fieldState.size;
+    const percentage = total > 0 ? (completed / total) * 100 : 0;
+
+    document.getElementById('completed-count').textContent = completed;
+    document.getElementById('total-count').textContent = total;
+
+    // Update progress ring
+    const ring = document.getElementById('progress-ring-circle');
+    const circumference = 97.4;
+    const offset = circumference - (percentage / 100) * circumference;
+    ring.style.strokeDashoffset = offset;
+
+    // Update mobile progress bar
+    document.getElementById('mobile-progress').style.width = `${percentage}%`;
+
+    // Update status badge
+    const remaining = total - completed;
+    document.getElementById('fields-status').textContent = remaining > 0 ? `${remaining} remaining` : 'All complete';
+  }
+
+  function updateSubmitButton() {
+    const submitBtn = document.getElementById('submit-btn');
+    const incompleteWarning = document.getElementById('incomplete-warning');
+    const incompleteMessage = document.getElementById('incomplete-message');
+
+    let incompleteRequired = [];
+    let hasErrors = false;
+
+    state.fieldState.forEach((field, id) => {
+      if (field.required && !field.completed) {
+        incompleteRequired.push(field);
+      }
+      if (field.hasError) hasErrors = true;
+    });
+
+    const canSubmit = state.hasConsented && incompleteRequired.length === 0 && !hasErrors && state.pendingSaves.size === 0;
+
+    submitBtn.disabled = !canSubmit;
+
+    if (!state.hasConsented) {
+      incompleteWarning.classList.remove('hidden');
+      incompleteMessage.textContent = 'Please accept the consent agreement';
+    } else if (hasErrors) {
+      incompleteWarning.classList.remove('hidden');
+      incompleteMessage.textContent = 'Some fields failed to save. Please retry.';
+    } else if (incompleteRequired.length > 0) {
+      incompleteWarning.classList.remove('hidden');
+      incompleteMessage.textContent = `Complete ${incompleteRequired.length} required field${incompleteRequired.length > 1 ? 's' : ''}`;
+    } else {
+      incompleteWarning.classList.add('hidden');
+    }
+  }
+
+  function updateFieldListItem(fieldId) {
+    const fieldData = state.fieldState.get(fieldId);
+    const listItem = document.querySelector(`.field-list-item[data-field-id="${fieldId}"]`);
+
+    if (!listItem || !fieldData) return;
+
+    if (fieldData.completed) {
+      listItem.classList.add('completed');
+      listItem.classList.remove('error');
+
+      const icon = listItem.querySelector('.w-8');
+      icon.classList.remove('bg-gray-100', 'text-gray-500', 'bg-red-100', 'text-red-600');
+      icon.classList.add('bg-green-100', 'text-green-600');
+      icon.innerHTML = '<i class="iconoir-check"></i>';
+    } else if (fieldData.hasError) {
+      listItem.classList.remove('completed');
+      listItem.classList.add('error');
+
+      const icon = listItem.querySelector('.w-8');
+      icon.classList.remove('bg-gray-100', 'text-gray-500', 'bg-green-100', 'text-green-600');
+      icon.classList.add('bg-red-100', 'text-red-600');
+      icon.innerHTML = '<i class="iconoir-warning-circle"></i>';
+    }
+  }
+
+  function moveToNextIncomplete() {
+    for (const [fieldId, fieldData] of state.fieldState) {
+      if (fieldData.required && !fieldData.completed) {
+        // Scroll to field in list
+        const listItem = document.querySelector(`.field-list-item[data-field-id="${fieldId}"]`);
+        listItem?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+    }
+
+    // All complete - scroll submit into view
+    document.getElementById('panel-content').scrollTo({ top: document.getElementById('panel-content').scrollHeight, behavior: 'smooth' });
+  }
+
+  // ============================================
+  // Consent Management
+  // ============================================
+  function showConsentModal() {
+    const consentModal = document.getElementById('consent-modal');
+    consentModal.classList.add('active');
+    consentModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    // Trap focus in modal
+    trapFocusInModal(consentModal.querySelector('.field-editor'));
+
+    // Announce to screen readers
+    announceToScreenReader('Electronic signature consent dialog opened. Please review and accept to continue.', 'assertive');
+  }
+
+  function hideConsentModal() {
+    const consentModal = document.getElementById('consent-modal');
+    const modalContent = consentModal.querySelector('.field-editor');
+
+    // Release focus trap
+    releaseFocusTrap(modalContent);
+
+    consentModal.classList.remove('active');
+    consentModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+
+    // Announce to screen readers
+    announceToScreenReader('Consent dialog closed.');
+  }
+
+  async function acceptConsent() {
+    const acceptBtn = document.getElementById('consent-accept-btn');
+    acceptBtn.disabled = true;
+    acceptBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Processing...';
+
+    try {
+      const response = await fetch(`${unifiedConfig.apiBasePath}/consent/${unifiedConfig.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accepted: true })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to accept consent');
+      }
+
+      state.hasConsented = true;
+      document.getElementById('consent-notice').classList.add('hidden');
+      hideConsentModal();
+      updateSubmitButton();
+      updateA11yFieldProgress();
+
+      // Track consent acceptance
+      telemetry.trackConsent(true);
+
+      if (window.toastManager) {
+        window.toastManager.success('Consent accepted');
+      }
+
+      // Announce to screen readers
+      announceToScreenReader('Consent accepted. You can now complete the fields and submit.');
+    } catch (error) {
+      if (window.toastManager) {
+        window.toastManager.error(error.message);
+      }
+
+      // Announce error to screen readers
+      announceToScreenReader(`Error: ${error.message}`, 'assertive');
+    } finally {
+      acceptBtn.disabled = false;
+      acceptBtn.innerHTML = 'Accept & Continue';
+    }
+  }
+
+  // ============================================
+  // Submit and Decline
+  // ============================================
+  async function handleSubmit() {
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Submitting...';
+
+    try {
+      const idempotencyKey = `submit-${unifiedConfig.recipientId}-${Date.now()}`;
+
+      const response = await fetch(`${unifiedConfig.apiBasePath}/submit/${unifiedConfig.token}`, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to submit');
+      }
+
+      // Track successful submit
+      telemetry.trackSubmit(true);
+
+      // Redirect to completion page
+      window.location.href = `${unifiedConfig.legacyBasePath}/${unifiedConfig.token}/complete`;
+    } catch (error) {
+      // Track failed submit
+      telemetry.trackSubmit(false, error.message);
+
+      if (window.toastManager) {
+        window.toastManager.error(error.message);
+      }
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="iconoir-send mr-2"></i> Submit Signature';
+    }
+  }
+
+  function showDeclineModal() {
+    const declineModal = document.getElementById('decline-modal');
+    declineModal.classList.add('active');
+    declineModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    // Trap focus in modal
+    trapFocusInModal(declineModal.querySelector('.field-editor'));
+
+    // Announce to screen readers
+    announceToScreenReader('Decline to sign dialog opened. Are you sure you want to decline?', 'assertive');
+  }
+
+  function hideDeclineModal() {
+    const declineModal = document.getElementById('decline-modal');
+    const modalContent = declineModal.querySelector('.field-editor');
+
+    // Release focus trap
+    releaseFocusTrap(modalContent);
+
+    declineModal.classList.remove('active');
+    declineModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+
+    // Announce to screen readers
+    announceToScreenReader('Decline dialog closed.');
+  }
+
+  async function confirmDecline() {
+    const reason = document.getElementById('decline-reason').value;
+
+    try {
+      const response = await fetch(`${unifiedConfig.apiBasePath}/decline/${unifiedConfig.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to decline');
+      }
+
+      window.location.href = `${unifiedConfig.legacyBasePath}/${unifiedConfig.token}/declined`;
+    } catch (error) {
+      if (window.toastManager) {
+        window.toastManager.error(error.message);
+      }
+    }
+  }
+
+  // ============================================
+  // Legacy Flow Fallback
+  // ============================================
+  function openLegacyFlow(reason = 'user_requested') {
+    telemetry.trackFallback(reason);
+    window.location.href = `${unifiedConfig.legacyBasePath}/${unifiedConfig.token}`;
+  }
+
+  function showFallbackOption() {
+    // Track degraded mode (viewer issue requiring fallback offer)
+    telemetry.trackDegradedMode('viewer_failure_fallback_offered');
+
+    if (window.toastManager) {
+      window.toastManager.info('Having trouble? Try the classic signing view.', {
+        duration: 10000,
+        action: {
+          label: 'Switch',
+          onClick: () => openLegacyFlow('user_accepted_fallback')
+        }
+      });
+    }
+  }
+
+  // Download document - only use binary asset URLs, never contract_url (which returns JSON)
+  async function downloadDocument() {
+    try {
+      const assetsResponse = await fetch(`${unifiedConfig.apiBasePath}/assets/${unifiedConfig.token}`);
+      if (!assetsResponse.ok) throw new Error('Document unavailable');
+
+      const assetsData = await assetsResponse.json();
+      const assets = assetsData.assets || {};
+
+      // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
+      const downloadUrl = assets.source_url || assets.executed_url || assets.certificate_url;
+
+      if (downloadUrl) {
+        window.open(downloadUrl, '_blank');
+      } else {
+        throw new Error('Document download is not available yet. The document may still be processing.');
+      }
+    } catch (error) {
+      if (window.toastManager) {
+        window.toastManager.error(error.message || 'Unable to download document');
+      }
+    }
+  }
+
+  // ============================================
+  // Debug/Operator Affordances
+  // ============================================
+  const debugMode = {
+    enabled: localStorage.getItem('esign_debug') === 'true' || new URLSearchParams(window.location.search).has('debug'),
+    panel: null,
+
+    /**
+     * Initialize debug mode if enabled
+     */
+    init() {
+      if (!this.enabled) return;
+
+      this.createDebugPanel();
+      this.bindConsoleHelpers();
+      this.logSessionInfo();
+
+      console.info('%c[E-Sign Debug] Debug mode enabled. Access window.esignDebug for helpers.', 'color: #3b82f6; font-weight: bold');
+    },
+
+    /**
+     * Create floating debug panel
+     */
+    createDebugPanel() {
+      this.panel = document.createElement('div');
+      this.panel.id = 'esign-debug-panel';
+      this.panel.innerHTML = `
+        <style>
+          #esign-debug-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            max-height: 400px;
+            background: #1f2937;
+            color: #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            font-family: monospace;
+            font-size: 11px;
+            z-index: 9999;
+            overflow: hidden;
+          }
+          #esign-debug-panel.collapsed {
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
+          }
+          #esign-debug-panel.collapsed .debug-content {
+            display: none;
+          }
+          #esign-debug-panel .debug-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #111827;
+            cursor: pointer;
+          }
+          #esign-debug-panel.collapsed .debug-header {
+            justify-content: center;
+            padding: 10px;
+          }
+          #esign-debug-panel .debug-content {
+            padding: 12px;
+            max-height: 340px;
+            overflow-y: auto;
+          }
+          #esign-debug-panel .debug-section {
+            margin-bottom: 12px;
+          }
+          #esign-debug-panel .debug-label {
+            color: #9ca3af;
+            margin-bottom: 4px;
+          }
+          #esign-debug-panel .debug-value {
+            color: #10b981;
+          }
+          #esign-debug-panel .debug-value.warning {
+            color: #f59e0b;
+          }
+          #esign-debug-panel .debug-value.error {
+            color: #ef4444;
+          }
+          #esign-debug-panel .debug-btn {
+            padding: 4px 8px;
+            background: #374151;
+            border: none;
+            border-radius: 4px;
+            color: #e5e7eb;
+            cursor: pointer;
+            font-size: 10px;
+          }
+          #esign-debug-panel .debug-btn:hover {
+            background: #4b5563;
+          }
+        </style>
+        <div class="debug-header" onclick="debugMode.togglePanel()">
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 16px;">🔧</span>
+            <span class="debug-title">Debug Panel</span>
+          </span>
+          <span class="debug-toggle">−</span>
+        </div>
+        <div class="debug-content">
+          <div class="debug-section">
+            <div class="debug-label">Flow Mode</div>
+            <div class="debug-value" id="debug-flow-mode">${unifiedConfig.flowMode}</div>
+          </div>
+          <div class="debug-section">
+            <div class="debug-label">Session</div>
+            <div class="debug-value" id="debug-session-id">${telemetry.sessionId}</div>
+          </div>
+          <div class="debug-section">
+            <div class="debug-label">Consent</div>
+            <div class="debug-value" id="debug-consent">${state.hasConsented ? '✓ Accepted' : '✗ Pending'}</div>
+          </div>
+          <div class="debug-section">
+            <div class="debug-label">Fields</div>
+            <div class="debug-value" id="debug-fields">0/${state.fieldState?.size || 0}</div>
+          </div>
+          <div class="debug-section">
+            <div class="debug-label">Memory Mode</div>
+            <div class="debug-value" id="debug-memory">${state.isLowMemory ? '⚠ Low Memory' : 'Normal'}</div>
+          </div>
+          <div class="debug-section">
+            <div class="debug-label">Cached Pages</div>
+            <div class="debug-value" id="debug-cached">${state.renderedPages?.size || 0}</div>
+          </div>
+          <div class="debug-section">
+            <div class="debug-label">Actions</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button class="debug-btn" onclick="debugMode.copySessionInfo()">Copy Info</button>
+              <button class="debug-btn" onclick="debugMode.forceFallback()">Force Fallback</button>
+              <button class="debug-btn" onclick="debugMode.clearCache()">Clear Cache</button>
+              <button class="debug-btn" onclick="debugMode.showTelemetry()">View Telemetry</button>
+            </div>
+          </div>
+          <div class="debug-section">
+            <div class="debug-label">Errors</div>
+            <div class="debug-value" id="debug-errors" style="color: inherit;">None</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(this.panel);
+
+      // Update panel periodically
+      setInterval(() => this.updatePanel(), 1000);
+    },
+
+    /**
+     * Toggle debug panel collapsed state
+     */
+    togglePanel() {
+      if (!this.panel) return;
+      this.panel.classList.toggle('collapsed');
+      const toggle = this.panel.querySelector('.debug-toggle');
+      const title = this.panel.querySelector('.debug-title');
+      if (this.panel.classList.contains('collapsed')) {
+        toggle.textContent = '+';
+        title.style.display = 'none';
+      } else {
+        toggle.textContent = '−';
+        title.style.display = 'inline';
+      }
+    },
+
+    /**
+     * Update debug panel values
+     */
+    updatePanel() {
+      if (!this.panel || this.panel.classList.contains('collapsed')) return;
+
+      const fields = state.fieldState;
+      let completed = 0;
+      fields?.forEach(f => { if (f.completed) completed++; });
+
+      document.getElementById('debug-consent').textContent = state.hasConsented ? '✓ Accepted' : '✗ Pending';
+      document.getElementById('debug-consent').className = `debug-value ${state.hasConsented ? '' : 'warning'}`;
+      document.getElementById('debug-fields').textContent = `${completed}/${fields?.size || 0}`;
+      document.getElementById('debug-cached').textContent = state.renderedPages?.size || 0;
+      document.getElementById('debug-memory').textContent = state.isLowMemory ? '⚠ Low Memory' : 'Normal';
+      document.getElementById('debug-memory').className = `debug-value ${state.isLowMemory ? 'warning' : ''}`;
+
+      const errors = telemetry.metrics.errorsEncountered;
+      document.getElementById('debug-errors').textContent = errors.length > 0 ? `${errors.length} error(s)` : 'None';
+      document.getElementById('debug-errors').className = `debug-value ${errors.length > 0 ? 'error' : ''}`;
+    },
+
+    /**
+     * Bind console helper functions
+     */
+    bindConsoleHelpers() {
+      window.esignDebug = {
+        getState: () => ({
+          config: unifiedConfig,
+          state: {
+            currentPage: state.currentPage,
+            zoomLevel: state.zoomLevel,
+            hasConsented: state.hasConsented,
+            activeFieldId: state.activeFieldId,
+            isLowMemory: state.isLowMemory,
+            cachedPages: state.renderedPages?.size || 0
+          },
+          fields: Array.from(state.fieldState?.entries() || []).map(([id, f]) => ({
+            id,
+            type: f.type,
+            completed: f.completed,
+            hasError: f.hasError
+          })),
+          telemetry: telemetry.getSessionSummary(),
+          errors: telemetry.metrics.errorsEncountered
+        }),
+
+        getEvents: () => telemetry.events,
+
+        forceError: (msg) => {
+          telemetry.track('debug_forced_error', { message: msg });
+          console.error('[E-Sign Debug] Forced error:', msg);
+        },
+
+        triggerFallback: () => {
+          openLegacyFlow('debug_forced');
+        },
+
+        setLowMemory: (value) => {
+          state.isLowMemory = value;
+          managePagesCache();
+          console.log(`[E-Sign Debug] Low memory mode: ${value}`);
+        }
+      };
+    },
+
+    /**
+     * Log session info to console
+     */
+    logSessionInfo() {
+      console.group('%c[E-Sign Debug] Session Info', 'color: #3b82f6');
+      console.log('Flow Mode:', unifiedConfig.flowMode);
+      console.log('Agreement ID:', unifiedConfig.agreementId);
+      console.log('Token:', unifiedConfig.token);
+      console.log('Session ID:', telemetry.sessionId);
+      console.log('Fields:', state.fieldState?.size || 0);
+      console.log('Low Memory:', state.isLowMemory);
+      console.groupEnd();
+    },
+
+    /**
+     * Copy session info to clipboard
+     */
+    async copySessionInfo() {
+      const info = JSON.stringify(window.esignDebug.getState(), null, 2);
+      try {
+        await navigator.clipboard.writeText(info);
+        alert('Session info copied to clipboard');
+      } catch (e) {
+        console.log('Session Info:', info);
+        alert('Check console for session info');
+      }
+    },
+
+    /**
+     * Force fallback to legacy
+     */
+    forceFallback() {
+      if (confirm('Force fallback to legacy signing flow?')) {
+        openLegacyFlow('debug_forced');
+      }
+    },
+
+    /**
+     * Clear page cache
+     */
+    clearCache() {
+      state.renderedPages?.clear();
+      console.log('[E-Sign Debug] Page cache cleared');
+      this.updatePanel();
+    },
+
+    /**
+     * Show telemetry events
+     */
+    showTelemetry() {
+      console.table(telemetry.events);
+      console.log('Session Summary:', telemetry.getSessionSummary());
+    }
+  };
+
+  // ============================================
+  // Accessibility Helpers
+  // ============================================
+  function announceToScreenReader(message, type = 'polite') {
+    const region = type === 'assertive' ? document.getElementById('a11y-alerts') : document.getElementById('a11y-status');
+    if (region) {
+      // Clear and re-announce for proper reading
+      region.textContent = '';
+      requestAnimationFrame(() => {
+        region.textContent = message;
+      });
+    }
+  }
+
+  function trapFocusInModal(modalElement) {
+    const focusableSelectors = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusableElements = modalElement.querySelectorAll(focusableSelectors);
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+
+    // Store original focus to restore later
+    if (!modalElement.dataset.previousFocus) {
+      modalElement.dataset.previousFocus = document.activeElement?.id || '';
+    }
+
+    function handleTabKey(e) {
+      if (e.key !== 'Tab') return;
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstFocusable) {
+          e.preventDefault();
+          lastFocusable?.focus();
+        }
+      } else {
+        if (document.activeElement === lastFocusable) {
+          e.preventDefault();
+          firstFocusable?.focus();
+        }
+      }
+    }
+
+    modalElement.addEventListener('keydown', handleTabKey);
+    modalElement._focusTrapHandler = handleTabKey;
+
+    // Focus first element
+    requestAnimationFrame(() => {
+      firstFocusable?.focus();
+    });
+  }
+
+  function releaseFocusTrap(modalElement) {
+    if (modalElement._focusTrapHandler) {
+      modalElement.removeEventListener('keydown', modalElement._focusTrapHandler);
+      delete modalElement._focusTrapHandler;
+    }
+
+    // Restore previous focus
+    const previousFocusId = modalElement.dataset.previousFocus;
+    if (previousFocusId) {
+      const previousElement = document.getElementById(previousFocusId);
+      requestAnimationFrame(() => {
+        previousElement?.focus();
+      });
+      delete modalElement.dataset.previousFocus;
+    }
+  }
+
+  function updateA11yFieldProgress() {
+    const progress = calculateA11yProgress();
+    const statusSpan = document.getElementById('submit-status');
+    if (statusSpan) {
+      if (progress.allRequiredComplete && state.hasConsented) {
+        statusSpan.textContent = 'All required fields complete. You can now submit.';
+      } else if (!state.hasConsented) {
+        statusSpan.textContent = 'Please accept the electronic signature consent before submitting.';
+      } else {
+        statusSpan.textContent = `Complete ${progress.remainingRequired} more required field${progress.remainingRequired > 1 ? 's' : ''} to enable submission.`;
+      }
+    }
+  }
+
+  function calculateA11yProgress() {
+    let completed = 0;
+    let required = 0;
+    let remainingRequired = 0;
+
+    state.fieldState.forEach(field => {
+      if (field.required) required++;
+      if (field.completed) completed++;
+      if (field.required && !field.completed) remainingRequired++;
+    });
+
+    return {
+      completed,
+      required,
+      remainingRequired,
+      total: state.fieldState.size,
+      allRequiredComplete: remainingRequired === 0
+    };
+  }
+
+  function getNextFocusableField(currentFieldId, direction = 1) {
+    const fieldIds = Array.from(state.fieldState.keys());
+    const currentIndex = fieldIds.indexOf(currentFieldId);
+    if (currentIndex === -1) return null;
+
+    const nextIndex = currentIndex + direction;
+    if (nextIndex >= 0 && nextIndex < fieldIds.length) {
+      return fieldIds[nextIndex];
+    }
+    return null;
+  }
+
+  // ============================================
+  // Keyboard Handlers
+  // ============================================
+  document.addEventListener('keydown', function(e) {
+    // Escape closes modals
+    if (e.key === 'Escape') {
+      closeFieldEditor();
+      hideConsentModal();
+      hideDeclineModal();
+    }
+
+    // Arrow key navigation in field list
+    if (e.target.classList.contains('field-list-item')) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const currentFieldId = e.target.dataset.fieldId;
+        const direction = e.key === 'ArrowDown' ? 1 : -1;
+        const nextFieldId = getNextFocusableField(currentFieldId, direction);
+
+        if (nextFieldId) {
+          const nextElement = document.querySelector(`.field-list-item[data-field-id="${nextFieldId}"]`);
+          nextElement?.focus();
+        }
+      }
+
+      // Enter/Space activates field
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const fieldId = e.target.dataset.fieldId;
+        if (fieldId) {
+          activateField(fieldId);
+        }
+      }
+    }
+
+    // Tab navigation hints in viewer
+    if (e.key === 'Tab' && !e.target.closest('.field-editor-overlay') && !e.target.closest('#consent-modal') && !e.target.closest('#decline-modal')) {
+      // Allow natural tab flow
+    }
+  });
+
+  // Focus visible polyfill for older browsers
+  document.addEventListener('mousedown', function() {
+    document.body.classList.add('using-mouse');
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Tab') {
+      document.body.classList.remove('using-mouse');
+    }
+  });
+</script>
+{% endblock %}

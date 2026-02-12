@@ -409,6 +409,61 @@
     recipientId: '{{ session.recipient_id }}'
   };
 
+  // ============================================
+  // Flow Mode Resolution (Phase 20.FE.2)
+  // ============================================
+
+  /**
+   * Get the flow mode from URL query params.
+   * Returns 'unified', 'legacy', or null if not specified.
+   */
+  function getFlowModeFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const flow = params.get('flow');
+    if (flow === 'unified' || flow === 'legacy') {
+      return flow;
+    }
+    return null;
+  }
+
+  /**
+   * Resolve the effective flow mode.
+   * Priority: 1) query param override, 2) default to 'legacy' for backward compatibility
+   */
+  function resolveFlowMode() {
+    const queryMode = getFlowModeFromQuery();
+    if (queryMode) {
+      return queryMode;
+    }
+    // Default to legacy for backward compatibility when no explicit mode is set
+    // This ensures existing links continue to work as expected
+    return 'legacy';
+  }
+
+  /**
+   * Build the appropriate signing route based on flow mode.
+   * @param {string} mode - 'unified' or 'legacy'
+   * @returns {string} - The URL to navigate to
+   */
+  function buildSigningFlowUrl(mode) {
+    const basePath = signerConfig.apiBasePath.replace('/api/v1/esign/signing', '/esign/sign');
+    const token = signerConfig.token;
+
+    if (mode === 'unified') {
+      return `${basePath}/${token}/review?flow=unified`;
+    }
+    // Legacy mode - navigate to /fields
+    return `${basePath}/${token}/fields?flow=legacy`;
+  }
+
+  /**
+   * Navigate to the signing flow with flow mode awareness.
+   */
+  function navigateToSigningFlow() {
+    const mode = resolveFlowMode();
+    window.location.href = buildSigningFlowUrl(mode);
+  }
+
   // Enable/disable consent button based on checkbox
   document.addEventListener('DOMContentLoaded', function() {
     const checkbox = document.getElementById('consent-checkbox');
@@ -420,9 +475,9 @@
       });
     }
 
-    // If already consented, redirect to signing flow
+    // If already consented, redirect to signing flow (flow-mode aware)
     if (signerConfig.hasConsented && signerConfig.sessionState === 'active') {
-      window.location.href = signerConfig.apiBasePath.replace('/api/v1/esign/signing', '/esign/sign') + '/' + signerConfig.token + '/fields';
+      navigateToSigningFlow();
     }
   });
 
@@ -451,8 +506,8 @@
         throw new Error(errorData.error?.message || 'Failed to submit consent');
       }
 
-      // Redirect to signing flow
-      window.location.href = signerConfig.apiBasePath.replace('/api/v1/esign/signing', '/esign/sign') + '/' + signerConfig.token + '/fields';
+      // Redirect to signing flow (flow-mode aware - Phase 20.FE.2)
+      navigateToSigningFlow();
     } catch (error) {
       console.error('Consent error:', error);
       if (window.toastManager) {
@@ -518,10 +573,37 @@
     }
   }
 
-  // Open document preview
-  function openDocumentPreview() {
-    // TODO: Implement document preview modal or new window
-    window.open(`${signerConfig.apiBasePath}/preview/${signerConfig.token}`, '_blank', 'width=800,height=600');
+  // Open document preview - only use binary asset URLs, never contract_url (which returns JSON)
+  async function openDocumentPreview() {
+    try {
+      const response = await fetch(`${signerConfig.apiBasePath}/assets/${signerConfig.token}`, {
+        method: 'GET'
+      });
+      if (!response.ok) {
+        throw new Error('Document preview unavailable');
+      }
+      const payload = await response.json();
+      const assets = payload?.assets || {};
+
+      // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
+      const previewPath = assets.source_url || assets.executed_url || assets.certificate_url;
+
+      if (!previewPath) {
+        // If no binary URL is available, show helpful error with guidance
+        const errorMsg = 'Document preview is not available yet. The document may still be processing. Please try again in a moment or contact the sender for assistance.';
+        throw new Error(errorMsg);
+      }
+
+      const previewURL = new URL(previewPath, window.location.origin).toString();
+      window.open(previewURL, '_blank', 'width=800,height=600');
+    } catch (error) {
+      console.error('Preview error:', error);
+      if (window.toastManager) {
+        window.toastManager.error(error.message || 'Unable to open document preview');
+      } else {
+        alert(error.message || 'Unable to open document preview');
+      }
+    }
   }
 
   // Keyboard navigation for modal

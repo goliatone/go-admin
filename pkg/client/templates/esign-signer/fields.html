@@ -14,6 +14,17 @@
     border-color: #10b981;
     background-color: #f0fdf4;
   }
+  .field-card.error {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  }
+  .field-card.error .field-error-badge {
+    display: flex;
+  }
+  .field-error-badge {
+    display: none;
+  }
   .progress-bar {
     transition: width 0.3s ease-out;
   }
@@ -166,6 +177,10 @@
               <div class="field-complete-badge hidden items-center gap-1 text-green-600 bg-green-50 px-2 py-1 rounded-full text-sm">
                 <i class="iconoir-check" aria-hidden="true"></i>
                 <span>Done</span>
+              </div>
+              <div class="field-error-badge items-center gap-1 text-red-600 bg-red-50 px-2 py-1 rounded-full text-sm cursor-pointer" onclick="retryField('{{ field.id }}')" title="Click to retry">
+                <i class="iconoir-warning-circle" aria-hidden="true"></i>
+                <span>Failed - Retry</span>
               </div>
             </div>
 
@@ -343,6 +358,22 @@
                 <ul id="incomplete-fields-list" class="text-sm text-amber-700 space-y-1 ml-5 list-disc"></ul>
               </div>
 
+              <div id="failed-fields-notice" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 text-left">
+                <p class="text-sm font-medium text-red-800 mb-2">
+                  <i class="iconoir-warning-triangle mr-1" aria-hidden="true"></i>
+                  The following fields failed to save. Please retry before submitting:
+                </p>
+                <ul id="failed-fields-list" class="text-sm text-red-700 space-y-1 ml-5 list-disc"></ul>
+                <button
+                  type="button"
+                  class="mt-3 text-sm font-medium text-red-700 hover:text-red-800 underline underline-offset-2"
+                  onclick="retryAllFailedFields()"
+                >
+                  <i class="iconoir-refresh mr-1" aria-hidden="true"></i>
+                  Retry all failed fields
+                </button>
+              </div>
+
               <button
                 type="button"
                 id="submit-btn"
@@ -381,14 +412,15 @@
   const fieldState = new Map();
   let activeFieldIndex = 0;
   let signatureCanvases = new Map();
+  let initializedCanvases = new Set(); // Track which canvases have been initialized
 
   // Initialize on load
   document.addEventListener('DOMContentLoaded', function() {
     initializeFields();
-    initializeSignatureCanvases();
     initializeSignatureTabs();
     updateProgress();
     updateSubmitButton();
+    updateFailedFieldsNotice();
     showCurrentDate();
   });
 
@@ -418,7 +450,10 @@
         value: value,
         completed: Boolean(value),
         signatureType: 'typed', // typed or drawn
-        signatureData: null
+        signatureData: null,
+        hasError: false,
+        lastError: null,
+        pendingSave: false
       });
 
       // Update UI if already completed
@@ -428,79 +463,89 @@
     });
   }
 
-  function initializeSignatureCanvases() {
-    const canvases = document.querySelectorAll('.sig-canvas');
-    canvases.forEach(canvas => {
-      const fieldId = canvas.dataset.fieldId;
-      const ctx = canvas.getContext('2d');
+  function initializeSingleCanvas(fieldId) {
+    // Skip if already initialized
+    if (initializedCanvases.has(fieldId)) {
+      return;
+    }
 
-      // Set canvas resolution
+    const canvas = document.querySelector(`.sig-canvas[data-field-id="${fieldId}"]`);
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas resolution - now the panel is visible so dimensions are correct
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      // Still not visible, skip initialization
+      return;
+    }
+
+    canvas.width = rect.width * 2;
+    canvas.height = rect.height * 2;
+    ctx.scale(2, 2);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#1f2937';
+
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    const getPos = (e) => {
       const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * 2;
-      canvas.height = rect.height * 2;
-      ctx.scale(2, 2);
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#1f2937';
+      const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+      const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+      return { x, y };
+    };
 
-      let isDrawing = false;
-      let lastX = 0;
-      let lastY = 0;
-
-      const getPos = (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
-        const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
-        return { x, y };
-      };
-
-      canvas.addEventListener('mousedown', (e) => {
-        isDrawing = true;
-        const pos = getPos(e);
-        lastX = pos.x;
-        lastY = pos.y;
-      });
-
-      canvas.addEventListener('mousemove', (e) => {
-        if (!isDrawing) return;
-        const pos = getPos(e);
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-        lastX = pos.x;
-        lastY = pos.y;
-      });
-
-      canvas.addEventListener('mouseup', () => { isDrawing = false; });
-      canvas.addEventListener('mouseout', () => { isDrawing = false; });
-
-      // Touch events
-      canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        isDrawing = true;
-        const pos = getPos(e);
-        lastX = pos.x;
-        lastY = pos.y;
-      });
-
-      canvas.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        if (!isDrawing) return;
-        const pos = getPos(e);
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-        lastX = pos.x;
-        lastY = pos.y;
-      });
-
-      canvas.addEventListener('touchend', () => { isDrawing = false; });
-
-      signatureCanvases.set(fieldId, { canvas, ctx });
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      const pos = getPos(e);
+      lastX = pos.x;
+      lastY = pos.y;
     });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastX = pos.x;
+      lastY = pos.y;
+    });
+
+    canvas.addEventListener('mouseup', () => { isDrawing = false; });
+    canvas.addEventListener('mouseout', () => { isDrawing = false; });
+
+    // Touch events
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      isDrawing = true;
+      const pos = getPos(e);
+      lastX = pos.x;
+      lastY = pos.y;
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastX = pos.x;
+      lastY = pos.y;
+    });
+
+    canvas.addEventListener('touchend', () => { isDrawing = false; });
+
+    signatureCanvases.set(fieldId, { canvas, ctx });
+    initializedCanvases.add(fieldId);
   }
 
   function initializeSignatureTabs() {
@@ -509,6 +554,7 @@
       btn.addEventListener('click', function() {
         const container = this.closest('.signature-container');
         const targetTab = this.dataset.tab;
+        const fieldId = container.dataset.fieldId;
 
         // Update tab buttons
         container.querySelectorAll('.sig-tab-btn').forEach(b => {
@@ -522,23 +568,35 @@
 
         // Update panels
         container.querySelectorAll('.sig-panel').forEach(p => p.classList.add('hidden'));
-        container.querySelector(`#sig-${targetTab}-${container.dataset.fieldId}`).classList.remove('hidden');
+        container.querySelector(`#sig-${targetTab}-${fieldId}`).classList.remove('hidden');
 
         // Update field state
-        const fieldId = container.dataset.fieldId;
         const state = fieldState.get(fieldId);
         if (state) {
           state.signatureType = targetTab === 'draw' ? 'drawn' : 'typed';
+        }
+
+        // Lazy initialize canvas when switching to draw tab
+        if (targetTab === 'draw') {
+          // Use requestAnimationFrame to ensure the panel is rendered before measuring
+          requestAnimationFrame(() => {
+            initializeSingleCanvas(fieldId);
+          });
         }
       });
     });
   }
 
   function clearSignatureCanvas(fieldId) {
+    // Ensure canvas is initialized before clearing
+    if (!initializedCanvases.has(fieldId)) {
+      initializeSingleCanvas(fieldId);
+    }
     const canvasData = signatureCanvases.get(fieldId);
     if (canvasData) {
       const { canvas, ctx } = canvasData;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Clear using the scaled dimensions
+      ctx.clearRect(0, 0, canvas.width / 2, canvas.height / 2);
     }
   }
 
@@ -574,16 +632,30 @@
     }
   }
 
-  function handleCheckboxChange(fieldId, checked) {
+  async function handleCheckboxChange(fieldId, checked) {
     const state = fieldState.get(fieldId);
-    if (state) {
-      state.value = checked;
+    if (!state) return;
+
+    state.value = checked;
+    state.pendingSave = true;
+    clearFieldError(fieldId);
+
+    const saved = await saveFieldValue(fieldId, null, checked);
+
+    state.pendingSave = false;
+    if (saved) {
       state.completed = true;
-      saveFieldValue(fieldId, null, checked);
+      state.hasError = false;
+      state.lastError = null;
       updateFieldStatus(fieldId, true);
-      updateProgress();
-      updateSubmitButton();
+    } else {
+      state.completed = false;
+      state.hasError = true;
+      updateFieldErrorStatus(fieldId, true);
     }
+    updateProgress();
+    updateSubmitButton();
+    updateFailedFieldsNotice();
   }
 
   async function saveTextField(fieldId) {
@@ -600,13 +672,28 @@
       return;
     }
 
-    await saveFieldValue(fieldId, value, null);
-    state.value = value;
-    state.completed = Boolean(value);
-    updateFieldStatus(fieldId, state.completed);
-    updateProgress();
-    updateSubmitButton();
-    moveToNextField(fieldId);
+    state.pendingSave = true;
+    clearFieldError(fieldId);
+
+    const saved = await saveFieldValue(fieldId, value, null);
+
+    state.pendingSave = false;
+    if (saved) {
+      state.value = value;
+      state.completed = Boolean(value);
+      state.hasError = false;
+      state.lastError = null;
+      updateFieldStatus(fieldId, state.completed);
+      updateProgress();
+      updateSubmitButton();
+      updateFailedFieldsNotice();
+      moveToNextField(fieldId);
+    } else {
+      state.hasError = true;
+      updateFieldErrorStatus(fieldId, true);
+      updateSubmitButton();
+      updateFailedFieldsNotice();
+    }
   }
 
   async function applySignature(fieldId) {
@@ -650,15 +737,35 @@
       valueText = '[Drawn Signature]';
     }
 
-    // Save signature via API
-    await saveSignatureArtifact(fieldId, signatureData, valueText);
-    state.value = valueText;
-    state.signatureData = signatureData;
-    state.completed = true;
-    updateFieldStatus(fieldId, true);
-    updateProgress();
-    updateSubmitButton();
-    moveToNextField(fieldId);
+    state.pendingSave = true;
+    clearFieldError(fieldId);
+
+    // Initials are regular text fields in the API contract.
+    let saved = false;
+    if (state.type === 'initials') {
+      saved = await saveFieldValue(fieldId, valueText, null);
+    } else {
+      saved = await saveSignatureArtifact(fieldId, signatureData, valueText);
+    }
+
+    state.pendingSave = false;
+    if (saved) {
+      state.value = valueText;
+      state.signatureData = signatureData;
+      state.completed = true;
+      state.hasError = false;
+      state.lastError = null;
+      updateFieldStatus(fieldId, true);
+      updateProgress();
+      updateSubmitButton();
+      updateFailedFieldsNotice();
+      moveToNextField(fieldId);
+    } else {
+      state.hasError = true;
+      updateFieldErrorStatus(fieldId, true);
+      updateSubmitButton();
+      updateFailedFieldsNotice();
+    }
   }
 
   async function saveFieldValue(fieldId, valueText, valueBool) {
@@ -667,6 +774,8 @@
       btn.disabled = true;
       btn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Saving...';
     }
+
+    const state = fieldState.get(fieldId);
 
     try {
       const response = await fetch(`${signerConfig.apiBasePath}/field-values/${signerConfig.token}`, {
@@ -681,23 +790,86 @@
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to save field');
+        const errorMsg = errorData.error?.message || 'Failed to save field';
+        if (state) {
+          state.lastError = errorMsg;
+        }
+        throw new Error(errorMsg);
       }
 
       if (window.toastManager) {
         window.toastManager.success('Field saved');
       }
+      return true;
     } catch (error) {
       console.error('Save error:', error);
+      if (state) {
+        state.lastError = error.message;
+      }
       if (window.toastManager) {
         window.toastManager.error(error.message);
       }
+      return false;
     } finally {
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = 'Apply';
       }
     }
+  }
+
+  function sanitizePathSegment(value) {
+    const sanitized = String(value || '')
+      .trim()
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return sanitized || 'unknown';
+  }
+
+  function bufferToHex(buffer) {
+    return Array.from(new Uint8Array(buffer))
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  function randomHex(length) {
+    const chars = '0123456789abcdef';
+    let output = '';
+    for (let i = 0; i < length; i++) {
+      output += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return output;
+  }
+
+  async function sha256Hex(input) {
+    const text = String(input || '');
+    if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+      const bytes = new TextEncoder().encode(text);
+      const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+      return bufferToHex(digest);
+    }
+    return randomHex(64);
+  }
+
+  async function buildSignaturePayload(fieldId, signatureData, valueText) {
+    const signatureType = signatureData?.type === 'drawn' ? 'drawn' : 'typed';
+    const agreementID = sanitizePathSegment(signerConfig.agreementId);
+    const recipientID = sanitizePathSegment(signerConfig.recipientId);
+    const sanitizedFieldID = sanitizePathSegment(fieldId);
+    const extension = signatureType === 'drawn' ? 'png' : 'txt';
+    const objectKey = `tenant/bootstrap/org/bootstrap/agreements/${agreementID}/signatures/${recipientID}/${sanitizedFieldID}-${Date.now()}.${extension}`;
+    const shaInput = signatureType === 'drawn'
+      ? signatureData?.dataUrl || ''
+      : `${valueText || ''}|${fieldId}`;
+    const sha256 = await sha256Hex(shaInput);
+
+    return {
+      field_id: fieldId,
+      type: signatureType,
+      value_text: valueText,
+      object_key: objectKey,
+      sha256: sha256
+    };
   }
 
   async function saveSignatureArtifact(fieldId, signatureData, valueText) {
@@ -707,35 +879,41 @@
       btn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Saving...';
     }
 
+    const state = fieldState.get(fieldId);
+
     try {
+      const payload = await buildSignaturePayload(fieldId, signatureData, valueText);
       const response = await fetch(`${signerConfig.apiBasePath}/field-values/signature/${signerConfig.token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          field_id: fieldId,
-          type: signatureData.type,
-          value_text: valueText,
-          data: signatureData.dataUrl || null
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to save signature');
+        const errorMsg = errorData.error?.message || 'Failed to save signature';
+        if (state) {
+          state.lastError = errorMsg;
+        }
+        throw new Error(errorMsg);
       }
 
       if (window.toastManager) {
         window.toastManager.success('Signature applied');
       }
+      return true;
     } catch (error) {
       console.error('Signature error:', error);
+      if (state) {
+        state.lastError = error.message;
+      }
       if (window.toastManager) {
         window.toastManager.error(error.message);
       }
+      return false;
     } finally {
       if (btn) {
         btn.disabled = false;
-        const state = fieldState.get(fieldId);
         btn.innerHTML = state?.type === 'initials' ? 'Apply Initials' : 'Apply Signature';
       }
     }
@@ -746,25 +924,106 @@
     const navItem = document.querySelector(`.field-nav-item[data-field-id="${fieldId}"]`);
 
     if (card) {
-      const badge = card.querySelector('.field-complete-badge');
+      const completeBadge = card.querySelector('.field-complete-badge');
+      // Clear error state when marking complete
+      card.classList.remove('error');
       if (completed) {
         card.classList.add('completed');
-        badge?.classList.remove('hidden');
-        badge?.classList.add('flex');
+        completeBadge?.classList.remove('hidden');
+        completeBadge?.classList.add('flex');
       } else {
         card.classList.remove('completed');
-        badge?.classList.add('hidden');
-        badge?.classList.remove('flex');
+        completeBadge?.classList.add('hidden');
+        completeBadge?.classList.remove('flex');
       }
     }
 
     if (navItem) {
       const icon = navItem.querySelector('.field-status-icon');
       if (completed) {
-        icon.classList.remove('bg-gray-100', 'text-gray-400');
+        icon.classList.remove('bg-gray-100', 'text-gray-400', 'bg-red-100', 'text-red-600');
         icon.classList.add('bg-green-100', 'text-green-600');
         icon.innerHTML = '<i class="iconoir-check text-sm"></i>';
       }
+    }
+  }
+
+  function updateFieldErrorStatus(fieldId, hasError) {
+    const card = document.getElementById(`field-${fieldId}`);
+    const navItem = document.querySelector(`.field-nav-item[data-field-id="${fieldId}"]`);
+
+    if (card) {
+      card.classList.remove('completed');
+      const completeBadge = card.querySelector('.field-complete-badge');
+      completeBadge?.classList.add('hidden');
+      completeBadge?.classList.remove('flex');
+
+      if (hasError) {
+        card.classList.add('error');
+      } else {
+        card.classList.remove('error');
+      }
+    }
+
+    if (navItem) {
+      const icon = navItem.querySelector('.field-status-icon');
+      if (hasError) {
+        icon.classList.remove('bg-gray-100', 'text-gray-400', 'bg-green-100', 'text-green-600');
+        icon.classList.add('bg-red-100', 'text-red-600');
+        icon.innerHTML = '<i class="iconoir-warning-circle text-sm"></i>';
+      }
+    }
+  }
+
+  function clearFieldError(fieldId) {
+    const state = fieldState.get(fieldId);
+    if (state) {
+      state.hasError = false;
+      state.lastError = null;
+    }
+    const card = document.getElementById(`field-${fieldId}`);
+    if (card) {
+      card.classList.remove('error');
+    }
+    const navItem = document.querySelector(`.field-nav-item[data-field-id="${fieldId}"]`);
+    if (navItem) {
+      const icon = navItem.querySelector('.field-status-icon');
+      const state = fieldState.get(fieldId);
+      if (state && !state.completed) {
+        icon.classList.remove('bg-red-100', 'text-red-600', 'bg-green-100', 'text-green-600');
+        icon.classList.add('bg-gray-100', 'text-gray-400');
+        const index = navItem.dataset.fieldIndex;
+        icon.innerHTML = `<span class="text-xs font-medium">${parseInt(index) + 1}</span>`;
+      }
+    }
+  }
+
+  function updateFailedFieldsNotice() {
+    const failedNotice = document.getElementById('failed-fields-notice');
+    const failedList = document.getElementById('failed-fields-list');
+
+    const failedFields = [];
+    fieldState.forEach((state, fieldId) => {
+      if (state.hasError) {
+        failedFields.push({ id: fieldId, type: state.type, error: state.lastError });
+      }
+    });
+
+    if (failedFields.length === 0) {
+      failedNotice.classList.add('hidden');
+    } else {
+      failedNotice.classList.remove('hidden');
+      failedList.innerHTML = failedFields.map(f => {
+        const label = f.type === 'signature' ? 'Signature' :
+                      f.type === 'initials' ? 'Initials' :
+                      f.type === 'name' ? 'Full Name' :
+                      f.type.charAt(0).toUpperCase() + f.type.slice(1);
+        const errorMsg = f.error ? ` - ${f.error}` : '';
+        return `<li>
+          <a href="#field-${f.id}" onclick="scrollToField('${f.id}'); return false;" class="underline hover:no-underline">${label}</a>
+          <span class="text-red-500 text-xs">${errorMsg}</span>
+        </li>`;
+      }).join('');
     }
   }
 
@@ -824,16 +1083,33 @@
     const incompleteList = document.getElementById('incomplete-fields-list');
 
     let incompleteRequired = [];
+    let hasFailedFields = false;
+    let hasPendingSaves = false;
+
     fieldState.forEach((state, fieldId) => {
       if (state.required && !state.completed) {
         incompleteRequired.push({ id: fieldId, type: state.type });
       }
+      if (state.hasError) {
+        hasFailedFields = true;
+      }
+      if (state.pendingSave) {
+        hasPendingSaves = true;
+      }
     });
 
-    if (incompleteRequired.length === 0) {
+    const statusEl = document.getElementById('submit-status');
+
+    if (hasPendingSaves) {
+      submitBtn.disabled = true;
+      statusEl.textContent = 'Saving fields...';
+    } else if (hasFailedFields) {
+      submitBtn.disabled = true;
+      statusEl.textContent = 'Please retry failed fields before submitting.';
+    } else if (incompleteRequired.length === 0) {
       submitBtn.disabled = false;
       incompleteNotice.classList.add('hidden');
-      document.getElementById('submit-status').textContent = 'All fields complete. Click Submit to finalize your signature.';
+      statusEl.textContent = 'All fields complete. Click Submit to finalize your signature.';
     } else {
       submitBtn.disabled = true;
       incompleteNotice.classList.remove('hidden');
@@ -847,22 +1123,155 @@
     }
   }
 
-  async function handleSubmit() {
-    const submitBtn = document.getElementById('submit-btn');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Submitting...';
+  async function retryField(fieldId) {
+    const state = fieldState.get(fieldId);
+    if (!state) return;
 
+    scrollToField(fieldId);
+
+    // Re-trigger the appropriate save action based on field type
+    if (state.type === 'checkbox') {
+      const checkbox = document.querySelector(`[data-field-id="${fieldId}"].field-checkbox-input`);
+      if (checkbox) {
+        await handleCheckboxChange(fieldId, checkbox.checked);
+      }
+    } else if (state.type === 'signature') {
+      await applySignature(fieldId);
+    } else if (state.type === 'initials') {
+      await applySignature(fieldId);
+    } else {
+      await saveTextField(fieldId);
+    }
+  }
+
+  async function retryAllFailedFields() {
+    const failedFieldIds = [];
+    fieldState.forEach((state, fieldId) => {
+      if (state.hasError) {
+        failedFieldIds.push(fieldId);
+      }
+    });
+
+    if (failedFieldIds.length === 0) return;
+
+    if (window.toastManager) {
+      window.toastManager.info(`Retrying ${failedFieldIds.length} failed field(s)...`);
+    }
+
+    // Retry each field sequentially to avoid overwhelming the server
+    for (const fieldId of failedFieldIds) {
+      await retryField(fieldId);
+      // Small delay between retries
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
+
+  async function validateSessionBeforeSubmit() {
     try {
-      const response = await fetch(`${signerConfig.apiBasePath}/submit/${signerConfig.token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          idempotency_key: `submit-${signerConfig.recipientId}-${Date.now()}`
-        })
+      const response = await fetch(`${signerConfig.apiBasePath}/session/${signerConfig.token}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
       });
 
       if (!response.ok) {
         const errorData = await response.json();
+        const errorCode = errorData.error?.code;
+
+        // Handle specific error codes
+        if (errorCode === 'TOKEN_EXPIRED') {
+          throw new Error('Your signing session has expired. Please request a new signing link.');
+        } else if (errorCode === 'TOKEN_INVALID') {
+          throw new Error('Your signing session is no longer valid.');
+        } else if (errorCode === 'AGREEMENT_IMMUTABLE') {
+          throw new Error('This agreement has already been completed or is no longer available for signing.');
+        }
+        throw new Error(errorData.error?.message || 'Failed to validate session');
+      }
+
+      const data = await response.json();
+      const session = data.session || data;
+
+      // Check if session state is still active
+      if (session.state === 'waiting') {
+        throw new Error('Another signer must complete before you. Please wait for your turn.');
+      } else if (session.state === 'completed') {
+        throw new Error('You have already completed signing this document.');
+      } else if (session.state === 'terminal') {
+        throw new Error('This agreement is no longer available for signing.');
+      } else if (session.state !== 'active') {
+        throw new Error('Your signing session is not in a valid state.');
+      }
+
+      // Validate all required fields are completed on server
+      const serverFields = session.fields || [];
+      const incompleteServerFields = [];
+
+      for (const field of serverFields) {
+        if (field.required) {
+          const hasValue = field.value_text || field.value_bool || field.artifact_id;
+          if (!hasValue) {
+            incompleteServerFields.push(field);
+          }
+        }
+      }
+
+      if (incompleteServerFields.length > 0) {
+        // Sync local state with server state
+        for (const field of incompleteServerFields) {
+          const state = fieldState.get(field.id);
+          if (state && state.completed) {
+            // Local state says complete but server says incomplete
+            state.completed = false;
+            state.hasError = true;
+            state.lastError = 'Field value was not saved properly';
+            updateFieldErrorStatus(field.id, true);
+          }
+        }
+        updateProgress();
+        updateSubmitButton();
+        updateFailedFieldsNotice();
+        throw new Error(`${incompleteServerFields.length} required field(s) are not saved on server. Please retry.`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Session validation error:', error);
+      throw error;
+    }
+  }
+
+  async function handleSubmit() {
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Validating...';
+
+    try {
+      // Pre-submit validation: check session state and server-side field completion
+      await validateSessionBeforeSubmit();
+
+      submitBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Submitting...';
+
+      const idempotencyKey = `submit-${sanitizePathSegment(signerConfig.recipientId)}-${Date.now()}`;
+      const response = await fetch(`${signerConfig.apiBasePath}/submit/${signerConfig.token}`, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorCode = errorData.error?.code;
+
+        // Handle specific error codes with user-friendly messages
+        if (errorCode === 'MISSING_REQUIRED_FIELDS') {
+          // Trigger session refresh to sync state
+          await validateSessionBeforeSubmit().catch(() => {});
+          throw new Error('Some required fields are missing. Please complete all fields and try again.');
+        } else if (errorCode === 'CONSENT_REQUIRED') {
+          throw new Error('Please accept the consent agreement before submitting.');
+        } else if (errorCode === 'INVALID_SIGNER_STATE') {
+          throw new Error('Your signing session state has changed. Please refresh the page.');
+        }
+
         throw new Error(errorData.error?.message || 'Failed to submit');
       }
 
@@ -878,8 +1287,35 @@
     }
   }
 
-  function openDocumentPreview() {
-    window.open(`${signerConfig.apiBasePath}/preview/${signerConfig.token}`, '_blank', 'width=900,height=700');
+  // Open document preview - only use binary asset URLs, never contract_url (which returns JSON)
+  async function openDocumentPreview() {
+    try {
+      const response = await fetch(`${signerConfig.apiBasePath}/assets/${signerConfig.token}`, {
+        method: 'GET'
+      });
+      if (!response.ok) {
+        throw new Error('Document preview unavailable');
+      }
+      const payload = await response.json();
+      const assets = payload?.assets || {};
+
+      // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
+      const previewPath = assets.source_url || assets.executed_url || assets.certificate_url;
+
+      if (!previewPath) {
+        // If no binary URL is available, show helpful error with guidance
+        const errorMsg = 'Document preview is not available yet. The document may still be processing. Please try again in a moment or contact the sender for assistance.';
+        throw new Error(errorMsg);
+      }
+
+      const previewURL = new URL(previewPath, window.location.origin).toString();
+      window.open(previewURL, '_blank', 'width=900,height=700');
+    } catch (error) {
+      console.error('Preview error:', error);
+      if (window.toastManager) {
+        window.toastManager.error(error.message || 'Unable to open document preview');
+      }
+    }
   }
 </script>
 
