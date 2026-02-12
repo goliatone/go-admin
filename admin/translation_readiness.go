@@ -19,12 +19,40 @@ type translationRequirementsProvider interface {
 	Requirements(ctx context.Context, input TranslationPolicyInput) (TranslationRequirements, bool, error)
 }
 
+type translationReadinessRequirementsCache struct {
+	valuesByKey             map[translationReadinessRequirementsCacheKey]translationReadinessRequirementsCacheValue
+	availableLocalesByGroup map[string][]string
+}
+
+type translationReadinessRequirementsCacheKey struct {
+	entityType   string
+	policyEntity string
+	transition   string
+	environment  string
+}
+
+type translationReadinessRequirementsCacheValue struct {
+	locales []string
+	fields  map[string][]string
+}
+
 func buildRecordTranslationReadiness(
 	ctx context.Context,
 	policy TranslationPolicy,
 	panelName string,
 	record map[string]any,
 	filters map[string]any,
+) map[string]any {
+	return buildRecordTranslationReadinessWithCache(ctx, policy, panelName, record, filters, nil)
+}
+
+func buildRecordTranslationReadinessWithCache(
+	ctx context.Context,
+	policy TranslationPolicy,
+	panelName string,
+	record map[string]any,
+	filters map[string]any,
+	cache *translationReadinessRequirementsCache,
 ) map[string]any {
 	if len(record) == 0 {
 		return nil
@@ -33,8 +61,33 @@ func buildRecordTranslationReadiness(
 		return nil
 	}
 
-	requiredLocales, requiredFields := resolveReadinessRequirements(ctx, policy, panelName, record, filters)
-	availableLocales := translationReadinessAvailableLocales(record)
+	requiredLocales := []string{}
+	requiredFields := map[string][]string{}
+	if cache == nil {
+		requiredLocales, requiredFields = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
+	} else {
+		key := translationReadinessRequirementsCacheKey{
+			entityType:   strings.ToLower(strings.TrimSpace(panelName)),
+			policyEntity: strings.ToLower(strings.TrimSpace(translationPolicyEntity(panelName, record))),
+			transition:   translationReadinessTransitionPublish,
+			environment:  strings.ToLower(strings.TrimSpace(translationReadinessEnvironment(ctx, filters))),
+		}
+		if cache.valuesByKey == nil {
+			cache.valuesByKey = map[translationReadinessRequirementsCacheKey]translationReadinessRequirementsCacheValue{}
+		}
+		if cached, ok := cache.valuesByKey[key]; ok {
+			requiredLocales = append([]string{}, cached.locales...)
+			requiredFields = cloneRequiredFields(cached.fields)
+		} else {
+			requiredLocales, requiredFields = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
+			cache.valuesByKey[key] = translationReadinessRequirementsCacheValue{
+				locales: append([]string{}, requiredLocales...),
+				fields:  cloneRequiredFields(requiredFields),
+			}
+		}
+	}
+
+	availableLocales := translationReadinessAvailableLocalesWithBatch(record, cache)
 	missingLocales := translationReadinessMissingLocales(requiredLocales, availableLocales)
 	missingFields := translationReadinessMissingFields(record, requiredFields, availableLocales)
 	readinessState := translationReadinessState(missingLocales, missingFields)
@@ -161,13 +214,49 @@ func translationReadinessLocaleList(locales []string) []string {
 }
 
 func translationReadinessAvailableLocales(record map[string]any) []string {
+	return translationReadinessAvailableLocalesWithBatch(record, nil)
+}
+
+func translationReadinessAvailableLocalesWithBatch(record map[string]any, cache *translationReadinessRequirementsCache) []string {
 	locales := translationReadinessLocaleList(normalizedLocaleList(record["available_locales"]))
+	if cache != nil && len(cache.availableLocalesByGroup) > 0 {
+		if grouped := cache.availableLocalesByGroup[translationReadinessGroupKey(record)]; len(grouped) > 0 {
+			locales = append([]string{}, grouped...)
+		}
+	}
 	recordLocale := strings.ToLower(strings.TrimSpace(toString(record["locale"])))
 	if recordLocale == "" {
 		return locales
 	}
 	locales = append(locales, recordLocale)
 	return translationReadinessLocaleList(locales)
+}
+
+func translationReadinessGroupKey(record map[string]any) string {
+	return strings.ToLower(strings.TrimSpace(toString(record["translation_group_id"])))
+}
+
+func translationReadinessBatchAvailableLocales(records []map[string]any) map[string][]string {
+	if len(records) == 0 {
+		return nil
+	}
+	grouped := map[string][]string{}
+	for _, record := range records {
+		key := translationReadinessGroupKey(record)
+		if key == "" {
+			continue
+		}
+		combined := append([]string{}, grouped[key]...)
+		combined = append(combined, normalizedLocaleList(record["available_locales"])...)
+		if locale := strings.TrimSpace(toString(record["locale"])); locale != "" {
+			combined = append(combined, locale)
+		}
+		grouped[key] = translationReadinessLocaleList(combined)
+	}
+	if len(grouped) == 0 {
+		return nil
+	}
+	return grouped
 }
 
 func translationReadinessMissingLocales(required, available []string) []string {

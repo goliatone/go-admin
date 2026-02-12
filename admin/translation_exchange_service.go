@@ -93,6 +93,7 @@ func (s *TranslationExchangeService) ValidateImport(ctx context.Context, input T
 		Results:   make([]TranslationExchangeRowResult, 0, len(input.Rows)),
 		TotalRows: len(input.Rows),
 	}
+	seen := map[string]int{}
 	for i, row := range input.Rows {
 		rowResult := translationExchangeRowResult(i, row)
 		key, err := ResolveTranslationExchangeLinkageKey(row)
@@ -105,6 +106,22 @@ func (s *TranslationExchangeService) ValidateImport(ctx context.Context, input T
 			result.Add(rowResult)
 			continue
 		}
+		keyString := key.String()
+		if firstIndex, duplicate := seen[keyString]; duplicate {
+			rowResult.Status = translationExchangeRowStatusConflict
+			rowResult.Error = "duplicate row linkage in import payload"
+			rowResult.Conflict = &TranslationExchangeConflictInfo{
+				Type:    "duplicate_row",
+				Message: "duplicate linkage key in import payload",
+			}
+			rowResult.Metadata = map[string]any{
+				"error_code":       TextCodeTranslationExchangeInvalidPayload,
+				"duplicate_of_row": firstIndex,
+			}
+			result.Add(rowResult)
+			continue
+		}
+		seen[keyString] = rowResult.Index
 		linkage, err := s.store.ResolveLinkage(ctx, key)
 		if err != nil {
 			if errors.Is(err, ErrTranslationExchangeLinkageNotFound) || errors.Is(err, ErrNotFound) {
@@ -159,6 +176,7 @@ func (s *TranslationExchangeService) ApplyImport(ctx context.Context, input Tran
 		Results:   make([]TranslationExchangeRowResult, 0, len(input.Rows)),
 		TotalRows: len(input.Rows),
 	}
+	seen := map[string]int{}
 
 	for i, row := range input.Rows {
 		rowResult := translationExchangeRowResult(i, row)
@@ -177,6 +195,26 @@ func (s *TranslationExchangeService) ApplyImport(ctx context.Context, input Tran
 			}
 			continue
 		}
+		keyString := key.String()
+		if firstIndex, duplicate := seen[keyString]; duplicate {
+			rowResult.Status = translationExchangeRowStatusConflict
+			rowResult.Error = "duplicate row linkage in import payload"
+			rowResult.Conflict = &TranslationExchangeConflictInfo{
+				Type:    "duplicate_row",
+				Message: "duplicate linkage key in import payload",
+			}
+			rowResult.Metadata = map[string]any{
+				"error_code":       TextCodeTranslationExchangeInvalidPayload,
+				"duplicate_of_row": firstIndex,
+			}
+			result.Add(rowResult)
+			if !input.ContinueOnError {
+				appendSkippedRows(&result, input.Rows, i+1)
+				break
+			}
+			continue
+		}
+		seen[keyString] = rowResult.Index
 
 		linkage, err := s.store.ResolveLinkage(ctx, key)
 		if err != nil {
