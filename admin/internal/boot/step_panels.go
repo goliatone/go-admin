@@ -68,6 +68,41 @@ func PanelStep(ctx BootCtx) error {
 		}
 		return map[string]any{}, nil
 	}
+	subresourcesForPanel := func(panelName string) []PanelSubresourceSpec {
+		binding, err := panelBindingByName(panelName)
+		if err != nil || binding == nil {
+			return nil
+		}
+		declared := binding.Subresources()
+		if len(declared) == 0 {
+			return nil
+		}
+		out := make([]PanelSubresourceSpec, 0, len(declared))
+		seen := map[string]struct{}{}
+		for _, spec := range declared {
+			name := strings.TrimSpace(spec.Name)
+			if name == "" {
+				continue
+			}
+			key := strings.ToLower(name)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			method := strings.ToUpper(strings.TrimSpace(spec.Method))
+			if method == "" {
+				method = "GET"
+			}
+			out = append(out, PanelSubresourceSpec{
+				Name:   name,
+				Method: method,
+			})
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
 
 	routes := make([]RouteSpec, 0, len(panelNames)*9)
 	for _, panelName := range panelNames {
@@ -270,6 +305,39 @@ func PanelStep(ctx BootCtx) error {
 				},
 			},
 		)
+
+		for _, spec := range subresourcesForPanel(panelName) {
+			spec := spec
+			subresourcePath := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.subresource", map[string]string{
+				"panel":       panelName,
+				"subresource": spec.Name,
+			})
+			if subresourcePath == "" {
+				continue
+			}
+			routes = append(routes, RouteSpec{
+				Method: spec.Method,
+				Path:   subresourcePath,
+				Handler: func(c router.Context) error {
+					binding, err := panelBindingByName(panelName)
+					if err != nil {
+						return responder.WriteError(c, err)
+					}
+					id := c.Param("id", "")
+					if id == "" {
+						return responder.WriteError(c, errMissingID)
+					}
+					value := c.Param("value", "")
+					if strings.TrimSpace(value) == "" {
+						return responder.WriteError(c, errMissingSubresourceValue)
+					}
+					if err := binding.HandleSubresource(c, localeFromRequest(c), id, spec.Name, value); err != nil {
+						return responder.WriteError(c, err)
+					}
+					return nil
+				},
+			})
+		}
 	}
 	return applyRoutes(ctx, routes)
 }
