@@ -9,9 +9,10 @@ import (
 )
 
 var (
-	errMissingID     = bootValidationError("id", "missing id")
-	errMissingAction = bootValidationError("action", "action required")
-	errMissingQuery  = bootValidationError("query", "query required")
+	errMissingID               = bootValidationError("id", "missing id")
+	errMissingAction           = bootValidationError("action", "action required")
+	errMissingQuery            = bootValidationError("query", "query required")
+	errMissingSubresourceValue = bootValidationError("value", "subresource value required")
 )
 
 func bootValidationError(field, message string) error {
