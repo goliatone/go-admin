@@ -168,6 +168,7 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 	if baseFS == nil {
 		return nil, fmt.Errorf("view engine requires a base filesystem")
 	}
+	registerTemplateFilterAliases()
 
 	options := viewEngineOptions{
 		reload: true,
