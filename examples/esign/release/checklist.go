@@ -45,15 +45,25 @@ type RolloutEvidenceSummary struct {
 	SLOValidationRef     string `json:"slo_validation_ref"`
 }
 
+type ProductizationExitSummary struct {
+	RecipientJourneyFromSignLink bool   `json:"recipient_journey_from_sign_link"`
+	InvitationLinkActionable     bool   `json:"invitation_link_actionable"`
+	CompletionLinkActionable     bool   `json:"completion_link_actionable"`
+	PrimaryCTANotContractJSON    bool   `json:"primary_cta_not_contract_json"`
+	CISmokeWorkflowPassed        bool   `json:"ci_smoke_workflow_passed"`
+	CISmokeRef                   string `json:"ci_smoke_ref"`
+}
+
 type Checklist struct {
 	ReleaseID string `json:"release_id"`
 	Track     string `json:"track"`
 	Phase     string `json:"phase"`
 
-	Signoffs map[string]Signoff      `json:"signoffs"`
-	Security SecurityReviewSummary   `json:"security"`
-	Runtime  RuntimeReadinessSummary `json:"runtime"`
-	Evidence RolloutEvidenceSummary  `json:"evidence"`
+	Signoffs       map[string]Signoff        `json:"signoffs"`
+	Security       SecurityReviewSummary     `json:"security"`
+	Runtime        RuntimeReadinessSummary   `json:"runtime"`
+	Evidence       RolloutEvidenceSummary    `json:"evidence"`
+	Productization ProductizationExitSummary `json:"productization_154"`
 
 	SLOSnapshot observability.MetricsSnapshot `json:"slo_snapshot"`
 }
@@ -94,6 +104,21 @@ func (c Checklist) Validate() []string {
 	}
 	if c.Runtime.APIOnlyFallbackDetected {
 		issues = append(issues, "runtime still requires API-only fallback for normal signer flow")
+	}
+	if !c.Productization.RecipientJourneyFromSignLink {
+		issues = append(issues, "15.4 recipient journey from sign link without API tooling is not verified")
+	}
+	if !c.Productization.InvitationLinkActionable {
+		issues = append(issues, "15.4 invitation link actionable UX assertion is not verified")
+	}
+	if !c.Productization.CompletionLinkActionable {
+		issues = append(issues, "15.4 completion link actionable UX assertion is not verified")
+	}
+	if !c.Productization.PrimaryCTANotContractJSON {
+		issues = append(issues, "15.4 primary recipient CTA still resolves to JSON contract endpoint")
+	}
+	if !c.Productization.CISmokeWorkflowPassed {
+		issues = append(issues, "15.4 CI smoke sender->recipient->completion workflow assertion is not verified")
 	}
 	slo := observability.EvaluateSLO(c.SLOSnapshot)
 	if !slo.OverallPass {

@@ -35,7 +35,7 @@ func TestDecodePDFPayloadRejectsInvalidBase64(t *testing.T) {
 }
 
 func TestDecodePDFPayloadAcceptsValidBase64(t *testing.T) {
-	raw := []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF")
+	raw := services.GenerateDeterministicPDF(1)
 	encoded := base64.StdEncoding.EncodeToString(raw)
 	decoded, err := decodePDFPayload(map[string]any{"pdf_base64": encoded})
 	if err != nil {
@@ -49,7 +49,7 @@ func TestDecodePDFPayloadAcceptsValidBase64(t *testing.T) {
 func TestDocumentPanelRepositoryCreateLoadsPDFBytesFromSourceObjectKey(t *testing.T) {
 	assetsDir := t.TempDir()
 	objectKey := "tenant/tenant-bootstrap/org/org-bootstrap/docs/msa.pdf"
-	raw := []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF")
+	raw := services.GenerateDeterministicPDF(1)
 	fullPath := filepath.Join(assetsDir, filepath.FromSlash(objectKey))
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
 		t.Fatalf("mkdir assets path: %v", err)

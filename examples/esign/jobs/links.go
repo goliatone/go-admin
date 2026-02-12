@@ -27,6 +27,14 @@ func buildSignLink(rawToken string) string {
 	return resolvePublicBaseURL() + "/sign/" + url.PathEscape(token)
 }
 
+func buildCompletionLink(rawToken string) string {
+	token := strings.TrimSpace(rawToken)
+	if token == "" {
+		return ""
+	}
+	return resolvePublicBaseURL() + "/sign/" + url.PathEscape(token) + "/complete"
+}
+
 func buildAssetContractLink(rawToken string) string {
 	token := strings.TrimSpace(rawToken)
 	if token == "" {

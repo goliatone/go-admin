@@ -12,6 +12,7 @@ const (
 	ErrorCodeTokenExpired           ErrorCode = "TOKEN_EXPIRED"
 	ErrorCodeTokenRevoked           ErrorCode = "TOKEN_REVOKED"
 	ErrorCodeTokenInvalid           ErrorCode = "TOKEN_INVALID"
+	ErrorCodeAssetUnavailable       ErrorCode = "ASSET_UNAVAILABLE"
 	ErrorCodeAgreementImmutable     ErrorCode = "AGREEMENT_IMMUTABLE"
 	ErrorCodeMissingRequiredFields  ErrorCode = "MISSING_REQUIRED_FIELDS"
 	ErrorCodeInvalidSignerState     ErrorCode = "INVALID_SIGNER_STATE"
@@ -46,6 +47,12 @@ var DomainErrorCodes = []coreadmin.DomainErrorCode{
 		Description: "Signing token is invalid.",
 		Category:    goerrors.CategoryAuthz,
 		HTTPStatus:  401,
+	},
+	{
+		Code:        string(ErrorCodeAssetUnavailable),
+		Description: "Requested signer asset is unavailable for this token.",
+		Category:    goerrors.CategoryNotFound,
+		HTTPStatus:  404,
 	},
 	{
 		Code:        string(ErrorCodeAgreementImmutable),

@@ -60,6 +60,7 @@ function dev:serve {
     export ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY="eSjaEfrhedRicmBvaHHGrPWwVetQ35yf0mLG3VZ6K/4=";
     export ESIGN_EMAIL_TRANSPORT=mailpit;
     export ESIGN_EMAIL_SMTP_HOST=localhost;
+    export ESIGN_SIGNER_FLOW_MODE=unified;
     export ESIGN_EMAIL_SMTP_PORT=1025;
     export ESIGN_EMAIL_SMTP_DISABLE_STARTTLS=true;
     export ESIGN_EMAIL_SMTP_USERNAME=User1;
@@ -70,7 +71,7 @@ function dev:serve {
 }
 
 function release:verify {
-    "${GO_BIN}" test ./release -run 'TestChecklistValidateRejectsUnapprovedSignoffs|TestChecklistValidatePassesForApprovedChecklist|TestValidateChecklistFileTemplateShowsPendingApprovals|TestRunValidationProfilePassesSLOGates'
+    "${GO_BIN}" test ./release -run 'TestChecklistValidateRejectsUnapprovedSignoffs|TestChecklistValidatePassesForApprovedChecklist|TestValidateChecklistFileTemplateShowsPendingApprovals|TestChecklistValidateRejectsAPIOnlyFallback|TestChecklistValidateRejectsMissingProductizationAssertions|TestRunValidationProfilePassesSLOGates'
 }
 
 function smoke:e2e {

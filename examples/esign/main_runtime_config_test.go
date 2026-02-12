@@ -4,7 +4,9 @@ import "testing"
 
 func TestValidateRuntimeProviderConfigurationRejectsDeterministicEmailInProduction(t *testing.T) {
 	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "https://esign.example.com")
 	t.Setenv("ESIGN_EMAIL_TRANSPORT", "deterministic")
+	t.Setenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY", "upload-signing-key")
 	t.Setenv("ESIGN_GOOGLE_FEATURE_ENABLED", "false")
 
 	if err := validateRuntimeProviderConfiguration(); err == nil {
@@ -14,7 +16,9 @@ func TestValidateRuntimeProviderConfigurationRejectsDeterministicEmailInProducti
 
 func TestValidateRuntimeProviderConfigurationRejectsDeterministicGoogleProviderInProduction(t *testing.T) {
 	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "https://esign.example.com")
 	t.Setenv("ESIGN_EMAIL_TRANSPORT", "smtp")
+	t.Setenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY", "upload-signing-key")
 	t.Setenv("ESIGN_GOOGLE_FEATURE_ENABLED", "true")
 	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "deterministic")
 
@@ -25,7 +29,9 @@ func TestValidateRuntimeProviderConfigurationRejectsDeterministicGoogleProviderI
 
 func TestValidateRuntimeProviderConfigurationRejectsGoogleFeatureWithMissingRealProviderConfigInProduction(t *testing.T) {
 	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "https://esign.example.com")
 	t.Setenv("ESIGN_EMAIL_TRANSPORT", "smtp")
+	t.Setenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY", "upload-signing-key")
 	t.Setenv("ESIGN_GOOGLE_FEATURE_ENABLED", "true")
 	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "real")
 	t.Setenv("ESIGN_GOOGLE_CLIENT_ID", "")
@@ -38,7 +44,9 @@ func TestValidateRuntimeProviderConfigurationRejectsGoogleFeatureWithMissingReal
 
 func TestValidateRuntimeProviderConfigurationAllowsSMTPInProductionWithoutGoogle(t *testing.T) {
 	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "https://esign.example.com")
 	t.Setenv("ESIGN_EMAIL_TRANSPORT", "smtp")
+	t.Setenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY", "upload-signing-key")
 	t.Setenv("ESIGN_GOOGLE_FEATURE_ENABLED", "false")
 
 	if err := validateRuntimeProviderConfiguration(); err != nil {
@@ -48,7 +56,9 @@ func TestValidateRuntimeProviderConfigurationAllowsSMTPInProductionWithoutGoogle
 
 func TestValidateRuntimeProviderConfigurationAllowsGoogleRealProviderInProduction(t *testing.T) {
 	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "https://esign.example.com")
 	t.Setenv("ESIGN_EMAIL_TRANSPORT", "smtp")
+	t.Setenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY", "upload-signing-key")
 	t.Setenv("ESIGN_GOOGLE_FEATURE_ENABLED", "true")
 	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "real")
 	t.Setenv("ESIGN_GOOGLE_CLIENT_ID", "client-id")
@@ -71,5 +81,60 @@ func TestValidateRuntimeProviderConfigurationAllowsDeterministicOutsideProductio
 
 	if err := validateRuntimeProviderConfiguration(); err != nil {
 		t.Fatalf("expected non-production deterministic configuration to pass, got %v", err)
+	}
+}
+
+func TestValidateRuntimeProviderConfigurationRejectsMissingSignerUploadSigningKeyInProduction(t *testing.T) {
+	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "https://esign.example.com")
+	t.Setenv("ESIGN_EMAIL_TRANSPORT", "smtp")
+	t.Setenv("ESIGN_GOOGLE_FEATURE_ENABLED", "false")
+	t.Setenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY", "")
+
+	if err := validateRuntimeProviderConfiguration(); err == nil {
+		t.Fatal("expected missing signer upload signing key to fail in production")
+	}
+}
+
+func TestValidateRuntimeProviderConfigurationRejectsSignerUploadTTLPolicyOutOfRangeInProduction(t *testing.T) {
+	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "https://esign.example.com")
+	t.Setenv("ESIGN_EMAIL_TRANSPORT", "smtp")
+	t.Setenv("ESIGN_GOOGLE_FEATURE_ENABLED", "false")
+	t.Setenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY", "upload-signing-key")
+	t.Setenv("ESIGN_SIGNER_UPLOAD_TTL_SECONDS", "30")
+
+	if err := validateRuntimeProviderConfiguration(); err == nil {
+		t.Fatal("expected signer upload ttl policy out-of-range to fail in production")
+	}
+}
+
+func TestValidateRuntimeProviderConfigurationRejectsMissingPublicBaseURLInStaging(t *testing.T) {
+	t.Setenv("ESIGN_RUNTIME_PROFILE", "staging")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "")
+
+	if err := validateRuntimeProviderConfiguration(); err == nil {
+		t.Fatal("expected missing public base URL to fail in staging")
+	}
+}
+
+func TestValidateRuntimeProviderConfigurationRejectsLocalhostPublicBaseURLInProduction(t *testing.T) {
+	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "http://localhost:8082")
+	t.Setenv("ESIGN_EMAIL_TRANSPORT", "smtp")
+	t.Setenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY", "upload-signing-key")
+	t.Setenv("ESIGN_GOOGLE_FEATURE_ENABLED", "false")
+
+	if err := validateRuntimeProviderConfiguration(); err == nil {
+		t.Fatal("expected localhost public base URL to fail in production")
+	}
+}
+
+func TestValidateRuntimeProviderConfigurationAllowsPublicBaseURLInStaging(t *testing.T) {
+	t.Setenv("ESIGN_RUNTIME_PROFILE", "staging")
+	t.Setenv("ESIGN_PUBLIC_BASE_URL", "https://staging.esign.example.com")
+
+	if err := validateRuntimeProviderConfiguration(); err != nil {
+		t.Fatalf("expected staging public base URL validation to pass, got %v", err)
 	}
 }

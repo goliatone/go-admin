@@ -2,12 +2,19 @@ package services
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-uploader"
 )
 
 const (
@@ -17,18 +24,49 @@ const (
 	SignerSessionStateTerminal  = "terminal"
 	SignerSessionStateObserver  = "observer"
 	SignerSessionStateInvalid   = "invalid"
+
+	signerCoordinateContractVersion = "pdf_page_space_v1"
+	signerCoordinateSpace           = "pdf_points"
+	signerCoordinateUnit            = "pt"
+	signerCoordinateOrigin          = "top_left"
+	signerCoordinateYAxisDirection  = "down"
+	defaultPDFPageWidth             = 612.0
+	defaultPDFPageHeight            = 792.0
+	defaultFieldWidth               = 180.0
+	defaultFieldHeight              = 28.0
+
+	defaultSignatureUploadTTLSeconds = 300
+	defaultSignatureUploadMaxBytes   = 5 * 1024 * 1024
+	defaultSignatureUploadURLPath    = "/api/v1/esign/signing/signature-upload/object"
 )
 
 // SigningService exposes signer-session and signing flow behavior.
 type SigningService struct {
-	agreements      stores.AgreementStore
-	signing         stores.SigningStore
-	artifacts       stores.SignatureArtifactStore
-	audits          stores.AuditEventStore
-	completionFlow  SigningCompletionWorkflow
-	now             func() time.Time
-	consentAccepted map[string]time.Time
-	submitByKey     map[string]SignerSubmitResult
+	agreements            stores.AgreementStore
+	signing               stores.SigningStore
+	documents             stores.DocumentStore
+	objectStore           signingObjectStore
+	artifacts             stores.SignatureArtifactStore
+	audits                stores.AuditEventStore
+	completionFlow        SigningCompletionWorkflow
+	now                   func() time.Time
+	signatureUploadTTL    time.Duration
+	signatureUploadSecret []byte
+	signatureUploadURL    string
+	state                 *signingServiceState
+}
+
+type signingServiceState struct {
+	mu                     sync.RWMutex
+	consentAccepted        map[string]time.Time
+	submitByKey            map[string]SignerSubmitResult
+	signatureUploads       map[string]signatureUploadGrant
+	confirmedUploadByToken map[string]signatureUploadReceipt
+}
+
+type signingObjectStore interface {
+	UploadFile(ctx context.Context, path string, content []byte, opts ...uploader.UploadOption) (string, error)
+	GetFile(ctx context.Context, path string) ([]byte, error)
 }
 
 // SigningCompletionWorkflow handles post-submit completion workflows (artifacts/certificate/distribution).
@@ -59,6 +97,26 @@ func WithSignatureArtifactStore(store stores.SignatureArtifactStore) SigningServ
 	}
 }
 
+// WithSigningDocumentStore configures document metadata lookups for signer bootstrap payloads.
+func WithSigningDocumentStore(store stores.DocumentStore) SigningServiceOption {
+	return func(s *SigningService) {
+		if s == nil {
+			return
+		}
+		s.documents = store
+	}
+}
+
+// WithSigningObjectStore configures object storage persistence for signer uploads/assets.
+func WithSigningObjectStore(store signingObjectStore) SigningServiceOption {
+	return func(s *SigningService) {
+		if s == nil {
+			return
+		}
+		s.objectStore = store
+	}
+}
+
 // WithSigningAuditStore configures signer audit event persistence.
 func WithSigningAuditStore(store stores.AuditEventStore) SigningServiceOption {
 	return func(s *SigningService) {
@@ -79,19 +137,63 @@ func WithSigningCompletionWorkflow(workflow SigningCompletionWorkflow) SigningSe
 	}
 }
 
+// WithSignatureUploadConfig overrides signature upload bootstrap signing policy.
+func WithSignatureUploadConfig(ttl time.Duration, secret string) SigningServiceOption {
+	return func(s *SigningService) {
+		if s == nil {
+			return
+		}
+		if ttl > 0 {
+			s.signatureUploadTTL = ttl
+		}
+		trimmedSecret := strings.TrimSpace(secret)
+		if trimmedSecret != "" {
+			s.signatureUploadSecret = []byte(trimmedSecret)
+		}
+	}
+}
+
+// WithSignatureUploadURL configures the upload endpoint returned by bootstrap contracts.
+func WithSignatureUploadURL(urlPath string) SigningServiceOption {
+	return func(s *SigningService) {
+		if s == nil {
+			return
+		}
+		trimmedPath := strings.TrimSpace(urlPath)
+		if trimmedPath != "" {
+			s.signatureUploadURL = trimmedPath
+		}
+	}
+}
+
 func NewSigningService(agreements stores.AgreementStore, signing stores.SigningStore, opts ...SigningServiceOption) SigningService {
 	svc := SigningService{
-		agreements:      agreements,
-		signing:         signing,
-		now:             func() time.Time { return time.Now().UTC() },
-		consentAccepted: map[string]time.Time{},
-		submitByKey:     map[string]SignerSubmitResult{},
+		agreements:            agreements,
+		signing:               signing,
+		now:                   func() time.Time { return time.Now().UTC() },
+		signatureUploadTTL:    time.Duration(defaultSignatureUploadTTLSeconds) * time.Second,
+		signatureUploadSecret: []byte("esign-signature-upload-secret"),
+		signatureUploadURL:    defaultSignatureUploadURLPath,
+		state: &signingServiceState{
+			consentAccepted:        map[string]time.Time{},
+			submitByKey:            map[string]SignerSubmitResult{},
+			signatureUploads:       map[string]signatureUploadGrant{},
+			confirmedUploadByToken: map[string]signatureUploadReceipt{},
+		},
 	}
 	if artifacts, ok := signing.(stores.SignatureArtifactStore); ok {
 		svc.artifacts = artifacts
 	}
 	if audits, ok := agreements.(stores.AuditEventStore); ok {
 		svc.audits = audits
+	}
+	if documents, ok := agreements.(stores.DocumentStore); ok {
+		svc.documents = documents
+	}
+	if svc.documents == nil {
+		if documents, ok := signing.(stores.DocumentStore); ok {
+			svc.documents = documents
+		}
 	}
 	for _, opt := range opts {
 		if opt == nil {
@@ -104,27 +206,58 @@ func NewSigningService(agreements stores.AgreementStore, signing stores.SigningS
 
 // SignerSessionField captures signer-visible field context and current value snapshot.
 type SignerSessionField struct {
-	ID        string `json:"id"`
-	Type      string `json:"type"`
-	Page      int    `json:"page"`
-	Required  bool   `json:"required"`
-	ValueText string `json:"value_text,omitempty"`
-	ValueBool *bool  `json:"value_bool,omitempty"`
+	ID           string  `json:"id"`
+	RecipientID  string  `json:"recipient_id"`
+	Type         string  `json:"type"`
+	Page         int     `json:"page"`
+	PosX         float64 `json:"pos_x"`
+	PosY         float64 `json:"pos_y"`
+	Width        float64 `json:"width"`
+	Height       float64 `json:"height"`
+	PageWidth    float64 `json:"page_width,omitempty"`
+	PageHeight   float64 `json:"page_height,omitempty"`
+	PageRotation int     `json:"page_rotation"`
+	Required     bool    `json:"required"`
+	Label        string  `json:"label,omitempty"`
+	TabIndex     int     `json:"tab_index,omitempty"`
+	ValueText    string  `json:"value_text,omitempty"`
+	ValueBool    *bool   `json:"value_bool,omitempty"`
+}
+
+// SignerSessionViewerPage describes canonical page-space metadata for overlay normalization.
+type SignerSessionViewerPage struct {
+	Page     int     `json:"page"`
+	Width    float64 `json:"width"`
+	Height   float64 `json:"height"`
+	Rotation int     `json:"rotation"`
+}
+
+// SignerSessionViewerContext carries viewer bootstrap metadata used by unified signer UI.
+type SignerSessionViewerContext struct {
+	CoordinateSpace string                    `json:"coordinate_space"`
+	ContractVersion string                    `json:"contract_version,omitempty"`
+	Unit            string                    `json:"unit,omitempty"`
+	Origin          string                    `json:"origin,omitempty"`
+	YAxisDirection  string                    `json:"y_axis_direction,omitempty"`
+	Pages           []SignerSessionViewerPage `json:"pages,omitempty"`
 }
 
 // SignerSessionContext returns agreement and signer-scoped context for the signer API.
 type SignerSessionContext struct {
-	AgreementID         string               `json:"agreement_id"`
-	AgreementStatus     string               `json:"agreement_status"`
-	RecipientID         string               `json:"recipient_id"`
-	RecipientRole       string               `json:"recipient_role"`
-	RecipientEmail      string               `json:"recipient_email"`
-	RecipientName       string               `json:"recipient_name"`
-	RecipientOrder      int                  `json:"recipient_order"`
-	State               string               `json:"state"`
-	ActiveRecipientID   string               `json:"active_recipient_id,omitempty"`
-	WaitingForRecipient string               `json:"waiting_for_recipient_id,omitempty"`
-	Fields              []SignerSessionField `json:"fields"`
+	AgreementID         string                     `json:"agreement_id"`
+	AgreementStatus     string                     `json:"agreement_status"`
+	DocumentName        string                     `json:"document_name"`
+	PageCount           int                        `json:"page_count"`
+	Viewer              SignerSessionViewerContext `json:"viewer"`
+	RecipientID         string                     `json:"recipient_id"`
+	RecipientRole       string                     `json:"recipient_role"`
+	RecipientEmail      string                     `json:"recipient_email"`
+	RecipientName       string                     `json:"recipient_name"`
+	RecipientOrder      int                        `json:"recipient_order"`
+	State               string                     `json:"state"`
+	ActiveRecipientID   string                     `json:"active_recipient_id,omitempty"`
+	WaitingForRecipient string                     `json:"waiting_for_recipient_id,omitempty"`
+	Fields              []SignerSessionField       `json:"fields"`
 }
 
 // SignerConsentInput captures signer consent payload.
@@ -149,16 +282,95 @@ type SignerFieldValueInput struct {
 	UserAgent       string `json:"-"`
 }
 
+// SignerSignatureUploadInput captures signed upload bootstrap request payload.
+type SignerSignatureUploadInput struct {
+	FieldID     string `json:"field_id"`
+	SHA256      string `json:"sha256"`
+	ContentType string `json:"content_type,omitempty"`
+	SizeBytes   int64  `json:"size_bytes,omitempty"`
+	IPAddress   string `json:"-"`
+	UserAgent   string `json:"-"`
+}
+
+// SignerSignatureUploadContract returns signer-scoped temporary upload contract metadata.
+type SignerSignatureUploadContract struct {
+	UploadToken string         `json:"upload_token"`
+	UploadURL   string         `json:"upload_url"`
+	Method      string         `json:"method"`
+	Headers     map[string]any `json:"headers,omitempty"`
+	ObjectKey   string         `json:"object_key"`
+	SHA256      string         `json:"sha256"`
+	ContentType string         `json:"content_type"`
+	SizeBytes   int64          `json:"size_bytes,omitempty"`
+	ExpiresAt   time.Time      `json:"expires_at"`
+}
+
+// SignerSignatureUploadCommitInput captures upload confirmation metadata for drawn signatures.
+type SignerSignatureUploadCommitInput struct {
+	UploadToken string `json:"upload_token"`
+	ObjectKey   string `json:"object_key"`
+	SHA256      string `json:"sha256"`
+	ContentType string `json:"content_type"`
+	SizeBytes   int64  `json:"size_bytes"`
+	Payload     []byte `json:"-"`
+	IPAddress   string `json:"-"`
+	UserAgent   string `json:"-"`
+}
+
+// SignerSignatureUploadCommitResult returns persisted upload receipt metadata used by attach verification.
+type SignerSignatureUploadCommitResult struct {
+	ObjectKey   string    `json:"object_key"`
+	SHA256      string    `json:"sha256"`
+	ContentType string    `json:"content_type"`
+	SizeBytes   int64     `json:"size_bytes"`
+	CommittedAt time.Time `json:"committed_at"`
+}
+
 // SignerSignatureInput captures create+attach signature artifact payload.
 type SignerSignatureInput struct {
 	FieldID         string `json:"field_id"`
 	Type            string `json:"type"`
 	ObjectKey       string `json:"object_key"`
 	SHA256          string `json:"sha256"`
+	UploadToken     string `json:"upload_token,omitempty"`
 	ValueText       string `json:"value_text,omitempty"`
 	ExpectedVersion int64  `json:"expected_version,omitempty"`
 	IPAddress       string `json:"-"`
 	UserAgent       string `json:"-"`
+}
+
+type signatureUploadGrant struct {
+	Token       string
+	TenantID    string
+	OrgID       string
+	AgreementID string
+	RecipientID string
+	FieldID     string
+	ObjectKey   string
+	SHA256      string
+	ContentType string
+	SizeBytes   int64
+	ExpiresAt   time.Time
+	ConsumedAt  *time.Time
+	ReservedAt  *time.Time
+}
+
+type signatureUploadReceipt struct {
+	UploadToken string
+	ObjectKey   string
+	SHA256      string
+	ContentType string
+	SizeBytes   int64
+	CommittedAt time.Time
+}
+
+type signatureUploadValidationInput struct {
+	UploadToken string
+	AgreementID string
+	RecipientID string
+	FieldID     string
+	ObjectKey   string
+	SHA256      string
 }
 
 // SignerSignatureResult returns created artifact and attached field-value record.
@@ -180,6 +392,7 @@ type SignerSubmitResult struct {
 	Recipient       stores.RecipientRecord `json:"recipient"`
 	NextRecipientID string                 `json:"next_recipient_id,omitempty"`
 	Completed       bool                   `json:"completed"`
+	Replay          bool                   `json:"replay,omitempty"`
 }
 
 // SignerDeclineInput captures decline request metadata.
@@ -226,27 +439,48 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 	if state == SignerSessionStateWaiting {
 		waitingFor = activeSigner.ID
 	}
+	documentName, pageCount, viewer := s.resolveSessionBootstrap(ctx, scope, agreement, fields)
+	pagesByNumber := map[int]SignerSessionViewerPage{}
+	for _, page := range viewer.Pages {
+		pagesByNumber[page.Page] = page
+	}
 
 	sessionFields := make([]SignerSessionField, 0)
+	tabIndex := 1
 	for _, field := range fields {
 		fieldRecipientID := strings.TrimSpace(field.RecipientID)
 		if fieldRecipientID != "" && fieldRecipientID != recipient.ID {
 			continue
 		}
 		value := valuesByField[field.ID]
+		page, posX, posY, width, height, pageMeta := normalizeFieldGeometry(field, pageCount, pagesByNumber)
 		sessionFields = append(sessionFields, SignerSessionField{
-			ID:        field.ID,
-			Type:      field.Type,
-			Page:      field.PageNumber,
-			Required:  field.Required,
-			ValueText: strings.TrimSpace(value.ValueText),
-			ValueBool: value.ValueBool,
+			ID:           field.ID,
+			RecipientID:  field.RecipientID,
+			Type:         field.Type,
+			Page:         page,
+			PosX:         posX,
+			PosY:         posY,
+			Width:        width,
+			Height:       height,
+			PageWidth:    pageMeta.Width,
+			PageHeight:   pageMeta.Height,
+			PageRotation: pageMeta.Rotation,
+			Required:     field.Required,
+			Label:        strings.TrimSpace(field.Type),
+			TabIndex:     tabIndex,
+			ValueText:    strings.TrimSpace(value.ValueText),
+			ValueBool:    value.ValueBool,
 		})
+		tabIndex++
 	}
 
 	return SignerSessionContext{
 		AgreementID:         agreement.ID,
 		AgreementStatus:     agreement.Status,
+		DocumentName:        documentName,
+		PageCount:           pageCount,
+		Viewer:              viewer,
 		RecipientID:         recipient.ID,
 		RecipientRole:       recipient.Role,
 		RecipientEmail:      recipient.Email,
@@ -257,6 +491,50 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 		WaitingForRecipient: waitingFor,
 		Fields:              sessionFields,
 	}, nil
+}
+
+func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord, fields []stores.FieldRecord) (string, int, SignerSessionViewerContext) {
+	documentName := "Document.pdf"
+	pageCount := 1
+	if strings.TrimSpace(agreement.DocumentID) != "" && s.documents != nil {
+		if document, err := s.documents.Get(ctx, scope, agreement.DocumentID); err == nil {
+			if strings.TrimSpace(document.Title) != "" {
+				documentName = strings.TrimSpace(document.Title)
+			}
+			if document.PageCount > 0 {
+				pageCount = document.PageCount
+			}
+		}
+	}
+	maxFieldPage := 0
+	for _, field := range fields {
+		if field.PageNumber > maxFieldPage {
+			maxFieldPage = field.PageNumber
+		}
+	}
+	if maxFieldPage > pageCount {
+		pageCount = maxFieldPage
+	}
+	if pageCount <= 0 {
+		pageCount = 1
+	}
+	pages := make([]SignerSessionViewerPage, 0, pageCount)
+	for page := 1; page <= pageCount; page++ {
+		pages = append(pages, SignerSessionViewerPage{
+			Page:     page,
+			Width:    defaultPDFPageWidth,
+			Height:   defaultPDFPageHeight,
+			Rotation: 0,
+		})
+	}
+	return documentName, pageCount, SignerSessionViewerContext{
+		CoordinateSpace: signerCoordinateSpace,
+		ContractVersion: signerCoordinateContractVersion,
+		Unit:            signerCoordinateUnit,
+		Origin:          signerCoordinateOrigin,
+		YAxisDirection:  signerCoordinateYAxisDirection,
+		Pages:           pages,
+	}
 }
 
 // CaptureConsent stores consent acceptance for the active signer in a sequential flow.
@@ -276,7 +554,7 @@ func (s SigningService) CaptureConsent(ctx context.Context, scope stores.Scope, 
 	}
 
 	now := s.now()
-	s.consentAccepted[signingFlowKey(scope, agreement.ID, recipient.ID)] = now
+	s.setConsentAccepted(signingFlowKey(scope, agreement.ID, recipient.ID), now)
 	if err := s.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.consent_captured", input.IPAddress, input.UserAgent, map[string]any{
 		"consent_at": now.UTC().Format(time.RFC3339),
 	}); err != nil {
@@ -346,6 +624,177 @@ func (s SigningService) UpsertFieldValue(ctx context.Context, scope stores.Scope
 	return upserted, nil
 }
 
+// IssueSignatureUpload creates a short-lived signer-scoped upload contract for drawn signatures.
+func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input SignerSignatureUploadInput) (SignerSignatureUploadContract, error) {
+	agreement, recipient, activeSigner, _, fields, err := s.signerContext(ctx, scope, token)
+	if err != nil {
+		return SignerSignatureUploadContract{}, err
+	}
+	if err := ensureActiveSequentialSigner(recipient, activeSigner); err != nil {
+		return SignerSignatureUploadContract{}, err
+	}
+	fieldID := strings.TrimSpace(input.FieldID)
+	if fieldID == "" {
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_id", "required")
+	}
+	field, ok := findFieldByID(fields, fieldID)
+	if !ok {
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_id", "not found")
+	}
+	if field.Type != stores.FieldTypeSignature {
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_type", "bootstrap requires signature field")
+	}
+	if strings.TrimSpace(field.RecipientID) != strings.TrimSpace(recipient.ID) {
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "recipient_id", "field does not belong to signer")
+	}
+	digest := normalizeSHA256Hex(input.SHA256)
+	if len(digest) != 64 {
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "sha256", "must be 64 lowercase hex chars")
+	}
+	contentType := strings.ToLower(strings.TrimSpace(input.ContentType))
+	if contentType == "" {
+		contentType = "image/png"
+	}
+	if contentType != "image/png" {
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "content_type", "must be image/png")
+	}
+	if input.SizeBytes < 0 || input.SizeBytes > defaultSignatureUploadMaxBytes {
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "size_bytes", "invalid content size")
+	}
+
+	now := s.now()
+	expiresAt := now.Add(s.signatureUploadTTL)
+	objectKey := signerSignatureObjectKey(scope, agreement.ID, recipient.ID, field.ID, now)
+	claims := signatureUploadGrant{
+		TenantID:    strings.TrimSpace(scope.TenantID),
+		OrgID:       strings.TrimSpace(scope.OrgID),
+		AgreementID: strings.TrimSpace(agreement.ID),
+		RecipientID: strings.TrimSpace(recipient.ID),
+		FieldID:     strings.TrimSpace(field.ID),
+		ObjectKey:   objectKey,
+		SHA256:      digest,
+		ContentType: contentType,
+		SizeBytes:   input.SizeBytes,
+		ExpiresAt:   expiresAt.UTC(),
+	}
+	tokenValue, err := s.signSignatureUploadGrant(claims)
+	if err != nil {
+		return SignerSignatureUploadContract{}, err
+	}
+	claims.Token = tokenValue
+	s.putSignatureUploadGrant(tokenValue, claims)
+
+	if err := s.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.signature_upload_bootstrapped", input.IPAddress, input.UserAgent, map[string]any{
+		"field_id":     field.ID,
+		"object_key":   objectKey,
+		"content_type": contentType,
+		"expires_at":   expiresAt.UTC().Format(time.RFC3339),
+	}); err != nil {
+		return SignerSignatureUploadContract{}, err
+	}
+
+	return SignerSignatureUploadContract{
+		UploadToken: tokenValue,
+		UploadURL:   strings.TrimSpace(s.signatureUploadURL),
+		Method:      "PUT",
+		Headers: map[string]any{
+			"Content-Type":         contentType,
+			"X-ESign-Upload-Key":   objectKey,
+			"X-ESign-Upload-Token": tokenValue,
+		},
+		ObjectKey:   objectKey,
+		SHA256:      digest,
+		ContentType: contentType,
+		SizeBytes:   input.SizeBytes,
+		ExpiresAt:   expiresAt.UTC(),
+	}, nil
+}
+
+// ConfirmSignatureUpload records upload receipt metadata and enforces grant-bound digest/object constraints.
+func (s SigningService) ConfirmSignatureUpload(ctx context.Context, scope stores.Scope, input SignerSignatureUploadCommitInput) (SignerSignatureUploadCommitResult, error) {
+	payload := append([]byte{}, input.Payload...)
+	if len(payload) > 0 {
+		sum := sha256.Sum256(payload)
+		computedSHA := hex.EncodeToString(sum[:])
+		if normalized := normalizeSHA256Hex(strings.TrimSpace(input.SHA256)); normalized != "" && normalized != computedSHA {
+			return SignerSignatureUploadCommitResult{}, domainValidationError("signature_upload", "sha256", "uploaded content digest mismatch")
+		}
+		input.SHA256 = computedSHA
+		input.SizeBytes = int64(len(payload))
+		if strings.TrimSpace(input.ContentType) == "" {
+			input.ContentType = "image/png"
+		}
+	}
+
+	grant, err := s.validateSignatureUploadGrant(ctx, scope, signatureUploadValidationInput{
+		UploadToken: input.UploadToken,
+		ObjectKey:   input.ObjectKey,
+		SHA256:      input.SHA256,
+	})
+	if err != nil {
+		return SignerSignatureUploadCommitResult{}, err
+	}
+	if strings.TrimSpace(input.ContentType) != "" && !strings.EqualFold(strings.TrimSpace(input.ContentType), strings.TrimSpace(grant.ContentType)) {
+		return SignerSignatureUploadCommitResult{}, domainValidationError("signature_upload", "content_type", "uploaded content type does not match contract")
+	}
+	if input.SizeBytes < 0 {
+		return SignerSignatureUploadCommitResult{}, domainValidationError("signature_upload", "size_bytes", "invalid content size")
+	}
+	if grant.SizeBytes > 0 && input.SizeBytes > 0 && input.SizeBytes != grant.SizeBytes {
+		return SignerSignatureUploadCommitResult{}, domainValidationError("signature_upload", "size_bytes", "uploaded content size does not match contract")
+	}
+	if input.SizeBytes > defaultSignatureUploadMaxBytes {
+		return SignerSignatureUploadCommitResult{}, domainValidationError("signature_upload", "size_bytes", "invalid content size")
+	}
+	if len(payload) > 0 && s.objectStore != nil {
+		if _, err := s.objectStore.UploadFile(ctx, strings.TrimSpace(grant.ObjectKey), payload,
+			uploader.WithContentType(strings.TrimSpace(grant.ContentType)),
+			uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
+		); err != nil {
+			return SignerSignatureUploadCommitResult{}, domainValidationError("signature_upload", "object_store", "persist signed upload failed")
+		}
+		stored, err := s.objectStore.GetFile(ctx, strings.TrimSpace(grant.ObjectKey))
+		if err != nil || len(stored) == 0 {
+			return SignerSignatureUploadCommitResult{}, domainValidationError("signature_upload", "object_store", "persisted upload is unavailable")
+		}
+		sum := sha256.Sum256(stored)
+		if hex.EncodeToString(sum[:]) != strings.TrimSpace(grant.SHA256) {
+			return SignerSignatureUploadCommitResult{}, domainValidationError("signature_upload", "object_store", "persisted upload digest mismatch")
+		}
+		if grant.SizeBytes > 0 && int64(len(stored)) != grant.SizeBytes {
+			return SignerSignatureUploadCommitResult{}, domainValidationError("signature_upload", "object_store", "persisted upload size mismatch")
+		}
+	}
+
+	committedAt := s.now()
+	receipt := signatureUploadReceipt{
+		UploadToken: strings.TrimSpace(input.UploadToken),
+		ObjectKey:   strings.TrimSpace(grant.ObjectKey),
+		SHA256:      strings.TrimSpace(grant.SHA256),
+		ContentType: strings.TrimSpace(grant.ContentType),
+		SizeBytes:   input.SizeBytes,
+		CommittedAt: committedAt.UTC(),
+	}
+	s.putSignatureUploadReceipt(receipt.UploadToken, receipt)
+	if err := s.appendSignerAudit(ctx, scope, grant.AgreementID, grant.RecipientID, "signer.signature_upload_confirmed", input.IPAddress, input.UserAgent, map[string]any{
+		"field_id":         grant.FieldID,
+		"object_key":       grant.ObjectKey,
+		"content_type":     grant.ContentType,
+		"size_bytes":       receipt.SizeBytes,
+		"upload_expires":   grant.ExpiresAt.UTC().Format(time.RFC3339),
+		"upload_committed": receipt.CommittedAt.UTC().Format(time.RFC3339),
+	}); err != nil {
+		return SignerSignatureUploadCommitResult{}, err
+	}
+	return SignerSignatureUploadCommitResult{
+		ObjectKey:   receipt.ObjectKey,
+		SHA256:      receipt.SHA256,
+		ContentType: receipt.ContentType,
+		SizeBytes:   receipt.SizeBytes,
+		CommittedAt: receipt.CommittedAt,
+	}, nil
+}
+
 // AttachSignatureArtifact creates a typed/drawn signature artifact and attaches it to a signature field value.
 func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input SignerSignatureInput) (SignerSignatureResult, error) {
 	if s.signing == nil {
@@ -380,12 +829,69 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 	if signatureType != "typed" && signatureType != "drawn" {
 		return SignerSignatureResult{}, domainValidationError("signature_artifacts", "type", "must be typed or drawn")
 	}
+	objectKey := strings.TrimSpace(input.ObjectKey)
+	if objectKey == "" {
+		return SignerSignatureResult{}, domainValidationError("signature_artifacts", "object_key", "required")
+	}
+	sha256Hex := normalizeSHA256Hex(input.SHA256)
+	if len(sha256Hex) != 64 {
+		return SignerSignatureResult{}, domainValidationError("signature_artifacts", "sha256", "must be 64 lowercase hex chars")
+	}
+
+	existing, hasExisting, err := s.findFieldValueByField(ctx, scope, agreement.ID, recipient.ID, field.ID)
+	if err != nil {
+		return SignerSignatureResult{}, err
+	}
+	if hasExisting && strings.TrimSpace(existing.SignatureArtifactID) != "" {
+		if artifact, aerr := s.artifacts.GetSignatureArtifact(ctx, scope, existing.SignatureArtifactID); aerr == nil {
+			if strings.TrimSpace(artifact.ObjectKey) == objectKey && strings.TrimSpace(artifact.SHA256) == sha256Hex && strings.TrimSpace(artifact.Type) == signatureType {
+				return SignerSignatureResult{
+					Artifact:   artifact,
+					FieldValue: existing,
+				}, nil
+			}
+		}
+	}
+	uploadToken := strings.TrimSpace(input.UploadToken)
+	uploadTokenHash := ""
+	releaseReservation := func() {}
+	if signatureType == "drawn" {
+		grant, err := s.validateSignatureUploadGrant(ctx, scope, signatureUploadValidationInput{
+			UploadToken: uploadToken,
+			AgreementID: agreement.ID,
+			RecipientID: recipient.ID,
+			FieldID:     field.ID,
+			ObjectKey:   objectKey,
+			SHA256:      sha256Hex,
+		})
+		if err != nil {
+			return SignerSignatureResult{}, err
+		}
+		receipt, ok := s.getSignatureUploadReceipt(uploadToken)
+		if !ok {
+			return SignerSignatureResult{}, domainValidationError("signature_upload", "upload_token", "signature upload object not confirmed")
+		}
+		if receipt.ObjectKey != grant.ObjectKey || receipt.SHA256 != grant.SHA256 {
+			return SignerSignatureResult{}, domainValidationError("signature_upload", "upload_token", "signature upload receipt metadata mismatch")
+		}
+		if receipt.SizeBytes < 0 || receipt.SizeBytes > defaultSignatureUploadMaxBytes {
+			return SignerSignatureResult{}, domainValidationError("signature_upload", "size_bytes", "invalid content size")
+		}
+		release, err := s.reserveSignatureUploadGrant(uploadToken, s.now())
+		if err != nil {
+			return SignerSignatureResult{}, err
+		}
+		releaseReservation = release
+		uploadTokenHash = hashUploadToken(uploadToken)
+	}
+	defer releaseReservation()
+
 	artifact, err := s.artifacts.CreateSignatureArtifact(ctx, scope, stores.SignatureArtifactRecord{
 		AgreementID: agreement.ID,
 		RecipientID: recipient.ID,
 		Type:        signatureType,
-		ObjectKey:   strings.TrimSpace(input.ObjectKey),
-		SHA256:      strings.TrimSpace(input.SHA256),
+		ObjectKey:   objectKey,
+		SHA256:      sha256Hex,
 		CreatedAt:   s.now(),
 	})
 	if err != nil {
@@ -399,10 +905,6 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 		ValueText:           strings.TrimSpace(input.ValueText),
 		SignatureArtifactID: artifact.ID,
 	}
-	existing, hasExisting, err := s.findFieldValueByField(ctx, scope, agreement.ID, recipient.ID, field.ID)
-	if err != nil {
-		return SignerSignatureResult{}, err
-	}
 	if hasExisting {
 		record.ID = existing.ID
 		if input.ExpectedVersion == 0 {
@@ -413,12 +915,20 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 	if err != nil {
 		return SignerSignatureResult{}, err
 	}
-	if err := s.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.signature_attached", input.IPAddress, input.UserAgent, map[string]any{
+	metadata := map[string]any{
 		"field_id":    field.ID,
 		"artifact_id": artifact.ID,
 		"type":        signatureType,
-	}); err != nil {
+	}
+	if uploadTokenHash != "" {
+		metadata["upload_token_hash"] = uploadTokenHash
+	}
+	if err := s.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.signature_attached", input.IPAddress, input.UserAgent, metadata); err != nil {
 		return SignerSignatureResult{}, err
+	}
+	if signatureType == "drawn" {
+		s.markSignatureUploadGrantConsumed(uploadToken, s.now())
+		releaseReservation = func() {}
 	}
 	return SignerSignatureResult{
 		Artifact:   artifact,
@@ -438,7 +948,8 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 		return SignerSubmitResult{}, domainValidationError("signing_tokens", "agreement_id|recipient_id", "required")
 	}
 	submitKey := s.submitIdempotencyKey(scope, agreementID, recipientID, idempotencyKey)
-	if cached, ok := s.submitByKey[submitKey]; ok {
+	if cached, ok := s.getSubmitByKey(submitKey); ok {
+		cached.Replay = true
 		return cached, nil
 	}
 
@@ -453,7 +964,7 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 		return SignerSubmitResult{}, err
 	}
 
-	if _, ok := s.consentAccepted[signingFlowKey(scope, agreement.ID, recipient.ID)]; !ok {
+	if _, ok := s.getConsentAccepted(signingFlowKey(scope, agreement.ID, recipient.ID)); !ok {
 		return SignerSubmitResult{}, domainValidationError("consent", "accepted", "consent must be captured before submit")
 	}
 	if err := s.ensureRequiredFieldsCompleted(ctx, scope, agreement.ID, recipient.ID, fields); err != nil {
@@ -519,7 +1030,7 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 			return SignerSubmitResult{}, err
 		}
 	}
-	s.submitByKey[submitKey] = result
+	s.setSubmitByKey(submitKey, result)
 	return result, nil
 }
 
@@ -807,6 +1318,64 @@ func nextSequentialSignerID(recipients []stores.RecipientRecord, completedRecipi
 	return ""
 }
 
+func normalizeFieldGeometry(field stores.FieldRecord, pageCount int, pagesByNumber map[int]SignerSessionViewerPage) (int, float64, float64, float64, float64, SignerSessionViewerPage) {
+	page := field.PageNumber
+	if page <= 0 {
+		page = 1
+	}
+	if pageCount > 0 && page > pageCount {
+		page = pageCount
+	}
+	pageMeta, ok := pagesByNumber[page]
+	if !ok {
+		pageMeta = SignerSessionViewerPage{
+			Page:     page,
+			Width:    defaultPDFPageWidth,
+			Height:   defaultPDFPageHeight,
+			Rotation: 0,
+		}
+	}
+
+	width := field.Width
+	height := field.Height
+	if width <= 0 {
+		width = defaultFieldWidth
+	}
+	if height <= 0 {
+		height = defaultFieldHeight
+	}
+	if pageMeta.Width > 0 && width > pageMeta.Width {
+		width = pageMeta.Width
+	}
+	if pageMeta.Height > 0 && height > pageMeta.Height {
+		height = pageMeta.Height
+	}
+
+	posX := field.PosX
+	posY := field.PosY
+	if posX < 0 {
+		posX = 0
+	}
+	if posY < 0 {
+		posY = 0
+	}
+	if pageMeta.Width > 0 && posX+width > pageMeta.Width {
+		posX = maxFloat(0, pageMeta.Width-width)
+	}
+	if pageMeta.Height > 0 && posY+height > pageMeta.Height {
+		posY = maxFloat(0, pageMeta.Height-height)
+	}
+
+	return page, posX, posY, width, height, pageMeta
+}
+
+func maxFloat(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func timePtrRFC3339(value *time.Time) string {
 	if value == nil || value.IsZero() {
 		return ""
@@ -837,4 +1406,330 @@ func (s SigningService) appendSignerAudit(ctx context.Context, scope stores.Scop
 		CreatedAt:    s.now(),
 	})
 	return err
+}
+
+func signerSignatureObjectKey(scope stores.Scope, agreementID, recipientID, fieldID string, now time.Time) string {
+	nonce := strings.TrimSpace(fmt.Sprintf("%d", now.UTC().UnixNano()))
+	return strings.Join([]string{
+		"tenant", strings.TrimSpace(scope.TenantID),
+		"org", strings.TrimSpace(scope.OrgID),
+		"agreements", strings.TrimSpace(agreementID),
+		"sig", strings.TrimSpace(recipientID),
+		strings.TrimSpace(fieldID) + "-" + nonce + ".png",
+	}, "/")
+}
+
+func normalizeSHA256Hex(raw string) string {
+	trimmed := strings.ToLower(strings.TrimSpace(raw))
+	if len(trimmed) != 64 {
+		return ""
+	}
+	if _, err := hex.DecodeString(trimmed); err != nil {
+		return ""
+	}
+	return trimmed
+}
+
+func (s SigningService) signSignatureUploadGrant(grant signatureUploadGrant) (string, error) {
+	payload, err := json.Marshal(map[string]any{
+		"tenant_id":    strings.TrimSpace(grant.TenantID),
+		"org_id":       strings.TrimSpace(grant.OrgID),
+		"agreement_id": strings.TrimSpace(grant.AgreementID),
+		"recipient_id": strings.TrimSpace(grant.RecipientID),
+		"field_id":     strings.TrimSpace(grant.FieldID),
+		"object_key":   strings.TrimSpace(grant.ObjectKey),
+		"sha256":       strings.TrimSpace(grant.SHA256),
+		"content_type": strings.TrimSpace(grant.ContentType),
+		"size_bytes":   grant.SizeBytes,
+		"expires_at":   grant.ExpiresAt.UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		return "", err
+	}
+	mac := hmac.New(sha256.New, s.signatureUploadSecret)
+	if _, err := mac.Write(payload); err != nil {
+		return "", err
+	}
+	signature := mac.Sum(nil)
+	return base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(signature), nil
+}
+
+func (s SigningService) parseSignatureUploadGrant(uploadToken string) (signatureUploadGrant, error) {
+	parts := strings.Split(strings.TrimSpace(uploadToken), ".")
+	if len(parts) != 2 {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "invalid signed upload token")
+	}
+	encodedPayload := strings.TrimSpace(parts[0])
+	encodedSignature := strings.TrimSpace(parts[1])
+	payload, err := base64.RawURLEncoding.DecodeString(encodedPayload)
+	if err != nil {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "invalid signed upload token payload")
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(encodedSignature)
+	if err != nil {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "invalid signed upload token signature")
+	}
+
+	mac := hmac.New(sha256.New, s.signatureUploadSecret)
+	if _, err := mac.Write(payload); err != nil {
+		return signatureUploadGrant{}, err
+	}
+	expectedSignature := mac.Sum(nil)
+	if !hmac.Equal(signature, expectedSignature) {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "signed upload token verification failed")
+	}
+
+	var claims struct {
+		TenantID    string `json:"tenant_id"`
+		OrgID       string `json:"org_id"`
+		AgreementID string `json:"agreement_id"`
+		RecipientID string `json:"recipient_id"`
+		FieldID     string `json:"field_id"`
+		ObjectKey   string `json:"object_key"`
+		SHA256      string `json:"sha256"`
+		ContentType string `json:"content_type"`
+		SizeBytes   int64  `json:"size_bytes"`
+		ExpiresAt   string `json:"expires_at"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "invalid signed upload token claims")
+	}
+	expiresAt, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(claims.ExpiresAt))
+	if err != nil {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "invalid signed upload token expiry")
+	}
+	return signatureUploadGrant{
+		Token:       strings.TrimSpace(uploadToken),
+		TenantID:    strings.TrimSpace(claims.TenantID),
+		OrgID:       strings.TrimSpace(claims.OrgID),
+		AgreementID: strings.TrimSpace(claims.AgreementID),
+		RecipientID: strings.TrimSpace(claims.RecipientID),
+		FieldID:     strings.TrimSpace(claims.FieldID),
+		ObjectKey:   strings.TrimSpace(claims.ObjectKey),
+		SHA256:      normalizeSHA256Hex(claims.SHA256),
+		ContentType: strings.TrimSpace(claims.ContentType),
+		SizeBytes:   claims.SizeBytes,
+		ExpiresAt:   expiresAt.UTC(),
+	}, nil
+}
+
+func (s SigningService) validateSignatureUploadGrant(ctx context.Context, scope stores.Scope, input signatureUploadValidationInput) (signatureUploadGrant, error) {
+	uploadToken := strings.TrimSpace(input.UploadToken)
+	if uploadToken == "" {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "required for drawn signature attach")
+	}
+	grant, err := s.parseSignatureUploadGrant(uploadToken)
+	if err != nil {
+		return signatureUploadGrant{}, err
+	}
+	now := s.now()
+	if !grant.ExpiresAt.After(now) {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "signed upload token expired")
+	}
+	if grant.TenantID != strings.TrimSpace(scope.TenantID) || grant.OrgID != strings.TrimSpace(scope.OrgID) {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "scope", "signed upload token scope mismatch")
+	}
+	if expectedAgreement := strings.TrimSpace(input.AgreementID); expectedAgreement != "" && grant.AgreementID != expectedAgreement {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "agreement_or_recipient", "signed upload token signer context mismatch")
+	}
+	if expectedRecipient := strings.TrimSpace(input.RecipientID); expectedRecipient != "" && grant.RecipientID != expectedRecipient {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "agreement_or_recipient", "signed upload token signer context mismatch")
+	}
+	if expectedField := strings.TrimSpace(input.FieldID); expectedField != "" && grant.FieldID != expectedField {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "field_id", "signed upload token field mismatch")
+	}
+	if expectedObjectKey := strings.TrimSpace(input.ObjectKey); expectedObjectKey != "" && grant.ObjectKey != expectedObjectKey {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "object_key", "signed upload token object key mismatch")
+	}
+	if expectedDigest := normalizeSHA256Hex(input.SHA256); expectedDigest != "" && grant.SHA256 != expectedDigest {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "sha256", "signed upload token digest mismatch")
+	}
+	if tracked, ok := s.getSignatureUploadGrant(uploadToken); ok {
+		if tracked.ConsumedAt != nil {
+			return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "signed upload token already consumed")
+		}
+		if tracked.ReservedAt != nil {
+			return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "signed upload token is being processed")
+		}
+	}
+	if s.wasUploadTokenConsumedInAudit(ctx, scope, grant.AgreementID, uploadToken) {
+		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "signed upload token already consumed")
+	}
+	return grant, nil
+}
+
+func (s SigningService) markSignatureUploadGrantConsumed(uploadToken string, consumedAt time.Time) {
+	uploadToken = strings.TrimSpace(uploadToken)
+	if uploadToken == "" {
+		return
+	}
+	grant, ok := s.getSignatureUploadGrant(uploadToken)
+	if !ok {
+		return
+	}
+	if grant.ConsumedAt != nil {
+		return
+	}
+	consumed := consumedAt.UTC()
+	grant.ConsumedAt = &consumed
+	grant.ReservedAt = nil
+	s.putSignatureUploadGrant(uploadToken, grant)
+	s.deleteSignatureUploadReceipt(uploadToken)
+}
+
+func (s SigningService) reserveSignatureUploadGrant(uploadToken string, reservedAt time.Time) (func(), error) {
+	uploadToken = strings.TrimSpace(uploadToken)
+	if uploadToken == "" {
+		return func() {}, domainValidationError("signature_upload", "upload_token", "required for drawn signature attach")
+	}
+	state := s.serviceState()
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	grant, ok := state.signatureUploads[uploadToken]
+	if !ok {
+		return func() {}, nil
+	}
+	if grant.ConsumedAt != nil {
+		return func() {}, domainValidationError("signature_upload", "upload_token", "signed upload token already consumed")
+	}
+	if grant.ReservedAt != nil {
+		return func() {}, domainValidationError("signature_upload", "upload_token", "signed upload token is being processed")
+	}
+	reserved := reservedAt.UTC()
+	grant.ReservedAt = &reserved
+	state.signatureUploads[uploadToken] = grant
+	release := func() {
+		state.mu.Lock()
+		defer state.mu.Unlock()
+		current, exists := state.signatureUploads[uploadToken]
+		if !exists || current.ConsumedAt != nil {
+			return
+		}
+		current.ReservedAt = nil
+		state.signatureUploads[uploadToken] = current
+	}
+	return release, nil
+}
+
+func (s SigningService) wasUploadTokenConsumedInAudit(ctx context.Context, scope stores.Scope, agreementID, uploadToken string) bool {
+	if s.audits == nil {
+		return false
+	}
+	agreementID = strings.TrimSpace(agreementID)
+	if agreementID == "" {
+		return false
+	}
+	uploadTokenHash := hashUploadToken(uploadToken)
+	if uploadTokenHash == "" {
+		return false
+	}
+	events, err := s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{})
+	if err != nil {
+		return false
+	}
+	for _, event := range events {
+		if strings.TrimSpace(event.EventType) != "signer.signature_attached" {
+			continue
+		}
+		metadata := strings.TrimSpace(event.MetadataJSON)
+		if metadata == "" {
+			continue
+		}
+		decoded := map[string]any{}
+		if err := json.Unmarshal([]byte(metadata), &decoded); err != nil {
+			continue
+		}
+		if strings.TrimSpace(fmt.Sprint(decoded["upload_token_hash"])) == uploadTokenHash {
+			return true
+		}
+	}
+	return false
+}
+
+func hashUploadToken(uploadToken string) string {
+	uploadToken = strings.TrimSpace(uploadToken)
+	if uploadToken == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(uploadToken))
+	return hex.EncodeToString(sum[:])
+}
+
+func (s SigningService) serviceState() *signingServiceState {
+	if s.state != nil {
+		return s.state
+	}
+	return &signingServiceState{
+		consentAccepted:        map[string]time.Time{},
+		submitByKey:            map[string]SignerSubmitResult{},
+		signatureUploads:       map[string]signatureUploadGrant{},
+		confirmedUploadByToken: map[string]signatureUploadReceipt{},
+	}
+}
+
+func (s SigningService) setConsentAccepted(key string, acceptedAt time.Time) {
+	state := s.serviceState()
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.consentAccepted[strings.TrimSpace(key)] = acceptedAt.UTC()
+}
+
+func (s SigningService) getConsentAccepted(key string) (time.Time, bool) {
+	state := s.serviceState()
+	state.mu.RLock()
+	defer state.mu.RUnlock()
+	value, ok := state.consentAccepted[strings.TrimSpace(key)]
+	return value, ok
+}
+
+func (s SigningService) setSubmitByKey(key string, result SignerSubmitResult) {
+	state := s.serviceState()
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.submitByKey[strings.TrimSpace(key)] = result
+}
+
+func (s SigningService) getSubmitByKey(key string) (SignerSubmitResult, bool) {
+	state := s.serviceState()
+	state.mu.RLock()
+	defer state.mu.RUnlock()
+	result, ok := state.submitByKey[strings.TrimSpace(key)]
+	return result, ok
+}
+
+func (s SigningService) putSignatureUploadGrant(uploadToken string, grant signatureUploadGrant) {
+	state := s.serviceState()
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.signatureUploads[strings.TrimSpace(uploadToken)] = grant
+}
+
+func (s SigningService) getSignatureUploadGrant(uploadToken string) (signatureUploadGrant, bool) {
+	state := s.serviceState()
+	state.mu.RLock()
+	defer state.mu.RUnlock()
+	grant, ok := state.signatureUploads[strings.TrimSpace(uploadToken)]
+	return grant, ok
+}
+
+func (s SigningService) putSignatureUploadReceipt(uploadToken string, receipt signatureUploadReceipt) {
+	state := s.serviceState()
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.confirmedUploadByToken[strings.TrimSpace(uploadToken)] = receipt
+}
+
+func (s SigningService) getSignatureUploadReceipt(uploadToken string) (signatureUploadReceipt, bool) {
+	state := s.serviceState()
+	state.mu.RLock()
+	defer state.mu.RUnlock()
+	receipt, ok := state.confirmedUploadByToken[strings.TrimSpace(uploadToken)]
+	return receipt, ok
+}
+
+func (s SigningService) deleteSignatureUploadReceipt(uploadToken string) {
+	state := s.serviceState()
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	delete(state.confirmedUploadByToken, strings.TrimSpace(uploadToken))
 }

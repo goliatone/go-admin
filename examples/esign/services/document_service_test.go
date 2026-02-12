@@ -1,38 +1,19 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-uploader"
 )
 
 func samplePDF(pageCount int) []byte {
-	if pageCount <= 0 {
-		pageCount = 1
-	}
-	var b strings.Builder
-	b.WriteString("%PDF-1.7\n")
-	b.WriteString("1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n")
-	b.WriteString("2 0 obj<< /Type /Pages /Count ")
-	b.WriteString("1")
-	b.WriteString(" /Kids [")
-	for i := 0; i < pageCount; i++ {
-		b.WriteString("3 0 R")
-		if i < pageCount-1 {
-			b.WriteString(" ")
-		}
-	}
-	b.WriteString("] >>endobj\n")
-	for i := 0; i < pageCount; i++ {
-		b.WriteString("3 0 obj<< /Type /Page /Parent 2 0 R >>endobj\n")
-	}
-	b.WriteString("%%EOF")
-	return []byte(b.String())
+	return GenerateDeterministicPDF(pageCount)
 }
 
 func TestExtractPDFMetadata(t *testing.T) {
@@ -106,5 +87,34 @@ func TestDocumentServiceUploadRequiresObjectKey(t *testing.T) {
 	_, err := svc.Upload(context.Background(), stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}, DocumentUploadInput{PDF: samplePDF(1)})
 	if err == nil {
 		t.Fatal("expected validation error")
+	}
+}
+
+func TestDocumentServiceUploadPersistsSourcePDFWhenObjectStoreConfigured(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	svc := NewDocumentService(store, WithDocumentObjectStore(manager))
+
+	raw := samplePDF(1)
+	objectKey := "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf"
+	record, err := svc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "NDA",
+		ObjectKey: objectKey,
+		PDF:       raw,
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	if record.SourceObjectKey != objectKey {
+		t.Fatalf("expected source object key %q, got %q", objectKey, record.SourceObjectKey)
+	}
+	stored, err := manager.GetFile(ctx, objectKey)
+	if err != nil {
+		t.Fatalf("GetFile: %v", err)
+	}
+	if !bytes.Equal(stored, raw) {
+		t.Fatalf("expected persisted source bytes to match upload payload")
 	}
 }

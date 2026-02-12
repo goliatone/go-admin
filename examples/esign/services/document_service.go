@@ -6,15 +6,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
+
+	"github.com/goliatone/go-uploader"
+	"github.com/ledongthuc/pdf"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
 )
-
-var pdfPagePattern = regexp.MustCompile(`/Type\s*/Page\b`)
 
 // DocumentUploadInput contains the minimum source data required to persist a document.
 type DocumentUploadInput struct {
@@ -41,12 +41,18 @@ type DocumentMetadata struct {
 
 // DocumentService validates uploaded PDFs, extracts metadata, and persists document records.
 type DocumentService struct {
-	store stores.DocumentStore
-	now   func() time.Time
+	store       stores.DocumentStore
+	objectStore documentObjectStore
+	now         func() time.Time
 }
 
 // DocumentServiceOption customizes document service behavior.
 type DocumentServiceOption func(*DocumentService)
+
+type documentObjectStore interface {
+	UploadFile(ctx context.Context, path string, content []byte, opts ...uploader.UploadOption) (string, error)
+	GetFile(ctx context.Context, path string) ([]byte, error)
+}
 
 // WithDocumentClock sets the service clock.
 func WithDocumentClock(now func() time.Time) DocumentServiceOption {
@@ -55,6 +61,16 @@ func WithDocumentClock(now func() time.Time) DocumentServiceOption {
 			return
 		}
 		s.now = now
+	}
+}
+
+// WithDocumentObjectStore configures immutable PDF blob persistence for document uploads/imports.
+func WithDocumentObjectStore(store documentObjectStore) DocumentServiceOption {
+	return func(s *DocumentService) {
+		if s == nil {
+			return
+		}
+		s.objectStore = store
 	}
 }
 
@@ -82,9 +98,26 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		return stores.DocumentRecord{}, domainValidationError("documents", "source_object_key", "required")
 	}
 
-	metadata, err := ExtractPDFMetadata(input.PDF)
+	payload := append([]byte{}, input.PDF...)
+	metadata, err := ExtractPDFMetadata(payload)
 	if err != nil {
 		return stores.DocumentRecord{}, err
+	}
+	if s.objectStore != nil {
+		if _, err := s.objectStore.UploadFile(ctx, objectKey, payload,
+			uploader.WithContentType("application/pdf"),
+			uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
+		); err != nil {
+			return stores.DocumentRecord{}, domainValidationError("documents", "object_store", "persist source pdf failed")
+		}
+		stored, err := s.objectStore.GetFile(ctx, objectKey)
+		if err != nil || len(stored) == 0 {
+			return stores.DocumentRecord{}, domainValidationError("documents", "object_store", "persisted source pdf is unavailable")
+		}
+		sum := sha256.Sum256(stored)
+		if hex.EncodeToString(sum[:]) != metadata.SHA256 {
+			return stores.DocumentRecord{}, domainValidationError("documents", "object_store", "persisted source pdf digest mismatch")
+		}
 	}
 
 	now := s.now()
@@ -116,20 +149,17 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 
 // ExtractPDFMetadata validates bytes as PDF and extracts deterministic metadata.
 func ExtractPDFMetadata(raw []byte) (DocumentMetadata, error) {
-	payload := bytes.TrimSpace(raw)
-	if len(payload) == 0 {
+	if len(bytes.TrimSpace(raw)) == 0 {
 		return DocumentMetadata{}, domainValidationError("documents", "pdf", "required")
 	}
-	if !bytes.HasPrefix(payload, []byte("%PDF-")) {
-		return DocumentMetadata{}, invalidPDFError("missing %PDF header")
+	payload := append([]byte{}, raw...)
+	reader, err := pdf.NewReader(bytes.NewReader(payload), int64(len(payload)))
+	if err != nil {
+		return DocumentMetadata{}, invalidPDFError("parse failed")
 	}
-	if !bytes.Contains(payload, []byte("%%EOF")) {
-		return DocumentMetadata{}, invalidPDFError("missing %%EOF marker")
-	}
-
-	pageCount := len(pdfPagePattern.FindAll(payload, -1))
+	pageCount := reader.NumPage()
 	if pageCount <= 0 {
-		return DocumentMetadata{}, invalidPDFError("missing /Type /Page entries")
+		return DocumentMetadata{}, invalidPDFError("missing pages")
 	}
 
 	sum := sha256.Sum256(payload)

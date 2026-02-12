@@ -19,6 +19,9 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	"github.com/goliatone/go-admin/examples/esign/modules"
+	"github.com/goliatone/go-admin/examples/esign/observability"
+	"github.com/goliatone/go-admin/examples/esign/services"
+	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	commandregistry "github.com/goliatone/go-command/registry"
@@ -69,6 +72,292 @@ func TestRuntimeAdminUIRoutesRequireLoginButSignerRouteStaysPublic(t *testing.T)
 		if location == "/admin/login" {
 			t.Fatalf("expected signer route to stay public, got redirect to %q", location)
 		}
+	}
+}
+
+func TestRuntimeSignerFlowModeRoutesSelectLegacyAndUnified(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app: %v", err)
+	}
+
+	defaultResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1", "", nil)
+	defer defaultResp.Body.Close()
+	if defaultResp.StatusCode != http.StatusFound {
+		t.Fatalf("expected unified default redirect status 302, got %d", defaultResp.StatusCode)
+	}
+	if location := strings.TrimSpace(defaultResp.Header.Get("Location")); location != "/sign/token-mode-1/review?flow=unified" {
+		t.Fatalf("expected unified redirect location, got %q", location)
+	}
+
+	overrideResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1?flow=legacy", "", nil)
+	defer overrideResp.Body.Close()
+	if overrideResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected legacy override response status 200, got %d", overrideResp.StatusCode)
+	}
+
+	aliasResp := doRequest(t, app, http.MethodGet, "/esign/sign/token-mode-1", "", nil)
+	defer aliasResp.Body.Close()
+	if aliasResp.StatusCode != http.StatusFound {
+		t.Fatalf("expected unified alias redirect status 302, got %d", aliasResp.StatusCode)
+	}
+	if location := strings.TrimSpace(aliasResp.Header.Get("Location")); location != "/esign/sign/token-mode-1/review?flow=unified" {
+		t.Fatalf("expected unified alias redirect location, got %q", location)
+	}
+
+	reviewResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1/review", "", nil)
+	defer reviewResp.Body.Close()
+	if reviewResp.StatusCode == http.StatusNotFound {
+		t.Fatalf("expected unified review route to be registered, got 404")
+	}
+}
+
+func TestRuntimeLegacyFlowCompatibilityGateRemainsAvailableWhenUnifiedDefault(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app: %v", err)
+	}
+
+	resp := doRequest(t, app, http.MethodGet, "/sign/token-legacy-gate?flow=legacy", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected legacy flow status 200, got %d", resp.StatusCode)
+	}
+	if location := strings.TrimSpace(resp.Header.Get("Location")); location != "" {
+		t.Fatalf("expected no redirect for legacy compatibility gate, got %q", location)
+	}
+}
+
+func TestRuntimeSignerFlowModeKillSwitchForcesLegacy(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	t.Setenv(envSignerUnifiedKillSwitch, "true")
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app: %v", err)
+	}
+
+	resp := doRequest(t, app, http.MethodGet, "/sign/token-mode-kill-switch", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected legacy-rendered response status 200 when kill switch enabled, got %d", resp.StatusCode)
+	}
+	if location := strings.TrimSpace(resp.Header.Get("Location")); location != "" {
+		t.Fatalf("expected no unified redirect location when kill switch enabled, got %q", location)
+	}
+}
+
+func TestRuntimeSignerFlowDiagnosticsReportsKillSwitchReason(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	t.Setenv(envSignerUnifiedKillSwitch, "true")
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app: %v", err)
+	}
+
+	resp := doRequest(t, app, http.MethodGet, "/api/v1/esign/signing/flow-diagnostics/token-diag-kill", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected diagnostics status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode diagnostics payload: %v", err)
+	}
+	decision, _ := payload["decision"].(map[string]any)
+	if strings.TrimSpace(fmt.Sprint(decision["reason"])) != signerFlowReasonKillSwitch {
+		t.Fatalf("expected reason %q, got %+v", signerFlowReasonKillSwitch, payload)
+	}
+	if strings.TrimSpace(fmt.Sprint(decision["mode"])) != signerFlowModeLegacy {
+		t.Fatalf("expected mode %q, got %+v", signerFlowModeLegacy, payload)
+	}
+}
+
+func TestRuntimeSignerFlowDiagnosticsReportsQueryOverrideReason(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app: %v", err)
+	}
+
+	resp := doRequest(t, app, http.MethodGet, "/api/v1/esign/signing/flow-diagnostics/token-diag-query?flow=legacy", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected diagnostics status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode diagnostics payload: %v", err)
+	}
+	decision, _ := payload["decision"].(map[string]any)
+	if strings.TrimSpace(fmt.Sprint(decision["reason"])) != signerFlowReasonQueryOverride {
+		t.Fatalf("expected reason %q, got %+v", signerFlowReasonQueryOverride, payload)
+	}
+	if strings.TrimSpace(fmt.Sprint(decision["mode"])) != signerFlowModeLegacy {
+		t.Fatalf("expected mode %q, got %+v", signerFlowModeLegacy, payload)
+	}
+}
+
+func TestRuntimeSignerFlowDiagnosticsReportsReviewFallbackReason(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app: %v", err)
+	}
+
+	resp := doRequestWithBody(
+		t,
+		app,
+		http.MethodGet,
+		"/api/v1/esign/signing/flow-diagnostics/token-diag-review",
+		"",
+		nil,
+		map[string]string{"Referer": "https://esign.example.test/sign/token-diag-review/review"},
+	)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected diagnostics status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode diagnostics payload: %v", err)
+	}
+	decision, _ := payload["decision"].(map[string]any)
+	if strings.TrimSpace(fmt.Sprint(decision["reason"])) != signerFlowReasonReviewBootFallback {
+		t.Fatalf("expected reason %q, got %+v", signerFlowReasonReviewBootFallback, payload)
+	}
+	if strings.TrimSpace(fmt.Sprint(decision["mode"])) != signerFlowModeLegacy {
+		t.Fatalf("expected mode %q, got %+v", signerFlowModeLegacy, payload)
+	}
+}
+
+func TestRuntimeSignerFlowDiagnosticsReportsRolloutScopeDeniedReason(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	t.Setenv(envSignerUnifiedTargetTenants, "tenant-rollout-allow")
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app fixture: %v", err)
+	}
+
+	tokenSvc := fixture.Module.TokenService()
+	if tokenSvc == nil {
+		t.Fatal("expected module token service")
+	}
+	issued, err := tokenSvc.Issue(context.Background(), fixture.Module.DefaultScope(), "agreement-diag-rollout", "recipient-diag-rollout")
+	if err != nil {
+		t.Fatalf("issue diagnostics token: %v", err)
+	}
+
+	resp := doRequest(t, fixture.App, http.MethodGet, "/api/v1/esign/signing/flow-diagnostics/"+url.PathEscape(issued.Token), "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected diagnostics status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode diagnostics payload: %v", err)
+	}
+	decision, _ := payload["decision"].(map[string]any)
+	if strings.TrimSpace(fmt.Sprint(decision["reason"])) != signerFlowReasonRolloutScopeDenied {
+		t.Fatalf("expected reason %q, got %+v", signerFlowReasonRolloutScopeDenied, payload)
+	}
+	if strings.TrimSpace(fmt.Sprint(decision["mode"])) != signerFlowModeLegacy {
+		t.Fatalf("expected mode %q, got %+v", signerFlowModeLegacy, payload)
+	}
+}
+
+func TestSignerFlowRolloutPolicyAllowsScopedTargets(t *testing.T) {
+	policy := SignerFlowRolloutPolicy{
+		Tenants: map[string]bool{"tenant-allow": true},
+		Orgs:    map[string]bool{"org-allow": true},
+		Users:   map[string]bool{"recipient-allow": true},
+	}
+
+	if !policy.allowsUnified(stores.SigningTokenRecord{TenantID: "tenant-allow"}) {
+		t.Fatal("expected tenant target to allow unified flow")
+	}
+	if !policy.allowsUnified(stores.SigningTokenRecord{OrgID: "org-allow"}) {
+		t.Fatal("expected org target to allow unified flow")
+	}
+	if !policy.allowsUnified(stores.SigningTokenRecord{RecipientID: "recipient-allow"}) {
+		t.Fatal("expected user target to allow unified flow")
+	}
+	if policy.allowsUnified(stores.SigningTokenRecord{TenantID: "tenant-deny", OrgID: "org-deny", RecipientID: "recipient-deny"}) {
+		t.Fatal("expected non-targeted signer token to resolve to legacy flow")
+	}
+
+	policy.KillSwitch = true
+	if policy.allowsUnified(stores.SigningTokenRecord{TenantID: "tenant-allow"}) {
+		t.Fatal("expected kill switch to force legacy flow")
+	}
+}
+
+func TestRuntimeUnifiedReviewFailureEmitsViewerTelemetry(t *testing.T) {
+	observability.ResetDefaultMetrics()
+	t.Cleanup(observability.ResetDefaultMetrics)
+
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app: %v", err)
+	}
+
+	resp := doRequest(t, app, http.MethodGet, "/sign/token-missing/review", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected review error page status 200, got %d", resp.StatusCode)
+	}
+
+	snapshot := observability.Snapshot()
+	if snapshot.UnifiedViewerFailureTotal == 0 {
+		t.Fatalf("expected unified viewer failure telemetry, got %+v", snapshot)
+	}
+}
+
+func TestRuntimeUnifiedReviewAppliesCSPAndCacheHeaders(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app: %v", err)
+	}
+
+	resp := doRequest(t, app, http.MethodGet, "/sign/token-csp/review", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected review response status 200, got %d", resp.StatusCode)
+	}
+	if cacheControl := strings.ToLower(strings.TrimSpace(resp.Header.Get("Cache-Control"))); !strings.Contains(cacheControl, "no-store") {
+		t.Fatalf("expected no-store cache-control header, got %q", resp.Header.Get("Cache-Control"))
+	}
+	if csp := strings.TrimSpace(resp.Header.Get("Content-Security-Policy")); csp == "" {
+		t.Fatalf("expected csp header on unified review route")
+	}
+}
+
+func TestRuntimeSignerFlowModeUnifiedFallbackUsesLegacyOnReviewReferer(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/sign/token-fallback-1", nil)
+	req.Header.Set("Referer", "https://esign.test/sign/token-fallback-1/review")
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected legacy fallback status 200, got %d", resp.StatusCode)
+	}
+	if location := strings.TrimSpace(resp.Header.Get("Location")); location != "" {
+		t.Fatalf("expected no redirect location during legacy fallback, got %q", location)
 	}
 }
 
@@ -317,7 +606,7 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 	if err != nil {
 		t.Fatalf("create form file: %v", err)
 	}
-	if _, err := fileWriter.Write([]byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF")); err != nil {
+	if _, err := fileWriter.Write(services.GenerateDeterministicPDF(1)); err != nil {
 		t.Fatalf("write pdf payload: %v", err)
 	}
 	if err := writer.Close(); err != nil {
@@ -427,7 +716,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create upload file: %v", err)
 	}
-	if _, err := fileWriter.Write([]byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF")); err != nil {
+	if _, err := fileWriter.Write(services.GenerateDeterministicPDF(1)); err != nil {
 		t.Fatalf("write upload payload: %v", err)
 	}
 	if err := uploadWriter.Close(); err != nil {
@@ -693,6 +982,335 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	if !strings.Contains(strings.ToLower(string(completeBody)), "completed") {
 		t.Fatalf("expected completion page body to mention completion, got %s", strings.TrimSpace(string(completeBody)))
 	}
+	completeMarkup := string(completeBody)
+	if !strings.Contains(completeMarkup, "Download Copy") {
+		t.Fatalf("expected completion page to expose downloadable action, got %s", strings.TrimSpace(completeMarkup))
+	}
+	expectedAssetURL := "/api/v1/esign/signing/assets/" + url.PathEscape(signerToken)
+	if !strings.Contains(completeMarkup, expectedAssetURL) {
+		t.Fatalf("expected completion page to include signer asset URL %q, got %s", expectedAssetURL, strings.TrimSpace(completeMarkup))
+	}
+}
+
+func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T) {
+	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app fixture: %v", err)
+	}
+	app := fixture.App
+	esignModule := fixture.Module
+	scope := esignModule.DefaultScope()
+	query := fmt.Sprintf("tenant_id=%s&org_id=%s", url.QueryEscape(scope.TenantID), url.QueryEscape(scope.OrgID))
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	var uploadBody bytes.Buffer
+	uploadWriter := multipart.NewWriter(&uploadBody)
+	fileWriter, err := uploadWriter.CreateFormFile("file", "unified-e2e.pdf")
+	if err != nil {
+		t.Fatalf("create upload file: %v", err)
+	}
+	if _, err := fileWriter.Write(services.GenerateDeterministicPDF(1)); err != nil {
+		t.Fatalf("write upload payload: %v", err)
+	}
+	if err := uploadWriter.Close(); err != nil {
+		t.Fatalf("close upload writer: %v", err)
+	}
+
+	uploadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload?"+query, &uploadBody)
+	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
+	uploadReq.AddCookie(authCookie)
+	uploadResp, err := app.Test(uploadReq, -1)
+	if err != nil {
+		t.Fatalf("upload request failed: %v", err)
+	}
+	defer uploadResp.Body.Close()
+	if uploadResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uploadResp.Body)
+		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	uploadPayload := map[string]any{}
+	if err := json.NewDecoder(uploadResp.Body).Decode(&uploadPayload); err != nil {
+		t.Fatalf("decode upload payload: %v", err)
+	}
+	objectKey := strings.TrimSpace(fmt.Sprint(uploadPayload["object_key"]))
+	if objectKey == "" {
+		t.Fatalf("expected object_key in upload payload, got %+v", uploadPayload)
+	}
+
+	documentReqBody := url.Values{}
+	documentReqBody.Set("title", fmt.Sprintf("Unified Journey Doc %d", time.Now().UnixNano()))
+	documentReqBody.Set("source_object_key", objectKey)
+	createDocumentResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/content/esign_documents?"+query,
+		"application/x-www-form-urlencoded",
+		strings.NewReader(documentReqBody.Encode()),
+	)
+	defer createDocumentResp.Body.Close()
+	if createDocumentResp.StatusCode != http.StatusFound {
+		body, _ := io.ReadAll(createDocumentResp.Body)
+		t.Fatalf("expected document create redirect 302, got %d body=%s", createDocumentResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	documentID := parseIDFromLocation("/admin/content/esign_documents/", strings.TrimSpace(createDocumentResp.Header.Get("Location")))
+	if documentID == "" {
+		t.Fatal("expected document id in create response location")
+	}
+
+	agreementReqBody := url.Values{}
+	agreementReqBody.Set("document_id", documentID)
+	agreementReqBody.Set("title", fmt.Sprintf("Unified Journey Agreement %d", time.Now().UnixNano()))
+	agreementReqBody.Set("message", "Please sign this agreement.")
+	agreementReqBody.Set("recipients_present", "1")
+	agreementReqBody.Set("fields_present", "2")
+	agreementReqBody.Set("recipients[0].name", "Unified Signer")
+	agreementReqBody.Set("recipients[0].email", "unified.signer@example.com")
+	agreementReqBody.Set("recipients[0].role", "signer")
+	agreementReqBody.Set("fields[0].type", "signature")
+	agreementReqBody.Set("fields[0].recipient_index", "0")
+	agreementReqBody.Set("fields[0].page", "1")
+	agreementReqBody.Set("fields[0].required", "on")
+	agreementReqBody.Set("fields[0].x", "72")
+	agreementReqBody.Set("fields[0].y", "120")
+	agreementReqBody.Set("fields[0].width", "220")
+	agreementReqBody.Set("fields[0].height", "42")
+	agreementReqBody.Set("fields[1].type", "text")
+	agreementReqBody.Set("fields[1].recipient_index", "0")
+	agreementReqBody.Set("fields[1].page", "1")
+	agreementReqBody.Set("fields[1].required", "on")
+	agreementReqBody.Set("fields[1].x", "72")
+	agreementReqBody.Set("fields[1].y", "180")
+	agreementReqBody.Set("fields[1].width", "280")
+	agreementReqBody.Set("fields[1].height", "32")
+
+	createAgreementResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/content/esign_agreements?"+query,
+		"application/x-www-form-urlencoded",
+		strings.NewReader(agreementReqBody.Encode()),
+	)
+	defer createAgreementResp.Body.Close()
+	if createAgreementResp.StatusCode != http.StatusFound {
+		body, _ := io.ReadAll(createAgreementResp.Body)
+		t.Fatalf("expected agreement create redirect 302, got %d body=%s", createAgreementResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	agreementID := parseIDFromLocation("/admin/content/esign_agreements/", strings.TrimSpace(createAgreementResp.Header.Get("Location")))
+	if agreementID == "" {
+		t.Fatal("expected agreement id in create response location")
+	}
+
+	detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/esign_agreements/"+agreementID+"?"+query, authCookie)
+	defer detailResp.Body.Close()
+	if detailResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(detailResp.Body)
+		t.Fatalf("expected agreement detail status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	detailPayload := map[string]any{}
+	if err := json.NewDecoder(detailResp.Body).Decode(&detailPayload); err != nil {
+		t.Fatalf("decode agreement detail payload: %v", err)
+	}
+	record, _ := detailPayload["record"].(map[string]any)
+	if record == nil {
+		record, _ = detailPayload["data"].(map[string]any)
+	}
+	if record == nil {
+		record = detailPayload
+	}
+	recipientID := firstNestedID(record, "recipients")
+	textFieldID := firstFieldIDByType(record, "text")
+	signatureFieldID := firstFieldIDByType(record, "signature")
+	if recipientID == "" || textFieldID == "" || signatureFieldID == "" {
+		t.Fatalf("expected recipient + text + signature field ids in detail payload, got %+v", detailPayload)
+	}
+
+	sendResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/api/v1/esign_agreements/actions/send?id="+url.QueryEscape(agreementID)+"&"+query,
+		"application/json",
+		strings.NewReader(`{"idempotency_key":"runtime-web-unified-send-1"}`),
+	)
+	defer sendResp.Body.Close()
+	if sendResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(sendResp.Body)
+		t.Fatalf("expected send action status 200, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	tokenSvc := esignModule.TokenService()
+	if tokenSvc == nil {
+		t.Fatal("expected module token service")
+	}
+	issued, err := tokenSvc.Issue(context.Background(), scope, agreementID, recipientID)
+	if err != nil {
+		t.Fatalf("issue signer token: %v", err)
+	}
+	signerToken := strings.TrimSpace(issued.Token)
+	if signerToken == "" {
+		t.Fatal("expected issued signer token")
+	}
+
+	entryResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken), "", nil)
+	defer entryResp.Body.Close()
+	if entryResp.StatusCode != http.StatusFound {
+		t.Fatalf("expected unified mode redirect 302, got %d", entryResp.StatusCode)
+	}
+	entryLocation := strings.TrimSpace(entryResp.Header.Get("Location"))
+	expectedLocation := "/sign/" + url.PathEscape(signerToken) + "/review?flow=unified"
+	if entryLocation != expectedLocation {
+		t.Fatalf("expected unified review redirect %q, got %q", expectedLocation, entryLocation)
+	}
+
+	reviewResp := doRequest(t, app, http.MethodGet, entryLocation, "", nil)
+	defer reviewResp.Body.Close()
+	if reviewResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(reviewResp.Body)
+		t.Fatalf("expected signer unified review page status 200, got %d body=%s", reviewResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	reviewBody, err := io.ReadAll(reviewResp.Body)
+	if err != nil {
+		t.Fatalf("read review page body: %v", err)
+	}
+	reviewMarkup := string(reviewBody)
+	if !strings.Contains(reviewMarkup, "flowMode: 'unified'") {
+		t.Fatalf("expected unified flow marker in review markup, got %s", strings.TrimSpace(reviewMarkup))
+	}
+
+	sessionResp := doRequestWithBody(
+		t,
+		app,
+		http.MethodGet,
+		"/api/v1/esign/signing/session/"+url.PathEscape(signerToken),
+		"",
+		nil,
+		map[string]string{"X-Forwarded-Proto": "https"},
+	)
+	defer sessionResp.Body.Close()
+	if sessionResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(sessionResp.Body)
+		t.Fatalf("expected signer session API status 200, got %d body=%s", sessionResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	sessionPayload, err := io.ReadAll(sessionResp.Body)
+	if err != nil {
+		t.Fatalf("read signer session payload: %v", err)
+	}
+	sessionBody := string(sessionPayload)
+	for _, key := range []string{"\"document_name\":", "\"page_count\":", "\"viewer\":", "\"recipient_id\":", "\"pos_x\":", "\"pos_y\":", "\"width\":", "\"height\":"} {
+		if !strings.Contains(sessionBody, key) {
+			t.Fatalf("expected key %s in signer session payload, got %s", key, sessionBody)
+		}
+	}
+
+	consentResp := doRequestWithBody(
+		t,
+		app,
+		http.MethodPost,
+		"/api/v1/esign/signing/consent/"+url.PathEscape(signerToken),
+		"application/json",
+		strings.NewReader(`{"accepted":true}`),
+		map[string]string{"X-Forwarded-Proto": "https"},
+	)
+	defer consentResp.Body.Close()
+	if consentResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(consentResp.Body)
+		t.Fatalf("expected signer consent status 200, got %d body=%s", consentResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	fieldValueResp := doRequestWithBody(
+		t,
+		app,
+		http.MethodPost,
+		"/api/v1/esign/signing/field-values/"+url.PathEscape(signerToken),
+		"application/json",
+		strings.NewReader(`{"field_id":"`+textFieldID+`","value_text":"Unified Signer"}`),
+		map[string]string{"X-Forwarded-Proto": "https"},
+	)
+	defer fieldValueResp.Body.Close()
+	if fieldValueResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(fieldValueResp.Body)
+		t.Fatalf("expected signer field-values status 200, got %d body=%s", fieldValueResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	signaturePayload := fmt.Sprintf(`{"field_id":"%s","type":"typed","object_key":"tenant/%s/org/%s/agreements/%s/sig/runtime-unified-signature.png","sha256":"%s","value_text":"Unified Signer"}`,
+		signatureFieldID,
+		scope.TenantID,
+		scope.OrgID,
+		agreementID,
+		strings.Repeat("c", 64),
+	)
+	signatureResp := doRequestWithBody(
+		t,
+		app,
+		http.MethodPost,
+		"/api/v1/esign/signing/field-values/signature/"+url.PathEscape(signerToken),
+		"application/json",
+		strings.NewReader(signaturePayload),
+		map[string]string{"X-Forwarded-Proto": "https"},
+	)
+	defer signatureResp.Body.Close()
+	if signatureResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(signatureResp.Body)
+		t.Fatalf("expected signer signature status 200, got %d body=%s", signatureResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	submitResp := doRequestWithBody(
+		t,
+		app,
+		http.MethodPost,
+		"/api/v1/esign/signing/submit/"+url.PathEscape(signerToken),
+		"application/json",
+		strings.NewReader(`{}`),
+		map[string]string{
+			"Idempotency-Key":   "runtime-web-unified-submit-1",
+			"X-Forwarded-Proto": "https",
+		},
+	)
+	defer submitResp.Body.Close()
+	if submitResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(submitResp.Body)
+		t.Fatalf("expected signer submit status 200, got %d body=%s", submitResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	submitBody, err := io.ReadAll(submitResp.Body)
+	if err != nil {
+		t.Fatalf("read submit response body: %v", err)
+	}
+	if !strings.Contains(string(submitBody), `"completed":true`) {
+		t.Fatalf("expected completed submit payload, got %s", strings.TrimSpace(string(submitBody)))
+	}
+
+	replayResp := doRequestWithBody(
+		t,
+		app,
+		http.MethodPost,
+		"/api/v1/esign/signing/submit/"+url.PathEscape(signerToken),
+		"application/json",
+		strings.NewReader(`{}`),
+		map[string]string{
+			"Idempotency-Key":   "runtime-web-unified-submit-1",
+			"X-Forwarded-Proto": "https",
+		},
+	)
+	defer replayResp.Body.Close()
+	if replayResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(replayResp.Body)
+		t.Fatalf("expected signer submit replay status 200, got %d body=%s", replayResp.StatusCode, strings.TrimSpace(string(body)))
+	}
 }
 
 func setupESignRuntimeWebApp(t *testing.T) *fiber.App {
@@ -919,17 +1537,22 @@ func firstNestedID(record map[string]any, key string) string {
 }
 
 func firstSignatureFieldID(record map[string]any) string {
+	return firstFieldIDByType(record, "signature")
+}
+
+func firstFieldIDByType(record map[string]any, fieldType string) string {
 	items, ok := record["fields"].([]any)
 	if !ok || len(items) == 0 {
 		return ""
 	}
+	fieldType = strings.ToLower(strings.TrimSpace(fieldType))
 	for _, item := range items {
 		field, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
-		fieldType := strings.ToLower(strings.TrimSpace(fmt.Sprint(field["type"])))
-		if fieldType == "signature" {
+		currentType := strings.ToLower(strings.TrimSpace(fmt.Sprint(field["type"])))
+		if currentType == fieldType {
 			return strings.TrimSpace(fmt.Sprint(field["id"]))
 		}
 	}

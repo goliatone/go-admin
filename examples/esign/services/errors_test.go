@@ -19,6 +19,7 @@ func TestRegisterDomainErrorCodes(t *testing.T) {
 func TestErrorCodeConstantsIncludePhaseZeroBaseline(t *testing.T) {
 	required := []ErrorCode{
 		ErrorCodeTokenExpired,
+		ErrorCodeAssetUnavailable,
 		ErrorCodeAgreementImmutable,
 		ErrorCodeMissingRequiredFields,
 	}

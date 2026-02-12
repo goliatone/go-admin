@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -151,6 +152,19 @@ func (m *ESignModule) TokenService() *stores.TokenService {
 	return &m.tokens
 }
 
+// SignerAssetContractService returns token-scoped asset contract resolution used by signer web/runtime paths.
+func (m *ESignModule) SignerAssetContractService() services.SignerAssetContractService {
+	if m == nil || m.store == nil {
+		return services.SignerAssetContractService{}
+	}
+	return services.NewSignerAssetContractService(
+		m.store,
+		m.store,
+		m.store,
+		services.WithSignerAssetObjectStore(m.documentUploadManager()),
+	)
+}
+
 func (m *ESignModule) Manifest() coreadmin.ModuleManifest {
 	return coreadmin.ModuleManifest{
 		ID:             moduleID,
@@ -181,9 +195,13 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		m.store = sqliteStore
 	}
 	m.googleEnabled = featureEnabled(ctx.Admin.FeatureGate(), "esign_google")
+	objectStore := m.documentUploadManager()
 
 	tokenTTL := time.Duration(m.settings.TokenTTLSeconds) * time.Second
-	m.documents = services.NewDocumentService(m.store)
+	m.documents = services.NewDocumentService(
+		m.store,
+		services.WithDocumentObjectStore(objectStore),
+	)
 	m.tokens = stores.NewTokenService(m.store, stores.WithTokenTTL(tokenTTL))
 	m.artifacts = services.NewArtifactPipelineService(m.store, m.store, m.store, m.store, m.store, m.store, nil)
 	emailProvider := jobs.EmailProviderFromEnv()
@@ -205,11 +223,14 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithAgreementAuditStore(m.store),
 		services.WithAgreementEmailWorkflow(emailWorkflow),
 	)
+	signatureUploadTTL, signatureUploadSecret := resolveSignatureUploadSecurityPolicy()
 	m.signing = services.NewSigningService(
 		m.store,
 		m.store,
 		services.WithSigningAuditStore(m.store),
 		services.WithSigningCompletionWorkflow(emailWorkflow),
+		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),
+		services.WithSigningObjectStore(objectStore),
 	)
 	if m.googleEnabled {
 		googleCipher, err := services.NewGoogleCredentialCipher(context.Background(), services.NewEnvGoogleCredentialKeyProvider())
@@ -257,7 +278,15 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithPermissions(handlers.DefaultPermissions),
 		handlers.WithSignerTokenValidator(m.tokens),
 		handlers.WithSignerSessionService(m.signing),
-		handlers.WithSignerAssetContractService(services.NewSignerAssetContractService(m.store, m.store, m.store)),
+		handlers.WithSignerAssetContractService(
+			services.NewSignerAssetContractService(
+				m.store,
+				m.store,
+				m.store,
+				services.WithSignerAssetObjectStore(objectStore),
+			),
+		),
+		handlers.WithSignerObjectStore(objectStore),
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),
 		handlers.WithDefaultScope(m.defaultScope),
@@ -280,7 +309,13 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 	if adm == nil {
 		return fmt.Errorf("esign module: admin is nil")
 	}
-	docRepo := newDocumentPanelRepository(m.store, services.NewDocumentService(m.store), m.documentUploadManager(), m.defaultScope, m.settings)
+	docRepo := newDocumentPanelRepository(
+		m.store,
+		services.NewDocumentService(m.store, services.WithDocumentObjectStore(m.documentUploadManager())),
+		m.documentUploadManager(),
+		m.defaultScope,
+		m.settings,
+	)
 	docBuilder := adm.Panel(esignDocumentsPanelID).
 		WithRepository(docRepo).
 		ListFields(
@@ -575,4 +610,20 @@ func cloneBoolMap(in map[string]bool) map[string]bool {
 		out[key] = value
 	}
 	return out
+}
+
+func resolveSignatureUploadSecurityPolicy() (time.Duration, string) {
+	ttlSeconds := 300
+	if raw := strings.TrimSpace(os.Getenv("ESIGN_SIGNER_UPLOAD_TTL_SECONDS")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			ttlSeconds = parsed
+		}
+	}
+	if ttlSeconds < 60 {
+		ttlSeconds = 60
+	}
+	if ttlSeconds > 900 {
+		ttlSeconds = 900
+	}
+	return time.Duration(ttlSeconds) * time.Second, strings.TrimSpace(os.Getenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY"))
 }

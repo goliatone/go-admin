@@ -257,7 +257,7 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 			completionToken = strings.TrimSpace(issued.Token)
 		}
 		if completionURL == "" {
-			completionURL = buildAssetContractLink(completionToken)
+			completionURL = buildCompletionLink(completionToken)
 		}
 		if completionURL == "" {
 			return h.failJob(ctx, msg.Scope, run, fmt.Errorf("missing completion delivery link"), msg.AgreementID, map[string]any{

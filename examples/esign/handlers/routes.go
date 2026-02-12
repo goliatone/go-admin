@@ -8,37 +8,40 @@ import (
 )
 
 const (
-	adminGroupName       = "admin"
-	adminDashboardRoute  = "dashboard"
-	adminAPIGroupPrefix  = "admin.api"
-	adminAPIErrorsRoute  = "errors"
-	publicPreviewRoute   = "preview"
-	publicPreviewToken   = "codex-preview-token"
-	publicPreviewParam   = "token"
-	esignSegment         = "esign"
-	signingSegment       = "signing"
-	integrationsSegment  = "integrations"
-	googleSegment        = "google"
-	googleDriveSegment   = "google-drive"
-	agreementsSegment    = "agreements"
-	documentsSegment     = "documents"
-	adminStatusSegment   = "status"
-	statsSegment         = "stats"
-	uploadSegment        = "upload"
-	connectSegment       = "connect"
-	disconnectSegment    = "disconnect"
-	rotateSegment        = "rotate-credentials"
-	searchSegment        = "search"
-	browseSegment        = "browse"
-	importSegment        = "import"
-	sessionSegment       = "session"
-	consentSegment       = "consent"
-	fieldValuesSegment   = "field-values"
-	signatureSegment     = "signature"
-	submitSegment        = "submit"
-	declineSegment       = "decline"
-	assetsSegment        = "assets"
-	defaultAdminBasePath = "/admin"
+	adminGroupName         = "admin"
+	adminDashboardRoute    = "dashboard"
+	adminAPIGroupPrefix    = "admin.api"
+	adminAPIErrorsRoute    = "errors"
+	publicPreviewRoute     = "preview"
+	publicPreviewToken     = "codex-preview-token"
+	publicPreviewParam     = "token"
+	esignSegment           = "esign"
+	signingSegment         = "signing"
+	integrationsSegment    = "integrations"
+	googleSegment          = "google"
+	googleDriveSegment     = "google-drive"
+	agreementsSegment      = "agreements"
+	documentsSegment       = "documents"
+	adminStatusSegment     = "status"
+	statsSegment           = "stats"
+	uploadSegment          = "upload"
+	connectSegment         = "connect"
+	disconnectSegment      = "disconnect"
+	rotateSegment          = "rotate-credentials"
+	searchSegment          = "search"
+	browseSegment          = "browse"
+	importSegment          = "import"
+	sessionSegment         = "session"
+	consentSegment         = "consent"
+	fieldValuesSegment     = "field-values"
+	signatureSegment       = "signature"
+	signatureUploadSegment = "signature-upload"
+	telemetrySegment       = "telemetry"
+	objectSegment          = "object"
+	submitSegment          = "submit"
+	declineSegment         = "decline"
+	assetsSegment          = "assets"
+	defaultAdminBasePath   = "/admin"
 )
 
 // RouteSet captures resolver-derived route paths used by the e-sign app.
@@ -47,18 +50,21 @@ type RouteSet struct {
 	AdminAPIBase  string
 	PublicAPIBase string
 
-	AdminHome            string
-	AdminStatus          string
-	AdminAPIStatus       string
-	AdminAgreementsStats string
-	AdminDocumentsUpload string
-	SignerSession        string
-	SignerConsent        string
-	SignerFieldValues    string
-	SignerSignature      string
-	SignerSubmit         string
-	SignerDecline        string
-	SignerAssets         string
+	AdminHome             string
+	AdminStatus           string
+	AdminAPIStatus        string
+	AdminAgreementsStats  string
+	AdminDocumentsUpload  string
+	SignerSession         string
+	SignerConsent         string
+	SignerFieldValues     string
+	SignerSignature       string
+	SignerSignatureUpload string
+	SignerSignatureObject string
+	SignerTelemetry       string
+	SignerSubmit          string
+	SignerDecline         string
+	SignerAssets          string
 
 	AdminGoogleOAuthConnect    string
 	AdminGoogleOAuthDisconnect string
@@ -84,21 +90,24 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 	signingBase := joinPath(publicAPIBase, esignSegment, signingSegment)
 
 	return RouteSet{
-		AdminBasePath:        adminBase,
-		AdminAPIBase:         adminAPIBase,
-		PublicAPIBase:        publicAPIBase,
-		AdminHome:            joinPath(adminBase, esignSegment),
-		AdminStatus:          joinPath(adminBase, esignSegment, adminStatusSegment),
-		AdminAPIStatus:       joinPath(adminAPIBase, esignSegment, adminStatusSegment),
-		AdminAgreementsStats: joinPath(adminAPIBase, esignSegment, agreementsSegment, statsSegment),
-		AdminDocumentsUpload: joinPath(adminAPIBase, esignSegment, documentsSegment, uploadSegment),
-		SignerSession:        joinPath(signingBase, sessionSegment, ":token"),
-		SignerConsent:        joinPath(signingBase, consentSegment, ":token"),
-		SignerFieldValues:    joinPath(signingBase, fieldValuesSegment, ":token"),
-		SignerSignature:      joinPath(signingBase, fieldValuesSegment, signatureSegment, ":token"),
-		SignerSubmit:         joinPath(signingBase, submitSegment, ":token"),
-		SignerDecline:        joinPath(signingBase, declineSegment, ":token"),
-		SignerAssets:         joinPath(signingBase, assetsSegment, ":token"),
+		AdminBasePath:         adminBase,
+		AdminAPIBase:          adminAPIBase,
+		PublicAPIBase:         publicAPIBase,
+		AdminHome:             joinPath(adminBase, esignSegment),
+		AdminStatus:           joinPath(adminBase, esignSegment, adminStatusSegment),
+		AdminAPIStatus:        joinPath(adminAPIBase, esignSegment, adminStatusSegment),
+		AdminAgreementsStats:  joinPath(adminAPIBase, esignSegment, agreementsSegment, statsSegment),
+		AdminDocumentsUpload:  joinPath(adminAPIBase, esignSegment, documentsSegment, uploadSegment),
+		SignerSession:         joinPath(signingBase, sessionSegment, ":token"),
+		SignerConsent:         joinPath(signingBase, consentSegment, ":token"),
+		SignerFieldValues:     joinPath(signingBase, fieldValuesSegment, ":token"),
+		SignerSignature:       joinPath(signingBase, fieldValuesSegment, signatureSegment, ":token"),
+		SignerSignatureUpload: joinPath(signingBase, signatureUploadSegment, ":token"),
+		SignerSignatureObject: joinPath(signingBase, signatureUploadSegment, objectSegment),
+		SignerTelemetry:       joinPath(signingBase, telemetrySegment, ":token"),
+		SignerSubmit:          joinPath(signingBase, submitSegment, ":token"),
+		SignerDecline:         joinPath(signingBase, declineSegment, ":token"),
+		SignerAssets:          joinPath(signingBase, assetsSegment, ":token"),
 
 		AdminGoogleOAuthConnect:    joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, connectSegment),
 		AdminGoogleOAuthDisconnect: joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, disconnectSegment),

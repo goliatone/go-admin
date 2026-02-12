@@ -175,6 +175,12 @@ CONSENT_JSON_PATH="${TMP_DIR}/consent.json"
 SIGNATURE_JSON_PATH="${TMP_DIR}/signature.json"
 SUBMIT_JSON_PATH="${TMP_DIR}/submit.json"
 ASSET_CONTRACT_JSON_PATH="${TMP_DIR}/asset-contract.json"
+SIGNER_ENTRY_HEADERS="${TMP_DIR}/signer-entry.headers"
+SIGNER_ENTRY_BODY="${TMP_DIR}/signer-entry.body"
+SIGNER_REVIEW_HTML="${TMP_DIR}/signer-review.html"
+COMPLETION_PAGE_HTML="${TMP_DIR}/completion-page.html"
+EXECUTED_HEADERS_PATH="${TMP_DIR}/executed.headers"
+CERTIFICATE_HEADERS_PATH="${TMP_DIR}/certificate.headers"
 EXECUTED_ASSET_PATH="${TMP_DIR}/executed.pdf"
 CERTIFICATE_ASSET_PATH="${TMP_DIR}/certificate.pdf"
 GENERATED_PDF="${TMP_DIR}/source.pdf"
@@ -197,11 +203,24 @@ else
   cat >"${GENERATED_PDF}" <<'EOF'
 %PDF-1.7
 1 0 obj
-<< /Type /Catalog >>
+<< /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Page >>
+<< /Type /Pages /Count 1 /Kids [3 0 R] >>
 endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>
+endobj
+xref
+0 4
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+trailer
+<< /Size 4 /Root 1 0 R >>
+startxref
+186
 %%EOF
 EOF
   PDF_PATH="${GENERATED_PDF}"
@@ -324,17 +343,17 @@ fi
 if [[ "${DETAIL_STATUS}" != "200" ]]; then
   fail "agreement detail failed: expected HTTP 200, got ${DETAIL_STATUS}. body=$(cat "${DETAIL_JSON_PATH}")"
 fi
-EFFECTIVE_SCOPE_TENANT_ID="$(jq -r '.record.tenant_id // .tenant_id // empty' "${DETAIL_JSON_PATH}")"
-EFFECTIVE_SCOPE_ORG_ID="$(jq -r '.record.org_id // .org_id // empty' "${DETAIL_JSON_PATH}")"
+EFFECTIVE_SCOPE_TENANT_ID="$(jq -r '.record.tenant_id // .data.tenant_id // .tenant_id // empty' "${DETAIL_JSON_PATH}")"
+EFFECTIVE_SCOPE_ORG_ID="$(jq -r '.record.org_id // .data.org_id // .org_id // empty' "${DETAIL_JSON_PATH}")"
 if [[ -z "${EFFECTIVE_SCOPE_TENANT_ID}" ]]; then
   EFFECTIVE_SCOPE_TENANT_ID="${TENANT_ID}"
 fi
 if [[ -z "${EFFECTIVE_SCOPE_ORG_ID}" ]]; then
   EFFECTIVE_SCOPE_ORG_ID="${ORG_ID}"
 fi
-SIGNER_RECIPIENT_ID="$(jq -r '((.record.recipients // .recipients // [])[] | select((.role // "") == "signer") | .id) // empty' "${DETAIL_JSON_PATH}" | head -n1)"
-CC_RECIPIENT_ID="$(jq -r '((.record.recipients // .recipients // [])[] | select((.role // "") == "cc") | .id) // empty' "${DETAIL_JSON_PATH}" | head -n1)"
-SIGNATURE_FIELD_ID="$(jq -r '((.record.fields // .fields // [])[] | select((.type // "") == "signature") | .id) // empty' "${DETAIL_JSON_PATH}" | head -n1)"
+SIGNER_RECIPIENT_ID="$(jq -r '((.record.recipients // .data.recipients // .recipients // [])[] | select((.role // "") == "signer") | .id) // empty' "${DETAIL_JSON_PATH}" | head -n1)"
+CC_RECIPIENT_ID="$(jq -r '((.record.recipients // .data.recipients // .recipients // [])[] | select((.role // "") == "cc") | .id) // empty' "${DETAIL_JSON_PATH}" | head -n1)"
+SIGNATURE_FIELD_ID="$(jq -r '((.record.fields // .data.fields // .fields // [])[] | select((.type // "") == "signature") | .id) // empty' "${DETAIL_JSON_PATH}" | head -n1)"
 [[ -n "${SIGNER_RECIPIENT_ID}" ]] || fail "signer recipient ID missing in agreement detail: $(cat "${DETAIL_JSON_PATH}")"
 [[ -n "${CC_RECIPIENT_ID}" ]] || fail "cc recipient ID missing in agreement detail: $(cat "${DETAIL_JSON_PATH}")"
 [[ -n "${SIGNATURE_FIELD_ID}" ]] || fail "signature field ID missing in agreement detail: $(cat "${DETAIL_JSON_PATH}")"
@@ -367,26 +386,32 @@ SIGNER_TOKEN="$(
 [[ -n "${SIGNER_TOKEN}" ]] || fail "failed to issue signer token for smoke flow"
 SIGN_URL="${BASE_URL}/sign/${SIGNER_TOKEN}"
 
-log "Loading signer session page from link"
-SIGNER_SESSION_STATUS="$(
+log "Loading signer entrypoint from recipient sign URL"
+SIGNER_ENTRY_STATUS="$(
   curl -sS \
-    -o "${SIGNER_SESSION_HTML}" \
+    -o "${SIGNER_ENTRY_BODY}" \
+    -D "${SIGNER_ENTRY_HEADERS}" \
     "${SIGN_URL}" \
     --write-out '%{http_code}'
 )"
-if [[ "${SIGNER_SESSION_STATUS}" != "200" ]]; then
-  fail "signer session page failed: expected HTTP 200, got ${SIGNER_SESSION_STATUS}. body=$(cat "${SIGNER_SESSION_HTML}")"
+if [[ "${SIGNER_ENTRY_STATUS}" != "302" ]]; then
+  fail "signer entrypoint failed: expected HTTP 302 unified redirect, got ${SIGNER_ENTRY_STATUS}. body=$(cat "${SIGNER_ENTRY_BODY}")"
+fi
+SIGNER_ENTRY_LOCATION="$(extract_location "${SIGNER_ENTRY_HEADERS}")"
+[[ -n "${SIGNER_ENTRY_LOCATION}" ]] || fail "signer entrypoint missing Location header"
+if [[ "${SIGNER_ENTRY_LOCATION}" != *"/sign/${SIGNER_TOKEN}/review"* ]] || [[ "${SIGNER_ENTRY_LOCATION}" != *"flow=unified"* ]]; then
+  fail "signer entrypoint did not resolve to unified review path: location=${SIGNER_ENTRY_LOCATION}"
 fi
 
-log "Loading signer fields page"
-SIGNER_FIELDS_STATUS="$(
+log "Loading unified signer review page"
+SIGNER_REVIEW_STATUS="$(
   curl -sS \
-    -o "${SIGNER_FIELDS_HTML}" \
-    "${BASE_URL}/sign/${SIGNER_TOKEN}/fields" \
+    -o "${SIGNER_REVIEW_HTML}" \
+    "$(absolute_url "${SIGNER_ENTRY_LOCATION}")" \
     --write-out '%{http_code}'
 )"
-if [[ "${SIGNER_FIELDS_STATUS}" != "200" ]]; then
-  fail "signer fields page failed: expected HTTP 200, got ${SIGNER_FIELDS_STATUS}. body=$(cat "${SIGNER_FIELDS_HTML}")"
+if [[ "${SIGNER_REVIEW_STATUS}" != "200" ]]; then
+  fail "signer review page failed: expected HTTP 200, got ${SIGNER_REVIEW_STATUS}. body=$(cat "${SIGNER_REVIEW_HTML}")"
 fi
 
 log "Capturing signer consent"
@@ -432,7 +457,7 @@ if [[ "$(jq -r '.submit.completed // false' "${SUBMIT_JSON_PATH}")" != "true" ]]
   fail "signer submit did not complete agreement: $(cat "${SUBMIT_JSON_PATH}")"
 fi
 
-log "Issuing completion-recipient token and validating artifact access contract"
+log "Issuing completion-recipient token and validating actionable completion CTA"
 COMPLETION_TOKEN="$(
   "${GO_BIN}" run ./tools/issue_signing_token \
     --tenant-id "${EFFECTIVE_SCOPE_TENANT_ID}" \
@@ -442,6 +467,24 @@ COMPLETION_TOKEN="$(
     2>/dev/null | tr -d '\r\n'
 )"
 [[ -n "${COMPLETION_TOKEN}" ]] || fail "failed to issue completion token for artifact access check"
+COMPLETION_URL="${BASE_URL}/sign/${COMPLETION_TOKEN}/complete"
+if [[ "${COMPLETION_URL}" == *"/api/v1/esign/signing/assets/"* ]]; then
+  fail "completion CTA must not target raw asset contract endpoint: ${COMPLETION_URL}"
+fi
+COMPLETION_PAGE_STATUS="$(
+  curl -sS \
+    -o "${COMPLETION_PAGE_HTML}" \
+    "${COMPLETION_URL}" \
+    --write-out '%{http_code}'
+)"
+if [[ "${COMPLETION_PAGE_STATUS}" != "200" ]]; then
+  fail "completion page failed: expected HTTP 200, got ${COMPLETION_PAGE_STATUS}. body=$(cat "${COMPLETION_PAGE_HTML}")"
+fi
+if ! grep -qi 'Download Copy' "${COMPLETION_PAGE_HTML}"; then
+  fail "completion page missing actionable download CTA: $(cat "${COMPLETION_PAGE_HTML}")"
+fi
+
+log "Validating artifact contract and PDF responses"
 CONTRACT_STATUS="$(
   curl -sS \
     -o "${ASSET_CONTRACT_JSON_PATH}" \
@@ -458,6 +501,7 @@ CERTIFICATE_URL="$(jq -r '.assets.certificate_url // empty' "${ASSET_CONTRACT_JS
 
 EXECUTED_STATUS="$(
   curl -sS \
+    -D "${EXECUTED_HEADERS_PATH}" \
     -o "${EXECUTED_ASSET_PATH}" \
     "$(absolute_url "${EXECUTED_URL}")" \
     --write-out '%{http_code}'
@@ -465,14 +509,28 @@ EXECUTED_STATUS="$(
 if [[ "${EXECUTED_STATUS}" != "200" ]]; then
   fail "executed artifact download failed: expected HTTP 200, got ${EXECUTED_STATUS}. body=$(cat "${EXECUTED_ASSET_PATH}")"
 fi
+if ! grep -qi '^Content-Type: application/pdf' "${EXECUTED_HEADERS_PATH}"; then
+  fail "executed artifact response missing application/pdf content type: $(cat "${EXECUTED_HEADERS_PATH}")"
+fi
+if ! head -c 5 "${EXECUTED_ASSET_PATH}" | grep -q '%PDF-'; then
+  fail "executed artifact payload is not PDF content"
+fi
+
 CERTIFICATE_STATUS="$(
   curl -sS \
+    -D "${CERTIFICATE_HEADERS_PATH}" \
     -o "${CERTIFICATE_ASSET_PATH}" \
     "$(absolute_url "${CERTIFICATE_URL}")" \
     --write-out '%{http_code}'
 )"
 if [[ "${CERTIFICATE_STATUS}" != "200" ]]; then
   fail "certificate artifact download failed: expected HTTP 200, got ${CERTIFICATE_STATUS}. body=$(cat "${CERTIFICATE_ASSET_PATH}")"
+fi
+if ! grep -qi '^Content-Type: application/pdf' "${CERTIFICATE_HEADERS_PATH}"; then
+  fail "certificate artifact response missing application/pdf content type: $(cat "${CERTIFICATE_HEADERS_PATH}")"
+fi
+if ! head -c 5 "${CERTIFICATE_ASSET_PATH}" | grep -q '%PDF-'; then
+  fail "certificate artifact payload is not PDF content"
 fi
 
 printf '\n'
