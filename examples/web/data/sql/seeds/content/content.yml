@@ -136,6 +136,106 @@ pages:
           tags: ["legal", "privacy", "compliance"]
         body: "This policy explains retention windows, subprocessor classes, and customer controls for exported and operational data."
 
+  - slug: "translation-missing-fr"
+    title: "Translation Readiness Missing FR (EN)"
+    summary: "Seed fixture for readiness state where French translation is missing."
+    body: "This page is part of a translation group seeded with en/es only to validate missing-required-locale handling."
+    status: "draft"
+    path: "/translations/missing-fr"
+    tags: ["translation", "fixtures", "readiness"]
+    custom:
+      translation_group_id: "11111111-1111-1111-1111-111111111201"
+      featured_image: "/static/media/banner.jpg"
+      seo:
+        title: "Translation Missing FR Fixture"
+        description: "Example seed group with required locales en/es/fr and fr missing."
+
+  - slug: "translation-missing-fr-es"
+    title: "Translation Readiness Missing FR (ES)"
+    summary: "Variante ES para fixture con locale faltante FR."
+    body: "Esta variante en español comparte el mismo translation_group_id que la versión en inglés."
+    status: "draft"
+    path: "/translations/missing-fr-es"
+    tags: ["translation", "fixtures", "readiness"]
+    custom:
+      locale: "es"
+      translation_group_id: "11111111-1111-1111-1111-111111111201"
+      featured_image: "/static/media/banner.jpg"
+      seo:
+        title: "Fixture Traduccion Falta FR"
+        description: "Grupo de ejemplo con locale FR faltante."
+
+  - slug: "translation-exchange-ready"
+    title: "Translation Exchange Ready Source"
+    summary: "Deterministic exchange fixture source record."
+    body: "This seed record is used as a stable source for export/import apply flows with deterministic translation_group_id linkage."
+    status: "draft"
+    path: "/translations/exchange-ready"
+    tags: ["translation", "fixtures", "exchange"]
+    custom:
+      translation_group_id: "11111111-1111-1111-1111-111111111202"
+      featured_image: "/static/media/logo.png"
+      seo:
+        title: "Translation Exchange Ready Fixture"
+        description: "Stable source content for translation exchange tests."
+
+  # Translation Scenario: Multilingual page with MISSING fr locale (translation readiness test)
+  # Required locales: en, es, fr — but fr is intentionally NOT seeded
+  # Use case: Test translation readiness indicator showing "missing: fr" and remediation action
+  - slug: "translation-demo-missing-locale"
+    title: "Translation Demo - Missing Locale"
+    summary: "Page demonstrating translation readiness with a missing required locale."
+    body: "This page exists in en and es but intentionally lacks an fr translation to demonstrate readiness indicators and remediation flows."
+    status: "published"
+    path: "/translation-demo-missing-locale"
+    tags: ["translation", "demo", "fixture"]
+    custom:
+      featured_image: "/static/media/banner.jpg"
+      published_at: "2026-01-15T10:00:00Z"
+      meta:
+        translation_scenario: "missing_locale"
+        required_locales: ["en", "es", "fr"]
+        seed_locales: ["en", "es"]
+      seo:
+        title: "Translation Demo - Missing Locale"
+        description: "Demonstrates translation readiness with missing locale scenario."
+      markdown:
+        frontmatter:
+          title: "Translation Demo - Missing Locale"
+          summary: "Page demonstrating translation readiness with a missing required locale."
+          status: "published"
+          featured_image: "/static/media/banner.jpg"
+          tags: ["translation", "demo", "fixture"]
+        body: "This page exists in en and es but intentionally lacks an fr translation to demonstrate readiness indicators and remediation flows."
+
+  # Translation Scenario: Exchange-ready page with deterministic translation_group_id
+  # Use case: Test export/import round-trip with stable group identifiers
+  - slug: "translation-demo-exchange"
+    title: "Translation Demo - Exchange Ready"
+    summary: "Page designed for translation exchange import/export testing."
+    body: "This page has complete translations across all required locales and stable translation_group_id linkage for exchange operations."
+    status: "published"
+    path: "/translation-demo-exchange"
+    tags: ["translation", "exchange", "demo", "fixture"]
+    custom:
+      featured_image: "/static/media/logo.png"
+      published_at: "2026-01-16T10:00:00Z"
+      meta:
+        translation_scenario: "exchange_ready"
+        required_locales: ["en", "es", "fr"]
+        export_format: "xliff"
+      seo:
+        title: "Translation Demo - Exchange Ready"
+        description: "Demonstrates translation exchange export and import flows."
+      markdown:
+        frontmatter:
+          title: "Translation Demo - Exchange Ready"
+          summary: "Page designed for translation exchange import/export testing."
+          status: "published"
+          featured_image: "/static/media/logo.png"
+          tags: ["translation", "exchange", "demo", "fixture"]
+        body: "This page has complete translations across all required locales and stable translation_group_id linkage for exchange operations."
+
 posts:
   - slug: "getting-started-go"
     title: "Getting Started with Go"
@@ -286,3 +386,105 @@ posts:
           featured_image: "/static/media/banner.jpg"
           tags: ["news", "roadmap"]
         body: "Here is a preview of upcoming workflow automation, content APIs, and multi-environment tooling planned for the next release cycle."
+
+  - slug: "translation-review-post"
+    title: "Translation Review Fixture (EN)"
+    summary: "English source record for review-status translation fixture."
+    body: "This post is part of a translation group where the Spanish variant is intentionally review-state with missing required fields."
+    status: "draft"
+    path: "/posts/translation-review-post"
+    tags: ["translation", "fixtures", "review"]
+    custom:
+      author: "editorial.team"
+      category: "guides"
+      featured_image: "/static/media/banner.jpg"
+      translation_group_id: "11111111-1111-1111-1111-111111111203"
+      seo:
+        title: "Translation Review Fixture EN"
+        description: "English source for translation review fixture group."
+
+  - slug: "translation-review-post-es"
+    title: "Translation Review Fixture (ES)"
+    summary: ""
+    body: "Variante en español marcada en revisión para validar readiness por campos requeridos faltantes."
+    status: "draft"
+    path: "/posts/translation-review-post-es"
+    tags: ["translation", "fixtures", "review"]
+    custom:
+      locale: "es"
+      author: "editorial.team"
+      category: "guides"
+      featured_image: "/static/media/banner.jpg"
+      translation_group_id: "11111111-1111-1111-1111-111111111203"
+      seo:
+        title: "Translation Review Fixture ES"
+        description: "Spanish review variant with intentionally missing excerpt."
+
+  # Translation Scenario: Post with es locale in REVIEW state with missing required field
+  # Use case: Test publish readiness failure due to missing_fields_by_locale
+  - slug: "translation-demo-review-pending"
+    title: "Translation Demo - Review Pending"
+    summary: "Post demonstrating translation review state with missing required fields."
+    body: "This post has an es translation in review state that is missing required seo_description field to demonstrate publish readiness blocking."
+    status: "draft"
+    path: "/posts/translation-demo-review-pending"
+    tags: ["translation", "review", "demo", "fixture"]
+    custom:
+      author: "translation.team"
+      category: "guides"
+      featured_image: "/static/media/banner.jpg"
+      meta:
+        translation_scenario: "review_missing_fields"
+        required_locales: ["en", "es"]
+        es_status: "review"
+        es_missing_fields: ["seo_description"]
+        reading_time_minutes: 3
+      seo:
+        title: "Translation Demo - Review Pending"
+        description: "Demonstrates translation review state with missing field scenario."
+      markdown:
+        frontmatter:
+          title: "Translation Demo - Review Pending"
+          summary: "Post demonstrating translation review state with missing required fields."
+          status: "draft"
+          author: "translation.team"
+          category: "guides"
+          featured_image: "/static/media/banner.jpg"
+          tags: ["translation", "review", "demo", "fixture"]
+        body: "This post has an es translation in review state that is missing required seo_description field to demonstrate publish readiness blocking."
+
+  # Translation Scenario: Post with active queue assignment (in_progress)
+  # Use case: Test queue panel views and assignment/review lifecycle
+  - slug: "translation-demo-queue-active"
+    title: "Translation Demo - Queue Active"
+    summary: "Post demonstrating active translation queue assignment workflow."
+    body: "This post has an active queue assignment with in_progress status to demonstrate queue panel views and translation assignment lifecycle."
+    status: "draft"
+    path: "/posts/translation-demo-queue-active"
+    tags: ["translation", "queue", "demo", "fixture"]
+    custom:
+      author: "translation.team"
+      category: "guides"
+      featured_image: "/static/media/logo.png"
+      meta:
+        translation_scenario: "queue_in_progress"
+        required_locales: ["en", "es", "fr"]
+        queue_assignment:
+          target_locale: "fr"
+          status: "in_progress"
+          assignee: "translator.jane"
+          priority: "high"
+        reading_time_minutes: 4
+      seo:
+        title: "Translation Demo - Queue Active"
+        description: "Demonstrates active translation queue assignment workflow."
+      markdown:
+        frontmatter:
+          title: "Translation Demo - Queue Active"
+          summary: "Post demonstrating active translation queue assignment workflow."
+          status: "draft"
+          author: "translation.team"
+          category: "guides"
+          featured_image: "/static/media/logo.png"
+          tags: ["translation", "queue", "demo", "fixture"]
+        body: "This post has an active queue assignment with in_progress status to demonstrate queue panel views and translation assignment lifecycle."
