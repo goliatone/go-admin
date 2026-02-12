@@ -368,6 +368,8 @@ Template function options let you override widget title labels without touching 
 - `WithWidgetTitleFunc(fn func(string) string) TemplateFuncOption` - provides a custom resolver.
 - `WithTemplateBasePath(basePath string) TemplateFuncOption` - sets the fallback base path used by the `adminURL` helper.
 - `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - configures the URLKit resolver used by `adminURL`.
+- `WithTemplateFeatureGate(gate fggate.FeatureGate, opts ...fgtemplates.HelperOption) TemplateFuncOption` - registers feature gate template helpers (`featureEnabled`, `featureDisabled`, etc.) from go-featuregate.
+- `WithTemplateIconRenderer(renderFunc func(ref string, variant string) string) TemplateFuncOption` - injects a custom icon renderer for `renderIcon` and `renderIconVariant` helpers; if not provided, templates use the built-in legacy icon rendering.
 
 ```go
 funcs := quickstart.MergeTemplateFuncs(
