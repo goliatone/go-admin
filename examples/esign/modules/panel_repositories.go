@@ -429,7 +429,7 @@ func agreementRecordToMap(
 		"signer_count":               signerCount(recipients),
 	}
 	if len(recipients) > 0 {
-		payload["recipients"] = recipientsToMaps(recipients)
+		payload["recipients"] = recipientsToMaps(agreement, recipients)
 	}
 	if len(fields) > 0 {
 		payload["fields"] = fieldsToMaps(fields, recipientIndexesByID(recipients))
@@ -452,25 +452,59 @@ func agreementRecordToMap(
 	return payload
 }
 
-func recipientsToMaps(records []stores.RecipientRecord) []map[string]any {
+func recipientsToMaps(agreement stores.AgreementRecord, records []stores.RecipientRecord) []map[string]any {
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
+		status, signedAt, deliveredAt := recipientPresentationStatus(agreement, record)
 		out = append(out, map[string]any{
 			"id":             record.ID,
 			"agreement_id":   record.AgreementID,
 			"email":          record.Email,
 			"name":           record.Name,
 			"role":           record.Role,
+			"status":         status,
 			"signing_order":  record.SigningOrder,
+			"sent_at":        formatTimePtr(agreement.SentAt),
 			"first_view_at":  formatTimePtr(record.FirstViewAt),
 			"last_view_at":   formatTimePtr(record.LastViewAt),
 			"declined_at":    formatTimePtr(record.DeclinedAt),
 			"decline_reason": record.DeclineReason,
 			"completed_at":   formatTimePtr(record.CompletedAt),
+			"signed_at":      signedAt,
+			"delivered_at":   deliveredAt,
 			"version":        record.Version,
 		})
 	}
 	return out
+}
+
+func recipientPresentationStatus(agreement stores.AgreementRecord, record stores.RecipientRecord) (status string, signedAt string, deliveredAt string) {
+	if record.DeclinedAt != nil {
+		return "declined", "", ""
+	}
+
+	role := strings.ToLower(strings.TrimSpace(record.Role))
+	switch role {
+	case stores.RecipientRoleCC:
+		if strings.EqualFold(strings.TrimSpace(agreement.Status), stores.AgreementStatusCompleted) {
+			return "delivered", "", formatTimePtr(agreement.CompletedAt)
+		}
+		if agreement.SentAt != nil {
+			return "sent", "", ""
+		}
+		return "pending", "", ""
+	default:
+		if record.CompletedAt != nil {
+			return "signed", formatTimePtr(record.CompletedAt), ""
+		}
+		if record.FirstViewAt != nil {
+			return "viewed", "", ""
+		}
+		if agreement.SentAt != nil {
+			return "sent", "", ""
+		}
+		return "pending", "", ""
+	}
 }
 
 func fieldsToMaps(records []stores.FieldRecord, recipientIndexByID map[string]int) []map[string]any {

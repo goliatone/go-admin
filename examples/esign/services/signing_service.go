@@ -641,8 +641,8 @@ func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.S
 	if !ok {
 		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_id", "not found")
 	}
-	if field.Type != stores.FieldTypeSignature {
-		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_type", "bootstrap requires signature field")
+	if !isSignatureAttachFieldType(field.Type) {
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_type", "bootstrap requires signature or initials field")
 	}
 	if strings.TrimSpace(field.RecipientID) != strings.TrimSpace(recipient.ID) {
 		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "recipient_id", "field does not belong to signer")
@@ -818,8 +818,8 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 	if !ok {
 		return SignerSignatureResult{}, domainValidationError("fields", "id", "not found")
 	}
-	if field.Type != stores.FieldTypeSignature {
-		return SignerSignatureResult{}, domainValidationError("fields", "field_type", "signature attach requires signature field")
+	if !isSignatureAttachFieldType(field.Type) {
+		return SignerSignatureResult{}, domainValidationError("fields", "field_type", "signature attach requires signature or initials field")
 	}
 	if strings.TrimSpace(field.RecipientID) != strings.TrimSpace(recipient.ID) {
 		return SignerSignatureResult{}, domainValidationError("fields", "recipient_id", "field does not belong to signer")
@@ -867,7 +867,10 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 		if err != nil {
 			return SignerSignatureResult{}, err
 		}
-		receipt, ok := s.getSignatureUploadReceipt(uploadToken)
+		receipt, ok, err := s.resolveSignatureUploadReceipt(ctx, scope, uploadToken, grant)
+		if err != nil {
+			return SignerSignatureResult{}, err
+		}
 		if !ok {
 			return SignerSignatureResult{}, domainValidationError("signature_upload", "upload_token", "signature upload object not confirmed")
 		}
@@ -934,6 +937,168 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 		Artifact:   artifact,
 		FieldValue: value,
 	}, nil
+}
+
+func isSignatureAttachFieldType(fieldType string) bool {
+	switch strings.TrimSpace(fieldType) {
+	case stores.FieldTypeSignature, stores.FieldTypeInitials:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s SigningService) resolveSignatureUploadReceipt(ctx context.Context, scope stores.Scope, uploadToken string, grant signatureUploadGrant) (signatureUploadReceipt, bool, error) {
+	uploadToken = strings.TrimSpace(uploadToken)
+	if uploadToken == "" {
+		return signatureUploadReceipt{}, false, nil
+	}
+	if receipt, ok := s.getSignatureUploadReceipt(uploadToken); ok {
+		return receipt, true, nil
+	}
+
+	if receipt, ok, err := s.resolveSignatureUploadReceiptFromObjectStore(ctx, uploadToken, grant); err != nil {
+		return signatureUploadReceipt{}, false, err
+	} else if ok {
+		s.putSignatureUploadReceipt(uploadToken, receipt)
+		return receipt, true, nil
+	}
+
+	if receipt, ok, err := s.resolveSignatureUploadReceiptFromAudit(ctx, scope, uploadToken, grant); err != nil {
+		return signatureUploadReceipt{}, false, err
+	} else if ok {
+		s.putSignatureUploadReceipt(uploadToken, receipt)
+		return receipt, true, nil
+	}
+
+	return signatureUploadReceipt{}, false, nil
+}
+
+func (s SigningService) resolveSignatureUploadReceiptFromObjectStore(ctx context.Context, uploadToken string, grant signatureUploadGrant) (signatureUploadReceipt, bool, error) {
+	if s.objectStore == nil {
+		return signatureUploadReceipt{}, false, nil
+	}
+	stored, err := s.objectStore.GetFile(ctx, strings.TrimSpace(grant.ObjectKey))
+	if err != nil || len(stored) == 0 {
+		return signatureUploadReceipt{}, false, nil
+	}
+	sum := sha256.Sum256(stored)
+	if hex.EncodeToString(sum[:]) != strings.TrimSpace(grant.SHA256) {
+		return signatureUploadReceipt{}, false, domainValidationError("signature_upload", "object_store", "persisted upload digest mismatch")
+	}
+	sizeBytes := int64(len(stored))
+	if sizeBytes > defaultSignatureUploadMaxBytes {
+		return signatureUploadReceipt{}, false, domainValidationError("signature_upload", "size_bytes", "invalid content size")
+	}
+	if grant.SizeBytes > 0 && sizeBytes != grant.SizeBytes {
+		return signatureUploadReceipt{}, false, domainValidationError("signature_upload", "size_bytes", "uploaded content size does not match contract")
+	}
+	return signatureUploadReceipt{
+		UploadToken: strings.TrimSpace(uploadToken),
+		ObjectKey:   strings.TrimSpace(grant.ObjectKey),
+		SHA256:      strings.TrimSpace(grant.SHA256),
+		ContentType: strings.TrimSpace(grant.ContentType),
+		SizeBytes:   sizeBytes,
+		CommittedAt: s.now().UTC(),
+	}, true, nil
+}
+
+func (s SigningService) resolveSignatureUploadReceiptFromAudit(ctx context.Context, scope stores.Scope, uploadToken string, grant signatureUploadGrant) (signatureUploadReceipt, bool, error) {
+	if s.audits == nil || strings.TrimSpace(grant.AgreementID) == "" {
+		return signatureUploadReceipt{}, false, nil
+	}
+	events, err := s.audits.ListForAgreement(ctx, scope, grant.AgreementID, stores.AuditEventQuery{SortDesc: true})
+	if err != nil {
+		return signatureUploadReceipt{}, false, nil
+	}
+	for _, event := range events {
+		if strings.TrimSpace(event.EventType) != "signer.signature_upload_confirmed" {
+			continue
+		}
+		if strings.TrimSpace(event.ActorID) != "" && strings.TrimSpace(event.ActorID) != strings.TrimSpace(grant.RecipientID) {
+			continue
+		}
+		metadata := strings.TrimSpace(event.MetadataJSON)
+		if metadata == "" {
+			continue
+		}
+		decoded := map[string]any{}
+		if err := json.Unmarshal([]byte(metadata), &decoded); err != nil {
+			continue
+		}
+		if strings.TrimSpace(fmt.Sprint(decoded["field_id"])) != strings.TrimSpace(grant.FieldID) {
+			continue
+		}
+		if strings.TrimSpace(fmt.Sprint(decoded["object_key"])) != strings.TrimSpace(grant.ObjectKey) {
+			continue
+		}
+		sizeBytes := grant.SizeBytes
+		if rawSize, ok := decoded["size_bytes"]; ok {
+			parsedSize := toInt64Any(rawSize)
+			if parsedSize < 0 || parsedSize > defaultSignatureUploadMaxBytes {
+				return signatureUploadReceipt{}, false, domainValidationError("signature_upload", "size_bytes", "invalid content size")
+			}
+			if grant.SizeBytes > 0 && parsedSize > 0 && parsedSize != grant.SizeBytes {
+				return signatureUploadReceipt{}, false, domainValidationError("signature_upload", "size_bytes", "uploaded content size does not match contract")
+			}
+			if parsedSize > 0 {
+				sizeBytes = parsedSize
+			}
+		}
+		contentType := strings.TrimSpace(fmt.Sprint(decoded["content_type"]))
+		if contentType == "" {
+			contentType = strings.TrimSpace(grant.ContentType)
+		}
+		if strings.TrimSpace(grant.ContentType) != "" && contentType != "" && !strings.EqualFold(contentType, strings.TrimSpace(grant.ContentType)) {
+			return signatureUploadReceipt{}, false, domainValidationError("signature_upload", "content_type", "uploaded content type does not match contract")
+		}
+		committedAt := event.CreatedAt.UTC()
+		if rawCommitted := strings.TrimSpace(fmt.Sprint(decoded["upload_committed"])); rawCommitted != "" {
+			if parsed, err := time.Parse(time.RFC3339, rawCommitted); err == nil {
+				committedAt = parsed.UTC()
+			}
+		}
+		return signatureUploadReceipt{
+			UploadToken: strings.TrimSpace(uploadToken),
+			ObjectKey:   strings.TrimSpace(grant.ObjectKey),
+			SHA256:      strings.TrimSpace(grant.SHA256),
+			ContentType: strings.TrimSpace(contentType),
+			SizeBytes:   sizeBytes,
+			CommittedAt: committedAt,
+		}, true, nil
+	}
+	return signatureUploadReceipt{}, false, nil
+}
+
+func toInt64Any(value any) int64 {
+	switch typed := value.(type) {
+	case int:
+		return int64(typed)
+	case int8:
+		return int64(typed)
+	case int16:
+		return int64(typed)
+	case int32:
+		return int64(typed)
+	case int64:
+		return typed
+	case uint:
+		return int64(typed)
+	case uint8:
+		return int64(typed)
+	case uint16:
+		return int64(typed)
+	case uint32:
+		return int64(typed)
+	case uint64:
+		return int64(typed)
+	case float32:
+		return int64(typed)
+	case float64:
+		return int64(typed)
+	default:
+		return 0
+	}
 }
 
 // Submit finalizes signer participation with idempotency and CAS-protected transitions.
