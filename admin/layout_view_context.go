@@ -21,6 +21,9 @@ func buildAdminLayoutViewContext(adm *Admin, c router.Context, view router.ViewC
 	if _, ok := view["base_path"]; !ok && basePath != "" {
 		view["base_path"] = basePath
 	}
+	if _, ok := view["asset_base_path"]; !ok && basePath != "" {
+		view["asset_base_path"] = basePath
+	}
 
 	if _, ok := view["active"]; !ok && strings.TrimSpace(active) != "" {
 		view["active"] = strings.TrimSpace(active)
