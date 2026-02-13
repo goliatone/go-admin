@@ -114,6 +114,19 @@ func (b *goCMSContentBridge) pageFromContent(content admin.CMSContent) admin.CMS
 		data["path"] = path
 	}
 
+	requestedLocale := strings.TrimSpace(content.RequestedLocale)
+	if requestedLocale == "" {
+		requestedLocale = strings.TrimSpace(content.Locale)
+	}
+	resolvedLocale := strings.TrimSpace(content.ResolvedLocale)
+	if resolvedLocale == "" {
+		resolvedLocale = strings.TrimSpace(content.Locale)
+	}
+	missingRequestedLocale := content.MissingRequestedLocale
+	if !missingRequestedLocale && requestedLocale != "" && resolvedLocale != "" && !strings.EqualFold(requestedLocale, resolvedLocale) {
+		missingRequestedLocale = true
+	}
+
 	templateID := strings.TrimSpace(asString(data["template_id"], asString(data["template"], "")))
 	parentID := strings.TrimSpace(asString(data["parent_id"], ""))
 
@@ -126,18 +139,22 @@ func (b *goCMSContentBridge) pageFromContent(content admin.CMSContent) admin.CMS
 	}
 
 	out := admin.CMSPage{
-		ID:                 content.ID,
-		Title:              content.Title,
-		Slug:               content.Slug,
-		TemplateID:         templateID,
-		Locale:             content.Locale,
-		TranslationGroupID: strings.TrimSpace(content.TranslationGroupID),
-		ParentID:           parentID,
-		Blocks:             append([]string{}, content.Blocks...),
-		SEO:                seo,
-		Status:             content.Status,
-		Data:               data,
-		PreviewURL:         path,
+		ID:                     content.ID,
+		Title:                  content.Title,
+		Slug:                   content.Slug,
+		TemplateID:             templateID,
+		Locale:                 content.Locale,
+		TranslationGroupID:     strings.TrimSpace(content.TranslationGroupID),
+		RequestedLocale:        requestedLocale,
+		ResolvedLocale:         resolvedLocale,
+		AvailableLocales:       append([]string{}, content.AvailableLocales...),
+		MissingRequestedLocale: missingRequestedLocale,
+		ParentID:               parentID,
+		Blocks:                 append([]string{}, content.Blocks...),
+		SEO:                    seo,
+		Status:                 content.Status,
+		Data:                   data,
+		PreviewURL:             path,
 	}
 	if out.PreviewURL == "" && strings.TrimSpace(out.Slug) != "" {
 		out.PreviewURL = "/" + strings.TrimPrefix(out.Slug, "/")

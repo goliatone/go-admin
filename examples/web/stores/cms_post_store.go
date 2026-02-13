@@ -161,10 +161,14 @@ func (s *CMSPostStore) Get(ctx context.Context, id string) (map[string]any, erro
 	if s == nil || s.repo == nil {
 		return nil, admin.ErrNotFound
 	}
-	locale := strings.TrimSpace(s.defaultLocale)
+	locale := strings.TrimSpace(admin.LocaleFromContext(ctx))
+	if locale == "" {
+		locale = strings.TrimSpace(s.defaultLocale)
+	}
 	if locale == "" {
 		locale = "en"
 	}
+	requestedLocale := locale
 	content, err := s.content.Content(ctx, id, locale)
 	if err != nil {
 		// Some CMS backends allow empty-locale lookups; keep as a best-effort fallback.
@@ -193,7 +197,56 @@ func (s *CMSPostStore) Get(ctx context.Context, id string) (map[string]any, erro
 	if content == nil || !strings.EqualFold(content.ContentType, "post") {
 		return nil, admin.ErrNotFound
 	}
+	content = s.resolvePostLocaleVariant(ctx, content, requestedLocale)
+	if requested := strings.TrimSpace(requestedLocale); requested != "" {
+		if strings.TrimSpace(content.RequestedLocale) == "" {
+			content.RequestedLocale = requested
+		}
+		if strings.TrimSpace(content.ResolvedLocale) == "" {
+			content.ResolvedLocale = strings.TrimSpace(content.Locale)
+		}
+		if resolved := strings.TrimSpace(content.ResolvedLocale); resolved != "" && !strings.EqualFold(requested, resolved) {
+			content.MissingRequestedLocale = true
+		}
+	}
 	return s.postToRecord(*content), nil
+}
+
+func (s *CMSPostStore) resolvePostLocaleVariant(ctx context.Context, content *admin.CMSContent, requestedLocale string) *admin.CMSContent {
+	if s == nil || s.content == nil || content == nil {
+		return content
+	}
+	requestedLocale = strings.ToLower(strings.TrimSpace(requestedLocale))
+	if requestedLocale == "" {
+		return content
+	}
+	if strings.EqualFold(strings.TrimSpace(content.Locale), requestedLocale) {
+		return content
+	}
+	groupID := strings.TrimSpace(content.TranslationGroupID)
+	if groupID == "" {
+		return content
+	}
+	for _, locale := range []string{requestedLocale, ""} {
+		records, err := s.content.Contents(ctx, locale)
+		if err != nil {
+			continue
+		}
+		for _, candidate := range records {
+			if !strings.EqualFold(strings.TrimSpace(candidate.ContentType), "post") {
+				continue
+			}
+			if !strings.EqualFold(strings.TrimSpace(candidate.TranslationGroupID), groupID) {
+				continue
+			}
+			if !strings.EqualFold(strings.TrimSpace(candidate.Locale), requestedLocale) {
+				continue
+			}
+			match := candidate
+			return &match
+		}
+	}
+	return content
 }
 
 // Create inserts a post into the CMS backend.
