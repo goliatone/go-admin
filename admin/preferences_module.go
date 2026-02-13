@@ -87,7 +87,8 @@ func (m *PreferencesModule) Register(ctx ModuleContext) error {
 			Create: ctx.Admin.config.PreferencesUpdatePermission,
 			Edit:   ctx.Admin.config.PreferencesUpdatePermission,
 			Delete: ctx.Admin.config.PreferencesUpdatePermission,
-		})
+		}).
+		WithUIRouteMode(PanelUIRouteModeCustom)
 
 	if _, err := ctx.Admin.RegisterPanel("preferences", builder); err != nil {
 		return err
