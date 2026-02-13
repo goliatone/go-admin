@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
@@ -56,7 +57,10 @@ func WithGoUsersUserManagement(cfg GoUsersUserManagementConfig) AdminOption {
 		if cfg.ProfileRepo != nil {
 			opts.deps.ProfileStore = admin.NewGoUsersProfileStore(cfg.ProfileRepo, cfg.ScopeResolver)
 		}
-		opts.registerUserRoleBulkRoutes = true
+		if opts.deps.BulkUserImport == nil {
+			create := command.NewUserCreateCommand(command.UserCreateCommandConfig{Repository: cfg.AuthRepo})
+			opts.deps.BulkUserImport = command.NewBulkUserImportCommand(create)
+		}
 	}
 }
 
