@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	commandregistry "github.com/goliatone/go-command/registry"
 	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
@@ -16,6 +17,8 @@ type stubModule struct {
 	featureFlags []string
 	menuItems    []admin.MenuItem
 }
+
+type moduleRegistrarExchangeStoreStub struct{}
 
 func (m stubModule) Manifest() admin.ModuleManifest {
 	return admin.ModuleManifest{ID: m.id, Dependencies: m.deps, FeatureFlags: m.featureFlags}
@@ -34,6 +37,18 @@ func (m stubModule) MenuItems(locale string) []admin.MenuItem {
 	items := make([]admin.MenuItem, len(m.menuItems))
 	copy(items, m.menuItems)
 	return items
+}
+
+func (moduleRegistrarExchangeStoreStub) ExportRows(context.Context, admin.TranslationExportFilter) ([]admin.TranslationExchangeRow, error) {
+	return nil, nil
+}
+
+func (moduleRegistrarExchangeStoreStub) ResolveLinkage(context.Context, admin.TranslationExchangeLinkageKey) (admin.TranslationExchangeLinkage, error) {
+	return admin.TranslationExchangeLinkage{}, nil
+}
+
+func (moduleRegistrarExchangeStoreStub) ApplyTranslation(context.Context, admin.TranslationExchangeApplyRequest) error {
+	return nil
 }
 
 func TestOrderModulesDeterministic(t *testing.T) {
@@ -180,6 +195,188 @@ func TestBuildSeedMenuItemsRespectsGates(t *testing.T) {
 	}
 }
 
+func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItems(t *testing.T) {
+	tests := []struct {
+		name           string
+		productCfg     TranslationProductConfig
+		expectQueue    bool
+		expectExchange bool
+	}{
+		{
+			name: "core profile keeps translation menu hidden",
+			productCfg: TranslationProductConfig{
+				SchemaVersion: TranslationProductSchemaVersionCurrent,
+				Profile:       TranslationProfileCore,
+			},
+			expectQueue:    false,
+			expectExchange: false,
+		},
+		{
+			name: "queue profile seeds queue menu only",
+			productCfg: TranslationProductConfig{
+				SchemaVersion: TranslationProductSchemaVersionCurrent,
+				Profile:       TranslationProfileCoreQueue,
+				Queue: &TranslationQueueConfig{
+					Enabled:          true,
+					SupportedLocales: []string{"en", "es"},
+				},
+			},
+			expectQueue:    true,
+			expectExchange: false,
+		},
+		{
+			name: "exchange profile seeds exchange menu only",
+			productCfg: TranslationProductConfig{
+				SchemaVersion: TranslationProductSchemaVersionCurrent,
+				Profile:       TranslationProfileCoreExchange,
+				Exchange: &TranslationExchangeConfig{
+					Enabled: true,
+					Store:   &moduleRegistrarExchangeStoreStub{},
+				},
+			},
+			expectQueue:    false,
+			expectExchange: true,
+		},
+		{
+			name: "full profile seeds queue and exchange menus",
+			productCfg: TranslationProductConfig{
+				SchemaVersion: TranslationProductSchemaVersionCurrent,
+				Profile:       TranslationProfileFull,
+				Exchange: &TranslationExchangeConfig{
+					Enabled: true,
+					Store:   &moduleRegistrarExchangeStoreStub{},
+				},
+				Queue: &TranslationQueueConfig{
+					Enabled:          true,
+					SupportedLocales: []string{"en", "es"},
+				},
+			},
+			expectQueue:    true,
+			expectExchange: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+
+			cfg := NewAdminConfig("/admin", "Admin", "en")
+			adm, _, err := NewAdmin(
+				cfg,
+				AdapterHooks{},
+				WithTranslationProductConfig(tc.productCfg),
+			)
+			if err != nil {
+				t.Fatalf("NewAdmin error: %v", err)
+			}
+			if adm.Commands() != nil {
+				t.Cleanup(adm.Commands().Reset)
+			}
+
+			if err := NewModuleRegistrar(adm, cfg, nil, false); err != nil {
+				t.Fatalf("NewModuleRegistrar error: %v", err)
+			}
+
+			menu, err := adm.MenuService().Menu(context.Background(), cfg.NavMenuCode, cfg.DefaultLocale)
+			if err != nil {
+				t.Fatalf("resolve menu: %v", err)
+			}
+			if menu == nil {
+				t.Fatalf("expected seeded menu")
+			}
+
+			queueItem := findMenuItemByRouteName(menu.Items, "admin.translations.queue")
+			if (queueItem != nil) != tc.expectQueue {
+				t.Fatalf("expected queue menu=%t, got %t", tc.expectQueue, queueItem != nil)
+			}
+			if queueItem != nil {
+				parent := strings.TrimSpace(queueItem.ParentID)
+				if !strings.Contains(parent, "nav-group-others") {
+					t.Fatalf("expected queue item parent to include nav-group-others, got %q", parent)
+				}
+				path, _ := queueItem.Target["path"].(string)
+				if !strings.Contains(strings.TrimSpace(path), "/translations") {
+					t.Fatalf("expected queue target path to include /translations, got %q", path)
+				}
+				if len(queueItem.Permissions) != 0 {
+					t.Fatalf("expected queue menu item to be module/profile-gated only, got permissions %v", queueItem.Permissions)
+				}
+			}
+
+			exchangeItem := findMenuItemByRouteName(menu.Items, "admin.translations.exchange")
+			if (exchangeItem != nil) != tc.expectExchange {
+				t.Fatalf("expected exchange menu=%t, got %t", tc.expectExchange, exchangeItem != nil)
+			}
+			if exchangeItem != nil {
+				parent := strings.TrimSpace(exchangeItem.ParentID)
+				if !strings.Contains(parent, "nav-group-others") {
+					t.Fatalf("expected exchange item parent to include nav-group-others, got %q", parent)
+				}
+				path, _ := exchangeItem.Target["path"].(string)
+				if !strings.Contains(strings.TrimSpace(path), "/translations/exchange") {
+					t.Fatalf("expected exchange target path to include /translations/exchange, got %q", path)
+				}
+				if len(exchangeItem.Permissions) != 0 {
+					t.Fatalf("expected exchange menu item to be module/profile-gated only, got permissions %v", exchangeItem.Permissions)
+				}
+			}
+		})
+	}
+}
+
+func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *testing.T) {
+	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			SchemaVersion: TranslationProductSchemaVersionCurrent,
+			Profile:       TranslationProfileFull,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &moduleRegistrarExchangeStoreStub{},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          true,
+				SupportedLocales: []string{"en", "es"},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	if err := NewModuleRegistrar(adm, cfg, nil, false); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	// Sidebar translation entrypoints are module/profile-gated; they should remain visible
+	// even when translation operation permissions are denied for the current user.
+	adm.WithAuthorizer(denyTranslationPermissionAuthorizer{})
+	navItems := BuildNavItems(adm, cfg, context.Background(), "")
+	if item := findNavItemByKey(navItems, "translations"); item == nil {
+		t.Fatalf("expected translation queue sidebar entrypoint")
+	}
+	exchangeItem := findNavItemByKey(navItems, "translation_exchange")
+	if exchangeItem == nil {
+		t.Fatalf("expected translation exchange sidebar entrypoint")
+	}
+	href := strings.TrimSpace(toString(exchangeItem["href"]))
+	if !strings.Contains(href, "/translations/exchange") {
+		t.Fatalf("expected exchange href to include /translations/exchange, got %q", href)
+	}
+
+	routePath := strings.TrimSpace(resolveRoutePath(adm.URLs(), "admin", "translations.exchange"))
+	if !strings.Contains(routePath, "/translations/exchange") {
+		t.Fatalf("expected exchange route path to include /translations/exchange, got %q", routePath)
+	}
+}
+
 type stubFeatureGate struct {
 	flags map[string]bool
 }
@@ -204,4 +401,57 @@ func hasScopeKind(chain fggate.ScopeChain, kind fggate.ScopeKind) bool {
 		}
 	}
 	return false
+}
+
+func findMenuItemByRouteName(items []admin.MenuItem, routeName string) *admin.MenuItem {
+	target := strings.TrimSpace(routeName)
+	if target == "" {
+		return nil
+	}
+	for i := range items {
+		item := &items[i]
+		if item.Target != nil {
+			name, _ := item.Target["name"].(string)
+			if strings.EqualFold(strings.TrimSpace(name), target) {
+				return item
+			}
+		}
+		if child := findMenuItemByRouteName(item.Children, target); child != nil {
+			return child
+		}
+	}
+	return nil
+}
+
+func findNavItemByKey(items []map[string]any, target string) map[string]any {
+	target = strings.TrimSpace(target)
+	if target == "" || len(items) == 0 {
+		return nil
+	}
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(toString(item["key"])), target) {
+			return item
+		}
+		children, _ := item["children"].([]map[string]any)
+		if found := findNavItemByKey(children, target); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func toString(value any) string {
+	if value == nil {
+		return ""
+	}
+	if typed, ok := value.(string); ok {
+		return typed
+	}
+	return ""
+}
+
+type denyTranslationPermissionAuthorizer struct{}
+
+func (denyTranslationPermissionAuthorizer) Can(_ context.Context, action string, _ string) bool {
+	return !strings.HasPrefix(strings.ToLower(strings.TrimSpace(action)), "admin.translations.")
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
+	"github.com/goliatone/go-uploader"
 )
 
 func strPtr(v string) *string { return &v }
@@ -51,6 +52,21 @@ func (p *captureTemplateProvider) Send(_ context.Context, input EmailSendInput) 
 
 func samplePDF() []byte {
 	return services.GenerateDeterministicPDF(1)
+}
+
+func newTestArtifactPipeline(t *testing.T, store *stores.InMemoryStore) services.ArtifactPipelineService {
+	t.Helper()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	return services.NewArtifactPipelineService(
+		store,
+		store,
+		store,
+		store,
+		store,
+		store,
+		services.NewDeterministicArtifactRenderer(),
+		services.WithArtifactObjectStore(objectStore),
+	)
 }
 
 func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stores.InMemoryStore, stores.AgreementRecord, stores.RecipientRecord, stores.RecipientRecord) {
@@ -152,7 +168,17 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 
 func TestHandlersExecuteArtifactJobsWithDedupe(t *testing.T) {
 	ctx, scope, store, agreement, _, _ := setupCompletedAgreement(t)
-	pipeline := services.NewArtifactPipelineService(store, store, store, store, store, store, services.NewDeterministicArtifactRenderer())
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	pipeline := services.NewArtifactPipelineService(
+		store,
+		store,
+		store,
+		store,
+		store,
+		store,
+		services.NewDeterministicArtifactRenderer(),
+		services.WithArtifactObjectStore(objectStore),
+	)
 	handlers := NewHandlers(HandlerDependencies{
 		Agreements: store,
 		Artifacts:  store,
@@ -181,6 +207,20 @@ func TestHandlersExecuteArtifactJobsWithDedupe(t *testing.T) {
 	if artifacts.CertificateObjectKey == "" || artifacts.CertificateSHA256 == "" {
 		t.Fatalf("expected certificate artifact persisted, got %+v", artifacts)
 	}
+	executedBlob, err := objectStore.GetFile(ctx, artifacts.ExecutedObjectKey)
+	if err != nil || len(executedBlob) == 0 {
+		t.Fatalf("expected executed artifact blob in object store, err=%v", err)
+	}
+	if !strings.HasPrefix(string(executedBlob), "%PDF-") {
+		t.Fatalf("expected executed artifact blob to be PDF payload")
+	}
+	certificateBlob, err := objectStore.GetFile(ctx, artifacts.CertificateObjectKey)
+	if err != nil || len(certificateBlob) == 0 {
+		t.Fatalf("expected certificate artifact blob in object store, err=%v", err)
+	}
+	if !strings.HasPrefix(string(certificateBlob), "%PDF-") {
+		t.Fatalf("expected certificate artifact blob to be PDF payload")
+	}
 
 	if err := handlers.ExecutePDFGenerateExecuted(ctx, PDFGenerateExecutedMsg{
 		Scope:         scope,
@@ -201,7 +241,7 @@ func TestHandlersExecuteArtifactJobsWithDedupe(t *testing.T) {
 
 func TestHandlersRetryEmailAndExposeStatus(t *testing.T) {
 	ctx, scope, store, agreement, signer, _ := setupCompletedAgreement(t)
-	pipeline := services.NewArtifactPipelineService(store, store, store, store, store, store, services.NewDeterministicArtifactRenderer())
+	pipeline := newTestArtifactPipeline(t, store)
 	currentTime := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
 	provider := &flakyEmailProvider{
 		failures: map[string]int{defaultSigningRequestTemplate + "|" + signer.ID: 1},
@@ -262,7 +302,7 @@ func TestRunCompletionWorkflowDistributesArtifactsToCC(t *testing.T) {
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)
 	ctx, scope, store, agreement, _, cc := setupCompletedAgreement(t)
-	pipeline := services.NewArtifactPipelineService(store, store, store, store, store, store, services.NewDeterministicArtifactRenderer())
+	pipeline := newTestArtifactPipeline(t, store)
 	handlers := NewHandlers(HandlerDependencies{
 		Agreements: store,
 		Artifacts:  store,
@@ -313,7 +353,7 @@ func TestRunCompletionWorkflowDistributesArtifactsToCC(t *testing.T) {
 
 func TestRunCompletionWorkflowBuildsScopedCompletionLinks(t *testing.T) {
 	ctx, scope, store, agreement, _, cc := setupCompletedAgreement(t)
-	pipeline := services.NewArtifactPipelineService(store, store, store, store, store, store, services.NewDeterministicArtifactRenderer())
+	pipeline := newTestArtifactPipeline(t, store)
 	tokenSvc := stores.NewTokenService(store)
 	provider := &captureTemplateProvider{}
 	handlers := NewHandlers(HandlerDependencies{
@@ -387,7 +427,7 @@ func TestExecuteTokenRotateJob(t *testing.T) {
 		JobRuns:    store,
 		EmailLogs:  store,
 		Audits:     store,
-		Pipeline:   services.NewArtifactPipelineService(store, store, store, store, store, store, services.NewDeterministicArtifactRenderer()),
+		Pipeline:   newTestArtifactPipeline(t, store),
 		Tokens:     tokenSvc,
 	})
 	if err := handlers.ExecuteTokenRotate(ctx, TokenRotateMsg{
@@ -430,7 +470,7 @@ func TestExecuteGoogleDriveImportJobPersistsSourceMetadata(t *testing.T) {
 		JobRuns:        store,
 		EmailLogs:      store,
 		Audits:         store,
-		Pipeline:       services.NewArtifactPipelineService(store, store, store, store, store, store, services.NewDeterministicArtifactRenderer()),
+		Pipeline:       newTestArtifactPipeline(t, store),
 		GoogleImporter: google,
 	})
 	result, err := handlers.ExecuteGoogleDriveImport(ctx, GoogleDriveImportMsg{
@@ -493,7 +533,7 @@ func TestCompletedLifecycleEnforcesImmutabilityAndAppendOnlyAudit(t *testing.T) 
 
 func TestHandlersPermanentEmailFailureTransitionsToTerminalFailed(t *testing.T) {
 	ctx, scope, store, agreement, signer, _ := setupCompletedAgreement(t)
-	pipeline := services.NewArtifactPipelineService(store, store, store, store, store, store, services.NewDeterministicArtifactRenderer())
+	pipeline := newTestArtifactPipeline(t, store)
 	currentTime := time.Date(2026, 2, 10, 15, 0, 0, 0, time.UTC)
 	handlers := NewHandlers(HandlerDependencies{
 		Agreements:    store,

@@ -12,6 +12,8 @@ import (
 type optionCapableBridgeContentServiceStub struct {
 	listOpts             []bridgeOptionToken
 	getOpts              []bridgeOptionToken
+	getRes               *optionCapableBridgeContentRecordStub
+	getErr               error
 	createTranslationReq bridgeCreateTranslationRequestStub
 	createTranslationRes *optionCapableBridgeContentRecordStub
 	createTranslationErr error
@@ -22,7 +24,12 @@ type optionCapableBridgeContentRecordStub struct {
 	ID           uuid.UUID
 	Slug         string
 	Status       string
+	Type         optionCapableBridgeContentTypeStub
 	Translations []optionCapableBridgeTranslationStub
+}
+
+type optionCapableBridgeContentTypeStub struct {
+	Name string
 }
 
 type optionCapableBridgeTranslationStub struct {
@@ -53,6 +60,12 @@ func (s *optionCapableBridgeContentServiceStub) List(_ context.Context, opts ...
 
 func (s *optionCapableBridgeContentServiceStub) Get(_ context.Context, id uuid.UUID, opts ...bridgeOptionToken) (*optionCapableBridgeContentRecordStub, error) {
 	s.getOpts = append([]bridgeOptionToken{}, opts...)
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	if s.getRes != nil {
+		return s.getRes, nil
+	}
 	return &optionCapableBridgeContentRecordStub{ID: id}, nil
 }
 
@@ -150,6 +163,63 @@ func TestGoCMSContentBridgeContentAlwaysRequestsTranslationsAndDerivedProjection
 	}
 	if string(contentSvc.getOpts[1]) != string(admin.WithDerivedFields()) {
 		t.Fatalf("expected derived-fields projection option, got %#v", contentSvc.getOpts)
+	}
+}
+
+func TestGoCMSContentBridgePagePreservesTranslationMetadata(t *testing.T) {
+	ctx := context.Background()
+	recordID := uuid.New()
+	groupID := uuid.New()
+	contentSvc := &optionCapableBridgeContentServiceStub{
+		getRes: &optionCapableBridgeContentRecordStub{
+			ID:     recordID,
+			Slug:   "translation-missing-fr",
+			Status: "draft",
+			Type: optionCapableBridgeContentTypeStub{
+				Name: "page",
+			},
+			Translations: []optionCapableBridgeTranslationStub{
+				{
+					LocaleCode:         "en",
+					Title:              "Fallback EN",
+					Content:            map[string]any{"path": "/translations/missing-fr"},
+					TranslationGroupID: &groupID,
+				},
+				{
+					LocaleCode:         "es",
+					Title:              "Spanish",
+					Content:            map[string]any{"path": "/translations/missing-fr-es"},
+					TranslationGroupID: &groupID,
+				},
+			},
+		},
+	}
+	bridge := newGoCMSContentBridge(contentSvc, nil, nil, uuid.Nil, nil, nil)
+	if bridge == nil {
+		t.Fatalf("expected bridge for option-capable signatures")
+	}
+
+	page, err := bridge.Page(ctx, recordID.String(), "fr")
+	if err != nil {
+		t.Fatalf("page lookup failed: %v", err)
+	}
+	if page == nil {
+		t.Fatalf("expected page record")
+	}
+	if page.RequestedLocale != "fr" {
+		t.Fatalf("expected requested locale fr, got %q", page.RequestedLocale)
+	}
+	if page.ResolvedLocale != "en" {
+		t.Fatalf("expected resolved locale en, got %q", page.ResolvedLocale)
+	}
+	if !page.MissingRequestedLocale {
+		t.Fatalf("expected missing requested locale=true")
+	}
+	if len(page.AvailableLocales) != 2 {
+		t.Fatalf("expected available locales to be preserved, got %#v", page.AvailableLocales)
+	}
+	if page.AvailableLocales[0] != "en" || page.AvailableLocales[1] != "es" {
+		t.Fatalf("expected available locales [en es], got %#v", page.AvailableLocales)
 	}
 }
 
