@@ -26,7 +26,23 @@
 {% endblock %}
 
 {% block detail_content %}
-  {% include "partials/tab-panel.html" with tab_panel=tab_panel fields=fields resource_item=resource_item resource_label=resource_label %}
+  {% if tab_panel %}
+    {% include "partials/tab-panel.html" with tab_panel=tab_panel fields=fields resource_item=resource_item resource_label=resource_label %}
+  {% else %}
+    <div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div class="p-6">
+        <div class="text-xs uppercase tracking-wider text-gray-500 mb-4 font-semibold">Details</div>
+        <div class="grid grid-cols-2 gap-6">
+          {% for field in fields %}
+            <div class="flex flex-col">
+              <div class="text-sm text-gray-500 mb-1">{{ field.label }}</div>
+              <div class="text-base font-medium text-gray-900">{{ field.value|default:"-" }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
 
   {% if assigned_roles and assigned_roles|length > 0 %}
     <div class="mt-6 max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden">

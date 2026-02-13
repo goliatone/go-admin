@@ -1,6 +1,6 @@
-import { v as P, o as b, B as z, e as M, n as T, r as A, k as R, j as $, h as H, g as I, p as u, D as q, s as j, t as D, a as f, b as O, d as F, M as B, f as N, w as E } from "../chunks/builtin-panels-E95sUIdv.js";
-import { DebugReplPanel as Q } from "./repl.js";
-const _ = `
+import { v as P, p as u, y as z, A as M, q as b, B as T, e as A, o as R, r as $, l as H, k as I, i as j, h as D, D as q, g as O, t as F, a as f, z as B, b as N, d as Q, M as _, f as G, w as E } from "../chunks/builtin-panels-BW-e-JIk.js";
+import { DebugReplPanel as K } from "./repl.js";
+const Y = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -1030,14 +1030,19 @@ const _ = `
       max-width: 60%;
     }
   }
-`, c = z;
+`, c = T;
 function x(o, t, e = 50, s) {
-  const a = s?.newestFirst ?? !0, r = s?.slowThresholdMs ?? e;
+  const a = u.get(o);
+  if (a) {
+    const l = z(t, a);
+    return M(a, l, c, s || {}, "toolbar");
+  }
+  const r = s?.newestFirst ?? !0, n = s?.slowThresholdMs ?? e;
   switch (o) {
     case "requests":
-      return I(t.requests || [], c, {
-        newestFirst: a,
-        slowThresholdMs: r,
+      return D(t.requests || [], c, {
+        newestFirst: r,
+        slowThresholdMs: n,
         maxEntries: 50,
         showSortToggle: !0,
         truncatePath: !0,
@@ -1046,16 +1051,16 @@ function x(o, t, e = 50, s) {
         maxDetailLength: 80
       });
     case "sql":
-      return H(t.sql || [], c, {
-        newestFirst: a,
-        slowThresholdMs: r,
+      return j(t.sql || [], c, {
+        newestFirst: r,
+        slowThresholdMs: n,
         maxEntries: 50,
         showSortToggle: !0,
         useIconCopyButton: !1
         // Toolbar uses SVG icons
       });
     case "logs":
-      return $(t.logs || [], c, {
+      return I(t.logs || [], c, {
         newestFirst: !0,
         // Logs always show newest first in toolbar
         maxEntries: 100,
@@ -1072,7 +1077,7 @@ function x(o, t, e = 50, s) {
         showCount: !1
       });
     case "routes":
-      return R(t.routes || [], c, {
+      return H(t.routes || [], c, {
         showName: !1
         // Toolbar doesn't show name column
       });
@@ -1087,28 +1092,28 @@ function x(o, t, e = 50, s) {
         showCount: !1
       });
     case "jserrors":
-      return A(t.jserrors || [], c, {
-        newestFirst: a,
+      return $(t.jserrors || [], c, {
+        newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return T(t.custom || {}, c, {
+      return R(t.custom || {}, c, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
       });
     default: {
-      const n = t[o];
-      if (n != null) {
-        const l = o.replace(/[_-]/g, " ").replace(/\b\w/g, (i) => i.toUpperCase());
-        return b(l, n, c, {
+      const l = t[o];
+      if (l != null) {
+        const i = o.replace(/[_-]/g, " ").replace(/\b\w/g, (d) => d.toUpperCase());
+        return b(i, l, c, {
           useIconCopyButton: !1,
           showCount: !1
         });
       }
-      return `<div class="${c.emptyState}">Panel "${M(o)}" not available</div>`;
+      return `<div class="${c.emptyState}">Panel "${A(o)}" not available</div>`;
     }
   }
 }
@@ -1126,13 +1131,13 @@ function g(o, t = 50) {
     slowQueries: d
   };
 }
-const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
+const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   console: "Console",
   shell: "Shell"
 }, y = () => {
   const o = u.getToolbarPanels();
   return o.length > 0 ? o.filter((t) => t.category === "core" || t.category === "system").map((t) => t.id) : ["requests", "sql", "logs", "routes", "config"];
-}, K = (o) => {
+}, W = (o) => {
   if (w[o])
     return w[o];
   const t = u.get(o);
@@ -1146,7 +1151,7 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     for (const e of E(t))
       o[e] = t.id;
   return o;
-}, Y = (o) => {
+}, J = (o) => {
   if (!Array.isArray(o))
     return [];
   const t = [];
@@ -1327,7 +1332,7 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     }
     const e = this.eventToPanel[t.type] || t.type, s = u.get(e);
     if (s) {
-      const a = j(s), r = this.snapshot[a], l = (s.handleEvent || ((i, d) => D(i, d, 500)))(r, t.payload);
+      const a = O(s), r = this.snapshot[a], l = (s.handleEvent || ((i, d) => F(i, d, 500)))(r, t.payload);
       this.snapshot[a] = l;
     } else
       switch (t.type) {
@@ -1362,7 +1367,7 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.replCommands = Y(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = t || {}, this.replCommands = J(this.snapshot.repl_commands), this.updateContent();
   }
   trimArray(t, e) {
     for (; t.length > e; )
@@ -1371,7 +1376,7 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   // Rendering
   render() {
     const t = g(this.snapshot, this.slowThresholdMs), e = this.panels.map((l) => {
-      const i = K(l), d = this.getPanelCount(l);
+      const i = W(l), d = this.getPanelCount(l);
       return `
           <button class="tab ${this.activePanel === l ? "active" : ""}" data-panel="${l}">
             ${i}
@@ -1380,7 +1385,7 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
         `;
     }).join(""), s = this.expanded ? "expanded" : "collapsed", a = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || h.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${_}</style>
+      <style>${Y}</style>
       <div class="toolbar ${s} ${a}" style="${n}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
@@ -1451,7 +1456,7 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (G.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests))), this.panels.forEach((e) => {
+      t && (U.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests))), this.panels.forEach((e) => {
         const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         s && (s.textContent = String(this.getPanelCount(e)));
       });
@@ -1473,6 +1478,9 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     e && (e.className = `status-dot ${this.connectionStatus}`), s && (s.textContent = this.connectionStatus);
   }
   getPanelCount(t) {
+    const e = u.get(t);
+    if (e)
+      return B(this.snapshot, e);
     switch (t) {
       case "requests":
         return this.snapshot.requests?.length || 0;
@@ -1489,11 +1497,11 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
       case "config":
         return Object.keys(this.snapshot.config || {}).length;
       case "custom":
-        const e = this.snapshot.custom || {};
-        return Object.keys(e.data || {}).length + (e.logs?.length || 0);
+        const s = this.snapshot.custom || {};
+        return Object.keys(s.data || {}).length + (s.logs?.length || 0);
       default: {
-        const s = this.snapshot[t];
-        return Array.isArray(s) ? s.length : s != null && typeof s == "object" ? Object.keys(s).length : 0;
+        const a = this.snapshot[t];
+        return Array.isArray(a) ? a.length : a != null && typeof a == "object" ? Object.keys(a).length : 0;
       }
     }
   }
@@ -1542,7 +1550,7 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   }
   renderReplPanel(t, e) {
     let s = this.replPanels.get(e);
-    s || (s = new Q({
+    s || (s = new K({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -1579,24 +1587,24 @@ const G = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     r && (r.style.height = `${a}px`);
   }
   attachExpandableRowListeners() {
-    O(this.shadow);
+    N(this.shadow);
   }
   attachCopyListeners() {
-    F(this.shadow, { useIconFeedback: !1 });
+    Q(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    B(this.shadow, (t, e) => {
+    _(this.shadow, (t, e) => {
       this.panelSortOrder.set(t, e), this.saveState(), this.updateContent();
     });
   }
   attachSQLSelectionListeners() {
-    this.activePanel === "sql" && N(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
+    this.activePanel === "sql" && G(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
   }
 };
 h.MIN_HEIGHT = 150, h.MAX_HEIGHT_RATIO = 0.8, h.DEFAULT_HEIGHT = 320;
 let m = h;
 customElements.get("debug-toolbar") || customElements.define("debug-toolbar", m);
-const U = `
+const X = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1826,7 +1834,7 @@ const U = `
       font-size: 8px;
     }
   }
-`, W = {
+`, Z = {
   template: "template",
   session: "session",
   requests: "request",
@@ -1834,7 +1842,7 @@ const U = `
   logs: "log",
   custom: "custom"
 }, C = ["requests", "sql", "logs", "routes", "config"];
-class J extends HTMLElement {
+class V extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1895,7 +1903,7 @@ class J extends HTMLElement {
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => W[t] || t));
+    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => Z[t] || t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
@@ -1968,7 +1976,7 @@ class J extends HTMLElement {
   render() {
     const t = g(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, a = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${U}</style>
+      <style>${X}</style>
       <div class="fab ${a}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
@@ -2042,8 +2050,8 @@ class J extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", J);
-const X = (o) => {
+customElements.get("debug-fab") || customElements.define("debug-fab", V);
+const tt = (o) => {
   const t = (o || "").trim();
   return !t || t === "/" ? "" : "/" + t.replace(/^\/+|\/+$/g, "");
 };
@@ -2055,7 +2063,7 @@ class L {
       container: document.body,
       ...t
     };
-    const e = X(this.options.basePath);
+    const e = tt(this.options.basePath);
     e && (this.options.basePath = e), !this.options.debugPath && e && (this.options.debugPath = `${e}/debug`);
   }
   /**
@@ -2113,7 +2121,7 @@ class L {
     }));
   }
 }
-function Z() {
+function et() {
   const o = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (o ? e = {
@@ -2132,13 +2140,13 @@ function Z() {
   return s.init(), s;
 }
 window.DebugManager = L;
-window.initDebugManager = Z;
+window.initDebugManager = et;
 export {
-  J as DebugFab,
+  V as DebugFab,
   L as DebugManager,
   m as DebugToolbar,
   g as getCounts,
-  Z as initDebugManager,
+  et as initDebugManager,
   x as renderPanel
 };
 //# sourceMappingURL=toolbar.js.map

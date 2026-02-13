@@ -18,6 +18,7 @@ import {
   normalizeEventTypes,
   defaultHandleEvent,
   getSnapshotKey,
+  getPanelCount as getRegistryPanelCount,
   type RegistryChangeEvent,
 } from '../shared/panel-registry.js';
 // Import to ensure built-in panels are registered
@@ -683,6 +684,11 @@ export class DebugToolbar extends HTMLElement {
   }
 
   private getPanelCount(panel: string): number {
+    const registryPanel = panelRegistry.get(panel);
+    if (registryPanel) {
+      return getRegistryPanelCount(this.snapshot, registryPanel);
+    }
+
     switch (panel) {
       case 'requests':
         return this.snapshot.requests?.length || 0;

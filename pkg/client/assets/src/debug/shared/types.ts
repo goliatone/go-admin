@@ -123,3 +123,42 @@ export type DurationResult = {
   text: string;
   isSlow: boolean;
 };
+
+// Permissions debug panel types
+export type PermissionEntry = {
+  permission: string;
+  required: boolean;
+  in_claims: boolean;
+  allows: boolean;
+  diagnosis: string;
+  status: 'ok' | 'error' | 'warning' | 'info';
+  module?: string;
+};
+
+export type PermissionsUserInfo = {
+  user_id?: string;
+  username?: string;
+  role?: string;
+  tenant_id?: string;
+  org_id?: string;
+};
+
+export type PermissionsSummary = {
+  module_count: number;
+  required_keys: number;
+  claims_keys: number;
+  missing_keys: number;
+};
+
+export type PermissionsSnapshot = {
+  verdict: 'healthy' | 'missing_grants' | 'claims_stale' | 'scope_mismatch' | 'error';
+  enabled_modules: string[];
+  required_permissions: Record<string, string>; // permission -> module
+  claims_permissions: string[];
+  permission_checks: Record<string, boolean>;
+  missing_permissions: string[];
+  entries: PermissionEntry[];
+  summary: PermissionsSummary;
+  next_actions: string[];
+  user_info: PermissionsUserInfo;
+};

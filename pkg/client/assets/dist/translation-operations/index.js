@@ -88,7 +88,7 @@ function f(t, e, a) {
   const s = (a ?? "").replace(/\/+$/, "");
   switch (t) {
     case "QUEUE":
-      return i.modules.queue.enabled ? `${s}/translations/queue` : null;
+      return i.modules.queue.enabled ? `${s}/content/translations` : null;
     case "EXCHANGE_UI":
       return i.modules.exchange.enabled ? `${s}/translations/exchange` : null;
     default:

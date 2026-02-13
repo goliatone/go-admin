@@ -7,7 +7,9 @@
   <div class="text-6xl mb-4">📄</div>
   <h3 class="text-xl font-semibold text-gray-900 mb-2">No {{ resource_label|default:"content"|lower }} yet</h3>
   <p class="text-gray-500 mb-6">Create your first {{ resource_label|default:"content"|lower }} entry</p>
+  {% if routes.new %}
   <a href="{{ routes.new }}" class="btn btn-primary">Create</a>
+  {% endif %}
 </div>
 {% endblock %}
 
@@ -52,8 +54,9 @@ import {
 
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
-const apiEndpoint = '{{ list_api }}';
-const actionBasePath = '{{ action_base }}';
+const dataGridConfig = {{ toJSON(datagrid_config)|safe }} || {};
+const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
+const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
 const columns = {{ toJSON(columns)|safe }};
 const filters = {{ toJSON(filters)|safe }};
 const env = {{ toJSON(env)|safe }};
@@ -146,7 +149,9 @@ function normalizeFilterOperators(operators, defaultOperator) {
 }
 
 const envQuery = env ? `?env=${encodeURIComponent(env)}` : '';
-const datatableId = '{{ datatable_id|default:resource }}-datatable';
+const datatableBaseId = dataGridConfig.table_id || '{{ datatable_id|default:resource }}';
+const datatableId = `${datatableBaseId}-datatable`;
+const columnStorageKey = dataGridConfig.column_storage_key || `content_${'{{ panel_name }}'}_datatable_columns`;
 
 let grid;
 
@@ -159,7 +164,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: '{{ panel_name }}',
-    localStorageKey: `content_${'{{ panel_name }}'}_datatable_columns`,
+    localStorageKey: columnStorageKey,
     preferencesEndpoint: preferencesEndpoint
   });
   await columnVisibility.loadFromServer();

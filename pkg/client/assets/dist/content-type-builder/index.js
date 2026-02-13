@@ -7897,17 +7897,17 @@ const Me = ["content", "media", "layout", "interactive", "custom"], xe = class x
   // ===========================================================================
   // Environment management (Phase 12 — Tasks 12.2 + 12.3)
   // ===========================================================================
-  /** Initialize environment from URL param and session, bind selector */
+  /** Initialize environment from URL param and bind selector */
   initEnvironment() {
-    const t = new URLSearchParams(window.location.search).get("env") ?? "", r = sessionStorage.getItem("block-library-env") ?? "";
-    this.currentEnvironment = t || r, this.api.setEnvironment(this.currentEnvironment), this.envSelectEl && (this.ensureEnvironmentOption(this.currentEnvironment), this.ensureEnvironmentOption("__add__", "Add environment..."), this.envSelectEl.value = this.currentEnvironment, this.envSelectEl.addEventListener("change", () => {
-      const a = this.envSelectEl.value;
-      if (a === "__add__") {
+    const t = new URLSearchParams(window.location.search).get("env") ?? "";
+    this.currentEnvironment = t, this.api.setEnvironment(this.currentEnvironment), this.envSelectEl && (this.ensureEnvironmentOption(this.currentEnvironment), this.ensureEnvironmentOption("__add__", "Add environment..."), this.envSelectEl.value = this.currentEnvironment, this.envSelectEl.addEventListener("change", () => {
+      const r = this.envSelectEl.value;
+      if (r === "__add__") {
         this.promptForEnvironment();
         return;
       }
-      this.setEnvironment(a);
-    })), this.currentEnvironment && !t && this.updateUrlEnvironment(this.currentEnvironment), this.currentEnvironment && this.api.setEnvironmentSession(this.currentEnvironment).catch(() => {
+      this.setEnvironment(r);
+    })), this.currentEnvironment && this.api.setEnvironmentSession(this.currentEnvironment).catch(() => {
     });
   }
   /** Change the active environment and reload data */
