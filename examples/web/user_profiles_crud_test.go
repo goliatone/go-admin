@@ -80,7 +80,7 @@ func setupUserProfilesCRUDApp(t *testing.T) userProfilesCRUDHarness {
 		crud.WithScopeGuard[*stores.UserProfile](userProfilesCRUDScopeGuard()),
 	)
 	controller.RegisterRoutes(adapter)
-	registerCrudAliases(adapter, controller, "user-profiles")
+	registerLegacyUserProfileCRUDRoutes(adapter, controller)
 
 	return userProfilesCRUDHarness{app: app, deps: deps}
 }
