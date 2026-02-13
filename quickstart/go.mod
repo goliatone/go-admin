@@ -11,7 +11,7 @@ require (
 	github.com/goliatone/go-admin v0.24.0
 	github.com/goliatone/go-auth v0.31.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.30.0
-	github.com/goliatone/go-cms v0.35.0
+	github.com/goliatone/go-cms v0.36.0
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-dashboard v0.7.0
 	github.com/goliatone/go-errors v0.10.0
