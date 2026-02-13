@@ -3,10 +3,13 @@ package quickstart
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	theme "github.com/goliatone/go-theme"
 	"github.com/goliatone/go-users/pkg/types"
+	"golang.org/x/text/language"
+	"golang.org/x/text/language/display"
 )
 
 // AdminOption customizes NewAdmin behavior.
@@ -24,6 +27,7 @@ type adminOptions struct {
 	translationPolicyConfig      TranslationPolicyConfig
 	translationPolicyConfigSet   bool
 	translationPolicyServices    TranslationPolicyServices
+	translationLocaleLabels      map[string]string
 	translationProductConfig     TranslationProductConfig
 	translationProductConfigSet  bool
 	translationProductWarnings   []string
@@ -126,11 +130,21 @@ func WithTranslationPolicyServices(services TranslationPolicyServices) AdminOpti
 	}
 }
 
+// WithTranslationLocaleLabels overrides locale labels used by create_translation action payload options.
+func WithTranslationLocaleLabels(labels map[string]string) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.translationLocaleLabels = normalizeTranslationLocaleLabels(labels)
+	}
+}
+
 // NewAdmin constructs an admin instance with adapter wiring applied.
 func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error) {
 	options := adminOptions{
 		ctx:                        context.Background(),
-		registerUserRoleBulkRoutes: true,
+		registerUserRoleBulkRoutes: false,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -202,6 +216,7 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	if err != nil {
 		return nil, result, err
 	}
+	configureCMSWorkflowTranslationActions(adm, options)
 	if options.translationExchangeConfigSet {
 		if err := RegisterTranslationExchangeWiring(adm, options.translationExchangeConfig); err != nil {
 			return nil, result, err
@@ -225,13 +240,20 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 			return nil, result, err
 		}
 	}
+	translationModules := resolvedTranslationCapabilityModules(
+		options.translationProductConfig,
+		options.translationExchangeConfig,
+		options.translationExchangeConfigSet,
+		options.translationQueueConfig,
+		options.translationQueueConfigSet,
+	)
 	if shouldValidateTranslationProductRuntime(options) {
-		if err := validateTranslationProductRuntime(adm, options.translationProductConfig, options.translationProductWarnings); err != nil {
+		if err := validateTranslationProductRuntime(adm, options.translationProductConfig, options.translationProductWarnings, translationModules); err != nil {
 			logTranslationCapabilityValidationError(translationLogger, err)
 			return nil, result, err
 		}
 	}
-	registerTranslationCapabilities(adm, options.translationProductConfig, options.translationProductWarnings)
+	registerTranslationCapabilities(adm, options.translationProductConfig, options.translationProductWarnings, translationModules)
 	logTranslationCapabilitiesStartup(translationLogger, TranslationCapabilities(adm))
 	return adm, result, nil
 }
@@ -247,4 +269,135 @@ func queuePolicyConfigFromOptions(opts adminOptions) (TranslationPolicyConfig, b
 		return NormalizeTranslationPolicyConfig(policy.cfg), true
 	}
 	return TranslationPolicyConfig{}, false
+}
+
+func configureCMSWorkflowTranslationActions(adm *admin.Admin, opts adminOptions) {
+	if adm == nil {
+		return
+	}
+	policyCfg, hasPolicyCfg := queuePolicyConfigFromOptions(opts)
+	if !hasPolicyCfg {
+		return
+	}
+
+	locales := normalizeCreateTranslationLocales(translationPolicyLocales(policyCfg))
+	if len(locales) == 0 {
+		return
+	}
+
+	actions := admin.DefaultCMSWorkflowActions()
+	for i := range actions {
+		if strings.EqualFold(strings.TrimSpace(actions[i].Name), admin.CreateTranslationKey) {
+			actions[i] = configureCreateTranslationActionLocaleSchema(actions[i], locales, opts.translationLocaleLabels)
+		}
+	}
+	adm.WithCMSWorkflowActions(actions...)
+}
+
+func configureCreateTranslationActionLocaleSchema(action admin.Action, locales []string, labels map[string]string) admin.Action {
+	if len(locales) == 0 {
+		return action
+	}
+	schema := cloneAnyMap(action.PayloadSchema)
+	if schema == nil {
+		schema = map[string]any{}
+	}
+	schema["type"] = "object"
+	schema["additionalProperties"] = false
+	schema["required"] = []string{"locale"}
+
+	properties, _ := schema["properties"].(map[string]any)
+	if properties == nil {
+		properties = map[string]any{}
+	}
+	localeSchema, _ := properties["locale"].(map[string]any)
+	if localeSchema == nil {
+		localeSchema = map[string]any{}
+	}
+	localeSchema["type"] = "string"
+	localeSchema["title"] = "Locale"
+	localeSchema["enum"] = append([]string{}, locales...)
+	localeSchema["x-options"] = createTranslationLocaleOptions(locales, labels)
+	properties["locale"] = localeSchema
+	schema["properties"] = properties
+
+	action.PayloadRequired = []string{"locale"}
+	action.PayloadSchema = schema
+	return action
+}
+
+func normalizeCreateTranslationLocales(locales []string) []string {
+	if len(locales) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(locales))
+	for _, locale := range locales {
+		normalized := strings.ToLower(strings.TrimSpace(locale))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func createTranslationLocaleOptions(locales []string, labels map[string]string) []map[string]any {
+	if len(locales) == 0 {
+		return nil
+	}
+	options := make([]map[string]any, 0, len(locales))
+	for _, locale := range locales {
+		label := createTranslationLocaleLabel(locale, labels)
+		options = append(options, map[string]any{
+			"value": locale,
+			"label": label,
+		})
+	}
+	return options
+}
+
+func createTranslationLocaleLabel(locale string, labels map[string]string) string {
+	normalized := strings.ToLower(strings.TrimSpace(locale))
+	if normalized == "" {
+		return ""
+	}
+	if label := strings.TrimSpace(labels[normalized]); label != "" {
+		return label
+	}
+
+	tag, err := language.Parse(normalized)
+	if err == nil {
+		if name := strings.TrimSpace(display.English.Tags().Name(tag)); name != "" && !strings.EqualFold(name, "unknown language") {
+			return name
+		}
+	}
+
+	return strings.ToUpper(normalized)
+}
+
+func normalizeTranslationLocaleLabels(labels map[string]string) map[string]string {
+	if len(labels) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(labels))
+	for rawLocale, rawLabel := range labels {
+		locale := strings.ToLower(strings.TrimSpace(rawLocale))
+		label := strings.TrimSpace(rawLabel)
+		if locale == "" || label == "" {
+			continue
+		}
+		out[locale] = label
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
