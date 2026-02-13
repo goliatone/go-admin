@@ -22,6 +22,19 @@ func NewTranslationQueuePanel(repo Repository) *PanelBuilder {
 			Field{Name: "priority", Label: "Priority", Type: "select", Options: assignmentPriorityOptions()},
 			Field{Name: "due_date", Label: "Due", Type: "datetime"},
 		).
+		FormFields(
+			Field{Name: "translation_group_id", Label: "Translation Group", Type: "text", Required: true},
+			Field{Name: "entity_type", Label: "Entity Type", Type: "text", Required: true},
+			Field{Name: "source_record_id", Label: "Source Record ID", Type: "text", Required: true},
+			Field{Name: "source_locale", Label: "Source Locale", Type: "text", Required: true},
+			Field{Name: "target_locale", Label: "Target Locale", Type: "text", Required: true},
+			Field{Name: "source_title", Label: "Source Title", Type: "text"},
+			Field{Name: "source_path", Label: "Source Path", Type: "text"},
+			Field{Name: "assignment_type", Label: "Assignment Type", Type: "select", Options: assignmentTypeOptions()},
+			Field{Name: "assignee_id", Label: "Assignee", Type: "text"},
+			Field{Name: "priority", Label: "Priority", Type: "select", Options: assignmentPriorityOptions()},
+			Field{Name: "due_date", Label: "Due Date", Type: "datetime"},
+		).
 		DetailFields(
 			Field{Name: "id", Label: "ID", Type: "text", ReadOnly: true},
 			Field{Name: "translation_group_id", Label: "Translation Group", Type: "text", ReadOnly: true},
