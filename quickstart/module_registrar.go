@@ -15,17 +15,30 @@ import (
 type ModuleRegistrarOption func(*moduleRegistrarOptions)
 
 type moduleRegistrarOptions struct {
-	ctx        context.Context
-	menuItems  []admin.MenuItem
-	seed       bool
-	seedOpts   SeedNavigationOptions
-	gates      fggate.FeatureGate
-	onDisabled func(feature, moduleID string) error
+	ctx                           context.Context
+	menuItems                     []admin.MenuItem
+	seed                          bool
+	seedOpts                      SeedNavigationOptions
+	gates                         fggate.FeatureGate
+	onDisabled                    func(feature, moduleID string) error
+	translationCapabilityMenuMode TranslationCapabilityMenuMode
 }
 
 type menuSeedHook interface {
 	AfterMenuSeed(ctx context.Context, admin *admin.Admin) error
 }
+
+// TranslationCapabilityMenuMode controls whether quickstart seeds translation capability
+// menu items into the server-side navigation tree.
+type TranslationCapabilityMenuMode string
+
+const (
+	// TranslationCapabilityMenuModeNone keeps translation links out of server-seeded menus.
+	// Use this when the frontend renders translation entrypoints in a dedicated section.
+	TranslationCapabilityMenuModeNone TranslationCapabilityMenuMode = "none"
+	// TranslationCapabilityMenuModeTools seeds translation links into the Tools group.
+	TranslationCapabilityMenuModeTools TranslationCapabilityMenuMode = "tools"
+)
 
 // WithModuleRegistrarContext sets the context used for navigation seeding.
 func WithModuleRegistrarContext(ctx context.Context) ModuleRegistrarOption {
@@ -89,6 +102,17 @@ func WithModuleFeatureDisabledHandler(handler func(feature, moduleID string) err
 	}
 }
 
+// WithTranslationCapabilityMenuMode controls how translation capability links are seeded
+// into server-side navigation menus.
+func WithTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) ModuleRegistrarOption {
+	return func(opts *moduleRegistrarOptions) {
+		if opts == nil {
+			return
+		}
+		opts.translationCapabilityMenuMode = normalizeTranslationCapabilityMenuMode(mode)
+	}
+}
+
 // NewModuleRegistrar seeds navigation and registers modules deterministically.
 func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Module, isDev bool, opts ...ModuleRegistrarOption) error {
 	if adm == nil {
@@ -113,6 +137,7 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 			MenuCode: menuCode,
 			Locale:   locale,
 		},
+		translationCapabilityMenuMode: TranslationCapabilityMenuModeNone,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -156,7 +181,9 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 
 	if options.seed && options.seedOpts.MenuSvc != nil {
 		baseItems := append([]admin.MenuItem{}, options.menuItems...)
-		baseItems = append(baseItems, translationCapabilityMenuItems(adm, cfg, menuCode, locale)...)
+		if options.translationCapabilityMenuMode == TranslationCapabilityMenuModeTools {
+			baseItems = append(baseItems, translationCapabilityMenuItems(adm, cfg, menuCode, locale)...)
+		}
 		items := buildSeedMenuItems(menuCode, locale, ordered, baseItems)
 		options.seedOpts.Items = items
 		if err := SeedNavigation(options.ctx, options.seedOpts); err != nil {
@@ -440,9 +467,9 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	items := []admin.MenuItem{}
 
 	if queueEnabled {
-		queuePath := strings.TrimSpace(resolveRoutePath(urls, "admin", "translations.queue"))
+		queuePath := strings.TrimSpace(resolveAdminPanelURL(urls, cfg.BasePath, "translations"))
 		if queuePath == "" {
-			queuePath = prefixBasePath(basePath, "translations")
+			queuePath = prefixBasePath(basePath, path.Join("content", "translations"))
 		}
 		items = append(items, admin.MenuItem{
 			ID:       parentID + ".translations.queue",
@@ -473,7 +500,7 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 			Type:     admin.MenuItemTypeItem,
 			Label:    "Translation Exchange",
 			LabelKey: "menu.translations.exchange",
-			Icon:     "inbox-import",
+			Icon:     "translate",
 			Target: map[string]any{
 				"type": "url",
 				"path": exchangePath,
@@ -488,4 +515,13 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	}
 
 	return items
+}
+
+func normalizeTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) TranslationCapabilityMenuMode {
+	switch TranslationCapabilityMenuMode(strings.ToLower(strings.TrimSpace(string(mode)))) {
+	case TranslationCapabilityMenuModeTools:
+		return TranslationCapabilityMenuModeTools
+	default:
+		return TranslationCapabilityMenuModeNone
+	}
 }
