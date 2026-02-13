@@ -203,6 +203,11 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithDocumentObjectStore(objectStore),
 	)
 	m.tokens = stores.NewTokenService(m.store, stores.WithTokenTTL(tokenTTL))
+	artifactRenderer := services.NewReadableArtifactRenderer(
+		m.store,
+		m.store,
+		objectStore,
+	)
 	m.artifacts = services.NewArtifactPipelineService(
 		m.store,
 		m.store,
@@ -210,7 +215,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		m.store,
 		m.store,
 		m.store,
-		nil,
+		artifactRenderer,
 		services.WithArtifactObjectStore(objectStore),
 	)
 	emailProvider := jobs.EmailProviderFromEnv()
