@@ -12,6 +12,8 @@
   {% block header_actions_prepend %}{% endblock %}
   {# Status-dependent actions #}
   {% set status = resource_item.status|lower %}
+  {% set executed_delivery_status = resource_item.delivery.executed_status|lower %}
+  {% set executed_available = resource_item.delivery and (resource_item.delivery.executed_object_key or executed_delivery_status == "ready") %}
   {% if status == "draft" %}
     <button type="button" class="btn btn-primary" data-action="send" data-agreement-id="{{ resource_item.id }}"
             aria-label="Send agreement for signature" title="Send this agreement to recipients for signing">
@@ -42,6 +44,7 @@
       Void
     </button>
   {% elif status == "completed" %}
+    {% if executed_available %}
     <button type="button" class="btn btn-primary" data-action="download-executed" data-agreement-id="{{ resource_item.id }}"
             aria-label="Download executed PDF" title="Download the fully signed document">
       <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -49,6 +52,15 @@
       </svg>
       Download Executed PDF
     </button>
+    {% else %}
+    <button type="button" class="btn btn-warning" data-action="download-executed" data-agreement-id="{{ resource_item.id }}" data-download-state="unavailable"
+            aria-label="Executed PDF is unavailable" title="Executed PDF is unavailable">
+      <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      Unable To Download PDF
+    </button>
+    {% endif %}
   {% endif %}
   {% if routes.index %}
     <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to agreements list">
@@ -250,6 +262,24 @@
 {% endblock %}
 
 {% block extra_sections %}
+{% set page_status = resource_item.status|lower %}
+{% set page_executed_status = resource_item.delivery.executed_status|lower %}
+{% set page_executed_available = resource_item.delivery and (resource_item.delivery.executed_object_key or page_executed_status == "ready") %}
+{% if page_status == "completed" and not page_executed_available %}
+<div id="download-status-notice-static" class="mx-6 mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+  <div class="flex items-start gap-2">
+    <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-amber-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+    <div>
+      <p class="font-medium">Executed PDF is not available yet.</p>
+      <p class="text-sm mt-1">The agreement is completed, but artifact generation or storage is still pending. Refresh the delivery status and try again.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+<div id="download-status-notice-dynamic" class="hidden mx-6 mt-6 rounded-lg border p-4 text-sm" role="status" aria-live="polite"></div>
+
 {# Recipients Section #}
 {% if resource_item.recipients and resource_item.recipients|length > 0 %}
 <div class="p-6 border-t border-gray-200">
@@ -873,8 +903,66 @@
     </div>
     {% endif %}
 
+    {# Delivery summary fallback when only aggregate delivery status is available #}
+    {% if resource_item.delivery and not resource_item.email_logs and not resource_item.jobs and not resource_item.artifacts %}
+    <div class="bg-gray-50 rounded-lg p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-5 h-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m-9 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <span class="font-medium text-gray-700">Delivery Overview</span>
+      </div>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="text-sm font-medium text-gray-900">Executed PDF</div>
+          {% set executed_status = resource_item.delivery.executed_status|lower %}
+          {% if executed_status == "ready" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">Ready</span>
+          {% elif executed_status == "failed" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">Failed</span>
+          {% elif executed_status == "retrying" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700" role="status">Retrying</span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700" role="status">{{ resource_item.delivery.executed_status|default:"pending"|title }}</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="text-sm font-medium text-gray-900">Signing Certificate</div>
+          {% set certificate_status = resource_item.delivery.certificate_status|lower %}
+          {% if certificate_status == "ready" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">Ready</span>
+          {% elif certificate_status == "failed" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">Failed</span>
+          {% elif certificate_status == "retrying" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700" role="status">Retrying</span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700" role="status">{{ resource_item.delivery.certificate_status|default:"pending"|title }}</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="text-sm font-medium text-gray-900">Distribution</div>
+          {% set distribution_status = resource_item.delivery.distribution_status|lower %}
+          {% if distribution_status == "sent" or distribution_status == "delivered" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">{{ resource_item.delivery.distribution_status|title }}</span>
+          {% elif distribution_status == "failed" or distribution_status == "bounced" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">{{ resource_item.delivery.distribution_status|title }}</span>
+          {% elif distribution_status == "retrying" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700" role="status">Retrying</span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700" role="status">{{ resource_item.delivery.distribution_status|default:"pending"|title }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if resource_item.delivery.last_error %}
+      <div class="mt-3 text-xs text-red-600 bg-red-50 rounded p-2 border border-red-100">
+        <span class="font-medium">Last error:</span> {{ resource_item.delivery.last_error }}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     {# Empty state when no delivery data available #}
-    {% if not resource_item.email_logs and not resource_item.jobs and not resource_item.artifacts %}
+    {% if not resource_item.email_logs and not resource_item.jobs and not resource_item.artifacts and not resource_item.delivery %}
     <div class="text-center py-6 text-gray-500">
       <svg class="w-10 h-10 mx-auto mb-2 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -943,9 +1031,135 @@ document.addEventListener('DOMContentLoaded', function() {
   const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
   const agreementId = '{{ resource_item.id }}';
   const panelName = '{{ panel_name|default:"esign_agreements" }}';
+  const resourceTenantId = '{{ resource_item.tenant_id|default:"" }}';
+  const resourceOrgId = '{{ resource_item.org_id|default:"" }}';
+  const executedDeliveryStatus = '{{ resource_item.delivery.executed_status|default:"pending" }}'.toLowerCase();
+  const executedObjectKey = '{{ resource_item.delivery.executed_object_key|default:"" }}';
+
+  function resolveScopeParams() {
+    const current = new URLSearchParams(window.location.search || '');
+    const tenantId = (resourceTenantId || current.get('tenant_id') || '').trim();
+    const orgId = (resourceOrgId || current.get('org_id') || '').trim();
+    return { tenantId, orgId };
+  }
+
+  function appendScopeParams(urlObj) {
+    const { tenantId, orgId } = resolveScopeParams();
+    if (tenantId) {
+      urlObj.searchParams.set('tenant_id', tenantId);
+    }
+    if (orgId) {
+      urlObj.searchParams.set('org_id', orgId);
+    }
+    return urlObj;
+  }
+
+  function buildScopedURL(pathname) {
+    const urlObj = new URL(pathname, window.location.origin);
+    appendScopeParams(urlObj);
+    return urlObj.toString();
+  }
+
+  function buildAssetDownloadURL(assetType) {
+    const endpoint = new URL(`${apiBase}/${panelName}/${agreementId}/artifact/${assetType}`, window.location.origin);
+    appendScopeParams(endpoint);
+    endpoint.searchParams.set('disposition', 'attachment');
+    return endpoint.toString();
+  }
+
+  function resolveDownloadFilename(response, fallback) {
+    const contentDisposition = response.headers.get('content-disposition') || '';
+    const simple = contentDisposition.match(/filename="?([^"]+)"?/i);
+    if (simple && simple[1]) {
+      return simple[1];
+    }
+    return fallback;
+  }
+
+  const downloadStatusNotice = document.getElementById('download-status-notice-dynamic');
+  function showDownloadNotice(message, level = 'warning') {
+    if (!downloadStatusNotice) {
+      return;
+    }
+    const levelClass = level === 'success'
+      ? 'border-green-200 bg-green-50 text-green-900'
+      : 'border-amber-200 bg-amber-50 text-amber-900';
+    downloadStatusNotice.className = `mx-6 mt-6 rounded-lg border p-4 text-sm ${levelClass}`;
+    downloadStatusNotice.textContent = message;
+    downloadStatusNotice.classList.remove('hidden');
+  }
+
+  const unavailableDownloadIcon = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+  const loadingDownloadIcon = '<svg class="w-4 h-4 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+  const executedDownloadButtons = Array.from(document.querySelectorAll('[data-action="download-executed"]'));
+
+  function markExecutedDownloadUnavailable(message) {
+    executedDownloadButtons.forEach(btn => {
+      btn.dataset.downloadState = 'unavailable';
+      btn.disabled = true;
+      btn.setAttribute('aria-disabled', 'true');
+      btn.classList.remove('btn-primary');
+      if (!btn.classList.contains('btn-warning')) {
+        btn.classList.add('btn-warning');
+      }
+      btn.innerHTML = `${unavailableDownloadIcon}Unable To Download PDF`;
+      btn.setAttribute('title', message);
+      btn.setAttribute('aria-label', 'Executed PDF is unavailable');
+    });
+    if (message) {
+      showDownloadNotice(message, 'warning');
+    }
+  }
+
+  function setExecutedDownloadLoading(loading) {
+    executedDownloadButtons.forEach(btn => {
+      const unavailable = (btn.dataset.downloadState || '').toLowerCase() === 'unavailable';
+      if (unavailable) {
+        return;
+      }
+      if (loading) {
+        btn.disabled = true;
+        btn.innerHTML = `${loadingDownloadIcon}Preparing PDF...`;
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Download Executed PDF';
+      }
+    });
+  }
+
+  async function fetchAndDownloadAsset(assetType, fallbackFilename) {
+    const url = buildAssetDownloadURL(assetType);
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/pdf'
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Executed PDF is not available yet. Refresh delivery status and try again.');
+    }
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('application/pdf')) {
+      throw new Error('Executed PDF is unavailable because the response is not a PDF.');
+    }
+    const blob = await response.blob();
+    if (!blob || blob.size === 0) {
+      throw new Error('Executed PDF is unavailable because the file is empty.');
+    }
+    const filename = resolveDownloadFilename(response, fallbackFilename);
+    const objectURL = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectURL;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
+  }
 
   async function executeAction(action, payload = {}) {
-    const endpoint = `${apiBase}/${panelName}/actions/${action}`;
+    const endpoint = buildScopedURL(`${apiBase}/${panelName}/actions/${action}`);
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -1032,17 +1246,34 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  if (executedDeliveryStatus !== 'ready' && !executedObjectKey) {
+    markExecutedDownloadUnavailable('Executed PDF is still unavailable for this agreement. Artifact generation may still be running.');
+  }
+
   // Download executed PDF
   document.querySelectorAll('[data-action="download-executed"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      window.location.href = `${apiBase}/${panelName}/${agreementId}/artifact/executed`;
+    btn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      if ((btn.dataset.downloadState || '').toLowerCase() === 'unavailable') {
+        showDownloadNotice('Executed PDF is still unavailable for this agreement. Refresh delivery status and try again.', 'warning');
+        return;
+      }
+      setExecutedDownloadLoading(true);
+      try {
+        await fetchAndDownloadAsset('executed', `${agreementId}-executed.pdf`);
+        showDownloadNotice('Executed PDF downloaded successfully.', 'success');
+      } catch (error) {
+        markExecutedDownloadUnavailable(error.message || 'Unable To Download PDF');
+      } finally {
+        setExecutedDownloadLoading(false);
+      }
     });
   });
 
   // Download certificate
   document.querySelectorAll('[data-action="download-certificate"]').forEach(btn => {
     btn.addEventListener('click', () => {
-      window.location.href = `${apiBase}/${panelName}/${agreementId}/artifact/certificate`;
+      window.location.href = buildAssetDownloadURL('certificate');
     });
   });
 
