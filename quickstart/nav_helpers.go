@@ -98,6 +98,8 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	ctx = WithFeatureTemplateContext(ctx, reqCtx, scopeData, map[string]bool{})
 	ctx["nav_items"] = BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
 	ctx["theme"] = adm.ThemePayload(reqCtx)
+	ctx["users_import_available"] = adm.UserImportEnabled()
+	ctx["users_import_enabled"] = adm.UserImportAllowed(reqCtx)
 	if active != "" {
 		ctx["active"] = active
 	}
