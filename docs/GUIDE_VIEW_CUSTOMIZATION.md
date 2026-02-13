@@ -318,6 +318,167 @@ views, err := quickstart.NewViewEngine(
 )
 ```
 
+## View context variables
+
+Admin layout templates receive a view context with standard keys injected by `buildAdminLayoutViewContext` (core) and quickstart helpers. These variables are available in all admin templates at runtime.
+
+### Core layout variables
+
+| Variable | Type | Description | Source |
+|----------|------|-------------|--------|
+| `base_path` | `string` | Admin base path (e.g., `/admin`) | `admin.Config.BasePath` |
+| `api_base_path` | `string` | API base path (e.g., `/admin/api`) | URLKit or config |
+| `asset_base_path` | `string` | Asset base path (defaults to `base_path`) | Config or explicit |
+| `active` | `string` | Active menu item key for nav highlighting | Route handler |
+| `title` | `string` | Page title | Route handler |
+| `nav_items` | `[]map[string]any` | Navigation menu items | `Navigation.ResolveMenu()` |
+| `session_user` | `map[string]any` | Current user session data | Auth context |
+| `theme` | `map[string]any` | Theme payload (tokens, selection, assets) | `ThemeProvider` |
+
+### Session user object (`session_user`)
+
+The `session_user` map contains authenticated user data:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `id` | `string` | User ID |
+| `subject` | `string` | JWT subject |
+| `username` | `string` | Username |
+| `email` | `string` | Email address |
+| `role` | `string` | Primary role |
+| `tenant_id` | `string` | Tenant ID (if tenants feature enabled) |
+| `organization_id` | `string` | Organization ID (if orgs feature enabled) |
+| `environment` | `string` | Environment name |
+| `resource_roles` | `map[string]string` | Resource-specific roles |
+| `metadata` | `map[string]any` | Additional claims metadata |
+| `scopes` | `[]string` | Collected scopes |
+| `is_authenticated` | `bool` | Whether user is authenticated |
+| `display_name` | `string` | Display name for UI |
+| `subtitle` | `string` | Subtitle (e.g., `role @ tenant`) |
+| `initial` | `string` | First character of display name |
+| `avatar_url` | `string` | Avatar image URL |
+| `issued_at` | `time.Time` | Token issue time |
+| `expires_at` | `time.Time` | Token expiration time |
+
+### Navigation item structure (`nav_items`)
+
+Each item in `nav_items` contains:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `id` | `string` | Menu item ID |
+| `type` | `string` | Item type (`item`, `group`, `divider`) |
+| `label` | `string` | Display label |
+| `label_key` | `string` | i18n key for label |
+| `group_title` | `string` | Group heading title |
+| `group_title_key` | `string` | i18n key for group title |
+| `icon` | `string` | Icon reference (emoji, SVG key, or Iconoir) |
+| `href` | `string` | Link URL |
+| `key` | `string` | Unique key for active matching |
+| `badge` | `any` | Badge content |
+| `classes` | `string` | CSS classes |
+| `styles` | `string` | Inline styles |
+| `children` | `[]map[string]any` | Child menu items |
+| `has_children` | `bool` | Whether item has children |
+| `collapsible` | `bool` | Whether item can collapse |
+| `collapsed` | `bool` | Current collapsed state |
+| `expanded` | `bool` | Whether expanded (inverse of collapsed) |
+| `position` | `int` | Sort position |
+| `active` | `bool` | Whether this item is active |
+| `child_active` | `bool` | Whether a child is active |
+
+### Theme payload (`theme`)
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `tokens` | `map[string]string` | Theme CSS tokens |
+| `selection` | `map[string]any` | Active theme selection (`name`, `variant`) |
+| `assets` | `map[string]string` | Theme assets (`logo`, `favicon`, etc.) |
+
+Additional top-level keys when using `WithThemeContext`:
+- `theme_name` - Active theme name
+- `theme_variant` - Active theme variant
+
+### Feature context variables
+
+Injected by quickstart UI routes via `withUIFeatureContext`:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `activity_enabled` | `bool` | Activity feature enabled |
+| `activity_feature_enabled` | `bool` | Alias for `activity_enabled` |
+| `translation_capabilities` | `map[string]any` | Translation module capabilities |
+| `body_classes` | `string` | Feature-aware CSS classes for `<body>` |
+
+Feature gate template context keys (from go-featuregate):
+- `_fg_ctx` - Request context for feature checks
+- `_fg_scope` - Scope data for feature evaluation
+- `_fg_snapshot` - Feature state snapshot
+
+### Debug context variables
+
+When debug mode is enabled (`cfg.Debug.Enabled`):
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `layout_mode` | `string` | Debug layout mode (`admin` or `standalone`) |
+| `debug_path` | `string` | Debug panel path |
+| `debug_standalone_path` | `string` | Standalone debug path |
+| `debug_admin_path` | `string` | Admin-embedded debug path |
+| `debug_toolbar_enabled` | `bool` | Whether debug toolbar is shown |
+| `hide_content_header` | `bool` | Hide content header in admin layout |
+
+### Auth UI context variables
+
+For login/registration pages via `WithAuthUIViewContext`:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `password_reset_path` | `string` | Password reset page path |
+| `password_reset_confirm_path` | `string` | Password reset confirm path |
+| `register_path` | `string` | Registration page path |
+
+### Route-specific API paths
+
+Injected by specific UI route handlers:
+
+| Variable | Route | Description |
+|----------|-------|-------------|
+| `activity_api_path` | `/admin/activity` | Activity API endpoint |
+| `feature_flags_api_path` | `/admin/feature-flags` | Feature flags API endpoint |
+| `translation_exchange_api_path` | `/admin/translations/exchange` | Translation exchange API |
+
+### Navigation debug variables
+
+When `NAV_DEBUG=true`:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `nav_items_json` | `string` | JSON-serialized nav items |
+| `nav_debug` | `bool` | Debug mode flag |
+
+### Using view context in templates
+
+Example template usage:
+
+```html
+{% if session_user.is_authenticated %}
+  <span>{{ session_user.display_name }}</span>
+  <img src="{{ session_user.avatar_url }}" alt="{{ session_user.initial }}">
+{% endif %}
+
+{% for item in nav_items %}
+  <a href="{{ item.href }}" class="{% if item.active %}active{% endif %}">
+    {{ item.label }}
+  </a>
+{% endfor %}
+
+<link rel="stylesheet" href="{{ asset_base_path }}/assets/output.css">
+<script>
+  const API_BASE = "{{ api_base_path }}";
+</script>
+```
+
 ## UI routes (opt-in)
 
 Quickstart can register common UI routes for you:
