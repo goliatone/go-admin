@@ -17,7 +17,7 @@
         id="incomplete-translations-filter"
         class="h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
         aria-pressed="false"
-        title="Show only content with missing translations">
+        title="Show only content with incomplete translations">
   <svg class="h-4 w-4 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
     <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
   </svg>
@@ -400,7 +400,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   const incompleteFilterBtn = document.getElementById('incomplete-translations-filter');
   if (incompleteFilterBtn) {
     let isFilterActive = false;
-    const originalFilters = [];
 
     incompleteFilterBtn.addEventListener('click', async () => {
       isFilterActive = !isFilterActive;
@@ -411,21 +410,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         incompleteFilterBtn.classList.remove('bg-white', 'text-gray-800');
         incompleteFilterBtn.setAttribute('aria-pressed', 'true');
 
-        // Add readiness_state filter (ne=not equal to ready)
-        const readinessFilter = {
-          column: 'readiness_state',
-          operator: 'ne',
-          value: 'ready'
+        // Add canonical incomplete filter.
+        const incompleteFilter = {
+          column: 'incomplete',
+          operator: 'eq',
+          value: 'true'
         };
-        grid.state.filters = [...grid.state.filters.filter(f => f.column !== 'readiness_state'), readinessFilter];
+        grid.state.filters = [...grid.state.filters.filter(f => f.column !== 'incomplete'), incompleteFilter];
       } else {
         // Deactivate filter: show all
         incompleteFilterBtn.classList.remove('bg-amber-100', 'border-amber-300', 'text-amber-800');
         incompleteFilterBtn.classList.add('bg-white', 'text-gray-800');
         incompleteFilterBtn.setAttribute('aria-pressed', 'false');
 
-        // Remove readiness_state filter
-        grid.state.filters = grid.state.filters.filter(f => f.column !== 'readiness_state');
+        // Remove canonical incomplete filter
+        grid.state.filters = grid.state.filters.filter(f => f.column !== 'incomplete');
       }
 
       grid.resetPagination();
