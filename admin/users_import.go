@@ -63,7 +63,7 @@ type userImportBinding struct {
 }
 
 func newUserImportBinding(a *Admin) *userImportBinding {
-	if a == nil {
+	if a == nil || a.bulkUserImport == nil {
 		return nil
 	}
 	return &userImportBinding{admin: a}
