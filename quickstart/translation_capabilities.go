@@ -2,7 +2,6 @@ package quickstart
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 
@@ -46,15 +45,23 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 	if adm == nil {
 		return map[string]any{}
 	}
-	gate := adm.FeatureGate()
-	cmsEnabled := featureEnabled(gate, string(admin.FeatureCMS))
-	dashboardEnabled := featureEnabled(gate, string(admin.FeatureDashboard))
-	exchangeEnabled := featureEnabled(gate, string(admin.FeatureTranslationExchange))
-	queueEnabled := featureEnabled(gate, string(admin.FeatureTranslationQueue))
+
+	base := admin.TranslationCapabilities(adm)
+	if len(base) == 0 {
+		base = map[string]any{}
+	}
+
+	baseModules, _ := base["modules"].(map[string]any)
+	exchangeEnabled := translationModuleEnabled(baseModules, "exchange")
+	queueEnabled := translationModuleEnabled(baseModules, "queue")
 	if modules.HasState {
 		exchangeEnabled = modules.ExchangeEnabled
 		queueEnabled = modules.QueueEnabled
 	}
+
+	baseFeatures, _ := base["features"].(map[string]any)
+	cmsEnabled := translationBool(baseFeatures["cms"])
+	dashboardEnabled := translationBool(baseFeatures["dashboard"])
 
 	schemaVersion, err := normalizeTranslationProductSchemaVersion(productCfg.SchemaVersion)
 	if err != nil {
@@ -65,8 +72,9 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 		profile = string(inferTranslationProfile(cmsEnabled, exchangeEnabled, queueEnabled))
 	}
 
-	routes, resolverKeys := translationCapabilityRoutes(adm)
-	panels := translationCapabilityPanels(adm)
+	routes := translationRoutesToStrings(base["routes"])
+	resolverKeys := translationStringSlice(base["resolver_keys"])
+	panels := translationStringSlice(base["panels"])
 
 	return map[string]any{
 		"profile":        profile,
@@ -87,47 +95,13 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 }
 
 func translationCapabilityRoutes(adm *admin.Admin) (map[string]string, []string) {
-	routes := map[string]string{}
-	keys := []string{}
-	if adm == nil || adm.URLs() == nil {
-		return routes, keys
-	}
-	urls := adm.URLs()
-	adminGroup := "admin"
-	adminAPIGroup := adm.AdminAPIGroup()
-
-	register := func(group, route, key string) {
-		path := strings.TrimSpace(resolveRoutePath(urls, group, route))
-		if path == "" {
-			return
-		}
-		keys = append(keys, key)
-		routes[key] = path
-	}
-
-	register(adminGroup, "translations.queue", "admin.translations.queue")
-	register(adminGroup, "translations.exchange", "admin.translations.exchange")
-	register(adminAPIGroup, "translations.export", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.export"))
-	register(adminAPIGroup, "translations.template", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.template"))
-	register(adminAPIGroup, "translations.import.validate", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.import.validate"))
-	register(adminAPIGroup, "translations.import.apply", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.import.apply"))
-
-	sort.Strings(keys)
-	return routes, keys
+	caps := admin.TranslationCapabilities(adm)
+	return translationRoutesToStrings(caps["routes"]), translationStringSlice(caps["resolver_keys"])
 }
 
 func translationCapabilityPanels(adm *admin.Admin) []string {
-	if adm == nil || adm.Registry() == nil {
-		return nil
-	}
-	panels := []string{}
-	for key := range adm.Registry().Panels() {
-		if strings.Contains(strings.ToLower(strings.TrimSpace(key)), "translation") {
-			panels = append(panels, key)
-		}
-	}
-	sort.Strings(panels)
-	return panels
+	caps := admin.TranslationCapabilities(adm)
+	return translationStringSlice(caps["panels"])
 }
 
 func inferTranslationProfile(cmsEnabled, exchangeEnabled, queueEnabled bool) TranslationProfile {
@@ -203,6 +177,29 @@ func translationRoutesToAny(raw any) map[string]any {
 		return cloneAnyMap(typed)
 	default:
 		return map[string]any{}
+	}
+}
+
+func translationRoutesToStrings(raw any) map[string]string {
+	switch typed := raw.(type) {
+	case map[string]string:
+		return cloneStringMap(typed)
+	case map[string]any:
+		out := map[string]string{}
+		for key, value := range typed {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			path := strings.TrimSpace(fmt.Sprint(value))
+			if path == "" {
+				continue
+			}
+			out[key] = path
+		}
+		return out
+	default:
+		return map[string]string{}
 	}
 }
 
