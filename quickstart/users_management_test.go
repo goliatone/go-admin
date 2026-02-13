@@ -211,16 +211,3 @@ func TestWithGoUsersUserManagementSkipsProfileStoreWhenMissing(t *testing.T) {
 		t.Fatalf("expected bulk user import command to be set")
 	}
 }
-
-func TestWithLegacyUserRoleBulkRoutesEnablesLegacyRoutes(t *testing.T) {
-	options := adminOptions{}
-
-	if options.registerUserRoleBulkRoutes {
-		t.Fatalf("expected legacy bulk role routes registration to be disabled by default")
-	}
-
-	WithLegacyUserRoleBulkRoutes()(&options)
-	if !options.registerUserRoleBulkRoutes {
-		t.Fatalf("expected legacy bulk role routes registration to be enabled")
-	}
-}

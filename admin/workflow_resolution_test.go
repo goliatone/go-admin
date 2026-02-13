@@ -135,3 +135,67 @@ func TestWorkflowEngineForContentTypePrefersWorkflowIDCapability(t *testing.T) {
 		t.Fatalf("did not expect legacy workflow transitions, got %+v", transitions)
 	}
 }
+
+func TestAdminWithTraitWorkflowDefaultsNormalizesAndClones(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+
+	input := map[string]string{
+		" Editorial ": " editorial.default ",
+		"":            "ignored",
+		"news":        "",
+	}
+	adm.WithTraitWorkflowDefaults(input)
+	input["editorial"] = "mutated"
+
+	defaults := adm.traitWorkflowDefaultsForLookup()
+	if got := defaults["editorial"]; got != "editorial.default" {
+		t.Fatalf("expected normalized trait defaults clone, got %+v", defaults)
+	}
+	if _, ok := defaults[""]; ok {
+		t.Fatalf("expected empty trait key removed, got %+v", defaults)
+	}
+	if _, ok := defaults["news"]; ok {
+		t.Fatalf("expected empty workflow ID removed, got %+v", defaults)
+	}
+
+	defaults["editorial"] = "changed"
+	next := adm.traitWorkflowDefaultsForLookup()
+	if got := next["editorial"]; got != "editorial.default" {
+		t.Fatalf("expected snapshot clone from admin defaults, got %+v", next)
+	}
+}
+
+func TestWorkflowEngineForContentTypeUsesAdminTraitWorkflowDefaults(t *testing.T) {
+	engine := NewSimpleWorkflowEngine()
+	engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+		EntityType:   "editorial.default",
+		InitialState: "draft",
+		Transitions: []WorkflowTransition{
+			{Name: "publish", From: "draft", To: "published"},
+		},
+	})
+
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	adm.WithWorkflow(engine)
+	adm.WithTraitWorkflowDefaults(map[string]string{
+		"editorial": "editorial.default",
+	})
+
+	workflow := workflowEngineForContentType(adm, &CMSContentType{
+		Slug: "news",
+		Capabilities: map[string]any{
+			"panel_traits": []any{"editorial"},
+		},
+	})
+	if workflow == nil {
+		t.Fatalf("expected workflow resolved from trait defaults")
+	}
+
+	transitions, err := workflow.AvailableTransitions(context.Background(), "ignored", "draft")
+	if err != nil {
+		t.Fatalf("available transitions failed: %v", err)
+	}
+	if !hasTransition(transitions, "publish") {
+		t.Fatalf("expected workflow transitions from trait default, got %+v", transitions)
+	}
+}
