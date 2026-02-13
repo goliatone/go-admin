@@ -16,6 +16,12 @@ func resolveScopeFromContext(ctx context.Context, fallback stores.Scope) (stores
 	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
 		scope.TenantID = strings.TrimSpace(actor.TenantID)
 		scope.OrgID = strings.TrimSpace(actor.OrganizationID)
+		if scope.TenantID == "" {
+			scope.TenantID = metadataString(actor.Metadata, "tenant_id", "tenant")
+		}
+		if scope.OrgID == "" {
+			scope.OrgID = metadataString(actor.Metadata, "organization_id", "org_id", "org")
+		}
 	}
 	if scope.TenantID == "" {
 		scope.TenantID = strings.TrimSpace(fallback.TenantID)
@@ -36,6 +42,30 @@ func userIDFromContext(ctx context.Context) string {
 		}
 		if actorID := strings.TrimSpace(actor.ActorID); actorID != "" {
 			return actorID
+		}
+	}
+	return ""
+}
+
+func metadataString(metadata map[string]any, keys ...string) string {
+	for _, key := range keys {
+		raw, ok := metadata[key]
+		if !ok || raw == nil {
+			continue
+		}
+		switch value := raw.(type) {
+		case string:
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				return trimmed
+			}
+		case []byte:
+			if trimmed := strings.TrimSpace(string(value)); trimmed != "" {
+				return trimmed
+			}
+		default:
+			if trimmed := strings.TrimSpace(fmt.Sprint(value)); trimmed != "" && trimmed != "<nil>" {
+				return trimmed
+			}
 		}
 	}
 	return ""
