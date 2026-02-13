@@ -60,6 +60,7 @@ The example uses quickstart scope defaults. Configure via env:
 - `ADMIN_SCOPE_MODE=single|multi` (default: `single`)
 - `ADMIN_DEFAULT_TENANT_ID=<uuid>` (default: `11111111-1111-1111-1111-111111111111`)
 - `ADMIN_DEFAULT_ORG_ID=<uuid>` (default: `22222222-2222-2222-2222-222222222222`)
+- Canonical `ADMIN_*` env reference (single table): `../../ENVS_REF.md`
 
 For multi-tenant mode, ensure your auth claims and seeded data share the same tenant/org IDs.
 When running in single-tenant mode, the seed loader rewrites seeded rows to the configured defaults so the demo data stays in scope.
@@ -125,7 +126,7 @@ ADMIN_TRANSLATION_PROFILE=none go run .
 - **Jobs**: `GET /admin/api/jobs`, `POST /admin/api/jobs/:name/trigger`
 - **Users Panel**: `GET /admin/api/users`, `POST /admin/api/users`, etc.
 - **Roles Panel**: `GET /admin/api/roles`, `POST /admin/api/roles`, etc.
-- **User Actions**: `/admin/api/users/:id/{activate,suspend,disable,archive,reset-password,invite}` plus `/admin/api/users/bulk/{activate,suspend,disable,archive,assign-role,unassign-role}` (mirrored under `/admin/crud/users/...`).
+- **User Actions**: `/admin/api/users/:id/{activate,suspend,disable,archive,reset-password,invite}` plus `/admin/api/users/bulk/{activate,suspend,disable,archive,assign-role,unassign-role}`.
 - **Profile & Preferences**: `GET/POST /admin/api/profile`, `GET/POST /admin/api/preferences`
 - **Onboarding**: `POST /admin/api/onboarding/invite`, `POST /admin/api/onboarding/password/reset/request`, `POST /admin/api/onboarding/password/reset/confirm`, `POST /admin/api/onboarding/register` (flagged)
 - **Users CRUD API**: `GET /admin/crud/users` (go-crud JSON endpoints)
