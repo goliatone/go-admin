@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -222,6 +223,50 @@ func TestPagesAndPostsPanelsExposeTranslationAwareListFields(t *testing.T) {
 				if strings.TrimSpace(field.Label) == "" {
 					t.Fatalf("expected %q label to be non-empty", name)
 				}
+			}
+		})
+	}
+}
+
+func TestPagesAndPostsPanelsExposeCanonicalIncompleteFilter(t *testing.T) {
+	repo := translationActionRepoStub{}
+	cases := []struct {
+		name    string
+		builder *admin.PanelBuilder
+	}{
+		{name: "pages", builder: NewPagesPanelBuilder(repo)},
+		{name: "posts", builder: NewPostsPanelBuilder(repo)},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			panel, err := tc.builder.Build()
+			if err != nil {
+				t.Fatalf("build panel: %v", err)
+			}
+			var (
+				filter    admin.Filter
+				filterSet bool
+			)
+			for idx := range panel.Schema().Filters {
+				current := panel.Schema().Filters[idx]
+				if current.Name == "incomplete" {
+					filter = current
+					filterSet = true
+					break
+				}
+			}
+			if !filterSet {
+				t.Fatalf("expected incomplete filter in panel schema")
+			}
+			if strings.TrimSpace(filter.Type) != "select" {
+				t.Fatalf("expected incomplete filter type select, got %q", filter.Type)
+			}
+			if len(filter.Options) != 2 {
+				t.Fatalf("expected incomplete filter options [true,false], got %+v", filter.Options)
+			}
+			if strings.TrimSpace(fmt.Sprint(filter.Options[0].Value)) != "true" || strings.TrimSpace(fmt.Sprint(filter.Options[1].Value)) != "false" {
+				t.Fatalf("expected incomplete options true/false, got %+v", filter.Options)
 			}
 		})
 	}
