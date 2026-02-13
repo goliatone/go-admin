@@ -65,3 +65,4 @@ examples/web/assets/uploads/users/profile-pictures
 
 docs/
 !docs/GUIDES_*.md
+pkg/client/assets/tenant/tenant-bootstrap/
