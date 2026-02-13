@@ -25,6 +25,26 @@ func ResolveAdminURL(urls urlkit.Resolver, fallback, path string) string {
 	return resolveAdminURL(urls, fallback, path)
 }
 
+// ResolveAdminPanelURL returns the canonical admin UI path for a panel.
+func ResolveAdminPanelURL(urls urlkit.Resolver, fallback, panel string) string {
+	return resolveAdminPanelURL(urls, fallback, panel)
+}
+
+// ResolveAdminPanelDetailURL returns the canonical admin UI detail path for a panel record.
+func ResolveAdminPanelDetailURL(urls urlkit.Resolver, fallback, panel, id string) string {
+	return resolveAdminPanelDetailURL(urls, fallback, panel, id)
+}
+
+// ResolveAdminPanelEditURL returns the canonical admin UI edit path for a panel record.
+func ResolveAdminPanelEditURL(urls urlkit.Resolver, fallback, panel, id string) string {
+	return resolveAdminPanelEditURL(urls, fallback, panel, id)
+}
+
+// ResolveAdminPanelPreviewURL returns the canonical admin UI preview path for a panel record.
+func ResolveAdminPanelPreviewURL(urls urlkit.Resolver, fallback, panel, id string) string {
+	return resolveAdminPanelPreviewURL(urls, fallback, panel, id)
+}
+
 // ResolveAdminAPIBasePath returns the base admin API path using URLKit when available.
 func ResolveAdminAPIBasePath(urls urlkit.Resolver, cfg admin.Config, fallbackBase string) string {
 	return resolveAdminAPIBasePath(urls, cfg, fallbackBase)
