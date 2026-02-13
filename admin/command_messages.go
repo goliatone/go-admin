@@ -1,12 +1,16 @@
 package admin
 
+import "strings"
+
 const (
-	bulkCommandName              = "admin.bulk"
-	userActivateCommandName      = "users.activate"
-	userSuspendCommandName       = "users.suspend"
-	userDisableCommandName       = "users.disable"
-	userArchiveCommandName       = "users.archive"
-	dashboardProviderCommandName = "admin.dashboard.provider"
+	bulkCommandName                 = "admin.bulk"
+	userActivateCommandName         = "users.activate"
+	userSuspendCommandName          = "users.suspend"
+	userDisableCommandName          = "users.disable"
+	userArchiveCommandName          = "users.archive"
+	userBulkAssignRoleCommandName   = "users.bulk_assign_role"
+	userBulkUnassignRoleCommandName = "users.bulk_unassign_role"
+	dashboardProviderCommandName    = "admin.dashboard.provider"
 )
 
 // SettingsUpdateMsg updates settings via the command bus.
@@ -97,6 +101,47 @@ func (UserArchiveMsg) Type() string { return userArchiveCommandName }
 
 func (m UserArchiveMsg) Validate() error { return requireIDs(m.IDs, "user ids required") }
 
+// UserBulkAssignRoleMsg assigns a role for multiple users.
+type UserBulkAssignRoleMsg struct {
+	IDs     []string
+	RoleID  string
+	Replace bool
+}
+
+func (UserBulkAssignRoleMsg) Type() string { return userBulkAssignRoleCommandName }
+
+func (m UserBulkAssignRoleMsg) Validate() error {
+	if err := requireIDs(m.IDs, "user ids required"); err != nil {
+		return err
+	}
+	if m.RoleID == "" {
+		return validationDomainError("role id required", map[string]any{
+			"field": "role_id",
+		})
+	}
+	return nil
+}
+
+// UserBulkUnassignRoleMsg unassigns a role for multiple users.
+type UserBulkUnassignRoleMsg struct {
+	IDs    []string
+	RoleID string
+}
+
+func (UserBulkUnassignRoleMsg) Type() string { return userBulkUnassignRoleCommandName }
+
+func (m UserBulkUnassignRoleMsg) Validate() error {
+	if err := requireIDs(m.IDs, "user ids required"); err != nil {
+		return err
+	}
+	if m.RoleID == "" {
+		return validationDomainError("role id required", map[string]any{
+			"field": "role_id",
+		})
+	}
+	return nil
+}
+
 // DashboardProviderMsg routes dashboard provider commands.
 type DashboardProviderMsg struct {
 	CommandName string
@@ -136,6 +181,12 @@ func RegisterCoreCommandFactories(bus *CommandBus) error {
 		return err
 	}
 	if err := RegisterMessageFactory(bus, userArchiveCommandName, buildUserArchiveMsg); err != nil {
+		return err
+	}
+	if err := RegisterMessageFactory(bus, userBulkAssignRoleCommandName, buildUserBulkAssignRoleMsg); err != nil {
+		return err
+	}
+	if err := RegisterMessageFactory(bus, userBulkUnassignRoleCommandName, buildUserBulkUnassignRoleMsg); err != nil {
 		return err
 	}
 	return nil
@@ -245,6 +296,46 @@ func buildUserArchiveMsg(payload map[string]any, ids []string) (UserArchiveMsg, 
 		})
 	}
 	return UserArchiveMsg{IDs: userIDs}, nil
+}
+
+func buildUserBulkAssignRoleMsg(payload map[string]any, ids []string) (UserBulkAssignRoleMsg, error) {
+	userIDs := commandIDsFromPayload(ids, payload)
+	roleID, replace, err := parseBulkRolePayload(payload)
+	if err != nil {
+		return UserBulkAssignRoleMsg{}, err
+	}
+	return UserBulkAssignRoleMsg{
+		IDs:     userIDs,
+		RoleID:  roleID,
+		Replace: replace,
+	}, nil
+}
+
+func buildUserBulkUnassignRoleMsg(payload map[string]any, ids []string) (UserBulkUnassignRoleMsg, error) {
+	userIDs := commandIDsFromPayload(ids, payload)
+	roleID, _, err := parseBulkRolePayload(payload)
+	if err != nil {
+		return UserBulkUnassignRoleMsg{}, err
+	}
+	return UserBulkUnassignRoleMsg{
+		IDs:    userIDs,
+		RoleID: roleID,
+	}, nil
+}
+
+func parseBulkRolePayload(payload map[string]any) (string, bool, error) {
+	if payload == nil {
+		return "", false, validationDomainError("payload required", map[string]any{
+			"field": "payload",
+		})
+	}
+	roleID := strings.TrimSpace(toString(payload["role_id"]))
+	if roleID == "" {
+		return "", false, validationDomainError("role id required", map[string]any{
+			"field": "role_id",
+		})
+	}
+	return roleID, toBool(payload["replace"]), nil
 }
 
 func buildDashboardProviderMsg(commandName, code string, payload map[string]any) DashboardProviderMsg {
