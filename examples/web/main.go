@@ -384,6 +384,8 @@ func main() {
 	dataStores.Pages.WithActivitySink(activitySink)
 	dataStores.Posts.WithActivitySink(activitySink)
 	dataStores.Media.WithActivitySink(activitySink)
+	dataStores.Pages.Seed()
+	dataStores.Posts.Seed()
 
 	if lib := adm.MediaLibrary(); lib != nil {
 		mediaItems, _, _ := dataStores.Media.List(context.Background(), admin.ListOptions{})
@@ -704,6 +706,9 @@ func main() {
 	if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev); err != nil {
 		log.Fatalf("failed to register modules: %v", err)
 	}
+	if err := ensureCoreContentPanels(adm, dataStores.Pages, dataStores.Posts); err != nil {
+		log.Fatalf("failed to ensure core content panels: %v", err)
+	}
 
 	// Ensure Dashboard renders before Content in the Main Menu group.
 	if err := setup.EnsureDashboardFirst(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
@@ -852,12 +857,6 @@ func main() {
 		r.Post(path.Join(base, ":id", "reset-password"), wrapAuthed(userActions.ResetPassword))
 		r.Post(path.Join(base, ":id", "invite"), wrapAuthed(userActions.InviteByID))
 
-		r.Post(path.Join(base, "bulk", "activate"), wrapAuthed(userActions.BulkLifecycle(userstypes.LifecycleStateActive)))
-		r.Post(path.Join(base, "bulk", "suspend"), wrapAuthed(userActions.BulkLifecycle(userstypes.LifecycleStateSuspended)))
-		r.Post(path.Join(base, "bulk", "disable"), wrapAuthed(userActions.BulkLifecycle(userstypes.LifecycleStateDisabled)))
-		r.Post(path.Join(base, "bulk", "archive"), wrapAuthed(userActions.BulkLifecycle(userstypes.LifecycleStateArchived)))
-		r.Post(path.Join(base, "bulk", "assign-role"), wrapAuthed(userActions.BulkAssignRole))
-		r.Post(path.Join(base, "bulk", "unassign-role"), wrapAuthed(userActions.BulkUnassignRole))
 	}
 
 	// HTML routes

@@ -470,15 +470,34 @@ func normalizeCMSPageStatus(status string) (string, string) {
 }
 
 func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
+	requestedLocale := strings.TrimSpace(page.RequestedLocale)
+	if requestedLocale == "" {
+		requestedLocale = strings.TrimSpace(page.Locale)
+	}
+	resolvedLocale := strings.TrimSpace(page.ResolvedLocale)
+	if resolvedLocale == "" {
+		resolvedLocale = strings.TrimSpace(page.Locale)
+	}
+	missingRequestedLocale := page.MissingRequestedLocale
+	if !missingRequestedLocale && requestedLocale != "" && resolvedLocale != "" && !strings.EqualFold(requestedLocale, resolvedLocale) {
+		missingRequestedLocale = true
+	}
+
 	record := map[string]any{
-		"id":          page.ID,
-		"title":       page.Title,
-		"slug":        page.Slug,
-		"status":      page.Status,
-		"template_id": page.TemplateID,
-		"parent_id":   page.ParentID,
-		"locale":      page.Locale,
-		"preview_url": page.PreviewURL,
+		"id":                       page.ID,
+		"title":                    page.Title,
+		"slug":                     page.Slug,
+		"status":                   page.Status,
+		"template_id":              page.TemplateID,
+		"parent_id":                page.ParentID,
+		"locale":                   page.Locale,
+		"preview_url":              page.PreviewURL,
+		"translation_group_id":     strings.TrimSpace(page.TranslationGroupID),
+		"requested_locale":         requestedLocale,
+		"resolved_locale":          resolvedLocale,
+		"available_locales":        append([]string{}, page.AvailableLocales...),
+		"missing_requested_locale": missingRequestedLocale,
+		"fallback_used":            missingRequestedLocale,
 	}
 
 	data := cloneRecord(page.Data)
