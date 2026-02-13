@@ -27,7 +27,7 @@ require (
 	github.com/goliatone/go-options v0.7.0
 	github.com/goliatone/go-persistence-bun v0.10.0
 	github.com/goliatone/go-repository-bun v0.13.0
-	github.com/goliatone/go-router v0.47.0
+	github.com/goliatone/go-router v0.48.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.3.0
@@ -38,6 +38,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80
 	github.com/mattn/go-sqlite3 v1.14.32
+	github.com/phpdave11/gofpdf v1.4.3
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/traefik/yaegi v0.16.1
@@ -148,6 +149,8 @@ require (
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
+	github.com/phpdave11/gofpdi v1.0.15 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
