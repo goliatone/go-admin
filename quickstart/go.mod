@@ -4,6 +4,8 @@ go 1.24.10
 
 replace github.com/goliatone/go-admin => ..
 
+replace github.com/goliatone/go-router => ../../go-router
+
 require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/gobuffalo/flect v1.0.3

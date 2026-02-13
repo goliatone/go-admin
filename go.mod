@@ -203,3 +203,5 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
+
+replace github.com/goliatone/go-router => ../go-router
