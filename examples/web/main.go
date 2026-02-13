@@ -861,15 +861,10 @@ func main() {
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
 	userProfileHandlers := handlers.NewUserProfileHandlers(dataStores.UserProfiles, formGenerator, adm, cfg, helpers.WithNav)
-	mediaHandlers := handlers.NewMediaHandlers(dataStores.Media, adm, cfg, helpers.WithNav)
-	profileHandlers := handlers.NewProfileHandlers(adm, cfg, helpers.WithNav)
 
 	// Optional metadata endpoint for frontend DataGrid column definitions.
 	r.Get(path.Join(adminAPIBasePath, "users", "columns"), wrapAuthed(userHandlers.Columns))
 	r.Get(path.Join(adminAPIBasePath, "user-profiles", "columns"), wrapAuthed(userProfileHandlers.Columns))
-	roleAPIHandlers := handlers.NewRolesAPIHandlers(adm, cfg)
-	r.Get(path.Join(adminAPIBasePath, "roles"), wrapAuthed(roleAPIHandlers.List))
-
 	// Build UI route options with conditional translation module routes.
 	// When translation exchange is enabled via feature gate (profile or explicit toggle),
 	// register the translation exchange UI route for import/export operations.
@@ -891,18 +886,6 @@ func main() {
 	}
 	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
 		log.Fatalf("failed to register settings UI routes: %v", err)
-	}
-	if err := quickstart.RegisterRolesUIRoutes(
-		r,
-		cfg,
-		adm,
-		quickstart.WithRolesUIViewContext(func(ctx router.ViewContext, active string, c router.Context) router.ViewContext {
-			viewCtx := helpers.WithNav(ctx, adm, cfg, active, c.Context(), c)
-			viewCtx = helpers.WithTheme(viewCtx, adm, c)
-			return viewCtx
-		}),
-	); err != nil {
-		log.Fatalf("failed to register roles UI routes: %v", err)
 	}
 	if err := quickstart.RegisterContentTypeBuilderUIRoutes(r, cfg, adm, authn); err != nil {
 		log.Fatalf("failed to register content type builder UI routes: %v", err)
@@ -989,38 +972,9 @@ func main() {
 		return c.Render(registerTemplate, viewCtx)
 	})
 
-	// Profile routes (self-service HTML)
-	r.Get(path.Join(cfg.BasePath, "profile"), wrapAuthed(profileHandlers.Show))
-	r.Post(path.Join(cfg.BasePath, "profile"), wrapAuthed(profileHandlers.Save))
-
-	// User routes
-	r.Get(path.Join(cfg.BasePath, "users"), wrapAuthed(userHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "users/new"), wrapAuthed(userHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "users"), wrapAuthed(userHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "users/:id/edit"), wrapAuthed(userHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "users/:id"), wrapAuthed(userHandlers.Update))
+	// User tab routes are custom and not part of canonical panel route wiring.
 	r.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), wrapAuthed(userHandlers.TabHTML))
 	r.Get(path.Join(adminAPIBasePath, "users", ":id", "tabs", ":tab"), wrapAuthed(userHandlers.TabJSON))
-	r.Get(path.Join(cfg.BasePath, "users/:id"), wrapAuthed(userHandlers.Detail))
-	r.Post(path.Join(cfg.BasePath, "users/:id/delete"), wrapAuthed(userHandlers.Delete))
-
-	// User Profiles routes
-	r.Get(path.Join(cfg.BasePath, "user-profiles"), wrapAuthed(userProfileHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "user-profiles/new"), wrapAuthed(userProfileHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "user-profiles"), wrapAuthed(userProfileHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "user-profiles/:id/edit"), wrapAuthed(userProfileHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "user-profiles/:id"), wrapAuthed(userProfileHandlers.Update))
-	r.Get(path.Join(cfg.BasePath, "user-profiles/:id"), wrapAuthed(userProfileHandlers.Detail))
-	r.Post(path.Join(cfg.BasePath, "user-profiles/:id/delete"), wrapAuthed(userProfileHandlers.Delete))
-
-	// Media routes
-	r.Get(path.Join(cfg.BasePath, "media"), wrapAuthed(mediaHandlers.List))
-	r.Get(path.Join(cfg.BasePath, "media/new"), wrapAuthed(mediaHandlers.New))
-	r.Post(path.Join(cfg.BasePath, "media"), wrapAuthed(mediaHandlers.Create))
-	r.Get(path.Join(cfg.BasePath, "media/:id"), wrapAuthed(mediaHandlers.Detail))
-	r.Get(path.Join(cfg.BasePath, "media/:id/edit"), wrapAuthed(mediaHandlers.Edit))
-	r.Post(path.Join(cfg.BasePath, "media/:id"), wrapAuthed(mediaHandlers.Update))
-	r.Post(path.Join(cfg.BasePath, "media/:id/delete"), wrapAuthed(mediaHandlers.Delete))
 
 	siteHandlers := handlers.NewSiteHandlers(handlers.SiteHandlersConfig{
 		Admin:         adm,

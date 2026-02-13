@@ -32,6 +32,9 @@ func (alwaysOnFeatureGate) Enabled(context.Context, string, ...fggate.ResolveOpt
 }
 
 type translationWorkflowEngine struct{}
+type translationWorkflowPolicy struct {
+	contentSvc coreadmin.CMSContentService
+}
 
 func (translationWorkflowEngine) AvailableTransitions(_ context.Context, _ string, state string) ([]coreadmin.WorkflowTransition, error) {
 	switch strings.ToLower(strings.TrimSpace(state)) {
@@ -226,6 +229,104 @@ func TestListIncludesWorkflowActionStateMetadata(t *testing.T) {
 	}
 }
 
+func TestListCanonicalIncompleteFilterReturnsOnlyIncompleteRecords(t *testing.T) {
+	fx := newTranslationWorkflowFixture(t)
+
+	tests := []struct {
+		name           string
+		panel          string
+		incompleteBody map[string]any
+		completeBody   map[string]any
+	}{
+		{
+			name:  "pages",
+			panel: "pages",
+			incompleteBody: map[string]any{
+				"title":  "Canonical Incomplete Page",
+				"slug":   "canonical-incomplete-page",
+				"path":   "/canonical-incomplete-page",
+				"status": "draft",
+				"locale": "en",
+			},
+			completeBody: map[string]any{
+				"title":  "Canonical Complete Page",
+				"slug":   "canonical-complete-page",
+				"path":   "/canonical-complete-page",
+				"status": "draft",
+				"locale": "en",
+			},
+		},
+		{
+			name:  "posts",
+			panel: "posts",
+			incompleteBody: map[string]any{
+				"title":    "Canonical Incomplete Post",
+				"slug":     "canonical-incomplete-post",
+				"path":     "/posts/canonical-incomplete-post",
+				"content":  "Canonical incomplete post content",
+				"excerpt":  "Canonical incomplete post excerpt",
+				"category": "guides",
+				"status":   "draft",
+				"locale":   "en",
+			},
+			completeBody: map[string]any{
+				"title":    "Canonical Complete Post",
+				"slug":     "canonical-complete-post",
+				"path":     "/posts/canonical-complete-post",
+				"content":  "Canonical complete post content",
+				"excerpt":  "Canonical complete post excerpt",
+				"category": "guides",
+				"status":   "draft",
+				"locale":   "en",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			incompleteStatus, incompletePayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, panelCollectionPath(tc.panel), tc.incompleteBody)
+			require.Equal(t, http.StatusOK, incompleteStatus, "create incomplete payload=%+v", incompletePayload)
+			incompleteRecord := extractTestRecord(incompletePayload)
+			require.NotEmpty(t, strings.TrimSpace(fmt.Sprint(incompleteRecord["id"])))
+
+			completeStatus, completePayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, panelCollectionPath(tc.panel), tc.completeBody)
+			require.Equal(t, http.StatusOK, completeStatus, "create complete payload=%+v", completePayload)
+			completeRecord := extractTestRecord(completePayload)
+			completeID := strings.TrimSpace(fmt.Sprint(completeRecord["id"]))
+			require.NotEmpty(t, completeID)
+
+			translationGroupID := strings.TrimSpace(fmt.Sprint(completeRecord["translation_group_id"]))
+			if translationGroupID == "" || strings.EqualFold(translationGroupID, "<nil>") {
+				translationGroupID = completeID
+			}
+			for _, locale := range []string{"es", "fr"} {
+				variantStatus, variantPayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, panelCollectionPath(tc.panel), buildTranslationVariantPayload(tc.panel, completeRecord, translationGroupID, locale))
+				require.Equal(t, http.StatusOK, variantStatus, "create complete variant locale=%s payload=%+v", locale, variantPayload)
+			}
+
+			listPath := panelCollectionPath(tc.panel) + "?page=1&per_page=200&incomplete__eq=true"
+			listStatus, listPayload := doAdminJSONRequest(t, fx.handler, http.MethodGet, listPath, nil)
+			require.Equal(t, http.StatusOK, listStatus, "list payload=%+v", listPayload)
+
+			incompleteSlug := strings.TrimSpace(fmt.Sprint(tc.incompleteBody["slug"]))
+			var filteredIncomplete map[string]any
+
+			for _, item := range extractListRecords(listPayload) {
+				record, _ := item.(map[string]any)
+				if len(record) == 0 {
+					continue
+				}
+				if strings.EqualFold(strings.TrimSpace(fmt.Sprint(record["slug"])), incompleteSlug) {
+					filteredIncomplete = record
+				}
+				require.Equal(t, "true", strings.ToLower(strings.TrimSpace(fmt.Sprint(record["incomplete"]))), "all filtered records must be marked incomplete=true")
+			}
+			require.NotNil(t, filteredIncomplete, "expected incomplete record to be present in canonical incomplete filter response")
+			require.NotEqual(t, "ready", strings.ToLower(strings.TrimSpace(fmt.Sprint(filteredIncomplete["readiness_state"]))))
+		})
+	}
+}
+
 func newTranslationWorkflowFixture(t *testing.T) translationWorkflowFixture {
 	t.Helper()
 	_ = commandregistry.Stop(context.Background())
@@ -294,113 +395,130 @@ func newTranslationWorkflowFixture(t *testing.T) translationWorkflowFixture {
 }
 
 func newTranslationPolicyForContent(contentSvc coreadmin.CMSContentService) coreadmin.TranslationPolicy {
-	return coreadmin.TranslationPolicyFunc(func(ctx context.Context, input coreadmin.TranslationPolicyInput) error {
-		if contentSvc == nil {
-			return nil
-		}
-		if !strings.EqualFold(strings.TrimSpace(input.Transition), "publish") {
-			return nil
-		}
-		entity := normalizePolicyEntity(firstNonEmptyString(input.PolicyEntity, input.EntityType))
-		if entity == "" {
-			return nil
-		}
+	return translationWorkflowPolicy{contentSvc: contentSvc}
+}
 
-		required := requiredLocalesForEnvironment(input.Environment)
-		availableSet := map[string]struct{}{}
-		switch entity {
-		case "pages":
-			source, err := contentSvc.Page(ctx, strings.TrimSpace(input.EntityID), "")
-			if err != nil {
-				return err
-			}
-			sourceSlug := strings.TrimSpace(source.Slug)
-			sourceLocale := strings.ToLower(strings.TrimSpace(source.Locale))
-			if sourceLocale == "" {
-				sourceLocale = strings.ToLower(strings.TrimSpace(input.RequestedLocale))
-			}
-			if sourceLocale != "" {
-				availableSet[sourceLocale] = struct{}{}
-			}
-			pages, err := contentSvc.Pages(ctx, "")
-			if err != nil {
-				return err
-			}
-			for _, locale := range required {
-				normalizedLocale := strings.ToLower(strings.TrimSpace(locale))
-				if normalizedLocale == "" {
-					continue
-				}
-				if _, ok := availableSet[normalizedLocale]; ok {
-					continue
-				}
-				expectedSlug := sourceSlug + "-" + normalizedLocale
-				for _, page := range pages {
-					if strings.EqualFold(strings.TrimSpace(page.Slug), expectedSlug) {
-						availableSet[normalizedLocale] = struct{}{}
-						break
-					}
-				}
-			}
-		case "posts":
-			source, err := contentSvc.Content(ctx, strings.TrimSpace(input.EntityID), "")
-			if err != nil {
-				return err
-			}
-			sourceSlug := strings.TrimSpace(source.Slug)
-			sourceLocale := strings.ToLower(strings.TrimSpace(source.Locale))
-			if sourceLocale == "" {
-				sourceLocale = strings.ToLower(strings.TrimSpace(input.RequestedLocale))
-			}
-			if sourceLocale == "" {
-				sourceLocale = "en"
-			}
+func (p translationWorkflowPolicy) Requirements(_ context.Context, input coreadmin.TranslationPolicyInput) (coreadmin.TranslationRequirements, bool, error) {
+	if p.contentSvc == nil {
+		return coreadmin.TranslationRequirements{}, false, nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(input.Transition), "publish") {
+		return coreadmin.TranslationRequirements{}, false, nil
+	}
+	entity := normalizePolicyEntity(firstNonEmptyString(input.PolicyEntity, input.EntityType))
+	if entity == "" {
+		return coreadmin.TranslationRequirements{}, false, nil
+	}
+	return coreadmin.TranslationRequirements{
+		Locales: requiredLocalesForEnvironment(input.Environment),
+	}, true, nil
+}
+
+func (p translationWorkflowPolicy) Validate(ctx context.Context, input coreadmin.TranslationPolicyInput) error {
+	requirements, found, err := p.Requirements(ctx, input)
+	if err != nil || !found {
+		return err
+	}
+	required := requirements.Locales
+	entity := normalizePolicyEntity(firstNonEmptyString(input.PolicyEntity, input.EntityType))
+	if entity == "" {
+		return nil
+	}
+
+	availableSet := map[string]struct{}{}
+	switch entity {
+	case "pages":
+		source, err := p.contentSvc.Page(ctx, strings.TrimSpace(input.EntityID), "")
+		if err != nil {
+			return err
+		}
+		sourceSlug := strings.TrimSpace(source.Slug)
+		sourceLocale := strings.ToLower(strings.TrimSpace(source.Locale))
+		if sourceLocale == "" {
+			sourceLocale = strings.ToLower(strings.TrimSpace(input.RequestedLocale))
+		}
+		if sourceLocale != "" {
 			availableSet[sourceLocale] = struct{}{}
-			contents, err := contentSvc.Contents(ctx, "")
-			if err != nil {
-				return err
+		}
+		pages, err := p.contentSvc.Pages(ctx, "")
+		if err != nil {
+			return err
+		}
+		for _, locale := range required {
+			normalizedLocale := strings.ToLower(strings.TrimSpace(locale))
+			if normalizedLocale == "" {
+				continue
 			}
-			for _, locale := range required {
-				normalizedLocale := strings.ToLower(strings.TrimSpace(locale))
-				if normalizedLocale == "" {
-					continue
-				}
-				if _, ok := availableSet[normalizedLocale]; ok {
-					continue
-				}
-				expectedSlug := sourceSlug + "-" + normalizedLocale
-				for _, item := range contents {
-					if !strings.EqualFold(strings.TrimSpace(item.ContentType), "post") {
-						continue
-					}
-					if strings.EqualFold(strings.TrimSpace(item.Slug), expectedSlug) {
-						availableSet[normalizedLocale] = struct{}{}
-						break
-					}
+			if _, ok := availableSet[normalizedLocale]; ok {
+				continue
+			}
+			expectedSlug := sourceSlug + "-" + normalizedLocale
+			for _, page := range pages {
+				if strings.EqualFold(strings.TrimSpace(page.Slug), expectedSlug) {
+					availableSet[normalizedLocale] = struct{}{}
+					break
 				}
 			}
-		default:
-			return nil
 		}
-		available := make([]string, 0, len(availableSet))
-		for locale := range availableSet {
-			available = append(available, locale)
+	case "posts":
+		source, err := p.contentSvc.Content(ctx, strings.TrimSpace(input.EntityID), "")
+		if err != nil {
+			return err
 		}
-		missing := diffLocales(required, available)
-		if len(missing) == 0 {
-			return nil
+		sourceSlug := strings.TrimSpace(source.Slug)
+		sourceLocale := strings.ToLower(strings.TrimSpace(source.Locale))
+		if sourceLocale == "" {
+			sourceLocale = strings.ToLower(strings.TrimSpace(input.RequestedLocale))
 		}
+		if sourceLocale == "" {
+			sourceLocale = "en"
+		}
+		availableSet[sourceLocale] = struct{}{}
+		contents, err := p.contentSvc.Contents(ctx, "")
+		if err != nil {
+			return err
+		}
+		for _, locale := range required {
+			normalizedLocale := strings.ToLower(strings.TrimSpace(locale))
+			if normalizedLocale == "" {
+				continue
+			}
+			if _, ok := availableSet[normalizedLocale]; ok {
+				continue
+			}
+			expectedSlug := sourceSlug + "-" + normalizedLocale
+			for _, item := range contents {
+				if !strings.EqualFold(strings.TrimSpace(item.ContentType), "post") {
+					continue
+				}
+				if strings.EqualFold(strings.TrimSpace(item.Slug), expectedSlug) {
+					availableSet[normalizedLocale] = struct{}{}
+					break
+				}
+			}
+		}
+	default:
+		return nil
+	}
 
-		return coreadmin.MissingTranslationsError{
-			EntityType:      entity,
-			PolicyEntity:    entity,
-			EntityID:        strings.TrimSpace(input.EntityID),
-			Transition:      strings.TrimSpace(input.Transition),
-			Environment:     strings.TrimSpace(input.Environment),
-			RequestedLocale: strings.TrimSpace(input.RequestedLocale),
-			MissingLocales:  missing,
-		}
-	})
+	available := make([]string, 0, len(availableSet))
+	for locale := range availableSet {
+		available = append(available, locale)
+	}
+	missing := diffLocales(required, available)
+	if len(missing) == 0 {
+		return nil
+	}
+
+	return coreadmin.MissingTranslationsError{
+		EntityType:      entity,
+		PolicyEntity:    entity,
+		EntityID:        strings.TrimSpace(input.EntityID),
+		Transition:      strings.TrimSpace(input.Transition),
+		Environment:     strings.TrimSpace(input.Environment),
+		RequestedLocale: strings.TrimSpace(input.RequestedLocale),
+		MissingLocales:  missing,
+	}
 }
 
 func doAdminJSONRequest(t *testing.T, handler http.Handler, method, path string, payload map[string]any) (int, map[string]any) {

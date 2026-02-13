@@ -190,6 +190,9 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 		if err := rewriteSeedScope(ctx, client.DB(), quickstart.ScopeConfigFromEnv()); err != nil {
 			return stores.UserDependencies{}, nil, nil, err
 		}
+		if err := ensureTranslationExchangeSeedPermissions(ctx, deps.RoleRegistry); err != nil {
+			return stores.UserDependencies{}, nil, nil, err
+		}
 		if err := ensureSeedUserProfiles(ctx, deps); err != nil {
 			return stores.UserDependencies{}, nil, nil, err
 		}
@@ -563,6 +566,10 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 				"admin.debug.view",
 				"admin.debug.repl",
 				"admin.debug.repl.exec",
+				"admin.translations.export",
+				"admin.translations.import.view",
+				"admin.translations.import.validate",
+				"admin.translations.import.apply",
 			},
 		},
 		{
@@ -738,6 +745,52 @@ func cloneRolePermissions(values []string) []string {
 		return nil
 	}
 	return out
+}
+
+func ensureTranslationExchangeSeedPermissions(ctx context.Context, registry types.RoleRegistry) error {
+	if registry == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	required := []string{
+		"admin.translations.export",
+		"admin.translations.import.view",
+		"admin.translations.import.validate",
+		"admin.translations.import.apply",
+	}
+	scope := seedScopeDefaults()
+	for _, roleKey := range []string{"superadmin", "owner"} {
+		page, err := registry.ListRoles(ctx, types.RoleFilter{
+			RoleKey:       roleKey,
+			IncludeSystem: true,
+			Scope:         scope,
+		})
+		if err != nil {
+			return err
+		}
+		if len(page.Roles) == 0 {
+			continue
+		}
+
+		role := page.Roles[0]
+		merged, changed := mergeRolePermissions(role.Permissions, required)
+		if !changed {
+			continue
+		}
+		if _, err := registry.UpdateRole(ctx, role.ID, types.RoleMutation{
+			Name:        role.Name,
+			RoleKey:     role.RoleKey,
+			Permissions: merged,
+			Scope:       role.Scope,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func setDefaultPassword(ctx context.Context, repo types.AuthRepository, id uuid.UUID, username string) error {

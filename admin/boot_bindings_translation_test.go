@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -925,6 +926,179 @@ func TestPanelBindingListAndDetailIncludeTranslationReadiness(t *testing.T) {
 	readyFor, _ := readiness["ready_for_transition"].(map[string]bool)
 	if readyFor["publish"] {
 		t.Fatalf("expected publish readiness false when required locale is missing")
+	}
+}
+
+func TestPanelBindingListSupportsCanonicalIncompleteFilter(t *testing.T) {
+	repo := &translationActionRepoStub{
+		list: []map[string]any{
+			{
+				"id":                   "post_ready",
+				"title":                "Ready Post",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_ready",
+				"available_locales":    []string{"en", "es", "fr"},
+			},
+			{
+				"id":                   "post_incomplete_1",
+				"title":                "Incomplete One",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_incomplete_1",
+				"available_locales":    []string{"en"},
+			},
+			{
+				"id":                   "post_incomplete_2",
+				"title":                "Incomplete Two",
+				"status":               "draft",
+				"locale":               "es",
+				"translation_group_id": "tg_incomplete_2",
+				"available_locales":    []string{"es"},
+			},
+		},
+	}
+	panel := &Panel{
+		name: "posts",
+		repo: repo,
+		translationPolicy: readinessPolicyStub{
+			ok: true,
+			req: TranslationRequirements{
+				Locales: []string{"en", "es", "fr"},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	records, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"incomplete":  "true",
+			"environment": "production",
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "incomplete", Operator: "eq", Values: []string{"true"}},
+			{Field: "environment", Operator: "eq", Values: []string{"production"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected total=2 for incomplete filter, got %d", total)
+	}
+	if len(records) != 2 {
+		t.Fatalf("expected two incomplete records, got %d", len(records))
+	}
+
+	gotIDs := []string{toString(records[0]["id"]), toString(records[1]["id"])}
+	if gotIDs[0] != "post_incomplete_1" || gotIDs[1] != "post_incomplete_2" {
+		t.Fatalf("unexpected incomplete order/ids: %+v", gotIDs)
+	}
+	for _, record := range records {
+		if !toBool(record["incomplete"]) {
+			t.Fatalf("expected record marked incomplete=true, got %#v", record["incomplete"])
+		}
+		if state := strings.TrimSpace(toString(record["readiness_state"])); state == "" || strings.EqualFold(state, translationReadinessStateReady) {
+			t.Fatalf("expected non-ready readiness_state, got %q", state)
+		}
+	}
+
+	pageTwo, pageTwoTotal, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    2,
+		PerPage: 1,
+		Filters: map[string]any{
+			"incomplete":  "true",
+			"environment": "production",
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "incomplete", Operator: "eq", Values: []string{"true"}},
+			{Field: "environment", Operator: "eq", Values: []string{"production"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("second page list failed: %v", err)
+	}
+	if pageTwoTotal != 2 {
+		t.Fatalf("expected second page total=2, got %d", pageTwoTotal)
+	}
+	if len(pageTwo) != 1 {
+		t.Fatalf("expected one record on page two, got %d", len(pageTwo))
+	}
+	if got := strings.TrimSpace(toString(pageTwo[0]["id"])); got != "post_incomplete_2" {
+		t.Fatalf("expected second incomplete record on page two, got %q", got)
+	}
+}
+
+func TestPanelBindingListSupportsReadinessStatePredicateAlias(t *testing.T) {
+	repo := &translationActionRepoStub{
+		list: []map[string]any{
+			{
+				"id":                   "post_ready",
+				"title":                "Ready Post",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_ready",
+				"available_locales":    []string{"en", "es", "fr"},
+			},
+			{
+				"id":                   "post_incomplete",
+				"title":                "Incomplete Post",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_incomplete",
+				"available_locales":    []string{"en"},
+			},
+		},
+	}
+	panel := &Panel{
+		name: "posts",
+		repo: repo,
+		translationPolicy: readinessPolicyStub{
+			ok: true,
+			req: TranslationRequirements{
+				Locales: []string{"en", "es", "fr"},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	records, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"translation_readiness.readiness_state__ne": "ready",
+			"environment": "production",
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "translation_readiness.readiness_state", Operator: "ne", Values: []string{"ready"}},
+			{Field: "environment", Operator: "eq", Values: []string{"production"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected one filtered record, got total=%d", total)
+	}
+	if len(records) != 1 {
+		t.Fatalf("expected one filtered row, got %d", len(records))
+	}
+	if got := strings.TrimSpace(toString(records[0]["id"])); got != "post_incomplete" {
+		t.Fatalf("expected post_incomplete, got %q", got)
 	}
 }
 

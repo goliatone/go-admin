@@ -231,6 +231,10 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 			admin.Filter{Name: "locale", Label: "Locale", LabelKey: "fields.locale", Type: "text"},
 			admin.Filter{Name: "status", Label: "Status", LabelKey: "fields.status", Type: "select"},
 			admin.Filter{Name: "template_id", Label: "Template", LabelKey: "fields.template", Type: "text"},
+			admin.Filter{Name: "incomplete", Label: "Incomplete", LabelKey: "fields.incomplete", Type: "select", Options: []admin.Option{
+				{Value: "true", Label: "Incomplete"},
+				{Value: "false", Label: "Complete"},
+			}},
 		).
 		Actions(
 			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: "admin.pages.view"},
@@ -334,6 +338,10 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 			admin.Filter{Name: "status", Label: "Status", LabelKey: "fields.status", Type: "select"},
 			admin.Filter{Name: "locale", Label: "Locale", LabelKey: "fields.locale", Type: "text"},
 			admin.Filter{Name: "author", Label: "Author", LabelKey: "fields.author", Type: "text"},
+			admin.Filter{Name: "incomplete", Label: "Incomplete", LabelKey: "fields.incomplete", Type: "select", Options: []admin.Option{
+				{Value: "true", Label: "Incomplete"},
+				{Value: "false", Label: "Complete"},
+			}},
 		).
 		Actions(
 			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: "admin.posts.view"},
