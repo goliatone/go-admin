@@ -92,4 +92,12 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	if panelSubresource != "/admin/api/agreements/agreement-1/artifact/executed" {
 		t.Fatalf("expected panel subresource path, got %q", panelSubresource)
 	}
+
+	translationsQueue, err := manager.Resolve("admin", "translations.queue", nil, nil)
+	if err != nil {
+		t.Fatalf("resolve admin translations.queue: %v", err)
+	}
+	if translationsQueue != "/admin/content/translations" {
+		t.Fatalf("expected /admin/content/translations, got %q", translationsQueue)
+	}
 }

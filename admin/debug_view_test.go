@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	auth "github.com/goliatone/go-auth"
@@ -79,6 +80,14 @@ func TestBuildDebugViewContextAdminLayoutDerivesNavAndSession(t *testing.T) {
 	}
 	if got, _ := sessionUser["is_authenticated"].(bool); !got {
 		t.Fatalf("expected is_authenticated true")
+	}
+
+	caps, ok := view["translation_capabilities"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected translation_capabilities map, got %T", view["translation_capabilities"])
+	}
+	if profile, _ := caps["profile"].(string); strings.TrimSpace(profile) == "" {
+		t.Fatalf("expected translation_capabilities profile")
 	}
 }
 

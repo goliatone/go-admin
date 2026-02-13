@@ -46,8 +46,10 @@ func TestNewAdminConfiguresCreateTranslationActionLocalesFromPolicy(t *testing.T
 			},
 		},
 		Capabilities: map[string]any{
-			"panel_slug": "posts",
-			"workflow":   "posts",
+			"panel_slug":   "posts",
+			"workflow":     "posts",
+			"panel_traits": []any{"editorial"},
+			"translations": true,
 		},
 	})
 	if err != nil {

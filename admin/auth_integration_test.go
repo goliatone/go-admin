@@ -94,6 +94,22 @@ func TestGoAuthAuthorizerMapsPermissions(t *testing.T) {
 	}
 }
 
+func TestGoAuthAuthorizerAllowsCustomPermissionFromClaimsMetadata(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
+		Metadata: map[string]any{
+			"permissions": []string{"admin.translations.export"},
+		},
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{DefaultResource: "admin"})
+
+	if !authz.Can(ctx, "admin.translations.export", "translations") {
+		t.Fatalf("expected export permission from claims metadata to be allowed")
+	}
+}
+
 func TestGoAuthAuthorizerDebugLogging(t *testing.T) {
 	claims := &auth.JWTClaims{
 		UID:      "actor-1",

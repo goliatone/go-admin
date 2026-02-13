@@ -85,7 +85,12 @@ func TestDynamicPanelFactoryAddsWorkflowActionsForPageAndPostPanels(t *testing.T
 			Slug:         "page",
 			Status:       "active",
 			Schema:       minimalContentTypeSchema(),
-			Capabilities: map[string]any{"panel_slug": "pages", "workflow": "pages"},
+			Capabilities: map[string]any{
+				"panel_slug":   "pages",
+				"workflow":     "pages",
+				"panel_traits": []any{"editorial"},
+				"translations": true,
+			},
 		}
 
 		panel, err := factory.CreatePanelFromContentType(context.Background(), &page)
@@ -106,7 +111,12 @@ func TestDynamicPanelFactoryAddsWorkflowActionsForPageAndPostPanels(t *testing.T
 			Slug:         "blog_post",
 			Status:       "active",
 			Schema:       minimalContentTypeSchema(),
-			Capabilities: map[string]any{"panel_slug": "posts", "workflow": "posts"},
+			Capabilities: map[string]any{
+				"panel_slug":   "posts",
+				"workflow":     "posts",
+				"panel_traits": []any{"editorial"},
+				"translations": true,
+			},
 		}
 
 		panel, err := factory.CreatePanelFromContentType(context.Background(), &blogPost)
@@ -117,7 +127,7 @@ func TestDynamicPanelFactoryAddsWorkflowActionsForPageAndPostPanels(t *testing.T
 	})
 }
 
-func TestDynamicPanelFactoryAddsCreateTranslationActionForPagesAndPosts(t *testing.T) {
+func TestDynamicPanelFactoryAddsCreateTranslationActionForEditorialPanels(t *testing.T) {
 	tests := []struct {
 		name         string
 		contentType  CMSContentType
@@ -131,7 +141,12 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForPagesAndPosts(t *testi
 				Slug:         "page",
 				Status:       "active",
 				Schema:       minimalContentTypeSchema(),
-				Capabilities: map[string]any{"panel_slug": "pages", "workflow": "pages"},
+				Capabilities: map[string]any{
+					"panel_slug":   "pages",
+					"workflow":     "pages",
+					"panel_traits": []any{"editorial"},
+					"translations": true,
+				},
 			},
 			expectedSlug: "pages",
 		},
@@ -143,7 +158,12 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForPagesAndPosts(t *testi
 				Slug:         "post",
 				Status:       "active",
 				Schema:       minimalContentTypeSchema(),
-				Capabilities: map[string]any{"panel_slug": "posts", "workflow": "posts"},
+				Capabilities: map[string]any{
+					"panel_slug":   "posts",
+					"workflow":     "posts",
+					"panel_traits": []any{"editorial"},
+					"translations": true,
+				},
 			},
 			expectedSlug: "posts",
 		},
@@ -177,6 +197,185 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForPagesAndPosts(t *testi
 				t.Fatalf("expected default CRUD actions on %s panel, got %+v", tt.expectedSlug, actions)
 			}
 		})
+	}
+}
+
+func TestDynamicPanelFactorySkipsEditorialActionsWhenTraitMissing(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	adm.WithWorkflow(workflowEngineWithPagesAndPosts())
+	factory := NewDynamicPanelFactory(adm)
+
+	panel, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+		ID:     "ct-post",
+		Name:   "Post",
+		Slug:   "post",
+		Status: "active",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"panel_slug": "posts",
+			"workflow":   "posts",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create panel failed: %v", err)
+	}
+	actions := panel.Schema().Actions
+	if hasAction(actions, CreateTranslationKey) {
+		t.Fatalf("did not expect %s action without editorial trait, got %+v", CreateTranslationKey, actions)
+	}
+	if hasAction(actions, "submit_for_approval") || hasAction(actions, "publish") {
+		t.Fatalf("did not expect workflow actions without editorial trait, got %+v", actions)
+	}
+}
+
+func TestDynamicPanelFactoryAppliesEditorialColumnsAndFilters(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	factory := NewDynamicPanelFactory(adm)
+
+	panel, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+		ID:     "ct-page",
+		Name:   "Page",
+		Slug:   "page",
+		Status: "active",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"panel_slug":    "pages",
+			"panel_preset":  "editorial",
+			"permissions":   "admin.pages",
+			"translations":  true,
+			"structural_fields": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("create panel failed: %v", err)
+	}
+	schema := panel.Schema()
+	for _, field := range []string{"translation_status", "available_locales", "translation_readiness", "missing_translations"} {
+		if !hasField(schema.ListFields, field) {
+			t.Fatalf("expected editorial list field %s, got %+v", field, schema.ListFields)
+		}
+	}
+	if !hasPanelFilter(schema.Filters, "incomplete") {
+		t.Fatalf("expected editorial incomplete filter, got %+v", schema.Filters)
+	}
+}
+
+func TestDynamicPanelFactorySkipsCreateTranslationWhenTranslationsDisabled(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	adm.WithWorkflow(workflowEngineWithPagesAndPosts())
+	factory := NewDynamicPanelFactory(adm)
+
+	panel, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+		ID:     "ct-page",
+		Name:   "Page",
+		Slug:   "page",
+		Status: "active",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"panel_slug":   "pages",
+			"workflow":     "pages",
+			"panel_traits": []any{"editorial"},
+			"translations": false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("create panel failed: %v", err)
+	}
+	if hasAction(panel.Schema().Actions, CreateTranslationKey) {
+		t.Fatalf("did not expect %s action when translations are disabled", CreateTranslationKey)
+	}
+}
+
+func TestDynamicPanelFactoryEditorialActionsRespectWorkflowTransitions(t *testing.T) {
+	engine := NewSimpleWorkflowEngine()
+	engine.RegisterWorkflow("news", WorkflowDefinition{
+		EntityType:   "news",
+		InitialState: "draft",
+		Transitions: []WorkflowTransition{
+			{Name: "publish", From: "draft", To: "published"},
+		},
+	})
+
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	adm.WithWorkflow(engine)
+	factory := NewDynamicPanelFactory(adm)
+
+	panel, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+		ID:     "ct-news",
+		Name:   "News",
+		Slug:   "news",
+		Status: "active",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"panel_slug":   "news",
+			"panel_traits": []any{"editorial"},
+			"translations": true,
+			"workflow":     "news",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create panel failed: %v", err)
+	}
+	actions := panel.Schema().Actions
+	if !hasAction(actions, "publish") {
+		t.Fatalf("expected publish action, got %+v", actions)
+	}
+	if hasAction(actions, "submit_for_approval") {
+		t.Fatalf("did not expect submit_for_approval action without workflow transition, got %+v", actions)
+	}
+}
+
+func TestDynamicPanelFactoryUpdatesExistingNavigationItemByTarget(t *testing.T) {
+	ctx := context.Background()
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en", NavMenuCode: "admin.main"}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	if adm.menuSvc == nil {
+		t.Fatalf("menu service unavailable")
+	}
+	if err := adm.menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{
+		ID:       "legacy.pages.item",
+		Label:    "Pages",
+		Icon:     "old-icon",
+		Locale:   "en",
+		Target:   map[string]any{"type": "url", "path": "/admin/content/pages"},
+		Menu:     "admin.main",
+		Position: intPtr(3),
+	}); err != nil {
+		t.Fatalf("seed existing menu item failed: %v", err)
+	}
+
+	factory := NewDynamicPanelFactory(adm)
+	_, err := factory.CreatePanelFromContentType(ctx, &CMSContentType{
+		ID:     "ct-page",
+		Name:   "Page",
+		Slug:   "page",
+		Icon:   "file-text",
+		Status: "active",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"panel_slug":  "pages",
+			"permissions": "admin.pages",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create panel failed: %v", err)
+	}
+
+	menu, err := adm.menuSvc.Menu(ctx, "admin.main", "en")
+	if err != nil {
+		t.Fatalf("fetch menu failed: %v", err)
+	}
+	item, ok := menuItemByID(menu.Items, "legacy.pages.item")
+	if !ok {
+		t.Fatalf("expected updated legacy menu item, got %+v", menu.Items)
+	}
+	if item.Icon != "file-text" {
+		t.Fatalf("expected icon updated to file-text, got %q", item.Icon)
+	}
+	if len(item.Permissions) != 1 || item.Permissions[0] != "admin.pages.view" {
+		t.Fatalf("expected permissions updated, got %+v", item.Permissions)
+	}
+	if countMenuItemsByPath(menu.Items, "/admin/content/pages") != 1 {
+		t.Fatalf("expected single pages menu item after converge, got %+v", menu.Items)
 	}
 }
 
@@ -247,4 +446,47 @@ func findActionByName(actions []Action, name string) (Action, bool) {
 		}
 	}
 	return Action{}, false
+}
+
+func hasField(fields []Field, name string) bool {
+	for _, field := range fields {
+		if field.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPanelFilter(filters []Filter, name string) bool {
+	for _, filter := range filters {
+		if filter.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func menuItemByID(items []MenuItem, id string) (MenuItem, bool) {
+	for _, item := range items {
+		if item.ID == id {
+			return item, true
+		}
+		if len(item.Children) > 0 {
+			if nested, ok := menuItemByID(item.Children, id); ok {
+				return nested, true
+			}
+		}
+	}
+	return MenuItem{}, false
+}
+
+func countMenuItemsByPath(items []MenuItem, targetPath string) int {
+	count := 0
+	for _, item := range items {
+		if toString(item.Target["path"]) == targetPath {
+			count++
+		}
+		count += countMenuItemsByPath(item.Children, targetPath)
+	}
+	return count
 }

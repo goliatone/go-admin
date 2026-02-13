@@ -171,6 +171,7 @@ func TestPanelURLHelpersResolveRoutes(t *testing.T) {
 					"dashboard":             "/",
 					"users":                 "/users",
 					"users.id":              "/users/:id",
+					"translations.queue":    "/translations",
 					"content.panel":         "/content/:panel",
 					"content.panel.id":      "/content/:panel/:id",
 					"content.panel.preview": "/content/:panel/:id/preview",
@@ -193,6 +194,7 @@ func TestPanelURLHelpersResolveRoutes(t *testing.T) {
 
 	assert.Equal(t, "/control/users", panelURL("users"))
 	assert.Equal(t, "/control/users/1", panelDetailURL("users", "1"))
+	assert.Equal(t, "/control/content/translations", panelURL("translations"))
 	assert.Equal(t, "/control/content/esign_documents", panelURL("esign_documents"))
 	assert.Equal(t, "/control/content/esign_documents/doc-1", panelDetailURL("esign_documents", "doc-1"))
 	assert.Equal(t, "/control/content/esign_documents/doc-1/edit", panelEditURL("esign_documents", "doc-1"))

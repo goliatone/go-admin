@@ -244,7 +244,7 @@ func TestDefaultTranslationQueueServiceEmitsQueueActivityAndNotificationHooks(t 
 	if items[0].UserID != "translator_5" {
 		t.Fatalf("expected notification user translator_5, got %q", items[0].UserID)
 	}
-	if !strings.HasPrefix(items[0].ActionURL, "/admin/translations") {
+	if !strings.HasPrefix(items[0].ActionURL, "/admin/content/translations") {
 		t.Fatalf("expected resolver-based queue URL, got %q", items[0].ActionURL)
 	}
 	if items[0].Metadata["resolver_key"] != translationQueueResolverKey {

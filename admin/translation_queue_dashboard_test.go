@@ -118,7 +118,7 @@ func TestRegisterTranslationProgressWidgetUsesResolverLinks(t *testing.T) {
 		if link["resolver_key"] != translationQueueResolverKey || link["route"] != "translations.queue" {
 			t.Fatalf("expected resolver route metadata, got %v", link)
 		}
-		if url, _ := link["url"].(string); url != "" && !strings.HasPrefix(url, "/admin/translations") {
+		if url, _ := link["url"].(string); url != "" && !strings.HasPrefix(url, "/admin/content/translations") {
 			t.Fatalf("expected resolver-built translations URL, got %q", url)
 		}
 		if link["label"] == "All Translations" {

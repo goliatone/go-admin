@@ -376,6 +376,52 @@ func TestPanelSchemaIncludesActionPayloadContracts(t *testing.T) {
 	}
 }
 
+func TestPanelBuilderBuildRequiresCreateUIContractForCanonicalRoute(t *testing.T) {
+	_, err := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		Permissions(PanelPermissions{Create: "items.create"}).
+		Build()
+	if err == nil {
+		t.Fatalf("expected create-ui contract validation error")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "form fields") {
+		t.Fatalf("expected form field validation error message, got %v", err)
+	}
+}
+
+func TestPanelBuilderBuildAllowsCreatePermissionWithoutFormWhenCustomRoute(t *testing.T) {
+	panel, err := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		Permissions(PanelPermissions{Create: "items.create"}).
+		WithUIRouteMode(PanelUIRouteModeCustom).
+		Build()
+	if err != nil {
+		t.Fatalf("expected custom-route panel to skip create-ui contract, got %v", err)
+	}
+	if panel == nil {
+		t.Fatalf("expected panel")
+	}
+}
+
+func TestPanelBuilderBuildAllowsCreatePermissionWhenFormSchemaHasProperties(t *testing.T) {
+	panel, err := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		Permissions(PanelPermissions{Create: "items.create"}).
+		FormSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name": map[string]any{"type": "string"},
+			},
+		}).
+		Build()
+	if err != nil {
+		t.Fatalf("expected form-schema contract to satisfy create-ui contract, got %v", err)
+	}
+	if panel == nil {
+		t.Fatalf("expected panel")
+	}
+}
+
 func TestPanelSchemaSynthesizesPayloadSchemaFromRequiredFields(t *testing.T) {
 	panel := &Panel{
 		name: "schema",

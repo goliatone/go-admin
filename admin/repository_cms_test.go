@@ -16,6 +16,40 @@ type translationCreatorContentServiceStub struct {
 	err       error
 }
 
+type contentTypeListServiceStub struct {
+	CMSContentTypeService
+	items []CMSContentType
+	err   error
+}
+
+func (s *contentTypeListServiceStub) ContentTypes(_ context.Context) ([]CMSContentType, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	out := make([]CMSContentType, 0, len(s.items))
+	for _, item := range s.items {
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+type blockDefinitionListServiceStub struct {
+	CMSContentService
+	defs []CMSBlockDefinition
+	err  error
+}
+
+func (s *blockDefinitionListServiceStub) BlockDefinitions(_ context.Context) ([]CMSBlockDefinition, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	out := make([]CMSBlockDefinition, 0, len(s.defs))
+	for _, def := range s.defs {
+		out = append(out, def)
+	}
+	return out, nil
+}
+
 func (s *translationCreatorContentServiceStub) CreateTranslation(_ context.Context, input TranslationCreateInput) (*CMSContent, error) {
 	s.lastInput = input
 	if s.err != nil {
@@ -653,6 +687,58 @@ func TestCMSContentRepositoryListAllowsMarkdownOnlyPayloadsForNonPageTypes(t *te
 	}
 	if total != 1 || len(list) != 1 {
 		t.Fatalf("expected one record, got total=%d len=%d", total, len(list))
+	}
+}
+
+func TestCMSContentTypeRepositoryListIncludesEnvironmentScopedRecordsWithoutFilter(t *testing.T) {
+	repo := NewCMSContentTypeRepository(&contentTypeListServiceStub{
+		items: []CMSContentType{
+			{ID: "page-default", Name: "Page", Slug: "page", Environment: "default"},
+			{ID: "post-staging", Name: "Post", Slug: "post", Environment: "staging"},
+		},
+	})
+
+	items, total, err := repo.List(context.Background(), ListOptions{PerPage: 20})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 2 || len(items) != 2 {
+		t.Fatalf("expected 2 items without explicit environment filter, got total=%d len=%d", total, len(items))
+	}
+}
+
+func TestCMSBlockDefinitionRepositoryListIncludesEnvironmentScopedRecordsWithoutFilter(t *testing.T) {
+	content := &blockDefinitionListServiceStub{
+		defs: []CMSBlockDefinition{
+			{ID: "hero-default", Name: "Hero", Slug: "hero", Environment: "default"},
+			{ID: "cta-staging", Name: "CTA", Slug: "cta", Environment: "staging"},
+		},
+	}
+	repo := NewCMSBlockDefinitionRepository(content, nil)
+
+	items, total, err := repo.List(context.Background(), ListOptions{PerPage: 20})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 2 || len(items) != 2 {
+		t.Fatalf("expected 2 items without explicit environment filter, got total=%d len=%d", total, len(items))
+	}
+}
+
+func TestCMSBlockDefinitionRepositoryGetResolvesEnvironmentScopedRecordWithoutContextEnvironment(t *testing.T) {
+	content := &blockDefinitionListServiceStub{
+		defs: []CMSBlockDefinition{
+			{ID: "hero-default", Name: "Hero", Slug: "hero", Environment: "default"},
+		},
+	}
+	repo := NewCMSBlockDefinitionRepository(content, nil)
+
+	record, err := repo.Get(context.Background(), "hero-default")
+	if err != nil {
+		t.Fatalf("get failed: %v", err)
+	}
+	if toString(record["id"]) != "hero-default" {
+		t.Fatalf("expected hero-default, got %+v", record)
 	}
 }
 

@@ -209,6 +209,13 @@ func TestImportUsersHandler_MixedResults(t *testing.T) {
 	}
 }
 
+func TestNewUserImportBindingRequiresBulkCommand(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin"}, Dependencies{})
+	if binding := newUserImportBinding(adm); binding != nil {
+		t.Fatalf("expected nil binding when bulk user import command is missing")
+	}
+}
+
 func newImportTestApp(t *testing.T, claims authlib.AuthClaims, authorizer Authorizer) *fiber.App {
 	t.Helper()
 	repo := &stubAuthRepository{}

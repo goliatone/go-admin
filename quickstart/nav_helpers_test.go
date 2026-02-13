@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-users/command"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -80,6 +81,29 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	}
 	if view["asset_base_path"] == nil {
 		t.Fatalf("expected asset_base_path in view context")
+	}
+	if available, ok := view["users_import_available"].(bool); !ok || available {
+		t.Fatalf("expected users_import_available=false by default, got %v", view["users_import_available"])
+	}
+	if enabled, ok := view["users_import_enabled"].(bool); !ok || enabled {
+		t.Fatalf("expected users_import_enabled=false by default, got %v", view["users_import_enabled"])
+	}
+}
+
+func TestWithNavIncludesUsersImportFlagsWhenConfigured(t *testing.T) {
+	cfg := admin.Config{DefaultLocale: "en"}
+	adm, err := admin.New(cfg, admin.Dependencies{
+		BulkUserImport: &command.BulkUserImportCommand{},
+	})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	view := WithNav(nil, adm, cfg, "", context.Background())
+	if available, ok := view["users_import_available"].(bool); !ok || !available {
+		t.Fatalf("expected users_import_available=true when command is configured, got %v", view["users_import_available"])
+	}
+	if enabled, ok := view["users_import_enabled"].(bool); !ok || !enabled {
+		t.Fatalf("expected users_import_enabled=true when command is configured, got %v", view["users_import_enabled"])
 	}
 }
 
