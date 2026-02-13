@@ -4965,31 +4965,43 @@ class En {
         if (t.confirm && !window.confirm(t.confirm))
           return;
         const c = await this.buildActionPayload(e, t);
-        if (c === null)
-          return;
-        const d = await Nt(l, c);
-        if (d.success)
-          this.config.onActionSuccess?.(a, d);
-        else if (d.error) {
-          if (ar(d.error)) {
-            const h = lr(d.error);
-            if (h && this.config.onTranslationBlocker) {
-              this.config.onTranslationBlocker({
-                actionName: a,
-                recordId: s,
-                ...h
-              });
-              return;
-            }
-          }
-          const u = this.buildActionErrorMessage(a, d.error);
-          throw this.config.onActionError?.(a, {
-            ...d.error,
-            message: u
-          }), new Error(u);
-        }
+        c !== null && await this.executePostAction({
+          actionName: a,
+          endpoint: l,
+          payload: c,
+          recordId: s
+        });
       }
     };
+  }
+  async executePostAction(e) {
+    const t = await Nt(e.endpoint, e.payload);
+    if (t.success)
+      return this.config.onActionSuccess?.(e.actionName, t), t;
+    if (!t.error)
+      return t;
+    if (ar(t.error)) {
+      const n = lr(t.error);
+      if (n && this.config.onTranslationBlocker) {
+        const o = { ...e.payload };
+        return this.config.onTranslationBlocker({
+          actionName: e.actionName,
+          recordId: e.recordId,
+          ...n,
+          retry: async () => this.executePostAction({
+            actionName: e.actionName,
+            endpoint: e.endpoint,
+            payload: { ...o },
+            recordId: e.recordId
+          })
+        }), { success: !1, error: t.error };
+      }
+    }
+    const r = this.buildActionErrorMessage(e.actionName, t.error);
+    throw this.config.onActionError?.(e.actionName, {
+      ...t.error,
+      message: r
+    }), new Error(r);
   }
   /**
    * Build action payload from record and schema
@@ -5594,8 +5606,8 @@ class Ct extends gt {
   bindContentEvents() {
     this.container?.querySelector("[data-blocker-dismiss]")?.addEventListener("click", () => {
       this.dismiss();
-    }), this.container?.querySelector("[data-blocker-retry]")?.addEventListener("click", () => {
-      this.handleRetry();
+    }), this.container?.querySelector("[data-blocker-retry]")?.addEventListener("click", async () => {
+      await this.handleRetry();
     }), this.container?.querySelectorAll('[data-blocker-action="create"]')?.forEach((o) => {
       o.addEventListener("click", () => {
         const s = o.getAttribute("data-locale");
@@ -5653,8 +5665,14 @@ class Ct extends gt {
       this.handleCreateTranslation(e);
     }));
   }
-  handleRetry() {
-    this.resolved = !0, this.hide();
+  async handleRetry() {
+    if (this.resolved = !0, this.hide(), !!this.config.onRetry)
+      try {
+        await this.config.onRetry();
+      } catch (e) {
+        const t = e instanceof Error ? e.message : "Retry failed";
+        this.config.onError?.(t);
+      }
   }
   dismiss() {
     this.resolved = !0, this.config.onDismiss?.(), this.hide();

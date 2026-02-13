@@ -786,6 +786,90 @@ test('onTranslationBlocker callback is stored in config', () => {
   // Callback is stored for use during action execution
 });
 
+test('translation blocker retry re-executes the original action payload', async () => {
+  const record = createMockRecord({ id: 'page_123' });
+  const schemaActions = [{ name: 'publish', label: 'Publish' }];
+  const fetchCalls = [];
+  const successCalls = [];
+  let blockerInfo = null;
+
+  const builder = new SchemaActionBuilder({
+    apiEndpoint: '/admin/api/pages',
+    actionBasePath: '/admin/content/pages',
+    locale: 'en',
+    environment: 'production',
+    panelName: 'pages',
+    onTranslationBlocker: (info) => {
+      blockerInfo = info;
+    },
+    onActionSuccess: (actionName) => {
+      successCalls.push(actionName);
+    },
+  });
+
+  const actions = builder.buildRowActions(record, schemaActions);
+  assert.equal(actions.length, 1);
+
+  const originalFetch = globalThis.fetch;
+  const mockResponse = (status, body) => {
+    const raw = JSON.stringify(body);
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      headers: {
+        get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null,
+      },
+      clone: () => ({ text: async () => raw }),
+      text: async () => raw,
+      json: async () => JSON.parse(raw),
+    };
+  };
+
+  globalThis.fetch = async (url, init = {}) => {
+    fetchCalls.push({ url: String(url), init });
+    if (fetchCalls.length === 1) {
+      return mockResponse(409, {
+        error: {
+          text_code: 'TRANSLATION_MISSING',
+          message: 'Cannot publish: missing required translations',
+          metadata: {
+            missing_locales: ['es', 'fr'],
+            transition: 'publish',
+            entity_type: 'pages',
+            requested_locale: 'en',
+            environment: 'production',
+          },
+        },
+      });
+    }
+    return mockResponse(200, { status: 'ok' });
+  };
+
+  try {
+    await actions[0].action();
+
+    assert.ok(blockerInfo);
+    assert.equal(typeof blockerInfo.retry, 'function');
+    assert.equal(fetchCalls.length, 1);
+    assert.deepEqual(successCalls, []);
+
+    const retryResult = await blockerInfo.retry();
+    assert.equal(retryResult.success, true);
+    assert.equal(fetchCalls.length, 2);
+    assert.deepEqual(successCalls, ['publish']);
+
+    const firstPayload = JSON.parse(String(fetchCalls[0].init.body || '{}'));
+    const secondPayload = JSON.parse(String(fetchCalls[1].init.body || '{}'));
+    assert.deepEqual(secondPayload, firstPayload);
+    assert.equal(firstPayload.id, 'page_123');
+    assert.equal(firstPayload.locale, 'en');
+    assert.equal(firstPayload.environment, 'production');
+    assert.equal(firstPayload.policy_entity, 'pages');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('onActionSuccess callback is stored in config', () => {
   let successCalled = false;
   const builder = new SchemaActionBuilder({

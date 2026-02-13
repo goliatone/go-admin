@@ -7,7 +7,7 @@
     "build": "vite build && tsc --emitDeclarationOnly && npm run build:css:prod && npm run build:css:pages",
     "build:css:prod": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
     "build:css": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
-    "build:css:pages": "npm run build:css:debug && npm run build:css:widgets && npm run build:css:error && npm run build:css:export && npm run build:css:activity",
+    "build:css:pages": "concurrently \"npm:build:css:debug\" \"npm:build:css:widgets\" \"npm:build:css:error\" \"npm:build:css:export\" \"npm:build:css:activity\"",
     "build:css:debug": "mkdir -p dist/styles && cat src/styles/debug/console.css src/styles/debug/prism-catppuccin.css src/styles/debug/expandable-rows.css > dist/styles/debug.css",
     "build:css:widgets": "mkdir -p dist/styles && cp src/styles/widgets.css dist/styles/widgets.css",
     "build:css:error": "mkdir -p dist/styles && cp src/styles/error-page.css dist/styles/error-page.css",
