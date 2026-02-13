@@ -72,3 +72,44 @@ func newUserArchiveCommand(service *UserManagementService) *userArchiveCommand {
 func (c *userArchiveCommand) Execute(ctx context.Context, msg UserArchiveMsg) error {
 	return c.transition(ctx, msg.IDs)
 }
+
+type userBulkAssignRoleCommand struct {
+	service *UserManagementService
+}
+
+func newUserBulkAssignRoleCommand(service *UserManagementService) *userBulkAssignRoleCommand {
+	return &userBulkAssignRoleCommand{service: service}
+}
+
+func (c *userBulkAssignRoleCommand) Execute(ctx context.Context, msg UserBulkAssignRoleMsg) error {
+	if c == nil || c.service == nil {
+		return serviceNotConfiguredDomainError("user bulk role command", map[string]any{"component": "user_commands"})
+	}
+	_, err := c.service.BulkRoleChange(ctx, BulkRoleChangeRequest{
+		UserIDs: msg.IDs,
+		RoleID:  msg.RoleID,
+		Assign:  true,
+		Replace: msg.Replace,
+	})
+	return err
+}
+
+type userBulkUnassignRoleCommand struct {
+	service *UserManagementService
+}
+
+func newUserBulkUnassignRoleCommand(service *UserManagementService) *userBulkUnassignRoleCommand {
+	return &userBulkUnassignRoleCommand{service: service}
+}
+
+func (c *userBulkUnassignRoleCommand) Execute(ctx context.Context, msg UserBulkUnassignRoleMsg) error {
+	if c == nil || c.service == nil {
+		return serviceNotConfiguredDomainError("user bulk role command", map[string]any{"component": "user_commands"})
+	}
+	_, err := c.service.BulkRoleChange(ctx, BulkRoleChangeRequest{
+		UserIDs: msg.IDs,
+		RoleID:  msg.RoleID,
+		Assign:  false,
+	})
+	return err
+}
