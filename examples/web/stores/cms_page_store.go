@@ -144,10 +144,14 @@ func (s *CMSPageStore) Get(ctx context.Context, id string) (map[string]any, erro
 	if s == nil || s.repo == nil {
 		return nil, admin.ErrNotFound
 	}
-	locale := strings.TrimSpace(s.defaultLocale)
+	locale := strings.TrimSpace(admin.LocaleFromContext(ctx))
+	if locale == "" {
+		locale = strings.TrimSpace(s.defaultLocale)
+	}
 	if locale == "" {
 		locale = "en"
 	}
+	requestedLocale := locale
 	page, err := s.content.Page(ctx, id, locale)
 	if err != nil {
 		// Some CMS backends allow empty-locale lookups; keep as a best-effort fallback.
@@ -176,7 +180,53 @@ func (s *CMSPageStore) Get(ctx context.Context, id string) (map[string]any, erro
 	if page == nil {
 		return nil, admin.ErrNotFound
 	}
+	page = s.resolvePageLocaleVariant(ctx, page, requestedLocale)
+	if requested := strings.TrimSpace(requestedLocale); requested != "" {
+		if strings.TrimSpace(page.RequestedLocale) == "" {
+			page.RequestedLocale = requested
+		}
+		if strings.TrimSpace(page.ResolvedLocale) == "" {
+			page.ResolvedLocale = strings.TrimSpace(page.Locale)
+		}
+		if resolved := strings.TrimSpace(page.ResolvedLocale); resolved != "" && !strings.EqualFold(requested, resolved) {
+			page.MissingRequestedLocale = true
+		}
+	}
 	return s.pageToRecord(*page), nil
+}
+
+func (s *CMSPageStore) resolvePageLocaleVariant(ctx context.Context, page *admin.CMSPage, requestedLocale string) *admin.CMSPage {
+	if s == nil || s.content == nil || page == nil {
+		return page
+	}
+	requestedLocale = strings.ToLower(strings.TrimSpace(requestedLocale))
+	if requestedLocale == "" {
+		return page
+	}
+	if strings.EqualFold(strings.TrimSpace(page.Locale), requestedLocale) {
+		return page
+	}
+	groupID := strings.TrimSpace(page.TranslationGroupID)
+	if groupID == "" {
+		return page
+	}
+	for _, locale := range []string{requestedLocale, ""} {
+		pages, err := s.content.Pages(ctx, locale)
+		if err != nil {
+			continue
+		}
+		for _, candidate := range pages {
+			if !strings.EqualFold(strings.TrimSpace(candidate.TranslationGroupID), groupID) {
+				continue
+			}
+			if !strings.EqualFold(strings.TrimSpace(candidate.Locale), requestedLocale) {
+				continue
+			}
+			match := candidate
+			return &match
+		}
+	}
+	return page
 }
 
 // Create inserts a page into the CMS backend.
