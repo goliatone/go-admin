@@ -181,13 +181,29 @@ func (h *roleHandlers) list(c router.Context) error {
 	}
 
 	routes := newResourceRoutes(h.basePath, "roles")
+	apiBasePath := resolveAdminAPIBasePath(h.urls, h.cfg, h.basePath)
+	dataTableID := "roles"
+	listAPI := path.Join(apiBasePath, "roles")
+	actionBase := routes.index()
 	viewCtx := mergeViewContext(h.baseViewContext(routes), router.ViewContext{
-		"items":         roleRecordsToMaps(records, routes),
-		"columns":       roleDataGridColumns(),
-		"filters":       roleDataGridFilters(),
-		"export_config": roleExportConfig(h.basePath),
-		"total":         total,
+		"items":        roleRecordsToMaps(records, routes),
+		"columns":      roleDataGridColumns(),
+		"filters":      roleDataGridFilters(),
+		"total":        total,
+		"datatable_id": dataTableID,
+		"list_api":     listAPI,
+		"action_base":  actionBase,
 	})
+	viewCtx = mergeViewContext(viewCtx, BuildPanelViewCapabilities(h.cfg, PanelViewCapabilityOptions{
+		BasePath:    h.basePath,
+		URLResolver: h.urls,
+		Definition:  "roles",
+		DataGrid: PanelDataGridConfigOptions{
+			TableID:     dataTableID,
+			APIEndpoint: listAPI,
+			ActionBase:  actionBase,
+		},
+	}))
 	return h.renderRoleView(c, h.listTemplate, viewCtx)
 }
 
@@ -467,14 +483,6 @@ func roleDataGridFilters() []map[string]any {
 		},
 		{"name": "created_at", "label": "Created", "type": "date"},
 		{"name": "updated_at", "label": "Updated", "type": "date"},
-	}
-}
-
-func roleExportConfig(basePath string) map[string]any {
-	base := strings.Trim(strings.TrimSpace(basePath), "/")
-	return map[string]any{
-		"endpoint":   path.Join("/", base, "exports"),
-		"definition": "roles",
 	}
 }
 
