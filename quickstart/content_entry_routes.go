@@ -218,6 +218,7 @@ func RegisterContentEntryUIRoutes[T any](
 	}
 
 	handlers := newContentEntryHandlers(adm, cfg, options.viewContext, options)
+	// TODO: Make configurable, use URLKit and url manager
 	base := path.Join(options.basePath, "content")
 	listPath := path.Join(base, ":name")
 	newPath := path.Join(base, ":name", "new")
@@ -301,6 +302,10 @@ func canonicalPanelRouteBindings(urls urlkit.Resolver, panels map[string]*admin.
 	pathSeen := map[string]bool{}
 	out := make([]panelRouteBinding, 0, len(panelNames))
 	for _, panelName := range panelNames {
+		panel := panels[panelName]
+		if panel != nil && panel.UIRouteMode() == admin.PanelUIRouteModeCustom {
+			continue
+		}
 		canonicalPanel := canonicalPanelName(panelName)
 		if canonicalPanel == "" {
 			continue
@@ -430,32 +435,51 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	}
 	basePath := resolveAdminBasePath(urls, h.cfg.BasePath)
 	apiBasePath := resolveAdminAPIBasePath(urls, h.cfg, basePath)
-	actionBase := path.Join(basePath, "content", contentTypeSlug(contentType, panelName))
-	routes := newContentEntryRoutes(basePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
+	slug := contentTypeSlug(contentType, panelName)
+	actionBase := path.Join(basePath, "content", slug)
+	routes := newContentEntryRoutes(basePath, slug, adminCtx.Environment)
+	routesMap := routes.routesMap()
+	if contentTypeSchema(contentType, panel) == nil {
+		routesMap["new"] = ""
+		routesMap["create"] = ""
+	}
+	dataTableID := "content-" + slug
+	listAPI := path.Join(apiBasePath, panelName)
 
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
 		"base_path":      basePath,
 		"resource":       "content",
 		"resource_label": contentTypeLabel(contentType, panelName),
-		"routes":         routes.routesMap(),
+		"routes":         routesMap,
 		"action_base":    actionBase,
 		"items":          items,
 		"columns":        columns,
 		"filters":        filters,
 		"total":          total,
-		"datatable_id":   "content-" + contentTypeSlug(contentType, panelName),
-		"list_api":       path.Join(apiBasePath, panelName),
+		"datatable_id":   dataTableID,
+		"list_api":       listAPI,
 		"env":            adminCtx.Environment,
 		"panel_name":     panelName,
 		"content_type": map[string]any{
 			"id":     contentTypeID(contentType),
 			"name":   contentTypeLabel(contentType, panelName),
-			"slug":   contentTypeSlug(contentType, panelName),
+			"slug":   slug,
 			"icon":   contentTypeIcon(contentType),
 			"status": contentTypeStatus(contentType),
 		},
 	}
+	viewCtx = mergeViewContext(viewCtx, BuildPanelViewCapabilities(h.cfg, PanelViewCapabilityOptions{
+		BasePath:    basePath,
+		URLResolver: urls,
+		Definition:  canonicalPanelName(panelName),
+		Variant:     adminCtx.Environment,
+		DataGrid: PanelDataGridConfigOptions{
+			TableID:     dataTableID,
+			APIEndpoint: listAPI,
+			ActionBase:  actionBase,
+		},
+	}))
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, panelName, c)
 	}
@@ -470,6 +494,9 @@ func (h *contentEntryHandlers) newForPanel(c router.Context, panelSlug string) e
 	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
+	}
+	if contentTypeSchema(contentType, panel) == nil {
+		return admin.ErrNotFound
 	}
 	if err := h.guardPanel(c, panelName, panel, "create"); err != nil {
 		return err
@@ -490,10 +517,14 @@ func (h *contentEntryHandlers) createForPanel(c router.Context, panelSlug string
 	if err != nil {
 		return err
 	}
+	schema := contentTypeSchema(contentType, panel)
+	if schema == nil {
+		return admin.ErrNotFound
+	}
 	if err := h.guardPanel(c, panelName, panel, "create"); err != nil {
 		return err
 	}
-	record, err := h.parseFormPayload(c, contentTypeSchema(contentType, panel))
+	record, err := h.parseFormPayload(c, schema)
 	if err != nil {
 		return err
 	}
@@ -682,8 +713,10 @@ func (h *contentEntryHandlers) resolvePanelContext(c router.Context, panelSlug s
 		return nil, "", nil, admin.AdminContext{}, admin.ErrNotFound
 	}
 	name := strings.TrimSpace(panelSlug)
+	fromContentNameParam := false
 	if name == "" && c != nil {
 		name = strings.TrimSpace(c.Param("name"))
+		fromContentNameParam = name != ""
 	}
 	if name == "" {
 		return nil, "", nil, admin.AdminContext{}, admin.ErrNotFound
@@ -692,6 +725,11 @@ func (h *contentEntryHandlers) resolvePanelContext(c router.Context, panelSlug s
 	panel, panelName, err := h.panelFor(name, adminCtx.Environment)
 	if err != nil {
 		return nil, "", nil, adminCtx, err
+	}
+	// Generic /content/:name routes should not serve panels that explicitly own
+	// their UI route surface (e.g. /users is owned by dedicated handlers).
+	if fromContentNameParam && panel != nil && panel.UIRouteMode() == admin.PanelUIRouteModeCustom {
+		return nil, "", nil, adminCtx, admin.ErrNotFound
 	}
 	contentType, err := h.contentTypeFor(adminCtx.Context, name, adminCtx.Environment)
 	if err != nil {
@@ -1944,17 +1982,42 @@ func contentEntryObjectValueByPath(value map[string]any, key string) (any, bool)
 
 func contentTypeSchema(contentType *admin.CMSContentType, panel *admin.Panel) map[string]any {
 	if contentType != nil && len(contentType.Schema) > 0 {
-		return ensureContentEntryJSONSchema(cloneAnyMap(contentType.Schema))
+		schema := ensureContentEntryJSONSchema(cloneAnyMap(contentType.Schema))
+		if contentEntrySchemaHasRenderableFields(schema) {
+			return schema
+		}
 	}
 	if panel != nil {
 		if schema := panel.Schema().FormSchema; len(schema) > 0 {
-			return ensureContentEntryJSONSchema(cloneAnyMap(schema))
+			normalized := ensureContentEntryJSONSchema(cloneAnyMap(schema))
+			if contentEntrySchemaHasRenderableFields(normalized) {
+				return normalized
+			}
 		}
 		if schema := schemaFromPanelFields(panel.Schema().FormFields); len(schema) > 0 {
-			return ensureContentEntryJSONSchema(schema)
+			normalized := ensureContentEntryJSONSchema(schema)
+			if contentEntrySchemaHasRenderableFields(normalized) {
+				return normalized
+			}
 		}
 	}
 	return nil
+}
+
+func contentEntrySchemaHasRenderableFields(schema map[string]any) bool {
+	if len(schema) == 0 {
+		return false
+	}
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok || len(properties) == 0 {
+		return false
+	}
+	for key := range properties {
+		if strings.TrimSpace(key) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func ensureContentEntryJSONSchema(schema map[string]any) map[string]any {
