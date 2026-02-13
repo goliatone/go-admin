@@ -128,6 +128,7 @@ func defaultFiberAdapterConfig(cfg admin.Config, isDev bool) router.FiberAdapter
 	return router.FiberAdapterConfig{
 		OrderRoutesBySpecificity: true,
 		ConflictPolicy:           &conflictPolicy,
+		PathConflictMode:         resolveFiberPathConflictMode(),
 		StrictRoutes:             resolveFiberStrictRoutes(cfg, isDev),
 	}
 }
@@ -140,6 +141,13 @@ func resolveFiberRouteConflictPolicy(cfg admin.Config, isDev bool) router.HTTPRo
 		return router.HTTPRouterConflictPanic
 	}
 	return router.HTTPRouterConflictLogAndContinue
+}
+
+func resolveFiberPathConflictMode() router.PathConflictMode {
+	if mode, ok := fiberPathConflictModeFromEnv(); ok {
+		return mode
+	}
+	return router.PathConflictModePreferStatic
 }
 
 func resolveFiberStrictRoutes(cfg admin.Config, isDev bool) bool {
@@ -170,6 +178,21 @@ func fiberRouteConflictPolicyFromEnv() (router.HTTPRouterConflictPolicy, bool) {
 		return router.HTTPRouterConflictLogAndContinue, true
 	default:
 		return 0, false
+	}
+}
+
+func fiberPathConflictModeFromEnv() (router.PathConflictMode, bool) {
+	raw, ok := os.LookupEnv("ADMIN_ROUTE_PATH_CONFLICT_MODE")
+	if !ok {
+		return "", false
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "strict":
+		return router.PathConflictModeStrict, true
+	case "prefer_static", "prefer-static", "preferstatic", "static":
+		return router.PathConflictModePreferStatic, true
+	default:
+		return "", false
 	}
 }
 
