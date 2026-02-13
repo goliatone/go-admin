@@ -54,7 +54,7 @@
     </button>
     {% else %}
     <button type="button" class="btn btn-warning" data-action="download-executed" data-agreement-id="{{ resource_item.id }}" data-download-state="unavailable"
-            aria-label="Executed PDF is unavailable" title="Executed PDF is unavailable">
+            disabled aria-disabled="true" aria-label="Executed PDF is unavailable" title="Executed PDF is unavailable">
       <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
       </svg>
@@ -1077,9 +1077,13 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   const downloadStatusNotice = document.getElementById('download-status-notice-dynamic');
+  const downloadStatusNoticeStatic = document.getElementById('download-status-notice-static');
   function showDownloadNotice(message, level = 'warning') {
     if (!downloadStatusNotice) {
       return;
+    }
+    if (downloadStatusNoticeStatic) {
+      downloadStatusNoticeStatic.classList.add('hidden');
     }
     const levelClass = level === 'success'
       ? 'border-green-200 bg-green-50 text-green-900'
@@ -1127,7 +1131,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  async function fetchAndDownloadAsset(assetType, fallbackFilename) {
+  async function fetchAndDownloadAsset(assetType, fallbackFilename, assetLabel) {
+    const label = assetLabel || assetType.charAt(0).toUpperCase() + assetType.slice(1) + ' PDF';
     const url = buildAssetDownloadURL(assetType);
     const response = await fetch(url, {
       method: 'GET',
@@ -1137,15 +1142,15 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
     if (!response.ok) {
-      throw new Error('Executed PDF is not available yet. Refresh delivery status and try again.');
+      throw new Error(`${label} is not available (HTTP ${response.status}). Refresh delivery status and try again.`);
     }
     const contentType = (response.headers.get('content-type') || '').toLowerCase();
     if (!contentType.includes('application/pdf')) {
-      throw new Error('Executed PDF is unavailable because the response is not a PDF.');
+      throw new Error(`${label} is unavailable because the response is not a PDF.`);
     }
     const blob = await response.blob();
     if (!blob || blob.size === 0) {
-      throw new Error('Executed PDF is unavailable because the file is empty.');
+      throw new Error(`${label} is unavailable because the file is empty.`);
     }
     const filename = resolveDownloadFilename(response, fallbackFilename);
     const objectURL = URL.createObjectURL(blob);
@@ -1260,7 +1265,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       setExecutedDownloadLoading(true);
       try {
-        await fetchAndDownloadAsset('executed', `${agreementId}-executed.pdf`);
+        await fetchAndDownloadAsset('executed', `${agreementId}-executed.pdf`, 'Executed PDF');
         showDownloadNotice('Executed PDF downloaded successfully.', 'success');
       } catch (error) {
         markExecutedDownloadUnavailable(error.message || 'Unable To Download PDF');
@@ -1270,10 +1275,22 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Download certificate
+  // Download certificate with preflight validation
   document.querySelectorAll('[data-action="download-certificate"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      window.location.href = buildAssetDownloadURL('certificate');
+    btn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `${loadingDownloadIcon}Preparing...`;
+      try {
+        await fetchAndDownloadAsset('certificate', `${agreementId}-certificate.pdf`, 'Signing Certificate');
+        showDownloadNotice('Signing certificate downloaded successfully.', 'success');
+      } catch (error) {
+        showDownloadNotice(error.message || 'Unable to download certificate.', 'warning');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
     });
   });
 
