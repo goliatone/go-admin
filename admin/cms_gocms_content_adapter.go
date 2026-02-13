@@ -38,6 +38,7 @@ type goCMSBlockService interface {
 // It uses the typed public go-cms contracts.
 type GoCMSContentAdapter struct {
 	content      goCMSContentService
+	translations any
 	blocks       goCMSBlockService
 	contentTypes CMSContentTypeService
 	locales      *goCMSLocaleIDCache
@@ -48,10 +49,10 @@ type GoCMSContentAdapter struct {
 
 // NewGoCMSContentAdapter wraps go-cms services into the admin CMSContentService contract.
 func NewGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSContentTypeService) CMSContentService {
-	return newGoCMSContentAdapter(contentSvc, blockSvc, contentTypeSvc, nil)
+	return newGoCMSContentAdapter(contentSvc, nil, blockSvc, contentTypeSvc, nil)
 }
 
-func newGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSContentTypeService, localeResolver goCMSLocaleResolver) CMSContentService {
+func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, contentTypeSvc CMSContentTypeService, localeResolver goCMSLocaleResolver) CMSContentService {
 	if contentSvc == nil {
 		return nil
 	}
@@ -65,6 +66,7 @@ func newGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSCont
 	typedBlocks, _ := blockSvc.(goCMSBlockService)
 	return &GoCMSContentAdapter{
 		content:           typedContent,
+		translations:      translationSvc,
 		blocks:            typedBlocks,
 		contentTypes:      contentTypeSvc,
 		locales:           newGoCMSLocaleIDCache(localeResolver),
