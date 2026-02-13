@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-uploader"
 )
 
 const (
@@ -28,6 +30,7 @@ const (
 type RenderedArtifact struct {
 	ObjectKey string
 	SHA256    string
+	Payload   []byte
 }
 
 // ExecutedRenderInput provides source data required to render an executed artifact.
@@ -134,6 +137,7 @@ func (r DeterministicArtifactRenderer) RenderExecuted(_ context.Context, input E
 	return RenderedArtifact{
 		ObjectKey: fmt.Sprintf("tenant/%s/org/%s/agreements/%s/executed.pdf", input.Scope.TenantID, input.Scope.OrgID, agreementID),
 		SHA256:    hex.EncodeToString(sum[:]),
+		Payload:   GenerateDeterministicPDF(1),
 	}, nil
 }
 
@@ -189,18 +193,38 @@ func (r DeterministicArtifactRenderer) RenderCertificate(_ context.Context, inpu
 	return RenderedArtifact{
 		ObjectKey: fmt.Sprintf("tenant/%s/org/%s/agreements/%s/certificate.pdf", input.Scope.TenantID, input.Scope.OrgID, agreementID),
 		SHA256:    hex.EncodeToString(sum[:]),
+		Payload:   GenerateDeterministicPDF(2),
 	}, nil
+}
+
+type artifactObjectStore interface {
+	UploadFile(ctx context.Context, path string, content []byte, opts ...uploader.UploadOption) (string, error)
+	GetFile(ctx context.Context, path string) ([]byte, error)
 }
 
 // ArtifactPipelineService orchestrates render/persist behavior for executed and certificate artifacts.
 type ArtifactPipelineService struct {
-	agreements stores.AgreementStore
-	signing    stores.SigningStore
-	audits     stores.AuditEventStore
-	artifacts  stores.AgreementArtifactStore
-	jobRuns    stores.JobRunStore
-	emailLogs  stores.EmailLogStore
-	renderer   ArtifactRenderer
+	agreements  stores.AgreementStore
+	signing     stores.SigningStore
+	audits      stores.AuditEventStore
+	artifacts   stores.AgreementArtifactStore
+	jobRuns     stores.JobRunStore
+	emailLogs   stores.EmailLogStore
+	objectStore artifactObjectStore
+	renderer    ArtifactRenderer
+}
+
+// ArtifactPipelineOption customizes artifact pipeline dependencies.
+type ArtifactPipelineOption func(*ArtifactPipelineService)
+
+// WithArtifactObjectStore configures immutable artifact blob persistence.
+func WithArtifactObjectStore(store artifactObjectStore) ArtifactPipelineOption {
+	return func(s *ArtifactPipelineService) {
+		if s == nil {
+			return
+		}
+		s.objectStore = store
+	}
 }
 
 func NewArtifactPipelineService(
@@ -211,11 +235,12 @@ func NewArtifactPipelineService(
 	jobRuns stores.JobRunStore,
 	emailLogs stores.EmailLogStore,
 	renderer ArtifactRenderer,
+	opts ...ArtifactPipelineOption,
 ) ArtifactPipelineService {
 	if renderer == nil {
 		renderer = NewDeterministicArtifactRenderer()
 	}
-	return ArtifactPipelineService{
+	svc := ArtifactPipelineService{
 		agreements: agreements,
 		signing:    signing,
 		audits:     audits,
@@ -224,6 +249,13 @@ func NewArtifactPipelineService(
 		emailLogs:  emailLogs,
 		renderer:   renderer,
 	}
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		opt(&svc)
+	}
+	return svc
 }
 
 // RenderPages validates agreement scope and acts as a stable render-pages integration seam.
@@ -273,6 +305,9 @@ func (s ArtifactPipelineService) GenerateExecutedArtifact(ctx context.Context, s
 		CorrelationID: correlationID,
 	})
 	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	if err := s.persistArtifactBlob(ctx, rendered.ObjectKey, rendered.Payload); err != nil {
 		return stores.AgreementArtifactRecord{}, err
 	}
 	record, err := s.artifacts.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
@@ -325,6 +360,9 @@ func (s ArtifactPipelineService) GenerateCertificateArtifact(ctx context.Context
 		CorrelationID:  correlationID,
 	})
 	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	if err := s.persistArtifactBlob(ctx, rendered.ObjectKey, rendered.Payload); err != nil {
 		return stores.AgreementArtifactRecord{}, err
 	}
 	record, err := s.artifacts.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
@@ -408,6 +446,37 @@ func (s ArtifactPipelineService) AgreementDeliveryDetail(ctx context.Context, sc
 	}
 	detail.CorrelationIDs = dedupeStrings(detail.CorrelationIDs)
 	return detail, nil
+}
+
+func (s ArtifactPipelineService) persistArtifactBlob(ctx context.Context, objectKey string, payload []byte) error {
+	if s.objectStore == nil {
+		return domainValidationError("artifacts", "object_store", "not configured")
+	}
+	key := strings.TrimSpace(objectKey)
+	if key == "" {
+		return domainValidationError("artifacts", "object_key", "required")
+	}
+	pdf := append([]byte{}, payload...)
+	if len(pdf) == 0 {
+		return domainValidationError("artifacts", "payload", "rendered artifact payload is empty")
+	}
+	if _, err := s.objectStore.UploadFile(
+		ctx,
+		key,
+		pdf,
+		uploader.WithContentType("application/pdf"),
+		uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
+	); err != nil {
+		return domainValidationError("artifacts", "object_store", "persist artifact blob failed")
+	}
+	stored, err := s.objectStore.GetFile(ctx, key)
+	if err != nil || len(stored) == 0 {
+		return domainValidationError("artifacts", "object_store", "persisted artifact blob is unavailable")
+	}
+	if !bytes.HasPrefix(stored, []byte("%PDF-")) {
+		return domainValidationError("artifacts", "object_store", "persisted artifact blob is not a valid pdf payload")
+	}
+	return nil
 }
 
 func stageStatusFromRuns(runs []stores.JobRunRecord, jobName, fallback string) string {

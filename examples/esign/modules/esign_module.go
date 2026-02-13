@@ -203,7 +203,16 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithDocumentObjectStore(objectStore),
 	)
 	m.tokens = stores.NewTokenService(m.store, stores.WithTokenTTL(tokenTTL))
-	m.artifacts = services.NewArtifactPipelineService(m.store, m.store, m.store, m.store, m.store, m.store, nil)
+	m.artifacts = services.NewArtifactPipelineService(
+		m.store,
+		m.store,
+		m.store,
+		m.store,
+		m.store,
+		m.store,
+		nil,
+		services.WithArtifactObjectStore(objectStore),
+	)
 	emailProvider := jobs.EmailProviderFromEnv()
 	jobHandlers := jobs.NewHandlers(jobs.HandlerDependencies{
 		Agreements:    m.store,
