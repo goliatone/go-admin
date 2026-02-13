@@ -72,6 +72,7 @@ type Admin struct {
 	navMenuCode                  string
 	translator                   Translator
 	workflow                     WorkflowEngine
+	traitWorkflowDefaults        map[string]string
 	translationPolicy            TranslationPolicy
 	cmsWorkflowDefaults          bool
 	cmsWorkflowActions           []Action
@@ -496,6 +497,15 @@ func (a *Admin) WithWorkflow(w WorkflowEngine) *Admin {
 	return a
 }
 
+// WithTraitWorkflowDefaults sets default workflow IDs by panel trait.
+func (a *Admin) WithTraitWorkflowDefaults(defaults map[string]string) *Admin {
+	if a == nil {
+		return a
+	}
+	a.traitWorkflowDefaults = normalizeTraitWorkflowDefaults(defaults)
+	return a
+}
+
 // WithTranslationPolicy attaches a translation policy used during workflow transitions.
 func (a *Admin) WithTranslationPolicy(policy TranslationPolicy) *Admin {
 	a.translationPolicy = policy
@@ -521,6 +531,36 @@ func (a *Admin) WithCMSWorkflowActions(actions ...Action) *Admin {
 	a.cmsWorkflowActions = append([]Action{}, actions...)
 	a.cmsWorkflowActionsSet = true
 	return a
+}
+
+func (a *Admin) traitWorkflowDefaultsForLookup() map[string]string {
+	if a == nil || len(a.traitWorkflowDefaults) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(a.traitWorkflowDefaults))
+	for trait, workflowID := range a.traitWorkflowDefaults {
+		out[trait] = workflowID
+	}
+	return out
+}
+
+func normalizeTraitWorkflowDefaults(defaults map[string]string) map[string]string {
+	if len(defaults) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for rawTrait, rawWorkflowID := range defaults {
+		trait := strings.ToLower(strings.TrimSpace(rawTrait))
+		workflowID := strings.TrimSpace(rawWorkflowID)
+		if trait == "" || workflowID == "" {
+			continue
+		}
+		out[trait] = workflowID
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // Authorizer exposes the configured authorizer (if any).

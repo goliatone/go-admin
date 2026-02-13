@@ -542,10 +542,18 @@ func (c *DebugCollector) Unsubscribe(id string) {
 	}
 }
 
-// Snapshot returns current state of all panels.
+// Snapshot returns current state of all panels using a background context.
 func (c *DebugCollector) Snapshot() map[string]any {
+	return c.SnapshotWithContext(context.Background())
+}
+
+// SnapshotWithContext returns current state of all panels using the provided context.
+func (c *DebugCollector) SnapshotWithContext(ctx context.Context) map[string]any {
 	if c == nil {
 		return map[string]any{}
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	c.mu.RLock()
 	templateData := cloneAnyMap(c.templateData)
@@ -603,7 +611,6 @@ func (c *DebugCollector) Snapshot() map[string]any {
 		}
 	}
 
-	ctx := context.Background()
 	for _, registration := range debugregistry.PanelRegistrations() {
 		id := normalizePanelID(registration.Definition.ID)
 		if id == "" || !c.panelEnabled(id) {

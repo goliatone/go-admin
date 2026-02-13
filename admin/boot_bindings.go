@@ -123,14 +123,27 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		}
 		listOpts.Filters["_search"] = listOpts.Search
 	}
-	records, total, err := p.panel.List(ctx, listOpts)
-	if err != nil {
-		return nil, 0, nil, nil, err
+	baseListOpts, readinessPredicates := splitTranslationReadinessPredicates(listOpts)
+	var (
+		records []map[string]any
+		total   int
+		err     error
+	)
+	if len(readinessPredicates) > 0 {
+		records, total, err = p.listWithTranslationReadinessPredicates(ctx, baseListOpts, listOpts, readinessPredicates)
+		if err != nil {
+			return nil, 0, nil, nil, err
+		}
+	} else {
+		records, total, err = p.panel.List(ctx, listOpts)
+		if err != nil {
+			return nil, 0, nil, nil, err
+		}
+		records = p.withTranslationReadiness(ctx, records, listOpts.Filters)
 	}
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
 	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
 	schema.BulkActions = filterActionsForScope(schema.BulkActions, ActionScopeBulk)
-	records = p.withTranslationReadiness(ctx, records, listOpts.Filters)
 	records = p.withRowActionState(ctx, records, schema.Actions)
 	if p.admin != nil {
 		p.admin.applyContentTypeSchemaFromContext(ctx, &schema, p.name)
@@ -622,7 +635,7 @@ func (p *panelBinding) withTranslationReadinessRecord(ctx AdminContext, record m
 	if cloned == nil {
 		cloned = map[string]any{}
 	}
-	cloned["translation_readiness"] = readiness
+	applyTranslationReadinessFields(cloned, readiness)
 	return cloned
 }
 
@@ -638,8 +651,222 @@ func (p *panelBinding) withTranslationReadinessRecordCached(ctx AdminContext, re
 	if cloned == nil {
 		cloned = map[string]any{}
 	}
-	cloned["translation_readiness"] = readiness
+	applyTranslationReadinessFields(cloned, readiness)
 	return cloned
+}
+
+func applyTranslationReadinessFields(record map[string]any, readiness map[string]any) {
+	if record == nil || len(readiness) == 0 {
+		return
+	}
+	record["translation_readiness"] = readiness
+	state := strings.ToLower(strings.TrimSpace(toString(readiness["readiness_state"])))
+	if state == "" {
+		return
+	}
+	record["readiness_state"] = state
+	record["incomplete"] = !strings.EqualFold(state, translationReadinessStateReady)
+}
+
+func splitTranslationReadinessPredicates(opts ListOptions) (ListOptions, []ListPredicate) {
+	base := cloneListOptions(opts)
+	var predicates []ListPredicate
+	if len(opts.Predicates) > 0 {
+		predicates = normalizePredicates(opts.Predicates)
+	} else {
+		predicates = predicatesFromFilterMap(opts.Filters)
+	}
+	if len(predicates) == 0 {
+		return base, nil
+	}
+
+	readiness := make([]ListPredicate, 0, len(predicates))
+	remaining := make([]ListPredicate, 0, len(predicates))
+	for _, predicate := range predicates {
+		if !isTranslationReadinessPredicateField(predicate.Field) {
+			remaining = append(remaining, predicate)
+			continue
+		}
+		readiness = append(readiness, normalizeTranslationReadinessPredicate(predicate))
+	}
+	if len(readiness) == 0 {
+		return base, nil
+	}
+
+	base.Predicates = remaining
+	base.Filters = pruneTranslationReadinessFilters(base.Filters)
+	return base, readiness
+}
+
+func cloneListOptions(opts ListOptions) ListOptions {
+	cloned := ListOptions{
+		Page:     opts.Page,
+		PerPage:  opts.PerPage,
+		SortBy:   opts.SortBy,
+		SortDesc: opts.SortDesc,
+		Search:   opts.Search,
+	}
+	if len(opts.Filters) > 0 {
+		cloned.Filters = cloneAnyMap(opts.Filters)
+	}
+	if len(opts.Predicates) > 0 {
+		cloned.Predicates = cloneListPredicates(opts.Predicates)
+	}
+	return cloned
+}
+
+func cloneListPredicates(predicates []ListPredicate) []ListPredicate {
+	if len(predicates) == 0 {
+		return nil
+	}
+	out := make([]ListPredicate, 0, len(predicates))
+	for _, predicate := range predicates {
+		out = append(out, ListPredicate{
+			Field:    strings.TrimSpace(predicate.Field),
+			Operator: strings.ToLower(strings.TrimSpace(predicate.Operator)),
+			Values:   append([]string{}, predicate.Values...),
+		})
+	}
+	return out
+}
+
+func isTranslationReadinessPredicateField(field string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(field))
+	switch normalized {
+	case "incomplete", "readiness_state", "translation_readiness.readiness_state":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeTranslationReadinessPredicate(predicate ListPredicate) ListPredicate {
+	normalized := ListPredicate{
+		Field:    strings.ToLower(strings.TrimSpace(predicate.Field)),
+		Operator: strings.ToLower(strings.TrimSpace(predicate.Operator)),
+		Values:   append([]string{}, predicate.Values...),
+	}
+	switch normalized.Field {
+	case "translation_readiness.readiness_state":
+		normalized.Field = "readiness_state"
+	case "readiness_state":
+		normalized.Field = "readiness_state"
+	case "incomplete":
+		normalized.Field = "incomplete"
+	}
+	if normalized.Operator == "" {
+		normalized.Operator = "eq"
+	}
+	if normalized.Field == "incomplete" {
+		normalized.Values = normalizeBooleanPredicateValues(normalized.Values)
+	}
+	return normalized
+}
+
+func normalizeBooleanPredicateValues(values []string) []string {
+	if len(values) == 0 {
+		return values
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "1", "true", "yes", "y", "on":
+			out = append(out, "true")
+		case "0", "false", "no", "n", "off":
+			out = append(out, "false")
+		default:
+			out = append(out, strings.TrimSpace(value))
+		}
+	}
+	return out
+}
+
+func pruneTranslationReadinessFilters(filters map[string]any) map[string]any {
+	if len(filters) == 0 {
+		return filters
+	}
+	out := cloneAnyMap(filters)
+	for key := range out {
+		field := key
+		if parts := strings.SplitN(strings.TrimSpace(key), "__", 2); len(parts) > 0 {
+			field = parts[0]
+		}
+		if !isTranslationReadinessPredicateField(field) {
+			continue
+		}
+		delete(out, key)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func (p *panelBinding) listWithTranslationReadinessPredicates(ctx AdminContext, baseOpts, requestedOpts ListOptions, predicates []ListPredicate) ([]map[string]any, int, error) {
+	if len(predicates) == 0 {
+		records, total, err := p.panel.List(ctx, baseOpts)
+		if err != nil {
+			return nil, 0, err
+		}
+		return p.withTranslationReadiness(ctx, records, baseOpts.Filters), total, nil
+	}
+
+	page := requestedOpts.Page
+	if page <= 0 {
+		page = 1
+	}
+	perPage := requestedOpts.PerPage
+	if perPage <= 0 {
+		perPage = 10
+	}
+	start := (page - 1) * perPage
+	end := start + perPage
+
+	fetch := cloneListOptions(baseOpts)
+	if fetch.PerPage <= 0 {
+		fetch.PerPage = perPage
+	}
+	if fetch.PerPage < 50 {
+		fetch.PerPage = 50
+	}
+	fetch.Page = 1
+
+	filtered := make([]map[string]any, 0, perPage)
+	filteredTotal := 0
+	for {
+		batch, total, err := p.panel.List(ctx, fetch)
+		if err != nil {
+			return nil, 0, err
+		}
+		if len(batch) == 0 {
+			break
+		}
+		batch = p.withTranslationReadiness(ctx, batch, baseOpts.Filters)
+		for _, record := range batch {
+			if !recordMatchesAllListPredicates(record, predicates) {
+				continue
+			}
+			if filteredTotal >= start && filteredTotal < end {
+				filtered = append(filtered, record)
+			}
+			filteredTotal++
+		}
+		if fetch.Page*fetch.PerPage >= total {
+			break
+		}
+		fetch.Page++
+	}
+
+	return filtered, filteredTotal, nil
+}
+
+func recordMatchesAllListPredicates(record map[string]any, predicates []ListPredicate) bool {
+	for _, predicate := range predicates {
+		if !listRecordMatchesPredicate(record, predicate) {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *panelBinding) translationReadinessPolicy() TranslationPolicy {

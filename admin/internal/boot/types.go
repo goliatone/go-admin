@@ -7,6 +7,7 @@ import (
 
 const (
 	FeatureDashboard           = "dashboard"
+	FeatureUsers               = "users"
 	FeatureSearch              = "search"
 	FeatureExport              = "export"
 	FeatureBulk                = "bulk"

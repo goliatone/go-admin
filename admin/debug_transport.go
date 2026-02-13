@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sort"
@@ -266,7 +267,7 @@ func (m *DebugModule) handleDebugSnapshot(c router.Context) error {
 	if m == nil || m.collector == nil {
 		return writeJSON(c, map[string]any{})
 	}
-	return writeJSON(c, m.collector.Snapshot())
+	return writeJSON(c, m.collector.SnapshotWithContext(c.Context()))
 }
 
 func (m *DebugModule) handleDebugSessions(c router.Context) error {
@@ -597,9 +598,13 @@ func (m *DebugModule) writeDebugSnapshot(c router.WebSocketContext) error {
 	if m == nil || m.collector == nil {
 		return nil
 	}
+	ctx := context.Background()
+	if c != nil {
+		ctx = c.Context()
+	}
 	return c.WriteJSON(DebugEvent{
 		Type:      debugEventSnapshot,
-		Payload:   m.collector.Snapshot(),
+		Payload:   m.collector.SnapshotWithContext(ctx),
 		Timestamp: time.Now(),
 	})
 }

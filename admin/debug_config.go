@@ -56,6 +56,7 @@ var defaultDebugPanels = []string{
 	DebugPanelRoutes,
 	DebugPanelCustom,
 	DebugPanelJSErrors,
+	DebugPanelPermissions,
 }
 
 var defaultToolbarPanels = []string{

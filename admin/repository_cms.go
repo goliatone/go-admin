@@ -234,8 +234,6 @@ func (r *CMSContentTypeRepository) List(ctx context.Context, opts ListOptions) (
 			if !strings.EqualFold(strings.TrimSpace(ct.Environment), environment) {
 				continue
 			}
-		} else if strings.TrimSpace(ct.Environment) != "" {
-			continue
 		}
 		if search != "" && !strings.Contains(strings.ToLower(ct.Name), search) &&
 			!strings.Contains(strings.ToLower(ct.Slug), search) &&
@@ -1136,8 +1134,6 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 			if !strings.EqualFold(strings.TrimSpace(def.Environment), environment) {
 				continue
 			}
-		} else if strings.TrimSpace(def.Environment) != "" {
-			continue
 		}
 		if search != "" &&
 			!strings.Contains(strings.ToLower(def.Name), search) &&
@@ -1262,8 +1258,6 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 			if !strings.EqualFold(strings.TrimSpace(def.Environment), environment) {
 				continue
 			}
-		} else if strings.TrimSpace(def.Environment) != "" {
-			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
 			strings.EqualFold(strings.TrimSpace(def.Slug), target) ||
@@ -1337,8 +1331,6 @@ func (r *CMSBlockDefinitionRepository) findBlockDefinition(ctx context.Context, 
 			if !strings.EqualFold(strings.TrimSpace(def.Environment), env) {
 				continue
 			}
-		} else if strings.TrimSpace(def.Environment) != "" {
-			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
 			strings.EqualFold(strings.TrimSpace(def.Slug), target) ||

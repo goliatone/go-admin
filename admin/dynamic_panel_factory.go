@@ -237,6 +237,10 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 	panelName := f.panelName(panelSlug, env)
 	repo := NewCMSContentTypeEntryRepository(f.admin.contentSvc, *contentType)
 	fields := f.schemaConverter.Convert(contentType.Schema, contentType.UISchema)
+	panelTraits := panelTraitsForContentType(contentType.Capabilities)
+	if hasPanelTrait(panelTraits, "editorial") {
+		fields = applyEditorialPanelTrait(fields)
+	}
 	blocksEnabled, blocksConfigured := blocksCapability(contentType.Capabilities)
 	if !blocksConfigured {
 		blocksEnabled = hasBlocksField(contentType.Schema)
@@ -253,14 +257,12 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 		Permissions(panelPermissionsForContentType(*contentType))
 
 	builder.WithWorkflow(nil)
-	workflowKey := capabilityString(contentType.Capabilities, "workflow", "workflow_key", "workflowKey")
 	if workflow := workflowEngineForContentType(f.admin, contentType); workflow != nil {
 		builder.WithWorkflow(workflow)
-		normalized := strings.ToLower(strings.TrimSpace(workflowKey))
-		if normalized == "pages" || normalized == "posts" {
-			if actions := resolveCMSWorkflowActions(f.admin); len(actions) > 0 {
-				builder.Actions(actions...)
-			}
+	}
+	if hasPanelTrait(panelTraits, "editorial") {
+		if actions := resolveEditorialPanelActions(f.admin, builder.workflow, contentType.Capabilities); len(actions) > 0 {
+			builder.Actions(actions...)
 		}
 	}
 
@@ -463,6 +465,11 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 	if strings.TrimSpace(perms.View) != "" {
 		item.Permissions = []string{perms.View}
 	}
+	if updated, err := f.updateExistingNavigationItem(ctx, menuCode, locale, item, panelPath, panelName); err != nil {
+		return err
+	} else if updated {
+		return nil
+	}
 
 	if err := f.admin.addMenuItems(ctx, []MenuItem{item}); err != nil {
 		if isMenuItemMissing(err) {
@@ -471,6 +478,65 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 		return err
 	}
 	return nil
+}
+
+func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, menuCode, locale string, item MenuItem, panelPath, panelName string) (bool, error) {
+	if f == nil || f.admin == nil || f.admin.menuSvc == nil {
+		return false, nil
+	}
+	menu, err := f.admin.menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil || menu == nil {
+		return false, nil
+	}
+	existing, ok := findMenuItemByPanelTarget(menu.Items, panelPath, panelName)
+	if !ok || strings.TrimSpace(existing.ID) == "" {
+		return false, nil
+	}
+	item.ID = existing.ID
+	item.Menu = menuCode
+	if strings.TrimSpace(item.Code) == "" {
+		item.Code = strings.TrimSpace(existing.Code)
+	}
+	if strings.TrimSpace(item.Type) == "" {
+		item.Type = strings.TrimSpace(existing.Type)
+	}
+	if strings.TrimSpace(item.ParentID) == "" {
+		item.ParentID = strings.TrimSpace(existing.ParentID)
+	}
+	if strings.TrimSpace(item.ParentCode) == "" {
+		item.ParentCode = strings.TrimSpace(existing.ParentCode)
+	}
+	if item.Position == nil && existing.Position != nil {
+		item.Position = intPtr(*existing.Position)
+	}
+	if err := f.admin.menuSvc.UpdateMenuItem(ctx, menuCode, item); err != nil {
+		if isMenuItemMissing(err) || errors.Is(err, ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func findMenuItemByPanelTarget(items []MenuItem, panelPath, panelName string) (MenuItem, bool) {
+	canonicalPath := strings.TrimSpace(panelPath)
+	canonicalName := strings.TrimSpace(panelName)
+	for _, item := range items {
+		targetKey := strings.TrimSpace(extractTargetKey(item.Target))
+		targetPath := strings.TrimSpace(toString(item.Target["path"]))
+		if canonicalPath != "" && (strings.EqualFold(targetKey, canonicalPath) || targetPath == canonicalPath) {
+			return item, true
+		}
+		if canonicalName != "" && strings.EqualFold(targetKey, canonicalName) {
+			return item, true
+		}
+		if len(item.Children) > 0 {
+			if nested, ok := findMenuItemByPanelTarget(item.Children, canonicalPath, canonicalName); ok {
+				return nested, true
+			}
+		}
+	}
+	return MenuItem{}, false
 }
 
 func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, env string) error {
@@ -644,6 +710,210 @@ func hasTreeCapability(capabilities map[string]any) bool {
 	return enabled
 }
 
+func hasTranslationsCapability(capabilities map[string]any) bool {
+	enabled, ok := capabilityFlag(capabilities, "translations", "translation", "localized", "i18n")
+	return ok && enabled
+}
+
+func panelTraitsForContentType(capabilities map[string]any) map[string]struct{} {
+	out := map[string]struct{}{}
+	if len(capabilities) == 0 {
+		return out
+	}
+	collectPanelTraits(out, capabilities["panel_traits"])
+	collectPanelTraits(out, capabilities["panelTraits"])
+	collectPanelTraits(out, capabilities["panel-traits"])
+	if preset := capabilityString(capabilities, "panel_preset", "panelPreset", "panel-preset"); preset != "" {
+		out[strings.ToLower(strings.TrimSpace(preset))] = struct{}{}
+	}
+	return out
+}
+
+func collectPanelTraits(out map[string]struct{}, raw any) {
+	if out == nil || raw == nil {
+		return
+	}
+	switch typed := raw.(type) {
+	case string:
+		for _, part := range strings.Split(typed, ",") {
+			trait := strings.ToLower(strings.TrimSpace(part))
+			if trait != "" {
+				out[trait] = struct{}{}
+			}
+		}
+	case []string:
+		for _, value := range typed {
+			trait := strings.ToLower(strings.TrimSpace(value))
+			if trait != "" {
+				out[trait] = struct{}{}
+			}
+		}
+	case []any:
+		for _, value := range typed {
+			trait := strings.ToLower(strings.TrimSpace(toString(value)))
+			if trait != "" {
+				out[trait] = struct{}{}
+			}
+		}
+	case map[string]any:
+		for key, value := range typed {
+			trait := strings.ToLower(strings.TrimSpace(key))
+			if trait == "" || !capabilityEnabled(value) {
+				continue
+			}
+			out[trait] = struct{}{}
+		}
+	}
+}
+
+func hasPanelTrait(traits map[string]struct{}, trait string) bool {
+	if len(traits) == 0 {
+		return false
+	}
+	_, ok := traits[strings.ToLower(strings.TrimSpace(trait))]
+	return ok
+}
+
+func applyEditorialPanelTrait(fields ConvertedFields) ConvertedFields {
+	list := append([]Field{}, fields.List...)
+	for _, field := range editorialTranslationListFields() {
+		if hasFieldNamed(list, field.Name) {
+			continue
+		}
+		list = append(list, field)
+	}
+	filters := append([]Filter{}, fields.Filters...)
+	incomplete := editorialIncompleteFilter()
+	if !hasFilterNamed(filters, incomplete.Name) {
+		filters = append(filters, incomplete)
+	}
+	fields.List = list
+	fields.Filters = filters
+	return fields
+}
+
+func editorialTranslationListFields() []Field {
+	return []Field{
+		{Name: "translation_status", Label: "Translation", LabelKey: "fields.translation_status", Type: "text"},
+		{Name: "available_locales", Label: "Available Locales", LabelKey: "fields.available_locales", Type: "array"},
+		{Name: "translation_readiness", Label: "Readiness", LabelKey: "fields.translation_readiness", Type: "text"},
+		{Name: "missing_translations", Label: "Missing", LabelKey: "fields.missing_translations", Type: "text"},
+	}
+}
+
+func editorialIncompleteFilter() Filter {
+	return Filter{
+		Name:     "incomplete",
+		Label:    "Incomplete",
+		LabelKey: "fields.incomplete",
+		Type:     "select",
+		Options: []Option{
+			{Value: "true", Label: "Incomplete"},
+			{Value: "false", Label: "Complete"},
+		},
+	}
+}
+
+func hasFieldNamed(fields []Field, name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	for _, field := range fields {
+		if strings.ToLower(strings.TrimSpace(field.Name)) == name {
+			return true
+		}
+	}
+	return false
+}
+
+func hasFilterNamed(filters []Filter, name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	for _, filter := range filters {
+		if strings.ToLower(strings.TrimSpace(filter.Name)) == name {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveEditorialPanelActions(a *Admin, workflow WorkflowEngine, capabilities map[string]any) []Action {
+	actions := resolveCMSWorkflowActions(a)
+	if len(actions) == 0 {
+		return nil
+	}
+	translationEnabled := hasTranslationsCapability(capabilities)
+	transitionNames, transitionKnown := workflowTransitionNames(workflow, "")
+	filtered := make([]Action, 0, len(actions))
+	for _, action := range actions {
+		name := strings.ToLower(strings.TrimSpace(action.Name))
+		if name == "" {
+			continue
+		}
+		if name == strings.ToLower(CreateTranslationKey) {
+			if translationEnabled {
+				filtered = append(filtered, action)
+			}
+			continue
+		}
+		if _, ok := passivePanelActionNames[name]; ok {
+			filtered = append(filtered, action)
+			continue
+		}
+		if strings.TrimSpace(action.CommandName) != "" || actionHasPassiveRouting(action) {
+			filtered = append(filtered, action)
+			continue
+		}
+		if workflow == nil {
+			continue
+		}
+		if !transitionKnown {
+			filtered = append(filtered, action)
+			continue
+		}
+		if workflowActionMatchesTransitions(name, transitionNames) {
+			filtered = append(filtered, action)
+		}
+	}
+	return dedupeActionsByName(filtered)
+}
+
+func workflowActionMatchesTransitions(actionName string, transitionNames map[string]struct{}) bool {
+	if len(transitionNames) == 0 {
+		return false
+	}
+	for _, candidate := range workflowTransitionCandidates(actionName) {
+		normalized := strings.ToLower(strings.TrimSpace(candidate))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := transitionNames[normalized]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func dedupeActionsByName(actions []Action) []Action {
+	if len(actions) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]Action, 0, len(actions))
+	for _, action := range actions {
+		name := strings.ToLower(strings.TrimSpace(action.Name))
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		out = append(out, action)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func blocksCapability(capabilities map[string]any) (bool, bool) {
 	if enabled, ok := capabilityFlag(capabilities, "blocks"); ok {
 		return enabled, true
@@ -759,11 +1029,135 @@ func panelPermissionsFromBase(base string) PanelPermissions {
 	}
 }
 
+const (
+	workflowResolutionSourceWorkflowID   = "workflow_id"
+	workflowResolutionSourceWorkflow     = "workflow"
+	workflowResolutionSourceTraitDefault = "trait_default"
+)
+
+type workflowResolution struct {
+	id     string
+	source string
+	traits []string
+}
+
+func resolveWorkflowIDForContentType(capabilities map[string]any, traitDefaults map[string]string) workflowResolution {
+	if workflowID := capabilityString(capabilities, "workflow_id", "workflowId", "workflow-id"); workflowID != "" {
+		return workflowResolution{id: workflowID, source: workflowResolutionSourceWorkflowID}
+	}
+	if workflowID := capabilityString(capabilities, "workflow", "workflow_key", "workflowKey"); workflowID != "" {
+		return workflowResolution{id: workflowID, source: workflowResolutionSourceWorkflow}
+	}
+	traits := orderedPanelTraitsForWorkflowLookup(capabilities)
+	for _, trait := range traits {
+		if workflowID := workflowIDForTraitDefault(traitDefaults, trait); workflowID != "" {
+			return workflowResolution{
+				id:     workflowID,
+				source: workflowResolutionSourceTraitDefault,
+				traits: traits,
+			}
+		}
+	}
+	return workflowResolution{traits: traits}
+}
+
+func workflowIDForTraitDefault(defaults map[string]string, trait string) string {
+	if len(defaults) == 0 {
+		return ""
+	}
+	trait = strings.ToLower(strings.TrimSpace(trait))
+	if trait == "" {
+		return ""
+	}
+	if workflowID, ok := defaults[trait]; ok {
+		return strings.TrimSpace(workflowID)
+	}
+	for key, workflowID := range defaults {
+		if strings.EqualFold(strings.TrimSpace(key), trait) {
+			return strings.TrimSpace(workflowID)
+		}
+	}
+	return ""
+}
+
+func orderedPanelTraitsForWorkflowLookup(capabilities map[string]any) []string {
+	if len(capabilities) == 0 {
+		return nil
+	}
+	out := []string{}
+	seen := map[string]struct{}{}
+	appendTraits := func(raw any) {
+		for _, trait := range normalizePanelTraitsForWorkflowLookup(raw) {
+			if _, ok := seen[trait]; ok {
+				continue
+			}
+			seen[trait] = struct{}{}
+			out = append(out, trait)
+		}
+	}
+	appendTraits(capabilities["panel_traits"])
+	appendTraits(capabilities["panelTraits"])
+	appendTraits(capabilities["panel-traits"])
+
+	if preset := capabilityString(capabilities, "panel_preset", "panelPreset", "panel-preset"); preset != "" {
+		trait := strings.ToLower(strings.TrimSpace(preset))
+		if trait != "" {
+			if _, ok := seen[trait]; !ok {
+				out = append(out, trait)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizePanelTraitsForWorkflowLookup(raw any) []string {
+	out := []string{}
+	switch typed := raw.(type) {
+	case string:
+		for _, part := range strings.Split(typed, ",") {
+			if trait := strings.ToLower(strings.TrimSpace(part)); trait != "" {
+				out = append(out, trait)
+			}
+		}
+	case []string:
+		for _, value := range typed {
+			if trait := strings.ToLower(strings.TrimSpace(value)); trait != "" {
+				out = append(out, trait)
+			}
+		}
+	case []any:
+		for _, value := range typed {
+			if trait := strings.ToLower(strings.TrimSpace(toString(value))); trait != "" {
+				out = append(out, trait)
+			}
+		}
+	case map[string]any:
+		keys := make([]string, 0, len(typed))
+		for key, value := range typed {
+			trait := strings.ToLower(strings.TrimSpace(key))
+			if trait == "" || !capabilityEnabled(value) {
+				continue
+			}
+			keys = append(keys, trait)
+		}
+		sort.Strings(keys)
+		out = append(out, keys...)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func workflowEngineForContentType(admin *Admin, contentType *CMSContentType) WorkflowEngine {
 	if contentType == nil {
 		return nil
 	}
-	workflowKey := capabilityString(contentType.Capabilities, "workflow", "workflow_key", "workflowKey")
+	resolution := resolveWorkflowIDForContentType(contentType.Capabilities, adminTraitWorkflowDefaults(admin))
+	workflowKey := resolution.id
 	if workflowKey == "" {
 		return nil
 	}
@@ -771,23 +1165,34 @@ func workflowEngineForContentType(admin *Admin, contentType *CMSContentType) Wor
 	if engine == nil {
 		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow engine unavailable",
 			"content_type", contentType.Slug,
-			"workflow", workflowKey)
+			"workflow", workflowKey,
+			"resolution_source", resolution.source)
 		return nil
 	}
 	checker, ok := engine.(WorkflowDefinitionChecker)
 	if !ok {
 		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow definition checker unavailable",
 			"content_type", contentType.Slug,
-			"workflow", workflowKey)
+			"workflow", workflowKey,
+			"resolution_source", resolution.source)
 		return nil
 	}
 	if !checker.HasWorkflow(workflowKey) {
 		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow not found",
 			"content_type", contentType.Slug,
-			"workflow", workflowKey)
+			"workflow", workflowKey,
+			"resolution_source", resolution.source,
+			"traits", resolution.traits)
 		return nil
 	}
 	return workflowAlias{engine: engine, entityType: workflowKey}
+}
+
+func adminTraitWorkflowDefaults(admin *Admin) map[string]string {
+	if admin == nil {
+		return nil
+	}
+	return admin.traitWorkflowDefaultsForLookup()
 }
 
 type workflowAlias struct {
