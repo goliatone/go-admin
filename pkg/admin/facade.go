@@ -117,6 +117,7 @@ type (
 	TranslationBundle[T any] = core.TranslationBundle[T]
 	PageTranslation          = core.PageTranslation
 	ContentTranslation       = core.ContentTranslation
+	TranslationCreateInput   = core.TranslationCreateInput
 
 	Admin        = core.Admin
 	AdminContext = core.AdminContext
@@ -132,26 +133,27 @@ type (
 
 	CommandBus = core.CommandBus
 
-	CMSBlock                  = core.CMSBlock
-	CMSBlockDefinition        = core.CMSBlockDefinition
-	CMSBlockDefinitionVersion = core.CMSBlockDefinitionVersion
-	CMSContent                = core.CMSContent
-	CMSContentRepository      = core.CMSContentRepository
-	CMSContentService         = core.CMSContentService
-	CMSContentTypeService     = core.CMSContentTypeService
-	CMSMenuService            = core.CMSMenuService
-	CMSOptions                = core.CMSOptions
-	CMSPage                   = core.CMSPage
-	CMSPageRepository         = core.CMSPageRepository
-	CMSWidgetService          = core.CMSWidgetService
-	WidgetDefinition          = core.WidgetDefinition
-	PageApplicationService    = core.PageApplicationService
-	PageGetOptions            = core.PageGetOptions
-	PageIncludeDefaults       = core.PageIncludeDefaults
-	PageListOptions           = core.PageListOptions
-	PageMapper                = core.PageMapper
-	PageReadDefaults          = core.PageReadDefaults
-	PageReadOptions           = core.PageReadOptions
+	CMSBlock                     = core.CMSBlock
+	CMSBlockDefinition           = core.CMSBlockDefinition
+	CMSBlockDefinitionVersion    = core.CMSBlockDefinitionVersion
+	CMSContent                   = core.CMSContent
+	CMSContentRepository         = core.CMSContentRepository
+	CMSContentService            = core.CMSContentService
+	CMSContentTranslationCreator = core.CMSContentTranslationCreator
+	CMSContentTypeService        = core.CMSContentTypeService
+	CMSMenuService               = core.CMSMenuService
+	CMSOptions                   = core.CMSOptions
+	CMSPage                      = core.CMSPage
+	CMSPageRepository            = core.CMSPageRepository
+	CMSWidgetService             = core.CMSWidgetService
+	WidgetDefinition             = core.WidgetDefinition
+	PageApplicationService       = core.PageApplicationService
+	PageGetOptions               = core.PageGetOptions
+	PageIncludeDefaults          = core.PageIncludeDefaults
+	PageListOptions              = core.PageListOptions
+	PageMapper                   = core.PageMapper
+	PageReadDefaults             = core.PageReadDefaults
+	PageReadOptions              = core.PageReadOptions
 
 	Config         = core.Config
 	ErrorConfig    = core.ErrorConfig
@@ -246,13 +248,14 @@ type (
 	OrganizationMember = core.OrganizationMember
 	OrganizationRecord = core.OrganizationRecord
 
-	PanelBuilder                = core.PanelBuilder
-	PanelPermissions            = core.PanelPermissions
-	PanelTab                    = core.PanelTab
-	PanelTabCollisionHandler    = core.PanelTabCollisionHandler
-	PanelTabPermissionEvaluator = core.PanelTabPermissionEvaluator
-	PanelTabScope               = core.PanelTabScope
-	PanelTabTarget              = core.PanelTabTarget
+	PanelBuilder                 = core.PanelBuilder
+	RepositoryTranslationCreator = core.RepositoryTranslationCreator
+	PanelPermissions             = core.PanelPermissions
+	PanelTab                     = core.PanelTab
+	PanelTabCollisionHandler     = core.PanelTabCollisionHandler
+	PanelTabPermissionEvaluator  = core.PanelTabPermissionEvaluator
+	PanelTabScope                = core.PanelTabScope
+	PanelTabTarget               = core.PanelTabTarget
 
 	PreviewService = core.PreviewService
 	PreviewToken   = core.PreviewToken
@@ -325,7 +328,8 @@ type (
 )
 
 var (
-	ErrNotFound = core.ErrNotFound
+	ErrNotFound                     = core.ErrNotFound
+	ErrTranslationCreateUnsupported = core.ErrTranslationCreateUnsupported
 )
 
 const (
