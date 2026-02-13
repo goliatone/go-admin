@@ -512,6 +512,107 @@ func TestUserLifecycleCommandTransitionsStatus(t *testing.T) {
 	}
 }
 
+func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers, FeatureCommands)})
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	roleBody, _ := json.Marshal(map[string]any{
+		"name":        "Operators",
+		"description": "Ops role",
+	})
+	roleReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
+	roleReq.Header.Set("Content-Type", "application/json")
+	roleReq.Header.Set("X-User-ID", "actor-1")
+	roleRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(roleRes, roleReq)
+	if roleRes.Code != 200 {
+		t.Fatalf("expected role create 200, got %d body=%s", roleRes.Code, roleRes.Body.String())
+	}
+	var role map[string]any
+	_ = json.Unmarshal(roleRes.Body.Bytes(), &role)
+	roleID := toString(role["id"])
+	if roleID == "" {
+		t.Fatalf("expected role id in response")
+	}
+
+	userBody, _ := json.Marshal(map[string]any{
+		"email":    "bulk-role@example.com",
+		"username": "bulk-role",
+		"status":   "active",
+	})
+	userReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
+	userReq.Header.Set("Content-Type", "application/json")
+	userReq.Header.Set("X-User-ID", "actor-1")
+	userRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(userRes, userReq)
+	if userRes.Code != 200 {
+		t.Fatalf("expected user create 200, got %d body=%s", userRes.Code, userRes.Body.String())
+	}
+	var user map[string]any
+	_ = json.Unmarshal(userRes.Body.Bytes(), &user)
+	userID := toString(user["id"])
+	if userID == "" {
+		t.Fatalf("expected user id in response")
+	}
+
+	assignPayload, _ := json.Marshal(map[string]any{
+		"ids":     []string{userID},
+		"role_id": roleID,
+	})
+	assignPath := adminAPIPath(adm, cfg, "panel.bulk", map[string]string{
+		"panel":  usersModuleID,
+		"action": "assign-role",
+	}, nil)
+	assignReq := httptest.NewRequest("POST", assignPath, bytes.NewReader(assignPayload))
+	assignReq.Header.Set("Content-Type", "application/json")
+	assignReq.Header.Set("X-User-ID", "actor-1")
+	assignRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(assignRes, assignReq)
+	if assignRes.Code != 200 {
+		t.Fatalf("expected assign bulk action 200, got %d body=%s", assignRes.Code, assignRes.Body.String())
+	}
+
+	roles, err := adm.users.roles.RolesForUser(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("roles for user after assign: %v", err)
+	}
+	if len(roles) != 1 || roles[0].ID != roleID {
+		t.Fatalf("expected assigned role %s, got %+v", roleID, roles)
+	}
+
+	unassignPayload, _ := json.Marshal(map[string]any{
+		"ids":     []string{userID},
+		"role_id": roleID,
+	})
+	unassignPath := adminAPIPath(adm, cfg, "panel.bulk", map[string]string{
+		"panel":  usersModuleID,
+		"action": "unassign-role",
+	}, nil)
+	unassignReq := httptest.NewRequest("POST", unassignPath, bytes.NewReader(unassignPayload))
+	unassignReq.Header.Set("Content-Type", "application/json")
+	unassignReq.Header.Set("X-User-ID", "actor-1")
+	unassignRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(unassignRes, unassignReq)
+	if unassignRes.Code != 200 {
+		t.Fatalf("expected unassign bulk action 200, got %d body=%s", unassignRes.Code, unassignRes.Body.String())
+	}
+
+	roles, err = adm.users.roles.RolesForUser(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("roles for user after unassign: %v", err)
+	}
+	if len(roles) != 0 {
+		t.Fatalf("expected no roles after unassign, got %+v", roles)
+	}
+}
+
 func TestGoUsersUserRepositoryAppliesFilters(t *testing.T) {
 	inventory := &recordingInventoryRepo{}
 	repo := NewGoUsersUserRepository(&stubGoUsersAuthRepo{}, inventory, nil)

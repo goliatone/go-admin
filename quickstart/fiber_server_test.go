@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
@@ -164,10 +165,10 @@ func TestDebugFiberSlogMiddlewareEmitsLevelByResponse(t *testing.T) {
 	}
 }
 
-func TestNewFiberServerRouteConflictPanicsInDev(t *testing.T) {
-	_, r := NewFiberServer(nil, admin.Config{}, nil, true)
-	r.Get("/route-conflict/:id", func(c gorouter.Context) error {
-		return c.SendStatus(fiber.StatusOK)
+func TestNewFiberServerRouteConflictDefaultsPreferStaticInDev(t *testing.T) {
+	server, r := NewFiberServer(nil, admin.Config{}, nil, true)
+	r.Get("/route-conflict/:action", func(c gorouter.Context) error {
+		return c.SendString("param:" + c.Param("action"))
 	})
 
 	didPanic := false
@@ -176,18 +177,66 @@ func TestNewFiberServerRouteConflictPanicsInDev(t *testing.T) {
 			didPanic = recover() != nil
 		}()
 		r.Get("/route-conflict/static", func(c gorouter.Context) error {
+			return c.SendString("static")
+		})
+	}()
+	if didPanic {
+		t.Fatalf("expected no panic for static+param siblings when prefer_static is default")
+	}
+
+	app := server.WrappedRouter()
+	respStatic, err := app.Test(httptest.NewRequest(http.MethodGet, "/route-conflict/static", nil), -1)
+	if err != nil {
+		t.Fatalf("static request failed: %v", err)
+	}
+	staticBody, err := io.ReadAll(respStatic.Body)
+	respStatic.Body.Close()
+	if err != nil {
+		t.Fatalf("reading static response failed: %v", err)
+	}
+	if got := string(staticBody); got != "static" {
+		t.Fatalf("expected static route to win, got %q", got)
+	}
+
+	respParam, err := app.Test(httptest.NewRequest(http.MethodGet, "/route-conflict/dynamic", nil), -1)
+	if err != nil {
+		t.Fatalf("param request failed: %v", err)
+	}
+	paramBody, err := io.ReadAll(respParam.Body)
+	respParam.Body.Close()
+	if err != nil {
+		t.Fatalf("reading param response failed: %v", err)
+	}
+	if got := string(paramBody); got != "param:dynamic" {
+		t.Fatalf("expected param route for non-static value, got %q", got)
+	}
+}
+
+func TestNewFiberServerRouteConflictPanicsInDevWhenPathModeStrict(t *testing.T) {
+	t.Setenv("ADMIN_ROUTE_PATH_CONFLICT_MODE", "strict")
+	_, r := NewFiberServer(nil, admin.Config{}, nil, true)
+	r.Get("/route-conflict-strict/:action", func(c gorouter.Context) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	didPanic := false
+	func() {
+		defer func() {
+			didPanic = recover() != nil
+		}()
+		r.Get("/route-conflict-strict/static", func(c gorouter.Context) error {
 			return c.SendStatus(fiber.StatusOK)
 		})
 	}()
 
 	if !didPanic {
-		t.Fatalf("expected route conflict panic in dev mode")
+		t.Fatalf("expected route conflict panic in strict path mode")
 	}
 }
 
 func TestNewFiberServerRouteConflictDoesNotPanicInProductionDefaults(t *testing.T) {
 	_, r := NewFiberServer(nil, admin.Config{}, nil, false)
-	r.Get("/route-conflict-prod/:id", func(c gorouter.Context) error {
+	r.Get("/route-conflict-prod/:action", func(c gorouter.Context) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -215,7 +264,7 @@ func TestNewFiberServerRouteConflictPolicyCanBeOverridden(t *testing.T) {
 		cfg.ConflictPolicy = &policy
 		cfg.StrictRoutes = false
 	}))
-	r.Get("/route-conflict-override/:id", func(c gorouter.Context) error {
+	r.Get("/route-conflict-override/:action", func(c gorouter.Context) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -231,6 +280,33 @@ func TestNewFiberServerRouteConflictPolicyCanBeOverridden(t *testing.T) {
 
 	if didPanic {
 		t.Fatalf("expected explicit conflict policy override to prevent panic")
+	}
+}
+
+func TestDefaultFiberAdapterConfigPathConflictModeDefaultsPreferStatic(t *testing.T) {
+	cfg := defaultFiberAdapterConfig(admin.Config{}, true)
+	if cfg.PathConflictMode != gorouter.PathConflictModePreferStatic {
+		t.Fatalf("expected default path conflict mode prefer_static, got %q", cfg.PathConflictMode)
+	}
+}
+
+func TestDefaultFiberAdapterConfigPathConflictModeCanBeOverriddenFromEnv(t *testing.T) {
+	t.Setenv("ADMIN_ROUTE_PATH_CONFLICT_MODE", "strict")
+	cfg := defaultFiberAdapterConfig(admin.Config{}, true)
+	if cfg.PathConflictMode != gorouter.PathConflictModeStrict {
+		t.Fatalf("expected strict path conflict mode from env, got %q", cfg.PathConflictMode)
+	}
+
+	t.Setenv("ADMIN_ROUTE_PATH_CONFLICT_MODE", "prefer-static")
+	cfg = defaultFiberAdapterConfig(admin.Config{}, true)
+	if cfg.PathConflictMode != gorouter.PathConflictModePreferStatic {
+		t.Fatalf("expected prefer_static path conflict mode from env alias, got %q", cfg.PathConflictMode)
+	}
+
+	t.Setenv("ADMIN_ROUTE_PATH_CONFLICT_MODE", "invalid")
+	cfg = defaultFiberAdapterConfig(admin.Config{}, true)
+	if cfg.PathConflictMode != gorouter.PathConflictModePreferStatic {
+		t.Fatalf("expected invalid env values to fallback to prefer_static, got %q", cfg.PathConflictMode)
 	}
 }
 

@@ -25,6 +25,49 @@ type stubGoCMSContentService struct {
 	createTranslationCnt int
 }
 
+type stubGoCMSContentServiceNoTranslation struct {
+	base *stubGoCMSContentService
+}
+
+func (s *stubGoCMSContentServiceNoTranslation) List(ctx context.Context, opts ...cmscontent.ContentListOption) ([]*cmscontent.Content, error) {
+	return s.base.List(ctx, opts...)
+}
+
+func (s *stubGoCMSContentServiceNoTranslation) Get(ctx context.Context, id uuid.UUID, opts ...cmscontent.ContentGetOption) (*cmscontent.Content, error) {
+	return s.base.Get(ctx, id, opts...)
+}
+
+func (s *stubGoCMSContentServiceNoTranslation) Create(ctx context.Context, req cmscontent.CreateContentRequest) (*cmscontent.Content, error) {
+	return s.base.Create(ctx, req)
+}
+
+func (s *stubGoCMSContentServiceNoTranslation) Update(ctx context.Context, req cmscontent.UpdateContentRequest) (*cmscontent.Content, error) {
+	return s.base.Update(ctx, req)
+}
+
+func (s *stubGoCMSContentServiceNoTranslation) Delete(ctx context.Context, req cmscontent.DeleteContentRequest) error {
+	return s.base.Delete(ctx, req)
+}
+
+type stubGoCMSContentTranslationService struct {
+	createTranslationReq stubCreateTranslationRequest
+	createTranslationRes *cmscontent.Content
+	createTranslationErr error
+	createTranslationCnt int
+}
+
+func (s *stubGoCMSContentTranslationService) CreateTranslation(_ context.Context, req stubCreateTranslationRequest) (*cmscontent.Content, error) {
+	s.createTranslationCnt++
+	s.createTranslationReq = req
+	if s.createTranslationErr != nil {
+		return nil, s.createTranslationErr
+	}
+	if s.createTranslationRes != nil {
+		return s.createTranslationRes, nil
+	}
+	return nil, ErrNotFound
+}
+
 type stubCreateTranslationRequest struct {
 	ContentID       uuid.UUID
 	SourceID        uuid.UUID
@@ -403,6 +446,70 @@ func TestGoCMSContentAdapterCreateTranslationUsesOptionalCommand(t *testing.T) {
 	}
 	if contentSvc.createTranslationReq.EnvironmentKey != "staging" {
 		t.Fatalf("expected environment staging, got %q", contentSvc.createTranslationReq.EnvironmentKey)
+	}
+	if created == nil {
+		t.Fatalf("expected created content")
+	}
+	if created.Locale != "fr" {
+		t.Fatalf("expected created locale fr, got %q", created.Locale)
+	}
+	if created.TranslationGroupID != groupID.String() {
+		t.Fatalf("expected group id %s, got %s", groupID.String(), created.TranslationGroupID)
+	}
+}
+
+func TestGoCMSContentAdapterCreateTranslationUsesDedicatedTranslationCapability(t *testing.T) {
+	ctx := context.Background()
+	typeID := uuid.New()
+	sourceID := uuid.New()
+	groupID := uuid.New()
+	typeSvc := newStubContentTypeService(CMSContentType{
+		ID:   typeID.String(),
+		Slug: "posts",
+	})
+	contentSvc := &stubGoCMSContentServiceNoTranslation{
+		base: &stubGoCMSContentService{},
+	}
+	translationSvc := &stubGoCMSContentTranslationService{
+		createTranslationRes: &cmscontent.Content{
+			ID:     uuid.New(),
+			Slug:   "hello-fr",
+			Status: "draft",
+			Type:   &cmscontent.ContentType{Slug: "posts"},
+			Translations: []*cmscontent.ContentTranslation{
+				{
+					Locale:             &cmscontent.Locale{Code: "fr"},
+					Title:              "Bonjour",
+					TranslationGroupID: &groupID,
+					Content:            map[string]any{"body": "bonjour"},
+				},
+			},
+		},
+	}
+	svc := newGoCMSContentAdapter(contentSvc, translationSvc, nil, typeSvc, nil)
+	adapter, ok := svc.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", svc)
+	}
+
+	created, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
+		SourceID:    sourceID.String(),
+		Locale:      "fr",
+		Environment: "staging",
+		ContentType: "posts",
+		Status:      "draft",
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if translationSvc.createTranslationCnt != 1 {
+		t.Fatalf("expected one translation capability call, got %d", translationSvc.createTranslationCnt)
+	}
+	if translationSvc.createTranslationReq.SourceID != sourceID {
+		t.Fatalf("expected source id %s, got %s", sourceID.String(), translationSvc.createTranslationReq.SourceID.String())
+	}
+	if translationSvc.createTranslationReq.TargetLocale != "fr" {
+		t.Fatalf("expected target locale fr, got %q", translationSvc.createTranslationReq.TargetLocale)
 	}
 	if created == nil {
 		t.Fatalf("expected created content")

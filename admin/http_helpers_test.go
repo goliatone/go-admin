@@ -5,7 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	cmscontent "github.com/goliatone/go-cms/content"
+	cmspages "github.com/goliatone/go-cms/pages"
 	router "github.com/goliatone/go-router"
+	"github.com/google/uuid"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 )
 
@@ -288,6 +291,75 @@ func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
 	meta, _ := errPayload["metadata"].(map[string]any)
 	if meta["locale"] != "es" || meta["translation_group_id"] != "tg_123" {
 		t.Fatalf("expected locale/group metadata, got %v", meta)
+	}
+}
+
+func TestWriteErrorMapsGoCMSTranslationAlreadyExists(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/translate", func(c router.Context) error {
+		groupID := uuid.New()
+		return writeError(c, &cmscontent.TranslationAlreadyExistsError{
+			EntityID:           uuid.New(),
+			SourceLocale:       "en",
+			TargetLocale:       "fr",
+			TranslationGroupID: &groupID,
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/translate", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != TextCodeTranslationExists {
+		t.Fatalf("expected %s, got %v", TextCodeTranslationExists, errPayload["text_code"])
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if meta["locale"] != "fr" {
+		t.Fatalf("expected locale fr metadata, got %v", meta)
+	}
+}
+
+func TestWriteErrorMapsGoCMSTranslationValidationAndNotFound(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/translate/invalid-locale", func(c router.Context) error {
+		return writeError(c, &cmspages.InvalidLocaleError{TargetLocale: "xx"})
+	})
+	server.Router().Post("/translate/source-missing", func(c router.Context) error {
+		return writeError(c, cmscontent.ErrSourceNotFound)
+	})
+
+	reqInvalid := httptest.NewRequest("POST", "/translate/invalid-locale", nil)
+	rrInvalid := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rrInvalid, reqInvalid)
+	if rrInvalid.Code != 400 {
+		t.Fatalf("expected 400 for invalid locale, got %d", rrInvalid.Code)
+	}
+	var invalidBody map[string]any
+	_ = json.Unmarshal(rrInvalid.Body.Bytes(), &invalidBody)
+	invalidErr, _ := invalidBody["error"].(map[string]any)
+	if invalidErr["text_code"] != TextCodeValidationError {
+		t.Fatalf("expected %s, got %v", TextCodeValidationError, invalidErr["text_code"])
+	}
+
+	reqMissing := httptest.NewRequest("POST", "/translate/source-missing", nil)
+	rrMissing := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rrMissing, reqMissing)
+	if rrMissing.Code != 404 {
+		t.Fatalf("expected 404 for source not found, got %d", rrMissing.Code)
+	}
+	var missingBody map[string]any
+	_ = json.Unmarshal(rrMissing.Body.Bytes(), &missingBody)
+	missingErr, _ := missingBody["error"].(map[string]any)
+	if missingErr["text_code"] != TextCodeNotFound {
+		t.Fatalf("expected %s, got %v", TextCodeNotFound, missingErr["text_code"])
 	}
 }
 
