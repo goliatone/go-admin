@@ -2,9 +2,12 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 
+	cmscontent "github.com/goliatone/go-cms/content"
+	cmspages "github.com/goliatone/go-cms/pages"
 	"github.com/google/uuid"
 )
 
@@ -33,7 +36,13 @@ func (a *GoCMSContentAdapter) CreateTranslation(ctx context.Context, input Trans
 }
 
 func (a *GoCMSContentAdapter) createTranslationRecord(ctx context.Context, input TranslationCreateInput) (reflect.Value, error) {
-	method := reflect.ValueOf(a.content).MethodByName("CreateTranslation")
+	var method reflect.Value
+	if a.translations != nil {
+		method = reflect.ValueOf(a.translations).MethodByName("CreateTranslation")
+	}
+	if !method.IsValid() {
+		method = reflect.ValueOf(a.content).MethodByName("CreateTranslation")
+	}
 	if !method.IsValid() {
 		return reflect.Value{}, ErrTranslationCreateUnsupported
 	}
@@ -51,7 +60,7 @@ func (a *GoCMSContentAdapter) createTranslationRecord(ctx context.Context, input
 	}
 	if last := results[len(results)-1]; last.IsValid() && last.Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) && !last.IsNil() {
 		if typedErr, ok := last.Interface().(error); ok {
-			return reflect.Value{}, typedErr
+			return reflect.Value{}, normalizeGoCMSTranslationCreateError(typedErr, input)
 		}
 		return reflect.Value{}, ErrNotFound
 	}
@@ -60,6 +69,62 @@ func (a *GoCMSContentAdapter) createTranslationRecord(ctx context.Context, input
 		return reflect.Value{}, ErrNotFound
 	}
 	return record, nil
+}
+
+func normalizeGoCMSTranslationCreateError(err error, input TranslationCreateInput) error {
+	if err == nil {
+		return nil
+	}
+
+	locale := normalizeCreateTranslationLocale(input.Locale)
+	entityID := strings.TrimSpace(input.SourceID)
+	panel := strings.TrimSpace(input.ContentType)
+
+	var contentDup *cmscontent.TranslationAlreadyExistsError
+	if errors.As(err, &contentDup) && contentDup != nil {
+		return TranslationAlreadyExistsError{
+			Panel:              panel,
+			EntityID:           firstNonEmpty(entityID, nonNilUUIDString(contentDup.EntityID)),
+			SourceLocale:       normalizeCreateTranslationLocale(contentDup.SourceLocale),
+			Locale:             normalizeCreateTranslationLocale(firstNonEmpty(contentDup.TargetLocale, locale)),
+			TranslationGroupID: nonNilUUIDPtrString(contentDup.TranslationGroupID),
+		}
+	}
+
+	var pageDup *cmspages.TranslationAlreadyExistsError
+	if errors.As(err, &pageDup) && pageDup != nil {
+		return TranslationAlreadyExistsError{
+			Panel:              panel,
+			EntityID:           firstNonEmpty(entityID, nonNilUUIDString(pageDup.EntityID)),
+			SourceLocale:       normalizeCreateTranslationLocale(pageDup.SourceLocale),
+			Locale:             normalizeCreateTranslationLocale(firstNonEmpty(pageDup.TargetLocale, locale)),
+			TranslationGroupID: nonNilUUIDPtrString(pageDup.TranslationGroupID),
+		}
+	}
+
+	if errors.Is(err, cmscontent.ErrTranslationAlreadyExists) || errors.Is(err, cmspages.ErrTranslationAlreadyExists) {
+		return TranslationAlreadyExistsError{
+			Panel:    panel,
+			EntityID: entityID,
+			Locale:   locale,
+		}
+	}
+
+	return err
+}
+
+func nonNilUUIDString(value uuid.UUID) string {
+	if value == uuid.Nil {
+		return ""
+	}
+	return value.String()
+}
+
+func nonNilUUIDPtrString(value *uuid.UUID) string {
+	if value == nil || *value == uuid.Nil {
+		return ""
+	}
+	return value.String()
 }
 
 func buildCreateTranslationMethodArgs(method reflect.Value, ctx context.Context, input TranslationCreateInput, sourceID uuid.UUID) ([]reflect.Value, error) {
