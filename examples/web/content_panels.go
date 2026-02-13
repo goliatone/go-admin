@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/examples/web/commands"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 // ensureCoreContentPanels guarantees pages/posts panels exist even when
@@ -58,6 +61,9 @@ func ensureCoreContentPanels(adm *admin.Admin, pages stores.PageRepository, post
 		}
 	}
 	if err := ensureCoreContentPanelCommandWiring(adm, pages, posts); err != nil {
+		return err
+	}
+	if err := ensureCoreContentMenuItems(adm); err != nil {
 		return err
 	}
 
@@ -111,4 +117,131 @@ func isDuplicateRegistrationError(err error) bool {
 	}
 	msg := strings.ToLower(strings.TrimSpace(err.Error()))
 	return strings.Contains(msg, "already registered") || strings.Contains(msg, "already exists")
+}
+
+func ensureCoreContentMenuItems(adm *admin.Admin) error {
+	if adm == nil || adm.MenuService() == nil {
+		return nil
+	}
+	ctx := context.Background()
+	menuCode := strings.TrimSpace(adm.NavMenuCode())
+	if menuCode == "" {
+		menuCode = setup.NavigationMenuCode
+	}
+	locale := strings.TrimSpace(adm.DefaultLocale())
+	if locale == "" {
+		locale = "en"
+	}
+	contentParentID := strings.TrimSpace(setup.NavigationSectionContent)
+	if menuCode != "" && !strings.EqualFold(menuCode, setup.NavigationMenuCode) {
+		contentParentID = strings.TrimSpace(menuCode) + ".nav-group-main.content"
+	}
+	if err := quickstart.EnsureDefaultMenuParents(ctx, adm.MenuService(), menuCode, locale); err != nil {
+		return fmt.Errorf("ensure navigation parents: %w", err)
+	}
+
+	basePath := strings.TrimSpace(adm.BasePath())
+	if basePath == "" {
+		basePath = "/admin"
+	}
+	urls := adm.URLs()
+	pagesPath := strings.TrimSpace(quickstart.ResolveAdminPanelURL(urls, basePath, "pages"))
+	if pagesPath == "" {
+		pagesPath = path.Join(basePath, "content", "pages")
+	}
+	postsPath := strings.TrimSpace(quickstart.ResolveAdminPanelURL(urls, basePath, "posts"))
+	if postsPath == "" {
+		postsPath = path.Join(basePath, "content", "posts")
+	}
+
+	items := []admin.MenuItem{
+		{
+			ID:       contentParentID + ".pages",
+			Label:    "Pages",
+			LabelKey: "menu.content.pages",
+			Icon:     "page",
+			Target: map[string]any{
+				"type": "url",
+				"path": pagesPath,
+				"key":  "pages",
+			},
+			Position:    admin.IntPtr(20),
+			Menu:        menuCode,
+			ParentID:    contentParentID,
+			Locale:      locale,
+			Permissions: []string{"admin.pages.view"},
+		},
+		{
+			ID:       contentParentID + ".posts",
+			Label:    "Posts",
+			LabelKey: "menu.content.posts",
+			Icon:     "page",
+			Target: map[string]any{
+				"type": "url",
+				"path": postsPath,
+				"key":  "posts",
+			},
+			Position:    admin.IntPtr(30),
+			Menu:        menuCode,
+			ParentID:    contentParentID,
+			Locale:      locale,
+			Permissions: []string{"admin.posts.view"},
+		},
+	}
+
+	menu, err := adm.MenuService().Menu(ctx, menuCode, locale)
+	if err != nil {
+		return fmt.Errorf("resolve navigation menu: %w", err)
+	}
+	existingItems := []admin.MenuItem{}
+	if menu != nil {
+		existingItems = menu.Items
+	}
+
+	for _, item := range items {
+		if contentMenuItemExists(existingItems, strings.TrimSpace(item.ID), contentMenuTargetKey(item.Target)) {
+			continue
+		}
+		if err := adm.MenuService().AddMenuItem(ctx, menuCode, item); err != nil && !isMenuDuplicateError(err) {
+			return fmt.Errorf("add menu item %s: %w", item.ID, err)
+		}
+	}
+	return nil
+}
+
+func contentMenuItemExists(items []admin.MenuItem, id string, targetKey string) bool {
+	for _, item := range items {
+		itemID := strings.TrimSpace(item.ID)
+		if id != "" && itemID == id {
+			return true
+		}
+		if targetKey != "" && strings.EqualFold(contentMenuTargetKey(item.Target), targetKey) {
+			return true
+		}
+		if len(item.Children) > 0 && contentMenuItemExists(item.Children, id, targetKey) {
+			return true
+		}
+	}
+	return false
+}
+
+func contentMenuTargetKey(target map[string]any) string {
+	if target == nil {
+		return ""
+	}
+	if key, ok := target["key"].(string); ok && strings.TrimSpace(key) != "" {
+		return strings.TrimSpace(key)
+	}
+	if pathVal, ok := target["path"].(string); ok && strings.TrimSpace(pathVal) != "" {
+		return strings.TrimSpace(pathVal)
+	}
+	return ""
+}
+
+func isMenuDuplicateError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(msg, "already exists") || strings.Contains(msg, "duplicate")
 }

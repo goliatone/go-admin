@@ -197,10 +197,10 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		menuSvc = adapter.MenuService()
 	}
 
+	if err := seedCMSBlockDefinitions(ctx, contentSvc, defaultLocale); err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("seed cms block definitions: %w", err)
+	}
 	if seedCfg.Enabled {
-		if err := seedCMSBlockDefinitions(ctx, contentSvc, defaultLocale); err != nil {
-			return admin.CMSOptions{}, fmt.Errorf("seed cms block definitions: %w", err)
-		}
 		if menuSvc != nil {
 			if err := seedCMSDemoContent(ctx, client.DB(), nil, contentSvc, menuSvc, seedRefs, defaultLocale); err != nil {
 				return admin.CMSOptions{}, fmt.Errorf("seed cms demo content: %w", err)
@@ -293,6 +293,9 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 			ID:   "hero",
 			Name: "Hero",
 			Type: "hero",
+			Slug: "hero",
+			Status: "active",
+			Category: "layout",
 			Schema: map[string]any{
 				"$schema":  "https://json-schema.org/draft/2020-12/schema",
 				"type":     "object",
@@ -320,6 +323,9 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 			ID:   "rich_text",
 			Name: "Rich Text",
 			Type: "rich_text",
+			Slug: "rich-text",
+			Status: "active",
+			Category: "content",
 			Schema: map[string]any{
 				"$schema":  "https://json-schema.org/draft/2020-12/schema",
 				"type":     "object",
@@ -346,8 +352,53 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 		},
 	}
 
+	existingByKey := map[string]admin.CMSBlockDefinition{}
+	if existing, err := svc.BlockDefinitions(ctx); err == nil {
+		for _, def := range existing {
+			keys := []string{def.ID, def.Slug, def.Type}
+			for _, key := range keys {
+				normalized := strings.ToLower(strings.TrimSpace(key))
+				if normalized == "" {
+					continue
+				}
+				existingByKey[normalized] = def
+			}
+		}
+	} else {
+		return err
+	}
+
+	lookupExisting := func(def admin.CMSBlockDefinition) (admin.CMSBlockDefinition, bool) {
+		candidates := []string{def.ID, def.Slug, def.Type}
+		for _, candidate := range candidates {
+			normalized := strings.ToLower(strings.TrimSpace(candidate))
+			if normalized == "" {
+				continue
+			}
+			if found, ok := existingByKey[normalized]; ok {
+				return found, true
+			}
+		}
+		return admin.CMSBlockDefinition{}, false
+	}
+
 	for _, def := range defs {
 		def.Locale = locale
+		if existing, ok := lookupExisting(def); ok {
+			update := def
+			if existing.ID != "" {
+				update.ID = existing.ID
+			}
+			if _, err := svc.UpdateBlockDefinition(ctx, update); err == nil {
+				continue
+			} else {
+				lower := strings.ToLower(err.Error())
+				if !strings.Contains(lower, "not found") {
+					return err
+				}
+				// Continue with create fallback when update target can't be resolved.
+			}
+		}
 		if _, err := svc.CreateBlockDefinition(ctx, def); err != nil {
 			lower := strings.ToLower(err.Error())
 			if strings.Contains(lower, "already") || strings.Contains(lower, "exists") {

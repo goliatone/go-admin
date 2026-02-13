@@ -150,6 +150,163 @@ func TestUsersSearchAdapterReflectsStoreChanges(t *testing.T) {
 	}
 }
 
+func TestUserStoreListReturnsGlobalTotalAcrossPages(t *testing.T) {
+	dsn := fmt.Sprintf("file:users_test_pagination_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+	deps, _, _, err := setup.SetupUsers(context.Background(), dsn)
+	if err != nil {
+		t.Fatalf("failed to setup users: %v", err)
+	}
+	store, err := stores.NewUserStore(deps)
+	if err != nil {
+		t.Fatalf("failed to build user store: %v", err)
+	}
+	store.Teardown()
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID: "admin-pagination",
+		Subject: "admin@example.com",
+		Role:    "admin",
+	})
+
+	createTestUsers(t, store, ctx, 60)
+
+	pageOne, total, err := store.List(ctx, admin.ListOptions{
+		Page:    1,
+		PerPage: 25,
+	})
+	if err != nil {
+		t.Fatalf("page 1 list failed: %v", err)
+	}
+	if total != 60 {
+		t.Fatalf("expected total=60 on page 1, got %d", total)
+	}
+	if len(pageOne) != 25 {
+		t.Fatalf("expected 25 records on page 1, got %d", len(pageOne))
+	}
+
+	pageThree, total, err := store.List(ctx, admin.ListOptions{
+		Page:    3,
+		PerPage: 25,
+	})
+	if err != nil {
+		t.Fatalf("page 3 list failed: %v", err)
+	}
+	if total != 60 {
+		t.Fatalf("expected total=60 on page 3, got %d", total)
+	}
+	if len(pageThree) != 10 {
+		t.Fatalf("expected 10 records on page 3, got %d", len(pageThree))
+	}
+}
+
+func TestUserStoreListAppliesSortAndExtendedFiltersBeforePagination(t *testing.T) {
+	dsn := fmt.Sprintf("file:users_test_postprocessing_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+	deps, _, _, err := setup.SetupUsers(context.Background(), dsn)
+	if err != nil {
+		t.Fatalf("failed to setup users: %v", err)
+	}
+	store, err := stores.NewUserStore(deps)
+	if err != nil {
+		t.Fatalf("failed to build user store: %v", err)
+	}
+	store.Teardown()
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID: "admin-postprocessing",
+		Subject: "admin@example.com",
+		Role:    "admin",
+	})
+
+	createTestUsers(t, store, ctx, 60)
+
+	sortedPageOne, total, err := store.List(ctx, admin.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		SortBy:  "username",
+	})
+	if err != nil {
+		t.Fatalf("sorted page 1 list failed: %v", err)
+	}
+	if total != 60 {
+		t.Fatalf("expected total=60 for sorted list, got %d", total)
+	}
+	if len(sortedPageOne) != 10 {
+		t.Fatalf("expected 10 records on sorted page 1, got %d", len(sortedPageOne))
+	}
+	if got := fmt.Sprint(sortedPageOne[0]["username"]); got != "user.000" {
+		t.Fatalf("expected first sorted username user.000, got %s", got)
+	}
+
+	sortedPageTwo, total, err := store.List(ctx, admin.ListOptions{
+		Page:    2,
+		PerPage: 10,
+		SortBy:  "username",
+	})
+	if err != nil {
+		t.Fatalf("sorted page 2 list failed: %v", err)
+	}
+	if total != 60 {
+		t.Fatalf("expected total=60 for sorted page 2, got %d", total)
+	}
+	if len(sortedPageTwo) != 10 {
+		t.Fatalf("expected 10 records on sorted page 2, got %d", len(sortedPageTwo))
+	}
+	if got := fmt.Sprint(sortedPageTwo[0]["username"]); got != "user.010" {
+		t.Fatalf("expected first sorted username on page 2 user.010, got %s", got)
+	}
+
+	filteredPageOne, total, err := store.List(ctx, admin.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{"role__in": "member"},
+	})
+	if err != nil {
+		t.Fatalf("filtered page 1 list failed: %v", err)
+	}
+	if total != 30 {
+		t.Fatalf("expected member filter total=30, got %d", total)
+	}
+	if len(filteredPageOne) != 10 {
+		t.Fatalf("expected 10 member records on page 1, got %d", len(filteredPageOne))
+	}
+
+	filteredPageThree, total, err := store.List(ctx, admin.ListOptions{
+		Page:    3,
+		PerPage: 10,
+		Filters: map[string]any{"role__in": "member"},
+	})
+	if err != nil {
+		t.Fatalf("filtered page 3 list failed: %v", err)
+	}
+	if total != 30 {
+		t.Fatalf("expected member filter total=30 on page 3, got %d", total)
+	}
+	if len(filteredPageThree) != 10 {
+		t.Fatalf("expected 10 member records on page 3, got %d", len(filteredPageThree))
+	}
+}
+
+func createTestUsers(t *testing.T, store *stores.UserStore, ctx context.Context, total int) {
+	t.Helper()
+	for i := 0; i < total; i++ {
+		role := "admin"
+		if i%2 == 0 {
+			role = "member"
+		}
+		username := fmt.Sprintf("user.%03d", i)
+		email := fmt.Sprintf("%s@example.com", username)
+		_, err := store.Create(ctx, map[string]any{
+			"username": username,
+			"email":    email,
+			"role":     role,
+			"status":   "active",
+		})
+		if err != nil {
+			t.Fatalf("create user %d failed: %v", i, err)
+		}
+	}
+}
+
 type recordingActivitySink struct {
 	entries []admin.ActivityEntry
 }

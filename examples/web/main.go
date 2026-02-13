@@ -43,6 +43,7 @@ import (
 	"github.com/goliatone/go-users/activity"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 	"github.com/goliatone/go-users/preferences"
+	"github.com/google/uuid"
 )
 
 //go:embed openapi/* templates/**
@@ -52,6 +53,7 @@ const (
 	exportPipelinePanelID         = "export_pipeline"
 	exportPipelineSnapshotLimit   = 25
 	exportPipelinePublishInterval = 750 * time.Millisecond
+	authzPreflightDefaultRolesCSV = "superadmin,owner"
 )
 
 func main() {
@@ -128,7 +130,7 @@ func main() {
 		registrationCfg.Allowlist = splitAndTrimCSV(allowlist)
 	}
 
-	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
+	isDev := isDevelopmentEnv()
 
 	debugEnabled := cfg.Debug.Enabled
 	scopeDebugEnabled := quickstart.ScopeDebugEnabledFromEnv()
@@ -308,6 +310,19 @@ func main() {
 	cmsBackend := adapterResult.CMSBackend
 	settingsBackend := adapterResult.SettingsBackend
 	activityBackend := adapterResult.ActivityBackend
+	preflightReport, err := runTranslationAuthzPreflight(context.Background(), adm, cfg, usersDeps.RoleRegistry, isDev)
+	if err != nil {
+		log.Fatalf("authorization preflight failed: %v", err)
+	}
+	if preflightReport.Mode != authzPreflightModeOff && len(preflightReport.RequiredPermissions) > 0 && len(preflightReport.Issues) == 0 {
+		log.Printf(
+			"authz.preflight passed mode=%s modules=%v roles=%v permissions=%v",
+			preflightReport.Mode,
+			preflightReport.Modules,
+			preflightReport.RoleKeys,
+			preflightReport.RequiredPermissions,
+		)
+	}
 
 	// Initialize data stores (CMS-backed only)
 	cmsContentSvc := admin.CMSContentService(nil)
@@ -579,7 +594,19 @@ func main() {
 	}
 
 	// Initialize Fiber server
-	server, r := quickstart.NewFiberServer(viewEngine, cfg, adm, isDev)
+	server, r := quickstart.NewFiberServer(
+		viewEngine,
+		cfg,
+		adm,
+		isDev,
+		quickstart.WithFiberAdapterConfig(func(adapterCfg *router.FiberAdapterConfig) {
+			if adapterCfg == nil {
+				return
+			}
+			policy := router.HTTPRouterConflictLogAndContinue
+			adapterCfg.ConflictPolicy = &policy
+		}),
+	)
 
 	// Static assets
 	// Prefer serving assets from disk when available (dev flow), and fall back to embedded assets.
@@ -650,6 +677,13 @@ func main() {
 	)
 	usersModule := quickstart.NewUsersModule(
 		admin.WithUserMenuParent(setup.NavigationGroupMain),
+		admin.WithUsersPanelConfigurer(func(builder *admin.PanelBuilder) *admin.PanelBuilder {
+			if builder == nil {
+				return nil
+			}
+			// Users HTML routes are owned by examples/web/handlers/users.go.
+			return builder.WithUIRouteMode(admin.PanelUIRouteModeCustom)
+		}),
 		admin.WithUserProfilesPanel(),
 		admin.WithUserPanelTabs(
 			admin.PanelTab{
@@ -703,7 +737,13 @@ func main() {
 		modules = append(modules, admin.NewDebugModule(cfg.Debug).WithMenuParent(setup.NavigationGroupOthers))
 	}
 
-	if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev); err != nil {
+	if err := quickstart.NewModuleRegistrar(
+		adm,
+		cfg,
+		modules,
+		isDev,
+		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeNone),
+	); err != nil {
 		log.Fatalf("failed to register modules: %v", err)
 	}
 	if err := ensureCoreContentPanels(adm, dataStores.Pages, dataStores.Posts); err != nil {
@@ -793,6 +833,7 @@ func main() {
 		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), adm.FeatureGate())
 		return c.JSON(fiber.StatusOK, session)
 	}))
+	r.Get(path.Join(adminAPIBasePath, "debug", "permissions"), wrapAuthed(permissionDiagnosticsHandler(adm)))
 	if scopeDebugEnabled {
 		r.Get(path.Join(adminAPIBasePath, "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 	}
@@ -861,10 +902,19 @@ func main() {
 	// HTML routes
 	userHandlers := handlers.NewUserHandlers(dataStores.Users, formGenerator, adm, cfg, helpers.WithNav)
 	userProfileHandlers := handlers.NewUserProfileHandlers(dataStores.UserProfiles, formGenerator, adm, cfg, helpers.WithNav)
+	usersBase := path.Join(cfg.BasePath, "users")
 
 	// Optional metadata endpoint for frontend DataGrid column definitions.
 	r.Get(path.Join(adminAPIBasePath, "users", "columns"), wrapAuthed(userHandlers.Columns))
 	r.Get(path.Join(adminAPIBasePath, "user-profiles", "columns"), wrapAuthed(userProfileHandlers.Columns))
+	// Users UI routes are custom and intentionally separate from generic content-entry handlers.
+	r.Get(usersBase, wrapAuthed(userHandlers.List))
+	r.Get(path.Join(usersBase, "new"), wrapAuthed(userHandlers.New))
+	r.Post(usersBase, wrapAuthed(userHandlers.Create))
+	r.Get(path.Join(usersBase, ":id"), wrapAuthed(userHandlers.Detail))
+	r.Get(path.Join(usersBase, ":id", "edit"), wrapAuthed(userHandlers.Edit))
+	r.Post(path.Join(usersBase, ":id"), wrapAuthed(userHandlers.Update))
+	r.Post(path.Join(usersBase, ":id", "delete"), wrapAuthed(userHandlers.Delete))
 	// Build UI route options with conditional translation module routes.
 	// When translation exchange is enabled via feature gate (profile or explicit toggle),
 	// register the translation exchange UI route for import/export operations.
@@ -1280,6 +1330,413 @@ func envBool(key string) (bool, bool) {
 		return false, false
 	}
 	return parsed, true
+}
+
+type authzPreflightMode string
+
+const (
+	authzPreflightModeOff    authzPreflightMode = "off"
+	authzPreflightModeWarn   authzPreflightMode = "warn"
+	authzPreflightModeStrict authzPreflightMode = "strict"
+)
+
+type translationAuthzPreflightIssue struct {
+	RoleKey            string   `json:"role_key"`
+	Issue              string   `json:"issue"`
+	Scope              string   `json:"scope,omitempty"`
+	MissingPermissions []string `json:"missing_permissions,omitempty"`
+}
+
+type translationAuthzPreflightReport struct {
+	Mode                authzPreflightMode               `json:"mode"`
+	Modules             map[string]bool                  `json:"modules"`
+	RoleKeys            []string                         `json:"role_keys"`
+	RequiredPermissions []string                         `json:"required_permissions"`
+	Issues              []translationAuthzPreflightIssue `json:"issues,omitempty"`
+}
+
+func runTranslationAuthzPreflight(
+	ctx context.Context,
+	adm *admin.Admin,
+	cfg admin.Config,
+	roleRegistry userstypes.RoleRegistry,
+	isDev bool,
+) (translationAuthzPreflightReport, error) {
+	mode := resolveAuthzPreflightMode(isDev)
+	required, modules := translationOperationRequiredPermissions(nil)
+	if adm != nil {
+		required, modules = translationOperationRequiredPermissions(adm.FeatureGate())
+	}
+	report := translationAuthzPreflightReport{
+		Mode:                mode,
+		Modules:             modules,
+		RoleKeys:            resolveAuthzPreflightRoleKeys(),
+		RequiredPermissions: required,
+	}
+	if mode == authzPreflightModeOff || len(required) == 0 {
+		return report, nil
+	}
+	if roleRegistry == nil {
+		report.Issues = append(report.Issues, translationAuthzPreflightIssue{
+			RoleKey:            "*",
+			Issue:              "role_registry_unavailable",
+			MissingPermissions: append([]string{}, required...),
+		})
+		return finalizeTranslationAuthzPreflight(report)
+	}
+
+	scopes := authzPreflightScopeCandidates(cfg)
+	for _, roleKey := range report.RoleKeys {
+		role, scope, err := findRoleByKey(ctx, roleRegistry, roleKey, scopes)
+		if err != nil {
+			return report, err
+		}
+		if role == nil {
+			report.Issues = append(report.Issues, translationAuthzPreflightIssue{
+				RoleKey:            roleKey,
+				Issue:              "role_missing",
+				MissingPermissions: append([]string{}, required...),
+			})
+			continue
+		}
+		missing := missingPermissions(required, role.Permissions)
+		if len(missing) > 0 {
+			report.Issues = append(report.Issues, translationAuthzPreflightIssue{
+				RoleKey:            roleKey,
+				Issue:              "permissions_missing",
+				Scope:              formatScope(scope),
+				MissingPermissions: missing,
+			})
+		}
+	}
+	return finalizeTranslationAuthzPreflight(report)
+}
+
+func finalizeTranslationAuthzPreflight(report translationAuthzPreflightReport) (translationAuthzPreflightReport, error) {
+	if len(report.Issues) == 0 {
+		return report, nil
+	}
+	for _, issue := range report.Issues {
+		log.Printf(
+			"warning: authz.preflight issue=%s role=%s scope=%s missing=%s",
+			issue.Issue,
+			issue.RoleKey,
+			strings.TrimSpace(issue.Scope),
+			strings.Join(issue.MissingPermissions, ","),
+		)
+	}
+	if report.Mode != authzPreflightModeStrict {
+		return report, nil
+	}
+	failures := make([]string, 0, len(report.Issues))
+	for _, issue := range report.Issues {
+		failures = append(failures, fmt.Sprintf("%s[%s]:%s", issue.RoleKey, issue.Issue, strings.Join(issue.MissingPermissions, ",")))
+	}
+	return report, fmt.Errorf("translation authz preflight failed (%s)", strings.Join(failures, "; "))
+}
+
+func resolveAuthzPreflightMode(isDev bool) authzPreflightMode {
+	raw := strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_AUTHZ_PREFLIGHT")))
+	switch raw {
+	case "off", "false", "0", "disabled", "none":
+		return authzPreflightModeOff
+	case "strict", "fail", "fatal", "error":
+		return authzPreflightModeStrict
+	case "warn", "warning", "on", "true", "1":
+		return authzPreflightModeWarn
+	case "":
+		if isDev {
+			return authzPreflightModeWarn
+		}
+		return authzPreflightModeOff
+	default:
+		if isDev {
+			log.Printf("warning: unknown ADMIN_AUTHZ_PREFLIGHT=%q, defaulting to warn", raw)
+			return authzPreflightModeWarn
+		}
+		return authzPreflightModeOff
+	}
+}
+
+func resolveAuthzPreflightRoleKeys() []string {
+	raw := strings.TrimSpace(os.Getenv("ADMIN_AUTHZ_PREFLIGHT_ROLES"))
+	if raw == "" {
+		raw = authzPreflightDefaultRolesCSV
+	}
+	values := splitAndTrimCSV(raw)
+	if len(values) == 0 {
+		return []string{"superadmin", "owner"}
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		key := strings.ToLower(strings.TrimSpace(value))
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, key)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func translationOperationRequiredPermissions(gate fggate.FeatureGate) ([]string, map[string]bool) {
+	modules := map[string]bool{
+		"exchange": featureEnabled(gate, string(coreadmin.FeatureTranslationExchange)),
+		"queue":    featureEnabled(gate, string(coreadmin.FeatureTranslationQueue)),
+	}
+	required := []string{}
+	if modules["exchange"] {
+		required = append(required,
+			coreadmin.PermAdminTranslationsExport,
+			coreadmin.PermAdminTranslationsImportView,
+			coreadmin.PermAdminTranslationsImportValidate,
+			coreadmin.PermAdminTranslationsImportApply,
+		)
+	}
+	if modules["queue"] {
+		required = append(required,
+			coreadmin.PermAdminTranslationsView,
+			coreadmin.PermAdminTranslationsAssign,
+			coreadmin.PermAdminTranslationsEdit,
+			coreadmin.PermAdminTranslationsApprove,
+			coreadmin.PermAdminTranslationsManage,
+			coreadmin.PermAdminTranslationsClaim,
+		)
+	}
+	return dedupeSortedStrings(required), modules
+}
+
+func authzPreflightScopeCandidates(cfg admin.Config) []userstypes.ScopeFilter {
+	candidates := []userstypes.ScopeFilter{}
+	primary := quickstart.ScopeConfigFromAdmin(cfg)
+	if primary.Mode == quickstart.ScopeModeSingle {
+		candidates = append(candidates, userstypes.ScopeFilter{
+			TenantID: parseScopeUUID(primary.DefaultTenantID),
+			OrgID:    parseScopeUUID(primary.DefaultOrgID),
+		})
+	}
+	seed := quickstart.DefaultScopeConfig()
+	candidates = append(candidates, userstypes.ScopeFilter{
+		TenantID: parseScopeUUID(seed.DefaultTenantID),
+		OrgID:    parseScopeUUID(seed.DefaultOrgID),
+	})
+	candidates = append(candidates, userstypes.ScopeFilter{})
+
+	seen := map[string]bool{}
+	out := make([]userstypes.ScopeFilter, 0, len(candidates))
+	for _, candidate := range candidates {
+		key := formatScope(candidate)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, candidate)
+	}
+	return out
+}
+
+func parseScopeUUID(raw string) uuid.UUID {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return uuid.Nil
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
+}
+
+func formatScope(scope userstypes.ScopeFilter) string {
+	tenant := "-"
+	org := "-"
+	if scope.TenantID != uuid.Nil {
+		tenant = scope.TenantID.String()
+	}
+	if scope.OrgID != uuid.Nil {
+		org = scope.OrgID.String()
+	}
+	return "tenant=" + tenant + ",org=" + org
+}
+
+func findRoleByKey(
+	ctx context.Context,
+	registry userstypes.RoleRegistry,
+	roleKey string,
+	scopes []userstypes.ScopeFilter,
+) (*userstypes.RoleDefinition, userstypes.ScopeFilter, error) {
+	if registry == nil {
+		return nil, userstypes.ScopeFilter{}, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	roleKey = strings.TrimSpace(roleKey)
+	for _, scope := range scopes {
+		page, err := registry.ListRoles(ctx, userstypes.RoleFilter{
+			RoleKey:       roleKey,
+			IncludeSystem: true,
+			Scope:         scope,
+		})
+		if err != nil {
+			return nil, scope, err
+		}
+		if len(page.Roles) == 0 {
+			continue
+		}
+		role := page.Roles[0]
+		return &role, scope, nil
+	}
+	return nil, userstypes.ScopeFilter{}, nil
+}
+
+func missingPermissions(required, granted []string) []string {
+	if len(required) == 0 {
+		return nil
+	}
+	grantedSet := map[string]bool{}
+	for _, permission := range granted {
+		key := strings.ToLower(strings.TrimSpace(permission))
+		if key != "" {
+			grantedSet[key] = true
+		}
+	}
+	missing := make([]string, 0, len(required))
+	for _, permission := range required {
+		key := strings.ToLower(strings.TrimSpace(permission))
+		if key == "" || grantedSet[key] {
+			continue
+		}
+		missing = append(missing, permission)
+	}
+	sort.Strings(missing)
+	return missing
+}
+
+func dedupeSortedStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		key := strings.ToLower(value)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func permissionDiagnosticsHandler(adm *admin.Admin) router.HandlerFunc {
+	return func(c router.Context) error {
+		payload := permissionDiagnosticsSnapshot(adm, c.Context())
+		return c.JSON(fiber.StatusOK, payload)
+	}
+}
+
+func permissionDiagnosticsSnapshot(adm *admin.Admin, ctx context.Context) map[string]any {
+	gate := fggate.FeatureGate(nil)
+	if adm != nil {
+		gate = adm.FeatureGate()
+	}
+	session := helpers.FilterSessionUser(helpers.BuildSessionUser(ctx), gate)
+	granted := permissionListFromAny(session.Metadata["permissions"])
+	payload := buildPermissionDiagnosticsPayload(adm, ctx, granted)
+	payload["user"] = session
+	return payload
+}
+
+func buildPermissionDiagnosticsPayload(adm *admin.Admin, ctx context.Context, granted []string) map[string]any {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	gate := fggate.FeatureGate(nil)
+	if adm != nil {
+		gate = adm.FeatureGate()
+	}
+	required, modules := translationOperationRequiredPermissions(gate)
+	granted = dedupeSortedStrings(granted)
+	missing := missingPermissions(required, granted)
+
+	checks := map[string]bool{}
+	if adm != nil && adm.Authorizer() != nil {
+		for _, permission := range required {
+			checks[permission] = adm.Authorizer().Can(ctx, permission, "translations")
+		}
+	}
+
+	hints := []string{}
+	if len(missing) > 0 {
+		hints = append(hints, "Grant missing permissions to the current role.")
+		hints = append(hints, "Sign out and sign back in to refresh JWT permission claims.")
+	}
+
+	return map[string]any{
+		"timestamp":            time.Now().UTC(),
+		"modules":              modules,
+		"enabled_modules":      enabledModuleKeys(modules),
+		"required_permissions": required,
+		"claims_permissions":   granted,
+		"granted_permissions":  granted,
+		"missing_permissions":  missing,
+		"permission_checks":    checks,
+		"preflight_mode":       resolveAuthzPreflightMode(isDevelopmentEnv()),
+		"hints":                hints,
+	}
+}
+
+func enabledModuleKeys(modules map[string]bool) []string {
+	if len(modules) == 0 {
+		return nil
+	}
+	enabled := make([]string, 0, len(modules))
+	for key, value := range modules {
+		if value {
+			enabled = append(enabled, strings.TrimSpace(key))
+		}
+	}
+	sort.Strings(enabled)
+	return enabled
+}
+
+func permissionListFromAny(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return dedupeSortedStrings(typed)
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if str, ok := item.(string); ok {
+				out = append(out, str)
+			}
+		}
+		return dedupeSortedStrings(out)
+	case string:
+		raw := strings.TrimSpace(typed)
+		if raw == "" {
+			return nil
+		}
+		parts := strings.FieldsFunc(raw, func(r rune) bool {
+			return r == ',' || r == ';' || r == ' '
+		})
+		return dedupeSortedStrings(parts)
+	default:
+		return nil
+	}
+}
+
+func isDevelopmentEnv() bool {
+	return strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
 }
 
 func parseRegistrationMode(raw string, fallback setup.RegistrationMode) setup.RegistrationMode {

@@ -68,6 +68,29 @@ func TestEnsureCoreContentPanelsRequiresMissingRepositories(t *testing.T) {
 	}
 }
 
+func TestEnsureCoreContentPanelsEnsuresPagesAndPostsMenuItems(t *testing.T) {
+	adm := mustNewWebTestAdmin(t)
+
+	if err := ensureCoreContentPanels(adm, &stubPageRepository{}, &stubPostRepository{}); err != nil {
+		t.Fatalf("ensure core content panels: %v", err)
+	}
+
+	menu, err := adm.MenuService().Menu(context.Background(), adm.NavMenuCode(), adm.DefaultLocale())
+	if err != nil {
+		t.Fatalf("resolve menu: %v", err)
+	}
+	if menu == nil {
+		t.Fatalf("expected menu")
+	}
+
+	if item := findMenuItemByTargetKey(menu.Items, "pages"); item == nil {
+		t.Fatalf("expected pages menu item")
+	}
+	if item := findMenuItemByTargetKey(menu.Items, "posts"); item == nil {
+		t.Fatalf("expected posts menu item")
+	}
+}
+
 func mustNewWebTestAdmin(t *testing.T) *admin.Admin {
 	t.Helper()
 
@@ -192,4 +215,25 @@ func mapIDs(ids []string) []map[string]any {
 		out = append(out, map[string]any{"id": id})
 	}
 	return out
+}
+
+func findMenuItemByTargetKey(items []admin.MenuItem, key string) *admin.MenuItem {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return nil
+	}
+	for i := range items {
+		item := &items[i]
+		if item.Target != nil {
+			if raw, ok := item.Target["key"].(string); ok && strings.EqualFold(strings.TrimSpace(raw), key) {
+				return item
+			}
+		}
+		if len(item.Children) > 0 {
+			if found := findMenuItemByTargetKey(item.Children, key); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 // pagesModule registers the pages panel and menu entry.
@@ -57,7 +58,7 @@ func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
 			Icon:     "page",
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join(m.basePath, "content", "pages"),
+				"path": quickstart.ResolveAdminPanelURL(nil, m.basePath, "pages"),
 				"key":  "pages",
 			},
 			ParentID:    m.parentID,
@@ -119,7 +120,7 @@ func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
 			Icon:     "post",
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join(m.basePath, "content", "posts"),
+				"path": quickstart.ResolveAdminPanelURL(nil, m.basePath, "posts"),
 				"key":  "posts",
 			},
 			ParentID:    m.parentID,
@@ -206,7 +207,7 @@ func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 			Icon:     "media-image",
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join(m.basePath, "media"),
+				"path": quickstart.ResolveAdminPanelURL(nil, m.basePath, "media"),
 				"key":  "media",
 			},
 			ParentID:    m.parentID,

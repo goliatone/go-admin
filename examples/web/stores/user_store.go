@@ -357,15 +357,29 @@ func (s *UserStore) List(ctx context.Context, opts admin.ListOptions) ([]map[str
 	}
 
 	ctx, filter := userInventoryFilterFromOptions(ctx, opts)
-	page, err := s.repo.ListUsers(ctx, filter)
-	if err != nil {
-		return nil, 0, err
+	ext, hasExtendedFilters := userFilterExtensionsFromContext(ctx)
+	sortingRequested := strings.TrimSpace(opts.SortBy) != ""
+	// inventory pagination only knows native go-users filters; when we apply
+	// extra filters or custom sorting in this store, we must materialize the
+	// full candidate set first so `total` and page slices remain correct.
+	requiresInMemoryPostProcessing := hasExtendedFilters || sortingRequested
+
+	if !requiresInMemoryPostProcessing {
+		page, err := s.repo.ListUsers(ctx, filter)
+		if err != nil {
+			return nil, 0, err
+		}
+		results := make([]map[string]any, 0, len(page.Users))
+		for _, user := range page.Users {
+			record := userToMap(&user, lastLoginFromUser(&user, s.repo))
+			results = append(results, record)
+		}
+		return results, page.Total, nil
 	}
 
-	// Apply post-filtering for advanced filters stored in context
-	filteredUsers := page.Users
-	if ext, ok := ctx.Value(userFilterExtensionsKey).(userFilterExtensions); ok {
-		filteredUsers = applyExtendedFilters(page.Users, ext)
+	filteredUsers, err := s.listUsersForPostProcessing(ctx, filter, ext, hasExtendedFilters)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	results := make([]map[string]any, 0, len(filteredUsers))
@@ -373,13 +387,67 @@ func (s *UserStore) List(ctx context.Context, opts admin.ListOptions) ([]map[str
 		record := userToMap(&user, lastLoginFromUser(&user, s.repo))
 		results = append(results, record)
 	}
-
-	// Apply sorting if specified
-	if opts.SortBy != "" {
+	if sortingRequested {
 		sortUserResults(results, opts.SortBy, opts.SortDesc)
 	}
 
-	return results, len(results), nil
+	total := len(results)
+	return paginateRecordSlice(results, opts), total, nil
+}
+
+func userFilterExtensionsFromContext(ctx context.Context) (userFilterExtensions, bool) {
+	if ctx == nil {
+		return userFilterExtensions{}, false
+	}
+	ext, ok := ctx.Value(userFilterExtensionsKey).(userFilterExtensions)
+	if !ok {
+		return userFilterExtensions{}, false
+	}
+	hasFilters := len(ext.RoleFilters) > 0 || len(ext.UsernameFilters) > 0 || len(ext.EmailFilters) > 0
+	return ext, hasFilters
+}
+
+func (s *UserStore) listUsersForPostProcessing(ctx context.Context, filter types.UserInventoryFilter, ext userFilterExtensions, applyExtended bool) ([]types.AuthUser, error) {
+	limit := filter.Pagination.Limit
+	if limit <= 0 {
+		limit = defaultUserPageSize
+	}
+	if limit < 50 {
+		limit = 50
+	}
+
+	fetch := filter
+	fetch.Pagination = types.Pagination{Limit: limit, Offset: 0}
+
+	out := make([]types.AuthUser, 0, limit)
+	for {
+		page, err := s.repo.ListUsers(ctx, fetch)
+		if err != nil {
+			return nil, err
+		}
+		if len(page.Users) == 0 {
+			break
+		}
+
+		batch := page.Users
+		if applyExtended {
+			batch = applyExtendedFilters(batch, ext)
+		}
+		if len(batch) > 0 {
+			out = append(out, batch...)
+		}
+
+		fetched := fetch.Pagination.Offset + len(page.Users)
+		if page.Total > 0 && fetched >= page.Total {
+			break
+		}
+		if len(page.Users) < fetch.Pagination.Limit {
+			break
+		}
+		fetch.Pagination.Offset += fetch.Pagination.Limit
+	}
+
+	return out, nil
 }
 
 // Get returns a single user by ID.
@@ -1471,14 +1539,11 @@ func (r *userRepositoryAdapter) GetByIDTx(ctx context.Context, _ bun.IDB, id str
 }
 
 func (r *userRepositoryAdapter) List(ctx context.Context, criteria ...repository.SelectCriteria) ([]*User, int, error) {
-	fmt.Printf("[DEBUG] List called with %d criteria\n", len(criteria))
 	opts := extractListOptionsFromCriteria(ctx, criteria)
-	fmt.Printf("[DEBUG] Extracted options: PerPage=%d, Page=%d, Filters=%+v\n", opts.PerPage, opts.Page, opts.Filters)
 	records, total, err := r.store.List(ctx, opts)
 	if err != nil {
 		return nil, 0, err
 	}
-	fmt.Printf("[DEBUG] Store returned %d records, total=%d\n", len(records), total)
 	results := make([]*User, 0, len(records))
 	for _, record := range records {
 		results = append(results, mapToUserRecord(record))
