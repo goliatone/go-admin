@@ -171,6 +171,62 @@ func TestPagesAndPostsPanelsExposeTranslationWorkflowActions(t *testing.T) {
 	}
 }
 
+func TestPagesAndPostsPanelsExposeTranslationAwareListFields(t *testing.T) {
+	repo := translationActionRepoStub{}
+	cases := []struct {
+		name           string
+		builder        *admin.PanelBuilder
+		requiredFields []string
+	}{
+		{
+			name:    "pages",
+			builder: NewPagesPanelBuilder(repo),
+			requiredFields: []string{
+				"locale",
+				"translation_status",
+				"available_locales",
+				"translation_readiness",
+				"missing_translations",
+			},
+		},
+		{
+			name:    "posts",
+			builder: NewPostsPanelBuilder(repo),
+			requiredFields: []string{
+				"locale",
+				"translation_status",
+				"available_locales",
+				"translation_readiness",
+				"missing_translations",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			panel, err := tc.builder.Build()
+			if err != nil {
+				t.Fatalf("build panel: %v", err)
+			}
+
+			byName := map[string]admin.Field{}
+			for _, field := range panel.Schema().ListFields {
+				byName[field.Name] = field
+			}
+
+			for _, name := range tc.requiredFields {
+				field, ok := byName[name]
+				if !ok {
+					t.Fatalf("expected %q in list fields", name)
+				}
+				if strings.TrimSpace(field.Label) == "" {
+					t.Fatalf("expected %q label to be non-empty", name)
+				}
+			}
+		})
+	}
+}
+
 func findAction(actions []admin.Action, name string) (admin.Action, bool) {
 	for _, action := range actions {
 		if action.Name == name {

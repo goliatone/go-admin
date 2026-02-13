@@ -188,6 +188,10 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 			admin.Field{Name: "parent_id", Label: "Parent", LabelKey: "fields.parent", Type: "text"},
 			admin.Field{Name: "template_id", Label: "Template", LabelKey: "fields.template", Type: "text"},
 			admin.Field{Name: "locale", Label: "Locale", LabelKey: "fields.locale", Type: "text"},
+			admin.Field{Name: "translation_status", Label: "Translation", LabelKey: "fields.translation_status", Type: "text"},
+			admin.Field{Name: "available_locales", Label: "Available Locales", LabelKey: "fields.available_locales", Type: "array"},
+			admin.Field{Name: "translation_readiness", Label: "Readiness", LabelKey: "fields.translation_readiness", Type: "text"},
+			admin.Field{Name: "missing_translations", Label: "Missing", LabelKey: "fields.missing_translations", Type: "text"},
 			admin.Field{Name: "updated_at", Label: "Updated", LabelKey: "fields.updated_at", Type: "datetime"},
 		).
 		FormFields(
@@ -278,6 +282,11 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 				{Value: "scheduled", Label: "Scheduled", LabelKey: "status.scheduled"},
 				{Value: "archived", Label: "Archived", LabelKey: "status.archived"},
 			}},
+			admin.Field{Name: "locale", Label: "Locale", LabelKey: "fields.locale", Type: "text"},
+			admin.Field{Name: "translation_status", Label: "Translation", LabelKey: "fields.translation_status", Type: "text"},
+			admin.Field{Name: "available_locales", Label: "Available Locales", LabelKey: "fields.available_locales", Type: "array"},
+			admin.Field{Name: "translation_readiness", Label: "Readiness", LabelKey: "fields.translation_readiness", Type: "text"},
+			admin.Field{Name: "missing_translations", Label: "Missing", LabelKey: "fields.missing_translations", Type: "text"},
 			admin.Field{Name: "path", Label: "Path", LabelKey: "fields.path", Type: "text"},
 			admin.Field{Name: "published_at", Label: "Published", LabelKey: "fields.published_at", Type: "datetime"},
 		).
@@ -323,6 +332,7 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 		Filters(
 			admin.Filter{Name: "category", Label: "Category", LabelKey: "fields.category", Type: "select"},
 			admin.Filter{Name: "status", Label: "Status", LabelKey: "fields.status", Type: "select"},
+			admin.Filter{Name: "locale", Label: "Locale", LabelKey: "fields.locale", Type: "text"},
 			admin.Filter{Name: "author", Label: "Author", LabelKey: "fields.author", Type: "text"},
 		).
 		Actions(

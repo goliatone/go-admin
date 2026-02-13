@@ -464,21 +464,40 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 }
 
 func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
+	requestedLocale := strings.TrimSpace(content.RequestedLocale)
+	if requestedLocale == "" {
+		requestedLocale = strings.TrimSpace(content.Locale)
+	}
+	resolvedLocale := strings.TrimSpace(content.ResolvedLocale)
+	if resolvedLocale == "" {
+		resolvedLocale = strings.TrimSpace(content.Locale)
+	}
+	missingRequestedLocale := content.MissingRequestedLocale
+	if !missingRequestedLocale && requestedLocale != "" && resolvedLocale != "" && !strings.EqualFold(requestedLocale, resolvedLocale) {
+		missingRequestedLocale = true
+	}
+
 	record := map[string]any{
-		"id":             content.ID,
-		"title":          content.Title,
-		"slug":           content.Slug,
-		"status":         content.Status,
-		"path":           "",
-		"locale":         content.Locale,
-		"content_type":   content.ContentType,
-		"content":        "",
-		"excerpt":        "",
-		"summary":        "",
-		"category":       "",
-		"featured_image": "",
-		"tags":           "",
-		"author":         "",
+		"id":                       content.ID,
+		"title":                    content.Title,
+		"slug":                     content.Slug,
+		"status":                   content.Status,
+		"path":                     "",
+		"locale":                   content.Locale,
+		"content_type":             content.ContentType,
+		"content":                  "",
+		"excerpt":                  "",
+		"summary":                  "",
+		"category":                 "",
+		"featured_image":           "",
+		"tags":                     "",
+		"author":                   "",
+		"translation_group_id":     strings.TrimSpace(content.TranslationGroupID),
+		"requested_locale":         requestedLocale,
+		"resolved_locale":          resolvedLocale,
+		"available_locales":        append([]string{}, content.AvailableLocales...),
+		"missing_requested_locale": missingRequestedLocale,
+		"fallback_used":            missingRequestedLocale,
 	}
 
 	data := cloneRecord(content.Data)
