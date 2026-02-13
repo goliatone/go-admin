@@ -141,6 +141,7 @@ export interface TranslationBlockerContext {
   entityType: string | null;
   requestedLocale: string | null;
   environment: string | null;
+  retry?: () => Promise<ActionResult>;
 }
 
 // ============================================================================
@@ -461,34 +462,59 @@ export class SchemaActionBuilder {
           return;
         }
 
-        // Execute action
-        const result = await executeActionRequest(endpoint, payload);
-
-        if (result.success) {
-          this.config.onActionSuccess?.(actionName, result);
-        } else if (result.error) {
-          // Check for translation blocker
-          if (isTranslationBlocker(result.error)) {
-            const blockerInfo = extractTranslationBlocker(result.error);
-            if (blockerInfo && this.config.onTranslationBlocker) {
-              this.config.onTranslationBlocker({
-                actionName,
-                recordId,
-                ...blockerInfo,
-              });
-              return;
-            }
-          }
-
-          const formattedMessage = this.buildActionErrorMessage(actionName, result.error);
-          this.config.onActionError?.(actionName, {
-            ...result.error,
-            message: formattedMessage,
-          });
-          throw new Error(formattedMessage);
-        }
+        await this.executePostAction({
+          actionName,
+          endpoint,
+          payload,
+          recordId,
+        });
       },
     };
+  }
+
+  private async executePostAction(input: {
+    actionName: string;
+    endpoint: string;
+    payload: Record<string, unknown>;
+    recordId: string;
+  }): Promise<ActionResult> {
+    const result = await executeActionRequest(input.endpoint, input.payload);
+
+    if (result.success) {
+      this.config.onActionSuccess?.(input.actionName, result);
+      return result;
+    }
+
+    if (!result.error) {
+      return result;
+    }
+
+    // Translation blockers require a modal-first remediation flow with retry support.
+    if (isTranslationBlocker(result.error)) {
+      const blockerInfo = extractTranslationBlocker(result.error);
+      if (blockerInfo && this.config.onTranslationBlocker) {
+        const retryPayload = { ...input.payload };
+        this.config.onTranslationBlocker({
+          actionName: input.actionName,
+          recordId: input.recordId,
+          ...blockerInfo,
+          retry: async () => this.executePostAction({
+            actionName: input.actionName,
+            endpoint: input.endpoint,
+            payload: { ...retryPayload },
+            recordId: input.recordId,
+          }),
+        });
+        return { success: false, error: result.error };
+      }
+    }
+
+    const formattedMessage = this.buildActionErrorMessage(input.actionName, result.error);
+    this.config.onActionError?.(input.actionName, {
+      ...result.error,
+      message: formattedMessage,
+    });
+    throw new Error(formattedMessage);
   }
 
   /**

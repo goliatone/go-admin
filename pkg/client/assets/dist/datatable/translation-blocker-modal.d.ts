@@ -39,6 +39,8 @@ export interface TranslationBlockerModalConfig {
     onCreateSuccess?: (locale: string, result: CreateTranslationResult) => void;
     /** Callback after action error */
     onError?: (message: string) => void;
+    /** Callback when retry is requested */
+    onRetry?: () => void | Promise<void>;
     /** Callback when modal is dismissed without action */
     onDismiss?: () => void;
 }

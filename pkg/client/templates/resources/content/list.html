@@ -193,6 +193,20 @@ document.addEventListener('DOMContentLoaded', async function() {
           // Refresh grid to show updated state
           await grid.refresh();
         },
+        onRetry: async () => {
+          if (typeof info.retry !== 'function') {
+            await grid.refresh();
+            return;
+          }
+          try {
+            const retryResult = await info.retry();
+            if (retryResult.success) {
+              await grid.refresh();
+            }
+          } catch (err) {
+            // onActionError already handles non-blocker action errors.
+          }
+        },
         onError: (message) => {
           if (window.toastManager) {
             window.toastManager.error(message);

@@ -176,8 +176,10 @@
       <div class="text-sm text-gray-500 mb-1">Document</div>
       <div class="text-base text-gray-900">
         {% if resource_item.document_id %}
-          {# Use pre-resolved URL if available, otherwise build from base_path #}
-          {% set document_link = resource_item.document_url|default:base_path + "/esign-documents/" + resource_item.document_id %}
+          {% set document_link = resource_item.document_url %}
+          {% if not document_link %}
+            {% set document_link = panelDetailURL("esign_documents", resource_item.document_id) %}
+          {% endif %}
           <a href="{{ document_link }}" class="text-blue-600 hover:underline">
             {{ resource_item.document_title|default:resource_item.document_id }}
           </a>

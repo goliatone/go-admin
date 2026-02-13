@@ -83,6 +83,82 @@ test('TranslationBlockerModal handles empty missing_locales array', () => {
   assert.ok(modal);
 });
 
+test('TranslationBlockerModal renders create/open/retry actions with field details', () => {
+  const config = {
+    transition: 'publish',
+    entityType: 'pages',
+    recordId: 'page_123',
+    missingLocales: ['es'],
+    missingFieldsByLocale: {
+      es: ['title', 'summary'],
+    },
+    requestedLocale: 'en',
+    environment: 'production',
+    apiEndpoint: '/admin/api/pages',
+    navigationBasePath: '/admin/content/pages',
+  };
+
+  const modal = new TranslationBlockerModal(config);
+  const content = modal.renderContent();
+
+  assert.match(content, /data-blocker-action="create"/);
+  assert.match(content, /data-blocker-action="open"/);
+  assert.match(content, /data-blocker-retry/);
+  assert.match(content, /Missing required fields:/);
+  assert.match(content, /title/);
+});
+
+test('TranslationBlockerModal retry delegates to onRetry callback', async () => {
+  let retryCalls = 0;
+  const config = {
+    transition: 'publish',
+    entityType: 'pages',
+    recordId: 'page_123',
+    missingLocales: ['es'],
+    missingFieldsByLocale: null,
+    requestedLocale: 'en',
+    environment: 'production',
+    apiEndpoint: '/admin/api/pages',
+    navigationBasePath: '/admin/content/pages',
+    onRetry: async () => {
+      retryCalls += 1;
+    },
+  };
+
+  const modal = new TranslationBlockerModal(config);
+  modal.hide = () => {};
+
+  await modal.handleRetry();
+  assert.equal(retryCalls, 1);
+});
+
+test('TranslationBlockerModal retry errors are routed to onError callback', async () => {
+  let errorMessage = '';
+  const config = {
+    transition: 'publish',
+    entityType: 'pages',
+    recordId: 'page_123',
+    missingLocales: ['es'],
+    missingFieldsByLocale: null,
+    requestedLocale: 'en',
+    environment: 'production',
+    apiEndpoint: '/admin/api/pages',
+    navigationBasePath: '/admin/content/pages',
+    onRetry: async () => {
+      throw new Error('Retry failed in test');
+    },
+    onError: (message) => {
+      errorMessage = message;
+    },
+  };
+
+  const modal = new TranslationBlockerModal(config);
+  modal.hide = () => {};
+
+  await modal.handleRetry();
+  assert.equal(errorMessage, 'Retry failed in test');
+});
+
 // =============================================================================
 // showTranslationBlocker Function Tests
 // =============================================================================

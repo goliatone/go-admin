@@ -118,6 +118,7 @@ export interface TranslationBlockerContext {
     entityType: string | null;
     requestedLocale: string | null;
     environment: string | null;
+    retry?: () => Promise<ActionResult>;
 }
 /**
  * Builds row actions from schema.actions with proper precedence and deduplication.
@@ -167,6 +168,7 @@ export declare class SchemaActionBuilder {
      * Build POST action for workflow/panel actions
      */
     private buildPostAction;
+    private executePostAction;
     /**
      * Build action payload from record and schema
      */

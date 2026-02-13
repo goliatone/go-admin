@@ -46,6 +46,8 @@ export interface TranslationBlockerModalConfig {
   onCreateSuccess?: (locale: string, result: CreateTranslationResult) => void;
   /** Callback after action error */
   onError?: (message: string) => void;
+  /** Callback when retry is requested */
+  onRetry?: () => void | Promise<void>;
   /** Callback when modal is dismissed without action */
   onDismiss?: () => void;
 }
@@ -315,8 +317,8 @@ export class TranslationBlockerModal extends Modal {
 
     // Retry button
     const retryBtn = this.container?.querySelector<HTMLButtonElement>('[data-blocker-retry]');
-    retryBtn?.addEventListener('click', () => {
-      this.handleRetry();
+    retryBtn?.addEventListener('click', async () => {
+      await this.handleRetry();
     });
 
     // Create translation buttons
@@ -439,11 +441,18 @@ export class TranslationBlockerModal extends Modal {
     }
   }
 
-  private handleRetry(): void {
-    // Close modal and let the parent handle retry
-    // The parent should refresh and re-attempt the blocked action
+  private async handleRetry(): Promise<void> {
+    // Close modal first, then retry the blocked action from caller context.
     this.resolved = true;
     this.hide();
+    if (!this.config.onRetry) return;
+
+    try {
+      await this.config.onRetry();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Retry failed';
+      this.config.onError?.(message);
+    }
   }
 
   private dismiss(): void {

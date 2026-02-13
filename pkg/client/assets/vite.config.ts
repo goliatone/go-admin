@@ -37,8 +37,8 @@ export default defineConfig({
     outDir: 'dist',
     // Clean output directory before build
     emptyDirBeforeWrite: true,
-    // Generate source maps
-    sourcemap: true,
+    // Generate source maps only in production
+    sourcemap: process.env.NODE_ENV === 'production',
     // Rollup options for chunking and externals
     rollupOptions: {
       output: {
