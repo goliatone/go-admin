@@ -505,6 +505,40 @@ func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any
 	}), nil
 }
 
+// CreateTranslation creates a locale variant through a first-class translation command.
+func (r *CMSContentRepository) CreateTranslation(ctx context.Context, input TranslationCreateInput) (map[string]any, error) {
+	if r.content == nil {
+		return nil, ErrNotFound
+	}
+	input = normalizeTranslationCreateInput(input)
+	if input.SourceID == "" {
+		return nil, validationDomainError("translation requires a single id", map[string]any{
+			"field": "id",
+		})
+	}
+	if input.Locale == "" {
+		return nil, validationDomainError("translation locale required", map[string]any{
+			"field": "locale",
+		})
+	}
+	creator, ok := r.content.(CMSContentTranslationCreator)
+	if !ok || creator == nil {
+		return nil, ErrTranslationCreateUnsupported
+	}
+	created, err := creator.CreateTranslation(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	if created == nil {
+		return nil, ErrNotFound
+	}
+	return cmsContentRecord(*created, cmsContentRecordOptions{
+		includeBlocks:   true,
+		includeData:     true,
+		includeMetadata: true,
+	}), nil
+}
+
 // Update modifies content.
 func (r *CMSContentRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
 	if r.content == nil {
@@ -983,6 +1017,49 @@ func (r *CMSContentTypeEntryRepository) Create(ctx context.Context, record map[s
 		record["content_type_slug"] = typeKey
 	}
 	return base.Create(ctx, record)
+}
+
+// CreateTranslation creates a locale variant through a first-class translation command.
+func (r *CMSContentTypeEntryRepository) CreateTranslation(ctx context.Context, input TranslationCreateInput) (map[string]any, error) {
+	if r.content == nil {
+		return nil, ErrNotFound
+	}
+	input = normalizeTranslationCreateInput(input)
+	if input.SourceID == "" {
+		return nil, validationDomainError("translation requires a single id", map[string]any{
+			"field": "id",
+		})
+	}
+	if input.Locale == "" {
+		return nil, validationDomainError("translation locale required", map[string]any{
+			"field": "locale",
+		})
+	}
+	creator, ok := r.content.(CMSContentTranslationCreator)
+	if !ok || creator == nil {
+		return nil, ErrTranslationCreateUnsupported
+	}
+	typeKey := strings.TrimSpace(firstNonEmpty(r.contentType.Slug, r.contentType.Name, r.contentType.ID))
+	if typeKey != "" && input.ContentType == "" {
+		input.ContentType = typeKey
+	}
+	created, err := creator.CreateTranslation(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	if created == nil {
+		return nil, ErrNotFound
+	}
+	normalizedTypeKey := strings.ToLower(strings.TrimSpace(typeKey))
+	createdType := strings.ToLower(strings.TrimSpace(firstNonEmpty(created.ContentTypeSlug, created.ContentType)))
+	if normalizedTypeKey != "" && createdType != "" && createdType != normalizedTypeKey {
+		return nil, ErrNotFound
+	}
+	return cmsContentRecord(*created, cmsContentRecordOptions{
+		includeBlocks:   true,
+		includeData:     true,
+		includeMetadata: true,
+	}), nil
 }
 
 // Update modifies content with the bound content type.
