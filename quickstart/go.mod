@@ -22,7 +22,7 @@ require (
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-notifications v0.12.0
 	github.com/goliatone/go-persistence-bun v0.10.0
-	github.com/goliatone/go-router v0.47.0
+	github.com/goliatone/go-router v0.48.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.3.0
