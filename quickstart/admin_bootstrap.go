@@ -20,6 +20,7 @@ type adminOptions struct {
 	deps                         admin.Dependencies
 	flags                        *AdapterFlags
 	featureDefaults              map[string]bool
+	traitWorkflowDefaults        map[string]string
 	preferencesRepo              types.PreferenceRepository
 	preferencesRepoFactory       func() (types.PreferenceRepository, error)
 	themeSelector                theme.ThemeSelector
@@ -95,6 +96,16 @@ func WithFeatureDefaults(defaults map[string]bool) AdminOption {
 			return
 		}
 		opts.featureDefaults = cloneFeatureDefaults(defaults)
+	}
+}
+
+// WithTraitWorkflowDefaults sets trait->workflow defaults applied to the admin instance.
+func WithTraitWorkflowDefaults(defaults map[string]string) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.traitWorkflowDefaults = normalizeTraitWorkflowDefaultsOption(defaults)
 	}
 }
 
@@ -215,6 +226,9 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {
 		return nil, result, err
+	}
+	if len(options.traitWorkflowDefaults) > 0 {
+		adm.WithTraitWorkflowDefaults(options.traitWorkflowDefaults)
 	}
 	configureCMSWorkflowTranslationActions(adm, options)
 	if options.translationExchangeConfigSet {
@@ -395,6 +409,25 @@ func normalizeTranslationLocaleLabels(labels map[string]string) map[string]strin
 			continue
 		}
 		out[locale] = label
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeTraitWorkflowDefaultsOption(defaults map[string]string) map[string]string {
+	if len(defaults) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for rawTrait, rawWorkflowID := range defaults {
+		trait := strings.ToLower(strings.TrimSpace(rawTrait))
+		workflowID := strings.TrimSpace(rawWorkflowID)
+		if trait == "" || workflowID == "" {
+			continue
+		}
+		out[trait] = workflowID
 	}
 	if len(out) == 0 {
 		return nil
