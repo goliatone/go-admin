@@ -501,6 +501,18 @@ List columns now support renderer metadata:
 - `renderer`: named DataGrid renderer (for example `_array`, `_object`).
 - `renderer_options`: options passed to the renderer.
 
+List templates should consume DataGrid wiring from `datagrid_config` (template
+view context) instead of hardcoded table IDs or endpoints. Canonical keys:
+
+- `datagrid_config.table_id`
+- `datagrid_config.api_endpoint`
+- `datagrid_config.action_base`
+- `datagrid_config.column_storage_key`
+- `datagrid_config.export_config`
+
+Compatibility keys (`datatable_id`, `list_api`, `action_base`, `export_config`)
+are still provided for legacy templates, but should be treated as fallback-only.
+
 Built-in list renderer fallback:
 
 - array-like fields (`array`, `multiselect`, `tags`, `blocks`, `block-library-picker`) -> `_array`
@@ -1007,6 +1019,8 @@ Bulk commands:
 Route key usage:
 - resolver group: `admin`
 - queue route key: `translations.queue`
+- default URLKit mapping: `translations.queue -> /content/translations`
+- default queue UI path: `/admin/content/translations`
 - semantic queue links use resolver queries (`assignee_id`, `status`,
   `assignment_type`, `overdue`) instead of hardcoded `/admin/...` URLs.
 

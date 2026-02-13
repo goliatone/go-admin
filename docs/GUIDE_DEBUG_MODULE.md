@@ -612,6 +612,7 @@ if collector != nil {
 | Config | `config` | App configuration | Auto-captured on init |
 | Routes | `routes` | Registered routes | Auto-captured on init |
 | JS Errors | `jserrors` | Frontend JS errors | Inline collector script |
+| Permissions | `permissions` | Permission diagnostics | Auto-captured on request |
 | Shell | `shell` | Shell REPL (xterm.js) | `DebugConfig.Repl` |
 | App Console | `console` | App REPL (yaegi) | `DebugConfig.Repl` |
 | Custom | `custom` | Custom debug data | `Set()`, `Log()` |
@@ -704,6 +705,68 @@ type JSErrorEntry struct {
     Extra     map[string]any `json:"extra,omitempty"`
 }
 ```
+
+### Permissions Panel
+
+The Permissions panel provides a 3-way diff diagnostic view for debugging authorization issues:
+
+1. **Required Permissions**: What the enabled modules/panels need
+2. **Claims Permissions**: What the current JWT/session says the user has
+3. **Permission Checks**: What the authorizer actually allows right now
+
+**PermissionsSnapshot**:
+```go
+type PermissionsDebugSnapshot struct {
+    Verdict             string            `json:"verdict"`              // healthy, missing_grants, claims_stale, scope_mismatch
+    EnabledModules      []string          `json:"enabled_modules"`
+    RequiredPermissions map[string]string `json:"required_permissions"` // permission -> module
+    ClaimsPermissions   []string          `json:"claims_permissions"`
+    PermissionChecks    map[string]bool   `json:"permission_checks"`
+    MissingPermissions  []string          `json:"missing_permissions"`
+    Entries             []PermissionEntry `json:"entries"`
+    Summary             PermissionsSummary `json:"summary"`
+    NextActions         []string          `json:"next_actions"`
+    UserInfo            PermissionsUserInfo `json:"user_info"`
+}
+```
+
+#### Verdicts
+
+| Verdict | Meaning |
+|---------|---------|
+| `healthy` | All permissions properly configured |
+| `missing_grants` | User's role lacks required permissions |
+| `claims_stale` | Authorizer allows but permission not in JWT (re-login needed) |
+| `scope_mismatch` | Permission in claims but authorizer denies (tenant/org scope issue) |
+
+#### Auto-Diagnosis Rules
+
+The panel automatically diagnoses each permission:
+
+| State | Diagnosis |
+|-------|-----------|
+| `required && inClaims && allows` | OK |
+| `required && !inClaims` | Grant missing permission and refresh token |
+| `required && inClaims && !allows` | Scope/policy mismatch |
+| `required && !inClaims && allows` | Bypass/wildcard grant; token likely stale |
+
+#### How to Spot Issues
+
+- **`missing_permissions` non-empty**: Immediate role/claim gap - grant permissions to user's role
+- **`missing_permissions` empty but some `permission_checks[key] = false`**: Policy/scope mismatch or authorizer logic issue
+- **Role updated recently but `claims_permissions` stale**: User needs to re-login
+- **Module enabled but `required_permissions` unexpectedly empty**: Module wiring/config issue
+- **`claims_permissions` has the key but still denied**: Tenant/org scope mismatch or resource-specific rule
+
+#### UI Structure
+
+The Permissions panel renders:
+
+1. **Status Banner**: Color-coded verdict (green=healthy, red=missing grants, orange=stale, yellow=mismatch)
+2. **Summary Chips**: Module count, required keys, claims keys, missing keys
+3. **Permissions Table**: Each permission with Required/In Claims/Allows columns and diagnosis
+4. **Next Actions Panel**: Contextual remediation steps
+5. **Raw JSON**: Collapsible section for advanced debugging
 
 ---
 
@@ -1736,6 +1799,70 @@ curl -X POST http://localhost:8080/admin/debug/api/errors \
 cfg.Debug.Repl.ReadOnly = admin.BoolPtr(false)
 cfg.Debug.Repl.ExecPermission = "admin.debug.repl.exec"
 ```
+
+### Permissions Panel Shows Empty or JSON
+
+**Symptom**: Permissions panel shows raw JSON or no data.
+
+**Causes**:
+1. `permissions` not in `Panels` list
+2. Frontend assets not rebuilt after adding panel
+3. User not authenticated (claims not available)
+
+**Solution**:
+```go
+// Ensure permissions panel is enabled
+cfg.Debug.Panels = append(cfg.Debug.Panels, "permissions")
+```
+
+Force rebuild frontend assets:
+```bash
+rm -f pkg/client/assets/.build_hash
+cd pkg/client/assets && npm run build
+```
+
+### Permissions Panel Shows "Missing Grants"
+
+**Symptom**: Permissions panel verdict is `missing_grants`.
+
+**Diagnosis**:
+1. Check the `missing_permissions` array in the panel
+2. These permissions need to be granted to the user's role
+
+**Solution**:
+1. Add the missing permissions to the user's role in your auth/users system
+2. Have the user log out and log back in to refresh their JWT claims
+
+### Permissions Panel Shows "Scope Mismatch"
+
+**Symptom**: Permissions panel verdict is `scope_mismatch`.
+
+**Diagnosis**:
+- User has the permission in their JWT claims
+- But the authorizer is still denying access
+
+**Causes**:
+1. Tenant ID mismatch - user's tenant doesn't match the resource
+2. Organization ID mismatch - user's org doesn't match the resource
+3. Resource-specific authorization rule blocking access
+4. Authorizer policy configuration issue
+
+**Solution**:
+1. Check `user_info.tenant_id` and `user_info.org_id` in the panel
+2. Verify the resource belongs to the user's tenant/org
+3. Review authorizer policy bindings for the denied permission
+
+### Permissions Panel Shows "Claims Stale"
+
+**Symptom**: Permissions panel verdict is `claims_stale`.
+
+**Diagnosis**:
+- The authorizer grants access (possibly via wildcard or direct DB lookup)
+- But the permission is not in the user's JWT claims
+
+**Solution**:
+- Ask the user to log out and log back in
+- This refreshes their JWT with updated permissions from the database
 
 ---
 

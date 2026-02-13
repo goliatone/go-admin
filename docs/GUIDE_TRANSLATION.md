@@ -202,7 +202,7 @@ Typical action mapping:
 Resolver group: `admin`
 
 Route keys:
-- `translations.queue` -> queue panel list route
+- `translations.queue` -> queue panel list route (default admin path: `/admin/content/translations`)
 
 Semantic queue links (query variants):
 - All queue: `translations.queue`
@@ -212,6 +212,8 @@ Semantic queue links (query variants):
 - Overdue: `translations.queue?overdue=true`
 
 Use resolver keys and URL manager output instead of hardcoded admin paths.
+For panel-backed links, prefer canonical panel URL resolution:
+- `quickstart.ResolveAdminPanelURL(adm.URLs(), cfg.BasePath, "translations")`
 
 ## Quickstart Opt-in
 
@@ -292,12 +294,13 @@ Validate startup event `translation.capabilities.startup`:
 
 Enabled-module checks:
 - Exchange UI route: `GET /admin/translations/exchange`
+- Queue UI route: `GET /admin/content/translations`
 - Exchange API route: `POST /admin/api/translations/export`
 - Queue API panel route: `GET /admin/api/translations`
 
 Disabled-module checks:
 - exchange-disabled profiles must not expose `/admin/translations/exchange` or `/admin/api/translations/*`
-- queue-disabled profiles must not expose `/admin/api/translations` queue panel routes
+- queue-disabled profiles must not expose `/admin/content/translations` UI route or queue panel routes under `/admin/api/translations`
 
 ### Capability payload verification
 
