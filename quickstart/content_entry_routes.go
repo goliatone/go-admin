@@ -532,6 +532,7 @@ func (h *contentEntryHandlers) detailForPanel(c router.Context, panelSlug string
 	}
 	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
 	if record != nil {
+		record = h.hydrateDetailRelationLinks(panelName, record, adminCtx.Environment)
 		record["actions"] = map[string]string{
 			"edit":   routes.edit(id),
 			"delete": routes.delete(id),
@@ -717,6 +718,165 @@ func (h *contentEntryHandlers) contentTypeFor(ctx context.Context, slug string, 
 		}
 	}
 	return h.contentTypes.ContentTypeBySlug(ctx, slug)
+}
+
+func (h *contentEntryHandlers) hydrateDetailRelationLinks(panelName string, record map[string]any, env string) map[string]any {
+	if len(record) == 0 {
+		return record
+	}
+	var urls urlkit.Resolver
+	if h != nil && h.admin != nil {
+		urls = h.admin.URLs()
+	}
+	links := contentEntryRecordLinks(record["links"])
+	for key, rawID := range record {
+		key = strings.TrimSpace(key)
+		if key == "" || key == "id" || !strings.HasSuffix(strings.ToLower(key), "_id") {
+			continue
+		}
+		relationID := strings.TrimSpace(anyToString(rawID))
+		if relationID == "" {
+			continue
+		}
+		relationName := strings.TrimSuffix(key, "_id")
+		relationPanel := h.resolveRelationPanelName(panelName, relationName, env)
+		if relationPanel == "" {
+			continue
+		}
+		relationURL := strings.TrimSpace(resolveAdminPanelDetailURL(urls, h.cfg.BasePath, relationPanel, relationID))
+		if relationURL == "" {
+			continue
+		}
+		relationURL = contentEntryURLWithEnv(relationURL, env)
+		record[relationName+"_url"] = relationURL
+		links[relationName] = relationURL
+		links[key] = relationURL
+	}
+	if len(links) > 0 {
+		record["links"] = links
+	}
+	return record
+}
+
+func (h *contentEntryHandlers) resolveRelationPanelName(panelName, relationName, env string) string {
+	candidates := relationPanelCandidates(panelName, relationName)
+	if len(candidates) == 0 {
+		return ""
+	}
+	env = strings.TrimSpace(env)
+	registry := h.admin
+	if registry == nil || registry.Registry() == nil {
+		return candidates[0]
+	}
+	for _, candidate := range candidates {
+		if _, ok := registry.Registry().Panel(candidate); ok {
+			return candidate
+		}
+		if env != "" {
+			if _, ok := registry.Registry().Panel(candidate + "@" + env); ok {
+				return candidate
+			}
+		}
+	}
+	return ""
+}
+
+func relationPanelCandidates(panelName, relationName string) []string {
+	relationName = strings.TrimSpace(relationName)
+	if relationName == "" {
+		return nil
+	}
+	normalized := strings.ReplaceAll(relationName, "-", "_")
+	plural := normalizeRelationPlural(normalized)
+	prefix := relationPanelPrefix(panelName)
+	out := make([]string, 0, 6)
+	add := func(candidate string) {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			return
+		}
+		for _, existing := range out {
+			if strings.EqualFold(existing, candidate) {
+				return
+			}
+		}
+		out = append(out, candidate)
+	}
+	if prefix != "" {
+		add(prefix + "_" + plural)
+		add(prefix + "_" + normalized)
+	}
+	add(plural)
+	add(normalized)
+	return out
+}
+
+func relationPanelPrefix(panelName string) string {
+	panelName = strings.TrimSpace(canonicalPanelName(panelName))
+	if panelName == "" {
+		return ""
+	}
+	split := strings.FieldsFunc(panelName, func(r rune) bool {
+		return r == '_' || r == '-'
+	})
+	if len(split) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(split[0])
+}
+
+func normalizeRelationPlural(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if strings.HasSuffix(value, "s") {
+		return value
+	}
+	return value + "s"
+}
+
+func contentEntryRecordLinks(raw any) map[string]string {
+	links := map[string]string{}
+	switch typed := raw.(type) {
+	case map[string]string:
+		for key, value := range typed {
+			key = strings.TrimSpace(key)
+			value = strings.TrimSpace(value)
+			if key == "" || value == "" {
+				continue
+			}
+			links[key] = value
+		}
+	case map[string]any:
+		for key, value := range typed {
+			key = strings.TrimSpace(key)
+			parsed := strings.TrimSpace(anyToString(value))
+			if key == "" || parsed == "" {
+				continue
+			}
+			links[key] = parsed
+		}
+	}
+	return links
+}
+
+func contentEntryURLWithEnv(rawURL, env string) string {
+	rawURL = strings.TrimSpace(rawURL)
+	env = strings.TrimSpace(env)
+	if rawURL == "" || env == "" {
+		return rawURL
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	query := parsed.Query()
+	if strings.TrimSpace(query.Get("env")) == "" {
+		query.Set("env", env)
+		parsed.RawQuery = query.Encode()
+	}
+	return parsed.String()
 }
 
 func (h *contentEntryHandlers) listPanelItems(panel *admin.Panel, adminCtx admin.AdminContext) ([]map[string]any, int, error) {
