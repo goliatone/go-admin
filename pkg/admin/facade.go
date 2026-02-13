@@ -256,6 +256,7 @@ type (
 	PanelTabPermissionEvaluator  = core.PanelTabPermissionEvaluator
 	PanelTabScope                = core.PanelTabScope
 	PanelTabTarget               = core.PanelTabTarget
+	PanelUIRouteMode             = core.PanelUIRouteMode
 
 	PreviewService = core.PreviewService
 	PreviewToken   = core.PreviewToken
@@ -351,6 +352,8 @@ const (
 	PanelTabScopeList   = core.PanelTabScopeList
 	PanelTabScopeDetail = core.PanelTabScopeDetail
 	PanelTabScopeForm   = core.PanelTabScopeForm
+	PanelUIRouteModeCanonical = core.PanelUIRouteModeCanonical
+	PanelUIRouteModeCustom    = core.PanelUIRouteModeCustom
 
 	SettingsScopeSystem = core.SettingsScopeSystem
 	SettingsScopeSite   = core.SettingsScopeSite
@@ -513,4 +516,16 @@ func WithUserProfilesPanel() UserManagementModuleOption {
 
 func WithUserPanelTabs(tabs ...PanelTab) UserManagementModuleOption {
 	return core.WithUserPanelTabs(tabs...)
+}
+
+func WithUsersPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManagementModuleOption {
+	return core.WithUsersPanelConfigurer(fn)
+}
+
+func WithRolesPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManagementModuleOption {
+	return core.WithRolesPanelConfigurer(fn)
+}
+
+func WithUserProfilesPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManagementModuleOption {
+	return core.WithUserProfilesPanelConfigurer(fn)
 }
