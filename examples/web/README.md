@@ -84,7 +84,7 @@ Override precedence:
 Module routes when enabled:
 - Exchange UI: `GET /admin/translations/exchange`
 - Exchange API: `/admin/api/translations/*`
-- Queue panel route key: `admin.translations.queue` (resolved path typically `/admin/translations`)
+- Queue panel route key: `admin.translations.queue` (resolved path typically `/admin/content/translations`)
 
 Operational verification:
 1. Start with `ADMIN_TRANSLATION_PROFILE=full` and optional explicit overrides:
@@ -93,12 +93,30 @@ Operational verification:
 2. Verify startup event `translation.capabilities.startup` includes expected `profile`, `modules`, `routes`, and `resolver_keys`.
 3. Verify enabled-module routes:
    - `GET /admin/translations/exchange` (exchange UI)
+   - `GET /admin/content/translations` (queue UI)
    - `POST /admin/api/translations/export` (exchange API)
    - `GET /admin/api/translations` (queue panel API)
 4. Verify disabled-module behavior by switching profiles:
    - `ADMIN_TRANSLATION_PROFILE=core`: exchange + queue routes should not be exposed.
    - `ADMIN_TRANSLATION_PROFILE=none`: translation routes and translation operations entrypoints should not be exposed.
 5. Verify capabilities from runtime payload in templates (`translation_capabilities`) or backend call (`quickstart.TranslationCapabilities(adm)`), ensuring module flags match route availability.
+
+Permission model for translation modules:
+- Quickstart wires routes/panels/commands and defines permission keys, but role assignment is application-owned.
+- The example seeds privileged roles (`superadmin`, `owner`) with both queue and exchange translation permissions.
+- Required permission keys for translation operations:
+  - Queue: `admin.translations.view`, `admin.translations.assign`, `admin.translations.edit`, `admin.translations.approve`, `admin.translations.manage`, `admin.translations.claim`
+  - Exchange: `admin.translations.export`, `admin.translations.import.view`, `admin.translations.import.validate`, `admin.translations.import.apply`
+- If role permissions are changed while the app is running, sign out and sign back in to refresh JWT claims metadata.
+- If using an existing DB seeded before these permissions existed, reseed roles (for example `ADMIN_SEEDS_TRUNCATE=true`) or update role permissions manually.
+
+Authz preflight (DX guardrail):
+- `ADMIN_AUTHZ_PREFLIGHT=off|warn|strict`
+  - `warn` logs startup warnings for missing translation permissions on privileged roles.
+  - `strict` fails startup when required permissions are missing.
+  - default: `warn` in development, `off` otherwise.
+- `ADMIN_AUTHZ_PREFLIGHT_ROLES=superadmin,owner` overrides which role keys are checked.
+- Checks run only when translation modules are enabled.
 
 Quick smoke command matrix:
 
@@ -133,6 +151,7 @@ ADMIN_TRANSLATION_PROFILE=none go run .
 - **Tenants Panel**: `GET /admin/api/tenants`
 - **Organizations Panel**: `GET /admin/api/organizations`
 - **Session**: `GET /admin/api/session` (current authenticated user snapshot)
+- **Permission Diagnostics**: `GET /admin/api/debug/permissions` (current user granted/required/missing permissions + hints)
 
 ## Stage 1 quickstart helpers
 
@@ -209,7 +228,7 @@ curl http://localhost:8080/admin/test-error?type=nested
 
 ### Content UI (Pages, Posts, Media)
 
-- HTML CRUD screens live at `/admin/content/pages`, `/admin/content/posts`, `/admin/media` (aliases `/admin/pages` and `/admin/posts` redirect; auth + permissions enforced: `admin.pages.*`, `admin.posts.*`, `admin.media.*`).
+- HTML CRUD screens live at `/admin/content/pages`, `/admin/content/posts`, `/admin/content/media` (aliases `/admin/pages` and `/admin/posts` redirect; auth + permissions enforced: `admin.pages.*`, `admin.posts.*`, `admin.media.*`).
 - Actions include create/edit/delete plus workflow/publish actions for pages/posts; media supports add/edit/delete metadata.
 - Navigation highlights the active item; search results link to the new views.
 - Content entry filters now derive automatically from panel schema filters, and when missing they fall back to visible list/form fields by default.
