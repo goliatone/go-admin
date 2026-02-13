@@ -758,10 +758,22 @@ func (m *MyModule) MenuItems(locale string) []MenuItem {
 }
 ```
 
+For quickstart panel-backed modules, prefer canonical panel URL helpers over
+hardcoded paths:
+
+```go
+target := map[string]any{
+    "type": "url",
+    "path": quickstart.ResolveAdminPanelURL(m.urls, m.basePath, "translations"),
+    "key":  "translations",
+}
+```
+
 Checklist:
 - Set `m.urls = ctx.Admin.URLs()` during `Register`, and keep it on the module for menu building.
 - Ensure the route exists in URLKit (`defaultAdminRoutes()` or a custom `cfg.URLs.URLKit` group). Missing routes resolve to an empty string.
 - Keep the route name and path consistent (e.g. `feature_flags` -> `/feature-flags`).
+- For panel-backed menu links, use `quickstart.ResolveAdminPanelURL(...)` so nav targets stay aligned with canonical UI route wiring.
 
 ### MenuItem Structure
 

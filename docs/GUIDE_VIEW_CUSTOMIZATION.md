@@ -115,6 +115,33 @@ template fallback probing via:
 This allows per-panel templates to fall back cleanly to shared
 `resources/content/*` templates when a panel-specific template is missing.
 
+## Panel List DataGrid Contract
+
+Quickstart list routes now provide a canonical DataGrid wiring object in view
+context: `datagrid_config`.
+
+Use these keys in templates:
+
+- `datagrid_config.table_id`
+- `datagrid_config.api_endpoint`
+- `datagrid_config.action_base`
+- `datagrid_config.column_storage_key`
+- `datagrid_config.export_config`
+
+Recommended template pattern:
+
+```js
+const dataGridConfig = {{ toJSON(datagrid_config)|safe }} || {};
+const tableId = `${dataGridConfig.table_id || '{{ datatable_id|default:resource }}'}-datatable`;
+const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
+const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
+const exportConfig = dataGridConfig.export_config || {{ toJSON(export_config)|safe }};
+```
+
+Legacy keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are
+still injected for compatibility, but treat them as fallback-only for custom
+templates.
+
 ## Content DataGrid renderer extension
 
 The content list DataGrid supports named renderers from server-provided column
@@ -280,7 +307,7 @@ Important: helpers are globals (functions), not filters. Call them like:
 | `singularize` | `singularize(s string) string` | Converts plural word to singular (via flect) |
 | `pluralize` | `pluralize(s string) string` | Converts singular word to plural (via flect) |
 | `adminURL` | `adminURL(path string) string` | Resolves admin-relative URL path (uses URLKit if configured) |
-| `panelURL` | `panelURL(panel string) string` | Resolves panel list URL (e.g., `/admin/users`) |
+| `panelURL` | `panelURL(panel string) string` | Resolves canonical panel list URL (e.g., `/admin/users`, `/admin/content/translations`) |
 | `panelDetailURL` | `panelDetailURL(panel, id string) string` | Resolves panel detail URL (e.g., `/admin/users/123`) |
 | `panelEditURL` | `panelEditURL(panel, id string) string` | Resolves panel edit URL (e.g., `/admin/users/123/edit`) |
 | `panelPreviewURL` | `panelPreviewURL(panel, id string) string` | Resolves panel preview URL (e.g., `/admin/users/123/preview`) |
@@ -334,6 +361,18 @@ Admin layout templates receive a view context with standard keys injected by `bu
 | `nav_items` | `[]map[string]any` | Navigation menu items | `Navigation.ResolveMenu()` |
 | `session_user` | `map[string]any` | Current user session data | Auth context |
 | `theme` | `map[string]any` | Theme payload (tokens, selection, assets) | `ThemeProvider` |
+
+### Panel list variables
+
+These keys are injected for quickstart panel/content-entry list templates:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `datagrid_config` | `map[string]any` | Canonical DataGrid contract (`table_id`, `api_endpoint`, `action_base`, `column_storage_key`, `export_config`) |
+| `datatable_id` | `string` | Legacy compatibility key for table base id (fallback) |
+| `list_api` | `string` | Legacy compatibility key for list endpoint (fallback) |
+| `action_base` | `string` | Legacy compatibility key for row action base path (fallback) |
+| `export_config` | `map[string]any` | Legacy compatibility key for export behavior (fallback) |
 
 ### Session user object (`session_user`)
 
@@ -444,9 +483,9 @@ Injected by specific UI route handlers:
 
 | Variable | Route | Description |
 |----------|-------|-------------|
-| `activity_api_path` | `/admin/activity` | Activity API endpoint |
-| `feature_flags_api_path` | `/admin/feature-flags` | Feature flags API endpoint |
-| `translation_exchange_api_path` | `/admin/translations/exchange` | Translation exchange API |
+| `activity_api_path` | `/admin/activity` | Activity API endpoint path (`/admin/api/activity`) |
+| `feature_flags_api_path` | `/admin/feature-flags` | Feature flags API endpoint path (`/admin/api/feature-flags`) |
+| `translation_exchange_api_path` | `/admin/translations/exchange` | Translation exchange API endpoint path (`/admin/api/translations`) |
 
 ### Navigation debug variables
 
