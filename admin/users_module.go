@@ -182,6 +182,8 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 		_, _ = RegisterCommand(bus, newUserSuspendCommand(ctx.Admin.users))
 		_, _ = RegisterCommand(bus, newUserDisableCommand(ctx.Admin.users))
 		_, _ = RegisterCommand(bus, newUserArchiveCommand(ctx.Admin.users))
+		_, _ = RegisterCommand(bus, newUserBulkAssignRoleCommand(ctx.Admin.users))
+		_, _ = RegisterCommand(bus, newUserBulkUnassignRoleCommand(ctx.Admin.users))
 	}
 
 	lifecycleActions := []Action{
@@ -190,8 +192,24 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 		{Name: "disable", CommandName: "users.disable", Permission: ctx.Admin.config.UsersUpdatePermission},
 		{Name: "archive", CommandName: "users.archive", Permission: ctx.Admin.config.UsersDeletePermission},
 	}
+	roleActions := []Action{
+		{
+			Name:            "assign-role",
+			Label:           "Assign Role",
+			CommandName:     userBulkAssignRoleCommandName,
+			Permission:      ctx.Admin.config.UsersUpdatePermission,
+			PayloadRequired: []string{"role_id"},
+		},
+		{
+			Name:            "unassign-role",
+			Label:           "Unassign Role",
+			CommandName:     userBulkUnassignRoleCommandName,
+			Permission:      ctx.Admin.config.UsersUpdatePermission,
+			PayloadRequired: []string{"role_id"},
+		},
+	}
 	userBuilder.Actions(lifecycleActions...)
-	userBuilder.BulkActions(lifecycleActions...)
+	userBuilder.BulkActions(append(lifecycleActions, roleActions...)...)
 
 	roleBuilder := ctx.Admin.Panel(rolesPanelID).
 		WithRepository(roleRepo).
