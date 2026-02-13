@@ -2134,11 +2134,29 @@ func resolveEnvironment(c router.Context) string {
 	return stringFromMetadata(session.Metadata, "environment", "env")
 }
 
+func resolveLocaleFromRequest(c router.Context, fallback string) string {
+	fallback = strings.TrimSpace(fallback)
+	if c == nil {
+		return fallback
+	}
+	if locale := strings.TrimSpace(c.Query("locale")); locale != "" {
+		return locale
+	}
+	if locale := strings.TrimSpace(c.Query("requested_locale")); locale != "" {
+		return locale
+	}
+	if locale := strings.TrimSpace(admin.LocaleFromContext(c.Context())); locale != "" {
+		return locale
+	}
+	return fallback
+}
+
 func adminContextFromRequest(c router.Context, locale string) admin.AdminContext {
 	if c == nil {
-		return admin.AdminContext{Locale: locale}
+		return admin.AdminContext{Locale: strings.TrimSpace(locale)}
 	}
 	ctx := c.Context()
+	locale = resolveLocaleFromRequest(c, locale)
 	userID := strings.TrimSpace(c.Header("X-User-ID"))
 	tenantID := ""
 	orgID := ""
@@ -2159,6 +2177,9 @@ func adminContextFromRequest(c router.Context, locale string) admin.AdminContext
 	environment := resolveEnvironment(c)
 	if environment != "" {
 		ctx = admin.WithEnvironment(ctx, environment)
+	}
+	if locale != "" {
+		ctx = admin.WithLocale(ctx, locale)
 	}
 	return admin.AdminContext{
 		Context:     ctx,
