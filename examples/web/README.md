@@ -218,7 +218,7 @@ curl http://localhost:8080/admin/test-error?type=nested
 
 - Pages/Posts are served via content entry APIs (`/admin/api/content`) backed by go-cms content entries; media continues to use go-crud at `/admin/crud/media`, backed by SQLite via go-repository-bun. go-cms migrations from `../go-cms/data/sql/migrations` are applied on startup with a light overlay that creates the demo tables for the example flows.
 - Configure the DSN with `CONTENT_DATABASE_DSN` (preferred), falling back to `CMS_DATABASE_DSN`, else `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; fixtures load from `examples/web/data/sql/seeds` when `ADMIN_SEEDS` is enabled (default outside production). Use `ADMIN_SEEDS_TRUNCATE=true` to reseed.
-- Controllers also register plural aliases (`/admin/crud/media`, `/admin/crud/user-profiles`, etc.) so the DataGrid and HTML flows keep using plural paths while hitting the DB.
+- Controllers use canonical go-crud routes by default; only legacy user-profile compatibility routes are kept (`/admin/crud/user-profiles`, `/admin/crud/user-profiles/:id`, `/admin/crud/user-profiles/batch`) so existing DataGrid/HTML flows continue to work.
 - Smoke: create/edit/delete a page and post via the content entry UI, and a media item via `/admin/crud/media`; restart the server and confirm the records persist and still filter/sort in the lists.
 
 ## Sidebar Navigation & Quickstart defaults
