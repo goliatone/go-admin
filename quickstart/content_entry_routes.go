@@ -44,6 +44,8 @@ type contentEntryUIOptions struct {
 	defaultRenderers map[string]string
 }
 
+const textCodeTranslationFallbackEditBlocked = "TRANSLATION_FALLBACK_EDIT_BLOCKED"
+
 var recommendedContentEntryDefaultRenderers = map[string]string{
 	"blocks":               "blocks_chips",
 	"block-library-picker": "blocks_chips",
@@ -476,7 +478,7 @@ func (h *contentEntryHandlers) newForPanel(c router.Context, panelSlug string) e
 		"locale": defaultLocaleValue("", h.cfg.DefaultLocale),
 		"status": "draft",
 	}
-	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, false, "")
+	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, nil, false, "")
 }
 
 func (h *contentEntryHandlers) Create(c router.Context) error {
@@ -531,6 +533,7 @@ func (h *contentEntryHandlers) detailForPanel(c router.Context, panelSlug string
 		return err
 	}
 	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
+	baseSlug := contentTypeSlug(contentType, panelName)
 	if record != nil {
 		record = h.hydrateDetailRelationLinks(panelName, record, adminCtx.Environment)
 		record["actions"] = map[string]string{
@@ -544,6 +547,7 @@ func (h *contentEntryHandlers) detailForPanel(c router.Context, panelSlug string
 		"base_path":      h.cfg.BasePath,
 		"resource":       "content",
 		"resource_label": contentTypeLabel(contentType, panelName),
+		"panel_name":     baseSlug,
 		"routes":         routes.routesMap(),
 		"resource_item":  record,
 		"fields":         fields,
@@ -551,7 +555,7 @@ func (h *contentEntryHandlers) detailForPanel(c router.Context, panelSlug string
 		"content_type": map[string]any{
 			"id":     contentTypeID(contentType),
 			"name":   contentTypeLabel(contentType, panelName),
-			"slug":   contentTypeSlug(contentType, panelName),
+			"slug":   baseSlug,
 			"icon":   contentTypeIcon(contentType),
 			"status": contentTypeStatus(contentType),
 		},
@@ -587,7 +591,7 @@ func (h *contentEntryHandlers) editForPanel(c router.Context, panelSlug string) 
 	if err != nil {
 		return err
 	}
-	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, true, previewURL)
+	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, record, true, previewURL)
 }
 
 func (h *contentEntryHandlers) Update(c router.Context) error {
@@ -606,6 +610,28 @@ func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string
 	if id == "" {
 		return admin.ErrNotFound
 	}
+	existingRecord, err := panel.Get(adminCtx, id)
+	if err != nil {
+		return err
+	}
+	existingTranslationState := contentEntryTranslationStateFromRecord(existingRecord)
+	if existingTranslationState.InFallbackMode {
+		requestedLocale := strings.TrimSpace(existingTranslationState.RequestedLocale)
+		if requestedLocale == "" {
+			requestedLocale = contentEntryRequestedLocale(c, "")
+		}
+		return goerrors.New("cannot save fallback content; create the requested translation first", goerrors.CategoryValidation).
+			WithCode(http.StatusConflict).
+			WithTextCode(textCodeTranslationFallbackEditBlocked).
+			WithMetadata(map[string]any{
+				"panel":                    strings.TrimSpace(panelName),
+				"id":                       strings.TrimSpace(id),
+				"requested_locale":         requestedLocale,
+				"resolved_locale":          strings.TrimSpace(existingTranslationState.ResolvedLocale),
+				"missing_requested_locale": existingTranslationState.MissingRequestedLocale,
+				"fallback_used":            existingTranslationState.FallbackUsed,
+			})
+	}
 	record, err := h.parseFormPayload(c, contentTypeSchema(contentType, panel))
 	if err != nil {
 		return err
@@ -619,7 +645,11 @@ func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string
 	}
 	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
 	if updatedID := strings.TrimSpace(anyToString(updated["id"])); updatedID != "" {
-		return c.Redirect(routes.edit(updatedID))
+		target := routes.edit(updatedID)
+		if locale := contentEntryRequestedLocale(c, existingTranslationState.RequestedLocale); locale != "" {
+			target = appendQueryParam(target, "locale", locale)
+		}
+		return c.Redirect(target)
 	}
 	return c.Redirect(routes.index())
 }
@@ -929,16 +959,30 @@ func (h *contentEntryHandlers) guardPanel(c router.Context, panelName string, pa
 	return admin.ErrForbidden
 }
 
-func (h *contentEntryHandlers) renderForm(c router.Context, panelName string, panel *admin.Panel, contentType *admin.CMSContentType, adminCtx admin.AdminContext, values map[string]any, isEdit bool, previewURL string) error {
+func (h *contentEntryHandlers) renderForm(
+	c router.Context,
+	panelName string,
+	panel *admin.Panel,
+	contentType *admin.CMSContentType,
+	adminCtx admin.AdminContext,
+	values map[string]any,
+	resourceItem map[string]any,
+	isEdit bool,
+	previewURL string,
+) error {
 	if h.formRenderer == nil {
 		return errors.New("form renderer is not configured")
 	}
 	baseSlug := contentTypeSlug(contentType, panelName)
 	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Environment)
+	translationState := contentEntryTranslationStateFromRecord(resourceItem)
 	formAction := routes.create()
 	if isEdit {
 		id := strings.TrimSpace(c.Param("id"))
 		formAction = routes.update(id)
+		if locale := contentEntryRequestedLocale(c, translationState.RequestedLocale); locale != "" {
+			formAction = appendQueryParam(formAction, "locale", locale)
+		}
 	}
 	schema := contentTypeSchema(contentType, panel)
 	if schema == nil {
@@ -959,9 +1003,11 @@ func (h *contentEntryHandlers) renderForm(c router.Context, panelName string, pa
 		"base_path":      h.cfg.BasePath,
 		"resource":       "content",
 		"resource_label": contentTypeLabel(contentType, panelName),
+		"panel_name":     baseSlug,
 		"routes":         routes.routesMap(),
 		"form_action":    formAction,
 		"form_html":      html,
+		"resource_item":  resourceItem,
 		"is_edit":        isEdit,
 		"create_success": queryParamEnabled(c, "created"),
 		"preview_url":    strings.TrimSpace(previewURL),
@@ -1194,6 +1240,119 @@ func contentEntryValues(record map[string]any) map[string]any {
 		}
 	}
 	return values
+}
+
+type contentEntryTranslationState struct {
+	RequestedLocale        string
+	ResolvedLocale         string
+	MissingRequestedLocale bool
+	FallbackUsed           bool
+	InFallbackMode         bool
+}
+
+func contentEntryTranslationStateFromRecord(record map[string]any) contentEntryTranslationState {
+	state := contentEntryTranslationState{}
+	if len(record) == 0 {
+		return state
+	}
+	state.RequestedLocale = contentEntryStringField(record, []string{
+		"requested_locale",
+		"translation.meta.requested_locale",
+		"content_translation.meta.requested_locale",
+	})
+	state.ResolvedLocale = contentEntryStringField(record, []string{
+		"resolved_locale",
+		"locale",
+		"translation.meta.resolved_locale",
+		"content_translation.meta.resolved_locale",
+	})
+	state.MissingRequestedLocale = contentEntryBoolField(record, []string{
+		"missing_requested_locale",
+		"translation.meta.missing_requested_locale",
+		"content_translation.meta.missing_requested_locale",
+	})
+	state.FallbackUsed = contentEntryBoolField(record, []string{
+		"fallback_used",
+		"translation.meta.fallback_used",
+		"content_translation.meta.fallback_used",
+	})
+	if !state.FallbackUsed && state.RequestedLocale != "" && state.ResolvedLocale != "" &&
+		!strings.EqualFold(state.RequestedLocale, state.ResolvedLocale) {
+		state.FallbackUsed = true
+	}
+	if !state.MissingRequestedLocale && state.FallbackUsed {
+		state.MissingRequestedLocale = true
+	}
+	state.InFallbackMode = state.FallbackUsed || state.MissingRequestedLocale
+	return state
+}
+
+func contentEntryRequestedLocale(c router.Context, fallback string) string {
+	if c != nil {
+		if locale := strings.TrimSpace(c.Query("locale")); locale != "" {
+			return locale
+		}
+		if locale := strings.TrimSpace(c.Query("requested_locale")); locale != "" {
+			return locale
+		}
+	}
+	return strings.TrimSpace(fallback)
+}
+
+func contentEntryStringField(record map[string]any, paths []string) string {
+	for _, path := range paths {
+		value := contentEntryNestedValue(record, path)
+		if value == nil {
+			continue
+		}
+		if trimmed := strings.TrimSpace(anyToString(value)); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func contentEntryBoolField(record map[string]any, paths []string) bool {
+	for _, path := range paths {
+		value := contentEntryNestedValue(record, path)
+		switch typed := value.(type) {
+		case bool:
+			return typed
+		case string:
+			switch strings.ToLower(strings.TrimSpace(typed)) {
+			case "true", "1", "yes", "on":
+				return true
+			case "false", "0", "no", "off":
+				return false
+			}
+		}
+	}
+	return false
+}
+
+func contentEntryNestedValue(record map[string]any, lookupPath string) any {
+	lookupPath = strings.TrimSpace(lookupPath)
+	if len(record) == 0 || lookupPath == "" {
+		return nil
+	}
+	parts := strings.Split(lookupPath, ".")
+	var current any = record
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			return nil
+		}
+		currentMap, ok := current.(map[string]any)
+		if !ok {
+			return nil
+		}
+		next, exists := currentMap[part]
+		if !exists {
+			return nil
+		}
+		current = next
+	}
+	return current
 }
 
 func contentEntryColumns(panel *admin.Panel, contentType *admin.CMSContentType, filters []map[string]any, defaultRenderers map[string]string) []map[string]any {
