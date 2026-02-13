@@ -67,7 +67,7 @@ export declare class BlockLibraryIDE {
     private closePalettePopover;
     /** Show or hide the "Add Field" bar based on whether a block is selected */
     private updateAddFieldBar;
-    /** Initialize environment from URL param and session, bind selector */
+    /** Initialize environment from URL param and bind selector */
     private initEnvironment;
     /** Change the active environment and reload data */
     private setEnvironment;

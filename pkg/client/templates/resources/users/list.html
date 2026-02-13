@@ -6,12 +6,14 @@
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
   <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
   <div class="flex gap-3">
+    {% if users_import_enabled %}
     <button type="button" id="import-users-btn" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
       </svg>
       Import Users
     </button>
+    {% endif %}
     <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ singularize(resource_label|default:resource)|title }}</a>
   </div>
 </header>
@@ -361,6 +363,7 @@
     </div>
   </div>
 
+  {% if users_import_enabled %}
   <div id="import-users-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="import-users-title">
     <div id="import-users-backdrop" class="absolute inset-0 bg-black/50 transition-opacity"></div>
     <div id="import-users-container" class="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl transform transition-all max-h-[90vh] flex flex-col">
@@ -526,6 +529,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
 {% endblock %}
 
@@ -540,6 +544,7 @@ const apiBasePath = '{{ api_base_path|default:"" }}';
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};
 const exportConfig = {{ toJSON(export_config)|safe }};
+const usersImportEnabled = {{ toJSON(users_import_enabled)|safe }};
 const columnFields = columns.map(c => c.field);
 const gridColumns = columns.map(col => ({
   ...col,
@@ -922,23 +927,25 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   }
 
-  // Initialize Import Modal component
-  const importModal = new ImportModal({
-    modalId: 'import-users-modal',
-    endpoint: `${apiRoot}/users-import`,
-    resourceName: 'Users',
-    onSuccess: () => {
-      if (grid) {
-        grid.refresh();
-      }
-    },
-    notifier: window.toastManager
-  });
+  // Initialize Import Modal component when backend wiring + auth allow it.
+  if (usersImportEnabled) {
+    const importModal = new ImportModal({
+      modalId: 'import-users-modal',
+      endpoint: `${apiRoot}/users-import`,
+      resourceName: 'Users',
+      onSuccess: () => {
+        if (grid) {
+          grid.refresh();
+        }
+      },
+      notifier: window.toastManager
+    });
 
-  // Bind open button
-  const importOpenBtn = document.getElementById('import-users-btn');
-  if (importOpenBtn) {
-    importOpenBtn.addEventListener('click', () => importModal.open());
+    // Bind open button
+    const importOpenBtn = document.getElementById('import-users-btn');
+    if (importOpenBtn) {
+      importOpenBtn.addEventListener('click', () => importModal.open());
+    }
   }
 
   // Initialize FilterBuilder

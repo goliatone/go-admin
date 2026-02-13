@@ -8,7 +8,9 @@
   <div class="flex gap-3">
     {% block header_actions %}
       {% block header_actions_prepend %}{% endblock %}
+      {% if routes.new %}
       <a href="{{ routes.new }}" class="btn btn-primary">+ New {{ singularize(resource_label|default:resource)|title }}</a>
+      {% endif %}
       {% block header_actions_append %}{% endblock %}
     {% endblock %}
   </div>
@@ -278,7 +280,9 @@
     <div class="text-6xl mb-4">📄</div>
     <h3 class="text-xl font-semibold text-gray-900 mb-2">No {{ resource_label|default:resource|lower }} yet</h3>
     <p class="text-gray-500 mb-6">Get started by creating your first {{ resource_label|default:resource|lower }}</p>
+    {% if routes.new %}
     <a href="{{ routes.new }}" class="btn btn-primary">Create</a>
+    {% endif %}
   </div>
   {% endblock %}
   {% endif %}

@@ -55,6 +55,12 @@ declare const customPanel: PanelDefinition;
  */
 declare const jserrorsPanel: PanelDefinition;
 /**
+ * Permissions panel - Permission diagnostics
+ * snapshotKey: "permissions"
+ * eventTypes: none (snapshot only)
+ */
+declare const permissionsPanel: PanelDefinition;
+/**
  * Register all built-in panels with the registry.
  * Safe to call multiple times - will replace existing registrations.
  */
@@ -76,5 +82,5 @@ export declare function getToolbarCounts(snapshot: {
     errors: number;
     slowQueries: number;
 };
-export { requestsPanel, sqlPanel, logsPanel, jserrorsPanel, routesPanel, configPanel, templatePanel, sessionPanel, customPanel, };
+export { requestsPanel, sqlPanel, logsPanel, jserrorsPanel, routesPanel, permissionsPanel, configPanel, templatePanel, sessionPanel, customPanel, };
 //# sourceMappingURL=builtin-panels.d.ts.map

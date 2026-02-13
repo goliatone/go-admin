@@ -256,6 +256,7 @@ export class DebugPanel {
   private activePanel: string;
   private state: DebugState;
   private filters: PanelFilters;
+  private customFilterState: Record<string, unknown> = {};
   private paused = false;
   private maxLogEntries: number;
   private maxSQLQueries: number;
@@ -397,6 +398,11 @@ export class DebugPanel {
       if (!this.panels.includes(event.panelId)) {
         this.panels.push(event.panelId);
       }
+      if (event.panel && event.panel.defaultFilters !== undefined && !(event.panelId in this.customFilterState)) {
+        this.customFilterState[event.panelId] = this.cloneFilterState(event.panel.defaultFilters);
+      }
+    } else if (event.type === 'unregister') {
+      delete this.customFilterState[event.panelId];
     }
 
     // Update subscriptions
@@ -487,7 +493,23 @@ export class DebugPanel {
     const renderer = this.panelRenderers.get(panel);
     if (renderer?.filters) {
       content = renderer.filters();
-    } else if (panel === 'requests') {
+    } else {
+      const def = panelRegistry.get(panel);
+      if (def?.showFilters === false) {
+        this.filtersEl.innerHTML = '<span class="timestamp">No filters</span>';
+        return;
+      }
+      if (def?.renderFilters) {
+        const state = this.getPanelFilterState(panel, def);
+        const custom = def.renderFilters(state);
+        this.filtersEl.innerHTML = custom || '<span class="timestamp">No filters</span>';
+        if (custom) {
+          this.bindFilterInputs();
+        }
+        return;
+      }
+    }
+    if (!renderer?.filters && panel === 'requests') {
       const values = this.filters.requests;
       const contentTypes = this.getUniqueContentTypes();
       content = `
@@ -522,7 +544,7 @@ export class DebugPanel {
           <span>Newest first</span>
         </label>
       `;
-    } else if (panel === 'sql') {
+    } else if (!renderer?.filters && panel === 'sql') {
       const values = this.filters.sql;
       content = `
         <div class="debug-filter debug-filter--grow">
@@ -542,7 +564,7 @@ export class DebugPanel {
           <span>Newest first</span>
         </label>
       `;
-    } else if (panel === 'logs') {
+    } else if (!renderer?.filters && panel === 'logs') {
       const values = this.filters.logs;
       content = `
         <div class="debug-filter">
@@ -564,7 +586,7 @@ export class DebugPanel {
           <span>Auto-scroll</span>
         </label>
       `;
-    } else if (panel === 'routes') {
+    } else if (!renderer?.filters && panel === 'routes') {
       const values = this.filters.routes;
       content = `
         <div class="debug-filter">
@@ -578,7 +600,7 @@ export class DebugPanel {
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="/admin" />
         </div>
       `;
-    } else if (panel === 'sessions') {
+    } else if (!renderer?.filters && panel === 'sessions') {
       const values = this.filters.sessions;
       content = `
         <div class="debug-filter debug-filter--grow">
@@ -586,7 +608,7 @@ export class DebugPanel {
           <input type="search" data-filter="search" value="${escapeHTML(values.search)}" placeholder="user, session id, path" />
         </div>
       `;
-    } else {
+    } else if (!renderer?.filters) {
       const values = this.filters.objects;
       content = `
         <div class="debug-filter debug-filter--grow">
@@ -611,6 +633,25 @@ export class DebugPanel {
   private updateFiltersFromInputs(): void {
     const panel = this.activePanel;
     const inputs = this.filtersEl.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-filter]');
+    const def = panelRegistry.get(panel);
+    if (def?.renderFilters) {
+      const current = this.getPanelFilterState(panel, def);
+      const next =
+        current && typeof current === 'object' && !Array.isArray(current)
+          ? { ...(current as Record<string, unknown>) }
+          : {};
+      inputs.forEach((input) => {
+        const key = input.dataset.filter || '';
+        if (!key) {
+          return;
+        }
+        const currentValue = (next as Record<string, unknown>)[key];
+        (next as Record<string, unknown>)[key] = this.readFilterInputValue(input, currentValue);
+      });
+      this.customFilterState[panel] = next;
+      this.renderPanel();
+      return;
+    }
     if (panel === 'requests') {
       const next = { ...this.filters.requests };
       inputs.forEach((input) => {
@@ -675,6 +716,46 @@ export class DebugPanel {
     this.renderPanel();
   }
 
+  private getPanelFilterState(panel: string, def?: PanelDefinition): unknown {
+    const definition = def || panelRegistry.get(panel);
+    if (!definition) {
+      return {};
+    }
+    if (!(panel in this.customFilterState)) {
+      this.customFilterState[panel] =
+        definition.defaultFilters !== undefined ? this.cloneFilterState(definition.defaultFilters) : {};
+    }
+    return this.customFilterState[panel];
+  }
+
+  private cloneFilterState(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return [...value];
+    }
+    if (value && typeof value === 'object') {
+      return { ...(value as Record<string, unknown>) };
+    }
+    return value;
+  }
+
+  private readFilterInputValue(
+    input: HTMLInputElement | HTMLSelectElement,
+    currentValue: unknown
+  ): unknown {
+    if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+      return input.checked;
+    }
+    const raw = input.value;
+    if (typeof currentValue === 'number') {
+      const parsed = Number(raw);
+      return Number.isNaN(parsed) ? currentValue : parsed;
+    }
+    if (typeof currentValue === 'boolean') {
+      return raw === 'true' || raw === '1' || raw.toLowerCase() === 'yes';
+    }
+    return raw;
+  }
+
   private renderPanel(): void {
     const panel = this.activePanel;
     const renderer = this.panelRenderers.get(panel);
@@ -709,7 +790,22 @@ export class DebugPanel {
         showSortToggle: true,
       });
     } else {
-      content = this.renderJSONPanel(getPanelLabel(panel), this.state.extra[panel], this.filters.objects.search);
+      // Check panel registry for custom renderer
+      const def = panelRegistry.get(panel);
+      if (def && (def.renderConsole || def.render)) {
+        const snapshotKey = getSnapshotKey(def);
+        let data = this.getStateForKey(snapshotKey);
+        if (def.applyFilters) {
+          const state = this.getPanelFilterState(panel, def);
+          data = def.applyFilters(data, state);
+        }
+        const renderFn = def.renderConsole || def.render;
+        content = renderFn(data, consoleStyles, {
+          newestFirst: this.filters.logs.newestFirst,
+        });
+      } else {
+        content = this.renderJSONPanel(getPanelLabel(panel), this.state.extra[panel], this.filters.objects.search);
+      }
     }
 
     this.panelEl.innerHTML = content;
@@ -1241,6 +1337,15 @@ export class DebugPanel {
   }
 
   private panelCount(panel: string): number {
+    if (panel !== 'sessions') {
+      const def = panelRegistry.get(panel);
+      if (def) {
+        const snapshotKey = getSnapshotKey(def);
+        const snapshot = { [snapshotKey]: this.getStateForKey(snapshotKey) } as DebugSnapshot;
+        return getPanelCount(snapshot, def);
+      }
+    }
+
     switch (panel) {
       case 'template':
         return countPayload(this.state.template);

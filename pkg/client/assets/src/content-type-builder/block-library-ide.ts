@@ -445,16 +445,14 @@ export class BlockLibraryIDE {
   // Environment management (Phase 12 — Tasks 12.2 + 12.3)
   // ===========================================================================
 
-  /** Initialize environment from URL param and session, bind selector */
+  /** Initialize environment from URL param and bind selector */
   private initEnvironment(): void {
     // Read from URL
     const urlParams = new URLSearchParams(window.location.search);
     const envFromUrl = urlParams.get('env') ?? '';
 
-    // Fall back to session storage
-    const envFromSession = sessionStorage.getItem('block-library-env') ?? '';
-
-    this.currentEnvironment = envFromUrl || envFromSession;
+    // URL is the source of truth to keep environment scoping explicit/bookmarkable.
+    this.currentEnvironment = envFromUrl;
 
     // Set on API client
     this.api.setEnvironment(this.currentEnvironment);
@@ -472,11 +470,6 @@ export class BlockLibraryIDE {
         }
         this.setEnvironment(value);
       });
-    }
-
-    // Sync URL if env came from session but not URL
-    if (this.currentEnvironment && !envFromUrl) {
-      this.updateUrlEnvironment(this.currentEnvironment);
     }
 
     if (this.currentEnvironment) {

@@ -15,6 +15,11 @@ import type {
 import { escapeHTML, isSlowDuration } from '../shared/utils.js';
 import { toolbarStyles } from '../shared/styles.js';
 import {
+  panelRegistry,
+  getPanelData,
+  renderPanelContent,
+} from '../shared/panel-registry.js';
+import {
   renderRequestsPanel,
   renderSQLPanel,
   renderLogsPanel,
@@ -50,6 +55,14 @@ export function renderPanel(
   slowThresholdMs = 50,
   options?: PanelOptions & { expandedRequestIds?: Set<string> }
 ): string {
+  // Registry-first rendering enables fully pluggable toolbar panels.
+  const registryPanel = panelRegistry.get(panel);
+  if (registryPanel) {
+    const data = getPanelData(snapshot, registryPanel);
+    return renderPanelContent(registryPanel, data, styles, options || {}, 'toolbar');
+  }
+
+  // Legacy fallback for non-registry panels.
   const newestFirst = options?.newestFirst ?? true;
   const threshold = options?.slowThresholdMs ?? slowThresholdMs;
 

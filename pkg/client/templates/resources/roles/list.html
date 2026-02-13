@@ -10,8 +10,13 @@ import { permissionPillsRenderer } from '{{ base_path }}/assets/dist/components/
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};
 const filters = {{ toJSON(filters)|safe }};
-const exportConfig = {{ toJSON(export_config)|safe }};
+const dataGridConfig = {{ toJSON(datagrid_config)|safe }} || {};
+const exportConfig = dataGridConfig.export_config || {{ toJSON(export_config)|safe }};
 const columnFields = columns.map(c => c.field);
+const tableBaseId = dataGridConfig.table_id || '{{ datatable_id|default:resource }}';
+const tableId = `${tableBaseId}-datatable`;
+const listAPI = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
+const resolvedActionBasePath = dataGridConfig.action_base || actionBasePath;
 const gridColumns = columns.map(col => ({
   ...col,
   hidden: col.default === false
@@ -66,22 +71,22 @@ function normalizeFilterOptions(options) {
 }
 
 const apiBasePath = '{{ api_base_path|default:"" }}';
-const apiEndpoint = apiBasePath ? `${apiBasePath}/roles` : '{{ base_path }}/api/roles';
+const apiEndpoint = listAPI || (apiBasePath ? `${apiBasePath}/roles` : '{{ base_path }}/api/roles');
 
 {% verbatim %}
 document.addEventListener('DOMContentLoaded', async function() {
-  const tableId = 'roles-datatable';
   const tableEl = document.getElementById(tableId);
   if (!tableEl) {
     return;
   }
 
-  const columnVisibility = new DefaultColumnVisibilityBehavior(columnFields, 'roles_datatable_columns');
+  const storageKey = dataGridConfig.column_storage_key || `${tableId.replace(/[^a-zA-Z0-9_]/g, '_')}_columns`;
+  const columnVisibility = new DefaultColumnVisibilityBehavior(columnFields, storageKey);
 
   const grid = new DataGrid({
     tableId: tableId,
     apiEndpoint: apiEndpoint,
-    actionBasePath: actionBasePath,
+    actionBasePath: resolvedActionBasePath,
     columns: gridColumns,
     perPage: 10,
     searchDelay: 300,

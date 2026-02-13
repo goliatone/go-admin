@@ -11,6 +11,7 @@ import type {
   RouteEntry,
   CustomSnapshot,
   JSErrorEntry,
+  PermissionsSnapshot,
 } from './types.js';
 import { isSlowDuration } from './utils.js';
 import {
@@ -21,6 +22,8 @@ import {
   renderJSONPanel,
   renderCustomPanel,
   renderJSErrorsPanel,
+  renderPermissionsPanel,
+  renderPermissionsPanelCompact,
 } from './panels/index.js';
 
 // ============================================================================
@@ -501,6 +504,49 @@ const jserrorsPanel: PanelDefinition = {
   supportsToolbar: true,
 };
 
+/**
+ * Permissions panel - Permission diagnostics
+ * snapshotKey: "permissions"
+ * eventTypes: none (snapshot only)
+ */
+const permissionsPanel: PanelDefinition = {
+  id: 'permissions',
+  label: 'Permissions',
+  icon: 'iconoir-shield-check',
+  snapshotKey: 'permissions',
+  eventTypes: [], // Snapshot only, no incremental events
+  category: 'system',
+  order: 45,
+
+  render: (data, styles, options) => {
+    const permissions = data as PermissionsSnapshot;
+    return renderPermissionsPanel(permissions, styles, {
+      showRawJSON: true,
+    });
+  },
+
+  renderConsole: (data, styles, options) => {
+    const permissions = data as PermissionsSnapshot;
+    return renderPermissionsPanel(permissions, styles, {
+      showRawJSON: true,
+    });
+  },
+
+  renderToolbar: (data, styles, options) => {
+    const permissions = data as PermissionsSnapshot;
+    return renderPermissionsPanelCompact(permissions, styles);
+  },
+
+  getCount: (data) => {
+    const permissions = data as PermissionsSnapshot;
+    if (!permissions || !permissions.summary) return 0;
+    return permissions.summary.missing_keys;
+  },
+
+  // No handleEvent - snapshot only
+  supportsToolbar: true,
+};
+
 // ============================================================================
 // Registration
 // ============================================================================
@@ -515,6 +561,7 @@ export function registerBuiltinPanels(): void {
   panelRegistry.register(logsPanel);
   panelRegistry.register(jserrorsPanel);
   panelRegistry.register(routesPanel);
+  panelRegistry.register(permissionsPanel);
   panelRegistry.register(configPanel);
   panelRegistry.register(templatePanel);
   panelRegistry.register(sessionPanel);
@@ -576,6 +623,7 @@ export {
   logsPanel,
   jserrorsPanel,
   routesPanel,
+  permissionsPanel,
   configPanel,
   templatePanel,
   sessionPanel,
