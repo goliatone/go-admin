@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Import error helpers
 const {
@@ -14,6 +17,12 @@ const {
   SchemaActionBuilder,
   buildSchemaRowActions,
 } = await import('../dist/datatable/index.js');
+
+const testFileDir = path.dirname(fileURLToPath(import.meta.url));
+const agreementDetailTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-agreements/detail.html',
+);
 
 // =============================================================================
 // Test Helpers
@@ -1030,6 +1039,27 @@ test('isRetryableDeliveryStatus returns false for non-retryable statuses', () =>
   assert.equal(isRetryableDeliveryStatus('sent'), false);
   assert.equal(isRetryableDeliveryStatus('pending'), false);
   assert.equal(isRetryableDeliveryStatus('retrying'), false);
+});
+
+// =============================================================================
+// E-Sign Download Unavailable State Tests
+// =============================================================================
+
+test('agreement detail template renders unavailable download button with warning icon and label', () => {
+  const template = fs.readFileSync(agreementDetailTemplatePath, 'utf8');
+
+  assert.match(template, /data-download-state="unavailable"/);
+  assert.match(template, />\s*Unable To Download PDF\s*</);
+  assert.match(template, /M12 9v2m0 4h\.01m-6\.938 4h13\.856/);
+});
+
+test('agreement detail template JS uses warning icon for runtime unavailable download state', () => {
+  const template = fs.readFileSync(agreementDetailTemplatePath, 'utf8');
+
+  assert.match(template, /const unavailableDownloadIcon =/);
+  assert.match(template, /markExecutedDownloadUnavailable/);
+  assert.match(template, /Unable To Download PDF/);
+  assert.match(template, /M12 9v2m0 4h\.01m-6\.938 4h13\.856/);
 });
 
 // =============================================================================
