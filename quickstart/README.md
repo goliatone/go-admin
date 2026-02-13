@@ -50,6 +50,9 @@ Each helper is optional and composable.
 - `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
 - `WithViewURLResolver(urls urlkit.Resolver) ViewEngineOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
 - `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection.
+- `BuildPanelExportConfig(cfg admin.Config, opts PanelViewCapabilityOptions) map[string]any` - Inputs: admin config and panel capability options. Outputs: normalized `export_config` payload (`endpoint`, `definition`, optional `variant`).
+- `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, `column_storage_key`).
+- `BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOptions) router.ViewContext` - Inputs: admin config and panel capability options. Outputs: template capability context including `export_config` and `datagrid_config`.
 - `PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: config + path resolver hints. Outputs: normalized `base_path`, `api_base_path`, `asset_base_path`.
 - `WithPathViewContext(ctx router.ViewContext, cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: existing context + path resolver hints. Outputs: merged context with canonical path keys.
 - `WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption` - Inputs: go-theme selector + manifest; outputs: option that wires theme selection + manifest into `NewAdmin` (including Preferences variant options).
@@ -67,6 +70,7 @@ Each helper is optional and composable.
 - `NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Module, isDev bool, opts ...ModuleRegistrarOption) error` - Inputs: admin, config, module list, dev flag, options. Outputs: error.
 - `WithModuleFeatureGates(gates gate.FeatureGate) ModuleRegistrarOption` - Inputs: feature gate; outputs: option to filter modules/menu items.
 - `WithModuleFeatureDisabledHandler(handler func(feature, moduleID string) error) ModuleRegistrarOption` - Inputs: handler; outputs: option for disabled modules.
+- `WithTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) ModuleRegistrarOption` - Inputs: translation menu seeding mode (`none` default, `tools` legacy); outputs: option controlling whether translation queue/exchange links are added to server-seeded navigation.
 - `WithGoAuth(adm *admin.Admin, routeAuth *auth.RouteAuthenticator, cfg auth.Config, authz admin.GoAuthAuthorizerConfig, authCfg *admin.AuthConfig, opts ...admin.GoAuthAuthenticatorOption) (*admin.GoAuthAuthenticator, *admin.GoAuthAuthorizer)` - Inputs: admin, route auth, auth config, authz config, admin auth config, options. Outputs: adapters.
 - `WithDefaultDashboardRenderer(adm *admin.Admin, viewEngine fiber.Views, cfg admin.Config, opts ...DashboardRendererOption) error` - Inputs: admin, view engine, config, renderer options. Outputs: error.
 - `WithDashboardTemplatesFS(fsys fs.FS) DashboardRendererOption` - Inputs: template FS; outputs: renderer option for overrides.
@@ -230,6 +234,16 @@ err := quickstart.RegisterTranslationExchangePermissions(func(def quickstart.Per
 })
 ```
 
+Permission ownership:
+- Quickstart defines and can register translation permission keys into a host permission catalog.
+- Quickstart does not create roles or assign permissions to users.
+- The host application must seed/assign permissions for every role that should access exchange/queue routes.
+- Exchange endpoints require:
+  - `admin.translations.export` -> `POST /admin/api/translations/export`
+  - `admin.translations.import.view` -> `GET /admin/api/translations/template`
+  - `admin.translations.import.validate` -> `POST /admin/api/translations/import/validate`
+  - `admin.translations.import.apply` -> `POST /admin/api/translations/import/apply`
+
 Optional async apply integration for production workers:
 
 ```go
@@ -318,6 +332,18 @@ err := quickstart.RegisterTranslationQueuePermissions(func(def quickstart.Permis
 })
 ```
 
+Queue permission map:
+- `admin.translations.view` -> queue list/detail read access.
+- `admin.translations.assign` -> queue create/new and assign/release actions.
+- `admin.translations.edit` -> submit-review/update flows.
+- `admin.translations.approve` -> approve/reject review actions.
+- `admin.translations.manage` -> archive/manage/bulk lifecycle actions.
+- `admin.translations.claim` -> claim open-pool assignments.
+
+Auth note:
+- Non-CRUD permissions (for example `admin.translations.export` and `admin.translations.assign`) are checked as explicit permission strings.
+- After changing role permissions, mint a new auth token (log out/in) so claims metadata contains updated permissions.
+
 ## URL configuration
 Quickstart defaults still mount admin under `/admin` and the public API under
 `/api/v1`, but the canonical URL surface now lives in `cfg.URLs`.
@@ -333,6 +359,10 @@ cfg.URLs.Public.APIVersion = "v2"
 
 If you need full control, set `cfg.URLs.URLKit` to a custom URLKit config and
 use `adm.URLs()` for template helpers and route registration.
+
+For panel-backed navigation targets, prefer canonical panel URL helpers instead
+of hardcoded paths:
+- `quickstart.ResolveAdminPanelURL(adm.URLs(), cfg.BasePath, "<panel>")`
 
 ## Scope defaults (single vs multi-tenant)
 Quickstart can enforce a single-tenant default scope or require explicit tenant/org
@@ -437,6 +467,17 @@ if err := quickstart.RegisterContentEntryUIRoutes(
 	return err
 }
 ```
+
+### Panel list template contract
+For list templates rendered from quickstart panel/content-entry routes, use `datagrid_config` as the canonical contract for DataGrid wiring:
+
+- `datagrid_config.table_id`
+- `datagrid_config.api_endpoint`
+- `datagrid_config.action_base`
+- `datagrid_config.column_storage_key`
+- `datagrid_config.export_config`
+
+Compatibility keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are still present for legacy templates, but new/updated templates should read from `datagrid_config` first.
 
 Password reset UI defaults to two pages:
 
@@ -1029,6 +1070,7 @@ Check startup logs for `translation.capabilities.startup` and verify:
 
 Expected runtime routes when modules are enabled:
 - Exchange UI route: `/admin/translations/exchange`
+- Queue UI route: `/admin/content/translations`
 - Exchange API routes: `/admin/api/translations/export`, `/admin/api/translations/import/validate`, `/admin/api/translations/import/apply`
 - Queue panel API route: `/admin/api/translations`
 
@@ -1085,5 +1127,6 @@ If you previously imported quickstart as part of the root module, keep the same 
 - Templates/Assets: prepend your own FS via `WithViewTemplatesFS`/`WithViewAssetsFS` to override the embedded sidebar.
 - Navigation seed: pass custom items to `SeedNavigation`; module menu contributions are deduped by ID.
 - Module gating: `WithModuleFeatureGates(customGate)` with optional `WithModuleFeatureDisabledHandler`.
+- Translation nav seeding: `WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools)` adds queue/exchange links into the Tools menu; default mode is `none` to avoid duplicate links when using the dedicated sidebar "Translations" section.
 - Dashboard SSR: provide `WithDashboardTemplatesFS` and/or disable embedded templates via `WithDashboardEmbeddedTemplates(false)`.
 - Error handler: swap `quickstart.NewFiberErrorHandler` with your own if needed.
