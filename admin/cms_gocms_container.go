@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"reflect"
 
 	cms "github.com/goliatone/go-cms"
 )
@@ -130,6 +131,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 		return nil
 	}
 	localeResolver := resolveGoCMSLocaleResolver(container)
+	translationSvc := resolveGoCMSContentTranslationService(container)
 	if svc, ok := container.(CMSContentService); ok && svc != nil {
 		return svc
 	}
@@ -144,7 +146,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.Blocks()
 			}
 		}
-		if adapted := newGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
@@ -159,7 +161,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.BlockService()
 			}
 		}
-		if adapted := newGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
@@ -174,7 +176,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.BlockService()
 			}
 		}
-		if adapted := newGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
@@ -189,7 +191,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.BlockService()
 			}
 		}
-		if adapted := newGoCMSContentAdapter(contentSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
 			return adapted
 		}
 	}
@@ -198,6 +200,35 @@ func resolveGoCMSContentService(container any) CMSContentService {
 		if adapted := resolveGoCMSContentService(inner); adapted != nil {
 			return adapted
 		}
+	}
+	return nil
+}
+
+func resolveGoCMSContentTranslationService(container any) any {
+	if container == nil {
+		return nil
+	}
+	method := reflect.ValueOf(container).MethodByName("ContentTranslations")
+	if method.IsValid() {
+		signature := method.Type()
+		if signature.NumIn() == 0 && signature.NumOut() >= 1 {
+			results := method.Call(nil)
+			if len(results) > 0 {
+				result := results[0]
+				if result.IsValid() {
+					if result.Kind() == reflect.Pointer || result.Kind() == reflect.Interface {
+						if !result.IsNil() {
+							return result.Interface()
+						}
+					} else {
+						return result.Interface()
+					}
+				}
+			}
+		}
+	}
+	if provider, ok := container.(interface{ Container() any }); ok {
+		return resolveGoCMSContentTranslationService(provider.Container())
 	}
 	return nil
 }
