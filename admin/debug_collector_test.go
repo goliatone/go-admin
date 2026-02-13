@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	debugregistry "github.com/goliatone/go-admin/debug"
 	router "github.com/goliatone/go-router"
 )
 
@@ -96,6 +97,42 @@ func TestDebugCollectorSnapshot(t *testing.T) {
 	routes, ok := snapshot[DebugPanelRoutes].([]RouteEntry)
 	if !ok || len(routes) != 1 || routes[0].Path != "/test" {
 		t.Fatalf("expected routes snapshot, got %+v", snapshot[DebugPanelRoutes])
+	}
+}
+
+func TestDebugCollectorSnapshotWithContextUsesRequestContext(t *testing.T) {
+	type ctxKey string
+
+	const (
+		panelID      = "test_context_snapshot_panel"
+		contextKey   = ctxKey("request-id")
+		contextValue = "req-123"
+	)
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		SnapshotKey: panelID,
+		Snapshot: func(ctx context.Context) any {
+			if ctx == nil {
+				return map[string]any{"request_id": ""}
+			}
+			return map[string]any{"request_id": toString(ctx.Value(contextKey))}
+		},
+	}); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	collector := NewDebugCollector(DebugConfig{
+		Panels: []string{panelID},
+	})
+	snapshot := collector.SnapshotWithContext(context.WithValue(context.Background(), contextKey, contextValue))
+	panelData, ok := snapshot[panelID].(map[string]any)
+	if !ok {
+		t.Fatalf("expected panel payload map, got %T", snapshot[panelID])
+	}
+	if got := toString(panelData["request_id"]); got != contextValue {
+		t.Fatalf("expected request context value %q, got %q", contextValue, got)
 	}
 }
 

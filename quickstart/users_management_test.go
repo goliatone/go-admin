@@ -183,6 +183,9 @@ func TestWithGoUsersUserManagementWiresDependencies(t *testing.T) {
 	if _, ok := options.deps.ProfileStore.(*admin.GoUsersProfileStore); !ok {
 		t.Fatalf("expected GoUsersProfileStore, got %T", options.deps.ProfileStore)
 	}
+	if options.deps.BulkUserImport == nil {
+		t.Fatalf("expected bulk user import command to be set")
+	}
 	if options.registerUserRoleBulkRoutes {
 		t.Fatalf("expected legacy bulk role routes registration to remain disabled by default")
 	}
@@ -204,10 +207,18 @@ func TestWithGoUsersUserManagementSkipsProfileStoreWhenMissing(t *testing.T) {
 	if options.deps.ProfileStore != nil {
 		t.Fatalf("expected profile store to be unset when ProfileRepo is nil")
 	}
+	if options.deps.BulkUserImport == nil {
+		t.Fatalf("expected bulk user import command to be set")
+	}
 }
 
 func TestWithLegacyUserRoleBulkRoutesEnablesLegacyRoutes(t *testing.T) {
 	options := adminOptions{}
+
+	if options.registerUserRoleBulkRoutes {
+		t.Fatalf("expected legacy bulk role routes registration to be disabled by default")
+	}
+
 	WithLegacyUserRoleBulkRoutes()(&options)
 	if !options.registerUserRoleBulkRoutes {
 		t.Fatalf("expected legacy bulk role routes registration to be enabled")

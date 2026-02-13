@@ -193,6 +193,9 @@ func TestPreferencesModuleRegistersPanelAndNavigation(t *testing.T) {
 	if _, ok := adm.registry.Panel("preferences"); !ok {
 		t.Fatalf("expected preferences panel to be registered")
 	}
+	if panel, ok := adm.registry.Panel("preferences"); !ok || panel.UIRouteMode() != PanelUIRouteModeCustom {
+		t.Fatalf("expected preferences panel to own custom UI routes")
+	}
 
 	items := adm.Navigation().Resolve(context.Background(), cfg.DefaultLocale)
 	found := false

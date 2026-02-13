@@ -28,7 +28,8 @@ func TestUpdateEnvironmentSetsCookieAndResolve(t *testing.T) {
 		t.Fatalf("expected cookie %q=staging, got %q", environmentCookieName, got)
 	}
 
+	ctx.QueriesM["env"] = "staging"
 	if env := resolveEnvironment(ctx); env != "staging" {
-		t.Fatalf("expected resolveEnvironment to use cookie, got %q", env)
+		t.Fatalf("expected resolveEnvironment to use explicit query env, got %q", env)
 	}
 }

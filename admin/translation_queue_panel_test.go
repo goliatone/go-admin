@@ -32,6 +32,15 @@ func TestNewTranslationQueuePanelSchemaIncludesQueueActionsAndFilters(t *testing
 			t.Fatalf("expected filter %q", filter)
 		}
 	}
+	for _, requiredField := range []string{"translation_group_id", "entity_type", "source_record_id", "source_locale", "target_locale"} {
+		field, ok := findFormField(schema.FormFields, requiredField)
+		if !ok {
+			t.Fatalf("expected form field %q", requiredField)
+		}
+		if !field.Required {
+			t.Fatalf("expected form field %q to be required", requiredField)
+		}
+	}
 	if schema.Permissions.View != PermAdminTranslationsView || schema.Permissions.Delete != PermAdminTranslationsManage {
 		t.Fatalf("unexpected permissions: %+v", schema.Permissions)
 	}
@@ -81,6 +90,33 @@ func TestTranslationAssignmentPanelRepositoryDeleteArchivesInsteadOfDeleting(t *
 	}
 }
 
+func TestTranslationAssignmentPanelRepositoryCreateAppliesDefaultsForMinimalRequiredInput(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryTranslationAssignmentRepository()
+	repo := NewTranslationAssignmentPanelRepository(store)
+
+	created, err := repo.Create(ctx, map[string]any{
+		"translation_group_id": "tg_required",
+		"entity_type":          "pages",
+		"source_record_id":     "page_required",
+		"source_locale":        "en",
+		"target_locale":        "fr",
+	})
+	if err != nil {
+		t.Fatalf("create assignment with minimal required fields: %v", err)
+	}
+
+	if got := strings.TrimSpace(toString(created["assignment_type"])); got != string(AssignmentTypeOpenPool) {
+		t.Fatalf("expected default assignment_type %q, got %q", AssignmentTypeOpenPool, got)
+	}
+	if got := strings.TrimSpace(toString(created["status"])); got != string(AssignmentStatusPending) {
+		t.Fatalf("expected default status %q, got %q", AssignmentStatusPending, got)
+	}
+	if got := strings.TrimSpace(toString(created["priority"])); got != string(PriorityNormal) {
+		t.Fatalf("expected default priority %q, got %q", PriorityNormal, got)
+	}
+}
+
 func hasActionCommand(actions []Action, name, command string) bool {
 	for _, action := range actions {
 		if action.Name == name && action.CommandName == command {
@@ -88,6 +124,15 @@ func hasActionCommand(actions []Action, name, command string) bool {
 		}
 	}
 	return false
+}
+
+func findFormField(fields []Field, name string) (Field, bool) {
+	for _, field := range fields {
+		if strings.TrimSpace(field.Name) == strings.TrimSpace(name) {
+			return field, true
+		}
+	}
+	return Field{}, false
 }
 
 func hasFilter(filters []Filter, name string) bool {

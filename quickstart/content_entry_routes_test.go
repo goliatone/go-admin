@@ -521,6 +521,40 @@ func TestCanonicalPanelRouteBindingsSkipsPanelsWithoutNamedAdminRoute(t *testing
 	}
 }
 
+func TestCanonicalPanelRouteBindingsSkipsPanelsWithCustomRouteOwners(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	builder := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		WithUIRouteMode(admin.PanelUIRouteModeCustom)
+	if _, err := adm.RegisterPanel("preferences", builder); err != nil {
+		t.Fatalf("register preferences panel: %v", err)
+	}
+	if _, err := adm.RegisterPanel("users", (&admin.PanelBuilder{}).WithRepository(admin.NewMemoryRepository())); err != nil {
+		t.Fatalf("register users panel: %v", err)
+	}
+
+	bindings := canonicalPanelRouteBindings(adm.URLs(), adm.Registry().Panels())
+	foundUsers := false
+	for _, binding := range bindings {
+		if binding.Panel == "preferences" {
+			t.Fatalf("expected preferences to be excluded from canonical bindings, got %+v", binding)
+		}
+		if binding.Panel == "users" {
+			foundUsers = true
+		}
+	}
+	if !foundUsers {
+		t.Fatalf("expected non-custom panel users to remain in canonical bindings")
+	}
+}
+
 func TestCanonicalPanelNameStripsEnvironmentSuffix(t *testing.T) {
 	if got := canonicalPanelName("users@staging"); got != "users" {
 		t.Fatalf("expected canonical panel users, got %q", got)
@@ -633,6 +667,150 @@ func TestContentEntryCreateRedirectTargetFallsBackToIndexWhenMissingID(t *testin
 	got := contentEntryCreateRedirectTarget("esign_documents", "", routes)
 	if got != "/admin/content/esign_documents" {
 		t.Fatalf("expected index redirect when id missing, got %q", got)
+	}
+}
+
+func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	for _, panelName := range []string{"users", "media"} {
+		builder := (&admin.PanelBuilder{}).
+			WithRepository(admin.NewMemoryRepository()).
+			ListFields(admin.Field{Name: "title", Label: "Title", Type: "text"})
+		if _, err := adm.RegisterPanel(panelName, builder); err != nil {
+			t.Fatalf("register panel %s: %v", panelName, err)
+		}
+	}
+
+	handler := &contentEntryHandlers{
+		admin:        adm,
+		cfg:          cfg,
+		listTemplate: "resources/content/list",
+		templateExists: func(name string) bool {
+			return name == "resources/users/list" || name == "resources/media/list"
+		},
+	}
+
+	tests := []struct {
+		panel    string
+		template string
+	}{
+		{panel: "users", template: "resources/users/list"},
+		{panel: "media", template: "resources/media/list"},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.panel, func(t *testing.T) {
+			ctx := router.NewMockContext()
+			ctx.On("Context").Return(context.Background())
+			ctx.On("Render", tc.template, mock.MatchedBy(func(arg any) bool {
+				viewCtx, ok := arg.(router.ViewContext)
+				if !ok {
+					return false
+				}
+				exportCfg, ok := viewCtx["export_config"].(map[string]any)
+				if !ok {
+					return false
+				}
+				endpoint := strings.TrimSpace(anyToString(exportCfg["endpoint"]))
+				definition := strings.TrimSpace(anyToString(exportCfg["definition"]))
+				dataGridCfg, ok := viewCtx["datagrid_config"].(map[string]any)
+				if !ok {
+					return false
+				}
+				tableID := strings.TrimSpace(anyToString(dataGridCfg["table_id"]))
+				apiEndpoint := strings.TrimSpace(anyToString(dataGridCfg["api_endpoint"]))
+				actionBase := strings.TrimSpace(anyToString(dataGridCfg["action_base"]))
+				columnStorage := strings.TrimSpace(anyToString(dataGridCfg["column_storage_key"]))
+
+				return endpoint == "/admin/exports" &&
+					definition == tc.panel &&
+					tableID == "content-"+tc.panel &&
+					apiEndpoint == "/admin/api/"+tc.panel &&
+					actionBase == "/admin/content/"+tc.panel &&
+					columnStorage == "content_"+tc.panel+"_datatable_columns"
+			})).Return(nil).Once()
+
+			if err := handler.listForPanel(ctx, tc.panel); err != nil {
+				t.Fatalf("listForPanel(%s): %v", tc.panel, err)
+			}
+			ctx.AssertExpectations(t)
+		})
+	}
+}
+
+func TestListForPanelOmitsCreateRoutesWhenPanelHasNoRenderableFormSchema(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	if _, err := adm.RegisterPanel("translations", (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		ListFields(admin.Field{Name: "status", Label: "Status", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	handler := &contentEntryHandlers{
+		admin:        adm,
+		cfg:          cfg,
+		listTemplate: "resources/content/list",
+		templateExists: func(name string) bool {
+			return name == "resources/content/list"
+		},
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/list", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		routes, ok := viewCtx["routes"].(map[string]string)
+		if !ok {
+			return false
+		}
+		return strings.TrimSpace(routes["new"]) == "" &&
+			strings.TrimSpace(routes["create"]) == ""
+	})).Return(nil).Once()
+
+	if err := handler.listForPanel(ctx, "translations"); err != nil {
+		t.Fatalf("listForPanel(translations): %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestNewForPanelReturnsNotFoundWhenPanelHasNoRenderableFormSchema(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	if _, err := adm.RegisterPanel("translations", (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		ListFields(admin.Field{Name: "status", Label: "Status", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	h := &contentEntryHandlers{admin: adm, cfg: cfg}
+	if err := h.newForPanel(ctx, "translations"); err != admin.ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
 
@@ -1041,6 +1219,20 @@ func TestContentTypeSchemaFallsBackToPanelFields(t *testing.T) {
 	required, ok := schema["required"].([]string)
 	if !ok || len(required) != 1 || required[0] != "title" {
 		t.Fatalf("expected title to be required, got %#v", schema["required"])
+	}
+}
+
+func TestContentTypeSchemaReturnsNilForEmptyPanelFormSchema(t *testing.T) {
+	panel, err := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		ListFields(admin.Field{Name: "status", Label: "Status", Type: "text"}).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	if schema := contentTypeSchema(nil, panel); schema != nil {
+		t.Fatalf("expected nil schema for panel without form fields, got %#v", schema)
 	}
 }
 

@@ -195,7 +195,53 @@ func TestBuildSeedMenuItemsRespectsGates(t *testing.T) {
 	}
 }
 
-func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItems(t *testing.T) {
+func TestNewModuleRegistrarDoesNotSeedTranslationCapabilityMenuItemsByDefault(t *testing.T) {
+	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			SchemaVersion: TranslationProductSchemaVersionCurrent,
+			Profile:       TranslationProfileFull,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &moduleRegistrarExchangeStoreStub{},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          true,
+				SupportedLocales: []string{"en", "es"},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	if err := NewModuleRegistrar(adm, cfg, nil, false); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	menu, err := adm.MenuService().Menu(context.Background(), cfg.NavMenuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve menu: %v", err)
+	}
+	if menu == nil {
+		t.Fatalf("expected seeded menu")
+	}
+	if queueItem := findMenuItemByRouteName(menu.Items, "admin.translations.queue"); queueItem != nil {
+		t.Fatalf("expected queue menu hidden by default, got %+v", *queueItem)
+	}
+	if exchangeItem := findMenuItemByRouteName(menu.Items, "admin.translations.exchange"); exchangeItem != nil {
+		t.Fatalf("expected exchange menu hidden by default, got %+v", *exchangeItem)
+	}
+}
+
+func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *testing.T) {
 	tests := []struct {
 		name           string
 		productCfg     TranslationProductConfig
@@ -273,7 +319,13 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItems(t *testing.T) {
 				t.Cleanup(adm.Commands().Reset)
 			}
 
-			if err := NewModuleRegistrar(adm, cfg, nil, false); err != nil {
+			if err := NewModuleRegistrar(
+				adm,
+				cfg,
+				nil,
+				false,
+				WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools),
+			); err != nil {
 				t.Fatalf("NewModuleRegistrar error: %v", err)
 			}
 
@@ -295,8 +347,8 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItems(t *testing.T) {
 					t.Fatalf("expected queue item parent to include nav-group-others, got %q", parent)
 				}
 				path, _ := queueItem.Target["path"].(string)
-				if !strings.Contains(strings.TrimSpace(path), "/translations") {
-					t.Fatalf("expected queue target path to include /translations, got %q", path)
+				if !strings.Contains(strings.TrimSpace(path), "/content/translations") {
+					t.Fatalf("expected queue target path to include /content/translations, got %q", path)
 				}
 				if len(queueItem.Permissions) != 0 {
 					t.Fatalf("expected queue menu item to be module/profile-gated only, got permissions %v", queueItem.Permissions)
@@ -351,7 +403,13 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 		t.Cleanup(adm.Commands().Reset)
 	}
 
-	if err := NewModuleRegistrar(adm, cfg, nil, false); err != nil {
+	if err := NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools),
+	); err != nil {
 		t.Fatalf("NewModuleRegistrar error: %v", err)
 	}
 
@@ -361,6 +419,11 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	navItems := BuildNavItems(adm, cfg, context.Background(), "")
 	if item := findNavItemByKey(navItems, "translations"); item == nil {
 		t.Fatalf("expected translation queue sidebar entrypoint")
+	} else {
+		href := strings.TrimSpace(toString(item["href"]))
+		if !strings.Contains(href, "/content/translations") {
+			t.Fatalf("expected queue href to include /content/translations, got %q", href)
+		}
 	}
 	exchangeItem := findNavItemByKey(navItems, "translation_exchange")
 	if exchangeItem == nil {
