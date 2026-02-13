@@ -11,6 +11,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	auth "github.com/goliatone/go-auth"
+	cmscontent "github.com/goliatone/go-cms/content"
+	cmspages "github.com/goliatone/go-cms/pages"
 	"github.com/goliatone/go-command/dispatcher"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
@@ -282,7 +284,9 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 				return buildCreateTranslationResponse(created, targetLocale, groupID), nil
 			}
 			var dup TranslationAlreadyExistsError
-			if errors.As(createErr, &dup) {
+			if errors.As(createErr, &dup) ||
+				errors.Is(createErr, cmscontent.ErrTranslationAlreadyExists) ||
+				errors.Is(createErr, cmspages.ErrTranslationAlreadyExists) {
 				duplicateLocale := strings.TrimSpace(firstNonEmpty(dup.Locale, targetLocale))
 				duplicateGroupID := strings.TrimSpace(firstNonEmpty(dup.TranslationGroupID, groupID))
 				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
@@ -297,7 +301,10 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 				})
 				return nil, createErr
 			}
-			if !errors.Is(createErr, ErrTranslationCreateUnsupported) {
+			if errors.Is(createErr, ErrTranslationCreateUnsupported) && shouldUseLegacyCreateTranslationFallback(p.name) {
+				// Keep legacy clone+create only for page panels until a dedicated page
+				// translation command is wired through repository capabilities.
+			} else {
 				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
 					Entity:             p.name,
 					EntityID:           primaryID,
@@ -944,6 +951,10 @@ func normalizeCreateTranslationLocale(locale string) string {
 	return strings.ToLower(strings.TrimSpace(locale))
 }
 
+func shouldUseLegacyCreateTranslationFallback(panel string) bool {
+	return strings.EqualFold(strings.TrimSpace(panel), "pages")
+}
+
 func prepareCreateTranslationClone(clone, source map[string]any, targetLocale string) {
 	if len(clone) == 0 {
 		return
@@ -1069,6 +1080,18 @@ func buildCreateTranslationResponse(created map[string]any, locale, groupID stri
 	response["status"] = status
 	if createdGroupID := strings.TrimSpace(toString(created["translation_group_id"])); createdGroupID != "" {
 		response["translation_group_id"] = createdGroupID
+	}
+	if availableLocales := normalizedLocaleList(created["available_locales"]); len(availableLocales) > 0 {
+		response["available_locales"] = append([]string{}, availableLocales...)
+	}
+	if requestedLocale := strings.TrimSpace(toString(created["requested_locale"])); requestedLocale != "" {
+		response["requested_locale"] = requestedLocale
+	}
+	if resolvedLocale := strings.TrimSpace(toString(created["resolved_locale"])); resolvedLocale != "" {
+		response["resolved_locale"] = resolvedLocale
+	}
+	if missingRequestedLocale, ok := created["missing_requested_locale"].(bool); ok {
+		response["missing_requested_locale"] = missingRequestedLocale
 	}
 	return response
 }
