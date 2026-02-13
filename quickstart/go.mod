@@ -22,7 +22,7 @@ require (
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-notifications v0.12.0
 	github.com/goliatone/go-persistence-bun v0.10.0
-	github.com/goliatone/go-router v0.46.0
+	github.com/goliatone/go-router v0.47.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.3.0
@@ -32,6 +32,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
 	github.com/uptrace/bun/driver/sqliteshim v1.2.16
+	golang.org/x/text v0.32.0
 )
 
 require (
@@ -187,7 +188,6 @@ require (
 	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251213004720-97cd9d5aeac2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251213004720-97cd9d5aeac2 // indirect
