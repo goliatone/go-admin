@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -154,7 +155,9 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 	}
 
 	if options.seed && options.seedOpts.MenuSvc != nil {
-		items := buildSeedMenuItems(menuCode, locale, ordered, options.menuItems)
+		baseItems := append([]admin.MenuItem{}, options.menuItems...)
+		baseItems = append(baseItems, translationCapabilityMenuItems(adm, cfg, menuCode, locale)...)
+		items := buildSeedMenuItems(menuCode, locale, ordered, baseItems)
 		options.seedOpts.Items = items
 		if err := SeedNavigation(options.ctx, options.seedOpts); err != nil {
 			return err
@@ -402,4 +405,87 @@ func dedupeMenuItems(items []admin.MenuItem) []admin.MenuItem {
 		out = append(out, item)
 	}
 	return out
+}
+
+func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode, locale string) []admin.MenuItem {
+	if adm == nil {
+		return nil
+	}
+	caps := TranslationCapabilities(adm)
+	modules, _ := caps["modules"].(map[string]any)
+	if len(modules) == 0 {
+		return nil
+	}
+
+	queueEnabled := translationModuleEnabled(modules, "queue")
+	exchangeEnabled := translationModuleEnabled(modules, "exchange")
+	if !queueEnabled && !exchangeEnabled {
+		return nil
+	}
+
+	menuCode = strings.TrimSpace(menuCode)
+	if menuCode == "" {
+		menuCode = DefaultNavMenuCode
+	}
+	if strings.TrimSpace(locale) == "" {
+		locale = cfg.DefaultLocale
+	}
+	if strings.TrimSpace(locale) == "" {
+		locale = "en"
+	}
+
+	urls := adm.URLs()
+	basePath := resolveAdminBasePath(urls, cfg.BasePath)
+	parentID := "nav-group-others"
+	items := []admin.MenuItem{}
+
+	if queueEnabled {
+		queuePath := strings.TrimSpace(resolveRoutePath(urls, "admin", "translations.queue"))
+		if queuePath == "" {
+			queuePath = prefixBasePath(basePath, "translations")
+		}
+		items = append(items, admin.MenuItem{
+			ID:       parentID + ".translations.queue",
+			Type:     admin.MenuItemTypeItem,
+			Label:    "Translation Queue",
+			LabelKey: "menu.translations.queue",
+			Icon:     "language",
+			Target: map[string]any{
+				"type": "url",
+				"path": queuePath,
+				"name": "admin.translations.queue",
+				"key":  "translations",
+			},
+			Position: intPtr(50),
+			ParentID: parentID,
+			Menu:     menuCode,
+			Locale:   locale,
+		})
+	}
+
+	if exchangeEnabled {
+		exchangePath := strings.TrimSpace(resolveRoutePath(urls, "admin", "translations.exchange"))
+		if exchangePath == "" {
+			exchangePath = prefixBasePath(basePath, path.Join("translations", "exchange"))
+		}
+		items = append(items, admin.MenuItem{
+			ID:       parentID + ".translations.exchange",
+			Type:     admin.MenuItemTypeItem,
+			Label:    "Translation Exchange",
+			LabelKey: "menu.translations.exchange",
+			Icon:     "inbox-import",
+			Target: map[string]any{
+				"type": "url",
+				"path": exchangePath,
+				"name": "admin.translations.exchange",
+				"key":  "translation_exchange",
+			},
+			Position: intPtr(51),
+			ParentID: parentID,
+			Menu:     menuCode,
+			Locale:   locale,
+		})
+	}
+
+	return items
 }
