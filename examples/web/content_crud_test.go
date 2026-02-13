@@ -69,7 +69,6 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 		crud.WithScopeGuard[*stores.MediaRecord](contentCRUDScopeGuard[*stores.MediaRecord]("admin.media")),
 	)
 	mediaController.RegisterRoutes(adapter)
-	registerCrudAliases(adapter, mediaController, "media")
 
 	apiGroup := app.Group("/admin/api", authn)
 	apiGroup.Get("/navigation", func(c *fiber.Ctx) error {

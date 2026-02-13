@@ -781,14 +781,13 @@ func main() {
 		crud.WithScopeGuard[*stores.UserProfile](userProfilesCRUDScopeGuard()),
 	)
 	userProfileController.RegisterRoutes(crudAdapter)
-	registerCrudAliases(crudAdapter, userProfileController, "user-profiles")
+	registerLegacyUserProfileCRUDRoutes(crudAdapter, userProfileController)
 	mediaController := crud.NewController(
 		dataStores.MediaRecords,
 		crud.WithErrorEncoder[*stores.MediaRecord](crudErrorEncoder),
 		crud.WithScopeGuard[*stores.MediaRecord](contentCRUDScopeGuard[*stores.MediaRecord]("admin.media")),
 	)
 	mediaController.RegisterRoutes(crudAdapter)
-	registerCrudAliases(crudAdapter, mediaController, "media")
 
 	r.Get(path.Join(adminAPIBasePath, "session"), wrapAuthed(func(c router.Context) error {
 		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), adm.FeatureGate())
