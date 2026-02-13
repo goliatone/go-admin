@@ -39,6 +39,23 @@ func TestContentDetailTemplateUsesPreHookWithoutBlockSuper(t *testing.T) {
 	}
 }
 
+func TestContentFormTemplateInfersFallbackModeFromMissingRequestedLocale(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/content/form.html")
+
+	required := []string{
+		"{% set fallback_missing_requested_locale = resource_item.missing_requested_locale %}",
+		"{% if fallback_missing_requested_locale %}",
+		`data-fallback-mode="true"`,
+		`partials/translation-summary.html`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected content form template fragment not found: %q", fragment)
+	}
+}
+
 func mustReadClientTemplate(t *testing.T, name string) string {
 	t.Helper()
 

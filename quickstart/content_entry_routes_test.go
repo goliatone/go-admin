@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"mime/multipart"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/goliatone/go-admin/admin"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
 )
@@ -682,6 +684,7 @@ func TestRenderFormIncludesCreateActionInViewContext(t *testing.T) {
 		nil,
 		admin.AdminContext{Context: context.Background()},
 		map[string]any{},
+		nil,
 		false,
 		"",
 	)
@@ -689,6 +692,268 @@ func TestRenderFormIncludesCreateActionInViewContext(t *testing.T) {
 		t.Fatalf("render form: %v", err)
 	}
 	ctx.AssertExpectations(t)
+}
+
+func TestRenderFormIncludesResourceItemForEdit(t *testing.T) {
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+	panel, err := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		FormFields(admin.Field{Name: "title", Type: "text", Required: true}).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	resourceItem := map[string]any{
+		"id":                       "page-123",
+		"translation_group_id":     "tg-page-123",
+		"requested_locale":         "fr",
+		"resolved_locale":          "en",
+		"missing_requested_locale": true,
+		"fallback_used":            true,
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["id"] = "page-123"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		if got := strings.TrimSpace(anyToString(viewCtx["panel_name"])); got != "pages" {
+			return false
+		}
+		if edit, _ := viewCtx["is_edit"].(bool); !edit {
+			return false
+		}
+		item, ok := viewCtx["resource_item"].(map[string]any)
+		if !ok {
+			return false
+		}
+		return strings.TrimSpace(anyToString(item["translation_group_id"])) == "tg-page-123" &&
+			strings.TrimSpace(anyToString(item["requested_locale"])) == "fr" &&
+			strings.TrimSpace(anyToString(item["resolved_locale"])) == "en" &&
+			item["missing_requested_locale"] == true &&
+			item["fallback_used"] == true
+	})).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		cfg: admin.Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		},
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+
+	err = handler.renderForm(
+		ctx,
+		"pages",
+		panel,
+		nil,
+		admin.AdminContext{Context: context.Background()},
+		map[string]any{"title": "Fallback page"},
+		resourceItem,
+		true,
+		"",
+	)
+	if err != nil {
+		t.Fatalf("render form: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestRenderFormIncludesRequestedLocaleInEditFormAction(t *testing.T) {
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+	panel, err := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		FormFields(admin.Field{Name: "title", Type: "text", Required: true}).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	resourceItem := map[string]any{
+		"id":                   "page-123",
+		"translation_group_id": "tg-page-123",
+		"requested_locale":     "fr",
+		"resolved_locale":      "en",
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["id"] = "page-123"
+	ctx.QueriesM["locale"] = "fr"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		return strings.TrimSpace(anyToString(viewCtx["form_action"])) == "/admin/content/pages/page-123?locale=fr"
+	})).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		cfg: admin.Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		},
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+	err = handler.renderForm(
+		ctx,
+		"pages",
+		panel,
+		nil,
+		admin.AdminContext{Context: context.Background(), Locale: "fr"},
+		map[string]any{"title": "Fallback page"},
+		resourceItem,
+		true,
+		"",
+	)
+	if err != nil {
+		t.Fatalf("render form: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestContentEntryTranslationStateFromRecordInfersFallbackMode(t *testing.T) {
+	record := map[string]any{
+		"requested_locale":         "fr",
+		"resolved_locale":          "en",
+		"missing_requested_locale": true,
+		"fallback_used":            false,
+	}
+	state := contentEntryTranslationStateFromRecord(record)
+	if state.RequestedLocale != "fr" {
+		t.Fatalf("expected requested locale fr, got %q", state.RequestedLocale)
+	}
+	if state.ResolvedLocale != "en" {
+		t.Fatalf("expected resolved locale en, got %q", state.ResolvedLocale)
+	}
+	if !state.InFallbackMode {
+		t.Fatalf("expected fallback mode true, got %+v", state)
+	}
+	if !state.MissingRequestedLocale {
+		t.Fatalf("expected missing_requested_locale true, got %+v", state)
+	}
+	if !state.FallbackUsed {
+		t.Fatalf("expected fallback_used inferred from locale mismatch, got %+v", state)
+	}
+}
+
+func TestUpdateForPanelBlocksFallbackLocaleEdits(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	repo := admin.NewMemoryRepository()
+	created, err := repo.Create(context.Background(), map[string]any{
+		"title":                    "Fallback page",
+		"slug":                     "fallback-page",
+		"path":                     "/fallback-page",
+		"status":                   "draft",
+		"locale":                   "en",
+		"translation_group_id":     "tg-fallback-page",
+		"requested_locale":         "fr",
+		"resolved_locale":          "en",
+		"missing_requested_locale": true,
+		"fallback_used":            false,
+	})
+	if err != nil {
+		t.Fatalf("seed record: %v", err)
+	}
+
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		FormFields(
+			admin.Field{Name: "title", Type: "text", Required: true},
+			admin.Field{Name: "slug", Type: "text", Required: true},
+			admin.Field{Name: "path", Type: "text", Required: true},
+			admin.Field{Name: "status", Type: "text", Required: true},
+			admin.Field{Name: "locale", Type: "text"},
+		)); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["name"] = "pages"
+	ctx.ParamsM["id"] = strings.TrimSpace(anyToString(created["id"]))
+	ctx.QueriesM["locale"] = "fr"
+	ctx.HeadersM["Content-Type"] = "application/x-www-form-urlencoded"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Body").Return([]byte(url.Values{
+		"title":  []string{"Fallback page update attempt"},
+		"slug":   []string{"fallback-page"},
+		"path":   []string{"/fallback-page"},
+		"status": []string{"draft"},
+		"locale": []string{"fr"},
+	}.Encode()))
+
+	h := &contentEntryHandlers{admin: adm, cfg: cfg}
+	err = h.updateForPanel(ctx, "")
+	if err == nil {
+		t.Fatalf("expected fallback edit to be blocked")
+	}
+
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) {
+		t.Fatalf("expected typed goerrors.Error, got %T", err)
+	}
+	if typedErr.TextCode != textCodeTranslationFallbackEditBlocked {
+		t.Fatalf("expected text code %q, got %q", textCodeTranslationFallbackEditBlocked, typedErr.TextCode)
+	}
+	if typedErr.Code != http.StatusConflict {
+		t.Fatalf("expected status code %d, got %d", http.StatusConflict, typedErr.Code)
+	}
+	if got := strings.TrimSpace(anyToString(typedErr.Metadata["requested_locale"])); got != "fr" {
+		t.Fatalf("expected requested_locale metadata fr, got %q", got)
+	}
+}
+
+func TestAdminContextFromRequestResolvesLocaleFromQuery(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.QueriesM["locale"] = "fr"
+
+	adminCtx := adminContextFromRequest(ctx, "en")
+	if adminCtx.Locale != "fr" {
+		t.Fatalf("expected locale from query, got %q", adminCtx.Locale)
+	}
+	if got := strings.TrimSpace(admin.LocaleFromContext(adminCtx.Context)); got != "fr" {
+		t.Fatalf("expected locale in context, got %q", got)
+	}
+}
+
+func TestAdminContextFromRequestFallsBackToRequestedLocaleQuery(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.QueriesM["requested_locale"] = "es"
+
+	adminCtx := adminContextFromRequest(ctx, "en")
+	if adminCtx.Locale != "es" {
+		t.Fatalf("expected locale from requested_locale query, got %q", adminCtx.Locale)
+	}
+	if got := strings.TrimSpace(admin.LocaleFromContext(adminCtx.Context)); got != "es" {
+		t.Fatalf("expected locale in context, got %q", got)
+	}
 }
 
 func TestPreviewURLForRecordUsesSignedPreviewToken(t *testing.T) {
