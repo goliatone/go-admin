@@ -36,6 +36,7 @@ type PanelBuilder struct {
 	translationPolicy              TranslationPolicy
 	translationPolicySet           bool
 	translationQueueAutoCreateHook TranslationQueueAutoCreateHook
+	uiRouteMode                    PanelUIRouteMode
 }
 
 // Panel represents a registered panel.
@@ -63,7 +64,18 @@ type Panel struct {
 	workflowAuth                   WorkflowAuthorizer
 	translationPolicy              TranslationPolicy
 	translationQueueAutoCreateHook TranslationQueueAutoCreateHook
+	uiRouteMode                    PanelUIRouteMode
 }
+
+// PanelUIRouteMode declares who owns the panel's HTML UI route surface.
+type PanelUIRouteMode string
+
+const (
+	// PanelUIRouteModeCanonical means generic canonical UI routes may be auto-wired.
+	PanelUIRouteModeCanonical PanelUIRouteMode = "canonical"
+	// PanelUIRouteModeCustom means module-specific handlers own the panel UI routes.
+	PanelUIRouteModeCustom PanelUIRouteMode = "custom"
+)
 
 // Repository provides CRUD operations for panel data.
 type Repository interface {
@@ -387,12 +399,21 @@ func (b *PanelBuilder) WithTranslationQueueAutoCreateHook(hook TranslationQueueA
 	return b
 }
 
+// WithUIRouteMode configures whether canonical panel UI routes should be auto-wired.
+func (b *PanelBuilder) WithUIRouteMode(mode PanelUIRouteMode) *PanelBuilder {
+	b.uiRouteMode = normalizePanelUIRouteMode(mode)
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
 		return nil, serviceUnavailableDomainError("repository required", map[string]any{
 			"component": "panel_builder",
 		})
+	}
+	if err := validatePanelCreateUIContract(b); err != nil {
+		return nil, err
 	}
 	if b.workflow != nil {
 		workflowHook := buildWorkflowUpdateHook(b.repo, b.workflow, b.workflowAuth, b.translationPolicy, b.name)
@@ -422,7 +443,80 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		workflowAuth:                   b.workflowAuth,
 		translationPolicy:              b.translationPolicy,
 		translationQueueAutoCreateHook: b.translationQueueAutoCreateHook,
+		uiRouteMode:                    normalizePanelUIRouteMode(b.uiRouteMode),
 	}, nil
+}
+
+func validatePanelCreateUIContract(b *PanelBuilder) error {
+	if b == nil {
+		return nil
+	}
+	if strings.TrimSpace(b.permissions.Create) == "" {
+		return nil
+	}
+	if normalizePanelUIRouteMode(b.uiRouteMode) == PanelUIRouteModeCustom {
+		return nil
+	}
+	if panelBuilderHasRenderableCreateSchema(b) {
+		return nil
+	}
+	return validationDomainError(
+		"panel create permission requires form fields or form schema for canonical ui routes",
+		map[string]any{
+			"component":   "panel_builder",
+			"panel":       strings.TrimSpace(b.name),
+			"permission":  strings.TrimSpace(b.permissions.Create),
+			"field":       "permissions.create",
+			"ui_route":    string(normalizePanelUIRouteMode(b.uiRouteMode)),
+			"hint":        "set FormFields/FormSchema or mark panel UIRouteMode custom",
+			"error_group": "panel.create_contract",
+		},
+	)
+}
+
+func panelBuilderHasRenderableCreateSchema(b *PanelBuilder) bool {
+	if b == nil {
+		return false
+	}
+	for _, field := range b.formFields {
+		if strings.TrimSpace(field.Name) != "" {
+			return true
+		}
+	}
+	return panelSchemaHasRenderableProperties(b.formSchema)
+}
+
+func panelSchemaHasRenderableProperties(schema map[string]any) bool {
+	if len(schema) == 0 {
+		return false
+	}
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok || len(properties) == 0 {
+		return false
+	}
+	for key := range properties {
+		if strings.TrimSpace(key) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// UIRouteMode returns the panel UI route ownership mode.
+func (p *Panel) UIRouteMode() PanelUIRouteMode {
+	if p == nil {
+		return PanelUIRouteModeCanonical
+	}
+	return normalizePanelUIRouteMode(p.uiRouteMode)
+}
+
+func normalizePanelUIRouteMode(mode PanelUIRouteMode) PanelUIRouteMode {
+	switch mode {
+	case PanelUIRouteModeCustom:
+		return PanelUIRouteModeCustom
+	default:
+		return PanelUIRouteModeCanonical
+	}
 }
 
 // Schema returns a basic schema description.

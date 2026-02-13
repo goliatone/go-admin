@@ -26,15 +26,16 @@ type debugPanelMeta struct {
 }
 
 var debugPanelDefaults = map[string]debugPanelMeta{
-	DebugPanelTemplate: {Label: "Template Context", Span: debugPanelDefaultSpan},
-	DebugPanelSession:  {Label: "Session", Span: debugPanelDefaultSpan},
-	DebugPanelRequests: {Label: "Requests", Span: debugPanelDefaultSpan},
-	DebugPanelSQL:      {Label: "SQL Queries", Span: debugPanelDefaultSpan},
-	DebugPanelLogs:     {Label: "Logs", Span: debugPanelDefaultSpan},
-	DebugPanelConfig:   {Label: "Config", Span: debugPanelDefaultSpan},
-	DebugPanelRoutes:   {Label: "Routes", Span: debugPanelDefaultSpan},
-	DebugPanelCustom:   {Label: "Custom", Span: debugPanelDefaultSpan},
-	DebugPanelJSErrors: {Label: "JS Errors", Icon: "iconoir-warning-triangle", Span: debugPanelDefaultSpan},
+	DebugPanelTemplate:    {Label: "Template Context", Span: debugPanelDefaultSpan},
+	DebugPanelSession:     {Label: "Session", Span: debugPanelDefaultSpan},
+	DebugPanelRequests:    {Label: "Requests", Span: debugPanelDefaultSpan},
+	DebugPanelSQL:         {Label: "SQL Queries", Span: debugPanelDefaultSpan},
+	DebugPanelLogs:        {Label: "Logs", Span: debugPanelDefaultSpan},
+	DebugPanelConfig:      {Label: "Config", Span: debugPanelDefaultSpan},
+	DebugPanelRoutes:      {Label: "Routes", Span: debugPanelDefaultSpan},
+	DebugPanelCustom:      {Label: "Custom", Span: debugPanelDefaultSpan},
+	DebugPanelJSErrors:    {Label: "JS Errors", Icon: "iconoir-warning-triangle", Span: debugPanelDefaultSpan},
+	DebugPanelPermissions: {Label: "Permissions", Icon: "iconoir-shield-check", Span: debugPanelDefaultSpan},
 }
 
 // DebugModule registers the debug dashboard integration and menu entry.
@@ -118,6 +119,7 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	m.registerDebugSessionWebSocket(ctx.Admin)
 	m.registerDebugREPLShellWebSocket(ctx.Admin)
 	m.registerDebugREPLAppWebSocket(ctx.Admin)
+	RegisterPermissionsDebugPanel(ctx.Admin)
 	return nil
 }
 

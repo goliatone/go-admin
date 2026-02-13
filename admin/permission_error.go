@@ -1,11 +1,16 @@
 package admin
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // PermissionDeniedError describes a missing authorization permission.
 type PermissionDeniedError struct {
-	Permission string
-	Resource   string
+	Permission     string
+	Resource       string
+	Hint           string
+	ReauthRequired bool
 }
 
 func (e PermissionDeniedError) Error() string {
@@ -23,5 +28,23 @@ func (e PermissionDeniedError) Unwrap() error {
 }
 
 func permissionDenied(permission, resource string) error {
-	return PermissionDeniedError{Permission: permission, Resource: resource}
+	hint, reauthRequired := permissionDeniedHint(permission, resource)
+	return PermissionDeniedError{
+		Permission:     permission,
+		Resource:       resource,
+		Hint:           hint,
+		ReauthRequired: reauthRequired,
+	}
+}
+
+func permissionDeniedHint(permission, resource string) (string, bool) {
+	permission = strings.ToLower(strings.TrimSpace(permission))
+	resource = strings.ToLower(strings.TrimSpace(resource))
+	if permission == "" && resource == "" {
+		return "", false
+	}
+	if strings.HasPrefix(permission, "admin.translations.") || resource == "translations" {
+		return "Grant the missing translation permission to the current role, then sign out and sign back in to refresh token claims.", true
+	}
+	return "Grant the missing permission to the current role. If permissions were recently changed, sign out and sign back in to refresh token claims.", true
 }

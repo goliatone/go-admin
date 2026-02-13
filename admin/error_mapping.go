@@ -251,9 +251,16 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		meta := map[string]any{}
 		if permission.Permission != "" {
 			meta["permission"] = permission.Permission
+			meta["missing_permission"] = permission.Permission
 		}
 		if permission.Resource != "" {
 			meta["resource"] = permission.Resource
+		}
+		if strings.TrimSpace(permission.Hint) != "" {
+			meta["hint"] = strings.TrimSpace(permission.Hint)
+		}
+		if permission.ReauthRequired {
+			meta["reauth_required"] = true
 		}
 		if len(meta) > 0 {
 			mapped.Metadata = meta

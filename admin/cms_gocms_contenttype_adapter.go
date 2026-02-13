@@ -33,7 +33,8 @@ func (a *GoCMSContentTypeAdapter) ContentTypes(ctx context.Context) ([]CMSConten
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
-	items, err := a.service.List(ctx)
+	env := strings.TrimSpace(EnvironmentFromContext(ctx))
+	items, err := a.service.List(ctx, env)
 	if err != nil {
 		return nil, normalizeContentTypeAdapterError(err)
 	}
@@ -42,7 +43,11 @@ func (a *GoCMSContentTypeAdapter) ContentTypes(ctx context.Context) ([]CMSConten
 		if item == nil {
 			continue
 		}
-		out = append(out, convertGoCMSContentType(item))
+		converted := convertGoCMSContentType(item)
+		if converted.Environment == "" {
+			converted.Environment = env
+		}
+		out = append(out, converted)
 	}
 	return out, nil
 }
@@ -63,6 +68,9 @@ func (a *GoCMSContentTypeAdapter) ContentType(ctx context.Context, id string) (*
 		return nil, ErrNotFound
 	}
 	converted := convertGoCMSContentType(record)
+	if converted.Environment == "" {
+		converted.Environment = strings.TrimSpace(EnvironmentFromContext(ctx))
+	}
 	if converted.ID == "" && converted.Slug == "" && converted.Name == "" {
 		return nil, ErrNotFound
 	}
@@ -73,7 +81,8 @@ func (a *GoCMSContentTypeAdapter) ContentTypeBySlug(ctx context.Context, slug st
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
-	record, err := a.service.GetBySlug(ctx, strings.TrimSpace(slug))
+	env := strings.TrimSpace(EnvironmentFromContext(ctx))
+	record, err := a.service.GetBySlug(ctx, strings.TrimSpace(slug), env)
 	if err != nil {
 		normalized := normalizeContentTypeAdapterError(err)
 		if errors.Is(normalized, ErrNotFound) {
@@ -85,6 +94,9 @@ func (a *GoCMSContentTypeAdapter) ContentTypeBySlug(ctx context.Context, slug st
 		return a.contentTypeByPanelSlug(ctx, slug)
 	}
 	converted := convertGoCMSContentType(record)
+	if converted.Environment == "" {
+		converted.Environment = env
+	}
 	if converted.ID == "" && converted.Slug == "" && converted.Name == "" {
 		return a.contentTypeByPanelSlug(ctx, slug)
 	}

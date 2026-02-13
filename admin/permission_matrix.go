@@ -22,6 +22,7 @@ var defaultAdminResources = []string{
 	"admin.profile",
 	"admin.debug",
 	"admin.translations",
+	"admin.esign",
 }
 
 var defaultActions = []string{
@@ -30,6 +31,10 @@ var defaultActions = []string{
 	"import",
 	"edit",
 	"delete",
+	"send",
+	"void",
+	"download",
+	"settings",
 	"claim",
 	"assign",
 	"approve",

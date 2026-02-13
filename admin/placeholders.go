@@ -282,6 +282,11 @@ func permissionsFromContext(ctx context.Context) []string {
 				return perms
 			}
 		}
+		if jwtClaims, ok := claims.(*auth.JWTClaims); ok && jwtClaims != nil {
+			if perms := normalizePermissionList(jwtClaims.Metadata["permissions"]); len(perms) > 0 {
+				return perms
+			}
+		}
 	}
 	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
 		if perms := normalizePermissionList(actor.Metadata["permissions"]); len(perms) > 0 {
