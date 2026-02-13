@@ -762,11 +762,15 @@ func (h *contentTypeBuilderHandlers) UpdateEnvironment(c router.Context) error {
 
 func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelName string) ([]map[string]any, int, error) {
 	if h.admin == nil || h.admin.Registry() == nil {
-		return nil, 0, nil
+		return nil, 0, goerrors.New("admin not configured", goerrors.CategoryInternal).
+			WithCode(http.StatusInternalServerError).
+			WithTextCode("ADMIN_UNAVAILABLE")
 	}
 	panel, ok := h.admin.Registry().Panel(panelName)
 	if !ok || panel == nil {
-		return nil, 0, nil
+		return nil, 0, goerrors.New("panel not found", goerrors.CategoryInternal).
+			WithCode(http.StatusNotFound).
+			WithTextCode("PANEL_NOT_FOUND")
 	}
 	search := strings.TrimSpace(c.Query("search"))
 	filters := map[string]any{}
@@ -777,7 +781,7 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 		filters["status"] = status
 	}
 	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
-	if env := strings.TrimSpace(adminCtx.Environment); env != "" {
+	if env := resolveEnvironment(c); env != "" {
 		filters["environment"] = env
 	}
 	opts := admin.ListOptions{
@@ -2124,14 +2128,13 @@ func resolveEnvironment(c router.Context) string {
 	if env := strings.TrimSpace(c.Query("environment")); env != "" {
 		return env
 	}
-	if env := strings.TrimSpace(c.Cookies(environmentCookieName)); env != "" {
+	if env := strings.TrimSpace(c.Header("X-Admin-Environment")); env != "" {
 		return env
 	}
-	session := BuildSessionUser(c.Context())
-	if env := strings.TrimSpace(session.Environment); env != "" {
+	if env := strings.TrimSpace(c.Header("X-Environment")); env != "" {
 		return env
 	}
-	return stringFromMetadata(session.Metadata, "environment", "env")
+	return ""
 }
 
 func resolveLocaleFromRequest(c router.Context, fallback string) string {
