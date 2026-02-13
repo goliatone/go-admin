@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	cmscontent "github.com/goliatone/go-cms/content"
+	cmspages "github.com/goliatone/go-cms/pages"
 	goerrors "github.com/goliatone/go-errors"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 )
@@ -70,6 +72,46 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			"translation_group_id": strings.TrimSpace(translationExists.TranslationGroupID),
 		}
 		mapped = NewDomainError(TextCodeTranslationExists, translationExists.Error(), meta)
+		status = mapped.Code
+	case errors.Is(err, cmscontent.ErrTranslationAlreadyExists), errors.Is(err, cmspages.ErrTranslationAlreadyExists):
+		meta := map[string]any{}
+		var contentDup *cmscontent.TranslationAlreadyExistsError
+		if errors.As(err, &contentDup) && contentDup != nil {
+			meta["locale"] = strings.TrimSpace(strings.ToLower(contentDup.TargetLocale))
+			meta["source_locale"] = strings.TrimSpace(strings.ToLower(contentDup.SourceLocale))
+			meta["entity_id"] = strings.TrimSpace(contentDup.EntityID.String())
+			if contentDup.TranslationGroupID != nil {
+				meta["translation_group_id"] = strings.TrimSpace(contentDup.TranslationGroupID.String())
+			}
+		}
+		var pageDup *cmspages.TranslationAlreadyExistsError
+		if errors.As(err, &pageDup) && pageDup != nil {
+			meta["locale"] = strings.TrimSpace(strings.ToLower(pageDup.TargetLocale))
+			meta["source_locale"] = strings.TrimSpace(strings.ToLower(pageDup.SourceLocale))
+			meta["entity_id"] = strings.TrimSpace(pageDup.EntityID.String())
+			if pageDup.TranslationGroupID != nil {
+				meta["translation_group_id"] = strings.TrimSpace(pageDup.TranslationGroupID.String())
+			}
+		}
+		if len(meta) == 0 {
+			meta = nil
+		}
+		mapped = NewDomainError(TextCodeTranslationExists, err.Error(), meta)
+		status = mapped.Code
+	case errors.Is(err, cmscontent.ErrInvalidLocale), errors.Is(err, cmspages.ErrInvalidLocale):
+		mapped = NewDomainError(TextCodeValidationError, err.Error(), map[string]any{"field": "locale"})
+		status = http.StatusBadRequest
+		mapped.WithCode(status)
+	case errors.Is(err, cmscontent.ErrSourceNotFound), errors.Is(err, cmspages.ErrSourceNotFound):
+		mapped = NewDomainError(TextCodeNotFound, err.Error(), nil)
+		status = mapped.Code
+	case errors.Is(err, cmspages.ErrPathConflict):
+		mapped = NewDomainError(TextCodePathConflict, err.Error(), nil)
+		status = mapped.Code
+	case errors.Is(err, cmscontent.ErrSlugConflict),
+		errors.Is(err, cmscontent.ErrTranslationInvariantViolation),
+		errors.Is(err, cmspages.ErrTranslationInvariantViolation):
+		mapped = NewDomainError(TextCodeConflict, err.Error(), nil)
 		status = mapped.Code
 	case errors.As(err, &queueConflict):
 		meta := map[string]any{
