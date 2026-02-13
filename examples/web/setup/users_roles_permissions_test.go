@@ -10,7 +10,7 @@ import (
 	userstypes "github.com/goliatone/go-users/pkg/types"
 )
 
-func TestSetupUsersSeededPrivilegedRolesIncludeTranslationExchangePermissions(t *testing.T) {
+func TestSetupUsersSeededPrivilegedRolesIncludeTranslationOperationPermissions(t *testing.T) {
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:users_role_seed_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
 
@@ -20,6 +20,12 @@ func TestSetupUsersSeededPrivilegedRolesIncludeTranslationExchangePermissions(t 
 	}
 
 	required := []string{
+		"admin.translations.view",
+		"admin.translations.edit",
+		"admin.translations.manage",
+		"admin.translations.assign",
+		"admin.translations.approve",
+		"admin.translations.claim",
 		"admin.translations.export",
 		"admin.translations.import.view",
 		"admin.translations.import.validate",
@@ -43,7 +49,7 @@ func TestSetupUsersSeededPrivilegedRolesIncludeTranslationExchangePermissions(t 
 	}
 }
 
-func TestResolveRolePermissionsSuperadminIncludesTranslationExchangePermissions(t *testing.T) {
+func TestResolveRolePermissionsSuperadminIncludesTranslationOperationPermissions(t *testing.T) {
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:users_superadmin_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
 
@@ -69,6 +75,12 @@ func TestResolveRolePermissionsSuperadminIncludesTranslationExchangePermissions(
 	}
 
 	required := []string{
+		"admin.translations.view",
+		"admin.translations.edit",
+		"admin.translations.manage",
+		"admin.translations.assign",
+		"admin.translations.approve",
+		"admin.translations.claim",
 		"admin.translations.export",
 		"admin.translations.import.view",
 		"admin.translations.import.validate",
@@ -81,7 +93,7 @@ func TestResolveRolePermissionsSuperadminIncludesTranslationExchangePermissions(
 	}
 }
 
-func TestResolveRolePermissionsViewerExcludesTranslationExchangePermissions(t *testing.T) {
+func TestResolveRolePermissionsViewerExcludesTranslationOperationPermissions(t *testing.T) {
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:users_viewer_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
 
@@ -107,6 +119,12 @@ func TestResolveRolePermissionsViewerExcludesTranslationExchangePermissions(t *t
 	}
 
 	for _, perm := range []string{
+		"admin.translations.view",
+		"admin.translations.edit",
+		"admin.translations.manage",
+		"admin.translations.assign",
+		"admin.translations.approve",
+		"admin.translations.claim",
 		"admin.translations.export",
 		"admin.translations.import.view",
 		"admin.translations.import.validate",

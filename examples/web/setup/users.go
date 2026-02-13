@@ -14,6 +14,7 @@ import (
 	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
 	persistence "github.com/goliatone/go-persistence-bun"
+	repository "github.com/goliatone/go-repository-bun"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/command"
 	"github.com/goliatone/go-users/passwordreset"
@@ -24,6 +25,7 @@ import (
 	userssvc "github.com/goliatone/go-users/service"
 	"github.com/goliatone/go-users/tokens"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
@@ -566,6 +568,12 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 				"admin.debug.view",
 				"admin.debug.repl",
 				"admin.debug.repl.exec",
+				"admin.translations.view",
+				"admin.translations.edit",
+				"admin.translations.manage",
+				"admin.translations.assign",
+				"admin.translations.approve",
+				"admin.translations.claim",
 				"admin.translations.export",
 				"admin.translations.import.view",
 				"admin.translations.import.validate",
@@ -756,6 +764,12 @@ func ensureTranslationExchangeSeedPermissions(ctx context.Context, registry type
 	}
 
 	required := []string{
+		"admin.translations.view",
+		"admin.translations.edit",
+		"admin.translations.manage",
+		"admin.translations.assign",
+		"admin.translations.approve",
+		"admin.translations.claim",
 		"admin.translations.export",
 		"admin.translations.import.view",
 		"admin.translations.import.validate",
@@ -817,35 +831,14 @@ func (i *inventoryRepositoryAdapter) ListUsers(ctx context.Context, filter types
 	if i == nil || i.users == nil {
 		return types.UserInventoryPage{}, nil
 	}
-	records, _, err := i.users.List(ctx)
+	pagination := normalizeInventoryPagination(filter.Pagination)
+	records, total, err := i.users.List(ctx, inventorySelectCriteria(filter, pagination)...)
 	if err != nil {
 		return types.UserInventoryPage{}, err
 	}
 	out := make([]types.AuthUser, 0, len(records))
-	keyword := strings.ToLower(strings.TrimSpace(filter.Keyword))
-	role := strings.ToLower(strings.TrimSpace(filter.Role))
-
-	statusMap := map[types.LifecycleState]bool{}
-	for _, status := range filter.Statuses {
-		statusMap[status] = true
-	}
-
 	for _, user := range records {
 		if user == nil {
-			continue
-		}
-		if len(statusMap) > 0 {
-			if !statusMap[types.LifecycleState(user.Status)] {
-				continue
-			}
-		}
-		if role != "" && !strings.EqualFold(string(user.Role), role) {
-			continue
-		}
-		if len(filter.UserIDs) > 0 && !containsUUID(filter.UserIDs, user.ID) {
-			continue
-		}
-		if keyword != "" && !strings.Contains(strings.ToLower(user.Username), keyword) && !strings.Contains(strings.ToLower(user.Email), keyword) {
 			continue
 		}
 		out = append(out, types.AuthUser{
@@ -862,38 +855,76 @@ func (i *inventoryRepositoryAdapter) ListUsers(ctx context.Context, filter types
 			Raw:       user,
 		})
 	}
-
-	limit := filter.Pagination.Limit
-	if limit <= 0 {
-		limit = len(out)
+	nextOffset := pagination.Offset + len(out)
+	if nextOffset > total {
+		nextOffset = total
 	}
-	offset := filter.Pagination.Offset
-	if offset < 0 {
-		offset = 0
-	}
-	if offset > len(out) {
-		offset = len(out)
-	}
-	end := offset + limit
-	if end > len(out) {
-		end = len(out)
-	}
-
 	return types.UserInventoryPage{
-		Users:      out[offset:end],
-		Total:      len(out),
-		NextOffset: end,
-		HasMore:    end < len(out),
+		Users:      out,
+		Total:      total,
+		NextOffset: nextOffset,
+		HasMore:    nextOffset < total,
 	}, nil
 }
 
-func containsUUID(list []uuid.UUID, target uuid.UUID) bool {
-	for _, id := range list {
-		if id == target {
-			return true
+func normalizeInventoryPagination(p types.Pagination) types.Pagination {
+	const (
+		defaultInventoryLimit = 50
+		maxInventoryLimit     = 200
+	)
+	limit := p.Limit
+	if limit <= 0 {
+		limit = defaultInventoryLimit
+	}
+	if limit > maxInventoryLimit {
+		limit = maxInventoryLimit
+	}
+	offset := p.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	return types.Pagination{Limit: limit, Offset: offset}
+}
+
+func inventorySelectCriteria(filter types.UserInventoryFilter, pagination types.Pagination) []repository.SelectCriteria {
+	criteria := []repository.SelectCriteria{
+		repository.SelectOrderAsc("id"),
+		repository.SelectPaginate(pagination.Limit, pagination.Offset),
+	}
+
+	if role := strings.ToLower(strings.TrimSpace(filter.Role)); role != "" {
+		criteria = append(criteria, repository.SelectRawProcessor(func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.Where("LOWER(?TableAlias.role) = ?", role)
+		}))
+	}
+
+	statuses := make([]string, 0, len(filter.Statuses))
+	for _, status := range filter.Statuses {
+		raw := strings.ToLower(strings.TrimSpace(string(status)))
+		if raw != "" {
+			statuses = append(statuses, raw)
 		}
 	}
-	return false
+	if len(statuses) > 0 {
+		criteria = append(criteria, repository.SelectColumnIn("status", statuses))
+	}
+
+	if len(filter.UserIDs) > 0 {
+		criteria = append(criteria, repository.SelectColumnIn("id", filter.UserIDs))
+	}
+
+	if keyword := strings.ToLower(strings.TrimSpace(filter.Keyword)); keyword != "" {
+		like := "%" + keyword + "%"
+		criteria = append(criteria, repository.SelectRawProcessor(func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.WhereGroup(" AND ", func(group *bun.SelectQuery) *bun.SelectQuery {
+				return group.
+					Where("LOWER(?TableAlias.username) LIKE ?", like).
+					WhereOr("LOWER(?TableAlias.email) LIKE ?", like)
+			})
+		}))
+	}
+
+	return criteria
 }
 
 // newAuthAdapter wraps auth.Users into a go-users AuthRepository.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 // usersSearchAdapter searches users
@@ -124,12 +125,13 @@ func (a *mediaSearchAdapter) Search(ctx context.Context, query string, limit int
 	results := []admin.SearchResult{}
 	media, _, _ := a.store.List(ctx, admin.ListOptions{Filters: map[string]any{"_search": query}, PerPage: limit})
 	for _, m := range media {
+		id := fmt.Sprintf("%v", m["id"])
 		results = append(results, admin.SearchResult{
 			Type:        "media",
-			ID:          fmt.Sprintf("%v", m["id"]),
+			ID:          id,
 			Title:       fmt.Sprintf("%v", m["filename"]),
 			Description: fmt.Sprintf("Type: %v, Size: %v", m["type"], m["size"]),
-			URL:         fmt.Sprintf("/admin/media/%v", m["id"]),
+			URL:         quickstart.ResolveAdminPanelDetailURL(nil, "/admin", "media", id),
 			Icon:        "image",
 			Thumbnail:   fmt.Sprintf("%v", m["url"]),
 		})
