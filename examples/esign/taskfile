@@ -95,6 +95,12 @@ function dev:serve {
     export ESIGN_EMAIL_SMTP_DISABLE_STARTTLS=true;
     export ESIGN_EMAIL_SMTP_USERNAME=User1;
     export ESIGN_EMAIL_SMTP_PASSWORD=Password1;
+
+    #TODO: remove when we fix go-admin
+    export ADMIN_ROUTE_CONFLICT_POLICY="log_and_continue";
+    export ADMIN_STRICT_ROUTES=false;
+
+
     export ADMIN_ASSETS_DIR="${root_dir}/pkg/client/assets"
 
     "${GO_BIN}" run .

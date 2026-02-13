@@ -243,6 +243,8 @@ export ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY="<generated-value>"
 
 ### Admin Framework (inherited from quickstart)
 
+Canonical `ADMIN_*` env reference (single table): `../../ENVS_REF.md`
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8082` | Server listen port |
