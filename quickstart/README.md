@@ -29,7 +29,8 @@ Each helper is optional and composable.
 - `RegisterTranslationQueueWiring(adm *admin.Admin, cfg TranslationQueueConfig, policyCfg TranslationPolicyConfig, hasPolicyCfg bool) error` - Inputs: admin + queue config + policy context; outputs: error (registers queue panel, tabs, commands, and optional permission entries).
 - `WithGoUsersPreferencesRepository(repo types.PreferenceRepository) AdminOption` - Inputs: go-users preferences repo; outputs: option that wires a PreferencesStore via the adapter when one is not already set.
 - `WithGoUsersPreferencesRepositoryFactory(factory func() (types.PreferenceRepository, error)) AdminOption` - Inputs: repo builder; outputs: option to lazily construct a preferences repo (used when dependencies do not already supply a PreferencesStore).
-- `WithGoUsersUserManagement(cfg GoUsersUserManagementConfig) AdminOption` - Inputs: go-users auth/inventory/role repositories (plus optional profile repo and scope resolver); outputs: option that wires user/role repositories and enables bulk role route registration.
+- `WithGoUsersUserManagement(cfg GoUsersUserManagementConfig) AdminOption` - Inputs: go-users auth/inventory/role repositories (plus optional profile repo and scope resolver); outputs: option that wires user/role/profile dependencies.
+- `WithLegacyUserRoleBulkRoutes() AdminOption` - Inputs: none; outputs: option that enables deprecated static user bulk role routes (`/users/bulk/assign-role`, `/users/bulk/unassign-role`) for compatibility.
 - `NewUsersModule(opts ...admin.UserManagementModuleOption) *admin.UserManagementModule` - Inputs: user module options; outputs: configured built-in users module.
 - `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
 - `PreferencesPermissions() []PermissionDefinition` - Outputs: default preferences permission definitions.
@@ -90,7 +91,15 @@ Each helper is optional and composable.
 ## User management
 Quickstart can wire go-users repositories and expose the built-in users module. The `users` feature flag is enabled by default in `DefaultAdminFeatures()`; if you disable it, the users module is skipped and user/role endpoints return `FeatureDisabledError`.
 
-Use `WithGoUsersUserManagement` to provide the required repositories (`AuthRepo`, `InventoryRepo`, `RoleRegistry`) and optional `ProfileRepo` + `ScopeResolver`. This wires `UserRepository`, `RoleRepository`, and (when provided) `ProfileStore`, and auto-registers bulk role routes when the `users` feature is enabled.
+Use `WithGoUsersUserManagement` to provide the required repositories (`AuthRepo`, `InventoryRepo`, `RoleRegistry`) and optional `ProfileRepo` + `ScopeResolver`. This wires `UserRepository`, `RoleRepository`, and (when provided) `ProfileStore`.
+
+Bulk role operations should use panel bulk routes (`/:panel/bulk/:action`, e.g. `/admin/api/users/bulk/assign-role`). Legacy static routes are disabled by default; enable them only for compatibility:
+
+```go
+quickstart.WithLegacyUserRoleBulkRoutes()
+```
+
+Quickstart Fiber defaults now use `ADMIN_ROUTE_PATH_CONFLICT_MODE=prefer_static`, so absolute static routes (for example `/users/bulk/assign-role`) can coexist with wildcard siblings (for example `/users/bulk/:action`) deterministically; set `ADMIN_ROUTE_PATH_CONFLICT_MODE=strict` to restore strict conflict behavior.
 
 ```go
 cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
@@ -341,6 +350,7 @@ Environment variables:
 - `ADMIN_SCOPE_MODE=single|multi`
 - `ADMIN_DEFAULT_TENANT_ID=<uuid>`
 - `ADMIN_DEFAULT_ORG_ID=<uuid>`
+- Full `ADMIN_*` table (including route conflict flags `ADMIN_ROUTE_CONFLICT_POLICY`, `ADMIN_ROUTE_PATH_CONFLICT_MODE`, and `ADMIN_STRICT_ROUTES`): `../ENVS_REF.md`
 
 Example:
 
