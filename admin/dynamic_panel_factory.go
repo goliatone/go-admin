@@ -257,7 +257,7 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 		Permissions(panelPermissionsForContentType(*contentType))
 
 	builder.WithWorkflow(nil)
-	if workflow := workflowEngineForContentType(f.admin, contentType); workflow != nil {
+	if workflow := workflowEngineForContentType(ctx, f.admin, contentType); workflow != nil {
 		builder.WithWorkflow(workflow)
 	}
 	if hasPanelTrait(panelTraits, "editorial") {
@@ -1152,20 +1152,27 @@ func normalizePanelTraitsForWorkflowLookup(raw any) []string {
 	return out
 }
 
-func workflowEngineForContentType(admin *Admin, contentType *CMSContentType) WorkflowEngine {
+func workflowEngineForContentType(ctx context.Context, admin *Admin, contentType *CMSContentType) WorkflowEngine {
 	if contentType == nil {
 		return nil
 	}
-	resolution := resolveWorkflowIDForContentType(contentType.Capabilities, adminTraitWorkflowDefaults(admin))
-	workflowKey := resolution.id
-	if workflowKey == "" {
+	resolution := resolveWorkflowIDForContentType(contentType.Capabilities, nil)
+	if resolution.id == "" {
+		resolution = persistedWorkflowResolutionForContentType(ctx, admin, contentType)
+	}
+	if resolution.id == "" {
+		resolution = resolveWorkflowIDForContentType(contentType.Capabilities, adminTraitWorkflowDefaults(admin))
+	}
+	workflowID := resolution.id
+	if workflowID == "" {
 		return nil
 	}
 	engine := resolveCMSWorkflowEngine(admin)
 	if engine == nil {
 		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow engine unavailable",
 			"content_type", contentType.Slug,
-			"workflow", workflowKey,
+			"workflow", workflowID,
+			"resolved_workflow_id", workflowID,
 			"resolution_source", resolution.source)
 		return nil
 	}
@@ -1173,19 +1180,58 @@ func workflowEngineForContentType(admin *Admin, contentType *CMSContentType) Wor
 	if !ok {
 		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow definition checker unavailable",
 			"content_type", contentType.Slug,
-			"workflow", workflowKey,
+			"workflow", workflowID,
+			"resolved_workflow_id", workflowID,
 			"resolution_source", resolution.source)
 		return nil
 	}
-	if !checker.HasWorkflow(workflowKey) {
+	if !checker.HasWorkflow(workflowID) {
 		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow not found",
 			"content_type", contentType.Slug,
-			"workflow", workflowKey,
+			"workflow", workflowID,
+			"resolved_workflow_id", workflowID,
 			"resolution_source", resolution.source,
 			"traits", resolution.traits)
 		return nil
 	}
-	return workflowAlias{engine: engine, entityType: workflowKey}
+	return workflowAlias{engine: engine, entityType: workflowID}
+}
+
+func persistedWorkflowResolutionForContentType(ctx context.Context, admin *Admin, contentType *CMSContentType) workflowResolution {
+	traits := orderedPanelTraitsForWorkflowLookup(contentType.Capabilities)
+	if admin == nil || admin.workflowRuntime == nil || contentType == nil {
+		return workflowResolution{traits: traits}
+	}
+	contentTypeRef := strings.TrimSpace(contentType.Slug)
+	if contentTypeRef == "" {
+		contentTypeRef = strings.TrimSpace(contentType.ID)
+	}
+	environment := strings.TrimSpace(contentType.Environment)
+	if environment == "" {
+		environment = strings.TrimSpace(EnvironmentFromContext(ctx))
+	}
+	resolution, err := admin.workflowRuntime.ResolveBinding(ctx, WorkflowBindingResolveInput{
+		ContentType: contentTypeRef,
+		Traits:      traits,
+		Environment: environment,
+	})
+	if err != nil {
+		adminScopedLogger(admin, "admin.dynamic_panel_factory").Warn("workflow binding resolution failed",
+			"content_type", contentType.Slug,
+			"content_type_ref", contentTypeRef,
+			"environment", environment,
+			"traits", traits,
+			"error", err)
+		return workflowResolution{traits: traits}
+	}
+	if strings.TrimSpace(resolution.WorkflowID) == "" {
+		return workflowResolution{traits: traits}
+	}
+	return workflowResolution{
+		id:     strings.TrimSpace(resolution.WorkflowID),
+		source: strings.TrimSpace(resolution.Source),
+		traits: traits,
+	}
 }
 
 func adminTraitWorkflowDefaults(admin *Admin) map[string]string {
