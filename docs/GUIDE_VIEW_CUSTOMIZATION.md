@@ -307,7 +307,7 @@ Important: helpers are globals (functions), not filters. Call them like:
 | `singularize` | `singularize(s string) string` | Converts plural word to singular (via flect) |
 | `pluralize` | `pluralize(s string) string` | Converts singular word to plural (via flect) |
 | `adminURL` | `adminURL(path string) string` | Resolves admin-relative URL path (uses URLKit if configured) |
-| `panelURL` | `panelURL(panel string) string` | Resolves canonical panel list URL (e.g., `/admin/users`, `/admin/content/translations`) |
+| `panelURL` | `panelURL(panel string) string` | Resolves canonical panel entry URL (for most panels this is list; some panels can resolve to detail based on `PanelEntryMode`) |
 | `panelDetailURL` | `panelDetailURL(panel, id string) string` | Resolves panel detail URL (e.g., `/admin/users/123`) |
 | `panelEditURL` | `panelEditURL(panel, id string) string` | Resolves panel edit URL (e.g., `/admin/users/123/edit`) |
 | `panelPreviewURL` | `panelPreviewURL(panel, id string) string` | Resolves panel preview URL (e.g., `/admin/users/123/preview`) |
@@ -317,6 +317,12 @@ Important: helpers are globals (functions), not filters. Call them like:
 | `dict` | `dict(values ...any) (map[string]any, error)` | Creates a dictionary from key-value pairs (keys must be strings) |
 
 When `WithTemplateFeatureGate` is configured, additional feature gate helpers are registered from go-featuregate (e.g., `featureEnabled`, `featureDisabled`).
+
+Entry-route note:
+
+- `panelURL("profile")` resolves to `/admin/profile`, but the rendered view is
+  controlled by panel entry mode. For built-in profile this is
+  `detail_current_user`, so it opens the current-user detail screen.
 
 ### Template function options
 
@@ -440,7 +446,7 @@ Additional top-level keys when using `WithThemeContext`:
 
 ### Feature context variables
 
-Injected by quickstart UI routes via `withUIFeatureContext`:
+Injected by quickstart UI routes and by `quickstart.WithNav(...)` / `quickstart.WithNavPlacements(...)` via `withUIFeatureContext`:
 
 | Variable | Type | Description |
 |----------|------|-------------|
@@ -448,6 +454,8 @@ Injected by quickstart UI routes via `withUIFeatureContext`:
 | `activity_feature_enabled` | `bool` | Alias for `activity_enabled` |
 | `translation_capabilities` | `map[string]any` | Translation module capabilities |
 | `body_classes` | `string` | Feature-aware CSS classes for `<body>` |
+
+Custom handlers that call `quickstart.WithNav(...)` inherit the same feature keys as built-in quickstart UI routes.
 
 Feature gate template context keys (from go-featuregate):
 - `_fg_ctx` - Request context for feature checks
