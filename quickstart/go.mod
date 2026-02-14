@@ -35,6 +35,7 @@ require (
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
 	github.com/uptrace/bun/driver/sqliteshim v1.2.16
 	golang.org/x/text v0.32.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -108,7 +109,7 @@ require (
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-options v0.7.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
-	github.com/goliatone/go-repository-bun v0.13.0 // indirect
+	github.com/goliatone/go-repository-bun v0.14.0 // indirect
 	github.com/goliatone/go-repository-cache v0.6.0 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.0 // indirect
@@ -195,7 +196,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251213004720-97cd9d5aeac2 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.67.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
