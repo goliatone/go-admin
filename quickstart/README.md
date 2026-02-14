@@ -50,6 +50,8 @@ Each helper is optional and composable.
 - `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
 - `WithViewURLResolver(urls urlkit.Resolver) ViewEngineOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
 - `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection.
+- `WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext` - Inputs: base view context + admin/config/request state. Outputs: context enriched with feature flags (`activity_enabled`, `activity_feature_enabled`, `translation_capabilities`, `body_classes`), session user payload, nav items, theme payload, and path helpers.
+- `WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement string, active string, reqCtx context.Context) router.ViewContext` - Inputs: same as `WithNav`, plus placement mapping. Outputs: placement-aware nav context for non-sidebar menus while preserving the same feature/session/theme enrichment.
 - `BuildPanelExportConfig(cfg admin.Config, opts PanelViewCapabilityOptions) map[string]any` - Inputs: admin config and panel capability options. Outputs: normalized `export_config` payload (`endpoint`, `definition`, optional `variant`).
 - `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, `column_storage_key`).
 - `BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOptions) router.ViewContext` - Inputs: admin config and panel capability options. Outputs: template capability context including `export_config` and `datagrid_config`.
@@ -71,6 +73,7 @@ Each helper is optional and composable.
 - `WithModuleFeatureGates(gates gate.FeatureGate) ModuleRegistrarOption` - Inputs: feature gate; outputs: option to filter modules/menu items.
 - `WithModuleFeatureDisabledHandler(handler func(feature, moduleID string) error) ModuleRegistrarOption` - Inputs: handler; outputs: option for disabled modules.
 - `WithTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) ModuleRegistrarOption` - Inputs: translation menu seeding mode (`none` default, `tools` legacy); outputs: option controlling whether translation queue/exchange links are added to server-seeded navigation.
+- `DefaultContentParentPermissions() []string` - Outputs: canonical permission set used by the default sidebar `Content` parent (`pages`, `posts`, `media`, `content_types`, `block_definitions`).
 - `WithGoAuth(adm *admin.Admin, routeAuth *auth.RouteAuthenticator, cfg auth.Config, authz admin.GoAuthAuthorizerConfig, authCfg *admin.AuthConfig, opts ...admin.GoAuthAuthenticatorOption) (*admin.GoAuthAuthenticator, *admin.GoAuthAuthorizer)` - Inputs: admin, route auth, auth config, authz config, admin auth config, options. Outputs: adapters.
 - `WithDefaultDashboardRenderer(adm *admin.Admin, viewEngine fiber.Views, cfg admin.Config, opts ...DashboardRendererOption) error` - Inputs: admin, view engine, config, renderer options. Outputs: error.
 - `WithDashboardTemplatesFS(fsys fs.FS) DashboardRendererOption` - Inputs: template FS; outputs: renderer option for overrides.
@@ -145,6 +148,28 @@ All user management URLs should resolve via URLKit (admin namespace). Defaults:
 - `adm.URLs().Resolve("admin.user_profiles")` -> `/admin/user-profiles` (when the profiles panel is enabled)
 - `adm.URLs().Resolve("admin.api.user_profiles")` -> `/admin/api/user-profiles` (when the profiles panel is enabled)
 
+Panel entry behavior:
+- Canonical panel UI routes (registered by `RegisterContentEntryUIRoutes`) now
+  honor `PanelBuilder.WithEntryMode(...)`.
+- `profile` defaults to `admin.PanelEntryModeDetailCurrentUser`, so
+  `GET /admin/profile` resolves to the current user detail view instead of the
+  profile datagrid/list.
+- Panels without explicit entry mode use `admin.PanelEntryModeList`.
+
+To opt a panel into a different canonical entry point:
+
+```go
+usersModule := quickstart.NewUsersModule(
+	admin.WithUsersPanelConfigurer(func(builder *admin.PanelBuilder) *admin.PanelBuilder {
+		if builder == nil {
+			return nil
+		}
+		return builder.WithEntryMode(admin.PanelEntryModeDetailCurrentUser)
+	}),
+)
+_ = usersModule
+```
+
 Bulk role routes are auto-registered by quickstart when `users` is enabled:
 - `adm.URLs().Resolve("admin.api.users.bulk.assign_role")` -> `/admin/api/users/bulk/assign-role`
 - `adm.URLs().Resolve("admin.api.users.bulk.unassign_role")` -> `/admin/api/users/bulk/unassign-role`
@@ -180,7 +205,7 @@ When exchange is enabled through profiles, quickstart still validates that requi
 If `cms` is disabled, any effective profile/module enablement other than `none` fails startup with a typed translation product config error.
 Quickstart publishes resolved translation metadata to both:
 - `quickstart.TranslationCapabilities(adm)` for backend/example wiring.
-- `translation_capabilities` in UI route view context for template/frontend gating.
+- `translation_capabilities` in UI route view context and `quickstart.WithNav(...)` context for template/frontend gating.
 - Startup diagnostics log event: `translation.capabilities.startup` (INFO) with `profile`, `schema_version`, module enablement, feature flags, routes, panels, resolver keys, and warnings.
 - Validation failures log `translation.capabilities.startup` (ERROR) with deterministic fields: `error_code`, `error_message`, `hint`, `failed_checks`.
 - `SchemaVersion=0` is treated as a supported legacy input and normalized to
@@ -364,6 +389,10 @@ For panel-backed navigation targets, prefer canonical panel URL helpers instead
 of hardcoded paths:
 - `quickstart.ResolveAdminPanelURL(adm.URLs(), cfg.BasePath, "<panel>")`
 
+The helper resolves the canonical panel entry URL. When a panel opts into
+`PanelEntryModeDetailCurrentUser`, that same URL opens detail for the current
+authenticated user.
+
 ## Scope defaults (single vs multi-tenant)
 Quickstart can enforce a single-tenant default scope or require explicit tenant/org
 claims for multi-tenant projects.
@@ -467,6 +496,11 @@ if err := quickstart.RegisterContentEntryUIRoutes(
 	return err
 }
 ```
+
+When canonical panel UI routes are active (`PanelUIRouteModeCanonical`), the
+base panel route (`/admin/<panel>`) uses the panel entry mode. For example,
+`detail_current_user` renders detail for the authenticated user; default mode
+remains list/datagrid.
 
 ### Panel list template contract
 For list templates rendered from quickstart panel/content-entry routes, use `datagrid_config` as the canonical contract for DataGrid wiring:
@@ -576,6 +610,130 @@ if err != nil {
 }
 adm.WithCMSWorkflowDefaults()
 ```
+
+Workflow capability precedence for dynamic content panels:
+
+1. `workflow_id` (aliases: `workflowId`, `workflow-id`)
+2. legacy `workflow`
+3. trait default mapping configured through quickstart/admin options
+4. no workflow
+
+Configure trait defaults at bootstrap:
+
+```go
+adm, _, err := quickstart.NewAdmin(
+    cfg,
+    hooks,
+    quickstart.WithAdminDependencies(admin.Dependencies{
+        Workflow: workflow,
+    }),
+    quickstart.WithTraitWorkflowDefaults(map[string]string{
+        "editorial": "editorial.default",
+    }),
+)
+if err != nil {
+    return err
+}
+```
+
+Content type capability examples:
+
+```json
+{
+  "panel_traits": ["editorial"],
+  "workflow_id": "editorial.news"
+}
+```
+
+```json
+{
+  "panel_traits": ["editorial"],
+  "workflow": "posts"
+}
+```
+
+Migration guidance:
+
+1. Keep legacy `workflow` keys initially.
+2. Add trait defaults (`WithTraitWorkflowDefaults`) for shared defaults.
+3. Add explicit `workflow_id` for content types that must override defaults.
+4. Remove legacy `workflow` after validation.
+
+External workflow config (YAML/JSON) can be loaded at startup:
+
+```yaml
+schema_version: 1
+trait_defaults:
+  editorial: editorial.default
+workflows:
+  editorial.default:
+    initial_state: draft
+    transitions:
+      - name: submit_for_approval
+        from: draft
+        to: approval
+      - name: publish
+        from: approval
+        to: published
+  editorial.news:
+    initial_state: draft
+    transitions:
+      - name: submit_for_approval
+        from: draft
+        to: approval
+      - name: publish
+        from: approval
+        to: published
+```
+
+```go
+adm, _, err := quickstart.NewAdmin(
+    cfg,
+    hooks,
+    quickstart.WithWorkflowConfigFile("workflow_config.yaml"),
+)
+```
+
+Validation fails fast with actionable field errors for:
+- unsupported schema versions
+- invalid workflow definitions (missing `initial_state`, transition fields, duplicate transition names)
+- trait defaults referencing unknown workflow IDs
+
+Persisted workflow runtime (Stage 3) can be wired for dynamic workflow and binding management:
+
+```go
+runtime := admin.NewWorkflowRuntimeService(
+    admin.NewInMemoryWorkflowDefinitionRepository(),
+    admin.NewInMemoryWorkflowBindingRepository(),
+)
+
+adm, _, err := quickstart.NewAdmin(
+    cfg,
+    hooks,
+    quickstart.WithAdminDependencies(admin.Dependencies{
+        Workflow: admin.NewSimpleWorkflowEngine(),
+    }),
+    quickstart.WithWorkflowRuntime(runtime),
+)
+```
+
+Runtime binding resolution order is:
+1. content type binding
+2. trait binding
+3. global binding
+
+Capability precedence is unchanged: explicit `workflow_id`/`workflow` on the content type still wins over persisted bindings.
+
+Workflow management API endpoints:
+- `GET /admin/api/workflows`
+- `POST /admin/api/workflows`
+- `PUT /admin/api/workflows/:id` (`expected_version` required for updates; `rollback_to_version` enables rollback)
+- `GET /admin/api/workflows/bindings`
+- `POST /admin/api/workflows/bindings`
+- `PUT /admin/api/workflows/bindings/:id` (`expected_version` required)
+- `DELETE /admin/api/workflows/bindings/:id`
+
+Operational migration/rollback details: `../docs/WORKFLOW_PERSISTENCE.md`.
 
 CMS demo panels default to the `submit_for_approval` and `publish` actions. Override them with:
 
@@ -1109,7 +1267,7 @@ log.Printf("Registered routes: %v", caps["routes"])
 If you previously imported quickstart as part of the root module, keep the same import path but add a direct `require` on `github.com/goliatone/go-admin/quickstart` in your `go.mod` (or use a local `replace`/`go.work` entry during dev). The APIs are unchanged; only the module boundary moved.
 
 ## What’s included
-- Navigation: slug-derived menu IDs/lookup, parent scaffolder for grouped/collapsible defaults, idempotent seeding (`SeedNavigation`), deterministic ordering, permission filtering, collapsible state, `NAV_DEBUG` logging/JSON, and view helpers (`WithNav`, `BuildNavItems`).
+- Navigation: slug-derived menu IDs/lookup, parent scaffolder for grouped/collapsible defaults, canonical content-parent permission helper (`DefaultContentParentPermissions`), idempotent seeding (`SeedNavigation`), deterministic ordering, permission filtering, collapsible state, `NAV_DEBUG` logging/JSON, and view helpers (`WithNav`, `BuildNavItems`).
 - Sidebar: embedded templates/partials and assets (CSS/JS) with collapse + submenu persistence; apps can override by adding their own template/assets FS ahead of the defaults.
 - Error handling: Fiber error handler that returns JSON for API paths and renders the branded error page (with nav/theme/session) for HTML routes.
 - Adapters: config- or env-flagged wiring for persistent CMS (`USE_PERSISTENT_CMS`), go-options settings (`USE_GO_OPTIONS`), and go-users activity sink (`USE_GO_USERS_ACTIVITY`) with safe in-memory fallbacks.

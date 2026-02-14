@@ -5,6 +5,7 @@ The core `github.com/goliatone/go-admin` module stays dependency-light and focus
 - Quickstart docs: `quickstart/README.md`
 - Canonical `ADMIN_*` env flags: `ENVS_REF.md`
 - Translation operations guide: `docs/GUIDE_CMS.md#17-translation-workflow-operations`
+- Persisted workflow runtime guide: `docs/WORKFLOW_PERSISTENCE.md`
 - Design notes: `QUICKBOOT_TDD.md`
 - Task plan: `QUICKBOOT_TSK.md`
 - Export refactor design: `EXPORT_REF_TDD.md`
@@ -36,6 +37,22 @@ cfg := admin.Config{
 	},
 }
 ```
+
+## Panel Entry Modes
+
+Panels can customize what the canonical panel URL (`/admin/<panel>`) renders.
+
+- `PanelEntryModeList` (default): render the panel list/datagrid view.
+- `PanelEntryModeDetailCurrentUser`: resolve the current authenticated user ID
+  and render the panel detail view for that record.
+
+Use `PanelBuilder.WithEntryMode(...)` in module/panel registration. This is
+complementary to `PanelUIRouteMode`:
+
+- `PanelUIRouteModeCanonical`: quickstart canonical panel UI routes are
+  registered and honor `EntryMode`.
+- `PanelUIRouteModeCustom`: module-owned routes are responsible for entry
+  behavior.
 
 ## CMS CRUD Alignment (Read/Write Split)
 
