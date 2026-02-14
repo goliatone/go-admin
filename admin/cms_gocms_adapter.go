@@ -68,6 +68,12 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 	if err != nil {
 		return err
 	}
+	if err := validateMenuParentLink(path, parentPath); err != nil {
+		return err
+	}
+	if err := a.ensureMenuHierarchyIntegrity(ctx, menuCode, path, parentPath); err != nil {
+		return err
+	}
 
 	itemType := normalizeMenuItemType(item.Type)
 	target := mergeMenuTarget(item)
@@ -124,6 +130,12 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 
 	path, parent, err := deriveMenuItemPaths(menuCode, item)
 	if err != nil {
+		return err
+	}
+	if err := validateMenuParentLink(path, parent); err != nil {
+		return err
+	}
+	if err := a.ensureMenuHierarchyIntegrity(ctx, menuCode, path, parent); err != nil {
 		return err
 	}
 	update := cms.UpdateMenuItemByPathInput{Actor: uuid.Nil}
@@ -189,6 +201,25 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 		LabelKey:      labelKey,
 		GroupTitle:    groupTitle,
 		GroupTitleKey: groupTitleKey,
+	})
+}
+
+func (a *GoCMSMenuAdapter) ensureMenuHierarchyIntegrity(ctx context.Context, menuCode, path, parent string) error {
+	canonicalPath := strings.TrimSpace(path)
+	canonicalParent := strings.TrimSpace(parent)
+	if canonicalPath == "" || canonicalParent == "" {
+		return nil
+	}
+	menu, err := a.Menu(ctx, menuCode, "")
+	if err != nil || menu == nil {
+		return nil
+	}
+	if !menuTreeWouldCreateCycle(menu.Items, canonicalPath, canonicalParent) {
+		return nil
+	}
+	return validationDomainError("menu hierarchy cycle detected", map[string]any{
+		"id":        canonicalPath,
+		"parent_id": canonicalParent,
 	})
 }
 
@@ -311,7 +342,11 @@ func (a *GoCMSMenuAdapter) ResetMenuContext(ctx context.Context, code string) er
 		ctx = context.Background()
 	}
 	menuCode := cms.CanonicalMenuCode(code)
-	return a.service.ResetMenuByCode(ctx, menuCode, uuid.Nil, true)
+	err := a.service.ResetMenuByCode(ctx, menuCode, uuid.Nil, true)
+	if errors.Is(err, cms.ErrMenuNotFound) {
+		return ErrNotFound
+	}
+	return err
 }
 
 func (a *GoCMSMenuAdapter) String() string {
