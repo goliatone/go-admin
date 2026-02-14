@@ -49,6 +49,10 @@ type SigningService struct {
 	artifacts             stores.SignatureArtifactStore
 	audits                stores.AuditEventStore
 	completionFlow        SigningCompletionWorkflow
+	tx                    stores.TransactionManager
+	customDocuments       bool
+	customArtifacts       bool
+	customAudits          bool
 	now                   func() time.Time
 	signatureUploadTTL    time.Duration
 	signatureUploadSecret []byte
@@ -90,20 +94,22 @@ func WithSigningClock(now func() time.Time) SigningServiceOption {
 // WithSignatureArtifactStore overrides signature artifact persistence behavior.
 func WithSignatureArtifactStore(store stores.SignatureArtifactStore) SigningServiceOption {
 	return func(s *SigningService) {
-		if s == nil {
+		if s == nil || store == nil {
 			return
 		}
 		s.artifacts = store
+		s.customArtifacts = true
 	}
 }
 
 // WithSigningDocumentStore configures document metadata lookups for signer bootstrap payloads.
 func WithSigningDocumentStore(store stores.DocumentStore) SigningServiceOption {
 	return func(s *SigningService) {
-		if s == nil {
+		if s == nil || store == nil {
 			return
 		}
 		s.documents = store
+		s.customDocuments = true
 	}
 }
 
@@ -120,10 +126,11 @@ func WithSigningObjectStore(store signingObjectStore) SigningServiceOption {
 // WithSigningAuditStore configures signer audit event persistence.
 func WithSigningAuditStore(store stores.AuditEventStore) SigningServiceOption {
 	return func(s *SigningService) {
-		if s == nil {
+		if s == nil || store == nil {
 			return
 		}
 		s.audits = store
+		s.customAudits = true
 	}
 }
 
@@ -166,11 +173,15 @@ func WithSignatureUploadURL(urlPath string) SigningServiceOption {
 	}
 }
 
-func NewSigningService(agreements stores.AgreementStore, signing stores.SigningStore, opts ...SigningServiceOption) SigningService {
+func NewSigningService(store stores.Store, opts ...SigningServiceOption) SigningService {
 	svc := SigningService{
-		agreements:            agreements,
-		signing:               signing,
+		agreements:            store,
+		signing:               store,
+		documents:             store,
+		artifacts:             store,
+		audits:                store,
 		now:                   func() time.Time { return time.Now().UTC() },
+		tx:                    store,
 		signatureUploadTTL:    time.Duration(defaultSignatureUploadTTLSeconds) * time.Second,
 		signatureUploadSecret: []byte("esign-signature-upload-secret"),
 		signatureUploadURL:    defaultSignatureUploadURLPath,
@@ -181,20 +192,6 @@ func NewSigningService(agreements stores.AgreementStore, signing stores.SigningS
 			confirmedUploadByToken: map[string]signatureUploadReceipt{},
 		},
 	}
-	if artifacts, ok := signing.(stores.SignatureArtifactStore); ok {
-		svc.artifacts = artifacts
-	}
-	if audits, ok := agreements.(stores.AuditEventStore); ok {
-		svc.audits = audits
-	}
-	if documents, ok := agreements.(stores.DocumentStore); ok {
-		svc.documents = documents
-	}
-	if svc.documents == nil {
-		if documents, ok := signing.(stores.DocumentStore); ok {
-			svc.documents = documents
-		}
-	}
 	for _, opt := range opts {
 		if opt == nil {
 			continue
@@ -202,6 +199,34 @@ func NewSigningService(agreements stores.AgreementStore, signing stores.SigningS
 		opt(&svc)
 	}
 	return svc
+}
+
+func (s SigningService) forTx(tx stores.TxStore) SigningService {
+	txSvc := s
+	txSvc.agreements = tx
+	txSvc.signing = tx
+	if !txSvc.customDocuments {
+		txSvc.documents = tx
+	}
+	if !txSvc.customArtifacts {
+		txSvc.artifacts = tx
+	}
+	if !txSvc.customAudits {
+		txSvc.audits = tx
+	}
+	return txSvc
+}
+
+func (s SigningService) withWriteTx(ctx context.Context, fn func(SigningService) error) error {
+	if fn == nil {
+		return nil
+	}
+	if s.tx == nil {
+		return fn(s)
+	}
+	return s.tx.WithTx(ctx, func(tx stores.TxStore) error {
+		return fn(s.forTx(tx))
+	})
 }
 
 // SignerSessionField captures signer-visible field context and current value snapshot.
@@ -1117,83 +1142,88 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 		cached.Replay = true
 		return cached, nil
 	}
+	var result SignerSubmitResult
+	if err := s.withWriteTx(ctx, func(txSvc SigningService) error {
+		agreement, recipient, activeSigner, recipients, fields, err := txSvc.signerContext(ctx, scope, token)
+		if err != nil {
+			return err
+		}
+		if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
+			return domainValidationError("agreements", "status", "submit requires sent or in_progress status")
+		}
+		if err := ensureActiveSequentialSigner(recipient, activeSigner); err != nil {
+			return err
+		}
 
-	agreement, recipient, activeSigner, recipients, fields, err := s.signerContext(ctx, scope, token)
-	if err != nil {
-		return SignerSubmitResult{}, err
-	}
-	if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
-		return SignerSubmitResult{}, domainValidationError("agreements", "status", "submit requires sent or in_progress status")
-	}
-	if err := ensureActiveSequentialSigner(recipient, activeSigner); err != nil {
-		return SignerSubmitResult{}, err
-	}
+		if _, ok := txSvc.getConsentAccepted(signingFlowKey(scope, agreement.ID, recipient.ID)); !ok {
+			return domainValidationError("consent", "accepted", "consent must be captured before submit")
+		}
+		if err := txSvc.ensureRequiredFieldsCompleted(ctx, scope, agreement.ID, recipient.ID, fields); err != nil {
+			return err
+		}
 
-	if _, ok := s.getConsentAccepted(signingFlowKey(scope, agreement.ID, recipient.ID)); !ok {
-		return SignerSubmitResult{}, domainValidationError("consent", "accepted", "consent must be captured before submit")
-	}
-	if err := s.ensureRequiredFieldsCompleted(ctx, scope, agreement.ID, recipient.ID, fields); err != nil {
-		return SignerSubmitResult{}, err
-	}
+		completedRecipient, err := txSvc.agreements.CompleteRecipient(ctx, scope, agreement.ID, recipient.ID, txSvc.now(), recipient.Version)
+		if err != nil {
+			return err
+		}
 
-	completedRecipient, err := s.agreements.CompleteRecipient(ctx, scope, agreement.ID, recipient.ID, s.now(), recipient.Version)
-	if err != nil {
-		return SignerSubmitResult{}, err
-	}
-
-	nextSignerID := nextSequentialSignerID(updateRecipientSnapshot(recipients, completedRecipient), completedRecipient.ID)
-	resultAgreement := agreement
-	expectedVersion := agreement.Version
-	if nextSignerID == "" {
-		if agreement.Status != stores.AgreementStatusCompleted {
-			resultAgreement, err = s.agreements.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
-				ToStatus:        stores.AgreementStatusCompleted,
+		nextSignerID := nextSequentialSignerID(updateRecipientSnapshot(recipients, completedRecipient), completedRecipient.ID)
+		resultAgreement := agreement
+		expectedVersion := agreement.Version
+		if nextSignerID == "" {
+			if agreement.Status != stores.AgreementStatusCompleted {
+				resultAgreement, err = txSvc.agreements.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
+					ToStatus:        stores.AgreementStatusCompleted,
+					ExpectedVersion: expectedVersion,
+				})
+				if err != nil {
+					return err
+				}
+			}
+		} else if agreement.Status == stores.AgreementStatusSent {
+			resultAgreement, err = txSvc.agreements.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
+				ToStatus:        stores.AgreementStatusInProgress,
 				ExpectedVersion: expectedVersion,
 			})
 			if err != nil {
-				return SignerSubmitResult{}, err
+				return err
 			}
 		}
-	} else if agreement.Status == stores.AgreementStatusSent {
-		resultAgreement, err = s.agreements.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
-			ToStatus:        stores.AgreementStatusInProgress,
-			ExpectedVersion: expectedVersion,
-		})
-		if err != nil {
-			return SignerSubmitResult{}, err
-		}
-	}
 
-	result := SignerSubmitResult{
-		Agreement:       resultAgreement,
-		Recipient:       completedRecipient,
-		NextRecipientID: nextSignerID,
-		Completed:       nextSignerID == "",
-	}
-	if err := s.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.submitted", input.IPAddress, input.UserAgent, map[string]any{
-		"agreement_status":    resultAgreement.Status,
-		"next_recipient_id":   nextSignerID,
-		"idempotency_key":     idempotencyKey,
-		"agreement_completed": nextSignerID == "",
-		"signer_identity_snapshot": map[string]any{
-			"recipient_id":   completedRecipient.ID,
-			"email":          completedRecipient.Email,
-			"name":           completedRecipient.Name,
-			"role":           completedRecipient.Role,
-			"signing_order":  completedRecipient.SigningOrder,
-			"first_view_at":  timePtrRFC3339(completedRecipient.FirstViewAt),
-			"last_view_at":   timePtrRFC3339(completedRecipient.LastViewAt),
-			"completed_at":   timePtrRFC3339(completedRecipient.CompletedAt),
-			"declined_at":    timePtrRFC3339(completedRecipient.DeclinedAt),
-			"decline_reason": completedRecipient.DeclineReason,
-		},
+		result = SignerSubmitResult{
+			Agreement:       resultAgreement,
+			Recipient:       completedRecipient,
+			NextRecipientID: nextSignerID,
+			Completed:       nextSignerID == "",
+		}
+		if err := txSvc.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.submitted", input.IPAddress, input.UserAgent, map[string]any{
+			"agreement_status":    resultAgreement.Status,
+			"next_recipient_id":   nextSignerID,
+			"idempotency_key":     idempotencyKey,
+			"agreement_completed": nextSignerID == "",
+			"signer_identity_snapshot": map[string]any{
+				"recipient_id":   completedRecipient.ID,
+				"email":          completedRecipient.Email,
+				"name":           completedRecipient.Name,
+				"role":           completedRecipient.Role,
+				"signing_order":  completedRecipient.SigningOrder,
+				"first_view_at":  timePtrRFC3339(completedRecipient.FirstViewAt),
+				"last_view_at":   timePtrRFC3339(completedRecipient.LastViewAt),
+				"completed_at":   timePtrRFC3339(completedRecipient.CompletedAt),
+				"declined_at":    timePtrRFC3339(completedRecipient.DeclinedAt),
+				"decline_reason": completedRecipient.DeclineReason,
+			},
+		}); err != nil {
+			return err
+		}
+		if result.Completed && txSvc.completionFlow != nil {
+			if err := txSvc.completionFlow.RunCompletionWorkflow(ctx, scope, agreement.ID, idempotencyKey); err != nil {
+				return err
+			}
+		}
+		return nil
 	}); err != nil {
 		return SignerSubmitResult{}, err
-	}
-	if result.Completed && s.completionFlow != nil {
-		if err := s.completionFlow.RunCompletionWorkflow(ctx, scope, agreement.ID, idempotencyKey); err != nil {
-			return SignerSubmitResult{}, err
-		}
 	}
 	s.setSubmitByKey(submitKey, result)
 	return result, nil

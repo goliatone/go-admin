@@ -136,3 +136,34 @@ func textCode(err error) string {
 	}
 	return ""
 }
+
+type txFailingTokenStore struct {
+	*InMemoryStore
+	withTxCalls int
+	err         error
+}
+
+func (s *txFailingTokenStore) WithTx(_ context.Context, fn func(tx TxStore) error) error {
+	s.withTxCalls++
+	if s.err != nil {
+		return s.err
+	}
+	if fn == nil {
+		return nil
+	}
+	return fn(s)
+}
+
+func TestTokenServiceRotateUsesTransactionBoundary(t *testing.T) {
+	txErr := errors.New("tx sentinel")
+	store := &txFailingTokenStore{InMemoryStore: NewInMemoryStore(), err: txErr}
+	service := NewTokenService(store)
+
+	_, err := service.Rotate(context.Background(), Scope{TenantID: "tenant-1", OrgID: "org-1"}, "agreement-1", "recipient-1")
+	if !errors.Is(err, txErr) {
+		t.Fatalf("expected tx sentinel error, got %v", err)
+	}
+	if store.withTxCalls != 1 {
+		t.Fatalf("expected WithTx called once, got %d", store.withTxCalls)
+	}
+}

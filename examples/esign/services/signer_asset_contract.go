@@ -46,16 +46,11 @@ func WithSignerAssetObjectStore(store signerAssetObjectStore) SignerAssetContrac
 	}
 }
 
-func NewSignerAssetContractService(
-	agreements stores.AgreementStore,
-	documents stores.DocumentStore,
-	artifacts stores.AgreementArtifactStore,
-	opts ...SignerAssetContractOption,
-) SignerAssetContractService {
+func NewSignerAssetContractService(store stores.Store, opts ...SignerAssetContractOption) SignerAssetContractService {
 	svc := SignerAssetContractService{
-		agreements: agreements,
-		documents:  documents,
-		artifacts:  artifacts,
+		agreements: store,
+		documents:  store,
+		artifacts:  store,
 	}
 	for _, opt := range opts {
 		if opt == nil {

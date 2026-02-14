@@ -120,7 +120,7 @@ func TestGoogleImportEnvelopeAndMetadataContractWhenEnabled(t *testing.T) {
 		store,
 		services.NewDeterministicGoogleProvider(),
 		services.NewDocumentService(store),
-		services.NewAgreementService(store, store),
+		services.NewAgreementService(store),
 	)
 	app := setupRegisterTestApp(t,
 		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{

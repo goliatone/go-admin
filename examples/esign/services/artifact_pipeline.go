@@ -210,6 +210,7 @@ type ArtifactPipelineService struct {
 	artifacts   stores.AgreementArtifactStore
 	jobRuns     stores.JobRunStore
 	emailLogs   stores.EmailLogStore
+	tx          stores.TransactionManager
 	objectStore artifactObjectStore
 	renderer    ArtifactRenderer
 }
@@ -228,12 +229,7 @@ func WithArtifactObjectStore(store artifactObjectStore) ArtifactPipelineOption {
 }
 
 func NewArtifactPipelineService(
-	agreements stores.AgreementStore,
-	signing stores.SigningStore,
-	audits stores.AuditEventStore,
-	artifacts stores.AgreementArtifactStore,
-	jobRuns stores.JobRunStore,
-	emailLogs stores.EmailLogStore,
+	store stores.Store,
 	renderer ArtifactRenderer,
 	opts ...ArtifactPipelineOption,
 ) ArtifactPipelineService {
@@ -241,12 +237,13 @@ func NewArtifactPipelineService(
 		renderer = NewDeterministicArtifactRenderer()
 	}
 	svc := ArtifactPipelineService{
-		agreements: agreements,
-		signing:    signing,
-		audits:     audits,
-		artifacts:  artifacts,
-		jobRuns:    jobRuns,
-		emailLogs:  emailLogs,
+		agreements: store,
+		signing:    store,
+		audits:     store,
+		artifacts:  store,
+		jobRuns:    store,
+		emailLogs:  store,
+		tx:         store,
 		renderer:   renderer,
 	}
 	for _, opt := range opts {
@@ -256,6 +253,29 @@ func NewArtifactPipelineService(
 		opt(&svc)
 	}
 	return svc
+}
+
+func (s ArtifactPipelineService) forTx(tx stores.TxStore) ArtifactPipelineService {
+	txSvc := s
+	txSvc.agreements = tx
+	txSvc.signing = tx
+	txSvc.audits = tx
+	txSvc.artifacts = tx
+	txSvc.jobRuns = tx
+	txSvc.emailLogs = tx
+	return txSvc
+}
+
+func (s ArtifactPipelineService) withWriteTx(ctx context.Context, fn func(ArtifactPipelineService) error) error {
+	if fn == nil {
+		return nil
+	}
+	if s.tx == nil {
+		return fn(s)
+	}
+	return s.tx.WithTx(ctx, func(tx stores.TxStore) error {
+		return fn(s.forTx(tx))
+	})
 }
 
 // RenderPages validates agreement scope and acts as a stable render-pages integration seam.
@@ -273,6 +293,18 @@ func (s ArtifactPipelineService) RenderPages(ctx context.Context, scope stores.S
 }
 
 func (s ArtifactPipelineService) GenerateExecutedArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string) (stores.AgreementArtifactRecord, error) {
+	var record stores.AgreementArtifactRecord
+	if err := s.withWriteTx(ctx, func(txSvc ArtifactPipelineService) error {
+		var err error
+		record, err = txSvc.generateExecutedArtifact(ctx, scope, agreementID, correlationID)
+		return err
+	}); err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	return record, nil
+}
+
+func (s ArtifactPipelineService) generateExecutedArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string) (stores.AgreementArtifactRecord, error) {
 	if s.agreements == nil || s.signing == nil || s.artifacts == nil {
 		return stores.AgreementArtifactRecord{}, domainValidationError("artifacts", "dependencies", "not configured")
 	}
@@ -329,6 +361,18 @@ func (s ArtifactPipelineService) GenerateExecutedArtifact(ctx context.Context, s
 }
 
 func (s ArtifactPipelineService) GenerateCertificateArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string) (stores.AgreementArtifactRecord, error) {
+	var record stores.AgreementArtifactRecord
+	if err := s.withWriteTx(ctx, func(txSvc ArtifactPipelineService) error {
+		var err error
+		record, err = txSvc.generateCertificateArtifact(ctx, scope, agreementID, correlationID)
+		return err
+	}); err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	return record, nil
+}
+
+func (s ArtifactPipelineService) generateCertificateArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string) (stores.AgreementArtifactRecord, error) {
 	if s.agreements == nil || s.artifacts == nil {
 		return stores.AgreementArtifactRecord{}, domainValidationError("artifacts", "dependencies", "not configured")
 	}

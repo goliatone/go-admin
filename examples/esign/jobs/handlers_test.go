@@ -57,13 +57,7 @@ func samplePDF() []byte {
 func newTestArtifactPipeline(t *testing.T, store *stores.InMemoryStore) services.ArtifactPipelineService {
 	t.Helper()
 	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
-	return services.NewArtifactPipelineService(
-		store,
-		store,
-		store,
-		store,
-		store,
-		store,
+	return services.NewArtifactPipelineService(store,
 		services.NewDeterministicArtifactRenderer(),
 		services.WithArtifactObjectStore(objectStore),
 	)
@@ -84,7 +78,7 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
 	}
-	agreementSvc := services.NewAgreementService(store, store)
+	agreementSvc := services.NewAgreementService(store)
 	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
 		DocumentID:      doc.ID,
 		Title:           "Pipeline Agreement",
@@ -133,7 +127,7 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := services.NewSigningService(store, store)
+	signingSvc := services.NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -169,13 +163,7 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 func TestHandlersExecuteArtifactJobsWithDedupe(t *testing.T) {
 	ctx, scope, store, agreement, _, _ := setupCompletedAgreement(t)
 	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
-	pipeline := services.NewArtifactPipelineService(
-		store,
-		store,
-		store,
-		store,
-		store,
-		store,
+	pipeline := services.NewArtifactPipelineService(store,
 		services.NewDeterministicArtifactRenderer(),
 		services.WithArtifactObjectStore(objectStore),
 	)
@@ -455,7 +443,7 @@ func TestExecuteGoogleDriveImportJobPersistsSourceMetadata(t *testing.T) {
 		store,
 		services.NewDeterministicGoogleProvider(),
 		services.NewDocumentService(store),
-		services.NewAgreementService(store, store),
+		services.NewAgreementService(store),
 	)
 	if _, err := google.Connect(ctx, scope, services.GoogleConnectInput{
 		UserID:   "ops-user",
@@ -502,7 +490,7 @@ func TestExecuteGoogleDriveImportJobPersistsSourceMetadata(t *testing.T) {
 
 func TestCompletedLifecycleEnforcesImmutabilityAndAppendOnlyAudit(t *testing.T) {
 	ctx, scope, store, agreement, _, _ := setupCompletedAgreement(t)
-	agreementSvc := services.NewAgreementService(store, store)
+	agreementSvc := services.NewAgreementService(store)
 
 	title := "Mutated Title"
 	if _, err := agreementSvc.UpdateDraft(ctx, scope, agreement.ID, stores.AgreementDraftPatch{Title: &title}, agreement.Version); err == nil {

@@ -32,7 +32,7 @@ func setupSentAgreementForWorkflow(t *testing.T) (context.Context, stores.Scope,
 		t.Fatalf("Upload: %v", err)
 	}
 
-	agreementSvc := services.NewAgreementService(store, store)
+	agreementSvc := services.NewAgreementService(store)
 	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
 		DocumentID:      doc.ID,
 		Title:           "Workflow Agreement",

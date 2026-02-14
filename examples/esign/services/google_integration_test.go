@@ -192,7 +192,7 @@ func TestGoogleIntegrationImportDocumentPersistsGoogleSourceMetadata(t *testing.
 	store := stores.NewInMemoryStore()
 	provider := NewDeterministicGoogleProvider()
 	documents := NewDocumentService(store)
-	agreements := NewAgreementService(store, store)
+	agreements := NewAgreementService(store)
 	service := NewGoogleIntegrationService(store, provider, documents, agreements)
 
 	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
@@ -279,7 +279,7 @@ func TestGoogleIntegrationRotateCredentialEncryptionRewrapsTokensToActiveKey(t *
 	store := stores.NewInMemoryStore()
 	provider := NewDeterministicGoogleProvider()
 	documents := NewDocumentService(store)
-	agreements := NewAgreementService(store, store)
+	agreements := NewAgreementService(store)
 
 	legacy := NewGoogleIntegrationService(
 		store,
@@ -482,7 +482,7 @@ func TestGoogleIntegrationRealAdapterRevokedAccessRecovery(t *testing.T) {
 		store,
 		provider,
 		NewDocumentService(store),
-		NewAgreementService(store, store),
+		NewAgreementService(store),
 		WithGoogleProviderMode(GoogleProviderModeReal),
 	)
 	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
@@ -545,7 +545,7 @@ func TestGoogleIntegrationProviderHealthDegradedMode(t *testing.T) {
 		store,
 		provider,
 		NewDocumentService(store),
-		NewAgreementService(store, store),
+		NewAgreementService(store),
 		WithGoogleProviderMode(GoogleProviderModeReal),
 	)
 

@@ -93,8 +93,8 @@ func TestAgreementPanelRepositoryCreatePersistsFormRecipientsAndFields(t *testin
 
 	repo := newAgreementPanelRepository(
 		store,
-		services.NewAgreementService(store, store),
-		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
 		nil,
 		nil,
 		scope,
@@ -157,8 +157,8 @@ func TestAgreementPanelRepositoryUpdateSynchronizesFormRecipientsAndFields(t *te
 
 	repo := newAgreementPanelRepository(
 		store,
-		services.NewAgreementService(store, store),
-		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
 		nil,
 		nil,
 		scope,
@@ -254,8 +254,8 @@ func TestAgreementPanelRepositoryGetIncludesFieldFormAliases(t *testing.T) {
 
 	repo := newAgreementPanelRepository(
 		store,
-		services.NewAgreementService(store, store),
-		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
 		nil,
 		nil,
 		scope,
@@ -312,8 +312,8 @@ func TestAgreementPanelRepositoryUpdateAllowsClearingMessage(t *testing.T) {
 
 	repo := newAgreementPanelRepository(
 		store,
-		services.NewAgreementService(store, store),
-		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
 		nil,
 		nil,
 		scope,
@@ -357,8 +357,8 @@ func TestAgreementPanelRepositoryUpdateRemovesAllFieldsWhenFieldsPresentFlagSet(
 
 	repo := newAgreementPanelRepository(
 		store,
-		services.NewAgreementService(store, store),
-		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
 		nil,
 		nil,
 		scope,
@@ -520,7 +520,7 @@ func TestAgreementPanelRepositoryServePanelSubresourceReturnsPDFAndAppendsAuditE
 	store := stores.NewInMemoryStore()
 	seedESignDocument(t, store, scope, "doc-artifact-1")
 
-	agreementSvc := services.NewAgreementService(store, store)
+	agreementSvc := services.NewAgreementService(store)
 	agreement, err := agreementSvc.CreateDraft(context.Background(), scope, services.CreateDraftInput{
 		DocumentID:      "doc-artifact-1",
 		Title:           "Artifact Access",
@@ -543,7 +543,7 @@ func TestAgreementPanelRepositoryServePanelSubresourceReturnsPDFAndAppendsAuditE
 	repo := newAgreementPanelRepository(
 		store,
 		agreementSvc,
-		services.NewArtifactPipelineService(store, store, store, store, store, store, nil),
+		services.NewArtifactPipelineService(store, nil),
 		nil,
 		&testBinaryObjectStore{
 			objects: map[string][]byte{

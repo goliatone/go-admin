@@ -74,7 +74,7 @@ func WithDocumentObjectStore(store documentObjectStore) DocumentServiceOption {
 	}
 }
 
-func NewDocumentService(store stores.DocumentStore, opts ...DocumentServiceOption) DocumentService {
+func NewDocumentService(store stores.Store, opts ...DocumentServiceOption) DocumentService {
 	svc := DocumentService{
 		store: store,
 		now:   func() time.Time { return time.Now().UTC() },

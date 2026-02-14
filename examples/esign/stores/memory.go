@@ -51,6 +51,19 @@ func NewInMemoryStore() *InMemoryStore {
 	}
 }
 
+// WithTx executes fn within a transactional scope.
+// InMemoryStore currently provides best-effort semantics and executes inline.
+func (s *InMemoryStore) WithTx(ctx context.Context, fn func(tx TxStore) error) error {
+	_ = ctx
+	if fn == nil {
+		return nil
+	}
+	if s == nil {
+		return invalidRecordError("transactions", "store", "not configured")
+	}
+	return fn(s)
+}
+
 func scopedKey(scope Scope, id string) string {
 	return scope.key() + "|" + normalizeID(id)
 }
