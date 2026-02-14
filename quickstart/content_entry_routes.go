@@ -252,6 +252,7 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 	for _, binding := range bindings {
 		panelName := strings.TrimSpace(binding.Panel)
 		listPath := strings.TrimSpace(binding.Path)
+		entryMode := binding.EntryMode
 		if panelName == "" || listPath == "" {
 			continue
 		}
@@ -261,7 +262,7 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 		deletePath := path.Join(listPath, ":id", "delete")
 
 		r.Get(listPath, wrap(func(c router.Context) error {
-			return handlers.listForPanel(c, panelName)
+			return handlers.entryForPanel(c, panelName, entryMode)
 		}))
 		r.Get(newPath, wrap(func(c router.Context) error {
 			return handlers.newForPanel(c, panelName)
@@ -285,8 +286,9 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 }
 
 type panelRouteBinding struct {
-	Panel string
-	Path  string
+	Panel     string
+	Path      string
+	EntryMode admin.PanelEntryMode
 }
 
 func canonicalPanelRouteBindings(urls urlkit.Resolver, panels map[string]*admin.Panel) []panelRouteBinding {
@@ -315,7 +317,11 @@ func canonicalPanelRouteBindings(urls urlkit.Resolver, panels map[string]*admin.
 			continue
 		}
 		pathSeen[routePath] = true
-		out = append(out, panelRouteBinding{Panel: canonicalPanel, Path: routePath})
+		entryMode := admin.PanelEntryModeList
+		if panel != nil {
+			entryMode = panel.EntryMode()
+		}
+		out = append(out, panelRouteBinding{Panel: canonicalPanel, Path: routePath, EntryMode: entryMode})
 	}
 	return out
 }
@@ -547,7 +553,25 @@ func (h *contentEntryHandlers) Detail(c router.Context) error {
 	return h.detailForPanel(c, "")
 }
 
+func (h *contentEntryHandlers) entryForPanel(c router.Context, panelSlug string, entryMode admin.PanelEntryMode) error {
+	switch entryMode {
+	case admin.PanelEntryModeDetailCurrentUser:
+		adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+		userID := strings.TrimSpace(adminCtx.UserID)
+		if userID == "" {
+			return admin.ErrForbidden
+		}
+		return h.detailForPanelWithID(c, panelSlug, userID)
+	default:
+		return h.listForPanel(c, panelSlug)
+	}
+}
+
 func (h *contentEntryHandlers) detailForPanel(c router.Context, panelSlug string) error {
+	return h.detailForPanelWithID(c, panelSlug, strings.TrimSpace(c.Param("id")))
+}
+
+func (h *contentEntryHandlers) detailForPanelWithID(c router.Context, panelSlug string, id string) error {
 	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
@@ -555,7 +579,7 @@ func (h *contentEntryHandlers) detailForPanel(c router.Context, panelSlug string
 	if err := h.guardPanel(c, panelName, panel, "read"); err != nil {
 		return err
 	}
-	id := strings.TrimSpace(c.Param("id"))
+	id = strings.TrimSpace(id)
 	if id == "" {
 		return admin.ErrNotFound
 	}
