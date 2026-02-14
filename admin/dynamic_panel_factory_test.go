@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -547,7 +548,7 @@ func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T)
 	})
 }
 
-func TestDynamicPanelFactoryUpdatesExistingNavigationItemByTarget(t *testing.T) {
+func TestDynamicPanelFactoryConvergesLegacyNavigationItemToCanonicalID(t *testing.T) {
 	ctx := context.Background()
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en", NavMenuCode: "admin.main"}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
 	if adm.menuSvc == nil {
@@ -586,9 +587,12 @@ func TestDynamicPanelFactoryUpdatesExistingNavigationItemByTarget(t *testing.T) 
 	if err != nil {
 		t.Fatalf("fetch menu failed: %v", err)
 	}
-	item, ok := menuItemByID(menu.Items, "legacy.pages.item")
+	if _, ok := menuItemByID(menu.Items, "legacy.pages.item"); ok {
+		t.Fatalf("expected legacy item to be replaced by canonical ID")
+	}
+	item, ok := menuItemByID(menu.Items, "admin_main.pages")
 	if !ok {
-		t.Fatalf("expected updated legacy menu item, got %+v", menu.Items)
+		t.Fatalf("expected canonical pages menu item, got %+v", menu.Items)
 	}
 	if item.Icon != "file-text" {
 		t.Fatalf("expected icon updated to file-text, got %q", item.Icon)
@@ -598,6 +602,104 @@ func TestDynamicPanelFactoryUpdatesExistingNavigationItemByTarget(t *testing.T) 
 	}
 	if countMenuItemsByPath(menu.Items, "/admin/content/pages") != 1 {
 		t.Fatalf("expected single pages menu item after converge, got %+v", menu.Items)
+	}
+}
+
+func TestDynamicPanelFactoryDoesNotRewriteContentParentOnPathCollision(t *testing.T) {
+	ctx := context.Background()
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en", NavMenuCode: "admin.main"}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	if adm.menuSvc == nil {
+		t.Fatalf("menu service unavailable")
+	}
+
+	menuCode := "admin.main"
+	mainGroupID := "admin_main.nav-group-main"
+	contentID := "admin_main.nav-group-main.content"
+	pagesID := "admin_main.nav-group-main.content.pages"
+
+	if _, err := adm.menuSvc.CreateMenu(ctx, menuCode); err != nil {
+		t.Fatalf("create menu: %v", err)
+	}
+	if err := adm.menuSvc.AddMenuItem(ctx, menuCode, MenuItem{
+		ID:            mainGroupID,
+		Type:          MenuItemTypeGroup,
+		GroupTitle:    "Navigation",
+		GroupTitleKey: "menu.group.main",
+		Menu:          menuCode,
+		Locale:        "en",
+	}); err != nil {
+		t.Fatalf("add main group: %v", err)
+	}
+	if err := adm.menuSvc.AddMenuItem(ctx, menuCode, MenuItem{
+		ID:          contentID,
+		Type:        MenuItemTypeItem,
+		Label:       "Content",
+		LabelKey:    "menu.content",
+		Icon:        "page",
+		Menu:        menuCode,
+		Locale:      "en",
+		ParentID:    mainGroupID,
+		Collapsible: true,
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/content/pages",
+			"key":  "content",
+		},
+	}); err != nil {
+		t.Fatalf("add content parent: %v", err)
+	}
+	if err := adm.menuSvc.AddMenuItem(ctx, menuCode, MenuItem{
+		ID:       pagesID,
+		Type:     MenuItemTypeItem,
+		Label:    "Pages",
+		LabelKey: "menu.content.pages",
+		Menu:     menuCode,
+		Locale:   "en",
+		ParentID: contentID,
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/content/pages",
+			"key":  "pages",
+		},
+	}); err != nil {
+		t.Fatalf("add pages child: %v", err)
+	}
+
+	factory := NewDynamicPanelFactory(adm,
+		WithDynamicPanelMenu("/admin", menuCode, contentID, "en"),
+	)
+	_, err := factory.CreatePanelFromContentType(ctx, &CMSContentType{
+		ID:     "ct-page",
+		Name:   "Page",
+		Slug:   "page",
+		Icon:   "file-text",
+		Status: "active",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"panel_slug":  "pages",
+			"permissions": "admin.pages",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create panel failed: %v", err)
+	}
+
+	menu, err := adm.menuSvc.Menu(ctx, menuCode, "en")
+	if err != nil {
+		t.Fatalf("fetch menu failed: %v", err)
+	}
+	content, ok := menuItemByID(menu.Items, contentID)
+	if !ok {
+		t.Fatalf("expected content parent in menu, got %+v", menu.Items)
+	}
+	if content.ParentID != mainGroupID {
+		t.Fatalf("expected content parent to remain under %s, got %s", mainGroupID, content.ParentID)
+	}
+	if toString(content.Target["key"]) != "content" {
+		t.Fatalf("expected content parent target key to remain content, got %+v", content.Target)
+	}
+	if hasSelfParent(menu.Items) {
+		t.Fatalf("expected no self-parent relationships after panel sync, got %+v", menu.Items)
 	}
 }
 
@@ -711,4 +813,16 @@ func countMenuItemsByPath(items []MenuItem, targetPath string) int {
 		count += countMenuItemsByPath(item.Children, targetPath)
 	}
 	return count
+}
+
+func hasSelfParent(items []MenuItem) bool {
+	for _, item := range items {
+		if strings.TrimSpace(item.ID) != "" && strings.TrimSpace(item.ID) == strings.TrimSpace(item.ParentID) {
+			return true
+		}
+		if len(item.Children) > 0 && hasSelfParent(item.Children) {
+			return true
+		}
+	}
+	return false
 }

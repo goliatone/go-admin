@@ -17,9 +17,11 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -188,6 +190,30 @@ func (a mapAuthorizer) Can(_ context.Context, action string, _ string) bool {
 		return false
 	}
 	return a.allowed[action]
+}
+
+func withClaimsPermissions(perms ...string) router.MiddlewareFunc {
+	normalized := make([]string, 0, len(perms))
+	for _, perm := range perms {
+		perm = strings.TrimSpace(perm)
+		if perm == "" {
+			continue
+		}
+		normalized = append(normalized, perm)
+	}
+	return func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error {
+			claims := &auth.JWTClaims{
+				UID:      "test-admin",
+				UserRole: string(auth.RoleAdmin),
+				Metadata: map[string]any{
+					"permissions": append([]string{}, normalized...),
+				},
+			}
+			c.SetContext(auth.WithClaimsContext(c.Context(), claims))
+			return next(c)
+		}
+	}
 }
 
 func setupRegisterTestApp(t *testing.T, opts ...RegisterOption) *fiber.App {
@@ -1278,6 +1304,78 @@ func TestRegisterGoogleRoutesFeatureGatedWhenDisabled(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected status 404 when esign_google disabled, got %d", resp.StatusCode)
+	}
+}
+
+func TestRegisterAdminRouteMiddlewareInjectsClaimsForGoAuthAuthorizer(t *testing.T) {
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	newGoogle := func() GoogleIntegrationService {
+		store := stores.NewInMemoryStore()
+		return services.NewGoogleIntegrationService(
+			store,
+			services.NewDeterministicGoogleProvider(),
+			services.NewDocumentService(store),
+			services.NewAgreementService(store),
+		)
+	}
+
+	authz := coreadmin.NewGoAuthAuthorizer(coreadmin.GoAuthAuthorizerConfig{DefaultResource: "admin"})
+	noClaimsApp := setupRegisterTestApp(t,
+		WithAuthorizer(authz),
+		WithGoogleIntegrationEnabled(true),
+		WithGoogleIntegrationService(newGoogle()),
+		WithDefaultScope(scope),
+	)
+	noClaimsReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-missing-claims"}`))
+	noClaimsReq.Header.Set("Content-Type", "application/json")
+	noClaimsResp, err := noClaimsApp.Test(noClaimsReq, -1)
+	if err != nil {
+		t.Fatalf("connect request without claims failed: %v", err)
+	}
+	defer noClaimsResp.Body.Close()
+	if noClaimsResp.StatusCode != http.StatusForbidden {
+		body, _ := io.ReadAll(noClaimsResp.Body)
+		t.Fatalf("expected connect 403 without auth middleware claims, got %d body=%s", noClaimsResp.StatusCode, string(body))
+	}
+
+	withClaimsApp := setupRegisterTestApp(t,
+		WithAuthorizer(authz),
+		WithAdminRouteMiddleware(withClaimsPermissions(DefaultPermissions.AdminSettings, DefaultPermissions.AdminCreate, DefaultPermissions.AdminView)),
+		WithGoogleIntegrationEnabled(true),
+		WithGoogleIntegrationService(newGoogle()),
+		WithDefaultScope(scope),
+	)
+	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-with-claims"}`))
+	connectReq.Header.Set("Content-Type", "application/json")
+	connectResp, err := withClaimsApp.Test(connectReq, -1)
+	if err != nil {
+		t.Fatalf("connect request with claims failed: %v", err)
+	}
+	defer connectResp.Body.Close()
+	if connectResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(connectResp.Body)
+		t.Fatalf("expected connect 200 with admin route middleware claims, got %d body=%s", connectResp.StatusCode, string(body))
+	}
+}
+
+func TestRegisterAdminRouteMiddlewareDoesNotProtectSignerRoutes(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAdminRouteMiddleware(func(next router.HandlerFunc) router.HandlerFunc {
+			return func(c router.Context) error {
+				return writeAPIError(c, nil, http.StatusUnauthorized, "MISSING_TOKEN", "auth required", nil)
+			}
+		}),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/public-token", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("signer session request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected signer session to remain public (200), got %d body=%s", resp.StatusCode, string(body))
 	}
 }
 

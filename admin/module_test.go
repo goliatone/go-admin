@@ -3,7 +3,13 @@ package admin
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	auth "github.com/goliatone/go-auth"
+	router "github.com/goliatone/go-router"
 )
 
 func TestRegisterModuleRejectsDuplicates(t *testing.T) {
@@ -218,6 +224,51 @@ func TestModuleFeatureFlagsHonorTypedFeatures(t *testing.T) {
 	}
 }
 
+func TestModuleContextUsesProtectedRouterByDefaultAndExposesPublicRouter(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}, Dependencies{})
+	authn := &moduleAuthCounter{}
+	adm.WithAuth(authn, nil)
+	mod := &moduleRouteProbe{id: "route.probe"}
+	if err := adm.RegisterModule(mod); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+
+	protectedReq := httptest.NewRequest(http.MethodGet, "/admin/api/module-protected", nil)
+	protectedRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(protectedRes, protectedReq)
+	if protectedRes.Code != http.StatusOK {
+		t.Fatalf("expected protected route status 200, got %d body=%s", protectedRes.Code, protectedRes.Body.String())
+	}
+	if authn.calls == 0 {
+		t.Fatalf("expected auth middleware to run for protected route")
+	}
+	if !strings.Contains(protectedRes.Body.String(), `"auth":"present"`) {
+		t.Fatalf("expected protected route to observe auth context, got %s", strings.TrimSpace(protectedRes.Body.String()))
+	}
+
+	callsAfterProtected := authn.calls
+	publicReq := httptest.NewRequest(http.MethodGet, "/module/public", nil)
+	publicRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
+	if publicRes.Code != http.StatusOK {
+		t.Fatalf("expected public route status 200, got %d body=%s", publicRes.Code, publicRes.Body.String())
+	}
+	if authn.calls != callsAfterProtected {
+		t.Fatalf("expected public route to bypass auth middleware; calls before=%d after=%d", callsAfterProtected, authn.calls)
+	}
+	if !strings.Contains(publicRes.Body.String(), `"auth":"missing"`) {
+		t.Fatalf("expected public route without auth context, got %s", strings.TrimSpace(publicRes.Body.String()))
+	}
+}
+
 type stubModule struct {
 	id         string
 	onRegister func()
@@ -292,5 +343,57 @@ func (m *translatorModule) Manifest() ModuleManifest {
 
 func (m *translatorModule) Register(ctx ModuleContext) error {
 	m.translator = ctx.Translator
+	return nil
+}
+
+type moduleAuthCounter struct {
+	calls int
+}
+
+func (a *moduleAuthCounter) Wrap(c router.Context) error {
+	a.calls++
+	ctx := auth.WithActorContext(c.Context(), &auth.ActorContext{
+		ActorID: "module-auth-user",
+		Subject: "module-auth-user",
+	})
+	c.SetContext(ctx)
+	return nil
+}
+
+type moduleRouteProbe struct {
+	id string
+}
+
+func (m *moduleRouteProbe) Manifest() ModuleManifest {
+	return ModuleManifest{ID: m.id}
+}
+
+func (m *moduleRouteProbe) Register(ctx ModuleContext) error {
+	if ctx.Router == nil {
+		return errors.New("default router is nil")
+	}
+	if ctx.ProtectedRouter == nil {
+		return errors.New("protected router is nil")
+	}
+	if ctx.PublicRouter == nil {
+		return errors.New("public router is nil")
+	}
+
+	ctx.Router.Get("/admin/api/module-protected", func(c router.Context) error {
+		_, hasActor := auth.ActorFromContext(c.Context())
+		state := "missing"
+		if hasActor {
+			state = "present"
+		}
+		return c.JSON(http.StatusOK, map[string]any{"auth": state})
+	})
+	ctx.PublicRouter.Get("/module/public", func(c router.Context) error {
+		_, hasActor := auth.ActorFromContext(c.Context())
+		state := "missing"
+		if hasActor {
+			state = "present"
+		}
+		return c.JSON(http.StatusOK, map[string]any{"auth": state})
+	})
 	return nil
 }

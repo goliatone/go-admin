@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -190,6 +191,18 @@ func TestUseCMSUsesTypedContainerMenuService(t *testing.T) {
 	}
 }
 
+func TestGoCMSMenuAdapterResetMenuContextMapsNotFound(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := newStubCMSMenuService()
+	menuSvc.resetErr = cms.ErrMenuNotFound
+	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
+
+	err := adapter.ResetMenuContext(ctx, "site_main")
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
 type stubGoCMSContainer struct {
 	menu    *stubCMSMenuService
 	widgets CMSWidgetService
@@ -206,6 +219,7 @@ func (s *stubGoCMSContainer) ContentTypeService() CMSContentTypeService {
 type stubCMSMenuService struct {
 	menus     map[string]*stubCMSMenu
 	locations map[string]string
+	resetErr  error
 }
 
 type stubCMSMenu struct {
@@ -346,6 +360,9 @@ func (s *stubCMSMenuService) ResolveNavigationByLocation(ctx context.Context, lo
 }
 
 func (s *stubCMSMenuService) ResetMenuByCode(_ context.Context, code string, _ uuid.UUID, _ bool) error {
+	if s.resetErr != nil {
+		return s.resetErr
+	}
 	if s.menus[code] == nil {
 		return nil
 	}
