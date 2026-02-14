@@ -20,6 +20,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 
 	var mapped *goerrors.Error
 	var settingsValidation SettingsValidationErrors
+	var workflowValidation WorkflowValidationErrors
 	var ozzoErrors validation.Errors
 	var schemaErr *jsonschema.ValidationError
 	var invalid InvalidFeatureConfigError
@@ -28,11 +29,19 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	var translationExists TranslationAlreadyExistsError
 	var queueConflict TranslationAssignmentConflictError
 	var queueVersionConflict TranslationAssignmentVersionConflictError
+	var workflowVersionConflict WorkflowVersionConflictError
+	var workflowBindingConflict WorkflowBindingConflictError
+	var workflowBindingVersionConflict WorkflowBindingVersionConflictError
 	var exchangeUnsupportedFormat TranslationExchangeUnsupportedFormatError
 	var exchangeInvalidPayload TranslationExchangeInvalidPayloadError
 	var exchangeConflict TranslationExchangeConflictError
 
 	switch {
+	case errors.Is(err, ErrWorkflowRollbackVersionNotFound):
+		mapped = NewDomainError(TextCodeNotFound, err.Error(), map[string]any{
+			"field": "rollback_to_version",
+		})
+		status = mapped.Code
 	case errors.Is(err, ErrWorkflowNotFound):
 		mapped = NewDomainError(TextCodeWorkflowNotFound, err.Error(), nil)
 		status = mapped.Code
@@ -132,6 +141,33 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		}
 		mapped = NewDomainError(TextCodeTranslationQueueVersionConflict, queueVersionConflict.Error(), meta)
 		status = mapped.Code
+	case errors.As(err, &workflowVersionConflict):
+		meta := map[string]any{
+			"workflow_id":      strings.TrimSpace(workflowVersionConflict.WorkflowID),
+			"expected_version": workflowVersionConflict.ExpectedVersion,
+			"actual_version":   workflowVersionConflict.ActualVersion,
+		}
+		mapped = NewDomainError(TextCodeConflict, workflowVersionConflict.Error(), meta)
+		status = mapped.Code
+	case errors.As(err, &workflowBindingConflict):
+		meta := map[string]any{
+			"binding_id":          strings.TrimSpace(workflowBindingConflict.BindingID),
+			"existing_binding_id": strings.TrimSpace(workflowBindingConflict.ExistingBindingID),
+			"scope_type":          strings.TrimSpace(string(workflowBindingConflict.ScopeType)),
+			"scope_ref":           strings.TrimSpace(workflowBindingConflict.ScopeRef),
+			"environment":         strings.TrimSpace(workflowBindingConflict.Environment),
+			"priority":            workflowBindingConflict.Priority,
+		}
+		mapped = NewDomainError(TextCodeConflict, workflowBindingConflict.Error(), meta)
+		status = mapped.Code
+	case errors.As(err, &workflowBindingVersionConflict):
+		meta := map[string]any{
+			"binding_id":       strings.TrimSpace(workflowBindingVersionConflict.BindingID),
+			"expected_version": workflowBindingVersionConflict.ExpectedVersion,
+			"actual_version":   workflowBindingVersionConflict.ActualVersion,
+		}
+		mapped = NewDomainError(TextCodeConflict, workflowBindingVersionConflict.Error(), meta)
+		status = mapped.Code
 	case errors.As(err, &exchangeUnsupportedFormat):
 		format := strings.TrimSpace(strings.ToLower(exchangeUnsupportedFormat.Format))
 		if format == "" {
@@ -189,6 +225,14 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			WithMetadata(map[string]any{
 				"fields": settingsValidation.Fields,
 				"scope":  settingsValidation.Scope,
+			})
+		status = http.StatusBadRequest
+	case errors.As(err, &workflowValidation):
+		mapped = goerrors.New("validation failed", goerrors.CategoryValidation).
+			WithCode(http.StatusBadRequest).
+			WithTextCode(TextCodeValidationError).
+			WithMetadata(map[string]any{
+				"fields": workflowValidation.Fields,
 			})
 		status = http.StatusBadRequest
 	case errors.As(err, &ozzoErrors):
