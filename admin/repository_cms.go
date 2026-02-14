@@ -33,22 +33,21 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 	if err != nil {
 		return nil, 0, err
 	}
-	search := strings.ToLower(extractSearch(opts))
-	filtered := []CMSPage{}
+	records := make([]map[string]any, 0, len(pages))
 	for _, page := range pages {
-		if search != "" && !strings.Contains(strings.ToLower(page.Title), search) && !strings.Contains(strings.ToLower(page.Slug), search) {
-			continue
-		}
-		filtered = append(filtered, page)
-	}
-	sliced, total := paginateCMS(filtered, opts)
-	out := make([]map[string]any, 0, len(sliced))
-	for _, page := range sliced {
-		out = append(out, cmsPageRecord(page, cmsPageRecordOptions{
+		records = append(records, cmsPageRecord(page, cmsPageRecordOptions{
 			includeTemplateID: true,
 		}))
 	}
-	return out, total, nil
+	listOpts := opts
+	if strings.TrimSpace(listOpts.SortBy) == "" {
+		listOpts.SortBy = "id"
+	}
+	list, total := applyListOptionsToRecordMaps(records, listOpts, listRecordOptions{
+		PredicateMatcher: cmsContentRecordPredicateMatcher,
+		SearchMatcher:    cmsPageRecordSearchMatcher,
+	})
+	return list, total, nil
 }
 
 // Get returns a page by id.
@@ -660,6 +659,14 @@ func cmsContentRecordSearchMatcher(record map[string]any, search string) bool {
 	return strings.Contains(strings.ToLower(toString(record["title"])), search) ||
 		strings.Contains(strings.ToLower(toString(record["slug"])), search) ||
 		strings.Contains(strings.ToLower(toString(record["content_type"])), search)
+}
+
+func cmsPageRecordSearchMatcher(record map[string]any, search string) bool {
+	if strings.TrimSpace(search) == "" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(toString(record["title"])), search) ||
+		strings.Contains(strings.ToLower(toString(record["slug"])), search)
 }
 
 func cmsContentRecordPredicateMatcher(record map[string]any, predicate ListPredicate) (bool, bool) {
