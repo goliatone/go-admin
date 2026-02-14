@@ -24,7 +24,7 @@ func NewPostStore(db *bun.DB, opts ...repository.Option) (*PostStore, error) {
 		return nil, fmt.Errorf("post store database is nil")
 	}
 
-	repo := repository.MustNewRepositoryWithOptions[*PostRecord](db, postModelHandlers(), opts...)
+	repo := newStoreRepository[*PostRecord](db, postModelHandlers(), storeRepositoryPaginationNoDefault, opts...)
 	adapter := admin.NewBunRepositoryAdapter[*PostRecord](
 		repo,
 		admin.WithBunSearchColumns[*PostRecord]("title", "slug", "category"),

@@ -8,6 +8,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	auth "github.com/goliatone/go-auth"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
@@ -112,4 +113,52 @@ func TestUserProfileStore_RepositoryListRespectsOrder(t *testing.T) {
 		}
 	}
 	require.Equal(t, []uuid.UUID{alphaID, zedID}, seen)
+}
+
+func TestUserProfileStore_ListBeyondLegacyPageLimit(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:user_profile_many_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+	deps, _, _, err := setup.SetupUsers(ctx, dsn)
+	require.NoError(t, err)
+
+	store, err := stores.NewUserProfileStore(deps)
+	require.NoError(t, err)
+
+	now := time.Now().UTC()
+	const profileCount = 40
+	for i := 0; i < profileCount; i++ {
+		userID := uuid.New()
+		username := fmt.Sprintf("bulk.profile.user.%03d", i)
+		email := fmt.Sprintf("%s@example.com", username)
+
+		_, err = deps.RepoManager.Users().Create(ctx, &auth.User{
+			ID:        userID,
+			Username:  username,
+			Email:     email,
+			Role:      auth.RoleMember,
+			Status:    auth.UserStatusActive,
+			CreatedAt: &now,
+			Metadata:  map[string]any{},
+		})
+		require.NoError(t, err)
+
+		_, err = store.Create(ctx, map[string]any{
+			"id":           userID.String(),
+			"display_name": fmt.Sprintf("bulkprofile-%03d", i),
+			"email":        email,
+			"locale":       "en",
+			"timezone":     "UTC",
+			"bio":          "bulk profile seed",
+		})
+		require.NoError(t, err)
+	}
+
+	records, total, err := store.List(ctx, admin.ListOptions{
+		Page:    1,
+		PerPage: 100,
+		Filters: map[string]any{"display_name__ilike": "bulkprofile-"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, profileCount, total)
+	require.Len(t, records, profileCount)
 }

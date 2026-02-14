@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/pkg/admin"
+	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-users/pkg/types"
+	"github.com/google/uuid"
 )
 
 func TestSeedUsersCreatesProfilesForAllSeededUsers(t *testing.T) {
@@ -136,5 +138,50 @@ func TestSeedUserProfileIsIdempotent(t *testing.T) {
 	}
 	if got.Contact == nil || got.Contact["email"] != "custom@example.com" {
 		t.Fatalf("expected contact email preserved, got %#v", got.Contact)
+	}
+}
+
+func TestEnsureSeedUserProfilesCoversUsersBeyondLegacyPageLimit(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:profiles_many_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+	deps, _, _, err := SetupUsers(ctx, dsn)
+	if err != nil {
+		t.Fatalf("setup users: %v", err)
+	}
+
+	usersRepo := deps.RepoManager.Users()
+	extraUserIDs := make([]uuid.UUID, 0, 35)
+	now := time.Now().UTC()
+	for i := 0; i < 35; i++ {
+		id := uuid.New()
+		username := fmt.Sprintf("profile.seed.%03d", i)
+		email := fmt.Sprintf("%s@example.com", username)
+		if _, err := usersRepo.Create(ctx, &auth.User{
+			ID:        id,
+			Username:  username,
+			Email:     email,
+			Role:      auth.RoleMember,
+			Status:    auth.UserStatusActive,
+			CreatedAt: &now,
+			Metadata:  map[string]any{},
+		}); err != nil {
+			t.Fatalf("create user %d: %v", i, err)
+		}
+		extraUserIDs = append(extraUserIDs, id)
+	}
+
+	if err := ensureSeedUserProfiles(ctx, deps); err != nil {
+		t.Fatalf("ensureSeedUserProfiles: %v", err)
+	}
+
+	scope := seedScopeDefaults()
+	for _, id := range extraUserIDs {
+		profile, err := deps.ProfileRepo.GetProfile(ctx, id, scope)
+		if err != nil {
+			t.Fatalf("get profile %s: %v", id.String(), err)
+		}
+		if profile == nil {
+			t.Fatalf("expected profile for user %s", id.String())
+		}
 	}
 }

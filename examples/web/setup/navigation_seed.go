@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	cms "github.com/goliatone/go-cms"
 	"github.com/google/uuid"
 )
@@ -112,7 +113,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			},
 			Menu:        menuCode,
 			ParentID:    mainGroup,
-			Permissions: []string{"admin.pages.view", "admin.posts.view"},
+			Permissions: append([]string{}, quickstart.DefaultContentParentPermissions()...),
 		},
 	}
 

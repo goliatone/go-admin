@@ -310,7 +310,7 @@ func ensureSeedUserProfiles(ctx context.Context, deps stores.UserDependencies) e
 		ctx = context.Background()
 	}
 	usersRepo := deps.RepoManager.Users()
-	users, _, err := usersRepo.List(ctx)
+	users, err := listAllAuthUsers(ctx, usersRepo)
 	if err != nil {
 		return err
 	}
@@ -507,7 +507,7 @@ func seedProfileBio(username string) string {
 }
 
 func seedUserPreferences(ctx context.Context, repo *preferences.Repository, usersRepo auth.Users) error {
-	users, _, err := usersRepo.List(ctx)
+	users, err := listAllAuthUsers(ctx, usersRepo)
 	if err != nil {
 		return err
 	}
@@ -532,6 +532,37 @@ func seedUserPreferences(ctx context.Context, repo *preferences.Repository, user
 	return nil
 }
 
+func listAllAuthUsers(ctx context.Context, usersRepo auth.Users) ([]*auth.User, error) {
+	if usersRepo == nil {
+		return nil, nil
+	}
+	const pageSize = 200
+	offset := 0
+	out := make([]*auth.User, 0, pageSize)
+	for {
+		records, total, err := usersRepo.List(
+			ctx,
+			repository.SelectOrderAsc("id"),
+			repository.SelectPaginate(pageSize, offset),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if len(records) == 0 {
+			break
+		}
+		out = append(out, records...)
+		offset += len(records)
+		if total > 0 && offset >= total {
+			break
+		}
+		if len(records) < pageSize {
+			break
+		}
+	}
+	return out, nil
+}
+
 func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[string]*auth.User) error {
 	if registry == nil {
 		return nil
@@ -547,6 +578,11 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 			Name: "Super Admin",
 			Permissions: []string{
 				"admin.dashboard.view",
+				"admin.pages.view",
+				"admin.posts.view",
+				"admin.media.view",
+				"admin.content_types.view",
+				"admin.block_definitions.view",
 				"admin.users.view",
 				"admin.users.create",
 				"admin.users.edit",
@@ -585,6 +621,11 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 			Name: "Admin",
 			Permissions: []string{
 				"admin.dashboard.view",
+				"admin.pages.view",
+				"admin.posts.view",
+				"admin.media.view",
+				"admin.content_types.view",
+				"admin.block_definitions.view",
 				"admin.users.view",
 				"admin.users.create",
 				"admin.users.edit",
@@ -606,6 +647,8 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 			Name: "Editor",
 			Permissions: []string{
 				"admin.dashboard.view",
+				"admin.pages.view",
+				"admin.posts.view",
 				"admin.search.view",
 				"admin.profile.view",
 				"admin.profile.edit",

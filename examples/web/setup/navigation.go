@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -92,7 +93,7 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		},
 		Menu:        menuCode,
 		ParentID:    NavigationGroupMain,
-		Permissions: []string{"admin.pages.view", "admin.posts.view"},
+		Permissions: append([]string{}, quickstart.DefaultContentParentPermissions()...),
 	}
 	dashboard := admin.MenuItem{
 		ID:       NavigationSectionDashboard,
@@ -514,4 +515,112 @@ func EnsureDashboardFirst(ctx context.Context, menuSvc admin.CMSMenuService, bas
 	}
 
 	return nil
+}
+
+// EnsureContentParentPermissions reconciles the persisted Content parent permissions
+// so newly introduced content surfaces remain visible without forcing a full menu reset.
+func EnsureContentParentPermissions(ctx context.Context, menuSvc admin.CMSMenuService, menuCode, locale string) error {
+	if menuSvc == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if menuCode == "" {
+		menuCode = NavigationMenuCode
+	}
+	if strings.TrimSpace(locale) == "" {
+		locale = "en"
+	}
+
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil || menu == nil || len(menu.Items) == 0 {
+		return err
+	}
+
+	var contentItem *admin.MenuItem
+	for idx := range menu.Items {
+		item := &menu.Items[idx]
+		if !strings.EqualFold(item.Type, admin.MenuItemTypeGroup) {
+			continue
+		}
+		for childIdx := range item.Children {
+			child := &item.Children[childIdx]
+			if strings.EqualFold(child.LabelKey, "menu.content") ||
+				strings.EqualFold(strings.TrimSpace(child.Label), "content") ||
+				strings.EqualFold(targetKey(child.Target), "content") {
+				contentItem = child
+				break
+			}
+		}
+		if contentItem != nil {
+			break
+		}
+	}
+	if contentItem == nil {
+		return nil
+	}
+
+	desired := quickstart.DefaultContentParentPermissions()
+	merged := mergePermissions(contentItem.Permissions, desired)
+	if samePermissions(contentItem.Permissions, merged) {
+		return nil
+	}
+
+	updated := *contentItem
+	updated.Permissions = merged
+	return menuSvc.UpdateMenuItem(ctx, menuCode, updated)
+}
+
+func mergePermissions(existing []string, required []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(existing)+len(required))
+	add := func(value string) {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, trimmed)
+	}
+	for _, value := range existing {
+		add(value)
+	}
+	for _, value := range required {
+		add(value)
+	}
+	return out
+}
+
+func samePermissions(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	normalize := func(input []string) []string {
+		out := make([]string, 0, len(input))
+		for _, value := range input {
+			trimmed := strings.ToLower(strings.TrimSpace(value))
+			if trimmed == "" {
+				continue
+			}
+			out = append(out, trimmed)
+		}
+		sort.Strings(out)
+		return out
+	}
+	lhs := normalize(left)
+	rhs := normalize(right)
+	if len(lhs) != len(rhs) {
+		return false
+	}
+	for idx := range lhs {
+		if lhs[idx] != rhs[idx] {
+			return false
+		}
+	}
+	return true
 }

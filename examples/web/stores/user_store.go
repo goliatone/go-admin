@@ -1184,7 +1184,7 @@ func (r *goUsersDBRepo) Reset() {
 	if r == nil || r.usersRepo == nil {
 		return
 	}
-	users, _, err := r.usersRepo.List(context.Background())
+	users, err := listAllAuthRepositoryUsers(context.Background(), r.usersRepo)
 	if err != nil {
 		return
 	}
@@ -1194,6 +1194,37 @@ func (r *goUsersDBRepo) Reset() {
 		}
 		_ = r.usersRepo.Delete(context.Background(), user)
 	}
+}
+
+func listAllAuthRepositoryUsers(ctx context.Context, usersRepo auth.Users) ([]*auth.User, error) {
+	if usersRepo == nil {
+		return nil, nil
+	}
+	const pageSize = 200
+	offset := 0
+	out := make([]*auth.User, 0, pageSize)
+	for {
+		records, total, err := usersRepo.List(
+			ctx,
+			repository.SelectOrderAsc("id"),
+			repository.SelectPaginate(pageSize, offset),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if len(records) == 0 {
+			break
+		}
+		out = append(out, records...)
+		offset += len(records)
+		if total > 0 && offset >= total {
+			break
+		}
+		if len(records) < pageSize {
+			break
+		}
+	}
+	return out, nil
 }
 
 func compareTimes(a, b *time.Time) bool {

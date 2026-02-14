@@ -263,12 +263,28 @@ func main() {
 	})
 	queueRepository := coreadmin.NewInMemoryTranslationAssignmentRepository()
 	translationProductCfg := buildTranslationProductConfig(resolveTranslationProfile(), exchangeStore, queueRepository)
+	workflowConfigPath := resolveWorkflowConfigPath()
+	var workflowRuntime coreadmin.WorkflowRuntime = coreadmin.NewWorkflowRuntimeService(
+		coreadmin.NewInMemoryWorkflowDefinitionRepository(),
+		coreadmin.NewInMemoryWorkflowBindingRepository(),
+	)
+	if adapterFlags.UsePersistentCMS {
+		workflowRuntime, err = setup.SetupPersistentWorkflowRuntime(context.Background(), "")
+		if err != nil {
+			log.Fatalf("failed to setup persistent workflow runtime: %v", err)
+		}
+	}
+	if err := seedWorkflowRuntimeFromConfig(context.Background(), workflowRuntime, workflowConfigPath); err != nil {
+		log.Fatalf("failed to seed workflow runtime from config: %v", err)
+	}
 
 	adm, adapterResult, err := quickstart.NewAdmin(
 		cfg,
 		adapterHooks,
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
+		quickstart.WithWorkflowConfigFile(workflowConfigPath),
+		quickstart.WithWorkflowRuntime(workflowRuntime),
 		quickstart.WithTranslationPolicyConfig(translationPolicyCfg),
 		quickstart.WithTranslationProductConfig(translationProductCfg),
 		quickstart.WithAdapterFlags(adapterFlags),
@@ -742,7 +758,7 @@ func main() {
 		cfg,
 		modules,
 		isDev,
-		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeNone),
+		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
 	); err != nil {
 		log.Fatalf("failed to register modules: %v", err)
 	}
@@ -753,6 +769,9 @@ func main() {
 	// Ensure Dashboard renders before Content in the Main Menu group.
 	if err := setup.EnsureDashboardFirst(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		log.Printf("warning: failed to fix dashboard ordering: %v", err)
+	}
+	if err := setup.EnsureContentParentPermissions(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
+		log.Printf("warning: failed to reconcile content parent permissions: %v", err)
 	}
 
 	// Wire dashboard renderer for server-side rendering
@@ -1318,6 +1337,162 @@ func resolveFeatureCatalogPath() string {
 		}
 	}
 	return ""
+}
+
+func resolveWorkflowConfigPath() string {
+	if value := strings.TrimSpace(os.Getenv("ADMIN_WORKFLOW_CONFIG")); value != "" {
+		return value
+	}
+	candidates := []string{
+		"workflow_config.yaml",
+		filepath.Join("examples", "web", "workflow_config.yaml"),
+		"workflow_config.yml",
+		filepath.Join("examples", "web", "workflow_config.yml"),
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func seedWorkflowRuntimeFromConfig(ctx context.Context, runtime coreadmin.WorkflowRuntime, configPath string) error {
+	if ctx == nil || runtime == nil {
+		return nil
+	}
+	configPath = strings.TrimSpace(configPath)
+	if configPath == "" {
+		return nil
+	}
+	cfg, err := quickstart.LoadWorkflowConfigFile(configPath)
+	if err != nil {
+		return err
+	}
+
+	definitions := quickstart.WorkflowDefinitionsFromConfig(cfg)
+	if err := upsertWorkflowDefinitions(ctx, runtime, definitions); err != nil {
+		return err
+	}
+	return upsertTraitDefaultBindings(ctx, runtime, quickstart.WorkflowTraitDefaultsFromConfig(cfg))
+}
+
+func upsertWorkflowDefinitions(
+	ctx context.Context,
+	runtime coreadmin.WorkflowRuntime,
+	definitions map[string]coreadmin.WorkflowDefinition,
+) error {
+	if runtime == nil || len(definitions) == 0 {
+		return nil
+	}
+	existingList, _, err := runtime.ListWorkflows(ctx, coreadmin.PersistedWorkflowListOptions{})
+	if err != nil {
+		return err
+	}
+	existingByID := map[string]coreadmin.PersistedWorkflow{}
+	for _, workflow := range existingList {
+		existingByID[workflow.ID] = workflow
+	}
+
+	ids := make([]string, 0, len(definitions))
+	for id := range definitions {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	for _, id := range ids {
+		definition := definitions[id]
+		desired := coreadmin.PersistedWorkflow{
+			ID:         strings.TrimSpace(id),
+			Name:       strings.TrimSpace(id),
+			Definition: definition,
+			Status:     coreadmin.WorkflowStatusActive,
+		}
+		if _, ok := existingByID[desired.ID]; ok {
+			continue
+		}
+		if _, err := runtime.CreateWorkflow(ctx, desired); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func upsertTraitDefaultBindings(ctx context.Context, runtime coreadmin.WorkflowRuntime, defaults map[string]string) error {
+	if runtime == nil || len(defaults) == 0 {
+		return nil
+	}
+	existing, _, err := runtime.ListBindings(ctx, coreadmin.WorkflowBindingListOptions{
+		Status: coreadmin.WorkflowBindingStatusActive,
+	})
+	if err != nil {
+		return err
+	}
+
+	traits := make([]string, 0, len(defaults))
+	for trait := range defaults {
+		traits = append(traits, trait)
+	}
+	sort.Strings(traits)
+
+	for _, rawTrait := range traits {
+		trait := strings.ToLower(strings.TrimSpace(rawTrait))
+		workflowID := strings.TrimSpace(defaults[rawTrait])
+		if trait == "" || workflowID == "" {
+			continue
+		}
+		_, found := activeTraitBindingForSeed(existing, trait)
+		if found {
+			continue
+		}
+		if _, err := runtime.CreateBinding(ctx, coreadmin.WorkflowBinding{
+			ID:         workflowSeedBindingID(trait),
+			ScopeType:  coreadmin.WorkflowBindingScopeTrait,
+			ScopeRef:   trait,
+			WorkflowID: workflowID,
+			Priority:   100,
+			Status:     coreadmin.WorkflowBindingStatusActive,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func activeTraitBindingForSeed(bindings []coreadmin.WorkflowBinding, trait string) (coreadmin.WorkflowBinding, bool) {
+	trait = strings.ToLower(strings.TrimSpace(trait))
+	if trait == "" {
+		return coreadmin.WorkflowBinding{}, false
+	}
+	for _, binding := range bindings {
+		if binding.ScopeType != coreadmin.WorkflowBindingScopeTrait {
+			continue
+		}
+		if binding.Status != coreadmin.WorkflowBindingStatusActive {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(binding.ScopeRef)) != trait {
+			continue
+		}
+		if strings.TrimSpace(binding.Environment) != "" {
+			continue
+		}
+		if binding.Priority != 100 {
+			continue
+		}
+		return binding, true
+	}
+	return coreadmin.WorkflowBinding{}, false
+}
+
+func workflowSeedBindingID(trait string) string {
+	trait = strings.ToLower(strings.TrimSpace(trait))
+	if trait == "" {
+		return ""
+	}
+	replacer := strings.NewReplacer(" ", "_", "-", "_", ".", "_", "/", "_")
+	trait = replacer.Replace(trait)
+	return "wfb_trait_" + trait
 }
 
 func envBool(key string) (bool, bool) {
