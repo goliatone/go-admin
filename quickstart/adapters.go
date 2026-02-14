@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -34,6 +35,7 @@ type AdapterResult struct {
 	ActivityBackend  string
 	ActivitySink     admin.ActivitySink
 	PersistentCMSSet bool
+	PersistentCMSError error
 	Config           admin.Config
 }
 
@@ -66,13 +68,20 @@ func configureAdaptersWithFlagsLogger(ctx context.Context, cfg admin.Config, hoo
 		ActivityBackend: "in-memory activity feed",
 	}
 	if flags.UsePersistentCMS && hooks.PersistentCMS != nil {
-		if opts, backend, err := hooks.PersistentCMS(ctx, cfg.DefaultLocale); err == nil && opts.Container != nil {
+		opts, backend, err := hooks.PersistentCMS(ctx, cfg.DefaultLocale)
+		if err == nil && opts.Container != nil {
 			cfg.CMS = opts
 			result.CMSBackend = backend
 			result.PersistentCMSSet = true
 		} else if err != nil {
+			result.PersistentCMSError = err
 			logger.Warn("persistent CMS requested but setup failed",
 				"error", err,
+				"default_locale", cfg.DefaultLocale,
+			)
+		} else {
+			result.PersistentCMSError = fmt.Errorf("persistent CMS setup returned nil container")
+			logger.Warn("persistent CMS requested but setup returned nil container",
 				"default_locale", cfg.DefaultLocale,
 			)
 		}
