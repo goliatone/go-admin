@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -295,9 +296,23 @@ func flattenMenuIDs(items []admin.MenuItem, out *[]string) {
 	}
 }
 
+// EnsureDashboardFirstOptions customizes dashboard/content menu reconciliation behavior.
+type EnsureDashboardFirstOptions struct {
+	// EnsureContentParentPath controls whether a path is injected into the Content parent target
+	// when it is missing. Keeping it false allows the parent to remain non-clickable.
+	EnsureContentParentPath bool
+}
+
 // EnsureDashboardFirst updates persisted menu item positions so Dashboard renders before Content.
 // This is useful for persistent CMS backends where module menu items are only inserted once.
 func EnsureDashboardFirst(ctx context.Context, menuSvc admin.CMSMenuService, basePath, menuCode, locale string) error {
+	return EnsureDashboardFirstWithOptions(ctx, menuSvc, basePath, menuCode, locale, EnsureDashboardFirstOptions{
+		EnsureContentParentPath: true,
+	})
+}
+
+// EnsureDashboardFirstWithOptions updates persisted menu ordering with optional content-parent tuning.
+func EnsureDashboardFirstWithOptions(ctx context.Context, menuSvc admin.CMSMenuService, basePath, menuCode, locale string, opts EnsureDashboardFirstOptions) error {
 	if menuSvc == nil {
 		return nil
 	}
@@ -411,7 +426,7 @@ func EnsureDashboardFirst(ctx context.Context, menuSvc admin.CMSMenuService, bas
 		if _, ok := updated.Target["type"]; !ok {
 			updated.Target["type"] = "url"
 		}
-		if _, ok := updated.Target["path"]; !ok {
+		if _, ok := updated.Target["path"]; !ok && opts.EnsureContentParentPath {
 			updated.Target["path"] = path.Join(basePath, "content", "pages")
 		}
 		if _, ok := updated.Target["key"]; !ok {
@@ -623,4 +638,389 @@ func samePermissions(left []string, right []string) bool {
 		}
 	}
 	return true
+}
+
+// NavigationIntegrityReport captures lightweight health metrics for a persisted menu tree.
+type NavigationIntegrityReport struct {
+	MenuCode        string
+	Locale          string
+	NodeCount       int
+	RootCount       int
+	OrphanCount     int
+	CycleCount      int
+	SelfParentCount int
+	RepairedCount   int
+}
+
+func (r NavigationIntegrityReport) HasIssues() bool {
+	return r.OrphanCount > 0 || r.CycleCount > 0 || r.SelfParentCount > 0
+}
+
+// AnalyzeNavigationIntegrity summarizes the current in-memory navigation tree shape.
+func AnalyzeNavigationIntegrity(items []admin.MenuItem, menuCode, locale string) NavigationIntegrityReport {
+	report := NavigationIntegrityReport{
+		MenuCode: strings.TrimSpace(menuCode),
+		Locale:   strings.TrimSpace(locale),
+	}
+	if len(items) == 0 {
+		return report
+	}
+
+	flat := flattenMenuTree(items)
+	report.NodeCount = len(flat)
+	report.RootCount = len(items)
+	if len(flat) == 0 {
+		return report
+	}
+
+	idSet := map[string]bool{}
+	parentByID := map[string]string{}
+	for _, item := range flat {
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			continue
+		}
+		idSet[id] = true
+		parentByID[id] = strings.TrimSpace(item.ParentID)
+	}
+
+	for _, item := range flat {
+		id := strings.TrimSpace(item.ID)
+		parentID := strings.TrimSpace(item.ParentID)
+		if id == "" {
+			continue
+		}
+		if parentID == "" {
+			continue
+		}
+		if id == parentID {
+			report.SelfParentCount++
+			continue
+		}
+		if !idSet[parentID] {
+			report.OrphanCount++
+		}
+	}
+
+	cycleNodes := map[string]bool{}
+	for id := range parentByID {
+		path := []string{}
+		seen := map[string]int{}
+		current := id
+		for current != "" {
+			if idx, ok := seen[current]; ok {
+				for _, cycleID := range path[idx:] {
+					cycleNodes[cycleID] = true
+				}
+				break
+			}
+			seen[current] = len(path)
+			path = append(path, current)
+			next, ok := parentByID[current]
+			if !ok {
+				break
+			}
+			current = strings.TrimSpace(next)
+		}
+	}
+	report.CycleCount = len(cycleNodes)
+	return report
+}
+
+// RepairNavigationIntegrity repairs known menu corruption patterns and returns a health report.
+func RepairNavigationIntegrity(ctx context.Context, menuSvc admin.CMSMenuService, menuCode, locale string) (NavigationIntegrityReport, error) {
+	report := NavigationIntegrityReport{
+		MenuCode: strings.TrimSpace(menuCode),
+		Locale:   strings.TrimSpace(locale),
+	}
+	if menuSvc == nil {
+		return report, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if report.MenuCode == "" {
+		report.MenuCode = NavigationMenuCode
+	}
+	if report.Locale == "" {
+		report.Locale = "en"
+	}
+
+	repaired := 0
+	// Best-effort targeted repair for the Content parent row, including hidden malformed rows
+	// that may not appear in resolved navigation trees.
+	if changed, err := repairContentParentTarget(ctx, menuSvc, report.MenuCode, report.Locale); err != nil {
+		return report, err
+	} else if changed {
+		repaired++
+	}
+
+	menu, err := menuSvc.Menu(ctx, report.MenuCode, report.Locale)
+	if err != nil {
+		return report, err
+	}
+	if menu == nil {
+		report.RepairedCount = repaired
+		return report, nil
+	}
+
+	mainGroupID := resolveMainGroupID(menu.Items)
+	flat := flattenMenuTree(menu.Items)
+	idSet := map[string]bool{}
+	for _, item := range flat {
+		id := strings.TrimSpace(item.ID)
+		if id != "" {
+			idSet[id] = true
+		}
+	}
+
+	for _, item := range flat {
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			continue
+		}
+		parentID := strings.TrimSpace(item.ParentID)
+		if parentID != id {
+			continue
+		}
+		updated := item
+		fallbackParent := inferParentID(id, idSet)
+		if isContentNode(item) && mainGroupID != "" {
+			fallbackParent = mainGroupID
+		}
+		updated.ParentID = fallbackParent
+		updated.ParentCode = fallbackParent
+		if err := menuSvc.UpdateMenuItem(ctx, report.MenuCode, updated); err != nil {
+			if errors.Is(err, admin.ErrNotFound) {
+				continue
+			}
+			return report, err
+		}
+		repaired++
+	}
+
+	menu, err = menuSvc.Menu(ctx, report.MenuCode, report.Locale)
+	if err != nil {
+		return report, err
+	}
+	report = AnalyzeNavigationIntegrity(menu.Items, report.MenuCode, report.Locale)
+	report.RepairedCount = repaired
+	return report, nil
+}
+
+// LogNavigationIntegritySummary emits a compact startup health summary for persisted navigation.
+func LogNavigationIntegritySummary(ctx context.Context, menuSvc admin.CMSMenuService, menuCode, locale string) (NavigationIntegrityReport, error) {
+	report, err := RepairNavigationIntegrity(ctx, menuSvc, menuCode, locale)
+	if err != nil {
+		return report, err
+	}
+	log.Printf(
+		"[nav integrity] menu=%s locale=%s nodes=%d roots=%d orphans=%d cycles=%d self_parent=%d repaired=%d",
+		report.MenuCode,
+		report.Locale,
+		report.NodeCount,
+		report.RootCount,
+		report.OrphanCount,
+		report.CycleCount,
+		report.SelfParentCount,
+		report.RepairedCount,
+	)
+	return report, nil
+}
+
+func repairContentParentTarget(ctx context.Context, menuSvc admin.CMSMenuService, menuCode, locale string) (bool, error) {
+	contentIDs := []string{
+		NavigationSectionContent,
+		"nav-group-main.content",
+		strings.TrimSpace(menuCode) + ".nav-group-main.content",
+	}
+	parentIDs := []string{
+		NavigationGroupMain,
+		"nav-group-main",
+		strings.TrimSpace(menuCode) + ".nav-group-main",
+	}
+	contentPermissions := quickstart.DefaultContentParentPermissions()
+
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil || menu == nil {
+		return false, err
+	}
+	mainGroupID := resolveMainGroupID(menu.Items)
+	content := resolveContentNode(menu.Items)
+	if content != nil {
+		if !contentNodeNeedsRepair(*content, mainGroupID, contentPermissions) {
+			return false, nil
+		}
+		updated := *content
+		updated.Collapsible = true
+		updated.Label = "Content"
+		updated.LabelKey = "menu.content"
+		updated.Icon = "page"
+		if mainGroupID != "" {
+			updated.ParentID = mainGroupID
+			updated.ParentCode = mainGroupID
+		}
+		updated.Permissions = mergePermissions(updated.Permissions, contentPermissions)
+		if updated.Target == nil {
+			updated.Target = map[string]any{}
+		}
+		updated.Target["type"] = "url"
+		updated.Target["key"] = "content"
+		updated.Target["name"] = "admin.pages"
+		delete(updated.Target, "path")
+		if err := menuSvc.UpdateMenuItem(ctx, menuCode, updated); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	// Fallback for hidden malformed rows that don't appear in resolved tree.
+	for _, contentID := range contentIDs {
+		contentID = strings.TrimSpace(contentID)
+		if contentID == "" {
+			continue
+		}
+		for _, parentID := range parentIDs {
+			parentID = strings.TrimSpace(parentID)
+			if parentID == "" {
+				continue
+			}
+			item := admin.MenuItem{
+				ID:          contentID,
+				Type:        admin.MenuItemTypeItem,
+				Label:       "Content",
+				LabelKey:    "menu.content",
+				Icon:        "page",
+				Menu:        menuCode,
+				Locale:      locale,
+				ParentID:    parentID,
+				ParentCode:  parentID,
+				Collapsible: true,
+				Collapsed:   false,
+				Permissions: append([]string{}, contentPermissions...),
+				Target: map[string]any{
+					"type": "url",
+					"key":  "content",
+					"name": "admin.pages",
+				},
+			}
+			if err := menuSvc.UpdateMenuItem(ctx, menuCode, item); err != nil {
+				if errors.Is(err, admin.ErrNotFound) {
+					continue
+				}
+				msg := strings.ToLower(strings.TrimSpace(err.Error()))
+				if strings.Contains(msg, "not found") {
+					continue
+				}
+				return false, err
+			}
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func flattenMenuTree(items []admin.MenuItem) []admin.MenuItem {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]admin.MenuItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, item)
+		if len(item.Children) > 0 {
+			out = append(out, flattenMenuTree(item.Children)...)
+		}
+	}
+	return out
+}
+
+func resolveMainGroupID(items []admin.MenuItem) string {
+	for _, item := range items {
+		if !strings.EqualFold(item.Type, admin.MenuItemTypeGroup) {
+			continue
+		}
+		if strings.EqualFold(item.GroupTitleKey, "menu.group.main") ||
+			strings.EqualFold(item.LabelKey, "menu.group.main") ||
+			strings.EqualFold(item.GroupTitle, "Navigation") ||
+			strings.EqualFold(item.Label, "Navigation") {
+			return strings.TrimSpace(item.ID)
+		}
+	}
+	return ""
+}
+
+func resolveContentNode(items []admin.MenuItem) *admin.MenuItem {
+	for idx := range items {
+		if isContentNode(items[idx]) {
+			return &items[idx]
+		}
+		if len(items[idx].Children) > 0 {
+			if child := resolveContentNode(items[idx].Children); child != nil {
+				return child
+			}
+		}
+	}
+	return nil
+}
+
+func isContentNode(item admin.MenuItem) bool {
+	return strings.EqualFold(strings.TrimSpace(item.LabelKey), "menu.content") ||
+		strings.EqualFold(strings.TrimSpace(item.Label), "content") ||
+		strings.EqualFold(targetKey(item.Target), "content")
+}
+
+func inferParentID(id string, idSet map[string]bool) string {
+	canonicalID := strings.TrimSpace(id)
+	if canonicalID == "" {
+		return ""
+	}
+	idx := strings.LastIndex(canonicalID, ".")
+	if idx <= 0 {
+		return ""
+	}
+	candidate := strings.TrimSpace(canonicalID[:idx])
+	if candidate == "" || candidate == canonicalID {
+		return ""
+	}
+	if len(idSet) > 0 && !idSet[candidate] {
+		return ""
+	}
+	return candidate
+}
+
+func contentNodeNeedsRepair(item admin.MenuItem, mainGroupID string, requiredPermissions []string) bool {
+	if !item.Collapsible {
+		return true
+	}
+	if strings.TrimSpace(item.LabelKey) != "menu.content" {
+		return true
+	}
+	if strings.TrimSpace(targetKey(item.Target)) != "content" {
+		return true
+	}
+	if _, ok := item.Target["path"]; ok {
+		return true
+	}
+	if mainGroupID != "" && strings.TrimSpace(item.ParentID) != mainGroupID {
+		return true
+	}
+	for _, permission := range requiredPermissions {
+		if !menuPermissionIncluded(item.Permissions, permission) {
+			return true
+		}
+	}
+	return false
+}
+
+func menuPermissionIncluded(perms []string, permission string) bool {
+	needle := strings.TrimSpace(permission)
+	if needle == "" {
+		return true
+	}
+	for _, perm := range perms {
+		if strings.EqualFold(strings.TrimSpace(perm), needle) {
+			return true
+		}
+	}
+	return false
 }
