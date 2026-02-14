@@ -37,6 +37,7 @@ type PanelBuilder struct {
 	translationPolicySet           bool
 	translationQueueAutoCreateHook TranslationQueueAutoCreateHook
 	uiRouteMode                    PanelUIRouteMode
+	entryMode                      PanelEntryMode
 }
 
 // Panel represents a registered panel.
@@ -65,6 +66,7 @@ type Panel struct {
 	translationPolicy              TranslationPolicy
 	translationQueueAutoCreateHook TranslationQueueAutoCreateHook
 	uiRouteMode                    PanelUIRouteMode
+	entryMode                      PanelEntryMode
 }
 
 // PanelUIRouteMode declares who owns the panel's HTML UI route surface.
@@ -75,6 +77,18 @@ const (
 	PanelUIRouteModeCanonical PanelUIRouteMode = "canonical"
 	// PanelUIRouteModeCustom means module-specific handlers own the panel UI routes.
 	PanelUIRouteModeCustom PanelUIRouteMode = "custom"
+)
+
+// PanelEntryMode declares which surface a panel should use as its canonical
+// entry point when the base panel route (for example /admin/<panel>) is opened.
+type PanelEntryMode string
+
+const (
+	// PanelEntryModeList renders the panel list/datagrid view.
+	PanelEntryModeList PanelEntryMode = "list"
+	// PanelEntryModeDetailCurrentUser renders the detail view for the current
+	// authenticated user ID from request context.
+	PanelEntryModeDetailCurrentUser PanelEntryMode = "detail_current_user"
 )
 
 // Repository provides CRUD operations for panel data.
@@ -405,6 +419,12 @@ func (b *PanelBuilder) WithUIRouteMode(mode PanelUIRouteMode) *PanelBuilder {
 	return b
 }
 
+// WithEntryMode configures how the panel resolves its canonical entry route.
+func (b *PanelBuilder) WithEntryMode(mode PanelEntryMode) *PanelBuilder {
+	b.entryMode = normalizePanelEntryMode(mode)
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
@@ -444,6 +464,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		translationPolicy:              b.translationPolicy,
 		translationQueueAutoCreateHook: b.translationQueueAutoCreateHook,
 		uiRouteMode:                    normalizePanelUIRouteMode(b.uiRouteMode),
+		entryMode:                      normalizePanelEntryMode(b.entryMode),
 	}, nil
 }
 
@@ -510,12 +531,29 @@ func (p *Panel) UIRouteMode() PanelUIRouteMode {
 	return normalizePanelUIRouteMode(p.uiRouteMode)
 }
 
+// EntryMode returns the canonical panel entry behavior.
+func (p *Panel) EntryMode() PanelEntryMode {
+	if p == nil {
+		return PanelEntryModeList
+	}
+	return normalizePanelEntryMode(p.entryMode)
+}
+
 func normalizePanelUIRouteMode(mode PanelUIRouteMode) PanelUIRouteMode {
 	switch mode {
 	case PanelUIRouteModeCustom:
 		return PanelUIRouteModeCustom
 	default:
 		return PanelUIRouteModeCanonical
+	}
+}
+
+func normalizePanelEntryMode(mode PanelEntryMode) PanelEntryMode {
+	switch mode {
+	case PanelEntryModeDetailCurrentUser:
+		return PanelEntryModeDetailCurrentUser
+	default:
+		return PanelEntryModeList
 	}
 }
 
