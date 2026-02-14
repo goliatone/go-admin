@@ -72,6 +72,7 @@ type Admin struct {
 	navMenuCode                  string
 	translator                   Translator
 	workflow                     WorkflowEngine
+	workflowRuntime              WorkflowRuntime
 	traitWorkflowDefaults        map[string]string
 	translationPolicy            TranslationPolicy
 	cmsWorkflowDefaults          bool
@@ -364,6 +365,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		navMenuCode:            navMenuCode,
 		translator:             translator,
 		workflow:               deps.Workflow,
+		workflowRuntime:        deps.WorkflowRuntime,
 		translationPolicy:      deps.TranslationPolicy,
 		preview:                NewPreviewService(cfg.PreviewSecret),
 		iconService:            iconService,
@@ -446,6 +448,12 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	}
 	adm.applyActivitySink(activitySink)
 
+	if adm.workflowRuntime != nil {
+		if err := adm.bindWorkflowRuntime(adm.workflowRuntime); err != nil {
+			return nil, err
+		}
+	}
+
 	return adm, nil
 }
 
@@ -494,6 +502,20 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 func (a *Admin) WithWorkflow(w WorkflowEngine) *Admin {
 	a.workflow = w
 	applyCMSWorkflowDefaults(a)
+	if a.workflowRuntime != nil {
+		_ = a.bindWorkflowRuntime(a.workflowRuntime)
+	}
+	return a
+}
+
+// WithWorkflowRuntime wires persisted workflow definitions/bindings.
+func (a *Admin) WithWorkflowRuntime(runtime WorkflowRuntime) *Admin {
+	if a == nil {
+		return a
+	}
+	if err := a.bindWorkflowRuntime(runtime); err != nil {
+		a.loggerFor("admin.workflow.runtime").Warn("workflow runtime binding failed", "error", err)
+	}
 	return a
 }
 
@@ -561,6 +583,17 @@ func normalizeTraitWorkflowDefaults(defaults map[string]string) map[string]strin
 		return nil
 	}
 	return out
+}
+
+func (a *Admin) bindWorkflowRuntime(runtime WorkflowRuntime) error {
+	if a == nil {
+		return nil
+	}
+	a.workflowRuntime = runtime
+	if runtime == nil {
+		return nil
+	}
+	return runtime.BindWorkflowEngine(resolveCMSWorkflowEngine(a))
 }
 
 // Authorizer exposes the configured authorizer (if any).
