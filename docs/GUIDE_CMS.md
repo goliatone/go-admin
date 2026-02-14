@@ -112,9 +112,10 @@ Pages and Posts are now standard content types, with content entries as the
 single source of truth. To keep the legacy Pages/Posts experience:
 
 - Ensure the `page` and `post` content types are `active` (and seeded as such).
-- Use capabilities to wire workflows + permissions (for example,
-  `workflow=pages`, `permissions=admin.pages` for `page`, and `workflow=posts`,
-  `permissions=admin.posts` for `post`).
+- Use capabilities to wire workflows + permissions. Prefer
+  `workflow_id=<id>` (legacy `workflow=<id>` is still supported during
+  migration). For example, `workflow_id=pages`, `permissions=admin.pages` for
+  `page`, and `workflow_id=posts`, `permissions=admin.posts` for `post`.
 - Use the `panel_slug` capability to map content types onto existing panel
   names. For example, `blog_post` with `panel_slug=posts` renders the Posts
   panel and inherits `/admin/content/posts` routes.
@@ -227,6 +228,92 @@ workflow.RegisterWorkflow("pages", admin.WorkflowDefinition{
 
 Transitions are exposed as Panel actions and enforced during updates. Workflow enforcement runs inside panel update hooks so status changes always pass through the workflow engine.
 CMS demo panels default to the `submit_for_approval` and `publish` actions. Override them with `adm.WithCMSWorkflowActions(...)` (use `admin.DefaultCMSWorkflowActions()` as a base).
+
+### Workflow ID Resolution and Migration
+
+Workflow assignment now resolves in this order:
+
+1. `workflow_id` (aliases: `workflowId`, `workflow-id`)
+2. legacy `workflow` (backward compatible)
+3. trait default mapping (`panel_traits` / `panel_preset`)
+4. no workflow
+
+Trait defaults can be registered at bootstrap:
+
+```go
+adm.WithTraitWorkflowDefaults(map[string]string{
+    "editorial": "editorial.default",
+})
+```
+
+Content type example (explicit override wins):
+
+```json
+{
+  "panel_traits": ["editorial"],
+  "workflow_id": "editorial.news",
+  "workflow": "legacy.pages"
+}
+```
+
+Migration notes:
+
+1. Keep existing `workflow` values in place first (no behavior break).
+2. Add trait defaults for shared behavior (for example, `editorial`).
+3. Move content types to explicit `workflow_id` where needed.
+4. Remove legacy `workflow` keys only after parity checks pass.
+
+If a resolved workflow ID is missing in the registry, panel registration
+continues and logs a warning (`workflow not found`) with
+`resolved_workflow_id`.
+
+### Persisted Workflow Runtime (Stage 3)
+
+go-admin also supports persisted workflow definitions and scope bindings through
+`WorkflowRuntime` integration.
+
+Wiring:
+
+```go
+runtime := admin.NewWorkflowRuntimeService(
+    admin.NewInMemoryWorkflowDefinitionRepository(),
+    admin.NewInMemoryWorkflowBindingRepository(),
+)
+
+adm.WithWorkflowRuntime(runtime)
+```
+
+Runtime binding resolution order:
+
+1. content type binding
+2. trait binding
+3. global binding
+
+Explicit capability precedence is still honored first:
+
+1. `workflow_id` (and aliases)
+2. legacy `workflow`
+3. persisted binding resolver
+4. trait defaults
+5. no workflow
+
+Management API endpoints:
+
+- `GET /admin/api/workflows`
+- `POST /admin/api/workflows`
+- `PUT /admin/api/workflows/:id`
+- `GET /admin/api/workflows/bindings`
+- `POST /admin/api/workflows/bindings`
+- `PUT /admin/api/workflows/bindings/:id`
+- `DELETE /admin/api/workflows/bindings/:id`
+
+Update and rollback safety:
+
+- workflow and binding updates require `expected_version` (optimistic locking)
+- rollback is performed via `PUT /admin/api/workflows/:id` with `rollback_to_version`
+
+For migration SQL, rollout order, and rollback procedures, see
+`docs/WORKFLOW_PERSISTENCE.md`.
 
 ### Row Action Availability Contract (`_action_state`)
 
@@ -480,6 +567,14 @@ Common routes include:
 - `/admin/content/:panel/new` (create)
 - `/admin/content/:panel/:id` (detail)
 - `/admin/content/:panel/:id/edit` (edit)
+
+Canonical panel routes (`/admin/:panel`) are registered separately for panels
+with named admin routes (for example `/admin/users`, `/admin/profile`). Those
+base routes honor panel entry mode:
+
+- `PanelEntryModeList` (default): base route renders list/datagrid.
+- `PanelEntryModeDetailCurrentUser`: base route renders detail for the current
+  authenticated user record.
 
 go-admin also registers alias routes for Pages/Posts when CMS is enabled:
 

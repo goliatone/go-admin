@@ -48,6 +48,13 @@ The Preferences module is implemented as a panel module:
   - `theme_variant` (select)
   - `dashboard_layout` (read-only detail field)
 
+Routing model:
+
+- Preferences uses `PanelUIRouteModeCustom`, so it owns its HTML routes in
+  module code.
+- This differs from canonical panel UI routes (used by many other modules),
+  where `/admin/<panel>` can be customized with `PanelEntryMode`.
+
 The repository enforces **self-service** for user-level operations: the authenticated user can only read/write their own preferences. `DELETE` is not allowed; use the clear flow described below. Non-user writes (tenant/org/system) require the manage permissions above and are not exposed by the default UI.
 
 See:

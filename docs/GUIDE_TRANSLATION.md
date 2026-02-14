@@ -215,6 +215,9 @@ Use resolver keys and URL manager output instead of hardcoded admin paths.
 For panel-backed links, prefer canonical panel URL resolution:
 - `quickstart.ResolveAdminPanelURL(adm.URLs(), cfg.BasePath, "translations")`
 
+Translation queue keeps the default entry mode (`list`), so canonical entry
+renders the queue datagrid.
+
 ## Quickstart Opt-in
 
 Quickstart queue feature key: `translations.queue` (default `false`).
@@ -306,4 +309,4 @@ Disabled-module checks:
 
 Confirm backend capability metadata and UI gating remain aligned:
 1. Backend: `quickstart.TranslationCapabilities(adm)` returns module flags and routes consistent with runtime route registration.
-2. UI/template context: `translation_capabilities` matches backend metadata so disabled modules do not leak navigation entrypoints.
+2. UI/template context: `translation_capabilities` (from quickstart UI routes and handlers using `quickstart.WithNav(...)`) matches backend metadata so disabled modules do not leak navigation entrypoints.

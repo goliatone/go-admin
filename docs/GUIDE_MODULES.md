@@ -150,6 +150,7 @@ User profile management for the currently authenticated user.
 | ID           | `profile`                                      |
 | Feature Flag | `FeatureProfile`                               |
 | Panel Route  | `/admin/profile`                               |
+| Entry Mode   | `PanelEntryModeDetailCurrentUser`              |
 | Permissions  | `ProfilePermission`, `ProfileUpdatePermission` |
 
 ```go
@@ -249,6 +250,29 @@ Most built-in modules follow a consistent "Panel Module" pattern that provides C
 3. **Panel builder** registration with fields and permissions
 4. **Menu items** contribution
 
+### Route Ownership vs Entry Mode
+
+Panel UI behavior has two independent controls:
+
+1. `PanelUIRouteMode` (route ownership)
+2. `PanelEntryMode` (what `/admin/<panel>` renders when canonical routes are used)
+
+`PanelUIRouteMode` values:
+
+- `PanelUIRouteModeCanonical` (default): quickstart canonical panel UI routes
+  are registered and can honor panel entry mode.
+- `PanelUIRouteModeCustom`: module-specific handlers own the UI routes
+  entirely; canonical panel UI routes are skipped.
+
+`PanelEntryMode` values:
+
+- `PanelEntryModeList` (default): `/admin/<panel>` renders the list/datagrid.
+- `PanelEntryModeDetailCurrentUser`: `/admin/<panel>` resolves current
+  authenticated user ID and renders detail for that record.
+
+Use entry mode for reusable package-level behavior (for example self-service
+profile screens) without app-specific route overrides.
+
 ### Example: Profile Module Structure
 
 ```go
@@ -314,6 +338,7 @@ func (m *ProfileModule) Register(ctx ModuleContext) error {
     // Register panel with builder
     builder := ctx.Admin.Panel("profile").
         WithRepository(repo).
+        WithEntryMode(PanelEntryModeDetailCurrentUser).
         ListFields(
             Field{Name: "display_name", Label: "Name", Type: "text"},
             Field{Name: "email", Label: "Email", Type: "email"},
@@ -768,6 +793,10 @@ target := map[string]any{
     "key":  "translations",
 }
 ```
+
+`ResolveAdminPanelURL(...)` returns the canonical entry route. For panels using
+`PanelEntryModeDetailCurrentUser`, that route opens the current-user detail
+screen.
 
 Checklist:
 - Set `m.urls = ctx.Admin.URLs()` during `Register`, and keep it on the module for menu building.
@@ -1241,13 +1270,14 @@ When `DebugConfig.ToolbarMode` is enabled, `CaptureViewContext` adds these varia
 
 **Using with Quickstart UI Routes:**
 
-The `quickstart.RegisterAdminUIRoutes` helper automatically calls `CaptureViewContext` via its `defaultUIViewContextBuilder`. Custom UI route builders should do the same:
+The `quickstart.RegisterAdminUIRoutes` helper automatically calls `CaptureViewContext` via its `defaultUIViewContextBuilder`. Custom UI route builders should do the same, and should call `quickstart.WithNav(...)` so feature context keys (including `translation_capabilities`, `activity_enabled`, and `body_classes`) are present for template/sidebar gating:
 
 ```go
 // Custom view context builder with debug toolbar support
 func customViewContextBuilder(adm *admin.Admin, cfg admin.Config) quickstart.UIViewContextBuilder {
     return func(ctx router.ViewContext, active string, c router.Context) router.ViewContext {
         reqCtx := c.Context()
+        // Injects nav/session/theme dependencies + feature context (translation/activity/body classes).
         ctx = quickstart.WithNav(ctx, adm, cfg, active, reqCtx)
         ctx = quickstart.WithThemeContext(ctx, adm, c)
         // IMPORTANT: Call CaptureViewContext to enable debug toolbar
@@ -1263,16 +1293,17 @@ quickstart.RegisterAdminUIRoutes(router, cfg, adm, auth,
 
 **Manual Route Registration:**
 
-For routes registered outside the quickstart helpers, ensure `CaptureViewContext` is called:
+For routes registered outside the quickstart helpers, ensure `quickstart.WithNav(...)` and `CaptureViewContext` are called:
 
 ```go
 router.Get("/admin/custom-page", authMiddleware(func(c router.Context) error {
+    reqCtx := c.Context()
     viewCtx := quickstart.WithPathViewContext(nil, cfg, quickstart.PathViewContextConfig{
         BasePath: cfg.BasePath,
     })
     viewCtx["title"] = "Custom Page"
-    // Optional go-admin enricher for layout templates (paths/nav/session/theme)
-    viewCtx = admin.EnrichLayoutViewContext(adm, c, viewCtx, "custom")
+    viewCtx = quickstart.WithNav(viewCtx, adm, cfg, "custom", reqCtx)
+    viewCtx = quickstart.WithThemeContext(viewCtx, adm, c)
     // Enable debug toolbar (required for toolbar to appear)
     viewCtx = admin.CaptureViewContextForRequest(adm.Debug(), c, viewCtx)
 
@@ -1883,12 +1914,12 @@ func (h *UserHandlers) List(c router.Context) error {
         "total": len(users),
     }
     viewCtx = helpers.WithNav(viewCtx, h.Admin, h.Config, "users", c.Context())
-viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
+    viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 
-// Capture for debug panel
-viewCtx = admin.CaptureViewContext(h.Admin.Debug(), viewCtx)
+    // Capture for debug panel
+    viewCtx = admin.CaptureViewContext(h.Admin.Debug(), viewCtx)
 
-return c.Render("resources/users/list", viewCtx)
+    return c.Render("resources/users/list", viewCtx)
 }
 ```
 
@@ -1991,6 +2022,7 @@ quickstart.NewModuleRegistrar(
 8. **Support menu grouping** — Implement `WithMenuParent()` for nested navigation
 9. **Test auth paths** — Verify unauthorized users get 403/filtered results
 10. **Document permission strings** — List required permissions in module docs
+11. **Use `WithNav` in custom handlers** — Keep `translation_capabilities`, activity flags, and sidebar/session payload consistent with built-in routes
 
 ---
 
