@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS uq_workflow_bindings_active_scope_priority;
