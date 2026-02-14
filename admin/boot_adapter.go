@@ -178,6 +178,11 @@ func (a *Admin) BootSettings() boot.SettingsBinding {
 	return newSettingsBinding(a)
 }
 
+// BootWorkflows exposes persisted workflow management bindings.
+func (a *Admin) BootWorkflows() boot.WorkflowManagementBinding {
+	return newWorkflowManagementBinding(a)
+}
+
 // BootSchemaRegistry exposes schema registry bindings.
 func (a *Admin) BootSchemaRegistry() boot.SchemaRegistryBinding {
 	return newSchemaRegistryBinding(a)
