@@ -65,6 +65,7 @@ func (m *ProfileModule) Register(ctx ModuleContext) error {
 	avatarHidden := !featureEnabled(ctx.Admin.featureGate, FeatureMedia)
 	builder := ctx.Admin.Panel(profileModuleID).
 		WithRepository(repo).
+		WithEntryMode(PanelEntryModeDetailCurrentUser).
 		ListFields(
 			Field{Name: profileKeyDisplayName, Label: "Name", Type: "text"},
 			Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
