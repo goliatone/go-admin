@@ -32,6 +32,7 @@ type Dependencies struct {
 	Authenticator                  Authenticator
 	Translator                     Translator
 	Workflow                       WorkflowEngine
+	WorkflowRuntime                WorkflowRuntime
 	TranslationPolicy              TranslationPolicy
 	ActivitySink                   ActivitySink
 	ActivityRepository             types.ActivityRepository
