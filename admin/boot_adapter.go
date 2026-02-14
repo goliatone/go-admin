@@ -36,6 +36,17 @@ func (a *Admin) PublicRouter() AdminRouter {
 	return a.router
 }
 
+// ProtectedRouter exposes the admin router wrapped with auth middleware when configured.
+func (a *Admin) ProtectedRouter() AdminRouter {
+	if a == nil {
+		return nil
+	}
+	if a.authenticator == nil {
+		return a.router
+	}
+	return wrapAdminRouter(a.router, a.authWrapper())
+}
+
 // AuthWrapper returns the configured auth wrapper for boot steps.
 func (a *Admin) AuthWrapper() boot.HandlerWrapper {
 	return a.authWrapper()
