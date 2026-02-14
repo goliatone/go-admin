@@ -99,7 +99,7 @@ Operational verification:
 4. Verify disabled-module behavior by switching profiles:
    - `ADMIN_TRANSLATION_PROFILE=core`: exchange + queue routes should not be exposed.
    - `ADMIN_TRANSLATION_PROFILE=none`: translation routes and translation operations entrypoints should not be exposed.
-5. Verify capabilities from runtime payload in templates (`translation_capabilities`) or backend call (`quickstart.TranslationCapabilities(adm)`), ensuring module flags match route availability.
+5. Verify capabilities from runtime payload in templates (`translation_capabilities`) or backend call (`quickstart.TranslationCapabilities(adm)`), ensuring module flags match route availability; this payload is also available on custom handlers that call `helpers.WithNav` (for example `/admin/users`).
 
 Permission model for translation modules:
 - Quickstart wires routes/panels/commands and defines permission keys, but role assignment is application-owned.
@@ -138,6 +138,8 @@ ADMIN_TRANSLATION_PROFILE=none go run .
 - **Dashboard JSON**: `GET /admin/api/dashboard` - JSON API (backwards compatible)
 - **Navigation**: `GET /admin/api/navigation`
 - **Settings**: `GET /admin/api/settings`, `POST /admin/api/settings`
+- **Workflows**: `GET/POST /admin/api/workflows`, `PUT /admin/api/workflows/:id`
+- **Workflow Bindings**: `GET/POST /admin/api/workflows/bindings`, `PUT/DELETE /admin/api/workflows/bindings/:id`
 - **Search**: `GET /admin/api/search?query=...`
 - **Notifications**: `GET /admin/api/notifications`
 - **Activity**: `GET /admin/api/activity?limit=50&offset=0&channel=users` (filters: `user_id`, `actor_id`, `verb`, `object_type`, `object_id`, `channel`/`channels`, `channel_denylist`, `since`, `until`, `q`; response includes `entries`, `total`, `next_offset`, `has_more`; defaults: limit 50, max 200, offset 0; ordered by most recent first).
@@ -145,6 +147,7 @@ ADMIN_TRANSLATION_PROFILE=none go run .
 - **Users Panel**: `GET /admin/api/users`, `POST /admin/api/users`, etc.
 - **Roles Panel**: `GET /admin/api/roles`, `POST /admin/api/roles`, etc.
 - **User Actions**: `/admin/api/users/:id/{activate,suspend,disable,archive,reset-password,invite}` plus `/admin/api/users/bulk/{activate,suspend,disable,archive,assign-role,unassign-role}`.
+- **Profile UI**: `GET /admin/profile` (canonical entry route; opens current authenticated user detail view)
 - **Profile & Preferences**: `GET/POST /admin/api/profile`, `GET/POST /admin/api/preferences`
 - **Onboarding**: `POST /admin/api/onboarding/invite`, `POST /admin/api/onboarding/password/reset/request`, `POST /admin/api/onboarding/password/reset/confirm`, `POST /admin/api/onboarding/register` (flagged)
 - **Users CRUD API**: `GET /admin/crud/users` (go-crud JSON endpoints)
@@ -230,12 +233,18 @@ curl http://localhost:8080/admin/test-error?type=nested
 
 - HTML CRUD screens live at `/admin/content/pages`, `/admin/content/posts`, `/admin/content/media` (aliases `/admin/pages` and `/admin/posts` redirect; auth + permissions enforced: `admin.pages.*`, `admin.posts.*`, `admin.media.*`).
 - Actions include create/edit/delete plus workflow/publish actions for pages/posts; media supports add/edit/delete metadata.
+- Sidebar `Content` includes pages/posts/media plus CMS-driven entries (for example seeded content types like `news`, and admin surfaces such as Content Types/Block Library) when the user has required permissions.
 - Navigation highlights the active item; search results link to the new views.
 - Content entry filters now derive automatically from panel schema filters, and when missing they fall back to visible list/form fields by default.
+- Workflow config fixture: `examples/web/workflow_config.yaml` declares:
+  - `trait_defaults.editorial = editorial.default`
+  - explicit workflow `editorial.news` used by the seeded `news` content type via `workflow_id`.
+  The app loads this file automatically when present (override path with `ADMIN_WORKFLOW_CONFIG`), seeds persisted runtime workflows as `active`, and seeds trait default bindings under `/admin/api/workflows/bindings`.
 
 ### Content persistence (SQLite + go-repository-bun)
 
 - Pages/Posts are served via content entry APIs (`/admin/api/content`) backed by go-cms content entries; media continues to use go-crud at `/admin/crud/media`, backed by SQLite via go-repository-bun. go-cms migrations from `../go-cms/data/sql/migrations` are applied on startup with a light overlay that creates the demo tables for the example flows.
+- Workflow runtime migrations (`workflows`, `workflow_bindings`, `workflow_revisions`) are also applied in persistent mode so `/admin/api/workflows*` survives restarts.
 - Configure the DSN with `CONTENT_DATABASE_DSN` (preferred), falling back to `CMS_DATABASE_DSN`, else `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; fixtures load from `examples/web/data/sql/seeds` when `ADMIN_SEEDS` is enabled (default outside production). Use `ADMIN_SEEDS_TRUNCATE=true` to reseed.
 - Controllers use canonical go-crud routes by default; only legacy user-profile compatibility routes are kept (`/admin/crud/user-profiles`, `/admin/crud/user-profiles/:id`, `/admin/crud/user-profiles/batch`) so existing DataGrid/HTML flows continue to work.
 - Smoke: create/edit/delete a page and post via the content entry UI, and a media item via `/admin/crud/media`; restart the server and confirm the records persist and still filter/sort in the lists.
@@ -243,6 +252,7 @@ curl http://localhost:8080/admin/test-error?type=nested
 ## Sidebar Navigation & Quickstart defaults
 
 - Navigation can be seeded via `quickstart.SeedNavigation` in `examples/web/setup/navigation.go` (set `USE_NAV_SEED=true`); by default the app uses module menu contributions with `quickstart.EnsureDefaultMenuParents` so grouped/collapsible nav renders without seeding. Menus are addressed by slug (`cfg.NavMenuCode`) for deterministic IDs; reset persistent menus with `RESET_NAV_MENU=true` or delete `/tmp/go-admin-cms.db` when switching sources.
+- Startup reconciliation in `examples/web/main.go` runs `setup.EnsureDashboardFirst(...)` and `setup.EnsureContentParentPermissions(...)` so persisted menus from older runs pick up new ordering and Content parent permission requirements without a full reset.
 - Sidebar templates/assets come from quickstart embeds (collapse + submenu persistence); override by layering your own template/assets FS via `quickstart.NewViewEngine` options in `examples/web/main.go`.
 - Menu items include both `Label`/`LabelKey` and `GroupTitleKey`; modules can nest under seeded groups via `ParentID`.
 - Collapse state persists (`admin-sidebar-collapsed`), submenu state persists per submenu key, and `NAV_DEBUG=true` exposes the ordered nav JSON in the sidebar (`NAV_DEBUG_LOG=true` logs payload).
@@ -597,7 +607,8 @@ func (c *UserActivateCommand) Execute(ctx admin.AdminContext) error {
 ## Content (Pages + Posts)
 
 - Pages and Posts panels use the go-cms backend by default (container from `examples/web/setup/cms_persistent.go`).
-- Navigation seeds a `Content` parent guarded by `admin.pages.*`/`admin.posts.*`; the go-auth role provider now issues matching resource roles so the menu and panels hide for unauthorized tokens.
+- Navigation seeds a `Content` parent with canonical quickstart permissions: `admin.pages.view`, `admin.posts.view`, `admin.media.view`, `admin.content_types.view`, `admin.block_definitions.view`.
+- Existing persisted menus are reconciled on startup (`setup.EnsureContentParentPermissions`) so those permissions are merged in-place without forcing `RESET_NAV_MENU=true`.
 - CMS-backed stores emit `page:<id>`/`post:<id>` activity (actor + slug/status metadata) and drive search adapters from go-cms data, keeping search and activity aligned with the persistent backend.
 - Smoke: `CMS_DATABASE_DSN=file:/tmp/go-admin-cms.db?cache=shared&_fk=1 go run ./examples/web`, create/edit/delete a page and a post via `/admin/content/pages` and `/admin/content/posts`, confirm `/admin/api/search?query=<slug>` returns them and `/admin/api/activity?limit=5` shows create/update/delete in `entries` with correct actors.
 
