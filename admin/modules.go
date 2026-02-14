@@ -8,6 +8,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin/internal/modules"
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
+	router "github.com/goliatone/go-router"
 )
 
 // RegisterModule registers a pluggable module before initialization.
@@ -85,6 +86,12 @@ func (a *Admin) loadModules(ctx context.Context) error {
 		}
 		modulesToLoad = append(modulesToLoad, mod)
 	}
+	authMiddleware := router.MiddlewareFunc(nil)
+	if a.authenticator != nil {
+		authMiddleware = router.MiddlewareFunc(a.authWrapper())
+	}
+	publicRouter := a.router
+	protectedRouter := wrapAdminRouter(publicRouter, authMiddleware)
 
 	err := modules.Load(ctx, modules.LoadOptions{
 		Modules:       modulesToLoad,
@@ -103,10 +110,13 @@ func (a *Admin) loadModules(ctx context.Context) error {
 				return validationDomainError("module missing Register implementation", map[string]any{"component": "modules", "module": mod.Manifest().ID})
 			}
 			return registrar.Register(ModuleContext{
-				Admin:      a,
-				Router:     a.router,
-				Locale:     a.config.DefaultLocale,
-				Translator: a.translator,
+				Admin:           a,
+				Router:          protectedRouter,
+				ProtectedRouter: protectedRouter,
+				PublicRouter:    publicRouter,
+				AuthMiddleware:  authMiddleware,
+				Locale:          a.config.DefaultLocale,
+				Translator:      a.translator,
 			})
 		},
 		AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
