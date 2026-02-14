@@ -58,7 +58,7 @@ func NewBunSettingsAdapter(db *bun.DB, repoOptions ...repository.Option) (*BunSe
 		},
 	}
 	return &BunSettingsAdapter{
-		repo:        repository.MustNewRepositoryWithOptions(db, handlers, repoOptions...),
+		repo:        newSettingsRepository(db, handlers, repoOptions...),
 		definitions: map[string]SettingDefinition{},
 		schemaOpts:  []opts.Option{opts.WithScopeSchema(true), openapi.Option()},
 	}, nil
@@ -181,7 +181,7 @@ func (a *BunSettingsAdapter) resolveAllOptions(ctx context.Context, userID strin
 	if a == nil || a.repo == nil {
 		return settingsSnapshot{}, nil, FeatureDisabledError{Feature: string(FeatureSettings)}
 	}
-	records, _, err := a.repo.List(ctx)
+	records, err := listAllSettingsRecords(ctx, a.repo)
 	if err != nil {
 		return settingsSnapshot{}, nil, err
 	}
@@ -265,6 +265,45 @@ func cloneSettingDefinitions(defs map[string]SettingDefinition) map[string]Setti
 		out[k] = v
 	}
 	return out
+}
+
+func newSettingsRepository(
+	db *bun.DB,
+	handlers repository.ModelHandlers[*SettingRecord],
+	repoOptions ...repository.Option,
+) repository.Repository[*SettingRecord] {
+	return repository.MustNewRepositoryWithConfig[*SettingRecord](db, handlers, repoOptions)
+}
+
+func listAllSettingsRecords(ctx context.Context, repo repository.Repository[*SettingRecord]) ([]*SettingRecord, error) {
+	if repo == nil {
+		return nil, nil
+	}
+	const pageSize = 200
+	offset := 0
+	out := make([]*SettingRecord, 0, pageSize)
+	for {
+		records, total, err := repo.List(
+			ctx,
+			repository.SelectOrderAsc("id"),
+			repository.SelectPaginate(pageSize, offset),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if len(records) == 0 {
+			break
+		}
+		out = append(out, records...)
+		offset += len(records)
+		if total > 0 && offset >= total {
+			break
+		}
+		if len(records) < pageSize {
+			break
+		}
+	}
+	return out, nil
 }
 
 func decodeSettingValue(raw json.RawMessage) (any, error) {
