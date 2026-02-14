@@ -21,14 +21,62 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+type routeRegistrar struct {
+	router     coreadmin.AdminRouter
+	middleware router.MiddlewareFunc
+}
+
+func wrapRouteRegistrar(r coreadmin.AdminRouter, mw router.MiddlewareFunc) routeRegistrar {
+	return routeRegistrar{router: r, middleware: mw}
+}
+
+func (r routeRegistrar) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) {
+	if r.router == nil {
+		return
+	}
+	r.router.Get(path, handler, r.withMiddleware(mw)...)
+}
+
+func (r routeRegistrar) Post(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) {
+	if r.router == nil {
+		return
+	}
+	r.router.Post(path, handler, r.withMiddleware(mw)...)
+}
+
+func (r routeRegistrar) Put(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) {
+	if r.router == nil {
+		return
+	}
+	r.router.Put(path, handler, r.withMiddleware(mw)...)
+}
+
+func (r routeRegistrar) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) {
+	if r.router == nil {
+		return
+	}
+	r.router.Delete(path, handler, r.withMiddleware(mw)...)
+}
+
+func (r routeRegistrar) withMiddleware(mw []router.MiddlewareFunc) []router.MiddlewareFunc {
+	if r.middleware == nil {
+		return mw
+	}
+	out := make([]router.MiddlewareFunc, 0, len(mw)+1)
+	out = append(out, r.middleware)
+	out = append(out, mw...)
+	return out
+}
+
 // Register attaches baseline phase-0 routes for admin and signer entry points.
 func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOption) {
 	if r == nil {
 		return
 	}
 	cfg := buildRegisterConfig(options)
+	adminRoutes := wrapRouteRegistrar(r, cfg.adminRouteAuth)
 
-	r.Get(routes.AdminStatus, func(c router.Context) error {
+	adminRoutes.Get(routes.AdminStatus, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
 		}
@@ -39,7 +87,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
-	r.Get(routes.AdminAPIStatus, func(c router.Context) error {
+	adminRoutes.Get(routes.AdminAPIStatus, func(c router.Context) error {
 		startedAt := time.Now()
 		correlationID := apiCorrelationID(c, "admin_api_status")
 		if err := enforceTransportSecurity(c, cfg); err != nil {
@@ -82,7 +130,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 		return err
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
-	r.Get(routes.AdminAgreementsStats, func(c router.Context) error {
+	adminRoutes.Get(routes.AdminAgreementsStats, func(c router.Context) error {
 		stats := map[string]int{
 			"draft":           0,
 			"pending":         0,
@@ -117,7 +165,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 	})
 
 	if cfg.documentUpload != nil {
-		r.Post(routes.AdminDocumentsUpload, func(c router.Context) error {
+		adminRoutes.Post(routes.AdminDocumentsUpload, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -126,7 +174,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 	}
 
 	if cfg.googleEnabled && cfg.google != nil {
-		r.Post(routes.AdminGoogleOAuthConnect, func(c router.Context) error {
+		adminRoutes.Post(routes.AdminGoogleOAuthConnect, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -155,7 +203,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
 
-		r.Post(routes.AdminGoogleOAuthDisconnect, func(c router.Context) error {
+		adminRoutes.Post(routes.AdminGoogleOAuthDisconnect, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -173,7 +221,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
 
-		r.Post(routes.AdminGoogleOAuthRotate, func(c router.Context) error {
+		adminRoutes.Post(routes.AdminGoogleOAuthRotate, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -191,7 +239,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
 
-		r.Get(routes.AdminGoogleOAuthStatus, func(c router.Context) error {
+		adminRoutes.Get(routes.AdminGoogleOAuthStatus, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -209,7 +257,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
 
-		r.Get(routes.AdminGoogleDriveSearch, func(c router.Context) error {
+		adminRoutes.Get(routes.AdminGoogleDriveSearch, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -234,7 +282,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
 
-		r.Get(routes.AdminGoogleDriveBrowse, func(c router.Context) error {
+		adminRoutes.Get(routes.AdminGoogleDriveBrowse, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -259,7 +307,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
 
-		r.Post(routes.AdminGoogleDriveImport, func(c router.Context) error {
+		adminRoutes.Post(routes.AdminGoogleDriveImport, func(c router.Context) error {
 			startedAt := time.Now()
 			correlationID := apiCorrelationID(c, c.Query("user_id"), "google_drive_import")
 			if err := enforceTransportSecurity(c, cfg); err != nil {
