@@ -173,6 +173,18 @@ type SettingsBinding interface {
 	Save(router.Context, map[string]any) (map[string]any, error)
 }
 
+// WorkflowManagementBinding exposes persisted workflow + binding management operations.
+type WorkflowManagementBinding interface {
+	ListWorkflows(router.Context) (map[string]any, error)
+	CreateWorkflow(router.Context, map[string]any) (map[string]any, error)
+	UpdateWorkflow(router.Context, string, map[string]any) (map[string]any, error)
+
+	ListBindings(router.Context) (map[string]any, error)
+	CreateBinding(router.Context, map[string]any) (map[string]any, error)
+	UpdateBinding(router.Context, string, map[string]any) (map[string]any, error)
+	DeleteBinding(router.Context, string) error
+}
+
 // SchemaRegistryBinding exposes schema registry payloads for UI consumers.
 type SchemaRegistryBinding interface {
 	List(router.Context) (any, error)
@@ -228,6 +240,7 @@ type BootCtx interface {
 	BootActivity() ActivityBinding
 	BootJobs() JobsBinding
 	BootSettings() SettingsBinding
+	BootWorkflows() WorkflowManagementBinding
 	BootSchemaRegistry() SchemaRegistryBinding
 	BootFeatureOverrides() FeatureOverridesBinding
 	BootIcons() IconsBinding
