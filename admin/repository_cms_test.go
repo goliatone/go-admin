@@ -89,6 +89,129 @@ func TestCMSPageRepositoryListFiltersAndSearch(t *testing.T) {
 	}
 }
 
+func TestCMSPageRepositoryListSortsBeforePagination(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSPageRepository(content)
+
+	_, _ = content.CreatePage(ctx, CMSPage{Title: "Gamma", Slug: "/gamma", Locale: "en"})
+	_, _ = content.CreatePage(ctx, CMSPage{Title: "Alpha", Slug: "/alpha", Locale: "en"})
+	_, _ = content.CreatePage(ctx, CMSPage{Title: "Beta", Slug: "/beta", Locale: "en"})
+
+	pageOne, total, err := repo.List(ctx, ListOptions{
+		Page:    1,
+		PerPage: 1,
+		SortBy:  "title",
+		Filters: map[string]any{"locale": "en"},
+	})
+	if err != nil {
+		t.Fatalf("list page one failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected total 3, got %d", total)
+	}
+	if len(pageOne) != 1 {
+		t.Fatalf("expected one item on page one, got %d", len(pageOne))
+	}
+	if got := toString(pageOne[0]["title"]); got != "Alpha" {
+		t.Fatalf("expected first sorted item Alpha, got %q", got)
+	}
+
+	pageTwo, total, err := repo.List(ctx, ListOptions{
+		Page:    2,
+		PerPage: 1,
+		SortBy:  "title",
+		Filters: map[string]any{"locale": "en"},
+	})
+	if err != nil {
+		t.Fatalf("list page two failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected total 3 on page two, got %d", total)
+	}
+	if len(pageTwo) != 1 {
+		t.Fatalf("expected one item on page two, got %d", len(pageTwo))
+	}
+	if got := toString(pageTwo[0]["title"]); got != "Beta" {
+		t.Fatalf("expected second sorted item Beta, got %q", got)
+	}
+
+	desc, total, err := repo.List(ctx, ListOptions{
+		Page:     1,
+		PerPage:  1,
+		SortBy:   "title",
+		SortDesc: true,
+		Filters:  map[string]any{"locale": "en"},
+	})
+	if err != nil {
+		t.Fatalf("list desc failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected total 3 on desc list, got %d", total)
+	}
+	if len(desc) != 1 {
+		t.Fatalf("expected one item on desc page one, got %d", len(desc))
+	}
+	if got := toString(desc[0]["title"]); got != "Gamma" {
+		t.Fatalf("expected desc item Gamma, got %q", got)
+	}
+}
+
+func TestCMSPageRepositoryListWithoutSortRemainsStableAcrossPages(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSPageRepository(content)
+
+	_, _ = content.CreatePage(ctx, CMSPage{Title: "Alpha", Slug: "/alpha", Locale: "en"})
+	_, _ = content.CreatePage(ctx, CMSPage{Title: "Bravo", Slug: "/bravo", Locale: "en"})
+	_, _ = content.CreatePage(ctx, CMSPage{Title: "Charlie", Slug: "/charlie", Locale: "en"})
+	_, _ = content.CreatePage(ctx, CMSPage{Title: "Delta", Slug: "/delta", Locale: "en"})
+
+	for i := 0; i < 25; i++ {
+		pageOne, totalOne, err := repo.List(ctx, ListOptions{
+			Page:    1,
+			PerPage: 2,
+			Filters: map[string]any{"locale": "en"},
+		})
+		if err != nil {
+			t.Fatalf("iteration %d page one failed: %v", i, err)
+		}
+		if totalOne != 4 {
+			t.Fatalf("iteration %d expected total 4 on page one, got %d", i, totalOne)
+		}
+
+		pageTwo, totalTwo, err := repo.List(ctx, ListOptions{
+			Page:    2,
+			PerPage: 2,
+			Filters: map[string]any{"locale": "en"},
+		})
+		if err != nil {
+			t.Fatalf("iteration %d page two failed: %v", i, err)
+		}
+		if totalTwo != 4 {
+			t.Fatalf("iteration %d expected total 4 on page two, got %d", i, totalTwo)
+		}
+
+		pageOneIDs := map[string]struct{}{}
+		for idx, record := range pageOne {
+			id := toString(record["id"])
+			if id == "" {
+				t.Fatalf("iteration %d page one record %d missing id", i, idx)
+			}
+			pageOneIDs[id] = struct{}{}
+		}
+		for idx, record := range pageTwo {
+			id := toString(record["id"])
+			if id == "" {
+				t.Fatalf("iteration %d page two record %d missing id", i, idx)
+			}
+			if _, exists := pageOneIDs[id]; exists {
+				t.Fatalf("iteration %d pagination overlap detected for id %q", i, id)
+			}
+		}
+	}
+}
+
 func TestCMSPageRepositoryCreateUpdateDelete(t *testing.T) {
 	content := NewInMemoryContentService()
 	repo := NewCMSPageRepository(content)

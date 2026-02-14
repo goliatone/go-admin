@@ -80,11 +80,11 @@ func TestDynamicPanelFactoryAddsWorkflowActionsForPageAndPostPanels(t *testing.T
 		factory := NewDynamicPanelFactory(adm)
 
 		page := CMSContentType{
-			ID:           "ct-page",
-			Name:         "Page",
-			Slug:         "page",
-			Status:       "active",
-			Schema:       minimalContentTypeSchema(),
+			ID:     "ct-page",
+			Name:   "Page",
+			Slug:   "page",
+			Status: "active",
+			Schema: minimalContentTypeSchema(),
 			Capabilities: map[string]any{
 				"panel_slug":   "pages",
 				"workflow":     "pages",
@@ -106,11 +106,11 @@ func TestDynamicPanelFactoryAddsWorkflowActionsForPageAndPostPanels(t *testing.T
 		factory := NewDynamicPanelFactory(adm)
 
 		blogPost := CMSContentType{
-			ID:           "ct-blog",
-			Name:         "Blog Post",
-			Slug:         "blog_post",
-			Status:       "active",
-			Schema:       minimalContentTypeSchema(),
+			ID:     "ct-blog",
+			Name:   "Blog Post",
+			Slug:   "blog_post",
+			Status: "active",
+			Schema: minimalContentTypeSchema(),
 			Capabilities: map[string]any{
 				"panel_slug":   "posts",
 				"workflow":     "posts",
@@ -136,11 +136,11 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForEditorialPanels(t *tes
 		{
 			name: "pages",
 			contentType: CMSContentType{
-				ID:           "ct-page",
-				Name:         "Page",
-				Slug:         "page",
-				Status:       "active",
-				Schema:       minimalContentTypeSchema(),
+				ID:     "ct-page",
+				Name:   "Page",
+				Slug:   "page",
+				Status: "active",
+				Schema: minimalContentTypeSchema(),
 				Capabilities: map[string]any{
 					"panel_slug":   "pages",
 					"workflow":     "pages",
@@ -153,11 +153,11 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForEditorialPanels(t *tes
 		{
 			name: "posts",
 			contentType: CMSContentType{
-				ID:           "ct-post",
-				Name:         "Post",
-				Slug:         "post",
-				Status:       "active",
-				Schema:       minimalContentTypeSchema(),
+				ID:     "ct-post",
+				Name:   "Post",
+				Slug:   "post",
+				Status: "active",
+				Schema: minimalContentTypeSchema(),
 				Capabilities: map[string]any{
 					"panel_slug":   "posts",
 					"workflow":     "posts",
@@ -239,10 +239,10 @@ func TestDynamicPanelFactoryAppliesEditorialColumnsAndFilters(t *testing.T) {
 		Status: "active",
 		Schema: minimalContentTypeSchema(),
 		Capabilities: map[string]any{
-			"panel_slug":    "pages",
-			"panel_preset":  "editorial",
-			"permissions":   "admin.pages",
-			"translations":  true,
+			"panel_slug":        "pages",
+			"panel_preset":      "editorial",
+			"permissions":       "admin.pages",
+			"translations":      true,
 			"structural_fields": true,
 		},
 	})
@@ -323,6 +323,228 @@ func TestDynamicPanelFactoryEditorialActionsRespectWorkflowTransitions(t *testin
 	if hasAction(actions, "submit_for_approval") {
 		t.Fatalf("did not expect submit_for_approval action without workflow transition, got %+v", actions)
 	}
+}
+
+func TestDynamicPanelFactoryWorkflowLookupUsesResolvedWorkflowID(t *testing.T) {
+	engine := NewSimpleWorkflowEngine()
+	engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+		EntityType:   "editorial.news",
+		InitialState: "draft",
+		Transitions: []WorkflowTransition{
+			{Name: "submit_for_approval", From: "draft", To: "approval"},
+			{Name: "publish", From: "approval", To: "published"},
+		},
+	})
+
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	adm.WithWorkflow(engine)
+	factory := NewDynamicPanelFactory(adm)
+
+	panel, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+		ID:     "ct-news",
+		Name:   "News",
+		Slug:   "news",
+		Status: "active",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"panel_slug":   "newsroom",
+			"panel_traits": []any{"editorial"},
+			"translations": true,
+			"workflow_id":  "editorial.news",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create panel failed: %v", err)
+	}
+	if panel.workflow == nil {
+		t.Fatalf("expected workflow attached from resolved workflow_id")
+	}
+
+	transitions, err := panel.workflow.AvailableTransitions(context.Background(), panel.name, "draft")
+	if err != nil {
+		t.Fatalf("available transitions failed: %v", err)
+	}
+	if !hasTransition(transitions, "submit_for_approval") {
+		t.Fatalf("expected transition from resolved workflow ID, got %+v", transitions)
+	}
+	if !hasAction(panel.Schema().Actions, "submit_for_approval") || !hasAction(panel.Schema().Actions, "publish") {
+		t.Fatalf("expected editorial workflow actions from resolved workflow ID, got %+v", panel.Schema().Actions)
+	}
+}
+
+func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T) {
+	t.Run("legacy workflow still works", func(t *testing.T) {
+		engine := NewSimpleWorkflowEngine()
+		engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
+			EntityType:   "legacy.pages",
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "publish", From: "draft", To: "published"},
+			},
+		})
+		engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+			EntityType:   "editorial.default",
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "submit_for_approval", From: "draft", To: "approval"},
+				{Name: "publish", From: "approval", To: "published"},
+			},
+		})
+
+		adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+		adm.WithWorkflow(engine)
+		adm.WithTraitWorkflowDefaults(map[string]string{"editorial": "editorial.default"})
+		factory := NewDynamicPanelFactory(adm)
+
+		panel, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+			ID:     "ct-legacy",
+			Name:   "Legacy",
+			Slug:   "legacy",
+			Status: "active",
+			Schema: minimalContentTypeSchema(),
+			Capabilities: map[string]any{
+				"panel_slug":   "legacy",
+				"panel_traits": []any{"editorial"},
+				"translations": true,
+				"workflow":     "legacy.pages",
+			},
+		})
+		if err != nil {
+			t.Fatalf("create panel failed: %v", err)
+		}
+		actions := panel.Schema().Actions
+		if !hasAction(actions, "publish") {
+			t.Fatalf("expected publish action from legacy workflow, got %+v", actions)
+		}
+		if hasAction(actions, "submit_for_approval") {
+			t.Fatalf("did not expect submit_for_approval from legacy workflow-only transitions, got %+v", actions)
+		}
+	})
+
+	t.Run("trait default works", func(t *testing.T) {
+		engine := NewSimpleWorkflowEngine()
+		engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+			EntityType:   "editorial.default",
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "submit_for_approval", From: "draft", To: "approval"},
+				{Name: "publish", From: "approval", To: "published"},
+			},
+		})
+
+		adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+		adm.WithWorkflow(engine)
+		adm.WithTraitWorkflowDefaults(map[string]string{"editorial": "editorial.default"})
+		factory := NewDynamicPanelFactory(adm)
+
+		panel, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+			ID:     "ct-trait",
+			Name:   "Trait",
+			Slug:   "trait",
+			Status: "active",
+			Schema: minimalContentTypeSchema(),
+			Capabilities: map[string]any{
+				"panel_slug":   "trait",
+				"panel_traits": []any{"editorial"},
+				"translations": true,
+			},
+		})
+		if err != nil {
+			t.Fatalf("create panel failed: %v", err)
+		}
+		if !hasAction(panel.Schema().Actions, "submit_for_approval") || !hasAction(panel.Schema().Actions, "publish") {
+			t.Fatalf("expected workflow actions from trait default, got %+v", panel.Schema().Actions)
+		}
+	})
+
+	t.Run("explicit workflow_id override works", func(t *testing.T) {
+		engine := NewSimpleWorkflowEngine()
+		engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+			EntityType:   "editorial.default",
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "publish", From: "draft", To: "published"},
+			},
+		})
+		engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+			EntityType:   "editorial.news",
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "submit_for_approval", From: "draft", To: "approval"},
+				{Name: "publish", From: "approval", To: "published"},
+			},
+		})
+
+		adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+		adm.WithWorkflow(engine)
+		adm.WithTraitWorkflowDefaults(map[string]string{"editorial": "editorial.default"})
+		factory := NewDynamicPanelFactory(adm)
+
+		panel, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+			ID:     "ct-explicit",
+			Name:   "Explicit",
+			Slug:   "explicit",
+			Status: "active",
+			Schema: minimalContentTypeSchema(),
+			Capabilities: map[string]any{
+				"panel_slug":   "explicit",
+				"panel_traits": []any{"editorial"},
+				"translations": true,
+				"workflow_id":  "editorial.news",
+			},
+		})
+		if err != nil {
+			t.Fatalf("create panel failed: %v", err)
+		}
+		if !hasAction(panel.Schema().Actions, "submit_for_approval") || !hasAction(panel.Schema().Actions, "publish") {
+			t.Fatalf("expected workflow actions from explicit workflow_id override, got %+v", panel.Schema().Actions)
+		}
+	})
+
+	t.Run("conflicting keys prefer workflow_id", func(t *testing.T) {
+		engine := NewSimpleWorkflowEngine()
+		engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
+			EntityType:   "legacy.pages",
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "publish", From: "draft", To: "published"},
+			},
+		})
+		engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+			EntityType:   "editorial.news",
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "submit_for_approval", From: "draft", To: "approval"},
+				{Name: "publish", From: "approval", To: "published"},
+			},
+		})
+
+		adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+		adm.WithWorkflow(engine)
+		factory := NewDynamicPanelFactory(adm)
+
+		panel, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+			ID:     "ct-conflict",
+			Name:   "Conflict",
+			Slug:   "conflict",
+			Status: "active",
+			Schema: minimalContentTypeSchema(),
+			Capabilities: map[string]any{
+				"panel_slug":   "conflict",
+				"panel_traits": []any{"editorial"},
+				"translations": true,
+				"workflow":     "legacy.pages",
+				"workflow_id":  "editorial.news",
+			},
+		})
+		if err != nil {
+			t.Fatalf("create panel failed: %v", err)
+		}
+		actions := panel.Schema().Actions
+		if !hasAction(actions, "submit_for_approval") || !hasAction(actions, "publish") {
+			t.Fatalf("expected workflow_id transitions to win conflict, got %+v", actions)
+		}
+	})
 }
 
 func TestDynamicPanelFactoryUpdatesExistingNavigationItemByTarget(t *testing.T) {

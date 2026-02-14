@@ -26,6 +26,10 @@ func TestProfileModuleRegistersPanelAndNavigation(t *testing.T) {
 	if _, ok := adm.registry.Panel(profileModuleID); !ok {
 		t.Fatalf("expected profile panel to be registered")
 	}
+	panel, _ := adm.registry.Panel(profileModuleID)
+	if panel.EntryMode() != PanelEntryModeDetailCurrentUser {
+		t.Fatalf("expected profile panel entry mode %q, got %q", PanelEntryModeDetailCurrentUser, panel.EntryMode())
+	}
 
 	items := adm.Navigation().Resolve(context.Background(), cfg.DefaultLocale)
 	found := false

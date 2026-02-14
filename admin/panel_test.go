@@ -403,6 +403,42 @@ func TestPanelBuilderBuildAllowsCreatePermissionWithoutFormWhenCustomRoute(t *te
 	}
 }
 
+func TestPanelBuilderBuildDefaultsEntryModeToList(t *testing.T) {
+	panel, err := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+	if panel.EntryMode() != PanelEntryModeList {
+		t.Fatalf("expected default entry mode %q, got %q", PanelEntryModeList, panel.EntryMode())
+	}
+}
+
+func TestPanelBuilderWithEntryModeUsesNormalizedMode(t *testing.T) {
+	panel, err := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		WithEntryMode(PanelEntryModeDetailCurrentUser).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+	if panel.EntryMode() != PanelEntryModeDetailCurrentUser {
+		t.Fatalf("expected entry mode %q, got %q", PanelEntryModeDetailCurrentUser, panel.EntryMode())
+	}
+
+	panel, err = (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		WithEntryMode(PanelEntryMode("unknown")).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel with unknown mode: %v", err)
+	}
+	if panel.EntryMode() != PanelEntryModeList {
+		t.Fatalf("expected unknown entry mode to normalize to %q, got %q", PanelEntryModeList, panel.EntryMode())
+	}
+}
+
 func TestPanelBuilderBuildAllowsCreatePermissionWhenFormSchemaHasProperties(t *testing.T) {
 	panel, err := (&PanelBuilder{}).
 		WithRepository(NewMemoryRepository()).

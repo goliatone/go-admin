@@ -74,7 +74,7 @@ func TestEnrichLayoutViewContextPreservesProvidedTranslationCapabilities(t *test
 		"profile": "custom",
 	}
 	view := EnrichLayoutViewContext(nil, nil, router.ViewContext{
-		"base_path":                 "/admin",
+		"base_path":                "/admin",
 		"translation_capabilities": custom,
 	}, "")
 	if got, _ := view["translation_capabilities"].(map[string]any); got["profile"] != "custom" {
