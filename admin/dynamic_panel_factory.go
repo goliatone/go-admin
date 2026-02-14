@@ -449,6 +449,9 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 		panelName = contentType.Slug
 	}
 	target := map[string]any{"type": "url", "path": panelPath, "key": panelName}
+	if panelIdentity := namespacedPanelTargetKey(panelName); panelIdentity != "" {
+		target["panel_key"] = panelIdentity
+	}
 
 	item := MenuItem{
 		Label:    label,
@@ -484,12 +487,16 @@ func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, 
 	if f == nil || f.admin == nil || f.admin.menuSvc == nil {
 		return false, nil
 	}
+	item = normalizeMenuItem(item, menuCode)
 	menu, err := f.admin.menuSvc.Menu(ctx, menuCode, locale)
 	if err != nil || menu == nil {
 		return false, nil
 	}
-	existing, ok := findMenuItemByPanelTarget(menu.Items, panelPath, panelName)
+	existing, ok := findMenuItemByID(menu.Items, item.ID)
 	if !ok || strings.TrimSpace(existing.ID) == "" {
+		if err := f.deleteLegacyPanelNavigationItems(ctx, menuCode, menu.Items, item, panelPath, panelName); err != nil {
+			return false, err
+		}
 		return false, nil
 	}
 	item.ID = existing.ID
@@ -518,25 +525,139 @@ func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, 
 	return true, nil
 }
 
-func findMenuItemByPanelTarget(items []MenuItem, panelPath, panelName string) (MenuItem, bool) {
-	canonicalPath := strings.TrimSpace(panelPath)
-	canonicalName := strings.TrimSpace(panelName)
+func findMenuItemByID(items []MenuItem, itemID string) (MenuItem, bool) {
+	canonicalID := strings.TrimSpace(itemID)
+	if canonicalID == "" {
+		return MenuItem{}, false
+	}
 	for _, item := range items {
-		targetKey := strings.TrimSpace(extractTargetKey(item.Target))
-		targetPath := strings.TrimSpace(toString(item.Target["path"]))
-		if canonicalPath != "" && (strings.EqualFold(targetKey, canonicalPath) || targetPath == canonicalPath) {
-			return item, true
-		}
-		if canonicalName != "" && strings.EqualFold(targetKey, canonicalName) {
+		if strings.TrimSpace(item.ID) == canonicalID {
 			return item, true
 		}
 		if len(item.Children) > 0 {
-			if nested, ok := findMenuItemByPanelTarget(item.Children, canonicalPath, canonicalName); ok {
+			if nested, ok := findMenuItemByID(item.Children, canonicalID); ok {
 				return nested, true
 			}
 		}
 	}
 	return MenuItem{}, false
+}
+
+func (f *DynamicPanelFactory) deleteLegacyPanelNavigationItems(ctx context.Context, menuCode string, items []MenuItem, canonicalItem MenuItem, panelPath, panelName string) error {
+	if f == nil || f.admin == nil || f.admin.menuSvc == nil {
+		return nil
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	candidates := collectPanelCollisionItems(items, panelCollisionQuery{
+		panelPath: panelPath,
+		panelName: panelName,
+		parentID:  strings.TrimSpace(canonicalItem.ParentID),
+		protected: strings.TrimSpace(canonicalItem.ParentID),
+		excludeID: strings.TrimSpace(canonicalItem.ID),
+	})
+	for _, candidate := range candidates {
+		candidateID := strings.TrimSpace(candidate.ID)
+		if candidateID == "" {
+			continue
+		}
+		if err := f.admin.menuSvc.DeleteMenuItem(ctx, menuCode, candidateID); err != nil {
+			if isMenuItemMissing(err) || errors.Is(err, ErrNotFound) {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+type panelCollisionQuery struct {
+	panelPath string
+	panelName string
+	parentID  string
+	protected string
+	excludeID string
+}
+
+func collectPanelCollisionItems(items []MenuItem, query panelCollisionQuery) []MenuItem {
+	candidates := []MenuItem{}
+	appendPanelCollisionItems(items, query, &candidates)
+	return candidates
+}
+
+func appendPanelCollisionItems(items []MenuItem, query panelCollisionQuery, out *[]MenuItem) {
+	canonicalPath := strings.TrimSpace(query.panelPath)
+	canonicalName := strings.TrimSpace(query.panelName)
+	canonicalParent := strings.TrimSpace(query.parentID)
+	panelIdentity := namespacedPanelTargetKey(canonicalName)
+	excludeID := strings.TrimSpace(query.excludeID)
+	protected := strings.TrimSpace(query.protected)
+
+	for _, item := range items {
+		itemID := strings.TrimSpace(item.ID)
+		if itemID == excludeID {
+			if len(item.Children) > 0 {
+				appendPanelCollisionItems(item.Children, query, out)
+			}
+			continue
+		}
+		if isProtectedScaffoldItem(item, protected) {
+			if len(item.Children) > 0 {
+				appendPanelCollisionItems(item.Children, query, out)
+			}
+			continue
+		}
+		if canonicalParent != "" && strings.TrimSpace(item.ParentID) != canonicalParent {
+			if len(item.Children) > 0 {
+				appendPanelCollisionItems(item.Children, query, out)
+			}
+			continue
+		}
+
+		targetKey := strings.TrimSpace(extractTargetKey(item.Target))
+		targetPath := strings.TrimSpace(toString(item.Target["path"]))
+		targetPanelKey := strings.TrimSpace(toString(item.Target["panel_key"]))
+		if panelIdentity != "" && strings.EqualFold(targetPanelKey, panelIdentity) {
+			*out = append(*out, item)
+		} else if canonicalName != "" && strings.EqualFold(targetKey, canonicalName) {
+			*out = append(*out, item)
+		} else if canonicalPath != "" && targetPath == canonicalPath {
+			*out = append(*out, item)
+		}
+
+		if len(item.Children) > 0 {
+			appendPanelCollisionItems(item.Children, query, out)
+		}
+	}
+}
+
+func isProtectedScaffoldItem(item MenuItem, protectedID string) bool {
+	itemID := strings.TrimSpace(item.ID)
+	if protectedID != "" && itemID == protectedID {
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(item.Type), MenuItemTypeGroup) {
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(item.LabelKey), "menu.content") {
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(item.Label), "content") {
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(extractTargetKey(item.Target)), "content") {
+		return true
+	}
+	return false
+}
+
+func namespacedPanelTargetKey(panelName string) string {
+	canonical := strings.TrimSpace(panelName)
+	if canonical == "" {
+		return ""
+	}
+	return "panel:" + strings.ToLower(canonical)
 }
 
 func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, env string) error {
