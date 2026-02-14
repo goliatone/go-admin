@@ -256,6 +256,7 @@ type (
 	PanelTabPermissionEvaluator  = core.PanelTabPermissionEvaluator
 	PanelTabScope                = core.PanelTabScope
 	PanelTabTarget               = core.PanelTabTarget
+	PanelEntryMode               = core.PanelEntryMode
 	PanelUIRouteMode             = core.PanelUIRouteMode
 
 	PreviewService = core.PreviewService
@@ -349,11 +350,13 @@ const (
 	MenuItemTypeGroup     = core.MenuItemTypeGroup
 	MenuItemTypeSeparator = core.MenuItemTypeSeparator
 
-	PanelTabScopeList   = core.PanelTabScopeList
-	PanelTabScopeDetail = core.PanelTabScopeDetail
-	PanelTabScopeForm   = core.PanelTabScopeForm
-	PanelUIRouteModeCanonical = core.PanelUIRouteModeCanonical
-	PanelUIRouteModeCustom    = core.PanelUIRouteModeCustom
+	PanelTabScopeList               = core.PanelTabScopeList
+	PanelTabScopeDetail             = core.PanelTabScopeDetail
+	PanelTabScopeForm               = core.PanelTabScopeForm
+	PanelEntryModeList              = core.PanelEntryModeList
+	PanelEntryModeDetailCurrentUser = core.PanelEntryModeDetailCurrentUser
+	PanelUIRouteModeCanonical       = core.PanelUIRouteModeCanonical
+	PanelUIRouteModeCustom          = core.PanelUIRouteModeCustom
 
 	SettingsScopeSystem = core.SettingsScopeSystem
 	SettingsScopeSite   = core.SettingsScopeSite
