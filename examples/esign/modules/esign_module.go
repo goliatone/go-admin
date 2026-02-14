@@ -166,7 +166,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	if ctx.Admin == nil {
 		return fmt.Errorf("esign module: admin is nil")
 	}
-	if ctx.Router == nil {
+	if ctx.Router == nil && ctx.PublicRouter == nil {
 		return fmt.Errorf("esign module: router is nil")
 	}
 
@@ -263,10 +263,15 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 
 	m.routes = handlers.BuildRouteSet(ctx.Admin.URLs(), ctx.Admin.BasePath(), ctx.Admin.AdminAPIGroup())
+	routeRouter := ctx.PublicRouter
+	if routeRouter == nil {
+		routeRouter = ctx.Router
+	}
 	handlers.Register(
-		ctx.Router,
+		routeRouter,
 		m.routes,
 		handlers.WithAuthorizer(ctx.Admin.Authorizer()),
+		handlers.WithAdminRouteMiddleware(ctx.AuthMiddleware),
 		handlers.WithPermissions(handlers.DefaultPermissions),
 		handlers.WithSignerTokenValidator(m.tokens),
 		handlers.WithSignerSessionService(m.signing),

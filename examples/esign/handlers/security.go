@@ -46,6 +46,7 @@ var DefaultPermissions = Permissions{
 
 type registerConfig struct {
 	authorizer        coreadmin.Authorizer
+	adminRouteAuth    router.MiddlewareFunc
 	tokenValidator    SignerTokenValidator
 	signerSession     SignerSessionService
 	signerAssets      SignerAssetContractService
@@ -151,6 +152,16 @@ func WithAuthorizer(authz coreadmin.Authorizer) RegisterOption {
 			return
 		}
 		cfg.authorizer = authz
+	}
+}
+
+// WithAdminRouteMiddleware prepends middleware to admin-only e-sign endpoints.
+func WithAdminRouteMiddleware(mw router.MiddlewareFunc) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.adminRouteAuth = mw
 	}
 }
 
