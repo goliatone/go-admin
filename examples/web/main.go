@@ -186,11 +186,11 @@ func main() {
 		debugHookOpts...,
 	)
 	if err != nil {
-		log.Fatalf("failed to setup users: %v", err)
+		log.Panicf("failed to setup users: %v", err)
 	}
 	if usersService != nil {
 		if err := usersService.HealthCheck(context.Background()); err != nil {
-			log.Fatalf("users service not ready: %v", err)
+			log.Panicf("users service not ready: %v", err)
 		}
 	}
 	scopeResolver := quickstart.ScopeBuilder(cfg)
@@ -219,7 +219,7 @@ func main() {
 			exportTemplatesFS,
 			quickstart.WithExportTemplateFuncs(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
 		); err != nil {
-			log.Fatalf("failed to configure export renderers: %v", err)
+			log.Panicf("failed to configure export renderers: %v", err)
 		}
 	}
 	if debugEnabled && featureDefaults["export"] {
@@ -249,7 +249,7 @@ func main() {
 		quickstart.DefaultTranslationPolicyValidationCatalog(),
 	)
 	if err != nil {
-		log.Fatalf("invalid translation policy config: %v", err)
+		log.Panicf("invalid translation policy config: %v", err)
 	}
 	for _, warning := range validationResult.Warnings {
 		log.Printf("warning: translation policy config: %s", warning)
@@ -271,11 +271,11 @@ func main() {
 	if adapterFlags.UsePersistentCMS {
 		workflowRuntime, err = setup.SetupPersistentWorkflowRuntime(context.Background(), "")
 		if err != nil {
-			log.Fatalf("failed to setup persistent workflow runtime: %v", err)
+			log.Panicf("failed to setup persistent workflow runtime: %v", err)
 		}
 	}
 	if err := seedWorkflowRuntimeFromConfig(context.Background(), workflowRuntime, workflowConfigPath); err != nil {
-		log.Fatalf("failed to seed workflow runtime from config: %v", err)
+		log.Panicf("failed to seed workflow runtime from config: %v", err)
 	}
 
 	adm, adapterResult, err := quickstart.NewAdmin(
@@ -307,7 +307,7 @@ func main() {
 		quickstart.WithFeatureDefaults(featureDefaults),
 	)
 	if err != nil {
-		log.Fatalf("failed to construct admin: %v", err)
+		log.Panicf("failed to construct admin: %v", err)
 	}
 	if caps := quickstart.TranslationCapabilities(adm); len(caps) > 0 {
 		log.Printf(
@@ -328,7 +328,7 @@ func main() {
 	activityBackend := adapterResult.ActivityBackend
 	preflightReport, err := runTranslationAuthzPreflight(context.Background(), adm, cfg, usersDeps.RoleRegistry, isDev)
 	if err != nil {
-		log.Fatalf("authorization preflight failed: %v", err)
+		log.Panicf("authorization preflight failed: %v", err)
 	}
 	if preflightReport.Mode != authzPreflightModeOff && len(preflightReport.RequiredPermissions) > 0 && len(preflightReport.Issues) == 0 {
 		log.Printf(
@@ -349,13 +349,20 @@ func main() {
 		cmsContentSvc = adm.ContentService()
 	}
 	if adapterResult.Flags.UsePersistentCMS && !adapterResult.PersistentCMSSet {
-		log.Printf(
+		if adapterResult.PersistentCMSError != nil {
+			log.Panicf(
+				"warning: persistent CMS requested but setup did not complete; using fallback content service (backend=%s): %v",
+				cmsBackend,
+				adapterResult.PersistentCMSError,
+			)
+		}
+		log.Panicf(
 			"warning: persistent CMS requested but setup did not complete; using fallback content service (backend=%s)",
 			cmsBackend,
 		)
 	}
 	if cmsContentSvc == nil {
-		log.Fatalf("cms content service is required")
+		log.Panicf("cms content service is required")
 	}
 	exchangeContentService = cmsContentSvc
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
@@ -369,11 +376,11 @@ func main() {
 		PersistenceOptions: debugHookOpts,
 	})
 	if err != nil {
-		log.Fatalf("failed to initialize data stores: %v", err)
+		log.Panicf("failed to initialize data stores: %v", err)
 	}
 	if featureEnabled(adm.FeatureGate(), "export") {
 		if err := registerExampleExports(exportBundle, dataStores, adm.TenantService(), adm.UserService()); err != nil {
-			log.Fatalf("failed to register exports: %v", err)
+			log.Panicf("failed to register exports: %v", err)
 		}
 	}
 
@@ -564,7 +571,7 @@ func main() {
 		}),
 	)
 	if err != nil {
-		log.Fatalf("failed to register theme: %v", err)
+		log.Panicf("failed to register theme: %v", err)
 	}
 	adm.WithGoTheme(themeSelector)
 
@@ -572,7 +579,7 @@ func main() {
 	openapiFS := helpers.MustSubFS(webFS, "openapi")
 	formTemplatesFS, err := fs.Sub(client.Templates(), "formgen/vanilla")
 	if err != nil {
-		log.Fatalf("failed to access form templates: %v", err)
+		log.Panicf("failed to access form templates: %v", err)
 	}
 	componentRegistry := components.New()
 	adminAPIBasePath := strings.TrimSpace(quickstart.ResolveAdminAPIBasePath(adm.URLs(), cfg, cfg.BasePath))
@@ -589,7 +596,7 @@ func main() {
 		quickstart.WithComponentRegistryMergeDefaults(componentRegistry),
 	)
 	if err != nil {
-		log.Fatalf("failed to initialize form generator: %v", err)
+		log.Panicf("failed to initialize form generator: %v", err)
 	}
 
 	// Initialize view engine
@@ -606,7 +613,7 @@ func main() {
 		quickstart.WithViewTemplatesFS(webFS),
 	)
 	if err != nil {
-		log.Fatalf("failed to initialize view engine: %v", err)
+		log.Panicf("failed to initialize view engine: %v", err)
 	}
 
 	// Initialize Fiber server
@@ -760,18 +767,10 @@ func main() {
 		isDev,
 		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
 	); err != nil {
-		log.Fatalf("failed to register modules: %v", err)
+		log.Panicf("failed to register modules: %v", err)
 	}
 	if err := ensureCoreContentPanels(adm, dataStores.Pages, dataStores.Posts); err != nil {
-		log.Fatalf("failed to ensure core content panels: %v", err)
-	}
-
-	// Ensure Dashboard renders before Content in the Main Menu group.
-	if err := setup.EnsureDashboardFirst(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		log.Printf("warning: failed to fix dashboard ordering: %v", err)
-	}
-	if err := setup.EnsureContentParentPermissions(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		log.Printf("warning: failed to reconcile content parent permissions: %v", err)
+		log.Panicf("failed to ensure core content panels: %v", err)
 	}
 
 	// Wire dashboard renderer for server-side rendering
@@ -787,7 +786,33 @@ func main() {
 
 	// Initialize admin
 	if err := adm.Initialize(r); err != nil {
-		log.Fatalf("failed to initialize admin: %v", err)
+		log.Panicf("failed to initialize admin: %v", err)
+	}
+	if _, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
+		log.Printf("warning: failed to repair/check navigation integrity: %v", err)
+	}
+	// Reorder after full module/panel registration to avoid mutation races with dynamic panel sync.
+	if err := setup.EnsureDashboardFirstWithOptions(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale, setup.EnsureDashboardFirstOptions{
+		EnsureContentParentPath: false,
+	}); err != nil {
+		log.Printf("warning: failed to fix dashboard ordering: %v", err)
+	}
+	if err := setup.EnsureContentParentPermissions(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
+		log.Printf("warning: failed to reconcile content parent permissions: %v", err)
+	}
+	if report, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
+		log.Printf("warning: failed to compute final navigation integrity summary: %v", err)
+	} else if report.HasIssues() {
+		if strictIntegrity := strings.EqualFold(strings.TrimSpace(os.Getenv("NAV_INTEGRITY_STRICT")), "true"); strictIntegrity {
+			log.Panicf(
+				"navigation integrity check failed: menu=%s locale=%s orphans=%d cycles=%d self_parent=%d",
+				report.MenuCode, report.Locale, report.OrphanCount, report.CycleCount, report.SelfParentCount,
+			)
+		}
+		log.Printf(
+			"warning: navigation integrity issues detected (menu=%s locale=%s orphans=%d cycles=%d self_parent=%d)",
+			report.MenuCode, report.Locale, report.OrphanCount, report.CycleCount, report.SelfParentCount,
+		)
 	}
 	if debugEnabled {
 		if collector := adm.Debug(); collector != nil {
@@ -951,16 +976,16 @@ func main() {
 		authn,
 		uiRouteOpts...,
 	); err != nil {
-		log.Fatalf("failed to register admin UI routes: %v", err)
+		log.Panicf("failed to register admin UI routes: %v", err)
 	}
 	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
-		log.Fatalf("failed to register settings UI routes: %v", err)
+		log.Panicf("failed to register settings UI routes: %v", err)
 	}
 	if err := quickstart.RegisterContentTypeBuilderUIRoutes(r, cfg, adm, authn); err != nil {
-		log.Fatalf("failed to register content type builder UI routes: %v", err)
+		log.Panicf("failed to register content type builder UI routes: %v", err)
 	}
 	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(r, cfg, adm, authn); err != nil {
-		log.Fatalf("failed to register content type builder API routes: %v", err)
+		log.Panicf("failed to register content type builder API routes: %v", err)
 	}
 	if err := quickstart.RegisterContentEntryUIRoutes(
 		r,
@@ -970,7 +995,7 @@ func main() {
 		quickstart.WithContentEntryUITemplateFS(client.FS(), webFS),
 		quickstart.WithContentEntryRecommendedDefaults(),
 	); err != nil {
-		log.Fatalf("failed to register content entry UI routes: %v", err)
+		log.Panicf("failed to register content entry UI routes: %v", err)
 	}
 
 	secureLinkUI := setup.SecureLinkUIConfigFromEnv()
@@ -1014,7 +1039,7 @@ func main() {
 		quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
 		quickstart.WithAuthUIViewContextBuilder(authUIViewContext),
 	); err != nil {
-		log.Fatalf("failed to register auth UI routes: %v", err)
+		log.Panicf("failed to register auth UI routes: %v", err)
 	}
 
 	r.Get(registerPath, func(c router.Context) error {
@@ -1079,7 +1104,7 @@ func main() {
 	log.Printf("  Search API: %s?query=...", path.Join(adminAPIBasePath, "search"))
 
 	if err := server.Serve(listenAddr); err != nil {
-		log.Fatalf("server stopped: %v", err)
+		log.Panicf("server stopped: %v", err)
 	}
 }
 
