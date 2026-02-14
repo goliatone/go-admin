@@ -24,7 +24,7 @@ func NewPageStore(db *bun.DB, opts ...repository.Option) (*PageStore, error) {
 		return nil, fmt.Errorf("page store database is nil")
 	}
 
-	repo := repository.MustNewRepositoryWithOptions[*PageRecord](db, pageModelHandlers(), opts...)
+	repo := newStoreRepository[*PageRecord](db, pageModelHandlers(), storeRepositoryPaginationNoDefault, opts...)
 	adapter := admin.NewBunRepositoryAdapter[*PageRecord](
 		repo,
 		admin.WithBunSearchColumns[*PageRecord]("title", "slug"),

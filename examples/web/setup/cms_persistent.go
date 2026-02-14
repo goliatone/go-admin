@@ -290,11 +290,11 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 
 	defs := []admin.CMSBlockDefinition{
 		{
-			ID:   "hero",
-			Name: "Hero",
-			Type: "hero",
-			Slug: "hero",
-			Status: "active",
+			ID:       "hero",
+			Name:     "Hero",
+			Type:     "hero",
+			Slug:     "hero",
+			Status:   "active",
 			Category: "layout",
 			Schema: map[string]any{
 				"$schema":  "https://json-schema.org/draft/2020-12/schema",
@@ -320,11 +320,11 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 			},
 		},
 		{
-			ID:   "rich_text",
-			Name: "Rich Text",
-			Type: "rich_text",
-			Slug: "rich-text",
-			Status: "active",
+			ID:       "rich_text",
+			Name:     "Rich Text",
+			Type:     "rich_text",
+			Slug:     "rich-text",
+			Status:   "active",
 			Category: "content",
 			Schema: map[string]any{
 				"$schema":  "https://json-schema.org/draft/2020-12/schema",

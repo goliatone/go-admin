@@ -83,7 +83,7 @@ func (s *UserProfileStore) List(ctx context.Context, opts admin.ListOptions) ([]
 		return nil, 0, fmt.Errorf("profile store not configured")
 	}
 
-	recs, _, err := s.dbRepo.List(ctx)
+	recs, err := listAllUserProfileRecords(ctx, s.dbRepo)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -132,6 +132,37 @@ func (s *UserProfileStore) List(ctx context.Context, opts admin.ListOptions) ([]
 		results = append(results, userProfileRecordToMap(rec))
 	}
 	return results, total, nil
+}
+
+func listAllUserProfileRecords(ctx context.Context, repo userProfileDBRepo) ([]*usersprofile.Record, error) {
+	if repo == nil {
+		return nil, nil
+	}
+	const pageSize = 200
+	offset := 0
+	out := make([]*usersprofile.Record, 0, pageSize)
+	for {
+		records, total, err := repo.List(
+			ctx,
+			repository.SelectOrderAsc("user_id"),
+			repository.SelectPaginate(pageSize, offset),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if len(records) == 0 {
+			break
+		}
+		out = append(out, records...)
+		offset += len(records)
+		if total > 0 && offset >= total {
+			break
+		}
+		if len(records) < pageSize {
+			break
+		}
+	}
+	return out, nil
 }
 
 // Get returns a single profile by user id (record id).

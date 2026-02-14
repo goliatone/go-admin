@@ -136,6 +136,117 @@ func TestResolveRolePermissionsViewerExcludesTranslationOperationPermissions(t *
 	}
 }
 
+func TestResolveRolePermissionsSuperadminIncludesContentNavigationPermissions(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:users_superadmin_content_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+
+	deps, _, _, err := SetupUsers(ctx, dsn)
+	if err != nil {
+		t.Fatalf("setup users: %v", err)
+	}
+
+	user, err := deps.RepoManager.Users().GetByIdentifier(ctx, "superadmin")
+	if err != nil || user == nil {
+		t.Fatalf("get superadmin: err=%v user=%v", err, user)
+	}
+
+	perms, err := resolveRolePermissions(ctx, deps.RoleRegistry, userIdentity{
+		id:       user.ID.String(),
+		username: user.Username,
+		email:    user.Email,
+		role:     string(user.Role),
+		status:   user.Status,
+	}, seedScopeDefaults())
+	if err != nil {
+		t.Fatalf("resolve superadmin permissions: %v", err)
+	}
+
+	for _, perm := range []string{
+		"admin.pages.view",
+		"admin.posts.view",
+		"admin.media.view",
+		"admin.content_types.view",
+		"admin.block_definitions.view",
+	} {
+		if !permissionIncluded(perms, perm) {
+			t.Fatalf("expected superadmin permissions to include %q, got %v", perm, perms)
+		}
+	}
+}
+
+func TestResolveRolePermissionsAdminIncludesContentNavigationPermissions(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:users_admin_content_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+
+	deps, _, _, err := SetupUsers(ctx, dsn)
+	if err != nil {
+		t.Fatalf("setup users: %v", err)
+	}
+
+	user, err := deps.RepoManager.Users().GetByIdentifier(ctx, "admin")
+	if err != nil || user == nil {
+		t.Fatalf("get admin: err=%v user=%v", err, user)
+	}
+
+	perms, err := resolveRolePermissions(ctx, deps.RoleRegistry, userIdentity{
+		id:       user.ID.String(),
+		username: user.Username,
+		email:    user.Email,
+		role:     string(user.Role),
+		status:   user.Status,
+	}, seedScopeDefaults())
+	if err != nil {
+		t.Fatalf("resolve admin permissions: %v", err)
+	}
+
+	for _, perm := range []string{
+		"admin.pages.view",
+		"admin.posts.view",
+		"admin.media.view",
+		"admin.content_types.view",
+		"admin.block_definitions.view",
+	} {
+		if !permissionIncluded(perms, perm) {
+			t.Fatalf("expected admin permissions to include %q, got %v", perm, perms)
+		}
+	}
+}
+
+func TestResolveRolePermissionsEditorIncludesCoreContentViewPermissions(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:users_editor_content_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+
+	deps, _, _, err := SetupUsers(ctx, dsn)
+	if err != nil {
+		t.Fatalf("setup users: %v", err)
+	}
+
+	user, err := deps.RepoManager.Users().GetByIdentifier(ctx, "jane.smith")
+	if err != nil || user == nil {
+		t.Fatalf("get editor user: err=%v user=%v", err, user)
+	}
+
+	perms, err := resolveRolePermissions(ctx, deps.RoleRegistry, userIdentity{
+		id:       user.ID.String(),
+		username: user.Username,
+		email:    user.Email,
+		role:     string(user.Role),
+		status:   user.Status,
+	}, seedScopeDefaults())
+	if err != nil {
+		t.Fatalf("resolve editor permissions: %v", err)
+	}
+
+	for _, perm := range []string{
+		"admin.pages.view",
+		"admin.posts.view",
+	} {
+		if !permissionIncluded(perms, perm) {
+			t.Fatalf("expected editor permissions to include %q, got %v", perm, perms)
+		}
+	}
+}
+
 func findSeedRole(ctx context.Context, registry userstypes.RoleRegistry, roleKey string) (*userstypes.RoleDefinition, error) {
 	if registry == nil {
 		return nil, nil

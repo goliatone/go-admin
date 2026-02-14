@@ -25,7 +25,7 @@ func NewMediaStore(db *bun.DB, opts ...repository.Option) (*MediaStore, error) {
 		return nil, fmt.Errorf("media store database is nil")
 	}
 
-	repo := repository.MustNewRepositoryWithOptions[*MediaRecord](db, mediaModelHandlers(), opts...)
+	repo := newStoreRepository[*MediaRecord](db, mediaModelHandlers(), storeRepositoryPaginationNoDefault, opts...)
 	adapter := admin.NewBunRepositoryAdapter[*MediaRecord](
 		repo,
 		admin.WithBunSearchColumns[*MediaRecord]("filename"),

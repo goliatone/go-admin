@@ -86,8 +86,8 @@ func InitializeWithOptions(contentSvc admin.CMSContentService, defaultLocale str
 		return nil, err
 	}
 
-	pageRepo := repository.MustNewRepositoryWithOptions[*PageRecord](contentDB, pageModelHandlers(), opts.RepoOptions...)
-	postRepo := repository.MustNewRepositoryWithOptions[*PostRecord](contentDB, postModelHandlers(), opts.RepoOptions...)
+	pageRepo := newStoreRepository[*PageRecord](contentDB, pageModelHandlers(), storeRepositoryPaginationNoDefault, opts.RepoOptions...)
+	postRepo := newStoreRepository[*PostRecord](contentDB, postModelHandlers(), storeRepositoryPaginationNoDefault, opts.RepoOptions...)
 
 	stores := &DataStores{
 		Users:        userStore,

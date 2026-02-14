@@ -145,10 +145,10 @@ func mediaModelHandlers() repository.ModelHandlers[*MediaRecord] {
 
 // NewPageRecordRepository builds a repository for CMS-backed page records.
 func NewPageRecordRepository(db *bun.DB, opts ...repository.Option) repository.Repository[*PageRecord] {
-	return repository.MustNewRepositoryWithOptions[*PageRecord](db, pageModelHandlers(), opts...)
+	return newStoreRepository[*PageRecord](db, pageModelHandlers(), storeRepositoryPaginationNoDefault, opts...)
 }
 
 // NewPostRecordRepository builds a repository for CMS-backed post records.
 func NewPostRecordRepository(db *bun.DB, opts ...repository.Option) repository.Repository[*PostRecord] {
-	return repository.MustNewRepositoryWithOptions[*PostRecord](db, postModelHandlers(), opts...)
+	return newStoreRepository[*PostRecord](db, postModelHandlers(), storeRepositoryPaginationNoDefault, opts...)
 }

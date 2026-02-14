@@ -150,6 +150,35 @@ func TestUsersSearchAdapterReflectsStoreChanges(t *testing.T) {
 	}
 }
 
+func TestUserStoreTeardownRemovesUsersBeyondLegacyPageLimit(t *testing.T) {
+	dsn := fmt.Sprintf("file:users_test_teardown_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+	deps, _, _, err := setup.SetupUsers(context.Background(), dsn)
+	if err != nil {
+		t.Fatalf("failed to setup users: %v", err)
+	}
+	store, err := stores.NewUserStore(deps)
+	if err != nil {
+		t.Fatalf("failed to build user store: %v", err)
+	}
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID: "admin-teardown",
+		Subject: "admin@example.com",
+		Role:    "admin",
+	})
+
+	createTestUsers(t, store, ctx, 40)
+	store.Teardown()
+
+	_, total, err := store.List(ctx, admin.ListOptions{Page: 1, PerPage: 1})
+	if err != nil {
+		t.Fatalf("list after teardown failed: %v", err)
+	}
+	if total != 0 {
+		t.Fatalf("expected total=0 after teardown, got %d", total)
+	}
+}
+
 func TestUserStoreListReturnsGlobalTotalAcrossPages(t *testing.T) {
 	dsn := fmt.Sprintf("file:users_test_pagination_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
 	deps, _, _, err := setup.SetupUsers(context.Background(), dsn)
