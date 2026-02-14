@@ -809,9 +809,62 @@
   @apply bg-gray-100;
 }
 
+/* Column manager header with search and count */
+.column-manager-header {
+  @apply flex items-center gap-2 p-2;
+  @apply border-b border-gray-200;
+  @apply sticky top-0 bg-white z-10;
+}
+
+/* Search input container */
+.column-search-container {
+  @apply relative flex-1;
+}
+
+.column-search-icon {
+  @apply absolute left-2.5 top-1/2 -translate-y-1/2;
+  @apply w-4 h-4 text-gray-400;
+  @apply pointer-events-none;
+}
+
+.column-search-input {
+  @apply w-full py-1.5 pl-8 pr-3;
+  @apply text-sm text-gray-700;
+  @apply border border-gray-200 rounded-md;
+  @apply placeholder-gray-400;
+  @apply focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500;
+  @apply transition-colors duration-150;
+}
+
+/* Count badge */
+.column-count-badge {
+  @apply flex-shrink-0;
+  @apply px-2 py-1;
+  @apply text-xs font-medium text-gray-500;
+  @apply bg-gray-100 rounded-full;
+  @apply whitespace-nowrap;
+}
+
 /* Column list wrapper - grows with content, parent container controls max height */
 .column-list {
   @apply overflow-y-auto;
+  @apply max-h-[50vh];
+  @apply transition-shadow duration-150;
+}
+
+/* Scroll shadow indicators */
+.column-list--shadow-top {
+  box-shadow: inset 0 8px 8px -8px rgba(0, 0, 0, 0.15);
+}
+
+.column-list--shadow-bottom {
+  box-shadow: inset 0 -8px 8px -8px rgba(0, 0, 0, 0.15);
+}
+
+.column-list--shadow-top.column-list--shadow-bottom {
+  box-shadow:
+    inset 0 8px 8px -8px rgba(0, 0, 0, 0.15),
+    inset 0 -8px 8px -8px rgba(0, 0, 0, 0.15);
 }
 
 /* Column manager footer with reset button */

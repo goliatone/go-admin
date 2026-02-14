@@ -16,6 +16,9 @@ export interface ColumnManagerConfig {
  * ColumnManager - Manages column visibility and ordering with drag-and-drop support
  *
  * Renders a list of columns with:
+ * - Search/filter field to find columns quickly
+ * - Item count badge showing visible/total columns
+ * - Scroll shadows to indicate content above/below fold
  * - Drag handles for reordering
  * - iOS-style switches for visibility toggle
  *
@@ -28,6 +31,9 @@ export class ColumnManager {
   private onReorder?: (order: string[]) => void;
   private onToggle?: (field: string, visible: boolean) => void;
   private onReset?: () => void;
+  private searchInput: HTMLInputElement | null = null;
+  private columnListEl: HTMLElement | null = null;
+  private countBadgeEl: HTMLElement | null = null;
 
   constructor(config: ColumnManagerConfig) {
     this.container = config.container;
@@ -47,6 +53,9 @@ export class ColumnManager {
 
     // Bind switch toggle events
     this.bindSwitchToggles();
+
+    // Setup scroll shadow detection
+    this.setupScrollShadows();
   }
 
   /**
@@ -60,11 +69,16 @@ export class ColumnManager {
     // Clear container
     this.container.innerHTML = '';
 
+    // Create header with search and count badge
+    const header = this.createHeader(columns.length, columns.length - hiddenSet.size);
+    this.container.appendChild(header);
+
     // Create column list wrapper for SortableJS
     const columnList = document.createElement('div');
     columnList.className = 'column-list';
     columnList.setAttribute('role', 'list');
     columnList.setAttribute('aria-label', 'Column visibility and order');
+    this.columnListEl = columnList;
 
     // Build each column item using DOM APIs (safe from XSS)
     columns.forEach(col => {
@@ -77,6 +91,134 @@ export class ColumnManager {
     // Add Reset to Default button at the bottom
     const footer = this.createFooter();
     this.container.appendChild(footer);
+  }
+
+  /**
+   * Create header with search input and count badge
+   */
+  private createHeader(totalCount: number, visibleCount: number): HTMLElement {
+    const header = document.createElement('div');
+    header.className = 'column-manager-header';
+
+    // Search input container
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'column-search-container';
+
+    const searchIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    searchIcon.setAttribute('class', 'column-search-icon');
+    searchIcon.setAttribute('viewBox', '0 0 24 24');
+    searchIcon.setAttribute('fill', 'none');
+    searchIcon.setAttribute('stroke', 'currentColor');
+    searchIcon.setAttribute('stroke-width', '2');
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '11');
+    circle.setAttribute('cy', '11');
+    circle.setAttribute('r', '8');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'm21 21-4.3-4.3');
+    searchIcon.appendChild(circle);
+    searchIcon.appendChild(path);
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'column-search-input';
+    searchInput.placeholder = 'Filter columns...';
+    searchInput.setAttribute('aria-label', 'Filter columns');
+    this.searchInput = searchInput;
+
+    // Bind search input
+    searchInput.addEventListener('input', () => {
+      this.filterColumns(searchInput.value);
+    });
+
+    searchContainer.appendChild(searchIcon);
+    searchContainer.appendChild(searchInput);
+
+    // Count badge
+    const countBadge = document.createElement('span');
+    countBadge.className = 'column-count-badge';
+    countBadge.textContent = `${visibleCount} of ${totalCount}`;
+    countBadge.setAttribute('aria-live', 'polite');
+    this.countBadgeEl = countBadge;
+
+    header.appendChild(searchContainer);
+    header.appendChild(countBadge);
+
+    return header;
+  }
+
+  /**
+   * Filter columns by search term
+   */
+  private filterColumns(searchTerm: string): void {
+    const term = searchTerm.toLowerCase().trim();
+    const items = this.container.querySelectorAll('.column-item');
+
+    items.forEach((item) => {
+      const label = item.querySelector('.column-label')?.textContent?.toLowerCase() || '';
+      const matches = term === '' || label.includes(term);
+      (item as HTMLElement).style.display = matches ? '' : 'none';
+    });
+
+    // Update scroll shadows after filtering
+    this.updateScrollShadows();
+  }
+
+  /**
+   * Update the count badge
+   */
+  private updateCountBadge(): void {
+    if (!this.countBadgeEl) return;
+
+    const columns = this.grid.config.columns;
+    const hiddenSet = this.grid.state.hiddenColumns;
+    const visibleCount = columns.length - hiddenSet.size;
+
+    this.countBadgeEl.textContent = `${visibleCount} of ${columns.length}`;
+  }
+
+  /**
+   * Setup scroll shadow detection on the column list
+   */
+  private setupScrollShadows(): void {
+    if (!this.columnListEl) return;
+
+    // Initial check
+    this.updateScrollShadows();
+
+    // Update on scroll
+    this.columnListEl.addEventListener('scroll', () => {
+      this.updateScrollShadows();
+    });
+
+    // Update on resize (debounced)
+    const resizeObserver = new ResizeObserver(() => {
+      this.updateScrollShadows();
+    });
+    resizeObserver.observe(this.columnListEl);
+  }
+
+  /**
+   * Update scroll shadow classes based on scroll position
+   */
+  private updateScrollShadows(): void {
+    if (!this.columnListEl) return;
+
+    const el = this.columnListEl;
+    const scrollTop = el.scrollTop;
+    const scrollHeight = el.scrollHeight;
+    const clientHeight = el.clientHeight;
+
+    // Check if content is scrollable
+    const isScrollable = scrollHeight > clientHeight;
+
+    // Determine shadow states
+    const hasTopShadow = isScrollable && scrollTop > 0;
+    const hasBottomShadow = isScrollable && (scrollTop + clientHeight) < (scrollHeight - 1);
+
+    // Apply classes
+    el.classList.toggle('column-list--shadow-top', hasTopShadow);
+    el.classList.toggle('column-list--shadow-bottom', hasBottomShadow);
   }
 
   /**
@@ -130,6 +272,13 @@ export class ColumnManager {
   private handleReset(): void {
     this.grid.resetColumnsToDefault();
     this.onReset?.();
+
+    // Clear search and update UI
+    if (this.searchInput) {
+      this.searchInput.value = '';
+      this.filterColumns('');
+    }
+    this.updateCountBadge();
   }
 
   /**
@@ -288,6 +437,9 @@ export class ColumnManager {
         if (this.grid.config.behaviors?.columnVisibility) {
           this.grid.config.behaviors.columnVisibility.toggleColumn(field, this.grid);
         }
+
+        // Update count badge
+        this.updateCountBadge();
       });
     });
   }
@@ -315,6 +467,7 @@ export class ColumnManager {
     this.grid.config.columns.forEach(col => {
       this.updateSwitchState(col.field, !hiddenSet.has(col.field));
     });
+    this.updateCountBadge();
   }
 
   /**
@@ -334,6 +487,7 @@ export class ColumnManager {
     this.render();
     this.setupDragAndDrop();
     this.bindSwitchToggles();
+    this.setupScrollShadows();
   }
 
   /**

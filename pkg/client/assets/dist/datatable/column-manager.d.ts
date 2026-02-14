@@ -13,6 +13,9 @@ export interface ColumnManagerConfig {
  * ColumnManager - Manages column visibility and ordering with drag-and-drop support
  *
  * Renders a list of columns with:
+ * - Search/filter field to find columns quickly
+ * - Item count badge showing visible/total columns
+ * - Scroll shadows to indicate content above/below fold
  * - Drag handles for reordering
  * - iOS-style switches for visibility toggle
  *
@@ -25,6 +28,9 @@ export declare class ColumnManager {
     private onReorder?;
     private onToggle?;
     private onReset?;
+    private searchInput;
+    private columnListEl;
+    private countBadgeEl;
     constructor(config: ColumnManagerConfig);
     private initialize;
     /**
@@ -32,6 +38,26 @@ export declare class ColumnManager {
      * Uses textContent for labels to prevent XSS
      */
     private render;
+    /**
+     * Create header with search input and count badge
+     */
+    private createHeader;
+    /**
+     * Filter columns by search term
+     */
+    private filterColumns;
+    /**
+     * Update the count badge
+     */
+    private updateCountBadge;
+    /**
+     * Setup scroll shadow detection on the column list
+     */
+    private setupScrollShadows;
+    /**
+     * Update scroll shadow classes based on scroll position
+     */
+    private updateScrollShadows;
     /**
      * Create footer with Reset to Default button
      */
