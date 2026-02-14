@@ -20,6 +20,10 @@ type adminOptions struct {
 	deps                         admin.Dependencies
 	flags                        *AdapterFlags
 	featureDefaults              map[string]bool
+	workflowConfig               WorkflowConfig
+	workflowConfigSet            bool
+	workflowConfigPath           string
+	workflowRuntime              admin.WorkflowRuntime
 	traitWorkflowDefaults        map[string]string
 	preferencesRepo              types.PreferenceRepository
 	preferencesRepoFactory       func() (types.PreferenceRepository, error)
@@ -109,6 +113,37 @@ func WithTraitWorkflowDefaults(defaults map[string]string) AdminOption {
 	}
 }
 
+// WithWorkflowConfig sets external workflow definitions + trait defaults.
+func WithWorkflowConfig(cfg WorkflowConfig) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.workflowConfig = NormalizeWorkflowConfig(cfg)
+		opts.workflowConfigSet = true
+	}
+}
+
+// WithWorkflowConfigFile loads external workflow definitions + trait defaults from file.
+func WithWorkflowConfigFile(path string) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.workflowConfigPath = strings.TrimSpace(path)
+	}
+}
+
+// WithWorkflowRuntime wires persisted workflow runtime management into admin bootstrap.
+func WithWorkflowRuntime(runtime admin.WorkflowRuntime) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.workflowRuntime = runtime
+	}
+}
+
 // WithThemeSelector wires a go-theme selector + manifest into admin.
 func WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption {
 	return func(opts *adminOptions) {
@@ -163,6 +198,9 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		}
 	}
 	if err := options.err(); err != nil {
+		return nil, AdapterResult{}, err
+	}
+	if err := resolveWorkflowConfigOptions(&options); err != nil {
 		return nil, AdapterResult{}, err
 	}
 
@@ -226,6 +264,9 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {
 		return nil, result, err
+	}
+	if options.workflowRuntime != nil {
+		adm.WithWorkflowRuntime(options.workflowRuntime)
 	}
 	if len(options.traitWorkflowDefaults) > 0 {
 		adm.WithTraitWorkflowDefaults(options.traitWorkflowDefaults)
@@ -428,6 +469,89 @@ func normalizeTraitWorkflowDefaultsOption(defaults map[string]string) map[string
 			continue
 		}
 		out[trait] = workflowID
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func resolveWorkflowConfigOptions(opts *adminOptions) error {
+	if opts == nil {
+		return nil
+	}
+	merged := WorkflowConfig{}
+	hasConfig := false
+	if opts.workflowConfigSet {
+		merged = NormalizeWorkflowConfig(opts.workflowConfig)
+		hasConfig = true
+	}
+	if path := strings.TrimSpace(opts.workflowConfigPath); path != "" {
+		loaded, err := LoadWorkflowConfigFile(path)
+		if err != nil {
+			return err
+		}
+		if hasConfig {
+			merged = MergeWorkflowConfigs(merged, loaded)
+		} else {
+			merged = NormalizeWorkflowConfig(loaded)
+		}
+		hasConfig = true
+	}
+	if !hasConfig {
+		return nil
+	}
+	if err := ValidateWorkflowConfig(merged); err != nil {
+		return err
+	}
+
+	definitions := WorkflowDefinitionsFromConfig(merged)
+	workflowEngine, err := resolveWorkflowConfigEngine(opts.deps.Workflow, definitions)
+	if err != nil {
+		return err
+	}
+	traitDefaults := WorkflowTraitDefaultsFromConfig(merged)
+	if err := validateWorkflowTraitDefaultsReferences(traitDefaults, definitions, workflowEngine); err != nil {
+		return err
+	}
+
+	opts.workflowConfig = merged
+	opts.workflowConfigSet = true
+	opts.deps.Workflow = workflowEngine
+	opts.traitWorkflowDefaults = mergeTraitWorkflowDefaults(opts.traitWorkflowDefaults, traitDefaults)
+	return nil
+}
+
+func resolveWorkflowConfigEngine(existing admin.WorkflowEngine, definitions map[string]admin.WorkflowDefinition) (admin.WorkflowEngine, error) {
+	if len(definitions) == 0 {
+		return existing, nil
+	}
+	engine := existing
+	if engine == nil {
+		engine = admin.NewSimpleWorkflowEngine()
+	}
+	registrar, ok := engine.(admin.WorkflowRegistrar)
+	if !ok {
+		return nil, workflowConfigError{
+			Reason: "workflow definitions provided but workflow engine does not support registration",
+		}
+	}
+	for _, workflowID := range sortedKeys(definitions) {
+		definition := definitions[workflowID]
+		registrar.RegisterWorkflow(workflowID, definition)
+	}
+	return engine, nil
+}
+
+func mergeTraitWorkflowDefaults(base map[string]string, override map[string]string) map[string]string {
+	base = normalizeTraitWorkflowDefaultsOption(base)
+	override = normalizeTraitWorkflowDefaultsOption(override)
+	out := map[string]string{}
+	for _, key := range sortedKeys(base) {
+		out[key] = base[key]
+	}
+	for _, key := range sortedKeys(override) {
+		out[key] = override[key]
 	}
 	if len(out) == 0 {
 		return nil
