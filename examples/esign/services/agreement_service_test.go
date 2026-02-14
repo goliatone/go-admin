@@ -64,7 +64,7 @@ func setupDraftAgreement(t *testing.T) (context.Context, stores.Scope, *stores.I
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
 	}
-	agreementSvc := NewAgreementService(store, store, WithAgreementClock(func() time.Time { return clock }))
+	agreementSvc := NewAgreementService(store, WithAgreementClock(func() time.Time { return clock }))
 	agreement, err := agreementSvc.CreateDraft(ctx, scope, CreateDraftInput{
 		DocumentID:      doc.ID,
 		Title:           "MSA",
@@ -333,7 +333,7 @@ func TestAgreementServiceSendIdempotency(t *testing.T) {
 func TestAgreementServiceSendDispatchesEmailWorkflow(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	workflow := &stubAgreementEmailWorkflow{}
-	svc := NewAgreementService(store, store, WithAgreementEmailWorkflow(workflow))
+	svc := NewAgreementService(store, WithAgreementEmailWorkflow(workflow))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
@@ -378,7 +378,7 @@ func TestAgreementServiceSendDispatchesEmailWorkflow(t *testing.T) {
 func TestAgreementServiceSendPersistsSentStatusWhenEmailWorkflowFails(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	workflow := &stubAgreementEmailWorkflow{sentErr: errors.New("smtp unavailable")}
-	svc := NewAgreementService(store, store, WithAgreementEmailWorkflow(workflow))
+	svc := NewAgreementService(store, WithAgreementEmailWorkflow(workflow))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
@@ -430,7 +430,7 @@ func TestAgreementServiceSendPersistsSentStatusWhenEmailWorkflowFails(t *testing
 func TestAgreementServiceResendSequentialAndTokenRotation(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
-	svc := NewAgreementService(store, store, WithAgreementTokenService(tokenService))
+	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
 
 	signerOne, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer-1@example.com"),
@@ -504,9 +504,7 @@ func TestAgreementServiceResendDispatchesEmailWorkflow(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
 	workflow := &stubAgreementEmailWorkflow{}
-	svc := NewAgreementService(
-		store,
-		store,
+	svc := NewAgreementService(store,
 		WithAgreementTokenService(tokenService),
 		WithAgreementEmailWorkflow(workflow),
 	)
@@ -560,7 +558,7 @@ func TestAgreementServiceResendDispatchesEmailWorkflow(t *testing.T) {
 func TestAgreementServiceVoidRevokesSignerTokens(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
-	svc := NewAgreementService(store, store, WithAgreementTokenService(tokenService))
+	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
@@ -603,7 +601,7 @@ func TestAgreementServiceVoidRevokesSignerTokens(t *testing.T) {
 func TestAgreementServiceEmitsCanonicalAuditEvents(t *testing.T) {
 	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
-	svc = NewAgreementService(store, store, WithAgreementTokenService(tokenService))
+	svc = NewAgreementService(store, WithAgreementTokenService(tokenService))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
@@ -661,7 +659,7 @@ func TestAgreementServiceEmitsCanonicalAuditEvents(t *testing.T) {
 func TestAgreementServiceExpireRevokesTokens(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
-	svc := NewAgreementService(store, store, WithAgreementTokenService(tokenService))
+	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
@@ -775,7 +773,7 @@ func TestAgreementServiceResolveFieldValueForSigner(t *testing.T) {
 func TestAgreementServiceCCRoleSemantics(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
-	svc := NewAgreementService(store, store, WithAgreementTokenService(tokenService))
+	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),

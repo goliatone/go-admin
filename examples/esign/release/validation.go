@@ -49,14 +49,19 @@ func RunValidationProfile(ctx context.Context, cfg ValidationConfig) (Validation
 		_ = store.Close()
 	}()
 	documentSvc := services.NewDocumentService(store)
-	agreementSvc := services.NewAgreementService(store, store)
-	signingSvc := services.NewSigningService(store, store)
+	agreementSvc := services.NewAgreementService(store)
+	signingSvc := services.NewSigningService(store)
 
 	started := time.Now()
-	for i := 0; i < cfg.AgreementCount; i++ {
-		if err := runAgreementLifecycle(ctx, scope, i, documentSvc, agreementSvc, signingSvc); err != nil {
-			return ValidationResult{}, err
+	if err := store.WithBatch(ctx, func() error {
+		for i := 0; i < cfg.AgreementCount; i++ {
+			if err := runAgreementLifecycle(ctx, scope, i, documentSvc, agreementSvc, signingSvc); err != nil {
+				return err
+			}
 		}
+		return nil
+	}); err != nil {
+		return ValidationResult{}, err
 	}
 
 	snapshot := observability.Snapshot()

@@ -28,6 +28,7 @@ type IssuedSigningToken struct {
 // TokenService issues and validates signer tokens with hash-only persistence.
 type TokenService struct {
 	store  SigningTokenStore
+	tx     TransactionManager
 	now    func() time.Time
 	ttl    time.Duration
 	random io.Reader
@@ -40,6 +41,9 @@ func NewTokenService(store SigningTokenStore, opts ...TokenServiceOption) TokenS
 		now:    func() time.Time { return time.Now().UTC() },
 		ttl:    defaultSignerTokenTTL,
 		random: rand.Reader,
+	}
+	if tx, ok := store.(TransactionManager); ok {
+		svc.tx = tx
 	}
 	for _, opt := range opts {
 		if opt == nil {
@@ -87,7 +91,22 @@ func WithTokenPepper(pepper string) TokenServiceOption {
 }
 
 func (s TokenService) Issue(ctx context.Context, scope Scope, agreementID, recipientID string) (IssuedSigningToken, error) {
-	if s.store == nil {
+	if s.tx != nil {
+		var issued IssuedSigningToken
+		if err := s.tx.WithTx(ctx, func(tx TxStore) error {
+			var err error
+			issued, err = s.issueWithStore(ctx, tx, scope, agreementID, recipientID)
+			return err
+		}); err != nil {
+			return IssuedSigningToken{}, err
+		}
+		return issued, nil
+	}
+	return s.issueWithStore(ctx, s.store, scope, agreementID, recipientID)
+}
+
+func (s TokenService) issueWithStore(ctx context.Context, store SigningTokenStore, scope Scope, agreementID, recipientID string) (IssuedSigningToken, error) {
+	if store == nil {
 		return IssuedSigningToken{}, invalidRecordError("signing_tokens", "store", "not configured")
 	}
 	scope, err := validateScope(scope)
@@ -108,7 +127,7 @@ func (s TokenService) Issue(ctx context.Context, scope Scope, agreementID, recip
 		return IssuedSigningToken{}, err
 	}
 	now := s.now()
-	record, err := s.store.CreateSigningToken(ctx, scope, SigningTokenRecord{
+	record, err := store.CreateSigningToken(ctx, scope, SigningTokenRecord{
 		AgreementID: agreementID,
 		RecipientID: recipientID,
 		TokenHash:   s.hashToken(rawToken),
@@ -127,16 +146,37 @@ func (s TokenService) Rotate(ctx context.Context, scope Scope, agreementID, reci
 	if s.store == nil {
 		return IssuedSigningToken{}, invalidRecordError("signing_tokens", "store", "not configured")
 	}
+	if s.tx != nil {
+		var issued IssuedSigningToken
+		if err := s.tx.WithTx(ctx, func(tx TxStore) error {
+			now := s.now()
+			if _, err := tx.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, now); err != nil {
+				return err
+			}
+			var err error
+			issued, err = s.issueWithStore(ctx, tx, scope, agreementID, recipientID)
+			return err
+		}); err != nil {
+			return IssuedSigningToken{}, err
+		}
+		return issued, nil
+	}
 	now := s.now()
 	if _, err := s.store.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, now); err != nil {
 		return IssuedSigningToken{}, err
 	}
-	return s.Issue(ctx, scope, agreementID, recipientID)
+	return s.issueWithStore(ctx, s.store, scope, agreementID, recipientID)
 }
 
 func (s TokenService) Revoke(ctx context.Context, scope Scope, agreementID, recipientID string) error {
 	if s.store == nil {
 		return invalidRecordError("signing_tokens", "store", "not configured")
+	}
+	if s.tx != nil {
+		return s.tx.WithTx(ctx, func(tx TxStore) error {
+			_, err := tx.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, s.now())
+			return err
+		})
 	}
 	_, err := s.store.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, s.now())
 	return err

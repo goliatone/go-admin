@@ -12,13 +12,16 @@ import (
 
 // AgreementService manages draft agreement lifecycle and recipient/field mutations.
 type AgreementService struct {
-	agreements stores.AgreementStore
-	documents  stores.DocumentStore
-	tokens     AgreementTokenService
-	audits     stores.AuditEventStore
-	emails     AgreementEmailWorkflow
-	now        func() time.Time
-	sendByKey  map[string]stores.AgreementRecord
+	agreements   stores.AgreementStore
+	documents    stores.DocumentStore
+	tokens       AgreementTokenService
+	audits       stores.AuditEventStore
+	emails       AgreementEmailWorkflow
+	tx           stores.TransactionManager
+	customTokens bool
+	customAudits bool
+	now          func() time.Time
+	sendByKey    map[string]stores.AgreementRecord
 }
 
 // AgreementServiceOption customizes AgreementService behavior.
@@ -68,20 +71,22 @@ func WithAgreementClock(now func() time.Time) AgreementServiceOption {
 // WithAgreementTokenService configures token lifecycle operations for send/resend/void flows.
 func WithAgreementTokenService(tokens AgreementTokenService) AgreementServiceOption {
 	return func(s *AgreementService) {
-		if s == nil {
+		if s == nil || tokens == nil {
 			return
 		}
 		s.tokens = tokens
+		s.customTokens = true
 	}
 }
 
 // WithAgreementAuditStore configures append-only audit event persistence.
 func WithAgreementAuditStore(audits stores.AuditEventStore) AgreementServiceOption {
 	return func(s *AgreementService) {
-		if s == nil {
+		if s == nil || audits == nil {
 			return
 		}
 		s.audits = audits
+		s.customAudits = true
 	}
 }
 
@@ -124,18 +129,15 @@ type AgreementValidationResult struct {
 	Issues         []ValidationIssue
 }
 
-func NewAgreementService(agreements stores.AgreementStore, documents stores.DocumentStore, opts ...AgreementServiceOption) AgreementService {
+func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) AgreementService {
 	svc := AgreementService{
-		agreements: agreements,
-		documents:  documents,
+		agreements: store,
+		documents:  store,
+		audits:     store,
+		tokens:     stores.NewTokenService(store),
+		tx:         store,
 		now:        func() time.Time { return time.Now().UTC() },
 		sendByKey:  map[string]stores.AgreementRecord{},
-	}
-	if audits, ok := agreements.(stores.AuditEventStore); ok {
-		svc.audits = audits
-	}
-	if signingTokens, ok := agreements.(stores.SigningTokenStore); ok {
-		svc.tokens = stores.NewTokenService(signingTokens)
 	}
 	for _, opt := range opts {
 		if opt == nil {
@@ -144,6 +146,31 @@ func NewAgreementService(agreements stores.AgreementStore, documents stores.Docu
 		opt(&svc)
 	}
 	return svc
+}
+
+func (s AgreementService) forTx(tx stores.TxStore) AgreementService {
+	txSvc := s
+	txSvc.agreements = tx
+	txSvc.documents = tx
+	if !txSvc.customAudits {
+		txSvc.audits = tx
+	}
+	if !txSvc.customTokens {
+		txSvc.tokens = stores.NewTokenService(tx)
+	}
+	return txSvc
+}
+
+func (s AgreementService) withWriteTx(ctx context.Context, fn func(AgreementService) error) error {
+	if fn == nil {
+		return nil
+	}
+	if s.tx == nil {
+		return fn(s)
+	}
+	return s.tx.WithTx(ctx, func(tx stores.TxStore) error {
+		return fn(s.forTx(tx))
+	})
 }
 
 // SendInput controls send transition behavior.
@@ -467,84 +494,94 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			return cached, nil
 		}
 	}
-
-	validation, err := s.ValidateBeforeSend(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
-	if !validation.Valid {
-		first := validation.Issues[0]
-		return stores.AgreementRecord{}, domainValidationError("agreements", first.Field, first.Message)
-	}
-
-	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
-	if agreement.Status != stores.AgreementStatusDraft {
-		if agreement.Status == stores.AgreementStatusSent && key != "" {
-			s.sendByKey[key] = agreement
-			return agreement, nil
+	var result stores.AgreementRecord
+	cacheResult := false
+	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		validation, err := txSvc.ValidateBeforeSend(ctx, scope, agreementID)
+		if err != nil {
+			return err
 		}
-		return stores.AgreementRecord{}, domainValidationError("agreements", "status", "send requires draft status")
-	}
-	if s.tokens == nil {
-		return stores.AgreementRecord{}, domainValidationError("signing_tokens", "service", "not configured")
-	}
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
-	activeSigner, ok := activeSignerForSequentialFlow(recipients)
-	if !ok {
-		return stores.AgreementRecord{}, domainValidationError("recipients", "role", "no active signer recipient found")
-	}
-	issued, err := s.tokens.Issue(ctx, scope, agreementID, activeSigner.ID)
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
+		if !validation.Valid {
+			first := validation.Issues[0]
+			return domainValidationError("agreements", first.Field, first.Message)
+		}
 
-	transitioned, err := s.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
-		ToStatus:        stores.AgreementStatusSent,
-		ExpectedVersion: agreement.Version,
-	})
-	if err != nil {
-		_ = s.tokens.Revoke(ctx, scope, agreementID, activeSigner.ID)
-		return stores.AgreementRecord{}, err
-	}
-	if key != "" {
-		s.sendByKey[key] = transitioned
-	}
-	if err := s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.sent", "system", "", map[string]any{
-		"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-		"status":          transitioned.Status,
-		"recipient_id":    activeSigner.ID,
-		"token_id":        issued.Record.ID,
-		"token_expires_at": func() string {
-			if issued.Record.ExpiresAt.IsZero() {
-				return ""
+		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		if agreement.Status != stores.AgreementStatusDraft {
+			if agreement.Status == stores.AgreementStatusSent && key != "" {
+				result = agreement
+				cacheResult = true
+				return nil
 			}
-			return issued.Record.ExpiresAt.UTC().Format(time.RFC3339)
-		}(),
+			return domainValidationError("agreements", "status", "send requires draft status")
+		}
+		if txSvc.tokens == nil {
+			return domainValidationError("signing_tokens", "service", "not configured")
+		}
+		recipients, err := txSvc.agreements.ListRecipients(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		activeSigner, ok := activeSignerForSequentialFlow(recipients)
+		if !ok {
+			return domainValidationError("recipients", "role", "no active signer recipient found")
+		}
+		issued, err := txSvc.tokens.Issue(ctx, scope, agreementID, activeSigner.ID)
+		if err != nil {
+			return err
+		}
+
+		transitioned, err := txSvc.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
+			ToStatus:        stores.AgreementStatusSent,
+			ExpectedVersion: agreement.Version,
+		})
+		if err != nil {
+			_ = txSvc.tokens.Revoke(ctx, scope, agreementID, activeSigner.ID)
+			return err
+		}
+		result = transitioned
+		cacheResult = key != ""
+
+		if err := txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.sent", "system", "", map[string]any{
+			"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+			"status":          transitioned.Status,
+			"recipient_id":    activeSigner.ID,
+			"token_id":        issued.Record.ID,
+			"token_expires_at": func() string {
+				if issued.Record.ExpiresAt.IsZero() {
+					return ""
+				}
+				return issued.Record.ExpiresAt.UTC().Format(time.RFC3339)
+			}(),
+		}); err != nil {
+			return err
+		}
+		if txSvc.emails != nil {
+			if err := txSvc.emails.OnAgreementSent(ctx, scope, AgreementNotification{
+				AgreementID:   transitioned.ID,
+				RecipientID:   activeSigner.ID,
+				CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+				Type:          NotificationSigningInvitation,
+				Token:         issued,
+			}); err != nil {
+				_ = txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
+					"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+					"recipient_id":    activeSigner.ID,
+					"error":           strings.TrimSpace(err.Error()),
+				})
+			}
+		}
+		return nil
 	}); err != nil {
 		return stores.AgreementRecord{}, err
 	}
-	if s.emails != nil {
-		if err := s.emails.OnAgreementSent(ctx, scope, AgreementNotification{
-			AgreementID:   transitioned.ID,
-			RecipientID:   activeSigner.ID,
-			CorrelationID: strings.TrimSpace(input.IdempotencyKey),
-			Type:          NotificationSigningInvitation,
-			Token:         issued,
-		}); err != nil {
-			_ = s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
-				"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-				"recipient_id":    activeSigner.ID,
-				"error":           strings.TrimSpace(err.Error()),
-			})
-		}
+	if cacheResult && key != "" {
+		s.sendByKey[key] = result
 	}
-	return transitioned, nil
+	return result, nil
 }
 
 // Void transitions sent/in-progress agreements to voided and revokes signer tokens when requested.
@@ -552,54 +589,54 @@ func (s AgreementService) Void(ctx context.Context, scope stores.Scope, agreemen
 	if s.agreements == nil {
 		return stores.AgreementRecord{}, domainValidationError("agreements", "store", "not configured")
 	}
-	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
-	if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
-		return stores.AgreementRecord{}, domainValidationError("agreements", "status", "void requires sent or in_progress status")
-	}
+	var result stores.AgreementRecord
+	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
+			return domainValidationError("agreements", "status", "void requires sent or in_progress status")
+		}
 
-	transitioned, err := s.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
-		ToStatus:        stores.AgreementStatusVoided,
-		ExpectedVersion: agreement.Version,
-	})
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
-	if !input.RevokeTokens {
-		if err := s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.voided", "system", "", map[string]any{
+		transitioned, err := txSvc.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
+			ToStatus:        stores.AgreementStatusVoided,
+			ExpectedVersion: agreement.Version,
+		})
+		if err != nil {
+			return err
+		}
+		result = transitioned
+		if !input.RevokeTokens {
+			return txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.voided", "system", "", map[string]any{
+				"reason":        strings.TrimSpace(input.Reason),
+				"revoke_tokens": false,
+			})
+		}
+		if txSvc.tokens == nil {
+			return domainValidationError("signing_tokens", "service", "not configured")
+		}
+
+		recipients, err := txSvc.agreements.ListRecipients(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		for _, recipient := range recipients {
+			if recipient.Role != stores.RecipientRoleSigner {
+				continue
+			}
+			if err := txSvc.tokens.Revoke(ctx, scope, agreementID, recipient.ID); err != nil {
+				return err
+			}
+		}
+		return txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.voided", "system", "", map[string]any{
 			"reason":        strings.TrimSpace(input.Reason),
-			"revoke_tokens": false,
-		}); err != nil {
-			return stores.AgreementRecord{}, err
-		}
-		return transitioned, nil
-	}
-	if s.tokens == nil {
-		return stores.AgreementRecord{}, domainValidationError("signing_tokens", "service", "not configured")
-	}
-
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
-	for _, recipient := range recipients {
-		if recipient.Role != stores.RecipientRoleSigner {
-			continue
-		}
-		if err := s.tokens.Revoke(ctx, scope, agreementID, recipient.ID); err != nil {
-			return stores.AgreementRecord{}, err
-		}
-	}
-	if err := s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.voided", "system", "", map[string]any{
-		"reason":        strings.TrimSpace(input.Reason),
-		"revoke_tokens": true,
+			"revoke_tokens": true,
+		})
 	}); err != nil {
 		return stores.AgreementRecord{}, err
 	}
-
-	return transitioned, nil
+	return result, nil
 }
 
 // Expire transitions sent/in-progress agreements to expired and invalidates signer tokens.
@@ -610,44 +647,47 @@ func (s AgreementService) Expire(ctx context.Context, scope stores.Scope, agreem
 	if s.tokens == nil {
 		return stores.AgreementRecord{}, domainValidationError("signing_tokens", "service", "not configured")
 	}
-
-	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
-	if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
-		return stores.AgreementRecord{}, domainValidationError("agreements", "status", "expiry requires sent or in_progress status")
-	}
-
-	transitioned, err := s.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
-		ToStatus:        stores.AgreementStatusExpired,
-		ExpectedVersion: agreement.Version,
-	})
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
-
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementRecord{}, err
-	}
-	for _, recipient := range recipients {
-		if recipient.Role != stores.RecipientRoleSigner {
-			continue
+	var result stores.AgreementRecord
+	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
+		if err != nil {
+			return err
 		}
-		if err := s.tokens.Revoke(ctx, scope, agreementID, recipient.ID); err != nil {
-			return stores.AgreementRecord{}, err
+		if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
+			return domainValidationError("agreements", "status", "expiry requires sent or in_progress status")
 		}
-	}
 
-	if err := s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.expired", "system", "", map[string]any{
-		"reason": strings.TrimSpace(input.Reason),
-		"from":   agreement.Status,
-		"to":     transitioned.Status,
+		transitioned, err := txSvc.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
+			ToStatus:        stores.AgreementStatusExpired,
+			ExpectedVersion: agreement.Version,
+		})
+		if err != nil {
+			return err
+		}
+		result = transitioned
+
+		recipients, err := txSvc.agreements.ListRecipients(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		for _, recipient := range recipients {
+			if recipient.Role != stores.RecipientRoleSigner {
+				continue
+			}
+			if err := txSvc.tokens.Revoke(ctx, scope, agreementID, recipient.ID); err != nil {
+				return err
+			}
+		}
+
+		return txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.expired", "system", "", map[string]any{
+			"reason": strings.TrimSpace(input.Reason),
+			"from":   agreement.Status,
+			"to":     transitioned.Status,
+		})
 	}); err != nil {
 		return stores.AgreementRecord{}, err
 	}
-	return transitioned, nil
+	return result, nil
 }
 
 // Resend applies sequential-recipient guards and issues/rotates signer tokens.
@@ -658,84 +698,89 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 	if s.tokens == nil {
 		return ResendResult{}, domainValidationError("signing_tokens", "service", "not configured")
 	}
+	var result ResendResult
+	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
+			return domainValidationError("agreements", "status", "resend requires sent or in_progress status")
+		}
 
-	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
-	if err != nil {
-		return ResendResult{}, err
-	}
-	if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
-		return ResendResult{}, domainValidationError("agreements", "status", "resend requires sent or in_progress status")
-	}
+		recipients, err := txSvc.agreements.ListRecipients(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		activeSigner, ok := activeSignerForSequentialFlow(recipients)
+		if !ok {
+			return domainValidationError("recipients", "role", "no active signer recipient found")
+		}
 
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
-	if err != nil {
-		return ResendResult{}, err
-	}
-	activeSigner, ok := activeSignerForSequentialFlow(recipients)
-	if !ok {
-		return ResendResult{}, domainValidationError("recipients", "role", "no active signer recipient found")
-	}
+		target := activeSigner
+		requestedID := strings.TrimSpace(input.RecipientID)
+		if requestedID != "" {
+			var found *stores.RecipientRecord
+			for i := range recipients {
+				if recipients[i].ID == requestedID {
+					found = &recipients[i]
+					break
+				}
+			}
+			if found == nil {
+				return domainValidationError("recipients", "id", "recipient not found")
+			}
+			target = *found
+		}
 
-	target := activeSigner
-	requestedID := strings.TrimSpace(input.RecipientID)
-	if requestedID != "" {
-		var found *stores.RecipientRecord
-		for i := range recipients {
-			if recipients[i].ID == requestedID {
-				found = &recipients[i]
-				break
+		if target.Role != stores.RecipientRoleSigner {
+			return domainValidationError("recipients", "role", "resend target must be signer")
+		}
+		if target.ID != activeSigner.ID && !input.AllowOutOfOrderResend {
+			return domainValidationError("recipients", "signing_order", "resend target is not the active sequential signer")
+		}
+
+		var issued stores.IssuedSigningToken
+		if input.RotateToken || input.InvalidateExisting {
+			issued, err = txSvc.tokens.Rotate(ctx, scope, agreementID, target.ID)
+		} else {
+			issued, err = txSvc.tokens.Issue(ctx, scope, agreementID, target.ID)
+		}
+		if err != nil {
+			return err
+		}
+		if err := txSvc.appendAuditEvent(ctx, scope, agreement.ID, "agreement.resent", "system", "", map[string]any{
+			"recipient_id":              target.ID,
+			"active_recipient_id":       activeSigner.ID,
+			"rotate_token":              input.RotateToken,
+			"invalidate_existing":       input.InvalidateExisting,
+			"allow_out_of_order_resend": input.AllowOutOfOrderResend,
+			"token_id":                  issued.Record.ID,
+		}); err != nil {
+			return err
+		}
+		if txSvc.emails != nil {
+			if err := txSvc.emails.OnAgreementResent(ctx, scope, AgreementNotification{
+				AgreementID:   agreement.ID,
+				RecipientID:   target.ID,
+				CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+				Type:          NotificationSigningReminder,
+				Token:         issued,
+			}); err != nil {
+				return err
 			}
 		}
-		if found == nil {
-			return ResendResult{}, domainValidationError("recipients", "id", "recipient not found")
+		result = ResendResult{
+			Agreement:       agreement,
+			Recipient:       target,
+			ActiveRecipient: activeSigner,
+			Token:           issued,
 		}
-		target = *found
-	}
-
-	if target.Role != stores.RecipientRoleSigner {
-		return ResendResult{}, domainValidationError("recipients", "role", "resend target must be signer")
-	}
-	if target.ID != activeSigner.ID && !input.AllowOutOfOrderResend {
-		return ResendResult{}, domainValidationError("recipients", "signing_order", "resend target is not the active sequential signer")
-	}
-
-	var issued stores.IssuedSigningToken
-	if input.RotateToken || input.InvalidateExisting {
-		issued, err = s.tokens.Rotate(ctx, scope, agreementID, target.ID)
-	} else {
-		issued, err = s.tokens.Issue(ctx, scope, agreementID, target.ID)
-	}
-	if err != nil {
-		return ResendResult{}, err
-	}
-	if err := s.appendAuditEvent(ctx, scope, agreement.ID, "agreement.resent", "system", "", map[string]any{
-		"recipient_id":              target.ID,
-		"active_recipient_id":       activeSigner.ID,
-		"rotate_token":              input.RotateToken,
-		"invalidate_existing":       input.InvalidateExisting,
-		"allow_out_of_order_resend": input.AllowOutOfOrderResend,
-		"token_id":                  issued.Record.ID,
+		return nil
 	}); err != nil {
 		return ResendResult{}, err
 	}
-	if s.emails != nil {
-		if err := s.emails.OnAgreementResent(ctx, scope, AgreementNotification{
-			AgreementID:   agreement.ID,
-			RecipientID:   target.ID,
-			CorrelationID: strings.TrimSpace(input.IdempotencyKey),
-			Type:          NotificationSigningReminder,
-			Token:         issued,
-		}); err != nil {
-			return ResendResult{}, err
-		}
-	}
-
-	return ResendResult{
-		Agreement:       agreement,
-		Recipient:       target,
-		ActiveRecipient: activeSigner,
-		Token:           issued,
-	}, nil
+	return result, nil
 }
 
 // CompletionDeliveryRecipients returns cc recipients eligible for final artifact delivery after completion.

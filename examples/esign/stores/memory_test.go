@@ -34,6 +34,35 @@ func TestInMemoryStoreRequiresScope(t *testing.T) {
 	}
 }
 
+func TestInMemoryStoreWithTxExecutesCallback(t *testing.T) {
+	ctx := context.Background()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := NewInMemoryStore()
+
+	calls := 0
+	if err := store.WithTx(ctx, func(tx TxStore) error {
+		calls++
+		_, err := tx.Create(ctx, scope, DocumentRecord{
+			ID:              "doc-tx-1",
+			SourceObjectKey: "tenant/tenant-1/org/org-1/docs/doc-tx-1.pdf",
+			SourceSHA256:    strings.Repeat("a", 64),
+		})
+		return err
+	}); err != nil {
+		t.Fatalf("WithTx: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected callback once, got %d", calls)
+	}
+	docs, err := store.List(ctx, scope, DocumentQuery{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(docs) != 1 {
+		t.Fatalf("expected one document, got %d", len(docs))
+	}
+}
+
 func TestInMemoryAgreementWriteGuardsAfterSend(t *testing.T) {
 	store := NewInMemoryStore()
 	ctx := context.Background()

@@ -39,16 +39,7 @@ var (
 )
 
 type eSignStore interface {
-	stores.DocumentStore
-	stores.AgreementStore
-	stores.SigningStore
-	stores.SigningTokenStore
-	stores.SignatureArtifactStore
-	stores.AuditEventStore
-	stores.AgreementArtifactStore
-	stores.EmailLogStore
-	stores.JobRunStore
-	stores.IntegrationCredentialStore
+	stores.Store
 }
 
 // ESignModule registers routes, panels, commands, settings, and activity projection for e-sign.
@@ -157,10 +148,7 @@ func (m *ESignModule) SignerAssetContractService() services.SignerAssetContractS
 	if m == nil || m.store == nil {
 		return services.SignerAssetContractService{}
 	}
-	return services.NewSignerAssetContractService(
-		m.store,
-		m.store,
-		m.store,
+	return services.NewSignerAssetContractService(m.store,
 		services.WithSignerAssetObjectStore(m.documentUploadManager()),
 	)
 }
@@ -208,13 +196,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		m.store,
 		objectStore,
 	)
-	m.artifacts = services.NewArtifactPipelineService(
-		m.store,
-		m.store,
-		m.store,
-		m.store,
-		m.store,
-		m.store,
+	m.artifacts = services.NewArtifactPipelineService(m.store,
 		artifactRenderer,
 		services.WithArtifactObjectStore(objectStore),
 	)
@@ -230,17 +212,13 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		EmailProvider: emailProvider,
 	})
 	emailWorkflow := jobs.NewAgreementWorkflow(jobHandlers)
-	m.agreements = services.NewAgreementService(
-		m.store,
-		m.store,
+	m.agreements = services.NewAgreementService(m.store,
 		services.WithAgreementTokenService(m.tokens),
 		services.WithAgreementAuditStore(m.store),
 		services.WithAgreementEmailWorkflow(emailWorkflow),
 	)
 	signatureUploadTTL, signatureUploadSecret := resolveSignatureUploadSecurityPolicy()
-	m.signing = services.NewSigningService(
-		m.store,
-		m.store,
+	m.signing = services.NewSigningService(m.store,
 		services.WithSigningAuditStore(m.store),
 		services.WithSigningCompletionWorkflow(emailWorkflow),
 		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),
@@ -293,10 +271,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithSignerTokenValidator(m.tokens),
 		handlers.WithSignerSessionService(m.signing),
 		handlers.WithSignerAssetContractService(
-			services.NewSignerAssetContractService(
-				m.store,
-				m.store,
-				m.store,
+			services.NewSignerAssetContractService(m.store,
 				services.WithSignerAssetObjectStore(objectStore),
 			),
 		),

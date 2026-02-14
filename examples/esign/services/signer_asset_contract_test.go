@@ -28,7 +28,7 @@ func TestSignerAssetContractResolveIncludesSourceObjectWhenBlobExists(t *testing
 		t.Fatalf("UploadFile source object: %v", err)
 	}
 
-	service := NewSignerAssetContractService(store, store, store, WithSignerAssetObjectStore(objectStore))
+	service := NewSignerAssetContractService(store, WithSignerAssetObjectStore(objectStore))
 	contract, err := service.Resolve(ctx, scope, stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -56,7 +56,7 @@ func TestSignerAssetContractResolveMarksSourceUnavailableWhenBlobMissing(t *test
 	}
 
 	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
-	service := NewSignerAssetContractService(store, store, store, WithSignerAssetObjectStore(objectStore))
+	service := NewSignerAssetContractService(store, WithSignerAssetObjectStore(objectStore))
 	contract, err := service.Resolve(context.Background(), scope, stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,

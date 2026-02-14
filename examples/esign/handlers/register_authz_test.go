@@ -222,7 +222,7 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 		t.Fatalf("Upload: %v", err)
 	}
 
-	agreementSvc := services.NewAgreementService(store, store)
+	agreementSvc := services.NewAgreementService(store)
 	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
 		DocumentID:      doc.ID,
 		Title:           "Signer Flow",
@@ -275,7 +275,7 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 		t.Fatalf("Issue: %v", err)
 	}
 
-	signingSvc := services.NewSigningService(store, store)
+	signingSvc := services.NewSigningService(store)
 	app := setupRegisterTestApp(t,
 		WithSignerTokenValidator(tokenSvc),
 		WithSignerSessionService(signingSvc),
@@ -561,7 +561,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
 	}
-	agreementSvc := services.NewAgreementService(store, store)
+	agreementSvc := services.NewAgreementService(store)
 	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
 		DocumentID:      doc.ID,
 		Title:           "NDA",
@@ -627,7 +627,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 		t.Fatalf("Issue signer two token: %v", err)
 	}
 
-	signingSvc := services.NewSigningService(store, store)
+	signingSvc := services.NewSigningService(store)
 	app := setupRegisterTestApp(t,
 		WithSignerTokenValidator(tokenService),
 		WithSignerSessionService(signingSvc),
@@ -1261,7 +1261,7 @@ func TestRegisterGoogleRoutesFeatureGatedWhenDisabled(t *testing.T) {
 		store,
 		services.NewDeterministicGoogleProvider(),
 		services.NewDocumentService(store),
-		services.NewAgreementService(store, store),
+		services.NewAgreementService(store),
 	)
 	app := setupRegisterTestApp(t,
 		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminSettings: true}}),
@@ -1288,7 +1288,7 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 		store,
 		services.NewDeterministicGoogleProvider(),
 		services.NewDocumentService(store),
-		services.NewAgreementService(store, store),
+		services.NewAgreementService(store),
 	)
 	app := setupRegisterTestApp(t,
 		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
@@ -1358,7 +1358,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 		store,
 		services.NewDeterministicGoogleProvider(),
 		services.NewDocumentService(store),
-		services.NewAgreementService(store, store),
+		services.NewAgreementService(store),
 	)
 	app := setupRegisterTestApp(t,
 		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
@@ -1435,7 +1435,7 @@ func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {
 		store,
 		newSharedDriveEdgeProvider(),
 		services.NewDocumentService(store),
-		services.NewAgreementService(store, store),
+		services.NewAgreementService(store),
 	)
 	app := setupRegisterTestApp(t,
 		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
@@ -1500,7 +1500,7 @@ func TestRegisterGoogleDriveImportPermissionDeniedReturnsTypedError(t *testing.T
 		store,
 		provider,
 		services.NewDocumentService(store),
-		services.NewAgreementService(store, store),
+		services.NewAgreementService(store),
 	)
 	app := setupRegisterTestApp(t,
 		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{

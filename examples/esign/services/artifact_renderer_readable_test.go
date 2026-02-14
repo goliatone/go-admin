@@ -33,7 +33,7 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 		t.Fatalf("upload source document: %v", err)
 	}
 
-	agreementSvc := NewAgreementService(store, store)
+	agreementSvc := NewAgreementService(store)
 	agreement, err := agreementSvc.CreateDraft(ctx, scope, CreateDraftInput{
 		DocumentID:      document.ID,
 		Title:           "Agreement",

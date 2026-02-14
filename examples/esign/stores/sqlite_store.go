@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -33,8 +34,10 @@ func ResolveSQLiteDSN() string {
 // SQLiteStore persists e-sign domain data in SQLite while reusing InMemoryStore logic.
 type SQLiteStore struct {
 	*InMemoryStore
-	db *sql.DB
-	mu sync.Mutex
+	db         *sql.DB
+	mu         sync.Mutex
+	batchDepth int
+	dirty      bool
 }
 
 type sqliteStoreSnapshot struct {
@@ -232,12 +235,116 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 	return nil
 }
 
+func (s *SQLiteStore) persistMaybe(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	if s.batchDepth > 0 {
+		s.dirty = true
+		return nil
+	}
+	if err := s.persist(ctx); err != nil {
+		s.dirty = true
+		return err
+	}
+	s.dirty = false
+	return nil
+}
+
+func (s *SQLiteStore) flushLocked(ctx context.Context) error {
+	if s == nil || !s.dirty {
+		return nil
+	}
+	if err := s.persist(ctx); err != nil {
+		return err
+	}
+	s.dirty = false
+	return nil
+}
+
+// Flush persists pending in-memory mutations to SQLite.
+func (s *SQLiteStore) Flush(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.flushLocked(ctx)
+}
+
+// WithBatch defers SQLite persistence until fn returns; changes are still applied in memory immediately.
+func (s *SQLiteStore) WithBatch(ctx context.Context, fn func() error) (err error) {
+	if fn == nil {
+		return nil
+	}
+	if s == nil {
+		return fn()
+	}
+	s.mu.Lock()
+	s.batchDepth++
+	s.mu.Unlock()
+
+	defer func() {
+		s.mu.Lock()
+		if s.batchDepth > 0 {
+			s.batchDepth--
+		}
+		shouldFlush := s.batchDepth == 0 && s.dirty
+		var flushErr error
+		if shouldFlush {
+			flushErr = s.flushLocked(ctx)
+		}
+		s.mu.Unlock()
+
+		if panicValue := recover(); panicValue != nil {
+			panic(panicValue)
+		}
+		if err != nil && flushErr != nil {
+			err = errors.Join(err, flushErr)
+			return
+		}
+		if err == nil {
+			err = flushErr
+		}
+	}()
+
+	err = fn()
+	return err
+}
+
+// WithTx executes fn within a transactional scope.
+// SQLiteStore currently uses batched snapshot persistence semantics.
+func (s *SQLiteStore) WithTx(ctx context.Context, fn func(tx TxStore) error) error {
+	if fn == nil {
+		return nil
+	}
+	if s == nil {
+		return invalidRecordError("transactions", "store", "not configured")
+	}
+	return s.WithBatch(ctx, func() error {
+		return fn(s)
+	})
+}
+
 // Close closes the underlying SQLite connection.
 func (s *SQLiteStore) Close() error {
 	if s == nil || s.db == nil {
 		return nil
 	}
-	return s.db.Close()
+	s.mu.Lock()
+	flushErr := s.flushLocked(context.Background())
+	db := s.db
+	s.db = nil
+	s.mu.Unlock()
+
+	closeErr := db.Close()
+	if flushErr != nil && closeErr != nil {
+		return errors.Join(flushErr, closeErr)
+	}
+	if flushErr != nil {
+		return flushErr
+	}
+	return closeErr
 }
 
 func (s *SQLiteStore) Create(ctx context.Context, scope Scope, record DocumentRecord) (DocumentRecord, error) {
@@ -247,7 +354,7 @@ func (s *SQLiteStore) Create(ctx context.Context, scope Scope, record DocumentRe
 	if err != nil {
 		return DocumentRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return DocumentRecord{}, err
 	}
 	return out, nil
@@ -260,7 +367,7 @@ func (s *SQLiteStore) CreateDraft(ctx context.Context, scope Scope, record Agree
 	if err != nil {
 		return AgreementRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return AgreementRecord{}, err
 	}
 	return out, nil
@@ -273,7 +380,7 @@ func (s *SQLiteStore) UpdateDraft(ctx context.Context, scope Scope, id string, p
 	if err != nil {
 		return AgreementRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return AgreementRecord{}, err
 	}
 	return out, nil
@@ -286,7 +393,7 @@ func (s *SQLiteStore) Transition(ctx context.Context, scope Scope, id string, in
 	if err != nil {
 		return AgreementRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return AgreementRecord{}, err
 	}
 	return out, nil
@@ -299,7 +406,7 @@ func (s *SQLiteStore) UpsertRecipientDraft(ctx context.Context, scope Scope, agr
 	if err != nil {
 		return RecipientRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return RecipientRecord{}, err
 	}
 	return out, nil
@@ -312,7 +419,7 @@ func (s *SQLiteStore) TouchRecipientView(ctx context.Context, scope Scope, agree
 	if err != nil {
 		return RecipientRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return RecipientRecord{}, err
 	}
 	return out, nil
@@ -325,7 +432,7 @@ func (s *SQLiteStore) CompleteRecipient(ctx context.Context, scope Scope, agreem
 	if err != nil {
 		return RecipientRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return RecipientRecord{}, err
 	}
 	return out, nil
@@ -338,7 +445,7 @@ func (s *SQLiteStore) DeclineRecipient(ctx context.Context, scope Scope, agreeme
 	if err != nil {
 		return RecipientRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return RecipientRecord{}, err
 	}
 	return out, nil
@@ -350,7 +457,7 @@ func (s *SQLiteStore) DeleteRecipientDraft(ctx context.Context, scope Scope, agr
 	if err := s.InMemoryStore.DeleteRecipientDraft(ctx, scope, agreementID, recipientID); err != nil {
 		return err
 	}
-	return s.persist(ctx)
+	return s.persistMaybe(ctx)
 }
 
 func (s *SQLiteStore) UpsertFieldDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDraftPatch) (FieldRecord, error) {
@@ -360,7 +467,7 @@ func (s *SQLiteStore) UpsertFieldDraft(ctx context.Context, scope Scope, agreeme
 	if err != nil {
 		return FieldRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return FieldRecord{}, err
 	}
 	return out, nil
@@ -372,7 +479,7 @@ func (s *SQLiteStore) DeleteFieldDraft(ctx context.Context, scope Scope, agreeme
 	if err := s.InMemoryStore.DeleteFieldDraft(ctx, scope, agreementID, fieldID); err != nil {
 		return err
 	}
-	return s.persist(ctx)
+	return s.persistMaybe(ctx)
 }
 
 func (s *SQLiteStore) CreateSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error) {
@@ -382,7 +489,7 @@ func (s *SQLiteStore) CreateSigningToken(ctx context.Context, scope Scope, recor
 	if err != nil {
 		return SigningTokenRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return SigningTokenRecord{}, err
 	}
 	return out, nil
@@ -395,7 +502,7 @@ func (s *SQLiteStore) RevokeActiveSigningTokens(ctx context.Context, scope Scope
 	if err != nil {
 		return 0, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -408,7 +515,7 @@ func (s *SQLiteStore) CreateSignatureArtifact(ctx context.Context, scope Scope, 
 	if err != nil {
 		return SignatureArtifactRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return SignatureArtifactRecord{}, err
 	}
 	return out, nil
@@ -421,7 +528,7 @@ func (s *SQLiteStore) UpsertFieldValue(ctx context.Context, scope Scope, value F
 	if err != nil {
 		return FieldValueRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return FieldValueRecord{}, err
 	}
 	return out, nil
@@ -434,7 +541,7 @@ func (s *SQLiteStore) Append(ctx context.Context, scope Scope, event AuditEventR
 	if err != nil {
 		return AuditEventRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return AuditEventRecord{}, err
 	}
 	return out, nil
@@ -447,7 +554,7 @@ func (s *SQLiteStore) SaveAgreementArtifacts(ctx context.Context, scope Scope, r
 	if err != nil {
 		return AgreementArtifactRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return AgreementArtifactRecord{}, err
 	}
 	return out, nil
@@ -460,7 +567,7 @@ func (s *SQLiteStore) CreateEmailLog(ctx context.Context, scope Scope, record Em
 	if err != nil {
 		return EmailLogRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return EmailLogRecord{}, err
 	}
 	return out, nil
@@ -473,7 +580,7 @@ func (s *SQLiteStore) UpdateEmailLog(ctx context.Context, scope Scope, id string
 	if err != nil {
 		return EmailLogRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return EmailLogRecord{}, err
 	}
 	return out, nil
@@ -486,7 +593,7 @@ func (s *SQLiteStore) BeginJobRun(ctx context.Context, scope Scope, input JobRun
 	if err != nil {
 		return JobRunRecord{}, false, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return JobRunRecord{}, false, err
 	}
 	return record, reused, nil
@@ -499,7 +606,7 @@ func (s *SQLiteStore) MarkJobRunSucceeded(ctx context.Context, scope Scope, id s
 	if err != nil {
 		return JobRunRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return JobRunRecord{}, err
 	}
 	return out, nil
@@ -512,7 +619,7 @@ func (s *SQLiteStore) MarkJobRunFailed(ctx context.Context, scope Scope, id, fai
 	if err != nil {
 		return JobRunRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return JobRunRecord{}, err
 	}
 	return out, nil
@@ -525,7 +632,7 @@ func (s *SQLiteStore) UpsertIntegrationCredential(ctx context.Context, scope Sco
 	if err != nil {
 		return IntegrationCredentialRecord{}, err
 	}
-	if err := s.persist(ctx); err != nil {
+	if err := s.persistMaybe(ctx); err != nil {
 		return IntegrationCredentialRecord{}, err
 	}
 	return out, nil
@@ -537,7 +644,7 @@ func (s *SQLiteStore) DeleteIntegrationCredential(ctx context.Context, scope Sco
 	if err := s.InMemoryStore.DeleteIntegrationCredential(ctx, scope, provider, userID); err != nil {
 		return err
 	}
-	return s.persist(ctx)
+	return s.persistMaybe(ctx)
 }
 
 func ensureDocumentMap(in map[string]DocumentRecord) map[string]DocumentRecord {

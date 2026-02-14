@@ -91,7 +91,7 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 		t.Fatalf("UpsertFieldValue signer two: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 
 	activeSession, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
@@ -166,7 +166,7 @@ func TestSigningServiceGetSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -249,7 +249,7 @@ func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -296,7 +296,7 @@ func TestSigningServiceTracksRecipientViewLifecycle(t *testing.T) {
 	}
 
 	viewTime := time.Date(2026, 2, 10, 10, 0, 0, 0, time.UTC)
-	signingSvc := NewSigningService(store, store, WithSigningClock(func() time.Time {
+	signingSvc := NewSigningService(store, WithSigningClock(func() time.Time {
 		return viewTime
 	}))
 
@@ -369,7 +369,7 @@ func TestSigningServiceCaptureConsentAndUpsertFieldValue(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -466,7 +466,7 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	waitingToken := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signerTwo.ID,
@@ -512,7 +512,7 @@ func TestSigningServiceAttachSignatureArtifact(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -581,7 +581,7 @@ func TestSigningServiceIssueSignatureUploadBootstrap(t *testing.T) {
 	}
 
 	now := time.Date(2026, 2, 12, 9, 0, 0, 0, time.UTC)
-	signingSvc := NewSigningService(store, store, WithSigningClock(func() time.Time {
+	signingSvc := NewSigningService(store, WithSigningClock(func() time.Time {
 		return now
 	}))
 	token := stores.SigningTokenRecord{
@@ -647,9 +647,7 @@ func TestSigningServiceIssueSignatureUploadRespectsConfiguredTTLPolicy(t *testin
 
 	now := time.Date(2026, 2, 12, 11, 0, 0, 0, time.UTC)
 	ttl := 2 * time.Minute
-	signingSvc := NewSigningService(
-		store,
-		store,
+	signingSvc := NewSigningService(store,
 		WithSigningClock(func() time.Time { return now }),
 		WithSignatureUploadConfig(ttl, "phase19-upload-secret"),
 	)
@@ -705,7 +703,7 @@ func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -776,7 +774,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRequiresUploadBootstrap(t *te
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -816,7 +814,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnVerifiesBootstrapAndRetries(t
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -904,7 +902,7 @@ func TestSigningServiceConfirmSignatureUploadPersistsPayloadToObjectStore(t *tes
 	}
 
 	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
-	signingSvc := NewSigningService(store, store, WithSigningObjectStore(manager))
+	signingSvc := NewSigningService(store, WithSigningObjectStore(manager))
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -971,7 +969,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromAudit(t *t
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvcA := NewSigningService(store, store)
+	signingSvcA := NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -996,7 +994,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromAudit(t *t
 	}
 
 	// Simulate service state loss between upload confirm and attach.
-	signingSvcB := NewSigningService(store, store)
+	signingSvcB := NewSigningService(store)
 	result, err := signingSvcB.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
 		FieldID:     signatureField.ID,
 		Type:        "drawn",
@@ -1037,7 +1035,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromObjectStor
 	}
 
 	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
-	signingSvcA := NewSigningService(store, store, WithSigningObjectStore(manager))
+	signingSvcA := NewSigningService(store, WithSigningObjectStore(manager))
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -1067,7 +1065,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromObjectStor
 	}
 
 	// Simulate service restart where in-memory receipt cache is empty.
-	signingSvcB := NewSigningService(store, store, WithSigningObjectStore(manager))
+	signingSvcB := NewSigningService(store, WithSigningObjectStore(manager))
 	result, err := signingSvcB.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
 		FieldID:     signatureField.ID,
 		Type:        "drawn",
@@ -1116,7 +1114,7 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -1206,7 +1204,7 @@ func TestSigningServiceSubmitTriggersCompletionWorkflowOnFinalSigner(t *testing.
 	}
 
 	completionFlow := &capturingCompletionWorkflow{}
-	signingSvc := NewSigningService(store, store, WithSigningCompletionWorkflow(completionFlow))
+	signingSvc := NewSigningService(store, WithSigningCompletionWorkflow(completionFlow))
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -1266,7 +1264,7 @@ func TestSigningServiceDeclineFlow(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
@@ -1332,7 +1330,7 @@ func TestSigningServiceSignerAuditEventsIncludeActorMetadata(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 
-	signingSvc := NewSigningService(store, store)
+	signingSvc := NewSigningService(store)
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,

@@ -83,3 +83,29 @@ type IntegrationCredentialStore interface {
 	GetIntegrationCredential(ctx context.Context, scope Scope, provider, userID string) (IntegrationCredentialRecord, error)
 	DeleteIntegrationCredential(ctx context.Context, scope Scope, provider, userID string) error
 }
+
+// TxStore is the transactional store surface available inside a transaction scope.
+type TxStore interface {
+	DocumentStore
+	AgreementStore
+	SigningStore
+	SignatureArtifactStore
+	SigningTokenStore
+	AuditEventStore
+	AgreementArtifactStore
+	EmailLogStore
+	JobRunStore
+	IntegrationCredentialStore
+}
+
+// TransactionManager defines transaction lifecycle coordination.
+// Backend semantics (rollback/isolation guarantees) are implementation specific.
+type TransactionManager interface {
+	WithTx(ctx context.Context, fn func(tx TxStore) error) error
+}
+
+// Store is the root persistence contract used by e-sign services.
+type Store interface {
+	TxStore
+	TransactionManager
+}
