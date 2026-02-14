@@ -6,6 +6,7 @@ export declare class DebugPanel {
     private activePanel;
     private state;
     private filters;
+    private customFilterState;
     private paused;
     private maxLogEntries;
     private maxSQLQueries;
@@ -53,6 +54,9 @@ export declare class DebugPanel {
     private renderFilters;
     private bindFilterInputs;
     private updateFiltersFromInputs;
+    private getPanelFilterState;
+    private cloneFilterState;
+    private readFilterInputValue;
     private renderPanel;
     private attachExpandableRowListeners;
     private attachCopyButtonListeners;

@@ -59,6 +59,11 @@ export interface PanelDefinition {
      */
     applyFilters?: (data: unknown, state: unknown) => unknown;
     /**
+     * Whether console filter UI should be shown for this panel.
+     * Defaults to true.
+     */
+    showFilters?: boolean;
+    /**
      * Whether this panel should render in the toolbar.
      * Defaults to true. If false and renderToolbar is undefined, toolbar shows fallback.
      */

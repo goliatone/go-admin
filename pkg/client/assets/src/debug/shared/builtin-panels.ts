@@ -517,6 +517,7 @@ const permissionsPanel: PanelDefinition = {
   eventTypes: [], // Snapshot only, no incremental events
   category: 'system',
   order: 45,
+  showFilters: false,
 
   render: (data, styles, options) => {
     const permissions = data as PermissionsSnapshot;
