@@ -384,6 +384,10 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 		item.ID = fmt.Sprintf("%s-%d", menuCode, state.next)
 		state.next++
 	}
+	if err := validateMenuParentLink(item.ID, item.ParentID); err != nil {
+		s.mu.Unlock()
+		return err
+	}
 	if strings.TrimSpace(item.Code) == "" {
 		item.Code = strings.TrimSpace(item.ID)
 	}
@@ -442,6 +446,17 @@ func (s *InMemoryMenuService) UpdateMenuItem(ctx context.Context, menuCode strin
 	if strings.TrimSpace(item.Type) == "" {
 		item.Type = MenuItemTypeItem
 	}
+	if err := validateMenuParentLink(item.ID, item.ParentID); err != nil {
+		s.mu.Unlock()
+		return err
+	}
+	if menuStateWouldCreateCycle(state.items, item.ID, item.ParentID) {
+		s.mu.Unlock()
+		return validationDomainError("menu hierarchy cycle detected", map[string]any{
+			"id":        strings.TrimSpace(item.ID),
+			"parent_id": strings.TrimSpace(item.ParentID),
+		})
+	}
 	navinternal.SetMenuItemOrder(&item, navinternal.MenuItemOrder(existing))
 	item.Menu = state.slug
 	state.items[item.ID] = item
@@ -480,9 +495,18 @@ func (s *InMemoryMenuService) DeleteMenuItem(ctx context.Context, menuCode, id s
 }
 
 func (s *InMemoryMenuService) deleteChildren(state *menuState, id string) {
+	seen := map[string]bool{}
+	s.deleteChildrenRecursive(state, id, seen)
+}
+
+func (s *InMemoryMenuService) deleteChildrenRecursive(state *menuState, id string, seen map[string]bool) {
+	if seen[id] {
+		return
+	}
+	seen[id] = true
 	for childID, item := range state.items {
 		if item.ParentID == id {
-			s.deleteChildren(state, childID)
+			s.deleteChildrenRecursive(state, childID, seen)
 			delete(state.items, childID)
 		}
 	}
