@@ -1,0 +1,28 @@
+schema_version: 1
+
+trait_defaults:
+  editorial: editorial.default
+
+workflows:
+  editorial.default:
+    initial_state: draft
+    transitions:
+      - name: submit_for_approval
+        from: draft
+        to: approval
+      - name: publish
+        from: approval
+        to: published
+
+  editorial.news:
+    initial_state: draft
+    transitions:
+      - name: submit_for_approval
+        from: draft
+        to: approval
+      - name: publish
+        from: approval
+        to: published
+      - name: retract
+        from: published
+        to: draft
