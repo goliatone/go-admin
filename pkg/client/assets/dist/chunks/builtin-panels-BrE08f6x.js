@@ -23017,6 +23017,7 @@ const X = jI(), zI = {
   // Snapshot only, no incremental events
   category: "system",
   order: 45,
+  showFilters: !1,
   render: (E, T, e) => WT(E, T, {
     showRawJSON: !0
   }),
@@ -23068,13 +23069,13 @@ export {
   X as p,
   x as q,
   qE as r,
-  xT as s,
-  oE as t,
-  aO as u,
-  rO as v,
-  bT as w,
-  qI as x,
-  QI as y,
-  MO as z
+  MO as s,
+  xT as t,
+  oE as u,
+  aO as v,
+  rO as w,
+  bT as x,
+  qI as y,
+  QI as z
 };
-//# sourceMappingURL=builtin-panels-BW-e-JIk.js.map
+//# sourceMappingURL=builtin-panels-BrE08f6x.js.map

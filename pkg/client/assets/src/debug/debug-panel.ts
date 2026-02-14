@@ -798,6 +798,11 @@ export class DebugPanel {
         if (def.applyFilters) {
           const state = this.getPanelFilterState(panel, def);
           data = def.applyFilters(data, state);
+        } else if (!def.renderFilters && def.showFilters !== false) {
+          const search = this.filters.objects.search.trim();
+          if (search && data && typeof data === 'object' && !Array.isArray(data)) {
+            data = filterObjectByKey(data as Record<string, any>, search);
+          }
         }
         const renderFn = def.renderConsole || def.render;
         content = renderFn(data, consoleStyles, {
