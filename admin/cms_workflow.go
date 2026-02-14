@@ -20,7 +20,8 @@ func resolveCMSWorkflowEngine(a *Admin) WorkflowEngine {
 	}
 	engine := NewSimpleWorkflowEngine()
 	RegisterDefaultCMSWorkflows(engine)
-	return engine
+	a.workflow = engine
+	return a.workflow
 }
 
 func applyCMSWorkflowDefaults(a *Admin) {
