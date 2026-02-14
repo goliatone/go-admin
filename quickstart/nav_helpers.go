@@ -74,6 +74,7 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
+	ctx = withUIFeatureContext(ctx, adm, active)
 	var urls urlkit.Resolver
 	basePath := resolveAdminBasePath(nil, cfg.BasePath)
 	if adm != nil {
